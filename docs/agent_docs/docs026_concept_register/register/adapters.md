@@ -4,7 +4,7 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
-17 concepts. Sixteen were consolidated from 50 raw extractions (25 unique blocks, each duplicated
+18 concepts. Sixteen were consolidated from 50 raw extractions (25 unique blocks, each duplicated
 once in the source cluster file) across units U01_docs024_numbered_core,
 U06_finetuning, U08_travelling_docs, U12_docs024_archives, U13_docs024_small_dirs,
 U15_docs019_running_notes, U17a_docs019_archive_discussions_and_main,
@@ -18,8 +18,9 @@ from different angles (traffic_probe's "P5 vmhost adapter" vs idea.uk's
 "service-deployer"/"Layer-5 wrapper" framing) — see register/vm-backend-sites.md
 for the surrounding narrative.
 
-ADP-017 was added 2026-07-30 from live work (`bugs_open/133`), not from the
-extraction, and so postdates the covers-through date in the banner above.
+ADP-017 was added 2026-07-30 from live work (`bugs_open/133`), and ADP-018
+2026-08-04 from live work (`bugs_open/158`) — neither came from the extraction,
+so both postdate the covers-through date in the banner above.
 
 ### ADP-001 — Adapter/response message envelope contract (normative)
 - **status:** deployed
@@ -161,3 +162,13 @@ extraction, and so postdates the covers-through date in the banner above.
 - **relations:** ADP-001 (adapter/response envelope contract — this is the delivery half of it); ADP-002 (validator-coverage gap; a reply that never arrives is the failure that taxonomy is about); WFA-003 (`bugs_closed/144`, the single-sourcing precedent this follows); `bugs_closed/062` (the batch implementation this generalises)
 - **answered by the council round, worth keeping:** the reuse seat asked whether a generic transport-truncation helper already existed in a sibling adapter that this should have extended. MEASURED: no. Every `truncat*` hit outside webscrape (`imagegenerator/banana`, `imagegenerator/stability`, `thunder/api`) is **log-preview** truncation — `truncate(s, 400)` for a log field — a different concern with no marker and no transport semantics. It also asked whether the shared `platform/kafka.MockProducer` should have been extended rather than a new test double written. MEASURED, and the answer is worse than the objection assumed: **`platform/kafka/mock_producer.go` has ZERO callers, implements only 2 of the interface's 3 methods, and therefore does not satisfy `Producer` at all** — while `platform/orchestration/orchestration_test.go` and `test/unit/.../helpers` have each written their own. The seat's founding concern (overlapping solutions nobody unified) is already realised as three doubles; extending a dead one would have unified nothing. Recorded rather than fixed — see the follow-up bug.
 - **verify-later:** whether the eight remaining produce sites have adopted it (and whether they went through an RFC, as the architecture seat requires); whether `system.agent.generic.responses` gets a topic-level `max.message.bytes` (the cluster CR sets none, so ~1MB applies, while `platform/kafka/topic_manager.go:151,227` sets 5MB on topics it creates — an unresolved owner question recorded in 133)
+
+### ADP-018 — `check_silent_reply_drop`: the reply-delivery rule made prospective on the commit path (2026-08-04 addition)
+- **status:** deployed (advisory; a check in `scripts/pattern-check.py`, run by `.githooks/pre-commit`), shipped 2026-08-03 by `bugs_open/158`'s lane in commit `2091903ab`. Advisory only — it never blocks, and it changes no runtime behaviour.
+- **status-evidence:** `scripts/pattern-check.py:1271` (`def check_silent_reply_drop`) and `:1453`, where it appears in `main()`'s check tuple — a detector defined but not in that tuple is inert, and the tuple is the only thing that runs it.
+- **what:** A pre-commit detector for the rule ADP-017 implements: *a reply that cannot be delivered must become a deliverable error, never silence.* It reads changed non-test `.go` files and fires on two distinct shapes. (1) A `.Produce`/`.ProduceWithValidation` call in a **reply context** (`repl(y|ies)`, `response[s]?Topic`, `reply_to`) whose error is only logged — the caller is waiting on the reply topic, so a logged-and-swallowed produce error becomes a timeout that names no cause. (2) A file that HAS adopted `DeliverReply` but assigns its outcome to `_` — ADP-017's landmine, where the adopting code compiles, passes every `platform/kafka` test, and reintroduces the silent starve unchanged. Deliberately scoped to reply produces: producing to a request/work topic and logging the error is a different decision and not this rule.
+- **why it exists rather than wider adoption:** measured 2026-08-03, the rule held at **2 of 9 sites** — only the two webscrape paths that adopted `DeliverReply`. Widening adoption changes four services' caller-observable failure behaviour, which the council's architecture seat ruled an RFC (round `7478233b`), so the lane shipped the detector instead: it makes the seven remaining sites visible and stops a **tenth** being written while that RFC is pending. This is the general shape worth copying — when adoption of a shared policy is blocked on review, a prospective detector holds the line at no behavioural cost.
+- **landmine, and it was caught by a positive control:** the first version keyed the reply context on `responsesTopic` (plural) and therefore saw **3 of the 4 known sites as clean** — `websearch` names it `responseTopic`, singular. A detector for a class you have already enumerated must be run against every known member before it is trusted; a clean result on the sites it was written from proves only that it matches the spelling it was written from. The complementary miss came from the fleet sweep, not the control: `return producer.Produce(...)` **propagates** the error and is the opposite of swallowing it, and the first version reported it — a positive control only ever looks at known-bad files, so it cannot find a false positive.
+- **sources:** `scripts/pattern-check.py` (`check_silent_reply_drop`); `bugs_open/158_HANDOFF_2026-08-01_reply_drop_sizing.md`; `docs024_key_docs_latest/bugfix_158_reply_drop_sizing/{HANDOFF_2026-08-03_continue_here,RUNBOOK_reply_drop_sizing,README_where_we_are}.md`; commit `2091903ab`
+- **relations:** ADP-017 (the mechanism this guards — the detector is the prospective half, the helper the corrective half); OPP-003 / OPP-004 (the same detector-on-the-commit-path shape, for model text and register coverage); `bugs_closed/062`, `bugs_closed/133` (the two incidents that established the rule)
+- **verify-later:** whether `check_silent_reply_drop` still appears in `main()`'s check tuple in `scripts/pattern-check.py`; whether the seven unadopted sites have gone through the RFC ADP-017's `verify-later` also asks about; and whether the reply-context regex has kept up with any new spelling of the reply topic variable.

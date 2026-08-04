@@ -3,11 +3,34 @@
 Created 2026-07-13. **Stage 1 complete as of 2026-07-13:** 1,627 concepts across
 107 category register files, consolidated from 2,185 raw extraction blocks
 swept from ~4,111 files under `docs/`. **Stage 2 complete 2026-07-14** (see
-`006_VERIFICATION_stage2.md`). 6 more concepts added since, incrementally, for
-genuinely new material that shipped after extraction froze (1,633 total) —
-see `register/000_concept_index.md`'s "2026-07-16 addition" and "2026-07-17
-addition" notes. Master index at `register/000_concept_index.md`; final
-taxonomy note at `005_TAXONOMY_final.md`.
+`006_VERIFICATION_stage2.md`). Master index at `register/000_concept_index.md`;
+final taxonomy note at `005_TAXONOMY_final.md`.
+
+**Live count: 1,756 concepts across 109 category files** (measured 2026-08-04 —
+the commands are in the index's own header, and the index says plainly why you
+should re-run them rather than repeat this line). Everything above 1,627 was
+added **incrementally by the workstreams that shipped the mechanism**, under
+CLAUDE.md's "when you BUILD a new reusable mechanism, register it" rule, not by
+another extraction pass. That is now the register's normal mode of growth:
+extraction froze on 2026-07-13 and 129 of the 155 workstream directories on
+disk postdate it, so what keeps this file honest is per-commit registration plus
+the coverage check below — never a re-sweep.
+
+**Two maintenance defects were found and fixed on 2026-08-04**, both of the same
+shape (a check that could not fail):
+- **34 concepts had a register entry and no row in the master index** — the
+  whole first half of `claims-verification` among them. The index headline said
+  1,722 while the category files held 1,756. Every re-measurement in the series
+  had counted index rows *against the previous index row count*, which cannot
+  see a missing row. Backfilled; the index header now carries the **drift pair**
+  (`comm` both ways between entry ids and row ids) that does see it.
+- **`102_coverage_ratchet.txt` lines carrying an inline `# …` annotation
+  suppressed nothing**, because the whole line was the key. 12 of 53 lines were
+  annotated, and 12 of the 17 subsystems reported as "NEW since the ratchet"
+  that day were already accepted backlog — the wallpaper the check's own
+  docstring says it exists to avoid. Fixed in `102_CHECK_register_coverage.py`
+  (`ratchet_name()`), which also now carries annotations through
+  `--update-ratchet` instead of regenerating bare names over them.
 
 A complete register of every concept — scope, responsibility,
 or behaviour — found anywhere under `docs/`, classified and status-tagged, built

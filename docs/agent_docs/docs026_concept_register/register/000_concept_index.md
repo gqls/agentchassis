@@ -1,8 +1,25 @@
 # Concept Index — master register
 
-**1,721 index table rows** across **109** category register files, re-measured
-2026-08-04 with the command below after WFA-009 (`extract_fields` opt-in
-`required`, bugs_open/192) landed; the count moved 1,720 → 1,721, exactly this
+**1,756 index table rows** across **109** category register files, re-measured
+2026-08-04 after a BACKFILL: 34 concepts had a register entry and no index row,
+and now have one. The index and the category files agree exactly for the first
+time in the series — 1,756 unique ids each way, **0 entries without a row and 0
+rows without an entry** (both `comm` lists empty; commands below). Before the
+backfill the headline was 1,722 and the entries numbered 1,756, so the master
+index — the file sessions and council seats consult to find out whether
+something exists — was silently 2% short. The missing ones were not obscure:
+`CLM-001`…`012` (the whole first half of the claims-verification layer),
+`IMG-067`, `LNK-029`, `DBI-025`, `PLAN-043`…`046`, `PUB-002`…`004`, `WII-009`.
+**Re-run the drift pair below, not just the row count** — the row count alone
+cannot see this failure, which is why it went unnoticed through ~20 recorded
+re-measurements.
+Previously: 1,722 re-measured
+2026-08-04 with the command below after ADP-018 (`check_silent_reply_drop`,
+bugs_open/158) landed; the count moved 1,721 → 1,722, exactly this row, and the
+1,721 baseline matched the headline — no concurrent arrival either side of it.
+Previously: 1,721 re-measured
+2026-08-04 after WFA-009 (`extract_fields` opt-in
+`required`, bugs_open/192) landed; the count moved 1,720 → 1,721, exactly that
 row, no concurrent arrival that time either. The entry before it, WFA-008
 (per-substep `continue_on_error`, bugs_open/173), moved 1,719 → 1,720. Note the
 baseline: the headline said **1,718** and the grep said **1,719** before that
@@ -42,8 +59,18 @@ trusting this line), with the command written into it as the previous thread
 asked:
 
 ```
-grep -cE '^\| [A-Z]{2,4}-[0-9]{3} \|' 000_concept_index.md      # 1,721  ← THIS is the headline number (re-taken 2026-08-04 after WFA-009; 1,720 after WFA-008 before it. The line once said 1,718 while the grep said 1,719 — one row from another thread had landed unrecorded, which is this line's own point)
-cat *.md | grep -c '^### '                                       # 1,762  (headings; always higher)
+grep -cE '^\| [A-Z]{2,4}-[0-9]{3} \|' 000_concept_index.md      # 1,756  ← THIS is the headline number (re-taken 2026-08-04 after the 34-row backfill; 1,722 after ADP-018 before it. The line once said 1,718 while the grep said 1,719 — one row from another thread had landed unrecorded, which is this line's own point)
+cat *.md | grep -c '^### '                                       # 1,764  (raw headings; always higher — a few are not concept headings)
+
+# ── THE DRIFT PAIR. Run BOTH and diff them; the row count alone is blind to
+# the failure this pair caught on 2026-08-04 (34 entries with no index row).
+cat *.md | grep -oE '^### [A-Z]{2,4}-[0-9]{3}' | sed 's/^### //' | sort -u > /tmp/h.txt   # 1,756 entry ids
+grep -oE '^\| [A-Z]{2,4}-[0-9]{3} ' 000_concept_index.md | tr -d '| ' | sort -u > /tmp/r.txt  # 1,756 indexed ids
+comm -23 /tmp/h.txt /tmp/r.txt   # entries with NO index row — was 34, now EMPTY
+comm -13 /tmp/h.txt /tmp/r.txt   # index rows with NO entry — has always been empty
+# Why it drifts one way only: adding an entry is two edits in two files and only
+# the first is load-bearing for the author, so the index row is the half that
+# gets skipped. Nothing before 2026-08-04 ever compared the two.
 ls *.md | grep -vc 000_concept_index                             # 109    (files)
 ```
 
@@ -1296,6 +1323,7 @@ an ID prefix, or a status word.
 | FTW-009 | `<no value>` contamination + iter_1 filter floor | partial | Prompt-builder bug polluted iter_0 data; fix-date filter never recorded | finetuning-flywheel.md |
 | ADP-016 | vmhost/service-deployer adapter — persistent-VM provisioning | aspirational | Proposed adapter to automate what idea.uk and traffic_probe both did by hand | adapters.md |
 | ADP-017 | Shared reply-delivery policy (undeliverable reply → deliverable error) | deployed | One implementation of degrade-resend-once-else-error; the rule held at 1 of 9 produce sites. Registration does NOT pre-clear adoption at the other 8 — architecture seat says that is an RFC moment | adapters.md |
+| ADP-018 | `check_silent_reply_drop` — the reply-delivery rule on the commit path | deployed | Pre-commit detector for a reply produce whose error is only logged, and for `DeliverReply`'s outcome assigned to `_`. Shipped because widening ADP-017's adoption is an RFC: holds the line at 2 of 9 sites with no behaviour change | adapters.md |
 | RES-004 | Chat differentiator ideation agent | aspirational | Proposed agent ranking payable differentiators from asset × AI-capability combos | research-agents.md |
 | AME-003 | improvement_proposals — HITL-gated agent evolution queue | abandoned | Proposed agent/variant changes wait for human approval before applying | agent-memory-and-evolution.md |
 | TLIB-008 | Component selector by functional requirement (never-built proposal) | aspirational | Proposed capability-based search over content_components — finding a component by what it does rather than by... | tool-library.md |
@@ -2027,3 +2055,37 @@ an ID prefix, or a status word.
 | WII-008 | `mistyped_deployed_page`: a create arm that REFUSES a live-page collision | LIVE v1.0.1225, council-APPROVED | `applyNewPage`'s `ON CONFLICT DO UPDATE` made a CREATE arm a silent PARTIAL update — plan content applied, `page_type` left wrong — so a live page was overwritten AND the check re-raised for ever (2026-05-01→07-31 on one site). Now `DO NOTHING`, read the row, and on deployed+different-type mutate NOTHING: file `mistyped_deployed_page` at needs_human_review with the remediation SQL, and set the originator `blocked`, not `complete`. Refusal needs no discriminator because the planner already named the page — which is why it is available where a re-type predicate is not (two pages carry identical `sections=["news-listing"]`, a third is archived). LANDMINE: this item type has NO handler agent by design and holds a non-terminal dedup slot, so anything draining needs_human_review meets a DECISION queue, not a work queue. Scope is deployed-only on a count (5 deployed / 0 planned), pinned by a control test | work-item-integrity.md |
 | WII-010 | Shared page-section satisfiability seam (emit guard + needs_page revalidator) | LIVE v1.0.1248, council-APPROVED r1 | ONE read-only answer to "would page-build-handler find anything to build for this page?", asked at BOTH ends of a needs_page item's life: `declaredPageSections` (extracted pure from 177's guard) + `pageInCurrentPlan` (mirrors only the synthesis GATE, fail-open toward emitting) guard the two 177-shaped emitters (image-build-handler, page-rerender) with an observable `skipped_sectionless_page`; `revalidateNeedsPage` in `reviewRevalidators` closes a satisfied ask on positive name-matched slot evidence and stamps "satisfiable now" on the buildable-but-unbuilt. Drain proven on real rows day one: 26 auto-resolved with evidence. reconcile_site_plan deliberately unguarded (015-shape gaps are real findings). LANDMINE: `site_work_items.page_id` is NULL while the page exists — join pages BY NAME; and `page_rerender:` vs `needs_page:` prefixes are the WII-004 drift | work-item-integrity.md |
 | WFA-009 | `extract_fields` gains an opt-in `required` list | built (Go inert until roll; **config half LIVE** via seed 308) | A target field whose fallback paths ALL miss was omitted while the step reported success, so the run died two steps later under an error naming the symptom; `required` makes it fail at the extraction, naming the field, the paths tried and what was in scope. Default OFF. Closes `bugs_open/192`. | workflow-authoring.md |
+| CLM-001 | `evidence_base` is a `site_specs` aspect, not a table | deployed | One current row per site under a partial unique index, so never UPDATEd in place — supersede-then-insert in one transaction, carrying `pinned` forward or human-owned status is silently lost | claims-verification.md |
+| CLM-002 | `ScanBannedClaims` is an unrestricted case-insensitive regex over prose | deployed | No numeric gating whatsoever — matches qualitative patterns too; an invalid regex degrades to a literal substring, so a typo never silently drops a ban | claims-verification.md |
+| CLM-003 | `ScanUnregisteredNumbers` is gated by an English business-noun window | deployed, with a documented blind spot | A number is inspected only inside a business-claim context window, and years/dates/versions/currency are excluded — so it is near-inert on non-English copy and on financial figures | claims-verification.md |
+| CLM-004 | Two enforcement surfaces: build gate (blocker) and post-deploy sweep (high) | deployed; the post-deploy half has no cadence | Banned claim = blocker at build; unregistered number = error, deliberately never a blocker; the stored-HTML sweep raises `claims_unverified` at high | claims-verification.md |
+| CLM-005 | V2: the writer whitelist bounds invention instead of forbidding it | deployed | A `writer_block` overrides the writer's unbounded "never invent" with a bounded "state only these"; a fact with no `writer_line` is omitted, never auto-phrased | claims-verification.md |
+| CLM-006 | V3 `claims-auditor`: an LLM prose auditor, live, unscheduled | partial | Catches what regex cannot — prose claims with no number in them; reports at most 12, worst first, to humans; nothing is auto-fixed | claims-verification.md |
+| CLM-007 | V4 freshness: the one part of the layer that sweeps the fleet daily | deployed | `refresh_evidence_base` re-runs sql-sourced facts and raises `stale_evidence` on drift including UNDER-claiming; compare-and-swap, so a human edit is never lost | claims-verification.md |
+| CLM-008 | V5: citations survive only if the quote is still literally there | deployed; first end-to-end completion 2026-07-27 | Re-fetches every cited URL and registers a claim only on a verbatim quote; fetch failure is UNKNOWN, never drift — a paywall going up is not evidence | claims-verification.md |
+| CLM-009 | `EvidenceFact.Kind` is declared, documented, and read nowhere | confirmed dead 2026-07-27 | A fact declared `capability` behaves identically to one declared `metric` or misspelled; the sibling `EvidenceSource` models its own vocabulary properly | claims-verification.md |
+| CLM-010 | `banned_claims` is per-site only, and the fleet-share decision is a lapsed deferral | convention — precondition expired | "Per-site only until two sites have evidence bases" was correct at n=1; measured 2026-07-27, 8 sites have registers | claims-verification.md |
+| CLM-011 | The overclaimed-reliability class, and the line that separates it | deployed (2026-07-26/27) | A promise about OUR OWN accuracy is a claim like any other: writer rule on both content writers, a compliance-seat contract, and tested banned patterns | claims-verification.md |
+| CLM-012 | `grounded-explainer`: a high-attention content lane that cannot publish | deployed 2026-07-26, exercised 07-27 | Search → atomic claims with verbatim quotes → CLM-008 verification → compose from survivors → independent grounding audit → terminate at needs_human_review. No flag makes it publish | claims-verification.md |
+| DBI-025 | `platform/fetchguard`: the outbound-fetch (SSRF) guard | deployed and exercised | Mirror of `httpguard` for the OUTBOUND direction: refuses to dial any address that is not publicly routable, resolved at dial time. One live call site (webscrape's `downloadImage`) | database-and-infrastructure.md |
+| DOC-067 | LANDMINES.md + the footprint sync + the SessionStart hook | deployed and exercised (2026-07-29) | The rung between WRONG_CALLS (retrospective) and a lint: a trap read BEFORE you have a symptom. Append-only file, `doc_notes` sync, hook matching entries to dirty files | documentation-system.md |
+| DOC-069 | `landmine-verifier`: single-pass fact-check agent for one LANDMINES entry | built and dispatched — the "CONFIRMED end to end" claim was FALSIFIED by bugs_open/163 | RFC_005 §3.2's narrow alternative to a full council round; derives `code_checks` from the entry's `footprint` and runs the diagnose loop's own lookup action | documentation-system.md |
+| DOC-071 | `bugs-open-staleness-sweep`: weekly citation check over `bugs_open/*.md` | DEPLOYED AND CONFIRMED LIVE 2026-07-31 | Checks whether each cited path/line/symbol still exists at a pinned ref. Never edits or closes a bug file — a flag means evidence moved, not that the bug is fixed | documentation-system.md |
+| DOC-072 | `request_component_browser_run`: S6 dispatch for a section component | LIVE, proven in cluster, council-APPROVED | Sibling of `request_browser_run` for a component rather than a tool; differs only in resolving the target page, which for a component is many-to-many via `page_components` | documentation-system.md |
+| FIX-054 | Forward-fitness council seat (`review_architecture`) on fix-proposer + council-gate | deployed (config-only) | The council's only seat that argues the COST OF NOT CHANGING; judges the RFC trigger test and whether the same site has been deflected upward before. Advisory — its prompt never offers veto | fix-loop.md |
+| IMG-067 | Single deployed-asset path derivation (`storage.DeployedAssetPath`) | deployed and LIVE on v1.0.1229 | The ONE derivation the writer and all six readers resolve through; the `deploy_path` override that could bypass it was deleted 2026-08-04 (bugs_open/179 finding A) | imagery.md |
+| LCO-005 | `aiservice.Fingerprint`: log a model response's SHAPE, never its text | deployed | One stable line describing a response's structure, so a malformed reply is diagnosable without publishing model output into the logs | llm-call-observability.md |
+| LCO-006 | A 5xx with a discarded error is undiagnosable | deployed (tools-api on the island VM; NOT the chassis) | Every LLM-backed handler in tools-api discarded `err` before responding, so bursty faults could not be reproduced | llm-call-observability.md |
+| LNK-029 | `NonMarkupSpans` / `MarkupMatches`: one definition of "these bytes are not markup" | deployed, LIVE v1.0.1233, induced on the damaged page | Drop-in replacements for the regex calls that REWRITE HTML, respecting raw-text elements and comments taken whole; adopted by both markup writers. bugs_closed/180 | link-management.md |
+| OPP-003 | `check_logged_model_output`: pre-commit detector for publishing model text | deployed (advisory) | Flags a log sink passed raw model output — the shape LCO-005's fingerprint exists to replace | operator-practice.md |
+| PLAN-043 | The experience register: reusable behaviour contracts, held once and forked per site | partial | A promise nobody wrote down cannot be checked: `experience_patterns` entries + per-site forks, stated specifically enough to be machine-checked | site-plan-and-reconciler.md |
+| PLAN-044 | `write_experience_pattern` + the criteria validator (three moments, ten rules) | deployed | The only way into the register; validates on the way in and stores its own accounting (`executable_checks`, `deferred_checks`) on the row | site-plan-and-reconciler.md |
+| PLAN-045 | `bind_site_experience` + `verify_site_experience` | partial | Bind forks an entry to one site's real selectors and pages; verify runs its criteria against the page ACTUALLY BEING SERVED and moves the fork along the lifecycle | site-plan-and-reconciler.md |
+| PLAN-046 | `experience-approval-council` — a five-seat gate that reviews the entry AS STORED | deployed | Seats drawn from what actually went wrong here, not from categories; `honesty` holds the hard veto. Reviews what is in the register, not the harvest file | site-plan-and-reconciler.md |
+| PUB-002 | `platform/httpguard`: inbound-abuse primitives, trusted proxy stated per deployment | built, council-approved — ADOPTED 2026-07-31 | `ClientIP` (a key the client cannot choose), multi-band `Limiter` with retry-after, and `CheckIntake`; net/http only, so a gin service writes one adapter | public-api.md |
+| PUB-003 | SMTP send promoted into `platform/` | built, unit-tested, council-approved — called by NOTHING (re-measured 2026-07-29) | "We email you a link" journeys stopped depending on code outside the build; the only working sender lived in a VM app in the docs tree | public-api.md |
+| PUB-004 | Round publication: tools-api's first visitor-consented public read surface | LIVE, PROVEN, wired end to end (island v1.0.1216) | Publish endpoint is idempotent — a second press returns the FIRST slug, because the card the visitor holds carries that URL; a verdict-less round is 409, not 404 | public-api.md |
+| SEO-002 | Site discovery files generator (`scripts/site-discovery-files.py`) | built and exercised; relojistas.com's three files are LIVE | `robots.txt`, `sitemap.xml`, `llms.txt` for any site from the `pages` table; dry-run by default, probes every URL and lists only 200s | seo.md |
+| TL-031 | Attribute assertion at Tier 2 (`attribute_absent` / `attribute_matches`) | deployed | Closes the largest measured gap in the experience register — 13 of 38 deferred clauses across 9 of 9 entries, the `no-inert-control` invariant it exists to enforce and could not check | tool-lifecycle.md |
+| VONC-011 | Provocation pool + `render_provocation_feed` (the deployable selector) | deployed — updated 2026-08-02, was "built, not live" | VONC-002's missing deployable half: a pool table plus an action that selects today's entry, builds the whole feed, verifies it and commits it | vonc.md |
+| WII-009 | Discovery-check retraction seam (`CheckResult.Resolved` / `resolveWorkItems`) | LIVE v1.0.1237 — and it has retracted NOTHING, its only adopter being a check nothing runs | The one way a check may CLOSE a finding it has positively observed fixed; exists because 49 of 50 checks were monotonic — they file what they find and discard the comparison | work-item-integrity.md |

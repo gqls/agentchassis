@@ -1233,3 +1233,121 @@ workstream. `bugs_open/106` carries the coverage-sensor proposal, modelled on
 `verifier_coverage_test.go`'s sensor-plus-ratchet, and a cheaper interim: a
 `covers-through:` stamp per register file, so the register can say where it
 stopped looking instead of implying completeness.
+
+---
+
+## 2026-08-04 — bringing the register up to date: two checks that could not fail, and a 1,339-file deletion
+
+Session "concept register". Task from the owner, in two halves: *look up what the
+concept register is, how it was collected and what to do next, and bring it up to
+date*; then *commit, and delete the out-of-date near-duplicate versioned documents
+— they will still be in git*.
+
+### What "up to date" turned out to mean
+
+Not another extraction pass. Extraction froze 2026-07-13, **129 of the 155
+workstream directories on disk postdate it** (`102_CHECK_register_coverage.py`,
+2026-08-04), and re-sweeping was explicitly not the answer — the register grows by
+per-commit registration under CLAUDE.md's "when you BUILD a new reusable
+mechanism, register it" rule, watched by the 102 coverage check. So "up to date"
+means: is the machinery that keeps it current actually working? It was not, in two
+places, and both failures have the same shape — **a check whose result could not
+have come out otherwise.**
+
+**Defect 1 — the master index was silently 2% short.** 34 concepts had a
+`### ID —` entry in a category file and **no row in `000_concept_index.md`**: all
+of `CLM-001`…`012` (the first half of the claims-verification layer), plus
+`IMG-067`, `LNK-029`, `DBI-025`, `PLAN-043`…`046`, `PUB-002`…`004`, `WII-009`,
+`TL-031`, `SEO-002`, `VONC-011`, `FIX-054`, `DOC-067/069/071/072`, `LCO-005/006`,
+`OPP-003`. The index is what a session or a council seat consults to find out
+whether something exists, so a missing row is invisible in exactly the lookup the
+file exists for.
+
+It survived roughly twenty recorded re-measurements because of *how* the headline
+was re-measured: each thread counted index rows and compared them to the previous
+index-row count, confirming "my row landed, plus or minus a concurrent arrival".
+That check is blind to a row that was never written by anyone. **A count of a
+thing cannot audit whether the thing is complete — only a comparison against an
+independent source can**, which here is the category files themselves. Backfilled
+all 34 rows, and put the **drift pair** in the index header so the next thread runs
+it: `comm` both ways between the entry ids and the row ids. Both lists are now
+empty, 1,756 ids each way. The reverse list (a row with no entry) has always been
+empty — the drift is one-directional because adding a concept is two edits in two
+files and only the first is load-bearing for the author.
+
+**Defect 2 — the coverage ratchet's annotated lines suppressed nothing.**
+`read_ratchet()` keyed on the whole line, so any line a session had annotated —
+
+```
+bugfix_161_register_ratifies    # one-off: SQL + repair script for one false ...
+```
+
+— never matched the bare subsystem name and was reported as NEW on every single
+run. **12 of 53 lines carried an annotation; 12 of the 17 names in that day's "NEW
+since the ratchet" list were already accepted backlog.** 71% noise, in the check
+whose own docstring says "that is what stops a coverage report becoming
+wallpaper". The annotation is the most valuable thing in that file — it is the
+reasoning for why a lane is a one-off — and it was costing suppression.
+
+Fixed in `ratchet_name()`: strip an inline `#` or ` — ` comment, tolerate a
+path-form line, take the basename. Also fixed `--update-ratchet`, which
+regenerated bare names and would therefore have **deleted every annotation in the
+file** the first time anyone accepted a new baseline. After the fix the report
+went 17 NEW → 7 NEW, and after triaging those 7 it is quiet.
+
+### The 7 real ones, triaged
+
+- **`bugfix_158_reply_drop_sizing`** → **registered as ADP-018**,
+  `check_silent_reply_drop`: a pre-commit detector for a reply produce whose error
+  is only logged, and for `DeliverReply`'s outcome assigned to `_`. It exists
+  *because* widening ADP-017's adoption is an RFC (architecture seat, round
+  `7478233b`) — so the lane shipped a detector that holds the line at 2 of 9 sites
+  with no behaviour change. Worth copying as a shape. Its own landmine is on the
+  entry: the first version keyed on `responsesTopic` and missed 3 of the 4 known
+  sites, because `websearch` spells it `responseTopic`, singular.
+- **`bugfix_162_fix_proposer_plan_repair`** → **not a new concept**; it switched
+  the already-registered opt-in repair loop (FIX-057) on for a **second consumer**.
+  Recorded on FIX-057 itself, which is where a session looking for the mechanism
+  would look, along with the consumer-census query that lane had to work out
+  (`orchestration_states` has no `agent_type` column, and `agent_definitions`
+  hides the consumer inside a JSON step, so the obvious queries error or lie).
+- **`bugfix_179_deploy_path_override`** → already handled correctly by its own
+  lane: it corrected IMG-067 in the same commit that shipped the fix, per the
+  platform-seams condition (2). Ratchet line, no new entry.
+- **`dartsonline_traffic`, `mortgagecalculator_couk_adoption`, `loancash_couk`**
+  → site lanes, out of scope by the register's own bar.
+- **`bugfix_087_writer_self_plans`** → opened today, docs-only, nothing callable.
+
+### The deletion, and what it costs
+
+441 version families under `docs/` (`X.md`, `X(1).md` … `X(39).md`), 1,973 members.
+Deleted 1,339, kept 634, ~70MB. The rule was deliberately conservative and two
+parts of it are load-bearing:
+
+- **Never delete the unnumbered base file.** It is what every by-name reference in
+  code, bundle scripts and prose points at — and in some families it is the
+  *newest* member, not the oldest: `docs024/005_tool_pipeline.md` is 2026-07-26
+  while its `(1)` is 2026-06-22. A blanket "keep the highest N" would have deleted
+  the live canonical doc and kept a six-week-old copy.
+- **Keep the newest member by mtime, not the highest N.** Five families have an
+  older-numbered member with a newer mtime.
+
+Also kept: 8 files referenced from outside `docs/` (scripts, `z_bundles`,
+Makefile, the direction-integrity checker), and both members of the one family
+where the newest is under half the size of the largest (`RUNBOOK_component_regen_clobber`
+(49) is 25KB against (30)'s 56KB — read it, and the shrink is a deliberate trim
+with history moved to NOTES, not a truncation casualty; kept anyway, because the
+cost of being wrong is asymmetric).
+
+**The measured cost: 43 of the deleted files are cited in a register `sources:`
+line.** Those citations now resolve only through git. That is a real loss of
+one-click provenance and it is worth stating plainly rather than discovering it
+later: recover with `git log --diff-filter=D -- <path>` then `git show <sha>^:<path>`.
+It is bounded by the extraction's own treatment rule — earlier members of a family
+were only ever read `family-delta`, for concepts *absent* from the latest — so the
+citations that matter most (`family-latest`) are all still on disk.
+
+**What I did NOT do:** no register entry was rewritten, no status re-verified, no
+taxonomy change, and `register/rebuild-cascade.md` was left alone — it was another
+session's uncommitted work in the tree, and a pathspec commit is how you leave
+that out.
