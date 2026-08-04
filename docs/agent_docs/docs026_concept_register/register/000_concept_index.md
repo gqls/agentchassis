@@ -1,9 +1,15 @@
 # Concept Index — master register
 
-**1,718 index table rows** across **109** category register files, re-measured
-2026-08-04 with the command below after PBP-029 (lifecycle predicate +
+**1,720 index table rows** across **109** category register files, re-measured
+2026-08-04 with the command below after WFA-008 (per-substep
+`continue_on_error`, bugs_open/173) landed; the count moved 1,719 → 1,720,
+exactly this row, no concurrent arrival that time. Note the baseline: the
+headline said **1,718** and the grep said **1,719** before this row was added,
+so one row from another thread had landed unrecorded — which is this line's own
+point, and the reason to re-run rather than trust it. Previously: 1,718
+re-measured 2026-08-04 after PBP-029 (lifecycle predicate +
 link-surface lockstep, bugs_open/098 debts 3+4) landed; the count moved
-1,717 → 1,718, exactly this row. Previously: 1,717 measured 2026-08-04 after
+1,717 → 1,718, exactly that row. Previously: 1,717 measured 2026-08-04 after
 PLAN-047 (`page_canonical_collision` discovery check, bugs_open/080) landed;
 the count moved 1,716 → 1,717, exactly that row — and the 1,716 baseline was
 itself taken between that thread's read and write (CGV-030 landed
@@ -34,8 +40,8 @@ trusting this line), with the command written into it as the previous thread
 asked:
 
 ```
-grep -cE '^\| [A-Z]{2,4}-[0-9]{3} \|' 000_concept_index.md      # 1,714  ← THIS is the headline number (re-taken 2026-08-03 after TL-039; the line said 1,701 and the grep said 1,713 before the row was added — 12 rows from other threads had landed unrecorded, which is this line's own point)
-cat *.md | grep -c '^### '                                       # 1,738  (headings; always higher)
+grep -cE '^\| [A-Z]{2,4}-[0-9]{3} \|' 000_concept_index.md      # 1,720  ← THIS is the headline number (re-taken 2026-08-04 after WFA-008; the line said 1,718 and the grep said 1,719 before the row was added — one row from another thread had landed unrecorded, which is this line's own point)
+cat *.md | grep -c '^### '                                       # 1,762  (headings; always higher)
 ls *.md | grep -vc 000_concept_index                             # 109    (files)
 ```
 
@@ -387,6 +393,7 @@ an ID prefix, or a status word.
 | WFA-006 | `SingleOwner`: an action declares that a SECOND live carrier is a defect | deployed + **running daily** (CLI + CronJob) | An action whose effect is site-wide, not run-wide, can now say so; an offline fleet check reports any declared action carried by more than one live agent. Closed the class behind `bugs_closed/150` (RFC 006). | workflow-authoring.md |
 | WFA-007 | Relay-envelope gap detector (`config-key-audit --relay-gaps`) | deployed (standalone CLI tool; not yet wired into main()'s arg dispatch) | Asserts that a dispatcher can carry every key its handler's `input_contract` declares — across BOTH allow-lists (the claim query's RETURNING and the call_agent input_mapping). Closes the class behind `bugs_open/174`. Proven by firing against the pre-fix config, not by passing. | workflow-authoring.md |
 | WFA-005 | `output_format` is a live step contract + one corrective re-ask on unparsable JSON | built (inert until roll) | The key 101 live LLM steps write was read by nothing; now it selects the JSON instructions, buys a single corrective re-ask when the answer will not parse, and marks the result if JSON never arrives. 33 agents inherit it. | workflow-authoring.md |
+| WFA-008 | A loop substep can declare its OWN `continue_on_error` | built (inert until roll) | `continue_on_error` was loop-level only, so a loop was either all-tolerant or all-strict and one substep's refusal failed an entire multi-page build; a substep may now declare its own, and silence still inherits the loop. Unsafe default OFF. Closes `bugs_open/173`. | workflow-authoring.md |
 | IMP-044 | Defect-cataloguing discipline (enumerate-before-fixing) | deployed | A working method for a real adoption-run defect sweep: group symptoms into lettered families by shared mechanism... | improvement-loop.md |
 | DBG-059 | orchestration_state_audit: temporary attachable trigger for state races | deployed | AFTER UPDATE trigger capturing every transition; explicitly removed after use | debugging.md |
 | SOC-002 | Spark — AI game-master social platform (core concept) | partial | AI as producer not performer; opinion-first provocation game; v1 live on vonc.com | social-media.md |

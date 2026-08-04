@@ -154,7 +154,8 @@ func (s *SagaCoordinator) handleLoopExpansion(
 			injectedStep.Config["loop_item_index"] = iterIdx
 			injectedStep.Config["loop_var_name"] = loopVar
 			injectedStep.Config["loop_name"] = loopName
-			injectedStep.Config["continue_on_error"] = continueOnError
+			injectedStep.Config["continue_on_error"] = resolveSubstepContinueOnError(
+				substep.Config, continueOnError, substepName, logger)
 
 			// Track first step name
 			if iterIdx == 0 && substepName == substepOrder[0] {
@@ -223,6 +224,53 @@ func makeIterationOutputField(outputField string, iterIdx int) string {
 		return ""
 	}
 	return fmt.Sprintf("%s_%d", outputField, iterIdx)
+}
+
+// resolveSubstepContinueOnError decides which continue_on_error value is stamped onto
+// one injected iteration step.
+//
+// The rule is inheritance with an opt-in override:
+//
+//   - a substep declaring config.continue_on_error as a bool gets its own value —
+//     true makes a single substep tolerant inside a strict loop, false makes a single
+//     substep strict inside a tolerant one;
+//   - a substep declaring nothing inherits the loop-level flag, which is exactly the
+//     behaviour every loop had before the override existed.
+//
+// The unsafe default is deliberately OFF. Tolerance swallows a failure that would
+// otherwise be loud, so a substep acquires it only by writing it down at the site a
+// reviewer of that substep can see; a silent substep changes nothing.
+//
+// A declaration of the wrong type — the string "true" being the likely mistake — is
+// not discarded quietly. It falls back to the loop's value and warns, because a knob
+// that is declared and inert is the very defect this resolution removes. The loop is
+// named by the caller's logger, which carries the loop step under step_name.
+func resolveSubstepContinueOnError(
+	substepConfig map[string]interface{},
+	loopContinueOnError bool,
+	substepName string,
+	logger *zap.Logger,
+) bool {
+	declared, present := substepConfig["continue_on_error"]
+	if !present {
+		return loopContinueOnError
+	}
+
+	// Presence is not truth: an explicit false must survive as false, so the type
+	// assertion is tested on its own rather than folded into `ok && value`, which
+	// would read a declared false as no declaration at all.
+	value, isBool := declared.(bool)
+	if !isBool {
+		logger.Warn("Substep declares continue_on_error with a non-bool value; inheriting the loop's flag",
+			zap.String("substep", substepName),
+			zap.String("declared_type", fmt.Sprintf("%T", declared)),
+			zap.Any("declared_value", declared),
+			zap.Bool("loop_continue_on_error", loopContinueOnError),
+		)
+		return loopContinueOnError
+	}
+
+	return value
 }
 
 // setLoopVariable sets the current loop variable in CollectedData before executing a loop substep

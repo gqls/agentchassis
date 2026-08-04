@@ -18796,3 +18796,53 @@ ruling (2026-08-04), plus a landmine footprinted on the bucket and the B2 upload
 command. Fixed forward: `SEED_2026-08-04_webdesign_uk_site_and_specs.sql` +
 `MISSION_2026-08-04_webdesign_uk.txt`, dispatched via `082`, correlation
 `a4f05bd6-a548-47a5-8bdb-059e8d75e429`.
+
+---
+
+## 2026-08-04 — I measured "is anyone working this bug?" with a check that could not have said no
+
+**The claim.** Picking up the next unowned bug from `bugs_open/`, I needed to know
+which of the 54 open cases other live sessions were already on. I grepped every
+session transcript modified in the last few hours for `bugs_open/NNN` and counted
+**mentions**, then read the counts as an ownership signal.
+
+**Why it was wrong.** Every session runs `ls bugs_open/` or greps the directory at
+some point, so **all 54 numbers appear in most transcripts**. The measurement
+returned "mentioned in 4–16 active transcripts" for every candidate I tried,
+including several that provably nobody had touched. It could not have returned a
+low number for *any* open bug — so it had no power to discriminate, and reading a
+low count as "unowned" would have been reading noise.
+
+This is the disconfirmability rule, not the marker rule: the figure was current,
+dated and honestly obtained. **Dated and measured is not the same as capable of
+coming out otherwise.** Same family as the two 2026-08-03 entries above (a detector
+run against a tree carrying its own fix; a census filtered on the column it exists
+to test).
+
+**What caught it.** The uniformity. Every candidate scoring in the same narrow band
+is the signature of a measurement reading something other than what you asked —
+real ownership is lumpy, because sessions are.
+
+**The cheap check** — and it worked, so it is the method to reuse. Grep the
+transcripts for tool-call **file paths**, not prose mentions:
+
+```bash
+find ~/.claude/projects/<project>/ -maxdepth 1 -name '*.jsonl' -mmin -300 | while read f; do
+  grep -oE '"file_path":"[^"]*bugs_open/[0-9]{3}[^"]*"' "$f" | grep -oE 'bugs_open/[0-9]{3}'
+done | sort | uniq -c | sort -rn
+```
+
+A session that has **opened** the file is working it; one that merely listed the
+directory is not. That returned 26 of 54 numbers, sharply ranked, and the top
+entries matched the lanes visible in `git log` — the corroboration that the mention
+count never had. Generally: **when a signal must distinguish members of a set, check
+that a non-member could score differently before you trust the ranking.**
+
+**A second, smaller one in the same hour.** `scripts/who-owns.py 173` returned
+**OWNED or recently active**, naming the lane that had in fact **filed** 173 as a
+follow-on for somebody else and has since closed. The tool reads commits, so "wrote
+the bug file" and "is fixing the bug" are indistinguishable to it. Its own output
+separates "likely OWNING workstream" from "also cites it" and its verdict is
+deliberately conservative — but **the verdict line alone is not an answer.** Read
+the named lane's current state (is its handoff closed?) before believing it, or you
+will decline every bug that anyone ever wrote down.

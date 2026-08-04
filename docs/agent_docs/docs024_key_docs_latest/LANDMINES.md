@@ -4743,3 +4743,63 @@ that is also the thing you would want in the logs is not.
   the framework; the framework being slower is not a reason.**
   `WRONG_CALLS.md` 2026-08-04
 - **added:** 2026-08-04, webdesign.uk build-service lane
+
+## A loop substep's `config.continue_on_error` was accepted, audited as legal, and then silently overwritten — the knob you just set does nothing
+
+- **footprint:** `platform/orchestration/loop_expansion_handler.go`
+  (`handleLoopExpansion`, `resolveSubstepContinueOnError`) ·
+  `platform/orchestration/loop_error_handler.go` (`shouldContinueLoopOnError`) ·
+  `platform/orchestration/actions/loop_actions.go:66` ·
+  `agent_definitions.default_config->workflow->steps->*->config->{substeps,sub_workflow.steps}->*->config->continue_on_error`
+- **fires when:** you want ONE substep inside a loop to tolerate failure (or one
+  substep inside a tolerant loop to stay strict) and you do the obvious thing —
+  write `continue_on_error` into that substep's own `config`. **Before chassis
+  v1.0.125x this had no effect whatsoever.** `handleLoopExpansion` deep-clones the
+  substep config (so your value is genuinely there), then three lines later stamps
+  the **loop's** value over it for every injected iteration step. `continue_on_error`
+  is in `datahelpers.frameworkStepConfigKeys`, so `config-key-audit` reports it as
+  legitimate framework vocabulary and never flags it as unknown
+- **the tell:** none — that is what makes it a landmine rather than a bug you
+  notice. No error, no warning, no audit finding, and the config reads correctly to
+  every human and every checker. The only way to see it was to read the expander.
+  **Any substep config predating the fix that declares this key has been inert since
+  it was written**, and whoever wrote it probably believed otherwise — so if you find
+  one, do not assume the loop has been behaving that way
+- **the check:** confirm the resolution exists in the binary you are actually running
+  before trusting a per-substep declaration, on **every** replica:
+  ```bash
+  POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[0].metadata.name}')
+  kubectl -n ai-persona-system exec "$POD" -- sh -c "strings /app/agent-chassis | grep -c 'resolveSubstepContinueOnError'"   # 1 = per-substep honoured; 0 = your key is being overwritten
+  kubectl -n ai-persona-system exec "$POD" -- sh -c "strings /app/agent-chassis | grep -c 'continue_on_error is true for this loop iteration step'"  # positive control, >=1 either way — proves the probe reads the binary
+  ```
+  and find any existing declarations fleet-wide (**0 rows as of 2026-08-04**, so a
+  row here is new adoption, or an inert one somebody wrote in hope):
+  ```sql
+  SELECT a.type, s.key AS loop_step, b.key AS substep,
+         COALESCE(s.value->'config'->>'continue_on_error','(unset)') AS loop_value,
+         b.value->'config'->>'continue_on_error' AS substep_value
+  FROM agent_definitions a, LATERAL jsonb_each(a.default_config->'workflow'->'steps') s,
+       LATERAL jsonb_each(COALESCE(s.value->'config'->'substeps', s.value->'config'->'sub_workflow'->'steps')) b
+  WHERE a.is_active AND COALESCE(a.is_snapshot,false)=false AND a.deleted_at IS NULL
+    AND s.value->>'action'='loop' AND b.value->'config' ? 'continue_on_error';
+  ```
+  **A loop's body lives under `sub_workflow.steps` for most loops and `substeps` for a
+  few — COALESCE both or you will get a confident 0 from the wrong key.**
+- **the SECOND trap, for anyone editing the resolution:** `if v, ok :=
+  cfg["continue_on_error"].(bool); ok && v` is **wrong**. Folding the type assertion
+  into the truth test reads a declared **`false`** as *no declaration*, which silently
+  destroys the strict-substep-inside-a-tolerant-loop direction — the one that stops a
+  fan-out loop swallowing a failure that should have been loud. **Presence and truth
+  must be tested separately.** A test suite that only covers the `true` direction
+  passes against that bug; the guard here is mutation-proven against both
+- **the THIRD trap:** `loop_metadata["continue_on_error"]` (same file, ~line 85) is
+  **loop-level and must stay so** — `skipToNextLoopIteration` deliberately does not
+  read it, because that shared key is overwritten when a second loop expands in the
+  same orchestration. The per-substep value belongs on the **step**, which is where
+  `shouldContinueLoopOnError` looks
+- **source:** `bugs_open/173` (the missing degree of freedom, filed at the direction
+  of the council's `architecture` and `constitution` seats after four seats rejected
+  the workaround it forced in `bugs_closed/165`); fixed 2026-08-04, WFA-008.
+  The clobber was found by reading the expander while verifying the bug was still
+  valid — it is not stated in `173` itself
+- **added:** 2026-08-04, bugfix_173_substep_error_tolerance lane
