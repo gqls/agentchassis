@@ -133,3 +133,77 @@ Committed `e96d42226` with `Council-Reviewed: 3e146ef2-…`. The trailer is on t
 commit rather than on `c0d7c3a71` (the fix itself) because forward-only forbids amending —
 the 098 report's commit↔verdict join will find the trailer, but a reader should know the
 verdict covers both commits.
+
+## 2026-08-04 ~21:15 BST — steps 2+3 induction, by the bug-sweep session (lane was dormant 8 days)
+
+Picked up per the file's own "Next action" note: the fix has been LIVE since
+v1.0.1174, steps 2/3 need DB writes the 07-27 session was refused, and this
+session has them. Continuing IN this lane, not opening a rival one.
+
+**Prediction, recorded BEFORE any write** (so it can come out wrong):
+
+- Vehicle: `build-dispatch-loop` (one active row, `099b51e0`, tag v1.0.1251,
+  no pin). The chassis pod `agent-chassis-5455ddcdcc-crnb6` (v1.0.1251) spawns
+  it roughly every 2.5 min (`Resolved spawn image` at 19:48:58 and 19:51:27Z,
+  `image_source: running_chassis`).
+- **Step 2**: after `UPDATE image_tag='v1.0.1250'` (the real previous fleet
+  tag, live yesterday — benign even if the fix is broken), the NEXT spawned
+  `agent-build-dispatch-loop-*` pod will carry
+  `spec.containers[0].image = …agent-chassis:v1.0.1251` (the CHASSIS tag, not
+  the row's), and the spawning chassis pod will log
+  `bugs_open/066: agent_definitions.image_tag trails…` with
+  `row_image_tag: v1.0.1250`. **If the fix is broken the pod carries
+  v1.0.1250 and the warn is absent** — the observable genuinely discriminates.
+- **Step 3**: with `default_config.pin_image_tag=true` and the row still at
+  v1.0.1250, the next spawn carries **v1.0.1250** and logs
+  `image_source: pinned` (no drift warn — the pin path returns before drift is
+  computed, `chooseAgentImage` line ~162). One dispatch-loop tick on the
+  previous day's binary is the accepted cost; restore immediately after.
+- **Confound guard**: another session's `deploy-agents`/row-sync could rewrite
+  my staled row mid-test, making "pod on 1251, no warn" ambiguous — so the row
+  is re-read AFTER each observed spawn to confirm the stale value was in place
+  at spawn time. (The sync honours `pin_image_tag`, so step 3 is sync-proof;
+  step 2 is the exposed window.)
+- Snapshot first via `snapshot_agent('build-dispatch-loop','bugs_open/066
+  step-2/3 induction 2026-08-04')` — house function; verify the row landed in
+  `agent_definitions_backup` (currently 1 row for this type), remembering the
+  LANDMINE: a dry-run/rolled-back transaction leaves NO snapshot.
+
+**Step 2 — PASS, exactly as predicted (2026-08-04 19:59Z).** Row staled to
+v1.0.1250 at 19:57:42Z. Next natural spawn at 19:58:59.999Z:
+
+```
+warn agent_image.go:139 "bugs_open/066: agent_definitions.image_tag trails the
+running chassis; spawning on the running tag"
+  pod_name: agent-chassis-5455ddcdcc-crnb6
+  agent_type: build-dispatch-loop
+  image: docker.io/aqls/agent-chassis:v1.0.1251
+  image_source: running_chassis
+  row_image_tag: v1.0.1250
+```
+
+Pod `agent-build-dispatch-loop-ceefa0e8-5x8rj` (created 19:59:00Z, one second
+after the log line) carries `spec.containers[0].image =
+docker.io/aqls/agent-chassis:v1.0.1251` — the CHASSIS tag, not the row's. The
+row re-read AFTER the observation still said v1.0.1250, so no deploy sync
+rewrote it mid-test; the override was the resolver's. Both halves of the
+prediction held; the fix, not the happy path, is now what has been observed.
+
+Pin set at 19:59:28Z (row still v1.0.1250); awaiting the pinned spawn.
+
+**Step 3 — PASS (2026-08-04 20:06Z).** With pin=true and the row still at
+v1.0.1250, the spawns at 20:04:01Z and 20:06:31Z both materialised pods on
+`docker.io/aqls/agent-chassis:v1.0.1250` — the PINNED tag, while the chassis
+runs v1.0.1251 — and the resolver logged `image_source: pinned` at Info with
+no drift warn (the pin path returns before drift is computed, as predicted).
+Row re-read at observation: `v1.0.1250 pin=true` — the state under test was
+the state in force.
+
+Exposure: two dispatch-loop ticks on the previous day's fleet binary
+(v1.0.1250, live fleet-wide until ~12:30Z today) — the cost named in the
+prediction, accepted, now over.
+
+**Restored 20:07:04Z**: `image_tag='v1.0.1251'`, `pin_image_tag` key REMOVED
+(not set false — the row returns to its pre-test shape). Awaiting one clean
+spawn (expect `image_source: running_chassis`, image v1.0.1251, no warn) to
+call the system back to baseline.

@@ -65,3 +65,18 @@ of these agents" — is still correct until the new chassis is out, and becomes 
 misleading afterwards, because then a stale row is just untidy bookkeeping rather than a
 broken agent. I've put that correction in the two places that give the old instruction, with
 the one-line check that tells you which of the two worlds you're in.
+
+## 2026-08-04 evening — finished and closed, by a passing session
+
+The two tests this lane could not run in July (they needed database writes the
+session was not allowed) have now been run against the live system, and both
+came out exactly as the fix promises. We deliberately mis-recorded which
+version one frequently-spawned agent should run; the platform ignored the bad
+record and started it on the version the fleet is actually running, and wrote
+a warning naming the bad value. Then we set the deliberate "pin" flag; the
+platform obeyed the pin and started the agent on the pinned older version.
+Everything was put back as found, and the record checked clean afterwards.
+
+So: a deploy now genuinely reaches every spawned agent, the escape hatch for
+deliberately holding one back works, and the old workaround rule is retired.
+The bug file has moved to the closed pile.

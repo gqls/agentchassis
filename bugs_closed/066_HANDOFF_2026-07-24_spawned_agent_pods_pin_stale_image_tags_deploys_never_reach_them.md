@@ -1,8 +1,10 @@
 # BUG 066 — spawned agent pods pin stale image tags; chassis deploys never reach them
 
 **Filed:** 2026-07-24 · gauntlet_dead_cta / feature-builder B4 shakeout
-**Status:** **FIXED AND NOW LIVE IN v1.0.1174 — STILL OPEN: steps 2 and 3 of
-§"How to verify" (the induced fault and the pin escape hatch) have NOT been run.**
+**Status:** **CLOSED 2026-08-04 — all four verification steps pass; steps 2 and 3
+(the induced fault and the pin escape hatch) were run against production on
+v1.0.1251 and behaved exactly as the fix promises. Evidence at the foot of this
+file. The interim rule is RETIRED.**
 
 > **CORRECTED 2026-07-27 — the line above used to say "INERT until a chassis image rolls
 > past v1.0.1174", and that was wrong by about six minutes.** The fix commits are
@@ -229,3 +231,61 @@ retires**, and its deliberate form becomes `default_config.pin_image_tag`.
 - The dead `AGENT_IMAGE_TAG` / `AGENT_IMAGE_REPOSITORY` env vars in
   `agent-chassis/overlays/production/uk_001/patch-deployment.yaml` (and the vet-intel /
   business-intel patches, and `047-base-configs`) are still there, still unread.
+
+---
+
+## 2026-08-04 — CLOSED. Steps 2 and 3 run against production; both branches behave.
+
+Run by the bug-sweep session (the lane was dormant since 07-27 with these two
+steps written up as "the whole remaining cost of this case"; this session had
+the DB-write access the 07-27 session was refused). Prediction recorded in the
+lane NOTES **before** any write, with the discriminating outcome stated — a
+broken fix would have produced a pod on the stale tag and no warning.
+
+**Vehicle:** `build-dispatch-loop` (row `099b51e0`, the fleet's most
+frequently spawned agent — a natural spawn every ~2.5 min, so nothing had to
+be hand-fired). Stale value: **v1.0.1250**, the genuine previous fleet tag —
+benign even in the failure case. Chassis at test time: **v1.0.1251**, both
+replicas, spawner pod `agent-chassis-5455ddcdcc-crnb6`.
+
+**Step 2 — PASS (induced drift).** Row staled 19:57:42Z. Natural spawn at
+19:58:59.999Z logged, at `agent_image.go:139`:
+
+```
+warn "bugs_open/066: agent_definitions.image_tag trails the running chassis;
+      spawning on the running tag"
+      image: docker.io/aqls/agent-chassis:v1.0.1251
+      image_source: running_chassis    row_image_tag: v1.0.1250
+```
+
+and pod `agent-build-dispatch-loop-ceefa0e8-5x8rj` (created 19:59:00Z, one
+second later) carries `spec.containers[0].image = …:v1.0.1251` — **the
+chassis's tag, not the row's**. The row was re-read AFTER the observation and
+still held v1.0.1250, so no deploy sync repaired it mid-test: the override
+was the resolver's.
+
+**Step 3 — PASS (pin escape hatch).** `default_config.pin_image_tag=true` set
+19:59:28Z, row still v1.0.1250. Spawns at 20:04:01Z and 20:06:31Z both
+materialised pods on **v1.0.1250** — the pinned tag, while the chassis runs
+v1.0.1251 — logging `image_source: pinned` at Info with no drift warn (the
+pin path returns before drift is computed). Row re-read at observation:
+`v1.0.1250 pin=true`.
+
+**Restore + baseline, 20:07:04Z:** tag back to v1.0.1251, `pin_image_tag` key
+REMOVED (row returns to its pre-test shape, not `false`). Next spawn 20:09:00Z:
+`image_source: running_chassis`, image v1.0.1251, no warn — clean.
+`check-agent-image-drift.sh` afterwards: Deployment v1.0.1251, **185 rows all
+v1.0.1251, 0 pinned, verdict "No drift"**. (Its question 3 shows 18 spawned
+pods still running v1.0.1250 — the roll's normal trailing edge: long-lived
+spawns created before the 19:19Z chassis restart, plus this test's two
+dispatch-loop ticks. Distinguish by `creationTimestamp`; not record drift.)
+
+**Cost of the test:** two dispatch-loop ticks on the previous day's fleet
+binary — named in the prediction, accepted, over. Snapshot of the row taken
+first via `snapshot_agent(...)` and verified by COUNT in
+`agent_definitions_backup` (1→2), not by the NOTICE.
+
+**All four steps of § "How to verify" now pass** (1 and 4 on 2026-07-27, 2 and
+3 today). **The interim rule retires**, as the file specifies: its deliberate
+form is `default_config.pin_image_tag`, now proven to do exactly what it says.
+Moving to `/bugs_closed/`.
