@@ -184,3 +184,25 @@ Executed so far:
 - two-part acceptance: both urls 404 now AND still 404 after the ~20:0x news refresh;
 - then the next completeness sweep closes both items via the check's own Resolved arm
   (group loses its second active claimant) — induce one and watch, or let the schedule.
+
+## 2026-08-04 (evening) — owner fired 216; BOTH REFUSED, guard working; link repair in flight
+
+Owner fired the dispatch (corr `c1a816dc`, orch `c74bb910`, COMPLETED). Result:
+`nothing_to_retract`, both candidates **refused "still linked from live content"** with
+every referrer named — the guard doing precisely what RFC_011's option B kept it for.
+Referrers: nav rows for both strays (`33903c46` Gripper Catalog, `ee1a4063` News), chrome
+header+footer for both, and one stored CTA (`gripper-selection-guide` / call-to-action →
+`/gripper-catalog.html`).
+
+Repairs, in dependency order:
+1. CTA retargeted to `/gripper-catalog/index.html` in BOTH stores of component `e637a478`
+   (content_data so the rerender regenerates it right; rendered_html so it serves right
+   until then). Verified: old string 0, new present.
+2. `nav_drift` request filed (`205172b6`, born triaged, `nav_rebuild:<site>` key,
+   mirroring `RequestNavRebuild`'s row shape — manual because a RETIREMENT-shaped nav
+   change has no code requester yet). nav-updater's workflow = populate_nav_tables →
+   render_site_components → create_rerender_items — which also propagates the fixed
+   chrome to every deployed page. Lane liveness checked first (`max(claimed_at)` =
+   today 20:00:02).
+
+Then: re-fire 216 (owner again), two-part acceptance, items close via the check's arm.
