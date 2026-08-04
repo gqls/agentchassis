@@ -1,7 +1,13 @@
 # Concept Index — master register
 
-**1,713 index table rows** across **109** category register files, re-measured
-2026-08-03 with the command below after DOC-073 (`pick-pod-marker`) landed; the
+**1,716 index table rows** across **109** category register files, re-measured
+2026-08-04 with the command below after CGV-030 (`component-render-check`)
+landed; the count moved 1,715 → 1,716, exactly this row, no concurrent arrival
+this time — re-run rather than trust this number, per every line below it.
+Previously: 1,715 measured 2026-08-03 after CQ-019 (`literal_markdown` discovery
+check, bugs_open/184) landed; the count moved 1,714 → 1,715, exactly that
+row, no concurrent arrival that time. Previously: 1,713 measured 2026-08-03 with the
+command below after DOC-073 (`pick-pod-marker`) landed; the
 count moved 1,711 → 1,713, i.e. one row besides mine arrived concurrently —
 re-run rather than trust this number, per every line below it. Previously:
 1,711 measured 2026-08-03 after PBP-028 (the content_rewrite edit-live
@@ -471,6 +477,7 @@ an ID prefix, or a status word.
 | CQ-002 | validate_page_content gate (pre-deploy content validator) | deployed | Blocker validator (placeholder/contamination/links/email) routing failures to human review | content-quality.md |
 | DBI-023 | VM sizing / Hetzner box selection | deployed | Boxes sized by disk/log headroom; EU-only Hetzner, x86-only build caveat | database-and-infrastructure.md |
 | CQ-018 | Cross-page content-duplication checker + deterministic handler | built, inert | Same-page identical sections repaired automatically; near-duplicate copy queued as capability_gap, never rewritten | content-quality.md |
+| CQ-019 | literal_markdown discovery check (markdown on plain-text surfaces) | built, inert until 303 | Dual-surface guarded-regex scan; auto-repair via page-content-writer; prompt rule companion | content-quality.md |
 | CQ-007 | Adoption content-quality defect families (polish batch) | partial | Brand-suffix titles, empty footer contact, duplicated H1s, empty meta descriptions | content-quality.md |
 | CGV-021 | Page-content-writer + admin content brief regeneration flow | partial | Bridge doc: admin edits brief -> Regenerate -> content_rewrite item with brief in prompt | content-governance.md |
 | NAV-007 | Hardcoded fallback nav/header defaults inventing structure | partial | Brochure-default fallbacks fabricate URLs; later found not the live-path cause for one incident | navigation.md |
@@ -1220,6 +1227,7 @@ an ID prefix, or a status word.
 | FIX-048 | Hard deterministic gates between every LLM step | convention | Plain Go gates decide what proceeds; models only propose | fix-loop.md |
 | IDEA-010 | Deliverable quality standards for reports and product emails | deployed | Plain-English, professionally-designed deliverables; base64-encode all HTML emails | idea-product.md |
 | PLAN-041 | Autonomous section composition: per-section descriptor {role, kind, data_feed} | aspirational | Plan should declare each section's static/dynamic kind and data feed for the pipeline | site-plan-and-reconciler.md |
+| PLAN-047 | page_canonical_collision discovery check + verifier | built, inert until seed 306 | Two-signal union-merged detector for two pages rows claiming one canonical identity; ≥2-active files a needs_human_review decision item | site-plan-and-reconciler.md |
 | ADM-007 | Public REST API for the site-building pipeline | aspirational | Plan to expose sites/pages/work-items/specs over /api/v1/sites/*; never built | admin-dashboard-and-api.md |
 | TRF-019 | Relojistas static-rebuild manifest (Thread A) | aspirational | Plan to package a domain's heritage/RSS/inbound-link signals into a static multi-page rebuild | traffic-analytics.md |
 | MDL-026 | Self-hosted LLM inference (vLLM/GPU at scale) | aspirational | Plan to serve 7B models via vLLM continuous batching to escape API cost | model-infrastructure.md |
@@ -1317,6 +1325,7 @@ an ID prefix, or a status word.
 | FIX-027 | isRepoCloningAgent spawn gate / token injection | deployed | Read-only GitHub token injected into dedicated pods | fix-loop.md |
 | FIX-002 | fix-proposer agent / constrained edit plan (F1.1a) | deployed | Read-only agent drafts ≤8-edit plans from CONFIRMED diagnoses | fix-loop.md |
 | CGV-029 | Fabricated-fallback lint (a component may not invent a business fact) | built, advisory | Reads the live component library and flags an {{else}} default that asserts a fact (phone/email/address/price/domain/hours), not a label | content-governance.md |
+| CGV-030 | `component-render-check` — output-level empty-element check (declaration-blind) | built + calibrated, CronJob wiring owed | Renders every active component through actions.RenderTemplate with each referenced field absent and flags empty h1-4 / dead a / img src="" / td / class-bearing blocks. Immune to the template lint's skip_field-only filter AND to a gate that encloses nothing. LANDMINE: 1,023 findings is a CENSUS, not a to-do list — ~44 components are legitimately blank at build time (JS-filled), so flipping the exit code without a baseline makes it a red nobody clears | content-governance.md |
 | DIAG-001 | Read-only, cite-or-abstain diagnosis loop (core concept) | deployed | Read-only agent: hypothesise, gather evidence, cite-or-abstain verdict, re-scope by following evidence | diagnosis-loop.md |
 | DIAG-013 | sqlguard stripQuoted: lint false-positive on quoted literals | partial | Read-only lint was tripped by keywords inside string literals (a slug containing "drop"); fix blanks literals | diagnosis-loop.md |
 | ADP-010 | GitHub read-token scoping / least-privilege adapter secrets | deployed | Read-only repo-scoped PAT injected only for isRepoCloningAgent types | adapters.md |
