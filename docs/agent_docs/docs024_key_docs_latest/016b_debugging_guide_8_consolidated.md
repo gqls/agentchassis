@@ -10482,3 +10482,74 @@ Related: `bugs_open/191`; `bugs_closed/118` (same shape, component-eligibility s
 "three call sites answered this three ways", commit `b052249d8`); `bugs_closed/049`
 (the nav half that installed the strict predicate); `bugs_open/071` (why detect-only is
 the weakest fix here); `bugs_open/098` durable half (`deployed_at` is history, not liveness).
+
+### A step whose `output_field` reuses an upstream key REPLACES it — so "pass through plus a note about what I did" silently demotes the real value one level, and the wrong result looks exactly like the right one (`bugs_open/192`, 2026-08-04)
+
+**The symptom you will be given, and it names the wrong file.** A step two hops
+downstream fails on a missing key — in this case a `loop` action:
+`failed to get collection at 'sections_for_render.sections_ready': key 'sections_ready'
+not found at position 1`. Everyone reads the file that raised it. The fault is an
+`output_field` declaration in a seed, and the step that caused it **reported success**.
+
+**The mechanism, and it is general.** `coordinator.go`'s `storeActionResult` stores an
+action's return value **wholesale** under its `output_field`
+(`state.CollectedData[step.OutputField] = result` — no merge, no unwrap). So a step whose
+`output_field` names a key an earlier step already wrote does not *annotate* that key; it
+**replaces** it. That is fine, and is a documented pattern — inserting a refining step
+that reuses the key means no downstream `input_mapping` needs changing. It is safe on
+exactly one condition: **the return value must BE the refined value.** Return
+`{"<the_thing>": …, "applied": …, "reason": …}` instead and you have buried the real value
+at `<key>.<key>.<field>` on every run.
+
+**Why nothing catches it.** Four separate things all look right:
+1. **Nothing is missing.** All the data is present, one level down — so any
+   `SELECT collected_data->'x'->'y'` written to check it returns a quiet NULL, which is
+   *the same answer* as "this was never here". The query confirms what you already believe.
+2. **The producing step succeeds**, so no status, no error and no log line points at it.
+3. **The doc comment is right and the code is wrong.** Here the action's header promised
+   the value came back "byte-for-byte unchanged" — and the unit test asserted the
+   **wrapper**, so the test *passed on the code that took the fleet down*. A test written
+   against observed output rather than the stated contract cannot catch a shape defect.
+4. **It fires in EVERY mode, not just the new one.** The wrap sat in the shared
+   `passthrough` helper, so the "structural no-op for every caller that does not opt in"
+   was a no-op for nobody.
+
+**How to find it, in one query.** Do not read the path you expect — **enumerate the keys
+at each level, and put a failing row beside a healthy one**:
+`SELECT (SELECT string_agg(k, ',' ORDER BY k) FROM jsonb_object_keys(collected_data->'<key>') k) …`
+Two different key sets across rows of the same agent *is* the finding. `jsonb_object_keys`
+answers "absent" and "moved" as **different** answers; a path traversal answers both with
+NULL. Then read the producer's returns — every branch, not the happy one — and check its
+step's `output_field` against what the previous step wrote.
+
+**Two traps while fixing it.** (a) **A compatibility shim is only safe where the reader
+has an ORDERED fallback.** A fallback *path list* tolerating both shapes retires itself
+once the flat path (which precedes the shim) resolves again. An `input_mapping` has no
+such ordering — repointing one at the wrapper path fixes it today and **silently
+re-breaks on the roll**, with no error. Leave that consumer broken and say so in the
+header. (b) Ask what makes your shim go away: if the answer is "someone remembers to
+delete it", it is a second bug with a delay fuse.
+
+**The class fix, not the instance fix.** The extraction step that found nothing omitted
+the field and returned success — that is what converted a shape change into a
+diagnosed-two-steps-away outage. `extract_fields` now takes an opt-in `required` list
+(WFA-009, default OFF) that fails *at the extraction*, naming the field, the paths tried
+and the keys in scope. And the loop's path-miss error now lists the keys present at the
+failing level: here that would have printed `[applied reason section_plan]` and made the
+wrapper visible in the first failure rather than the fortieth.
+
+**Bonus, on measuring onset.** This bug's filing pooled two failure modes and got the
+start time wrong by eleven hours, which made the actual culprit look innocent. **Split an
+agent's failures on `current_step` before reading a timestamp off them** — here
+`process_sections_loop` and `process_sections_loop_iter_N_…` are opposite states (the
+second is reachable only *after* the first succeeds). And compare a run's **`created_at`**
+against the config change, never `updated_at`: a failed run's `updated_at` is when it died.
+
+Category tags: `output-field-replaces-not-annotates`, `wrapper-demotes-the-value`,
+`test-asserts-observed-shape-not-contract`, `enumerate-keys-not-paths`,
+`shim-needs-an-ordered-fallback`, `split-failures-by-step-before-timing-them`.
+Related: `bugs_open/192`; `bugs_open/178` (whose fix introduced it — the logic was right,
+the envelope was not); `bugs_open/087` (same error signature, opposite cause — which is
+why the message needed the keys-present suffix); WFA-009 and the `LANDMINES.md` entry of
+the same name; `bugs_closed/086` (a field the plan-builder failed to carry — the same
+class one layer up).
