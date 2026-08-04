@@ -25,6 +25,7 @@ package actions
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
@@ -62,17 +63,32 @@ func EnrichFingerprintWithCSSAction(ctx context.Context, params ActionParams) (i
 	}
 
 	// ── Load existing fingerprint ───────────────────────────────────
+	//
+	// bugs_open/192. This step is wired with output_field: design_fingerprint —
+	// the SAME key extract_design_fingerprint wrote — so whatever it returns
+	// REPLACES the fingerprint wholesale (coordinator.go storeActionResult).
+	// Both early-outs below used to return a status stub, which silently
+	// overwrote a real fingerprint with {"status": "invalid_fingerprint"} and
+	// handed every downstream consumer a status object where a fingerprint
+	// belongs. An enricher must be SHAPE-PRESERVING on every path: it returns
+	// the fingerprint, enriched or untouched, and never something else.
+	// The reason goes to the log, which is the only place it can go without
+	// destroying the value.
 	fpRaw := datahelpers.ExtractNestedField(params.CollectedData, fpField)
 	if fpRaw == nil {
-		logger.Warn("No existing fingerprint found, nothing to enrich")
-		return map[string]interface{}{"status": "no_fingerprint"}, nil
+		logger.Warn("No existing fingerprint found, nothing to enrich — returning it unchanged",
+			zap.String("reason", "no_fingerprint"), zap.String("fingerprint_field", fpField))
+		return fpRaw, nil
 	}
 
 	fpUnwrapped := datahelpers.UnwrapDeep(fpRaw, logger)
 	fp, ok := fpUnwrapped.(map[string]interface{})
 	if !ok {
-		logger.Warn("Fingerprint is not a map")
-		return map[string]interface{}{"status": "invalid_fingerprint"}, nil
+		// The value is not a map, but it IS the caller's fingerprint. Handing
+		// back a stub would destroy it; hand back exactly what we were given.
+		logger.Warn("Fingerprint is not a map, returning it unchanged rather than replacing it",
+			zap.String("reason", "invalid_fingerprint"), zap.String("type", fmt.Sprintf("%T", fpUnwrapped)))
+		return fpRaw, nil
 	}
 
 	// ── Extract CSS content from scrape result ──────────────────────

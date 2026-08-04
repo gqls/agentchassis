@@ -230,3 +230,78 @@ orch     | status    | current_step          | has_sections | created_at
 pre-dates the seed by two seconds on `created_at`. Still a small sample — traffic is
 low — so the honest claim is "the mechanism is proven on both items that were parked on
 it", not "the fleet failure rate is now zero".
+
+## 2026-08-04 ~11:20 — council REVISE, and the gating objection was RIGHT (there is a second live instance)
+
+Verdict on `7afbf531`: **REVISE**, 12 reviewers, 5 abstained, 0 unreadable, not
+truncation-gated. Decided by a **high**-severity objection from `bug_historian`.
+
+**The gating objection.** My edit 1 fixes the one action that tripped over
+`storeActionResult`'s wholesale write under `output_field` and documents the trap in
+prose, but leaves the *generic mechanism* unguarded — "any other action that reuses an
+upstream output_field name has the same silent-replacement exposure". It also flagged
+that a related instance of this exact `storeActionResult` class is **already** a landmine
+here, so this is a recurring class, not a one-off. And under `missing`: **no fleet-wide
+audit of steps whose `output_field` reuses an upstream key was proposed or run.**
+
+**I ran it, and it found a second live instance.** Not a hypothetical:
+
+```
+24 (agent, output_field) pairs shared by 2-5 steps.
+Most are MUTUALLY EXCLUSIVE BRANCHES — mark_complete/mark_failed,
+notify_scheduler/notify_scheduler_idle, 4x finalize_*_result, 5x store_*_asset.
+Only one runs per execution; no overwrite, no hazard.
+SEQUENTIAL refiners — step B rewrites step A's key — are exactly TWO:
+  page-build-handler / section_plan      plan_sections -> load_current_section_content   (= 192)
+  site-adoption-agent / design_fingerprint  extract_fingerprint -> enrich_fingerprint    (NEW)
+```
+
+`enrich_fingerprint_with_css_action.go`: both success paths correctly return `fp`, but
+both **early-outs** returned `{"status":"no_fingerprint"}` / `{"status":"invalid_fingerprint"}`
+— and with `output_field: design_fingerprint` the second **overwrites a real fingerprint
+with a status stub**. Fixed the same way (return the caller's value unchanged; reason to
+the log). **Nobody had reported a failure from it. The census found it, not a symptom** —
+which is the argument for making the census standing rather than one-off.
+
+**The count alone would have been alarmist.** 24 → 2 only because branches are excluded,
+and that distinction is the whole difficulty. Worth remembering before quoting a census.
+
+**Routed the architectural half to `RFC_012`, not a new RFC.** 012 is the *same two lines*
+from the other side (`applyResponseToState` replacing the record when the awaited reply
+lands) and is OPEN needing a human. Filing RFC 013 would have forked one mechanism into two
+accounts. Added: the second face, the census 012's own §3(a) asked for and nobody had run,
+and two new questions — should `storeActionResult` warn on an `output_field` collision
+(cheaper here, because the collision is statically knowable), and should the shared-
+`output_field` census become a standing `config-key-audit` mode alongside `SingleOwner`.
+Also recorded why I did **not** just ship a warn: it would fire on all 24 pairs today,
+including the 22 legitimate branches, converting a real signal into ignorable noise.
+
+**The medium objection — `research-agent.extract_topic` left exposed — answered with a
+measurement, not a shrug.** The seat is right that "one call site guarded, sibling
+heuristic" is a known bad shape. But opting it in blind would be the unmeasured change
+this same council objects to elsewhere, and the discriminator is real: `select_sections`'
+missing field is **fatal-but-silent** (the run dies two steps later either way), while
+`extract_topic`'s looks **genuinely degrading** (no `defaults`, and research continues on
+a weaker query). Tried to measure which:
+
+```sql
+SELECT count(*) FROM orchestration_states WHERE owner_agent_type='research-agent';  -- 0
+```
+
+**Zero runs in the retained window**, so there is no evidence either way and I will not
+opt in a path I cannot observe, on another lane's agent, to make it fail where it
+currently degrades. Stated as an open item rather than closed.
+
+**Two low-severity objections converted from assertion to attached check** (`editquality`
+was right that they rested on claims, not checks):
+- *nothing iterates the plan's keys* — `DisallowUnknownFields`: **0 occurrences
+  platform-wide**; no `range` over the section-plan map (the one `for k := range plan` hit
+  is `ValidateSitePlanAction` walking a **site** plan on an error path); consumers read
+  `sections_ready` by name. `edit_live_meta` appears **0** times outside its own file.
+- *exactly 2 `extract_fields` steps* — re-run and shown above, with `has_required` per row.
+
+`reuse_agent`'s soft point (is `required` a second `check_required_fields_missing.go`?):
+**no, different layers.** That is a *discovery check* over `content_data` of deployed
+component instances — an audit sweep, flag-only, emitting `needs_human_review`. Mine is a
+*runtime step contract* over orchestration `collected_data` that fails the step. Different
+data, different time, different consequence.

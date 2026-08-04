@@ -102,3 +102,116 @@ we had before 098 debt 5, and it cost a production data loss to notice.
   `platform/orchestration/actions`; `orchestration.LogAgentError`'s own comment says it
   exists "so there is ONE INSERT against agent_error_log" — a guarantee the actions
   package structurally cannot use.
+
+---
+
+# ADDENDUM 2026-08-04 — the SAME write is unguarded on the other side too, and it has now cost a fleet-wide outage. Plus the census §3(a) asked for, partially run.
+
+**Added by the `bugfix_192_select_sections_wrapper` lane, at the direction of the council's
+`bug_historian` seat** (submission `7afbf531-5ddd-484e-88c8-091994a0f51f`, verdict REVISE,
+gating objection **high**): *"The true enabling mechanism is coordinator.go's
+storeActionResult writing `result` wholesale under `output_field` with no check for
+shape/collision against an existing key of the same name … leaves the generic mechanism
+itself unguarded … Worth a human architecture look."* It also named this RFC's own case as
+evidence that the class recurs.
+
+Contributed **here rather than as RFC 013** because it is the same write, and a second
+account of one mechanism is how a class becomes folklore.
+
+## The other face of the same write
+
+This RFC is about the record being replaced **when the awaited reply lands**
+(`applyResponseToState`). `bugs_open/192` is the record being replaced **when the action
+returns at all** (`storeActionResult`). Same two lines, same absence of a merge or a
+collision check:
+
+```go
+state.CollectedData[state.CurrentStep] = result
+if step.OutputField != "" { state.CollectedData[step.OutputField] = result }   // no check
+```
+
+A step whose `output_field` names a key an earlier step wrote does not annotate that key —
+it **replaces** it. So an action that returns "the value, plus a note about what I did"
+demotes the real value one level, on every run, and **the wrong result looks exactly like
+the right one** because all the data is still present at `<key>.<key>.<field>`.
+
+**Cost, measured:** `bugs_open/192` — every page build in the fleet failed from 08:20 to
+09:01 on 2026-08-04. The producing step reported success; the error everyone read was
+raised two steps downstream, in `loop_actions.go`, naming a missing key. Three lanes hit
+it independently inside forty minutes.
+
+## The census §3(a) asks for — run for the `output_field` side, and it found a SECOND live instance
+
+Nobody had run it. The general precondition is *two steps in one workflow sharing an
+`output_field`*:
+
+```sql
+WITH steps AS (
+  SELECT ad.type, s.key AS step_name, s.value->>'action' AS action, s.value->>'output_field' AS of
+  FROM agent_definitions ad, jsonb_each(ad.default_config->'workflow'->'steps') s
+  WHERE ad.is_active AND COALESCE(ad.is_snapshot,false)=false AND ad.deleted_at IS NULL
+    AND s.value->>'output_field' IS NOT NULL)
+SELECT type, of, count(*), string_agg(step_name||'('||action||')', ', ' ORDER BY step_name)
+FROM steps GROUP BY 1,2 HAVING count(*) > 1 ORDER BY 3 DESC;
+```
+
+**24 (agent, output_field) pairs are shared by 2–5 steps.** The count alone would be
+alarmist: the large majority are **mutually exclusive branches** — `mark_complete` /
+`mark_failed`, `notify_scheduler` / `notify_scheduler_idle`, four `finalize_*_result`
+steps, five `store_*_asset` steps. Only one of them runs per execution, so nothing is
+overwritten and there is no hazard. **The hazard is the SEQUENTIAL refiner**: step B runs
+*after* step A and rewrites A's key.
+
+Filtering to those, the fleet has exactly two:
+
+| agent | key | producer → refiner | verdict |
+|---|---|---|---|
+| `page-build-handler` | `section_plan` | `plan_sections` → `load_current_section_content` | **this was `bugs_open/192`** — fixed at source |
+| `site-adoption-agent` | `design_fingerprint` | `extract_fingerprint` → `enrich_fingerprint` | **a second live instance, found by this census** |
+
+**The second one, read not inferred** (`enrich_fingerprint_with_css_action.go`, pre-fix):
+its two success paths correctly returned `fp` — the fingerprint itself — but its two
+early-outs returned `{"status": "no_fingerprint"}` and `{"status": "invalid_fingerprint"}`.
+With `output_field: design_fingerprint`, the second of those **overwrites a real
+fingerprint with a status stub**, destroying it and handing every downstream consumer a
+status object where a fingerprint belongs. Fixed in the same commit as 192's revision
+(returns the caller's value unchanged on both paths; reason goes to the log) — but note
+*how it was found*: not by a failure, because nobody has reported one. **By the census.**
+That is the argument for the census being a standing check rather than a one-off.
+
+## What this adds to the questions in §3
+
+The three questions stand. This addendum widens (a) and adds one:
+
+> **(a′) The same merge-not-replace question applies to `storeActionResult`, not only to
+> `applyResponseToState`** — and here it is *cheaper*, because the collision is knowable
+> statically: at the moment of the write the coordinator can see that `output_field`
+> already exists in `CollectedData` and that the incoming result is a map containing that
+> same key as its only structural difference. That is the exact signature of the wrap.
+> A **warn** costs nothing and is not a guarantee change; an **error** is.
+
+> **(d) Should the shared-`output_field` census become a standing offline check?**
+> `config-key-audit` already walks every live step (WFA-003's `WalkSteps`) and already
+> hosts `--unregistered-actions` (WFA-004), `--relay-gaps` (WFA-007) and the `SingleOwner`
+> check (WFA-006, which runs **daily** as a CronJob under RFC 006). A
+> `--shared-output-fields` mode reporting *sequential* refiners — branches excluded, which
+> is the whole difficulty and is what makes 24 into 2 — would have found the fingerprint
+> instance before it was written. This is the same shape RFC 006 already ruled on for
+> `SingleOwner`, so there is precedent for the venue and the mechanism.
+
+## What this lane did NOT do, and why it is the human's call
+
+`bugs_open/192`'s fix is **shape-preservation at both instances plus an opt-in fail-loud
+primitive** (`extract_fields.required`, WFA-009). It deliberately does **not** touch
+`storeActionResult`. Two reasons, and the second is the honest one:
+
+1. By the owner ruling of 2026-07-29 §1, changing what the coordinator's write
+   **guarantees** is architecture scope, not council-gate scope — which is precisely why
+   this is an addendum to an RFC rather than a fifth edit in a bug patch.
+2. **A warn-on-collision would fire on all 24 pairs today**, including the 22 legitimate
+   branch cases, so shipping it naively converts a real signal into log noise that
+   everyone learns to ignore. Distinguishing "branch" from "sequential refiner" needs the
+   reachability analysis question (d) describes. That is a design decision with a cost,
+   and it belongs to whoever answers (a).
+
+**Nothing in `bugs_open/192` is blocked on this**, exactly as §"Status" says of 098's fix.
