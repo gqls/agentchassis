@@ -10,7 +10,29 @@ one).
 
 **Severity:** Low **today**, on a measured empty risk set — exactly like 168, and filed for
 exactly that reason. **Class:** a shared mechanism with a documented escape hatch that no
-guard covers. **Status:** OPEN, unowned.
+guard covers. **Status:** ~~OPEN, unowned~~ → **CLAIMED 2026-08-04 by session "bugfix 100"**
+(lane `docs024_key_docs_latest/bugfix_179_deploy_path_override/`), working **finding A**.
+Finding B is already done. Taken after the filing lane's own newest handoff recorded it as
+still unowned (`bugfix_168_deployed_asset_path/HANDOFF_2026-08-03b_continue_here.md:34`) and
+no live session held it.
+
+> **Fix direction: candidate 3 (delete the override), plus a refusal on explicit intent.**
+> Chosen over the reframed candidate 2 ("record the override so readers can see it") for a
+> measured reason the file did not have: **all six readers DERIVE the path and none reads the
+> recorded row**, so a recorded override is still a path no reader resolves. Preferring a
+> recorded path is `bugs_open/152`/`155`'s seam, not this one.
+>
+> **New finding, and it makes the override worse than the file describes: the override can be
+> armed by a caller who never asked for it.** `ExtractActionInputs` resolves every declared
+> field through a **depth-20 recursive search of the whole of `collected_data`**
+> (`datahelpers/unified_extractor.go:440-489`), and `deploy_path` is a declared optional input
+> on the live `asset-deployer` row. So a `deploy_path` key anywhere in a deploy
+> orchestration — a nested sub-agent response, an echoed spec — silently redirects the commit.
+> That is why the refusal is wired to **explicit sources only** (step config, the deprecated
+> `deploy_path_field`, `input_data.deploy_path`) and deliberately NOT to
+> `inputs.Get("deploy_path")`: refusing on the recursive hunt would turn a stray nested key
+> into a false denial of a legitimate deploy, which this estate has already ruled is worse
+> than the inert key it chases.
 
 **Depends on:** `bugs_open/168`'s fix being live (commit `4035455ae`, chassis image pending).
 Both findings below are *about* the contract that change introduces; neither is reachable
