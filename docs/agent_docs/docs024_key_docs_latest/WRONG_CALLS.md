@@ -19968,3 +19968,38 @@ reached for the **name** from memory — one command after writing that an infer
 stated as a measurement. **A count you measured does not make the label you attached to it
 measured.** Caught by re-reading my own sentence and running the two-line loop that prints
 the exception by name.
+
+---
+
+## 2026-08-04 — my mutation harness truncated away the result, and I read the silence as a pass
+
+**footprint:** any `go test … | head -N` / `tail -N` in a mutation loop · bugs_open/193 lane
+
+**The claim.** Proving the `bugs_open/193` guards by mutation, I folded the type assertion
+into `ok && value` (the real defect: a declared `false` reads as no declaration) and ran
+`go test ./platform/orchestration/... -run TestGetBoolFieldLoud_DeclaredFalseSurvives 2>&1 |
+grep -E "^--- FAIL|^ok|^FAIL" | head -3`. Output showed three `ok` lines. I was about to
+record the mutation as inconclusive-but-fine and move on.
+
+**What caught it.** The three `ok` lines were `orchestration`, `actions` and
+`discovery_checks` — all "[no tests to run]". **The `datahelpers` line, the only one that
+could contain the failure, was the fourth**, and `head -3` had cut it. Re-run without the
+truncation: `--- FAIL: TestGetBoolFieldLoud_DeclaredFalseSurvives`, as intended.
+
+**The cheap check.** **Never truncate the output of a run whose purpose is to observe a
+failure.** `head`/`tail` are for reading logs, not for gating a decision — and in a
+multi-package `./...` run the package you care about is rarely first. Filter by *content*
+(`grep -E "^--- FAIL|^FAIL|^ok"` and let it print everything) or name the single package.
+
+This is the same shape as this lane's 2026-08-04 entry about a `tail -3` hiding the first
+line of a pod-grep loop, two days apart, and it is the same family as the whole
+`bugs_open/185` set: **a check whose result you cannot see is indistinguishable from a check
+that passed.** The truncation is doing what a `status='active'` filter did to a census and
+what a comment-grep did to a binary probe — silently removing the disconfirming evidence.
+
+**Second, in the same pass:** the delete-the-Warn mutation failed to **compile** (unused
+`fmt` import) and I nearly counted the build failure as the test catching it. Redone with
+`_ = warnFields` so the import stays used and the assertion is what fires. **Third time in
+this workstream.** The rule that keeps not sticking, stated as a procedure rather than a
+principle: *after writing a mutation, run `go build` FIRST; only a green build makes the
+subsequent test result mean anything.*
