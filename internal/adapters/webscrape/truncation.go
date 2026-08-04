@@ -420,11 +420,21 @@ func truncateResultForTransport(result map[string]interface{}, storage map[strin
 // from them already has a URI, findable via the same storage map, without a
 // second upload. The one gap this leaves, stated rather than silently
 // carried: a field between oversizeStripContentCap and 50,000 chars that was
-// never over the FIRST cap loses its tail here uploaded. Not closed, because
-// stripResultForRetry has no measured live traffic to justify it — fleet-wide
-// the largest reply ever recorded is 48KB, under even the first cap — and
-// closing it would repeat the SAME upload machinery a second time for a path
-// that has never fired.
+// never over the FIRST cap loses its tail here unuploaded. Not closed, because
+// this function has never fired: `degraded_for_transport` — the marker it sets
+// on every result it touches, and therefore the only instrument that answers
+// the question — is present on 0 of 3,246 retained orchestration rows
+// (measured 2026-08-04). Closing it would repeat the same upload machinery for
+// a path with zero observed volume.
+//
+// > CORRECTED 2026-08-04, caught by the council's prior_art_librarian seat: an
+// > earlier version of this comment justified the same decision with "fleet-wide
+// > the largest reply ever recorded is 48KB". That figure is from `llm_call_log`
+// > — the size of MODEL COMPLETIONS — and says nothing about scrape replies,
+// > which carry whole web pages. Scrape-bearing rows average 1.6MB and reach
+// > 5.45MB of accumulated state. The conclusion held; the evidence was about a
+// > different population. Do not reintroduce a size statistic here: the question
+// > is "has this function run", and its own marker is what answers it.
 func stripResultForRetry(result map[string]interface{}, storage map[string]interface{}, upload FieldUploader) {
 	if result == nil {
 		return
