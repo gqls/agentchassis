@@ -232,3 +232,10 @@ wait on them.** Also owed from before, unchanged: A0.3b config tail, A0.4 drain 
   render-audit-agent (grep of its live config: no render-audit reference) — so A0.3b's
   witnessed write_findings run is a SEPARATE render-audit-agent dispatch, still owed.
   Fire it only after the rerender cascade settles (attribution + the site is mid-change).
+
+**08:54 addendum — the LIVE-DEPLOY leg landed too:** first cascade page_rerender
+(`misdirected_cta:glosario-index`, a FRESH audit finding — the audit re-derived the CTA
+family after the stale index one was cancelled; dedup slots freed correctly) completed
+08:54:53 with a real deploy: `/glosario/index.html` committed to vm-sites at 08:54:48Z
+("Rerender: glosario/index.html"). Browser-visible change on the live site, caused by the
+sweep. Cascade: 1 complete / 1 claimed / 20 triaged, draining ~1 per few minutes.
