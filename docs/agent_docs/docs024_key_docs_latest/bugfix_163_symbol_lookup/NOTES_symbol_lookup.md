@@ -134,3 +134,36 @@ that cannot occur — a zero that could never have been non-zero. Pre-fix truth:
 claim is unchanged — no path-bearing SYMBOL check ever returned a row (23/23, plus today's
 live predicate test). Caught by reading the first post-fix verdict instead of the counter;
 logged in WRONG_CALLS. The register banner (DOC-069) is corrected in place.
+
+## 2026-08-04 — the council gate cost this lane three rounds; what is measured and what is NOT
+
+The fix is closed on live evidence, so this is bookkeeping about the *review*, not the fix.
+
+| round | run | outcome |
+|---|---|---|
+| 1 | `9482d171` | FAILED, `error = "reaper: stale EXECUTING_STEP for >4h; step=review_prior_art"` — stalled from ~21:14Z, minutes before the 21:16Z chassis roll |
+| 2 | `66222f21` | FAILED, same reaper message, `step=review_editquality` |
+| 3 | `4a9acb9a` | in flight; reached `review_debug_historian` 08:07Z |
+
+**[MEASURED]** the gate is NOT down, and my first framing of this said otherwise before I
+checked: `diagnosis_artifacts kind='council_report'` shows **4 reports in the 08:00Z hour
+alone** (and 10 in 10:00Z on 08-03). Reaper kills in 24h: **16, across 11 DISTINCT
+`current_step` values** — so the reaper is not council-specific either. At 08:29Z three
+separate correlations were stalled ~20-22 min simultaneously (`c881ef22`, `eb8f9cc0`, mine)
+while a fourth (`37593214`) advanced within the second. So: partial stalls on a working gate,
+not an outage. Seven reaped rows span six correlations, i.e. it is costing other lanes too.
+
+**[UNVERIFIED — deliberately not diagnosed here]** whether these stalls are the
+`bugs_open/029` mechanism (hung spawns saturating the `dispatch` concurrency group) or the
+spawn→call handshake race (`bugs_closed/003` family, `bugs_open/075`). Both are filed, both
+are OPEN, and both are actively worked by other lanes — so this lane files nothing and asserts
+nothing. Recorded because a lane that loses two review rounds to it should leave the evidence
+somewhere greppable.
+
+**What this does NOT change:** `c3b02f035` carries `Council-Submitted:`, which asserts nothing
+and is resolved by the 098 report at read time, so the trailer stays honest whatever happens to
+round 3. The 098 report buckets it correctly today ("submitted → no report yet") and
+`MISMATCH: 0`. The fix's own evidence — mutation-proven tests, the live predicate test, the
+both-replica pod grep, and the A/B verifier verdict on 163's own motivating entry — is
+independent of the council outcome. If round 3 returns REVISE, the objections get answered
+forward, on the shared branch, as CLAUDE.md requires.
