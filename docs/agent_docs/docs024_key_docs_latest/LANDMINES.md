@@ -5066,3 +5066,29 @@ that is also the thing you would want in the logs is not.
 - **why it is a landmine:** the broken pattern is *recommended in writing* in this repo — `bugs_open/179`'s Evidence section says "⚠ Match the JSON shape, not the bare word … Use `LIKE '%\"deploy_path\":\"%'`" — because the bare word really does return a pile of false positives. So the advice is right about the problem and wrong about the remedy, and it has been copied into at least the `bugfix_168` handoff and one migration. Following the repo's own guidance is what produces the artefact.
 - **source:** 2026-08-04, `bugs_open/179` finding A. The zero rode into a council submission (APPROVED), the IMG-067 register entry, migration 307 and four commit messages before it was caught — by accident, when a post-roll re-run of the same census still said `0` minutes after an induced probe had deliberately written a `deploy_path`. Full account in WRONG_CALLS.md, same date.
 - **added:** 2026-08-04, bugfix_179_deploy_path_override lane
+
+## `ImagePullBackOff` reports a Job as still RUNNING, never FAILED — so a CronJob copied from a sibling that pulls a PUBLIC image goes silent while looking slow
+
+- **footprint:** `deployments/kustomize/services/*/base/cronjob.yaml`, `imagePullSecrets`,
+  `docker-hub-creds`, any new CronJob modelled on `component-fallback-check` /
+  `database-backup` / `agent-job-cleanup`
+- **fires when:** you add a CronJob that runs an image from the private `aqls/` repo and
+  copy its manifest from an existing job. The three obvious models all pull PUBLIC images
+  (`postgres:16-alpine`, `bitnami/kubectl`) and therefore carry **no `imagePullSecrets`**,
+  so the omission is invisible — the manifest looks complete and `kubectl kustomize`
+  renders it happily. In the cluster the pod enters `ImagePullBackOff`, and the Job's
+  status stays **`Running` with `0/1` completions until `activeDeadlineSeconds` expires**.
+  It is never reported as Failed, no alert distinguishes it from a slow run, and any
+  `doc_notes`/report row the job exists to write is simply never written — so a check
+  whose whole purpose is "a silent check is indistinguishable from a dead one" dies
+  exactly that way.
+- **the check:** after deploying ANY new CronJob, trigger one run
+  (`kubectl create job --from=cronjob/<name> <name>-manual-<ts>`) and confirm the **pod**
+  reaches `Completed` — `kubectl get pods -l job-name=<job>`, not `get job`, because the
+  Job object is the thing that lies here. Then verify the job's ARTEFACT (its row, its
+  file), not its exit status. Deployments in this namespace pull with
+  `imagePullSecrets: [{name: docker-hub-creds}]`; copy that whenever `image:` starts
+  `docker.io/aqls/`.
+- **source:** bugfix_140 item 1 carrier, 2026-08-04 — caught on the first manual run of
+  `component-render-check`, which is the reason to do one
+- **added:** 2026-08-04, bugfix_140_contact_info_fabrication lane
