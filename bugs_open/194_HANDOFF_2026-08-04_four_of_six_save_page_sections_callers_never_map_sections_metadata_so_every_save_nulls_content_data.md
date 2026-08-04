@@ -161,3 +161,85 @@ pageflow-builder        | (null)
 site-work-orchestrator  | (null)
 tool-recreation-handler | (null)
 ```
+
+---
+
+## 2026-08-04 ~20:10Z — all four instances resolved, and the class closed at the seam
+
+### The remaining three, individually
+
+| caller | state | how |
+|---|---|---|
+| `pageflow-builder` | **FIXED, live** | seed `312` — `page_content.response.sections_metadata` |
+| `site-work-orchestrator` | **FIXED, live** | seed `312` — same path |
+| `tool-recreation-handler` | **NOT A DEFECT — measured** | it has no writer step at all |
+
+`tool-recreation-handler` was this file's one `[UNMEASURED]` item and the caution was
+right. Its step graph is `recreate_tool` (`execute_llm_prompt` → `tool_recreation`) →
+`validate_tool` (`validate_page_content` → `validation_result`) → save from
+`validation_result.clean_html`. There is no `sections_metadata` anywhere on that path
+because it recreates a whole-page tool as one HTML blob, not a section set — and
+`rerender_page_sections_action.go:318` already agrees, exempting a self-contained tool
+section from the missing-content escalation by design. **Its NULL is the correct shape.**
+Copying the key onto it would have been exactly the unmeasured claim this file warned
+against. It instead gets the new `expects_no_sections_metadata` declaration, so the fact
+is visible in the caller's own config rather than in a comment somewhere else.
+
+The other two both run `write_page_content` = `call_agent` at `page-content-writer` with
+`output_field: page_content`, in the same loop `sub_workflow` as their save step — so the
+key is byte-identical to the one `page-rebuild` is already proven live with. Both branches
+of seed 312's verify block were **induced before the seed was trusted**; the second needed
+its own run, because two guards in series only prove the one that fires.
+
+Post-apply census — five of six name the field, the sixth is correct absent:
+
+```
+page-build-handler      | page_content.response.sections_metadata
+pageflow-builder        | page_content.response.sections_metadata   <- 312
+page-rebuild            | page_content.response.sections_metadata   <- 310
+page-rerender           | rerender_sections.sections_metadata
+site-work-orchestrator  | page_content.response.sections_metadata   <- 312
+tool-recreation-handler | (absent, correct)
+```
+
+### The class, at the seam — `47ee3ebce`, inert until the next roll
+
+Four config copies of one path string is the symptom; the defect is that **the saver
+depends on being told where its own input lives**, so forgetting is always available.
+`save_sections_metadata_source.go` makes it responsible for itself:
+
+- **default** — key unset, consult `defaultSectionsMetadataField`, which is
+  `validate_page_content_stats.go`'s own constant *referenced, not copied*, so gate and
+  save cannot drift. A configured field still wins outright; a configured-but-unresolving
+  field still falls to HTML exactly as before (the no-op case, with its own test — it is
+  what keeps `page-rerender`'s 2,878 runs byte-identical). A single default, deliberately
+  **not** a probe: resolving another run's metadata under a path nobody configured would be
+  worse than the NULL it replaced.
+- **`expects_no_sections_metadata`** — a caller may declare it has none by design.
+- **`require_sections_metadata`** — new authority, so opt-in with the unsafe default OFF
+  and seeded on **nobody** (RFC_010). This function already carries five refusing guards.
+- **`CONTENT_DATA_REGRESSION`** — an `agent_error_log` row when a page that HAD structured
+  content is saved with none. The silence is what let this run for six months.
+
+Registered as **PBP-031** in the same commit; PBP-011's stale "three callers" corrected to
+six — that stale count is part of why this stayed invisible. Council
+`b6023fc1-ae70-4486-b752-d399e9b1afcc`.
+
+### What a NULL costs, measured — and what that measurement is NOT
+
+`rerender_page_sections_action.go:326` refuses to render a section with no stored
+`content_data` and escalates the WHOLE page to a full LLM rebuild. `site_work_items` holds
+**44 such escalations across 8 sites since 2026-07-12**, of which **13 FAILED** on
+2026-08-03. That is **exposure for the class, not damage attributed to these callers** —
+some of those pages predate `content_data` capture entirely, exactly as this file's own
+161/1,201 figure is exposure and not attribution.
+
+### Still owed before this closes
+
+1. the council verdict, read and acted on;
+2. the next chassis roll, then the pod-grep for `CONTENT_DATA_REGRESSION`;
+3. the acceptance run — `site-work-orchestrator` is directly dispatchable
+   (`075d_simple_maintain_trigger.sh`), so one of the two dormant callers CAN be proven
+   live. Pass requires **both** `content_data` non-NULL **and**
+   `sections_source: 'metadata'` in the save's result: `content_data` can also arrive via
+   the interactive carry-forward, so the bare column check is a false pass.
