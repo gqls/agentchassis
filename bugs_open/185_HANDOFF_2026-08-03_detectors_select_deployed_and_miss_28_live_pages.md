@@ -554,3 +554,54 @@ the column in the SQL → RED.
 **Not changed:** the `decideEmit` decoupling itself. That was the thing I most wanted
 challenged and no seat challenged it — `guardian` asked only whether it had been ruled on
 before (it had not). The argument stands as submitted: one spelling, two questions.
+
+
+---
+
+# ALL THREE TRANCHES LIVE 2026-08-04 — `v1.0.1247`, and the verification method mattered more than the result
+
+Both replicas (`agent-chassis-6f7db5f68c-cf7ns` / `-rp867`):
+
+| check | result | reading |
+|---|---|---|
+| `realisedPageHasShipped` (t3, new symbol) | **1 / 1** | tranche 3's Go is live |
+| `realisedPageIsBuilt` (t3, OLD symbol — removed) | **0 / 0** | the rename shipped; a clean before/after pair |
+| `NeverDeployedPagePredicateFor` (t1) | 1 / 1 | tranche 1's seam still live |
+| tranche 2 | **by ancestry** — see below | |
+
+**Tranche 2 is established by ancestry, not by a grep, and that is stated rather than
+fudged.** `git merge-base --is-ancestor 9bd75a55f 64dd4cd3b` → true, so a binary containing
+tranche 3's symbol necessarily contains tranche 2's commit. That is sound, and it is
+weaker evidence than a symbol grep, which is why it is labelled.
+
+## Two verification mistakes here, both mine, both instructive
+
+1. **I first grepped for a Go COMMENT** (`"SHIPPED pages only"`) and got 0 on both
+   replicas. Comments do not survive compilation. A `0` from a string that can never be in
+   a binary is not evidence of absence — it is evidence of a bad probe, and it read
+   exactly like "the fix did not ship".
+2. **My replacement probe measured noise.** `strings … | grep news-listing | grep
+   build_status` returned 1, which looked like the old query surviving. Dumping the match
+   showed a Go string-table blob — dozens of unrelated short constants concatenated onto
+   one line (`…work_item_idresume_indexpattern_name…`). **`strings` is not
+   one-constant-per-line**, which this lane's own runbook already warned about, and a
+   two-term `grep | grep` over it is meaningless: the terms can come from different
+   constants that merely landed adjacent in the binary.
+
+**What actually works, in descending order of strength:** a FUNCTION SYMBOL (survives
+compilation, greps cleanly, and a rename gives a free negative control — `realisedPageIsBuilt`
+= 0 is worth more than `realisedPageHasShipped` = 1 on its own); then a long, distinctive
+single string literal; then commit ancestry. **Never a comment, and never two greps chained
+over `strings` output.**
+
+## State
+
+- **Tranches 1, 2, 3: code live on `v1.0.1247`.** Migration 302 (t3's config half) was
+  already live.
+- **Tranche 1 additionally PROVEN in behaviour** (the gaswholesalers orphan finding, 3-vs-0).
+  Tranches 2 and 3 are live but **not yet exercised** — t2's render audit needs its next
+  audit pass, t3 needs a re-plan on a site with a shipped sectionless page (exposure zero
+  today, so it may be a long wait; that is expected, not a gap).
+- **Council:** t1 APPROVED. t2's first run was **reaped** (`stale EXECUTING_STEP for >4h;
+  step=review_prior_art`) when a roll killed the pod mid-seat — resubmitted unchanged.
+  t3 REVISE → answered → resubmitted (round 2).

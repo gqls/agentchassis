@@ -18713,3 +18713,39 @@ input goes MISSING, not just when it changes — a disappeared finding has two c
 Fixed by classing those keys as `UNCOVERED` (fails the run) and by refusing to write a
 baseline while anything fails to parse. Family: "a gate's 0 findings has TWO causes,
 opposite fixes" and "a quiet test passes when the RULE is gone".
+
+---
+
+## 2026-08-04 — I pod-grepped for a Go COMMENT, then replaced it with a probe that measured a string-table blob
+
+**footprint:** `strings /app/agent-chassis | grep …`, any post-roll verification · bugs_open/185 lane
+
+**The claim.** Verifying bugs_open/185 tranche 2 had shipped, I grepped the running binary
+for `"SHIPPED pages only"` — a phrase from the comment I had written above the converged
+query — and got **0 on both replicas**. Read literally that says the fix is not live. It says
+nothing of the kind: **comments do not survive compilation.** The probe could never have
+returned anything else.
+
+Replacing it, I grepped `strings … | grep "news-listing" | grep "build_status"`, expecting 0
+and getting **1** — which looked like the old query still in the binary. Dumping the match
+showed a Go string-table blob: dozens of unrelated short constants concatenated onto one
+line (`…work_item_idresume_indexpattern_nameinstance_key…`). The two terms came from
+different constants that merely landed adjacent.
+
+**What caught it.** Both times, disbelieving a number that contradicted something I already
+knew — the code was committed and its later sibling's symbol WAS present — and dumping the
+raw match instead of recording the count.
+
+**The cheap check.** **Pick the probe by what survives compilation, and rank probes by
+strength:**
+
+1. **A function symbol** — survives, greps cleanly, and a RENAME gives a free negative
+   control (`realisedPageIsBuilt` = 0 alongside `realisedPageHasShipped` = 1 is far stronger
+   than either alone).
+2. **A long, distinctive single string literal** — one grep, never two chained.
+3. **Commit ancestry** (`git merge-base --is-ancestor`) — sound, weaker, label it as such.
+
+**Never a comment. Never two greps chained over `strings` output** — that file's runbook
+already recorded "strings is not one-constant-per-line" and I still built a probe whose
+correctness depended on it being one. A grep that CANNOT return a positive is
+indistinguishable from a fix that did not ship, and both read as a clean, confident zero.
