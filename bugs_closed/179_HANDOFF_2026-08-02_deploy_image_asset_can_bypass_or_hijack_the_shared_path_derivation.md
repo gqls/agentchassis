@@ -1,10 +1,46 @@
 # 179 — `deploy_image_asset` can still bypass the shared path derivation (`deploy_path`), and can now write to another writer's artefact (brand-head)
 
-> ## STATUS 2026-08-04 — FINDING A FIXED AND COMMITTED, COUNCIL **APPROVED** (round 2). **Stays OPEN until the roll**, and the close is one command away.
+> ## STATUS 2026-08-04 — **CLOSED. Both findings FIXED, LIVE on `v1.0.1250`, and finding A's refusal INDUCED on the live fleet.** Council APPROVED (round 2).
 >
-> Both findings are now fixed in code (B on 2026-08-02, A here). **This file stays
-> OPEN only because the repo's bar is fixed AND live**: a fix inert until the next
-> roll is still reproducible in production.
+> **Live and proven, not merely rolled.** Pod-grep on **both** replicas, the baseline
+> taken *before* the roll on `v1.0.1248` so the change is visible in both directions:
+>
+> | marker | pre-roll (1248) | post-roll (1250) |
+> |---|---|---|
+> | NEW `refused: deploy_path` | 0 | **1** |
+> | REMOVED `Using custom deploy_path` | 1 | **0** |
+> | POS CTRL brand-head refusal | 1 | 1 |
+>
+> The removed-string row is the load-bearing half — this change deletes a literal as
+> well as adding one, so a stale image and a fresh one differ in both directions
+> rather than one.
+>
+> **INDUCED on the live fleet — an A/B differing in exactly one variable.** Two
+> `asset-deployer` dispatches, identical but for `deploy_path`, both with a
+> deliberately bogus `s3_uri` so neither could commit to a live site:
+>
+> | probe | result |
+> |---|---|
+> | **A**, `deploy_path` present | `COMPLETED` · `deployed:false` · `skipped:true` · `reason: refused: deploy_path "assets/images/refusal-probe-179.jpg" (input_data.deploy_path) …` |
+> | **B**, identical, no `deploy_path` | `FAILED` at `deploy_asset`: *"storage client not available"* |
+>
+> **B is the control, and it proves two things a refusal probe alone cannot.** The
+> guard is not a blanket refusal — B took a different path entirely. And the guard
+> **precedes the storage resolution**: both probes carried the same bogus URI, yet A
+> refused while B got as far as resolving storage and died there. That is the ordering
+> property, demonstrated at runtime rather than by reading the source.
+>
+> Neither probe committed anything: `…/refusal-probe-179.jpg` and
+> `…/hero-179probe.jpg` both **404**.
+>
+> **[NOT DONE, stated rather than glossed]** a *successful* end-to-end deploy was not
+> induced. B failed at storage rather than deploying, so "a legitimate deploy still
+> works" rests on the unchanged code path, the unit tests, and B proving the guard is
+> not what stopped it — **not** on a fresh green deploy. A real one needs a valid
+> `s3_uri` and would commit an image to a live site, which is not this bug's to spend.
+>
+> Both findings are fixed in code (B on 2026-08-02, A here), live, and verified.
+> Moving to `bugs_closed/`.
 >
 > **What shipped** — `fd0516b18` (code + register), `f62265138` (config), `6f69fd757`
 > (`IMAGE_TAG` → `v1.0.1249`), docs `13194d96d`.
@@ -62,10 +98,10 @@
 > cannot have been compensating for it: **nothing has ever set one**.
 > **Round 2 APPROVED**, `unreadable: 0`, guardian `object` → `approve`.
 >
-> ### To close this file
+> ### How it was closed (all four steps done)
 >
-> 1. Roll a chassis image built from `fd0516b18` or later (`IMAGE_TAG` is already
->    bumped to `v1.0.1249`; the release is whole-fleet and the owner runs it).
+> 1. ~~Roll a chassis image built from `fd0516b18` or later~~ **DONE — `v1.0.1250`,
+>    both replicas, 2026-08-04 10:29Z.**
 > 2. Pod-grep **every** replica, positive **and** negative control in one exec.
 >    **The pre-fix baseline is already recorded** on `v1.0.1248`:
 >    ```
@@ -80,9 +116,8 @@
 >    Then the **healthy control** — the same dispatch *without* `deploy_path` must
 >    still deploy. Without that second half, a guard that refuses everything looks
 >    exactly like success.
-> 4. Then move this file to `bugs_closed/`, naming **both** paths on the commit and
->    verifying at HEAD: `git ls-tree -r --name-only HEAD -- bugs_open/ bugs_closed/ | grep 179`
->    must return exactly one line.
+> 4. ~~Then move this file to `bugs_closed/`~~ **DONE**, naming both paths on the
+>    commit and verified at HEAD (`git ls-tree … | grep 179` returns exactly one line).
 >
 > **⚠ Landmine created by this fix:** a step that sets `deploy_path` now completes
 > **GREEN** — `deployed:false, skipped:true` plus a `reason`, not an error, because a
@@ -162,8 +197,27 @@ partial census that made me call finding B unreachable when it was not, so:
 
 ⚠ **Match the JSON shape, not the bare word.** `collected_data::text LIKE '%deploy_path%'`
 returns 9 — **all nine are this lane's own council submissions**, because a council run stores
-the submission JSON and its rationale argues about `deploy_path` at length. Use
-`LIKE '%"deploy_path":"%'`. Declared as an optional passthrough in the action's input spec and
+the submission JSON and its rationale argues about `deploy_path` at length. ~~Use
+`LIKE '%"deploy_path":"%'`.~~
+
+> **CORRECTED 2026-08-04 — THAT REMEDY IS BROKEN AND THIS FILE'S THREE ZEROS WERE ARTEFACTS.**
+> Postgres renders `jsonb::text` **with a space after the colon** (`"deploy_path": "…"`), so
+> `LIKE '%"deploy_path":"%'` **cannot match a jsonb column at all** — it returns 0 whatever the
+> data holds, and it agrees with itself across all three populations because they are all jsonb.
+> The diagnosis of the problem was right (the bare word is full of false positives); the remedy
+> was not. Use a spacing-tolerant regexp requiring a non-empty value:
+>
+> ```sql
+> WHERE collected_data::text ~ '"deploy_path"\s*:\s*"[^"]+"'
+> ```
+>
+> **Re-measured 2026-08-04 with that pattern — the conclusion is unchanged, and now for a real
+> reason:** `site_work_items` 0, active `agent_definitions` 0, `orchestration_states` **1**, and
+> that 1 is the induced refusal probe written minutes earlier by the lane that fixed this — which
+> is how the query is known to be capable of returning non-zero. Caught only because that probe
+> existed; the broken zero had already reached a council submission (APPROVED), the IMG-067
+> register entry, migration 307 and four commit messages. See `WRONG_CALLS.md` and the
+> `LANDMINES.md` entry, both 2026-08-04. Declared as an optional passthrough in the action's input spec and
 in two SQL seeds (`044_asset_deployer.sql`, `107_image_build_handler.sql`).
 
 So the risk set is empty *today*, on a census that now includes the queue — and nothing makes

@@ -19295,3 +19295,60 @@ other. The one genuine gap is narrow and **empty today**: the revalidator only s
 `needs_human_review`, whereas `resolveWorkItems` deliberately also closes `unresolved`/`failed`
 (RFC_010 Decision 2), and 0 of the 95 rows are in those statuses. **This needs an owner call, not
 a unilateral revert** — see the handoff.
+
+---
+
+## 2026-08-04 — I gave the council a three-population census as evidence, and the pattern I used **cannot match a jsonb column**. Every zero was structural.
+
+**footprint:** `<jsonb>::text LIKE '%"key":"value"%'` · any "is this config key ever actually set?" census · bugs_open/179 · the same pattern in bugs_open/179's own §Evidence and in bugfix_168's handoff
+
+**The claim.** Fixing `bugs_open/179` I deleted a `deploy_path` override, and the
+safety argument was that nobody uses it. I measured three populations and put the
+result in the council submission, in the bug file, in the register entry, in the
+migration and in four commit messages:
+
+```sql
+SELECT count(*) FROM orchestration_states WHERE collected_data::text LIKE '%"deploy_path":"%';
+--  0        (also 0 for site_work_items.spec and active agent_definitions)
+```
+
+I even flagged the *right* trap while doing it — the bug file warns "match the JSON
+shape, not the bare word", because the bare word returns 93 rows of council
+submissions — and I repeated that guidance approvingly.
+
+**It is the guidance that is wrong.** Postgres renders `jsonb::text` with **a space
+after the colon**: `"deploy_path": "assets/…"`. The pattern `'%"deploy_path":"%'` has
+no space, so **it can never match a jsonb column, whatever the data says.** All three
+zeros were artefacts of the pattern, not measurements of the estate. The same broken
+pattern is in `bugs_open/179`'s own Evidence section and in the `bugfix_168` handoff,
+so it was inherited, not invented — and I propagated it further.
+
+**What caught it.** Not review — the council APPROVED the submission carrying it. It
+was caught **by accident, after the fact**: I ran the census once more post-roll as a
+"must stay at zero" check, minutes after my own induced probe had deliberately set a
+`deploy_path`. It still said **0**. A query that cannot see a value I had just
+written with my own hands is not a query. Had I not induced the probe, this would
+have stayed buried indefinitely and the register would still be carrying it.
+
+**The cheap check — and it is the rule this file keeps rediscovering.** Before
+recording a census, **make it return non-zero once.** Write the value you are hunting
+(or point the query at a row you know contains it) and confirm the query finds it.
+A zero that has never been shown capable of being non-zero is not evidence:
+
+```sql
+-- CORRECT: tolerant of jsonb's spacing, and requires a non-empty value
+WHERE collected_data::text ~ '"deploy_path"\s*:\s*"[^"]+"'
+--  orchestration_states: 1   <- and that 1 is my own probe, which is how I know it works
+--  site_work_items: 0 · active agent_definitions: 0   <- now measurements, not artefacts
+```
+
+**The conclusion did not change** — the corrected census still shows no legitimate
+caller ever set one, so deleting the override was right. **That is the uncomfortable
+part**: being right by luck reads exactly like being right by measurement, and the
+council, the register and four commits recorded it as the latter.
+
+**Second-order:** this is the `[MEASURED]`-marker rule's own failure mode, already
+written in CLAUDE.md — *"a `[MEASURED]` figure is only evidence if the measurement
+could have come out otherwise"*. I followed the marker rule in full: dated, sourced,
+JSON-shape-not-bare-word, three populations. Every one of those disciplines was
+satisfied by a query that was structurally incapable of returning anything else.
