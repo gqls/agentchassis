@@ -280,3 +280,32 @@ bug (190) with one proven mechanical repair; and the failed blog rebuild on
 finetuning.uk turned out to be the platform *protecting* the page — the rebuild came
 back with too little content and the save was refused whole — with the details handed
 to the lane that owns that site.
+
+**2026-08-04, and this one is a small confession worth reading.** I built the part of the
+new check that makes it usable unattended: instead of reporting a thousand places where a
+page *could* render a hole, it now compares against a recorded list and reports only what
+is **new**. That's the difference between a warning nobody reads and a warning worth
+wiring up.
+
+Then I nearly shipped it on a worthless test. I ran the comparison against unchanged data,
+it said "nothing new, nothing fixed", and I was ready to call it proven — but that answer
+could not have come out any other way. So I deliberately damaged one component to see
+whether the check would notice, and it turned out the check was **wrong**: my damage broke
+the component so badly it couldn't be read at all, and the tool responded by announcing
+that the component's two known problems had been **fixed**, and passed. A broken component
+could clear its own record. That is precisely the kind of blindness this entire piece of
+work exists to remove, and I had just rebuilt it inside the tool meant to detect it.
+
+It is fixed, and now proven three ways: a broken component fails the check as
+*uncovered* rather than passing as *fixed*; deliberately re-breaking a component we had
+repaired is reported as exactly one new problem; and deliberately repairing one that was
+broken is reported as one fewer. The accident was more useful than the test I had planned,
+which is usually how this goes.
+
+**Where that leaves the new check.** Everything about it is done and proven except the
+plumbing: it is a compiled program, and the daily job we'd hang it off currently runs a
+script the cluster can be handed directly. Packaging it is a small, ordinary piece of
+work; I have not done it, partly because a fresh version of the platform was being built
+and deployed while I worked, and adding a new image to that traffic is the sort of thing
+better done on a quiet tree. It is written down as the one remaining task, with the three
+options and my recommendation.
