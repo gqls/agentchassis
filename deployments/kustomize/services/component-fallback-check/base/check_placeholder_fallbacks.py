@@ -50,22 +50,31 @@ SECOND CLASS, added 2026-08-02 (owner ruling C on RFC_009): a field whose schema
 declares `on_missing: "skip_field"`, which the template REFERENCES but never
 GATES. When the datum is absent that renders a BLANK — an empty cell in
 platform-comparison, an empty row in product-specs, a missing subheadline —
-instead of skipping the element as the contract says. **Reported separately and
-deliberately NOT failing the exit code**: it is a milder defect (a blank asserts
-nothing untrue, a fabricated literal asserts a falsehood), 68 of them predated
-this check, and a red result nobody can clear is a red result everybody learns to
-ignore.
+instead of skipping the element as the contract says. It is reported separately
+because it is a MILDER defect: a blank asserts nothing untrue, where a fabricated
+literal asserts a falsehood.
 
-  UPDATE 2026-08-03 — that population is now **0**: the owner asked for the 68 to be
-  gated and migration 295 gated them across 20 components (RFC_009's decision record).
-  **The reason this class does not fail the exit code has therefore expired**, and
-  flipping it to exit 1 would close the door behind that work. NOT done unasked — it
-  changes what this check does to other lanes' components, and a legitimately new
-  component could turn the daily CronJob red until someone adds one `{{if}}`.
-  Note the limit of a clean result here, which 295 had to work around: this tests for
-  a gate ANYWHERE in the template and cannot see WHICH element the gate encloses. A
-  field gated inside its own `<td>` renders the identical empty cell and reports clean
-  — so "0 ungated" means the finding is cleared, not that the blank is gone.
+  UNTIL 2026-08-04 this class was reported WITHOUT failing the exit code, because 68
+  of them predated the check and a red result nobody can clear is a red result
+  everybody learns to ignore.
+
+  BOTH REASONS HAVE EXPIRED, and the owner ruled on 2026-08-04 that it now FAILS:
+  * the population is **0** — the owner asked for the 68 to be gated and migration
+    295 gated them across 20 components (RFC_009's decision record), so this ratchet
+    closes at zero and nothing goes red on day one;
+  * the standing objection — that a NO-OP gate satisfies this check — is answered.
+    Note the limit of a clean result here, which 295 had to work around: this tests
+    for a gate ANYWHERE in the template and cannot see WHICH element the gate
+    encloses. A field gated inside its own `<td>` renders the identical empty cell
+    and reports clean, so "0 ungated" means the finding is cleared, not that the
+    blank is gone. That gap is now covered from the other side by
+    cmd/component-render-check (CGV-030, daily since 2026-08-04), which renders the
+    component and reports the hole the no-op gate leaves behind. Enforcing here is
+    therefore no longer a green light bought with a cosmetic edit.
+  What it costs: a legitimately new component with an ungated skip_field turns the
+  daily CronJob red until someone adds one `{{if}}`. That is the intended price. It
+  does NOT block a commit — see WHERE IT RUNS below; nothing gates on this at commit
+  or build time.
 
 WHERE IT RUNS. Two places, one file:
   * by hand, by a session, via kubectl exec (the default);
@@ -80,7 +89,10 @@ WHERE IT RUNS. Two places, one file:
 ADVISORY: it is NOT wired into the pre-commit hook (a DB round-trip has no place
 blocking a shared commit, and content_components changes routinely land with no
 commit at all).
-Exit 0 = clean OR ungated-only · 1 = a FABRICATED FACT · 2 = could not reach the DB.
+Exit 0 = clean · 1 = a FABRICATED FACT **or** an ungated skip_field (both, since
+2026-08-04 — see the SECOND CLASS note above) · 2 = could not reach the DB.
+  ⚠ If you are reading an older runbook, doc_notes row or handoff, it will tell you
+  that ungated-only exits 0. That was true until 2026-08-04 and is now wrong.
 
 DELIBERATE EXCLUSIONS — report nothing here, on purpose:
 
@@ -497,10 +509,20 @@ def main():
     print(body)
     if args.report:
         write_doc_note(body)
-    # Exit 1 only for the SEVERE class. The ungated-blank class is reported but must
-    # not fail a gate on its own: 68 of them predate this check, and a red result
-    # nobody can clear is a red result everybody learns to ignore.
-    return 1 if findings else 0
+    # BOTH classes fail (owner ruling, 2026-08-04). Until today only FABRICATED
+    # facts exited 1, for two reasons that have each since expired:
+    #   * "68 of them predate this check" — migration 295 gated all 68, so the
+    #     population this would have made permanently red is 0. A ratchet closed at
+    #     zero costs nothing today and refuses the next regression.
+    #   * "a no-op gate satisfies it" — {{if .v}}{{.v}}{{end}} inside the same <td>
+    #     clears the finding and renders the identical blank, so enforcing this
+    #     alone would have bought a green light rather than a filled cell. That
+    #     objection is answered by cmd/component-render-check (CGV-030), live and
+    #     daily since 2026-08-04: it reads the RENDERED output, so the no-op gate
+    #     that satisfies this check still shows up there as a hole.
+    # Neither class is severe enough to block a commit and neither does: this runs
+    # from the daily CronJob and by hand, never from the pre-commit hook.
+    return 1
 
 
 if __name__ == "__main__":
