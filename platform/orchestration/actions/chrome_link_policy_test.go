@@ -171,17 +171,13 @@ func TestChromeLinkPolicyIgnoresNonPageLinks(t *testing.T) {
 //
 // The objection is correct and these pin the answer.
 
-func storedChromeRows(pairs ...string) *sqlmock.Rows {
-	r := sqlmock.NewRows([]string{"slot_name", "rendered_html"})
-	for i := 0; i+1 < len(pairs); i += 2 {
-		r.AddRow(pairs[i], pairs[i+1])
-	}
-	return r
+func markStaleRows(html string) *sqlmock.Rows {
+	return sqlmock.NewRows([]string{"rendered_html"}).AddRow(html)
 }
 
-// THE OBJECTION, answered: a header already serving the bad CTA is detected and
-// routed through the idempotence exit's own force channel.
-func TestStaleChromeLinkSlotsCatchesAnAlreadyRenderedBadCTA(t *testing.T) {
+// THE OBJECTION, answered: a header already serving the bad CTA is marked for
+// re-render via the signal the idempotence exit already honours.
+func TestMarkStaleChromeLinkSlotMarksAnAlreadyRenderedBadCTA(t *testing.T) {
 	db, mock := chromeLinkPolicyMockDB(t)
 	logger, logs := chromeLinkPolicyObserved()
 
@@ -191,24 +187,20 @@ func TestStaleChromeLinkSlotsCatchesAnAlreadyRenderedBadCTA(t *testing.T) {
 
 	// mortgagecalculator.co.uk's real shape: nav filtered to the one deployed
 	// page, CTA pointing at a planned one.
-	mock.ExpectQuery("FROM site_components").WillReturnRows(storedChromeRows(
-		"header", `<li><a href="/index.html">Home</a></li>`+
-			`<a href="/tools/stamp-duty/index.html" class="header-cta">Get started</a>`,
-		"footer", `<a href="/index.html">Home</a>`,
-	))
+	mock.ExpectQuery("FROM site_components").WillReturnRows(markStaleRows(
+		`<li><a href="/index.html">Home</a></li>` +
+			`<a href="/tools/stamp-duty/index.html" class="header-cta">Get started</a>`))
+	// The signal must be build_status='pending' AND carry the lock guard.
+	mock.ExpectExec("UPDATE site_components").WillReturnResult(sqlmock.NewResult(0, 1))
 
-	stale := staleChromeLinkSlots(context.Background(), db, uuid.New(),
-		[]string{"header", "footer"}, policy, logger)
+	got := markStaleChromeLinkSlot(context.Background(), db, uuid.New(), "header", policy, logger)
 
-	if !stale["header"] {
-		t.Error("the header holds a CTA the policy refuses and was NOT marked for re-render — " +
-			"the fix would protect future renders only and the live 404 would persist (bugs_open/191)")
-	}
-	if stale["footer"] {
-		t.Error("the footer links only to a deployed page and must NOT be re-rendered")
+	if got != "/tools/stamp-duty/index.html" {
+		t.Errorf("the offending href must be returned and named, got %q — without this the fix "+
+			"protects future renders only and the live 404 persists (bugs_open/191)", got)
 	}
 	if logs.Len() != 1 {
-		t.Fatalf("expected exactly 1 warning naming the slot, got %d: %+v", logs.Len(), logs.All())
+		t.Fatalf("expected exactly 1 warning, got %d: %+v", logs.Len(), logs.All())
 	}
 	if !strings.Contains(fmt.Sprint(logs.All()[0].ContextMap()["href"]), "stamp-duty") {
 		t.Errorf("the warning does not name the offending href: %+v", logs.All()[0].ContextMap())
@@ -218,34 +210,10 @@ func TestStaleChromeLinkSlotsCatchesAnAlreadyRenderedBadCTA(t *testing.T) {
 	}
 }
 
-// Only a slot being rendered may be forced. A stale slot outside the requested
-// set is not this call's business.
-func TestStaleChromeLinkSlotsIgnoresSlotsNotBeingRendered(t *testing.T) {
-	db, mock := chromeLinkPolicyMockDB(t)
-
-	mock.ExpectQuery(chromeLinkPolicyFetchableQuery).WillReturnRows(
-		chromeLinkPolicyPageRows("/index.html"))
-	policy := LoadChromeLinkPolicy(context.Background(), db, uuid.New(), zap.NewNop())
-
-	mock.ExpectQuery("FROM site_components").WillReturnRows(storedChromeRows(
-		"footer", `<a href="/never-built.html">Ghost</a>`))
-
-	stale := staleChromeLinkSlots(context.Background(), db, uuid.New(),
-		[]string{"header"}, policy, zap.NewNop())
-
-	if len(stale) != 0 {
-		t.Errorf("only the slots being rendered may be forced, got %+v", stale)
-	}
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Fatal(err)
-	}
-}
-
-// FAIL-SAFE DIRECTION. Re-rendering chrome is a WRITE, so a failed read must
-// never trigger one — that is how a bad artefact gets manufactured rather than
-// repaired. Inverting this turns an infrastructure blip into a fleet-wide
-// unforced chrome rewrite.
-func TestStaleChromeLinkSlotsDoesNotForceOnAFailedRead(t *testing.T) {
+// LOCK-AWARENESS, inherited from repointRetiredChromeSlot's shape rather than
+// reimplemented: 0 rows affected means the slot is human-locked (bugs_open/069)
+// or gone. It must NOT be reported as marked, and it must still be visible.
+func TestMarkStaleChromeLinkSlotRespectsAHumanLock(t *testing.T) {
 	db, mock := chromeLinkPolicyMockDB(t)
 	logger, logs := chromeLinkPolicyObserved()
 
@@ -253,16 +221,59 @@ func TestStaleChromeLinkSlotsDoesNotForceOnAFailedRead(t *testing.T) {
 		chromeLinkPolicyPageRows("/index.html"))
 	policy := LoadChromeLinkPolicy(context.Background(), db, uuid.New(), zap.NewNop())
 
-	mock.ExpectQuery("FROM site_components").WillReturnError(errors.New("connection reset"))
+	mock.ExpectQuery("FROM site_components").WillReturnRows(markStaleRows(
+		`<a href="/never-built.html" class="header-cta">Go</a>`))
+	mock.ExpectExec("UPDATE site_components").WillReturnResult(sqlmock.NewResult(0, 0)) // locked
 
-	stale := staleChromeLinkSlots(context.Background(), db, uuid.New(),
-		[]string{"header"}, policy, logger)
-
-	if len(stale) != 0 {
-		t.Errorf("a failed read must not force a chrome re-render, got %+v", stale)
+	if got := markStaleChromeLinkSlot(context.Background(), db, uuid.New(), "header", policy, logger); got != "" {
+		t.Errorf("a locked slot must not report as marked, got %q", got)
 	}
 	if logs.Len() != 1 {
-		t.Errorf("the failed read must be reported, got %d: %+v", logs.Len(), logs.All())
+		t.Errorf("a refused mark must still be visible, got %d: %+v", logs.Len(), logs.All())
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// Chrome that links only where the policy allows must NOT be marked — no write
+// at all. ExpectationsWereMet proves the UPDATE never ran.
+func TestMarkStaleChromeLinkSlotLeavesHealthyChromeAlone(t *testing.T) {
+	db, mock := chromeLinkPolicyMockDB(t)
+
+	mock.ExpectQuery(chromeLinkPolicyFetchableQuery).WillReturnRows(
+		chromeLinkPolicyPageRows("/index.html"))
+	policy := LoadChromeLinkPolicy(context.Background(), db, uuid.New(), zap.NewNop())
+
+	mock.ExpectQuery("FROM site_components").WillReturnRows(markStaleRows(
+		`<a href="/index.html">Home</a><a href="https://example.org/">Partner</a>` +
+			`<a href="#top">Top</a><a href="mailto:hi@example.org">Mail</a>`))
+	// No ExpectExec: a healthy slot must not be written to at all.
+
+	if got := markStaleChromeLinkSlot(context.Background(), db, uuid.New(), "header", policy, zap.NewNop()); got != "" {
+		t.Errorf("healthy chrome must not be marked, got %q", got)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// FAIL-SAFE DIRECTION, and it is the OPPOSITE of the policy's. Re-rendering is a
+// WRITE, so a failed read must never trigger one — that is how a bad artefact is
+// manufactured rather than repaired. Inverting this turns an infrastructure blip
+// into a fleet-wide unforced chrome rewrite.
+func TestMarkStaleChromeLinkSlotDoesNotMarkOnAFailedRead(t *testing.T) {
+	db, mock := chromeLinkPolicyMockDB(t)
+
+	mock.ExpectQuery(chromeLinkPolicyFetchableQuery).WillReturnRows(
+		chromeLinkPolicyPageRows("/index.html"))
+	policy := LoadChromeLinkPolicy(context.Background(), db, uuid.New(), zap.NewNop())
+
+	mock.ExpectQuery("FROM site_components").WillReturnError(errors.New("connection reset"))
+	// No ExpectExec.
+
+	if got := markStaleChromeLinkSlot(context.Background(), db, uuid.New(), "header", policy, zap.NewNop()); got != "" {
+		t.Errorf("a failed read must not mark anything, got %q", got)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatal(err)
@@ -271,8 +282,7 @@ func TestStaleChromeLinkSlotsDoesNotForceOnAFailedRead(t *testing.T) {
 
 // An unfiltered policy allows everything, so nothing can be stale against it —
 // and, load-bearing for a first build, it must issue NO query at all.
-// ExpectationsWereMet proves the absence.
-func TestStaleChromeLinkSlotsIssuesNoQueryWhenUnfiltered(t *testing.T) {
+func TestMarkStaleChromeLinkSlotIssuesNoQueryWhenUnfiltered(t *testing.T) {
 	db, mock := chromeLinkPolicyMockDB(t)
 
 	mock.ExpectQuery(chromeLinkPolicyFetchableQuery).WillReturnRows(chromeLinkPolicyPageRows())
@@ -280,40 +290,37 @@ func TestStaleChromeLinkSlotsIssuesNoQueryWhenUnfiltered(t *testing.T) {
 	if !policy.Unfiltered() {
 		t.Fatal("precondition: a zero-deployed site must produce an unfiltered policy")
 	}
+	// No ExpectQuery for site_components, no ExpectExec.
 
-	// No ExpectQuery for site_components.
-	stale := staleChromeLinkSlots(context.Background(), db, uuid.New(),
-		[]string{"header"}, policy, zap.NewNop())
-
-	if len(stale) != 0 {
-		t.Errorf("an unfiltered policy can refuse nothing, got %+v", stale)
+	if got := markStaleChromeLinkSlot(context.Background(), db, uuid.New(), "header", policy, zap.NewNop()); got != "" {
+		t.Errorf("an unfiltered policy can refuse nothing, got %q", got)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatal(err)
 	}
 }
 
-// Non-page hrefs in stored chrome (external links, mailto, anchors) must not
-// trigger a re-render — they cannot 404 against the pages table.
-func TestStaleChromeLinkSlotsIgnoresNonPageHrefsInStoredChrome(t *testing.T) {
-	db, mock := chromeLinkPolicyMockDB(t)
-
-	mock.ExpectQuery(chromeLinkPolicyFetchableQuery).WillReturnRows(
-		chromeLinkPolicyPageRows("/index.html"))
-	policy := LoadChromeLinkPolicy(context.Background(), db, uuid.New(), zap.NewNop())
-
-	mock.ExpectQuery("FROM site_components").WillReturnRows(storedChromeRows(
-		"header", `<a href="https://example.org/">Partner</a><a href="#top">Top</a>`+
-			`<a href="mailto:hi@example.org">Mail</a><a href="/index.html">Home</a>`))
-
-	stale := staleChromeLinkSlots(context.Background(), db, uuid.New(),
-		[]string{"header"}, policy, zap.NewNop())
-
-	if len(stale) != 0 {
-		t.Errorf("non-page hrefs cannot 404 against the pages table, got %+v", stale)
+// The signal must be the one the idempotence exit honours, and the write must
+// carry the lock guard. A source scan, because a mock cannot tell 'pending' from
+// any other string it was handed.
+func TestMarkStaleChromeLinkSlotUsesTheSupportedSignalAndTheLockGuard(t *testing.T) {
+	src, err := os.ReadFile("chrome_link_policy.go")
+	if err != nil {
+		t.Fatalf("read chrome_link_policy.go: %v", err)
 	}
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Fatal(err)
+	body := string(src)
+	if !strings.Contains(body, "SET build_status = 'pending'") {
+		t.Error("the stale-link mark no longer sets build_status='pending' — that is the signal " +
+			"renderAndStoreSiteComponent's idempotence exit actually honours, and the LANDMINES entry " +
+			"for that exit records that clearing rendered_html instead nearly destroyed a slot")
+	}
+	if !strings.Contains(body, `pageComponentAgentWritableSQL("")`) {
+		t.Error("the stale-link mark no longer carries pageComponentAgentWritableSQL — a human-locked " +
+			"chrome slot would be marked for overwrite (bugs_open/069)")
+	}
+	if strings.Contains(body, "rendered_html = ''") || strings.Contains(body, "SET rendered_html") {
+		t.Error("the stale-link mark must never blank rendered_html to force a render — see the " +
+			"LANDMINES entry on this exit")
 	}
 }
 

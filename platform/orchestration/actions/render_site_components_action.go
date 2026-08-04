@@ -283,23 +283,12 @@ func RenderSiteComponentsAction(ctx context.Context, params ActionParams) (inter
 		zap.String("primary_color", siteData.PrimaryColor),
 	)
 
-	// A slot already holding chrome that links where the policy now refuses must
-	// be re-rendered, or this fix protects future renders only and every header
-	// already carrying a dead CTA keeps it for ever (bugs_open/191, raised as the
-	// council's gating objection: "a renderer fix is inert until something
-	// re-renders", 016b §9). The idempotence exit below asks "does this slot hold
-	// HTML?", never "does it hold html that still SATISFIES policy?" — the same
-	// blind spot bugs_open/166 fixed for component identity, in its link-target
-	// spelling. So it is answered the same way: detect before the exit, and route
-	// through the exit's own force channel rather than inventing a second one.
-	staleLinkSlots := staleChromeLinkSlots(ctx, params.DB, siteID, slots, chromeLinks, params.Logger)
-
 	// Render each slot
 	rendered := make(map[string]bool)
 	lockedSlots := []string{}
 	ineligibleChrome := map[string]string{}
 	for _, slot := range slots {
-		success, locked, degraded := renderAndStoreSiteComponent(ctx, params.DB, siteID, slot, renderCtx, forceRerender || staleLinkSlots[slot], params.Logger)
+		success, locked, degraded := renderAndStoreSiteComponent(ctx, params.DB, siteID, slot, renderCtx, forceRerender, chromeLinks, params.Logger)
 		rendered[slot] = success
 		if locked {
 			lockedSlots = append(lockedSlots, slot)
@@ -313,7 +302,6 @@ func RenderSiteComponentsAction(ctx context.Context, params ActionParams) (inter
 		zap.Any("rendered", rendered),
 		zap.Strings("locked_slots_preserved", lockedSlots),
 		zap.Any("ineligible_chrome", ineligibleChrome),
-		zap.Any("stale_link_slots_rerendered", staleLinkSlots),
 	)
 
 	// locked_slots_preserved reports human locks that refused a re-render
@@ -622,6 +610,7 @@ func renderAndStoreSiteComponent(
 	slot string,
 	renderCtx *RenderContext,
 	force bool,
+	chromeLinks ChromeLinkPolicy,
 	logger *zap.Logger,
 ) (ok bool, locked bool, degraded string) {
 	// degraded names the component this slot fell back to when the library held
@@ -647,6 +636,13 @@ func renderAndStoreSiteComponent(
 		// the platform would not choose, and in both cases no site can fix it.
 		degraded = repointBlocked
 	}
+
+	// Same position, same reason, one bug along: the exit below asks whether the
+	// slot holds HTML, never whether it holds html that still satisfies the LINK
+	// policy, so a header already serving a dead CTA reads as done for ever
+	// (bugs_open/191). Marks `build_status = 'pending'` — the signal the exit
+	// already honours for the repoint above — under the same lock guard.
+	markStaleChromeLinkSlot(ctx, db, siteID, slot, chromeLinks, logger)
 
 	// Check if already rendered (unless force)
 	if !force {
