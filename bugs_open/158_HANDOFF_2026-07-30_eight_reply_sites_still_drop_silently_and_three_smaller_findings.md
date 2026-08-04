@@ -544,3 +544,71 @@ never retried. Two such rows now exist from tonight alone. Related territory:
 `bugs_open/173` (loop error routing), `bugs_open/029` (hung spawns saturate
 dispatch). Whoever owns the hourly-roll cadence question may also want to know the
 fleet burned two council rounds' credits on it tonight.
+
+---
+
+# 2026-08-04 — item 3 council APPROVED (round 4), and one objection CORRECTED A REAL ERROR OF MINE
+
+## APPROVED, `ee9f6210-3bda-4efa-a25c-92ce4a7666a1`, round 4
+
+Rounds 1-3 were killed by chassis rolls / infra (`e5f7f2f0`, `7ec39ca1` FAILED,
+`1fbc1db6` FAILED); round 4 (`da33abc0`) survived a quiet window and returned
+**APPROVED, 4 advisory objections, none high, `gated_by_truncation: false`.**
+
+## ⚠ THE ONE THAT WAS RIGHT: my residual justification used the WRONG POPULATION
+
+`prior_art_librarian` (medium) objected that my grounds for leaving
+`stripResultForRetry`'s residual gap open — *"fleet-wide max reply payload ever
+recorded is 48,327 bytes across 47,577 calls"* — is **an LLM-call statistic from
+`llm_call_log`, not webscrape reply traffic**. It is exactly right, and this is the
+same class of error this lane logged twice already: **answering with the population
+you have rather than the one the claim is about.**
+
+Re-measured on the correct instruments:
+
+| measure | value |
+|---|---|
+| `degraded_for_transport` present (stripResultForRetry's OWN marker) | **0** of 3,246 rows |
+| `truncated_fields` present (truncation fired) | **6** |
+| `DISCARDED and no copy` present (content actually destroyed) | **4** |
+| scrape-bearing rows: max `collected_data` | **5,453,181 bytes** |
+| scrape-bearing rows: mean `collected_data` | **1,623,357 bytes** |
+
+**What changes and what survives:**
+- **The conclusion survives, on a valid instrument.** `stripResultForRetry` has never
+  fired — measured by its own marker, not by an unrelated table. The residual stays
+  open on that basis.
+- **The scale claim was badly wrong.** Scrape payloads are ~34× the LLM figure I
+  cited by mean and reach **5.45MB** accumulated. Anyone quoting "48KB" as the
+  ceiling for THIS mechanism should stop; that number describes LLM completions.
+  (Caveat stated so this file does not repeat the error inverted: `collected_data`
+  is ACCUMULATED orchestration state across steps, so 5.45MB is not one reply —
+  it bounds the neighbourhood, not the message.)
+- **It is supporting evidence FOR decision 1**: content was measurably destroyed
+  **4 times** in retention. That is exactly what the fix prevents, no longer
+  hypothetical.
+- It also strengthens **decision 2** retroactively: payloads in this range sit right
+  at the 5MB ceiling those 74 topics only just received.
+
+## The other three objections — all verified, none required a change
+
+- **`guardian` (medium): does the stored URI rot?** No. `uploadContent` returns
+  `(uri, presignedURL, err)`; `platform/storage/s3.go:125` shows `uri` is
+  `fmt.Sprintf("s3://%s/%s", bucket, key)` — durable, no expiry. My fallback takes
+  the **first** return and discards the presigned one, and `*_uri` keys (the ones
+  markers resolve) carry only that. The 7-day presigned URL goes to `*_url` keys,
+  matching the pre-existing convention. Verified at source, not by variable name.
+- **`editquality` (medium) + `guardian` (low): uncovered call sites?** No.
+  `grep` across all non-test Go: exactly the 2 in `adapter.go:353,447`, both
+  updated. `batch_handler.go` uses its own separate pair
+  (`truncateBatchResult`/`stripBatchResultsForRetry`), untouched.
+- **`editquality` (low): was `topLevelFieldURIKeys` already complete?** Yes — all 3
+  of `truncatableTopLevelFields` are mapped, 0 unmapped, which
+  `TestEveryTruncatedFieldHasAURIRuling` has been asserting all along.
+- **`debug_historian` (medium): no live verification named** — and it cites the
+  landmine this very lane wrote hours earlier. Fair on the submission's text. Done
+  in practice: verified on all 3 replicas at `v1.0.1245`, and **re-verified after
+  another session rolled the adapter to `v1.0.1246`** (positives 1/1/1, negative
+  control 0/0/0) — the fix survived a roll it did not initiate.
+
+## Item 3 is CLOSED
