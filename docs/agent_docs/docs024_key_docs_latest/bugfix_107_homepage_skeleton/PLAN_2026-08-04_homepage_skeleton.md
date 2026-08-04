@@ -4,6 +4,19 @@
 **Bug:** `bugs_open/107_HANDOFF_2026-07-27_every_site_gets_the_same_homepage_skeleton.md`
 **Owner-visible history:** `README_where_we_are.md` beside this file.
 
+> **CORRECTED 2026-08-04, ~2 hours after opening — THIS LANE DOES NOT FIX THE
+> BUG.** The claim below ("take on candidate 1") was wrong twice over, found by
+> the P0 research itself: the owner PARKED this bug on 2026-07-27
+> (`oufe/HANDOFF_2026-07-27_continue_here.md:78-82`), and the owner-approved
+> `vigilant_designer_offer_analysis` programme (active, Phase 0 proven 08-04)
+> carries candidate 1 as its Phase 4.1 and candidate 3 as Phase 4.2. Per the
+> coordination rule ("if it says OWNED: contribute into the bug file, do not
+> compete") this lane CONVERTED to a research contribution: mechanism map
+> appended to the bug file, CONTRIB filed into the owning lane, wrong call
+> logged in WRONG_CALLS.md. P1–P4 below are STRUCK — they are the owning
+> lane's to run, on their schedule. What caught it and the cheap check are in
+> the WRONG_CALLS entry of this date.
+
 ## Validity re-check (2026-08-04, before any work)
 
 The bug is STILL VALID and got worse since filing. Fleet-wide homepage

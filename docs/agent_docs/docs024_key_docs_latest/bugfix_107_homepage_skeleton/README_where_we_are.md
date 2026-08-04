@@ -28,3 +28,20 @@ think it is. Two research passes over the code and docs are running now.
 (Also closed a stale file on the way in: bug 121, the "house voice"
 duplication, was actually fixed and live on 27 July — the paperwork just never
 caught up. Verified it end to end today and moved it to closed.)
+
+## 2026-08-04, later — standing down: this fix already belongs to someone
+
+The research came back with something the ownership checks had missed: you
+parked this bug on 27 July, and the "vigilant designer" programme you approved
+on 2 August already has this exact fix scheduled as its Phase 4. So we are not
+building it — that would be two teams building one thing.
+
+What we did instead: wrote everything we learned into the bug file itself (a
+full map of where the sameness actually comes from — it is one AI planning
+step, plus two fallback paths that copy the same shape back in), handed the
+research to the vigilant-designer thread in their own directory, and recorded
+how the ownership checks missed this so the next session's checks are better.
+The research is not wasted — whoever builds Phase 4 starts from a map instead
+of a blank page.
+
+This directory stays as the record; no further work planned here.

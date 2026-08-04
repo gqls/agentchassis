@@ -19739,3 +19739,82 @@ measurement that was never taken, written in the past tense. The tell is identic
 own lane had already produced a smaller instance of it the same hour (a test comment quoting
 deleted code, which inflated the census grep the close-out tells the next reader to run), so
 this is twice in one session that my *prose about* the work contaminated the *evidence for* it.
+
+---
+
+## 2026-08-04 — I mutated a shared-tree source file with a backup that was never created, and only the diff caught it
+
+**The claim (implicit, and the dangerous kind).** My mutation-testing recipe — the one I had
+just written into `bugfix_192_.../RUNBOOK` as the safe pattern — is
+`cp $F $SCRATCH/x.go` → mutate → test → `cp $SCRATCH/x.go $F` → `diff`. I ran it against
+`platform/messaging/validation_drop.go` believing the restore was guaranteed because the
+copy came first.
+
+**What actually happened.** `$SCRATCH` no longer existed (the session scratchpad had been
+cleared). The `cp` failed. `set -e` did **not** stop the script. The mutation applied, the
+tests failed as designed — and then the restore `cp` failed too, leaving a **shared-tree
+source file sitting in a deliberately-broken state**, on a branch other sessions build from.
+
+```
+cp: cannot create regular file '.../scratchpad/vd.orig.go': No such file or directory
+=== MUTATED: tests must FAIL ===        <- ran anyway
+--- FAIL: ...                            <- the mutation worked
+cp: cannot stat '.../scratchpad/vd.orig.go': No such file or directory
+diff: .../vd.orig.go: No such file or directory
+```
+
+**What caught it.** The trailing `diff` — the one step in the recipe that exists purely to
+prove the restore happened. Without it I would have moved on to the council submission with
+`MatchedPermanentFailure` reduced to the pre-fix prose-only body, and the next session to run
+`make build-*` would have shipped it. The tests would have caught it eventually; the point is
+that *I* would not have, because I had already read "tests FAIL" as success.
+
+**The cheap check — two, and the second is the general one.**
+- **Verify the backup EXISTS before mutating, not after.** One line:
+  `cp $F $BAK && test -s $BAK || exit 1`. A backup step whose failure is survivable is not a
+  backup step. Better still: use `git stash`-free recovery that needs no external state —
+  `git show HEAD:<path>` restores any *committed* file, so mutate only files whose current
+  state is committed, or write the backup somewhere you have just verified is writable.
+- **A destructive recipe must fail CLOSED.** Mine failed open twice in one run: the missing
+  backup did not stop the mutation, and the missing restore did not stop the script. When a
+  procedure's safety depends on step N having succeeded, step N+1 must assert it rather than
+  assume it — the same principle as this repo's rule that a migration's verify block must be
+  `DO`/`RAISE` and not a bare `SELECT`, because `ON_ERROR_STOP` ignores a non-empty result.
+
+**Related, and the reason this is more than an anecdote:** I wrote that exact recipe into a
+RUNBOOK as house guidance three hours earlier. The recipe was right about *what* to do and
+silent about *what must hold for it to be safe*, which is how a correct-looking procedure
+becomes a hazard. The RUNBOOK entry has been corrected in place.
+
+## 2026-08-04 (late evening) — I "claimed" a bug the owner had parked and an approved programme already owned (bugfix_107_homepage_skeleton lane)
+
+**The claim.** Commit `0a24f1e06`: "open(107 lane): homepage-skeleton bug re-validated on
+the live fleet and claimed." I had run the full competing-work sweep I knew to run —
+`who-owns.py`, live-transcript greps across ~30 sessions, the `site_work_items` queue —
+all clean, so I claimed the lane and dispatched two research agents.
+
+**Actually.** The owner parked this bug on 2026-07-27 ("not a blocker for now",
+`oufe/HANDOFF_2026-07-27_continue_here.md:78-82`), and on 2026-08-02 approved a programme
+whose Phase 4.1/4.2 IS this bug's fix, verbatim, in an active lane
+(`vigilant_designer_offer_analysis/PLAN_2026-08-02…` — Phase 0 proven the same day I
+claimed). Implementing would have been the `bugs_open/023` incident again: a thread
+promoting a bug with implementation direction while its owner was mid-programme.
+
+**What caught it.** Not my ownership sweep — a *research* agent, dispatched to find prior
+art for the fix, came back with the park and the programme. The sweep and the research
+asked different questions: the sweep asked "who has touched this BUG's file or number";
+the park and the programme never touch either — the oufe handoff refers to the bug in
+prose, and the vigilant plan describes the fix without citing the bug number at all.
+
+**The cheap check, missed twice over.** Before claiming a bug, read the FILING lane's
+most recent handoff (the filer knows the bug's fate — parks, supersessions, owner
+rulings land there first), and grep `docs024_key_docs_latest/*/PLAN_*.md` for the bug's
+*mechanism words* (here "archetype", "anti-brochure", "sameness"), not its number. My
+every ownership check was keyed on `107_HANDOFF` — the exact key the real owners never
+used. Same family as "a grep proves absence only for the SPELLING it searches", which
+is already in MEMORY, and I ran that grep anyway.
+
+**Cost.** Two research agents (~340k tokens) and a lane-opening commit that had to be
+corrected — though the research itself was salvaged: it became the bug file's 2026-08-04
+mechanism map and a CONTRIB into the owning lane, so the tokens were not wasted, only
+the "claimed" was wrong.

@@ -102,3 +102,71 @@ converges, so the test needs two at once.
   how developed they are. They also need to differ by kind.
 - `docs024_key_docs_latest/per_site_ai/` — the archetype × pattern grid that
   candidate 1 would draw on rather than invent.
+
+---
+
+## 2026-08-04 — STILL VALID, OWNED BY vigilant_designer Phase 4, and the mechanism is now mapped
+
+Contributed by the bug-sweep session that briefly claimed this bug the same
+evening (`0a24f1e06`) before finding the ownership trail — recorded here so the
+next reader does not repeat either the claim or the research.
+
+**Ownership, in order of authority:**
+- The **owner parked this bug 2026-07-27** — "not a blocker for now"
+  (`oufe/HANDOFF_2026-07-27_continue_here.md:78-82`). No recorded un-parking.
+- The **owner then approved a programme that carries the fix**:
+  `docs024_key_docs_latest/vigilant_designer_offer_analysis/PLAN_2026-08-02…`
+  **Phase 4.1** is candidate 1 verbatim (per-archetype required AND forbidden
+  sections in the build-site-planner prompt, anti-sameness instruction,
+  dormant-component steering), **Phase 4.2** is candidate 3
+  (`check_composition_convergence`), and Phase 3.1's recompose handler carries
+  "archetype constraints" too. That lane is ACTIVE (Phase 0 proven 08-04) and
+  its plan flags 4.1 as council/owner-gated. **So: contribute here, do not
+  fix this out from under that lane.**
+
+**Re-validation (the bug is not stale):** the newest framework-built site,
+lendzy.co.uk (2026-08-02), classified `hub` in `site_specs.classification`,
+was built `hero > brief-explanation > info-card-grid > mechanism-flow >
+call-to-action`. The census SQL lives in
+`bugfix_107_homepage_skeleton/RUNBOOK_homepage_skeleton.md` §1.
+
+**Mechanism map for the Phase-4 implementer** (full detail with citations in
+`bugfix_107_homepage_skeleton/NOTES_homepage_skeleton.md`; verify against the
+tree at implementation time — this is a snapshot):
+
+1. The composition is born in ONE place: `build-site-planner`'s `plan_site`
+   LLM step (prompt in `agent_definitions.default_config`; in-repo mirror
+   `docs/agent_docs/sql_for_agents/053_build_site_planner.sql:1978-2228`).
+   `plan_sections_action.go` only triages a list it is handed.
+2. `load_components` offers the WHOLE library — no `suitable_site_types`
+   predicate — and the prompt's one-shot example is itself the brochure
+   skeleton (`"sections": ["hero","features","testimonials","call-to-action"]`).
+   Rule 11 (news_feed → latest-news) is the only site-data-conditional
+   section rule; nothing forbids a section or constrains order.
+3. The LLM already emits `site_type` in its plan JSON and
+   `WriteSitePlanAction` discards it (`site_plans` has no column).
+4. `component_selector.go:176` already scores `suitable_site_types` (+0.35)
+   but NO live `plan_sections` step config passes `site_type` — the hook is
+   wired and starved (065/246/309 configs pass only site_id/sections/
+   page_name). `content_components.suitable_site_types` is populated on
+   86/178 active components.
+5. Two post-planner fallbacks re-impose the skeleton and must be constrained
+   too or the prompt fix leaks: `defaultSectionsForPage`
+   (`apply_gap_plan_action.go:953-978`, hardcoded `hero > … > call-to-action`,
+   site_type not a parameter) and the modal same-role sibling synthesis
+   (`load_page_sections_from_spec_action.go:281-370`), which persists the
+   borrowed skeleton into `pages.sections`.
+6. `validate_components: true` silently drops unresolvable section names
+   (`v3_site_actions.go:3055-3062`) — contradicting the roadmap block's
+   promise that unknown section_types reach the selector. Candidate 2 dies
+   here unless this is fixed alongside.
+7. Three incompatible `site_type` vocabularies are in flight (classifier,
+   strategist, old site-classifier — SPEC-010), and the
+   `suitable_site_types` values match none of them exactly. Phase 4.1's
+   "site_type vocabulary extension" flag is the right instinct.
+8. Traps recorded for this exact surface: `pages.sections` is a CACHE of
+   `site_plan_sections` (LANDMINES :244); `sections=[]` on a deployed page is
+   a positive statement — do not attach furniture to tool/blog pages
+   (WRONG_CALLS :1303, `bugs_open/001`); built compositions are
+   force-preserved on re-plan (`reconcilePlanWithRealised`; release valve
+   `recompose_pages`).
