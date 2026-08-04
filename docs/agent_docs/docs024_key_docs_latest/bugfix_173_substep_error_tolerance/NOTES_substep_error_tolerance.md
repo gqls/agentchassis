@@ -249,3 +249,67 @@ Both `reuse_agent` and `architecture` noted that owner ruling 2026-07-29 §1 is 
 Both agreed with the reading — `architecture` at length (*"this is the shape the 2026-07-29
 owner ruling explicitly carved out of the RFC gate"*) — but flagged that the author is not the
 ruling's owner. **Left standing for the owner, not resolved here.** It is in the README.
+
+---
+
+## 2026-08-04 — LIVE on v1.0.1250, pod-verified with three controls; induction seeded and queued
+
+A fresh chassis build rolled. **The fix is live**, and this is the measurement rather than the
+inference — `bugs_open/153`'s rule is that a roll is not evidence your fix shipped, so the
+image was grepped, on **both** replicas (`agent-chassis-88cf8787-4dzzx`, `-5z5sn`, both
+`v1.0.1250`, started 10:29:20Z/10:29:40Z):
+
+```
+NEW  resolveSubstepContinueOnError                        = 2   (definition + call site)
+NEW  "Substep declares continue_on_error with a non-bool" = 1
+CTRL "continue_on_error is true for this loop iteration"  = 1   (pre-existing; the probe works)
+NEG  resolveSubstepContinueOnErrorXYZZY                   = 0   (the probe CAN return 0)
+```
+
+The negative control is the one that is usually skipped and is the reason to trust the rest: a
+`grep -c` that never returns 0 is not measuring anything. All four values are as predicted
+before the roll, and the pre-roll reading of the same probes was `0 / 0 / 1 / —`.
+
+### The induction, designed so that a pass cannot be a coincidence
+
+Two throwaway agents (`SEED_2026-08-04_induction_agents.sql`), each setting the **loop**-level
+flag to the **opposite** of the substep's:
+
+| agent | loop | substep `boom` | expect |
+|---|---|---|---|
+| `test-173-tolerant-substep` | (unset) — strict | `true` | COMPLETED, both iterations skipped |
+| `test-173-strict-substep` | `true` — tolerant | `false` | FAILED |
+
+That opposition is deliberate: if expansion still clobbered the substep's value, **each run
+would produce the other run's outcome**, so a stamp-regression cannot pass as a success.
+
+Two design checks done **before** dispatching, because a fault that does not fire makes the
+tolerant branch read COMPLETED for entirely the wrong reason:
+
+1. `QueryDatabaseAction` returns `return nil, fmt.Errorf("query failed: %w", err)` on a SQL
+   error (`database_actions.go`), i.e. a genuine Go error that fails the step and reaches the
+   coordinator's error path — not a soft error stuffed into a result.
+2. `SELECT 1/0` really does raise (`ERROR: division by zero`) and `SELECT 1 AS n UNION ALL
+   SELECT 2` really does return 2 rows. Both run against the live DB, not assumed.
+
+### MISSTEP — I suppressed kcat's output on the first two dispatches
+
+I sent the first two runs with `>/dev/null 2>&1` on the `kcat` invocation, to keep the shell
+output tidy. **`kcat -P` can send nothing while exiting 0** — that is a recorded landmine on
+this estate, and suppressing the output is precisely how you fail to see it. So for those two
+orchestration ids, "published" is **not established**, and their absence from
+`orchestration_states` cannot be attributed to queue latency with any confidence.
+
+Re-dispatched with output visible; exit 0 and no error, though that is still not a delivery
+receipt. **The rule for next time is simple: never redirect kcat's output on this estate.**
+
+### Status at the end of this session — queued, not witnessed
+
+No `orchestration_states` row for any `ind173-%` run yet. That is **not** being read as a
+dropped dispatch: CLAUDE.md records publish→start at **29 minutes** under normal load, and the
+generic lane is the one `bugs_open/096` is about. The fleet is demonstrably alive (orchestration
+updates in most minutes through 10:47Z), so the lane is draining, just not to me yet.
+
+**`bugs_open/173` therefore stays OPEN**, with the fix live and the induction owed. Everything
+needed to finish it — the expected results, what would REFUTE the fix, and the cleanup
+obligation for the two seeded agents — is in `HANDOFF_2026-08-04_continue_here.md`.
