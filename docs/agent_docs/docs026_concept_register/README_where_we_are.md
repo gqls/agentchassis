@@ -420,3 +420,73 @@ reviewer's probation verdict, the two remaining councils, the fleet audit, the
 standards table, the multi-model gauntlet), and the landmines written down so
 nobody pays for them twice. Today's milestone summary is
 `SUMMARY_where_we_are_2026-07-20.md`, written to be read aloud.
+
+**Bringing the register up to date, and clearing out the duplicate documents
+(2026-08-04).** You asked what the concept register is, how it was collected, what
+to do next — and then to bring it up to date and delete the out-of-date duplicate
+documents.
+
+The register is a complete list of every nameable thing this platform does — every
+mechanism, contract, agent, tool and idea — with a status on each saying whether
+it's real. It was built in July by sweeping all ~4,100 documents under `docs/`,
+pulling out 2,185 raw concepts, merging them down to 1,627, and then checking every
+single one against the actual code and database, which corrected 124 of them. It's
+grown since to 1,756, one entry at a time, added by whichever thread built the
+thing. The point of it is that a session about to build something can find out
+whether it already exists — and the council seats that review our changes are
+seeded from it, so a wrong entry isn't just misleading prose, it's false evidence
+in a machine review.
+
+What "up to date" turned out to mean wasn't another sweep. The sweep froze on 13
+July and 129 of the 155 workstreams on disk are newer than that, so re-sweeping
+would be a treadmill. What keeps it current is that every thread registers what it
+builds, and a coverage check that shouts when a workstream appears that the
+register has never heard of. So the real question was whether that machinery still
+works. It didn't, in two places, and both failures were the same kind — **a check
+that could not have failed.**
+
+The first: 34 concepts had a proper entry in the register and no row in the master
+index. Among them the entire first half of the claims-verification layer — the
+thing that stops our sites making claims we can't back up. The index is what
+everyone actually looks in, so those 34 were invisible in exactly the lookup they
+exist for; anyone searching would conclude they didn't exist. It had survived about
+twenty careful re-measurements because of how people were measuring: count the rows,
+compare with last time's row count, confirm your own addition landed. That tells you
+nothing about a row nobody ever wrote. I've backfilled all 34, and put the check
+that *can* see it into the file's header — compare the entries against the rows,
+both directions. They now agree exactly, 1,756 each way.
+
+The second: the coverage check's "known and accepted" list wasn't accepting
+anything that had been annotated. Sessions had been writing a note beside each line
+explaining why that lane doesn't need an entry — the most useful thing in the file
+— and the note stopped the line working, so those lanes were reported as brand new
+every single run. Twelve of the seventeen "new" items that morning were things
+already decided weeks ago. That's the exact failure the check's own comments say it
+exists to avoid: a report nobody reads because it's mostly noise. Fixed, and the
+annotations now survive a rebuild of the list instead of being silently wiped.
+
+Then the seven genuinely new lanes: one had built something worth registering (a
+pre-commit detector that stops a tenth service being written with the same
+undeliverable-reply bug — it exists because *fixing* the other seven properly needs
+a formal review, so they shipped a guard instead), one had switched an existing
+mechanism on for a second consumer (recorded on that mechanism's own entry, where
+you'd look for it), one had already done its own paperwork correctly, and four are
+site builds or lanes that haven't built anything yet.
+
+On the duplicates: there were 441 documents that existed in multiple saved versions
+— `RUNBOOK_travelling_docs.md` plus thirty-nine numbered copies of itself, and one
+running-notes file with fifty-seven. 1,973 files in total for 441 actual documents.
+I've deleted 1,339 of them, keeping the newest of each, and everything is still in
+git if we ever want it back. Two things stopped this being a clean sweep and are
+worth knowing: the *unnumbered* copy is sometimes the newest one, not the oldest
+(so a naive "keep the highest number" would have deleted a live document and kept a
+six-week-old copy), and the numbering doesn't always run in date order. I kept both
+copies wherever there was any doubt, and I checked afterwards that every document
+path referenced by our scripts still resolves — seventeen didn't, and all seventeen
+were already broken before today.
+
+The cost, which I'd rather say than have you find: 43 of the deleted files are cited
+as sources in register entries, so those particular citations now only resolve
+through git. There's a note in the landmines file telling whoever hits one how to
+pull it back, and warning them that a missing file is not the same as a fabricated
+citation.

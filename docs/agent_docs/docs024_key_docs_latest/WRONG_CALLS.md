@@ -19109,3 +19109,35 @@ concurrently submitting **contaminates the prior-art surface for that submission
 a reason to stop filing them; it is a reason to **say so in the submission's `grounded_in`**
 ("the corpus entries naming these symbols are mine, filed <date>"), so the seat can discount
 them instead of spending a medium objection on them.
+
+---
+
+## 2026-08-04 — I explained a count I had not diffed, and the explanation named a culprit that did not exist
+
+**The claim, written into `register/000_concept_index.md` itself:** re-measuring the two
+figures in the index header after adding one entry, the table went 1,721 → 1,722 (my row)
+while the raw heading count went 1,762 → 1,764 (+2). I wrote into the file that "a heading
+landed from another thread with no index row, which is exactly the drift this pair of numbers
+exists to show."
+
+**Why it was wrong:** it was a plausible *story* fitted to an arithmetic gap, and I had run no
+check that could have refuted it. The +1 could equally have been a stale 1,762, a non-concept
+`###` heading, or — as it turned out — a **34-entry backlog** that had nothing to do with any
+concurrent thread. Attributing it to "another thread, just now" was the most flattering
+reading available: it made the gap transient and nobody's fault, including mine.
+
+**What caught it:** doing the diff instead of the subtraction, two minutes later —
+`comm -23` between the entry ids and the row ids. The answer was **34 concepts with no index
+row**, of long standing, spanning eight register files. The real finding was 34× larger than
+my explanation and a different shape entirely.
+
+**The cheap check that would have caught it:** when two counts disagree, **diff the two
+sets** — never explain the difference from the difference. The counts are one number each;
+the diff names every member. Here it was three lines of shell and it turned a wrong sentence
+into the session's main result.
+
+**Generalisable:** a claim about *why* two numbers differ is a claim about **which items**
+differ, and only one of those is checkable. If you cannot name the items, you have not
+measured the cause — and the story you reach for will be the one that costs you least. This
+one was on its way into a file that council seats read as ground truth; it was corrected
+before the commit, but only because the diff was cheap enough to run out of curiosity.

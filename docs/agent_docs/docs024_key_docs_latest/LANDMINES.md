@@ -4891,3 +4891,71 @@ that is also the thing you would want in the logs is not.
   while running `go build ./...` as a final check; `./platform/...` had compiled clean
   moments earlier because that package set never reaches a link step.
 - **added:** 2026-08-04, bugfix_192_select_sections_wrapper lane
+
+---
+
+### The concept index's own row count cannot detect a MISSING row — and the whole series of ~20 re-measurements was blind the same way
+
+- **footprint:** `docs/agent_docs/docs026_concept_register/register/000_concept_index.md` ·
+  `grep -cE '^\| [A-Z]{2,4}-[0-9]{3} \|' 000_concept_index.md` · adding any concept-register entry
+- **the trap:** the index header asks each thread to re-measure the headline after adding a
+  row, and every thread has done exactly that: count the rows, compare to the previous row
+  count, confirm "1,720 → 1,721, exactly my row". That check answers *did my own row land,
+  and did another thread's arrive alongside it* — and it is **structurally blind to a row
+  nobody ever wrote**, which is the failure it looks like it is guarding. Measured
+  2026-08-04: the headline said **1,722** while the category files held **1,756** entries.
+  **34 concepts had a register entry and no index row**, including all of `CLM-001`…`012`
+  — the first half of the claims-verification layer — plus `IMG-067`, `LNK-029`, `DBI-025`,
+  `PLAN-043`…`046`, `PUB-002`…`004`, `WII-009`. The index is what a session or a council
+  seat consults to learn whether a mechanism exists, so a missing row is invisible in
+  precisely the lookup the file exists for, and it reads as "this does not exist".
+- **why it drifts one way only:** adding a concept is two edits in two files, and only the
+  first — the entry itself — is load-bearing for the author. The index row is the half that
+  gets skipped. The reverse list (a row pointing at no entry) has always been empty.
+- **the check, and it is the pair, not either half:**
+  ```
+  cd docs/agent_docs/docs026_concept_register/register
+  cat *.md | grep -oE '^### [A-Z]{2,4}-[0-9]{3}' | sed 's/^### //' | sort -u > /tmp/h.txt
+  grep -oE '^\| [A-Z]{2,4}-[0-9]{3} ' 000_concept_index.md | tr -d '| ' | sort -u > /tmp/r.txt
+  comm -23 /tmp/h.txt /tmp/r.txt   # entries with NO index row — must be empty
+  comm -13 /tmp/h.txt /tmp/r.txt   # rows with NO entry — must be empty
+  ```
+  Backfilled 2026-08-04 and both lists are empty at 1,756 ids each way. **Run the pair, not
+  the row count**, whenever you touch the index — the row count agrees with itself no
+  matter what is missing.
+- **source:** found 2026-08-04 by the "concept register" session while bringing the register
+  up to date; commit `8f998e86b`. Same session, same shape as the ratchet defect fixed in
+  `102_CHECK_register_coverage.py`: a check whose result could not have come out otherwise.
+- **added:** 2026-08-04, concept-register lane
+
+---
+
+### A doc citing `SOMETHING(12).md` now finds nothing on disk — 1,339 superseded version-family members were deleted on 2026-08-04, and an absent citation is not a fabricated one
+
+- **footprint:** any `sources:` / `see` citation naming a `NAME(N).md` path ·
+  `docs/agent_docs/docs024_key_docs_latest/travelling_docs/` ·
+  `docs/social001_vonc_tiktok_social/` · `docs/agent_docs/docs019_documentation_audit_autonomous_build_and_operate/` ·
+  `docs/agent_docs/docs024_key_docs_latest/idea.uk/` · `docs/_archive/`
+- **the trap:** the estate used to keep every save of a living doc as its own file —
+  `RUNBOOK_travelling_docs.md`, `(1)`, `(2)` … `(39)`; up to **57 members** in one family.
+  On 2026-08-04, at the owner's instruction, the superseded members were deleted (commit
+  `e1fe8765e`: 441 families, 1,973 members, **1,339 deleted**, newest of each kept). Older
+  documents — including **43 concept-register `sources:` lines** — still cite the deleted
+  members by path. A session following one finds nothing, and the honest-looking conclusion
+  is that the citation was invented or the evidence never existed. **It existed; it is in
+  git.** This is the reverse of the usual danger: here the absence is the artefact, not the
+  claim.
+- **the check:** before doubting a citation to a `(N)` path, ask git, which still has all of it:
+  ```
+  git log --oneline --diff-filter=D -- '<path>'      # the commit that removed it
+  git show <sha>^:'<path>' | head -50                 # its content at deletion
+  git log --all --oneline -- '<path>' | tail -3       # its whole history
+  ```
+  Quote the path single-quoted — the parentheses are shell metacharacters, and an unquoted
+  `X(3).md` fails with a syntax error that looks nothing like "file not found".
+- **what is still on disk, so you know what a live citation looks like:** the newest member
+  of every family (by mtime, which is **not always the highest N**), plus the unnumbered
+  base name in every family — deliberately kept because code, bundle scripts and prose
+  reference it, and in some families it is the *newest* member (`docs024/005_tool_pipeline.md`
+  is 2026-07-26; its `(1)` is 2026-06-22).
+- **added:** 2026-08-04, concept-register lane
