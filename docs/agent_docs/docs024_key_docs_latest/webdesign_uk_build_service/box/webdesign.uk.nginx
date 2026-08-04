@@ -1,0 +1,31 @@
+# /etc/nginx/sites-available/webdesign.uk — the tunnel origin.
+#
+# LISTENS ON LOOPBACK ONLY, ON PURPOSE. Ingress is a cloudflared tunnel dialling
+# out from this box; nothing ever connects inbound (ufw default-deny backs this
+# up). Binding 127.0.0.1 means even a firewall mistake exposes nothing.
+# The tunnel's config will point at http://127.0.0.1:8080.
+#
+# The chat service (Phase 4) will be proxied here as /api/chat, /stripe/ and
+# /health → 127.0.0.1:8081, copying idea.uk's proxy_tool.conf / proxy_stripe.conf
+# split (the Stripe location deliberately carries NO rate limit — Stripe retries
+# in bursts and a 503 reads as an outage). DO NOT add a static /health before the
+# service exists: check_backend_unreachable's contract is that /health exercises
+# nginx AND the engine behind it, and a static 200 would be a lie-shaped pass.
+
+server {
+    listen 127.0.0.1:8080;
+    server_name webdesign.uk www.webdesign.uk;
+
+    root /var/www/webdesign.uk;
+    index index.html;
+
+    # Framework-built static pages.
+    location / {
+        try_files $uri $uri/ =404;
+    }
+
+    # security headers, matching the estate's baseline
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-Frame-Options SAMEORIGIN always;
+    add_header Referrer-Policy strict-origin-when-cross-origin always;
+}

@@ -1089,3 +1089,59 @@ syntax error at line 3; extract from `#!/bin/bash` with awk first.
 Dispatch pending verification by payload (the kcat landmine: exit 0 proves
 nothing) — verify with an orchestration_states row for build-pipeline-trigger,
 then the items leaving 'triaged'.
+
+---
+
+## 2026-08-04 ~21:45 — the box is PROVISIONED, and the claims layer caught its first real drift
+
+**Box live and provisioned** (`webdesign.vs.mythic-beasts.com` / `webdesignbox1`,
+176.126.243.62 + 2a00:1098:5e2::2, Cambridge, Ubuntu 24.04.4, 2c/7.8GB/48GB free).
+Scripts versioned in this lane's `box/` (setup-webdesignbox.sh, sitesync,
+webdesign.uk.nginx) and run over SSH with the owner's admin key (agent-loaded).
+
+State, all verified on the box, not inferred:
+- **ufw: default-deny inbound, OpenSSH only.** Public listeners: `:22` and nothing
+  else — nginx binds **127.0.0.1:8080 only** (tunnel-only posture survives even a
+  firewall mistake).
+- **sitesync + 5-min timer active**; sparse clone of `gqls/vm-sites` (webdesign.uk
+  folder only); the folder-absent guard proven (`sync exit 0` on an empty repo).
+  Deploy key generated ON the box, added **read-only** via `gh` (ADMIN on
+  gqls/vm-sites made the provision script's interactive pause unnecessary) —
+  key id 159299585. GitHub host-key fingerprints verified against the published
+  set before install.
+- **cloudflared 2026.7.3 installed; tunnel NOT created** — needs the owner's
+  browser auth (`cloudflared tunnel login`), the one remaining Phase 2 step.
+- `deploy-targets.json` in vm-sites maps only relojistas → its box, so the push
+  Action ignores `webdesign.uk/` and the pull model coexists safely. NOT adding
+  webdesign.uk to that file is deliberate.
+
+**First build attempt after the 192 fix: the seeded ban FIRED, correctly.**
+`validate_page_content` blocked the page with
+`banned_claim "A person check"` — the writer had produced *"A person checks every
+page on a phone and a computer"*, the exact phrasing the owner removed on 08-04.
+Where to find blockers, for next time: **`agent_error_log`** (`occurred_at`, not
+`created_at`), `context->'issues'` — NOT the orchestration row (whose `blockers`
+arrays read empty) and NOT chassis pod logs (nothing matched on either replica).
+
+**Then the real finding: a LIVELOCK, one line of evidence.** The phrase was not
+writer drift — **`content_direction` (classifier-written) instructed it**:
+`"Confidence expressed through specificity: £1,200, days not months, a person
+checks every page."` Writer follows spec → validation blocks output → item goes
+`needs_human_review` → any retry repeats. First grep over-matched ("second person
+singular" grammar guidance); re-searched with **the validator's own regex** and got
+exactly two hits: my own writer_block (quoting the ban — harmless, validation
+sweeps rendered pages not specs) and the real one.
+
+**Fix at source, supersede pattern:** old `content_direction` `is_current=false`,
+corrected copy inserted (`source='manual'`, notes explain the one-phrase change:
+"a person checks every page" → "the finished site on a private preview link
+before you pay" — same specificity, approved facts). Verified: current row clean,
+superseded row still carries the phrase for the audit trail. Pages reset to
+`triaged`, heartbeat re-fired.
+
+**The general shape, worth keeping:** *a banned phrase in an upstream SPEC turns
+a content ban into a livelock — the writer reproduces it faithfully and the gate
+blocks it faithfully, forever. When a ban fires, grep the SPECS with the
+validator's own regex before re-driving.* The classifier presumably absorbed the
+phrasing from my 08-03 chat copy ("a person checks it before you ever see it")
+via the mission/plan context [INFERRED — not traced].
