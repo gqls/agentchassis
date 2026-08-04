@@ -79,3 +79,39 @@ the failures started last night, which made yesterday's fix look innocent. Split
 the failures by *which step* died shows two unrelated problems in one bucket, and this
 one started this morning, twenty minutes after the config for it went live. The
 overnight failures are a real and separate problem that nobody has looked at yet.
+
+## 2026-08-04, late morning — closed
+
+The new chassis went out and I could finish the job properly.
+
+**It works, and I checked it the way that could have told me it didn't.** I looked inside
+the two running copies of the program for text that only exists in the new version — plus
+one line that was there before, as a control, to prove I was reading the right thing at
+all. Both copies had everything. Then I made the system build a real page and watched the
+data: the section plan came through in the right shape, not in the box. Both halves of the
+build finished cleanly.
+
+Then I removed the temporary workaround from this morning, and it turned out to matter
+*how* I removed it. Another team's change had landed in the same list in the meantime.
+Had I deleted "the third item" the workaround would have gone and so would theirs —
+silently, with everything still looking plausible. I deleted it by name instead, which I'd
+decided to do that morning for exactly this reason and half-expected never to need. It
+needed it within the hour.
+
+**The bug is closed.** Fixed properly, live, verified, and reviewed — the review panel
+approved it on the second pass, after correctly telling me the first version had patched
+the symptom's two locations while leaving the underlying mechanism open. Acting on that is
+what turned up the second broken thing, in a completely different part of the system, that
+nobody had noticed because it had never visibly failed.
+
+**Three things now sit with other people, and all three are written down where they'll be
+found**: the team whose fix caused this can finish the verification it blocked; the
+webdesign.uk team is unblocked and can build its shopfront page whenever it likes (I left
+that to them — it publishes a real page on a real site); and a human needs to decide
+whether the platform should warn about this whole category automatically, which is now
+written up in an existing open design question rather than a new one.
+
+One thing I noticed and did **not** chase, because I'd only be guessing: there's a
+component that gets started on every single page build and appears never to have done any
+actual work in the four and a half months our records go back. It might be harmless. Nobody
+has looked, and I didn't want to file a report on a symptom I hadn't understood.
