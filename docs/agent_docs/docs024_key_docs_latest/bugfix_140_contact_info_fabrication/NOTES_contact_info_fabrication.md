@@ -767,3 +767,44 @@ exists, because on its own it would enforce a check satisfiable by a no-op gate.
 - **Item 3** (the lint's exit code) — unchanged, still a decision, now unblocked.
 - No council submission for any of this: the two Go/script additions are new files under
   `cmd/` and `scripts/` with no shared-seam change, and the config-migration gap is item 8.
+
+## 2026-08-04 — the baseline, and the defect MY OWN comparator had
+
+Built `--write-baseline` / `--baseline` for `component-render-check` (`d0b44e6b1`), because
+without it the check is a thousand-item red light and the carrier question is moot. Key is
+`component\0field\0shape`; **counts excluded on purpose** — a hole rendered twice in the
+same component+field is the same defect, and letting counts into the key makes an unrelated
+markup edit read as regression. The baseline is a committed file rather than a DB row: it
+needs no new storage, growth arrives as a diff a human can read, and banking a fix is a
+visible commit rather than a mutable update.
+
+### MISSTEP — I nearly shipped it on the strength of a self-comparison
+
+Ran it against the unchanged corpus, got `0 NEW, 0 fixed, exit 0`, and was ready to call it
+proven. **That result could not have come out otherwise** — it is the no-op case, and this
+lane's own memory family says so ("you check what could BREAK, never what would be a
+NO-OP").
+
+The first mutation then showed the comparator was **wrong**. I botched the mutation
+(removed an opening `{{if}}`, left its `{{end}}`), so the template stopped parsing — and
+the tool reported that component's 2 findings as **"fixed"** and exited **0**. A broken
+template could clear its own findings and pass. That is exactly the blindness shape the
+whole lane exists to close, reproduced inside the tool built to detect it. Fixed: those
+keys are `UNCOVERED` and fail the run, and `--write-baseline` refuses outright while
+anything fails to parse, so blindness can never be baked in as clean. **The botched
+mutation was more informative than the test I meant to run.**
+
+Then the three arms properly (table in RUNBOOK R11b): broken template → 2 UNCOVERED, exit
+1; `featured_article.featured_image` un-gated on a **valid** template → exactly 1 NEW
+`broken_img`, exit 1; `call-to-action.headline` gated (a genuine fix) → 1 fixed, exit 0.
+B and C together are the pair that matters: a check passing only A would be detecting
+broken templates, not holes.
+
+WRONG_CALLS row appended (`fd872bc91`). Register CGV-030 and the handoff both corrected —
+the carrier (an image + overlay) is now the ONLY thing between this and standing.
+
+### Also, RFC_009 B re-proven on the new chassis, through the tool
+
+`v1.0.1246`, both replicas: compiled marker 2, negative control 0 — marker chosen by
+`scripts/pick-pod-marker.py` rather than by hand, which is the point of having built it.
+Worth noting the roll happened mid-session and the numbers held across it.
