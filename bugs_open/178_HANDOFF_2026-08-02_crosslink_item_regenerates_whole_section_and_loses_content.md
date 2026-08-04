@@ -298,3 +298,56 @@ destructive. `UPDATE site_work_items SET depends_on = NULL WHERE id IN (…the
 two ids…);` is the whole release. If this bug is closed another way (e.g. the
 crosslink path is retired), cancel them instead — do not let the interlock
 outlive the reason for it.
+
+## UPDATE 2026-08-03/04 (154 lane) — FIX IMPLEMENTED, LIVE (v1.0.1247), content-matching PROVEN; end-to-end blocked by an unrelated, newly-discovered bug (192)
+
+**The fix is candidate 1 from this file's own list**: a third `spec.mode`
+value, `"edit_live"`, alongside `"recreate"`. New Go action
+`load_current_section_content_action.go` (registered as workflow step
+`load_current_section_content`, inserted between `check_has_ready_sections`
+and `spawn_content_writer`) joins each ready section against
+`page_components.slot_name` for the page and attaches the current
+`rendered_html` as `existing_content_html`. Both live `content_rewrite`
+emitters (`create_tool_cross_link_items.go`, `apply_gap_plan_action.go`'s
+`applyAddToPage`) now set `mode="edit_live"` — both always target an
+already-existing page. Default OFF for every other caller (2 passthrough
+unit tests prove no query fires without the field). Full design writeup,
+citations and the shared-seam ruling this follows: see this workstream's
+`NOTES_work_item_routing_columns.md` 2026-08-03/04 entry and register entry
+PBP-028 (`docs026_concept_register/register/page-build-pipeline.md`).
+
+Committed (`08d0515f3`), submitted to council (`Council-Submitted:
+97ebadcf-bbe6-485f-8231-ff16fc4e679f` — **that run stalled mid-review and
+never produced a verdict**, unrelated to the change itself; advisory only,
+not blocking), built as `v1.0.1244`, deployed by the owner's whole-fleet
+release as part of `v1.0.1247`, pod-verified on both replicas (binary
+symbol counts, not the tag). Migration `299` applied and recorded.
+
+**Live verification, using the two items parked above** (their `spec` had
+no `mode` key — predating this fix — so they were patched with
+`mode="edit_live"` before release, not released as-is, which would have
+reproduced the original damage). `build-dispatch-loop` isn't scheduled
+anywhere (confirmed: no matching row in `scheduled_tasks` — a fresh instance
+of the "detection works, dispatch doesn't" pattern), so it was fired
+directly for the target site.
+
+**Confirmed working, at the data level**: the dispatched orchestration's
+`section_plan.sections_ready[0].existing_content_html` held the page's
+exact, complete, unmodified current `generic-text-block` prose (the CMA
+compliance content, verified word-for-word against what's live) — proof the
+join by slot name found the right row and handed it to the writer intact.
+
+**Could not complete the full before/after `content_data` length check**:
+both dispatches then failed one step later, inside `page-content-writer`'s
+OWN `select_sections`/`process_sections_loop`, on a **separate, pre-existing
+bug** unrelated to this fix — filed as `bugs_open/192`. Confirmed not
+caused by this fix: the failure wave started hours before this fix's image
+ever ran anywhere, and it also hit a completely unrelated tool page on a
+different site in the same run. No content was lost (the failure is
+upstream of `save_page_sections` entirely), and the two items are `failed`
+(attempt_count=1, non-terminal) — safe to retry once 192 is fixed, which is
+the last remaining step to close 178 out completely.
+
+**Status: fix DONE, LIVE, and proven correct at the exact point this bug's
+mechanism lives (the writer's input). The end-to-end acceptance test (content
+length assertion) is BLOCKED on 192, not on anything in this fix.**

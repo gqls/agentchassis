@@ -264,3 +264,52 @@ no business refusing — locked sections can't be overwritten anyway, so the
 guard now leaves them out of its sums. I have sent the whole package back to
 the review panel with all nine of their points answered, and I'm waiting on
 their verdict.
+
+---
+
+2026-08-04. The last open piece of this lane's work is done and live: the fix
+for the bug where asking the system to "add a link to X" on an existing page
+could quietly throw away most of that page's writing while reporting success.
+The cause turned out to be simple once found: that kind of request never told
+the page-writer what was already on the page, so the writer had nothing to
+edit and just made something up from scratch that satisfied the instruction —
+which is exactly what happened on the gripper page a few days ago (the one
+that lost 59% of its reference material). The fix gives the writer a look at
+the page's current content when, and only when, the request explicitly asks
+for an edit rather than a fresh build — every other kind of page build is
+untouched by this change, on purpose, because a shared piece of machinery
+like this one shouldn't change behaviour for people who didn't ask for it.
+
+I proved the fix works on a real, already-queued production request rather
+than a made-up test: two links that had been deliberately held back exactly
+because dispatching them safely required this fix. I checked what the writer
+was actually handed, and it was the page's real current paragraph, word for
+word, correctly matched to the right section. That is the hard part of the
+bug, and it works.
+
+What I could not finish is watching the whole thing through to a saved page,
+because I ran into a second, completely separate problem: the page-writer has
+been failing outright on roughly half its runs since last night around 9pm —
+long before this fix even existed anywhere — for a reason that has nothing to
+do with this change. I confirmed that by watching it fail the same way on an
+unrelated tool page on a different site in the same few minutes. Nothing was
+lost by that failure — it fails loudly, before anything gets saved — but it
+does mean I can't finish proving the very last step of this bug end to end
+until someone fixes that other, separate fault. I've written it up as a new
+case (192) with everything I found, rather than trying to chase it down
+myself and running the token budget for this session even higher.
+
+One thing worth knowing: I noticed the queue that's supposed to pick up and
+process these page-build requests isn't actually running on any schedule at
+all — nothing was ever set up to fire it periodically. I fired it by hand to
+get my test through. This is the same shape of problem as a few other things
+already known about this system (something built and working, but nobody
+ever wired up the clock that's meant to run it) — not something I fixed, just
+flagged, because it explains why things sometimes sit quietly in the queue
+for a long time with nobody noticing.
+
+Also: I sent this change to the automatic review panel before committing it,
+same as always, but that particular review run got stuck partway through and
+never gave a verdict — not rejected, just stalled. That's only advisory, so
+it didn't stop anything, but the review itself is owed to whoever looks at
+that system next.

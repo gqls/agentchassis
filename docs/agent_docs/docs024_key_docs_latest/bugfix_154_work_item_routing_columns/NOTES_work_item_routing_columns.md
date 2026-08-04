@@ -1181,3 +1181,200 @@ re-deriving the mechanism. Given this session's length (two full 090
 diagnosis runs, extensive DB/code reads, multiple large captures), the fix
 implementation itself is being left for a new session/context rather than
 started here.
+
+---
+
+## 2026-08-03/04 — 178 FIX IMPLEMENTED, committed, built, LIVE, migration applied; live verification IN PROGRESS
+
+Fresh session (post-`/clear`), picked up exactly where the rev-2 handoff left
+off. Design decided by reading the LIVE `page-build-handler` and
+`page-content-writer` workflows directly (not the historical
+`sql_for_agents` migration files, which are historical and drift from
+current state — confirmed `load_existing_content`'s config is
+`"mode": "input_data.spec.mode"`, matching the diagnosis exactly) rather than
+re-deriving from docs alone.
+
+**Design chosen, and why the alternatives were rejected:**
+- A third `spec.mode` value, `"edit_live"`, alongside the existing
+  `"recreate"` — reuses the field the diagnosis already names rather than
+  inventing a new one.
+- New Go action `load_current_section_content_action.go`, a NEW workflow
+  step (not a change to `load_existing_content_action.go`, which stays
+  adoption-only per its own doc comment) inserted between
+  `check_has_ready_sections` and `spawn_content_writer`. It reuses
+  `plan_sections`' own `section_plan` OUTPUT FIELD NAME — same key,
+  overwritten — specifically so `call_content_writer`'s existing
+  `input_mapping` needs zero changes. Confirmed live: that mapping already
+  carries `"section_plan": "section_plan"` and `"existing_content?":
+  "existing_content"` before this session touched anything.
+- Considered and rejected: threading a per-slot map through the template via
+  Go's `index` builtin (`RenderPromptTemplate` uses plain `text/template`, so
+  `index` IS available — verified in `data_helpers.go:1129-1152` — but doing
+  the join ahead of time in Go and handing each section its OWN
+  `existing_content_html` via the loop variable is simpler and needs no
+  template-engine gymnastics).
+- Content source: `page_components.rendered_html`, not `content_data`.
+  Guaranteed prose-complete and needs no per-component schema knowledge;
+  `content_data`'s shape varies by component and isn't guaranteed to be
+  flowing text. Recorded as an OPEN REVIEW QUESTION in the register entry
+  (PBP-028) rather than resolved — unverified whether markup-vs-field-shape
+  costs the model any fidelity.
+- Matching key: `slot_name` (page_components) == `sectionPlanItem.Name`
+  (`plan_sections_action.go`) == `component_function` (what
+  `save_page_sections_action.go` writes AS slot_name). Confirmed by reading
+  all three, not assumed.
+
+**Both live emitters updated** (the ONLY two `content_rewrite` producers,
+confirmed by search): `create_tool_cross_link_items.go`'s
+`emitToolCrossLinkItems` and `apply_gap_plan_action.go`'s `applyAddToPage`
+(read in full — it looks the page up BY NAME from `pages` before building
+the spec, so bugs_open/178's flagged-but-unchecked `:243` emission does
+target an existing page, same as the cross-link path).
+
+**Tests**: 4 new sqlmock tests, the load-bearing two being NEGATIVE proofs
+(no `mode` set; `mode="recreate"`) — `mock.ExpectationsWereMet()` on a mock
+with NO query expectations registered, so a stray query fails the test, not
+just a wrong return value. `go build ./...` and the whole `actions` package
+suite green (one unrelated pre-existing broken file in
+`discovery_checks/` — another session's WIP, confirmed via `git log` on that
+file predating this session, left untouched).
+
+**Committed** `08d0515f3` (code+SQL+register, 8 files, scope report clean —
+no passengers) then `0a2a94b89` (IMAGE_TAG bump, separate per the
+one-commit-per-task rule). **Submitted to council**: `Council-Submitted:
+97ebadcf-bbe6-485f-8231-ff16fc4e679f`. ⚠ **Checked 2026-08-04 09:xx: this
+run STALLED** — `orchestration_state_audit` shows it reached
+`review_constitution` at 20:09:59Z on 08-03 and never advanced again; no
+`council_report` diagnosis_artifact was ever written, and the
+`orchestration_states` row itself is gone (reaped or never-written; audit
+trail is the only surviving evidence). Not investigated further — council
+review is advisory only and this doesn't block anything, but flagging so
+nobody waits on a verdict that isn't coming. Whoever next touches
+council-gate reliability: this is one more data point for that lane, not
+this one's to fix.
+
+**Built + pushed**: `v1.0.1244`, from committed HEAD (`0a2a94b89`).
+**Did NOT self-deploy** — a same-day memory note records the owner wants
+whole-fleet releases run by him personally (`make release redeploy-agents`),
+after a previous single-service deploy fragmented the fleet's tags. Asked
+the user to run it and stopped there.
+
+**Owner ran the release.** Live tag confirmed `v1.0.1247` (three more builds
+landed between 1244 and the release — expected on a shared tree). Pod-grepped
+BOTH replicas before touching anything further: `LoadCurrentSectionContent:
+attached current content for edit mode` count 1, `load_current_section_content`
+count 2, both pods — genuinely live, not just the tag. Re-verified the
+migration's anchor text was still untouched (`check_has_ready_sections.then_step`
+still `spawn_content_writer`, prompt anchor still occurs exactly once) before
+applying — nobody else had touched either definition in the interim.
+
+**Migration 299 applied** by hand (`psql -v ON_ERROR_STOP=1 < ...`, both
+`DO $$ ... RAISE EXCEPTION $$` verify blocks passed, real assertions not bare
+SELECTs — see the migration-runner landmine on why that distinction matters).
+Recorded via `run-migrations.sh --record-only` rather than a hand-written
+ledger row.
+
+**Live verification, using REAL parked production items rather than a
+synthetic test.** `bugs_open/178`'s own note names two crosslink items
+(`9e9ec430`, `18bc832c`, both on `vetcomparison.uk`, targeting
+`guide-cma-compliance` and `guide-independent-strategy`) that the 177 lane
+deliberately parked behind a dead `wont_fix` dependency specifically because
+dispatching them pre-178-fix would be destructive. **Caught before acting**:
+those two items were created 2026-08-02, BEFORE this fix's emitter change, so
+their `spec` carries no `mode` key — releasing them as-is would still hit
+the OLD path and reproduce the exact damage they were parked to avoid. Fixed
+by `UPDATE site_work_items SET spec = spec || '{"mode":"edit_live"}'::jsonb,
+depends_on = NULL WHERE id IN (...) AND status='triaged'` in one transaction,
+then confirmed both rows show `mode=edit_live` and `depends_on` empty.
+
+Baseline recorded before dispatch: `d8c51ace-...` (guide-cma-compliance)
+`generic-text-block` content_data length **6034** (rendered_html 6212);
+`2a347990-...` (guide-independent-strategy) `generic-text-block` **3637**
+(rendered_html 3815).
+
+**Discovered no scheduler drives `build` pipeline dispatch at all** —
+`scheduled_tasks` has `report-dispatch` and `diagnose-pipeline-trigger`, no
+`build-dispatch-loop` entry, ever. Same family as the
+`detection-works-schedule-and-dispatch-do-not` pattern already in memory,
+now with a THIRD instance. Fired `build-dispatch-loop` directly via `kcat`
+(`config.agent_type: "build-dispatch-loop"`, `input_data: {site_id, domain}`
+— confirmed its `input_contract` first rather than guessing the shape) for
+`vetcomparison.uk`'s site_id, since both target items are on that site.
+**IN PROGRESS as this note is written**: orchestration claimed both items,
+is calling `page-build-handler` for item 0
+(`process_item_iter_0_call_handler`, `AWAITING_RESPONSES`). Result not yet
+known — continues below or in the next handoff, whichever this session
+reaches first.
+
+---
+
+## 2026-08-04 — dispatch RESULT: the fix is proven correct at the data level; end-to-end blocked by an UNRELATED bug, filed as 192
+
+Both items claimed and dispatched. **9e9ec430** (guide-cma-compliance) ran
+`page-content-writer` orchestration `0883b1aa-d5d6-45ad-a596-df0cc06744ec`.
+**18bc832c** never got processed by this same run — the dispatch loop
+claimed both but appears to only fully process one item per invocation
+(iter_0); the second stayed `claimed` until I fired a second read below.
+Not investigated further — a re-fire will pick it up, and it isn't this
+fix's mechanism.
+
+**The proof that matters**: `0883b1aa`'s `collected_data.input_data.section_plan`
+(read directly from `orchestration_states`, not inferred) shows
+`sections_ready[0].existing_content_html` holding the page's full, exact,
+CURRENT `generic-text-block` HTML — the real CMA-compliance prose, matched
+by slot name (`generic-text-block`), attached read-only, nothing
+paraphrased or truncated. **This is exactly what `load_current_section_content`
+was built to do, and it did it correctly on a real production page on the
+first live dispatch.**
+
+**Then it failed** — `process_sections_loop` inside `page-content-writer`,
+same step, `sections_for_render.sections_ready not found`. Traced far enough
+to be confident this is NOT this fix: (1) the exact same failure hit
+`df69efd6-19b7-4788-8fe1-668ea769f3fc` in the same few minutes, for
+`tool-gripper-payload-calculator-guide` on an entirely different site,
+via `needs_content_page`/adoption — no relation to `edit_live` or a
+crosslink at all; (2) `orchestration_states` history shows this exact
+signature spiking at 2026-08-03 21:00-23:00 (11, 14, 12 failures those
+hours) — **hours before this fix's own image (`v1.0.1244`, pushed ~20:2x)
+had been deployed anywhere** (the owner's release, and this fix's actual
+rollout, happened the following morning — pods were ~11 min old when
+checked ~08:2x on 08-04). A regression that predates your own code cannot
+be caused by your own code. **Did NOT chase the real root cause** — read
+`ExtractFieldsAction` (`v3_site_actions.go:4232`) far enough to see it DOES
+null-check candidates (so a naive "extract_fields doesn't skip nulls"
+theory is wrong), confirmed `input_data.section_plan.sections_ready` DOES
+hold the real data in the SAME collected_data row at the SAME time, and
+stopped there rather than spending more of this session chasing a second
+bug — filed as `bugs_open/192` with everything gathered, a `090` run
+flagged as owed, not run.
+
+Also incidentally confirmed: `bugs_open/087`'s own text ("page-build-handler
+... its writer children always carry a real section_plan, 26 of 26 COMPLETED")
+was true when written and is **not** the same failure as 192 despite the
+identical error string — 087 is `page-rebuild`-specific (no section_plan
+supplied at all); 192 hits the build-handler path 087 called the healthy
+control. Two different causes, same symptom string — logged so nobody
+conflates them.
+
+**Both work items are safe**: `failed`, `attempt_count=1`, `depends_on`
+cleared, no content touched (failure is upstream of any save). Re-dispatch
+once 192 is fixed; do not re-try before then, it will hit the same wall.
+Recovery of these two rows and the fresh `092`-adjacent one is unnecessary —
+nothing was written.
+
+**178's own status**: fix code DONE, LIVE (v1.0.1247, pod-verified both
+replicas), migration applied+recorded, register entry PBP-028 written,
+council submitted (that run stalled — see below — advisory only, doesn't
+block). The ONE thing not yet directly observed is the writer's OWN
+behaviour with `existing_content_html` in hand (does it actually edit rather
+than replace) — logically it should, since the prompt block instructs
+exactly that and the field is populated correctly, but the assertion in
+178's "how to verify a fix" section (before/after `content_data` length) has
+not been run to completion. That is the one thing 192 is blocking.
+
+**Council run status, checked 2026-08-04**: `orchestration_state_audit` for
+`6837e104-5924-4833-a526-eeb6f58a1f65` (submission `97ebadcf`) shows it
+reached `review_constitution` at 20:09:59Z on 08-03 and never advanced —
+no `council_report` artifact was ever written and the `orchestration_states`
+row itself is gone. Stalled, not rejected. Not investigated (advisory only,
+doesn't block); flagging for whoever next looks at council-gate reliability.
