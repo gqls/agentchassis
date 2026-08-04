@@ -103,18 +103,8 @@
 <section class="tool-loan-repayment-section">
   <div class="lrc-container">
 
-    <!-- The three copy blocks below are OPTIONAL, and the guards are the reason
-         one component can serve two pages. This calculator appears on
-         /tools/standard-calc.html AND on /index.html, and only standard-calc
-         carries the risk warning and the market-average lines. Rendered
-         unconditionally they would ADD both to the homepage — including two
-         dated factual claims (a 7.9% market average, a 3.75% base rate) that
-         nobody asked to publish there and that would then need maintaining in
-         two places.
-         Without the guards, blanking the fields is not a fix either: an empty
-         field still renders the styled box, so the homepage would show an empty
-         amber strip and an empty blue panel. So the markup is conditional and
-         the page decides, via content_data, which of the three it wants. -->
+    <!-- Optional blocks. The guards are load-bearing, not tidiness: see
+         "the three optional blocks" in the tool-doc header below. -->
     {{if .fca_warning}}<div class="lrc-fca-warning">{{.fca_warning}}</div>{{end}}
 
     {{if or .market_context .rate_environment_note}}
@@ -166,6 +156,26 @@
   verified: computed_values fence emitted from a captured golden; the rewrite is
     proven identical to the hand-built original across three input vectors
     (see loancalculator_couk/rewrite/verify_rewrite.py).
+  the three optional blocks: |
+    fca_warning, market_context and rate_environment_note are OPTIONAL, and their
+    conditional guards are why one component can serve two pages. (Spelled out
+    rather than written as template syntax: this block is INSIDE the template, so
+    a literal guard in prose is parsed as a real one — it failed validation with
+    "missing value for if".) This calculator
+    appears on /tools/standard-calc.html AND on /index.html; only standard-calc
+    carries the risk warning and the market lines. Rendered unconditionally they
+    would ADD both to the homepage, including two dated factual claims that would
+    then need maintaining in two places.
+    Blanking the fields is NOT an equivalent fix: an empty field still renders the
+    styled box, so the homepage would show an empty amber strip and an empty blue
+    panel. The markup is conditional and the page decides, via content_data.
+    THIS EXPLANATION LIVES HERE, NOT IN AN HTML COMMENT, and that is the point of
+    it. It used to sit in the markup, where it SHIPPED — StripToolDocHeader
+    removes this block from the served page (verified: `=== tool-doc ===` returns
+    0 on both live urls) but nothing strips an HTML comment. So the note
+    explaining why the homepage must not carry two dated figures was publishing
+    both figures into the homepage's own source. Keep engineering prose inside
+    these sentinels.
   === /tool-doc === */
 /* ARITHMETIC PRESERVED EXACTLY from the hand-built original
    (loancalculator.co.uk/tools/standard-calc.html, 2026-07-31). The standard
