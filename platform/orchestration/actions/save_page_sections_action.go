@@ -161,10 +161,20 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 	}
 
 	// --- Try structured metadata path first ---
-
+	//
+	// WHICH path is no longer purely the caller's to remember (bugs_open/194).
+	// With the key unset the action consults the same default the validate gate
+	// uses, so a caller that says nothing gets the right answer instead of a
+	// silent NULL; a caller that names a field still wins outright, which is what
+	// keeps page-rerender's own path (rerender_sections.sections_metadata)
+	// untouched. See save_sections_metadata_source.go for the three declared
+	// states and why this is a single default rather than a probe.
 	var sections []SectionData
 
-	if metaField, ok := config["sections_metadata_field"].(string); ok && metaField != "" {
+	metaField, metaFieldOrigin := resolveSectionsMetadataField(config)
+	sectionsSource := sectionsSourceHTMLParse
+
+	if metaField != "" {
 		metaData := datahelpers.ExtractNestedField(params.CollectedData, metaField)
 		metaArrayLen := -1
 		if arr, isArr := metaData.([]interface{}); isArr {
@@ -172,18 +182,42 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 		}
 		params.Logger.Info("SavePageSectionsAction: metadata field check",
 			zap.String("field", metaField),
+			zap.String("field_origin", metaFieldOrigin),
 			zap.Bool("metadata_present", metaData != nil),
 			zap.String("metadata_type", fmt.Sprintf("%T", metaData)),
 			zap.Int("metadata_array_len", metaArrayLen))
 		if metaData != nil {
 			sections = extractSectionsFromMetadata(metaData, params.Logger)
 			if len(sections) > 0 {
+				sectionsSource = sectionsSourceMetadata
 				params.Logger.Info("SavePageSectionsAction: Using structured metadata path",
 					zap.String("metadata_field", metaField),
+					zap.String("metadata_field_origin", metaFieldOrigin),
 					zap.Int("sections", len(sections)),
 				)
 			}
 		}
+	}
+
+	// --- Declared expectation: absence is a refusal, for callers that opt in ---
+	//
+	// OFF by default and seeded on nobody in the change that introduced it
+	// (RFC_010, 2026-08-02: new authority on a shared seam ships as an opt-in
+	// field with the unsafe default OFF). A caller that knows its writer always
+	// returns sections can set require_sections_metadata and get a loud failure
+	// instead of a page saved without its regeneration source. Refusing HERE, before
+	// the history snapshot and the DELETE, means a refused save writes nothing at
+	// all — the same placement rule the completeness floor states below.
+	if len(sections) == 0 && configBoolOrDefault(config, requireSectionsMetadataKey, false) {
+		params.Logger.Error("SavePageSectionsAction: required sections_metadata absent — refusing the save",
+			zap.String("page_name", pageName),
+			zap.String("metadata_field", metaField),
+			zap.String("metadata_field_origin", metaFieldOrigin))
+		return nil, fmt.Errorf(
+			"this step declares %s but no usable sections_metadata arrived at %q (%s): saving from parsed "+
+				"HTML would persist the page without the content_data the rerender path regenerates from. "+
+				"Refusing (bugs_open/194)",
+			requireSectionsMetadataKey, metaField, metaFieldOrigin)
 	}
 
 	// --- Fallback to HTML parsing ---
@@ -511,6 +545,24 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 		return nil, floorErr
 	}
 
+	// --- content_data regression record (bugs_open/194) ---
+	// NOT a guard: it records, it never refuses. Placed after the floor so it sees
+	// the FINAL section set (the interactive carry-forward above can restore a
+	// section's content_data, and a report taken before it would be reporting a
+	// loss that had already been repaired), and before the snapshot so the rows it
+	// counts are still the ones this save is about to replace.
+	//
+	// The condition it exists to catch is the whole of bugs_open/194: a page that
+	// held structured content is saved with none, succeeds, serves perfectly, and
+	// has silently lost the only source a re-render can rebuild it from.
+	contentDataRowsBefore := countExistingRowsWithContentData(ctx, params, pageID)
+	sectionsWithContentData := countSectionsWithContentData(sections)
+	if shouldReportContentDataLoss(metaFieldOrigin, contentDataRowsBefore, sections) {
+		writeContentDataRegressionLog(ctx, params, siteID,
+			datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.domain"),
+			pageName, metaField, metaFieldOrigin, contentDataRowsBefore, sections, params.Logger)
+	}
+
 	// Load page purpose for content_brief population
 	var pagePurpose string
 	_ = params.DB.QueryRowContext(ctx, `
@@ -743,6 +795,14 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 		"sections_saved":            savedCount,
 		"skipped_stub_sections":     skippedStubs,
 		"locked_sections_preserved": lockedSlotsPreserved,
+		// Which representation was persisted, and how that was decided
+		// (bugs_open/194). Reported on every save, not only a losing one, so an
+		// acceptance run can assert the BRANCH rather than infer it from a
+		// non-NULL column — content_data can also arrive via the interactive
+		// carry-forward, which would make a NULL check a false pass.
+		"sections_source":            sectionsSource,
+		"metadata_field_origin":      metaFieldOrigin,
+		"sections_with_content_data": sectionsWithContentData,
 	}
 	// The floor's numbers are reported on a PASSING save too, not only when it
 	// refuses. "sections_saved: 2" without the denominator is the alarm presented

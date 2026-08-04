@@ -19818,3 +19818,49 @@ is already in MEMORY, and I ran that grep anyway.
 corrected — though the research itself was salvaged: it became the bug file's 2026-08-04
 mechanism map and a CONTRIB into the owning lane, so the tokens were not wasted, only
 the "claimed" was wrong.
+
+---
+
+## 2026-08-04 — I built a council submission from CLAUDE.md's prose summary of a schema, when the tool that validates it states the schema exactly (bugfix_194 lane)
+
+**The claim.** That a submission's `plan` is a list of edits. CLAUDE.md says: *"a `plan`
+(≤8 edits, each with file/operation/rationale/sketch; real diff hunks welcome; plus
+`grounded_in` evidence quotes)"*, and I wrote exactly that — `"plan": [ {...}, ... ]`,
+with a `grounded_in` array inside each edit.
+
+**What it actually is.** `plan` is an OBJECT: `{summary, edits[], grounded_in[], risks}`.
+The `risks` field — which the seats read, and which is where a submitter is supposed to
+name what a reviewer should check — does not exist in CLAUDE.md's summary at all, so a
+submission built from that sentence silently omits the field most likely to earn an
+objection for its absence.
+
+**What caught it.** The trigger refused: `ERROR: .plan missing — see the header for the
+fix_plan schema`. Cost: one round trip, no credits — the refusal is client-side, which is
+the only reason this is a cheap entry rather than an expensive one.
+
+**The cheap check.** `sed -n '1,60p'` on the trigger script. Its header carries the schema
+verbatim, including `risks`, and says so: *"The plan block is exactly the fix_plan artifact
+schema (validated server-side by diagnose_persist_fix_plan…)"*. CLAUDE.md is a POINTER to
+that authority, not a copy of it, and I treated a one-line gloss as a spec.
+
+**The general shape, which is what makes this worth a row.** This is the same defect as the
+bug I was submitting: `bugs_open/194` is a saver that trusted a per-caller copy of a path
+instead of the authority that owns it. I reproduced it in my own submission on the same
+afternoon. **When a doc summarises an interface, read the interface** — and when the
+summary and the authority are in different files, the summary is the one that goes stale.
+
+## 2026-08-04 — the near-miss on the same day: I induced ONE branch of a two-branch verify block and was about to call the block proven
+
+Seed 312's `DO` block checks two agents in series. I ran it against the unmodified rows,
+saw `ERROR: 194/312: pageflow-builder sections_metadata_field is <NULL>`, and started to
+write "verify block induced". It was not: the first `RAISE` aborts the block, so the
+`site-work-orchestrator` half had never executed and could have been anything — a typo'd
+path, a wrong key name, a copied predicate naming the wrong agent. I extracted the second
+half and ran it on its own; it fired correctly.
+
+Not a false claim written down — I caught it before the NOTES line was finished — but
+recorded because the *shape* is one already in MEMORY for code under test (*"a mutation
+that PASSES may have hit a guard in SERIES"*) and I had not carried it across to the
+CHECKING code. **Guards in series prove only the one that fires, whichever side of the
+test you are on.** The cheap check is to run each branch alone, which costs one extra
+command.
