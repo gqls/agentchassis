@@ -152,6 +152,99 @@ func TestDeployImageAssetRefusesBrandHeadPurposes(t *testing.T) {
 	}
 }
 
+// TestDeployImageAssetRefusesExplicitDeployPathBeforeAnythingIrreversible pins
+// bugs_open/179 finding A.
+//
+// `deploy_path` used to replace the derived AssetPaths outright, so the file was
+// committed wherever the caller said while every reader still resolved
+// (asset_key, purpose) through platform/storage — bugs_closed/168's writer/reader
+// drift, reintroduced through a supported input. The override is deleted; an
+// explicit value is refused.
+//
+// Two properties, both structural, both invisible to a value-level test:
+//   - the hand-built AssetPaths must stay gone. It is the only way this action can
+//     commit to a path the readers cannot derive.
+//   - the refusal must precede everything irreversible, for the sibling's reason.
+func TestDeployImageAssetRefusesExplicitDeployPathBeforeAnythingIrreversible(t *testing.T) {
+	const deployer = "deploy_image_asset_action.go"
+	src, err := os.ReadFile(deployer)
+	if err != nil {
+		t.Fatalf("read %s: %v — if it moved, repoint this test rather than deleting it", deployer, err)
+	}
+	body := string(src)
+
+	// 1. The override must stay deleted. platform/storage's
+	// TestAssetPathsAreOnlyConstructedInStorage bans this shape tree-wide; this
+	// assertion names the one file with the history, so the failure arrives with
+	// its reason attached.
+	if strings.Contains(body, "storage.AssetPaths{") {
+		t.Errorf("%s constructs storage.AssetPaths by hand again.\n"+
+			"That is the deploy_path override growing back (bugs_open/179 finding A): a written path "+
+			"the readers cannot derive. The deploy path is derived, not chosen.", deployer)
+	}
+
+	// 2. The refusal exists. Anchored on the reason literal — quote included — so
+	// a comment cannot satisfy it.
+	guard := strings.Index(body, `"refused: deploy_path`)
+	if guard < 0 {
+		t.Fatalf("%s no longer refuses an explicit deploy_path (bugs_open/179 finding A).\n"+
+			"Either a caller setting it now silently gets the derived path with no signal, or the "+
+			"override itself is back. Both were the defect.", deployer)
+	}
+
+	// 3. ...and precedes every irreversible step, exactly like the brand-head
+	// refusal above. NOTE for anyone editing the action: these anchor on the FIRST
+	// occurrence of each token, so naming one in a comment above the guard fails
+	// this test on ordering alone. The action's own doc comment says so.
+	for _, after := range []string{
+		"DownloadOptimizeAndPrepare",
+		"sendGitCommitRequest",
+		"storage.DeployedAssetPath(",
+	} {
+		at := strings.Index(body, after)
+		if at < 0 {
+			t.Errorf("cannot find %q in %s — repoint this ordering assertion rather than dropping it",
+				after, deployer)
+			continue
+		}
+		if guard > at {
+			t.Errorf("the deploy_path refusal appears AFTER %q.\n"+
+				"A guard that fires after the download or the git commit is not a guard — the "+
+				"artefact is already committed by then.", after)
+		}
+	}
+
+	// 4. The refusal must NOT be wired to the extractor. ExtractActionInputs hunts
+	// declared fields through the whole of collected_data with a depth-20 recursive
+	// search, so refusing on inputs.Get("deploy_path") would convert a stray key in
+	// any nested step result into a false denial of a legitimate deploy. Only
+	// explicit intent counts.
+	// CODE only, not prose: the guard's own comment names this call precisely to
+	// say it is not used, and a sensor that cannot tell the two apart would forbid
+	// explaining itself. (Same reason the derivation sensor above scans for a
+	// non-comment occurrence.)
+	inputsComment := regexp.MustCompile(`(?m)^\s*(//|\*)`)
+	for i, line := range strings.Split(body, "\n") {
+		if inputsComment.MatchString(line) || !strings.Contains(line, `inputs.Get("deploy_path")`) {
+			continue
+		}
+		t.Errorf("%s:%d reads deploy_path via inputs.Get in CODE.\n"+
+			"ExtractActionInputs resolves declared fields by a depth-20 recursive search of "+
+			"collected_data, so a stray deploy_path anywhere in the orchestration would deny a "+
+			"legitimate deploy. Refuse on explicit sources only: step config, the deprecated "+
+			"deploy_path_field, or input_data.deploy_path.", deployer, i+1)
+	}
+
+	// 5. The declaration must be gone from the input spec too, so that with
+	// CheckConfig: true a config still carrying the key is reported by the offline
+	// audit — a second sensor pointing where the refusal points.
+	if strings.Contains(body, `"deploy_path", "purpose"`) || strings.Contains(body, `"deploy_path_field": "deploy_path"`) {
+		t.Errorf("%s still declares deploy_path (or its deprecated alias) in DeployImageAssetInputSpec.\n"+
+			"A declared-but-refused input reads to a config author as supported, and it keeps the "+
+			"key out of the unrecognised-key audit.", deployer)
+	}
+}
+
 // TestBrandHeadAssetPathsAreAbsolute closes the round-3 advisory from the
 // bug_historian seat: DeployedAssetPath falls through SILENTLY to the generic
 // purpose/asset_key derivation when a BrandHeadAssetPaths value does not start

@@ -223,11 +223,34 @@ func brandHeadAssetPathsFor(purpose string) (AssetPaths, bool) {
 // call site — 016b §9 case 7, one call site guarded and the root mechanism left
 // generic. It is answered here instead, once.
 //
-// NOT CLOSED, and saying so beats implying otherwise: deploy_image_asset's
+// ~~NOT CLOSED, and saying so beats implying otherwise: deploy_image_asset's
 // `deploy_path` input overrides everything below and is invisible from
-// (asset_key, purpose). No Go code sets it and it appears in zero orchestrations
-// in history (audited 2026-07-31, check_image_url_404.go), so it is an unused
-// passthrough — but a caller that starts setting it has left this contract.
+// (asset_key, purpose).~~
+//
+// CLOSED 2026-08-04 (bugs_open/179 finding A). The override is deleted:
+// deploy_image_asset no longer constructs an AssetPaths of its own, and an
+// EXPLICIT deploy_path (step config, the deprecated `deploy_path_field`, or
+// input_data.deploy_path) now draws a refusal result before the storage-URI
+// resolution, the download and the git commit. So every path that deployer
+// commits is this function's output, and the derivation is TOTAL for it rather
+// than merely preferred.
+//
+// Two things a later reader needs, because neither is obvious from the code:
+//
+//   - A value reachable ONLY by ExtractActionInputs' depth-20 recursive search of
+//     collected_data is deliberately ignored rather than refused. That search is
+//     how the override used to be armed by a caller who never asked for it — a
+//     stray `deploy_path` in any nested step result redirected the commit — but
+//     refusing on it would turn the same stray key into a false denial of a
+//     legitimate deploy, which is the worse of the two bugs.
+//   - The escape hatch is gone, not relocated. A caller needing a path this
+//     function cannot express must WIDEN IT HERE, so that every reader moves with
+//     the writer. That is the whole point of the single derivation, and no
+//     caller-side field can substitute: readers never see the caller's choice.
+//
+// Pinned by TestAssetPathsAreOnlyConstructedInStorage in this package (no
+// non-test file outside platform/storage may construct an AssetPaths literal) and
+// by the source + behavioural sensors in platform/orchestration/actions.
 //
 //	DeployedAssetPath("hero_home", "hero").RelativeURL == "/assets/images/hero-home.jpg"
 //	DeployedAssetPath("logo", "logo").RelativeURL      == "/assets/images/logo.png"

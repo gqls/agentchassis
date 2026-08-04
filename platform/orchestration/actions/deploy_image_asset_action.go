@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
-	"path/filepath"
 	"strings"
 
 	"github.com/google/uuid"
@@ -21,21 +20,28 @@ import (
 
 // DeployImageAssetInputSpec defines the standard input contract.
 //
-// New callers (asset-deployer) use input_fields: ["s3_uri", "deploy_path", "purpose", "domain"]
+// New callers (asset-deployer) use input_fields: ["s3_uri", "purpose", "domain", "asset_key"]
 // Existing callers (pageflow-builder) use config keys: "uri_field", "domain_field", "purpose"
 // The Deprecated map bridges old config keys to new field names.
+//
+// `deploy_path` and its deprecated alias `deploy_path_field` were REMOVED
+// 2026-08-04 (bugs_open/179 finding A): the deploy path is derived from
+// (asset_key, purpose), not chosen by the caller. An explicit value now draws a
+// refusal — see the guard in DeployImageAssetAction. They are absent from the
+// spec deliberately, so that with CheckConfig: true a config still carrying
+// either key is reported by the offline config-key audit as unrecognised: a
+// second sensor pointing at the same mistake as the refusal.
 var DeployImageAssetInputSpec = datahelpers.ActionInputSpec{
 	CheckConfig: true,
 	Required:    []string{"domain"},
-	Optional:    []string{"s3_uri", "deploy_path", "purpose", "asset_id", "asset_key"},
+	Optional:    []string{"s3_uri", "purpose", "asset_id", "asset_key"},
 	Defaults: map[string]interface{}{
 		"purpose": "hero",
 	},
 	Deprecated: map[string]string{
-		"uri_field":         "s3_uri",
-		"domain_field":      "domain",
-		"purpose_field":     "purpose",
-		"deploy_path_field": "deploy_path",
+		"uri_field":     "s3_uri",
+		"domain_field":  "domain",
+		"purpose_field": "purpose",
 	},
 }
 
@@ -49,7 +55,15 @@ func init() {
 //   - domain (required): site domain for git commit
 //   - s3_uri (optional): storage URI — if not provided, falls back to findStorageURI lookup
 //   - purpose (optional, default "hero"): image purpose — controls resize dimensions via ImagePurposes
-//   - deploy_path (optional): override output path in git (e.g. "assets/images/departments/dept-foo.jpg")
+//   - deploy_path: NO LONGER HONOURED. An explicit value draws a refusal result
+//     (bugs_open/179 finding A) — see the guard below the brand-head one. The
+//     output path is derived from (asset_key, purpose) by the one function in
+//     platform/storage that every reader resolves through.
+//
+// The name of that function is deliberately not spelled with its call syntax
+// anywhere above the refusal guard: the guard's ordering test anchors on the
+// FIRST occurrence of the call token, and a mention in this comment would sit
+// before the guard and fail it. Nothing in the guard's own comment names it either.
 func DeployImageAssetAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	logger := params.Logger.With(
 		zap.String("action", "deploy_image_asset"),
@@ -159,6 +173,62 @@ func DeployImageAssetAction(ctx context.Context, params ActionParams) (interface
 		}, nil
 	}
 
+	// REFUSE an explicit deploy_path. Until 2026-08-04 this input overrode the
+	// shared path derivation outright: the file was committed wherever the caller
+	// said, while every reader still resolved (asset_key, purpose) through the one
+	// derivation in platform/storage — the exact writer/reader drift
+	// bugs_closed/168 removed, reintroduced through a supported input
+	// (bugs_open/179 finding A).
+	//
+	// Recording the override on the asset row further down does NOT mend it: all
+	// six readers DERIVE the path and none reads that row, so a recorded override
+	// is still a path no reader resolves. Teaching a reader to prefer a recorded
+	// path is bugs_open/152 and /155's seam, not this one.
+	//
+	// DELETED rather than gated behind an opt-in field. The owner ruling of
+	// 2026-08-02 (RFC_010) makes new authority on a shared seam an opt-in field
+	// when the unsafe branch is safe *iff callers behave*; this branch is unsafe
+	// however disciplined the caller is, because the readers can never see the
+	// caller's choice — so no caller-side field can license it. Measured before
+	// removal: zero deploy_path VALUES in open work-item specs, in active agent
+	// definitions and in all orchestration history. A caller needing a path the
+	// derivation cannot express should widen the derivation in platform/storage,
+	// so every reader moves with the writer.
+	//
+	// Only EXPLICIT intent draws the refusal: the step's own config keys and the
+	// orchestration's input_data. inputs.Get("deploy_path") is deliberately NOT
+	// consulted — ExtractActionInputs hunts declared fields through the whole of
+	// collected_data with a depth-20 recursive search, so a stray key in a nested
+	// step result would turn a legitimate deploy into a refusal. An over-strict
+	// guard is a worse bug than the inert key it chases. A value only that search
+	// can find was never an instruction: it is ignored, and the derived path wins.
+	//
+	// A refusal, not an error, for the sibling's reason above: the work item
+	// resolves with a reason instead of retrying against a guard that will never
+	// pass it. Same result shape too, and no new key.
+	deployPath, deployPathSource := "", ""
+	if dp, ok := config["deploy_path"].(string); ok && dp != "" {
+		deployPath, deployPathSource = dp, "config.deploy_path"
+	} else if dpf, ok := config["deploy_path_field"].(string); ok && dpf != "" {
+		deployPath, deployPathSource = dpf, "config.deploy_path_field"
+	} else if dp := datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.deploy_path"); dp != "" {
+		deployPath, deployPathSource = dp, "input_data.deploy_path"
+	}
+	if deployPath != "" {
+		logger.Warn("refusing an explicit deploy_path — the deploy path is derived, not chosen",
+			zap.String("source", deployPathSource),
+			zap.String("deploy_path", deployPath),
+			zap.String("derived_instead", storage.DeployedWebPath(assetKey, purpose)))
+		return map[string]interface{}{
+			"deployed": false,
+			"skipped":  true,
+			"reason": fmt.Sprintf("refused: deploy_path %q (%s) would publish a file no reader can "+
+				"resolve — the deploy path is derived from (asset_key, purpose), identically for the "+
+				"writer and every reader (bugs_open/179); drop the input and set asset_key, or widen "+
+				"the shared derivation in platform/storage", deployPath, deployPathSource),
+		}, nil
+	}
+
 	// Resolve storage URI
 	// Priority: inputs.Get("s3_uri") (from input_fields) → findStorageURI (legacy lookup)
 	storageURI := inputs.Get("s3_uri")
@@ -239,7 +309,12 @@ func DeployImageAssetAction(ctx context.Context, params ActionParams) (interface
 	//
 	// DownloadOptimizeAndPrepare has already set Paths to the purpose-derived
 	// default; for every non-brand-head purpose this reproduces it exactly.
-	// The explicit deploy_path override below still wins if set.
+	//
+	// Nothing overrides it any more. The `deploy_path` input that used to replace
+	// this result outright was removed 2026-08-04 (bugs_open/179 finding A) and an
+	// explicit value is refused above, so this assignment is the ONLY thing that
+	// decides where the file lands — which is what makes the derivation total for
+	// this writer rather than merely preferred.
 	derived := storage.DeployedAssetPath(assetKey, purpose)
 	if derived.FilePath != processed.Paths.FilePath {
 		logger.Info("derived asset deploy path",
@@ -249,25 +324,6 @@ func DeployImageAssetAction(ctx context.Context, params ActionParams) (interface
 			zap.String("derived_path", derived.FilePath))
 	}
 	processed.Paths = derived
-
-	// Allow deploy_path to override the output path.
-	// Purpose still controls resize dimensions; deploy_path controls where the file goes.
-	// Priority: inputs.Get("deploy_path") (from input_fields) → config["deploy_path"] (static)
-	deployPath := inputs.Get("deploy_path")
-	if deployPath == "" {
-		if dp, ok := config["deploy_path"].(string); ok && dp != "" {
-			deployPath = dp
-		}
-	}
-	if deployPath != "" {
-		processed.Paths = storage.AssetPaths{
-			FilePath:    deployPath,
-			RelativeURL: "/" + deployPath,
-			Filename:    filepath.Base(deployPath),
-		}
-		logger.Info("Using custom deploy_path",
-			zap.String("deploy_path", deployPath))
-	}
 
 	logger.Info("Image processed",
 		zap.Int("size_bytes", len(processed.Data)),
