@@ -188,7 +188,7 @@ Beasts VDS running the exact profile §6c wants: containers + Postgres, Caddy,
 | RAM | **4 GB** | The one number not to trim. It all fits in 2 GB until you also want to build or deploy on the box. |
 | Disk | **40–60 GB SSD** | Transcripts and orders are text and stay small. Container images are what consume it. |
 | OS | **Ubuntu 24.04 LTS** | Matches the estate; keeps the `setup.sh` lineage usable. |
-| IPv4 | **not required** | With a tunnel there is no inbound at all, and Mythic Beasts charge for IPv4. |
+| IPv4 | ~~not required~~ **CORRECTED 08-04 evening: take one** | `github.com` and `api.stripe.com` have **no AAAA records** — on an IPv6-only box the deploy path (git pull) and the money path ride Mythic's shared NAT64. NAT64 is free and works, so IPv6-only is viable for P1, but the IPv4 is a rounding error and removes the shared dependency. Order sheet: `PLAN_2026-08-04_webdesign_uk_vm_hosting.md` §2b. Inbound arrives only via the tunnel either way. |
 | Backups | nightly `pg_dump` + off-box copy | Copy the island's, verbatim. |
 
 **Two properties matter more than the numbers.** No inbound ports at all, which
