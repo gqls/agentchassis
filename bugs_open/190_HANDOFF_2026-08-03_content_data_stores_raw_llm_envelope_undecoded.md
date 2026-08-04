@@ -215,3 +215,76 @@ says is fully repairable. The discriminator has to be the envelope *signature*
 subtle case for decode-vs-refuse, because content and envelope coexist in one map.
 
 Logged in `WRONG_CALLS.md` as an inherited claim I re-checked rather than repeated.
+
+---
+
+## FIXED IN CODE 2026-08-04 — and STAYING OPEN, because the bar is fixed AND live
+
+Candidate (1), the class fix, is built and at `HEAD`. **It is inert until the next chassis
+roll**, so by CLAUDE.md's own bar — *"a fix committed but inert until the next roll stays
+OPEN, because the defect is still reproducible until it ships"* — this file does not move to
+`bugs_closed/` yet. Both live rows are still reproducible today.
+
+### What was built
+
+`platform/orchestration/actions/content_data_envelope_guard.go` (new), called at **both**
+automated `content_data` write seams. Registered as **PBP-032**. Council correlation
+`09bc4b3d-6721-4479-85b8-b5b56bf9b5d7`.
+
+- **Discriminator:** `type == "text"` AND a **string** `result` — the producer's signature.
+  **Not** the key count, for the reason in CORRECTION 2 above.
+- **Decode** when `ParseLLMJSONWithProvenance` returns an object via `clean` or `repaired`
+  (the only tiers that discard zero bytes). **Refuse** on every lossy tier, on a parse
+  failure, on a non-object payload, and on a superset whose decoded and sibling values for
+  one key disagree. Double-wrap defence capped at depth 3 (`bugs_closed/054` precedent).
+- **Superset handling** (`d2e9644b`'s shape): real siblings preserved, `type`/`result`/`__`
+  markers dropped, overlapping keys stored only when deep-equal.
+- **No opt-in field**, and the RFC_010 argument is in the guard's header: that ruling fires
+  when a branch is licensed by *caller identity*; this one is licensed by the *payload*.
+- Refusals are countable: `agent_error_log.error_code = 'CONTENT_DATA_ENVELOPE'`.
+
+### Commits — and note the second one is not mine
+
+| commit | what |
+|---|---|
+| `ce675f019` | the guard, 14 tests, the truncation-coverage exemption, and the `ApplySectionEditAction` seam |
+| `84b7d561c` | **the `save_page_sections` call site — swept into the `bugs_open/156` lane's commit** |
+| `0e7b1c9e1` | concept register PBP-032 + index row (should have been in `ce675f019`; see `WRONG_CALLS`) |
+
+I held the `save_page_sections` hunk back deliberately, because that file simultaneously
+carried another session's uncommitted `156` dedup wiring which called an untracked file —
+committing it would have broken `HEAD` fleet-wide. They then committed with a broad `add` and
+took my hunk with them. Nothing is lost and forward-only holds (CLAUDE.md anticipates exactly
+this), but **the wiring's provenance is a commit whose message is about a different bug**, so
+`git log --grep` will not find it. Verified at `HEAD` rather than trusted:
+`git archive HEAD` into a clean directory → both seams present, full `actions` suite green.
+
+### Testing
+
+14 tests, each naming the mutation that must break it, and **four mutations were actually run
+against the shipped code**, each going red for the right reason and green again on restore:
+predicate weakened to `type`-only; provenance rule dropped; predicate keyed on the exact
+two-key shape (**this file's own recommended predicate**); seam ranging by value instead of
+mutating in place. The no-op control asserts **byte identity** through `json.Marshal`, because
+this guard's dominant behaviour is "change nothing" — and so is a completely broken one.
+
+### What is still owed
+
+1. **The roll.** Then pod-grep with a discriminating marker and a positive control:
+   `strings /app/agent-chassis | grep -c sanitizeSectionsContentData` and
+   `grep -c CONTENT_DATA_ENVELOPE` — both 0 before, ≥1 after. Do not roll to verify this
+   alone; releases here are whole-fleet and the owner runs them.
+2. **Repair `d2e9644b` (finetuning) through the framework, not by hand.** Its stored map has
+   a real `content` key, so a scoped rerender should hit the guard's superset branch and come
+   out clean through ordinary machinery. Back the row up first
+   (`CREATE TABLE bak_pc_190_d2e9644b_<date> AS SELECT * …`). Only if the guard refuses on a
+   conflict does this become a considered one-off `UPDATE`.
+3. **`17e7739e` (gaswholesalers) is NOT ours to automate.** The guard will refuse every
+   automated rebuild of it, permanently and by design, until a human repairs the page. It
+   already carries a `needs_human_review` item. See the LANDMINE — the one-line "fix" for
+   that recurring noise stores a 131-character fragment over a live page.
+4. **Read the council verdict** on `09bc4b3d` and act on a REVISE/REJECTED; the code is
+   already on the shared branch.
+5. **Then** the count query in § "How to verify a fix" goes 2 → 1 → 0, the last step only
+   when the human closes item 3. **A count of 1 is the expected post-repair state**, not a
+   failed fix.
