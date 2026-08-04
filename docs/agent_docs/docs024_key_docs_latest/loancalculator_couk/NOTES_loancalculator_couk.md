@@ -2586,3 +2586,101 @@ that were not on the table then: the old note **asserts `/legal.html` is orphane
 describes the page that now 404s**, so 23 live pages publish a claim that went false
 on 08-03; and it is a **standing baseline contaminant** — it is precisely what broke
 this morning's check, and it would break the next one on any of those 23 pages.
+
+### …and then the dispatch lane stalled under me, so item (2) is HALF DONE
+
+Fired two canaries first rather than 23 blind — `/legal.html` (prose) and
+`/tools/overpayment-calculator.html` (tool) — the point being to assert that the
+footer comment is the **only** thing pending on those 23 pages before bulk-firing.
+That is the same discipline §6b's baseline lesson asks for, applied forwards.
+
+Both are still `triaged` nine minutes later, and the reason is not mine:
+
+```
+page_rerender, last 3h:   complete 3 (mine, 19:41-19:44)   triaged 211
+claims in the last 11 min: 0
+of the 211:  webdesign.co.uk 156 · gaswholesalers.com 52 · loancalculator.co.uk 2 (mine)
+```
+
+**It is not a global stall, which is the interesting part.** In the same window
+`page_component_status_drift` completed 12, `acceptance_run` 6, `needs_design_review`
+4 — and the `build-dispatch-loop` orchestration itself is cycling normally
+(19:46:26→19:48:39 COMPLETED, 19:48:55→19:52:12 COMPLETED, two more AWAITING). So
+the loop runs and completes while `page_rerender` specifically does not get claimed.
+
+**What I did NOT do, deliberately, and why:**
+
+- **Did not fire the remaining 21.** Adding 21 unverifiable items to a lane that is
+  not draining buys nothing and leaves the next thread unable to tell my items from
+  the flood.
+- **Did not re-fire the canaries.** The memory note on this is explicit and was
+  written after someone got it wrong: *a missing/slow row is not a lost message*, and
+  **the single-page bypass (049b, the 086 envelope) shares this very lane**, so it
+  cannot beat a stalled dispatch. Re-firing would produce duplicates, not a deploy.
+- **Did not fork a diagnosis.** `bugs_closed/030` is the closed fleet-wide version of
+  this shape. This is not obviously the same thing — 030 was *everything* stalled,
+  this is one item type while others drain — but establishing that properly is a
+  `090` run and an owned-lane check, not a paragraph asserted from a bug's own lane.
+  Recorded as a measurement, deliberately not as a root cause. **[MEASURED]** for
+  the counts above; **[UNDIAGNOSED]** for the cause.
+
+**So item (2) is genuinely half-finished and is written up that way** — 2 of 23 in
+flight, 21 not filed, with the canary-diff assertion still owed before the bulk.
+The next thread's first act should be to read the canary status, not to re-fire.
+
+### The lane recovered — and the two canaries DISAGREED, which is why there were two
+
+The stall cleared on its own after ~15 minutes (no intervention, nothing re-fired).
+Both canaries ran. And the canary step did exactly the job it was there to do: **my
+prediction was wrong, and it caught it before 21 pages shipped on it.**
+
+I predicted "the only diff will be the footer comment block". True for one canary,
+false for the other:
+
+```
+tools/overpayment-calculator   footer only            (10 lines out, 2 in)
+legal.html                     footer + TWO MORE      (11 lines out, 4 in)
+                               + <link rel="canonical" href="…legal.html">   ADDED
+                               - <meta name="description" content="">        REMOVED
+```
+
+**The 23 pages are not homogeneous.** Each carries whatever platform improvements
+have landed since *it* last re-rendered, so the pending set differs page by page. A
+single canary — either one — would have licensed a confident and wrong prediction.
+
+Attributed rather than guessed: both extra changes come from one commit,
+`9c7a8e9e4 seo(assembly): emit canonicals + make the blank meta description
+correct-or-absent` (2026-08-02). `injectCanonicalLink` and `spliceMetaDescription`
+are both called from `assemblePage`, so any page not re-rendered since 08-02 has
+neither.
+
+**Census over all 26 active pages** (served, not stored): **20 of 26 had NO
+`<link rel="canonical">` and carried an empty `<meta name="description" content="">`.**
+Of the 21 remaining targets, **20 of 21**.
+
+> **This re-frames open item (2) completely, and upward.** It was recorded on 08-03 as
+> "an invisible comment, 26 forced deploys is disproportionate" — a fair call on the
+> facts then known. The actual pending payload is **a canonical tag and a correct
+> meta-description on 20 pages of a live money site**, absent for two days. That is
+> not cosmetic, and the deploys are not disproportionate.
+>
+> **The general lesson is worth more than the instance:** *"only a cosmetic change is
+> pending"* was an **inference about what had accumulated**, not a measurement of it.
+> Nobody had asked what ELSE was waiting behind the same door. On a platform where
+> improvements land continuously and apply on next render, the pending set on a stale
+> page is **whatever shipped since it last rendered** — which is unknowable without
+> looking, and grows every day the page sits.
+
+**Prediction for the bulk, stated BEFORE firing** (so it can come out false): footer
+on all 21; canonical added and empty-description removed on 20 of 21; the 21st
+footer-only. Baselines in `/tmp/decomp-work/postroll1251/bulk/*.pre`.
+
+> **CORRECTED within the minute — I named the wrong page, in the paragraph about not
+> inferring.** I first wrote that the odd page out was `tools/credit-roadmap.html`.
+> It is **`tools/car-finance-calculator.html`** — the only one of the 21 that already
+> carries a canonical and has no empty-description tag, i.e. the only one re-rendered
+> since 2026-08-02. I had the 20/21 count from a real loop but reached for the page
+> NAME from memory instead of printing it, one command after writing that an
+> inference had been stated as a measurement. What caught it: re-reading my own
+> sentence and running the two-line loop that prints the exception by name.
+> **A count you measured does not make the label you attached to it measured.**

@@ -46,11 +46,91 @@ chrome — **which is a write to 26 live rows and `in_header` has a second consu
 (`buildServicesHTML`, `render_site_components_action.go:1156`)**, so it wants its
 own change and its own verification.
 
-**(2) The footer's corrected comment has not propagated.** `site_components.footer`
-is correct in the DB (2504 b, engineering prose removed). The 26 live pages still
-serve the OLD footer until each next re-renders. Self-heals; 26 forced deploys for
-an invisible comment was judged disproportionate. If you re-render pages for any
-other reason, this rides along.
+**(2) Stale served pages — ⚠ NOT the cosmetic item this used to say. 2 of 23 done,
+21 FILED AND QUEUED. Verification is OWED.**
+
+> **REWRITTEN 2026-08-04 evening. The 08-03 framing — "an invisible comment, 26
+> forced deploys is disproportionate" — was fair on the facts then known and is now
+> WRONG, by a wide margin.**
+>
+> **What is actually pending on those pages is a `<link rel="canonical">` and a
+> correct meta-description, not a comment.** Both come from
+> `9c7a8e9e4 seo(assembly): emit canonicals + make the blank meta description
+> correct-or-absent` (2026-08-02) — `injectCanonicalLink` and `spliceMetaDescription`,
+> both called from `assemblePage`. Any page not re-rendered since 08-02 has neither.
+>
+> **Censused on the SERVED pages, all 26:**
+>
+> | | old footer | no canonical | empty `<meta description>` |
+> |---|---|---|---|
+> | before this session | 23 of 26 | **20 of 26** | **20 of 26** |
+>
+> **The general trap, which is the part worth keeping:** *"only a cosmetic change is
+> pending"* was an **inference about what had accumulated**, never a measurement of
+> it. On a platform where improvements land continuously and apply on next render,
+> the pending set on a stale page is **whatever shipped since that page last
+> rendered** — unknowable without looking, and growing daily. Ask what ELSE is behind
+> the door before sizing the job.
+>
+> **Route: assemble-only `page_rerender` (spec with NO `reason`).** Never enters
+> `save_page_sections`, so `bugs_open/189` cannot bite. Proven on this image — §6b
+> re-rendered three pages this way, byte-identical.
+>
+> **DONE (2 of 23), verified on the wire:** `/legal.html` and
+> `/tools/overpayment-calculator.html` (`created_by='footerprop-canary'`).
+>
+> **⚠ The two canaries DISAGREED, which is why there were two — do not drop this
+> step.** `overpayment-calculator` changed footer-only; `legal.html` changed footer
+> **+ canonical added + empty-description removed**. The 23 are **not homogeneous** —
+> each carries whatever landed since *it* last rendered. One canary, either one,
+> would have licensed a confident wrong prediction.
+>
+> **FILED AND QUEUED (21), `created_by='footerprop-bulk'`.** Baselines captured in
+> `/tmp/decomp-work/postroll1251/bulk/*.pre` (21 files).
+>
+> **PREDICTION, stated before firing so it can come out false:** footer on all 21;
+> canonical added + empty-description removed on **20 of 21**; the exception is
+> **`/tools/car-finance-calculator.html`**, the only one of the 21 already re-rendered
+> since 08-02 (footer-only expected).
+>
+> **⛔ THE `page_rerender` LANE IS INTERMITTENT — this is why they are queued, and it
+> is NOT yours to fix.** Measured this evening: 211→231 `triaged`, 5 complete, long
+> spells with **0 claims for 10+ minutes**, while the `build-dispatch-loop` itself
+> completes runs normally and **other item types drain fine in the same window**
+> (`page_component_status_drift` 12, `acceptance_run` 6). It cleared once, unaided,
+> after ~15 min and took my two canaries, then stalled again. The 209 items ahead are
+> another session's flood — **webdesign.co.uk 156, gaswholesalers.com 52,
+> loancalculator.co.uk only mine**. `bugs_closed/030` is the old fleet-wide version of
+> this shape and is CLOSED; this is **not obviously it** (030 was everything stalled,
+> this is one item type while others drain). **Recorded as a measurement, deliberately
+> NOT as a diagnosis.**
+>
+> **NEXT THREAD — VERIFICATION IS OWED. In order:**
+> 1. `SELECT status, count(*) FROM site_work_items WHERE created_by='footerprop-bulk'
+>    GROUP BY 1;` — **do NOT re-fire, whatever it says.** A slow or missing row is not
+>    a lost message, and the single-page bypass (049b, the 086 envelope) **shares this
+>    same lane**, so it cannot beat the stall either.
+> 2. When all 21 are `complete` (allow ~2 min more for deploy propagation), assert the
+>    prediction above **page by page** against `bulk/*.pre`. If that scratch dir is
+>    gone, the diff baseline is gone with it — fall back to the census in step 3,
+>    which needs no baseline.
+> 3. **Re-run the census. Expect `old footer 0 · no-canonical 0 · empty-description 0`,
+>    out of 26.** This is the real acceptance test and it is baseline-free:
+> ```bash
+> while read u; do b=$(curl -s "https://loancalculator.co.uk$u");
+>   echo "$b" | grep -q 'THE HAND-BUILT PAGES HAD NO FOOTER' && echo "OLD FOOTER $u";
+>   echo "$b" | grep -q '<link rel="canonical"'                || echo "NO CANONICAL $u";
+>   echo "$b" | grep -q '<meta name="description" content="">' && echo "EMPTY DESC  $u";
+> done < /tmp/decomp-work/postroll1251/urls.txt   # regenerate: SELECT url FROM pages WHERE site_id='0162cde4-…' AND status='active'
+> ```
+> Silence = all three clean. **Induce a non-zero first** (run it against a page you
+> know is stale) — a grep that matches nothing looks identical whether it is clean or
+> broken.
+> 4. Then re-run `toolgolden --compare` (§6b) — 21 pages re-rendered is exactly when
+>    to re-confirm the calculators.
+>
+> **When this is done the site is fully settled**, §6b's baseline constraint
+> disappears, and any page may be used as a post-roll baseline.
 
 **(3) ~~`bugs_open/182` is owned by another thread~~ — CORRECTED 2026-08-04 (evening).**
 

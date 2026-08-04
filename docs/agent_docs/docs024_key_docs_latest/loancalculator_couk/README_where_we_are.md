@@ -848,3 +848,88 @@ rebuilds.
 Nothing is outstanding on either decision. The next real piece of work is the header's
 link list, which I looked at earlier and which turns out to need a decision from the
 platform side before it can be automated safely.
+
+---
+
+## 2026-08-04, evening — a second check on a second update, and one job left half done
+
+The platform updated twice today rather than once. This morning's update was checked
+and passed; a second one landed at about half past eight this evening, so the same
+check was owed again. It passed too: the three pages I tested come back
+character-for-character identical to what the old version produced, all eleven
+calculators still give exactly the right answers, and all twenty-six pages are up.
+
+This time the check was done properly, and the difference is worth explaining because
+this morning's was not. A check like this compares "before" against "after", so the
+"before" has to be a clean picture. This morning it wasn't — those pages had a small
+correction of mine already queued up inside them, waiting to appear, so they were
+always going to come out different and the check couldn't have told me anything. I
+noticed afterwards and wrote it down. This evening I used the only three pages on the
+site that had already absorbed that correction and so had nothing else pending in
+them. Nothing to predict, nothing to explain away.
+
+I also found a mistake in the notes I handed over this morning, and it was mine. They
+told the next person that a particular platform bug was still open and that a certain
+routine operation was therefore harmless on this site. Both had stopped being true the
+day before — and my own working notes, in the same folder, said so plainly several
+pages up. I'd built this morning's summary by carrying paragraphs forward from
+yesterday's without checking them against my own notes. The important part isn't that
+the fact changed; it's that the danger reversed. That operation used to do nothing
+here. It now does something actively damaging — it duplicates a calculator on the
+page — and anyone following my summary would have concluded the opposite. Corrected,
+with the reasoning left visible rather than tidied away.
+
+Then the honest bit. I'd decided to finish off the footer correction I judged not
+worth the effort yesterday, because I found two better reasons for doing it: the old
+note names a page we deleted, so twenty-three live pages are publishing something
+untrue in their source, and it's the very thing that spoiled this morning's check. I
+started carefully — two test pages first, to prove the footer is the only thing that
+would change — and then the platform's page-rebuilding queue stopped moving. Not
+because of anything I did: there are over two hundred rebuild jobs queued from another
+piece of work on two other sites, and none of them are being picked up either, though
+the rest of the system is running normally.
+
+So I stopped. I did not queue the remaining twenty-one, because adding jobs to a queue
+that isn't moving helps nobody and makes it harder for the next person to tell my work
+from the backlog. I did not re-send the two that are waiting, because there's a
+documented trap there — a job that looks lost is usually just queued, and re-sending
+creates duplicates. And I did not start diagnosing why the queue is stuck, because
+that's a different piece of work on someone else's territory and guessing at it in
+writing is how bad theories get inherited.
+
+What's left is small and precisely written down: two jobs waiting in the queue, a
+check to run on them when they land, and twenty-one to fire after that. Whoever picks
+this up should read the status of those two before doing anything else.
+
+**Later the same evening — the queue freed up briefly, and what I found changes the
+size of this job.** Correcting what I wrote an hour ago: I said I'd stopped and left
+twenty-one jobs unqueued. The queue started moving again on its own after about a
+quarter of an hour, my two test pages went through, and I've now queued the rest. But
+the important part is what the two test pages showed.
+
+I'd expected them to change in exactly one way — the footer note. One of them did. The
+other changed in three ways: the footer, plus it gained a "canonical" tag and lost an
+empty description tag. Those two extra things are a genuine improvement the platform
+started producing on the 2nd of August, and pages only pick it up when they next
+rebuild.
+
+So I checked all twenty-six pages properly, and **twenty of them have no canonical tag
+and carry an empty description tag**. That matters for search engines: a canonical tag
+is how a page tells Google "this is my real address", and an empty description tag is
+worse than none at all. This has been true for two days on a site whose whole purpose
+is being found.
+
+Which means my judgement yesterday — "an invisible comment, not worth twenty-six
+rebuilds" — was wrong, and wrong in an instructive way. I had decided what was waiting
+to happen without ever checking what was waiting to happen. On a system where
+improvements land continuously and only reach a page when that page rebuilds, whatever
+is pending on a stale page is *everything that has shipped since it last rebuilt* —
+which grows every day and can't be guessed at. I guessed, and I guessed low.
+
+The other thing worth saying: I ran two test pages rather than one, and they disagreed
+with each other. Had I run only the calculator page I'd have concluded "just the
+footer" and been wrong about twenty pages. That check cost about two minutes.
+
+Twenty-one jobs are now queued. The queue is moving in fits and starts because of that
+other backlog, so they may take a while. Everything needed to confirm they worked is
+written down, including a check that needs nothing kept from tonight.
