@@ -137,3 +137,63 @@ image is rebuilt and rolled. Owed after the next roll: the four-way pod-grep on
 **both** replicas (this change removes a string, so a real negative control exists —
 take it rather than inventing one), a `nav-updater` re-run on
 `mortgagecalculator.co.uk`, the corrected R1 query, and a curl of every survivor.
+
+## 2026-08-04 — the council: four rounds, three of which changed the code
+
+Verdicts on correlation `78b0b7ff-f88d-402b-8f8f-ca4ae01c2d30`:
+
+| round | verdict | gated by |
+|---|---|---|
+| 1 | REVISE | `bug_historian` — the fix is inert for chrome already rendered |
+| 2 | REVISE | `render_guardian` — show that a corrected slot reaches a DEPLOYED page |
+| 3 | REVISE | `editquality` — edit 8 duplicated edit 2 (my artefact defect, not the code's) |
+| 4 | **APPROVED** | 3 advisory, none high, 4 abstained |
+
+**This is the run that justifies the gate.** I had a green build, mutation-proven
+tests and a registered seam after round 0, and the change was still wrong twice.
+
+- **Round 1** — I had written the repair for already-affected sites as a manual
+  step in my own verify-later list. That is not a mechanism, it is me
+  remembering, and a manual step in a bug file is exactly where such things die.
+- **Round 2** — I answered by analogy ("same shape as 166") without showing the
+  propagation. Reading the deciding arm settled it: `assemblePage`
+  (`rerender_single_page_action.go:532-537`) calls `getSiteComponents`, which is a
+  plain `SELECT ... FROM site_components` — chrome is re-read on every assembly,
+  never baked in. **Cite the arm, not the function.**
+- **Rounds 3/4 — the expensive lesson.** `reuse_agent` and `guardian` asked,
+  independently, whether `bugs_open/166` had already built what I was adding.
+  **It had, and I had not looked.** `repointRetiredChromeSlot` signals a needed
+  re-render with `build_status='pending'` under `pageComponentAgentWritableSQL`.
+  My design computed staleness above the loop and OR'd it into `force`, which
+  invented a second force channel **and bypassed the lock guard** — a human-locked
+  chrome slot would have been forced to re-render. The 069 gate downstream would
+  have caught it, but only after the repoint path had already written.
+  **No test of mine would have caught this**, because every test I wrote was
+  written against my own design. Rewritten to extend 166's mechanism.
+
+The LANDMINES entry for that exit says it outright — *"do NOT clear
+`rendered_html` to force it... `build_status='pending'` is the supported signal"*
+— and I had grepped LANDMINES for my own file paths at session start without
+reading the entry for the mechanism I was about to extend.
+
+## 2026-08-04 — re-verifying the blast radius by a method that is not grep
+
+`prior_art_librarian` objected (medium, advisory) that the absence claims rested
+on my own grep, which this estate documents as unreliable for exactly this class.
+Fair. Re-ran by **compiler**: rename the helper in a `git archive HEAD` copy and
+read the build errors — a method that cannot miss a caller.
+
+```
+loadResolverPageSet  -> resolve_internal_links_action.go:147
+                        rerender_page_sections_action.go:626      (2, both page-CONTENT)
+loadFetchablePageSet -> chrome_link_policy.go:61                  (1, this policy)
+```
+
+Corroborates the grep and sharpens it: `loadResolverPageSet` is down to 2 callers
+because the chrome one is gone, and `loadFetchablePageSet`'s single consumer moved
+from `applyNavVisibility` to the policy. Both symbols the reuse claim rests on
+confirmed present **at HEAD**, not merely in the working tree.
+
+Note this is a genuinely independent method, not the same check twice: grep reads
+text, the compiler resolves symbols. Two greps with different spellings would have
+agreed with each other and proved nothing.
