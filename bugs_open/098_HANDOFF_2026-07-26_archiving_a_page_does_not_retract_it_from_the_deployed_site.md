@@ -105,7 +105,13 @@ because every repair path skips archived rows on purpose.
 >    The audit records `conditions_recorded`/`conditions_lost` so a lost best-effort row
 >    cannot read as a recorded one. Proven by four action-level tests including a
 >    verbatim simulation of the overwrite, and by mutation (disabling either sink fails
->    them). Council: `Council-Submitted: 5a965452-a9a0-40a6-a990-410f14ac32b0`.
+>    them). Council: `Council-Submitted: 5a965452-a9a0-40a6-a990-410f14ac32b0` —
+>    **APPROVED 2026-08-04**, 8 seats, no high-severity objections (round 1 died to the
+>    fleet roll; round 2 under the same trail). The three advisory checks all pass
+>    (severity 'warning' is an established tier, 396 rows; no `RETRACTION_*` code
+>    collision; zero fleet configs name `retraction_audit`). The `architecture` seat
+>    asked for the coordinator-level question to be raised on its own merits →
+>    `architecture_review/RFC_012_the_await_overwrite_destroys_action_findings.md`.
 >    **Verify once live**: run a retraction with a candidate that refuses, then
 >    `SELECT error_code, error_message FROM agent_error_log WHERE
 >    action='retract_page_deployment' ORDER BY created_at DESC LIMIT 5;` and read

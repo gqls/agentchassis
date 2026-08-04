@@ -478,3 +478,35 @@ tell that distinguishes a kill from a seat-level failure. Resubmitted 08-04 with
 `RESUBMIT_CORR=5a965452…` — the script makes the old correlation the new round's
 `fix_correlation_id` (097 line 75), so the commit trailer on `e35e549a8` still resolves.
 Round-2 run orchestration: `9e5352cf-7b1f-4d4f-ae83-09923d2baf30`.
+
+## 2026-08-04 — round 2 APPROVED (8 seats, no high-severity), three checks run, RFC 012 filed
+
+`decided_by: "approved with 2 advisory objection(s) — none high-severity"`, 9 abstained.
+The commit's `Council-Submitted:` trailer resolves automatically — no amend, per the
+07-30 rule. What the seats asked for, and what came of it:
+
+- **editquality (low)**: "no edit corrects the 'refusals are RETURNED, not swallowed'
+  comment". **It was corrected in the shipped diff** — the submission's edit list
+  under-described the change, the code has it. Lesson: sketch the comment edits too.
+- **editquality (low)**: confirm `severity='warning'` matches table conventions. **Run:**
+  fatal 1694 / error 1264 / warning 396 / info 1 — 'warning' is an established tier. ✓
+- **reuse_agent (missing)**: `RETRACTION_*` code collision. **Run:** no such codes in DB
+  or Go; nearest stem is `FIX_PLAN_VALIDATION_REFUSED`. ✓
+- **guardian (low)**: fleet-wide confirmation nothing names `retraction_audit`. **Run:**
+  0 rows across live `agent_definitions`, no seed mentions it. ✓
+- **prior_art_librarian (medium)**: "is the import cycle real, and is
+  recordComponentWriteRejection generic enough to take these payloads?" **Answers:** the
+  cycle is real (`coordinator.go:23` imports actions); recordComponentWriteRejection is a
+  SIBLING, not a duplicate-target — it extracts site/domain/work-item from `input_data`
+  paths only, while the retraction resolves its site from config/`site_record`/several
+  locations and has the values in hand; extending its signature touches its 3 existing
+  callers. The new recorder passes resolved values. Recorded here as the argued case the
+  seat asked for.
+- **guardian + debug_historian (medium/low)**: the duplicated 13-column INSERT is a real
+  running cost (~15 hand-copies in the package now). Folded into RFC 012 §3(c).
+- **architecture (approve, with signal)**: the point fix is correctly scoped, AND the
+  coordinator's overwrite semantics deserve their own RFC — this is the third-plus action
+  to hand-roll the sibling-key escape. **Filed:**
+  `architecture_review/RFC_012_the_await_overwrite_destroys_action_findings.md`
+  (options costed; filing thread recommends B — named helper + reserved namespace +
+  coordinator guard test + shared error-log writer).
