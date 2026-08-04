@@ -882,3 +882,16 @@ Full case, with verbatim sentences, the reproduce command and three ranked fixes
 `bugs_open/147`. **I have not edited the copy** — this site's voice belongs to this lane. The
 honest sentence you already ship elsewhere ("data source and last-verified date" per entry) is
 the natural replacement.
+
+---
+
+## 2026-08-04 — bugs_closed/147 executed and closed by another session (owner-authorised)
+
+Not this lane's session — noted here because this lane owns the site voice. The
+owner authorised the `bugs_open/147` candidate-1 copy change on 2026-08-04; a
+successor session executed it the same evening. **One clause deleted, nothing
+authored**: `how-it-works`/`generic-text-block` lost `" and, where available,
+independently verified test data"` from `content_data` (row backed up in
+`bak_rh_147_20260804`), rerendered no-LLM, wire-verified, claims dry run 0 BANNED.
+`gripper-catalog` had already been fixed by an earlier rebuild. Full evidence:
+`bugs_closed/147_HANDOFF_2026-07-29_robot_hands_claims_its_spec_data_is_independently_verified.md`.
