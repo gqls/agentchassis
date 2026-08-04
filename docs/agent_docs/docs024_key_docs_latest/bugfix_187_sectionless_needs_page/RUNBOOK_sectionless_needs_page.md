@@ -46,3 +46,29 @@ Gotchas, each one cost a wrong first query:
 `platform/orchestration/actions/revalidate_review_queue_action.go:149` —
 `reviewRevalidators` map. An item_type absent from the map = 'unknown' =
 stamped and left. Do not trust any doc's claim about coverage; read the map.
+
+## Grep an IMAGE before deploying it (caught v1.0.1247 shipping without the fix)
+
+```bash
+docker run --rm --entrypoint sh aqls/agent-chassis:<tag> -c \
+  'cd /tmp && strings /app/agent-chassis > s.txt && printf "pos=%s skip=%s neg=%s\n" \
+   $(grep -c declaredPageSections s.txt) $(grep -c skipped_sectionless_page s.txt) \
+   $(grep -c toolPageDeclaredSections s.txt)'
+# healthy fix image: pos=5 skip=3 neg=0 ; any pre-fix image: neg>0
+```
+Gotchas:
+- The container root fs is read-only for sh — write the strings dump under the
+  container's /tmp, not /.
+- An image's CreatedAt being AFTER your commit proves nothing (v1.0.1247:
+  built 08:55, commit 00:30, fix absent — a pinned/stale ref builds late and
+  lies by recency). bugs_open/153's rule, at the image instead of the pod.
+- Deploy gate: `make deploy-agent-chassis` refuses a tag not in the registry;
+  push first with a DIRECT `docker push docker.io/aqls/agent-chassis:<tag>` —
+  `push-backend` retags 13 other services' stale local images (177 lane
+  lesson).
+- Before `kubectl apply -k` on the chassis overlay: check for in-flight
+  council rounds (a roll kills them):
+  `SELECT count(*) FROM orchestration_states WHERE status IN
+   ('EXECUTING_STEP','AWAITING_RESPONSES') AND updated_at > now() - interval
+   '15 minutes' AND (current_step LIKE 'review%' OR current_step LIKE
+   '%council%');`

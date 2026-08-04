@@ -4680,3 +4680,24 @@ that is also the thing you would want in the logs is not.
 - **source:** bugfix_140 plan item 5 build, 2026-08-03 — caught by running the
   tool's own suggested command against live pods before shipping it
 - **added:** 2026-08-03, bugfix_140_contact_info_fabrication lane
+
+## `site_work_items.page_id` is NULL on most rows even when the page exists — a page_id join reports "page missing" while the page is there
+
+- **footprint:** `site_work_items.page_id`, `site_work_items` triage joins,
+  `needs_page` / `needs_content_page` / `page_rerender` item populations
+- **fires when:** you triage work items by `LEFT JOIN pages p ON p.id =
+  w.page_id` and read a NULL as "the target page does not exist". Emitters
+  mint items from (site_id, page_name) and mostly never set `page_id` —
+  measured 2026-08-03: 27 of 28 parked `needs_page` rows carried NULL
+  `page_id` while EVERY one of their target pages existed by name. A
+  page-existence conclusion drawn from that join inverts the truth for the
+  whole population, with no error anywhere.
+- **the check:** join by name, taking the name from the spec: `JOIN pages p
+  ON p.site_id = w.site_id AND p.name = COALESCE(w.spec->>'page_name',
+  split_part(w.item_key,':',2))` — and prefer `spec->>'page_name'`: item_key
+  prefixes differ per producer (`needs_page:` vs `page_rerender:`, the
+  WII-004 drift), so key-parsing is a second trap inside the first.
+- **source:** bugs_open/187 triage, 2026-08-03 — the lane's first triage query
+  said every target page was missing; the by-name re-join said every one
+  existed. WII-010 carries the same warning for the resolver's consumers.
+- **added:** 2026-08-04, bugfix_187_sectionless_needs_page lane
