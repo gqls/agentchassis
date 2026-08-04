@@ -5016,3 +5016,31 @@ that is also the thing you would want in the logs is not.
   lesson already in CLAUDE.md (a verify block of `SELECT`s cannot stop the `COMMIT`) — this is
   the next failure along, where the block *is* a `DO` and still cannot fire.
 - **added:** 2026-08-04, `bugs_closed/087` lane
+
+### `agent_definitions.updated_at` has NO trigger — a config row you just rewrote still reads as another session's write, and "nobody has touched it" is the conclusion it invites
+
+- **footprint:** `agent_definitions.updated_at` · `docs/agent_docs/sql_for_agents/*.sql`
+  seeds that `jsonb_set` a live agent · any "has this row changed under me?" check on a
+  contended tree
+- **the trap:** the house pattern for a config change is a seed of targeted `jsonb_set`
+  UPDATEs, and the house pattern for *safety* on a tree ~30 sessions share is to read
+  `updated_at` first to see whether anyone else has been here. **There is no trigger
+  maintaining that column** — verified 2026-08-04, `pg_trigger` has no non-internal row
+  for the table — so it is current only when a seed sets it by hand. Seeds `246` and
+  `308` do; seeds `309` and `310` as first written did not. Result: after six applied
+  UPDATEs the `page-content-writer` row still read `09:01:35Z`, the *previous* lane's
+  write, while carrying changes from a lane an hour later. The failure is silent and
+  points the wrong way — it manufactures **absence** of activity, which is the reading
+  nobody questions, and it mislabels your own change as someone else's.
+- **the check:** treat `updated_at` as one-way — recent means someone was here, stale
+  means **nothing**. For "did this row change under me?", diff the content across your
+  read-to-write window, which no missing trigger can fool:
+  ```sql
+  SELECT md5(default_config::text) FROM agent_definitions
+  WHERE type='<agent>' AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+  ```
+  And put `updated_at = NOW()` in your own seed's `SET` (or as a final stamping UPDATE
+  inside the same transaction) so the next session's check is not lied to by yours.
+  Same family as the fleet landmine on `scheduled_tasks.last_completed_at`: **a column
+  that looks like proof of a write is only as good as whoever remembered to write it.**
+- **added:** 2026-08-04, `bugs_closed/087` lane

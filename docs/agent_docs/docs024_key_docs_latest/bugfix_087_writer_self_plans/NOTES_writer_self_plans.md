@@ -184,3 +184,46 @@ unmeasured claim.
 the archive is faithful (the three rows hold exactly 644 / 3,810 / 420). It would pair the
 *old* structured content with the *new* HTML, and the next rerender would regenerate the old
 page over the new one. Re-running the build writes both halves together.
+
+## 2026-08-04 ~11:10 — MISSTEP found in the final state check: `updated_at` has no trigger
+
+Re-reading the live row to confirm nobody had overwritten my config, I saw
+`page-content-writer.updated_at = 09:01:35Z` — the **192 lane's** write — on a row that
+plainly carried my 14 steps and 4 fallback paths.
+
+`agent_definitions` has **no trigger** on `updated_at` (`pg_trigger` has no non-internal
+row for the table). The column is current only when a seed sets it. Seeds `246` and `308`
+do; **`309` and `310` as I first wrote them did not.**
+
+Three things wrong, in increasing order of how much they mattered:
+
+1. the two live rows carried a stale timestamp — fixed by hand, `10:11:38Z`;
+2. both seeds would replay the same way — fixed (309 gains a stamping UPDATE inside the
+   transaction, 310 sets it in the same `SET`);
+3. **the RUNBOOK told the next session to rely on that column.** That is the real error.
+   Corrected in place with the evidence, and the reliable check (`md5(default_config::text)`
+   diffed across the read-to-write window) put in its place.
+
+I had followed schema-first for every column I *wrote* and not for the one I *reasoned
+from* — I took `updated_at`'s semantics from its name. Filed to `WRONG_CALLS.md` and, since
+it fires on touch with no symptom, to `LANDMINES.md`.
+
+## 2026-08-04 ~11:15 — final state
+
+- `bugs_closed/087` — fixed, live, acceptance passed twice. Commit `8bafcf9d4`; the move
+  verified at HEAD (`git ls-tree` returns exactly one path), no same-file passengers.
+- `bugs_open/194` — filed, 1 of 4 instances fixed and proven live.
+- `page-content-writer`: 14 steps, `build_render_context → check_section_plan`, 4
+  `select_sections` paths, `resolve_links` mapping untouched as designed.
+- `page-rebuild`: `sections_metadata_field` present.
+- Target page `deployed`, 3 components, **3 with `content_data`**; nothing left armed on
+  `vetcomparison.uk`.
+- Concept register PBP-**030** (not 021 — `PBP-021` was already
+  `load_page_record lookup semantics`; the highest `### ` heading in a category file is
+  **not** the highest id in the series). Drift pair clean: 1,764 rows = 1,764 entries,
+  0 each way.
+
+**Owed, deliberately:** repoint `resolve_links`' `sections?` to the unprefixed
+`section_plan.sections_ready` **after** 192's Go roll, then exercise the falsy branch via a
+`pageflow-builder` / `site-work-orchestrator` dispatch — that branch is the half of this
+fix no run has yet taken.

@@ -64,9 +64,31 @@ kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
   < docs/agent_docs/sql_for_agents/309_page_content_writer_plans_its_own_sections.sql
 ```
 
-Read `updated_at` on the row **immediately before** applying. ~30 sessions share this
-cluster and `page-content-writer` was edited by the `192` lane at 09:01:35Z the same
-morning; a surprise timestamp means read the row before you write it.
+> **CORRECTED 2026-08-04, same session — the advice this paragraph originally gave was
+> unsafe.** It read: *"Read `updated_at` on the row immediately before applying … a
+> surprise timestamp means read the row before you write it."* **`agent_definitions` has
+> NO trigger on `updated_at`** — verified with
+> `SELECT tgname FROM pg_trigger WHERE tgrelid='agent_definitions'::regclass AND NOT
+> tgisinternal`, which returns **nothing**. The column is current only if the seed's
+> `UPDATE` sets it explicitly. Seeds `246` and `308` do; **seeds `309` and `310` as
+> first written did not**, so after applying six statements the row still read
+> `09:01:35Z` — another lane's write — while carrying mine. A session doing exactly what
+> this paragraph told them to do would have concluded nobody had touched it since 09:01.
+> Caught by re-reading the row in the final state check, not by any of the verification
+> I had designed. Both seeds now stamp it, and the two live rows were stamped by hand.
+
+Read `updated_at` before applying, but treat it as a **one-way** signal: a *recent*
+timestamp means someone was here, and a *stale* one means **nothing at all**. For the
+question that actually matters — "has this row changed under me?" — diff the value:
+
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -t -A -c \
+  "SELECT md5(default_config::text) FROM agent_definitions WHERE type='<agent>'
+     AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;"
+```
+
+before and after your read-to-write window. And **always `SET updated_at = NOW()` in your
+own seed**, so the next session's check is not lied to by yours.
 
 ## Choosing an acceptance target — bounding the blast radius
 

@@ -259,6 +259,21 @@ WHERE type = 'page-content-writer'
            @> '["section_plan.sections_ready"]'::jsonb);
 
 -- ============================================================================
+-- 7. Stamp updated_at. There is NO trigger on agent_definitions — verified
+--    2026-08-04 (`SELECT tgname FROM pg_trigger WHERE tgrelid='agent_definitions'
+--    ::regclass AND NOT tgisinternal` returns NOTHING) — so the column is current
+--    only if a seed sets it. Seeds 246 and 308 both do; the six statements above
+--    did not, which left the row reading 09:01:35Z (another lane's write) while
+--    carrying this lane's changes. That is the exact signal the next session uses
+--    to ask "has anyone touched this?", so leaving it stale is not cosmetic.
+-- ============================================================================
+
+UPDATE agent_definitions
+SET updated_at = NOW()
+WHERE type = 'page-content-writer'
+  AND is_active AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
+
+-- ============================================================================
 -- VERIFY inside the transaction. A DO block that RAISES — a verify block made of
 -- SELECTs cannot stop a COMMIT, because ON_ERROR_STOP ignores a non-empty result
 -- (the RFC_006 lesson, CLAUDE.md / MEMORY).

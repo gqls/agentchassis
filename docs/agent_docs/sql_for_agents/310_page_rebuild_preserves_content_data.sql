@@ -53,12 +53,17 @@ BEGIN;
 SELECT snapshot_agent('page-rebuild',
     'pre-update: bugs_open/194 — save_sections never mapped sections_metadata, so every rebuild NULLed content_data');
 
+-- updated_at is set explicitly: there is NO trigger on agent_definitions (verified
+-- 2026-08-04 — pg_trigger has no non-internal row for the table), so the column is
+-- current only if the seed sets it, and a stale one reads as "nobody has touched
+-- this row" to the next session.
 UPDATE agent_definitions
 SET default_config = jsonb_set(
         default_config,
         '{workflow,steps,build_pages_loop,config,sub_workflow,steps,save_sections,config,sections_metadata_field}',
         '"page_content.response.sections_metadata"'::jsonb,
-        true)
+        true),
+    updated_at = NOW()
 WHERE type = 'page-rebuild'
   AND is_active AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
 

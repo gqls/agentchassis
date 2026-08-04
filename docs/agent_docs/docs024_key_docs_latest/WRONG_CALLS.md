@@ -19196,3 +19196,45 @@ fallback at all. Had I taken it on trust, the self-planning branch would have si
 internal link resolution and I would have written the opposite into the case file. **The
 check was reading the two guard conditions**, which cost one `sed`. Related:
 [cite-the-arm-not-the-function], [a-doc-comment-is-not-an-enforcement-mechanism].
+
+## 2026-08-04 — bugfix_087 — I wrote a safety instruction into a RUNBOOK that would have misled the next session, and my own seeds were the counterexample
+
+**The claim**, written into `bugfix_087_writer_self_plans/RUNBOOK_writer_self_plans.md`
+while the work was still in progress — the good practice of writing the runbook as you go,
+producing a bad instruction:
+
+> "Read `updated_at` on the row **immediately before** applying. ~30 sessions share this
+> cluster … a surprise timestamp means read the row before you write it."
+
+**`agent_definitions` has no trigger on `updated_at`.** `SELECT tgname FROM pg_trigger
+WHERE tgrelid='agent_definitions'::regclass AND NOT tgisinternal` returns nothing. The
+column is current only when a seed sets it explicitly — seeds `246` and `308` do, and
+**mine (`309`, `310`) did not**. So after applying six UPDATEs to `page-content-writer`
+the row still read `09:01:35Z`: the `192` lane's write, an hour and a half earlier, on a
+row now carrying my changes.
+
+**What caught it:** the final state check, where I re-read the row to confirm no other
+session had overwritten my config, and noticed the timestamp had not moved even though
+the step count had. Nothing I had *designed* as verification would have caught it — the
+migration's own `DO` block asserts the config shape, which was correct.
+
+**The cheap check that would have caught it:** `\d agent_definitions`, or one query
+against `pg_trigger`, before writing a sentence that depends on a column being
+maintained. **I asserted a column's semantics from its name.** Schema-first is already
+the house rule ("`\d <table>` before writing SQL"); I followed it for the columns I was
+*writing* and not for the one I was *reasoning from*.
+
+**Why this one is worse than an ordinary error.** It fails toward **absence**: a stale
+`updated_at` says "nobody has touched this", which is the answer that gets acted on
+without a second look. And it was in a **RUNBOOK** — a file whose entire purpose is that
+the next session follows it without re-deriving it. An error in a NOTES file misinforms a
+reader; an error in a runbook instruction *is executed*. It would also have mislabelled my
+own change as another lane's, which is the specific confusion the practice exists to
+prevent.
+
+Corrected in place (visible strike-through with the evidence, per the working-docs rule),
+both seeds now stamp `updated_at`, the two live rows were stamped by hand, and the
+generalisation went to `LANDMINES.md` — because it fires on touch, with no symptom.
+Sibling: the fleet landmine on `scheduled_tasks.last_completed_at`, where the column that
+looks like proof a scheduler ran is written by the agent instead. **A column named for an
+event is not evidence of the event.**
