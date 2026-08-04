@@ -4317,6 +4317,16 @@ that is also the thing you would want in the logs is not.
 - **source:** RFC_009 / `bugs_closed/140`, migration 295, 2026-08-03. All four
   treatments and the per-field reasoning are in that migration's header.
 - **added:** 2026-08-03, bugfix_140 lane
+- **UPDATED 2026-08-04 — the pressure to make this exact mistake just went up, on
+  purpose.** By owner ruling the ungated class now **exits 1**, so a new ungated field
+  turns the daily `component-fallback-check` Job RED. The fastest way to green is the
+  NO-OP gate above, and it still works on this lint — it clears the finding and leaves
+  the identical blank cell. What is different from 08-03 is that it no longer gets you
+  away with it: `component-render-check` (CGV-030) renders the component and reports
+  the hole from the output side, so the no-op edit turns one red job green and a second
+  one red. **If you are clearing this finding under time pressure, run
+  `/tmp/rck --compare` before and after your edit** — a fix that leaves NEW findings
+  there did not fix anything.
 
 ---
 
@@ -5169,3 +5179,42 @@ that is also the thing you would want in the logs is not.
 - **source:** `bugs_open/185`'s council trail, 2026-08-03/04. Extends the existing
   "a roll KILLS an in-flight council" entry with how to TELL and what the wait costs
 - **added:** 2026-08-04, bugfix_175_page_role_upsert lane
+
+---
+
+### A daily check's `doc_notes` source is the SCRIPT's name, not the CronJob's — querying by the name you deployed returns 0 rows, which is indistinguishable from a check that has stopped running
+
+- **footprint:** `doc_notes.source`, `component-fallback-check`, `component-render-check`,
+  `check_placeholder_fallbacks`, `component_render_check`, any CronJob whose whole purpose
+  is to write a row saying it looked
+- **fires when:** confirming a scheduled check actually ran — the routine health question,
+  with no symptom and no suspicion. You know the CronJob's name because you just read it
+  out of `kubectl get cronjob`, so you query `WHERE source='<that name>'`.
+- **the tell:** there is none. `SELECT ... WHERE source='component_fallback_check'` returns
+  `(0 rows)` — the exact result a dead check produces. **The two checks in this family do
+  not even agree with each other:** `component-render-check` writes under
+  `component_render_check` (the CronJob's name, underscored), while
+  `component-fallback-check` writes under **`check_placeholder_fallbacks`** (the SCRIPT's
+  name, which is not the CronJob's name at all). A session that verifies one by the
+  obvious rule and then applies the same rule to the other gets a false negative and a
+  frightening one, because these rows exist precisely to distinguish "looked and found
+  nothing" from "stopped running".
+- **the check:** never guess the literal — read it out of the writer, or list what is
+  actually there and match by eye:
+  ```sql
+  SELECT source, count(*), max(created_at) FROM doc_notes
+   WHERE created_at > now() - interval '3 days' GROUP BY source ORDER BY max(created_at) DESC;
+  ```
+  ```bash
+  grep -n "source" <the script or cmd/ dir that writes the row>   # the INSERT is the authority
+  ```
+  And before concluding a check is silent, ask the Job whether it ran at all —
+  `kubectl -n ai-persona-system get pods -l app=<name>` — because a Completed pod plus no
+  row is a genuine defect, while no pod at all is a different one entirely.
+- **source:** hit on 2026-08-04 in the bugfix_140 lane while verifying the daily
+  fallback check. Caught before it was asserted, by reading `write_doc_note()` — but the
+  0-row result had already been read as "the daily check writes nothing", and the runbook
+  was open at the page that quotes the correct literal. Same class as the standing
+  "a grep proves absence only for the SPELLING it searches" rule; this is the instance
+  where the wrong spelling is the name the cluster itself shows you.
+- **added:** 2026-08-04, bugfix_140 lane
