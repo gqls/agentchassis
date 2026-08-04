@@ -714,3 +714,35 @@ cutover, and an Anthropic API key just for the chat, separate from the fleet's.
 The site build itself needs nothing from you, it's the framework's job and it's
 already in motion, just held up behind that platform bug from Sunday which
 another team owns.
+
+---
+
+**2026-08-04, later still. One box or several?**
+
+You asked whether one rented box could host all the dynamic sites: idea.uk,
+relojistas, webdesign.uk and the ones coming later, including customer orders.
+
+Putting many sites on one box is fine, and it's already how the machinery is
+built: one folder per site, one nginx entry per site, one tunnel carrying all the
+names. Density isn't the risk. The risk is mixing sites that shouldn't share a
+disk.
+
+There are really three kinds of site here. idea.uk takes real card payments, and
+its keys and orders sit on its disk; that box should stay its own box, and it was
+also only just properly secured, so moving it has risk and no benefit. Our own
+product sites, webdesign.uk and the ones coming, share a trust class and belong
+together on the one new box; each extra one costs nearly nothing to add. And the
+customer sites are the surprise: they don't need a box at all. The framework
+builds static sites, they go to the storage bucket like everything else, and
+scale in customers is scale in files, not servers. A customer would only ever
+need a machine if we deliberately sold them a backend feature, which today we
+can't generate anyway, so that would be a priced decision on its own day.
+
+So: rent the one box for our product sites, take 8 GB rather than 4 if several
+chat-carrying sites are really coming, leave idea.uk and relojistas where they
+are for now, and revisit folding relojistas in when the estate work makes that a
+checked, mechanical move rather than a hopeful one. The version to avoid is the
+one that saves a tenner a month by putting the live payment keys, an anonymous
+chat that spends money, and every future site behind one kernel. One bad day
+there takes all the revenue at once, and we've already had the near-miss with
+the firewall-resetting script.

@@ -70,6 +70,61 @@ Decisions inherited rather than taken (each has a worked precedent):
   No inbound ports, no certbot, no origin firewall step, IPv4 not required
   (Mythic Beasts charge for it).
 
+## 2a. One box or several? (owner question, 2026-08-04 evening)
+
+**The question:** rent one Mythic Beasts box and host all the dynamic sites on it
+— idea.uk, relojistas.com, webdesign.uk, and more coming, including sites
+customers order through webdesign.uk?
+
+**Short answer: many sites per box is fine and is already the estate's design.
+The trouble is not density, it is mixing three different trust classes.** Sort
+the sites by class and the answer falls out per class.
+
+### Multi-site per box is the built pattern, not an aspiration
+
+The site-engine deploy artefacts are already class-level and multi-domain:
+webroots are `/var/www/vm-sites/<domain>` (CTS-050), `sitesync` rsyncs one
+folder per domain, nginx adds a vhost per site, one `cloudflared` tunnel routes
+any number of hostnames, and the vm-sites thread already ruled this way for its
+own sites ("wayfaringlondoner … goes on an EXISTING box — no new boxes for
+now"). Resource-wise these are thin Go services plus static files; a 2-core/4 GB
+box hosts a handful without noticing. **Density is not the risk.**
+
+### The three trust classes, and what each gets
+
+| class | sites | where it lives | why |
+|---|---|---|---|
+| **Money-live** — real Stripe keys and orders on disk | idea.uk today | **stays on its own box** | §6c stands, in both directions: `setup.sh` has box-takeover semantics (`ufw --force reset`), and a live earning box must not share a disk with an anonymous-input spend faucet. It is also *freshly* secured (CF + origin firewall, 08-02) — migrating a working money machine has real risk and zero upside |
+| **Our product sites** — marketing/intake, spend faucets, Stripe **test** | webdesign.uk now; the "few more coming" | **the new Mythic box, together** | same trust class, same profile (tunnel, pull-sync, thin services). Each new site = one repo folder + one vhost + one tunnel hostname — marginal cost ≈ zero, exactly what the pull model is for |
+| **Customer deliverables** — sites ordered through webdesign.uk | future | **B2, not a box at all** | §6a.i: chassis-built sites are **static by construction**. A customer site needs no VM; it deploys down the same Worker→B2 path as everything else. The box is never in a customer's serving path |
+
+**The third row corrects the question's premise, and it is the important one:
+customer sites do not consume box capacity.** They are static, they go to the
+bucket, and scale in customers is scale in *objects*, not in servers. The only
+customer site that would ever need a box is one sold with a backend feature —
+which the framework cannot generate today (DYN-001 tier 2), so it would be a
+deliberate, priced, per-case decision, and *that* is the moment to think about
+customer isolation (it is already flagged in §6c's second caution and the P3
+isolation decision).
+
+### So, concretely
+
+- **Rent ONE new box now** — for webdesign.uk and every future site of ours in
+  the same class. If several chat-bearing sites are genuinely coming, take 8 GB
+  instead of 4 at order time (still cheap, saves a resize).
+- **Do not migrate idea.uk onto it.** Revisit only under the estate plan's
+  profile work (P1–P2), when a rendered profile and a drift check make a
+  migration verifiable rather than hopeful — and even then the money-live class
+  arguably keeps its own box for the §6c disk-sharing reason alone.
+- **relojistas: leave it, migrate later if the estate work makes it free.** It
+  works, it deployed today, and it is the odd one out only in ingress profile
+  (public TLS + push runner). Fold it in when profiles exist, not before.
+- **One failure domain per class, not one per estate.** The consolidation that
+  saves ~£10/month by putting live Stripe keys, a hostile-input chat and every
+  future product site behind one kernel is the version that is asking for
+  trouble: one compromise or one bad provisioning run takes all revenue at once
+  — and we have already *had* the bad provisioning run (`ufw --force reset`).
+
 ## 3. Phases
 
 Ordering is chosen so **nothing is ever publicly broken**: the holding 302 stays
