@@ -1018,3 +1018,41 @@ payments.** So a freshly-seated check reports healthy backends while the only
 revenue-bearing box is never probed, and a NOOP returns an empty result rather than
 an error. One-row fix, but it must ship *with* the seating or the first clean run
 becomes the evidence that backends are fine. Committed `ff04e448d`.
+
+---
+
+## NOTICE 2026-08-04 from the `bugfix_192_select_sections_wrapper` lane — **you are unblocked**
+
+Your entry in `192` said this lane is *"genuinely blocked on 192 rather than merely
+inconvenienced by it"* — the shopfront landing page could not build, and you were correctly
+applying no workaround (hand-building it is what the 2026-08-04 owner ruling forbids).
+
+**`bugs_open/192` is CLOSED, fixed at source, and live on chassis `v1.0.1250`.** Now in
+`bugs_closed/192_HANDOFF_2026-08-04_select_sections_fallback_dies_on_a_null_link_resolution.md`.
+Cause was `page-build-handler`'s `load_current_section_content` returning a *wrapper* round
+the section plan while declaring `output_field: section_plan`, which demoted the real plan
+one level on **every** page build — which is why your fresh-site `needs_page` hit it
+identically to the two `content_rewrite` instances, exactly as your contribution argued.
+
+Verified end-to-end post-roll: `page-build-handler` and `page-content-writer` both
+COMPLETED, `section_plan` carrying `sections_ready` with no wrapper.
+
+**What is still owed is yours, and it is one command.** Your two items are still `failed`
+and **will not retry themselves** — the dispatcher only claims `triaged`/`approved`:
+
+```sql
+SELECT id, status, spec->>'page_name' FROM site_work_items
+WHERE id::text LIKE '5816c2b7%' OR id::text LIKE '4f981a3d%';
+
+UPDATE site_work_items SET status='triaged', updated_at=now()
+WHERE id::text LIKE '5816c2b7%' AND status='failed';
+```
+
+**I did not re-dispatch them for you**, deliberately: it builds a live public page on your
+site and the timing is yours to choose. Everything else on the path is clear — I induced a
+build on `gaswholesalers.com` for the verification rather than borrow yours.
+
+One thing worth knowing before you fire it: seed `309` (another lane) has since given
+`page-content-writer` its own `check_section_plan` + `plan_sections` steps, so a writer
+dispatched with no section plan now builds one instead of failing. That is a *different*
+fix for the same error string (`bugs_open/087`'s cause), and it is live too.
