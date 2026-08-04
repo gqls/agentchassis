@@ -327,6 +327,15 @@ func contextKeys() map[string]bool {
 // reported once as their own class instead of being blamed on every field.
 // ---------------------------------------------------------------------------
 
+// componentIsRuntimeFillShell reports whether this COMPONENT declares itself a
+// build-time shell filled by a browser-side loader. The input here is a single
+// component's template — never a page — so a bare containment test cannot
+// exempt an unrelated section the way bugs_open/137's page-shaped inputs did;
+// the scope of the exemption is exactly the scope of the finding it demotes.
+func componentIsRuntimeFillShell(tpl string) bool {
+	return strings.Contains(tpl, "data-runtime-fill")
+}
+
 var shapeRes = []struct {
 	name string
 	re   *regexp.Regexp
@@ -372,10 +381,10 @@ func main() {
 	ctxKeys := contextKeys()
 
 	var findings []finding
-	var hardcoded []finding   // empty even with every field present
-	var overfiring []finding  // positive control failed: marker never reached output
-	var skippedCtx []string   // component.field skipped for context collision
-	var unanalysed []string   // components whose template failed to parse
+	var hardcoded []finding  // empty even with every field present
+	var overfiring []finding // positive control failed: marker never reached output
+	var skippedCtx []string  // component.field skipped for context collision
+	var unanalysed []string  // components whose template failed to parse
 	checked, runtimeFillComps := 0, 0
 
 	for _, c := range comps {
@@ -391,7 +400,7 @@ func main() {
 			continue // static template, nothing to probe
 		}
 		checked++
-		runtimeFill := strings.Contains(c.Template, "data-runtime-fill")
+		runtimeFill := componentIsRuntimeFillShell(c.Template)
 		if runtimeFill {
 			runtimeFillComps++
 		}
