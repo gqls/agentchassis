@@ -90,9 +90,20 @@ orchestrations carrying a value). Two council seats pressed it at medium.
 this way** — see §5.1. Candidate 1 (make the deployer refuse a purpose it does not own) is
 already shipped for the brand-head half; `deploy_path` itself is untouched.
 
-⚠ When measuring `deploy_path` usage, match the **JSON shape** (`'%"deploy_path":"%'`), never
+⚠ When measuring `deploy_path` usage, ~~match the **JSON shape** (`'%"deploy_path":"%'`)~~, never
 the bare word — a bare `LIKE '%deploy_path%'` over `orchestration_states` returns this lane's
 own council submissions.
+
+> **CORRECTED 2026-08-04 by the 179 lane (not this lane's error to start with — the pattern
+> originated in `bugs_open/179` and this file inherited it): the JSON-shape pattern is BROKEN.**
+> Postgres renders `jsonb::text` with a **space** after the colon, so `LIKE '%"deploy_path":"%'`
+> can never match a jsonb column — the census returns 0 whatever the data holds, and it did:
+> that structural zero reached a council submission before being caught. Use a spacing-tolerant
+> regexp requiring a non-empty value, and **induce a non-zero before trusting a zero**:
+> `WHERE collected_data::text ~ '"deploy_path"\s*:\s*"[^"]+"'`. Full account: `WRONG_CALLS.md`
+> 2026-08-04 and the footprinted `LANDMINES.md` entry the same day. (§4.2's conclusion survives
+> re-measurement; `bugs_open/179` finding A is since FIXED, LIVE and CLOSED — see
+> `bugs_closed/179` and `bugfix_179_deploy_path_override/HANDOFF_2026-08-04_continue_here.md`.)
 
 ### 4.3 Decision 2's dedup half — real work, do not fold it into anything else
 

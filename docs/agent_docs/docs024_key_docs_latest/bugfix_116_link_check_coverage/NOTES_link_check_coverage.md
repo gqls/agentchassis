@@ -235,3 +235,17 @@ the seam anyway would be a textbook case of the thing this estate keeps relearni
 — shipping a mechanism that reads as coverage and drains nowhere.
 
 Handed back OPEN with the record corrected. No code written, deliberately.
+
+## 2026-08-04 (evening) — the diagnosis verdict, read at last: UNVERIFIABLE
+
+Run corr `54bf4506-…` completed same evening it was filed: **UNVERIFIABLE —
+"Diagnosis NOT confirmed (stopped: scope-not-narrowing). Best-effort trail attached
+for a human; no fix proposed."** Four bundles, no refutation, no corroboration.
+
+So the mechanism claim in the bug file's STATUS block stands on the first-hand
+verification recorded in this file (the scheduler's `loadDueTasks` read directly,
+the live `scheduled_tasks` rows, the workflow steps, the `last_audit` stamps) — the
+declared substitute the 2026-07-31 owner ruling permits, now declared **with** the
+loop's non-answer attached rather than silently. An UNVERIFIABLE is not a REFUTED:
+nothing in the trail contradicts the mechanism, and nothing independently confirms
+it either.

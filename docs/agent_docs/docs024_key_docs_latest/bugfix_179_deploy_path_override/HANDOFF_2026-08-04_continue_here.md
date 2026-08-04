@@ -23,7 +23,7 @@ lane's) was verified LIVE and contributed into, but deliberately not closed.
 | `bugs_open/116` | **OPEN, owner-gated.** No code written, deliberately. Needs an owner decision, not a fix |
 | `bugs_open/170` | **OPEN**, but now known LIVE — steps 1/3/4 of its own verification PASS; only its behavioural induction (step 2) is owed. Whoever induces it closes it |
 | seed 307 | **APPLIED** 2026-08-04, snapshot `e9a9bac9`. `asset-deployer` no longer declares `deploy_path` |
-| `IMAGE_TAG` | `v1.0.1249` at commit time; the fleet is on **`v1.0.1250`** and carries the fix |
+| `IMAGE_TAG` | fleet now on **`v1.0.1251`** (re-verified: both 179 controls still hold — a fresh roll can ship an older commit, so this was checked, not assumed) |
 | diagnosis loop (116) | filed, run corr `54bf4506-5192-4528-8395-eb2c636a7fad` — **verdict never read** (see §5) |
 
 ## 3. `bugs_open/179` — what shipped, and the one thing NOT proven
@@ -87,11 +87,12 @@ still uncorrected; correcting it is a loose end.**
    improvement loop reverses the owner ruling of 2026-07-29 (it is **G1**, an explicit
    separate owner go). The real question is the 204 parked findings. Full evidence in
    the bug's STATUS block and `bugfix_116_link_check_coverage/`.
-2. **The 116 diagnosis-loop verdict was never read** — run corr
-   `54bf4506-5192-4528-8395-eb2c636a7fad`. It may confirm or refute the mechanism
-   written into the bug file. Cheap and owed.
-3. **Correct the broken census pattern** in
-   `bugfix_168_deployed_asset_path/HANDOFF_2026-08-03_continue_here.md` (§4 above).
+2. ~~The 116 diagnosis-loop verdict was never read~~ **READ 2026-08-04 (evening):
+   UNVERIFIABLE** — "NOT confirmed (stopped: scope-not-narrowing) … no fix
+   proposed". No refutation, no corroboration; the mechanism claim stands on the
+   declared first-hand verification (recorded in the 116 lane NOTES).
+3. ~~Correct the broken census pattern in the 168 handoff~~ **DONE 2026-08-04
+   (evening)** — dated correction in place, crediting the origin correctly.
 4. **`bugs_open/170` step 2** — the behavioural induction. Everything else on its
    checklist passes; evidence is a dated CONTRIB in that file (`a0e011723`).
 5. **`bugs_open/147`** was surveyed and deliberately NOT taken: its fix is a copy
