@@ -1731,3 +1731,50 @@ Owner pasted the exact handed-over command sequence via `!`. `gh api … -X PATC
 Nothing further owed on this workstream's cleanup debt. The four things flagged in the
 2026-07-31 08:30Z handoff (`manual-test` work items, the two 07-27 pages, fixture 3's json,
 fixture 4's page) are all retracted.
+
+---
+
+## 2026-08-04 — re-grounded state; `platform/mailer` adoption is NOT self-contained (misspoke, caught before acting)
+
+Re-checked the whole picture cold (bug 160 closed since — see below — and no other lane had
+touched mailer/tools-api/gripper since 08-02). Told the owner mailer adoption was "smallest,
+self-contained, no coordination needed since it's a pure import." **That was wrong, and I
+caught it before writing any code**, by actually reading `platform/mailer/mailer.go`'s own
+header rather than reasoning from the consolidation doc's summary of it.
+
+**What the package's own doc comment names as its intended callers, in order:** "idea.uk's
+paid report today, the gripper dossier next, contact forms after that." Neither of the first
+two is reachable without touching another lane's territory:
+- **idea.uk's paid report** runs entirely outside this repo's build — `find cmd/ internal/
+  -iname "*idea*"` returns nothing; its Go source lives only as a reference copy under
+  `docs/.../idea.uk/golang_files/`, deployed from a separate VM pipeline this repo doesn't
+  build or push. Wiring the shared mailer in there means editing a different deployment
+  entirely, owned by the idea.uk workstream.
+- **The gripper dossier's intake** is the `/api/v1/tools/gripper` route group inside
+  `internal/tools-api` (DESIGN §2, corrected 07-26) — gauntlet-owned (`bugs_open/083`,
+  "vonc 6"), and that route group does not exist yet. There is no handler in this build that
+  would call the mailer today.
+
+**Checked for a third option** — some existing, unowned, in-build stub that already wants to
+send email — before giving up on "self-contained": `grep -rn "TODO.*email"` across
+`platform/ internal/ cmd/` turns up exactly one, `internal/auth-service/user/service.go:44`,
+`// TODO: Send verification email`. Real gap, but out of scope for this workstream (no
+token/link generation, no verification endpoint, touches the login/registration path — a
+separate feature with its own design, not "this site and the AI page"). Not pursued, so as
+not to bolt an unrelated security-relevant feature onto this session's remit just because a
+grep found a hole.
+
+**Conclusion: there is no consumer of `platform/mailer` reachable without either (a) building
+the tools-api route group — the actual next deliverable, gauntlet's service, needs the same
+coordination as the httpguard `ClientIP` fix did — or (b) editing a different lane's VM app.**
+`platform/mailer` itself needs nothing further; it is built, tested, council-approved
+(`6db59c8b`) and correct as written. The "zero importers" state is not a defect to route
+around — it is honestly reported, per this file's own note that a `Council-Reviewed` claim or
+an adoption claim must not overstate what changed.
+
+**Also re-verified while re-grounding**: `bugs_open/160` (the intermittent `verify_prose`
+false-positive that destroyed fixture 4's first attempt) is **CLOSED as of 2026-07-31 ~21:10**
+— fixed, council-APPROVED round 2, live on chassis `v1.0.1222`, pod-verified both replicas.
+Filed and closed entirely within the previous session's own window; nothing left to chase
+there. See `bugs_closed/160…md` for the full fix record (closed-vocabulary qualifier rule,
+three rounds of correction against the classifier's own false starts).

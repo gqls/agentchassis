@@ -559,6 +559,26 @@ inherits the same ownership question. Nothing needed from you on that today.
 
 ---
 
+**2026-08-04.** You asked what's next, I answered "start on the email sender, it's a small
+self-contained job," and then I actually went and checked that before touching anything —
+and it wasn't. The email sender has nobody to call it yet. Its only two intended uses are the
+gripper form, which doesn't exist as a public thing yet, and the other team's paid-report
+service, which lives on a different machine we don't build from here. Wiring it in with
+nobody using it would just be code that looks finished and does nothing — I've seen that
+trap before and didn't want to walk into it myself.
+
+So the real next step is the same one flagged before: someone needs to build the public
+gripper form as part of the other team's existing public tool service, not as a new thing of
+its own. That's their service, so it's the same kind of ask as the visitor-identity fix you
+routed to them a few days ago — and that one worked cleanly. I've written down exactly what's
+needed so it's ready to hand over whenever you want to route it the same way.
+
+One separate bit of good news while I was checking: the intermittent bug that killed the
+first attempt at showing you the fixed chart page has since been properly fixed and is live —
+so regenerating a report for real, when the time comes, won't run into that again.
+
+---
+
 **2026-07-31, later still.** The cleanup is done, and I checked it properly rather than
 trusting the status.
 

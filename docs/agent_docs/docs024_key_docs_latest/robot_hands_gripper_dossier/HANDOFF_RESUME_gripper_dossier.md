@@ -1,7 +1,9 @@
 # RESUME HERE — gripper dossier pilot
 
-**Last updated 2026-07-31 15:42Z** (body written 07-27; switch positions corrected 07-31
-08:15Z; fixture 4 result 07-31 10:45Z; cleanup complete 07-31 15:42Z — nothing owed). Read
+**Last updated 2026-08-04** (body written 07-27; switch positions corrected 07-31
+08:15Z; fixture 4 result 07-31 10:45Z; cleanup complete 07-31 15:42Z; `bugs_open/160`
+CLOSED+LIVE 07-31 21:10 — mailer adoption re-checked 08-04, found NOT self-contained, see
+below). Read
 this first, then `NOTES_…md` (bottom
 up) for the technical log and `README_where_we_are.md` for the owner's account.
 Design of record: `DESIGN_2026-07-24_gripper_dossier_pilot.md` — **but read its
@@ -97,8 +99,16 @@ Live on chassis **v1.0.1175**. Seeds applied: **204, 207, 209, 210**.
    The public half is a route group **inside the existing `tools-api`**
    (`internal/tools-api/`), which already has per-request CORS from the island's
    own `sites` table, a rate limiter, an input cap and a key. `tools-api` is the
-   **gauntlet thread's**, and `bugs_open/083` is open against its error handling —
-   coordinate before editing (`scripts/who-owns.py`).
+   **gauntlet thread's** ("vonc 6"); `bugs_open/083` (the *other* 083 — resolve by
+   slug, this is `detected_findings_never_reach_a_handler`, not the gauntlet-503 one,
+   which closed) — coordinate before editing (`scripts/who-owns.py`).
+   - **`platform/mailer` has NO reachable consumer until this route group exists**
+     (re-checked 08-04 — its two named callers are this route group and idea.uk's
+     paid report, and the latter is a separate VM deploy outside this build). Do
+     not "adopt" it by wiring an import with nothing calling it — that is the
+     helper-with-no-callers trap. The real next action is coordinating this route
+     group with the gauntlet lane, same channel as the httpguard `ClientIP` fix
+     (write the ask here / in NOTES, owner routes the priority) — not a solo patch.
 2. **Before that, land two shared pieces** (`features_open/024` A2/A3), or the
    estate forks at exactly this point:
    - a **mailer** in `platform/` — `grep -rn "net/smtp" --include=*.go platform/
