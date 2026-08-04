@@ -342,3 +342,31 @@ config names it) and names the three consumers rather than merely counting them 
    `RUNBOOK_substep_error_tolerance.md` §R5–R6.
 3. **Read the verdict** and act on a REVISE/REJECTED — the code is already on the shared
    branch, so a resubmission is a forward fix, never an amend.
+
+### Council: APPROVED round 1 (`549e25fb-acc1-4806-a2a7-95bf73cca806`)
+
+8 seats approving, 3 advisory objections, **none high-severity**. All three answered with
+checks rather than nods — full working in the lane's NOTES. In brief:
+
+- **`guardian` (medium), the `fallback_step`/retry interaction this file listed as unlooked-at:
+  there is no interaction, because there is no mechanism.** `fallback_step` and `retry_step`
+  occur exactly twice in the whole Go codebase, both in *name-prefixing* lists
+  (`loop_expansion_handler.go:528`, `coordinator.go:4243`); no field on `models.Step` and no
+  routing read. **0 live definitions declare either key [MEASURED 2026-08-04].** This file's
+  third "not established" item can be struck.
+- **`bug_historian` (medium), does a tolerance-skip leave a durable trace?** Yes, three:
+  `skipToNextLoopIteration` persists `{loop}_iter_{N}_error` (`skipped:true`, failing step,
+  timestamp) plus a `{loop}_error_count`; it logs a `Warn` naming the failed step and iteration;
+  and `LoopCompleteAction` stamps `status:"error"` per item in the aggregate, distinct from
+  `status:"missing"`. **Residual, stated honestly:** no work item is raised and
+  `orchestration_states` is retention-clocked, so the trace expires with the row; whether a
+  downstream consumer acts on the aggregate's status is per-workflow and **[UNMEASURED]**.
+- **`bug_historian` (medium), file the sibling instead of deferring it in prose → `bugs_open/193`.**
+  `loop_actions.go:66`'s loop-level read of this same key silently ignores a non-bool, and after
+  today's fix its substep-level twin warns — so the mechanism is now loud on one side and silent
+  on the other. Latent: all 10 declaring loops declare `boolean` [MEASURED 2026-08-04].
+
+**For the owner, not resolved here:** `reuse_agent` and `architecture` both noted that owner
+ruling 2026-07-29 §1 was **self-applied by the change's author** — I argued my own change does
+not cross the RFC threshold. Both agreed with the reading, `architecture` at length, but flagged
+that the author is not the ruling's owner.

@@ -156,3 +156,96 @@ into the council submission: a closed bug's scope-out expires
 (`a-model-upgrade-can-invert-a-closed-bugs-premise`), and so does an open one's example. The
 submission would have named a deleted agent as a live consumer, and the guardian seat would
 have been right to ask whether I had looked at anything at all.
+
+---
+
+## 2026-08-04 — council APPROVED round 1, and the three objections answered with checks
+
+Correlation `549e25fb-acc1-4806-a2a7-95bf73cca806`. **APPROVED, round 1**, 8 seats approving,
+3 advisory objections, **none high-severity**, 7 abstained (relevance-gated).
+
+The norm here is that objections come back with the reviewers' own read-only checks already
+answered, so answering them with a nod would be the wrong shape. All three are answered below
+with a check.
+
+### `guardian` (medium) — "the fallback_step/retry interaction is UNVERIFIED"
+
+Fair: `173` listed it as not looked at, and so did my submission. **Now looked at, and the
+answer is that there is no interaction, because there is no mechanism.**
+
+`fallback_step` and `retry_step` appear in the **entire** Go codebase exactly twice, and both
+are name-prefixing lists — `loop_expansion_handler.go:528` (`stepRefFields`) and
+`coordinator.go:4243` (`stepRefKeys`). There is no `FallbackStep`/`RetryStep` field on
+`models.Step`, and **nothing reads either key to make a routing decision**. Fleet-wide, **0
+live agent definitions declare either key** `[MEASURED 2026-08-04]`.
+
+So the two keys are rewritten as if they were live routing and consumed by nothing — which is
+*the same declared-and-inert class as the bug this lane just fixed*, one level out. Not filed:
+unlike `continue_on_error` these are declared by nobody, so there is no author to mislead. Worth
+knowing before anyone "restores" them.
+
+### `bug_historian` (medium) — "does a tolerance-skip leave a durable trace, or is it a silent loss?"
+
+The sharpest objection of the round, because the seat is guarding the exact pattern this
+platform keeps re-finding. **Answer: three traces, and it is not the silent-drop shape.**
+
+1. `skipToNextLoopIteration` (`loop_error_handler.go:139-158`) writes
+   `{loop}_iter_{N}_error` into `CollectedData` — `status:"error"`, the message, the failing
+   **step name**, the iteration index, `skipped:true`, a timestamp — and increments
+   `{loop}_error_count`. It then **persists state to the DB** (`repo.UpdateState`, :185).
+2. It logs a `Warn` — *"Skipping failed loop iteration, advancing to next"* — naming
+   `failed_step`, `error`, `failed_iteration`, `total_iterations` and `total_errors`.
+3. `LoopCompleteAction` (`loop_actions.go:466-472`) reads that key back per iteration and
+   stamps `status:"error"` plus the error payload and the item's page name into the loop's
+   aggregated result — **deliberately distinguished from `status:"missing"`**, which is what a
+   genuinely empty iteration gets.
+
+**The honest residual, which the seat is entitled to:** none of that raises a *work item*, and
+`orchestration_states` is retention-clocked, so the trace expires with the row. Whether any
+downstream consumer acts on the aggregate's `status:"error"` is per-workflow and
+**[UNMEASURED]**. So: durable within the run and typed in the aggregate, but not escalated. A
+consumer that ignores the aggregate's status would still lose the page quietly — and that is a
+property of the consumer, not of this knob.
+
+### `bug_historian` (medium) — "file the sibling rather than leaving it as prose"
+
+**Done: `bugs_open/193`.** The seat's reasoning is the transferable part — a deferral recorded
+only in the deferring document *"will not surface to anyone auditing the mechanism later"*,
+because the next reader reads the mechanism, not the document that once touched it. The sibling
+is `loop_actions.go:66`: the loop-level read of the very same key silently ignores a non-bool,
+and after today's fix its substep-level twin **warns** — so the mechanism is now loud on one
+side and silent on the other, which is worse than uniform silence.
+
+Measured while filing, rather than asserted: all **10** live loops declaring `continue_on_error`
+declare it as `boolean` (9 `true`, 1 `false`), so the trap is latent, not live.
+
+### `editquality` (low) + a MISSING item — and this one is a genuine submission-craft error
+
+The seat flagged: *"the plan's own rationale requires a concept-register edit alongside the code
+change, but the edits array contains only the production file and the test file… Either the
+registration edit is missing from the plan, or the plan's own compliance claim is false."*
+
+**The seat is right about the submission and wrong about the commit, and that is my fault, not
+its.** WFA-008 *is* in the same commit as the code (`2e497e846`) — but I described the
+registration in the rationale and left it out of the `edits` array, so from the reviewer's seat
+the compliance claim was unevidenced. The reviewers can only judge what the plan shows them.
+
+**MISSTEP, logged.** The lesson is specific and reusable: **when a submission's rationale claims
+compliance with the ordering exemption, put the register edit IN the edits array**, even though
+a docs-only submission would be refused for scope. Scope is judged on the whole submission, and
+mine already qualified on `platform/`. Adding the docs edit costs nothing and converts an
+unverifiable claim into a checkable one.
+
+Its `low` objection — that the warning-and-fallback branch is "slightly beyond minimal", since
+`173` only asked for a substep able to declare its own tolerance — is noted and **stood by**:
+reproducing the declared-and-inert failure mode inside the fix for that mode would have been
+indefensible, and the seat explicitly framed it as "flagging so the extra branch is deliberate,
+not accidental scope creep." It is deliberate.
+
+### One thing the seats asked a HUMAN to confirm, recorded so it is not lost
+
+Both `reuse_agent` and `architecture` noted that owner ruling 2026-07-29 §1 is being
+**self-applied by the plan's author**: I argued my own change does not cross the RFC threshold.
+Both agreed with the reading — `architecture` at length (*"this is the shape the 2026-07-29
+owner ruling explicitly carved out of the RFC gate"*) — but flagged that the author is not the
+ruling's owner. **Left standing for the owner, not resolved here.** It is in the README.
