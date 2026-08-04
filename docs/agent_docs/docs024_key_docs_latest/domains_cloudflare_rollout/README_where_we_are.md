@@ -28,3 +28,30 @@ Once those land the run is mechanical: list every domain, create the missing
 Cloudflare zones, add the record and worker routes, then switch each domain's
 nameservers over at whichever registrar holds it, and finally check every single
 one came up active rather than trusting the batch said "ok".
+
+## 2026-08-04
+
+You gave us the skip list and the rule behind it (everything static until a
+domain gets a real dynamic service, then we deliberately move it), and said www
+should work by pointing at the main site. All recorded; the zone template now
+includes www.
+
+Two problems surfaced, both about addresses, and they change two earlier asks:
+
+1. Your office internet connection changes its address — it has already changed
+   since Saturday, both kinds (IPv4 and IPv6). So locking the Cloudflare key to
+   an address was my bad advice: that lock has now shut us out entirely, even
+   though the key itself is fine. Please edit the token in the Cloudflare
+   dashboard and REMOVE the IP filter list (keep everything else) — the tight
+   permissions and expiry are what actually protect us.
+2. Same for Nominet: the address you kindly added has already gone stale. The
+   good news is the server cluster has five fixed addresses that never rotate.
+   Please add these to the Nominet EPP allowlist instead:
+   134.213.168.26, 134.213.168.37, 134.213.168.44, 134.213.168.54,
+   134.213.168.56 — then EPP will run from the cluster and never break this way.
+
+Also still needed: the Nominet TAG name (the login username that goes with the
+password you provided), and the three registrar keys when you get a moment. A
+subtle trap got written down for future sessions: both services happily pass
+their "is it working?" checks even when the address lock is the thing that's
+broken — we now know to test with a real call instead.

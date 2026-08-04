@@ -20201,3 +20201,23 @@ excludes `sub_workflow` bodies, and the estate uses those heavily. Second cheap 
 already read the count in PBP-031 — **six callers** — and my query returned five. A number
 that disagrees with the register is a reason to doubt the query, not to quietly prefer the
 fresher-looking figure.
+
+---
+
+**2026-08-04 — domains_cloudflare_rollout: "the IPv6 /64 is stable — lock the token/allowlist to it (only the low half rotates)."**
+Given to the owner as hardening advice and written into the RUNBOOK. The office line rotates
+BOTH families wholesale (08-02→08-04: `151.226.83.138`→`5.65.164.9`,
+`2a02:c7c:f61f:ac00::/64`→`2a02:c7e:3066:5400::/64`) — a single observation extrapolated into
+a stability claim. Caught two days later by every real Cloudflare call returning 9109 from
+both addresses, mid-workstream. The cheap check: measure the egress on two different days —
+or just ask whether the line has a static-IP contract before advising anyone to pin to it.
+
+**2026-08-04 — domains_cloudflare_rollout: "Nominet EPP is live from the allowlisted address — we got the full greeting" (and its Cloudflare twin, "tokens/verify returns 200 so the token works").**
+Both passes came from checks that do not exercise the control being claimed. Nominet serves
+its EPP greeting to ANY connecting IP — proven the same day when the full greeting arrived
+from `5.65.164.9`, an address never allowlisted; only login exercises the allowlist.
+Cloudflare's `/user/tokens/verify` returns 200 for a token whose IP filter 403s (code 9109)
+every real endpoint. The cheap check: prove an allowlist with a call the control actually
+gates — an EPP login, a real `/zones` list — never the handshake, never the verify endpoint.
+Same shape as "a PASS from a BLIND check": the pass is real, it just isn't a pass of the
+thing you named.

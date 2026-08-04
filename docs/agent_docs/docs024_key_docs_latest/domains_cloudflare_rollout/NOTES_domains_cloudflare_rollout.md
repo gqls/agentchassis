@@ -38,3 +38,29 @@
   commit refusing an untracked file. The check: `git ls-files --error-unmatch`
   the target BEFORE a shell append; or use the Write/Edit tools, which refuse
   unread files.
+
+## 2026-08-04
+
+- Owner answered all three open decisions → PLAN "Owner decisions": skip-list
+  (relojistas.com, finetuning.uk, webdesign.uk, idea.uk), the static-first rule,
+  and www = proxied CNAME to apex.
+- Owner added `151.226.83.138` to the Nominet EPP allowlist; EPP password landed
+  at `~/.config/nominet/epp-password` (single value — TAG still missing).
+- EPP greeting read cleanly over IPv4 (2,527 bytes, svID "Nominet EPP server");
+  IPv6 got a 94-byte reject → pin EPP to IPv4.
+- > **CORRECTED 2026-08-04 (two of my own claims, same session):** (1) "the
+  > greeting proves the allowlist works" — FALSE, the full greeting later arrived
+  > from `5.65.164.9`, never allowlisted; only login tests it. (2) 08-02's "the
+  > IPv6 /64 is stable, pin to it" — FALSE, the line rotates both families
+  > wholesale. Both in WRONG_CALLS.md 2026-08-04; distilled into a LANDMINES.md
+  > entry (health checks that don't exercise the allowlist).
+- Zone audit attempted: `audit_zones.py` (copied into this dir) — read-only
+  audit of all 36 zones vs template. BLOCKED: every real endpoint returns 9109
+  ("Cannot use the access token from location …") — the token's IP filter names
+  the rotated-away office IPs. `/user/tokens/verify` still says 200 — it does
+  not enforce the filter. A wasted hour chasing a phantom User-Agent theory
+  before reading the 403 BODY, which named the cause in one line.
+- Cluster egress measured for a stable anchor: five node IPs
+  `134.213.168.26/.37/.44/.54/.56` (per-node egress, no shared NAT;
+  `postgres-clients-0` on the `.26` node, has OpenSSL 3.0.20 for the EPP pipe).
+  Pod creation is permission-blocked; `kubectl exec` into existing pods works.

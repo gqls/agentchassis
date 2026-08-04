@@ -34,12 +34,30 @@ the standard template: apex A record + two worker routes to `portfolio-sites-rou
 - **Capture NS pair per zone at create time** even though the account pair looks
   constant (`alexis`/`leah`) — per-account assignment is convention, not contract.
 
-## Open questions (owner)
+## Owner decisions (2026-08-04)
 
-- **www/wildcard record?** The template has no `www` or `*` DNS record, so the
-  `*.domain/*` route never fires today. One extra proxied record per zone fixes
-  it. Asked 2026-08-02, unanswered.
-- **Skip-list** — which domains to leave alone, or a rule for it.
+- **www: YES** — "www can proxy to the domain". Template gains a proxied CNAME
+  `www` → apex per zone (inherits wherever the apex points).
+- **Skip-list**: `relojistas.com`, `finetuning.uk`, `webdesign.uk`, `idea.uk`.
+- **The rule behind it — STATIC-FIRST**: every domain gets the static Cloudflare
+  template by default. A domain leaves the template (and joins the skip-list)
+  only when we agree it will host a framework-backed dynamic service — the
+  owner's worked examples: webdesign/finetuning-style services, image creation
+  (comics, infographics, cats in period costumes), copywriting/personae,
+  AI-first products like idea.uk where the multi-agent framework provably beats
+  a straight foundation-model call, and data-collection services (vet companies,
+  Companies House searches). The skip-list GROWS as services launch; moving a
+  domain off static is a deliberate, per-domain change.
+
+## Open questions / blockers
+
+- **Cloudflare token DEAD 2026-08-04** — its IP filter names the old office IPs
+  and the line rotated (error 9109). Owner must edit the token: recommend
+  REMOVING the IP filter (scopes + expiry remain the protection); the office
+  line cannot hold a pin (see RUNBOOK Egress).
+- **Nominet TAG name** still needed (password is in place; IP allowlist needs
+  the cluster node IPs added — the office IP the owner added has already rotated
+  away).
 - **Zone-count ceiling** — self-serve accounts have an unpublished zone cap;
   thousands of zones may need a Cloudflare support ticket mid-run. Flagged, not
   yet hit.

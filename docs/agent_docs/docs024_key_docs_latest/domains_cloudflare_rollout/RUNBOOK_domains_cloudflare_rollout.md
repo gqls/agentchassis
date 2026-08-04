@@ -27,17 +27,40 @@ becomes an invalid bearer header.
   — still capture `name_servers` from each zone-create response, do not assume.
 - Rate limit 1,200 req/5 min account-wide.
 
-## Egress IPs of this machine (for IP allowlists)
+## Egress IPs (for IP allowlists)
 
-- IPv4 `151.226.83.138` · IPv6 `2a02:c7c:f61f:ac00::/64` (low half rotates — use the /64).
-- Re-check: `curl -s https://www.cloudflare.com/cdn-cgi/trace | grep ^ip=` (and `curl -4 …`).
-- Nominet EPP allowlist is IPv4 — register `151.226.83.138`.
+> **CORRECTED 2026-08-04:** this section said the IPv6 /64 was stable and named
+> `151.226.83.138` as "the" IPv4. **The office line rotates BOTH families
+> wholesale** (by 08-04: `5.65.164.9` and `2a02:c7e:3066:5400::/64`) — never pin
+> an allowlist or token filter to this line. WRONG_CALLS 2026-08-04 has the row.
+
+- Re-check current egress: `curl -4 -s https://www.cloudflare.com/cdn-cgi/trace | grep ^ip=` (and `-6`).
+- **Stable addresses live in the k8s cluster**: each node egresses via its own
+  public IP — `kubectl get nodes -o wide` → `134.213.168.26/.37/.44/.54/.56`
+  (measured 08-04; `postgres-clients-0` sits on the `.26` node). Allowlist the
+  node set at Nominet and run EPP from inside the cluster (pipe local framing
+  through `kubectl exec -i postgres-clients-0 -- openssl s_client -connect
+  epp.nominet.org.uk:700 -quiet` — OpenSSL 3.0.20 confirmed present there).
+- **LANDMINE (also in LANDMINES.md):** the two obvious health checks do NOT
+  exercise the allowlists. Cloudflare `/user/tokens/verify` returns 200 for a
+  token whose IP filter 403s (`code 9109`) every real endpoint — prove the token
+  with `GET /zones?per_page=1`. Nominet serves the EPP **greeting to any IP** —
+  only LOGIN proves allowlisting. The 9109 message names the address you are
+  actually egressing from; read it. Dual-stack makes failures intermittent
+  (family chosen per connection): pin scripts to one family. Python's default
+  urllib UA also draws a WAF 403 on some endpoints — send a Mozilla-prefixed UA.
 
 ## Nominet (member tag, EPP)
 
-- `epp.nominet.org.uk:700`, TLS, XML EPP. Port reachable from here (tested 2026-08-02).
+- `epp.nominet.org.uk:700`, TLS, XML EPP (RFC 5734 framing: 4-byte big-endian
+  length prefix incl. itself, then the XML). Full greeting confirmed 2026-08-04.
+- **Pin to IPv4** — the two families get different treatment (IPv6 got a 94-byte
+  brush-off where IPv4 got the 2,527-byte greeting).
 - Login refused until the egress IP is allowlisted in Online Services, regardless
-  of credentials.
+  of credentials — **and the greeting is served to ANY IP, so only a login tests
+  the allowlist** (see Egress section).
+- Credential state: password at `~/.config/nominet/epp-password` (single line);
+  **TAG still needed** as of 2026-08-04.
 - Domain inventory: Nominet's EPP list extension enumerates by registration or
   expiry month — walk 12 expiry months for full coverage — OR the owner exports a
   CSV from Online Services (preferred: gives a checkable total).
@@ -54,7 +77,8 @@ becomes an invalid bearer header.
 
 ## Porkbun
 
-- Keys: porkbun.com/account/api (can also IP-restrict the key there — do it).
+- Keys: porkbun.com/account/api. ~~IP-restrict the key there~~ **CORRECTED
+  2026-08-04: do NOT IP-restrict to the office line — it rotates (see Egress).**
 - Auth: `X-API-Key` / `X-Secret-API-Key` headers or `apikey`/`secretapikey` in
   the JSON body. Base `https://api.porkbun.com/api/json/v3`.
 - Full endpoint reference: `https://porkbun.com/llms-full.txt`.
