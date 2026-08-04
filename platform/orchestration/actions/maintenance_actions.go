@@ -748,7 +748,7 @@ func findPagesWithNoContent(ctx context.Context, db *sql.DB, siteID uuid.UUID) (
 		LEFT JOIN page_components pc ON pc.page_id = p.id
 		WHERE p.site_id = $1
 		  AND p.build_status = 'deployed'
-		  AND p.status = 'active'
+		  AND `+datahelpers.PageWantedLivePredicateFor("p")+`
 		GROUP BY p.id, p.name
 		HAVING COUNT(pc.id) = 0
 		ORDER BY p.name

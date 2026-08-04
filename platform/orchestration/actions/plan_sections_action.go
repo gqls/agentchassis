@@ -244,7 +244,7 @@ func (r *sourceResolver) ensurePages(ctx context.Context) {
 
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT name, url FROM pages
-		WHERE site_id = $1 AND status = 'active'
+		WHERE site_id = $1 AND `+datahelpers.PageWantedLivePredicateFor("")+`
 	`, r.siteID)
 	if err != nil {
 		r.logger.Warn("plan_sections: failed to load pages", zap.Error(err))

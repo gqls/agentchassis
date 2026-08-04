@@ -276,6 +276,65 @@ func PageHasShippedPredicateFor(alias string) string {
 	return "NOT (" + NeverDeployedPagePredicateFor(alias) + ")"
 }
 
+// PageWantedLivePredicateFor is the LIFECYCLE axis: "the platform still wants
+// this page served". It is deliberately a separate axis from the build/shipped
+// predicates above, because the two answer different questions and nothing
+// keeps them in step — archiving a page sets `status='archived'` and leaves
+// `build_status`/`deployed_at` untouched, so a selector keyed on a build
+// column alone keeps choosing a retired page for ever (bugs_open/098: an
+// archived page was re-rendered and re-published twice a day, which also made
+// its retraction self-undoing).
+//
+// Pair this with whichever build-axis arm YOUR question needs; do not expect
+// one combined helper. The estate legitimately runs three combinations
+// (measured 2026-08-04): lifecycle alone (load_site_pages, plan_sections),
+// lifecycle + shipped (request_render_audit — bugs_open/185 tranche 2 chose
+// PageHasShippedPredicateFor precisely because `build_status = 'deployed'`
+// was the wrong shipped-test for its question), and lifecycle + the exact
+// 'deployed' STATE where that value is a state-machine arm
+// (markPagesForRebuild transitions deployed→needs_rebuild). A merged
+// "deployed-and-active" helper would misdescribe two of the three.
+//
+// Related, NOT interchangeable: `linkablePageStatusPredicate` in the actions
+// package is `status NOT IN ('deleted','archived')` — "may be linked TO",
+// which deliberately admits statuses this predicate rejects. Only two page
+// statuses exist today (active 557 / archived 25, 2026-08-03), so the two
+// currently select the same rows, but their fail-open directions differ the
+// day a third status appears.
+func PageWantedLivePredicateFor(alias string) string {
+	q := ""
+	if alias != "" {
+		q = alias + "."
+	}
+	return q + "status = 'active'"
+}
+
+// InboundLinkSurfaces is the declared list of every table an inbound-link
+// census over a site must read. It is the LOCKSTEP CONTRACT between the two
+// censuses that ask "what links to this page":
+//
+//   - discovery_checks/check_orphan_pages.go (what IS unreachable — substring
+//     match, over-matching on purpose: its safe failure is under-reporting
+//     orphans);
+//   - actions/retract_page_graph.go (what WOULD a retraction strand — quoted
+//     match + content_data scan, precise on purpose: its unsafe failure is
+//     refusing legitimate retractions).
+//
+// The QUERIES are deliberately different — same sources, different questions,
+// opposite safe-failure directions; forcing them into one parameterised query
+// was considered and rejected (council round 5a965452, 098 debt 3). What must
+// not drift is THIS LIST: a link surface added to the platform (a new table
+// holding hrefs or page references) that only one census learns about makes
+// the two disagree about the same site. Each census hoists its SQL to a
+// package-level var, and a lockstep test on each side asserts every entry
+// here appears in that SQL — so extending this list breaks both tests until
+// both censuses have answered for the new surface.
+var InboundLinkSurfaces = []string{
+	"site_nav_items",
+	"site_components",
+	"page_components",
+}
+
 // PageURLSet is a normalised set of real page URLs for membership tests.
 type PageURLSet map[string]bool
 

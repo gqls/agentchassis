@@ -357,7 +357,7 @@ func queueDirectoryPageRerenders(ctx context.Context, db *sql.DB, siteID uuid.UU
 		WHERE p.site_id = $1
 		  AND cc.function IN ($2, $3)
 		  AND `+datahelpers.PageHasShippedPredicateFor("p")+`
-		  AND p.status = 'active'
+		  AND `+datahelpers.PageWantedLivePredicateFor("p")+`
 	`, siteID, profile.SnippetComponent, profile.ListingComponent)
 	if err != nil {
 		logger.Warn("queueDirectoryPageRerenders: page lookup failed", zap.Error(err))

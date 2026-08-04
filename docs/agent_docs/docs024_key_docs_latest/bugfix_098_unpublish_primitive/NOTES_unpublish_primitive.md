@@ -510,3 +510,42 @@ The commit's `Council-Submitted:` trailer resolves automatically — no amend, p
   `architecture_review/RFC_012_the_await_overwrite_destroys_action_findings.md`
   (options costed; filing thread recommends B — named helper + reserved namespace +
   coordinator guard test + shared error-log writer).
+
+## 2026-08-04 — debts 3 and 4 PAID, at a different altitude than the objections assumed
+
+Committed (`Council-Submitted: 37593214-a02a-4f12-b91c-c0704c47037a`), not live until the
+next roll — though every substitution renders byte-identical SQL, so the roll changes
+nothing observable; what ships is the mechanism that stops the NEXT drift.
+
+**Debt 3 (share the inbound-source logic) — the honest shared seam is the SOURCE LIST,
+not the queries.** Reading both censuses settled it: the orphan check substring-matches
+(`LIKE '%url%'`) because over-matching only under-reports orphans; the retraction audit
+matches quote-delimited + content_data because its unsafe direction is refusing
+legitimate retractions (`/index.html` is a substring of `/learning-center/index.html`).
+One parameterised query would erase that reasoning. So: `datahelpers.InboundLinkSurfaces`
+declares the three tables, each census's SQL is a package-level var, and a lockstep test
+on each side asserts every declared surface appears. **Mutation-proven**: appending
+`phantom_surface_mutation` to the list failed both packages' tests (4 each), restore →
+green. The estate precedent is the dedup-index↔terminal-statuses contract.
+
+**Debt 4 (canonical status predicate) — the census REFRAMED the consolidation.** Three
+combinations exist legitimately: lifecycle alone (load_site_pages, plan_sections);
+lifecycle+shipped (request_render_audit — 185 t2 chose `PageHasShippedPredicateFor`
+precisely because `build_status='deployed'` was the wrong shipped-test); lifecycle+the
+exact 'deployed' STATE as a state-machine arm (markPagesForRebuild's
+deployed→needs_rebuild transition). A merged "deployed-and-active" helper would
+misdescribe two of the three — the consolidatable unit is the LIFECYCLE ARM alone.
+`datahelpers.PageWantedLivePredicateFor(alias)` (same one-function-two-forms shape as
+`NeverDeployedPagePredicateFor`), seven call sites migrated, both rendered forms pinned
+by test.
+
+**Deliberately NOT migrated, and the helper's comment says why:** `loadRetractionCandidates`'
+`COALESCE(status,'')<>'active'` — NOT interchangeable with `NOT(status='active')` on a
+NULL status (COALESCE-form selects the row, NOT-form drops it; checked before nearly
+"tidying" it); and `linkablePageStatusPredicate` (`NOT IN ('deleted','archived')`) which
+admits statuses the lifecycle predicate rejects — identical row sets only while exactly
+two statuses exist.
+
+Registered as **PBP-029** (+ index row; headline count re-measured 1,717 → 1,718, exactly
+my row). HEAD-isolation check: `git archive HEAD` + the 12 changed files builds and
+passes all three packages' suites.

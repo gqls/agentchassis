@@ -181,25 +181,32 @@ type orphanPageFinding struct {
 	InFooter bool
 }
 
-func findOrphanPages(dctx DiscoveryCheckContext) ([]orphanPageFinding, error) {
-	// Find deployed pages that have no inbound links from:
-	// 1. site_nav_items (direct nav reference by URL or page_id)
-	// 2. site_components rendered_html (header/footer containing the URL)
-	// 3. page_components rendered_html on OTHER pages (inline links)
-	//
-	// Exclusions:
-	// - index/home page (always reachable as /)
-	// - blog-index page (in nav, the listing is the entry point)
-	// - tool pages WITHOUT nav flags (may be linked externally or from JS).
-	//   A tool page WITH in_header/in_footer set has declared it belongs in
-	//   nav — its absence from site_nav_items is nav_drift like any other
-	//   page's, so nav-flagged pages are always considered.
-	rows, err := dctx.DB.QueryContext(dctx.Ctx, `
+// findOrphanPagesSQL finds deployed pages with no inbound links from:
+//  1. site_nav_items (direct nav reference by URL or page_id)
+//  2. site_components rendered_html (header/footer containing the URL)
+//  3. page_components rendered_html on OTHER pages (inline links)
+//
+// Those three surfaces are the LOCKSTEP CONTRACT with the retraction graph
+// audit (actions/retract_page_graph.go), which asks "what BECOMES unreachable"
+// over the same sources — declared once as datahelpers.InboundLinkSurfaces and
+// asserted by a lockstep test on each side. The MATCH here is a deliberate
+// substring (`LIKE '%url%'`): over-matching under-reports orphans, which is
+// this check's safe direction; the retraction audit matches precisely because
+// its unsafe direction is the opposite. Same sources, different questions.
+//
+// Exclusions:
+//   - index/home page (always reachable as /)
+//   - blog-index page (in nav, the listing is the entry point)
+//   - tool pages WITHOUT nav flags (may be linked externally or from JS).
+//     A tool page WITH in_header/in_footer set has declared it belongs in
+//     nav — its absence from site_nav_items is nav_drift like any other
+//     page's, so nav-flagged pages are always considered.
+var findOrphanPagesSQL = `
 		SELECT p.id::text, p.name, p.url, COALESCE(p.page_type, 'content'),
 		       COALESCE(p.in_header, false), COALESCE(p.in_footer, false)
 		FROM pages p
 		WHERE p.site_id = $1
-		  AND `+datahelpers.PageHasShippedPredicateFor("p")+`
+		  AND ` + datahelpers.PageHasShippedPredicateFor("p") + `
 		  AND p.url IS NOT NULL
 		  AND p.url != ''
 		  AND p.name NOT IN ('index', 'home')
@@ -235,7 +242,10 @@ func findOrphanPages(dctx DiscoveryCheckContext) ([]orphanPageFinding, error) {
 		        AND pc.rendered_html LIKE '%' || p.url || '%'
 		  )
 		ORDER BY p.page_type, p.name
-	`, dctx.SiteID)
+	`
+
+func findOrphanPages(dctx DiscoveryCheckContext) ([]orphanPageFinding, error) {
+	rows, err := dctx.DB.QueryContext(dctx.Ctx, findOrphanPagesSQL, dctx.SiteID)
 	if err != nil {
 		return nil, fmt.Errorf("orphan_pages query failed: %w", err)
 	}

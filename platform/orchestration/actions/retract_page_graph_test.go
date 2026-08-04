@@ -19,11 +19,14 @@ package actions
 import (
 	"context"
 	"database/sql"
+	"strings"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
+
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 )
 
 func newRetractMockDB(t *testing.T) (*sql.DB, sqlmock.Sqlmock) {
@@ -194,6 +197,29 @@ func TestAuditRetractionPropagatesQueryErrors(t *testing.T) {
 	if _, err := auditRetraction(context.Background(), db, uuid.New(),
 		[]retractionCandidate{{PageID: uuid.New().String(), URL: "/x.html"}}, zap.NewNop()); err == nil {
 		t.Fatal("a failing inbound scan must fail the audit, not report a clean graph")
+	}
+}
+
+// TestRetractionAuditReadsEveryDeclaredLinkSurface is the actions half of the
+// lockstep with the orphan census (see datahelpers.InboundLinkSurfaces and the
+// twin test in discovery_checks). The retraction audit runs FOUR queries; a
+// surface must be readable by the inbound side (union of the three inbound
+// queries) AND by the stranded side, because a surface only one side reads is
+// a disagreement about the same site waiting to be measured.
+func TestRetractionAuditReadsEveryDeclaredLinkSurface(t *testing.T) {
+	if len(datahelpers.InboundLinkSurfaces) == 0 {
+		t.Fatal("datahelpers.InboundLinkSurfaces is empty — the lockstep contract has been deleted, not satisfied")
+	}
+	inbound := retractInboundBodySQL + retractInboundChromeSQL + retractInboundNavSQL
+	for _, surface := range datahelpers.InboundLinkSurfaces {
+		if !strings.Contains(inbound, surface) {
+			t.Errorf("the retraction INBOUND audit does not read %q — a reference living only there would not "+
+				"block or be retired, and the retraction would strand it silently", surface)
+		}
+		if !strings.Contains(retractStrandedSQL, surface) {
+			t.Errorf("the retraction STRANDED audit does not read %q — a target whose only remaining referrer "+
+				"lives there would be reported as newly stranded when it is not", surface)
+		}
 	}
 }
 

@@ -151,9 +151,16 @@ as corroboration.
 > population is **11, measured by curling all 14** — the "13" below was stamp arithmetic,
 > corrected in the bug file the same evening.
 
-1. ~~**Debt 5 first** — the audit's findings are discarded by the await.~~ **DONE, see above.**
-2. Debts **3** (share the inbound-source logic with `check_orphan_pages` rather than copy)
-   and **4** (consolidate the status predicate).
+1. ~~**Debt 5 first** — the audit's findings are discarded by the await.~~ **DONE, see above** —
+   and **council APPROVED 2026-08-04** (8 seats, no high-severity; the coordinator-level
+   question went to `architecture_review/RFC_012` at the architecture seat's direction).
+2. ~~Debts **3** (share the inbound-source logic with `check_orphan_pages` rather than copy)
+   and **4** (consolidate the status predicate).~~ **DONE 2026-08-04** (committed, verdict
+   pending under `Council-Submitted: 37593214-a02a-4f12-b91c-c0704c47037a`): debt 3 as a
+   lockstep — `datahelpers.InboundLinkSurfaces` + tests both sides, queries deliberately
+   NOT unified; debt 4 as the family's missing lifecycle member
+   (`datahelpers.PageWantedLivePredicateFor`), seven sites, byte-identical SQL. Register
+   PBP-029; details in NOTES 2026-08-04.
 3. **Confirm with the owner before retracting more.** 11 pages still serve frozen artefacts;
    the owner deliberately scoped this run to one. 10 of the 11 are on
    leopardessconsulting.co.uk and are ordinary content pages, a lesser problem than the one

@@ -113,7 +113,7 @@ func RequestRenderAuditAction(ctx context.Context, params ActionParams) (interfa
 		SELECT COALESCE(url, '')
 		FROM pages
 		WHERE site_id = $1::uuid
-		  AND status = 'active'
+		  AND `+datahelpers.PageWantedLivePredicateFor("")+`
 		  AND `+datahelpers.PageHasShippedPredicateFor("")+`
 		  AND COALESCE(url, '') <> ''
 		ORDER BY COALESCE(nav_order, 999), name

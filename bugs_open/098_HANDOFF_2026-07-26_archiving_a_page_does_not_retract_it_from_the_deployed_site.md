@@ -86,10 +86,19 @@ because every repair path skips archived rows on purpose.
 >    `/contact.html` went 4 → 5. The retraction target stayed 0 on both surfaces.
 >
 > **STILL OWED:**
-> 3. **MEDIUM** — the inbound-source logic is copied from `check_orphan_pages.go` rather
->    than shared with it.
-> 4. **MEDIUM** — the status predicate in the news requeue is a third bespoke spelling
->    rather than a consolidation onto a canonical helper.
+> 3. ~~**MEDIUM** — the inbound-source logic is copied from `check_orphan_pages.go` rather
+>    than shared with it.~~ **PAID 2026-08-04, committed — not live** (with debt 4; council
+>    `Council-Submitted: 37593214-a02a-4f12-b91c-c0704c47037a`). Not by unifying the
+>    queries — they deliberately ask different questions with opposite safe-failure
+>    directions — but by making the SOURCE LIST the shared thing:
+>    `datahelpers.InboundLinkSurfaces`, both censuses' SQL hoisted to package vars, and a
+>    lockstep test on each side (mutation-proven: a phantom fourth surface fails both).
+> 4. ~~**MEDIUM** — the status predicate in the news requeue is a third bespoke spelling
+>    rather than a consolidation onto a canonical helper.~~ **PAID 2026-08-04, same
+>    commit**: the eligibility family's missing lifecycle member now exists
+>    (`datahelpers.PageWantedLivePredicateFor`), composed at seven sites with
+>    byte-identical rendered SQL; the three distinct build-axis pairings in the estate are
+>    documented as deliberate and left alone. Register: PBP-029.
 > 5. ~~**NEW, and arguably the most important** — the graph audit's findings never reach the
 >    durable record (see above). Fix by persisting the audit before dispatching, or by
 >    emitting a work item, rather than relying on `output_field` surviving an await.~~

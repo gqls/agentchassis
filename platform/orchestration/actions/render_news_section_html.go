@@ -87,11 +87,11 @@ func queueNewsPageRerenders(ctx context.Context, db *sql.DB, siteID uuid.UUID, l
 	//
 	// Fleet-wide this selects exactly one non-active page today, which is that
 	// one (measured 2026-08-03; only two page statuses exist, active 557 /
-	// archived 25). The filter matches the convention its siblings already use —
-	// load_site_pages_action.go:80, plan_sections_action.go:247,
-	// maintenance_actions.go:751 — rather than introducing a shared predicate
-	// constant, because the eligibility family in queryresolve answers the
-	// "did it ship" axis and has no member for the lifecycle axis.
+	// archived 25). This used to hand-spell `p.status = 'active'` with a note
+	// that the eligibility family "has no member for the lifecycle axis" — the
+	// member now exists (datahelpers.PageWantedLivePredicateFor, 098 debt 4)
+	// and this is one of its call sites, so the two axes below are both named
+	// helpers rather than one helper and one convention.
 	rows, err := db.QueryContext(ctx, `
 		SELECT DISTINCT p.id, p.name, s.domain
 		FROM pages p
@@ -101,7 +101,7 @@ func queueNewsPageRerenders(ctx context.Context, db *sql.DB, siteID uuid.UUID, l
 		WHERE p.site_id = $1
 		  AND cc.function IN ('latest-news', 'news-listing')
 		  AND `+datahelpers.PageHasShippedPredicateFor("p")+`
-		  AND p.status = 'active'
+		  AND `+datahelpers.PageWantedLivePredicateFor("p")+`
 	`, siteID)
 	if err != nil {
 		logger.Warn("queueNewsPageRerenders: page lookup failed", zap.Error(err))

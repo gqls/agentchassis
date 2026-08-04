@@ -50,10 +50,14 @@
 // THE INBOUND JUDGEMENT IS THE ORPHAN CHECK'S, DELIBERATELY. The three sources
 // below — site_nav_items, site_components.rendered_html, other pages'
 // page_components.rendered_html — are exactly the three
-// check_orphan_pages.go:184-238 uses to decide "is this page reachable". Asking
+// check_orphan_pages.go uses to decide "is this page reachable". Asking
 // the same question with a different set of sources is how two checks come to
-// disagree about the same site, so the source list is copied on purpose and
-// this comment is the lockstep note: CHANGE ONE, READ THE OTHER.
+// disagree about the same site. The source list is no longer held in step by
+// a comment (council round 5a965452, 098 debt 3: "a comment is not a
+// mechanism"): both censuses' queries are package-level vars, and a lockstep
+// test on each side asserts every entry of
+// datahelpers.InboundLinkSurfaces appears in them — extend that list and both
+// tests fail until both censuses answer for the new surface.
 //
 // WHERE IT DIFFERS, AND WHY. The orphan check asks "does anything link here?"
 // with a substring match (`LIKE '%' || p.url || '%'`). This asks the same
@@ -132,6 +136,56 @@ type retractionGraph struct {
 	Stranded  []strandedTarget `json:"stranded_targets"`  // reported
 }
 
+// The four census queries are package-level vars (not function-locals) so the
+// lockstep test can read them — see datahelpers.InboundLinkSurfaces for the
+// contract they are held to.
+var (
+	// Body copy on OTHER pages. Two match surfaces, not one (council
+	// `editquality`, 2026-08-03): a link lives in the RENDERED markup *and* in
+	// the stored `content_data` a re-render rebuilds it from; scanning only
+	// the markup misses a reference that reappears on the next rebuild.
+	// content_data is matched WITHOUT enumerating field names — an allow-list
+	// of url-bearing keys is blind one level down (`bugs_open/097`); matching
+	// the url as a QUOTED JSON STRING VALUE finds it at any depth under any
+	// key, including keys nobody has invented yet.
+	retractInboundBodySQL = `
+		SELECT DISTINCT p.name, COALESCE(pc.slot_name,''), u.url
+		  FROM unnest($2::text[]) AS u(url)
+		  JOIN page_components pc
+		    ON pc.rendered_html LIKE '%href="' || u.url || '"%'
+		    OR pc.content_data::text LIKE '%"' || u.url || '"%'
+		    OR pc.content_data::text LIKE '%href=\"' || u.url || '\"%'
+		  JOIN pages p ON p.id = pc.page_id
+		 WHERE p.site_id = $1
+		   AND ` + datahelpers.PageHasShippedPredicateFor("p") + `
+		   AND p.` + linkablePageStatusPredicate + `
+		   AND NOT (p.id::text = ANY($3::text[]))
+		 ORDER BY 1, 2`
+
+	// Site chrome (header/footer) — the surface that made the relojistas case
+	// visible on every page at once.
+	retractInboundChromeSQL = `
+		SELECT DISTINCT COALESCE(sc.slot_name, sc.id::text), u.url
+		  FROM unnest($2::text[]) AS u(url)
+		  JOIN site_components sc
+		    ON sc.rendered_html LIKE '%href="' || u.url || '"%'
+		    OR sc.content_data::text LIKE '%"' || u.url || '"%'
+		    OR sc.content_data::text LIKE '%href=\"' || u.url || '\"%'
+		 WHERE sc.site_id = $1
+		 ORDER BY 1`
+
+	// Nav rows — by url OR by page_id; both arms are needed (098's fleet
+	// measurement found four live url-authored rows with page_id NULL).
+	retractInboundNavSQL = `
+		SELECT DISTINCT i.id::text, COALESCE(i.label,''), COALESCE(i.url,'')
+		  FROM site_nav_items i
+		  JOIN site_nav_groups g ON g.id = i.group_id
+		 WHERE g.site_id = $1
+		   AND i.status = 'active'
+		   AND (i.url = ANY($2::text[]) OR i.page_id::text = ANY($3::text[]))
+		 ORDER BY 2`
+)
+
 // auditRetractionInbound finds every live reference to the given urls, split
 // into the editorial references that must block a retraction and the nav rows
 // that the retraction will deactivate.
@@ -156,36 +210,8 @@ func auditRetractionInbound(ctx context.Context, db *sql.DB, siteID uuid.UUID, u
 	// 1. Body copy on OTHER pages. The retracted pages are excluded as
 	//    referrers — a page linking to itself, or to a sibling in the same
 	//    retraction batch, is not a reason to refuse.
-	//
-	//    TWO SURFACES, not one (council `editquality`, 2026-08-03): a link to a
-	//    page lives in the RENDERED markup *and* in the stored `content_data`
-	//    that a re-render rebuilds it from. Scanning only the markup misses a
-	//    reference that will reappear the next time the page is rebuilt — and
-	//    lets a retraction proceed past a real inbound link, which is exactly
-	//    the case the owner's directive of 2026-08-03 exists to prevent.
-	//
-	//    content_data is matched WITHOUT enumerating field names. The obvious
-	//    implementation is a list of the url-bearing keys (`cta_url`,
-	//    `link_url`, `primary_cta_url`, …) and `ctaFieldNames` is right there —
-	//    but an allow-list of field names is blind one level down, which is the
-	//    defect `bugs_open/097` was: prior checks enumerated field names and
-	//    could not see a link nested inside an array of items. Matching the url
-	//    as a QUOTED JSON STRING VALUE (`"…"`) finds it wherever it sits, at any
-	//    depth, under any key, including keys nobody has invented yet. The
-	//    second arm catches a url inside markup stored in a content field.
-	rows, err := db.QueryContext(ctx, `
-		SELECT DISTINCT p.name, COALESCE(pc.slot_name,''), u.url
-		  FROM unnest($2::text[]) AS u(url)
-		  JOIN page_components pc
-		    ON pc.rendered_html LIKE '%href="' || u.url || '"%'
-		    OR pc.content_data::text LIKE '%"' || u.url || '"%'
-		    OR pc.content_data::text LIKE '%href=\"' || u.url || '\"%'
-		  JOIN pages p ON p.id = pc.page_id
-		 WHERE p.site_id = $1
-		   AND `+datahelpers.PageHasShippedPredicateFor("p")+`
-		   AND p.`+linkablePageStatusPredicate+`
-		   AND NOT (p.id::text = ANY($3::text[]))
-		 ORDER BY 1, 2`, siteID, datahelpers.PGTextArrayLiteral(urls), datahelpers.PGTextArrayLiteral(retractingPageIDs))
+	rows, err := db.QueryContext(ctx, retractInboundBodySQL,
+		siteID, datahelpers.PGTextArrayLiteral(urls), datahelpers.PGTextArrayLiteral(retractingPageIDs))
 	if err != nil {
 		return nil, nil, fmt.Errorf("inbound body-copy scan: %w", err)
 	}
@@ -204,17 +230,9 @@ func auditRetractionInbound(ctx context.Context, db *sql.DB, siteID uuid.UUID, u
 	}
 
 	// 2. Site chrome (header/footer). Editorial for the same reason: the
-	//    chrome is authored content, and it is the surface that made the
-	//    relojistas case visible on EVERY page at once.
-	rows, err = db.QueryContext(ctx, `
-		SELECT DISTINCT COALESCE(sc.slot_name, sc.id::text), u.url
-		  FROM unnest($2::text[]) AS u(url)
-		  JOIN site_components sc
-		    ON sc.rendered_html LIKE '%href="' || u.url || '"%'
-		    OR sc.content_data::text LIKE '%"' || u.url || '"%'
-		    OR sc.content_data::text LIKE '%href=\"' || u.url || '\"%'
-		 WHERE sc.site_id = $1
-		 ORDER BY 1`, siteID, datahelpers.PGTextArrayLiteral(urls))
+	//    chrome is authored content.
+	rows, err = db.QueryContext(ctx, retractInboundChromeSQL,
+		siteID, datahelpers.PGTextArrayLiteral(urls))
 	if err != nil {
 		return nil, nil, fmt.Errorf("inbound chrome scan: %w", err)
 	}
@@ -232,18 +250,9 @@ func auditRetractionInbound(ctx context.Context, db *sql.DB, siteID uuid.UUID, u
 		return nil, nil, err
 	}
 
-	// 3. Nav rows — by url OR by page_id. Both arms are needed: 098's own
-	//    fleet-wide measurement found four live rows with page_id NULL that are
-	//    authored by url alone, and a url-only check would miss an FK-authored
-	//    row just as an FK-only check missed those four.
-	rows, err = db.QueryContext(ctx, `
-		SELECT DISTINCT i.id::text, COALESCE(i.label,''), COALESCE(i.url,'')
-		  FROM site_nav_items i
-		  JOIN site_nav_groups g ON g.id = i.group_id
-		 WHERE g.site_id = $1
-		   AND i.status = 'active'
-		   AND (i.url = ANY($2::text[]) OR i.page_id::text = ANY($3::text[]))
-		 ORDER BY 2`, siteID, datahelpers.PGTextArrayLiteral(urls), datahelpers.PGTextArrayLiteral(retractingPageIDs))
+	// 3. Nav rows — by url OR by page_id.
+	rows, err = db.QueryContext(ctx, retractInboundNavSQL,
+		siteID, datahelpers.PGTextArrayLiteral(urls), datahelpers.PGTextArrayLiteral(retractingPageIDs))
 	if err != nil {
 		return nil, nil, fmt.Errorf("inbound nav scan: %w", err)
 	}
@@ -287,12 +296,9 @@ func auditRetractionInbound(ctx context.Context, db *sql.DB, siteID uuid.UUID, u
 // desired state, and reporting it as newly stranded would send an operator to
 // repair something that is correct. Using the shared constant also means this
 // cannot drift from what the gate calls a phantom link.
-func findStrandedTargets(ctx context.Context, db *sql.DB, siteID uuid.UUID, retractingPageIDs []string, logger *zap.Logger) ([]strandedTarget, error) {
-	if len(retractingPageIDs) == 0 {
-		return nil, nil
-	}
-
-	rows, err := db.QueryContext(ctx, `
+// retractStrandedSQL reads the same three surfaces as the inbound queries —
+// held to datahelpers.InboundLinkSurfaces by the same lockstep test.
+var retractStrandedSQL = `
 		WITH outbound AS (
 		    -- every linkable page this site holds, that a retracting page links to
 		    SELECT DISTINCT t.id, t.name, t.url, COALESCE(t.status,'') AS status
@@ -302,7 +308,7 @@ func findStrandedTargets(ctx context.Context, db *sql.DB, siteID uuid.UUID, retr
 		        OR pc.content_data::text LIKE '%"' || t.url || '"%'
 		     WHERE t.site_id = $1
 		       AND t.url IS NOT NULL AND t.url <> ''
-		       AND t.`+linkablePageStatusPredicate+`
+		       AND t.` + linkablePageStatusPredicate + `
 		       AND pc.page_id::text = ANY($2::text[])
 		       AND NOT (t.id::text = ANY($2::text[]))
 		)
@@ -312,7 +318,7 @@ func findStrandedTargets(ctx context.Context, db *sql.DB, siteID uuid.UUID, retr
 		           SELECT 1 FROM page_components pc2
 		             JOIN pages p2 ON p2.id = pc2.page_id
 		            WHERE p2.site_id = $1
-		              AND p2.`+linkablePageStatusPredicate+`
+		              AND p2.` + linkablePageStatusPredicate + `
 		              AND NOT (p2.id::text = ANY($2::text[]))
 		              AND (pc2.rendered_html LIKE '%href="' || o.url || '"%'
 		                   OR pc2.content_data::text LIKE '%"' || o.url || '"%'))
@@ -326,7 +332,14 @@ func findStrandedTargets(ctx context.Context, db *sql.DB, siteID uuid.UUID, retr
 		             JOIN site_nav_groups g ON g.id = i.group_id
 		            WHERE g.site_id = $1 AND i.status = 'active'
 		              AND (i.url = o.url OR i.page_id = o.id))
-		 ORDER BY o.url`, siteID, datahelpers.PGTextArrayLiteral(retractingPageIDs))
+		 ORDER BY o.url`
+
+func findStrandedTargets(ctx context.Context, db *sql.DB, siteID uuid.UUID, retractingPageIDs []string, logger *zap.Logger) ([]strandedTarget, error) {
+	if len(retractingPageIDs) == 0 {
+		return nil, nil
+	}
+
+	rows, err := db.QueryContext(ctx, retractStrandedSQL, siteID, datahelpers.PGTextArrayLiteral(retractingPageIDs))
 	if err != nil {
 		return nil, fmt.Errorf("stranded-target scan: %w", err)
 	}

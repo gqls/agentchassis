@@ -77,7 +77,7 @@ func LoadSitePagesAction(ctx context.Context, params ActionParams) (interface{},
 		       COALESCE(build_status, 'pending'), COALESCE(nav_label, ''),
 		       COALESCE(nav_order, 100), in_header, in_footer
 		FROM pages
-		WHERE site_id = $1 AND status = 'active'
+		WHERE site_id = $1 AND `+datahelpers.PageWantedLivePredicateFor("")+`
 		ORDER BY nav_order, name
 	`, siteID)
 	if err != nil {

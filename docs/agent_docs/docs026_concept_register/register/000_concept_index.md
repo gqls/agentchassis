@@ -1,10 +1,13 @@
 # Concept Index — master register
 
-**1,717 index table rows** across **109** category register files, re-measured
-2026-08-04 with the command below after PLAN-047 (`page_canonical_collision`
-discovery check, bugs_open/080) landed; the count moved 1,716 → 1,717, exactly
-this row — and the 1,716 baseline was itself taken between my read and my write
-(CGV-030 landed concurrently, header updated under me mid-edit), which is this
+**1,718 index table rows** across **109** category register files, re-measured
+2026-08-04 with the command below after PBP-029 (lifecycle predicate +
+link-surface lockstep, bugs_open/098 debts 3+4) landed; the count moved
+1,717 → 1,718, exactly this row. Previously: 1,717 measured 2026-08-04 after
+PLAN-047 (`page_canonical_collision` discovery check, bugs_open/080) landed;
+the count moved 1,716 → 1,717, exactly that row — and the 1,716 baseline was
+itself taken between that thread's read and write (CGV-030 landed
+concurrently, header updated under it mid-edit), which is this
 line's own warning in action. Re-run rather than trust this number, per every
 line below it. Previously: 1,716 measured 2026-08-04 after CGV-030
 (`component-render-check`) landed; the count moved 1,715 → 1,716, exactly that
@@ -651,6 +654,7 @@ an ID prefix, or a status word.
 | PBP-026 | sourceResolver identity fallback chain (spec-path miss → canonical sites row) | built, inert till roll | plan_sections could not read the sites row's identity columns, so an owner-supplied email was invisible to every component | page-build-pipeline.md |
 | PBP-027 | UpsertPageForRole — one collision seam for constant-role page arms | built, inert till roll | An upsert that omits page_type turns a CREATE into a silent PARTIAL update; the collision is now four explicit outcomes | page-build-pipeline.md |
 | PBP-028 | load_current_section_content — opt-in edit channel for content_rewrite | built, inert till roll | content_rewrite never set spec.mode so the writer got guidance with nothing to edit and fabricated a replacement, dropping prose; a third mode value now hands it the page's own current rendered_html | page-build-pipeline.md |
+| PBP-029 | PageWantedLivePredicateFor (lifecycle axis) + InboundLinkSurfaces lockstep | built, inert till roll | The eligibility family had no lifecycle member so `status='active'` was hand-typed fleet-wide (a build column alone RESURRECTS retired pages, 098); and the two link censuses' shared source list was held by a comment — now a declared list with lockstep tests both sides | page-build-pipeline.md |
 | PLAN-004 | built_from_plan_version drift stamp + removal of deployed→needs_rebuild flip (Option B) | deployed | Deploy-time plan-version stamp replaces the blunt sync-time rebuild flip | site-plan-and-reconciler.md |
 | STY-046 | CSS generation bug (webdesign-agent design_spec not applied) | superseded | Deployed CSS reverts to default blue template despite a correct design_spec | styling-render-pipeline.md |
 | DEV-017 | Agent re-registration vs re-seed risk (DB row authoritative) | deployed | Deploys bump updated_at but don't overwrite default_config; DB-edited prompts survive deploys. | development-guide.md |
