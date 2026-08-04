@@ -1,9 +1,14 @@
 # Concept Index — master register
 
-**1,716 index table rows** across **109** category register files, re-measured
-2026-08-04 with the command below after CGV-030 (`component-render-check`)
-landed; the count moved 1,715 → 1,716, exactly this row, no concurrent arrival
-this time — re-run rather than trust this number, per every line below it.
+**1,717 index table rows** across **109** category register files, re-measured
+2026-08-04 with the command below after PLAN-047 (`page_canonical_collision`
+discovery check, bugs_open/080) landed; the count moved 1,716 → 1,717, exactly
+this row — and the 1,716 baseline was itself taken between my read and my write
+(CGV-030 landed concurrently, header updated under me mid-edit), which is this
+line's own warning in action. Re-run rather than trust this number, per every
+line below it. Previously: 1,716 measured 2026-08-04 after CGV-030
+(`component-render-check`) landed; the count moved 1,715 → 1,716, exactly that
+row, no concurrent arrival that time.
 Previously: 1,715 measured 2026-08-03 after CQ-019 (`literal_markdown` discovery
 check, bugs_open/184) landed; the count moved 1,714 → 1,715, exactly that
 row, no concurrent arrival that time. Previously: 1,713 measured 2026-08-03 with the

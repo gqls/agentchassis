@@ -156,7 +156,12 @@ SET pre_query = $q$
       -- as this file's own ROLLBACK note demands. This line is edited so the
       -- declared list matches the live one; TestRegisteredVerifiersMatchClaimTimeoutExclusion
       -- reads THIS FILE, so leaving it stale would make the guard lie.
-      AND wi.item_type NOT IN ('truncated_component', 'hardcoded_section_colors', 'empty_section', 'orphan_element_refs', 'content_duplication')
+      -- AMENDED 2026-08-03: 'page_canonical_collision' added (its Go verifier
+      -- landed with check_page_canonical_collision.go, bugs_open/080). Applied
+      -- to the LIVE column by 305_claim_timeout_exclusions_catch_up.sql, which
+      -- also carried the 'content_duplication' entry the 151 lane declared here
+      -- on 2026-08-01 but never applied — the live list was two behind this file.
+      AND wi.item_type NOT IN ('truncated_component', 'hardcoded_section_colors', 'empty_section', 'orphan_element_refs', 'content_duplication', 'page_canonical_collision')
       AND EXISTS (
         SELECT 1 FROM orchestration_states o
         WHERE o.initial_request_data->'input_data'->>'work_item_id' = wi.id::text
