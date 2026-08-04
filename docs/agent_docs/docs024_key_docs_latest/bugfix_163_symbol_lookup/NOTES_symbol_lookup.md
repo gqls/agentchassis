@@ -153,7 +153,21 @@ separate correlations were stalled ~20-22 min simultaneously (`c881ef22`, `eb8f9
 while a fourth (`37593214`) advanced within the second. So: partial stalls on a working gate,
 not an outage. Seven reaped rows span six correlations, i.e. it is costing other lanes too.
 
-**[UNVERIFIED — deliberately not diagnosed here]** whether these stalls are the
+> **CAUSE FOUND 2026-08-04 09:25Z — it is ROLLS, not the dispatch pool, and my [UNVERIFIED]
+> line below was pointing at the wrong family.** `kubectl get replicasets -l app=agent-chassis`
+> shows **four replicasets created inside 90 seconds**: 08:06:50, 08:07:47, 08:08:26 (then
+> 08:34:15). Round 3 stalled at **08:07:15**, mid-storm. The two runs that froze beside it
+> (`972b2562`, `89bf806d`) stalled at 08:08-08:09 — three runs, three DIFFERENT seats
+> (`review_editquality`, `review_debug_historian`, `review_improvement_guardian`), one moment.
+> Meanwhile nine council reports landed either side of the storm, and `f68e436c` — which
+> started after the churn settled — ran to `complete_approved` in ~25 min. So the gate is
+> healthy and **a roll kills whatever council is in flight**, which is documented behaviour
+> (MEMORY: "a roll KILLS an in-flight council"), not a new defect. Round 1 died the same way
+> at the 21:16Z roll. **The generalisable bit: three concurrent stalls at three different
+> steps in the same 2-minute window is a COHORT signature — look for an event, not a seat.**
+> Round 4 (`8e46f306`) submitted 09:25Z into a 51-minute-quiet window.
+
+**[SUPERSEDED by the banner above — kept because the wrong guess is the useful part]** whether these stalls are the
 `bugs_open/029` mechanism (hung spawns saturating the `dispatch` concurrency group) or the
 spawn→call handshake race (`bugs_closed/003` family, `bugs_open/075`). Both are filed, both
 are OPEN, and both are actively worked by other lanes — so this lane files nothing and asserts
@@ -167,3 +181,16 @@ round 3. The 098 report buckets it correctly today ("submitted → no report yet
 both-replica pod grep, and the A/B verifier verdict on 163's own motivating entry — is
 independent of the council outcome. If round 3 returns REVISE, the objections get answered
 forward, on the shared branch, as CLAUDE.md requires.
+
+## 2026-08-04 09:25Z — the fix survives the fleet's own rolls (re-proven, not assumed)
+
+The fleet has rolled past my `v1.0.1245` to **`v1.0.1248`** (other lanes' builds). My close-out
+claims "LIVE", so that claim needed re-checking rather than inheriting: `make build-*` builds
+from committed HEAD, so a later build *should* carry `c3b02f035` — but "should" is exactly the
+reasoning `bugs_open/153` exists to forbid. Re-grepped both `v1.0.1248` replicas with the same
+four probes: **1 / 1 / 1 / 0** (two added strings, positive control, negative control). The fix
+is live on the current image, and the closure stands.
+
+**Worth keeping as practice:** when the fleet rolls past the image you proved on, your LIVE
+claim has expired even though nothing about your code changed. Re-prove at the new artefact —
+it is one exec and it is the difference between a verified claim and an inherited one.
