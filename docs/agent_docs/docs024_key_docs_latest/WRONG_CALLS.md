@@ -19238,3 +19238,60 @@ generalisation went to `LANDMINES.md` — because it fires on touch, with no sym
 Sibling: the fleet landmine on `scheduled_tasks.last_completed_at`, where the column that
 looks like proof a scheduler ran is written by the agent instead. **A column named for an
 event is not evidence of the event.**
+
+## 2026-08-04 — I claimed an item type had NO closing mechanism. It had a purpose-built one, running for a week.
+
+**The claim, which was load-bearing for a whole change.** Adopting the RFC_010 retraction seam in
+`check_required_fields_missing` (council `64430363`, APPROVED r1, commit `ba3aae47f`), I wrote —
+in the commit message, the lane NOTES, and the council rationale — that this item type is
+flag-only, so *"CompleteWorkItemAction is never reached and until now a `required_fields_missing`
+item could not close by ANY mechanism except a hand on the database."*
+
+**False.** `platform/orchestration/actions/revalidate_review_queue_action.go:161` registers
+`"required_fields_missing": revalidateNamedFields("missing_fields")`. It selects on
+`status = 'needs_human_review'` — the exact status every one of these items is born in, so it
+covers **100%** of the population I claimed was unreachable. Its predicate is mine: *"every field
+this item reports missing (%s) is populated on the deployed component"*. It has been closing them
+since at least **2026-07-27**, and its own header records having measured the behaviour.
+
+**What caught it: running the measurement again after the roll, and finding the number had moved
+the wrong way.** The 6 items I had sized as retractable were **0** the next morning, the open
+population had grown 59 → 78, and the fleet retraction list showed only `empty_section` rows. The
+6 had gone `complete` at 08:37Z — **two hours before my own pods started** — carrying a
+`result.revalidation` block I had never seen. Had my code shipped a day earlier and closed them
+first, I would have recorded a triumphant 6/6 and never looked.
+
+**The cheap check that would have caught it, and why my evidence did not.** My absence claim was
+*evidenced* — that is what makes it instructive. I cited `HandlerAgent: ""` and
+`Status: needs_human_review` and reasoned, correctly, that **the handler dispatch path** cannot
+reach these items. Then I stated the conclusion one clause wider than the evidence: from *"the
+dispatcher cannot close it"* to *"nothing can close it"*. The `prior_art_librarian` seat praised
+the claim as *"unusually well-evidenced for an absence claim"* — it was, for a different
+proposition. **Fourteen council seats accepted it, because none of them could check it either.**
+
+The check is one query against the DATA, not the code, and it takes ten seconds:
+
+```sql
+SELECT status, count(*), left(result::text, 120)
+FROM site_work_items WHERE item_type='<type>' AND status IN ('complete','verified')
+GROUP BY 1, 3 ORDER BY 2 DESC;
+```
+
+**Ask what CLOSED the ones that are already closed, before claiming nothing can close them.** I
+had even seen the number — I measured "11 complete" the previous afternoon and read it as
+history rather than as evidence of a live mechanism. A grep of the code answers "is there a
+handler"; only the rows answer "what has actually been closing these".
+
+**Standing lesson this is an instance of, and it did not save me:** *an absence is true only when
+you looked, and only for the spelling you searched* ([[prior-art-search-goes-stale]],
+[[a-grep-proves-absence-only-for-its-spelling]]). I searched for producers of the item type
+(thoroughly, two ways, because `HANDOFF_2026-08-03b` §3 demands it) and never searched for
+**consumers that close it**. The handoff's mandatory check has a producer-shaped hole, and the
+seam's own hazard — two things closing one `item_type` — is precisely what it fails to see.
+
+**Disposition of the change:** it is redundant, not harmful — `resolveWorkItems` skips rows
+already in `workItemClosedStatuses`, so the two closers cannot double-close or clobber each
+other. The one genuine gap is narrow and **empty today**: the revalidator only sees
+`needs_human_review`, whereas `resolveWorkItems` deliberately also closes `unresolved`/`failed`
+(RFC_010 Decision 2), and 0 of the 95 rows are in those statuses. **This needs an owner call, not
+a unilateral revert** — see the handoff.

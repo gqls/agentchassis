@@ -404,3 +404,47 @@ the moment anyone rearranged the query. Now it has a test of its own.
 
 Nothing is live yet. It is committed and it will go out on the next build, the same way the last
 one did.
+
+## 2026-08-04 — it shipped, it works, and I had already built something we had
+
+The build went out overnight and I verified the new code is genuinely in both running pods. That
+part is clean. One thing nearly tripped me: my first check said the change was missing, and the
+check was wrong, not the code — the text I was searching for contains a long dash, and the dash
+got scrambled on its way into the pod. Worth knowing because a wrong answer there looks exactly
+like a failed deploy.
+
+**Then the bad news, and it is worth your attention because it is the kind of mistake that is
+expensive to notice.**
+
+I built this on the argument that these particular flagged items had *no way of ever being
+closed* — no automatic fixer, so a human would have to go into the database by hand. That was the
+whole reason to do the work. It is not true. We already have a thing that closes them, it has
+been running since the 27th of July, it uses the same test I wrote, and it reaches **all** of
+them, not some. In two respects it is more careful than what I wrote.
+
+What caught it was re-measuring after the deploy. The six items I expected to close had already
+closed — **two hours before my code was even running** — by that other mechanism. If my code had
+gone out a day earlier it would have closed them first, I would have reported six successes, and
+nobody would ever have looked.
+
+I want to be straight about how this got past everything. I did check. The handoff I was working
+from *requires* a specific check before doing this kind of work, I ran it thoroughly and two
+different ways, and it passed — because that check looks at what **creates** these items and the
+problem was in what **closes** them. The review board approved it too; one of the reviewers
+specifically praised the claim as unusually well evidenced. It was well evidenced. It just proved
+a slightly narrower thing than what I then wrote down. That gap — between what I proved and what
+I claimed — is the actual error, and it is a small one that did a lot of work.
+
+The code is harmless: the two mechanisms cannot fight, and nothing is at risk sitting where it is.
+But it is duplicate machinery, and duplicate machinery that drifts apart is precisely the thing
+this project keeps getting bitten by.
+
+**So there is a decision for you, and I have deliberately not made it.** There is one narrow case
+the older mechanism does not cover and mine does — it is real but nothing is in it today. The
+options are: teach the older, better mechanism that one extra case and delete mine (what I would
+do); keep both and accept the duplication; or just delete mine and leave the gap for the
+follow-up we already have open. It is written up with the costs in the handoff.
+
+I have logged the mistake in the fleet-wide log of wrong calls, with the ten-second query that
+would have caught it before I wrote anything, and added the missing step to the standing checklist
+so the next person doing this is told to look at both ends, not one.

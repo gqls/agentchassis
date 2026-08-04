@@ -1006,3 +1006,80 @@ the pipeline work. After the next roll the same command must read **1**; a stale
 would still read 0, so the 0→1 transition is the proof. This change removes no string literal, so
 `bugs_open/153`'s positive+negative recipe does not apply — and the substitute only exists if you
 take it BEFORE the roll, which is why it is here and not in the next session's plan.
+
+## LIVE on `v1.0.1250` — and a CORRECTION that undercuts this adoption's whole justification
+
+### First, the deploy verification, which did hold
+
+**Pod-verified, both replicas, `v1.0.1250` (pods started 2026-08-04T10:29Z).** The dated 0→1
+transition worked exactly as designed: `re-observed filled` was **0 on both replicas of
+`v1.0.1244`** yesterday and is **1 on both of `v1.0.1250`** today. First adopter's
+`re-observed healthy` = 1 as positive control.
+
+⚠ **My first probe reported the cap-fix string as ABSENT, and it was my probe that was wrong.**
+The log line contains an **em-dash**, and passing it through `kubectl exec -- sh -c "grep '…—…'"`
+mangled the multi-byte character, so `grep -c` returned 0. Re-probed with ASCII-only substrings
+(`filing stops here`, `retraction still runs`) → **1** on both replicas. **Grep the pod for
+ASCII-only substrings; never let a non-ASCII character cross the `exec` boundary** — the failure
+is silent and reads exactly like "my change did not ship".
+
+⚠ Also worth saying plainly: **the negative control I reached for was incapable of failing.** The
+old cap log line is a strict PREFIX of the new one, so grepping for it matches either binary.
+There is no valid negative control for this change, which is what "purely additive" means. The
+dated 0→1 transition is the whole proof, and it only exists because it was taken before the roll.
+
+### > **CORRECTED 2026-08-04 — the central claim of this adoption is FALSE.**
+
+> Everything above and below in the previous section asserting that
+> `required_fields_missing` **"could not close by ANY mechanism except a human hand on the
+> database"** is **wrong**, and it was the main justification for adopting the seam here — it is
+> in the commit message (`ba3aae47f`), in the council rationale, and in the handoff.
+>
+> **`platform/orchestration/actions/revalidate_review_queue_action.go:161` already does this:**
+> `"required_fields_missing": revalidateNamedFields("missing_fields")`. It selects on
+> `status = 'needs_human_review'`, which is the status every one of these items is **born in**,
+> so it reaches **100%** of the population I called unreachable. Its predicate is the same as
+> mine — *"every field this item reports missing (%s) is populated on the deployed component"* —
+> and it has been running since at least **2026-07-27**.
+>
+> **In one respect it is better than mine**: it refuses when `content_data` is empty
+> (*"the component renders from a template, a DERIVED source or a static fallback… content_data
+> cannot answer the question, so we do not pretend it can"*) — a refusal I did not have. It also
+> deliberately keys on `(page_name, slot)` and **never** on `spec.component_id`, having measured
+> that component ids are not stable across re-renders (11 of 45 `required_fields_missing` items
+> resolved to a component that no longer exists when keyed that way).
+>
+> **What caught it:** re-running the sizing after the roll. My 6 retractable items were **0**, and
+> they had gone `complete` at **08:37Z, two hours before my pods started**, carrying a
+> `result.revalidation` block. Full write-up, including the ten-second query that would have
+> caught it before I wrote a line, is in `WRONG_CALLS.md` (2026-08-04).
+
+### What is actually true now
+
+- **The change is redundant, not harmful.** `resolveWorkItems` skips rows already in
+  `workItemClosedStatuses`, so the two closers cannot double-close or clobber one another. Nothing
+  is at risk while this sits in the tree.
+- **It has retracted nothing and, on current populations, will not.** [MEASURED 2026-08-04] 0
+  retractable fleet-wide; the revalidator gets there first, on a cadence that is not mine.
+- **The one real gap is narrow and empty today.** The revalidator only sees `needs_human_review`;
+  `resolveWorkItems` deliberately also closes `unresolved` and `failed` (RFC_010 Decision 2, on
+  the ground that neither means "this stopped being a problem"). **0 of 95** rows are in those
+  statuses today, so the gap is real and unexercised.
+- **The `§3` producer check has a hole, and this is the finding worth keeping.** `HANDOFF_2026-08-03b`
+  makes counting *producers* mandatory before adopting the seam. It says nothing about counting
+  **closers** — and a second closer is the same hazard from the other end. I ran the producer
+  check thoroughly, two independent ways, and it could never have surfaced this.
+
+### What I am NOT doing, and why
+
+**Not reverting unilaterally.** A revert is also a change, it needs its own justification, and the
+honest position is that I do not know whether the narrow `unresolved`/`failed` gap is worth a
+second closer or whether that gap should be closed by teaching the *revalidator* those statuses
+instead — which is very likely the better design, since it already has the sharper refusals. That
+is an owner call and it is written up in the handoff.
+
+**Not resubmitting to the council.** The verdict was APPROVED on a rationale containing a false
+premise; that is a defect in the submission, not in the verdict, and no resubmission un-approves
+it. The correction belongs where the change lives, which is here, in `WRONG_CALLS.md`, and in the
+handoff — per the standing rule that a refuted claim is recorded as a visible correction naming
+what caught it.
