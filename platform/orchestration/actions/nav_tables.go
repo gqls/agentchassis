@@ -183,36 +183,20 @@ func applyNavVisibility(
 	logger *zap.Logger,
 ) []NavItem {
 	if visibility == NavFetchableOnly && len(items) > 0 {
-		fetchable, deployedPages, err := loadFetchablePageSet(ctx, db, siteID)
-		switch {
-		case err != nil:
-			logger.Warn("GetNavItems: fetchable-page lookup failed; serving the UNFILTERED nav rather than risk empty chrome",
-				zap.String("site_id", siteID.String()),
-				zap.Strings("group_types", groupTypes),
-				zap.Error(err),
-			)
-		case deployedPages == 0:
-			// The site has not deployed a single page, so "never deployed" is
-			// true of everything and carries no signal — this is a first build,
-			// not a site full of dead links. Filtering here would freeze a
-			// near-empty nav into the chrome (the idempotence gate means it may
-			// never be re-rendered). Note this cannot be detected from the
-			// surviving-item count: loadFetchablePageSet always injects the site
-			// root, so a "Home" item survives even when nothing is deployed, and
-			// the rest would be silently dropped.
-			logger.Warn("GetNavItems: site has NO deployed pages — serving the UNFILTERED nav (expected during a first build, anomalous on an established site)",
-				zap.String("site_id", siteID.String()),
-				zap.Strings("group_types", groupTypes),
-				zap.Int("items", len(items)),
-			)
-		default:
+		// The escapes (lookup error, zero deployed pages) and the per-URL test
+		// live in ChromeLinkPolicy, NOT here — bugs_open/191. They were inline
+		// in this function, which is precisely why the header CTA rendered
+		// beside this nav could not reuse them and validated against the loose
+		// page-content set instead. The Warns for both escapes are emitted by
+		// LoadChromeLinkPolicy; group_types rides along via logger.With so they
+		// keep naming which nav degraded.
+		policy := LoadChromeLinkPolicy(ctx, db, siteID,
+			logger.With(zap.Strings("group_types", groupTypes), zap.Int("items", len(items))))
+		if !policy.Unfiltered() {
 			kept := make([]NavItem, 0, len(items))
 			var dropped []string
 			for _, item := range items {
-				// Only page links can 404 against the pages table. External
-				// links, mailto and in-page anchors are out of scope.
-				if datahelpers.ClassifyLinkScope(item.URL) != datahelpers.LinkScopePage ||
-					fetchable.Contains(item.URL) {
+				if policy.Allows(item.URL) {
 					kept = append(kept, item)
 					continue
 				}
@@ -220,6 +204,11 @@ func applyNavVisibility(
 			}
 
 			if len(kept) == 0 {
+				// SET-level rescue, deliberately NOT part of ChromeLinkPolicy:
+				// it is a property of a menu, not of a URL, and it does not
+				// transfer to the header CTA. An absent button is a legitimate
+				// render (the gated template omits it on an empty cta_url); an
+				// absent menu is not.
 				// Belt and braces alongside the deployedPages==0 branch: the
 				// site HAS deployed pages, yet not one nav item points at them.
 				// That is a broken nav rather than a young one, and empty chrome

@@ -163,13 +163,21 @@ func RenderSiteComponentsAction(ctx context.Context, params ActionParams) (inter
 		}
 	}
 
-	// Validate the header CTA against real pages; when there is no contact
-	// nav item (or it points at a phantom), fall back to the same ranking the
-	// internal-link resolver uses (interactive pages first, then hubs) rather
-	// than rendering no button at all. Loader errors degrade to empty lists —
-	// ctaURL then stays empty and the gated template renders no CTA.
-	headerPages := loadResolverPageSet(ctx, params, siteID, params.Logger)
-	if ctaURL == "" || !headerPages.Contains(ctaURL) {
+	// Validate the header CTA against the SAME policy as the nav rendered beside
+	// it; when there is no contact nav item (or it points at a phantom), fall
+	// back to the same ranking the internal-link resolver uses (interactive
+	// pages first, then hubs) rather than rendering no button at all.
+	//
+	// bugs_open/191: this was loadResolverPageSet, the page-CONTENT set, which
+	// carries no deployment predicate. So the header shipped a CTA button to a
+	// never-deployed page while the nav in the SAME component had that page
+	// filtered out — mortgagecalculator.co.uk, a 404 on the wire on every page.
+	// ChromeLinkPolicy is the nav's own decision, escapes and all: on a first
+	// build or a failed lookup it is unfiltered, because this chrome is
+	// idempotence-gated (the EXISTS probe below) and a button dropped here may
+	// never get a second chance to render.
+	chromeLinks := LoadChromeLinkPolicy(ctx, params.DB, siteID, params.Logger)
+	if ctaURL == "" || !chromeLinks.Allows(ctaURL) {
 		hubs, err := loadContentHubs(ctx, params, siteID, params.Logger)
 		if err != nil {
 			params.Logger.Warn("RenderSiteComponentsAction: loadContentHubs failed for header CTA fallback", zap.Error(err))
@@ -179,7 +187,7 @@ func RenderSiteComponentsAction(ctx context.Context, params ActionParams) (inter
 			params.Logger.Warn("RenderSiteComponentsAction: loadInteractivePages failed for header CTA fallback", zap.Error(err))
 		}
 		primary, _ := chooseCTATargets("", "", interactive, hubs)
-		if primary.URL != "" && headerPages.Contains(primary.URL) {
+		if primary.URL != "" && chromeLinks.Allows(primary.URL) {
 			ctaURL = primary.URL
 		} else {
 			ctaURL = ""

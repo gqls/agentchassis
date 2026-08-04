@@ -483,6 +483,18 @@ func loadCTACandidatePages(ctx context.Context, params ActionParams, siteID uuid
 	return hubs, nil
 }
 
+// loadResolverPageSet is the PAGE-CONTENT link-target set: every page the
+// platform intends to serve, status floor only, with NO deployment predicate.
+// That looseness is deliberate, not an oversight — a batch build resolves page
+// A's CTA before page B deploys minutes later, and a content CTA is re-resolved
+// on every page render and rerender, so a target that is merely not-yet-shipped
+// is corrected by the next pass rather than frozen.
+//
+// CHROME MAY NOT USE THIS SET (bugs_open/191). Chrome ships on every page,
+// renders once behind an idempotence gate, and has no repair pass, so the same
+// looseness there is a site-wide 404 nothing later fixes. Chrome link targets go
+// through LoadChromeLinkPolicy (chrome_link_policy.go). The caller allow-list
+// for this function is enforced by chrome_link_policy_test.go.
 func loadResolverPageSet(ctx context.Context, params ActionParams, siteID uuid.UUID, logger *zap.Logger) datahelpers.PageURLSet {
 	rows, err := params.DB.QueryContext(ctx, `
 		SELECT url FROM pages WHERE site_id = $1 AND status NOT IN ('deleted', 'archived')

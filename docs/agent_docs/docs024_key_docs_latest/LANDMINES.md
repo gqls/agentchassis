@@ -5092,3 +5092,39 @@ that is also the thing you would want in the logs is not.
 - **source:** bugfix_140 item 1 carrier, 2026-08-04 — caught on the first manual run of
   `component-render-check`, which is the reason to do one
 - **added:** 2026-08-04, bugfix_140_contact_info_fabrication lane
+
+---
+
+## A chrome link validated against `loadResolverPageSet` ships a 404 the nav beside it already refused
+- **footprint:** `platform/orchestration/actions/render_site_components_action.go`,
+  `platform/orchestration/actions/resolve_internal_links_action.go` (`loadResolverPageSet`),
+  `platform/orchestration/actions/nav_tables.go` (`applyNavVisibility`,
+  `loadFetchablePageSet`), `site_components.rendered_html`, any new chrome slot that
+  emits an `<a href>`
+- **fires when:** you add or edit anything in chrome that names a page — a CTA, a
+  footer column, a new slot — and reach for the nearest page-set helper. There are two
+  and they are one word apart. `loadResolverPageSet` is the page-CONTENT set: status
+  floor only, **no deployment predicate at all**. `loadFetchablePageSet` (via
+  `LoadChromeLinkPolicy`) is the chrome set. Picking the wrong one is invisible in
+  review, invisible in the DB, and invisible on a mature site — it only bites on a site
+  with pages planned and not yet built, which is **every adoption, at exactly one stage**.
+  Chrome then ships on every page, so it is one 404 button per page, and the chrome
+  render is **idempotence-gated**, so nothing re-renders it when the target finally
+  deploys. Measured 2026-08-04: `mortgagecalculator.co.uk`'s header nav was filtered to
+  its one deployed page while its CTA button, in the same component from the same run,
+  pointed at a `build_status='planned'` page returning **HTTP 404**.
+- **the check:** chrome link targets go through
+  `LoadChromeLinkPolicy(ctx, db, siteID, logger)` + `.Allows(url)` (LNK-030) — never
+  `loadResolverPageSet`, whose doc comment now says so, and whose caller allow-list is
+  enforced by `chrome_link_policy_test.go`. ⚠ **And when you measure the damage, do not
+  trust the obvious SQL.** The query in `bugs_open/191` over-reports twice: its
+  `LEFT JOIN` on a regex-extracted href turns every header with **no** CTA into a
+  NULL-join row that satisfies `p.deployed_at IS NULL` (4 of its 6 rows today have an
+  empty `cta_href` — add `AND substring(...) IS NOT NULL`), and of the 2 real rows one
+  (`lendzy.co.uk`) **serves HTTP 200**, because `deployed_at IS NULL` means "no recorded
+  deploy", not "does not serve". **Curl every surviving href. The confirmed live 404 was
+  1, not 6 and not 2.**
+- **source:** `bugs_open/191`, fixed 2026-08-04; the component-eligibility sibling is
+  `bugs_closed/118` / CLC-013, which fixed the same shape one layer up and explicitly did
+  not touch link targets
+- **added:** 2026-08-04, bugfix_191_chrome_link_policy lane
