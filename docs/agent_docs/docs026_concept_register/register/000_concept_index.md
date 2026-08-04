@@ -1,6 +1,17 @@
 # Concept Index — master register
 
-**1,756 index table rows** across **109** category register files, re-measured
+**1,764 index table rows**, re-measured 2026-08-04 after PBP-030 (the writer
+derives its own `section_plan`, `bugs_closed/087`) landed. **The drift pair is
+clean: 1,764 rows and 1,764 unique entry ids, 0 rows without an entry and 0
+entries without a row.** Note the baseline: the headline below said **1,756** and
+the grep said **1,763** before this row was added, so seven rows from other
+threads had landed unrecorded in the seven hours since the backfill — which is
+exactly why this file says re-run the pair rather than trust the number. A
+same-day collision was caught here too: `PBP-021` was already
+`load_page_record lookup semantics`, so this entry took `PBP-030` — **grep the
+category file for the id you are about to claim; the highest `### ` heading in
+the file is not the highest id in the series.** Previously: **1,756 index table
+rows** across **109** category register files, re-measured
 2026-08-04 after a BACKFILL: 34 concepts had a register entry and no index row,
 and now have one. The index and the category files agree exactly for the first
 time in the series — 1,756 unique ids each way, **0 entries without a row and 0
@@ -691,6 +702,7 @@ an ID prefix, or a status word.
 | PBP-027 | UpsertPageForRole — one collision seam for constant-role page arms | built, inert till roll | An upsert that omits page_type turns a CREATE into a silent PARTIAL update; the collision is now four explicit outcomes | page-build-pipeline.md |
 | PBP-028 | load_current_section_content — opt-in edit channel for content_rewrite | built, inert till roll | content_rewrite never set spec.mode so the writer got guidance with nothing to edit and fabricated a replacement, dropping prose; a third mode value now hands it the page's own current rendered_html | page-build-pipeline.md |
 | PBP-029 | PageWantedLivePredicateFor (lifecycle axis) + InboundLinkSurfaces lockstep | built, inert till roll | The eligibility family had no lifecycle member so `status='active'` was hand-typed fleet-wide (a build column alone RESURRECTS retired pages, 098); and the two link censuses' shared source list was held by a comment — now a declared list with lockstep tests both sides | page-build-pipeline.md |
+| PBP-030 | page-content-writer derives its own `section_plan` when a caller supplies none | live, falsy branch not yet exercised | `section_plan` moves from de-facto-REQUIRED to optional-with-derivation: the writer keeps a caller's plan verbatim, else plans locally and fails loudly rather than compiling an empty page — so no caller, present or future, can reproduce bugs_closed/087 | page-build-pipeline.md |
 | PLAN-004 | built_from_plan_version drift stamp + removal of deployed→needs_rebuild flip (Option B) | deployed | Deploy-time plan-version stamp replaces the blunt sync-time rebuild flip | site-plan-and-reconciler.md |
 | STY-046 | CSS generation bug (webdesign-agent design_spec not applied) | superseded | Deployed CSS reverts to default blue template despite a correct design_spec | styling-render-pipeline.md |
 | DEV-017 | Agent re-registration vs re-seed risk (DB row authoritative) | deployed | Deploys bump updated_at but don't overwrite default_config; DB-edited prompts survive deploys. | development-guide.md |

@@ -308,3 +308,121 @@ the field and the paths tried, rather than surfacing later as the message above.
 OFF; `page-content-writer.select_sections` is the only step opted in today. If your
 config-only fix candidates end up adding a fallback path for `page-rebuild`, that switch
 is the thing that makes a future miss loud instead of silent.
+
+---
+
+# ✅ CLOSED 2026-08-04 — fixed AND live, acceptance passed twice, and the CLASS closed rather than the instance
+
+Picked up by a bug-sweep thread. Workstream:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_087_writer_self_plans/`.
+
+## First: candidate A was applied to ONE of THREE broken callers
+
+Mig 246 is still live (re-read today: `start_step: plan_sections`, the step present,
+`section_plan` in a 9-key `input_mapping`). But four live agent definitions reference
+`page-content-writer`, and reading each one's step keys:
+
+| caller | runs `plan_sections`? | maps `section_plan`? | |
+|---|---|---|---|
+| `page-build-handler` | yes | yes | OK — also gates on `section_plan.ready_count > 0` before spawning the writer |
+| `page-rebuild` | yes | yes | OK — mig 246 |
+| **`pageflow-builder`** | **no** | **no** | **BROKEN** — `build_pages_loop.start_step` is `write_page_content` |
+| **`site-work-orchestrator`** | **no** | **no** | **BROKEN** — same shape, `current_page` from `current_item.spec` |
+
+Both reachable: `075d_simple_maintain_trigger.sh` dispatches `site-work-orchestrator`
+directly, and `pageflow-builder` is the only value ever recorded in
+`site_specs.recommended_builder` (1,216 rows, 2026-08-02). **So this case's own title stayed
+literally true for half the callers** — and a third and fourth copy of mig 246 would have
+left four hand-maintained copies of one step, the drift shape `bugs_closed/125` is made of.
+
+> ⚠️ **Census trap, recorded because the wrong answer looks like the right one.**
+> `default_config::text LIKE '%plan_sections%'` is NOT a test for that step: in SQL `LIKE`,
+> `_` is a single-character wildcard, so it also matches `plan.sections` inside
+> `section_plan.sections_ready`. Read the step keys. Filed as a LANDMINE.
+
+## The fix — candidate D, the writer plans its own sections
+
+`docs/agent_docs/sql_for_agents/309_page_content_writer_plans_its_own_sections.sql`,
+applied 2026-08-04 (snapshot `5946a27b` taken first). Config-only, **live on apply, no image
+roll** — which mattered, because the fleet was mid-flight on `bugs_open/192`'s Go half and
+this did not have to queue behind it.
+
+```
+build_render_context → check_section_plan   conditional_branch "input_data.section_plan.sections_ready"
+                          ├ truthy → resolve_links                      caller's plan kept VERBATIM
+                          └ falsy  → plan_sections  (output_field: section_plan)
+                                       → check_planned_sections  "section_plan.ready_count > 0"
+                                            ├ truthy → resolve_links
+                                            └ falsy  → fail_no_ready_sections   fail_workflow
+```
+plus a **fourth** `select_sections` fallback path, `section_plan.sections_ready` (unprefixed
+— `ExtractFieldsAction` prefixes `input_data.` but never strips it, so paths 2 and 3 can
+never see a writer-local plan). Appended under a containment guard, so it is commutative
+with the 192 lane's owed removal of their path 3.
+
+**No caller, present or future, can get this wrong.** Candidates B and C are decoupled, not
+done: the writer is now safe regardless, so C (retire `page-rebuild`) proceeds on its own
+merits and still wants an owner call.
+
+**One declared behaviour change beyond this case's symptom:** a writer whose *own* plan
+yields zero ready sections now FAILS rather than compiling an empty page over a real one.
+With no ready sections `plan_sections` returns `sections_ready: []` — the **key exists** — so
+`select_sections` succeeds, the loop iterates zero times and `compile_page` emits an empty
+page. `page-build-handler` already refuses that case; the writer had no equivalent.
+
+**Deliberately NOT changed: `resolve_links`' `sections?` mapping.** On the self-plan branch
+the resolver is handed nothing, because both of `FindByPath`'s prefix fallbacks guard
+`i == 0` (`content_search.go:70-95`) — `input_data` resolves at position 0, so the miss at
+position 1 gets no fallback. Repointing it to the unprefixed path would fix that and is
+shape-agnostic. **Owed, not done:** seed 308 pins that mapping deliberately and the 192 lane
+is mid-flight; the degradation is exactly the cost the estate already accepted fleet-wide for
+the pre-roll window; and the repoint swaps an *exact* hit for a three-deep fallback on the one
+branch that currently works. Post-roll follow-up, with the one-line edit, in the lane's NOTES.
+
+## Acceptance — this case's own bar, met
+
+Target `vetcomparison.uk` / `tool-cma-obligation-checker-guide`: `rebuild_policy='generic'`
+(the `owned` guard that blocked 2026-07-28 cannot fire), three sections, and **`name` ≠ `url`
+stem**, so `/tool-cma-obligation-checker-guide.html` is a real negative control for
+`bugs_closed/125` rather than a vacuous pass. Armed inside a transaction that aborts unless
+exactly one page on the site is armed — `page-rebuild` rebuilds *every* armed page
+(`max_iterations: 20`), so "arm one" is only bounded if the site had none.
+
+**Run 1 — `3fdf4acf-5f96-49f9-8801-28047aae92ef`, 09:47–09:50Z. Run 2 (repair, see below) —
+`76008af6-495d-4ca1-a1da-57b09048417e`, 09:58–10:01Z.** Both: `page-rebuild`,
+`page-content-writer`, `internal-link-resolver`, `content-reviewer`, `deployer-agent` all
+`COMPLETED`.
+
+1. **branch asserted, not the happy path** — the writer child's `input_data` keys are
+   `current_page, db_sync, hero_url, logo_url, reviewed_brief, section_plan, site_plan,
+   site_record, style_collection`: the rebuild shape, carrying mig 246's `section_plan`;
+2. `sections_for_render.sections_ready` = 3, `process_sections_loop` iterated,
+   `compile_page` reached, run `COMPLETED`;
+3. `save_sections` + `update_page_status` ran — all three `page_components` rewritten,
+   `build_status` → `deployed`;
+4. **path assertion** — canonical URL HTTP 200 with all three `data-component` slots;
+   `/tool-cma-obligation-checker-guide.html` **still 404**. 125's fix holds.
+
+**Regression check on the change itself** (the one that could have come out otherwise):
+`check_section_plan.condition_met = true` and `collected_data ? 'plan_sections'` = **false**
+on both runs — the caller's plan was recognised and kept, and the writer did **not** run its
+own planner. The truthy branch is inert for everything already working.
+
+**Not proven here, and not claimed:** the *falsy* branch. The rebuild path supplies a plan,
+so it exercises the truthy side. The self-plan branch needs its own dispatch via
+`pageflow-builder` / `site-work-orchestrator`, and its test is written up in the lane's PLAN.
+Also not claimed: anything about 192's `required` opt-in, which is **inert until the next
+roll**, or any fleet failure-*rate* figure — traffic is far too low.
+
+## The acceptance run found a second, unrelated defect — filed as `bugs_open/194`
+
+Run 1 rebuilt the page correctly and **NULLed `content_data` on all three components**
+(644 / 3,810 / 420 chars before). Nothing visible broke, but `content_data` is what the
+rerender path regenerates from. **Not caused by this fix** — the writer took the pre-existing
+truthy branch, and `save_page_sections` is downstream of everything 309 touches. Cause: a
+`sections_metadata_field` config key that **four of six** `save_page_sections` callers never
+set. `page-rebuild`'s instance fixed in `sql_for_agents/310` and proven by run 2, which
+restored `content_data` (626 / 2,797 / 433) alongside fresh HTML. The other three callers stay
+in 194.
+
+**Status: CLOSED — fixed AND live.** Moving to `bugs_closed/`.

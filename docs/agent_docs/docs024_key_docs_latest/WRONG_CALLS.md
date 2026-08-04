@@ -19141,3 +19141,58 @@ differ, and only one of those is checkable. If you cannot name the items, you ha
 measured the cause — and the story you reach for will be the one that costs you least. This
 one was on its way into a file that council seats read as ground truth; it was corrected
 before the commit, but only because the diff was cheap enough to run out of curiosity.
+
+## 2026-08-04 — bugfix_087 — I wrote a verification check that could not have failed, and it read as coverage
+
+**The claim**, written into `sql_for_agents/309`'s verify block and intended as the guarantee
+that the seed had not disturbed the loop it was rewiring around:
+
+```sql
+IF cfg #>> '{steps,process_sections_loop,config,items_field}'
+   <> 'sections_for_render.sections_ready' THEN
+    RAISE EXCEPTION '087/309: process_sections_loop items_field changed';
+END IF;
+```
+
+**Two faults compounding, and either alone would have been enough.** The key is
+`iterate_over`, not `items_field` — I had carried the name across from `page-rebuild`'s
+`build_pages_loop`, which genuinely uses `items_field`; two loop actions, two key names. And
+`#>>` on a missing path yields **NULL**, so `NULL <> 'x'` is **NULL, not TRUE**, and the
+`RAISE` could never fire under any circumstances. The check sat green and would have gone on
+sitting green if the loop had been deleted outright.
+
+**What caught it:** reading the live step to confirm the *pre*-state my other assertions
+depended on, and noticing that this one column came back blank where the others returned
+values. I was not auditing the check; I was checking something else and it fell out.
+
+**The cheap check that would have caught it deliberately:** run the verify block **alone,
+against the unmodified row, and require an exception**. I did this afterwards and it took one
+`awk`. A verify block you have not watched fail is a claim, not a check — and this estate
+already learned the adjacent lesson (RFC_006: a block of `SELECT`s cannot stop a `COMMIT`),
+so I had the general shape and still shipped a `DO` block that could not fire.
+
+**Why this one matters more than a typo.** Every other assertion in that block was sound, so
+the block *worked* — it raised correctly when I induced it, on a different condition. A verify
+block is read as a unit: "the seed verifies its own shape". One inert assertion inside a
+working block is invisible precisely because the block demonstrably functions. **The failure
+mode of a verification is not that it errors; it is that it passes.**
+
+Generalised into `LANDMINES.md` (use `IS DISTINCT FROM`, `COALESCE` every `@>`, and induce
+the block) because it fires on touch, with no symptom.
+
+**Near-miss the same hour, same shape, opposite direction.** Checking whether the acceptance
+run had damaged the page, I ran `md5(pc.content_data::text)` and got three blank cells. My
+first reading was "the query is formatted oddly". Blank *was* the finding — `md5(NULL)` is
+NULL, the rebuild had NULLed `content_data`, and that became `bugs_open/194`. **A NULL renders
+identically to a formatting quirk**, so an unexpected blank is evidence, not noise; `IS NULL`
+as its own column is what settled it in one query. I very nearly explained away the session's
+second bug as a display artefact.
+
+**Also recorded, though not my error:** the plan I was working from asserted that
+`resolve_links`' existing `input_data.`-rooted mapping would fall back to a top-level value
+via `FindByPath`. It does not — both fallback branches in `content_search.go:70-95` guard
+`i == 0`, and `input_data` *resolves* at position 0, so the miss at position 1 gets no
+fallback at all. Had I taken it on trust, the self-planning branch would have silently lost
+internal link resolution and I would have written the opposite into the case file. **The
+check was reading the two guard conditions**, which cost one `sed`. Related:
+[cite-the-arm-not-the-function], [a-doc-comment-is-not-an-enforcement-mechanism].

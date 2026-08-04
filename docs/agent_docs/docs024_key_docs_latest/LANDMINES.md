@@ -4959,3 +4959,60 @@ that is also the thing you would want in the logs is not.
   reference it, and in some families it is the *newest* member (`docs024/005_tool_pipeline.md`
   is 2026-07-26; its `(1)` is 2026-06-22).
 - **added:** 2026-08-04, concept-register lane
+
+### A `LIKE '%plan_sections%'` census returns FALSE POSITIVES, because `_` is a wildcard — and the step you are hunting is usually nested where `jsonb_each` cannot see it
+
+- **footprint:** `agent_definitions.default_config` · any `psql` census of workflow steps ·
+  `LIKE '%<name>_<name>%'` over jsonb-as-text · `jsonb_each(default_config->'workflow'->'steps')`
+- **the trap:** two independent ways to get a confident wrong answer about "which agents run
+  step X", both of which look exactly like a correct one.
+  **(1)** In SQL `LIKE`, `_` is a **single-character wildcard**, not a literal. So
+  `default_config::text LIKE '%plan_sections%'` also matches the substring `plan.sections`
+  inside `section_plan.sections_ready` — and on 2026-08-04 `page-content-writer`, which had
+  **no planning step whatsoever**, came back as a positive. The pattern reads as a literal to
+  every human who writes it.
+  **(2)** Most workflow steps that matter live inside a `loop`'s `sub_workflow`, not at the
+  top level. `jsonb_each(default_config->'workflow'->'steps')` enumerates only the outer map,
+  so four of the six `save_page_sections` call sites were invisible to it (`bugs_open/194`) —
+  a clean empty-ish result with no error and no hint that half the population was never read.
+- **the check:** read the step **keys**, and descend:
+  ```sql
+  -- every step at any depth, with its owning agent
+  SELECT ad.type, j.value->>'action' AS action
+  FROM agent_definitions ad,
+       LATERAL jsonb_path_query(ad.default_config, '$.**.steps.*') j(value)
+  WHERE ad.is_active AND COALESCE(ad.is_snapshot,false)=false AND ad.deleted_at IS NULL
+    AND j.value->>'action' = '<the action>';
+  ```
+  If you must use `LIKE` on the serialised text, escape the underscore —
+  `LIKE '%plan\_sections%'` (or add `ESCAPE '\'`) — and treat the result as a superset to be
+  confirmed against the keys, never as the answer. **A negative under the unescaped (more
+  permissive) pattern is still sound; a positive is not.**
+- **added:** 2026-08-04, `bugs_closed/087` lane
+
+### A migration verify block comparing a jsonb path with `<>` sits GREEN for ever when the key does not exist — `NULL <> 'x'` is NULL, not TRUE
+
+- **footprint:** `docs/agent_docs/sql_for_agents/*.sql` verify blocks · `DO $$ … RAISE EXCEPTION` ·
+  any `#>>` / `->>` compared with `<>` or `=` · `@>` containment tests in PL/pgSQL
+- **the trap:** the estate's house style is a `DO` block that `RAISE EXCEPTION`s if the config
+  is not the shape you intended — and it is the right style, because a verify block made of
+  `SELECT`s cannot stop a `COMMIT` (`ON_ERROR_STOP` ignores a non-empty result). But
+  `#>>` on a **missing** path yields NULL, and `NULL <> 'expected'` evaluates to **NULL**,
+  which is not TRUE, so the `RAISE` never fires. The check that exists to catch a wrong key
+  name is disabled by exactly the wrong key name. Seed `309`'s first draft asserted
+  `process_sections_loop.config.items_field` — the real key is `iterate_over` (the
+  neighbouring `page-rebuild` loop uses `items_field`, which is where the wrong name came
+  from) — and it passed, silently, against NULL.
+- **the check:** use **`IS DISTINCT FROM`** for every scalar comparison in a verify block, and
+  wrap every containment test in `COALESCE(<expr> @> '…'::jsonb, false)`. Then **induce it**:
+  extract the block and run it alone against the *unmodified* row, and require an exception —
+  ```bash
+  awk '/^DO \$\$/,/^END \$\$;/' docs/agent_docs/sql_for_agents/<seed>.sql \
+    | kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
+        psql -U clients_user -d clients_db -v ON_ERROR_STOP=1
+  # must ERROR. If it says COMMIT-clean, the block is inert and you have no verification.
+  ```
+  A verify block you have not watched fail is a claim, not a check. Related: the RFC_006
+  lesson already in CLAUDE.md (a verify block of `SELECT`s cannot stop the `COMMIT`) — this is
+  the next failure along, where the block *is* a `DO` and still cannot fire.
+- **added:** 2026-08-04, `bugs_closed/087` lane
