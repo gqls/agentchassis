@@ -192,3 +192,126 @@ build-service product and **cannot produce its landing page** until this is fixe
 No workaround is being applied here. Hand-building the page is specifically what an
 owner ruling now forbids (`CLAUDE.md` → Platform conventions, 2026-08-04), so this
 lane is genuinely blocked on 192 rather than merely inconvenienced by it.
+
+---
+
+# DIAGNOSED AND CLAIMED 2026-08-04 ~09:40 BST — `bugfix_192_select_sections_wrapper` lane
+
+**Root cause found. It is `bugs_open/178`'s fix — specifically its `output_field`
+reuse, not its logic.** Working docs:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_192_select_sections_wrapper/`.
+
+> **CORRECTED 2026-08-04 — the onset in this file's title and §Timing is wrong, and
+> the error it is built on is a real one worth naming: two different failure modes
+> were counted as one.** This file says *"failing broadly since ~2026-08-03 21:00"*
+> and records hourly FAILED spikes at 21:00 (11), 22:00 (14), 23:00 (12). Those rows
+> are **`process_sections_loop_iter_N_generate_content`** failures — a *different*
+> step, and one that can only be reached **after `select_sections` succeeded**. The
+> failure this file describes has `current_step = 'process_sections_loop'` exactly,
+> and re-measured over the full retained window it appears **only from 08:20 today**:
+>
+> ```sql
+> SELECT date_trunc('hour', updated_at) AS hr,
+>        CASE WHEN current_step='process_sections_loop' THEN 'select_sections_miss'
+>             WHEN current_step LIKE 'process_sections_loop_iter%' THEN 'iter_generate_content'
+>             ELSE current_step END AS mode,
+>        status, count(*)
+> FROM orchestration_states WHERE owner_agent_type='page-content-writer'
+> GROUP BY 1,2,3 ORDER BY 1 DESC;
+> --  08-04 08:00 | select_sections_miss  | FAILED    |  3
+> --  08-04 01:00 | iter_generate_content | FAILED    |  1
+> --  08-03 23:00 | iter_generate_content | FAILED    | 12   <- a DIFFERENT bug
+> --  08-03 22:00 | iter_generate_content | FAILED    | 14   <- a DIFFERENT bug
+> --  08-03 21:00 | iter_generate_content | FAILED    | 11   <- and 12 COMPLETED the same hour
+> ```
+>
+> **The `21:00` window also had 12 COMPLETED runs**, so "roughly half of
+> `page-content-writer` failed outright" was never true of *this* defect. The
+> overnight `iter_generate_content` failures are real and still undiagnosed — they
+> are **not** this bug and want their own file.
+>
+> This matters beyond bookkeeping: the wrong onset pointed away from the true cause.
+> `08-03 21:00` predates the trigger and made "178 cannot be the cause" look sound.
+> The real onset is **08:20 on 08-04**, which is `agent_definitions.updated_at` for
+> both `page-build-handler` and `page-content-writer` — i.e. the moment seed
+> `299_edit_live_channel_for_content_rewrite_writer.sql` was (re-)applied. Logged in
+> `WRONG_CALLS.md`.
+
+## The mechanism
+
+One cause; it kills **both** of `select_sections`' fallback paths, which is why the
+file above could not find a surviving route.
+
+1. `plan_sections` writes `collected_data.section_plan` = a **flat** plan
+   (`{sections_ready, ready_count, …}`).
+2. `load_current_section_content` — 178's new step, inserted by seed `299` between
+   `check_has_ready_sections` and `spawn_content_writer` — declares
+   **`output_field: section_plan`**, deliberately reusing the key. The seed says so
+   in its own header: *"Reuses the `section_plan` output_field plan_sections itself
+   uses, so call_content_writer's existing input_mapping needs no change."*
+3. **But the action returns a wrapper on every one of its return paths**, including
+   all eight it calls "pass-through":
+   `{"section_plan": <plan>, "applied": false, "reason": …}` and
+   `{"section_plan": <plan>, "applied": true, "matched": N}`
+   (`load_current_section_content_action.go:91-97, 158, 173, 211-215`). Its doc
+   comment at :73-76 states any non-`edit_live` mode "leaves this action a
+   pass-through". **It does not pass through — it re-wraps.**
+   `coordinator.go:1859-1861` (`storeActionResult`) stores an action's return value
+   **wholesale** under `output_field`, so `section_plan` becomes the wrapper on
+   **every page build, in every mode** — which is why this reproduces on
+   `content_rewrite` *and* on a fresh-site `needs_page`, exactly as the two
+   contributing lanes measured.
+4. `call_content_writer` maps `"section_plan": "section_plan"`, forwarding the
+   wrapper verbatim as the writer's `input_data.section_plan`. Then:
+   - **path 2** (`input_data.section_plan.sections_ready`) misses — the plan is now
+     at `input_data.section_plan.section_plan.sections_ready`;
+   - **path 1** misses *because of the same wrapper*: `resolve_links`' input_mapping
+     is `"sections?": "input_data.section_plan.sections_ready"`, so the link-resolver
+     child is handed **no sections** and returns `sections_ready: null`. That is the
+     "present but explicitly null" value this file reports — it is a **consequence**
+     of the wrapper, not an independent second fault.
+5. `ExtractFieldsAction` omits the target key and **returns success**, so
+   `sections_for_render = {}`; `process_sections_loop` then fails at
+   `loop_actions.go:144/751` naming the missing key rather than the failed extraction.
+
+**Measured, both shapes, live** (`orchestration_states`, 2026-08-04):
+
+```
+orch     | current_step          | section_plan keys             | direct_len | nested_len
+3b692317 | process_sections_loop | applied,reason,section_plan    |     0      |     7
+0883b1aa | process_sections_loop | applied,matched,section_plan   |     0      |     1
+df69efd6 | process_sections_loop | applied,matched,section_plan   |     0      |     1
+4edcdaeb | ..._iter_1_generate.. | deferred_count,…,sections_ready|     3      |     0   <- flat, pre-seed
+```
+
+`sections_for_render` on all three failing rows is `{}`.
+
+## Answering this file's own open question
+
+It asks, `[UNVERIFIED]`, whether the fallback fails because of *ordering* — the step
+running before `input_data.section_plan` is merged. **It is not ordering.** The data
+is present the whole time; it is one level deeper than the configured path. The
+`SELECT collected_data->'input_data'->'section_plan'->'sections_ready'` quoted in the
+original evidence returned a real array because that query was run against a row
+whose shape it did not check — the same query returns `0` rows-worth of array on the
+failing rows, and the plan is at `->'section_plan'->'section_plan'->'sections_ready'`.
+Recorded in `WRONG_CALLS.md`: **a query that reads the path you expect cannot tell you
+the shape changed underneath it — enumerate the keys.**
+
+## `090` diagnosis loop
+
+Filed per the CLAUDE.md default for a cross-cutting claim (intake
+`b45144fa-2051-4ff8-9318-e052a9c3a084`, run `aea3cc68-b274-4df4-a1c1-f60ba47bf09e`).
+The diagnosis above is **first-hand** — code read plus live rows in both shapes plus
+a fleet census — and did not wait on it; the loop's verdict is recorded in this
+lane's NOTES when it lands, whichever way it goes.
+
+## Fix
+
+See the lane's `PLAN_2026-08-04_select_sections_wrapper.md`. Four changes, ordered by
+what closes the door: the action returns **the plan itself** on every path (Go);
+`extract_fields` gains an **opt-in `required`** list so a target that resolves on no
+path fails the step naming the cause, default OFF (Go); the loop's path-miss error
+lists the keys actually present (Go); and a config seed that adds a third fallback
+path **and** opts `select_sections` into `required` — live immediately, unblocking
+builds on the binary already running.
