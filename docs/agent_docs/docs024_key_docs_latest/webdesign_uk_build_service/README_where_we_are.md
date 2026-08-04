@@ -676,3 +676,41 @@ and never in the way.
 
 Either way you don't need to unblock me to finish the shopfront: the two changes
 that put webdesign.uk live are dashboard clicks and need no token.
+
+---
+
+**2026-08-04, evening. The plan for putting webdesign.uk on its own machine.**
+
+You asked for the whole thing through the framework, and the honest position is
+that the framework already does three quarters of it. It builds the site, that's
+running now. It can deploy to a machine instead of the bucket, and that switch is
+a single database row, because relojistas already works this way and deployed
+this very morning. And it has a health check for exactly this kind of site,
+built, waiting to be switched on.
+
+The plan reuses working parts rather than inventing. The box pulls its pages from
+a repository every five minutes, the same way idea.uk's box does, which also means
+the order of work can't go wrong: pages can pile up in the repository before the
+machine even exists, and it simply catches up on its first pull. The machine needs
+no public address at all, because it dials out through a tunnel, which is also
+what makes the visitor identity trustworthy for rate limiting.
+
+Two pieces are genuinely by hand, once each. Someone runs the provisioning script
+on the new box, the same script family idea.uk used, kept in the repo so the
+estate plan can absorb it later. And the chat service gets written once, small,
+with the spending limits built in from the first line: a per-visitor cap, a hard
+ceiling per day that fails to showing the contact details rather than an error,
+and every conversation kept, because the conversations are the whole point of the
+exercise, they tell us what people actually want.
+
+The current holding redirect stays up until the very last step, so at no point is
+anything half-built visible to the public.
+
+What I need from you, in order: order the Mythic Beasts machine (the small spec
+we discussed, and you don't need to pay for an IPv4 address), add a deploy key to
+GitHub when the script pauses and asks, one look in the Cloudflare dashboard to
+find how webdesign.uk is bound to the old worker so it can be unhooked at
+cutover, and an Anthropic API key just for the chat, separate from the fleet's.
+The site build itself needs nothing from you, it's the framework's job and it's
+already in motion, just held up behind that platform bug from Sunday which
+another team owns.
