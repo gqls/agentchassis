@@ -778,6 +778,49 @@ python3 $LANE/decompose/backfill_content_data.py --apply <function>
 # 6. Re-lock, and re-baseline the golden.
 ```
 
+### ⛔ COMMIT THE TEMPLATE **BEFORE** STEP 2, NOT AFTER
+
+`update_component.py --apply` and `render_tool_row.py --apply` both write the
+database **from the file on disk**. That the file is right is the only thing they
+check — neither notices, or could notice, that it is uncommitted. So "it is live"
+and "it is in the repo" are independent facts, and the apply path establishes only
+the first.
+
+Missed on 2026-08-03: `tool-loan-repayment` ran in production for most of a day
+while HEAD still held the previous template —
+
+```
+working tree  756d8d0e2622  9595 b
+live DB       756d8d0e2622  9595 b     <- production matched the WORKING TREE
+HEAD          66a8e45df078  8905 b     <- and the repo did not
+```
+
+Anyone building or restoring from HEAD would have reinstated the very comment the
+change removed. On a shared tree it was also one `git add -A` away from being swept
+into another session's commit, half-described. Caught by an end-of-session sweep,
+not by any step in this procedure.
+
+**The sweep, worth running before you call a session done** — it compares every
+component file against its live row and needs no arguments:
+
+```bash
+cd docs/agent_docs/docs024_key_docs_latest/loancalculator_couk && python3 - <<'EOF'
+import sys, hashlib
+sys.path.insert(0,'rewrite')
+from load_components import TOOLS, psql, validate
+rows = dict(l.split('|') for l in psql(
+  "SELECT function, md5(html_template) FROM content_components WHERE function LIKE 'tool-%';"
+  ).splitlines() if l.strip())
+for fn in sorted(TOOLS):
+    got, err = validate(fn)
+    if err: print("%-28s INVALID %s" % (fn, err)); continue
+    f = hashlib.md5(got["template"].encode()).hexdigest()
+    print("%-28s %s" % (fn, "match" if f == rows.get(fn) else "*** DIVERGED ***"))
+EOF
+```
+2026-08-03: 11 of 11 match. A DIVERGED line means the repo and production disagree
+— decide which is right before doing anything else.
+
 ### ⛔ A NEW SCHEMA FIELD RENDERS EMPTY UNTIL `content_data` CARRIES IT
 
 `input_schema` carries a `fallback` per field and **the renderer never consults
