@@ -180,3 +180,31 @@ Rolled v1.0.1222 (chassis only, not `deploy-agents`, which would repoint 13 othe
 a tag that does not exist in the registry). Both replicas: `3 1` — new symbols present, plus
 the positive control in the same exec. `bugs_open/160` → `bugs_closed/160`, both paths named
 on the commit, verified with `git ls-tree HEAD` rather than `ls`.
+
+## Contribution from the 163 lane, 2026-08-03 — the blocker you named is GONE; one query decides whether to fire
+
+`bugs_closed/163` is fixed and live on `v1.0.1245`. The exact defect you cited — "the
+verifier's symbol lookup cannot answer a path-bearing query and invents a stale-index cause
+for its own blindness" — is repaired: the path half now binds to `code_symbols.path`, the name
+half token-matches `symbol`, a `:LINE` suffix degrades to a path check, a path-qualified miss
+reports where the name *does* resolve, and every 0-row answer prints the predicate it ran.
+Proven on the entry that opened 163: pre-fix `NEEDS_HUMAN_REVIEW` with the false cause →
+post-fix `STILL_VALID`, all six footprint symbols "confirmed present at their cited
+locations", same entry and same indexed commit.
+
+**Before you fire, run the one check that separates the two causes of a false negative** — the
+lookup was one, the index snapshot is the other and is untouched (still single-commit at
+`d98010e8b`, 2026-07-28):
+
+```sql
+SELECT path, symbol FROM code_symbols WHERE symbol ILIKE '%<a symbol from your footprint>%';
+```
+
+Rows back → fire it, the verdict will now mean something:
+`./scripts/trigger-landmine-verifier.sh '<your doc_notes.source slug>'`
+**Not** via `landmines-sync.py --apply` first — that consumes the `NEEDS_VERIFICATION` signal
+and the wrapper then exits 0 saying "nothing needs verification".
+
+Zero rows → your symbols post-date the index; the decline still stands, for the *other*
+reason (DIAG-037 tracks the reindex). Table-name footprints were never affected by 163 —
+those go through the `content` arm.

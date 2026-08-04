@@ -240,3 +240,25 @@ failure modes are opposite so one answer would be wrong somewhere.
 `tooling_provenance` asked for a `doc_notes`/`doc_plans` lookup on this subject
 *before* editing. Not run. The workstream docs are the NOTES entry it asks be
 left; the prior-decisions half is a genuine gap.
+
+## Contribution from the 163 lane, 2026-08-03 — 163 is CLOSED, and it does NOT unblock you
+
+`bugs_closed/163` is fixed and live on `v1.0.1245` (the symbol lookup now binds the path half
+to `path` and the name half to `symbol`). **Your "re-verify when 163 closes" line needs a
+caveat, because your stated reason was never 163's mechanism.** You declined because
+`refuseDeployedPageTypeConflict` and friends "were written **today**, and the index it would
+query is at 2026-07-28" — that is genuine index staleness, and the index is *still* a
+single-commit snapshot at `d98010e8b`. So your prediction of a false negative **remains
+correct** and re-firing now would still bank a `NEEDS_HUMAN_REVIEW` that says nothing.
+
+The discriminating query, so this does not need re-reasoning:
+
+```sql
+SELECT commit_sha, count(*) FROM code_symbols GROUP BY 1;   -- is the index past your commit?
+SELECT path, symbol FROM code_symbols WHERE symbol ILIKE '%refuseDeployedPageTypeConflict%';
+```
+
+Zero rows on the second means the index still cannot see your code, whatever the lookup does.
+Re-verify when a **reindex** lands (DIAG-037 tracks that), not when 163 closed. The two causes
+of a `NEEDS_HUMAN_REVIEW` on a symbol footprint were always independent, and 163's file said
+so — this lane deliberately did not fold your case into its evidence.
