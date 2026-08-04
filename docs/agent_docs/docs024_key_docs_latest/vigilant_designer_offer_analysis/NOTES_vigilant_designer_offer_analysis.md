@@ -281,3 +281,10 @@ sweep. Cascade: 1 complete / 1 claimed / 20 triaged, draining ~1 per few minutes
 - The catch chain worth naming: item said `complete` → checked the ARTEFACT (live css
   grep) → found the miss → read the workflow → found the clobber BEFORE the live sync
   landed the damage visibly. "Trust the rendered artefact, not the status" — again.
+
+**2026-08-04 late addendum — incident fully closed at every layer:** owner landed the
+vm-sites restore (`f8f2dac`, 21:48Z, after this session's outward channels were
+classifier-blocked); live relojistas.com VERIFIED recovered (26,335 bytes served,
+contrast-fix block present). `bugs_open/198` stays open for the DEFECT (no shrink guard /
+whole-document round-trip); the DAMAGE is repaired everywhere. Next session: 198's fix
+candidate 1 before any css-patch dispatch, then A2.
