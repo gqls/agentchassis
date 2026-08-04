@@ -120,3 +120,50 @@ resolves itself automatically once a round survives.
 With that, every item in this bug has an outcome: two fixed and live, one fixed by
 someone else earlier, one measured and needing nothing, and two decided-no with
 reopening conditions. Once the review lands, the whole file moves to closed.
+
+---
+
+**2026-08-04, morning.**
+
+It's finished. The review finally survived on the fourth attempt and came back
+approved — and one of its objections was worth all the waiting.
+
+A reviewer asked whether the number I'd used to justify leaving one small gap
+unfixed actually described the thing I was talking about. It didn't. I'd said
+"the biggest reply we've ever sent is 48KB, so this path never fires" — but that
+48KB figure is the size of *AI model replies*, from a completely different table.
+Scrape results carry entire web pages: the real figures average 1.6MB and reach
+5.45MB. My conclusion happened to survive when I re-checked it properly (that code
+path genuinely has never run — 0 out of 3,246 records, measured by its own
+marker rather than by somebody else's size statistic), but the evidence I'd given
+for it was about something else entirely. Worse, in the same query I found that
+content had actually been **destroyed four times** in the retained window while I
+was describing the area as quiet. That's the strongest argument yet for the fix you
+ruled on — it wasn't hypothetical.
+
+I've corrected it in the code comment, the bug file, and the fleet's wrong-calls
+log, and named the reviewer that caught it. Four mistakes of mine are now recorded
+in this lane, two of which I did not catch myself. I'd rather that be visible than
+tidy.
+
+The other three objections I checked and they were fine: the stored links are
+permanent S3 addresses, not the expiring kind (I verified that at the source rather
+than trusting the variable name); there are no other callers of the changed
+functions; and the field-mapping table was already complete.
+
+**Everything is live and I checked it on the running machines, not the tags.** Both
+images have since been rebuilt by other people's work — the main system is now on
+1247 and the scraper on 1246 — so what I verified is the fix surviving rolls it
+didn't initiate, which is the more meaningful test. Every check passed on every
+replica, including the ones designed to fail if the old code were still there.
+
+The bug is closed. All six of its findings have an outcome: two fixed and running,
+one someone else had already fixed, one measured and needing nothing, and two
+decided-against with written triggers for reopening them if reality changes.
+
+One last thing you may want to know, because it cost real money tonight: the
+platform was redeployed four times in one evening, and each redeploy kills any
+code review that happens to be running. Two of mine died that way and a third
+died on a related failure. The dead records just sit there permanently, since
+nothing cleans them up. I've noted it where the relevant people will see it, but
+if reviews keep dying, that cadence is why.
