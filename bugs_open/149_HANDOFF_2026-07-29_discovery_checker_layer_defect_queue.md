@@ -726,6 +726,39 @@ and see what it finds, or delete it. Dead-but-plausible checks are worse than ab
 ones — they read as coverage. Expect a seated check to raise a burst on first run;
 that is the check working, not a regression.
 
+> **B1a — added 2026-08-04 by the `webdesign_uk_build_service` lane. Seating
+> `backend_unreachable` will NOT give you backend coverage, and the gap is
+> invisible because it looks like a pass.**
+>
+> This is a *data* gap sitting behind B1's *seating* gap, so it survives the fix
+> above and only shows up as a check that runs clean.
+>
+> `check_backend_unreachable.go:48` NOOPs on `deploy_config->>'target' != 'vm'`.
+> Measured today, the two sites that actually deploy to a box
+> (`github_repo='vm-sites'`) disagree on that field:
+>
+> | site | `github_repo` | `deploy_config` | covered once seated? |
+> |---|---|---|---|
+> | `relojistas.com` | `vm-sites` | `{"target":"vm","capabilities":["backend"], …}` | **yes** |
+> | `idea.uk` | `vm-sites` | `{}` | **NO — silently skipped** |
+>
+> **The excluded one is the box that takes real card payments.** So on first run
+> the check would report healthy backends while the only revenue-bearing box on
+> the estate is not being probed at all, and the NOOP returns an empty result
+> rather than an error, so nothing anywhere says "skipped".
+>
+> Fix is one row, but do it **as part of seating the check**, not after, or the
+> first clean run becomes the "evidence" that backends are fine:
+> `UPDATE sites SET deploy_config = deploy_config || '{"target":"vm","capabilities":["backend"]}'::jsonb WHERE domain='idea.uk';`
+> Then confirm it actually probes: `/health` must be reachable through nginx
+> **and** the site-engine behind it (the check deliberately exercises both).
+>
+> **Generalises to your "expect a burst on first run" note:** a seated check that
+> raises *nothing* is the ambiguous case, because a NOOP-on-missing-config and a
+> genuine pass are indistinguishable in the output. Worth confirming the
+> denominator (how many sites the check actually evaluated) alongside the
+> findings count for each of the six, not just this one.
+
 > **Not a defect, checked and cleared:** six configured names
 > (`missing_*_tracker_page/section`, `missing_model_directory_*`) look unregistered to
 > a grep for literal `Name()` returns, but `check_directory.go:111-116` registers them
