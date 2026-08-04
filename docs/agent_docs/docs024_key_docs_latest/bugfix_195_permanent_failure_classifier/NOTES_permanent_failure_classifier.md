@@ -114,3 +114,51 @@ version.
 > is. **I was measuring a substring-matching bug with a substring match.** The fix is the
 > same in both places: match the thing, not text that contains the thing —
 > `grep -w`, or an exact boundary — and read the hits before counting them.
+
+## 2026-08-04 — council REVISE, and the gating objection found a REAL gap in my fix
+
+`9b1254f0`: **REVISE**, gated by `guardian`, 6 abstained, 0 unreadable, not truncation-gated.
+`bug_historian` called the core fix *"the strongest-shaped fix I've seen against this pattern
+in this batch"* and still objected — correctly, on scope.
+
+**`editquality` (medium) — the one that mattered, and it was right.** My unconditional
+recorder went into `agentbase/agent.go` only, and the seat asked whether `handleError`'s
+failure path can reach a caller *other* than `agent.go`'s `processMessage` — *"checkable from
+source and worth resolving before approval, since it's exactly the class of gap 195 itself
+describes."*
+
+Checked. **There IS a second caller:** `platform/agentbase/server.go:110`, in
+`AgentServer.processMessage` — and it is worse than the objection supposed. That loop logs
+the failure to the pod log and commits: no classification, no `handleProcessingError`, **no
+`agent_error_log` row at all**. A failure arriving there is invisible in exactly the way 195
+is about.
+
+**But it is unreachable, measured:** `AgentServer` is referenced *only inside `server.go`
+itself*, and `NewAgentServer` has **zero callers anywhere in the tree**. Every live agent runs
+`Agent.processMessage` in `agent.go`. So no live failure bypasses the recorder, and the
+honest answer is "second caller exists in source, is dead code" — not "there is only one
+caller", which is what I had implicitly claimed.
+
+Left the dead loop in place but **documented it where it fires**: a comment naming it
+unreachable and stating that reviving it without porting `recordFailedProcessing` and the
+`MatchedPermanentFailure` branch reintroduces 195 wholesale — invisibly, while it does so.
+
+**`bug_historian` (medium + low) — two findings I had deferred are now TRACKED, not just
+doc'd.** The seat's point is the durable one: a landmine note is one missed doc-read away
+from being lost, and *"deferral is reasonable triage, but nothing creates a tracked
+follow-up"*. So:
+- **`bugs_open/196`** — the success-shaped failure envelope (failures reach the parent stamped
+  `complete`, `Success: true`, and the coordinator dispatches on the header). Filed with its
+  unmeasured half stated plainly: I have not induced it with a live awaiting parent, and the
+  whole severity rests on that.
+- **`bugs_open/197`** — the sibling retryable-side classifier (`isRecoverableError`,
+  `IsRecoverable`) still deciding by substring over prose. Filed with **no live instance**,
+  deliberately: waiting for one is the failure mode, and 195 is the proof. It names the census
+  owed before any fix, which is cheaper now precisely because 195 made the failure record
+  unconditional.
+
+**Three lows, all "you asserted, you didn't cite":** `recordFailedProcessing` is described as
+a thin wrapper mirroring its sibling, with no citation. Fair. The sibling is
+`recordDroppedValidationError` (`agent.go:1389` and `validation_drop.go:150`), both thin
+wrappers over the one writer `orchestration.LogAgentError` — the shape the reuse seat's own
+prior ruling (council `180d7c68`) permits, forbidding forked INSERTs. Cited in the resubmission.

@@ -99,6 +99,19 @@ func (s *AgentServer) Run() error {
 	}
 }
 
+// processMessage is the SECOND message loop in this package, and it is
+// currently UNREACHABLE: nothing constructs an AgentServer — `NewAgentServer`
+// has no callers anywhere in the tree (measured 2026-08-04; every live agent
+// runs `Agent.processMessage` in agent.go instead).
+//
+// It is left in place, but read this before wiring it up. bugs_open/195: this
+// loop logs a processing failure to the pod log and commits. It does not
+// classify permanent-vs-transient, does not call handleProcessingError, and
+// writes NO agent_error_log row — so every failure arriving here would be
+// invisible to any database query, which is precisely the defect 195 exists to
+// close on the other loop. Reviving this path without porting
+// `Agent.recordFailedProcessing` (and the MatchedPermanentFailure branch beside
+// it) reintroduces 195 wholesale, and it would be invisible while it did so.
 func (s *AgentServer) processMessage(msg kafka.Message, msgNum int) {
 	startTime := time.Now()
 	headers := kafka.HeadersToMap(msg.Headers)
