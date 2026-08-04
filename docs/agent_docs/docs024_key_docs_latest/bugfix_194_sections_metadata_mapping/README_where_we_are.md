@@ -64,3 +64,43 @@ guarantee made there holds whatever the configuration says.
 
 I have put the decision to a planning pass and will record what it comes back with, and what I
 decide, below.
+
+## 2026-08-04, later that evening — what I decided, and what is now true
+
+I did both halves, in this order.
+
+**First, the two callers that were simply missing the line got it** (a database config
+change, live the moment it applied, no software release needed). That closes the bug as it
+was written. Before applying it I deliberately broke the seed's own safety check to watch
+it fail — twice, once for each caller — because a check you have never seen fail is not a
+check, it is a hope. The second one mattered: the two checks run in sequence, so the first
+failure would have stopped the script before the second was ever tested. It would have
+looked proven and been half-proven.
+
+**Then I fixed the thing underneath**, which is the part I actually care about. The saver
+now looks for the structured content itself, in the one place the rest of the platform
+already agrees it lives — and it borrows that address from the code that validates pages,
+rather than keeping its own copy, because two copies of one address is precisely the
+disease here. If a caller genuinely has no structured content, it can now say so in its own
+configuration instead of leaving a silence that looks identical to a mistake. And a caller
+that wants a missing one to be a hard failure rather than a quiet loss can ask for that,
+though I have switched that on for nobody: adding a new way for the busiest path in the
+fleet to fail, on a hunch, is how safety checks get deleted in a fortnight. Finally, when a
+page that had structured content gets saved without any, the platform now writes that down.
+The whole reason this ran for six months is that it wrote nothing down.
+
+**What is live right now:** the configuration fix, for both callers. **What is not:** the
+software half, which sits in the code but does nothing until the next release build — as is
+normal here.
+
+**One honest caveat about proof.** The two callers I fixed are dormant; neither has run in
+the nine days our records cover. So I cannot show you a live run proving it. What I can
+show is that I broke the new code four different ways on purpose and each break was caught
+by the test written for it, and that the whole area still passes against a clean copy of
+the shared code. When the next release goes out, one of the two can be triggered by hand,
+and I have written down in advance what would count as failure — including one trap: the
+structured content can also survive by a different route, so simply seeing it present after
+the run would be a false pass. The run has to say *which* route it took, and it now does.
+
+I have put the change to the reviewer council and am waiting on its verdict before closing
+the ticket.
