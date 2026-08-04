@@ -18846,3 +18846,38 @@ separates "likely OWNING workstream" from "also cites it" and its verdict is
 deliberately conservative — but **the verdict line alone is not an answer.** Read
 the named lane's current state (is its handoff closed?) before believing it, or you
 will decline every bug that anyone ever wrote down.
+
+---
+
+## 2026-08-04 — I claimed compliance in a council submission and left the evidence out of the edits array
+
+**The claim.** My `bugs_open/173` submission's rationale asserted the ordering-exemption
+condition: *"Registered in the concept register as WFA-008 in the same commit that ships
+the code."* The `edits` array listed the production file and the test file. It did not
+list the register file.
+
+**Why it was wrong.** The claim was **true of the commit and unverifiable from the
+submission**. The `editquality` seat caught it and put the disjunction exactly right:
+*"Either the registration edit is missing from the plan, or the plan's own compliance
+claim is false."* It had no way to tell which — and neither would anyone reading the
+artifact trail later, which is what the trail is for.
+
+The reasoning that produced the error is the part worth keeping, because it sounds
+sensible: council scope is `platform/`, `internal/`, `pkg/`, and docs-only submissions are
+refused client-side, so I put the docs work in the rationale as narrative rather than in
+the edits array as an edit. **That inference is wrong.** Scope is judged on the submission
+as a whole, and mine already qualified on `platform/`. Adding the register edit costs
+nothing, changes no verdict, and converts an unverifiable assertion into a checkable one.
+
+**What caught it.** The council, on the first round — which is the cheap place for this to
+be caught, and an argument for submitting rather than self-certifying. Nothing in my own
+process would have: I *had* made the register edit, so every check I would have thought to
+run on myself passed. **The gap was not between what I did and what I claimed, but between
+what I claimed and what I showed** — and only a reader without my memory of the session can
+see that gap.
+
+**The cheap check.** Before submitting: **read your own rationale for every compliance
+claim, and confirm each one names a file in the `edits` array.** If a claim rests on a file
+the reviewer cannot see, either add the edit or delete the claim. Generally: *a reviewer
+grades the artifact, not your session* — an assertion whose evidence lives only in your
+scrollback is indistinguishable, from the outside, from one with no evidence at all.
