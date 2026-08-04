@@ -3689,3 +3689,52 @@ not retried. The dashboard action is authoritative; the token's first
 successful zone list settles the residual for free. Ingress arc: NOTHING
 open in this lane but the passive waits (organic Stripe webhook; loanzy
 Worker route, webdesign lane).
+
+## §X.43 — 2026-08-04: logo + component improvements dispatched THROUGH THE FRAMEWORK (owner directive: no CLI fixes)
+
+Owner: live logo is old and doesn't say IDEA; improve components via the
+visual designer; everything through the framework. Scoping subagent's findings
+(full report in transcript; key facts verified):
+- `visual-designer` the agent is a misnomer (one prose LLM step, zero routes) —
+  the real logo path is **`needs_logo` → `image-build-handler`** (gen → store
+  purpose='logo' → asset-deployer with EXPLICIT s3_uri → git commit to
+  vm-sites → box pulls). Component/styling improver = **`needs_design` →
+  `webdesign-agent`**; audits = improvement loop.
+- **`detected` items never dispatch** (improvement-sweep disabled since
+  05-02); operator path = admin inserts at `triaged` (picked up by
+  build-pipeline-trigger, 120s) + the 294 improvement-loop trigger.
+- **12 poisoned icon items caught pre-dispatch**: all `undeployed_asset`
+  'icon' rows lack s3_uri, so `deploy_image_asset` would resolve by PURPOSE
+  and ship the SAME bytes 12× (LANDMINES:541). Held (`deferred`) BEFORE any
+  site-wide triage could promote them.
+- Palette pin: SATISFIED — `site_specs` design_intent has
+  `palette.reference_values` (8 hex); colour-churn landmine disarmed.
+
+**Dispatched (all created_by='claude-ideauk-sec-20260804'):**
+1. Holds: 12× undeployed_asset + footer needs_rerender + deactivated_component
+   → `deferred` (UPDATE 14). Footer/head held for SEQUENCING: their handlers
+   re-fossilise old chrome if run before the logo lands.
+2. `needs_logo` @ triaged, image-build-handler — prompt: IDEA wordmark,
+   palette-matched (#A8391A on #EFE7D6, lightbulb motif, flat, legible 36px).
+   (First insert failed on MY malformed JSON — missing outer brace after the
+   nested image_prompts object; psql said "input string ended unexpectedly".)
+3. `needs_design` @ triaged, webdesign-agent (canonical emit_design_items
+   shape). Known defect it should address: capability_gap "palette emits 1
+   unreadable pairing".
+4. Improvement loop fired: **ORCH_ID=3d5c6256-bcb5-4017-84b5-54a92e7de16c**
+   (find by payload if the row lags; do NOT re-fire on a missing row).
+
+**Owed / sequenced next (new session can pick up):**
+- After logo lands in vm-sites (`git -C ~/projects/vm-sites log -- idea.uk/assets/images/`):
+  new file is **logo.png** (purpose='logo' derivation) while chrome serves
+  **logo.jpg** (old asset: key='logo', purpose='hero'). Deactivate the OLD
+  asset row (34f9401e…), un-defer the footer rerender + resolve the head slot,
+  and let chrome re-render pick the new path. VERIFY AT THE ARTEFACT: live
+  page's <img src>, not item statuses (a refused deploy completes GREEN with
+  skipped:true — read result reason).
+- **OWNER DECISION: the head slot** — site_components points slot 'head' at
+  deactivated 'Document Head'; its handler structurally cannot repair it
+  (LANDMINES:1907) — needs a repoint to an active head component (or
+  reactivation), then rerender.
+- 12 `needs_human_review` rows (dead_control etc.) — no automation clears
+  that status; owner review.

@@ -94,3 +94,13 @@ watcher, the poisoned empty list, the v6 traps ×3) · README_where_we_are
 (owner-voice history, 1–3 Aug) · WRONG_CALLS 08-03 (the layered-probe lesson)
 · concept register VMB-015 (the reusable EPP client) · MEMORY
 `idea-uk-vm-site-workstream.md` (cold-start pointers).
+
+## ADDENDUM 2026-08-04 — design/logo work dispatched through the framework
+
+The ingress arc above stays CLOSED. A new arc opened 08-04 (owner: regenerate
+the logo — must say IDEA — and improve components, ALL through the framework):
+state, dispatch IDs, sequencing debts and the two owner decisions are in
+RUNNING_NOTES **§X.43**. Cold-start for the next session: read §X.43, check
+ORCH `3d5c6256-bcb5-4017-84b5-54a92e7de16c` and the two triaged items
+(created_by `claude-ideauk-sec-20260804`), then verify at the artefact
+(vm-sites git log + the live page's img src), NOT at item statuses.
