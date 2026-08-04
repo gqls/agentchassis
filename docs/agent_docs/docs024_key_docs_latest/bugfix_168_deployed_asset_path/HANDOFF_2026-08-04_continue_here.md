@@ -97,7 +97,30 @@ Also in `LANDMINES.md` (2026-08-04) with the code-side grep that finds closers, 
 `WRONG_CALLS.md` with the full account of how an *evidenced* claim was still wrong: I proved
 "the handler dispatch path cannot close it" and stated "nothing can close it".
 
-## 4. THE DECISION OWED — three options, costed. This is the only open item.
+## 4. ~~THE DECISION OWED~~ — **DECIDED 2026-08-04: OPTION A. DONE, committed `b4c64f433`.**
+
+> **The owner chose option A: teach the revalidator `unresolved`, revert my adoption.** Both halves
+> are committed; council `1cec55d2-5928-4785-8598-dfd7870a39d8` submitted alongside. **Not live** —
+> both replicas run `v1.0.1251`, which still carries the reverted adoption. Needs the next roll.
+>
+> **Three things changed from the plan below, all from reading the mechanism rather than the
+> summary:**
+>
+> 1. **The gap is not "empty today" — it is imminent.** `revalidate_review_queue`'s own closes feed
+>    `insertWorkItem`'s two-strike counter, so after the second close in 7 days the third re-raise is
+>    born `unresolved`, which the sweep could not see. **It generates the rows it goes blind to.**
+>    5 `required_fields_missing` keys already sit at 1 strike.
+> 2. **`status` is checked in THREE places**, not one — the selection plus two write-time CAS
+>    guards. Widening only the selection selects the new rows and silently updates none.
+> 3. **`failed` was EXCLUDED, against my own first draft.** RFC_010 Decision 2 pairs it with
+>    `unresolved` and I copied the pair. Measuring all four covered types showed the blast radius is
+>    on **`needs_page`: 17 `failed` rows** — the population this action's header defers by name to
+>    **owner decision 033 D2**. Narrowed radius: **1 row**. Preventive, not a drain.
+>
+> Full working in `NOTES_deployed_asset_path.md` (bottom), including a mutation harness that was
+> **invalid on its first run** and how.
+
+## 4b. The original options, kept because the reasoning is the record
 
 The change is **redundant, not harmful**: `resolveWorkItems` skips rows already in
 `workItemClosedStatuses`, so the two closers cannot double-close or clobber each other.

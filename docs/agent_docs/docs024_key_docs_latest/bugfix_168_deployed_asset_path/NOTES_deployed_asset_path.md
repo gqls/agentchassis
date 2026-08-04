@@ -1083,3 +1083,100 @@ premise; that is a defect in the submission, not in the verdict, and no resubmis
 it. The correction belongs where the change lives, which is here, in `WRONG_CALLS.md`, and in the
 handoff — per the standing rule that a refuted claim is recorded as a visible correction naming
 what caught it.
+
+## OWNER OPTION A — revert the duplicate, fix the gap at the better mechanism
+
+Owner ruled **option A** on 2026-08-04. Both halves committed in `b4c64f433`, council
+`1cec55d2-5928-4785-8598-dfd7870a39d8` submitted before the commit.
+
+### Half 1 — the revert, done as a revert
+
+`git checkout ba3aae47f~1 --` over both files, then verified: **`git diff ba3aae47f~1` over the
+pair is EMPTY.** Byte-identical to the pre-adoption state, not a hand-unpick that leaves
+fragments. That also restores the per-pass cap's `return result, nil` — which is **correct again**
+the moment the check cannot retract, exactly as `check_image_source_unsatisfiable` is correct
+today. So the `LANDMINES.md` cap census was corrected: **two** sites are armed-but-inert now, not
+one. Leaving that entry saying "fixed" would have been the more comfortable option and a false
+one.
+
+### Half 2 — the gap, and it is sharper than "the gap is empty"
+
+The handoff justified option A on a gap that was **empty today**. Reading the mechanism made it
+concrete and *imminent* instead:
+
+`revalidate_review_queue` selects `status='needs_human_review'` only. Every close it makes writes
+`complete`, which feeds `insertWorkItem`'s two-strike counter (`status IN ('complete','failed') AND
+created_at > NOW() - INTERVAL '7 days'`, `load_work_item_actions.go:1237`). Discovery re-raises the
+finding next pass. **After the second close inside seven days the third re-raise is BORN
+`unresolved`** — a status the sweep could not see. **The sweep's own success rate generates the
+rows it then goes blind to.**
+
+Not hypothetical: **no discovery check sets `recurrenceExpected`** (checked — only a comment in
+`remit.go` mentions it), so the counter is not skipped for these items, and **5
+`required_fields_missing` item_keys already sit at 1 strike** [MEASURED 2026-08-04]. One close
+each from the blind state.
+
+### THREE gates, not one — and the second and third are invisible from the first
+
+`status` is checked in **three** places: the selection in `loadParkedReviewItems`, and **two
+write-time CAS guards** in `recordRevalidation` (they re-check status so a row that moved
+underneath the sweep is not clobbered). **Widening only the selection would select the new rows
+and then silently update none of them** — the sweep would report `scanned: N, closed: 0` and read
+as "nothing to do". That is the `input_mapping`-vs-`RETURNING` shape already in `LANDMINES.md`: a
+dispatcher with two gates, where fixing the one you can see leaves the key dropped. The
+SessionStart hook put that entry in front of me this session; it earned its place.
+
+All three now interpolate one package-level `workItemRevalidatableStatuses` via the estate's
+existing `sqlInList` idiom, placed beside its two siblings because that file's own comment says
+the lists sit together **so the differences are visible rather than discovered**.
+
+### ⚠ `failed` IS EXCLUDED — and measuring the OTHER consumers is the only reason I noticed
+
+**My first draft included it**, straight from RFC_010 Decision 2, which pairs `unresolved` and
+`failed`. Then I measured the blast radius across **all four** covered types instead of the one I
+was reasoning from:
+
+| item_type | `unresolved` | `failed` |
+|---|---|---|
+| required_fields_missing | 0 | 0 |
+| needs_section_data | 0 | 0 |
+| unresolved_cta | 0 | 0 |
+| **needs_page** | **1** | **17** |
+
+Those 17 are **precisely the population this action's own header defers by name**: *"failures
+parked by `FailWorkItemAction`'s `status_override` branch, which does not increment attempt_count
+so they neither retry nor age out. Real defect, **open owner decision (033 D2), not this
+sweep's**."* Including `failed` would have quietly overruled a stated deferral and an open owner
+decision **from inside an unrelated change** — the `bugs_closed/124` shape, and I would have done
+it while writing the landmine warning against exactly that.
+
+It was never needed either: **the two-strike counter brands items `unresolved`, never `failed`.**
+The argument only ever supported one of the pair; I had copied the other by association.
+
+**Blast radius as narrowed: 1 row.** Preventive, not a drain. Said plainly rather than dressed up.
+
+⚠ **This is the second time in two days that reasoning from MY consumer nearly damaged ANOTHER
+consumer of a shared mechanism** — first the missed closer, now the `failed` population. The
+transferable form: *when you widen a shared mechanism, the blast radius is rarely on the consumer
+you are thinking about.* Both instances are now in `LANDMINES.md`.
+
+### Mutation round — and the first one was INVALID
+
+Four mutations, each required to fail a named test. **The first run's harness was broken and I
+nearly recorded its output.** Two mutations reported NOT CAUGHT; the cause was that the pattern
+`"unresolved",` **also matches `workItemTerminalStatuses` twenty lines above**, so
+`str.replace(old,new,1)` mutated the **wrong list** and the test correctly passed. Re-anchored on
+the whole `var` block: **all four caught**, each by its named test.
+
+⚠ Worse, the first harness lost its backups (the scratchpad had been cleared under `/tmp`
+pressure) and left **two mutations applied in the tree**, so a later mutation ran against an
+already-red baseline and its "CAUGHT" was meaningless. Repaired by hand — `git checkout` would
+have discarded the real work too. **A mutation harness must (a) hold its baseline in memory, not
+in `/tmp`, (b) re-assert the baseline is GREEN before each mutation, and (c) anchor on a pattern
+that cannot match elsewhere in the file.** The rewritten harness does all three.
+
+### State
+
+`b4c64f433`. Build clean, `platform/orchestration/...` suite green. **Not live** — both replicas
+run `v1.0.1251`, which still carries the reverted adoption (`re-observed filled` greps 1). The
+revert and the widening both need the next roll.
