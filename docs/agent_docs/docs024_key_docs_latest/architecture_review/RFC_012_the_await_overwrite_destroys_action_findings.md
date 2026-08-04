@@ -155,29 +155,59 @@ SELECT type, of, count(*), string_agg(step_name||'('||action||')', ', ' ORDER BY
 FROM steps GROUP BY 1,2 HAVING count(*) > 1 ORDER BY 3 DESC;
 ```
 
-**24 (agent, output_field) pairs are shared by 2–5 steps.** The count alone would be
-alarmist: the large majority are **mutually exclusive branches** — `mark_complete` /
-`mark_failed`, `notify_scheduler` / `notify_scheduler_idle`, four `finalize_*_result`
-steps, five `store_*_asset` steps. Only one of them runs per execution, so nothing is
-overwritten and there is no hazard. **The hazard is the SEQUENTIAL refiner**: step B runs
-*after* step A and rewrites A's key.
+**24 (agent, output_field) pairs are shared by 2–5 steps.** The raw count is not the
+finding, and my first reading of it was **wrong in a way worth recording**, because the
+standing-check proposal in (d) below depends on getting the discriminator right.
 
-Filtering to those, the fleet has exactly two:
+> **CORRECTED 2026-08-04, same day, before the round-2 verdict.** I first reported to the
+> council that "the large majority are mutually exclusive branches; only 2 are sequential".
+> **The conclusion (2) was right and the reason was wrong.** I had read branch-vs-sequential
+> off the step *names*. Checked structurally, several of those "branches" ARE sequentially
+> reachable — the `propose → reframe → repropose → repair_plan` retry loops all write
+> `proposal`. They are harmless for a completely different reason: **same action, so same
+> shape** — a retry legitimately replaces the whole value with another of its own kind.
 
-| agent | key | producer → refiner | verdict |
+**Two naive detectors both give a clean, wrong answer.** Anyone implementing (d) needs this:
+
+1. **Direct-edge check** (`a.next_step = b.step_name`) → **0 rows, including for
+   `bugs_open/192` itself.** The real path is `plan_sections → … → check_has_ready_sections
+   → load_current_section_content`; reachability is transitive, never adjacent.
+2. **Transitive check over `next_step`/`error_step` only** → **still 0 rows.**
+   `check_has_ready_sections` is a `conditional`: it routes through **`config.then_step`**.
+   Routing lives in the config for **13 distinct keys** fleet-wide — `then_step` and
+   `else_step` at **117 occurrences each**, plus `repair_step`, `ok_step`, `emit_step`,
+   `alive_step`, `unreachable_step`, `lost_step`, `failed_step`, `gather_step`,
+   `complete_step`, `probe_step`. A graph walk that reads only the two top-level keys is
+   **blind to the majority of the fleet's control flow.**
+
+**The discriminator that actually works: same `output_field`, transitively reachable, and
+DIFFERENT `action`.** Run over the complete routing graph, the fleet splits exactly:
+
+| agent | key | producer → refiner | same action? |
 |---|---|---|---|
-| `page-build-handler` | `section_plan` | `plan_sections` → `load_current_section_content` | **this was `bugs_open/192`** — fixed at source |
-| `site-adoption-agent` | `design_fingerprint` | `extract_fingerprint` → `enrich_fingerprint` | **a second live instance, found by this census** |
+| `page-build-handler` | `section_plan` | `plan_sections` → `load_current_section_content` | **no** ← `bugs_open/192` |
+| `site-adoption-agent` | `design_fingerprint` | `extract_design_fingerprint` → `enrich_fingerprint_with_css` | **no** ← found here |
+| `experience-planner` | `proposal` | `execute_llm_prompt` → itself | yes |
+| `feature-designer` | `proposal` | `execute_llm_prompt` → itself | yes |
+| `fix-proposer` | `proposal` | `execute_llm_prompt` → itself | yes |
+| `feature-implementer` | `gate` | `diagnose_build_gate` → itself | yes |
+| `feature-implementer` | `stage` | `feature_stage_route` → itself | yes |
+
+**2 hazards, 5 benign, 0 false negatives against the one known bug** — and the benign five
+are benign *structurally* (a step cannot change the shape of a value it re-derives with the
+same code), not by anybody's judgement. That is what makes it checkable rather than a
+matter of taste, and it drops the "would fire on all 24 and become noise" objection I
+raised against a naive warn: keyed this way it fires on **two**, both of which were real.
 
 **The second one, read not inferred** (`enrich_fingerprint_with_css_action.go`, pre-fix):
 its two success paths correctly returned `fp` — the fingerprint itself — but its two
 early-outs returned `{"status": "no_fingerprint"}` and `{"status": "invalid_fingerprint"}`.
-With `output_field: design_fingerprint`, the second of those **overwrites a real
-fingerprint with a status stub**, destroying it and handing every downstream consumer a
-status object where a fingerprint belongs. Fixed in the same commit as 192's revision
-(returns the caller's value unchanged on both paths; reason goes to the log) — but note
-*how it was found*: not by a failure, because nobody has reported one. **By the census.**
-That is the argument for the census being a standing check rather than a one-off.
+With `output_field: design_fingerprint`, the second **overwrites a real fingerprint with a
+status stub**, destroying it and handing every downstream consumer a status object where a
+fingerprint belongs. Fixed in the same commit as 192's revision (returns the caller's value
+unchanged on both paths; reason goes to the log) — but note *how it was found*: not by a
+failure, because nobody has reported one. **By the census.** That is the argument for the
+census being a standing check rather than a one-off.
 
 ## What this adds to the questions in §3
 
@@ -191,6 +221,11 @@ The three questions stand. This addendum widens (a) and adds one:
 > A **warn** costs nothing and is not a guarantee change; an **error** is.
 
 > **(d) Should the shared-`output_field` census become a standing offline check?**
+> **If so, the detector is specified above and the two naive versions must not be shipped:**
+> key on *same `output_field` + transitively reachable over the FULL routing graph (13
+> config keys, not just `next_step`/`error_step`) + different `action`*. Both simpler
+> versions return 0 rows on a fleet containing a bug that had just taken every page build
+> down, which is the worst possible failure for a check nobody re-reads.
 > `config-key-audit` already walks every live step (WFA-003's `WalkSteps`) and already
 > hosts `--unregistered-actions` (WFA-004), `--relay-gaps` (WFA-007) and the `SingleOwner`
 > check (WFA-006, which runs **daily** as a CronJob under RFC 006). A

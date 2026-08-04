@@ -19012,3 +19012,58 @@ target_agent_type ILIKE '%dispatch%'` returning two unrelated rows. The real row
 never the right first move — `SELECT name, target_agent_type, enabled FROM scheduled_tasks`
 with no WHERE clause costs nothing and can't miss a row for not matching a word you guessed.
 Filter only after you've seen the whole list and know what you're excluding.
+
+---
+
+## 2026-08-04 — `bugs_open/192`: I gave the council the right number with the wrong reason, and two "obvious" detectors both returned a clean 0
+
+**The claim.** Answering the council's gating objection, I ran the fleet audit it said was
+missing and reported: *"24 (agent, output_field) pairs are shared, but the large majority
+are **mutually exclusive branches** … only one runs per execution, so nothing is
+overwritten. The hazard is the **sequential** refiner, and there are exactly two."* I put
+that in the resubmission's rationale and in `grounded_in`, i.e. offered it as evidence.
+
+**Why it was wrong.** The number (2) was right. **The reason was not, and the reason is
+what a reviewer checks.** I read branch-vs-sequential off the **step names** —
+`mark_complete`/`mark_failed` "must" be branches, `store_hero_asset`/`store_logo_asset`
+"must" be branches. Checked structurally, several of those are genuinely sequentially
+reachable: `propose → reframe → repropose → repair_plan` in `fix-proposer`,
+`feature-designer` and `experience-planner` all write `proposal`, and each is reachable
+from the others. They are harmless — but for a **completely different reason** than the one
+I gave: *same action, therefore same shape*. A retry replaces the whole value with another
+of its own kind. My stated mechanism ("only one runs per execution") is false for five of
+the seven, and had a reviewer checked it they would have found it false.
+
+**What caught it.** Deciding to verify my own claim structurally rather than leave it as a
+naming argument — after the round-2 submission had already gone. Nothing external caught
+it; it would have shipped into an RFC that proposes turning this census into a standing
+fleet check, where the wrong discriminator becomes a wrong detector.
+
+**And the part that matters more: BOTH obvious detectors return 0.**
+1. Direct-edge (`a.next_step = b.step_name`) → **0 rows — including for the bug I had
+   just fixed.** The real path is three steps long; reachability is transitive, never
+   adjacent.
+2. Transitive, but walking only `next_step`/`error_step` → **still 0 rows.** The
+   intervening step is a `conditional`, which routes through **`config.then_step`**.
+   Fleet-wide, routing lives inside `config` under **13 distinct keys**, with `then_step`
+   and `else_step` at **117 occurrences each**. A graph walk over the two top-level keys
+   is blind to most of the fleet's control flow.
+
+A detector that returns 0 on the very bug that motivated it is the worst possible outcome,
+because 0 reads as "clean" and nobody re-runs it. I nearly wrote exactly that into an RFC
+as a recommendation.
+
+**The cheap check.** Two, and the second is the general one:
+- **Before citing a structural property, derive it structurally.** "These look like
+  branches" is a hypothesis about a graph; the graph is in the database and one recursive
+  CTE answers it. Naming conventions are the thing you check *against*, never *with*.
+- **Run every new detector against the known positive before believing its 0.** I had a
+  confirmed instance in hand — `page-build-handler/section_plan`. Any candidate query that
+  does not return it is broken, no matter how clean its output looks. This is the
+  positive-control discipline already standing for pod-greps, applied to SQL: *a check that
+  cannot find the bug you already found cannot find the ones you have not.*
+
+Corrected in place in the `RFC_012` addendum, with the working discriminator (same
+`output_field` + transitively reachable over the **full** routing graph + **different**
+`action` → 2 hazards, 5 benign, 0 false negatives) and both failed detectors written up so
+whoever implements the standing check does not repeat them.
