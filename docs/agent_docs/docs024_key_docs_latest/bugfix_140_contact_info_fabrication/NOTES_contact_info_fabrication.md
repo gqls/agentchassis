@@ -808,3 +808,24 @@ the carrier (an image + overlay) is now the ONLY thing between this and standing
 `v1.0.1246`, both replicas: compiled marker 2, negative control 0 — marker chosen by
 `scripts/pick-pod-marker.py` rather than by hand, which is the point of having built it.
 Worth noting the roll happened mid-session and the numbers held across it.
+
+### Item 6's retry fired in anger on the closing health-check run (08-04 09:16Z)
+
+Unstaged positive control, better than the stub one: the final verification run hit the
+real flake on attempt 1 —
+
+```
+fetch attempt 2/3 after: ... "Copying stdout failed" err="read message: unexpected EOF"
+check_placeholder_fallbacks: clean — 177 active components; ...
+```
+
+— and attempt 2 succeeded, so the run reported CLEAN instead of exiting. Before this
+change that same run would have exited 2 (or, in the rc=0 variant, **exit 1** —
+indistinguishable from "found a fabricated fact"). The flake rate is high enough to hit a
+single session's closing check, which is the argument for the retry rather than for
+"retry it by hand when it fails".
+
+Closing state, all four checks: lint clean across **177** active components (was 176 at
+the 08-03 handoff — the library grows daily, so date any component count); selftest 10/14;
+Go fixture test ok; `component-render-check` vs the committed baseline **0 NEW, 0 fixed,
+0 UNCOVERED, exit 0**.
