@@ -56,3 +56,27 @@ expected within the half hour. Once it lands the change gets built into a
 fresh chassis image, proven on the running pods (both directions — a string
 the change added must be there, a string it removed must be gone), the
 clean-up script runs, and the ticket closes.
+
+## 2026-08-04 morning — done: live, proven, and the queue is honest again
+
+The review council approved the change first time, overnight. This morning it
+went out on chassis 1248 and was proven on both running copies — the new code
+is in the binary, the code it replaced is gone. Two things worth telling:
+
+First, a near-miss on the way out the door: an image built this morning by
+another workstream postdated our fix by eight hours and still didn't contain
+it (it was built from an older snapshot). We caught that by checking the
+image's actual contents before deploying — a habit now written down — and
+shipped our own build instead.
+
+Second, the payoff was immediate. The drain we registered closed twenty-six
+long-parked requests on its first pass, each with evidence of the page it
+asked for now existing; six more are flagged "you could actually do this now"
+for a human; ten stay parked because closing them would be a lie. The
+clean-up script retired the twelve that were impossible from birth. Nothing
+that pointed at a genuinely broken page was touched.
+
+The ticket has moved to the closed pile. Watching for: the first visible
+"declined" from the guarded emitters (expected within a day or two), and an
+owner decision on whether calculator pages should declare writable sections
+at all.
