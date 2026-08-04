@@ -207,3 +207,22 @@ built from code just before mine, so the *next* build is the one that picks this
 Still open, unchanged: nothing archives pages automatically (so nothing retracts them
 automatically either), 11 old pages still serve frozen copies, and the decision on
 whether to retract the rest — 10 of them on leopardess — is still yours to make.
+
+---
+
+2026-08-04, midday — everything we set out to fix is now fixed, reviewed, and running.
+
+The new build went out this morning and I checked it the proper way, on the running
+machines themselves: the retraction system's "keep the evidence" fix is live on both.
+From now on, when a retraction refuses to touch a page, that refusal is written down in
+two places that survive — nobody has to have been watching.
+
+The two code-tidiness debts from the review are also done and approved. The reviewers
+pushed back usefully: their "did you check you found ALL the copies?" question turned up
+five more I'd missed, now fixed too.
+
+What's left on this topic is genuinely your decision, not more code: whether to take down
+the other eleven retired pages that still serve old copies (ten are ordinary content on
+leopardess), whether archiving a page should automatically take it off the site in
+future, and a ruling on the deeper plumbing question (RFC 012) — which another team's
+outage this morning has made more pressing, not less.

@@ -106,9 +106,11 @@ because every repair path skips archived rows on purpose.
 > 5. ~~**NEW, and arguably the most important** — the graph audit's findings never reach the
 >    durable record (see above). Fix by persisting the audit before dispatching, or by
 >    emitting a work item, rather than relying on `output_field` surviving an await.~~
->    **PAID 2026-08-03 (late), committed — NOT yet live** (Go is inert until the next
->    chassis build; the roll in progress at the time of the commit was built from a HEAD
->    that predates it). Two sinks, two readers: the full audit now also lands in
+>    **PAID 2026-08-03 (late) — LIVE 2026-08-04** (chassis digest `sha256:0e99ace…`, both
+>    replicas: pod-grep `retraction refused for page` = 1 and `retraction_audit` = 1,
+>    with pre-existing control `delete_file sent, awaiting response` = 1 proving the
+>    pipeline; the change was purely additive so no removed-string negative exists).
+>    Two sinks, two readers: the full audit now also lands in
 >    `collected_data.retraction_audit` — a top-level SIBLING key, which the await
 >    overwrite cannot touch because `applyResponseToState` writes only the step-name and
 >    `output_field` keys — and every refusal (plus a stranded-targets summary) becomes an

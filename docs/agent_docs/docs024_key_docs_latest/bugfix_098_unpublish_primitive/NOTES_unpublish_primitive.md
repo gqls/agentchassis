@@ -586,3 +586,16 @@ recorded here so the next sweep knows they are known, not missed.
   edit entry PER FILE, and list the test files.
 - `architecture` (low): the "drift alarm, not semantic proof" caveat is now IN both
   lockstep tests' doc comments.
+
+## 2026-08-04 — debt 5 verified LIVE at the pod, and the lane is handed off
+
+Fresh chassis deployed (digest `0e99ace…`, both replicas started 10:29). Pod-grep on BOTH
+replicas: `retraction refused for page` = 1, `retraction_audit` = 1, and the pre-existing
+control `delete_file sent, awaiting response` = 1 (proves the pipeline; the change was
+purely additive so no removed-string negative exists — stated, not skipped). Debts 3+4
+render byte-identical SQL, so their liveness is unobservable by design and needs no pod
+proof. RFC_012 has meanwhile gained an addendum from the bugfix_192 lane — the same
+unguarded write on the `storeActionResult` side, with a fleet-wide outage attached — so
+the RFC now documents both faces of the class and is the natural place for the owner's
+ruling. Session handed off; the refreshed STATE block at the top of the HANDOFF is the
+cold-start.

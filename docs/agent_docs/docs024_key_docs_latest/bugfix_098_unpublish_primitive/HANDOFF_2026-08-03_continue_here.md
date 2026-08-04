@@ -6,6 +6,38 @@ command, with its gotcha).
 
 ---
 
+## STATE 2026-08-04 (end of the debts session) — ALL FIVE DEBTS PAID; what remains is OWNER DECISIONS
+
+**Read this block first; the 2026-08-03 material below is background.**
+
+| | |
+|---|---|
+| Debt 5 (audit lost to the await) | **PAID + LIVE** — chassis `sha256:0e99ace…`, both replicas; pod-grep `retraction refused for page`=1, `retraction_audit`=1, pre-existing control =1. Audit → `collected_data.retraction_audit` (sibling key) + `agent_error_log` rows (`RETRACTION_REFUSED`/`RETRACTION_STRANDED_TARGETS`, warning, written BEFORE dispatch); `conditions_recorded/_lost` in the audit |
+| Debts 3+4 (copied census / bespoke predicate) | **PAID** — debt 3 as a LOCKSTEP (`datahelpers.InboundLinkSurfaces` + tests both sides; queries deliberately NOT unified, opposite safe-failure directions); debt 4 as the family's missing lifecycle member `datahelpers.PageWantedLivePredicateFor` (12 sites after the census; byte-identical SQL so liveness is unobservable BY DESIGN) |
+| Council | **BOTH rounds APPROVED**: `5a965452…` (debt 5; 8 seats, round 1 died to a fleet roll — resubmit with `RESUBMIT_CORR` keeps trail + trailer) and `37593214…` (debts 3+4; its census objection was RIGHT — found 5 more sites, migrated) |
+| RFC | `architecture_review/RFC_012_the_await_overwrite_destroys_action_findings.md` — filed at the architecture seat's direction; **already gained an addendum from the bugfix_192 lane** (the SAME write unguarded in `storeActionResult`, cost a fleet-wide outage). The RFC is becoming the class's home. **Needs the owner: rule on options A/B/C (filing thread recommends B)** |
+| Commits | `e35e549a8` (debt 5) · `b99f883e3` (roll-kill note) · `9e0274f53` (verdict + RFC 012) · `6a7ab87a8` (debts 3+4 + PBP-029) · `185bb98d9` (census follow-up) · `28ff21fcd` (verdict records) — all with resolving council trailers |
+| Register | PBP-029 (+ index row 1,717 → 1,718) |
+| Landmine | LANDMINES.md gained "an action that RETURNS findings and AWAITS a response loses the findings" — synced to doc_notes |
+
+**Known-and-skipped, NOT missed** (pick up when their lanes are clean): 2 lifecycle
+sites in `tool_acceptance_actions.go` (was another session's dirty WIP on 08-04) and 1 in
+`check_page_canonical_collision.go` (080 lane's fresh PLAN-047 code, and its COALESCE `=`
+form is NULL-identical anyway).
+
+**NEXT — every remaining item is an owner call, none is code:**
+1. Retract the remaining **11** frozen-artefact pages? (10 = leopardess ordinary content;
+   measured by curling all 14 on 08-03 — never derive this count from `deployed_at`.)
+   Mechanism is proven: `sql_for_agents/216_TRIGGER_page_retraction.sh`, ALWAYS with
+   `PAGE_IDS`; acceptance is the TWO-PART test in the bug file.
+2. Should archiving invoke retraction automatically? (Nothing in code archives a page
+   today, so "no — the runbook is the mechanism" may be the honest answer, but decide it.)
+3. RFC_012 options A/B/C — now urgent-adjacent, since the 192 addendum shows the class
+   biting elsewhere.
+4. The bug stays OPEN until 1/2 are decided — do not close on the one retraction.
+
+---
+
 ## STATE IN SIX LINES
 
 | | |
