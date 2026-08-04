@@ -379,3 +379,55 @@ expect to need a second dispatch there.
 if items remain `triaged`, then verify at the artefact per the standing
 note (`content_data` ≠ `rendered_html`, `bugs_open/097`) and confirm the
 check's `Resolved` retraction closes items on the next discovery pass.
+
+## Progress — 2026-08-04 (continued 4) — auto-repair does NOT work: 0 of 12 items actually fixed. Filed as bugs_open/201, this bug is BLOCKED on it
+
+**Do not re-dispatch these items — it will not help.** All three orchestrations
+reached a terminal state. Final tally:
+
+```
+domain                    | status   | count
+gaswholesalers.com        | complete |     1
+mortgagecalculator.co.uk  | triaged  |     1   (attempt_count=1, will fail identically)
+webdesign.co.uk           | failed   |    10   (attempt_count=3, exhausted)
+```
+
+**11 of 12 hard-failed**, all with the identical error
+`page-content-writer planned its own sections and none are ready — no page
+can be written … see section_plan.reason and bugs_open/087`. Root cause
+traced and written up in full at `bugs_open/201`: `build-dispatch-loop`
+dispatches `page-content-writer` directly with no `section_plan` in its
+`input_mapping`, which is exactly the untested "self-plan, falsy branch"
+`bugs_closed/087` added *today* (migration 309) and explicitly flagged as
+unproven in its own closing note. `plan_sections` returns `ready_count: 0`
+for an already-built page (there is nothing left to *plan*, only to *edit*),
+so the workflow hard-fails every time, for any page, regardless of item type.
+
+**The 1 item that reached `status='complete'` is a false positive, not a
+success.** Checked the actual artefact:
+`page_components` for that page (gaswholesalers `pricing` slot) is stamped
+`updated_at = 2026-08-03 22:35:17` — **before today's dispatch** — and still
+contains the literal `**Recommended next steps:**` string the item was filed
+for. The writer's workflow reached `complete` without writing anything to
+this slot. `result` carries no `error` key, so nothing at the work-item layer
+would have caught this — it needed a direct artefact check
+(`bugs_open/097`'s standing warning, proven right again).
+
+**Net: repair candidate 1 (detect) works and found real findings; the
+auto-repair leg of candidate 3's plan (`HandlerAgent: "page-content-writer"`)
+does not currently work at all — not for any of the 12 items.** This is not
+literal_markdown-specific: `bugs_open/201` shows `check_placeholder_contact`
+and `check_component_standards` route to the same handler the same way and
+have **never had a single item reach `complete` or `failed`** in production,
+so this gap predates 184 and was simply never exercised until now.
+
+**This bug cannot close via its planned repair path until `bugs_open/201` is
+fixed** (or 184 is re-routed to a different handler — see 201's fix
+candidates). Detection stays live and correctly finds real defects; that part
+of the scope decision stands. Left the 11 failed / 1 triaged items as-is
+(re-arming them now would just re-fail the same way) — 201's fix section
+names how to verify once a real fix lands: require the specific slot's
+`content_data` to change, not just the work item to reach `complete`.
+
+Priority bump (to 5) on the 12 items from the previous note is now moot —
+left in place, harmless, does not need reverting.

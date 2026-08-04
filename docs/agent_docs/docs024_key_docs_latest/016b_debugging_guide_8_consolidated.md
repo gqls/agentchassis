@@ -10763,3 +10763,56 @@ Related: `bugs_open/195`; `bugs_closed/034` (built the conditional guarantee and
 typed fix in its own header); `bugs_open/029` (its hung-parent reading is falsified for this
 path); RSH-005; `bugs_open/132` (an error rendered as though it were content — same family as
 the bonus finding).
+
+### A shared handler's newly-fixed fallback is exercised by a caller nobody enumerated — and its "success" wrote nothing
+
+**Symptom.** A discovery check's declared auto-repair handler (`HandlerAgent:
+"page-content-writer"`) either hard-fails every dispatch with the same message, or
+reaches `status='complete'` while the artefact the item named is untouched.
+`bugs_open/201`, from `184`'s verification run: 11 of 12 `literal_markdown` work
+items failed identically (`page-content-writer planned its own sections and none
+are ready`); the 12th reached `complete` but the exact `page_components` row it
+targeted carries an `updated_at` from **before** the dispatch — nothing was written.
+
+**Diagnose.** The fix that exposed this (`bugs_closed/087`, closed the SAME day)
+had already audited every caller of the shared step it changed — and said so in
+its own closing table (four callers: `page-build-handler`, `page-rebuild`,
+`pageflow-builder`, `site-work-orchestrator`; two fixed pre-existing, two by the
+final candidate). **The audit was still incomplete, because it enumerated callers
+that go through a wrapper agent, and missed the callers that dispatch the shared
+step's OWNER directly.** `build-dispatch-loop`'s generic `call_handler` reads
+`handler_agent` off the work item and calls whatever agent type is named there —
+for three discovery checks that is `page-content-writer` itself, not one of the
+four audited wrappers. Its `input_mapping` has no `section_plan` key, so it lands
+squarely on 087's own newly-added, explicitly-untested "falsy" branch (087's
+closing note: *"the self-plan branch needs its own dispatch … not proven here"*).
+**"I enumerated every caller of the function I changed" is not the same claim as
+"I enumerated every path that reaches the function I changed"** — a
+`HandlerAgent:` literal in an unrelated package is a caller the function's own
+file can never show you.
+
+**Root cause of the silent half (still open, not yet diagnosed to a line).** The
+`complete` status came with no `error` key and no evidence the writer even
+attempted the named slot — check the actual artefact
+(`page_components.updated_at`, not `site_work_items.status`) before trusting a
+`complete` verdict on ANY writer dispatch; this is `a-complete-work-item-is-not-
+a-repaired-artefact` confirmed live rather than by pattern-matching the shape.
+
+**Fix shape.** Either supply the missing `section_plan` for already-built pages at
+the `build-dispatch-loop` → `page-content-writer` seam (candidate 1 in 201), or
+stop routing these checks at the writer directly and use a handler built for
+scoped single-slot edits (candidate 2). Whichever is chosen, the check that would
+have caught this earlier: **before trusting a `HandlerAgent:` value as proven, ask
+whether ANY item of that `item_type` has ever reached `complete` in production** —
+`check_placeholder_contact` (same handler, same routing shape) never has, despite
+being cited in `184`'s own notes as an established "precedent".
+
+Category tags: `caller-enumeration-incomplete`, `shared-step-owner-called-directly`,
+`untested-branch-hit-same-day`, `complete-status-is-not-a-repair`,
+`unverified-precedent-cited-as-proven`.
+Related: `bugs_closed/087` (the fix whose self-plan branch this exercises for the
+first time); `bugs_open/201` (the case); `bugs_open/184` (the case that surfaced
+it, now blocked on 201); `bugs_closed/177` above (same shape — a caller never
+supplies what a handler's resolution needs — but 177 was the handler's OWN
+resolution failing on a page it built; this is a caller bypassing the wrapper
+that would have supplied it at all).
