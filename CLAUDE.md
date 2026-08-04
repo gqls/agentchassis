@@ -535,6 +535,21 @@ Rules that make them worth the effort:
 
 - Go, not Python. British English. Structural fixes over patches. Reuse existing
   machinery before building new.
+- **EVERY SITE GOES THROUGH THE FRAMEWORK. Never hand-build one (OWNER RULING,
+  2026-08-04).** No hand-authored HTML uploaded to the bucket, however small,
+  however temporary, however much faster it would be. Seed the site row and its
+  specs (`SEED_*.sql`, the `oufe` file is the worked example), then dispatch
+  `scripts/initial_messages/020_build_pipeline/082_submit_domain_unified.sh
+  <domain> --email … --mission-file …`. Raised because a session hand-wrote the
+  **webdesign.uk shopfront** and shipped it to `portfolio-sites/` — on the lane
+  whose entire product is framework-built sites. Two reasons it is a rule and
+  not a preference: a hand-built page **demonstrates nothing** on a site selling
+  this capability, and it silently opts out of every control the pipeline
+  applies (`evidence_base` claims gating, banned-claim sweeps, the discovery
+  checks, imagery style, rerender). **The framework being slower is not a
+  reason** — the fast path produces an artefact nobody can audit and nobody can
+  rebuild. If the framework cannot yet do it, that is a bug to file, not a
+  licence to hand-roll.
 - Schema first: `\d <table>` before writing SQL; read the function before
   changing it.
 - Go changes are inert until an image is rebuilt and rolled; DB config is live

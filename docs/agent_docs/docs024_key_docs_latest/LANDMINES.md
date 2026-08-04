@@ -4701,3 +4701,43 @@ that is also the thing you would want in the logs is not.
   said every target page was missing; the by-name re-join said every one
   existed. WII-010 carries the same warning for the resolver's consumers.
 - **added:** 2026-08-04, bugfix_187_sectionless_needs_page lane
+
+### Hand-placing an object in `portfolio-sites/` works perfectly and opts the site out of every control the pipeline applies
+
+- **footprint:** `b2 file upload … portfolio-sites` · `portfolio-sites/<host>/index.html` ·
+  `portfolio-sites-router` · any `.html` you are about to write for a domain we own ·
+  `082_submit_domain_unified.sh` · `evidence_base` · `imagery_style_guide`
+- **fires when:** you need a page up quickly. Hand-writing the HTML and uploading it
+  to the bucket **works on the first try** — the Worker serves it, the bytes match,
+  the page renders, and every check you think to run passes. There is no error, no
+  warning, and no trace anywhere that the site skipped the build pipeline
+- **the tell:** none at the artefact, which is the whole problem. The tells are all
+  *absences* in the database, and you only see them if you go looking:
+  `SELECT * FROM sites WHERE domain='<host>'` returns **no row**, and therefore no
+  `site_specs`, no `evidence_base`, no `pages`. **A missing `evidence_base` does not
+  fail loudly — `loadEvidenceBase` returns nil and every claims lane silently
+  no-ops** (`validate_page_content.go:727-746`), so the claims layer is not lenient,
+  it is *absent*. Same for the hallucinated-email check, which **fails open** with no
+  site email (`bugs_open/063`). A hand-built page is therefore the one kind of page
+  on which a clean claims report means nothing at all
+- **the check:** before writing any page content, ask **"does the framework already
+  produce this?"** — for a domain we own the answer is yes. Then verify a page's
+  provenance from the DB, never from the artefact:
+  ```sql
+  SELECT s.domain, count(p.id) AS pages,
+         bool_or(ss.aspect='evidence_base') AS has_evidence_base
+    FROM sites s LEFT JOIN pages p ON p.site_id=s.id
+    LEFT JOIN site_specs ss ON ss.site_id=s.id AND ss.is_current
+   WHERE s.domain='<host>' GROUP BY s.domain;
+  ```
+  No row, or `has_evidence_base=false`, means whatever is being served was not built
+  by the pipeline regardless of how good it looks. **Correct path:** seed
+  (`SEED_*.sql`, `oufe`'s is the worked example) then
+  `082_submit_domain_unified.sh <domain> --email … --mission-file …`
+- **source:** 2026-08-04. The webdesign.uk shopfront was hand-written and uploaded
+  on 08-03, verified thoroughly, and reported as done — on the lane whose product is
+  framework-built sites. Caught by the owner asking, not by any check.
+  **OWNER RULING, now in `CLAUDE.md` Platform conventions: every site goes through
+  the framework; the framework being slower is not a reason.**
+  `WRONG_CALLS.md` 2026-08-04
+- **added:** 2026-08-04, webdesign.uk build-service lane

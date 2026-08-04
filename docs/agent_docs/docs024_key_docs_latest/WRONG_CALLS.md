@@ -18749,3 +18749,50 @@ strength:**
 already recorded "strings is not one-constant-per-line" and I still built a probe whose
 correctness depended on it being one. A grep that CANNOT return a positive is
 indistinguishable from a fix that did not ship, and both read as a clean, confident zero.
+
+---
+
+## 2026-08-04 — webdesign.uk lane
+
+### I hand-built the shopfront for the lane whose entire product is framework-built sites
+
+**What I did.** Asked to get webdesign.uk working, I wrote a single HTML file by
+hand in the CLI, uploaded it to `portfolio-sites/webdesign.uk/index.html`, verified
+it rendered, and reported it as the P1 shopfront. I then iterated on it by hand
+twice more (VAT wording, copy tweaks).
+
+**Why it was wrong, and it is worse than "not ideal".** Two independent reasons,
+either sufficient:
+
+1. **It demonstrates nothing.** The product being sold on that page is *a website
+   built by this framework*. A hand-rolled shopfront is a builder whose own shop
+   was built by someone else. The owner's words: *"was this site built through the
+   framework? if not please build it through the framework as it will be better."*
+   It also **could not be as good** — I was hand-writing copy and CSS against a
+   pipeline that runs a research classifier, a strategist, a briefing agent, a site
+   planner, a design planner and per-section content agents.
+2. **It silently opted out of every control.** No `evidence_base`, so the claims
+   layer was not merely lenient, it was **absent**: `loadEvidenceBase` returns nil
+   and every lane no-ops. No banned-claim sweep, no hallucinated-email check, no
+   imagery style guide, no discovery checks, no rerender path. I had *written the
+   plan section* that says a missing `evidence_base` fails open, and then shipped a
+   page with none.
+
+**What caught it.** The owner asked. Nothing in my own process would have — and
+that is the part worth keeping. I had verified the artefact carefully (bytes served,
+title, price, contact details all confirmed live) and every one of those checks
+passed. **A thorough verification of the wrong artefact returns green.** The
+question I never asked was not "is this correct?" but "should this exist in this
+form at all?"
+
+**The cheap check.** Before writing content of any kind, ask **"does the framework
+already produce this?"** For anything under a domain we own, the answer is yes. The
+mechanical version: if you are about to write HTML into a file destined for
+`portfolio-sites/`, stop — that bucket is the pipeline's output, and hand-placing an
+object there is writing to someone else's output directory.
+
+**Where the rule now lives.** `CLAUDE.md` → Platform conventions, as an owner
+ruling (2026-08-04), plus a landmine footprinted on the bucket and the B2 upload
+command. Fixed forward: `SEED_2026-08-04_webdesign_uk_site_and_specs.sql` +
+`MISSION_2026-08-04_webdesign_uk.txt`, dispatched via `082`, correlation
+`a4f05bd6-a548-47a5-8bdb-059e8d75e429`.
