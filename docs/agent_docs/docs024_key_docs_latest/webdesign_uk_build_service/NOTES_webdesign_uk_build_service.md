@@ -876,3 +876,75 @@ charitably. The CF zone is being DELETED at the owner's instruction. **Do not
 wire a Worker route or any content for webzy.uk.** loanzy.uk (DESIGNCONSULT,
 delegated + cert live, currently a correct 522 awaiting a route) is the real
 new member.
+
+---
+
+## 2026-08-04 — rebuilt through the framework; blocked on 192
+
+**The hand-built page was an error (owner ruling).** Recorded in `WRONG_CALLS.md`,
+`LANDMINES.md` (footprinted on `portfolio-sites/` and the `b2` upload command) and
+`CLAUDE.md` → Platform conventions. Not repeated here; see `HANDOFF_2026-08-04` §8.
+
+**Seeded and dispatched properly.**
+`SEED_2026-08-04_webdesign_uk_site_and_specs.sql` (sites row with the real email and
+phone, `evidence_base` with 7 attested facts + 14 banned_claims, `imagery_style_guide`)
+then `082_submit_domain_unified.sh webdesign.uk --email … --phone … --mission-file …`.
+
+- correlation `a4f05bd6-a548-47a5-8bdb-059e8d75e429`, chassis **v1.0.1247**
+- dispatched **740s** after pod start, clearing the ~300s silent-drop window
+- **verified landed rather than trusting exit 0**: `needs_domain_research` went
+  `triaged` → `claimed` → `complete`
+
+**Facts are populated here, unlike oufe's seed.** oufe shipped `facts[]` empty with a
+writer_block forbidding every number, because nothing was verified. Ours are settled
+owner attestations, and that is *why* the writer may state the price at all: the
+runbook's "no figures in the brief" rule pushes numbers out of the mission and into
+`evidence_base`, where each carries who attested it and when.
+
+**The em dash ban is a style rule living in a claims mechanism, deliberately.**
+`banned_claims` is a regex sweep built for fabrication patterns; punctuation is not a
+claim. It is there because it is the only *enforcing* lever on this path, whereas
+`writer_block` is instruction a model may drift from. Marked `[UNVERIFIED]` in the
+seed: I have not read the sweep's call site to confirm it runs over every slot. **If
+an em dash survives the first build, check that before touching the writer_block.**
+
+**Build progress at 08:30:** research, vertical research, strategy, briefing, site
+plan, composition all `complete`; several `needs_imagery` complete; 12 current spec
+aspects; 1 `pages` row; `build_status` still `pending`.
+
+**BLOCKED: the landing page failed with `bugs_open/192`.**
+
+```
+step process_sections_loop failed: failed to execute action loop: failed to get
+collection at 'sections_for_render.sections_ready': key 'sections_ready' not found
+at position 1 in path 'sections_for_render.sections_ready'
+```
+
+Grepped before concluding anything, which paid off twice. **`016b:7559` and
+`bugs_open/087` carry the identical error string but a different cause** (087 is the
+`page-rebuild` path, which supplies no section plan; 087's own text names the
+`page-build-handler` path as its known-good control, and that is the path failing
+here). And **`bugs_open/192`, filed this morning by another lane, is the actual
+match**: same string, same path, failing fleet-wide since ~08-03 21:00 across
+multiple sites and item types.
+
+**Contributed evidence rather than competing** (`who-owns.py 192` → owned;
+`76a440c34`). Our instance removes two scopings: it is `needs_page` not
+`content_rewrite`, and a site created from nothing minutes earlier rather than an
+adopted one. So `select_sections` fails on input the pipeline produced from scratch
+in the same run.
+
+Flagged `[UNVERIFIED]` in that file rather than asserted: this site is unusual in
+carrying a seeded pinned `evidence_base` with populated `facts[]`. Worth excluding
+early *if* the diagnosis nears writer constraint assembly, but the other two
+instances have no such spec and fail identically, so co-occurrence is not a cause.
+
+**No workaround applied, on purpose.** The workaround is hand-building the page,
+which is what the ruling above forbids. Blocked is the correct state.
+
+**Also unresolved and load-bearing for the next phase [UNVERIFIED]:** `GET
+/zones/{webdesign.uk}/workers/routes` returns an **empty list**, yet on 07-31 the
+domain served the Worker's JSON 404. So the Worker binding is *not* a zone route —
+most likely a Workers Custom Domain or an account-level route, neither of which that
+endpoint lists. This decides how `api.webdesign.uk` should be wired. The token
+cannot reach account scope, so it needs a dashboard look.
