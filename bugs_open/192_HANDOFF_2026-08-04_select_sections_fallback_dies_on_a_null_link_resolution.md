@@ -1,9 +1,29 @@
 # 192 — `page-content-writer`'s `select_sections` step is failing broadly since ~2026-08-03 21:00, unrelated to bugs_open/087
 
+> ## STATUS 2026-08-04 — DIAGNOSED · OUTAGE OVER AND PROVEN · **STILL OPEN, pending the roll**
+>
+> **Owned by the `bugfix_192_select_sections_wrapper` lane.** Root cause found and
+> fixed at source; the reason this stays OPEN is stated so nobody has to guess.
+>
+> | | |
+> |---|---|
+> | **Live now** | seed `308` only — a self-retiring third fallback path + the `required` opt-in. **Page builds work again**, proven end to end: item `18bc832c` → `complete`, orchestration `0511e4d1` → `COMPLETED` with `sections_for_render ? 'sections_ready'` **true**, against **false** on the three runs immediately before it. |
+> | **Committed, INERT until the next chassis roll** | `2b9d84072` — the unwrap at source, `extract_fields`' opt-in `required`, and the loop's keys-present error. Go changes do nothing here until an image is built and rolled. |
+> | **Why still OPEN** | the wrapper is **still produced on every build**; the live seed merely tolerates it. Until the roll the defect is reproducible, which is this repo's stated bar (`CLAUDE.md` → Debugging: *"a fix committed but inert until the next roll stays OPEN"*). |
+> | **To close** | after the roll: pod-grep `grep -ac 'required field(s)' /app/agent-chassis` → 1 (0 before) with a long-literal positive control from the same function; confirm `collected_data->'section_plan' ? 'applied'` is **false** and `? 'sections_ready'` **true** on a fresh `page-build-handler` run; then apply a cleanup seed removing path 3 of `select_sections`. |
+> | **Known degradation until the roll** | `resolve_links`' `input_mapping` is broken by the same wrapper, so internal CTA resolution is degraded on every build. **Deliberately not shimmed** — `input_mapping` has no ordered fallback, so a shim there would work today and silently re-break on the roll. It self-heals. |
+> | **Council** | `Council-Submitted: 7afbf531-5ddd-484e-88c8-091994a0f51f` — verdict not yet read; the trailer asserts nothing, per the standing rule. |
+> | **Not this bug** | the overnight `process_sections_loop_iter_N_generate_content` failures (21:00–01:00, ~38 runs) that this filing counted as the same defect. Different step, reachable only *after* this one succeeds, still undiagnosed, nobody on it. |
+>
+> Working docs: `docs/agent_docs/docs024_key_docs_latest/bugfix_192_select_sections_wrapper/`.
+> Full diagnosis at the foot of this file. **The title's "since ~2026-08-03 21:00" is
+> wrong** — corrected there.
+
 **Filed 2026-08-04**, discovered while live-verifying `bugs_open/178`'s fix
 (`bugfix_154_work_item_routing_columns` lane). **Not yet diagnosed** — this is
 a filing with the evidence gathered incidentally, not a completed root-cause.
 **A `090` diagnosis run is owed**; not run yet, flagged here so it isn't lost.
+*(Run since — and it returned no verdict at all; see the foot of this file.)*
 
 ## Symptom
 
