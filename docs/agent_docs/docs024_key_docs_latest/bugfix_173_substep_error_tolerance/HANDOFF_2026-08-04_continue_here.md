@@ -1,5 +1,19 @@
 # HANDOFF 2026-08-04 — `bugs_open/173`, continue here
 
+> # ⚠ SUPERSEDED — THIS LANE IS FINISHED. NOTHING HERE IS OWED.
+> **`173` was CLOSED the same day** and is now
+> `bugs_closed/173_HANDOFF_2026-08-01_loop_error_routing_has_no_substep_granularity.md`.
+> The induction this file hands over **ran and passed on both branches**, the two seeded
+> `test-173-*` agents **have been deleted** (0 remaining), and WFA-008 is **deployed**.
+>
+> Read the closing section of the bug file, or `NOTES` (bottom entry), for the evidence.
+> Kept unedited below **only** as the record of what was owed mid-flight — do not action it,
+> and in particular **do not re-seed the induction agents**.
+
+---
+
+# (superseded content follows)
+
 **Read this first, then `NOTES_substep_error_tolerance.md` (newest entry at the bottom).**
 
 ## State in one paragraph

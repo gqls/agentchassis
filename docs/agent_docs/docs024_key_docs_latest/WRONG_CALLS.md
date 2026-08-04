@@ -19379,3 +19379,46 @@ Job from it and confirm the **pod** reaches `Completed`, then verify the job's A
 repaired artefact", and "prove a deploy at the artefact, never at a status" — this is the
 same rule one level up, applied to the deploy itself rather than to the code in it.
 Prospective form: LANDMINES, footprint `imagePullSecrets`.
+
+---
+
+## 2026-08-04 — I explained an absent orchestration row with queue latency, and never checked whether the message had already been processed
+
+**The claim.** Three dispatches of a live induction produced **no `orchestration_states`
+row**. I attributed it to dispatch queue latency and waited — twice — reasoning from
+CLAUDE.md's own rule: *"A missing orchestration row is almost always latency, not a
+dropped dispatch — do not retry on that evidence."*
+
+**Why it was wrong.** The rule is sound and I applied it to a case it does not cover. The
+messages had not been queued at all: they had arrived and been processed **within
+milliseconds** of publishing, and the orchestration had died immediately on
+
+```
+Invalid workflow configuration ... step 'done' with action 'complete' requires a topic
+```
+
+My seed used `{"action":"complete"}` as its terminal step; the convention is a step
+*named* `complete` whose *action* is `complete_workflow` — as 172 live agents have it. The
+validator was right and my definition was malformed.
+
+**What made it stick for ~15 minutes and three dispatches:** the latency theory *fit every
+fact I had*, and it came pre-endorsed by the guide. A ready-made explanation that fits is
+the most expensive kind of wrong, because it stops you looking. I had also suppressed
+`kcat`'s output on the first two sends "to keep the shell tidy", which made the
+silent-publish landmine unfalsifiable for me at the same time. **Both errors are the same
+error: I removed my own evidence and then reasoned about the gap.**
+
+**What caught it.** Grepping the chassis logs for the `orchestration_name`, then filtering
+that correlation to `level=error`. Two commands, one line of answer.
+
+**The cheap check, which is the reverse of the rule I was leaning on.**
+**Before theorising about the queue, grep the chassis log for your `orchestration_name`.**
+
+- message *not* in the log → it really is latency (or a drop); the guide's rule applies.
+- message *in* the log → latency is **refuted outright**, and if it died the error is
+  sitting right there.
+
+Generally: *a queue theory explains an absent row; it does not explain an absent row **plus
+a log line showing the message was processed**.* When an explanation accounts for your
+evidence, ask what evidence it does **not** account for and go and look for that — and
+never suppress the output of the one command whose silent failure is a recorded landmine.
