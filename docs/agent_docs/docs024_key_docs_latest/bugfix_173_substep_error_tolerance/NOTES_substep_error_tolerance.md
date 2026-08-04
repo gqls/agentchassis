@@ -313,3 +313,65 @@ updates in most minutes through 10:47Z), so the lane is draining, just not to me
 **`bugs_open/173` therefore stays OPEN**, with the fix live and the induction owed. Everything
 needed to finish it — the expected results, what would REFUTE the fix, and the cleanup
 obligation for the two seeded agents — is in `HANDOFF_2026-08-04_continue_here.md`.
+
+---
+
+## 2026-08-04 — the induction RAN, both branches, and 173 is CLOSED
+
+### MISSTEP 3 — my first two dispatches died on a validation error I never looked for
+
+The first three dispatches produced **no `orchestration_states` row at all**, and I spent a
+while treating that as queue latency, which CLAUDE.md explicitly warns is the usual cause and
+tells you not to retry on. It was reasonable and it was wrong.
+
+**What actually settled it:** grepping the chassis logs for the orchestration name. The
+messages had arrived and been processed within *milliseconds* of publishing — so kcat had
+published fine and the lane was not slow at all. Filtering the same correlation to
+`level=error` gave the answer in one line:
+
+```
+Invalid workflow configuration ... error: step 'done' with action 'complete' requires a topic
+```
+
+My seed used `{"action": "complete"}` as a terminal step. The convention is a step **named**
+`complete` whose **action** is `complete_workflow` (172 live agents have exactly that). The
+validator was right and my definition was malformed.
+
+**The transferable bit — and it is the reverse of the rule I was applying.** "A missing
+orchestration row is latency, not a drop" is sound advice *for a valid definition*. It gave me
+a ready-made explanation that fit the evidence and cost three dispatches and ~15 minutes. The
+cheap check that beats it: **grep the chassis log for your `orchestration_name` before
+theorising about the queue.** If the message arrived, latency is refuted outright; if it
+arrived and died, the error is right there. A queue theory explains an absent row; it does not
+explain an absent row *plus* a log line showing the message was processed — and I never looked
+for the second thing.
+
+Also worth recording: I had suppressed kcat's output on the first two sends, so I had
+independently made the silent-publish landmine unfalsifiable for myself. Both errors point the
+same way — **I removed my own evidence and then reasoned about the gap.**
+
+### The induction, and why its pass is discriminating
+
+Corrected seed re-applied, both agents re-dispatched. Results:
+
+| run | loop | substep | status | current_step | mechanism |
+|---|---|---|---|---|---|
+| `35acb827…` | (unset) strict | `true` | **COMPLETED** | `complete` | `iter_0_error` + `iter_1_error`, `skipped=true`, `error_count=2` |
+| `982bf0ce…` | `true` tolerant | `false` | **FAILED** | `run_loop_iter_0_boom` | died at the failing substep |
+
+Logs confirm both skips by name (`step=run_loop_iter_0_boom iter=0 total_errors=1`, then
+`iter=1 total_errors=2`).
+
+**The design property that makes this a proof rather than a green light:** each run's
+loop-level flag is the OPPOSITE of its substep's, so if expansion still clobbered the substep
+value, **each run would have produced the other run's outcome** — tolerant FAILED, strict
+COMPLETED. It is not possible to pass both branches by accident.
+
+And the status alone would not have been enough: the tolerant run reads COMPLETED just as
+happily if the fault never fired. The discriminating evidence is the two `iter_N_error` records
+with `skipped=true`, which is why I checked the action returns a real Go error and that
+`SELECT 1/0` really raises **before** dispatching.
+
+**Cleanup done** — both `test-173-*` definitions deleted, 0 remaining. **173 moved to
+`bugs_closed/`.** WFA-008 promoted from *built (inert until roll)* to *deployed*, with the
+induction as its status-evidence.

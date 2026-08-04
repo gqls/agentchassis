@@ -64,9 +64,13 @@ VALUES
            }
          },
          "output_field": "loop_out",
-         "next_step": "done"
+         "next_step": "complete"
        },
-       "done": {"action": "complete", "description": "Reached only if the skip worked"}
+       "complete": {
+         "action": "complete_workflow",
+         "description": "Reached only if the skip worked",
+         "config": {"output_fields": ["loop_out"], "success_message": "173 tolerant-substep induction complete"}
+       }
      }
    }
  }'::jsonb,
@@ -113,9 +117,13 @@ VALUES
            }
          },
          "output_field": "loop_out",
-         "next_step": "done"
+         "next_step": "complete"
        },
-       "done": {"action": "complete", "description": "Must NOT be reached"}
+       "complete": {
+         "action": "complete_workflow",
+         "description": "Must NOT be reached",
+         "config": {"output_fields": ["loop_out"], "success_message": "173 strict-substep induction — should never print"}
+       }
      }
    }
  }'::jsonb,

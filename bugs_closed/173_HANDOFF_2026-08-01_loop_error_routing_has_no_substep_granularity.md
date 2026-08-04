@@ -370,3 +370,70 @@ checks rather than nods — full working in the lane's NOTES. In brief:
 ruling 2026-07-29 §1 was **self-applied by the change's author** — I argued my own change does
 not cross the RFC threshold. Both agreed with the reading, `architecture` at length, but flagged
 that the author is not the ruling's owner.
+
+---
+
+## CLOSED 2026-08-04 — FIXED AND LIVE on `v1.0.1250`, and the two-branch induction has RUN
+
+Both halves of this file's own bar are met, so this moves to `bugs_closed/`.
+
+### Live at the pod, with three controls (not inferred from the roll)
+
+`v1.0.1250`, both replicas (`agent-chassis-88cf8787-4dzzx`, `-5z5sn`):
+
+```
+NEW  resolveSubstepContinueOnError                        = 2
+NEW  "Substep declares continue_on_error with a non-bool" = 1
+CTRL "continue_on_error is true for this loop iteration"  = 1   (pre-existing; probe works)
+NEG  resolveSubstepContinueOnErrorXYZZY                   = 0   (probe CAN return 0)
+```
+
+Pre-roll the same four probes read `0 / 0 / 1 / —`. The negative control is what makes the
+positives mean anything: a `grep -c` that never returns 0 is not measuring.
+
+### The induction — BOTH branches, which is what this file demanded
+
+Two throwaway agents, each with the **loop**-level flag set to the **opposite** of the
+substep's, so a stamp-regression could not pass as a success: each run would have produced
+**the other run's outcome**. Seed: `docs024_key_docs_latest/bugfix_173_substep_error_tolerance/SEED_2026-08-04_induction_agents.sql`.
+
+| run | loop | substep `boom` | status | current_step | mechanism |
+|---|---|---|---|---|---|
+| `35acb827-6def-4285-92a7-395e131daa01` | **(unset)** strict | **`true`** | **COMPLETED** | `complete` | `iter_0_error` + `iter_1_error` both present, `skipped=true`, `run_loop_error_count=2` |
+| `982bf0ce-b948-4da8-a848-184abb106b41` | **`true`** tolerant | **`false`** | **FAILED** | `run_loop_iter_0_boom` | died AT the failing substep; no skip records |
+
+Chassis log corroboration, both iterations of the tolerant run:
+
+```
+Skipping failed loop iteration, advancing to next   step=run_loop_iter_0_boom iter=0 total_errors=1
+Skipping failed loop iteration, advancing to next   step=run_loop_iter_1_boom iter=1 total_errors=2
+```
+
+**Why this is a proof and not a green light.** The tolerant run would read COMPLETED just as
+happily if the induced fault had never fired — so the discriminating evidence is the *error
+records*, not the status. They exist, for both iterations, with `skipped=true`. And the strict
+run is the direction that matters: a tolerant loop did **not** swallow a substep that declared
+`false`. Before this fix that was unexpressible.
+
+The induced fault was `SELECT 1/0` via `query_database`, which returns a real Go error
+(`query failed: %w`) rather than a soft result — checked in the source before dispatching,
+because a fault that does not fire makes the tolerant branch pass for the wrong reason.
+
+**Cleanup done:** both `test-173-*` agent definitions deleted, `0` remaining.
+
+### Council
+
+**APPROVED round 1**, correlation `549e25fb-acc1-4806-a2a7-95bf73cca806`, 8 seats, 3 advisory
+objections, none high — all answered with checks (above and in the lane NOTES). Registered as
+**WFA-008**.
+
+### What this bug leaves behind, deliberately
+
+- **`bugs_open/193`** — the loop-level read of this same key silently ignores a non-bool where
+  its substep-level twin now warns. Filed at the `bug_historian` seat's direction. Latent.
+- **A correction for anyone quoting this file:** §"Why it matters" is historical — its
+  motivating agent `multipage-website-builder` is deleted. The live consumers are
+  `pageflow-builder`, `page-rebuild` and `site-work-orchestrator`.
+- **Struck:** this file's third "not established" item (the `fallback_step`/retry interaction).
+  There is no interaction because there is no mechanism — both keys occur twice in the whole Go
+  tree, in name-prefixing lists only, with 0 live definitions declaring either.
