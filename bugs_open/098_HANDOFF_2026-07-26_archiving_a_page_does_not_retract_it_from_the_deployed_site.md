@@ -93,6 +93,10 @@ because every repair path skips archived rows on purpose.
 >    directions — but by making the SOURCE LIST the shared thing:
 >    `datahelpers.InboundLinkSurfaces`, both censuses' SQL hoisted to package vars, and a
 >    lockstep test on each side (mutation-proven: a phantom fourth surface fails both).
+>    **APPROVED 2026-08-04** (4 advisory objections, none high) — and its census
+>    objection was right: the sweep found FIVE more sites, migrated in `185bb98d9`; two
+>    more are known-and-skipped (another session's dirty file; the 080 lane's fresh
+>    code) — see NOTES 2026-08-04.
 > 4. ~~**MEDIUM** — the status predicate in the news requeue is a third bespoke spelling
 >    rather than a consolidation onto a canonical helper.~~ **PAID 2026-08-04, same
 >    commit**: the eligibility family's missing lifecycle member now exists

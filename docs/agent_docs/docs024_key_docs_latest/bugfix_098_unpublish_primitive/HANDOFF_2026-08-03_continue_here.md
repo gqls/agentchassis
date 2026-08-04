@@ -155,8 +155,9 @@ as corroboration.
    and **council APPROVED 2026-08-04** (8 seats, no high-severity; the coordinator-level
    question went to `architecture_review/RFC_012` at the architecture seat's direction).
 2. ~~Debts **3** (share the inbound-source logic with `check_orphan_pages` rather than copy)
-   and **4** (consolidate the status predicate).~~ **DONE 2026-08-04** (committed, verdict
-   pending under `Council-Submitted: 37593214-a02a-4f12-b91c-c0704c47037a`): debt 3 as a
+   and **4** (consolidate the status predicate).~~ **DONE 2026-08-04, APPROVED same day**
+   (`37593214…`, 4 advisory objections none high; its census ask found 5 more sites,
+   migrated in the follow-up `185bb98d9` — 2 known-and-skipped, see NOTES): debt 3 as a
    lockstep — `datahelpers.InboundLinkSurfaces` + tests both sides, queries deliberately
    NOT unified; debt 4 as the family's missing lifecycle member
    (`datahelpers.PageWantedLivePredicateFor`), seven sites, byte-identical SQL. Register
