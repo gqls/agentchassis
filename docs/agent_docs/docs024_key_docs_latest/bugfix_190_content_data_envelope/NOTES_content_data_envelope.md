@@ -128,3 +128,82 @@ visibly, rather than editing it away.
 passenger. So the fix must keep its footprint in that file to the smallest possible
 call-site edit, with the logic in a new file in the same package — which is exactly the
 precedent the 194 lane itself set with `save_sections_metadata_source.go`.
+
+## 2026-08-04 — implementation, and the three things that pushed back
+
+**Design decided by a constraint, not a preference.** Fable's plan and my own check agreed on
+where the guard must live, but the deciding fact is mechanical: `actions` imports
+`datahelpers`, not the reverse, and the normaliser needs `ParseLLMJSONWithProvenance`, which
+is in `actions`. So a `datahelpers` home is an import cycle. The pure predicate *could* live
+there; splitting one rule across two packages is the drift class this codebase keeps paying
+for, so it is all in `actions/content_data_envelope_guard.go`.
+
+**MUTATION TESTING — four run, four red, and this is the part I would not skip again.** This
+guard's happy path is "change nothing", which is also what a completely broken version does,
+so a green suite is nearly meaningless on its own. Each mutation was applied to the shipped
+code, the named test run, then the file restored and `diff`ed against a pre-mutation copy:
+
+| mutation | test that went red | message |
+|---|---|---|
+| predicate keyed on `type` alone | `TestLegitimateContentDataPassesByteIdentical` | "legitimate content_data was refused" |
+| provenance rule replaced with `if false` | `TestLossyProvenanceIsRefusedNotDecoded` | "a lossy recovery was accepted" |
+| predicate keyed on `len(m) == 2` | `TestSupersetEnvelopeIsDetected` | "a three-key envelope was not detected" |
+| seam assigns to a copy, not in place | `TestSeamMutatesSectionsInPlace` | "not normalised IN PLACE" |
+
+The third one is the bug file's own recommended predicate. It is worth sitting with that: the
+instruction written in the case file, followed faithfully, produces a guard blind to half the
+known population — and every test would still have passed, because the fixtures would have
+been built from the same wrong assumption.
+
+**The package's own coverage test caught me, and it was right to.** The full suite failed with
+`content_data_envelope_guard.go reads the "__truncated" marker but implements no action in
+truncationAwareActions`. My file names `__truncated` only in a header comment, as an example of
+the `__`-prefixed transport keys a decode drops — but `truncation_guard_test.go` scans package
+*sources*, so **my comments are load-bearing** (the shape already in MEMORY as "a source-scan
+test makes your COMMENTS load-bearing").
+
+I chose to **exempt rather than register**, and the reasoning is the interesting bit.
+Registering `save_page_sections` in `truncationAwareActions` would have been the quick fix and
+it would have widened what counts as a truncation-aware consumer for *every workflow
+containing that action* — blast radius well beyond this bug, taken silently, which is exactly
+what the platform-seams ruling exists to stop. So: an exemption, with its reason stated, and
+the reason itself converted into a test (`TestTruncatedEnvelopeCannotReachTheDecodeBranch`)
+rather than left as an assertion — a truncated payload either fails to parse or recovers only
+via a lossy tier, and both outcomes refuse, so dropping the marker cannot lose a warning
+anybody would have acted on.
+
+**Two collisions with other sessions inside one hour, in the same file.** First, the 194
+lane's uncommitted work in `save_page_sections_action.go` vanished mid-session — they
+committed (`47ee3ebce`) and the passenger risk went away. I edited the file. Then a *third*
+session began adding `bugs_open/156` dedup wiring to the same file and, briefly, the package
+would not compile at all (`duplicatesCollapsed declared and not used`) — a build break that
+was nothing to do with me and stopped a mutation run dead. It resolved on its own minutes
+later.
+
+**So the package suite is currently RED in the working tree and that is not my change.** The
+failing test is `TestCollapseLeavesNullContentDataWithDifferentHTMLAlone` in
+`save_sections_dedup_test.go`, an **untracked** file belonging to that session, referencing
+none of my symbols. Proving that took the only instrument that actually settles it:
+`git archive HEAD` into a clean directory, copy in *only* my files, run the suite there — green
+in 0.492s. That recipe is now in the RUNBOOK, because "the tree is red but not because of me"
+is a claim, and on a tree this shared it needs evidence rather than confidence.
+
+**Consequence: I committed four files and held one back.** `save_page_sections_action.go` now
+carries both my guard call and their uncommitted dedup wiring, which calls their untracked
+file — committing it would break HEAD for every session. The guard, its tests, the truncation
+exemption and the section-editor seam went in as `ce675f019`. The save seam's one-line call
+site waits for them to land theirs, and until it does **the primary seam is not yet guarded**.
+That is stated in the commit message rather than left for someone to discover.
+
+## 2026-08-04 — a ruling I half-satisfied
+
+Shipped `ce675f019` with no concept-register entry, then added PBP-032 in the next commit. The
+2026-07-29 narrowing retired condition (1) of the ordering exemption and left
+registration-in-the-same-commit as the *whole* of the requirement, so this is a straight miss.
+
+What makes it worth recording is *why* it felt fine: I had reasoned hard about RFC_010 and
+written the no-opt-in-field argument into both the commit message and the council submission,
+because that was the half I expected to be challenged on. **Satisfying the condition you
+rehearsed reads as satisfying the rule.** Nothing in the tooling catches it either — the
+`commit-msg` nudge and the `098` report both check the council trailer, which I had. Full entry
+in `WRONG_CALLS.md`, and the one-command check is now in the RUNBOOK.

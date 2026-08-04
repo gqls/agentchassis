@@ -107,3 +107,70 @@ every bug scores several "live sessions". Match on the `file_path` of a tool cal
 
 **And do not trust a bug file's own "OPEN, UNOWNED" header** — it is a snapshot of the day it
 was typed. `bugs_open/181` says exactly that and is being worked by two live sessions.
+
+## 6. Is the tree red because of ME? — the only check that settles it
+
+The shared tree is frequently red on another session's uncommitted work, and "it is not my
+change" is a claim. Build HEAD plus *only* your files, in a clean directory:
+
+```bash
+SP=<your scratchpad>
+rm -rf $SP/headtest && mkdir -p $SP/headtest
+git archive HEAD | tar -x -C $SP/headtest
+cp platform/orchestration/actions/content_data_envelope_guard.go \
+   platform/orchestration/actions/content_data_envelope_guard_test.go \
+   platform/orchestration/actions/truncation_guard_test.go \
+   platform/orchestration/actions/section_editor_actions.go \
+   $SP/headtest/platform/orchestration/actions/
+cd $SP/headtest && go test ./platform/orchestration/actions/
+```
+
+**Gotcha:** `go build` in the working tree is NOT this check — it compiles everyone's WIP
+together, so it can be green when HEAD+yours is broken, and red when HEAD+yours is fine. Both
+happened in one session on 2026-08-04.
+
+**Second gotcha:** before committing a file, check it does not carry a passenger:
+`git diff --numstat <file>` then read the diff. On 2026-08-04
+`save_page_sections_action.go` held my guard call AND another session's `bugs_open/156` dedup
+wiring, which called an **untracked** file — committing it would have broken HEAD fleet-wide.
+
+## 7. Proving the guard can actually fail (mutation testing)
+
+A green suite proves nothing here: this guard's happy path is "change nothing", and so is a
+completely broken one. Back the file up, mutate, run the named test, restore, and diff.
+
+```bash
+SP=<your scratchpad>; G=platform/orchestration/actions/content_data_envelope_guard.go
+cp $G $SP/guard.orig.go
+# e.g. drop the provenance rule:
+python3 - <<'EOF'
+p='platform/orchestration/actions/content_data_envelope_guard.go'
+s=open(p).read()
+s=s.replace('if provenance != ProvenanceClean && provenance != ProvenanceRepaired {','if false {')
+open(p,'w').write(s)
+EOF
+go test ./platform/orchestration/actions/ -run TestLossyProvenanceIsRefusedNotDecoded   # MUST fail
+cp $SP/guard.orig.go $G && diff $SP/guard.orig.go $G && echo RESTORED
+```
+
+**Gotcha:** a mutation run can be defeated by an unrelated build break from another session —
+mine was, once. If the mutated run reports a compile error in a file you did not touch, that
+is not your test passing or failing; re-run when the tree compiles.
+
+The four mutations that must each go red: predicate keyed on `type` alone; provenance rule
+dropped; predicate keyed on `len(m)==2` (**this is the bug file's own recommended predicate**);
+seam ranging by value instead of mutating in place.
+
+## 8. Before committing platform code: the register check nobody's hook performs
+
+The platform-seams ruling requires a shared mechanism's concept-register entry **in the same
+commit that ships it**. No hook checks this — the `commit-msg` nudge and the `098` report both
+check the *council* trailer, which is a different thing, and having that one makes you feel
+compliant. One command, run before the commit:
+
+```bash
+git status --short docs/agent_docs/docs026_concept_register/register/
+```
+
+Non-empty, and in the same pathspec as the code, or you are shipping folklore. I missed this
+on 2026-08-04 by exactly one commit.
