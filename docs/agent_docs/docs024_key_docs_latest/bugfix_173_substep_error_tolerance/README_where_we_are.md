@@ -57,3 +57,52 @@ something one session does unilaterally. Our own rule is that a bug stays open u
 is genuinely running in production, not merely committed — so unless another session's roll
 happens to carry it out today, this will stay open with the remaining step written down
 precisely. I would rather leave it accurately open than tidily closed and wrong.
+
+---
+
+## 2026-08-04, later — approved first time, and the three things the reviewers asked for
+
+The council approved it on the first round: eight seats in favour, three advisory notes, none
+serious. Rather than nodding at the notes I went and checked each one, which turned out to be
+worth doing because two of them had real answers.
+
+**"Does a skipped step just vanish?"** The reviewer guarding against silent data loss asked
+whether a step skipped by the new tolerance leaves any trace, or whether the page it should
+have written simply disappears. It leaves three: a record written into the job's own state
+saying which step failed, with the error and a timestamp; a warning in the logs naming the step
+and which pass through the loop it was on; and a status of "error" against that item in the
+loop's summary, deliberately distinguished from "nothing found". So it is not a silent loss.
+The honest caveat I recorded is that none of that raises a ticket for a human, and the job
+record is deleted after about a day — so the trace is real but it expires.
+
+**"What about the interaction with those two other settings?"** I had flagged, honestly, that I
+had not looked. Having looked: there is nothing to interact with. Those two settings appear
+exactly twice in the entire codebase, both times in a list that only rewrites their *names*,
+and nothing anywhere reads them to make a decision. No configuration in the fleet uses either.
+They are decorative.
+
+**"File the sibling bug properly."** I had noted, in my own risk section, that the same setting
+read at a different level still has the old silent-failure behaviour, and said I would leave it
+for another day. The reviewer's objection to that is the most useful sentence of the round:
+burying a deferral in the document that defers it means it never reaches whoever looks at the
+mechanism next, because they read the code, not my write-up. So it is now bug 193 with its own
+measurements.
+
+**One error of my own, worth writing down.** A reviewer noticed that I claimed to have
+registered the change in our shared register "in the same commit" but had not listed that file
+among the changes I showed them. The registration is genuinely there in the commit — but the
+reviewers can only judge what I put in front of them, and I had made a claim they had no way to
+check. That is my mistake, not theirs, and the fix for next time is trivial: list the file.
+
+**Where that leaves us.** The fix is committed, approved, tested and *not live*. It goes live
+on the next fleet build, which is an owner operation — I have not triggered one, because it
+interrupts everyone else working today and this change is, by measurement, inert until somebody
+deliberately opts into it. So the bug stays open, with the one remaining test written down
+precisely: make the tolerant step fail for real and watch the job continue, then make the strict
+step fail and watch it stop.
+
+**One thing I would like you to confirm rather than take from me.** There is a rule about when a
+change to shared machinery needs a heavier architecture review. I argued that this change does
+not need one, and the reviewers agreed with my reasoning — but two of them pointed out that I am
+the author, and the author is not really the right person to decide whether their own change
+needs reviewing. I think the reading is right. I would rather you agreed than assumed.
