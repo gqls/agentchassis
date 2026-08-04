@@ -486,6 +486,103 @@ re-dispatch exercised it again. What changed is only the envelope:
 WFA-009. If you disagree with `edit_live_meta` living inside the plan, that is the one
 judgement call worth arguing — say so in `bugs_open/192` and I will follow it.
 
+## UPDATE 2026-08-04 (154 lane) — component-identity-drift gap: MEASURED, then closed for the unambiguous case; still OPEN for the ambiguous one
+
+Picked up this file's own top-priority open item: "measure how often this
+actually happens fleet-wide before investing heavily; this session has one
+observed instance, not a rate."
+
+**Measured.** Of 127 pages with a current `site_plan` and existing
+`page_components` rows, **3 (2.4%) already carry a stored `slot_name` absent
+from their own current plan's component-name list** — a lower bound on
+exposure, since it only counts pages already mismatched today, not pages that
+could newly mismatch on their next rebuild:
+
+- `gripper-cycle-time-estimator` (site `00ff3af5-…`): slots `faq` and
+  `tool-gripper-cycle-time-estimator`, plan lists only
+  `call-to-action,generic-text-block,hero`.
+- `guides-index` (site `1244516d-…`): slot `guide-list`, plan lists
+  `content-listing,hero`.
+- `index` (site `5fe8785b-…`): slot `image-hover-card-grid`, plan lists six
+  other names.
+
+Query (run against the live DB, 2026-08-04):
+```sql
+WITH plan_names AS (
+  SELECT sp.site_id, sps.page_name, array_agg(DISTINCT sps.component_name) AS planned_names
+  FROM site_plans sp JOIN site_plan_sections sps ON sps.plan_id = sp.id
+  WHERE sp.is_current = true GROUP BY sp.site_id, sps.page_name
+), stored AS (
+  SELECT p.id AS page_id, p.site_id, p.name AS page_name, pc.slot_name
+  FROM pages p JOIN page_components pc ON pc.page_id = p.id
+  WHERE pc.slot_name IS NOT NULL AND pc.build_status <> 'removed'
+)
+SELECT s.site_id, s.page_name, s.slot_name, pn.planned_names
+FROM stored s JOIN plan_names pn ON pn.site_id = s.site_id AND pn.page_name = s.page_name
+WHERE NOT (s.slot_name = ANY(pn.planned_names));
+```
+
+**Read the three cases before generalising from them**: none is actually "the
+selector flipped between two equally-scored fallback candidates for the SAME
+`section_type`" — I checked, and `article-body`/`generic-text-block` (this
+file's own instance) each have exactly one active `content_components` row
+under their own distinct `section_type`, so that specific mechanism was not
+the cause here. The three fleet cases above look instead like a page's stored
+slots simply including things the plan's own skeleton never named (a tool
+component, a listing component) — a **different**, and probably more common,
+route to the same failure: `content_components` is a fleet-shared library
+with no `site_id`/`page_id`, so nothing has ever required a page's plan and
+its actually-attached components to agree on names. **The "why do names
+drift" root cause (fix candidate 3 in this file's original list) is still
+open** — this update closes the symptom for the case that matters
+operationally, not the mechanism.
+
+**Fix shipped, for the unambiguous case only**: `load_current_section_content_action.go`
+(the same file `bugs_open/192`'s NOTICE names you as owning) now falls back
+from the exact `slot_name` join to "the page's current single prose slot"
+— but ONLY when there is exactly one ready section that missed the exact
+match AND exactly one still-unclaimed `page_components` row on the page is
+prose-sized (reuses `save_sections_shrink_guard.go`'s own
+`minShrinkGuardChars`/`shrinkGuardTagStripper` rather than inventing a second
+definition of "prose-sized"). Two or more of either side and it leaves both
+unmatched — no guessing, never worse than before this fallback existed.
+Recorded structurally as `edit_live_meta.fallback_matched`, kept separate
+from the exact-match count `matched` — which doubles as the first fleet-wide
+instrumentation of this drift class's real rate, on every future `edit_live`
+build, instead of requiring another ad hoc SQL census.
+
+Three new test cases in `load_current_section_content_action_test.go`
+(fallback fires on the single-unmatched/single-candidate case; does NOT fire
+when two sections are unmatched — ambiguous; does NOT fire when the leftover
+slot is small/hero-sized). Mutation-proven: `git stash` of just the action
+file, then running the three new tests against the pre-fallback code fails
+all three with the exact expected/got mismatch; restore verified, full
+package `go test ./platform/orchestration/actions/...` green. Committed in the
+same commit as this update (see git log for this file's own path); council
+submission `Council-Submitted: 8a3e0315-4576-4829-bf42-c0c8cdfc4e3a` (verdict pending —
+advisory only, does not block). **Not yet built or deployed** — this is
+source + tests only, following the same pattern as this file's own prior
+updates (built/deployed as part of a later whole-fleet release rather than a
+one-off image).
+
+**Still open, in priority order:**
+1. The ambiguous case (two-or-more unmatched sections, or two-or-more
+   candidate prose slots on one page) is explicitly NOT covered — the fallback
+   refuses to guess, which is safe but leaves the original bug reachable
+   there. Not yet observed in the fleet measurement above (no page showed more
+   than one unclaimed prose-sized slot at once), so unknown severity.
+2. The actual mechanism causing a page's stored slot names to diverge from
+   its current plan's names is still undiagnosed — candidate 3 from this
+   file's original list (fix the underlying instability) remains open, now
+   with three additional fleet instances as raw material if someone picks it
+   up.
+3. Build, deploy, pod-verify, and live-verify this fix the same way the
+   `edit_live` channel itself was verified (dispatch a real parked item
+   against a page in this file's mismatch list above, diff `content_data`
+   before/after).
+4. Watch-list item 4 from the prior update (shrink guard blind to a
+   whole-slot rename) is unchanged by this fix and still open.
+
 **One thing that IS still yours, and it is good news:** `192`'s filing notes your own
 end-to-end verification was blocked by this outage ("the remaining check — does the
 writer actually preserve it end to end — is blocked on this bug, not on 178's own

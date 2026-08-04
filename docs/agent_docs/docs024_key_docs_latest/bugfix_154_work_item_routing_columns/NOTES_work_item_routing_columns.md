@@ -1466,3 +1466,100 @@ still happen when a section's build-time component identity drifts from
 what's stored. Candidate fixes are named there but not evaluated; this
 session is stopping here rather than attempting a third design change on
 the same day it shipped a fleet-wide outage from the second one.
+
+---
+
+## 2026-08-04, picking up the continue-here's #1 open item — measured the drift rate, shipped the unambiguous-case fallback
+
+Read `HANDOFF_2026-08-04_continue_here.md` and `bugs_open/178`'s full history
+first (per its own instruction). Priority 1 on the open list: "design and
+implement a fix for the component-identity-drift gap... measure how often
+this actually happens fleet-wide before investing heavily."
+
+**Checked whether another session had already touched this ground first**
+(`git log --oneline -- bugs_open/178_...md platform/orchestration/actions/load_current_section_content_action.go`)
+— nothing past `71ecbb013` (the correction commit already accounted for in
+the handoff). Clear to proceed.
+
+**Went looking for the mechanism before measuring a rate**, since the
+handoff's own hypothesis ("the selector can evidently pick a different one
+build to build") was worth checking before trusting it: queried
+`content_components` for `article-body` and `generic-text-block` directly.
+**The hypothesis was wrong as stated** — each has exactly one active row
+under its own distinct `section_type` (`article-body`/`article-body`,
+`generic-text-block`/`generic-text-block`), so `SelectComponentByType`'s
+`ORDER BY score DESC LIMIT 5` was never choosing between competing
+candidates for this instance; there was only ever one candidate per request.
+`content_components` also has no `site_id`/`page_id` column — it is a
+fleet-shared library — and `article-body`'s own `description` names a
+totally different page it was minted for. `site_plan_sections` for
+`guide-independent-strategy` (single plan, `is_current=true`, created
+2026-07-17) has always said `article-body` for this position; the page row
+itself was also created 2026-07-17. So the actual sequence that produced a
+STORED slot of `generic-text-block` against a PLAN that has only ever said
+`article-body` is still not fully reconstructed — worth flagging rather
+than asserting a mechanism I have not actually nailed down. **[UNVERIFIED]**
+beyond this: exactly which build wrote `generic-text-block` and why Path 1
+didn't resolve `article-body` directly on it, given the component existed
+by then.
+
+**Measured the rate anyway**, at one remove from the unresolved mechanism:
+instead of "how often does resolution flip between builds" (which needs the
+mechanism above to even define), measured "how many pages, RIGHT NOW, have
+a stored slot the CURRENT plan doesn't name" — the condition that actually
+determines whether `load_current_section_content`'s exact join would find
+nothing, regardless of how that mismatch arose:
+
+```sql
+WITH plan_names AS (
+  SELECT sp.site_id, sps.page_name, array_agg(DISTINCT sps.component_name) AS planned_names
+  FROM site_plans sp JOIN site_plan_sections sps ON sps.plan_id = sp.id
+  WHERE sp.is_current = true GROUP BY sp.site_id, sps.page_name
+), stored AS (
+  SELECT p.id AS page_id, p.site_id, p.name AS page_name, pc.slot_name
+  FROM pages p JOIN page_components pc ON pc.page_id = p.id
+  WHERE pc.slot_name IS NOT NULL AND pc.build_status <> 'removed'
+)
+SELECT count(DISTINCT s.page_id) FILTER (WHERE pn.planned_names IS NOT NULL AND NOT (s.slot_name = ANY(pn.planned_names))),
+       count(DISTINCT s.page_id) FILTER (WHERE pn.planned_names IS NOT NULL)
+FROM stored s LEFT JOIN plan_names pn ON pn.site_id = s.site_id AND pn.page_name = s.page_name;
+```
+Result: **3 of 127 pages checked (2.4%)**. Listing query and the three
+pages/slots are in `bugs_open/178`'s new update — none of the three look
+like the same-`section_type`-multiple-candidates shape either; they read
+more like a page having extra attached components (tools, listings) the
+plan's own skeleton never named at all. **[MEASURED]**, disconfirmable: the
+query would have returned 0 had every stored slot agreed with its plan,
+which is the common case for the other 124 pages.
+
+**Fix shipped for the unambiguous case only** — `load_current_section_content_action.go`
+gains a fallback: exactly one unmatched ready section + exactly one
+unclaimed prose-sized (`>=500` stripped chars, reusing
+`save_sections_shrink_guard.go`'s `minShrinkGuardChars`/
+`shrinkGuardTagStripper` rather than a second "what counts as prose"
+definition) leftover slot → attach it. Anything more ambiguous than that:
+left unmatched, exactly like before. New field `edit_live_meta.fallback_matched`,
+kept separate from `matched` so the plan itself becomes the fleet-wide
+measurement of this drift class going forward, instead of another one-off
+census.
+
+**Mutation-tested against my own change**, not just written and trusted:
+`git stash push -- load_current_section_content_action.go`, ran the three
+new test cases against the pre-fallback code — all three failed with the
+expected/got mismatch pointing at the missing fallback. `git stash pop`
+restored it; `go build ./platform/orchestration/actions/...` clean, `go test
+./platform/orchestration/actions/...` green, including every pre-existing
+`load_current_section_content` case and the `bugs_open/192` regression
+tripwire (`TestLoadCurrentSectionContent_NeverWraps`) unmodified.
+
+**Submitted to the council gate**: `SUBMISSION_2026-08-04_component_identity_drift_fallback.json`,
+`Council-Submitted: 8a3e0315-4576-4829-bf42-c0c8cdfc4e3a` — dispatched but no
+`orchestration_states` row visible yet at submission time (checked
+immediately after, per this repo's own note that publish→run start has
+measured up to ~29 minutes; not treated as a dropped dispatch on that alone).
+
+**Not built or deployed this session** — source + tests + council submission
+only, matching the pattern the rest of this bug file's history already
+follows (image builds/rolls bundled into a later whole-fleet release rather
+than a one-off per-session deploy). Next continue-here names build+verify as
+the immediate next step.

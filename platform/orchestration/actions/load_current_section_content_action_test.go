@@ -23,6 +23,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -210,6 +211,168 @@ func TestLoadCurrentSectionContent_EditLive_AttachesMatchingSlot(t *testing.T) {
 		if _, has := gotHero["existing_content_html"]; has {
 			t.Errorf("hero has no page_components row and must not gain existing_content_html, got %v", gotHero["existing_content_html"])
 		}
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet expectations: %v", err)
+	}
+}
+
+// mode=edit_live, the exact-name join misses, but exactly one ready section
+// is unmatched and exactly one unclaimed page_components row is prose-sized:
+// the single-unmatched-prose-slot fallback attaches it. This is the
+// component-identity-drift gap from bugs_open/178's 2026-08-04 update
+// (guide-independent-strategy: stored slot "generic-text-block", current
+// plan/resolution "article-body") — the fallback is what closes it.
+func TestLoadCurrentSectionContent_EditLive_FallbackOnSingleUnmatchedProseSlot(t *testing.T) {
+	db, mock := newInsertMock(t)
+	defer db.Close()
+
+	siteID := uuid.New()
+	pageID := uuid.New()
+
+	longProse := "<section>" + strings.Repeat("word ", 200) + "</section>" // well over 500 stripped chars
+
+	mock.ExpectQuery("SELECT pc.slot_name, COALESCE\\(pc.rendered_html, ''\\)").
+		WithArgs(pageID, siteID).
+		WillReturnRows(sqlmock.NewRows([]string{"slot_name", "rendered_html"}).
+			AddRow("generic-text-block", longProse))
+
+	// The plan asks for "article-body" — the current build's resolved name —
+	// which has no exact match among the stored slots (only
+	// "generic-text-block" exists). Deliberately the ONLY ready section: two
+	// unmatched sections would make the pairing ambiguous (see the "no
+	// fallback when multiple unmatched" case below), and the real-world
+	// instance this reproduces (guide-independent-strategy) had exactly one.
+	plan := map[string]interface{}{
+		"sections_ready": []interface{}{
+			map[string]interface{}{"name": "article-body", "status": "ready"},
+		},
+		"ready_count": 1,
+	}
+	collected := map[string]interface{}{
+		"section_plan": plan,
+		"site_record":  map[string]interface{}{"site_id": siteID.String()},
+		"page_record":  map[string]interface{}{"id": pageID.String()},
+		"input_data":   map[string]interface{}{"spec": map[string]interface{}{"mode": "edit_live"}},
+	}
+	params := loadCurrentSectionContentParams(db, "edit_live", collected)
+	params.DB = db
+
+	got, err := LoadCurrentSectionContentAction(context.Background(), params)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	resultPlan := assertIsThePlan(t, got)
+
+	meta, ok := resultPlan["edit_live_meta"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("edit_live_meta missing or not a map: %T", resultPlan["edit_live_meta"])
+	}
+	if meta["matched"] != 0 {
+		t.Errorf("edit_live_meta.matched = %v, want 0 (no exact slot_name match)", meta["matched"])
+	}
+	if meta["fallback_matched"] != 1 {
+		t.Errorf("edit_live_meta.fallback_matched = %v, want 1", meta["fallback_matched"])
+	}
+
+	ready := resultPlan["sections_ready"].([]interface{})
+	gotArticle := ready[0].(map[string]interface{})
+	if gotArticle["name"] != "article-body" || gotArticle["existing_content_html"] != longProse {
+		t.Errorf("article-body existing_content_html = %v, want the fallback-matched prose slot", gotArticle["existing_content_html"])
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet expectations: %v", err)
+	}
+}
+
+// Two ready sections miss the exact match (ambiguous which gets the one
+// prose slot) — the fallback must NOT guess. Neither gains existing_content_html.
+func TestLoadCurrentSectionContent_EditLive_NoFallbackWhenMultipleUnmatchedSections(t *testing.T) {
+	db, mock := newInsertMock(t)
+	defer db.Close()
+
+	siteID := uuid.New()
+	pageID := uuid.New()
+	longProse := "<section>" + strings.Repeat("word ", 200) + "</section>"
+
+	mock.ExpectQuery("SELECT pc.slot_name, COALESCE\\(pc.rendered_html, ''\\)").
+		WithArgs(pageID, siteID).
+		WillReturnRows(sqlmock.NewRows([]string{"slot_name", "rendered_html"}).
+			AddRow("generic-text-block", longProse))
+
+	plan := map[string]interface{}{
+		"sections_ready": []interface{}{
+			map[string]interface{}{"name": "article-body", "status": "ready"},
+			map[string]interface{}{"name": "some-other-section", "status": "ready"},
+		},
+		"ready_count": 2,
+	}
+	collected := map[string]interface{}{
+		"section_plan": plan,
+		"site_record":  map[string]interface{}{"site_id": siteID.String()},
+		"page_record":  map[string]interface{}{"id": pageID.String()},
+		"input_data":   map[string]interface{}{"spec": map[string]interface{}{"mode": "edit_live"}},
+	}
+	params := loadCurrentSectionContentParams(db, "edit_live", collected)
+	params.DB = db
+
+	got, err := LoadCurrentSectionContentAction(context.Background(), params)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	resultPlan := assertIsThePlan(t, got)
+	meta := resultPlan["edit_live_meta"].(map[string]interface{})
+	if meta["fallback_matched"] != 0 {
+		t.Errorf("edit_live_meta.fallback_matched = %v, want 0 (ambiguous — two candidates for one slot)", meta["fallback_matched"])
+	}
+	for _, raw := range resultPlan["sections_ready"].([]interface{}) {
+		s := raw.(map[string]interface{})
+		if _, has := s["existing_content_html"]; has {
+			t.Errorf("section %v must not gain existing_content_html when the pairing is ambiguous", s["name"])
+		}
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet expectations: %v", err)
+	}
+}
+
+// A single unmatched section but the leftover slot is small (hero/param-sized,
+// below minShrinkGuardChars) — not a plausible prose match. No fallback.
+func TestLoadCurrentSectionContent_EditLive_NoFallbackWhenLeftoverSlotIsSmall(t *testing.T) {
+	db, mock := newInsertMock(t)
+	defer db.Close()
+
+	siteID := uuid.New()
+	pageID := uuid.New()
+
+	mock.ExpectQuery("SELECT pc.slot_name, COALESCE\\(pc.rendered_html, ''\\)").
+		WithArgs(pageID, siteID).
+		WillReturnRows(sqlmock.NewRows([]string{"slot_name", "rendered_html"}).
+			AddRow("small-slot", "<section>too short to be prose</section>"))
+
+	plan := map[string]interface{}{
+		"sections_ready": []interface{}{
+			map[string]interface{}{"name": "article-body", "status": "ready"},
+		},
+		"ready_count": 1,
+	}
+	collected := map[string]interface{}{
+		"section_plan": plan,
+		"site_record":  map[string]interface{}{"site_id": siteID.String()},
+		"page_record":  map[string]interface{}{"id": pageID.String()},
+		"input_data":   map[string]interface{}{"spec": map[string]interface{}{"mode": "edit_live"}},
+	}
+	params := loadCurrentSectionContentParams(db, "edit_live", collected)
+	params.DB = db
+
+	got, err := LoadCurrentSectionContentAction(context.Background(), params)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	resultPlan := assertIsThePlan(t, got)
+	meta := resultPlan["edit_live_meta"].(map[string]interface{})
+	if meta["fallback_matched"] != 0 {
+		t.Errorf("edit_live_meta.fallback_matched = %v, want 0 (leftover slot is below minShrinkGuardChars)", meta["fallback_matched"])
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("unmet expectations: %v", err)

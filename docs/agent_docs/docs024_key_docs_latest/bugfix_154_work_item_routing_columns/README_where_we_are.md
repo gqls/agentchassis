@@ -359,3 +359,21 @@ asking for a small edit can't quietly throw away a page's writing, isn't
 fully true yet. I've left the case open rather than calling it finished, and
 written up both what worked and what didn't so whoever looks at this next
 doesn't have to take my word for it.
+
+A later session picked this up and ran the measurement I'd flagged as
+missing: how often does this actually happen across the whole system, not
+just the one page I'd seen it on? The answer: right now, about 1 in 40
+pages already has this exact kind of mismatch sitting there, waiting to
+bite the next edit request to touch it — small, but real. They also checked
+the guess I'd made about the cause (that the system was flipping between
+two similar generic building-blocks at random) and found it was wrong —
+there's only ever one candidate for each of the two specific blocks
+involved on that page, so that wasn't it, and the real cause is still
+unclear. Rather than let that stop them, they made the fix tolerant of not
+knowing it: if a request can't find its exact match but there's obviously
+only one sensible thing on the page it could mean, use that; if there's any
+ambiguity at all, still refuse to guess. They tested it properly, including
+deliberately breaking their own fix first to make sure the tests would
+actually have caught it. Submitted it for review and wrote it up, but
+didn't build or ship it themselves — that's the next step for whoever picks
+this up next, or the next scheduled release.

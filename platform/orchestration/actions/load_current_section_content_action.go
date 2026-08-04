@@ -73,6 +73,7 @@ package actions
 import (
 	"context"
 	"encoding/json"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
@@ -214,6 +215,8 @@ func LoadCurrentSectionContentAction(ctx context.Context, params ActionParams) (
 	}
 
 	matched := 0
+	claimedSlots := make(map[string]bool, len(readySections))
+	var unmatchedSections []map[string]interface{}
 	for _, raw := range readySections {
 		section, ok := raw.(map[string]interface{})
 		if !ok {
@@ -222,24 +225,75 @@ func LoadCurrentSectionContentAction(ctx context.Context, params ActionParams) (
 		name, _ := section["name"].(string)
 		if html, found := existingBySlot[name]; found {
 			section["existing_content_html"] = html
+			claimedSlots[name] = true
 			matched++
+			continue
+		}
+		unmatchedSections = append(unmatchedSections, section)
+	}
+
+	// Fallback for bugs_open/178's second, distinct gap: the exact-name join
+	// above only finds content when THIS build's resolved section name agrees
+	// with what a PRIOR build stored it under. It does not always — a page's
+	// current plan can name a position differently from the component that
+	// build-time selection actually attached last time (measured 2026-08-04:
+	// 3/127 pages with a current plan already carry a stored slot absent from
+	// that plan's own name list). When that happens the join legitimately
+	// finds nothing, and without this fallback the writer fabricates a fresh
+	// section exactly as it did before this action existed — the original bug,
+	// reached by a route the exact match does not cover.
+	//
+	// Only acted on when it is UNAMBIGUOUS: exactly one ready section missed
+	// its exact match, and exactly one still-unclaimed page_components row on
+	// this page is prose-sized (reuses the shrink guard's own definition of
+	// "prose-sized", minShrinkGuardChars stripped chars — a hero/param-sized
+	// slot is not a plausible body-text match). Two or more of either side and
+	// there is no principled way to pair them, so both stay unmatched — never
+	// worse than this step's behaviour before the fallback existed.
+	fallbackMatched := 0
+	if len(unmatchedSections) == 1 {
+		var candidateSlot string
+		candidateCount := 0
+		for slot, html := range existingBySlot {
+			if claimedSlots[slot] {
+				continue
+			}
+			stripped := strings.TrimSpace(shrinkGuardTagStripper.ReplaceAllString(html, ""))
+			if len(stripped) < minShrinkGuardChars {
+				continue
+			}
+			candidateSlot = slot
+			candidateCount++
+		}
+		if candidateCount == 1 {
+			unmatchedSections[0]["existing_content_html"] = existingBySlot[candidateSlot]
+			fallbackMatched = 1
+			logger.Info("LoadCurrentSectionContent: attached via single-unmatched-prose-slot fallback",
+				zap.Any("section_name", unmatchedSections[0]["name"]),
+				zap.String("stored_slot", candidateSlot))
 		}
 	}
+
 	planMap["sections_ready"] = readySections
 
 	logger.Info("LoadCurrentSectionContent: attached current content for edit mode",
 		zap.String("site_id", siteIDStr),
 		zap.String("page_id", pageIDStr),
 		zap.Int("sections_ready", len(readySections)),
-		zap.Int("matched", matched))
+		zap.Int("matched", matched),
+		zap.Int("fallback_matched", fallbackMatched))
 
 	// The one DB-visible record that this channel fired, namespaced INSIDE the
 	// plan rather than wrapped around it, and written only on the path that
 	// actually attached content. Additive: consumers read named fields off the
-	// plan, none iterates its keys.
+	// plan, none iterates its keys. fallback_matched is kept separate from
+	// matched rather than folded in — bugs_open/178's own open item is that the
+	// component-identity-drift RATE is unmeasured fleet-wide; a distinct
+	// counter is that measurement, for free, on every future edit_live build.
 	planMap["edit_live_meta"] = map[string]interface{}{
-		"applied": true,
-		"matched": matched,
+		"applied":          true,
+		"matched":          matched,
+		"fallback_matched": fallbackMatched,
 	}
 
 	return planMap, nil
