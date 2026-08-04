@@ -1,5 +1,20 @@
 # 195 — a workflow rejected by `ValidateWorkflow` is classified as TRANSIENT, retried, and leaves no durable record anywhere
 
+> ## STATUS 2026-08-04 — DIAGNOSIS CONFIRMED · FIXED IN CODE · **OPEN until the next chassis roll**
+>
+> Owned by the `bugfix_195_permanent_failure_classifier` lane. Commit `28ef7a044`;
+> `Council-Submitted: 9b1254f0-2686-4a52-b736-1e212634ace6`. Registered **RSH-005**.
+>
+> | | |
+> |---|---|
+> | **Fixed** | `MatchedPermanentFailure` classifies on the typed `DomainError.Code` (chain-safe via `errors.As`); the needle list is untouched and demoted to a fallback for untyped errors. Plus `recordFailedProcessing`: an `agent_error_log` row on **every** non-dropped failure, so the record no longer depends on the classification being right. |
+> | **Why still OPEN** | Go-only, therefore **inert until an image is rebuilt and rolled**. The defect is reproducible on the running binary until then. |
+> | **To close** | pod-grep every replica for `PROCESSING_FAILED` with a positive control, then induce the fault and assert one `agent_error_log` row, `VALIDATION_ERROR_DROPPED`, `matched_needle = 'code:WORKFLOW_INVALID'`. Baseline to beat: **0 rows**, needle-HIT **0**. |
+> | **Two of your claims corrected** | see the appendix at the foot of this file — the "and it is retried" claim is refuted by your own control row, and your `[UNVERIFIED]` parent question is settled (the parent is told, **success-shaped**, which falsifies the `029` reading). **One verification check you proposed would fail a working fix**; a replacement is given. |
+> | **Not fixed, deliberately** | the success-shaped failure envelope (`CreateResponseContext("complete", 100)`) — arguably the more serious finding. It is `034` candidate 3's residue, registered as RSH-005's primary landmine, and wants its own bug file. Not filed by me: unmeasured with a real awaiting parent. |
+>
+> Working docs: `docs/agent_docs/docs024_key_docs_latest/bugfix_195_permanent_failure_classifier/`.
+
 **Filed 2026-08-04** by the `bugs_open/173` lane, which lost three dispatches and ~15 minutes
 to it while running an induced fault. **Status: OPEN, UNOWNED.**
 **Severity: medium.** Nothing is corrupted; the cost is diagnosability and wasted retries. But
