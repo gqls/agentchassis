@@ -8,9 +8,9 @@ import (
 
 func TestScanPlainTextMarkdown_Positives(t *testing.T) {
 	cases := []struct {
-		name    string
-		text    string
-		want    []string // expected pattern names, in any order
+		name string
+		text string
+		want []string // expected pattern names, in any order
 	}{
 		{
 			name: "bold from the bug's own founding row",
@@ -113,7 +113,7 @@ func TestExtractAssertionText_ScriptBackticksInvisible(t *testing.T) {
 
 func TestWalkContentDataStrings(t *testing.T) {
 	data := map[string]interface{}{
-		"headline": "**bold**",
+		"headline":  "**bold**",
 		"_built_at": "2026-08-03T00:00:00Z", // platform metadata — must be skipped
 		"items": []interface{}{
 			map[string]interface{}{"label": "one"},
