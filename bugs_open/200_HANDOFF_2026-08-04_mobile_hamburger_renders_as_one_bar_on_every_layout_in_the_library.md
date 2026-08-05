@@ -242,8 +242,12 @@ count **1** on both).
 **Remaining for the closing thread (this session has watchers armed for both):**
 1. plain-URL check on idea.uk + relojistas.com after ~14:20 UTC (count must be 1
    with no query string);
-2. render eye-check: work item `d2c3c52a-7b16-4526-b71c-dda9146bd2a4` (queued
-   10:24 UTC) re-runs simulator acceptance — its mobile render must show
-   **three separate bars** and its desktop render must show **no toggle at all**
-   (§6's negative);
-3. then CLOSED → `bugs_closed/`, both paths named on the mv commit.
+2. ~~render eye-check~~ — **DONE 2026-08-05 ~10:40 UTC, both directions.** Run
+   `b14fee91` (work item `d2c3c52a`), 22/22 passed, renders landing-stamped.
+   The mobile render shows **three separate bars** (fetched, cropped, read —
+   the fingerprint image is `200_mobile_toggle_zoom.png` in this session's
+   scratchpad); the desktop render shows the full nav and **no toggle**, so the
+   base `display: none` survived (§6's negative).
+3. then CLOSED → `bugs_closed/`, both paths named on the mv commit; also point
+   `check_flexless_hamburger`'s why-text and `bugs_closed/188` §7's pointer at
+   the new path.
