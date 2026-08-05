@@ -10816,3 +10816,14 @@ it, now blocked on 201); `bugs_closed/177` above (same shape — a caller never
 supplies what a handler's resolution needs — but 177 was the handler's OWN
 resolution failing on a page it built; this is a caller bypassing the wrapper
 that would have supplied it at all).
+
+- **`bugs_closed/195`** — the permanent-vs-transient classifier decided by **case-sensitive
+  substring over error prose**, so `WORKFLOW_INVALID: Invalid workflow configuration` matched
+  none of its four needles (capital I) and the fleet's commonest permanent config error was
+  retried and left **no durable record anywhere** — because `034`'s durable-record branch was
+  never entered. Fixed by matching the typed `DomainError.Code` through the one shared seam,
+  plus an **unconditional** failure record so visibility no longer depends on classification
+  being right. CLOSED + LIVE `v1.0.1252`, proven by induction (`code:WORKFLOW_INVALID` token;
+  `PROCESSING_FAILED` 0 → 102 rows/24h across the roll). Pattern in §9 above; RSH-005.
+  Spawned `bugs_open/196` (success-shaped failure envelope) and `bugs_open/197` (the sibling
+  retryable-side classifier).
