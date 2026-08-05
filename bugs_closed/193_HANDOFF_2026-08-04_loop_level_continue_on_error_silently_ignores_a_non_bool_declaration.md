@@ -201,3 +201,38 @@ kubectl -n ai-persona-system exec <pod> -- sh -c 'strings /app/agent-chassis | g
 One grep, one function symbol — not a comment (it cannot be in the binary), not two greps
 chained over `strings` output (Go's string table glues unrelated constants onto one line),
 and not a predicted count.
+
+---
+
+# CLOSED 2026-08-05 — LIVE on `v1.0.1252`, pod-verified on both replicas
+
+The close condition written into this file yesterday is met.
+
+| grep | replica 1 | replica 2 | reading |
+|---|---|---|---|
+| `GetBoolFieldLoud` (the new shared parse) | **2** | **2** | the fix is in the binary |
+| `resolveSubstepContinueOnError` (positive control, 173's symbol) | 1 | 1 | the probe reads the binary, so a 0 above would have meant something |
+
+Chassis `v1.0.1252`, pods started 2026-08-05 09:10Z — after commit `89951ab9c` (2026-08-04
+21:07). **Fixed AND live**, so this moves to `bugs_closed/`.
+
+**Two counts, and why neither is a prediction.** `GetBoolFieldLoud` = 2 rather than 1 because
+the symbol appears for the function and its callers' inline-tree entries; the number is
+whatever the linker produced. What is asserted is `>= 1` against a positive control, per this
+lane's own rule: **never predict a string count** — a count is not ours to predict, and the
+control is what makes a zero meaningful rather than ambiguous.
+
+**Deployed is not exercised.** No loop declares either key with a non-bool value (0 at any
+nesting depth, text-scan verified), so nothing has made the warning fire in production and
+nothing will until somebody mistypes a loop config — which is the intended end state, not a
+gap. The first live warning is the only thing still owed, and it may never be owed at all.
+
+## What remains, named rather than left to be found
+
+- **`max_iterations` (`loop_actions.go:53`)** — the same defect shape with a different type
+  (`.(float64)`), unmeasured, deliberately untouched. Recorded here rather than deferred in
+  prose, which is the entire lesson this ticket was created to teach.
+- **~73 other bare `.(bool)` config reads** across `platform/orchestration`, and the five
+  pre-existing SILENT bool helpers. The class is **not** retired and this fix does not claim
+  to have retired it. Converge a site when its own measurement justifies it; reach for the
+  loud reader only where the key is **author-facing** and a mistype changes behaviour.
