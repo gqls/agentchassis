@@ -489,7 +489,16 @@ func persistVerdict(ctx context.Context, db *sql.DB, id string, v gateVerdict) e
 	if err != nil {
 		return fmt.Errorf("marshal verdict: %w", err)
 	}
-	status := "draft"
+	// CORRECTED 2026-08-05, on reading the schema rather than assuming it. The
+	// first version parked rejections back in 'draft'. They were inert (the
+	// candidate query also requires gated_at IS NULL) but they were MISLABELLED,
+	// and that defeats the requirement this function exists to satisfy: §10.3
+	// wants the rejections observable, and `WHERE status='rejected'` — the query
+	// anyone would actually write — would have returned zero for ever while the
+	// gate was rejecting everything. The table's CHECK constraint offers exactly
+	// four statuses and 'rejected' is one of them; using 'draft' for a judged
+	// candidate was inventing a meaning the schema already had a word for.
+	status := "rejected"
 	if v.Approved {
 		status = "approved"
 	}
@@ -507,9 +516,14 @@ func persistVerdict(ctx context.Context, db *sql.DB, id string, v gateVerdict) e
 
 // loadGateCandidates returns ungated draft rows for a domain, oldest first.
 //
-// Only 'draft' is ever selected. An already-approved row is never re-gated: it
-// may already be live, and re-judging it would let a model's drift silently
-// retract a published provocation.
+// Only 'draft' AND gated_at IS NULL is ever selected, which excludes both ends
+// deliberately. An already-approved row is never re-gated: it may already be
+// live, and re-judging it would let a model's drift silently retract a published
+// provocation. A 'rejected' row is not re-gated either, so a rejection costs one
+// call and not one per run for ever. Re-judging rejects after a rule change is a
+// legitimate future need and stays possible — clear `gated_at` and set the row
+// back to 'draft' — but it must be a deliberate act, not a side effect of the
+// gate running on a schedule.
 func loadGateCandidates(ctx context.Context, db *sql.DB, domain string, limit int) ([]provocationCandidate, error) {
 	rows, err := db.QueryContext(ctx, `
 		SELECT id::text, slug, title, teaser,

@@ -1504,6 +1504,18 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Judge draft provocations (form, claims rail on the body, model safety); approves none by default and treats a judge error as a rejection",
 		IsLocal:     true,
 	},
+	"generate_provocations": {
+		Handler:     GenerateProvocationsAction,
+		Category:    "feed",
+		Description: "Write candidate provocations into the pool as DRAFTS only; cannot approve or date, so it cannot publish",
+		IsLocal:     true,
+	},
+	"schedule_provocations": {
+		Handler:     ScheduleProvocationsAction,
+		Category:    "feed",
+		Description: "Give approved, undated provocations a publish date — one per calendar day, forward only, never backfilling the gap",
+		IsLocal:     true,
+	},
 	"render_rss_feed": {
 		Handler:     RenderRSSFeedAction,
 		Category:    "feed",
