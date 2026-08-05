@@ -331,8 +331,14 @@ func (c *PageCanonicalCollisionCheck) Run(dctx DiscoveryCheckContext) (*CheckRes
 		}
 		if !openKeys[k] {
 			result.Resolved = append(result.Resolved, ResolvedFinding{
-				ItemKey: k,
-				Reason:  "re-ran page_canonical_collision: the group behind this item no longer has two active claimants",
+				// ItemType is REQUIRED by the runner's resolveWorkItems — an
+				// entry without it matches nothing, silently. Proven live
+				// 2026-08-05: the first real retraction left both items open
+				// while this arm reported clean; the check-side test was green
+				// because it pins only this side of a two-sided contract.
+				ItemType: "page_canonical_collision",
+				ItemKey:  k,
+				Reason:   "re-ran page_canonical_collision: the group behind this item no longer has two active claimants",
 			})
 		}
 	}

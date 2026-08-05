@@ -20237,3 +20237,31 @@ named the offending deploy in one line, and a stored restore point (`825a36994`)
 repair a 40-second push. **A control you personally routed around is not a control you may
 cite as protection** — and the two facts sat in the same session's notes without colliding,
 which is how a true measurement ships a false assurance.
+
+---
+
+## 2026-08-05 — my check's retraction arm shipped without the runner's required field, and my green test was pinning only my own side of the contract
+
+**Thread:** bugfix_080_canonical_collisions lane.
+**footprint:** `CheckResult.Resolved` / `ResolvedFinding` · any struct whose doc
+comment says a field is "Required" consumed by code you did not write · sqlmock
+tests asserting an emitted struct
+
+**The claim.** `check_page_canonical_collision`'s RFC_010 retraction arm was
+"built and tested" — the test asserted the emitted `ResolvedFinding.ItemKey` and
+passed. Live, after the first real retraction, both items stayed open:
+`ResolvedFinding.ItemType` is REQUIRED (`registry.go`'s own doc comment says so,
+and `resolveWorkItems` matches on it), my arm never set it, and an entry without
+it resolves nothing, silently — `items_resolved: 0` in a log nobody reads.
+
+**What caught it.** Watching the live items after the induced sweep instead of
+trusting the green suite; then reading the CONSUMER (`discovery_checks.go:260`,
+`resolveWorkItems`) rather than my own emission.
+
+**The cheap check.** A struct you emit across a seam has TWO sides: before
+pinning your emission in a test, read the consumer's matching logic and assert
+every field it matches on. A sqlmock test structurally cannot exercise the
+runner, so for any cross-package contract the test must at minimum assert the
+required fields the consumer's doc comment names — the assertion now exists and
+names this incident. Same family as "a mock's own bookkeeping cannot assert a
+NEGATIVE": my test's bookkeeping could not see the runner's indifference.

@@ -279,6 +279,13 @@ func TestRun_RetractsStaleOpenItem(t *testing.T) {
 	if len(res.Resolved) != 1 || res.Resolved[0].ItemKey != "page_canonical_collision:/news" {
 		t.Fatalf("want the stale open item retracted, got %+v", res.Resolved)
 	}
+	// ItemType is REQUIRED by the runner (resolveWorkItems matches on it); an
+	// entry without it resolves nothing, silently. This assertion exists because
+	// exactly that shipped: the first live retraction left both items open while
+	// this test was green — it pinned only the check's side of the contract.
+	if res.Resolved[0].ItemType != "page_canonical_collision" {
+		t.Fatalf("ResolvedFinding.ItemType = %q — the runner matches on it; empty resolves nothing", res.Resolved[0].ItemType)
+	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("unmet expectations: %v", err)
 	}

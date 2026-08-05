@@ -583,3 +583,27 @@ assert "orphans exist" without a count.
 **Not claiming this bug.** Whoever takes 098 should know 125 is a second caller and that
 its lane docs (`docs024_key_docs_latest/bugfix_125_deploy_path_from_url/`) carry the
 measurement of how many pages were exposed (316 of 472 on 2026-07-31).
+
+---
+
+> ## CONTRIBUTION 2026-08-05 (bugfix_080 lane) — two more retractions performed via this mechanism, and both guards exercised for real
+>
+> The `page_canonical_collision` decision items (bugs_closed/080's residual) were ruled by
+> the owner ("keep the page the spec would ordinarily produce"), and the two robot-hands
+> strays (`/news.html`, `/gripper-catalog.html` — live-RENDERING duplicates, a different
+> population from this file's frozen-artefact 11) were retracted via
+> `216_TRIGGER_page_retraction.sh` with `PAGE_IDS`:
+>
+> - **First fire (corr `c1a816dc`): both REFUSED "still linked from live content"** — nav
+>   rows, chrome header+footer, and one stored CTA, every referrer named. The guard's
+>   first real exercise on a linked page, and it held.
+> - Repairs: strays archived → CTA retargeted to the canonical URL in both stores →
+>   `nav_drift` request (`205172b6`, the `RequestNavRebuild` shape) rebuilt nav + chrome +
+>   33 page rerenders → the same scan the guard runs returned 0 references.
+> - **Second fire (corr `3ae22e34`, orch `90ffbc68`): retracted 2**, commit "Retract 2
+>   retired page(s) from robot-hands.com (bugs_open/098)". Both 404 on the wire
+>   2026-08-05 morning; part-2 acceptance (survives the ~20:0x refresh) owed same day.
+>
+> Running tally for this file: **three retractions performed, all proven** (learning-center
+> + these two). The 11 frozen-artefact pages and the archive-invokes-retraction question
+> remain the owner decisions this file already lists.

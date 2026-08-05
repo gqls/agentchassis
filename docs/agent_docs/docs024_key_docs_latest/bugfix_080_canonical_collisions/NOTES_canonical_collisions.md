@@ -206,3 +206,25 @@ Repairs, in dependency order:
    today 20:00:02).
 
 Then: re-fire 216 (owner again), two-part acceptance, items close via the check's arm.
+
+## 2026-08-05 (morning) — RETRACTED, 404s live, items CLOSED; and the live exercise found a real bug in my own Resolved arm
+
+Owner re-fired 216 (corr `3ae22e34`, orch `90ffbc68`): **success**, both paths committed out
+of the sites repo ("Retract 2 retired page(s) from robot-hands.com"). Wire:
+`/news.html` + `/gripper-catalog.html` → **404**; kept pages → 200. Acceptance part 1 PASSED.
+
+**Induced sweep did NOT close the items — my bug.** `ResolvedFinding.ItemType` is REQUIRED
+(the runner's `resolveWorkItems` matches on it); my arm set only ItemKey+Reason, so the
+entry matched nothing, silently, while my green test pinned only the check's side of the
+contract. → WRONG_CALLS 2026-08-05. Fixed (one field + a test assertion naming the
+incident); **inert until the next roll** — the next collision anywhere will file fine, and
+its later resolution will need either the rolled fix or a human close.
+
+**Items closed by hand — their designed lifecycle, not a workaround:** they are DECISION
+items (no handler); the owner ruled, the ruling was executed, and the verifier's predicate
+was re-checked by hand first (1 active claimant per group, query inline in the closure
+evidence written into each item's spec).
+
+**OWED, dated: 📅 2026-08-05 ~20:0x** — acceptance part 2: both urls STILL 404 after the
+evening news refresh (part 1 passed even before the resurrection fix; part 2 is the half
+that tests anything). Then this lane is fully done.
