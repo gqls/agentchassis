@@ -10,9 +10,24 @@
 // non-empty array it persists those per-section strings and never reads
 // `html_field` (save_page_sections_action.go:166-186; the html_field fallback at
 // :190 runs only when metadata yields zero sections). The live page-build plan
-// sets both `sections_metadata_field` and `require_sections_metadata: true`, so
-// metadata is ALWAYS present and the repaired string is structurally discarded
-// on every page build. Not a race — a dead branch. Measured on three sites:
+// sets `sections_metadata_field` on its save step, so metadata is ALWAYS present
+// and the repaired string is structurally discarded on every page build. Not a
+// race — a dead branch.
+//
+// > **CORRECTED 2026-08-05 (found while fixing code-review F7).** This used to
+// > say the plan "sets both `sections_metadata_field` and
+// > `require_sections_metadata: true`", as though one step's config carried
+// > both. It does not, and they were never the same mechanism. Measured against
+// > the live definition: `page-build-handler.save_sections`
+// > (action save_page_sections) sets `sections_metadata_field`, while
+// > `page-build-handler.validate_content` (action validate_page_content) is the
+// > step that sets `require_sections_metadata: true` — a DIFFERENT key on a
+// > DIFFERENT action, meaning "warn if the stat audit could not run". The
+// > conclusion above is unaffected, because only the `sections_metadata_field`
+// > half ever supported it. Recorded rather than silently deleted because it is
+// > evidence for F7: this is the key collision misleading a reader in our own
+// > tree, months before the review found it. The save-side key is now spelled
+// > `refuse_save_without_sections_metadata`. Measured on three sites:
 // fundamentallyai.com/capabilities.html wrote CONTENT_LINK_REPAIR_DETAIL naming
 // 10 repairs at 10:45:01.347Z and saved the unrepaired components 400ms later,
 // all nine targets serving 404 from the deployed page hours afterwards.

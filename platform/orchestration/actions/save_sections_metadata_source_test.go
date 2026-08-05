@@ -283,14 +283,25 @@ func TestShouldReportContentDataLoss(t *testing.T) {
 	}
 }
 
-// TestCountExistingRowsWithContentDataIsScopedToWritableDeployedRows pins the
-// query the report's numerator comes from. A locked row is not this save's to
-// replace, so counting it would report a loss that is not happening.
+// TestCountExistingRowsWithContentDataMatchesTheDeleteScope pins the query the
+// report's numerator comes from. Its scope must be the scope of the DELETE it
+// predicts (save_page_sections_action.go:657-659), because it counts what that
+// DELETE destroys: page_id, agent-writable, and NOTHING else. A locked row is
+// not this save's to replace, so counting it would report a loss that is not
+// happening — that clause the DELETE does share.
 //
-// MUTATION: drop the pageComponentAgentWritableSQL clause, the build_status
-// filter or the IS NOT NULL and the expectation no longer matches, because
-// sqlmock matches the SQL text.
-func TestCountExistingRowsWithContentDataIsScopedToWritableDeployedRows(t *testing.T) {
+// > **CHANGED 2026-08-05 (code-review F9).** This asserted a
+// > `build_status = 'deployed'` filter that the DELETE does not carry, so a
+// > page whose rows were needs_rebuild or mid-build had its content_data
+// > destroyed and counted zero — silence in exactly the case the detector was
+// > built for. The old name said "…DeployedRows", which is why the narrowing
+// > read as intentional for as long as it did.
+//
+// MUTATION: drop the pageComponentAgentWritableSQL clause or the IS NOT NULL —
+// or re-add a build_status filter — and the expectation no longer matches,
+// because sqlmock matches the SQL text. (That is how this test caught the F9
+// fix landing: its own MUTATION note predicted the failure it then produced.)
+func TestCountExistingRowsWithContentDataMatchesTheDeleteScope(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("sqlmock: %v", err)
@@ -301,7 +312,6 @@ func TestCountExistingRowsWithContentDataIsScopedToWritableDeployedRows(t *testi
 	mock.ExpectQuery(regexp.QuoteMeta(
 		`SELECT COUNT(*) FROM page_components
 		WHERE page_id = $1
-		  AND build_status = 'deployed'
 		  AND content_data IS NOT NULL
 		  AND ` + pageComponentAgentWritableSQL(""))).
 		WithArgs(pageID).

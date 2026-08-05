@@ -174,6 +174,33 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 	metaField, metaFieldOrigin := resolveSectionsMetadataField(config)
 	sectionsSource := sectionsSourceHTMLParse
 
+	// AMBIGUOUS CALLER (code-review F3): an explicit html_field says "my content
+	// is an HTML blob", but saying nothing about metadata resolves to the
+	// IMPLICIT default path, which is tried FIRST. If another step's reply
+	// happens to sit there in collected_data, this save silently prefers it over
+	// the field the caller actually named.
+	//
+	// Not reachable on any live caller, measured 2026-08-05: all three
+	// definition-level callers are explicit — page-build-handler and
+	// page-rerender name sections_metadata_field, tool-recreation-handler
+	// declares expects_no_sections_metadata. This fires for a FUTURE caller that
+	// sets html_field and neither key, which is the one combination the three
+	// declared states do not cover.
+	//
+	// A warning, not a refusal or a resolution change: altering which path wins
+	// is a semantics change on the fleet's highest-traffic save path, and it
+	// would be made on a prediction rather than a measurement — the same reason
+	// writeContentDataRegressionLog records instead of refusing.
+	if metaFieldOrigin == metadataOriginDefault {
+		if hf, ok := config["html_field"].(string); ok && hf != "" {
+			params.Logger.Warn("SavePageSectionsAction: caller names html_field but declares nothing about sections_metadata — "+
+				"the implicit default path is consulted FIRST and may pre-empt it (code-review F3). "+
+				"Set sections_metadata_field, or declare expects_no_sections_metadata if this caller has none",
+				zap.String("html_field", hf),
+				zap.String("implicit_metadata_field", metaField))
+		}
+	}
+
 	if metaField != "" {
 		metaData := datahelpers.ExtractNestedField(params.CollectedData, metaField)
 		metaArrayLen := -1
@@ -204,11 +231,11 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 	// OFF by default and seeded on nobody in the change that introduced it
 	// (RFC_010, 2026-08-02: new authority on a shared seam ships as an opt-in
 	// field with the unsafe default OFF). A caller that knows its writer always
-	// returns sections can set require_sections_metadata and get a loud failure
+	// returns sections can set refuse_save_without_sections_metadata and get a loud failure
 	// instead of a page saved without its regeneration source. Refusing HERE, before
 	// the history snapshot and the DELETE, means a refused save writes nothing at
 	// all — the same placement rule the completeness floor states below.
-	if len(sections) == 0 && configBoolOrDefault(config, requireSectionsMetadataKey, false) {
+	if len(sections) == 0 && configBoolOrDefault(config, refuseSaveWithoutMetadataKey, false) {
 		params.Logger.Error("SavePageSectionsAction: required sections_metadata absent — refusing the save",
 			zap.String("page_name", pageName),
 			zap.String("metadata_field", metaField),
@@ -217,7 +244,7 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 			"this step declares %s but no usable sections_metadata arrived at %q (%s): saving from parsed "+
 				"HTML would persist the page without the content_data the rerender path regenerates from. "+
 				"Refusing (bugs_open/194)",
-			requireSectionsMetadataKey, metaField, metaFieldOrigin)
+			refuseSaveWithoutMetadataKey, metaField, metaFieldOrigin)
 	}
 
 	// --- Fallback to HTML parsing ---

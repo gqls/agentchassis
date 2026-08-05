@@ -53,10 +53,14 @@
 // states for the same key ("the expectation is DECLARED per step rather than
 // guessed from the payload shape"):
 //
-//	sections_metadata_field set          -> that path, origin "configured"
-//	nothing set                          -> the default,  origin "default"
-//	expects_no_sections_metadata: true   -> no path,      origin "declared_absent"
-//	require_sections_metadata: true      -> absence is a REFUSAL, not a fallback
+//	sections_metadata_field set                    -> that path, origin "configured"
+//	nothing set                                    -> the default,  origin "default"
+//	expects_no_sections_metadata: true             -> no path,      origin "declared_absent"
+//	refuse_save_without_sections_metadata: true    -> absence is a REFUSAL, not a fallback
+//
+// That last key was `require_sections_metadata` until 2026-08-05; it collided
+// with a live key of a different meaning on the validate side. See
+// refuseSaveWithoutMetadataKey below for the collision and the measurement.
 //
 // `expects_no_sections_metadata` exists because one live caller legitimately has
 // no structured content: tool-recreation-handler recreates a whole-page tool as a
@@ -84,7 +88,27 @@ import (
 const (
 	sectionsMetadataFieldKey     = "sections_metadata_field"
 	expectsNoSectionsMetadataKey = "expects_no_sections_metadata"
-	requireSectionsMetadataKey   = "require_sections_metadata"
+
+	// refuseSaveWithoutMetadataKey is the save path's opt-in refusal.
+	//
+	// > **RENAMED 2026-08-05 (code-review F7).** This was
+	// > `require_sections_metadata`, which is a LIVE key of a DIFFERENT meaning
+	// > in this same package: validate_page_content_stats.go:235 reads that
+	// > spelling to emit a WARNING-level `stat_audit_unavailable` issue, and it
+	// > is seeded true on `content-reviewer.validate_content` and
+	// > `page-build-handler.validate_content` (migration 219). page-build-handler
+	// > therefore carries BOTH — a `validate_content` step where the word means
+	// > "warn me the audit could not run" and a `save_sections` step where the
+	// > same word would mean "refuse the save outright".
+	// >
+	// > That is the trap: an operator copying a declaration between steps of one
+	// > agent, or a jsonb_set sweep over {workflow,steps,*,config,
+	// > require_sections_metadata} — the natural way to roll a declaration out —
+	// > arms a hard refusal on the fleet's highest-traffic save path. Renaming
+	// > was free: measured 2026-08-05, ZERO live save_page_sections steps carried
+	// > the key, because RFC_010 shipped it seeded on nobody. Free now; not after
+	// > the first sweep.
+	refuseSaveWithoutMetadataKey = "refuse_save_without_sections_metadata"
 )
 
 // Origins of the metadata path, reported in the action's result map so an
@@ -164,13 +188,33 @@ func shouldReportContentDataLoss(origin string, existingRowsWithContentData int,
 	return countSectionsWithContentData(sections) == 0
 }
 
-// countExistingRowsWithContentData counts the agent-writable deployed rows this
-// save is about to replace that currently hold structured content.
+// countExistingRowsWithContentData counts the agent-writable rows this save is
+// about to replace that currently hold structured content.
 //
 // Guarded with pageComponentAgentWritableSQL for the same reason the save's own
 // DELETE is: a human-locked row is not this save's to replace, so it is not
 // evidence of anything this save is destroying. Best-effort — a counting failure
 // returns 0, which suppresses the report rather than inventing one.
+//
+// THE PREDICATE MUST MATCH THE DELETE, and only the DELETE. This counts what the
+// save destroys, so its scope is defined by the statement that does the
+// destroying (save_page_sections_action.go:657-659):
+//
+//	DELETE FROM page_components WHERE page_id = $1 AND <agent-writable>
+//
+// — which carries NO build_status predicate. Any condition here that the DELETE
+// does not share creates rows that are destroyed and never reported, which is
+// the exact silence this detector exists to end.
+//
+// > **CORRECTED 2026-08-05 (code-review F9).** This query also filtered
+// > `build_status = 'deployed'`. Every row on a page in any other state —
+// > needs_rebuild, or mid-build — was destroyed by the DELETE and counted zero
+// > here, so shouldReportContentDataLoss saw `existingRowsWithContentData <= 0`
+// > and stayed quiet. bugs_closed/185's whole thesis is that
+// > `build_status = 'deployed'` is not "this page is live", and LANDMINES
+// > records the same trap: build_status is HISTORY, so a selector keyed on it
+// > answers a question nobody asked. Widening it makes the warning-level record
+// > fire on cases it was always meant to catch.
 func countExistingRowsWithContentData(ctx context.Context, params ActionParams, pageID uuid.UUID) int {
 	if params.DB == nil {
 		return 0
@@ -179,7 +223,6 @@ func countExistingRowsWithContentData(ctx context.Context, params ActionParams, 
 	if err := params.DB.QueryRowContext(ctx, `
 		SELECT COUNT(*) FROM page_components
 		WHERE page_id = $1
-		  AND build_status = 'deployed'
 		  AND content_data IS NOT NULL
 		  AND `+pageComponentAgentWritableSQL(""), pageID).Scan(&n); err != nil {
 		params.Logger.Warn("SavePageSectionsAction: could not count existing content_data rows (194 report)",
@@ -199,8 +242,8 @@ func countExistingRowsWithContentData(ctx context.Context, params ActionParams, 
 // refusal on the fleet's highest-traffic save path (page-rerender, 2,878 runs in
 // nine days) would be authority taken on a prediction rather than a measurement.
 // The record is what makes the measurement possible; opting a caller in to
-// require_sections_metadata is the decision it enables, taken later and per
-// caller.
+// refuse_save_without_sections_metadata is the decision it enables, taken later
+// and per caller.
 //
 // Best-effort: a logging failure must never fail a save whose content is
 // otherwise correct.
@@ -238,11 +281,26 @@ func writeContentDataRegressionLog(
 		siteIDArg = siteID
 	}
 
+	// orchestration_id, so the row can be joined to the run that produced it
+	// (code-review F10). Without it a CONTENT_DATA_REGRESSION row names a page
+	// and a time and nothing that reaches the orchestration — and this record
+	// exists precisely to make a silent loss investigable.
+	//
+	// The finding also asked for this INSERT to be replaced by a call to
+	// orchestration.LogAgentError. It cannot be: platform/orchestration/
+	// coordinator.go:23 imports this package, so importing it back is a cycle.
+	// Every one of the ~20 agent_error_log writers in this package is a local
+	// INSERT for that reason — the copy is structural, not laziness.
+	var orchestrationID string
+	if params.ExecutionContext != nil {
+		orchestrationID = params.ExecutionContext.OrchestrationID
+	}
+
 	if _, err := params.DB.ExecContext(ctx, `
 		INSERT INTO agent_error_log
 		    (site_id, domain, agent_type, step_name, action,
-		     error_message, error_code, severity, context)
-		VALUES ($1, NULLIF($2, ''), $3, $4, $5, $6, $7, 'warning', $8::jsonb)`,
+		     error_message, error_code, severity, context, orchestration_id)
+		VALUES ($1, NULLIF($2, ''), $3, $4, $5, $6, $7, 'warning', $8::jsonb, NULLIF($9, ''))`,
 		siteIDArg, domain, componentRepairAgentType(params), saveSectionsStepName(params),
 		"save_page_sections",
 		fmt.Sprintf("page %q had %d component(s) holding structured content_data and this save carries "+
@@ -254,6 +312,7 @@ func writeContentDataRegressionLog(
 			metadataField, origin, expectsNoSectionsMetadataKey, sectionsMetadataFieldKey),
 		contentDataRegressionErrorCode,
 		string(contextJSON),
+		orchestrationID,
 	); err != nil {
 		logger.Warn("content_data regression: failed to write record", zap.Error(err))
 		return

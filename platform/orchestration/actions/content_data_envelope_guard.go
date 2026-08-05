@@ -91,7 +91,7 @@
 // into a field. The neighbouring guards in save_page_sections_action.go — the
 // content-regression guard, the interactivity guard, the owned-page guard, the stub
 // skip — all refuse unconditionally for the same reason. The 194 lane's
-// require_sections_metadata is opt-in for the OPPOSITE reason: absent metadata is
+// refuse_save_without_sections_metadata is opt-in for the OPPOSITE reason: absent metadata is
 // common and often legitimate, so unconditional refusal there would have converted
 // thousands of good saves into failures; here it converts approximately zero. An
 // opt-OUT is rejected too: it would make the bad state representable again by
