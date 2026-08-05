@@ -220,3 +220,108 @@ test of `tool-improver.update_component`'s now-live
 `error_step → refuse_mangled_write` (gained `6e29d6d19`, live only since
 step-level handlers work). Verify-the-failing-branch applies: induce a mangled
 write in a sandbox item rather than assuming the route.
+
+---
+
+## FIX SHIPPED IN CODE 2026-08-05 — STILL OPEN, awaiting the fleet roll
+
+**Status: candidates 1 and 2 (the platform mechanism) are built, tested and
+committed. Bar per CLAUDE.md/`bugs_closed/README.md` is "fixed AND live" — this
+stays OPEN until `browser-runner-adapter` and `agent-chassis` both roll and are
+pod-verified.** Candidate 3 (write-time rejection) was evaluated and refuted
+(below); candidate 4 (docs) partly done via this session's concept-register
+entry, the criteria-authoring doc update is still owed.
+
+### What shipped
+
+Commit `67a4c50bd` (`087_towards_multiple_domains`), council-submitted
+(`Council-Submitted: 479d747e-97a7-47d3-9c15-ccce0ee18014` — verdict not yet
+read at commit time; do not add `Council-Reviewed:` until it is).
+
+1. **`reload` criteriaStep action** — `internal/adapters/browserrunner/run_checks_action.go`,
+   `chromiumPage.Do`. An interaction check whose `steps` begin
+   `{"action":"reload"}` resets the shared page to its landing state before the
+   rest of that check's steps run, so a one-shot consent gate is clickable
+   again. Deliberately does not reset `status`/`navErr` (that is the ORIGINAL
+   navigation's contract) or accumulated console errors (`no_console_errors`
+   must see everything any interaction triggered across the whole page
+   lifetime). `platform/orchestration/actions/experience_criteria.go`'s
+   `experienceStepActions` table updated in the same commit — REQUIRED, not
+   optional: `TestExperienceCheckCapabilities_LockstepWithCheckers` reads the
+   runner's source as ground truth (its two named anchor functions,
+   `applicableChecks` and `func (p *chromiumPage) Do(`, no longer match the
+   real names `splitByProfile`/receiver `c`, so it silently falls back to
+   whole-file scanning) and fails by name if the two drift. Induced the failure
+   and reverted it to prove this before shipping.
+2. **`no_auto_fix` (+ `no_auto_fix_reason`) fence flag** —
+   `platform/orchestration/actions/tool_acceptance_actions.go`,
+   `JudgeAcceptanceResultsAction`. A fence carrying it routes a FAILING verdict
+   straight to the existing `acceptance_stuck` human-review escalation (same
+   `item_type`, same `item_key` shape `acceptance_stuck:<function>:<siteID>`,
+   same dedup/spec-merge machinery already built for the cycle-count case)
+   instead of ever reaching `tool-improver`, regardless of cycle count.
+   `parseNoAutoFix` fails OPEN: absent or malformed criteria mean today's
+   behaviour, unchanged — proven by mutation-testing a fail-closed variant,
+   which breaks three tests. This is candidate 2, and it was cheaper than this
+   file originally assumed: the human-review escalation machinery already
+   existed for the cycle-count case; the change is a flag parse plus widening
+   one condition, not new design.
+
+### Candidate 3 (write-time rejection) — evaluated and refuted, not built
+
+This file's candidate 3 assumed "more than one interaction check clicking the
+same selector on a shared page is provably unsatisfiable." That is false in
+general: repeated clicks on an ordinary, still-visible button are perfectly
+satisfiable (the runner clicks visible elements repeatedly without issue).
+Unsatisfiability holds only for a ONE-SHOT element, and one-shot-ness is a
+runtime property — nothing in a static criteria document declares it. A
+validator built on the false premise would reject legitimate fences. Folded
+into the `reload` fix's documentation instead (a later check simply needs to
+lead with a reset).
+
+### Verification done this session
+
+- `go build ./...` clean; `go test ./internal/adapters/browserrunner/...
+  ./platform/orchestration/actions/...` all green.
+- **Real headless Chromium** (`BROWSER_RUNNER_IT=1`), against a local
+  `httptest`-served fixture reproducing the bug's exact one-shot-gate JS:
+  measured `#rw-accept` at `0x0` after one click (Playwright's own
+  "not visible" state) and reproduced the bug's literal error text
+  (`"2 × waiting for element to be visible, enabled and stable - element is not
+  visible"`) when clicked again without a reload; a check leading with
+  `{"action":"reload"}` then passed. A control fence against a genuinely broken
+  tool (gate intact, wrong computed output) still FAILS — a fix that makes
+  every gated tool pass unconditionally would be worse than the bug, per this
+  file's own "how to verify a fix" section.
+- Mutation-tested both guards: reverting the `stuck || noAutoFix` condition to
+  `stuck` alone, and reverting `parseNoAutoFix` to fail-closed, each break the
+  tests written against them.
+
+### Owed before this can close
+
+1. **The roll.** `make build-agent-chassis` and `make build-browser-runner-adapter`
+   both build clean from this commit (verified locally, images not pushed).
+   Per this repo's own `releases-are-whole-fleet-make-release` practice, a
+   single-service build+push+deploy at its own tag previously fragmented the
+   fleet and was corrected by the owner — this needs the whole-fleet release
+   (`make release redeploy-agents ENVIRONMENT=production REGION=uk001`), not a
+   one-service `kubectl apply -k`.
+2. **Pod-verify both images** with `grep -ac` (the fleet's images carry no
+   `strings` binary) + a positive control, every replica, once rolled — e.g.
+   `grep -ac "reload navigation failed"` in `browser-runner-adapter` and a
+   literal from the judge's new escalation wording in `agent-chassis`.
+3. **Read the council verdict** on `479d747e-97a7-47d3-9c15-ccce0ee18014` and
+   either add `Council-Reviewed:` on a follow-up commit (APPROVED) or resubmit
+   with the objections answered (REVISE/REJECTED) — never add the trailer
+   unread.
+4. **The criteria-authoring documentation** (`docs024_key_docs_latest/tools/
+   tool_acceptance_runner/PLAN_tool_acceptance_runner.md` §"Criteria contract")
+   — add `reload` to the step verbs, the shared-page-state paragraph, the
+   `runDeadline` cost note, and the `no_auto_fix`/`no_auto_fix_reason` keys.
+   Not yet done.
+5. Neither key has been adopted by a real tool's PLAN yet (the tool that
+   originally hit this bug was already fixed at the criteria-authoring level,
+   per the top of this file) — this ships the mechanism, not a retrofit.
+
+Registered: `docs/agent_docs/docs026_concept_register/register/tool-lifecycle.md`
+TL-040.

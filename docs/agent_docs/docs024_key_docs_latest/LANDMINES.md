@@ -5529,3 +5529,30 @@ a STRING array — check the shape before trusting the prune.
   `render_context.current_page` (110/110 union — **and the last is a plain STRING,
   not a map**, so a `#>'{render_context,current_page,name}'` read finds nothing).
 - **source:** 2026-08-05, `bugs_open/199` lane; `render_content_envelope_guard.go`
+
+- A Tier-4 acceptance run opens ONE browser page per (url, profile) and runs
+  EVERY check against it with no reset — harmless for stateless checks, and
+  unsatisfiable for a one-shot consent/disclaimer gate (hides itself after the
+  first click, deliberately, because the tool carries a legally load-bearing
+  disclaimer). The second interaction check that must also click it fails
+  Playwright's "element is not visible", which reads exactly like a broken
+  button and is not one. The failing run then dispatches `tool-improver`
+  straight at the fence, and the only ways to make it pass weaken or delete the
+  disclaimer — a human cancelled the one real occurrence by hand before it
+  dispatched; luck, not a guard.
+    footprint `internal/adapters/browserrunner/run_checks_action.go` (interaction
+    checks, `chromiumPage.Do`), any criteria fence with more than one
+    `interaction` check on a page carrying a one-shot/self-hiding control
+    the check: a later interaction check that must re-click a one-shot control
+    needs `{"action":"reload"}` as its FIRST step (fixed 2026-08-05,
+    `bugs_open/126` — TL-040, commit `67a4c50bd`), which resets the shared
+    page to its landing state before the check's own steps run. A fence whose
+    failure must never be auto-repaired (a real disclaimer/consent gate) should
+    also carry top-level `"no_auto_fix": true` (+ `"no_auto_fix_reason"`), which
+    routes a genuine failure to the existing `acceptance_stuck` human-review
+    escalation instead of `tool-improver` — an automated rewriter can only turn
+    such a fence green by weakening the markup it exists to protect. Both keys
+    are opt-in and inert until a fence names them, and both are unshipped to
+    production until the next `browser-runner-adapter` + `agent-chassis` roll —
+    verify at the pod (`grep -ac` two distinct literals + a positive control;
+    the fleet's images carry no `strings` binary), never at the tag.

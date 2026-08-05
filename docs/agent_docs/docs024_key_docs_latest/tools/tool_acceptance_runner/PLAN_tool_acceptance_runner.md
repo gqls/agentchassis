@@ -64,6 +64,34 @@ Check types v0: `selector_exists`, `selector_count`, `no_console_errors`,
 all. Deterministic only in v0 — no LLM drives the browser; an LLM-exploratory
 mode is a later phase, if ever.
 
+**Added since v0, not yet folded into the block above** (see the concept
+register, `tool-lifecycle.md`, for the full list — `has_visible_area`,
+`computed_values`/`expect_values` (TL-038) and the two from `bugs_open/126`
+below are the ones most likely to surprise an author):
+
+- **Shared-page state, and the `reload` step (2026-08-05, `bugs_open/126`,
+  TL-040).** The runner opens ONE page per (url, profile) and runs every
+  applicable check against it in sequence, so state accumulates and check
+  ORDER is load-bearing. Harmless for stateless checks; a trap for a one-shot
+  control (a consent/disclaimer gate that hides itself after the first click)
+  — the second `interaction` check that must click it again fails
+  "element is not visible", which reads like a broken button and isn't one. An
+  `interaction` check whose `steps` BEGIN `{"action": "reload"}` resets the
+  page to its landing state first. Cost: a reload spends a real navigation
+  (up to the runner's `navigationTimeout`, ~30s worst case, typically 1-3s)
+  plus a ~2s settle wait against the whole-request `runDeadline` (120s) — use
+  it only where a check genuinely needs the landing state, not on every check
+  defensively.
+- **`no_auto_fix` / `no_auto_fix_reason` (top-level, sibling of `profiles`/
+  `checks`, 2026-08-05, `bugs_open/126`, TL-040).** A fence protecting markup
+  that must never be auto-rewritten (a legally load-bearing disclaimer or
+  consent gate) sets `"no_auto_fix": true` and a free-text
+  `"no_auto_fix_reason"`. A FAILING run then routes to the existing
+  `acceptance_stuck` human-review escalation instead of ever dispatching
+  `tool-improver` — an automated rewriter can only turn such a fence green by
+  weakening the thing it protects. Absent or malformed: today's behaviour,
+  unchanged (opt-in, default OFF).
+
 ## Profiles
 
 - **desktop:** Chromium, 1366×900, DPR 1, mouse.

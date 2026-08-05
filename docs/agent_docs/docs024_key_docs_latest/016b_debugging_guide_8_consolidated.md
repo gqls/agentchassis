@@ -7712,6 +7712,14 @@ closes the door); `bugs_closed/012` (an improver truncating and destroying a com
 same family: a rewriter with insufficient constraints on what it may not touch);
 `bugs_closed/024` (the inverse — the loop unable to act at all).
 
+> **2026-08-05 — the platform fix shipped in code, still OPEN pending the roll.**
+> A `reload` step action (resets the shared page before a later interaction
+> check) plus an opt-in `no_auto_fix` fence flag (routes a genuine failure to
+> the existing human-review escalation instead of `tool-improver`) — commit
+> `67a4c50bd`, TL-040 in the concept register. `bugs_open/126`'s own foot
+> carries the full verification detail; this stays a fix-shipped note, not a
+> restated account.
+
 ### Fixing one defect can ARM another that was dormant only because the first one crashed first (2026-07-28)
 
 The most valuable thing found in a two-day bug sweep, and neither case file could
