@@ -447,3 +447,75 @@ SELECT name, enabled, last_triggered_at, last_completed_at,
 FROM scheduled_tasks WHERE name = 'provocation-feed-refresh';
 -- interval is 21600s (6h); since_success much beyond that ⇒ it is refusing
 ```
+
+## Adding a CATEGORY (added 2026-08-05, RFC_013 ratified — migration 320)
+
+**Read this before seeding one: a second category is NOT end-to-end yet.** The
+publisher will happily write `provocations-<category>.json`, and **nothing reads
+it** — `tools-api`'s `FetchProvocation` still takes a domain only and always
+fetches `provocations.json`. Teaching the engine which category a round argues is
+RFC_013 §2.2, unruled, and the `gauntlet_dead_cta` lane's code. So today a second
+category produces a published artefact and no visible behaviour.
+
+### The rule that prevents the silent disaster
+
+The filename is **derived** from the category and a contradicting config is a hard
+error:
+
+| category | artefact |
+|---|---|
+| `general` (default) | `provocations.json` — **permanently**, this is what the engine reads |
+| `pets` | `provocations-pets.json` |
+
+Migration 283's live schedule row passes `filename: provocations.json` explicitly.
+**Do not copy that row and only change the category** — you would be asking a pets
+feed to publish over the general one, which the engine then serves as everybody's
+daily question. The action refuses it, loudly, rather than obeying. Either drop
+`filename` from the copied config or set it to the derived name.
+
+```sql
+-- 1. seed the provocations (both shapes; see the GOTCHA above)
+INSERT INTO provocations
+  (domain, slug, category, publish_on, status, title, teaser, headline, body, detail_body)
+VALUES ('vonc.com', 'cats-are-not-aloof', 'pets', DATE '2026-08-06', 'approved', ...);
+
+-- 2. a category is a SECOND scheduled row, not a code change.
+--    Note: no `filename` key. It is derived.
+INSERT INTO scheduled_tasks
+  (name, description, interval_seconds, target_agent_type, target_topic,
+   input_data, concurrency_group, max_concurrent, enabled, timeout_seconds)
+SELECT 'provocation-feed-refresh-pets', description, interval_seconds,
+       target_agent_type, target_topic,
+       (input_data - 'filename')
+         || jsonb_build_object('category', 'pets',
+                               'task_name', 'provocation-feed-refresh-pets'),
+       'vonc-com-provocations-pets', 1, false, timeout_seconds
+FROM scheduled_tasks WHERE name = 'provocation-feed-refresh';
+```
+
+Seed it `enabled = false` and flip it only once a chassis image carrying the
+category code is proven on the pod — the same reason 283 did (a seed naming
+behaviour the binary lacks fails at runtime and reads as a broken feature).
+
+```sh
+kubectl exec -n ai-persona-system <chassis-pod> -- \
+  sh -c 'strings /app/agent-chassis | grep -c provocations-'
+```
+
+### The first publish, and why it is allowed at all
+
+A brand-new category has no artefact, so the served-feed fetch 404s. Normally that
+**refuses** the publish — deliberately, because the served feed is the shrink
+guard's denominator. A 404 is allowed through **only when the built feed's archive
+is empty**, which is what a genuine first day looks like.
+
+So: **seed a new category with ONE dated provocation and let it publish, then add
+the rest.** If you seed several back-dated rows at once the archive is non-empty
+on day one, the run refuses, and you must set `allow_unverified_publish` for a
+single run. The error message says so. That refusal is not a bug — it is the guard
+declining to fly blind on a feed that already has content to lose.
+
+### Category naming
+
+1–40 characters, lowercase `a-z`, `0-9`, `-`. It becomes part of a filename **and**
+a URL path segment, so anything else is refused at config-parse time.
