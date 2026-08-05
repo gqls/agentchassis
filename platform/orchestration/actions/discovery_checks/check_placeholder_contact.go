@@ -2,6 +2,16 @@
 //
 // CHANGE: Added pc.locked_at IS NULL to skip locked components.
 //
+// CHANGE 2026-08-05 (bugs_open/201): HandlerAgent is "page-build-handler" (was
+// "page-content-writer"). page-content-writer dispatched directly plans its own
+// sections from `input_data.current_page.sections`, and this check's spec carries
+// no `sections` key — so plan_sections returns `ready_count: 0` ("no sections to
+// plan") and the run hard-fails before writing. This route was NEVER exercised:
+// placeholder_contact has had no item reach complete or failed in its history
+// (2 rows, both still triaged, 2026-08-04), so the "precedent" bugs_open/184 cited
+// for trusting the writer here was configuration that had never run. See the same
+// note in check_literal_markdown.go for the full measurement.
+//
 // ---------------------------------------------------------------------------
 // 2026-08-02, bugs_open/140 — THIS CHECK DID NOT KNOW THE PLACEHOLDERS OUR OWN
 // COMPONENT LIBRARY SHIPPED.
@@ -122,7 +132,7 @@ func (c *PlaceholderContactCheck) Run(dctx DiscoveryCheckContext) (*CheckResult,
 			Summary:      fmt.Sprintf("Fabricated contact info on page %s (%d patterns)", findings[0].PageName, len(findings)),
 			SpecJSON:     string(specJSON),
 			Priority:     30,
-			HandlerAgent: "page-content-writer",
+			HandlerAgent: "page-build-handler", // NOT page-content-writer — see header, bugs_open/201
 			Status:       "detected",
 			CreatedBy:    dctx.AgentType,
 			ItemKey:      fmt.Sprintf("placeholder_contact:%s", pageID),

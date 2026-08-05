@@ -9,6 +9,17 @@
 //
 // Each sub-check produces WorkItemSpec entries routed to the appropriate handler.
 // Register with: checks = ["validate_component_standards"] in workflow config.
+//
+// CHANGE 2026-08-05 (bugs_open/201): the empty-page-sections sub-check's
+// HandlerAgent is "page-build-handler" (was "page-content-writer"). Two reasons,
+// and the second is the stronger: (1) page-content-writer dispatched directly
+// plans its own sections from the caller's `current_page.sections`, which a
+// discovery spec does not carry, so it hard-fails at fail_no_ready_sections
+// before writing; (2) this sub-check emits ItemType "needs_content_page" —
+// the SAME item type write_build_items produces — and that writer routes it to
+// "page-build-handler" (load_work_item_actions.go:242-243). One item type was
+// being routed to two different handlers depending on who filed it.
+// See check_literal_markdown.go's header for the full measurement.
 
 package discovery_checks
 
@@ -474,7 +485,7 @@ func checkEmptyPageSections(dctx DiscoveryCheckContext, result *CheckResult) {
 			Summary:      fmt.Sprintf("Page '%s' has no rendered sections", pageName),
 			SpecJSON:     string(specJSON),
 			Priority:     50,
-			HandlerAgent: "page-content-writer",
+			HandlerAgent: "page-build-handler", // NOT page-content-writer — see header, bugs_open/201
 			Status:       "detected",
 			CreatedBy:    dctx.AgentType,
 			ItemKey:      fmt.Sprintf("empty_page_%s_%s", pageName, dctx.SiteID),

@@ -1,5 +1,22 @@
 // FILE: platform/orchestration/actions/discovery_checks/check_literal_markdown.go
 //
+// CHANGES:
+//   - HandlerAgent: "page-build-handler" (was "page-content-writer"), 2026-08-05,
+//     bugs_open/201. page-content-writer must not be dispatched DIRECTLY: it plans
+//     its own sections from `input_data.current_page.sections` (bugs_closed/087's
+//     self-plan branch), and a discovery item's spec has no `sections` key at all —
+//     measured 2026-08-05, all 14 page-content-writer items fleet-wide carry only
+//     {check, findings, fix, original_pipeline, page_id, page_name, page_url}. So
+//     plan_sections early-returns `ready_count: 0, reason: "no sections to plan"`
+//     (plan_sections_action.go:867-875) and the run hard-fails at
+//     fail_no_ready_sections — 11 of 11 attempts, 2026-08-04, before writing
+//     anything. page-build-handler instead sources sections from
+//     site_specs.site_plan via load_page_sections_from_spec (authoritative, with a
+//     pages.sections fallback), so it never depends on the caller's spec shape.
+//     It is proven on ALREADY-BUILT pages: content_rewrite 19 complete /
+//     empty_section 12 complete, measured 2026-08-05. Same migration
+//     check_empty_sections.go already made.
+//
 // bugs_open/184 (llm_markdown_reaches_the_page_as_literal_asterisks): LLM
 // content writers sometimes emit markdown syntax (**bold**, `code spans`,
 // # headings) into content_data fields whose schema type is `text`. The render
@@ -31,8 +48,13 @@
 // inline scripts are structurally invisible to the backtick pattern.
 //
 // Routing: a definite mechanical defect (markdown syntax is never correct in
-// a plain-text field), so it routes at page-content-writer for auto-repair —
-// the check_placeholder_contact precedent — rather than HITL. One item per
+// a plain-text field), so it routes for auto-repair rather than HITL.
+// ⚠ CORRECTED 2026-08-05 (bugs_open/201): this paragraph used to read "routes at
+// page-content-writer … the check_placeholder_contact precedent". BOTH halves were
+// wrong. The writer cannot be dispatched directly (it self-plans from a `sections`
+// key this check's spec does not have, and hard-fails), and the cited precedent had
+// NEVER RUN — placeholder_contact's items had reached neither complete nor failed.
+// It now routes at page-build-handler; see the CHANGES block at the top. One item per
 // page, item_key 'literal_markdown:<page_id>'. Producer set for this
 // item_type: this check alone (owner ruling 2026-08-02 point 1 — stated in
 // the concept-register entry, CQ-019).
@@ -242,7 +264,7 @@ func (c *LiteralMarkdownCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, er
 			Summary:      fmt.Sprintf("Literal markdown syntax on page %s (%d finding(s))", pf.PageName, len(pf.Findings)),
 			SpecJSON:     string(specJSON),
 			Priority:     40,
-			HandlerAgent: "page-content-writer",
+			HandlerAgent: "page-build-handler", // NOT page-content-writer — see header, bugs_open/201
 			Status:       "detected",
 			CreatedBy:    dctx.AgentType,
 			ItemKey:      fmt.Sprintf("literal_markdown:%s", pf.PageID),
