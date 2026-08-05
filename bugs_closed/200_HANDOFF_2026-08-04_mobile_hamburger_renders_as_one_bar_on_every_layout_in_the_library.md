@@ -5,7 +5,13 @@ observation is the brochure component library lane's, from the 2026-08-03 contac
 sheet look (recorded in `bugs_closed/188` §3, TL-035:351, and the vigilant
 CONTRIB §7 — "may be a genuine page defect rather than a capture artefact").
 It is a genuine page defect, and it is the whole layout library, not one page.
-**Status** OPEN.
+**Status** **CLOSED 2026-08-05 ~14:30 UTC — fixed AND live at every layer: 18/18
+live layouts (seed 314), 17/17 seed-file layouts, 15/15 sites' served
+`styles.css` verified at the plain URL (the last two after their Cloudflare
+edge TTL lapsed, confirmed by direct fetch), render eye-check passed both
+directions (§8), guard armed in pattern-check.** The three loan* sites serve no
+`styles.css` at this path and the two unresolvable domains are recorded in §8 —
+none of the five ever served the defect through this asset.
 
 ---
 

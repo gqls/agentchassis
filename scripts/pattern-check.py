@@ -735,7 +735,7 @@ FLEXLESS_TOGGLE_RE = re.compile(
 
 
 def check_flexless_hamburger(files, ref, findings):
-    """bugs_open/200 — a menu-toggle rule that goes flex without a direction."""
+    """bugs_closed/200 — a menu-toggle rule that goes flex without a direction."""
     for path in files:
         if not path.endswith((".css", ".sql", ".go", ".html")):
             continue
@@ -749,7 +749,7 @@ def check_flexless_hamburger(files, ref, findings):
                 findings.append((
                     "flexless-hamburger", f"{path}:{line}",
                     f"a menu-toggle rule sets {BOLD}display:flex{RESET} with no flex-direction",
-                    "bugs_open/200 — the toggle's three <span> bars become ROW flex items and "
+                    "bugs_closed/200 — the toggle's three <span> bars become ROW flex items and "
                     "fuse into one thin line the width of all three: the mobile menu goes "
                     "visually invisible on every site rendered from the layout. Add "
                     "flex-direction: column (plus centering) in the SAME rule — a base-rule "

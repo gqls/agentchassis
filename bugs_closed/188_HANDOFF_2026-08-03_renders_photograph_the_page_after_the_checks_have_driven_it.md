@@ -192,5 +192,6 @@ not by the bug number — the fix commits never say "188".)
 full-page-capture artefact and the mobile hamburger's single bar (§3) — both
 recorded in TL-035 and the vigilant CONTRIB. ~~The hamburger observation may be a
 real page defect and still has no owner.~~ **The hamburger IS a real page defect
-and now has a file: `bugs_open/200` (2026-08-04, same evening) — fleet-wide, all
-18 layouts' `css_template` lay the three spans in a row via `inline-flex`.**
+and now has a file: `bugs_closed/200` (filed 2026-08-04, CLOSED 2026-08-05 —
+fleet-wide, all 18 layouts' `css_template` laid the three spans in a row via
+`inline-flex`; fixed at every layer and verified at the served artefact).**
