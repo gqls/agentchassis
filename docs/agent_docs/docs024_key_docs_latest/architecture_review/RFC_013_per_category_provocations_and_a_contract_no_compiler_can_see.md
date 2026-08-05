@@ -1,9 +1,13 @@
 # RFC 013 — Per-category provocations, and the feed contract no compiler can see
 
-**Status: OPEN — filed 2026-08-05, awaiting an owner ruling.** Blocks
-`provocation_pipeline` PLAN §9.2 (categories). Nothing is built and nothing is
-committed against it; this RFC exists so that the design is agreed *before* code,
-which is what PLAN §9.2 itself instructs:
+**Status: RATIFIED 2026-08-05 on §2.1 — one file per category.** Owner ruling in
+§7. Publisher-side implementation is in progress in the `provocation_pipeline`
+lane; the `tools-api` half (§2.2) is NOT ruled and remains the `gauntlet_dead_cta`
+lane's to weigh in on. §2.3 and §2.4 are still open.
+
+Filed OPEN 2026-08-05. Blocks
+`provocation_pipeline` PLAN §9.2 (categories). This RFC exists so that the design
+is agreed *before* code, which is what PLAN §9.2 itself instructs:
 
 > **Do not design multi-category rotation without agreeing this with them first** —
 > it is not a vonc-side-only change, and discovering it late means a live mismatch
@@ -212,9 +216,58 @@ being built in parallel by another session and is out of scope for this file.
 
 ---
 
-## 7. OWNER RULING
+## 7. OWNER RULING 2026-08-05 — one file per category
 
-*Not yet given — filed 2026-08-05.*
+> *"one file per category I think"*
+
+**§2.1 is answered: option (a).** The recommendation's own argument carries it —
+between a shape the system cannot detect and one that fails down a path the front
+end already handles, take the one that fails loudly.
+
+**What this ruling does and does not settle.** It settles the shape. It does not
+answer §2.2 (who edits `tools-api`, and when), §2.3 (whether a round records its
+category) or §2.4 (whether the contract becomes a shared Go type). Those stay open
+and are flagged to the `gauntlet_dead_cta` lane in their cold-start INCOMING block.
+
+**Consequence that makes this safe to start now:** under option (a) the publisher
+half is **independently shippable and inert**. `provocations.json` remains exactly
+what it is — the `general` category's file — so every existing reader, the engine
+included, is unaffected until a second category actually exists. Nothing in
+`tools-api` has to change on the same deploy, or ever, for the `general` feed to
+keep working. That is bar 3 (independently-valuable stages) and bar 4 (rollback
+needs no migration) satisfied by the shape itself rather than by staging.
+
+### 7.1 Implementation decisions taken under this ruling
+
+Recorded here rather than only in the code, because two of them are judgement
+calls a reviewer should be able to challenge:
+
+1. **The filename is DERIVED from the category, and a disagreeing config is
+   refused.** `general` → `provocations.json`; any other category *C* →
+   `provocations-C.json`. Supplying a `filename` that contradicts the category is a
+   hard error, not a silent override. Without this, a second category seeded with
+   the existing schedule row's `filename` would publish pets content over the
+   general feed — the exact "operators must remember" defect this estate treats as
+   a bug rather than a caveat.
+2. **A 404 on the served feed is treated as "no feed yet" and permits the
+   bootstrap publish — but ONLY when the built feed's archive is empty.** A new
+   category cannot otherwise ever publish a first file: `fetchServedFeed` would
+   404, and failing closed on that is deliberate and correct for an *established*
+   feed. Narrowing it to an empty archive keeps the guard fully armed wherever it
+   has something to protect: the live `general` feed carries 8 archive entries, so
+   a spurious 404 against it still refuses, exactly as today. A new category seeded
+   with back-dated rows (non-empty archive on day one) also still refuses, and must
+   set `allow_unverified_publish` deliberately for one run — rare, loud, and the
+   error message says so.
+
+   This is a widening of the default failure behaviour on one specific path, and it
+   is named here rather than left in the diff because the council caught the
+   *reverse* mistake on this same function once already: the first draft published
+   blind on any fetch failure, which disabled the shrink guard during exactly the
+   infrastructure trouble most likely to accompany a bad deploy.
+3. **The partial unique index becomes `(domain, category, publish_on)`**, as §4
+   anticipated. Two categories must be able to publish on the same day; today's
+   index makes that unrepresentable.
 
 ---
 

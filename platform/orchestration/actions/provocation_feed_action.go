@@ -42,6 +42,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -56,9 +57,21 @@ import (
 // ---------------------------------------------------------------------------
 
 type provocationFeedConfig struct {
-	Domain       string
-	RepoName     string
-	DataPath     string
+	Domain string
+
+	// Category selects which daily this run publishes. RFC_013 (RATIFIED
+	// 2026-08-05): one feed FILE per category, so a category is a separate
+	// scheduled row publishing a separate artefact, not a selection axis inside
+	// one file. Defaults to 'general', which is what every existing row is and
+	// what the pre-category schedule row means, so an untouched config keeps
+	// publishing exactly what it published before.
+	Category string
+
+	RepoName string
+	DataPath string
+
+	// Filename is DERIVED from Category (see feedFilename) and must not be
+	// supplied in contradiction to it — see parseProvocationFeedConfig.
 	Filename     string
 	CommitPrefix string
 	TaskName     string
@@ -90,16 +103,57 @@ type provocationFeedConfig struct {
 	AllowUnverifiedPublish bool
 }
 
-func parseProvocationFeedConfig(config map[string]interface{}) provocationFeedConfig {
+// defaultProvocationCategory is the category every pre-RFC_013 row carries and
+// the one whose artefact keeps the original filename for ever.
+const defaultProvocationCategory = "general"
+
+// feedFilename derives the artefact name from the category.
+//
+// The default category keeps `provocations.json` PERMANENTLY. That is not
+// politeness to existing config, it is the whole reason RFC_013 chose one file
+// per category over a keyed map: every current reader — the engine included —
+// goes on reading the file it already reads, unchanged, so no coordinated deploy
+// is needed and there is nothing to roll back.
+func feedFilename(category string) string {
+	if category == defaultProvocationCategory {
+		return "provocations.json"
+	}
+	return "provocations-" + category + ".json"
+}
+
+// validProvocationCategory keeps a category to characters that are safe in a
+// filename and in a URL path segment. The value reaches both.
+func validProvocationCategory(c string) bool {
+	if c == "" || len(c) > 40 {
+		return false
+	}
+	for _, r := range c {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func parseProvocationFeedConfig(config map[string]interface{}) (provocationFeedConfig, error) {
 	fc := provocationFeedConfig{
+		Category:     defaultProvocationCategory,
 		RepoName:     "sites",
 		DataPath:     "data",
-		Filename:     "provocations.json",
 		CommitPrefix: "Update daily provocation",
 		TaskName:     "provocation-feed-refresh",
 	}
 	if v, ok := config["domain"].(string); ok {
 		fc.Domain = v
+	}
+	if v, ok := config["category"].(string); ok && v != "" {
+		fc.Category = v
+	}
+	if !validProvocationCategory(fc.Category) {
+		return fc, fmt.Errorf(
+			"category %q is not usable: it becomes part of a filename and a URL path, "+
+				"so it must be 1-40 characters of lowercase a-z, 0-9 or '-'", fc.Category)
 	}
 	if v, ok := config["repo_name"].(string); ok && v != "" {
 		fc.RepoName = v
@@ -107,8 +161,27 @@ func parseProvocationFeedConfig(config map[string]interface{}) provocationFeedCo
 	if v, ok := config["data_path"].(string); ok && v != "" {
 		fc.DataPath = v
 	}
-	if v, ok := config["filename"].(string); ok && v != "" {
-		fc.Filename = v
+	// The filename is derived, and a config that disagrees is REFUSED rather than
+	// allowed to win.
+	//
+	// The failure this prevents is concrete and would be silent: migration 283's
+	// schedule row passes `filename: provocations.json` explicitly. Copy that row
+	// to seed a `pets` category — the obvious way to add one — and without this
+	// check the copy publishes pets' provocation OVER the general feed, which the
+	// engine then serves as today's question for everybody. Nothing would error;
+	// the shrink guard would not fire, because the archive counts are unrelated.
+	//
+	// Accepting the value when it MATCHES keeps every existing row working
+	// untouched, so this is a refusal of contradiction, not of redundancy.
+	fc.Filename = feedFilename(fc.Category)
+	if v, ok := config["filename"].(string); ok && v != "" && v != fc.Filename {
+		return fc, fmt.Errorf(
+			"filename %q contradicts category %q, which publishes %q. The filename is "+
+				"derived from the category — remove it from the config, or fix the "+
+				"category. (Publishing one category's provocation over another's file "+
+				"would be served as that category's daily, and nothing downstream "+
+				"would detect it.)",
+			v, fc.Category, fc.Filename)
 	}
 	if v, ok := config["commit_message_prefix"].(string); ok && v != "" {
 		fc.CommitPrefix = v
@@ -125,7 +198,7 @@ func parseProvocationFeedConfig(config map[string]interface{}) provocationFeedCo
 	if v, ok := config["allow_unverified_publish"].(bool); ok {
 		fc.AllowUnverifiedPublish = v
 	}
-	return fc
+	return fc, nil
 }
 
 // ---------------------------------------------------------------------------
@@ -159,7 +232,7 @@ func shortDate(t time.Time) string {
 // loadProvocations returns every approved, dated provocation for a domain in
 // ascending publish order. Only 'approved' rows are ever returned, so a draft or
 // a gate-rejected provocation cannot reach the site by any path through here.
-func loadProvocations(ctx context.Context, db *sql.DB, domain string) ([]provocation, error) {
+func loadProvocations(ctx context.Context, db *sql.DB, domain, category string) ([]provocation, error) {
 	rows, err := db.QueryContext(ctx, `
 		SELECT slug, publish_on,
 		       title, teaser,
@@ -167,9 +240,10 @@ func loadProvocations(ctx context.Context, db *sql.DB, domain string) ([]provoca
 		       COALESCE(headline, ''), COALESCE(body, '')
 		FROM provocations
 		WHERE domain = $1
+		  AND category = $2
 		  AND status = 'approved'
 		  AND publish_on IS NOT NULL
-		ORDER BY publish_on ASC`, domain)
+		ORDER BY publish_on ASC`, domain, category)
 	if err != nil {
 		return nil, fmt.Errorf("query provocations: %w", err)
 	}
@@ -574,6 +648,33 @@ type servedFeed struct {
 	Canonical    string // the feed with generated_at removed, for equality
 }
 
+// errFeedNotPublished means the artefact returned 404: this category has no feed
+// on the site yet. Distinct from every other fetch failure, because it is the one
+// case where "I cannot see the served feed" is a FACT about the feed rather than
+// about the network — and a first publish is impossible without acting on it.
+var errFeedNotPublished = fmt.Errorf("no feed is published at that path yet")
+
+// shouldBootstrap decides whether a failed fetch of the served feed may be
+// treated as a legitimate first publish rather than a reason to refuse.
+//
+// It is a named function with both conditions in one expression SO THAT IT CAN BE
+// TESTED. Inlined in the action it would be reachable only through a real 404
+// against a real domain, i.e. never in a test and never in an ordinary run —
+// which is precisely the property the fail-open path must not have.
+//
+// BOTH conditions are required and the second is the one doing the work:
+//   - the artefact must have said it does not exist (404), not merely failed;
+//   - the feed just built must have an EMPTY archive, which is what a genuine
+//     first day looks like.
+//
+// Drop the second and a spurious 404 against the established general feed (8
+// archive entries) would publish without the shrink guard, during exactly the
+// infrastructure trouble most likely to accompany a bad deploy — the mistake a
+// council reviewer already caught once on this function.
+func shouldBootstrap(ferr error, builtArchiveCount int) bool {
+	return errors.Is(ferr, errFeedNotPublished) && builtArchiveCount == 0
+}
+
 // assertKnownDomain refuses a domain that is not a site this platform owns.
 //
 // The domain arrives from step config and is interpolated into an outbound URL,
@@ -621,6 +722,13 @@ func fetchServedFeed(ctx context.Context, domain, dataPath, filename string) (*s
 		return nil, err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusNotFound {
+		// Distinguished from every other failure ON PURPOSE — see the bootstrap
+		// handling in RenderProvocationFeedAction. A 404 is the artefact saying it
+		// does not exist; a 500, a timeout or a DNS failure is the artefact
+		// declining to say anything, which is a different fact.
+		return nil, errFeedNotPublished
+	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("GET %s: %s", url, resp.Status)
 	}
@@ -726,7 +834,10 @@ func RenderProvocationFeedAction(ctx context.Context, params ActionParams) (inte
 		}
 	}
 
-	fc := parseProvocationFeedConfig(config)
+	fc, err := parseProvocationFeedConfig(config)
+	if err != nil {
+		return nil, fmt.Errorf("provocation feed: %w", err)
+	}
 	if fc.Domain == "" {
 		return nil, fmt.Errorf("provocation feed requires an explicit domain; refusing to publish without one")
 	}
@@ -734,12 +845,14 @@ func RenderProvocationFeedAction(ctx context.Context, params ActionParams) (inte
 		return nil, fmt.Errorf("provocation feed: %w", err)
 	}
 
-	schedule, err := loadProvocations(ctx, params.DB, fc.Domain)
+	schedule, err := loadProvocations(ctx, params.DB, fc.Domain, fc.Category)
 	if err != nil {
 		return nil, err
 	}
 	if len(schedule) == 0 {
-		return nil, fmt.Errorf("no approved, dated provocations for %s — refusing to publish an empty feed", fc.Domain)
+		return nil, fmt.Errorf(
+			"no approved, dated provocations for %s in category %q — refusing to publish an empty feed",
+			fc.Domain, fc.Category)
 	}
 
 	// UTC, to match the publish dates and the engine's own clock.
@@ -764,17 +877,60 @@ func RenderProvocationFeedAction(ctx context.Context, params ActionParams) (inte
 	// dropping provocations — during exactly the infrastructure trouble most
 	// likely to accompany a bad deploy. Refusing costs one delayed rotation,
 	// picked up by the next run within the interval.
+	// BOOTSTRAP, narrowly. A brand-new category has no artefact, so fetchServedFeed
+	// 404s and failing closed would make its FIRST publish impossible — the guard
+	// would forbid for ever the one thing it has nothing to protect.
+	//
+	// So a 404 permits the publish, but ONLY when the built feed has an empty
+	// archive. That is what a genuine first day looks like: one due provocation
+	// and nothing yet promoted behind it. The narrowing is what keeps this from
+	// becoming a hole:
+	//
+	//   - the live `general` feed carries 8 archive entries, so a SPURIOUS 404
+	//     against an established feed still refuses, exactly as before. The guard
+	//     stays fully armed everywhere it has a denominator worth defending.
+	//   - a new category seeded with several back-dated rows has a non-empty
+	//     archive on day one and also still refuses; that operator sets
+	//     allow_unverified_publish deliberately, once, and the error says so.
+	//
+	// Any other failure — 500, timeout, DNS — is unchanged and still fails closed.
+	// The distinction is between the artefact saying "I am not there" and the
+	// network declining to say anything, and only the first is a fact about the
+	// feed.
+	bootstrap := false
 	served, ferr := fetchServedFeed(ctx, fc.Domain, fc.DataPath, fc.Filename)
 	if ferr != nil {
-		if !fc.AllowUnverifiedPublish {
-			return nil, fmt.Errorf(
-				"refusing to publish: cannot read the currently-served feed, so the "+
-					"archive-shrink guard has no denominator and content loss would be "+
-					"undetectable (%w). Set allow_unverified_publish to override", ferr)
+		switch {
+		case shouldBootstrap(ferr, next.ArchiveCount):
+			bootstrap = true
+			params.Logger.Info("RenderProvocationFeed: no feed published for this category yet "+
+				"and the built archive is empty; treating as a first publish",
+				zap.String("domain", fc.Domain), zap.String("category", fc.Category),
+				zap.String("filename", fc.Filename))
+		case errors.Is(ferr, errFeedNotPublished):
+			if !fc.AllowUnverifiedPublish {
+				return nil, fmt.Errorf(
+					"refusing to publish: no feed is served at %s for category %q, but the "+
+						"feed just built already has %d archive entries, so this is not a "+
+						"first publish and the shrink guard has no denominator. If these "+
+						"back-dated provocations are intended, set allow_unverified_publish "+
+						"for one run",
+					fc.Filename, fc.Category, next.ArchiveCount)
+			}
+			params.Logger.Warn("RenderProvocationFeed: no served feed and a non-empty archive; "+
+				"allow_unverified_publish is set, so publishing WITHOUT the shrink guard",
+				zap.String("category", fc.Category), zap.Int("archive_entries", next.ArchiveCount))
+		default:
+			if !fc.AllowUnverifiedPublish {
+				return nil, fmt.Errorf(
+					"refusing to publish: cannot read the currently-served feed, so the "+
+						"archive-shrink guard has no denominator and content loss would be "+
+						"undetectable (%w). Set allow_unverified_publish to override", ferr)
+			}
+			params.Logger.Warn("RenderProvocationFeed: could not read the served feed; "+
+				"allow_unverified_publish is set, so publishing WITHOUT the shrink guard",
+				zap.Error(ferr))
 		}
-		params.Logger.Warn("RenderProvocationFeed: could not read the served feed; "+
-			"allow_unverified_publish is set, so publishing WITHOUT the shrink guard",
-			zap.Error(ferr))
 	}
 
 	skip, err := checkAgainstServed(served, next, fc.AllowShrink)
@@ -788,8 +944,8 @@ func RenderProvocationFeedAction(ctx context.Context, params ActionParams) (inte
 			`UPDATE scheduled_tasks SET last_completed_at = NOW() WHERE name = $1`, fc.TaskName)
 		return map[string]interface{}{
 			"status": "complete", "committed": false, "reason": "no change since the served feed",
-			"domain": fc.Domain, "today": today.Slug,
-			"archive_entries": next.ArchiveCount,
+			"domain": fc.Domain, "category": fc.Category, "filename": fc.Filename,
+			"today": today.Slug, "archive_entries": next.ArchiveCount,
 		}, nil
 	}
 
@@ -804,6 +960,12 @@ func RenderProvocationFeedAction(ctx context.Context, params ActionParams) (inte
 	path := strings.Trim(fc.DataPath, "/") + "/" + fc.Filename
 	files := map[string]interface{}{path: string(payload)}
 	commitMsg := fmt.Sprintf("%s — %s (%s)", fc.CommitPrefix, today.Slug, shortDate(today.PublishOn))
+	if fc.Category != defaultProvocationCategory {
+		// Name the category in the history, or two categories rotating on the same
+		// day produce two commits that read identically apart from the slug.
+		commitMsg = fmt.Sprintf("%s [%s] — %s (%s)",
+			fc.CommitPrefix, fc.Category, today.Slug, shortDate(today.PublishOn))
+	}
 
 	gitResult, err := sendExportFilesToGit(ctx, params, fc.RepoName, fc.Domain, commitMsg, files)
 	if err != nil {
@@ -811,7 +973,9 @@ func RenderProvocationFeedAction(ctx context.Context, params ActionParams) (inte
 	}
 
 	params.Logger.Info("RenderProvocationFeed: published",
-		zap.String("domain", fc.Domain), zap.String("today", today.Slug),
+		zap.String("domain", fc.Domain), zap.String("category", fc.Category),
+		zap.String("filename", fc.Filename), zap.String("today", today.Slug),
+		zap.Bool("bootstrap", bootstrap),
 		zap.Int("archive_entries", next.ArchiveCount))
 
 	_, _ = params.DB.ExecContext(ctx,
@@ -819,6 +983,7 @@ func RenderProvocationFeedAction(ctx context.Context, params ActionParams) (inte
 
 	return map[string]interface{}{
 		"status": "complete", "committed": true, "domain": fc.Domain,
+		"category": fc.Category, "filename": fc.Filename, "bootstrap": bootstrap,
 		"today": today.Slug, "today_date": shortDate(today.PublishOn),
 		"archive_entries": next.ArchiveCount, "git_result": gitResult,
 	}, nil

@@ -16,6 +16,7 @@ package actions
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -516,15 +517,150 @@ func TestNoServedFeedMeansUnverifiedNotVerified(t *testing.T) {
 // The config flag must exist and default to fail-closed. A guard whose default is
 // permissive is not a guard.
 func TestUnverifiedPublishDefaultsToRefusing(t *testing.T) {
-	fc := parseProvocationFeedConfig(map[string]interface{}{"domain": "vonc.com"})
+	fc, err := parseProvocationFeedConfig(map[string]interface{}{"domain": "vonc.com"})
+	if err != nil {
+		t.Fatalf("plain config must parse: %v", err)
+	}
 	if fc.AllowUnverifiedPublish {
 		t.Error("allow_unverified_publish must default to false, or a failed fetch silently disables the shrink guard")
 	}
-	fc = parseProvocationFeedConfig(map[string]interface{}{
+	fc, err = parseProvocationFeedConfig(map[string]interface{}{
 		"domain": "vonc.com", "allow_unverified_publish": true,
 	})
+	if err != nil {
+		t.Fatalf("config with the override must parse: %v", err)
+	}
 	if !fc.AllowUnverifiedPublish {
 		t.Error("allow_unverified_publish was not read from config, so the override is unreachable")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Categories (RFC_013, ratified 2026-08-05: one feed FILE per category)
+// ---------------------------------------------------------------------------
+
+// The whole safety case for option (a) rests on the default category's artefact
+// being untouched. If this ever changes, every existing reader breaks at once —
+// including the engine, which would 404 and 503 the Gauntlet.
+func TestDefaultCategoryKeepsTheOriginalFilenameForever(t *testing.T) {
+	fc, err := parseProvocationFeedConfig(map[string]interface{}{"domain": "vonc.com"})
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if fc.Category != "general" {
+		t.Errorf("category must default to 'general' (what every existing row is), got %q", fc.Category)
+	}
+	if fc.Filename != "provocations.json" {
+		t.Errorf("the default category MUST publish provocations.json — the engine reads that exact "+
+			"path and nothing tells it otherwise; got %q", fc.Filename)
+	}
+
+	// Migration 283's live schedule row passes this explicitly. It must keep working.
+	fc, err = parseProvocationFeedConfig(map[string]interface{}{
+		"domain": "vonc.com", "filename": "provocations.json",
+	})
+	if err != nil {
+		t.Fatalf("the existing live schedule row's config must still parse: %v", err)
+	}
+	if fc.Filename != "provocations.json" {
+		t.Errorf("got %q", fc.Filename)
+	}
+}
+
+func TestCategoryDerivesItsOwnFilename(t *testing.T) {
+	fc, err := parseProvocationFeedConfig(map[string]interface{}{
+		"domain": "vonc.com", "category": "pets",
+	})
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if fc.Filename != "provocations-pets.json" {
+		t.Errorf("expected provocations-pets.json, got %q", fc.Filename)
+	}
+}
+
+// The failure this prevents is silent and severe: copy migration 283's schedule
+// row to add a category, keep its explicit filename, and pets' provocation is
+// published OVER the general feed and served as everybody's daily question.
+// Nothing downstream detects it — the engine does not read the category and the
+// shrink guard compares unrelated archives.
+func TestAFilenameContradictingItsCategoryIsRefused(t *testing.T) {
+	_, err := parseProvocationFeedConfig(map[string]interface{}{
+		"domain": "vonc.com", "category": "pets", "filename": "provocations.json",
+	})
+	if err == nil {
+		t.Fatal("a pets category publishing provocations.json was ACCEPTED — that overwrites the " +
+			"general feed with pets content and the engine serves it as today's question")
+	}
+	if !strings.Contains(err.Error(), "contradicts") {
+		t.Errorf("the error should say what is wrong and how to fix it; got: %v", err)
+	}
+}
+
+// The category reaches a filename and a URL path segment, so it cannot be free
+// text. Traversal is the case that matters.
+func TestCategoryRejectsAnythingUnsafeInAPath(t *testing.T) {
+	for _, bad := range []string{
+		"../../etc/passwd", "a/b", "Pets", "pets.json", "a b", "a?b", "",
+		strings.Repeat("x", 41),
+	} {
+		_, err := parseProvocationFeedConfig(map[string]interface{}{
+			"domain": "vonc.com", "category": bad,
+		})
+		// "" is the one that must be ACCEPTED-as-absent rather than rejected: an
+		// absent category is the default, which is how every current row behaves.
+		if bad == "" {
+			if err != nil {
+				t.Errorf("an empty category must mean 'default', not an error: %v", err)
+			}
+			continue
+		}
+		if err == nil {
+			t.Errorf("category %q was accepted; it becomes part of a path", bad)
+		}
+	}
+}
+
+// The bootstrap widening must stay narrow. These assert the DECISION TABLE
+// directly, because the dangerous direction is the permissive one and it is
+// reached only through a 404, which no ordinary run exercises.
+func TestBootstrapIsPermittedOnlyForAGenuineFirstPublish(t *testing.T) {
+	// Calls the REAL decision function. An earlier draft of this test re-stated
+	// the condition inline and so could not have failed for any edit to the code
+	// — recorded because that is the trap this repo keeps paying for.
+	notFound := fmt.Errorf("fetching: %w", errFeedNotPublished) // wrapped, as the action sees it
+	other := fmt.Errorf("GET https://vonc.com/data/x.json: 500 Internal Server Error")
+
+	cases := []struct {
+		name         string
+		ferr         error
+		archiveCount int
+		want         bool
+	}{
+		{"new category, nothing behind it", notFound, 0, true},
+		{"new category, back-dated rows", notFound, 3, false},
+		{"established feed, spurious 404", notFound, 8, false},
+		{"500 with an empty archive", other, 0, false},
+		{"500 against an established feed", other, 8, false},
+	}
+	for _, c := range cases {
+		if got := shouldBootstrap(c.ferr, c.archiveCount); got != c.want {
+			t.Errorf("%s: shouldBootstrap = %v, want %v", c.name, got, c.want)
+		}
+	}
+}
+
+// Mutation control for the test above: if the archive condition were dropped —
+// the plausible "simplification" — the established-feed case would flip to
+// permitting a publish. This asserts the two inputs genuinely disagree, so the
+// table is not passing by accident.
+func TestTheBootstrapTableWouldCatchDroppingTheArchiveCondition(t *testing.T) {
+	notFound := fmt.Errorf("wrapped: %w", errFeedNotPublished)
+	withCondition := shouldBootstrap(notFound, 8)
+	withoutCondition := errors.Is(notFound, errFeedNotPublished) // the weakened version
+	if withCondition == withoutCondition {
+		t.Fatal("the archive condition makes no difference on an established feed, so the " +
+			"bootstrap table cannot detect it being removed")
 	}
 }
 
