@@ -43,19 +43,35 @@ the change — the function NAME is the reliable positive control here. There is
 greppable string the change REMOVES, so the negative control is behavioural: the
 induction below. Do not skip it; a roll is not evidence (bugs_open/153).
 
-### 3. Induction — baseline first if the old binary is still up, else post-fix only
+### 3. Induction — TWO-DISPATCH RECIPE (v2; v1 was refuted 2026-08-05 evening, see NOTES)
 
-Seeds: `SEED_test_196_probes.sql` in this directory (design rationale in its
-header; the parent fabricates the spawn blob via query_database so the flaky
-spawn handshake is not a dependency).
+⚠ **Do NOT use the single-dispatch design from this file's first version.** It
+was run (corr `769f316f`) and REFUTED: a call_agent child travels in a nested
+RequestMessage envelope, and `extractGroupInfo` reads only the msgBody top
+level, so the child cannot select the invalid workflow — it runs generic's
+no-op and completes LEGITIMATELY. LANDMINE filed. The v2 recipe splits the
+roles: the parent parks awaiting a request nothing real can answer, and a
+separately CLI-published FLAT message (which DOES resolve, the proven 195 path)
+fails and answers the parent's awaited request with the error envelope.
 
-Dispatch (the 195 lane's proven recipe, generic topic; note the kcat landmine —
-payload in the container COMMAND with a PUBLISH_OK marker, never bare stdin):
+Both probe rows are ALREADY SEEDED. First re-point the parent's fabricated
+spawn blob at a void topic and raise the timeout:
+
+```sql
+UPDATE agent_definitions SET default_config = jsonb_set(jsonb_set(default_config,
+  '{workflow,steps,prepare_child,config,query}',
+  to_jsonb('SELECT ''probe-fake-agent'' AS agent_id, ''generic'' AS agent_type, ''child'' AS role, ''system.agent.test-196-void.requests'' AS requests_topic, ''system.agent.generic.responses'' AS responses_topic'::text)),
+  '{workflow,steps,call_child,config,timeout_seconds}', '600')
+WHERE type='test-196-parent';
+```
+
+**Dispatch 1 — park the parent** (kcat pattern with PUBLISH_OK; no dispatch
+within ~300s of a pod restart):
 
 ```bash
 CORR=$(cat /proc/sys/kernel/random/uuid); ORCH=$(cat /proc/sys/kernel/random/uuid); NAME="ind196-$(date +%H%M%S)"
 echo "CORR=$CORR ORCH=$ORCH NAME=$NAME"
-PAYLOAD=$(jq -nc '{action:"orchestrate",config:{agent_type:"test-196-parent"},input_data:{child_agent_type:"test-196-invalid-child",note:"bugs_open/196 induction"}}')
+PAYLOAD=$(jq -nc '{action:"orchestrate",config:{agent_type:"test-196-parent"},input_data:{note:"bugs_open/196 induction v2 - parent parks"}}')
 kubectl -n kafka run "kcat196-$(date +%s)-$RANDOM" --rm --restart=Never \
   --image=edenhill/kcat:1.7.1 --attach=true --quiet \
   --command -- sh -c "printf '%s' '$PAYLOAD' | kcat -P \
@@ -68,8 +84,43 @@ kubectl -n kafka run "kcat196-$(date +%s)-$RANDOM" --rm --restart=Never \
   -H action=orchestrate -H from_agent_type=user -H from_agent_id=cli \
   -H responses_topic=system.agent.generic.responses && echo PUBLISH_OK"
 ```
-No `PUBLISH_OK` → nothing was published; re-fire immediately. No dispatch within
-~300s of a chassis pod (re)start — silently dropped. Save CORR/ORCH.
+
+Wait for the parent to park, then read the awaited request id R and the child
+orch id (both from the parent row):
+
+```sql
+SELECT status, jsonb_pretty(awaited_requests) FROM orchestration_states
+WHERE orchestration_id='<ORCH>';
+-- expect status AWAITING_RESPONSES / awaiting; R = the awaited_requests key.
+```
+
+**Dispatch 2 — the failing child, FLAT body, carrying the parent's reply
+headers** (this is what makes handleError's sendErrorResponse answer R):
+
+```bash
+R=<awaited request id>; CORR=<same CORR as dispatch 1>
+CHILD_ORCH=$(cat /proc/sys/kernel/random/uuid)
+PAYLOAD=$(jq -nc '{action:"orchestrate",config:{agent_type:"test-196-invalid-child"},input_data:{note:"answers the parked parent with a validation failure"}}')
+kubectl -n kafka run "kcat196b-$(date +%s)-$RANDOM" --rm --restart=Never \
+  --image=edenhill/kcat:1.7.1 --attach=true --quiet \
+  --command -- sh -c "printf '%s' '$PAYLOAD' | kcat -P \
+  -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+  -t system.agent.generic.requests \
+  -H correlation_id=$CORR -H request_id=$(cat /proc/sys/kernel/random/uuid) \
+  -H message_id=$(cat /proc/sys/kernel/random/uuid) \
+  -H orchestration_id=$CHILD_ORCH -H orchestration_name=ind196-child \
+  -H step_name=start -H client_id=demo_client -H message_type=request \
+  -H action=orchestrate -H from_agent_type=generic -H from_agent_id=cli \
+  -H reply_to_request_id=$R -H reply_to_topic=system.agent.generic.responses \
+  -H responses_topic=system.agent.generic.responses && echo PUBLISH_OK"
+```
+
+If the error response fails to route, the header→ExecutionContext mapping is the
+suspect: decode one real call_agent child envelope from the chassis log (this
+session's trace, NOTES evening entry, shows the exact field names:
+`reply_to_request_id`, `reply_to_topic`) and check the chassis log for
+sendErrorResponse's "no responses topic". TRAP 2 holds: grep the log for CORR
+before re-firing anything.
 
 Read the PARENT (same day — terminal rows reap ~24h):
 ```sql
@@ -77,18 +128,20 @@ SELECT status, current_step, error, jsonb_pretty(collected_data->'call_child')
 FROM orchestration_states WHERE orchestration_id='<ORCH>';
 ```
 
-- **Pre-fix binary (baseline):** parent COMPLETED/advanced; `call_child.response`
-  = `{"error": "...WORKFLOW_INVALID...", "status": "failed"}`; `error` NULL.
-- **Post-fix binary (the acceptance):** parent routes the failure — expected
-  `FAILED` with `error` carrying the child's WORKFLOW_INVALID message via
-  failWorkflow (call_child has no error_step; not a continue_on_error loop).
-- **FALSIFIERS, named before running:** post-fix parent reaches `finish`/COMPLETED
-  with the blob as step data → the fix is wrong, correct the plan in place. Parent
-  stuck in AWAITING_RESPONSES → call_agent's await never fired or the child
-  response was lost — check `awaited_requests` and the chassis log for CORR
-  before touching anything (TRAP 2: grep the log first, latency is not loss).
-- Cleanup either way: `DELETE FROM agent_definitions WHERE type IN
-  ('test-196-invalid-child','test-196-parent');`
+- **Pre-fix binary (baseline):** parent COMPLETED/advances; `call_child` data =
+  the blob `{"error": "...WORKFLOW_INVALID...", "status": "failed"}` under
+  `.response`; `error` NULL. (The bug, live.)
+- **Post-fix binary (the acceptance):** parent FAILED via
+  handleUnrecoverableError → failWorkflow, `error` carrying the child's
+  WORKFLOW_INVALID message; no complete-stamped blob in step data.
+- **FALSIFIERS, named before running:** post-fix parent completes with the blob →
+  fix wrong, correct the plan in place. Parent still AWAITING after dispatch 2 →
+  the crafted headers did not route (see above) — a probe fault, not evidence
+  about the fix.
+- Also run 090/state cleanup either way:
+  `DELETE FROM agent_definitions WHERE type IN ('test-196-invalid-child','test-196-parent');`
+  and cancel the parked parent if it is still awaiting (it times out at 600s on
+  its own).
 
 ### 4. Close
 

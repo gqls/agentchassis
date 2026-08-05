@@ -54,3 +54,18 @@ VALUES
 
 -- CLEANUP (run after both inductions, whatever their outcome):
 -- DELETE FROM agent_definitions WHERE type IN ('test-196-invalid-child','test-196-parent');
+
+-- ============================================================================
+-- V2 CORRECTION (2026-08-05 evening): the single-dispatch design above was
+-- REFUTED — a call_agent child travels in a nested RequestMessage envelope and
+-- extractGroupInfo reads only the top level, so the child runs generic's no-op
+-- and completes legitimately (see NOTES + LANDMINES). Keep both seeds, but
+-- re-point the parent's fabricated spawn blob at a VOID topic so the parent
+-- parks, then answer it with a separately-published FLAT failing message
+-- (dispatch commands in HANDOFF_2026-08-05_continue_here.md §3):
+-- ============================================================================
+-- UPDATE agent_definitions SET default_config = jsonb_set(jsonb_set(default_config,
+--   '{workflow,steps,prepare_child,config,query}',
+--   to_jsonb('SELECT ''probe-fake-agent'' AS agent_id, ''generic'' AS agent_type, ''child'' AS role, ''system.agent.test-196-void.requests'' AS requests_topic, ''system.agent.generic.responses'' AS responses_topic'::text)),
+--   '{workflow,steps,call_child,config,timeout_seconds}', '600')
+-- WHERE type='test-196-parent';

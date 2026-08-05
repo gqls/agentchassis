@@ -20821,3 +20821,29 @@ tested" with the identical output.
 Same family as 016b §9's *a gate's 0 findings has two causes with opposite fixes*, applied
 to my own test tooling rather than to the platform's — and it fired on the very day I was
 building a check whose entire design problem is that it finds nothing.
+
+---
+
+## 2026-08-05 — bugfix 196 lane (second entry)
+
+### I verified the resolver but not the shape of the message that reaches it
+
+**The claim.** My induction probe assumed a `call_agent` child could select its
+workflow via `input_data.agent_type`, because I had read `extractGroupInfo`
+(processor.go:1062) and it checks config → body → data → input_data.
+
+**What was true.** `call_agent` wraps the child request in a nested
+RequestMessage envelope `{headers:{...}, body:{...}}`; `extractGroupInfo` reads
+only the TOP level, so everything I put under `body` was invisible. The child
+silently ran generic's no-op fallback and COMPLETED — the probe "passed" while
+testing nothing. One wasted dispatch.
+
+**The cheap check I skipped.** Decode ONE real child request from the chassis
+log before designing around the reader — the envelope was visible in the first
+message I eventually looked at. (195's probe resolved fine because CLI-published
+bodies are flat — I generalised from the wrong sender.)
+
+**The transferable rule.** *A code-read of the reader is not a contract check —
+read one real MESSAGE too.* A resolver's field list tells you what it would
+accept, not what its callers actually send; when two senders exist (CLI-flat vs
+envelope-wrapped), verify the one your design uses.

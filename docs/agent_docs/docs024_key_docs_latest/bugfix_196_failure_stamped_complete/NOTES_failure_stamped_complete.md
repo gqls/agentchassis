@@ -108,3 +108,47 @@
   jsonb probe misstep above; caught because the probe seeds needed the key.
 - **The chassis build the owner rolled this afternoon PREDATES `d16e6d23c`** — the
   fix is committed but NOT live. Next build picks it up (build-from-HEAD).
+
+## 2026-08-05 (evening) — pod-grep, baseline attempt 1: probe design refuted, corrected recipe written
+
+- **The 20:40Z roll does NOT carry the fix**: pod-grep both replicas
+  `sendWorkflowResponseWithStatus` = 0, positive control `MatchedPermanentFailure`
+  = 2. Running binary is PRE-fix — correct baseline target.
+- Probes seeded; dispatch PUBLISH_OK (corr `769f316f`, parent orch `74a37a25`).
+- **Baseline attempt 1 did NOT induce the failure — the probe was wrong, not the
+  bug file.** Parent COMPLETED at `finish`, but `call_child.response` shows the
+  child ECHOED its input: the child ran generic's no-op fallback, succeeded
+  legitimately, and the complete was honest. Trace (chassis logs, child orch
+  `861879e6`): child request header action=orchestrate ✓, but **the child request
+  is a nested RequestMessage envelope `{headers:{...}, body:{...}}`, and
+  `extractGroupInfo` (processor.go:1062) reads only msgBody top level** — so
+  `config.agent_type` / `input_data.agent_type` under `body` are invisible, no
+  "Looking for agent group" line ever logged, Priority 3 loaded generic's
+  definition, workflow validated, no-op complete. The 195 CLI probe resolved
+  because CLI-published bodies are FLAT.
+- Misstep recorded in WRONG_CALLS: I verified the RESOLVER code but never checked
+  the SHAPE of the message that reaches it from call_agent. One wasted dispatch;
+  caught by reading the child's echoed step data (the shape was the tell, again).
+- Landmine filed (LANDMINES.md + sync): a call_agent child on a GENERIC-consumed
+  topic cannot select a workflow by agent_type — it silently runs the no-op and
+  COMPLETES, which looks exactly like success.
+- **Corrected recipe (two dispatches; runs identically pre- and post-fix)** —
+  full commands in the HANDOFF:
+  1. Re-point the parent seed's fabricated spawn blob at a topic nobody consumes
+     (`system.agent.test-196-void.requests`) and raise call timeout to 600s. The
+     parent parks AWAITING request R; nothing real can answer R.
+  2. Read R from the parent row's `awaited_requests`, then publish a FLAT
+     orchestrate message to `system.agent.generic.requests` with
+     `config.agent_type=test-196-invalid-child` (resolves via FindBestGroup, the
+     proven 195 path → ValidateWorkflow fails → ErrWorkFLOW_INVALID → handleError
+     permanent branch → sendErrorResponse) and kafka headers carrying the
+     parent's `correlation_id`, `reply_to_request_id=R`,
+     `reply_to_topic=system.agent.generic.responses`. The error envelope then
+     answers the REAL awaiting parent.
+  - Pre-fix expectation: parent COMPLETES/advances with the blob as `call_child`
+    step data (the bug, live). Post-fix: parent routes to handleUnrecoverableError
+    → FAILED with the child's WORKFLOW_INVALID message.
+  - Verify header-name mapping (`reply_to_request_id`/`reply_to_topic` →
+    ExecutionContext) against the child envelope decoded in this session's trace
+    if the response fails to route; the guard symptom is sendErrorResponse's
+    "no responses topic" in the chassis log.
