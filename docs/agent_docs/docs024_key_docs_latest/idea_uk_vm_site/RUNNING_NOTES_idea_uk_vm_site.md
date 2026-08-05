@@ -3819,3 +3819,20 @@ tool-page heroes (scoped unlock + section_edit — heroes human-locked);
 report-card image after the hero.jpg-404 family; derive_brand_head_assets
 after logo (favicon/og-card are live 404s, bugs_closed/128); 090 run on the
 empty-kind → SDXL routing hole before anyone files it.
+
+## §X.46 — 2026-08-05: ALL 35 component locks removed (owner: "I haven't intentionally locked anything")
+
+Every lock on idea.uk was an AGENT-SESSION lock wearing the 'permanent'
+(human) type: 27 guide-page rows + 2 tool-page hero/tool rows from the
+ideas-pipeline lane (features_open/014, "hand-authored — do not regenerate"),
+4 index rows from the p3 home-CTA funnel fix, 2 re-locked by THIS session
+this morning. No asset, site_components or site-level locks existed.
+Owner ruled the class away: **UPDATE 35 → 0 locked.** The locked_by
+provenance strings are preserved in this section's transcript enumeration.
+
+**Consequence, stated once:** the locks were the only thing stopping
+site-planner auto-recompute from rewriting that hand-authored copy (11
+lock_blocked_change items in the queue were them working). If churn appears
+on the guides or the home CTAs, the remedy is re-locking the specific row —
+the free/paid CTA pair and tool-list removal now live UNLOCKED. Upside:
+the owed tool-page hero image wiring no longer needs scoped unlocks.
