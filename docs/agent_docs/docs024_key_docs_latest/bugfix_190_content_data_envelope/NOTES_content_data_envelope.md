@@ -207,3 +207,41 @@ because that was the half I expected to be challenged on. **Satisfying the condi
 rehearsed reads as satisfying the rule.** Nothing in the tooling catches it either — the
 `commit-msg` nudge and the `098` report both check the council trailer, which I had. Full entry
 in `WRONG_CALLS.md`, and the one-command check is now in the RUNBOOK.
+
+## 2026-08-05 — post-roll: live, proven, repaired, closed
+
+**v1.0.1252.** Pod-grep both replicas: `sanitizeSectionsContentData`=2,
+`CONTENT_DATA_ENVELOPE`=1, positive control `CONTENT_DATA_REGRESSION`=1. The negative control
+is **weak and I said so on the bug file**: a purely additive change removes no string, so the
+substitute only proves `grep -c` can return 0.
+
+**The guard looked inert at first, and the explanation was timing.** No `agent_error_log` rows,
+count still 2, and a `page_rerender` of the poisoned gaswholesalers page had *completed* at
+01:22 — the exact picture of a live guard that does not work. The pods started **09:10**, so
+every one of those runs was on the old image. Two of them wrote no `page_component_history` row
+at all, i.e. they took the assemble-only rerender branch `093` documents, which never reads
+`content_data` and could not have reached the guard on any image. **Check pod start time before
+concluding a live mechanism is inert.**
+
+**The repair, and the check that nearly went the wrong way.** Two SQL `length()` values made me
+think the decoded and sibling `content` disagreed — which would mean REFUSE, not repair, and I
+began writing "needs hand SQL". Running the real parser said the opposite: provenance
+`repaired`, values **deep-equal at 11,141 bytes**. My comparison was of two different objects,
+in characters against the guard's bytes. Full entry in `WRONG_CALLS.md`; the lesson is that
+when the question is *what will this code do with this input*, run that code on that input.
+
+Then the repair itself, through ordinary machinery: backup table, one `page_rerender` work item
+with `reason='section_data_resolved'` (one of the three values that select the sections branch),
+no hand SQL. ~2 minutes later — item `complete`, envelope rows **2 → 1**, one
+`CONTENT_DATA_ENVELOPE` record (`warning`/`decoded`, slot `article-body`), keys
+`{content,result,type}` → `{content}`, live page 200 with the article intact. **The framework
+repaired its own page**, which was the outcome worth holding out for.
+
+Two more missteps in the same hour, both logged: a multi-statement `psql -c` is one
+transaction, so my malformed verification query rolled back the backup table I had just
+created; and my first page fetch used a URL guessed from the page *name* rather than
+`pages.url`, returning a B2 404 error blob against which all three greps read clean —
+including the one I wanted at 0.
+
+**Closed at a count of 1, which is the predicted terminal state.** The remaining row is
+human-owned and can no longer propagate. `bugs_open/199` carries the render-side residue.

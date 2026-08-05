@@ -100,3 +100,42 @@ actually detect a broken guard. All four failed the right test and passed again 
 code back. That mattered here more than usual, because this guard's normal behaviour is *to do
 nothing at all* — and a guard that is completely broken also does nothing at all. A green test
 run proves very little unless you have watched it go red.
+
+## 2026-08-05 — it is live, and the machine repaired its own page
+
+The new chassis went out overnight and the guard is in it — checked in both running copies of
+the service rather than trusting the version number.
+
+The first look was alarming and turned out to be nothing. The guard had recorded no activity at
+all, the count of bad pages was unchanged, and a rebuild of one of the two bad pages had
+*completed* a few hours earlier. That is exactly what a broken guard looks like. It was timing:
+the new copies of the service only started this morning, so everything I was looking at had run
+on the old one. Worth remembering — "it is live and it did nothing" is usually a question about
+*when*, not about the code.
+
+Then the repair, which is the part I am pleased about. The finetuning page's envelope contained
+a perfectly good article, so rather than editing the database by hand I backed the row up and
+asked the platform to rebuild the page in the ordinary way. Two minutes later the page's stored
+source had gone from the sealed-envelope shape to proper labelled fields, the guard had logged
+what it did and why, and the live page still serves correctly. **No hand surgery — the
+framework repaired its own page**, which is the whole point of fixing things at the seam rather
+than patching rows.
+
+One honest wobble on the way: I nearly talked myself out of that repair. Two database
+measurements suggested the article inside the envelope did not match the one beside it, which
+would have meant the guard refusing rather than repairing, and I had started writing that the
+row needed manual surgery after all. Running the actual code on the actual data took three
+minutes and said the opposite — they matched exactly. The measurements had compared two
+different things in two different units. It is in the wrong-calls log, because the tempting
+move was to trust a quick database query over the code that actually makes the decision.
+
+**Where that leaves us: the bug is closed.** One page still holds the bad data — the
+gaswholesalers pricing page — and that is deliberate and expected, not unfinished work. Its
+content genuinely cannot be recovered by machine, it has had a human-review ticket since April,
+and the guard now stops it spreading. I have written down in the ticket that a count of one is
+the *finished* state, so nobody later reads it as a fix that half-worked.
+
+The one loose thread is a separate, narrower question — whether the same envelope can reach the
+page *rendering* path, which my fix does not cover — and that is filed as its own ticket with
+the measurement that decides it. The review council specifically asked for it to be a tracked
+ticket rather than a paragraph in my reasoning, and they were right.

@@ -20321,3 +20321,57 @@ reaches `save_sections` if the site has queued build work (`check_has_items` →
 `build_items_loop` / `load_fix_items`). A run against an idle domain completes green having
 never executed the code under test — a **vacuous pass**, and one I would have reported as a
 live proof.
+
+## 2026-08-05 — I compared two postgres `length()` values that measured different objects, in the wrong unit, and nearly called a repairable row unrepairable
+
+Preparing to repair `bugs_closed/190`'s finetuning row, I checked whether the guard would
+decode it or refuse it. The guard refuses when a decoded key and its sibling key disagree, so
+the question was whether the two `content` values matched. I read:
+
+```
+length(content_data->>'result')  = 11118
+length(content_data->>'content') = 11099
+```
+
+— concluded they differed, and started writing that the row was **not** auto-repairable after
+all and would need hand SQL. Two errors stacked:
+
+1. **Those are different objects.** `result` is the entire raw JSON *string* (`{"content": …}`
+   with its braces, key name and escapes); `content` is the decoded field. Comparing their
+   lengths answers no question anyone asked. The comparison the guard actually makes is
+   *decoded* `content` against *sibling* `content`.
+2. **Wrong unit, and it hid the truth.** Postgres `length()` counts **characters**; the guard's
+   `reflect.DeepEqual` compares **bytes**. The article is full of multi-byte punctuation, so
+   even the right pair of values would not have matched numerically. This is the same
+   character-vs-byte trap already in MEMORY for sizing the index file (`awk length()` vs bash
+   `${#var}`) — I had read that rule and did not carry it across to SQL.
+
+**Running the actual code settled it in one go**, and the answer was the opposite of my
+inference: provenance `repaired`, and sibling vs decoded `content` **deep-equal at 11,141
+bytes**. A scratch Go module with a `replace` into the tree, calling the real exported parser,
+took about three minutes — the technique the bug's own filer had used and written down, which
+I could have reached for first.
+
+**The cheap check: when your question is "what will this code do with this input", run THAT
+code on THAT input.** Two `length()` calls are a proxy for the comparison, and a proxy chosen
+by the person who wants an answer is the one most likely to be shaped like the answer they
+expect. I was about to write "needs hand SQL" into a bug file on the strength of it.
+
+## 2026-08-05 — two smaller ones from the same hour, both of which returned a confident wrong answer
+
+**A multi-statement `psql -c` is ONE transaction, so a later error rolls back your earlier
+DDL.** I created the pre-repair backup table and verified it in a single `-c` string. The
+verification had a `GROUP BY` mistake, psql reported *that* error — and the `CREATE TABLE`
+silently went with it. `SELECT 1` had already printed, so it read as "backup made, verification
+query needs fixing". The next query said the table did not exist. **Run a backup as its own
+invocation and verify it in a second one**, or you will discover the backup never happened at
+the moment you need it.
+
+**A guessed URL returns a B2 error blob, and every grep against it reads clean.** Verifying the
+repaired page I curled `finetuning.uk/<page-name>.html`, invented from the page's *name*. The
+real `pages.url` is `/guides/<page-name>.html`. What came back was a 311-byte JSON error blob
+at **HTTP 404**, and my three greps returned `0, 0, 0` — including "envelope leaked onto page,
+expect 0", which I would have recorded as a pass. The `LANDMINES` entry on this exact trap
+(written by another lane the day before) is the only reason I checked the artefact's KIND
+before reading any count. **Take the URL from `pages.url`; assert the artefact is HTML before
+grepping it.**

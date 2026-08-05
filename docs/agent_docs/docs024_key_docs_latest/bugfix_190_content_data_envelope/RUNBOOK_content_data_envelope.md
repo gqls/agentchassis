@@ -174,3 +174,69 @@ git status --short docs/agent_docs/docs026_concept_register/register/
 
 Non-empty, and in the same pathspec as the code, or you are shipping folklore. I missed this
 on 2026-08-04 by exactly one commit.
+
+## 9. Post-roll verification (run in this order — the first two answer different questions)
+
+```bash
+for POD in $(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[*].metadata.name}'); do
+  kubectl -n ai-persona-system exec "$POD" -- sh -c '
+    strings /app/agent-chassis | grep -c "sanitizeSectionsContentData"   # NEW, expect >=1
+    strings /app/agent-chassis | grep -c "CONTENT_DATA_ENVELOPE"         # NEW, expect >=1
+    strings /app/agent-chassis | grep -c "CONTENT_DATA_REGRESSION"'      # POSITIVE control, expect >=1
+done
+kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.startTime}{"\n"}{end}'
+```
+
+**Gotcha 1 — the negative control here is WEAK and you must say so.** This change is purely
+additive, so there is no string it REMOVED to grep for at 0. A nonsense string proves only that
+`grep -c` can return 0; the positive control is what proves the pipeline and your spelling.
+
+**Gotcha 2 — GET THE POD START TIME IN THE SAME BREATH.** After the roll the guard had 0 log
+rows and the count was unchanged, while a rerender of a poisoned page had *completed* hours
+earlier — indistinguishable from a live-but-broken guard. The pods had started at 09:10; all of
+it ran on the old image. Also: two of those rerenders wrote **no `page_component_history` row**,
+i.e. the assemble-only branch (`bugs_open/093`), which never reads `content_data` and cannot
+reach the guard on any image.
+
+## 10. Repairing a poisoned row THROUGH THE FRAMEWORK (no hand SQL)
+
+```sql
+-- 1. back up, as its OWN psql invocation (see gotcha)
+CREATE TABLE bak_pc_190_<id>_<date> AS SELECT * FROM page_components WHERE id='<pc_id>';
+-- 2. verify, as a SECOND invocation
+SELECT count(*) FROM bak_pc_190_<id>_<date>;
+```
+
+**Gotcha — a multi-statement `psql -c` is ONE transaction.** Putting the CREATE and its
+verification in one string means a mistake in the verification **rolls back the backup**, and
+`SELECT 1` has already printed so it looks like it worked.
+
+**Before firing anything, ask the real parser what the guard will do** — decode or refuse:
+
+```bash
+# scratch module with `replace github.com/gqls/agentchassis => /home/ant/projects/agentchassis`
+# call actions.ParseLLMJSONWithProvenance(payload["result"]) and compare the decoded key
+# against its sibling with reflect.DeepEqual — that is exactly the guard's own rule.
+```
+
+**Gotcha — do NOT infer this from `length()` in SQL.** `length(content_data->>'result')` is the
+raw JSON string, not the decoded field, and postgres counts **characters** while the guard
+compares **bytes**. Both errors point the same way and nearly cost a needless hand-repair.
+
+Then file one ordinary work item — `reason` must be one of the three values that select the
+sections branch, or the rerender assembles from stored HTML and never reaches the guard:
+
+```sql
+INSERT INTO site_work_items (site_id, source, item_type, severity, summary, handler_agent,
+                             status, created_by, pipeline, spec, item_key)
+VALUES ('<site_id>','<lane>','page_rerender','medium','<summary>','page-rerender',
+        'triaged','<lane>','build',
+        '{"domain":"…","reason":"section_data_resolved","page_id":"…","page_name":"…"}'::jsonb,
+        '<unique-key>');
+```
+
+`status='triaged'`, never `'detected'` (that queue has no consumer — `bugs_open/083`).
+
+**Verify the live page afterwards — and take the URL from `pages.url`.** A guessed URL returns
+a B2 error blob against which every grep reads clean, including the ones you want at 0. Assert
+the artefact is HTML (`head -c 15 | grep -i doctype`) before believing any count.
