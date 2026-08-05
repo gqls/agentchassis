@@ -20,6 +20,16 @@ A and B share plumbing (Ollama, GPU scheduling, training data export, Unsloth)
 but have very different surfaces, failure modes, and economics. Keep them
 distinct in our heads.
 
+> **UPDATED 2026-08-05 — concern B is now RULED, not open.** Owner decision
+> (recorded in full at the top of `../../BUSINESS_PLAN_finetuning_uk.md`):
+> **fine-tuning first, RAG second.** The offer is not self-serve fine-tuning
+> through a UI as row B sketches it — it is a **bounded diagnostic pilot**:
+> small subsets of the customer's data, a choice of small models, modest cost,
+> producing evidence-based answers to "is this enough data / do we need a bigger
+> model / what's missing / what should the full solution be". Row B's "Not
+> started" remains true of the build; its "questions to answer before scoping"
+> are now partly answered by that ruling, with pricing explicitly deferred.
+
 ---
 
 ## 2. The internal flywheel — what exists

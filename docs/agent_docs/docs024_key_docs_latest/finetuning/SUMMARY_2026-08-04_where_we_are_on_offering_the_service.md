@@ -12,6 +12,15 @@ two of which turn out to disagree with the question as asked.
 The website is close. The product is not started, and the older planning in this
 folder says it deliberately should not be fine-tuning.
 
+> **UPDATED 2026-08-05 — the "one thing to decide" below has been DECIDED.**
+> Owner: **fine-tuning first, RAG second; both get built.** The offer is a
+> bounded diagnostic pilot — small data subsets, a choice of small models, modest
+> cost, answering "enough data? bigger model? what's missing?" as the scoping
+> instrument for a full corporate solution. Recorded at the top of
+> `BUSINESS_PLAN_finetuning_uk.md` with corrections marked in place; pricing
+> deferred; service setup proceeds first. The section below stands as the state
+> of the question when this summary was written.
+
 Three things are true at once and they need separating before any of it is built:
 
 1. **The delivery machinery for a dynamic site now exists and is proven in

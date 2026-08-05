@@ -3,7 +3,68 @@
 Pragmatic, solo-operator scale. Not a corporate deck — a decision doc.
 Updated alongside the FOCUS doc as we learn.
 
-Last touched: 2026-04-21
+Last touched: 2026-08-05 (owner decision below; body last fully reworked 2026-04-21)
+
+---
+
+## OWNER DECISION 2026-08-05 — fine-tuning first, RAG second
+
+**This reverses the April ordering, deliberately.** The April plan made RAG the
+flagship and deferred fine-tuning to "later tiers" (§1), arguing that customers
+who say "make AI know our stuff" are better served by RAG (§2). That reasoning is
+retained below, unedited, as the record of what we believed and why. The owner's
+ruling, 2026-08-05: **fine-tuning IS the offer. Both get built; fine-tuning
+first.**
+
+### The offer, as ruled
+
+Not self-serve fine-tuning as a commodity, and not a promise that a fine-tune
+solves the customer's problem. **A cheap, structured pilot:**
+
+> Fine-tune small subsets of the customer's data on a **choice of small models**,
+> for a modest, bounded outlay — as the diagnostic that scopes a full corporate
+> solution. The pilot exists to answer, with evidence from their own data:
+> - **Is this enough data?** (and if not, what kind is missing)
+> - **Do we actually need a bigger model** — or does a small one hold?
+> - **What is missing / what would make X better** — gap analysis grounded in
+>   observed behaviour, not in a sales conversation
+> - therefore: **what the full solution should be** — which may be a larger
+>   fine-tune, RAG, both, or neither
+
+### Why this answers April's own objection rather than ignoring it
+
+April's §2 argument was that customers don't know what fine-tuning means and
+mostly don't need it. The pilot shape **agrees with the premise and inverts the
+conclusion**: precisely *because* the customer cannot know in advance what they
+need, sell them the inexpensive experiment that finds out — rather than asserting
+RAG is the answer before anyone has seen their data behave. "Fine-tuning only
+makes sense when tone, format, or offline deployment matters" remains true as far
+as it goes; the pilot is how a specific customer discovers whether it matters
+*for them*. The diagnostic conclusion "what you actually need is RAG" is a
+**valid, honest pilot outcome** — which is also how the two products connect:
+RAG stays on the roadmap as the second offer, and the pilot funnels into
+whichever fits.
+
+### What this makes stale in the body below
+
+Marked here once rather than edited silently throughout:
+
+- **§3 Product** — flagship description is RAG's. The fine-tuning pilot needs its
+  own product section: deliverables (eval report + trained adapter + a
+  recommendation), model menu, data-volume bounds, turnaround.
+- **§5 Pricing, §6 Unit economics, §7 Projections** — all built on RAG
+  subscription tiers. Pilot pricing is **not yet decided** (owner: "we'll have to
+  talk about that but we can set up the service first"). Do not quote figures
+  from those sections for the pilot offer.
+- **§2 "Why RAG specifically"** — superseded as the *ordering* argument; retained
+  as the honest technical comparison it still is.
+
+**Sequencing, per the owner: service setup proceeds ahead of the pricing
+conversation.** The current-state ground truth for what "setting up the service"
+requires is `SUMMARY_2026-08-04_where_we_are_on_offering_the_service.md` (token
+verification, the seven-weeks-idle GPU lane and its checkpoint-race bug, the
+hand-written backend boundary, and the recommendation to follow the webdesign.uk
+VM lane rather than open a parallel one).
 
 ---
 
@@ -35,6 +96,10 @@ gigs (capped at 50% of time) pad early cash flow.
 AI assistants, text LoRA, image LoRA, multi-agent workflows are later
 tiers added as product matures and customer demand surfaces.
 
+> **CORRECTED 2026-08-05 (owner decision, top of file):** ordering reversed —
+> **fine-tuning pilots are the product; RAG is the second offer.** The paragraph
+> above is retained as the April position, not the current one.
+
 ---
 
 ## 2. Problem and opportunity
@@ -63,6 +128,12 @@ RAG is the tool that fits this problem:
 
 Fine-tuning only makes sense when tone, format, or offline deployment
 matters. For "make AI know our stuff", RAG is the honest answer.
+
+> **CORRECTED 2026-08-05 (owner decision, top of file):** superseded as the
+> *ordering* argument. The technical comparison stands; the conclusion drawn from
+> it — lead with RAG — does not. The pilot offer takes this section's own premise
+> (customers can't know in advance whether fine-tuning fits) and sells the cheap
+> experiment that answers it, with "you need RAG" as one honest outcome.
 
 ### Why now
 
