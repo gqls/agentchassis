@@ -97,6 +97,35 @@ spec:
                   name: personae-storage-secrets
                   key: B2_APPLICATION_KEY
 
+            # === Storage BUCKET/ENDPOINT — needed for params.StorageClient ===
+            # The credentials above are NOT sufficient. agentbase.go:308-330 builds
+            # the StorageClient only `if storageConfig.Bucket != ""`, reading the
+            # bucket from IMAGE_BUCKET and the endpoint from S3_ENDPOINT. Without
+            # these two, a.storageClient stays nil, the coordinator passes nil to
+            # every action, and any action requiring params.StorageClient fails at
+            # runtime with "no storage client — cannot download screenshots".
+            #
+            # Measured 2026-08-05: that is exactly what happened on the first live
+            # call of `execute_vision_prompt` (TL-035 (e), seed 317) — the action is
+            # the ONLY chassis action that takes params.StorageClient rather than
+            # building its own client (contrast storage_actions.go:95/:612, which
+            # read bucket from agent/step config), so nothing had ever exercised
+            # this path and the gap was invisible.
+            #
+            # Values HARDCODED deliberately, matching the business-intel precedent
+            # (its overlay carries the same comment). A configMapKeyRef to
+            # storage-config would be a single source of truth but makes pod START
+            # depend on a key name: a typo is CreateContainerConfigError and the
+            # whole chassis stops. Not a trade worth making for two stable strings.
+            # Bucket confirmed against the live render URIs, which are
+            # s3://personae-prod-uk001-images/acceptance-evidence/...
+            - name: IMAGE_BUCKET
+              value: "personae-prod-uk001-images"
+            - name: S3_ENDPOINT
+              value: "https://s3.us-east-005.backblazeb2.com"
+            - name: S3_REGION
+              value: "us-east-005"
+
             # default request and responses topics
             - name: RESPONSES_TOPIC
               value: "system.agent.generic.responses"
