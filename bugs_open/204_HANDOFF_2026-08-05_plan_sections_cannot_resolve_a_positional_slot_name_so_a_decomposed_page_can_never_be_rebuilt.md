@@ -68,6 +68,30 @@ error:  page-build-handler no-op: no sections ready to build (empty spec section
 `bugs_open/194`'s framework half shipped for). The defect is that it can never
 succeed, not that it lies.
 
+## Relationship to `bugs_closed/041` — same family, different cause, and 041's fix does NOT cover this
+
+**Check this first, because 041 looks like this bug and is closed.** Its title is
+*"section lookup never normalises… and the platform asks to rebuild a component it
+already has"*, which is the same sentence you would write for 204.
+
+They are not the same:
+
+| | `bugs_closed/041` | **204** |
+|---|---|---|
+| cause | lookup used the RAW string, so `call_to_action` missed the existing `call-to-action` | lookup is keyed by name/function AT ALL, so a positional slot name can never match |
+| fix | normalise before lookup (`NormalizeComponentFunction`), live v1.0.1146 | resolve by `page_components.component_id` first |
+| does 041's fix help? | — | **No.** `prose-0` normalised is still `prose-0`, and no component bears that name or function under any spelling |
+
+So 041 closed the *spelling* half of this lookup's blindness and 204 is the
+*identity* half. Worth stating because the family now has four members (039, 041,
+095, 204) and the next one will look like all of them.
+
+⚠ **Consequently the second-order damage below is NOT a new finding** — 041 records
+the same "asks to rebuild a component it already has" behaviour, and its closure
+verified *"0 new `needs_new_component` since"*. What is new is only that a
+positional-slot site reproduces it at scale (114 items for one site) through a cause
+041's fix cannot reach.
+
 ## ⚠ The second-order damage: it asks the fleet to build junk
 
 The selector reads the unresolvable name as an unknown **component type** and files

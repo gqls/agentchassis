@@ -20683,3 +20683,41 @@ Both would have shipped as confident structural claims; neither survived one fil
 
 The tally line: three of the four entries above are the same underlying error — reasoning about
 a mechanism from its name, its neighbours, or a column I assumed existed, instead of opening it.
+
+## 2026-08-05 — I greped before filing, saw the near-duplicate in the results, and read the filename instead of the file
+
+Filing `bugs_open/204` (`plan_sections` cannot resolve a positional slot name) I followed
+the rule and greped `/bugs_open/` and `/bugs_closed/` for the mechanism first. The grep
+**worked** — it returned `bugs_closed/041_..._section_lookup_never_normalises_so_snake_case_sections_vanish.md`
+in the very first hit list. I scanned the filenames, judged "not already filed", and wrote
+the bug.
+
+041 is the same function, the same family, and its title is *"section lookup never
+normalises… and the platform asks to rebuild a component it already has"* — which is
+almost word for word the second-order damage I then wrote up in 204 as though it were a
+discovery. Had 041 been a true duplicate I would have filed a duplicate **after running
+the check designed to prevent exactly that**.
+
+It is not a duplicate, and I only established that by going back later: 041's cause is the
+raw string (`call_to_action` missing `call-to-action`) and its fix is normalisation;
+204's is that the lookup is keyed by name/function at all, which no amount of
+normalisation reaches. Different cause, different fix, and 041's shipped fix does not
+touch 204. But **that distinction is the output of reading the file, and I had already
+filed without it.** The corrected 204 now carries a comparison table and an explicit
+"this part is NOT new" note.
+
+**The failure is not the grep, it is what I accepted as its answer.** A filename match on
+the mechanism is a hit, not a miss. I treated "does a filename look like my bug?" as the
+question when the question is "does an existing file already explain my symptom?" — and
+those differ precisely when the family is large, which is when duplicate filings actually
+happen.
+
+**The cheap check:** when a grep-before-file returns anything in the same subsystem,
+**open it and write one line on why yours is different** — into the new bug, not just
+into your head. If you cannot write that line, you have a duplicate or a re-open, not a
+new bug. Costs a minute; the sentence is worth having in the file anyway, because the
+next reader will ask the same question.
+
+Prior form, same day, same shape: earlier I read a `LIKE '%…%'` probe returning false as
+"the other session's seed failed" when my pattern was simply too specific. Both are the
+same error one level up — **trusting the shape of a result instead of its content.**
