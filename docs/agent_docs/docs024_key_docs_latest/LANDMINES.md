@@ -5680,3 +5680,47 @@ a STRING array — check the shape before trusting the prune.
   on `tool-acceptance-agent`; run `25fee04c-6cc8-40b4-92af-da81fa3f8b16`, which reached
   `complete_no_look` with the message above in `__step_error`
 - **added:** 2026-08-05, brochure component library lane
+
+### `git_commit`'s `commit_message` template resolves ONLY `{domain, file_count, filename}` — any other key renders `<no value>`, and the commit succeeds anyway
+- **footprint:** `platform/orchestration/actions/git_deployer_actions.go` (`buildCommitMessage`, `resolveCommitMessage`), any `agent_definitions` workflow step with `action: git_commit` and a `commit_message` template
+- **fires when:** you author a workflow step whose `commit_message` names step data — `{{.input_data.spec.category}}`, `{{.css_fix.result.changes_summary}}` — because the *same syntax resolves correctly* in an `execute_llm_prompt` step's `prompt_template` two lines up. The two templates look identical and are executed against different worlds: the prompt gets CollectedData, the commit message gets a fixed three-key map (`git_deployer_actions.go` `buildCommitMessage`).
+- **the tell:** none at config time and none at run time — the commit lands, the step and item read `complete`. The damage surfaces at forensics time, when the audit trail of what each commit was reads `CSS fix: <no value> — <no value>` (all four of `bugs_open/198`'s incident commits; the register's DGH-002 records the same class on the rerender template).
+- **the check:** before shipping a `git_commit` step, grep your template for anything beyond `{{.domain}}`, `{{.file_count}}`, `{{.filename}}` — anything else needs the message composed UPSTREAM (a `query_database` step's RETURNING is the proven spot, params resolve there) and `commit_message_field` pointed at it (DGH-007, shipped with migration 318). That field needs a binary carrying `resolveCommitMessage` — inert until the roll that ships it; the template stays as the fallback either way. Do NOT "fix" this by handing CollectedData to the template: that silently changes what every existing fleet template renders.
+- **source:** `bugs_open/198` secondary defect; fix = migration 318 + DGH-007
+- **added:** 2026-08-05, bugfix-198 session (dispatched at the bug by the owner)
+
+---
+
+## `-l app=agent-chassis` returns 2 pods; **41** run that binary — and a post-roll "both replicas verified" can be true and still not mean live
+- **footprint:** `kubectl get pods -l app=agent-chassis`, `kubectl logs deploy/agent-chassis`,
+  any post-roll pod-grep, `strings /app/agent-chassis`, `make release redeploy-agents`,
+  `docker.io/aqls/agent-chassis`
+- **fires when:** you verify a chassis fix after a roll. You grep the two `agent-chassis`
+  replicas, both carry your symbol, and you write "LIVE, both replicas pod-verified". That
+  sentence is true and it is **not** the claim you need.
+- **why the wrong answer looks right:** the chassis binary runs under many names. Measured
+  2026-08-05, minutes after a fresh release: **7 pods on the new `v1.0.1254`, 34 still on
+  `v1.0.1252`** — `agent-feed-ingester` ×22, `agent-feed-triage` ×5,
+  `agent-content-feed-orchestrator` ×5, `agent-model-directory-publisher`,
+  `agent-vet-practice-verifier`. Nothing about the label-scoped check reveals them, and both
+  available conclusions are wrong by default: "the release fragmented the fleet" (it did not)
+  and "they don't matter" (they might).
+- **the check:** enumerate by IMAGE, not by label, then ask the only question that decides it —
+  can the stale pods reach your code?
+  ```bash
+  kubectl -n ai-persona-system get pods -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.metadata.ownerReferences[0].kind}{"\t"}{.spec.containers[0].image}{"\n"}{end}' | grep agent-chassis
+  ```
+  `ownerReferences.kind` is the discriminator: **`Job`** = a per-work-item pod pinned to the tag
+  current when it spawned, correctly not restarted by `redeploy-agents`, ages out on its own.
+  **`Deployment`** on an old tag after a release is a real problem. Then, for the Job ones, prove
+  reachability rather than assuming it — **with a positive control, or the query cannot fail**:
+  ```sql
+  SELECT type, (default_config::text LIKE '%<your action>%') AS can_reach
+  FROM agent_definitions
+  WHERE type IN (<the stale pods' agent types>, '<the type you KNOW uses it>')
+    AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+  ```
+  The claim you want is **"live everywhere it can be reached"**, which needs both halves. A Go
+  action reachable only through a registry entry (no Go call site) makes the second half exact:
+  the action name is the whole attack surface.
+- **source:** 2026-08-05, `bugs_closed/199` lane, verifying PBP-032's render seam on v1.0.1254

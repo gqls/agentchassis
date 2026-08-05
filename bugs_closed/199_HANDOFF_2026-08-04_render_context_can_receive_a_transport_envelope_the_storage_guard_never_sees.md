@@ -149,9 +149,8 @@ through the change.
 
 ## What was shipped, 2026-08-05 — fix candidate 1, upgraded
 
-**Status: FIXED IN CODE, INERT UNTIL THE NEXT CHASSIS ROLL, so this file stays OPEN.**
-Go changes do nothing until an image is rebuilt and rolled; the bar for `bugs_closed/` is
-fixed **and** live.
+**Status: ✅ FIXED AND LIVE on `v1.0.1254`, 2026-08-05 20:41 UTC — CLOSED.**
+(Was "inert until the roll"; the roll happened the same evening. Evidence below.)
 
 Candidate 1 was taken and **strengthened**, because as written it does not actually refuse.
 For a schema-less component, "return no content found" means the template renders with
@@ -219,20 +218,80 @@ This closes the *envelope* class only. A schema-less component whose step output
 **other** kind of garbage still renders unchecked. Making the render gate speak for
 schema-less components at all is a much larger decision and stays on its own merits.
 
-### How to verify after the roll
+### Post-roll verification — DONE 2026-08-05 20:47 UTC, `v1.0.1254`
 
-1. Pod-grep **both** replicas for a string the change ADDED and one it did not:
-   `kubectl exec -n ai-persona-system <pod> -- sh -c 'strings /app/agent-chassis | grep -c "normalizeRenderContentEnvelope"'`
-   — and check the pod's start time in the same breath, because a guard that looks inert is
-   indistinguishable from one running on the old image.
-2. `SELECT action, context->>'outcome', count(*) FROM agent_error_log
-    WHERE error_code='CONTENT_DATA_ENVELOPE' GROUP BY 1,2;` — **expect zero
-   `render_component` rows** (trigger rate is zero); a `refused` row means the door was open
-   and something walked through it, a `decoded` row means a section that would have rendered
-   blank rendered real content.
-3. The two assertions this file demanded are unit tests, run and mutation-checked:
-   `TestRenderRefusesEnvelopeForSchemalessComponent` and
-   `TestRenderNonEnvelopeContentByteIdentical` in `render_content_envelope_guard_test.go`.
+**1. The guard is in the running binary, on both replicas, with controls.**
+`agent-chassis-d69d4467c-dvn8k` and `-fc8pq`, both `v1.0.1254`, both started 20:41 UTC — nine
+hours after the commit (11:50 BST), so the image cannot predate the fix:
+
+| grep | dvn8k | fc8pq | |
+|---|---|---|---|
+| `normalizeRenderContentEnvelope` | 2 | 2 | ADDED by this fix |
+| `renderEnvelopeIdentity` | 2 | 2 | ADDED |
+| `writeRenderEnvelopeLog` | 2 | 2 | ADDED |
+| `transport envelope rather than content` | 1 | 1 | the refusal text |
+| `sanitizeSectionsContentData` | 2 | 2 | **positive control** (190, must be ≥1) |
+| `TestRenderGuardCatchesSupersetEnvelope` | 0 | 0 | **negative control** — a test symbol must not be in the binary |
+| `zzNotARealSymbolzz` | 0 | 0 | negative control |
+
+⚠ **The negative control is weak by necessity and that is stated, not glossed:** this change is
+purely additive, so no string was REMOVED to grep for at 0. The test-symbol control is the
+strongest available substitute — it proves the grep discriminates on binary content rather than
+merely returning 0.
+
+**2. ⚠ `-l app=agent-chassis` is NOT every pod running this binary — 34 of 41 were on the OLD
+tag, and checking that is what makes "live" true rather than assumed.** At verification time
+7 pods ran `v1.0.1254` and **34 still ran `v1.0.1252`**, which has no guard. They are all
+`Job`-owned per-work-item pods (owner kind `Job`, not `Deployment`), pinned to the tag current
+when they were spawned, so `redeploy-agents` correctly did not restart them and they age out.
+
+The question that actually matters is whether any of them can reach the guarded action. They
+cannot, and the query has a positive control so it could have said otherwise:
+
+```
+content-feed-orchestrator  f      page-content-writer  t   <- positive control
+feed-ingester              f
+feed-triage                f
+model-directory-publisher  f
+vet-practice-verifier      f
+```
+
+`render_component` is reachable **only** by that action name — `RenderComponentAction` has no Go
+call site at all, just `registry.go:940` — and `page-content-writer` is its only live consumer.
+It runs on the generic `agent-chassis` deployment, both of whose replicas carry the guard. **So
+the guard is live everywhere it can be reached.**
+
+**3. The guard has not fired, which is the expected reading.** `SELECT action,
+context->>'outcome', count(*) FROM agent_error_log WHERE error_code='CONTENT_DATA_ENVELOPE'
+GROUP BY 1,2;` returns exactly one row — `save_page_sections / decoded / 1`, which is `190`'s
+morning decode, not this seam. Zero `render_component` rows, and zero `agent_error_log` rows
+mentioning `bugs_open/199` since the roll. **Trigger rate was measured at zero before the fix,
+so this is confirmation, not evidence of a working guard.**
+
+**4. NOT PROVEN, and recorded rather than papered over: the production NO-OP path is
+unexercised.** No `page-content-writer` run has occurred since the roll — the estate is idle for
+that handler (nothing since 15:00, and `site_work_items` holds no pending work for it), so the
+dominant path (legitimate content passing through byte-identical) has not yet run in
+production. It is covered by mutation-verified action-level tests that drive
+`RenderComponentAction` itself, but that is a test, not a live page. **The check for the next
+reader, once any page is built:**
+
+```sql
+SELECT status, count(*) FROM orchestration_states
+WHERE owner_agent_type='page-content-writer' AND updated_at > '2026-08-05 20:41:00+00'
+GROUP BY status;
+-- a normal spread of COMPLETED is the no-op path working; a wall of FAILED
+-- coinciding with the roll would mean this guard broke the dominant path.
+```
+
+Closing on the stated bar (fixed **and** live) rather than holding the file open indefinitely
+on an idle estate — but the gap is real and is named here so nobody later reads this file as
+"proven end to end in production".
+
+**5. The two assertions this file demanded** are unit tests, run and mutation-checked:
+`TestRenderRefusesEnvelopeForSchemalessComponent` and
+`TestRenderNonEnvelopeContentByteIdentical`, plus
+`TestRenderGuardCatchesSupersetEnvelope` added after the council's `editquality` objection.
 
 ## Related
 

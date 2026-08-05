@@ -68,3 +68,39 @@ rather than a piece of work.
 One thing I should flag: another session had stopped an hour before I started, with a note
 saying its next job was this exact bug. It had stopped, and you pointed me here, so I took it —
 but if that session wakes up and resumes, two of us are on one ticket. Worth knowing.
+
+---
+
+**2026-08-05, evening. Done — it's live, and the ticket is closed.**
+
+A new chassis build went out at 21:41 and the guard is in it. I checked both of the main pods
+directly: the new code is there, an older marker I used as a positive control is there, and two
+things that should be absent are absent. The pods started nine hours after the change was
+committed, so there's no chance the image predates the fix.
+
+One thing came up that's worth knowing, because it nearly changed the answer. The obvious way to
+ask "which pods run the chassis?" gives you two. In fact forty-one pods in that namespace run the
+same binary, and **thirty-four of them were still on the previous build**. My first reaction was
+that the release had only half landed. It hadn't. Those thirty-four are short-lived
+task-specific pods that get created with whatever build was current at the time and then
+disappear when their job finishes — so they were correctly left alone. The thing that actually
+mattered was whether any of them could reach the code I'd changed, and none of them can: the five
+kinds of work they do don't use the component-rendering step at all. I checked that with a query
+that would have told me if I were wrong.
+
+So the honest statement isn't "it's on both pods" — it's "it's live everywhere it can be
+reached", which is a better statement and one I couldn't have made without looking past the
+obvious command.
+
+**One gap, and I've written it into the ticket rather than glossed it.** Nothing has built a page
+in the few minutes since the deploy, and there's no page-building work queued, so the ordinary
+case — good content passing straight through untouched — hasn't yet happened on a real site. It's
+covered by tests that drive the real code path and that I've verified actually fail when
+sabotaged, but a test isn't a live page. I could have forced the issue by triggering a page
+rebuild, but that rewrites real content on a live site, and that's not a thing to do unasked to
+prove a point about a path this well tested. The check is written down for whoever builds the
+next page.
+
+The ticket has moved to closed. The one thing still on your desk is the council's open question
+from earlier: whether a bad section should fail the whole page build or just that section. That's
+a config change, no deploy needed, and it's a judgement about what you'd rather have break.

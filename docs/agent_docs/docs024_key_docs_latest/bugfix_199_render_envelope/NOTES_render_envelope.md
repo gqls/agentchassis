@@ -208,3 +208,61 @@ symptom of a `max_tokens`-truncated reply whose JSON never closed. The refuse br
 default there, but this seam **cannot** tell "the model replied in prose" from "the model was
 cut off" — that distinction lives at the `GenerateText`/`stop_reason` layer. Named as a
 residual, not a gap here.
+
+## Post-roll, 2026-08-05 20:47 UTC — LIVE on v1.0.1254, and the verification found something
+
+Pod-grep on both `agent-chassis` replicas: all three added symbols present (2 each), refusal
+text present, positive control `sanitizeSectionsContentData`=2, negative controls 0. Pods
+started 20:41 UTC, nine hours after the commit, so the image cannot predate the fix.
+
+The negative control is **weak by necessity** — the change is purely additive, so there is no
+removed string to grep for at 0. The strongest available substitute is a **test-only symbol**
+(`TestRenderGuardCatchesSupersetEnvelope` → 0), which at least proves the grep discriminates on
+binary content rather than always returning 0. Recording that rather than claiming a control I
+do not have; the `190` lane hit the same limit and said so too.
+
+### The verification landmine fired, and checking it is what made "live" true
+
+`kubectl get pods -l app=agent-chassis` returns 2 pods. **41 pods in the namespace run the
+agent-chassis image, and 34 of them were still on `v1.0.1252` — no guard.** My own memory note
+("`-l app=<subsystem>` may be the WRONG SERVICE — one image, every label") is the only reason I
+looked past the label.
+
+Two candidate conclusions, opposite in consequence:
+
+1. *the release fragmented the fleet and the fix is live on 7 pods of 41* — alarming, wrong;
+2. *those pods cannot reach the code* — correct, but it needed proving, not assuming.
+
+`ownerReferences[0].kind` on all 34 is **`Job`**, not `Deployment` — per-work-item pods pinned
+to whatever tag existed when they were spawned, so `redeploy-agents` was right not to restart
+them and they age out. Then the question that actually decides it: of their five agent types
+(`content-feed-orchestrator`, `feed-ingester`, `feed-triage`, `model-directory-publisher`,
+`vet-practice-verifier`), can any invoke `render_component`? All five return **false**, against
+a positive control of `page-content-writer` = **true**. Combined with `RenderComponentAction`
+having no Go call site at all, the action name is the only route and its one live consumer runs
+on the two guarded replicas.
+
+**So: live everywhere it can be reached.** That is a stronger statement than "both replicas
+have it", and it is the one the label-scoped check could not have made.
+
+### The gap I am closing the file WITH, not around
+
+**The production no-op path is unexercised.** No `page-content-writer` run since the roll — the
+estate is idle for that handler (nothing since 15:00, no pending `site_work_items`), so
+legitimate content passing through byte-identical has not happened on a live page. It is
+covered by mutation-verified action-level tests that drive `RenderComponentAction` itself, but
+a test is not a page.
+
+I considered driving a run to close it and decided against: a `page-content-writer` dispatch
+rewrites a real page's sections on a live site, which is an outward-facing change and
+disproportionate to the residual risk on a path this well covered by tests. The check is left in
+the bug file and the register for whoever builds the next page. **Closing on the stated bar
+(fixed AND live) with the gap named — not pretending it was proven end to end.**
+
+### No second SUMMARY today, deliberately
+
+The cadence rule says a summary is written when the five headings would genuinely differ, and
+warns against a shelf of near-identical files. This morning's `SUMMARY_2026-08-05` already named
+"after the roll, verify and close" as where we were going. Completing a step that was already
+named is not a new understanding, so the read-out would repeat with one status line changed.
+Recorded here so the absence reads as a decision rather than an omission.
