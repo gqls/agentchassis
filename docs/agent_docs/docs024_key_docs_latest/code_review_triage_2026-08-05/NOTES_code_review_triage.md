@@ -211,3 +211,40 @@ than guessed at.
 **Transferable:** a triage that summarises N findings should either carry every finding's
 text or say where the raw output lives. Ten of fifteen were fully recoverable from the
 handoff's prose; F6 was not.
+
+## 11. CORRECTION — my F3/F7 census used the query a LANDMINE says under-reports
+
+> **CORRECTED 2026-08-05, same session.** §5 and the F3 work above both rest on a census of
+> `save_page_sections` callers that I ran with a **top-level** walk:
+> `LATERAL jsonb_each(ad.default_config #> '{workflow,steps}')`. It returns **3**. The true
+> count is **6** — the step is nested in a loop `sub_workflow` for `pageflow-builder`,
+> `page-rebuild` and `site-work-orchestrator`. `bugs_closed/194` says six in its own handoff,
+> and `LANDMINES.md` carries the correct query under a footprint naming the exact config keys
+> I was censusing.
+
+Re-measured with the nested walk (`jsonb_path_query(default_config, '$.**.steps')`):
+
+```
+ page-build-handler      | save_sections | (no require key) | page_content.response.sections_metadata |      | validation_result.clean_html
+ pageflow-builder        | save_sections | (no require key) | page_content.response.sections_metadata |      | assembled_page.html
+ page-rebuild            | save_sections | (no require key) | page_content.response.sections_metadata |      | assembled_page.html
+ page-rerender           | save_sections | (no require key) | rerender_sections.sections_metadata     |      |
+ site-work-orchestrator  | save_sections | (no require key) | page_content.response.sections_metadata |      | assembled_page.html
+ tool-recreation-handler | save_sections | (no require key) |                                        | true | validation_result.clean_html
+```
+
+**Both conclusions survive.** F7: `require_sections_metadata` is absent on all **six**, so the
+rename really was free. F3: all **six** are explicit (five name `sections_metadata_field`, the
+sixth declares `expects_no_sections_metadata`), so the implicit default is unreachable.
+
+That is luck rather than method — had any of the three invisible callers carried the key,
+"the rename is free" would have shipped as a false claim about live config. What is now
+corrected in place: the code comment at the F3 warning site, this file, the handoff's
+disposition table, `LANDMINES.md`, and three concept-register entries. The commit message of
+`fa30062cc` and council submission `cb575682` both say "three" and **cannot** be corrected —
+forward-only forbids an amend — so the correction lives here and in the code.
+
+Full account in `WRONG_CALLS.md`. The instruction I failed to follow is already in memory:
+grep `LANDMINES.md` for the symbol you are about to trust, BEFORE you trust it. The
+SessionStart hook only matches landmines against files already dirty in the tree, and this one
+guarded a file I had not yet touched when I ran the query.

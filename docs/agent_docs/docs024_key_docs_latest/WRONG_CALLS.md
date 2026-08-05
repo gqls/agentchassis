@@ -20494,3 +20494,48 @@ Consequence: F5 would have been filed as a bug asserting unbounded growth on a t
 demonstrably bounded. Instead it is recorded as the review's **second** false positive, after
 F4. Both were absence claims made without the lookup — which is the failure mode the triage
 handoff itself names for F4, and which I then reproduced while checking it.
+
+## 2026-08-05 (code-review triage, later) — I measured config carriers with the exact query a LANDMINE says under-reports, and only found out by accident
+
+Two of my findings turned on a census of `save_page_sections` callers. F7: "0 live save steps
+carry `require_sections_metadata`, so renaming it is free." F3: "the implicit metadata default
+is unreachable — every live caller is explicit." I ran both with a top-level walk:
+
+```sql
+FROM agent_definitions ad, LATERAL jsonb_each(ad.default_config #> '{workflow,steps}') AS step
+WHERE step.value ->> 'action' = 'save_page_sections'
+```
+
+It returned **3** callers. I wrote "all three live callers" into a code comment, a commit
+message, the lane docs and a council submission.
+
+There are **six**. The step is nested inside a loop `sub_workflow` for the other three
+(`pageflow-builder`, `page-rebuild`, `site-work-orchestrator`), and a top-level `jsonb_each`
+cannot see them. `bugs_closed/194` says six in its own handoff. And `LANDMINES.md` carries the
+correct query, under a footprint naming the very config keys I was censusing:
+
+> *"To find out what a live step actually does, do NOT trust a top-level `jsonb_each` — the
+> step is nested in a loop `sub_workflow` in four of the six callers and that query finds only
+> two"*
+
+**Both conclusions survived re-measurement** — `require_sections_metadata` is absent on all six,
+and all six are explicit — so the fixes stand. That is luck, not method: had one of the three
+invisible callers carried the key, F7's "the rename is free" would have been a false claim
+about live config, shipped.
+
+**How I found it:** not by checking. I went to update the concept register for the rename, and
+grepping for the old key name returned the landmine that describes the trap. The correct query
+was one `grep` away from the work the whole time.
+
+**The cheap check:** `grep -n "<the table, key, or symbol you are about to census>"
+docs/agent_docs/docs024_key_docs_latest/LANDMINES.md` **before** running the census, not after.
+The SessionStart hook only surfaces landmines whose footprint matches files already DIRTY in
+the tree; mine matched a file I had not yet touched when I ran the query, so it was never
+shown. Memory already carries this exact instruction ("grep LANDMINES for the SYMBOL you are
+about to trust") and I did not follow it.
+
+Second-order: a `jsonb_each` over `{workflow,steps}` under-reports **silently and plausibly**.
+It does not error, and 3 is a perfectly believable number for a count whose true value is 6 —
+there is nothing in the output to suggest it is partial. Any census over `agent_definitions`
+should use `jsonb_path_query(default_config, '$.**.steps')` by default, and a census whose
+count you cannot independently corroborate (here: the bug file said six) is not a measurement.

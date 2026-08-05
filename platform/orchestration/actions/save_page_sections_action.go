@@ -180,12 +180,21 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 	// happens to sit there in collected_data, this save silently prefers it over
 	// the field the caller actually named.
 	//
-	// Not reachable on any live caller, measured 2026-08-05: all three
-	// definition-level callers are explicit — page-build-handler and
-	// page-rerender name sections_metadata_field, tool-recreation-handler
-	// declares expects_no_sections_metadata. This fires for a FUTURE caller that
-	// sets html_field and neither key, which is the one combination the three
-	// declared states do not cover.
+	// Not reachable on any live caller, measured 2026-08-05: all SIX are
+	// explicit — page-build-handler, pageflow-builder, page-rebuild,
+	// page-rerender and site-work-orchestrator name sections_metadata_field;
+	// tool-recreation-handler declares expects_no_sections_metadata. This fires
+	// for a FUTURE caller that sets html_field and neither key, which is the one
+	// combination the three declared states do not cover.
+	//
+	// > **CORRECTED 2026-08-05, same day.** First measured as "all three
+	// > callers" from a TOP-LEVEL jsonb_each over {workflow,steps}. That finds 3
+	// > of 6: the step is nested inside a loop sub_workflow for the rest, and
+	// > LANDMINES already warned this exact query under-reports here. The
+	// > conclusion was right and the evidence was not. Use the nested walk:
+	// > `FROM agent_definitions ad, LATERAL jsonb_path_query(ad.default_config,
+	// > '$.**.steps') AS steps, LATERAL jsonb_each(steps) AS s(key,value)
+	// > WHERE s.value->>'action'='save_page_sections'`.
 	//
 	// A warning, not a refusal or a resolution change: altering which path wins
 	// is a semantics change on the fleet's highest-traffic save path, and it

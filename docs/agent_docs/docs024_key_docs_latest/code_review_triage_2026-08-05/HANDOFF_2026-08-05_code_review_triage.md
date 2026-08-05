@@ -269,3 +269,14 @@ in this directory. `WRONG_CALLS.md` (the reaper misstep). Commits `79c713bff` (F
 (wrong-calls). Council: `128d4fd1` **APPROVED** (2 low-severity advisories, both answered);
 `cb575682` and `d0d2c97a` pending at the time of writing — **the code is already on the shared
 branch, so a REVISE/REJECTED on either is still owed a response.**
+
+> **CORRECTION 5 (same session, later) — the caller census in F3 and F7 above used the wrong
+> query.** Both said "three live callers"; there are **six**. A top-level
+> `jsonb_each(default_config #> '{workflow,steps}')` cannot see a step nested in a loop
+> `sub_workflow`, which is where `pageflow-builder`, `page-rebuild` and
+> `site-work-orchestrator` keep theirs — and `LANDMINES.md` documents that trap under a
+> footprint naming these exact config keys. Re-measured with
+> `jsonb_path_query(default_config, '$.**.steps')`: **both conclusions hold** —
+> `require_sections_metadata` was absent on all six (so the F7 rename was free) and all six are
+> explicit (so F3 is unreachable). The fixes stand; the evidence behind them did not, until
+> now. `WRONG_CALLS.md` carries the account, and NOTES §11 the re-measurement.
