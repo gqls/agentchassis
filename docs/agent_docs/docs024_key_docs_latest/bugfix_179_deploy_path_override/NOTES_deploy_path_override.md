@@ -361,3 +361,26 @@ Lane notes updated in `robot_hands/` and `bugfix_170_chrome_pin_eligibility/`;
 memory index + topic files updated for all three closures. The kcat/`kubectl run`
 dispatch route was classifier-blocked this session — the work-item route did
 everything and leaves an inspectable row each time; prefer it.
+
+## 2026-08-05 (~09:30Z) — v1.0.1252 roll verified: every recent fix still in the binary
+
+Fleet rolled to `v1.0.1252` at 09:10Z. Re-verified per the standing rule (a fresh
+roll can ship an older commit), same exec, BOTH replicas, positive + negative
+controls in one run:
+
+```
+179 NEW  "refused: deploy_path"                          1  (expect >=1)   both pods
+170 NEW  "style collection pins an ineligible header"    1  (expect 1)     both pods
+170 NEW  "pins an ineligible component"                  1  (expect >=1)   both pods
+100 NEW  "no fetch provenance available"                 1  (expect 1)     both pods
+POS      "no eligible component for function"            1  (expect 1)     both pods
+NEG      "zzz-not-a-real-symbol-control"                 0  (expect 0)     both pods
+```
+
+All spawned-agent `image_tag` rows moved to v1.0.1252 with the roll (checked the
+five that matter to this lane's closures). Zero orchestrations stranded at
+`EXECUTING_STEP` >30 min. Vet collection ran overnight: **70 rows**, newest
+02:14Z, and the two-column census now holds at **70/70 recorded · 0/70
+model-claimed · positive control 70/70** — the 100 closure's 4-row acceptance is
+now a 70-row census. (Newest at 02:14 is the finite batch completing, not a
+stall — `vet-sweep-continue` is deliberately OFF.)
