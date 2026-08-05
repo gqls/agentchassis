@@ -302,3 +302,50 @@ which is part of why this stayed invisible for six months.
 
 **Status: CLOSED — the filed defect is fixed AND live on every caller. Moving to
 `bugs_closed/`.**
+
+---
+
+## 2026-08-05 09:59Z — the prevention half is LIVE on v1.0.1252, pod-verified on BOTH replicas
+
+The chassis rolled overnight. The Go half is no longer inert.
+
+```
+agent-chassis-5b64b888f5-4j2bc   v1.0.1252   Running
+agent-chassis-5b64b888f5-fs4dq   v1.0.1252   Running
+
+  per replica:  'loses the only thing the'          -> 1   (long literal, ADDED)
+                'CONTENT_DATA_REGRESSION'           -> 1
+                'CONTENT_DATA_REGRESSION_V2'        -> 0   (discriminating negative)
+                'declares require_sections_metadata but no usable' -> 1
+```
+
+The negative is the load-bearing half: this change removes no string, so there is no natural
+negative control, and a positive alone proves the *pipeline* rather than the *spelling*.
+
+**Baseline, same minute: `CONTENT_DATA_REGRESSION` = 0 rows fleet-wide — and that zero is a
+measurement, not a broken pipe.** Positive control in the same run: the same table returned
+102 `PROCESSING_FAILED`, 90 `LLM_API_ERROR`, 38 `TIMEOUT` for the window since the roll.
+
+> **⚠ CORRECTED 2026-08-05 — the query this file, the council submission and PBP-031 all
+> quoted for that check named `created_at`, which does not exist on `agent_error_log`; the
+> column is `occurred_at`.** As written it ERRORED rather than returning the zero it was
+> meant to test for. Logged in `WRONG_CALLS.md`: a check that errors is worse than one with
+> a wrong threshold, because it has no result to disagree with.
+
+### Still owed, and now blocked on traffic rather than on a roll
+
+1. **The 24h no-regression read** — due 2026-08-06 ~09:10Z. Zero rows for
+   `page-build-handler` and `page-rerender` is the pass; **any `page-rerender` row means the
+   report's predicate is misconceived and the `require_sections_metadata` opt-in must NOT
+   proceed.** Not yet answerable: in the first 50 minutes after the roll there were **zero**
+   runs of any of the six callers, while the rest of the fleet ran normally.
+2. **The live acceptance on a seeded caller.** ⚠ **The route named in this file on 08-04 was
+   wrong twice over** — see `WRONG_CALLS.md` and the lane RUNBOOK R7. The trigger script
+   cannot execute (a bare `-------------------` under `set -e`), and `mode=maintenance` only
+   reaches `save_sections` when the site has queued build work, so an idle domain yields a
+   **vacuous green pass**. A correct run needs: a domain with open build-routed work items,
+   pages at `rebuild_policy != 'owned'`, and a hand-published kcat message.
+
+Neither changes the close: the filed defect is fixed and live on every caller by config, and
+the prevention half is now live too. These are the checks that would *falsify* the design,
+and they are owed rather than passed.
