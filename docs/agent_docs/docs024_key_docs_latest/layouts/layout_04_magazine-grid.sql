@@ -791,7 +791,7 @@ a:hover {
   .footer-container { grid-template-columns: 1fr; }
   .main-nav { display: none; }
   .main-nav.is-open { display: block; }
-  .mobile-menu-toggle { display: inline-flex; }
+  .mobile-menu-toggle { display: inline-flex; flex-direction: column; justify-content: center; align-items: center; }
   .article-card--compact .article-card__image { flex-basis: 100px; }
 }
 

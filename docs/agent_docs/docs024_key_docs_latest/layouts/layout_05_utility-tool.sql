@@ -601,7 +601,7 @@ a:hover { color: var(--color-primary-hover); text-decoration: underline; }
   }
   .main-nav.is-open ul { flex-direction: column; gap: 0; }
   .main-nav.is-open a { display: block; padding: 0.75rem 0; border-bottom: 1px solid var(--color-border); }
-  .mobile-menu-toggle { display: inline-flex; }
+  .mobile-menu-toggle { display: inline-flex; flex-direction: column; justify-content: center; align-items: center; }
   .footer-container { flex-direction: column; text-align: center; }
 }
 

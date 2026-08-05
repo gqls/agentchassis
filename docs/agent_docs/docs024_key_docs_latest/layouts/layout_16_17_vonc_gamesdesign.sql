@@ -651,7 +651,7 @@ a:hover { color: var(--color-primary); }
   .footer-container { grid-template-columns: 1fr; }
   .main-nav { display: none; }
   .main-nav.is-open { display: block; }
-  .mobile-menu-toggle { display: inline-flex; }
+  .mobile-menu-toggle { display: inline-flex; flex-direction: column; justify-content: center; align-items: center; }
   .tool-workspace__header { flex-direction: column; align-items: flex-start; }
 }
 
@@ -1322,7 +1322,7 @@ a:hover { color: var(--color-primary-hover); }
   .footer-container { grid-template-columns: 1fr; }
   .main-nav { display: none; }
   .main-nav.is-open { display: block; }
-  .mobile-menu-toggle { display: inline-flex; }
+  .mobile-menu-toggle { display: inline-flex; flex-direction: column; justify-content: center; align-items: center; }
   .provocation-card__footer { flex-direction: column; align-items: stretch; }
 }
 

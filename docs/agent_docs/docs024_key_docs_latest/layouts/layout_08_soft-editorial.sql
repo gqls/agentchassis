@@ -553,7 +553,7 @@ a:hover {
   .main-nav.is-open { display: block; position: absolute; top: 100%; left: 0; right: 0; background: var(--color-background); padding: 1rem var(--container-pad-x); box-shadow: var(--shadow-md); }
   .main-nav.is-open ul { flex-direction: column; gap: 0; }
   .main-nav.is-open a { display: block; padding: 0.75rem 0; }
-  .mobile-menu-toggle { display: inline-flex; }
+  .mobile-menu-toggle { display: inline-flex; flex-direction: column; justify-content: center; align-items: center; }
 }
 
 /* Accessibility */

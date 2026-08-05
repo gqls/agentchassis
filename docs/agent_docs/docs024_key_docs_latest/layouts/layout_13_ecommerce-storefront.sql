@@ -815,7 +815,7 @@ a:hover { color: var(--color-primary-hover); }
   .main-nav { display: none; }
   .main-nav.is-open { display: block; position: absolute; top: 100%; left: 0; right: 0; background: var(--color-header-bg); border-bottom: 1px solid var(--color-border); padding: 0.75rem var(--container-pad-x); }
   .main-nav.is-open ul { flex-direction: column; gap: 0; }
-  .mobile-menu-toggle { display: inline-flex; }
+  .mobile-menu-toggle { display: inline-flex; flex-direction: column; justify-content: center; align-items: center; }
   .mini-cart { width: calc(100vw - 2rem); right: 1rem; left: 1rem; }
   .product-card__quick-actions {
     opacity: 1;

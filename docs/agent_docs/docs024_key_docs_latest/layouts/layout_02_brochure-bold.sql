@@ -568,7 +568,7 @@ a:hover { color: var(--color-primary-hover); }
   .footer-container { grid-template-columns: 1fr; }
   .main-nav { display: none; }
   .main-nav.is-open { display: block; }
-  .mobile-menu-toggle { display: inline-flex; }
+  .mobile-menu-toggle { display: inline-flex; flex-direction: column; justify-content: center; align-items: center; }
   .btn { width: 100%; }
   .hero-actions { flex-direction: column; }
 }

@@ -645,7 +645,7 @@ a:hover {
   }
   .main-nav { display: none; }
   .main-nav.is-open { display: block; }
-  .mobile-menu-toggle { display: inline-flex; }
+  .mobile-menu-toggle { display: inline-flex; flex-direction: column; justify-content: center; align-items: center; }
   .footer-container { flex-direction: column; align-items: flex-start; }
   .work-item-meta { opacity: 1; transform: none; }
 }

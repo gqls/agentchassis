@@ -491,7 +491,7 @@ a:hover { color: var(--color-primary); }
   .footer-container { grid-template-columns: 1fr; }
   .main-nav { display: none; }
   .main-nav.is-open { display: block; }
-  .mobile-menu-toggle { display: inline-flex; }
+  .mobile-menu-toggle { display: inline-flex; flex-direction: column; justify-content: center; align-items: center; }
 }
 
 /* ── Accessibility ── */
