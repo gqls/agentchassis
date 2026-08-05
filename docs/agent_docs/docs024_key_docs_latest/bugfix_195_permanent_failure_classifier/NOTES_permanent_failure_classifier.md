@@ -162,3 +162,70 @@ a thin wrapper mirroring its sibling, with no citation. Fair. The sibling is
 `recordDroppedValidationError` (`agent.go:1389` and `validation_drop.go:150`), both thin
 wrappers over the one writer `orchestration.LogAgentError` — the shape the reuse seat's own
 prior ruling (council `180d7c68`) permits, forbidding forked INSERTs. Cited in the resubmission.
+
+## 2026-08-05 — council round 2 APPROVED; and I misread my own verdict query first
+
+**`9b1254f0` round 2: APPROVED**, 5 advisory objections, none high-severity.
+`bug_historian`: *"unusually self-aware for this council … that is the right shape of response
+to this pattern."* Round 1 REVISE (08-04 20:05Z) → round 2 APPROVED (08-05 10:13Z).
+
+> **My own measurement error, caught immediately and worth the entry.** My first check was
+> `SELECT count(*), coalesce(max(metadata->>'decision'),'pending')` — which returned
+> **`revise`**, and I reported the round as REVISE. `max()` on a **text** column picks
+> **alphabetically**, and `'revise' > 'approved'`. The verdict was APPROVED all along. The
+> fix is `ORDER BY created_at DESC LIMIT 1`, and the general rule is the one this lane has
+> now hit three times in different clothes: **an aggregate over a column whose ordering is
+> not the ordering you mean answers a different question than the one you asked.**
+
+## 2026-08-05 — the one medium objection, answered on an INDEPENDENT axis
+
+`editquality` (medium) was right to distrust my method, and cited the landmine set against it:
+my *"`AgentServer` is dead code"* claim rested on **grep-for-callers of `NewAgentServer`**, and
+entry-point-shaped components *"read as an orphan on every database/callgraph axis whether
+dead or in daily use"*. A separate `cmd/` binary, env-var dispatch or reflection could
+construct it without a textual call.
+
+**Checked the compiled artefact instead of the source** — a genuinely different axis, and the
+one that answers the objection, because reflection or a second binary would both leave the
+symbol in place:
+
+```
+running chassis v1.0.1254 (pod agent-chassis-d69d4467c-dvn8k):
+  grep -ac "AgentServer"            /app/agent-chassis  ->  0   (linker stripped it)
+  grep -ac "recordFailedProcessing" /app/agent-chassis  ->  3   (positive control: a LIVE method IS present)
+```
+
+Go's linker performs dead-code elimination, so a symbol absent from the shipped binary while a
+live sibling is present is strong evidence of unreachability — and it is evidence source-grep
+structurally cannot give. **Stated limit, so nobody over-reads it:** this proves it for the
+`agent-chassis` binary, which is the one that runs agents. Other service binaries were not
+checked, and if `AgentServer` is ever wired into one, the `server.go` comment is the warning
+that fires.
+
+The three low objections are all "documentation/tracking, not a mechanism fix" — correct, and
+I should have named them as such rather than presenting them as parity with the code fix.
+`bugs_open/196` and `197` remain live exposures, filed and unfixed, which is the honest state.
+
+## 2026-08-05 — another session's code review found FOUR real errors in my shipped work
+
+Commit `f887ed1ad`, *"fix(code-review F1,F2,F8,F14): four findings against the shipped 195
+classifier — all behaviourally inert"*. Not mine, and I am not reverting any of it. Two I can
+see directly in the files, and both are errors I made:
+
+- **F1 — my own comment contradicted itself.** I wrote *"This change only ever ADDS permanent
+  classifications; it removes none"* six lines below a paragraph arguing FOR a removal (the
+  `de.Retryable` early return, which stops an `AsRetryable` error whose prose contains a needle
+  from being classified permanent). The code was right; **the claim was wrong**, and it is now
+  corrected in place with the reason it is latent today (nothing sets `Retryable=true`
+  fleet-wide, so the first producer inherits the behaviour — which is exactly why the two had
+  to agree *before* that producer exists).
+- **F8 — `IsRetryable`/`GetRetryAfter` still used bare type assertions.** I added
+  `AsDomainError` precisely because `err.(*DomainError)` answers false for a `%w`-wrapped
+  error, migrated the two call sites in `handleError`, and **left these two untouched in the
+  file I was editing**. Zero callers fleet-wide, so inert — but it is the same defect, in the
+  same package, in the same commit's blast radius, and I walked past it. This is a partial
+  down-payment on `bugs_open/197`.
+
+Recorded because the pattern is mine, not the reviewer's: **I fixed a class at the sites my
+symptom pointed at, and not at the sites the class actually lives.** That is the `016b` §9
+shape I had just finished writing up.
