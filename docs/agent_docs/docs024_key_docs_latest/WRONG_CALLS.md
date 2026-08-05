@@ -20265,3 +20265,59 @@ runner, so for any cross-package contract the test must at minimum assert the
 required fields the consumer's doc comment names — the assertion now exists and
 names this incident. Same family as "a mock's own bookkeeping cannot assert a
 NEGATIVE": my test's bookkeeping could not see the runner's indifference.
+
+## 2026-08-05 — I wrote a verification query against a column that does not exist, and called it the falsifier for the whole change (bugfix_194 lane)
+
+**The claim.** `SELECT agent_type, count(*) FROM agent_error_log WHERE
+error_code='CONTENT_DATA_REGRESSION' GROUP BY 1` — offered in the council submission, the
+bug file, the concept-register entry's `verify-later` and the lane RUNBOOK as *the*
+24h-post-roll check, with an explicit disconfirming outcome ("any `page-rerender` row means
+the predicate is misconceived and the follow-up opt-in must not proceed").
+
+**It could never have run.** The column is `occurred_at`. `created_at` does not exist on
+`agent_error_log`, so the query errors. **This is worse than a wrong threshold**: a check
+that errors has no result to disagree with, and `ERROR: column … does not exist` at the end
+of a `| tail` pipeline occupies exactly the same screen position as the empty output that
+means "clean". The council's `debug_historian` seat objected that my post-deploy check tested
+behaviour rather than deployment; nobody, me included, checked that it tested *anything*.
+
+**What caught it.** Running it. It is the first thing I did after the roll.
+
+**The cheap check.** `\d agent_error_log`, or the `information_schema.columns` one-liner —
+CLAUDE.md's own "Schema first: `\d <table>` before writing SQL". I had used that rule all
+afternoon for `page_components`, `orchestration_states` and `agent_definitions`, and skipped
+it for the one table I was only *writing* to, because the INSERT (which names its columns
+explicitly and compiles) had made me feel I knew the table.
+
+**The general shape.** A query written to be *quoted* rather than *run* is never executed by
+the person who writes it, and every reader downstream assumes it was. **Run every verify
+query the moment you write it, against live, even when the answer is expected to be
+empty — and pair the zero with a positive control**, which is what turned this session's
+`CONTENT_DATA_REGRESSION = 0` into evidence: the same table returned 102 `PROCESSING_FAILED`
+rows for the same window, so the zero was a measurement and not a broken pipe. Same family
+as MEMORY's "induce a non-zero before trusting a zero", now with a second reason.
+
+## 2026-08-05 — "directly dispatchable" asserted from a script's NAME; the script cannot execute
+
+I told the council, the bug file and the owner that `site-work-orchestrator` — one of the
+two dormant callers, and the only one that could give the fix a live proof — was *"directly
+dispatchable via `scripts/initial_messages/170_work_item_flow_build/075d_simple_maintain_trigger.sh`"*.
+
+It is not. Line 9 of that script is a bare `-------------------`, which under its own
+`set -euo pipefail` aborts before anything is published, and line 11 hardcodes
+`DOMAIN="finetuning.uk"` over the argument line 7 demands. Committed in that state
+(`5345ad7e2`), so it has not run since.
+
+**What caught it.** Reading the file before running it — because it publishes to a live
+site, not because I doubted the claim. If it had been read-only I would have run it, watched
+it die, and re-read the plan wondering why.
+
+**The cheap check.** `sed -n '1,20p'` on any script before naming it in a plan. I found it
+by `find`, matched the name to the intent, and wrote it into a council submission that four
+seats then read. **A filename is a claim about behaviour made by whoever typed it.**
+
+**Second-order.** The route was wrong even with a working script: `mode=maintenance` only
+reaches `save_sections` if the site has queued build work (`check_has_items` →
+`build_items_loop` / `load_fix_items`). A run against an idle domain completes green having
+never executed the code under test — a **vacuous pass**, and one I would have reported as a
+live proof.

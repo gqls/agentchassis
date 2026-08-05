@@ -101,9 +101,23 @@ No orchestration dispatch within ~300s of a pod (re)start; the spawn is silently
 
 ## R7 — the two post-roll checks, with their disconfirming outcomes stated first
 
-**Acceptance.** `site-work-orchestrator` is directly dispatchable —
-`scripts/initial_messages/170_work_item_flow_build/075d_simple_maintain_trigger.sh` — so
-one of the two dormant callers CAN be proven live. Target a site whose pages are
+**Acceptance.** ⚠ **CORRECTED 2026-08-05 — TWO things in this paragraph were wrong.**
+
+1. **`075d_simple_maintain_trigger.sh` DOES NOT RUN.** Line 9 is a bare `-------------------`,
+   which under the script's own `set -euo pipefail` aborts it before it publishes anything;
+   line 11 then hardcodes `DOMAIN="finetuning.uk"`, ignoring the argument line 7 demands.
+   It is committed in that state (`5345ad7e2`), not a dirty edit. I asserted it was
+   dispatchable from its NAME. Do not fix it in passing — it belongs to the finetuning lane
+   and the hardcoded domain may be deliberate; publish your own kcat message instead, using
+   that file's envelope as the template.
+2. **`mode=maintenance` only reaches the save step IF the site has queued build work.**
+   Traced: `check_mode` → (maintenance) `select_style_collection` → `set_default_components`
+   → … → `load_work_items` → `check_has_items` → **`build_items_loop`** *(has items)* /
+   `load_fix_items` *(none)*. Only the first branch contains `save_sections`. So the target
+   must be a domain with open work items that route to the build loop — otherwise the run
+   completes green having never touched the code under test, which is a **vacuous pass**.
+
+With those two corrected: one of the two dormant callers CAN still be proven live. Target a site whose pages are
 `rebuild_policy != 'owned'` (check the column first: `087`'s run was blocked by exactly
 that guard). Then R4 on the rebuilt page.
 
@@ -119,9 +133,18 @@ that guard). Then R4 on the rebuilt page.
 
 ```bash
 kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -tA -F'|' -c "
-SELECT agent_type, count(*), max(created_at) FROM agent_error_log
+SELECT agent_type, count(*), max(occurred_at) FROM agent_error_log
 WHERE error_code='CONTENT_DATA_REGRESSION' GROUP BY 1 ORDER BY 2 DESC;"
+# and a POSITIVE CONTROL in the same run, or a zero is not evidence:
+SELECT error_code, count(*) FROM agent_error_log WHERE occurred_at > '<the roll>' GROUP BY 1 ORDER BY 2 DESC LIMIT 5;"
 ```
+
+**⚠ CORRECTED 2026-08-05: the column is `occurred_at`, NOT `created_at`.** This query as
+first written ERRORED — `column "created_at" does not exist` — so it could never have
+returned the zero it was supposed to test for, and an error read through a `| tail` looks
+nothing like a pass but is easy to skim past. Always pair it with the positive control
+above: on 2026-08-05 09:59Z `CONTENT_DATA_REGRESSION` was 0 while the same table carried
+102 `PROCESSING_FAILED` rows since the roll, which is what makes the zero mean something.
 
 - **Pass:** zero rows for `page-build-handler` and `page-rerender`.
 - **Disconfirming:** any `page-rerender` row — the report's predicate is misconceived
