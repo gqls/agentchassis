@@ -622,8 +622,22 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 	// The condition it exists to catch is the whole of bugs_open/194: a page that
 	// held structured content is saved with none, succeeds, serves perfectly, and
 	// has silently lost the only source a re-render can rebuild it from.
-	contentDataRowsBefore := countExistingRowsWithContentData(ctx, params, pageID)
-	sectionsWithContentData := countSectionsWithContentData(sections)
+	// The DB read is skipped where its answer provably cannot change the outcome
+	// (code-review F12). shouldReportContentDataLoss discards it in exactly two
+	// cases, both decidable in memory: a declared-absent caller never had
+	// structured content to lose, and incoming sections that already carry
+	// content_data mean this save is not the loss it looks for. Passing 0 in
+	// those cases is equivalent, not merely close — the predicate returns false
+	// on both before it ever reads the count.
+	//
+	// Worth doing here specifically because F9 widened this query (the
+	// build_status filter is gone, so it now considers every agent-writable row
+	// on the page) and this is the fleet's highest-traffic save path.
+	incomingWithContentData := countSectionsWithContentData(sections)
+	contentDataRowsBefore := 0
+	if metaFieldOrigin != metadataOriginDeclaredAbsent && incomingWithContentData == 0 {
+		contentDataRowsBefore = countExistingRowsWithContentData(ctx, params, pageID)
+	}
 	if shouldReportContentDataLoss(metaFieldOrigin, contentDataRowsBefore, sections) {
 		writeContentDataRegressionLog(ctx, params, siteID,
 			datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.domain"),
@@ -693,6 +707,11 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 
 	// Insert each section
 	savedCount := 0
+	// Counted as rows are actually written, not from the incoming list
+	// (code-review F11): the loop below skips locked slots and unresolvable
+	// stubs, so a figure taken beforehand reports content_data this save
+	// discarded. The field exists to say what the page now HOLDS.
+	savedWithContentData := 0
 	var skippedStubs []string
 	var lockedSlotsPreserved []string
 	for i, section := range sections {
@@ -814,6 +833,9 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 			continue
 		}
 		savedCount++
+		if len(section.ContentData) > 0 {
+			savedWithContentData++
+		}
 	}
 
 	// Locked rows the new composition no longer includes: the lock holds them
@@ -869,7 +891,11 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 		// carry-forward, which would make a NULL check a false pass.
 		"sections_source":            sectionsSource,
 		"metadata_field_origin":      metaFieldOrigin,
-		"sections_with_content_data": sectionsWithContentData,
+		"sections_with_content_data": savedWithContentData,
+		// The incoming figure kept beside it: when these two differ, the save
+		// discarded structured content (a locked slot or an unresolvable stub),
+		// which is exactly what the single pre-loop count used to hide (F11).
+		"incoming_sections_with_content_data": incomingWithContentData,
 		// Reported on every save, not only a firing one (bugs_open/156): a zero
 		// here is the assertion that this save carried no byte-identical
 		// duplicates, which is a different statement from the key being absent.
