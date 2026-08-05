@@ -2034,3 +2034,18 @@ robot-hands' h2 broke the `[^<]+` regex — non-greedy `.*?</h2>` now); CSS
 lendzy.co.uk dropped as a proof site (origin flaky behind Cloudflare, 522s).
 
 **Running D10 tally: 27 sections + 2 tools end-to-end.**
+
+## 2026-08-05 (contd) — batch 4: six more sections; running tally 33 sections + 2 tools
+
+| subject | prover | S6 CID (all controls red, all_passed) |
+|---|---|---|
+| content-listing (3/2; NO data-component — root `section.section--articles`) | 5/5 | d45f261d 9/9 |
+| departments-grid (4/2; class `team-section` SHARED with leadership-team — attribute-resolve) | 5/5 | 7c520ef2 9/9 |
+| evidence-chart (3/2; header fully conditional — existence/visibility only) | 5/5 | 73b8ab53 9/9 |
+| guide-list (4/3; unconditional heading asserted) | 6/6 | 53533939 10/10 |
+| leadership-team (3/3; same-class twin of departments-grid, BOTH on aao/about.html) | 5/5 | 46922650 9/9 |
+| mechanism-flow (4/2) | 5/5 | bcee65e8 9/9 |
+
+Line rule from the twins: when two components share a root CLASS and can share a PAGE
+(team-section), every check resolves by the data-component attribute and grid-child
+assertions are dropped (a string-replace mutant cannot scope to the first `.team-grid`).
