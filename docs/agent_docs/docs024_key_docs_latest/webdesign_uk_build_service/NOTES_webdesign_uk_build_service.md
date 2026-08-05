@@ -1145,3 +1145,58 @@ blocks it faithfully, forever. When a ban fires, grep the SPECS with the
 validator's own regex before re-driving.* The classifier presumably absorbed the
 phrasing from my 08-03 chat copy ("a person checks it before you ever see it")
 via the mission/plan context [INFERRED — not traced].
+
+---
+
+## 2026-08-05 ~03:00 — round two of the same livelock class, ended properly this time
+
+**The tunnel login expired unused** (`/root/.cloudflared/` empty, log: "Failed to
+fetch resource"). Mint a fresh URL when the owner is actually present — the links
+die in minutes, so posting one into an empty room wastes it.
+
+**Second build attempt blocked again — MY ban, MY missed mole.** `banned_claim
+"template"`: the writer produced *"…rather than handing over a template with your
+logo dropped in"*. Cause identical in shape to yesterday's: the phrasing was
+INSTRUCTED by `content_direction` — **by the row I superseded yesterday**, which
+fixed the one phrase I was looking at and carried the classifier's other
+violations forward verbatim. One-phrase supersedes against a 19KB spec is
+whack-a-mole at one build per mole.
+
+**Ended it with a full sweep instead:** pulled the entire current
+`content_direction` and ran **all 14 banned_claims regexes** over it locally.
+Results, triaged:
+- `template` ×2 — the denial sentence, prose + array duplicate. **Instructs the
+  page. Fixed** → "The pages your business actually needs, written for what you do."
+- em dash ×28 — mostly instruction prose (never rendered), **but one QUOTED
+  example destined for the page**: `'£1,200 is the total — there's no VAT to
+  add'`. **Fixed** → full stop. The distinction that matters: *an em dash in
+  guidance is style; an em dash inside quoted example copy is an instruction to
+  violate the ban.*
+- `award-winning` ×2 — inside an avoid-examples list ("do not write like
+  this"). **Left intact**: avoid-lists teach, they do not instruct. Removing them
+  would cost the writer real signal.
+
+Superseded once (`created_by …2026-08-05`), verified current row clean of both
+instructed violations. Pages reset → triaged, heartbeat re-fired, **verified by
+payload**: dispatch orchestrations 03:03/03:04, one page `claimed`.
+
+**Contamination source removed:** deleted the stale hand-built objects
+(`webdesign.uk/index.html`, `preview.ugg2.com/index.html`) from `portfolio-sites`.
+Both banned phrasings the classifier wrote into the spec ("a person checks",
+"not a template with your logo dropped in") are **verbatim lines from my 08-03
+hand-built page** — strong circumstantial evidence it was the research input
+[INFERRED — ingestion path not traced]. The hand-built error kept costing after
+it was "fixed": it had already been laundered into the site's own specs.
+**Gotcha:** the first `b2 rm` of the preview object reported `count: 0/1` and
+deleted nothing — exit status alone is not deletion; re-ran and `ls` confirmed.
+
+**Assets question settled by precedent, no gap:** the build wrote
+`webdesign.uk/assets/{css,images,js}` to B2 (those actions are git-blind), but
+both `idea.uk/` and `relojistas.com/` in vm-sites carry `assets/` — the page
+deploy commits assets into the repo too, so the VM webroot is self-contained and
+the B2 copies are harmless duplication.
+
+**The transferable rule, sharpened from yesterday's:** *when a ban fires, do not
+fix the hit — sweep the ENTIRE spec chain with ALL the validator's regexes at
+once, and distinguish three kinds of match: instructs-the-page (fix), quoted
+example copy (fix), avoid-list teaching (keep).*
