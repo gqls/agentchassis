@@ -99,3 +99,49 @@ lives inside **250 pro-model calls/day, resetting ~midnight UTC** — so:
 This bug CLOSES when Tier 2 is observed active (aistudio.google.com/rate-limit
 shows the raised RPD) AND a previously-blocked build has passed through
 generation on it.
+
+---
+
+## OWNER RULING 2026-08-05 (later) — TEMPORARY model swap to Sonnet 5, revert when Gemini resets
+
+Supersedes "wait" as the *interim* posture; the Tier 2 wait still stands as the
+quota fix. Owner's words: *"swap models from gemini to claude sonnet 5 for now
+until tomorrow when gemini resets."*
+
+**Applied 2026-08-05, live immediately (DB config):** `page-content-writer` →
+`workflow.steps.process_sections_loop.config.sub_workflow.steps.generate_content.config.ai_service`
+
+| | was | now |
+|---|---|---|
+| provider | `gemini` | `anthropic` |
+| model | `gemini-pro-latest` | `claude-sonnet-5` |
+| api_key_env_var | `GEMINI_API_KEY` | `ANTHROPIC_API_KEY` |
+| max_tokens | 8000 | 8000 (unchanged) |
+
+Shape copied from the live `fix-proposer`/`grounded-explainer` blocks (1,155
+Sonnet calls in 3 days), not invented. `feature-designer` also names gemini and
+was **deliberately left alone** — it is not in the failing path and the swap is
+minimal-blast-radius.
+
+**THE REVERT (owner's stated intent — "until tomorrow"):** after the Gemini RPD
+window reopens (~00:00 UTC 2026-08-06), run:
+
+```sql
+UPDATE agent_definitions
+SET default_config = jsonb_set(default_config,
+  '{workflow,steps,process_sections_loop,config,sub_workflow,steps,generate_content,config,ai_service}',
+  '{"model":"gemini-pro-latest","provider":"gemini","max_tokens":8000,"api_key_env_var":"GEMINI_API_KEY"}'::jsonb),
+  updated_at = now()
+WHERE type='page-content-writer' AND is_active
+  AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+```
+
+…and verify with the same `jsonb_pretty` SELECT. **If instead the owner decides
+Sonnet output was as good or better, NOT reverting is a real option** — but that
+is the council-flavoured "option 3" decision and should be taken as one, with a
+build's output in front of him, not by the revert simply being forgotten.
+**Either way this file must record which happened.**
+
+Note for anyone reading `llm_call_log` costs this week: writer traffic
+2026-08-05→06 is Sonnet, not Gemini — don't attribute it to the wrong provider
+when comparing (the `llm-call-log` landmines file also applies).
