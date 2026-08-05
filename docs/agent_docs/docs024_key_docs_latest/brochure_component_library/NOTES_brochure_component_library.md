@@ -4255,6 +4255,24 @@ would have to resubmit) to shave hours off my own verification is not a trade I 
 make unilaterally. The change is declarative and committed, so **the next chassis roll
 anyone performs completes it** — and the tag moved today, so those are frequent.
 
+> **RESOLVED SAME EVENING, and the decision not to roll cost nothing.** Another session
+> rolled the chassis to **v1.0.1254** at 20:40. Because the env change was already
+> committed and declarative, their roll carried it — no council was killed by me, and the
+> wait cost hours of wall-clock rather than anyone's work. **Leaving a declarative change
+> committed-but-unapplied on a tree this busy is a real strategy, not a cop-out: rolls
+> arrive on their own.**
+>
+> Verified on both new replicas (`agent-chassis-d69d4467c-*`), and at the log line rather
+> than by inferring from env:
+> ```
+> agentbase/agent.go:324  "Storage client initialized"
+>   bucket=personae-prod-uk001-images  endpoint=https://s3.us-east-005.backblazeb2.com
+> ```
+> That is the SUCCESS branch — the failure branch logs *"Storage client not configured
+> (IMAGE_BUCKET not set)"* — so the client is constructed, not merely configured. Which is
+> exactly the distinction I got wrong the first time round, so it is the one worth
+> checking at the log and not at `printenv`.
+
 > **Do not read the failure as "the eye does not work".** Nothing about the vision path
 > itself has been falsified; it never got as far as trying. What has been proven is that
 > the wiring is correct and that a failure in it is harmless — which is the more important
