@@ -45,6 +45,23 @@ induction below. Do not skip it; a roll is not evidence (bugs_open/153).
 
 ### 3. Induction — TWO-DISPATCH RECIPE (v2; v1 was refuted 2026-08-05 evening, see NOTES)
 
+> **BASELINE ALREADY CAPTURED (2026-08-05 late evening, pre-fix binary) — see
+> NOTES final entry.** The bug is on the wire: a failed child answered its
+> parent's awaited request with `status=complete / is_error=false /
+> success=true` and the WORKFLOW_INVALID blob in the body (corr `7512b35e`,
+> R=`22bef043`). **The post-fix acceptance is the SAME two dispatches re-run on
+> the new binary, verified by consuming the child's response envelope** (capture
+> command in NOTES): PASS = `status=error_unrecoverable, is_error=true,
+> success=false, body.error` populated, body blob unchanged. The parent-delivery
+> half needs no re-proof (v1 proved delivery live; coordinator error routing is
+> adapter-exercised daily). Probe seeds + void topic are LEFT IN PLACE for this;
+> clean up after. Two probe repairs are already applied (dispatch payload must
+> include `child_agent_type`; the void topic had to be created — auto-create is
+> off). The `reply_to_*` kafka headers do NOT reach the child's execCtx on this
+> intake path (headers arrive, context builder drops them — see NOTES); the
+> envelope therefore lands on legacy `system.generic.responses`, which is where
+> the capture reads it.
+
 ⚠ **Do NOT use the single-dispatch design from this file's first version.** It
 was run (corr `769f316f`) and REFUTED: a call_agent child travels in a nested
 RequestMessage envelope, and `extractGroupInfo` reads only the msgBody top
