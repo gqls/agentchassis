@@ -20539,3 +20539,29 @@ It does not error, and 3 is a perfectly believable number for a count whose true
 there is nothing in the output to suggest it is partial. Any census over `agent_definitions`
 should use `jsonb_path_query(default_config, '$.**.steps')` by default, and a census whose
 count you cannot independently corroborate (here: the bug file said six) is not a measurement.
+
+---
+
+## 2026-08-05 — webdesign.uk lane, bug 202
+
+### I told the owner the Gemini key had no billing attached. It was Tier 1, £46 spent that month.
+
+**The claim.** From `limit: 250` in a 429 body I asserted "a 250/day cap is the
+free tier — the fleet's key has no billing attached", and built the whole answer
+(enable billing, instant fix) on it.
+
+**What was true.** Tier 1, billing active since at least July 9, £46.09 spent in
+28 days, monthly cap configured. 250 RPD is simply Tier 1's per-model cap for
+`gemini-3.1-pro`. The owner's dashboard corrected me one message later.
+
+**The cheap check I skipped.** The tier table was IN the docs page I had
+ALREADY fetched — it listed free AND paid tiers, and did not state per-model
+figures for either. I had also just written, the same week, that a figure's
+meaning needs its denominator: a limit NUMBER identifies a tier only if the
+tier→limit mapping is known, and I never had it. Ask the account, not the
+error body: the error names the limit, never the tier.
+
+**The transferable rule.** *A quota error tells you which WALL you hit, not
+which ROOM you are in.* Before prescribing a billing fix, have the account
+state in front of you — or say plainly "check which tier the dashboard shows"
+instead of asserting one.

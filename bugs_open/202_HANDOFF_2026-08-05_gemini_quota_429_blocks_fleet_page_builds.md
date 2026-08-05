@@ -50,3 +50,34 @@ affected**. Two active agent definitions name gemini: `page-content-writer`,
 Whoever picks this up: re-drive is `status='triaged', error=NULL` on the failed
 item + the `076` heartbeat (extract from the shebang — the file has notes pasted
 above it).
+
+---
+
+## CORRECTED 2026-08-05 (owner dashboard) — the project is TIER 1, not free tier
+
+The filing session then told the owner the key had "no billing attached"
+[WRONG — inferred from the 250 limit without checking the account; logged in
+`WRONG_CALLS.md`]. The owner's AI Studio dashboard shows: **Tier 1**, project
+"agent chassis", monthly spend cap £150 (£21 used), 28-day cost **£46.09**, and
+per-model peaks: RPM **8/25**, TPM **36.61K/2M**, RPD **at the 250 cap**.
+
+**So the ONLY binding limit is RPD, per model, per project — 250/day for
+`gemini-3.1-pro` at Tier 1.** RPM/TPM have ~3× and ~50× headroom. The fleet
+shares one project, so ~250 pro-model calls/day fleet-wide is the whole budget
+— yesterday gaswholesalers alone logged 123 failures after the cap.
+
+**The real options (supersede the three above):**
+1. **Tier 2 is automatic, no form**: "$100 cumulative Google Cloud spend + 3
+   days from first payment" → upgrade "within 10 minutes" of qualifying. At
+   ~£46/28d the project crosses $100 in roughly 3–4 more weeks on its own.
+2. **Rate-limit increase request form** (no guarantee, free to file):
+   https://forms.gle/ETzX94k8jf7iSotH9
+3. **Reduce pro-model RPD structurally** — the writer pins `gemini-pro-latest`
+   for every section; flash-class models for cheap sections, or a second
+   project/key, would multiply capacity. SHARED-writer change ⇒ council, as
+   before.
+4. The £150 monthly spend cap governs spend, not rate limits — not a lever.
+
+**Timing:** yesterday's 429 said "retry in 20h51m" from 03:08 UTC ⇒ the RPD
+window reopens ~**23:59 UTC 2026-08-05**. A re-drive before then fails; after
+then, ~250 fresh calls exist for the whole fleet's day.
