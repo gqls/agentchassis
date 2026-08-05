@@ -1,6 +1,11 @@
 # 120 — a merge commit silently skips the deploy for one side of the merge
 
-**Filed 2026-07-27** from `webdesign.co.uk`, caught by accident. **Unowned.**
+**Filed 2026-07-27** from `webdesign.co.uk`, caught by accident. ~~**Unowned.**~~
+**OWNED 2026-08-05 ~11:30 BST by the `bugfix_120_merge_deploy_skip` lane** (session
+"bugfix 201", redirected here — 201 was taken by its filing lane minutes before).
+Re-verified today against `gqls/sites@origin/master` (`bbd7703a4`): the workflow
+still ships `fetch-depth: 2` + `git diff HEAD~1 HEAD` — the defect is live. Taking
+fix candidate 1 (+4 as complement), across all three files named in Related.
 Affects the `gqls/sites` deploy for **every domain in the fleet**, and the same
 line is present in the VM deploy workflow, so it is not B2-specific.
 
