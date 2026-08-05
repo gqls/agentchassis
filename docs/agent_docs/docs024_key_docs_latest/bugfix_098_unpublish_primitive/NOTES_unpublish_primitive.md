@@ -653,3 +653,30 @@ write set in exact order; mutation (recorder gutted) fails the three real-run te
 leaves dry-run green; HEAD-archive isolation build passes. **Live probe once rolled**:
 216 with one ACTIVE page id — refused, zero dispatch, no site side effects — then SELECT
 the two rows.
+
+## 2026-08-05 — debt 5b APPROVED (2 advisory, none high); the objections answered with facts
+
+`decided_by: "approved with 2 advisory objection(s) — none high-severity"`, 9 abstained.
+Trailer on `78a97e728` resolves. Answers, so nobody re-derives them:
+
+- **editquality (medium, the dry-run negative-assertion shape):** right instinct, already
+  designed for — the dry-run test does NOT rest on a bare `ExpectationsWereMet()`; the
+  absence is proven by the `conditions_recorded`/`audit_row_recorded` keys that ONLY a
+  real run sets (the round-1 design, NOTES 2026-08-03). The submission's "zero INSERTs"
+  phrasing was looser than the mechanism.
+- **editquality (low, all-refused ordering):** there is no third call site — an
+  all-refused run has `len(paths)==0` and exits through the `nothing_to_retract` call
+  site BEFORE nav retire is ever reached; nav retire only runs when paths remain. The
+  test's expectation order (refusal → audit, no UPDATE) matches the code path exactly.
+- **guardian (low, signature blast radius):** `insertRetractionConditionRow` is
+  lowercase file-local; grep confirms zero callers outside
+  `retract_page_deployment_action.go` (its three callers are the two refusal sites and
+  `recordRetractionAudit`).
+- **prior_art (missing, is the severity edit a no-op?):** it was hardcoded `"warning"`
+  until commit `78a97e728` — the diff is the proof; and coordinator.go:2052-2096 was
+  read in full this session, quoted in RFC_012 addendum 2 (the code index lags HEAD by
+  design — bug 108's landmine — which is why the citation is from source, not the index).
+- **architecture (low + missing):** correct that this is the SECOND bespoke workaround
+  for the park defect. RFC_012 currently has NO owner or target date — it is on the
+  owner's standing decision list (SUMMARY_2026-08-04 §Where we're going); flagged again
+  here as the seat asked.
