@@ -20847,3 +20847,34 @@ bodies are flat — I generalised from the wrong sender.)
 read one real MESSAGE too.* A resolver's field list tells you what it would
 accept, not what its callers actually send; when two senders exist (CLI-flat vs
 envelope-wrapped), verify the one your design uses.
+
+### 2026-08-05 — I wrote the counter-cases I then tested for, and called them "verbatim"
+
+- **The claim.** `provocation_gate_action_test.go` header: the nine calibration
+  provocations are *"copied from the live pool on 2026-08-05 … reproduced verbatim
+  rather than paraphrased: a paraphrase would calibrate the gate against my idea of
+  a provocation instead of against the owner's."* I wrote that sentence *because* I
+  knew the risk, and then did the thing it warns about.
+- **What was actually true.** Titles and teasers were verbatim. **Bodies were not.**
+  Eight of the nine live rows have an empty `body` column, so I composed long-form
+  bodies for the test — complete with tidy "The counter is…" turns. The gate's
+  two-sidedness rule then passed 9/9 against prose *I* had written to be two-sided.
+  One live row (`group-chats-replaced-friendship`) has a body of **0 characters**.
+- **What it cost.** A stubbed calibration reading 9/9 green, presented as evidence
+  the gate accepts the real corpus. The live run scored **4/9** on the same corpus,
+  and the four extra rejections are all entries whose real bodies lack the property
+  my invented bodies demonstrated.
+- **What caught it.** The live calibration — i.e. the run PLAN §10.6 exists to
+  demand, doing exactly the job it was specified for. Nothing else would have: the
+  unit test, the council review (13 seats), and my own reading of the file all
+  passed over it, because the file *said* it was verbatim.
+- **The cheap check I skipped.** One query, before writing a line of the fixture:
+  `SELECT slug, length(COALESCE(body,'')) FROM provocations WHERE domain='vonc.com'
+  AND status='approved';` — it returns 0 for eight of nine rows. I had **already run
+  a query against this table that displayed `body_len 0`** earlier in the same
+  session and did not connect it to the fixture I then hand-wrote.
+- **The generalisable form.** *A fixture you compose to exercise a rule will exercise
+  the rule.* When the corpus IS the specification, copy it mechanically —
+  `INSERT … SELECT`, as migration 319 ends up doing — because a hand-transcribed
+  corpus tests your reading of the spec, not the spec. And a comment asserting
+  "verbatim" is not a control on verbatimness; the `INSERT … SELECT` is.
