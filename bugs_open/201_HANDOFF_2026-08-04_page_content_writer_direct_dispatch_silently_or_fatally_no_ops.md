@@ -5,9 +5,22 @@ found while verifying `bugs_open/184`'s auto-repair step. ~~**OPEN, unowned.**~~
 
 > ## STATUS 2026-08-05 — FIX-1 COMMITTED (`37afbb847`), **STILL OPEN**. Owned by the `bugfix_201_page_content_writer_dispatch` lane.
 >
-> **Symptom 1 is fixed in code and is INERT until a chassis roll.** Go changes do not take
-> effect until an image is rebuilt and rolled; the fleet is on `v1.0.1252` (rolled 08-05
-> 09:10Z), which **predates this commit**. Do not read the commit as the defect being gone.
+> **Symptom 1 is fixed in code and is now DEPLOYED — `v1.0.1254`, both replicas, started
+> 2026-08-05 20:40:42Z / 20:41:08Z. It is deployed but UNPROVEN.** (Superseded: it was inert on
+> `v1.0.1252`, which predated the commit.)
+>
+> ⚠ **DO NOT ATTEMPT A POD-GREP TO PROVE IT — no grep can.** The edit swaps one *pre-existing*
+> string literal for another (`"page-content-writer"` → `"page-build-handler"`); both were in
+> the binary before and after, from other call sites, and Go interns identical literals so counts
+> do not help. **It adds no string and removes none, so there is no control to construct.** The
+> lane's first RUNBOOK R7 told you to grep `'NOT page-content-writer'` — which is a Go **comment**,
+> not compiled in. Run against `v1.0.1254` it returned **0** and would have read as "the fix did
+> not ship". Corrected in place; the general rule is now in RUNBOOK R7.
+>
+> **The proof is behavioural (RUNBOOK R7b): newly-filed items must carry the new handler.**
+> Measured 2026-08-05 20:48Z — **zero rows, so no evidence yet.** Both checks live on
+> `quality-discovery-agent` (22 runs all-time, last **12:14Z, before the roll**), and
+> `literal_markdown` only files on a page that *has* the defect. **A zero here is not a pass.**
 >
 > **What shipped:** all three checks re-pointed from `page-content-writer` to
 > `page-build-handler` — `check_literal_markdown.go`, `check_placeholder_contact.go`,

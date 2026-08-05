@@ -35,6 +35,28 @@ The Go half adds: a **shared default** (`validate_page_content_stats.go`'s own
 
 ### 3a. The 24h no-regression read — **due 2026-08-06 ~09:10Z**, cheap, do this first
 
+> ## UPDATE 2026-08-05 20:48Z (T+11h38m) — effectively PASSING, and now on real traffic
+>
+> | | 08-05 10:16Z (T+1h) | **08-05 20:48Z (T+11h38m)** |
+> |---|---|---|
+> | `CONTENT_DATA_REGRESSION` | 0 | **0** |
+> | positive control, same run | 138 `PROCESSING_FAILED` | **476 `TIMEOUT`** + 4 others |
+> | `page-rerender` runs | 3630 (**1** post-roll) | 3750 → **+120** |
+> | `page-build-handler` runs | 355 (**0** post-roll) | 389 → **+34**, last 15:43Z |
+>
+> **This morning's zero was near-vacuous and was recorded as such** — one caller had run once
+> and the other not at all. That objection is now answered: **~155 runs of the two callers on
+> the fixed binary, still zero regressions**, against a positive control proving the table is
+> being written. This is the substantive result; the 09:10Z tomorrow reading is a formality.
+>
+> ⚠ **A SECOND ROLL happened at 20:41Z — `v1.0.1254`, both replicas.** It does not reset this
+> check: 194's fix shipped in `v1.0.1252` and is still present in `1254`, so the window spans
+> two builds that both carry it. Note it when you write the result up rather than implying one
+> continuous binary.
+>
+> **Still do the formal read tomorrow** — and re-check the run counts in the same breath, since
+> the whole point of this section is that a zero without traffic means nothing.
+
 ```bash
 kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -tA -F'|' -c "
 SELECT agent_type, count(*), max(occurred_at) FROM agent_error_log

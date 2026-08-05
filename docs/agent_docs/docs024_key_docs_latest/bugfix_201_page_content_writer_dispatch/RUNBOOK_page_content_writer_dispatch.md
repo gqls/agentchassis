@@ -116,26 +116,57 @@ The fix is inert until a chassis roll (`v1.0.1252` predates it).
    mis-report a working fix. **Do NOT "fix" this by setting `mode=recreate`** — that sources
    the original adoption crawl, not current content. See PLAN's corrected trade-off.
 
-## R7 — the post-deploy pod-grep (added at the council's `debug_historian` objection)
+## R7 — ⚠ THIS CHANGE CANNOT BE PROVEN BY A POD-GREP. Do not try; you will read a false negative.
 
-The council was right that R5/R6 tested BEHAVIOUR and local build, never DEPLOYMENT. A routing
-string compiled into the chassis binary must be proven in the running pod — never from git,
-never from the image tag (a same-tag rebuild ships the node's stale binary).
+> **CORRECTED 2026-08-05 20:50Z, by running it on the fresh build and watching it fail.**
+> The first version of R7 told you to `grep -ac 'NOT page-content-writer'`. **That string is a
+> Go COMMENT. Comments are not compiled into a binary.** Run against `v1.0.1254` — a build that
+> post-dates the fix by eight hours — it returned **0** on the first replica. Read as written,
+> R7 said "the fix did not ship". It had shipped.
+
+**Why no grep can work here, and this generalises.** The change swaps one *pre-existing* string
+literal for another: `HandlerAgent: "page-content-writer"` → `"page-build-handler"`. Both
+literals were already in the binary before the change and are both still in it after —
+`page-build-handler` from a dozen other call sites, `page-content-writer` because
+`page-build-handler` itself spawns it. **The edit introduces no new string and removes none**,
+so there is no positive control and no negative control to construct. Go also interns identical
+literals, so occurrence *counts* are not a substitute.
+
+**The general rule: a pod-grep verifies a change that ADDS or REMOVES a string. A change that
+re-points one existing literal at another existing literal is invisible to it.** Reach for the
+behavioural check instead — and say which one you used, because "verified against the pod" is
+a claim about a method that did not apply here.
+
+### R7b — the check that DOES prove it: newly-filed items carry the new handler
+
+The routing only affects **items created after the roll**. Existing rows keep the old value
+(R6 trap 1). So the proof is the first item each check files on the new binary.
 
 ```bash
-for POD in $(kubectl get pods -n ai-persona-system -l app=agent-chassis -o name); do
-  echo "== $POD"
-  # POSITIVE: the new routing comment literal is long enough to survive as a string.
-  kubectl exec -n ai-persona-system ${POD#pod/} -- sh -c \
-    "grep -ac 'NOT page-content-writer' /app/agent-chassis"        # expect >0
-  # DISCRIMINATING NEGATIVE: proves the grep can return 0 on this binary.
-  kubectl exec -n ai-persona-system ${POD#pod/} -- sh -c \
-    "grep -ac 'NOT page-content-writer-v2' /app/agent-chassis"     # expect 0
-done
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -tA -F'|' -c "
+SELECT wi.item_type, wi.handler_agent, count(*), min(wi.created_at), max(wi.created_at)
+FROM site_work_items wi
+WHERE wi.item_type IN ('literal_markdown','placeholder_contact')
+  AND wi.created_at > '<the roll timestamp>'
+GROUP BY 1,2 ORDER BY 3 DESC;"
 ```
 
-**Gotchas:** `grep -ac`, not `strings | grep` — some images have no `strings`. **Every replica,
-same exec** — a roll can leave one behind, and `logs deploy/X` reads one pod of N. A short
-literal can compile to an immediate and grep 0 on a binary that fully supports it, which is why
-the positive control is a long string. And the positive alone only proves the pipeline; the
-near-miss negative is what proves the grep discriminates.
+- **PASS:** rows exist and `handler_agent = 'page-build-handler'`.
+- **FAIL:** rows exist and `handler_agent = 'page-content-writer'` — the binary predates the fix.
+- **NOT YET EVIDENCE:** *zero rows*. The checks simply have not fired. **A zero here is not a
+  pass**, and this is the same trap the 194 lane hit twice in one day.
+
+**When will they fire?** Both live on `quality-discovery-agent` (its `checks` array:
+`broken_nav_links, placeholder_contact, generic_theme, unverified_claims, voice_tells,
+literal_markdown`). It has **22 runs** all-time, last at **2026-08-05 12:14Z**, i.e. before the
+`v1.0.1254` roll at 20:41Z. So wait for its next run rather than forcing one — and note that
+`literal_markdown` only files an item on a page that *has* the defect, so a clean sweep also
+produces zero rows. To get proof faster, target a site with a known live instance
+(`mortgagecalculator.co.uk` hero, `gaswholesalers.com` pricing, `webdesign.co.uk` news-listing
+per `bugs_open/184`) — but read R6 trap 2 first: **mortgagecalculator is LOCKED.**
+
+⚠ **`check_component_standards`' `needs_content_page` sub-check may never produce a row to
+check.** All 77 `needs_content_page` items fleet-wide already carry `page-build-handler` —
+they come from `write_build_items`, not from this sub-check, which appears never to have fired.
+The council's `editquality` seat made exactly this point. That edit is a consistency fix and is
+**unverifiable from runtime data**; say so rather than claiming it passed.
