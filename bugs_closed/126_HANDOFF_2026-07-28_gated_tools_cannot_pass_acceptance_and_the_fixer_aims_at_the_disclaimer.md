@@ -357,3 +357,68 @@ correlation is approved; no amend, forward-only holds).
 
 No resubmission needed. Nothing here changes item 1/2/4/5 above — the roll,
 pod-verify and criteria-authoring doc are still owed before this can close.
+
+---
+
+## CLOSED 2026-08-05 — FIXED AND LIVE, pod-verified with controls on both services
+
+The owner rolled a fresh chassis build. Verified against the RUNNING pods, not
+the tag (`deployment.spec.template.spec.containers[0].image` read too, for the
+record: both `docker.io/aqls/agent-chassis:v1.0.1254` and
+`docker.io/aqls/browser-runner-adapter:v1.0.1254` — but the grep below is what
+actually settles it).
+
+```
+agent-chassis-d69d4467c-dvn8k   grep -ac "Tier-4 acceptance not converging" -> 1  (positive control)
+                                 grep -ac "must NOT be handed to tool-improver"   -> 1  (the no_auto_fix fix)
+                                 grep -ac "zzq_negative_control_xyzzy_126"        -> 0  (negative control)
+agent-chassis-d69d4467c-fc8pq   identical: 1 / 1 / 0
+
+browser-runner-adapter-d7987459d-62vx7 (the one healthy replica; see note below)
+                                 grep -ac "in the live DOM after settle"         -> 1  (positive control)
+                                 grep -ac "reload navigation failed"            -> 1  (the reload fix)
+                                 grep -ac "zzq_negative_control_xyzzy_126"       -> 0  (negative control)
+```
+
+Both replicas of `agent-chassis` and the sole replica of `browser-runner-adapter`
+carry the fix, each proven against a positive AND negative control in the same
+exec — not merely "the tag changed". Both grep landmine-corrected: `grep -ac`,
+not `strings | grep -c` (these images carry no `strings` binary — see the fleet
+LANDMINE) — confirmed working here rather than assumed. `grep` on these ~95MB
+Go binaries is slow (BusyBox grep on a file with very few newlines effectively
+scans one giant "line"; 60-90s per invocation, not a hang) — budget for it,
+don't add a short timeout and read a false negative.
+
+**Note on `browser-runner-adapter` replica count.** `kubectl get deployment
+browser-runner-adapter` shows `1 desired / 1 available / 1 ready` — this
+service runs at replica count 1 by design, so one verified replica IS full
+coverage, not partial. Separately, 27 stale `Evicted` pod objects were present
+on node `prod-instance-17735925437536833` from a `NodeHasDiskPressure` event
+(cleared ~8 minutes before this check, timing consistent with the fresh
+~1.2GB image pull) — historical debris the ReplicaSet controller had already
+moved past, not an active under-replication. Not investigated further; worth a
+`kubectl delete pod --field-selector=status.phase=Failed` housekeeping pass on
+that node if it recurs, but out of scope for this bug.
+
+**Fix candidate 4 (criteria-authoring docs) status at close:** done in the
+docs commit above (`a00d9813d`) — folded into
+`PLAN_tool_acceptance_runner.md`'s contract section rather than left owed.
+
+**Still genuinely open, and named rather than silently dropped:**
+- `tooling_provenance`'s advisory (doc_plans/doc_notes travelling-docs
+  engagement) — process hygiene, not correctness; nobody has picked it up.
+- Neither `reload` nor `no_auto_fix` has been adopted by a real tool's PLAN
+  yet — the mechanism is live; no fence uses it. The tool that originally hit
+  this bug was already fixed at the criteria-authoring level and does not need
+  it.
+- The lockstep test's two stale anchor functions (`applicableChecks`,
+  `func (p *chromiumPage) Do(`) still don't match the real names and the test
+  still only passes via its whole-file fallback — noted as a follow-up in
+  TL-040's verify-later, not fixed here (out of this bug's scope; the fallback
+  is a real safety net, just an accidental one).
+
+No missteps to log in `WRONG_CALLS.md` for this bug — no claim made during
+this work was later found false; the fable-drafted plan's factual claims were
+independently spot-checked against the live repo before implementation and
+held up, and both implementation passes were mutation-tested rather than
+trusted on green alone.
