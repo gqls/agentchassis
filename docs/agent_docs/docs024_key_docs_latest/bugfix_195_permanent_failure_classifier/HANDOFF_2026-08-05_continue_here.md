@@ -1,4 +1,40 @@
-# HANDOFF 2026-08-05 — `bugs_open/195`, continue here
+# HANDOFF 2026-08-05 — `bugs_closed/195`, continue here
+
+> ## ⚠ SUPERSEDED — THE LANE IS CLOSED AND COUNCIL-APPROVED. Nothing here is owed.
+>
+> **`195` is CLOSED, live on chassis `v1.0.1252`+ (now `v1.0.1254`), induction-proven, and
+> council APPROVED** (`9b1254f0`, round 2, 08-05 10:13Z, 5 advisory objections none
+> high-severity). File moved to `bugs_closed/`.
+>
+> **Every owed step in the sequence below was discharged:**
+> 1. **Resubmitted** — round 2 sent and **APPROVED**. (Beware: I first misread it as REVISE
+>    because `max()` on a text column sorts `'revise' > 'approved'`. Use `ORDER BY created_at
+>    DESC LIMIT 1`.)
+> 2. **Induction read and PASSED** — corr `631232ed`: exactly 1 `agent_error_log` row,
+>    `VALIDATION_ERROR_DROPPED`, `matched_needle = code:WORKFLOW_INVALID` (typed path), 0
+>    duplicate rows. Baseline 0/needle-HIT 0. Plus the before/after that proves the
+>    unconditional record: `PROCESSING_FAILED` **0 → 102 rows/24h** across the roll. Probe
+>    agent deleted.
+> 3. **Closed**, moved, `016b` §9 + §10, RSH-005, `MEMORY_closed.md`.
+>
+> **Two things happened AFTER the closure that a reader should know:**
+> - The one medium objection (my "dead code" claim resting on grep-for-callers, which the
+>   landmine set flags as unreliable for entry-point-shaped code) was **re-proved on an
+>   independent axis**: `AgentServer` is **absent from the shipped binary** (0) while a live
+>   sibling method is present (3). Limit: proves it for `agent-chassis` only.
+> - **Another session's code review (`f887ed1ad`) found four errors in my shipped work**, two
+>   of them mine: a self-contradicting comment I wrote (F1), and the two bare type assertions
+>   I left in the very file where I added `AsDomainError` to replace them (F8). Both corrected
+>   by that session; I have not reverted anything. See NOTES.
+>
+> **Still live and unowned, both filed at the council's direction:**
+> **`bugs_open/196`** (failure responses reach the parent stamped `complete` with
+> `Success: true` — arguably the more serious finding, and it falsifies `bugs_open/029`'s
+> hung-parent reading for this path) and **`bugs_open/197`** (the sibling retryable-side
+> classifier, still deciding by substring over prose — F8 above was a partial down-payment).
+>
+> Kept unedited below as the record of what was owed at 09:57Z and how it was discharged.
+> **Do not pick work up from it.**
 
 **Read this, then `NOTES_permanent_failure_classifier.md` bottom-up.** Lane is
 `bugfix_195_permanent_failure_classifier`. Everything below is measured unless marked.
