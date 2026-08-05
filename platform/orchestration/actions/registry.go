@@ -1498,6 +1498,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Select today's provocation from the pool, build the site feed and commit it (fails closed)",
 		IsLocal:     true,
 	},
+	"gate_provocation": {
+		Handler:     GateProvocationAction,
+		Category:    "feed",
+		Description: "Judge draft provocations (form, claims rail on the body, model safety); approves none by default and treats a judge error as a rejection",
+		IsLocal:     true,
+	},
 	"render_rss_feed": {
 		Handler:     RenderRSSFeedAction,
 		Category:    "feed",
