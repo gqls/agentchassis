@@ -63,6 +63,13 @@ leopardessconsulting 6, oufe 2). Only this site is 100% blocked.
 > untouched since 08-04. **Open, unowned, and the precedent for the fix is already
 > APPROVED** — do the same thing 182 did, one function over.
 
+⚠ **`bugs_closed/041` will look like this bug and is CLOSED — it is not the same.**
+041's cause was the RAW string (`call_to_action` missing the existing
+`call-to-action`) and its fix was normalisation, live v1.0.1146. That does not reach
+204: `prose-0` normalised is still `prose-0`, and no component bears that name or
+function under any spelling. 041 closed the *spelling* half of this lookup's
+blindness; 204 is the *identity* half. Family members: 039, 041, 095, 204.
+
 **The fix:** resolve by `page_components.component_id` first, fall back to
 name/function. 182's `loadComponentSchemasByID` / `loadContentComponentsByID` already
 exist and are the reusable unit — **do not write a third resolver.** ⚠ `plan_sections`
