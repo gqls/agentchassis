@@ -325,3 +325,35 @@ lead with a reset).
 
 Registered: `docs/agent_docs/docs026_concept_register/register/tool-lifecycle.md`
 TL-040.
+
+### Council verdict, read in full 2026-08-05 — APPROVED, 14/14, 0 unreadable
+
+`SELECT metadata->>'decision', metadata->>'unreadable', jsonb_array_length(...),
+count(...) WHERE verdict IN ('approve','object')` → `approved | 0 | 14 | 14` —
+every seat voted, none lost; not the dead-seat shape that has produced a false
+REVISE elsewhere in this repo. 5 advisory objections, none high-severity, none
+blocking (this file's item 3, "read the council verdict... add
+Council-Reviewed:", is done by this section — per the council runbook, `098`
+credits the existing `Council-Submitted:` commit automatically now the
+correlation is approved; no amend, forward-only holds).
+
+- **`architecture` and `reuse_agent`** both flagged the same gap: the
+  `no_auto_fix`/`acceptance_stuck` convergence is RFC-exempt under the
+  2026-08-02 owner ruling only if the producer set is named in the
+  concept-register entry — and the submission's edit list didn't include one.
+  **Resolved by the docs commit that followed (`a00d9813d`):** TL-040 names
+  both producers (`stuck` cycle-count guard; `no_auto_fix` fence flag) and the
+  shared `item_key` shape. Architecture's own words: "a point fix that should
+  proceed once the concept-register entry is added" — it now is.
+- **`bug_historian`**: `parseNoAutoFix`'s fail-open-on-malformed-JSON default
+  is the correct shape in general but worth a conscious sign-off given what's
+  at stake (a legal disclaimer) — noted, not actioned further; the tradeoff is
+  already stated in the function's own doc comment (absent/malformed criteria
+  must mean "no fence ever said anything," not an invented protection).
+- **`tooling_provenance`**: neither change engages the `doc_plans`/`doc_notes`
+  travelling-docs mechanism for the two files it touches — process hygiene,
+  correctly marked not a correctness defect. Open, low priority.
+- **`guardian`**: not vetoing; same two points as above, contained.
+
+No resubmission needed. Nothing here changes item 1/2/4/5 above — the roll,
+pod-verify and criteria-authoring doc are still owed before this can close.
