@@ -282,3 +282,30 @@ on that route only `sections_source: 'metadata'` discriminates.
 - 32 pages `generic` / 6 `owned`, so the `owned` guard blocks little here.
 - 6 items sit claimed by `build-dispatch-loop` but parked at `needs_human_review`, claimed
   08-04 08:37 and earlier — **not in flight**; last site orchestration was 08:36Z.
+
+### …and then the one remaining candidate turned out to be locked
+
+Checked ownership on `mortgagecalculator.co.uk` before recommending it — and found the site
+**LOCKED since 2026-08-03 10:30Z** by `mortgagecalculator-adoption-lane`:
+*"composition+design done; held pending owner decision on page rebuilds."*
+
+`load_work_items` tests the lock **before every filter** (`load_work_item_actions.go:127-139`)
+and returns `{items: [], count: 0, skipped_reason: "site_locked"}` — **success, zero items.**
+That is a *third* way to get a green run that never executes `save_sections`, and it is the
+most deceptive of the three because the site genuinely does have qualifying work; only the
+`skipped_reason` distinguishes it from an idle site, and nothing in the run's status does.
+
+**So check 3b has no runnable target today.** Not "the owner hasn't picked a site" — every
+site fails the item predicate, and the single site that passes it is deliberately held
+pending an owner decision **on page rebuilds**, i.e. on exactly the operation 3b performs.
+
+⚠ **The lock must not be released to run this check.** `aee11cb90` is the incident where a
+live homepage on this same site was rebuilt under a held lock; the lock is the control added
+in response. Overriding it to make my own verification convenient would re-run that incident
+deliberately.
+
+**What that leaves.** 3b is blocked on a human decision that is genuinely upstream of it —
+either the mortgagecalculator lane's owner decision lands (releasing a natural target), or
+eligible build work is created on an unlocked site, or the new-build/`pageflow-builder` route
+is funded. Recorded rather than worked around. `ai-agent-orchestration.com` is **UNLOCKED**,
+so the owner's rebuild request there is unobstructed — it simply is not this check.

@@ -150,6 +150,35 @@ No orchestration dispatch within ~300s of a pod (re)start; the spawn is silently
    **The zero is not a broken query** — the same query returns 1, which is the positive
    control that makes the other zeros mean something.
 
+4. **THE SITE LOCK IS A THIRD, SILENT VACUOUS-PASS PATH — and it disqualifies the one
+   remaining candidate.** `load_work_items` short-circuits *before* any of the filters above:
+
+   ```go
+   // load_work_item_actions.go:127-139
+   SELECT locked_at IS NOT NULL FROM sites WHERE id = $1
+   → returns {"items": [], "count": 0, "skipped_reason": "site_locked"}
+   ```
+
+   It returns **success with zero items**, so the run completes green exactly as an idle site
+   does. `has_items == false` → `load_fix_items` → `save_sections` never executes. **Add the
+   lock to the precondition, and read `skipped_reason` on any run that finds nothing:**
+
+   ```bash
+   kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -tA -F'|' -c "
+   SELECT domain, CASE WHEN locked_at IS NULL THEN 'UNLOCKED' ELSE 'LOCKED '||locked_at::text END, COALESCE(locked_by,'-')
+   FROM sites WHERE domain = '<target>';"
+   ```
+
+   **Measured 2026-08-05 10:45Z:** `mortgagecalculator.co.uk` — the **only** site holding a
+   qualifying item — is **LOCKED since 2026-08-03 10:30Z** by
+   `mortgagecalculator-adoption-lane`, reason *"composition+design done; held pending owner
+   decision on page rebuilds"*. So **check 3b has no runnable target at all today**: every
+   other site fails the item predicate, and the one that passes it is deliberately held —
+   pending an owner decision on precisely the operation 3b would perform.
+   ⚠ **Do not release that lock to run this check.** Commit `aee11cb90` is the incident where
+   a live homepage was rebuilt under a held lock on this same site. The lock is the control
+   that was added afterwards.
+
 With those three corrected: one of the two dormant callers CAN still be proven live. Target a site whose pages are
 `rebuild_policy != 'owned'` (check the column first: `087`'s run was blocked by exactly
 that guard) **and which returns non-zero from the query above**. Then R4 on the rebuilt page.

@@ -192,3 +192,23 @@ content_data" — so this is that bug, on this site, not a guess.
 **What I need from you.** Fixing that site and proving the fix are now two different jobs, and
 I did not want to quietly turn one into the other. The details and the three possible routes
 are in the handoff and runbook.
+
+**One more thing, found while checking the last candidate.** The single site in the estate with
+a suitable job waiting — mortgagecalculator.co.uk — is **locked**, and has been since Sunday.
+Another thread locked it deliberately, and the note it left says: design and composition are
+done, held pending *your* decision on page rebuilds. Which is the very thing my check would do.
+
+The system handles a locked site by quietly returning "no work" and carrying on. So a run there
+would have finished green too, for a third and completely different reason, and only a field
+buried in the result would have said why. I would have had three separate ways to record a
+false pass on this one check, and I had written down none of them yesterday.
+
+I am not unlocking it. There is already an incident on that exact site from a page being
+rebuilt while the lock was held, and the lock is the control that was put in afterwards.
+Releasing it so my own verification could proceed would be re-running that incident on purpose.
+
+**So the honest position: this check cannot be run today by any route, and that is a decision
+sitting with you, not a task sitting with me.** It needs either your call on
+mortgagecalculator's rebuilds (which frees a natural target), or a deliberate choice to fund a
+new build purely as a test. Meanwhile ai-agent-orchestration.com is unlocked and free to work
+on — that job is unblocked, it just proves nothing about this bug.
