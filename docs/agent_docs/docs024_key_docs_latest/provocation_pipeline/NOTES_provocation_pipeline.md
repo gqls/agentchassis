@@ -1369,3 +1369,53 @@ rather than minted by our writer first.
 
 **Owed:** read council `ccc32c3c` and act on it — the code is already on the shared
 branch, so a REVISE is not something that can wait for a convenient moment.
+
+### Council `ccc32c3c` — APPROVED round 1, and the objections CHECKED rather than filed
+
+11 seats ran (7 abstained as out of remit). `guardian` and `debug_historian`
+objected; both verdicts were still `approve`-compatible and the decision was
+**approved with 2 advisory objections, none high-severity**. Three of the
+objections were answerable with a query, so they were answered:
+
+1. **guardian, low — "how many workflow steps invoke this action? if a second site
+   or pipeline reuses the handler, the new hard-error changes their publish path
+   silently."** A fair question and I had not measured it. **Measured: exactly one
+   consumer.** One active agent (`provocation-feed-publisher`, its `publish_feed`
+   step) and one scheduled row (`provocation-feed-refresh`, `vonc.com`). The
+   second-consumer scenario is empty today, so the hard-error cannot surprise
+   anybody — *and* the check is the thing to re-run before adding a second site,
+   not this sentence.
+2. **guardian, low — "a migration earns its number from the ledger, not the
+   filename."** Correct in general and worth the habit. **Checked:**
+   `schema_migrations` holds `320_provocations_one_per_category_per_day.sql`,
+   applied `2026-08-05 21:13:02Z`. The ledger and the filename agree.
+3. **debug_historian, medium — "no visible BEGIN...COMMIT wrapper; an aborted
+   transaction is sticky under psql -f."** This one is an artefact of my
+   *submission sketch*, which elided them. **The real file has both** (`grep -cE
+   '^BEGIN;|^COMMIT;'` = 2). Lesson for the next submission: a sketch that drops
+   the transactional frame invites exactly this objection, and the reviewer was
+   right to raise it on what it could see.
+
+**Left OPEN, deliberately, and the first is the one to act on:**
+
+- **`bug_historian`, low — Cloudflare.** "The 404-really-means-absent assumption is
+  UNEXERCISED LIVE, and vonc.com is Cloudflare-fronted, where refusals can be
+  indistinguishable from origin behaviour by status code alone." **This is a better
+  objection than my own risk note.** I argued a 404 is the artefact saying it does
+  not exist; Cloudflare can say 404 for its own reasons. It is harmless today
+  (nothing reaches the branch until a category is seeded) but it is a genuine
+  precondition: **before seeding the first category, confirm by hand that the
+  intended path 404s from the origin and not merely at the edge.** Recorded in the
+  handoff as a gate on that step rather than as a note.
+- **`debug_historian`, medium — no pod-grep step for the Go half.** True, and by
+  design: the Go is inert until a fleet release I am not performing. Recipe for
+  whoever rolls it, with a control, since a roll is not evidence:
+  `strings /app/agent-chassis | grep -c 'provocations-'` (added; expect >0) beside
+  `grep -c render_provocation_feed` (positive control; expect 1). There is no
+  removed-string negative control — this change is purely additive.
+- **`bug_historian` + `architecture` — the engine's presence-only validation is
+  routed around, not fixed.** Correct, and it is RFC_013 §2.2, another lane's code.
+  Both seats called the scope cut the right shape rather than an omission; the
+  `architecture` seat's signal was **`point_fix`**, explicitly because the mechanism
+  change had already been through the RFC and been ratified — "the seat's own remedy
+  working as intended, not the failure mode it exists to catch."

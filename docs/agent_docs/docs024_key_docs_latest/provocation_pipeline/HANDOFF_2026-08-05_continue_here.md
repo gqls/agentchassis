@@ -40,21 +40,23 @@ the same fleet release.**
 
 ## 3. What to do next — in order
 
-### 3.1 READ THE COUNCIL VERDICT — owed, and the code is already on the branch
+### 3.1 ~~READ THE COUNCIL VERDICT~~ — **DONE. APPROVED round 1** (`ccc32c3c`)
 
-Correlation **`ccc32c3c-d643-430f-bf29-14064f0c4652`** (categories). Committed with
-`Council-Submitted:`, which 098 credits automatically on approval — but a
-REVISE/REJECTED must be **acted on**, because the code is already shared.
+Approved with 2 advisory objections, none high-severity; `architecture` signal
+`point_fix`, explicitly because the mechanism change had already been through the
+RFC. Three objections were answerable by query and were answered (NOTES has the
+detail): **exactly one consumer** of this action fleet-wide (one agent, one
+scheduled row, vonc.com), the **ledger did record 320** for this file, and the
+missing `BEGIN...COMMIT` was an artefact of the submission *sketch* — the real
+migration has both.
 
-```sql
-SELECT current_step, status FROM orchestration_states
-WHERE collected_data->'input_data'->>'fix_correlation_id' = 'ccc32c3c-d643-430f-bf29-14064f0c4652';
-SELECT body FROM doc_notes WHERE categories ? 'council-gate' ORDER BY created_at DESC LIMIT 1;
-```
-
-Budget ~30 min from 2026-08-05 ~12:5xZ. **The objection to expect** is the bootstrap
-widening (§4.2) — it is the one thing in this change that makes a failure path more
-permissive, and the submission names it as the thing to review hardest.
+**One objection is left open and it gates §3.3, so read it before seeding a
+category:** `bug_historian` points out that vonc.com is Cloudflare-fronted, where a
+refusal can be indistinguishable from origin behaviour by status code alone. The
+bootstrap branch assumes a 404 means "the artefact does not exist". That is
+UNEXERCISED LIVE. **Before the first category is seeded, confirm by hand that the
+intended path 404s at the ORIGIN, not merely at the edge.** It is harmless until
+then, because nothing reaches the branch.
 
 ### 3.2 The stale site is STILL the live defect, and it now has a built fix
 
