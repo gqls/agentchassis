@@ -470,3 +470,62 @@ make build-component-render-check push-component-render-check deploy-component-r
 
 `--write-baseline` refuses while any component fails to parse, so blindness cannot be baked
 in as clean.
+
+## R12 — shipping a change to `component-render-check` (2026-08-05)
+
+**This service does NOT take its tag from `IMAGE_TAG`.** The chassis and the other 13
+backend services do; this one pins `newTag:` in its overlay. Bump BOTH, in the same
+commit as the rebuild, or build+push+deploy all succeed and the cluster keeps the old
+binary — measured 2026-08-05, and every line of output said success:
+
+```bash
+# 1. commit the code (build is from committed HEAD), 2. bump IMAGE_TAG in makefile,
+# 3. bump newTag in the overlay — MISS THIS AND THE DEPLOY IS A NO-OP:
+#    deployments/kustomize/services/component-render-check/overlays/production/uk_001/kustomization.yaml
+make build-component-render-check push-component-render-check deploy-component-render-check
+```
+
+Then prove it at the artefact, in this order — each step catches what the previous
+cannot:
+
+```bash
+# a) the image contains your change, and the DEPLOYED one does not (the honest control
+#    when your change removes no string literal, so no removed-string control exists)
+docker run --rm --entrypoint sh docker.io/aqls/component-render-check:<new> \
+  -c "grep -ac '<text you added>' /app/component-render-check"     # expect >=1
+docker run --rm --entrypoint sh docker.io/aqls/component-render-check:<old> \
+  -c "grep -ac '<text you added>' /app/component-render-check"     # expect 0
+# b) the CronJob actually runs it — 'configured' not 'unchanged' is the cheap signal,
+#    this is the one that cannot be misread
+kubectl -n ai-persona-system get cronjob component-render-check \
+  -o jsonpath='{.spec.jobTemplate.spec.template.spec.containers[0].image}'
+# c) it runs — and read the POD's exit code, not the log line
+kubectl create job -n ai-persona-system crc-proof --from=cronjob/component-render-check
+kubectl -n ai-persona-system get pod -l job-name=crc-proof \
+  -o jsonpath='{.items[0].status.containerStatuses[0].state.terminated.exitCode}'
+kubectl delete job crc-proof -n ai-persona-system
+```
+
+### The clone rule, and how to prove a change to it
+
+Findings key by the **oldest active component sharing the same `html_template`**, so a
+byte-identical clone inherits the parent's accepted findings instead of reading as
+regression. Suppressed findings are printed (`N inherited from an identical template`),
+never dropped silently.
+
+**A live `--compare` cannot prove a change here** — the library is clean, so it exits 0
+either way. Use two binaries against the same DB, and offline fixtures for the arms:
+
+```bash
+/tmp/rck_old --compare      # the pre-change binary: reproduces the red you are fixing
+/tmp/rck_new --compare      # yours
+# offline: parent + identical clone -> 0 NEW, N inherited, exit 0
+#          parent + EDITED clone    -> NEW reported, exit 1   <- the anti-blindness arm
+/tmp/rck_new --json clone_same.json   --baseline base_parent.json
+/tmp/rck_new --json clone_edited.json --baseline base_parent.json
+```
+
+**Regenerating the baseline is also a control.** After a keying change it should come
+back **byte-identical** unless you intended keys to move: `--write-baseline` then
+`git diff --numstat`. An empty diff means no existing key shifted; a large one means you
+have changed what the baseline describes and every reader of it needs to know.

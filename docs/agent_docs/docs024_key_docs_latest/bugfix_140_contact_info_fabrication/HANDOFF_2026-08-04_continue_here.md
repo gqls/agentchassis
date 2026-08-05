@@ -13,12 +13,36 @@ the `SUMMARY_…` series.
 
 ## One-line state
 
-> **SUPERSEDING UPDATE, 2026-08-04 19:55 UTC — follow-on 1 is DONE and only follow-on 2
-> remains.** The owner ruled "flip it": the ungated `skip_field` class now **exits 1**,
-> live and proven in-cluster (commit `2b1684314`). RFC_009 B+C re-proven again on
-> **`v1.0.1251`** — the `v1.0.1250` numbers below were superseded within hours, as this
-> doc warned they would be. The single remaining item is watching the 06:55 UTC firing on
-> **2026-08-05**; everything else on this page is discharged.
+> # ⛳ NOTHING ON THIS PAGE IS OWED (2026-08-05 10:15 UTC). Both follow-ons discharged.
+>
+> **Follow-on 1 (2026-08-04):** owner ruled "flip it" — the ungated `skip_field` class
+> now **exits 1**, live and proven in-cluster (commit `2b1684314`).
+>
+> **Follow-on 2 (2026-08-05): the schedule WORKS.** `component-render-check` fired
+> unattended at **06:55:13 UTC** (`doc_notes`, source `component_render_check`). It
+> exited **1 with 13 NEW findings — all false alarms**, and fixing that was this
+> session's work: a clone with a **byte-identical** template re-reported its parent's 13
+> already-accepted findings, because the baseline key carried the component NAME.
+> Clones are routine (3 in the preceding 7 days), so the job would have gone red about
+> weekly with findings nobody could clear. **Owner ruled: an identical template is the
+> same defect.** Findings now key by the oldest component sharing that template; an
+> EDITED clone still reports NEW; suppressed findings are printed, never dropped.
+> Live on **`v1.0.1253`** (commits `5d4dbcaf0`, `eb67c52f2`), pod-verified: exit 0,
+> `0 NEW, 13 inherited`, `doc_notes` 10:10:44Z.
+>
+> **Two traps this cost, both now LANDMINES.** (1) `make deploy-component-render-check`
+> ships NOTHING on its own — this service pins `newTag:` in its OVERLAY, so build+push
+> +deploy all succeed while the cluster keeps the old image; read the image back by
+> jsonpath. (2) A failed CronJob's **pods are gone within ~3h**, so "read the POD, not the
+> Job" expires — by the time you look at a morning failure the `doc_notes` row is the only
+> evidence left, which is why one is written on every run.
+>
+> **Live tags when this was written: chassis `v1.0.1252`** (RFC_009 B+C re-proven on it,
+> both replicas, 2/1/1 + control 0), **render-check `v1.0.1253`**. Both go stale fast —
+> re-read before quoting.
+>
+> **If you are picking this lane up:** there is no task here. The next thing that will
+> ever need doing is responding to a genuine finding from one of the two daily checks.
 
 `bugs_closed/140` CLOSED. RFC_009 B and C live. The 68 `skip_field` fields gated
 (migration 295). **The element-level blindness the 08-03 recheck exposed is now covered by

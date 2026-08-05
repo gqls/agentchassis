@@ -391,3 +391,42 @@ Left for tomorrow: the one thing I can't do tonight. The new morning check was d
 after yesterday's slot had passed, so its first unattended run is tomorrow at 06:55 —
 until then there is genuinely no way to tell a working alarm clock from a broken one. The
 run I did by hand proves everything except that.
+
+**2026-08-05, morning — the new check woke up on its own, and the first thing it caught
+was its own fault.**
+
+Good news first: the morning check ran by itself at 06:55, exactly as intended. That was
+the one thing we couldn't prove yesterday, and it's now proven.
+
+It reported a failure. Thirteen problems, all in one component that had been created at
+1:19 that morning. When I looked, that component was a **character-for-character copy** of
+one we've had since February — and the February one's thirteen problems were already on
+the accepted list. So they weren't thirteen new faults; they were the same thirteen faults
+under a new name, because the check identified a problem by which component it was in, and
+a copy has a different name.
+
+Copies like this are routine here — three were made in the last week alone. So left as it
+was, the morning check would have gone red roughly every week over problems nobody could
+do anything about, and everybody would have learned to ignore it. That is precisely the
+failure this whole design was meant to avoid, so the check itself was the thing at fault,
+not the library.
+
+You chose to have it treat an identical copy as the same problem, and that's now live. A
+copy inherits the original's accepted problems; a copy that is later *edited* stops
+matching and gets judged on its own, which is the important half — otherwise "fixing" this
+would just have been making the check blind. I proved both halves before shipping, and I
+also checked the list of accepted problems came back **identical** afterwards, which tells
+us nothing else quietly shifted. Anything the new rule silences is still printed, so you
+can always see what it decided not to worry about.
+
+One thing worth telling you because it nearly caught me. I built the fix, pushed it,
+deployed it, and every single step reported success — and the cluster was still running
+yesterday's version. This particular job records which version to run in its own
+configuration file rather than picking it up from the usual place, so the deploy had
+nothing to change and said so, in a word that reads like reassurance. I only found it
+because I asked the cluster what it was actually running instead of believing the deploy.
+It's fixed, verified by running the thing, and written down — it would have caught the
+next person just as easily.
+
+The morning job will now go green tomorrow rather than red. Nothing is outstanding from
+this piece of work.

@@ -996,3 +996,93 @@ CronJob was created ~11:30 UTC on 08-04, i.e. after that morning's slot, and it 
 UTC now. `LAST SCHEDULE <none>` is therefore **correct, not a fault** — there is no way
 to distinguish "the alarm clock works" from "it doesn't" until tomorrow morning. Left for
 the next session, with the read-the-POD warning restated in the handoff.
+
+---
+
+## 2026-08-05 — the alarm clock works, and its first ring was a false alarm it caused itself
+
+### Follow-on 2 DISCHARGED: the schedule fires
+
+`component-render-check` ran **unattended at 06:55:13 UTC**. Evidence is the `doc_notes`
+row, not the Job — and that distinction earned itself immediately (below).
+
+### The Job was FAILED, and that was correct behaviour on wrong input
+
+`13 NEW, 0 fixed, 0 UNCOVERED`, exit 1, `BackoffLimitExceeded` after 2 attempts (two rows,
+06:55:13 and 06:55:32 — the retry). All 13 findings belonged to ONE component:
+
+```
+tool-ab-test-calculator_pre_037-idea-uk   created 2026-08-05 01:19:15
+tool-ab-test-calculator_pre_037           created 2026-02-27 16:21:50
+md5(html_template) = 8673be08f969504f5a9ceb46e45d7656   -- IDENTICAL, both
+```
+
+The parent has **exactly those 13 keys** in the committed baseline. So: not 13
+regressions, 13 known holes arriving under a new name, because the baseline key is
+`component\0field\0shape` and a clone gets a new component name.
+
+**Sized before deciding anything:** 5 clone families / 10 active components, **3 clones
+created in the last 7 days**. So this fires roughly weekly — a permanently red job with
+findings nobody can clear, which is the precise outcome the baseline was built to
+prevent. The check's own key was the defect.
+
+### ⚠ The failed pods were ALREADY GONE at 3h old
+
+`kubectl get pods -l app=component-render-check` showed only yesterday's manual pod. The
+scheduled Job existed (`Failed`, `failed=2`) but **`kubectl get pods -l job-name=…`
+returned `No resources found`.** So the "read the POD, not the Job" rule has a shelf life
+measured in hours, and by the time anyone looks at a morning failure the only surviving
+evidence is the `doc_notes` row — which is exactly the argument for writing one on every
+run. The design's own justification, demonstrated by accident on day one.
+
+### The fix, and the arm that matters
+
+Owner ruled: an identical template is the same defect. Findings key by the **oldest**
+active component sharing that `html_template`. Oldest, not alphabetically first —
+otherwise a clone whose name sorts earlier would displace the incumbent and shift every
+key beneath it.
+
+Proof, because a live `--compare` cannot do it (the library is clean; it exits 0 either
+way):
+
+| arm | result |
+|---|---|
+| pre-change binary, live DB | 1036 findings, **13 NEW** — reproduces the cluster's own number |
+| new binary, same live DB | 1036 findings, **0 NEW, 13 inherited**, exit 0 |
+| offline: identical clone vs parent-only baseline | 0 NEW, 1 inherited, exit 0 |
+| offline: clone then **EDITED** | **2 NEW, exit 1**, named on stdout |
+| `--write-baseline` regenerated | **byte-identical to the committed file** |
+
+The EDITED-clone arm is the one that matters: without it this change is
+indistinguishable from making the check blind. The byte-identical baseline is the other
+half — 1036 findings collapse to the same 1023 keys, so no existing key moved, and
+having nothing to commit *is* the evidence.
+
+Suppression is **printed**, on stdout and in the `doc_notes` row: `13 inherited from an
+identical template … clone(s) of: tool-ab-test-calculator_pre_037`. A filter that hides
+its own effect would be the blindness shape this tool exists to close. I initially wired
+it into the report body only, and caught that the stdout path — the one a session
+actually reads — was silent.
+
+### MISSTEP — I "deployed" and shipped nothing
+
+`make build-… push-… deploy-…`, all successful, `CronJob deployed. Next run:` printed.
+The CronJob was **still running `v1.0.1250`**. This service pins `newTag:` in its
+OVERLAY rather than taking `IMAGE_TAG` like the chassis and the other 13 services, so
+`apply -k` rendered an identical manifest and honestly reported `unchanged` — a word that
+appears in the output and means "your fix is not live", and reads like "already fine".
+
+Caught by reading the CronJob's image back with jsonpath instead of believing the make
+target. Bumped `newTag` (commit `eb67c52f2`), re-applied → `configured`, image
+`v1.0.1253`. LANDMINE added and synced.
+
+### Live proof
+
+Manual `--from=cronjob` run on 1253: pod `Completed`, **exit code 0 off the pod's
+terminated state**, stdout showing `0 NEW` + the inherited line, `doc_notes` row
+10:10:44Z. The row before it is 06:55:32Z with 13 NEW — the two adjacent rows are the
+whole story.
+
+Also re-proved RFC_009 B+C on the fresh chassis **`v1.0.1252`** (both replicas: 2/1/1,
+negative control 0), since a proof carries the tag it was taken on and the fleet had
+rolled again.
