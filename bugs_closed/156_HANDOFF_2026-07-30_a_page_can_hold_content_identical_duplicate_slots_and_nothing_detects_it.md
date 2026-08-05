@@ -393,3 +393,107 @@ identity, which covers every writer at once and cannot be forgotten by a new one
 urgent — live exposure is nil — and it is a schema change to a hot table, so it wants its own
 lane and its own measurement, not a rider on this one. **Scheduling it is an owner call**;
 recorded here and in **PBP-033**'s entry so it does not evaporate with this session.
+
+---
+
+# CLOSED 2026-08-05 — FIXED AND LIVE on v1.0.1252, induced end to end in production
+
+Moved to `bugs_closed/`. The bar is *fixed AND live*, and both halves are now measured rather
+than inferred.
+
+## 1. Live, by discriminating pod-grep with both controls
+
+`docker.io/aqls/agent-chassis:v1.0.1252`, both replicas, controls in the same exec:
+
+| string | pre-roll | post-roll | what it is |
+|---|---|---|---|
+| `CONTENT_DUPLICATE_SECTIONS_COLLAPSED` | 0 | **1** | this change |
+| `DUPLICATE SECTIONS COLLAPSED` | 0 | **1** | this change |
+| `adjacency_signature` | 0 | **1** | this change |
+| `CONTENT_DUPLICATE_SECTIONS_REFUSED` | 0 | **0** | NEGATIVE control — a string this change never adds |
+| `CONTENT_CLAIMS_FLOOR_DETAIL` | 1 | **1** | POSITIVE control — live since v1.0.1211 |
+
+## 2. Behaviourally induced on the page the bug happened on — WITH A CONTROL RUN FIRST
+
+**A pod-grep does not grade this bug**, and this file's own §"How to verify a fix" says so.
+The grade is behavioural, and it was taken on `vonc.com/about` — the original incident page.
+
+**The control ran FIRST, deliberately, and it earned its place twice.** A
+`section_data_resolved` rerender *regenerates* each section from `content_data`, so it can
+change the page by itself; without a control, any later change would have been unattributable
+to the guard. It also de-risked the induction: had dispatch been dead, a duplicate would have
+been left sitting on a live page with nothing coming to collapse it.
+
+| | control (no duplicate) | induction (adjacent duplicate) |
+|---|---|---|
+| work item | `page_rerender:about:156-control-20260805`, `complete` | `page_rerender:about:156-induction-20260805`, `complete` |
+| rows before → after | 6 → 6 | **7 → 6** |
+| every row's `md5(rendered_html)`, `md5(content_data)` | unchanged from baseline | unchanged from baseline |
+| `agent_error_log` records written | **0** | **1** |
+| served page | `65ee5a4d…`, 52,364 bytes, `data-component` ×6 | **`65ee5a4d…`, 52,364 bytes, ×6 — byte-identical** |
+
+**The control is the half that makes the other half mean something.** A guard that collapses
+nothing is indistinguishable from a guard that never ran; here the same page, the same path and
+the same agent produced *silence* with nothing to collapse and *one record* with something to
+collapse, minutes apart.
+
+The induced shape was the recorded incident's exactly — a byte-identical **adjacent** pair,
+created by copying position 1 and shifting the rest down, so the arriving list was
+`1,1,2,3,4,5,6`.
+
+## 3. The record the `[UNRECOVERABLE]` producer hunt needed
+
+```
+occurred_at   2026-08-05 10:24:05Z      severity  warning
+agent_type    page-rerender             step      save_sections
+action        save_page_sections
+message       Duplicate sections collapsed on page about: 7 arrived, 1 were
+              byte-identical duplicates of earlier entries (adjacent), 6 saved
+outcome       collapsed                 signature adjacent
+arrived 7     kept 6     collapsed 1
+source        metadata                  field_origin  configured
+plan_source   site_plan_sections
+groups        [{slot_name: hero-about, occurrences: 2, kept_arrival_position: 1,
+                removed_arrival_positions: [2],
+                rendered_html_md5: 4b18a2d0, content_data_md5: b0da5412,
+                component_id: e0db9a5b-…}]
+```
+
+`signature: adjacent` is the field this bug turned on — it distinguishes "each loop iteration
+emitted its section twice" from "the whole loop ran twice", which is what ruled out the
+concurrent-save race in the original investigation and could not be recovered afterwards. It is
+now written at the moment of the event.
+
+**The plan guard was exercised, not merely present:** `plan_source: site_plan_sections` means it
+read the authoritative store (not a fallback) and correctly declined to protect — the plan
+specifies one `hero-about`, so collapsing to one was within the plan.
+
+## 4. One honest gap the induction exposed
+
+**`work_item_id` came out EMPTY.** The field is populated only when the step config declares
+`work_item_id_field`, and `page-rerender`'s `save_sections` step does not. So on the very path
+this induction exercised, the record names the page, the agent and the step but **not the work
+item that drove the rebuild** — one of the things the producer hunt would want.
+
+It is a **config** change (live immediately, no roll) on a shared agent's step, and it also
+improves this action's existing history attribution, which reads the same key. Not done here
+because it is another agent's config and outside this bug's scope. **Filed as the follow-up
+below rather than left as a silently empty field**, since I claimed this record's completeness
+as half the value of the fix.
+
+## 5. Residue
+
+Fleet census re-run after the induction: **12 duplicate `(page_id, slot_name)` groups, 0
+content-identical** — unchanged from before, i.e. the induction left nothing behind and the 11
+legitimate repeats (plus the NULL-content pair) were never touched.
+
+## What remains, owned by nobody
+
+1. **`work_item_id_field` on `page-rerender`'s `save_sections` step** (and, by the same
+   argument, the other five callers). Config only. §4 above.
+2. **The DB-level invariant** — the council's open MEDIUM objection. The guard sits at one of
+   seven `page_components` writers and "the other six insert single rows" is a fact about
+   *current* callers, not an enforced mechanism. The shape that closes it is a generated column
+   or partial unique index on content identity, covering every writer at once. **Owner call**;
+   a schema change to a hot table deserves its own lane.
+3. **The producer** (candidate 4) is still unidentified. It now leaves evidence when it fires.
