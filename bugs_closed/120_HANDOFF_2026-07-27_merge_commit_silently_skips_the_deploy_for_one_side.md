@@ -158,6 +158,70 @@ would close both the machine race and narrow this file's window. Evidence
 corr: `6aedced7-490d-466a-ba5e-163616bdce45`, 11:26:28Z. Not filed as a new
 number — same repo, same missing serialisation, one account.
 
+---
+
+### CLOSED 2026-08-05 — fixed AND live on both deploy repos, proven by induced merge race (bugfix_120_merge_deploy_skip lane)
+
+**Fix shipped** (candidate 1 + candidate 4's non-circular residue), council
+**APPROVED round 1** (`Council-Reviewed: f029e06f-cfe9-4e01-84fd-1940349fc6d5`,
+2 medium advisories, both acted on — below):
+
+- `gqls/sites@efe046c6d` (master): `deploy-to-b2.yml` now diffs
+  `github.event.before..github.sha` with `fetch-depth: 0`; unusable `before`
+  (40-zero first push, or force-push that discarded it — literal byte-verified
+  at exactly 40 zeros, per the editquality advisory) falls into the
+  pre-existing deploy-all fallback; the range, merge-ness, fallback reason and
+  every skip are logged.
+- `gqls/vm-sites@30e447a92` (main): same step, byte-identical `run:` body.
+- `agentchassis`: `034_github_action.md` and `scripts/github/deploy_to_b2_action.yaml`
+  transcriptions refreshed with authority pointers.
+
+**Verification — induced, both controls, artefact-level:**
+
+- Probe A committed unpushed on `webdesign.co.uk`; probe B pushed first from a
+  second clone (`8d1ae74a6`); A's push rejected; `git pull --no-rebase` → merge
+  `750e8ecd4` (first parent A `3c68252dd`, absorbed remote tip B); pushed.
+- Run `30998151789` (the merge push) logged `Push range: 8d1ae74a6..750e8ecd4`,
+  `Tip is a merge commit…`, **`Changed domains: webdesign.co.uk`** — the
+  pusher's side, which pre-fix `HEAD~1` structurally dropped (parent-1 diff
+  would have yielded only `testllmlog.example.com`).
+- Artefact: `curl https://webdesign.co.uk/deploy-verify-120-a.txt` served the
+  probe token; after the cleanup push, HTTP 404. A file that never existed
+  before has no stale-baseline ambiguity (the debug_historian advisory).
+- Control run `30998135192` (B's fast-forward push): range diff, no merge note,
+  `Changed domains: testllmlog.example.com` — identical semantics to the old
+  behaviour on the common path.
+- `gqls/vm-sites` run `30998426033`: `Push range: ce3acff..651811a`,
+  `Changed domains: idea.uk`, then the allowlist's explicit skip (no mapped
+  host) — the fixed step proven on the sibling with zero live-VM impact.
+
+**Third-copy census** (the bug_historian advisory — run, not asserted):
+`HEAD~1` changed-set derivations fleet-wide are: the two live workflows (fixed);
+`~/projects/sites2` + `~/projects/sites_orig` (stale local clones of gqls/sites
+— their checkouts update on pull, not independent surfaces);
+`traffic_probe/deploy_setup/**` copies (dated snapshots of a scratch dir, left
+as history); `scripts/github/deploy_to_b2_action.yaml` (maintained reference —
+refreshed in this close); `scripts/test-concept-register-drift-local.py`
+(a comment warning AGAINST relative refs — not a selector). **No third live copy.**
+
+**Residual risks, distinct from this bug, named for the record:**
+
+- `b2 sync --skip-newer` can eat a content REVERT (guardian advisory; already a
+  LANDMINE keyed to this file). Not implicated here: the losing run never wrote
+  the pusher's files, so no newer bucket copy exists on the repaired path — and
+  the induction proved live propagation end-to-end.
+- A domain DIRECTORY deleted from the repo is skipped by the sync loop (now
+  loudly), so whole-domain retraction still never propagates — `bugs_open/098`
+  family, not this mechanism.
+- The two live workflows carry the fix as byte-identical copies rather than a
+  shared composite action (reuse_agent advisory) — a future factoring if the
+  sibling count grows.
+
+Transferable pattern added to 016b §9 ("A CI selector that diffs ONE COMMIT…").
+Lane docs: `docs024_key_docs_latest/bugfix_120_merge_deploy_skip/`.
+
+---
+
 **UPDATE same day ~14:45 — the machine half is FIXED and LIVE (owner-ruled).**
 `CommitToRepo` now re-bases and retries at GitHub's ref CAS on a
 non-fast-forward (commit `7dc876795`, adapter v1.0.1187 on both replicas,
