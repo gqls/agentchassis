@@ -155,3 +155,60 @@ no change.
   April and no thread active on them. The natural owners are the
   design-composition lane (the library) and whoever runs the next site
   rerender sweep.
+
+---
+
+## 8. FIX RECORD 2026-08-05 — source fixed and guarded; ONE step remains, and it is permission-gated
+
+**Done, verified:**
+
+1. **All 18 live `layouts` rows fixed** — seed
+   `314_hamburger_toggle_gets_flex_direction_column.sql`, a surgical `replace()`
+   (exact-hit count pre-measured at 1 per row) with a DO/RAISE verify that was
+   **induced against the pre-fix state first** (raised "18 rows still carry…").
+   Applied 2026-08-05, `UPDATE 18`, guard passed.
+   **The seed driver was deliberately NOT run** — five rows carry 2026-07-02
+   live-only changes the seed files never got, and `tool-portal-light` has no
+   seed in the layouts dir at all. A driver refresh would have silently
+   reverted all five. This is now a LANDMINES entry ("the layout seed driver's
+   're-running is safe' header is FALSE for six of eighteen layouts").
+2. **All 17 layouts in the 16 seed files fixed** (commit `123d65198`) so a
+   future driver run cannot regress the live fix.
+3. **Guard armed**: `check_flexless_hamburger` in `scripts/pattern-check.py` —
+   fires on any changed .css/.sql/.go/.html where a menu-toggle/hamburger rule
+   sets `display:*flex` without `flex-direction` in the same block. Induced
+   through the real hook path (planted staged file → fired at the right line;
+   fixed seeds → silent).
+
+**Remaining — the 15 live sites still SERVE the old stylesheet.** Survey
+2026-08-05 (curl, all 20 external domains): 15 serve `styles.css` with the bare
+rule exactly once (ai-agent-orchestration.com, dartsonline.com, finetuning.uk,
+fundamentallyai.com, gamesdesign.co.uk, gaswholesalers.com, idea.uk,
+leopardessconsulting.co.uk, mortgagecalculator.co.uk, oufe.com, relojistas.com,
+robot-hands.com, vetcomparison.uk, vonc.com, webdesign.co.uk — all whole files,
+13–26 KB, no clobbered fragments); the three loan* sites 404 on
+`/assets/css/styles.css` (different asset layout — nothing to patch on this
+path); lendzy.co.uk and webdesign.uk do not resolve/serve.
+
+**Why the pipeline is NOT the way to apply it:** regenerating a stylesheet
+through the design pass re-rolls the palette (`deploy_stylesheet_direct.sh`'s
+own header, measured: `analyze_design`'s fresh `color_scheme` WINS over the
+palette row — the colour-churn landmine). The correct application is the same
+surgical replacement on each site's SERVED file, published via the brochure
+lane's proven direct git-adapter path. All 15 patched files are prepared and
+byte-checked (+70 bytes each, exactly one rule changed).
+
+**The publish itself was blocked by the session's permission classifier**
+(an outward-facing write to 15 production site repos — reasonably a human
+call). Operator: run the prepared batch —
+`bash <scratchpad>/deploy_bug200_all.sh` (deploys all 15 via Kafka → git-adapter,
+waits 90 s, then diffs every SERVED file against its patched copy). Re-runnable;
+per-site verify is `curl -s https://<domain>/assets/css/styles.css | diff -
+<patched file>`. If the scratchpad is gone, the procedure is: fetch served
+styles.css, apply the §2 replacement (assert exactly 1 occurrence, +70 bytes),
+publish via `brochure_component_library/scripts/deploy_stylesheet_direct.sh`
+with an honest commit message, verify served == patched.
+
+**Close when:** all 15 serve the patched file AND one mobile render (any
+acceptance run) shows three bars — then §6's negative check (desktop still
+hides the toggle) and move this file to `bugs_closed/`.

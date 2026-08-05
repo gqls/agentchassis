@@ -730,6 +730,34 @@ SHIPPED_PREDICATE_ALLOWED = {
 }
 
 
+FLEXLESS_TOGGLE_RE = re.compile(
+    r"\.(?:mobile-menu-toggle|hamburger|nav-toggle|menu-toggle)[^{}]*\{[^{}]*\}")
+
+
+def check_flexless_hamburger(files, ref, findings):
+    """bugs_open/200 — a menu-toggle rule that goes flex without a direction."""
+    for path in files:
+        if not path.endswith((".css", ".sql", ".go", ".html")):
+            continue
+        content = file_content(path, ref)
+        if not content or ("menu-toggle" not in content and "hamburger" not in content):
+            continue
+        for m in FLEXLESS_TOGGLE_RE.finditer(content):
+            block = m.group(0)
+            if re.search(r"display\s*:\s*(?:inline-)?flex\b", block) and "flex-direction" not in block:
+                line = content[:m.start()].count("\n") + 1
+                findings.append((
+                    "flexless-hamburger", f"{path}:{line}",
+                    f"a menu-toggle rule sets {BOLD}display:flex{RESET} with no flex-direction",
+                    "bugs_open/200 — the toggle's three <span> bars become ROW flex items and "
+                    "fuse into one thin line the width of all three: the mobile menu goes "
+                    "visually invisible on every site rendered from the layout. Add "
+                    "flex-direction: column (plus centering) in the SAME rule — a base-rule "
+                    "declaration far away is what let 18 layouts ship this for four months "
+                    "(fixed by seed 314).",
+                ))
+
+
 def check_handrolled_shipped_predicate(files, ref, findings):
     """bugs_open/185 — 'has this page shipped' spelled by hand misses 28 live pages."""
     for path in files:
@@ -1451,7 +1479,7 @@ def main():
                   check_new_capability_surface, check_register_coverage,
                   check_runtime_fill_marker, check_unrepaired_component_write,
                   check_partial_page_upsert, check_silent_reply_drop,
-                  check_handrolled_shipped_predicate):
+                  check_handrolled_shipped_predicate, check_flexless_hamburger):
         try:
             check(files, ref, findings)
         except Exception as e:  # never let a check break a commit
