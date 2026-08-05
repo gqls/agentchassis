@@ -620,3 +620,7 @@ measurement of how many pages were exposed (316 of 472 on 2026-07-31).
 > Running tally for this file: **three retractions performed, all proven** (learning-center
 > + these two). The 11 frozen-artefact pages and the archive-invokes-retraction question
 > remain the owner decisions this file already lists.
+>
+> **Follow-up 2026-08-05 (night): part-2 acceptance PAID for both** — still 404 at 21:47
+> (past the ~20:0x window) AND zero new `page_rerender` rows for either page since the
+> retraction. Tally stands at three retractions, all with both acceptance halves proven.

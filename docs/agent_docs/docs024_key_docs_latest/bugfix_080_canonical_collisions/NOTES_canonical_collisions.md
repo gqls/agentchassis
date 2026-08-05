@@ -228,3 +228,24 @@ evidence written into each item's spec).
 **OWED, dated: 📅 2026-08-05 ~20:0x** — acceptance part 2: both urls STILL 404 after the
 evening news refresh (part 1 passed even before the resurrection fix; part 2 is the half
 that tests anything). Then this lane is fully done.
+
+## 2026-08-05 (night) — part 2 PASSED; the ItemType fix proven live by an induced probe. LANE DONE.
+
+- **Acceptance part 2 PASSED** at 21:47 (past the ~20:0x window): both strays still 404,
+  kept pages 200, and **zero new page_rerender rows** for the retracted pages since the
+  retraction — the runbook's own two-half criterion (the rerender path WAS the
+  resurrection vector, so its silence for these pages is the disconfirmable half; a bare
+  still-404 alone could pass vacuously if the refresh never ran).
+- **The ItemType fix is LIVE on v1.0.1254 and proven behaviourally, not by grep** — the
+  fix added no new string literal, so a pod-grep cannot discriminate. Induced probe:
+  synthetic stale item `page_canonical_collision:/zzz-probe-1254` (id `7532bf78`,
+  needs_human_review, spec marked probe:true) + one sweep (corr `386b2e2a`) → the check's
+  Resolved arm closed it itself: `status=complete`,
+  `result.resolved_by=page_canonical_collision`, the arm's reason recorded. On the broken
+  binary the runner refuses with "ItemType is empty — refusing to guess" and the probe
+  would have sat open — a clean discriminator in both directions.
+- The probe row stays in the table as its own audit trail (terminal, summary and spec say
+  PROBE, result names the resolver).
+
+Nothing is owed. File→decide→execute→verify→self-resolve has now each been exercised on
+real or induced data. **This lane is done.**
