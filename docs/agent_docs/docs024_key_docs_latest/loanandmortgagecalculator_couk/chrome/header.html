@@ -1,0 +1,26 @@
+<!-- Site header, lifted verbatim from the hand-built pages (identical on all
+     41; extracted from guides/jargon-buster.html at sites-repo b318a8fad).
+     Two deliberate changes, both stated:
+     - aria-current="page" is dropped: it marked the CURRENT section per page,
+       and a shared header cannot vary per page. .nav-links a[aria-current]
+       styling in style.css simply never matches now. Accepted loss, recorded
+       in the PLAN's list.
+     - the skip-link's target used to be the per-page id="content" wrapper
+       element, which decomposition removes. The target now lives HERE, as an
+       empty focusable span at the very end of the header — the exact document
+       position where <main> begins, so the skip lands where it always did.
+       Both the link and its target are in this one component; no per-page
+       knowledge required. -->
+<a class="skip-link" href="#content">Skip to content</a>
+<header>
+<nav class="site-nav">
+<div class="brand"><a href="/"><img src="/assets/img/logo.svg" alt="" width="34" height="34" aria-hidden="true">LoanAndMortgage<span class="brand-suffix">Calculator.co.uk</span></a></div>
+<button id="mobile-menu-btn" aria-expanded="false" aria-controls="nav-links-menu" aria-label="Open menu">&#9776;</button>
+<div class="nav-links" id="nav-links-menu">
+<a href="/mortgages/index.html">Mortgage tools</a>
+<a href="/loans/index.html">Loan tools</a>
+<a href="/guides/index.html">Guides</a>
+</div>
+</nav>
+</header>
+<span id="content" tabindex="-1"></span>

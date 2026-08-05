@@ -1,0 +1,34 @@
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title></title>
+<meta name="description" content="">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="LoanAndMortgageCalculator.co.uk">
+<meta name="twitter:card" content="summary">
+<meta name="theme-color" content="#0A1222">
+<link rel="stylesheet" href="/assets/css/style.css">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<style>
+/* Assembled-layout shim. The hand-built pages wrapped each page's content in
+   ONE container element (three shapes: bare #content with an inner .container
+   on the 23 calculator pages; .container on the 4 hub pages;
+   .container.container-tight on the 13 guides + legal.html, which style.css
+   sizes at 780px). Decomposition splits the wrapper's children into separate
+   section rows, so the single wrapper is gone; making <main> the container
+   restores the original geometry with one set of margins however many
+   sections there are. Sections keep their page's own wrapper classes (id
+   stripped, margins neutralised below), so the tight pages keep their 740px
+   content box exactly: 780 max-width minus 2x20px padding == 740 with the
+   padding moved to main. The rules are ordered so .container-tight wins the
+   properties it sets at equal specificity.
+   Full reasoning: loanandmortgagecalculator_couk/PLAN_2026-08-05, and the
+   sibling pattern it adapts: loancalculator_couk/RUNBOOK, "Chrome for an
+   assembled site". */
+main { max-width: var(--maxw); margin: 40px auto; padding: 0 20px; }
+main .container { max-width: none; margin: 0; padding: 0; }
+main .container-tight { max-width: 740px; margin-left: auto; margin-right: auto; }
+</style>
+</head>
