@@ -518,7 +518,17 @@ legitimate repeats (plus the NULL-content pair) were never touched.
    Also worth recording: the first census said **3** call sites, because the step is nested
    inside a loop `sub_workflow` in three of the six and a top-level `jsonb_object_keys` cannot
    see them. The real number is 6. Same trap seed `312` documents.
-2. **The DB-level invariant** — the council's open MEDIUM objection. The guard sits at one of
+2. ~~**The DB-level invariant**~~ — **DONE 2026-08-05, owner-directed: migration `316`, register
+   PBP-034, applied and enforcing.** `UNIQUE (page_id, slot_name, md5(content_data::text),
+   md5(rendered_html), component_id) NULLS NOT DISTINCT WHERE build_status <> 'removed'` —
+   shaped to be **exactly as permissive as the Go guard**, so the two can never disagree.
+   The migration proves enforcement inside the transaction that creates it. All seven writers
+   audited; none can violate it today. Rollback is `DROP INDEX CONCURRENTLY`. **Correction on
+   record: the failure mode is milder than stated when it was agreed** — `save_page_sections`
+   logs a `Warn` and skips the row rather than failing the build (`:837`), so the worst path
+   degrades to a skipped section. Original text of the objection follows.
+
+   **The council's open MEDIUM objection.** The guard sits at one of
    seven `page_components` writers and "the other six insert single rows" is a fact about
    *current* callers, not an enforced mechanism. **Owner call.** But it is now a *decidable*
    one: the candidate was measured against live data on 2026-08-05 rather than left as a

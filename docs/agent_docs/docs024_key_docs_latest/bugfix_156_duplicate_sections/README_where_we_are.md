@@ -166,3 +166,40 @@ fix, and the bigger question the reviewers raised — our guard protects one of 
 write page sections, and the fact that the other six can't cause this problem is true of the six
 that exist today, not a rule anything enforces. Closing that properly means a database-level
 constraint, which is a change to a busy table and deserves its own piece of work.
+
+---
+
+## 2026-08-05, afternoon — the database now enforces it, and one thing I told you was wrong
+
+You asked for the database-level rule, so it is in. The page table now refuses, by itself, to
+hold two sections on the same page that are identical in every respect — regardless of which
+part of the system is doing the writing. That was the reviewers' objection: our guard protected
+one of seven places, and "the other six can't cause this" was only true of the six that exist
+today.
+
+**Most of the work was picking the right rule, and two obvious versions were wrong.** The first
+— compare the stored content — the database itself rejected. It refused to create the rule and
+told me exactly which two rows it would have destroyed: the same finetuning.uk pair from before,
+two sections with no stored content but genuinely different text on the page. That is the second
+time that one pair has caught a wrong answer, and this time the database found it for me in one
+command.
+
+The second wrong version was subtler: leave out which component a section came from, and the
+database rule becomes *stricter* than our code guard. That is the worst possible combination —
+our code says "these two are different, save both", the database then rejects one, and a section
+disappears that nobody decided to remove. The version I shipped matches the code guard exactly,
+so the two can never disagree.
+
+**I owe you a correction.** When I laid out the decision I said the risk was that a violation
+would fail the save, fail the build, and stop the page deploying. That is not right. The code
+that writes sections logs a warning and skips the offending row — the save carries on. So the
+worst case is a section quietly missing, not a broken build. You agreed to this against a bigger
+risk than the real one, and I would rather say so than let it stand. I found it while auditing
+the writers to justify the migration — the homework I did to support the change is what
+disproved my own description of it.
+
+It is enforcing now, proven rather than assumed: the migration tries to insert a duplicate on
+purpose while it runs, and refuses to complete unless the database rejects it. I then ran a
+normal page rebuild afterwards to confirm ordinary work is unaffected — it is, and the public
+page is unchanged. If it ever does trigger, the right response is to find which part of the
+system tried to write a duplicate, not to remove the rule. Undoing it is a single command.

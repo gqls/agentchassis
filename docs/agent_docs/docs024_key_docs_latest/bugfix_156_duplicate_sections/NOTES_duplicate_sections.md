@@ -344,3 +344,39 @@ served page unchanged: 52,364 bytes
 That let me prove it **without doubling a live page again** — a plain rerender writes the
 history snapshot regardless, and 0 → exactly-the-6-new-rows is disconfirmable in a way that
 re-reading the config never is.
+
+---
+
+## 2026-08-05 — follow-up 2: the DB-level invariant (owner-directed), and the two shapes I tested and threw away
+
+Migration `316`, register **PBP-034**. Applied and enforcing.
+
+**Testing the candidates against production before choosing one was the whole job**, and it
+cost three rolled-back transactions:
+
+| variant | verdict |
+|---|---|
+| `(page_id, slot_name, md5(content_data))` NULLS NOT DISTINCT | **Postgres REFUSED it**, naming finetuning.uk/our-position-on-ai — a legitimate pair, NULL content on both, *different* markup. The database declined the constraint and told me which rows it would have destroyed |
+| `+ md5(rendered_html)`, no `component_id` | builds, and is a **latent trap**: STRICTER than the Go guard, so the guard would say "save both" and the database reject one |
+| `+ component_id` | **shipped** — exactly as permissive as `collapseDuplicateSections`, so they cannot disagree |
+
+The first result is the one worth remembering: **the database refused to encode a rule that was
+wrong, and its error message was the evidence.** I had already reached the same correction in Go
+two days earlier by reading a census footnote; Postgres reached it independently in one command.
+
+**A correction I owe the record.** When presenting this decision I said a violation would make
+*"the save fail, the build fail, and the page not deploy"*. **That is wrong for
+`save_page_sections`**: its INSERT error handler (`:837`) logs a `Warn` and `continue`s, so the
+row is skipped and the save proceeds with a lower `savedCount`. Even the worst path degrades to
+a **skipped section, not a failed build**. So the owner agreed to this against a risk larger
+than the real one. I found it while auditing the writers *for the migration header* — i.e. the
+audit I did to justify the change is what falsified my own account of it.
+
+The milder failure mode is not purely good news, and PBP-034 says so: a constraint hit inside
+`save_page_sections` is a pod `Warn` that expires, not a work item. If this ever fires in anger
+the response is to find the writer, not to drop the index.
+
+**Enforcement is proven, not asserted.** The migration attempts a byte-identical insert of a
+real row inside its own transaction and raises unless the insert is rejected — so a unique index
+that silently failed to fire could not have been committed. It also asserts the ≥11 legitimate
+repeated-slot groups survive.
