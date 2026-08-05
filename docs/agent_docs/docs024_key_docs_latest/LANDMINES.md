@@ -5310,3 +5310,44 @@ that is also the thing you would want in the logs is not.
 - **the check:** before ANY driver run, diff live against file per layout: extract each `$LAYOUT$…$LAYOUT$` block, `md5` it locally, compare with `SELECT md5(css_template) FROM layouts WHERE name=…` (worked script: bugs_open/200's trail). Zero drift → driver is safe. Any drift → fix the live rows surgically (`replace()` with a pre-measured exact-hit count and a DO/RAISE verify — seed `314` is the worked example) or backport the live change into the seed FIRST. Note `layout_16_17_vonc_gamesdesign.sql` does not use `$LAYOUT$` quoting — a block-extraction script parses 0 of its 2 layouts and must say so rather than pass.
 - **source:** `bugs_open/200` (found during its fix, 2026-08-05); seed `314_hamburger_toggle_gets_flex_direction_column.sql`
 - **added:** 2026-08-05, bugfix_200 thread
+
+---
+
+### `make deploy-component-render-check` ships NOTHING on its own — the overlay pins the tag, and both the make target and kubectl report success anyway
+
+- **footprint:** `deployments/kustomize/services/component-render-check/overlays/production/uk_001/kustomization.yaml`,
+  `make deploy-component-render-check`, `make build-component-render-check`,
+  `component-render-check`, and any CronJob service whose overlay carries an
+  `images:`/`newTag:` block
+- **fires when:** shipping a change to this check. You bump `IMAGE_TAG`, build, push and
+  deploy — the documented sequence, in order, all four succeeding.
+- **the tell:** it looks like a clean deploy and it is a no-op. `make deploy-*` prints
+  **`CronJob deployed. Next run:`** unconditionally, and `kubectl apply -k` prints
+  **`cronjob.batch/component-render-check unchanged`**. Both statements are TRUE. The
+  reason there is nothing to change is that the overlay pins `newTag: v1.0.1250` in the
+  file, so the manifest kustomize renders is identical to what is already live — your new
+  image is in the registry and the cluster keeps running the old binary. Nothing in the
+  output says "the image you just built was not deployed". Measured 2026-08-05: build,
+  push and deploy all succeeded and the CronJob was still on `v1.0.1250`.
+- **why the fleet habit does not protect you here:** the chassis and the other 13 backend
+  services take their tag from `IMAGE_TAG` at apply time, so bumping the makefile IS the
+  deploy. This service does not — its tag lives in the overlay. The muscle memory that is
+  correct everywhere else is exactly wrong here.
+- **the check:** bump `newTag` **in the same commit as the rebuild**, then read the
+  ARTEFACT, never the make target:
+  ```bash
+  kubectl -n ai-persona-system get cronjob component-render-check \
+    -o jsonpath='{.spec.jobTemplate.spec.template.spec.containers[0].image}'
+  ```
+  `configured` rather than `unchanged` in the apply output is the cheap positive signal;
+  the jsonpath above is the one that cannot be misread. Then trigger a run and read the
+  POD's `state.terminated.exitCode` — a Job is not a pod and a log line is not an exit
+  code.
+- **the same trap, the other direction:** grep the image you built for a string your
+  change ADDED, and grep the **currently deployed tag** for the same string expecting 0.
+  Where a change removes no literal there is no removed-string control available, and the
+  old image is the honest substitute — a synthetic control only proves the grep works.
+- **source:** 2026-08-05, bugfix_140 lane, shipping the clone-identity fix. Sibling of the
+  existing `imagePullSecrets` entry on the same CronJob: that one is how the check dies
+  silently at RUN time, this one is how it never arrives at DEPLOY time.
+- **added:** 2026-08-05, bugfix_140 lane
