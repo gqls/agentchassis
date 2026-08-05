@@ -640,3 +640,65 @@ So the next step is a calibration run against a real model. If it passes, the si
 starts producing its own provocations daily. If it fails, we will have learned that
 before anything reached the page, which is the entire point of doing it in this
 order.
+
+---
+
+**2026-08-05, later — the categories question, and a collision I nearly caused.**
+
+You asked me to build the gate and the generator. I started, and then found that
+another session was already most of the way through both — it had written the gate
+about two minutes before I looked. Its work was sitting in the shared working folder
+but not yet saved into the project history, which is why nothing I checked first
+showed it: the handoff note you pointed me at was written two days earlier and said
+that half was unbuilt, and the usual "who is working on this?" tool only knows about
+saved work. I found it by looking at the files themselves and then reading the other
+session's own running log, where it had just written that the gate was built and it was
+moving on to the generator.
+
+That matters more than a bit of wasted effort. Both of us would have been adding a
+piece of code with the same name to the same place, and the result would not have been
+a tidy clash to sort out later — it would have stopped the project building at all, for
+every other session working today. So I stopped and asked you what to do instead, and
+you chose categories. The other session has since finished both halves and had them
+reviewed and approved, so standing down was the right call.
+
+**On categories, the short version: the thing standing in the way is smaller than it
+looks, but it points the opposite way to what you'd expect.** The site can only serve
+one provocation per day per site because the game engine goes and reads a single entry
+called "today" out of the published file. To have several categories running at once,
+that has to change. There were two obvious ways: publish one file per category, or keep
+one file and put all the categories inside it.
+
+The second one looks tidier and is the dangerous one. I read the engine's code all the
+way through, and it barely checks the file at all — it confirms the "today" entry
+exists and isn't blank, and then hands whatever it finds straight to the AI as part of
+the question it asks. It never looks inside. So if we changed the structure, nothing
+would break, nothing would error, and no alarm would go off. The AI would simply start
+arguing against a lump of raw data instead of a provocation, and the only sign would be
+that rounds felt slightly wrong. That is about the worst kind of fault to have, because
+there is nothing to find. Publishing one file per category can't fail that way: if a
+file is missing the engine gets a plain "not found", which it already knows how to
+handle by showing the honest error page.
+
+I also checked whether any automatic safety net would catch a mistake here, and there
+isn't one. The two halves — the part that writes the file and the part that reads it —
+are separate programs that share no common definition of what the file should look
+like. They agree only by two comments written in English and kept in step by hand.
+
+**What I have done, and what I have deliberately not done.** I have written the design
+up as a formal proposal for your decision, because the code that has to change belongs
+to a different workstream and the plan itself says not to design this without agreeing
+it with them first. I have written the "reads it but doesn't check it" trap into the
+shared warnings file so that anyone who opens that file in future is told before they
+have a problem, and I have left a note in the other workstream's own starting document
+so they hear it from us rather than discovering it. I have written no code at all.
+
+**What I need from you** is a decision on the proposal — mainly, one file per category
+or one file with everything in it, and whether a completed round should record which
+category it was arguing about. That last one is cheap today and can't be recovered
+later, because rounds are already being published at permanent public links, so a
+category we never wrote down is gone for good.
+
+**And the thing that hasn't moved:** the site is still showing a provocation from
+26 July under a heading that says today's. That is now ten days. Categories don't fix
+it; the new generator will, once it has been tested against a real model and shipped.

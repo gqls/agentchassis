@@ -528,3 +528,54 @@ three-store plan walk into `datahelpers` if a third consumer appears; same for
 the lock predicate. If a future session sees `check_content_duplication`
 work items appear, that means the brochure lane enabled it — read their lane
 docs before touching anything.
+
+---
+
+## INCOMING 2026-08-05 — a decision is being asked about `tools-api`'s feed contract, and one property of `round.go` you may not know
+
+*Appended by the `provocation_pipeline` lane. Nothing above was edited. Nothing is
+being asked of you today — this is the notification that owner ruling 2026-07-29 §3
+requires ("a shared mechanism's other consumers must be TOLD, not merely measured"),
+filed before any code exists rather than after.*
+
+**The ask.** The owner wants provocation categories (politics → pets, each with its
+own audience). One live provocation per domain cannot express that, so the feed
+contract has to change — and `internal/tools-api` is yours. The design is
+`architecture_review/RFC_013_per_category_provocations_and_a_contract_no_compiler_can_see.md`,
+filed OPEN, awaiting an owner ruling. **It does not propose that we edit your code**,
+and §2.2 asks explicitly who should.
+
+**The property, which is the part worth your time even if categories never ship.**
+`FetchProvocation` validates the feed's `today` key for **presence only** — three
+checks, all at `round.go:73-78`: the key exists, is not `null`, is not zero-length.
+Nothing then parses it. `store.CreateRound` writes the raw bytes to `jsonb`, and
+`position.go:67` / `defend.go:67` interpolate `string(round.Provocation)` **directly
+into the model's prompt**. `headline`, `teaser`, `slug` and `detail_body` appear
+nowhere in `internal/tools-api/**.go` outside tests.
+
+So **a change to `today`'s SHAPE — ours to make, in the chassis publisher — cannot
+be detected by your side.** It is not caught, it is served: the AI would argue
+against whatever JSON we put there, with a 200 and no error anywhere. Your
+`FetchProvocation` doc comment's fail-loud promise (bug_historian pattern #7) is
+real but covers absent/null only; presence is not shape. And
+`go list -deps ./platform/orchestration/actions | grep tools-api` returns no rows —
+the two sides share no Go type, so no compiler will ever compare them either.
+
+**What that changes about your guarantee:** the publisher's `checkFeed` is currently
+the *only* enforcement that `today` carries a usable headline/body/slug/date, and it
+runs in our binary, on another host. You are relying on a writer-side invariant. It
+has held, and we are not proposing to weaken it — but you should know it is what is
+holding, because RFC_013's whole recommendation turns on it.
+
+**Also flagged for whenever the shape does move:** `provocStore` (`round.go:25-29`)
+is keyed by **domain alone**, 5-minute TTL. Any per-category feed needs a category
+dimension in that key or two categories serve each other's provocations for up to
+five minutes.
+
+Filed as a landmine on your footprint too, so it reaches a session that opens
+`round.go` with no symptom: `LANDMINES.md#the-gauntlet-engine-validates-the-provocation-feed-s-today-key-for-presence-only`
+(synced to `doc_notes`; independent verification dispatched, correlation
+`51b87b1b-a16f-49a7-b287-645ac3e3ebba`).
+
+**If you disagree with RFC_013's recommendation, say so in the RFC** — it is a
+design question about your code and the owner has not ruled yet.

@@ -1120,3 +1120,88 @@ objections, **none high-severity**. Two acted on immediately; four recorded.
 note that this deploys in one step and is inert until wired, so there is no
 staged-rollout problem — **and that the WIRING submission is the one to re-check
 against the trigger test, not this one.**
+
+---
+
+## 2026-08-05 — categories: the engine contract, measured; and a near-miss on duplicated work
+
+*Separate sub-thread from the gate/generator work above, which another session was
+building concurrently and has since committed (`e3ac4e15d`, council `bbbc9fca8`).
+This section is the categories half only (PLAN §9.2 / §4 item 4).*
+
+### The misstep first, because it nearly cost a day
+
+I was asked to build Phase 2 + Phase 3 and **began doing so with the gate already
+written and sitting in the working tree.** What made it invisible:
+
+- `HANDOFF_2026-08-02_continue_here.md` said the generative half was "unbuilt". True
+  when written on 08-03; stale by 08-05.
+- `git log` on every lane path showed nothing since `1b5ca16a5` (08-03). The work was
+  **uncommitted**, so the history could not show it.
+- `scripts/who-owns.py` reads commits, so it was blind for the same reason.
+
+What actually found it: **`ls -la` on the actions package plus `git status`** —
+`provocation_gate_action.go` was untracked with an mtime two minutes old — and then
+**grepping other sessions' live `.jsonl` transcripts** for the symbol, which surfaced
+that session's own sentence: *"Gate is built and calibrated. Submitting it to the
+council now so the review runs while I build the generator."*
+
+Had I not looked, the collision would not have been a merge conflict but a **compile
+failure on shared HEAD** — two `GateProvocationAction`s in package `actions` — landing
+on every other session's next build. **On this tree, "is anyone else on this?" is a
+question about the working tree and about live transcripts, never about `git log`.**
+(Already recorded fleet-wide as `who-owns-is-blind-to-uncommitted-sessions`; this is a
+second instance, and the first where the cost would have been a broken build.)
+
+### The engine contract, re-derived first-hand [MEASURED 2026-08-05]
+
+PLAN §9.2 says categories break the one-`today`-per-site contract, which is correct
+but not sharp enough to design against. Read end to end instead:
+
+`FetchProvocation` (`internal/tools-api/handlers/round.go`) makes **exactly three
+checks** and no more — key `today` present (`:73-76`), value not `null`, value not
+zero-length (both `:78`). It then returns `json.RawMessage` **without parsing it**;
+`store.CreateRound` writes the raw bytes to a `jsonb` column
+(`sql_for_agents/198:28`); `position.go:67` and `defend.go:67` interpolate
+`string(round.Provocation)` **straight into the AI prompt**.
+
+Two negatives, grepped rather than assumed, because the recommendation turns on them:
+- the only `Unmarshal` in the path is `:70`, on the **envelope** (`map[string]json.RawMessage`), never on the value;
+- `headline` / `teaser` / `slug` / `detail_body` appear **nowhere** in
+  `internal/tools-api/**.go` outside tests.
+
+⇒ **Changing `today` from an object to a map of categories passes all three checks.**
+No error path exists. The blob is persisted and pasted into the prompt, so the symptom
+is a model arguing against JSON — silent, and about the hardest thing to attribute.
+This **inverts** the naive read: the tidy-looking option (change the shape) is the one
+the system cannot detect, while one-file-per-category fails loudly through the 404 →
+503 path the front end already handles (`bugs_closed/083`).
+
+Mechanically, the coupling is invisible to tooling too:
+`go list -deps ./platform/orchestration/actions | grep tools-api` → **no rows**. The
+two sides share `httpguard` and `aiservice` and **no type describing the feed**. The
+contract is a JSON file on a CDN plus two prose comment blocks. So there is no compile
+check, no shared type, and (per above) no runtime check — the *only* enforcement of
+`today`'s shape is `checkFeed`, which runs in **our** binary on **another host**.
+
+### What was filed, and what deliberately was not
+
+- **`architecture_review/RFC_013_per_category_provocations_and_a_contract_no_compiler_can_see.md`** — OPEN, awaiting an owner ruling. Asks four separable questions (which shape; who edits `tools-api`; should a round record its category; should the contract become a shared Go type) and recommends one-file-per-category on the fails-loudly argument. Trigger test met on "changes a shared contract … a wire/message shape".
+- **A landmine on the `round.go` footprint**, synced to `doc_notes`; independent verification dispatched, correlation `51b87b1b-a16f-49a7-b287-645ac3e3ebba`. ⚠ that trigger publishes via `kcat`, which **exits 0 having sent nothing** — the verdict row is the only proof it ran, so do not read the clean exit as delivery.
+- **An `INCOMING` section appended to the gauntlet lane's cold-start handoff**, their words untouched. Owner ruling 2026-07-29 §3 requires consumers be *told*, not merely measured, and the consolidation lane already proved that a doc sitting in the author's own directory is not delivery.
+- **No code.** PLAN §9.2 forbids designing multi-category rotation without agreeing it with the `tools-api` owners first, and the shape question is genuinely theirs to weigh in on.
+- **No council submission** — scope is `platform/`/`internal/`/`pkg/`; this change is prose only and would be refused client-side. **No concept-register entry** — an RFC is not a callable mechanism, so it fails that bar too.
+
+### One thing I could not settle, and marked rather than guessed
+
+Whether adding a `category` column to `gauntlet_rounds` is cheap is `[INFERRED]` in
+RFC_013 §5 — I did not read the publish path's schema. It matters because rounds are
+already published to durable public URLs (`?r=<slug>`), so a category never recorded
+cannot be backfilled. Flagged in the RFC for the gauntlet lane to confirm rather than
+asserted here.
+
+### Still true, and unchanged by any of the above
+
+The pool's newest entry is **2026-07-26**, so the site has now been serving "Today's
+Provocation" over a **10-day-old** entry. Categories do not touch that; the generator
+(`e3ac4e15d`) does, once calibrated against a real model and rolled.
