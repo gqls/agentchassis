@@ -1291,3 +1291,39 @@ be fully isolated from production by data rather than by care.
 **Still true, and now the ONLY thing standing between here and a daily site:** the
 gate has never been judged by a real model. Nothing is wired
 (0 `agent_definitions` rows reference any of the three actions, re-checked).
+
+**2026-08-05 — another session filed RFC_013 (per-category provocations) the same
+hour this work landed, and it changes an index my scheduler depends on.**
+
+Found by reading `git log` on the lane rather than assuming I was the only thread on
+it — `a68fdd982` and `4c77eeb69`, both today, neither touching my files.
+
+**Their §5 is right and they got there first:** `idx_provocations_one_per_day
+(domain, publish_on)` must become `(domain, category, publish_on)` under any
+multi-category design. What they cannot know is that the index now also guards a
+WRITER:
+
+- `nextPublishDates()` computes one date per calendar day **per domain**.
+- `ScheduleProvocationsAction` reads `max(publish_on)` **per domain** and leans on
+  the partial unique index so a concurrent double-booking fails instead of
+  overwriting.
+
+**So the index change and `nextPublishDates` must become category-aware in the same
+change.** Otherwise the scheduler hands two categories the same date and reads the
+constraint violation as its normal "another session got there first" skip — and a
+category is silently never scheduled. That is the same silent-contract failure shape
+their RFC title is about, arriving from the other direction.
+
+Told them: appended §8 to their RFC as a CONTRIB, their sections untouched, framed
+as information rather than objection (their recommendation is unaffected, and the
+scheduler is unwired so there is no migration-ordering problem today). Per the owner
+ruling of 2026-07-29 — **"a shared mechanism's OTHER consumers must be told, not
+merely measured"** — measuring that nothing breaks today would not have discharged
+this; naming the new caller does.
+
+**Consequence for us:** the generator deliberately sets NO category (the column
+defaults to `'general'`). That stays until their RFC is ruled on. A per-category
+gate threshold — PLAN §9.2's own argument for the column, that "pets" and "current
+political opinions" cannot share a safety threshold — is a gate concern and would be
+the natural follow-up here, but the vocabulary should be decided by their ruling
+rather than minted by our writer first.
