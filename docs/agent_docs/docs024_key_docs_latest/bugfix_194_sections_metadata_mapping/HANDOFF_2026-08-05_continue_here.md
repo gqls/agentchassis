@@ -78,10 +78,21 @@ This proves seed 312's mapping resolves on a caller that had never had it.
 
 **Preconditions for a real run:** a domain with open build-routed work items, pages at
 `rebuild_policy != 'owned'` (087's run was blocked by exactly that guard), and **a lane that
-is not already working that site**. Candidates measured 08-05 (open build-routed items /
+is not already working that site**. ~~Candidates measured 08-05 (open build-routed items /
 page policy): `leopardessconsulting.co.uk` 17 (40 generic, 5 owned), `robot-hands.com` 14,
 `mortgagecalculator.co.uk` 13, `finetuning.uk` 13 (40 generic, 6 owned),
-`ai-agent-orchestration.com` 6 (32 generic, 6 owned), `idea.uk` 7, `fundamentallyai.com` 6.
+`ai-agent-orchestration.com` 6 (32 generic, 6 owned), `idea.uk` 7, `fundamentallyai.com` 6.~~
+
+> **CORRECTED 2026-08-05 (later) — that candidate list measured the wrong quantity and every
+> number in it is 0 against the predicate that actually gates the loop. Do not use it.**
+> "Open build-routed items" is not what `load_work_items` loads; it needs
+> `status IN ('triaged','approved')` **and `handler_agent='page-content-writer'`**
+> (`load_work_item_actions.go:623-661` plus the step's own filters — see **RUNBOOK R7**,
+> which now carries the exact query). Fleet-wide **exactly one item qualifies**:
+> `mortgagecalculator.co.uk`, 1 × `literal_markdown` — the site this list ranked at 13.
+> `ai-agent-orchestration.com` is **0**, failing two clauses independently. So firing at any
+> site on that list produces the **vacuous pass this very section warns about**, and
+> `page-content-writer` has held only **14 items fleet-wide, ever**. Logged in `WRONG_CALLS.md`.
 
 > **NOT FIRED, deliberately.** Every candidate is a live customer site and at least four are
 > actively owned by other lanes right now. A `site-work-orchestrator` maintenance run

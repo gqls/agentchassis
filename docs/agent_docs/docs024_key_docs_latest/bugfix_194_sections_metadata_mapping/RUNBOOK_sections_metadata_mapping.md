@@ -117,9 +117,51 @@ No orchestration dispatch within ~300s of a pod (re)start; the spawn is silently
    must be a domain with open work items that route to the build loop — otherwise the run
    completes green having never touched the code under test, which is a **vacuous pass**.
 
-With those two corrected: one of the two dormant callers CAN still be proven live. Target a site whose pages are
+3. **CORRECTED AGAIN 2026-08-05 (later) — the candidate list in §3b/the handoff MEASURED THE
+   WRONG QUANTITY, and none of its numbers predict a non-vacuous run.** "Open build-routed
+   items" (`pipeline='build'`, non-terminal status) is not what gates `build_items_loop`.
+   The real gate is `load_work_items` (`load_work_item_actions.go:623-661`) **AND** the
+   step's own two filters:
+
+   ```
+   status IN ('triaged','approved')  AND  attempt_count < max_attempts
+   AND (COALESCE(approval_mode,'auto')='auto' OR status='approved')
+   AND pipeline = 'build'  AND  handler_agent = 'page-content-writer'
+   ```
+
+   **Run THIS before dispatching anything — it is the whole precondition:**
+
+   ```bash
+   kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -tA -F'|' -c "
+   SELECT s.domain, count(*) FROM site_work_items wi JOIN sites s ON s.id=wi.site_id
+   WHERE wi.status IN ('triaged','approved') AND wi.attempt_count < wi.max_attempts
+     AND (COALESCE(wi.approval_mode,'auto')='auto' OR wi.status='approved')
+     AND wi.pipeline='build' AND wi.handler_agent='page-content-writer'
+   GROUP BY 1 ORDER BY 2 DESC;"
+   ```
+
+   **Measured 2026-08-05 10:30Z: exactly ONE row fleet-wide** — `mortgagecalculator.co.uk`,
+   **1** item (`literal_markdown`, id `dad119c9-de2c-456d-9177-455a38df0ce4`). The handoff
+   ranked that site 13 and listed six others; **all seven are 0 against the real predicate.**
+   `ai-agent-orchestration.com` fails on *two* independent clauses — no item on it carries
+   `handler_agent='page-content-writer'` at all, and none is triaged/approved.
+   Context for how narrow this is: `page-content-writer` has held **14 items fleet-wide in
+   all of history** (12 failed, 1 complete, 1 triaged).
+   **The zero is not a broken query** — the same query returns 1, which is the positive
+   control that makes the other zeros mean something.
+
+With those three corrected: one of the two dormant callers CAN still be proven live. Target a site whose pages are
 `rebuild_policy != 'owned'` (check the column first: `087`'s run was blocked by exactly
-that guard). Then R4 on the rebuilt page.
+that guard) **and which returns non-zero from the query above**. Then R4 on the rebuilt page.
+
+**Third route, if no site qualifies:** `pageflow-builder` (the other seed-312 caller) is
+reached only by the **new-build** flow — `intake-orchestrator` + HITL, template
+`scripts/initial_messages/090_new_build/finetuning.uk/075_new_build_finetuning.sh` (nothing in
+`agent_definitions` spawns it; the census for `agent_type='pageflow-builder'` returns no rows).
+That builds a whole new site. ⚠ It is `hitl_mode: interactive`, which is **precisely the
+Layer-2 carry-forward path** that makes a bare `content_data IS NOT NULL` check a false pass —
+so on this route the `sections_source: 'metadata'` half is not optional, it is the only half
+that discriminates.
 
 - **Pass:** `content_data` non-NULL on every row at the new run's `updated_at`, **AND** the
   save step's result carries `sections_source: 'metadata'`.

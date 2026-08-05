@@ -20375,3 +20375,30 @@ expect 0", which I would have recorded as a pass. The `LANDMINES` entry on this 
 (written by another lane the day before) is the only reason I checked the artefact's KIND
 before reading any count. **Take the URL from `pages.url`; assert the artefact is HTML before
 grepping it.**
+
+## 2026-08-05 (later) — a candidate list that measured the wrong quantity, and would have produced the exact vacuous pass its own handoff warned about
+
+`bugfix_194`'s handoff §3b listed seven **"Candidates measured 08-05 (open build-routed
+items)"** — `leopardessconsulting.co.uk` 17, `robot-hands.com` 14, `mortgagecalculator.co.uk`
+13, `finetuning.uk` 13, `ai-agent-orchestration.com` 6 … — under the heading **"Preconditions
+for a real run"**. The figures were real and correctly labelled: items with `pipeline='build'`
+in a non-terminal status. **That quantity does not gate the loop under test.**
+
+`load_work_items` (`platform/orchestration/actions/load_work_item_actions.go:623-661`) selects
+`status IN ('triaged','approved') AND attempt_count < max_attempts`, and the
+`site-work-orchestrator` step adds `pipeline='build'` **and `handler_agent='page-content-writer'`**.
+Run against the real predicate: `ai-agent-orchestration.com` has **0**, not 6 — it fails on
+*two* independent clauses (no item on that site has that handler at all, and none is
+triaged/approved). Fleet-wide **exactly one item qualifies**, on `mortgagecalculator.co.uk`,
+which the list ranked at 13.
+
+So the list would have sent the next session to fire a maintenance run that completes **green
+having never executed `save_sections`** — the vacuous pass the *same section* warns about two
+paragraphs earlier. The warning was written; the number that was supposed to satisfy it was
+measured against a different question.
+
+**The cheap check: when a figure exists to predict whether a code path will execute, take the
+predicate from the code that selects the work, not from your own idea of "open items".** It was
+one query, it discriminates (1 fleet-wide — not 0, and not the seven sites the list implied),
+and the loader is 40 lines. **A count of "eligible-looking work" is not a count of work the
+loader will load**, and the gap between them is invisible in the label.

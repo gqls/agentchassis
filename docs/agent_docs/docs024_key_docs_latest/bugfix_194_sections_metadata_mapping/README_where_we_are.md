@@ -146,3 +146,49 @@ done, tell me which site is safe and I will run it and report both halves of the
 
 Everything needed to pick this up in a fresh conversation is written down in
 `HANDOFF_2026-08-05_continue_here.md`.
+
+---
+
+**2026-08-05, late morning.** You offered ai-agent-orchestration.com as the site to prove the
+fix on, and said it needs a rebuild anyway. That answers the question I stopped on — whether
+it was acceptable to spend real money rebuilding somebody's pages to prove my change. Thank
+you. But when I went to set the run up I found the site can't actually serve as the proof, and
+the reason matters more than the inconvenience.
+
+The run I planned only reaches the code I changed if the site has a particular kind of job
+waiting in the queue. Yesterday I wrote down a list of seven candidate sites with counts of
+their waiting jobs, and ai-agent-orchestration.com was on it. **Those counts were of the wrong
+thing.** I counted jobs that looked eligible; I did not read the code that actually picks jobs
+up. That code is fussier than I assumed — it wants jobs marked ready, and assigned to one
+specific worker. Checked properly, ai-agent-orchestration.com has none, for two separate
+reasons. So does every other site on my list. Across the entire estate there is exactly **one**
+job that qualifies, on mortgagecalculator.co.uk — the site my list ranked fifth.
+
+So had you not asked and had I simply gone ahead, the run would have finished green, reported
+success, and proved nothing whatsoever — which is the exact failure I had warned about, in
+writing, two paragraphs above the bad list. I have corrected the list, written the real check
+into the runbook as a command anyone can run, and logged it in the shared wrong-calls file,
+because the general lesson is worth more than this instance: **a count of work that looks
+ready is not a count of work the system will pick up, and nothing in the label tells you
+which one you measured.**
+
+**The other check is on track but not readable yet.** It falls due tomorrow morning. I read it
+early anyway: no problems recorded, and the error table is definitely working (it logged over
+400 other things since the release). But barely any of the affected work has actually run since
+the new version went out — one job, where a normal day sees around three hundred — so today's
+clean result is close to meaningless. It needs tomorrow's traffic, not more checking.
+
+**On the site itself, which is a separate matter from proving the fix.** You are right that a
+lot is missing, and I can now say what. Thirty-one of its content blocks have lost their
+underlying stored content — and on nine of the ten affected pages it is *every* block on the
+page, not the odd one. Those pages still look fine to a visitor; the loss only bites when
+something tries to rebuild them, which is precisely this bug. Separately, five pages have no
+content at all, and two of those are marked "deployed" while being empty. There are forty-two
+rebuild jobs sitting in the queue not moving; about half of them are on the damaged pages, and
+I have not yet worked out why the other half are stuck, so I am not claiming one cause for all
+of it. Two of the site's own error records say, in as many words, "a section had no stored
+content_data" — so this is that bug, on this site, not a guess.
+
+**What I need from you.** Fixing that site and proving the fix are now two different jobs, and
+I did not want to quietly turn one into the other. The details and the three possible routes
+are in the handoff and runbook.

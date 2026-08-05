@@ -192,3 +192,93 @@ and it is what proves the grep discriminates rather than proving the pipeline.
   already calls fragmented. Justified in the file header, not re-litigated here.
 - **`render_guardian` / `bug_historian` (low/medium): PARTIAL content_data loss is
   unreported.** Disclosed in the submission as risk 5, still true, still out of scope.
+
+---
+
+## 2026-08-05 ~10:20–10:45Z — the two owed checks, and a correction that stops a false pass
+
+### 3a, interim (the 24h read is NOT due until 2026-08-06 09:10Z)
+
+Roll time confirmed at the artefact, not the tag: both `agent-chassis` replicas report
+`startTime` **2026-08-05T09:10:19Z / 09:10:44Z** on `v1.0.1252`.
+
+`CONTENT_DATA_REGRESSION`: **0 rows** [MEASURED 10:16Z]. Positive control in the same run —
+since 09:10Z the same table carries `PROCESSING_FAILED` 138, `LLM_API_ERROR` 116, `TIMEOUT`
+48, `UNKNOWN` 6, `VALIDATION_ERROR_DROPPED` 4. So the table is being written and the zero is
+not an empty-table artefact.
+
+> **But the zero is very nearly VACUOUS, and I am recording it as such rather than as an
+> early pass.** Post-roll runs of the callers under test, counted from `orchestration_states`
+> (24h retention easily covers a 1h window; column is **`owner_agent_type`**, not
+> `agent_type`): `page-rerender` **1**, `page-build-handler` **0**. Against a pre-roll rate of
+> ~320 `page-rerender` runs/day, one run is not a sample. `agent_run_stats.last_ran_at` for
+> `page-build-handler` is **04:24Z — before the roll**, so that caller has not executed the
+> new binary at all. §3a's own warning ("a zero is only meaningful if the callers actually
+> RAN") is still the operative fact. Re-read tomorrow ≥09:10Z **and check the run counts in
+> the same breath**.
+
+One row needed ruling out: `CONTENT_DATA_ENVELOPE` ×1 at 09:59:20Z, one second after
+`page-rerender`'s last run. **Not ours** — it is `bugs_open/190`'s guard
+(`content_data_envelope_guard.go:142`), and it reports a *successful* lossless decode. Name
+similarity only.
+
+### 3b — the acceptance target list was wrong, and the site the owner offered cannot serve
+
+Owner offered `ai-agent-orchestration.com` (unprompted: "it needs a rebuild anyway, there is
+a lot missing on it"), which resolves §3b's "ask before dispatching" blocker on the *spend*
+question. It does **not** resolve the *route* question, and the route is where this failed.
+
+Traced the live `site-work-orchestrator` graph before dispatching (R2) rather than trusting
+the handoff's trace. The build branch is
+`load_work_items → check_has_items → build_items_loop{ write_page_content(output_field:
+page_content) → review → assemble_page → deploy_page → save_sections → update_page_status }`,
+and the loop's `save_sections` config is `page_content.response.sections_metadata` — seed 312
+exactly. So the route is right in shape.
+
+**Then read the loader's predicate instead of assuming it.** `load_work_items` requires
+`status IN ('triaged','approved')`; the step adds `pipeline='build'` and
+`handler_agent='page-content-writer'`. Measured:
+
+| site | handoff said | real predicate |
+|---|---|---|
+| `ai-agent-orchestration.com` | 6 | **0** |
+| `mortgagecalculator.co.uk` | 13 | **1** |
+| the other five listed | 7–17 | **0** |
+
+`ai-agent-orchestration.com` fails on **two independent clauses**: not one of its items
+carries `handler_agent='page-content-writer'` (they are `page-rerender` ×42,
+`page-build-handler`, `rerender-pages`, `tool-auditor`, `webdesign-agent`, …), and none is in
+`triaged`/`approved`. A maintenance run there is a **guaranteed** vacuous pass. Full write-up
+in `WRONG_CALLS.md`; the runnable predicate is now RUNBOOK **R7 item 3**.
+
+Scale of the constraint: `page-content-writer` has held **14 work items fleet-wide in all of
+history** — 12 `failed`, 1 `complete`, 1 `triaged`. That last one is the only qualifying item
+that exists.
+
+**Third route found, and costed:** `pageflow-builder` — the *other* seed-312 caller — is
+spawned by **nothing in `agent_definitions`** (censused `agent_type='pageflow-builder'` /
+`target_role LIKE '%pageflow%'`: no rows). It is reached only by the new-build intake flow.
+⚠ That flow is `hitl_mode: interactive`, i.e. the **Layer-2 carry-forward** path the PASS
+criteria call out as the reason a bare `content_data IS NOT NULL` check is a false pass — so
+on that route only `sections_source: 'metadata'` discriminates.
+
+### Read-only state of `ai-agent-orchestration.com` (for the owner's rebuild question)
+
+- **31 of 106 `page_components` have `content_data` NULL**, across 10 pages — and on **9 of
+  those 10 it is every component on the page** (3/3, 3/3, 5/5 …), not a partial loss. `blog`
+  is the only partial (2/3). This site is a live instance of 194's damage class.
+- **5 pages have no components at all**: `agent-complexity-estimator-guide`,
+  `ai-readiness-quiz-guide`, `tool-llm-cost-calculator-guide` (all `build_status=needs_rebuild`),
+  plus `llm-cost-calculator` and `roi-estimator` — the latter two marked **`deployed`** while
+  holding nothing.
+- **42 queued `page_rerender` items** (21 `detected`, 21 `unresolved`) that are not moving.
+  **[MEASURED, and deliberately NOT asserted as the cause]** the overlap with the NULL pages
+  is **partial**: 10 of 21 detected and 9 of 21 unresolved sit on a page with a NULL
+  component. Half of the stuck queue is explained by the NULLs; half is not, and I have not
+  established why.
+- **Direct evidence the class bites this site**, not inference: two `needs_page` escalations
+  whose summary is literally *"a section had no stored content_data"* —
+  `containment-first-architecture` (07-31, still `needs_human_review`) and `services` (complete).
+- 32 pages `generic` / 6 `owned`, so the `owned` guard blocks little here.
+- 6 items sit claimed by `build-dispatch-loop` but parked at `needs_human_review`, claimed
+  08-04 08:37 and earlier — **not in flight**; last site orchestration was 08:36Z.
