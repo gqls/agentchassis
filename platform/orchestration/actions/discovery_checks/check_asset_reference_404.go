@@ -175,6 +175,8 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
+
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 )
 
 func init() { Register(&AssetReference404Check{}) }
@@ -581,6 +583,27 @@ func collectAssetReferences(dctx DiscoveryCheckContext, domain string) (
 		})
 	}
 
+	// THE TWO PAGE-LEVEL AXES ARE THE SHARED BUILDERS, NOT A FRESH SPELLING.
+	// Added after the council's edit-quality seat objected [medium] that this
+	// query hand-rolled its liveness test, and it was right — the first version
+	// asked `p.deployed_at IS NOT NULL`, which is the exact shape the landmine on
+	// `pages.build_status` warns about from the other side: 28 pages shipped
+	// under another status (bugs_open/185), and 35 of 46 needs_rebuild rows carry
+	// a deployed_at and are still being served. A probe list built from a fresh
+	// spelling silently omits live pages, and a check that omits pages reports
+	// clean for the wrong reason.
+	//
+	//	PageHasShippedPredicateFor  — BUILD axis: a visitor can see this page
+	//	PageWantedLivePredicateFor  — LIFECYCLE axis: the platform still wants it
+	//
+	// Both, because they are independent: archiving sets status='archived' and
+	// leaves the build columns untouched (bugs_open/098), so the build axis alone
+	// keeps probing the assets of retired pages for ever.
+	//
+	// `pc.build_status = 'deployed'` below is a DIFFERENT column on a different
+	// table — the COMPONENT's render state, as check_image_url_404 uses it — and
+	// is not what that landmine is about. Spelled out so the next reviewer does
+	// not have to re-derive it.
 	pageRows, err := dctx.DB.QueryContext(dctx.Ctx, `
 		SELECT pc.rendered_html, COALESCE(p.url, ''), p.id
 		FROM page_components pc
@@ -589,7 +612,8 @@ func collectAssetReferences(dctx DiscoveryCheckContext, domain string) (
 		  AND pc.build_status = 'deployed'
 		  AND pc.locked_at IS NULL
 		  AND pc.rendered_html IS NOT NULL
-		  AND p.deployed_at IS NOT NULL
+		  AND `+datahelpers.PageHasShippedPredicateFor("p")+`
+		  AND `+datahelpers.PageWantedLivePredicateFor("p")+`
 	`, dctx.SiteID)
 	if err != nil {
 		return nil, empty, skips, fmt.Errorf("asset_reference_404: page_components scan failed: %w", err)

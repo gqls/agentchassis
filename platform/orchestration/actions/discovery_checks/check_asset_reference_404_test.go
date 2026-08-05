@@ -34,6 +34,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"sync"
 	"testing"
@@ -41,6 +42,8 @@ import (
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
+
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 )
 
 // stubProbe replaces the network with a table of statuses and records every call,
@@ -127,7 +130,19 @@ func runAssetRef(t *testing.T, domain string, pages []refPage, chromeHTML string
 	for _, p := range pages {
 		pageRows.AddRow(p.html, p.url, uuid.New())
 	}
-	mock.ExpectQuery("FROM page_components").WillReturnRows(pageRows)
+	// The expectation deliberately requires the SHARED liveness builders, not
+	// just the table name. sqlmock matches the query by regexp, so if anyone
+	// re-hand-rolls this predicate as `deployed_at IS NOT NULL` (the first
+	// version of this check did exactly that, and the council's edit-quality seat
+	// caught it) the mock stops matching and EVERY test in this file fails.
+	//
+	// That is the point: 28 pages shipped under a status other than 'deployed'
+	// (bugs_open/185) and 35 of 46 needs_rebuild rows are still being served, so
+	// a fresh spelling silently shrinks the probe list — and a check that omits
+	// pages reports clean for the wrong reason. Pinning it here rather than in a
+	// comment keeps the guard from depending on someone reading the comment.
+	mock.ExpectQuery(regexp.QuoteMeta(datahelpers.PageHasShippedPredicateFor("p"))).
+		WillReturnRows(pageRows)
 
 	chromeRows := sqlmock.NewRows([]string{"rendered_html"})
 	if chromeHTML != "" {
