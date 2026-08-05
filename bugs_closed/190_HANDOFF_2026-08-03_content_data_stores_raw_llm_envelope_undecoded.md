@@ -408,3 +408,99 @@ render-behaviour change into a bug patch is what `bugs_closed/124` drew a REJECT
   checked before designing (`grep -rn "orchestration/actions" platform/orchestration/datahelpers/*.go`
   → no matches, so `actions` imports `datahelpers` and not the reverse). Correct that it did
   not appear in the evidence block.
+
+---
+
+## CLOSED 2026-08-05 — LIVE on v1.0.1252, proven by exercising the guard on a real page, and the repairable row was repaired BY THE FRAMEWORK
+
+### 1. Live in the binary — both replicas, with controls
+
+```
+                                    4j2bc  fs4dq
+NEW  sanitizeSectionsContentData        2      2
+NEW  CONTENT_DATA_ENVELOPE              1      1
+NEG  (a string that does not exist)     0      0
+POS  CONTENT_DATA_REGRESSION (194)      1      1
+```
+
+> **The negative control here is weaker than the standing rule wants, and saying so is the
+> point.** The rule asks for a string the change REMOVED. This change is purely **additive** —
+> it removes nothing — so no such string exists. The substitute proves only that `grep -c` can
+> return 0 (i.e. it is not matching everything); the `CONTENT_DATA_REGRESSION` positive control
+> is what proves the pipeline and the spelling. Do not quote this as a full negative control.
+
+### 2. The guard had NOT fired at first look — and the reason was timing, not a defect
+
+First check after the roll: `agent_error_log` empty, count still 2, yet a `page_rerender` for
+the poisoned gaswholesalers page had completed at 01:22. That looks exactly like a guard that
+is live and not working.
+
+It was not. **The pods started at `2026-08-05 09:10`**; every one of those rerenders ran on the
+*old* image. Two of them also wrote no `page_component_history` row at all, which is the
+assemble-only rerender branch `bugs_open/093` documents — it never reads `content_data`, so it
+could not have reached the guard even on the new binary. **Check the pod start time before
+concluding a live guard is inert.**
+
+### 3. Repaired through the framework, not by hand — and the decode branch is now proven live
+
+Before firing anything I ran the **live parser** over the real payload (scratch module with a
+`replace` into this tree), because two SQL lengths suggested the decoded and sibling `content`
+might disagree, which would make the guard REFUSE rather than repair:
+
+```
+provenance     : "repaired"          <- a lossless tier, so storable
+decoded keys   : [content]
+OVERLAP content: sibling=11141 decoded=11141  DEEP-EQUAL=true
+VERDICT        : the guard will DECODE and merge this row cleanly
+```
+
+> **CORRECTION to my own inference, same session.** I had read
+> `length(content_data->>'result')=11118` against `length(content_data->>'content')=11099` and
+> concluded the two `content` values differed. They do not. Those are two *different objects*
+> (the raw JSON string vs the sibling field), and postgres `length()` counts **characters**
+> while the guard's `reflect.DeepEqual` compares **bytes** — the article is full of multi-byte
+> punctuation, so neither number was comparable to the other. Logged in `WRONG_CALLS.md`.
+
+Then: back up (`bak_pc_190_d2e9644b_20260805`, 1 row), and file one ordinary `page_rerender`
+work item with `reason='section_data_resolved'` — one of the three values that select the
+sections branch (`093`'s practical note). No hand SQL touched the row.
+
+Result, ~2 minutes later:
+
+| | before | after |
+|---|---|---|
+| item status | `triaged` | **`complete`** |
+| envelope rows | 2 | **1** |
+| `CONTENT_DATA_ENVELOPE` records | 0 | **1** (`severity=warning`, `outcome=decoded`, `agent_type=page-rerender`, slot `article-body`) |
+| the row's top-level keys | `{content, result, type}` | **`{content}`** |
+| `rendered_html` | 12,441 chars | 12,440 chars, `deployed` |
+
+**The live page serves correctly** — `https://finetuning.uk/guides/tool-ai-data-risk-checker-guide.html`
+returns HTTP 200, 29,396 bytes of real HTML, the article body present (5 matches), zero
+envelope leakage, with a `</html>` positive control proving the grep works.
+
+> ⚠ My first fetch used a guessed URL and got a **B2 404 error blob**, against which *every*
+> grep returned 0 — including the one I wanted at 0. The `LANDMINES` entry on this exact trap
+> is why I checked the artefact's KIND before reading any count. Take the URL from `pages.url`.
+
+### 4. Why this closes at a count of 1, not 0
+
+The remaining row is gaswholesalers.com `how-pricing-works`, and it is **out of scope for
+automation by design**: its payload recovers only via `prose_around`, to 7 keys totalling 131
+characters, while the real copy sits in a markdown tail. The guard now refuses every automated
+save carrying it, so it can no longer propagate — the page keeps serving what it serves, and
+its live `needs_section_data` item (status `needs_human_review`, open since 2026-04-09) is the
+owner. **A count of 1 is the expected terminal state of this bug**, as this file predicted
+before the roll.
+
+The class is closed: no envelope can be persisted, and the propagation route that kept the two
+rows immortal since April is shut. Both halves of the bar are met — **fixed AND live**, with
+the live proof being an exercised code path rather than a green status.
+
+### 5. Residue tracked elsewhere, not dropped
+
+- **`bugs_open/199`** — the render-side ingress (`extractContentWithFallbacks`), filed at the
+  council's request; carries an `[UNMEASURED]` census that decides whether it is a bug or a note.
+- The gaswholesalers page — existing `needs_section_data` / `needs_human_review` item.
+- Council `09bc4b3d-6721-4479-85b8-b5b56bf9b5d7` **APPROVED r1**; all five advisory objections
+  answered above with checks.
