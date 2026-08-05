@@ -91,3 +91,35 @@ two functions had no callers anywhere on the strength of a text search, which th
 rightly said they could not verify. I redid it as a proof that could actually fail: rename the
 functions, rebuild, and see whether anything breaks. Nothing did, which is what "no callers"
 should mean.
+
+## 2026-08-05, evening — the fixes are live, and one owed check now means something different
+
+The chassis rolled to a new build and the code changes from this morning's work are live on
+both replicas. I did not take the roll as proof of that — our own notes record that an image
+carries no record of which commit built it, so a roll tells you something changed, not what. I
+checked inside the running binary instead, on each replica separately, looking for two strings
+that only exist because of these changes and one deliberately misspelled string that should not
+exist at all. Both real strings present on both replicas, the misspelled one absent on both.
+One of the two only exists after the very last code change, so its presence dates the image
+past all of it.
+
+One honest gap in that check, which I would rather write down than paper over: the strongest
+version of this test also looks for a string the change *deleted*, and confirms it is gone.
+This change set cannot supply one — most of what I changed was comments and internal names,
+neither of which appear as text inside the binary, and the one piece of SQL I removed appears
+in fifty-one other places. So I can prove the new code is in there; I cannot prove by the same
+means that the old code is out.
+
+The more interesting consequence is a check we already owed ourselves. When yesterday's work
+shipped, it left a note to look back 24 hours later and count how often a particular
+"this page just lost its structured content" warning had fired, with a clear rule attached: if
+it fires for the re-render agent, the warning is wrongly designed and we must not roll it out
+any further. One of today's fixes widened exactly the condition that warning tests. So that
+check now asks a broader question than it did when it was written, and I have set out in the
+notes what each possible answer will mean before seeing it — which is the part that stops a
+result being read the way we would like to read it.
+
+Right now the count is zero, which is the stated pass. It is also a weak pass and I have
+recorded it as one: the warning has never fired in any version, so zero is what a correct
+change and a broken one would both produce. The fleet is definitely running, but no page-save
+traffic has crossed the window yet. The real read-out is due tomorrow evening.

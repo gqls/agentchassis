@@ -248,3 +248,63 @@ Full account in `WRONG_CALLS.md`. The instruction I failed to follow is already 
 grep `LANDMINES.md` for the symbol you are about to trust, BEFORE you trust it. The
 SessionStart hook only matches landmines against files already dirty in the tree, and this one
 guarded a file I had not yet touched when I ran the query.
+
+## 12. LIVE on v1.0.1254 — pod-verified, both replicas, with a discriminating negative
+
+The chassis rolled to `v1.0.1254` (pods `agent-chassis-d69d4467c-dvn8k` / `-fc8pq`, ~6 min old
+when probed). Per `bugs_open/153` a roll is not evidence a fix shipped and the image carries no
+provenance, so this was proven at the pod:
+
+| literal | dvn8k | fc8pq | means |
+|---|---|---|---|
+| `refuse_save_without_sections_metadata` | 1 | 1 | F7's rename is in the binary |
+| `incoming_sections_with_content_data` | 1 | 1 | `6e607da1e` — my LAST code commit — is in the binary |
+| `require_save_without_sections_metadata` (wrong spelling) | 0 | 0 | the probe can return 0; it is not matching everything |
+
+`incoming_sections_with_content_data` is the load-bearing one: it exists only after the final
+code commit, so its presence dates the image past *all* of this lane's code.
+
+**No removed-unique-literal negative was available, and that is worth stating rather than
+faking.** The memory rule asks for a string the change REMOVED (expect 0) alongside one it
+added. This change set cannot supply one: the edits were comments (absent from binaries), Go
+identifier renames (`requireSectionsMetadataKey` → `refuseSaveWithoutMetadataKey` — identifiers
+are not string literals), and one SQL fragment. The two candidates both fail:
+`require_sections_metadata` survives in the binary from `validate_page_content_stats.go:235`,
+and `build_status = 'deployed'` has **51** other occurrences in Go. So the negative here is a
+wrong-spelling control, which proves the probe discriminates but NOT that the old code is gone.
+The added-literal positives carry the actual claim.
+
+Comment-only commit `1c6a3cab6` is unverifiable by this method by construction — comments are
+not in the binary. Nothing to verify; noted so a reader does not go looking.
+
+## 13. The owed check that F9 just changed the meaning of
+
+Concept register `PBP-031` (`page-build-pipeline.md`) carries a verify-later: 24h post-roll,
+`SELECT agent_type, count(*) FROM agent_error_log WHERE error_code='CONTENT_DATA_REGRESSION'
+GROUP BY 1` — *"zero rows for page-build-handler and page-rerender is the pass; any
+page-rerender row means the report's predicate is misconceived and the follow-up opt-in must
+not proceed"*.
+
+**F9 widened that predicate** (dropped `build_status = 'deployed'` from the count feeding it),
+so the check now tests a different, wider condition than when it was written. Measured at the
+roll:
+
+```
+CONTENT_DATA_REGRESSION, all history: 0 rows
+save_page_sections rows, last 25 min: 0
+any agent_error_log rows, last 25 min: 128 (newest 2026-08-05 20:52:32Z)  <- fleet IS live
+```
+
+**This is a PASS, and a weak one — say so.** Zero for both agent types is the stated pass
+condition, but the code has been live for minutes and the report has **never fired in any
+version**, so a zero here distinguishes nothing: it is what a correct widening and a broken one
+both produce. The fleet is demonstrably running (128 rows), but no `save_page_sections`
+traffic crossed the window, so even the absence is not yet informative about this path.
+
+**Re-check due 2026-08-06 ~20:45Z** (24h from the roll). What each outcome means, decided now
+rather than after seeing it: rows for `page-build-handler` only → the widening is catching the
+non-deployed states F9 was about, which is the intended effect. **Any `page-rerender` row →
+the register's own stop condition fires and the per-caller opt-in must not proceed** — and
+because F9 widened the predicate, the first question is whether the row is a genuine
+non-deployed loss or the widening over-firing. Still zero → the mechanism remains unexercised
+and F9 is deployed-but-unproven, which is the state to record, not to round up to "verified".
