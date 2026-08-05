@@ -108,9 +108,11 @@ price stated as £1,200-total-no-VAT.
 
 ## 5. Owner ledger
 
-**Owed by owner:** tunnel click (§4.1) · the 202 decision (quota / re-point /
-wait) · correction-fee number · terms before live Stripe (P3) · scoped Anthropic
-key for the chat (Phase 4).
+**Owed by owner:** tunnel click (§4.1) · correction-fee number · terms before
+live Stripe (P3) · scoped Anthropic key for the chat (Phase 4).
+**202 RULED 2026-08-05: WAIT for automatic Tier 2** (~$100 cumulative, a few
+weeks). Interim: 250 pro calls/day fleet-wide, reset ~midnight UTC — **re-drive
+just after a reset**, and a late-day 429 anywhere is 202, not a new bug.
 **Settled, do not reopen:** £1,200 price · no VAT (stated on page in three
 places) · one box per trust class (customer sites are STATIC → B2, no box) ·
 box spec as billed (£43.15/mo, 52GB SSD, IPv4 taken) · framework-only builds

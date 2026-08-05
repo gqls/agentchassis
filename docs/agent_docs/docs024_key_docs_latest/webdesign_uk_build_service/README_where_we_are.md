@@ -775,3 +775,18 @@ box has been using. Mythic's own backup add-on is worth having as a second copy
 of those dumps, but it's the belt, not the braces. And before go-live we restore
 one dump once, deliberately, because a backup that has never been restored is a
 hope, not a backup.
+
+---
+
+**2026-08-05. The Gemini decision: wait.**
+
+You've chosen to let the usage tier upgrade itself, which happens automatically
+once the account's total spend crosses a hundred dollars, a few weeks away at the
+current rate. Until then the whole fleet shares two hundred and fifty of the
+expensive-model calls a day, refreshing around midnight. Practical consequence:
+anything that fails late in the day gets re-run the next morning rather than
+immediately, and a "quota" failure anywhere in the fleet between now and the
+upgrade is this same known thing, not a new problem.
+
+The landing page build re-runs on the fresh quota; everything after it is
+already wired, so a successful build goes all the way to the box on its own.

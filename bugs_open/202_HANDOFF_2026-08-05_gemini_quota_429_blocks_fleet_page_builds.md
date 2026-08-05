@@ -81,3 +81,21 @@ shares one project, so ~250 pro-model calls/day fleet-wide is the whole budget
 **Timing:** yesterday's 429 said "retry in 20h51m" from 03:08 UTC ⇒ the RPD
 window reopens ~**23:59 UTC 2026-08-05**. A re-drive before then fails; after
 then, ~250 fresh calls exist for the whole fleet's day.
+
+---
+
+## OWNER RULING 2026-08-05 — option 1: WAIT for the automatic Tier 2 upgrade
+
+No form filed, no writer re-point, no quota purchase. Until the project crosses
+$100 cumulative (a few weeks at current burn, sooner with normal use), the fleet
+lives inside **250 pro-model calls/day, resetting ~midnight UTC** — so:
+- **Re-drive blocked builds just AFTER a reset**, not late in the day; a
+  late-day re-drive spends its attempt into an exhausted window.
+- A late-day 429 on any lane is THIS bug, not a new one — check the date before
+  filing a duplicate.
+- The council question (option 3, the shared writer's model) stays OPEN but
+  unforced; revisit with real spend numbers if Tier 2's limits still pinch.
+
+This bug CLOSES when Tier 2 is observed active (aistudio.google.com/rate-limit
+shows the raised RPD) AND a previously-blocked build has passed through
+generation on it.
