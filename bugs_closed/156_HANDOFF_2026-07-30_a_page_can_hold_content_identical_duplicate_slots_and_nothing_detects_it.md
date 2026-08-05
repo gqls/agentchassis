@@ -520,7 +520,46 @@ legitimate repeats (plus the NULL-content pair) were never touched.
    see them. The real number is 6. Same trap seed `312` documents.
 2. **The DB-level invariant** — the council's open MEDIUM objection. The guard sits at one of
    seven `page_components` writers and "the other six insert single rows" is a fact about
-   *current* callers, not an enforced mechanism. The shape that closes it is a generated column
-   or partial unique index on content identity, covering every writer at once. **Owner call**;
-   a schema change to a hot table deserves its own lane.
+   *current* callers, not an enforced mechanism. **Owner call.** But it is now a *decidable*
+   one: the candidate was measured against live data on 2026-08-05 rather than left as a
+   sentence, and the obvious version of it is provably wrong.
+
+   **The index that works — MEASURED, built against production and rolled back:**
+
+   ```sql
+   CREATE UNIQUE INDEX ... ON page_components
+     (page_id, slot_name, md5(content_data::text), md5(rendered_html)) NULLS NOT DISTINCT;
+   -- CREATE INDEX ok, 160 kB, on 1,212 rows / 6,760 kB. Expression is immutable.
+   ```
+
+   **The index that does NOT work, and Postgres says so itself.** The intuitive one — content
+   identity only — is *refused against live data today*:
+
+   ```
+   ERROR: could not create unique index
+   DETAIL: Key (page_id, slot_name, md5(content_data::text))
+           =(1bcc0213-…, generic-text-block, null) is duplicated.
+   ```
+
+   That is finetuning.uk/our-position-on-ai — and it is a **legitimate pair**: both rows have
+   NULL `content_data` but *different* markup (1,812 vs 1,790 bytes, distinct md5s). So the
+   database refuses to create the constraint, naming the very rows it would have destroyed.
+   Include `md5(rendered_html)` and the collision disappears, which is the same correction the
+   Go guard needed and for the same reason. Without `NULLS NOT DISTINCT` (PG 15+; this cluster
+   is 15.18) the index builds but is **blind to all 132 NULL-`content_data` rows**, because
+   NULLs are distinct by default — a silent hole exactly where the trap lives.
+
+   **The real objection is not cost — it is the failure mode.** Cost is trivial (a 160 kB index
+   on a 6.7 MB table). What changes is what happens when a duplicate is attempted: today the Go
+   guard *collapses it and the save proceeds*; a unique index makes the INSERT raise `23505`, so
+   **the save fails, the build fails, and the page does not deploy** — on a write path six
+   agents share. That is `bugs_closed/073`'s shape (a page becoming unbuildable), which is why
+   this is a policy decision and not a technical one.
+
+   **What softens it, and is the actual argument for doing it:** with the Go guard live,
+   `save_page_sections` can no longer *reach* the constraint — it removes duplicates before the
+   INSERT. So the index would fire only for the other six writers and for writers not yet
+   written, which is precisely the gap the council named. Its blast radius on today's fleet is
+   therefore near zero, and it degrades from "a future writer silently creates duplicates" to
+   "a future writer's insert errors loudly". Whether that trade is wanted is the owner's call.
 3. **The producer** (candidate 4) is still unidentified. It now leaves evidence when it fires.
