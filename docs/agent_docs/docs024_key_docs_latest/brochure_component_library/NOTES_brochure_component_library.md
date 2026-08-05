@@ -4372,3 +4372,24 @@ thread, for the tally: the CLAUDE.md `strings` pod-grep recipe produced a false
 all-zero (LANDMINES:503, `strings` absent from the image — the positive control
 in the same exec caught it), and three ad-hoc SQL guesses failed before `\d`
 was consulted (schema first; copy a live row's shape, as this file already says).
+
+## 2026-08-05 — everything landed while we slept; verified, one redundant run cancelled, handoff cut
+
+Session end-of-lane pass before a fresh chat. Both camera halves turned out to be
+LIVE on v1.0.1252 (overnight roll) — re-proven here at the binary (adapter
+`profileViewport`→2, fallback string→1; chassis `landing state`→1) and at the
+artefact: fetched run `b14fee91`'s desktop render and LOOKED — the simulator shows
+the populated DEFAULT preset, and its note line carries the full new form
+`(desktop 1366x900@1x, landing state)`. Two other lanes got there first
+(bugfix_188 run `25c44133` closed `bugs_open/188` against our commits;
+bugfix_200 ran `b14fee91`) — my belt-and-braces manual acceptance item was
+CANCELLED as redundant once I found theirs. **Check for other lanes' proofs
+before spending a run**; three sessions independently verifying the same roll is
+the coordination cost of a hot tree made visible.
+
+Checker fleet state since enable: 7 sites swept, 0 deletions, 7 flag-only
+capability_gaps (several `blocked` — they have no handler BY DESIGN; idle, not
+stuck). That population is candidate 1's brief.
+
+`HANDOFF_2026-08-05_continue_here.md` supersedes 08-03+addendum — every liveness
+claim in it re-verified this morning, nothing carried forward on trust.

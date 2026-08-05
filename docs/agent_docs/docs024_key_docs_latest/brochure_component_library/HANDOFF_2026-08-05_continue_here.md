@@ -1,0 +1,146 @@
+# HANDOFF 2026-08-05 — brochure component library / fundamentallyai.com
+
+**Supersedes `HANDOFF_2026-08-03_continue_here.md` and its 08-04 addendum.** Written to
+cold-start a fresh session; every liveness claim below was re-verified against the
+running system on 2026-08-05 morning, not carried forward.
+
+## 1. Where the lane is, in one paragraph
+
+The looking loop is CLOSED and live end to end: acceptance runs photograph the page a
+visitor actually lands on (both camera halves live on **v1.0.1252**, three independent
+post-roll proofs), the photographs carry their viewport and state on the note line —
+`(desktop 1366x900@1x, landing state)` on a real production note — and a weekly cron
+puts the contact sheet in front of the owner. The 151 candidate-3 duplication checker is
+enabled fleet-wide: since 08-03 it has swept **7 sites, deleted nothing, and filed 7
+flag-only capability_gaps** — which is both the design working and the measured case for
+this lane's largest remaining build, **candidate 1**. The site itself is whole:
+`/tools.html`, working CTAs, both companion guides live. Two other lanes (bugfix 188,
+200) independently verified the camera behaviour; bug 156 (the sibling duplication
+class) was closed by its own lane on v1.0.1252.
+
+## 2. What is LIVE, and the proof for each (all re-checked 08-05)
+
+- **Camera, both halves, v1.0.1252.** Adapter markers `profileViewport`→2 and the
+  driven-state fallback string→1 (`grep -acF` on `/app/browser-runner-adapter` —
+  `strings` is absent from these images); chassis prints `landing state`→1. Three
+  behavioural proofs: bugfix_188's run `25c44133` (22/22, populated landing render,
+  their pod-grep + eye), bugfix_200's run `b14fee91` (its note carries the full
+  new-form line above), and this lane's own fetch-and-look at `b14fee91`'s desktop
+  PNG — the simulator shows the DEFAULT preset (70.1% headline, seat list), not the
+  post-Clear empty panel that started TL-035 (d). A third manual run I queued before
+  finding 188/200's proofs was **cancelled as redundant** — check for other lanes'
+  proofs before spending a run.
+- **Camera behaviour spec** (what a fresh session must not re-litigate): renders =
+  landing state (captured post-settle, pre-`evaluateOnPage`, uploaded only on a full
+  pass, `Stage:"landing"`); a failed landing capture falls back to a driven-state
+  render with NO stage stamp; failure evidence = driven state always, no stamp;
+  stage-less refs render the old line form byte-for-byte. Councils `a18db904`
+  (viewport) and `8e35caad` (landing) both APPROVED r1; `2f374cdaf` carries
+  `Council-Reviewed: 8e35caad` after acting on two advisories.
+- **Checker (`content_duplication`), enabled by seed 296 on
+  `completeness-discovery-agent`.** Fleet since enable: capability_gap rows on
+  fundamentallyai, leopardess, gamesdesign, gaswholesalers (08-03), idea.uk,
+  webdesign, robot-hands (08-04) — all flag-only (`do_not_auto_rewrite`), several
+  now status `blocked` (they have no handler BY DESIGN; blocked is idle, not stuck).
+  Zero `content_duplication` deletion items anywhere, ever. The would-delete census
+  goes stale by design — re-run `gauntlet_dead_cta/scripts/dedup_census_shipped.go`
+  before reasoning about it.
+- **Weekly contact sheet.** `crontab -l` → Mondays 08:53,
+  `scripts/weekly_contact_sheet_refresh.sh`; log `~/acceptance_renders/refresh.log`.
+  **First scheduled fire is Monday 2026-08-10** — nobody has watched a scheduled
+  (as opposed to hand-run) execution yet; check the log that morning. The claude.ai
+  page (`14a45889-e1f0-46e9-969a-08295cc36650`) refreshes only on request in an
+  interactive session (headless `claude -p` has NO Artifact tool — measured), and
+  the URL is replaceable state: the owner deleted the 08-03 one within a day.
+  `contact_sheet.py` captions every image landing/driven off the note-line stage
+  token.
+- **Site content.** `/tools.html` live (resolver-fed items — do not hand-tend the
+  list); "Explore All Tools" → `/tools.html` on both tool pages; calculator hero →
+  `#input-tokens` / its guide; both guides serve 200; decision-record stub archived.
+  Simulator probe: 47 checks 0 failed as of 08-03 (the probe grows — trust exit
+  code, not remembered counts; re-run after ANY re-render).
+
+## 3. Open, in the order I would take them
+
+1. **151 candidate 1 — assign facts to sections at plan time.** The lane's largest
+   unbuilt piece, now with a measured population: 7 sites' capability_gap rows,
+   fundamentallyai's being 9 fact-overlap pairs + 1 near-duplicate (fact pool 15).
+   Constraints already established, do not rediscover: any REWRITE path needs the
+   claims gate in front of it (a 07-29 LLM rewrite fabricated a human credential,
+   `bugs_open/149` §C1); `content_data` is not always section content (two components
+   can share a byte-identical site-context blob — the narrowing that saved vonc's
+   lobby-grid); the residue gaps are the acceptance population for whatever candidate
+   1 becomes. Start by READING: `bugs_open/151` (updated by the gauntlet lane),
+   `CONTRIB_2026-07-31_151_candidate_3_is_built.md` (both halves + the update), the
+   7 gap specs (`spec->>'check'='content_duplication'`). This is plan-time platform
+   design — expect an architecture-aware council submission, and check
+   `who-owns.py 151` + live transcripts first: other lanes brushed this space
+   overnight (156 closed; PBP-033 dedups at the save choke point — candidate 1 is
+   the PLAN-time complement, not a duplicate of it).
+2. **Watch the checker as sweeps continue.** A non-zero `content_duplication` item is
+   worth reading, not alarming — the guard refuses plan-specified repetition and
+   locked rows; read the item's skip reasons before touching anything.
+3. **Monday 08-10: confirm the first scheduled cron fire** (`refresh.log`). Expected
+   failure mode: kubeconfig token expiry → the push says so; that is designed
+   behaviour, re-run after the owner refreshes.
+4. **Small, unclaimed:** `tool-guide-intro` on the simulator page remains deliberately
+   absent (whole-page escalation risk; the guide covers the need; safe route =
+   `section_edit` with JSON authored from the guide's copy). The `08-03` handoff §5
+   items are otherwise all discharged.
+
+## 4. Traps for a fresh session (beyond CLAUDE.md; each is in LANDMINES/WRONG_CALLS too)
+
+- **A queue `page_rerender` with no `reason` in spec is ASSEMBLE-ONLY** — item
+  completes, page deploys, your content_data edit is not served. Use
+  `scripts/rerender_page_sections_direct.sh` (proven repeatedly).
+- **Static-source `input_schema` fields overwrite authored content_data on every
+  resolve** (and `query.*` fields regenerate). Read the component's schema first;
+  author only `llm`/unsourced keys.
+- **Verify a link TARGET at the artefact before shipping the link** — live copy
+  promised a guide that had served 404 for nine days.
+- **The work-item schema moves under the docs**: the RUNBOOK's INSERT recipe drifted
+  twice in one morning (`category`, `pipeline` — `pipeline` EXISTS again and the
+  build trigger selects on it; `category` does not). Copy a live row's shape.
+- **This tree is shared and hot**: my own test file gained another lane's edits
+  mid-session; LANDMINES/WRONG_CALLS appends travelled as same-file passengers in
+  another lane's commit (recorded, nothing lost); `discovery_checks` carried a
+  broken WIP for hours — test against `git archive HEAD` + your files only.
+- **Hours can pass between turns** — `date` before writing any timestamp claim.
+- **look.py's blank lower half** on a short page is its vh-stretch artifact, and
+  a full-page capture paints the sticky nav mid-page — capture artifacts, not
+  page defects.
+- **Cron PATH needs `/snap/bin`** (kubectl is a snap) or auth pre-checks report
+  token-expiry for command-not-found.
+
+## 5. Commands a fresh session will want
+
+```bash
+# cold start reads (in order): this file, then
+#   NOTES_brochure_component_library.md   (tail — the 08-03/04 entries)
+#   RUNBOOK_brochure_component_library.md (§republish, §weekly contact sheet, §acceptance by hand)
+#   register/tool-lifecycle.md TL-035 + TL-039
+
+# checker state
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -t -A -c \
+ "SELECT s.domain, wi.item_type, wi.status FROM site_work_items wi JOIN sites s ON s.id=wi.site_id
+   WHERE wi.item_type='content_duplication' OR (wi.item_type='capability_gap' AND wi.spec->>'check'='content_duplication')
+   ORDER BY wi.created_at DESC;"
+
+# latest acceptance notes (the stage token is the camera's liveness signal)
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -t -A -c \
+ "SELECT created_at, subject_key, body LIKE '%landing state%' FROM doc_notes
+   WHERE categories ? 'acceptance-run' ORDER BY created_at DESC LIMIT 5;"
+
+# contact sheet, on demand
+~/.venvs/vonc_pw/bin/python3 docs/agent_docs/docs024_key_docs_latest/brochure_component_library/scripts/contact_sheet.py --limit 8
+```
+
+## 6. Commit / council trail (this lane, 08-03 → 08-05)
+
+`30dde02d1` seed 296 · `1f375991f` contact_sheet.py · `d0a873f97` viewport
+(council `a18db904` APPROVED r1) · `5c7346b40` docs+TL-039 · `fe51ad611` landing state
+(council `8e35caad` APPROVED r1) · `2f374cdaf` advisory fixes (Council-Reviewed
+8e35caad) · `948c3d3e4` cadence · `df8f6087a` + this file's commit, docs.
+Cross-lane closures against this work: `bugs_closed/188` (0f124a686), bugfix_200's
+verification run. Sibling context: `bugs_closed/156` (PBP-033, save-time dedup,
+v1.0.1252) — candidate 1 complements it at plan time.
