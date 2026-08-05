@@ -62,3 +62,25 @@ does**, so they cannot detect the divergence coming back. The new test asserts t
 carries `config_key`, a field only the shared helper emits (the pre-193 hand-rolled warning
 named the substep and the type but had no such field). Re-inline the old body and every
 value assertion still passes while that one goes red.
+
+## 2026-08-05 — closed, and the one thing the register nearly shipped wrong
+
+**LIVE on `v1.0.1252`** (both replicas: `GetBoolFieldLoud` present, `resolveSubstepContinueOnError`
+= 1 as the positive control), so the ticket met the fixed-AND-live bar and moved to
+`bugs_closed/`.
+
+**Caught during the close, not by a reviewer:** the register entry shipped as **`WFA-0XX`** —
+a placeholder heading — with **no index row at all**. Both fixed (`WFA-010`, indexed, headline
+count re-derived from the documented grep rather than incremented by hand). Worth recording
+because the register's whole value is that another workstream can find a callable mechanism
+without knowing it exists, and an entry with a placeholder number and no index row is
+**invisible to exactly that search** while looking complete in the file it lives in. The
+entry was written in the same commit as the code, which is the rule — but "registered in the
+same commit" is not the same as "findable", and only the second one is the point.
+
+**Council trail:** REVISE → APPROVED, the REVISE gated on a landmine I had not read (see
+above and `WRONG_CALLS.md`). Round 2 took ~6 minutes because I polled the orchestration ROW
+rather than waiting on the verdict artifact — the discriminator this workstream added to
+`LANDMINES.md` after two runs were silently reaped by rolls. It worked exactly as written:
+seats visibly advancing (`review_editquality → review_prior_art → review_diagnosis_guardian
+→ review_architecture`), then the artifact.
