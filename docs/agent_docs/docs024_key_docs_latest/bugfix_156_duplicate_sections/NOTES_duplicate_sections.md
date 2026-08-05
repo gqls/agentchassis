@@ -189,3 +189,41 @@ whole-fleet and the owner's.
 - **Finding the producer** (`156` candidate 4). Needs a fresh reproduction. The record this
   guard writes is what makes it possible; nothing about it is possible today.
 - **The DB-level invariant.** The council's open objection. Owner call.
+
+---
+
+## 2026-08-05 — LIVE on v1.0.1252, pod-verified on both replicas
+
+The roll happened overnight. **A roll is not evidence your fix shipped**, so this is the
+discriminating grep rather than the tag, run on both replicas in the same exec as its controls:
+
+```
+agent-chassis-5b64b888f5-4j2bc / -fs4dq   (docker.io/aqls/agent-chassis:v1.0.1252)
+  CONTENT_DUPLICATE_SECTIONS_COLLAPSED : 1    <- was 0 pre-roll
+  DUPLICATE SECTIONS COLLAPSED         : 1    <- was 0 pre-roll
+  adjacency_signature                  : 1    <- was 0 pre-roll
+  CONTENT_DUPLICATE_SECTIONS_REFUSED   : 0    <- NEGATIVE control, a string this change never adds
+  CONTENT_CLAIMS_FLOOR_DETAIL          : 1    <- POSITIVE control, live since v1.0.1211
+```
+
+Three markers moved 0 → 1, the negative control stayed 0, the positive control stayed 1. So the
+binary carries the code and the grep discriminates.
+
+**That is NOT the same as the guard working, and the bug does not close on it.** RUNBOOK R5 is
+the grade: feed a save a doubled list and confirm the page comes out single with exactly one
+`agent_error_log` row — plus the negative control, a legitimately repeated-slot page left
+untouched with no record written.
+
+### The induction path is confirmed VALID before running it
+
+Checked rather than assumed, because an induction that cannot fail proves nothing.
+`rerender_page_sections_action.go:658` `loadStoredSections` reads **every** `page_components`
+row for the page, `ORDER BY position ASC`, with **no de-duplication of any kind**, and emits
+them as `sections_metadata` in `CompilePageSectionsAction`'s shape. So a page carrying a
+doubled row set produces a doubled incoming list that reaches `save_page_sections` — i.e. the
+guard is genuinely on the path being exercised. Had that query deduplicated upstream, the
+induction would have been green for the wrong reason.
+
+Both copies also stay byte-identical through a re-render, because they share `content_data`,
+so the identity key holds whichever branch the rerender takes (`carryStoredSection` re-emits
+the stored render unchanged; a real re-render regenerates both from the same content).
