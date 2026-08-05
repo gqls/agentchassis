@@ -5396,3 +5396,33 @@ WHERE s.domain = '<target>' GROUP BY 1,2;
 - **and the trap in the other direction:** when the query says the only qualifying site is LOCKED, **the answer is not to unlock it.** `aee11cb90` is the incident where a live homepage was rebuilt under a held lock on that very site (`mortgagecalculator.co.uk`), and the lock is the control added afterwards. A lock reading *"held pending owner decision"* is a decision upstream of your check, not an obstacle to it.
 - **source:** `bugfix_194` lane, 2026-08-05 — check 3b, which had **no runnable target on any site in the estate** once all three were applied. Related but distinct: the `sites.locked_at` entry above covers a gate that *failed to read* the lock; this one covers gates that read it correctly and report success anyway.
 - **added:** 2026-08-05, bugfix_194_sections_metadata_mapping lane
+
+### Marking a page section `build_status='removed'` does NOT remove it from single-page rerenders — the section RESURRECTS, and the "successful" deploy is an EMPTY git commit
+
+- **footprint:** `page_components.build_status`, `rerender_single_page_action.go`, `getPageSections`, `page_rerender`, `pages.sections`
+
+Hit 2026-08-05 removing idea.uk's home tool-list section. The full-build
+assembler excludes `build_status='removed'` (`v3_site_actions.go:3919`), so
+"set removed + rerender" looks like the complete recipe. It is not:
+**`getPageSections` (`rerender_single_page_action.go:777-780`) selects EVERY
+`page_components` row for the page — no `build_status` filter, and it does
+not intersect with `pages.sections` either.** So a single-page rerender
+re-assembles the removed section from its stored `rendered_html`, byte-identical
+output, and the git-adapter dutifully reports `success:true` on an **empty
+commit** — the work item completes, the deploy_result lists the files, and
+nothing changed. Two wrong conclusions offered themselves before the code
+read: "the deploy skipped" (it didn't) and "the sections prune failed" (it
+hadn't).
+
+**the check:** to remove a section so BOTH assembly paths agree: delete the
+`site_plan_sections` row + prune `pages.sections` + set
+`build_status='removed'` **+ empty the row's `rendered_html`** (tombstone —
+keep the row so history/dedup survive), then one `page_rerender` (spec needs
+`domain`/`page_id`/`page_name`/`filename` — a bare page_name fails
+resolution). Verify at the SERVED page and at a NON-EMPTY vm-sites commit
+(`git show <sha> --name-only` — subject-only output = empty commit = nothing
+deployed). And note `pages.sections - 'name'` only works because sections is
+a STRING array — check the shape before trusting the prune.
+
+- **source:** 2026-08-05, idea_uk_vm_site lane; RUNNING_NOTES §X.44-45
+- **added:** 2026-08-05, ideauk-sec session
