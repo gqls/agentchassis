@@ -4189,6 +4189,77 @@ takes the working tree, so their update rode along under my message. **Checked b
 assuming damage: nothing was lost** — the richer versions are present at lines 43-44 and
 the index fragments agree. Forward-only, so it stands; this note is the provenance.
 
+## 2026-08-05 — TL-035 (e): the machine eye is wired and SAFE, and it cannot see yet
+
+Owner instruction: wire it now, carefully. Seed **317** applied by hand and recorded in
+the ledger. `judge -> look -> record_look -> complete`, with `complete_no_look` as the
+failure terminal.
+
+**What is PROVEN, at the artefact:**
+
+- **The wiring is live.** `judge.next_step=look`, `look.action=execute_vision_prompt`,
+  `record_look.action=append_doc_note`, categories `["render-critique"]`.
+- **Safety property 1 holds, and it was tested by reality rather than asserted.** The
+  first live run's vision step **failed**, and the acceptance note at 12:06:57 is
+  nonetheless a normal `PASSED` note with a landing-stamped render. `judge` runs first,
+  so the verdict cannot be collateral damage. This is the property I most wanted and it
+  was demonstrated by an actual failure on the first attempt.
+- **Safety property 3 holds.** The run reached **`complete_no_look`**, not `complete` —
+  so `current_step` alone told me the look had failed, with no need to go digging in
+  `__step_error`. A silent success would have been the worst outcome here.
+- **No work items were raised.** Only my own dispatched `acceptance_run` item exists for
+  that site in the window. The drain stays vigilant's.
+- **Four guard mutants induced, all caught** — and the induction found a real bug **in my
+  own guard**: the `147-profiles` canary used `@>` against a path that a flattening write
+  makes NULL, and `NULL @> …` is NULL, so `IF NULL THEN` never fired. It silently missed
+  the exact write it exists to catch. `IS DISTINCT FROM` (used by the `capture_renders`
+  canary) is NULL-safe, which is why one canary fired and the other did not. Fixed
+  NULL-safe and re-induced; mutant D now names both. **The mutant that "passes" is the one
+  to distrust** — my first attempt at mutant D was also **VACUOUS**: `sed "s|^DO \$\$|…|"`
+  in double quotes collapses to `^DO $$`, two end-of-line anchors, so the mutation was
+  never applied and its "pass" proved nothing.
+
+**Why it cannot see: `params.StorageClient` is nil on the chassis.**
+`execute_vision_prompt: no storage client — cannot download screenshots`
+(run `25fee04c-6cc8-40b4-92af-da81fa3f8b16`).
+
+I had "checked" storage before wiring and got this wrong in an instructive way. I grepped
+the chassis env for `s3|storage|bucket|b2_|aws`, saw six storage variables all set, and
+concluded storage was configured. **Credentials are not the gate.**
+`platform/agentbase/agent.go:308-330` builds the client only `if storageConfig.Bucket != ""`,
+from **`IMAGE_BUCKET`** — which is unset. I verified the credentials and *inferred* the
+client: a claim about behaviour standing in for the behaviour.
+
+It had never been caught because `execute_vision_prompt` is the **only** chassis action
+taking `params.StorageClient`. Everything else builds its own client from agent/step
+config (`storage_actions.go:95`, `:612`) or from the service config
+(`browserrunner/screenshots.go:66`) — which is why the browser-runner **uploads renders
+perfectly well while also having no `IMAGE_BUCKET`**. Three storage-config paths; one of
+them wired on the chassis. So MDL-040 could never have succeeded in this deployment, and
+"built + wire-shape tested" could not have revealed it: those tests assert request bodies
+and pass in a world where the action can never obtain a client. Filed as a landmine
+(8 footprint rows) — **read "no live call yet" as "deployment contract unverified".**
+
+**Fix committed, deliberately NOT applied: `820a033c0`** adds
+`IMAGE_BUCKET`/`S3_ENDPOINT`/`S3_REGION` to the chassis overlay, matching the
+`business-intel` overlay, which carries the same comment because that lane hit the same
+wall earlier. Values hardcoded, not `configMapKeyRef`: a wrong key there is
+`CreateContainerConfigError` and the **whole chassis** stops rather than one action
+failing. `kubectl kustomize` verified — the env lands and the tag it would ship
+(`v1.0.1252`) is the tag already running, so applying carries only the env change.
+
+**It needs a chassis roll, and I have not taken one.** A roll kills in-flight councils,
+and councils are near-continuous here — I watched the count go 1 → 2 while polling for a
+clear window. Destroying another lane's council round (queue time plus credits, and they
+would have to resubmit) to shave hours off my own verification is not a trade I should
+make unilaterally. The change is declarative and committed, so **the next chassis roll
+anyone performs completes it** — and the tag moved today, so those are frequent.
+
+> **Do not read the failure as "the eye does not work".** Nothing about the vision path
+> itself has been falsified; it never got as far as trying. What has been proven is that
+> the wiring is correct and that a failure in it is harmless — which is the more important
+> half, and the half that is hard to retrofit.
+
 ## 2026-08-03 — the switch, the eye, the viewport, and the loose ends (session: brochure lane 2)
 
 Owner: *"do them all in the order you choose."* Order chosen: 151 enable → renders
@@ -4393,3 +4464,72 @@ stuck). That population is candidate 1's brief.
 
 `HANDOFF_2026-08-05_continue_here.md` supersedes 08-03+addendum — every liveness
 claim in it re-verified this morning, nothing carried forward on trust.
+
+---
+
+## 2026-08-05 (sweep front) — the improvement sweep at fundamentallyai, and a refuted premise
+
+Separate front from the 08-05 camera/checker handoff written by another thread the same
+morning. Full account: `HANDOFF_2026-08-05b_improvement_sweep.md`.
+
+**The owner opened by saying the site had been hand-built, not framework-built, and asked for
+it to be recreated through the pipeline. That is refuted — measured, not argued.** `site_specs`
+carries the whole 082 chain agent-authored (`domain-submitter` 07-20 20:36 →
+`domain-research-classifier` → `vertical-exemplar-researcher` → `domain-strategist` →
+`build-briefing-agent` → `site-design-planner` 21:39); the `submission` spec's keys are exactly
+`domain`/`fidelity`/`email`/`mission_brief`, the FRESH payload `082_submit_domain_unified.sh`
+builds at `:135-138`; all 16 page rows carry `built_from_plan_version`. The
+"every site goes through the framework" ruling (`78d9d1aee`) was **webdesign.uk**, not this site.
+What IS hand-made is this lane's own ~18 `sql/` files layered on top — editing, not building.
+
+**Why it nonetheless reads as un-designed:** the brief-fidelity audit ran 2026-07-24, filed 4
+findings, and nobody drained them for 12 days. The defect was the undrained queue.
+
+**Pre-flight.** 23 `detected` rows reviewed against the live artefact; 7 cancelled with evidence
+in `result`. The generalisable reasoning: **cancelling a stale finding loses no signal, because
+the sweep re-runs the full audit chain and re-files anything still true with current evidence.**
+Kept the rows whose CLAIM still holds even where the evidence text had drifted — e.g. the
+template-repetition finding names `info-card-grid`, long since replaced, but the two pages
+still share an identical pattern, so the claim stands.
+
+**The sweep.** `SWEEP_CORR=d0430afd-3600-496e-9c87-9459e9787197`, 12:13 UTC. 14 orchestrations,
+all COMPLETED by 12:24, `error` NULL. 291 gate `audit_due=true`, `not_converging=false`. All 16
+detected rows drained, zero remain.
+
+**The owner's ask needed no new mechanism:** `improvement-loop` → `design-audit-agent` →
+`spawn_visual_auditor -> visual-design-auditor` AND `spawn_content_auditor ->
+content-quality-auditor`; `site-review-agent` → the same content auditor plus
+`run_strategic_review`. Read from live config, not from step names. The **offer and benefit
+analyser still does not exist** (B track, unseated — checked `agent_definitions`); the strategic
+review is the nearest live thing and it did run. Do not overstate that.
+
+**Output worth acting on:** 3 new `claims_unverified` rows — `capabilities` (4 unregistered
+numbers), `tools` and `tool-review-council-simulator` (3 unregistered stat fields each).
+
+**What broke:** `needs_logo` FAILED because `image-build-handler`'s `call_logo_gen` maps
+`prompt` from `input_data.spec.image_prompts.logo`, a key the filing detector never writes
+(`input_data.spec` holds only `check`/`original_pipeline`/`path`/`purpose`) — fleet-wide, not
+site-specific, and to be filed via 090 rather than asserted. Two rows BLOCKED for
+"No handler_agent set". `needs_content_page` FAILED on the spawn→call handshake, carrying an
+unexamined claim: *"the site claims 'more than ten live production sites'"*. And a live broken
+link: the cost-calculator guide points at `/platform-log/index.html`, which 404s, because the
+link resolver treats `status='active'` as linkable without testing whether the page ever
+shipped — while `queryresolve.ListedPageEligibilitySQL` exists for exactly this and
+`resolve_internal_links_action.go:440-500` doesn't use it. Same shape as `bugs_closed/191`/`049`.
+
+### Missteps, both mine, both caught the same way
+
+- **I nearly filed a live chrome defect off an unguarded zero.** `/contact.html` read
+  `header=0 footer=0 nav=0`; five re-fetches gave 1/1/1 at 21,879 B every time. My loop counted
+  greps without checking the body was non-empty, so a transient failed fetch was
+  indistinguishable from a page missing its header. **Gate on bytes, then read the greps.**
+- **My 20-minute watch on the sweep proved nothing and I read it as a lost dispatch.** Every
+  iteration queried `agent_type` — a column `orchestration_states` does not have — with stderr
+  sent to `/dev/null`. The sweep had in fact already completed. **Never silence stderr in a poll
+  loop; validate the query by hand once first.**
+- **Twice I built a theory and reading the code killed it.** (a) I thought
+  `check_misdirected_cta.go` lacked a `status='active'` filter; it is present at `:406`, and the
+  finding was simply filed before 086b archived the stub. (b) I thought the sweep could point
+  live CTAs at the 404 `platform-log` page and was about to archive a brief-mandated page to
+  stop it; `chooseCTATargets` (`:319-349`) ranks interactive pages ahead of hubs and the site
+  has 4 active tool pages, so `platform-log` sits at index 4 and can never be chosen.

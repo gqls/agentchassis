@@ -20627,3 +20627,59 @@ jsonb count as incidence, read the code that WRITES the field to learn the
 recorded shape, then probe that shape — and sample the matches before the
 number leaves the query buffer. (Same family as the index's
 "your measurement answers the question you ENCODED".)
+
+---
+
+### 2026-08-05 — a `grep -c` over an unguarded `curl` body reported a live chrome defect that did not exist
+
+**Lane:** brochure_component_library (fundamentallyai improvement sweep).
+**The claim I was about to write:** "`/contact.html` serves no `<header>`, no `<footer>` and no
+`<nav>` — one page of 14 is missing its chrome," off a loop printing `header=0 footer=0 nav=0`.
+**What caught it:** re-fetching the same URL five times — `header=1 footer=1 nav=1` and
+21,879 bytes every time, `cf-cache-status: DYNAMIC`. The single zero was a transient empty body.
+**Why the check could not have come out right:** the loop did `printf '%s' "$b" | grep -c` with
+no test that `$b` was non-empty, so a failed fetch and a page genuinely missing its header
+produce the identical `0`. The measurement had no way to distinguish its own failure from the
+condition it was looking for.
+**The cheap check that would have caught it:** gate on the byte count first and only read the
+greps once it passes — `n=$(printf '%s' "$b" | wc -c); [ "$n" -lt 2000 ] && echo SUSPECT`.
+Same family as "induce a non-zero before trusting a zero", applied to HTTP rather than SQL.
+
+### 2026-08-05 — a 20-minute watch loop proved nothing because it silenced its own SQL error
+
+**The claim I was about to write:** "the sweep dispatch was lost or killed by the chassis roll —
+no orchestration row appeared in 20 minutes."
+**What caught it:** querying by hand, which failed loudly: `orchestration_states` has **no
+`agent_type` column**. My Monitor ran `SELECT agent_type, current_step, status FROM
+orchestration_states ...` with `2>/dev/null || true`, so every one of 40 iterations errored
+into silence and printed nothing. The sweep had in fact **completed 14 orchestrations, all
+COMPLETED, error NULL**, before the watch even ended.
+**Why it could not have come out right:** with stderr discarded, "no row yet", "invalid column",
+and "kubectl auth expired" are one indistinguishable empty string — and the loop's `case` only
+tested for terminal words, so silence read as "still waiting".
+**The cheap check:** run the query once by hand before arming a watch on it, and never send
+stderr to `/dev/null` in a poll loop — discriminate on OUTPUT, and let errors be loud.
+**Compounding trap:** I then misread the real `created_at` values (12:19) as impossible because
+I assumed minutes had passed since firing. Hours pass between turns on this tree; `date -u`
+before any timing claim.
+
+### 2026-08-05 — twice I built a mechanism theory and reading the actual function killed it
+
+Both would have shipped as confident structural claims; neither survived one file read.
+
+1. **"`check_misdirected_cta` doesn't filter archived pages, so it suggests CTA targets that
+   404."** It does filter, at `check_misdirected_cta.go:406`
+   (`p.status NOT IN ('deleted','archived')`). The finding I was reasoning from named an
+   archived target only because it was filed at 10:37 UTC and `086b` archived that stub later
+   the same day. I had also tried to date the archival from `pages.updated_at` — useless, since
+   there is **no `set_updated_at` trigger on `pages`** and the archiving SQL never touched it.
+2. **"The sweep will point live CTAs at the 404 `platform-log` page."** I was about to archive a
+   brief-mandated page to prevent it. `chooseCTATargets`
+   (`resolve_internal_links_action.go:319-349`) computes
+   `ordered = rank(interactive) ++ rank(hubs)` and takes only `ordered[0]`/`ordered[1]`; the site
+   has 4 active tool pages, so the single `section-index` sits at index 4 and can never be
+   selected. **The averted action is the cost here** — not a wrong doc line, but a live-config
+   change to a production site, made to prevent something structurally impossible.
+
+The tally line: three of the four entries above are the same underlying error — reasoning about
+a mechanism from its name, its neighbours, or a column I assumed existed, instead of opening it.

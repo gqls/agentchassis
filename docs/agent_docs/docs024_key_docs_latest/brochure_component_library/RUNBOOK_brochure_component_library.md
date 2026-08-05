@@ -948,3 +948,94 @@ Gotchas the first runs paid for:
   at the FRONT of the message.
 - To stop the cadence: `crontab -e` and delete the line. To change it, edit
   the schedule there — the script itself is cadence-agnostic.
+
+---
+
+## improvement sweep (added 2026-08-05)
+
+Site id for every query below: `199733a8-ac9c-4c30-b2ce-65ecdac6f3bd`.
+
+### 0. Pre-flight — MANDATORY, the script's own header says so
+
+Triage promotes EVERY `detected` row and dispatches it to a handler that changes live pages,
+so a stale row becomes live page churn. Review them against the live artefact, then cancel
+with the evidence recorded:
+
+```sql
+SELECT id, item_type, item_key, left(summary,70) FROM site_work_items
+WHERE site_id='<site>' AND status='detected' ORDER BY item_type;
+
+UPDATE site_work_items SET status='cancelled', updated_at=now(),
+  result = result || '{"cancelled_by":"<session>","reason":"<measured evidence>"}'::jsonb
+WHERE id='<row>' AND status='detected';   -- the status guard prevents a double-cancel race
+```
+**Cancelling loses no signal** — the sweep re-runs the full audit chain and re-files anything
+still true. Cancel when the row's CLAIM is false; KEEP it when the claim holds even though its
+evidence text has drifted (e.g. a finding naming a component that has since been replaced, on
+pages that still share an identical pattern).
+
+### 1. Fire it
+
+```bash
+./run_improvement_sweep_once.sh fundamentallyai.com   # save the printed SWEEP_CORR
+```
+Not within ~300s of a chassis pod restart — the spawn is silently dropped. Check first:
+`kubectl -n ai-persona-system get pods -l app=agent-chassis -o custom-columns=NAME:.metadata.name,START:.status.startTime`
+
+### 2. Did it run? — `orchestration_states` has **NO `agent_type` column**
+
+Getting this wrong is how a completed sweep reads as a lost dispatch (WRONG_CALLS 08-05).
+Run it by hand before wrapping it in any watch loop, and never send stderr to `/dev/null`:
+
+```sql
+SELECT orchestration_id, current_step, status, created_at, updated_at, error
+FROM orchestration_states WHERE correlation_id='<SWEEP_CORR>' ORDER BY created_at;
+```
+A healthy sweep is ~14 rows, all `COMPLETED`, `error` NULL. A row count of 0 shortly after
+firing is usually latency, not loss — publish→start has been measured at up to ~29 min.
+
+### 3. The 291 gate — audited, skipped, or not-converging
+
+```sql
+SELECT jsonb_pretty(collected_data->'audit_state') FROM orchestration_states
+WHERE correlation_id='<SWEEP_CORR>' AND collected_data ? 'audit_state' LIMIT 1;
+```
+`audit_due=true` + `not_converging=false` ⇒ the FULL audit chain ran (design audit + the
+discoveries), which is what makes the run worth its spend. A third run at an unchanged
+fingerprint files one `capability_gap` roadmap row instead of reporting clean — correct
+behaviour (`bugs_open/171`), not a failure.
+
+### 4. What it left behind
+
+```sql
+SELECT status, item_type, item_key, left(summary,60), left(COALESCE(error,''),110)
+FROM site_work_items WHERE site_id='<site>'
+  AND status IN ('failed','blocked','deferred','needs_human_review') ORDER BY status;
+```
+`blocked` with "No handler_agent set" = the finding has no worker. Sometimes by design
+(flag-only `capability_gap`), sometimes a finding that can never drain — read which.
+A FAILED step can show COMPLETED with `error` NULL elsewhere; read `__step_error` too.
+
+### 5. Proving the designer and copy improver are in the chain
+
+Do not infer this from step names — resolve the spawn targets:
+
+```sql
+SELECT k, COALESCE(default_config#>>ARRAY['workflow','steps',k,'config','agent_type'],'(none)')
+FROM agent_definitions, jsonb_object_keys(default_config->'workflow'->'steps') k
+WHERE type='design-audit-agent' AND is_active AND COALESCE(is_snapshot,false)=false
+  AND deleted_at IS NULL AND k LIKE 'spawn%';
+-- expect: spawn_visual_auditor -> visual-design-auditor
+--         spawn_content_auditor -> content-quality-auditor
+```
+
+### 6. Checking the served artefact — gate on bytes before reading a grep
+
+An empty body and a page genuinely missing an element both give `grep -c` = 0
+(WRONG_CALLS 08-05):
+
+```bash
+b=$(curl -s --retry 3 --retry-all-errors "https://<domain><path>")
+n=$(printf '%s' "$b" | wc -c)
+[ "$n" -lt 2000 ] && echo "SUSPECT FETCH ($n bytes)" || printf '%s' "$b" | grep -c '<header'
+```
