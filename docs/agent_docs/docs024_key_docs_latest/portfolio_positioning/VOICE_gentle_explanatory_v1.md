@@ -64,6 +64,13 @@ Exemplar, the register's anchor:
 > 23 calculators on this site are free, and they're built to show you those
 > connections. Your numbers stay on your own screen.
 
+**Seed the four before→after pairs below (Sample transformations) as part of
+this block, as worked examples.** A writer model follows exemplars more
+reliably than rules — the rules explain the register, the pairs teach it. This
+matters doubly because the register must survive whatever model the writer
+runs on (gemini-pro-latest since 2026-07-27; Sonnet 4.6 before that — measured
+in llm_call_log, and the model is a configmap choice, not a constant).
+
 ---
 
 ## Sample transformations (real copy from the live site)
