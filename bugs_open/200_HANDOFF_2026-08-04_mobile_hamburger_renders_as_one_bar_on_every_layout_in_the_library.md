@@ -201,8 +201,11 @@ byte-checked (+70 bytes each, exactly one rule changed).
 **The publish itself was blocked by the session's permission classifier**
 (an outward-facing write to 15 production site repos — reasonably a human
 call). Operator: run the prepared batch —
-`bash <scratchpad>/deploy_bug200_all.sh` (deploys all 15 via Kafka → git-adapter,
-waits 90 s, then diffs every SERVED file against its patched copy). Re-runnable;
+`bash /tmp/claude-1000/-home-ant-projects-agentchassis/203228b7-52ae-4846-a579-4fb544223ae9/scratchpad/deploy_bug200_all.sh`
+(deploys all 15 via Kafka → git-adapter, waits 90 s, then diffs every SERVED
+file against its patched copy; the patched files sit in `css_survey/` beside
+it — note /tmp does not survive a host reboot, hence the from-scratch
+procedure below). Re-runnable;
 per-site verify is `curl -s https://<domain>/assets/css/styles.css | diff -
 <patched file>`. If the scratchpad is gone, the procedure is: fetch served
 styles.css, apply the §2 replacement (assert exactly 1 occurrence, +70 bytes),
