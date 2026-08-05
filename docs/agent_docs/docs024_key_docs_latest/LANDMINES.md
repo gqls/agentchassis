@@ -5359,3 +5359,40 @@ that is also the thing you would want in the logs is not.
 - **the check:** before publishing, read the row: `SELECT domain, COALESCE(github_repo,'(null=sites)') FROM sites WHERE domain='<d>';` and set `repo_name` accordingly (parameterized variant: `deploy_file_direct_v2.sh` in bug 200's trail, `REPO_NAME=vm-sites`). After publishing, verify at the SERVED file, never at the adapter logs or the repo — `curl -s https://<d>/<path> | diff - <local>`. Note the stray commit in the wrong repo is INERT but real: bug 200's first batch left `idea.uk/` and `relojistas.com/` css commits in `gqls/sites`, recorded not reverted (forward-only).
 - **source:** `bugs_open/200` §8 (the two-straggler diagnosis, 2026-08-05); `bugfix-131`'s memory line was the same column from the reading side
 - **added:** 2026-08-05, bugfix_200 thread
+
+### A bug file's FIX CANDIDATE can be refuted by that same file's own MEASUREMENT NOTES — they are written for different readers and nothing joins them up
+
+- **footprint:** `bugs_open/`, `bugs_closed/`, any `NNN_HANDOFF_*.md` § "Fix candidates" / "How to verify", `docs/agent_docs/docs024_key_docs_latest/*/PLAN_*.md`
+- **fires when:** you pick up a well-written bug file and implement the candidate it recommends. It needs no symptom and gives no warning — the file is *correct*, thorough, and internally contradictory, and the contradiction sits in the half you did not need to read to start work.
+- **the trap:** a handoff has two audiences. The measurement/census sections are written for a future person **measuring** the problem, and carry the traps in the data. The fix-candidate section is written for a future person **fixing** it, and carries a proposed key or predicate. Nobody re-reads the first against the second, so a candidate can propose exactly the predicate the census footnote has already shown to be unsafe. **Worked case, `bugs_open/156`:** candidate 1 says dedup on `(slot_name, md5(content_data))`; the census footnote **forty lines above it** records finetuning.uk/our-position-on-ai holding two rows with **NULL `content_data` on both**. Under that key they are "identical" — so implementing the file's own recommendation would have DELETED a live section, on a shape the same file flags as a trap. Shipping the corrected key (`+ rendered_html`) is what made the fix safe.
+- **the tell — there isn't one, which is the point.** A good bug file reads as authoritative precisely where it is most dangerous: the candidate is confident, specific, and written by someone who had just done the measurement. Its being *nearly* right is what gets it implemented.
+- **the check, and it costs one pass:** before implementing any candidate, **read the file's measurement/census/landmine sections AGAINST the candidate**, and for each column or field the candidate keys on, ask *"what does this file itself say about the values in that column?"* Specifically hunt for the degenerate rows — NULLs, empties, zero-counts — because a census footnote about them is the commonest form this takes. Then state the corrected predicate and **why it differs from the file's**, so the next reader inherits the correction rather than the original.
+- **the same shape one level up:** a `count(DISTINCT md5(col))` of **0** means `col` is NULL on every row, not that the rows agree. Any candidate keyed on that column is unsafe for exactly those groups, and a census filtering `col IS NOT NULL` cannot see them at all.
+- **source:** 2026-08-05, `bugs_closed/156` (`docs024_key_docs_latest/bugfix_156_duplicate_sections/`). Caught by reading the whole file before writing code — not by anything that failed, and the tests for the wrong key would all have passed.
+- **added:** 2026-08-05, bugfix_156_duplicate_sections lane
+
+### A verification run that dispatches work at a site has THREE silent ways to complete green having never executed the code under test — and the run's status distinguishes none of them
+
+- **footprint:** `platform/orchestration/actions/load_work_item_actions.go` (`LoadWorkItemsAction`, :127-139 lock check, :623-661 predicate), `site-work-orchestrator` (`load_work_items` → `check_has_items` → `build_items_loop`), `sites.locked_at`, `site_work_items.status`/`handler_agent`/`pipeline`, any `mode=maintenance` dispatch used as an acceptance test
+- **fires when:** you have shipped a fix inside a work-item loop and want to prove it live, so you fire the orchestrator at a site you believe has suitable work queued. It needs no symptom: the run completes, status `COMPLETED`, `current_step: complete`, no error, and the pages it did touch look right.
+- **the trap — all three return SUCCESS with zero items, and `has_items == false` routes past the code you are testing:**
+  1. **The item predicate is far narrower than "open work".** `load_work_items` requires `status IN ('triaged','approved')`; the orchestrator step adds `pipeline='build'` **and `handler_agent='page-content-writer'`**. A site can hold 40+ non-terminal build-pipeline items and still load **zero**. Measured 2026-08-05: seven sites listed as candidates by their "open build-routed item" counts (6–17 each) were **all 0**; `page-content-writer` has held **14 items fleet-wide in all of history**.
+  2. **The site lock short-circuits before every filter** (:127-139) and returns `{"items": [], "count": 0, "skipped_reason": "site_locked"}`. **This is the deceptive one** — the site genuinely has qualifying work, so every count you measured beforehand was right, and only `skipped_reason` says why nothing ran.
+  3. **An idle site** — the honest zero, and the only one most people think to guard against.
+- **the tell:** there is none in the status, which is the entire problem. The discriminator is **`skipped_reason` in the step result**, plus whether the loop's own steps appear in `execution_path` at all. A run whose `execution_path` goes `load_work_items → check_has_items → load_fix_items` never entered the build loop, whatever it reports.
+- **the check, BEFORE dispatching — the lock and the real predicate in one query:**
+```sql
+SELECT s.domain,
+       CASE WHEN s.locked_at IS NULL THEN 'UNLOCKED' ELSE 'LOCKED by '||COALESCE(s.locked_by,'?') END AS lock_state,
+       count(wi.id) AS loadable
+FROM sites s
+LEFT JOIN site_work_items wi ON wi.site_id = s.id
+     AND wi.status IN ('triaged','approved') AND wi.attempt_count < wi.max_attempts
+     AND (COALESCE(wi.approval_mode,'auto')='auto' OR wi.status='approved')
+     AND wi.pipeline='build' AND wi.handler_agent='page-content-writer'
+WHERE s.domain = '<target>' GROUP BY 1,2;
+```
+  **A non-zero `loadable` on an UNLOCKED site is the only combination that can prove anything.** Induce a positive control first: run it fleet-wide and confirm it returns *some* non-zero row, or you cannot tell a real 0 from a mistyped predicate.
+- **and the trap in the other direction:** when the query says the only qualifying site is LOCKED, **the answer is not to unlock it.** `aee11cb90` is the incident where a live homepage was rebuilt under a held lock on that very site (`mortgagecalculator.co.uk`), and the lock is the control added afterwards. A lock reading *"held pending owner decision"* is a decision upstream of your check, not an obstacle to it.
+- **source:** `bugfix_194` lane, 2026-08-05 — check 3b, which had **no runnable target on any site in the estate** once all three were applied. Related but distinct: the `sites.locked_at` entry above covers a gate that *failed to read* the lock; this one covers gates that read it correctly and report success anyway.
+- **added:** 2026-08-05, bugfix_194_sections_metadata_mapping lane

@@ -227,3 +227,77 @@ induction would have been green for the wrong reason.
 Both copies also stay byte-identical through a re-render, because they share `content_data`,
 so the identity key holds whichever branch the rerender takes (`carryStoredSection` re-emits
 the stored render unchanged; a real re-render regenerates both from the same content).
+
+---
+
+## 2026-08-05 — the induction, and why the CONTROL was run first
+
+**Result: 7 arriving sections → 6 saved, one record, served page byte-identical. Bug closed.**
+
+### The order was the design decision, not a formality
+
+The obvious move is to insert a duplicate and fire a rerender. I ran a **control rerender with
+no duplicate present first**, and it paid twice:
+
+1. **It removed a confound I would otherwise have had to argue away.** A `section_data_resolved`
+   rerender *regenerates* every section from `content_data` — that is what the reason exists for
+   (`sql_for_agents/294`'s own comment: without it the item "re-staples the stale HTML it is
+   supposed to be replacing"). So a rerender can legitimately change the page's bytes. Had I
+   induced first and the page changed, I could not have told the guard's effect from the
+   regeneration's. The control came back with **every row's `md5(rendered_html)` and
+   `md5(content_data)` unchanged** and the served page byte-identical, which establishes that a
+   plain rerender of this page is a no-op today — so anything the induction changed was mine.
+2. **It de-risked the live write.** If dispatch had been dead, inserting a duplicate would have
+   left a doubled page sitting on a live site with nothing coming to collapse it. The control
+   proved the whole chain — `triaged` → `build-dispatch-loop` claim → `page-rerender` →
+   `save_sections` → deploy — in about two minutes, *before* anything was doubled.
+
+**And it doubled as the guard's own negative control**, on the same page and the same path
+minutes apart: **zero** `agent_error_log` records with nothing to collapse, **one** with
+something to collapse. That pairing is what makes the firing run mean anything — a guard that
+collapses nothing looks exactly like a guard that is not running.
+
+### Checked BEFORE spending the induction: could it have failed?
+
+Two things, because an induction that cannot come out negative proves nothing:
+
+- `loadStoredSections` (`rerender_page_sections_action.go:658`) reads **every** row
+  `ORDER BY position ASC` with **no de-duplication**, so a doubled row set genuinely reaches
+  `save_page_sections`.
+- `page-rerender`'s live workflow really does contain a `save_sections` step whose action is
+  `save_page_sections` — read from `agent_definitions`, not assumed from the file.
+
+Had either been false the run would have been green for the wrong reason.
+
+### The evidence
+
+| | control | induction |
+|---|---|---|
+| rows | 6 → 6 | **7 → 6**, contiguous 1–6 |
+| every row's md5s | unchanged from baseline | unchanged from baseline |
+| `agent_error_log` | **0 records** | **1 record** |
+| served page | `65ee5a4d…` 52,364 B, `data-component` ×6 | **identical** |
+
+Record: `outcome=collapsed`, `signature=adjacent`, `arrived=7 kept=6 collapsed=1`,
+`source=metadata`, `field_origin=configured`, `plan_source=site_plan_sections`, group
+`hero-about` kept@1 removed@[2] with both md5s and the component id.
+
+`plan_source=site_plan_sections` is worth reading twice: the plan guard reached the
+**authoritative** store rather than falling through to a cache, and correctly declined to
+protect (the plan specifies one `hero-about`).
+
+### The gap the induction found, which no test would have
+
+**`work_item_id` came out EMPTY.** My code populates it only when the step config declares
+`work_item_id_field`, and `page-rerender`'s `save_sections` step does not. So on the exact path
+this exercised, the record names the page, the agent and the step but **not the work item that
+drove the rebuild** — one of the things the `[UNRECOVERABLE]` producer hunt would have wanted.
+
+Unit tests could not have caught this: they pass a config, so the field is whatever the test
+sets. **Only running it against the live config showed the field I designed for producer-hunting
+arriving empty on a real path.** That is the argument for behavioural induction stated in one
+line, and I would not have known otherwise.
+
+Not fixed here — it is config on another agent's step, live-immediately, outside this bug. Filed
+in the closed file's § What remains rather than left as a silently empty field, because I had
+claimed that record's completeness as half the value of the fix.
