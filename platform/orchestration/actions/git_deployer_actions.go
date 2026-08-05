@@ -129,7 +129,7 @@ func GitCommitAction(ctx context.Context, params ActionParams) (interface{}, err
 	}
 
 	// Build commit message with template support - now includes filename
-	commitMessage := buildCommitMessage(config, domain, len(filesMap), resolvedFilename)
+	commitMessage := resolveCommitMessage(config, params.CollectedData, domain, len(filesMap), resolvedFilename, params.Logger)
 
 	params.Logger.Info("Git commit prepared",
 		zap.String("repo_name", repoName),
@@ -513,6 +513,26 @@ func ensureHTMLExtension(name string) string {
 	}
 	// No extension - add .html
 	return name + ".html"
+}
+
+// resolveCommitMessage returns the commit message for this step.
+//
+// commit_message_field (opt-in) reads the message verbatim from CollectedData —
+// compose it in an upstream step, where step data actually resolves. The
+// commit_message template's context is ONLY {domain, file_count, filename}: a
+// template naming any other key renders "<no value>" (bugs_open/198's four
+// "CSS fix: <no value>" incident commits). The field falls back to the template
+// when unset or when its path resolves empty, so an old config — or a config
+// shipped ahead of this binary — behaves exactly as before.
+func resolveCommitMessage(config map[string]interface{}, data map[string]interface{}, domain string, fileCount int, filename string, logger *zap.Logger) string {
+	if mf, _ := config["commit_message_field"].(string); mf != "" {
+		if msg := strings.TrimSpace(datahelpers.ExtractNestedFieldString(data, mf)); msg != "" {
+			return msg
+		}
+		logger.Warn("commit_message_field configured but resolved empty — falling back to commit_message template",
+			zap.String("commit_message_field", mf))
+	}
+	return buildCommitMessage(config, domain, fileCount, filename)
 }
 
 // buildCommitMessage creates commit message with template support
