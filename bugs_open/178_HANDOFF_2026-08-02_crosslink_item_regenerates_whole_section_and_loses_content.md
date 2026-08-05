@@ -762,3 +762,50 @@ on; recorded here so it isn't repeated by whoever reads that artifact next.
    update), subject to ~24h `orchestration_states` retention.
 5. Watch-list item unchanged for four updates: the shrink guard doesn't fire
    on a whole-slot rename.
+
+## UPDATE 2026-08-05 — council round 2 APPROVED; a fresh chassis build re-verified at the pod; the shipped commit's trailer names the wrong (dropped) correlation
+
+**Council round 2: APPROVED.** `56f9a5a2-4d37-4114-9442-239861acd36e`,
+decided 2026-08-04 20:27:31 — the resubmission answering `bug_historian`'s
+gating objection and `prior_art_librarian`'s pointer with code evidence
+(previous update) landed. The fallback fix is now both **live and reviewed**.
+
+**A fresh chassis build was rolled** (owner-initiated). Verified at the pod,
+not the tag: `v1.0.1252`, both replicas (`agent-chassis-5b64b888f5-4j2bc`,
+`agent-chassis-5b64b888f5-fs4dq`), `strings /app/agent-chassis | grep -c
+"single-unmatched-prose-slot"` = 1 on each, plus the `"SECTION SHRINK"`
+positive control = 2 on each. **The fallback fix survived the rebuild.**
+
+**Found a loose end while checking this:** the commit that actually shipped
+the fix (`4b3f9f89b`) carries `Council-Submitted: 8a3e0315-4576-4829-bf42-c0c8cdfc4e3a`
+— the FIRST submission, the one that silently dropped and never ran (see
+the 2026-08-04 update above). The verdict that actually landed is under a
+DIFFERENT correlation (`56f9a5a2-…`, the resubmission after the drop was
+caught). `098`'s coverage report resolves a `Council-Submitted:` trailer by
+looking up ITS OWN correlation's verdict — `8a3e0315` will never have one,
+so `4b3f9f89b` would read as permanently unresolved if left as-is, despite
+the change being reviewed and approved under a different, valid trail.
+Forward-only forbids amending `4b3f9f89b` — corrected with a follow-up
+commit carrying `Council-Reviewed: 56f9a5a2-4d37-4114-9442-239861acd36e`
+(this update's own commit) so the coverage report has a trailer that
+actually resolves.
+
+**Checked for the fallback's first natural firing — none yet**
+(`fallback_matched = '1'` query from the previous update: 0 rows). Not
+informative on its own given `orchestration_states`' ~24h retention; still
+the only outstanding piece of end-to-end evidence for this fix.
+
+**Status of the fallback fix (candidate 1 of 3) specifically: DONE** — live,
+pod-verified across two separate builds now (`v1.0.1251`, `v1.0.1252`),
+council-approved. **This bug file stays OPEN** because the other two items
+below are unresolved, not because of anything about the fallback itself.
+
+**Still open, in priority order:**
+1. The root-cause mechanism (candidate 3) — investigated (090 diagnosis,
+   `167d2cc2-…`, UNVERIFIABLE) and still unknown. No live lead; needs a fresh
+   occurrence with an intact `page_component_history` trail.
+2. The ambiguous case (two-or-more unmatched sections/candidate slots) is
+   unhandled by design — unknown severity, not yet observed.
+3. The fallback's first natural firing — watch, don't force (query above).
+4. Watch-list item unchanged for five updates: the shrink guard doesn't fire
+   on a whole-slot rename.

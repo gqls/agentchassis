@@ -403,3 +403,45 @@ testing done in isolation, plus the fix now leaves a clear trace of itself
 in the system's own records the moment it ever fires for real, so the next
 person (or I, next time) can just check for that rather than manufacture a
 test case against real customer data.
+
+The review board came back with "revise, not approve" on the fix, and one
+of the reviewers made a specific, checkable claim: that two other places in
+the code have the exact same weakness this fix patches, and were being left
+exposed. Rather than argue about it, I went and read those two files. Both
+claims turned out to be wrong — one of them was already hardened against
+this exact problem by an earlier, unrelated fix, and the other doesn't work
+the way the reviewer assumed at all. A second reviewer suggested reusing an
+existing piece of matching logic instead of writing a new one; I read that
+piece too, and its own documentation says plainly it's built for a
+different job and would be the wrong tool here. I resubmitted with those
+two answers attached, changed nothing about the actual fix, and it came
+back approved.
+
+I also went back and read the answer from the system's own diagnosis loop
+I'd asked to investigate why a page's content and its plan can disagree in
+the first place. It came back honestly stuck — it tried five different
+angles and never found the record that would explain it, because the one
+page that showed the problem doesn't keep history from far enough back. So
+that underlying question is still open, and now we know it's genuinely
+hard, not just unexamined. Small silver lining: while reading its answer I
+caught it stating something incorrect in passing (a claim about a database
+column being wrong when it wasn't) — didn't act on it, just flagged it so
+nobody downstream takes that one detail on faith.
+
+You told me another fresh build had gone out, so I checked that one too,
+the same way — on the running servers, not the version label — and the fix
+is still there on both. While confirming that, I noticed the commit that
+shipped the fix was labelled with the review submission that vanished
+(the one lost to a network hiccup), not the one that actually got read and
+approved — so the paperwork trail would have looked permanently
+unresolved even though the work was genuinely reviewed. Can't edit an old
+commit here, so I've fixed it going forward with a follow-up commit
+carrying the correct label.
+
+Where that leaves things: the fix itself is done — live, tested twice
+across two separate builds, and now properly reviewed and approved. What's
+still open is the same two things as before: the deeper question of why
+this mismatch happens at all (now confirmed genuinely hard, not just
+unlooked-at), and the rarer case where the fix can't safely guess and
+correctly does nothing. Neither has a next step right now beyond watching
+for it to happen again.

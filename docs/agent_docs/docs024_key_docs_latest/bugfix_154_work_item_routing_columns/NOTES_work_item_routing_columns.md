@@ -1671,3 +1671,39 @@ which table the column identifies. **[MEASURED]**, disconfirmable: `\d
 page_component_history` would have shown the FK pointing elsewhere had the
 claim been right. Not acted on; flagged here so nobody downstream repeats it
 from the artifact alone.
+
+---
+
+## 2026-08-05 — council round 2 APPROVED; re-verified at a fresh chassis build; caught a stale trailer on the shipped commit
+
+**`56f9a5a2-…` round 2: APPROVED**, decided 2026-08-04 20:27:31. The
+resubmission answering both objections with code evidence (previous entry)
+landed clean.
+
+**Owner rolled another chassis build. Re-verified at the pod**: `v1.0.1252`,
+both replicas (`agent-chassis-5b64b888f5-4j2bc`, `agent-chassis-5b64b888f5-fs4dq`),
+`single-unmatched-prose-slot` count = 1 and `SECTION SHRINK` count = 2 on
+each — fix survives the rebuild.
+
+**Caught while checking this**: `4b3f9f89b` (the commit that shipped the fix)
+carries `Council-Submitted: 8a3e0315-…` — the FIRST submission, which
+silently dropped and never produced a verdict (documented in the 2026-08-04
+entry above). The verdict that landed is under `56f9a5a2-…`, a different
+correlation from the resubmission. `098`'s coverage report resolves a
+`Council-Submitted:` trailer against ITS OWN correlation's verdict, so
+`4b3f9f89b` as committed would read as permanently unresolved — `8a3e0315`
+has no verdict and never will. Forward-only forbids amending it; fixed with
+a follow-up commit carrying `Council-Reviewed: 56f9a5a2-…` instead (this
+entry's own commit). Worth naming as a general shape: a dropped-then-resubmitted
+council round leaves the ORIGINAL commit's trailer pointing at a correlation
+that can never resolve, even after the resubmission is approved — the fix is
+on the follow-up commit, not on going back to relabel the first one.
+
+**Checked for the fallback's first natural firing** (query from the previous
+entry): 0 rows. Not informative alone given `orchestration_states`' ~24h
+retention. Still the only outstanding live-evidence gap for this fix.
+
+**The fallback fix (candidate 1 of 3) is now fully closed out**: live across
+two builds, council-approved. `bugs_open/178` stays open only for candidate 3
+(root cause, UNVERIFIABLE) and the ambiguous case (unhandled by design,
+unobserved).
