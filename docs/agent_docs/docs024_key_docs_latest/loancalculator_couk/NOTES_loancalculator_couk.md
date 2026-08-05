@@ -2871,3 +2871,81 @@ vary 4→8 with asym in play).
 
 Worth knowing for your corpus: any future loancalculator tool computing a pure ratio
 (LTV checker, debt-to-income) would have hit this same false refusal.
+
+### The canary: INDUCED, and it found a second blocker underneath the first
+
+Fired one real `content_rewrite` (`created_by='voiceh-canary'`) at
+`guide-how-loans-are-calculated` — 2 prose blocks, no calculator, so a failure could
+not touch arithmetic. It did **not** rewrite, and the reason is not the one I had
+just fixed:
+
+```
+page-build-handler no-op: no sections ready to build (empty spec sections,
+or all sections deferred for missing data) — the target section was NOT rebuilt
+```
+
+**Credit where due: it refused LOUDLY.** No silent success. (That is the shape
+`bugs_open/194`'s framework half shipped for.)
+
+**The cause is `bugs_closed/182` again, in the sibling call site.** `pages.sections`
+on this site is `["prose-0","prose-1"]` — **positional slot names**. `plan_sections`
+resolves those against component **name/function**: `loadComponentSchemas`
+(`plan_sections_action.go:1144`) indexes the map "by both name and function", and
+`:918` does `components[sectionName]`. `prose-0` is neither a name nor a function, so
+it misses, falls to the selector at `:937`, and the section defers.
+
+**Measured, not inferred: 0 of 57 section names on this site resolve.** Fleet-wide:
+
+```
+loancalculator.co.uk          57 section names   57 unresolvable  (100%)
+gaswholesalers.com           122                 11
+finetuning.uk                152                 10
+leopardessconsulting.co.uk   106                  6
+oufe.com                      20                  2
+```
+
+> **The sharpest detail: `a43be1e70` (182's fix) EDITED THIS VERY FILE** — it factored
+> `componentInfoFromRaw` so the truncation guard could not drift "across the three now
+> shared conversion sites" — **and still only added `component_id`-first resolution to
+> the re-render path.** The build path was refactored around and left heuristic. That
+> is the documented "one call site of a shared judgement gets the rigorous fix, the
+> sibling stays heuristic" shape (016b §9), caught here by induction rather than review.
+> Re-checked at v1.0.1254: `plan_sections_action.go` untouched since 08-04, so this is
+> still open and unowned.
+
+**⚠ It does not just fail — it asks the fleet to manufacture junk.** The selector read
+`prose-0` as an unknown *component type* and filed `needs_new_component` work items to
+build components literally named `prose-0` and `prose-1`, plus two `needs_section_data`
+HITL items. **All four cancelled** with an explanatory note before a component-creator
+could act. Anyone pushing a decomposed site through the build path should expect this
+and check for it afterwards.
+
+### The base prompt is SEVEN prompts, and they have already drifted
+
+For the owner's fleet-wide voice decision. The `## HOUSE VOICE` block is not one
+shared prompt — seven live agents each carry their own copy, and no two are the same:
+
+```
+content-writer                        1046 b   563e678a…
+content-creator-hero-without-research 1243 b   224a2008…
+content-creator-about                 1250 b   8f117bcc…
+content-creator-hero                  1252 b   ea4736ea…
+simple-content-writer-with-approval   2334 b   cba1f868…
+grounded-explainer                    2866 b   89221f73…
+page-content-writer                   4657 b   d4b409e1…
+```
+
+All seven also carry the rule **"Start with the fact"**, which is in direct conflict
+with H's rule 1 (*open where the reader is standing… before the first assertion*).
+They agree on banning the negative-twist opener, so the reconciliation is to revise
+the opening rule and keep the ban — but it is a REVISION of a live default, not an
+addition, on seven divergent copies. Options for the council submission: seven edits
+that will drift again, or one shared carrier both/all read at prompt-assembly time
+(the `footer_compliance_lines` carrier the portfolio lane built is the local precedent).
+
+### Post-roll, v1.0.1254 (rolled 2026-08-05T20:41Z)
+
+26/26 HTTP 200; the 08-04 propagation holds — old footer 0, no-canonical 0,
+empty-description 0 across all 26. Nothing has re-rendered since the roll, so served
+bytes are necessarily unchanged; **the byte check proper (re-render on the new image,
+compare) is OWED** — see the handoff.

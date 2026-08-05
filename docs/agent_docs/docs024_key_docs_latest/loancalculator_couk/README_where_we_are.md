@@ -954,3 +954,66 @@ a tag that tells Google which address is real, for two days, on a site whose who
 is being found. Nobody did anything wrong to cause it. It's just what "applies on next
 rebuild" means when pages don't rebuild often. Worth deciding whether we want something
 that watches for it rather than someone noticing by accident.
+
+---
+
+## 2026-08-05 — the copy goes back through the framework, and why it couldn't yet
+
+You asked for two things today: the gentler writing style on this site too, and for the
+copy to be produced by the framework rather than typed by me. The second one is the
+interesting story.
+
+The style is seeded and live. I took the prompt the other session developed with you
+this morning, adapted the worked examples to this site's own copy, and put it where the
+writing pipeline actually reads from. One detail worth knowing because it nearly caught
+me: the writer reads exactly *one* field, a flattened text version of the style spec,
+and if you edit the spec without regenerating that flattened copy the change is
+completely invisible while looking perfectly applied. The script I wrote refuses to run
+unless it can first reproduce the existing flattened copy exactly, which is how it
+proves it's regenerating it correctly rather than mangling it.
+
+Then I hit the thing you'd already put your finger on. The prose was labelled in the
+system as "authored" — meaning a human wrote this, don't regenerate it — and the writing
+pipeline skips anything with that label entirely. You said, correctly, that the label is
+just wrong: that prose came from a different AI, outside this framework and without its
+checks. So it isn't authored in any sense that matters, and correcting the label is a
+fix rather than a loosening. I changed it, and checked carefully that I changed only
+that one: there were exactly two such labels in the whole system, and the other one
+belongs to a deliberate "copy this site exactly, don't touch a word" mode that would be
+genuinely damaged by the same edit.
+
+**And then it still didn't work, for a deeper reason.** Rather than assume, I ran one
+real page through the pipeline to see. It refused — politely and clearly, which is to
+its credit — saying it couldn't find anything to build. The cause is that when we broke
+this site into editable pieces we named them by position: "prose-0", "prose-1". The
+build pipeline looks up pieces by *type* name, not by the direct link it already holds
+to the actual component. So it looks for something called "prose-0", finds nothing, and
+gives up. Not one page — **none of them**. All 57 pieces on this site are invisible to
+it, and four other sites are partly affected.
+
+This is the same fault we fixed three days ago in the neighbouring function, and the
+commit that fixed it actually edited this file while it was there — it just fixed one of
+the two places. That's a recurring shape here and it's now written down as such.
+
+One thing I'd flag as more than a nuisance: when the build pipeline can't find a piece,
+it doesn't just fail, it asks the system to *build a new component* with that name. My
+single test page generated four such requests, for components that already exist. A
+full run would have generated over a hundred. I cancelled them all before anything acted
+on them, but it's worth knowing that's what a failed attempt leaves behind.
+
+So: nothing on the site has changed, nothing is broken, and the style is loaded and
+waiting. What's needed next is a small fix to the build pipeline — the same fix, one
+function over — and then the rewrite can actually run. That's proper code rather than
+configuration, so it goes through the review gate. I've written it all up in detail
+rather than starting it at the end of a long session.
+
+Two smaller things for when you next look. Your choice to put the new style into the
+*base* prompt for all future sites turns out to be bigger than it sounded: that prompt
+isn't one thing, it's seven copies across seven agents, and they've already drifted
+apart from each other. So it's either seven edits that will drift again, or one shared
+source they all read. I haven't picked; that's a design decision worth making
+deliberately. And the base prompt currently tells writers to "start with the fact",
+which is close to the opposite of the new style's "start where the reader is standing".
+They agree on the important half, so it's reconcilable, but it's a change to an existing
+instruction rather than an addition, and the reviewers will rightly want that said out
+loud.
