@@ -958,3 +958,93 @@ The pool's newest row is **26 Jul**. The site continues to serve it under "Today
 Provocation", correctly, because that is the most recent provocation that has
 arrived. Nothing in the machinery will change that. **Content is the gap and it is
 the owner's editorial call.**
+
+---
+
+**2026-08-05 — the generative half is BUILT (gate, generator, scheduler, rollback).
+Owner authorised it this session. Nothing is wired to publish.**
+
+Registered as VONC-012. Commits `9e5e1f909` (gate + calibration), `b5c843ec0`
+(gofmt), `e3ac4e15d` (generator + scheduler + rollback). Council correlation
+`28056723-b2a3-4057-b92f-482b7f7a0e72`, submitted before committing, verdict
+pending.
+
+**Why the order was gate-first.** `HANDOFF_2026-07-31` §B said "the gate, then the
+generator", and §10.6 says calibration "is the only evidence the gate works at
+all" and must precede wiring. So the gate shipped with its calibration in the same
+commit, before a generator existed to feed it.
+
+**The state that justified the work, re-measured rather than carried forward.**
+`provocation-feed-refresh` fired 2026-08-05 10:25:06 and completed 10:25:07 — 1.1s,
+the correct skip path. Pool: 9 approved, all `publish_on` ≤ 2026-07-26, **zero
+future-dated**, all `source='human'`. No `provocation-generator` in
+`agent_definitions`. So the machinery was never the problem and the site's
+five-times-repeated daily promise had been false for ten days.
+
+**Design notes worth reusing.**
+
+- **Fail-closed is structural, not a guard.** `gateVerdict.Approved` is a bool whose
+  zero value is rejection, and there is exactly ONE assignment of `true` in
+  `gateCandidate`, after every layer has spoken. Every early return and every error
+  path is therefore a rejection by construction. That is stronger than remembering
+  to default a variable, and it is what §10.2 actually asks for.
+- **Three actions that can each only fail towards publishing less.** The generator
+  writes drafts and cannot date or approve; the gate approves but cannot date; the
+  scheduler dates but cannot approve. The feed needs `approved AND publish_on NOT
+  NULL`, so no single broken component reaches the site.
+- **The containment is asserted, not documented.** `generatorInsertSQL` is a named
+  const so `TestGeneratorInsertsDraftsOnly` can read the statement and fail if it
+  ever mentions `'approved'` or `publish_on`. Proven by mutation. A doc comment
+  enforces nothing.
+
+**Three things I got wrong, in the order I found them.**
+
+1. **A test stub was lying.** `marshalJudgement` hardcoded `"interesting":5,
+   "current":5` instead of reading the struct, so
+   `TestAdvisoryScoresDoNotAffectTheDecision` fed the gate 5/5 while believing it
+   fed 0/0. Caught only because that test also asserts the scores are RECORDED.
+2. **`TestClaimsRailIsNotGivenTheThesis` was VACUOUS, and a source comment was
+   FALSE.** I applied the mutation `blocks := {Body, Teaser, Title}` — scanning the
+   thesis, the one thing the design forbids — and **the entire calibration suite
+   stayed green.** None of the nine titles happens to match a fleet-wide banned
+   pattern, so the asymmetry holds **by luck, not by enforcement**, and my comment
+   claiming "that change would make the gate reject all nine" was simply wrong. The
+   test now supplies its own tripping title (`"You can rely on this: ..."`, verified
+   against the live pattern set) and fails under the mutation. **The corpus is not a
+   control for this property; the test has to be.**
+3. **Rejections were mislabelled `'draft'`.** Inert, because the candidate query also
+   requires `gated_at IS NULL` — but §10.3 wants rejections observable, and
+   `WHERE status='rejected'`, the query anyone would actually write, would have
+   returned zero for ever while the gate rejected everything. The table's CHECK
+   constraint already offered `'rejected'`. Found by reading the schema instead of
+   assuming it.
+
+**The rollback finding, which is the most transferable thing here.**
+`publish_feed.sh --rollback` restores the previous `provocations.json`. **That is
+not a rollback for this pipeline.** Within six hours the publisher re-derives the
+feed from the pool, finds the bad provocation still approved with its date still
+arrived, and republishes it. An artefact rollback against a scheduler that
+re-derives from source is a delay, not a reversal.
+
+So `builder/rollback_provocation.sh` retires the ROW. Retiring today's entry makes
+the previous one today's *through the same selection the publisher uses*, so pool
+and feed cannot disagree afterwards. Dry run is the default and **the preview is
+the real `UPDATE` inside a transaction that is rolled back**, not a second query
+describing it — a preview computed differently from the action is the drift class
+this estate keeps rediscovering. Proven live: retiring
+`nobody-wants-personalised-internet` falls back to `ai-never-funny-on-purpose`
+(5 Jul); pool re-checked after, unchanged, 0 retired rows.
+
+**A plan assumption that is false for this site.** Phase 3 says reuse
+`feed-ingester` + `content_sources` for currency. vonc.com has **0 content_sources
+and 0 content_feed_items** — it has never run here. Currency is therefore optional
+input rather than a dependency, which §10.7 independently supports by ruling
+"current" the weakest criterion and keeping it out of the publish decision.
+
+**STILL OWED before anything publishes, and this is the gating item:** a LIVE model
+calibration. The committed tests stub the judge, so they pin the deterministic
+layers and the fail-closed wiring only — a model's verdicts are not reproducible
+and a test depending on them would fail for unrelated reasons. §10.6 requires the
+gate to pass the 9 and reject the bad set *against a real model* before it is wired
+to anything. Until that runs, there is deliberately no `agent_definitions` row and
+no `scheduled_tasks` row referencing any of the three actions.

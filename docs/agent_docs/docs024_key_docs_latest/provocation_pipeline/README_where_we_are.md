@@ -570,3 +570,73 @@ Everything from here is content, and content is your call — they publish as yo
 opinions under your name. Send me some text with dates and I will load them; the
 site will start rotating on its own from that point with nothing further from
 either of us.
+
+---
+
+**Wednesday 5 August — you authorised the generator, and it is built. Nothing is
+switched on yet, deliberately.**
+
+The site had been promising a daily provocation while serving one from 26 July —
+ten days. I checked the machinery first and it was innocent: the publisher ran
+that morning, took just over a second, and correctly did nothing, because there
+was nothing to do. The pool held nine provocations, all of them yours, all dated
+26 July or earlier, and nothing at all dated ahead. So the missing piece was never
+the plumbing; it was that nothing has ever written a new provocation.
+
+That is what now exists. Three separate pieces, and the separation is the safety.
+One writes candidates, and it is incapable of publishing them — it can only create
+drafts. One judges them. One decides which day each runs. The site only shows a
+provocation that has been through all three, so no single piece breaking can put
+something on the page.
+
+The judge is the part that matters, because you decided months ago that these
+publish without anyone reading them first. That decision is what makes the gate
+the only thing standing between a model and your home page, so I built it to fail
+in the safe direction by construction rather than by care: if the judge times out,
+errors, returns nonsense, or gets cut off halfway through a sentence, the answer
+is "no". There is exactly one place in the code that can say yes, and it is only
+reachable after every check has passed. I tested seven different ways for the
+judge to fail and all seven come back as a refusal.
+
+The hardest part of the design was one distinction. A provocation is *supposed* to
+be a contestable opinion, so a fact-checker pointed at it would reject every good
+one you have ever published. But the supporting paragraph underneath often slips
+in ordinary factual claims — your four-day-week entry says the pilots "measure
+self-reported output", which is simply true or false. So the opinion is exempt and
+the prose beneath it is not. Both mistakes are easy and both are bad: check
+everything and you publish nothing, check nothing and you publish falsehoods.
+
+**Three things I got wrong, and the way I found them is the useful part.** Rather
+than trusting that my tests worked, I deliberately broke the code to see whether
+they would notice. They did not, twice. One test was checking something that
+happened to be true for an unrelated reason, so it would have passed even if I had
+made the exact mistake it existed to prevent — and a comment I had written
+confidently explaining why that could not happen was simply wrong. Another test
+was quietly feeding itself different numbers from the ones it thought it was using.
+Both are now real tests. I would rather report this than not: a test suite that has
+only ever seen working code cannot tell you it would catch broken code.
+
+The third thing was the rollback, and it is worth understanding because it is a
+trap rather than a slip. There was already a command to restore the previous
+version of the file the site reads. That is not a rollback here. Six hours later
+the publisher rebuilds that file from the database, finds the bad provocation still
+sitting there approved, and puts it straight back. So the rollback had to work on
+the source, not the symptom: it retires the offending provocation, and the previous
+one becomes today's automatically. It defaults to showing you what it *would* do
+without doing it — and that preview is the real operation, run and then undone,
+rather than a description that could drift from what actually happens. I tested it
+against live data this morning and put everything back; nothing changed.
+
+**What is not done, and it is the one thing standing between here and a working
+daily site.** The tests I have run use a stand-in for the judging model, which
+proves the plumbing and the refusal behaviour but says nothing about whether a real
+model judges provocations well. Your own instruction was that the gate must be
+calibrated against all nine of your real provocations, and against deliberately bad
+ones, before it is connected to anything that publishes. That run costs real model
+calls and I have not made it. Until it passes, nothing in the system refers to any
+of this — it is built, committed, reviewed, and switched off.
+
+So the next step is a calibration run against a real model. If it passes, the site
+starts producing its own provocations daily. If it fails, we will have learned that
+before anything reached the page, which is the entire point of doing it in this
+order.
