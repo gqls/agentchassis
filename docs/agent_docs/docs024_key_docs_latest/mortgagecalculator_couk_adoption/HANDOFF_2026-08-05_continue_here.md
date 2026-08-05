@@ -111,3 +111,45 @@ authoring), chrome lane (117/118/166/167/170 — owns render_site_components).
    `**`), and re-run the §10f whole-site sweep for the originals.
 5. Owner README entry with the compare verdicts, then the fence re-emission + CONTRIB
    update for `staged_component_build`.
+
+---
+
+## 7. COMPARE VERDICTS (run 2026-08-05 ~21:25 UTC) — read before touching the tools
+
+**Deploy state first:** 9 of 12 rebuilt tools are LIVE at their new URLs (wire-checked).
+`pages.build_status` is STALE for 7 of them (`needs_rebuild` while the artefact serves —
+the batch rerender path commits to git with `success:true` but does not flip the column;
+`complete work item ≠ deployed artefact` cuts both ways). **Three are 404 and their
+recreations saved ZERO components: `tool-overpayment`, `tool-portfolio`,
+`game-fact-finder`** — items read `complete`, nothing was produced. Their
+`spec.dispatch_correlation_id` is empty, so find their runs by summary text in
+`orchestration_states` (>ret. window may apply). Unfinished, needs a fresh look.
+
+**compare_rebuilt.py on the 9 live: ALL 9 "DIVERGED" — but the diff is dominated by
+WHOLESALE ID RENAMING, not proven-wrong arithmetic.** The LLM rebuilds renamed nearly
+every element (`amt`→`amount`, `sdltResult`→`totalDue`, …), so almost every diff line is
+one-sided (None→value / value→None) — the comparator's unit of comparison was destroyed,
+exactly the trap its docstring names. Two REAL behavioural findings survive the noise:
+
+1. **The rebuilds compute on button-press only; several originals computed live on
+   input** — golden `after_input` carries numbers where rebuilds show £0.00 until
+   pressed. Not an arithmetic verdict, but it changes which phase to compare.
+2. **Rebuilt stamp-duty reads £0 even `after_press` on driven inputs** — either its
+   button wasn't the one pressed, its validation rejected the driven values, or its
+   calculation is genuinely broken. **UNRESOLVED — do not adopt this tool as verified.**
+
+**Arithmetic parity is therefore NOT yet proven for ANY rebuilt tool.** The path (pick
+one, the first is the stated rewrite contract):
+- **(a) Align the rebuilds to the original ids** — file per-tool fix items ("carry the
+  original input/output ids verbatim; keep your button id") and re-run the comparator.
+  This is what the fences need anyway.
+- (b) Add a per-tool id-map to compare_rebuilt.py and compare after_press only — proves
+  arithmetic without touching the pages, but leaves fences unauthorable from goldens.
+
+## 8. Owner-visible summary of where "complete adoption" stands
+
+Content: 4 guides + trial page rebuilt and live; homepage ORIGINAL by owner decision;
+23 planned pages remain. Tools: 12 recreations ran; 9 live at new URLs (originals all
+still serve untouched); 3 produced nothing (§7); **0 of 12 verified for arithmetic yet**
+— the checker chain is built and live, the rebuilds don't satisfy its id contract yet.
+Site LOCKED. Nothing armed. Every original file byte-verified after each step.
