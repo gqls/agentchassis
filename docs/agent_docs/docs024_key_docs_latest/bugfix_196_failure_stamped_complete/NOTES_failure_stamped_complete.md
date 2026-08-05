@@ -152,3 +152,45 @@
     ExecutionContext) against the child envelope decoded in this session's trace
     if the response fails to route; the guard symptom is sendErrorResponse's
     "no responses topic" in the chassis log.
+
+## 2026-08-05 (late evening) — BASELINE CAPTURED: the bug on the wire, pre-fix binary
+
+- v2 needed two probe repairs, both mine: (1) dispatch payload dropped
+  `child_agent_type` while the parent's input_mapping still required it — parent
+  FAILED at extract; (2) the void topic did not exist and auto-create is off —
+  Produce fails synchronously ("Unknown Topic Or Partition"), so the step failed
+  before parking. Created `system.agent.test-196-void.requests` (1 partition) via
+  kafka-topics.sh on `personae-kafka-cluster-combined-pool-prod-0`. Third
+  dispatch parked cleanly: parent `dce0f070`, corr `7512b35e`, awaited
+  R=`22bef043-50d7-4f81-aaa7-0e55fb980ed3`.
+- Dispatch 2 (flat failing child, orch `181d594e`): the chassis log shows the
+  full 196 chain fire — "Validation error detected", "VALIDATION_ERROR_DROPPED
+  recorded" (195's recorder), then sendErrorResponse → "Successfully produced".
+- **One probe-transport wrinkle**: the kafka headers arrived intact
+  (`reply_to_request_id`, `reply_to_topic` both present in the raw header dump)
+  but the child's execCtx carried neither — the context builder on this intake
+  path drops them and ReplyToTopic fell back to env `PARENT_RESPONSES_TOPIC`
+  (= `system.generic.responses`, the legacy topic, unconsumed) — so the envelope
+  did not physically reach the parked parent. NOT a gap in the demonstration:
+  real call_agent children carry reply routing in the JSON envelope, and run v1
+  already proved that delivery half live (child response claimed R, stored as
+  step data, parent advanced to finish/COMPLETED).
+- **THE WIRE CAPTURE (the baseline artefact, consumed from
+  `system.generic.responses`, offset tail, corr `7512b35e`):**
+  `status=complete · is_error=false · is_complete=true ·
+  in_response_to_request_id=22bef043… · body.success=true ·
+  body.body={"error":"WORKFLOW_INVALID: Invalid workflow configuration
+  (caused by: step 'only' with action 'complete' requires a topic)",
+  "status":"failed"}`
+  — a failed child answering its parent's awaited request stamped as success.
+  Bug 196, verbatim, live.
+- **Post-fix acceptance is therefore ONE command**: re-run dispatch 1+2 on the
+  new binary and consume the same envelope — PASS = `status=error_unrecoverable,
+  is_error=true, success=false, body.error populated (ErrorInfo)`, body blob
+  unchanged. FAIL/falsifier = envelope still complete-stamped. The
+  coordinator-side routing of error statuses needs no separate probe: it is
+  adapter-exercised in production daily.
+- Left in place for the acceptance run: both probe seeds, the void topic, the
+  parked parent (times out at 600s on its own). Clean up after acceptance:
+  `DELETE FROM agent_definitions WHERE type IN ('test-196-invalid-child','test-196-parent');`
+  and delete topic `system.agent.test-196-void.requests`.
