@@ -20402,3 +20402,95 @@ predicate from the code that selects the work, not from your own idea of "open i
 one query, it discriminates (1 fleet-wide — not 0, and not the seven sites the list implied),
 and the loader is 40 lines. **A count of "eligible-looking work" is not a count of work the
 loader will load**, and the gap between them is invisible in the label.
+
+## 2026-08-05 (later still) — I classified 67 rows by a join that could never resolve, and my own CASE hid it
+
+Sizing `bugs_open/199`'s population, I wanted to know whether the historical envelope rows sat
+on components the render gate is blind to. I ran:
+
+```sql
+FROM page_component_history h LEFT JOIN content_components c ON c.id = h.component_id
+```
+
+and got a clean, plausible answer: **67 rows, all `GATE-BLIND (no schema)`** — which is exactly
+the result that would have supported the bug. It is meaningless.
+**`page_component_history.component_id` is a FK to `page_components(id)`, not to the component
+library**, and it is `ON DELETE SET NULL` while `save_page_sections` DELETEs and re-INSERTs its
+rows — so it is **NULL on 67 of 67**. Nothing joined. Every row fell through to the first arm of
+my `CASE`, which tested `c.input_schema IS NULL` *before* it tested `c.id IS NULL`, so a
+**failed join was reported as a component with no schema** — the very class I was counting.
+
+Two independent errors, and each alone was enough: the wrong join key, and an arm order that
+made the wrong join key invisible. The join error is ordinary; the arm order is the one worth
+remembering, because it converted "I measured nothing" into a confident row of the answer I
+expected.
+
+**The cheap check, and it is two words: put the `IS NULL` arm FIRST.** A `CASE` over a
+`LEFT JOIN` must dispose of the unjoined rows before it classifies anything, or every join
+failure is silently re-labelled as whichever class the first arm happens to describe. Cheaper
+still, and it is what actually caught it: **`\d <table>` before writing the join** — the FK was
+printed in full, target table and `ON DELETE SET NULL` both, in the output I had not read.
+CLAUDE.md already says schema first; I wrote the join from the column NAME.
+
+## 2026-08-05 (later still) — I named a mutation on a test, ran it, and it passed: the two guards were in SERIES
+
+Following the storage guard's convention I named, on each new test, the mutation that must break
+it. `TestRenderNonEnvelopeContentByteIdentical` carried *"predicate on the presence of `type`
+alone"*. I ran all four mutations rather than asserting them. Three behaved. **That one PASSED.**
+
+The reason is worth more than the test. My seam's fast-exit is
+`if !isLLMTransportEnvelope(contentData) { return contentData, nil }` — but the function it then
+calls, `normalizeContentDataEnvelope`, **opens by checking the same predicate** and returns
+`(m, false, nil)` for a non-envelope. So weakening my local check changes nothing: the map still
+comes back untouched, and byte identity holds. The two checks are **guards in series**, and the
+local one is an optimisation and a log-suppression, not the decision.
+
+Had I not run it, I would have shipped a test whose stated guarantee ("this test protects the
+no-op path from a weakened predicate") was **false for the predicate a reader would go and
+weaken** — the local one, in the file the test is named after. The mutation that does break it is
+weakening the *shared* `isLLMTransportEnvelope` in the other file; verified, it fails.
+
+**The cheap check: run every mutation you name — and when one PASSES, do not rename it to
+something that fails.** Ask what absorbed it. A mutation that passes is usually evidence of a
+duplicated check somewhere, and which of the two is load-bearing is exactly what the next
+reader needs told. I recorded the series relationship on the test instead of quietly swapping
+the label. (Memory already carries this shape — "a mutation that PASSES usually hit a guard in
+SERIES" — and it was right.)
+
+## 2026-08-05 (code-review triage) — I read a working reaper's OUTPUT as proof there was no reaper
+
+Actioning code-review F5 ("unbounded `agent_error_log` writes"), I measured the table and found
+7,449 rows spanning **exactly** 2026-07-06 → 2026-08-05, and a `grep` over `--include=*.go` for
+delete/truncate/reap/prune/cleanup near `agent_error_log` that returned nothing. I wrote
+"**No reaper** — a full month is retained" into my running analysis and was one step from filing
+it as a finding.
+
+It is false, and the evidence I had was the *opposite* of what I read it as. There IS a reaper:
+`scheduled_tasks.database-cleanup`, enabled, hourly, `last_triggered_at` minutes old, whose
+`pre_query` runs `DELETE FROM agent_error_log WHERE (resolved AND occurred_at < NOW() -
+INTERVAL '14 days') OR (NOT resolved AND occurred_at < NOW() - INTERVAL '30 days')`. The oldest
+surviving row sat **21 minutes inside** the 30-day line. "A month of history" was not retention
+failing to happen — it was the retention boundary, drawn precisely.
+
+Two distinct errors, and the second is the transferable one:
+
+1. **The grep proved absence only for the language I searched.** The reaper is not Go. It is SQL
+   in a `pre_query` column, seeded from `docs/agent_docs/sql_for_tables/020_scheduled_tasks.sql`.
+   Searching `--include=*.go` for a mechanism that lives in the database cannot find it, and
+   returns clean.
+2. **I had a figure that could only have come out one way, and did not ask what would falsify
+   it.** "Oldest row is 30 days old" is what a working 30-day reaper produces AND what no reaper
+   at all produces on a 30-day-old table. It does not discriminate. A retention claim needs the
+   boundary TESTED — `min(occurred_at)` compared against `now() - <interval>` — not merely
+   reported.
+
+**The cheap check, in the order that would have worked:** grep the mechanism's own language
+before concluding it is absent (`--include=*.sql` and the `scheduled_tasks.pre_query` column,
+not just `*.go`); then, before writing any retention claim, name the result that would have
+disconfirmed it. Here that was one query — oldest row vs the interval line — and it settles the
+question in both directions.
+
+Consequence: F5 would have been filed as a bug asserting unbounded growth on a table that is
+demonstrably bounded. Instead it is recorded as the review's **second** false positive, after
+F4. Both were absence claims made without the lookup — which is the failure mode the triage
+handoff itself names for F4, and which I then reproduced while checking it.
