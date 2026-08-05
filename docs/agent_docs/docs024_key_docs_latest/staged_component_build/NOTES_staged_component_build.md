@@ -1789,3 +1789,76 @@ rule in its header. The check that would have caught it sooner: an instrument pr
 run belongs in the workstream's `scripts/` in the SAME session that proves it — scratchpad
 is for drafts, not for the only copy of anything cited by a handoff. Also added RUNBOOK §13
 (the backlog census query with its three reading-traps, and the dispatch pointer).
+
+## 2026-08-05 — calibration tranche begins: preconditions re-run, subject 1 dropped for a real defect, subject 1(v2) complete to persist
+
+**Preconditions (11:12–11:16 UTC).** Census re-run per RUNBOOK §13: active tools moved
+49→58 total, with-PLAN 13→19 (six new PLANs all `source='tool-generator'`, dated 08-02
+onward — tools born through the canonical path are born compliant, exactly as the handoff
+predicted; the backlog is pre-existing stock only). Sections unchanged: 111 of 112 active
+with no PLAN. `CHECK_naming_contract.sh`: **PASS, 0 broken** — 49 canonical tool
+components, 18 testable now, 15 page-fine-no-PLAN (the cheap candidates), 16 neither.
+Browser-runner pod `v1.0.1252` (started 09:10 UTC today) carries the vocabulary: three
+long positive markers →1, negative control →0, one exec.
+
+**Tranche picked:** tools `tool-gas-unit-converter`, `tool-fuel-cost-estimator` (same
+site, warmed-path datum), `tool-loan-vs-savings`; sections `hero` (213 placements/16
+sites) and `call-to-action` (192/16), both JS-free. `tool-equity-release` excluded at
+selection: page row active but the URL 404s — the build_status-is-history landmine, live.
+
+**SUBJECT 1 (`tool-gas-unit-converter`) DROPPED at S1, ~15 min.** Reading the real thing
+killed it: the served page renders the full converter STRUCTURE with every text slot
+empty — `<h2></h2>`, blank labels, blank `<option>`s, blank button — because the template
+carries 28 `{{.placeholders}}` and the placement's `content_data` is NULL. The external
+JS wires conversion logic but hydrates no text, so visitors see an unlabelled form.
+**Breadth measured before concluding:** the placeholder-template+empty-data class is 91
+active placements fleet-wide, but only the 2 TOOL placements are live-broken
+(`tool-gas-unit-converter`@gaswholesalers rendered-empty; `tool-ab-test-calculator`@idea.uk
+serves RAW `{{.section_heading}}` etc — never rendered at all). The 89 SECTION placements
+(hero/call-to-action across 4+ sites) SERVE FINE — spot-checked finetuning.uk/pricing,
+full copy present — so for sections, empty `content_data` does not mean broken serving
+(the served render sourced its copy elsewhere; at worst a latent rerender risk, a
+different fact, not folded into this one). **The queue already knows the two broken
+tools**: `required_fields_missing` + `empty_section` for gas-unit-converter sit in
+`needs_human_review`, its full-rebuild `needs_page` was closed `wont_fix`, and
+ab-test-calculator's content items are `failed`. Detected-but-parked, not undetected — no
+new filing (grep of bugs_open/closed + 016b found the pattern already recorded, §"zero
+shared keys"); goes in the owner report instead. S1 doing exactly what D8 funds it for.
+
+**SUBJECT 1 v2 (`tool-fuel-cost-estimator`) COMPLETE to persist, S6 DEFERRED (~11:16–12:00).**
+- S1: served page healthy (no empty tags, no raw placeholders); behaviour read from the
+  inline script — live recompute on input, no submit button, unit/period toggles,
+  wholesale≥retail guard, per-field validation, aria-live results. Golden captured:
+  5000 gal/wk @ $3.85/$3.45 → $2,000.00 weekly, $0.40/gal, $104,000.00 annual;
+  monthly → $24,000.00.
+- Fence: 13 checks (`fence_tool_fuel_cost_estimator.json`), mobile gated to
+  status/overflow/console, `computed_values` golden for the arithmetic, default-state
+  checks first, the reload-using guard check late per §8's ordering rule.
+- `try_fence.go`: every tool-scoped check green, arithmetic reconciled (26=13×2). The ONLY
+  failures are `no-console-errors` both profiles, and they are REAL: the live origin 404s
+  `/assets/images/logo.png` on every gaswholesalers.com page (the `assets` row exists,
+  active, since 03-05; the file is absent at the served path — an asset-deploy gap, site
+  chrome, not the tool). Fence NOT weakened to match the broken site (that is the
+  fixing-the-checker landmine); defect goes to the owner report.
+- S2: sibling prover `prove_fence_can_fail_tool_fuel_cost_estimator.go` (teaser
+  architecture; asset-override machinery dropped — all tool JS is inline; ONE declared
+  deviation: serves a local 1×1 PNG at the logo path in EVERY run incl. baseline, else the
+  control aborts red on the chrome defect and proves nothing). **Baseline green, 13/13
+  mutants caught, 13/13 checks watched red, first run**, 4m26s. The 10×10-overflow-hidden
+  collapse mutant (instead of display:none) kept inputs actionable — no 30s timeouts.
+  Both arms of the annualisation constant proven independently (52→50 caught only by the
+  golden; 12→10 caught only by the monthly-toggle check).
+- §9 persist: generated by `gen_fce_plan_sql.py` (scratchpad), dry-run ROLLBACK then
+  COMMIT; length asserted INSIDE the transaction via DO/RAISE (7,280 bytes, exact);
+  read back out, fence extracted from the DB copy → byte-identical to the authored file,
+  re-run through the evaluator → identical result. Marker count 1.
+- **S6 DEFERRED with stated reason, in the PLAN body itself**: a failing verdict raises
+  `improve_tool` and routes tool-improver at the tool, but console failures carry NO
+  chrome attribution (only overflow does — `judge_acceptance_results` reads), so a red
+  run here routes a fixer at a cause no tool edit can reach. Checked first: NO scheduled
+  acceptance sweep exists (`scheduled_tasks`: 0 rows matching), so persisting the fence
+  arms nothing automatic; the dispatch decision stays manual. Fire
+  `tool_acceptance_run.sh` for this subject the moment the logo serves.
+
+**Wall-clock so far: preconditions 4 min; subject 1 (dropped) ~15 min; subject 1v2
+~45 min end-to-end including building its prover.**

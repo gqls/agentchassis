@@ -1,0 +1,119 @@
+{
+  "profiles": ["desktop", "mobile"],
+  "container": ".tool-container",
+  "checks": [
+    {
+      "id": "page-serves-200",
+      "type": "page_status_ok"
+    },
+    {
+      "id": "tool-renders",
+      "type": "selector_exists",
+      "profiles": ["desktop"],
+      "selector": ".tool-container"
+    },
+    {
+      "id": "tool-has-visible-area",
+      "type": "has_visible_area",
+      "profiles": ["desktop"],
+      "selector": ".tool-container"
+    },
+    {
+      "id": "heading-names-the-tool",
+      "type": "interaction",
+      "profiles": ["desktop"],
+      "expect": {
+        "selector": ".tool-container h2",
+        "text_matches": "^Fuel Cost Estimator$"
+      }
+    },
+    {
+      "id": "empty-state-before-input",
+      "type": "interaction",
+      "profiles": ["desktop"],
+      "expect": {
+        "selector": "#results-output .empty-state",
+        "text_matches": "Fill in the fields above"
+      }
+    },
+    {
+      "id": "results-are-live-region",
+      "type": "selector_exists",
+      "profiles": ["desktop"],
+      "selector": "section.results-section[aria-live=\"polite\"]"
+    },
+    {
+      "id": "computes-known-savings",
+      "type": "computed_values",
+      "profiles": ["desktop"],
+      "steps": [
+        { "action": "fill", "selector": "#volume", "value": "5000" },
+        { "action": "fill", "selector": "#retail-price", "value": "3.85" },
+        { "action": "fill", "selector": "#wholesale-price", "value": "3.45" }
+      ],
+      "expect_values": {
+        ".result-card.highlight .result-value": "$2,000.00",
+        ".result-card:not(.highlight) .result-value": "$0.40",
+        ".result-annual .result-value": "$104,000.00"
+      }
+    },
+    {
+      "id": "monthly-toggle-recomputes",
+      "type": "interaction",
+      "profiles": ["desktop"],
+      "steps": [
+        { "action": "click", "selector": "label[for=\"period-monthly\"]" }
+      ],
+      "expect": {
+        "selector": ".result-annual .result-value",
+        "text_matches": "^\\$24,000\\.00$"
+      }
+    },
+    {
+      "id": "unit-toggle-relabels",
+      "type": "interaction",
+      "profiles": ["desktop"],
+      "steps": [
+        { "action": "click", "selector": "label[for=\"unit-litres\"]" }
+      ],
+      "expect": {
+        "selector": "#volume-group .unit-suffix",
+        "text_matches": "^L$"
+      }
+    },
+    {
+      "id": "rejects-wholesale-above-retail",
+      "type": "interaction",
+      "profiles": ["desktop"],
+      "steps": [
+        { "action": "reload" },
+        { "action": "fill", "selector": "#volume", "value": "5000" },
+        { "action": "fill", "selector": "#retail-price", "value": "3.45" },
+        { "action": "fill", "selector": "#wholesale-price", "value": "3.85" }
+      ],
+      "expect": {
+        "selector": "#results-output .empty-state",
+        "text_matches": "wholesale price is not lower"
+      }
+    },
+    {
+      "id": "invalid-input-shows-error",
+      "type": "interaction",
+      "profiles": ["desktop"],
+      "steps": [
+        { "action": "fill", "selector": "#retail-price", "value": "0" }
+      ],
+      "expect": {
+        "selector": "#retail-group.input-error"
+      }
+    },
+    {
+      "id": "no-horizontal-overflow",
+      "type": "no_horizontal_overflow"
+    },
+    {
+      "id": "no-console-errors",
+      "type": "no_console_errors"
+    }
+  ]
+}
