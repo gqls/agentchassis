@@ -1231,3 +1231,11 @@ prose; artefact sweeps need triage.** Landmine filed + synced.
 Remaining on this thread: the re-driven rerender lands with the corrected
 title; tunnel (owner click) → cutover. Parked: pricing-section tier data,
 hero CTA destination.
+
+**~12:00 final verification of the served artefact** (post title-fix, post re-roll):
+33,735 B · title `webdesign.uk - We build your website. You only pay if you like it.`
+· **0 prose violations across all 14 bans** (styles/scripts stripped, matching the
+validator's binding) · attested facts PRESENT on the page: `£1,200`, `no VAT`,
+`three or four days` · `same day` GONE, `person check` absent. Both `needs_page`
+items complete; vm-sites commits 11:27:57 + 11:56:24. **Phase 3 of the VM plan is
+done.** The tunnel click is now the only thing between the owner and seeing it.

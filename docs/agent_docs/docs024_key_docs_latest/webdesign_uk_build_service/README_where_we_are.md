@@ -790,3 +790,27 @@ upgrade is this same known thing, not a new problem.
 
 The landing page build re-runs on the fresh quota; everything after it is
 already wired, so a successful build goes all the way to the box on its own.
+
+---
+
+**2026-08-05, midday. The site exists, built properly, and it's serving.**
+
+The model swap did it. Within half an hour of switching the writer to Claude,
+the page generated, passed every check, landed in the repository, and the new
+machine pulled it and is serving it. I've read the served page character by
+character against your rules: no em dash anywhere in the copy (one had crept
+into the page title through a side door the checks don't cover; found it, fixed
+it at source, and that hole is now written up for every future site), no "a
+person checks it" phrasing, no speed promises. The writer did try "we usually
+get back to you the same day" on one attempt; your rules blocked it, and the
+rewrite came back clean. The price is on the page as £1,200, total, no VAT, and
+the three-to-four-day timescale is there too.
+
+What's left before the world sees it: your one click to authorise the tunnel,
+then the cutover, which stays parked until you've had a look at the page
+yourself, through the tunnel, and are happy. The chat box comes after that.
+
+Worth saying plainly: this morning the shopfront was a hand-made stand-in and
+the pipeline had never once run to the end. It's now the real thing, built by
+the machinery we're selling, checked by rules you set, on a machine nothing can
+reach except by permission. That's the product, working.
