@@ -20565,3 +20565,30 @@ error body: the error names the limit, never the tier.
 which ROOM you are in.* Before prescribing a billing fix, have the account
 state in front of you — or say plainly "check which tier the dashboard shows"
 instead of asserting one.
+
+---
+
+## 2026-08-05 — bugfix 196 lane
+
+### My "86 live instances" probe counted rows containing the bytes anywhere, not steps recording a failure
+
+**The claim (nearly recorded).** Bug 196's cheap probe —
+`collected_data::text LIKE '%"status": "failed"%' AND status='COMPLETED'` —
+returned 86 of 3,169, which I had one keystroke away from filing as "the bug
+fires ~2.7% of completed orchestrations".
+
+**What was true.** Sampling the matches showed every one was deep inside
+`agent_config` / `__raw_message__` — workflow DEFINITIONS that mention the
+string — not the error blob. Re-encoded on the shapes `applyResponseToState`
+actually writes (direct and `.response`-wrapped): 0 rows.
+
+**The cheap check that caught it.** Selecting 10 sample rows before repeating
+the number. One `jsonb_each` + `LIMIT 10` — the shape was visibly wrong in the
+first screen of output.
+
+**The transferable rule.** A whole-document text LIKE answers "which documents
+contain these bytes", never "which FIELD holds this value". Before quoting a
+jsonb count as incidence, read the code that WRITES the field to learn the
+recorded shape, then probe that shape — and sample the matches before the
+number leaves the query buffer. (Same family as the index's
+"your measurement answers the question you ENCODED".)

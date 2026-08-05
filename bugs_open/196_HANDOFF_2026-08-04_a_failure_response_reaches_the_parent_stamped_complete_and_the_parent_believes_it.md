@@ -7,8 +7,22 @@ envelope … registered only as a landmine text note rather than a work item wit
 nothing in the plan creates a tracked follow-up that will survive if the landmine doc note is
 missed by a future reader."* That is right, so here is the work item.
 
-**Status: OPEN, UNOWNED.** **Severity: medium-high, pending the one measurement below.**
+**Status: OWNED, fix in progress — claimed 2026-08-05 by the bugfix_196 lane**
+(session fc6ee578; workstream docs at
+`docs/agent_docs/docs024_key_docs_latest/bugfix_196_failure_stamped_complete/`).
+**Severity: medium-high, pending the one measurement below.**
 **Class:** silent success-shaped failure — the "no error, no warning" family.
+
+> **VALIDITY RE-CHECKED at HEAD 2026-08-05** (post-195 fix, e3ac4e15d): the
+> mechanism is intact and SHARPENED — see the lane's NOTES. Two additions to the
+> read below: (1) `sendWorkflowFailureResponse` (processor.go:547-563) is a second
+> complete-stamped error sender, same defect; (2) on the non-permanent branch the
+> child ALSO sends a correctly-stamped error response via agentbase
+> `handleProcessingError` — but the complete-stamped one is produced first on the
+> same key, claims the awaited request, and the correct one is DUPLICATE_SKIPPED.
+> The cheap production probe (both recorded shapes, all 4,403 rows): 0 within the
+> ~24h retention window — a lower bound, since `output_mapping` erases the blob
+> shape. The conditions census: no active workflow branches on the broken dialect.
 
 > **VERIFICATION STATEMENT (owner ruling 2026-07-31).** I have **not** run `090`, and I am
 > **not** asserting a completed root cause. What follows is a **code-read finding with an
