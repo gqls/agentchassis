@@ -49,12 +49,16 @@ hazard has materialised. A risk with no test is an opinion.
 | 007 | FEATURE | [AI-advisory chatbot, freemium/paid](007_FEATURE_ai_advisory_chatbot_freemium.md) — **deferred, owner gate** |
 | 008 | FEATURE | [Halve image-generation cost via the Gemini Batch API](008_FEATURE_image_generation_batch_api.md) — **deferred, owner: revisit on volume** |
 | 009 | FEATURE | [Automate tool-fix delivery via the section-editor](009_FEATURE_tool_fix_delivery_via_section_editor.md) |
-| 010 | FEATURE | [Council decision adjudicator, severity/nature-weighted](010_FEATURE_council_decision_adjudicator_severity_weighted.md) |
-| 011 | FEATURE | [Pre-cutover content/route-diff guard](011_FEATURE_pre_cutover_content_diff_guard.md) |
+| 010 | FEATURE | [Council decision adjudicator, severity/nature-weighted](010_FEATURE_council_decision_adjudicator_severity_weighted.md) — **BUILT** 2026-07-22, doc was stale, corrected 2026-08-05 |
+| 011 | FEATURE | [Pre-cutover content/route-diff guard](011_FEATURE_pre_cutover_content_diff_guard.md) — general mechanism still open; a working site-specific instance exists (idea.uk RUNBOOK §3d(ii)) |
 | 012 | FEATURE | [Explicit per-page redesign intent (`recompose_pages`)](012_FEATURE_explicit_page_recompose_intent.md) |
 | 013 | FEATURE | [Three-tier AI tooling funnel across the domain portfolio](013_FEATURE_three_tier_ai_tooling_funnel.md) — generalises 006/007 |
+| 016 | FEATURE | [Brief-fidelity audit](016_FEATURE_brief_fidelity_audit.md) — **BUILT** 2026-07-24, doc was stale, corrected 2026-08-05; but its output is stuck, see `bugs_open/115`/`083` |
+| 021 | FEATURE | [Operator bulk page rebuild](021_FEATURE_operator_bulk_page_rebuild.md) — not built; blocker (`bugs_open/070`) closed 2026-07-27, now unblocked, corrected 2026-08-05 |
 | 020 | FEATURE | [Traffic probe on apis.uk — where is existing traffic coming from?](020_FEATURE_apis_uk_traffic_probe.md) — island-side, £0; stage 2 owner-gated |
 | 022 | FEATURE | [Rendered-text legibility guard for generated imagery](022_FEATURE_rendered_text_legibility_guard.md) — was `011` R2; carries the 60-asset legacy sweep |
 | 023 | FEATURE | [Infographic figures from the evidence base (+ where generated images stop)](023_FEATURE_infographic_figures_from_the_evidence_base.md) — was `011` R3/R4 |
 
-*(index gap: 014–019 and 021 exist on disk but were never indexed by their filing sessions)*
+*(index gap: 014, 015, 017–019, and 024–029 exist on disk but were never indexed
+by their filing sessions. 016 and 021 added 2026-08-05 while correcting their
+stale status, above.)*

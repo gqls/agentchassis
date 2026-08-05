@@ -3,7 +3,19 @@
 **Raised:** 2026-07-21, by the owner ("maybe the agent that evaluates council
 decisions should have decided this"), during the fundamentallyai.com contamination
 fix (bugs_open/055, council corr `03908b72-2471-474e-baaf-7952d1903460`).
-**Status:** specified, not built.
+**Status:** BUILT — this doc's "specified, not built" is stale, corrected
+2026-08-05. Owner ruling 2026-07-22 changed the decision rule to gate only on
+HIGH-severity (or un-graded/degraded) objections — `severityGates()` in
+`diagnose_council_decide_action.go:681`, header comment there has the full
+history including the 2026-07-29 truncation carve-out (`bugs_open/138`). The
+proposed `approved_with_notes` terminal state was folded into plain
+`approved` (with the objection count/notes in the decision string) rather
+than added as a distinct state — simpler than specified, same effect.
+Witnessed live 2026-08-04/05: `bugs_open/178`'s council submission decided
+`"decided_by":"gating objection from bug_historian"` on a HIGH objection,
+then `"approved with 3 advisory objection(s) — none high-severity"` on
+round 2 with only low/medium objections outstanding — exactly this feature's
+proposal, in production.
 **Owner:** fixloop / council-gate workstream (this touches the gate's own
 decider, shared by both councils).
 **Related:** `docs024_key_docs_latest/fixloop_eg_dartsonline/RUNBOOK_council_gate.md`,

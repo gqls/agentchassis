@@ -2,9 +2,16 @@
 
 **Filed:** 2026-07-22, from the council review of `bugs_open/017` (owner scope decision: ship the
 detector now, file this separately). **Class:** prevention for every class-B (static + backend on one
-origin) site. **Status:** open, not started. **Relationship:** this is the **cause-side** of
-`bugs_open/017`; the **symptom-side detector** (`backend_entry_orphaned`, flags a GET link to a
-POST-only handler *after* deploy) is already built and its enablement seed (`188`) is ready.
+origin) site. **Status:** open, not started as a general/reusable mechanism — **but a hand-written
+instance of exactly this guard now exists for one site**, added 2026-07-30 to
+`docs024_key_docs_latest/idea_uk_vm_site/RUNBOOK_idea_uk_vm_site.md` §3d(ii): a pre-cutover script
+diffing POST-only funnel routes against the new static build's forms, refusing the swap
+("STOP — cutover would orphan the funnel") when a route has no form posting to it. It even cites this
+file by name. **Worth reading before designing the general version** — it's a working, tested shape
+for the check, just site-specific and manual rather than a platform mechanism every class-B cutover
+gets automatically. Corrected 2026-08-05 (previously undocumented here). **Relationship:** this is the
+**cause-side** of `bugs_open/017`; the **symptom-side detector** (`backend_entry_orphaned`, flags a GET
+link to a POST-only handler *after* deploy) is already built and its enablement seed (`188`) is ready.
 
 ## The problem (017's actual cause, left unpatched by the detector)
 

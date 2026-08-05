@@ -2,7 +2,17 @@
 
 **Raised:** 2026-07-24, by the owner, reviewing fundamentallyai.com ("First, it
 is nothing like the brief"). **Priority 1 of the site-quality automation set**
-(016/017/018/019). **Status:** specified, not built.
+(016/017/018/019). **Status:** BUILT 2026-07-24 (`agent_definitions.type=
+'brief-fidelity-auditor'`, `is_active`) — this doc's "specified, not built" is
+stale, corrected 2026-08-05. **But the build is not the whole story: see
+`bugs_open/115`.** The auditor ran once, on one site (fundamentallyai.com),
+produced three correct findings (verified against the owner's own unprompted
+complaints three days later), and every finding sat unread in
+`status='detected'` because nothing promotes that status to a claimable one —
+the same structural gap as `bugs_open/083`. It has not run since. Item type
+shipped as `audit_finding_brief_fidelity` (via the generic
+`write_audit_findings_action.go` fallback path), not the `brief_fidelity_gap`
+this doc originally specified below — worth knowing if you're grepping for it.
 **Owner:** brochure_component_library workstream (first user), generic by design.
 
 ## The gap
