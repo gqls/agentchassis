@@ -60,6 +60,67 @@ class) was closed by its own lane on v1.0.1252.
   Simulator probe: 47 checks 0 failed as of 08-03 (the probe grows — trust exit
   code, not remembered counts; re-run after ANY re-render).
 
+## 2b. TL-035 (e) — THE MACHINE EYE, wired 2026-08-05 evening (added after this file was written)
+
+**Owner decision 2026-08-03:** close "nobody looks" with a **machine** eye — a vision
+check that raises a work item on suspicion — rather than only the human contact sheet.
+**Wired 08-05 by seed `317`** (applied by hand, recorded in the ledger).
+
+```
+ensure_site_record -> load_docs -> request_run -> judge -> look -> record_look -> complete
+                                                            |       |
+                                             error_step ----+-------+--> complete_no_look
+```
+
+- `look` = `execute_vision_prompt`, `images_field: "browser_run"` (the resolver descends
+  object → `.response` → `.renders`), `output_type: "text"`, `max_images: 4`.
+- `record_look` = `append_doc_note`, category **`render-critique`** — deliberately NOT
+  `acceptance-run`.
+
+**Four safety properties, each ASSERTED in seed 317's verify block, not left to review:**
+
+1. **`look` runs AFTER `judge`**, so the verdict and acceptance note are already
+   persisted. **Proven by accident on the first run:** the vision step failed and the
+   12:06:57 acceptance note is still a normal `PASSED` note with a landing render.
+2. **Both new steps route `error_step` to `complete_no_look`, a SUCCESS terminal.**
+   `execute_vision_prompt` is fail-loud by design and **zero renders is a NORMAL outcome**
+   for a run whose profiles all failed — routing that to `complete_error` would turn a
+   working acceptance run into a reported failure.
+3. **A distinct terminal**, so `current_step` alone says looked / did-not-look.
+4. **`render-critique`, never `acceptance-run`** — polluting that category would break
+   both the lane re-check AND `contact_sheet.py`, and would recreate the two-producers-
+   one-category trap already in LANDMINES against it.
+
+**It raises NO work items.** The findings→work-item drain and the general critic belong
+to `vigilant_designer_offer_analysis` (their A2, `design-critique-agent`, still unseeded
+as of 08-05). This wires the eye to OUR acceptance runs only. **Do not seed a rival
+critic** — the intended end state is ONE critic with TWO image sources, and they own it.
+
+**The prompt encodes `bugs_closed/188`'s findings as explicit NON-defects:** sticky nav
+painted mid-page, extreme full-page height, and any blank/mid-interaction image (the rare
+driven-state fallback) → say INCONCLUSIVE, do not report.
+
+### The trap this uncovered, which cost the first run
+
+**`params.StorageClient` was nil on the chassis, and every storage CREDENTIAL being set is
+what hid it.** First live call died on `no storage client — cannot download screenshots`.
+`agentbase/agent.go:308-330` builds the client only when the BUCKET is non-empty, from
+`IMAGE_BUCKET` — unset. `execute_vision_prompt` is the **only** chassis action that takes
+`params.StorageClient`; every other builds its own (`storage_actions.go:95/:612`, or
+`screenshots.go:66` from service config — which is why the browser-runner uploads renders
+fine while also having no `IMAGE_BUCKET`). **Fixed** in the chassis overlay (`820a033c0`),
+hardcoded not `configMapKeyRef` (a wrong key there is `CreateContainerConfigError` and the
+whole chassis stops). **Live from v1.0.1254**; verify at the log line, not `printenv`:
+
+```bash
+kubectl logs -n ai-persona-system <chassis-pod> | grep "Storage client initialized"
+#   -> bucket=personae-prod-uk001-images   (the failure branch says "not configured")
+```
+
+**Transferable, and now in LANDMINES + 016b:** read a register's *"built, no live call
+yet"* as **"deployment contract unverified"**, not "unused". Wire-shape tests assert
+request bodies and pass happily in a world where the action can never obtain a client.
+
 ## 3. Open, in the order I would take them
 
 1. **151 candidate 1 — assign facts to sections at plan time.** The lane's largest
