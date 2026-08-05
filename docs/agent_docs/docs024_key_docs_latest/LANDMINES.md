@@ -5634,3 +5634,49 @@ a STRING array — check the shape before trusting the prune.
   3874c8b5-63bb-44d5-93ec-f2086f63567c, 16 passed / 1 failed on vocabulary alone. NOTES
   entry the same day carries the full timeline
 - **added:** 2026-08-05, staged_component_build lane
+
+### `params.StorageClient` is nil on the agent-chassis, and every storage CREDENTIAL being present is what makes that invisible
+
+- **footprint:** `params.StorageClient`, `platform/agentbase/agent.go`, `IMAGE_BUCKET`,
+  `S3_ENDPOINT`, `execute_vision_prompt`, `platform/orchestration/actions/execute_vision_prompt_action.go`,
+  `deployments/kustomize/services/agent-chassis`, `storage.NewS3Client`
+- **fires when:** you seed a chassis agent to call an action that takes
+  `params.StorageClient`. It fails at runtime with **"no storage client — cannot
+  download screenshots"**, and every pre-flight check you would naturally run says
+  storage is fine
+- **the tell — and why the obvious check LIES:** `env | grep -iE 's3|storage|bucket|b2_|aws'`
+  on the chassis returns `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`,
+  `B2_APPLICATION_KEY_ID`, `B2_APPLICATION_KEY`, `AGENT_STORAGE_SECRET`,
+  `AGENT_STORAGE_CONFIGMAP` — six storage variables, all set, and it reads as
+  "storage is configured". **Credentials are not the gate.** `agent.go:308-330`
+  builds the client only `if storageConfig.Bucket != ""`, and the bucket comes from
+  **`IMAGE_BUCKET`**, with the endpoint from **`S3_ENDPOINT`** — neither of which was
+  set on the chassis (measured 2026-08-05). Nil client, silently, for every action
+- **why nobody had hit it:** `execute_vision_prompt` is the **only** chassis action that
+  takes `params.StorageClient`. Every other storage-using action builds its own client
+  from agent/step config (`storage_actions.go:95` and `:612`) or from the service config
+  (`internal/adapters/browserrunner/screenshots.go:66`, `cfg.Infrastructure.ObjectStorage`
+  — which is why the browser-runner uploads renders perfectly well **while also having no
+  `IMAGE_BUCKET`**). Three storage-config paths in one estate, and only one of them is
+  wired on the chassis
+- **the check:** never infer the client from the credentials. Ask for the **bucket**:
+  `kubectl exec -n ai-persona-system <chassis-pod> -- printenv IMAGE_BUCKET` — empty means
+  `params.StorageClient` is nil no matter what else is set. Then confirm at the log line
+  the code actually emits: `agent.go` logs `"Storage client not configured (IMAGE_BUCKET not set)"`
+  at startup, which is the honest signal and is easy to miss among startup noise
+- **the deeper trap, which is the transferable part:** **"built + wire-shape tested" cannot
+  discover this class.** MDL-040's tests assert request BODIES for both providers — good
+  tests, and they pass in a world where the action can never obtain a client. A capability
+  with no live caller has an untested dependency on its ENVIRONMENT, and the first real
+  call is what finds it. Treat "no live call yet" in the register as "the deployment
+  contract is unverified", not merely "unused"
+- **the fix:** the chassis overlay now sets `IMAGE_BUCKET`/`S3_ENDPOINT`/`S3_REGION`
+  (`820a033c0`), matching the `business-intel` overlay, which carries the same comment
+  because that lane hit the same wall earlier. **Hardcode the values; do NOT use
+  `configMapKeyRef`** — a wrong key name is `CreateContainerConfigError` and the entire
+  chassis stops rather than one action failing. **Requires a chassis ROLL to take effect,
+  and a roll kills any in-flight council** — wait for a clear window
+- **source:** 2026-08-05, first live call of `execute_vision_prompt` (TL-035 (e), seed 317)
+  on `tool-acceptance-agent`; run `25fee04c-6cc8-40b4-92af-da81fa3f8b16`, which reached
+  `complete_no_look` with the message above in `__step_error`
+- **added:** 2026-08-05, brochure component library lane
