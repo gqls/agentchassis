@@ -213,17 +213,25 @@ func InsufficientFuel(required, available int, action string) *DomainError {
 		Build()
 }
 
-// IsRetryable checks if an error is retryable
+// IsRetryable checks if an error is retryable.
+//
+// Uses AsDomainError, not a bare type assertion: a %w-wrapped DomainError is
+// still a DomainError, and err.(*DomainError) silently answers false for one.
+// That is the same defect bugs_open/195 fixed in the permanent classifier
+// (code-review F8, 2026-08-05). Both this and GetRetryAfter had zero callers
+// fleet-wide when this was corrected, so the fix changes no behaviour today —
+// it stops the first caller inheriting the bug.
 func IsRetryable(err error) bool {
-	if domainErr, ok := err.(*DomainError); ok {
+	if domainErr, ok := AsDomainError(err); ok {
 		return domainErr.Retryable
 	}
 	return false
 }
 
-// GetRetryAfter gets the retry after duration if available
+// GetRetryAfter gets the retry after duration if available. See IsRetryable on
+// why this uses AsDomainError rather than a bare type assertion.
 func GetRetryAfter(err error) *time.Duration {
-	if domainErr, ok := err.(*DomainError); ok {
+	if domainErr, ok := AsDomainError(err); ok {
 		return domainErr.RetryAfter
 	}
 	return nil

@@ -77,24 +77,41 @@ func TestValidationNeedlesAreTheOnesBothLayersUsed(t *testing.T) {
 	}
 }
 
-// TestMatchedPermanentFailure pins the typed classifier (bugs_open/195).
+// TestMatchedPermanentFailure pins the typed classifier (bugs_closed/195).
 //
-// The load-bearing case is ReproducesTheBug: the exact error a rejected
-// workflow produces returns "" from MatchedValidationNeedle — that IS the bug,
-// and the test asserts it explicitly so nobody "fixes" the needle list and
-// quietly removes the reason this seam exists.
+// The load-bearing case is TypedCodeAnswersForTheBugError: the exact error a
+// rejected workflow produces must classify permanent, and must do so through
+// the TYPED branch — which is what the "code:" prefix proves, since the
+// substring fallback reports a bare needle instead.
 func TestMatchedPermanentFailure(t *testing.T) {
 	workflowInvalid := errors.New(errors.ErrWorkflowInvalid, "Invalid workflow configuration").
 		WithCause(fmt.Errorf("step 'done' with action 'complete' requires a topic")).
 		Build()
 
-	t.Run("ReproducesTheBug_needleMissesButCodeMatches", func(t *testing.T) {
-		// The whole of bugs_open/195 in two assertions.
-		if got := MatchedValidationNeedle(workflowInvalid.Error()); got != "" {
-			t.Errorf("the substring list is expected to MISS this error (that is the bug); got %q", got)
-		}
+	t.Run("TypedCodeAnswersForTheBugError", func(t *testing.T) {
+		// The requirement. "code:" is load-bearing: it says the typed branch
+		// answered, so this stays a real assertion however the needle list is
+		// later edited.
 		if got := MatchedPermanentFailure(workflowInvalid); got != "code:WORKFLOW_INVALID" {
 			t.Errorf("MatchedPermanentFailure = %q, want code:WORKFLOW_INVALID", got)
+		}
+
+		// Why the seam exists — RECORDED, deliberately NOT asserted.
+		//
+		// > **CHANGED 2026-08-05 (code-review F14).** This used to hard-assert
+		// > MatchedValidationNeedle(...) == "", pinning a known defect as
+		// > required behaviour. Case-folding the needle match is a plausible
+		// > one-line improvement ("invalid" would then match "Invalid workflow
+		// > configuration"), and it broke this test plus one in
+		// > platform/agentbase — a package the author need not have touched.
+		// > The seam's value does not depend on the miss continuing: the typed
+		// > branch is tried FIRST and wins either way. So the miss is logged as
+		// > the historical reason, and the assertion above carries the guard.
+		if got := MatchedValidationNeedle(workflowInvalid.Error()); got == "" {
+			t.Logf("needle list still misses %q — the original bug condition, unchanged", workflowInvalid.Error())
+		} else {
+			t.Logf("needle list now matches %q on %q; harmless, the typed branch is tried first",
+				workflowInvalid.Error(), got)
 		}
 	})
 

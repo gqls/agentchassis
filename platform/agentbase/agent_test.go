@@ -3,11 +3,11 @@ package agentbase
 
 import (
 	"context"
-	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"testing"
 
-	perrors "github.com/gqls/agentchassis/platform/errors"
-	"github.com/gqls/agentchassis/platform/messaging"
 	"github.com/segmentio/kafka-go"
 	"github.com/stretchr/testify/mock"
 )
@@ -38,49 +38,87 @@ func TestAgentHandleMessage(t *testing.T) {
 	t.Skip("Skipping unit test that requires real Kafka connections")
 }
 
-// TestAgentbaseUsesSharedValidationNeedles is the lockstep half of
-// bugs_open/034's drift fix. The classifier's own table test now lives with the
-// function, in platform/messaging; what matters HERE is that this layer no
-// longer keeps a private copy of the list.
+// messagingCallsIn returns every messaging.<Name> call made by real code in
+// path, mapped to the functions that make it.
 //
-// The drift it guards against was real and silent: agentbase matched three
-// needles, messaging four, so an error whose only needle was "missing" was
-// dropped-without-retry by one layer and retried by the other — decided purely
-// by which path the message took to reach the failure.
-func TestAgentbaseUsesSharedValidationNeedles(t *testing.T) {
-	// "missing" is the needle agentbase used to lack. If this layer ever
-	// reintroduces a local list, this is the case that will fall out of step
-	// first, because it is the one the old local list did not have.
-	if got := messaging.MatchedValidationNeedle("missing client_id header"); got != "missing" {
-		t.Errorf("agentbase classifier out of step with messaging: got %q, want %q", got, "missing")
+// It parses rather than greps, and that is the load-bearing choice. The AST is
+// built with parser mode 0, so comments are not retained and a symbol named
+// only in a comment CANNOT satisfy any assertion built on this. That is not
+// hypothetical here: server.go:113 discusses `MatchedPermanentFailure` in prose,
+// and a grep-based version of the guard below would have been green on that
+// comment alone while the real call site had been reverted.
+func messagingCallsIn(t *testing.T, path string) map[string][]string {
+	t.Helper()
+
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, path, nil, 0)
+	if err != nil {
+		t.Fatalf("parse %s: %v", path, err)
 	}
 
-	// And a genuine validation error still classifies, so the no-retry
-	// behaviour this branch exists for is unchanged.
-	if got := messaging.MatchedValidationNeedle("client_id is required to execute a workflow"); got != "is required" {
-		t.Errorf("genuine validation error no longer classified: got %q", got)
+	found := map[string][]string{}
+	for _, decl := range file.Decls {
+		fn, ok := decl.(*ast.FuncDecl)
+		if !ok || fn.Body == nil {
+			continue
+		}
+		ast.Inspect(fn.Body, func(n ast.Node) bool {
+			call, ok := n.(*ast.CallExpr)
+			if !ok {
+				return true
+			}
+			sel, ok := call.Fun.(*ast.SelectorExpr)
+			if !ok {
+				return true
+			}
+			pkg, ok := sel.X.(*ast.Ident)
+			if !ok || pkg.Name != "messaging" {
+				return true
+			}
+			found[sel.Sel.Name] = append(found[sel.Sel.Name], fn.Name.Name)
+			return true
+		})
 	}
+	return found
 }
 
-// TestAgentbaseUsesSharedPermanentClassifier is the lockstep half for
-// bugs_open/195, mirroring TestAgentbaseUsesSharedValidationNeedles above.
+// TestAgentbaseClassifiesThroughTheSharedPermanentClassifier is the lockstep
+// half for bugs_closed/195: this layer must decide "permanent?" through
+// messaging.MatchedPermanentFailure, never through the legacy substring helper.
 //
-// Both layers must classify through messaging.MatchedPermanentFailure. If a
-// future change reverts either one to MatchedValidationNeedle, the two disagree
-// again — a typed WORKFLOW_INVALID would be dropped-and-recorded at one layer
-// and retried at the other, which is the drift bugs_closed/034 closed and this
-// asserts stays closed.
-func TestAgentbaseUsesSharedPermanentClassifier(t *testing.T) {
-	workflowInvalid := perrors.New(perrors.ErrWorkflowInvalid, "Invalid workflow configuration").
-		WithCause(fmt.Errorf("step 'done' with action 'complete' requires a topic")).
-		Build()
+// The drift it guards is real and silent: a typed WORKFLOW_INVALID would be
+// dropped-and-recorded at one layer and retried at the other, decided purely by
+// which path the message took — the class bugs_closed/034 closed.
+//
+// > **REPLACED 2026-08-05 (code-review F2).** The two tests that stood here
+// > (`TestAgentbaseUsesSharedValidationNeedles`,
+// > `TestAgentbaseUsesSharedPermanentClassifier`) called messaging functions
+// > directly and touched NO agentbase symbol at all, so they were cross-package
+// > duplicates of tests that already live in platform/messaging. Neither could
+// > detect the drift its own comment claimed to guard: reverting agent.go:1192
+// > to MatchedValidationNeedle left both green. The reviewer named the second;
+// > the first was identical in shape and is gone for the same reason.
+//
+// This is a SOURCE-level guard, not a behavioural one — processMessage needs
+// real Kafka and a real DB (see TestAgentHandleMessage above), so the call site
+// is what can honestly be pinned here. The behaviour of the classifier itself
+// is tested where it lives, in platform/messaging/validation_drop_test.go.
+func TestAgentbaseClassifiesThroughTheSharedPermanentClassifier(t *testing.T) {
+	calls := messagingCallsIn(t, "agent.go")
 
-	// The exact error of bugs_open/195: the substring list misses it, and that
-	// miss is what made it invisible. The shared classifier must catch it.
-	if got := messaging.MatchedValidationNeedle(workflowInvalid.Error()); got != "" {
-		t.Errorf("substring list is expected to miss this (that is the bug); got %q", got)
+	if fns := calls["MatchedPermanentFailure"]; len(fns) == 0 {
+		t.Error("agent.go no longer calls messaging.MatchedPermanentFailure anywhere — " +
+			"the permanent/transient decision has left the shared seam (bugs_closed/195)")
+	} else {
+		t.Logf("MatchedPermanentFailure called in: %v", fns)
 	}
-	if got := messaging.MatchedPermanentFailure(workflowInvalid); got != "code:WORKFLOW_INVALID" {
-		t.Errorf("MatchedPermanentFailure = %q, want code:WORKFLOW_INVALID", got)
+
+	// The legacy substring helper misses the fleet's commonest permanent error
+	// (WORKFLOW_INVALID — capital I, and "requires a topic" is not "is
+	// required"). Classifying with it here is the exact revert that reinstates
+	// the bug, so it is the mutation this test exists to catch.
+	if fns := calls["MatchedValidationNeedle"]; len(fns) > 0 {
+		t.Errorf("agent.go classifies with the legacy messaging.MatchedValidationNeedle in %v — "+
+			"it misses typed WORKFLOW_INVALID, which is bugs_closed/195 reinstated", fns)
 	}
 }

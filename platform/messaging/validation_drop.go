@@ -102,8 +102,21 @@ var NonRetryablePermanentCodes = []errors.ErrorCode{
 // not on the list still falls through to the substring fallback. Suppressing
 // that would be more principled — the error has already declared its type — but
 // it would move existing drops back to retry fleet-wide, which is exactly the
-// blast radius 034's lane deferred this work to avoid. This change only ever
-// ADDS permanent classifications; it removes none.
+// blast radius 034's lane deferred this work to avoid.
+//
+// So this change ADDS permanent classifications, with exactly ONE removal: the
+// de.Retryable early return above. An AsRetryable DomainError whose message
+// happens to contain a needle ("validation failed") was classified permanent by
+// the old substring-only path and is not any more.
+//
+// > **CORRECTED 2026-08-05 (code-review F1).** This paragraph used to end "This
+// > change only ever ADDS permanent classifications; it removes none", which
+// > contradicted the paragraph six lines above that argues FOR the removal. The
+// > code is right and unchanged; the claim was wrong. It is latent today —
+// > ErrorBuilder.AsRetryable (platform/errors/errors.go:171) and the field write
+// > inside it are the only ways to set Retryable=true, and a fleet-wide grep
+// > finds no caller of either outside this comment and the tests. The first
+// > producer inherits the behaviour, which is why the two must agree now.
 func MatchedPermanentFailure(err error) string {
 	if err == nil {
 		return ""
