@@ -1205,3 +1205,25 @@ asserted here.
 The pool's newest entry is **2026-07-26**, so the site has now been serving "Today's
 Provocation" over a **10-day-old** entry. Categories do not touch that; the generator
 (`e3ac4e15d`) does, once calibrated against a real model and rolled.
+
+### Verification came back PARTIAL, and the split is worth knowing [2026-08-05, corr 51b87b1b]
+
+The landmine-verifier ran (two `orchestration_states` rows COMPLETED, so the `kcat`
+publish did deliver — worth stating, since that trigger exits 0 having sent nothing)
+and returned **NEEDS_HUMAN_REVIEW**. Not a refutation; a scoping limit, and it landed
+exactly where the known fleet-wide defect predicts:
+
+- **CONFIRMED independently:** `FetchProvocation` present, and `provocStore`
+  domain-keyed with `provocTTL`, in `round.go` — "consistent with the entry". This is
+  the load-bearing half: the whole finding rests on the reader making only presence
+  checks.
+- **COULD NOT VERIFY:** `provocation_feed_action.go`, `checkFeed`/`asToday`, and
+  `gauntlet_rounds.provocation`. Cause is the standing index defect
+  (`bugs_open/108`): the code index is frozen at **2026-07-28** and the writer-side
+  file was first committed 07-31, so a symbol that exists reads as absent.
+
+So a session reading the `doc_notes` verdict alone would see "human should confirm the
+writer-side footprint". **It already was, first-hand, in this session** —
+`checkFeed`/`asToday` read in full in `provocation_feed_action.go`, and the `jsonb`
+column read at `sql_for_agents/198_tools_api_gauntlet_rounds.sql:28`. Recorded here
+because the verdict row cannot say so, and the next reader would otherwise re-walk it.
