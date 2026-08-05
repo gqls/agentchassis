@@ -104,3 +104,45 @@ the run would be a false pass. The run has to say *which* route it took, and it 
 
 I have put the change to the reviewer council and am waiting on its verdict before closing
 the ticket.
+
+## 2026-08-05 morning — it shipped, and I found two mistakes of my own in the checking
+
+The release went out overnight and the structural half is now running: I checked the two
+live machines directly rather than trusting the release number, and both carry it. I also
+checked for a phrase that should *not* be there, and it wasn't — that second check is the
+one that matters, because finding what you expect proves the search worked, not that the
+right thing shipped.
+
+Then two things I had written down turned out to be wrong, and both were in the *checking*
+rather than in the fix.
+
+**The first is embarrassing and worth stating plainly.** The query I gave everyone — the
+council, the bug file, the register — as the test that would prove me wrong named a column
+that does not exist. It would have failed with an error rather than returning the "nothing
+to see" I intended. An error at the end of a long output looks very much like nothing to
+see. I only found it because I ran it. It is now corrected everywhere it was quoted, and the
+corrected version comes with a second query alongside it, so that "zero problems" can be
+told apart from "the question never got asked" — that pairing found the real answer today:
+zero of mine, against a hundred-odd of other kinds in the same period.
+
+**The second:** I told you one of the two dormant callers could be triggered by hand to prove
+the fix on a real site. The script I named for that cannot run — it has a stray line in it
+that kills it, and it ignores the site you give it. It has been broken in the repository for
+some time, so nobody has used it. I found out by reading it before running it, which I only
+did because it publishes to a live site. And the route was wrong anyway: that kind of run
+only touches the code I changed if the site has work queued, so on a quiet site it would
+have finished green having tested nothing — and I would have reported that as proof.
+
+**So where that leaves us.** The fix is live and every caller is correct; that part is done.
+The two checks that could still show the design is wrong are not done: one falls due tomorrow
+morning and simply needs the day's traffic to accumulate, and the other needs a real site to
+run against.
+
+**That second one needs your call, which is why I stopped.** Every candidate site has real
+customers, and at least four of them have other threads working on them right now. Proving my
+change would mean triggering a rebuild that spends real money regenerating somebody else's
+pages. I am not doing that as a convenience to myself without asking. If you would like it
+done, tell me which site is safe and I will run it and report both halves of the result.
+
+Everything needed to pick this up in a fresh conversation is written down in
+`HANDOFF_2026-08-05_continue_here.md`.
