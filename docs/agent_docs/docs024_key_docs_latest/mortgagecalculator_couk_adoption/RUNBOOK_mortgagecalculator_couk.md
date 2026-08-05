@@ -431,3 +431,19 @@ done < <(find . -type f ! -path './.git/*')
 directory makes every `sha256sum` compare against a non-existent file and **every file
 reports "differs"** — which reads exactly like the site being destroyed. That happened on
 08-04 (the session scratchpad had been relocated by another lane) and cost a genuine scare.
+
+### §10g A backstop OUTLIVING its batch defers the NEXT batch's follow-ons (added 2026-08-05)
+
+The §10c backstop loops on a timer (240×15s). If a second batch starts while an earlier
+backstop is still looping, the old backstop's keep-list does not contain the new batch's
+page names — so it silently defers the new batch's follow-on `page_rerender` items.
+Measured 2026-08-05: 12 tool recreations went `complete`, only 2 pages deployed; the 10
+missing deploys were `page_rerender` rows deferred by the GUIDES batch's backstop, which
+had ~10 minutes of life left when the tool batch began. The two that deployed were filed
+after it died.
+
+Rules: **kill the backstop the moment its batch completes** (don't let the timer run
+out); one backstop at a time; recovery is cheap — re-arm the deferred rerenders and let
+them drain (`UPDATE ... SET status='triaged' WHERE item_type='page_rerender' AND ...`).
+And re-check "did my batch actually DEPLOY" at the pages table, never at the work items:
+12/12 `complete` with 2/12 `deployed` is exactly what this failure looks like.
