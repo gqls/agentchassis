@@ -25,6 +25,45 @@ behaviour is a hard failure that repairs nothing at all. **A working blunt instr
 sharp one that does not exist**, and `content_rewrite` — 19 completes — is essentially this
 same case already running in production.
 
+> ### ⚠ CORRECTED 2026-08-05, after the council round — I UNDERSTATED THIS, and the `editquality` seat caught it
+>
+> "Heavier than the ideal repair" is too soft. The accurate statement is: **the affected
+> section is rewritten FROM SCRATCH and its existing prose is lost.** This is not a risk I am
+> speculating about — it is a filed landmine (`LANDMINES.md:4433`, root cause confirmed
+> 2026-08-03 on `bugs_open/178`):
+>
+> - `load_existing_content_action.go:64-69` no-ops unless `spec.mode == "recreate"`, returning
+>   `{"has_existing": false, "reason": "not_recreate"}`. **None of these three checks sets
+>   `spec.mode`.**
+> - `call_content_writer` then passes that no-op as `existing_content?` plus
+>   `current_page: page_record`, and `load_page_record` carries only *sections, title,
+>   page_type* — **no prose**. So the writer "receives the item's guidance text and NOTHING to
+>   edit, and must fabricate a replacement that satisfies the instruction's shape."
+> - **Setting `mode=recreate` is explicitly the WRONG fix** — that gate sources
+>   `research_results`, the original adoption-crawl snapshot, never the page's current
+>   `page_components.content_data`. It would feed the writer *stale* content rather than none.
+>   "There is today no workflow channel that passes a page's LIVE stored section content to its
+>   own writer for editing."
+>
+> **Does this change the decision? No — and here is the honest reasoning rather than a
+> rationalisation.** The alternative is the status quo: 11 of 11 hard failures, zero repairs,
+> and per `bugs_open/184` the markdown defect reprints on every future rerender. So the choice
+> is "section regenerated" versus "defect permanent", not "section regenerated" versus "field
+> edited". Per item type:
+>
+> - **`needs_content_page`** (page has NO rendered sections) — from scratch is *exactly* right.
+>   There is no prose to lose. Unambiguously correct.
+> - **`literal_markdown`** — the item's own `fix` instruction already *asks* for a rewrite
+>   ("re-word so the words carry it"), so a rewrite is the intended repair. It will rewrite
+>   more of the slot than the offending field, and that is the cost.
+> - **`placeholder_contact`** — same shape; a fabricated phone number is replaced by
+>   regenerated copy rather than corrected in place.
+>
+> **What this genuinely changes is the priority of candidate 4.** The compose-then-edit path is
+> no longer a nicety — it is the only shape that repairs without regenerating, and the landmine
+> says the channel it would need *does not exist yet*. That is the real finding of this round.
+> Recorded in RFC_014 as the second axis of "can this handler consume this item".
+
 If someone later builds the compose-then-edit path, these three checks are the natural first
 consumers, and this file is the argument for it.
 

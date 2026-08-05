@@ -109,3 +109,33 @@ The fix is inert until a chassis roll (`v1.0.1252` predates it).
    nothing, and `mark_complete` still trusts `handler_result` blindly. **Require the slot's
    `content_data` to change** (`updated_at` moves, the markdown string is gone), per
    `bugs_open/097`: check the artefact, not the status.
+4. **⚠ EXPECT THE SECTION'S PRIOR PROSE TO BE GONE — that is not the fix failing.**
+   `LANDMINES.md:4433`: `page-build-handler`'s writer sees no stored prose unless
+   `spec.mode="recreate"`, which these checks do not set, so it rewrites the slot from scratch.
+   A verifier who reads "the heading changed and the copy is shorter" as a regression will
+   mis-report a working fix. **Do NOT "fix" this by setting `mode=recreate`** — that sources
+   the original adoption crawl, not current content. See PLAN's corrected trade-off.
+
+## R7 — the post-deploy pod-grep (added at the council's `debug_historian` objection)
+
+The council was right that R5/R6 tested BEHAVIOUR and local build, never DEPLOYMENT. A routing
+string compiled into the chassis binary must be proven in the running pod — never from git,
+never from the image tag (a same-tag rebuild ships the node's stale binary).
+
+```bash
+for POD in $(kubectl get pods -n ai-persona-system -l app=agent-chassis -o name); do
+  echo "== $POD"
+  # POSITIVE: the new routing comment literal is long enough to survive as a string.
+  kubectl exec -n ai-persona-system ${POD#pod/} -- sh -c \
+    "grep -ac 'NOT page-content-writer' /app/agent-chassis"        # expect >0
+  # DISCRIMINATING NEGATIVE: proves the grep can return 0 on this binary.
+  kubectl exec -n ai-persona-system ${POD#pod/} -- sh -c \
+    "grep -ac 'NOT page-content-writer-v2' /app/agent-chassis"     # expect 0
+done
+```
+
+**Gotchas:** `grep -ac`, not `strings | grep` — some images have no `strings`. **Every replica,
+same exec** — a roll can leave one behind, and `logs deploy/X` reads one pod of N. A short
+literal can compile to an immediate and grep 0 on a binary that fully supports it, which is why
+the positive control is a long string. And the positive alone only proves the pipeline; the
+near-miss negative is what proves the grep discriminates.

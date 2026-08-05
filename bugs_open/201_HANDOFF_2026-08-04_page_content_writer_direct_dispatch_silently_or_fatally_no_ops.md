@@ -12,7 +12,48 @@ found while verifying `bugs_open/184`'s auto-repair step. ~~**OPEN, unowned.**~~
 > **What shipped:** all three checks re-pointed from `page-content-writer` to
 > `page-build-handler` — `check_literal_markdown.go`, `check_placeholder_contact.go`,
 > `check_component_standards.go` (+ a stale note in `verifier_coverage_test.go`).
-> Council `Council-Submitted: 71523705-07d1-4067-9c5d-af371ba84b89` — **verdict not yet read.**
+> Council **APPROVED** — `71523705-07d1-4067-9c5d-af371ba84b89`, *"approved with 5 advisory
+> objection(s) — none high-severity"*, 15 reviewers, 2 abstained, not truncation-gated. Verdict
+> read; the objections are acted on and recorded in the lane's NOTES. `098` credits the commit's
+> `Council-Submitted:` trailer automatically now the correlation is approved (no amend).
+>
+> **⚠ WHAT THE REPAIR ACTUALLY DOES — read this before verifying, or you will mis-report a
+> working fix as a regression.** `page-build-handler`'s writer **never sees the page's own
+> stored prose** unless `spec.mode="recreate"`, and **none of these three checks sets it**
+> (`LANDMINES.md:4433`, root cause confirmed 2026-08-03 on `bugs_open/178`;
+> `load_existing_content_action.go:64-69` no-ops with `{"has_existing": false, "reason":
+> "not_recreate"}`, and `load_page_record` carries only sections/title/page_type — no prose). So
+> **the affected section is rewritten FROM SCRATCH and its prior prose is lost.** The council's
+> `editquality` seat raised this at medium and was right; the lane's PLAN carries a visible
+> correction, because it had called this merely "heavier than the ideal repair".
+> **Do NOT "fix" it by setting `mode=recreate`** — that gate sources `research_results`, the
+> original adoption-crawl snapshot, i.e. *stale* content rather than none. There is today no
+> channel that passes a page's LIVE stored section content to its own writer for editing.
+> The decision still stands only because the alternative is a permanent defect (11/11 hard
+> fails, and per `184` the markdown reprints on every rerender) — not because regeneration is
+> the right repair. For `needs_content_page` (no rendered sections at all) from scratch is
+> exactly correct; for the other two it is the accepted cost.
+>
+> **Gate 2 was checked, not assumed** (the `guardian` seat's objection, and this tree's own
+> two-gate landmine). `build-dispatch-loop.call_handler` forwards `domain` and `site_id` — both
+> of `page-build-handler`'s required contract fields — item-type-agnostically, with no
+> per-`item_type` allow-list; `spawn_handler` reads `agent_type_field:
+> current_item.handler_agent`, so the spawn follows the ROW. `scripts/audit-relay-gaps.sh`: 175
+> agents decoded, **0 relay-gap findings**. ⚠ Reading those two steps with a top-level
+> `#>> '{workflow,steps,…}'` returns EMPTY — they are nested in a loop `sub_workflow`; use
+> `jsonb_path_query(…, '$.**.steps')`.
+>
+> **Still open from the round, and NOT closed by the above:** `bug_historian` [medium] observed
+> that this trades a LOUD hard-fail for a pipeline with filed history of *silent* partial
+> success (016b §9 — sections deferred and dropped, "page build completes having built
+> nothing"), and that the evidence for `page-build-handler` is **by analogy** (different item
+> types succeeding), not these item types. That is a fair characterisation. It is why the
+> verification below requires `content_data` to change rather than accepting `complete`.
+>
+> **Filed out of this round: `architecture_review/RFC_014`** — this is the FIFTH site of the
+> same defect class, and the only guard checks that the string names a KNOWN agent, not that the
+> agent can CONSUME the filed spec shape. The `architecture` seat said "ship it" and asked for
+> it on the record.
 >
 > **§1's open question is now ANSWERED, empirically, and it was YES** — `page-build-handler`
 > does cope with already-built pages: `content_rewrite` **19 complete**, `empty_section` **12**,
@@ -38,8 +79,10 @@ found while verifying `bugs_open/184`'s auto-repair step. ~~**OPEN, unowned.**~~
 > items that hard-fail). This makes an existing deadness explicit; it does not create it.
 >
 > ### What is still OWED here
-> 1. **Read the council verdict** and act on a REVISE/REJECTED — the code is already on the
->    shared branch (`Council-Submitted`, not `Council-Reviewed`).
+> 1. ~~**Read the council verdict**~~ ✅ **DONE — APPROVED, objections acted on** (see above).
+> 1b. **Pod-grep after the roll** (the `debug_historian` seat's objection — the local build/test
+>    evidence tested behaviour, never deployment). RUNBOOK **R7** has the command, with a
+>    discriminating negative control; every replica, same exec, never git and never the tag.
 > 2. **Verify after the next roll, at the ARTEFACT** — per §"How to verify a fix": re-arm ONE
 >    item (not all 12), require the run to reach `save_sections` **and** the slot's
 >    `content_data` to actually change. ⚠ The 12 existing rows still carry the OLD

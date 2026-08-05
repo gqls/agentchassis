@@ -126,10 +126,98 @@ explicit do-not-tidy, because it is precisely the kind of thing a later session 
 > `site-work-orchestrator` mapping (from `bugs_closed/194`) can never be exercised on that
 > route. I have not run it and am not asserting it. Flagged in 194's NOTES and in the CONTRIB.
 
+### The council verdict — APPROVED, and two of its five objections were substantive
+
+`decided_by: "approved with 5 advisory objection(s) — none high-severity"`, 15 reviewers,
+2 abstained, 0 unreadable, `gated_by_truncation: false`. The run dispatched in **under a
+minute** (submitted ~11:41Z, first seat executing 11:41:45Z, verdict by ~11:47Z) — nothing like
+the 29-minute queue CLAUDE.md warns about, so budget by the worst case but do not assume it.
+
+Approval is not the interesting part. Acting on the objections is.
+
+**1. `editquality` [medium] — WAS RIGHT, and I had understated the cost in my own PLAN.**
+It cited a landmine I had not read: `page-build-handler`'s writer never sees the page's own
+stored prose unless `spec.mode="recreate"`, which none of these three checks sets. Read it
+(`LANDMINES.md:4433`) and it is confirmed root cause on `bugs_open/178`, not a suspicion:
+`load_existing_content_action.go:64-69` no-ops with `{"has_existing": false, "reason":
+"not_recreate"}`, and `load_page_record` carries only sections/title/page_type — no prose. **So
+the repair rewrites the section from scratch and prior prose is lost.** My PLAN had called this
+"heavier than the ideal repair", which is too soft; corrected in place there with the reasoning
+for why the decision still stands (the alternative is a permanent defect, not a field edit).
+**And setting `mode=recreate` is explicitly the wrong fix** — it sources the adoption-crawl
+snapshot, i.e. stale content rather than none.
+
+**2. `guardian` [medium ×2] + `bug_historian` [medium] — the SECOND dispatch gate. Checked; clear.**
+The objection was the one this session's own SessionStart landmine warns about: a dispatcher has
+two gates, and fixing the visible one leaves the key dropped. Verified rather than argued:
+
+- `scripts/audit-relay-gaps.sh` — 175 agents decoded, **0 relay-gap findings**;
+  `build-dispatch-loop` is not even among the 2 uncovered dispatcher-shaped relays, so it is
+  asserted.
+- `build-dispatch-loop.call_handler` `input_mapping` forwards `domain` ← `input_data.domain` and
+  `site_id` ← `current_item.site_id` — **both** of `page-build-handler`'s `input_contract`
+  required fields (`{required: [site_id, domain], optional: [page_name, page_id, sections]}`) —
+  plus `spec`, `current_page`, `item_type`, `work_item_id`, `page_name?`. It is
+  **item-type-agnostic**: there is no per-`item_type` allow-list to exclude the new types.
+- `spawn_handler` uses `agent_type_field: current_item.handler_agent`, so the spawn follows the
+  ROW. New rows carry the new handler; **existing rows do not** (RUNBOOK R6 trap 1).
+- ⚠ **Gotcha worth recording:** reading these steps with a top-level `#>> '{workflow,steps,…}'`
+  returned EMPTY for both, because they are nested in a loop `sub_workflow`. An empty result
+  there reads exactly like "the step does not exist". `jsonb_path_query(…, '$.**.steps')` — the
+  same trap as R2, hit again in the same session.
+
+**3. `bug_historian`'s deeper point stands and is NOT closed by the above.** It observed that
+this trades a LOUD hard-fail for a pipeline with filed history of *silent* partial success
+(016b §9: sections deferred and dropped; "page build completes having built nothing"). My
+evidence for `page-build-handler` was **by analogy** — different item types succeeding — not
+these item types. That is a fair characterisation and I have not closed it. It is why RUNBOOK
+R6 trap 3 requires `content_data` to change rather than accepting `complete`.
+
+**4. `debug_historian` [medium] — no post-deploy pod-grep was proposed.** Correct. I had written
+"inert until a roll" but never named the artefact check. Added to RUNBOOK R6 and the bug file:
+grep the RUNNING pod's binary for the new literal, every replica, never git or the tag.
+
+**5. `prior_art_librarian` [low] — my "site-work-orchestrator has never run" claim.** It rests
+on absence from `agent_run_stats`, which the council cannot see, and there is a standing
+landmine about "has agent X ever run" claims being false negatives from `orchestration_states`'
+~24h retention. **I used `agent_run_stats` deliberately BECAUSE of that retention trap** (it has
+no reaper) — but the seat is right that the claim is unverifiable from its side and should not
+be repeated in a close-out unchecked. Marked `[UNVERIFIABLE-BY-COUNCIL]` where it appears.
+
+**6. `architecture` [medium] — the RFC-shaped finding, filed as RFC_014.** This is the FIFTH
+site of the same defect class, and the only guard checks that the string names a KNOWN agent,
+not that the agent can CONSUME the filed spec shape. Seat's verdict: "Approve the edits as
+written … ship it", but on record. `RFC_014_handleragent_is_a_stringly_typed_routing_contract.md`
+costs three options, recommending the cheap floor (a narrower legal-direct-dispatch set) over
+continuing to patch strings one site at a time.
+
+`editquality`'s low objection — that edit 4 is comment-only and should not count as an edit — is
+accepted without argument. It was documentation upkeep bundled into the count.
+
 ### State at end of session
 
-Committed `37afbb847`, council `Council-Submitted: 71523705-07d1-4067-9c5d-af371ba84b89`
-(**verdict not read** — owed). **Inert until a chassis roll**; the fleet is on `v1.0.1252`,
-which predates the commit. Symptom 2 untouched by 201 §2's own instruction. Verification traps
-for the next session are in RUNBOOK **R6** — three of them, and the site-lock one returns
-success with zero items.
+Committed `37afbb847`; council **APPROVED** (`71523705-07d1-4067-9c5d-af371ba84b89`), verdict
+read and its objections acted on above. The commit carries `Council-Submitted:` — correct for a
+pre-verdict commit, and `098` credits it automatically now the correlation is approved; **no
+amend, forward-only.** I have deliberately NOT written a `Council-Reviewed:` trailer onto a
+later commit, because that trailer belongs to the commit carrying the reviewed code and
+back-dating it is the report's MISMATCH surface.
+
+**Inert until a chassis roll** — the fleet is on `v1.0.1252`, which predates the commit.
+Symptom 2 untouched by 201 §2's own instruction. Verification traps for the next session are in
+RUNBOOK **R6** (now four: the stale `handler_agent` on existing rows, the locked site returning
+success-with-zero-items, `complete` not being proof, and **prior prose legitimately vanishing**)
+plus **R7**, the post-deploy pod-grep the council asked for.
+
+Filed out of this round: **RFC_014** (the stringly-typed routing contract, five recurrences).
+
+### One last thing I got wrong today, worth its own line
+
+I ran `who-owns.py 201` and it named **my own lane**. I noticed and discounted it, which is the
+only reason it did not mislead me — but the mechanism is worth stating: I had written 12
+mentions of 201 into `bugfix_194`'s files an hour earlier, and the tool ranks by mentions and
+recent commits. **An action I took to be diligent (cross-referencing the bug thoroughly) made
+the ownership check point at me.** The generalisable form is already in memory as "your action
+moves you to the back of the selector"; this is the same shape pointing forward instead of back.
+The check that actually answered ownership was grepping live `.jsonl` transcripts and finding
+two concurrent sessions in `page-content-writer` code, neither of which mentioned 201.
