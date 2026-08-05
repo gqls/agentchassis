@@ -1,0 +1,164 @@
+# NOTES — `bugs_open/199` render-seam envelope guard
+
+Append-only, newest at the bottom. Missteps are the point, not an appendix.
+
+---
+
+## 2026-08-05, session start — ownership check
+
+`scripts/who-owns.py 199` returned **OWNED or recently active**, naming
+`docs024_key_docs_latest/bugfix_190_content_data_envelope` (4 commits/14d). That is the lane
+that **filed** 199, not one working it — it deferred this deliberately.
+
+`who-owns` reads commits and is therefore lagging, so I also grepped live `.jsonl` transcripts
+modified in the last 6h. Four hits: my own session, two that had only seen `199` in an `ls`
+listing, and `fae13c79` (the `190` lane) with 24 hits — **whose last entry, at 10:08 UTC, is an
+`away_summary` reading "Next action is bugs_open/199, the render-side follow-up, starting with
+its unmeasured census."**
+
+So the lane that filed it intended to take it next and then stopped. The owner opened this
+session pointing at 199. Proceeding, and recording the risk here: if `fae13c79` resumes on its
+stated next action there are two lanes on one bug.
+
+## The census — and it decided the file
+
+The bug filed its own claim `[UNMEASURED]` and said the census decides bug-or-note. Run live:
+
+| class | components | active | live `page_components` rows |
+|---|---|---|---|
+| no/empty `input_schema` (gate skipped outright) | 56 | 35 | 44 |
+| unrecognised dialect (`SchemaContentFields` `!ok`) | 8 | 1 | 1 |
+| v2, no required `source:"llm"` field | 64 | 48 | 270 |
+| **gate CAN speak** | 102 | 98 | 855 |
+
+**315 / 1212 = 26% gate-blind.** And the one envelope still live in `content_data`
+(gaswholesalers.com `how-pricing-works`, slot `pricing`, keys `{result,type}`, 1363-byte
+`result`) sits on component `pricing` — **v2 dialect, no required llm field, gate-blind.** The
+mechanism has fired against exactly this population.
+
+## MISSTEP 1 — I classified 67 rows by a join that could never resolve
+
+I wanted the historical envelope rows attributed to components:
+
+```sql
+FROM page_component_history h LEFT JOIN content_components c ON c.id = h.component_id
+```
+
+Answer came back clean: **67 rows, all `GATE-BLIND (no schema)`** — precisely the result that
+would have supported the bug I was writing up.
+
+It is meaningless. `page_component_history.component_id` is a FK to **`page_components(id)`**,
+not the component library, and it is `ON DELETE SET NULL` while `save_page_sections` DELETEs and
+re-INSERTs on every save. **67 of 67 are NULL.** Nothing joined. And my `CASE` tested
+`c.input_schema IS NULL` *before* `c.id IS NULL`, so every failed join was relabelled as the
+class I was counting.
+
+Two errors, either sufficient: the wrong join key, and an arm order that hid it. The arm order
+is the one to remember — it turned "I measured nothing" into a confident row of the expected
+answer.
+
+**Cheap check:** `\d page_component_history` before writing the join (the FK target and
+`ON DELETE SET NULL` are both printed — I wrote the join from the column *name*), and put the
+`IS NULL` arm **first** in any `CASE` over a `LEFT JOIN`. Logged in `WRONG_CALLS.md`; the
+distilled version is now a `LANDMINES.md` entry.
+
+## MISSTEP 2 — "no live agent uses render_component"
+
+My first pass over `agent_definitions` for steps with `action='render_component'` returned
+**zero rows**, which would have meant the whole bug was unreachable. Two compounding causes:
+
+1. `default_config->'workflow'->'steps'` is an **object keyed by step name**, not an array —
+   `jsonb_array_elements` errored with *"cannot extract elements from an object"* on the first
+   attempt, and the fixed version still scanned only the top level;
+2. the two `render_component` steps are **nested** inside
+   `process_sections_loop.config.sub_workflow.steps`.
+
+A `default_config::text LIKE '%render_component%'` scan found `page-content-writer` immediately.
+**A structured path read that returns zero is not an absence — it is a shape assumption.**
+
+## The correction that moved the fix
+
+Reading `extractContentWithFallbacks` against the live `content_from` value, not in isolation:
+the bug file (and the `016b` §10 row written from it) say the **"last resort"** branch returns
+the envelope. It does not, on the live path. For `content_from: "generated_content.result"`:
+
+- `pathsToTry[0]` = `generated_content.result` → the envelope's `result` **string** → the
+  `map[string]interface{}` assertion fails → **the loop continues**;
+- `pathsToTry[1]` = `generated_content` → the envelope **map** → passes the bare `len(m) > 0`
+  test → **returned**.
+
+`hasContentFields` guards only the last-resort branch and is never consulted. But that branch is
+a **second** real leak: a superset envelope like finetuning's `{content,result,type}` passes
+`hasContentFields` precisely on its `content` key. **Two doors, and the documented one is the
+quieter.** That is what settled D5 — guard the caller, where one call covers both.
+
+## Trigger rate: zero, and the query could have said otherwise
+
+0 of 62 runs carrying a `generated_content` step output were envelope-shaped in the ~25h
+`orchestration_states` window. The same query returns 111 for `compose_note`, 10 for
+`generate_css`, 3 for `generate_tool_html` — so it discriminates.
+
+Before recording the zero I checked the query could **see** the trigger at all:
+`collected_data ? 'generated_content'` → 62 runs. Without that, a zero means "my filter cannot
+see this", which is a different claim entirely.
+
+So: **the door is open and currently unused.** Recorded in the bug file, the guard header, the
+register entry and the `016b` row, because it changes how the post-roll check reads — a count of
+zero is the *expected* result and proves nothing alone.
+
+## False positives: zero, measured
+
+114 live `render_context` maps in `orchestration_states`; **not one carries a `type` key at
+all**. So `render_from_template` (whose `content_from` *is* `render_context`) cannot trip the
+predicate. Every envelope-shaped object anywhere in live `collected_data` has keys exactly
+`{result,type}` and is an LLM step output.
+
+## MISSTEP 3 — I named a mutation, ran it, and it PASSED
+
+Four tests, each naming the mutation that must break it. I ran all four rather than asserting
+them. Three behaved. `TestRenderNonEnvelopeContentByteIdentical`, carrying *"predicate on the
+presence of `type` alone"*, **passed under its own mutation.**
+
+Cause: my seam's fast-exit is `if !isLLMTransportEnvelope(contentData) { return contentData, nil }`,
+and the function it then calls — `normalizeContentDataEnvelope` — **opens by checking the same
+predicate** and returns `(m, false, nil)` for a non-envelope. Weakening my local check changes
+nothing. **Guards in series.** The local check is an optimisation and a log-suppression, not the
+decision; byte identity is inherited from the storage normaliser's no-op contract.
+
+Verified the real one: weakening the shared `isLLMTransportEnvelope` **does** fail the test.
+
+I recorded the series relationship on the test rather than quietly relabelling the mutation to
+one that fails — the relabel would have left a test whose stated guarantee was false for the
+predicate a reader would actually go and weaken. Logged in `WRONG_CALLS.md`.
+
+## Fable's plan corrected two of my assumptions, and I re-measured both rather than taking them
+
+1. **The last-resort branch is not dead** — the superset case reaches it. Adopted; it is now the
+   argument for caller-side placement.
+2. **The save seam's identity paths are empty here.** I re-ran it myself: across every stored
+   `page-content-writer` run (n=110 at my run; fable saw 115 — retention moved between us),
+   `site_record.site_id` **0/110** and `current_page.name` **0/110**, against
+   `input_data.site_id` **110/110** and a page-name union of **110/110**. Had I copied the save
+   seam's paths the guard would have fired correctly and written an unattributable row every
+   time. Now a `LANDMINES.md` entry.
+
+## Blast radius, traced not assumed
+
+`shouldContinueLoopOnError` (`loop_error_handler.go:70-90`) returns false unless the step config
+carries `continue_on_error: true`. The live `page-content-writer` sets it on neither
+`process_sections_loop` nor any substep. **So a refused render fails the whole page, not one
+section.**
+
+Judged proportionate: it is already the disposition for the 855 rows the existing gate covers,
+and with `190` live a REFUSE-tier payload fails the run anyway at the save — later, and after
+more LLM spend. Section-skip is a one-key config change, live immediately, and deliberately not
+pre-empted.
+
+## Not touched on purpose
+
+`content_data_envelope_guard.go` — fable's plan had two comment-only edits there. Another
+session had just renamed `require_sections_metadata` → `refuse_save_without_sections_metadata`
+in it. A pathspec commit **cannot** exclude a same-file passenger, so I left the file alone and
+put the second-seam documentation in my own file and the register entry instead. Checked before
+committing: `git status` showed it clean by then (their change was already committed), so the
+risk had passed — but the cost of avoiding it was two comments.

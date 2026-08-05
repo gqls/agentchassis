@@ -1767,6 +1767,23 @@ func RenderComponentAction(ctx context.Context, params ActionParams) (interface{
 		// LLM responses sometimes have .result wrapper, sometimes not
 		contentData := extractContentWithFallbacks(params.CollectedData, contentField, params.Logger)
 		if contentData != nil {
+			// The resolver returns whatever map it found, and when the LLM step
+			// fell to the text path that map is the transport envelope itself —
+			// `result` is a STRING, so the ".result" path misses and the bare
+			// step key matches instead. Decode it when that is provably
+			// lossless, refuse the render when it is not: the same payload, the
+			// same policy and the same normaliser as the storage seam, one step
+			// earlier so the section renders its real content rather than a
+			// blank the storage guard can only repair after the fact. A no-op
+			// for every non-envelope map. See render_content_envelope_guard.go
+			// (bugs_open/199) — including why this sits at the caller rather
+			// than inside extractContentWithFallbacks, which leaks by two
+			// separate branches.
+			contentData, err = normalizeRenderContentEnvelope(ctx, params, comp, contentField, contentData)
+			if err != nil {
+				return nil, err
+			}
+
 			// Safety net: reconcile any array-item keys the LLM invented
 			// (e.g. title/body) against the keys the component template reads
 			// (e.g. name/description), before the content reaches the template

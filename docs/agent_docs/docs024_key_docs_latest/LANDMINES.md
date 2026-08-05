@@ -5426,3 +5426,106 @@ a STRING array — check the shape before trusting the prune.
 
 - **source:** 2026-08-05, idea_uk_vm_site lane; RUNNING_NOTES §X.44-45
 - **added:** 2026-08-05, ideauk-sec session
+
+---
+
+## `page_component_history.component_id` points at `page_components`, NOT the component library — and it is NULL on every row
+- **footprint:** `page_component_history`, `page_component_history.component_id`,
+  `content_components`, any join written to answer "which COMPONENT did this
+  historical `content_data` belong to", `save_page_sections_overwrite`
+- **fires when:** you use the history table as evidence about components — sizing a
+  defect class, attributing a bad `content_data` shape, asking which component
+  minted something. The column is named exactly like `page_components.component_id`,
+  which *is* a FK to `content_components`, so the join writes itself and returns
+  rows.
+- **why the wrong answer looks right:** the FK is
+  `page_component_history_component_id_fkey ... REFERENCES page_components(id) ON
+  DELETE SET NULL`, and `save_page_sections` **DELETEs and re-INSERTs** its rows on
+  every save — so the parent is gone and the column is NULL. Measured 2026-08-05 on
+  the envelope-shaped subset: **67 of 67 rows NULL, 0 resolvable.** A `LEFT JOIN`
+  therefore yields NULL columns, not zero rows, and a `CASE` that tests
+  `c.input_schema IS NULL` before `c.id IS NULL` reports every one of them as "a
+  component with no schema" — a real, plausible class, and the one you were probably
+  counting.
+- **the check:** `\d page_component_history` before writing the join — the FK target
+  and the `ON DELETE SET NULL` are both printed. Then gate on resolvability before
+  classifying anything:
+  ```sql
+  SELECT count(*) FILTER (WHERE component_id IS NULL) AS fk_nulled,
+         count(*) FILTER (WHERE component_id IS NOT NULL) AS fk_live
+  FROM page_component_history WHERE <your predicate>;
+  ```
+  If `fk_live` is 0, the table cannot answer a component-level question at all and no
+  arm ordering saves you. Reach for `page_id` + `site_id` (both real, both populated)
+  and accept that you are measuring PAGES, or take the question to
+  `page_components` live. **Put the `IS NULL` arm first in any `CASE` over a
+  `LEFT JOIN`** — that is the general form, and it is one line.
+- **source:** 2026-08-05, `bugs_open/199` lane; `WRONG_CALLS.md` same date
+
+---
+
+## `extractContentWithFallbacks` leaks a transport envelope by TWO branches, and the one every doc names is the wrong one
+- **footprint:** `platform/orchestration/actions/v3_site_actions.go`
+  (`extractContentWithFallbacks` :4476-4528, `hasContentFields` :4531-4546,
+  `RenderComponentAction` :1768), `content_from` / `content_field` in any
+  `render_component` step config
+- **fires when:** you set out to stop an LLM transport envelope
+  (`{"type":"text","result":"<string>"}`) reaching a component's content, and you go
+  to the branch `bugs_open/199` and the `016b` §10 row both name — the "last resort"
+  branch, the one guarded by `hasContentFields`. Fixing it alone leaves the live path
+  wide open and every test you write will still pass.
+- **why the wrong answer looks right:** for the live config
+  (`page-content-writer`'s `render_section`, `content_from: "generated_content.result"`)
+  the leak is the **FIRST fallback loop** (:4494-4503), which has **no content check
+  at all** — just `len(m) > 0`. `pathsToTry[0]` = `generated_content.result` resolves
+  to the envelope's `result` **string**, the map assertion fails and the loop
+  *continues*; `pathsToTry[1]` = `generated_content` resolves to the envelope **map**
+  and is returned. `hasContentFields` is never consulted. Meanwhile the last-resort
+  branch is not dead either: a superset envelope like `{content,result,type}` passes
+  `hasContentFields` precisely on its `content` key. **Two doors, and the documented
+  one is the quieter of them.**
+- **the check:** guard the **caller**, not the resolver — one call at
+  `RenderComponentAction` covers both branches and cannot be reopened by someone
+  "fixing" the first loop (this is what `normalizeRenderContentEnvelope` in
+  `render_content_envelope_guard.go` does, PBP-032's third seam). If you must reason
+  about the resolver itself, trace it against a REAL `content_from` from live config,
+  not from the function in isolation:
+  ```sql
+  SELECT s.key, s.value->'config'->>'content_from'
+  FROM agent_definitions d, jsonb_each(d.default_config->'workflow'->'steps') s
+  WHERE d.type='page-content-writer' AND d.is_active
+    AND COALESCE(d.is_snapshot,false)=false AND d.deleted_at IS NULL;
+  -- NB workflow.steps is an OBJECT keyed by step name, not an array; and the
+  -- render steps live inside process_sections_loop.config.sub_workflow.steps
+  ```
+- **source:** 2026-08-05, `bugs_open/199` lane; correction recorded in the bug file,
+  the `016b` §10 row and PBP-032
+
+---
+
+## The save seam's identity paths resolve to NOTHING inside the page writer's own run
+- **footprint:** `writeContentDataEnvelopeLog`, `renderEnvelopeIdentity`,
+  `site_record.site_id`, `current_page.name`, `agent_error_log.site_id`, any new
+  durable record written from an action inside `page-content-writer`
+- **fires when:** you add an `agent_error_log` (or any attributed) record to an
+  action that runs inside the page writer, and you copy the identity paths from the
+  nearest existing writer — `save_page_sections`' guards all use
+  `site_record.site_id` and `current_page.name`.
+- **why the wrong answer looks right:** the guard fires correctly, the INSERT
+  succeeds, the row appears. It is just **unattributable** — `site_id` NULL, page
+  name empty — and you will not notice, because you are checking that the guard
+  fired. Measured 2026-08-05 across every stored `page-content-writer` run (n=110):
+  `site_record.site_id` **0/110**, `current_page.name` **0/110**. The writer receives
+  its work under `input_data`, and rebuilds a `render_context` beside it.
+- **the check:** measure the paths against real runs before choosing them —
+  ```sql
+  SELECT count(*) AS runs,
+    count(*) FILTER (WHERE collected_data #> '{site_record,site_id}' IS NOT NULL) AS save_seam_path,
+    count(*) FILTER (WHERE collected_data #> '{input_data,site_id}' IS NOT NULL)   AS writer_path
+  FROM orchestration_states WHERE owner_agent_type='<your agent>';
+  ```
+  What works at this seam: site = `input_data.site_id` → `render_context.site_id`
+  (110/110); page = `input_data.current_page.name` → `input_data.page_name` →
+  `render_context.current_page` (110/110 union — **and the last is a plain STRING,
+  not a map**, so a `#>'{render_context,current_page,name}'` read finds nothing).
+- **source:** 2026-08-05, `bugs_open/199` lane; `render_content_envelope_guard.go`
