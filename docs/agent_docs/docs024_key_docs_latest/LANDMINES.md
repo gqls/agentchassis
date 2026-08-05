@@ -5606,3 +5606,31 @@ a STRING array — check the shape before trusting the prune.
 - **source:** webdesign.uk 2026-08-05; the seed's own `[UNVERIFIED]` note flagged
   this exact question at write time. `webdesign_uk_build_service/NOTES` 08-05
 - **added:** 2026-08-05, webdesign.uk build-service lane
+
+### The offline fence harnesses run HEAD's evaluator — vocabulary newer than the deployed browser-runner passes offline and FAILS (or skips) in-cluster
+
+- **footprint:** `staged_component_build/scripts/try_fence.go` · `prove_fence_can_fail*.go` ·
+  `internal/adapters/browserrunner/run_checks_action.go` (`criteriaStep.Action`, the
+  `default:` arms) · any ```criteria fence in `doc_plans` · `reload` step action specifically
+- **fires when:** you author a fence using ANY check type or step action and prove it with
+  the offline harnesses. They import `internal/adapters/browserrunner` **at HEAD**, so a
+  vocabulary word another session landed an hour ago evaluates perfectly on your machine —
+  the trial passes, the mutation prover passes, the persist round-trips — and the deployed
+  pod has never heard of it. Measured 2026-08-05: `reload` landed at HEAD 11:05 UTC
+  (67a4c50bd, bugs_open/126); the running browser-runner v1.0.1252 was built 09:10 UTC; a
+  fence authored 12:10 UTC passed 17/17 offline three separate ways, then failed its S6 run
+  with `unknown step action "reload"` — and the failing verdict raised a live `improve_tool`
+  item routing tool-improver at a healthy tool. Two failure shapes, one cause: an unknown
+  CHECK TYPE **skips** (reads as PASS upstream, the older sibling entry above); an unknown
+  STEP ACTION **fails the check** (reads as a tool defect and dispatches a fixer)
+- **the check:** before persisting a fence, grep the RUNNING pod for a long runtime string
+  from every vocabulary word the fence uses — step actions too, not just check types
+  (`"reload navigation failed"` → 0 on v1.0.1252, positive control → 1, same exec). Faster
+  triage: `git log -1 --format=%ci -S '"<word>"' -- internal/adapters/browserrunner/` —
+  a date newer than the pod's image build is a red flag by itself. And when a dispatched
+  run fails on this, the `improve_tool` item is a false positive: cancel it with the reason
+  written into `result`, or a fixer rewrites a healthy tool
+- **source:** staged_component_build calibration tranche, 2026-08-05 — S6 correlation
+  3874c8b5-63bb-44d5-93ec-f2086f63567c, 16 passed / 1 failed on vocabulary alone. NOTES
+  entry the same day carries the full timeline
+- **added:** 2026-08-05, staged_component_build lane

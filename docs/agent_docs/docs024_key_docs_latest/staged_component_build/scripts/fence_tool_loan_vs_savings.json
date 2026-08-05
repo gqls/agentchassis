@@ -1,0 +1,115 @@
+{
+  "profiles": ["desktop", "mobile"],
+  "container": "section.tool-loan-vs-savings-section",
+  "checks": [
+    {
+      "id": "page-serves-200",
+      "type": "page_status_ok"
+    },
+    {
+      "id": "tool-renders",
+      "type": "selector_exists",
+      "profiles": ["desktop"],
+      "selector": "section.tool-loan-vs-savings-section"
+    },
+    {
+      "id": "tool-has-visible-area",
+      "type": "has_visible_area",
+      "profiles": ["desktop"],
+      "selector": "section.tool-loan-vs-savings-section"
+    },
+    {
+      "id": "heading-poses-the-question",
+      "type": "interaction",
+      "profiles": ["desktop"],
+      "expect": {
+        "selector": "main h1",
+        "text_matches": "^Pay Off Loan or Save the Cash\\?$"
+      }
+    },
+    {
+      "id": "computes-default-vector-on-load",
+      "type": "computed_values",
+      "profiles": ["desktop"],
+      "expect_values": {
+        "#loan-benefit": "£75.00",
+        "#save-benefit": "£50.00"
+      }
+    },
+    {
+      "id": "default-winner-highlighted",
+      "type": "interaction",
+      "profiles": ["desktop"],
+      "expect": {
+        "selector": "#loan-panel.winner"
+      }
+    },
+    {
+      "id": "default-winner-badge-reads",
+      "type": "interaction",
+      "profiles": ["desktop"],
+      "expect": {
+        "selector": "#loan-badge",
+        "text_matches": "(?i)^better option$"
+      }
+    },
+    {
+      "id": "losing-badge-stays-empty",
+      "type": "interaction",
+      "profiles": ["desktop"],
+      "expect": {
+        "selector": "#save-badge",
+        "text_matches": "^\\s*$"
+      }
+    },
+    {
+      "id": "recomputes-live-when-savings-win",
+      "type": "computed_values",
+      "profiles": ["desktop"],
+      "steps": [
+        { "action": "fill", "selector": "#save-rate", "value": "8" }
+      ],
+      "expect_values": {
+        "#save-benefit": "£80.00"
+      }
+    },
+    {
+      "id": "savings-win-flips-verdict",
+      "type": "interaction",
+      "profiles": ["desktop"],
+      "expect": {
+        "selector": "#save-panel.winner"
+      }
+    },
+    {
+      "id": "tax-select-cuts-net-savings",
+      "type": "computed_values",
+      "profiles": ["desktop"],
+      "steps": [
+        { "action": "select", "selector": "#tax-bracket", "value": "0.4" }
+      ],
+      "expect_values": {
+        "#save-benefit": "£48.00"
+      }
+    },
+    {
+      "id": "tie-goes-to-savings",
+      "type": "interaction",
+      "profiles": ["desktop"],
+      "steps": [
+        { "action": "fill", "selector": "#save-rate", "value": "12.5" }
+      ],
+      "expect": {
+        "selector": "#save-panel.winner"
+      }
+    },
+    {
+      "id": "no-horizontal-overflow",
+      "type": "no_horizontal_overflow"
+    },
+    {
+      "id": "no-console-errors",
+      "type": "no_console_errors"
+    }
+  ]
+}

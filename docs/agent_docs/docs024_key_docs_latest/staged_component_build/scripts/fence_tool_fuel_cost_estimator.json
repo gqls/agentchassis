@@ -86,10 +86,7 @@
       "type": "interaction",
       "profiles": ["desktop"],
       "steps": [
-        { "action": "reload" },
-        { "action": "fill", "selector": "#volume", "value": "5000" },
-        { "action": "fill", "selector": "#retail-price", "value": "3.45" },
-        { "action": "fill", "selector": "#wholesale-price", "value": "3.85" }
+        { "action": "fill", "selector": "#wholesale-price", "value": "4.50" }
       ],
       "expect": {
         "selector": "#results-output .empty-state",
