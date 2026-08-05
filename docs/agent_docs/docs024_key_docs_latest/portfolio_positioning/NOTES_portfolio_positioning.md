@@ -426,3 +426,33 @@ items: seam 6 (planner imposes the standard shape past the mission — needs an
 owner call on the 015 retype arm before or alongside the design) and seam 7
 (in-browser fixtures, blocked on serving). The two genuine platform gaps the
 scorecard found (seams 1+2) are shipped, approved, and verified live.
+
+### 2026-08-05 — copy provenance CONFIRMED hand-written; style trials drafted; blog ruling ratified
+
+Owner flagged loanandmortgagecalculator.co.uk's hero as LLM-styled and asked, before
+any fix, whether it went through the framework. **It did not — confirmed three
+ways:** sites-repo history (2 commits, both authored cqls directly, "new combined
+loan + mortgage site" 07-31, no Rerender: pattern); platform shape (41 pages ×
+exactly 1 `ported-page` whole-document component = adoption import); and specs (a
+manual content_direction exists but NO writer ever ran to consume it). The copy is
+an unframed CLI LLM's freehand — the owner's hypothesis holds. Four read-aloud
+rewrites drafted against the house v3 style prompt
+(travelling_docs/pitch_pdf_source/REVERSE_ENGINEERED_STYLE_PROMPT_v3.md — its rule
+3 IS the flagged tic): COPY_STYLE_TRIALS_2026-08-05_hero_rewrites.md. Next steps in
+that doc; live writer prompt content [UNVERIFIED — read before designing].
+
+**Blog ruling ratified by owner 2026-08-04 ("please go ahead"), with his
+clarification recorded:** blog ≠ news, but editorial feature-building FROM news is
+also blogging. The ruling shape: mission vocabulary gains an explicit blog
+declaration (none / editorial-from-news / curated-features); the planner must never
+plan the unbuildable section-index blog shape and never plan any blog undeclared;
+the 015 retype arm is the per-site migration tool for editorial-from-news ONLY,
+never an automatic repair. Condition before any regulated site takes
+editorial-from-news: verify the news writers read content_direction [UNVERIFIED].
+
+**lendzy DNS (owner changed NS):** Nominet HAS it (whois + parent delegation both
+show ivan/betty.ns.cloudflare.com); Cloudflare answers authoritatively; public
+resolvers serve the proxied A records. HTTP TIMES OUT — zone resolves but nothing
+serves (no origin wired). ⚠ Before it ever serves: strip the acceptance_marker
+from content_direction + rebuild about.html (marker copy is IN the live artefact),
+logo, register row.

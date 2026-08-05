@@ -1,5 +1,32 @@
 # HANDOFF — portfolio positioning lane, 2026-08-03 (supersedes 2026-08-02)
 
+> **UPDATED 2026-08-05 — the next session starts HERE, with two owner-directed
+> tasks that outrank the old backlog order:**
+>
+> 1. **Copy voice (owner priority).** The owner flagged LLM-styled copy (negative
+>    framing etc.) on loanandmortgagecalculator.co.uk's hero. Provenance CONFIRMED:
+>    hand-written by a CLI session + ADOPTED (41 × whole-document `ported-page`
+>    components; the manual content_direction has never been consumed — no writer
+>    ever ran). Four read-aloud rewrites await the owner's pick in
+>    `COPY_STYLE_TRIALS_2026-08-05_hero_rewrites.md`, drafted against the house
+>    style prompt `travelling_docs/pitch_pdf_source/REVERSE_ENGINEERED_STYLE_PROMPT_v3.md`
+>    (its rule 3 IS the flagged tic). THEN: read the LIVE content-writer prompt
+>    (agent_definitions — [UNVERIFIED], nobody has read it), fold the v3 rules /
+>    winning register in (council gate; one trial page; owner review), and put the
+>    winning register into content_direction voice blocks. Ported pages need
+>    decomposition (old task #15) before pipeline copy can replace them.
+> 2. **Blog ruling — RATIFIED 08-04, implement as seam 6.** Owner's clarification:
+>    blog ≠ news, but editorial-from-news IS also blogging. Ruling: mission
+>    vocabulary gains `blog: none / editorial-from-news / curated-features`; the
+>    planner never plans the unbuildable section-index blog shape and never plans
+>    any blog undeclared; the 015 retype arm = per-site migration to
+>    editorial-from-news ONLY, never automatic. Pre-condition for regulated sites:
+>    verify news writers read content_direction [UNVERIFIED].
+> 3. **lendzy is going live** (owner moved NS; Nominet + delegation + Cloudflare
+>    all confirmed; HTTP still times out — no origin wired). BEFORE it serves:
+>    strip the acceptance_marker from seeded content_direction + rebuild
+>    about.html (the marker copy IS in the live artefact), logo, register row.
+
 **Cold start reading order:** this file → NOTES tail (2026-08-02 late night onward —
 the misstep log for the seam work) → `SUMMARY_2026-08-02d_first_two_seams_shipped.md`
 → the 08-02 handoff only for the deeper experiment background. Register discipline
