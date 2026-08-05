@@ -145,17 +145,17 @@ var realProvocations = []provocationCandidate{
 // ---------------------------------------------------------------------------
 
 var badProvocations = []struct {
-	name       string
-	c          provocationCandidate
-	wantRule   string // the rule that MUST fire; "" = any deterministic rejection
-	judgeSays  *judgement
+	name      string
+	c         provocationCandidate
+	wantRule  string // the rule that MUST fire; "" = any deterministic rejection
+	judgeSays *judgement
 }{
 	{
 		name: "a bare insult",
 		c: provocationCandidate{
 			Slug: "bad-insult", Title: "People who use tabs are idiots",
 			Teaser: "They are stupid and everyone knows it, no argument needed.",
-			Body: strings.Repeat("They are simply morons and anyone defending them is also a moron. ", 6),
+			Body:   strings.Repeat("They are simply morons and anyone defending them is also a moron. ", 6),
 		},
 		judgeSays: &judgement{Safe: false, TwoSided: false, OrdinaryExp: true, Note: "abusive"},
 		wantRule:  "unsafe",
@@ -184,7 +184,7 @@ var badProvocations = []struct {
 		c: provocationCandidate{
 			Slug: "bad-political", Title: "The Labour government has ruined the economy",
 			Teaser: "Every measure since the election has made ordinary households poorer.",
-			Body: strings.Repeat("This is the predictable result of left-wing policy and nobody serious disputes it. ", 5),
+			Body:   strings.Repeat("This is the predictable result of left-wing policy and nobody serious disputes it. ", 5),
 		},
 		// Never reaches the judge: the deterministic tribal rule fires first.
 		wantRule: "tribal_political",
@@ -194,7 +194,7 @@ var badProvocations = []struct {
 		c: provocationCandidate{
 			Slug: "bad-slop", Title: "AI is changing everything",
 			Teaser: "The pace of change is unprecedented and we must all adapt now.",
-			Body: strings.Repeat("Artificial intelligence is transforming every industry at unprecedented speed. ", 5),
+			Body:   strings.Repeat("Artificial intelligence is transforming every industry at unprecedented speed. ", 5),
 		},
 		judgeSays: &judgement{Safe: true, TwoSided: false, OrdinaryExp: true, Note: "no counter-case, not contestable"},
 		wantRule:  "not_two_sided",

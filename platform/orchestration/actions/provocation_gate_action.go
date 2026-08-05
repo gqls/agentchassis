@@ -137,10 +137,10 @@ var tribalPatterns = []*regexp.Regexp{
 // so do approvals — an approval with no recorded reasoning is indistinguishable
 // from a gate that did not run (§10.3).
 type gateReason struct {
-	Layer   string `json:"layer"`   // "form" | "claims" | "judgement"
-	Rule    string `json:"rule"`    // machine-readable rule name
-	Detail  string `json:"detail"`  // human-readable, quotes the offending text
-	Fatal   bool   `json:"fatal"`   // did this reason alone block approval?
+	Layer  string `json:"layer"`  // "form" | "claims" | "judgement"
+	Rule   string `json:"rule"`   // machine-readable rule name
+	Detail string `json:"detail"` // human-readable, quotes the offending text
+	Fatal  bool   `json:"fatal"`  // did this reason alone block approval?
 }
 
 // advisory holds the judgements deliberately EXCLUDED from the decision (§10.7).
@@ -158,14 +158,14 @@ type advisory struct {
 // error path in this file returns a zero-ish verdict and is therefore a
 // rejection without having to remember to say so.
 type gateVerdict struct {
-	Approved  bool                       `json:"approved"`
-	Reasons   []gateReason               `json:"reasons"`
-	Claims    []datahelpers.ClaimFinding `json:"claims,omitempty"`
-	Advisory  advisory                   `json:"advisory"`
-	JudgeRan  bool                       `json:"judge_ran"`
-	Model     string                     `json:"model,omitempty"`
-	GatedAt   string                     `json:"gated_at"`
-	GateVer   string                     `json:"gate_version"`
+	Approved bool                       `json:"approved"`
+	Reasons  []gateReason               `json:"reasons"`
+	Claims   []datahelpers.ClaimFinding `json:"claims,omitempty"`
+	Advisory advisory                   `json:"advisory"`
+	JudgeRan bool                       `json:"judge_ran"`
+	Model    string                     `json:"model,omitempty"`
+	GatedAt  string                     `json:"gated_at"`
+	GateVer  string                     `json:"gate_version"`
 }
 
 // gateVersion is stamped into every verdict so a calibration run can be tied to
@@ -300,9 +300,9 @@ func checkClaims(c provocationCandidate, v *gateVerdict) {
 // judgement is the model's structured reply. Every decisive field defaults to
 // the unsafe answer being FALSE, so a partially-parsed reply cannot approve.
 type judgement struct {
-	Safe            bool   `json:"safe"`
-	TwoSided        bool   `json:"two_sided"`
-	OrdinaryExp     bool   `json:"arguable_from_ordinary_experience"`
+	Safe            bool `json:"safe"`
+	TwoSided        bool `json:"two_sided"`
+	OrdinaryExp     bool `json:"arguable_from_ordinary_experience"`
 	FactualProblems []struct {
 		Quote  string `json:"quote"`
 		Reason string `json:"reason"`
