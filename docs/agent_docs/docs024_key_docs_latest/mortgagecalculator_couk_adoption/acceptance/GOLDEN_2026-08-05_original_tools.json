@@ -1,0 +1,4894 @@
+{
+ "pages": {
+  "https://mortgagecalculator.co.uk/affordability.html": {
+   "asym": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "expenses": "575",
+      "income1": "68000",
+      "income2": "0"
+     },
+     "ids": {
+      "expenses": "|inline-block",
+      "income1": "|inline-block",
+      "income2": "|inline-block",
+      "resHigh": "\u00a3166,500|block",
+      "resLow": "\u00a3148,000|block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "expenses": "575",
+      "income1": "68000",
+      "income2": "0"
+     },
+     "ids": {
+      "expenses": "|inline-block",
+      "income1": "|inline-block",
+      "income2": "|inline-block",
+      "resHigh": "\u00a3274,950|block",
+      "resLow": "\u00a3244,400|block"
+     }
+    },
+    "before": {
+     "controls": {
+      "expenses": "250",
+      "income1": "40000",
+      "income2": "0"
+     },
+     "ids": {
+      "expenses": "|inline-block",
+      "income1": "|inline-block",
+      "income2": "|inline-block",
+      "resHigh": "\u00a3166,500|block",
+      "resLow": "\u00a3148,000|block"
+     }
+    },
+    "dom_shape": "3:3947",
+    "drove": [
+     {
+      "action": "fill",
+      "k": "income1",
+      "kind": "number",
+      "sel": "#income1",
+      "value": "68000"
+     },
+     {
+      "action": "fill",
+      "k": "income2",
+      "kind": "number",
+      "sel": "#income2",
+      "value": "0"
+     },
+     {
+      "action": "fill",
+      "k": "expenses",
+      "kind": "number",
+      "sel": "#expenses",
+      "value": "575"
+     }
+    ],
+    "pressed": {
+     "label": "Check Eligibility",
+     "sel": null
+    },
+    "scale": "asym"
+   },
+   "defaults": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "expenses": "250",
+      "income1": "40000",
+      "income2": "0"
+     },
+     "ids": {
+      "expenses": "|inline-block",
+      "income1": "|inline-block",
+      "income2": "|inline-block",
+      "resHigh": "\u00a3166,500|block",
+      "resLow": "\u00a3148,000|block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "expenses": "250",
+      "income1": "40000",
+      "income2": "0"
+     },
+     "ids": {
+      "expenses": "|inline-block",
+      "income1": "|inline-block",
+      "income2": "|inline-block",
+      "resHigh": "\u00a3166,500|block",
+      "resLow": "\u00a3148,000|block"
+     }
+    },
+    "before": {
+     "controls": {
+      "expenses": "250",
+      "income1": "40000",
+      "income2": "0"
+     },
+     "ids": {
+      "expenses": "|inline-block",
+      "income1": "|inline-block",
+      "income2": "|inline-block",
+      "resHigh": "\u00a3166,500|block",
+      "resLow": "\u00a3148,000|block"
+     }
+    },
+    "dom_shape": "3:3947",
+    "drove": [
+     {
+      "action": "fill",
+      "k": "income1",
+      "kind": "number",
+      "sel": "#income1",
+      "value": "40000"
+     },
+     {
+      "action": "fill",
+      "k": "income2",
+      "kind": "number",
+      "sel": "#income2",
+      "value": "0"
+     },
+     {
+      "action": "fill",
+      "k": "expenses",
+      "kind": "number",
+      "sel": "#expenses",
+      "value": "250"
+     }
+    ],
+    "pressed": {
+     "label": "Check Eligibility",
+     "sel": null
+    },
+    "scale": 1.0
+   },
+   "double": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "expenses": "500",
+      "income1": "80000",
+      "income2": "0"
+     },
+     "ids": {
+      "expenses": "|inline-block",
+      "income1": "|inline-block",
+      "income2": "|inline-block",
+      "resHigh": "\u00a3166,500|block",
+      "resLow": "\u00a3148,000|block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "expenses": "500",
+      "income1": "80000",
+      "income2": "0"
+     },
+     "ids": {
+      "expenses": "|inline-block",
+      "income1": "|inline-block",
+      "income2": "|inline-block",
+      "resHigh": "\u00a3333,000|block",
+      "resLow": "\u00a3296,000|block"
+     }
+    },
+    "before": {
+     "controls": {
+      "expenses": "250",
+      "income1": "40000",
+      "income2": "0"
+     },
+     "ids": {
+      "expenses": "|inline-block",
+      "income1": "|inline-block",
+      "income2": "|inline-block",
+      "resHigh": "\u00a3166,500|block",
+      "resLow": "\u00a3148,000|block"
+     }
+    },
+    "dom_shape": "3:3947",
+    "drove": [
+     {
+      "action": "fill",
+      "k": "income1",
+      "kind": "number",
+      "sel": "#income1",
+      "value": "80000"
+     },
+     {
+      "action": "fill",
+      "k": "income2",
+      "kind": "number",
+      "sel": "#income2",
+      "value": "0"
+     },
+     {
+      "action": "fill",
+      "k": "expenses",
+      "kind": "number",
+      "sel": "#expenses",
+      "value": "500"
+     }
+    ],
+    "pressed": {
+     "label": "Check Eligibility",
+     "sel": null
+    },
+    "scale": 2.0
+   },
+   "half": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "expenses": "125",
+      "income1": "20000",
+      "income2": "0"
+     },
+     "ids": {
+      "expenses": "|inline-block",
+      "income1": "|inline-block",
+      "income2": "|inline-block",
+      "resHigh": "\u00a3166,500|block",
+      "resLow": "\u00a3148,000|block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "expenses": "125",
+      "income1": "20000",
+      "income2": "0"
+     },
+     "ids": {
+      "expenses": "|inline-block",
+      "income1": "|inline-block",
+      "income2": "|inline-block",
+      "resHigh": "\u00a383,250|block",
+      "resLow": "\u00a374,000|block"
+     }
+    },
+    "before": {
+     "controls": {
+      "expenses": "250",
+      "income1": "40000",
+      "income2": "0"
+     },
+     "ids": {
+      "expenses": "|inline-block",
+      "income1": "|inline-block",
+      "income2": "|inline-block",
+      "resHigh": "\u00a3166,500|block",
+      "resLow": "\u00a3148,000|block"
+     }
+    },
+    "dom_shape": "3:3947",
+    "drove": [
+     {
+      "action": "fill",
+      "k": "income1",
+      "kind": "number",
+      "sel": "#income1",
+      "value": "20000"
+     },
+     {
+      "action": "fill",
+      "k": "income2",
+      "kind": "number",
+      "sel": "#income2",
+      "value": "0"
+     },
+     {
+      "action": "fill",
+      "k": "expenses",
+      "kind": "number",
+      "sel": "#expenses",
+      "value": "125"
+     }
+    ],
+    "pressed": {
+     "label": "Check Eligibility",
+     "sel": null
+    },
+    "scale": 0.5
+   }
+  },
+  "https://mortgagecalculator.co.uk/bridging-loan.html": {
+   "asym": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "brFee": "2.2",
+      "brLoan": "340000",
+      "brRate": "0.45",
+      "brTerm": "27.6"
+     },
+     "ids": {
+      "brFee": "|inline-block",
+      "brLoan": "|inline-block",
+      "brRate": "|inline-block",
+      "brTerm": "|inline-block",
+      "dispNet": "\u00a3200,000|inline",
+      "resFee": "\u00a34,494|inline",
+      "resGross": "\u00a3224,719|block",
+      "resInterest": "\u00a320,225|inline"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "brFee": "2.2",
+      "brLoan": "340000",
+      "brRate": "0.45",
+      "brTerm": "27.6"
+     },
+     "ids": {
+      "brFee": "|inline-block",
+      "brLoan": "|inline-block",
+      "brRate": "|inline-block",
+      "brTerm": "|inline-block",
+      "dispNet": "\u00a3340,000|inline",
+      "resFee": "\u00a38,761|inline",
+      "resGross": "\u00a3398,220|block",
+      "resInterest": "\u00a349,459|inline"
+     }
+    },
+    "before": {
+     "controls": {
+      "brFee": "2.0",
+      "brLoan": "200000",
+      "brRate": "0.75",
+      "brTerm": "12"
+     },
+     "ids": {
+      "brFee": "|inline-block",
+      "brLoan": "|inline-block",
+      "brRate": "|inline-block",
+      "brTerm": "|inline-block",
+      "dispNet": "\u00a3200,000|inline",
+      "resFee": "\u00a34,494|inline",
+      "resGross": "\u00a3224,719|block",
+      "resInterest": "\u00a320,225|inline"
+     }
+    },
+    "dom_shape": "2:6595",
+    "drove": [
+     {
+      "action": "fill",
+      "k": "brLoan",
+      "kind": "number",
+      "sel": "#brLoan",
+      "value": "340000"
+     },
+     {
+      "action": "fill",
+      "k": "brRate",
+      "kind": "number",
+      "sel": "#brRate",
+      "value": "0.45"
+     },
+     {
+      "action": "fill",
+      "k": "brTerm",
+      "kind": "number",
+      "sel": "#brTerm",
+      "value": "27.6"
+     },
+     {
+      "action": "fill",
+      "k": "brFee",
+      "kind": "number",
+      "sel": "#brFee",
+      "value": "2.2"
+     }
+    ],
+    "pressed": {
+     "label": "Calculate True Cost",
+     "sel": null
+    },
+    "scale": "asym"
+   },
+   "defaults": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "brFee": "2",
+      "brLoan": "200000",
+      "brRate": "0.75",
+      "brTerm": "12"
+     },
+     "ids": {
+      "brFee": "|inline-block",
+      "brLoan": "|inline-block",
+      "brRate": "|inline-block",
+      "brTerm": "|inline-block",
+      "dispNet": "\u00a3200,000|inline",
+      "resFee": "\u00a34,494|inline",
+      "resGross": "\u00a3224,719|block",
+      "resInterest": "\u00a320,225|inline"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "brFee": "2",
+      "brLoan": "200000",
+      "brRate": "0.75",
+      "brTerm": "12"
+     },
+     "ids": {
+      "brFee": "|inline-block",
+      "brLoan": "|inline-block",
+      "brRate": "|inline-block",
+      "brTerm": "|inline-block",
+      "dispNet": "\u00a3200,000|inline",
+      "resFee": "\u00a34,494|inline",
+      "resGross": "\u00a3224,719|block",
+      "resInterest": "\u00a320,225|inline"
+     }
+    },
+    "before": {
+     "controls": {
+      "brFee": "2.0",
+      "brLoan": "200000",
+      "brRate": "0.75",
+      "brTerm": "12"
+     },
+     "ids": {
+      "brFee": "|inline-block",
+      "brLoan": "|inline-block",
+      "brRate": "|inline-block",
+      "brTerm": "|inline-block",
+      "dispNet": "\u00a3200,000|inline",
+      "resFee": "\u00a34,494|inline",
+      "resGross": "\u00a3224,719|block",
+      "resInterest": "\u00a320,225|inline"
+     }
+    },
+    "dom_shape": "2:6595",
+    "drove": [
+     {
+      "action": "fill",
+      "k": "brLoan",
+      "kind": "number",
+      "sel": "#brLoan",
+      "value": "200000"
+     },
+     {
+      "action": "fill",
+      "k": "brRate",
+      "kind": "number",
+      "sel": "#brRate",
+      "value": "0.75"
+     },
+     {
+      "action": "fill",
+      "k": "brTerm",
+      "kind": "number",
+      "sel": "#brTerm",
+      "value": "12"
+     },
+     {
+      "action": "fill",
+      "k": "brFee",
+      "kind": "number",
+      "sel": "#brFee",
+      "value": "2"
+     }
+    ],
+    "pressed": {
+     "label": "Calculate True Cost",
+     "sel": null
+    },
+    "scale": 1.0
+   },
+   "double": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "brFee": "4",
+      "brLoan": "400000",
+      "brRate": "1.5",
+      "brTerm": "24"
+     },
+     "ids": {
+      "brFee": "|inline-block",
+      "brLoan": "|inline-block",
+      "brRate": "|inline-block",
+      "brTerm": "|inline-block",
+      "dispNet": "\u00a3200,000|inline",
+      "resFee": "\u00a34,494|inline",
+      "resGross": "\u00a3224,719|block",
+      "resInterest": "\u00a320,225|inline"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "brFee": "4",
+      "brLoan": "400000",
+      "brRate": "1.5",
+      "brTerm": "24"
+     },
+     "ids": {
+      "brFee": "|inline-block",
+      "brLoan": "|inline-block",
+      "brRate": "|inline-block",
+      "brTerm": "|inline-block",
+      "dispNet": "\u00a3400,000|inline",
+      "resFee": "\u00a326,667|inline",
+      "resGross": "\u00a3666,667|block",
+      "resInterest": "\u00a3240,000|inline"
+     }
+    },
+    "before": {
+     "controls": {
+      "brFee": "2.0",
+      "brLoan": "200000",
+      "brRate": "0.75",
+      "brTerm": "12"
+     },
+     "ids": {
+      "brFee": "|inline-block",
+      "brLoan": "|inline-block",
+      "brRate": "|inline-block",
+      "brTerm": "|inline-block",
+      "dispNet": "\u00a3200,000|inline",
+      "resFee": "\u00a34,494|inline",
+      "resGross": "\u00a3224,719|block",
+      "resInterest": "\u00a320,225|inline"
+     }
+    },
+    "dom_shape": "2:6595",
+    "drove": [
+     {
+      "action": "fill",
+      "k": "brLoan",
+      "kind": "number",
+      "sel": "#brLoan",
+      "value": "400000"
+     },
+     {
+      "action": "fill",
+      "k": "brRate",
+      "kind": "number",
+      "sel": "#brRate",
+      "value": "1.5"
+     },
+     {
+      "action": "fill",
+      "k": "brTerm",
+      "kind": "number",
+      "sel": "#brTerm",
+      "value": "24"
+     },
+     {
+      "action": "fill",
+      "k": "brFee",
+      "kind": "number",
+      "sel": "#brFee",
+      "value": "4"
+     }
+    ],
+    "pressed": {
+     "label": "Calculate True Cost",
+     "sel": null
+    },
+    "scale": 2.0
+   },
+   "half": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "brFee": "1",
+      "brLoan": "100000",
+      "brRate": "0.38",
+      "brTerm": "6"
+     },
+     "ids": {
+      "brFee": "|inline-block",
+      "brLoan": "|inline-block",
+      "brRate": "|inline-block",
+      "brTerm": "|inline-block",
+      "dispNet": "\u00a3200,000|inline",
+      "resFee": "\u00a34,494|inline",
+      "resGross": "\u00a3224,719|block",
+      "resInterest": "\u00a320,225|inline"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "brFee": "1",
+      "brLoan": "100000",
+      "brRate": "0.38",
+      "brTerm": "6"
+     },
+     "ids": {
+      "brFee": "|inline-block",
+      "brLoan": "|inline-block",
+      "brRate": "|inline-block",
+      "brTerm": "|inline-block",
+      "dispNet": "\u00a3100,000|inline",
+      "resFee": "\u00a31,034|inline",
+      "resGross": "\u00a3103,391|block",
+      "resInterest": "\u00a32,357|inline"
+     }
+    },
+    "before": {
+     "controls": {
+      "brFee": "2.0",
+      "brLoan": "200000",
+      "brRate": "0.75",
+      "brTerm": "12"
+     },
+     "ids": {
+      "brFee": "|inline-block",
+      "brLoan": "|inline-block",
+      "brRate": "|inline-block",
+      "brTerm": "|inline-block",
+      "dispNet": "\u00a3200,000|inline",
+      "resFee": "\u00a34,494|inline",
+      "resGross": "\u00a3224,719|block",
+      "resInterest": "\u00a320,225|inline"
+     }
+    },
+    "dom_shape": "2:6595",
+    "drove": [
+     {
+      "action": "fill",
+      "k": "brLoan",
+      "kind": "number",
+      "sel": "#brLoan",
+      "value": "100000"
+     },
+     {
+      "action": "fill",
+      "k": "brRate",
+      "kind": "number",
+      "sel": "#brRate",
+      "value": "0.38"
+     },
+     {
+      "action": "fill",
+      "k": "brTerm",
+      "kind": "number",
+      "sel": "#brTerm",
+      "value": "6"
+     },
+     {
+      "action": "fill",
+      "k": "brFee",
+      "kind": "number",
+      "sel": "#brFee",
+      "value": "1"
+     }
+    ],
+    "pressed": {
+     "label": "Calculate True Cost",
+     "sel": null
+    },
+    "scale": 0.5
+   }
+  },
+  "https://mortgagecalculator.co.uk/equity-release.html": {
+   "asym": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "erAge": "39",
+      "erLoan": "230000",
+      "erRate": "7.15",
+      "erValue": "680000"
+     },
+     "ids": {
+      "debt10": "\u00a30|block",
+      "debt20": "\u00a30|block",
+      "debt30": "\u00a30|block",
+      "dispAge": "65|inline",
+      "erAge": "|inline-block",
+      "erLoan": "|inline-block",
+      "erMaxCash": "\u00a30|block",
+      "erRate": "|inline-block",
+      "erValue": "|inline-block",
+      "limitResult": "Maximum Cash Release \u00a30 Based on typical LTV for age 65|none"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "erAge": "39",
+      "erLoan": "230000",
+      "erRate": "7.15",
+      "erValue": "680000"
+     },
+     "ids": {
+      "debt10": "\u00a30|block",
+      "debt20": "\u00a30|block",
+      "debt30": "\u00a30|block",
+      "dispAge": "65|inline",
+      "erAge": "|inline-block",
+      "erLoan": "|inline-block",
+      "erMaxCash": "\u00a30|block",
+      "erRate": "|inline-block",
+      "erValue": "|inline-block",
+      "limitResult": "Maximum Cash Release \u00a30 Based on typical LTV for age 65|none"
+     }
+    },
+    "before": {
+     "controls": {
+      "erAge": "65",
+      "erLoan": "100000",
+      "erRate": "6.5",
+      "erValue": "400000"
+     },
+     "ids": {
+      "debt10": "\u00a30|block",
+      "debt20": "\u00a30|block",
+      "debt30": "\u00a30|block",
+      "dispAge": "65|inline",
+      "erAge": "|inline-block",
+      "erLoan": "|inline-block",
+      "erMaxCash": "\u00a30|block",
+      "erRate": "|inline-block",
+      "erValue": "|inline-block",
+      "limitResult": "Maximum Cash Release \u00a30 Based on typical LTV for age 65|none"
+     }
+    },
+    "dom_shape": "2:8871",
+    "drove": [
+     {
+      "action": "fill",
+      "k": "erValue",
+      "kind": "number",
+      "sel": "#erValue",
+      "value": "680000"
+     },
+     {
+      "action": "fill",
+      "k": "erAge",
+      "kind": "number",
+      "sel": "#erAge",
+      "value": "39"
+     },
+     {
+      "action": "fill",
+      "k": "erLoan",
+      "kind": "number",
+      "sel": "#erLoan",
+      "value": "230000"
+     },
+     {
+      "action": "fill",
+      "k": "erRate",
+      "kind": "number",
+      "sel": "#erRate",
+      "value": "7.15"
+     }
+    ],
+    "pressed": {
+     "label": "Calculate Limits",
+     "sel": null
+    },
+    "scale": "asym"
+   },
+   "defaults": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "erAge": "65",
+      "erLoan": "100000",
+      "erRate": "6.5",
+      "erValue": "400000"
+     },
+     "ids": {
+      "debt10": "\u00a30|block",
+      "debt20": "\u00a30|block",
+      "debt30": "\u00a30|block",
+      "dispAge": "65|inline",
+      "erAge": "|inline-block",
+      "erLoan": "|inline-block",
+      "erMaxCash": "\u00a30|block",
+      "erRate": "|inline-block",
+      "erValue": "|inline-block",
+      "limitResult": "Maximum Cash Release \u00a30 Based on typical LTV for age 65|none"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "erAge": "65",
+      "erLoan": "124000",
+      "erRate": "6.5",
+      "erValue": "400000"
+     },
+     "ids": {
+      "debt10": "\u00a30|block",
+      "debt20": "\u00a30|block",
+      "debt30": "\u00a30|block",
+      "dispAge": "65|inline",
+      "erAge": "|inline-block",
+      "erLoan": "|inline-block",
+      "erMaxCash": "\u00a3124,000|block",
+      "erRate": "|inline-block",
+      "erValue": "|inline-block",
+      "limitResult": "Maximum Cash Release \u00a3124,000 Based on typical LTV for age 65|block"
+     }
+    },
+    "before": {
+     "controls": {
+      "erAge": "65",
+      "erLoan": "100000",
+      "erRate": "6.5",
+      "erValue": "400000"
+     },
+     "ids": {
+      "debt10": "\u00a30|block",
+      "debt20": "\u00a30|block",
+      "debt30": "\u00a30|block",
+      "dispAge": "65|inline",
+      "erAge": "|inline-block",
+      "erLoan": "|inline-block",
+      "erMaxCash": "\u00a30|block",
+      "erRate": "|inline-block",
+      "erValue": "|inline-block",
+      "limitResult": "Maximum Cash Release \u00a30 Based on typical LTV for age 65|none"
+     }
+    },
+    "dom_shape": "2:8871",
+    "drove": [
+     {
+      "action": "fill",
+      "k": "erValue",
+      "kind": "number",
+      "sel": "#erValue",
+      "value": "400000"
+     },
+     {
+      "action": "fill",
+      "k": "erAge",
+      "kind": "number",
+      "sel": "#erAge",
+      "value": "65"
+     },
+     {
+      "action": "fill",
+      "k": "erLoan",
+      "kind": "number",
+      "sel": "#erLoan",
+      "value": "100000"
+     },
+     {
+      "action": "fill",
+      "k": "erRate",
+      "kind": "number",
+      "sel": "#erRate",
+      "value": "6.5"
+     }
+    ],
+    "pressed": {
+     "label": "Calculate Limits",
+     "sel": null
+    },
+    "scale": 1.0
+   },
+   "double": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "erAge": "130",
+      "erLoan": "200000",
+      "erRate": "13",
+      "erValue": "800000"
+     },
+     "ids": {
+      "debt10": "\u00a30|block",
+      "debt20": "\u00a30|block",
+      "debt30": "\u00a30|block",
+      "dispAge": "65|inline",
+      "erAge": "|inline-block",
+      "erLoan": "|inline-block",
+      "erMaxCash": "\u00a30|block",
+      "erRate": "|inline-block",
+      "erValue": "|inline-block",
+      "limitResult": "Maximum Cash Release \u00a30 Based on typical LTV for age 65|none"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "erAge": "130",
+      "erLoan": "416000",
+      "erRate": "13",
+      "erValue": "800000"
+     },
+     "ids": {
+      "debt10": "\u00a30|block",
+      "debt20": "\u00a30|block",
+      "debt30": "\u00a30|block",
+      "dispAge": "130|inline",
+      "erAge": "|inline-block",
+      "erLoan": "|inline-block",
+      "erMaxCash": "\u00a3416,000|block",
+      "erRate": "|inline-block",
+      "erValue": "|inline-block",
+      "limitResult": "Maximum Cash Release \u00a3416,000 Based on typical LTV for age 130|block"
+     }
+    },
+    "before": {
+     "controls": {
+      "erAge": "65",
+      "erLoan": "100000",
+      "erRate": "6.5",
+      "erValue": "400000"
+     },
+     "ids": {
+      "debt10": "\u00a30|block",
+      "debt20": "\u00a30|block",
+      "debt30": "\u00a30|block",
+      "dispAge": "65|inline",
+      "erAge": "|inline-block",
+      "erLoan": "|inline-block",
+      "erMaxCash": "\u00a30|block",
+      "erRate": "|inline-block",
+      "erValue": "|inline-block",
+      "limitResult": "Maximum Cash Release \u00a30 Based on typical LTV for age 65|none"
+     }
+    },
+    "dom_shape": "2:8871",
+    "drove": [
+     {
+      "action": "fill",
+      "k": "erValue",
+      "kind": "number",
+      "sel": "#erValue",
+      "value": "800000"
+     },
+     {
+      "action": "fill",
+      "k": "erAge",
+      "kind": "number",
+      "sel": "#erAge",
+      "value": "130"
+     },
+     {
+      "action": "fill",
+      "k": "erLoan",
+      "kind": "number",
+      "sel": "#erLoan",
+      "value": "200000"
+     },
+     {
+      "action": "fill",
+      "k": "erRate",
+      "kind": "number",
+      "sel": "#erRate",
+      "value": "13"
+     }
+    ],
+    "pressed": {
+     "label": "Calculate Limits",
+     "sel": null
+    },
+    "scale": 2.0
+   },
+   "half": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "erAge": "32.5",
+      "erLoan": "50000",
+      "erRate": "3.25",
+      "erValue": "200000"
+     },
+     "ids": {
+      "debt10": "\u00a30|block",
+      "debt20": "\u00a30|block",
+      "debt30": "\u00a30|block",
+      "dispAge": "65|inline",
+      "erAge": "|inline-block",
+      "erLoan": "|inline-block",
+      "erMaxCash": "\u00a30|block",
+      "erRate": "|inline-block",
+      "erValue": "|inline-block",
+      "limitResult": "Maximum Cash Release \u00a30 Based on typical LTV for age 65|none"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "erAge": "32.5",
+      "erLoan": "50000",
+      "erRate": "3.25",
+      "erValue": "200000"
+     },
+     "ids": {
+      "debt10": "\u00a30|block",
+      "debt20": "\u00a30|block",
+      "debt30": "\u00a30|block",
+      "dispAge": "65|inline",
+      "erAge": "|inline-block",
+      "erLoan": "|inline-block",
+      "erMaxCash": "\u00a30|block",
+      "erRate": "|inline-block",
+      "erValue": "|inline-block",
+      "limitResult": "Maximum Cash Release \u00a30 Based on typical LTV for age 65|none"
+     }
+    },
+    "before": {
+     "controls": {
+      "erAge": "65",
+      "erLoan": "100000",
+      "erRate": "6.5",
+      "erValue": "400000"
+     },
+     "ids": {
+      "debt10": "\u00a30|block",
+      "debt20": "\u00a30|block",
+      "debt30": "\u00a30|block",
+      "dispAge": "65|inline",
+      "erAge": "|inline-block",
+      "erLoan": "|inline-block",
+      "erMaxCash": "\u00a30|block",
+      "erRate": "|inline-block",
+      "erValue": "|inline-block",
+      "limitResult": "Maximum Cash Release \u00a30 Based on typical LTV for age 65|none"
+     }
+    },
+    "dom_shape": "2:8871",
+    "drove": [
+     {
+      "action": "fill",
+      "k": "erValue",
+      "kind": "number",
+      "sel": "#erValue",
+      "value": "200000"
+     },
+     {
+      "action": "fill",
+      "k": "erAge",
+      "kind": "number",
+      "sel": "#erAge",
+      "value": "32.5"
+     },
+     {
+      "action": "fill",
+      "k": "erLoan",
+      "kind": "number",
+      "sel": "#erLoan",
+      "value": "50000"
+     },
+     {
+      "action": "fill",
+      "k": "erRate",
+      "kind": "number",
+      "sel": "#erRate",
+      "value": "3.25"
+     }
+    ],
+    "pressed": {
+     "label": "Calculate Limits",
+     "sel": null
+    },
+    "scale": 0.5
+   }
+  },
+  "https://mortgagecalculator.co.uk/fact-finder.html": {
+   "asym": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "q_accounts": "0",
+      "q_address": "10",
+      "q_ccj": "-80",
+      "q_deposit": "10",
+      "q_empType": "self",
+      "q_gambling": "-20",
+      "q_jobTime": "15",
+      "q_missed": "-40",
+      "q_overdraft": "0",
+      "q_probation": "-50",
+      "q_vote": "-100",
+      "w_credit": "1",
+      "w_self": "1.7"
+     },
+     "ids": {
+      "displayScore": "80|block",
+      "q_accounts": "Less than 1 year 1 Year 2 Years 3+ Years|inline-block",
+      "q_address": "Less than 1 year 1 - 3 Years 3+ Years|inline-block",
+      "q_ccj": "None Satisfied (Over 3 years ago) Recent or Unsatisfied|inline-block",
+      "q_deposit": "5% Deposit (95% LTV) 10% Deposit (90% LTV) 15-24% Deposit 25%+ Deposit|inline-block",
+      "q_empType": "Permanent (PAYE) Self-Employed / Contractor|inline-block",
+      "q_gambling": "None Occasional (National Lottery) Frequent / High Value|inline-block",
+      "q_jobTime": "Less than 6 months 6 - 12 months 1+ Years|inline-block",
+      "q_missed": "None 1 or 2 (Over 2 years ago) Recent (Last 12 months)|inline-block",
+      "q_overdraft": "Never use it Occasional (Cleared monthly) Permanent (Living in it)|inline-block",
+      "q_probation": "Completed / Not Applicable Currently in Probation|inline-block",
+      "q_vote": "Registered Not Registered|inline-block",
+      "questionForm": "1. Stability & Identity Time at Current Address Less than 1 year 1 - 3 Years 3+ Years Lenders love stability. Moving frequently suggests flight risk. Electoral Roll Status Registered Not Registered Of|block",
+      "scoreBadge": "High Risk / Decline|inline-block",
+      "scoreComment": "Automated decline is likely. You may need a Specialist Lender who accepts 'Adverse Credit'.|block",
+      "sub_perm": "Probation Period Completed / Not Applicable Currently in Probation Time with Employer Less than 6 months 6 - 12 months 1+ Years|none",
+      "sub_self": "Years of Accounts (SA302) Less than 1 year 1 Year 2 Years 3+ Years 1 year of accounts drastically reduces your lender pool.|block",
+      "w_credit": "|inline-block",
+      "w_self": "|inline-block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "q_accounts": "0",
+      "q_address": "10",
+      "q_ccj": "-80",
+      "q_deposit": "10",
+      "q_empType": "self",
+      "q_gambling": "-20",
+      "q_jobTime": "15",
+      "q_missed": "-40",
+      "q_overdraft": "0",
+      "q_probation": "-50",
+      "q_vote": "-100",
+      "w_credit": "1",
+      "w_self": "1.7"
+     },
+     "ids": {
+      "displayScore": "80|block",
+      "q_accounts": "Less than 1 year 1 Year 2 Years 3+ Years|inline-block",
+      "q_address": "Less than 1 year 1 - 3 Years 3+ Years|inline-block",
+      "q_ccj": "None Satisfied (Over 3 years ago) Recent or Unsatisfied|inline-block",
+      "q_deposit": "5% Deposit (95% LTV) 10% Deposit (90% LTV) 15-24% Deposit 25%+ Deposit|inline-block",
+      "q_empType": "Permanent (PAYE) Self-Employed / Contractor|inline-block",
+      "q_gambling": "None Occasional (National Lottery) Frequent / High Value|inline-block",
+      "q_jobTime": "Less than 6 months 6 - 12 months 1+ Years|inline-block",
+      "q_missed": "None 1 or 2 (Over 2 years ago) Recent (Last 12 months)|inline-block",
+      "q_overdraft": "Never use it Occasional (Cleared monthly) Permanent (Living in it)|inline-block",
+      "q_probation": "Completed / Not Applicable Currently in Probation|inline-block",
+      "q_vote": "Registered Not Registered|inline-block",
+      "questionForm": "1. Stability & Identity Time at Current Address Less than 1 year 1 - 3 Years 3+ Years Lenders love stability. Moving frequently suggests flight risk. Electoral Roll Status Registered Not Registered Of|block",
+      "scoreBadge": "High Risk / Decline|inline-block",
+      "scoreComment": "Automated decline is likely. You may need a Specialist Lender who accepts 'Adverse Credit'.|block",
+      "sub_perm": "Probation Period Completed / Not Applicable Currently in Probation Time with Employer Less than 6 months 6 - 12 months 1+ Years|none",
+      "sub_self": "Years of Accounts (SA302) Less than 1 year 1 Year 2 Years 3+ Years 1 year of accounts drastically reduces your lender pool.|block",
+      "w_credit": "|inline-block",
+      "w_self": "|inline-block"
+     }
+    },
+    "before": {
+     "controls": {
+      "q_accounts": "40",
+      "q_address": "20",
+      "q_ccj": "0",
+      "q_deposit": "10",
+      "q_empType": "perm",
+      "q_gambling": "0",
+      "q_jobTime": "30",
+      "q_missed": "0",
+      "q_overdraft": "10",
+      "q_probation": "0",
+      "q_vote": "50",
+      "w_credit": "1",
+      "w_self": "1"
+     },
+     "ids": {
+      "displayScore": "420|block",
+      "q_accounts": "Less than 1 year 1 Year 2 Years 3+ Years|inline-block",
+      "q_address": "Less than 1 year 1 - 3 Years 3+ Years|inline-block",
+      "q_ccj": "None Satisfied (Over 3 years ago) Recent or Unsatisfied|inline-block",
+      "q_deposit": "5% Deposit (95% LTV) 10% Deposit (90% LTV) 15-24% Deposit 25%+ Deposit|inline-block",
+      "q_empType": "Permanent (PAYE) Self-Employed / Contractor|inline-block",
+      "q_gambling": "None Occasional (National Lottery) Frequent / High Value|inline-block",
+      "q_jobTime": "Less than 6 months 6 - 12 months 1+ Years|inline-block",
+      "q_missed": "None 1 or 2 (Over 2 years ago) Recent (Last 12 months)|inline-block",
+      "q_overdraft": "Never use it Occasional (Cleared monthly) Permanent (Living in it)|inline-block",
+      "q_probation": "Completed / Not Applicable Currently in Probation|inline-block",
+      "q_vote": "Registered Not Registered|inline-block",
+      "questionForm": "1. Stability & Identity Time at Current Address Less than 1 year 1 - 3 Years 3+ Years Lenders love stability. Moving frequently suggests flight risk. Electoral Roll Status Registered Not Registered Of|block",
+      "scoreBadge": "High Probability|inline-block",
+      "scoreComment": "You fit the 'Prime' borrower profile. Most High Street lenders would likely automate an approval.|block",
+      "sub_perm": "Probation Period Completed / Not Applicable Currently in Probation Time with Employer Less than 6 months 6 - 12 months 1+ Years|block",
+      "sub_self": "Years of Accounts (SA302) Less than 1 year 1 Year 2 Years 3+ Years 1 year of accounts drastically reduces your lender pool.|none",
+      "w_credit": "|inline-block",
+      "w_self": "|inline-block"
+     }
+    },
+    "dom_shape": "1:15809",
+    "drove": [
+     {
+      "action": "select",
+      "k": "q_address=opt1",
+      "kind": "opt1",
+      "sel": "#q_address",
+      "value": "10"
+     },
+     {
+      "action": "select",
+      "k": "q_vote=opt1",
+      "kind": "opt1",
+      "sel": "#q_vote",
+      "value": "-100"
+     },
+     {
+      "action": "select",
+      "k": "q_empType=opt1",
+      "kind": "opt1",
+      "sel": "#q_empType",
+      "value": "self"
+     },
+     {
+      "action": "select",
+      "k": "q_probation=opt1",
+      "kind": "opt1",
+      "sel": "#q_probation",
+      "value": "-50"
+     },
+     {
+      "action": "select",
+      "k": "q_jobTime=opt1",
+      "kind": "opt1",
+      "sel": "#q_jobTime",
+      "value": "15"
+     },
+     {
+      "action": "select",
+      "k": "q_accounts=opt1",
+      "kind": "opt1",
+      "sel": "#q_accounts",
+      "value": "0"
+     },
+     {
+      "action": "select",
+      "k": "q_deposit=opt1",
+      "kind": "opt1",
+      "sel": "#q_deposit",
+      "value": "10"
+     },
+     {
+      "action": "select",
+      "k": "q_overdraft=opt1",
+      "kind": "opt1",
+      "sel": "#q_overdraft",
+      "value": "0"
+     },
+     {
+      "action": "select",
+      "k": "q_gambling=opt1",
+      "kind": "opt1",
+      "sel": "#q_gambling",
+      "value": "-20"
+     },
+     {
+      "action": "select",
+      "k": "q_missed=opt1",
+      "kind": "opt1",
+      "sel": "#q_missed",
+      "value": "-40"
+     },
+     {
+      "action": "select",
+      "k": "q_ccj=opt1",
+      "kind": "opt1",
+      "sel": "#q_ccj",
+      "value": "-80"
+     },
+     {
+      "action": "fill",
+      "k": "w_self",
+      "kind": "number",
+      "sel": "#w_self",
+      "value": "1.7"
+     },
+     {
+      "action": "fill",
+      "k": "w_credit",
+      "kind": "number",
+      "sel": "#w_credit",
+      "value": "1"
+     }
+    ],
+    "pressed": {
+     "label": "none",
+     "sel": null
+    },
+    "scale": "asym"
+   },
+   "defaults": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "q_accounts": "0",
+      "q_address": "10",
+      "q_ccj": "-80",
+      "q_deposit": "10",
+      "q_empType": "self",
+      "q_gambling": "-20",
+      "q_jobTime": "15",
+      "q_missed": "-40",
+      "q_overdraft": "0",
+      "q_probation": "-50",
+      "q_vote": "-100",
+      "w_credit": "1",
+      "w_self": "1"
+     },
+     "ids": {
+      "displayScore": "80|block",
+      "q_accounts": "Less than 1 year 1 Year 2 Years 3+ Years|inline-block",
+      "q_address": "Less than 1 year 1 - 3 Years 3+ Years|inline-block",
+      "q_ccj": "None Satisfied (Over 3 years ago) Recent or Unsatisfied|inline-block",
+      "q_deposit": "5% Deposit (95% LTV) 10% Deposit (90% LTV) 15-24% Deposit 25%+ Deposit|inline-block",
+      "q_empType": "Permanent (PAYE) Self-Employed / Contractor|inline-block",
+      "q_gambling": "None Occasional (National Lottery) Frequent / High Value|inline-block",
+      "q_jobTime": "Less than 6 months 6 - 12 months 1+ Years|inline-block",
+      "q_missed": "None 1 or 2 (Over 2 years ago) Recent (Last 12 months)|inline-block",
+      "q_overdraft": "Never use it Occasional (Cleared monthly) Permanent (Living in it)|inline-block",
+      "q_probation": "Completed / Not Applicable Currently in Probation|inline-block",
+      "q_vote": "Registered Not Registered|inline-block",
+      "questionForm": "1. Stability & Identity Time at Current Address Less than 1 year 1 - 3 Years 3+ Years Lenders love stability. Moving frequently suggests flight risk. Electoral Roll Status Registered Not Registered Of|block",
+      "scoreBadge": "High Risk / Decline|inline-block",
+      "scoreComment": "Automated decline is likely. You may need a Specialist Lender who accepts 'Adverse Credit'.|block",
+      "sub_perm": "Probation Period Completed / Not Applicable Currently in Probation Time with Employer Less than 6 months 6 - 12 months 1+ Years|none",
+      "sub_self": "Years of Accounts (SA302) Less than 1 year 1 Year 2 Years 3+ Years 1 year of accounts drastically reduces your lender pool.|block",
+      "w_credit": "|inline-block",
+      "w_self": "|inline-block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "q_accounts": "0",
+      "q_address": "10",
+      "q_ccj": "-80",
+      "q_deposit": "10",
+      "q_empType": "self",
+      "q_gambling": "-20",
+      "q_jobTime": "15",
+      "q_missed": "-40",
+      "q_overdraft": "0",
+      "q_probation": "-50",
+      "q_vote": "-100",
+      "w_credit": "1",
+      "w_self": "1"
+     },
+     "ids": {
+      "displayScore": "80|block",
+      "q_accounts": "Less than 1 year 1 Year 2 Years 3+ Years|inline-block",
+      "q_address": "Less than 1 year 1 - 3 Years 3+ Years|inline-block",
+      "q_ccj": "None Satisfied (Over 3 years ago) Recent or Unsatisfied|inline-block",
+      "q_deposit": "5% Deposit (95% LTV) 10% Deposit (90% LTV) 15-24% Deposit 25%+ Deposit|inline-block",
+      "q_empType": "Permanent (PAYE) Self-Employed / Contractor|inline-block",
+      "q_gambling": "None Occasional (National Lottery) Frequent / High Value|inline-block",
+      "q_jobTime": "Less than 6 months 6 - 12 months 1+ Years|inline-block",
+      "q_missed": "None 1 or 2 (Over 2 years ago) Recent (Last 12 months)|inline-block",
+      "q_overdraft": "Never use it Occasional (Cleared monthly) Permanent (Living in it)|inline-block",
+      "q_probation": "Completed / Not Applicable Currently in Probation|inline-block",
+      "q_vote": "Registered Not Registered|inline-block",
+      "questionForm": "1. Stability & Identity Time at Current Address Less than 1 year 1 - 3 Years 3+ Years Lenders love stability. Moving frequently suggests flight risk. Electoral Roll Status Registered Not Registered Of|block",
+      "scoreBadge": "High Risk / Decline|inline-block",
+      "scoreComment": "Automated decline is likely. You may need a Specialist Lender who accepts 'Adverse Credit'.|block",
+      "sub_perm": "Probation Period Completed / Not Applicable Currently in Probation Time with Employer Less than 6 months 6 - 12 months 1+ Years|none",
+      "sub_self": "Years of Accounts (SA302) Less than 1 year 1 Year 2 Years 3+ Years 1 year of accounts drastically reduces your lender pool.|block",
+      "w_credit": "|inline-block",
+      "w_self": "|inline-block"
+     }
+    },
+    "before": {
+     "controls": {
+      "q_accounts": "40",
+      "q_address": "20",
+      "q_ccj": "0",
+      "q_deposit": "10",
+      "q_empType": "perm",
+      "q_gambling": "0",
+      "q_jobTime": "30",
+      "q_missed": "0",
+      "q_overdraft": "10",
+      "q_probation": "0",
+      "q_vote": "50",
+      "w_credit": "1",
+      "w_self": "1"
+     },
+     "ids": {
+      "displayScore": "420|block",
+      "q_accounts": "Less than 1 year 1 Year 2 Years 3+ Years|inline-block",
+      "q_address": "Less than 1 year 1 - 3 Years 3+ Years|inline-block",
+      "q_ccj": "None Satisfied (Over 3 years ago) Recent or Unsatisfied|inline-block",
+      "q_deposit": "5% Deposit (95% LTV) 10% Deposit (90% LTV) 15-24% Deposit 25%+ Deposit|inline-block",
+      "q_empType": "Permanent (PAYE) Self-Employed / Contractor|inline-block",
+      "q_gambling": "None Occasional (National Lottery) Frequent / High Value|inline-block",
+      "q_jobTime": "Less than 6 months 6 - 12 months 1+ Years|inline-block",
+      "q_missed": "None 1 or 2 (Over 2 years ago) Recent (Last 12 months)|inline-block",
+      "q_overdraft": "Never use it Occasional (Cleared monthly) Permanent (Living in it)|inline-block",
+      "q_probation": "Completed / Not Applicable Currently in Probation|inline-block",
+      "q_vote": "Registered Not Registered|inline-block",
+      "questionForm": "1. Stability & Identity Time at Current Address Less than 1 year 1 - 3 Years 3+ Years Lenders love stability. Moving frequently suggests flight risk. Electoral Roll Status Registered Not Registered Of|block",
+      "scoreBadge": "High Probability|inline-block",
+      "scoreComment": "You fit the 'Prime' borrower profile. Most High Street lenders would likely automate an approval.|block",
+      "sub_perm": "Probation Period Completed / Not Applicable Currently in Probation Time with Employer Less than 6 months 6 - 12 months 1+ Years|block",
+      "sub_self": "Years of Accounts (SA302) Less than 1 year 1 Year 2 Years 3+ Years 1 year of accounts drastically reduces your lender pool.|none",
+      "w_credit": "|inline-block",
+      "w_self": "|inline-block"
+     }
+    },
+    "dom_shape": "1:15809",
+    "drove": [
+     {
+      "action": "select",
+      "k": "q_address=opt1",
+      "kind": "opt1",
+      "sel": "#q_address",
+      "value": "10"
+     },
+     {
+      "action": "select",
+      "k": "q_vote=opt1",
+      "kind": "opt1",
+      "sel": "#q_vote",
+      "value": "-100"
+     },
+     {
+      "action": "select",
+      "k": "q_empType=opt1",
+      "kind": "opt1",
+      "sel": "#q_empType",
+      "value": "self"
+     },
+     {
+      "action": "select",
+      "k": "q_probation=opt1",
+      "kind": "opt1",
+      "sel": "#q_probation",
+      "value": "-50"
+     },
+     {
+      "action": "select",
+      "k": "q_jobTime=opt1",
+      "kind": "opt1",
+      "sel": "#q_jobTime",
+      "value": "15"
+     },
+     {
+      "action": "select",
+      "k": "q_accounts=opt1",
+      "kind": "opt1",
+      "sel": "#q_accounts",
+      "value": "0"
+     },
+     {
+      "action": "select",
+      "k": "q_deposit=opt1",
+      "kind": "opt1",
+      "sel": "#q_deposit",
+      "value": "10"
+     },
+     {
+      "action": "select",
+      "k": "q_overdraft=opt1",
+      "kind": "opt1",
+      "sel": "#q_overdraft",
+      "value": "0"
+     },
+     {
+      "action": "select",
+      "k": "q_gambling=opt1",
+      "kind": "opt1",
+      "sel": "#q_gambling",
+      "value": "-20"
+     },
+     {
+      "action": "select",
+      "k": "q_missed=opt1",
+      "kind": "opt1",
+      "sel": "#q_missed",
+      "value": "-40"
+     },
+     {
+      "action": "select",
+      "k": "q_ccj=opt1",
+      "kind": "opt1",
+      "sel": "#q_ccj",
+      "value": "-80"
+     },
+     {
+      "action": "fill",
+      "k": "w_self",
+      "kind": "number",
+      "sel": "#w_self",
+      "value": "1"
+     },
+     {
+      "action": "fill",
+      "k": "w_credit",
+      "kind": "number",
+      "sel": "#w_credit",
+      "value": "1"
+     }
+    ],
+    "pressed": {
+     "label": "none",
+     "sel": null
+    },
+    "scale": 1.0
+   },
+   "double": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "q_accounts": "0",
+      "q_address": "10",
+      "q_ccj": "-80",
+      "q_deposit": "10",
+      "q_empType": "self",
+      "q_gambling": "-20",
+      "q_jobTime": "15",
+      "q_missed": "-40",
+      "q_overdraft": "0",
+      "q_probation": "-50",
+      "q_vote": "-100",
+      "w_credit": "2",
+      "w_self": "2"
+     },
+     "ids": {
+      "displayScore": "0|block",
+      "q_accounts": "Less than 1 year 1 Year 2 Years 3+ Years|inline-block",
+      "q_address": "Less than 1 year 1 - 3 Years 3+ Years|inline-block",
+      "q_ccj": "None Satisfied (Over 3 years ago) Recent or Unsatisfied|inline-block",
+      "q_deposit": "5% Deposit (95% LTV) 10% Deposit (90% LTV) 15-24% Deposit 25%+ Deposit|inline-block",
+      "q_empType": "Permanent (PAYE) Self-Employed / Contractor|inline-block",
+      "q_gambling": "None Occasional (National Lottery) Frequent / High Value|inline-block",
+      "q_jobTime": "Less than 6 months 6 - 12 months 1+ Years|inline-block",
+      "q_missed": "None 1 or 2 (Over 2 years ago) Recent (Last 12 months)|inline-block",
+      "q_overdraft": "Never use it Occasional (Cleared monthly) Permanent (Living in it)|inline-block",
+      "q_probation": "Completed / Not Applicable Currently in Probation|inline-block",
+      "q_vote": "Registered Not Registered|inline-block",
+      "questionForm": "1. Stability & Identity Time at Current Address Less than 1 year 1 - 3 Years 3+ Years Lenders love stability. Moving frequently suggests flight risk. Electoral Roll Status Registered Not Registered Of|block",
+      "scoreBadge": "High Risk / Decline|inline-block",
+      "scoreComment": "Automated decline is likely. You may need a Specialist Lender who accepts 'Adverse Credit'.|block",
+      "sub_perm": "Probation Period Completed / Not Applicable Currently in Probation Time with Employer Less than 6 months 6 - 12 months 1+ Years|none",
+      "sub_self": "Years of Accounts (SA302) Less than 1 year 1 Year 2 Years 3+ Years 1 year of accounts drastically reduces your lender pool.|block",
+      "w_credit": "|inline-block",
+      "w_self": "|inline-block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "q_accounts": "0",
+      "q_address": "10",
+      "q_ccj": "-80",
+      "q_deposit": "10",
+      "q_empType": "self",
+      "q_gambling": "-20",
+      "q_jobTime": "15",
+      "q_missed": "-40",
+      "q_overdraft": "0",
+      "q_probation": "-50",
+      "q_vote": "-100",
+      "w_credit": "2",
+      "w_self": "2"
+     },
+     "ids": {
+      "displayScore": "0|block",
+      "q_accounts": "Less than 1 year 1 Year 2 Years 3+ Years|inline-block",
+      "q_address": "Less than 1 year 1 - 3 Years 3+ Years|inline-block",
+      "q_ccj": "None Satisfied (Over 3 years ago) Recent or Unsatisfied|inline-block",
+      "q_deposit": "5% Deposit (95% LTV) 10% Deposit (90% LTV) 15-24% Deposit 25%+ Deposit|inline-block",
+      "q_empType": "Permanent (PAYE) Self-Employed / Contractor|inline-block",
+      "q_gambling": "None Occasional (National Lottery) Frequent / High Value|inline-block",
+      "q_jobTime": "Less than 6 months 6 - 12 months 1+ Years|inline-block",
+      "q_missed": "None 1 or 2 (Over 2 years ago) Recent (Last 12 months)|inline-block",
+      "q_overdraft": "Never use it Occasional (Cleared monthly) Permanent (Living in it)|inline-block",
+      "q_probation": "Completed / Not Applicable Currently in Probation|inline-block",
+      "q_vote": "Registered Not Registered|inline-block",
+      "questionForm": "1. Stability & Identity Time at Current Address Less than 1 year 1 - 3 Years 3+ Years Lenders love stability. Moving frequently suggests flight risk. Electoral Roll Status Registered Not Registered Of|block",
+      "scoreBadge": "High Risk / Decline|inline-block",
+      "scoreComment": "Automated decline is likely. You may need a Specialist Lender who accepts 'Adverse Credit'.|block",
+      "sub_perm": "Probation Period Completed / Not Applicable Currently in Probation Time with Employer Less than 6 months 6 - 12 months 1+ Years|none",
+      "sub_self": "Years of Accounts (SA302) Less than 1 year 1 Year 2 Years 3+ Years 1 year of accounts drastically reduces your lender pool.|block",
+      "w_credit": "|inline-block",
+      "w_self": "|inline-block"
+     }
+    },
+    "before": {
+     "controls": {
+      "q_accounts": "40",
+      "q_address": "20",
+      "q_ccj": "0",
+      "q_deposit": "10",
+      "q_empType": "perm",
+      "q_gambling": "0",
+      "q_jobTime": "30",
+      "q_missed": "0",
+      "q_overdraft": "10",
+      "q_probation": "0",
+      "q_vote": "50",
+      "w_credit": "1",
+      "w_self": "1"
+     },
+     "ids": {
+      "displayScore": "420|block",
+      "q_accounts": "Less than 1 year 1 Year 2 Years 3+ Years|inline-block",
+      "q_address": "Less than 1 year 1 - 3 Years 3+ Years|inline-block",
+      "q_ccj": "None Satisfied (Over 3 years ago) Recent or Unsatisfied|inline-block",
+      "q_deposit": "5% Deposit (95% LTV) 10% Deposit (90% LTV) 15-24% Deposit 25%+ Deposit|inline-block",
+      "q_empType": "Permanent (PAYE) Self-Employed / Contractor|inline-block",
+      "q_gambling": "None Occasional (National Lottery) Frequent / High Value|inline-block",
+      "q_jobTime": "Less than 6 months 6 - 12 months 1+ Years|inline-block",
+      "q_missed": "None 1 or 2 (Over 2 years ago) Recent (Last 12 months)|inline-block",
+      "q_overdraft": "Never use it Occasional (Cleared monthly) Permanent (Living in it)|inline-block",
+      "q_probation": "Completed / Not Applicable Currently in Probation|inline-block",
+      "q_vote": "Registered Not Registered|inline-block",
+      "questionForm": "1. Stability & Identity Time at Current Address Less than 1 year 1 - 3 Years 3+ Years Lenders love stability. Moving frequently suggests flight risk. Electoral Roll Status Registered Not Registered Of|block",
+      "scoreBadge": "High Probability|inline-block",
+      "scoreComment": "You fit the 'Prime' borrower profile. Most High Street lenders would likely automate an approval.|block",
+      "sub_perm": "Probation Period Completed / Not Applicable Currently in Probation Time with Employer Less than 6 months 6 - 12 months 1+ Years|block",
+      "sub_self": "Years of Accounts (SA302) Less than 1 year 1 Year 2 Years 3+ Years 1 year of accounts drastically reduces your lender pool.|none",
+      "w_credit": "|inline-block",
+      "w_self": "|inline-block"
+     }
+    },
+    "dom_shape": "1:15809",
+    "drove": [
+     {
+      "action": "select",
+      "k": "q_address=opt1",
+      "kind": "opt1",
+      "sel": "#q_address",
+      "value": "10"
+     },
+     {
+      "action": "select",
+      "k": "q_vote=opt1",
+      "kind": "opt1",
+      "sel": "#q_vote",
+      "value": "-100"
+     },
+     {
+      "action": "select",
+      "k": "q_empType=opt1",
+      "kind": "opt1",
+      "sel": "#q_empType",
+      "value": "self"
+     },
+     {
+      "action": "select",
+      "k": "q_probation=opt1",
+      "kind": "opt1",
+      "sel": "#q_probation",
+      "value": "-50"
+     },
+     {
+      "action": "select",
+      "k": "q_jobTime=opt1",
+      "kind": "opt1",
+      "sel": "#q_jobTime",
+      "value": "15"
+     },
+     {
+      "action": "select",
+      "k": "q_accounts=opt1",
+      "kind": "opt1",
+      "sel": "#q_accounts",
+      "value": "0"
+     },
+     {
+      "action": "select",
+      "k": "q_deposit=opt1",
+      "kind": "opt1",
+      "sel": "#q_deposit",
+      "value": "10"
+     },
+     {
+      "action": "select",
+      "k": "q_overdraft=opt1",
+      "kind": "opt1",
+      "sel": "#q_overdraft",
+      "value": "0"
+     },
+     {
+      "action": "select",
+      "k": "q_gambling=opt1",
+      "kind": "opt1",
+      "sel": "#q_gambling",
+      "value": "-20"
+     },
+     {
+      "action": "select",
+      "k": "q_missed=opt1",
+      "kind": "opt1",
+      "sel": "#q_missed",
+      "value": "-40"
+     },
+     {
+      "action": "select",
+      "k": "q_ccj=opt1",
+      "kind": "opt1",
+      "sel": "#q_ccj",
+      "value": "-80"
+     },
+     {
+      "action": "fill",
+      "k": "w_self",
+      "kind": "number",
+      "sel": "#w_self",
+      "value": "2"
+     },
+     {
+      "action": "fill",
+      "k": "w_credit",
+      "kind": "number",
+      "sel": "#w_credit",
+      "value": "2"
+     }
+    ],
+    "pressed": {
+     "label": "none",
+     "sel": null
+    },
+    "scale": 2.0
+   },
+   "half": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "q_accounts": "0",
+      "q_address": "10",
+      "q_ccj": "-80",
+      "q_deposit": "10",
+      "q_empType": "self",
+      "q_gambling": "-20",
+      "q_jobTime": "15",
+      "q_missed": "-40",
+      "q_overdraft": "0",
+      "q_probation": "-50",
+      "q_vote": "-100",
+      "w_credit": "1",
+      "w_self": "1"
+     },
+     "ids": {
+      "displayScore": "80|block",
+      "q_accounts": "Less than 1 year 1 Year 2 Years 3+ Years|inline-block",
+      "q_address": "Less than 1 year 1 - 3 Years 3+ Years|inline-block",
+      "q_ccj": "None Satisfied (Over 3 years ago) Recent or Unsatisfied|inline-block",
+      "q_deposit": "5% Deposit (95% LTV) 10% Deposit (90% LTV) 15-24% Deposit 25%+ Deposit|inline-block",
+      "q_empType": "Permanent (PAYE) Self-Employed / Contractor|inline-block",
+      "q_gambling": "None Occasional (National Lottery) Frequent / High Value|inline-block",
+      "q_jobTime": "Less than 6 months 6 - 12 months 1+ Years|inline-block",
+      "q_missed": "None 1 or 2 (Over 2 years ago) Recent (Last 12 months)|inline-block",
+      "q_overdraft": "Never use it Occasional (Cleared monthly) Permanent (Living in it)|inline-block",
+      "q_probation": "Completed / Not Applicable Currently in Probation|inline-block",
+      "q_vote": "Registered Not Registered|inline-block",
+      "questionForm": "1. Stability & Identity Time at Current Address Less than 1 year 1 - 3 Years 3+ Years Lenders love stability. Moving frequently suggests flight risk. Electoral Roll Status Registered Not Registered Of|block",
+      "scoreBadge": "High Risk / Decline|inline-block",
+      "scoreComment": "Automated decline is likely. You may need a Specialist Lender who accepts 'Adverse Credit'.|block",
+      "sub_perm": "Probation Period Completed / Not Applicable Currently in Probation Time with Employer Less than 6 months 6 - 12 months 1+ Years|none",
+      "sub_self": "Years of Accounts (SA302) Less than 1 year 1 Year 2 Years 3+ Years 1 year of accounts drastically reduces your lender pool.|block",
+      "w_credit": "|inline-block",
+      "w_self": "|inline-block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "q_accounts": "0",
+      "q_address": "10",
+      "q_ccj": "-80",
+      "q_deposit": "10",
+      "q_empType": "self",
+      "q_gambling": "-20",
+      "q_jobTime": "15",
+      "q_missed": "-40",
+      "q_overdraft": "0",
+      "q_probation": "-50",
+      "q_vote": "-100",
+      "w_credit": "1",
+      "w_self": "1"
+     },
+     "ids": {
+      "displayScore": "80|block",
+      "q_accounts": "Less than 1 year 1 Year 2 Years 3+ Years|inline-block",
+      "q_address": "Less than 1 year 1 - 3 Years 3+ Years|inline-block",
+      "q_ccj": "None Satisfied (Over 3 years ago) Recent or Unsatisfied|inline-block",
+      "q_deposit": "5% Deposit (95% LTV) 10% Deposit (90% LTV) 15-24% Deposit 25%+ Deposit|inline-block",
+      "q_empType": "Permanent (PAYE) Self-Employed / Contractor|inline-block",
+      "q_gambling": "None Occasional (National Lottery) Frequent / High Value|inline-block",
+      "q_jobTime": "Less than 6 months 6 - 12 months 1+ Years|inline-block",
+      "q_missed": "None 1 or 2 (Over 2 years ago) Recent (Last 12 months)|inline-block",
+      "q_overdraft": "Never use it Occasional (Cleared monthly) Permanent (Living in it)|inline-block",
+      "q_probation": "Completed / Not Applicable Currently in Probation|inline-block",
+      "q_vote": "Registered Not Registered|inline-block",
+      "questionForm": "1. Stability & Identity Time at Current Address Less than 1 year 1 - 3 Years 3+ Years Lenders love stability. Moving frequently suggests flight risk. Electoral Roll Status Registered Not Registered Of|block",
+      "scoreBadge": "High Risk / Decline|inline-block",
+      "scoreComment": "Automated decline is likely. You may need a Specialist Lender who accepts 'Adverse Credit'.|block",
+      "sub_perm": "Probation Period Completed / Not Applicable Currently in Probation Time with Employer Less than 6 months 6 - 12 months 1+ Years|none",
+      "sub_self": "Years of Accounts (SA302) Less than 1 year 1 Year 2 Years 3+ Years 1 year of accounts drastically reduces your lender pool.|block",
+      "w_credit": "|inline-block",
+      "w_self": "|inline-block"
+     }
+    },
+    "before": {
+     "controls": {
+      "q_accounts": "40",
+      "q_address": "20",
+      "q_ccj": "0",
+      "q_deposit": "10",
+      "q_empType": "perm",
+      "q_gambling": "0",
+      "q_jobTime": "30",
+      "q_missed": "0",
+      "q_overdraft": "10",
+      "q_probation": "0",
+      "q_vote": "50",
+      "w_credit": "1",
+      "w_self": "1"
+     },
+     "ids": {
+      "displayScore": "420|block",
+      "q_accounts": "Less than 1 year 1 Year 2 Years 3+ Years|inline-block",
+      "q_address": "Less than 1 year 1 - 3 Years 3+ Years|inline-block",
+      "q_ccj": "None Satisfied (Over 3 years ago) Recent or Unsatisfied|inline-block",
+      "q_deposit": "5% Deposit (95% LTV) 10% Deposit (90% LTV) 15-24% Deposit 25%+ Deposit|inline-block",
+      "q_empType": "Permanent (PAYE) Self-Employed / Contractor|inline-block",
+      "q_gambling": "None Occasional (National Lottery) Frequent / High Value|inline-block",
+      "q_jobTime": "Less than 6 months 6 - 12 months 1+ Years|inline-block",
+      "q_missed": "None 1 or 2 (Over 2 years ago) Recent (Last 12 months)|inline-block",
+      "q_overdraft": "Never use it Occasional (Cleared monthly) Permanent (Living in it)|inline-block",
+      "q_probation": "Completed / Not Applicable Currently in Probation|inline-block",
+      "q_vote": "Registered Not Registered|inline-block",
+      "questionForm": "1. Stability & Identity Time at Current Address Less than 1 year 1 - 3 Years 3+ Years Lenders love stability. Moving frequently suggests flight risk. Electoral Roll Status Registered Not Registered Of|block",
+      "scoreBadge": "High Probability|inline-block",
+      "scoreComment": "You fit the 'Prime' borrower profile. Most High Street lenders would likely automate an approval.|block",
+      "sub_perm": "Probation Period Completed / Not Applicable Currently in Probation Time with Employer Less than 6 months 6 - 12 months 1+ Years|block",
+      "sub_self": "Years of Accounts (SA302) Less than 1 year 1 Year 2 Years 3+ Years 1 year of accounts drastically reduces your lender pool.|none",
+      "w_credit": "|inline-block",
+      "w_self": "|inline-block"
+     }
+    },
+    "dom_shape": "1:15809",
+    "drove": [
+     {
+      "action": "select",
+      "k": "q_address=opt1",
+      "kind": "opt1",
+      "sel": "#q_address",
+      "value": "10"
+     },
+     {
+      "action": "select",
+      "k": "q_vote=opt1",
+      "kind": "opt1",
+      "sel": "#q_vote",
+      "value": "-100"
+     },
+     {
+      "action": "select",
+      "k": "q_empType=opt1",
+      "kind": "opt1",
+      "sel": "#q_empType",
+      "value": "self"
+     },
+     {
+      "action": "select",
+      "k": "q_probation=opt1",
+      "kind": "opt1",
+      "sel": "#q_probation",
+      "value": "-50"
+     },
+     {
+      "action": "select",
+      "k": "q_jobTime=opt1",
+      "kind": "opt1",
+      "sel": "#q_jobTime",
+      "value": "15"
+     },
+     {
+      "action": "select",
+      "k": "q_accounts=opt1",
+      "kind": "opt1",
+      "sel": "#q_accounts",
+      "value": "0"
+     },
+     {
+      "action": "select",
+      "k": "q_deposit=opt1",
+      "kind": "opt1",
+      "sel": "#q_deposit",
+      "value": "10"
+     },
+     {
+      "action": "select",
+      "k": "q_overdraft=opt1",
+      "kind": "opt1",
+      "sel": "#q_overdraft",
+      "value": "0"
+     },
+     {
+      "action": "select",
+      "k": "q_gambling=opt1",
+      "kind": "opt1",
+      "sel": "#q_gambling",
+      "value": "-20"
+     },
+     {
+      "action": "select",
+      "k": "q_missed=opt1",
+      "kind": "opt1",
+      "sel": "#q_missed",
+      "value": "-40"
+     },
+     {
+      "action": "select",
+      "k": "q_ccj=opt1",
+      "kind": "opt1",
+      "sel": "#q_ccj",
+      "value": "-80"
+     },
+     {
+      "action": "fill",
+      "k": "w_self",
+      "kind": "number",
+      "sel": "#w_self",
+      "value": "1"
+     },
+     {
+      "action": "fill",
+      "k": "w_credit",
+      "kind": "number",
+      "sel": "#w_credit",
+      "value": "1"
+     }
+    ],
+    "pressed": {
+     "label": "none",
+     "sel": null
+    },
+    "scale": 0.5
+   }
+  },
+  "https://mortgagecalculator.co.uk/fee-analyser.html": {
+   "asym": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "tcAmount": "340000",
+      "tcDeal": "4.6",
+      "tcFee": "1098.9",
+      "tcOther": "0",
+      "tcRate": "2.51"
+     },
+     "ids": {
+      "tcAmount": "|inline-block",
+      "tcDeal": "|inline-block",
+      "tcEffective": "0.00%|block",
+      "tcFee": "|inline-block",
+      "tcOther": "|inline-block",
+      "tcRate": "|inline-block",
+      "tcTotal": "\u00a30|block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "tcAmount": "340000",
+      "tcDeal": "4.6",
+      "tcFee": "1098.9",
+      "tcOther": "0",
+      "tcRate": "2.51"
+     },
+     "ids": {
+      "tcAmount": "|inline-block",
+      "tcDeal": "|inline-block",
+      "tcEffective": "2.58%|block",
+      "tcFee": "|inline-block",
+      "tcOther": "|inline-block",
+      "tcRate": "|inline-block",
+      "tcTotal": "\u00a385,390|block"
+     }
+    },
+    "before": {
+     "controls": {
+      "tcAmount": "200000",
+      "tcDeal": "2",
+      "tcFee": "999",
+      "tcOther": "0",
+      "tcRate": "4.19"
+     },
+     "ids": {
+      "tcAmount": "|inline-block",
+      "tcDeal": "|inline-block",
+      "tcEffective": "0.00%|block",
+      "tcFee": "|inline-block",
+      "tcOther": "|inline-block",
+      "tcRate": "|inline-block",
+      "tcTotal": "\u00a30|block"
+     }
+    },
+    "dom_shape": "2:4206",
+    "drove": [
+     {
+      "action": "fill",
+      "k": "tcAmount",
+      "kind": "number",
+      "sel": "#tcAmount",
+      "value": "340000"
+     },
+     {
+      "action": "fill",
+      "k": "tcRate",
+      "kind": "number",
+      "sel": "#tcRate",
+      "value": "2.51"
+     },
+     {
+      "action": "fill",
+      "k": "tcDeal",
+      "kind": "number",
+      "sel": "#tcDeal",
+      "value": "4.6"
+     },
+     {
+      "action": "fill",
+      "k": "tcFee",
+      "kind": "number",
+      "sel": "#tcFee",
+      "value": "1098.9"
+     },
+     {
+      "action": "fill",
+      "k": "tcOther",
+      "kind": "number",
+      "sel": "#tcOther",
+      "value": "0"
+     }
+    ],
+    "pressed": {
+     "label": "Reveal True Cost",
+     "sel": null
+    },
+    "scale": "asym"
+   },
+   "defaults": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "tcAmount": "200000",
+      "tcDeal": "2",
+      "tcFee": "999",
+      "tcOther": "0",
+      "tcRate": "4.19"
+     },
+     "ids": {
+      "tcAmount": "|inline-block",
+      "tcDeal": "|inline-block",
+      "tcEffective": "0.00%|block",
+      "tcFee": "|inline-block",
+      "tcOther": "|inline-block",
+      "tcRate": "|inline-block",
+      "tcTotal": "\u00a30|block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "tcAmount": "200000",
+      "tcDeal": "2",
+      "tcFee": "999",
+      "tcOther": "0",
+      "tcRate": "4.19"
+     },
+     "ids": {
+      "tcAmount": "|inline-block",
+      "tcDeal": "|inline-block",
+      "tcEffective": "4.44%|block",
+      "tcFee": "|inline-block",
+      "tcOther": "|inline-block",
+      "tcRate": "|inline-block",
+      "tcTotal": "\u00a326,841|block"
+     }
+    },
+    "before": {
+     "controls": {
+      "tcAmount": "200000",
+      "tcDeal": "2",
+      "tcFee": "999",
+      "tcOther": "0",
+      "tcRate": "4.19"
+     },
+     "ids": {
+      "tcAmount": "|inline-block",
+      "tcDeal": "|inline-block",
+      "tcEffective": "0.00%|block",
+      "tcFee": "|inline-block",
+      "tcOther": "|inline-block",
+      "tcRate": "|inline-block",
+      "tcTotal": "\u00a30|block"
+     }
+    },
+    "dom_shape": "2:4206",
+    "drove": [
+     {
+      "action": "fill",
+      "k": "tcAmount",
+      "kind": "number",
+      "sel": "#tcAmount",
+      "value": "200000"
+     },
+     {
+      "action": "fill",
+      "k": "tcRate",
+      "kind": "number",
+      "sel": "#tcRate",
+      "value": "4.19"
+     },
+     {
+      "action": "fill",
+      "k": "tcDeal",
+      "kind": "number",
+      "sel": "#tcDeal",
+      "value": "2"
+     },
+     {
+      "action": "fill",
+      "k": "tcFee",
+      "kind": "number",
+      "sel": "#tcFee",
+      "value": "999"
+     },
+     {
+      "action": "fill",
+      "k": "tcOther",
+      "kind": "number",
+      "sel": "#tcOther",
+      "value": "0"
+     }
+    ],
+    "pressed": {
+     "label": "Reveal True Cost",
+     "sel": null
+    },
+    "scale": 1.0
+   },
+   "double": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "tcAmount": "400000",
+      "tcDeal": "4",
+      "tcFee": "1998",
+      "tcOther": "0",
+      "tcRate": "8.38"
+     },
+     "ids": {
+      "tcAmount": "|inline-block",
+      "tcDeal": "|inline-block",
+      "tcEffective": "0.00%|block",
+      "tcFee": "|inline-block",
+      "tcOther": "|inline-block",
+      "tcRate": "|inline-block",
+      "tcTotal": "\u00a30|block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "tcAmount": "400000",
+      "tcDeal": "4",
+      "tcFee": "1998",
+      "tcOther": "0",
+      "tcRate": "8.38"
+     },
+     "ids": {
+      "tcAmount": "|inline-block",
+      "tcDeal": "|inline-block",
+      "tcEffective": "8.50%|block",
+      "tcFee": "|inline-block",
+      "tcOther": "|inline-block",
+      "tcRate": "|inline-block",
+      "tcTotal": "\u00a3155,052|block"
+     }
+    },
+    "before": {
+     "controls": {
+      "tcAmount": "200000",
+      "tcDeal": "2",
+      "tcFee": "999",
+      "tcOther": "0",
+      "tcRate": "4.19"
+     },
+     "ids": {
+      "tcAmount": "|inline-block",
+      "tcDeal": "|inline-block",
+      "tcEffective": "0.00%|block",
+      "tcFee": "|inline-block",
+      "tcOther": "|inline-block",
+      "tcRate": "|inline-block",
+      "tcTotal": "\u00a30|block"
+     }
+    },
+    "dom_shape": "2:4206",
+    "drove": [
+     {
+      "action": "fill",
+      "k": "tcAmount",
+      "kind": "number",
+      "sel": "#tcAmount",
+      "value": "400000"
+     },
+     {
+      "action": "fill",
+      "k": "tcRate",
+      "kind": "number",
+      "sel": "#tcRate",
+      "value": "8.38"
+     },
+     {
+      "action": "fill",
+      "k": "tcDeal",
+      "kind": "number",
+      "sel": "#tcDeal",
+      "value": "4"
+     },
+     {
+      "action": "fill",
+      "k": "tcFee",
+      "kind": "number",
+      "sel": "#tcFee",
+      "value": "1998"
+     },
+     {
+      "action": "fill",
+      "k": "tcOther",
+      "kind": "number",
+      "sel": "#tcOther",
+      "value": "0"
+     }
+    ],
+    "pressed": {
+     "label": "Reveal True Cost",
+     "sel": null
+    },
+    "scale": 2.0
+   },
+   "half": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "tcAmount": "100000",
+      "tcDeal": "1",
+      "tcFee": "499.5",
+      "tcOther": "0",
+      "tcRate": "2.1"
+     },
+     "ids": {
+      "tcAmount": "|inline-block",
+      "tcDeal": "|inline-block",
+      "tcEffective": "0.00%|block",
+      "tcFee": "|inline-block",
+      "tcOther": "|inline-block",
+      "tcRate": "|inline-block",
+      "tcTotal": "\u00a30|block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "tcAmount": "100000",
+      "tcDeal": "1",
+      "tcFee": "499.5",
+      "tcOther": "0",
+      "tcRate": "2.1"
+     },
+     "ids": {
+      "tcAmount": "|inline-block",
+      "tcDeal": "|inline-block",
+      "tcEffective": "2.60%|block",
+      "tcFee": "|inline-block",
+      "tcOther": "|inline-block",
+      "tcRate": "|inline-block",
+      "tcTotal": "\u00a35,644|block"
+     }
+    },
+    "before": {
+     "controls": {
+      "tcAmount": "200000",
+      "tcDeal": "2",
+      "tcFee": "999",
+      "tcOther": "0",
+      "tcRate": "4.19"
+     },
+     "ids": {
+      "tcAmount": "|inline-block",
+      "tcDeal": "|inline-block",
+      "tcEffective": "0.00%|block",
+      "tcFee": "|inline-block",
+      "tcOther": "|inline-block",
+      "tcRate": "|inline-block",
+      "tcTotal": "\u00a30|block"
+     }
+    },
+    "dom_shape": "2:4206",
+    "drove": [
+     {
+      "action": "fill",
+      "k": "tcAmount",
+      "kind": "number",
+      "sel": "#tcAmount",
+      "value": "100000"
+     },
+     {
+      "action": "fill",
+      "k": "tcRate",
+      "kind": "number",
+      "sel": "#tcRate",
+      "value": "2.1"
+     },
+     {
+      "action": "fill",
+      "k": "tcDeal",
+      "kind": "number",
+      "sel": "#tcDeal",
+      "value": "1"
+     },
+     {
+      "action": "fill",
+      "k": "tcFee",
+      "kind": "number",
+      "sel": "#tcFee",
+      "value": "499.5"
+     },
+     {
+      "action": "fill",
+      "k": "tcOther",
+      "kind": "number",
+      "sel": "#tcOther",
+      "value": "0"
+     }
+    ],
+    "pressed": {
+     "label": "Reveal True Cost",
+     "sel": null
+    },
+    "scale": 0.5
+   }
+  },
+  "https://mortgagecalculator.co.uk/investor.html": {
+   "asym": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "btlPrice": "425000",
+      "btlRent": "720",
+      "ltvLoan": "247500",
+      "ltvPrice": "690000"
+     },
+     "ids": {
+      "btlPrice": "|inline-block",
+      "btlRent": "|inline-block",
+      "ltvComment": "|block",
+      "ltvLoan": "|inline-block",
+      "ltvPrice": "|inline-block",
+      "ltvResult": "0%|block",
+      "yieldResult": "0.0%|block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "btlPrice": "425000",
+      "btlRent": "720",
+      "ltvLoan": "247500",
+      "ltvPrice": "690000"
+     },
+     "ids": {
+      "btlPrice": "|inline-block",
+      "btlRent": "|inline-block",
+      "ltvComment": "|block",
+      "ltvLoan": "|inline-block",
+      "ltvPrice": "|inline-block",
+      "ltvResult": "0%|block",
+      "yieldResult": "2.03%|block"
+     }
+    },
+    "before": {
+     "controls": {
+      "btlPrice": "250000",
+      "btlRent": "1200",
+      "ltvLoan": "225000",
+      "ltvPrice": "300000"
+     },
+     "ids": {
+      "btlPrice": "|inline-block",
+      "btlRent": "|inline-block",
+      "ltvComment": "|block",
+      "ltvLoan": "|inline-block",
+      "ltvPrice": "|inline-block",
+      "ltvResult": "0%|block",
+      "yieldResult": "0.0%|block"
+     }
+    },
+    "dom_shape": "3:3826",
+    "drove": [
+     {
+      "action": "fill",
+      "k": "btlPrice",
+      "kind": "number",
+      "sel": "#btlPrice",
+      "value": "425000"
+     },
+     {
+      "action": "fill",
+      "k": "btlRent",
+      "kind": "number",
+      "sel": "#btlRent",
+      "value": "720"
+     },
+     {
+      "action": "fill",
+      "k": "ltvPrice",
+      "kind": "number",
+      "sel": "#ltvPrice",
+      "value": "690000"
+     },
+     {
+      "action": "fill",
+      "k": "ltvLoan",
+      "kind": "number",
+      "sel": "#ltvLoan",
+      "value": "247500"
+     }
+    ],
+    "pressed": {
+     "label": "Calculate Yield",
+     "sel": null
+    },
+    "scale": "asym"
+   },
+   "defaults": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "btlPrice": "250000",
+      "btlRent": "1200",
+      "ltvLoan": "225000",
+      "ltvPrice": "300000"
+     },
+     "ids": {
+      "btlPrice": "|inline-block",
+      "btlRent": "|inline-block",
+      "ltvComment": "|block",
+      "ltvLoan": "|inline-block",
+      "ltvPrice": "|inline-block",
+      "ltvResult": "0%|block",
+      "yieldResult": "0.0%|block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "btlPrice": "250000",
+      "btlRent": "1200",
+      "ltvLoan": "225000",
+      "ltvPrice": "300000"
+     },
+     "ids": {
+      "btlPrice": "|inline-block",
+      "btlRent": "|inline-block",
+      "ltvComment": "|block",
+      "ltvLoan": "|inline-block",
+      "ltvPrice": "|inline-block",
+      "ltvResult": "0%|block",
+      "yieldResult": "5.76%|block"
+     }
+    },
+    "before": {
+     "controls": {
+      "btlPrice": "250000",
+      "btlRent": "1200",
+      "ltvLoan": "225000",
+      "ltvPrice": "300000"
+     },
+     "ids": {
+      "btlPrice": "|inline-block",
+      "btlRent": "|inline-block",
+      "ltvComment": "|block",
+      "ltvLoan": "|inline-block",
+      "ltvPrice": "|inline-block",
+      "ltvResult": "0%|block",
+      "yieldResult": "0.0%|block"
+     }
+    },
+    "dom_shape": "3:3826",
+    "drove": [
+     {
+      "action": "fill",
+      "k": "btlPrice",
+      "kind": "number",
+      "sel": "#btlPrice",
+      "value": "250000"
+     },
+     {
+      "action": "fill",
+      "k": "btlRent",
+      "kind": "number",
+      "sel": "#btlRent",
+      "value": "1200"
+     },
+     {
+      "action": "fill",
+      "k": "ltvPrice",
+      "kind": "number",
+      "sel": "#ltvPrice",
+      "value": "300000"
+     },
+     {
+      "action": "fill",
+      "k": "ltvLoan",
+      "kind": "number",
+      "sel": "#ltvLoan",
+      "value": "225000"
+     }
+    ],
+    "pressed": {
+     "label": "Calculate Yield",
+     "sel": null
+    },
+    "scale": 1.0
+   },
+   "double": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "btlPrice": "500000",
+      "btlRent": "2400",
+      "ltvLoan": "450000",
+      "ltvPrice": "600000"
+     },
+     "ids": {
+      "btlPrice": "|inline-block",
+      "btlRent": "|inline-block",
+      "ltvComment": "|block",
+      "ltvLoan": "|inline-block",
+      "ltvPrice": "|inline-block",
+      "ltvResult": "0%|block",
+      "yieldResult": "0.0%|block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "btlPrice": "500000",
+      "btlRent": "2400",
+      "ltvLoan": "450000",
+      "ltvPrice": "600000"
+     },
+     "ids": {
+      "btlPrice": "|inline-block",
+      "btlRent": "|inline-block",
+      "ltvComment": "|block",
+      "ltvLoan": "|inline-block",
+      "ltvPrice": "|inline-block",
+      "ltvResult": "0%|block",
+      "yieldResult": "5.76%|block"
+     }
+    },
+    "before": {
+     "controls": {
+      "btlPrice": "250000",
+      "btlRent": "1200",
+      "ltvLoan": "225000",
+      "ltvPrice": "300000"
+     },
+     "ids": {
+      "btlPrice": "|inline-block",
+      "btlRent": "|inline-block",
+      "ltvComment": "|block",
+      "ltvLoan": "|inline-block",
+      "ltvPrice": "|inline-block",
+      "ltvResult": "0%|block",
+      "yieldResult": "0.0%|block"
+     }
+    },
+    "dom_shape": "3:3826",
+    "drove": [
+     {
+      "action": "fill",
+      "k": "btlPrice",
+      "kind": "number",
+      "sel": "#btlPrice",
+      "value": "500000"
+     },
+     {
+      "action": "fill",
+      "k": "btlRent",
+      "kind": "number",
+      "sel": "#btlRent",
+      "value": "2400"
+     },
+     {
+      "action": "fill",
+      "k": "ltvPrice",
+      "kind": "number",
+      "sel": "#ltvPrice",
+      "value": "600000"
+     },
+     {
+      "action": "fill",
+      "k": "ltvLoan",
+      "kind": "number",
+      "sel": "#ltvLoan",
+      "value": "450000"
+     }
+    ],
+    "pressed": {
+     "label": "Calculate Yield",
+     "sel": null
+    },
+    "scale": 2.0
+   },
+   "half": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "btlPrice": "125000",
+      "btlRent": "600",
+      "ltvLoan": "112500",
+      "ltvPrice": "150000"
+     },
+     "ids": {
+      "btlPrice": "|inline-block",
+      "btlRent": "|inline-block",
+      "ltvComment": "|block",
+      "ltvLoan": "|inline-block",
+      "ltvPrice": "|inline-block",
+      "ltvResult": "0%|block",
+      "yieldResult": "0.0%|block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "btlPrice": "125000",
+      "btlRent": "600",
+      "ltvLoan": "112500",
+      "ltvPrice": "150000"
+     },
+     "ids": {
+      "btlPrice": "|inline-block",
+      "btlRent": "|inline-block",
+      "ltvComment": "|block",
+      "ltvLoan": "|inline-block",
+      "ltvPrice": "|inline-block",
+      "ltvResult": "0%|block",
+      "yieldResult": "5.76%|block"
+     }
+    },
+    "before": {
+     "controls": {
+      "btlPrice": "250000",
+      "btlRent": "1200",
+      "ltvLoan": "225000",
+      "ltvPrice": "300000"
+     },
+     "ids": {
+      "btlPrice": "|inline-block",
+      "btlRent": "|inline-block",
+      "ltvComment": "|block",
+      "ltvLoan": "|inline-block",
+      "ltvPrice": "|inline-block",
+      "ltvResult": "0%|block",
+      "yieldResult": "0.0%|block"
+     }
+    },
+    "dom_shape": "3:3826",
+    "drove": [
+     {
+      "action": "fill",
+      "k": "btlPrice",
+      "kind": "number",
+      "sel": "#btlPrice",
+      "value": "125000"
+     },
+     {
+      "action": "fill",
+      "k": "btlRent",
+      "kind": "number",
+      "sel": "#btlRent",
+      "value": "600"
+     },
+     {
+      "action": "fill",
+      "k": "ltvPrice",
+      "kind": "number",
+      "sel": "#ltvPrice",
+      "value": "150000"
+     },
+     {
+      "action": "fill",
+      "k": "ltvLoan",
+      "kind": "number",
+      "sel": "#ltvLoan",
+      "value": "112500"
+     }
+    ],
+    "pressed": {
+     "label": "Calculate Yield",
+     "sel": null
+    },
+    "scale": 0.5
+   }
+  },
+  "https://mortgagecalculator.co.uk/overpayment.html": {
+   "asym": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "opAmount": "110",
+      "opBalance": "340000",
+      "opRate": "2.7",
+      "opYears": "46"
+     },
+     "ids": {
+      "dispOpAmount": "\u00a3100|inline",
+      "dispYearsEarlier": "2|inline",
+      "opAmount": "|inline-block",
+      "opBalance": "|inline-block",
+      "opRate": "|inline-block",
+      "opYears": "|inline-block",
+      "saveInterest": "\u00a312,949|block",
+      "saveTime": "2 Years 3 Months|block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "opAmount": "110",
+      "opBalance": "340000",
+      "opRate": "2.7",
+      "opYears": "46"
+     },
+     "ids": {
+      "dispOpAmount": "\u00a3110|inline",
+      "dispYearsEarlier": "7|inline",
+      "opAmount": "|inline-block",
+      "opBalance": "|inline-block",
+      "opRate": "|inline-block",
+      "opYears": "|inline-block",
+      "saveInterest": "\u00a347,644|block",
+      "saveTime": "7 Years 7 Months|block"
+     }
+    },
+    "before": {
+     "controls": {
+      "opAmount": "100",
+      "opBalance": "200000",
+      "opRate": "4.5",
+      "opYears": "20"
+     },
+     "ids": {
+      "dispOpAmount": "\u00a3100|inline",
+      "dispYearsEarlier": "2|inline",
+      "opAmount": "|inline-block",
+      "opBalance": "|inline-block",
+      "opRate": "|inline-block",
+      "opYears": "|inline-block",
+      "saveInterest": "\u00a312,949|block",
+      "saveTime": "2 Years 3 Months|block"
+     }
+    },
+    "dom_shape": "3:5166",
+    "drove": [
+     {
+      "action": "fill",
+      "k": "opBalance",
+      "kind": "number",
+      "sel": "#opBalance",
+      "value": "340000"
+     },
+     {
+      "action": "fill",
+      "k": "opRate",
+      "kind": "number",
+      "sel": "#opRate",
+      "value": "2.7"
+     },
+     {
+      "action": "fill",
+      "k": "opYears",
+      "kind": "number",
+      "sel": "#opYears",
+      "value": "46"
+     },
+     {
+      "action": "fill",
+      "k": "opAmount",
+      "kind": "number",
+      "sel": "#opAmount",
+      "value": "110"
+     }
+    ],
+    "pressed": {
+     "label": "Calculate Savings",
+     "sel": null
+    },
+    "scale": "asym"
+   },
+   "defaults": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "opAmount": "100",
+      "opBalance": "200000",
+      "opRate": "4.5",
+      "opYears": "20"
+     },
+     "ids": {
+      "dispOpAmount": "\u00a3100|inline",
+      "dispYearsEarlier": "2|inline",
+      "opAmount": "|inline-block",
+      "opBalance": "|inline-block",
+      "opRate": "|inline-block",
+      "opYears": "|inline-block",
+      "saveInterest": "\u00a312,949|block",
+      "saveTime": "2 Years 3 Months|block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "opAmount": "100",
+      "opBalance": "200000",
+      "opRate": "4.5",
+      "opYears": "20"
+     },
+     "ids": {
+      "dispOpAmount": "\u00a3100|inline",
+      "dispYearsEarlier": "2|inline",
+      "opAmount": "|inline-block",
+      "opBalance": "|inline-block",
+      "opRate": "|inline-block",
+      "opYears": "|inline-block",
+      "saveInterest": "\u00a312,949|block",
+      "saveTime": "2 Years 3 Months|block"
+     }
+    },
+    "before": {
+     "controls": {
+      "opAmount": "100",
+      "opBalance": "200000",
+      "opRate": "4.5",
+      "opYears": "20"
+     },
+     "ids": {
+      "dispOpAmount": "\u00a3100|inline",
+      "dispYearsEarlier": "2|inline",
+      "opAmount": "|inline-block",
+      "opBalance": "|inline-block",
+      "opRate": "|inline-block",
+      "opYears": "|inline-block",
+      "saveInterest": "\u00a312,949|block",
+      "saveTime": "2 Years 3 Months|block"
+     }
+    },
+    "dom_shape": "3:5166",
+    "drove": [
+     {
+      "action": "fill",
+      "k": "opBalance",
+      "kind": "number",
+      "sel": "#opBalance",
+      "value": "200000"
+     },
+     {
+      "action": "fill",
+      "k": "opRate",
+      "kind": "number",
+      "sel": "#opRate",
+      "value": "4.5"
+     },
+     {
+      "action": "fill",
+      "k": "opYears",
+      "kind": "number",
+      "sel": "#opYears",
+      "value": "20"
+     },
+     {
+      "action": "fill",
+      "k": "opAmount",
+      "kind": "number",
+      "sel": "#opAmount",
+      "value": "100"
+     }
+    ],
+    "pressed": {
+     "label": "Calculate Savings",
+     "sel": null
+    },
+    "scale": 1.0
+   },
+   "double": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "opAmount": "200",
+      "opBalance": "400000",
+      "opRate": "9",
+      "opYears": "40"
+     },
+     "ids": {
+      "dispOpAmount": "\u00a3100|inline",
+      "dispYearsEarlier": "2|inline",
+      "opAmount": "|inline-block",
+      "opBalance": "|inline-block",
+      "opRate": "|inline-block",
+      "opYears": "|inline-block",
+      "saveInterest": "\u00a312,949|block",
+      "saveTime": "2 Years 3 Months|block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "opAmount": "200",
+      "opBalance": "400000",
+      "opRate": "9",
+      "opYears": "40"
+     },
+     "ids": {
+      "dispOpAmount": "\u00a3200|inline",
+      "dispYearsEarlier": "12|inline",
+      "opAmount": "|inline-block",
+      "opBalance": "|inline-block",
+      "opRate": "|inline-block",
+      "opYears": "|inline-block",
+      "saveInterest": "\u00a3406,736|block",
+      "saveTime": "12 Years 9 Months|block"
+     }
+    },
+    "before": {
+     "controls": {
+      "opAmount": "100",
+      "opBalance": "200000",
+      "opRate": "4.5",
+      "opYears": "20"
+     },
+     "ids": {
+      "dispOpAmount": "\u00a3100|inline",
+      "dispYearsEarlier": "2|inline",
+      "opAmount": "|inline-block",
+      "opBalance": "|inline-block",
+      "opRate": "|inline-block",
+      "opYears": "|inline-block",
+      "saveInterest": "\u00a312,949|block",
+      "saveTime": "2 Years 3 Months|block"
+     }
+    },
+    "dom_shape": "3:5166",
+    "drove": [
+     {
+      "action": "fill",
+      "k": "opBalance",
+      "kind": "number",
+      "sel": "#opBalance",
+      "value": "400000"
+     },
+     {
+      "action": "fill",
+      "k": "opRate",
+      "kind": "number",
+      "sel": "#opRate",
+      "value": "9"
+     },
+     {
+      "action": "fill",
+      "k": "opYears",
+      "kind": "number",
+      "sel": "#opYears",
+      "value": "40"
+     },
+     {
+      "action": "fill",
+      "k": "opAmount",
+      "kind": "number",
+      "sel": "#opAmount",
+      "value": "200"
+     }
+    ],
+    "pressed": {
+     "label": "Calculate Savings",
+     "sel": null
+    },
+    "scale": 2.0
+   },
+   "half": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "opAmount": "50",
+      "opBalance": "100000",
+      "opRate": "2.25",
+      "opYears": "10"
+     },
+     "ids": {
+      "dispOpAmount": "\u00a3100|inline",
+      "dispYearsEarlier": "2|inline",
+      "opAmount": "|inline-block",
+      "opBalance": "|inline-block",
+      "opRate": "|inline-block",
+      "opYears": "|inline-block",
+      "saveInterest": "\u00a312,949|block",
+      "saveTime": "2 Years 3 Months|block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "opAmount": "50",
+      "opBalance": "100000",
+      "opRate": "2.25",
+      "opYears": "10"
+     },
+     "ids": {
+      "dispOpAmount": "\u00a350|inline",
+      "dispYearsEarlier": "0|inline",
+      "opAmount": "|inline-block",
+      "opBalance": "|inline-block",
+      "opRate": "|inline-block",
+      "opYears": "|inline-block",
+      "saveInterest": "\u00a3685|block",
+      "saveTime": "0 Years 6 Months|block"
+     }
+    },
+    "before": {
+     "controls": {
+      "opAmount": "100",
+      "opBalance": "200000",
+      "opRate": "4.5",
+      "opYears": "20"
+     },
+     "ids": {
+      "dispOpAmount": "\u00a3100|inline",
+      "dispYearsEarlier": "2|inline",
+      "opAmount": "|inline-block",
+      "opBalance": "|inline-block",
+      "opRate": "|inline-block",
+      "opYears": "|inline-block",
+      "saveInterest": "\u00a312,949|block",
+      "saveTime": "2 Years 3 Months|block"
+     }
+    },
+    "dom_shape": "3:5166",
+    "drove": [
+     {
+      "action": "fill",
+      "k": "opBalance",
+      "kind": "number",
+      "sel": "#opBalance",
+      "value": "100000"
+     },
+     {
+      "action": "fill",
+      "k": "opRate",
+      "kind": "number",
+      "sel": "#opRate",
+      "value": "2.25"
+     },
+     {
+      "action": "fill",
+      "k": "opYears",
+      "kind": "number",
+      "sel": "#opYears",
+      "value": "10"
+     },
+     {
+      "action": "fill",
+      "k": "opAmount",
+      "kind": "number",
+      "sel": "#opAmount",
+      "value": "50"
+     }
+    ],
+    "pressed": {
+     "label": "Calculate Savings",
+     "sel": null
+    },
+    "scale": 0.5
+   }
+  },
+  "https://mortgagecalculator.co.uk/portfolio.html": {
+   "asym": {
+    "added": [
+     {
+      "label": "+ Add",
+      "sel": null
+     }
+    ],
+    "after_input": {
+     "controls": {
+      "inMortgage": "600",
+      "inName": "Probe",
+      "inPayment": "1100",
+      "inRent": "2300",
+      "inValue": "1700"
+     },
+     "ids": {
+      "d_cashflow": "\u00a30|block",
+      "d_count": "0 Properties|block",
+      "d_equity": "\u00a30|block",
+      "d_ltv": "0% LTV|block",
+      "d_rent": "\u00a30 / mo Rent|block",
+      "d_totalVal": "\u00a30|block",
+      "d_yield": "0.0%|block",
+      "emptyState": "Your dashboard is currently empty. Add your first property below to start generating portfolio analytics.|block",
+      "inMortgage": "|inline-block",
+      "inName": "|inline-block",
+      "inPayment": "|inline-block",
+      "inRent": "|inline-block",
+      "inValue": "|inline-block",
+      "propTable": "Property Name / Address Value (\u00a3) Mortgage (\u00a3) LTV (%) Monthly Rent (\u00a3) Mortgage Payment (\u00a3) Actions|none",
+      "tableBody": "|table-row-group"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "inMortgage": "",
+      "inName": "",
+      "inPayment": "",
+      "inRent": "",
+      "inValue": ""
+     },
+     "ids": {
+      "d_cashflow": "\u00a31,200|block",
+      "d_count": "1 Property|block",
+      "d_equity": "\u00a31,100|block",
+      "d_ltv": "35.3% LTV|block",
+      "d_rent": "\u00a32,300 / mo Rent|block",
+      "d_totalVal": "\u00a31,700|block",
+      "d_yield": "1623.53%|block",
+      "emptyState": "Your dashboard is currently empty. Add your first property below to start generating portfolio analytics.|none",
+      "inMortgage": "|inline-block",
+      "inName": "|inline-block",
+      "inPayment": "|inline-block",
+      "inRent": "|inline-block",
+      "inValue": "|inline-block",
+      "propTable": "Property Name / Address Value (\u00a3) Mortgage (\u00a3) LTV (%) Monthly Rent (\u00a3) Mortgage Payment (\u00a3) Actions Probe \u00a31,700 \u00a3600 35.3% \u00a32,300 \u00a31,100 Remove|table",
+      "tableBody": "Probe \u00a31,700 \u00a3600 35.3% \u00a32,300 \u00a31,100 Remove|table-row-group"
+     }
+    },
+    "before": {
+     "controls": {
+      "inMortgage": "",
+      "inName": "",
+      "inPayment": "",
+      "inRent": "",
+      "inValue": ""
+     },
+     "ids": {
+      "d_cashflow": "\u00a30|block",
+      "d_count": "0 Properties|block",
+      "d_equity": "\u00a30|block",
+      "d_ltv": "0% LTV|block",
+      "d_rent": "\u00a30 / mo Rent|block",
+      "d_totalVal": "\u00a30|block",
+      "d_yield": "0.0%|block",
+      "emptyState": "Your dashboard is currently empty. Add your first property below to start generating portfolio analytics.|block",
+      "inMortgage": "|inline-block",
+      "inName": "|inline-block",
+      "inPayment": "|inline-block",
+      "inRent": "|inline-block",
+      "inValue": "|inline-block",
+      "propTable": "Property Name / Address Value (\u00a3) Mortgage (\u00a3) LTV (%) Monthly Rent (\u00a3) Mortgage Payment (\u00a3) Actions|none",
+      "tableBody": "|table-row-group"
+     }
+    },
+    "dom_shape": "3:14679",
+    "drove": [
+     {
+      "action": "fill",
+      "k": "inName=text",
+      "kind": "text",
+      "sel": "#inName",
+      "value": "Probe"
+     },
+     {
+      "action": "fill",
+      "k": "inValue=nodefault",
+      "kind": "nodefault",
+      "sel": "#inValue",
+      "value": "1700"
+     },
+     {
+      "action": "fill",
+      "k": "inMortgage=nodefault",
+      "kind": "nodefault",
+      "sel": "#inMortgage",
+      "value": "600"
+     },
+     {
+      "action": "fill",
+      "k": "inRent=nodefault",
+      "kind": "nodefault",
+      "sel": "#inRent",
+      "value": "2300"
+     },
+     {
+      "action": "fill",
+      "k": "inPayment=nodefault",
+      "kind": "nodefault",
+      "sel": "#inPayment",
+      "value": "1100"
+     }
+    ],
+    "pressed": {
+     "label": "+ Add",
+     "sel": null
+    },
+    "scale": "asym"
+   },
+   "defaults": {
+    "added": [
+     {
+      "label": "+ Add",
+      "sel": null
+     }
+    ],
+    "after_input": {
+     "controls": {
+      "inMortgage": "1000",
+      "inName": "Probe",
+      "inPayment": "1000",
+      "inRent": "1000",
+      "inValue": "1000"
+     },
+     "ids": {
+      "d_cashflow": "\u00a30|block",
+      "d_count": "0 Properties|block",
+      "d_equity": "\u00a30|block",
+      "d_ltv": "0% LTV|block",
+      "d_rent": "\u00a30 / mo Rent|block",
+      "d_totalVal": "\u00a30|block",
+      "d_yield": "0.0%|block",
+      "emptyState": "Your dashboard is currently empty. Add your first property below to start generating portfolio analytics.|block",
+      "inMortgage": "|inline-block",
+      "inName": "|inline-block",
+      "inPayment": "|inline-block",
+      "inRent": "|inline-block",
+      "inValue": "|inline-block",
+      "propTable": "Property Name / Address Value (\u00a3) Mortgage (\u00a3) LTV (%) Monthly Rent (\u00a3) Mortgage Payment (\u00a3) Actions|none",
+      "tableBody": "|table-row-group"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "inMortgage": "",
+      "inName": "",
+      "inPayment": "",
+      "inRent": "",
+      "inValue": ""
+     },
+     "ids": {
+      "d_cashflow": "\u00a30|block",
+      "d_count": "1 Property|block",
+      "d_equity": "\u00a30|block",
+      "d_ltv": "100.0% LTV|block",
+      "d_rent": "\u00a31,000 / mo Rent|block",
+      "d_totalVal": "\u00a31,000|block",
+      "d_yield": "1200.00%|block",
+      "emptyState": "Your dashboard is currently empty. Add your first property below to start generating portfolio analytics.|none",
+      "inMortgage": "|inline-block",
+      "inName": "|inline-block",
+      "inPayment": "|inline-block",
+      "inRent": "|inline-block",
+      "inValue": "|inline-block",
+      "propTable": "Property Name / Address Value (\u00a3) Mortgage (\u00a3) LTV (%) Monthly Rent (\u00a3) Mortgage Payment (\u00a3) Actions Probe \u00a31,000 \u00a31,000 100.0% \u00a31,000 \u00a31,000 Remove|table",
+      "tableBody": "Probe \u00a31,000 \u00a31,000 100.0% \u00a31,000 \u00a31,000 Remove|table-row-group"
+     }
+    },
+    "before": {
+     "controls": {
+      "inMortgage": "",
+      "inName": "",
+      "inPayment": "",
+      "inRent": "",
+      "inValue": ""
+     },
+     "ids": {
+      "d_cashflow": "\u00a30|block",
+      "d_count": "0 Properties|block",
+      "d_equity": "\u00a30|block",
+      "d_ltv": "0% LTV|block",
+      "d_rent": "\u00a30 / mo Rent|block",
+      "d_totalVal": "\u00a30|block",
+      "d_yield": "0.0%|block",
+      "emptyState": "Your dashboard is currently empty. Add your first property below to start generating portfolio analytics.|block",
+      "inMortgage": "|inline-block",
+      "inName": "|inline-block",
+      "inPayment": "|inline-block",
+      "inRent": "|inline-block",
+      "inValue": "|inline-block",
+      "propTable": "Property Name / Address Value (\u00a3) Mortgage (\u00a3) LTV (%) Monthly Rent (\u00a3) Mortgage Payment (\u00a3) Actions|none",
+      "tableBody": "|table-row-group"
+     }
+    },
+    "dom_shape": "3:14679",
+    "drove": [
+     {
+      "action": "fill",
+      "k": "inName=text",
+      "kind": "text",
+      "sel": "#inName",
+      "value": "Probe"
+     },
+     {
+      "action": "fill",
+      "k": "inValue=nodefault",
+      "kind": "nodefault",
+      "sel": "#inValue",
+      "value": "1000"
+     },
+     {
+      "action": "fill",
+      "k": "inMortgage=nodefault",
+      "kind": "nodefault",
+      "sel": "#inMortgage",
+      "value": "1000"
+     },
+     {
+      "action": "fill",
+      "k": "inRent=nodefault",
+      "kind": "nodefault",
+      "sel": "#inRent",
+      "value": "1000"
+     },
+     {
+      "action": "fill",
+      "k": "inPayment=nodefault",
+      "kind": "nodefault",
+      "sel": "#inPayment",
+      "value": "1000"
+     }
+    ],
+    "pressed": {
+     "label": "+ Add",
+     "sel": null
+    },
+    "scale": 1.0
+   },
+   "double": {
+    "added": [
+     {
+      "label": "+ Add",
+      "sel": null
+     }
+    ],
+    "after_input": {
+     "controls": {
+      "inMortgage": "2000",
+      "inName": "Probe",
+      "inPayment": "2000",
+      "inRent": "2000",
+      "inValue": "2000"
+     },
+     "ids": {
+      "d_cashflow": "\u00a30|block",
+      "d_count": "0 Properties|block",
+      "d_equity": "\u00a30|block",
+      "d_ltv": "0% LTV|block",
+      "d_rent": "\u00a30 / mo Rent|block",
+      "d_totalVal": "\u00a30|block",
+      "d_yield": "0.0%|block",
+      "emptyState": "Your dashboard is currently empty. Add your first property below to start generating portfolio analytics.|block",
+      "inMortgage": "|inline-block",
+      "inName": "|inline-block",
+      "inPayment": "|inline-block",
+      "inRent": "|inline-block",
+      "inValue": "|inline-block",
+      "propTable": "Property Name / Address Value (\u00a3) Mortgage (\u00a3) LTV (%) Monthly Rent (\u00a3) Mortgage Payment (\u00a3) Actions|none",
+      "tableBody": "|table-row-group"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "inMortgage": "",
+      "inName": "",
+      "inPayment": "",
+      "inRent": "",
+      "inValue": ""
+     },
+     "ids": {
+      "d_cashflow": "\u00a30|block",
+      "d_count": "1 Property|block",
+      "d_equity": "\u00a30|block",
+      "d_ltv": "100.0% LTV|block",
+      "d_rent": "\u00a32,000 / mo Rent|block",
+      "d_totalVal": "\u00a32,000|block",
+      "d_yield": "1200.00%|block",
+      "emptyState": "Your dashboard is currently empty. Add your first property below to start generating portfolio analytics.|none",
+      "inMortgage": "|inline-block",
+      "inName": "|inline-block",
+      "inPayment": "|inline-block",
+      "inRent": "|inline-block",
+      "inValue": "|inline-block",
+      "propTable": "Property Name / Address Value (\u00a3) Mortgage (\u00a3) LTV (%) Monthly Rent (\u00a3) Mortgage Payment (\u00a3) Actions Probe \u00a32,000 \u00a32,000 100.0% \u00a32,000 \u00a32,000 Remove|table",
+      "tableBody": "Probe \u00a32,000 \u00a32,000 100.0% \u00a32,000 \u00a32,000 Remove|table-row-group"
+     }
+    },
+    "before": {
+     "controls": {
+      "inMortgage": "",
+      "inName": "",
+      "inPayment": "",
+      "inRent": "",
+      "inValue": ""
+     },
+     "ids": {
+      "d_cashflow": "\u00a30|block",
+      "d_count": "0 Properties|block",
+      "d_equity": "\u00a30|block",
+      "d_ltv": "0% LTV|block",
+      "d_rent": "\u00a30 / mo Rent|block",
+      "d_totalVal": "\u00a30|block",
+      "d_yield": "0.0%|block",
+      "emptyState": "Your dashboard is currently empty. Add your first property below to start generating portfolio analytics.|block",
+      "inMortgage": "|inline-block",
+      "inName": "|inline-block",
+      "inPayment": "|inline-block",
+      "inRent": "|inline-block",
+      "inValue": "|inline-block",
+      "propTable": "Property Name / Address Value (\u00a3) Mortgage (\u00a3) LTV (%) Monthly Rent (\u00a3) Mortgage Payment (\u00a3) Actions|none",
+      "tableBody": "|table-row-group"
+     }
+    },
+    "dom_shape": "3:14679",
+    "drove": [
+     {
+      "action": "fill",
+      "k": "inName=text",
+      "kind": "text",
+      "sel": "#inName",
+      "value": "Probe"
+     },
+     {
+      "action": "fill",
+      "k": "inValue=nodefault",
+      "kind": "nodefault",
+      "sel": "#inValue",
+      "value": "2000"
+     },
+     {
+      "action": "fill",
+      "k": "inMortgage=nodefault",
+      "kind": "nodefault",
+      "sel": "#inMortgage",
+      "value": "2000"
+     },
+     {
+      "action": "fill",
+      "k": "inRent=nodefault",
+      "kind": "nodefault",
+      "sel": "#inRent",
+      "value": "2000"
+     },
+     {
+      "action": "fill",
+      "k": "inPayment=nodefault",
+      "kind": "nodefault",
+      "sel": "#inPayment",
+      "value": "2000"
+     }
+    ],
+    "pressed": {
+     "label": "+ Add",
+     "sel": null
+    },
+    "scale": 2.0
+   },
+   "half": {
+    "added": [
+     {
+      "label": "+ Add",
+      "sel": null
+     }
+    ],
+    "after_input": {
+     "controls": {
+      "inMortgage": "500",
+      "inName": "Probe",
+      "inPayment": "500",
+      "inRent": "500",
+      "inValue": "500"
+     },
+     "ids": {
+      "d_cashflow": "\u00a30|block",
+      "d_count": "0 Properties|block",
+      "d_equity": "\u00a30|block",
+      "d_ltv": "0% LTV|block",
+      "d_rent": "\u00a30 / mo Rent|block",
+      "d_totalVal": "\u00a30|block",
+      "d_yield": "0.0%|block",
+      "emptyState": "Your dashboard is currently empty. Add your first property below to start generating portfolio analytics.|block",
+      "inMortgage": "|inline-block",
+      "inName": "|inline-block",
+      "inPayment": "|inline-block",
+      "inRent": "|inline-block",
+      "inValue": "|inline-block",
+      "propTable": "Property Name / Address Value (\u00a3) Mortgage (\u00a3) LTV (%) Monthly Rent (\u00a3) Mortgage Payment (\u00a3) Actions|none",
+      "tableBody": "|table-row-group"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "inMortgage": "",
+      "inName": "",
+      "inPayment": "",
+      "inRent": "",
+      "inValue": ""
+     },
+     "ids": {
+      "d_cashflow": "\u00a30|block",
+      "d_count": "1 Property|block",
+      "d_equity": "\u00a30|block",
+      "d_ltv": "100.0% LTV|block",
+      "d_rent": "\u00a3500 / mo Rent|block",
+      "d_totalVal": "\u00a3500|block",
+      "d_yield": "1200.00%|block",
+      "emptyState": "Your dashboard is currently empty. Add your first property below to start generating portfolio analytics.|none",
+      "inMortgage": "|inline-block",
+      "inName": "|inline-block",
+      "inPayment": "|inline-block",
+      "inRent": "|inline-block",
+      "inValue": "|inline-block",
+      "propTable": "Property Name / Address Value (\u00a3) Mortgage (\u00a3) LTV (%) Monthly Rent (\u00a3) Mortgage Payment (\u00a3) Actions Probe \u00a3500 \u00a3500 100.0% \u00a3500 \u00a3500 Remove|table",
+      "tableBody": "Probe \u00a3500 \u00a3500 100.0% \u00a3500 \u00a3500 Remove|table-row-group"
+     }
+    },
+    "before": {
+     "controls": {
+      "inMortgage": "",
+      "inName": "",
+      "inPayment": "",
+      "inRent": "",
+      "inValue": ""
+     },
+     "ids": {
+      "d_cashflow": "\u00a30|block",
+      "d_count": "0 Properties|block",
+      "d_equity": "\u00a30|block",
+      "d_ltv": "0% LTV|block",
+      "d_rent": "\u00a30 / mo Rent|block",
+      "d_totalVal": "\u00a30|block",
+      "d_yield": "0.0%|block",
+      "emptyState": "Your dashboard is currently empty. Add your first property below to start generating portfolio analytics.|block",
+      "inMortgage": "|inline-block",
+      "inName": "|inline-block",
+      "inPayment": "|inline-block",
+      "inRent": "|inline-block",
+      "inValue": "|inline-block",
+      "propTable": "Property Name / Address Value (\u00a3) Mortgage (\u00a3) LTV (%) Monthly Rent (\u00a3) Mortgage Payment (\u00a3) Actions|none",
+      "tableBody": "|table-row-group"
+     }
+    },
+    "dom_shape": "3:14679",
+    "drove": [
+     {
+      "action": "fill",
+      "k": "inName=text",
+      "kind": "text",
+      "sel": "#inName",
+      "value": "Probe"
+     },
+     {
+      "action": "fill",
+      "k": "inValue=nodefault",
+      "kind": "nodefault",
+      "sel": "#inValue",
+      "value": "500"
+     },
+     {
+      "action": "fill",
+      "k": "inMortgage=nodefault",
+      "kind": "nodefault",
+      "sel": "#inMortgage",
+      "value": "500"
+     },
+     {
+      "action": "fill",
+      "k": "inRent=nodefault",
+      "kind": "nodefault",
+      "sel": "#inRent",
+      "value": "500"
+     },
+     {
+      "action": "fill",
+      "k": "inPayment=nodefault",
+      "kind": "nodefault",
+      "sel": "#inPayment",
+      "value": "500"
+     }
+    ],
+    "pressed": {
+     "label": "+ Add",
+     "sel": null
+    },
+    "scale": 0.5
+   }
+  },
+  "https://mortgagecalculator.co.uk/rate-forecaster.html": {
+   "asym": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "fcAmount": "425000",
+      "fcTerm": "15",
+      "rate1": "10.35",
+      "rate2": "6.05",
+      "rate3": "10.85"
+     },
+     "ids": {
+      "diff2": "|inline",
+      "fcAmount": "|inline-block",
+      "fcTerm": "|inline-block",
+      "pay1": "\u00a30|block",
+      "pay2": "\u00a30|block",
+      "pay3": "\u00a30|block",
+      "rate1": "|inline-block",
+      "rate2": "|inline-block",
+      "rate3": "|inline-block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "fcAmount": "425000",
+      "fcTerm": "15",
+      "rate1": "10.35",
+      "rate2": "6.05",
+      "rate3": "10.85"
+     },
+     "ids": {
+      "diff2": "-\u00a3962 decrease|inline",
+      "fcAmount": "|inline-block",
+      "fcTerm": "|inline-block",
+      "pay1": "\u00a34,659|block",
+      "pay2": "\u00a33,697|block",
+      "pay3": "\u00a34,548|block",
+      "rate1": "|inline-block",
+      "rate2": "|inline-block",
+      "rate3": "|inline-block"
+     }
+    },
+    "before": {
+     "controls": {
+      "fcAmount": "250000",
+      "fcTerm": "25",
+      "rate1": "4.5",
+      "rate2": "5.5",
+      "rate3": "3.5"
+     },
+     "ids": {
+      "diff2": "|inline",
+      "fcAmount": "|inline-block",
+      "fcTerm": "|inline-block",
+      "pay1": "\u00a30|block",
+      "pay2": "\u00a30|block",
+      "pay3": "\u00a30|block",
+      "rate1": "|inline-block",
+      "rate2": "|inline-block",
+      "rate3": "|inline-block"
+     }
+    },
+    "dom_shape": "2:4877",
+    "drove": [
+     {
+      "action": "fill",
+      "k": "fcAmount",
+      "kind": "number",
+      "sel": "#fcAmount",
+      "value": "425000"
+     },
+     {
+      "action": "fill",
+      "k": "fcTerm",
+      "kind": "number",
+      "sel": "#fcTerm",
+      "value": "15"
+     },
+     {
+      "action": "fill",
+      "k": "rate1",
+      "kind": "number",
+      "sel": "#rate1",
+      "value": "10.35"
+     },
+     {
+      "action": "fill",
+      "k": "rate2",
+      "kind": "number",
+      "sel": "#rate2",
+      "value": "6.05"
+     },
+     {
+      "action": "fill",
+      "k": "rate3",
+      "kind": "number",
+      "sel": "#rate3",
+      "value": "10.85"
+     }
+    ],
+    "pressed": {
+     "label": "Run Stress Test",
+     "sel": null
+    },
+    "scale": "asym"
+   },
+   "defaults": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "fcAmount": "250000",
+      "fcTerm": "25",
+      "rate1": "4.5",
+      "rate2": "5.5",
+      "rate3": "3.5"
+     },
+     "ids": {
+      "diff2": "|inline",
+      "fcAmount": "|inline-block",
+      "fcTerm": "|inline-block",
+      "pay1": "\u00a30|block",
+      "pay2": "\u00a30|block",
+      "pay3": "\u00a30|block",
+      "rate1": "|inline-block",
+      "rate2": "|inline-block",
+      "rate3": "|inline-block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "fcAmount": "250000",
+      "fcTerm": "25",
+      "rate1": "4.5",
+      "rate2": "5.5",
+      "rate3": "3.5"
+     },
+     "ids": {
+      "diff2": "+\u00a3136 increase|inline",
+      "fcAmount": "|inline-block",
+      "fcTerm": "|inline-block",
+      "pay1": "\u00a31,390|block",
+      "pay2": "\u00a31,526|block",
+      "pay3": "\u00a31,286|block",
+      "rate1": "|inline-block",
+      "rate2": "|inline-block",
+      "rate3": "|inline-block"
+     }
+    },
+    "before": {
+     "controls": {
+      "fcAmount": "250000",
+      "fcTerm": "25",
+      "rate1": "4.5",
+      "rate2": "5.5",
+      "rate3": "3.5"
+     },
+     "ids": {
+      "diff2": "|inline",
+      "fcAmount": "|inline-block",
+      "fcTerm": "|inline-block",
+      "pay1": "\u00a30|block",
+      "pay2": "\u00a30|block",
+      "pay3": "\u00a30|block",
+      "rate1": "|inline-block",
+      "rate2": "|inline-block",
+      "rate3": "|inline-block"
+     }
+    },
+    "dom_shape": "2:4877",
+    "drove": [
+     {
+      "action": "fill",
+      "k": "fcAmount",
+      "kind": "number",
+      "sel": "#fcAmount",
+      "value": "250000"
+     },
+     {
+      "action": "fill",
+      "k": "fcTerm",
+      "kind": "number",
+      "sel": "#fcTerm",
+      "value": "25"
+     },
+     {
+      "action": "fill",
+      "k": "rate1",
+      "kind": "number",
+      "sel": "#rate1",
+      "value": "4.5"
+     },
+     {
+      "action": "fill",
+      "k": "rate2",
+      "kind": "number",
+      "sel": "#rate2",
+      "value": "5.5"
+     },
+     {
+      "action": "fill",
+      "k": "rate3",
+      "kind": "number",
+      "sel": "#rate3",
+      "value": "3.5"
+     }
+    ],
+    "pressed": {
+     "label": "Run Stress Test",
+     "sel": null
+    },
+    "scale": 1.0
+   },
+   "double": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "fcAmount": "500000",
+      "fcTerm": "50",
+      "rate1": "9",
+      "rate2": "11",
+      "rate3": "7"
+     },
+     "ids": {
+      "diff2": "|inline",
+      "fcAmount": "|inline-block",
+      "fcTerm": "|inline-block",
+      "pay1": "\u00a30|block",
+      "pay2": "\u00a30|block",
+      "pay3": "\u00a30|block",
+      "rate1": "|inline-block",
+      "rate2": "|inline-block",
+      "rate3": "|inline-block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "fcAmount": "500000",
+      "fcTerm": "50",
+      "rate1": "9",
+      "rate2": "11",
+      "rate3": "7"
+     },
+     "ids": {
+      "diff2": "+\u00a3804 increase|inline",
+      "fcAmount": "|inline-block",
+      "fcTerm": "|inline-block",
+      "pay1": "\u00a33,793|block",
+      "pay2": "\u00a34,597|block",
+      "pay3": "\u00a33,035|block",
+      "rate1": "|inline-block",
+      "rate2": "|inline-block",
+      "rate3": "|inline-block"
+     }
+    },
+    "before": {
+     "controls": {
+      "fcAmount": "250000",
+      "fcTerm": "25",
+      "rate1": "4.5",
+      "rate2": "5.5",
+      "rate3": "3.5"
+     },
+     "ids": {
+      "diff2": "|inline",
+      "fcAmount": "|inline-block",
+      "fcTerm": "|inline-block",
+      "pay1": "\u00a30|block",
+      "pay2": "\u00a30|block",
+      "pay3": "\u00a30|block",
+      "rate1": "|inline-block",
+      "rate2": "|inline-block",
+      "rate3": "|inline-block"
+     }
+    },
+    "dom_shape": "2:4877",
+    "drove": [
+     {
+      "action": "fill",
+      "k": "fcAmount",
+      "kind": "number",
+      "sel": "#fcAmount",
+      "value": "500000"
+     },
+     {
+      "action": "fill",
+      "k": "fcTerm",
+      "kind": "number",
+      "sel": "#fcTerm",
+      "value": "50"
+     },
+     {
+      "action": "fill",
+      "k": "rate1",
+      "kind": "number",
+      "sel": "#rate1",
+      "value": "9"
+     },
+     {
+      "action": "fill",
+      "k": "rate2",
+      "kind": "number",
+      "sel": "#rate2",
+      "value": "11"
+     },
+     {
+      "action": "fill",
+      "k": "rate3",
+      "kind": "number",
+      "sel": "#rate3",
+      "value": "7"
+     }
+    ],
+    "pressed": {
+     "label": "Run Stress Test",
+     "sel": null
+    },
+    "scale": 2.0
+   },
+   "half": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "fcAmount": "125000",
+      "fcTerm": "12.5",
+      "rate1": "2.25",
+      "rate2": "2.75",
+      "rate3": "1.75"
+     },
+     "ids": {
+      "diff2": "|inline",
+      "fcAmount": "|inline-block",
+      "fcTerm": "|inline-block",
+      "pay1": "\u00a30|block",
+      "pay2": "\u00a30|block",
+      "pay3": "\u00a30|block",
+      "rate1": "|inline-block",
+      "rate2": "|inline-block",
+      "rate3": "|inline-block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "fcAmount": "125000",
+      "fcTerm": "12.5",
+      "rate1": "2.25",
+      "rate2": "2.75",
+      "rate3": "1.75"
+     },
+     "ids": {
+      "diff2": "+\u00a324 increase|inline",
+      "fcAmount": "|inline-block",
+      "fcTerm": "|inline-block",
+      "pay1": "\u00a3957|block",
+      "pay2": "\u00a3981|block",
+      "pay3": "\u00a3946|block",
+      "rate1": "|inline-block",
+      "rate2": "|inline-block",
+      "rate3": "|inline-block"
+     }
+    },
+    "before": {
+     "controls": {
+      "fcAmount": "250000",
+      "fcTerm": "25",
+      "rate1": "4.5",
+      "rate2": "5.5",
+      "rate3": "3.5"
+     },
+     "ids": {
+      "diff2": "|inline",
+      "fcAmount": "|inline-block",
+      "fcTerm": "|inline-block",
+      "pay1": "\u00a30|block",
+      "pay2": "\u00a30|block",
+      "pay3": "\u00a30|block",
+      "rate1": "|inline-block",
+      "rate2": "|inline-block",
+      "rate3": "|inline-block"
+     }
+    },
+    "dom_shape": "2:4877",
+    "drove": [
+     {
+      "action": "fill",
+      "k": "fcAmount",
+      "kind": "number",
+      "sel": "#fcAmount",
+      "value": "125000"
+     },
+     {
+      "action": "fill",
+      "k": "fcTerm",
+      "kind": "number",
+      "sel": "#fcTerm",
+      "value": "12.5"
+     },
+     {
+      "action": "fill",
+      "k": "rate1",
+      "kind": "number",
+      "sel": "#rate1",
+      "value": "2.25"
+     },
+     {
+      "action": "fill",
+      "k": "rate2",
+      "kind": "number",
+      "sel": "#rate2",
+      "value": "2.75"
+     },
+     {
+      "action": "fill",
+      "k": "rate3",
+      "kind": "number",
+      "sel": "#rate3",
+      "value": "1.75"
+     }
+    ],
+    "pressed": {
+     "label": "Run Stress Test",
+     "sel": null
+    },
+    "scale": 0.5
+   }
+  },
+  "https://mortgagecalculator.co.uk/repayment.html": {
+   "asym": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "interestRate": "2.7",
+      "loanAmount": "425000",
+      "termYears": "57.5"
+     },
+     "ids": {
+      "amortizationTable": "Year 1 \u00a311,137 \u00a35,538 \u00a3244,462 Year 2 \u00a310,882 \u00a35,793 \u00a3238,669 Year 3 \u00a310,616 \u00a36,059 \u00a3232,610 Year 4 \u00a310,338 \u00a36,337 \u00a3226,273 Year 5 \u00a310,047 \u00a36,628 \u00a3219,645 Year 6 \u00a39,742 \u00a36,933 \u00a3212,712 Year 7 \u00a39,424 \u00a3|table-row-group",
+      "displayMonthly": "\u00a31,390|block",
+      "displayTotalInterest": "\u00a3166,874|inline",
+      "displayTotalRepayable": "\u00a3416,874|inline",
+      "interestRate": "|inline-block",
+      "loanAmount": "|inline-block",
+      "resultsArea": "Monthly Payment \u00a31,390 Total Interest \u00a3166,874 Total Repayable \u00a3416,874|block",
+      "termYears": "|inline-block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "interestRate": "2.7",
+      "loanAmount": "425000",
+      "termYears": "57.5"
+     },
+     "ids": {
+      "amortizationTable": "Year 1 \u00a311,436 \u00a33,127 \u00a3421,873 Year 2 \u00a311,351 \u00a33,213 \u00a3418,660 Year 3 \u00a311,263 \u00a33,301 \u00a3415,359 Year 4 \u00a311,173 \u00a33,391 \u00a3411,968 Year 5 \u00a311,080 \u00a33,484 \u00a3408,485 Year 6 \u00a310,985 \u00a33,579 \u00a3404,906 Year 7 \u00a310,887|table-row-group",
+      "displayMonthly": "\u00a31,214|block",
+      "displayTotalInterest": "\u00a3412,419|inline",
+      "displayTotalRepayable": "\u00a3837,419|inline",
+      "interestRate": "|inline-block",
+      "loanAmount": "|inline-block",
+      "resultsArea": "Monthly Payment \u00a31,214 Total Interest \u00a3412,419 Total Repayable \u00a3837,419|block",
+      "termYears": "|inline-block"
+     }
+    },
+    "before": {
+     "controls": {
+      "interestRate": "4.5",
+      "loanAmount": "250000",
+      "termYears": "25"
+     },
+     "ids": {
+      "amortizationTable": "Year 1 \u00a311,137 \u00a35,538 \u00a3244,462 Year 2 \u00a310,882 \u00a35,793 \u00a3238,669 Year 3 \u00a310,616 \u00a36,059 \u00a3232,610 Year 4 \u00a310,338 \u00a36,337 \u00a3226,273 Year 5 \u00a310,047 \u00a36,628 \u00a3219,645 Year 6 \u00a39,742 \u00a36,933 \u00a3212,712 Year 7 \u00a39,424 \u00a3|table-row-group",
+      "displayMonthly": "\u00a31,390|block",
+      "displayTotalInterest": "\u00a3166,874|inline",
+      "displayTotalRepayable": "\u00a3416,874|inline",
+      "interestRate": "|inline-block",
+      "loanAmount": "|inline-block",
+      "resultsArea": "Monthly Payment \u00a31,390 Total Interest \u00a3166,874 Total Repayable \u00a3416,874|block",
+      "termYears": "|inline-block"
+     }
+    },
+    "dom_shape": "3:15690",
+    "drove": [
+     {
+      "action": "fill",
+      "k": "loanAmount",
+      "kind": "number",
+      "sel": "#loanAmount",
+      "value": "425000"
+     },
+     {
+      "action": "fill",
+      "k": "interestRate",
+      "kind": "number",
+      "sel": "#interestRate",
+      "value": "2.7"
+     },
+     {
+      "action": "fill",
+      "k": "termYears",
+      "kind": "number",
+      "sel": "#termYears",
+      "value": "57.5"
+     }
+    ],
+    "pressed": {
+     "label": "Calculate Full Cost",
+     "sel": null
+    },
+    "scale": "asym"
+   },
+   "defaults": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "interestRate": "4.5",
+      "loanAmount": "250000",
+      "termYears": "25"
+     },
+     "ids": {
+      "amortizationTable": "Year 1 \u00a311,137 \u00a35,538 \u00a3244,462 Year 2 \u00a310,882 \u00a35,793 \u00a3238,669 Year 3 \u00a310,616 \u00a36,059 \u00a3232,610 Year 4 \u00a310,338 \u00a36,337 \u00a3226,273 Year 5 \u00a310,047 \u00a36,628 \u00a3219,645 Year 6 \u00a39,742 \u00a36,933 \u00a3212,712 Year 7 \u00a39,424 \u00a3|table-row-group",
+      "displayMonthly": "\u00a31,390|block",
+      "displayTotalInterest": "\u00a3166,874|inline",
+      "displayTotalRepayable": "\u00a3416,874|inline",
+      "interestRate": "|inline-block",
+      "loanAmount": "|inline-block",
+      "resultsArea": "Monthly Payment \u00a31,390 Total Interest \u00a3166,874 Total Repayable \u00a3416,874|block",
+      "termYears": "|inline-block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "interestRate": "4.5",
+      "loanAmount": "250000",
+      "termYears": "25"
+     },
+     "ids": {
+      "amortizationTable": "Year 1 \u00a311,137 \u00a35,538 \u00a3244,462 Year 2 \u00a310,882 \u00a35,793 \u00a3238,669 Year 3 \u00a310,616 \u00a36,059 \u00a3232,610 Year 4 \u00a310,338 \u00a36,337 \u00a3226,273 Year 5 \u00a310,047 \u00a36,628 \u00a3219,645 Year 6 \u00a39,742 \u00a36,933 \u00a3212,712 Year 7 \u00a39,424 \u00a3|table-row-group",
+      "displayMonthly": "\u00a31,390|block",
+      "displayTotalInterest": "\u00a3166,874|inline",
+      "displayTotalRepayable": "\u00a3416,874|inline",
+      "interestRate": "|inline-block",
+      "loanAmount": "|inline-block",
+      "resultsArea": "Monthly Payment \u00a31,390 Total Interest \u00a3166,874 Total Repayable \u00a3416,874|block",
+      "termYears": "|inline-block"
+     }
+    },
+    "before": {
+     "controls": {
+      "interestRate": "4.5",
+      "loanAmount": "250000",
+      "termYears": "25"
+     },
+     "ids": {
+      "amortizationTable": "Year 1 \u00a311,137 \u00a35,538 \u00a3244,462 Year 2 \u00a310,882 \u00a35,793 \u00a3238,669 Year 3 \u00a310,616 \u00a36,059 \u00a3232,610 Year 4 \u00a310,338 \u00a36,337 \u00a3226,273 Year 5 \u00a310,047 \u00a36,628 \u00a3219,645 Year 6 \u00a39,742 \u00a36,933 \u00a3212,712 Year 7 \u00a39,424 \u00a3|table-row-group",
+      "displayMonthly": "\u00a31,390|block",
+      "displayTotalInterest": "\u00a3166,874|inline",
+      "displayTotalRepayable": "\u00a3416,874|inline",
+      "interestRate": "|inline-block",
+      "loanAmount": "|inline-block",
+      "resultsArea": "Monthly Payment \u00a31,390 Total Interest \u00a3166,874 Total Repayable \u00a3416,874|block",
+      "termYears": "|inline-block"
+     }
+    },
+    "dom_shape": "3:15690",
+    "drove": [
+     {
+      "action": "fill",
+      "k": "loanAmount",
+      "kind": "number",
+      "sel": "#loanAmount",
+      "value": "250000"
+     },
+     {
+      "action": "fill",
+      "k": "interestRate",
+      "kind": "number",
+      "sel": "#interestRate",
+      "value": "4.5"
+     },
+     {
+      "action": "fill",
+      "k": "termYears",
+      "kind": "number",
+      "sel": "#termYears",
+      "value": "25"
+     }
+    ],
+    "pressed": {
+     "label": "Calculate Full Cost",
+     "sel": null
+    },
+    "scale": 1.0
+   },
+   "double": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "interestRate": "9",
+      "loanAmount": "500000",
+      "termYears": "50"
+     },
+     "ids": {
+      "amortizationTable": "Year 1 \u00a311,137 \u00a35,538 \u00a3244,462 Year 2 \u00a310,882 \u00a35,793 \u00a3238,669 Year 3 \u00a310,616 \u00a36,059 \u00a3232,610 Year 4 \u00a310,338 \u00a36,337 \u00a3226,273 Year 5 \u00a310,047 \u00a36,628 \u00a3219,645 Year 6 \u00a39,742 \u00a36,933 \u00a3212,712 Year 7 \u00a39,424 \u00a3|table-row-group",
+      "displayMonthly": "\u00a31,390|block",
+      "displayTotalInterest": "\u00a3166,874|inline",
+      "displayTotalRepayable": "\u00a3416,874|inline",
+      "interestRate": "|inline-block",
+      "loanAmount": "|inline-block",
+      "resultsArea": "Monthly Payment \u00a31,390 Total Interest \u00a3166,874 Total Repayable \u00a3416,874|block",
+      "termYears": "|inline-block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "interestRate": "9",
+      "loanAmount": "500000",
+      "termYears": "50"
+     },
+     "ids": {
+      "amortizationTable": "Year 1 \u00a344,978 \u00a3536 \u00a3499,464 Year 2 \u00a344,928 \u00a3586 \u00a3498,878 Year 3 \u00a344,873 \u00a3641 \u00a3498,237 Year 4 \u00a344,813 \u00a3701 \u00a3497,535 Year 5 \u00a344,747 \u00a3767 \u00a3496,768 Year 6 \u00a344,675 \u00a3839 \u00a3495,929 Year 7 \u00a344,596 \u00a3918 \u00a3495,0|table-row-group",
+      "displayMonthly": "\u00a33,793|block",
+      "displayTotalInterest": "\u00a31,775,709|inline",
+      "displayTotalRepayable": "\u00a32,275,709|inline",
+      "interestRate": "|inline-block",
+      "loanAmount": "|inline-block",
+      "resultsArea": "Monthly Payment \u00a33,793 Total Interest \u00a31,775,709 Total Repayable \u00a32,275,709|block",
+      "termYears": "|inline-block"
+     }
+    },
+    "before": {
+     "controls": {
+      "interestRate": "4.5",
+      "loanAmount": "250000",
+      "termYears": "25"
+     },
+     "ids": {
+      "amortizationTable": "Year 1 \u00a311,137 \u00a35,538 \u00a3244,462 Year 2 \u00a310,882 \u00a35,793 \u00a3238,669 Year 3 \u00a310,616 \u00a36,059 \u00a3232,610 Year 4 \u00a310,338 \u00a36,337 \u00a3226,273 Year 5 \u00a310,047 \u00a36,628 \u00a3219,645 Year 6 \u00a39,742 \u00a36,933 \u00a3212,712 Year 7 \u00a39,424 \u00a3|table-row-group",
+      "displayMonthly": "\u00a31,390|block",
+      "displayTotalInterest": "\u00a3166,874|inline",
+      "displayTotalRepayable": "\u00a3416,874|inline",
+      "interestRate": "|inline-block",
+      "loanAmount": "|inline-block",
+      "resultsArea": "Monthly Payment \u00a31,390 Total Interest \u00a3166,874 Total Repayable \u00a3416,874|block",
+      "termYears": "|inline-block"
+     }
+    },
+    "dom_shape": "3:15690",
+    "drove": [
+     {
+      "action": "fill",
+      "k": "loanAmount",
+      "kind": "number",
+      "sel": "#loanAmount",
+      "value": "500000"
+     },
+     {
+      "action": "fill",
+      "k": "interestRate",
+      "kind": "number",
+      "sel": "#interestRate",
+      "value": "9"
+     },
+     {
+      "action": "fill",
+      "k": "termYears",
+      "kind": "number",
+      "sel": "#termYears",
+      "value": "50"
+     }
+    ],
+    "pressed": {
+     "label": "Calculate Full Cost",
+     "sel": null
+    },
+    "scale": 2.0
+   },
+   "half": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "interestRate": "2.25",
+      "loanAmount": "125000",
+      "termYears": "12.5"
+     },
+     "ids": {
+      "amortizationTable": "Year 1 \u00a311,137 \u00a35,538 \u00a3244,462 Year 2 \u00a310,882 \u00a35,793 \u00a3238,669 Year 3 \u00a310,616 \u00a36,059 \u00a3232,610 Year 4 \u00a310,338 \u00a36,337 \u00a3226,273 Year 5 \u00a310,047 \u00a36,628 \u00a3219,645 Year 6 \u00a39,742 \u00a36,933 \u00a3212,712 Year 7 \u00a39,424 \u00a3|table-row-group",
+      "displayMonthly": "\u00a31,390|block",
+      "displayTotalInterest": "\u00a3166,874|inline",
+      "displayTotalRepayable": "\u00a3416,874|inline",
+      "interestRate": "|inline-block",
+      "loanAmount": "|inline-block",
+      "resultsArea": "Monthly Payment \u00a31,390 Total Interest \u00a3166,874 Total Repayable \u00a3416,874|block",
+      "termYears": "|inline-block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "interestRate": "2.25",
+      "loanAmount": "125000",
+      "termYears": "12.5"
+     },
+     "ids": {
+      "amortizationTable": "Year 1 \u00a32,723 \u00a38,759 \u00a3116,241 Year 2 \u00a32,523 \u00a38,958 \u00a3107,283 Year 3 \u00a32,320 \u00a39,162 \u00a398,122 Year 4 \u00a32,112 \u00a39,370 \u00a388,752 Year 5 \u00a31,898 \u00a39,583 \u00a379,169 Year 6 \u00a31,681 \u00a39,801 \u00a369,368 Year 7 \u00a31,458 \u00a310,024 \u00a35|table-row-group",
+      "displayMonthly": "\u00a3957|block",
+      "displayTotalInterest": "\u00a318,517|inline",
+      "displayTotalRepayable": "\u00a3143,517|inline",
+      "interestRate": "|inline-block",
+      "loanAmount": "|inline-block",
+      "resultsArea": "Monthly Payment \u00a3957 Total Interest \u00a318,517 Total Repayable \u00a3143,517|block",
+      "termYears": "|inline-block"
+     }
+    },
+    "before": {
+     "controls": {
+      "interestRate": "4.5",
+      "loanAmount": "250000",
+      "termYears": "25"
+     },
+     "ids": {
+      "amortizationTable": "Year 1 \u00a311,137 \u00a35,538 \u00a3244,462 Year 2 \u00a310,882 \u00a35,793 \u00a3238,669 Year 3 \u00a310,616 \u00a36,059 \u00a3232,610 Year 4 \u00a310,338 \u00a36,337 \u00a3226,273 Year 5 \u00a310,047 \u00a36,628 \u00a3219,645 Year 6 \u00a39,742 \u00a36,933 \u00a3212,712 Year 7 \u00a39,424 \u00a3|table-row-group",
+      "displayMonthly": "\u00a31,390|block",
+      "displayTotalInterest": "\u00a3166,874|inline",
+      "displayTotalRepayable": "\u00a3416,874|inline",
+      "interestRate": "|inline-block",
+      "loanAmount": "|inline-block",
+      "resultsArea": "Monthly Payment \u00a31,390 Total Interest \u00a3166,874 Total Repayable \u00a3416,874|block",
+      "termYears": "|inline-block"
+     }
+    },
+    "dom_shape": "3:15690",
+    "drove": [
+     {
+      "action": "fill",
+      "k": "loanAmount",
+      "kind": "number",
+      "sel": "#loanAmount",
+      "value": "125000"
+     },
+     {
+      "action": "fill",
+      "k": "interestRate",
+      "kind": "number",
+      "sel": "#interestRate",
+      "value": "2.25"
+     },
+     {
+      "action": "fill",
+      "k": "termYears",
+      "kind": "number",
+      "sel": "#termYears",
+      "value": "12.5"
+     }
+    ],
+    "pressed": {
+     "label": "Calculate Full Cost",
+     "sel": null
+    },
+    "scale": 0.5
+   }
+  },
+  "https://mortgagecalculator.co.uk/simple.html": {
+   "asym": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "amt": "340000",
+      "rate": "2.7",
+      "years": "57.5"
+     },
+     "ids": {
+      "amt": "|inline-block",
+      "monthlyResult": "\u00a31,112|block",
+      "rate": "|inline-block",
+      "years": "|inline-block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "amt": "340000",
+      "rate": "2.7",
+      "years": "57.5"
+     },
+     "ids": {
+      "amt": "|inline-block",
+      "monthlyResult": "\u00a3971|block",
+      "rate": "|inline-block",
+      "years": "|inline-block"
+     }
+    },
+    "before": {
+     "controls": {
+      "amt": "200000",
+      "rate": "4.5",
+      "years": "25"
+     },
+     "ids": {
+      "amt": "|inline-block",
+      "monthlyResult": "\u00a31,112|block",
+      "rate": "|inline-block",
+      "years": "|inline-block"
+     }
+    },
+    "dom_shape": "3:2451",
+    "drove": [
+     {
+      "action": "fill",
+      "k": "amt",
+      "kind": "number",
+      "sel": "#amt",
+      "value": "340000"
+     },
+     {
+      "action": "fill",
+      "k": "rate",
+      "kind": "number",
+      "sel": "#rate",
+      "value": "2.7"
+     },
+     {
+      "action": "fill",
+      "k": "years",
+      "kind": "number",
+      "sel": "#years",
+      "value": "57.5"
+     }
+    ],
+    "pressed": {
+     "label": "Calculate",
+     "sel": null
+    },
+    "scale": "asym"
+   },
+   "defaults": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "amt": "200000",
+      "rate": "4.5",
+      "years": "25"
+     },
+     "ids": {
+      "amt": "|inline-block",
+      "monthlyResult": "\u00a31,112|block",
+      "rate": "|inline-block",
+      "years": "|inline-block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "amt": "200000",
+      "rate": "4.5",
+      "years": "25"
+     },
+     "ids": {
+      "amt": "|inline-block",
+      "monthlyResult": "\u00a31,112|block",
+      "rate": "|inline-block",
+      "years": "|inline-block"
+     }
+    },
+    "before": {
+     "controls": {
+      "amt": "200000",
+      "rate": "4.5",
+      "years": "25"
+     },
+     "ids": {
+      "amt": "|inline-block",
+      "monthlyResult": "\u00a31,112|block",
+      "rate": "|inline-block",
+      "years": "|inline-block"
+     }
+    },
+    "dom_shape": "3:2451",
+    "drove": [
+     {
+      "action": "fill",
+      "k": "amt",
+      "kind": "number",
+      "sel": "#amt",
+      "value": "200000"
+     },
+     {
+      "action": "fill",
+      "k": "rate",
+      "kind": "number",
+      "sel": "#rate",
+      "value": "4.5"
+     },
+     {
+      "action": "fill",
+      "k": "years",
+      "kind": "number",
+      "sel": "#years",
+      "value": "25"
+     }
+    ],
+    "pressed": {
+     "label": "Calculate",
+     "sel": null
+    },
+    "scale": 1.0
+   },
+   "double": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "amt": "400000",
+      "rate": "9",
+      "years": "50"
+     },
+     "ids": {
+      "amt": "|inline-block",
+      "monthlyResult": "\u00a31,112|block",
+      "rate": "|inline-block",
+      "years": "|inline-block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "amt": "400000",
+      "rate": "9",
+      "years": "50"
+     },
+     "ids": {
+      "amt": "|inline-block",
+      "monthlyResult": "\u00a33,034|block",
+      "rate": "|inline-block",
+      "years": "|inline-block"
+     }
+    },
+    "before": {
+     "controls": {
+      "amt": "200000",
+      "rate": "4.5",
+      "years": "25"
+     },
+     "ids": {
+      "amt": "|inline-block",
+      "monthlyResult": "\u00a31,112|block",
+      "rate": "|inline-block",
+      "years": "|inline-block"
+     }
+    },
+    "dom_shape": "3:2451",
+    "drove": [
+     {
+      "action": "fill",
+      "k": "amt",
+      "kind": "number",
+      "sel": "#amt",
+      "value": "400000"
+     },
+     {
+      "action": "fill",
+      "k": "rate",
+      "kind": "number",
+      "sel": "#rate",
+      "value": "9"
+     },
+     {
+      "action": "fill",
+      "k": "years",
+      "kind": "number",
+      "sel": "#years",
+      "value": "50"
+     }
+    ],
+    "pressed": {
+     "label": "Calculate",
+     "sel": null
+    },
+    "scale": 2.0
+   },
+   "half": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "amt": "100000",
+      "rate": "2.25",
+      "years": "12.5"
+     },
+     "ids": {
+      "amt": "|inline-block",
+      "monthlyResult": "\u00a31,112|block",
+      "rate": "|inline-block",
+      "years": "|inline-block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "amt": "100000",
+      "rate": "2.25",
+      "years": "12.5"
+     },
+     "ids": {
+      "amt": "|inline-block",
+      "monthlyResult": "\u00a3765|block",
+      "rate": "|inline-block",
+      "years": "|inline-block"
+     }
+    },
+    "before": {
+     "controls": {
+      "amt": "200000",
+      "rate": "4.5",
+      "years": "25"
+     },
+     "ids": {
+      "amt": "|inline-block",
+      "monthlyResult": "\u00a31,112|block",
+      "rate": "|inline-block",
+      "years": "|inline-block"
+     }
+    },
+    "dom_shape": "3:2451",
+    "drove": [
+     {
+      "action": "fill",
+      "k": "amt",
+      "kind": "number",
+      "sel": "#amt",
+      "value": "100000"
+     },
+     {
+      "action": "fill",
+      "k": "rate",
+      "kind": "number",
+      "sel": "#rate",
+      "value": "2.25"
+     },
+     {
+      "action": "fill",
+      "k": "years",
+      "kind": "number",
+      "sel": "#years",
+      "value": "12.5"
+     }
+    ],
+    "pressed": {
+     "label": "Calculate",
+     "sel": null
+    },
+    "scale": 0.5
+   }
+  },
+  "https://mortgagecalculator.co.uk/stamp-duty.html": {
+   "asym": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "buyerType": "ftb",
+      "price": "595000"
+     },
+     "ids": {
+      "breakdown": "|block",
+      "buyerType": "Next Home (Standard Mover) First Time Buyer Additional Property / Buy-to-Let|inline-block",
+      "price": "|inline-block",
+      "sdltResult": "\u00a37,500|block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "buyerType": "ftb",
+      "price": "595000"
+     },
+     "ids": {
+      "breakdown": "First Time Buyer Relief Applied.|block",
+      "buyerType": "Next Home (Standard Mover) First Time Buyer Additional Property / Buy-to-Let|inline-block",
+      "price": "|inline-block",
+      "sdltResult": "\u00a314,750|block"
+     }
+    },
+    "before": {
+     "controls": {
+      "buyerType": "next",
+      "price": "350000"
+     },
+     "ids": {
+      "breakdown": "|block",
+      "buyerType": "Next Home (Standard Mover) First Time Buyer Additional Property / Buy-to-Let|inline-block",
+      "price": "|inline-block",
+      "sdltResult": "\u00a37,500|block"
+     }
+    },
+    "dom_shape": "3:5853",
+    "drove": [
+     {
+      "action": "fill",
+      "k": "price",
+      "kind": "number",
+      "sel": "#price",
+      "value": "595000"
+     },
+     {
+      "action": "select",
+      "k": "buyerType=opt1",
+      "kind": "opt1",
+      "sel": "#buyerType",
+      "value": "ftb"
+     }
+    ],
+    "pressed": {
+     "label": "Calculate Tax",
+     "sel": null
+    },
+    "scale": "asym"
+   },
+   "defaults": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "buyerType": "ftb",
+      "price": "350000"
+     },
+     "ids": {
+      "breakdown": "|block",
+      "buyerType": "Next Home (Standard Mover) First Time Buyer Additional Property / Buy-to-Let|inline-block",
+      "price": "|inline-block",
+      "sdltResult": "\u00a37,500|block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "buyerType": "ftb",
+      "price": "350000"
+     },
+     "ids": {
+      "breakdown": "First Time Buyer Relief Applied.|block",
+      "buyerType": "Next Home (Standard Mover) First Time Buyer Additional Property / Buy-to-Let|inline-block",
+      "price": "|inline-block",
+      "sdltResult": "\u00a32,500|block"
+     }
+    },
+    "before": {
+     "controls": {
+      "buyerType": "next",
+      "price": "350000"
+     },
+     "ids": {
+      "breakdown": "|block",
+      "buyerType": "Next Home (Standard Mover) First Time Buyer Additional Property / Buy-to-Let|inline-block",
+      "price": "|inline-block",
+      "sdltResult": "\u00a37,500|block"
+     }
+    },
+    "dom_shape": "3:5853",
+    "drove": [
+     {
+      "action": "fill",
+      "k": "price",
+      "kind": "number",
+      "sel": "#price",
+      "value": "350000"
+     },
+     {
+      "action": "select",
+      "k": "buyerType=opt1",
+      "kind": "opt1",
+      "sel": "#buyerType",
+      "value": "ftb"
+     }
+    ],
+    "pressed": {
+     "label": "Calculate Tax",
+     "sel": null
+    },
+    "scale": 1.0
+   },
+   "double": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "buyerType": "ftb",
+      "price": "700000"
+     },
+     "ids": {
+      "breakdown": "|block",
+      "buyerType": "Next Home (Standard Mover) First Time Buyer Additional Property / Buy-to-Let|inline-block",
+      "price": "|inline-block",
+      "sdltResult": "\u00a37,500|block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "buyerType": "ftb",
+      "price": "700000"
+     },
+     "ids": {
+      "breakdown": "|block",
+      "buyerType": "Next Home (Standard Mover) First Time Buyer Additional Property / Buy-to-Let|inline-block",
+      "price": "|inline-block",
+      "sdltResult": "\u00a325,000|block"
+     }
+    },
+    "before": {
+     "controls": {
+      "buyerType": "next",
+      "price": "350000"
+     },
+     "ids": {
+      "breakdown": "|block",
+      "buyerType": "Next Home (Standard Mover) First Time Buyer Additional Property / Buy-to-Let|inline-block",
+      "price": "|inline-block",
+      "sdltResult": "\u00a37,500|block"
+     }
+    },
+    "dom_shape": "3:5853",
+    "drove": [
+     {
+      "action": "fill",
+      "k": "price",
+      "kind": "number",
+      "sel": "#price",
+      "value": "700000"
+     },
+     {
+      "action": "select",
+      "k": "buyerType=opt1",
+      "kind": "opt1",
+      "sel": "#buyerType",
+      "value": "ftb"
+     }
+    ],
+    "pressed": {
+     "label": "Calculate Tax",
+     "sel": null
+    },
+    "scale": 2.0
+   },
+   "half": {
+    "added": [],
+    "after_input": {
+     "controls": {
+      "buyerType": "ftb",
+      "price": "175000"
+     },
+     "ids": {
+      "breakdown": "|block",
+      "buyerType": "Next Home (Standard Mover) First Time Buyer Additional Property / Buy-to-Let|inline-block",
+      "price": "|inline-block",
+      "sdltResult": "\u00a37,500|block"
+     }
+    },
+    "after_press": {
+     "controls": {
+      "buyerType": "ftb",
+      "price": "175000"
+     },
+     "ids": {
+      "breakdown": "First Time Buyer Relief Applied.|block",
+      "buyerType": "Next Home (Standard Mover) First Time Buyer Additional Property / Buy-to-Let|inline-block",
+      "price": "|inline-block",
+      "sdltResult": "\u00a30|block"
+     }
+    },
+    "before": {
+     "controls": {
+      "buyerType": "next",
+      "price": "350000"
+     },
+     "ids": {
+      "breakdown": "|block",
+      "buyerType": "Next Home (Standard Mover) First Time Buyer Additional Property / Buy-to-Let|inline-block",
+      "price": "|inline-block",
+      "sdltResult": "\u00a37,500|block"
+     }
+    },
+    "dom_shape": "3:5853",
+    "drove": [
+     {
+      "action": "fill",
+      "k": "price",
+      "kind": "number",
+      "sel": "#price",
+      "value": "175000"
+     },
+     {
+      "action": "select",
+      "k": "buyerType=opt1",
+      "kind": "opt1",
+      "sel": "#buyerType",
+      "value": "ftb"
+     }
+    ],
+    "pressed": {
+     "label": "Calculate Tax",
+     "sel": null
+    },
+    "scale": 0.5
+   }
+  }
+ },
+ "vectors": [
+  "defaults",
+  "double",
+  "half",
+  "asym"
+ ]
+}

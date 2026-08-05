@@ -2844,3 +2844,30 @@ overpayment), not another site's — per the voice doc's rule 2 for per-site reu
 
 Backups first: `content_components_bak_20260805_prosesource` (2 rows),
 `page_components_bak_20260805_framework_rewrite` (63 rows).
+
+---
+
+## 2026-08-05 — CONTRIB from the mortgagecalculator adoption lane: toolgolden's uniform vectors falsely convict RATIO tools; fixed with a fourth, asymmetric vector
+
+Running your harness against mortgagecalculator.co.uk's 12 original tools, gate B
+refused `investor.html`: *"reacts, but output is identical for every input value —
+arithmetic ignores its inputs"*. **The conviction was false.** Both its calculators
+are pure ratios — yield = rent×12/price, LTV = loan/price — and every vector scales
+ALL fields by one shared factor (×1, ×2, ×0.5), which a quotient cannot see:
+(2r×12)/(2p) ≡ (r×12)/p. The arithmetic uses its inputs perfectly; the harness's
+question could not distinguish that from ignoring them.
+
+**Fix, in `toolgolden.py`:** a fourth vector `("asym", "asym")` — each numeric field
+scaled by a different deterministic factor (`[1.7, 0.6, 2.3, 1.1, 3.1, 0.45]`, cycled
+by document order). Gate B now also compares defaults↔asym; ratios move. Guards added
+so a pre-asym three-vector golden still loads, compares (with a printed NOTE) and emits.
+
+**Non-regression proven per TL-038's own landmine discipline** (re-capture the corpus
+and diff): `--compare` of your `GOLDEN_2026-08-03b_after_orphan_retired.json` across all
+11 pages — **11/11 MATCHES** on the three shared vectors, so existing driving is
+byte-identical. Result on the motivating case: investor.html vary 0→1, golden written;
+your future re-captures also gain coverage (mortgagecalculator's portfolio.html went
+vary 4→8 with asym in play).
+
+Worth knowing for your corpus: any future loancalculator tool computing a pure ratio
+(LTV checker, debt-to-income) would have hit this same false refusal.

@@ -774,3 +774,80 @@ v1.0.1251. They took **fix candidate 2**, the structural one — a shared
 handled the first-build escape the bug file flagged. **I went to implement candidate 1 and
 found it already done**; `git log` on the file was the whole check, and running it first
 is the cheapest step in this workflow.
+
+---
+
+## 2026-08-05 ~11:20–13:05 UTC — three guides live; the arithmetic checker EXISTS, was falsely refusing ratio tools, and now certifies all 12 originals
+
+### Guides batch (owner-approved): DONE
+
+`guide-remortgaging`, `guide-buy-to-let`, `guide-negative-equity` — armed, built through
+the real queue (unlock + auto-defer backstop from RUNBOOK §10c), all three live with
+chrome (hdr=1, ftr=1, ~19.6–20.6 KB), all three ORIGINAL file-form URLs still 200. Site
+re-locked. The queue claims by PRIORITY within a site once selected — `literal_markdown`
+(pri 5) went before our guides (25–27) — not the fleet FIFO, which chooses the SITE.
+
+Homepage secured first (owner choice): its 4 rebuilt `page_components` deleted (backed up
+in scratchpad + rebuilt HTML in git `fe6b81926`), restoring zero-components ⇒
+assembles-to-nothing ⇒ `skipped:true` protection **by construction**.
+
+### The owner asked: "is the framework in control, or is content authored and tools fixed?"
+
+Measured answer: **the framework controls almost nothing yet.** 23 of 26 pages are
+`planned` rows serving nothing. Everything a visitor uses is the hand-authored original —
+homepage, 9 guides at old URLs, and all 12 calculators driven by `js/calculators.js`
+(3,622 bytes, 5 functions). Owner then chose **complete adoption, with an arithmetic
+checker created FIRST** and an explicit instruction to search for prior art.
+
+### The prior-art search PAID — the checker exists (TL-038), do not build a duplicate
+
+- **`computed_values`** (Tier-4 check type, browser-runner): drives a tool and asserts the
+  EXACT text of every output. Council-APPROVED round 2, 8 tests, proven able to fail.
+  **Verified live in the current adapter: `INSTALL_GATE.sh` PASSED 2026-08-05.**
+- **`toolgolden.py`** (loancalculator lane): captures a working tool's answers; `--compare`
+  proves a rewrite didn't move them; `--emit-criteria` hands enforcement to the platform.
+- Enforcement path: fence in the tool's PLAN (`doc_plans` row, `subject_type='tool'`,
+  `subject_key`=pages.name) → `load_doc_context` → `doc_context.criteria_json` →
+  `tool-acceptance-agent` on the normal schedule. **Live precedent:** `tool-loan-vs-savings`
+  has a computed_values fence installed (authored 2026-08-05 by `staged_component_build`).
+
+### FALSE CONVICTION found and fixed: uniform vectors cannot see a ratio
+
+First capture refused `investor.html`: *"reacts, but output is identical for every input
+value — arithmetic ignores its inputs."* **The tool is correct.** Its two calculators are
+pure ratios (yield = rent×12/price, LTV = loan/price) and the harness scales ALL fields by
+one factor per vector — a quotient is scale-invariant, so the output CANNOT vary. The
+harness's question ("does output depend on input?") was unanswerable for ratio arithmetic
+as posed.
+
+Fix (in their instrument, contributed not forked): fourth vector `asym` — per-field
+deterministic factors `[1.7, 0.6, 2.3, 1.1, 3.1, 0.45]` cycled by document order; gate B
+now also diffs defaults↔asym; presence guards keep pre-asym goldens loading, comparing
+(with a printed NOTE) and emitting.
+
+**Non-regression proven the way TL-038's own landmine demands** (re-capture the corpus and
+diff, because "a single green run cannot see" a drive-heuristic change):
+`--compare GOLDEN_2026-08-03b` over all 11 loancalculator pages → **11/11 MATCHES**.
+Then our re-capture: investor vary 0→1 (certified), portfolio vary 4→8 (richer), **golden
+written for 12/12** → `acceptance/GOLDEN_2026-08-05_original_tools.json`.
+
+### Emission: 1 of 12 — and the 11 refusals ARE the rewrite contract
+
+`--emit-criteria`: only `fact-finder` emitted (4 checks, 12 assertions). All 11 others
+refused with one uniform finding: **every calculate button on the original site has no
+`id`** — capture can hold the element, but a fence must NAME it. (Same shape as
+loancalculator's 3 refusals.) So the recreation contract is: **preserve every input/output
+id verbatim; give every button an id.** Then `--compare` proves arithmetic parity against
+the golden, fences emit from the id-complete rebuilds, and the platform enforces the
+answers forever.
+
+Coverage caveat, recorded not hidden: the harness presses ONE button per page, so
+investor.html's golden covers the yield calculator only — the LTV half sits behind the
+second button and is uncovered. `[KNOWN GAP]`
+
+### Still open (tasks #4/#5)
+
+How the 12 fences get installed for the RECREATED tools (precedent format known; check the
+`staged_component_build` lane before writing PLAN rows — they are actively authoring
+these), whether tool-recreation's prompt needs the id-contract stated, then arm the 12
+recreations and verify each against its fence.

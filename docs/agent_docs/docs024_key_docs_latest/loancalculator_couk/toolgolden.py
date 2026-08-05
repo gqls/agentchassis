@@ -65,7 +65,17 @@ sys.path.insert(0, os.path.abspath(HARNESS))
 from toolprobe import CDP, start_chrome  # noqa: E402
 
 # Deterministic scalings of each numeric field's OWN default value.
-VECTORS = [("defaults", 1.0), ("double", 2.0), ("half", 0.5)]
+#
+# "asym" scales each numeric field by a DIFFERENT deterministic factor (by
+# document order) rather than one shared factor. Added 2026-08-05 after the
+# uniform vectors falsely convicted mortgagecalculator.co.uk/investor.html:
+# both its calculators are pure ratios (yield = rent*12/price, LTV =
+# loan/price), and a ratio is scale-invariant — multiply numerator and
+# denominator by the same factor and the output is IDENTICAL in every vector,
+# so gate B read a correct calculator as "arithmetic ignores its inputs".
+# Only asymmetric driving can make a ratio move. The three original vectors
+# drive exactly as before; existing goldens still compare equal on them.
+VECTORS = [("defaults", 1.0), ("double", 2.0), ("half", 0.5), ("asym", "asym")]
 
 # Fingerprint: every id-bearing element's visible text + display, and every
 # control's value. Returned sorted so a diff is stable.
@@ -133,6 +143,13 @@ SETUP_JS = r"""
 DRIVE_JS = r"""
 (scale) => {
   const fired = [];
+  // The "asym" vector: per-field factors, cycled by numeric-field document
+  // order. Chosen to be well inside any sensible domain (0.45x..3.1x of the
+  // field's own default) while guaranteeing that no two adjacent numeric
+  // fields share a factor — which is what lets a quotient move.
+  const ASYM = [1.7, 0.6, 2.3, 1.1, 3.1, 0.45];
+  let ni = 0;
+  const factor = () => scale === 'asym' ? ASYM[ni++ % ASYM.length] : scale;
   const fire = e => ['input', 'change'].forEach(
       ev => e.dispatchEvent(new Event(ev, {bubbles: true})));
   const rec = (e, kind, action, value) => fired.push({
@@ -143,14 +160,15 @@ DRIVE_JS = r"""
     if (e.disabled) return;
     const t = (e.type || e.tagName).toLowerCase();
     if (t === 'number' || t === 'range') {
+      const f = factor();
       const base = parseFloat(e.getAttribute('value'));
       if (!isFinite(base)) {
         // No default to scale: use a fixed value so the field is still driven.
-        const v = String(Math.round(1000 * scale));
+        const v = String(Math.round(1000 * f));
         e.value = v; fire(e);
         rec(e, 'nodefault', 'fill', v); return;
       }
-      let v = base * scale;
+      let v = base * f;
       // Respect the field's own declared domain; a value outside it is what the
       // browser would clamp anyway, and clamping differs between engines.
       const mn = parseFloat(e.min), mx = parseFloat(e.max);
@@ -373,13 +391,22 @@ def moved_between_vectors(page):
     Only meaningful for tools with numeric fields to scale: for a button- or
     checkbox-driven tool the vectors are identical BY CONSTRUCTION, so the caller
     applies this gate only where `drove` contains a scaled numeric field.
+
+    The defaults/asym pair is what catches ratio tools: defaults/double is a
+    no-op by construction for any scale-invariant formula (LTV, yield), which
+    produced a false INPUT-INDEPENDENT conviction on 2026-08-05. Guarded on
+    presence so a pre-asym golden (three vectors) still evaluates.
     """
     moved = set()
-    for phase in ("after_input", "after_press"):
-        ia, ib = _ids(page, "defaults", phase), _ids(page, "double", phase)
-        for k in set(ia) | set(ib):
-            if ia.get(k) != ib.get(k):
-                moved.add(k)
+    pairs = [("defaults", "double")]
+    if "asym" in page:
+        pairs.append(("defaults", "asym"))
+    for va, vb in pairs:
+        for phase in ("after_input", "after_press"):
+            ia, ib = _ids(page, va, phase), _ids(page, vb, phase)
+            for k in set(ia) | set(ib):
+                if ia.get(k) != ib.get(k):
+                    moved.add(k)
     return moved
 
 
@@ -457,6 +484,8 @@ def emit_criteria(url, page):
         return None, "no output moved under driving — nothing to assert"
 
     for vec, _ in VECTORS:
+        if vec not in page:
+            continue  # pre-asym capture — emit from the vectors it has
         v = page[vec]
         steps = []
         for item in v.get("added", []):
@@ -616,7 +645,11 @@ def main():
         if not g:
             print("NO GOLDEN  %s" % u); bad += 1; continue
         diffs = []
-        for vec, _ in VECTORS:
+        vecs = [vec for vec, _ in VECTORS if vec in g and vec in n]
+        if len(vecs) < len(VECTORS):
+            print("NOTE       %s: golden lacks %s — compared on %d vector(s)"
+                  % (u, [vec for vec, _ in VECTORS if vec not in g], len(vecs)))
+        for vec in vecs:
             for phase in ("after_input", "after_press"):
                 for field in ("ids", "controls"):
                     d = numeric_diff(g[vec][phase].get(field, {}),

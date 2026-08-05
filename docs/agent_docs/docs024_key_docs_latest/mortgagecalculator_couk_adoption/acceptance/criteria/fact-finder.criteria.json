@@ -1,0 +1,308 @@
+{
+  "checks": [
+    {
+      "expect_values": {
+        "#displayScore": "80",
+        "#scoreBadge": "High Risk / Decline",
+        "#scoreComment": "Automated decline is likely. You may need a Specialist Lender who accepts 'Adverse Credit'."
+      },
+      "id": "computes-defaults",
+      "steps": [
+        {
+          "action": "select",
+          "selector": "#q_address",
+          "value": "10"
+        },
+        {
+          "action": "select",
+          "selector": "#q_vote",
+          "value": "-100"
+        },
+        {
+          "action": "select",
+          "selector": "#q_empType",
+          "value": "self"
+        },
+        {
+          "action": "select",
+          "selector": "#q_probation",
+          "value": "-50"
+        },
+        {
+          "action": "select",
+          "selector": "#q_jobTime",
+          "value": "15"
+        },
+        {
+          "action": "select",
+          "selector": "#q_accounts",
+          "value": "0"
+        },
+        {
+          "action": "select",
+          "selector": "#q_deposit",
+          "value": "10"
+        },
+        {
+          "action": "select",
+          "selector": "#q_overdraft",
+          "value": "0"
+        },
+        {
+          "action": "select",
+          "selector": "#q_gambling",
+          "value": "-20"
+        },
+        {
+          "action": "select",
+          "selector": "#q_missed",
+          "value": "-40"
+        },
+        {
+          "action": "select",
+          "selector": "#q_ccj",
+          "value": "-80"
+        },
+        {
+          "action": "fill",
+          "selector": "#w_self",
+          "value": "1"
+        },
+        {
+          "action": "fill",
+          "selector": "#w_credit",
+          "value": "1"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#displayScore": "0",
+        "#scoreBadge": "High Risk / Decline",
+        "#scoreComment": "Automated decline is likely. You may need a Specialist Lender who accepts 'Adverse Credit'."
+      },
+      "id": "computes-double",
+      "steps": [
+        {
+          "action": "select",
+          "selector": "#q_address",
+          "value": "10"
+        },
+        {
+          "action": "select",
+          "selector": "#q_vote",
+          "value": "-100"
+        },
+        {
+          "action": "select",
+          "selector": "#q_empType",
+          "value": "self"
+        },
+        {
+          "action": "select",
+          "selector": "#q_probation",
+          "value": "-50"
+        },
+        {
+          "action": "select",
+          "selector": "#q_jobTime",
+          "value": "15"
+        },
+        {
+          "action": "select",
+          "selector": "#q_accounts",
+          "value": "0"
+        },
+        {
+          "action": "select",
+          "selector": "#q_deposit",
+          "value": "10"
+        },
+        {
+          "action": "select",
+          "selector": "#q_overdraft",
+          "value": "0"
+        },
+        {
+          "action": "select",
+          "selector": "#q_gambling",
+          "value": "-20"
+        },
+        {
+          "action": "select",
+          "selector": "#q_missed",
+          "value": "-40"
+        },
+        {
+          "action": "select",
+          "selector": "#q_ccj",
+          "value": "-80"
+        },
+        {
+          "action": "fill",
+          "selector": "#w_self",
+          "value": "2"
+        },
+        {
+          "action": "fill",
+          "selector": "#w_credit",
+          "value": "2"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#displayScore": "80",
+        "#scoreBadge": "High Risk / Decline",
+        "#scoreComment": "Automated decline is likely. You may need a Specialist Lender who accepts 'Adverse Credit'."
+      },
+      "id": "computes-half",
+      "steps": [
+        {
+          "action": "select",
+          "selector": "#q_address",
+          "value": "10"
+        },
+        {
+          "action": "select",
+          "selector": "#q_vote",
+          "value": "-100"
+        },
+        {
+          "action": "select",
+          "selector": "#q_empType",
+          "value": "self"
+        },
+        {
+          "action": "select",
+          "selector": "#q_probation",
+          "value": "-50"
+        },
+        {
+          "action": "select",
+          "selector": "#q_jobTime",
+          "value": "15"
+        },
+        {
+          "action": "select",
+          "selector": "#q_accounts",
+          "value": "0"
+        },
+        {
+          "action": "select",
+          "selector": "#q_deposit",
+          "value": "10"
+        },
+        {
+          "action": "select",
+          "selector": "#q_overdraft",
+          "value": "0"
+        },
+        {
+          "action": "select",
+          "selector": "#q_gambling",
+          "value": "-20"
+        },
+        {
+          "action": "select",
+          "selector": "#q_missed",
+          "value": "-40"
+        },
+        {
+          "action": "select",
+          "selector": "#q_ccj",
+          "value": "-80"
+        },
+        {
+          "action": "fill",
+          "selector": "#w_self",
+          "value": "1"
+        },
+        {
+          "action": "fill",
+          "selector": "#w_credit",
+          "value": "1"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#displayScore": "80",
+        "#scoreBadge": "High Risk / Decline",
+        "#scoreComment": "Automated decline is likely. You may need a Specialist Lender who accepts 'Adverse Credit'."
+      },
+      "id": "computes-asym",
+      "steps": [
+        {
+          "action": "select",
+          "selector": "#q_address",
+          "value": "10"
+        },
+        {
+          "action": "select",
+          "selector": "#q_vote",
+          "value": "-100"
+        },
+        {
+          "action": "select",
+          "selector": "#q_empType",
+          "value": "self"
+        },
+        {
+          "action": "select",
+          "selector": "#q_probation",
+          "value": "-50"
+        },
+        {
+          "action": "select",
+          "selector": "#q_jobTime",
+          "value": "15"
+        },
+        {
+          "action": "select",
+          "selector": "#q_accounts",
+          "value": "0"
+        },
+        {
+          "action": "select",
+          "selector": "#q_deposit",
+          "value": "10"
+        },
+        {
+          "action": "select",
+          "selector": "#q_overdraft",
+          "value": "0"
+        },
+        {
+          "action": "select",
+          "selector": "#q_gambling",
+          "value": "-20"
+        },
+        {
+          "action": "select",
+          "selector": "#q_missed",
+          "value": "-40"
+        },
+        {
+          "action": "select",
+          "selector": "#q_ccj",
+          "value": "-80"
+        },
+        {
+          "action": "fill",
+          "selector": "#w_self",
+          "value": "1.7"
+        },
+        {
+          "action": "fill",
+          "selector": "#w_credit",
+          "value": "1"
+        }
+      ],
+      "type": "computed_values"
+    }
+  ]
+}
