@@ -1926,3 +1926,51 @@ working, not overhead).
   (needs_human_review / failed / wont_fix) — owner report, not new filings.
 - `tool-equity-release`: page row active, URL 404s — one more artefact-vs-row drift datum
   for the report.
+
+## 2026-08-05 (contd) — D10 exhaustive clearance begins: production line built, batch 1 (5 sections) done end-to-end
+
+**Owner ruling D10 (recorded in PLAN): option (c), exhaustive.** Scope guards: no fence
+for a tool with no serving page (creates CHECK_naming_contract's BROKEN A); component
+levels beyond section/tool stay out (DOC-068 boundary).
+
+**Line instrument: `prove_fence_mutants_file.go`** — the S2 architecture with the mutant
+list as per-subject JSON (nothing hardcodable; the trap was hardcoded lists READING as
+generic). Validated by reproducing call-to-action's exact 6/6 from
+`mutants_component_call_to_action.json` before first use. Line rules learned/encoded:
+prefer SINGLE-INSTANCE placements (a rename-first mutant is uncaught when the selector
+matches a second instance — section--generic had 3 on the first-choice page); verify
+every `from` string count in the SERVED page (scripted into the batch generator).
+
+**Backlog truths the census surfaced:** 35 of 109 "active" sections have ZERO active
+placements — nothing to dispatch against; listed, not fenced. `gauntlet-round-record` is
+a section component whose PLAN sits under subject_type='tool' (gauntlet lane's; flagged,
+skipped). `ported-page` placements on loanandmortgagecalculator + loancash (58 rows)
+point at pages whose SERVED HTML carries no component markup at all — placement-row vs
+artefact drift; webdesign.co.uk's 97 are real.
+
+**Batch 1 — five subjects, all end-to-end (fence → try → mutants-file prove → §9 persist
+→ readback → S6 dispatch with neg control):**
+| subject | checks | prover | S6 |
+|---|---|---|---|
+| generic-text-block (99 placements/15 sites; NO data-component attr — root is `section.section--generic`) | 6 | 6/6 | 10/10 + control red (`b7dca437`) |
+| article-body (49/10) | 6 | 6/6 | 10/10 + control red (`5a2fe125`) |
+| features (33/6; asserts ≥1 `.feature-item` — empty-grid class) | 7 | 7/7 | 11/11 + control red (`885efc90`) |
+| ported-prose (28/2; existence/visibility only — opaque ported HTML, stated in PLAN) | 5 | 5/5 | 9/9 + control red (`d50de1a0`) |
+| hero-about (28/13) | 6 | 6/6 | 10/10 + control red (`72b82464`) |
+
+**Two real finds, honestly routed:**
+1. **`article-body` ships no `pre`/`code` overflow handling** — the first-choice placement
+   (blog/multi-agent-failure-isolation…) genuinely scrolls horizontally on mobile (798px
+   `code` in a 390px viewport), caught by the fence's own trial. Template greps `pre`→f,
+   `overflow`→f. Proof moved to a clean placement; the defect is recorded in the PLAN
+   body itself and here. One open work item already touches that page.
+2. **ported-page deferred:** its only markup-carrying placements are on webdesign.co.uk,
+   where the LOCAL prover harness cannot get a green baseline for harness reasons (the
+   Cloudflare RUM beacon fails CORS from a localhost origin; the page's own
+   `/search.json` fetch turns cross-origin under the 302 redirect). The live page passes
+   try_fence 9/9 clean. Needs a dedicated prover with declared deviations (fce
+   precedent): serve /search.json locally + strip the beacon uniformly. NOT persisted.
+
+**Batch-1 wall clock ≈ 45 min for 5 subjects (~9 min/subject)** — the line beats the
+calibration estimate once S1s are batched and mutant files are generated with verified
+counts.

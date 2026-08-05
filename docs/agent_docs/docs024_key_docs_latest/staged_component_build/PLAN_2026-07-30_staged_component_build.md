@@ -315,3 +315,19 @@ Stated up front so it is falsifiable rather than defended later:
 - **If the claim that stages would have caught Round 5 is wrong**, the whole argument
   weakens. It is marked `[INFERRED]` in the proposal and stays marked until a
   deliberately broken component is caught by an S6 gate nobody tuned for it.
+
+**D10 — OWNER RULING 2026-08-05: the backlog is cleared EXHAUSTIVELY (option c).**
+Posed with the calibration tranche's measured costs (~15 min/static section, ~30–45
+min/interactive tool); the owner chose full clearance over the focused-push
+recommendation. Scope as measured, with two standing exclusions:
+1. **A tool with no resolvable, serving page gets NO fence** — a fence without a page is
+   `CHECK_naming_contract.sh`'s BROKEN A class (the run hard-errors; a claimed subject
+   that can never be asserted). Those tools are LISTED for page repair instead, and get
+   fences when their pages serve.
+2. **`component_level` beyond `section`/`tool` stays out of scope** (header/footer/site/
+   head/element — DOC-068's boundary, unchanged; extending it is a separate owner call).
+Order: sections by placement count (static first), then remaining ready tools. Every
+subject keeps the full recipe — no shortcuts licensed by volume; the per-subject mutation
+prover moves from hand-written siblings to a DATA-DRIVEN mutant file per subject (same
+architecture, mutants explicit in JSON, validated by reproducing call-to-action's 6/6
+before first use) so the sibling-file boilerplate stops scaling with the backlog.

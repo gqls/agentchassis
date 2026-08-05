@@ -517,3 +517,17 @@ ready tools plus the top dozen most-used sections, which is roughly three or fou
 sessions, or (c) everything, which is on the order of ten to fifteen sessions and hits
 diminishing returns on rarely-used pieces. My own recommendation is (b): it covers
 everything a visitor is actually likely to meet.
+
+---
+
+**5 August 2026, later — you chose exhaustive: the whole backlog gets contracts**
+
+Option (c). Understood: every section component and every tool with a working page gets
+the full treatment, at the measured prices, over however many sessions it takes. Two
+scope notes so nothing surprises you later: tools whose pages don't exist or don't serve
+CANNOT get contracts yet — writing one would create exactly the misleading state the
+naming-contract check exists to catch (a claimed subject that hard-errors when tested) —
+so those get listed for page repair instead, and the header/footer/site-level pieces stay
+out of scope as before (that extension is a separate decision you haven't been asked to
+make). Starting now with the most-used sections; each one gets the same
+read-prove-persist-live-test sequence as the first batch, no shortcuts.
