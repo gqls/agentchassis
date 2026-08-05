@@ -92,6 +92,21 @@ WHERE site_id='0162cde4-633e-45e9-8ca6-87a6b2fe1d26'
   AND status NOT IN ('complete','cancelled') ORDER BY created_at DESC;
 ```
 
+### ⚠ The sibling lane has a CLI voice applier. It does NOT satisfy this lane's instruction.
+
+At 21:54 today session `fffe0948` committed `35c1e11e9` — a decomposer, a guarded row
+writer and **`voice_apply.py`** in the `loanandmortgagecalculator_couk` lane, and
+re-voiced a canary guide with it. That is their lane and their call, and their toolkit
+may well be worth reading (their decomposer solves the same shape of problem).
+
+**But do not reach for it here as the shortcut past §3.** The owner's instruction for
+*this* site was explicit: rerun the copy **through the framework**, *"don't build it
+through this cli"*. A CLI applier writing `page_components` rows directly is precisely
+the thing that instruction rules out, however good the output looks — the whole point
+is that framework-written copy passes the framework's checks and CLI-written copy does
+not. If the two lanes should converge on one route, that is an owner decision, not a
+convenience. **Fix 204 instead.**
+
 ## 4. What is DONE and live (do not redo)
 
 **a. The `authored` mislabel is corrected.** `ported-prose.content.source` was
