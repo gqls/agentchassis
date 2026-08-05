@@ -1,0 +1,63 @@
+{
+ "url": "https://loanandmortgagecalculator.co.uk/mortgages/investor.html",
+ "vectors": [
+  {
+   "name": "defaults",
+   "scales": {},
+   "dom_shape": "3:6349",
+   "outputs": {
+    "yieldResult": "5.76%",
+    "ltvResult": "75.0%",
+    "ltvComment": ""
+   }
+  },
+  {
+   "name": "rent_x2",
+   "scales": {
+    "btlRent": 2.0
+   },
+   "dom_shape": "3:6349",
+   "outputs": {
+    "yieldResult": "11.52%",
+    "ltvResult": "75.0%",
+    "ltvComment": ""
+   }
+  },
+  {
+   "name": "btlprice_x2",
+   "scales": {
+    "btlPrice": 2.0
+   },
+   "dom_shape": "3:6349",
+   "outputs": {
+    "yieldResult": "2.88%",
+    "ltvResult": "75.0%",
+    "ltvComment": ""
+   }
+  },
+  {
+   "name": "loan_x2",
+   "scales": {
+    "ltvLoan": 2.0
+   },
+   "dom_shape": "3:6349",
+   "outputs": {
+    "yieldResult": "5.76%",
+    "ltvResult": "150.0%",
+    "ltvComment": "High LTV. Rates will be higher."
+   }
+  },
+  {
+   "name": "ltvprice_x0.5",
+   "scales": {
+    "ltvPrice": 0.5
+   },
+   "dom_shape": "3:6349",
+   "outputs": {
+    "yieldResult": "5.76%",
+    "ltvResult": "150.0%",
+    "ltvComment": "High LTV. Rates will be higher."
+   }
+  }
+ ]
+}

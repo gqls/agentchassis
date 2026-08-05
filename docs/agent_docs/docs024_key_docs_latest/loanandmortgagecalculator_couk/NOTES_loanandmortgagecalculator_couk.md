@@ -399,3 +399,27 @@ chosen "gentle explanatory" voice to the whole site. Design + reasons in
   files I had not read.** The read-before-write rule caught it; the CONTRIB
   chrome warning (buildDefaultHead's plural `styles.css` + no header/footer on
   the first decomposed page) is now Phase-1-blocking in the plan.
+
+### 2026-08-05 — Phase 0 done: 23/23 calculators baselined, three-way byte alignment
+
+- `acceptance/GOLDEN_2026-08-05_prechange.json` — 22 tools via the sibling's
+  `toolgolden.py`, then **self-verified: all 22 reproduce exactly on --compare
+  against live.**
+- **`mortgages/investor.html` is toolgolden-UNCERTIFIABLE, and it is the
+  instrument, not the page — harness fault: a ratio-only calculator is
+  invariant under toolgolden's uniform x1/x2/x0.5 vectors.** Its two functions
+  compute gross yield (rent*12/price) and LTV (loan/price); scaling every
+  field by the same factor moves no ratio, so the inert-tool guard fired
+  ("output is identical for every input value") and refused the whole golden.
+  Arithmetic read and hand-checked: 1200*12/250000 = 5.76% on defaults. That
+  makes it 5 of 6 adverse verdicts on this site being the instrument (session
+  1's series). Remedy: `investor_golden.py` — staggered vectors, ONE field
+  moves per vector (rent x2 → 11.52%, price x2 → 2.88%, loan x2 → 150% + the
+  high-LTV comment branch). `acceptance/GOLDEN_2026-08-05_investor.json`,
+  self-verified 5/5 on --compare. Inherits toolgolden's settle() (mid-parse
+  trap) and storage-clearing reload discipline verbatim.
+- `acceptance/BASELINE_2026-08-05_stored_md5_at_b318a8fad.txt` — md5+length
+  of all 41 stored rows, pinned to the sites-repo sha in the filename.
+  **stored == repo (41/41) and live == repo (3-page spot check, browser UA).**
+  All three surfaces agree; nothing is pending anywhere. A clean baseline in
+  the §6/§6b sense of the sibling's handoff — any page can be a canary.
