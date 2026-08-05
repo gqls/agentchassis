@@ -3795,3 +3795,27 @@ PAGE heroes are human-locked — scoped unlock + section_edit (NOT a rebuild,
 it would refuse / regenerate copy); report-card image blocked on the
 hero.jpg-404 family (items 3ffbd0e1/93cde5e0) first. Favicon + og-card are
 live 404s (bugs_closed/128): after logo v2 lands, run derive_brand_head_assets.
+
+## §X.45 — 2026-08-05: batch VERIFIED SERVED — and the section-removal saga, in full
+
+**Served-page final state (all verified live):** free CTA beside the paid CTA
+in brief-explanation ✓ · tool-list section GONE ✓ · header serves the new
+banana logo (`logo.png`, wordmark legible — see scratchpad eyeball) ✓ ·
+§3d(ii) funnel diff green (/audience-check + /request both 405 with live
+forms posting to them) ✓.
+
+**The removal took THREE rerenders, each failure teaching something now
+recorded:** (1) spec lacked `domain/page_id/filename` — resolver failed on
+bare page_name; (2) `complete` + `success:true` deploy that was an EMPTY
+COMMIT — `getPageSections` has no build_status filter, the removed section
+resurrected from stored rendered_html (fleet landmine, 08-05, synced); (3)
+after tombstoning `rendered_html=''`: real commit `eae3af3`, served ~3 min
+later. Full recipe now in the landmine entry.
+
+**Still in flight (framework clocks):** audience-check hero `bc7751e6` ·
+news `442effd4` (~2 six-hourly cycles; verify at /data/latest-news.json).
+**Owed next session:** wire card images into tools-page items[].image +
+tool-page heroes (scoped unlock + section_edit — heroes human-locked);
+report-card image after the hero.jpg-404 family; derive_brand_head_assets
+after logo (favicon/og-card are live 404s, bugs_closed/128); 090 run on the
+empty-kind → SDXL routing hole before anyone files it.
