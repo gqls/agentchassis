@@ -456,3 +456,22 @@ resolvers serve the proxied A records. HTTP TIMES OUT — zone resolves but noth
 serves (no origin wired). ⚠ Before it ever serves: strip the acceptance_marker
 from content_direction + rebuild about.html (marker copy is IN the live artefact),
 logo, register row.
+
+### 2026-08-05 — voice chosen (H), prompt built, SEEDED; model stays gemini; rebuild queued
+
+Owner chose trial H after a round-2 refinement (walk-in conditional openings —
+candidate rule 14). VOICE_gentle_explanatory_v1.md written: 10 rules + anchor +
+the 4 approved before/after pairs seeded as worked examples (models imitate
+exemplars more reliably than rules). Model premise CORRECTED from llm_call_log:
+the writer runs gemini-pro-latest since 07-27 (Sonnet 4.6 before, NEVER Sonnet 5);
+owner ruled: leave it on gemini. **Finding during the seed: the site's manual
+content_direction (07-31) ENCODED the rejected style** — banned contractions,
+em-dash definitions, conclusion-first openings — so the seed was a REVISION, not
+an append: 4 rules replaced (string-guarded in both keys AND formatted — every old
+string matched exactly once), 4 added, voice_exemplars key + formatted exemplar
+section. Applied as a supersede (07-31 rows preserved); read back verified
+(19 rules, 22,980-char formatted, current row 2026-08-05). The spec is INERT until
+writers run — all 41 pages are rebuild_policy='owned' ported wholes; the
+whole-site rebuild (owner: "do the whole site — I'll check it then") is the
+handoff's task with hazards named there (owned-page route, decompose first,
+23 calculator pages = TL-001 clobber class, no --fidelity high).

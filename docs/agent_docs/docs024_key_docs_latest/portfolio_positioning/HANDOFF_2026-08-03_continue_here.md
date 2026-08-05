@@ -3,18 +3,33 @@
 > **UPDATED 2026-08-05 — the next session starts HERE, with two owner-directed
 > tasks that outrank the old backlog order:**
 >
-> 1. **Copy voice (owner priority).** The owner flagged LLM-styled copy (negative
->    framing etc.) on loanandmortgagecalculator.co.uk's hero. Provenance CONFIRMED:
->    hand-written by a CLI session + ADOPTED (41 × whole-document `ported-page`
->    components; the manual content_direction has never been consumed — no writer
->    ever ran). Four read-aloud rewrites await the owner's pick in
->    `COPY_STYLE_TRIALS_2026-08-05_hero_rewrites.md`, drafted against the house
->    style prompt `travelling_docs/pitch_pdf_source/REVERSE_ENGINEERED_STYLE_PROMPT_v3.md`
->    (its rule 3 IS the flagged tic). THEN: read the LIVE content-writer prompt
->    (agent_definitions — [UNVERIFIED], nobody has read it), fold the v3 rules /
->    winning register in (council gate; one trial page; owner review), and put the
->    winning register into content_direction voice blocks. Ported pages need
->    decomposition (old task #15) before pipeline copy can replace them.
+> 1. **Copy voice — SEEDED 08-05; the WHOLE-SITE REBUILD is now the task.**
+>    Owner chose trial H ("gentle explanatory") after two rounds
+>    (`COPY_STYLE_TRIALS_2026-08-05_hero_rewrites.md`); the voice prompt is
+>    `VOICE_gentle_explanatory_v1.md`; owner approved the four sample
+>    transformations and said **"do the whole site — I'll check it then"**; model
+>    STAYS gemini-pro-latest (owner decision; the writer has run on it since
+>    07-27, Sonnet 4.6 before, never Sonnet 5).
+>    **DONE:** loanandmortgagecalculator.co.uk's `content_direction` superseded
+>    to v2 (2026-08-05 row, created_by claude-session-portfolio-positioning):
+>    4 conflicting rules REPLACED (the old manual spec BANNED contractions and
+>    mandated em-dash definitions + conclusion-first openings — it encoded the
+>    exact style the owner rejected), 4 walk-in rules added, `voice_exemplars`
+>    key + exemplar section in `formatted` (22,980 chars, 19 rules; both prior
+>    generations preserved superseded).
+>    **TO DO (the rebuild), hazards named:** all 41 pages are
+>    `rebuild_policy='owned'` with a single `ported-page` component
+>    (adopt_verbatim.go:476) — the reconciler PARKS generic builds on them, so
+>    use the sanctioned owned-page route, and DECOMPOSE FIRST (a straight flip
+>    yields nested <html>; the porting tool is cmd/webdesignport, see
+>    adopt_verbatim.go). **23 pages are interactive calculators — the TL-001
+>    clobber class: a content rebuild can silently destroy the widgets.** Copy
+>    zones only on tool pages, or the tool-safe route. NEVER the adoption
+>    `--fidelity high` path (renames every URL — landmine). legal.html is
+>    voice-EXEMPT (rule 10). Verify per page: voice present (census the
+>    artefact), widget still computes, URL unchanged. Batch-checkpoint after the
+>    first regenerated page's shape before letting the rest run; the owner
+>    checks the finished site, not each page.
 > 2. **Blog ruling — RATIFIED 08-04, implement as seam 6.** Owner's clarification:
 >    blog ≠ news, but editorial-from-news IS also blogging. Ruling: mission
 >    vocabulary gains `blog: none / editorial-from-news / curated-features`; the
