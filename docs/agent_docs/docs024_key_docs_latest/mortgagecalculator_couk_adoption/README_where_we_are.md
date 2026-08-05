@@ -443,3 +443,49 @@ to new addresses and can't overwrite anything of yours.
 One honest caveat I'd rather you heard from me: I can hold the queue, but I can't stop
 another session firing at your site directly, and neither can the lock. What I can do is
 keep a restore point and check the pages afterwards — which is what caught this.
+
+---
+
+## 5 August — three more guides live, and your calculators now have a proper referee
+
+Two pieces of good news, then the state of play.
+
+**The three guides you approved are live** — remortgaging, buy-to-let and negative equity,
+all styled, all with proper navigation, all at new addresses so your original pages are
+untouched and still serving. That's four rebuilt pages now including the test one, and
+they look like a set.
+
+**The bigger news is about your calculators.** You asked whether we could have something
+that checks the arithmetic before the rebuild touches them, and told me to search for
+anything that already did this before building it. That search paid off twice over.
+
+First: the checker already existed. Another of our site teams built exactly this a week
+ago — a way of recording what a calculator answers for a fixed set of inputs, down to the
+penny and the pound sign, and then having the platform re-ask those questions on a
+schedule forever. If a rebuilt calculator's repayment figure drifts by a fraction, it
+fails loudly. I verified the checking machinery is actually live in the platform rather
+than trusting the docs, and it is. So no new agent was needed — building one would have
+duplicated a tested, approved mechanism.
+
+Second: when I ran it against your twelve calculators, it refused to certify one of them —
+the investor page — claiming its arithmetic "ignores its inputs". **Your calculator was
+right and the checker was wrong.** That page computes ratios — rental yield, loan-to-value
+— and the checker varied its test inputs by doubling everything at once. Double a rent and
+double a price and the yield is identical; that's what a ratio is. The checker read
+"answer never changes" as "broken". I fixed the checker itself (it now also varies fields
+by different amounts, which a ratio does respond to), proved the fix didn't disturb the
+other team's twelve calculators (all twelve still match their recorded answers exactly),
+and re-ran ours: all twelve now certified, answers recorded.
+
+One honest footnote: the recorded answers prove a rebuild computes *what your originals
+compute* — not that your originals were right in the first place. They're your trusted
+code, so that's the correct baseline, but it's worth saying once.
+
+**The rebuild of the twelve calculators is running now.** Each new version goes to a new
+address — nothing overwrites your working pages — and each will be compared, number for
+number, against the recorded answers before we treat it as done. One detail found during
+recording: your original calculate buttons have no internal names, which the enforcement
+system needs, so the rebuilt versions will gain them — that's the one deliberate
+difference, and it's invisible to visitors.
+
+Nothing needs a decision from you right now. The homepage remains yours and untouched.
