@@ -5,14 +5,16 @@ components + a new copy voice across five pages needed the pages rebuilt, and
 there is no first-class way to ask for that. Hand-driving it collided with two
 immune-system mechanisms tuned to stop runaway loops, which treat a deliberate
 rebuild as recurrence and quietly park it.
-**Status:** specified, not built — still accurate as of 2026-08-05, but its
-blocker has cleared: `bugs_open/070` (the reaper predicate) **closed
-2026-07-27** (now `bugs_closed/070`), fixed and live, and that file's own
-header states "`features_open/021`... that block is lifted." **This feature
-is now unblocked and buildable**, just not yet started — corrected 2026-08-05
-after `maintenance_queue` was re-checked and still shows only the same 2
-historic rows the original filing cited (max `2026-02-18`), so nobody has
-picked this up since. **Depends on:** ~~`bugs_open/070`~~ nothing outstanding.
+**Status:** IN PROGRESS as of 2026-08-05 — operator entry point
+(`scripts/rebuild_pages.sh`) built and safe-mode-tested; first real dispatch
+still owed. **Owner: `feature_021_operator_bulk_page_rebuild` workstream**
+(`docs024_key_docs_latest/feature_021_operator_bulk_page_rebuild/`, start at
+`HANDOFF_2026-08-05_continue_here.md`). Its blocker cleared before pickup:
+`bugs_open/070` (the reaper predicate) **closed 2026-07-27** (now
+`bugs_closed/070`) — though the workstream's own research found this
+dependency didn't actually apply to the real mechanism (see its `PLAN`, "the
+reaper cannot reach `maintenance_queue` at all"). **Depends on:** nothing
+outstanding.
 
 ## The gap
 
