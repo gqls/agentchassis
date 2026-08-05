@@ -531,3 +531,34 @@ so those get listed for page repair instead, and the header/footer/site-level pi
 out of scope as before (that extension is a separate decision you haven't been asked to
 make). Starting now with the most-used sections; each one gets the same
 read-prove-persist-live-test sequence as the first batch, no shortcuts.
+
+---
+
+**5 August 2026, evening — the exhaustive run is well underway: thirty-five contracts done and live-tested in one day**
+
+You said "everything", so everything is what's happening. Since the morning's first
+batch, the production line has run four more batches: thirty-three page-sections plus
+the two tools now have written, break-proven contracts, every one of them tested for
+real in the live cluster including a deliberate wrong-page control that was correctly
+refused every time. That covers every section component used on three or more pages —
+the heroes, the calls-to-action, the article bodies, the FAQ (whose contract clicks a
+real question open, like a visitor would), the contact forms, the team grids, all of it.
+The pace settled at about nine minutes per component once the line warmed up, roughly
+half what I quoted you at lunchtime.
+
+Three things the line itself dug up, which is the point of the whole exercise: the
+article component has no protection against wide code samples, so technical blog posts
+genuinely scroll sideways on a phone — that's the component's own styling, one line of
+CSS someone should add. Half a dozen sites are still serving a missing hero image that
+the platform's checker found five days ago — found, flagged, and then nobody was ever
+sent to fix it; that gap between "detected" and "repaired" keeps showing up and deserves
+a look of its own. And a page-porting quirk: fifty-eight database records claim a
+component sits on pages that, when you actually fetch them, contain no such thing —
+harmless today, misleading the moment anyone trusts the records over the pages.
+
+What's left: the one-or-two-page components (a session's worth), the sixteen
+interactive ones that need their JavaScript read properly (two to three sessions), and
+the remaining ten tools (one to two sessions). A few pieces belong to other active
+workstreams — the darts arena, the provocations feed — and I've deliberately left those
+alone rather than write contracts over their owners' heads; they're listed for a
+coordination note instead. The handoff for the next sitting has the full work-list.
