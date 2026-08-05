@@ -162,3 +162,49 @@ in it. A pathspec commit **cannot** exclude a same-file passenger, so I left the
 put the second-seam documentation in my own file and the register entry instead. Checked before
 committing: `git status` showed it clean by then (their change was already committed), so the
 risk had passed — but the cost of avoiding it was two comments.
+
+## Council verdict — APPROVED round 1, `dfb87f5e-6f01-42d4-8a01-6c59a4640c08`
+
+"approved with 2 advisory objection(s) — none high-severity". 12 seats fired, 4 abstained.
+Three of the objections were **checkable claims rather than opinions**, so I checked them
+instead of banking the approval.
+
+**`editquality` (medium) — "does the fast-exit predicate actually catch the SUPERSET shape?"**
+Fair, and the sharpest objection of the round: it decides whether "one call covers both
+branches" is true for the second leak, and **nothing at my seam pinned it**. It holds —
+`isLLMTransportEnvelope` is signature-not-arity by deliberate design — but "it holds" is not a
+test. Added `TestRenderGuardCatchesSupersetEnvelope` (both arms: an unrecoverable superset is
+refused; a recoverable one decodes **and keeps the accreted sibling**), with the named mutation
+`add a len(m)==2 arity test` **run and verified to break it**.
+
+**`guardian` + `render_guardian` (medium) — "the single-consumer claim is asserted, not
+proven; and is `RenderComponentAction` reachable from the scoped-rerender path, where a refusal
+could be swallowed by its carry-stored-HTML bail-out?"** Both correct that I had argued this
+from `agent_definitions` alone. Checked structurally, and it comes back stronger than I claimed:
+
+- `grep -rn "RenderComponentAction"` returns **no Go call site at all** — every hit is a comment
+  except `registry.go:940`, the `"render_component"` registry entry. So the action is reachable
+  *only* by that action name, and `page-content-writer` is its only live user. The claim is now
+  structural, not a census.
+- `rerender_page_sections_action.go` **does not call it** — it calls `RenderTemplate` directly
+  (`:485`). So the swallowed-refusal path the `render_guardian` describes does not exist for
+  this guard. Their reasoning was right; the structure rules it out.
+
+**`bug_historian` + `guardian` (medium) — no independent throttle on fail-loud.** *"If the
+envelope class ever fires in volume this converts N silent blank sections into N failed page
+builds with no per-run signal distinguishing 'guard working as intended' from 'guard now taking
+down builds'."* This one I cannot close by checking, and I am not going to pretend otherwise.
+It is disclosed, argued, and both seats flagged it explicitly **for a human**. Recorded in the
+bug file's fix section and here; `continue_on_error` is a one-key, live-immediately workflow
+config change if the owner wants it, and deliberately not shipped by this lane.
+
+**`reuse_agent` (low) — a second log writer for one defect class.** Accepted as a tracked
+follow-up; the seat's own note says the duplication was named with a concrete reason rather than
+silently introduced, which is what it wanted. Unifying `writeRenderEnvelopeLog` and
+`writeContentDataEnvelopeLog` into one seam-parameterised writer is a clean, separate change.
+
+**`llm_reliability`, unprompted and worth keeping:** the envelope can itself be the downstream
+symptom of a `max_tokens`-truncated reply whose JSON never closed. The refuse branch is a safe
+default there, but this seam **cannot** tell "the model replied in prose" from "the model was
+cut off" — that distinction lives at the `GenerateText`/`stop_reason` layer. Named as a
+residual, not a gap here.

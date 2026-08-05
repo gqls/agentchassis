@@ -165,6 +165,74 @@ func TestRenderDecodesLosslessEnvelopeAndRendersRealContent(t *testing.T) {
 	}
 }
 
+// --- The SUPERSET envelope, i.e. the second leak ---------------------------
+//
+// Added after the council's `editquality` seat objected (medium) that the plan
+// assumed, without pinning, that the fast-exit predicate catches the SUPERSET
+// shape — finetuning's live `{content,result,type}` — and that if it only
+// matched the canonical two-key form, the "one call covers both branches" claim
+// would be false for exactly the case named as the second leak. The objection
+// was right that nothing at THIS seam pinned it. It is pinned here.
+//
+// It holds because the predicate is signature-not-arity (`type == "text"` AND a
+// STRING `result`, no key count anywhere), which is the storage seam's most
+// deliberate design decision — `bugs_open/190`'s own verification recipe said to
+// key on the exact two-key shape and would have missed one of the only two live
+// rows.
+//
+// MUTATION THAT MUST BREAK IT: add a `len(m) == 2` test to
+// isLLMTransportEnvelope. The superset then walks straight through both branches.
+func TestRenderGuardCatchesSupersetEnvelope(t *testing.T) {
+	t.Run("unrecoverable superset is refused, not passed through", func(t *testing.T) {
+		superset := map[string]interface{}{
+			"type":    "text",
+			"result":  "prose that will not parse",
+			"content": "<p>a real sibling that accreted onto the envelope</p>",
+		}
+		if !isLLMTransportEnvelope(superset) {
+			t.Fatalf("the predicate does not see a 3-key superset as an envelope — the second leak is open")
+		}
+		_, err := normalizeRenderContentEnvelope(
+			context.Background(),
+			ActionParams{Logger: zap.NewNop()},
+			&Component{Function: "pricing"},
+			"generated_content.result",
+			superset,
+		)
+		if err == nil {
+			t.Fatalf("a superset envelope with an unrecoverable payload rendered instead of refusing")
+		}
+	})
+
+	t.Run("recoverable superset decodes and KEEPS the sibling", func(t *testing.T) {
+		out, err := normalizeRenderContentEnvelope(
+			context.Background(),
+			ActionParams{Logger: zap.NewNop()},
+			&Component{Function: "pricing"},
+			"generated_content.result",
+			map[string]interface{}{
+				"type":    "text",
+				"result":  `{"headline":"Decoded"}`,
+				"content": "<p>sibling</p>",
+			},
+		)
+		if err != nil {
+			t.Fatalf("a losslessly recoverable superset must decode: %v", err)
+		}
+		if out["headline"] != "Decoded" {
+			t.Errorf("payload lost: %#v", out)
+		}
+		if out["content"] != "<p>sibling</p>" {
+			t.Errorf("the accreted sibling was dropped — a decode must keep every real key: %#v", out)
+		}
+		for _, k := range []string{"type", "result"} {
+			if _, present := out[k]; present {
+				t.Errorf("transport key %q survived the decode: %#v", k, out)
+			}
+		}
+	})
+}
+
 // --- The bug file's demanded assertion #2 ----------------------------------
 //
 // "Confirm a normally-schema'd component is byte-identical through the change."

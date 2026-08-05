@@ -172,7 +172,34 @@ and `mergeIntoRenderContext`:
 - envelope, not losslessly decodable → the render is **refused** with an error naming the
   component, the `content_field` and this bug.
 
-Registered as the **third seam of PBP-032**, same commit. Council `dfb87f5e-6f01-42d4-8a01-6c59a4640c08`.
+Registered as the **third seam of PBP-032**, same commit.
+**Council `dfb87f5e-6f01-42d4-8a01-6c59a4640c08` — APPROVED, round 1**, "2 advisory
+objections, none high-severity". Three objections were checkable and were checked:
+
+- *"does the fast-exit predicate catch the SUPERSET shape?"* (`editquality`, medium) — it does,
+  and it is now **pinned at this seam** by `TestRenderGuardCatchesSupersetEnvelope`, whose named
+  mutation (`add a len(m)==2 arity test`) was run and breaks it. The objection was right that
+  nothing here tested it.
+- *"the single-consumer claim is asserted, not proven"* (`guardian`, medium) and *"is a refusal
+  swallowed by the scoped-rerender path's carry-stored-HTML bail-out?"* (`render_guardian`,
+  medium) — **checked structurally, and the answer is stronger than the claim**:
+  `RenderComponentAction` has **no Go call site at all**, only the `"render_component"` registry
+  entry (`registry.go:940`), so it is reachable solely by that action name; and
+  `rerender_page_sections_action.go` calls `RenderTemplate` directly (`:485`), never this
+  action, so that swallowing path does not exist for this guard.
+
+**⚠ ONE OBJECTION IS OPEN AND IS FOR A HUMAN** (`bug_historian` + `guardian`, both medium):
+fail-loud-at-render has **no independent throttle**. If the envelope class ever fires in volume,
+this converts N silent blank sections into N *failed page builds*, with no per-run signal
+separating "guard working as intended" from "guard now taking down builds". It is disclosed and
+argued rather than hidden, and today's trigger rate is zero — but both seats asked for a human
+to decide whether `continue_on_error` should ship *alongside* this rather than after. That is a
+one-key, live-immediately workflow-config change on `page-content-writer`'s
+`process_sections_loop`, deliberately not made by this lane.
+
+Tracked follow-up (`reuse_agent`, low): `writeRenderEnvelopeLog` and
+`writeContentDataEnvelopeLog` are near-siblings for one defect class and should become one
+seam-parameterised writer.
 
 **Blast radius of a refusal, traced not assumed:** `shouldContinueLoopOnError` defaults false
 (`loop_error_handler.go:70-90`) and the live `page-content-writer` sets `continue_on_error`
