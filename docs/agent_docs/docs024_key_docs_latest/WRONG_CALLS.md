@@ -20438,6 +20438,36 @@ destination as safe because it was already in production. **"It works in product
 "does it run", never "what does it do to my case."** One `grep -n page-build-handler` would have
 put the magnitude in the PLAN before a reviewer had to.
 
+## 2026-08-05 (evening) — I wrote a deploy-verification step that greps a Go COMMENT, and it would have reported a shipped fix as unshipped
+
+A council seat (`debug_historian`) objected, correctly, that `bugs_open/201`'s verification was
+local build/test only and never checked the running pod. I added RUNBOOK **R7** in response:
+`grep -ac 'NOT page-content-writer' /app/agent-chassis`, with a near-miss negative control, every
+replica — the full ritual, exactly as the fleet-wide practice prescribes.
+
+**That string is a Go comment** (`HandlerAgent: "page-build-handler", // NOT page-content-writer
+— see header, bugs_open/201`). **Comments are not compiled into a binary.** Run against
+`v1.0.1254` — a build made eight hours *after* the fix was committed — it returned **0** on the
+first replica. Read as written, my own runbook said *"the fix did not ship."* It had shipped.
+
+**And the deeper problem, which is why no amount of care with the literal would have saved it:**
+this change swaps one *pre-existing* string for another. `"page-content-writer"` and
+`"page-build-handler"` were both in the binary before the edit and are both still in it after —
+the first because `page-build-handler` spawns that agent, the second from a dozen other call
+sites. Go interns identical literals, so counting does not help either. **The change adds no
+string and removes none, so there is no positive control and no negative control that exists.**
+
+**The cheap check: before writing a pod-grep, ask what string the change ADDS or REMOVES — and
+if the honest answer is "none", say the method does not apply instead of inventing a literal to
+grep for.** The standing fleet rule ("grep a string your change ADDED, and a negative one")
+quietly presumes such a string exists; for a re-point between two existing literals it does not,
+and following the ritual produces a confident false negative. The replacement is behavioural —
+newly-filed rows must carry the new value — and it has its own trap worth stating in the same
+breath: **at the time of writing it returns zero rows, because the producing check has not run
+since the roll, and zero rows is not a pass.**
+
+I caught this only because I ran the step rather than shipping the runbook and moving on.
+
 ## 2026-08-05 (later still) — I classified 67 rows by a join that could never resolve, and my own CASE hid it
 
 Sizing `bugs_open/199`'s population, I wanted to know whether the historical envelope rows sat
@@ -20721,3 +20751,73 @@ next reader will ask the same question.
 Prior form, same day, same shape: earlier I read a `LIKE '%…%'` probe returning false as
 "the other session's seed failed" when my pattern was simply too specific. Both are the
 same error one level up — **trusting the shape of a result instead of its content.**
+
+---
+
+## 2026-08-05 — I regexed rendered HTML for `<script src>` and my only "finding" was a comment
+
+*Lane: `bugfix_084_asset_reference_resolution`.*
+
+Sizing `bugs_open/084` (nothing asserts a script URL resolves), I measured the fleet with:
+
+```sql
+LATERAL regexp_matches(pc.rendered_html, '<script[^>]+src="([^"]+)"','g') m
+```
+
+It returned `webdesign.co.uk | ...` — a `<script src="...">` with a literal ellipsis — and
+`curl` confirmed **404**. I was one step from writing it up as a live production defect,
+LLM truncation shipped to a tool page, in the bug file and the commit message.
+
+It is not a script tag. Pulling the surrounding characters showed it is **prose inside the
+tool's own JavaScript**:
+
+```
+// We want to keep anything that looks like <script src="..."> or <link rel="stylesheet">
+```
+
+A comment, inside a `<script>` block, describing a regex. No browser ever requests it.
+
+**A regex over HTML cannot tell an ELEMENT from a MENTION of an element** — and the
+population it mis-fires on hardest is exactly the population the bug was about: tool
+pages, whose content is JavaScript that talks about HTML. The cheap check is to parse:
+`goquery` in Go, `html.parser` in Python. Both see elements only, because the HTML parser
+treats `<script>` content as raw text, so a mention is structurally unreachable.
+
+Re-measured properly: 541 deployed pages fetched and DOM-parsed, 854 real `<script src>`
+elements, **96 distinct assets, 96 of 96 returning 200** — the true finding population is
+zero, which changed what the fix should honestly claim. Pinned by
+`TestAssetReference404_ScriptTagInsideJSCommentIsNotAReference`.
+
+**What is worth carrying beyond the regex:** the false positive was *plausible* — a
+truncated `...` is exactly what a real LLM-truncation defect looks like, and this platform
+has shipped those. A finding that matches a defect class you already believe in is the one
+you check least.
+
+---
+
+## 2026-08-05 — my mutation test reported "0 failures" and I nearly recorded an inert guard as proven
+
+*Same lane, hours later, and it is the sharper of the two.*
+
+The council's edit-quality seat objected [medium] that my page query hand-rolled its
+liveness predicate. Fixing it, I added a pin so a future hand-roll would break the tests,
+then mutated the code back to prove the pin bites. The run reported **0 failing tests** —
+i.e. the pin was decoration.
+
+It was not. **The mutation had never been applied.** My `str.replace` carried the wrong
+indentation, matched nothing, and wrote the file back unchanged. I had measured a
+**no-op** and read it as a passing guard — which is the same error as `[MEASURED]` on a
+figure that could not have come out otherwise, and in the more dangerous direction,
+because "the guard did not fire" reads as information about the guard.
+
+Re-run with the edit verified: **21 tests fail**, 0 with it restored. The pin is real.
+
+**The cheap check, now in the harness:** a mutation run must *assert that the mutation
+applied* before it interprets the result — print `MUTATION APPLIED: True/False`, or diff
+against the backup, and treat "no failures" as meaningless until that line says True. Half
+a line of Python. Without it, a mutation harness reports "guard proven" and "guard never
+tested" with the identical output.
+
+Same family as 016b §9's *a gate's 0 findings has two causes with opposite fixes*, applied
+to my own test tooling rather than to the platform's — and it fired on the very day I was
+building a check whose entire design problem is that it finds nothing.
