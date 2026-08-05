@@ -229,3 +229,21 @@ Retry prepared with `REPO_NAME=vm-sites`
 (`deploy_file_direct_v2.sh` + runner): operator runs
 `bash /tmp/claude-1000/-home-ant-projects-agentchassis/203228b7-52ae-4846-a579-4fb544223ae9/scratchpad/deploy_bug200_vmsites.sh`
 — it publishes both and verifies the served files itself.
+
+**2026-08-05 ~10:25 UTC, after the operator ran the vm-sites retry: ALL 15
+ORIGINS NOW CARRY THE FIX.** Both commits landed in `gqls/vm-sites` and both
+"Deploy Sites to VM" workflow runs went green — the remaining "MISMATCH" on the
+plain URLs is Cloudflare edge cache alone: `cf-cache-status: HIT`,
+`cache-control: max-age=14400`, cached ~10:14–10:21 UTC with the pre-deploy
+file, so the plain URLs self-heal by **~14:20 UTC** at the latest. Origin
+proven now via cache-busting query (`?bug200origincheck=<ts>` → fixed-rule
+count **1** on both).
+
+**Remaining for the closing thread (this session has watchers armed for both):**
+1. plain-URL check on idea.uk + relojistas.com after ~14:20 UTC (count must be 1
+   with no query string);
+2. render eye-check: work item `d2c3c52a-7b16-4526-b71c-dda9146bd2a4` (queued
+   10:24 UTC) re-runs simulator acceptance — its mobile render must show
+   **three separate bars** and its desktop render must show **no toggle at all**
+   (§6's negative);
+3. then CLOSED → `bugs_closed/`, both paths named on the mv commit.
