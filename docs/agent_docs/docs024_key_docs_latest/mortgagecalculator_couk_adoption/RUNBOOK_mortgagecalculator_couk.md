@@ -314,3 +314,120 @@ you cannot win that race at a 120-second tick.
 `needs_briefing` (build-briefing-agent) → **`needs_site_plan` (build-site-planner)**.
 Everything up to briefing writes only specs. `build-site-planner` is where pages
 start being planned — that is the line to hold if the live site must not change.
+
+---
+
+## §10 Rebuilding pages — the whole chain, with the gotchas attached (2026-08-03/04)
+
+**Order is composition → design → pages, and it is not advisory.** A page renders its
+chrome at build time; a stylesheet or a header arriving later does **not** retro-fit it.
+Proven both ways on this site (08-03 canary).
+
+### §10a Where chrome comes from — do not chase the `pages` columns
+
+```sql
+-- VESTIGIAL. Empty for all 562 pages fleet-wide. Do not diagnose from these.
+SELECT rendered_header, rendered_footer, rendered_head FROM pages WHERE ...;
+
+-- THE REAL STORE. Zero rows here IS the "no chrome" signature.
+SELECT slot_name, build_status, length(rendered_html), updated_at
+  FROM site_components WHERE site_id='62b5978e-4271-4589-8e00-4baebfc0447c';
+```
+
+Create them (`populate_nav_tables → render_site_components → create_rerender_items`):
+
+```bash
+./docs/agent_docs/docs024_key_docs_latest/bugfix_149_nav_membership/TRIGGER_nav_rebuild.sh mortgagecalculator.co.uk
+```
+
+⚠ **It files a `page_rerender` per page — 26 here, homepage included.** Defer them straight
+after. What actually protects an unbuilt page is that it has **zero `page_components`**
+(`rerender_single_page_action.go:565`, `:168-209` → `skipped:true`, no deploy) — *not*
+`build_status`, and *not* `include_statuses`, which filters `pages.status` where the value
+`deployed` never occurs.
+
+### §10b Deploy ONE page, assemble-only, with the site still locked
+
+```bash
+./docs/agent_docs/docs024_key_docs_latest/cta_link_integrity/scripts/049b_deploy_single_page.sh \
+  <page_id> 62b5978e-4271-4589-8e00-4baebfc0447c mortgagecalculator.co.uk
+```
+No `reason` ⇒ assemble-only ⇒ **no LLM, authored copy untouched**. Bypasses the queue, so
+the site can stay locked. Prereq: the page must already have `page_components`.
+
+### §10c Building pages that do NOT yet have components — needs the QUEUE
+
+`needs_content_page` (handler `page-build-handler`) is what creates components, and it only
+dispatches through the gate, so **the site must be unlocked**. Documented subset procedure:
+
+```bash
+# 1. capture what is ALREADY armed, so the backstop never touches another lane's items
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -tAc "
+SELECT string_agg(quote_literal(id::text), ',') FROM site_work_items
+ WHERE site_id='62b5978e-4271-4589-8e00-4baebfc0447c' AND status IN ('triaged','approved');"
+
+# 2. arm ONLY your items;  3. unlock;  4. run the backstop every 15s
+```
+
+⚠ **The backstop must NOT be a bare "defer everything that is not my items".** Each handler
+creates the NEXT item in the chain (`needs_content_page` → `page_rerender`), so a naive
+backstop defers the follow-on and the page never deploys. Guard on the page name too:
+
+```sql
+UPDATE site_work_items SET status='deferred', updated_at=NOW()
+ WHERE site_id='62b5978e-…' AND status IN ('triaged','approved')
+   AND id NOT IN (<pre-existing armed>, <your items>)
+   AND COALESCE(item_key,'') !~ 'guide-remortgaging|guide-buy-to-let|guide-negative-equity'
+   AND COALESCE(summary,'')  !~ 'guide-remortgaging|guide-buy-to-let|guide-negative-equity';
+```
+
+**Queue position is FIFO on `created_at`, priority is only a tiebreak.** Check where you
+are rather than assuming a stall — this site's `needs_content_page` rows are dated
+2026-07-31, which made them the OLDEST in the fleet and they dispatched immediately.
+
+### §10d New URLs cannot overwrite the original site — verify per page
+
+Rebuilt guides go to **directory form** (`/guides/remortgaging/index.html`); the originals
+are **file form** (`guides/remortgaging.html`). Different paths, both serve. **`/index.html`
+is the ONE exception** — same URL in and out, so it overwrites live content. Confirm before
+arming anything:
+
+```sql
+SELECT name, url FROM pages WHERE site_id='62b5978e-…' AND name IN (<your pages>);
+```
+
+### §10e Restoring a page the platform overwrote
+
+```bash
+cd ~/projects/sites
+git log --format='%h %ci %s' -- mortgagecalculator.co.uk/index.html   # find the last good sha
+git show <sha>:mortgagecalculator.co.uk/index.html > mortgagecalculator.co.uk/index.html
+git commit mortgagecalculator.co.uk/index.html -m "..." && git pull --rebase && git push
+```
+**Rebase, never merge** — the deploy derives changed domains from `git diff HEAD~1 HEAD`,
+and a merge makes your commit the first parent, dropping the domain while the run still
+goes green. Live in ~40 s. Restore point for the original homepage: **`825a36994`**
+(11,125 bytes, 28 links).
+
+**Then remove the components the overwrite created**, or the next rerender re-does it:
+```sql
+DELETE FROM page_components WHERE page_id='<page>';   -- restores "assembles to nothing" protection
+```
+Back them up first (`SELECT json_agg(row_to_json(t)) …`); the rendered artefact is
+recoverable from git regardless.
+
+### §10f Verifying — the only check that counts
+
+```bash
+cd ~/projects/sites/mortgagecalculator.co.uk
+while read -r f; do rel="${f#./}"
+  curl -sf -o /tmp/v.tmp "https://mortgagecalculator.co.uk/$rel" || { echo "FETCH-FAILED: $rel"; continue; }
+  [ "$(sha256sum "$f" | cut -d' ' -f1)" = "$(sha256sum /tmp/v.tmp | cut -d' ' -f1)" ] || echo "differs: $rel"
+done < <(find . -type f ! -path './.git/*')
+# expect exactly one line: robots.txt (Cloudflare)
+```
+
+⚠ **Use `curl -sf` and branch on failure.** With a bare `curl -o`, a missing output
+directory makes every `sha256sum` compare against a non-existent file and **every file
+reports "differs"** — which reads exactly like the site being destroyed. That happened on
+08-04 (the session scratchpad had been relocated by another lane) and cost a genuine scare.
