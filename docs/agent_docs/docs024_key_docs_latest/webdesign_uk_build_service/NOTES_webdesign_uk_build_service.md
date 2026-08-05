@@ -1200,3 +1200,34 @@ the B2 copies are harmless duplication.
 fix the hit — sweep the ENTIRE spec chain with ALL the validator's regexes at
 once, and distinguish three kinds of match: instructs-the-page (fix), quoted
 example copy (fix), avoid-list teaching (keep).*
+
+---
+
+## 2026-08-05 ~11:30 — END TO END: the framework-built page is SERVING ON THE BOX
+
+**The full path worked**: Sonnet-5 swap (owner-directed, 202) → writer generated
+→ validation passed → git-adapter committed `vm-sites` "Rerender: index.html"
+11:27:57 → `sitesync` pulled → **nginx serves 200, 34,893 bytes, on the box's
+loopback** (`curl -H 'Host: webdesign.uk' http://127.0.0.1:8080/`). Every stage
+verified at its artefact, not its status.
+
+**The livelock cure held**: no person-checks, no template-denial in the copy.
+6 Sonnet calls, 0 Gemini.
+
+**Second item (the image-asset rerender) blocked correctly on `"same day"`** —
+writer drift ("We usually get back to you the same day"), NOT instructed
+anywhere (spec sweep: only my own ban text matches). Reset + re-driven; a
+re-roll with the speed-class ban will land elsewhere.
+
+**And the seed's `[UNVERIFIED]` resolved the bad way**: the served page carried
+the **em dash in `<title>` + its JSON-LD mirror** — validation sweeps content
+prose, NOT the head. `pages.title` is data, not writer output: fixed at source
+(` — ` → ` - `, UPDATE verified, meta_description clean). Full-artefact sweep
+also showed the false-positive classes to expect on raw HTML: CSS
+`grid-template-columns` hits the `template` ban ×8, CSS comments carry em
+dashes ×2, a quote-shaped regex matches the font stack. **Prose bans bind
+prose; artefact sweeps need triage.** Landmine filed + synced.
+
+Remaining on this thread: the re-driven rerender lands with the corrected
+title; tunnel (owner click) → cutover. Parked: pricing-section tier data,
+hero CTA destination.

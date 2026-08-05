@@ -5571,3 +5571,38 @@ a STRING array — check the shape before trusting the prune.
 - ⚠ **`source: "authored"` is not a safety guard, it is a factual claim** — "a human supplied this, do not regenerate". Before changing one, ask whether the claim is TRUE. On loancalculator.co.uk it was not: the prose was another model's output lifted byte-for-byte by the decomposer, so `authored` was a mislabel and correcting it was the fix (owner ruling 2026-08-05). **But `ported-page.body` IS genuinely authored** — it is the byte-preserving `--fidelity locked` adoption path, and flipping it would let a writer rewrite a site adopted precisely to be preserved. Two fields fleet-wide carried `source: "authored"`; exactly one was wrong.
 - **source:** loancalculator.co.uk lane, 2026-08-05, found while trying to run the owner's "rerun it through the framework" instruction. Measured before changing anything: `ported-prose` exists on loancalculator and **no other site** (51 rows), and `authored` fields fleet-wide went 2 → 1, which is the negative control that exactly one field moved
 - **added:** 2026-08-05, loancalculator_couk lane
+
+### The Gauntlet engine validates the provocation feed's `today` key for PRESENCE only — change its SHAPE and every check still passes, then the blob goes into the AI prompt
+- **footprint:** `internal/tools-api/handlers/round.go` (`FetchProvocation`, `provocStore`), `platform/orchestration/actions/provocation_feed_action.go` (`checkFeed`, `asToday`), the served artefact `https://<domain>/data/provocations.json`, `gauntlet_rounds.provocation`
+- **fires when:** you change what `today` holds — adding categories (a map of category → provocation), nesting it, renaming its fields, or "tidying" the shape. **Nothing errors.** A round is created, a 200 is returned, and the site looks fine.
+- **the mechanism:** `FetchProvocation` makes exactly THREE checks and no more — the key exists (`round.go:73-76`), the value is not `null`, the value is not zero-length (both `round.go:78`). It then returns `json.RawMessage` **without ever parsing it**. `store.CreateRound` writes those raw bytes to a `jsonb` column, and `position.go:67` / `defend.go:67` interpolate `string(round.Provocation)` **straight into the model's prompt**. No struct, no field access, no schema — `headline`, `teaser`, `slug` and `detail_body` appear NOWHERE in `internal/tools-api/**.go` outside tests. So a shape change is not caught, it is *served*: the AI argues against whatever JSON you put there.
+- **why the obvious reassurance is wrong:** the function's own doc comment says it fails loud "per bug_historian pattern #7 rather than returning a blank provocation", and it does — for an ABSENT or NULL `today`. That designed-loud path reads like shape validation and is not. Presence is not shape.
+- **the check, before you change the feed's shape:** the only enforcement of `today`'s fields lives in the WRITER (`checkFeed`, which does demand non-empty headline/body/slug/date). A writer-side invariant cannot protect a reader in a different binary on a different host — and `go list -deps ./platform/orchestration/actions | grep tools-api` returns **no rows**, so the two sides share no Go type and no compiler will ever compare them. Verify a shape change by fetching the artefact and asserting the fields a round actually needs, then run one real round end to end; do not infer it from a 200.
+- ⚠ **`provocStore` is keyed by DOMAIN alone** with a 5-minute TTL (`round.go:25-29` — `provocTTL` at `:25`, `provocStore` at `:29`). Any per-category feed must add a category dimension to that key or categories serve each other's provocations for up to five minutes — a staleness bug that only appears under concurrent categories and vanishes while you debug it.
+- **source:** `provocation_pipeline` lane, 2026-08-05, deriving the engine contract for `RFC_013` (per-category provocations). Read first-hand end to end; the two negatives (nothing unmarshals it, no field is named server-side) were grepped rather than assumed, because the whole of RFC_013's recommendation turns on them
+- **added:** 2026-08-05, provocation_pipeline lane
+
+### `banned_claims` validation sweeps CONTENT PROSE only — the `<title>`, JSON-LD and head escape it, and a clean validation reads as full coverage
+
+- **footprint:** `site_specs` `evidence_base.banned_claims` · `validate_page_content.go` ·
+  `pages.title` · `pages.meta_description` · JSON-LD/structured data · any site seed
+  copying `oufe`'s or `webdesign.uk`'s pattern
+- **fires when:** you seed `banned_claims` to enforce a copy rule (a banned word, a
+  style rule like an em-dash ban) and trust a PASSING validation to mean the served
+  page is clean. The sweep runs over the writer's content; **`pages.title` is
+  rendered into `<title>` and mirrored into JSON-LD by the head builder without
+  passing through it.** Measured 2026-08-05 on webdesign.uk's first passing build:
+  validation PASSED while the served page carried the banned em dash in the title
+  and its JSON-LD mirror — exactly the phrasing class the ban existed to stop
+- **the tell:** none at the pipeline — the page completes and validation is green.
+  Only the ARTEFACT shows it
+- **the check:** after the first passing build of any site with seeded bans, fetch
+  the SERVED page and run every ban over it yourself — then **triage the hits,
+  because raw HTML false-positives**: CSS (`grid-template-columns` hits a
+  `template` ban; comments carry em dashes) and quote-shaped regexes match
+  minified head content. Prose-context bans only bind prose. And fix title/meta at
+  their SOURCE (`pages.title`, `pages.meta_description`) — they are data, not
+  writer output, so no re-roll fixes them
+- **source:** webdesign.uk 2026-08-05; the seed's own `[UNVERIFIED]` note flagged
+  this exact question at write time. `webdesign_uk_build_service/NOTES` 08-05
+- **added:** 2026-08-05, webdesign.uk build-service lane
