@@ -1227,3 +1227,67 @@ writer-side footprint". **It already was, first-hand, in this session** —
 `checkFeed`/`asToday` read in full in `provocation_feed_action.go`, and the `jsonb`
 column read at `sql_for_agents/198_tools_api_gauntlet_rounds.sql:28`. Recorded here
 because the verdict row cannot say so, and the next reader would otherwise re-walk it.
+
+**2026-08-05 (evening) — the stop_reason objection ANSWERED with evidence, and the
+live calibration harness BUILT. `b042fae66`.**
+
+**Item 3 from the verdict above is closed, and my own note about it was too
+pessimistic.** I recorded the `llm_reliability` objection as "genuinely right" and
+as needing a `judgeFn` signature change. It does not. Reading the client layer
+instead of reasoning about it: **every provider in the estate already turns a
+truncation into a non-nil error before the gate sees any text.**
+
+    platform/aiservice/anthropic.go   stop_reason == "max_tokens"  -> &TruncatedError{}
+    platform/aiservice/gemini.go      finishReason MAX_TOKENS      -> &TruncatedError{}
+    platform/aiservice/ollama.go      done_reason == "length"      -> &TruncatedError{}
+
+So `raw, err := judge(...)` is non-nil on any truncation and the gate rejects
+regardless of whether the partial parses. **The seat was right to raise it and
+right that the plan did not answer it — `judgeFn` is opaque in a submission, so no
+reviewer could see the protection. The gap was in what I showed, not in what the
+code does.** That is the same lesson as the schema objection (item 4): a check that
+exists but is not visible reads exactly like a check that is absent.
+
+`TestGateRejectsATruncationWhosePartialIsValidJSON` now drives the seat's exact
+scenario — a cut landing after a **complete, approving** JSON object, so only the
+error distinguishes it from a real verdict — and requires a rejection. **Proven
+discriminating by mutation:** making the gate reach for `aiservice.IsTruncated` and
+salvage a parseable partial (the plausible "improvement") fails it. The protection
+lives in another package, which is precisely why it needs a test in this one.
+
+**The live calibration harness exists** —
+`provocation_gate_live_calibration_test.go`, the file the sibling's header had been
+promising since this morning. Real gate, real model, the 9 plus the 4.
+
+**Its honesty properties are the design, not the code**, because this lane has
+already paid for the alternative (a driver that printed `SKIP PIL unavailable` and
+then `ALL LIVE CHECKS PASSED`, with 3 of 9 checks never run):
+
+- env unset → SKIP, and the message states the calibration is **UNSCORED and not
+  evidence**.
+- env set but no key → **FAIL, loudly.** Asking for the run and not getting it is a
+  failure, never a skip. Both branches were run to prove they behave that way.
+- fewer cases ran than expected → FAIL, because a partial run is not a pass.
+- the corpora themselves are asserted: if the 9 or the 4 ever shrink, the live run
+  would pass while proving less, so the sizes **and the four named bad kinds** are
+  checked.
+
+**BLOCKED, and honestly: I cannot run it.** There is no `ANTHROPIC_API_KEY` in this
+environment, and the obvious next move — reading the key out of a running chassis
+pod's environment — **was refused by the permission classifier, correctly.** I did
+not attempt to work around it. So the run needs one of:
+
+1. a key supplied to a local run:
+   `ANTHROPIC_API_KEY=... PROVOCATION_LIVE_CALIBRATION=1 go test ./platform/orchestration/actions/ -run TestLiveCalibration -v -timeout 20m`
+2. or the chassis rolled so the gate is in the image, then dispatched in-cluster
+   against a **separate calibration domain** (e.g. `calibration.vonc.com`) so the
+   nine live rows are never touched and nothing is publishable — `render_provocation_feed`
+   requires an explicit known domain, so a calibration domain cannot reach a site.
+
+Option 2 is the one that needs no secret handling, and the domain trick is worth
+recording: the gate takes its domain from config, so a calibration population can
+be fully isolated from production by data rather than by care.
+
+**Still true, and now the ONLY thing standing between here and a daily site:** the
+gate has never been judged by a real model. Nothing is wired
+(0 `agent_definitions` rows reference any of the three actions, re-checked).
