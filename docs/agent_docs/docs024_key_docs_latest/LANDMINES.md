@@ -5754,3 +5754,27 @@ a STRING array — check the shape before trusting the prune.
     returns instantly, so it is grep-specific, not a slow read. Measured
     2026-08-05, `bugs_closed/126` post-roll verification: a single `grep -ac`
     timed out twice at 20s and 40s, then returned correctly at 100s.
+
+## A call_agent child on a generic-consumed topic cannot select a workflow by agent_type — it silently runs the no-op fallback and COMPLETES
+
+- **footprint:** `platform/orchestration/actions/call_agent.go` (`buildCallRequestMessage`), `platform/messaging/processor.go` (`extractGroupInfo`, `selectWorkflow`), `system.agent.generic.requests`
+- **fires when:** you dispatch (or probe) a child via `call_agent` expecting the
+  child to run a seeded/named agent definition's workflow. The child request is a
+  nested RequestMessage envelope `{headers, body}`; `extractGroupInfo` reads only
+  the msgBody TOP level, so `config.agent_type` / `input_data.agent_type` under
+  `body` are invisible, Priority 2 group resolution never fires (no "Looking for
+  agent group" log line), and selectWorkflow falls to the consumer's own
+  definition — on the generic consumer that is the no-op complete step. The child
+  answers success and the parent proceeds: the wrong result is indistinguishable
+  from the right one unless you read the child's step data (an ECHO of its input
+  is the tell). CLI/kcat-published flat bodies (`{action, config, input_data}`)
+  DO resolve — 195's probe worked; a probe modelled on it inside call_agent does
+  not. Real dedicated-consumer targets (page-content-writer etc.) are unaffected:
+  their Priority-3 definition IS their workflow.
+- **the check:** before relying on a call_agent child's workflow selection, grep
+  the chassis log for `Looking for agent group` with your correlation id — its
+  ABSENCE means the fallback ran; and read `collected_data-><step>->response`:
+  an echo of the request body means no real workflow executed.
+- **source:** bugfix_196 induction attempt 1, 2026-08-05 (NOTES in
+  docs024_key_docs_latest/bugfix_196_failure_stamped_complete/)
+- **added:** 2026-08-05, bugfix_196 lane

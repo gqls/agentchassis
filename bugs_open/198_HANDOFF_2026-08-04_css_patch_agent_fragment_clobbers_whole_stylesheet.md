@@ -92,3 +92,52 @@ re-filing the fixed pairings (the de-facto verifier designed in A0.3).
   same-hour instead of fleet-wide later.
 - The A0.3 r2 spec-contract work is NOT implicated: the prompt received a real finding
   and produced a correct minimal fix — the defect is entirely on the persist side.
+
+## Fix applied 2026-08-05 (candidates 1 + 3; session dispatched at this bug by the owner)
+
+**Candidate 1 is LIVE** (migration `docs/agent_docs/sql_for_agents/318_…`, applied +
+recorded 2026-08-05, snapshot `661a27b9` taken first; commit `c48c773c1`,
+`Council-Submitted: 5249320e-1d6e-4bb4-94d3-89bd802bd8a4`):
+
+- `plan_css_fix` returns ONLY `css_added` — the model never carries the stylesheet
+  again, which also dissolves the max_tokens 8000 structural conflict named above.
+- `save_css_to_db` APPENDS server-side (`css_content = css_content || …` with a dated
+  provenance comment naming the category). SQL concatenation is monotonic, so the DB
+  writer *cannot* shrink — candidate 2's guard delivered by construction, not threshold.
+  A 1..8192-char size guard refuses a whole-document echo by matching zero rows.
+- NEW `check_saved` step: a refused append routes to `complete_error` LOUDLY — without
+  it, zero rows would ride `git_commit`'s "no files → skipped, Success:true" path and
+  read as complete.
+- `deploy_css` commits `css_saved.css_content` — the DB row AS RETURNED by the UPDATE —
+  so repo and DB cannot diverge through this workflow.
+- Live-verified post-apply: all five config paths probe correct and `patched_css`
+  appears NOWHERE in the config (`position(...)` = 0). The exact installed query was
+  proven on the real relojistas theme row inside a rolled-back transaction:
+  26,152 → 26,240 chars, v6 → v7, `commit_msg` = "CSS fix: contrast_failure (theme v7)";
+  the 9,000-char oversize probe matched **0 rows**. Live row untouched (v6 preserved).
+
+**Candidate 3 is COMMITTED, INERT UNTIL THE NEXT CHASSIS ROLL:** `commit_message_field`
+(opt-in, default OFF) on `GitCommitAction` — the `<no value>` mechanism is that
+`buildCommitMessage` executes the template against a fixed `{domain, file_count,
+filename}` map, never CollectedData. The message now composes in the save step's
+RETURNING (`… AS commit_msg`), where params actually resolve. Four tests, field-wins
+proven by mutation. Until the roll, the old binary ignores the key and falls back to
+the also-updated template `CSS patch: {{.filename}} ({{.domain}})` — honest, less
+specific. Both orders safe; registered as DGH-007 same commit; LANDMINES entry added
+for the template-context trap.
+
+**Gemini note (measured, not assumed):** this chain does not touch Gemini —
+css-patch-agent's 4 incident calls were anthropic/claude-sonnet-4-6 (`llm_call_log`),
+and render-audit-agent has no gemini rows; the fleet's gemini traffic is
+page-content-writer's generate_content steps. A Gemini outage neither blocks this fix
+nor its verification chain.
+
+**STILL OPEN because the file's own verify bar is not yet met:** the witnessed
+end-to-end run (render audit files a NEW contrast item → sweep promotes → css-patch
+appends → next audit stops re-filing it) belongs to the next real finding — the four
+incident pairings are already fixed in v6, so the next audit should file nothing for
+them (that non-refiling is itself the verifier of the original fixes). Dispatch
+cadence is the vigilant_designer lane's; the door is closed ahead of it, which is what
+their handoff ordered ("198's fix candidate 1 before any css-patch dispatch"). Closure
+call is theirs once the witnessed run lands; the commit-message half additionally
+wants the chassis roll.
