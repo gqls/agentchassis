@@ -1247,3 +1247,58 @@ stronger than the "cheap existence check" asked for.
 verify in seconds — Go source and a separate docs commit. **Third round running.** The pattern is
 now established enough to state as a rule: *the gate cannot read function bodies or other commits,
 so anything resting on either must be measured by the submitter and quoted, not asserted.*
+
+## OPTION A IS LIVE AND PROVEN — `v1.0.1252`, both replicas, 2026-08-05
+
+**The first change in this lane with a full positive+negative control on BOTH halves.** Baseline
+was taken 2026-08-04 on `v1.0.1251` and dated; this completes it.
+
+| probe | baseline (`v1.0.1251`) | now (`v1.0.1252`) | verdict |
+|---|---|---|---|
+| `re-observed filled` (revert removed it) | **1** | **0** | ✅ negative control fired |
+| `findResolvedRequiredFields` | present | **0** | ✅ symbol gone |
+| `auto:revalidated` (untouched) | **2** | **2** | ✅ positive control — the probe works |
+| `AND status IN (%s)` (widening added it) | 0 | **3** | ✅ and see below |
+| `AND status = 'needs_human_review'` (widening removed it) | present | **0** | ✅ |
+
+⚠ **The `3` is the part worth keeping.** `AND status IN (%s)` greps **exactly three** times in the
+shipped binary — which is the same assertion `TestAllThreeStatusGatesUseTheSharedList` makes about
+the source, now confirmed **in the artefact that is actually running**. A unit test proves the
+source; this proves the binary. They are different claims and this lane has been bitten by
+conflating them.
+
+⚠ **A revert is the one change shape where `bugs_open/153`'s recipe applies in full**, because it
+removes a string. Every other change in this lane was additive and had to rely on a dated
+before-measurement instead. Worth remembering when planning a verification: *what shape is my
+change?* decides which proof is available, and you must decide before the roll.
+
+### The sweep does act — checked rather than assumed
+
+`diagnosis-review-queue-revalidator`, step `sweep`, **`dry_run: false`** [MEASURED 2026-08-05].
+Not the InputSpec default (`true`), so this needed reading the live row rather than the code —
+the standing "seed is not the system" lesson. **33 rows closed `auto:revalidated` all-history**,
+latest 2026-08-04 08:37, i.e. **before** today's roll. So the widening has not yet had a pass.
+
+### The number that vindicates excluding `failed`
+
+| | 2026-08-04 | 2026-08-05 |
+|---|---|---|
+| `needs_page` **`failed`** | 17 | **21** |
+| `needs_page` `unresolved` | 1 | 1 |
+| `required_fields_missing` keys at 1 strike | 5 | 5 |
+
+**The deferred 033 D2 population grew by 4 in a day.** Had I kept `failed` in the list — as my
+first draft did, copying RFC_010 Decision 2's pairing — this widening would now be pointing an
+auto-closer at **21 rows of an actively-growing population that an open owner decision covers**,
+and growing. The measurement that stopped it was checking the *other* consumers rather than the
+one I was reasoning from. **That is the third time in three days that the blast radius of a shared
+mechanism was somewhere other than where I was looking**, and the first time I caught it before
+shipping rather than after.
+
+### What is NOT yet proven
+
+The widening is proven **present**, not proven **effective**: no sweep has run since the roll, so
+nothing has yet been closed from `unresolved`. The honest state is "live and structurally correct,
+behaviourally unexercised". Expect the next sweep to close **at most 1 row** (the single
+`needs_page` `unresolved`). **If it closes more than 1, something is wrong** — that is the check,
+and it is disconfirmable, which is the point.

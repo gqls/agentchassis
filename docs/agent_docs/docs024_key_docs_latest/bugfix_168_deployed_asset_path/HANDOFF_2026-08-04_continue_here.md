@@ -1,4 +1,14 @@
-# HANDOFF — 2026-08-04 — the second adopter is LIVE, APPROVED, and its justification was FALSE
+# HANDOFF — 2026-08-04/05 — the adopter was redundant; option A is LIVE and PROVEN
+
+> **UPDATED 2026-08-05. READ THIS BOX FIRST — §1 and §2 below describe the state BEFORE option A.**
+>
+> **Option A is done, APPROVED (council `1cec55d2`), and LIVE on `v1.0.1252`, both replicas.**
+> The duplicate closer is reverted (proven gone at the pod: `re-observed filled` **1 → 0**,
+> `findResolvedRequiredFields` **0**, positive control `auto:revalidated` **2 → 2**), and
+> `revalidate_review_queue` now also sees `unresolved` (proven present: `AND status IN (%s)`
+> greps **exactly 3** — the three gates — and the old literal greps **0**).
+>
+> **THE ONE OPEN ITEM IS A SINGLE OBSERVATION, §0 below.** Everything else in this lane is closed.
 
 **Supersedes `HANDOFF_2026-08-03b_continue_here.md`.** That file is still worth reading for the
 first adopter's history and its §3/§4 traps — but **§4.1's trap list and §3's producer check are
@@ -10,6 +20,30 @@ Read this, then `WRONG_CALLS.md` (2026-08-04 entry), then `NOTES_deployed_asset_
 DECISION, not an implementation.**
 
 ---
+
+## 0. THE ONLY OPEN ITEM — one observation, and it is disconfirmable
+
+The widening is proven **present**, not proven **effective**: no sweep has run since the roll
+(`diagnosis-review-queue-revalidator`, step `sweep`, **`dry_run: false`** — it does act; 33 rows
+closed all-history, latest 2026-08-04 08:37, before the roll).
+
+**After the next sweep, run this. Expect AT MOST 1 newly-closed row. If it closes more than one,
+something is wrong.**
+
+```sql
+SELECT s.domain, swi.item_type, swi.status, swi.completed_at, swi.result->'revalidation'->>'reason'
+FROM site_work_items swi JOIN sites s ON s.id = swi.site_id
+WHERE swi.resolution_path = 'auto:revalidated' AND swi.completed_at > '2026-08-05'
+ORDER BY swi.completed_at DESC;
+```
+
+Why exactly one: the widening's whole live blast radius is **1 row** — a single `needs_page` item
+at `unresolved`. Every other covered type has zero rows in `unresolved`. A larger number means the
+status set is wider than intended, or a gate is matching rows it should not.
+
+⚠ **Tell the `bugs_open/187` lane if it fires** — that row is theirs (`revalidateNeedsPage`), and
+`needs_page` is the one type of the four with **5 Go producers**, which the `guardian` seat
+surfaced and which the submission had not stated.
 
 ## 1. The one-paragraph version
 
