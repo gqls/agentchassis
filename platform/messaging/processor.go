@@ -556,9 +556,21 @@ func (p *MessageProcessor) sendWorkflowFailureResponse(ctx context.Context, msgC
 		zap.String("timestamp: ", time.Now().UTC().Format(time.RFC3339)),
 	)
 
-	return p.sendWorkflowResponse(ctx, msgCtx, map[string]interface{}{
+	// bugs_open/196: a workflow that failed at the start reached its parent as a
+	// completed step. Typed status only — see sendErrorResponse on why the body
+	// blob below stays exactly as it is.
+	status := "error_unrecoverable"
+	if errors.IsRetryable(err) {
+		status = "error_recoverable"
+	}
+
+	return p.sendWorkflowResponseWithStatus(ctx, msgCtx, map[string]interface{}{
 		"error":  err.Error(),
 		"status": "failed",
+	}, status, &types.ErrorInfo{
+		Code:        string(errors.CodeOf(err)),
+		Message:     err.Error(),
+		Recoverable: errors.IsRetryable(err),
 	})
 }
 
@@ -637,7 +649,23 @@ func (p *MessageProcessor) ProcessResponse(ctx context.Context, msg kafka.Messag
 	return p.orchestrator.HandleResponse(ctx, headers, responseMsg)
 }
 
+// sendWorkflowResponse sends a successful workflow response.
 func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *MessageContext, result interface{}) error {
+	return p.sendWorkflowResponseWithStatus(ctx, msgCtx, result, "complete", nil)
+}
+
+// sendWorkflowResponseWithStatus is the one sender for every workflow response
+// this processor emits, success or failure.
+//
+// bugs_open/196: it used to be sendWorkflowResponse itself, which hard-coded
+// "complete"/Success:true — so the error senders below, which route through it,
+// stamped a FAILURE as a completed step. The awaiting parent's status switch
+// (coordinator.go, `switch execCtx.Status`) took the complete arm and recorded
+// the error blob as that step's output, so error_step routing, continue_on_error
+// loops and failWorkflow never saw a chassis child's failure. The status decision
+// belongs to the caller who knows the error; nothing else about the envelope
+// changes.
+func (p *MessageProcessor) sendWorkflowResponseWithStatus(ctx context.Context, msgCtx *MessageContext, result interface{}, status string, errInfo *types.ErrorInfo) error {
 	// Keep stack trace for debugging
 	current, caller := getFuncInfo(1)
 	p.logger.Debug("sendWorkflowResponse",
@@ -646,6 +674,17 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 
 	// Create response context
 	responseCtx := msgCtx.CreateResponseContext()
+
+	// CreateResponseContext pins "complete" for every caller, and its legacy
+	// nil-ExecutionContext fallback leaves Status empty — which the parent's
+	// switch treats as unknown. Override both here rather than in the shared
+	// helper: its other callers rely on the complete default.
+	if errInfo != nil {
+		responseCtx.Status = status
+		responseCtx.IsComplete = false
+		responseCtx.IsError = true
+	}
+
 	contextLogger := p.logger.With(msgCtx.ExecutionContext.LogContext()...)
 
 	// Check if waiting for response (suppress premature responses)
@@ -706,9 +745,9 @@ func (p *MessageProcessor) sendWorkflowResponse(ctx context.Context, msgCtx *Mes
 	response := &types.ResponseMessage{
 		Headers: responseHeaders,
 		Body: types.ResponseBody{
-			Success: true,
+			Success: errInfo == nil,
 			Body:    result,
-			Error:   nil,
+			Error:   errInfo,
 		},
 	}
 
@@ -1925,12 +1964,31 @@ func (p *MessageProcessor) sendErrorResponse(ctx context.Context, msgCtx *Messag
 		return fmt.Errorf("no responses topic for error response")
 	}
 
+	// Typed decision only: the code and the author's Retryable flag, never the
+	// message text. Substring classification of error prose is bugs_open/197's
+	// seam and is deliberately not duplicated here.
+	status := "error_unrecoverable"
+	if errors.IsRetryable(err) {
+		status = "error_recoverable"
+	}
+
+	errInfo := &types.ErrorInfo{
+		Code:        string(errors.CodeOf(err)),
+		Message:     err.Error(),
+		Recoverable: errors.IsRetryable(err),
+	}
+
+	// The body keeps the legacy blob dialect verbatim. Several Go readers key on
+	// `status: "failed"` inside it (handlerReportedFailure, loop_actions,
+	// multipage_actions, git_deployer_actions, fixloop_digest_action), so
+	// errInfo above is additive — it is where the coordinator now reads the real
+	// message from, not a replacement for what those readers parse.
 	errorResponse := map[string]interface{}{
 		"error":  err.Error(),
 		"status": "failed",
 	}
 
-	return p.sendWorkflowResponse(ctx, msgCtx, errorResponse)
+	return p.sendWorkflowResponseWithStatus(ctx, msgCtx, errorResponse, status, errInfo)
 }
 
 // sendErrorResponse sends an error response
