@@ -212,3 +212,37 @@ sitting with you, not a task sitting with me.** It needs either your call on
 mortgagecalculator's rebuilds (which frees a natural target), or a deliberate choice to fund a
 new build purely as a test. Meanwhile ai-agent-orchestration.com is unlocked and free to work
 on — that job is unblocked, it just proves nothing about this bug.
+
+**Later that morning — and this changes the answer, so please read this bit rather than the
+paragraph above.** I kept going, because "create some suitable work on the unlocked site"
+looked like a way round the lock. It isn't, and the reason turned out to be already written
+down by another thread the day before. I found it by searching our open bugs for the mechanism
+before filing anything, which is the only reason I didn't spend the morning writing up a
+duplicate of somebody else's work.
+
+Bug 201, filed Monday: the particular writer agent my check depends on **fails outright** when
+it is asked to edit a page that has already been built. It was tried twelve times last week
+and failed eleven of them. The one that "succeeded" wrote nothing. And the single job in the
+whole estate that my check could have used is named in that bug as one that will fail the same
+way on its remaining attempts.
+
+I checked whether my route dodges that, and it doesn't — the part of the system I would have
+triggered leaves out the same piece of information that causes the failure. I confirmed that
+by reading the live configuration, not by guessing.
+
+**So the real position is simpler and rather better than "blocked pending your decision":
+this check is waiting on bug 201 being fixed.** That is a normal piece of engineering work
+with an open ticket, not a judgement call for you. When 201 is fixed, my check runs. I have
+written the dependency into both bug files so whoever picks up 201 knows it unblocks this too,
+and I have added what I learned to their ticket — including one thing that may affect how they
+fix it, since the obvious fix would leave that part of the system with no work at all.
+
+I have been careful to label that last point as a suspicion rather than a finding. It follows
+from things I did verify, but I have not run the thing to prove it, and this codebase has a
+firm rule about not writing inferences up as facts. It is flagged as an open question on their
+ticket, which is where it belongs.
+
+**Which leaves your actual suggestion.** ai-agent-orchestration.com is unlocked, genuinely
+damaged, and needs the rebuild you described — I have written up exactly what is wrong with it
+above. That work is real and available. It simply is not this check, and I did not want to do
+one while reporting the other.

@@ -238,3 +238,54 @@ the check's `spec` shape doesn't carry), this needs an actual new/adapted
 handler or a `section_plan`-synthesis step at the dispatch seam (candidate
 1) — and that is a bigger, owner-worthy design call, similar in shape to how
 `bugs_closed/087` itself flagged candidates B/C as wanting one.
+
+---
+
+## CONTRIB 2026-08-05, `bugfix_194` lane — a SIXTH caller omits `section_plan` too, and it is the one `087` nominated as the fix for this
+
+**Nothing here re-verifies your mechanism** (§3 asks that it not be) — this adds one caller
+to your enumeration and one consequence, both read from live config.
+
+`bugs_closed/087`'s closing note, which you quote, says the self-plan branch "needs its own
+dispatch via `pageflow-builder` / `site-work-orchestrator`". **`site-work-orchestrator` has
+the same gap `build-dispatch-loop` does.** Its `write_page_content` step calls
+`page-content-writer` with this complete `input_mapping` (live, `agent_definitions`, 08-05):
+
+```
+db_sync, hero_url?, logo_url?, site_plan, site_record,
+current_page (= current_item.spec), reviewed_brief, brand_logo_url?, style_collection
+```
+
+**No `section_plan`.** So `check_section_plan` is falsy on that path too, and by your own
+root-cause chain it reaches `plan_sections` → `ready_count: 0` → `fail_no_ready_sections`
+for any page whose sections already exist.
+
+**Consequence, and why it matters beyond 201.** That loop is gated by
+`load_work_items` with `handler_agent='page-content-writer'` **and**
+`status IN ('triaged','approved')` (`load_work_item_actions.go:623-661`). The only producers
+of `page-content-writer` items are the **three discovery checks** you name — and a discovery
+check by construction inspects a page that is **already built**. Meanwhile `write_build_items`
+(the planner path) maps **every** page type to `page-build-handler` (`:220-247`), so it never
+produces an item this loop can load.
+
+> **[INFERRED — not measured, and stated as an inference deliberately]** The
+> `site-work-orchestrator` build loop may therefore only ever be handed items in exactly the
+> state that hard-fails: already-built pages. I have **not** run it to confirm that, and I am
+> not asserting it as a root cause. It is offered as a question for whoever takes 201, because
+> it would change §4's decision — re-routing the three checks' `HandlerAgent` to
+> `page-build-handler` would leave that loop with **no producer at all**, which is worth
+> knowing before choosing candidate 1.
+
+**Live census backing the above** (08-05 10:40Z): `page-content-writer` has held **14 items
+fleet-wide in all of history** — all `source='discovery'`, all created 08-04; 12 `failed`,
+1 `complete`, 1 `triaged`. That last one is your `dad119c9…`.
+
+**What this cost my lane, recorded so it is not re-walked.** `bugs_closed/194`'s live
+acceptance (check 3b) needs a real dispatch that reaches `save_page_sections` inside this
+loop. `dad119c9…` is the **only** item fleet-wide that the loop can load — and it is on
+`mortgagecalculator.co.uk`, which is **LOCKED** (since 08-03, `mortgagecalculator-adoption-lane`,
+"held pending owner decision on page rebuilds"), and which your §3 already predicts will
+hard-fail on its two remaining attempts. **194's check 3b is therefore blocked behind 201**,
+not merely behind a site choice. Recorded in
+`docs024_key_docs_latest/bugfix_194_sections_metadata_mapping/` (RUNBOOK R7, NOTES 08-05).
+No action requested of you; flagging the dependency so a fix here is known to unblock 194 too.

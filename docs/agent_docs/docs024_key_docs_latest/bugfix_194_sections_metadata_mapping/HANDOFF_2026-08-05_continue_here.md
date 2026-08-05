@@ -58,7 +58,27 @@ SELECT error_code, count(*) FROM agent_error_log WHERE occurred_at > '2026-08-05
   `SELECT agent_type, run_count, last_ran_at FROM agent_run_stats WHERE agent_type IN ('page-rerender','page-build-handler') ;`
   — compare `run_count` against the pre-roll figures below.
 
-### 3b. The live acceptance on a seeded caller — **optional, needs a decision that is not mine**
+### 3b. The live acceptance on a seeded caller — **BLOCKED BEHIND `bugs_open/201`. Do not hunt for a target; there isn't one.**
+
+> **STATUS 2026-08-05 (later) — this is no longer "needs a decision about which site".**
+> Three independent constraints were measured today and each alone is fatal:
+> 1. **No loadable item.** The loop needs `handler_agent='page-content-writer'` +
+>    `status IN ('triaged','approved')`. Fleet-wide that is **one** item; the seven-site
+>    candidate list below is 0 across the board (struck through, see the correction).
+> 2. **That one item's site is LOCKED** — `mortgagecalculator.co.uk`, since 08-03, by the
+>    adoption lane, "held pending owner decision on page rebuilds". A locked site returns
+>    success with zero items (`skipped_reason: site_locked`), so it is a *silent* vacuous
+>    pass. **Do not release it** — `aee11cb90` is the incident that lock exists because of.
+> 3. **Even unlocked, that item is predicted to hard-fail upstream of the code under test.**
+>    `bugs_open/201`: `page-content-writer` called without `section_plan` fails at
+>    `fail_no_ready_sections` on an already-built page (11 of 11). `site-work-orchestrator`'s
+>    `write_page_content` **omits `section_plan`** — verified live — so this route has 201's
+>    defect too, and 201 §3 already names this exact item as one that will fail.
+>
+> **So: a fix to 201 unblocks 3b.** Contributed there (CONTRIB 2026-08-05) rather than forked.
+> The pincer, with the producer table, is in NOTES 08-05. **`ai-agent-orchestration.com` is
+> UNLOCKED and does need a rebuild — but it has 0 loadable items on two independent clauses,
+> so that work is real and is NOT this check.**
 
 This proves seed 312's mapping resolves on a caller that had never had it.
 

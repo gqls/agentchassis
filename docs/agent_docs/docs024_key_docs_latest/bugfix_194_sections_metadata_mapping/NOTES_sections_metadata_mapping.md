@@ -309,3 +309,42 @@ either the mortgagecalculator lane's owner decision lands (releasing a natural t
 eligible build work is created on an unlocked site, or the new-build/`pageflow-builder` route
 is funded. Recorded rather than worked around. `ai-agent-orchestration.com` is **UNLOCKED**,
 so the owner's rebuild request there is unobstructed — it simply is not this check.
+
+### …and the lock was not even the binding constraint. 3b is blocked behind `bugs_open/201`.
+
+Kept pulling because "create eligible work on the unlocked site" looked like a way through.
+It is not, and the reason was already filed by another lane a day earlier — found by grepping
+`bugs_open/` for the mechanism **before** filing anything, which is the only reason this lane
+did not open a duplicate.
+
+**`bugs_open/201`** (filed 08-04, OPEN, unowned): `page-content-writer` dispatched without a
+`section_plan` hits `check_section_plan` falsy → `plan_sections` → `ready_count: 0` on a page
+whose sections already exist → `fail_no_ready_sections`, **hard fail**, 11 of 11 attempts.
+201 names `build-dispatch-loop` as "a fifth caller `087` never enumerated".
+
+**`site-work-orchestrator` is a sixth, and it is the one `bugs_closed/087` nominated as the
+fix for this.** Its `write_page_content` `input_mapping`, read live: `db_sync, hero_url?,
+logo_url?, site_plan, site_record, current_page, reviewed_brief, brand_logo_url?,
+style_collection` — **no `section_plan`.** Same falsy branch.
+
+So the route to 3b is pincered from both ends:
+
+| producer | what it makes | can the loop load it? |
+|---|---|---|
+| `write_build_items` (planner) | `handler_agent='page-build-handler'` for **every** page type (`:220-247`) | **No** — filter demands `page-content-writer` |
+| the 3 discovery checks | `page-content-writer`, but only on **already-built** pages | Loads, then **201 hard-fails it** before `save_sections` |
+
+And 201 §3 already predicts the single qualifying item (`dad119c9…`, mortgagecalculator)
+"will fail identically on its remaining two attempts."
+
+> **[INFERRED — flagged, not asserted]** This looks like it makes the
+> `site-work-orchestrator` build loop unreachable-in-practice, since its only possible
+> producer supplies exactly the state that hard-fails. **I have not run it and am not
+> claiming that as a root cause** — it is a structural claim of the kind CLAUDE.md says to
+> route through `090` rather than assert, and I have not spent that run. Contributed to
+> `bugs_open/201` as a question for its owner, where it changes the §4 decision: re-routing
+> the three checks to `page-build-handler` would leave this loop with **no producer at all**.
+
+**Disposition: 3b is not "awaiting a site", it is BLOCKED BEHIND 201.** A fix there unblocks
+it. Do not spend another session hunting for a target — there isn't one, and the reason is
+now written down in both files.
