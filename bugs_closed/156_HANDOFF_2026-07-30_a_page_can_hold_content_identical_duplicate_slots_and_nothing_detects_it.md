@@ -489,8 +489,35 @@ legitimate repeats (plus the NULL-content pair) were never touched.
 
 ## What remains, owned by nobody
 
-1. **`work_item_id_field` on `page-rerender`'s `save_sections` step** (and, by the same
-   argument, the other five callers). Config only. §4 above.
+1. ~~**`work_item_id_field` on `page-rerender`'s `save_sections` step** (and, by the same
+   argument, the other five callers). Config only. §4 above.~~ **DONE 2026-08-05, seed `315`
+   — but on THREE of six, each on its own path, and that is the finding.**
+
+   **The correct path is not the same for every caller, so a uniform setting would have been
+   wrong.** `site-work-orchestrator`'s `build_items_loop` iterates over `work_items.items`, so
+   inside its sub_workflow the work item **is** `current_item` — proven by its sibling steps,
+   which already pass `work_item_id: current_item.id` to `fail_work_item` and
+   `complete_work_item`. Setting `input_data.work_item_id` there would have been a **dead
+   config key that looks live**: harmless at runtime and permanently misleading, because the
+   next reader sees the key set and assumes attribution works. `pageflow-builder` and
+   `page-rebuild` loop over *pages*, so the substitution is wrong in the other direction.
+
+   | caller | set to | evidence |
+   |---|---|---|
+   | `page-rerender` | `input_data.work_item_id` | MEASURED 736 / 776 retained runs (the 40 without are the direct-spawn path, which genuinely has no work item) |
+   | `page-build-handler` | `input_data.work_item_id` | MEASURED 74 / 74 |
+   | `site-work-orchestrator` | `current_item.id` | PROVEN from its own sub_workflow's fail/complete steps |
+   | `pageflow-builder`, `page-rebuild`, `tool-recreation-handler` | **left UNSET** | **ZERO retained orchestration rows** — `orchestration_states` keeps terminal rows ~24h, so there is no evidence the path resolves, and "plausible" is what the dead-key trap is made of. The query to close it is in seed 315's header |
+
+   **Verified by inducing it, not by reading the config back.** The same key drives
+   `page_component_history.source_item_id`, which gave a cheaper observable than re-doubling a
+   live page: baseline **0 of 210** history rows for this page carried it; after one plain
+   rerender, **6 of 216** — exactly the six rows that rerender wrote — each naming the correct
+   work item (`e616bff8-…`, the item queued for the test). Served page unchanged at 52,364 bytes.
+
+   Also worth recording: the first census said **3** call sites, because the step is nested
+   inside a loop `sub_workflow` in three of the six and a top-level `jsonb_object_keys` cannot
+   see them. The real number is 6. Same trap seed `312` documents.
 2. **The DB-level invariant** — the council's open MEDIUM objection. The guard sits at one of
    seven `page_components` writers and "the other six insert single rows" is a fact about
    *current* callers, not an enforced mechanism. The shape that closes it is a generated column
