@@ -29,6 +29,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gqls/agentchassis/platform/aiservice"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 )
 
@@ -391,6 +392,68 @@ func TestGateRejectsWhenTheJudgeNeverRan(t *testing.T) {
 				t.Errorf("JudgeRan is true although the judge produced no usable verdict")
 			}
 		})
+	}
+}
+
+// THE COUNCIL'S llm_reliability OBJECTION, TURNED INTO A TEST (2026-08-05).
+//
+// The seat's concern was precise and worth taking seriously: strict JSON decoding
+// is a proxy for truncation, not the signal itself, so "a max_tokens cutoff that
+// happens to land after a syntactically-complete JSON object would pass Decode()
+// and be treated as a genuine verdict".
+//
+// INVESTIGATED, AND THE GATE IS ALREADY PROTECTED — but by the AI client layer,
+// not by the parser, which is why the seat could not see it (judgeFn is opaque in
+// a submission). Every provider client in the estate turns a truncation into a
+// NON-NIL error before the gate ever sees the text:
+//
+//	anthropic.go  stop_reason == "max_tokens"  -> &TruncatedError{...}
+//	gemini.go     finishReason MAX_TOKENS      -> &TruncatedError{...}
+//	ollama.go     done_reason == "length"      -> &TruncatedError{...}
+//
+// So `raw, err := judge(...)` yields err != nil and the gate rejects, regardless
+// of whether the partial text parses. The case below drives EXACTLY the seat's
+// scenario — a truncation whose partial is perfectly valid, complete, approving
+// JSON — and requires a rejection.
+//
+// This test exists because the protection lives in someone else's file. A future
+// "improvement" that reaches for aiservice.IsTruncated to salvage a parseable
+// partial would reintroduce the gap silently, and this is what would stop it.
+func TestGateRejectsATruncationWhosePartialIsValidJSON(t *testing.T) {
+	good := realProvocations[0]
+
+	// The nastiest possible shape: the cut landed after a complete object, and
+	// that object says "approve". Only the error distinguishes it from a real
+	// verdict, so if the gate ignored the error it would approve here.
+	completeApprovingJSON := `{"safe":true,"two_sided":true,` +
+		`"arguable_from_ordinary_experience":true,"factual_problems":[],` +
+		`"interesting":9,"current":9,"note":"looks good"}`
+
+	if _, err := parseJudgement(completeApprovingJSON); err != nil {
+		t.Fatalf("test setup is wrong: the partial must be VALID for this to model "+
+			"the objection, but it failed to parse: %v", err)
+	}
+
+	truncating := func(context.Context, string) (string, error) {
+		return completeApprovingJSON, &aiservice.TruncatedError{
+			Partial:      completeApprovingJSON,
+			OutputTokens: 4096,
+			Reason:       "stop_reason=max_tokens",
+			Provider:     "anthropic",
+		}
+	}
+
+	v := gateCandidate(context.Background(), good, truncating, "stub")
+	if v.Approved {
+		t.Fatal("APPROVED a truncated response whose partial happened to be valid, " +
+			"approving JSON — this is precisely the llm_reliability objection, and it " +
+			"means the gate is trusting the parser instead of the provider's stop signal")
+	}
+	if !hasRule(v, "judge_error") {
+		t.Errorf("rejected, but not as a judge error; got: %s", ruleList(v))
+	}
+	if v.JudgeRan {
+		t.Error("JudgeRan is true for a truncated call; no complete verdict was produced")
 	}
 }
 
