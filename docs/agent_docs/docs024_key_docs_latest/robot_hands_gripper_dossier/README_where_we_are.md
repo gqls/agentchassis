@@ -579,6 +579,28 @@ so regenerating a report for real, when the time comes, won't run into that agai
 
 ---
 
+**2026-08-05.** You said go ahead, so I've written up the actual proposal for the other
+team — what needs building, in their own service, so the public form and the email sender
+both get somewhere to plug into.
+
+One thing worth knowing: their own design note said the service was already built to host
+more than one tool. I checked, and it isn't yet — it's wired for their one tool only. That's
+not a problem, just means the honest size of the ask is "restructure a bit, then add ours,"
+not "slot ours into a shelf that's already there." I wrote that down plainly rather than let
+it surprise them halfway through.
+
+The rest of the write-up is deliberately concrete rather than a wishlist: which of their
+existing pieces we can reuse untouched, which need widening, the exact message format the
+cluster is already sending and waiting to be answered, and where in their code the one email
+actually gets sent from. Two things still need you specifically: a spending-capped key for
+this tool's own AI calls, and the email server login details — neither blocks them starting,
+both block the first real message going out.
+
+It's saved and ready. Whenever you want to hand it to them the way you handed them the
+visitor-identity fix, it's there.
+
+---
+
 **2026-07-31, later still.** The cleanup is done, and I checked it properly rather than
 trusting the status.
 

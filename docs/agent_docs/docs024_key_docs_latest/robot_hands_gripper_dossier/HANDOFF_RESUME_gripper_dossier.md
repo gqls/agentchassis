@@ -109,6 +109,11 @@ Live on chassis **v1.0.1175**. Seeds applied: **204, 207, 209, 210**.
      helper-with-no-callers trap. The real next action is coordinating this route
      group with the gauntlet lane, same channel as the httpguard `ClientIP` fix
      (write the ask here / in NOTES, owner routes the priority) — not a solo patch.
+   - **DRAFTED 08-05**: `PROPOSAL_2026-08-05_gripper_route_group_in_tools_api.md`
+     — grounded against the live `internal/tools-api` source (not the design doc's
+     summary of it), including a correction DESIGN §2 needed: the router is NOT
+     yet multi-tool despite what §2 claims, it's one hardcoded `/gauntlet` group.
+     Ready to route to the gauntlet lane whenever the owner does so.
 2. **Before that, land two shared pieces** (`features_open/024` A2/A3), or the
    estate forks at exactly this point:
    - a **mailer** in `platform/` — `grep -rn "net/smtp" --include=*.go platform/
