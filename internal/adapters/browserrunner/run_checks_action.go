@@ -17,8 +17,8 @@
 //                            second clause exists because a clipping parent
 //                            zeroes scrollWidth-clientWidth while the content
 //                            is still cut off for the visitor (bugs_open/131 B)
-//   interaction            — run steps (fill/click/select) then assert an
-//                            expect selector exists / its text matches (P2 —
+//   interaction            — run steps (fill/click/select/reload) then assert
+//                            an expect selector exists / its text matches (P2 —
 //                            the tier that asserts a tool actually WORKS, not
 //                            just that it boots)
 //   computed_values        — drive the tool with fixed inputs, then assert the
@@ -37,6 +37,16 @@
 // The browser is launched per (url, profile): a crashed Chromium poisons one
 // run, not the pod. The `browserPage` interface is the test seam — real runs
 // use Playwright (openChromium); tests inject a fake page.
+//
+// ONE page is opened per (url, profile) and EVERY check runs against it, so
+// state accumulates across checks and check order is load-bearing. That is
+// harmless for the assertion-only types and a trap for `interaction`: a
+// one-shot consent gate (a disclaimer that hides itself once acknowledged) is
+// clickable by the first interaction check only, and every later check that
+// must click it fails "element is not visible" — which reads as a broken
+// button and is not one (bugs_open/126). The `reload` step action is the reset:
+// an interaction check whose steps begin with it starts from the landing state,
+// so a fence stops depending on the order its checks happen to run in.
 
 package browserrunner
 
@@ -236,7 +246,10 @@ func toolContainer(doc criteriaDoc, ch criteriaCheck) string {
 }
 
 type criteriaStep struct {
-	Action   string `json:"action"` // fill | click | select
+	// fill | click | select | reload. `reload` needs neither selector nor value:
+	// it re-navigates the shared page so the rest of this check's steps run
+	// against the landing state (bugs_open/126).
+	Action   string `json:"action"`
 	Selector string `json:"selector"`
 	Value    string `json:"value"`
 }
@@ -1216,15 +1229,46 @@ func (c *chromiumPage) HorizontalOverflow(container string) (bool, overflowInfo,
 }
 
 func (c *chromiumPage) Do(step criteriaStep) error {
-	loc := c.page.Locator(step.Selector).First()
+	// The element actions resolve their target lazily: `reload` carries no
+	// selector, so building a locator up front would be meaningless for it.
+	target := func() playwright.Locator { return c.page.Locator(step.Selector).First() }
 	var err error
 	switch step.Action {
 	case "fill":
-		err = loc.Fill(step.Value)
+		err = target().Fill(step.Value)
 	case "click":
-		err = loc.Click()
+		err = target().Click()
 	case "select":
-		_, err = loc.SelectOption(playwright.SelectOptionValues{Values: playwright.StringSlice(step.Value)})
+		_, err = target().SelectOption(playwright.SelectOptionValues{Values: playwright.StringSlice(step.Value)})
+	case "reload":
+		// Re-navigate so a later interaction check starts from the landing
+		// state. ONE page is opened per (url, profile) and every check runs
+		// against it, so a one-shot consent gate — one that hides itself on
+		// first click, which is exactly what the disclaimer doctrine asks for —
+		// makes every LATER check that must click it fail "element is not
+		// visible" (bugs_open/126). Without this the only way to make such a
+		// fence pass is to weaken or delete the disclaimer, and the failing run
+		// dispatches an automated rewriter to do just that.
+		if _, rerr := c.page.Reload(playwright.PageReloadOptions{
+			Timeout:   playwright.Float(float64(navigationTimeout.Milliseconds())),
+			WaitUntil: playwright.WaitUntilStateLoad,
+		}); rerr != nil {
+			return fmt.Errorf("reload navigation failed: %w", rerr)
+		}
+		// settleDelay, not stepDelay: this mirrors openChromium's
+		// post-navigation wait, because the JS-built DOM is rebuilt from
+		// scratch and 300ms is not enough for it to re-render.
+		//
+		// Deliberately NOT reset here: c.status and c.navErr (page_status_ok's
+		// contract is about the ORIGINAL navigation, and captureEvidence gates
+		// on NavError, so a failed reload must surface only as this step's own
+		// failure detail) and c.console (no_console_errors runs last and is
+		// meant to see everything ANY interaction provoked across the whole
+		// page lifetime; the OnConsole/OnPageError handlers are bound to the
+		// Playwright Page, which survives a reload, so the accumulated errors
+		// are kept simply by not clearing them).
+		time.Sleep(settleDelay)
+		return nil
 	default:
 		return fmt.Errorf("unknown step action %q", step.Action)
 	}

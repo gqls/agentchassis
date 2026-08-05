@@ -992,3 +992,107 @@ func TestLandingCaptureFailureFallsBackToDrivenRender(t *testing.T) {
 		t.Errorf("expected exactly one upload from the fallback, got %d", len(st.keys))
 	}
 }
+
+// ── the `reload` step action (bugs_open/126) ───────────────────────────────
+
+// These two tests use fakePage, so they prove PARSING, DISPATCH and SEQUENCING
+// only — that a `reload` step decodes, reaches Do in the position the author
+// wrote it in, and that its failure fails the check with a legible detail. They
+// prove NOTHING about real visibility semantics: the fake has no DOM, so it can
+// neither hide a one-shot gate nor restore it. That half is only assertable in
+// a real browser and lives in TestIntegrationOneShotGateReload.
+
+// Two interaction checks that both click the same one-shot gate: the second
+// resets first. On a real page this is the difference between passing and
+// "element is not visible"; here it establishes that the fence parses and that
+// the reload arrives BEFORE the click it is protecting.
+func TestInteractionReloadStepIsDispatchedInOrder(t *testing.T) {
+	const gated = `{
+	  "profiles": ["desktop"],
+	  "checks": [
+	    {"id":"accept","type":"interaction",
+	      "steps":[{"action":"click","selector":"#gate-accept"}],
+	      "expect":{"selector":"#tool-body"}},
+	    {"id":"compute","type":"interaction",
+	      "steps":[{"action":"reload"},
+	               {"action":"click","selector":"#gate-accept"},
+	               {"action":"fill","selector":"#hours","value":"10"},
+	               {"action":"click","selector":"#go"}],
+	      "expect":{"selector":"#result","text_matches":"\\d"}}
+	  ]}`
+
+	page := &fakePage{status: 200, counts: map[string]int{"#tool-body": 1, "#result": 1}, texts: map[string]string{"#result": "42"}}
+	a := actionWith(map[string]*fakePage{"desktop": page})
+	out, err := a.Execute(context.Background(), RunChecksRequest{
+		RunID: "reload-order", URLs: []string{"u"}, Profiles: []string{"desktop"}, CriteriaJSON: gated,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{"accept", "compute"} {
+		if r := resultByID(out.Results, id, "desktop"); r == nil || !r.Pass {
+			t.Errorf("%s should pass, got %+v", id, r)
+		}
+	}
+	want := []criteriaStep{
+		{Action: "click", Selector: "#gate-accept"},
+		{Action: "reload"},
+		{Action: "click", Selector: "#gate-accept"},
+		{Action: "fill", Selector: "#hours", Value: "10"},
+		{Action: "click", Selector: "#go"},
+	}
+	if len(page.steps) != len(want) {
+		t.Fatalf("expected %d steps driven, got %d: %+v", len(want), len(page.steps), page.steps)
+	}
+	for i := range want {
+		if page.steps[i] != want[i] {
+			t.Errorf("step %d: got %+v, want %+v", i+1, page.steps[i], want[i])
+		}
+	}
+	// The reset must lead the check that needs it — a reload after the click it
+	// protects is the bug with extra steps.
+	if page.steps[1].Action != "reload" {
+		t.Errorf("the reload must be the first step of the second check, got %+v", page.steps[1])
+	}
+}
+
+// A reload that fails is that STEP's failure, with the action named: the detail
+// is what a human (or a fixer) reads to tell a broken tool from a broken fence.
+func TestInteractionReloadFailureFailsTheCheckWithTheReloadNamed(t *testing.T) {
+	const gated = `{
+	  "profiles": ["desktop"],
+	  "checks": [
+	    {"id":"compute","type":"interaction",
+	      "steps":[{"action":"reload"},{"action":"click","selector":"#go"}],
+	      "expect":{"selector":"#result"}}
+	  ]}`
+
+	// A reload step carries no selector, so the fake is primed on "".
+	page := &fakePage{
+		status:  200,
+		counts:  map[string]int{"#result": 1},
+		stepErr: map[string]error{"": errors.New("reload navigation failed: timeout 30000ms exceeded")},
+	}
+	a := actionWith(map[string]*fakePage{"desktop": page})
+	out, err := a.Execute(context.Background(), RunChecksRequest{
+		RunID: "reload-fail", URLs: []string{"u"}, Profiles: []string{"desktop"}, CriteriaJSON: gated,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := resultByID(out.Results, "compute", "desktop")
+	if r == nil || r.Pass {
+		t.Fatalf("a failed reload must fail the check, got %+v", r)
+	}
+	if !strings.Contains(r.Detail, "reload") {
+		t.Errorf("the detail must name the reload step, got %q", r.Detail)
+	}
+	if !strings.Contains(r.Detail, "step 1") {
+		t.Errorf("the detail must say which step failed, got %q", r.Detail)
+	}
+	// The steps after a failed reload must not run: the page is in an unknown
+	// state, so continuing would assert against it.
+	if len(page.steps) != 1 {
+		t.Errorf("execution must stop at the failed step, got %+v", page.steps)
+	}
+}

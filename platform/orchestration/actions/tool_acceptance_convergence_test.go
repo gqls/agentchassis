@@ -87,6 +87,15 @@ func runJudgeFailPathWithComponent(t *testing.T, config map[string]interface{}, 
 // statement succeeds, no error, and NO item is queued (bugs_open/010).
 func runJudgeFailPathFull(t *testing.T, config map[string]interface{}, priorAttempts int, countErr error, componentID string, insertRows int64) judgeRun {
 	t.Helper()
+	return runJudgeFailPathCriteria(t, config, priorAttempts, countErr, componentID, insertRows, "")
+}
+
+// runJudgeFailPathCriteria additionally supplies the criteria document the judge
+// reads from doc_context.criteria_json. "" models a run with no criteria in
+// context, which is what every caller above wants; the no_auto_fix fence tests
+// (bugs_open/126) are the ones that need to put a real document there.
+func runJudgeFailPathCriteria(t *testing.T, config map[string]interface{}, priorAttempts int, countErr error, componentID string, insertRows int64, criteria string) judgeRun {
+	t.Helper()
 
 	run := judgeRun{}
 
@@ -142,6 +151,7 @@ func runJudgeFailPathFull(t *testing.T, config map[string]interface{}, priorAtte
 	collected := map[string]interface{}{
 		"input_data":  map[string]interface{}{"spec": map[string]interface{}{"function": "tool-loot-table-balancer"}},
 		"site_record": map[string]interface{}{"site_id": benchSite},
+		"doc_context": map[string]interface{}{"criteria_json": criteria},
 		"browser_run": map[string]interface{}{
 			"results": []interface{}{
 				map[string]interface{}{

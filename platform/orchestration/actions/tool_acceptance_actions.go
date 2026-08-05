@@ -35,7 +35,11 @@
 //     of paths (003 action-level defense) because awaited-response shapes
 //     vary across the codebase (.response.data vs flattened). Serves both
 //     request actions unchanged — it keys off `function`, never off how the
-//     page was resolved.
+//     page was resolved. A fence carrying top-level `no_auto_fix: true` never
+//     reaches tool-improver at all: a failing verdict goes straight to the
+//     acceptance_stuck human-review path instead (bugs_open/126 candidate 2 —
+//     an automated rewriter aimed at a consent gate can only pass by deleting
+//     it). Default-OFF; a fence that says nothing behaves exactly as before.
 
 package actions
 
@@ -838,6 +842,21 @@ Categories: acceptance-run`,
 	criteria := datahelpers.ExtractNestedFieldString(params.CollectedData,
 		datahelpers.GetStringField(config, "criteria_field", "doc_context.criteria_json"))
 
+	// bugs_open/126 candidate 2: a fence may declare itself OUT of the auto-fix
+	// loop. Some markup is load-bearing for reasons no acceptance run can see —
+	// a consent gate or a disclaimer whose wording and placement are what a
+	// negligent-misstatement analysis rests on — and the only way an automated
+	// rewriter can turn a fence green over such an element is to weaken or
+	// delete it. So when the criteria carry `no_auto_fix: true`, a FAILING
+	// verdict goes to the human-review path below instead of ever dispatching
+	// tool-improver, no matter how few cycles have been spent.
+	//
+	// Opt-in and default-OFF: a fence that says nothing behaves exactly as it
+	// did before this existed (owner ruling 2026-08-02 — new authority on a
+	// shared seam ships as a field with the unsafe default off, not as a rule in
+	// a doc comment).
+	noAutoFix, noAutoFixReason := parseNoAutoFix(criteria)
+
 	itemCreated := false
 	itemDeduped := false
 	escalated := false
@@ -853,10 +872,19 @@ Categories: acceptance-run`,
 			WHERE cc.function = $1 AND cc.is_active
 			LIMIT 1`, function, siteID).Scan(&componentID, &pageID)
 
-		if componentID != "" && stuck {
-			// Two cycles have already failed at these criteria. A third would be
-			// the same fix again — the failure mode this guard exists to stop —
-			// so hand it to a human and stop the auto-loop for this criterion.
+		if componentID != "" && (stuck || noAutoFix) {
+			// Two reasons converge on the SAME escalation, deliberately (owner
+			// ruling 2026-08-02: converging producers onto one item_type is fine
+			// provided the producer set and the item_key shape are written down):
+			//
+			//   stuck     — two cycles have already failed at these criteria, so
+			//               a third would be the same fix again;
+			//   noAutoFix — the fence forbids an automated rewrite at all
+			//               (bugs_open/126), whatever the cycle count.
+			//
+			// Either way the auto-loop stops for this criterion and a human gets
+			// the item. The why_escalated text below says WHICH of the two fired,
+			// because the two ask a very different question of the reader.
 			// idx_swi_dedup holds one open escalation per (site, key):
 			// needs_human_review is a non-terminal status, so a later verdict
 			// CONFLICTS with the standing item and DO UPDATE refreshes its count
@@ -867,6 +895,21 @@ Categories: acceptance-run`,
 			// a note or an override into the same jsonb bag, and a full replace
 			// would silently discard it on the next cycle. Our keys win on the
 			// right of ||; any human-added keys survive.
+			// Why this item exists, in the reader's terms — a human triaging it
+			// needs to know whether the loop gave up (try something different) or
+			// was never allowed to start (decide what, if anything, may change).
+			whyEscalated := fmt.Sprintf(
+				"%d improve_tool cycle(s) since the last passing Tier-4 verdict left %s still failing; the one-shot fixer is not converging on this defect",
+				attempts, strings.Join(v.FailedIDs, ", "))
+			summary := fmt.Sprintf("Tier-4 acceptance not converging for %s after %d fix cycle(s): %s",
+				function, attempts, first(v.Details))
+			if noAutoFix {
+				whyEscalated = fmt.Sprintf(
+					"this fence declares no_auto_fix: %s — %s failed and must NOT be handed to tool-improver, because an automated rewriter can only turn a fence like this green by weakening the markup the fence exists to protect (bugs_open/126); a human decides what may change",
+					reasonOrUnstated(noAutoFixReason), strings.Join(v.FailedIDs, ", "))
+				summary = fmt.Sprintf("Tier-4 acceptance failed for %s and the fence forbids auto-fix (no_auto_fix): %s",
+					function, first(v.Details))
+			}
 			spec := map[string]interface{}{
 				"component_id":      componentID,
 				"check":             "tool_acceptance_tier4",
@@ -874,9 +917,16 @@ Categories: acceptance-run`,
 				"failing_checks":    v.FailedIDs,
 				"failing_instances": v.Failed,
 				"fix_cycles_spent":  attempts,
-				"why_escalated": fmt.Sprintf(
-					"%d improve_tool cycle(s) since the last passing Tier-4 verdict left %s still failing; the one-shot fixer is not converging on this defect",
-					attempts, strings.Join(v.FailedIDs, ", ")),
+				"why_escalated":     whyEscalated,
+			}
+			if noAutoFix {
+				// Carried in the spec as well as in the prose so a downstream
+				// reader (or a query over the queue) can select these without
+				// parsing why_escalated.
+				spec["no_auto_fix"] = true
+				if noAutoFixReason != "" {
+					spec["no_auto_fix_reason"] = noAutoFixReason
+				}
 			}
 			if v.ForcedBy != "" {
 				spec["overflow_forced_by"] = v.ForcedBy
@@ -907,8 +957,7 @@ Categories: acceptance-run`,
 				              summary = EXCLUDED.summary, updated_at = now()`,
 				sqlInList(workItemTerminalStatuses)),
 				siteID,
-				fmt.Sprintf("Tier-4 acceptance not converging for %s after %d fix cycle(s): %s",
-					function, attempts, first(v.Details)),
+				summary,
 				string(specJSON),
 				fmt.Sprintf("acceptance_stuck:%s:%s", function, siteID),
 				uuid.NewString(),
@@ -978,6 +1027,14 @@ Categories: acceptance-run`,
 					zap.String("function", function))
 			}
 		} else {
+			// No content_components row: neither item can be raised, because both
+			// specs are written against a component id. Unchanged by the
+			// no_auto_fix work — a fence that forbids auto-fixing and whose tool
+			// has no resolvable component STILL cannot be escalated cleanly, the
+			// same limitation `stuck` has always had. It is safe in the direction
+			// that matters (nothing is dispatched at the protected markup either),
+			// so it is left as a known gap rather than solved here; the note's
+			// Fix: line says so, and routing is manual.
 			logger.Info("judge: no content_components row for function — improve_tool item not created (recreated/adopted tool; route manually)",
 				zap.String("function", function))
 		}
@@ -990,6 +1047,13 @@ Categories: acceptance-run`,
 	// tool has no content_components row at all.
 	var fixLine string
 	switch {
+	case escalated && noAutoFix:
+		// The no_auto_fix reason comes FIRST wherever both hold: "the fence
+		// forbids a rewrite" is the fact that decides what a human may do next,
+		// and the cycle count is only ever context beside it.
+		fixLine = fmt.Sprintf(
+			"NOT auto-fixed — this fence declares no_auto_fix (%s), so %s is escalated to human review (acceptance_stuck) and NO improve_tool item was created; an automated rewrite here could only pass by weakening the protected markup",
+			reasonOrUnstated(noAutoFixReason), strings.Join(v.FailedIDs, ", "))
 	case escalated:
 		fixLine = fmt.Sprintf(
 			"NOT auto-fixed — %d previous improve_tool cycle(s) failed to turn %s green, so this is escalated to human review (acceptance_stuck) instead of a %d%s identical attempt",
@@ -1004,6 +1068,13 @@ Categories: acceptance-run`,
 		fixLine = fmt.Sprintf(
 			"no new improve_tool item — one for %s is ALREADY OPEN under this key (the previous fix cycle has not finished); this verdict re-confirms work already queued",
 			strings.Join(v.FailedIDs, ", "))
+	case noAutoFix:
+		// Same precedence as above, and the same known gap: no component row (or
+		// a failed insert) means no escalation item, but crucially also no
+		// improve_tool item — nothing is aimed at the protected markup either way.
+		fixLine = fmt.Sprintf(
+			"NOT auto-fixed — this fence declares no_auto_fix (%s), and the escalation item could NOT be raised (no active content_components row for this function, or the insert failed); NO improve_tool item was created, route this manually",
+			reasonOrUnstated(noAutoFixReason))
 	case stuck:
 		fixLine = fmt.Sprintf(
 			"NOT auto-fixed — %d previous improve_tool cycle(s) failed to turn %s green, and the escalation item could NOT be raised (no active content_components row for this function, or the insert failed); route this manually",
@@ -1033,14 +1104,26 @@ Categories: acceptance-fail`,
 		zap.Strings("failed", v.Failed),
 		zap.Bool("improve_tool_created", itemCreated),
 		zap.Bool("escalated", escalated),
+		zap.Bool("no_auto_fix", noAutoFix),
 		zap.Int("fix_cycles_spent", attempts))
-	return map[string]interface{}{
+	out := map[string]interface{}{
 		"all_passed": false, "passed": len(v.Passed), "failed": len(v.Failed),
 		"failing_checks": v.FailedIDs, "failing_instances": v.Failed,
 		"improve_tool_created": itemCreated,
 		"escalated":            escalated,
 		"fix_cycles_spent":     attempts,
-	}, nil
+	}
+	if noAutoFix {
+		// Present ONLY when the fence opted in, so an ordinary verdict's result
+		// map is exactly the shape it has always been — a workflow branching on
+		// key presence keeps working, and nothing downstream sees a new key it
+		// was never written against.
+		out["no_auto_fix"] = true
+		if noAutoFixReason != "" {
+			out["no_auto_fix_reason"] = noAutoFixReason
+		}
+	}
+	return out, nil
 }
 
 // convergenceAttempts counts the improve_tool cycles that have already tried,
@@ -1276,4 +1359,55 @@ func criteriaOrNull(criteria string) string {
 		return "null"
 	}
 	return criteria
+}
+
+// acceptanceFenceFlags is the JUDGE's view of the criteria document — only the
+// fence-level keys the judge itself acts on. The runner owns the rest of the
+// schema (profiles / checks / container, in
+// internal/adapters/browserrunner/run_checks_action.go's criteriaDoc); mirroring
+// those here would be a second copy to keep in step for no gain, and json
+// ignores every key we do not name.
+//
+//	{"profiles":[...], "checks":[...], "no_auto_fix": true,
+//	 "no_auto_fix_reason": "section B consent gate — owner-approved wording"}
+type acceptanceFenceFlags struct {
+	// NoAutoFix says a FAILING run of this fence must go to a human rather than
+	// to tool-improver. Zero value false, so it is opt-in per fence: every
+	// existing criteria document behaves exactly as it did before this key
+	// existed (bugs_open/126 candidate 2).
+	NoAutoFix bool `json:"no_auto_fix"`
+	// NoAutoFixReason is free text shown to whoever picks the escalation up —
+	// what the fence is protecting and why a rewriter must not touch it.
+	NoAutoFixReason string `json:"no_auto_fix_reason"`
+}
+
+// parseNoAutoFix reads the fence-level opt-out out of the raw criteria string.
+//
+// FAIL-OPEN BY CONSTRUCTION: empty, absent, or unparseable criteria all return
+// false — today's behaviour, unchanged. A criteria document that does not parse
+// is a fence that never said anything about auto-fixing, and inventing a
+// protection out of a JSON error would silently stop the fix loop across every
+// tool whose PLAN happens to hold malformed criteria. The error is deliberately
+// dropped rather than logged here: the runner already refuses a criteria
+// document it cannot parse ("run_checks: criteria_json does not parse"), so a
+// verdict reaching this judge with garbage criteria has a louder complaint
+// upstream than anything this helper could add.
+func parseNoAutoFix(criteria string) (bool, string) {
+	if strings.TrimSpace(criteria) == "" {
+		return false, ""
+	}
+	var flags acceptanceFenceFlags
+	if err := json.Unmarshal([]byte(criteria), &flags); err != nil {
+		return false, ""
+	}
+	return flags.NoAutoFix, strings.TrimSpace(flags.NoAutoFixReason)
+}
+
+// reasonOrUnstated keeps the escalation prose readable when an author set the
+// flag but wrote no reason: "no_auto_fix ()" reads as a bug in the message.
+func reasonOrUnstated(reason string) string {
+	if strings.TrimSpace(reason) == "" {
+		return "no reason stated on the fence"
+	}
+	return reason
 }

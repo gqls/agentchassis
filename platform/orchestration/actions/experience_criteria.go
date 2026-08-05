@@ -124,7 +124,14 @@ var experienceCheckTypeFields = map[string]map[string]bool{
 }
 
 // experienceStepActions are the interaction steps the browser runner performs.
-var experienceStepActions = map[string]bool{"fill": true, "click": true, "select": true}
+//
+// `reload` takes no selector and no value: it re-navigates the page so the check
+// that carries it starts from the landing state. The runner opens ONE page per
+// (url, profile) and runs every check against it, so without a reset a one-shot
+// consent gate is clickable by the FIRST interaction check only and every later
+// one fails "element is not visible" — bugs_open/126, where the false failure
+// then aimed an automated rewriter at the tool's disclaimer.
+var experienceStepActions = map[string]bool{"fill": true, "click": true, "select": true, "reload": true}
 
 // experienceExpectFields are the assertion keys. `text_matches` is Tier 4 only:
 // Tier 2's expect struct carries a selector and nothing else, so a text
