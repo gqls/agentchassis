@@ -271,3 +271,9 @@ docs/agent_docs/docs024_key_docs_latest/idea.uk/golang_files/idea
 /remote-job-spawner
 /core-manager
 /auth-service
+# Same class, found untracked 2026-08-05 by the code-review triage (F15): 140MB
+# across four unstripped debug builds, none matched by any rule above.
+/config-key-audit
+/scheduler
+/git-adapter
+/reasoningset
