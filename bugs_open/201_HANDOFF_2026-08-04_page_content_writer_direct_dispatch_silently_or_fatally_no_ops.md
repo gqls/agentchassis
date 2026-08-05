@@ -144,3 +144,97 @@ branch of — this is not a regression in 087, it is 087's own stated gap,
 now confirmed hit). `bugs_open/184` (the case that surfaced this — 184 cannot
 close via its planned auto-repair route until this is fixed or 184 is
 re-routed to a different handler).
+
+---
+
+## HANDOFF 2026-08-05 — start here, in this order. Nothing below needs re-deriving.
+
+Written because this session's context is large; picking this up fresh should
+not require re-reading the investigation above line-by-line. State is stable —
+chassis rolled to `v1.0.1252` on 2026-08-05 09:10 in the interim, but `git log`
+since this bug's filing commit (`49e8e3048..HEAD`) touches nothing in
+`page-content-writer`, `section_plan`, `build-dispatch-loop`, or
+`plan_sections_action.go` — this finding is unaffected and unaddressed.
+
+### 1. The lead that should shape the fix: `check_sectionless_pages.go`'s own header already names this exact mistake
+
+```
+// HandlerAgent is page-build-handler (NOT page-content-writer): the build
+// handler is the workflow that runs load_spec_sections -> plan_sections,
+// which is where the sibling fallback lives. Routing straight to the writer
+// would bypass it.
+```
+
+That comment is about a different check, but it states the general rule our
+three checks (`check_literal_markdown`, `check_placeholder_contact`,
+`check_component_standards:477`) violate: **`page-content-writer` is not
+meant to be dispatched directly; `page-build-handler` is the wrapper that
+plans first.** `page-build-handler`'s own step list (confirmed live,
+`agent_definitions.type='page-build-handler'`) includes
+`load_spec_sections`, `plan_sections`, `check_has_ready_sections`, **and**
+`load_existing_content` / `load_current_section_content` /
+`check_content_produced` — names that suggest it already has a path for
+*editing* an existing page's content, not only building a fresh one. This is
+the single most promising unopened lead and the first thing to read:
+`platform/orchestration/actions/` — find `page-build-handler`'s
+`load_spec_sections` and `check_has_ready_sections` actions and work out
+whether, for a page whose sections are already built, it returns
+`ready_count > 0` (unlike `page-content-writer`'s self-plan branch, which
+returned 0 for exactly this case on 2026-08-04's live dispatch). If yes,
+**candidate 2 (re-route these three checks' `HandlerAgent` to
+`page-build-handler`) is very likely correct** and candidate 1 (teach
+`build-dispatch-loop` to synthesise a `section_plan`) is probably the wrong
+layer to fix this at.
+
+### 2. The other structural fact worth carrying forward: `mark_complete` trusts the handler blindly
+
+Live `build-dispatch-loop` config (`process_item` step, confirmed
+2026-08-05):
+
+```
+"mark_complete": {
+  "action": "complete_work_item",
+  "config": { "result": "handler_result", "work_item_id": "current_item.id" },
+  ...
+}
+```
+
+No check that `handler_result` reflects an actual write — this is the
+mechanical reason Symptom 2 (the gaswholesalers item marked `complete` with
+`content_data` untouched) was possible, structurally, for ANY handler this
+loop calls, not just `page-content-writer`. Worth asking whether
+`complete_work_item` (or its caller) should require some positive signal
+(e.g. a `sections_written` count) before trusting a handler's silence-shaped
+success — but do not fix this before fix-1, or a test against the current
+broken routing will look like it "worked" (reached `complete`) when it still
+didn't write anything.
+
+### 3. What NOT to redo
+
+- Do not re-dispatch any of the 12 `literal_markdown` items to test a theory
+  — 11 are `status='failed'` with `attempt_count=3` (exhausted); the 12th
+  (`dad119c9…`, mortgagecalculator) is `triaged` with 2 attempts left and
+  will fail identically if dispatched through the *same* broken path. Reset
+  `status`/`attempt_count`/`claimed_by`/`error` only once a real fix is ready
+  to test, and test against ONE item first, not all 12.
+- Do not re-verify the failure mechanism — the exact error text, the
+  `bugs_closed/087` self-plan-branch citation, and the artefact-level proof
+  that the "complete" item wrote nothing are all confirmed live and cited
+  above with correlation ids, page ids, and timestamps. Re-running the same
+  checks would reproduce the same numbers.
+- Do not touch `184`'s detection half — `check_literal_markdown` itself is
+  correct, live, and finding real defects (10 genuine findings on
+  webdesign.co.uk alone, not a false-positive artefact of the check). Only
+  the repair leg is broken.
+
+### 4. Decision this needs, once the read in step 1 is done
+
+If `page-build-handler` already handles the "already-built page, one slot
+needs a text edit" case correctly: re-route the three checks'
+`HandlerAgent` and re-verify with one item, artefact-level (per
+`bugs_open/097` — check `content_data`/`rendered_html`, not `status`). If it
+does NOT (e.g. it also assumes it's building a page from a site-plan spec
+the check's `spec` shape doesn't carry), this needs an actual new/adapted
+handler or a `section_plan`-synthesis step at the dispatch seam (candidate
+1) — and that is a bigger, owner-worthy design call, similar in shape to how
+`bugs_closed/087` itself flagged candidates B/C as wanting one.

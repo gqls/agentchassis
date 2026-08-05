@@ -431,3 +431,16 @@ names how to verify once a real fix lands: require the specific slot's
 
 Priority bump (to 5) on the 12 items from the previous note is now moot —
 left in place, harmless, does not need reverting.
+
+**Correction 2026-08-05**: the council submission for this bug's original fix
+(`eb8f9cc0-3a28-437a-8725-1a785f3d12b5`) did not stay `EXECUTING_STEP` as the
+last note said — re-checked and it is `status='FAILED'` at
+`review_improvement_guardian` (errored, not a REVISE/REJECTED verdict; no
+`council_report` artifact was produced, only a `fix_plan` one from
+2026-08-04 07:58). Not blocking — advisory only, and irrelevant to the actual
+blocker (201). Noted so nobody waits on a verdict that isn't coming from this
+run; a fresh submission would be needed if council sign-off is wanted.
+Fleet moved to chassis `v1.0.1252` (2026-08-05 09:10) in the interim — checked
+`git log` since this bug's last commit (`49e8e3048`): nothing touched
+`page-content-writer`, `section_plan`, or `build-dispatch-loop`, so 201's
+finding is unaffected by the new build.
