@@ -520,3 +520,39 @@ gate), but with one you additionally watch the body travel and the fence extract
 **Record the read-out, don't point at it.** The evidence lives in
 `orchestration_states.collected_data`, and that table is retention-clocked — paste the message
 into NOTES. Worked example with the full output: NOTES, 2026-07-31 evening.
+
+## 13. Census the authoring backlog, and dispatch S6 for a COMPONENT
+
+The backlog census (first run 2026-08-02: 36/49 active tools, 111/112 active section
+components with no PLAN — re-run it, every figure in this lane has moved under someone
+mid-measurement before). The CASE maps each `component_level` to the `subject_type` its
+docs actually live under; without it a tool's PLAN (subject_type='tool') reads as missing
+when you join on 'component':
+
+```sql
+SELECT cc.component_level, cc.is_active, count(*) AS total,
+       count(*) FILTER (WHERE dp.subject_key IS NOT NULL) AS with_plan,
+       count(*) FILTER (WHERE dp.subject_key IS NULL) AS no_plan
+FROM content_components cc
+LEFT JOIN doc_plans dp
+  ON dp.subject_key = cc.function AND dp.is_current = true
+ AND dp.subject_type = (CASE WHEN cc.component_level='tool' THEN 'tool' ELSE 'component' END)
+GROUP BY 1, 2 ORDER BY 1, 2;
+```
+
+Three traps in reading it, all found on the first run:
+- **15 `doc_plans` tool rows match NO `content_components.function` at all**
+  (`smart-contrast`, `animated-favicon`, `mind-map`, ...). `[UNVERIFIED]` what they are
+  (possibly a separate framework-tools registry). They are not in this census's
+  denominator; do not count them either way.
+- **`component_level` values beyond `section`/`tool`** (header/footer/site/head/element,
+  19 rows) are NOT silently in scope — DOC-068's stated scope is section components.
+  Extending to those levels is an owner question, not a default.
+- **Inactive rows are excluded deliberately** — a contract for a component nobody serves
+  is waste, not backlog.
+
+S6 dispatch for a component placement: `scripts/DISPATCH_s6_component_run.sh` (this dir) —
+the parameterised, committed copy of the script that closed P2. Its header carries the
+preconditions (fence exists, placement re-verified, pod-grep, 300s spawn window) and the
+rule for choosing the negative-control page. For a TOOL, `tool_acceptance_run.sh` (§10)
+remains the instrument.

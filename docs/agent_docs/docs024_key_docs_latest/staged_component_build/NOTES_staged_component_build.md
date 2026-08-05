@@ -1767,3 +1767,25 @@ recipe means a page-scoped claim can be driven with zero new platform code alrea
 
 Nothing built, nothing seeded, nothing routed at their queues. Next move is theirs, when
 they reach vocabulary authoring; ours is P3-backlog scope (owner call, still open).
+
+## 2026-08-05 — owner call landed: TAKE ON the backlog; handoff written
+
+The P3-backlog scope question is answered — owner: *"let's take on this backlog."* Written
+up as `HANDOFF_2026-08-05_continue_here.md` (supersedes the 08-02 handoff), whose two
+load-bearing choices are: (1) the per-subject recipe is P1+P2's own proven sequence
+generalised (read the real artefact → author → `try_fence.go` → per-subject mutation prover
+→ RUNBOOK §9 persist+readback → S6 dispatch with negative control), and (2) **calibration
+before commitment** — a first tranche of ~5 subjects (2–3 naming-clean tools, 1–2 section
+components picked by placement count and simplicity), timed, then a cost-per-subject report
+back to the owner to set pacing, because 147 fences is ~10 sessions and pace is an owner
+call, not a default.
+
+**A loss caught and repaired while writing it:** the S6 component-dispatch script that
+closed P2 existed only in this session's scratchpad — and the scratchpad had already been
+wiped by tmp-cleanup. Rebuilt from this conversation's own record, parameterised (5
+positional args; the proven teaser-reveal-panel invocation in the header), and committed as
+`scripts/DISPATCH_s6_component_run.sh` with the preconditions and the negative-control-page
+rule in its header. The check that would have caught it sooner: an instrument proven in a
+run belongs in the workstream's `scripts/` in the SAME session that proves it — scratchpad
+is for drafts, not for the only copy of anything cited by a handoff. Also added RUNBOOK §13
+(the backlog census query with its three reading-traps, and the dispatch pointer).
