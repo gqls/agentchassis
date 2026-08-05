@@ -317,3 +317,38 @@ harmless until someone clicks that specific button.
 
 Every other page on the site is being refreshed so they all pick up the new
 menu too (one small rebuild job per page; drains on its own, nothing needed).
+
+## 2026-08-05 — a stray hero fixed platform-wide, and images landed in all 8 guides
+
+Two more things you flagged, both done.
+
+**The news page's hero was wrong** — it showed a paragraph about tungsten barrels
+with a button reading "Read the tungsten percentage guide" that actually linked
+to the contact page. That specific page is fixed (rewritten to actually be about
+news), but the real story is underneath: I traced the wrong link to a genuine
+platform bug, not a one-off content mistake. Whenever our system can't work out
+where a button should point, it's supposed to just not show the button — but
+one code path was quietly making up a fake destination instead of admitting it
+didn't know. That's now fixed at the source, tested, and approved by our review
+process. It affected **13 pages across 7 different sites**, not just this one —
+I've logged the other 12 as a follow-up cleanup (`bugs_open/203`), since fixing
+the code stops new mistakes but doesn't erase the ones already live.
+
+**Every one of the 8 built buying guides now has a real photo or diagram in it**,
+not just a wall of text — three technical line-diagrams (barrel profiles, the
+board-setup measurements, the four flight shapes) and photographic close-ups for
+the rest (grip textures, four brand grip styles side by side, shaft lengths,
+steel vs soft tips). I reviewed every image myself before it went live; none of
+them show people, logos, or text, matching the site's style guide. Grip-styles
+is still the one unbuilt guide, unrelated to this and left alone as before.
+
+**Worth knowing if you're wondering why some of this took extra passes**:
+another thread was actively rewriting several of these exact guide pages' body
+text while I was placing images into them — good content work, real published
+rewrites — but it meant three of my placements landed in a page moments before
+it was replaced, and were silently lost rather than erroring. I caught it by
+checking the actual published file each time rather than trusting "done", and
+redid each one against the newest text. Everything listed above is confirmed
+against the live published files as of now, but on a site this actively worked
+on, "confirmed now" isn't a permanent guarantee — if a caption vanishes from a
+guide later, that's most likely why, not a new bug.
