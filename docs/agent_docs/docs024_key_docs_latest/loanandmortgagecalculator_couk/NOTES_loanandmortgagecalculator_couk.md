@@ -364,3 +364,38 @@ The hold is a poller that flips new `page_rerender` items to `deferred`, chosen
 because `deferred` is **not** in `workItemTerminalStatuses`, so the row still holds
 its `idx_swi_dedup` slot (no duplicate can appear behind it) and the release is a
 plain `UPDATE` back to `triaged`.
+
+---
+
+## 2026-08-05 — session 3 (portfolio_positioning handoff): voice rebuild lane opened
+
+The owner-directed task (portfolio_positioning handoff, updated 08-05): apply the
+chosen "gentle explanatory" voice to the whole site. Design + reasons in
+`PLAN_2026-08-05_voice_rebuild_and_decomposition.md`. Recon, all measured today:
+
+- **Stored rows are clean: 41/41 md5-identical to `origin/master` `b318a8fad`.**
+  The 07-31 worry (crawl-DOM divergence, "repair is mandatory") does not describe
+  what is stored now — whatever repaired it worked. Checked stored
+  `page_components.rendered_html` md5 against `git show` per page, not inherited.
+- All 41 pages still `1|1` verbatim; no open work items; no site plan.
+  `content_direction` v2 (19 rules, 22,980-char formatted, 08-05 row) is current;
+  both 07-31 generations preserved superseded.
+- Site serves (HTTP 200). Page classes: 13 guides + guides index; home; legal;
+  loans index + 11 self-contained calculators (inline scripts); mortgages index
+  + 12 calculators that also load `/assets/js/calculators.js` (shared arithmetic
+  + localStorage portfolio). `site.js` is chrome-only (mobile menu). **Zero
+  page-local `<style>` blocks site-wide** — the sibling lane's style-placement
+  complexity does not exist here.
+- Writer-path survey (code + live agent_definitions): `save_page_sections`
+  refuses owned pages (:150); section-editor has no writer step (applies
+  pre-authored edits); lendzy's copy came from needs_page → page-build-handler,
+  which needs a plan and writes fresh. Hence: TRANSFORM the existing copy per
+  the approved voice, keep pages owned, decompose replacing the verbatim row
+  in-transaction, widgets byte-original in locked rows. Full reasoning in the
+  plan.
+- A near-miss worth recording: I created the plan file believing this lane
+  directory was NEW — the Write tool then refused my NOTES "creation" because
+  the file existed. **The lane had two full 07-31 sessions and two CONTRIB
+  files I had not read.** The read-before-write rule caught it; the CONTRIB
+  chrome warning (buildDefaultHead's plural `styles.css` + no header/footer on
+  the first decomposed page) is now Phase-1-blocking in the plan.
