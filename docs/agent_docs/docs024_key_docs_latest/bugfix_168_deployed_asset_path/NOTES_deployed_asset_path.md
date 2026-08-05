@@ -1302,3 +1302,63 @@ nothing has yet been closed from `unresolved`. The honest state is "live and str
 behaviourally unexercised". Expect the next sweep to close **at most 1 row** (the single
 `needs_page` `unresolved`). **If it closes more than 1, something is wrong** — that is the check,
 and it is disconfirmable, which is the point.
+
+## 2026-08-05 evening — option A survived a second roll, and the mechanism is UNDRIVEN
+
+**Still live on `v1.0.1254`** (two rolls after the one that shipped it): widening greps **3**, old
+literal **0**, reverted string **0**, both replicas. Re-checked because *a roll is not evidence
+your fix shipped* — an image can predate the commit — and this one did not.
+
+### ⚠ The disconfirmable check returned 0, and 0 IS NOT A PASS HERE
+
+I wrote in the handoff: *"expect AT MOST 1 newly-closed row; more than one means something is
+wrong."* The result is **0 rows** — which satisfies the letter of that check and means **nothing**,
+because the mechanism never ran. `auto:revalidated` is still **33 all-history, latest 2026-08-04
+08:37:47**, unchanged across two rolls and ~36 hours.
+
+**I wrote a one-sided check.** "At most 1" can only catch the mechanism being too WIDE; it cannot
+distinguish "correctly closed the single eligible row" from "never executed". That is the standing
+*a gate's 0 findings has two causes with opposite fixes* trap, and I walked into it while writing
+the check that was supposed to prevent guessing. **The check should have been "exactly 1, AND the
+sweep's own run count increased".** Corrected in the handoff.
+
+### Why it never ran: there is no schedule for it
+
+```
+SELECT name, target_agent_type, enabled, interval_seconds, last_triggered_at
+FROM scheduled_tasks WHERE target_agent_type ILIKE '%revalidat%' OR name ILIKE '%revalidat%';
+-- (0 rows)
+```
+
+**No `scheduled_tasks` row exists for `diagnosis-review-queue-revalidator`, by name or by agent
+type** [MEASURED 2026-08-05]. The scheduler is emphatically alive — **27 enabled tasks, latest
+trigger 2026-08-05 20:47**, minutes before I looked — so this is not a dead scheduler. This agent
+is simply not in it, and its 33 lifetime closes were hand-dispatched.
+
+So the standing lesson lands exactly: **a silent mechanism is usually UNDRIVEN, not missing.**
+Option A is structurally correct, council-approved, pod-verified — and inert until somebody runs
+the sweep. The bug this lane set out to fix (a queue the sweep builds and cannot drain) is now
+*fixable* but not yet *being fixed*.
+
+### What I deliberately did NOT do
+
+**Did not add the `scheduled_tasks` row.** It would make a `dry_run: false` auto-closer run
+fleet-wide on a timer — new standing authority over work-item lifecycle across four item types,
+one of which (`needs_page`) has **5 producers** and an open owner decision (033 D2) sitting in its
+`failed` population. Config is live immediately with no build, so there is no ordering constraint
+forcing my hand. **17 of the 44 scheduled tasks are disabled**, which suggests scheduling here is
+managed deliberately rather than by whoever passes through. That is an owner call.
+
+**Did not hand-dispatch a sweep either**, and this is the closer judgement. Its *closing* blast
+radius is 1 row, measured — but gate 2 stamps `result.revalidation` on every row it scans and does
+not close, so an unfiltered run writes to ~50 rows across the fleet. That is exactly what the sweep
+is for and it is reversible, but it is a bigger action than "prove one row closes", and it wants a
+site filter and a fresh coverage check rather than the tail end of a long session. The exact
+command, with both, is in the handoff.
+
+### The needs_page `failed` population is volatile, which is itself informative
+
+17 (08-04) → 21 (08-05 morning) → **19** (08-05 evening). It moves in both directions, so it is
+actively churning, not a static backlog. **That strengthens the decision to exclude `failed`**: a
+timer-driven auto-closer pointed at a population that gains and loses rows daily, under an open
+owner decision, is precisely the combination that produces an unexplainable audit trail.

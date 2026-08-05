@@ -21,29 +21,73 @@ DECISION, not an implementation.**
 
 ---
 
-## 0. THE ONLY OPEN ITEM — one observation, and it is disconfirmable
+## 0. THE ONLY OPEN ITEM — the fix is LIVE and UNDRIVEN. It needs a decision, then one run.
 
-The widening is proven **present**, not proven **effective**: no sweep has run since the roll
-(`diagnosis-review-queue-revalidator`, step `sweep`, **`dry_run: false`** — it does act; 33 rows
-closed all-history, latest 2026-08-04 08:37, before the roll).
+> **UPDATED 2026-08-05 evening.** Option A is live on `v1.0.1254` (survived two rolls; re-verified,
+> because a roll is not evidence your fix shipped). **But it has never executed.**
 
-**After the next sweep, run this. Expect AT MOST 1 newly-closed row. If it closes more than one,
-something is wrong.**
+**`auto:revalidated` is still 33 all-history, latest 2026-08-04 08:37:47** — unchanged across two
+rolls and ~36 hours.
+
+⚠ **My previous version of this check was ONE-SIDED and I nearly recorded its 0 as a pass.** It
+said *"expect at most 1 newly-closed row"*. Zero satisfies that and means nothing: "at most 1" can
+only catch the mechanism being too WIDE, never "it never ran". **Use this instead — both arms:**
 
 ```sql
-SELECT s.domain, swi.item_type, swi.status, swi.completed_at, swi.result->'revalidation'->>'reason'
+-- ARM 1: exactly 1, and it must be the needs_page unresolved row
+SELECT s.domain, swi.item_type, swi.status, swi.completed_at,
+       left(swi.result->'revalidation'->>'reason', 90) AS reason
 FROM site_work_items swi JOIN sites s ON s.id = swi.site_id
-WHERE swi.resolution_path = 'auto:revalidated' AND swi.completed_at > '2026-08-05'
+WHERE swi.resolution_path = 'auto:revalidated' AND swi.completed_at > '<the dispatch time>'
 ORDER BY swi.completed_at DESC;
+-- ARM 2: the sweep actually ran. If this has not moved, ARM 1's 0 is vacuous.
+SELECT count(*), max(completed_at) FROM site_work_items WHERE resolution_path='auto:revalidated';
+--   before any new run: 33, 2026-08-04 08:37:47
+```
+**More than 1 closed row = the status set is wider than intended. Zero AND an unmoved count = it
+did not run.** Those are opposite problems and the old check could not tell them apart.
+
+### WHY it has not run: there is no schedule for it
+
+```sql
+SELECT name, target_agent_type, enabled, interval_seconds, last_triggered_at
+FROM scheduled_tasks WHERE target_agent_type ILIKE '%revalidat%' OR name ILIKE '%revalidat%';
+-- (0 rows)  [MEASURED 2026-08-05]
 ```
 
-Why exactly one: the widening's whole live blast radius is **1 row** — a single `needs_page` item
-at `unresolved`. Every other covered type has zero rows in `unresolved`. A larger number means the
-status set is wider than intended, or a gate is matching rows it should not.
+**No `scheduled_tasks` row exists for `diagnosis-review-queue-revalidator`.** The scheduler is
+alive — 27 enabled tasks, latest trigger 2026-08-05 20:47 — so this is *undriven*, not broken. Its
+33 lifetime closes were hand-dispatched. **A silent mechanism is usually undriven, not missing.**
 
-⚠ **Tell the `bugs_open/187` lane if it fires** — that row is theirs (`revalidateNeedsPage`), and
-`needs_page` is the one type of the four with **5 Go producers**, which the `guardian` seat
-surfaced and which the submission had not stated.
+### THE DECISION OWED (owner), and it is small but real
+
+**Should this sweep be scheduled?** Config is live immediately with no build, so nothing forces the
+timing.
+
+- **FOR:** the bug this lane fixed — the sweep builds a two-strike queue it then cannot drain — is
+  only actually fixed if the sweep runs. Hand-dispatch means it runs when someone remembers.
+- **AGAINST:** it would give a `dry_run: false` auto-closer standing fleet-wide authority over four
+  item types' lifecycles. One of them (`needs_page`) has **5 Go producers** and an **open owner
+  decision (033 D2)** living in its `failed` population — a population measured moving
+  17 → 21 → 19 in 36 hours, so it churns daily. **17 of 44 scheduled tasks are disabled**, which
+  reads as deliberate management rather than neglect.
+- **My recommendation:** dispatch it by hand ONCE first (below) to exercise the widening and see
+  what it actually does, THEN decide on a schedule with that evidence in hand.
+
+### The one run, when you want it — with the checks it needs first
+
+```bash
+# 1. Coverage check FIRST — another session may have work in flight (CLAUDE.md).
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -c \
+ "SELECT site_id, item_type, status, count(*) FROM site_work_items
+   WHERE status NOT IN ('complete','cancelled','rejected') AND item_type='needs_page'
+   GROUP BY 1,2,3 ORDER BY 4 DESC LIMIT 5;"
+# 2. Pods must be >300s old, or the spawn is silently dropped.
+# 3. Prefer a SITE FILTER: an unfiltered sweep also stamps result.revalidation on every row it
+#    scans and does NOT close (gate 2) — ~50 rows fleet-wide. Harmless and by design, but scope it
+#    to the site holding the one needs_page 'unresolved' row so the outcome is unambiguous.
+# 4. Then run BOTH arms of the check above.
+```
 
 ## 1. The one-paragraph version
 
