@@ -467,3 +467,53 @@ One small save along the way: the script that fires the live browser test for a 
 only existed in a temporary folder that gets wiped between sessions — and it had already
 been wiped. I've rebuilt it from this conversation's record and committed it properly this
 time, so it can't be lost again.
+
+---
+
+**5 August 2026, afternoon — the calibration batch is done: four contracts written and proven, three tested live, and a price per item for you**
+
+You asked us to take on the backlog of tools and page-pieces that have no written
+contract. As agreed, I didn't grind through all of them — I did a first batch of about
+five, timed everything, and here's what came out.
+
+**Four contracts now exist and are proven.** The fuel cost estimator and the
+loan-versus-savings calculator (tools), and the hero banner and the closing
+call-to-action block (the two most widely used page sections on the whole estate —
+roughly two hundred pages each). For every one of them: I read the real live page first,
+wrote the contract against what it actually does, proved every single check can catch a
+deliberate break, and wrote it into the database properly. Three of the four were then
+tested for real in the live system and passed everything — including, for the two page
+sections, a deliberate wrong-page test that the system correctly refused.
+
+**The first subject I picked turned out to be genuinely broken, which is the whole point
+of reading before writing.** The gas unit converter's live page renders the full
+structure of the tool with every piece of text missing — no heading, no labels, blank
+buttons. A visitor sees an unlabelled form. The A/B test calculator on idea.uk is worse:
+it shows raw template code to visitors. Both had already been spotted by the platform's
+own checks weeks ago — the repair tickets are sitting in a human-review pile, one marked
+"won't fix". So I didn't write contracts for broken pages; I'm flagging them to you
+instead. There's also a smaller one: every page on the gas wholesalers site asks for a
+logo image that isn't there, so the fuel estimator's live test stays parked until that
+one missing file is put back — the contract itself is written and proven.
+
+**One genuinely new lesson got learned and written down where everyone will find it.**
+My loan-versus-savings contract used a testing feature that another team had added to the
+codebase *that same morning* — my offline checks all passed because they run the newest
+code, but the live system runs a build from two hours before the feature existed, so the
+live test failed on vocabulary, not on the tool. The system then dutifully opened a
+"fix this tool" ticket for a tool that wasn't broken — I cancelled it with the reason
+written in, reworked the contract to not need the new feature, and the re-test passed
+everything. That trap is now recorded in the shared landmines file so nobody else steps
+on it.
+
+**The price you asked for:** once the tooling is warm, a simple page section costs about
+15 minutes end to end, and an interactive tool about 30–45 minutes. The backlog is
+currently 39 tools (only 15 of which have working pages — the rest need page fixes
+first) and 111 sections. Worth knowing: newly built tools have been getting their
+contracts automatically since the 2nd, so this backlog is the old stock, not a growing
+pile. **The question for you is pace**: at these prices the realistic options are
+(a) steady — a handful per session as a background habit, (b) a focused push on the ~15
+ready tools plus the top dozen most-used sections, which is roughly three or four
+sessions, or (c) everything, which is on the order of ten to fifteen sessions and hits
+diminishing returns on rarely-used pieces. My own recommendation is (b): it covers
+everything a visitor is actually likely to meet.

@@ -1862,3 +1862,67 @@ shared keys"); goes in the owner report instead. S1 doing exactly what D8 funds 
 
 **Wall-clock so far: preconditions 4 min; subject 1 (dropped) ~15 min; subject 1v2
 ~45 min end-to-end including building its prover.**
+
+## 2026-08-05 (contd) — subjects 2–4 complete end-to-end; one false red became a LANDMINES entry; tranche DONE
+
+**SUBJECT 2 (`tool-loan-vs-savings`) COMPLETE, ~12:02–13:05, iteration count 2 + one
+cluster round-trip.** S1 was a gift: the tool's own inline comments record its golden
+vector (1000 @ 7.5%/5.0% → £75.00/£50.00, computed ON LOAD), the copy-bank badge idiom
+(badges start empty; JS fills exactly one — a JS-dead page asserts nothing false), and the
+deliberate strict-`>` tie rule (tie → savings). Fence: 14 checks pinning exactly those.
+Two authoring lessons the instruments caught, not me:
+- `try_fence` iteration 1: I asserted the copy-bank casing ("Better option"); CSS
+  uppercases the badge and innerText reads the RENDERED text → "BETTER OPTION". Fixed
+  case-insensitive — assert what the visitor reads, not what the source holds.
+- **The cluster round-trip caught a class the offline harness structurally cannot: fence
+  vocabulary NEWER than the deployed binary.** v1's tie check used the `reload` step
+  action. S6 (corr `3874c8b5-63bb-44d5-93ec-f2086f63567c`): 16 passed, 1 failed —
+  `unknown step action "reload"`. Timeline proven at the artefact: browser-runner
+  v1.0.1252 built 09:10 UTC; `reload` landed at HEAD **11:05 UTC the same morning**
+  (`67a4c50bd`, bugs_open/126); I authored at ~12:10 with HEAD's evaluator, which knows
+  it. Pod-grep: `"reload navigation failed"` → 0, control → 1. Unknown check TYPES skip;
+  unknown STEP ACTIONS **fail the check** — so this raised a real `improve_tool` item
+  (`6c06b0ad`) routing tool-improver at a healthy tool. **Cancelled it with the full
+  reason written into `result`** (status was `detected`, unclaimed). De-reloaded BOTH
+  fences (lvs: the tie is now built from accumulated state — with the 40% band selected,
+  12.5% × (1−0.4) is bit-identical in IEEE doubles to 7.5%, so the tie is exact;
+  fce: the guard check now raises wholesale above the retail already on the page),
+  re-proved both (14/14, 13/13), superseded both PLANs to v2, re-dispatched.
+  **Re-run corr `ab6434ee-a5d9-411f-8626-2846500f32f7`: 17/17 PASSED in-cluster, 18s,
+  0 chrome items, every skip 'not run on profile mobile'.**
+  → LANDMINES entry appended (offline fence harnesses run HEAD's evaluator; prove STEP
+  ACTIONS against the pod too, or `git log -S` the word vs the image build date), synced
+  to doc_notes (`landmines-sync.py --apply`, 1149 rows; entry flagged NEEDS_VERIFICATION
+  by the frozen code index, expected per MEMORY's 108 landmine).
+
+**SUBJECT 3 (`hero`) COMPLETE, ~20 min.** 213 placements/16 sites, no JS. Fence is the
+small static shape the handoff predicted: exists / visible (BOTH profiles — a hero can
+collapse on mobile alone) / h1-non-empty / 200 / overflow / console. The h1 check models
+the gas-unit-converter defect class (`{{.headline}}` is unconditional in the template, so
+empty data serves an empty h1). try_fence 10/10 first try (1366×630 desktop, 390×526
+mobile — the 70vh/60vh contract visible in the numbers). Prover 6/6 first run, **26s**.
+Persisted (`subject_type='component'`, second ever after teaser-reveal-panel). S6 via
+`DISPATCH_s6_component_run.sh` at the finetuning.uk/pricing placement with about.html as
+the negative control: corr `141d4fb9-837f-4e1e-b128-5af3abb9445e`, landed
+`neg_control_confirmed_red`/COMPLETED — **10/10 passed, control red, 0 chrome items**.
+
+**SUBJECT 4 (`call-to-action`) COMPLETE, ~15 min.** 192 placements/16 sites, sibling of
+hero in every respect (unconditional h2, 023-gated optional buttons, no JS). try_fence
+10/10 first try, prover 6/6 first run. Persisted. S6 at the same pricing placement,
+contact.html as control: corr `b8858007-3b05-4272-aa33-54554ba717af` →
+`neg_control_confirmed_red`, **10/10 passed, control red**.
+
+**Tranche wall-clock (11:12–13:20 UTC ≈ 2h10m):** preconditions 5m · subject dropped at
+S1 15m · fce ~45m (new prover architecture built here) · lvs ~65m (~25m of that the
+reload incident, a one-off that is now a landmine) · hero ~20m · cta ~15m. Marginal cost
+estimate once instruments are warm: **static section component ~15m; interactive tool
+~30–45m**; a subject with a live defect costs a finding instead of a fence (that is S1
+working, not overhead).
+
+**Open ends left deliberately:**
+- fce S6 deferred until gaswholesalers' logo serves (stated in its PLAN's Known state).
+- The two live-broken tools (gas-unit-converter@gaswholesalers rendered-empty,
+  ab-test-calculator@idea.uk raw placeholders) are in the queue already
+  (needs_human_review / failed / wont_fix) — owner report, not new filings.
+- `tool-equity-release`: page row active, URL 404s — one more artefact-vs-row drift datum
+  for the report.
