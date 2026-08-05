@@ -249,3 +249,16 @@ real conditions — the platform throws that copy of the evidence away at an ear
 than the one I guarded (and tested). The important half — refusals written where
 monitoring reads — does work. The repair is small and queued; the deeper plumbing
 question now has three documented faces and genuinely needs your ruling (RFC 012).
+
+---
+
+2026-08-05, morning — it held.
+
+The overnight and morning refresh cycles have both run, and every page we took down is
+still down; nothing tried to republish any of them, and the live site is untouched. That
+was the test that mattered — the one that caught us out last week — and it passed
+cleanly. The bug's page count is zero for the first time since it was filed. Left to do:
+one small code repair (writing the retraction's full audit somewhere that provably
+survives), and then closing the bug on your say-so. Your two standing decisions are in
+yesterday's summary: the RFC 012 ruling, and — only when the next destructive verb
+arrives — RFC 011's deferred question.

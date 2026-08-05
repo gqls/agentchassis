@@ -6,9 +6,40 @@ command, with its gotcha).
 
 ---
 
-## STATE 2026-08-04 (end of the debts session) — ALL FIVE DEBTS PAID; what remains is OWNER DECISIONS
+## STATE 2026-08-05 — POPULATION ZERO, ACCEPTANCE COMPLETE; one small code task (debt 5b), then close
 
-**Read this block first; the 2026-08-03 material below is background.**
+**Read this block first; everything below it is background.**
+
+- **The batch retraction HOLDS.** 10 leopardess pages retracted 08-04 evening (run
+  `e23b7257…`, owner-approved); re-checked 08-05 morning after BOTH refresh windows:
+  all 10 still 404, robot-hands' original still 404, collateral 200, **0** new
+  `page_rerender` rows. Two-part acceptance COMPLETE. Population of the bug: **zero**.
+- **DECISION (owner-delegated, recorded in bug + RUNBOOK): archiving does NOT
+  auto-retract.** Two-step procedure: archive, then 216 trigger with PAGE_IDS.
+- **⚠ Debt 5's sibling-key half is REFUTED — do NOT trust `retraction_audit` in
+  collected_data for awaited runs.** `persistAwaitingStateWithRetry`
+  (coordinator.go:2052) parks a step onto a FRESH DB load carrying only awaited-request
+  bookkeeping — every CollectedData mutation dies there. Proven live (strings-verified
+  binary, absent key). The `agent_error_log` half (refusal rows, direct INSERT before
+  dispatch) IS durable and proven. Full account: RFC_012 **addendum 2**, LANDMINES
+  (corrected in place), WRONG_CALLS 08-04.
+- **THE ONE CODE TASK LEFT — debt 5b, small and specified:** in
+  `retract_page_deployment_action.go`, extend `recordRetractionConditions` (or add a
+  sibling call beside it) to ALWAYS write one `agent_error_log` row per real run —
+  `error_code='RETRACTION_AUDIT'`, severity `'info'`, context = the full audit map —
+  through the same proven INSERT (`insertRetractionConditionRow`). Keep the sibling-key
+  attach (harmless; correct for non-awaited paths and for whenever RFC_012 lands). Test
+  it at the DB layer the last one missed: sqlmock-expect the info row on clean runs, none
+  on dry runs; and VERIFY LIVE by SELECTing the persisted row while a probe step is
+  parked. One coherent task ⇒ one council round (`RESUBMIT_CORR` NOT needed — new task).
+- **THEN: close 098** (owner has effectively invited it — "say the word") → move to
+  `bugs_closed/` by `git mv` + BOTH paths named on the commit (see the git-mv landmine),
+  update `MEMORY.md` + topic file + `MEMORY_closed.md`, 016b §10 index.
+- **Owner decisions still open (in `SUMMARY_2026-08-04`, §Where we're going):** RFC_012
+  options A/B/C (filing thread recommends B, DB-backed — amended by addendum 2); RFC_011's
+  deferred destructive-verb question (only when the next verb arrives).
+
+## STATE 2026-08-04 (end of the debts session) — ALL FIVE DEBTS PAID; what remains is OWNER DECISIONS
 
 | | |
 |---|---|

@@ -11,8 +11,15 @@
 > through the platform (`page-retraction`, orchestration `e23b7257…`, ALWAYS with
 > `PAGE_IDS`): adapter success, one commit removing all 10 files from `gqls/sites`,
 > **all 10 URLs now 404, collateral (`/index.html`, `/services.html`) still 200.**
-> Acceptance part 2 — still-404 after the next news refresh (~08:0x/20:0x) plus zero new
-> `page_rerender` rows — is the one remaining check before this bug can close.
+> ~~Acceptance part 2 — still-404 after the next news refresh (~08:0x/20:0x) plus zero new
+> `page_rerender` rows — is the one remaining check before this bug can close.~~
+> **PART 2 PASSED, 2026-08-05 morning, after BOTH refresh windows:** all 10 URLs still
+> 404, robot-hands' original retraction still 404, collateral 200, and **0** new
+> `page_rerender` rows for any retracted page since dispatch (`site_work_items`,
+> measured). **The acceptance is COMPLETE. This bug is CLOSABLE on the owner's word** —
+> population zero, mechanism proven twice (single + batch), non-automation recorded as a
+> decision, with debt 5b (audit as an always-on error-log row) done first or explicitly
+> carried.
 >
 > **DECISION (owner-delegated, 2026-08-04): archiving does NOT invoke retraction
 > automatically.** Reasons, so nobody re-litigates: (1) nothing in code archives a page —

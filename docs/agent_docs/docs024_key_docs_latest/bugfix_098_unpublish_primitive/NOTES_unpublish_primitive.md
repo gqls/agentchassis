@@ -625,3 +625,13 @@ RETRACTION_AUDIT info row beside the refusal rows) is the one small code task le
 exists, automatic deletion on a hand-set flag is the unguarded-authority class, and the
 runbook's two-step procedure (archive, then 216 with PAGE_IDS) is the mechanism. In the
 RUNBOOK; revisit only if the class outruns it.
+
+## 2026-08-05 (morning) — PART 2 PASSED; acceptance complete; lane handed off for debt 5b + close
+
+Both refresh windows have run since the batch retraction. Measured: all 10 URLs still
+404, robot-hands' original retraction still 404, collateral 200, and 0 new
+`page_rerender` rows for any retracted page since dispatch. The two-part acceptance the
+bug file demands is COMPLETE — this is the check whose absence would have silently
+un-fixed everything on 07-31, passing cleanly. Population zero. Remaining: debt 5b
+(specified in the HANDOFF STATE block) and the close itself, both queued for a fresh
+session; the owner's open RFC decisions are listed in SUMMARY_2026-08-04.
