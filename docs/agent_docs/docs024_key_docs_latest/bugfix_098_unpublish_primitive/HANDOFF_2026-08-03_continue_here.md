@@ -23,7 +23,11 @@ command, with its gotcha).
   binary, absent key). The `agent_error_log` half (refusal rows, direct INSERT before
   dispatch) IS durable and proven. Full account: RFC_012 **addendum 2**, LANDMINES
   (corrected in place), WRONG_CALLS 08-04.
-- **THE ONE CODE TASK LEFT — debt 5b, small and specified:** in
+- ~~**THE ONE CODE TASK LEFT — debt 5b, small and specified:**~~ **DONE 2026-08-05**
+  (committed, `Council-Submitted: 9a38c785-7733-4492-b614-2f67bf4e36c4`; live probe
+  post-roll specified in the bug file's debt-5b block — one ACTIVE page id through 216,
+  expect RETRACTION_AUDIT info + RETRACTION_REFUSED warning rows, zero dispatch).
+  Original spec, for the record: in
   `retract_page_deployment_action.go`, extend `recordRetractionConditions` (or add a
   sibling call beside it) to ALWAYS write one `agent_error_log` row per real run —
   `error_code='RETRACTION_AUDIT'`, severity `'info'`, context = the full audit map —

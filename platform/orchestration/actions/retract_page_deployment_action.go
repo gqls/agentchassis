@@ -239,11 +239,13 @@ func RetractPageDeploymentAction(ctx context.Context, params ActionParams) (inte
 	// refusal survived nowhere but pod logs, which this repo documents as
 	// ephemeral across rollouts. A retraction that refused a page had refused
 	// it silently — the opposite of what the guards above promise. Two sinks,
-	// two readers:
-	//   - collected_data[retractionAuditKey]: a sibling key the response
-	//     handler never writes, for whoever reads the orchestration record;
-	//   - agent_error_log rows (real runs only, below): a refusal must outlive
-	//     the orchestration row itself, which is retention-clocked (~24h once
+	// two readers — CORRECTED 2026-08-04: only the second is durable for an
+	// awaited run (see retractionAuditKey's comment):
+	//   - collected_data[retractionAuditKey]: survives NON-awaited paths only —
+	//     the await park discards all CollectedData mutations;
+	//   - agent_error_log rows (real runs only, below): refusals as warnings,
+	//     the full audit as one RETRACTION_AUDIT info row — must outlive the
+	//     orchestration row itself, which is retention-clocked (~24h once
 	//     terminal), and that table is where the dashboards and the
 	//     immune-system sweep already look.
 	// `audit` and `result` share the same nested values on purpose; the audit
@@ -304,6 +306,7 @@ func RetractPageDeploymentAction(ctx context.Context, params ActionParams) (inte
 		result["await_response"] = false
 		result["status"] = "nothing_to_retract"
 		audit["status"] = "nothing_to_retract"
+		recordRetractionAudit(ctx, params, siteID, domain, audit, logger)
 		logger.Info("retract_page_deployment: nothing to retract",
 			zap.String("domain", domain), zap.Int("considered", len(candidates)))
 		return result, nil
@@ -324,6 +327,13 @@ func RetractPageDeploymentAction(ctx context.Context, params ActionParams) (inte
 	result["nav_retired"] = navRetired
 	audit["nav_retired"] = navRetired
 
+	// The audit row is written AFTER the nav retire (so it carries nav_retired)
+	// and BEFORE the dispatch (so a failed send cannot unrecord it). It cannot
+	// carry request_id/dispatched — those happen later and this is
+	// deliberately INSERT-only — but the row's orchestration_id column joins it
+	// to the adapter reply and everything else about the run.
+	recordRetractionAudit(ctx, params, siteID, domain, audit, logger)
+
 	requestID, err := sendGitDeleteFileRequest(ctx, params, config, domain, paths, logger)
 	if err != nil {
 		return nil, err
@@ -335,13 +345,18 @@ func RetractPageDeploymentAction(ctx context.Context, params ActionParams) (inte
 	return result, nil
 }
 
-// retractionAuditKey is the collected_data key the audit is persisted under.
-// It is a TOP-LEVEL SIBLING of the step's own keys on purpose: when the
-// awaited adapter reply lands, applyResponseToState overwrites the step-name
-// and output_field keys wholesale, and anything inside them — refusals
-// included — is destroyed. A sibling key is outside that write set, is
-// persisted with the parked state before any reply can arrive, and is still
-// there when the record is read afterwards. The seed's output_field is
+// retractionAuditKey is the collected_data key the audit is attached under.
+// It is a TOP-LEVEL SIBLING of the step's own keys because
+// applyResponseToState overwrites the step-name and output_field keys
+// wholesale when the awaited reply lands. ~~A sibling key … is still there
+// when the record is read afterwards~~ — **CORRECTED 2026-08-04 by the first
+// live batch run: on an AWAITED step this key never reaches the DB at all.**
+// persistAwaitingStateWithRetry parks the step onto a fresh DB load carrying
+// only awaited-request bookkeeping, discarding every CollectedData mutation
+// (RFC_012 addendum 2). The attach stays because it is correct for
+// non-awaited paths (dry_run, nothing_to_retract) and for whenever RFC_012
+// fixes the park; the DURABLE record of a real run is the RETRACTION_AUDIT
+// agent_error_log row (recordRetractionAudit). The seed's output_field is
 // 'retraction' (sql_for_agents/215); keep any caller's output_field distinct
 // from this key.
 const retractionAuditKey = "retraction_audit"
@@ -401,7 +416,7 @@ func recordRetractionConditions(ctx context.Context, params ActionParams, siteID
 		}
 		attempted++
 		if insertRetractionConditionRow(ctx, params, siteID, domain,
-			"RETRACTION_REFUSED",
+			"RETRACTION_REFUSED", "warning",
 			fmt.Sprintf("retraction refused for page %q (%s): %s", c.PageName, c.URL, c.Refused),
 			payload, logger) {
 			recorded++
@@ -411,7 +426,7 @@ func recordRetractionConditions(ctx context.Context, params ActionParams, siteID
 	if len(graph.Stranded) > 0 {
 		attempted++
 		if insertRetractionConditionRow(ctx, params, siteID, domain,
-			"RETRACTION_STRANDED_TARGETS",
+			"RETRACTION_STRANDED_TARGETS", "warning",
 			fmt.Sprintf("%d page(s) lose their last inbound referrer when this retraction lands", len(graph.Stranded)),
 			map[string]interface{}{
 				"stranded":        graph.Stranded,
@@ -423,6 +438,28 @@ func recordRetractionConditions(ctx context.Context, params ActionParams, siteID
 	return attempted, recorded
 }
 
+// recordRetractionAudit persists the FULL audit as one agent_error_log row
+// (`RETRACTION_AUDIT`, severity 'info') on every real run — clean ones
+// included, which is the point: after the first live batch run proved the
+// collected_data copy dies at the await park (debt 5b, RFC_012 addendum 2),
+// this row is the ONLY durable record of what a retraction considered,
+// refused and stranded. Dry runs are the caller's concern and never reach
+// here. Best-effort like every recorder in this file; the sibling-key attach
+// stays because it is correct for non-awaited reads and costs nothing.
+func recordRetractionAudit(ctx context.Context, params ActionParams, siteID uuid.UUID, domain string, audit map[string]interface{}, logger *zap.Logger) bool {
+	considered, _ := audit["considered"].(int)
+	retracted := 0
+	if p, ok := audit["paths"].([]string); ok {
+		retracted = len(p)
+	}
+	ok := insertRetractionConditionRow(ctx, params, siteID, domain,
+		"RETRACTION_AUDIT", "info",
+		fmt.Sprintf("retraction audit for %s: %d considered, %d dispatched for deletion", domain, considered, retracted),
+		audit, logger)
+	audit["audit_row_recorded"] = ok
+	return ok
+}
+
 // insertRetractionConditionRow writes one agent_error_log row, reporting
 // whether the write landed. Direct INSERT because the one shared writer
 // (orchestration.LogAgentError) lives in the package that imports this one
@@ -430,7 +467,14 @@ func recordRetractionConditions(ctx context.Context, params ActionParams, siteID
 // and recordComponentWriteRejection (component_write_guard.go), this
 // package's established shape for exactly this need — a refusal queryable
 // across the fleet rather than living only in pod logs.
-func insertRetractionConditionRow(ctx context.Context, params ActionParams, siteID uuid.UUID, domain, code, message string, contextPayload map[string]interface{}, logger *zap.Logger) bool {
+//
+// THIS TABLE IS THE ONLY SINK THAT SURVIVES AN AWAITED STEP (debt 5b,
+// 2026-08-04): the collected_data sibling key this file also writes was
+// refuted by the first live batch run — persistAwaitingStateWithRetry parks
+// the step onto a fresh DB load and discards every CollectedData mutation
+// (RFC_012 addendum 2). A direct row, written before dispatch, is durable
+// regardless.
+func insertRetractionConditionRow(ctx context.Context, params ActionParams, siteID uuid.UUID, domain, code, severity, message string, contextPayload map[string]interface{}, logger *zap.Logger) bool {
 	if params.DB == nil {
 		return false
 	}
@@ -464,7 +508,7 @@ func insertRetractionConditionRow(ctx context.Context, params ActionParams, site
 		)`,
 		siteID.String(), domain, workItemID, orchestrationID,
 		agentType, agentID, podName, stepName, "retract_page_deployment",
-		message, code, "warning", string(contextJSON))
+		message, code, severity, string(contextJSON))
 	if err != nil {
 		logger.Warn("retract_page_deployment: failed to record condition in agent_error_log — the disposition stands but its durable trace is lost",
 			zap.Error(err), zap.String("error_code", code))

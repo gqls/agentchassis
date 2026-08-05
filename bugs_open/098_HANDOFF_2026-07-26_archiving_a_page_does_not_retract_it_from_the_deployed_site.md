@@ -150,9 +150,19 @@ because every repair path skips archived rows on purpose.
 >    by fresh-loading state and copying only awaited-request bookkeeping onto it, so
 >    every CollectedData mutation — sibling key included — is discarded before the DB
 >    ever sees it. Proven: strings-verified binary, absent key, source read in full
->    (RFC_012 addendum 2; LANDMINES corrected; WRONG_CALLS row). **Owed (debt 5b, small):**
+>    (RFC_012 addendum 2; LANDMINES corrected; WRONG_CALLS row). ~~**Owed (debt 5b, small):**
 >    persist the audit as an always-on `agent_error_log` row (`RETRACTION_AUDIT`,
->    severity info) beside the refusal rows — the INSERT path is the proven-durable one.
+>    severity info) beside the refusal rows — the INSERT path is the proven-durable one.~~
+>    **DEBT 5b PAID 2026-08-05, committed — awaiting the next roll.** One RETRACTION_AUDIT
+>    info row per real run (clean runs included — that was the remaining hole), written
+>    after the nav retire and before dispatch; `insertRetractionConditionRow` gained an
+>    explicit severity parameter; the file's own comments no longer teach the refuted
+>    sibling-key claim. Tests assert the DB write set in exact order; mutation-proven.
+>    Council `Council-Submitted: 9a38c785-7733-4492-b614-2f67bf4e36c4`. **Live probe
+>    once rolled** (zero side effects): fire 216 with one ACTIVE page id → refused, no
+>    dispatch → `SELECT error_code, severity FROM agent_error_log WHERE
+>    action='retract_page_deployment' ORDER BY created_at DESC LIMIT 3;` expect one
+>    RETRACTION_AUDIT info + one RETRACTION_REFUSED warning.
 >    Two sinks, two readers was the design: the audit now also lands in
 >    `collected_data.retraction_audit` — a top-level SIBLING key, which the await
 >    overwrite cannot touch because `applyResponseToState` writes only the step-name and

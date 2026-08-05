@@ -68,13 +68,13 @@ func retractionPersistParams(db *sql.DB, producer kafka.Producer, config map[str
 // The 13-arg INSERT into agent_error_log, asserting the columns that make the
 // row findable: action, error_code, severity. Everything else is identity
 // plumbing.
-func expectConditionInsert(mock sqlmock.Sqlmock, code string) {
+func expectConditionInsert(mock sqlmock.Sqlmock, code, severity string) {
 	mock.ExpectExec(`INSERT INTO agent_error_log`).
 		WithArgs(
 			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
 			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
 			"retract_page_deployment",
-			sqlmock.AnyArg(), code, "warning", sqlmock.AnyArg(),
+			sqlmock.AnyArg(), code, severity, sqlmock.AnyArg(),
 		).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 }
@@ -133,11 +133,16 @@ func TestRetractionAuditSurvivesTheAwaitOverwrite(t *testing.T) {
 	mock.ExpectQuery(`WITH outbound`).
 		WillReturnRows(sqlmock.NewRows([]string{"name", "url", "status"}))
 	// The two refusals become durable rows BEFORE the nav write and dispatch.
-	expectConditionInsert(mock, "RETRACTION_REFUSED")
-	expectConditionInsert(mock, "RETRACTION_REFUSED")
+	expectConditionInsert(mock, "RETRACTION_REFUSED", "warning")
+	expectConditionInsert(mock, "RETRACTION_REFUSED", "warning")
 	mock.ExpectExec(`UPDATE site_nav_items`).
 		WithArgs(sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(0, 1))
+	// Debt 5b: the FULL audit becomes one durable info row, after the nav
+	// retire (so it carries nav_retired) and before the dispatch. This is the
+	// ONLY sink that survives an awaited run - the sibling key dies at the
+	// await park (RFC_012 addendum 2).
+	expectConditionInsert(mock, "RETRACTION_AUDIT", "info")
 
 	producer := &capturingProducer{}
 	params, collected := retractionPersistParams(db, producer,
@@ -254,7 +259,8 @@ func TestRetractionAllRefusedStillRecords(t *testing.T) {
 	mock.ExpectQuery(`= 'active'`).
 		WillReturnRows(sqlmock.NewRows([]string{"name", "url"}))
 	// No graph-audit queries: the eligible set is empty.
-	expectConditionInsert(mock, "RETRACTION_REFUSED")
+	expectConditionInsert(mock, "RETRACTION_REFUSED", "warning")
+	expectConditionInsert(mock, "RETRACTION_AUDIT", "info")
 
 	producer := &capturingProducer{}
 	params, collected := retractionPersistParams(db, producer,
@@ -308,7 +314,8 @@ func TestRetractionDispatchFailureDoesNotUnrecord(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "label", "url"}))
 	mock.ExpectQuery(`WITH outbound`).
 		WillReturnRows(sqlmock.NewRows([]string{"name", "url", "status"}))
-	expectConditionInsert(mock, "RETRACTION_REFUSED")
+	expectConditionInsert(mock, "RETRACTION_REFUSED", "warning")
+	expectConditionInsert(mock, "RETRACTION_AUDIT", "info")
 
 	params, collected := retractionPersistParams(db, failingProducer{},
 		map[string]interface{}{"site_id": siteID.String(), "repo_name": "sites"})

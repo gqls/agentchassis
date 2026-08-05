@@ -635,3 +635,21 @@ bug file demands is COMPLETE — this is the check whose absence would have sile
 un-fixed everything on 07-31, passing cleanly. Population zero. Remaining: debt 5b
 (specified in the HANDOFF STATE block) and the close itself, both queued for a fresh
 session; the owner's open RFC decisions are listed in SUMMARY_2026-08-04.
+
+## 2026-08-05 — debt 5b PAID: the audit is now a durable row on every real run
+
+Committed (`Council-Submitted: 9a38c785-7733-4492-b614-2f67bf4e36c4`), inert until the
+next roll. One `RETRACTION_AUDIT` info row per real run through the proven
+`insertRetractionConditionRow` path (which gained an explicit severity parameter —
+'info' is an established tier: 1694/1264/396/1 fatal/error/warning/info measured 08-04),
+written after the nav retire (carries nav_retired) and before dispatch (a failed send
+cannot unrecord it); joins to the reply via `orchestration_id` since an INSERT-only row
+written pre-dispatch cannot carry request_id. Clean runs included — that was the hole:
+refusal rows only exist when something refuses, so a clean batch's audit survived
+nowhere. The file's own comments were corrected in place so a reader of the code no
+longer learns the refuted sibling-key claim (the attach itself stays — correct for
+non-awaited paths and for whenever RFC_012 fixes the park). Tests now assert the DB
+write set in exact order; mutation (recorder gutted) fails the three real-run tests and
+leaves dry-run green; HEAD-archive isolation build passes. **Live probe once rolled**:
+216 with one ACTIVE page id — refused, zero dispatch, no site side effects — then SELECT
+the two rows.
