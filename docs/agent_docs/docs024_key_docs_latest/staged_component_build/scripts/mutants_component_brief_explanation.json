@@ -1,9 +1,6 @@
 {
   "serve_local": [
-    "/search.json"
-  ],
-  "strip": [
-    "<script type=\"module\" src=\"https://static.cloudflareinsights.com/beacon.min.js\" data-cf-beacon='{\"token\": \"633f794e53dc4f718e91be595d7037ff\"}'></script>"
+    "/data/latest-news.json"
   ],
   "mutants": [
     {
@@ -15,8 +12,8 @@
     },
     {
       "name": "the section loses the identity acceptance resolves it by",
-      "from": "data-component=\"ported-page\"",
-      "to": "data-component=\"ported-page-renamed\"",
+      "from": "data-component=\"brief-explanation\"",
+      "to": "data-component=\"brief-explanation-renamed\"",
       "expect_fail": [
         "section-renders"
       ]
@@ -24,9 +21,17 @@
     {
       "name": "the section collapses below visible size (10x10, overflow hidden)",
       "from": "</body>",
-      "to": "<style>section.ported-page[data-component=\"ported-page\"]{width:10px!important;height:10px!important;overflow:hidden!important;padding:0!important}</style></body>",
+      "to": "<style>section.brief-explanation-section[data-component=\"brief-explanation\"]{width:10px!important;height:10px!important;overflow:hidden!important;padding:0!important}</style></body>",
       "expect_fail": [
         "section-has-visible-area"
+      ]
+    },
+    {
+      "name": "the heading renders empty",
+      "from": "<h2 class=\"brief-explanation__heading\">Compare robotic grippers by <em>actuation technology</em> and payload.</h2>",
+      "to": "<h2 class=\"brief-explanation__heading\"></h2>",
+      "expect_fail": [
+        "heading-has-text"
       ]
     },
     {

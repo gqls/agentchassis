@@ -29,10 +29,27 @@
 //	go run docs/agent_docs/docs024_key_docs_latest/staged_component_build/scripts/prove_fence_mutants_file.go \
 //	    <criteria.json> <mutants.json> <live-url>
 //
-// No fairness deviations are built in: all non-page requests are redirected to the
-// live origin. A page whose origin 404s one of its own assets cannot get a green
-// baseline here — fix the asset or (as the fuel-cost-estimator prover did, loudly)
-// write a dedicated sibling that declares its deviation.
+// TWO DECLARED HARNESS ACCOMMODATIONS, both optional, both uniform across the
+// baseline and every mutant (so no mutant's verdict can depend on them), both
+// declared in the mutants file where a reviewer reads the mutants themselves:
+//
+//   - "serve_local": ["/data/x.json", ...] — paths the page's own JS fetches
+//     same-origin. Under the redirect harness those become cross-origin and CORS
+//     kills them, failing no-console-errors on a page that is CLEAN live (measured
+//     twice: robot-hands /data/latest-news.json, webdesign /search.json). Each
+//     listed path is fetched once from the live origin at startup and served
+//     locally with its content type in EVERY run.
+//   - "strip": ["<script ...beacon...>", ...] — exact substrings removed from the
+//     page in EVERY run. For third-party telemetry (Cloudflare RUM) that posts to
+//     an EXTERNAL origin and can never pass CORS from a localhost harness. Each
+//     listed string must occur exactly once, like a mutant's `from`.
+//
+// A page whose origin 404s one of its own assets still cannot get a green baseline
+// here — fix the asset or write a dedicated sibling that declares that deviation
+// (the fuel-cost-estimator prover is the precedent).
+//
+// The mutants file is either a bare ARRAY of mutants (the original form) or an
+// object: {"serve_local": [...], "strip": [...], "mutants": [...]}.
 package main
 
 import (
@@ -93,7 +110,20 @@ func main() {
 		fmt.Fprintf(os.Stderr, "cannot read %s: %v\n", mutantsPath, err)
 		os.Exit(2)
 	}
-	if err := json.Unmarshal(rawMut, &mutants); err != nil {
+	var serveLocal, strip []string
+	trimmed := strings.TrimSpace(string(rawMut))
+	if strings.HasPrefix(trimmed, "{") {
+		var cfg struct {
+			ServeLocal []string `json:"serve_local"`
+			Strip      []string `json:"strip"`
+			Mutants    []mutant `json:"mutants"`
+		}
+		if err := json.Unmarshal(rawMut, &cfg); err != nil {
+			fmt.Fprintf(os.Stderr, "mutants file does not parse: %v\n", err)
+			os.Exit(2)
+		}
+		serveLocal, strip, mutants = cfg.ServeLocal, cfg.Strip, cfg.Mutants
+	} else if err := json.Unmarshal(rawMut, &mutants); err != nil {
 		fmt.Fprintf(os.Stderr, "mutants file does not parse: %v\n", err)
 		os.Exit(2)
 	}
@@ -136,7 +166,39 @@ func main() {
 		os.Exit(2)
 	}
 
+	for _, s := range strip {
+		n := strings.Count(string(original), s)
+		if n != 1 {
+			fmt.Fprintf(os.Stderr, "strip target occurs %d times (must be exactly 1): %q\n", n, s)
+			os.Exit(2)
+		}
+		original = []byte(strings.Replace(string(original), s, "", 1))
+	}
+	localAssets := map[string][]byte{}
+	localTypes := map[string]string{}
+	for _, ap := range serveLocal {
+		aresp, aerr := http.Get(origin + ap)
+		if aerr != nil {
+			fmt.Fprintf(os.Stderr, "cannot fetch serve_local %s: %v\n", ap, aerr)
+			os.Exit(2)
+		}
+		ab, rerr := io.ReadAll(aresp.Body)
+		_ = aresp.Body.Close()
+		if rerr != nil || aresp.StatusCode != 200 {
+			fmt.Fprintf(os.Stderr, "fetch serve_local %s: HTTP %d, err %v\n", ap, aresp.StatusCode, rerr)
+			os.Exit(2)
+		}
+		localAssets[ap] = ab
+		localTypes[ap] = aresp.Header.Get("Content-Type")
+	}
+
 	fmt.Printf("=== proving the fence can fail (mutants: %s) ===\n", mutantsPath)
+	if len(serveLocal) > 0 {
+		fmt.Printf("serve_local (uniform across ALL runs): %s\n", strings.Join(serveLocal, ", "))
+	}
+	if len(strip) > 0 {
+		fmt.Printf("strip (uniform across ALL runs): %d substring(s) removed from the page\n", len(strip))
+	}
 	fmt.Printf("fence: %s (%d checks, desktop only)\n", critPath, len(checks))
 	fmt.Printf("page:  %s (%d bytes)\n", liveURL, len(original))
 	fmt.Printf("assets other than the page are 302'd to %s\n", origin)
@@ -158,6 +220,13 @@ func main() {
 			}
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			_, _ = w.Write(b)
+			return
+		}
+		if ab, ok := localAssets[r.URL.Path]; ok {
+			if ct := localTypes[r.URL.Path]; ct != "" {
+				w.Header().Set("Content-Type", ct)
+			}
+			_, _ = w.Write(ab)
 			return
 		}
 		http.Redirect(w, r, origin+r.URL.Path, http.StatusFound)

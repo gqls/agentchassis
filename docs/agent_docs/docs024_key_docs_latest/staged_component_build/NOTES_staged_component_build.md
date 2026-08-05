@@ -2000,3 +2000,37 @@ moved to finetuning.uk/approach.html; recorded in the PLAN body.
 **Running D10 tally: 16 sections + 2 tools done end-to-end; deferred: ported-page
 (harness CORS), fce S6 (gaswholesalers logo), gas-unit-converter + ab-test-calculator
 (broken pages, queue-parked), equity-release (row-vs-URL drift).**
+
+## 2026-08-05 (contd) — batch 3: eleven more sections end-to-end, incl. ported-page rescued by two declared harness accommodations
+
+**Instrument evolution, forced by evidence (2 subjects), validated before trust:**
+`prove_fence_mutants_file.go` gains two OPTIONAL, DECLARED, uniform-across-all-runs
+accommodations, set in the mutants file where a reviewer reads the mutants: `serve_local`
+(paths the page's own JS fetches same-origin — the redirect harness turns them
+cross-origin and CORS fails no-console-errors on pages that are CLEAN live; robot-hands
+`/data/latest-news.json`, webdesign `/search.json`) and `strip` (third-party beacon tags
+that POST to an external origin and can never pass CORS from localhost; Cloudflare RUM).
+Backward-compatible (bare-array mutant files unchanged); re-validated by reproducing
+call-to-action's exact 6/6 AFTER the change. Neither accommodation can affect a mutant's
+verdict (uniform incl. baseline), and no-console-errors keeps its own dedicated mutant.
+
+| subject | prover | S6 CID (all `neg_control_confirmed_red`, all_passed) |
+|---|---|---|
+| brief-explanation (6/5; serve_local) | 6/6 | 11504241 10/10 |
+| hero-case-studies (4/4) | 6/6 | 03e0acb0 10/10 |
+| hero-services (6/6) | 6/6 | 88e2affd 10/10 |
+| hero-tool (6/3) | 6/6 | cf96ff9e 10/10 |
+| services-grid (5/4; root class ≠ function name — resolve by attribute) | 7/7 | 785895cf 11/11 |
+| system-stats (5/4) | 6/6 | ed533c8b 10/10 |
+| testimonials (6/2; root class social-proof-section; ≥1 item; headline conditional) | 6/6 | 02208554 10/10 |
+| tool-guide-intro (5/4) | 6/6 | cd5f6cbe 10/10 |
+| tool-list (6/4) | 6/6 | f71a2cff 10/10 |
+| use-cases-list (5/2; ≥1 article) | 7/7 | 8288e2b1 11/11 |
+| ported-page (97 real placements on webdesign; 58 drift rows on lmc/loancash) | 5/5 | 66fad769 9/9 |
+
+Line refinements this batch: heading extraction tolerates inline markup (`<em>` inside
+robot-hands' h2 broke the `[^<]+` regex — non-greedy `.*?</h2>` now); CSS
+`url()` background references probed per page after darts' hero.jpg lesson;
+lendzy.co.uk dropped as a proof site (origin flaky behind Cloudflare, 522s).
+
+**Running D10 tally: 27 sections + 2 tools end-to-end.**
