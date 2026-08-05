@@ -141,3 +141,46 @@ cadence is the vigilant_designer lane's; the door is closed ahead of it, which i
 their handoff ordered ("198's fix candidate 1 before any css-patch dispatch"). Closure
 call is theirs once the witnessed run lands; the commit-message half additionally
 wants the chassis roll.
+
+## Council round: APPROVED r1 (2026-08-05, correlation 5249320e), 7 advisory objections — dispositions
+
+Verdict read same-day; `complete_approved` at 12:08Z. Every objection either answered
+with a measurement or recorded as owed — none required a code change:
+
+- **"Migration premise unverified against live jsonb" (editquality, prior_art_librarian):**
+  the full live config was dumped and read before writing; the concern was still REAL —
+  the row's updated_at moved at 09:09Z today (content byte-identical, 3,933 chars, so a
+  touch not a change) — and the drift guard did its job: matched the exact expected
+  shape, UPDATE 1, DO/RAISE verify passed, post-apply probes green.
+- **"Other commit_message templates still silently degrade" (bug_historian):** measured —
+  19 `commit_message` templates fleet-wide, **zero** reference fields outside
+  {domain, file_count, filename} today (survey proven non-vacuous by the 19 count).
+  css-patch-agent was the only offender. Whether `buildCommitMessage` itself should
+  fail loud on `<no value>` stays an open human trade-off, recorded in DGH-007.
+- **"commit_message_field naming collision?" (guardian):** the fleet-wide key search
+  returns exactly two users — mine, and `diagnose_prepare_fix_commit` (feature-implementer,
+  `stage.commit_message`), which is PRIOR ART for the same name with the same semantics
+  (answers reuse_agent/prior_art_librarian too: the convention was followed, not invented).
+- **"Truncated css_added passes the size guard" (llm_reliability):** the deciding arm is
+  `ai_actions.go:427` — `aiservice.IsTruncated(err)` surfaces a max_tokens cut as an
+  ERROR, and plan_css_fix sets no `tolerate_truncation`, so a truncated completion fails
+  the step loudly before any writer runs; a tolerated fragment would additionally have
+  to survive the `output_format: json` parse + single re-ask. Two closed doors.
+- **"snapshot_agent overload/table unverified" (debug_historian):** verified —
+  `agent_definitions_backup` id `661a27b9` holds the pre-change config (old
+  `patched_css` shape present, `t`). Verify SQL is committed in the migration itself
+  (DO/RAISE + `position()` containment over the whole config, not `<>` on a path).
+- **"No doc_notes trail for the agent" (tooling_provenance):** written —
+  `doc_notes` `930cc916`, subject pipeline/css-patch-agent, per the tool-recreation-handler
+  convention.
+- **Nil `input_data.spec.category` (editquality, low):** param resolution refuses nil →
+  step errors → complete_error. Loud failure through a different door; accepted.
+
+**OWED (named, not half-done):**
+1. **Round-trip writer inventory** (architecture seat): enumerate other
+   agent_definitions workflows that round-trip a whole artefact through an LLM into an
+   unguarded writer — the 012/198 class, quantified. Nobody has this list.
+2. **Pod-grep when the chassis rolls** (debug_historian): 
+   `kubectl exec <chassis-pod> -- sh -c 'strings /app/agent-chassis | grep -c resolveCommitMessage'`
+   (expect ≥1, every replica) before trusting the commit_msg leg; the config half is
+   already live and falls back cleanly meanwhile.
