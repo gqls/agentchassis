@@ -30,6 +30,7 @@
 package main
 
 import (
+	"crypto/md5"
 	"database/sql"
 	_ "embed"
 	"encoding/json"
@@ -56,16 +57,18 @@ import (
 // ---------------------------------------------------------------------------
 
 const query = `SELECT COALESCE(jsonb_agg(jsonb_build_object(
-  'name', name, 'function', function, 'html_template', html_template)), '[]'::jsonb)
+  'name', name, 'function', function, 'html_template', html_template,
+  'created_at', created_at)), '[]'::jsonb)
 FROM content_components WHERE is_active;`
 
 var psqlArgv = []string{"kubectl", "exec", "-n", "ai-persona-system", "postgres-clients-0", "--",
 	"psql", "-U", "clients_user", "-d", "clients_db", "-tAc"}
 
 type component struct {
-	Name     string `json:"name"`
-	Function string `json:"function"`
-	Template string `json:"html_template"`
+	Name      string `json:"name"`
+	Function  string `json:"function"`
+	Template  string `json:"html_template"`
+	CreatedAt string `json:"created_at"` // only for picking a stable clone representative
 }
 
 // dbConn returns a direct Postgres handle when PG_CLIENTS_HOST is set, and nil
@@ -419,10 +422,72 @@ type finding struct {
 // The key deliberately EXCLUDES Count: a shape going from x1 to x2 in the same
 // component+field is the same defect rendered twice, not a new one, and letting
 // counts into the key makes an unrelated markup edit look like regression.
+//
+// IT ALSO EXCLUDES A CLONE'S OWN NAME, for exactly the same reason and added for
+// exactly the same failure (owner ruling, 2026-08-05). The first UNATTENDED run
+// went red with 13 NEW findings that were all one component:
+// `tool-ab-test-calculator_pre_037-idea-uk`, created 01:19 that morning with an
+// html_template BYTE-IDENTICAL (md5 8673be08…) to `tool-ab-test-calculator_pre_037`
+// from February — whose same 13 field/shape findings were already accepted in the
+// baseline. An identical template renders identically, so those were not 13 new
+// defects; they were 13 known ones arriving under a new name. Clones are routine
+// (5 families / 10 components live, 3 created in the last 7 days), so left alone
+// this makes the daily job red about weekly with findings nobody can clear —
+// precisely the "red nobody clears" outcome the baseline exists to prevent.
+//
+// So findings are keyed by the REPRESENTATIVE of their template-identity group:
+// the OLDEST active component sharing that exact html_template. Oldest, not
+// alphabetically-first, so a newly-arrived clone can never displace the incumbent
+// and shift every key under it. Consequences worth knowing:
+//   - a clone that is later EDITED no longer matches the hash, gets its own
+//     identity, and reports its findings as NEW — which is correct, because its
+//     template genuinely differs now;
+//   - if the representative is deleted or deactivated while a clone survives, the
+//     clone becomes the oldest and the keys move once: its findings read NEW and
+//     the old ones read fixed, in the same run. That is loud and self-explaining
+//     rather than silent, which is the side to fail on;
+//   - offline `--json` fixtures carry no created_at, so the tie-break falls back
+//     to the lexicographically smallest name — deterministic, which is all a
+//     fixture needs.
 // ---------------------------------------------------------------------------
 
+// canonicalComponent maps every active component name to the representative of
+// its template-identity group. Package-level because findingKey is called from
+// both the compare path and writeBaseline, and threading a map through both for
+// a single-file command buys nothing. Empty until buildCanonicalComponents runs,
+// and an absent entry means "the component is its own representative", so the
+// zero value behaves exactly like the pre-2026-08-05 tool.
+var canonicalComponent = map[string]string{}
+
+func buildCanonicalComponents(comps []component) {
+	canonicalComponent = map[string]string{}
+	type rep struct{ name, created string }
+	byTemplate := map[string]rep{}
+	for _, c := range comps {
+		h := fmt.Sprintf("%x", md5.Sum([]byte(c.Template)))
+		cur, seen := byTemplate[h]
+		// Oldest wins; with no created_at (offline fixtures) fall back to the
+		// smallest name so the choice is still deterministic.
+		if !seen ||
+			(c.CreatedAt != "" && cur.created != "" && c.CreatedAt < cur.created) ||
+			((c.CreatedAt == "" || cur.created == "") && c.Name < cur.name) {
+			byTemplate[h] = rep{name: c.Name, created: c.CreatedAt}
+		}
+	}
+	for _, c := range comps {
+		h := fmt.Sprintf("%x", md5.Sum([]byte(c.Template)))
+		if r, ok := byTemplate[h]; ok && r.name != c.Name {
+			canonicalComponent[c.Name] = r.name
+		}
+	}
+}
+
 func findingKey(f finding) string {
-	return f.Component + "\x00" + f.Field + "\x00" + f.Shape
+	name := f.Component
+	if rep, ok := canonicalComponent[name]; ok {
+		name = rep
+	}
+	return name + "\x00" + f.Field + "\x00" + f.Shape
 }
 
 // writeDocNote records the run in doc_notes on EVERY run, clean or not — the
@@ -493,9 +558,21 @@ func loadBaseline(path string) (map[string]bool, error) {
 }
 
 func writeBaseline(path string, findings []finding, checked int) error {
+	// DEDUPED, which only started mattering on 2026-08-05: once a clone's findings
+	// key by their template's representative, two identical components contribute
+	// the SAME key and an append-per-finding loop would write it twice. A duplicate
+	// is harmless to the lookup (a set either way) but not to the artefact — the
+	// baseline is meant to be a diff a human reads, and its own count would
+	// overstate what it covers.
+	seen := make(map[string]bool, len(findings))
 	keys := make([]string, 0, len(findings))
 	for _, f := range findings {
-		keys = append(keys, findingKey(f))
+		k := findingKey(f)
+		if seen[k] {
+			continue
+		}
+		seen[k] = true
+		keys = append(keys, k)
 	}
 	sort.Strings(keys)
 	bf := baselineFile{
@@ -533,6 +610,11 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
 	}
+	// Built from the FULL set, before --component filters anything: a group's
+	// representative must not depend on which component you asked about. (--compare
+	// with --component is already refused above, so the compare path always sees
+	// every component anyway.)
+	buildCanonicalComponents(comps)
 
 	logger := zap.NewNop()
 	ctxKeys := contextKeys()
@@ -639,6 +721,8 @@ func main() {
 	// slowly stops describing the tree.
 	var newFindings []finding
 	var fixedKeys, uncoveredKeys []string
+	inherited := 0
+	inheritedFrom := map[string]bool{}
 	if comparing {
 		base, err := loadBaseline(*baseline)
 		if err != nil {
@@ -651,6 +735,15 @@ func main() {
 			seen[k] = true
 			if !base[k] {
 				newFindings = append(newFindings, f)
+			}
+			// Counted and REPORTED, never silently dropped. A finding that only
+			// stayed quiet because an identical template already owns its key is
+			// exactly the thing a reader would want to know was suppressed —
+			// otherwise this is a filter that hides its own effect, which is the
+			// blindness shape this tool exists to close.
+			if rep, ok := canonicalComponent[f.Component]; ok {
+				inherited++
+				inheritedFrom[rep] = true
 			}
 		}
 		// A component that failed to parse produced NO findings, so every
@@ -696,6 +789,15 @@ func main() {
 		summary := fmt.Sprintf("component-render-check vs baseline: %d findings across %d analysed "+
 			"components, %d NEW, %d fixed, %d UNCOVERED", len(findings), checked,
 			len(newFindings), len(fixedKeys), len(uncoveredKeys))
+		if inherited > 0 {
+			reps := make([]string, 0, len(inheritedFrom))
+			for r := range inheritedFrom {
+				reps = append(reps, r)
+			}
+			sort.Strings(reps)
+			summary += fmt.Sprintf(", %d inherited from an identical template (%s)",
+				inherited, strings.Join(reps, ", "))
+		}
 		if *report {
 			detail := summary
 			for _, f := range newFindings {
@@ -713,8 +815,21 @@ func main() {
 		if src == "" {
 			src = "(embedded)"
 		}
-		fmt.Printf("component-render-check vs baseline %s: %d findings now, %d NEW, %d fixed, %d UNCOVERED\n\n",
+		fmt.Printf("component-render-check vs baseline %s: %d findings now, %d NEW, %d fixed, %d UNCOVERED\n",
 			src, len(findings), len(newFindings), len(fixedKeys), len(uncoveredKeys))
+		// On stdout as well as in the doc_notes row: a session running --compare by
+		// hand must be able to see what the clone rule suppressed, or the rule is a
+		// filter that hides its own effect.
+		if inherited > 0 {
+			reps := make([]string, 0, len(inheritedFrom))
+			for r := range inheritedFrom {
+				reps = append(reps, r)
+			}
+			sort.Strings(reps)
+			fmt.Printf("  (%d finding(s) inherited from an identical template and therefore NOT new — "+
+				"clone(s) of: %s)\n", inherited, strings.Join(reps, ", "))
+		}
+		fmt.Println()
 		if len(newFindings) > 0 {
 			fmt.Println("NEW since the baseline — a component started being able to render a hole:")
 			for _, f := range newFindings {
