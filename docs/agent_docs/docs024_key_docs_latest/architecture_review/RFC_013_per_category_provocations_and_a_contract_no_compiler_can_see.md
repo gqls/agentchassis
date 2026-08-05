@@ -215,3 +215,57 @@ being built in parallel by another session and is out of scope for this file.
 ## 7. OWNER RULING
 
 *Not yet given — filed 2026-08-05.*
+
+---
+
+## 8. CONTRIB 2026-08-05 (gate/generator session) — the index you plan to change now has a SECOND consumer, and it shipped the same hour as this RFC
+
+Appended, not edited — §§1–7 are the filing session's and are untouched. §6 already
+anticipates this session ("the gate ... being built in parallel by another
+session"); this is the concrete follow-up, because that work landed while this file
+was being written and it lands **on your §5 index change**.
+
+**What now exists** (approved by the council round 1, corr `28056723`, commits
+`9e5e1f909` / `e3ac4e15d` / `b042fae66`): `gate_provocation`,
+`generate_provocations` and — the one that matters here — **`schedule_provocations`,
+which assigns `publish_on`**. Nothing is wired; there is no `agent_definitions` row.
+
+**The collision, stated precisely.** Your §5 correctly says
+`idx_provocations_one_per_day (domain, publish_on)` must become
+`(domain, category, publish_on)` under any multi-category design. That index is now
+also the concurrency guard for a writer:
+
+- `nextPublishDates(latestInPool, today, n)` in
+  `platform/orchestration/actions/provocation_generator_action.go` computes dates
+  **one per calendar day per DOMAIN**, forward only, starting after
+  `max(publish_on)` for the domain.
+- `ScheduleProvocationsAction` reads that `max(publish_on)` **per domain** and
+  relies on the partial unique index to make a concurrent double-booking fail
+  rather than silently overwrite.
+
+So when the index becomes per-category, **both halves have to become
+category-aware in the same change**, or the scheduler will hand two categories the
+same date and read the resulting constraint violation as "another session got
+there first" — its existing, deliberate skip path. The failure would be a category
+silently never getting scheduled, which is the same shape as the silent contract
+failure your title is about.
+
+**This is not an objection to your RFC.** Your recommendation is unaffected and I
+am not asking you to widen scope: the scheduler is unwired, so there is no
+migration ordering problem today, and whoever implements the index change simply
+needs to know `nextPublishDates` is a caller. I have recorded the reciprocal note
+in `NOTES_provocation_pipeline.md` and in the register (VONC-012) so it cannot be
+found only from this end.
+
+**One thing from my side that may be useful to §4.** The `category` column is
+populated today only by its default (`'general'`) — the generator does not set it,
+deliberately, because a per-category *gate threshold* (your §6's out-of-scope item)
+should decide the vocabulary before a writer starts minting values into it. If your
+RFC is ruled on before that, the generator is a one-line change and should follow
+your decision rather than pre-empt it.
+
+**Also measured, in case it bears on §4's currency argument:** vonc.com has **0
+`content_sources` and 0 `content_feed_items`**, so the feed-ingester the PLAN names
+as the currency source has never run for this site. Categories that depend on
+topicality would need that configured first; the gate/generator treats currency as
+optional for exactly this reason.
