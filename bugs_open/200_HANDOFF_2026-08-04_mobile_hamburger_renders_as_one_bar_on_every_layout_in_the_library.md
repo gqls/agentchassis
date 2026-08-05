@@ -215,3 +215,17 @@ with an honest commit message, verify served == patched.
 **Close when:** all 15 serve the patched file AND one mobile render (any
 acceptance run) shows three bars — then §6's negative check (desktop still
 hides the toggle) and move this file to `bugs_closed/`.
+
+**2026-08-05, after the operator ran the batch: 13 of 15 verified IDENTICAL at
+the served file.** The two failures are exact and diagnosed: `idea.uk` and
+`relojistas.com` are the only two domains whose `sites.github_repo` is
+`vm-sites`; the deploy script (inherited from the brochure lane) hardcodes
+`repo_name: "sites"`, so their commits landed cleanly in the WRONG repo — kcat
+exit 0, adapter logs error-free on every replica, served file unchanged. (New
+LANDMINES entry: "A git-adapter publish with repo_name 'sites' SUCCEEDS for a
+domain that serves from vm-sites".) Two stray but inert commits now sit in
+`gqls/sites` under `idea.uk/` and `relojistas.com/` — recorded, not reverted.
+Retry prepared with `REPO_NAME=vm-sites`
+(`deploy_file_direct_v2.sh` + runner): operator runs
+`bash /tmp/claude-1000/-home-ant-projects-agentchassis/203228b7-52ae-4846-a579-4fb544223ae9/scratchpad/deploy_bug200_vmsites.sh`
+— it publishes both and verifies the served files itself.

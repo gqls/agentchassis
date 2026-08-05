@@ -5351,3 +5351,11 @@ that is also the thing you would want in the logs is not.
   existing `imagePullSecrets` entry on the same CronJob: that one is how the check dies
   silently at RUN time, this one is how it never arrives at DEPLOY time.
 - **added:** 2026-08-05, bugfix_140 lane
+
+### A git-adapter publish with `repo_name: "sites"` SUCCEEDS for a domain that serves from vm-sites — every log line green, nothing deployed
+- **footprint:** `sites.github_repo`, `system.adapter.git.requests` (`action: commit`), `brochure_component_library/scripts/deploy_stylesheet_direct.sh`, `gqls/sites`, `gqls/vm-sites`
+- **fires when:** you publish a file to a site by hand via the git-adapter — typically by reusing the brochure lane's proven `deploy_stylesheet_direct.sh`, which hardcodes `"repo_name": "sites"`. That default is correct for every domain whose `sites.github_repo` is NULL (13 of 15 in bug 200's fleet publish) and silently wrong for the ones that name `vm-sites` (`idea.uk`, `relojistas.com`, measured 2026-08-05). The commit lands cleanly in the WRONG repo: kcat exits 0, the adapter logs `HandleCommitAction` with no error, GitHub shows the commit — and the served file never changes, because the serving pipeline reads the other repo.
+- **the tell:** the served file is byte-for-byte the ORIGINAL after the settle wait, while your correlation id appears error-free in every git-adapter replica's logs. Failure-shaped absence with success-shaped evidence.
+- **the check:** before publishing, read the row: `SELECT domain, COALESCE(github_repo,'(null=sites)') FROM sites WHERE domain='<d>';` and set `repo_name` accordingly (parameterized variant: `deploy_file_direct_v2.sh` in bug 200's trail, `REPO_NAME=vm-sites`). After publishing, verify at the SERVED file, never at the adapter logs or the repo — `curl -s https://<d>/<path> | diff - <local>`. Note the stray commit in the wrong repo is INERT but real: bug 200's first batch left `idea.uk/` and `relojistas.com/` css commits in `gqls/sites`, recorded not reverted (forward-only).
+- **source:** `bugs_open/200` §8 (the two-straggler diagnosis, 2026-08-05); `bugfix-131`'s memory line was the same column from the reading side
+- **added:** 2026-08-05, bugfix_200 thread
