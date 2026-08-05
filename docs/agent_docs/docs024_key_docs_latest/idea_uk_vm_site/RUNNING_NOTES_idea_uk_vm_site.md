@@ -3738,3 +3738,60 @@ visual designer; everything through the framework. Scoping subagent's findings
   reactivation), then rerender.
 - 12 `needs_human_review` rows (dead_control etc.) — no automation clears
   that status; owner review.
+
+## §X.44 — 2026-08-05: the six-part batch — logo v2 (banana), home restructure, tool imagery, news, provenance
+
+**Why the v1 logo garbled — a routing hole, not a model gap (scoping agent's
+find, citations in transcript):** the platform HAS Google's Gemini image
+models wired ("banana"; Nano Banana Pro `gemini-3-pro-image-preview` is the
+production default) and routes `logo → banana` precisely because it renders
+legible text. But the image-build-handler's `call_logo_gen` step carries
+`default_kind:"logo"` in step CONFIG while its input_mapping never sends it,
+`resolveKind` reads only input_data, and an EMPTY kind is a deliberate silent
+Stability fallback — so v1 ran on SDXL, which the platform's own routing.go
+documents as unable to render text. resolveKind's comment claims phase_2h.4
+sets default_kind: the mechanism does not exist. Cross-cutting
+(call_hero_gen/call_variant_gen too) — **owed: a 090 diagnosis run before any
+bugs_open filing asserts this** (07-31 ruling).
+
+**Dispatched (created_by='claude-ideauk-sec-20260805', all triaged):**
+- `imagery_style_guide` spec pinned `{"provider":"banana"}` (data-only, live
+  now; empty-kind path now routes to banana at guide level).
+- needs_logo v2 `f5521eb0` — wordmark, exact-spelling clause, palette pinned.
+  Icon-only mark is the fallback if v2 also garbles (header renders the site
+  name as HTML text beside the img, so a text-free mark loses nothing).
+- missing_news_sources `442effd4` → content-feed-orchestrator — news was
+  NEVER configured (0 content_sources rows; /data/latest-news.json 404).
+  Heartbeat `content-feed-refresh` confirmed enabled; expect ~2 six-hourly
+  cycles; verify at the JSON URL (rebuild_blog_listing no-ops on news-index).
+- needs_imagery `bc7751e6` — audience-check content hero (patent-check +
+  funding-fit heroes already generated 08-05 by the earlier loop).
+- section_edit `a007f0ff` — home brief-explanation gains the labelled free
+  CTA beside the paid CTA (free leads into paid, either standalone). The
+  FORM stays on /tools.html — the home "Tools for working out…" section only
+  ever LINKED to it, so the funnel entry is untouched; §3d(ii) diff owed
+  post-deploy.
+- tool-list REMOVED from index in all THREE places (plan row DELETEd,
+  pages.sections pruned, page_component b61126e8 build_status='removed') —
+  no framework remove-section type exists; operator edit per scoping report.
+- Provenance: 4 doc_notes rows, source='operator:idea_uk_batch_20260805',
+  categories ["provenance","change-log","experience-council"] — the
+  travelling-docs convention (037) the experience lane reads.
+  **HONEST GAP, flagged: visual-designer/webdesign-agent read NEITHER
+  doc_notes NOR travelling docs today** — giving them eyes is a one-step
+  agent-definition config change, an owner call; do not copy the list
+  elsewhere.
+
+**Sequenced next (watcher armed on a007f0ff):** when section_edit completes →
+insert ONE page_rerender for index (so a single deploy carries edit+removal)
+→ RE-LOCK 942fed33 + b61126e8-was-removed (the two home sections were
+human-locked, "p3_05/p3_06 funnel fix" — unlocked with owner authority for
+this batch; tell the p3 lane). Then verify at the SERVED page: free CTA
+present + tool-list gone + §3d(ii) funnel diff green.
+
+**Owed after assets land:** wire card images into tools-page
+`tool-list.items[].image` via section_edit + one tools page_rerender; tool
+PAGE heroes are human-locked — scoped unlock + section_edit (NOT a rebuild,
+it would refuse / regenerate copy); report-card image blocked on the
+hero.jpg-404 family (items 3ffbd0e1/93cde5e0) first. Favicon + og-card are
+live 404s (bugs_closed/128): after logo v2 lands, run derive_brand_head_assets.
