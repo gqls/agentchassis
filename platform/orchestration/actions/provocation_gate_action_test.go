@@ -449,27 +449,41 @@ func TestTheFailClosedTestsWouldCatchAFailOpenGate(t *testing.T) {
 // (`(you|readers?) can rely on (this|it|us|these|our)`, verified 2026-08-05) while
 // remaining a plausible rhetorical provocation. Correct code: no finding. Title
 // scanned: a finding, and the test fails. It now discriminates.
+// WIDENED 2026-08-05 after the council's `compliance` seat objected that one case
+// was thin coverage for a load-bearing exemption, and named the class it watches:
+// overclaimed-reliability phrasing ("fully verified", "authoritative"). It was
+// right — the exemption is what stops the gate rejecting every good provocation,
+// and it was defended by a single string.
 func TestClaimsRailIsNotGivenTheThesis(t *testing.T) {
-	const trippingTitle = "You can rely on this: every expert forecast is worthless"
-
-	// Control: prove the chosen title really does trip the rail when scanned, so
-	// a future change to the fleet-wide set cannot quietly make this test vacuous
-	// again in the way the first version was.
-	if got := datahelpers.ScanAllBannedClaims([]string{trippingTitle}, nil); len(got) == 0 {
-		t.Fatalf("this test no longer discriminates: %q trips no fleet-wide pattern, "+
-			"so it would pass even if the thesis were scanned. Pick a title that does.", trippingTitle)
+	trippingTitles := []string{
+		// The reliability-overclaim class the compliance seat tracks.
+		"You can rely on this: every expert forecast is worthless",
+		"Every claim is verified, and that is exactly the problem",
+		"Guaranteed accurate is a marketing phrase, not a standard",
 	}
 
-	c := provocationCandidate{
-		Title:  trippingTitle,
-		Teaser: "Forecasting is a confidence trade, not an information trade.",
-		Body: "Ordinary supporting prose with nothing checkable in it at all, long enough to clear the floor. " +
-			strings.Repeat("The counter-case is put here at length. ", 20),
-	}
-	var v gateVerdict
-	checkClaims(c, &v)
-	if len(v.Claims) != 0 || v.fatal() {
-		t.Fatalf("the claims rail was given the thesis and rejected it: %s", ruleList(v))
+	for _, title := range trippingTitles {
+		t.Run(title[:24], func(t *testing.T) {
+			// Control: prove this title really does trip the rail when scanned, so a
+			// future change to the fleet-wide set cannot quietly make the test
+			// vacuous again in the way the first version was.
+			if got := datahelpers.ScanAllBannedClaims([]string{title}, nil); len(got) == 0 {
+				t.Fatalf("this case no longer discriminates: %q trips no fleet-wide "+
+					"pattern, so it would pass even if the thesis were scanned", title)
+			}
+
+			c := provocationCandidate{
+				Title:  title,
+				Teaser: "Forecasting is a confidence trade, not an information trade.",
+				Body: "Ordinary supporting prose with nothing checkable in it at all, long enough to clear the floor. " +
+					strings.Repeat("The counter-case is put here at length. ", 20),
+			}
+			var v gateVerdict
+			checkClaims(c, &v)
+			if len(v.Claims) != 0 || v.fatal() {
+				t.Fatalf("the claims rail was given the thesis and rejected it: %s", ruleList(v))
+			}
+		})
 	}
 }
 

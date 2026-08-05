@@ -65,6 +65,7 @@
 package actions
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -489,6 +490,20 @@ func persistVerdict(ctx context.Context, db *sql.DB, id string, v gateVerdict) e
 	if err != nil {
 		return fmt.Errorf("marshal verdict: %w", err)
 	}
+
+	// STRIP NUL BYTES BEFORE THE jsonb WRITE — raised by the council's
+	// bug_historian seat (2026-08-05), citing `bugs_closed/056`: LLM-derived text
+	// containing a NUL kills a jsonb UPDATE with 22P05. The verdict embeds the
+	// judge's own quotes and reasons, so it is exactly the LLM-derived text that
+	// case describes.
+	//
+	// The failure would not have been silent here — the caller propagates this
+	// error and aborts the batch — but "aborts the whole batch on one poisoned
+	// character" is a bad trade for a value that carries no meaning in JSON
+	// anyway. Removing it keeps the rejection log complete, which is the whole
+	// point of §10.3: a rejected-but-unlogged candidate is indistinguishable from
+	// one that was never judged.
+	clean := bytes.ReplaceAll(blob, []byte{0}, nil)
 	// CORRECTED 2026-08-05, on reading the schema rather than assuming it. The
 	// first version parked rejections back in 'draft'. They were inert (the
 	// candidate query also requires gated_at IS NULL) but they were MISLABELLED,
@@ -507,7 +522,7 @@ func persistVerdict(ctx context.Context, db *sql.DB, id string, v gateVerdict) e
 		   SET gate_verdict = $2::jsonb,
 		       gated_at     = now(),
 		       status       = $3
-		 WHERE id = $1::uuid`, id, string(blob), status)
+		 WHERE id = $1::uuid`, id, string(clean), status)
 	if err != nil {
 		return fmt.Errorf("persist verdict for %s: %w", id, err)
 	}

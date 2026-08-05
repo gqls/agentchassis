@@ -1048,3 +1048,75 @@ and a test depending on them would fail for unrelated reasons. §10.6 requires t
 gate to pass the 9 and reject the bad set *against a real model* before it is wired
 to anything. Until that runs, there is deliberately no `agent_definitions` row and
 no `scheduled_tasks` row referencing any of the three actions.
+
+**2026-08-05 (later) — COUNCIL VERDICT: APPROVED round 1**, corr
+`28056723-b2a3-4057-b92f-482b7f7a0e72`. 13 seats reported, 3 abstained, 6 advisory
+objections, **none high-severity**. Two acted on immediately; four recorded.
+
+**ACTED ON:**
+
+1. **`bug_historian` (medium) — NUL byte kills a jsonb write.** Citing
+   `bugs_closed/056`: LLM-derived text containing a NUL fails a jsonb UPDATE with
+   22P05. The verdict embeds the judge's own quotes, so it is exactly that text.
+   My code already propagated the error rather than swallowing it, so the failure
+   would not have been silent — but aborting a whole batch on one meaningless
+   character is a bad trade, and a lost verdict is the invisibility §10.3 exists to
+   prevent. `persistVerdict` now strips NULs before the write.
+2. **`compliance` (low) — the thesis exemption rested on ONE test case.** Right,
+   and it is the exemption that stops the gate rejecting every good provocation.
+   Widened to three, including the reliability-overclaim class that seat tracks
+   ("every claim is verified", "guaranteed accurate"). Each sub-case still asserts
+   its own control first, so none can go vacuous silently.
+
+**RECORDED, NOT FIXED — with why:**
+
+3. **`llm_reliability` (medium) — strict JSON parsing is not `stop_reason`, and
+   this one is genuinely right.** A `max_tokens` cutoff that lands *after* a
+   syntactically complete JSON object parses cleanly and is accepted as a real
+   verdict. My truncation defence catches the common case (cut mid-object) and
+   misses the rare one. Fixing it properly means `judgeFn` surfacing
+   `stop_reason`/`finish_reason` and treating any non-`stop` as a rejection — a
+   real signature change, not a tweak. **This is the top item for the next round on
+   this file**, and it must land before or with the live calibration.
+4. **`constitution` + `guardian` + `reuse_agent` (medium/low) — SCHEMA FIRST: no
+   migration for `gate_verdict`/`gated_at` and no schema evidence.** The objection
+   is correct about my SUBMISSION and wrong about the code: **both columns already
+   exist**, added by migration 282 for exactly this purpose, and I read `\d
+   provocations` before writing the SQL — I simply did not quote it in
+   `grounded_in`, so no seat could see it. Evidence, for the record:
+   `gate_verdict | jsonb` and `gated_at | timestamp with time zone`, alongside
+   `source | text NOT NULL DEFAULT 'human'` and `source_ref | text`.
+   **The lesson is about submissions, not about schemas: a check you ran but did
+   not quote reads exactly like a check you skipped.**
+5. **`editquality` (low) — it says CLAUDE.md is BACKWARDS about truncation.** I
+   quoted the standing doc: "`output_tokens == max_tokens` means the completion was
+   CUT". The seat replies that the fleet fact on record is the opposite — a
+   truncated call has `output_tokens = NULL`. **One of those is wrong and I have
+   not established which**, so I am recording the contradiction rather than picking
+   a side. It is harmless here (the code uses strict parsing, not a token
+   predicate) but it matters fleet-wide, because CLAUDE.md is what every session
+   reads. Worth a measurement against `llm_call_log` before either is repeated.
+6. **`reuse_agent` (medium) + `prior_art_librarian` (medium) — did I check for an
+   existing judge/verdict mechanism, and for existing provocation-building code?**
+   Partly answerable now: `builder/build_provocations.py` is the **declared test
+   oracle and manual fallback** for the feed (VONC-011), not a generator — it has
+   no generation or gating logic, so it is not duplicated work. The judge/verdict
+   point is fairer: `diagnose_council_decide_action.go` and
+   `content_components.quality_score/quality_issues/quality_checked_at` are both
+   close analogues of "a model judges X, the verdict persists, absence must
+   reject", and I did not search either before inventing `gateVerdict`. The
+   `architecture` seat made the same point constructively and did NOT force an RFC:
+   nothing here is exported or reusable, so it fails the trigger test today — **but
+   it flagged that a SECOND domain-specific judge-gate would be the moment to ask
+   whether this should become a shared contract.** Recorded so that moment is
+   recognisable.
+7. **`tooling_provenance` (medium) — no `doc_notes` write-back.** Fair. The
+   findings worth carrying forward are in this file and in VONC-012; the travelling
+   -docs contract wants them in `doc_notes` too. Not done.
+
+**The seats that approved outright**: `guardian`, `diagnosis_guardian`,
+`render_guardian`, `debug_historian`, `mission`, `architecture`, `bug_historian`,
+`compliance`. The `architecture` seat's verdict was `point_fix` with an explicit
+note that this deploys in one step and is inert until wired, so there is no
+staged-rollout problem — **and that the WIRING submission is the one to re-check
+against the trigger test, not this one.**
