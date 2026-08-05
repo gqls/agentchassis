@@ -702,3 +702,71 @@ category we never wrote down is gone for good.
 **And the thing that hasn't moved:** the site is still showing a provocation from
 26 July under a heading that says today's. That is now ten days. Categories don't fix
 it; the new generator will, once it has been tested against a real model and shipped.
+
+---
+
+**Wednesday 5 August, evening — the calibration ran, and it failed. That is the
+system working, and it needs two decisions from you.**
+
+Your fresh chassis build carried the gate, so I could finally do the thing I said
+was the last obstacle: judge your nine real provocations with a real model. I ran
+it inside the cluster against a separate, isolated set of copies, so nothing on the
+live site could be touched. I checked afterwards — your nine are exactly as they
+were.
+
+**The good half first. The deliberately bad samples were all caught** — the insult,
+the invented statistic, the party-political rant, the empty AI-is-changing-
+everything filler. Four out of four rejected. That is the direction that matters
+most, because that is the direction where something false reaches your home page
+with nobody in the loop.
+
+**The bad half: it rejected five of your nine.** A gate that refuses the things you
+actually published would quietly starve the site, so this cannot be wired up as it
+stands.
+
+**But the gate is not what is wrong, and this is the part worth your attention.** I
+went and checked the rule against all nine of your provocations rather than the
+handful the rule was written from. The plan I was building to states that every one
+of your provocations "makes the case and then makes the counter-case". **That is not
+true.** Five of them do. Four of them don't — they make the case and then pivot to a
+different question instead of arguing back. One of them has no body text at all in
+the database, not a single character.
+
+I had turned that claim into a hard requirement. So the gate did exactly what it
+was told, the model read your text correctly, and the result is a well-behaved gate
+enforcing a rule that your own published work doesn't follow. There is no way to
+tell that apart from a broken gate except by reading the rejected pieces, which is
+why I made it record its reasons.
+
+**So the two decisions are yours, and neither is a technical one.**
+
+First: **do you want two-sidedness to be a requirement?** If you do, the gate is
+right as built — but you should know it means four of your nine existing pieces
+wouldn't clear the bar you're setting for new ones. That's a perfectly reasonable
+position; the old ones simply stay as they are. If you don't want it required, I
+demote it to something the gate notes but doesn't act on.
+
+Second, a narrower one: your four-day-week piece was rejected because the model
+said "the pilots measure self-reported output" overstates things — some pilots used
+company figures too. It has a point. Awkwardly, that exact sentence is the example
+the plan uses of a factual claim that *should* be allowed through. So: is that
+acceptable rhetoric, or is it the kind of overstatement you want caught? Your answer
+sets how strict that check is.
+
+**What I have deliberately not done is loosen the rules until it passed.** That
+would have given you a green result that meant nothing — a test tuned until it
+agrees with itself. This project has a written rule against exactly that and it is
+the right rule.
+
+**And one thing I got wrong, which the calibration caught and nothing else did.** My
+earlier tests said the gate accepted all nine. They were wrong, and in an
+embarrassing way: eight of your nine provocations have no body text stored, so when
+I built the test I *wrote the bodies myself* — including tidy "the counter is…"
+turns. Then I tested whether the gate spots counter-cases. It did, in prose I had
+written to contain them. I had even put a warning in that file about not
+paraphrasing your work, and then paraphrased it. The real run scored four out of
+nine on the same nine pieces. It is logged with the others.
+
+Everything is written up in a handoff so this can be picked up cold. Nothing is
+wired to publish, the site is still showing 26 July, and the next move is your two
+answers.
