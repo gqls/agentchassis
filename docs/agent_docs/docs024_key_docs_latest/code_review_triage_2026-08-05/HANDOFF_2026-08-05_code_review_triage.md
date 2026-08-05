@@ -169,3 +169,103 @@ Cheap and mechanical, in this order:
   duplicate-work failure `who-owns.py` exists to prevent. Ask the lane first.
 - **No `.gitignore` edit** — see F15; it is shared and needs one confirmation, not a
   unilateral change.
+
+---
+
+# ACTIONED — 2026-08-05, later the same day
+
+Appended, not edited: the triage above stands as it was written. Three of its judgements were
+overtaken by events or by measurement, and those are marked as corrections below rather than
+changed in place.
+
+**The operating premise expired within the minute.** "Every cluster belongs to an active lane"
+was true at 11:02 and false at 11:03: `194` and `195` both closed to `bugs_closed/`, and
+neither lane's `HANDOFF_2026-08-05_continue_here.md` mentions this review (grepped for
+`code.?review|triage|F1|F7|F15` — zero hits in either). Ten of fifteen findings were therefore
+unowned, and were fixed.
+
+## Disposition of all fifteen
+
+| # | verdict | what happened |
+|---|---|---|
+| F15 | confirmed | Fixed, `79c713bff`. The `.gitignore` already had a block for this exact accident (a 93MB binary committed 2026-07-20, `bca5d8255`) — four lines appended to it. |
+| F1 | confirmed, latent | Fixed, `f887ed1ad`. Comment corrected; code was right. |
+| F2 | confirmed | Fixed, `f887ed1ad`. **Both** agentbase tests had the flaw, not the one named. Replaced with an AST guard, proven by the reviewer's own mutation. |
+| F8 | confirmed | Fixed, `f887ed1ad`. Zero callers re-proven by the compiler after a council objection to the grep. |
+| F14 | confirmed | Fixed, `f887ed1ad`. |
+| F7 | confirmed, worse than filed | Fixed, `fa30062cc`. See correction 2. |
+| F9 | confirmed | Fixed, `fa30062cc`. |
+| F3 | latent, unreachable | Made visible (warning), not fixed, `fa30062cc`. All three live callers are explicit. |
+| F10 | **remedy refuted** | Secondary half fixed, `fa30062cc`. See correction 3. |
+| F11 | confirmed | Fixed, `6e607da1e`. See correction 1 — not 156's. |
+| F12 | confirmed | Fixed, `6e607da1e`. See correction 1 — not 156's. |
+| F5 | **FALSE POSITIVE** | Not filed. See correction 4. |
+| F4 | false positive | Unchanged — the triage above was right. |
+| F13 | confirmed | **Deliberately not fixed.** See below. |
+| F6 | unactionable | See below. |
+
+## Corrections to the triage above
+
+> **CORRECTION 1 — the ownership table is wrong for F11 and F12.** §"How I triaged" step 1
+> uses `git log -1 -- <file>`, which is file-granularity. Two lanes touched
+> `save_page_sections_action.go` 26 minutes apart on 08-04: the file's last commit is
+> `84b7d561c` (**156**, open), but `git blame -L 624,628` puts both findings' lines in
+> `47ee3ebce` (**194**, closed). They were unowned, not 156's. **Blame the lines a finding
+> cites, not the file.**
+
+> **CORRECTION 2 — F7 is more concrete than "an operator copying the declaration".** One live
+> definition already holds both meanings: `page-build-handler` has a `save_sections` step
+> (action `save_page_sections`) and a `validate_content` step (action `validate_page_content`,
+> `require_sections_metadata=true`). And the collision had **already misled a reader in this
+> repo** — `save_sections_link_repair.go:13` described the two keys as one step's config.
+> Corrected in place, kept as evidence. Renamed the save-side key to
+> `refuse_save_without_sections_metadata`; measured `0` live save steps carrying the old one.
+
+> **CORRECTION 3 — F10's primary remedy is impossible, and its premise is backwards.**
+> `platform/orchestration/coordinator.go:23` imports `actions`, so calling
+> `orchestration.LogAgentError` from there is an import cycle; ~20 files in that package each
+> carry a local INSERT for exactly that reason. "The package's own precedent forbids the third
+> copy" — the precedent *is* the copy. Only the dropped `orchestration_id` was real; fixed.
+
+> **CORRECTION 4 — F5 is the review's SECOND false positive, not a judgement call.** Rated
+> above as "defensible if the volume is genuinely low, but the volume has not been measured".
+> Measured: the write-side facts hold, but the predicted harm does not.
+> `scheduled_tasks.database-cleanup` (enabled, hourly, `last_triggered_at` minutes old) deletes
+> unresolved rows past 30 days — the oldest surviving row sat **21 minutes** inside that line.
+> The rows also carry `site_id` NULL **and** `domain = ''`, so they match neither a
+> site-scoped nor a domain-scoped diagnosis load; only a fully unscoped one sees them. The
+> writer is ~7% of today's volume, and the 20× explosion began 08-03, two days before this code
+> shipped. **No bug filed** — one asserting unbounded growth on a bounded table would be a
+> durable false claim.
+>
+> Recorded in `WRONG_CALLS.md`: I reached "no reaper" first, from a `*.go` grep (the reaper is
+> SQL in a `scheduled_tasks.pre_query` column) and from "oldest row is 30 days old" — a figure
+> produced identically by a working 30-day reaper and by no reaper at all. **Both false
+> positives in this review are absence claims made without a lookup, which is the lesson this
+> handoff draws for F4 and which I then reproduced while checking it.**
+
+## Two that were NOT actioned, and why
+
+**F13 — confirmed, left for its owner.** The anchors are wrong exactly as filed:
+`markTaskComplete` is at **:235** and the `config["task_name"]` read at **:237**, against the
+comment's `:215`/`:216` — the comment's own 21-line insertion shifted them (`216 + 21 = 237`).
+Not fixed because `check_endpoint_health_action.go` carries **25 insertions / 4 deletions of
+another session's uncommitted work**, and the comment block holding those anchors is entirely
+on the `+` side of their diff. Editing it would alter their in-flight work, and a pathspec
+commit cannot exclude a same-file passenger. **Whoever owns that file: the corrected numbers
+are above.**
+
+**F6 — unactionable, and this is a gap in the triage.** F6 appears only in the ownership table
+and is described in none of the numbered verdict sections. The original `/code-review` output
+was never saved — this directory held only the handoff — so there is no record of what F6
+claimed. Flagged rather than guessed at. *A triage summarising N findings should carry every
+finding's text, or say where the raw output lives.*
+
+## Paper trail
+
+`PLAN_2026-08-05` · `NOTES_` · `RUNBOOK_` · `README_where_we_are` · `SUMMARY_2026-08-05`, all
+in this directory. `WRONG_CALLS.md` (the reaper misstep). Commits `79c713bff` (F15),
+`f887ed1ad` (195 cluster), `fa30062cc` (194 cluster), `6e607da1e` (F11/F12), `90678beba`
+(wrong-calls). Council: `128d4fd1` **APPROVED** (2 low-severity advisories, both answered);
+`cb575682` and `d0d2c97a` pending at the time of writing — **the code is already on the shared
+branch, so a REVISE/REJECTED on either is still owed a response.**
