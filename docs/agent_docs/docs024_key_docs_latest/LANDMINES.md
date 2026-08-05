@@ -5735,3 +5735,22 @@ a STRING array — check the shape before trusting the prune.
 - **the check:** run the query **once by hand** before wrapping it in anything, and never send stderr to `/dev/null` in a poll loop — discriminate on OUTPUT and let errors be loud. The columns that exist: `orchestration_id, correlation_id, client_id, status, current_step, collected_data, initial_request_data, final_result, error, workflow_plan, execution_path, created_at, updated_at, parent_orchestration_id, currently_executing, processing_node`. Find a run by payload, not by agent: `WHERE collected_data->'input_data'->>'site_id' = '<id>'`. And before concluding a dispatch was dropped, `date -u` — hours pass between turns on this tree, and the timestamps you are calling impossible are usually just older than you think.
 - **source:** WRONG_CALLS 2026-08-05 (brochure_component_library, fundamentallyai improvement sweep); RUNBOOK_brochure_component_library.md §"improvement sweep" step 2
 - **added:** 2026-08-05, fundamentallyai sweep session
+
+- `kubectl exec ... grep -ac <literal> /app/<binary>` on `agent-chassis` /
+  `browser-runner-adapter` (~95MB Go binaries) can take **60-90 seconds per
+  invocation** — this looks EXACTLY like a hung exec, and a short/default
+  timeout kills it before it returns, which then reads as "the string is
+  absent" (a silent `RC=124`/exit-143, not a `0` count) — the false-negative
+  shape the pod-grep recipe exists to avoid.
+    footprint `kubectl exec ... grep -ac`, `/app/agent-chassis`,
+    `/app/browser-runner-adapter`, any pod-verify recipe on a chassis-family
+    binary
+    the check: budget at least 100-120s per grep, not the tool's default
+    2-minute command timeout shared across several chained greps — run ONE
+    grep alone first to see its real latency before chaining a positive +
+    target + negative control in one `sh -c`. Cause (not confirmed, plausible):
+    BusyBox `grep` on a binary with very few newlines effectively scans one
+    enormous "line", which is slow by construction; `wc -c` on the same file
+    returns instantly, so it is grep-specific, not a slow read. Measured
+    2026-08-05, `bugs_closed/126` post-roll verification: a single `grep -ac`
+    timed out twice at 20s and 40s, then returned correctly at 100s.
