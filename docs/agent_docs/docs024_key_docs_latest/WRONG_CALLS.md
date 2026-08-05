@@ -20403,6 +20403,41 @@ one query, it discriminates (1 fleet-wide — not 0, and not the seven sites the
 and the loader is 40 lines. **A count of "eligible-looking work" is not a count of work the
 loader will load**, and the gap between them is invisible in the label.
 
+## 2026-08-05 (later) — I grepped LANDMINES for the thing I was FIXING and not for the thing I was ROUTING WORK TO, and a council seat found the entry
+
+Fixing `bugs_open/201`, I re-pointed three discovery checks from `page-content-writer` to
+`page-build-handler`. I grepped `LANDMINES.md` twice during that session — for `site_locked`,
+`locked_at`, `load_work_items`, `skipped_reason`, then for `handler_agent`. **I never grepped it
+for `page-build-handler`**, the agent I was sending live customer-site repairs to.
+
+`LANDMINES.md:4433` is an entry about exactly that agent, whose footprint names "any emitter of
+a `content_rewrite`/`needs_content_page` item" — which is precisely what my third edit made one
+of those checks. Its content: `page-build-handler`'s writer **never sees the page's own stored
+prose** unless `spec.mode="recreate"`, which none of my three checks sets, so the writer
+"receives the item's guidance text and NOTHING to edit, and must fabricate a replacement". Root
+cause confirmed 2026-08-03 on `bugs_open/178`. It also warns that the obvious remedy — setting
+`mode=recreate` — is worse, because that path sources the original adoption crawl rather than
+current content.
+
+**What I wrote instead**, in my own PLAN's trade-off section: routing there was "**heavier than
+the ideal repair**". That is not false, and it is not the sentence. The true one is *the section
+is rewritten from scratch and its prior prose is lost.* The council's `editquality` seat cited
+the landmine at medium severity in an otherwise-approved round; I read it and corrected my own
+document.
+
+The decision survived — the alternative was 11-of-11 hard failures and a defect that reprints on
+every rerender, so the real choice was a rewritten paragraph versus a permanently broken one —
+**but I had recorded the cost at the wrong magnitude, and "the fix was still right" is not a
+defence of that.** A reader deciding whether to ship it would have been reading a softer claim
+than the evidence supported.
+
+**The cheap check is a rule I already have in memory and applied to the wrong noun: grep
+LANDMINES for the symbol you are ROUTING TO, not just the symbol you are FIXING.** A fix has two
+ends. I searched the broken end thoroughly — the writer, the loader, the queue — and treated the
+destination as safe because it was already in production. **"It works in production" answers
+"does it run", never "what does it do to my case."** One `grep -n page-build-handler` would have
+put the magnitude in the PLAN before a reviewer had to.
+
 ## 2026-08-05 (later still) — I classified 67 rows by a join that could never resolve, and my own CASE hid it
 
 Sizing `bugs_open/199`'s population, I wanted to know whether the historical envelope rows sat
