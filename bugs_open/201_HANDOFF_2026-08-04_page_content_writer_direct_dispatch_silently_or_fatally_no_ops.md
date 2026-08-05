@@ -1,7 +1,59 @@
 # 201 — `page-content-writer` dispatched directly by `build-dispatch-loop` either hard-fails or silently no-ops on an already-built page
 
 **Filed 2026-08-04** by the `bugfix_091_workitem_conflict_refresh`/`184` lane,
-found while verifying `bugs_open/184`'s auto-repair step. **OPEN, unowned.**
+found while verifying `bugs_open/184`'s auto-repair step. ~~**OPEN, unowned.**~~
+
+> ## STATUS 2026-08-05 — FIX-1 COMMITTED (`37afbb847`), **STILL OPEN**. Owned by the `bugfix_201_page_content_writer_dispatch` lane.
+>
+> **Symptom 1 is fixed in code and is INERT until a chassis roll.** Go changes do not take
+> effect until an image is rebuilt and rolled; the fleet is on `v1.0.1252` (rolled 08-05
+> 09:10Z), which **predates this commit**. Do not read the commit as the defect being gone.
+>
+> **What shipped:** all three checks re-pointed from `page-content-writer` to
+> `page-build-handler` — `check_literal_markdown.go`, `check_placeholder_contact.go`,
+> `check_component_standards.go` (+ a stale note in `verifier_coverage_test.go`).
+> Council `Council-Submitted: 71523705-07d1-4067-9c5d-af371ba84b89` — **verdict not yet read.**
+>
+> **§1's open question is now ANSWERED, empirically, and it was YES** — `page-build-handler`
+> does cope with already-built pages: `content_rewrite` **19 complete**, `empty_section` **12**,
+> `empty_internal_href` **1**, all on pages that already have `page_components` rows (measured
+> 08-05). So candidate 2 was correct, as §1 predicted.
+>
+> **The cause is sharper than the error text.** It is **not** "the sections were not ready" —
+> it is **"no sections were supplied"**. A discovery spec has no `sections` key at all: all 14
+> `page-content-writer` items that have ever existed carry only
+> `{check, findings, fix, original_pipeline, page_id, page_name, page_url}`. So
+> `plan_sections` takes its *empty-input* early return (`ready_count: 0`,
+> `reason: "no sections to plan"`, `plan_sections_action.go:867-875`). `page-build-handler`
+> is immune because it sources sections from `site_specs.site_plan` via
+> `load_page_sections_from_spec`, never from the caller's spec.
+>
+> **⚠ A CONSEQUENCE THE NEXT READER MUST NOT "TIDY UP".** No producer of
+> `handler_agent='page-content-writer'` items remains anywhere (grep returns zero). So
+> `site-work-orchestrator`'s `build_items_loop`, gated by `load_work_items` with
+> `handler_agent='page-content-writer'`, is now permanently unfeedable. **Do NOT repoint that
+> filter at `page-build-handler`**: `build-dispatch-loop` already consumes those rows, and a
+> second consumer of the same rows invites double-dispatch. That loop was already unreachable
+> in practice (never run — absent from `agent_run_stats`; its only possible inputs were the
+> items that hard-fail). This makes an existing deadness explicit; it does not create it.
+>
+> ### What is still OWED here
+> 1. **Read the council verdict** and act on a REVISE/REJECTED — the code is already on the
+>    shared branch (`Council-Submitted`, not `Council-Reviewed`).
+> 2. **Verify after the next roll, at the ARTEFACT** — per §"How to verify a fix": re-arm ONE
+>    item (not all 12), require the run to reach `save_sections` **and** the slot's
+>    `content_data` to actually change. ⚠ The 12 existing rows still carry the OLD
+>    `handler_agent` in the DB — this change only affects **newly filed** items, so a re-arm
+>    must set `handler_agent` too, or it will re-run the broken route and look like the fix
+>    failed. ⚠ The one `triaged` item (`dad119c9…`) is on **`mortgagecalculator.co.uk`, which
+>    is LOCKED** (`sites.locked_at` 08-03, adoption lane, "held pending owner decision on page
+>    rebuilds") — `load_work_items` returns zero items with `skipped_reason: site_locked`, a
+>    silent green no-op. Pick a different item or get the lock released deliberately.
+> 3. **Symptom 2 is untouched, by §2's own instruction.** `mark_complete` still trusts
+>    `handler_result` blindly. Fix-1 first was the stated order.
+>
+> **Unblocks:** `bugs_closed/194`'s check 3b (see the CONTRIB below), and `bugs_open/184`'s
+> auto-repair leg.
 
 ## Why this is not just 184's problem
 
