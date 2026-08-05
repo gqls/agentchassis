@@ -423,3 +423,48 @@ chosen "gentle explanatory" voice to the whole site. Design + reasons in
   **stored == repo (41/41) and live == repo (3-page spot check, browser UA).**
   All three surfaces agree; nothing is pending anywhere. A clean baseline in
   the §6/§6b sense of the sibling's handoff — any page can be a canary.
+
+### 2026-08-05 — chrome installed (locked, inert); decomposer proven over all 41; canary applied
+
+Chrome: 3 locked `site_components` rows via `load_chrome.py` (INSERT-guarded,
+asset checks with a proven negative control, nav+footer links joined against
+`pages`, splice literals asserted). **Its balance check caught a literal
+`<div` inside my own comment on the first run — the sibling's exact
+documented first-draft failure, reproduced independently.**
+
+Decomposer (`decompose_lmc.py`): first draft assumed whole-child tool marking
+and byte-slice prose runs; **the assertion suite refuted it the same hour on
+real pages** — all-41 "header contains a script-addressed element" (uniform
+failure = instrument: `marked()` counts ANY `<button>`, and the header's
+mobile-menu button is chrome), six mortgages pages "decomposed to zero prose"
+(intro copy shares an <article>/card wrapper with the widget), and
+loans/standard-calc keeps two compliance boxes OUTSIDE its .container.
+Rewrote around the sibling's proven `split_ordered` descent; all 41 pages now
+decompose clean, 23/23 tool blocks, every assertion green. Geometry: only
+`container-tight` needs a wrapper (the head-chrome shim makes `<main>` the
+container) — tight pages get their wrapper INSIDE `content_data.content` so a
+future re-render from the shared `ported-prose` template reproduces stored
+bytes exactly.
+
+Three more instrument faults caught before they cost anything, logged here
+because each wore a real-defect costume:
+- **voice_apply F1/F2 flagged the same figure as invented AND lost** ("2022")
+  — the number regex swallowed a trailing comma. The contradiction is the
+  signature: one token, two opposite verdicts.
+- **load_lmc reported adoption had truncated every page title** — my psql
+  parser split on `|`, and every title on this site contains
+  " | LoanAndMortgageCalculator.co.uk". Tab separator; re-measured: 0 of 41
+  titles or descriptions differ between DB and the original heads.
+- **The sibling's assemble_mirror predates seam 2** and predicts no
+  canonical; the live Go assembler emits one. Added `inject_canonical` to
+  load_lmc's prediction path — without it the first real render would have
+  differed from the prediction by exactly one line, blaming the decomposition.
+
+Canary (guides-how-loans-affect-mortgage-affordability, the page whose intro
+the owner approved as sample #2): overlay authored, all voice guards pass
+(figures subset of the page's own, links/anchors multiset-equal, contractions
+present, banned performatives absent). Verbatim row REPLACED in one txn
+(owner ran the --apply after the auto-mode classifier declined it for me;
+backup `page_components_bak_20260805_lmc` holds all 41 originals).
+`page_rerender` c64c273e filed triaged 20:53Z, assemble mode (no reason),
+page_id in spec AND column.
