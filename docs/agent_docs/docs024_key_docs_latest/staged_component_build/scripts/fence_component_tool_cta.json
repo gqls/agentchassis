@@ -1,0 +1,45 @@
+{
+  "profiles": [
+    "desktop",
+    "mobile"
+  ],
+  "container": "section.tool-cta-section[data-component=\"tool-cta\"]",
+  "checks": [
+    {
+      "id": "page-serves-200",
+      "type": "page_status_ok"
+    },
+    {
+      "id": "section-renders",
+      "type": "selector_exists",
+      "profiles": [
+        "desktop"
+      ],
+      "selector": "section.tool-cta-section[data-component=\"tool-cta\"]"
+    },
+    {
+      "id": "section-has-visible-area",
+      "type": "has_visible_area",
+      "selector": "section.tool-cta-section[data-component=\"tool-cta\"]"
+    },
+    {
+      "id": "heading-has-text",
+      "type": "interaction",
+      "profiles": [
+        "desktop"
+      ],
+      "expect": {
+        "selector": "section.tool-cta-section[data-component=\"tool-cta\"] h2.tool-cta-heading",
+        "text_matches": "\\S"
+      }
+    },
+    {
+      "id": "no-horizontal-overflow",
+      "type": "no_horizontal_overflow"
+    },
+    {
+      "id": "no-console-errors",
+      "type": "no_console_errors"
+    }
+  ]
+}

@@ -1974,3 +1974,29 @@ artefact drift; webdesign.co.uk's 97 are real.
 **Batch-1 wall clock ≈ 45 min for 5 subjects (~9 min/subject)** — the line beats the
 calibration estimate once S1s are batched and mutant files are generated with verified
 counts.
+
+## 2026-08-05 (contd) — batch 2: nine more sections end-to-end, all S6-green with controls red
+
+| subject | checks | prover | S6 CID |
+|---|---|---|---|
+| info-card-grid (22/11) | 6 | 6/6 | 561b98ff 10/10 |
+| content-block-about (15/7) | 6 | 6/6 | 6f2ef61a 10/10 |
+| tool-cta (10/4) | 6 | 6/6 | 8fcea50f 10/10 |
+| hero-contact (12/11) | 6 | 6/6 | ac7cbce2 10/10 |
+| differentiators (21/12; ≥1 item asserted) | 7 | 7/7 | c5b3c9e9 11/11 |
+| faq (17/7; real-click gesture: summary → [open], pointer-events mutant) | 7 | 7/7 | 5f82e62b 11/11 |
+| about-content (16/9) | 6 | 6/6 | abdc65fb 10/10 |
+| contact-form (13/12; form.contact-form asserted) | 7 | 7/7 | 993bf362 11/11 |
+| contact-info (9/9; heading has designed fallback so asserted; grid NOT asserted per bugs_closed/140) | 6 | 6/6 | 10b550c1 10/10 |
+
+All negative controls landed `neg_control_confirmed_red`. Conditional headings
+(faq/about-content `{{if .section_title}}`) deliberately NOT asserted; unconditional ones
+are. **One more instance of the known-defect class:** about-content's first-choice
+placement (dartsonline.com/about.html) fails no-console-errors on the site's
+`/assets/images/hero.jpg` 404 — the EXACT defect bugs_closed/128 measured on 2026-07-31,
+still serving 5 days later (detection flag-only; repair never dispatched). Proof placement
+moved to finetuning.uk/approach.html; recorded in the PLAN body.
+
+**Running D10 tally: 16 sections + 2 tools done end-to-end; deferred: ported-page
+(harness CORS), fce S6 (gaswholesalers logo), gas-unit-converter + ab-test-calculator
+(broken pages, queue-parked), equity-release (row-vs-URL drift).**
