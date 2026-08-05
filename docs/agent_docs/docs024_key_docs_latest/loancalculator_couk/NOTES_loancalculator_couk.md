@@ -2752,3 +2752,95 @@ The site now carries everything the platform currently emits, so §6b's
 into the pending state with nobody on this lane touching anything.** That is the whole
 lesson of the day, and it is not a one-off condition to be cleared but a standing one
 to be re-checked.
+
+## 2026-08-05 — the site's copy goes back through the FRAMEWORK, and the reason it could not
+
+**Owner direction (2026-08-05):** rerun loancalculator's copy through the framework
+in the "gentle explanatory" (H) voice the `portfolio_positioning` lane developed with
+him this morning — **explicitly not hand-written through this CLI**, per the standing
+ruling of 2026-08-04. Scope ruled: **copy only, calculators kept.**
+
+⚠ **Do not touch `loanandmortgagecalculator.co.uk`.** Session `fffe0948`
+(portfolio_positioning) seeded the same voice there at **10:54:58Z today** and was
+live while this was written. Its voice prompt is
+`portfolio_positioning/VOICE_gentle_explanatory_v1.md`.
+
+### The framework could not rewrite this site's prose, and it would have said it did
+
+Before firing anything, traced the writer path end to end. Three links, each read
+from live config or source rather than inferred:
+
+```
+content_components.ported-prose.input_schema.fields.content.source = "authored"
+  -> plan_sections_action.go:1708   appends to llmFieldSpecs only `if source == "llm"`
+  -> :777  `json:"llm_field_specs,omitempty"`  so an EMPTY list serialises as ABSENT
+  -> live page-content-writer step check_render_mode:
+       condition: "current_section.llm_field_specs != null"
+       else_step: "render_from_template"      <- no LLM is called at all
+```
+
+So every one of the 51 prose sections would have taken the **template** branch: the
+stored prose re-rendered verbatim, work item `complete`, bytes identical. **A clean
+no-op that reports success**, which is worse than a crash — the natural reading would
+have been "the model ignored the guidance" or "the seed never reached the prompt",
+and both would have been wrong, because no model ran.
+
+**There are TWO independent ways for a voice change here to be a silent no-op and they
+present identically:** (1) `content_direction.formatted` not regenerated — the writer
+reads *only* that field; (2) the field's `source` not being `"llm"`. Rule them out in
+that order. Both are now in `LANDMINES.md`.
+
+### The owner's ruling on the label, which is better than the argument I was building
+
+I was preparing to justify flipping `source` as a contained config change. The owner
+cut through it: **the prose is not authored.** `source: "authored"` asserts *a human
+supplied this, do not regenerate* — and this prose was **another LLM's output**,
+written outside the framework and without its checks, then lifted byte-for-byte by
+the decomposer. So the label was simply **false**, and correcting it is a fix rather
+than a loosening. That is a much stronger footing, and it is the one recorded.
+
+**Measured before changing anything, not after:**
+
+- `ported-prose` is used by **loancalculator.co.uk and no other site** — 51 rows,
+  zero elsewhere.
+- Exactly **2** fields fleet-wide carried `source: "authored"`. After the change: **1**.
+  That count is the negative control proving exactly one field moved.
+- The survivor is **`ported-page.body`, and it must stay `authored`** — that is the
+  `--fidelity locked` byte-preserving adoption path (`adopt_verbatim.go`, ADO-037).
+  Flipping it would let a writer rewrite a site adopted precisely to be preserved.
+  Two authored fields; exactly one of them was wrong.
+
+`llm_guidance` was rewritten at the same time to be writer-facing and to carry the
+invariant the decomposer designed in: prose only, no form control, no element a script
+addresses, no ids, no scripts — *"rewriting this cannot break a calculator"* — plus
+"preserve every factual claim, figure and internal link: this is a rewrite for VOICE,
+not a change of substance."
+
+### Seeding the voice: the merge is NOT additive, and that is the whole difficulty
+
+`seed_voice_h.py` (this lane). Two safety properties, both load-bearing:
+
+1. **The formatter gate.** The writer reads one field, `content_direction.formatted`,
+   produced by `datahelpers.FormatContentDirection`. The script ports that function to
+   Python and, before writing, regenerates the CURRENT spec and asserts it reproduces
+   the STORED `formatted` as a multiset of lines (not a string — Go map iteration order
+   is random, so section order carries no meaning). **PASSED at 20,699 bytes / 141
+   lines.** If the port ever drifts from the Go, it refuses to write rather than
+   silently changing what the writer sees.
+2. **Conflicts are REPLACED, not appended.** loancalculator's incumbent spec said
+   *"Avoid contractions in declarative or authoritative statements"*; H rule 8 says
+   contractions wherever they would be spoken. Appending would have handed the writer
+   two opposing instructions and let the model choose. Three incumbent rules were
+   replaced (contractions, rhetorical-question openers, "lead with the reader's most
+   likely question"), eight added, `voice.register`/`formality`/`emotional_tone`
+   rewritten. The script **refuses to run** if an expected incumbent is not found — a
+   spec that has changed under it means the conflict may still be live under different
+   wording. A final check asserts the retired no-contractions rule is absent from the
+   regenerated `formatted`.
+
+`writing_rules` 15 → 23; `formatted` 20,699 → 24,556 bytes; `has_H=true` verified on
+the stored row. Exemplars are **this site's own copy** (consolidation, car finance,
+overpayment), not another site's — per the voice doc's rule 2 for per-site reuse.
+
+Backups first: `content_components_bak_20260805_prosesource` (2 rows),
+`page_components_bak_20260805_framework_rewrite` (63 rows).

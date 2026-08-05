@@ -5556,3 +5556,18 @@ a STRING array — check the shape before trusting the prune.
     production until the next `browser-runner-adapter` + `agent-chassis` roll —
     verify at the pod (`grep -ac` two distinct literals + a positive control;
     the fleet's images carry no `strings` binary), never at the tag.
+
+### A component field whose `source` is not `"llm"` makes the content writer skip the LLM ENTIRELY and re-render from template — the run reports success and the copy never changes
+- **footprint:** `content_components.input_schema.fields.*.source`, `platform/orchestration/actions/plan_sections_action.go` (`llmFieldSpecs`, `LLMFieldSpecs`), the live `page-content-writer` step `check_render_mode`, work item types `content_rewrite` / `needs_content_page`
+- **fires when:** you ask the framework to rewrite a page's copy — a `content_rewrite` item, a voice seeded into `content_direction`, a rewrite guidance — and the component holding that copy declares its field with any `source` other than `"llm"`. **Nothing fails.** The work item completes, the page re-renders, the bytes are identical, and the natural reading is "the model ignored my guidance" or "the seed didn't reach the prompt". Both are wrong: **no model was ever called.**
+- **the mechanism, three links, each verifiable on its own:** `plan_sections_action.go:1708` appends to `llmFieldSpecs` only `if source == "llm"`. The struct field is `json:"llm_field_specs,omitempty"` (`:777`), so an empty list serialises as **absent, not `[]`**. The live writer then branches on exactly that — `check_render_mode`: `condition: "current_section.llm_field_specs != null"`, `else_step: "render_from_template"`. So the section takes the no-LLM path.
+- **the tell:** the section renders with its OLD content and `llm_call_log` has no row for the run. Check the schema before blaming the prompt:
+  ```sql
+  SELECT cc.function, f.key, f.value->>'source', f.value->>'type'
+  FROM content_components cc, LATERAL jsonb_each(cc.input_schema->'fields') f
+  WHERE cc.function = '<the component>';
+  ```
+- **the check, before you conclude a seed is inert:** the writer reads exactly ONE field of `content_direction` — `{{.site_specs.specs.content_direction.formatted}}`, live in `page-content-writer.prompt_template`. Every other key reaches the prompt only by being serialised INTO `formatted` by `datahelpers.FormatContentDirection`. **A hand-written `content_direction` that does not regenerate `formatted` is invisible to the writer, and looks applied.** So there are TWO independent ways for a voice change to be a silent no-op, and they present identically. Rule them out in this order: is `formatted` regenerated, then is the field `source: "llm"`.
+- ⚠ **`source: "authored"` is not a safety guard, it is a factual claim** — "a human supplied this, do not regenerate". Before changing one, ask whether the claim is TRUE. On loancalculator.co.uk it was not: the prose was another model's output lifted byte-for-byte by the decomposer, so `authored` was a mislabel and correcting it was the fix (owner ruling 2026-08-05). **But `ported-page.body` IS genuinely authored** — it is the byte-preserving `--fidelity locked` adoption path, and flipping it would let a writer rewrite a site adopted precisely to be preserved. Two fields fleet-wide carried `source: "authored"`; exactly one was wrong.
+- **source:** loancalculator.co.uk lane, 2026-08-05, found while trying to run the owner's "rerun it through the framework" instruction. Measured before changing anything: `ported-prose` exists on loancalculator and **no other site** (51 rows), and `authored` fields fleet-wide went 2 → 1, which is the negative control that exactly one field moved
+- **added:** 2026-08-05, loancalculator_couk lane
