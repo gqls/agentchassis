@@ -680,3 +680,20 @@ Trailer on `78a97e728` resolves. Answers, so nobody re-derives them:
   for the park defect. RFC_012 currently has NO owner or target date — it is on the
   owner's standing decision list (SUMMARY_2026-08-04 §Where we're going); flagged again
   here as the seat asked.
+
+## 2026-08-05 (evening) — debt 5b LIVE and proven at the layer that matters; the lane's code work is COMPLETE
+
+Fresh roll (digest `9cb767a…`, both replicas): `retraction audit for` = 1,
+`RETRACTION_AUDIT` = 1, debt-5 control = 1. Then the zero-side-effect probe (run
+`e839b8b1…`, one ACTIVE page through 216, fired 7 min after the roll — past the ~300s
+dispatch-drop window): the guard refused it, nothing dispatched, the page still serves
+200, and **both durable rows exist in `agent_error_log`** — RETRACTION_REFUSED (warning)
+with the reason, RETRACTION_AUDIT (info, "1 considered, 0 dispatched") with the full
+candidate list in context. This is the DB-layer proof the debt-5 verification stopped
+short of, and it exercises the refusal row live for the first time (the batch run had
+zero refusals). Small catch while doing it: `agent_error_log`'s timestamp column is
+`occurred_at`, not `created_at` — the bug file's suggested query said `created_at`
+unchecked; corrected there. Schema first, even for a SELECT you wrote yourself.
+
+**Nothing on this bug needs code any more.** Open: the owner's word to close, and the
+owner's RFC_012 ruling (flagged by two council seats, no owner/date yet).

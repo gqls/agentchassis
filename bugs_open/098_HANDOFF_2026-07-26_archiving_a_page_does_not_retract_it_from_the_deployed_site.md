@@ -158,11 +158,14 @@ because every repair path skips archived rows on purpose.
 >    after the nav retire and before dispatch; `insertRetractionConditionRow` gained an
 >    explicit severity parameter; the file's own comments no longer teach the refuted
 >    sibling-key claim. Tests assert the DB write set in exact order; mutation-proven.
->    Council `Council-Submitted: 9a38c785-7733-4492-b614-2f67bf4e36c4`. **Live probe
->    once rolled** (zero side effects): fire 216 with one ACTIVE page id → refused, no
->    dispatch → `SELECT error_code, severity FROM agent_error_log WHERE
->    action='retract_page_deployment' ORDER BY created_at DESC LIMIT 3;` expect one
->    RETRACTION_AUDIT info + one RETRACTION_REFUSED warning.
+>    Council APPROVED 2026-08-05 (`9a38c785…`, 2 advisory, answered in NOTES).
+>    **LIVE + PROVEN AT THE DB LAYER 2026-08-05 evening** (digest `9cb767a…`, both
+>    replicas strings-verified): probe run `e839b8b1…` against one ACTIVE page →
+>    refused, zero dispatch, page still 200 — and BOTH rows persisted:
+>    `RETRACTION_REFUSED` (warning, reason named) + `RETRACTION_AUDIT` (info,
+>    "1 considered, 0 dispatched", full candidates in context). NB the table's
+>    timestamp column is `occurred_at`, not `created_at` — the earlier suggested
+>    query here was wrong, caught by running it.
 >    Two sinks, two readers was the design: the audit now also lands in
 >    `collected_data.retraction_audit` — a top-level SIBLING key, which the await
 >    overwrite cannot touch because `applyResponseToState` writes only the step-name and
