@@ -1327,3 +1327,45 @@ gate threshold — PLAN §9.2's own argument for the column, that "pets" and "cu
 political opinions" cannot share a safety threshold — is a gate concern and would be
 the natural follow-up here, but the vocabulary should be decided by their ruling
 rather than minted by our writer first.
+
+### CORRECTION + implementation, same day [2026-08-05, later]
+
+> **CORRECTED 2026-08-05:** the section above ends "**No code.** PLAN §9.2 forbids
+> designing multi-category rotation without agreeing it with the `tools-api` owners
+> first". That was true when written and is now **false**: the owner ruled RFC_013
+> §2.1 the same afternoon ("one file per category I think"), and the publisher half
+> is committed as `40746962a`. The *reasoning* still holds and is worth keeping —
+> what unblocked the code was the ruling, not a change of mind about needing one.
+> The `tools-api` half remains unwritten and unruled (§2.2).
+
+**Shipped** (all inert until a fleet release; migration is live now):
+
+- `category` config, default `general`, **derives** the filename — `general` keeps
+  `provocations.json` for ever, which is the entire safety case for option (a).
+- A `filename` contradicting its category is **refused**. Chosen over "explicit
+  wins" because mig 283's live row passes `filename` explicitly, so the obvious way
+  to add a category would publish it over the general feed — served as everybody's
+  daily, undetected.
+- `shouldBootstrap(ferr, archiveCount)`: a 404 permits a **first** publish only
+  when the built archive is empty. Named and exported-to-tests deliberately.
+- Migration **320**: unique index → `(domain, category, publish_on)`, still an
+  INDEX so a within-category duplicate stays unrepresentable. Applied live; its
+  verify block **induces** both directions.
+
+**Two missteps worth the ink:**
+
+1. **I wrote a test that could not fail.** The first bootstrap table re-stated the
+   condition inline (`c.is404 && c.archiveCount == 0`) instead of calling the code,
+   so it would have passed against *any* edit — including deleting the guard. Caught
+   on re-reading before running it. Fixed by extracting `shouldBootstrap` and adding
+   `TestTheBootstrapTableWouldCatchDroppingTheArchiveCondition`, which asserts the
+   guarded and unguarded variants genuinely disagree on an established feed. This is
+   the `[a-quiet-test-passes-when-the-rule-is-gone]` trap, committed by the person
+   writing the guard against it.
+2. **The council trigger refused the first submission**: `.plan` must be an
+   **object**, but the submission I copied the schema from
+   (`architecture_review/SUBMISSION_2026-07-29_*.json`) has it as an **array**. Cost
+   one refused dispatch, no credits. Recorded in the handoff's trap list.
+
+**Owed:** read council `ccc32c3c` and act on it — the code is already on the shared
+branch, so a REVISE is not something that can wait for a convenient moment.
