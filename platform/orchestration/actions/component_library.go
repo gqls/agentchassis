@@ -1080,7 +1080,13 @@ func contextToMap(ctx *RenderContext) map[string]string {
 	result["text_color"] = defaultString(ctx.TextColor, "#333333")
 	result["background_color"] = defaultString(ctx.BackgroundColor, "#ffffff")
 	result["cta_text"] = defaultString(ctx.CTAText, "Get Started")
-	result["cta_url"] = defaultString(ctx.CTAUrl, "/contact.html")
+	// Correct-or-absent (LNK-005): no fabricated fallback. ctx.CTAUrl is empty
+	// for every LLM-authored section, so a hardcoded default here paired a
+	// real, resolver-written cta_text with a fake /contact.html href on every
+	// page whose CTA target the resolver couldn't match (bugs_open/NNN) — the
+	// ContentData merge below only ever overwrites a key it actually contains,
+	// so the fake value survived untouched whenever the real one was absent.
+	result["cta_url"] = ctx.CTAUrl
 	result["contact_email"] = ctx.Email
 
 	// Add all content data fields
@@ -1190,7 +1196,14 @@ func contextToInterfaceMap(ctx *RenderContext) map[string]interface{} {
 	result["text_color"] = defaultString(ctx.TextColor, "#333333")
 	result["background_color"] = defaultString(ctx.BackgroundColor, "#ffffff")
 	result["cta_text"] = defaultString(ctx.CTAText, "Get Started")
-	result["cta_url"] = defaultString(ctx.CTAUrl, "/contact.html")
+	// Correct-or-absent (LNK-005) — see the matching comment in contextToMap.
+	// This is the path RenderTemplate actually calls (render_site_components_
+	// action.go:971), so this is where the phantom /contact.html link shipped
+	// from: cta_text got overwritten from ContentData below, cta_url didn't
+	// (ContentData had no such key), and the mismatched pair passed the
+	// template's `{{if and .cta_text .cta_url}}` guard because the fake
+	// default made .cta_url non-empty.
+	result["cta_url"] = ctx.CTAUrl
 	result["contact_email"] = ctx.Email
 
 	// Composites — these need shaping, not copying, so they stay explicit.
