@@ -301,3 +301,46 @@ line, and I would not have known otherwise.
 Not fixed here — it is config on another agent's step, live-immediately, outside this bug. Filed
 in the closed file's § What remains rather than left as a silently empty field, because I had
 claimed that record's completeness as half the value of the fix.
+
+---
+
+## 2026-08-05 (later) — follow-up 1 fixed, and it was not the one-line config change it looked like
+
+Seed `315`. The gap the induction found (`work_item_id` empty in the record) looked like
+"set the key on `page-rerender`". Two things made it not that.
+
+**1. The census was wrong the first time, in the documented way.** A top-level
+`jsonb_object_keys(default_config->'workflow'->'steps')` returned **3** call sites. The real
+number is **6** — the step is nested inside a loop `sub_workflow` in three of them, and the
+top-level scan cannot see those. Seed `312` records this exact trap and I still had to walk
+the whole document to get the true answer. A half-answer here reads as a complete one.
+
+**2. THE CORRECT PATH IS NOT THE SAME FOR EVERY CALLER, so the obvious uniform fix would have
+shipped a dead key.** `site-work-orchestrator`'s `build_items_loop` iterates over
+`work_items.items` — so inside its sub_workflow the work item **is** `current_item`, proven by
+its own sibling steps passing `work_item_id: current_item.id` to `fail_work_item` and
+`complete_work_item`. `input_data.work_item_id` there would resolve to nothing: harmless at
+runtime, and permanently misleading, because the next reader sees the key set and concludes
+attribution works. `pageflow-builder` and `page-rebuild` loop over *pages*, so the substitution
+is wrong in the other direction.
+
+**Three of six set, each on its own evidence; three left UNSET because there is none.**
+`pageflow-builder`, `page-rebuild` and `tool-recreation-handler` have **zero** retained
+orchestration rows (~24h retention), so nothing establishes their path resolves. Writing a
+plausible path into config is precisely the trap above. The closing query is in the seed header.
+
+### Verified by induction, not by reading the config back
+
+Setting config and confirming the value *resolves* are different claims. The cheap observable
+was the same key's other consumer — `page_component_history.source_item_id`:
+
+```
+baseline  vonc/about history: 210 rows, 0 with source_item_id
+after ONE plain rerender:     216 rows, 6 with source_item_id
+                              all 6 = e616bff8-… , the work item queued for the test
+served page unchanged: 52,364 bytes
+```
+
+That let me prove it **without doubling a live page again** — a plain rerender writes the
+history snapshot regardless, and 0 → exactly-the-6-new-rows is disconfirmable in a way that
+re-reading the config never is.
