@@ -145,3 +145,29 @@ build's output in front of him, not by the revert simply being forgotten.
 Note for anyone reading `llm_call_log` costs this week: writer traffic
 2026-08-05→06 is Sonnet, not Gemini — don't attribute it to the wrong provider
 when comparing (the `llm-call-log` landmines file also applies).
+
+---
+
+## OWNER RULING 2026-08-05 (evening) — NO revert for now; the writer STAYS on `claude-sonnet-5`
+
+The file above demanded a record of which way this went: **the revert was not
+run, by the owner's explicit choice** ("we don't have to revert to gemini for
+now"), taken with a Sonnet-written page in front of him — the first build that
+passed validation end to end, 0/14 ban violations on the served artefact.
+
+Standing state, until changed: `page-content-writer.generate_content` →
+`claude-sonnet-5`/`ANTHROPIC_API_KEY`. The revert SQL above remains valid if
+ever wanted. Consequences now in force:
+- **Gemini's 250 RPD is no longer the fleet's build constraint** — writer
+  traffic is on the Anthropic key. Tier 2 still arrives automatically at $100
+  cumulative; when it does, the model QUESTION (option 3) can be decided on
+  price/quality with both providers usable, but nothing forces it.
+- `feature-designer` still points at gemini and still competes for the daily
+  250 with anything else on that key.
+- Cost watch: writer volume now bills Anthropic — `llm_call_log` is the meter,
+  and the earlier attribution note applies from 2026-08-05 onward, not just
+  "this week".
+
+This bug's close condition CHANGES accordingly: it closes when EITHER Tier 2 is
+observed active OR the fleet has run a full busy day on Sonnet without a
+provider-quota failure. The second is likely first.
