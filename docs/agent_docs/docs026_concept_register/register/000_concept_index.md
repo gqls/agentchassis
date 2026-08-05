@@ -11,7 +11,9 @@ duplicate-section collapse, `bugs_open/156`, row and entry added together — an
 one commit late for the *same* reason as PBP-032, by a different lane, hours
 apart on the same day; both are logged in `WRONG_CALLS.md` and the pair is the
 argument for making condition (2) a pattern-check rather than a thing to
-remember). **The drift pair was clean at 1,759 rows and 1,759 unique entry ids,
+remember), **and +1 for IMP-051** (`asset_reference_404`, `bugs_open/084` — row,
+entry and code in ONE commit, which is what the two above wish they had done).
+**The drift pair was clean at 1,759 rows and 1,759 unique entry ids,
 0 rows without an entry and 0 entries without a row; re-run it after this commit
 rather than inheriting that pass.**
 
@@ -1711,6 +1713,7 @@ an ID prefix, or a status word.
 | DOC-054 | Concept register and the council-of-concept-experts mission | aspirational | The docs026 programme itself: extract, classify, verify, seed council agents | documentation-system.md |
 | IMP-049 | Fleet generalisation doctrine (four rules + artifact verification) | deployed | The doctrine for turning incident fixes into fleet guarantees: (1) fix the writer, not the row — a psql repair... | improvement-loop.md |
 | IMP-050 | Manual improvement-loop trigger (the documented one does not exist) | deployed | A Kafka envelope running the FULL loop (discovery -> triage_findings -> dispatch) against one chosen site, because... | improvement-loop.md |
+| IMP-051 | asset_reference_404 discovery check (a subresource reference is probed, not merely counted) | built-not-enabled | A discovery check that resolves every `<script src>` and `<link rel~=stylesheet>` on a site's deployed page... | improvement-loop.md |
 | TL-021 | Mandatory minimum tool-suggestion count (2–5, no "suggest zero" option) — superseded | superseded | The earliest tool-suggester design forced the LLM to always propose at least two tools per site. Replaced by an... | tool-lifecycle.md |
 | IMP-012 | Improvement-loop colour/nav fixer suite is scheme-blind (pre-re-aim state) | superseded | The established fixer infrastructure before the re-aim: color-variable-fixer runs `fix_hardcoded_colors` (dark... | improvement-loop.md |
 | IMP-038 | Heartbeat maintenance model (findings-based, pre-work-items) | superseded | The first full maintenance architecture: K8s CronJob (8h) → agent-chassis spawns maintenance-batch-scheduler →... | improvement-loop.md |
