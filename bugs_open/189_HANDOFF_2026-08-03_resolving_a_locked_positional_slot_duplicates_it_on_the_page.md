@@ -278,3 +278,68 @@ then this file's §How to verify, unchanged: fire `section_data_resolved` on
 `tool-loan-vs-savings`, assert **exactly 4** rows, `tool-2` still locked at
 position 3, `id`/`locked_at`/`locked_by` unchanged. Then `bugs_open/204`'s
 canary runs un-gated and both close.
+
+---
+
+## §BEHAVIOURAL VERIFICATION PASSED 2026-08-06, v1.0.1259 — the re-render half is proven; the BUILD half still needs its config
+
+**Live**: pod-grepped one pod per chassis-image deployment (agent-chassis,
+business-intel, vet-intel): `stored_slot_name` = **1** on each. It was **0** at
+v1.0.1257, measured before the roll — so that earlier zero is this
+verification's negative control, and a fabricated string returned 0 in the same
+exec, proving the grep discriminates.
+
+**Induced, exactly as §How to verify prescribes.** Work item
+`b4de13fb-8b69-4927-9e20-3c457a85bfc2`, orchestration
+`b807b035-3865-4068-9687-29f160f6c362`, `reason: section_data_resolved` on
+`tool-loan-vs-savings`. Dispatched by kcat to
+`system.agent.generic.requests` (pods were 46 min old — past the ~300s
+post-restart drop window) and confirmed at the DB, because `kcat -P` exits 0
+having sent nothing.
+
+| | baseline (pre-fire) | after | verdict |
+|---|---|---|---|
+| row count | 4 | **4** | PASS — the old code produced **5** |
+| slot names | prose-0, prose-1, tool-2, prose-3 | **identical** | PASS — the old code renamed the prose rows to `ported-prose` |
+| `tool-2` row id | `10be4f71-…` | `10be4f71-…` | PASS — locked row preserved, not re-inserted |
+| `tool-2` updated_at | 2026-08-02 23:01:03 | **unchanged** | PASS — 058's invariant holds |
+| `tool-2` position / locked | 3 / permanent | 3 / permanent | PASS |
+| served page `<section>` count | 4 | 4 | PASS |
+
+**The save genuinely ran — this is not a no-op passing as a fix.** Two
+independent proofs: the three unlocked prose rows are **NEW row ids**
+(`6961ac4f`, `8cccbde8`, `97a73e35`) stamped `11:36:54`, i.e. DELETE+INSERT
+actually executed; and the action's own counters report
+**`rerendered=4, carried=0`**. A carried re-render would have produced an
+identical row count and slot list, so the row-id check is what makes this
+gradable rather than merely green.
+
+The verification item finished `blocked` (not `complete`), which is the
+platform recording that a lock prevented a full overwrite — the guard doing its
+job. No `lock_blocked_change` item was raised this round; not investigated
+further, since the row-level evidence above is direct.
+
+### ⚠ STILL OPEN, and precisely why
+
+The BUILD path remains armed: `slot_name_from` is **NOT applied** to
+`page-content-writer`, so `RenderComponentAction` still emits no
+`stored_slot_name`, the save still derives the name from
+`component_function`, and a build-path run over a locked positional slot would
+still rename and duplicate. The defect is therefore still reproducible by one
+route, which is the fixed-AND-live bar. **One gated command closes it** — the
+classifier blocked my write to `agent_definitions` (expected here for
+production config), so it needs an operator:
+
+```
+! kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 < <(tail -45 docs/agent_docs/sql_for_agents/023_page_content_writer_agent.sql)
+```
+
+Self-verifying (`DO $verify$ … RAISE EXCEPTION` refuses the COMMIT unless both
+keys read back; expect `NOTICE: slot_name_from present on both render steps`).
+Backup taken and validated as JSON beforehand (20,339 B, both keys confirmed
+absent): `scratchpad/pcw_default_config_backup_20260806.json`; rollback is the
+same UPDATE from that file.
+
+After it applies: confirm `slot_name_from` on both steps, then `bugs_open/204`'s
+canary runs un-gated on the BUILD path and grades both bugs at once. Then close
+189 and 204 together (`git mv`, naming BOTH paths on the commit).
