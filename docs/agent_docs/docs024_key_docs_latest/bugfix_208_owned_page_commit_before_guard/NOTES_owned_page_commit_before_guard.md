@@ -146,9 +146,46 @@ Two things follow, and both matter to the fix:
    nothing observable, while protecting 13 working tools. A fix whose downside I had not
    measured would be a guess dressed as a trade-off.
 
+### A second symptom the filing did not report: one owned page aborts the WHOLE batch
+
+`continue_on_error` is what makes a loop tolerate a failed iteration
+(`platform/orchestration/loop_error_handler.go:66-80`: `shouldContinueLoopOnError` requires
+the loop step's `continue_on_error` to be true). **[MEASURED] It is unset (NULL) on all four
+build loops** — `page-rebuild.build_pages_loop`, `pageflow-builder.build_pages_loop`,
+`site-work-orchestrator.build_items_loop` and `.fix_items_loop`.
+
+So today, when `save_page_sections` hard-refuses the owned page, the refusal does not merely
+lose that page — **it fails the entire workflow**. Pages are selected `ORDER BY nav_order ASC,
+name ASC`, so every page positioned after the owned one is never rebuilt either. The operator
+gets a partially-rebuilt site, one destroyed tool, and one error.
+
+That settles a design question I had been holding open: **Layer 2's refusal must be a SKIP, not
+a hard error.** `AssemblePageAction`'s existing skip comment says exactly why — *"Return
+success with skipped flag - allows loop to continue to next page"* (`multipage_actions.go:39`).
+
+`SavePageSectionsAction` has **no** upstream-skip check (read `save_page_sections_action.go:41-120`:
+it guards `DB == nil`, missing page name and bad site_id, then goes straight on). It resolves
+the page name from `current_page.name`, which survives an assembly skip — so after Layer 2
+skips the assembly and `deploy_page` skips the commit, `save_sections` would still reach its
+owned refusal and abort the run. Damage prevented, batch still dead. Hence a possible third,
+smaller edit (ranked as optional, not required for safety) — see PLAN.
+
+### The sanctioned path already does it in the right order
+
+`page-rerender`'s live step graph is `rerender_sections → save_sections → render_page
+(rerender_single_page) → deploy_page (git_commit) → update_status`. It **saves before it
+commits**, and it models a skip as a first-class outcome (`check_skipped` conditional).
+
+So `commit → save` is not the platform's convention that 208 happens to sit inside; it is an
+anomaly confined to the three generic composition loops, and the path that handles owned pages
+correctly is the one that already inverted it. Useful for the council submission: the fix moves
+the generic loops *towards* the existing norm rather than inventing one.
+
 ### Open question logged before it is answered
 
 `[UNMEASURED]` Whether excluding an owned page at selection leaves it stuck at
 `needs_rebuild` for ever and re-selected on every subsequent run — i.e. what
 `update_page_status` does for a page the loop skipped. Being answered before the design is
-fixed, not after.
+fixed, not after. (Note: harmless in the damage sense — re-selecting and re-excluding costs
+nothing — but it would make an operator's explicit request silently do nothing for ever, which
+is the visibility problem, not a safety one.)
