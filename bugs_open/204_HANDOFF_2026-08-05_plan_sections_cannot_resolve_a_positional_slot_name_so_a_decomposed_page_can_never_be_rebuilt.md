@@ -226,3 +226,25 @@ still 57/57.
 5. The 12 `lock_type='permanent'` tool rows on loancalculator untouched (this
    change only alters resolution; the writer's lock handling is unchanged).
 6. Unblocks: loancalculator H-voice copy rerun (owner instruction 2026-08-05).
+
+### ⚠ AMENDMENT to closure step 3 (added 2026-08-06, same session): the canary is 189-gated
+
+Tracing the writer's save path after committing the fix: once resolution
+succeeds, `bugs_open/189`'s save-path defect (slot renamed to the component
+function; locked rows duplicated on name mismatch) becomes reachable from the
+BUILD path — and the build path carries the positional name NOWHERE
+(`RenderComponentAction` outputs only the component's own identities; see the
+§blast-radius-extension appended to 189). So, until 189 is fixed:
+
+- **Never fire a build-path run on a page holding locked rows** (loancalculator's
+  12 permanent tool slots, oufe's 2) — it will duplicate them (189 §measured).
+- The closure canary at `guide-how-loans-are-calculated` (2 unlocked prose
+  slots) WILL rebuild the prose (204's assertion) and WILL rename the slots
+  `prose-0`/`prose-1` → `ported-prose` ×2 as a side effect. Either restore the
+  slot names in one UPDATE afterwards (the 189 remediation shape) and say so,
+  or run the canary on a throwaway page. The rename does NOT invalidate the
+  204 verification — content change + zero junk items is still the assertion —
+  but an unrestored rename breaks the page's next id-first resolution (the map
+  is keyed by `pages.sections` names vs `slot_name`).
+- Cleanest sequencing: fix 189 first (its candidate 1 needs the producer fixed
+  on both paths now), THEN run the 204 canary un-gated.
