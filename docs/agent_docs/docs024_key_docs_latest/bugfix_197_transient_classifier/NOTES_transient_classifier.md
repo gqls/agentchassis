@@ -59,3 +59,22 @@ Council submitted: `Council-Submitted: 7fbf4356-da03-4a48-832f-fd06fec5a3d7`. Re
 **RSH-006** (index re-grepped 1,764 → 1,771; ~6 rows arrived from other lanes since the
 last recount). Go-only → **inert until the next chassis roll**; `197` stays OPEN until the
 post-roll induction passes (recipe in RSH-006's verify-later and the bug file's appendix).
+
+## 2026-08-06 — the first submission died at INTAKE, and the reason is worth keeping
+
+The council run completed at `complete_invalid` with no verdict: **no reviewer ever ran.**
+`__step_error`: *"edit 6: sketch is comment-only — a fix plan proposes changes, not
+observations; drop the edit or make it real."* The server-side plan validator
+(`diagnose_persist_fix_plan`) refuses comment-only sketches as edits.
+
+Two lessons, the second more general than the first:
+- **A comments-only change cannot be an EDIT in a council plan** — carry it in the
+  rationale, where reviewers judging the touched file's blast radius still see it. Done;
+  resubmitted with 7 edits on the same correlation (`RESUBMIT_CORR`), run
+  `adca43f0-c749-49f9-a645-9c15aaff9bed`.
+- **`RUN=COMPLETED` + `VERDICT=pending` is not "still deliberating"** — my monitor treated
+  only verdict values as terminal, so it read an intake death as a pending review. The
+  terminal condition for a council watch must include the invalid arm
+  (`@complete_invalid`), or an intake rejection looks like queue latency for ever — the
+  same shape as `192`'s "a missing row is not latency" lesson, one layer up. Monitor
+  corrected.
