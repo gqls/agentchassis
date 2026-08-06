@@ -110,6 +110,29 @@ SECTION_BUDGET_KB = {
 # Cap the CONTENT after the em-dash instead.
 CONTENT_CAP = 90
 
+# ── per-entry byte budgets ─────────────────────────────────────────────────────
+# From MEMORY.md's own preamble (measured 2026-07-31, 9th pass). They are in BYTES
+# because the cap is, and because sizing entries with bash `${#var}` — which counts
+# CHARACTERS — made a whole round of trims 2–16B short apiece: every `—`, `⚠`, `≡`
+# is 1 char and 3 bytes.
+#
+# A FAMILY line is billed PER MEMBER, not per line. That is the unit sessions
+# actually add: the 2026-07-29 MERGE-ON-ADD ruling tells everyone to merge a new
+# practice into a family line rather than append a bullet, so growth arrives as a
+# new member on an unbounded line. Measured 2026-08-06, three days after the
+# delivery fix: 49 surviving entries grew +2,392B while 5 retired and 2 arrived,
+# and four family lines held 28% of the whole file. Everyone had complied.
+MEMBER_BUDGET = 150          # one member of a family line
+ENTRY_BUDGET = 400           # a whole line carrying a single link
+
+# The slot count is sized to the HARNESS NAG LINE (0.8x = 20,000B), not to the cap.
+# Sizing it to the cap would declare the file healthy right up to the point the tail
+# starts vanishing, which is the failure this whole tool exists to prevent — and it
+# is what the per-entry budgets do today: at 115 units they permit 30,394B, or 121%
+# of the cap. A budget that permits a file bigger than the file can be is not a
+# budget. This one leaves 5,000B of genuine headroom.
+SLOT_TARGET_BYTES = int(BYTE_CAP * WARN_FRAC)
+
 FRONTMATTER_KEY = "index_line"
 
 # Sibling indexes. They are NOT topic files, and the links they hold are what
@@ -122,6 +145,31 @@ LINK_RE = re.compile(r"\]\(([^)]+\.md)\)")
 def links_in(text):
     """Every topic-file link in a string. A FAMILY line carries several."""
     return LINK_RE.findall(text)
+
+
+def entry_units(text):
+    """{slug: (bytes, budget)} for every BILLABLE unit in an index.
+
+    A single-link line is one unit billed at ENTRY_BUDGET. A FAMILY line is one
+    unit PER MEMBER, split on the ` · ` separator and billed at MEMBER_BUDGET,
+    because a member is what a session adds and therefore what a session can be
+    asked to keep small. Billing the whole family line instead reports a breach
+    nobody can act on — the line is long BY DESIGN, it is the compaction working.
+
+    Keyed by slug so two snapshots of the index can be joined to find which units
+    a given write actually GREW. Byte lengths, never character lengths.
+    """
+    units = {}
+    for line in text.splitlines():
+        if not line.startswith("- "):
+            continue
+        members = line.split(" · ") if len(links_in(line)) > 1 else [line]
+        budget = MEMBER_BUDGET if len(members) > 1 else ENTRY_BUDGET
+        for m in members:
+            got = links_in(m)
+            if got:
+                units[got[0]] = (len(m.encode("utf-8", "replace")), budget)
+    return units
 
 
 def classify(line):
@@ -210,6 +258,36 @@ def check(strict=False):
         print(f"  {k:24s} {got:5.1f}KB  {budget:5.1f}KB{flag}")
         if got > budget:
             breaches.append(f"{k} is {got:.1f}KB against a {budget:.1f}KB budget")
+
+    # ── the axis that actually binds ───────────────────────────────────────────
+    # Per-entry budgets bound the WORST entry, never the total. Measured 08-06:
+    # 115 units at FULL budget would be 30,394B = 121% of the cap, so the file fits
+    # only because most entries sit well under (members 120B of 150, singles 242B
+    # of 400). Enforcing every budget perfectly would reclaim 802B — about three
+    # days. COUNT is the constraint, so report it as a slot count with the
+    # displacement rule attached, and recompute the sustainable number from the
+    # LIVE mean rather than trusting the constant as the corpus changes shape.
+    body = "\n".join(lines)
+    pre_bytes = 0
+    for l in lines:
+        if l.startswith("- "):
+            break
+        pre_bytes += len(l.encode()) + 1
+    units = entry_units(body)
+    if units:
+        ubytes = sum(s for s, _ in units.values())
+        mean = ubytes // len(units)
+        room = (SLOT_TARGET_BYTES - pre_bytes) // max(mean, 1)
+        flag = "  OVER" if len(units) > room else ""
+        print(f"\n  entries                  {len(units):5d}  {room:5d} slots{flag}"
+              f"   (mean {mean}B; slots = ({SLOT_TARGET_BYTES:,}B target "
+              f"- {pre_bytes:,}B preamble) / mean)")
+        if len(units) > room:
+            print(f"    {len(units) - room} unit(s) over — an ARRIVAL MUST DISPLACE ONE. "
+                  f"Closed-and-live bugs belong in MEMORY_closed.md,")
+            print( "    which is already the sanctioned destination; retiring one is not "
+                   "a loss, it is the rule working.")
+            breaches.append(f"{len(units)} entries against {room} sustainable slots")
 
     # over-length content
     longs, missing = [], []
@@ -487,21 +565,41 @@ if __name__ == "__main__":
         # is "before" depends on hook ordering, so pick by content rather than
         # assuming. Failure here must never cost the warning — hence the bare
         # except and the empty-string default.
-        delta = ""
+        delta, grown = "", []
         try:
             import subprocess
             shas = subprocess.run(
                 ["git", "log", "-2", "--format=%H", "--", INDEX],
                 cwd=MEM_DIR, capture_output=True, text=True, timeout=5
             ).stdout.split()
-            sizes = []
+            blobs = []
             for s in shas:
-                blob = subprocess.run(["git", "show", f"{s}:{INDEX}"], cwd=MEM_DIR,
-                                      capture_output=True, timeout=5).stdout
-                sizes.append(len(blob))
-            prev = next((z for z in sizes if z != nbytes), None)
-            if prev is not None:
-                delta = f", {nbytes - prev:+,}B from this write"
+                blobs.append(subprocess.run(
+                    ["git", "show", f"{s}:{INDEX}"], cwd=MEM_DIR,
+                    capture_output=True, timeout=5).stdout)
+            before = next((b for b in blobs if len(b) != nbytes), None)
+            if before is not None:
+                # "since the last snapshot", NOT "your write". ~30 sessions share
+                # this file; the sibling hook commits per write, so the window is
+                # usually one edit, but a concurrent session's bytes land inside it
+                # and get attributed to whoever writes next. Observed within minutes
+                # of shipping this: a member another lane had just merged was
+                # reported to me as "+153B this write". Naming the wrong author is
+                # how a true signal gets distrusted, so claim only what is measured.
+                delta = f", {nbytes - len(before):+,}B since the last snapshot"
+                # WHICH unit grew, not just by how much. The file-level number
+                # names no one and is therefore nobody's job; this names the entry
+                # the writer just touched, while they still have the context to
+                # spend those bytes better. Only entries THIS write grew, and only
+                # those now over budget — a standing list of every over-length
+                # entry is the full report's job and would be pure chatter here.
+                was = entry_units(before.decode("utf-8", "replace"))
+                now = entry_units(open(INDEX, encoding="utf-8").read())
+                for slug, (size, budget) in now.items():
+                    old = was.get(slug, (0, budget))[0]
+                    if size > old and size > budget:
+                        grown.append((size, budget, slug, size - old))
+                grown.sort(reverse=True)
         except Exception:
             pass
 
@@ -512,9 +610,22 @@ if __name__ == "__main__":
         else:
             head = (f"{BYTE_CAP - nbytes:,}B of headroom before the TAIL starts being "
                     f"truncated (newest entries go first, silently)")
+        over = ""
+        if grown:
+            rows = "\n".join(
+                f"  {s:,}B against a {b:,}B budget (+{d:,}B this write)  {slug}"
+                for s, b, slug, d in grown[:4])
+            over = ("\n%d entr%s grew past budget since the last snapshot (yours, or a "
+                    "concurrent session's — the file has ~30 writers):\n%s\n"
+                    "A FAMILY member is billed at %dB and a single-link entry at %dB — "
+                    "merging into a family line still costs the bytes, it just hides "
+                    "them on a line that is long by design.\n"
+                    % (len(grown), "y" if len(grown) == 1 else "ies", rows,
+                       MEMBER_BUDGET, ENTRY_BUDGET))
         msg = (
             f"memory index: MEMORY.md is {nbytes:,}B of {BYTE_CAP:,} "
             f"({nbytes * 100 // BYTE_CAP}%){delta} — {head}.\n"
+            f"{over}"
             "The index carries the TRIGGER only: enough to recognise you are in this "
             "situation. Push the remedy, the numbers and the war story DOWN into the "
             "topic file — confirm they landed there (`grep -F`) before cutting, because "
