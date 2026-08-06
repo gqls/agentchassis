@@ -877,6 +877,35 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 	// Load component schemas for these sections
 	components := loadComponentSchemas(ctx, params.DB, sectionNames, logger)
 
+	// bugs_open/204: on a decomposed site, pages.sections holds POSITIONAL
+	// slot names that are no component's name/function, so the map above can
+	// never resolve them — but the page's own page_components rows already
+	// know exactly which component each slot is. Load that identity map and
+	// the schemas for the ids it names; the section loop below tries this
+	// FIRST (Path 0), mirroring the re-render path's 182 fix so the two call
+	// sites of this judgement cannot drift apart again.
+	slotIDs := map[string]string{}
+	if pageName != "" {
+		var slotErr error
+		slotIDs, slotErr = loadPageSlotComponentIDs(ctx, params.DB, siteID, pageName, logger)
+		if slotErr != nil {
+			return nil, fmt.Errorf("plan_sections: %w", slotErr)
+		}
+	}
+	var byID map[string]componentInfo
+	var byIDDrops map[string]string
+	if len(slotIDs) > 0 {
+		seenIDs := make(map[string]bool, len(slotIDs))
+		componentIDs := make([]string, 0, len(slotIDs))
+		for _, id := range slotIDs {
+			if !seenIDs[id] {
+				seenIDs[id] = true
+				componentIDs = append(componentIDs, id)
+			}
+		}
+		byID, byIDDrops = loadComponentSchemasByID(ctx, params.DB, componentIDs, logger)
+	}
+
 	// Create resolver
 	resolver := newSourceResolver(siteID, params.DB, logger, pageName)
 
@@ -913,6 +942,64 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 	}
 
 	for _, sectionName := range sectionNames {
+		// Path 0: stored-identity lookup (bugs_open/204 — the build-path half
+		// of bugs_open/182). The page's own page_components row names exactly
+		// which component this slot is; that identity does not depend on slot
+		// naming at all, so it is tried first. Semantics mirror the re-render
+		// path: id wins over a disagreeing name resolution (observe-only log),
+		// an id whose template failed the guard defers LOUDLY rather than
+		// falling back to a coincidentally name-matched component (the same
+		// silent substitution one level down), and an id that resolves to no
+		// active row falls through to the name/selector paths.
+		if cid := slotIDs[sectionName]; cid != "" {
+			if ci, ok := byID[cid]; ok {
+				if nameComp, nameOK := components[sectionName]; nameOK && nameComp.ID != ci.ID {
+					logger.Info("plan_sections: component_id and section name resolve to different components (observe-only, id wins)",
+						zap.String("section", sectionName),
+						zap.String("id_resolved_component", ci.ID),
+						zap.String("id_resolved_name", ci.Name),
+						zap.String("name_resolved_component", nameComp.ID),
+						zap.String("name_resolved_name", nameComp.Name))
+				}
+				item := planSection(ctx, sectionName, ci, resolver, logger)
+				switch item.Status {
+				case "ready":
+					ready = append(ready, item)
+				case "deferred":
+					deferred = append(deferred, item)
+				case "skipped":
+					skipped = append(skipped, item)
+				}
+				continue
+			}
+			if _, dropped := byIDDrops[cid]; dropped {
+				// The component EXISTS — filing needs_new_component would ask
+				// the fleet to build what is already there (the 204 canary
+				// filed two junk items per section this way). Defer just this
+				// section with a reason a human can act on; the deferred-items
+				// writer surfaces it as needs_section_data with this reason as
+				// its summary. Unlike the re-render path this is not fatal to
+				// the run: planning writes nothing over good HTML, and one
+				// broken pinned template must not block the page's other
+				// sections.
+				deferred = append(deferred, sectionPlanItem{
+					Name:        sectionName,
+					ComponentID: cid,
+					Status:      "deferred",
+					Reason:      fmt.Sprintf("stored component %s for slot %q has an invalid/truncated template — repair that component; do not create a new one", cid, sectionName),
+					Missing: []missingField{{
+						Field:  "html_template",
+						Source: "content_components",
+						Reason: fmt.Sprintf("stored component %s for slot %q failed the template guard — repair that component; do not create a new one", cid, sectionName),
+					}},
+				})
+				continue
+			}
+			// id resolved to no active row (retired component, or the row is
+			// gone) — the name/selector paths below still get their chance,
+			// matching loadContentComponentsByID's stated contract.
+		}
+
 		// Path 1: Direct function/name lookup (existing behaviour).
 		// All current sites hit this path — their planners output function names.
 		comp, ok := components[sectionName]
@@ -1286,6 +1373,69 @@ func loadComponentSchemasByID(ctx context.Context, db *sql.DB, componentIDs []st
 		result[ci.ID] = ci
 	}
 	return result, drops
+}
+
+// loadPageSlotComponentIDs reads the page's stored page_components rows and
+// returns slot_name → component_id — the identity map the build path needs to
+// resolve a POSITIONAL slot name ("prose-0") that is no component's
+// name/function (bugs_open/204, the build-path half of bugs_open/182). The
+// page is identified by (site_id, name), which pages_site_id_name_key makes
+// unique; plan_sections has no page_id in its inputs, but it has always had
+// these two.
+//
+// A slot_name repeated across rows is NORMAL (generic-text-block used 2-3×
+// on one page — measured fleet-wide, 11 legitimate pages; see LANDMINES.md
+// "Deduplicating page_components…"). Repeats agreeing on component_id map
+// fine; repeats DISAGREEING drop that slot from the map with a warning, so
+// resolution falls back to the name path rather than picking a row
+// arbitrarily.
+//
+// No rows (initial build — the page or its components don't exist yet) is
+// normal and returns an empty map. A query error is returned to the caller:
+// planning against a silently-empty map on a decomposed site files junk
+// needs_new_component items (two per section, measured on the 204 canary),
+// so a loud transient failure is the cheaper outcome.
+func loadPageSlotComponentIDs(ctx context.Context, db *sql.DB, siteID uuid.UUID, pageName string, logger *zap.Logger) (map[string]string, error) {
+	rows, err := db.QueryContext(ctx, `
+		SELECT COALESCE(pc.slot_name, ''), COALESCE(pc.component_id::text, '')
+		FROM page_components pc
+		JOIN pages p ON p.id = pc.page_id
+		WHERE p.site_id = $1 AND p.name = $2
+		ORDER BY pc.position ASC
+	`, siteID, pageName)
+	if err != nil {
+		return nil, fmt.Errorf("load page slot identities: %w", err)
+	}
+	defer rows.Close()
+
+	slotIDs := make(map[string]string)
+	conflicted := make(map[string]bool)
+	for rows.Next() {
+		var slot, componentID string
+		if err := rows.Scan(&slot, &componentID); err != nil {
+			return nil, fmt.Errorf("scan page slot identity: %w", err)
+		}
+		if slot == "" || componentID == "" {
+			continue
+		}
+		if existing, ok := slotIDs[slot]; ok && existing != componentID {
+			if !conflicted[slot] {
+				conflicted[slot] = true
+				logger.Warn("plan_sections: slot_name repeats with different component_ids — leaving it to name/function resolution",
+					zap.String("page", pageName),
+					zap.String("slot", slot))
+			}
+			continue
+		}
+		slotIDs[slot] = componentID
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate page slot identities: %w", err)
+	}
+	for slot := range conflicted {
+		delete(slotIDs, slot)
+	}
+	return slotIDs, nil
 }
 
 // aliasNormalisedSectionKeys adds, for each requested section name that is not
