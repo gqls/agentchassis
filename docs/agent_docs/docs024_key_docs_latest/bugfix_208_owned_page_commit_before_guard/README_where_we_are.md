@@ -63,3 +63,57 @@ Last thing worth saying plainly: the operator rebuild feature that tripped over 
 today and belongs to a different workstream. My fix changes the behaviour they depend on — an
 owned page they explicitly name will now be refused rather than rebuilt. That is the correct
 answer, but it is their guarantee that changes, so they get told, not just measured.
+
+## 2026-08-06 (later) — fixed, committed, and waiting on a roll
+
+The fix is in, as commit `cb7b4d759`. It is Go code only, so nothing changes on the live cluster
+until a chassis image is built and rolled — until then the trap is still armed and the bug stays
+in `bugs_open`. Nobody needs to rebuild anything for it; the next fleet release picks it up.
+
+What it does, in plain terms. There are two doors into the dangerous path and both are now shut.
+The first is selection: when a pipeline asks "which pages need rebuilding?", tool-owned pages are
+no longer in the answer. The second is composition: if a tool page somehow arrives anyway, the
+step that assembles a freshly written page now declines to assemble it and says why. The second
+door is the important one, because it also covers routes I could not enumerate in advance — and
+it turns out that mattered, see below.
+
+Three things worth telling you.
+
+**I did not have to invent a way to say "skip this page".** The assembly step already knew how,
+and the step that commits already listened for it. So the fix adds no new signal and changes no
+configuration on any pipeline. On a system this many sessions are editing at once, that is worth
+more than elegance: there is no config half to forget, no ordering hazard between a database
+change and an image, and nothing for another session to trip over.
+
+**A second model reviewing my design caught something I had wrong, and it was the dangerous
+kind of wrong.** I had assumed a skipped tool page would simply sit in the queue still asking to
+be rebuilt — untidy but harmless. Wrong: the pipeline would have stamped it "deployed" and
+recorded which plan version it was built from. That second stamp is read by the reconciler, which
+would then conclude the page was fine and stop raising the review flag that is the whole
+visibility mechanism here. So the innocuous-looking option would have quietly disabled the alarm.
+That is now explicitly refused.
+
+**The bug's own closing question had a surprising answer.** It asked what else has this shape — a
+safety check sitting behind a commit that has already happened. The obvious response is to move
+the check down to the commit itself, where it would cover everything at once. That would have
+been a mistake: the commit step is also how tool pages *legitimately* go live, so guarding it
+would have stopped tools updating at all, and the symptom would have looked nothing like a guard
+misfiring. I have written that down as a landmine, because it is exactly the "simplification" a
+future session would reach for in good faith.
+
+On evidence, two honest notes. All thirteen live tool pages are intact — I checked the actual
+served pages, not the database — so we fixed this before it fired rather than after. But I found
+eleven work items from 2026-08-04 that were aimed at tool-owned pages on webdesign.co.uk through
+the unsafe route, and every one of them failed. Whether those runs got as far as committing
+before they failed, I cannot tell you: the records that would say are deleted after about a day.
+The pages are fine now, so either they failed early or something repaired them. I have written
+it as undetermined rather than guessing, because a confident story there would be exactly the
+kind of thing that gets believed later.
+
+Also worth saying: I have told the workstream that owns the operator rebuild tool, because their
+tool's behaviour changes — a tool page they explicitly name will now be refused instead of
+rebuilt. That is the right answer, but it is their guarantee, so they get told rather than just
+counted. One upside for them: a bulk rebuild that hit a tool page used to kill the whole run
+part-way through the site, silently skipping every page after it. That stops too.
+
+The council is reviewing the change now. I will read the verdict rather than assume it passed.
