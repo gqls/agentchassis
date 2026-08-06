@@ -12,30 +12,21 @@ package orchestration
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
-	"strings"
 
+	"github.com/gqls/agentchassis/platform/orchestration/agenterrors"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"go.uber.org/zap"
 )
 
-// AgentErrorEntry represents a row in agent_error_log
-type AgentErrorEntry struct {
-	SiteID          string
-	Domain          string
-	WorkItemID      string
-	OrchestrationID string
-	AgentType       string
-	AgentID         string
-	PodName         string
-	StepName        string
-	Action          string
-	ErrorMessage    string
-	ErrorCode       string
-	Severity        string
-	Context         map[string]interface{}
-}
+// AgentErrorEntry represents a row in agent_error_log.
+//
+// Now an ALIAS of agenterrors.Entry (RFC_012 option B, owner ruling
+// 2026-08-06): the writer moved to the leaf package so the actions package —
+// which this package imports, closing the old cycle — can call it too. The
+// alias keeps every existing caller (agentbase, messaging, this coordinator)
+// compiling unchanged, and makes drift between the two shapes impossible.
+type AgentErrorEntry = agenterrors.Entry
 
 // logAgentError writes an error to the agent_error_log table.
 // Best-effort — failures are logged but don't affect the workflow.
@@ -46,50 +37,17 @@ func (s *SagaCoordinator) logAgentError(ctx context.Context, entry AgentErrorEnt
 // LogAgentError is the package-level form of logAgentError, for callers that
 // hold a *sql.DB but not a SagaCoordinator — the agentbase and messaging layers
 // both need to persist a dropped message (bugs_open/034) and sit above this
-// package. Exported so there is ONE INSERT against agent_error_log rather than a
-// hand-rolled copy per caller: the column list, the NULLIF-uuid casts and the
-// best-effort contract are easy to get subtly wrong independently, and a third
-// divergent copy is the drift class this codebase keeps paying for.
+// package.
+//
+// A thin forwarder onto agenterrors.Write — the ONE INSERT against
+// agent_error_log — since RFC_012 option B moved the writer into a leaf package
+// both sides of the orchestration -> actions import edge can reach. Do not put
+// behaviour here; change agenterrors.Write.
 //
 // Best-effort by design. A failure to record must never change the disposition
 // the caller has already decided; it warns and returns.
 func LogAgentError(ctx context.Context, db *sql.DB, logger *zap.Logger, entry AgentErrorEntry) {
-	if db == nil {
-		return
-	}
-
-	if entry.Severity == "" {
-		entry.Severity = "error"
-	}
-	if entry.ErrorCode == "" {
-		entry.ErrorCode = classifyError(entry.ErrorMessage)
-	}
-
-	contextJSON, _ := json.Marshal(entry.Context)
-	if contextJSON == nil {
-		contextJSON = []byte("{}")
-	}
-
-	_, err := db.ExecContext(ctx, `
-		INSERT INTO agent_error_log (
-			site_id, domain, work_item_id, orchestration_id,
-			agent_type, agent_id, pod_name, step_name, action,
-			error_message, error_code, severity, context
-		) VALUES (
-			NULLIF($1, '')::uuid, $2, NULLIF($3, '')::uuid, $4,
-			$5, $6, $7, $8, $9,
-			$10, $11, $12, $13::jsonb
-		)
-	`,
-		entry.SiteID, entry.Domain, entry.WorkItemID, entry.OrchestrationID,
-		entry.AgentType, entry.AgentID, entry.PodName, entry.StepName, entry.Action,
-		entry.ErrorMessage, entry.ErrorCode, entry.Severity, string(contextJSON),
-	)
-	if err != nil && logger != nil {
-		logger.Warn("Failed to write to agent_error_log",
-			zap.Error(err),
-			zap.String("error_message", entry.ErrorMessage))
-	}
+	agenterrors.Write(ctx, db, logger, entry)
 }
 
 // ── Adapter-reported conditions ──────────────────────────────────────────────
@@ -373,27 +331,8 @@ func buildErrorContext(collectedData map[string]interface{}, stepName string) ma
 
 // classifyError derives an error_code from the error message.
 // Used for grouping and filtering in dashboards.
+// Moved to the leaf package with the writer (RFC_012 option B); this private
+// name stays for in-package callers.
 func classifyError(msg string) string {
-	lower := strings.ToLower(msg)
-
-	switch {
-	case strings.Contains(lower, "template") && strings.Contains(lower, "can't evaluate field"):
-		return "TEMPLATE_FIELD_ERROR"
-	case strings.Contains(lower, "validate_page_content") || strings.Contains(lower, "content validation"):
-		return "CONTENT_VALIDATION_FAILED"
-	case strings.Contains(lower, "fix_type is required"):
-		return "MISSING_FIX_TYPE"
-	case strings.Contains(lower, "context deadline exceeded") || strings.Contains(lower, "timeout"):
-		return "TIMEOUT"
-	case strings.Contains(lower, "connection refused") || strings.Contains(lower, "no such host"):
-		return "CONNECTION_ERROR"
-	case strings.Contains(lower, "anthropic") || strings.Contains(lower, "api"):
-		return "LLM_API_ERROR"
-	case strings.Contains(lower, "child_orchestration_failed"):
-		return "CHILD_ORCHESTRATION_FAILED"
-	case strings.Contains(lower, "failed to parse") || strings.Contains(lower, "unmarshal"):
-		return "PARSE_ERROR"
-	default:
-		return "UNKNOWN"
-	}
+	return agenterrors.ClassifyError(msg)
 }

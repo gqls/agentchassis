@@ -461,12 +461,13 @@ func recordRetractionAudit(ctx context.Context, params ActionParams, siteID uuid
 }
 
 // insertRetractionConditionRow writes one agent_error_log row, reporting
-// whether the write landed. Direct INSERT because the one shared writer
-// (orchestration.LogAgentError) lives in the package that imports this one
-// and cannot be called from here without a cycle; the column list mirrors it
-// and recordComponentWriteRejection (component_write_guard.go), this
-// package's established shape for exactly this need — a refusal queryable
-// across the fleet rather than living only in pod logs.
+// whether the write landed.
+//
+// Was this package's exemplar hand-copied INSERT (the cycle that forced the
+// copies is retired — RFC_012 option B moved the ONE writer into the
+// agenterrors leaf package, and LogActionError is this package's door onto
+// it). Kept as a named function because its call sites read better and its
+// doc carries the doctrine:
 //
 // THIS TABLE IS THE ONLY SINK THAT SURVIVES AN AWAITED STEP (debt 5b,
 // 2026-08-04): the collected_data sibling key this file also writes was
@@ -475,46 +476,8 @@ func recordRetractionAudit(ctx context.Context, params ActionParams, siteID uuid
 // (RFC_012 addendum 2). A direct row, written before dispatch, is durable
 // regardless.
 func insertRetractionConditionRow(ctx context.Context, params ActionParams, siteID uuid.UUID, domain, code, severity, message string, contextPayload map[string]interface{}, logger *zap.Logger) bool {
-	if params.DB == nil {
-		return false
-	}
-	contextJSON, _ := json.Marshal(contextPayload)
-	if contextJSON == nil {
-		contextJSON = []byte("{}")
-	}
-
-	var orchestrationID, agentType, agentID, podName, stepName string
-	if params.ExecutionContext != nil {
-		orchestrationID = params.ExecutionContext.OrchestrationID
-		agentType = params.ExecutionContext.Sender.AgentType
-		agentID = params.ExecutionContext.Sender.AgentID
-		podName = params.ExecutionContext.Sender.PodName
-		stepName = params.ExecutionContext.StepName
-	}
-	if agentType == "" {
-		agentType = params.AgentType
-	}
-	workItemID := datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.work_item_id")
-
-	_, err := params.DB.ExecContext(ctx, `
-		INSERT INTO agent_error_log (
-			site_id, domain, work_item_id, orchestration_id,
-			agent_type, agent_id, pod_name, step_name, action,
-			error_message, error_code, severity, context
-		) VALUES (
-			NULLIF($1, '')::uuid, $2, NULLIF($3, '')::uuid, $4,
-			$5, $6, $7, $8, $9,
-			$10, $11, $12, $13::jsonb
-		)`,
-		siteID.String(), domain, workItemID, orchestrationID,
-		agentType, agentID, podName, stepName, "retract_page_deployment",
-		message, code, severity, string(contextJSON))
-	if err != nil {
-		logger.Warn("retract_page_deployment: failed to record condition in agent_error_log — the disposition stands but its durable trace is lost",
-			zap.Error(err), zap.String("error_code", code))
-		return false
-	}
-	return true
+	return LogActionError(ctx, params, siteID.String(), domain, "retract_page_deployment",
+		code, severity, message, contextPayload, logger)
 }
 
 // resolveRetractionSiteID takes the site from config, from a configured field,
