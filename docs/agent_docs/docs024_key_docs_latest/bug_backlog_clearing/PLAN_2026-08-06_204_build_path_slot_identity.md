@@ -89,3 +89,42 @@ name/function only (`loadComponentSchemas`, `:1144`).
   `needs_new_component`/junk `needs_section_data` filed.
 - The 12 `lock_type='permanent'` tool rows untouched (fix only changes
   resolution; the writer's lock handling is unchanged).
+
+## Council round 1 (REVISE, corr d3e232b8) — corrections and answers, 2026-08-06
+
+- **CORRECTED: "the council already reviewed the id-wins flip for 182" was an
+  overclaim** (guardian seat's precedent check). 182 shipped `Council-Submitted`
+  (corr `80fbbe7d`) and only its `fix_plan` artifact exists — **no council_report
+  ever landed**, and `bugs_closed/182` itself says "verdict pending at close".
+  The precedent is PRODUCTION precedent (live since a43be1e70, 2026-08-03),
+  not council precedent. Logged in WRONG_CALLS.
+- **CORRECTED: "sole consumer" was wrong** (guardian). TWO live workflow steps
+  use the action: `page-build-handler.plan_sections` AND
+  `page-content-writer.plan_sections` (bugs_open/087's fallback plan builder).
+  Both map the same three keys (site_id / sections / page_name) the same way,
+  so the change behaves identically for both.
+- Caller inventory (bug_historian): `loadComponentSchemas` has exactly TWO
+  callers fleet-wide — plan_sections:878 and rerender:232, both now id-first.
+  `loadSingleComponentSchema`'s one caller is the selector (Path 2), whose
+  component identity comes from its own scored candidate's function, not from
+  a slot name — not the same judgement.
+- Flip blast radius measured for the BUILD path (bug_historian): **23 stored
+  sections across 9 sites** where slot_name name/function-resolves to a
+  component OTHER than the pinned component_id (query in NOTES; rerender's own
+  measure was 13 with a narrower predicate). Each fires the observe-only log
+  when a build actually plans it.
+- **Open architecture question, recorded as asked by the architecture seat:**
+  should the tri-state resolution (id-hit / id-dropped-loud-defer /
+  id-absent-fallthrough) be ONE shared helper called by both
+  plan_sections and rerender_page_sections, rather than two structurally
+  identical inline blocks? Not done in this fix: rerender's branch is welded to
+  its fatal-list/carry semantics and plan_sections' to defer/work-item
+  semantics — the shared part is the *decision*, the divergent part is the
+  *consequence*. A shared decision-only helper is worth a look; routing to the
+  next council round per the seat's note rather than growing this fix.
+- loadStoredSections (rerender) was checked before writing
+  `loadPageSlotComponentIDs` (reuse_agent): it reads full stored rows
+  (content_data, rendered_html, position) by page_id for the render; the build
+  path has no page_id and must not load page content to plan. Different key,
+  different shape — the shared piece is already shared
+  (loadComponentSchemasByID / componentInfoFromRaw).
