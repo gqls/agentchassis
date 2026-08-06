@@ -194,3 +194,23 @@
   parked parent (times out at 600s on its own). Clean up after acceptance:
   `DELETE FROM agent_definitions WHERE type IN ('test-196-invalid-child','test-196-parent');`
   and delete topic `system.agent.test-196-void.requests`.
+
+## 2026-08-06 — ACCEPTANCE PASSED; CLOSED
+
+- New chassis build live overnight; pod-grep both replicas: fix symbol = 3,
+  positive control = 2. Pods 63m old at dispatch (outside the 300s window).
+- Re-ran the identical two-dispatch recipe (seeds still in place): parent
+  `2023729f` parked with R=`f00590e5`; failing child `82033125`; corr `2ebdf186`.
+- **Wire capture, post-fix**: `status=error_unrecoverable · is_error=true ·
+  is_complete=false · body.success=false · body.error={code: WORKFLOW_INVALID,
+  recoverable: false} · body blob byte-identical · in_response_to_request_id=R`.
+  Every acceptance assertion met; the falsifier (still complete-stamped) did not
+  occur. Baseline vs post-fix table is in the bug file's close header.
+- Bonus observation: yesterday's parked parent `dce0f070` FAILED on its own via
+  the awaited-request timeout path — the reaper works on this shape too.
+- Cleanup done: both probe seeds deleted, void topic deleted; today's parked
+  parent times out at 600s on its own.
+- Closed: 016b §9 pattern added (first response claims the awaited request);
+  consumer notices appended to `bugs_open/029` and `bugs_open/149`'s queue file;
+  CTS-058 flipped to deployed/live; bug file moved to `bugs_closed/` with the
+  close header quoting the induction table.

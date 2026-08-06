@@ -1,5 +1,53 @@
 # 196 — a failure response reaches the parent stamped `complete`, and the parent records the error blob as the step's own output
 
+> ## CLOSED 2026-08-06 — FIXED AT SOURCE, LIVE, and PROVEN BY INDUCTION with a clean before/after
+>
+> Closed by the `bugfix_196` lane (session fc6ee578). Fix commit `d16e6d23c`,
+> **council APPROVED round 1** (`Council-Reviewed: d1a63089-af5b-41a2-bea1-62259aa5db52`),
+> mutation-verified pre-commit (the new tests fail on the un-fixed tree at exactly the
+> defect assertions). Pod-verified on **both** replicas of the 2026-08-06 build:
+> `sendWorkflowResponseWithStatus` = 3, positive control `MatchedPermanentFailure` = 2.
+>
+> **The defect is no longer reproducible.** The identical two-dispatch induction
+> (parked parent + flat failing child; recipe + missteps in the lane's NOTES), run on
+> both binaries, captured the child's answer on the wire:
+>
+> | wire field | pre-fix baseline (08-05, corr `7512b35e`) | post-fix (08-06, corr `2ebdf186`) |
+> |---|---|---|
+> | header `status` | `complete` | **`error_unrecoverable`** |
+> | `is_error` / `is_complete` | `false` / `true` | **`true` / `false`** |
+> | `body.success` | `true` | **`false`** |
+> | `body.error` (ErrorInfo) | absent | **`{code: WORKFLOW_INVALID, recoverable: false}`** |
+> | legacy body blob | `{"error":…,"status":"failed"}` | **byte-identical** |
+> | `in_response_to_request_id` | R (parent's awaited request) | R — addressing unchanged |
+>
+> The parent-delivery half was proven live in induction v1 (a complete-stamped response
+> claims the awaited request, is stored as step data, parent advances) and the
+> coordinator's error arms are adapter-exercised in production daily — so the composed
+> behaviour is: the parent now routes a chassis child's failure to `error_step` /
+> `continue_on_error` / `failWorkflow` instead of continuing on junk.
+>
+> **What shipped** (all in `platform/messaging/processor.go` + its new test file):
+> `sendWorkflowResponseWithStatus` is the one sender for every workflow response; the
+> success wrapper is byte-identical in behaviour; `sendErrorResponse` and
+> `sendWorkflowFailureResponse` (a second complete-stamped sender this file had not
+> named) decide the status from the TYPED error only (`errors.IsRetryable` →
+> `error_recoverable`, else `error_unrecoverable` — prose matching is `197`'s seam,
+> deliberately not duplicated), with the legacy body blob preserved verbatim for its
+> readers (`handlerReportedFailure`, loop_actions, multipage_actions,
+> git_deployer_actions, fixloop_digest_action). Seam registered **CTS-058**.
+>
+> **Sharpenings this file's mechanism read gained during the fix** (details in NOTES):
+> on the non-permanent branch the correctly-stamped agentbase response always LOST the
+> duplicate race to the complete-stamped one (first responder claims the awaited
+> request); the complete-stamping was a REGRESSION (`sendErrorResponseOLD`, dead code,
+> had it right before refactor `deaaa56b7`); and the cheap probe's zero was a lower
+> bound, not absence (`output_mapping` erases the blob shape).
+>
+> Working docs: `docs/agent_docs/docs024_key_docs_latest/bugfix_196_failure_stamped_complete/`.
+> Landmine filed (call_agent children are envelope-wrapped; `extractGroupInfo` is
+> top-level-blind). Pattern in `016b` §9. Probe seeds and the void topic are cleaned up.
+
 **Filed 2026-08-04** by the `bugfix_195_permanent_failure_classifier` lane, at the direction
 of the council's `bug_historian` seat (correlation `9b1254f0-2686-4a52-b736-1e212634ace6`,
 verdict REVISE): *"the plan discovers and correctly defers fixing the success-shaped failure

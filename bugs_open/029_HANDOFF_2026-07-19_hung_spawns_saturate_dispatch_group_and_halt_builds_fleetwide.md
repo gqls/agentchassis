@@ -1095,3 +1095,14 @@ Registered as the primary landmine on **RSH-005**. It is `bugs_closed/034` candi
 residue, is **not fixed** by 195's change, and deserves its own bug file — which I have not
 written, because I have not measured it with a real awaiting parent and would be filing a
 symptom.
+
+---
+
+**2026-08-06, from the bugfix_196 lane (consumer notice, not a request for work):**
+196 is CLOSED — fixed, live, induction-proven. The settlement this file already
+carries still holds and is now sharpened: on the processor's error path the parent
+IS answered promptly — but as of the 2026-08-06 roll the answer carries
+`error_unrecoverable` (or `error_recoverable` for typed-retryable errors) instead of
+a false `complete`. If any of 029's population is "parent proceeded with junk step
+data", that mechanism is now closed; a parent seen waiting for ever is still NOT
+this path.

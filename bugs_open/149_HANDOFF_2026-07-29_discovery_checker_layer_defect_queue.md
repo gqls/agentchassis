@@ -984,3 +984,15 @@ noticed. I deliberately did **not** narrow that DELETE — preserving the `tools
 group would duplicate its page, since the current classifier already places it in
 `utility` — but it is your table and your call whether the hand-created groups
 should exist at all.
+
+---
+
+**2026-08-06, from the bugfix_196 lane (consumer notice — a guarantee changed under
+your queue, no action requested):** as of the 2026-08-06 chassis roll
+(`bugs_closed/196`, commit `d16e6d23c`), a handler saga whose chassis CHILD fails
+now fails honestly at response time (`error_step` / `continue_on_error` /
+`failWorkflow`) instead of completing with the error blob as step data. Work items
+whose handler sagas fail therefore park/fail the same way adapter-failure sagas
+always have — no new state, but if your queue's recovery assumes "handler sagas
+that reach completion", the population reaching completion-with-junk is now zero
+going forward.

@@ -10903,3 +10903,28 @@ refusal on one page is the correct outcome, and the one-line "fix" for that recu
 the destructive change.**
 
 Category tags: `envelope-vs-payload`, `latent-until-regeneration`, `audit-table-archives-the-old-value`, `provenance-gated-repair`.
+
+### The FIRST response claims the awaited request — so a wrong answer produced earlier in the same call stack permanently outranks the right answer produced later (`bugs_closed/196`, 2026-08-06)
+
+The chassis's messaging loop answered a processing failure TWICE: first the
+processor's `sendErrorResponse` (which, until `d16e6d23c`, inherited the success
+envelope — `status: complete`, `Success: true`, failure buried in the body), then
+agentbase's `handleProcessingError` with a correctly-stamped `error_unrecoverable`
+response. Both key on the correlation id, same partition, ordered — and the
+coordinator's `ClaimAwaitedRequest` gives the awaited request to the FIRST arrival
+and discards the second as `DUPLICATE_SKIPPED`. So the correct error response was
+structurally unreachable: the parent marked the step complete, stored the error
+blob as step output, and continued on junk. `error_step`, `continue_on_error` and
+`failWorkflow` never saw a chassis child's failure — while remaining perfectly
+exercised by adapters, which send proper statuses and made the error arms look
+covered.
+
+The transferable checks: **(1)** when a reply looks wrong, ask what ELSE answered
+the same `request_id` first — grep the responses topic for the correlation, not
+just the row; **(2)** when a sender has a success-shaped default envelope, every
+error path that delegates to it inherits the lie — check what the ENVELOPE says,
+not what the body says (`handleUnrecoverableError` reads `Body.Error` first for
+exactly this reason); **(3)** an "unreachable" coordinator arm that other producers
+DO reach looks maintained — reachability must be checked per producer, not per
+switch. Wire-capture before/after and the duplicate-race mechanism:
+`docs024_key_docs_latest/bugfix_196_failure_stamped_complete/NOTES_*.md`.
