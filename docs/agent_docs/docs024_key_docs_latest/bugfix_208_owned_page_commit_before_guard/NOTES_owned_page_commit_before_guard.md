@@ -269,3 +269,80 @@ dir, then **only my six files** copied over it. That is exactly what `make build
 once committed, and it excludes every other session's WIP by construction. `go build
 ./platform/...` and `go test ./platform/orchestration/...` both green there. Command in the
 RUNBOOK as R6.
+
+## 2026-08-06 — council APPROVED, and the three objections that improved the fix
+
+Corr `5d1dcb10-7929-431e-b9e5-496992ce3229`. 13 reviewers, 4 abstained,
+`decided_by: "approved with 5 advisory objection(s) — none high-severity"`. Read in full
+(`scratchpad/verdict_body.txt`), not just the decision field — the whole point of the gate is the
+objections, and three of these were right.
+
+**Acted on (`f5710d6b0`):**
+
+1. **`reuse_agent` MEDIUM — I had reimplemented the ownership predicate** rather than extracting
+   the one already inline in `save_page_sections`. Exactly the drift class this guard exists to
+   prevent, and I walked into it while writing the guard. The inline query is now a call to
+   `pageIsOwnedForGuard`, declared in its doc comment as the only place ownership policy may be
+   read. Behaviour-preservation is evidenced rather than asserted: the pre-existing
+   `save_sections_stored_slot_identity_test.go` mocks that exact query and still passes unchanged.
+2. **`bug_historian` MEDIUM — fail-open was silent.** An owned page whose policy read times out
+   gets composed and committed, with only a log line. Answered by making the window *loud*, not by
+   failing closed (which would stop generic page building fleet-wide on one flaky query, and the
+   seat's own framing — "two fail-open gates instead of one" — is the argument for reporting, not
+   for reversing the posture). The predicate now returns `(owned, checked)`; `!checked` writes
+   `OWNED_PAGE_GUARD_UNCHECKED` to `agent_error_log`, so the window is a number:
+   `SELECT count(*), max(created_at) FROM agent_error_log WHERE error_code='OWNED_PAGE_GUARD_UNCHECKED';`
+3. **`architecture` LOW** — the single-source doc comment, folded into (1).
+
+**Answered with evidence rather than a change:**
+
+4. **`guidelines` MEDIUM — "WORK-ITEM DEDUP mandates DELETE+INSERT, not ON CONFLICT"**, because
+   `idx_swi_dedup` is partial. The mechanism does not apply to the form used here: a bare
+   `ON CONFLICT DO NOTHING` names **no conflict target**, so there is no partial-index inference
+   and no 42P10 — that hazard belongs to the *targeted* `ON CONFLICT ... WHERE` shape
+   `insertWorkItem` uses, which is why `work_items_common.go` carries its lockstep warning.
+   **Induced rather than argued**, in a transaction rolled back afterwards:
+
+   ```
+   INSERT 0 1   -- first keyed insert
+   INSERT 0 0   -- identical key, open row exists   => deduped
+   UPDATE 1     -- drive it to 'cancelled' (terminal)
+   INSERT 0 1   -- same key again => 2 total, exactly 1 open  => correct re-arm
+   ROLLBACK     -- 0 rows remain
+   ```
+
+   Also: `insertWorkItem` requires a `*sql.Tx` and adds two-strike/within-cycle suppression, and
+   **reconcile — the existing producer of this very `item_type` — uses the same bare form.** Using
+   a different one here would make two producers of one key namespace behave differently, which is
+   worse than the objection.
+5. **`editquality` LOW** — the `write_build_items` rationale misattributed the causal route.
+   Correct, and already self-caught before the verdict (see the fable/measurement entry above and
+   `WRONG_CALLS.md`).
+
+**The objection that was wrong, and it is our own fault it was made.** `prior_art_librarian`
+(MEDIUM) inferred from the landmine corpus that `ownedPageExclusionSQL` / `include_owned` /
+`checkUpstreamSkipped` already existed "from a prior attempt at this exact bug", so
+`owned_page_guard.go` was *"a rebuild, not an add"*. There was no prior attempt. Those
+`subject_keys` exist because **this lane wrote the landmine an hour earlier in this same session,
+footprinted on its own new symbols, and `landmines-sync.py --apply` published them to `doc_notes`
+before the council ran.** Writing a landmine for your own unshipped change manufactures prior-art
+evidence about that change. Nothing to fix in the sync tool — but note the shape: a reviewer
+searching a corpus that already contains your own footprints will find you, and report it as
+precedent.
+
+### Mutation, round two — and it caught two guards with no test at all
+
+Re-running the mutations after the refactor (a refactor is exactly when a guard quietly stops
+being load-bearing) found **two gaps my green suite had hidden**:
+
+- **M7** — force `checked=true`, silencing the new fail-open report: **nothing failed.** The
+  report I had just added to answer a council objection had no test.
+- **M2b** — make the shared predicate never return `owned`: only the *assemble* tests failed.
+  **Nothing anywhere asserted `save_page_sections` refuses an owned page** — the pre-existing suite
+  mocks the policy as `generic`, so migration 164's own guard was untested, and my unification
+  inherited that blind spot.
+
+Both now pinned (`TestAssemblePage_FailsOpenWhenPolicyUnreadable` gained an `agent_error_log`
+expectation; `TestSavePageSections_RefusesOwnedPage` is new) and both re-mutated afterwards to
+confirm they fail. **Three mutation rounds, three findings — each time the informative mutation
+was the one I expected to be boring.**
