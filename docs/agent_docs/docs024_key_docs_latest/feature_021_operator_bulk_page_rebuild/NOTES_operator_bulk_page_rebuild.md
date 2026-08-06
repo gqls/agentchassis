@@ -92,3 +92,76 @@ reasoning): intent (recompose vs re-render) wiring; a dedicated Kafka topic
 for this dispatch type (page-rebuild runs are long, same shape of concern that
 got council-gate its own topic — worth measuring after real usage, not
 designing for zero data points); the first real live-fire test itself.
+
+## 2026-08-06 — first real (`DRY_RUN=0`) dispatch: CLEAN, mechanism proven end to end
+
+Target chosen deliberately per `HANDOFF`'s own checklist: `vetcomparison.uk`,
+page `index` (the site had **zero** pre-existing `needs_rebuild` pages —
+confirmed live before firing — so nothing rode along uninvited). Real reason
+(operator-supplied, via chat): homepage's vet list read alphabetical/plain,
+components looked clunky, page didn't clearly state what the site is for.
+
+`CORRELATION_ID=093164d1-0c31-4033-855c-4e042bfe4e3d`,
+`TASK_ID=9758bd8a-b08e-411a-9ef1-af0c9c78b20b`,
+`SITE_ID=72b9e3a6-872f-4528-a6d6-7f205ea60f4d`.
+
+**Pre-flight (`DRY_RUN=1`) matched expectations**: no sweep-in warning, no
+existing pending tasks. Fired for real immediately after.
+
+**End-to-end result — every link in the chain checked, not just "it
+dispatched cleanly":**
+- `kcat` did not silently drop it: `orchestration_states` showed
+  `EXECUTING_STEP`/`spawn_rebuilder` within 12s of firing.
+- Full run: claimed 08:32:16, completed 08:35:48 — **~3.5 minutes**, well
+  inside the 5400s per-site step timeout (this was one page, not a batch).
+  All 6 `orchestration_states` rows sharing the correlation id (parent
+  `maintenance-triage` + the `spawn_rebuilder`/`rebuild_loop` sub-orchestrations)
+  ended `COMPLETED`/`complete`. No `error_message` on the `maintenance_queue`
+  row.
+- `pages.build_status` for `index` flipped to `deployed`,
+  `updated_at`=08:35:27 — matches the run.
+- **Deployed artefact checked directly, not just the status** (this repo's
+  own recurring lesson): `curl`'d the live URL. Response `last-modified:
+  Thu, 06 Aug 2026 08:35:49 GMT` — matches the run's completion almost to the
+  second, so this is genuinely this run's output, not a cached/unrelated
+  deploy. The hero headline changed from "Find a UK Veterinary Practice" /
+  a long generic CMA-disclosure paragraph to "Find a UK veterinary practice,
+  and see what it discloses before you call." — materially addresses the
+  "doesn't clearly state what the site is for" complaint.
+
+**One honest gap in the verification, worth recording rather than glossing
+over**: I could not confirm the "alphabetical vet list" complaint against
+anything that actually changed. Neither the pre-rebuild nor post-rebuild
+`page_component_history` rows for this page show a raw list of practice
+names anywhere on the homepage — it has always been `hero` +
+`info-card-grid` (3 cards, text byte-identical before/after) + `latest-news`
++ `call-to-action`. The card linking to "Search the directory" points at
+`/directory/index.html`, i.e. the `directory-index` page — which is
+`build_status='planned'`, **not built**. So a browsable/orderable list of
+practices does not exist live anywhere on this site yet; the homepage never
+had one to reorder. Worth surfacing to whoever asked for this, in case what
+they actually want is the directory page built (a different, larger piece of
+work, out of scope for this script).
+
+**Also worth recording as [OBSERVED, unexplained]**: the *live-fetched* hero
+headline does not match *either* the before-rebuild or after-rebuild
+`content_data` stored in `page_components`/`page_component_history` for the
+`hero` slot (both DB records read "Find a UK Veterinary Practice..." — the
+old copy; a third, different-again variant "UK veterinary practice
+directory..." also appears in the history but is not what's live either).
+The `last-modified` match proves the served file is this run's output, so
+the discrepancy means the final rendered/deployed HTML is not simply a
+template render of `page_components.content_data` as stored — some later
+step in the pipeline produces the copy that actually ships. Not chased
+further here (out of scope for proving the mechanism); flagging because it
+means **do not trust `page_components.content_data` alone to describe what a
+page says** — check the deployed artefact, per the same standing lesson.
+
+**Conclusion: the mechanism is proven live.** This is the first time
+`maintenance_queue` → `maintenance-triage` → `page-rebuild` →
+`mark_maintenance_complete` has run for a real operator request, and it
+worked cleanly on the first attempt. See `HANDOFF`'s "after a clean first
+real run" section for the follow-on decisions (concept register entry,
+feature-file status line — done same session) and the two explicitly
+deferred questions (intent wiring, dedicated topic) — neither is triggered by
+one clean run of one page.

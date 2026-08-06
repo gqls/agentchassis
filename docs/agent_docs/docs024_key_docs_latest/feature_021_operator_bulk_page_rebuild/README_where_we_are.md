@@ -54,3 +54,37 @@ it for real.
 Everything above is written up properly in this folder (the plan, the exact
 commands, the working log, and a handover file) so a new chat can pick this
 up without me having to explain any of it again.
+
+2026-08-06 — Picked this back up in a fresh chat, from the handover above.
+Checked first whether anyone else had already fired the real test in the
+meantime — nobody had, the queue was untouched.
+
+Asked you to pick a genuine first target rather than choosing one myself,
+since this fires a real production rebuild and I didn't want to guess at
+what you actually wanted changed. You picked the vetcomparison.uk homepage,
+and gave me the real reason: the vet list read alphabetical and dull, the
+page components looked plain and clunky, and it didn't clearly say what the
+site is for. That site had nothing else sitting in the "needs rebuilding"
+state, so it was a clean choice — nothing unrelated could ride along.
+
+Ran the safe preview first (clean, as expected), then fired it for real.
+It worked, on the first real attempt: about three and a half minutes from
+request to a redeployed page, and I checked the actual live page afterwards
+rather than just trusting the "success" status. The homepage's headline is
+now genuinely clearer about what the site does — it changed from a generic
+"Find a UK Veterinary Practice" line to "Find a UK veterinary practice, and
+see what it discloses before you call," which speaks directly to your
+"doesn't say what it's for" complaint.
+
+One thing I could not confirm, and want to flag rather than paper over: I
+could not find any alphabetical list of vets anywhere on this homepage,
+before or after the rebuild. The homepage links out to a practice directory,
+but that directory page hasn't actually been built yet. So if what you
+pictured was a homepage showing an actual list of practices in some more
+interesting order, that list doesn't exist yet anywhere on the site — it
+would need the directory page built first, which is separate, bigger work
+this script doesn't do. Worth telling me if that's what you actually want
+next.
+
+So: the mechanism this whole feature was about is now proven working for
+real, not just in theory. I've marked the feature file accordingly.

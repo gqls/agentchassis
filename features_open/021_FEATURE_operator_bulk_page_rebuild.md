@@ -5,9 +5,16 @@ components + a new copy voice across five pages needed the pages rebuilt, and
 there is no first-class way to ask for that. Hand-driving it collided with two
 immune-system mechanisms tuned to stop runaway loops, which treat a deliberate
 rebuild as recurrence and quietly park it.
-**Status:** IN PROGRESS as of 2026-08-05 — operator entry point
-(`scripts/rebuild_pages.sh`) built and safe-mode-tested; first real dispatch
-still owed. **Owner: `feature_021_operator_bulk_page_rebuild` workstream**
+**Status:** LIVE and PROVEN as of 2026-08-06 — operator entry point
+(`docs024_key_docs_latest/feature_021_operator_bulk_page_rebuild/scripts/rebuild_pages.sh`)
+built, safe-mode-tested, and its first real (`DRY_RUN=0`) dispatch ran clean
+end to end (`vetcomparison.uk`/`index`, correlation
+`093164d1-0c31-4033-855c-4e042bfe4e3d` — orchestration completed in ~3.5 min,
+deployed artefact checked directly and confirmed changed). See NOTES'
+2026-08-06 entry for the full trail, including one honest gap (couldn't
+confirm the "alphabetical vet list" complaint mapped onto anything real — no
+page on this site has a browsable practice list yet, built or unbuilt-linked
+only). **Owner: `feature_021_operator_bulk_page_rebuild` workstream**
 (`docs024_key_docs_latest/feature_021_operator_bulk_page_rebuild/`, start at
 `HANDOFF_2026-08-05_continue_here.md`). Its blocker cleared before pickup:
 `bugs_open/070` (the reaper predicate) **closed 2026-07-27** (now
