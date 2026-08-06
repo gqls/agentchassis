@@ -1,0 +1,94 @@
+# RUNBOOK — bugs_open/208, owned pages in generic build loops
+
+Every command that was hard to get right, with its gotcha attached. Change it HERE.
+
+## R1 — Find every live consumer of an action (nested walk, NOT top-level)
+
+**Gotcha:** a top-level `jsonb_each` over `{workflow,steps}` finds only the steps at the top
+level. Every step inside a loop's `sub_workflow` is invisible to it — that under-reporting is
+already recorded at `save_page_sections_action.go:180` (it once turned "6 callers" into "3").
+Use the recursive path query:
+
+```sql
+SELECT ad.type AS agent, s.key AS step_name,
+       s.value->>'next_step'  AS next_step,
+       s.value->>'output_field' AS output_field,
+       s.value->'config'      AS config
+FROM agent_definitions ad,
+     LATERAL jsonb_path_query(ad.default_config, '$.**.steps') AS steps,
+     LATERAL jsonb_each(steps) AS s(key, value)
+WHERE s.value->>'action' = '<action_name>'
+  AND ad.is_active AND COALESCE(ad.is_snapshot,false)=false AND ad.deleted_at IS NULL
+ORDER BY ad.type, s.key;
+```
+
+Always carry the three-part liveness filter (`is_active`, not a snapshot, not deleted) or
+snapshots inflate the consumer count.
+
+## R2 — Read a whole live step graph (to check ORDER, which no grep can tell you)
+
+```sql
+SELECT s.key AS step, s.value->>'action' AS action, s.value->>'next_step' AS next_step
+FROM agent_definitions ad,
+     LATERAL jsonb_path_query(ad.default_config, '$.**.steps') AS steps,
+     LATERAL jsonb_each(steps) AS s(key, value)
+WHERE ad.type = 'page-rebuild'
+  AND ad.is_active AND COALESCE(ad.is_snapshot,false)=false AND ad.deleted_at IS NULL
+ORDER BY s.key;
+```
+
+**Gotcha:** the rows come back alphabetically, not in execution order — follow `next_step` by
+hand. `page-rebuild`'s loop body reads
+`plan_sections → write_page_content → review_page_content → check_review_approved →
+assemble_page → deploy_page → save_sections → update_page_status → complete_page`.
+
+## R3 — The exposure census (the population a fix must protect)
+
+```sql
+SELECT p.name, s.domain, p.page_type, p.build_status
+FROM pages p JOIN sites s ON s.id = p.site_id
+WHERE p.status='active'
+  AND COALESCE(p.rebuild_policy,'generic')='owned'
+  AND COALESCE(p.build_status,'planned') IN ('needs_rebuild','planned')
+ORDER BY s.domain, p.name;
+```
+
+**Gotcha:** `COALESCE` both columns. `rebuild_policy` is `NOT NULL DEFAULT 'generic'` today so
+the first is belt-and-braces, but `build_status` is genuinely nullable and a bare
+`build_status IN (...)` silently drops those rows — the same shape as the defect being fixed.
+Also run it **without** the policy filter to get the denominator; a count of owned pages alone
+cannot tell you whether the filter is doing anything.
+
+## R4 — Is another session already on this bug? (both halves)
+
+`scripts/who-owns.py <n>` reads **commits**, so a bug FILED an hour ago reads as OWNED. It
+cannot see an uncommitted session at all. Do both:
+
+```bash
+./scripts/who-owns.py 208
+cd ~/.claude/projects/-home-ant-projects-agentchassis
+for f in $(ls -t *.jsonl | head -30); do
+  hits=$(tail -c 400000 "$f" | grep -oE "208_HANDOFF|<your symbols>" | sort | uniq -c | tr '\n' ' ')
+  [ -n "$hits" ] && echo "$f [$(date -r $f +%H:%M)] $hits"
+done
+```
+
+**Gotcha:** `tail -c` on a file being appended to by a live session can panic under this
+`tail` build (`Os { code: 22 }`) — harmless, but it silently skips that file, so a clean sweep
+is not proof. Re-run, or read the file with python if it matters.
+
+## R5 — Verify a fix WITHOUT destroying a live tool page
+
+Never verify this by rebuilding a real owned page. In order:
+
+1. **Unit** — sqlmock, following the idiom in
+   `platform/orchestration/actions/save_sections_stored_slot_identity_test.go:324-327`
+   (`mock.ExpectQuery("SELECT COALESCE\\(rebuild_policy")`).
+2. **Query-level** — run R3, then run the fixed selection SQL against a site that has an owned
+   page at `needs_rebuild` and assert the owned page is **absent** from the returned set.
+   Assert row **identity**, not a count: a count that drops by one proves something was
+   excluded, not that it was the right something.
+3. **Live, on a safe target** — dispatch a real rebuild on a site whose `needs_rebuild` set is
+   **generic-only**, and assert the owned page's `updated_at` **and** its served HTML are both
+   unchanged. Include a **negative control**: a generic page in the same run must still be
+   rebuilt, or a fix that excludes everything passes just as well.
