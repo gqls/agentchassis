@@ -121,27 +121,47 @@ func resolveGuardedPage(ctx context.Context, db *sql.DB, collectedData map[strin
 	return uuid.Nil, "", false
 }
 
-// pageIsOwnedForGuard reads the ownership marker.
+// pageIsOwnedForGuard reads the ownership marker. **This is the ONLY place any
+// pipeline may read ownership policy from** — SavePageSectionsAction's
+// migration-164 refusal goes through it too. If you are tempted to inline
+// `SELECT rebuild_policy` in a new caller, call this instead: two predicates for
+// "is this page owned" is precisely the drift class this guard exists to prevent,
+// and the council's `reuse_agent` seat objected on exactly that ground when this
+// file first duplicated the save path's inline query.
 //
-// Fails OPEN (false) on any error, matching SavePageSectionsAction's existing
-// posture — "a scan error means an older schema, in which case the guard stands
-// down". A guard that fails CLOSED here would stop generic page building
-// fleet-wide the first time this query hiccupped, which is a worse outcome than
-// the one it prevents, and the selection-level exclusion already carries the
-// load for the two loops that own most of the traffic.
-func pageIsOwnedForGuard(ctx context.Context, db *sql.DB, pageID uuid.UUID, logger *zap.Logger) bool {
+// Returns (owned, checked). **`checked=false` means the policy could not be READ,
+// not that the page is generic** — indistinguishable in the bool alone, which is
+// why the second return exists and why callers must report it.
+//
+// Fails OPEN on any error, matching SavePageSectionsAction's long-standing posture
+// ("a scan error means an older schema, in which case the guard stands down"). A
+// guard that failed CLOSED would stop generic page building fleet-wide the first
+// time this query hiccupped — worse than the harm it prevents — and the
+// selection-level exclusion already carries the load for the two loops with most
+// of the traffic.
+//
+// The council's `bug_historian` seat objected (medium) that fail-open leaves a
+// SILENT window: an owned page whose lookup times out is composed and committed,
+// logged only. Answered by making the window LOUD rather than by failing closed —
+// `checked=false` is logged at ERROR and persisted to `agent_error_log` as
+// OWNED_PAGE_GUARD_UNCHECKED by the assemble call site, so the window is countable
+// rather than hoped-about:
+//
+//	SELECT count(*), max(created_at) FROM agent_error_log
+//	WHERE error_code = 'OWNED_PAGE_GUARD_UNCHECKED';
+func pageIsOwnedForGuard(ctx context.Context, db *sql.DB, pageID uuid.UUID, logger *zap.Logger) (owned bool, checked bool) {
 	if db == nil || pageID == uuid.Nil {
-		return false
+		return false, false
 	}
 	var policy string
 	if err := db.QueryRowContext(ctx, `
 		SELECT COALESCE(rebuild_policy, 'generic') FROM pages WHERE id = $1
 	`, pageID).Scan(&policy); err != nil {
-		logger.Warn("ownedPageGuard: rebuild_policy lookup failed — guard standing down for this page",
+		logger.Error("ownedPageGuard: rebuild_policy UNREADABLE — guard standing down, page treated as generic",
 			zap.String("page_id", pageID.String()), zap.Error(err))
-		return false
+		return false, false
 	}
-	return policy == ownedRebuildPolicy
+	return policy == ownedRebuildPolicy, true
 }
 
 // emitOwnedPageReviewItem records that a generic build was refused for an owned

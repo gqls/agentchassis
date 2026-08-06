@@ -40,7 +40,24 @@ func AssemblePageAction(ctx context.Context, params ActionParams) (interface{}, 
 	// an error here would fail the whole workflow and strand every page after this
 	// one. See owned_page_guard.go for why this seam rather than git_commit.
 	if pageID, pageName, ok := resolveGuardedPage(ctx, params.DB, params.CollectedData, params.Logger); ok {
-		if pageIsOwnedForGuard(ctx, params.DB, pageID, params.Logger) {
+		owned, checked := pageIsOwnedForGuard(ctx, params.DB, pageID, params.Logger)
+
+		// The fail-open window, made countable instead of silent (council
+		// `bug_historian`, medium). This page is about to be composed and committed
+		// WITHOUT an ownership check having succeeded — rare, and exactly the case
+		// that would otherwise look identical to a generic page in every record.
+		if !checked {
+			LogActionError(ctx, params,
+				datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.site_id"),
+				datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.domain"),
+				"assemble_page", "OWNED_PAGE_GUARD_UNCHECKED", "high",
+				fmt.Sprintf("rebuild_policy for page %s (%s) could not be read; generic assembly proceeded without an ownership check",
+					pageName, pageID),
+				map[string]interface{}{"page_id": pageID.String(), "page_name": pageName},
+				params.Logger)
+		}
+
+		if owned {
 			reason := fmt.Sprintf(
 				"%s: page %s is rebuild_policy=owned (tool/widget-owned); a generic recomposition "+
 					"would be committed over the live page. Use the tool pipeline for rebuilds or "+

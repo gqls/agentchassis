@@ -305,8 +305,15 @@ func TestAssemblePage_FailsOpenWhenPolicyUnreadable(t *testing.T) {
 		WithArgs(pageID).
 		WillReturnError(context.DeadlineExceeded)
 
+	// The fail-open window must be RECORDED, not merely survived. Without this
+	// expectation the report is untested — proven by mutation M7, which forced
+	// checked=true (silencing the report) and broke nothing.
+	mock.ExpectExec("INSERT INTO agent_error_log").
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
 	params := assembleParams(db, map[string]interface{}{
 		"current_page": map[string]interface{}{"id": pageID.String(), "name": "about"},
+		"site_record":  map[string]interface{}{"site_id": uuid.New().String(), "domain": "example.test"},
 		"page_content": map[string]interface{}{
 			"response": map[string]interface{}{"page_html": "<html><body>copy</body></html>"},
 		},
@@ -319,6 +326,51 @@ func TestAssemblePage_FailsOpenWhenPolicyUnreadable(t *testing.T) {
 	}
 	if skipped, _ := out.(map[string]interface{})["skipped"].(bool); skipped {
 		t.Fatal("guard failed CLOSED on an unreadable policy; it must stand down instead")
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("an unreadable policy must be reported as OWNED_PAGE_GUARD_UNCHECKED, "+
+			"or the fail-open window is indistinguishable from a generic page: %v", err)
+	}
+}
+
+// TestSavePageSections_RefusesOwnedPage pins the OTHER consumer of the now-shared
+// ownership predicate. Nothing asserted this before: the pre-existing suite mocks
+// the policy read returning "generic", so a predicate that never returns owned
+// passed everything (mutation M2b). The refusal here is deliberately a hard ERROR,
+// unlike the assemble path's skip — it is the last line for a caller that reaches
+// this action with real content, and migration 164 wants it loud.
+func TestSavePageSections_RefusesOwnedPage(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	siteID := uuid.New()
+	pageID := uuid.New()
+
+	mock.ExpectQuery("SELECT id, url FROM pages").
+		WithArgs(siteID, "tool-gauntlet").
+		WillReturnRows(sqlmock.NewRows([]string{"id", "url"}).AddRow(pageID, "/tools/gauntlet/index.html"))
+	mock.ExpectQuery("SELECT COALESCE\\(rebuild_policy").
+		WithArgs(pageID).
+		WillReturnRows(sqlmock.NewRows([]string{"rebuild_policy"}).AddRow("owned"))
+
+	params := ActionParams{
+		StepConfig: models.Step{Config: map[string]interface{}{}},
+		CollectedData: map[string]interface{}{
+			"current_page": map[string]interface{}{"name": "tool-gauntlet"},
+			"site_record":  map[string]interface{}{"site_id": siteID.String()},
+		},
+		DB:               db,
+		Logger:           zap.NewNop(),
+		ExecutionContext: &orchtypes.ExecutionContext{StepName: "save_sections"},
+	}
+
+	if _, err := SavePageSectionsAction(context.Background(), params); err == nil {
+		t.Fatal("owned page was not refused by save_page_sections — migration 164's guard is inert")
+	} else if !strings.Contains(err.Error(), "rebuild_policy=owned") {
+		t.Errorf("refused, but not for the ownership reason: %v", err)
 	}
 }
 

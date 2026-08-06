@@ -176,11 +176,14 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 	// the heuristic guards below: targeted edits go through apply_section_edit,
 	// tool rebuilds through the tool pipeline. (Column ships in migration 164;
 	// a scan error means an older schema, in which case the guard stands down.)
+	//
+	// UNIFIED 2026-08-06 (bugs_open/208, council `reuse_agent` seat): the predicate
+	// now goes through pageIsOwnedForGuard, the single place ownership policy is
+	// read. Same SQL, same fail-open-on-scan-error behaviour as the inline version
+	// this replaced — the point is that there is one predicate rather than two
+	// drifting copies of "is this page owned".
 	{
-		var rebuildPolicy string
-		if scanErr := params.DB.QueryRowContext(ctx, `
-			SELECT COALESCE(rebuild_policy, 'generic') FROM pages WHERE id = $1
-		`, pageID).Scan(&rebuildPolicy); scanErr == nil && rebuildPolicy == "owned" {
+		if owned, _ := pageIsOwnedForGuard(ctx, params.DB, pageID, params.Logger); owned {
 			params.Logger.Warn("SavePageSectionsAction: OWNED PAGE — generic section save refused",
 				zap.String("page_name", pageName),
 				zap.String("page_id", pageID.String()),
