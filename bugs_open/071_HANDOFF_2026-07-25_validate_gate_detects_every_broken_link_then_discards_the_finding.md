@@ -821,3 +821,67 @@ YET ENABLED (deliberate)" while the check had been enabled and filing for weeks.
 
 Lane docs: `docs024_key_docs_latest/bugfix_071_fragment_blindspot/`
 (PLAN / NOTES / RUNBOOK / README_where_we_are).
+
+### 2026-08-06 (post-roll) — the fragment arm is LIVE on v1.0.1259 and induction-proven; this residue is CLOSED, the file is not
+
+**Council APPROVED round 1** (`bbbb4132-4abe-4db1-a1ba-755377dab009`, 3 advisory
+objections, none high). One of them earned its keep: the `guardian` seat asked
+whether the shared-helper refactor had callers I had not checked, and it did —
+`deploy_tool_action.go:182`, a **hard pre-deploy refusal gate** for tool birth.
+Settled by restoring the pre-refactor implementation from `af2667453^` and running
+both over every component template in the estate plus every page, site and
+whole-page document in the fleet: **4,036 documents, 0 mismatches** (the first run
+of that differential was vacuous — both agreed only about `nil` — and a guard
+written into the harness beforehand caught it; re-run with id-stripped variants
+gives 403 discriminating cases).
+
+**Live and proven, on the deployed binary rather than in a test.** Pod-grepped both
+replicas (`dead_fragment_link` 10, was 0; positive control `phantom_internal_link`
+10; invented control 0), then a real `completeness-discovery-agent` dispatch
+against a four-case fixture on a pool site (`status='pool'`, nothing serves it):
+
+| case | expected | got |
+|---|---|---|
+| bare `#x`, no such id | FIRE | filed |
+| bare `#x`, id on the same page | silent | silent |
+| `/page.html#x`, target lacks the id | FIRE | filed |
+| `/page.html#x`, target HAS the id | silent | silent |
+
+Two items, `low`, `page-build-handler`/`content`, filed against the page
+**containing** the link. **And the retraction was proven with one variable:**
+repairing only the bare case — adding the id, leaving the href untouched — dropped
+the findings from 2 to 1, the survivor being the cross-page one. Same binary, same
+run, same data. That is what establishes the shipped code resolves fragments
+against document ids rather than pattern-matching hrefs.
+
+The `<a href="#">` in the same fixture was claimed by `dead_control`, **not** by
+this arm — so the one fixture also proved the remit boundary in the direction that
+matters, and nothing double-reports.
+
+Fleet re-measured post-roll: **67 fragment-bearing hrefs, 0 findings**. Fixture
+deleted, pool site proven back to 0 pages / 0 items in the same statement.
+
+**Owed, small:** `VerifyDeadFragmentLinkResolved` has not itself executed. Its
+three SQL shapes were validated in both directions against the live fixture, but
+the function is reachable only through `CompleteWorkItemAction`, whose live callers
+are the dispatch loops — and `build-dispatch-loop` takes `item_domain='build'`
+while these items are `content`. The first real completion of a
+`dead_fragment_link` item runs it.
+
+**THIS FILE STAYS OPEN.** The fragment *detection* residue is done; three named
+pieces of the fragment class are not, and the file's other mechanisms are not mine:
+(1) the deploy gate still cannot judge fragments — it receives `page_html` without
+chrome, so gate-side validation would false-positive on every chrome-satisfied
+anchor; (2) nothing repairs a dead fragment, and unlinking a label-bearing anchor
+leaves the label as bare text; (3) **no section component emits a stable `id`**, so
+a fragment link can still only be avoided, never made to work on purpose — that is
+the capability half, it changes every page's rendered HTML fleet-wide, and it wants
+an architecture round rather than a bug patch. Both the `bug_historian` and
+`architecture` seats noted that link-target resolution now has **three unaligned
+consumers** (the gate, this arm, `link_repair.go`); architecture still graded the
+change `point_fix` and observed that `DocumentIDs` is positioned so (3) has a
+validator ready when it ships.
+
+Lane docs, incl. the roll-time procedure and five paid-for traps:
+`docs024_key_docs_latest/bugfix_071_fragment_blindspot/` (HANDOFF / PLAN / NOTES /
+RUNBOOK / README_where_we_are).
