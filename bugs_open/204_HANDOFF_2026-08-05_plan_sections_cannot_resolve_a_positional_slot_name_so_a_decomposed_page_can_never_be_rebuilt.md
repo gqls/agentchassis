@@ -175,3 +175,54 @@ not is an independent reader — worth having if the fixing thread wants it, and
 symptom to file would be *"plan_sections resolves pages.sections against
 content_components.name/function; sites whose sections are positional slot names
 cannot be rebuilt"*.
+
+---
+
+## §Fix committed 2026-08-06 — awaiting roll + live verification (this section by the fixing session, 7fffb7ef)
+
+**Commit `13252f714`** (`fix(204): build path resolves sections by stored identity
+first`), council correlation `d3e232b8-5456-4eb8-bb6b-851f3ac28610`
+(`Council-Submitted:` trailer; read the verdict before closing). Plan with the
+decision log:
+`docs/agent_docs/docs024_key_docs_latest/bug_backlog_clearing/PLAN_2026-08-06_204_build_path_slot_identity.md`.
+
+What shipped — candidate 1 plus the loud-miss half of candidate 2, as one Path 0:
+
+- `loadPageSlotComponentIDs` reads the page's `page_components` slot→component_id
+  map by UNIQUE `pages(site_id, name)` — the answer to §candidate 1's "where does
+  the page id come from": it was never needed; (site_id, page_name) is already a
+  complete identity and the action has always had both.
+- The section loop tries the stored identity FIRST, with the re-render path's
+  decided 182 semantics: id wins over a disagreeing name match (observe-only
+  log), a template-guard-rejected pinned component defers LOUDLY (actionable
+  `needs_section_data`, NO `needs_new_component`, NO silent name fallback), an
+  id with no active row falls through to the name/selector paths unchanged.
+- Duplicate slot_names (legitimate, 11 pages fleet-wide) map when repeats agree
+  on the id, fall back to name resolution when they disagree.
+- Seven sqlmock tests (`plan_sections_slot_identity_test.go`), each
+  mutation-tested; package suite 1144 pass. Committed-HEAD archive builds and
+  passes.
+
+**Census re-measured 2026-08-06 before fixing: 87 unresolvable across 6 sites**
+(was 86/5 at filing — loanandmortgagecalculator.co.uk gained one). loancalculator
+still 57/57.
+
+### To close (fixed AND live bar) — steps for this or any thread
+
+1. Fix rides the next whole-fleet release (owner runs
+   `make release redeploy-agents ENVIRONMENT=production REGION=uk001`); at
+   commit time live was v1.0.1256 = HEAD's tag, so the next build needs a tag
+   bump.
+2. Pod-grep positive AND negative controls, one pod per ReplicaSet:
+   `kubectl exec -n ai-persona-system <chassis-pod> -- sh -c 'strings /app/agent-chassis | grep -c "load page slot identities"'` → ≥1
+   and `... grep -c "slot_name repeats with different component_ids"` → ≥1
+   (both strings are NEW in this commit; a pre-fix binary has 0 of each).
+3. Re-fire the canary (`voiceh-canary` shape, §Induced above) at
+   `guide-how-loans-are-calculated` and assert: prose changed (baseline in §How
+   to verify), zero `needs_new_component` filed, no empty-suffix
+   `needs_section_data`.
+4. Sweep for junk items any pre-fix build attempt filed:
+   `SELECT id, item_type, summary FROM site_work_items WHERE item_type IN ('needs_new_component','needs_section_data') AND status NOT IN ('complete','cancelled','rejected') AND (summary LIKE '%prose-%' OR summary LIKE '%tool-%');`
+5. The 12 `lock_type='permanent'` tool rows on loancalculator untouched (this
+   change only alters resolution; the writer's lock handling is unchanged).
+6. Unblocks: loancalculator H-voice copy rerun (owner instruction 2026-08-05).
