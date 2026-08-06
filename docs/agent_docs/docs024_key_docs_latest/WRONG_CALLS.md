@@ -21578,3 +21578,38 @@ fleet-wide and remains true tomorrow.
 **Generalisation.** A log-based absence is bounded by *retention AND process age*,
 whichever is shorter, and only one of those is in the flag you typed. Sibling entry:
 "logs count REQUESTS; stay inside retention".
+
+---
+
+## 2026-08-06 — I put `Council-Reviewed:` on a docs-only commit, so the coverage report now credits prose with a code review
+
+**Lane:** bugfix 203. **My own call**, caught by re-reading my own commit message.
+
+**What I did.** Commit `eba83792e` is documentation only — a bug-file state section, a
+workstream NOTES append, and two WRONG_CALLS entries. I signed it
+`Council-Reviewed: 42eda9a5-6188-4e89-a11a-adb1dcbb135f`.
+
+**Why it is wrong, precisely.** The verdict is real and I read it in full from
+`diagnosis_artifacts`, so this is *not* the dishonesty case the rules warn about (a trailer
+naming a verdict nobody read). It is the subtler one: that verdict reviewed
+`880a405a6`'s **code**, and the gate **refuses docs submissions client-side**, so a
+docs-only commit cannot have a verdict of its own to cite. The trailer exists to give the
+`098` coverage report an exact commit↔verdict join; I have handed it a join that marks a
+prose commit as carrying a code review. Nobody is misled about the code — but the register
+whose job is answering "which platform-code commits went unreviewed" now has a row in it
+that is not a platform-code commit at all.
+
+**What caught it.** Reading my own commit message back before moving on, and asking what
+the trailer would *do* rather than whether it was true.
+
+**The cheap check.** Before adding either trailer, ask one question: **does this commit
+contain the reviewed code?** If it contains only docs, add no trailer — `880a405a6` already
+carried `Council-Submitted:`, and the report resolves that correlation automatically once
+the verdict turns approved, with no amend and no help from me. The trailers are not badges
+of having done the right thing; they are join keys, and a join key on the wrong row is
+worse than an absent one.
+
+**Forward-only, so `eba83792e` keeps the trailer** — this row and the lane's NOTES F14 are
+the correction. Sibling entries: "a `Council-Submitted:` trailer is a SUBMISSION, not a
+verdict", and the 2026-08-06 entry above about a commit message being a claim about shared
+mutable state.

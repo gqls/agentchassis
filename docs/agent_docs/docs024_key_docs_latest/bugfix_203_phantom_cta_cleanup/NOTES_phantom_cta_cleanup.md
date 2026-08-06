@@ -99,3 +99,44 @@ to what the regex path does with an absent key, or deletion of that path outrigh
 makes the latter thinkable), and either is a guarantee change on shared rendering
 plumbing that needs its own measurement and council round. Not something to bolt onto a
 cleanup session.
+
+## 2026-08-06 (later still) — the detector's premise is REFUTED, and my own trailer misstep
+
+**F11 — `bugs_open/203` candidate 3 is WRONG, and this is worth correcting in place.**
+The bug file says `check_misdirected_cta` "clearly isn't running frequently/broadly enough
+to have caught 11 of 13". Measured: `cta_names_unknown_destination` holds **123** items
+across **10** distinct sites, filed as recently as 08-05 (robot-hands 29, ai-agent-orch 22,
+leopardess 20, finetuning 18, gaswholesalers 12, idea.uk 8, vonc 7, fundamentallyai 4,
+relojistas 2, gamesdesign 1). The detector runs, broadly, and files plenty. **Under-running
+is not the defect.**
+
+**F12 — the actual defect is that nothing drains what it files.** All 123 sit at
+`needs_human_review` with `handler_agent = ''` (empty string, the column's default — not a
+handler that failed, a handler never assigned). That is `bugs_open/083`'s class
+("detected findings never reach a handler"), arriving on this queue. Candidate 3 should be
+re-aimed from "make the detector run more" to "give its output a handler", which is a
+different bug and probably not this file's to fix.
+
+**F13 — but the detector genuinely missed my four mismatches, for a structural reason.**
+Searching its items for the four labels returns exactly one row, and it is a *different*
+page (`idea.uk/about`, info-card-grid, "How we work →", filed 07-18). Reading the
+predicate: `ctaClassifyAnchor` (`check_misdirected_cta.go:164`) **returns early unless
+`bestPageMatch(tokens, pages)` finds a real page whose tokens match the anchor text.** So
+an anchor is only ever flagged when the checker can already name a better destination. A
+CTA whose promise matches no page in the index — or whose match is filtered out of the
+index upstream — is invisible to it by construction, not by scheduling. Note also
+`bugs_open/185` ("detectors select deployed and miss 28 live pages"), which would bite the
+same check independently. **Not chased further here: that is the detector's own bug, and
+185/083 are other files' territory.**
+
+**F14 — my own misstep, logged rather than quietly dropped.** I put
+`Council-Reviewed: 42eda9a5` on commit `eba83792e`, which is **docs-only**. The verdict I
+read is real and I read it in full, so it is not a fabricated verdict — but it reviewed the
+*code* change (`880a405a6`), and the gate refuses docs submissions client-side, so a
+docs commit can never have a verdict of its own. The trailer's whole purpose is an exact
+commit↔verdict join for the `098` coverage report, and I have just fed it a join that
+credits a prose commit with a code review. Forward-only, so `eba83792e` keeps the trailer
+and this note is the correction. **The rule I should have followed: a docs commit needs no
+trailer at all** — `Council-Reviewed:` belongs on the commit carrying the reviewed code,
+and `880a405a6` (which carried `Council-Submitted:`) is the one the report resolves
+automatically once the verdict turned approved. Added to WRONG_CALLS.

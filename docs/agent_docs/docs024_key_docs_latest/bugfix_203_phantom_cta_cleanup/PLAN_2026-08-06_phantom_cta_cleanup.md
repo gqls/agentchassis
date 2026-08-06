@@ -66,6 +66,35 @@
   rerender. Buttons the resolver still can't place go absent + `unresolved_cta` work
   item — which is the designed behaviour.
 
+- **D4 (2026-08-06): P2 is NOT "delete lines 1138/1140" — that trade is a regression, and
+  the council said so before I measured it.** `renderGoStyleSubstitutions` returns the
+  literal `{{.field}}` for an absent key, so removing a URL default on the regex path ships
+  template syntax inside an `href`. The platform's own recorded preference settles the
+  direction — `sanitiseFormAction`'s doc comment: a repair that "makes the form look
+  repaired while still losing the message … is worse than the visible breakage: the failure
+  stops being detectable from outside." So the door-closing shape is **make the absence
+  detectable, not decorative**: have the regex path substitute empty for an absent key (the
+  existing `missingBareFields` already logs a blanked `href=` at ERROR as a dead control),
+  and only then remove the two URL defaults. `RenderTemplateWithValidation` being dead code
+  (F7) makes the stronger option — deleting the regex fallback and failing the render loudly
+  — genuinely available, and it is the version that makes the bad state unrepresentable.
+  **Both are guarantee changes on shared rendering plumbing: measure how often
+  `executeGoTemplate` actually errors first, then submit.** Neither is urgent: F5 shows both
+  members inert.
+- **D5 (2026-08-06): candidate 3 is re-aimed, not executed.** The detector is not
+  under-running (F11). Its output has no handler (F12) and its predicate can only flag an
+  anchor when it can already name a better page (F13). Draining 123 items is `bugs_open/083`'s
+  class and wants its own lane; the predicate gap wants its own bug. **Not annexed here** —
+  this lane would do both badly.
+- **D6 (2026-08-06): no cluster dispatch started this session, deliberately.** The
+  resolver-then-rerender cleanup (D3) is the right shape and is now *evidenced* rather than
+  assumed (F3: the original symptom page cleared itself by exactly that route). But it is a
+  multi-step dispatch with two known traps (a hand-made `page_rerender` needs `page_id` in
+  the spec AND the column; `save_page_sections` can refuse on the claims guard, so a green
+  orchestration is not a written page). Starting it without budget to verify at the served
+  artefact would leave the next session a half-finished dispatch and no way to tell whether
+  it worked — worse than a clean handoff. Handed off with the worklist pinned.
+
 ## Phasing
 
 - **P0** standing docs + claim (done), verdict + liveness (done).
