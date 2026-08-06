@@ -384,3 +384,30 @@ five that matter to this lane's closures). Zero orchestrations stranded at
 model-claimed · positive control 70/70** — the 100 closure's 4-row acceptance is
 now a 70-row census. (Newest at 02:14 is the finite batch completing, not a
 stall — `vet-sweep-continue` is deliberately OFF.)
+
+## 2026-08-06 — 132 executed end-to-end under the owner's token; 116 ruled (option 4); summary written
+
+Owner supplied the D5-scoped Cloudflare token (TTL to 09-02; stored
+`~/.cloudflare/404-token.env`, mode 600 — NEVER into the repo). Order of work
+was the file's own: **export first** (`ca75d0ebf` — the live
+`portfolio-sites-router` source, 249-line diff against the stale repo copy,
+now the rollback artefact), then the 404 fix (`91154636a`), deployed 08:30:48Z
+**with both `plain_text` bindings carried in the metadata** — the API strips
+them otherwise, which would kill every site. Verified: 36-zone sweep zero
+`objectKey` leaks, 34/36 real HTML 404s at status 404 (lendzy 000 not live;
+webdesign.uk 302 own redirect), real pages 200, worker-health 200. Closed
+`bd1fb76c9`. Missteps tonight: a guessed-filename `cat >>` created an empty
+stray `bugs_open/132_…` duplicate (deleted — it was untracked and mine), and
+132 turns out to be ANOTHER ambiguous-number near-miss: resolve by slug.
+Residuals in the closing block: catch-branch stack JSON; `plain_text` creds →
+`secret_text` hardening (owner call); re-export-after-dashboard-edit rule.
+
+**116 D3 recorded** (`31f423d56`): option 4 — supervised per-site loop runs,
+biggest backlog first (census now: leopardess 61, aao 37, darts 33,
+robot-hands 33), fleet re-enable as destination, bulk promotion rejected.
+First run NOT yet fired — the owner should be watching when it goes.
+
+**SUMMARY written** (new file, per the series rule):
+`SUMMARY_2026-08-06_five_closures_and_the_shape_of_the_problem.md` — features
+the soft-404 (200-for-404) trap as the worked example of the fleet's recurring
+failure shape, per the owner's request.
