@@ -116,8 +116,44 @@ zero could have meant "no traffic" rather than "no regression".~~
 > **So the "still zero" branch below is now stronger than it was written.** It is no longer
 > "deployed-but-unexercised": it is *23 page-rerender runs with no regression, on a predicate
 > proven able to fire*. Still short of end-to-end proof — say that, and do not round it up.
-> Known limit: only the last save per page survives in `page_components` (23 runs → 10 pages),
-> so ~13 intermediate saves left no trace and the detector is their only witness.
+> Known limit: only the last save per page survives in `page_components` (30 runs → 13 pages),
+> so the intermediate saves left no trace and the detector is their only witness.
+
+**If you are the 20:45Z reader, this is the whole job — four commands, ~5 minutes.**
+
+```bash
+# 1. Which pods/image are live NOW? (three rolls happened on 08-06; never reuse a pod name)
+kubectl get pods -n ai-persona-system -l app=agent-chassis \
+  -o custom-columns='NAME:.metadata.name,IMAGE:.spec.containers[0].image,START:.status.startTime'
+# 2. Still carrying this lane's code? one exec per grep; expect 1 / 1 then 0 / 0
+kubectl exec -n ai-persona-system <pod> -- grep -ac "incoming_sections_with_content_data" /app/agent-chassis
+kubectl exec -n ai-persona-system <pod> -- grep -ac "require_save_without_sections_metadata" /app/agent-chassis
+```
+
+```sql
+-- 3. THE READ ITSELF (occurred_at, NOT created_at)
+SELECT agent_type, count(*), min(occurred_at), max(occurred_at)
+FROM agent_error_log WHERE error_code='CONTENT_DATA_REGRESSION' GROUP BY 1 ORDER BY 2 DESC;
+
+-- 4. THE DENOMINATOR, refreshed. Do NOT use agent_error_log for this (see the block above).
+SELECT count(*) AS rows_inserted, count(DISTINCT page_id) AS pages,
+       count(*) FILTER (WHERE content_data IS NOT NULL) AS with_content_data,
+       min(created_at), max(created_at)
+FROM page_components WHERE created_at > '2026-08-05 20:45:00Z';
+
+SELECT owner_agent_type, status, count(*), min(created_at), max(created_at)
+FROM orchestration_states
+WHERE created_at > '2026-08-05 20:45:00Z'
+  AND jsonb_path_exists(workflow_plan, '$.**.steps.*.action ? (@ == "save_page_sections")')
+GROUP BY 1,2 ORDER BY 3 DESC;
+-- ^ this one is REAPED at ~24h. If it returns fewer runs than the 29+1 recorded at 10:00Z,
+--   that is retention, NOT a drop in traffic. The 10:00Z figures above are the durable record.
+```
+
+**Then write the verdict against the three branches above — and record it in the concept
+register at `PBP-031`, which is what carries the stop condition.** If it is still zero, the
+honest sentence is *"30 runs across two callers, no regression, on a predicate proven able to
+fire at the unit level; not proven end to end"* — not "verified".
 
 ### 2b. The F3 warning has never fired, by design — **DONE 2026-08-06, and by config not logs**
 
