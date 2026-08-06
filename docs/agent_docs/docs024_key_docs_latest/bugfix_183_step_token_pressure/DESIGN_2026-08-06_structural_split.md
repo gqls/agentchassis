@@ -4,6 +4,14 @@
 actually is. Nothing here is implemented; two numbers must be measured before anyone
 writes it (§6).
 
+> **OWNER RULING 2026-08-06 — NOT NOW, accepted.** The owner read §8 and took the
+> recommendation. The split is **not** rejected on merit; it is deferred because the
+> class is monitored and not biting. **What makes deferral safe is LCO-007, so the
+> deferral expires if the monitoring does** — if `fleet-step-token-pressure` is ever
+> disabled, or if it flags `classify_and_extract`, this decision is void and the
+> design is the answer. Do not re-litigate it on the strength of the cap alone: the
+> cap has now been raised four times and each raise moved the cliff.
+
 ## 1. What the step does today
 
 One `execute_llm_prompt` call, one ~17,000-character prompt template, one JSON document

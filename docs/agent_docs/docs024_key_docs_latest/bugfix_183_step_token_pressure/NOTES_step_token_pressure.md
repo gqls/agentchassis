@@ -188,3 +188,50 @@ shipped in a bug file and been inherited by whoever builds candidate 3.
 **A design built on a misread dependency graph fails in a specific, expensive way**:
 four parallel calls (what my wrong version implies) produce a dark palette under a
 `modern-light` classification, and nothing catches it until a site renders.
+
+## 2026-08-06 (later still) — the limits census, and a blind spot I shipped
+
+Owner asked for the limits in one place. Full write-up:
+`SUMMARY_2026-08-06b_the_real_limits.md`. Three things came out of measuring rather
+than recalling:
+
+1. **Context is not a constraint and I would have guessed wrong.** Peak input across
+   30 days is 126,195 tokens against a **1M** window — 12.6%. Every truncation this
+   platform has had is an OUTPUT collision with our own configured cap, never with the
+   model. Worth saying out loud because "we hit a token limit" slides very easily into
+   "we need more context", and we have an order of magnitude spare.
+
+2. **The real ceiling is wall-clock, not tokens.** The chassis does not stream
+   (`anthropic.go:72`, one `http.Client` at 600s; gemini the same; **ollama at 120s**).
+   Output generation is remarkably linear — Sonnet 5 holds ~98 tok/s from 8k to 32k
+   output; Sonnet 4.6 runs 47–82 tok/s. So 600s converts to **~58,800 tokens on Sonnet
+   5 and ~28,000–42,000 on Sonnet 4.6**. A `max_tokens` above that cannot be reached;
+   the clock fires first. In 90 days zero calls exceeded 500s, but the peak was
+   495,177 ms — **82.5% of the limit**, so the margin is thinner than "600 seconds"
+   sounds.
+
+3. **MISSTEP 6 — I shipped a monitor with a blind spot and only found it by being
+   asked an adjacent question.** LCO-007 counts truncations from `error_message`
+   matching `response truncated:` / `stop_reason=max_tokens`. A call that dies on the
+   **clock** instead matches neither AND logs `output_tokens = NULL`, so my own WHERE
+   clause (`output_tokens IS NOT NULL OR <truncation match>`) **excludes it from the
+   population entirely**. A step that degrades from truncating to timing out therefore
+   looks to my check like a step that got better.
+
+   Not hypothetical: 35 rows carry `api.anthropic.com/v1/messages": context canceled`,
+   most recent 2026-08-04.
+
+   **What caught it:** nothing in my own verification. I tested the check against
+   truncations, pinned the clock, ran a negative control — and every one of those tests
+   was inside the failure vocabulary I had already chosen. The blind spot was only
+   visible from a question I was not asking (*what are the timeouts?*). **The check I
+   should have run: enumerate the DISTINCT error shapes the population can contain,
+   before writing the predicate that filters them.** One `GROUP BY left(error_message,60)`
+   over `llm_call_log` would have shown the timeout family sitting next to the
+   truncation family.
+
+   Family: this is the fourth instance this session of *measuring something adjacent to
+   the question and answering from it*, and the second where a verification suite
+   confirmed only what its author already believed. Fix recommended (add the timeout
+   strings to the pre_query's vocabulary) but **not applied** — it changes a live shared
+   check and belongs in a deliberate edit, not a footnote.
