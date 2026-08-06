@@ -431,3 +431,50 @@ a five-minute sit-down, not an engineering task.
 3. Decision B (186 → report): untouched, his call, still the "do not build a
    second unread queue" warning.
 4. Decision D (write-path rule): untouched, still the only door-closer.
+
+---
+
+## 2026-08-06 — NOTICE FROM THE 168 LANE: `revalidate_review_queue`'s selection changed
+
+**You own this action; I changed how it selects. Telling you, per the 2026-07-29 owner ruling that
+a shared mechanism's other consumers must be told, not merely measured.** No reply needed — this is
+so you are not surprised by the payload, and so you know about one comment in your seed file.
+
+**What changed about your guarantee.** The sweep used to load the oldest N parked rows of **any**
+type and stamp `unknown` on the ones it had no revalidator for. It now **only loads types it can
+judge**. The filter is derived from `reviewRevalidators`, so registering a revalidator widens the
+selection in the same edit — nothing for you to remember.
+
+**Why.** The cap was being spent on rows that can never resolve. `unknown` is deliberately
+non-terminal, so those rows stayed parked, stayed oldest, and were re-selected every run. Measured
+2026-08-06: 772 parked, 168 judgeable, **396 of the oldest 500 unjudgeable** — and **64 judgeable
+rows sat permanently beyond the cap**, never reached. Full working in
+`bugfix_168_deployed_asset_path/NOTES_deployed_asset_path.md` (2026-08-06 entry).
+
+**Three things that affect you directly:**
+
+1. ⚠ **Your seed file's verification queries are partly blunted.**
+   `seed_review_queue_revalidator.sql` lines 121–139 document
+   `... result->'revalidation' ... WHERE status='needs_human_review'` for reading verdicts.
+   Those **still work for covered types**. For **uncovered** types they now return nothing, because
+   uncovered rows are no longer stamped at all. A council seat raised exactly this: absence of a
+   stamp no longer distinguishes *"never scanned"* from *"no revalidator exists"*. The per-type
+   answer now lives in the run payload's `uncovered_types`, in full.
+
+2. **`uncovered_types` changed meaning on 2026-08-06.** It used to count unjudgeable rows that
+   happened to fall **inside** the cap; it now counts **every** parked unjudgeable row. It is
+   larger, and it is the true figure — but a run-to-run comparison across that date compares two
+   different measurements. New sibling key `uncovered_backlog` is its total.
+
+3. **New: `cap_binding`.** True when a pass filled its cap, i.e. judgeable work was left behind.
+   Should be `false` from now on; if you ever see `true`, the starvation is back.
+
+**Also live, and it is a config change to your agent:** migration `321` raised
+`diagnosis-review-queue-revalidator`'s `sweep.max_items` **500 → 1500** (commit `b14609e05`). That
+was the stopgap; the selection filter is the durable fix (commit `0e4e79124`, council `f64da546`
+APPROVED r1, **inert until a chassis roll**).
+
+⚠ **One correction to the record you may care about**, since it concerns this action's
+configurability: `item_type` is read from the **step config**, exactly like `max_items` — the
+`sweep` step has no `input_mapping`, so `scheduled_tasks.input_data` cannot set either. Several
+scheduled rows therefore **cannot** be made to differ by type. See `WRONG_CALLS.md` 2026-08-06.

@@ -1497,3 +1497,188 @@ than fixed at the end of a long session.
 ### State
 
 Schedule live and proven. `auto:revalidated` = **34**. Next natural fire ~2026-08-07 08:37Z.
+
+---
+
+## 2026-08-06 (next session) — the open item, measured harder and then fixed twice
+
+Picked up the lane cold from `HANDOFF_2026-08-04_continue_here.md` §0. Everything below is that
+one item. Two changes shipped: a stopgap that is **live now**, and the durable fix, which is
+**committed and inert until a roll**.
+
+### The measurement the handoff did not take
+
+§0 recorded the waste (`scanned 500 · unknown 469`, 94%) and that "279 rows are never reached at
+all". It did **not** say whether any of the unreached rows were rows the sweep could actually
+judge. That is the question that decides whether this is untidy or harmful, so I ranked the parked
+set by `created_at` and split it on both axes at once:
+
+```sql
+WITH parked AS (
+  SELECT id, item_type, created_at, row_number() OVER (ORDER BY created_at ASC) AS rn
+  FROM site_work_items WHERE status IN ('needs_human_review','unresolved')
+)
+SELECT (rn <= 500) AS in_oldest_500,
+       item_type IN ('required_fields_missing','needs_section_data','unresolved_cta','needs_page') AS covered,
+       count(*)
+FROM parked GROUP BY 1,2 ORDER BY 1 DESC, 2 DESC;
+```
+
+```
+ in_oldest_500 | covered | count
+---------------+---------+-------
+ t             | t       |   104
+ t             | f       |   396
+ f             | t       |    64     <-- the finding
+ f             | f       |   215
+```
+
+**[MEASURED 2026-08-06]** **64 judgeable rows sat beyond the cap** — `required_fields_missing` 48,
+`needs_page` 8, `needs_section_data` 7, `unresolved_cta` 1; oldest filed **2026-07-24**. 38% of the
+168 rows the sweep exists to judge. And it does not self-correct: 396 of the 500 head slots hold
+rows that return `unknown`, which is non-terminal, so only ~104 slots ever turn over. **Not
+reached slowly. Never reached.**
+
+Disconfirmable, which the last two entries in this file are a reminder to check: had the covered
+rows all been old, they would have been inside the head and the count would have been 0. It came
+out otherwise.
+
+⚠ **The starved rows are the NEWEST covered ones** — `rn > 500` under `ORDER BY created_at ASC` is
+by definition the young tail. That **inverts the selection's own stated rationale** ("the oldest
+items are the ones most likely to be describing a page state that no longer exists"): a finding
+filed last week is the one a recent re-render is likeliest to have already fixed, and it was the
+one guaranteed never to be looked at.
+
+### ⚠ WRONG #3 — §0's recommended fix cannot work, and it falls into §0's own trap
+
+§0 recommends "(1), as several scheduled rows — one per covered type." **That route does not
+work.** `item_type` is read the same way `max_items` is:
+
+```go
+maxItems   := datahelpers.GetIntField(config, "max_items", 50)   // config = params.StepConfig.Config
+typeFilter, _ := config["item_type"].(string)                     // ...the STEP config, not input_data
+```
+
+The sweep step has **no `input_mapping`** (verified against the live `agent_definitions` row — its
+step keys are `action`, `config`, `next_step`, `description`, `output_field`). So *n* scheduled
+rows would all read this one step config and behave identically — you would get four identical
+sweeps a day, not four filtered ones. Making it work needs either four near-duplicate agent
+definitions or an `input_mapping` added first.
+
+**This is the exact trap §0 documents two paragraphs earlier** ("YOU CANNOT FIX THIS FROM
+`scheduled_tasks`. I tried and measured it."). The lane's own NOTES had it right — "that is an
+`agent_definitions` change, not a schedule change" — and the handoff's recommendation contradicted
+its own notes. **A trap you have just documented is not thereby disarmed for your next paragraph.**
+
+### What shipped
+
+**1. Stopgap, LIVE.** `321_review_queue_sweep_reaches_every_parked_row.sql`, applied 09:04 UTC,
+`max_items` 500 → 1500, commit `b14609e05`. Config, so live immediately, no roll. Verified at the
+live row (1500, `dry_run` still false) and in `schema_migrations`. The guard block asserts the cap
+still exceeds the live parked count **and** that no covered row remains beyond it, so a later apply
+into an outgrown queue fails loudly rather than under-reaching in silence. The NOTICE read:
+`779 parked, 168 judgeable, 0 now beyond the cap (was 64)`.
+
+⚠ Parked went **772 → 779 during the session** (~20 min). Sized 1500 not 800 for that reason:
+parked rows accumulated **205 in three days** against 55–81 in each prior week, so a cap sized to
+today's queue is back in starvation within a week.
+
+⚠ **`--apply` takes every pending file, and 24 were pending from other threads.** Scoped with
+`MIGRATIONS_DIR=<scratch dir holding only my file>`. The dry run then showed `Pending (1)`, which
+is the check that the scoping actually worked — not the assumption that it did.
+
+**2. Durable fix, committed `0e4e79124`, inert until a roll.** The selection filters to the types
+`reviewRevalidators` covers, **derived from the map** so registering a revalidator widens the
+selection in the same edit and the two cannot drift. The coverage gap is now one `GROUP BY` over
+the whole parked set instead of an accumulation of whatever fell inside the cap — the old shape
+reported the gap as **smallest exactly when the backlog was worst**. Council `f64da546`, submitted
+before the commit, trailer `Council-Submitted:`.
+
+Two things closed in the same change because the fix would otherwise have created them:
+- The filter would make an operator's uncovered `item_type` match **nothing**, and `scanned 0`
+  reads identically to "the queue is drained". `validateTypeFilter` refuses and names the covered
+  set. (Before the filter that request was merely useless; after it, it would have been *silent*.)
+- `cap_binding` is now logged at WARN when the pass fills its cap. `capped_at` was **always** in
+  the payload — §0 quotes it — and it still took a fortnight to notice, because nobody compares
+  two numbers in a blob nobody reads. **A number in a payload is not a signal.**
+
+### ⚠ Misstep — my own test asserted a behaviour Go does not have
+
+`TestCoveredTypeFilterIsAccepted` called `loadParkedReviewItems(ctx, nil, ...)` expecting a nil
+`*sql.DB` to return an error. It **panics**: `database/sql.(*DB).conn` dereferences immediately.
+Caught by running it, one minute after writing it.
+
+The fix was better than the test: I extracted the refusal into `validateTypeFilter`, a pure
+function, so both directions are testable with no DB at all — and then made the accept-side test
+loop over **every** covered type, because a blanket refusal that rejected everything would have
+passed the refusal test on its own. **A refusal test needs its accept case in the same commit or
+it only proves the code can say no.**
+
+### State
+
+Stopgap live; durable fix committed, awaiting council `f64da546` and a roll. `auto:revalidated`
+= 34 at session start. **The next scheduled run (~2026-08-07 08:37Z) is the first that can reach
+all 168** — it should report `scanned` ≈ the full judgeable count, not 500.
+
+### Council `f64da546` — APPROVED round 1, 11 seats, 4 advisory objections, none high
+
+`gated_by_truncation: false`, `unreadable: 0`, 6 abstained (relevance-gated). **Checked the
+objections rather than filing them** — four were checkable and two found real facts.
+
+**1. `bug_historian` "missing": is the schedule actually ENABLED?** The best objection of the
+round, because a no would have made the whole change moot. **[MEASURED]** `enabled=t`,
+`interval_seconds=86400`, `last_triggered_at=2026-08-06 08:37:50Z`. It is live. (The seat was
+citing the landmine about a disabled task showing a fresh timestamp — worth the query every time.)
+
+**2. `guardian` (low): "does not name every caller — blast radius on manual invocation is asserted,
+not verified."** Fair, and now verified rather than argued:
+
+```sql
+SELECT type, jsonb_path_query_array(default_config, '$.**.config.item_type')
+FROM agent_definitions WHERE default_config::text LIKE '%revalidate_review_queue%'
+  AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+--  diagnosis-review-queue-revalidator | []
+```
+
+**Zero configured callers pass an `item_type` anywhere.** The only other invocation path is
+`TRIGGER_revalidate_review_queue_v1.sh`, which sends `input_data {}` — and `input_data` is inert on
+this step regardless. So the new refusal is **purely defensive today**: it cannot fire for any
+existing caller. That is a stronger result than the submission claimed.
+
+**3. `prior_art_librarian` (medium): the no-consumer absence claim was raw grep, which has known
+blind spots here.** Re-ran by a different route — searching for the payload keys as identifiers
+across all Go, then separately across `.sql/.sh/.py/.json/.yaml`. **No Go consumer of
+`uncovered_types`, `uncovered_backlog` or `cap_binding` exists anywhere outside the action.** The
+only `revalidation` hits outside it are **SQL comments** in
+`review_queue_drain/seed_review_queue_revalidator.sql` — human verification queries, not code.
+⚠ Those queries still work for covered types; for **uncovered** types they now return nothing,
+which is exactly `bug_historian`'s second objection (below). The review_queue_drain lane is being
+told.
+
+**4. `constitution` (medium): the `IN` list is interpolated via `sqlInList`, not bound.** The rule
+is written unconditionally, so the objection is correct on its face. **Not actioned, deliberately.**
+`lib/pq` IS in `go.mod`, but this package **deliberately avoids `pq.Array`** — two files say so in
+terms (`fixloop_digest_action.go:488`, `resolve_composition_helpers.go:398`). Binding only my half
+would leave one query with its status list interpolated and its type list bound, which is worse to
+read and would break the source-scan test's count. The values are Go map keys — compile-time
+constants — and the operator-supplied filter continues through a bound `$n`. The seat itself noted
+this "is an extension of a pre-existing practice rather than a newly introduced defect".
+
+**5. `editquality` (medium): "`validateTypeFilter` is defined but nothing shows it being called."**
+A gap in my **sketch**, not the code — `loadParkedReviewItems` calls it before building the type
+predicate. Worth recording as a submission lesson: **an extracted helper needs its call site in the
+sketch, or a reviewer must assume it is dead code**, and they are right to.
+
+**6. `bug_historian` (medium), the one I cannot fully close, recorded honestly.** The new
+`cap_binding` WARN and `uncovered_backlog` have **no confirmed consumer** — pod logs rotate within
+minutes and nothing reads the payload key. *"A signal nobody reads is silent in practice, just with
+extra steps."* Partial mitigation, stated as partial: after this ships `cap_binding` should be
+structurally **false** (168 judgeable against a 1500 cap), so it is a **tripwire**, not a routine
+signal — and the payload query is now written into the handoff (§0a-verify) rather than left for
+someone to invent. **That still depends on a human running it.** Not solved; named.
+
+**7. `bug_historian` (low), a real consequence I had not listed as a risk.** Uncovered rows now get
+**no stamp at all**, so "has the sweep ever looked at this row?" becomes ambiguous — absence no
+longer distinguishes *never scanned* from *no revalidator exists*. Previously the `unknown` stamp
+answered it per row. The aggregate answers it per type, which is the more useful altitude, but it
+is a genuine loss of a per-row fact and it belongs in the record.

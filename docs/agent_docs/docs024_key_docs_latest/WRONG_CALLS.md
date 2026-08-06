@@ -21025,3 +21025,49 @@ that rule exists for. For appends to shared, moveable files: `test -f <path> || 
 MOVED; }` first — or use the Edit tool, which fails loudly on a path that no longer
 exists. The pathspec-commit discipline was the safety net that fired; it should not have
 been the first line of defence.
+
+## 2026-08-06 — 168 lane. A handoff documented a trap in §0, then recommended a fix that walks straight into it — two paragraphs later
+
+**The claim.** `HANDOFF_2026-08-04_continue_here.md` §0 (the retraction lane's sole open item)
+recommended fixing a starving daily sweep with *"an `item_type` filter … as several scheduled rows
+— one per covered type"*, calling it "the only version where a growing uncovered backlog cannot
+silently push covered work out of the batch."
+
+**Why it is false.** The same section, **two paragraphs earlier**, states the finding it had just
+paid for: *"YOU CANNOT FIX THIS FROM `scheduled_tasks`. I tried and measured it."* — because
+`max_items` is read from `params.StepConfig.Config`, and the sweep step has no `input_mapping`, so
+`scheduled_tasks.input_data` is inert. **`item_type` is read the same way, on the adjacent line:**
+
+```go
+maxItems      := datahelpers.GetIntField(config, "max_items", 50)
+typeFilter, _ := config["item_type"].(string)
+```
+
+So *n* scheduled rows would all read the one step config and run **identically** — four identical
+sweeps a day, not four filtered ones. The route needed four near-duplicate agent definitions, or an
+`input_mapping` added first. Neither was mentioned.
+
+**What caught it.** The next session reading the action before implementing the recommendation —
+one `grep -n "item_type" revalidate_review_queue_action.go`, which returns the `config[...]` read on
+the line below the `max_items` one that the handoff had already written a warning about.
+
+**The cheap check.** *When you write "you cannot configure X from here", ask immediately whether the
+knob you are about to recommend is read from the same place.* The trap and the remedy in §0 were
+about the **same struct field**. The lane's own NOTES had it right — "that is an `agent_definitions`
+change, not a schedule change" — so the handoff also contradicted its own notes, which is the
+cheaper check still: **before recommending a route in a handoff, grep your own NOTES for what you
+concluded about it.**
+
+**Why it is worth an entry.** This is not a missing measurement — the measurement was *taken,
+correct, and written down in the same section*. The failure was that a documented trap **stopped
+applying to the author the moment they changed topic from diagnosis to recommendation**. A hazard
+you have just described is not thereby disarmed for your next paragraph, and the recommendation
+half of a handoff gets markedly less scrutiny than the evidence half despite being the part the
+next session actually executes.
+
+**Related, same session, smaller.** I wrote a test asserting that `loadParkedReviewItems` with a
+nil `*sql.DB` would *return an error*; `database/sql.(*DB).conn` **panics** instead. Caught by
+running it a minute later. The repair was structural rather than a patched assertion — extract the
+refusal into a pure `validateTypeFilter`, testable with no DB — and it exposed a second gap: my
+refusal test would have passed against code that refused **everything**. A refusal test needs its
+accept case in the same commit, over *every* accepted value, or it only proves the code can say no.

@@ -1,7 +1,16 @@
-# HANDOFF — 2026-08-06 — the retraction lane is DONE. One inherited limit is open.
+# HANDOFF — 2026-08-06 — the retraction lane is DONE, and so is the inherited limit.
 
 > **START HERE. Sections 1–8 below are HISTORY (pre-option-A) — read for context, do not act on
 > them.** Plain-prose account: `SUMMARY_2026-08-06_deployed_asset_path.md`.
+>
+> **UPDATED 2026-08-06 (second session): §0's open item is CLOSED.** Stopgap live (migration `321`),
+> durable fix committed (`0e4e79124`, council `f64da546`, inert until a roll). §0 both *understated*
+> the harm — 64 judgeable rows were unreachable, not merely re-scanned — and *recommended a route
+> that cannot work*. Both corrected in the box at the top of §0; do not act on the old §0 text.
+>
+> **What is genuinely left:** verify the durable fix after the next roll (recipe at the end of §0a),
+> confirm the next scheduled run scans the full judgeable set, and §0b's loose thread. Then this
+> lane has nothing open.
 
 **Everything this lane set out to do is finished, live, council-approved and proven by effect.**
 
@@ -14,7 +23,37 @@
 | Scheduled | **Yes, owner-approved 2026-08-06** — `scheduled_tasks.review-queue-revalidate-daily`, 86400s, verified end-to-end |
 | `unresolved` across the four covered types | **0** |
 
-## 0. THE OPEN ITEM — the sweep does 94% wasted work and cannot reach its own tail
+## 0. ~~THE OPEN ITEM~~ — **RESOLVED 2026-08-06. Stopgap LIVE, durable fix committed.**
+
+> **DONE, by the next session. Read this box before the section below it.**
+>
+> | | |
+> |---|---|
+> | Stopgap — `max_items` 500 → 1500 | **LIVE** 09:04 UTC. Migration `321`, commit `b14609e05`. Config: no roll. |
+> | Durable fix — selection filters to judgeable types | **Committed** `0e4e79124`, council `f64da546`. **Inert until a roll.** |
+> | The 64 starved rows | **Reachable now**, by the stopgap alone. |
+>
+> **§0 UNDERSTATED THE HARM.** It measured the waste but never asked whether any of the unreached
+> rows were rows the sweep could *judge*. They were: **64 judgeable rows sat permanently beyond the
+> cap** — `required_fields_missing` 48, `needs_page` 8, `needs_section_data` 7, `unresolved_cta` 1,
+> oldest filed 2026-07-24. 38% of the 168 the sweep exists to judge. Only ~104 of the 500 head slots
+> ever turn over, so they were never reached at all. They are also the **newest** covered rows,
+> which inverts this selection's own rationale that the oldest are likeliest to be stale.
+>
+> ⚠ **AND §0's RECOMMENDED FIX COULD NOT HAVE WORKED — it falls into the trap §0 itself documents.**
+> "Several scheduled rows, one per covered type" fails for the same reason `max_items` did:
+> `item_type` is read from `config` = `params.StepConfig.Config`, **the step config, not
+> `input_data`**, and the sweep step has no `input_mapping` (verified on the live row — its keys are
+> `action`, `config`, `next_step`, `description`, `output_field`). Every scheduled row would read
+> this one step config and behave identically. It would need four near-duplicate agent definitions,
+> or an `input_mapping` added first. This lane's own NOTES had it right ("an `agent_definitions`
+> change, not a schedule change"); the handoff contradicted them. **A trap you have just documented
+> is not disarmed for your next paragraph.**
+>
+> Full working, the disconfirmability check, and one misstep of my own:
+> `NOTES_deployed_asset_path.md`, entry 2026-08-06 (bottom).
+
+### 0a. The original section, kept because the measurement in it is sound
 
 **Not caused by this lane; exposed by it.** The first scheduled run measured it exactly:
 
@@ -42,8 +81,11 @@ its `description` says where the real knob is.
 2. **Raise the step config's `max_items`** past 779 (with headroom). One-line, but it treats the
    symptom — the uncovered head still grows.
 
-**Recommendation: (1), as several scheduled rows — one per covered type.** It is the only version
-where a growing uncovered backlog cannot silently push covered work out of the batch.
+~~**Recommendation: (1), as several scheduled rows — one per covered type.**~~ **RETRACTED
+2026-08-06 — several scheduled rows all read the same STEP config, so they cannot differ by
+`item_type`. See the box at the top of §0.** The instinct was right and the route was not: what
+shipped is (1) done properly — the filter lives in the **selection**, derived from
+`reviewRevalidators`, so it needs no scheduling at all and cannot drift from the registry.
 
 ```sql
 -- size it before choosing
@@ -51,6 +93,51 @@ SELECT count(*) FILTER (WHERE item_type IN ('required_fields_missing','needs_sec
        count(*) AS total_parked
 FROM site_work_items WHERE status IN ('needs_human_review','unresolved');
 ```
+
+### 0a-verify. THE DURABLE FIX'S BASELINE — taken 2026-08-06, and it cannot be taken again
+
+The selection-filter change (`0e4e79124`) is **purely string-additive**, so there is **no valid
+negative control** — nothing it removed can be greped for 0. §2 of this handoff learned that the
+hard way. For an additive change the dated **0 → 1 transition is the whole proof**, and it only
+exists because the 0 was taken *before* the roll. Here it is:
+
+> **BASELINE 2026-08-06, `v1.0.1256`, BOTH replicas:**
+> `judgeable rows were left unexamined` = **0** · `so this sweep cannot judge it` = **0** ·
+> positive control `auto:revalidated` = **2**
+
+The positive control is the load-bearing part: it is non-zero on the *current* binary, so a
+post-roll reading of 0/0 means the change did not ship, **not** that the probe broke.
+
+```bash
+for POD in $(kubectl -n ai-persona-system get pods -l app=agent-chassis -o name | sed 's|pod/||'); do
+  A=$(kubectl -n ai-persona-system exec $POD -- sh -c "strings /app/agent-chassis | grep -c 'judgeable rows were left unexamined'" 2>/dev/null|tail -1); A=${A:-0}
+  B=$(kubectl -n ai-persona-system exec $POD -- sh -c "strings /app/agent-chassis | grep -c 'so this sweep cannot judge it'" 2>/dev/null|tail -1); B=${B:-0}
+  P=$(kubectl -n ai-persona-system exec $POD -- sh -c "strings /app/agent-chassis | grep -c 'auto:revalidated'" 2>/dev/null|tail -1); P=${P:-0}
+  echo "$POD capwarn=$A refusal=$B positive_control=$P"
+done
+```
+
+**After the roll both must be ≥1 on every replica, with the positive control still non-zero.**
+`N=${N:-0}` is not optional (`grep -c` prints nothing and exits 1 on zero), and the needles are
+**ASCII-only** on purpose — §2 records an em-dash being mangled crossing `exec -- sh -c` and
+returning a 0 that read exactly like a failed deploy.
+
+**Then prove it by effect**, which the strings cannot: the next scheduled run should scan the
+judgeable set rather than a 500-row head, and report the full backlog.
+
+```sql
+SELECT collected_data #>> '{revalidation_result,scanned}'           AS scanned,
+       collected_data #>> '{revalidation_result,capped_at}'         AS capped_at,
+       collected_data #>> '{revalidation_result,cap_binding}'       AS cap_binding,
+       collected_data #>> '{revalidation_result,resolved}'          AS resolved,
+       collected_data #>> '{revalidation_result,uncovered_backlog}' AS uncovered_backlog
+FROM orchestration_states
+WHERE orchestration_name ILIKE '%reval%' ORDER BY created_at DESC LIMIT 1;
+```
+
+`scanned` should be ~the judgeable count (168 on 2026-08-06), **not** 500 and not the parked total;
+`uncovered_backlog` should be the full ~611, a number the old code structurally could not report.
+`cap_binding` must be `false` — if it is ever `true`, judgeable work is being left behind again.
 
 ### 0b. Loose thread — one eligible row was neither closed nor stamped
 

@@ -448,3 +448,63 @@ follow-up we already have open. It is written up with the costs in the handoff.
 I have logged the mistake in the fleet-wide log of wrong calls, with the ten-second query that
 would have caught it before I wrote anything, and added the missing step to the standing checklist
 so the next person doing this is told to look at both ends, not one.
+
+---
+
+**2026-08-06, later the same day (new session).** I picked this up cold from the handoff, which
+said the lane was finished except for one inherited problem: the daily queue sweep was doing 94%
+wasted work. It is now fixed, twice over — once immediately, once properly.
+
+First, what the handoff had not quite worked out. It knew the sweep was re-reading the same rows
+every day and wasting most of its effort. What it had not asked was whether any of the rows it
+never got to were rows it could actually have *done something about*. They were. **Sixty-four of
+them** — thirty-eight percent of all the work this sweep exists to do. And not "it gets to them
+eventually": never. The queue is read oldest-first, and the front of the queue is packed with items
+the sweep has no way to judge and which therefore never leave. They sit there permanently, and
+anything behind them is unreachable.
+
+The detail I find most telling: the items being starved were the **newest** ones. The sweep reads
+oldest-first on the reasoning that old findings are the most likely to be out of date. But a
+finding raised last week is exactly the one a recent rebuild has probably already fixed — so the
+rows most likely to be closable were the ones guaranteed never to be looked at. The design was
+working against its own logic.
+
+I fixed it in two steps deliberately. The first is a config change, live within the hour: raise the
+number of rows the sweep will look at in one pass, from 500 to 1500. That alone un-starved all
+sixty-four immediately, needs no software release, and can be undone with one line. But it only
+buys time — the queue grew by seven rows while I was working on it, and it has grown two hundred in
+the last three days — so a limit sized to today's queue would be back in the same state within a
+week or two.
+
+The second is the real fix, and it is now written, reviewed and committed: the sweep should only
+ever load the kinds of item it is actually able to judge. Then its limit applies to useful work, and
+a pile-up of some unrelated kind of item can no longer crowd out the work it is supposed to be
+doing. It is wired so that the list of "kinds I can judge" is taken directly from the list of
+"kinds I know how to judge" — they are the same list, so they cannot drift apart as more are added.
+That part needs a software release before it does anything; the config change is protecting the
+queue in the meantime.
+
+**One thing I have to flag, because it is uncomfortable and it is the more useful half of this.**
+The handoff recommended a specific way of fixing this — set up several scheduled jobs, one per kind
+of item. That would not have worked. The setting it relies on is read from a different place than
+the schedule can reach, which is a trap the very same page of the handoff had documented, two
+paragraphs earlier, after paying to learn it. The diagnosis was right and the prescription walked
+straight back into the hole. I have logged it in the fleet-wide log of wrong calls, because the
+lesson generalises: **a trap you have just written down is not thereby disarmed for your next
+paragraph**, and the recommendation half of a handoff gets far less scrutiny than the evidence half
+despite being the part the next person actually does.
+
+The review board approved it first time, with four advisory notes and none serious. Four of them
+were things I could go and check rather than argue about, so I did. Two turned up facts worth
+having: the scheduled job **is** genuinely switched on (worth confirming — a fix shipped onto a
+dead schedule does nothing), and **no existing caller** can be affected by the one behaviour change
+I was least sure about. One note I could not fully answer and have written down as unresolved
+rather than dressed up: the new warning I added, for when the sweep runs out of room again, is only
+useful if somebody reads it — and logs here rotate within minutes. I have put the query in the
+handoff, but that still depends on a person running it. It is better than what was there before,
+which was a number sitting in a data blob that nobody looked at for a fortnight. It is not a
+solved problem.
+
+Nothing here needs a decision from you. The next session's jobs are: confirm the release picked the
+change up, and check the first scheduled run afterwards reads the whole judgeable queue instead of
+the first five hundred rows.

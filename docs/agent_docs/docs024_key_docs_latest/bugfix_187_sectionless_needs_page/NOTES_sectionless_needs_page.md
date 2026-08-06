@@ -215,3 +215,32 @@ The leak stays live until the image rolls, which is the point of rolling it.
   `bugs_open/192` (filed 08-03 by another lane, owned), NOT the 187 shape and
   not the guard's doing: the rows were emitted correctly and failed
   downstream in the handler workflow. Not re-diagnosed here.
+
+---
+
+## 2026-08-06 — NOTICE FROM THE 168 LANE: your `needs_page` revalidator now gets reached
+
+**Telling you rather than just measuring you** (owner ruling 2026-07-29). You registered
+`needs_page` in `reviewRevalidators` on 2026-08-03. Two changes to how the sweep that runs it
+selects work — **both good for you**, no action needed.
+
+**Your revalidator was partly starved and could not have shown it.** The sweep loaded the oldest N
+parked rows of **any** type, and most of the queue's head is types nothing can judge, which never
+leave. Measured 2026-08-06: **8 of your `needs_page` rows sat beyond the cap** (of 19 parked), so
+they were never being offered to your revalidator at all — not slowly, never. The starved ones were
+the **newest**, which are the likeliest to have had their page built since filing.
+
+**What changed.** (1) Stopgap, **live now**: `max_items` 500 → 1500 (migration `321`), which alone
+un-starved all 8. (2) Durable fix, committed `0e4e79124`, council `f64da546` APPROVED r1, **inert
+until a chassis roll**: the selection now only loads types with a revalidator, derived from
+`reviewRevalidators` itself — so **your registration is what widens the selection**, automatically,
+and cannot drift from the map.
+
+**The one thing to know if you add another revalidator:** you no longer need to think about the
+cap. Registering the type in `reviewRevalidators` now also makes the selection load it. Conversely,
+a type **not** in that map is now never loaded — it is counted in the run payload's
+`uncovered_types` instead (which changed meaning that day: it now counts *all* parked unjudgeable
+rows, not just those inside the cap).
+
+Also relevant to your lane: the council's `guardian` seat noted `needs_page` has **5 Go producers**,
+already flagged to you in the 2026-08-04 round. Unchanged by this — selection, not production.
