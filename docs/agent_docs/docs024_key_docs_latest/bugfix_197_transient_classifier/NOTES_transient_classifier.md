@@ -78,3 +78,38 @@ Two lessons, the second more general than the first:
   (`@complete_invalid`), or an intake rejection looks like queue latency for ever — the
   same shape as `192`'s "a missing row is not latency" lesson, one layer up. Monitor
   corrected.
+
+## 2026-08-06 — council APPROVED (round 2 after the intake rejection), and the one medium advisory acted on
+
+`7fbf4356`: **approved with 1 advisory objection — none high-severity**, 7 abstained,
+0 unreadable. `editquality`'s notes: *"No mechanism cited in the diagnosis is left
+uncovered by a real edit … explicitly and correctly excludes the processor.go
+sender-convergence (196's scope) … disclosing rather than hiding."*
+
+**The medium (`bug_historian`), acted on rather than filed away:** the 196-sender
+convergence was scheduled in prose (RSH-006, comments, notices) — and the seat is right
+that prose scheduling is *"the exact gap that recurred"*. It is now **attached to
+`bugs_open/196` itself** as a named open decision: converge or decline on the record,
+riding the file that lane must read to close its own bug. That is the strongest tracking
+this platform has short of a work item, and it survives every path by which the softer
+records could be missed.
+
+**The three lows, answered honestly rather than argued:**
+- `wireErrorCode` is indeed adjacent scope riding the fix — disclosed as such in the plan,
+  kept because the DB row and the wire disagreeing about one failure's code is its own
+  small defect, and the consumers were re-grepped.
+- The register entry "pads the edit count" — it is the platform's own same-commit rule;
+  intake already refused the comments-only edit, so the schema and the conventions pull in
+  opposite directions. Noted; nothing to change.
+- "TAKEN AND FIXED before the roll" in the appendix — the appendix's own first line says
+  **"OPEN until the next chassis roll"**, so the inconsistency is in the heading's
+  register, not the file's claim. The heading is the claim-of-record style every lane here
+  uses ("fixed in code, open until live"); left as is.
+
+Trailer earned on this commit: `Council-Reviewed:` on a verdict actually read. The code
+commit (`1e349d046`) keeps its honest `Council-Submitted:` — 098 resolves it at report
+time; forward-only forbids an amend.
+
+**Lane state: everything owed pre-roll is done.** Remaining, post-roll only: the
+verify-later in RSH-006 (long-literal pod-grep, the two induction probes, the storm-watch
+histogram), then move `197` to `bugs_closed/` with the closing banner and the 016b §10 row.

@@ -193,3 +193,23 @@ Prefer **1**, gated on the census its own risk names.
   it as the primary landmine.
 - `bugs_closed/034` — this is its fix-candidate-3 residue.
 - `bugs_open/029` — see above.
+
+---
+
+## NAMED RESIDUAL, added 2026-08-06 AFTER the close (197 lane, at the council's direction) — your senders classify typed-only, and the convergence decision now has a tracked owner
+
+Your close is correct and this does not reopen it: failures now carry failure statuses,
+induction-proven. What survives the close is a **retry-quality** question, not a
+correctness one: your senders decide recoverable-vs-not via `errors.IsRetryable` only, so
+an **untyped** transient failure — the census's 885 `"context deadline exceeded"` rows —
+goes out `error_unrecoverable` and is terminal on the orchestrated path, where your
+response wins the claim race. `messaging.MatchedTransientFailure` (RSH-006, live in
+agentbase) would classify those recoverable; adopting it at your senders is one line each
+plus your test table, or declining is equally valid — the argument for typed-only purity
+at the wire is real.
+
+The council's 197 round (corr `7fbf4356`, `bug_historian`, medium) required this be
+**tracked, not asserted in prose**. Since this file closed while that tracking was being
+written, the tracked owner is now **`bugs_open/197` itself**: its post-roll close-out
+explicitly checks whether this decision has been made, and if it has not, spawns it as its
+own file rather than letting it expire silently.

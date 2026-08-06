@@ -139,7 +139,16 @@ a passenger edit.
   `retry_disposition` + `transient_matched`, so the after-census is one query on a column
   the classifier does not consume.
 
-## What closes this file
+## What closes this file — INCLUDING the tracked decision the council attached (2026-08-06)
+
+**Condition added at the council's direction** (corr `7fbf4356`, `bug_historian`, medium:
+the 196-sender convergence must be *"tracked and not just asserted in prose"*): this file's
+close-out must **verify the 196 lane's senders have either converged onto
+`MatchedTransientFailure` or declined on the record** (their file is now
+`bugs_closed/196`, which carries the named residual). If neither has happened by then,
+**spawn the decision as its own `bugs_open/` file** — do not close this one with the
+question still homeless. The 885-row deadline-exceeded population stays terminal on the
+orchestrated path until that decision is made, whichever way it goes.
 
 Post-roll: pod-grep both replicas for the LONG literal
 `retry disposition decided by shared transient classifier` (+ positive control); induce a
