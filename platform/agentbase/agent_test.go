@@ -122,3 +122,50 @@ func TestAgentbaseClassifiesThroughTheSharedPermanentClassifier(t *testing.T) {
 			"it misses typed WORKFLOW_INVALID, which is bugs_closed/195 reinstated", fns)
 	}
 }
+
+// TestAgentbaseClassifiesThroughTheSharedTransientClassifier is the same
+// source-level guard for the RETRYABLE arm (bugs_open/197): the retry-vs-
+// terminal decision must go through messaging.MatchedTransientFailure, and
+// the deleted private substring helper must not come back.
+//
+// Same honesty note as its sibling above: processMessage/handleProcessingError
+// need real Kafka and a real DB, so the call site is what can be pinned here;
+// the classifier's behaviour is tested where it lives, in
+// platform/messaging/retryable_transient_test.go.
+func TestAgentbaseClassifiesThroughTheSharedTransientClassifier(t *testing.T) {
+	calls := messagingCallsIn(t, "agent.go")
+
+	if fns := calls["MatchedTransientFailure"]; len(fns) == 0 {
+		t.Error("agent.go no longer calls messaging.MatchedTransientFailure anywhere — " +
+			"the retry-vs-terminal decision has left the shared seam (bugs_open/197)")
+	} else {
+		t.Logf("MatchedTransientFailure called in: %v", fns)
+	}
+
+	// The deleted helper decided retry-vs-terminal with three case-sensitive
+	// needles and made every "context deadline exceeded" terminal — ~30% of
+	// its measured input population. Re-declaring it locally is the revert
+	// that reinstates the bug, so its ABSENCE is asserted, not just the
+	// shared call's presence. Walk declarations and call idents, comments
+	// invisible (parser mode 0), so a prose mention cannot trip or green this.
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, "agent.go", nil, 0)
+	if err != nil {
+		t.Fatalf("parse agent.go: %v", err)
+	}
+	ast.Inspect(file, func(n ast.Node) bool {
+		switch d := n.(type) {
+		case *ast.FuncDecl:
+			if d.Name.Name == "isRecoverableError" {
+				t.Errorf("isRecoverableError is declared again in agent.go — " +
+					"the private substring classifier bugs_open/197 deleted is back")
+			}
+		case *ast.CallExpr:
+			if id, ok := d.Fun.(*ast.Ident); ok && id.Name == "isRecoverableError" {
+				t.Errorf("agent.go calls isRecoverableError — " +
+					"the retry decision has left the shared seam (bugs_open/197)")
+			}
+		}
+		return true
+	})
+}

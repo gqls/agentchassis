@@ -1,6 +1,6 @@
 # Concept Index — master register
 
-**1,764 index table rows** — 1,758 measured clean 2026-08-04 after DOC-074
+**1,771 index table rows** (re-grepped 2026-08-06 after RSH-006; 1,764 → 1,771 means ~6 rows arrived from OTHER lanes since the last recount — re-grep, never carry this number) — 1,758 measured clean 2026-08-04 after DOC-074
 (`concept-register-drift-check`) landed, **+1 for LNK-030** (`ChromeLinkPolicy`,
 added the same day with its entry and its row in one commit, per the
 platform-seams ruling), **+1 for PBP-032** (the `content_data`
@@ -2160,3 +2160,4 @@ an ID prefix, or a status word.
 | RSH-005 | Typed permanent-vs-transient failure classifier + unconditional failure record | built (inert until roll) | The permanent/transient decision moves from case-sensitive substring matching over error prose to the typed `DomainError.Code` (chain-safe via `errors.As`), and `agent_error_log` gains a row on EVERY non-dropped failure — so a mis-classification costs accuracy, never visibility. Closes `bugs_open/195`. | resilience-self-heal.md |
 | TL-040 | Gated-tool acceptance: `reload` step action + `no_auto_fix` fence routing | built and tested 2026-08-05, inert until roll | A one-shot consent gate false-fails a second interaction check on the shared Tier-4 page; `reload` resets it. A genuine failure on such a fence now routes to the existing `acceptance_stuck` human-review path instead of `tool-improver`, which could only pass by weakening the disclaimer. Closes `bugs_open/126`. | tool-lifecycle.md |
 | CTS-058 | Chassis response-envelope status seam (sendWorkflowResponseWithStatus) | built | Failures answer with typed error statuses (IsRetryable→recoverable, else unrecoverable); legacy body blob preserved for its readers | contracts-and-standards.md |
+| RSH-006 | Typed-first retryable-side classifier with census-derived fallback | built (inert until roll) | Retry-vs-terminal was decided by three case-sensitive needles that made 885 of 2,996 real failures (~30%, every "deadline exceeded") terminal; now typed-first through one shared seam with a case-folded, individually-argued fallback, the dead disagreeing twin deleted, and the disposition written to `agent_error_log` for a one-query census. Closes `bugs_open/197`. | resilience-self-heal.md |

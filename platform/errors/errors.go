@@ -6,7 +6,6 @@ import (
 	stderrors "errors"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 )
 
@@ -313,35 +312,15 @@ func GetAgentContext(err error) (agentType, agentID, orchestrationID, stepName, 
 	return "", "", "", "", "", false
 }
 
-// IsRecoverable determines if an error is recoverable
-func IsRecoverable(err error) bool {
-	if err == nil {
-		return false
-	}
-
-	errStr := strings.ToLower(err.Error())
-
-	// Recoverable error patterns
-	recoverablePatterns := []string{
-		"timeout",
-		"connection refused",
-		"temporary failure",
-		"network",
-		"dial tcp",
-		"i/o timeout",
-		"context deadline exceeded",
-		"too many requests",
-		"rate limit",
-		"503",
-		"502",
-		"504",
-	}
-
-	for _, pattern := range recoverablePatterns {
-		if strings.Contains(errStr, pattern) {
-			return true
-		}
-	}
-
-	return false
-}
+// IsRecoverable was deleted by bugs_open/197. It was a twelve-pattern,
+// case-folded substring classifier with ZERO callers fleet-wide (verified
+// 2026-08-06) that disagreed with the live agentbase classifier on case —
+// two lists for one judgement, the drift bugs_closed/034 closed on the
+// permanent side. The judgement now lives in ONE place:
+// messaging.MatchedTransientFailure, whose pattern set was rebuilt from a
+// live census with each entry individually argued (see
+// platform/messaging/retryable_transient.go's header, including the
+// patterns from this function's list that were REJECTED and why). Do not
+// recreate a recoverability list here — this package is imported by
+// everything and is the wrong altitude for operational retry policy, which
+// is precisely how this function rotted unexercised.

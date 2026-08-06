@@ -1356,6 +1356,8 @@ func (a *Agent) recordFailedProcessing(execCtx *types.ExecutionContext, messageT
 		errorCode = "PROCESSING_FAILED"
 	}
 
+	transientMatch := messaging.MatchedTransientFailure(procErr)
+
 	// Detached from a.ctx for the same reason as the sibling: a failure during
 	// shutdown is exactly the one nobody can otherwise see.
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -1379,9 +1381,15 @@ func (a *Agent) recordFailedProcessing(execCtx *types.ExecutionContext, messageT
 			"message_type":    messageType,
 			"from_agent_type": execCtx.FromAgentType,
 			"classification":  "transient",
-			"dropped_at":      "agentbase.processMessage",
-			"retried":         "parent-driven",
-			"note":            "processing failed and was NOT classified permanent, so it went to handleProcessingError (see bugs_open/195). This row exists so a MIS-classification is visible rather than silent; it does not itself imply the classification was wrong.",
+			// bugs_open/197: the disposition and its audit token, written by
+			// the code that decides them — so the after-census reads a column
+			// the classifier does not consume, rather than re-encoding the
+			// question it is checking.
+			"retry_disposition": getErrorStatus(transientMatch != ""),
+			"transient_matched": transientMatch,
+			"dropped_at":        "agentbase.processMessage",
+			"retried":           "parent-driven",
+			"note":              "processing failed and was NOT classified permanent, so it went to handleProcessingError (see bugs_open/195). This row exists so a MIS-classification is visible rather than silent; it does not itself imply the classification was wrong.",
 		},
 	})
 }
@@ -1429,8 +1437,18 @@ func (a *Agent) recordDroppedValidationError(execCtx *types.ExecutionContext, me
 
 // handleProcessingError handles errors during message processing
 func (a *Agent) handleProcessingError(execCtx *types.ExecutionContext, err error) {
-	// Determine if error is recoverable
-	recoverable := isRecoverableError(err)
+	// Determine if the error is transient through the SHARED classifier
+	// (bugs_open/197). The old private isRecoverableError decided this with
+	// three case-sensitive needles and made ~30% of its real input
+	// population terminal — including every "context deadline exceeded".
+	// The shared seam is typed-first with a case-folded, census-derived
+	// fallback, and returns an audit token naming what matched.
+	transientMatch := messaging.MatchedTransientFailure(err)
+	recoverable := transientMatch != ""
+	a.logger.Info("retry disposition decided by shared transient classifier",
+		zap.String("disposition", getErrorStatus(recoverable)),
+		zap.String("transient_matched", transientMatch),
+		zap.String("correlation_id", execCtx.CorrelationID))
 
 	// Send error response if we have enough context
 	if execCtx.OrchestrationID != "" && execCtx.RequestID != "" {
@@ -1490,7 +1508,10 @@ func (a *Agent) handleProcessingError(execCtx *types.ExecutionContext, err error
 				Headers: nil,
 				Body:    nil, // No result for error
 				Error: &types.ErrorInfo{
-					Code:        "PROCESSING_ERROR",
+					// The typed code where there is one, mirroring
+					// recordFailedProcessing — before bugs_open/197 the DB row
+					// and the wire disagreed about the same failure's code.
+					Code:        wireErrorCode(err),
 					Message:     err.Error(),
 					Recoverable: recoverable,
 					RetryAfter:  30, // seconds
@@ -1727,11 +1748,17 @@ func (a *Agent) GetIdentity() types.AgentIdentity {
 
 // Helper functions
 
-func isRecoverableError(err error) bool {
-	errStr := err.Error()
-	return strings.Contains(errStr, "timeout") ||
-		strings.Contains(errStr, "connection") ||
-		strings.Contains(errStr, "temporary")
+// wireErrorCode is the typed DomainError code where the chain carries one,
+// else the legacy literal — the same resolution recordFailedProcessing uses,
+// extracted so the wire and the DB row cannot disagree again (bugs_open/197).
+// isRecoverableError used to live here: three case-sensitive needles deciding
+// retry-vs-terminal fleet-wide. Deleted — the decision now goes through
+// messaging.MatchedTransientFailure, the shared typed-first seam.
+func wireErrorCode(err error) string {
+	if code := string(perrors.CodeOf(err)); code != "" {
+		return code
+	}
+	return "PROCESSING_ERROR"
 }
 
 func getErrorStatus(recoverable bool) string {

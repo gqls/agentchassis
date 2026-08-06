@@ -558,7 +558,8 @@ func (p *MessageProcessor) sendWorkflowFailureResponse(ctx context.Context, msgC
 
 	// bugs_open/196: a workflow that failed at the start reached its parent as a
 	// completed step. Typed status only — see sendErrorResponse on why the body
-	// blob below stays exactly as it is.
+	// blob below stays exactly as it is, and on why this sender does NOT use
+	// messaging.MatchedTransientFailure yet.
 	status := "error_unrecoverable"
 	if errors.IsRetryable(err) {
 		status = "error_recoverable"
@@ -1965,8 +1966,16 @@ func (p *MessageProcessor) sendErrorResponse(ctx context.Context, msgCtx *Messag
 	}
 
 	// Typed decision only: the code and the author's Retryable flag, never the
-	// message text. Substring classification of error prose is bugs_open/197's
-	// seam and is deliberately not duplicated here.
+	// message text. The shared prose-capable classifier now EXISTS —
+	// messaging.MatchedTransientFailure (bugs_open/197, typed-first with a
+	// census-derived case-folded fallback; agentbase already classifies
+	// through it) — but this sender stays typed-only by the 196 lane's
+	// standing decision: its pinned tests (processor_response_status_test.go)
+	// assert untyped "context deadline exceeded" → error_unrecoverable here.
+	// Converging these two senders onto the shared seam is the scheduled
+	// follow-up recorded in RSH-006 and bugs_open/197's appendix — a
+	// deliberate guarantee change for that lane to accept, not a passenger
+	// edit for this one.
 	status := "error_unrecoverable"
 	if errors.IsRetryable(err) {
 		status = "error_recoverable"
