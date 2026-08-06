@@ -3,6 +3,22 @@
 > **UPDATED 2026-08-05 — the next session starts HERE, with two owner-directed
 > tasks that outrank the old backlog order:**
 >
+> **UPDATE 2026-08-06 — task 1 (the whole-site rebuild) IS IN FLIGHT AND HAS ITS
+> OWN LANE. Do not start it from here.**
+> `loanandmortgagecalculator_couk/PLAN_2026-08-05_voice_rebuild_and_decomposition.md`
+> + that lane's NOTES tail + `RUNBOOK` §12. State: chrome installed (3 locked
+> rows), all 41 pages decompose clean, **2 pages LIVE in the new voice and both
+> served BYTE-IDENTICAL to their offline prediction**, calculator arithmetic
+> proven exact against a pre-change golden of all 23. The hazards this file
+> named were all real and are all handled there — decompose-first, the TL-001
+> clobber class (widgets ship byte-original in LOCKED rows, no writer touches
+> them), URLs unchanged. Remaining: the rest of the copy, then batched deploys.
+> ⚠ Two things this file could not have known: `toolgolden` cannot certify
+> `mortgages/investor.html` at all (ratio-only arithmetic is invariant under its
+> uniform vectors — sidecar written), and the decision was to TRANSFORM the
+> existing copy rather than regenerate, because `save_page_sections` refuses
+> owned pages and there is no site plan to regenerate from. Reasons in the PLAN.
+>
 > 1. **Copy voice — SEEDED 08-05; the WHOLE-SITE REBUILD is now the task.**
 >    Owner chose trial H ("gentle explanatory") after two rounds
 >    (`COPY_STYLE_TRIALS_2026-08-05_hero_rewrites.md`); the voice prompt is
