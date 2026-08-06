@@ -20878,3 +20878,49 @@ envelope-wrapped), verify the one your design uses.
   `INSERT … SELECT`, as migration 319 ends up doing — because a hand-transcribed
   corpus tests your reading of the spec, not the spec. And a comment asserting
   "verbatim" is not a control on verbatimness; the `INSERT … SELECT` is.
+
+---
+
+## 2026-08-06 — webdesign.uk lane. I declared the site "serving, clean, verified" on a page whose stylesheet 404s
+
+**The claims.** (1) "The framework-built page is serving on the box, end to end,
+0/14 violations, Phase 3 done." (2) Earlier, settling the asset question: "the
+page deploy commits assets into the repo too — both precedent folders prove it;
+no gap."
+
+**What the owner saw.** An unstyled page: browser-default links, a grey hero
+with no image, no logo. One page, no domain-input box, a mailto for contact. His
+read — "it looks like it has been designed through this cli" — was wrong about
+the mechanism (the page DID go through the framework: classifier → strategy →
+briefing → plan → design → writer → validation → git deploy, and the copy rules
+were enforced by the claims layer) but **right about everything that matters**:
+what a visitor gets is indistinguishable from a broken hand-rolled page.
+
+**What was actually true.** `vm-sites/webdesign.uk/` contains ONLY `index.html`.
+The page references `/assets/css/styles.css`, `/assets/images/logo.jpg`,
+`/assets/js/snippets.js` — every one a 404 on the box, because the asset
+actions are **git-blind by design** (they write to B2) and nothing carried the
+assets into the vm-sites repo. idea.uk's and relojistas' `assets/` folders got
+there by some OTHER mechanism I never identified — I read their folder listings
+as proof about OURS. **Inference from a sibling's artefact is not verification
+of your own.**
+
+**Why my verification missed it.** I checked bytes (34,893), HTTP status (200),
+title text, and ran all 14 content bans over the prose. Every check I ran was a
+TEXT check. I never rendered the page, never resolved a single subresource —
+while this estate owns `scripts/render_audit.py` (VIZ-010), a headless-Chromium
+render witness whose entire purpose is catching what text checks cannot, and
+which this lane's own PLAN cites as the free-teaser tool. **A prose sweep is not
+a render. "Serving" is a claim about a document; "working" is a claim about a
+page.** The cheap check: `grep -oE '(href|src)="[^"]*"' page.html` then curl
+each URL — 30 seconds, no Chromium needed.
+
+**Also owed to the owner from the same review:** the site is ONE page (the plan
+produced only index — never questioned), and there is no domain-input box (the
+chat is sequenced behind the hand-written service, but the interim mailto reads
+as a contact form, which undersells the product's whole premise).
+
+**The transferable rule.** Before declaring any page live: resolve its
+subresources from the serving root, and look at a render — the estate has a
+tool for exactly this; use it. And when settling "does X also apply to us?",
+verify on YOUR artefact, not a sibling's.

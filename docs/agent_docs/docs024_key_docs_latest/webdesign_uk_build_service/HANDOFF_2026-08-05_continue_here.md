@@ -89,11 +89,16 @@ price stated as £1,200-total-no-VAT.
    picks `webdesign.uk` zone → then on the box: create tunnel `webdesign-box`,
    config → `http://127.0.0.1:8080`, `cloudflared service install`, verify
    outbound connections. **DNS untouched.**
-2. **202 clears** → re-drive (§2) → page passes validation → git-adapter commits
-   to `vm-sites/webdesign.uk/` → box pulls within 5 min → verify
-   `curl -H 'Host: webdesign.uk' http://127.0.0.1:8080/` = 200 + real page.
-   (Assets: the page deploy commits `assets/` into the repo — both precedent
-   folders prove it; the B2 copies the imagery lane wrote are harmless.)
+2. ~~202 clears → …~~ **DONE 08-05 (Sonnet swap) — but see the CORRECTION below.**
+   > **CORRECTED 2026-08-06, by the owner's screenshot.** The parenthetical
+   > claim "the page deploy commits assets into the repo — both precedent
+   > folders prove it; no gap" was **WRONG**: `vm-sites/webdesign.uk/` holds
+   > ONLY `index.html`, and the served page 404s on `/assets/css/styles.css`,
+   > the logo, images and JS — the owner saw an unstyled grey page. The
+   > precedent folders' `assets/` arrived by a mechanism never identified;
+   > verify on OUR artefact, not a sibling's. Full entry: `WRONG_CALLS.md`
+   > 2026-08-06. **The corrective work is §4a below and it is the lane's top
+   > priority.**
 3. **Two parked items**, owner-flavoured, not urgent: `needs_section_data`
    (pricing section wants `tier_1_features` — we are ONE price, so the section
    likely changes shape rather than gaining tiers) and `unresolved_cta` (hero CTA
@@ -105,6 +110,36 @@ price stated as £1,200-total-no-VAT.
    only — no zone route exists and the token lacks account scope), delete Page
    Rule `b8e08b35028315a274b2f5c7fea9154d`, let cloudflared write DNS. The 302
    stays until everything above is verified on-box.
+
+### 4a. CORRECTIVE PLAN (owner review, 2026-08-06) — the top of the queue
+
+The owner reviewed https://preview.webdesign.uk/ and rejected it: unstyled (the
+asset gap above), **one page**, and **no domain-input box** (a mailto is not the
+product). His standing instruction: **the site is rendered by framework
+submission triggers, never by this CLI** — hold to it while fixing.
+
+1. **Diagnose the VM asset path.** How do `idea.uk/assets/` and
+   `relojistas.com/assets/` actually get into vm-sites? (`site-asset-renderer`?
+   the deploy Action? a manual step?) Find the mechanism, then make webdesign.uk
+   use THAT — do not hand-copy assets into the repo, which would be the
+   hand-built error in miniature. If the mechanism turns out to be manual for
+   the precedents too, that is a platform gap worth filing, with this page as
+   the evidence.
+2. **A real multi-page site.** Re-drive through `082`/the pipeline with a
+   roadmap so the planner builds the pages the product needs (how-it-works,
+   what-you-get, FAQ/terms, contact) — `build-site-planner` honours roadmap
+   `section_types`/page lists ("build ONLY the pages listed"). The one-page
+   plan came from an unconstrained submission; constrain it this time.
+3. **The domain-input box** replaces the mailto — which requires the chat
+   service (Phase 4, hand-written by ruling-sanctioned exception) to exist
+   first, or at minimum a form endpoint on the box. Do not ship a dead input.
+4. **Verify like a visitor before ever reporting again**: subresources resolve
+   (grep href/src → curl each), then `scripts/render_audit.py` (VIZ-010) for a
+   render witness. A prose sweep is NOT a render (WRONG_CALLS 08-06).
+5. **The apex is DARK** (Page Rule + Worker binding removed in the dashboard,
+   ~08-06): restore the holding 302 as soon as a working CF token exists —
+   first action on the new token. The 302 stays until the owner approves the
+   REAL site.
 
 ## 5. Owner ledger
 
