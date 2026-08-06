@@ -229,3 +229,31 @@ above). Per the fleet practice that *a pass from a blind check outlives the
 blindness*, someone should re-examine whether any landmine-verifier verdict
 rested on one of those capped listings read as complete — re-run those checks
 post-roll or flag the affected verdicts.
+
+### Council verdict, read in full 2026-08-06 — APPROVED, 12/12 voted, 0 unreadable
+
+Correlation `f22f7ff1-7293-4d41-bcde-edc188fa6218`, ~3.5 minutes submit→verdict.
+One advisory objection, `bug_historian`, and it is the same seat making the
+same structural point that produced this very file: *"fixing the 4th instance
+of a named recurring mechanism without a companion inventory/audit of the
+mechanism itself (all silent row-caps in this codebase) all but guarantees a
+5th. Router: proceed, but consider requiring the inventory as a condition or
+immediate follow-up rather than deferring indefinitely."*
+
+**SECOND FOLLOW-UP OWED, therefore — a codebase-wide silent-cap inventory.**
+The 172 round's inventory covered the diagnose loop and found this file's
+defect; the seat now asks for the whole codebase. Whoever takes it, the
+method that worked here and the trap to avoid are both on record: audit
+*every* discard site (SQL `LIMIT` binds, slice truncations `x = x[:cap]`,
+loop `break`s on a budget) and for each ask "does the OUTPUT say so?" —
+grepping only for the shape the last bug happened to have is precisely how
+passes one to three each missed the next site (this file's own chain
+paragraph). 016b §9's family entry now carries the probe-not-inference
+convention to apply at any SQL-LIMIT site found wanting. Scope honestly:
+sites whose output feeds an LLM prompt or a human-read artefact first; a
+cap on an internal working set that nothing renders is a different, lesser
+class. Not started this session — recorded so it cannot be silently dropped.
+
+The code commit (`df281f6ba`) carries `Council-Submitted:` and is credited
+automatically by the `098` report now the correlation is approved — no amend,
+per the council runbook. **Never copy `Council-Reviewed:` onto it retroactively.**
