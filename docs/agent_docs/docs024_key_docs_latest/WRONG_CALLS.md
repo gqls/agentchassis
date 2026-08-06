@@ -20965,3 +20965,35 @@ shape change underneath it. Same failure, three spellings.
 **Second finding, free:** `execution_metadata.completed_steps` is **dead** — 0 on
 all 23 runs that are `status='COMPLETED'`. Nobody should use it as an execution
 signal; use `status`. Recorded in the lane `RUNBOOK` R10.
+
+---
+
+## 2026-08-06 — "the council already reviewed this semantic for 182" — cited a review whose verdict never landed (204 fix, session 7fffb7ef)
+
+**The claim.** My council submission for the `bugs_open/204` fix characterised
+the id-wins resolution flip as "the same flip the council already reviewed for
+182" — offered as precedent that the semantics had been independently judged.
+
+**What was true.** 182 committed with `Council-Submitted:` (corr `80fbbe7d`) and
+closed on the fixed-AND-live bar with the bug file itself saying **"verdict
+pending at close"**. `diagnosis_artifacts` holds only its `fix_plan` — **no
+council_report ever landed** for that correlation. The precedent is *production*
+precedent (live since a43be1e70, 2026-08-03), which is real but weaker than what
+I asserted.
+
+**What caught it.** The council's guardian seat, round 1 on my own submission:
+"this council has no confirmed record in front of it that 182's council decision
+endorsed exactly this shape — worth a precedent check before taking the author's
+characterization on faith."
+
+**The cheap check that would have caught it.** One query before citing any
+review as precedent: `SELECT kind, metadata->>'decision' FROM diagnosis_artifacts
+WHERE correlation_id='<corr>' AND kind='council_report'`. Zero rows means the
+review you are citing does not exist as a verdict. This is the LANDMINES
+council-run-id entry's sibling: a `Council-Submitted:` trailer records a
+SUBMISSION, and treating it as a REVIEW is the same substitution `098` calls
+MISMATCH when done with the other trailer.
+
+**Tally note.** Same family as "a CITATION is not a READ" (memory index): the
+trailer was in the commit I was citing, and I read the trailer's presence as the
+verdict's existence.
