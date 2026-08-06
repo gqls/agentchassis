@@ -1,4 +1,36 @@
-# HANDOFF — `bugs_open/201` lane, 2026-08-05 21:00Z · read this first
+# HANDOFF — `bugs_open/201` lane · read this first
+
+> ## ✅ UPDATE 2026-08-06 11:35Z — **SYMPTOM 1 PROVEN LIVE. §3 below is now HISTORY; read this box instead.**
+>
+> Fired `quality-discovery-agent` at `gaswholesalers.com` (owner-authorised) rather than waiting
+> for a run that was never going to come. Corr `35e24460-d3f9-4d0e-a4bb-28bb9bc82a5c`, COMPLETED
+> 11:34:22Z, `agent_run_stats` 22 → 23. It filed item
+> `d2a6117d-8840-4ee1-af97-6ff688c2758c` — `literal_markdown`, page `how-pricing-works`,
+> `created_by=quality-discovery-agent`, **`handler_agent = page-build-handler`**, status
+> `detected`. All 14 pre-fix items carry `page-content-writer`. **That is the proof.**
+>
+> Three things made it a real test rather than a vacuous one, all done before dispatching:
+> 1. **Confirmed the defect was still present** (`how-pricing-works` / slot `pricing`,
+>    `content_data` matching the check's own bold pattern). A clean page files nothing.
+> 2. **Confirmed a filed item cannot trigger a repair** — read `load_items`' action
+>    (`load_work_items`; `status IN ('triaged','approved')`), so a `detected` item is inert.
+> 3. **Confirmed the site was UNLOCKED and unowned**, with nothing in flight.
+>
+> ⚠ **I did NOT use `scripts/initial_messages/170_work_item_flow_build/075_trigger_discovery.sh`,
+> and neither should you.** It rejects `quality` outright (`case "$2"` accepts only
+> `design|completeness`), and — below the line where reading usually stops — it runs an
+> unconditional `UPDATE site_work_items SET status='triaged'` against a **hardcoded
+> `finetuning.uk`**, which would make another lane's whole detected backlog dispatchable.
+> Landmine filed and synced. I copied its kcat envelope into a standalone script instead.
+>
+> **What remains: SYMPTOM 2 only** — and the same pre-flight corroborated it independently:
+> gaswholesalers' *existing* `literal_markdown` item reads `status='complete'` while the markdown
+> is **still in `content_data` on that page**. That is a handler reporting success having written
+> nothing, reproduced a day after filing. **That is now the next work in this lane.**
+
+---
+
+## Original handoff, 2026-08-05 21:00Z (§3's "not yet proven" is superseded above)
 
 **Fix-1 is committed (`37afbb847`), council APPROVED, and NOW DEPLOYED** on `v1.0.1254`
 (both replicas, started 20:40:42Z / 20:41:08Z). **201 stays OPEN** — the fix is live but

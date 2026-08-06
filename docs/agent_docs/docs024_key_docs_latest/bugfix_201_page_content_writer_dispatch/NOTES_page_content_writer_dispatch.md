@@ -221,3 +221,69 @@ the ownership check point at me.** The generalisable form is already in memory a
 moves you to the back of the selector"; this is the same shape pointing forward instead of back.
 The check that actually answered ownership was grepping live `.jsonl` transcripts and finding
 two concurrent sessions in `page-content-writer` code, neither of which mentioned 201.
+
+---
+
+## 2026-08-06 — symptom 1 PROVEN, by inducing the test instead of waiting for it
+
+### The waiting plan was wrong, and finding that out was the day's real work
+
+Yesterday I wrote "the proof arrives on its next run" in three documents. **There is no next
+run.** `quality-discovery-agent` has one `scheduled_tasks` row, `enabled=false`, a 07-30
+one-shot — and `SELECT count(*) … WHERE target_agent_type ILIKE '%discovery%' AND enabled`
+returns **0**. Nothing in that whole class is driven. I had inferred a cadence from
+`agent_run_stats.run_count` = 22 without opening `scheduled_tasks`; **22 matches no cadence** —
+daily since 07-26 is ~11, hourly ~250 — and I read that as "infrequent" instead of "unscheduled".
+Logged in `WRONG_CALLS.md`. Owner authorised a deliberate sweep at `gaswholesalers.com`.
+
+### Pre-flight — three checks, each of which could have made the run worthless
+
+1. **Is the defect still there?** If the page is clean the check files nothing and the result is
+   zero rows, which I had already documented as "not a pass". Queried the check's own bold
+   pattern against live `page_components`: `how-pricing-works` / slot `pricing`, `content_data`
+   matches, `rendered_html` does not. **Defect live.** So the sweep had something to find.
+2. **Can a filed item start a repair?** I had told the owner "detects, does not repair" and
+   promised not to trust my own sentence. Read it: `build-dispatch-loop.load_items` → action
+   `load_work_items` → `status IN ('triaged','approved')` (`load_work_item_actions.go:633`).
+   A `detected` item is inert. **Confirmed before dispatching, not after.**
+3. **Is the site free?** `gaswholesalers.com` UNLOCKED, no lane rebuilding it, nothing in flight.
+
+### ⚠ The trigger script is a weapon — do not run it
+
+`075_trigger_discovery.sh` looked like the obvious tool. Reading it first (this lane's second
+such catch) found two things: its `case "$2"` accepts only `design|completeness`, so it **cannot
+fire quality discovery at all**; and **below the `CORRELATION_ID=` echo, where reading normally
+stops, it runs an unconditional `UPDATE site_work_items SET status='triaged' … WHERE domain =
+'finetuning.uk' AND status='detected'`** — hardcoded, ignoring `$1`. That is the exact status
+transition that makes a backlog **dispatchable**, on another lane's customer site, where a
+page-build repair regenerates prose rather than editing it. Landmine filed + synced. I copied its
+kcat envelope into a standalone script and left the tail behind.
+
+### The result
+
+Corr `35e24460-d3f9-4d0e-a4bb-28bb9bc82a5c`. `generic` → `quality-discovery-agent`, both
+COMPLETED, 11:34:22Z. `agent_run_stats` 22 → **23** (so the run is attributable, not inferred).
+
+```
+d2a6117d-8840-4ee1-af97-6ff688c2758c | gaswholesalers.com | literal_markdown |
+handler_agent = page-build-handler | detected | created_by = quality-discovery-agent |
+page how-pricing-works | 2026-08-06 11:34:22.809653+00
+```
+
+**All 14 pre-fix items carry `page-content-writer`; this one carries `page-build-handler`.** The
+discriminator is the value itself, which is why this works where a pod-grep could not: the change
+adds no string, but it *writes a different value into a row*, and rows are observable.
+
+It filed at `detected`, so nothing was repaired — pre-flight 2 held.
+
+### An unlooked-for corroboration of symptom 2
+
+Pre-flight 1 turned up something I was not looking for: gaswholesalers' **existing**
+`literal_markdown` item is `status='complete'` **while the markdown is still in `content_data` on
+that page.** That is symptom 2 — a handler reporting success having written nothing —
+reproduced independently, two days after 201's filer proved it at artefact level. It is also a
+neat demonstration of why `complete` is not evidence, on the very site being used to prove the
+other half.
+
+**State: symptom 1 fixed, live, proven. 201 stays OPEN for symptom 2, which is now the next
+work in this lane.**

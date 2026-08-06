@@ -38,7 +38,27 @@ and it has not run since 08-05 15:43Z; and the window spans **three** builds (`1
 `1257`), all carrying the fix. **This does NOT settle §4** — "a loss is RECORDED, not PREVENTED"
 is still a human's call.
 
-## THREAD 2 — `bugs_open/201` · **OPEN. Fix-1 live on v1.0.1254, UNPROVEN**
+## THREAD 2 — `bugs_open/201` · ✅ **SYMPTOM 1 PROVEN LIVE 2026-08-06 11:35Z. Still OPEN for symptom 2.**
+
+> Fired `quality-discovery-agent` at `gaswholesalers.com` (owner-authorised) instead of waiting
+> for a run that could never come. Corr `35e24460-…`, COMPLETED 11:34:22Z, run count 22 → 23.
+> Filed `d2a6117d-8840-4ee1-af97-6ff688c2758c` — `literal_markdown`, page `how-pricing-works`,
+> **`handler_agent = page-build-handler`**, status `detected`. All 14 pre-fix items carry
+> `page-content-writer`. **Proven.**
+>
+> Pre-flight made it a real test: defect confirmed still present (else zero rows prove nothing);
+> `detected` confirmed inert (`load_work_items` needs `triaged`/`approved`) so no repair fired;
+> site unlocked and unowned.
+>
+> ⚠ **Do not use `075_trigger_discovery.sh`** — it cannot fire quality discovery, and below its
+> final echo it runs an unconditional `UPDATE … SET status='triaged'` on a hardcoded
+> `finetuning.uk`. Landmine filed + synced.
+>
+> **Next work in this lane: SYMPTOM 2** — and the pre-flight corroborated it by accident.
+> gaswholesalers' existing `literal_markdown` item reads `complete` while the markdown is still
+> in `content_data` on that page.
+
+### (superseded) 2026-08-05 state — fix-1 live on v1.0.1254, UNPROVEN
 **Handoff:** `bugfix_201_page_content_writer_dispatch/HANDOFF_2026-08-05_continue_here.md`
 
 Council **APPROVED** (`71523705-…`, 15 reviewers, 5 advisory, none high). Three discovery checks

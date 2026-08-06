@@ -5920,3 +5920,75 @@ a STRING array — check the shape before trusting the prune.
 - **fires when:** you add a discovery check with a verifier, having reasonably assumed that registering it is what makes it gate. It is not: the `claimed-item-timeout` sweep auto-completes a stuck item at 15 minutes on the handler orchestration's own evidence, walking straight past the verifier — unless the item type is in that sweep's `item_type NOT IN (...)` list. **The lockstep test fails the moment you register**, naming the obligation, which is the designed catch and works. The half it CANNOT check is that the file it reads (`220`) is only the DECLARED list: **the LIVE `pre_query` column is a separate edit**, and a lane has already declared an entry in `220` that never reached the live column, leaving their verifier bypassable for two days (`305`'s header records it)
 - **the check:** read the live column BEFORE writing the replace, because a `replace()` must name the exact current string — if it has drifted from `220`, applying only your entry re-encodes someone else's gap into the new string: `SELECT name, substring(pre_query from 'item_type NOT IN \([^)]*\)') FROM scheduled_tasks WHERE pre_query LIKE '%item_type NOT IN%';`. Then assert BOTH directions in `DO`/`RAISE` blocks — new list present (1 row) **and old list consumed** (0 rows); a verify block of plain `SELECT`s cannot stop a `COMMIT`. Precedent: `269`, then `305`, then `322`
 - **source:** 2026-08-06, `bugfix_071_fragment_blindspot` lane (`dead_fragment_link`); the live list was read first and matched `220` exactly, so `322` carried nobody else's entry
+
+### `075_trigger_discovery.sh` ends by TRIAGING every detected work item on a hardcoded `finetuning.uk` — whatever domain you passed it
+
+- **footprint:** `scripts/initial_messages/170_work_item_flow_build/075_trigger_discovery.sh`, `site_work_items.status`, `finetuning.uk`, and by family `scripts/initial_messages/**/07*_trigger_*.sh`
+- **fires when:** you reach for the obvious committed script to fire a discovery sweep at a site. It takes `<domain>` as `$1`, prints your domain, and publishes a correct kcat message for it — so the part you watch is right. **Two blocks after the publish, past the "CORRELATION_ID=" echo where reading usually stops, it runs against a different site:**
+```sql
+UPDATE site_work_items SET status = 'triaged', updated_at = NOW()
+WHERE site_id = (SELECT id FROM sites WHERE domain = 'finetuning.uk') AND status = 'detected';
+```
+  Unconditional, hardcoded, no reference to `$DOMAIN`. The `# See what was found` SELECT above it is hardcoded the same way.
+- **why it is worse than a stray query:** `detected` is the status that keeps a finding INERT — `load_work_items` only loads `triaged`/`approved` (`load_work_item_actions.go:633`). Flipping a site's whole detected backlog to `triaged` is precisely the act that makes it **dispatchable**, so the next `build-dispatch-loop` pass can start real LLM rebuilds on someone else's customer site. And a page-build repair **regenerates a section rather than editing it** (`LANDMINES.md`, `spec.mode="recreate"`), so the damage is replaced prose, not a retry.
+- **the tell:** none at run time — it prints your domain throughout and exits 0. The tell is afterwards and on a site you were not looking at: a batch of `finetuning.uk` items moving `detected → triaged` with `updated_at` all equal to your run.
+- **the check:** **read to the END of any `initial_messages` trigger before running it — the hazard is below the echo that looks like the end.** `grep -n "UPDATE\|DELETE\|finetuning\|hardcode" <script>` before the first run. If you only need the dispatch, copy the kcat envelope into your own script and leave the tail behind (that is what the `201` lane did on 2026-08-06 to fire `quality-discovery-agent`, which this script also cannot do — its `case "$2"` accepts only `design|completeness` and exits 1 on anything else).
+- **not an isolated file:** `075d_simple_maintain_trigger.sh` in the same directory **cannot execute at all** — line 9 is a bare `-------------------` under its own `set -euo pipefail`, and line 11 hardcodes `DOMAIN="finetuning.uk"` over the argument line 7 demands (committed that way in `5345ad7e2`). **Treat this directory as unreviewed, not as tooling.**
+- **source:** 2026-08-06, `bugfix_201_page_content_writer_dispatch` lane, found by reading the script before running it while firing a sweep at `gaswholesalers.com`; `bugfix_194` lane found the `075d` half on 2026-08-05
+- **added:** 2026-08-06, bugfix_201_page_content_writer_dispatch lane
+
+---
+
+## `WHERE domain IS NULL` on `agent_error_log` sees 1.3% of the rows that have no domain — three of the twenty writers store `''`
+- **footprint:** `agent_error_log.domain`, `count(domain)`, `domain IS NULL` /
+  `domain IS NOT NULL` on that table; the three clone writers
+  `platform/orchestration/agenterrors/agenterrors.go` (`Write`, formerly
+  `orchestration.LogAgentError`), `platform/orchestration/actions/store_generated_component_action.go`,
+  `platform/orchestration/actions/component_write_guard.go`; the reader
+  `platform/orchestration/actions/diagnose_load_runtime_action.go` (`domain = $2::text`)
+- **fires when:** you count, filter or group `agent_error_log` by `domain` — including
+  "how many rows are unattributed?", any per-domain error dashboard, and any
+  site-scoped or domain-scoped diagnosis load. No symptom is needed and none appears.
+- **why the wrong answer looks right:** the query is well-formed, returns promptly and
+  returns a plausible small number. **`domain IS NULL` matched 128 rows of the 10,077
+  that have no domain** [MEASURED 2026-08-06 11:2xZ, all history: 128 NULL, **9,949
+  `''`**, 4,688 real, 14,765 total] — an under-report of **79×**, and `count(domain)`
+  is worse because it counts `''` as present. The ratio is **not stable**: it was 26×
+  on 2026-08-05, because the writers producing `''` are the high-volume ones. Do not
+  quote a factor without its date.
+- **the mechanism, so you can predict it rather than re-measure it:** of **20** non-test
+  writers, 10 write `NULLIF($n,'')`, 7 omit the column (both → NULL), and **3 write a
+  bare `$2`** (→ `''`). Those three share a byte-identical 13-column `VALUES` block —
+  clone-and-drift, not a missing convention. One of the three is the coordinator's
+  **generic** writer, so the classifier-generated codes (`LLM_API_ERROR`,
+  `PROCESSING_FAILED`, `TIMEOUT`, `UNKNOWN`, `PARSE_ERROR`,
+  `CHILD_ORCHESTRATION_FAILED`, `VALIDATION_ERROR_DROPPED`, `INCOMING_MESSAGE_REJECTED`,
+  `UNROUTED_IMAGE_KIND`) are `''` and carry **zero** NULLs, while every guard's own code
+  is NULL or a real domain. The partition is exact — no code appears in both sets.
+- **the check:** never ask for NULL; ask for either shape, and show all three so a
+  future divergence cannot hide —
+  ```sql
+  SELECT count(*) FILTER (WHERE domain IS NULL)  AS is_null,
+         count(*) FILTER (WHERE domain = '')     AS empty_str,
+         count(*) FILTER (WHERE domain <> '')    AS real_domain
+  FROM agent_error_log;
+  -- "no domain" is COALESCE(domain,'') = '' — never `domain IS NULL`, never count(domain)
+  ```
+  And before citing any file:line for this table's writers, **re-locate them**:
+  `grep -rn "INSERT INTO agent_error_log" --include=*.go platform/ internal/ | grep -v _test.go`.
+  RFC_012 (owner ruling 2026-08-06) moved the generic INSERT into a leaf package **and
+  carried the defect over verbatim** — a refactor is not a review of what it moves, and
+  every published file:line for this writer went stale the same day.
+- **two adjacent traps worth knowing while you are here:** (1) `bugs_closed/034` closed
+  partly on the claim of "**One** `agent_error_log` writer" — true for the two sites it
+  was about, and there are now twenty, so do not treat that consolidation as current.
+  (2) The `NULLIF($n,'')::uuid` on `site_id`/`work_item_id` is **compelled** by the cast
+  (`SELECT ''::uuid` → `ERROR: invalid input syntax for type uuid: ""`), so its presence
+  beside a bare `domain` is *not* evidence anyone intended the difference — reasoning from
+  that asymmetry sends you at the wrong target. Complements the "save seam's identity
+  paths" entry above, which is about *writing* an attributable row; this one is about
+  *reading* the column afterwards.
+- **source:** 2026-08-06, code-review triage lane (`code_review_triage_2026-08-05/`
+  NOTES §16, RUNBOOK R13); the over-read that produced it is in `WRONG_CALLS.md`.
+  **NOT fixed** — a stored-shape change on the fleet's highest-volume error writer,
+  wants a council round; `090` has not been run on it.

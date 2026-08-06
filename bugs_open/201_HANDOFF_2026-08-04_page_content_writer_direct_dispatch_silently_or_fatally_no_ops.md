@@ -3,6 +3,41 @@
 **Filed 2026-08-04** by the `bugfix_091_workitem_conflict_refresh`/`184` lane,
 found while verifying `bugs_open/184`'s auto-repair step. ~~**OPEN, unowned.**~~
 
+> ## ✅ STATUS 2026-08-06 11:35Z — **SYMPTOM 1 IS FIXED, LIVE AND PROVEN.** 201 **STAYS OPEN** for symptom 2.
+>
+> **The proof, induced deliberately rather than waited for.** Fired `quality-discovery-agent` at
+> `gaswholesalers.com` (corr `35e24460-d3f9-4d0e-a4bb-28bb9bc82a5c`, run COMPLETED 11:34:22Z,
+> `agent_run_stats` 22 → 23). It filed:
+>
+> | field | value |
+> |---|---|
+> | id | `d2a6117d-8840-4ee1-af97-6ff688c2758c` |
+> | domain / page | `gaswholesalers.com` / `how-pricing-works` |
+> | item_type | `literal_markdown` |
+> | **handler_agent** | **`page-build-handler`** ← the fix |
+> | status | `detected` |
+> | created_by | `quality-discovery-agent` |
+> | created_at | `2026-08-06 11:34:22.809653+00` |
+>
+> **Why this is decisive.** All 14 pre-fix items of these types carry `page-content-writer`; this
+> one, filed by the live binary (`v1.0.1257`), carries `page-build-handler`. The discriminator is
+> the value itself, so there is no "did the grep see it" ambiguity — and a pod-grep could never
+> have shown this (see below).
+>
+> **Pre-flight that made it a real test rather than a vacuous one:** the defect was confirmed
+> still present first — `how-pricing-works` / slot `pricing`, `content_data` matching the check's
+> own bold pattern. A clean page files nothing, and zero rows would have proved nothing.
+>
+> **It filed at `detected`, so nothing was repaired** — verified beforehand by reading
+> `load_items`' action (`load_work_items`, predicate `status IN ('triaged','approved')`,
+> `load_work_item_actions.go:633`), not assumed.
+>
+> ⚠ **Incidental corroboration of SYMPTOM 2, from the same pre-flight:** gaswholesalers' *existing*
+> `literal_markdown` item is `status='complete'` **while the markdown is still in `content_data`
+> on that very page.** That is symptom 2 reproduced independently, a day after it was filed.
+>
+> ---
+>
 > ## STATUS 2026-08-05 — FIX-1 COMMITTED (`37afbb847`), **STILL OPEN**. Owned by the `bugfix_201_page_content_writer_dispatch` lane.
 >
 > **Symptom 1 is fixed in code and is now DEPLOYED — `v1.0.1254`, both replicas, started
