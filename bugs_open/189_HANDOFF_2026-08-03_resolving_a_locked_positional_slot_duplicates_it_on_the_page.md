@@ -343,3 +343,23 @@ same UPDATE from that file.
 After it applies: confirm `slot_name_from` on both steps, then `bugs_open/204`'s
 canary runs un-gated on the BUILD path and grades both bugs at once. Then close
 189 and 204 together (`git mv`, naming BOTH paths on the commit).
+
+### §CONFIG APPLIED 2026-08-06 — the BUILD half is now live too
+
+The operator ran the gated command. Output: `BEGIN / UPDATE 1 /
+NOTICE: slot_name_from present on both render steps / DO / COMMIT`, and
+confirmed independently rather than trusting the NOTICE:
+
+```
+render_section=current_section.name | render_from_template=current_section.name
+```
+
+So both halves of this fix are now live: the re-render path (behaviourally
+proven above) and the build path. **The defect is no longer reproducible by
+either route**, which is the fixed-AND-live bar.
+
+Closing verification is now shared with `bugs_open/204`, whose canary exercises
+exactly this build path over the two positional prose slots of
+`guide-how-loans-are-calculated` — if the slot names come back `prose-0`/
+`prose-1` rather than `ported-prose`, that is this fix working on the build
+path, and it is graded there.
