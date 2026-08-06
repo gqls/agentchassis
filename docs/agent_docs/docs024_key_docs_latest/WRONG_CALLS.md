@@ -21101,3 +21101,81 @@ running it a minute later. The repair was structural rather than a patched asser
 refusal into a pure `validateTypeFilter`, testable with no DB — and it exposed a second gap: my
 refusal test would have passed against code that refused **everything**. A refusal test needs its
 accept case in the same commit, over *every* accepted value, or it only proves the code can say no.
+
+---
+
+## 2026-08-06 — I built a submission from CLAUDE.md's SUMMARY of a schema instead of the schema (bugfix_152_155 lane)
+
+**The claim.** That a council submission's `plan` is *a list of edits*. CLAUDE.md
+says: *"a `plan` (≤8 edits, each with file/operation/rationale/sketch; real diff
+hunks welcome; plus `grounded_in` evidence quotes)"* — which I read as describing
+the shape of `plan` itself. I wrote `"plan": [ {...}, {...} ]` and fired the trigger.
+
+**What caught it.** The trigger, client-side, in under a second:
+`ERROR: .plan missing — see the header for the fix_plan schema`. `plan` is an
+OBJECT — `{summary, edits[], grounded_in[], risks}` — and the full schema is
+written out in the script's own header, twenty lines above the code that refused me.
+
+**The cheap check.** *Before authoring input for a script, read that script's
+header — CLAUDE.md is an index of mechanisms, not their interface documentation.*
+It is a paragraph of prose describing a tool; the tool ships its own spec.
+
+**Why it is worth an entry despite costing nothing.** The refusal was free (no
+credits, no queue time) and that is exactly what makes it easy to under-learn from.
+The damage was not the failed run — it was the two fields the summary does not
+mention. **`risks` is a required first-class field**, and it is where you tell the
+reviewer what to check; I would have submitted with no risks block at all and
+never known the field existed. Writing it forced me to state two genuinely
+arguable decisions I had been treating as settled (a bare-key source ref being
+accepted by the downloader but deliberately skipped by the style-anchor resolver;
+and `COALESCE(EXCLUDED.storage_path, assets.storage_path)` making a regeneration's
+source win over the stored one). **A summary of a schema drops the fields that
+force you to think** — those are the ones a summary is likeliest to omit, because
+they are the ones with no obvious value to a writer in a hurry.
+
+---
+
+## 2026-08-06 — I ran a census that could not have come out false, and nearly wrote a clean bill of health for the exact mechanism the bug is about (bugfix_122_contrast_ink_slots lane)
+
+**The claim I was about to record.** That no component CSS on the fleet uses
+`--color-primary` as an ink — the double-duty defect at the centre of `bugs_open/122`.
+
+**The measurement.** A regex census over `css_snippets.css_content` counting
+`color: var(--color-primary)`. Result: **0 rows**. Marked, dated, and reproducible.
+
+**What caught it.** Inducing a non-zero before trusting the zero, per the standing
+discipline. Of the **21** rows in `css_snippets`, **0 mention `--color-primary` at
+all** — not as an ink, not as a fill, not once. So my "0 inks" was not a finding about
+inks; it was an artefact of pointing at a surface that carries none of the relevant
+CSS. Component CSS lives inside `content_components.html_template`, an entirely
+different column on a different table, where the real answer is **17 of 18 layouts
+plus two shared components**.
+
+**The cheap check.** *Ask what a non-zero would have looked like on this surface
+before reading anything into a zero.* One query —
+`SELECT count(*) FROM css_snippets WHERE css_content LIKE '%--color-primary%'` — and
+the census disqualifies itself.
+
+**Why it is worth an entry.** This is the `[MEASURED]`-but-not-disconfirmable shape the
+marker rules already warn about, and I walked into it with the warning loaded in
+context. What makes it dangerous here is the *direction* of the error: the false
+answer was **reassuring**. A census that wrongly reports a defect gets challenged by
+the next person who looks; one that wrongly reports *absence* closes the question and
+nobody re-opens it. The blast radius would have been a fix aimed at the wrong surface
+while the real 17-of-18 population went unmentioned in the plan.
+
+**A second, smaller one in the same session — three schema guesses on a live cluster.**
+I wrote SQL against `site_components.is_active`, then `content_components.css_styles`,
+then `site_specs.resolved_composition`. None exists (`site_components` uses
+`locked_at`/`lock_type`/`build_status`; component CSS is inside `html_template`;
+`site_specs` is a single `data` jsonb keyed by `aspect`). Three round trips to
+production for a rule CLAUDE.md states in two words. **The tell is that each query
+*reads* perfectly** — a wrong column name looks exactly like a right one, which is why
+"schema first" has to be a reflex and not a judgement call. The `\d` is cheaper than
+the round trip in every case.
+
+**And a third — a uniform failure is a property of the method.** A 19-site stylesheet
+census returned `403 Forbidden` on every single row and I briefly treated it as an
+origin or routing problem worth investigating. It was a user-agent rejection; a
+browser UA fetched all 19. *When every subject fails identically, suspect the
+instrument before the subjects.*
