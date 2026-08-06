@@ -136,3 +136,96 @@ and a path-qualified miss re-runs name-only and reports both facts. Consequences
   the claim is a direct reading of control flow with no cross-cutting inference in
   it. The part that IS uncertain — whether it fires — is marked `[UNMEASURED]` above
   rather than argued.
+
+---
+
+## SUPERSEDED 2026-08-06 — § Measured is answered: the cap has FIRED, five times, and the right corpus was `llm_call_log`
+
+The original § Measured stands as written for what it checked: retained
+`diagnosis_artifacts` bundles genuinely hold 0 rendered `[code_check]` blocks.
+The mistake was the corpus, not the query. The action's output travels
+`results_text` → the step result → `collected_data` → **embedded in the next
+LLM prompt** — so the durable record is `llm_call_log.prompt_rendered`
+(retention back to 2026-03), not the bundle table. Measured 2026-08-06, with
+the denominator in the same query per this file's own warning:
+
+```
+llm_call_log: 49,723 calls total; 39 carry rendered [code_check ...] blocks
+blocks parsed across the 39: 233
+row-count distribution: mostly 0–26; one block at 39; FIVE at exactly 40 — the cap
+all five capped blocks: agent_type = landmine-verifier (07-31 ×4, 08-03 ×1)
+```
+
+Re-running the five capped queries against the live index (denominator vs the
+40 rendered):
+
+| query | true matches | discarded |
+|---|---|---|
+| `content` "site_work_items" | 82 | 42 (51%) |
+| `content` "page-build-handler" | 43 | 3 |
+| `ls` "platform/orchestration/actions/" | **305** | **265 (87%)** — an alphabetical tail, `ORDER BY path` |
+| `content` "success" | 279 | 239 (86%) |
+
+*(Caveat: today's index vs 07-31/08-03 renders — the index has grown since,
+but the magnitudes dwarf any growth.)* The one 39-row block (uncapped,
+provably complete) renders in exactly the same style as the five capped ones —
+the indistinguishability this file names, observed in the wild. And the agent
+that read all five as complete is **landmine-verifier — the agent whose whole
+job is deciding whether recorded landmines still apply to current code.**
+
+**This also answers the "first job" question the § posed:** the output is not
+mis-plumbed and not unused — it reaches prompts; the bundle corpus was the
+wrong instrument. Also found while measuring: `answerCodeCheck` has a
+**fourth consumer** this file did not name — the diagnose loop's own
+`code_requests` lane (`diagnose_load_runtime_action.go:483`, `code_row_cap`
+default 40) — which inherits any fix to the shared function unedited.
+
+## FIX SHIPPED IN CODE 2026-08-06 — commit `df281f6ba`, council-submitted `f22f7ff1`
+
+Design: candidate 2's shape, with **exact** cap detection. Two file-local
+helpers — `probeLimit(rowCap)` binds `LIMIT rowCap+1` (the extra row is never
+rendered; its arrival IS the fact "more matches exist"; `rowCap <= 0` passes
+through unchanged to preserve the `LIMIT 0` → `emptyAnswer` edge) and
+`rowCapNotice(capped, rowCap)` (single wording site; empty string when not
+capped, which is what keeps every uncapped answer byte-identical). All three
+arms bind the probe, break at the cap, and end by rendering the notice. The
+symbol arm's notice lives inside `renderSymbolRows` — the single writer whose
+own doc comment (163 lane) reserved the spot — so the ELSEWHERE fallback is
+covered structurally. `answerCodeCheck`'s doc comment states the invariant a
+fourth kind must follow. Probing not inference, deliberately: a false "more
+matches exist" on a genuinely complete exactly-at-cap answer is this defect
+inverted, and `formatRowsText` (`diagnose_load_runtime_action.go:647`) already
+detects its cap by exactly this probe — the convention was in-family.
+
+Tests (`diagnose_code_lookup_rowcap_test.go`, 10 tests, sqlmock per the 172
+precedent, cap lowered to 2): per-arm induced-at-cap (the `ExpectQuery` LIMIT
+arg = 3 is the structural guard against reverting the probe bind); per-arm
+exactly-at-cap negative controls in equality form (same rows rendered at
+rowCap=2 and rowCap=99 must be EQUAL — immune to the post-163 baseline drift
+this file warns about); the capped-ELSEWHERE branch; the notice-lands-before-
+the-deferred-doc-block placement; pure tests for both helpers. **Mutation-
+tested both ways**: reverting the probe bind fails the at-cap test
+(`argument 2 expected [int64 - 3] does not match actual [int64 - 2]`);
+switching to `n >= rowCap` inference fails all three negative controls
+("a notice here is a false claim"). Verified from a clean `git archive HEAD`
+overlay, not the shared dirty tree.
+
+**Residual, known and one line wider, deliberately not fixed here:** a capped
+ELSEWHERE fallback that matches only doc rows (`altCode == 0`) discards its
+builder — now including its cap notice — while the doc rows still flush under
+an "answered: 0 rows" answer. Pre-existing D12 × 163 interplay; belongs to
+whichever thread takes that incoherence, not to this fix.
+
+**OPEN until the roll** (fixed-AND-live bar): needs the next chassis image +
+pod-verify (`grep -ac "this answer is CAPPED"` + a positive control, both
+replicas — budget ~100s per grep, see the 08-05 LANDMINE on slow BusyBox grep
+over these binaries), then an induced live check: an `ls` code_check on
+`platform/orchestration/actions/` (305 paths this morning) must carry the
+notice; any under-cap check must not.
+
+**Follow-up owed, recorded here so it survives this session:** the five capped
+landmine-verifier renders are identifiable in `llm_call_log` (timestamps
+above). Per the fleet practice that *a pass from a blind check outlives the
+blindness*, someone should re-examine whether any landmine-verifier verdict
+rested on one of those capped listings read as complete — re-run those checks
+post-roll or flag the affected verdicts.

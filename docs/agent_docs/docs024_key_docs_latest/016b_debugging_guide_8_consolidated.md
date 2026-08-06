@@ -2538,6 +2538,34 @@ least reproducible (a composition order, an alphabetical tail); this one is not,
 so the loss is unreproducible as well as unreported. **A cap over an unordered
 source is two defects, and the ordering one is invisible to any single run.**
 
+**Fourth instance, 2026-08-06 (`bugs_open/181`, fixed `df281f6ba`) — and the
+transferable parts are about FINDING and DETECTING, not the defect itself:**
+
+- **The fourth site was found by the inventory a council seat demanded, not by a
+  symptom.** Approving 172's fix, `bug_historian` objected that three passes
+  over this family had each "narrowed to the shape it happened to grep for" and
+  the next occurrence would be independently rediscovered — and made the fixer
+  inventory the loop. The inventory's one true positive was the sibling file's
+  `answerCodeCheck`: three row caps with no `n == rowCap` branch, in the same
+  function as a `max_checks` cap that reports itself. When a defect family has
+  recurred N times, the (N+1)th is cheaper to find by audit than by waiting.
+- **When the cap is a SQL LIMIT, exact detection is nearly free: bind `cap+1`,
+  render `cap`, and "capped" becomes an OBSERVED fact.** The extra row is never
+  rendered — its arrival is the fact "more matches exist". Inferring from
+  `n == cap` instead false-positives on every genuinely-complete at-cap answer,
+  which is the same defect inverted (an untrue evidence line in a prompt).
+  The convention already existed in-family (`formatRowsText`,
+  `diagnose_load_runtime_action.go:647`) — the grep-the-file-you-are-in rule
+  above, one file wider.
+- **The corpus for "did a render ever fire" is `llm_call_log.prompt_rendered`,
+  not retained bundles.** 181's own § Measured found 0 rendered blocks in 276
+  bundles and correctly marked the question `[UNMEASURED]` rather than
+  concluding. The output's real route was `results_text` → `collected_data` →
+  the next LLM prompt — where 233 rendered blocks sat, five at exactly the cap,
+  all read as complete by `landmine-verifier` (true match counts up to 305
+  against 40 rendered, an 87% alphabetical-tail loss). Before declaring a
+  render unexercised, trace where the text actually travels.
+
 ### A cap on a READ path reports a backlog as "nothing to do" (2026-07-20)
 
 **Symptom.** 303 work items sat at `needs_human_review`, oldest four months, none
