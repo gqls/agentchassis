@@ -21465,3 +21465,41 @@ work item dispatches nothing. Mine sat at `approved` — the only such row in
 1,157 — while every other recent item went straight to `complete`, because
 their creators published to Kafka themselves. **Filing is not dispatching**, and
 `approved` is a dead status for this item type.
+
+---
+
+## 2026-08-06 — I wrote "entry + index row in ONE commit" in a commit message, and it was false when I typed it
+
+**The claim.** Commit `7d9a31f43` (DOC-075, `prove-live-markers`) says in its first
+line: *"entry + index row in ONE commit, which is the shape DOC-074's drift-check exists
+to enforce and which several recent additions got wrong by a commit."* I then named
+`000_concept_index.md` on the pathspec, so I had every reason to believe it.
+
+**What was actually true.** The commit contains **two** files: the register entry and
+the RUNBOOK. The index row is at HEAD, but it arrived in **`8e0ce266d`**, another
+session's `docs(084)` commit, which named `000_concept_index.md` on its own pathspec and
+took my uncommitted edit to that file with it. The known same-file-passenger case: a
+pathspec protects you from other sessions' files, never from their edits to YOUR file,
+and it works in both directions — mine rode along in theirs.
+
+**Why it is worth a row rather than a shrug.** The register pair is consistent at HEAD,
+so nothing is broken and nothing is lost. What is wrong is the RECORD: a commit message
+now asserts a discipline it did not itself follow, in the exact register whose
+drift-check exists to catch that discipline being broken. Anyone auditing "who commits
+the pair together" would count mine as an example of the good behaviour.
+
+**What caught it.** `git commit`'s own output — `2 files changed` when I had named
+three. I read it, which is the only reason this is a correction and not a permanent
+falsehood in the log.
+
+**The cheap check, and it is nearly free.** After any pathspec commit that a claim
+depends on, read the stat line and count the files. If the number is lower than the
+number of paths you named, one of them was already committed by somebody else — confirm
+with `git log --oneline -1 -- <path>`. Before ASSERTING a commit contains something, ask
+git about git: `git show --stat HEAD`. The one-line generalisation: **on this tree, a
+commit message is a claim about a shared mutable object, so it needs the same evidence
+discipline as a claim about the database.**
+
+**Forward-only, so the message stands uncorrected in the log** — this row and the
+follow-up commit are the correction. Sibling entries: the same-file-passenger landmine,
+and "a quiet `git log` is NOT silence".
