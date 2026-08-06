@@ -23,6 +23,19 @@ need to re-derive anything.
 responses, migration renumbered 321→323) · `bef973cb3` (verdict recorded) ·
 `20d5f29c4` (passenger disclosure) · `ef13c1425` (live proof + SUMMARY).
 
+> **SUPERSEDED IN PART, 2026-08-06 (later) — READ THIS BEFORE TASK A.** The closure
+> test below was RUN and it refuted part of the fix's scope claim. Three
+> `asset_id`-only deploys all skipped with *"no storage URI found"*: `asset-deployer`
+> declares `input_fields` without `asset_id` (since 2026-02-20), and
+> `ExtractActionInputs` Strategy 1 extracts only listed names — so the branch this
+> lane deleted was **unreachable through that agent** and probably did not cause
+> 155's symptom. The live second arm is `findStorageURI` Priority 2 (top-level
+> `{purpose}_uri` in `collected_data`, same shape, read first). **Task A as written
+> cannot pass until `asset_id` is added to that step's `input_fields`.** Full
+> account and the revised three-step closure list: `bugs_open/155` § CORRECTION
+> 2026-08-06. Task B (152's derivation test) is UNAFFECTED and still the next
+> cheap win.
+
 ## The ONLY thing standing between here and closing both bugs
 
 ### Task A — 155's closure test (deploy 2+ same-purpose assets by `asset_id` alone)
