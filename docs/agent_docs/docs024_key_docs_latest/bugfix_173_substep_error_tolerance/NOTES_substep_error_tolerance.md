@@ -375,3 +375,25 @@ with `skipped=true`, which is why I checked the action returns a real Go error a
 **Cleanup done** — both `test-173-*` definitions deleted, 0 remaining. **173 moved to
 `bugs_closed/`.** WFA-008 promoted from *built (inert until roll)* to *deployed*, with the
 induction as its status-evidence.
+
+---
+
+## NOTICE 2026-08-06 from the `bugfix_197_transient_classifier` lane — retry semantics of failing substeps change on the next roll
+
+Told rather than merely measured (owner ruling 2026-07-29 §3). You filed `bugs_open/195`
+and its sibling `197`; 197 is now fixed in code (commit `1e349d046`, inert until the roll).
+
+**What changes for your lane:** the retryable-side classifier stops being three
+case-sensitive needles and becomes typed-first with a case-folded, census-derived fallback.
+Concretely: an agent-level processing failure whose prose contains `deadline exceeded` (885
+of the 2,996 measured), a capitalised `Timeout`/`Connection`/`Temporary` (882 more), or
+rate-limit/5xx prose now classifies `error_recoverable` where it was terminal — so on the
+paths where the agentbase response decides (spawned children; no-ResponsesTopic; errors
+bypassing `handleError`), **a failing step gets up to 3 redispatches before terminal**
+instead of failing on the first attempt. Your `continue_on_error` semantics are unchanged;
+what changes is how many attempts precede the failure your flag then handles.
+
+Bounds: `retry_version >= 3` (coordinator) + the 075 adapter cap; no backoff exists on the
+recoverable arm (named as a known gap in RSH-006, not fixed). On the orchestrated main path
+the processor's typed-only sender still pre-empts — see the 196 lane's notes for the
+scheduled convergence.

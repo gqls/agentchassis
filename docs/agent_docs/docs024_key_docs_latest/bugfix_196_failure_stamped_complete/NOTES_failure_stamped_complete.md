@@ -214,3 +214,34 @@
   consumer notices appended to `bugs_open/029` and `bugs_open/149`'s queue file;
   CTS-058 flipped to deployed/live; bug file moved to `bugs_closed/` with the
   close header quoting the induction table.
+
+---
+
+## NOTICE 2026-08-06 from the `bugfix_197_transient_classifier` lane — the shared prose classifier now EXISTS; converging your two senders onto it is YOURS to accept or decline
+
+Told rather than merely measured (owner ruling 2026-07-29 §3). Nothing of yours was changed:
+the only edits to `processor.go` in my commit (`1e349d046`) are the two comments that said
+the substring question "is bugs_open/197's seam and is deliberately not duplicated here" —
+they now name the classifier that exists and point here. **Your pinned tests are untouched
+and green.**
+
+**What exists now:** `messaging.MatchedTransientFailure` — typed-first (an `AsRetryable`
+author outranks all; codes `{AGENT_TIMEOUT, AGENT_OVERLOADED, RATE_LIMITED}`), with a
+case-folded, census-derived prose fallback. Agentbase already classifies through it.
+
+**Why it is your call, not mine:** your `processor_response_status_test.go` pins untyped
+`"context deadline exceeded"` → `error_unrecoverable` at your senders. Adopting the shared
+classifier there flips that pinned behaviour — a deliberate guarantee change for your lane,
+worth having because **the census says the population is real**: 885 of 2,996 failures that
+reached the sibling seam contain "deadline exceeded" and were made terminal, and on the
+orchestrated main path it is YOUR sender that wins the claim race, so those stay terminal
+until you converge. The adoption is one line per sender
+(`status := "error_unrecoverable"; if messaging.MatchedTransientFailure(err) != "" { status = "error_recoverable" }` —
+or keep typed-only; both are defensible) plus your test table. Bounds if you do: the
+`retry_version >= 3` cap and the 075 adapter cap; note **no backoff exists** on the
+recoverable arm.
+
+Full detail: RSH-006 (register), `bugs_open/197`'s appendix, and
+`bugfix_197_transient_classifier/NOTES_…`. Also flagging the same-file hazard: my commit
+touched `processor.go` (comments only) — if you have uncommitted work there, a pathspec
+commit on your side keeps our edits separate.
