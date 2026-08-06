@@ -21302,3 +21302,46 @@ truncations, failing 100% of calls for 34 hours (now `bugs_open/205`). *Before
 trusting a zero, induce a non-zero* — I knew the truncations existed, because they
 are quoted in the bug file I was working from, and still wrote the query that
 returned none of them. Reading the landmine is not the check; **using it is.**
+
+
+## 2026-08-06 — "zero items ever" from querying the CHECK NAME as the item_type (bugfix_071_fragment_blindspot)
+
+**The claim.** While sizing `bugs_open/071`'s fragment residue I queried
+`site_work_items WHERE item_type IN ('phantom_internal_links', ...)`, got no rows
+back for it, and said in a visible message that the phantom-link audit had never
+filed anything — reasoning on from there that the whole check was inert.
+
+**What is true.** The check is named `phantom_internal_links` (plural); the item
+type it files is `phantom_internal_link` (**singular**), and that one check files
+**three** distinct types (`phantom_internal_link`, `empty_internal_href`,
+`unbuilt_internal_link`) — so there is no single name that could serve as both.
+Re-queried correctly: **119 items, 55 complete, most recent 2026-08-04.** The
+check is enabled on `completeness-discovery-agent` and has been working for weeks.
+
+**What caught it.** Reading the check's source to write the new arm — the item
+type is a literal in `Run()` (`ItemType: f.IssueType`), and the mismatch was
+visible the moment I looked at it rather than at the registry.
+
+**The cheap check that would have.** Take an item_type spelling from the
+`ItemType:` literal in the producing check's source, never from the check name.
+One grep: `grep -n 'ItemType:' platform/orchestration/actions/discovery_checks/<check>.go`.
+Or, from the DB side, never conclude "never fired" from a zero on a name you
+typed — `SELECT DISTINCT item_type FROM site_work_items WHERE item_type LIKE
+'%phantom%'` costs the same query and cannot miss by a plural.
+
+**Why it is worth a row.** This is the "a grep proves absence only for the
+SPELLING it searches" family, with a twist that makes it worse: the wrong
+spelling here is *the name of the thing you are asking about*, so the zero reads
+as a finding about the mechanism rather than as a typo. It nearly became the
+premise for the whole plan — "the check is inert, so build a new one" — which
+would have produced exactly the un-scheduled second check `bugs_open/093` is
+still blocked on. The same mistake is sitting in the concept register, where
+LNK-009's status line still said "NOT YET ENABLED"; corrected in `af2667453`.
+
+**A second, smaller one in the same session, recorded because it is the
+disconfirmability rule biting.** My first blast-radius run printed "67
+fragment-bearing hrefs, 0 findings" and I was ready to report that as evidence
+the arm is safe. A zero from a detector that has never been shown to fire on
+that corpus is not evidence of anything. Planting two dead fragments into a copy
+of the same dump and getting exactly 2 back is what made the 0 mean something —
+and it took about ninety seconds.

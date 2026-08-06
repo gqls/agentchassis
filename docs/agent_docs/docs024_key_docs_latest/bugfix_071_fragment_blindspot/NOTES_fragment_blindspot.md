@@ -54,3 +54,38 @@ keep edits additive, re-read before edit. 203's lane owns the
 `primary_cta_url`/`secondary_cta_url` defaults map still at
 component_library.go:1136-1147 (their fix removed only the `cta_url` scalar
 defaults) — recorded for them in 071's update, not taken.
+
+## 2026-08-06 (later) — built, measured, submitted, committed
+
+**Built.** `SplitFragment` + `DocumentIDs` (extracted from `OrphanElementRefs`,
+which now runs on top of it) + the `dead_fragment_link` arm + its verifier + the
+writer constraint. Commit `af2667453`. Council `bbbb4132-4abe-4db1-a1ba-755377dab009`
+(submitted before the commit; `Council-Submitted:` trailer, so 098 credits it
+automatically when the verdict lands).
+
+**The coverage guard did its job on me.** Registering the verifier broke the
+build instantly — `TestRegisteredVerifiersMatchClaimTimeoutExclusion` named the
+obligation I did not know existed: an item type with a verifier must ALSO be
+excluded from the claimed-item-timeout sweep, or the 15-minute auto-complete
+branch walks past the verifier. Hence migration `322`, plus `220`'s declared
+list. I read the LIVE column before writing the replace (it matched 220 exactly,
+6 entries), which is what `305`'s header says to do — it had to carry another
+lane's unapplied entry because nobody checked.
+
+**Measurements, both disconfirmable.** Fleet harness over the shipping
+functions: 67 fragment-bearing hrefs, 0 findings; same corpus + 2 planted dead
+fragments → exactly 2, one per arm (bare and cross-page). Mutation: 3 mutations,
+3 distinct test failures, tree restored green.
+
+**Second misstep this session** (both now in WRONG_CALLS): I nearly reported the
+clean 0 as evidence before inducing a non-zero on the same corpus. Ninety
+seconds of planting turned a vacuous number into a real one.
+
+**Roll state at the time of writing.** A fresh build landed mid-session:
+`v1.0.1257` on both replicas, pod-grepped `dead_fragment_link` = 0, positive
+control `phantom_internal_link` = 9, negative control 0 — i.e. correctly NOT
+carrying this work, which was uncommitted at that moment. The arm needs the NEXT
+roll.
+
+**Still owed:** the verdict; migration 322 applied; the post-roll pod-grep and an
+induced live finding; then this file's damage/no-op pair re-run.

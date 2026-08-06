@@ -731,3 +731,93 @@ structured `sections_metadata` path and never reads `validation_result.clean_htm
 the primary build plan. The unrepaired sections were saved 400ms after the repair log
 and deployed. Full mechanism, evidence and fix candidates: **`bugs_open/079`, REOPENED
 2026-07-28** — detect → discard became detect → repair → discard the repair.
+
+---
+
+## 2026-08-06 — the FRAGMENT half is now built (committed, inert until the roll), and its exposure had MOVED
+
+Taken up by the `bugfix_071_fragment_blindspot` lane, which picked this file's
+own triage note ("the fragment blind spot — unfixed, and now acknowledged in the
+code itself") as the last residue nobody owned. **The other two residues are NOT
+mine and are not touched:** the renderer-default class is `bugs_open/203`'s
+active lane (its 08-05 fix `880a405a6` removed the `cta_url` scalar defaults;
+the `primary_cta_url`/`secondary_cta_url` map at `component_library.go:1136-1147`
+is still live and is recorded here for them), and already-deployed damage stays
+with the site lanes.
+
+### The exposure this file measured has largely healed — and that is not a reason to close it
+
+> **CORRECTION to this file's §"Related defect", re-measured 2026-08-06.**
+> "24 of 25 anchored links in the fleet point at an `id` that does not exist" is
+> **no longer true**. Today, across every active shipped page's stored
+> components: **5** `path#fragment` links (all idea.uk, all resolving — probed on
+> the served pages) and **61** bare `#fragment` links, 57 of them `#content`
+> skip-links whose target id is present in the stored rows *and* on the served
+> page. Every fragment probed resolves. Live damage ≈ **0**.
+>
+> The healing was per-page repair plus `092`'s writer constraints, **not** a
+> check — nothing has ever guarded this. So the class is exactly where
+> `bugs_open/093` was when it was fixed: *live exposure nil, structural gap
+> real*. This file's own history is the argument: the writer re-authored dead
+> anchors on **three consecutive rebuilds** of one site.
+
+### What was built
+
+`dead_fragment_link`, an **arm inside `check_phantom_internal_links`** — not a
+new check, because a new check needs its own entry in a discovery agent's
+`checks` array, which is how `093`'s fix reached production correct and never
+executed. That check is already enabled on `completeness-discovery-agent` and
+already filing (119 `phantom_internal_link` items, 55 complete, newest 08-04).
+
+Reuse over new code: `datahelpers.DocumentIDs` is the id-presence test
+**extracted from `OrphanElementRefs`** (`check_orphan_element_refs`), which asks
+the same question from the other end — a *script* naming an id the page lacks,
+where this is a *link* naming one. Every conservatism in that test was bought
+with a false positive on a working tool. `OrphanElementRefs` now runs on top of
+it, so the two cannot drift. Plus `datahelpers.SplitFragment` (splits on the
+FIRST `#`, so a `?query` stays with the path — `NormalizePagePath`'s combined
+`IndexAny("#?")` strip is right for page identity and would flag a working
+`/search.html?q=1#results`).
+
+Three rules — bare `#x` on a page resolves against that page's whole document +
+chrome; bare `#x` in **chrome** is dead only if it resolves on **no** page (it
+renders on every page, so per-page judgement files N items for one template);
+`/page.html#x` resolves against the **target** page. Four silences: noop hrefs
+(`dead_controls`), runtime-fill shells, a phantom or never-deployed target
+(reported once already, by another arm), and a target with no stored HTML.
+Severity **low** — this file's own distinction: repairing a path turns a link
+"from 404 into inert, which is an improvement, not a fix", and inert is what
+this arm reports.
+
+Prevention half: `buildLinkConstraintText` now tells the writer not to author
+`#` anchors at all. No caller supplies an anchor list, so every fragment it
+emits is an invention — correct-or-absent, the LNK-005 shape.
+
+**Blast radius, measured before submission rather than asked of the reviewers:**
+the shipping functions run over a 7.5 MB dump of all 38 sites' live components →
+**67 fragment-bearing hrefs, 0 findings**; the same corpus with two planted dead
+fragments → exactly **2**. The zero is disconfirmable.
+
+Commit `af2667453` (Council-Submitted `bbbb4132-4abe-4db1-a1ba-755377dab009`),
+plus migration `322` for the claim-timeout lockstep the verifier obliges.
+Register: **LNK-031**; and **LNK-009's status line is corrected** — it said "NOT
+YET ENABLED (deliberate)" while the check had been enabled and filing for weeks.
+
+### Still open on this file after this change
+
+1. **The gate still cannot judge fragments.** `validate_page_content` sees the
+   writer's `page_html` **without chrome**, so a chrome-satisfied anchor would
+   false-positive. Needs a chrome-aware id load at the gate.
+2. **Nothing REPAIRS a dead fragment.** Unlinking a label-bearing anchor leaves
+   the label as bare text (a recorded landmine), so detection first, volume
+   second, repair third.
+3. **No section component emits a stable `id`** — the capability half. Until it
+   does, a fragment link cannot be made to work *on purpose*, only avoided. This
+   changes every page's rendered HTML fleet-wide and wants its own round.
+4. This file still bundles a closed mechanism with open ones, which is the shape
+   the 07-27 triage warned makes a bug file un-closable. The split is still the
+   owning lane's call; the fragment half is now the smallest and best-defined
+   piece of it.
+
+Lane docs: `docs024_key_docs_latest/bugfix_071_fragment_blindspot/`
+(PLAN / NOTES / RUNBOOK / README_where_we_are).
