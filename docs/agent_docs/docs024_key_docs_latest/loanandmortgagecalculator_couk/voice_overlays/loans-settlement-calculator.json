@@ -1,0 +1,6 @@
+{
+ "blocks": {
+  "0": "<h1>Early Settlement Estimator</h1>\n<p>If you're thinking of clearing your loan early, UK lenders must give you a rebate on the interest. They're also allowed to add about 2 months of interest as a final charge. Put your loan in below to see roughly what your settlement figure would be.</p>",
+  "2": "<section class=\"guide-content\">\n        <h3>How this is calculated</h3>\n        <p>The natural guess is that settling early means paying off today's balance. The figure is usually a little more than that. Under the <em>Consumer Credit (Early Settlement) Regulations 2004</em>, lenders calculate interest up to the date you settle. They can then add a notice period, usually 28 days, and another 30 days on top. Those two windows are why it's known as the \"58-day rule\", and it's standard across most UK personal and car loans.</p>\n    </section>"
+ }
+}

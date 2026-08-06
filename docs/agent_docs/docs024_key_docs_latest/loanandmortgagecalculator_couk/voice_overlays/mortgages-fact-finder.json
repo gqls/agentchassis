@@ -1,0 +1,5 @@
+{
+ "blocks": {
+  "0": "<h1 style=\"margin-bottom:10px;\">The Mortgage Scorecard Simulator</h1>\n<p class=\"intro\" style=\"margin-bottom:40px;\">\nWhen you apply for a mortgage, a piece of software usually scores your application before a person reads it. This simulator works like that software, except you can see inside it. Change your answers below and you'll watch, in real time, what stability, employment and credit history each do to your approval chances.\n</p>"
+ }
+}

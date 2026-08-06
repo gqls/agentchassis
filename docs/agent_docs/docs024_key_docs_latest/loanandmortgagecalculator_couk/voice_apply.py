@@ -33,6 +33,13 @@ CHECKS, per overlaid block — the transformation moves REGISTER, never facts:
   F7  the voice is present: at least one contraction (rule 8) — crude, but
       censusable — and none of rule 4's banned performatives.
   F8  still visibly non-empty (assembly would silently drop an empty block).
+  F9  coverage band: the transformed block's visible text is 55–160% of the
+      original's. A register change rewrites sentences; it does not halve a
+      page. This exists because three authoring agents were killed mid-run by
+      a model usage limit on 2026-08-06, and a file written by a process that
+      died before its own self-check is exactly where a silently truncated
+      block comes from. F3/F4 catch it only when the lost text contained a
+      link or an anchor; F9 catches the paragraph that contained neither.
 
 Usage:
   DECOMP_WORK=<dir> python3 voice_apply.py [--pages name1,name2] [--dry-run]
@@ -149,6 +156,16 @@ def check_block(name, idx, orig, new, page_prose_numbers):
 
     if len(re.sub(r"\s", "", visible_text(new))) <= 10:
         problems.append("F8: block would be dropped by assembly as empty")
+
+    o_len = len(visible_text(orig))
+    n_len = len(visible_text(new))
+    if o_len > 200:  # too short to have a meaningful ratio
+        ratio = n_len / o_len
+        if ratio < 0.55 or ratio > 1.60:
+            problems.append("F9: visible text is %.0f%% of the original "
+                            "(%d -> %d chars) — outside the 55-160%% band; a "
+                            "register change rewrites sentences, it does not "
+                            "resize a page" % (ratio * 100, o_len, n_len))
 
     return problems, notes
 

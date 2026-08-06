@@ -1,0 +1,6 @@
+{
+ "blocks": {
+  "0": "<h1>Mortgage Affordability Calculator</h1>\n<p>If you're about to start viewing properties, it's worth knowing your ceiling first. That ceiling is what a lender will actually offer you, and they work it out from your income before tax and what you're already committed to paying each month. Put your numbers in below for a rough idea of where it sits.</p>",
+  "2": "<h2>How do UK lenders calculate affordability?</h2>\n<p>Some years ago the rules on mortgage lending were tightened, in a reform called the Mortgage Market Review. Since then, banks have had to check properly what you can afford, not just what you earn. They'll generally cap borrowing at <strong>4.5 times</strong> your joint annual income, less your committed debts. Three things drive the answer.</p>\n<ul>\n<li><strong>Gross Income:</strong> What you earn in a year before tax comes out.</li>\n<li><strong>Committed Expenditure:</strong> The repayments that carry on regardless, like card debt, car finance and student loans.</li>\n<li><strong>Stress Testing:</strong> Lenders check you could still pay if interest rates rose sharply.</li>\n</ul>"
+ }
+}
