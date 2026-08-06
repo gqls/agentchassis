@@ -130,3 +130,61 @@ submitting out-of-scope work to burn seats on it is the behaviour the refusal is
 there to prevent. Review here follows the RFC_006 precedent instead — the seed, its
 reasoning, the register entry and the first note are all readable, and the pinned
 known-case test is the disconfirmable part.
+
+## 2026-08-06 (later) — cap raised to 64000 on owner instruction
+
+Applied via `SQL_2026-08-06b_classifier_cap_32000_to_64000.sql`, guarded both ways
+(refuses if a root `ai_service` block appears; RAISEs unless exactly one row reads
+64000 after). Verified live: cap 64000, root block NULL, model `claude-sonnet-4-6`,
+prompt still 16,950 chars and `input_fields` still 4 — so only the cap moved.
+
+**Why 64000 and not 128000** (the model's real ceiling — checked, not recalled:
+Sonnet 4.6 and Sonnet 5 both cap at 128K output, 1M context):
+
+- The chassis **does not stream**. `platform/aiservice/anthropic.go:72` is one
+  `http.Client{Timeout: 600s}`, and the comment beside it records having hit
+  "Client.Timeout exceeded" at ~600,0xx ms. A cap the model can actually fill is
+  bounded by wall-clock here, not by the API limit.
+- 64000 is **already live and exercised** on this chassis — `recreate_tool`, 77 calls
+  in 90 days, peak 11,888 — so it is a proven operating point.
+- 128000 would make this step the fleet's **only** 128000. That is the exact singleton
+  shape that hid this bug for months when it was the only 6000: no sibling to compare
+  against, nothing to notice when it drifts.
+
+Also measured while choosing: `verdict@32000` has peaked at **31,860 — 99.6% of cap**
+over 305 calls. 32000 is genuinely reachable in this fleet, so the raise is not
+theoretical headroom.
+
+## MISSTEP 5 — I wrote an unverified structural claim into the bug file
+
+Asked to explain the structural split, I wrote into `bugs_open/183` that the four
+sections "are not independent — three of them read the classification the same call
+produces." **I had not opened the prompt.** I had measured its LENGTH (16,950 chars)
+earlier and let that stand in for having read it.
+
+Then I opened it. What the template actually says is different in a way that changes
+the design:
+
+- `identity` is the upstream section, not `classification` — the prompt requires every
+  `content_direction` field to be "specific to THIS industry" and the palette to be
+  derived from the industry, and industry is an `identity` field.
+- The real cross-section coupling is `classification.suggested_style` ↔
+  `design_intent.style_direction` — the **same enum**, with "style_direction must agree
+  with the palette you emit".
+- The three adoption-branch consistency rules point at the **inputs** (the adopted
+  archetype/content_direction/design_intent), not at this call's own output, so they
+  survive any split unchanged.
+
+Corrected in both files, marked as a correction in the DESIGN doc.
+
+**The check, and why this one stings:** *reading a field's LENGTH is not reading the
+field.* This is the third instance in one session of the same family — measure
+something adjacent to the question, then answer the question from it. The other two
+(the `output_tokens IS NOT NULL` filter, the 14-day window) were caught by running a
+query. This one was caught only because the task happened to require me to open the
+file. Had the owner asked "raise the cap" and nothing else, the wrong claim would have
+shipped in a bug file and been inherited by whoever builds candidate 3.
+
+**A design built on a misread dependency graph fails in a specific, expensive way**:
+four parallel calls (what my wrong version implies) produce a dark palette under a
+`modern-light` classification, and nothing catches it until a site renders.

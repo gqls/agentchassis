@@ -1,9 +1,22 @@
 # 183 — `domain-research-classifier` truncates on a 6000-token cap, the fleet's only one, and burns all 3 attempts
 
 **Filed 2026-08-03** by the `mortgagecalculator_couk_adoption` lane, which it blocked.
-**Status: cap raised 6000 → 16000, then → 32000 on the owner's instruction
+**Status: cap raised 6000 → 16000 → 32000 → 64000, each on the owner's instruction
 (live config; 16000 proven in production first — one run at 6590 output tokens).
 OPEN** because the exposure that produced it is untouched — see fix candidates 2 and 3.
+
+> **CAP NOW 64000 (owner-directed, 2026-08-06).** Applied and verified live and
+> unshadowed; seed + reasoning in
+> `docs024_key_docs_latest/bugfix_183_step_token_pressure/SQL_2026-08-06b_classifier_cap_32000_to_64000.sql`.
+> **Not 128000** (the `claude-sonnet-4-6` ceiling) for two measured reasons: the
+> chassis does not stream — `platform/aiservice/anthropic.go:72` is a single
+> `http.Client` with a 600s timeout whose own comment records hitting it — so a cap
+> the model can actually fill is bounded by wall-clock, not by the API limit; and
+> 64000 is **already live and exercised** here (`tool-recreation-handler/recreate_tool`,
+> 77 calls/90d, peak 11,888), whereas 128000 would make this step the fleet's ONLY
+> 128000 — the exact singleton shape that hid this bug for months. Headroom is now
+> ~9.7× the observed maximum, and regrowth is announced by LCO-007 rather than
+> discovered by a burned site. **This does not close the bug** — see candidate 3.
 
 > **UPDATE 2026-08-06 — candidate 4 is DONE and live; this bug is now one decision
 > from closing.** The standing check shipped (see candidate 4 below) and found a new
@@ -169,6 +182,22 @@ the child orchestration, and (after 3 attempts) the work item.
    unrepresentable rather than merely unlikely, and would let a single section be
    regenerated without redoing the classification. Architecture-scope; not attempted
    here.
+
+   > **DESIGNED, NOT BUILT — 2026-08-06.** The full design, the three things that make
+   > it more than "four smaller prompts", the honest costs, and the two things that
+   > must be measured before anyone writes it, are in
+   > `docs024_key_docs_latest/bugfix_183_step_token_pressure/DESIGN_2026-08-06_structural_split.md`.
+   > Summary of the argument, **read out of the live prompt, not assumed**: the four
+   > sections are **not** independent, so this is **identity-first, then fan out** —
+   > not four parallel calls. `identity` is upstream (the prompt requires every
+   > `content_direction` field to be "specific to THIS industry" and the palette to be
+   > derived from the industry), and `classification.suggested_style` and
+   > `design_intent.style_direction` draw on the **same enum** and must agree. The
+   > value is not the smaller cap: it is that **a failure stops being all-or-nothing**.
+   > Today one truncation costs the site all four specs; after the split it costs one
+   > section, retried alone. **It needs an RFC** under the 2026-07-29 ruling — it
+   > changes what the mechanism GUARANTEES: the four `write_*_spec` steps currently
+   > cannot observe a partial spec set, and afterwards they can.
 
 4. **A floor check on caps.** No step that emits a whole spec document should sit
    below the 8000 mode. An offline lint over `agent_definitions` would have caught
