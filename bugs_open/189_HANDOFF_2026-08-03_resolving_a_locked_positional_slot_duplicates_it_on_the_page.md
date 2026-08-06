@@ -213,3 +213,68 @@ at all:
 - 204's fix is NOT the defect here (same verdict as 182 in §header: resolution
   is correct and desired); this save-path defect predates both and is the
   remaining half of the decomposed-site rebuild story.
+
+---
+
+## §Fix committed + APPROVED 2026-08-06 (session 7fffb7ef) — awaiting a roll, and the config half needs care
+
+**Commit `92e14493b`** (plus the `v3_site_actions.go` half at `1d11827c1`,
+swept into another session's commit while this was being written — nothing
+lost, both are at HEAD). **Council APPROVED round 1**, corr
+`87444080-72e4-43a6-a089-b327a8285563`, 6 advisory objections, none high.
+Registered as **PBP-035** in the concept register (the seam: `stored_slot_name`
+is a reserved key on the shared `sections_metadata` contract, and
+`slot_name_from` a new step-config convention — the architecture seat raised
+this twice and it is the standing owner requirement for a shared seam).
+Decision also in `doc_notes c23ce8cb` on the `page-content-writer` subject.
+
+**What shipped:** candidates 1+2 as one move. `sections_metadata` gains
+`stored_slot_name`, emitted by `RerenderPageSectionsAction`'s success entry,
+`carryStoredSection`, and `RenderComponentAction` (via optional
+`slot_name_from` config). `extractSectionsFromMetadata` prefers it VERBATIM;
+absence is byte-for-byte today's behaviour. `matchLockedRow` untouched — once
+the incoming name is the stored slot name, its existing match is correct.
+15 tests, 10 mutations, all caught, including a control proving the locked-row
+assertion is capable of failing.
+
+### ⚠ Two things the next session must not skip
+
+1. **The config half is UNAPPLIED and the Go half alone leaves the BUILD path
+   dormant.** Apply `slot_name_from` on `render_section` and
+   `render_from_template` from the `jsonb_set` block appended to
+   `docs/agent_docs/sql_for_agents/023_page_content_writer_agent.sql`. Do NOT
+   re-run that file's full-workflow UPDATE block — it is stale against live and
+   would revert a later `prompt_template` patch that exists only as a pasted
+   transcript at the end of the file.
+2. **Back it up first (debug_historian, MEDIUM).** `page-content-writer`
+   dispatches continuously. The block verifies AFTER the write, which is not
+   the same as being able to undo it:
+   ```sql
+   \copy (SELECT default_config FROM agent_definitions WHERE type='page-content-writer'
+          AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL)
+     TO '/tmp/pcw_default_config_backup_20260806.json'
+   ```
+   Rollback is the same `UPDATE … SET default_config = <that file>`.
+
+### Objections carried forward (advisory, none blocking)
+
+- `bug_historian` LOW: **`tool-recreation-handler` is a third producer with no
+  `stored_slot_name`** — safe only because it has no structured slot identity
+  to offer, which is a fact about that producer today, not an enforced
+  mechanism. The same shared-mechanism-fixed-at-some-call-sites shape this
+  estate keeps recording. Worth a look if that handler ever gains a plan.
+- `editquality` LOW: `carryStoredSection`'s hunk is a no-op today (a carry sets
+  no `component_function`, so the save already fell through to
+  `component_name`). Kept deliberately so the field's meaning does not depend
+  on which branch produced the entry.
+- `architecture` MEDIUM ×2 — answered by PBP-035, which states the rule for a
+  future producer rather than leaving it in this diff.
+
+### To close (fixed AND live bar)
+
+Roll past v1.0.1257 → pod-grep `stored_slot_name` (**0 today**, measured — the
+ready-made negative control) → apply the config (step 1, with the backup) →
+then this file's §How to verify, unchanged: fire `section_data_resolved` on
+`tool-loan-vs-savings`, assert **exactly 4** rows, `tool-2` still locked at
+position 3, `id`/`locked_at`/`locked_by` unchanged. Then `bugs_open/204`'s
+canary runs un-gated and both close.
