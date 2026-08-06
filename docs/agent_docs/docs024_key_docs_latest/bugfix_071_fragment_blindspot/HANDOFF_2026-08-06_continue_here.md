@@ -19,11 +19,11 @@ pieces.
 
 | thing | where | state |
 |---|---|---|
-| `dead_fragment_link` arm | `discovery_checks/check_phantom_internal_links_fragments.go` | committed `af2667453`, inert |
-| wiring (second pass, `p.url` in the query, severity/routing) | `check_phantom_internal_links.go` | same commit |
-| `SplitFragment` | `datahelpers/links.go` | same commit |
-| `DocumentIDs` (extracted from `OrphanElementRefs`, which now runs on it) | `datahelpers/element_refs.go` | same commit |
-| writer constraint (no invented `#` anchors) | `prepare_link_context_action.go` `buildLinkConstraintText` | same commit |
+| `dead_fragment_link` arm | `discovery_checks/check_phantom_internal_links_fragments.go` | `af2667453`, **LIVE v1.0.1259, proven** |
+| wiring (second pass, `p.url` in the query, severity/routing) | `check_phantom_internal_links.go` | same commit, **LIVE** |
+| `SplitFragment` | `datahelpers/links.go` | same commit, **LIVE** |
+| `DocumentIDs` (extracted from `OrphanElementRefs`, which now runs on it) | `datahelpers/element_refs.go` | same commit, **LIVE**; refactor proven identical over 4,036 docs |
+| writer constraint (no invented `#` anchors) | `prepare_link_context_action.go` `buildLinkConstraintText` | same commit, **LIVE** (effect unmeasured — needs a writer run) |
 | claim-timeout exclusion | `sql_for_agents/322` + `220`'s declared list | **APPLIED AND RECORDED** 2026-08-06 10:20Z |
 | register | LNK-031 new; **LNK-009 status corrected** | same commit |
 
