@@ -35,3 +35,42 @@ recorded with reasons, and each needs its own decision.
 Next: write the code and tests, prove on today's data that the new check would
 raise zero false alarms (and one real one when we plant it), put it through the
 council, commit.
+
+## 2026-08-06 (later)
+
+Done and committed. The check now has a fourth thing it looks for: a link whose
+"#jump-to-section" half names a section that does not exist on the page it lands
+on. It sits inside the link checker that already runs and whose findings already
+get worked, rather than being a new check somebody would have to remember to
+switch on — we have been bitten by that exact thing before. The writer has also
+been told to stop inventing section links, since nobody ever gives it a list of
+real ones.
+
+Before shipping it I ran the new code over every page on every site to see what
+it would complain about: nothing, on all 67 of today's section links. Then I
+planted two broken ones into a copy of the same data and it caught both — a
+"zero problems found" that has never been shown capable of finding a problem is
+worth nothing.
+
+The council approved it first time. One reviewer asked a question I had not
+thought to ask myself: I had rearranged a shared piece of code, and it turns out
+a third place uses it — the gate that refuses to publish a broken tool. Changing
+that by accident would have been bad. I checked properly by running the old and
+new versions side by side over 4,036 real documents; they agree everywhere. My
+first attempt at that check was itself worthless (both versions agreed that
+nothing was wrong with anything, which proves nothing), and only a guard I had
+written into it beforehand stopped me reporting it as a pass. That is the third
+time today that asking "could this test have failed?" changed the answer.
+
+What is left: the new code only starts working when the next chassis image is
+built and rolled — this is Go, so it is inert until then. After that roll,
+someone needs to confirm it is in the binary and plant one broken link on a real
+site to watch it get reported. The steps and exact commands are in the lane's
+RUNBOOK and handoff.
+
+Three related things are deliberately NOT done, each written down with why: the
+pre-publish gate still cannot check section links (it cannot see the site's
+header and footer, so it would raise false alarms); nothing repairs a broken one
+yet; and no page section publishes a stable name to jump to, so these links can
+only be avoided rather than made to work. That last one is the real capability
+and it needs its own decision, because it changes every page on every site.
