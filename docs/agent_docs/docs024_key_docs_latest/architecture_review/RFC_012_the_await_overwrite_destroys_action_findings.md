@@ -341,3 +341,30 @@ findings-plus-await action (or a thread adopting `bugs_open/158`/185-adjacent wo
 should build it as its own coherent task through the council gate, and register it in
 the concept register in the same commit. Until it exists, the LANDMINES entry (as
 corrected 2026-08-04: durable = direct DB row) is the guard.
+
+---
+
+# OWNER RULING 2026-08-06 (second sitting) — (d) DECIDED, the census COMMISSIONED, B ASSIGNED
+
+Recorded by the bugfix_080 session on the owner's word, three rulings in one message:
+
+1. **(d) is DECIDED YES: the shared-`output_field` census becomes a STANDING check** —
+   and the owner asks it be made ONLINE within the framework if possible (i.e. run by
+   the platform against live `agent_definitions`, not only by a hand-run script). The
+   addendum-1 specification remains binding: full 13-key routing graph,
+   different-action discriminator; both naive detectors return 0 on the known bug, so
+   a candidate implementation must prove itself against that case before it counts.
+   Precedent for the online form: RFC_006's ruling that live config is guarded by a
+   scheduled check, never a commit-time hook (at commit time the config is unapplied).
+
+2. **The §3(a) reader census is COMMISSIONED.** Scope per §3(a): every consumer that
+   reads an awaited step's key expecting the bare reply shape — config-side
+   (`input_mapping`s and template references over the fleet's `agent_definitions`) and
+   Go-side readers of `collected_data[<step>]`. Deliverable: a census artefact in this
+   RFC's directory naming each reader and whether a merge-not-replace under a
+   `response` sub-key would break it — the artefact (a)/(a′) is gated behind.
+
+3. **Implementation of B is ASSIGNED — "let's do it now"** (the bugfix_080 session
+   takes it): the leaf-package shared `agent_error_log` writer + the named
+   findings-plus-await helper, through the council gate, concept-register entry in the
+   same commit, per the first sitting's prescription.
