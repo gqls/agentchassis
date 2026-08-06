@@ -55,21 +55,29 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 
 	config := params.StepConfig.Config
 
-	// --- Upstream assembly skip (bugs_open/208) ---
+	// --- Ownership skip from assemble_page (bugs_open/208) ---
 	//
-	// If the assemble step declared a skip, there is no composed page to save, so
-	// saving nothing is the correct outcome — and it must be a SKIP, not the hard
-	// refusal below. None of the three build loops sets continue_on_error
-	// (loop_error_handler.go:70-90 requires it), so an error here fails the whole
-	// workflow and strands every page after this one. Before this check, the
-	// ownership guard downstream turned "one owned page in the set" into "the
+	// The owned-page guard upstream refused to assemble this page, so there is
+	// nothing to save — and this must be a SKIP, not the hard refusal below. None of
+	// the three build loops sets continue_on_error (loop_error_handler.go:70-90
+	// requires it), so an error here fails the whole workflow and strands every page
+	// after this one. Before this check, one owned page in a set turned into "the
 	// operator's entire rebuild dies".
 	//
-	// This does NOT weaken that guard: it fires only when the assembly itself was
-	// skipped, so an owned page arriving WITH content — an older image, or a future
-	// path that bypasses assemble_page — still meets the loud refusal below.
-	if skipped, skipReason := upstreamAssemblySkipped(params.CollectedData); skipped {
-		params.Logger.Info("SavePageSectionsAction: upstream assembly skipped, nothing to save",
+	// This does NOT weaken the ownership refusal below: it fires only on the guard's
+	// own skip, so an owned page arriving WITH content — an older image, or a future
+	// path that bypasses assemble_page — still meets that loud refusal.
+	//
+	// KEYED TO THE OWNERSHIP MARKER, not to any assembly skip, and the distinction
+	// is load-bearing rather than fussy. An ordinary content-failure skip can arrive
+	// with `sections_metadata` populated but no assembled HTML, and in that case the
+	// metadata path below legitimately writes the sections — content_data being the
+	// only thing a later re-render can regenerate from. Exiting early on every skip
+	// would silently stop those writes on the fleet's highest-traffic save path,
+	// which is a change this bug did not ask for.
+	if skipped, skipReason := upstreamAssemblySkipped(params.CollectedData); skipped &&
+		strings.Contains(skipReason, ownedPageSkipReasonPrefix) {
+		params.Logger.Info("SavePageSectionsAction: owned-page guard skipped the assembly, nothing to save",
 			zap.String("skip_reason", skipReason),
 		)
 		return map[string]interface{}{

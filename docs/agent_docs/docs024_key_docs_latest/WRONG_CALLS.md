@@ -21686,3 +21686,48 @@ my own tidy story.
 **The cheap check.** Before attributing rows to a producer, `SELECT source, created_by,
 count(*)` on the rows themselves. Reading the code tells you what CAN write them; only the
 column tells you what DID. Sibling entry: "a filed ROOT CAUSE decays faster than its damage".
+
+---
+
+## 2026-08-06 — I scoped one guard carefully, wrote the reasoning down, and then did not apply it to the guard two files away
+
+**Lane:** bugfix 208. **My own call**, caught by re-reading my own committed diff against my own
+commit message — after the commit, and after submitting it to the council.
+
+**What I did.** The fix threads an ownership skip through three actions. In
+`UpdatePageStatusAction` I deliberately keyed the guard to *this* skip
+(`strings.Contains(skipReason, ownedPageSkipReasonPrefix)`) rather than to any assembly skip,
+and wrote a paragraph explaining why: widening it would change retry behaviour on the fleet's
+main build path, a bigger blast radius than the bug. **In `SavePageSectionsAction` I wrote the
+same guard with no such condition** — it fired on *every* assembly skip. Same fix, same session,
+opposite scoping, and the commit message described the narrow version.
+
+**Why it mattered, not just inconsistency.** An ordinary content-failure skip can arrive with
+`sections_metadata` populated and no assembled HTML. The pre-existing metadata path then
+legitimately writes those sections — and `content_data` is the only thing a later re-render can
+regenerate from (that is `PBP-031`'s whole subject). My broad early exit would have silently
+stopped those writes on the highest-traffic save path in the fleet. Nothing in my tests or the
+build would have said a word: the widened version passes every test I had written.
+
+**What caught it.** Asking of my own diff the question I had already answered for the other file
+— "what does this do to the case that is NOT an owned page?" I had done that analysis once and
+then not carried it across. The `update_page_status` comment is, in effect, the review note that
+should have been applied to `save_page_sections`, and I wrote it myself.
+
+**The cheap check.** When one fix adds the same conditional in more than one place, **diff your
+own conditions against each other before committing.** They should differ only where you can say
+why. A one-line `grep -n "upstreamAssemblySkipped" *.go` puts them side by side and the
+asymmetry is immediately visible.
+
+**Fixed forward** (`strings.Contains` added, plus `TestSavePageSections_OrdinarySkipIsNotClaimed`
+which fails if anyone widens it again) — no amend, per forward-only. Both directions are now
+mutation-proven: killing the guard fails `TestSavePageSections_HonoursUpstreamSkip`, widening it
+fails the new test. **The council is reviewing the wider version**, so its verdict must be read
+against the follow-up commit, not the submitted diff — noted here because a stale submission is
+exactly the kind of thing that later reads as an approved design.
+
+**Generalisation.** A scoping decision recorded in a comment protects the file it is in and
+nothing else. If the decision applies to a class of call sites, the check belongs in a shared
+helper (or a test) that all of them go through — the same lesson `bugs_closed/145` records as "a
+precondition parked in a caller is one port away from gone", arriving here as "a precondition
+parked in a COMMENT never left the file".

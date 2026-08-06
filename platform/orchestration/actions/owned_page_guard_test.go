@@ -496,3 +496,58 @@ func TestUpdatePageStatus_OrdinarySkipStillStamps(t *testing.T) {
 	}
 	_ = mock
 }
+
+// TestSavePageSections_OrdinarySkipIsNotClaimed pins the SCOPE of the early exit,
+// matching how the deploy-stamp guard is scoped.
+//
+// An ordinary content-failure skip can arrive with sections_metadata populated but
+// no assembled HTML, and the metadata path below legitimately writes those sections
+// — content_data is the only thing a later re-render can regenerate from. An early
+// exit on EVERY assembly skip would silently stop those writes on the fleet's
+// highest-traffic save path. This test fails if someone widens the condition.
+func TestSavePageSections_OrdinarySkipIsNotClaimed(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	siteID := uuid.New()
+	pageID := uuid.New()
+
+	// Reaching these reads at all is the proof the early exit did NOT fire.
+	mock.ExpectQuery("SELECT id, url FROM pages").
+		WithArgs(siteID, "about").
+		WillReturnRows(sqlmock.NewRows([]string{"id", "url"}).AddRow(pageID, "/about.html"))
+	mock.ExpectQuery("SELECT COALESCE\\(rebuild_policy").
+		WithArgs(pageID).
+		WillReturnRows(sqlmock.NewRows([]string{"rebuild_policy"}).AddRow("generic"))
+
+	params := ActionParams{
+		StepConfig: models.Step{Config: map[string]interface{}{}},
+		CollectedData: map[string]interface{}{
+			"assembled_page": map[string]interface{}{
+				"skipped":     true,
+				"skip_reason": "no content found at page_content.response.page_html",
+			},
+			"current_page": map[string]interface{}{"name": "about"},
+			"site_record":  map[string]interface{}{"site_id": siteID.String()},
+		},
+		DB:               db,
+		Logger:           zap.NewNop(),
+		ExecutionContext: &orchtypes.ExecutionContext{StepName: "save_sections"},
+	}
+
+	out, err := SavePageSectionsAction(context.Background(), params)
+	if err == nil && out != nil {
+		if res, ok := out.(map[string]interface{}); ok {
+			if reason, _ := res["reason"].(string); strings.Contains(reason, ownedPageSkipReasonPrefix) {
+				t.Fatal("an ordinary content-failure skip was claimed by the ownership early exit; " +
+					"the condition has been widened beyond bugs_open/208's scope")
+			}
+		}
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("the action should have proceeded past the early exit to its normal reads: %v", err)
+	}
+}
