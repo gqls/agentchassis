@@ -248,3 +248,33 @@ BUILD path — and the build path carries the positional name NOWHERE
   is keyed by `pages.sections` names vs `slot_name`).
 - Cleanest sequencing: fix 189 first (its candidate 1 needs the producer fixed
   on both paths now), THEN run the 204 canary un-gated.
+
+### Council outcome + closure step 2 corrected (2026-08-06, same session)
+
+**APPROVED round 2** (corr `d3e232b8`, "2 advisory objections, none
+high-severity"; round 1 was REVISE on an evidence gap plus two real corrections
+of mine — trail in the PLAN doc). The commit's `Council-Submitted:` trailer is
+credited automatically by `098`. Decision recorded in `doc_notes`
+(`d9d67807`, subject `action/plan_sections`).
+
+**Closure step 2 as originally written hits a documented landmine**
+(debug_historian seat; `logs-deploy-reads-one-pod-of-n`): "one pod per
+ReplicaSet" under-counts, because ONE image serves MANY deployments —
+measured today, **44 pods run `agent-chassis:v1.0.1256`** across
+`agent-chassis`, `business-intel`, `vet-intel` and the per-site deployments.
+Corrected check: enumerate every deployment running the chassis image at the
+new tag, then pod-grep one pod of EACH (positive: `load page slot identities`
+≥1; negative: a string the commit removed — none in this additive change, so
+use a pre-fix-only absence instead: expect `plan_sections: slot_name repeats`
+present, and on a PRE-fix pod expect 0 — the pre-fix pod is the negative
+control):
+```
+kubectl -n ai-persona-system get pods -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.spec.containers[0].image}{"\n"}{end}' | grep 'agent-chassis:v1.0.<NEW>' | awk '{print $1}' | sed 's/-[a-z0-9]*-[a-z0-9]*$//' | sort -u
+# one pod per deployment name printed above:
+kubectl -n ai-persona-system exec <pod> -- sh -c 'strings /app/agent-chassis | grep -c "load page slot identities"'
+```
+Also from the verdict, worth carrying: the loud-defer's `needs_section_data`
+item_type (rather than a new type) is a deliberate reuse — bug_historian notes
+consumers keyed on item_type shape changes have been missed before; the item's
+spec carries `component_id` + the "repair, do not create" reason, which is the
+queryable discriminator.
