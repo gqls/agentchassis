@@ -21429,3 +21429,39 @@ word this codebase uses to stop people re-checking; spending it on one arm of tw
 would have retired a live defect from everyone's attention. **A claim that closes a
 class must be measured against the class, not against the diff.** Recorded in
 `bugs_open/155` as a correction, and the bug stays OPEN with a revised closure list.
+
+---
+
+## 2026-08-06 — a row count that passes equally for "fixed" and "nothing happened" (189 verification, session 7fffb7ef)
+
+**The near-miss.** `bugs_open/189`'s own §How-to-verify names the pass condition:
+after firing the re-render, the page must hold **exactly 4** `page_components`
+rows with `tool-2` still locked at position 3, not 5. I ran it, got 4, and the
+slot names were intact. That is the documented pass — and I nearly recorded it.
+
+**Why it would not have been evidence.** The re-render path has a *carry*
+branch: when a section cannot be safely re-rendered it re-emits the stored HTML
+unchanged. A run that carried all four sections produces **the same row count,
+the same slot names and the same locked row** as a run where the fix worked
+perfectly. The check could not have come out false for the reason I was
+claiming, which is the `[MEASURED]`-but-not-disconfirmable trap already in this
+file.
+
+**What made it gradable.** Two things, neither in the bug file's own recipe:
+`save_page_sections` does DELETE+INSERT, so the three unlocked rows should have
+**NEW row ids** — they did (`6961ac4f`, `8cccbde8`, `97a73e35`, stamped
+`11:36:54`) while the locked row kept both its id and its 2026-08-02
+`updated_at`; and the action reports its own **`rerendered=4, carried=0`**.
+
+**The cheap check, generalised.** Before recording a behavioural pass, name the
+inaction that would produce the same reading. If you cannot name one, you have
+not found the discriminator yet. For anything that persists rows: compare row
+IDENTITY and timestamps, not just counts — a count distinguishes the fix from
+the DAMAGE, never from a no-op. Sibling entries: "you check what could BREAK,
+never what would be a NO-OP", and "a quiet test passes when the RULE is gone".
+
+**Also recorded, because it cost a wrong turn first:** filing a `page_rerender`
+work item dispatches nothing. Mine sat at `approved` — the only such row in
+1,157 — while every other recent item went straight to `complete`, because
+their creators published to Kafka themselves. **Filing is not dispatching**, and
+`approved` is a dead status for this item type.
