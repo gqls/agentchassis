@@ -4,6 +4,96 @@
 for an owner-authorised full rebuild of `ai-agent-orchestration.com`** — the dispatch was **NOT
 fired** because of this. **OPEN, unowned.**
 
+---
+
+## STATE 2026-08-06 (evening) — FIXED IN CODE, INERT UNTIL THE CHASSIS ROLLS. Taken by the `bugfix_208_owned_page_commit_before_guard` lane
+
+**Commit `cb7b4d759`.** Council **SUBMITTED**, verdict not yet read — corr
+`5d1dcb10-7929-431e-b9e5-496992ce3229` (the commit carries `Council-Submitted:`, not
+`Council-Reviewed:`). Registered as **PBP-036** in the same commit as the seam. Working docs:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_208_owned_page_commit_before_guard/`.
+**Stays OPEN: Go-only, so it is inert until an image carries it.** No DB config half, so a roll
+is the whole of the deployment.
+
+**Ownership note for the next reader:** `scripts/who-owns.py 208` said OWNED within hours of
+filing, because the *filing* commit touches the file. It was not owned — the filing lane's own
+transcript says "208 is handed off". Live `.jsonl` transcripts are the only source that sees an
+uncommitted session; that is what cleared it.
+
+### The filing was right, and three things were bigger than it said
+
+1. **Three pipelines, not one.** `pageflow-builder` and `site-work-orchestrator` run the same
+   `assemble_page → deploy_page (git_commit) → save_sections` order. `pageflow-builder` also
+   selects `planned`.
+2. **14 pages over 6 domains, not 2 over 1** — including `tool-arena-interface` and
+   `tool-gauntlet` on **vonc.com**, i.e. the site of the very clobber migration 164 was written
+   for. Plus an `include_all` branch with no status filter, which would reach the ~189 owned
+   pages at `deployed`.
+3. **The refusal was aborting the whole batch.** `continue_on_error` is unset on all four build
+   loops, so `save_page_sections`' hard refusal failed the entire workflow; with selection
+   ordered `nav_order, name`, every page after the owned one never rebuilt either.
+
+### Fix candidate 1 was the right instinct; the fix is that plus the arm it cannot reach
+
+- **Layer 1, selection** — `queryPagesForBuild` excludes `owned` in **both** branches, behind a
+  new `include_owned` step-config key defaulting false. **Both Go callers** inherit it, so
+  `write_build_items` also stops minting `needs_page` items for owned pages. This answers the
+  filing's own ⚠ about other callers: they are `page-rebuild`, `pageflow-builder` and
+  `write_build_items`, all named, and none legitimately wants an owned page.
+- **Layer 2, composition** — `AssemblePageAction` returns the action's **existing**
+  `{skipped:true, skip_reason}` shape for an owned page. `git_commit` already honours it
+  (`checkUpstreamSkipped`), so **no agent config changed anywhere**. Threaded through
+  `save_page_sections` and `update_page_status` so the skip survives the iteration.
+
+**Fix candidate 2 ("move the guard earlier") is what Layer 2 is**, but at the measured seam:
+`assemble_page` has exactly the three exposed consumers and nothing else. **Candidate 3
+(reorder) stays rejected** for the reason the filing gives, and the file was right that it is
+tempting — note `page-rerender` and `page-build-handler` already save-before-commit, so the
+reorder is directionally correct and still the wrong instrument. **Candidate 4 (de-queue the 14
+pages) was not done**: it leaves the trap armed, and the pages are now safe where they sit.
+
+> **⚠ The filing's closing question — "worth asking what else has a DB-row guard behind a git
+> commit" — has an answer that changes the fix, so read it before touching this.** `git_commit`
+> looks like the right place for the guard and is **not**: `page-rerender` and `section-editor`
+> commit pages too, and those are how owned pages *legitimately* deploy — migration 164 says
+> that path "is deliberately NOT gated". A guard there would stop tool pages deploying at all.
+> Recorded in `LANDMINES.md`.
+
+### What is NOT established, stated plainly
+
+- `[UNDETERMINED, EVIDENCE REAPED]` Whether this has ever actually fired. **11 of the 14 fix
+  items `site-work-orchestrator` has consumed targeted `owned` pages on webdesign.co.uk
+  (2026-08-04) and all 11 failed** — the exact signature of commit-then-refuse. But all 11 pages
+  serve working tools today, and terminal `orchestration_states` are reaped at ~24h, so whether
+  those runs reached `deploy_page` **cannot be recovered. Do not assert it.**
+- `[MEASURED]` The damage is **not** realised: all 13 live owned pages still serve working tools
+  (`BASELINE_2026-08-06_owned_pages_served.txt`, sha256 per body — the control set for the
+  post-roll re-check).
+- **The `needs_page → page-build-handler` route was never the dangerous one** (all 158 rows
+  fleet-wide route there; it saves before it deploys). A future fix aimed at it is aimed at a
+  path that already works.
+
+### How to verify after the roll (the filing's own recipe, plus a negative control)
+
+1. Pod-grep `OWNED_PAGE_GUARD` — **0 on v1.0.1261**, so a ready-made negative control; add a
+   fabricated string in the same exec to prove the pipeline rather than the spelling.
+2. **Synthetic** canary only, never a real tool page: a throwaway `owned` + `needs_rebuild` page
+   on a low-value site, then dispatch `page-rebuild`. Assert its file's git history untouched,
+   exactly one `owned_page_review` item (a second dispatch files none), the run **completed**
+   rather than failing at `save_sections`, and — the control — a sibling **generic**
+   `needs_rebuild` page in the same run did rebuild.
+3. Re-run the baseline sweep: all 13 bodies byte-identical by sha256.
+
+### Follow-up deliberately NOT included
+
+`UpdatePageStatusAction` also stamps `deployed` after an **ordinary content-failure** assembly
+skip. That is a real defect of the same family, but un-stamping it changes retry behaviour on
+the fleet's main build path (the page would be re-selected every run), a wider blast radius than
+this bug. Left out on purpose, and pinned by `TestUpdatePageStatus_OrdinarySkipStillStamps` so a
+future widening is a decision rather than a side effect.
+
+---
+
 > **On the "diagnosis before debugging" default (owner ruling 2026-07-31):** `090` was **not**
 > run. Substituted first-hand verification, declared rather than omitted: I read every link in
 > the chain directly — the selection SQL, the live step graph and both step configs from

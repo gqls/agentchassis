@@ -165,3 +165,57 @@ real run" section for the follow-on decisions (concept register entry,
 feature-file status line — done same session) and the two explicitly
 deferred questions (intent wiring, dedicated topic) — neither is triggered by
 one clean run of one page.
+
+---
+
+## 2026-08-06 (evening) — INBOUND from the `bugfix_208` lane: your entry point's behaviour on OWNED pages changes at the next roll
+
+Not my workstream — appending because the owner ruling of 2026-07-29 §3 says a shared
+mechanism's other consumers must be **told**, not merely measured, and `page-rebuild` is the
+mechanism I changed. Nothing here needs action from you; it is a guarantee change you should
+know about before you next read a dispatch's output.
+
+**What happened.** Your lane's own pre-flight (the `ai-agent-orchestration.com` rebuild) filed
+`bugs_open/208`: `page-rebuild` selects pages with no ownership filter, and its loop order is
+`assemble_page → deploy_page (git_commit) → save_sections`, so a `rebuild_policy='owned'`
+tool page swept into a rebuild was recomposed by an LLM and **committed over the live tool** one
+step before the ownership guard refused the database write. I have taken 208 and fixed it
+(`cb7b4d759`, registered as PBP-036, council corr
+`5d1dcb10-7929-431e-b9e5-496992ce3229`). Go-only, so it is **inert until the chassis rolls**.
+
+**What changes for `rebuild_pages.sh`, concretely.**
+
+- An `owned` page is now **excluded at selection**. Your script's documented sweep-in behaviour
+  (note 2 — a dispatch takes every `needs_rebuild` page on the site regardless of the page list)
+  is unchanged for generic pages, but owned pages no longer come with it. **This is the sweep-in
+  becoming safe rather than being removed.**
+- If an operator names an owned page explicitly, it is **refused, not rebuilt**. That is
+  deliberate: an owned page's route is the tool pipeline (`tool-generator` /
+  `create_tool_component`) or `apply_section_edit`, never the generic builder.
+- The refusal is **visible, not silent**: each excluded page gets a `site_work_items` row of
+  `item_type='owned_page_review'`, `status='needs_human_review'`, keyed
+  `owned_page_review:<page>` (reconcile's existing namespace, so repeated dispatches converge on
+  one row rather than piling up). `get_pages_to_build`'s result also carries
+  `owned_pages_excluded` / `owned_pages_excluded_count`.
+- **A run that previously died now finishes.** `continue_on_error` is unset on
+  `build_pages_loop`, so the old hard refusal at `save_sections` failed the **whole workflow** —
+  and since selection is `ORDER BY nav_order, name`, every page after the owned one silently
+  never rebuilt. If you ever saw a bulk rebuild stop part-way through a site, that is a
+  candidate explanation worth checking against your own runs.
+- An owned page that is skipped **stays at `needs_rebuild`** rather than being stamped
+  `deployed`. Intentional: the stamp also writes `built_from_plan_version`, which would make
+  reconcile treat the page as built and permanently suppress the review item.
+
+**What did NOT change:** nothing about your script, the `maintenance_queue` →
+`maintenance-triage` → `page-rebuild` path, or generic-page rebuilds. No agent config was
+touched — the refusal reuses the `assembled_page.skipped` protocol `git_commit` already honours.
+
+**If you disagree with the default**, the escape hatch is a step-config key `include_owned:true`
+on `get_pages_to_rebuild` — but please read PBP-036 first: its unsafe value is the non-default on
+purpose, and the intended answer for a genuinely pipeline-owned page is to change
+`pages.rebuild_policy`, which is the auditable statement.
+
+**Live population you may care about:** 14 owned pages sat at `needs_rebuild`/`planned` across 6
+domains when I measured (2026-08-06), 13 of them serving working tools. All 13 are intact —
+this was fixed before it fired, not after. Baseline with per-body sha256:
+`docs024_key_docs_latest/bugfix_208_owned_page_commit_before_guard/BASELINE_2026-08-06_owned_pages_served.txt`.
