@@ -427,3 +427,69 @@ workflow config key naming a path into `collected_data`). And `idx_site_specs_cu
 single-page, and `cross_site_contamination` detects another site's `company_name` in
 rendered HTML — not topical overlap. The spec is the whole mechanism; nothing will warn
 you if the two sites converge again.
+
+## 12. The voice rebuild — decompose a page and re-voice it (2026-08-05/06)
+
+**Read `PLAN_2026-08-05_voice_rebuild_and_decomposition.md` first**; this is the
+command sequence only. `LANE=docs/agent_docs/docs024_key_docs_latest/loanandmortgagecalculator_couk`,
+and every step wants `DECOMP_WORK` pointing at a scratch dir that holds
+`manifest.json`.
+
+⛔ **§2's `build_site.py` route is DEAD for any page that has been decomposed.**
+The DB is the render source from that moment; rebuilding a decomposed page from
+the build scripts and pushing it would be overwritten by the next rerender, and
+the two would fight silently. §2 still applies to pages not yet converted.
+
+```bash
+# 0. chrome — ONCE per site, before the first page (it is inert until then)
+python3 $LANE/load_chrome.py --check     # refuses on a 404 asset, a nav link
+python3 $LANE/load_chrome.py --apply     # that misses pages, a moved splice literal
+
+# 1. decompose from the PINNED sites-repo ref (never the working tree)
+python3 $LANE/decompose_lmc.py $DECOMP_WORK/manifest.json --verbose
+
+# 2. author overlays -> $LANE/voice_overlays/<page>.json  {"blocks":{"0":"<html>"}}
+DECOMP_WORK=... python3 $LANE/show_blocks.py --list          # names + block shapes
+DECOMP_WORK=... python3 $LANE/show_blocks.py <page>          # the prose to rewrite
+DECOMP_WORK=... python3 $LANE/voice_apply.py --dry-run --pages <a,b,c>   # per author
+DECOMP_WORK=... python3 $LANE/voice_apply.py                 # writes manifest_voiced.json
+
+# 3. write the rows (THIS CHANGES A LIVE PAGE)
+DECOMP_WORK=... python3 $LANE/load_lmc.py --check <page>     # prediction only
+DECOMP_WORK=... python3 $LANE/load_lmc.py --apply <page>
+
+# 4. deploy: assemble-only page_rerender, then diff against the prediction
+#    (spec shape in §8; NO spec.reason; page_id in spec AND column; 'triaged')
+diff $DECOMP_WORK/predicted/<page>.html <(curl -s -A Mozilla/5.0 https://…/<url>)
+
+# 5. the calculator must still compute
+PYTHONPATH=docs/agent_docs/docs024_key_docs_latest/webdesign_tools_repair:docs/agent_docs/docs024_key_docs_latest/loancalculator_couk \
+  python3 $LANE/golden_compare_post.py $LANE/acceptance/GOLDEN_2026-08-05_prechange.json <url>
+
+# rollback, per page, from the pre-change rows
+DECOMP_WORK=... python3 $LANE/load_lmc.py --restore <page>
+```
+
+### The gotchas, each one measured
+
+- **`toolgolden --compare` reports RED on every decomposed calculator and the
+  page is fine.** The golden fingerprints every id-bearing element; the old
+  wrapper carried `id="content"` and thus the whole page text, while the new
+  one is the header's empty span. Use `golden_compare_post.py`, which asserts
+  that field is exactly `|inline` and everything else matches. **Run its
+  `--self-test` first** (one tool's golden vs another tool's live page) — it
+  must FAIL, or the comparator is inert.
+- **`mortgages/investor.html` cannot be certified by `toolgolden` at all** — it
+  computes only ratios, so uniform x1/x2/x0.5 vectors leave every output
+  unchanged and the inert-tool guard refuses. Use `investor_golden.py`
+  (staggered vectors, one field at a time).
+- **Use a tab field separator with psql on this site.** Every page title
+  contains " | LoanAndMortgageCalculator.co.uk", so the default `|` splits
+  inside the data and reads as truncation.
+- **Fetch the served page ~90s after the item says `complete`.** Inside the
+  deploy window B2 returns a 7-line `NoSuchKey` JSON at HTTP 200, and every
+  grep against it returns 0, which reads as a clean pass. Guard on byte count
+  and a leading `<!DOCTYPE`.
+- **A page that is still verbatim ignores `site_components` entirely**, so
+  chrome can be broken, rerender 41 pages, report success and change nothing.
+  Check the chrome RESOLVES, never that rows exist.

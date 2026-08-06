@@ -251,3 +251,57 @@ flip. And two small things only you can do in Cloudflare: turn on "Always Use HT
 site currently answers on plain `http://` as well, which means the same pages exist at two
 addresses — the exact thing we are trying to avoid), and decide whether you want `www` to
 work, which it currently does not on any of your sites.
+
+---
+
+## 6 August 2026 — the voice you chose is now on the site, and the widgets survived it
+
+You picked the gentle explanatory register (trial H), approved four sample rewrites,
+and said "do the whole site — I'll check it then". This is where that stands.
+
+**The blocker was structural, not editorial.** All forty-one pages were frozen whole
+documents — one stored file each, which the framework ships byte-for-byte and never
+looks inside. No writer could touch a word of them. So before any copy could change,
+each page had to be broken into parts the system can edit: the text in editable
+blocks, the calculator in its own locked block. That is the "proper piece of work"
+the last entry said the guides needed, and it is now built and proven on both kinds
+of page.
+
+**Two pages are live in the new voice.** One guide (how loans cut what you can
+borrow) and one calculator page (debt consolidation). I picked two deliberately
+rather than one, because a single test page can agree with you by luck.
+
+**Before touching anything, I recorded what all twenty-three calculators compute.**
+A real browser drives each one and writes down every answer. That is the only defence
+against the failure mode that actually matters here: rewriting the words around a
+calculator and silently breaking the arithmetic, which would look fine on screen.
+After the consolidation page was rebuilt in the new voice, every one of its numbers
+came back identical, down to the pound.
+
+**And the rebuilt pages came out byte-for-byte as predicted.** I built an offline
+model of what the framework would produce, predicted both pages exactly, then compared
+against what actually went live. No difference at all, on either. That means the
+remaining pages can be done with confidence rather than hope — and each one still gets
+checked the same way.
+
+**One honest note about what changed beyond the words.** Each page used to carry its
+own copy of the header, footer and page furniture. They now share one copy, which is
+the point of the exercise, but it costs three small things: the navigation no longer
+highlights which section you are in, each page's social-media preview tags are gone
+(the framework emits its own structured data and a canonical link instead, which is
+the part search engines actually use), and the guides' hand-written article markup
+goes with them. I judged those worth it to make the site editable. If you disagree
+about any of them, say so — they are recoverable.
+
+**The legal page is exempt from the voice, as your rules require, and I have not
+touched a single compliance line anywhere.** The FCA risk warnings, the disclaimers
+and the debt-help signposting are copied across byte-for-byte and the tooling refuses
+any rewrite that alters them.
+
+**What is left.** Thirty-eight pages of copy are being written now, in the same
+register, each one checked automatically for invented figures, lost links, broken
+anchors and tampered compliance text before it can go anywhere near the site. Then
+they go up in batches with the same verification each time. One practical wrinkle:
+the step that writes to the live database needs your approval each time it runs, so
+you will see a few of those come past — or you can allow it once in settings and I
+will run the batches through.
