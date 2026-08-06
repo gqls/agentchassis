@@ -20468,6 +20468,36 @@ since the roll, and zero rows is not a pass.**
 
 I caught this only because I ran the step rather than shipping the runbook and moving on.
 
+## 2026-08-06 — I inferred a SCHEDULE from a RUN COUNT, and told the next session to wait for a run that will never happen
+
+Having established that `bugs_open/201`'s fix could only be proven behaviourally — by a discovery
+check filing a new work item — I wrote into the lane handoff, the RUNBOOK and the session index:
+*"the proof arrives on its next run … wait for its next run rather than forcing one."*
+
+My evidence was `agent_run_stats`: `quality-discovery-agent`, **22 runs, last 2026-08-05 12:14Z**.
+Twenty-two runs spread over the table's lifetime reads like a thing that runs periodically. I
+never opened `scheduled_tasks`.
+
+It is **not scheduled at all.** Its only row is `oneshot-quality-discovery-rh-20260730`,
+**`enabled = false`**, a one-shot from 07-30. And it is not a special case:
+`SELECT count(*) FROM scheduled_tasks WHERE target_agent_type ILIKE '%discovery%' AND enabled`
+returns **0** — *no* discovery agent runs on a schedule anywhere in the fleet. All 22 runs were
+manual dispatches by people.
+
+So the verification I had just carefully designed, corrected once already, and written into three
+documents, was **waiting on an event that cannot occur.** A later session would have re-run R7b,
+seen zero rows, correctly noted "not a pass", and waited — indefinitely, on my instruction.
+
+**The cheap check: `run_count` tells you an agent CAN run. It never tells you anything WILL run
+it. Read `enabled` and `last_triggered_at` on `scheduled_tasks` before writing the word
+"next".** Two queries, and the second one (`AND enabled` fleet-wide) is what turns "this agent is
+oddly quiet" into "nothing in this whole class is driven" — which is the more useful fact and the
+estate's most repeated shape: **detection works; schedule and dispatch do not.**
+
+The tell I walked past: 22 runs is a *strange* number for something periodic. A daily job since
+07-26 would be ~11; hourly, ~250. A count that matches no cadence is evidence there is no
+cadence, and I read it as merely "infrequent".
+
 ## 2026-08-05 (later still) — I classified 67 rows by a join that could never resolve, and my own CASE hid it
 
 Sizing `bugs_open/199`'s population, I wanted to know whether the historical envelope rows sat

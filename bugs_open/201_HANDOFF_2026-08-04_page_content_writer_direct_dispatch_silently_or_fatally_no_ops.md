@@ -18,9 +18,23 @@ found while verifying `bugs_open/184`'s auto-repair step. ~~**OPEN, unowned.**~~
 > not ship". Corrected in place; the general rule is now in RUNBOOK R7.
 >
 > **The proof is behavioural (RUNBOOK R7b): newly-filed items must carry the new handler.**
-> Measured 2026-08-05 20:48Z — **zero rows, so no evidence yet.** Both checks live on
-> `quality-discovery-agent` (22 runs all-time, last **12:14Z, before the roll**), and
-> `literal_markdown` only files on a page that *has* the defect. **A zero here is not a pass.**
+> Measured 2026-08-05 20:48Z and again **2026-08-06 10:00Z — zero rows both times.**
+>
+> ⚠ **AND IT WILL STAY ZERO WITHOUT A DELIBERATE DISPATCH.** `quality-discovery-agent`, which
+> owns both checks, **is not on any schedule**: its only `scheduled_tasks` row is
+> `oneshot-quality-discovery-rh-20260730`, `enabled=false`, from 07-30 — and
+> `SELECT count(*) FROM scheduled_tasks WHERE target_agent_type ILIKE '%discovery%' AND enabled`
+> returns **0**. No discovery agent is scheduled fleet-wide; all 22 runs were manual. **A zero
+> here is not a pass, and waiting is not a plan.** (I had inferred a cadence from a run count —
+> `run_count` says an agent CAN run, never that anything WILL run it. Read `enabled` +
+> `last_triggered_at`.)
+>
+> Firing a sweep is an **owner's call**: the known live instances are customer sites
+> (`gaswholesalers.com`, `webdesign.co.uk`; **not `mortgagecalculator.co.uk` — LOCKED**), and two
+> checks in that array are LLM-backed. A sweep detects rather than repairs — items are filed
+> `detected`, and `load_work_items` only loads `triaged`/`approved` — but confirm that yourself
+> before dispatching, because if something does pick one up the repair **regenerates the section
+> and loses its prose**.
 >
 > **What shipped:** all three checks re-pointed from `page-content-writer` to
 > `page-build-handler` — `check_literal_markdown.go`, `check_placeholder_contact.go`,

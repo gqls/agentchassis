@@ -33,7 +33,34 @@ The Go half adds: a **shared default** (`validate_page_content_stats.go`'s own
 
 ## 3. THE TWO CHECKS THAT ARE OWED — this is the job
 
-### 3a. The 24h no-regression read — **due 2026-08-06 ~09:10Z**, cheap, do this first
+### 3a. The 24h no-regression read — ✅ **DONE 2026-08-06 10:00Z. PASS.**
+
+> ## FORMAL RESULT — the 24h window `2026-08-05 09:10Z → 2026-08-06 09:10Z`
+>
+> | | result |
+> |---|---|
+> | `CONTENT_DATA_REGRESSION` **in window** | **0 rows** |
+> | `CONTENT_DATA_REGRESSION` **all-time** | **0 rows** |
+> | positive control, same window, same run | `PROCESSING_FAILED` **3110**, `LLM_API_ERROR` **2206**, `CHILD_ORCHESTRATION_FAILED` 10 |
+> | `page-rerender` runs on the fixed binary | 3630 → **3779 = +149** |
+> | `page-build-handler` runs on the fixed binary | 355 → **389 = +34** |
+>
+> **PASS.** Zero regressions across **~183 runs** of the two callers under test, against a
+> positive control of **>5,300** error rows written to the same table in the same window. So the
+> zero is a measurement, not an empty table — which is exactly what the morning-of reading could
+> not yet claim.
+>
+> **Honest caveats, because the section's own rule is that a zero needs its traffic stated:**
+> - `page-build-handler`'s 34 runs all land in the first ~6.5h of the window; it has not run
+>   since **2026-08-05 15:43Z**. 34 is a real sample, not a strong one.
+> - The window spans **three** builds — `v1.0.1252` (09:10Z 08-05), `v1.0.1254` (20:41Z 08-05),
+>   `v1.0.1257` (09:52Z 08-06). All three carry 194's fix, so the result holds, but do not
+>   describe it as one continuous binary.
+>
+> **What this does and does not settle.** It settles that the report predicate is not
+> misconceived — the FAIL condition was *any* `page-rerender` row, and ~320 runs/day would have
+> flooded it. It does **not** turn "a loss is RECORDED" into "a loss is PREVENTED": that is
+> §4's open question, still a human's call.
 
 > ## UPDATE 2026-08-05 20:48Z (T+11h38m) — effectively PASSING, and now on real traffic
 >

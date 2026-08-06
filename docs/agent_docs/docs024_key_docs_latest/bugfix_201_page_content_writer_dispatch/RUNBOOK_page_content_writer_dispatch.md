@@ -156,14 +156,32 @@ GROUP BY 1,2 ORDER BY 3 DESC;"
 - **NOT YET EVIDENCE:** *zero rows*. The checks simply have not fired. **A zero here is not a
   pass**, and this is the same trap the 194 lane hit twice in one day.
 
-**When will they fire?** Both live on `quality-discovery-agent` (its `checks` array:
-`broken_nav_links, placeholder_contact, generic_theme, unverified_claims, voice_tells,
-literal_markdown`). It has **22 runs** all-time, last at **2026-08-05 12:14Z**, i.e. before the
-`v1.0.1254` roll at 20:41Z. So wait for its next run rather than forcing one — and note that
-`literal_markdown` only files an item on a page that *has* the defect, so a clean sweep also
-produces zero rows. To get proof faster, target a site with a known live instance
-(`mortgagecalculator.co.uk` hero, `gaswholesalers.com` pricing, `webdesign.co.uk` news-listing
-per `bugs_open/184`) — but read R6 trap 2 first: **mortgagecalculator is LOCKED.**
+**When will they fire?** ⚠ **NEVER, unless someone fires them. CORRECTED 2026-08-06** — this
+paragraph used to say "wait for its next run rather than forcing one".
+
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -tA -F'|' -c "
+SELECT name, enabled, interval_seconds, last_triggered_at FROM scheduled_tasks
+WHERE target_agent_type='quality-discovery-agent';
+SELECT count(*) AS enabled_discovery_schedules FROM scheduled_tasks
+WHERE target_agent_type ILIKE '%discovery%' AND enabled;"
+```
+
+Measured 2026-08-06 10:00Z: the only row is `oneshot-quality-discovery-rh-20260730`,
+**`enabled=false`**, from 07-30 — and **enabled discovery schedules fleet-wide = 0.** No
+discovery agent is scheduled at all; all 22 runs were manual.
+
+**The lesson, because I inferred a cadence from a run count:** `agent_run_stats.run_count` tells
+you an agent CAN run. It says nothing about whether anything WILL run it. **Read `enabled` and
+`last_triggered_at` on `scheduled_tasks`** — and mind the standing landmine that
+`last_completed_at` is written by the *agent*, not the scheduler, so it looks fresh on a disabled
+row.
+
+To get proof, fire a sweep at a site with a known live instance (`gaswholesalers.com` pricing,
+`webdesign.co.uk` news-listing per `bugs_open/184`) — **not `mortgagecalculator.co.uk`, which is
+LOCKED** (R6 trap 2). Note `literal_markdown` only files on a page that *has* the defect, so a
+clean sweep also yields zero. Treat the dispatch as an owner's call: these are live customer
+sites and two checks in that array are LLM-backed.
 
 ⚠ **`check_component_standards`' `needs_content_page` sub-check may never produce a row to
 check.** All 77 `needs_content_page` items fleet-wide already carry `page-build-handler` —

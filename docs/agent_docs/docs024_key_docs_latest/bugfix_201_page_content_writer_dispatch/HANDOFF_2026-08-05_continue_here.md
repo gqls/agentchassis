@@ -58,10 +58,38 @@ GROUP BY 1,2 ORDER BY 3 DESC;"
 
 **When it will fire.** Both checks live on `quality-discovery-agent` (checks array:
 `broken_nav_links, placeholder_contact, generic_theme, unverified_claims, voice_tells,
-literal_markdown`). **22 runs all-time, last 2026-08-05 12:14Z — before the roll.** So the
-proof arrives on its next run. `literal_markdown` also only files an item on a page that *has*
-the defect, so a clean sweep yields zero too. Known live instances (`bugs_open/184`):
-`mortgagecalculator.co.uk` hero, `gaswholesalers.com` pricing, `webdesign.co.uk` news-listing.
+literal_markdown`). **22 runs all-time, last 2026-08-05 12:14Z.**
+
+> ### ⚠ CORRECTED 2026-08-06 10:00Z — I wrote "the proof arrives on its next run". THERE IS NO NEXT RUN.
+>
+> `quality-discovery-agent` **is not on any schedule.** Its only `scheduled_tasks` row is
+> `oneshot-quality-discovery-rh-20260730`, **`enabled = false`**, a one-shot from 07-30. And it
+> is not an isolated case: **`SELECT count(*) FROM scheduled_tasks WHERE target_agent_type ILIKE
+> '%discovery%' AND enabled` returns 0** — *no* discovery agent runs on a schedule, fleet-wide.
+> All 22 runs were manual dispatches.
+>
+> **So R7b's zero rows will stay zero indefinitely, and waiting is not a plan.** Proving 201
+> requires a *deliberate* dispatch. This is the estate's recurring shape — detection works,
+> schedule and dispatch do not — and I reproduced it in my own handoff by inferring a cadence
+> from a run count instead of reading `scheduled_tasks`. **Read `enabled` + `last_triggered_at`;
+> a run count tells you an agent CAN run, never that anything WILL run it.**
+
+**To get the proof, someone must fire a sweep** at a site with a live `literal_markdown` or
+`placeholder_contact` instance. Trigger templates exist (`scripts/initial_messages/…
+075_trigger_discovery.sh`, `290_design_discovery/082_fire_design_discovery_any_site.sh`) — read
+before running; this lane has already found one committed trigger script that cannot execute.
+
+⚠ **This is not a free action and should be an owner's call, not a verification convenience:**
+- Known live instances are all **live customer sites** (`bugs_open/184`):
+  `mortgagecalculator.co.uk` hero — **but that site is LOCKED**, see R6 trap 2 —
+  `gaswholesalers.com` pricing, `webdesign.co.uk` news-listing.
+- A discovery sweep **detects**; it does not repair. Items are filed at `status='detected'`, and
+  `load_work_items` only loads `triaged`/`approved`, so a filed item does not immediately
+  rebuild anything. **Verify that for yourself before dispatching** rather than taking this
+  sentence on trust — if something does pick it up, the repair **regenerates the section and
+  loses its prose** (§4).
+- Some checks in that array (`unverified_claims`, `voice_tells`) are LLM-backed, so a sweep
+  costs real spend on whatever site it targets.
 
 **The other three traps are in RUNBOOK R6** and each is a false result waiting to happen:
 1. the 14 existing rows still carry the **old** `handler_agent` — a re-arm must set it too;

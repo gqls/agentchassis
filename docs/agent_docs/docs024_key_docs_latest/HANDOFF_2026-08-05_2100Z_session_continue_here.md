@@ -24,17 +24,19 @@ swept into another lane's commit `438834174` as a same-file passenger — nothin
 
 ---
 
-## THREAD 1 — `bugs_closed/194` check 3a · **effectively passing, formal read due 2026-08-06 09:10Z**
+## THREAD 1 — `bugs_closed/194` check 3a · ✅ **DONE 2026-08-06 10:00Z — PASS. Nothing owed.**
 **Handoff:** `bugfix_194_sections_metadata_mapping/HANDOFF_2026-08-05_continue_here.md` §3a
 
-At T+11h38m: **0 `CONTENT_DATA_REGRESSION`**, positive control 476 `TIMEOUT`, and — the part
-that was missing this morning — **real traffic: `page-rerender` +120, `page-build-handler` +34**
-on the fixed binary. This morning's zero was near-vacuous (1 run and 0 runs respectively) and
-was recorded as such; that objection is now answered.
+Formal 24h window `08-05 09:10Z → 08-06 09:10Z`: **0 `CONTENT_DATA_REGRESSION`** in window and
+all-time, against a same-window positive control of **`PROCESSING_FAILED` 3110 + `LLM_API_ERROR`
+2206**, and real traffic on the fixed binary — `page-rerender` **+149**, `page-build-handler`
+**+34** (~183 runs total). The FAIL condition was *any* `page-rerender` row and ~320 runs/day
+would have flooded it, so the predicate is not misconceived.
 
-**To do:** the formal read tomorrow ≥09:10Z, **with the run counts in the same query** — a zero
-without traffic is the trap this whole section exists for. Note the window spans `v1.0.1252` and
-`v1.0.1254`; both carry the fix.
+Caveats stated rather than buried: `page-build-handler`'s 34 runs all fall in the first ~6.5h
+and it has not run since 08-05 15:43Z; and the window spans **three** builds (`1252`, `1254`,
+`1257`), all carrying the fix. **This does NOT settle §4** — "a loss is RECORDED, not PREVENTED"
+is still a human's call.
 
 ## THREAD 2 — `bugs_open/201` · **OPEN. Fix-1 live on v1.0.1254, UNPROVEN**
 **Handoff:** `bugfix_201_page_content_writer_dispatch/HANDOFF_2026-08-05_continue_here.md`
@@ -46,9 +48,16 @@ discovery spec carries no `sections` key.
 **The single most important thing for the next session:** **a pod-grep cannot verify this
 change** — it swaps one pre-existing string literal for another. My first RUNBOOK R7 grepped a
 Go *comment* and returned 0 on a build that has the fix; it is corrected. Use **R7b**: newly
-filed `literal_markdown`/`placeholder_contact` items must carry `page-build-handler`. **Measured
-20:48Z: zero rows — the checks have not fired.** `quality-discovery-agent` (22 runs) last ran
-12:14Z, before the roll. **Zero rows is not a pass.**
+filed `literal_markdown`/`placeholder_contact` items must carry `page-build-handler`.
+
+⚠ **UPDATE 2026-08-06 10:00Z — R7b still ZERO ROWS, and it will stay zero for ever on its own.**
+`quality-discovery-agent` **is not scheduled**: its only `scheduled_tasks` row is
+`enabled=false` (a 07-30 one-shot), and **enabled discovery schedules fleet-wide = 0.** All 22
+runs were manual. My 08-05 handoff said "the proof arrives on its next run" — **wrong; there is
+no next run.** I had inferred a cadence from a run count instead of reading `scheduled_tasks`.
+**Proving 201 now requires a deliberate dispatch at a live customer site — an owner's call, not
+a verification convenience** (`gaswholesalers.com` or `webdesign.co.uk`; **not**
+`mortgagecalculator.co.uk`, which is locked). Two checks in that sweep are LLM-backed.
 
 **Also owed:** symptom 2 (`mark_complete` trusts `handler_result` blindly — an item reached
 `complete` having written nothing), deliberately left until after fix-1 per 201 §2.
