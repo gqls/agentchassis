@@ -348,3 +348,95 @@ assertion) and generalising `checkScriptParity` — the latter overlaps
 **narrowed** bug, not a closed one. Whoever narrows it should say so explicitly in
 the title rather than closing a file whose §1 and §2 are now answered but whose
 §3 and §4 are not.
+
+---
+
+## 2026-08-06 — PROVEN IN PRODUCTION by an induced fault. CLOSING.
+
+The check has now run on the fleet and been **observed to report**, which is the
+only evidence that means anything here: the live population is zero, so a clean
+sweep would have proved nothing.
+
+**Discovery-only, not the full loop.** `design-discovery-agent` is exactly three
+steps — `ensure_site_record → run_discovery_checks → complete_workflow` — so
+aiming the envelope at it instead of `improvement-loop` runs discovery with **no
+triage and no dispatch**. Findings land at `detected`, which the dispatcher's
+claim query cannot see. That removed the outward-facing half of the verification
+entirely; no fixer was dispatched at any site.
+
+**Target chosen for quietness:** `vetcomparison.uk`, page
+`/guides/cma-market-investigation/index.html`, component
+`81026b93-2235-408f-b591-00325dbe95df` — untouched since 2026-07-17, 0
+claimed/in-progress items on the site. Control taken first:
+`https://vetcomparison.uk/does-not-exist-084.js` → **404**, so the probe would
+have a real negative to find.
+
+**The induction, with a backup that could abort it.** Original md5
+`7ac77544655d64314704705d16813fbe` copied to a backup table, and the transaction
+refused to induce unless that md5 matched. Then
+`<script src="/does-not-exist-084.js"></script>` appended to the stored
+`rendered_html`. (Stored, not served — the CDN artefact was never touched.)
+
+**Run 1 → the check bit, exactly once:**
+
+```
+item_type   asset_reference_404
+status      detected          severity  high     handler_agent  (empty — flag-only)
+item_key    asset_reference_404:unresolvable_reference:https://vetcomparison.uk/does-not-exist-084.js
+summary     Page loads script https://vetcomparison.uk/does-not-exist-084.js which returns HTTP 404
+spec        http_status 404 · surface page · element script
+            page_url /guides/cma-market-investigation/index.html
+```
+
+Every field is right, and — the half that matters as much — **it filed nothing
+else**. Eight other deployed pages on that site, all their real script and
+stylesheet references, and not one false positive. The relative-URL resolution,
+the DOM parsing and the skip taxonomy all held against real production HTML.
+
+**Revert, guarded the same way:** restored from the backup inside a transaction
+that would `RAISE` unless the md5 came back to
+`7ac77544655d64314704705d16813fbe`. It did. The induced tag is gone.
+
+**Run 2 → the DOCUMENTED GAP is real, and now tested rather than asserted.** With
+the reference removed, the item **stayed `detected`**. That is exactly what this
+check's header says will happen and why: retraction fires only on a positive
+observation — a URL still referenced that now returns 200 — and a URL that has
+vanished from the HTML cannot be observed at all. Deriving "resolved" from
+absence is what `CheckResult.Resolved`'s contract forbids. No duplicate was filed
+either, so the dedup key behaves.
+
+The positive retraction path is covered by
+`TestAssetReference404_HealthyReferenceRetractsNarrowly` rather than in
+production, because making that exact URL return 200 would mean publishing a file
+to a live site's bucket for the sake of a test. Stated rather than glossed.
+
+**Cleaned up.** The test item was **cancelled**, not left sitting at `detected` —
+an item nobody will act on is precisely the misleading grave `bugs_open/083`
+describes, and leaving one behind while citing that bug would be poor form. Its
+`result` carries the full provenance. Backup table dropped. Page md5 re-verified.
+
+### Why this closes, and what it does NOT close
+
+The titled defect is answered on both halves:
+
+- *"owned/ported pages get no browser verification"* — `tool_eligibility.go` /
+  **TL-033** widened Tier 2 and Tier 4 past `component_level='tool'` on
+  2026-07-29 (another lane's work; this file was simply never updated).
+- *"script URLs are never fetched"* — **`asset_reference_404`**, live on
+  v1.0.1257, enabled on `design-discovery-agent`, and proven above.
+
+**Residue, re-homed rather than carried by a closed file:**
+
+- **Candidate 4, T5.1** (post-hydration dead-control assertion) already has a
+  home and an owner: `experience_loop/RUNBOOK_experience_loop.md` T5.1. It was
+  never this bug's to build.
+- **Candidate 5** (generalise `cmd/webdesignport`'s `checkScriptParity` to every
+  writer that transforms existing HTML) is the *content-loss-on-rewrite* class,
+  actively worked as `bugs_open/178` and `bugs_open/198`. Contribute there.
+- **An RFC is owed** for `asset_loads` — see the 2026-08-05 section. Not filed.
+- **The `bug_historian`'s standing objection** (this adds another undrained
+  flag-only type to the 071/079/083 pile) is unanswered by design and recorded in
+  IMP-051 for a human.
+
+Lane: `docs024_key_docs_latest/bugfix_084_asset_reference_resolution/`.
+Council: APPROVED r1, `3675ec9a-4a8b-4c3f-b3b4-cc95498584c8`.
