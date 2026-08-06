@@ -1237,3 +1237,38 @@ check, not a scraped group label.
 > **The pattern in my own error:** having just been caught over-claiming a config key, I
 > immediately over-claimed in the opposite direction — "exact" — about a pipeline whose last leg I
 > had not read. Correcting one over-claim is not evidence about the next one.
+
+## 2026-08-06 — P3's "reuse, do not build" premise checked and falsified; filed `bugs_open/206`
+
+Came to this site from `features_open/021` (operator page-rebuild), after the owner asked for the
+`directory-index` page to be built, through the framework, not by hand. Before touching anything,
+re-verified P3's own recommendation ("entity-page machinery is proven live") against the live
+system rather than trusting an 11-day-old claim — this repo's own standing practice, and it caught
+a real error.
+
+**The data half is genuinely fine**: `directory-export-json` (scheduled, 48h) has been
+successfully exporting vetcomparison's 2,337 verified practices to the site's repo since at least
+2026-08-04 — checked `scheduled_tasks.last_completed_at` directly.
+
+**The build half is not**: queried whether the `directory-listing` component (the plausible
+renderer) is used anywhere — `p.sections @> '"directory-listing"'::jsonb` fleet-wide — **0 rows**.
+Then checked the two sites P3 cited as proof (relojistas.com, vonc.com): their `entity-directory`/
+`entity-page` pages use completely different, generic components (`archetype-grid`,
+`content-block-about`) with no external data feed. `load_work_item_actions.go`'s own
+`unavailableBuilders` map confirms it in code: `entity-directory`/`entity-page` builders are
+named, commented out, never implemented.
+
+**Did not build the page.** Forcing `page-build-handler` to retry would no-op identically (it
+already tried once, 2026-07-17ish, and correctly declined — 0 plan sections) and burn
+`attempt_count` for nothing; hand-writing plan sections myself would be exactly the kind of
+manual, framework-bypassing patch the owner's instruction was explicitly against. Filed the full
+diagnosis as `bugs_open/206` (root cause, evidence, fix candidates) and corrected P3's claim in
+`PLAN_2026-07-26_site_strength.md` in place, visibly, rather than silently. `guides-index` shares
+the same underlying gap (`defaultSectionsForPage` has no `section-index` case either) even though
+it isn't blocked by `unavailableBuilders` — its "cheapest of the three" framing undersold what it
+would actually need to render correctly.
+
+**Not touched, deliberately**: `practice` (already correctly on HOLD pending P1),
+`tool-compliance-deadline-calculator` (separate mechanism, real legal stakes around calendar
+dates — left for a session that will give it proper attention), P1/P2 (another session's active
+lanes, untouched).

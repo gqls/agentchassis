@@ -270,6 +270,18 @@ to 2,109 is an owner call, not a silent escalation — the existing task config 
   `entity-page` + 1 `entity-directory` deployed, vonc.com 8. vetcomparison already has both rows
   scaffolded (`practice`, `directory-index`) at `build_status='planned'`, 0 sections, sitting in
   the owner review queue since 07-17. URL derivation is handled (`page_canonical.go:200-214`).
+  > **CORRECTED 2026-08-06 (bugs_open/206):** this claim is wrong and is now falsified, not just
+  > doubted. Queried directly: relojistas.com's `entity-directory` page (`glosario-index`) uses
+  > sections `["hero","archetype-grid"]` (an LLM-authored glossary grid), vonc.com's 8
+  > `entity-page`s use `["hero","content-block-about","call-to-action"]` (plain generic content)
+  > — neither reads external entity data or uses the `directory-listing` component vetcomparison
+  > actually needs. `SELECT ... WHERE p.sections @> '"directory-listing"'::jsonb` returns **0 rows
+  > fleet-wide** — that component has never been used on a live page. The label `entity-directory`
+  > has been reused before; the data→component pipeline this page needs has not been built.
+  > `load_work_item_actions.go`'s own `unavailableBuilders` map names `entity-directory`/
+  > `entity-page` explicitly as builders that don't exist yet. See `bugs_open/206` for the full
+  > diagnosis, root cause and fix candidates — this is genuine follow-on platform work, not a
+  > re-trigger.
 - **Do NOT build 2,109 pages in one go.** No site on this fleet has more than 8. Start with a
   small proving set, measure build cost and render-queue impact, then scale.
 - Page content = evidenced facts only: contact/address/website (already published), ownership from
