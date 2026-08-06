@@ -19,9 +19,10 @@ gated on 189.
 
 **`bugs_open/189`** — a resolving save renames a positional slot, so the
 locked-row guard misses and duplicates the row. Fix committed `92e14493b`,
-council **submitted, verdict pending** (corr `87444080` — read it before
-closing; it is the `Council-Submitted:` trailer on that commit, so `098`
-credits it automatically on approval). **NOT live** — needs the next roll past
+council **APPROVED** round 1 (corr `87444080`, 6 advisory objections, none
+high — all carried into the bug file). Registered as **PBP-035** in the
+concept register; decision also in `doc_notes c23ce8cb`
+(`page-content-writer`). **NOT live** — needs the next roll past
 v1.0.1257. `stored_slot_name` greps 0 in the current binary, which is the
 ready-made negative control for 189's own post-roll verification.
 
@@ -35,12 +36,21 @@ ready-made negative control for 189's own post-roll verification.
    → expect ≥1 (it is 0 today, measured). One pod per DEPLOYMENT running the
    chassis image, not per replica — one image serves 44 pods across at least
    three deployments.
-3. **Apply the writer config.** `docs/agent_docs/sql_for_agents/023_page_content_writer_agent.sql`
-   now ends with a targeted `jsonb_set` block adding
-   `slot_name_from: "current_section.name"` to `render_section` and
-   `render_from_template`. **Without it the BUILD half of 189 is inert** (the
-   re-render half works regardless). It has a `DO $verify$ … RAISE EXCEPTION`
-   guard, so a silent no-op fails loudly.
+3. **Back up, then apply the writer config.**
+   `docs/agent_docs/sql_for_agents/023_page_content_writer_agent.sql` now ends
+   with a targeted `jsonb_set` block adding `slot_name_from:
+   "current_section.name"` to `render_section` and `render_from_template`.
+   **Without it the BUILD half of 189 is inert** (the re-render half works
+   regardless). It has a `DO $verify$ … RAISE EXCEPTION` guard — but the
+   council's `debug_historian` seat objected (MEDIUM) that a verify block runs
+   AFTER the write and is not a rollback, on an agent that dispatches
+   continuously. So dump first:
+   `\copy (SELECT default_config FROM agent_definitions WHERE
+   type='page-content-writer' AND is_active AND
+   COALESCE(is_snapshot,false)=false AND deleted_at IS NULL) TO
+   '/tmp/pcw_default_config_backup.json'` — rollback is the same UPDATE from
+   that file. Do NOT re-run the file's full-workflow UPDATE block (stale
+   against live; it would revert a later prompt_template patch).
 4. **Verify 189** (its own §how to verify): fire `section_data_resolved` on
    `tool-loan-vs-savings` (page `558f9f3f-…`, site `0162cde4-…`); assert
    **exactly 4** page_components rows, `tool-2` still locked at position 3 with
