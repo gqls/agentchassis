@@ -4551,3 +4551,49 @@ shipped — while `queryresolve.ListedPageEligibilitySQL` exists for exactly thi
   live CTAs at the 404 `platform-log` page and was about to archive a brief-mandated page to
   stop it; `chooseCTATargets` (`:319-349`) ranks interactive pages ahead of hubs and the site
   has 4 active tool pages, so `platform-log` sits at index 4 and can never be chosen.
+
+## 2026-08-06 (evening) — candidate 1 opened: reads done, path traces running
+
+Fresh session off `HANDOFF_2026-08-05_continue_here.md`, taking open item 1 (151
+candidate 1, plan-time fact assignment). Ownership re-checked before claiming:
+`who-owns.py 151` names this lane; live-transcript grep found the two loud
+"candidate 1" sessions are (a) the predecessor that WROTE the 08-05 handoff and
+(b) a memory-file session — nobody is competing. Checker state re-measured, not
+carried: still 7 sites / 7 flag-only gaps / 0 deletions (matches handoff).
+
+Established so far, with evidence:
+
+- **The injection point is exactly as 151 states.** Live writer prompt v3 lines
+  68-72 inject `{{.site_specs.specs.evidence_base.writer_block}}` — one
+  whole-site block, identical for every per-section call.
+- **Neither planner sees the evidence base today.** Live `agent_definitions`:
+  `page-content-writer` config references evidence_base/writer_block;
+  `build-site-planner` and `site-design-planner` reference NEITHER (measured,
+  `default_config::text LIKE`). So candidate 1 has an input-side half nobody
+  wrote down: the fact roster must be added to the planner's context before it
+  can assign anything.
+- **Fact IDs are assignable handles.** fundamentallyai evidence_base: 15 facts,
+  stable human-readable IDs (`F1-live-sites`…), 9 with `writer_line` — only
+  those ever reach the writer (`composeWriterBlock` skips the rest), so
+  assignment operates over the writer-visible subset.
+- **`site_plan_sections` has no jsonb column** (id/plan_id/page_name/ordering/
+  component_name/version/palette/layout/typography ids) — the bug's sketch
+  (`assigned_fact_ids jsonb`) is additive DDL on a shared table, plus planner
+  parser + writer filter + prompt change.
+- **Population shape (from the 7 live gap specs):** only fundamentallyai has
+  fact-overlap pairs (9, pool 15); leopardess pool 18 with 0 overlap pairs;
+  the other 5 are `fact_census_blind` (pool<6, three with pool 0) and their
+  residue is TEXTUAL near-duplication (webdesign.co.uk an outlier at 1,328
+  near-duplicate pairs). So fact assignment clears the fact-overlap class;
+  the design must say plainly what it does NOT do for fact-poor sites.
+- **Landmines already found for this path:** `extractSiteID` resolves nothing
+  on the writer path (`input_data.site_id` is the only live key, 26/26
+  measured); new writer steering goes INSIDE `content_direction` or the section
+  loop context, never a new aspect; `pages.sections` is a cache — the build
+  reads `site_plan_sections`; 189's config half (`slot_name_from`) is UNAPPLIED
+  so the BUILD path is dormant on locked-row pages — constrains any drain path,
+  not the mechanism.
+
+Two Explore agents are tracing (1) planner→site_plan_sections→writer prompt
+assembly and (2) the PBP-033 save-time complement + migration/seed patterns.
+Design and council submission follow their reports.
