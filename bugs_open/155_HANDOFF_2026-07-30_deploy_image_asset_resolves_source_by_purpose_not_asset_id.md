@@ -231,3 +231,68 @@ by `asset_id` alone (no `s3_uri` in spec), then `sha256sum` the resulting files 
 confirm they differ, opening at least one against its own `origin_prompt`. Nothing
 short of that is the recipe this file wrote, and `success:true` plus distinct
 destination paths were both already true while the bug was shipping identical bytes.
+
+---
+
+## CORRECTION 2026-08-06 — the fix closed ONE arm of two, and the closure test found the other
+
+**Do not close this bug on the v1.0.1259 proof above.** Trying to run this file's own
+closure test is what exposed it.
+
+Three `asset_id`-only deploys were dispatched at dartsonline icons (correlations
+`380f5cb4`, `b7fd8a68`, `8bdd7c90`; all three orchestrations COMPLETED). **All three
+returned `{"deployed": false, "skipped": true, "reason": "no storage URI found for
+icon"}`** — a correct, loud skip, but not the test. `asset_id` was present in the
+child's `input_data` (verified in `collected_data`) and the action still never saw it:
+
+- the live `asset-deployer` `deploy_asset` step declares
+  `input_fields: ["s3_uri","purpose","domain","asset_key"]` — **no `asset_id`**, and
+  no `"asset_id": "<path>"` config key either;
+- `ExtractActionInputs` **Strategy 1 wins whenever `input_fields` is present** and
+  extracts *only* the listed names (`action_inputs.go:441-455`); the recursive
+  all-fields hunt is Strategy 2, reached only when `input_fields` is absent.
+
+So `deploy_image_asset` **cannot receive an `asset_id` through `asset-deployer`**, and
+that config is unchanged since **2026-02-20** (single row, no snapshots) — i.e. it was
+already true on 2026-07-30. Every live `deploy_image_asset` step, fleet-wide:
+
+| agent | step | input_fields | can pass asset_id? |
+|---|---|---|---|
+| asset-deployer | deploy_asset | `["s3_uri","purpose","domain","asset_key"]` | **no** (Strategy 1) |
+| pageflow-builder | deploy_hero_image / deploy_logo_image | *(none)* | yes (Strategy 2) |
+| site-work-orchestrator | deploy_hero_image / deploy_logo_image | *(none)* | yes (Strategy 2) |
+
+**What this means for this file's original diagnosis.** The 6 identical icons were
+deployed through `asset-deployer`, which cannot reach `resolveStorageURIFromAsset` at
+all — so the Priority-1 purpose-cache branch, though genuinely defective and now
+deleted, is unlikely to be what produced the observed symptom. The surviving
+candidate, in the same function and NOT removed, is `findStorageURI` **Priority 2**:
+
+```go
+// deploy_image_asset_action.go, findStorageURI
+if uri := datahelpers.ExtractNestedFieldString(collectedData, purpose+"_uri"); uri != "" { … }
+```
+
+a top-level `{purpose}_uri` in `collected_data`, written in-run by
+`StoreAssetAction` (`v3_site_actions.go:2810`) and `generate_image_actions.go:994`.
+**Same defect, same last-write-wins shape, one layer up, and it is consulted BEFORE
+the asset_id path.** I kept it deliberately for the legacy pageflow flow and said so
+— but I described the wrong-bytes state as "unrepresentable", and for this arm it is
+not. `[UNRECOVERABLE]` whether the July runs carried that key: terminal
+`orchestration_states` rows are reaped at ~24h.
+
+**Revised closure requirements:**
+
+1. Decide the in-run arm. Either narrow `findStorageURI` Priority 2 (it can only be
+   correct when exactly one asset of that purpose is stored per run) or make the
+   asset_id path reachable and preferred.
+2. **Add `asset_id` to `asset-deployer`'s `deploy_asset` `input_fields`** — a live
+   config change, no image needed. Note this also means IMG-053's post-deploy
+   `UPDATE assets SET url = …` (gated on `inputs.Get("asset_id")`) has never fired
+   through this agent either, which is worth checking against `bugs_open/152`'s
+   107-flipped-row population: something else flipped them.
+3. Only then re-run this file's sha256-differ test.
+
+**What the v1.0.1259 proof DOES establish, unchanged:** the DB-side purpose cache is
+gone from the binary and from the write path, all four readers resolve per-asset, and
+migration 323 made 205 rows durable. That is real and it stands. It is one arm.

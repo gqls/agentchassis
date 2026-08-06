@@ -21345,3 +21345,87 @@ the arm is safe. A zero from a detector that has never been shown to fire on
 that corpus is not evidence of anything. Planting two dead fragments into a copy
 of the same dump and getting exactly 2 back is what made the 0 mean something —
 and it took about ninety seconds.
+
+---
+
+## 2026-08-06 — I inferred a fleet-wide convention from one INSERT, and the compiler-shaped fact misled me into it
+
+**The claim.** Re-diagnosing the `agent_error_log` `domain` finding (code-review triage lane,
+NOTES §16), I established something genuinely useful: `site_id` and `work_item_id` get
+`NULLIF($n,'')::uuid` because they are **uuid** columns and `''::uuid` raises
+`invalid input syntax for type uuid` — so that `NULLIF` is *compelled by the cast*, not a
+decision about NULL semantics. Verified by running `SELECT ''::uuid` and watching it error.
+
+Correct, and I then over-read it. I concluded: *"so there is no house convention for text
+columns — writing `domain` as a bare `$2` is normal, and the inherited framing of this as an
+inconsistency is simply wrong."* I was one sentence from writing that into the lane's docs as the
+correction.
+
+**What caught it.** Deciding to check whether the pattern recurred before calling it a
+non-pattern. `grep -rn -F 'NULLIF($' --include=*.go` returns **32 uses across 24 files**, most of
+them on plain **text** columns, including ten sibling writers to this very table. The convention
+exists and is widely kept; the three writers that break it are one copy-paste family. My
+"correction" would have been a durable false claim that also *exonerated the actual defect*.
+
+**The cheap check that would have.** Count the fleet before naming something normal. One grep,
+five seconds. The general form: **a mechanism's absence at the site in front of you is not its
+absence in the codebase** — and the reflex to check is weakest exactly when you have just
+verified something adjacent, because the verified fact lends its authority to the inference
+standing next to it. `SELECT ''::uuid` erroring is a fact about Postgres; "there is no convention"
+is a fact about 24 files, and nothing about the first one bears on the second.
+
+**Why it is worth a row.** This is the inverse of the usual entry. The failure was not skipping a
+check — I ran a real, disconfirmable one and it came back true. The failure was letting a
+*narrow* verified fact license a *wide* unverified one in the same breath. The marker rules in
+CLAUDE.md would not have caught it either: I would have written the sentence `[VERIFIED]`,
+because the half of it I had tested genuinely was. **When a verified fact and an inference share
+a sentence, the sentence inherits the weaker of the two** — split them, and mark each.
+
+**A second one in the same session, cheaper but the same shape.** Classifying the 32 grep hits, I
+piped them through `sed` to reduce each to its `NULLIF(...)` form and got a tidy frequency table
+showing mostly bare `NULLIF($n, '')` and only four `::uuid` — which would have inverted the
+finding. The regex was silently dropping `::uuid`. A summarising transform you have not tested
+produces a table that looks like data and is an artefact of your own `sed`. Printing the 32 real
+lines took one command and settled it. (Also: `grep -F` is required for `NULLIF($` — in a
+double-quoted bash string the `$` survives to grep, which exits **2** on the malformed regex
+while `| wc -l` cheerfully reports `0`. An error read as a measurement of zero.)
+
+---
+
+## 2026-08-06 — "the wrong-bytes state becomes unrepresentable": I fixed one of two arms and said I had fixed the class (bugfix_152_155 lane)
+
+**The claim.** In the commit message, the council submission, the concept-register
+entry and the bug files, I wrote that deleting `deploy_image_asset`'s purpose-keyed
+DB cache made the wrong-bytes outcome **unrepresentable** — the strongest form of
+claim this codebase has, "the bad state cannot be expressed", not merely "we now
+check for it".
+
+**What caught it.** Running the bug's own closure test, which I had nearly deferred
+to a handoff as paperwork. All three `asset_id`-only deploys came back
+`skipped: "no storage URI found"`. Chasing that found the live `asset-deployer`
+step declares `input_fields` **without `asset_id`**, and `ExtractActionInputs`
+Strategy 1 extracts only listed names — so the branch I deleted was **unreachable
+through the agent the bug was reported against**, and had been since 2026-02-20.
+Which means it probably did not produce the reported symptom. The surviving
+candidate is in the same file and I had deliberately kept it: `findStorageURI`
+Priority 2 reads a top-level `{purpose}_uri` from `collected_data`, written in-run
+by the same writers, consulted *before* the asset_id path. **Same defect, same
+last-write-wins shape, one layer up.**
+
+**The cheap check.** *Before writing "unrepresentable", enumerate every path to the
+bad state and say which one you closed.* I had literally read `findStorageURI` —
+I cite its Priority 2 in my own plan as the reason to keep the `collected_data`
+key — and still wrote the unqualified claim, because I was reasoning about the
+branch I was editing rather than about the outcome I was naming. A second cheap
+check, specific to this platform: **before claiming a code path is fixed, prove the
+path is REACHABLE** — one query over live `agent_definitions` for the steps that
+invoke it and what they declare. That query is what unravelled this, and it would
+have taken two minutes at plan time.
+
+**Why it is worth an entry.** Everything I measured was true, the council approved
+it, the pod-grep proof is sound, and the fix is a real improvement — the failure was
+entirely in the SCOPE of the sentence I wrapped around it. "Unrepresentable" is the
+word this codebase uses to stop people re-checking; spending it on one arm of two
+would have retired a live defect from everyone's attention. **A claim that closes a
+class must be measured against the class, not against the diff.** Recorded in
+`bugs_open/155` as a correction, and the bug stays OPEN with a revised closure list.

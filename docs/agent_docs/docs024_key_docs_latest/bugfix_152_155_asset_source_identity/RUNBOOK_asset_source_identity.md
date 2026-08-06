@@ -93,3 +93,27 @@ least one must be opened and looked at against its own `origin_prompt`. dartsonl
 6 founding icons are the natural re-run. **`success:true` and distinct destination
 paths were both already true while the bug was shipping identical bytes** — neither
 is evidence.
+
+## R8 — before claiming a code path is fixed, prove it is REACHABLE
+
+```sql
+SELECT a.type, s.key AS step,
+       (s.value->'config'->'input_fields')::text AS input_fields,
+       (s.value->'config'->>'<the_field_you_rely_on>') AS explicit_path_cfg
+FROM agent_definitions a, LATERAL jsonb_each(a.default_config->'workflow'->'steps') s
+WHERE a.is_active AND COALESCE(a.is_snapshot,false)=false AND a.deleted_at IS NULL
+  AND s.value->>'action' = '<the_action>'
+ORDER BY 1,2;
+```
+
+⚠ **A field being Optional in the Go `ActionInputSpec` does NOT mean callers pass
+it.** `ExtractActionInputs` Strategy 1 wins whenever the step config has
+`input_fields`, and it extracts **only** the names listed there — the recursive
+all-fields hunt (Strategy 2) is reached only when `input_fields` is ABSENT
+(`action_inputs.go:441-467`). So a step with `input_fields` silently drops every
+spec field it does not name, however present the value is in `collected_data`.
+
+This is how I proved a branch I had just "fixed" was unreachable through the very
+agent its bug was filed against: `asset-deployer` has never listed `asset_id`. Run
+this BEFORE writing that a defect is closed — an unreachable branch is neither
+the cause of your symptom nor evidence of your fix.

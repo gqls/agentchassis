@@ -133,3 +133,37 @@ per FILE, and a shared append-only file is exactly where that protection is
 worth least.** Reading `git diff --numstat` before committing would have told me
 (it did — 19/2 for a 1/1 edit) if I had read it as a *gate* rather than as the
 append-only check I ran it for.
+
+## 2026-08-06 (later still) — the closure test refuted my scope claim, which is the best thing it could have done
+
+Ran 155's own closure test rather than handing it off. Three `asset_id`-only deploys
+at dartsonline icons, all published with `PUBLISH_OK` confirmed (the first attempt
+printed nothing because `--quiet` is not a `kubectl run` flag — the
+`kcat-publish-silently-drops` discipline caught a *different* silent-publish failure
+than the one it was written for, which is the argument for the discipline).
+
+All three COMPLETED and all three **skipped**: `"no storage URI found for icon"`.
+`asset_id` was in the child's `input_data`; the action never saw it. Cause:
+`asset-deployer`'s `deploy_asset` step declares `input_fields` without `asset_id`,
+and `ExtractActionInputs` Strategy 1 extracts only listed names
+(`action_inputs.go:441`). That config dates from **2026-02-20** — so it was already
+true when 155 was filed, and **the branch I deleted could not have produced 155's
+reported symptom.**
+
+The surviving candidate is `findStorageURI` Priority 2 — top-level `{purpose}_uri`
+in `collected_data`, written in-run by the same two writers, read *before* the
+asset_id path. I had read that function. I cite it in this very PLAN as the reason
+to keep the `collected_data` key. And I still wrote "the wrong-bytes state becomes
+unrepresentable" into the commit, the council submission and the register.
+
+**The transferable bit, which is not "be careful":** I was reasoning about the
+branch I was editing, and writing a claim about the outcome. Those are different
+scopes and nothing in my process forced me to reconcile them. The check that would
+have: *one query over live `agent_definitions` asking which steps invoke this action
+and what they declare* — reachability, before claiming a fix. Two minutes at plan
+time; it is now R8 in the RUNBOOK.
+
+Recorded as a correction in `bugs_open/155`, in `WRONG_CALLS.md`, and as a scope
+correction on the register entry (which council seats read as ground truth). The
+bug stays OPEN with a revised, three-step closure list. The fix itself is unchanged
+and still good — it is one arm of two, and now says so.
