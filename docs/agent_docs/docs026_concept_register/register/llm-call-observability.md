@@ -4,8 +4,8 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
-4 concepts, consolidated from 5 raw extractions (one exact duplicate pair
-collapsed) across unit U13.
+7 concepts (4 consolidated from 5 raw extractions across unit U13, one exact
+duplicate pair collapsed; LCO-005/006/007 added post-freeze).
 
 ### LCO-001 — Temperature/max_tokens logging gap in llm_call_log
 - **status:** partial
@@ -81,3 +81,42 @@ collapsed) across unit U13.
 - **note:** proven by an INDUCED fault, not a green path — the same invalid key
   against both images: the new one logs `status 401 … invalid x-api-key`, the old
   one logs nothing at all.
+
+### LCO-007 — `fleet-step-token-pressure`: a standing headroom check over every non-review LLM step
+- **status:** deployed (live `scheduled_tasks` row, seeded and proven 2026-08-06; first note `3186dcfa`)
+- **what:** A CTE-only scheduled task (`fire_message=false`, 6-hourly) that measures,
+  per `(step_name, cap)` over a 90-day window, how close each non-review LLM step's
+  output distribution runs to its token cap — p95, peak, and truncation count — and
+  writes ONE `doc_notes` row when the flagged set CHANGES (md5 digest in
+  `subject_key`, 30-day dedup look-back: an event, not a heartbeat). Thresholds:
+  T any truncation · N near-miss peak ≥ 95% of cap · P pressure p95 ≥ 85%, at n ≥ 5.
+  It is **FIX-058 (`council-seat-token-pressure`) generalised past `review_%`**; the
+  two tasks partition the fleet exactly, and the `review_%` naming convention IS the
+  contract between them. `fire_message=false` means the `pre_query` is the whole
+  work — no Kafka, no orchestration, no LLM, no credits, and it cannot wake a chassis
+  pod. Exists because a cap is live DB config: `bugs_open/183`'s step sat at p95 92.5%
+  of the fleet's only 6000 cap for months, then burned every attempt on several sites
+  in one afternoon, and the failure presented as SITE-specific because nothing was
+  watching the distance to the ceiling.
+- **sources:** `docs024_key_docs_latest/bugfix_183_step_token_pressure/SQL_2026-08-06_fleet_step_token_pressure_task.sql`
+  (the seed, with its reasoning); `.../RUNBOOK_step_token_pressure.md` (how to run,
+  read and re-verify it); `bugs_open/183` candidate 4; found `bugs_open/205`
+- **relations:** FIX-058 (the council-seat original, and its still-open question of
+  whether the near-miss threshold should scale with cap size — inherited unanswered);
+  LCO-002 (the cap fallback chain this measures the OUTPUT of); MDL-039 /
+  `bugs_open/009` (root-block shadowing — sidestepped by reading observed caps from
+  `llm_call_log` rather than a definitions jsonb path); RFC_006 (live config is
+  guarded by a scheduled check, never a commit-time hook); RFC_012 second sitting
+  ("online within the framework")
+- **LANDMINE — the check reports a NUMBER; the SHAPE is a different question.** A `T`
+  flag means "this step truncated", not "this step's cap is too small for its
+  workload". On its first run the top line (64 truncations) was **two byte-identical
+  prompts re-dispatched for 34 hours** — a poison-pill loop, where a bigger cap is
+  candidate 2 at best (`bugs_open/205`). Before acting on a flag, group the step's
+  calls by `md5(prompt_rendered)`: many distinct prompts near the cap is cap drift;
+  one or two prompts repeating is a stuck item, and raising the cap treats the
+  symptom.
+- **verify-later:** the pinned known-case test in the RUNBOOK (as-of 2026-08-01 it
+  must flag `classify_and_extract@6000` as P, BEFORE that step's first truncation) —
+  re-run it if the pre_query is ever edited; a check that cannot flag its own
+  motivating case is inert.

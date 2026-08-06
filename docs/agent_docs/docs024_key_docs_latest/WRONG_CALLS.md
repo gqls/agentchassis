@@ -21256,3 +21256,49 @@ to prevent would have been invisible: a future session could reverse the prefere
 while every deployed asset silently resolved to its own deployed path instead of
 its source. **A test that passes under the mutation it exists to catch is worse
 than no test**, because it also stops the next person writing a real one.
+
+---
+
+## 2026-08-06 — I built a leading indicator that would have been silent on the very bug it was built for
+
+**The claim.** Building `bugs_open/183`'s standing cap-headroom check, I cloned the
+proven council-seat version (FIX-058) and kept its 14-day window and its `n >= 20`
+floor. Both are correct *there* — council seats run hundreds of calls a fortnight.
+I carried them over on the strength of "this is the proven instrument", and wrote
+the plan around a check I had every reason to think worked.
+
+**What caught it.** Pinning the clock. Instead of only running the check against
+today, I replaced `now()` with `timestamp '2026-08-01'` — the day *before* 183's step
+first truncated — and asked what the check would have said then. Answer: **nothing.**
+The step had run **3 times** in the preceding 14 days, under any sane floor, so it
+was invisible right up until it burned three attempts on multiple sites. It would
+then have flagged `T` — a post-mortem, not a warning. Widened to 90 days, same date:
+`n=15, p95 90.0%` → flags **P**, a full day before the first failure.
+
+**The cheap check.** *Run the detector against the case that motivated it, with the
+clock pinned to BEFORE the failure.* A check verified only against today answers "is
+anything wrong now", which is not the question a leading indicator exists for. Cost
+me nothing to find and would have shipped an inert instrument with a plausible test
+("it flags the known case!" — as-of *after* the event, when a truncation is already
+in the window and any threshold flags it).
+
+**Why this one is worth a row.** It is the same shape as `5d1df2777` ("the first run
+showed my max_items was inert") and as the RFC_012 lane's "both naive detectors
+return 0 on the known bug" — three instances in a week of *a mechanism that runs
+clean and cannot see the thing it was built for*. The common defect is that the
+verification asks "does it run and produce sensible output", when the only question
+that discriminates is **"could it have come out otherwise, on the case that made me
+build it?"** Inherited parameters are the highest-risk part of a clone, precisely
+because they arrive pre-justified by the original's success.
+
+**A second, dumber one in the same session, from the same family.** My first
+fleet-wide headroom query filtered `WHERE success AND output_tokens IS NOT NULL` —
+the exact `llm_call_log` trap recorded in `LANDMINES.md`, in the memory index, and in
+`bugs_open/183`'s own "How to verify" section, which I had read that hour. A
+truncated call logs `output_tokens = NULL`, so the filter deletes every truncation
+from the population. It reported `vet-practice-verifier/extract_and_reconcile` as
+**absent** from the pressure list; it is the worst-affected step in the estate, 64
+truncations, failing 100% of calls for 34 hours (now `bugs_open/205`). *Before
+trusting a zero, induce a non-zero* — I knew the truncations existed, because they
+are quoted in the bug file I was working from, and still wrote the query that
+returned none of them. Reading the landmine is not the check; **using it is.**

@@ -5,6 +5,19 @@
 (live config; 16000 proven in production first — one run at 6590 output tokens).
 OPEN** because the exposure that produced it is untouched — see fix candidates 2 and 3.
 
+> **UPDATE 2026-08-06 — candidate 4 is DONE and live; this bug is now one decision
+> from closing.** The standing check shipped (see candidate 4 below) and found a new
+> live bug on its first run (`bugs_open/205`). What remains OPEN here is a single
+> question, and it is a judgement, not an investigation: **candidate 3** — split
+> `classify_and_extract`'s four documents into four bounded generations. It is
+> architecture-scope and deliberately not attempted while adoption lanes are using
+> this agent. With the cap at 32000 the observed max (6590) has ~5× headroom, and
+> regrowth toward that ceiling is now ANNOUNCED rather than discovered by a burned
+> site. **The honest closing condition:** close this when the owner rules that
+> headroom-plus-monitoring is the accepted answer for this step; keep it open if
+> candidate 3 is still wanted. Do not close it on the cap raise alone — that was
+> true on 08-03 and the class exposure was still there.
+
 > **UPDATE 2026-08-03 — this is NOT a one-step problem, and the fleet number is
 > much worse than this bug's.** A 14-day audit keyed on `error_message` (the only
 > reliable truncation signal) shows **25 distinct steps truncating**, and ours is
@@ -160,6 +173,36 @@ the child orchestration, and (after 3 attempts) the work item.
 4. **A floor check on caps.** No step that emits a whole spec document should sit
    below the 8000 mode. An offline lint over `agent_definitions` would have caught
    this in April. Cheap, and it is the check that generalises.
+
+   > **[DONE 2026-08-06 — shipped as a DISTRIBUTION check, not a static floor.]**
+   > `scheduled_tasks` row **`fleet-step-token-pressure`**: live, CTE-only
+   > (`fire_message=false` — no Kafka, no orchestration, no LLM, no credits), every
+   > 6h, delivering to `doc_notes`. It is FIX-058 (`council-seat-token-pressure`)
+   > generalised past `review_%`; the two tasks now partition the fleet exactly.
+   > Lane: `docs024_key_docs_latest/bugfix_183_step_token_pressure/` (plan, runbook,
+   > notes, seed SQL). Register entry **LCO-007**.
+   >
+   > **Why distribution and not the floor this file asked for.** A static floor
+   > needs a judgement about which steps "emit a whole document", and it cannot see
+   > a step that outgrows a perfectly reasonable cap — which is what happened here.
+   > Headroom subsumes it: a step near its cap is flagged whatever the number is,
+   > and a step comfortably inside a 4000 cap is left alone. The floor idea survives
+   > in a narrower and sharper form as `bugs_open/205` candidate 1 — steps that
+   > configure NO cap at all and silently inherit the transport's hardcoded 2048.
+   >
+   > **It flags this bug's own case, tested by pinning the window** — as-of
+   > 2026-08-02 18:00 it puts `classify_and_extract@6000` at the top (T, n=21, 5
+   > truncations); as-of 2026-08-01, BEFORE the first truncation, it already flags
+   > it P (n=15, p95 90.0%). So it is a leading indicator on this very bug, not
+   > only a post-mortem. Live today the step is correctly ABSENT (cap 32000, last
+   > run at 13% of it). Negative control holds: `stage_implement@32000` (p95 24%)
+   > does not flag on pressure.
+   >
+   > **Its first run found a live defect nobody had filed** — `bugs_open/205`:
+   > `vet-practice-verifier/extract_and_reconcile` truncating 100% of calls for 34
+   > hours against a cap **no one ever configured**, with two poisoned records
+   > re-dispatched every few minutes. That is the disconfirmable evidence that the
+   > check earns its place.
 
 ## How to verify
 

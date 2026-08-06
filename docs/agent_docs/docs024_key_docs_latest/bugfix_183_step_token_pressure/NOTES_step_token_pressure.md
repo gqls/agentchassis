@@ -1,0 +1,132 @@
+# NOTES — bugs_open/183 step token pressure (append-only, newest at the bottom)
+
+## 2026-08-06 — picking the bug
+
+Ranked the open backlog by reference-heat over transcripts touched in the last 4h,
+then confirmed the top candidates by **fix-site symbol** grep (not bug number — a
+number matches every session that ran `ls bugs_open/`).
+
+- **186** (thunder NULL instance_ip): rejected. `instances.go` at 107 hits in a
+  session 0.4h old, `lookupOne`/`InstanceIP` alongside it. Someone is in that file.
+- **189** (locked positional slot duplicates): rejected. `matchLockedRow` and
+  `extractSectionsFromMetadata` are hot in the active 204/182 lane's council
+  argument — a session literally quoting `matchLockedRow` as "a narrow,
+  already-disclosed exception" in a submission.
+- **183**: taken. `who-owns.py` → no owning workstream; zero open `site_work_items`;
+  the only `domain-research-classifier` heat is an adjacent Firecrawl-audit lane
+  whose own text says **"domain-research-classifier has NO owner"**. That is the
+  false-positive case from my own memory file working in reverse: high mention
+  count, but reading the hits showed a lane declining to touch it.
+
+## Validity re-check before starting
+
+Cap is now **32000**, unshadowed (root `ai_service` block NULL), last run 2026-08-04
+succeeded at 4295 tokens. So the ACUTE symptom is gone and the bug is still correctly
+OPEN: its own candidates 2–4 are about the class, not the incident.
+
+## MISSTEP 1 — I walked into the trap my own memory file documents, on my first query
+
+First fleet measurement filtered `WHERE success AND output_tokens IS NOT NULL`. That
+is **exactly** the `llm_call_log` trap recorded in LANDMINES and in my memory index:
+a truncated call logs `output_tokens = NULL`, so the filter silently deletes every
+truncation from the population — and it is blindest on the steps that truncate most.
+
+What it produced: `classify_and_extract@6000` at "p95 93.9%, max 5642", reading as a
+step under mild pressure. The truth in the same window was **5 truncations**. The
+corrected query moved it to `p95 100.0%, 5 truncated`, and the fleet table changed
+shape entirely — `extract_and_reconcile@2048` went from **absent** to the largest
+truncation count in the estate (63).
+
+The check that would have caught it instantly, and which is now the rule for this
+lane: **before trusting a zero, induce a non-zero.** I knew the truncations existed
+(they are quoted in 183's own evidence section) and still wrote a query that returned
+none of them.
+
+## MISSTEP 2 — my plan asserted the 14-day window was clear of the agent_type relabel
+
+Written into the PLAN as fact: "the 14-day window is now clear of the relabel date."
+It is not. The relabel was 2026-07-26; 14 days back from 2026-08-06 is **2026-07-23**,
+inside the `generic` era. Caught while re-reading my own plan, not by a query.
+Corrected in place. The fix was structural rather than waiting for the calendar: key
+on `(step_name, cap)` and treat `agent_type` as a display label only.
+
+## MISSTEP 3 — `DISTINCT ON (agent_type, step_name)` resurrected a retired cap
+
+Consequence of the same relabel, and it only appeared when I widened to 90 days. The
+"current cap" CTE originally took the latest call **per (agent_type, step_name)**.
+Over a 90-day window the pre-relabel `generic` rows form their own group whose "most
+recent call" is months old — so `classify_and_extract@6000`, a cap retired on 08-02,
+came back in the LIVE run as a current pair.
+
+The tell was that I already knew the answer: the live check must NOT flag this step
+(cap 32000, last run at 13%). Getting the expected-absent case wrong is what exposed
+it. Fixed by taking the latest call **per step_name** only, with the trade written
+into the seed's header and a standing check for it in the RUNBOOK (today: 0
+step_names held at different caps by different agents).
+
+## MISSTEP 4 — the check I first wrote could not have flagged its own bug in time
+
+The clone of FIX-058 used a 14-day window. Measured as-of 2026-08-01 (the day before
+183's step first truncated), `classify_and_extract@6000` had run **3 times** in 14
+days — under any sane n floor, so **silent**. The check would have said nothing until
+after the sites burned, then flagged T.
+
+Same window widened to 90 days, same date: **n=15, p95 90.0%, peak 94.0% → flags P**,
+a full day before the first truncation. That is the difference between a leading and
+a lagging indicator, and it was invisible until I pinned `now()` and asked what the
+check would have said *then*.
+
+This is the `5d1df2777` lesson in a new costume — a mechanism that looks correct,
+runs clean, and is **inert on the exact case it was built for**. Two departures from
+FIX-058 came out of it: 90-day window, and n ≥ 5 rather than n ≥ 20 (183's step had 9
+in-window calls on the day it burned; at n ≥ 20 the check cannot see its own bug).
+
+Also, trivially: `round(double precision, integer)` does not exist in this Postgres —
+cast the percentile `::numeric` first.
+
+## Verification actually run (2026-08-06)
+
+1. **Seeded, then executed the pre_query VERBATIM out of the live row** (not my file
+   — the row is what the scheduler runs). It inserted note `3186dcfa`, 10 pairs.
+2. **Dedup proven**: re-running the identical pre_query returned **0 rows**. Event,
+   not heartbeat, demonstrated rather than asserted.
+3. **Known-case test, window pinned**: as-of 2026-08-02 18:00 → `classify_and_extract@6000`
+   top of list (T, n=21, 5 truncations). As-of 2026-08-01 00:00 → flags **P** before
+   any truncation. Live → correctly **absent**.
+4. **Negative control**: `stage_implement@32000` (p95 24.4%) never flags on pressure —
+   it appears only under T, from a single real truncation. `generate_tool_html`
+   (raised to 32000) does not appear live; it does at 8000 in history. The retired
+   population stays retired.
+
+## The first run found a live bug — `bugs_open/205`
+
+Top line was `extract_and_reconcile@2048`, 64 truncations, **the largest in the
+fleet**, and no bug file mentioned it. Followed it:
+
+- The step sets **no `max_tokens` at any level** and no root block exists — so it
+  runs on the transport's hardcoded `2048` (`platform/aiservice/anthropic.go:109`).
+- 100% failure since 08-05 ~03:00; 0 of 54 truncated on 08-04.
+- **The shape is not cap drift.** Grouping by `md5(prompt_rendered)`: 46 calls of one
+  byte-identical prompt, then 18 of a second, **zero successes on either**, while
+  every other prompt in the window succeeded at 468–639 output tokens. Distinct
+  `correlation_id` per call ⇒ fresh dispatches, not one orchestration's retries.
+  Driver: `scheduled_tasks` `vet-batch-verify`, every 300s, enabled.
+- Census run rather than left for a reviewer: **8 of 126 active LLM steps set no cap
+  at any level**; only 2 have run in 90 days; the other 6 are latent.
+
+**The lesson worth keeping, and it is now a LANDMINE on this check:** a truncation
+COUNT does not tell you the SHAPE. 64 truncations looked like the worst cap-sizing
+problem in the estate; it is one bad record on a loop, where a bigger cap is the
+wrong first move. `md5(prompt_rendered)` group-by is the one-query discriminator, and
+it belongs beside every flag this check raises.
+
+## Council gate
+
+Attempted per CLAUDE.md. The gate's scope is `platform/`, `internal/`, `pkg/`
+(owner ruling 2026-07-17) and the trigger **refuses docs/config-only submissions
+client-side** so they never spend credits — this change is a live `scheduled_tasks`
+row plus docs and touches no Go. Recorded rather than forced: `FORCE=1` exists but
+submitting out-of-scope work to burn seats on it is the behaviour the refusal is
+there to prevent. Review here follows the RFC_006 precedent instead — the seed, its
+reasoning, the register entry and the first note are all readable, and the pinned
+known-case test is the disconfirmable part.
