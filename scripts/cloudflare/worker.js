@@ -36,16 +36,27 @@ export default {
       const b2Response = await fetchFromB2(env, objectKey);
       
       if (!b2Response.ok) {
-        const errorText = await b2Response.text();
-        return new Response(JSON.stringify({
-          error: 'B2 returned error',
-          objectKey: objectKey,
-          status: b2Response.status,
-          statusText: b2Response.statusText,
-          body: errorText.slice(0, 500)
-        }, null, 2), { 
+        // bugs_open/132: a missing path used to return the raw B2 error JSON,
+        // leaking the bucket objectKey to the visitor. Serve the site's own
+        // 404 page instead. Status MUST stay 404 — a soft-404 at 200 hides
+        // every broken link from crawlers and from any link checker.
+        if (b2Response.status === 404) {
+          const fallback = await fetchFromB2(env, `${hostname}/404.html`);
+          if (fallback.ok) {
+            return new Response(fallback.body, {
+              status: 404,
+              headers: {
+                'Content-Type': 'text/html; charset=utf-8',
+                'Cache-Control': 'public, max-age=300'
+              }
+            });
+          }
+        }
+        // No 404.html in the bucket, or a non-404 origin error: plain text,
+        // same 404 status as before, nothing internal in the body.
+        return new Response('Not found', {
           status: 404,
-          headers: { 'Content-Type': 'application/json' }
+          headers: { 'Content-Type': 'text/plain; charset=utf-8' }
         });
       }
       
