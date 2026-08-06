@@ -1362,3 +1362,74 @@ command, with both, is in the handoff.
 actively churning, not a static backlog. **That strengthens the decision to exclude `failed`**: a
 timer-driven auto-closer pointed at a population that gains and loses rows daily, under an open
 owner decision, is precisely the combination that produces an unexplainable audit trail.
+
+## 2026-08-06 — DISPATCHED BY HAND: the widening is PROVEN EFFECTIVE, exactly as predicted
+
+Owner asked for one hand-dispatch. Run `19d0ccbd-c2df-4beb-bd1a-f7e41599eb5f`, correlation
+`12c88a1e-01f6-489e-ac8e-279a4a8bcfc1`.
+
+**Scoped deliberately**, not fleet-wide: `{"site_id":"199733a8-…","item_type":"needs_page",
+"dry_run":false,"max_items":50}`. The shared trigger
+(`review_queue_drain/TRIGGER_revalidate_review_queue_v1.sh`) hardcodes `INPUT_DATA='{}'`, so I
+replayed its envelope with a filter rather than editing another lane's script. Pre-checks first:
+0 claimed items fleet-wide, pods 39 minutes old (past the ~300s silent-drop window), binary
+re-verified on `v1.0.1256` (widening greps 3, old literal 0).
+
+⚠ **First publish failed loudly and sent nothing** — the kcat pod name contained an uppercase
+letter (`kcat-optA-…`), which k8s rejects as a non-RFC-1123 name. Worth knowing because the
+adjacent landmine is that **`kcat -P` exits 0 having sent nothing**; here the *pod* was rejected so
+it was visible, but the habit that saved it was verifying by the orchestration row rather than by
+exit code.
+
+### Both arms of the check, and this time the check could fail
+
+Dispatch was immediate — **1 poll**, not the ~30 minutes the trigger warns about. One sample.
+
+| arm | before | after | |
+|---|---|---|---|
+| **1** — newly closed rows since 08-05 | 0 | **exactly 1** | ✅ as predicted |
+| **2** — `auto:revalidated` lifetime | 33, latest 2026-08-04 08:37:47 | **34**, latest 2026-08-06 08:05:19 | ✅ it really ran |
+
+Arm 2 is the one that mattered: yesterday's 0 was vacuous because the sweep had never run, and a
+one-armed check could not tell that from success. Now both moved.
+
+**The closed row is the exact one the widening made reachable**: `needs_page:self-correction-
+leopardessconsulting` on `fundamentallyai.com`, raised 2026-07-20, sitting at **`unresolved`** —
+a status the sweep **could not see before this change**. Closed `auto:revalidated` with a positive
+reason: *"page … is active and every section it declares (hero, generic-text-block, swipeable…)"*.
+`unresolved` population across all four covered types is now **0**.
+
+**This is a direct behavioural proof, not an inference.** Before the change that row was
+unreachable by construction; after it, one sweep closed it on positive evidence.
+
+### The discrimination control — it judged three and closed one
+
+The site had 3 eligible rows. It closed 1 and **refused another with a stated reason**:
+`needs_page:platform-log-index`, verdict **`unknown`**, judged 08:05:15, *"page 'platform-log-index'
+resolves no sections from any source, so there is no evidence"*. Left open, correctly. A mechanism
+that closed both would have looked the same in arm 1's count.
+
+### ⚠ ANOMALY — one eligible row was neither closed nor stamped, and I cannot explain it
+
+The third row was **not judged at all**: no `result.revalidation` key, so it did not even get
+gate 2's record.
+
+- `item_type = 'needs_page'`, `status = 'needs_human_review'`, created **2026-08-05 13:44** — i.e.
+  well before the run, so "created after the sweep" does not explain it.
+- **Its `item_key` is `page_rerender:tools`** — the prefix disagrees with its `item_type`. That is
+  exactly the drift `workItemKey`'s doc comment describes ("hand-rolled prefixes are how the keys
+  drifted from their item_type in the first place").
+
+Whether the mismatch *causes* the skip is **[UNVERIFIED]** — the selection is on `item_type`, which
+matches, so on a first reading it should have been loaded and judged. **Not guessing.** It is
+recorded as an open observation in the handoff with the query that found it. It is not a regression
+from this change: nothing in option A touches loading or key handling, and a skipped row is the
+safe direction (nothing closed).
+
+### What this run did NOT prove
+
+**The `failed` exclusion was not exercised.** That site has **no** `needs_page` rows at `failed`
+(8 complete, 2 needs_human_review, and the 1 just closed), so the exclusion was never put to the
+test — it was *not contradicted*, which is a weaker thing. The 19 `failed` rows fleet-wide sit on
+other sites and this run was site-scoped. Saying so because "the exclusion held" would be a claim
+this run cannot support.

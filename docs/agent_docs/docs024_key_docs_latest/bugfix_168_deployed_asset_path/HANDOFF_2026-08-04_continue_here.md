@@ -1,93 +1,88 @@
-# HANDOFF — 2026-08-04/05 — the adopter was redundant; option A is LIVE and PROVEN
+# HANDOFF — 2026-08-06 — option A is LIVE, PROVEN EFFECTIVE, and the lane is done bar one decision
 
-> **UPDATED 2026-08-05. READ THIS BOX FIRST — §1 and §2 below describe the state BEFORE option A.**
+> **START HERE. Updated 2026-08-06. Sections 1–2 below describe the state BEFORE option A and are
+> kept only as history — do not act on them.**
 >
-> **Option A is done, APPROVED (council `1cec55d2`), and LIVE on `v1.0.1252`, both replicas.**
-> The duplicate closer is reverted (proven gone at the pod: `re-observed filled` **1 → 0**,
-> `findResolvedRequiredFields` **0**, positive control `auto:revalidated` **2 → 2**), and
-> `revalidate_review_queue` now also sees `unresolved` (proven present: `AND status IN (%s)`
-> greps **exactly 3** — the three gates — and the old literal greps **0**).
+> **The retraction lane is complete.** The first adopter (`check_empty_sections`) works unattended
+> — **10 findings retracted** so far. The second adopter was redundant and has been **reverted**.
+> The real gap was fixed in the better mechanism (`revalidate_review_queue`), council `1cec55d2`
+> **APPROVED**, live on `v1.0.1256`, and as of 2026-08-06 **proven to actually close a row it could
+> not previously reach**.
 >
-> **THE ONE OPEN ITEM IS A SINGLE OBSERVATION, §0 below.** Everything else in this lane is closed.
+> **Read `SUMMARY_2026-08-06_deployed_asset_path.md` for the plain-prose account**, then §0 here.
+>
+> **TWO THINGS ARE OPEN — both in §0. One is a decision for the owner; one is a loose thread.**
 
-**Supersedes `HANDOFF_2026-08-03b_continue_here.md`.** That file is still worth reading for the
-first adopter's history and its §3/§4 traps — but **§4.1's trap list and §3's producer check are
-both now known to be incomplete, and this file says how.**
+## 0. THE TWO OPEN ITEMS
 
-Read this, then `WRONG_CALLS.md` (2026-08-04 entry), then `NOTES_deployed_asset_path.md` (bottom).
+### 0a. OWNER DECISION — should the revalidation sweep run on a timer?
 
-**Nothing here is half-applied. Everything described is committed and live. The open item is a
-DECISION, not an implementation.**
+**There is no `scheduled_tasks` row for `diagnosis-review-queue-revalidator`** (0 rows by name or
+agent type; the scheduler is healthy — 27 enabled tasks). It has only ever run hand-dispatched.
+Config is live immediately, so nothing forces the timing.
+
+- **FOR:** the defect this lane fixed — the sweep builds a two-strike backlog it then cannot drain
+  — is only *actually* fixed if it runs. Hand-dispatch means it runs when someone remembers.
+- **AGAINST:** standing fleet-wide authority for a `dry_run:false` auto-closer over four item
+  types. `needs_page` has **5 Go producers** and an **open owner decision (033 D2)** living in its
+  `failed` population, measured churning 17 → 21 → 19 in 36 hours. **17 of 44 scheduled tasks are
+  disabled**, so scheduling here reads as deliberately managed.
+- **Evidence now in hand** (this was the missing input): one scoped hand-run closed exactly the 1
+  row it should, refused another with a stated reason, and touched nothing else. It behaves.
+
+### 0b. LOOSE THREAD — one eligible row was neither closed nor stamped
+
+Found by the 08-06 run, **not caused by it**. On `fundamentallyai.com`, a `needs_page` /
+`needs_human_review` row created 2026-08-05 13:44 got **no `result.revalidation` key at all** — it
+did not even receive gate 2's record, while its two siblings were judged.
+
+**Its `item_key` is `page_rerender:tools` — the prefix disagrees with its `item_type`**, which is
+the drift `workItemKey`'s doc comment warns about. **Whether that causes the skip is
+[UNVERIFIED]** — selection is on `item_type`, which matches, so on a first reading it should have
+been loaded. I did not guess further.
+
+```sql
+SELECT left(item_key,45) AS item_key, item_type, status, created_at, (result ? 'revalidation') AS judged
+FROM site_work_items WHERE item_type='needs_page'
+  AND site_id='199733a8-ac9c-4c30-b2ce-65ecdac6f3bd' AND status='needs_human_review';
+```
+Safe direction (a skipped row closes nothing), so it is a thread, not a fire.
 
 ---
 
-## 0. THE ONLY OPEN ITEM — the fix is LIVE and UNDRIVEN. It needs a decision, then one run.
+### How the 2026-08-06 run was done, if you need to repeat it
 
-> **UPDATED 2026-08-05 evening.** Option A is live on `v1.0.1254` (survived two rolls; re-verified,
-> because a roll is not evidence your fix shipped). **But it has never executed.**
+Run `19d0ccbd-c2df-4beb-bd1a-f7e41599eb5f`. **Scoped, not fleet-wide** — the shared trigger
+`review_queue_drain/TRIGGER_revalidate_review_queue_v1.sh` hardcodes `INPUT_DATA='{}'`, so replay
+its envelope with a filter instead of editing another lane's script:
 
-**`auto:revalidated` is still 33 all-history, latest 2026-08-04 08:37:47** — unchanged across two
-rolls and ~36 hours.
+```
+{"site_id":"<uuid>","item_type":"needs_page","dry_run":false,"max_items":50}
+```
 
-⚠ **My previous version of this check was ONE-SIDED and I nearly recorded its 0 as a pass.** It
-said *"expect at most 1 newly-closed row"*. Zero satisfies that and means nothing: "at most 1" can
-only catch the mechanism being too WIDE, never "it never ran". **Use this instead — both arms:**
+Pre-checks that mattered: 0 claimed items, pods >300s old, binary re-verified (`AND status IN (%s)`
+greps **3**). ⚠ **kcat pod names must be RFC-1123 lowercase** — an uppercase letter rejects the pod
+and sends nothing; and `kcat -P` exits 0 having sent nothing, so **verify by the orchestration row,
+never the exit code**. Dispatch was immediate (1 poll), not the ~30 min the trigger warns of — one
+sample, do not plan on it.
+
+**Both arms of the check — use both, a single arm cannot tell "worked" from "never ran":**
 
 ```sql
--- ARM 1: exactly 1, and it must be the needs_page unresolved row
-SELECT s.domain, swi.item_type, swi.status, swi.completed_at,
-       left(swi.result->'revalidation'->>'reason', 90) AS reason
-FROM site_work_items swi JOIN sites s ON s.id = swi.site_id
-WHERE swi.resolution_path = 'auto:revalidated' AND swi.completed_at > '<the dispatch time>'
-ORDER BY swi.completed_at DESC;
--- ARM 2: the sweep actually ran. If this has not moved, ARM 1's 0 is vacuous.
+-- ARM 1: which rows closed
+SELECT s.domain, swi.item_type, swi.completed_at, left(swi.result->'revalidation'->>'reason',90)
+FROM site_work_items swi JOIN sites s ON s.id=swi.site_id
+WHERE swi.resolution_path='auto:revalidated' AND swi.completed_at > '<dispatch time>';
+-- ARM 2: did the sweep run at all?  (34 / 2026-08-06 08:05:19 as of this handoff)
 SELECT count(*), max(completed_at) FROM site_work_items WHERE resolution_path='auto:revalidated';
---   before any new run: 33, 2026-08-04 08:37:47
-```
-**More than 1 closed row = the status set is wider than intended. Zero AND an unmoved count = it
-did not run.** Those are opposite problems and the old check could not tell them apart.
-
-### WHY it has not run: there is no schedule for it
-
-```sql
-SELECT name, target_agent_type, enabled, interval_seconds, last_triggered_at
-FROM scheduled_tasks WHERE target_agent_type ILIKE '%revalidat%' OR name ILIKE '%revalidat%';
--- (0 rows)  [MEASURED 2026-08-05]
 ```
 
-**No `scheduled_tasks` row exists for `diagnosis-review-queue-revalidator`.** The scheduler is
-alive — 27 enabled tasks, latest trigger 2026-08-05 20:47 — so this is *undriven*, not broken. Its
-33 lifetime closes were hand-dispatched. **A silent mechanism is usually undriven, not missing.**
+**What the run proved:** it closed `needs_page:self-correction-leopardessconsulting`, raised
+2026-07-20, sitting at **`unresolved`** — a status the sweep **could not see before option A**.
+Direct behavioural proof. `unresolved` across all four covered types is now **0**.
 
-### THE DECISION OWED (owner), and it is small but real
-
-**Should this sweep be scheduled?** Config is live immediately with no build, so nothing forces the
-timing.
-
-- **FOR:** the bug this lane fixed — the sweep builds a two-strike queue it then cannot drain — is
-  only actually fixed if the sweep runs. Hand-dispatch means it runs when someone remembers.
-- **AGAINST:** it would give a `dry_run: false` auto-closer standing fleet-wide authority over four
-  item types' lifecycles. One of them (`needs_page`) has **5 Go producers** and an **open owner
-  decision (033 D2)** living in its `failed` population — a population measured moving
-  17 → 21 → 19 in 36 hours, so it churns daily. **17 of 44 scheduled tasks are disabled**, which
-  reads as deliberate management rather than neglect.
-- **My recommendation:** dispatch it by hand ONCE first (below) to exercise the widening and see
-  what it actually does, THEN decide on a schedule with that evidence in hand.
-
-### The one run, when you want it — with the checks it needs first
-
-```bash
-# 1. Coverage check FIRST — another session may have work in flight (CLAUDE.md).
-kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -c \
- "SELECT site_id, item_type, status, count(*) FROM site_work_items
-   WHERE status NOT IN ('complete','cancelled','rejected') AND item_type='needs_page'
-   GROUP BY 1,2,3 ORDER BY 4 DESC LIMIT 5;"
-# 2. Pods must be >300s old, or the spawn is silently dropped.
-# 3. Prefer a SITE FILTER: an unfiltered sweep also stamps result.revalidation on every row it
-#    scans and does NOT close (gate 2) — ~50 rows fleet-wide. Harmless and by design, but scope it
-#    to the site holding the one needs_page 'unresolved' row so the outcome is unambiguous.
-# 4. Then run BOTH arms of the check above.
-```
+**What it did NOT prove:** the `failed` exclusion was never exercised — that site has no `failed`
+rows, so the exclusion was *not contradicted*, which is weaker than *held*.
 
 ## 1. The one-paragraph version
 
