@@ -189,3 +189,83 @@ the generic loops *towards* the existing norm rather than inventing one.
 fixed, not after. (Note: harmless in the damage sense — re-selecting and re-excluding costs
 nothing — but it would make an operator's explicit request silently do nothing for ever, which
 is the visibility problem, not a safety one.)
+
+> **ANSWERED 2026-08-06, and my premise was WRONG in the more dangerous direction.**
+> `UpdatePageStatusAction` has no skip check, and for an owned page **both** existing deploy
+> guards pass — `pageHasComponents` is true (the tool's own component) and
+> `pageSectionShortfall` compares planned `pages.sections`, typically empty for an owned page.
+> So the page is **stamped `deployed`**, not left at `needs_rebuild`. Worse than a wrong status:
+> the same statement writes `built_from_plan_version = the current plan`, which makes
+> `ReconcileSitePlanAction`'s `decideEmit` return `skip_built` and **permanently suppresses the
+> `owned_page_review` item that is this design's own visibility channel.** So the honest-looking
+> option ("let it move off needs_rebuild") actively blinds guard rail 1. Found by the second
+> model reviewing the design, not by me — I had assumed the page would simply sit there.
+
+---
+
+## 2026-08-06 — what the second model (fable) corrected, and what I corrected in its plan
+
+Recorded both ways round, because the point of the exercise is the disagreements.
+
+**It corrected me on three things.** (1) The `deployed`-stamp finding above — the most valuable
+of the session, because my assumption was safe-sounding and wrong. (2) It found the second Go
+caller of `queryPagesForBuild` (`WriteBuildItemsAction`) independently; my compiler found it at
+the same time, which is a weaker form of the same catch. (3) It dismantled my reason for holding
+the visibility arm back: I had cited the 114-junk-items landmine, and that incident
+(`bugs_open/204`, `needs_new_component` per unresolvable slot) had **no stable key and an
+unbounded population**, whereas `owned_page_review` has one deterministic key per page arbitrated
+by the `(site_id, item_key)` partial unique index. Different shape, so the objection did not
+transfer. The emitter went in.
+
+**I corrected it on one thing that matters.** Its plan assumed `site-work-orchestrator`'s loop is
+fed by `write_build_items`' `needs_page` items via `current_item.spec`. Live measurement says
+otherwise: that agent's `load_work_items` filters `handler_agent='page-content-writer'`, while
+**every one of the 158 `needs_page` rows fleet-wide (all history) has
+`handler_agent='page-build-handler'`** — a different agent, whose order is
+`save_sections → update_status → deploy_page` and which is therefore **safe**. The third loop's
+real exposure is discovery-check fix items (`literal_markdown`, `placeholder_contact`), of which
+**11 of 14 targeted `owned` pages on webdesign.co.uk on 2026-08-04, all failed.** So the door is
+real and observed, but it is a different door from the one the plan defended, and that changed
+which collected-data shape the guard has to resolve (`current_item.spec` for a *fix* item, not a
+page record).
+
+`[UNDETERMINED — EVIDENCE REAPED]` Whether those 11 runs reached `deploy_page` before failing.
+All 11 pages serve working tools today and terminal `orchestration_states` are reaped at ~24h, so
+the deciding `collected_data` is gone. **Not asserted.** The plausible innocent explanation is
+that they failed earlier (an owned page has no planned sections for `plan_sections` to work
+with); the plausible guilty one is a commit followed by a repair on 08-05, when all 11 rows were
+touched. Both fit. Neither is evidence.
+
+## 2026-08-06 — mutation testing, and the one that mattered
+
+Four mutations, each expected to break a named test:
+
+| mutation | guard killed | outcome |
+|---|---|---|
+| M1 | `ownedPageExclusionSQL` emptied | 3 × `TestQueryPagesForBuild_*` failed ✓ |
+| M2 | `pageIsOwnedForGuard` → `false` | `TestAssemblePage_OwnedPageIsSkippedNotAssembled`, `_WorkItemShapeIsGuarded` failed ✓ |
+| M3 | `upstreamAssemblySkipped` → `false` | **`TestSavePageSections_HonoursUpstreamSkip` PASSED — the test was worthless** |
+| M4 | stamp condition dropped | `TestUpdatePageStatus_RefusesDeployStampAfterOwnershipSkip` failed ✓ |
+
+**M3 is the entry that earns this section.** My test asserted `res["skipped"] == true` with no
+sqlmock expectations. With the guard deleted the action runs on, fails the page lookup against a
+mock that expects nothing, and takes its **pre-existing** "page not found, skipping" branch —
+which returns the identical shape. Two guards in series, one indistinguishable outcome; the test
+would have vouched for the absence of the thing it was written to pin. Fixed by asserting the
+**discriminator** (`reason`, which carries `OWNED_PAGE_GUARD` only on the intended path), after
+which M3 fails as it should. Logged in `WRONG_CALLS.md`, and it is the reason the estate's
+"mutate to prove a guard" rule is worth its cost: three mutations behaved and told me nothing I
+did not already believe.
+
+## 2026-08-06 — build discipline on a tree three sessions were editing
+
+`go build ./platform/...` failed on `plan_sections_action.go:1007: undefined:
+composeScopedWriterBlock` — a symbol that exists **nowhere**, in a file I never touched, from
+another session's uncommitted WIP (they have written a call ahead of the function). A green or
+red tree build proves nothing about my change either way.
+
+So everything was verified in an isolated overlay — `git archive HEAD | tar -x` into a scratch
+dir, then **only my six files** copied over it. That is exactly what `make build-*` will archive
+once committed, and it excludes every other session's WIP by construction. `go build
+./platform/...` and `go test ./platform/orchestration/...` both green there. Command in the
+RUNBOOK as R6.

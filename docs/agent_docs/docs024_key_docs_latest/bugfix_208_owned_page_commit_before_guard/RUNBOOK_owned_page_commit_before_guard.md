@@ -92,3 +92,59 @@ Never verify this by rebuilding a real owned page. In order:
    **generic-only**, and assert the owned page's `updated_at` **and** its served HTML are both
    unchanged. Include a **negative control**: a generic page in the same run must still be
    rebuilt, or a fix that excludes everything passes just as well.
+
+## R6 — Verify a change when the shared tree does not compile (it often does not)
+
+Three sessions edit this tree at once, and a build failure is as likely to be someone's
+half-written function as your own mistake. On 2026-08-06 the tree failed on
+`plan_sections_action.go:1007: undefined: composeScopedWriterBlock` — a symbol present nowhere,
+in a file this lane never touched.
+
+**Do not** `git stash` (it takes other sessions' work) and do not conclude anything from a red
+tree. Build HEAD plus only your own files:
+
+```bash
+SC=<scratchpad>/head208
+rm -rf $SC && mkdir -p $SC
+git archive HEAD | tar -x -C $SC
+for f in <your changed files>; do cp "$f" "$SC/$f"; done
+(cd $SC && go build ./platform/... && go test ./platform/orchestration/...)
+```
+
+**Gotcha:** this is exactly what `make build-<service>` archives once you commit, so a green
+result here is a real prediction about the image. It is also the only way to tell your breakage
+from theirs. Diagnose whose it is first: `grep -rn "func <symbol>"` over the tree **and**
+`git grep "func <symbol>" HEAD` — absent from both, with the calling file dirty, means
+uncommitted WIP that is not yours.
+
+## R7 — Mutation-prove a guard (and the trap that makes a passing test worthless)
+
+A guard with a green test is not a guard with a proven test. Break it and require a **named**
+test to fail:
+
+```bash
+cp <file>.go /tmp/m.bak
+sed -i 's|return policy == ownedRebuildPolicy|return false // MUTANT|' <file>.go
+(cd $SC && go test ./platform/orchestration/actions/ -run '<Pattern>' 2>&1 | grep -E "^(ok|--- FAIL)")
+cp /tmp/m.bak <file>.go
+```
+
+**Gotcha, and it cost a rewrite here:** if the guard's success shape is `{skipped:true}` and the
+same function has other paths returning `{skipped:true}`, the mutation **passes** — a guard in
+series produces the same answer for a different reason. Before writing the assertion, grep the
+function for every other `return` carrying the key you plan to assert on. If there is more than
+one, assert the **discriminator** instead (here: `reason`, which only the intended path fills
+with `OWNED_PAGE_GUARD`).
+
+## R8 — Tell an action's other consumers (the ruling requires telling, not measuring)
+
+Find who else calls the Go function — not just who uses the action name, which under-reports:
+
+```bash
+grep -rn "queryPagesForBuild(" --include=*.go . | grep -v "_test"
+```
+
+Then the *live* consumers of the action, with R1's nested walk. On 2026-08-06 the action had 2
+consumers and the function had 3 call sites; the third (`WriteBuildItemsAction`) was invisible to
+the action-level query and was found only by the compiler complaining about the new parameter.
+**A changed signature is a free consumer census — read the compiler errors as a list.**
