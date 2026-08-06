@@ -103,6 +103,14 @@ field with the unsafe default OFF, not as a documented convention.
 - Approve the three-face decision-record shape and the doc_notes substrate
   (vs a new table — doc_notes wins on "the tables the platform actually
   reads", but a `decisions` table is cleaner if the citation gate grows).
+  **Substrate data point, hit while staging (2026-08-06):**
+  `doc_notes_subject_type_check` constrains subject_type to
+  `tool|pipeline|experience|action|experience-pattern|landmine|component` —
+  no `decision`. The first four records are staged under `component` with the
+  `decision` CATEGORY carrying the semantics (source `rfc015-staging`, keys
+  D-001..D-004). Widening the constraint is a stage-1 migration — additive
+  and inert until something writes the new type, so per the 2026-07-29 ruling
+  it takes the normal council gate, not an RFC of its own.
 - Approve the citation-gate semantics (refuse-unless-named) for
   decision-covered subjects, replacing locks for content protection.
 - Rule on supersession authority: may any agent supersede any decision by
