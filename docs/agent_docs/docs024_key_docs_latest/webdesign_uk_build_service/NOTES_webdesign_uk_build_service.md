@@ -1239,3 +1239,38 @@ validator's binding) · attested facts PRESENT on the page: `£1,200`, `no VAT`,
 `three or four days` · `same day` GONE, `person check` absent. Both `needs_page`
 items complete; vm-sites commits 11:27:57 + 11:56:24. **Phase 3 of the VM plan is
 done.** The tunnel click is now the only thing between the owner and seeing it.
+
+---
+
+## 2026-08-06 — WHY the framework built one page: the classifier was anchored on the hand-built artefact (contamination now CONFIRMED, not inferred)
+
+Owner asked why spec/planner/research produced no depth. Read from the DB, not
+guessed:
+
+- `classification` (domain-research-classifier): `site_type: "landing"`,
+  **confidence 0.97**, reasoning *"a tightly structured landing/brochure shape —
+  one scrolling page with anchored sections — is the right form"*, and
+  `detected_signals` that quote the 08-03 hand-built page feature by feature:
+  *"Existing live site at webdesign.uk with strong, consistent copy already in
+  place"* · *"mailto CTA with pre-filled body"* · *"Phone number in header"* ·
+  *"FAQ section handling objections (VAT, hosting, timeline, changes)"*.
+- Downstream honoured it: `site_plans` row `4ecaa120…` has **1**
+  `site_plan_pages` row; fleet plans run **19–33** (measured).
+- **⇒ The contamination path is CONFIRMED from the classifier's own output**
+  (upgrades the [INFERRED] marker of 08-05). The hand-built page did not just
+  leak phrases into `content_direction` — it *anchored the classification*,
+  which sized the entire site. Third distinct cost of the same 08-03 error:
+  banned phrases (fixed), asset-shaped expectations, and now the one-page shape.
+- **Copy tone** (owner: "brittle, dense, competitive, unfriendly"): three
+  compounding causes, stated honestly — `content_direction` largely derived
+  from the same contaminated source; my own restraint-heavy writer_block
+  ("say the thing, then stop", fourteen bans) which optimises against
+  overclaiming, not for warmth; and the then-current writer prompt, which the
+  owner has SINCE IMPROVED (more read-aloud, friendly, descriptive). Ruling:
+  **rewrite everything** under the improved prompt.
+- Consequence for the rebuild (handoff §4a item 2 sharpened): resubmission must
+  carry a **roadmap** (planner treats it as authoritative), AND
+  `content_direction` should be **regenerated fresh, not patched a third time**
+  — my two phrase-level supersedes cleaned violations but the document remains
+  contamination-derived throughout. The classifier cannot re-anchor on the
+  hand-built page: the bucket objects are deleted and the apex is dark.
