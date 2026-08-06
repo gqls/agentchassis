@@ -20997,3 +20997,31 @@ MISMATCH when done with the other trailer.
 **Tally note.** Same family as "a CITATION is not a READ" (memory index): the
 trailer was in the commit I was citing, and I read the trailer's presence as the
 verdict's existence.
+
+---
+
+## 2026-08-06 — `cat >>` to a bug file that had moved created a PHANTOM bug in `bugs_open/`, and only the pathspec commit caught it
+
+**The claim (implicit).** Appending a tracking note to
+`bugs_open/196_…md`, I assumed the path I had read from an hour earlier still named the
+file. On this tree that assumption has a half-life of minutes: the 196 lane closed their
+bug (`git mv` to `bugs_closed/`) in the interval.
+
+**What actually happened.** `cat >> bugs_open/196_….md` **created a new untracked file** at
+the stale path, containing nothing but my appended section — a phantom entry in the
+directory whose entire purpose is "what is biting prod right now", with a filename
+identical to a closed bug's. A future sweep would have read it as an open bug with no
+body, no owner, and no history.
+
+**What caught it.** The very next command: a **pathspec commit**, which refused with
+`pathspec … did not match any file(s) known to git` — because the real file was known to
+git at its new path and my stray was untracked. Had I used `git add` + bare commit, or had
+the stray been in a directory with other staged work, it could have ridden along.
+
+**The cheap check, and it is already a standing rule I walked past.** CLAUDE.md:
+*"Read before write on any file you did not create; prefer the Write tool, which refuses
+an unread file, over a shell redirect, which does not."* `cat >>` is the shell redirect
+that rule exists for. For appends to shared, moveable files: `test -f <path> || { echo
+MOVED; }` first — or use the Edit tool, which fails loudly on a path that no longer
+exists. The pathspec-commit discipline was the safety net that fired; it should not have
+been the first line of defence.
