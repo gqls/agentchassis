@@ -226,3 +226,54 @@ No `wrangler.toml` anywhere, confirmed — so there is still no deploy path from
 
 Found while surveying candidates for `bugs_open/150`; not taking 132. Recorded here rather
 than in a parallel account, per the shared-account rule.
+
+---
+
+## 2026-08-06 — CANDIDATE 1 SHIPPED UNDER THE OWNER'S SCOPED TOKEN. FLEET SWEEP CLEAN. CLOSED.
+
+The owner supplied the scoped API token specified in D5 (Workers Scripts:Edit,
+Workers Routes:Edit, Zone:Read; TTL to 2026-09-02; stored OUTSIDE the repo in
+`~/.cloudflare/404-token.env`, mode 600). Executed in the order this file asks:
+
+**1. EXPORT FIRST — the live worker is now under version control** (`ca75d0ebf`).
+One worker fronts everything: `portfolio-sites-router`, account
+`13044f178ae0b156961065f55c8fada8`, last modified 2026-05-10 — which confirms the
+07-31 correction: the repo's Nov-2025 copy was stale (249-line diff; the live miss
+branch WAS the JSON blob, the repo copy's was not). `scripts/cloudflare/worker.js`
+is now the pristine live export, and `scripts/cloudflare/README.md` documents the
+deploy path — including the trap that an update whose metadata omits the two
+`plain_text` bindings (`B2_KEY_ID`, `B2_APP_KEY`) strips the worker's credentials
+and takes every site down. Binding VALUES are kept out of the repo
+(`~/.cloudflare/portfolio-sites-router.settings.json`, mode 600).
+
+**2. The fix** (`91154636a`): the 404 branch fetches `<hostname>/404.html` from
+B2 and serves it **with status 404 preserved** and `Cache-Control: public,
+max-age=300`; if that page is itself missing, or on a non-404 origin error, a
+plain-text 404 with nothing internal in the body. No recursion possible. Deployed
+2026-08-06 08:30:48Z with both bindings carried; settings re-read post-deploy —
+both present.
+
+**3. Verified the way this file demands** — genuinely missing paths, reading the
+BODY, plus the no-op controls the fix must not break:
+
+- **All 36 zones probed** (`/no-such-page-$RANDOM`): **zero `objectKey` leaks
+  fleet-wide**; 34/36 serve HTTP 404 with real HTML 404 markup. The two
+  non-404s are not leaks and not this bug: `lendzy.co.uk` HTTP 000 (no
+  response — not live) and `webdesign.uk` HTTP 302 (that zone's own redirect).
+- **Real pages still 200** (webdesign.co.uk `/`, robot-hands.com
+  `/how-it-works.html`, finetuning.uk `/`), `/worker-health` still 200.
+- **No soft-404s introduced**: every fixed site returns status **404**, so
+  crawlers and any future link checker still see the truth. (A fix returning
+  200 here would have been worse than the bug — this file's own words.)
+
+**Residuals, recorded not fixed:**
+- The worker's `catch` branch still returns `err.message` + `stack` as JSON at
+  500 — same disclosure class, different (worker-fault-only) trigger. Left
+  alone: out of this bug's scope, one edit away in the now-versioned source.
+- `B2_KEY_ID`/`B2_APP_KEY` are `plain_text` vars, so the settings API returns
+  their values to any token with script read — converting them to
+  `secret_text` is a cheap hardening, **owner's call**.
+- Any future dashboard-side edit must be re-exported to
+  `scripts/cloudflare/worker.js` or the repo goes stale again — README says so.
+
+Fixed AND live, class-wide at the shared edge → moved to `bugs_closed/`.
