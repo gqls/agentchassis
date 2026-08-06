@@ -1,7 +1,24 @@
-# HANDOFF — bugs_open/084, continue here
+# HANDOFF — bugs_closed/084 — **LANE COMPLETE 2026-08-06**
 
-**Written 2026-08-05 ~22:00 BST.** Everything below is committed. Nothing is
-in flight. Pick this up cold.
+> **NOTHING IS OWED HERE. Do not pick this up as open work.** The bug is fixed,
+> live on chassis v1.0.1257, enabled on `design-discovery-agent`, **proven in
+> production by an induced fault**, reverted, cleaned up, and moved to
+> `bugs_closed/`. Council APPROVED r1.
+>
+> **The only things that survive this lane, and they are elsewhere:**
+> - an **RFC is owed** for `asset_loads` (candidate 1 — RFC-scope, do NOT patch it);
+> - **candidate 4** (T5.1 post-hydration dead-control) lives in
+>   `experience_loop/RUNBOOK_experience_loop.md`;
+> - **candidate 5** (generalise `checkScriptParity`) is the content-loss-on-rewrite
+>   class — contribute to `bugs_open/178` / `bugs_open/198`;
+> - the `bug_historian`'s objection about the growing undrained flag-only pile is
+>   recorded in **IMP-051** for a human.
+>
+> **If you are here because `asset_reference_404` reported 0 findings: that is not
+> proof it works.** The live population is zero. Re-run the induce-and-revert in
+> `RUNBOOK_asset_reference_resolution.md` before quoting a clean result.
+
+*Original handoff, written 2026-08-05 ~22:00 BST, kept for the trail:*
 
 ## One paragraph
 

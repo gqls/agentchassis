@@ -10969,3 +10969,54 @@ switch. Wire-capture before/after and the duplicate-race mechanism:
   `deadline exceeded` → `error_recoverable`) with the retry cap proven by histogram
   (204/15/83/2, zero above 3). RSH-006. Spawned `bugs_open/207` (the processor senders still
   typed-only) at the council's direction.
+
+### A detector built for a population of ZERO cannot be verified by running it — and "0 findings" is the same output a silently broken one produces (`bugs_closed/084`, 2026-08-06)
+
+**The trap.** You build a check, enable it, it runs clean, and you write "live and
+working". But if the defect it hunts has no live instances, a clean run carries no
+information at all: a check that is correct, a check whose predicate is inverted, a
+check whose selector matches nothing and a check that errored and swallowed it **all
+emit the same result**. This is 016b's older *"a gate's 0 findings has two causes with
+opposite fixes"* one level out — there the gate had a population and stayed quiet;
+here the population is empty, so quiet is guaranteed and proves nothing whatsoever.
+
+`asset_reference_404` was exactly this shape. Nothing in the platform asserted that a
+`<script src>` on a deployed page resolves; the fleet measured **96 of 96 referenced
+assets returning 200**, so the new check's expected yield on day one was zero.
+
+**The three-part substitute, in the order they cost least:**
+
+1. **Mutation, before you ship.** Break each guard deliberately and confirm a *named*
+   test fails for it. Five guards, five distinct named failures. A guard no test can be
+   made to fail against is decoration, not a guard.
+2. **Induced fault, in production, after you ship.** Nothing else proves the check runs
+   in the real pipeline against real data. Pick the quietest row on the quietest site,
+   take the control FIRST (does the URL you are about to reference genuinely 404?),
+   guard both the induction and the revert with a `DO`/`RAISE` on the original md5 so
+   either can abort rather than leave the row altered, and plan the revert before the
+   induction.
+3. **Read the NEGATIVE result too.** The induced item is only half the evidence. The
+   other half is that the same run filed **nothing else** — eight other deployed pages,
+   every real reference on them, zero false positives. A detector that fires on your
+   fault *and* on everything else has not been validated, it has been flattered.
+
+**Two things that made this cheap, and generalise:**
+
+- **Aim at the narrowest agent that contains your step.** The documented manual route
+  was the full improvement loop — `discovery → triage_findings → call_dispatch` — which
+  dispatches real fixers at a live customer site. But `design-discovery-agent` is only
+  `ensure_site_record → run_discovery_checks → complete_workflow`, so pointing the same
+  Kafka envelope at it runs discovery with **no triage and no dispatch**: findings land
+  at `detected`, which the dispatcher's claim query cannot see. The property normally
+  complained about (*a lone discovery run files findings nothing can act on*) is exactly
+  what makes it the safe verification harness. **Read the agent's step list before
+  accepting a trigger's blast radius.**
+- **Cancel your test artefact.** An induced finding left at `detected` is a false
+  defect in the queue for ever, and citing `bugs_open/083` about undrained items while
+  leaving one behind is the same error you are documenting. Cancel it and put the
+  provenance in `result`.
+
+**And test the gaps you WROTE DOWN.** This check's header claimed a reference *deleted*
+rather than repaired would leave its item open, because retraction fires only on a
+positive observation. The revert step tested that claim for free and it held. A
+documented limitation nobody has exercised is a guess with good grammar.

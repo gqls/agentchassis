@@ -190,3 +190,53 @@ prevent. Added, and named as not-mine in the commit rather than slipped in.
 > have one. Anyone reading this file later should not upgrade the first into the
 > second — and a future clean sweep is *still* not proof, because the population
 > is zero and a silently broken check reports exactly that.
+
+## 2026-08-06 — PROVEN in production, reverted, cleaned up, CLOSED
+
+The gap recorded in the section above is closed, and the way it was closed matters
+more than the fact.
+
+**The blast radius was designed out, not accepted.** The documented manual route
+(`294_TRIGGER_improvement_loop_v1.sh`) fires `discovery → triage_findings →
+call_dispatch` and dispatches real fixers at a live customer site. Reading the
+agent definitions first showed `design-discovery-agent` is only three steps —
+`ensure_site_record → run_discovery_checks → complete_workflow`. Same Kafka
+envelope, `config.agent_type` swapped, and the run does discovery **only**:
+findings land at `detected`, which the dispatcher's claim query
+(`status IN ('triaged','approved')`) cannot see. The property the register
+complains about — *a lone discovery run files findings nothing can act on* — is
+precisely what makes it the right verification harness.
+
+**Sequence, all of it reversible by construction:**
+
+| step | evidence |
+|---|---|
+| control FIRST | `https://vetcomparison.uk/does-not-exist-084.js` → **404** |
+| target | `vetcomparison.uk` `/guides/cma-market-investigation/index.html`, component `81026b93…`, untouched since 07-17, 0 claimed items |
+| backup | md5 `7ac77544655d64314704705d16813fbe` into `tmp_bug084_backup`; the induction transaction `RAISE`s unless it matches |
+| induce | `<script src="/does-not-exist-084.js"></script>` appended to the **stored** `rendered_html` (CDN artefact untouched) |
+| run 1 | **1 item**, key carries the resolved URL, `http_status` 404, surface `page`, element `script`, correct `page_url`, `handler_agent` empty |
+| **false-positive control** | **0 other findings** across the site's 8 other deployed pages and every real reference on them |
+| revert | restored under a `DO`/`RAISE` md5 guard; md5 back to `7ac7754…`, induced tag gone |
+| run 2 | item **stayed `detected`** — the documented retraction gap, now tested; **no duplicate filed**, so the dedup key holds |
+| cleanup | item **cancelled** with full provenance in `result`; backup table dropped; md5 re-verified |
+
+**Both halves of the run-1 result are the evidence.** The item proves it can
+report. The *zero other findings* proves the relative-URL resolution, the DOM
+parsing and the skip taxonomy hold against real production HTML — a detector that
+fires on your fault and on everything else has been flattered, not validated.
+
+**What I deliberately did NOT prove in production.** The positive retraction path
+(a still-referenced URL that starts returning 200) would need a file published to
+a live site's bucket for the sake of a test. It stays covered by
+`TestAssetReference404_HealthyReferenceRetractsNarrowly`, and this is said out
+loud rather than left as an implied "fully verified".
+
+**Cancelled, not left detected.** Citing `bugs_open/083` about undrained findings
+and then leaving an induced one at `detected` for ever would have been the same
+error one level up.
+
+Bug moved to `bugs_closed/` — verified at HEAD with `git ls-tree`, not at the
+tree, because a `git mv` plus a pathspec commit can silently ship a copy.
+Residue (candidates 4 and 5, and the owed `asset_loads` RFC) re-homed rather than
+carried by a closed file. Pattern written up in 016b §9.

@@ -111,3 +111,51 @@ goes out. I checked the build that went out this evening and confirmed it does
 stays open until it ships, gets switched on, and is proven to catch a fault we
 deliberately introduce. Two of the bug's five original suggestions are also still
 untouched, which is the other reason it can't simply be closed.
+
+---
+
+**2026-08-06.** Done, and proven.
+
+The build carrying the new check went out overnight. I checked the running
+software actually contained it before changing any settings — that order isn't
+fussiness: if you switch on a check the software doesn't recognise, the entire
+scan fails, so config has to follow the build, never lead it. It was there, along
+with a deliberately-wrong control string that wasn't, which is what tells you
+you've tested the pipeline and not your own spelling. Switched on.
+
+Then the part I'd flagged as needing your say-so, and it turned out to need less
+than I thought. The documented way to make a check run fires the whole
+improvement loop, which also sends automated fixers at a live customer site — a
+real side effect for the sake of a test. But reading the definitions showed the
+discovery agent on its own is only three steps and does no dispatching at all. So
+I aimed the same message at that instead. Discovery ran, nothing was dispatched,
+nobody's site was edited by a robot.
+
+To prove the check can actually catch something I had to break something first,
+because there is nothing broken to find. I picked the quietest page on the
+quietest site — a guide page nobody had touched in three weeks — checked first
+that a missing file there really does report "not found", took a checksummed
+backup, and added one reference to a file that doesn't exist. Worth saying: this
+changes the stored copy, not the page a visitor sees.
+
+It caught it. One alert, naming the exact address, the exact page, the exact
+status. And — the half I care about just as much — **it raised nothing else**:
+eight other pages on that site, every real script and stylesheet they load, no
+false alarms. A detector that flags your deliberate fault *and* a pile of
+innocent things hasn't been proved, it's been flattered.
+
+Then I put the page back, verified by checksum that it is byte-for-byte what it
+was, and re-ran. The alert stayed open — which is exactly what I'd written down
+it would do, because the check only withdraws an alert when it can see the thing
+working again, and I'd *deleted* the reference rather than fixed it. Pleasing to
+have a documented limitation turn out to be true rather than a guess with good
+grammar. Finally I cancelled the test alert with a note explaining where it came
+from: leaving a fake fault sitting in the queue for ever, while complaining in
+the same breath about alerts nobody acts on, would have been a poor joke.
+
+Bug closed and moved. Two of its five original suggestions were never this job's
+to do and now point at where they actually live, and one still needs a proper
+architecture proposal that I haven't written. The one thing I'd want you to know
+if you only remember a sentence: **this check finding nothing is not evidence
+that it works** — there's a two-minute procedure written down for proving it
+still bites, and it should be run before anyone quotes a clean result.
