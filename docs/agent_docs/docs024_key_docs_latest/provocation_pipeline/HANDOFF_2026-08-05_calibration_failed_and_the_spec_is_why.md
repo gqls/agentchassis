@@ -199,3 +199,95 @@ Production pool re-checked after the run: **9 approved, newest `publish_on`
 2026-07-26 — unchanged.** No live row was read for update; the calibration copies
 live under a different domain, and `(domain, slug)` uniqueness makes the copies
 incapable of colliding with the originals.
+
+---
+
+# ANSWERED 2026-08-06 — both owner decisions given, code changed, RE-RUN OWED
+
+**§4's two decisions are settled. This handoff's diagnosis stands; its "what to do"
+is now history. Read this section first.**
+
+## Ruling 1 — two-sidedness is NOT required
+
+> *"I think the one sided provocation is better, we can continue that way for now
+> at least."*
+
+So `not_two_sided` is no longer fatal. It is recorded as an advisory note
+(`one_sided`) alongside interesting/current, because the ruling is explicitly
+provisional and "how many are one-sided" stays worth asking.
+
+**The calibration immediately found a consequence I had not predicted.** Removing
+two-sidedness removed the **only** criterion that was rejecting §10.6's *trending
+slop* sample — the suite promptly approved "AI is changing everything". The ruling
+did not license letting slop through; it opened a gap.
+
+**Filled with CONTESTABILITY, fatal:** could a reasonable, informed person argue the
+opposite? That is precisely what separates the one-sided provocations the owner
+prefers from filler — *"Privacy is already over"* takes a disputable position;
+*"AI is changing everything"* states something nobody disputes. All nine live
+entries satisfy it, so it costs the corpus nothing.
+
+`minBodyLen` was **re-justified rather than left standing**: its old reason ("too
+short for a case AND a counter-case") was withdrawn by the ruling, and a floor whose
+stated reason has gone is a number nobody can defend. It now means *there must be
+something to judge*, sized against the measured live spread (326..607 for the eight
+non-empty bodies).
+
+## Ruling 2 — remove the rhetoric, don't loosen the check
+
+> *"'the pilots measure self-reported output' — can we just remove that rhetoric?"*
+
+Applied to the **production** pool as a minimal deletion, in a guarded transaction:
+
+```
+BEFORE  The pilots recruit organisations that already believed, run them for six
+        months with everyone watching, and measure self-reported output.
+AFTER   The pilots recruit organisations that already believed and run them for six
+        months with everyone watching.
+```
+
+Nothing added, one connective repaired. Verified in-transaction: the phrase is
+absent and the next sentence ("That is a design which cannot return a negative
+result") is intact. **The factual check stays strict** — which is the right half to
+keep strict, since it is the one guarding against falsehoods on a live page.
+
+## Ruling 3 (general, and it outlives this lane)
+
+> *"we want it all to be done through the framework, so we don't want you writing
+> things yourself."*
+
+Applied first to my own worst habit here: **the calibration fixture is now
+GENERATED, not typed.** It is serialised straight from
+`SELECT slug,title,teaser,COALESCE(NULLIF(body,''),detail_body) …` rather than
+hand-transcribed. The previous version claimed "verbatim" and its bodies were mine
+(§5).
+
+That regeneration **broke seven tests, correctly**: `realProvocations[0]` is now the
+zero-body row, so fail-closed tests were rejecting on `body_too_short` before the
+judge ran. They still "passed" as rejections — caught only because each one asserts
+*why* it was rejected. Replaced by `aGoodCandidate(t)`, which states the property
+instead of trusting a row order that comes from a live table. Saved as a memory:
+`the-framework-writes-the-content-not-you`.
+
+## State now, and the ONE thing owed
+
+- Code committed (`3b473b8dd`); unit suite green (run in an isolated `git archive
+  HEAD` tree, because another session has five files uncommitted and mid-edit and
+  the shared tree does not compile — none of it mine).
+- Production pool: rhetoric removed, 9 approved, newest `publish_on` 2026-07-26.
+- Calibration corpus **refreshed from the corrected production text** and reset to
+  ungated: 9 real + 4 bad, all `draft`, guarded so a stale copy cannot pass.
+
+> ### OWED: a fresh chassis build, then re-run the calibration.
+> The rulings changed **Go code**, which is inert until an image is rebuilt and
+> rolled. The running chassis is `v1.0.1254`, which still has two-sidedness fatal and
+> no contestability check — **a re-run against it would measure the old gate.**
+> After the roll: pod-grep for `not_contestable` and `one_sided` (with a positive
+> control), then dispatch `provocation-gate-calibration` as in §6.
+
+**Expected on the re-run, so it can be judged rather than admired:** 8 of 9 real
+approved; `group-chats-replaced-friendship` rejected as `body_too_short` because its
+body is genuinely empty in the pool — **a defect in the POOL, not the gate, and one
+the framework should fix by generating a body, not me by writing one**; 4 of 4 bad
+rejected, with slop now caught by `not_contestable` rather than `not_two_sided`.
+Anything else is a finding.
