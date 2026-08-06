@@ -4597,3 +4597,57 @@ Established so far, with evidence:
 Two Explore agents are tracing (1) planner→site_plan_sections→writer prompt
 assembly and (2) the PBP-033 save-time complement + migration/seed patterns.
 Design and council submission follow their reports.
+
+## 2026-08-06 (late evening) — candidate 1 BUILT, COMMITTED (b882d5abf), council-submitted; two same-file passengers handled in BOTH directions
+
+Continuation of the session opened above. Candidate 1 is implemented end to end:
+mig `327` (nullable `assigned_fact_ids`), Go in four action files, seeds `328`
+(wiring, opt-in key) / `329` (planner roster + object-form sections) / `330`
+(writer prompt v4, base64-in-SQL so psql cannot corrupt it), PBP-037 registered
+in the same commit, bug file updated. Corr
+`902a8563-2200-4771-ac0f-55dab0839a02`, trailer `Council-Submitted:` (verdict
+unread — a watcher is polling; whoever reads this after: READ THE VERDICT and
+act on a REVISE, the code is already on the shared branch). INERT until image
+roll → 327 → 328/330 → 329; each half tolerates the others' absence.
+
+Design decisions with reasons are in `PLAN_2026-08-06_151_candidate_1_fact_assignment.md`;
+the two that cost the most thought: facts travel INSIDE the section entry
+because validate_plan drops/strips entries and any positional keying mis-keys
+silently (**the live `imagery.sections` "<page>:<ordering>" scheme has exactly
+this latent defect** — noted in PBP-037, worth its own bug file, not filed
+tonight); and normalisation happens ONCE in validate_plan because
+`SyncPagesToDBAction` serialises the raw sections array into `pages.sections`,
+which is read fleet-wide as strings.
+
+**The shared-tree passenger dance, both directions in one hour:**
+
+- My `v3_site_actions.go` normalise-pass edits were swept INTO `cb7b4d759`
+  (bugfix 208's commit) as a same-file passenger minutes before I committed —
+  CLAUDE.md's exact scenario. Nothing lost; my commit message says so; that
+  half of candidate 1 reached HEAD under their message.
+- Their side ALSO recorded me: PBP-036's status-evidence notes "the shared
+  working tree was broken at the time by another session's uncommitted
+  composeScopedWriterBlock call" — my mid-edit state broke THEIR tree build,
+  which their archive-overlay discipline absorbed. Coordination cost visible
+  from both ends.
+- A second in-flight session's `LogActionEntry` refactor sat in
+  `plan_sections_action.go` (symbols NOT at HEAD — committing it would have
+  broken every build from HEAD). Handled surgically: saved their two hunks as
+  a patch, `git apply --reverse`, verified HEAD+mine green (full actions suite
+  in a `git archive HEAD` overlay), committed mine by pathspec, `git apply` to
+  restore — their WIP byte-identical afterwards (verified by numstat + grep).
+  One `index.lock` collision mid-commit (208 committing concurrently); waited,
+  did not delete the lock.
+
+**Verification discipline:** 9 tests in `fact_scoping_151_test.go`; the two
+guards that matter mutation-verified (raw-index fact lookup, scopeItem
+attachment — both CAUGHT when broken, sources restored, suite green). The
+tree's full-suite failure mid-session was the errlog session's WIP, proven by
+running the same tests green on a clean HEAD archive before concluding
+anything.
+
+**For the next session:** verdict read + act; then the rollout order in the
+bug file's status update; acceptance = replan fundamentallyai and watch the
+census fact-overlap pairs fall (the five fact-blind sites must NOT move — the
+disconfirmable half of the check). Drain of the 7 flag-only gaps stays
+sequenced behind 189's config half.
