@@ -45,9 +45,26 @@ echo "  TIMESTAMP=$TIMESTAMP"
 
 -------------------------------------------------------------
 getting the url
-SELECT
-    content_data->>'hero_uri'           AS hero_uri,
-    content_data->>'hero_about_uri'     AS hero_about_uri,
-    content_data->>'logo_uri'           AS logo_uri
-FROM sites
-WHERE id = '00ff3af5-dad8-4770-9f70-3edc267a3c92';
+
+-- CORRECTED 2026-08-06 (bugs_open/152 + /155). The query below USED to read
+-- sites.content_data->>'{purpose}_uri'. Do not use it: that field is a
+-- site-wide, LAST-WRITE-WINS cache keyed by purpose alone, so on a site with
+-- more than one asset of a purpose it hands you the wrong asset's URI — the
+-- same defect as bug 155, in manual form. It is also no longer written: the
+-- writer was removed with the fix, so on any asset generated after that ships
+-- it is stale or absent. Ask the ASSET ROW, which names its own source:
+
+SELECT a.asset_key, a.purpose,
+       COALESCE(NULLIF(a.storage_path,''), a.url) AS source_ref,
+       a.url AS current_url, a.updated_at
+FROM assets a
+WHERE a.site_id = '00ff3af5-dad8-4770-9f70-3edc267a3c92'
+  AND a.status = 'active'
+ORDER BY a.purpose, a.asset_key;
+
+-- storage_path is the durable source (an s3:// URI or an https object URL —
+-- both are accepted as <S3_URI> above; strip any ?X-Amz-... query string).
+-- `url` is NOT a source once the asset has been deployed: it is then the
+-- site-local /assets/images/... path. A row with a local url and an empty
+-- storage_path cannot name its source at all — that is the 49-row stranded
+-- population, and no query will recover it.

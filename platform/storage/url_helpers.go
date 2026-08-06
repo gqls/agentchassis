@@ -115,6 +115,15 @@ func PresignedURLToS3URI(presignedURL string) string {
 // derivers (brand-head, card) and the style-anchor resolver, so they cannot
 // disagree (bugs_open/152, bugs_open/155).
 //
+// THIS IS THE ONE ANSWER — do not reimplement it at a call site. Every
+// "just parse the url here" is a fifth opinion about an asset's identity, and
+// four such opinions are what these two bugs were. Its destination-side
+// sibling was implemented twice for months, agreeing by luck and by a doc
+// comment claiming to "mirror" the other, until bugs_closed/168 collapsed
+// them; the shape that hides is a private copy that is RIGHT today. If this
+// function cannot express a case you have, widen it here so every reader
+// moves with you.
+//
 // Returns an s3://bucket/key URI or a bare object key — both forms are
 // accepted by S3Client.DownloadAndOptimizeImage and by ExtractKeyFromS3URI —
 // and NEVER an https URL or a site-local path. Returns "" when neither column
