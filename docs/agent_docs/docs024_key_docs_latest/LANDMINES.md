@@ -5778,3 +5778,42 @@ a STRING array — check the shape before trusting the prune.
 - **source:** bugfix_196 induction attempt 1, 2026-08-05 (NOTES in
   docs024_key_docs_latest/bugfix_196_failure_stamped_complete/)
 - **added:** 2026-08-05, bugfix_196 lane
+
+---
+
+### `execution_metadata.completed_steps` is a COUNT, not a list of step names — and it is dead (0 on runs that are COMPLETED), so "did step X run?" answers a confident, permanent NO
+
+- **footprint:** `orchestration_states.execution_metadata`, `completed_steps`, `total_steps`,
+  `failed_steps`, `skipped_steps`, `retry_count`, `checkpoints`; any question of the form
+  "did step X execute / how far did this run get"; any `@>` / `?` / `jsonb_path_exists`
+  containment test against a jsonb field whose type you have not read back
+- **fires when:** you want a per-step execution signal out of a run and reach for the
+  field whose name says exactly that. The name is the trap: `completed_steps` reads as
+  "the steps that completed".
+- **the trap, and it is two stacked:** (1) **It is a NUMBER.** `jsonb_typeof` returns
+  `number`. So a containment test — `execution_metadata->'completed_steps' @> to_jsonb(step_name)`
+  — is comparing a number to a string. Postgres does **not** error on this; jsonb
+  containment between mismatched types is simply **false**, for every row, always. The
+  query cannot come out any other way. (2) **The counter is dead anyway.** Measured
+  2026-08-06: **0 on all 23 runs whose `status` is `COMPLETED`**. Even read correctly as an
+  integer it tells you nothing, so "fix the type and re-run" is not the remedy either.
+- **the tell:** none, and the direction is what makes it dangerous. You get a clean `0`
+  with no error, no NULL and no warning — and `0` is *exactly* what a genuinely
+  unexercised path looks like. It therefore fails **toward** the absence you were
+  testing for. I caught it only because the 0 contradicted a measurement already taken
+  from another table (35 `page_components` rows inserted by those same 23 runs, ending
+  2 seconds after the last one). Run the orchestration query first or alone and it is
+  believed.
+- **the check, before trusting ANY jsonb predicate:** read the type back, in one
+  command, before the predicate — `SELECT jsonb_typeof(<expr>), <expr> FROM <table> LIMIT 3;`
+  Type first, value second. For the actual question, **use `status`**, plus the step's own
+  side effect in the table it writes (the durable witness — a status says the run ended, a
+  row says the work happened).
+- **the family it belongs to:** a jsonb type mismatch degrades to `false`, never to an
+  error — the same silent shape as `jsonb::text LIKE '%"k":"v"%'` matching nothing (jsonb
+  renders a space after the colon) and a jsonb PATH read not seeing the shape change
+  underneath it. Three spellings, one failure: **the predicate did not look, and reported
+  that it found nothing.**
+- **source:** 2026-08-06, code-review triage lane, preparing the `CONTENT_DATA_REGRESSION`
+  24h re-check (`code_review_triage_2026-08-05/` NOTES §14c, RUNBOOK R10; `WRONG_CALLS.md`)
+- **added:** 2026-08-06, code_review_triage_2026-08-05 lane
