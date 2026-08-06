@@ -30,8 +30,8 @@ import (
 // agent_definitions on 2026-07-30:
 //
 //	completeness-discovery-agent  30
-//	design-discovery-agent        22
-//	quality-discovery-agent        5
+//	design-discovery-agent        23  (22 until asset_reference_404 landed 2026-08-06)
+//	quality-discovery-agent        6  (re-measured 2026-08-06; literal_markdown was live and unlisted)
 //
 // maintenance-triage is deliberately NOT in this list. It has a `checks` array
 // too, but no run_discovery_checks step — the array belongs to
@@ -62,10 +62,24 @@ var liveConfiguredChecks = []string{
 	"image_url_404", "unfulfilled_imagery_plan", "image_source_unsatisfiable",
 	"tool_acceptance", "tool_acceptance_due", "sprite_css_missing",
 	"content_image_missing", "palette_contrast",
+	// asset_reference_404 — bugs_open/084, enabled 2026-08-06 on chassis
+	// v1.0.1257 (pod-verified with a negative control before the config landed,
+	// because an unregistered name fails the whole step). Added HERE in the same
+	// commit as the agent_definitions UPDATE: this list is what the live agents
+	// are configured with, so a config change without it leaves the fixture
+	// asserting a roster that no longer exists.
+	"asset_reference_404",
 
 	// quality-discovery-agent
 	"broken_nav_links", "placeholder_contact", "generic_theme", "unverified_claims",
 	"voice_tells",
+	// literal_markdown — NOT mine (bugs_open/184's lane). Found live on
+	// quality-discovery-agent while enabling asset_reference_404 and missing from
+	// this list, so the fixture was under-asserting by one. It resolves
+	// (check_literal_markdown.go:95), so there was no production risk — but a
+	// roster that silently drifts is exactly what this file exists to prevent,
+	// and leaving a known gap in it would be the same defect one level up.
+	"literal_markdown",
 }
 
 // TestEveryLiveConfiguredCheckResolves is the safety proof for making an
