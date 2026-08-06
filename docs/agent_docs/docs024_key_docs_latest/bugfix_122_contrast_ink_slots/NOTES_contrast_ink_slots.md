@@ -122,3 +122,57 @@ runs.
 run". Terminal rows are reaped at ~24h, so 0 rows means *not in the last day*. The
 question is answered by `scheduled_tasks` (no reaper) and by the work-item counts,
 which is what I used instead.
+
+## 2026-08-06 (later still) — both reviews fired; the sharpest measurement of the day
+
+**`accent_text` is declared by 0 of 18 layouts** — measured directly, and it is the
+finding that reshaped the fix:
+
+```sql
+SELECT count(*) FROM layouts WHERE css_template LIKE '%palette "accent_text"%';   -- 0
+SELECT count(*) FROM layouts WHERE css_template LIKE '%palette "primary_text"%';  -- 18
+SELECT count(*) FROM site_components WHERE rendered_html LIKE '%--color-accent-text:%'; -- 0
+```
+
+So the platform has derived a correct answer for sub-shape C since 2026-07-27 and it
+has **never reached one stylesheet**, while its sibling `primary_text` (18 of 18) lands
+everywhere. That halves the architecture surface of the fix: `--color-accent-text` is
+not a new name to be argued over, it is an existing derived slot being made reachable.
+Only `--color-primary-ink` is genuinely new, and I measured it unused on all five
+surfaces before choosing it (0/0/0/0/0) rather than leaving that for a reviewer — the
+2026-07-28 ruling is explicit that "no collision is possible" is a query, not an
+argument.
+
+**A design constraint I nearly missed.** dartsonline places the *same* ink on two
+different grounds — the eyebrow on `background` (1.04) and the card link on the derived
+`card_bg` (1.11). One variable cannot be right for two grounds unless it is right for
+the worse of them, so `legibleInkFor` takes a *list* of grounds and requires the
+candidate to clear AA against every one. My first sketch took a single ground and would
+have shipped a value that fixed the eyebrow and left the card link failing — which
+would have read as a working fix on the page I happened to test.
+
+**Fired, both waiting:**
+
+| what | correlation | for |
+|---|---|---|
+| council gate | `c4d9c841-3658-4742-85b5-961e062ecad2` | the fix plan (sub-shapes A + C) |
+| 090 diagnosis | `5853ee07-a49c-4571-8ea0-3eb660e43dfd` (run) / `2f3d2cc0-197c-46ff-aac7-bd5e77ea782e` (intake) | sub-shape B, the six invisible headings |
+
+Queue at time of writing: council at `review_editquality / EXECUTING_STEP`; diagnosis
+at `diagnosing` with two bundles written.
+
+> **A trap that briefly confused me reading those timestamps.** The diagnosis bundles
+> are stamped `10:10:57` and `10:12:00` — *earlier* than when I fired the trigger, by
+> my clock. They are UTC; this machine is BST. Comparing a BST wall-clock against a
+> UTC DB timestamp makes a completed thing look like it never started, which is the
+> same trap 122's own sibling files record in the other direction (it makes a live fix
+> look un-shipped). **State the zone or convert.**
+
+**Why the diagnosis loop for sub-shape B rather than just reading the code.** I could
+have followed the alias chain myself. The reason not to is that this repo's diagnosis
+section was *rewritten after* a thread with full context filed a confident structural
+claim built from greps whose functions it had never opened, and the loop refuted it in
+9.5 minutes. Sub-shape B has the exact profile that section names: two independent
+mechanisms that both *appear* to be in place, and a resolved value that contradicts
+both. That is a cause living somewhere other than the symptom, and "obvious" is
+explicitly not the gate.

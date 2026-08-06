@@ -1,0 +1,104 @@
+ok   https://fundamentallyai.com/                             contrast=0    broken-img=0    (2 slow-loading image(s) re-checked OK)
+FAIL https://oufe.com/                                        contrast=1    broken-img=0    (1 slow-loading image(s) re-checked OK)
+        3.95:1 need 4.5  rgb(255, 255, 255)     on rgb(128,128,128)   .btn btn-secondary  (over an image — ratio approximate)
+               'How this site works'
+FAIL https://gamesdesign.co.uk/                               contrast=17   broken-img=0    (1 slow-loading image(s) re-checked OK)
+        1.44:1 need 4.5  rgb(0, 229, 255)       on rgb(13,191,214)    .stats-eyebrow
+               'By the Numbers'
+        1.72:1 need 4.5  rgba(255, 255, 255, 0.7) on rgb(13,191,214)    .stat-label
+               'Interactive Tools'
+        1.72:1 need 4.5  rgba(255, 255, 255, 0.7) on rgb(13,191,214)    .stat-description
+               'Client-side calculators and simulators running directly in your browse'
+        1.72:1 need 4.5  rgba(255, 255, 255, 0.7) on rgb(13,191,214)    .stat-label
+               'Maximum Attempts'
+        1.72:1 need 4.5  rgba(255, 255, 255, 0.7) on rgb(13,191,214)    .stat-description
+               'The query limit for modeled sequences in our drop-rate tools.'
+        1.72:1 need 4.5  rgba(255, 255, 255, 0.7) on rgb(13,191,214)    .stat-label
+               'Configurable Inputs'
+        1.72:1 need 4.5  rgba(255, 255, 255, 0.7) on rgb(13,191,214)    .stat-description
+               'The variables tracked in the drop-rate tuner: drop chance, kills per h'
+        1.72:1 need 4.5  rgba(255, 255, 255, 0.7) on rgb(13,191,214)    .stat-label
+               'Design Guides'
+FAIL https://webdesign.co.uk/                                 contrast=2    broken-img=0   
+        3.95:1 need 4.5  rgb(255, 255, 255)     on rgb(128,128,128)   .hero-subheadline  (over an image — ratio approximate)
+               'Sixty-three tools and thirty guides for working web designers and deve'
+        3.95:1 need 4.5  rgb(255, 255, 255)     on rgb(128,128,128)   .btn btn-secondary  (over an image — ratio approximate)
+               'Read the guides'
+FAIL https://finetuning.uk/                                   contrast=10   broken-img=5   
+        1.00:1 need 4.5  rgb(255, 255, 255)     on rgb(255,255,255)   .cta-btn cta-btn-primary
+               'Get in touch'
+        3.01:1 need 4.5  rgb(255, 255, 255)     on rgb(200,135,58)    .csg-filter-btn active
+               'All Work'
+        3.01:1 need 4.5  rgb(255, 255, 255)     on rgb(200,135,58)    .csg-cta-btn
+               'Start your project'
+        3.95:1 need 4.5  rgb(255, 255, 255)     on rgb(128,128,128)   .btn btn-secondary  (over an image — ratio approximate)
+               'See What We Build'
+        3.95:1 need 4.5  rgb(255, 255, 255)     on rgb(128,128,128)   .cta-btn cta-btn-secondary  (over an image — ratio approximate)
+               'See what we build'
+        4.14:1 need 4.5  rgb(200, 135, 58)      on rgb(51,51,68)      .csg-card-tag
+               'Automation'
+        4.14:1 need 4.5  rgb(200, 135, 58)      on rgb(51,51,68)      .csg-card-tag
+               'RAG Systems'
+        4.14:1 need 4.5  rgb(200, 135, 58)      on rgb(51,51,68)      .csg-card-tag
+               'Data Pipelines'
+       BROKEN IMAGE  /assets/images/case-study-facilities.jpg  -> HTTP 404   (alt: Abstract geometric network diagram representing st)
+       BROKEN IMAGE  /assets/images/case-study-legal-rag.jpg  -> HTTP 404   (alt: Structured geometric forms suggesting layered docu)
+       BROKEN IMAGE  /assets/images/case-study-financial-data.jpg  -> HTTP 404   (alt: Data flow visualisation with structured nodes repr)
+       BROKEN IMAGE  /assets/images/case-study-private-ai.jpg  -> HTTP 404   (alt: Calm atmospheric geometry suggesting secure, enclo)
+       BROKEN IMAGE  /assets/images/case-study-logistics-strategy.jpg  -> HTTP 404   (alt: Abstract network pattern representing a structured)
+FAIL https://idea.uk/                                         contrast=14   broken-img=0    (2 slow-loading image(s) re-checked OK)
+        3.11:1 need 4.5  rgb(131, 124, 114)     on rgb(232,223,204)   .brief-explanation__stat-label
+               'Report price'
+        3.11:1 need 4.5  rgb(131, 124, 114)     on rgb(232,223,204)   .brief-explanation__stat-label
+               'Tools that stay private'
+        3.11:1 need 4.5  rgb(131, 124, 114)     on rgb(232,223,204)   .brief-explanation__stat-label
+               'Turnaround'
+        3.35:1 need 4.5  rgb(131, 124, 114)     on rgb(239,231,214)   .brief-explanation__description
+               'idea.uk gives you the tools and structured analysis to think an idea t'
+        3.35:1 need 4.5  rgb(131, 124, 114)     on rgb(239,231,214)   .brief-explanation__step-sentence
+               "Tell us what you're working on — a product, a service, a creative proj"
+        3.35:1 need 4.5  rgb(131, 124, 114)     on rgb(239,231,214)   .brief-explanation__step-sentence
+               'A free two-minute check of who your idea is really for — no sign-up ne'
+        3.35:1 need 4.5  rgb(131, 124, 114)     on rgb(239,231,214)   .brief-explanation__step-sentence
+               "Request a verified idea report — a structured analysis of your idea's "
+        3.35:1 need 4.5  rgb(131, 124, 114)     on rgb(239,231,214)   .section-subheadline
+               'We log changes to our testing tools and publish new guides here. This '
+ok   https://leopardessconsulting.co.uk/                      contrast=0    broken-img=0    (1 slow-loading image(s) re-checked OK)
+FAIL https://ai-agent-orchestration.com/                      contrast=30   broken-img=0    (5 slow-loading image(s) re-checked OK)
+        1.00:1 need 4.5  rgb(13, 17, 23)        on rgb(13,17,23)      .H3
+               'Deployed on Kubernetes, Kafka, and Postgres'
+        1.00:1 need 4.5  rgb(13, 17, 23)        on rgb(13,17,23)      .H3
+               'Production in days, not months'
+        1.00:1 need 4.5  rgb(13, 17, 23)        on rgb(13,17,23)      .H3
+               'Failure isolation by design'
+        1.00:1 need 4.5  rgb(13, 17, 23)        on rgb(13,17,23)      .H3
+               'Hierarchical agent topologies'
+        1.00:1 need 4.5  rgb(13, 17, 23)        on rgb(13,17,23)      .H3
+               'Observability built in'
+        1.00:1 need 4.5  rgb(13, 17, 23)        on rgb(13,17,23)      .H3
+               'No lock-in'
+        1.04:1 need 3.0  rgb(13, 17, 23)        on rgb(8,11,16)       .H2
+               'What makes this different in production'
+        1.10:1 need 3.0  rgb(15, 23, 42)        on rgb(8,11,16)       .section-heading
+               'From the production floor'
+FAIL https://gaswholesalers.com/                              contrast=6    broken-img=1   
+        2.22:1 need 4.5  rgb(232, 160, 32)      on rgb(255,255,255)   .A
+               'Fleet Fuel Services'
+        2.22:1 need 4.5  rgb(232, 160, 32)      on rgb(255,255,255)   .A
+               'Wholesale Fuel Distribution'
+        2.22:1 need 4.5  rgb(232, 160, 32)      on rgb(255,255,255)   .A
+               'Natural Gas Distribution'
+        2.22:1 need 4.5  rgb(232, 160, 32)      on rgb(255,255,255)   .A
+               'wholesale fuel distribution'
+        2.22:1 need 4.5  rgb(232, 160, 32)      on rgb(255,255,255)   .A
+               'fleet fuel services'
+        2.22:1 need 4.5  rgb(232, 160, 32)      on rgb(255,255,255)   .A
+               'natural gas distribution'
+       BROKEN IMAGE  /assets/images/logo.png  -> HTTP 404   (alt: Gas Wholesalers)
+FAIL https://webdesign.uk/                                    contrast=2    broken-img=0   
+        3.95:1 need 4.5  rgb(255, 255, 255)     on rgb(128,128,128)   .hero-subheadline  (over an image — ratio approximate)
+               'Sixty-three tools and thirty guides for working web designers and deve'
+        3.95:1 need 4.5  rgb(255, 255, 255)     on rgb(128,128,128)   .btn btn-secondary  (over an image — ratio approximate)
+               'Read the guides'
+
+10 page(s): 82 contrast failure(s), 6 broken image(s)
