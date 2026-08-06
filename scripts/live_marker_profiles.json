@@ -8,6 +8,6 @@
       "library_fabricated_hours=1"
     ],
     "negative": [],
-    "note": "saved by --save"
+    "note": "RFC_009 B+C. Control is SYNTHETIC on purpose, not by omission: 87ea0a5e7 is purely additive Go and removes no string literal, so no strong control exists to pass here (pick-pod-marker says so itself). Do not 'fix' the nag by inventing one."
   }
 }
