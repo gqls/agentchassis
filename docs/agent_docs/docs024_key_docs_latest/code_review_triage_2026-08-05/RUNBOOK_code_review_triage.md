@@ -168,28 +168,40 @@ SELECT count(*) AS rows_inserted, count(DISTINCT page_id) AS pages,
 FROM page_components WHERE created_at > '<roll>';
 ```
 
-Then identify WHICH caller ran — they are separable by their distinctive
-`sections_metadata_field` (only `page-rerender` names `rerender_sections.sections_metadata`):
+Then identify WHICH caller ran. **Use `owner_agent_type`** — it is a real column and it is
+exact:
 
 ```sql
-SELECT step.value #>> '{config,sections_metadata_field}' AS caller_fingerprint,
-       o.status, count(*), min(o.created_at), max(o.created_at)
-FROM orchestration_states o,
-     LATERAL jsonb_path_query(o.workflow_plan, '$.**.steps') AS steps,
-     LATERAL jsonb_each(steps) AS step
-WHERE o.created_at > '<roll>' AND step.value ->> 'action' = 'save_page_sections'
+SELECT o.owner_agent_type, o.status, count(*), min(o.created_at), max(o.created_at)
+FROM orchestration_states o
+WHERE o.created_at > '<roll>'
+  AND jsonb_path_exists(o.workflow_plan, '$.**.steps.*.action ? (@ == "save_page_sections")')
 GROUP BY 1,2 ORDER BY 3 DESC;
 ```
 
-**Gotchas, three, each of which cost something here:**
+> **CORRECTED 2026-08-06.** This step first fingerprinted callers by their
+> `sections_metadata_field` value. **Do not** — `orchestration_states.owner_agent_type` states
+> the caller outright. (A truncated `\d` is how the column got missed: it is the 30th of 36,
+> so `\d … | head -25` hides it. Read the whole schema or `grep` it.) The fingerprint scheme
+> was also wrong twice: `page_content.response.sections_metadata` is shared by **four**
+> definitions, so it disambiguates only `page-rerender`; and `count(*)` over the LATERAL walk
+> counts **step occurrences, not runs** — it reported 2 where the truth was 1 orchestration
+> carrying 2 steps. If you must walk steps, `count(DISTINCT o.orchestration_id)`.
+
+**Gotchas, four, each of which cost something here:**
 1. `execution_metadata->'completed_steps'` is a **NUMBER, not an array of step names** — a
    `@> to_jsonb(step_name)` containment test is type-mismatched, returns false for every row,
    and **cannot come out otherwise**. It is also dead: 0 on runs that are `status='COMPLETED'`.
    Use `status`, not that counter.
-2. Only the **last** save per page survives in `page_components` (23 runs → 10 pages here), so
-   this is a floor on traffic, and intermediate saves leave no trace.
+2. Only the **last** save per page survives in `page_components` (29+1 runs → 13 pages here),
+   so this is a floor on traffic, and intermediate saves leave no trace.
 3. **`orchestration_states` reaps terminal rows at ~24h.** If the check is scheduled T+24h and
    its denominator lives here, the denominator ages out *as you read it* — **take it early.**
+4. **`workflow_plan` is the RUNTIME plan, not the definition** — loop `sub_workflow` steps are
+   already unrolled into `<loop>_iter_N_<step>` clones carrying the parent's config. So it
+   over-counts *configuration* sites while being the only honest source for *traffic*. Census
+   config in `agent_definitions.default_config` (R11); census traffic here. Getting these two
+   the wrong way round is the same error as NOTES §11, from the opposite end.
 
 ## R11 — The F3 invariant, measured as config (a log grep cannot do this)
 

@@ -407,3 +407,75 @@ all **six** callers still explicit (five name `sections_metadata_field`, `tool-r
 declares `expects_no_sections_metadata=true`); zero would-warn rows. The warning remains
 structurally unreachable until someone adds a seventh caller. `RUNBOOK` R11 carries the query,
 which reports the warn condition as a column so it cannot be missed by eyeballing six rows.
+
+## 15. 2026-08-06 10:00Z — third roll of the morning, and my own §14c query was wrong twice
+
+A fresh chassis build landed while this lane was open: **`v1.0.1257`**, pods
+`agent-chassis-5b9fd84984-hqc5d` / `-qvzkg`, restarted **09:52:08Z / 09:52:29Z**. That is the
+**third pod generation in under three hours** (1254 → 1256 → 1257). Re-probed both replicas
+[MEASURED 08-06 10:0xZ]: added literal **1 / 1**, misspelled control **0 / 0**. The lane's
+source files are untouched at HEAD since `1c6a3cab6`, so this is a rebuild of the same code.
+
+**The operational point, now demonstrated three times over: on this cluster a pod-verification
+has a half-life measured in hours.** Do not cite pod names in a durable doc without a date and
+an image tag beside them, and re-probe rather than quote. `RUNBOOK` R12.
+
+### 15a. Re-measured, and the traffic has grown
+
+```
+CONTENT_DATA_REGRESSION, all history .... 0 rows          (unchanged)
+page_components since roll ............. 47 rows / 13 pages / 47 with content_data
+                                          20:52:27Z → 2026-08-06 08:47:13Z
+```
+
+Was 35 / 10 / 35 at 08:00Z. **Still 47 of 47 carrying `content_data`** — the denominator grew
+and the property held.
+
+### 15b. CORRECTION — the caller query in §14c and `RUNBOOK` R10 was wrong in two ways
+
+> **CORRECTED 2026-08-06 10:0xZ.** §14c identified callers by fingerprinting
+> `sections_metadata_field` out of `workflow_plan`. That was unnecessary and partly wrong.
+> **`orchestration_states` has an `owner_agent_type` column** — my first `\d` was truncated at
+> 22 lines and I never looked past it, then built a fingerprint scheme to recover exactly what
+> that column states outright.
+
+Two defects, both of which the fingerprint hid:
+
+1. **The fingerprint is not unique.** `page_content.response.sections_metadata` is carried by
+   **four** definitions (page-build-handler, pageflow-builder, page-rebuild,
+   site-work-orchestrator). Only `page-rerender`'s is distinctive — so the scheme happened to
+   answer the one question I was asking and would have been ambiguous for any other.
+2. **`count(*)` over the walk counts STEP OCCURRENCES, not runs.** The fingerprint query
+   reported 2 for the second caller; `owner_agent_type` reports **1 orchestration**. Both are
+   right about different things.
+
+The exact figures, via `owner_agent_type` [MEASURED 08-06 10:0xZ]:
+
+```
+page-rerender | COMPLETED | 29 | 2026-08-05 20:54:05Z → 2026-08-06 08:48:25Z
+page-rebuild  | COMPLETED |  1 |            2026-08-06 08:32:35Z
+```
+
+**A second caller has now run** — `page-rebuild`, once, at 08:32Z. So tonight's read is no
+longer single-caller: page-rerender 29 runs, page-rebuild 1.
+
+### 15c. The runtime plan expands loops — `workflow_plan` is NOT the definition
+
+Chasing the 2-vs-1 discrepancy turned up something worth its own note. `page-rebuild`'s
+`workflow_plan` holds **two distinct step names** with `action=save_page_sections`:
+
+```
+save_sections
+build_pages_loop_iter_0_save_sections     <- runtime clone, materialised per loop iteration
+```
+
+Identical config on both. So the second is the loop `sub_workflow` **expanded at dispatch**,
+not a second configuration site — which is why the `agent_definitions` census in §14e correctly
+shows page-rebuild once, and **the F3 conclusion is unaffected**.
+
+**The distinction to keep, because §11's misstep and this one are the same mistake from
+opposite ends:** `agent_definitions.default_config` is the **config** census (what is
+declared); `orchestration_states.workflow_plan` is the **traffic** census (what ran, with loops
+already unrolled into `*_loop_iter_N_*` instances). Counting config sites in the runtime plan
+over-counts; counting traffic in the definitions is impossible. §11 used the wrong walk over
+the right table; §15b used the right walk over the table that answers a different question.

@@ -174,3 +174,42 @@ outstanding check is settled — I did it by inspecting the configuration rather
 because the restart had wiped the logs down to half an hour, and configuration cannot expire the
 way a log can. All six callers are correctly set up, so that warning genuinely cannot fire until
 someone adds a new one.
+
+---
+
+**2026-08-06, mid-morning.** Another fresh build went out — that is the third restart of the
+system in under three hours, none of them ours. Checked again on the new machines: our change
+is in there, on both. I have stopped treating this as an interruption and written it down as a
+standing fact about this cluster instead. A note that says "verified on machine X" has a shelf
+life of hours here, so the rule now recorded is: never write a machine name into a document
+without the date and the version beside it, and go and look again rather than quoting yourself.
+
+The numbers have moved in the right direction while we waited. The relevant operation has now
+run thirty times rather than twenty-three, across thirteen pages rather than ten, and **every
+single saved row still carries its structured content** — forty-seven out of forty-seven. Still
+no warnings recorded, which remains the result we want. A second agent has joined in too: the
+page-rebuild agent ran once this morning, so tonight's reading will cover two callers instead
+of one.
+
+Now the part I am less pleased about. The query I wrote a couple of hours ago to work out
+*which* agent had run was wrong in two ways, and I found it only by following up an oddity in
+the numbers. I had identified each agent by a distinctive-looking setting in its configuration.
+It turns out that setting is shared by four different agents, so it only ever gave a clear
+answer for the one I happened to be asking about. Worse, the table has a column that simply
+names the agent outright — I had missed it because I printed the table's structure and only
+looked at the first two-thirds of the output. So I built a workaround for a problem that did
+not exist, and the workaround was ambiguous.
+
+The second error in the same query was counting the wrong things: it counted *steps* rather
+than *runs*, and reported two where the truth was one run that happens to contain the step
+twice. Chasing that down turned up something genuinely useful, though, so it was not wasted:
+the record of what a run actually did is not the same object as the agent's stored recipe —
+loops get unrolled into repeated copies when a run starts. That means one of them is the right
+place to ask "how is this configured" and the other is the right place to ask "what actually
+ran", and they are easy to mix up. Both are now written down with the distinction spelled out,
+because an earlier mistake in this same lane was the identical confusion approached from the
+other side.
+
+None of that changes tonight's reading or what it will mean. It does mean the figures in the
+handoff are now the corrected ones, and I would rather a successor inherit the correction than
+the tidy-looking version I wrote at eight o'clock.

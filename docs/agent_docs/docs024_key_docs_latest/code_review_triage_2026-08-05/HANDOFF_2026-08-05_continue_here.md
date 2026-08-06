@@ -3,16 +3,18 @@
 **State: the work is DONE, LIVE and pod-verified. All three council verdicts APPROVED. What
 remains is two dated re-checks and three items that are deliberately somebody else's.**
 
-> **UPDATED 2026-08-06 morning.** Re-verified live on the **new** image `v1.0.1256` (§1).
-> **2b is SETTLED** (§2b — by config census; a log grep cannot answer it). **2a is still due
-> ~20:45Z today**, but its denominator has been taken early and its interpretation sharpened:
-> the only caller that ran is `page-rerender`, 23 runs, all COMPLETED — the exact caller the
-> stop condition names. **F13 re-checked: still another session's WIP, still not actionable.**
-> Read §2a's correction block before running anything.
+> **UPDATED 2026-08-06 10:00Z.** Re-verified live on **`v1.0.1257`** (§1 — third pod generation
+> of the morning; re-probe, do not quote pod names). **2b is SETTLED** (§2b — by config census;
+> a log grep cannot answer it). **2a is still due ~20:45Z today**, but its denominator has been
+> taken early and its interpretation sharpened: `page-rerender` **29** runs and `page-rebuild`
+> **1**, all COMPLETED; 47 of 47 saved rows carry `content_data`; **0** regressions in all
+> history. **F13 re-checked: still another session's WIP, still not actionable.** Read §2a's
+> correction block before running anything.
 
 Read `NOTES_code_review_triage.md` §11–13 first if you only read one thing — §11 and §13 are
-where a successor is most likely to repeat a mistake. **Then §14**, which corrects §13's
-traffic check and records the evidence that would otherwise have expired by 20:45Z.
+where a successor is most likely to repeat a mistake. **Then §14–15**, which correct §13's
+traffic check, correct §14c's own caller query, and record the evidence that would otherwise
+have expired by 20:45Z.
 
 ---
 
@@ -28,13 +30,16 @@ Nine of fifteen findings fixed across five commits, live on **`v1.0.1254`**:
 | `6e607da1e` | F11, F12 |
 | `1c6a3cab6` | corrections: the 3-of-6 census error, plus rename drift in LANDMINES + register |
 
-> **RE-VERIFIED 2026-08-06 08:0xZ — the pod names below are DEAD.** The chassis rolled again
-> overnight to **`v1.0.1256`** (pods `agent-chassis-7d4d7b9669-2r8f2` / `-6f2ps`, restarted
-> 07:24Z) for reasons unrelated to this lane. `bugs_open/153` says a roll is not evidence your
-> fix shipped; the converse also holds — **a later roll retires your proof's pod names.**
-> Re-probed on both new replicas: `incoming_sections_with_content_data` → **1 / 1**,
-> misspelled control → **0 / 0**. The fix is still live; the §12 gap (no removed-unique-literal
-> negative) is unchanged. `RUNBOOK` R12.
+> **RE-VERIFIED TWICE ON 2026-08-06 — the pod names below are DEAD, and so are their
+> replacements.** The chassis rolled to **`v1.0.1256`** overnight (probed 08:0xZ) and again to
+> **`v1.0.1257`** at **09:52Z** — pods `agent-chassis-5b9fd84984-hqc5d` / `-qvzkg`. **Three pod
+> generations in under three hours**, none of them this lane's doing. Re-probed on the current
+> replicas [10:0xZ]: `incoming_sections_with_content_data` → **1 / 1**, misspelled control →
+> **0 / 0**. The lane's source files are untouched at HEAD since `1c6a3cab6`, so 1257 is a
+> rebuild of the same code. `bugs_open/153` says a roll is not evidence your fix shipped; the
+> converse bit us twice — **a later roll retires your proof's pod names.** The §12 gap (no
+> removed-unique-literal negative) is unchanged. **Re-probe before citing; never quote a pod
+> name without its date and image tag.** `RUNBOOK` R12.
 
 **Pod-verified on both replicas** (`agent-chassis-d69d4467c-dvn8k` / `-fc8pq`), per
 `bugs_open/153` — a roll is not evidence, the image carries no provenance:
@@ -94,13 +99,16 @@ zero could have meant "no traffic" rather than "no regression".~~
 > and deliberately taken early because `orchestration_states` reaps terminal rows at ~24h —
 > the evidence of *which caller ran* ages out at ~20:54Z today, i.e. as you read this:
 >
-> - **`page_components`, roll → 02:21Z: 35 rows inserted, 10 distinct pages, 35 of 35 carrying
+> - **`page_components`, roll → 08:47Z: 47 rows inserted, 13 distinct pages, 47 of 47 carrying
 >   `content_data`.** The path ran, and every incoming save carried structured content — so
 >   silence is correct for a demonstrable reason, not for want of traffic.
-> - **The only caller that ran is `page-rerender`** — 23 orchestrations, all `COMPLETED`,
->   20:54:05Z → 02:21:07Z, fingerprinted by `rerender_sections.sections_metadata`. That is
->   *the exact caller this section's stop condition is about*, so tonight's read lands on the
->   case the rule was written for.
+> - **Callers that ran, via `owner_agent_type` (re-measured 10:0xZ, supersedes the 08:00Z
+>   figures):** `page-rerender` **29** runs (20:54:05Z → 08:48:25Z) and `page-rebuild` **1**
+>   (08:32:35Z), all `COMPLETED`. page-rerender is *the exact caller this section's stop
+>   condition is about*, so tonight's read lands on the case the rule was written for.
+>   **Identify callers with `owner_agent_type`, NOT by fingerprinting
+>   `sections_metadata_field`** — that value is shared by four definitions, and a `count(*)`
+>   over the step walk counts step occurrences rather than runs (`RUNBOOK` R10, corrected).
 > - **Positive control passes at HEAD `61df92ff0`**: `TestShouldReportContentDataLoss` case 1
 >   asserts the 194 signature returns `true`. The predicate can fire. (Scope: the decision
 >   function only — not predicate → INSERT → `agent_error_log` end to end.)
