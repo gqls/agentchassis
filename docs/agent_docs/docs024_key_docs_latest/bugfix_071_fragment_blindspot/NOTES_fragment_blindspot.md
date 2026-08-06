@@ -89,3 +89,92 @@ roll.
 
 **Still owed:** the verdict; migration 322 applied; the post-roll pod-grep and an
 induced live finding; then this file's damage/no-op pair re-run.
+
+## 2026-08-06 (evening) — APPROVED round 1, and the guardian's objection found a caller I had not checked
+
+**Verdict: APPROVED, 3 advisory objections, none high-severity**, correlation
+`bbbb4132-4abe-4db1-a1ba-755377dab009` (11 seats; `architecture` returned
+`point_fix`; `guardian`, `bug_historian` and `debug_historian` objected at
+medium and approved-with-objections overall). Every objection that named a
+checkable fact has been checked rather than argued with; the answers:
+
+**1. `guardian` [medium] — "an exported-signature change to a shared helper needs
+a check for other callers before 'strictly a refactor' is safe to accept."
+THE SEAT WAS RIGHT AND I HAD NOT LOOKED.** There IS a third caller outside the
+two packages I had in mind: `deploy_tool_action.go:182` — and it is a **hard
+pre-deploy refusal gate** for tool birth, i.e. the worst place to change
+behaviour silently. My submission asserted "existing datahelpers tests pass
+unchanged", which is true and is not the same claim.
+
+Settled by differential test, not by argument: the pre-refactor implementation
+was restored verbatim from `af2667453^` into a temporary harness and run against
+the new one over **every** component template in the estate (2.3 MB) plus every
+page component, every site component and every whole-page document in the fleet
+dump. **4,036 documents, 0 mismatches.**
+
+> **The first run of that differential was VACUOUS and my own guard caught it.**
+> 2,018 real documents, 0 mismatches — and **0 documents where the old
+> implementation returned anything non-empty**, so the two agreed only about nil.
+> I had written `if nonEmpty == 0 { t.Error("VACUOUS: …") }` into the harness
+> before running it, which is the only reason I did not report the clean pass.
+> Re-run with each real document ALSO compared in an id-stripped variant — which
+> turns every script-referenced id into an orphan and exercises the
+> present/dynamic/interpolated branches on real markup — gives **403
+> discriminating cases and still 0 mismatches.** Third time this session the
+> "could this measurement have come out otherwise?" question changed the answer.
+
+**2. `guardian` [medium] — does anything else consume this check's finding counts
+or severities?** No. `grep -rn phantom_internal_link --include=*.go platform/
+internal/ pkg/` returns only the check itself plus **comments** in nine other
+files that reference the class boundary (dead_controls, misdirected_cta,
+backend_entry_orphaned, link_repair, …). Nothing reads the counts, so a new
+low-severity arm cannot skew a consumer.
+
+**3. `guardian` / `prior_art_librarian` / `debug_historian` — migration ledger and
+live-column state.** Applied by hand and verified after the fact, not just at
+plan-authoring time: live `pre_query` now carries `dead_fragment_link` as the
+7th exclusion; `schema_migrations` has
+`322_dead_fragment_link_claim_timeout_exclusion.sql | record-only | 10:20:14Z`,
+recorded via `--record-only` with a note (never a hand-written INSERT). The
+runner's own probe now REFUSES a replay — its dry run reports *"expected exactly
+1 scheduled_task carrying the known 6-entry exclusion list, found 0"*, which is
+the pre-assertion doing its job, not a fault.
+
+**4. `reuse_agent` [low] — was any existing item_type already claiming
+fragment/anchor territory?** Queried, which I had not done from the DB side:
+`SELECT DISTINCT item_type … ~* 'frag|anchor|link|nav'` →
+`nav_drift, nav_rebuild_refused_incomplete, needs_internal_links,
+phantom_internal_link, unbuilt_internal_link, unlinked_site_component`. **None
+resolves a fragment**; no collision.
+
+**5. `bug_historian` [medium] — a shared predicate reused on a new INPUT SHAPE.**
+Accepted as a real limit and stated rather than closed: `presentIDRe` harvests
+ids from the whole page text **including inside script string literals**, which
+`OrphanElementRefs` does deliberately to avoid false positives. For fragment
+resolution that inherited looseness produces **false NEGATIVES** — a `#pricing`
+whose id exists only inside a script string is called resolved. That is the same
+direction the other consumer chose (under-report, never accuse a working page),
+and it is the direction this arm should fail in. Recorded here and in the file
+header rather than "fixed", because tightening it is what would produce findings
+against working pages.
+
+**6. `bug_historian` [medium] + `architecture` — three unaligned consumers now
+reason about link-target resolution (gate, this arm, `link_repair.go`).** Agreed,
+and explicitly NOT fixed here: the architecture seat read the same fact and still
+returned `point_fix`, noting `DocumentIDs` is positioned so the deferred
+section-id-emission work has a validator ready. Logged as this file's open item 1
+and named in `bugs_open/071`. That split is a candidate for the architecture
+track, not for a bug patch — which is the 2026-07-28 ruling's whole point.
+
+**7. `debug_historian` [medium] — no separate backup/rollback artefact for the
+live `scheduled_tasks` mutation.** Fair. The file carries a counted
+pre-assertion, a two-directional post-assertion (new list present AND old list
+consumed) and a stated inverse-replace rollback in its header, but no dumped
+"before" row. The blast radius is one column of one row and the before-state is
+recorded verbatim in the migration's own header and in this lane's RUNBOOK, so I
+have not re-run it; noting the house standard is a separate `_ROLLBACK.sql`.
+
+**No re-submission.** The verdict is APPROVED and the objections are advisory;
+`af2667453` already carries `Council-Submitted:`, so `098` credits it
+automatically at report time — and forward-only forbids an amend to add
+`Council-Reviewed:`.
