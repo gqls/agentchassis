@@ -529,3 +529,39 @@ either way. Use two binaries against the same DB, and offline fixtures for the a
 back **byte-identical** unless you intended keys to move: `--write-baseline` then
 `git diff --numstat`. An empty diff means no existing key shifted; a large one means you
 have changed what the baseline describes and every reader of it needs to know.
+
+## R13 — re-proving RFC_009 after a roll (one word, since 2026-08-06)
+
+A proof carries the tag it was taken on, and this fleet rolls every few hours — four
+re-proofs in three days on this lane alone. It is mechanical now:
+
+```bash
+scripts/prove-live-markers.py rfc009
+```
+
+Asserts the three compiled markers on EVERY replica plus a negative control, prints the
+image tag the verdict belongs to, and exits **0** pass · **1** mismatch · **2** could not
+look (no pods, unknown profile, refused marker). That last distinction is the point: a
+setup failure must never wear the code that means "the fix is not in the binary".
+
+**If it FAILS on a count** (say `want 2 got 1`) that usually means the SOURCE changed — a
+call site added or removed — not that the fix is gone. Re-derive before panicking:
+`scripts/pick-pod-marker.py <commit>`, which now prints a ready-made `--save` line.
+
+**Saving a profile for another fix:**
+
+```bash
+scripts/prove-live-markers.py --save <name> --deployment agent-chassis \
+    --expect "text your change ADDED" --negative "text your change REMOVED"
+scripts/prove-live-markers.py --list
+```
+
+⚠ **Use a REMOVED string as the negative control if you have one.** Without it the tool
+synthesises one and says so: a synthetic control proves the grep pipeline runs, not that
+your build shipped — it passes just as happily against the old image.
+
+⚠ **`--expect "TEXT"` is presence; `--expect "TEXT=N"` is an exact count.** Take N off the
+LIVE binary, never from `pick-pod-marker`'s probe: the probe is built at `<commit>` and
+the deployed binary is a descendant. Measured 2026-08-06 — the probe at `87ea0a5e7` holds
+the contact-detail marker once, the live chassis twice, so a count copied across would
+fail on arrival and look exactly like a missing fix.
