@@ -13,9 +13,23 @@ apart on the same day; both are logged in `WRONG_CALLS.md` and the pair is the
 argument for making condition (2) a pattern-check rather than a thing to
 remember), **and +1 for IMP-051** (`asset_reference_404`, `bugs_open/084` — row,
 entry and code in ONE commit, which is what the two above wish they had done).
+**and +1 for LNK-031** (fragment resolution / `dead_fragment_link`,
+`bugs_open/071` — row, entry and code in ONE commit, following IMP-051).
 **The drift pair was clean at 1,759 rows and 1,759 unique entry ids,
 0 rows without an entry and 0 entries without a row; re-run it after this commit
 rather than inheriting that pass.**
+
+> **HEADLINE-vs-GREP DISCREPANCY, recorded rather than papered over (2026-08-06,
+> LNK-031's commit).** `grep -cE '^\| [A-Z]{2,4}-[0-9]{3} \|' 000_concept_index.md`
+> returns **1,775 including LNK-031's row**, i.e. 1,774 before it — seven short of
+> the 1,781 headline written earlier the same day. One of the two counting methods
+> is wrong and I did not determine which, so I have added my +1 to the headline in
+> the established style and left the headline number itself alone rather than
+> overwriting a figure produced by a method I could not reproduce. Whoever next
+> recounts: state the COMMAND with the number. A bare count nobody can re-run is
+> the reason this paragraph keeps needing corrections — and the standing landmine
+> on this file is that a row count cannot detect a MISSING row at all, so neither
+> figure is evidence of completeness.
 
 > **NOTE on that +1, 2026-08-04:** the local drift harness reads at **`HEAD`**,
 > not the working tree, so it cannot see an entry until it is committed and
@@ -2142,8 +2156,10 @@ an ID prefix, or a status word.
 | IMG-068 | Single asset SOURCE derivation (`storage.AssetSourceRef`) | built, awaiting roll | The one derivation of which stored object a row's source image is (storage_path first, url parse fallback); deletes the site-wide `{purpose}_uri` cache read that was bugs_open/155's wrong-bytes mechanism, and StoreAssetAction records storage_path at generation (bugs_open/152) | imagery.md |
 | LCO-005 | `aiservice.Fingerprint`: log a model response's SHAPE, never its text | deployed | One stable line describing a response's structure, so a malformed reply is diagnosable without publishing model output into the logs | llm-call-observability.md |
 | LCO-006 | A 5xx with a discarded error is undiagnosable | deployed (tools-api on the island VM; NOT the chassis) | Every LLM-backed handler in tools-api discarded `err` before responding, so bursty faults could not be reproduced | llm-call-observability.md |
+| LCO-007 | `fleet-step-token-pressure`: standing headroom check over every non-review LLM step | deployed | CTE-only 6-hourly task flagging steps whose output distribution approaches their token cap; FIX-058 generalised past `review_%` | llm-call-observability.md |
 | LNK-029 | `NonMarkupSpans` / `MarkupMatches`: one definition of "these bytes are not markup" | deployed, LIVE v1.0.1233, induced on the damaged page | Drop-in replacements for the regex calls that REWRITE HTML, respecting raw-text elements and comments taken whole; adopted by both markup writers. bugs_closed/180 | link-management.md |
 | LNK-030 | `ChromeLinkPolicy`: one answer to "which page may a piece of CHROME link to?" | deployed, LIVE v1.0.1251, induced on the wire | The header's nav and its CTA button were validated by two different predicates in one run, so chrome shipped a 404 button the nav beside it had already filtered out; the escapes were inline in applyNavVisibility and so unreachable. bugs_open/191 | link-management.md |
+| LNK-031 | Fragment resolution: `dead_fragment_link` arm + shared `DocumentIDs` id-presence test | committed 2026-08-06, inert until the roll | Nothing anywhere resolved a `#fragment` against a page's ids — the gate and the audit both skip anchor scope by name; the arm rides an already-enabled check so it cannot land inert. bugs_open/071 | link-management.md |
 | OPP-003 | `check_logged_model_output`: pre-commit detector for publishing model text | deployed (advisory) | Flags a log sink passed raw model output — the shape LCO-005's fingerprint exists to replace | operator-practice.md |
 | PLAN-043 | The experience register: reusable behaviour contracts, held once and forked per site | partial | A promise nobody wrote down cannot be checked: `experience_patterns` entries + per-site forks, stated specifically enough to be machine-checked | site-plan-and-reconciler.md |
 | PLAN-044 | `write_experience_pattern` + the criteria validator (three moments, ten rules) | deployed | The only way into the register; validates on the way in and stores its own accounting (`executable_checks`, `deferred_checks`) on the row | site-plan-and-reconciler.md |

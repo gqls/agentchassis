@@ -58,6 +58,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
@@ -91,8 +92,13 @@ func (c *PhantomInternalLinksCheck) Run(dctx DiscoveryCheckContext) (*CheckResul
 		handlerAgent, pipeline, priority := routeBySurface(f.Surface)
 
 		severity := "high"
-		if f.IssueType == "empty_internal_href" {
+		switch f.IssueType {
+		case "empty_internal_href":
 			severity = "medium"
+		case "dead_fragment_link":
+			// An inert control, not a 404: the page loads, it simply does not
+			// move. Graded below every arm that reaches a missing page.
+			severity = "low"
 		}
 
 		spec := map[string]interface{}{
@@ -123,6 +129,16 @@ func (c *PhantomInternalLinksCheck) Run(dctx DiscoveryCheckContext) (*CheckResul
 		actionablePageID := f.PageID
 		summary := fmt.Sprintf("%s in %s (%s): href %q has no matching page",
 			f.IssueType, f.Surface, locator, f.Href)
+
+		if f.IssueType == "dead_fragment_link" {
+			priority -= 10 // behind every arm that reaches a missing page
+			spec["fix"] = "The href's #fragment names an element id that exists nowhere on the page it lands on, " +
+				"so the control loads the page and does not move. Either point it at an id the target page " +
+				"actually carries, or drop the fragment and link to the page. Page surfaces: rebuild the page. " +
+				"Site surfaces: the chrome link resolves on NO page of this site — re-render site components."
+			summary = fmt.Sprintf("dead_fragment_link in %s (%s): href %q names an element id no page carries",
+				f.Surface, locator, f.Href)
+		}
 
 		if f.IssueType == "unbuilt_internal_link" {
 			actionablePageID = f.TargetPageID
@@ -217,9 +233,22 @@ func findPhantomInternalLinks(dctx DiscoveryCheckContext) ([]phantomLinkFinding,
 	counts := make(map[plKey]int)
 	targetIDs := make(map[plKey]string) // unbuilt_internal_link -> target page id
 
+	// The fragment arm (dead_fragment_link, this file's sibling) resolves an
+	// href's #fragment against the ids of the page it LANDS on, which is not
+	// the component the href was found in — so the components are collected as
+	// they stream past and judged in a second pass, once every document is
+	// known. The phantom/empty arms below are unchanged and still judge inline:
+	// they need nothing but the href and the pages table.
+	type componentHTML struct{ surface, pageName, pageID, slotName, html string }
+	var components []componentHTML
+	pageHTML := make(map[string]string)     // page id -> its components concatenated
+	pagePathByID := make(map[string]string) // normalised page path -> page id
+	var chrome strings.Builder
+
 	// page_components — body sections (hero/CTA/lists/prose).
 	pageRows, err := dctx.DB.QueryContext(dctx.Ctx, `
-		SELECT p.name, pc.page_id::text, COALESCE(pc.slot_name, ''), pc.rendered_html
+		SELECT p.name, pc.page_id::text, COALESCE(pc.slot_name, ''), pc.rendered_html,
+		       COALESCE(p.url, '')
 		FROM page_components pc
 		JOIN pages p ON p.id = pc.page_id
 		WHERE p.site_id = $1
@@ -230,12 +259,17 @@ func findPhantomInternalLinks(dctx DiscoveryCheckContext) ([]phantomLinkFinding,
 	}
 	defer pageRows.Close()
 	for pageRows.Next() {
-		var pageName, pageID, slotName, html string
-		if err := pageRows.Scan(&pageName, &pageID, &slotName, &html); err != nil {
+		var pageName, pageID, slotName, html, pageURL string
+		if err := pageRows.Scan(&pageName, &pageID, &slotName, &html, &pageURL); err != nil {
 			dctx.Logger.Warn("phantom_internal_links: page scan error", zap.Error(err))
 			continue
 		}
 		accumulateLinkIssues(counts, targetIDs, "page_component", pageName, pageID, slotName, html, targets)
+		components = append(components, componentHTML{"page_component", pageName, pageID, slotName, html})
+		pageHTML[pageID] = pageHTML[pageID] + "\n" + html
+		if pageURL != "" {
+			pagePathByID[datahelpers.NormalizePagePath(pageURL)] = pageID
+		}
 	}
 	if err := pageRows.Err(); err != nil {
 		return nil, fmt.Errorf("phantom_internal_links page iteration failed: %w", err)
@@ -259,9 +293,18 @@ func findPhantomInternalLinks(dctx DiscoveryCheckContext) ([]phantomLinkFinding,
 			continue
 		}
 		accumulateLinkIssues(counts, targetIDs, "site_component", "", "", slotName, html, targets)
+		components = append(components, componentHTML{"site_component", "", "", slotName, html})
+		chrome.WriteString("\n")
+		chrome.WriteString(html)
 	}
 	if err := siteRows.Err(); err != nil {
 		return nil, fmt.Errorf("phantom_internal_links site iteration failed: %w", err)
+	}
+
+	// Second pass: the fragment arm, now that every document is known.
+	fragIdx := newFragmentIndex(pageHTML, chrome.String(), pagePathByID)
+	for _, c := range components {
+		accumulateFragmentIssues(counts, c.surface, c.pageName, c.pageID, c.slotName, c.html, targets, fragIdx)
 	}
 
 	findings := make([]phantomLinkFinding, 0, len(counts))

@@ -183,6 +183,24 @@ func IsAssetPath(path string) bool {
 	return false
 }
 
+// SplitFragment splits an href into its path half and its #fragment, the one
+// definition of "the fragment of an href" for every consumer that reasons about
+// in-page anchors (the dead_fragment_link arm of check_phantom_internal_links,
+// and anything after it). The fragment excludes the '#'; an href with no
+// fragment returns ("", false) in the second value's place — callers get
+// (path, "") — so "no fragment" and "#" (empty fragment, a no-op control that
+// belongs to IsNoopHref/dead_controls, not to fragment resolution) are
+// distinguishable from a named fragment. A ?query stays with the path half:
+// per URL syntax the fragment follows the query, so the split is on the FIRST
+// '#', not on IndexAny("#?") — NormalizePagePath's combined strip is correct
+// for its question (path identity) and wrong for this one.
+func SplitFragment(href string) (path, fragment string) {
+	if i := strings.IndexByte(href, '#'); i >= 0 {
+		return href[:i], href[i+1:]
+	}
+	return href, ""
+}
+
 // NormalizePagePath maps an internal page href OR a stored pages.url to one
 // canonical form, so the two can be compared for equality. This replaces the
 // two previously-divergent normalisers. Rules: drop #fragment and ?query,

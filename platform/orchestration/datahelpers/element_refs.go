@@ -110,6 +110,90 @@ var (
 	quotedWordRe = regexp.MustCompile(`['"]([A-Za-z0-9_\-:.]+)['"]`)
 )
 
+// DocumentIDs is one document's evidence about which element ids it has. It is
+// the SHARED answer to "does this page contain or create an element with this
+// id", used by two consumers that must never disagree about what an id is:
+//
+//   - OrphanElementRefs (below) — a SCRIPT names an id the page lacks;
+//   - the dead_fragment_link arm of check_phantom_internal_links — a LINK names
+//     an id the page lacks.
+//
+// They ask the same question from opposite ends, and every conservatism in the
+// presence test was paid for by a false positive on a working tool (see the
+// 2026-07-29 correction in this file's header). A second implementation would
+// re-buy that lesson at the price of sending a fixer at a page that works.
+//
+// Build it once per document with NewDocumentIDs and ask it as many times as
+// there are references — the regex scans are the expensive part, and a page's
+// links are many while its id set is one.
+type DocumentIDs struct {
+	// present holds ids the document declares (id="x") or assigns at runtime
+	// (el.id = 'x', setAttribute('id','x')).
+	present map[string]struct{}
+	// loose holds every quoted bareword outside a lookup argument, and is
+	// populated ONLY for a document that interpolates its ids from data — where
+	// the real id set is computed and cannot be read off the source at all.
+	loose map[string]struct{}
+}
+
+// NewDocumentIDs scans a WHOLE page — every component's rendered HTML plus the
+// site chrome — for its id evidence. Passing one component in isolation makes
+// every id in its siblings look absent, which is a false positive by
+// construction, in both consumers.
+func NewDocumentIDs(pageHTML string) DocumentIDs {
+	d := DocumentIDs{present: map[string]struct{}{}}
+	for _, m := range presentIDRe.FindAllStringSubmatch(pageHTML, -1) {
+		d.present[m[1]] = struct{}{}
+	}
+	for _, m := range dynamicIDRe.FindAllStringSubmatch(pageHTML, -1) {
+		d.present[m[1]] = struct{}{}
+	}
+
+	// On a page that interpolates ids from data, the id set is computed and
+	// cannot be read off the source. Rather than refuse to judge the page at
+	// all — which would have cost coverage on four genuinely broken tools that
+	// ALSO build markup dynamically — the test loosens just enough: a name that
+	// appears as a quoted string anywhere other than a lookup argument could be
+	// one of the values feeding the template, so it is treated as present.
+	//
+	// Blanking the lookup arguments first is the load-bearing half. Without it
+	// every referenced id trivially appears as a quoted string — inside its own
+	// getElementById call — and the check would silently pass everything.
+	if dynamicIDTemplateRe.MatchString(pageHTML) {
+		d.loose = map[string]struct{}{}
+		stripped := refQuerySelRe.ReplaceAllString(
+			refByIDRe.ReplaceAllString(pageHTML, "getElementById()"), "querySelector()")
+		for _, m := range quotedWordRe.FindAllStringSubmatch(stripped, -1) {
+			d.loose[m[1]] = struct{}{}
+		}
+	}
+	return d
+}
+
+// Satisfies reports whether an element with this id exists in the document or
+// is created by it. It answers TRUE when in doubt: every caller's wrong answer
+// is a finding against a page that works.
+func (d DocumentIDs) Satisfies(id string) bool {
+	if id == "" {
+		return false
+	}
+	if _, ok := d.present[id]; ok {
+		return true
+	}
+	if d.loose != nil {
+		if _, ok := d.loose[id]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+// InterpolatesIDs reports whether the document computes its ids from data
+// (id="${...}"), so its true id set is not statically knowable and Satisfies
+// has fallen back to the loose test. A caller that needs to say WHY it is not
+// judging — or to decline to judge at all — asks this rather than re-deriving it.
+func (d DocumentIDs) InterpolatesIDs() bool { return d.loose != nil }
+
 // OrphanElementRefs returns the sorted, de-duplicated ids that pageHTML's
 // scripts address but that pageHTML never contains or creates. An empty result
 // means the check found nothing to say — which is the common case and the only
@@ -130,40 +214,16 @@ func OrphanElementRefs(pageHTML string) []string {
 		return nil
 	}
 
-	for _, m := range presentIDRe.FindAllStringSubmatch(pageHTML, -1) {
-		delete(referenced, m[1])
-	}
-	for _, m := range dynamicIDRe.FindAllStringSubmatch(pageHTML, -1) {
-		delete(referenced, m[1])
-	}
-	if len(referenced) == 0 {
-		return nil
-	}
-
-	// On a page that interpolates ids from data, the id set is computed and
-	// cannot be read off the source. Rather than refuse to judge the page at
-	// all — which would have cost coverage on four genuinely broken tools that
-	// ALSO build markup dynamically — the test loosens just enough: a name that
-	// appears as a quoted string anywhere other than a lookup argument could be
-	// one of the values feeding the template, so it is treated as present.
-	//
-	// Blanking the lookup arguments first is the load-bearing half. Without it
-	// every referenced id trivially appears as a quoted string — inside its own
-	// getElementById call — and the check would silently pass everything.
-	if dynamicIDTemplateRe.MatchString(pageHTML) {
-		stripped := refQuerySelRe.ReplaceAllString(
-			refByIDRe.ReplaceAllString(pageHTML, "getElementById()"), "querySelector()")
-		for _, m := range quotedWordRe.FindAllStringSubmatch(stripped, -1) {
-			delete(referenced, m[1])
-		}
-		if len(referenced) == 0 {
-			return nil
-		}
-	}
-
+	ids := NewDocumentIDs(pageHTML)
 	orphans := make([]string, 0, len(referenced))
 	for id := range referenced {
+		if ids.Satisfies(id) {
+			continue
+		}
 		orphans = append(orphans, id)
+	}
+	if len(orphans) == 0 {
+		return nil
 	}
 	sort.Strings(orphans)
 	return orphans

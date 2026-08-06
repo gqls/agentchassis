@@ -620,6 +620,23 @@ func buildLinkConstraintText(pages []linkablePage, maxLinks int) string {
 	sb.WriteString("Use each address EXACTLY as written above, including its file extension. ")
 	sb.WriteString("If mentioning a topic without a corresponding page, write about it without making it a hyperlink.\n")
 
+	// The FRAGMENT half of the same instruction (bugs_open/071 § "Related
+	// defect, same blind spot"). The addresses above are whole pages; nothing in
+	// this context tells the writer which section anchors exist, because no
+	// caller supplies any — so every "#section" it emits is an invention, and
+	// the platform has measured what that produces: 24 of 25 anchored links
+	// fleet-wide pointing at an id no page carried, and one site's writer
+	// re-authoring dead anchors on three consecutive rebuilds.
+	//
+	// Stated as correct-or-absent, the same shape as the CTA fix (LNK-005): a
+	// link with no verifiable anchor is written as a plain page link, not as a
+	// guessed one. This costs the writer nothing it could have got right, and it
+	// stops the dead_fragment_link remediation loop re-authoring what it just
+	// flagged — a page rebuild is that finding's own handler.
+	sb.WriteString("Link to a page address only. Do NOT append a '#section' anchor to any link, ")
+	sb.WriteString("and do NOT write '#'-anchor links within the page: the section ids they would need ")
+	sb.WriteString("are not published to you, so any anchor you invent will scroll nowhere.\n")
+
 	if maxLinks > 0 {
 		sb.WriteString(fmt.Sprintf("\nUse at most %d internal links per section.", maxLinks))
 	}
