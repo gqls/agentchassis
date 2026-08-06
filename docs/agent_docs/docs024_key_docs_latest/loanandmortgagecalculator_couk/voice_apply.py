@@ -35,7 +35,12 @@ CHECKS, per overlaid block — the transformation moves REGISTER, never facts:
   F8  still visibly non-empty (assembly would silently drop an empty block).
 
 Usage:
-  DECOMP_WORK=<dir> python3 voice_apply.py [--pages name1,name2]
+  DECOMP_WORK=<dir> python3 voice_apply.py [--pages name1,name2] [--dry-run]
+
+--dry-run runs every check and writes NOTHING. Use it when several authors
+are working at once: the real run rebuilds manifest_voiced.json from
+manifest.json plus ALL overlays, so two concurrent writers would race on one
+output file.
 """
 import json
 import os
@@ -205,6 +210,10 @@ def main():
         for p in all_problems:
             print("  " + p)
         return 1
+
+    if "--dry-run" in sys.argv:
+        print("--dry-run: all checks passed, nothing written")
+        return 0
 
     out = os.path.join(work, "manifest_voiced.json")
     with open(out, "w", encoding="utf-8") as fh:
