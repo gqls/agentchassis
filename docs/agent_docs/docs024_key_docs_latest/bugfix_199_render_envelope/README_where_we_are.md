@@ -104,3 +104,12 @@ next page.
 The ticket has moved to closed. The one thing still on your desk is the council's open question
 from earlier: whether a bad section should fail the whole page build or just that section. That's
 a config change, no deploy needed, and it's a judgement about what you'd rather have break.
+
+---
+
+**2026-08-06.** The one open question is answered: you ruled to keep it as shipped. A bad
+section fails the whole page build and the system retries the whole page; nothing partial is
+ever published. The alternative — skip the bad section and publish the rest — was checked
+properly before being turned down: the pipeline's own safety floor would have let a page
+missing one section out the door without a word, which is exactly the silent defect this whole
+piece of work existed to stop. Decision recorded in the closed ticket. This lane is done.

@@ -187,14 +187,31 @@ objections, none high-severity". Three objections were checkable and were checke
   `rerender_page_sections_action.go` calls `RenderTemplate` directly (`:485`), never this
   action, so that swallowing path does not exist for this guard.
 
-**⚠ ONE OBJECTION IS OPEN AND IS FOR A HUMAN** (`bug_historian` + `guardian`, both medium):
-fail-loud-at-render has **no independent throttle**. If the envelope class ever fires in volume,
-this converts N silent blank sections into N *failed page builds*, with no per-run signal
-separating "guard working as intended" from "guard now taking down builds". It is disclosed and
-argued rather than hidden, and today's trigger rate is zero — but both seats asked for a human
-to decide whether `continue_on_error` should ship *alongside* this rather than after. That is a
-one-key, live-immediately workflow-config change on `page-content-writer`'s
-`process_sections_loop`, deliberately not made by this lane.
+~~**⚠ ONE OBJECTION IS OPEN AND IS FOR A HUMAN**~~ **→ OWNER RULING 2026-08-06: KEEP IT AS
+SHIPPED.** (`bug_historian` + `guardian`, both medium, had asked for a human to decide whether
+`continue_on_error` should ship alongside the guard.) The owner was given the traced
+alternatives and chose whole-page atomicity: fail whole, retry whole, never persist partial.
+The grounds, so nobody re-litigates this from a thinner picture than the one it was decided on:
+
+- **A refused build never half-renders.** The save never runs; an existing page keeps serving
+  its old complete content, a new page simply doesn't deploy. A failed build costs freshness,
+  never correctness.
+- **The retry already exists and is whole-page**: a failed work item goes `attempt_count + 1`
+  → back to `triaged` until `max_attempts`
+  (`complete_work_item_verification.go:240-246`), and envelope failures are mostly transient
+  (the 119 corrective re-ask sits at the LLM layer), so attempt 2 usually succeeds.
+- **`continue_on_error` was traced, not just declined**: the loop would skip the failed
+  iteration, `compile_page_sections` compiles with N−1 sections, and the save's completeness
+  floor is **0.5** — a page missing 1 of 6 sections scores 83%, clears the floor, and deploys
+  silently short one section. That is the pre-fix failure mode (the nine blanked article
+  bodies) reintroduced via config, and the opposite of the rerender path's own whole-page
+  escalation precedent.
+
+**The accepted residual, stated with the ruling:** a *deterministically*-failing section burns
+all attempts and leaves its page unbuildable until a human looks (`bugs_closed/073`'s shape) —
+intended for this payload, but the thing to watch: repeated
+`CONTENT_DATA_ENVELOPE` / `action='render_component'` rows against one page in
+`agent_error_log` mean a stuck page, not a working guard.
 
 Tracked follow-up (`reuse_agent`, low): `writeRenderEnvelopeLog` and
 `writeContentDataEnvelopeLog` are near-siblings for one defect class and should become one

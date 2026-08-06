@@ -266,3 +266,28 @@ warns against a shelf of near-identical files. This morning's `SUMMARY_2026-08-0
 "after the roll, verify and close" as where we were going. Completing a step that was already
 named is not a new understanding, so the read-out would repeat with one status line changed.
 Recorded here so the absence reads as a decision rather than an omission.
+
+## 2026-08-06 — OWNER RULING: keep it as shipped. The council's open objection is closed.
+
+The one item left on the owner's desk — whether `continue_on_error` should ship alongside the
+guard (`bug_historian` + `guardian`, both medium) — was put to him with the alternatives traced,
+and the ruling is **keep whole-page atomicity exactly as shipped**. No config change.
+
+What the decision rested on, so the trail shows it was made on the full picture:
+
+- a refusal never half-renders — nothing is persisted, an existing page keeps serving complete
+  old content, a new page just doesn't appear;
+- whole-page retry already exists (`attempt_count + 1` → `triaged` until `max_attempts`,
+  `complete_work_item_verification.go:240-246`) — "redo the whole page build" is what the
+  system does unaided;
+- the alternative was traced to its output before being declined: `continue_on_error` → compile
+  with N−1 sections → the 0.5 completeness floor passes a page missing 1 of 6 (83%) → a page
+  deploys silently short one section. The pre-fix defect, reintroduced via config.
+
+Accepted residual, named in the ruling: a deterministically-failing section exhausts its
+attempts and leaves that page unbuildable until a human looks (073's shape). The watch signal is
+repeated `CONTENT_DATA_ENVELOPE`/`render_component` rows against one page.
+
+Recorded in `bugs_closed/199` where the objection block was; this lane is now fully settled —
+the only live thread out of it is the low-severity reuse follow-up (unify the two log writers),
+which belongs to whoever next touches that seam.
