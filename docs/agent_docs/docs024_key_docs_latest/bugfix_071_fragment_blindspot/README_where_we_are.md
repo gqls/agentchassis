@@ -74,3 +74,34 @@ header and footer, so it would raise false alarms); nothing repairs a broken one
 yet; and no page section publishes a stable name to jump to, so these links can
 only be avoided rather than made to work. That last one is the real capability
 and it needs its own decision, because it changes every page on every site.
+
+## 2026-08-06 (after the roll)
+
+It is live and it works. The build that went out this afternoon carries it — I
+checked the actual running binaries rather than trusting the version number, on
+both of them, including a control string that should be there and one that should
+not.
+
+Then I proved it properly instead of just looking at an empty queue. An empty queue
+would have been the *expected* result, because none of our real section links are
+broken today, so it would have told me nothing. So I built a page with four section
+links — two deliberately broken, two working — on an internal placeholder site that
+nobody's browser can reach, and ran the real checker at it. It complained about
+exactly the two broken ones and said nothing about the two working ones. Then I
+fixed one of the two, left the other, and ran it again: one complaint, the right
+one. That is the difference between "the code is in there" and "the code does the
+thing". The test page is deleted and I confirmed the site is back as I found it.
+
+A nice accident: the same test page had a "#" link that goes nowhere, and a
+*different* checker picked that one up instead of mine. That is exactly the division
+of labour I designed, so one test proved both that mine fires when it should and
+that it keeps its hands off the neighbour's territory.
+
+One loose end, written down: the bit that double-checks a fix before closing a
+problem hasn't been run yet — its database queries are verified but the code around
+them only runs when a real one of these gets fixed, and forcing that would have
+meant kicking off a page build I didn't want on a placeholder site.
+
+There is now a five-part summary in the lane you can read out to someone, and the
+handoff is marked up so a new session can see at a glance that the roll-time checks
+are done rather than repeating them.
