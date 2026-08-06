@@ -102,9 +102,26 @@ const (
 	maxTitleLen  = 90
 	minTeaserLen = 20
 	maxTeaserLen = 160
-	// A body shorter than this cannot have made a case AND its counter-case, so
-	// it cannot satisfy the two-sidedness rule whatever the judge says. This is a
-	// floor under layer C, not a substitute for it.
+	// RE-JUSTIFIED 2026-08-06, because the original reason has been retired.
+	//
+	// This floor used to read "a body shorter than this cannot have made a case AND
+	// its counter-case". The owner's ruling that one-sided provocations are
+	// preferred removes that argument entirely, and a floor whose stated reason has
+	// been withdrawn is a number nobody can defend — exactly the kind of rule that
+	// survives by inertia and rejects something good later.
+	//
+	// The floor stays, on a narrower and measurable ground: THERE MUST BE SOMETHING
+	// TO JUDGE. Layer C asks a model whether prose is safe and whether it smuggles
+	// in false factual claims; neither question has an answer for an empty body, and
+	// "no problems found in no text" is not a pass.
+	//
+	// Sized against the live corpus rather than chosen: the eight non-empty bodies
+	// run 326..607 characters (measured 2026-08-05), so 200 sits clear of the real
+	// distribution and catches only genuinely absent content. The ninth,
+	// `group-chats-replaced-friendship`, has a body of ZERO characters in the
+	// production pool — it fails this floor, and that is a defect in the POOL, not
+	// in the gate. It is recorded as such rather than papered over by lowering the
+	// number to admit it.
 	minBodyLen = 200
 )
 
@@ -303,6 +320,7 @@ func checkClaims(c provocationCandidate, v *gateVerdict) {
 type judgement struct {
 	Safe            bool `json:"safe"`
 	TwoSided        bool `json:"two_sided"`
+	Contestable     bool `json:"contestable"`
 	OrdinaryExp     bool `json:"arguable_from_ordinary_experience"`
 	FactualProblems []struct {
 		Quote  string `json:"quote"`
@@ -335,7 +353,13 @@ Also judge:
   safe      - no slur, harassment, incitement, medical/legal/financial advice,
               targeting of a private individual, or party-political tribalism.
   two_sided - the prose makes the case AND genuinely puts the counter-case.
-              A piece that only argues one way fails this.
+              RECORDED ONLY on this site; a one-sided piece is acceptable here.
+  contestable - a reasonable, informed person could take the OPPOSITE view and
+              argue it seriously. This is the test that separates a real
+              provocation from filler. "Privacy is already over" is contestable.
+              "AI is changing everything" is NOT: nobody disagrees, so there is
+              nothing to argue. Vague trend statements, truisms and things
+              everyone already accepts all fail this.
   arguable_from_ordinary_experience - an ordinary reader could disagree from
               their own life, without specialist knowledge.
 
@@ -344,7 +368,7 @@ decision — answer honestly, they are recorded for later calibration:
   interesting 0-10, current 0-10.
 
 Reply with ONLY a JSON object, no prose, no code fence:
-{"safe":bool,"two_sided":bool,"arguable_from_ordinary_experience":bool,
+{"safe":bool,"two_sided":bool,"contestable":bool,"arguable_from_ordinary_experience":bool,
  "factual_problems":[{"quote":"...","reason":"..."}],
  "interesting":0-10,"current":0-10,"note":"one sentence"}
 
@@ -396,9 +420,54 @@ func applyJudgement(j *judgement, v *gateVerdict) {
 	if !j.Safe {
 		v.reject("judgement", "unsafe", "judge marked the candidate unsafe: "+j.Note)
 	}
+	// TWO-SIDEDNESS IS RECORDED, NOT ENFORCED — OWNER RULING 2026-08-06.
+	//
+	// This was a fatal rejection until the live calibration ran, and it was wrong
+	// twice over.
+	//
+	// (1) Its stated justification — "every entry in the corpus does" — was FALSE.
+	// PLAN §4 asserts the corpus is "genuinely two-sided … every detail_body makes
+	// the case and then makes the counter-case", and that claim was evidently
+	// written from the handful of entries that do. Measured across all nine on
+	// 2026-08-05: five carry an explicit counter-case, four do not, and one has a
+	// body of zero characters. I encoded a property of a SAMPLE as a rule about
+	// the CORPUS, and the gate then rejected 5 of the owner's 9 published
+	// provocations — a well-behaved gate enforcing a rule its own subject matter
+	// does not follow.
+	//
+	// (2) The owner's answer to that finding was not "fix the rule" but a product
+	// judgement: **"the one sided provocation is better, we can continue that way
+	// for now at least."** So a one-sided provocation is not a defect to be
+	// tolerated; on this site it is preferred.
+	//
+	// The verdict is still recorded, because "how many are one-sided" is exactly
+	// the kind of thing worth being able to ask later, and because the ruling is
+	// explicitly provisional ("for now at least"). It joins interesting/current in
+	// the advisory block: observed, never decisive.
 	if !j.TwoSided {
-		v.reject("judgement", "not_two_sided",
-			"the prose does not put the counter-case; every entry in the corpus does")
+		v.note("judgement", "one_sided",
+			"the prose does not put a counter-case — RECORDED ONLY, never fatal "+
+				"(owner ruling 2026-08-06: one-sided provocations are preferred here)")
+	}
+	// CONTESTABILITY IS FATAL, AND IT IS WHAT NOW CATCHES TRENDING SLOP.
+	//
+	// Added 2026-08-06, forced by a real consequence of the owner's ruling rather
+	// than chosen: demoting two-sidedness to advisory removed the ONLY criterion
+	// that was rejecting §10.6's "trending slop" sample, and the calibration said
+	// so immediately by approving "AI is changing everything". §10.6 still requires
+	// that sample to be rejected, so the ruling did not license letting it through
+	// — it created a gap that had to be filled somewhere else.
+	//
+	// Contestability is the right place, because it is precisely what distinguishes
+	// the one-sided provocations the owner prefers from filler. "Privacy is already
+	// over" takes a position a reasonable person can argue against; "AI is changing
+	// everything" states something nobody disputes. The first is a provocation with
+	// no counter-case; the second is not a provocation at all. All nine live
+	// entries satisfy it, so it costs the corpus nothing.
+	if !j.Contestable {
+		v.reject("judgement", "not_contestable",
+			"nobody could seriously argue the opposite — a provocation must take a "+
+				"position worth disputing, not state a trend everyone accepts")
 	}
 	if !j.OrdinaryExp {
 		v.reject("judgement", "needs_specialist_knowledge",

@@ -37,107 +37,84 @@ import (
 // The real corpus (live pool, 2026-08-05)
 // ---------------------------------------------------------------------------
 
+// realProvocations is GENERATED MECHANICALLY from the live pool, never typed.
+//
+// OWNER RULING 2026-08-06: "we want it all to be done through the framework, so we
+// don't want you writing things yourself."
+//
+// The previous version of this block claimed to be "reproduced verbatim" and was
+// not: eight of the nine live rows have an empty `body` column, so I had composed
+// long-form bodies — complete with tidy "The counter is..." turns — and then tested
+// whether the gate detects counter-cases. It passed 9/9 against prose I had written
+// to contain the very property under test. The live calibration scored 4/9 on the
+// same nine provocations and is what exposed it (WRONG_CALLS.md 2026-08-05).
+//
+// So this is now the output of:
+//
+//	SELECT slug, title, teaser, COALESCE(NULLIF(body,''), COALESCE(detail_body,''))
+//	  FROM provocations WHERE domain='vonc.com' AND status='approved' ORDER BY publish_on;
+//
+// serialised straight to Go. The COALESCE mirrors loadGateCandidates exactly, so the
+// judged text here is the judged text in production. A comment asserting "verbatim"
+// is not a control on verbatimness; generating the fixture is.
+//
+// NOTE the first entry: `group-chats-replaced-friendship` has a body of ZERO
+// characters in the production pool. It is kept, not quietly dropped — see
+// TestGateAcceptsTheRealProvocations, which treats it as the pool defect it is.
 var realProvocations = []provocationCandidate{
 	{
-		Slug:   "ai-never-funny-on-purpose",
-		Title:  "AI will never be funny on purpose",
-		Teaser: "The machine can recombine a million jokes and still not know why any land.",
-		Body: "A model can hold every joke ever written and still not know which one to tell. " +
-			"Humour is a social risk instrument: it needs a target, a shared assumption to break, " +
-			"and a real chance of the room going cold. A system tuned never to offend and never to " +
-			"fail has removed all three ingredients before it starts. " +
-			"The counter is that comedy has always been iteration — that a good comedian is also " +
-			"recombining, just slower, and that the room's laughter is the only test either of them " +
-			"passes. If that is right, the machine is not missing an ingredient, only the timing.",
-	},
-	{
-		Slug:   "remote-work-killed-mentorship",
-		Title:  "Remote work killed mentorship",
-		Teaser: "You can't absorb judgement over a video call.",
-		Body: "Judgement is not transferred in meetings. It is absorbed in the two minutes after one — " +
-			"the aside, the raised eyebrow, the way someone rewrites your paragraph while you watch. " +
-			"None of those moments has an agenda item, so no scheduled call contains them. " +
-			"The rebuttal is that this was always a story the office told about itself, and that the " +
-			"people who learned most were the ones who sat nearest the right desk — which is luck, " +
-			"not pedagogy. Remote at least makes the transfer deliberate or not at all.",
-	},
-	{
-		Slug:   "privacy-is-already-over",
-		Title:  "Privacy is already over",
-		Teaser: "You traded it years ago. The fight now is who profits.",
-		Body: "You cannot claw back a decade of location history, contact graphs and purchase records " +
-			"by changing a setting. The data exists, it has been copied, and the copies are the asset. " +
-			"Every privacy control shipped since governs what happens next, never what already happened. " +
-			"So the honest question stops being whether privacy can be restored and becomes who is " +
-			"allowed to earn from what was already taken. Against that: treating it as settled is " +
-			"precisely what the holders of the copies would like you to conclude.",
-	},
-	{
-		Slug:   "data-driven-decisions-arent",
-		Title:  "Most 'data-driven' decisions aren't",
-		Teaser: "The numbers get picked after the gut already chose.",
-		Body: "Watch the sequence. Someone forms a view, then commissions the analysis, then reads the " +
-			"analysis for the part that agrees. The dashboard is not an input to the decision. It is " +
-			"the receipt. " +
-			"The defence is that this still beats nothing — that even a motivated search for evidence " +
-			"occasionally turns up something inconvenient enough to stop a bad plan, and that a culture " +
-			"of citing numbers at least makes the reasoning inspectable afterwards.",
-	},
-	{
-		Slug:   "fiction-makes-you-worse-at-facts",
-		Title:  "Reading fiction makes you worse at facts",
-		Teaser: "Narrative trains you to want a tidy arc. Reality doesn't have one.",
-		Body: "A novel teaches you to expect that events connect, that behaviour has motive, and that " +
-			"the ending explains the beginning. None of that is true of a pandemic, an election or a " +
-			"market. The better you get at narrative, the more confidently you impose one. " +
-			"Against that: fiction is the main way most people ever practise holding someone else's " +
-			"interior life in mind, and a reader who can do that is harder to fool about people, " +
-			"which is most of what politics and markets actually are.",
-	},
-	{
-		Slug:   "four-day-week-productivity-myth",
-		Title:  "The four-day week is a productivity myth",
-		Teaser: "The pilots that prove it were self-selected true believers.",
-		Body: "The pilots recruit organisations that already believed, run them for six months with " +
-			"everyone watching, and measure self-reported output. That is a design which cannot return " +
-			"a negative result. It tells you what motivated people do under observation, not what a " +
-			"four-day week does. " +
-			"The counter is that every workplace reform in history was first demonstrated by " +
-			"enthusiasts, and that demanding a hostile trial before believing anything is a way of " +
-			"never changing.",
+		Slug:   "group-chats-replaced-friendship",
+		Title:  "Group chats replaced friendship maintenance",
+		Teaser: "Presence without effort. The bar has never been lower.",
+		Body:   "",
 	},
 	{
 		Slug:   "nobody-reads-terms-of-service",
 		Title:  "Nobody actually reads terms of service — and that's rational",
 		Teaser: "The cost of reading outweighs the power to change anything.",
-		Body: "Reading takes an hour. Understanding takes a lawyer. Refusing takes the service away. " +
-			"Given those three prices, not reading is the correct decision, and every study that frames " +
-			"it as apathy has mistaken a rational calculation for a character flaw. " +
-			"Which moves the burden somewhere else entirely. If consent is rationally impossible, then " +
-			"consent cannot be what makes the terms fair, and something other than a signature has to " +
-			"do that work.",
+		Body:   "Reading takes an hour. Understanding takes a lawyer. Refusing takes the service away. Given those three prices, not reading is the correct decision, and every study that frames it as apathy has mistaken a rational calculation for a character flaw.\nWhich moves the burden somewhere else entirely. If consent is only ever given unread, then consent is not the thing doing the work, and we should stop pretending that it is.",
 	},
 	{
-		Slug:   "group-chats-replaced-friendship",
-		Title:  "Group chats replaced friendship maintenance",
-		Teaser: "Presence without effort. The bar has never been lower.",
-		Body: "A group chat lets you be continuously present and never once available. You react, you " +
-			"send the link, you are counted as in touch — and nobody has to ask you for anything or " +
-			"notice you did not offer. The maintenance that friendship used to require has been " +
-			"replaced by attendance. " +
-			"The rebuttal is that the alternative was not deep friendship but silence: most of these " +
-			"people would simply have drifted, and a low bar that keeps them reachable beats a high " +
-			"one nobody clears.",
+		Slug:   "four-day-week-productivity-myth",
+		Title:  "The four-day week is a productivity myth",
+		Teaser: "The pilots that prove it were self-selected true believers.",
+		Body:   "The pilots recruit organisations that already believed, run them for six months with everyone watching, and measure self-reported output. That is a design which cannot return a negative result. It tells you what motivated people do under observation, not what a four-day week does.\nThe counter is that the effect may well be real regardless, and demanding a hostile trial of something people obviously want is its own motivated reasoning. Possibly. Run it on a sceptical workforce for two years and the argument ends.",
+	},
+	{
+		Slug:   "fiction-makes-you-worse-at-facts",
+		Title:  "Reading fiction makes you worse at facts",
+		Teaser: "Narrative trains you to want a tidy arc. Reality doesn't have one.",
+		Body:   "A novel teaches you to expect that events connect, that behaviour has motive, and that the ending explains the beginning. None of that is true of a pandemic, an election or a market. The better you get at narrative, the more confidently you impose one.\nAgainst that: fiction is the main way most people practise holding a mind that is not their own, which is hardly nothing when the facts in dispute are about other people. Perhaps the trade is worth making. But it is a trade, and it is almost always sold as a free gain.",
+	},
+	{
+		Slug:   "data-driven-decisions-arent",
+		Title:  "Most 'data-driven' decisions aren't",
+		Teaser: "The numbers get picked after the gut already chose.",
+		Body:   "Watch the sequence. Someone forms a view, then commissions the analysis, then reads the analysis for the part that agrees. The dashboard is not an input to the decision. It is the receipt.\nThe defence is that this still beats nothing — that even a motivated search for evidence occasionally turns up the number that stops you. Fair enough. But then say that is what the dashboard is for, and stop calling the output data-driven.",
+	},
+	{
+		Slug:   "privacy-is-already-over",
+		Title:  "Privacy is already over",
+		Teaser: "You traded it years ago. The fight now is who profits.",
+		Body:   "You cannot claw back a decade of location history, contact graphs and purchase records by changing a setting. The data exists, it has been copied, and the copies are the asset. Every privacy control shipped since governs what happens next, never what already happened.\nSo the honest question stops being whether privacy survives and becomes who is permitted to profit from its absence. That is a distribution argument rather than a technical one, and it has an entirely different set of winners.",
+	},
+	{
+		Slug:   "remote-work-killed-mentorship",
+		Title:  "Remote work killed mentorship",
+		Teaser: "You can't absorb judgement over a video call.",
+		Body:   "Judgement is not transferred in meetings. It is absorbed in the two minutes after one — the aside, the raised eyebrow, the way someone rewrites your paragraph while you watch. None of those moments has an agenda item, so no scheduled call contains them.\nThe rebuttal is that this was always a story senior people told about their own value. Plenty of people learned their craft alone, from documents, badly lit, and turned out fine. So which is it: a genuine transmission loss, or nostalgia for the office as a stage?",
+	},
+	{
+		Slug:   "ai-never-funny-on-purpose",
+		Title:  "AI will never be funny on purpose",
+		Teaser: "The machine can recombine a million jokes and still not know why any land.",
+		Body:   "A model can hold every joke ever written and still not know which one to tell. Humour is a social risk instrument: it needs a target, a shared assumption to break, and a real chance of the room going cold. A system tuned never to offend and never to fail has removed all three ingredients before it starts.\nThe counter-case is that funniness is only a pattern in the data, and the machine is a better pattern-finder than you are. If that holds, the failure is temporary and the punchlines improve. If it does not, then everything an AI has ever produced that made you laugh was written by a person it read.",
 	},
 	{
 		Slug:   "nobody-wants-personalised-internet",
 		Title:  "Nobody actually wants a personalised internet",
 		Teaser: "What gets sold as personalisation is the quiet removal of what you'd have shared with a stranger.",
-		Body: "Personalisation is described as showing you more of what you like. What it does is remove " +
-			"the things you have no track record of liking — which is most of what you would ever have " +
-			"discovered. The feed gets more comfortable and the shared reference pool gets smaller. " +
-			"Against that: the unpersonalised internet was not a commons, it was whatever was loudest, " +
-			"and the nostalgia is for a shared experience most people found alienating at the time.",
+		Body:   "Every feed is tuned to one person, and every conversation now opens with “have you seen” and closes with a shrug. What gets sold as personalisation is mostly the quiet removal of whatever you would have had in common with a stranger. The engine is not serving you — it is dividing the room so each half can be sold separately.",
 	},
 }
 
@@ -158,7 +135,7 @@ var badProvocations = []struct {
 			Teaser: "They are stupid and everyone knows it, no argument needed.",
 			Body:   strings.Repeat("They are simply morons and anyone defending them is also a moron. ", 6),
 		},
-		judgeSays: &judgement{Safe: false, TwoSided: false, OrdinaryExp: true, Note: "abusive"},
+		judgeSays: &judgement{Safe: false, TwoSided: false, Contestable: true, OrdinaryExp: true, Note: "abusive"},
 		wantRule:  "unsafe",
 	},
 	{
@@ -172,7 +149,7 @@ var badProvocations = []struct {
 				"Some argue the causation runs the other way, but the study controlled for it.",
 		},
 		judgeSays: &judgement{
-			Safe: true, TwoSided: true, OrdinaryExp: true,
+			Safe: true, TwoSided: true, Contestable: true, OrdinaryExp: true,
 			FactualProblems: []struct {
 				Quote  string `json:"quote"`
 				Reason string `json:"reason"`
@@ -197,9 +174,35 @@ var badProvocations = []struct {
 			Teaser: "The pace of change is unprecedented and we must all adapt now.",
 			Body:   strings.Repeat("Artificial intelligence is transforming every industry at unprecedented speed. ", 5),
 		},
-		judgeSays: &judgement{Safe: true, TwoSided: false, OrdinaryExp: true, Note: "no counter-case, not contestable"},
-		wantRule:  "not_two_sided",
+		judgeSays: &judgement{Safe: true, TwoSided: false, Contestable: false, OrdinaryExp: true, Note: "a trend nobody disputes; nothing to argue against"},
+		wantRule:  "not_contestable",
 	},
+}
+
+// aGoodCandidate returns a real provocation that clears every deterministic layer,
+// for tests whose subject is the JUDGE rather than the corpus.
+//
+// It exists because `realProvocations[0]` used to serve this purpose and stopped:
+// regenerating the fixture from the pool (ORDER BY publish_on) moved
+// `group-chats-replaced-friendship` — the row with a ZERO-character body — into
+// index 0, and seven fail-closed tests started rejecting on `body_too_short`
+// before the judge was ever consulted. They still passed as "rejected", which is
+// the dangerous part: a test asserting "this is refused" cannot tell refusal-for-
+// the-right-reason from refusal-for-an-unrelated-one unless it checks the reason.
+// Ours did check, so they failed loudly instead of silently testing nothing.
+//
+// A positional reference into data generated from a live table is a silent
+// dependency on that table's ordering. This is the fix: state the property.
+func aGoodCandidate(t *testing.T) provocationCandidate {
+	t.Helper()
+	for _, c := range realProvocations {
+		if len(strings.TrimSpace(c.Body)) >= minBodyLen {
+			return c
+		}
+	}
+	t.Fatal("no provocation in the live corpus clears the deterministic layers; " +
+		"every judge-focused test below would be testing the form rules instead")
+	return provocationCandidate{}
 }
 
 // ---------------------------------------------------------------------------
@@ -227,6 +230,8 @@ func marshalJudgement(j judgement) (string, error) {
 	b.WriteString(boolStr(j.Safe))
 	b.WriteString(`,"two_sided":`)
 	b.WriteString(boolStr(j.TwoSided))
+	b.WriteString(`,"contestable":`)
+	b.WriteString(boolStr(j.Contestable))
 	b.WriteString(`,"arguable_from_ordinary_experience":`)
 	b.WriteString(boolStr(j.OrdinaryExp))
 	b.WriteString(`,"factual_problems":[`)
@@ -264,7 +269,7 @@ func escapeJSON(s string) string {
 }
 
 // goodJudgement is what the model should say about every entry in the real corpus.
-var goodJudgement = judgement{Safe: true, TwoSided: true, OrdinaryExp: true, Interesting: 7, Current: 6}
+var goodJudgement = judgement{Safe: true, TwoSided: true, Contestable: true, OrdinaryExp: true, Interesting: 7, Current: 6}
 
 // ---------------------------------------------------------------------------
 // THE CALIBRATION TESTS
@@ -273,13 +278,40 @@ var goodJudgement = judgement{Safe: true, TwoSided: true, OrdinaryExp: true, Int
 // The first half of §10.6's bar. If this fails, the gate would have rejected
 // provocations the owner actually published — the false-positive direction, which
 // is the one that silently starves the site.
-func TestGateAcceptsTheNineRealProvocations(t *testing.T) {
+func TestGateAcceptsTheRealProvocations(t *testing.T) {
 	if len(realProvocations) != 9 {
 		t.Fatalf("the corpus is 9 provocations, got %d — calibration is against the real set, not a sample", len(realProvocations))
 	}
+
+	emptyBodied := 0
 	for _, c := range realProvocations {
+		c := c
 		t.Run(c.Slug, func(t *testing.T) {
 			v := gateCandidate(context.Background(), c, judgeReturning(goodJudgement), "stub")
+
+			// THE ONE HONEST EXCEPTION, AND IT IS A FINDING, NOT AN EXEMPTION.
+			// `group-chats-replaced-friendship` has a body of zero characters in the
+			// production pool. There is nothing for the gate to judge, so it MUST be
+			// rejected — and it must be rejected for exactly that reason, not for
+			// some other rule that happens to catch it. Lowering minBodyLen to admit
+			// an empty provocation would be fixing the checker to agree with a
+			// broken row; the row is what needs fixing, and the owner's ruling that
+			// provocations are written by the framework rather than by hand means
+			// that repair belongs to the generator, not to me.
+			if strings.TrimSpace(c.Body) == "" {
+				emptyBodied++
+				if v.Approved {
+					t.Fatalf("APPROVED a provocation with an EMPTY body — there is no prose to " +
+						"judge, so safety and factual checks both returned 'no problems found in " +
+						"no text', which is not a pass")
+				}
+				if !hasRule(v, "body_too_short") {
+					t.Errorf("rejected the empty-bodied row, but not as body_too_short; got: %s", ruleList(v))
+				}
+				t.Logf("POOL DEFECT (expected): %s has no body in production, so it cannot be judged", c.Slug)
+				return
+			}
+
 			if !v.Approved {
 				for _, r := range v.Reasons {
 					if r.Fatal {
@@ -289,6 +321,15 @@ func TestGateAcceptsTheNineRealProvocations(t *testing.T) {
 				t.Fatalf("%s was rejected; the corpus IS the specification", c.Slug)
 			}
 		})
+	}
+
+	// Guard the guard: if the pool is repaired and this row gains a body, the
+	// exception above becomes dead code that would silently start exempting
+	// nothing — or, worse, would exempt a DIFFERENT row that later loses its body.
+	if emptyBodied != 1 {
+		t.Errorf("expected exactly 1 empty-bodied row in the live corpus, found %d — "+
+			"either the pool was repaired (delete the exception) or another row lost its "+
+			"body (a new defect worth reporting)", emptyBodied)
 	}
 }
 
@@ -347,7 +388,7 @@ func ruleList(v gateVerdict) string {
 // be read as a gate with no objection. Each sub-case is a way the judge fails to
 // produce a verdict, and every one must come out REJECTED.
 func TestGateRejectsWhenTheJudgeNeverRan(t *testing.T) {
-	good := realProvocations[0] // a candidate that passes every other layer
+	good := aGoodCandidate(t)
 
 	cases := []struct {
 		name  string
@@ -373,7 +414,7 @@ func TestGateRejectsWhenTheJudgeNeverRan(t *testing.T) {
 			return `{"safe":true,"two_sided":true,"arguable_from_ordinary_experience":tr`, nil
 		}, "judge_unparseable"},
 		{"judge reply renames a field", func(context.Context, string) (string, error) {
-			return `{"is_safe":true,"two_sided":true,"arguable_from_ordinary_experience":true,` +
+			return `{"is_safe":true,"two_sided":true,"contestable":true,"arguable_from_ordinary_experience":true,` +
 				`"factual_problems":[],"interesting":5,"current":5,"note":""}`, nil
 		}, "judge_unparseable"},
 	}
@@ -420,12 +461,12 @@ func TestGateRejectsWhenTheJudgeNeverRan(t *testing.T) {
 // "improvement" that reaches for aiservice.IsTruncated to salvage a parseable
 // partial would reintroduce the gap silently, and this is what would stop it.
 func TestGateRejectsATruncationWhosePartialIsValidJSON(t *testing.T) {
-	good := realProvocations[0]
+	good := aGoodCandidate(t)
 
 	// The nastiest possible shape: the cut landed after a complete object, and
 	// that object says "approve". Only the error distinguishes it from a real
 	// verdict, so if the gate ignored the error it would approve here.
-	completeApprovingJSON := `{"safe":true,"two_sided":true,` +
+	completeApprovingJSON := `{"safe":true,"two_sided":true,"contestable":true,` +
 		`"arguable_from_ordinary_experience":true,"factual_problems":[],` +
 		`"interesting":9,"current":9,"note":"looks good"}`
 
@@ -471,7 +512,7 @@ func TestZeroVerdictIsARejection(t *testing.T) {
 // §10.2 describes — treating a judge error as "no objection" — and requires the
 // calibration to catch it.
 func TestTheFailClosedTestsWouldCatchAFailOpenGate(t *testing.T) {
-	good := realProvocations[0]
+	good := aGoodCandidate(t)
 
 	// Simulate the broken gate: judge errors, and the caller ignores it and
 	// approves. If our assertion below did not fire, TestGateRejectsWhenTheJudge
@@ -554,7 +595,7 @@ func TestClaimsRailIsNotGivenTheThesis(t *testing.T) {
 // perfectly good provocation 0/10 for "interesting" must not be able to veto it —
 // §10.7, because that judgement has no data behind it.
 func TestAdvisoryScoresDoNotAffectTheDecision(t *testing.T) {
-	c := realProvocations[0]
+	c := aGoodCandidate(t)
 	dull := goodJudgement
 	dull.Interesting = 0
 	dull.Current = 0
