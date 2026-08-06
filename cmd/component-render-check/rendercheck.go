@@ -786,8 +786,17 @@ func main() {
 	}
 
 	if comparing {
-		summary := fmt.Sprintf("component-render-check vs baseline: %d findings across %d analysed "+
-			"components, %d NEW, %d fixed, %d UNCOVERED", len(findings), checked,
+		// "%d analysed" WITH ITS DENOMINATOR (2026-08-06). It read "139 analysed" on
+		// 2026-08-04 and again on 08-06, while the library grew 176 -> 184: a reader
+		// tracking the number would have seen a constant and concluded coverage was
+		// steady, when what stayed constant was the count of components carrying any
+		// template action at all. Both facts are needed to read either. The skipped
+		// remainder is not a gap — a template with no actions has no field whose
+		// absence could be probed — but an invisible denominator is how a filtered
+		// count gets quoted as a census.
+		summary := fmt.Sprintf("component-render-check vs baseline: %d findings across %d of %d active "+
+			"components (%d have no template actions to probe), %d NEW, %d fixed, %d UNCOVERED",
+			len(findings), checked, len(comps), len(comps)-checked-len(unanalysed),
 			len(newFindings), len(fixedKeys), len(uncoveredKeys))
 		if inherited > 0 {
 			reps := make([]string, 0, len(inheritedFrom))
@@ -815,8 +824,9 @@ func main() {
 		if src == "" {
 			src = "(embedded)"
 		}
-		fmt.Printf("component-render-check vs baseline %s: %d findings now, %d NEW, %d fixed, %d UNCOVERED\n",
-			src, len(findings), len(newFindings), len(fixedKeys), len(uncoveredKeys))
+		fmt.Printf("component-render-check vs baseline %s: %d findings across %d of %d active components, "+
+			"%d NEW, %d fixed, %d UNCOVERED\n",
+			src, len(findings), checked, len(comps), len(newFindings), len(fixedKeys), len(uncoveredKeys))
 		// On stdout as well as in the doc_notes row: a session running --compare by
 		// hand must be able to see what the clone rule suppressed, or the rule is a
 		// filter that hides its own effect.
@@ -861,7 +871,9 @@ func main() {
 		return
 	}
 	real, info := 0, 0
-	fmt.Printf("component-render-check: %d active components analysed (%d with runtime-fill)\n\n", checked, runtimeFillComps)
+	fmt.Printf("component-render-check: %d of %d active components analysed — %d have no template "+
+		"actions to probe, %d failed to parse (%d with runtime-fill)\n\n",
+		checked, len(comps), len(comps)-checked-len(unanalysed), len(unanalysed), runtimeFillComps)
 	if len(findings) > 0 {
 		fmt.Println("ABSENT FIELD => EMPTY ELEMENT (the class the template lint cannot see):")
 		for _, f := range findings {
