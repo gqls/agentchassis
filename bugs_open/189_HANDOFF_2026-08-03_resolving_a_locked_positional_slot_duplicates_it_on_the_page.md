@@ -363,3 +363,47 @@ exactly this build path over the two positional prose slots of
 `guide-how-loans-are-calculated` — if the slot names come back `prose-0`/
 `prose-1` rather than `ported-prose`, that is this fix working on the build
 path, and it is graded there.
+
+## ✅ BOTH HALVES FIXED, LIVE AND BEHAVIOURALLY VERIFIED — 2026-08-06, v1.0.1259
+
+**Kept in `bugs_open/` deliberately.** Owner direction 2026-08-06: *"please leave
+the bugs that you've found in bugs_open not in the closed bug file."* That
+overrides CLAUDE.md's `/bugs_closed/` bar. Do not `git mv` this file.
+
+- **Re-render half** — proven above: 4 rows not 5, positional names intact,
+  locked `tool-2` keeping its row id AND its 2026-08-02 `updated_at`,
+  `rerendered=4 / carried=0`.
+- **Build half** — proven by `bugs_open/204`'s canary
+  (orchestration `fa89217a-768b-4f22-bd7b-12209f58cbf3`, 11:53): a build-path
+  rebuild of `guide-how-loans-are-calculated`'s two positional slots persisted
+  them as **`prose-0` and `prose-1`**, with `pages.sections` still
+  `["prose-0", "prose-1"]`. **Before this fix that path would have written both
+  as `ported-prose`** — the rename that makes `matchLockedRow` miss. Both rows
+  are new ids (`a608c953`, `b05e3477`), so the save genuinely executed rather
+  than carrying.
+
+So the defect is no longer reproducible by **either** route, which is the
+fixed-AND-live bar, and each route was induced rather than argued.
+
+### What is deliberately NOT closed by this
+
+- **`tool-recreation-handler` remains a third `save_page_sections` producer that
+  supplies no `stored_slot_name`** (council `bug_historian`, LOW). It is safe
+  only because it regenerates single-tool HTML with no structured slot identity
+  to offer — **a fact about that producer today, not an enforced mechanism**. If
+  it ever gains a plan, it needs the field. Recorded in PBP-035.
+- **The architecture seat's standing question** (`doc_notes d9d67807`): the
+  tri-state id-resolution judgement is now written inline at two call sites. A
+  THIRD consumer should get one shared helper first, not a third copy.
+
+### Evidence index for a future reader
+
+Pod-grep `stored_slot_name` = 1 on agent-chassis / business-intel / vet-intel
+(**0** at v1.0.1257, the negative control) · re-render induction: item
+`b4de13fb`, orchestration `b807b035` · build induction: item `996b9619`,
+orchestration `fa89217a` · config `slot_name_from` applied and independently
+read back on both writer steps · backup
+`scratchpad/pcw_default_config_backup_20260806.json` (20,339 B) · council
+`87444080` APPROVED · register **PBP-035** · commits `92e14493b` (+
+`1d11827c1` for the `v3_site_actions.go` half, swept into another session's
+commit while this was being written).
