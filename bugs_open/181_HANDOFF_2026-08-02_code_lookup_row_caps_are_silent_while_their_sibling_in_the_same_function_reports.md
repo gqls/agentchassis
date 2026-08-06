@@ -1,5 +1,16 @@
 # 181 — the code-lookup's three row caps are silent, while a sibling cap eight lines away reports itself
 
+> **KEPT IN `bugs_open/` BY OWNER DIRECTION, 2026-08-06 — do NOT move this to
+> `bugs_closed/` on the strength of the closure section at the foot.** The fix
+> is shipped, live on `v1.0.1259`, pod-verified on both replicas and **induced in
+> production both directions in one run** (see § CLOSED at the end, which records
+> the evidence and is accurate as evidence). This thread had moved the file to
+> `bugs_closed/` and the owner directed it back. So: the closure section documents
+> the fix; **the file's LOCATION is the owner's call, not this file's own
+> verdict.** Two follow-ups in that section are also genuinely still open and
+> unstarted — re-examining the five capped `landmine-verifier` renders, and the
+> codebase-wide silent-cap inventory the council's `bug_historian` seat asked for.
+
 **Filed 2026-08-02 by the `bugfix_172_agent_state_cap` lane. OPEN, UNOWNED.**
 **LATENT as far as this corpus can say — and the corpus CANNOT say, see § Measured.**
 

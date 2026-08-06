@@ -1,5 +1,16 @@
 # 126 — a tool with a consent gate cannot pass acceptance, and the auto-fixer is then aimed at its disclaimer
 
+> **KEPT IN `bugs_open/` BY OWNER DIRECTION, 2026-08-06 — do NOT move this to
+> `bugs_closed/` on the strength of the closure section at the foot.** The fix
+> is shipped, live on `v1.0.1259` and pod-verified (see § CLOSED at the end,
+> which records the evidence and is accurate as evidence). This thread had moved
+> the file to `bugs_closed/` on 2026-08-05 and the owner directed it back. So:
+> the closure section documents the fix; **the file's LOCATION is the owner's
+> call, not this file's own verdict**, and `bugs_open/` is where it belongs until
+> he says otherwise. Two items in that section are also genuinely still open —
+> the `tool-improver` doc_plans/doc_notes advisory, and the fact that no real
+> tool's PLAN has yet adopted either new key.
+
 **Filed** 2026-07-28 from the oufe.com workstream, after the first Tier-4 run of
 `tool-recovery-waterfall` failed 2 of 11 checks.
 **Severity** medium now, high latently. Nothing is currently broken in
