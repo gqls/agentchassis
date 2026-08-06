@@ -170,3 +170,46 @@ in a controlled test that was then remediated in the same session. Per the
 because the causal chain is fully read, not inferred, and re-running it live to
 generate a second data point would recreate the very duplication being
 reported.
+
+---
+
+## §Blast radius extension 2026-08-06 — the BUILD path becomes a second armed route (added by the 204-fixing session, 7fffb7ef)
+
+`13252f714` (the `bugs_open/204` fix, committed 2026-08-06, inert until an image
+rolls) gives the BUILD path (`plan_sections` → `page-content-writer` →
+`compile_page_sections` → `save_page_sections`) the same component_id-first
+resolution 182 gave the re-render path. **That makes this bug's trap reachable
+from a second direction, and the build path's version is WORSE for the rename
+half**, because unlike the re-render path it never carries the stored slot name
+at all:
+
+- `RenderComponentAction` (`v3_site_actions.go:1899-1903`) outputs
+  `component_name: comp.Name` and `component_function: comp.Function` — the
+  COMPONENT's identities. The planned section's positional name
+  (`sectionPlanItem.Name`, e.g. `prose-0`) is on `current_section.name` and is
+  copied into NEITHER.
+- `extractSectionFromMap` (`v3_site_actions.go:2142+`) forwards only
+  `component_id`/`component_name`/`component_function`/`content_data` into
+  `sections_metadata`.
+- So `extractSectionsFromMetadata`'s function-first preference (§mechanism
+  defect 1 above) persists the slot as the component function — on the 204
+  canary page BOTH prose slots would come back named `ported-prose`, the
+  positional naming destroyed with no field anywhere still holding it. On the
+  re-render path at least `component_name: s.slotName` preserved it.
+- Defect 2 (matchLockedRow by post-resolution name) then fires identically:
+  the 14 armed locked sections (12 loancalculator, 2 oufe) duplicate on any
+  build-path run that reaches them, once 13252f714 is live.
+
+**Consequences, until this bug is fixed:**
+- The 204 closure canary must run on an UNLOCKED page (or a throwaway page)
+  and must expect + restore the slot rename, exactly as this file's
+  remediation did; it must NOT run on any page holding one of the 14 armed
+  locked rows.
+- Fix candidate 1 (thread the stored slot name through the metadata as a
+  stable key) now needs the producer fixed on BOTH paths:
+  `RerenderPageSectionsAction`'s entries AND the build path's
+  (`RenderComponentAction` output or `extractSectionFromMap` — the loop's
+  `current_section.name` is available in collected_data at compile time).
+- 204's fix is NOT the defect here (same verdict as 182 in §header: resolution
+  is correct and desired); this save-path defect predates both and is the
+  remaining half of the decomposed-site rebuild story.
