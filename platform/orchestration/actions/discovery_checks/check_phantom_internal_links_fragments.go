@@ -56,6 +56,18 @@
 //   - a page that INTERPOLATES its ids (id="${...}") has a computed id set;
 //     DocumentIDs.Satisfies already loosens there rather than guessing.
 //
+// THE INHERITED LOOSENESS FAILS TOWARD FALSE NEGATIVES, ON PURPOSE (council
+// round 1, bug_historian seat, medium: "a shared predicate written for one INPUT
+// SHAPE, reused on another"). DocumentIDs' presentIDRe harvests ids from the
+// whole page text INCLUDING inside script string literals, which
+// OrphanElementRefs does deliberately so that a tool building its own markup is
+// never accused. Resolving a LINK against that same set inherits it: a
+// "#pricing" whose id exists only inside a script string is called resolved even
+// though the browser may never paint it. That is a known miss, and it is the
+// direction this arm must fail in — the cost of a false negative is one
+// unreported inert control; the cost of a false positive is a fixer sent at a
+// working page. Tightening it is what would produce the second kind.
+//
 // SEVERITY IS LOW, AND THAT IS THE HONEST GRADE: a dead fragment is an inert
 // control, not a 404. bugs_open/071 measured the difference on the same links —
 // repairing the PATH of "/capabilities#approach" turns it "from 404 into inert,
