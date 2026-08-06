@@ -1686,3 +1686,33 @@ from a page missing its header. And I watched the sweep for twenty minutes seein
 concluded it had never started, when in fact my watching command was asking the database for a
 column that does not exist and quietly failing — the sweep had already finished. Both are now
 written down as checks rather than as apologies.
+
+---
+
+2026-08-06, late evening. The repetition fix is built. This is the one from the
+bug you raised when home and capabilities "seemed very similar" — the writer
+used to be handed the same full list of approved facts for every section it
+wrote, so sibling sections kept restating the same things in different words.
+Now the planner is shown the fact list and decides, per section, which facts
+that section is responsible for saying; the writer for a section only ever
+sees its own share. A section that was never told a fact exists cannot repeat
+it. Existing sites are untouched until we deliberately replan one — nothing
+changes on its own.
+
+It is committed and submitted for review, but switched off until the next
+image roll plus four small config steps, in a stated order, each harmless on
+its own. The proof it works will be: replan fundamentallyai, rebuild, and
+watch the duplication counter the checker keeps drop from 9 overlapping pairs
+towards zero — while the sites with too few facts to measure stay exactly
+where they are (if those moved, something else did it).
+
+One honest caveat: this fixes fact repetition. Five of the seven flagged sites
+have almost no registered facts, and their duplication is plain wording
+similarity — this mechanism gives those sites nothing until their evidence
+bases are filled in. That is a separate, known piece of work.
+
+Tonight was also the busiest the shared tree has been: another session's
+commit carried half my change to the main line before I could commit it
+myself (harmless, recorded), and I had to surgically hold a third session's
+half-finished work out of my commit so the build everyone ships from would
+not break. All three sessions' work survived intact.
