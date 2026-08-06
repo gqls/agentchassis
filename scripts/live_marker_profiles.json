@@ -1,0 +1,13 @@
+{
+  "rfc009": {
+    "binary": "/app/agent-chassis",
+    "deployment": "agent-chassis",
+    "expect": [
+      "a component must not assert a contact detail, price or address nobody supplied=2",
+      "template invents=1",
+      "library_fabricated_hours=1"
+    ],
+    "negative": [],
+    "note": "saved by --save"
+  }
+}

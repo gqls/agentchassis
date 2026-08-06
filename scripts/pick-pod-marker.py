@@ -175,6 +175,33 @@ def main():
           (NS, shlex.quote(payload)))
     print("  done")
     print("\n(first number: your marker, expect >=1 · second: the negative control, expect 0)")
+
+    # A marker set is proved ONCE by the loop above and then AGAIN after every
+    # roll, because a proof carries the tag it was taken on. Rebuilding a probe
+    # binary each time is wasted work once the markers are known, so hand the set
+    # to the verifier and give it a name. It asserts counts on every replica,
+    # refuses a non-ASCII marker outright, and separates "could not look" (2)
+    # from "looked and it is not there" (1).
+    # PRESENCE, not an exact count. The counts above are this PROBE's, built at
+    # <commit>; the deployed binary is a descendant, and a later commit can add or
+    # drop a call site while the string survives. Measured 2026-08-06: the probe at
+    # 87ea0a5e7 holds the contact-detail marker once, the live chassis twice — so a
+    # count harvested here and saved as an assertion fails on arrival, and the
+    # failure looks like a missing fix. Tighten to `=N` yourself once you have read
+    # the count off the running binary, which is the only place it is authoritative.
+    save = " \\\n      ".join(
+        ["scripts/prove-live-markers.py --save <name> --deployment %s" % svc] +
+        ["--expect %s" % shlex.quote(c["lit"][:60]) for _, c in verified[:3]] +
+        (["--negative %s" % shlex.quote(neg[:60])] if neg else []))
+    print("\nto re-prove this after EVERY future roll, save it once:")
+    print("  " + save)
+    print("  scripts/prove-live-markers.py <name>        # every roll thereafter")
+    print("  (markers saved as PRESENCE — the counts above are the probe's, and a "
+          "later commit\n   may add a call site. Tighten to '<marker>=N' from the "
+          "LIVE count if you want that.)")
+    if not neg:
+        print("  (no removed string in this commit, so the saved control would be "
+              "synthetic — it proves the pipeline, not the roll)")
     return 0
 
 
