@@ -4651,3 +4651,46 @@ bug file's status update; acceptance = replan fundamentallyai and watch the
 census fact-overlap pairs fall (the five fact-blind sites must NOT move — the
 disconfirmable half of the check). Drain of the 7 flag-only gaps stays
 sequenced behind 189's config half.
+
+## 2026-08-06 (night) — verdict read: REJECTED, guardian veto on BREADTH; acted on the same night
+
+The watcher caught the council completing ~15 minutes after submission (no
+30-minute queue tonight). **REJECTED, hard guardian veto, round 1** — corr
+`902a8563`. Read in full before acting. The split: 6 approve (editquality,
+reuse_agent, guidelines, debug_historian, constitution, mission), 3 object
+(bug_historian, compliance, prior_art_librarian), guardian veto, architecture
+`needs_rfc`. The veto is explicitly NOT about correctness ("the engineering
+discipline here is genuinely good... regardless of care taken") — it is about
+three simultaneous fleet-wide prompt changes plus four Go files in one
+submission. Per the 07-28/29 owner rulings: code stays, no resubmit-with-
+better-measurements; record the veto where the change lives and route the seam
+to architecture review.
+
+Done, all tonight:
+
+- **RFC_016** written (`architecture_review/`): the section-entry wire-shape
+  contract, blast radius, the re-sliced rollout, and the two decisions it asks
+  a human for. The architecture seat's own words: the prose was "already doing
+  RFC-shaped work" — now it is an artifact.
+- **Rollout re-sliced per the veto** (visible corrections in the bug file,
+  PBP-037 and its index row): Slice A = roll → 327 → 329 only, observe live
+  plan rows; Slice B = 328/330 as its own council round, piloted, human read
+  of the v4 plaintext first (compliance's ask — the plaintext is committed for
+  exactly that).
+- **bug_historian's real defect FIXED in code**: a non-empty assignment whose
+  every ID is unknown composed an empty block and would have rendered the
+  "deliberately factless" branch — a broken assignment indistinguishable from
+  a deliberate one. Now degrades to UNSCOPED (today's site-wide block) plus a
+  durable `agent_error_log` row (`FACT_SCOPING_EMPTY_COMPOSITION`), pinned by
+  a new sqlmock test asserting the INSERT.
+- **prior_art's absence-claim check answered**: the LIKE pattern's `_` wildcard
+  LOOSENS the match, so the measured zero is a stronger zero; single-caller
+  claim re-verified by grep. Recorded in RFC_016 §4 so round B is not
+  re-litigated.
+
+Misstep for the tally, mine: the submission's risks block cited
+"mutation-verified tests" without listing the test file in the edits — two
+seats independently flagged the gap (editquality LOW, and it weakened the
+plan's own evidence). The tests existed and had run; the PLAN text under-
+carried them. Cheap check: an edits list should name every file the risks
+block leans on.

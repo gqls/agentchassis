@@ -1001,9 +1001,51 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 		if facts == nil {
 			return
 		}
+		block := composeScopedWriterBlock(evidenceBase, facts, logger, item.Name)
+		if len(facts) > 0 && block == "" {
+			// A non-empty assignment that composes to NOTHING (every ID
+			// unknown, or the evidence base has gone) is a composition
+			// anomaly, NOT a deliberately factless section — those carry [].
+			// Marking it scoped would render the "state no facts here"
+			// branch, making a broken assignment indistinguishable from a
+			// deliberate one (council 902a8563, bug_historian's missing
+			// case). Degrade to UNSCOPED — the writer falls back to today's
+			// site-wide block — and record durably, not just in pod output.
+			logger.Warn("plan_sections: fact assignment composed an empty writer block — degrading section to unscoped",
+				zap.String("section", item.Name),
+				zap.Strings("assigned_fact_ids", facts))
+			anomalyCtx, _ := json.Marshal(map[string]interface{}{
+				"section":           item.Name,
+				"page_name":         pageName,
+				"assigned_fact_ids": facts,
+				"remedy":            "the plan's assigned_fact_ids match no current evidence_base fact with a writer_line; replan the site or correct the register — the section built with the site-wide block meanwhile",
+			})
+			if _, insErr := params.DB.ExecContext(ctx, `
+				INSERT INTO agent_error_log (
+					site_id, orchestration_id, agent_type, agent_id, pod_name,
+					step_name, action, error_message, error_code, severity, context
+				) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb)
+			`,
+				siteID,
+				params.ExecutionContext.OrchestrationID,
+				params.ExecutionContext.Sender.AgentType,
+				params.ExecutionContext.Sender.AgentID,
+				params.ExecutionContext.Sender.PodName,
+				params.ExecutionContext.StepName,
+				"plan_sections",
+				fmt.Sprintf("fact assignment for section %q composed an empty writer block (%d assigned IDs, none resolvable)", item.Name, len(facts)),
+				"FACT_SCOPING_EMPTY_COMPOSITION",
+				"warning",
+				string(anomalyCtx),
+			); insErr != nil {
+				logger.Warn("plan_sections: could not record empty-composition anomaly to agent_error_log",
+					zap.Error(insErr))
+			}
+			return
+		}
 		item.FactsScoped = true
 		item.AssignedFactIDs = facts
-		item.AssignedWriterBlock = composeScopedWriterBlock(evidenceBase, facts, logger, item.Name)
+		item.AssignedWriterBlock = block
 	}
 
 	// Build selector context for the fallback path.

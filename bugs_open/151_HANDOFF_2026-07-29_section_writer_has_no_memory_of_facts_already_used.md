@@ -233,3 +233,17 @@ capability_gaps stay open as the drain population — draining means replan+rebu
 through the claims-gated path and is sequenced behind `bugs_open/189`'s config half
 for locked-row pages. Candidates 2 (component shape tag) remains unbuilt and
 unclaimed.
+
+> **CORRECTED 2026-08-06 (same evening, post-verdict): the council REJECTED the
+> submission — hard guardian veto, round 1 (corr `902a8563`) — on BREADTH, not
+> correctness (6 of 11 seats approved; the veto is about three fleet-wide prompt
+> changes + four Go files reaching production as one slice). Per the standing
+> owner rulings the code stays; the ROLLOUT ORDER above is superseded:**
+> **Slice A** = image roll → mig `327` → seed `329` ONLY (planner emits
+> assignments, nothing consumes them) → inspect real plan rows; **Slice B** =
+> seeds `328`/`330`, its own council round, piloted on a small cohort, and a
+> human reads the v4 prompt plaintext before `330` applies. Full contract +
+> veto record: `architecture_review/RFC_016`. Two objections were fixed in code
+> the same night (empty-composition degradation + durable
+> `FACT_SCOPING_EMPTY_COMPOSITION` record — a broken assignment can no longer
+> render as a deliberately factless section).

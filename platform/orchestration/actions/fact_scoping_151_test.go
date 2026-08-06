@@ -312,3 +312,66 @@ func TestPlanSections_FactScopingRidesTheReadyItems(t *testing.T) {
 		t.Errorf("unmet sqlmock expectations: %v", err)
 	}
 }
+
+// TestPlanSections_EmptyCompositionDegradesToUnscopedWithDurableRecord pins the
+// council-flagged case (corr 902a8563, bug_historian): a NON-EMPTY assignment
+// whose every ID is unknown composes an empty block. That is a composition
+// anomaly, not a deliberately factless section — if it were marked scoped, the
+// writer would render the "state no facts here" branch and a broken assignment
+// would read exactly like a deliberate one. It must instead degrade to
+// UNSCOPED (today's site-wide block) and leave a durable agent_error_log row,
+// not just pod output.
+func TestPlanSections_EmptyCompositionDegradesToUnscopedWithDurableRecord(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	siteID := uuid.New()
+	heroID := uuid.New().String()
+
+	mock.ExpectQuery("WHERE name IN").WillReturnRows(
+		componentRow(heroID, "hero", "hero", "<section>h</section>", "section"))
+	mock.ExpectQuery("FROM page_components pc").
+		WithArgs(siteID, "index").
+		WillReturnRows(slotRows())
+	mock.ExpectQuery("FROM site_specs").
+		WillReturnRows(sqlmock.NewRows([]string{"aspect", "data"}).
+			AddRow("evidence_base", `{"facts":[{"id":"F1","claim":"Runs 12 live sites","value":12,"writer_line":"We run {value} live production sites."}]}`))
+	mock.ExpectQuery("FROM site_work_items").
+		WillReturnRows(sqlmock.NewRows([]string{"section_name", "summary"}))
+
+	// The durable record is the assertion: severity and error_code pinned.
+	mock.ExpectExec("INSERT INTO agent_error_log").
+		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
+			sqlmock.AnyArg(), "plan_sections", sqlmock.AnyArg(), "FACT_SCOPING_EMPTY_COMPOSITION", "warning", sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	mock.ExpectExec("UPDATE pages").WillReturnResult(sqlmock.NewResult(0, 0))
+
+	params := planParams(db, siteID, "index", []string{"hero"})
+	params.CollectedData["input_data"].(map[string]interface{})["section_facts"] = []interface{}{
+		[]interface{}{"F9-not-real", "F10-also-not-real"},
+	}
+	params.StepConfig.Config["section_facts"] = "input_data.section_facts"
+
+	out, err := PlanSectionsAction(context.Background(), params)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	items := readyItems(t, out)
+	if len(items) != 1 {
+		t.Fatalf("expected 1 ready item, got %d", len(items))
+	}
+	hero := items[0]
+	if hero.FactsScoped {
+		t.Errorf("an all-unknown assignment must degrade to UNSCOPED, not render the factless branch: %+v", hero)
+	}
+	if hero.AssignedWriterBlock != "" || hero.AssignedFactIDs != nil {
+		t.Errorf("degraded item must carry no scoping fields, got %+v", hero)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet sqlmock expectations (the agent_error_log INSERT is the durable-record assertion): %v", err)
+	}
+}
