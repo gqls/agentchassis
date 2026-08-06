@@ -468,3 +468,149 @@ reproduced by new components, not just carried by old stylesheets.**
 
 `.news-list-tag` is worth a look by whoever takes the generator — a tag chip
 wants `surface` as its fill and `text` as its ink, and both are already derived.
+
+---
+
+## Re-measurement 2026-08-06 — CANDIDATE 1 HAS SHIPPED, two of three findings are FIXED, and the surviving class is a different one
+
+New lane: `docs024_key_docs_latest/bugfix_122_contrast_ink_slots/`
+(`PLAN_2026-08-06_contrast_ink_slots.md` carries the full working). Everything below
+was measured today against the live fleet, not carried from this file.
+
+> **CORRECTED 2026-08-06 — "Finding 1: the shared header CTA hardcodes white text on
+> the site's accent colour" is FIXED, and its five-of-six table is SPENT EVIDENCE.**
+> A reader taking that table as current would spend a chassis roll re-fixing a shipped
+> fix. The live shared template is var-driven:
+>
+> ```sql
+> SELECT substring(html_template from '\.header-cta\s*\{[^}]*\}')
+>   FROM content_components WHERE name='header-theme-chrome';
+> -->  background: var(--color-cta-bg, var(--color-accent));
+>      color:      var(--color-cta-text, var(--color-primary-text));
+> ```
+>
+> And the stored chrome has caught up — **0 of 19** header rows fleet-wide carry a
+> hardcoded white CTA ink (14 var-driven, 4 with no `header-cta`, 1 on the bespoke
+> `header-leopardess`, which is the only active component still holding the literal).
+> This file's candidate 1 said the chrome is a stored artefact needing the
+> `nav_drift` → `nav-updater` path; that has evidently happened.
+
+> **CORRECTED 2026-08-06 — "Finding 2: robot-hands.com's primary call-to-action is
+> invisible" is FIXED.** `.cta-btn.cta-btn-primary` at 1.00:1 is gone from the served
+> page. robot-hands still fails, on entirely different elements (below).
+
+**Finding 3 (vonc.com's Gauntlet buttons) is STILL LIVE as filed** — 23 failures,
+`.gauntlet-btn-primary` 1.76:1. Untouched: that surface is the Gauntlet workstream's,
+as this file already says.
+
+### The fleet today — 15 homepages, `scripts/render_audit.py`, 2026-08-06
+
+**109 firm failures across 12 sites.** `relojistas.com` and `vetcomparison.uk`, both
+listed as failing here on 07-28, are now **clean**; `fundamentallyai.com` and
+`leopardessconsulting.co.uk` are clean too.
+
+| site | firm | dominant shape |
+|---|---|---|
+| ai-agent-orchestration.com | 30 | `--color-heading` == its own background |
+| vonc.com | 23 | Gauntlet buttons (owned elsewhere) |
+| gamesdesign.co.uk | 17 | white/70% on a cyan accent fill |
+| idea.uk | 14 | `text_muted` on a light surface |
+| finetuning.uk | 10 | white on a mid-tone accent fill |
+| gaswholesalers.com | 6 | accent as an ink on white |
+| robot-hands.com | 3 | `--color-primary` as an ink |
+| dartsonline.com | 1 | `--color-primary` as an ink |
+| oufe.com, webdesign.co.uk, webdesign.uk | 1–2 | over-image approximations only |
+
+### The surviving class, in three sub-shapes
+
+**A — a palette slot spent on both a FILL and an INK.** dartsonline
+`.image-hover-card-grid__eyebrow` 1.04, robot-hands `.tl-eyebrow` 1.14 /
+`.tl-card-link` 1.07 — all `color: var(--color-primary)` in shared, unforked, active
+component templates. **17 of 18 layouts use `color: var(--color-primary)` as an ink**
+(`social-lobby` 11×, `affiliate-hub` 9×, `magazine-grid` 8×). This is the
+double-duty finding the 07-29 dartsonline contribution reached, now measured as a
+fleet property rather than one site's. `warnUnusablePrimary` already detects the
+condition at <3.0 and only logs. **`darkSchemeDerivations` derives `primary_text` —
+the ink that goes ON a primary fill — and there is no slot for the inverse: primary
+made legible as an ink on the page.** The platform computes that answer twice
+already (`pickInkOn`, `pickReadableOnBackground`) and never offers it in that
+direction.
+
+**B — `--color-heading` collapsing onto its own background. NEW, in no bug file,
+worst on the fleet, cause `[UNMEASURED]`.** ai-agent-orchestration.com serves **six
+`.H3` at 1.00:1** — `rgb(13,17,23)` on `rgb(13,17,23)` — plus an `.H2` at 1.04 and a
+`.section-heading` at 1.10. It should be impossible: `darkSchemeDerivations` has
+`{heading, from: text}` and the renderer alias block has
+`{"--color-heading", "var(--color-text)"}`. The served value equals the *background*.
+**Deliberately not diagnosed here** — going to the `090` loop rather than into a
+guess, per this repo's corrected diagnosis section and the 2026-07-31 owner ruling.
+
+**C — a component hard-coding an ink over a themed fill (026 family 3).** finetuning
+`.csg-cta-btn` white on `#C8873A` = 3.01, `.cta-btn cta-btn-primary` white-on-white =
+1.00; gaswholesalers `.A` `#E8A020` on white = 2.22; gamesdesign `.stats-eyebrow`
+`#00E5FF` on `#0DBFD6` = 1.44 plus eight `rgba(255,255,255,0.7)` labels at 1.72.
+
+> **`accent_text` was derived on 2026-07-27 for precisely this — its own comment says
+> "so a component can stop hard-coding white over an accent fill" — and it has ZERO
+> CONSUMERS.** Measured across every surface that could name it: `content_components`
+> 0, `layouts` 0, `css_snippets` 0, `site_components` 0, `page_components` 0. That is
+> the LANDMINE *"a palette slot no LAYOUT declares is never emitted — deriving it is
+> dead config"*, recorded from this bug's own dartsonline round, sitting unfired in
+> the list it was written about.
+
+**Note the scheme boundary breaks on C.** `fillDarkSchemeSpecialisedSlots` is
+dark-only by deliberate design, and gaswholesalers (`#F4F1EB`) and finetuning
+(`#F5F3EF`) are LIGHT. "Is this colour legible as text on that ground" is
+scheme-independent, so a dark-only derivation cannot reach sub-shape C at all.
+
+### CANDIDATE 2 IS NO LONGER A BUILD TASK — it is one `scheduled_tasks` row
+
+> **CORRECTED 2026-08-06 — candidate 2 above says "the tool already exists and is not
+> wired to anything — that is the whole of the remaining work". The Go port, the
+> orchestration AND the work-item drain now all exist and are live.** As of chassis
+> **v1.0.1257**:
+>
+> - `write_render_audit_findings` is **in the running binary** — pod-grepped on
+>   `agent-chassis-5b9fd84984-hqc5d`: **11** occurrences, invented control **0**,
+>   positive controls `scanStoredStatClaims` **2** / `fillDarkSchemeSpecialisedSlots`
+>   **4**. (Register VIZ-013, previously "inert until an image roll".)
+> - the live `render-audit-agent` row's workflow steps are
+>   `site → audit → write_findings → complete` — so the config tail landed too.
+> - it files firm contrast failures as `contrast_failure` routed to `css-patch-agent`,
+>   deduped on `contrast_failure:<page-path>#<selector>`.
+>
+> **And nothing dispatches it.** 28 enabled `scheduled_tasks`, none targeting
+> `render-audit-agent`. `contrast_failure` items ever raised: **4** — all
+> relojistas.com, all 2026-08-04, all `complete`, i.e. one hand-run. This is the
+> `bugs_open/083` / `093` / `115` shape again: a mechanism made correct, then guarded
+> behind something that never runs.
+>
+> *The check that stops you getting this wrong:* `orchestration_states` for
+> `owner_agent_type='render-audit-agent'` returns **0 rows**, and that does NOT mean
+> "never ran" — terminal rows are reaped at ~24h. `scheduled_tasks` has no reaper and
+> is what answers the cadence question.
+
+### Fix now proposed (full reasoning + the rejected alternatives in the lane's PLAN)
+
+1. **Emit legible-ink companions from the RENDERER, not from 18 layout templates** —
+   `--color-primary-ink` / `--color-accent-ink`, each holding its source colour when
+   that clears AA against the ground, else the palette colour that does. Same
+   renderer-owned `:root` pattern as `buildSectionDefaults` and `buildTokenAliases`,
+   which already carry a stated "themes must not declare these" contract. Additive
+   and inert — nothing changes until a component writes
+   `var(--color-primary-ink, var(--color-primary))`, so the opt-in is structural and
+   visible to a reviewer of the *component*. Scoped to **both** schemes, unlike the
+   dark-only derivations, because sub-shape C is on light sites — that widening is
+   the thing to push on in review, and is stated rather than buried.
+   Then repoint `image-hover-card-grid` (1 page, 1 site) and `tool-list` (6 pages, 4
+   sites), which closes sub-shape A's measured instances.
+2. **Add the cadence row for `render-audit-agent`** — but bank a pre-fix baseline
+   first, since findings dedup by page+selector and the next audit is the de-facto
+   verifier.
+3. **NOT repointing palettes** (proved to trade one failure for another) and **not**
+   hand-fixing pages as a class fix.
+
+**Verification must not be graded on a stylesheet or a palette row** — both are the
+unsound methods this file's own 07-28 correction records. Induce the no-op case too:
+a site whose `primary` already clears AA must get the slot holding `primary`'s own
+value and render byte-unchanged.
