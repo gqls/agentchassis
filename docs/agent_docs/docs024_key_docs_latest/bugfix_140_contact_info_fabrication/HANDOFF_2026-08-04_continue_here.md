@@ -59,6 +59,16 @@ the `SUMMARY_…` series.
 > re-read before quoting. ⚠ **render-check's tag lives in its OVERLAY, not `IMAGE_TAG`** —
 > bump both in one commit or the deploy is a silent no-op (LANDMINE).
 >
+> **NEW 2026-08-06 — the re-proof is one word now.** `scripts/prove-live-markers.py rfc009`
+> asserts the three compiled markers on EVERY replica plus a negative control, prints the
+> tag the verdict belongs to, and separates "could not look" (2) from "looked and it is
+> not there" (1). Built because this lane re-proved one fix BY HAND four times in three
+> days. Registered as **DOC-075**; RUNBOOK **R13** covers saving a profile for another
+> fix and what to do when it fails on a COUNT (re-derive — a changed count usually means
+> a call site moved, not that the fix vanished). ⚠ Take an exact count off the LIVE
+> binary, never from `pick-pod-marker`'s probe: the probe is built at `<commit>` and the
+> deployed binary is a descendant — measured, they differ 1 vs 2 for this very fix.
+>
 > **If you are picking this lane up:** there is no task here. The next thing that will
 > ever need doing is responding to a genuine finding from one of the two daily checks.
 
