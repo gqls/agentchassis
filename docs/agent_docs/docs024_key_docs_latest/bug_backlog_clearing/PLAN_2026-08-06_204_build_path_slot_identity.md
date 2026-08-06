@@ -128,3 +128,15 @@ name/function only (`loadComponentSchemas`, `:1144`).
   path has no page_id and must not load page content to plan. Different key,
   different shape — the shared piece is already shared
   (loadComponentSchemasByID / componentInfoFromRaw).
+
+## Post-submission discovery (2026-08-06, after round 2 was dispatched)
+
+Tracing the writer's SAVE path found a real risk the round-2 risks block does
+not name: making positional sections resolvable arms `bugs_open/189`'s
+save-path defect on the build path (slot renamed to component function — the
+build path carries the positional name nowhere; locked rows duplicate,
+14 armed). Recorded in both bug files (commits 8b50baf8b, 5c7e102d6); the 204
+closure canary is 189-gated. The 204 resolution fix remains correct on 189's
+own verdict about 182 ("a real consequence of the fix, not a flaw in it") —
+the save path defect predates both. Disclosed here because the council judged
+a risks block that was missing it.
