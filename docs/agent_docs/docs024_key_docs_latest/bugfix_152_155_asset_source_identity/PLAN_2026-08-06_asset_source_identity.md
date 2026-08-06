@@ -105,7 +105,7 @@ Mirrors 168's move for the *destination* path (one shared derivation in
    `updateContentDataField(purpose+"_uri", …)` DB write** (sole reader deleted in
    edit 3; keep the `collected_data` copy for the legacy in-run path; the `_url`
    sibling untouched — templates read it).
-8. **`docs/agent_docs/sql_for_agents/321_backfill_assets_storage_path.sql`** —
+8. **`docs/agent_docs/sql_for_agents/323_backfill_assets_storage_path.sql`** —
    fleet-wide mirror of idea.uk's `w9_04`:
    `SET storage_path = COALESCE(storage_path, split_part(url,'?',1))` where `url`
    is presigned — so the remaining 205 rows become durable **before** their url

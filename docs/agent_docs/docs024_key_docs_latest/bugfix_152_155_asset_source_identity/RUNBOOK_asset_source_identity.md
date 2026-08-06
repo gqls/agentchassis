@@ -78,7 +78,7 @@ however fresh the roll.
 
 ```bash
 kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
-  psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 < docs/agent_docs/sql_for_agents/321_backfill_assets_storage_path.sql
+  psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 < docs/agent_docs/sql_for_agents/323_backfill_assets_storage_path.sql
 ```
 
 ⚠ The verify block is `DO`/`RAISE`, not a bare `SELECT`: `ON_ERROR_STOP` does not

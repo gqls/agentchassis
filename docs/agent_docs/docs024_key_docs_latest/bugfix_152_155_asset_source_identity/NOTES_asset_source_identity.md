@@ -97,7 +97,7 @@ That positive control is the interesting one: it is the log line of the very bra
 this change deletes, so the same command that proves my code is absent proves the
 defect is present. After the next roll the pair inverts — that is the closure test.
 
-Migration `321` applied 2026-08-06 (roll-independent: write-only, and the old readers
+Migration `323` applied 2026-08-06 (roll-independent: write-only, and the old readers
 ignore `storage_path`). 205 rows backfilled, verify block silent, re-measured after:
 presigned-with-no-storage_path is now **0**, and all five at-risk logo rows resolve
 via `storage_path`. The 49 stranded rows are deliberately untouched — their source is

@@ -167,7 +167,7 @@ records `storage_path` (+ provider) on the row at generation, which is candidate
 1's cache-keying fixed by removing the cache rather than re-keying it. The
 in-run `collected_data[{purpose}_uri]` copy stays (legacy pageflow reads it
 same-workflow; `data_helpers.go:1199` is a strict path lookup, so it cannot leak
-across runs). `sql_for_agents/321` backfills `storage_path` on the 205
+across runs). `sql_for_agents/323` backfills `storage_path` on the 205
 presigned-only rows so the fallback parse is never load-bearing for long.
 
 **Still to close** (this file's own verify recipe): after the roll, deploy 2+
@@ -178,3 +178,16 @@ natural re-run. Pod-grep first: `AssetSourceRef` ≥1 AND
 correct the LANDMINES entry ("resolves by PURPOSE") visibly, dated. The third
 independent defect noted in Evidence (generation/storage mix-up on
 `icon_specialist_range`) remains UNTOUCHED and open, deliberately.
+
+**Council APPROVED round 1** (`c055840a-9edc-4f9a-8a4a-b23ac4cad02a`, 8 advisory,
+none high; trailer upgraded to `Council-Reviewed:` on `bb53326a8` after reading
+it). The objection worth carrying into this file: my "the purpose cache has no
+other reader" census was Go-grep + live-config regex + repo grep, and the council
+was right that none of those can see a queue-built or external caller. Re-run
+wider, it found one — `scripts/initial_messages/180_adoption/081c_direct_asset_
+deployer.sh` prints `content_data->>'hero_uri' / 'hero_about_uri' / 'logo_uri'`
+as the operator's crib for the `s3_uri` to paste into a hand deploy. **That is
+this bug in manual form**: one URI per purpose, so on a multi-asset site it hands
+you the wrong file to deploy, and after this fix ships it is stale as well.
+Rewritten to select `storage_path`/`url` per `asset_key` from `assets`. The other
+hit was this bug's own 090 diagnosis row — not a consumer.

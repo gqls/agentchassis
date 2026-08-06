@@ -131,7 +131,7 @@ loop-CONFIRMED (corr `0dd9aee4`).
 — one derivation of "which stored object is this row's source" (storage_path
 first, url parse fallback; returns s3:// or bare key, never https/local, "" =
 fail loud) — resolved through by all four readers; `StoreAssetAction` writes
-`storage_path` at generation; `sql_for_agents/321` backfills the 205 remaining
+`storage_path` at generation; `sql_for_agents/323` backfills the 205 remaining
 presigned-only rows (w9_04 fleet-wide). Full plan + evidence:
 `docs024_key_docs_latest/bugfix_152_155_asset_source_identity/PLAN_2026-08-06_asset_source_identity.md`.
 Register: IMG-068.
@@ -144,6 +144,18 @@ passing `asset_id` routed INTO the wrong-bytes purpose-cache branch; that branch
 is now deleted.
 
 **Still to close:** image roll + pod-grep (positive `AssetSourceRef` ≥1, negative
-`Resolved s3_uri from site content_data via asset_id` = 0, both replicas); apply
-321; then this file's own verify recipe (fresh deploy → `url` local AND
-`storage_path` names the source; a derivation against that row succeeds).
+`Resolved s3_uri from site content_data via asset_id` = 0, both replicas); then
+this file's own verify recipe (fresh deploy → `url` local AND `storage_path`
+names the source; a derivation against that row succeeds).
+
+**Council APPROVED round 1** — `c055840a-9edc-4f9a-8a4a-b23ac4cad02a`, 8 advisory
+objections, none high. Two mediums found real things and are discharged in
+`bb53326a8`: (a) my reader census could not see queue-built or external callers,
+and there WAS one — `scripts/initial_messages/180_adoption/081c_direct_asset_
+deployer.sh` hands an operator one URI per *purpose* to paste into a deploy,
+which is bug 155 by hand; rewritten to read the asset row. (b) the migration
+number was not mine — a concurrent session committed its own `321` inside my
+window, so it is now `323` (applied under the old name; the file records that,
+its pre-flight count and its rollback statement). Migration `323` APPLIED
+2026-08-06: 205 rows, presigned-with-no-`storage_path` now **0** fleet-wide, and
+all five at-risk logo rows resolve via `storage_path`.
