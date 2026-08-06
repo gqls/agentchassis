@@ -257,3 +257,89 @@ class. Not started this session — recorded so it cannot be silently dropped.
 The code commit (`df281f6ba`) carries `Council-Submitted:` and is credited
 automatically by the `098` report now the correlation is approved — no amend,
 per the council runbook. **Never copy `Council-Reviewed:` onto it retroactively.**
+
+---
+
+## CLOSED 2026-08-06 — FIXED AND LIVE on v1.0.1259, and INDUCED IN PRODUCTION, both directions in one run
+
+### 1. The binary carries it — pod-verified, both replicas, with controls
+
+```
+agent-chassis-5cf5db5bd8-54xsx   grep -ac "this answer is CAPPED"            -> 1   (the fix)
+                                 grep -ac "coverage was capped, not complete" -> 6   (positive control, pre-existing)
+                                 grep -ac "zzq_control_181_xyzzy"            -> 0   (negative control)
+agent-chassis-5cf5db5bd8-ldx5z   identical: 1 / 6 / 0
+```
+
+**The provenance was checked, not assumed** (the fleet landmine: a roll is not
+evidence your fix shipped — the image may predate your commit). Commit
+`df281f6ba` at 09:43:01 **+0100** = 08:43 UTC; the pod's binary is dated
+**10:39 UTC**, ~2h later. Note the trap in that comparison: `git log` prints BST
+here and `kubectl` prints UTC, so a naive read makes a shipped fix look
+un-shipped. `grep -ac`, not `strings | grep -c`, and budgeted ~280s per exec
+per the 08-05 landmine on slow BusyBox grep over these ~95MB binaries.
+
+### 2. It FIRES — induced live, and the negative control is in the SAME run
+
+Orchestration `f370cfe4-8ea0-4e25-b924-36eb4e423c4f`, `COMPLETED @ complete`,
+two checks in one payload so the positive and negative observations cannot be
+two runs compared against each other:
+
+| check | rows rendered | cap notice |
+|---|---|---|
+| `ls` `platform/orchestration/actions/` — 305 distinct paths vs cap 40 | **40** | **PRESENT** |
+| `ls` `platform/orchestration/actions/diagnose_code_lookup` — under cap | 1 | **absent** |
+
+The notice as it actually rendered:
+
+```
+> this answer is CAPPED (row_cap=40): the query matched more rows than are shown,
+and rows are ordered by path — the missing matches sort after those shown. Treat
+absence from this listing as UNKNOWN, not absent; narrow the query or raise row_cap.
+```
+
+That is this file's own § How-to-verify satisfied at the artefact: the over-cap
+answer declares itself, the under-cap answer is byte-unchanged.
+
+**How the induction was driven, because the obvious route cannot do it.** All
+three live consumers take their `code_checks` from an LLM step
+(`review_*.result.code_checks`, `derived.result.code_checks`), so driving any
+of them costs credits AND lets the model choose the queries — it cannot aim a
+specific over-cap check on purpose. A **temporary** agent
+(`diagnosis-181-capcheck`) reading `code_check_fields:
+["input_data.code_checks"]` made the induction exact, deterministic and
+LLM-free, with `row_cap` deliberately left unset so the default 40 — the value
+every real consumer runs with — was the value under test. **The probe row has
+been DELETED and its absence proven** (`count(*) = 0` for that type in any
+state, snapshots and soft-deletes included). Seed kept out of the repo on
+purpose: it is a throwaway, not a mechanism, and registering it would be the
+opposite of this bug's own lesson.
+
+### 3. Noticed while inducing, NOT this bug's defect
+
+The rendered answer opened with `!! CODE INDEX STALE: it describes commit
+d98010e8 (ref 086_experience_loop), committed 2026-07-28 (9d ago)`. That is the
+already-known pinned-ref landmine (migration 252 pins the index ref to a
+feature branch), not a regression here — and the freshness banner doing its job
+is the positive control for the render being read at all. It does mean the 305
+figure is a count over a 9-day-stale index; irrelevant to what was under test
+(the cap fired against whatever the index holds, which is the behaviour), but
+worth stating rather than letting the number read as current HEAD.
+
+### 4. Both follow-ups remain OPEN and are NOT closed by this
+
+1. **Re-examine the five capped `landmine-verifier` renders** (timestamps in
+   § SUPERSEDED) for any verdict that rested on a capped listing read as
+   complete. Unstarted.
+2. **The codebase-wide silent-cap inventory** the council's `bug_historian`
+   seat asked for, so a fifth instance is found by audit rather than
+   rediscovery. Unstarted; method and trap recorded above.
+
+Neither blocks closure of *this* defect — the three named caps now report
+themselves, live and induced — but both are real, named, and belong to whoever
+picks them up.
+
+No `WRONG_CALLS.md` entry for this bug: no claim made during the fix turned out
+false. The one mismeasurement in the story — the bundle-corpus search — was the
+filing session's, was correctly marked `[UNMEASURED]` rather than asserted, and
+is superseded above with the method that worked.
