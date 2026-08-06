@@ -25,8 +25,20 @@ exists only as a pasted transcript.
 
 Then: confirm both keys, fire 204's canary on the BUILD path
 (`guide-how-loans-are-calculated`, per 204 §How to verify — prose must change,
-zero `needs_new_component` filed), and close **both** bugs with `git mv` to
-`bugs_closed/`, naming BOTH paths on each commit.
+zero `needs_new_component` filed), and record the closure evidence in **both**
+bug files.
+
+> **⚠ CORRECTED 2026-08-06 — do NOT move either file to `bugs_closed/`.**
+> An owner direction of the same day (recorded in memory as
+> `owner-keeps-fixed-bugs-in-bugs-open`) says *"please leave the bugs that
+> you've found in bugs_open not in the closed bug file"*, given after another
+> thread moved `126` and `181` on the fixed-AND-live bar and had both directed
+> back (`669ca58c5`). **This overrides CLAUDE.md's `/bugs_closed/` bar and it
+> overrides the earlier handoffs in this series, including 06b, which tell you
+> to `git mv`.** Finish the work normally — fix, council, pod-verify, induce —
+> write the evidence into the file as a dated section, and leave the file where
+> it is. Ask before moving any bug file until the owner says the general rule is
+> back.
 
 ## State
 
