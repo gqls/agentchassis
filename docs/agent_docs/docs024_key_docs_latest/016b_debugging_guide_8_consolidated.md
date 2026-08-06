@@ -10956,3 +10956,15 @@ exactly this reason); **(3)** an "unreachable" coordinator arm that other produc
 DO reach looks maintained — reachability must be checked per producer, not per
 switch. Wire-capture before/after and the duplicate-race mechanism:
 `docs024_key_docs_latest/bugfix_196_failure_stamped_complete/NOTES_*.md`.
+
+- **`bugs_closed/197`** — the RETRYABLE-side twin of `195`: retry-vs-terminal decided by three
+  **case-sensitive** substring needles over error prose, with a dead, case-*disagreeing*
+  twin in `platform/errors` (zero callers) beside it. The census that the fix was gated on
+  measured the damage: of the 2,996 real failures reaching the seam, **885 (~30%) contained
+  "deadline exceeded" and were made terminal**, and 882 more missed on capitalisation alone.
+  Fixed by one typed-first shared classifier with a census-derived, individually-argued,
+  case-folded fallback; both old classifiers deleted. CLOSED + LIVE `v1.0.1259`, proven on
+  **live traffic** (the fix records its own verdict, so production answers directly:
+  `deadline exceeded` → `error_recoverable`) with the retry cap proven by histogram
+  (204/15/83/2, zero above 3). RSH-006. Spawned `bugs_open/207` (the processor senders still
+  typed-only) at the council's direction.

@@ -113,3 +113,36 @@ time; forward-only forbids an amend.
 **Lane state: everything owed pre-roll is done.** Remaining, post-roll only: the
 verify-later in RSH-006 (long-literal pod-grep, the two induction probes, the storm-watch
 histogram), then move `197` to `bugs_closed/` with the closing banner and the 016b §10 row.
+
+## 2026-08-06 — CLOSED. Live traffic proved it, and my "before" boundary was wrong
+
+Pod-verified on both replicas of `v1.0.1259` (long literal 1/1, positive control 1). Then the
+behavioural proof, which needed **no probe at all** — the fix writes `retry_disposition` and
+`transient_matched` into `agent_error_log.context`, so production failures answer directly:
+
+```
+error_recoverable  | connection        | 48
+error_recoverable  | deadline exceeded | 19    <- the class that was TERMINAL before
+error_unrecoverable| (empty token)     |  8    <- correctly terminal
+```
+
+Bound proven rather than assumed: `awaited_requests.retry_version` since the fix →
+**204 / 15 / 83 / 2**, and **0 rows above 3 in all history**. Retries fire; the wall holds.
+
+> **MISSTEP, caught by the data disagreeing with me.** I measured "before" against the
+> current pods' start time (10:50:29Z) and found **121 rows already carrying the key** — which
+> read as a contradiction of my own fix. It was not. The key first appears at **09:52:36Z**,
+> minutes after the commit: **an earlier roll had already shipped it**, and the pods I was
+> looking at were the *second* roll to carry it. The lesson is one this tree teaches
+> repeatedly and I still walked into: **on a shared HEAD, the boundary for a before/after is
+> the first appearance of the EVIDENCE, never the pod or tag you happen to be holding.** Had
+> I not chased the 121, I would have reported a clean before/after against the wrong instant
+> and been right by luck.
+
+**The council's medium advisory became `bugs_open/207`, not a promise.** It required the
+processor-sender convergence be tracked rather than asserted. The 196 lane closed without
+converging, so this file's own closing criterion fired: the decision is now its own bug —
+converge or decline on the record, with the 885-row prize, the one-line adoption, and the
+bounds all stated so whoever picks it up re-derives nothing.
+
+Closed: moved to `bugs_closed/`, closing banner with the evidence, `016b` §10 row.

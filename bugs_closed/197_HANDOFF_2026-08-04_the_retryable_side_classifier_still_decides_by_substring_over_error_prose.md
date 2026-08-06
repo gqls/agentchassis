@@ -1,5 +1,50 @@
 # 197 — the RETRYABLE-side classifier still decides fleet-wide disposition by substring over error prose
 
+> ## CLOSED 2026-08-06 — FIXED AT SOURCE, LIVE on chassis `v1.0.1259`, and PROVEN ON REAL TRAFFIC
+>
+> Closed by the `bugfix_197_transient_classifier` lane. Council **APPROVED**
+> (`7fbf4356`, 1 advisory objection, none high-severity). Registered **RSH-006**.
+>
+> **The defect is no longer reproducible, and the proof is live traffic rather than a probe** —
+> because the fix writes its own verdict into `agent_error_log.context`, so production
+> failures answer the question directly:
+>
+> | measure | before | after |
+> |---|---|---|
+> | rows carrying `retry_disposition` | **0** (key did not exist) | **196** since 09:52:36Z |
+> | `deadline exceeded` → disposition | **terminal** (885 of 2,996 in the census) | **`error_recoverable`**, 19 rows |
+> | `connection` → disposition | terminal unless lowercase | `error_recoverable`, 48 rows |
+> | unclassifiable → disposition | terminal | `error_unrecoverable`, 8 rows (correct) |
+>
+> **The bound is proven, not assumed.** Live `awaited_requests.retry_version` histogram since
+> the fix: **204 / 15 / 83 / 2**, and **zero rows above 3 in all history** — retries are
+> firing and the cap holds absolutely. No storm.
+>
+> **Pod-verified on BOTH replicas** of `v1.0.1259`: the long literal
+> `retry disposition decided by shared transient classifier` → **1/1**, with the pre-existing
+> `message dropped without retry or error response` → **1** as positive control.
+>
+> > **Onset corrected, because I got the boundary wrong first.** I measured "before" against
+> > the current pods' start (10:50:29Z) and found 121 rows already carrying the key, which
+> > looked like a contradiction. It was not: the key first appears at **09:52:36Z**, minutes
+> > after the fix commit — **an earlier roll had already shipped it**. On this tree any
+> > session's roll ships your commit, so the honest boundary is the first appearance of the
+> > evidence, never the pod you happen to be looking at.
+>
+> **What shipped:** `MatchedTransientFailure` — author's `AsRetryable` outranks all, then a
+> closed typed-code list, then a **case-folded census-derived** needle fallback, each needle
+> argued and the rejections load-bearing (bare `502/503/504` refused because the dominant
+> message shape nests hex UUIDs; `unreachable`/`network` refused on zero census rows). Both
+> old classifiers deleted — agentbase's case-sensitive three-needle helper and the dead,
+> case-disagreeing `errors.IsRecoverable`. Five mutations each flip named tests.
+>
+> **The council's medium advisory produced `bugs_open/207`, not a promise.** It required that
+> the processor-sender convergence be *tracked, not asserted in prose*. The 196 lane closed
+> without converging, so per this file's own closing criterion the decision is now its own
+> file — converge or decline on the record, with the 885-row prize and the bounds stated.
+>
+> Working docs: `docs/agent_docs/docs024_key_docs_latest/bugfix_197_transient_classifier/`.
+
 **Filed 2026-08-04** by the `bugfix_195_permanent_failure_classifier` lane, at the direction
 of the council's `bug_historian` seat (correlation `9b1254f0-…`, verdict REVISE):
 *"The classifier being fixed here (permanent-vs-transient) and the classifier being left
