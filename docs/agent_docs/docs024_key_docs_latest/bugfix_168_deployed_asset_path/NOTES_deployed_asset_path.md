@@ -1682,3 +1682,83 @@ someone to invent. **That still depends on a human running it.** Not solved; nam
 longer distinguishes *never scanned* from *no revalidator exists*. Previously the `unknown` stamp
 answered it per row. The aggregate answers it per type, which is the more useful altitude, but it
 is a genuine loss of a per-row fact and it belongs in the record.
+
+### 2026-08-06, post-roll — the durable fix IS LIVE on `v1.0.1257`
+
+**[MEASURED] Both replicas, `agent-chassis-5b9fd84984-{hqc5d,qvzkg}`, started 09:52Z:**
+
+| needle | baseline `v1.0.1256` (pre-roll) | now `v1.0.1257` |
+|---|---|---|
+| `judgeable rows were left unexamined` (cap warning) | **0** | **1** |
+| `so this sweep cannot judge it` (the refusal) | **0** | **1** |
+| `auto:revalidated` (positive control) | 2 | **2** |
+
+**This is the whole proof, and it only exists because the 0 was taken before the roll.** The change
+is purely string-additive, so nothing it removed can be greped for 0 — there is no valid negative
+control, and §2 of the handoff records this lane nearly pretending otherwise. The positive control
+is the load-bearing companion: it is non-zero on *both* binaries, so a 0/0 reading would have meant
+"the change did not ship", not "the probe broke". ASCII-only needles throughout (§2's em-dash
+mangling across `exec -- sh -c`).
+
+⚠ **The roll was not mine and did not mention my commit.** `v1.0.1257` was built by another session;
+my commit `0e4e79124` simply happened to be at HEAD when it built. That is the standing fleet
+lesson — *a roll is not evidence your fix shipped* — and it is exactly why the grep above is the
+evidence and the version bump is not.
+
+### PROVEN BY EFFECT — one sweep on `v1.0.1257` closed 20 rows the old code could never reach
+
+Hand-dispatched `TRIGGER_revalidate_review_queue_v1.sh` (orchestration
+`267fe850-5c22-43fe-b1d1-266e261a3a40`, 10:02Z, >300s after the pod restart per the trigger's own
+rebalance gotcha). Payload:
+
+```
+scanned 168 · capped_at 1500 · cap_binding false · resolved 20 · still_holds 36 · unknown 112
+closed 20 · uncovered_backlog 611
+```
+
+**Every number is a check that could have come out otherwise:**
+
+- **`scanned` = 168, the exact judgeable count** — not 500 (the old head), not 779 (the parked
+  total). The selection filter is doing precisely what it claims, and nothing more.
+- **`cap_binding` = false** — no judgeable work left behind. 20 + 36 + 112 = 168, so the arithmetic
+  closes with no rows unaccounted for.
+- **`uncovered_backlog` = 611** — the full coverage gap. The old code **structurally could not
+  report this number**; it could only report the unjudgeable rows that happened to fall inside the
+  cap, which is why the gap looked smallest when the backlog was worst.
+- **`unknown` = 112 now means something different and honest**: a revalidator looked and could not
+  tell. Not "no revalidator exists".
+
+**The decisive one — `resolved` 20, against 0 on the last pre-fix scheduled run:**
+
+```sql
+SELECT count(*), count(*) FILTER (WHERE created_at >= '2026-07-24') AS in_the_starved_tail
+FROM site_work_items WHERE resolution_path='auto:revalidated' AND completed_at > '2026-08-06 10:00Z';
+--  20 | 20     (created 2026-08-03 .. 2026-08-05; 17 required_fields_missing, 3 needs_page)
+```
+
+**All 20 were in the starved tail** — created 2026-08-03 to 2026-08-05, far beyond the old rank-500
+cutoff, i.e. rows the previous code could **never** have judged. Fleet `auto:revalidated`: **34 →
+54**. This is not "the mechanism still works"; it is 20 findings closed that were permanently
+invisible to it yesterday.
+
+⚠ And it confirms the *newest-rows* inversion was the real harm: the sweep's oldest-first rule was
+starving exactly the rows most likely to be closable, which is why one pass over the previously
+unreachable tail had a **12% close rate** where the reachable head had been returning 0.
+
+### §0b's loose thread — RESOLVED, and its suspected cause REFUTED
+
+§0b flagged one `needs_page` row on `fundamentallyai.com` (`2d669d7b`, created 2026-08-05) that got
+**no `result.revalidation` key at all** while its siblings were judged, and suspected its
+**mismatched `item_key` prefix** (`page_rerender:tools` under `item_type='needs_page'`) — marked
+`[UNVERIFIED]`.
+
+**It was not the prefix.** That same row, prefix unchanged, was judged `resolved` at
+`2026-08-06T10:03:15Z` by the run above. It was simply **unreachable**: created 2026-08-05, it sat
+in the starved tail. Its siblings that *were* judged (`88c7f89e`, `d53566f9`) are both from
+**2026-07-21** — old enough to be inside the 500-row head. **§0b was a symptom of the same bug**,
+not a second defect, and the `workItemKey` drift it suspected is a red herring here.
+
+The general shape is worth keeping: **a row that is missing a stamp its siblings have looks like a
+per-row skip, and "which rows got skipped" and "which rows were never loaded" are indistinguishable
+from the row itself.** Check reachability before theorising about a predicate — the sibling
+comparison that made the prefix look guilty was really an age comparison.

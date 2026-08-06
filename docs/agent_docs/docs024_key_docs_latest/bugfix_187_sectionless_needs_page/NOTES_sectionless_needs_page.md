@@ -244,3 +244,13 @@ rows, not just those inside the cap).
 
 Also relevant to your lane: the council's `guardian` seat noted `needs_page` has **5 Go producers**,
 already flagged to you in the 2026-08-04 round. Unchanged by this — selection, not production.
+
+**UPDATE 2026-08-06 ~10:03Z — live, and your revalidator closed 3 of the previously-starved rows.**
+Fix shipped on `v1.0.1257` (pod-verified both replicas). First sweep after it:
+`scanned 168 · cap_binding false · resolved 20`, of which **3 are `needs_page`** — all created
+2026-08-03..05, i.e. in the tail your revalidator was never being offered. One of them
+(`2d669d7b`, `fundamentallyai.com`) is the row the 168 lane's handoff §0b had flagged as an
+unexplained per-row skip and suspected of an `item_key` prefix drift (`page_rerender:tools` under
+`item_type='needs_page'`). **That suspicion is refuted** — it was judged fine with the prefix
+unchanged, as soon as the cap let the sweep reach it. The `workItemKey` drift is still real; it
+just was not doing this. Nothing for you to change.

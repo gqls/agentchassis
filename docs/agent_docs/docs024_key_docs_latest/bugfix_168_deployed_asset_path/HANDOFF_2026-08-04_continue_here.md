@@ -30,8 +30,19 @@
 > | | |
 > |---|---|
 > | Stopgap — `max_items` 500 → 1500 | **LIVE** 09:04 UTC. Migration `321`, commit `b14609e05`. Config: no roll. |
-> | Durable fix — selection filters to judgeable types | **Committed** `0e4e79124`, council `f64da546`. **Inert until a roll.** |
-> | The 64 starved rows | **Reachable now**, by the stopgap alone. |
+> | Durable fix — selection filters to judgeable types | **LIVE AND PROVEN** on `v1.0.1257`, both replicas. `0e4e79124`, council `f64da546` APPROVED r1. |
+> | The 64 starved rows | **Reached, and 20 of them CLOSED** on the first pass. |
+> | §0b's loose thread | **RESOLVED — and its suspected cause refuted.** Same bug, not a second one. |
+>
+> **PROVEN BY EFFECT, not by a version bump.** One sweep (`267fe850…`, 10:02Z) returned
+> `scanned 168 · capped_at 1500 · cap_binding false · resolved 20 · unknown 112 · uncovered_backlog 611`.
+> `scanned` is the exact judgeable count — not 500, not the 779 parked. **All 20 closed rows were
+> created 2026-08-03..05, i.e. entirely inside the previously unreachable tail**; the last pre-fix
+> scheduled run closed **0**. Fleet `auto:revalidated` 34 → 54. Pod-grep 0→1 on both replicas with a
+> live positive control. Full working in NOTES (2026-08-06, bottom).
+>
+> **This lane now has nothing open.** Next scheduled run ~2026-08-07 08:37Z should show the same
+> shape unattended.
 >
 > **§0 UNDERSTATED THE HARM.** It measured the waste but never asked whether any of the unreached
 > rows were rows the sweep could *judge*. They were: **64 judgeable rows sat permanently beyond the
@@ -94,7 +105,19 @@ SELECT count(*) FILTER (WHERE item_type IN ('required_fields_missing','needs_sec
 FROM site_work_items WHERE status IN ('needs_human_review','unresolved');
 ```
 
-### 0a-verify. THE DURABLE FIX'S BASELINE — taken 2026-08-06, and it cannot be taken again
+### 0a-verify. ✅ DONE — the baseline, and the transition it proved
+
+> **RESULT, `v1.0.1257`, both replicas, 2026-08-06 ~10:00Z: `judgeable rows were left unexamined`
+> = 1, `so this sweep cannot judge it` = 1, positive control `auto:revalidated` = 2.**
+> Against the pre-roll baseline of **0 / 0 / 2**. The 0→1 transition is the proof; the positive
+> control being non-zero on *both* binaries is what rules out a broken probe.
+>
+> ⚠ **The roll was not mine.** `v1.0.1257` was another session's build; my commit was simply at HEAD
+> when it ran. That is precisely why the grep is the evidence and the version bump is not — *a roll
+> is not evidence your fix shipped.*
+>
+> Kept below because the reasoning is reusable, and because the baseline half is the part that
+> cannot be recreated after the fact.
 
 The selection-filter change (`0e4e79124`) is **purely string-additive**, so there is **no valid
 negative control** — nothing it removed can be greped for 0. §2 of this handoff learned that the
@@ -139,13 +162,29 @@ WHERE orchestration_name ILIKE '%reval%' ORDER BY created_at DESC LIMIT 1;
 `uncovered_backlog` should be the full ~611, a number the old code structurally could not report.
 `cap_binding` must be `false` — if it is ever `true`, judgeable work is being left behind again.
 
-### 0b. Loose thread — one eligible row was neither closed nor stamped
+### 0b. ~~Loose thread~~ — **RESOLVED 2026-08-06. It was the starvation, NOT the key prefix.**
+
+> The row (`2d669d7b`, created 2026-08-05) was judged **`resolved` at 2026-08-06T10:03:15Z**, its
+> `item_key` prefix **unchanged**. It was never being skipped — it was **never loaded**, sitting in
+> the starved tail. The siblings that *were* judged are both from **2026-07-21**, old enough to be
+> inside the old 500-row head. So the `[UNVERIFIED]` suspicion below is **refuted**: the
+> `workItemKey` drift is real but was not the cause here, and this was one symptom of the §0 bug
+> rather than a second defect.
+>
+> ⚠ **Worth keeping:** a row missing a stamp its siblings have looks exactly like a per-row skip,
+> and from the row itself *"was it skipped?"* and *"was it ever loaded?"* are indistinguishable.
+> **Check reachability before theorising about a predicate** — the sibling comparison that made the
+> prefix look guilty was really an age comparison.
+
+<details><summary>Original text, kept</summary>
 
 On `fundamentallyai.com`, a `needs_page`/`needs_human_review` row created 2026-08-05 13:44 got **no
 `result.revalidation` key at all**, while its siblings were judged. **Its `item_key` is
 `page_rerender:tools` — the prefix disagrees with its `item_type`**, the drift `workItemKey` warns
 about. **Whether that causes the skip is [UNVERIFIED]** — selection is on `item_type`, which
 matches. Safe direction (a skipped row closes nothing), so a thread, not a fire.
+
+</details>
 
 ## 0c. How to verify the schedule is still working
 

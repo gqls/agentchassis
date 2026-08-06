@@ -508,3 +508,33 @@ solved problem.
 Nothing here needs a decision from you. The next session's jobs are: confirm the release picked the
 change up, and check the first scheduled run afterwards reads the whole judgeable queue instead of
 the first five hundred rows.
+
+**2026-08-06, an hour later — it is live, and it worked on the first pass.**
+
+A new build went out (not mine — someone else's release that happened to carry my commit), so I
+checked whether the change was actually in it rather than trusting the version number, and it is,
+on both machines. Then I ran the sweep by hand to see what it would actually do.
+
+**It closed twenty items, and every single one was a row it could not have reached yesterday.**
+They were all raised between the 3rd and the 5th of August — the young end of the queue, which is
+precisely the part that was being starved. The last run before the fix closed nothing at all. The
+whole queue of judgeable work is now 168 items and the sweep looked at all 168, rather than the
+first five hundred rows of a mostly-unjudgeable pile.
+
+It also, for the first time, reported the real size of the problem it *cannot* solve: **611 parked
+items are of kinds nothing knows how to re-check.** That number was always true and the old code
+was structurally incapable of printing it — it could only count the ones that happened to fall
+inside its batch, so the gap looked smallest exactly when it was worst. It is not a new problem and
+I have not tried to fix it; closing it means teaching the sweep more kinds of item, one at a time.
+But it is now visible every single run instead of invisible.
+
+**And the one loose end from this morning turned out to be the same bug wearing a disguise.** There
+was a row that looked like it was being individually skipped — it had no record of ever being
+checked while its neighbours did — and the earlier note suspected a naming inconsistency. It
+wasn't. That row was simply too new to be reached, and the neighbours it was compared against were
+two weeks older. It got checked and closed at 10:03 this morning with the "inconsistency"
+untouched. The lesson I have written down is that from a single row you genuinely cannot tell
+"skipped" from "never looked at", and I nearly went hunting for a fault in the wrong place.
+
+**Nothing in this lane is open now.** The only thing worth a glance is tomorrow morning's automatic
+run, which should do the same thing unattended.
