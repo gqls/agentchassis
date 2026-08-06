@@ -1707,7 +1707,33 @@ ungated, so an empty value becomes `href=""` rather than no button.
 tile the space: `href=""` is a *warning* in `validate_page_content` (`:551-560`, and `:257`
 blocks only on blockers/errors); `#frag` classifies as `LinkScopeAnchor` and is skipped by
 phantom, misdirected and validate alike, with nothing anywhere resolving a fragment against
-the page's ids; external URLs are skipped by every consumer and **no HTTP reachability check
+the page's ids;
+
+> **RESOLVED for the fragment arm of this, 2026-08-06 — and the SHAPE is the transferable
+> part, not the fix.** The reason "nothing anywhere resolves a fragment" survived three
+> months of link work is that **`#frag` is not skipped by three checkers independently — it
+> is routed into a category every consumer skips BY NAME, by one shared classifier.**
+> `ClassifyLinkScope` returns `LinkScopeAnchor`, the gate and the post-deploy audit each
+> handle only the `empty` and `page` scopes, and `NormalizePagePath` strips the `#x` tail
+> before any comparison. So no individual consumer looks wrong when you read it: each
+> correctly handles the scopes it claims. **A shared classifier that files a case into a
+> category with no consumer makes that case unjudgeable everywhere at once, and leaves no
+> single site to blame** — which is why per-consumer review keeps passing it. When you find
+> a class nothing detects, check whether a shared classifier has a bucket nobody reads
+> before you go looking for the checker that should have caught it.
+>
+> Fixed as an ARM inside the existing check (`dead_fragment_link`, `bugs_open/071`, LIVE
+> v1.0.1259) rather than a new check, because a new check needs its own entry in a discovery
+> agent's `checks` array — the `bugs_open/093` shape, where a correct fix has never once
+> executed. **The corollary for anyone extending a detector: prefer an arm on an
+> already-running check over a new check whose enablement is a separate act.** The
+> id-presence test was extracted from `OrphanElementRefs` rather than rewritten, because
+> that check had already paid for its false positives; a second implementation re-buys the
+> lesson. Proving the extraction changed nothing needed a differential over real corpora
+> (4,036 documents) — and the first run of that differential was **vacuous**, both versions
+> agreeing only about `nil`, until each document was also compared in an id-stripped
+> variant that forced 403 non-empty results. **A refactor-equivalence run is only evidence
+> on inputs where the function returns something.** external URLs are skipped by every consumer and **no HTTP reachability check
 exists in `platform/` at all**; and at content_data level `check_required_fields_missing.go:189-192`
 skips any field whose `source != "llm"` — which is *every* CTA url field by design.
 
