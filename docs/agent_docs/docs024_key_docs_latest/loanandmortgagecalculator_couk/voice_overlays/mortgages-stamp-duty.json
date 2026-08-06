@@ -1,0 +1,6 @@
+{
+ "blocks": {
+  "0": "<h1>Stamp Duty Calculator (SDLT)</h1>\n<p>If you're buying a property in the UK, you'll owe Stamp Duty Land Tax on the purchase. This calculator works it out for you, using the thresholds currently in force for 2025/2026.</p>",
+  "2": "<h2>Current SDLT Thresholds (2026)</h2>\n<p>\n            The temporary relief period ended in March 2025, so thresholds are back to standard levels.\n            On top of that, if you're buying an additional property (Buy-to-Let/Second Home), there's a surcharge of <strong>5%</strong>.\n        </p>\n<ul>\n            <li><strong>£0 - £125,000:</strong> 0%</li>\n            <li><strong>£125,001 - £250,000:</strong> 2%</li>\n            <li><strong>£250,001 - £925,000:</strong> 5%</li>\n            <li><strong>£925,001 - £1.5m:</strong> 10%</li>\n            <li><strong>Above £1.5m:</strong> 12%</li>\n        </ul>"
+ }
+}

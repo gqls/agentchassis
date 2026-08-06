@@ -1,0 +1,6 @@
+{
+ "blocks": {
+  "0": "<h1>True Cost Repayment Calculator</h1>\n<p>This shows you exactly what you'll pay in interest over the life of your mortgage, and how your balance comes down year by year.</p>",
+  "2": "<article>\n        <h2>Understanding Amortisation</h2>\n        <p>\n            If you look at the table above, you'll notice that in the early years, most of what you pay is interest.\n            That's normal for a standard repayment mortgage. As the years go by, the interest share shrinks\n            and you start clearing the capital much faster.\n        </p>\n    </article>"
+ }
+}
