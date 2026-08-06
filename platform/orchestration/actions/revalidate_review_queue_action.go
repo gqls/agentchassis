@@ -28,9 +28,14 @@
 //	  still_holds — the condition is provably still true. NO status change; the
 //	                item is stamped so a human reading the queue can see it was
 //	                re-confirmed, and when.
-//	  unknown     — cannot be determined (no revalidator for the type, no
-//	                deployed component, component renders from something other
-//	                than content_data). Stamped with the reason; left alone.
+//	  unknown     — cannot be determined (no deployed component, component
+//	                renders from something other than content_data). Stamped with
+//	                the reason; left alone.
+//
+//	SINCE 2026-08-06 the sweep only LOADS types it has a revalidator for, so
+//	"no revalidator for the type" is no longer one of unknown's causes — an
+//	unknown now always means a revalidator looked and could not tell. The
+//	unjudgeable rows are counted instead, in full, into uncovered_types.
 //
 // WHY AUTO-CLOSING IS SAFE, AND WHY IT IS ALLOWED TO BE WRONG
 //
@@ -93,6 +98,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -165,6 +171,82 @@ var reviewRevalidators = map[string]reviewRevalidator{
 	"needs_page": revalidateNeedsPage,
 }
 
+// coveredItemTypes is the selection's source of truth, derived from
+// reviewRevalidators so the two CANNOT disagree: registering a revalidator widens
+// what the sweep loads, in the same edit, with nothing else to remember.
+//
+// Sorted, so the generated SQL is deterministic — Go map order is randomised per
+// run, and an IN list that reshuffles every pass defeats plan caching and makes
+// the query unassertable in a test.
+//
+// Safe to interpolate via sqlInList (which does no escaping): these are Go map
+// keys — compile-time constants, never user input.
+func coveredItemTypes() []string {
+	out := make([]string, 0, len(reviewRevalidators))
+	for t := range reviewRevalidators {
+		out = append(out, t)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// validateTypeFilter normalises an operator-supplied item_type and REFUSES one the
+// sweep has no revalidator for, rather than letting it return an empty pass.
+//
+// Before the selection carried a covered-type filter, asking for an uncovered type
+// got you a batch of `unknown` stamps — visibly nothing useful. Now it would match
+// no rows at all, and "scanned 0" reads identically to "the queue is drained". The
+// operator asked a question this action cannot answer; say so, and name the set
+// that CAN be answered, so the refusal is not a dead end.
+//
+// Pure, so both directions are testable without a database — the reason it is a
+// function and not four lines inline.
+func validateTypeFilter(typeFilter string) (string, error) {
+	tf := strings.TrimSpace(typeFilter)
+	if tf == "" {
+		return "", nil
+	}
+	if _, ok := reviewRevalidators[tf]; !ok {
+		return "", fmt.Errorf(
+			"item_type %q has no revalidator, so this sweep cannot judge it; covered types are %v",
+			tf, coveredItemTypes())
+	}
+	return tf, nil
+}
+
+// reportUncoveredBacklog counts the parked rows this sweep cannot judge, by type.
+//
+// It replaces counting them one row at a time inside the pass, which was wrong in
+// both directions: it spent the cap on rows that could never resolve, and it
+// reported only the uncovered rows that happened to fall INSIDE the cap — so the
+// coverage gap looked smaller exactly when the backlog was worst.
+//
+// Read-only, and deliberately not allowed to fail the sweep: a broken count is a
+// reporting problem, not a reason to stop draining the queue.
+func reportUncoveredBacklog(ctx context.Context, db *sql.DB) (map[string]int, error) {
+	rows, err := db.QueryContext(ctx, fmt.Sprintf(`
+		SELECT item_type, count(*)
+		FROM site_work_items
+		WHERE status IN (%s) AND item_type NOT IN (%s)
+		GROUP BY item_type`,
+		sqlInList(workItemRevalidatableStatuses), sqlInList(coveredItemTypes())))
+	if err != nil {
+		return nil, fmt.Errorf("count uncovered backlog: %w", err)
+	}
+	defer rows.Close()
+
+	out := map[string]int{}
+	for rows.Next() {
+		var itemType string
+		var n int
+		if err := rows.Scan(&itemType, &n); err != nil {
+			return nil, fmt.Errorf("scan uncovered backlog: %w", err)
+		}
+		out[itemType] = n
+	}
+	return out, rows.Err()
+}
+
 func RevalidateReviewQueueAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	logger := params.Logger.With(zap.String("action", "revalidate_review_queue"))
 	if params.ExecutionContext != nil && params.ExecutionContext.Action == "initialize" {
@@ -191,9 +273,17 @@ func RevalidateReviewQueueAction(ctx context.Context, params ActionParams) (inte
 		return nil, err
 	}
 
+	// The coverage gap is now COUNTED, not accumulated from whatever fell inside
+	// the cap. A failure here must not stop the drain — it is reporting.
+	uncovered, uErr := reportUncoveredBacklog(ctx, params.DB)
+	if uErr != nil {
+		logger.Warn("could not count the uncovered backlog; the sweep continues without it",
+			zap.Error(uErr))
+		uncovered = map[string]int{}
+	}
+
 	sweptAt := time.Now().UTC().Format(time.RFC3339)
 	counts := map[string]int{revalidationResolved: 0, revalidationStillHolds: 0, revalidationUnknown: 0}
-	uncovered := map[string]int{}
 	closed := 0
 	reports := make([]map[string]interface{}, 0, len(items))
 
@@ -201,7 +291,13 @@ func RevalidateReviewQueueAction(ctx context.Context, params ActionParams) (inte
 		revalidator, covered := reviewRevalidators[item.ItemType]
 		var verdict revalidationVerdict
 		if !covered {
-			uncovered[item.ItemType]++
+			// UNREACHABLE BY CONSTRUCTION — the selection's IN list is derived from
+			// this same map. Kept, and made loud, because the two agreeing is the
+			// property the whole change rests on: if this ever fires, the filter and
+			// the registry have drifted apart and the sweep is judging blind.
+			logger.Error("selected an item_type with no revalidator — the selection filter and "+
+				"reviewRevalidators have drifted; this should be impossible",
+				zap.String("item_type", item.ItemType), zap.String("item_id", item.ID))
 			verdict = revalidationVerdict{
 				Verdict: revalidationUnknown,
 				Reason:  fmt.Sprintf("no revalidator registered for item_type %q", item.ItemType),
@@ -252,25 +348,50 @@ func RevalidateReviewQueueAction(ctx context.Context, params ActionParams) (inte
 		}
 	}
 
+	// A FULL BATCH MEANS JUDGEABLE WORK WAS LEFT BEHIND, and silence about it is
+	// how 64 rows went unreached for a fortnight. The payload has always carried
+	// capped_at, but nobody compares two numbers in a JSON blob nobody reads — so
+	// say it, once, at WARN, in the words of the consequence.
+	capBinding := len(items) >= maxItems
+	if capBinding {
+		logger.Warn("revalidate_review_queue: the pass filled its cap — judgeable rows were left unexamined "+
+			"and the oldest will be re-selected first next run; raise max_items or shorten the queue",
+			zap.Int("scanned", len(items)), zap.Int("capped_at", maxItems))
+	}
+
+	uncoveredTotal := 0
+	for _, n := range uncovered {
+		uncoveredTotal += n
+	}
+
 	logger.Info("revalidate_review_queue: sweep done",
 		zap.Int("scanned", len(items)),
 		zap.Int("resolved", counts[revalidationResolved]),
 		zap.Int("still_holds", counts[revalidationStillHolds]),
 		zap.Int("unknown", counts[revalidationUnknown]),
 		zap.Int("closed", closed),
+		zap.Bool("cap_binding", capBinding),
+		zap.Int("uncovered_backlog", uncoveredTotal),
 		zap.Bool("dry_run", dryRun))
 
 	return map[string]interface{}{
-		"success":         true,
-		"scanned":         len(items),
-		"resolved":        counts[revalidationResolved],
-		"still_holds":     counts[revalidationStillHolds],
-		"unknown":         counts[revalidationUnknown],
-		"closed":          closed,
-		"dry_run":         dryRun,
-		"capped_at":       maxItems,
-		"uncovered_types": uncovered,
-		"items":           reports,
+		"success":     true,
+		"scanned":     len(items),
+		"resolved":    counts[revalidationResolved],
+		"still_holds": counts[revalidationStillHolds],
+		"unknown":     counts[revalidationUnknown],
+		"closed":      closed,
+		"dry_run":     dryRun,
+		"capped_at":   maxItems,
+		"cap_binding": capBinding,
+		// UNCOVERED_TYPES CHANGED MEANING 2026-08-06: it used to count the
+		// unjudgeable rows that happened to fall inside the cap; it now counts every
+		// parked row this sweep cannot judge, whether or not it was loaded. A reader
+		// comparing runs across that date is comparing two different measurements —
+		// the new one is larger, and it is the true one.
+		"uncovered_types":   uncovered,
+		"uncovered_backlog": uncoveredTotal,
+		"items":             reports,
 	}, nil
 }
 
@@ -280,10 +401,22 @@ func loadParkedReviewItems(ctx context.Context, db *sql.DB, siteFilter, typeFilt
 	// GATE 1 OF 3. The two write-time CAS guards in recordRevalidation must carry
 	// the same list or a widened selection reports rows it then fails to update —
 	// see workItemRevalidatableStatuses for why `unresolved`/`failed` are in it.
+	//
+	// THE TYPE FILTER IS WHAT MAKES THE CAP MEAN ANYTHING (2026-08-06). Without it
+	// this selected the oldest N parked rows of ANY type, and the types with no
+	// revalidator return `unknown`, which is deliberately NON-TERMINAL: they stay
+	// parked, stay oldest, and are re-selected every run. Measured that day: 396 of
+	// the oldest 500 were unjudgeable, so only ~104 head slots ever turned over and
+	// 64 judgeable rows sat permanently beyond the cap — never reached, not reached
+	// slowly. Filtering here means the cap bounds JUDGEABLE work, and a backlog
+	// growing in some unrelated type can no longer push this sweep's own work out
+	// of the batch. The uncovered rows are still reported, by reportUncoveredBacklog,
+	// which counts ALL of them rather than the subset that fell inside the cap.
 	query := fmt.Sprintf(`
 		SELECT id::text, site_id, item_type, COALESCE(item_key, ''), COALESCE(spec, '{}'::jsonb)
 		FROM site_work_items
-		WHERE status IN (%s)`, sqlInList(workItemRevalidatableStatuses))
+		WHERE status IN (%s) AND item_type IN (%s)`,
+		sqlInList(workItemRevalidatableStatuses), sqlInList(coveredItemTypes()))
 	args := []interface{}{}
 	if strings.TrimSpace(siteFilter) != "" {
 		siteID, err := uuid.Parse(strings.TrimSpace(siteFilter))
@@ -293,8 +426,12 @@ func loadParkedReviewItems(ctx context.Context, db *sql.DB, siteFilter, typeFilt
 		args = append(args, siteID)
 		query += fmt.Sprintf(" AND site_id = $%d", len(args))
 	}
-	if strings.TrimSpace(typeFilter) != "" {
-		args = append(args, strings.TrimSpace(typeFilter))
+	tf, tfErr := validateTypeFilter(typeFilter)
+	if tfErr != nil {
+		return nil, tfErr
+	}
+	if tf != "" {
+		args = append(args, tf)
 		query += fmt.Sprintf(" AND item_type = $%d", len(args))
 	}
 	args = append(args, maxItems)

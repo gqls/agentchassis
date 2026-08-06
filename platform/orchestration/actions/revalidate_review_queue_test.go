@@ -3,6 +3,8 @@ package actions
 import (
 	"encoding/json"
 	"os"
+	"reflect"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -233,10 +235,16 @@ func TestAllThreeStatusGatesUseTheSharedList(t *testing.T) {
 		t.Fatal("found no uses of the shared status list — this test's needle has stopped " +
 			"matching, so it can no longer fail; fix it rather than trusting the pass")
 	}
-	if shared != 3 {
-		t.Errorf("the shared status list is interpolated %d times, want exactly 3 "+
-			"(selection + 2 CAS guards). A gate that does not carry it will select rows it "+
-			"then fails to update, which looks like 'the sweep found nothing to do'.", shared)
+	// FOUR SINCE 2026-08-06, and the fourth is NOT a gate: reportUncoveredBacklog
+	// counts the parked rows the sweep cannot judge, and must scope that count to
+	// the same statuses the sweep considers or it reports a different population
+	// than the one being drained. It is read-only — it can misreport, it cannot
+	// select-then-fail-to-update, which is the failure the other three share.
+	if shared != 4 {
+		t.Errorf("the shared status list is interpolated %d times, want exactly 4 "+
+			"(selection + 2 CAS guards + the read-only coverage count). A gate that does not "+
+			"carry it will select rows it then fails to update, which looks like 'the sweep "+
+			"found nothing to do'.", shared)
 	}
 
 	// The literal that used to be in all three. Any survivor is a drifted gate.
@@ -281,5 +289,120 @@ func TestRevalidatableStatusesAreTheIntendedSet(t *testing.T) {
 		t.Errorf("unexpected size %d: every addition widens what an automated sweep may close, "+
 			"so state the reason in the list's comment before growing it",
 			len(workItemRevalidatableStatuses))
+	}
+}
+
+// ============================================================================
+// The selection type filter (2026-08-06) — the cap must bound JUDGEABLE work
+// ============================================================================
+
+// Before the filter, loadParkedReviewItems took the oldest N parked rows of ANY
+// type. Types with no revalidator return `unknown`, which is deliberately
+// non-terminal, so they stayed parked, stayed oldest, and were re-selected every
+// run. Measured 2026-08-06: 396 of the oldest 500 were unjudgeable, only ~104 head
+// slots ever turned over, and 64 judgeable rows sat permanently beyond the cap.
+//
+// The property that makes the fix safe is that the filter and the registry cannot
+// disagree — so assert they are the SAME source, not merely equal today.
+func TestCoveredItemTypesIsDerivedFromTheRegistry(t *testing.T) {
+	got := coveredItemTypes()
+
+	if len(got) == 0 {
+		t.Fatal("coveredItemTypes() is empty — the selection would match nothing and the " +
+			"sweep would silently drain nothing at all")
+	}
+
+	want := make([]string, 0, len(reviewRevalidators))
+	for typ := range reviewRevalidators {
+		want = append(want, typ)
+	}
+	sort.Strings(want)
+
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("coveredItemTypes() = %v, want the registry's keys %v — if these can drift, "+
+			"the sweep either skips work it can judge or loads work it cannot", got, want)
+	}
+
+	// Deterministic: Go map order is randomised per run, so an unsorted derivation
+	// would reshuffle the generated IN list on every pass.
+	for i := 0; i < 8; i++ {
+		if !reflect.DeepEqual(coveredItemTypes(), got) {
+			t.Fatalf("coveredItemTypes() is not stable across calls: %v then %v",
+				got, coveredItemTypes())
+		}
+	}
+	if !sort.StringsAreSorted(got) {
+		t.Errorf("coveredItemTypes() is not sorted: %v", got)
+	}
+}
+
+// The filter has to be IN THE SELECTION to do anything. A source scan, because the
+// failure this guards is a missed edit — someone widening the query later and
+// dropping the clause would leave every other test passing.
+func TestSelectionCarriesTheCoveredTypeFilter(t *testing.T) {
+	src, err := os.ReadFile("revalidate_review_queue_action.go")
+	if err != nil {
+		t.Fatalf("read source: %v", err)
+	}
+	var code []string
+	for _, line := range strings.Split(string(src), "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "//") {
+			continue
+		}
+		code = append(code, line)
+	}
+	body := strings.Join(code, "\n")
+
+	if n := strings.Count(body, "sqlInList(coveredItemTypes())"); n != 2 {
+		t.Errorf("sqlInList(coveredItemTypes()) appears %d times in code, want exactly 2 "+
+			"(the selection filter, and reportUncoveredBacklog's complement). Without the "+
+			"first, the cap is spent on rows no revalidator can judge.", n)
+	}
+	// The complement must be a NOT IN over the same helper, or the coverage report
+	// and the selection would describe overlapping populations.
+	if !strings.Contains(body, "item_type NOT IN") {
+		t.Error("reportUncoveredBacklog no longer excludes the covered types — it would " +
+			"count judgeable rows as a coverage gap")
+	}
+}
+
+// Asking for a type the sweep cannot judge must REFUSE, not return an empty pass:
+// "scanned 0" is indistinguishable from "nothing left to do".
+func TestUncoveredTypeFilterIsRefusedRatherThanReturningNothing(t *testing.T) {
+	_, err := validateTypeFilter("cta_names_unknown_destination")
+	if err == nil {
+		t.Fatal("asking for an uncovered item_type returned no error — an empty result reads " +
+			"exactly like a drained queue")
+	}
+	for _, want := range []string{"cta_names_unknown_destination", "no revalidator"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("refusal should name %q so the operator can act on it; got: %v", want, err)
+		}
+	}
+	// It must also name what IS covered — a refusal that does not is a dead end.
+	if !strings.Contains(err.Error(), "needs_page") {
+		t.Errorf("refusal should list the covered types; got: %v", err)
+	}
+}
+
+// Every covered type must be ACCEPTED. Without this, a refusal that rejected
+// everything would pass the test above — and the sweep would drain nothing while
+// reporting a tidy error.
+func TestEveryCoveredTypeFilterIsAccepted(t *testing.T) {
+	for _, typ := range coveredItemTypes() {
+		got, err := validateTypeFilter(typ)
+		if err != nil {
+			t.Errorf("covered type %q was refused: %v", typ, err)
+		}
+		if got != typ {
+			t.Errorf("validateTypeFilter(%q) = %q, want it returned unchanged", typ, got)
+		}
+	}
+
+	// Absent filter means "every covered type", not "none" — the scheduled row
+	// supplies no item_type, so this is the path that actually runs daily.
+	got, err := validateTypeFilter("   ")
+	if err != nil || got != "" {
+		t.Errorf("a blank filter must normalise to no filter, got (%q, %v)", got, err)
 	}
 }
