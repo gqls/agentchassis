@@ -1,4 +1,15 @@
-# HANDOFF — `bugs_open/098` unpublish primitive · **START HERE** · 2026-08-03
+# HANDOFF — `bugs_closed/098` unpublish primitive · **CLOSED 2026-08-06** · was: START HERE
+
+> ## CLOSED 2026-08-06 — this lane is FINISHED; nothing is owed
+>
+> Owner's word this morning. Bug file moved to `bugs_closed/098_…` (closing block at its
+> top has the evidence), 016b §10 row updated, closing read-out in
+> `SUMMARY_2026-08-06_unpublish_primitive.md`. **RFC_012 was RULED the same sitting:
+> option B, DB-backed helper** (recorded in the RFC; implementation unassigned — it is
+> nobody's task yet, deliberately). RFC 011's deferred general question waits for the
+> next destructive verb. If you are here because a NEW page is serving after archiving:
+> the mechanism is `216_TRIGGER_page_retraction.sh` with `PAGE_IDS`, procedure in the
+> RUNBOOK — archiving does not auto-retract, by decision.
 
 Cold-start for the next session. Read this, then `NOTES_unpublish_primitive.md` (the
 missteps — they are the expensive part) and `RUNBOOK_unpublish_primitive.md` (every

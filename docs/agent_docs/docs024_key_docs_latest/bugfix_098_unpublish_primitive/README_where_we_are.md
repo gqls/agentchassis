@@ -262,3 +262,25 @@ one small code repair (writing the retraction's full audit somewhere that provab
 survives), and then closing the bug on your say-so. Your two standing decisions are in
 yesterday's summary: the RFC 012 ruling, and — only when the next destructive verb
 arrives — RFC 011's deferred question.
+
+---
+
+2026-08-06 — closed, on your word.
+
+The bug is closed and moved to the closed pile. Everything it asked for exists and is
+proven: pages can be taken off a live site through a guarded, audited path; the ones
+that were wrongly serving are all down and stayed down through the scheduled refreshes;
+and when the machinery refuses to remove something, that refusal — and the full account
+of what it considered — now lands somewhere permanent that monitoring already reads,
+proven by deliberately aiming it at a live page and watching it decline politely.
+
+You also ruled on the plumbing question (RFC 012): option B, the database-backed
+helper. That means the trick every affected piece of code has been reinventing — how to
+keep your findings when the platform throws them away mid-flight — becomes one shared,
+named tool that writes to the database, the only place proven to survive. Nobody is
+assigned to build it yet; the ruling is recorded so whoever next needs it builds it
+properly instead of improvising again.
+
+Nothing else is open on this lane. The one question left deliberately unanswered (does
+a destructive verb deserve its own vocabulary?) waits, as agreed, for the next
+destructive verb to show up.

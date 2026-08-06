@@ -1,5 +1,31 @@
 # 098 — archiving a page removes it from every derivation but not from the deployed site, so its frozen listing keeps advertising a 404
 
+> ## CLOSED 2026-08-06 → `bugs_closed/` (owner's word, this morning)
+>
+> The bar is met on every axis this file itself set:
+>
+> - **Population: ZERO**, and it stayed zero. All 10 batch-retracted pages plus the
+>   original single retraction re-checked after BOTH refresh windows (08-05 morning):
+>   still 404, collateral 200, **0** new `page_rerender` rows — the two-part acceptance
+>   this file demands, complete. The 080 lane's two further retractions (08-05) also
+>   passed both halves the same night. Five retractions performed through the
+>   mechanism, all proven.
+> - **Debt 5b: LIVE + PROVEN at the DB layer** (08-05 evening, digest `9cb767a…`, both
+>   replicas strings-verified; probe run `e839b8b1…`: one ACTIVE page through 216 →
+>   refused, zero dispatch, page still 200, and BOTH durable rows persisted —
+>   `RETRACTION_REFUSED` warning + `RETRACTION_AUDIT` info with the full candidate
+>   list). Nothing on this bug is carried; all five debts plus 5b are paid and live.
+> - **The non-automation is a DECISION, not an omission** (owner-delegated, 08-04):
+>   archiving does not auto-retract; the runbook's two-step procedure is the mechanism.
+> - **RFC 011 DECIDED** (option B — verb kept, out of the generic allowlist) and
+>   **RFC 012 DECIDED 2026-08-06** (owner: option B, DB-backed helper; ruling recorded
+>   in the RFC, implementation unassigned).
+>
+> Workstream: `docs024_key_docs_latest/bugfix_098_unpublish_primitive/` — the closing
+> read-out is `SUMMARY_2026-08-06_unpublish_primitive.md`. The durable lessons are in
+> 016b §9 (build columns are history, not liveness), `LANDMINES.md` (findings + await),
+> and RFC 012 (the park discards CollectedData mutations).
+
 > ## STATUS 2026-08-04 (evening) — THE POPULATION IS RETRACTED, and the two open decisions are taken
 >
 > **The whole serving population is DOWN** (owner approval, this evening). Fresh census

@@ -697,3 +697,26 @@ unchecked; corrected there. Schema first, even for a SELECT you wrote yourself.
 
 **Nothing on this bug needs code any more.** Open: the owner's word to close, and the
 owner's RFC_012 ruling (flagged by two council seats, no owner/date yet).
+
+## 2026-08-06 — CLOSED, and RFC_012 ruled the same sitting
+
+Owner's word: close 098, RFC_012 = option B, DB-backed helper. Executed:
+
+- Closing block written into the bug file, then `git mv` to `bugs_closed/` with BOTH
+  paths named on the commit (the git-mv landmine; verified at HEAD with `git ls-tree`
+  — exactly one 098 path across the two dirs).
+- 016b §10 row rewritten as a closed entry: mechanism + guards + the two decisions
+  (non-automation; RFC 011 option B) + the transferable lesson (stamps are history).
+- RFC_012 status flipped to DECIDED with the ruling block appended: option B **as
+  amended by addendum 2** — DB-backed, the in-memory namespace half dropped as refuted,
+  shared error-log writer included (§3(c) answered yes by inclusion), (a)/(a′)/(d) left
+  explicitly open, implementation unassigned. Care taken to record only what the owner
+  ruled — the A/B/C choice — and not to smuggle the standing-check question (d) in as
+  decided.
+- Closing summary written (`SUMMARY_2026-08-06`, new file per the series rule).
+- Memory: topic file updated to CLOSED, index line moved MEMORY.md → MEMORY_closed.md.
+
+Close bar check, for the record: fixed AND live holds on every component — resurrection
+fix live 08-03, primitive + agent live 08-03/04, debt 5 live 08-04, debt 5b live+proven
+08-05 (probe `e839b8b1…`), acceptance two-part complete 08-05, population zero. Nothing
+carried.
