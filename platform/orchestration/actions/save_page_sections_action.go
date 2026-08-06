@@ -1059,16 +1059,45 @@ func extractSectionsFromMetadata(metaData interface{}, logger *zap.Logger) []Sec
 			continue
 		}
 
-		// component_function is the slot_name (e.g. "hero", "call-to-action")
-		componentName := "section"
-		if fn, ok := m["component_function"].(string); ok && fn != "" {
-			componentName = fn
-		} else if name, ok := m["component_name"].(string); ok && name != "" {
-			componentName = name
-		}
+		// ── Slot identity before component identity (bugs_open/189) ──────────
+		// The slot name says WHICH section this is on the page; the component
+		// function says WHAT renders it. They are different facts, and the
+		// function-first rule below collapsed them into one — so the first time
+		// a positionally-named slot ("prose-0", "tool-2") became resolvable, the
+		// save silently RENAMED it to the component's own identity, and
+		// matchLockedRow (which matches the incoming name against the locked
+		// rows' stored slot_name) then missed the very row it exists to protect.
+		// A human-locked section was duplicated on the page rather than
+		// preserved.
+		//
+		// So a producer that HOLDS the page_components row's own slot identity
+		// now says so in stored_slot_name, and it is taken VERBATIM: this is a
+		// row identity being matched back to the row that issued it, and
+		// normalising a legacy spelling would un-match it.
+		// NormalizeComponentFunction stays on the DERIVED-name path below, where
+		// bugs_closed/041 put it — a name we invent from a component must obey
+		// the kebab-case contract; a name the page already carries must not be
+		// rewritten by us at all.
+		//
+		// Absence is today's behaviour byte for byte: the tool-recreation path
+		// regenerates single-tool HTML with no structured slot identity and must
+		// keep working unchanged, as must any orchestration expanded before the
+		// producers gained the field.
+		componentName := ""
+		if slot, ok := m["stored_slot_name"].(string); ok && slot != "" {
+			componentName = slot
+		} else {
+			// component_function is the slot_name (e.g. "hero", "call-to-action")
+			componentName = "section"
+			if fn, ok := m["component_function"].(string); ok && fn != "" {
+				componentName = fn
+			} else if name, ok := m["component_name"].(string); ok && name != "" {
+				componentName = name
+			}
 
-		// Enforce naming contract: slot_name must be kebab-case
-		componentName = NormalizeComponentFunction(componentName)
+			// Enforce naming contract: slot_name must be kebab-case
+			componentName = NormalizeComponentFunction(componentName)
+		}
 
 		componentID := ""
 		if id, ok := m["component_id"].(string); ok && id != "" {

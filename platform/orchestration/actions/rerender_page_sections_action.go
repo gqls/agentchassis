@@ -494,10 +494,17 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 			mergedContent[k] = v
 		}
 
+		// stored_slot_name carries the page_components row's OWN identity through
+		// to the save, which prefers it verbatim over the component's function
+		// (bugs_open/189). This action holds the stored row in hand, so it is the
+		// one producer that can never be wrong about it — and without the field
+		// the save renamed a positional slot to comp.Function here, defeating the
+		// locked-row guard that matches on that name.
 		entry := map[string]interface{}{
 			"rendered_html":      rendered,
 			"component_name":     s.slotName,
 			"component_function": comp.Function,
+			"stored_slot_name":   s.slotName,
 			"content_data":       mergedContent,
 		}
 		if comp.ID != "" {
@@ -695,6 +702,13 @@ func carryStoredSection(s storedSection) map[string]interface{} {
 	m := map[string]interface{}{
 		"rendered_html":  s.renderedHTML,
 		"component_name": s.slotName,
+		// The stored row's own slot identity, stated explicitly so the save
+		// preserves it verbatim rather than deriving a name (bugs_open/189). A
+		// no-op on this path today — a carry sets no component_function, so the
+		// save already fell through to component_name — but stating it keeps the
+		// two producers in this file saying the same thing, which is what stops
+		// the next edit re-opening the gap.
+		"stored_slot_name": s.slotName,
 	}
 	if s.componentID != "" {
 		m["component_id"] = s.componentID

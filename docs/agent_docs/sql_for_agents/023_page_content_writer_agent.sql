@@ -1930,7 +1930,8 @@ SET default_config = jsonb_set(
                 "content_from": "generated_content.result",
                 "merge_with": "current_section.resolved_data",
                 "context_from": "render_context",
-                "component_from": "current_section.component"
+                "component_from": "current_section.component",
+                "slot_name_from": "current_section.name"
               },
               "description": "Render merged content into component template",
               "output_field": "section_output"
@@ -1942,7 +1943,8 @@ SET default_config = jsonb_set(
                 "content_from": "render_context",
                 "merge_with": "current_section.resolved_data",
                 "context_from": "render_context",
-                "component_from": "current_section.component"
+                "component_from": "current_section.component",
+                "slot_name_from": "current_section.name"
               },
               "description": "Render section from template with resolved data (no LLM)",
               "output_field": "section_output"
@@ -2182,3 +2184,70 @@ Return a JSON object with exactly these keys:
 
 (1 row)
 clients_db=#
+
+--
+
+-- 2026-08-06 — bugs_open/189: carry the section's own slot name to the save.
+--
+-- The workflow JSON above now carries the slot_name_from key on both render
+-- steps, but that block is no longer safely re-runnable (it
+-- predates the item_key/item_type prompt patch immediately above and would
+-- revert it). So the live change is this targeted jsonb_set — the same two keys,
+-- nothing else touched.
+--
+-- WHY: RenderComponentAction only ever emitted the COMPONENT's identities
+-- (component_name/component_function). On a decomposed page the section's name
+-- is positional ("prose-0", "tool-2") and belongs to the page, so save_page_
+-- sections derived the slot name from component_function instead — renaming the
+-- slot, and thereby defeating the locked-row guard that matches on that name
+-- (a human-locked section duplicates rather than being preserved).
+--
+-- ORDER: image first, then this. The old binary ignores the unknown config key
+-- and the new binary treats its absence as today's behaviour, so both orders are
+-- safe; this follows the estate's convention rather than a hard constraint.
+
+BEGIN;
+
+UPDATE agent_definitions
+SET default_config = jsonb_set(
+        jsonb_set(
+                default_config,
+                '{workflow,steps,process_sections_loop,config,sub_workflow,steps,render_section,config,slot_name_from}',
+                '"current_section.name"'::jsonb,
+                true
+        ),
+        '{workflow,steps,process_sections_loop,config,sub_workflow,steps,render_from_template,config,slot_name_from}',
+        '"current_section.name"'::jsonb,
+        true
+    ),
+    updated_at = now()
+WHERE type = 'page-content-writer'
+  AND is_active = true
+  AND deleted_at IS NULL
+  AND (is_snapshot IS NULL OR is_snapshot = false);
+
+-- Refuse the commit if either key is missing: a SELECT that returns rows does
+-- NOT stop a transaction (ON_ERROR_STOP ignores a non-empty result), so the
+-- check has to RAISE.
+DO $verify$
+DECLARE
+have_render  boolean;
+have_template boolean;
+BEGIN
+SELECT default_config #>> '{workflow,steps,process_sections_loop,config,sub_workflow,steps,render_section,config,slot_name_from}' = 'current_section.name',
+       default_config #>> '{workflow,steps,process_sections_loop,config,sub_workflow,steps,render_from_template,config,slot_name_from}' = 'current_section.name'
+INTO have_render, have_template
+FROM agent_definitions
+WHERE type = 'page-content-writer'
+  AND is_active = true
+  AND deleted_at IS NULL
+  AND (is_snapshot IS NULL OR is_snapshot = false);
+IF NOT COALESCE(have_render, false) OR NOT COALESCE(have_template, false) THEN
+        RAISE EXCEPTION 'slot_name_from missing after update (render_section=%, render_from_template=%) — bugs_open/189 config did not apply',
+              have_render, have_template;
+END IF;
+    RAISE NOTICE 'slot_name_from present on both render steps';
+END;
+$verify$;
+
+COMMIT;
