@@ -5733,8 +5733,31 @@ a STRING array — check the shape before trusting the prune.
 - **fires when:** you fire anything asynchronous at the fleet (a sweep, a council submission, a diagnosis run) and arm a loop to watch its `correlation_id` land. The natural query is `SELECT agent_type, current_step, status FROM orchestration_states WHERE correlation_id=...` — because every *other* async table in this estate has an agent column, and because `agent_definitions.type` is what you have in hand. That column does not exist here; the table identifies work by `workflow_plan`, `client_id` and `collected_data`, never by agent type.
 - **why the wrong answer looks right:** the loop is built to tolerate transients (`2>/dev/null || true`), so the `ERROR: column "agent_type" does not exist` is swallowed on **every** iteration and the variable is empty every time. Empty is exactly what "the row has not appeared yet" looks like. The terminal-state `case` never matches, so the watch runs to its full timeout and reports silence. Two true facts then compound it: publish→run start on this fleet has been measured at up to **~29 minutes**, and a chassis roll really does kill in-flight orchestrations — so "no row after 20 minutes, and a roll happened" is a *fully coherent* wrong story. Measured 2026-08-05: a 20-minute watch saw nothing while the sweep had already finished **14 orchestrations, all COMPLETED, `error` NULL**, inside 11 minutes.
 - **the tell:** none from the loop — it looks like a patient watch. The one asymmetry is that a genuinely-waiting loop and a broken one are byte-identical in output, so treat total silence as *unproven*, never as evidence.
-- **the check:** run the query **once by hand** before wrapping it in anything, and never send stderr to `/dev/null` in a poll loop — discriminate on OUTPUT and let errors be loud. The columns that exist: `orchestration_id, correlation_id, client_id, status, current_step, collected_data, initial_request_data, final_result, error, workflow_plan, execution_path, created_at, updated_at, parent_orchestration_id, currently_executing, processing_node`. Find a run by payload, not by agent: `WHERE collected_data->'input_data'->>'site_id' = '<id>'`. And before concluding a dispatch was dropped, `date -u` — hours pass between turns on this tree, and the timestamps you are calling impossible are usually just older than you think.
+- **the check:** run the query **once by hand** before wrapping it in anything, and never send stderr to `/dev/null` in a poll loop — discriminate on OUTPUT and let errors be loud. ~~The columns that exist: `orchestration_id, correlation_id, client_id, status, current_step, collected_data, initial_request_data, final_result, error, workflow_plan, execution_path, created_at, updated_at, parent_orchestration_id, currently_executing, processing_node`. Find a run by payload, not by agent~~: `WHERE collected_data->'input_data'->>'site_id' = '<id>'`. And before concluding a dispatch was dropped, `date -u` — hours pass between turns on this tree, and the timestamps you are calling impossible are usually just older than you think.
+
+> **CORRECTED 2026-08-06 — this entry's column list is TRUNCATED, and "never by agent type" is FALSE.**
+> `orchestration_states` has **36 columns**; the struck list is the first 16, i.e. exactly what
+> `\d orchestration_states | head -25` prints. Among the omitted ones is **`owner_agent_type`
+> (character varying(50))** — plus `owner_agent_id`, `owner_agent_role`, `site_id`,
+> `orchestration_name`, `awaited_requests`, `processing_history`, `subtree_agents`,
+> `requests_topic`, `responses_topic`, `execution_metadata`, `fuel_budget`.
+> **So the table DOES identify work by agent type, and `GROUP BY owner_agent_type` is the right
+> query** — four other entries in this same file already rely on it (see the `site-id extractor`,
+> `fidelity`/`site-adoption-agent`, `~24h retention`, and `code-index` entries).
+> **What stays true:** there is no column named literally `agent_type`, and the silenced-stderr
+> lesson — the entry's actual subject — is untouched and still correct.
+> **What this cost:** on 2026-08-06 I needed the caller of each `save_page_sections` run,
+> followed "find a run by payload, not by agent", and built a fingerprinting scheme over
+> `workflow_plan` config values. It was ambiguous (the value I keyed on is shared by four agent
+> definitions) and it counted step occurrences rather than runs. One `GROUP BY owner_agent_type`
+> replaced all of it.
+> **The transferable bit, and it is why this correction is worth its space:** the original
+> entry and I made the *same* mistake independently — a `\d` read only as far as the first
+> screen. **Never publish a "the columns that exist" list from a truncated `\d`**; a partial
+> schema quoted as complete converts one session's impatience into every later session's
+> false premise. Read the whole thing, or say which part you read.
 - **source:** WRONG_CALLS 2026-08-05 (brochure_component_library, fundamentallyai improvement sweep); RUNBOOK_brochure_component_library.md §"improvement sweep" step 2
+- **corrected:** 2026-08-06, code_review_triage_2026-08-05 lane (NOTES §15b, RUNBOOK R10)
 - **added:** 2026-08-05, fundamentallyai sweep session
 
 - `kubectl exec ... grep -ac <literal> /app/<binary>` on `agent-chassis` /

@@ -21179,3 +21179,47 @@ census returned `403 Forbidden` on every single row and I briefly treated it as 
 origin or routing problem worth investigating. It was a user-agent rejection; a
 browser UA fetched all 19. *When every subject fails identically, suspect the
 instrument before the subjects.*
+
+## 2026-08-06 — code-review triage lane. I ran `\d`, piped it through `head -25`, and built an ambiguous workaround for a column that was sitting at row 30
+
+**Direct sibling of the entry above**, and it sharpens it. That one says "schema
+first — the `\d` is cheaper than the round trip". I **did** run the `\d`. I ran it
+as `\d orchestration_states | head -25`, to keep the output tidy. The table has
+**36 columns**.
+
+**The claim I acted on.** That `orchestration_states` has no column naming the
+agent that owns a run, so callers must be identified indirectly. I then built a
+scheme fingerprinting each caller by a distinctive-looking value
+(`sections_metadata_field`) inside `workflow_plan`.
+
+**What was actually true.** `owner_agent_type` is column **30 of 36**. One
+`GROUP BY owner_agent_type` answers the question exactly. My workaround was also
+wrong twice over: the value I keyed on is shared by **four** agent definitions, so
+it only ever disambiguated the single caller I happened to be asking about; and
+`count(*)` over the LATERAL step walk counts **step occurrences, not runs** —
+reporting 2 where the truth was 1 run carrying the step twice.
+
+**What caught it.** The 2-vs-1 discrepancy between two of my own queries. Not
+review, and not suspicion of the premise — I never doubted "there is no agent
+column" until the arithmetic disagreed with itself.
+
+**The compounding part, which is the reason this is worth a row.** `LANDMINES.md`
+carried an entry asserting the same false thing — *"the table identifies work by
+`workflow_plan`, `client_id` and `collected_data`, **never by agent type**"* —
+followed by a "the columns that exist" list. That list is **the first 16 columns**:
+someone else read a truncated `\d` and published it as complete. Four other entries
+in that same file already use `owner_agent_type`, so the file contradicted itself
+and the wrong half is the one shaped like an answer. **Two sessions made the
+identical mistake independently, and the first one's version had hardened into a
+documented fact that recommends the workaround.** Corrected in place with the cost
+noted (`LANDMINES.md`, sync applied).
+
+**The cheap check.** `\d <table>` with **no pager and no `head`** — or
+`\d <table> | wc -l` first if you must truncate, so you can see what you are cutting.
+And when a doc tells you a column does not exist, that is a claim about a schema:
+**verify it against the schema, not against the doc's confidence.**
+
+**The transferable rule.** *Never publish a "the columns that exist" list from a
+truncated `\d`.* A partial schema quoted as complete converts one session's
+impatience into every later session's false premise — and unlike a wrong figure,
+it never looks stale, so nobody re-checks it.
