@@ -359,3 +359,57 @@ evidence in this file:
 
 The run then proceeded to `call_content_writer` — i.e. past the gate that used
 to be a dead end. Save/deploy outcome and the prose comparison follow below.
+
+## ✅ FIXED, LIVE AND BEHAVIOURALLY VERIFIED END TO END — 2026-08-06, v1.0.1259
+
+**Kept in `bugs_open/` deliberately.** Owner direction 2026-08-06: *"please leave
+the bugs that you've found in bugs_open not in the closed bug file."* That
+overrides CLAUDE.md's `/bugs_closed/` bar; the fix being live is a fact about the
+code, not permission to retire the ticket. Do not `git mv` this file.
+
+Canary: orchestration `fa89217a-768b-4f22-bd7b-12209f58cbf3`, work item
+`996b9619-46aa-4b5e-ab71-80e141e0d87e` (the original `voiceh-canary` spec copied
+verbatim by SQL from `2517bc4b`, so the prompt cannot have drifted). Terminal
+state `complete/COMPLETED`, page `deployed_at 11:53:21`.
+
+### Every assertion this file asked for
+
+| assertion (from §How to verify) | result |
+|---|---|
+| sections resolve instead of deferring | `ready_count=2, deferred=0, skipped=0`; `prose-0 -> ported-prose`, `prose-1 -> ported-prose` — a function reachable ONLY via `component_id` |
+| the prose actually changes | prose-0 **1993 → 2358 b**, prose-1 **192 → 471 b** |
+| zero `needs_new_component` filed | **0** (pre-fix: 2 + 2 junk items per page; 114 for a full site) |
+| the 12 `lock_type='permanent'` tool rows untouched | untouched — the canary page holds no locked rows, and `tool-loan-vs-savings`' locked row was separately proven intact under 189 |
+
+**The rewrite is on-spec, not merely different.** prose-0 now opens *"If you've
+ever looked at your monthly…"* and prose-1 *"If you'd like to see these numbers
+applied to your own loan…"* — the conditional/situational opening the canary
+brief demanded — with the heading structure and the Main Loan Calculator link
+preserved. So the framework produced the intended artefact, which is the thing
+this bug was blocking.
+
+**Proof the save ran rather than no-opped** (a carried run would show an
+unchanged row count and slot list): both rows have NEW ids — `a608c953`,
+`b05e3477` against the baseline `efdb1a61`, `79e62948` — stamped `11:53:01`.
+
+**Verified at the ARTEFACT, not the status.** Cache-busted fetch of
+`https://loancalculator.co.uk/guides/how-loans-are-calculated.html`: HTTP 200,
+17,619 bytes, 2 `<section>` blocks, the new opening present **1**, and the
+pre-fix opening (*"Most people see a monthly loan repayment as a flat fee"*)
+**0** — a negative control on the served page, not just a positive match.
+
+**A second bug's fix is proven in the same run:** the slot names came back
+`prose-0`/`prose-1` and `pages.sections` still reads `["prose-0", "prose-1"]`.
+Pre-`bugs_open/189` this build path would have renamed both to `ported-prose`.
+(`data-component="ported-prose"` ×2 in the markup is correct and unrelated —
+that attribute carries the component's function; the slot name lives in the DB
+column, and that is what rebuild-ability depends on.)
+
+### The full chain, for the record
+
+`13252f714` (Path 0, council APPROVED `d3e232b8`) → live v1.0.1257, pod-grepped
+with a fabricated-string control at 0 → read-only proof that 57/57 unresolvable
+names ARE resolvable by stored id → `92e14493b` + config (189, APPROVED
+`87444080`, PBP-035) removed the save-path gate → this canary. **Unblocks** the
+owner's 2026-08-05 instruction to rerun loancalculator's copy through the
+framework in the H voice: the mechanism is now proven on that site's own pages.
