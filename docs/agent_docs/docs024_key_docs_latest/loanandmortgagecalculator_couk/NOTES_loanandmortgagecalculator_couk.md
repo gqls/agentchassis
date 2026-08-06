@@ -468,3 +468,38 @@ present, banned performatives absent). Verbatim row REPLACED in one txn
 backup `page_components_bak_20260805_lmc` holds all 41 originals).
 `page_rerender` c64c273e filed triaged 20:53Z, assemble mode (no reason),
 page_id in spec AND column.
+
+### 2026-08-06 — CHECKPOINT PASSED: both canaries byte-identical to prediction
+
+Deliberately two canaries, not one — the sibling lane's two DISAGREED and a
+single agreeable one would have licensed a confident wrong prediction. Here
+they were a guide (prose only) and a calculator (prose + locked widget).
+
+| canary | rerender | served vs predicted |
+|---|---|---|
+| guides-how-loans-affect-mortgage-affordability | complete in ~50s | **byte-identical** (13,051 b) |
+| loans-consolidation | complete in ~50s | **byte-identical** (12,865 b) |
+
+**So the mirror is validated against the real Go path** — the sibling's
+"hypothesis with a scheduled test" has now had its test, on this site, on
+both page shapes. Predictions for the remaining 39 can be trusted to the same
+degree, and every one is still diffed anyway.
+
+**The widget survived: `golden_compare_post.py` MATCHES on consolidation —
+all 11 money/control fields byte-equal to the pre-change golden** (including
+`old-int £1,664,666.67` and the full verdict string).
+
+⚠ **A known structural divergence affects all 23 calculator pages, and the
+raw `toolgolden --compare` reports it as a red result.** The golden
+fingerprints every id-bearing element; the hand-built wrapper carried
+`id="content"` (the skip-link target) and therefore held the entire page text,
+while the decomposed page's `content` is the site header's empty
+`<span id="content" tabindex="-1">`. Only that one field moves —
+11 of 12 matched exactly on the canary. `golden_compare_post.py` encodes this
+as a SHAPE ASSERTION rather than an ignore-list: `content` must be exactly
+`|inline` (empty, inline), anything else fails, and every other field must
+match exactly. **Its positive control is run, not assumed** — `--self-test`
+compares one tool's golden against a different tool's live page and must
+report FAIL; it found 90 problems, so the comparator can still fail.
+A full post-rebuild golden re-baseline is owed once the site is finished (the
+sibling lane owed the same after its decomposition).
