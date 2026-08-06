@@ -178,3 +178,64 @@ have not re-run it; noting the house standard is a separate `_ROLLBACK.sql`.
 `af2667453` already carries `Council-Submitted:`, so `098` credits it
 automatically at report time — and forward-only forbids an amend to add
 `Council-Reviewed:`.
+
+## 2026-08-06 (post-roll) — LIVE on v1.0.1259 and INDUCTION-PROVEN, all four cases
+
+**1. Shipped.** `v1.0.1259`, **both replicas**, one exec each:
+`dead_fragment_link` **10** (0 pre-roll), `VerifyDeadFragmentLinkResolved` **2**,
+`SplitFragment` **2**, positive control `phantom_internal_link` **10**, negative
+control `zzz_no_such_string_control` **0**. (The positive control moved 9 → 10
+because this change's own file names the sibling type — worth knowing before
+someone reads that as drift.)
+
+**2. Induced on a REAL run of the live binary, not a test.** Fixture on the pool
+site `pool-ai-agents.internal` (`status='pool'`, 0 pages before, nothing serves
+it), two scratch pages carrying **four cases in one run**, then a real
+`completeness-discovery-agent` dispatch via a one-shot `scheduled_tasks` row.
+Fired in **under a minute** (11:35:51Z).
+
+| case | href | expected | got |
+|---|---|---|---|
+| bare fragment, no such id | `#zzz-induced-dead` | FIRE | **filed** |
+| bare fragment, id on the same page | `#zzz-induced-live` | silent | **silent** |
+| cross-page, target lacks the id | `/zzz-induction-b.html#zzz-induced-crosspage-dead` | FIRE | **filed** |
+| cross-page, target HAS the id | `/zzz-induction-b.html#zzz-induced-crosspage-live` | silent | **silent** |
+
+Exactly **2** items, both `severity=low`, `handler_agent=page-build-handler`,
+`pipeline=content`, `priority=25`, filed against the page **containing** the
+link, `item_key` = `dead_fragment_link:page_component:<page>:<slot>:<href>`.
+
+**The boundary held, and it produced its own positive control.** The `<a href="#">`
+noop in the same component was NOT claimed by this arm — it was filed by
+`dead_control` at `high`, which is exactly the division of remit the header
+asserts. One fixture proved both "mine fires on mine" and "mine leaves the
+neighbour's alone".
+
+**3. Retraction proven by a before/after with one variable.** Deleted the two
+items, added `<div id="zzz-induced-dead">` to page A — **repairing case 1 only**,
+leaving its href in place — and refired. Result: **1** item, and it is the
+cross-page one. Same binary, same run, same page, same data except one `<div>`.
+So the arm is genuinely resolving fragments against document ids rather than
+pattern-matching hrefs, which no unit test can establish about the deployed code.
+
+**4. Verifier: SQL validated in both directions, Go function NOT yet executed —
+stated as a gap rather than glossed.** Its three query shapes were run against
+the live fixture: href-presence returns `t` for the rendered href and `f` for an
+absent one; `concatPageHTMLByPath`'s normalisation resolves
+`/zzz-induction-b.html` to page B's 106-byte document, which contains the live id
+and not the dead one — the exact discrimination the verifier branches on. What
+this does NOT prove is `VerifyDeadFragmentLinkResolved` itself running: it is
+called only by `CompleteWorkItemAction`, and the only live callers are the
+dispatch loops. `build-dispatch-loop` takes `item_domain='build'` and these items
+are `content`, so reaching it would have meant spawning `page-build-handler`
+against a pool-site scratch page — more side effect than the evidence is worth.
+**Owed: the first real completion of a `dead_fragment_link` item exercises it.**
+
+**5. Fleet re-measured post-roll:** 67 fragment-bearing hrefs, **0 findings** —
+unchanged from pre-roll, as predicted.
+
+**6. Fixture removed.** Pool site back to 0 pages / 0 work items, one-shot task
+deleted, no `dead_fragment_link` rows anywhere. Verified in the same statement.
+The three junk items the full 32-check run filed against the pool site
+(`needs_rerender`, `nav_drift`, `dead_control`) were deleted with it — they are
+artefacts of my fixture, not findings about anything real.
