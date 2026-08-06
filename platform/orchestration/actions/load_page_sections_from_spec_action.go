@@ -112,10 +112,11 @@ func LoadPageSectionsFromSpecAction(ctx context.Context, params ActionParams) (i
 	//    the same store fallback 4 (sibling synthesis) already reads.
 	// -----------------------------------------------------------------------
 	var specSections []string
+	var specSectionFacts []interface{} // aligned with specSections; nil entry = unscoped
 	var specSource string
 
 	planRows, tblErr := params.DB.QueryContext(ctx, `
-		SELECT sps.component_name
+		SELECT sps.component_name, sps.assigned_fact_ids
 		FROM site_plan_sections sps
 		JOIN site_plans sp ON sp.id = sps.plan_id
 		WHERE sp.site_id = $1 AND sp.is_current = true AND sps.page_name = $2
@@ -127,13 +128,29 @@ func LoadPageSectionsFromSpecAction(ctx context.Context, params ActionParams) (i
 	} else {
 		for planRows.Next() {
 			var comp string
-			if scanErr := planRows.Scan(&comp); scanErr != nil {
+			var factsRaw []byte
+			if scanErr := planRows.Scan(&comp, &factsRaw); scanErr != nil {
 				logger.Warn("LoadPageSectionsFromSpec: site_plan_sections scan failed",
 					zap.Error(scanErr))
 				continue
 			}
 			if comp != "" {
 				specSections = append(specSections, comp)
+				// assigned_fact_ids: NULL = unscoped (nil entry); a JSON
+				// array (possibly empty) = plan-time fact scoping for this
+				// section (bugs_open/151 candidate 1). Appended in the same
+				// branch as the name so the two lists cannot misalign.
+				var factsEntry interface{}
+				if len(factsRaw) > 0 {
+					var ids []interface{}
+					if jerr := json.Unmarshal(factsRaw, &ids); jerr == nil {
+						factsEntry = ids
+					} else {
+						logger.Warn("LoadPageSectionsFromSpec: assigned_fact_ids unparseable, treating section as unscoped",
+							zap.String("component", comp), zap.Error(jerr))
+					}
+				}
+				specSectionFacts = append(specSectionFacts, factsEntry)
 			}
 		}
 		planRows.Close()
@@ -391,9 +408,17 @@ func LoadPageSectionsFromSpecAction(ctx context.Context, params ActionParams) (i
 		sectionsIface[i] = s
 	}
 
-	return map[string]interface{}{
+	result := map[string]interface{}{
 		"sections": sectionsIface,
 		"source":   specSource,
 		"count":    len(specSections),
-	}, nil
+	}
+	// section_facts is emitted ONLY when the authoritative tier served the
+	// sections: it is read from site_plan_sections rows, so index-alignment
+	// with any other tier's list would be a guess, not a fact. Fallback-tier
+	// sections are simply unscoped.
+	if specSource == "site_plan_tables" && len(specSectionFacts) == len(specSections) {
+		result["section_facts"] = specSectionFacts
+	}
+	return result, nil
 }

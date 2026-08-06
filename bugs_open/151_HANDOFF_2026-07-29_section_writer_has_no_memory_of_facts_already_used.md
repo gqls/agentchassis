@@ -199,3 +199,37 @@ reconciled negative-control greps — evidence in
 `gauntlet_dead_cta/HANDOFF_2026-07-31_continue_here.md` §7). Still INERT, re-verified
 same day: zero agent references, zero duplication work items. Enabling is now the
 single config step and remains the `brochure_component_library` lane's call.
+
+---
+
+## STATUS UPDATE 2026-08-06 (brochure_component_library lane) — candidate 1 is BUILT, SUBMITTED, and INERT
+
+Candidate 1 (facts assigned to sections at plan time) is implemented end to end and
+committed; council-submitted alongside the commit, corr
+`902a8563-2200-4771-ac0f-55dab0839a02` (verdict not read at commit time — the
+trailer is `Council-Submitted:`, which asserts nothing). Registered as **PBP-037**
+in the same commit, per the ordering-exemption's condition 2.
+
+The shape, in one line each: migration `327` adds nullable
+`site_plan_sections.assigned_fact_ids` (NULL = unscoped = every existing row);
+`build-site-planner`'s prompt (seed `329`) shows the fact roster and takes
+object-form section entries `{"name", "facts"}`; `validate_plan` resolves objects
+by name and normalises back to string sections + an aligned per-page
+`section_facts` array (facts travel INSIDE the entry, never positionally — the
+imagery-keying scheme mis-keys silently when an entry is dropped);
+`write_site_plan` persists the assignment; `load_page_sections_from_spec` emits it
+only from the authoritative tier; `plan_sections` (opt-in step-config key, seed
+`328`) attaches `facts_scoped`/`assigned_fact_ids`/`assigned_writer_block` to each
+ready item, composing via the existing `composeWriterBlock` filtered to the
+assignment; writer prompt v4 (seed `330`) branches on `current_section.facts_scoped`
+with an explicit factless instruction for `[]`. Values substitute at compose time —
+the assignment pins WHICH facts a section states, never their numbers.
+
+**INERT until: image roll → mig 327 → seeds 328/330 → seed 329.** Each half
+tolerates the others' absence (measured/mutation-tested, 9 tests). Acceptance =
+replan fundamentallyai (pool 15, 9 fact-overlap pairs) and watch the census pair
+count fall; the five fact-blind sites are expected NOT to move. The 7 flag-only
+capability_gaps stay open as the drain population — draining means replan+rebuild
+through the claims-gated path and is sequenced behind `bugs_open/189`'s config half
+for locked-row pages. Candidates 2 (component shape tag) remains unbuilt and
+unclaimed.

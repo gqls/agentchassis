@@ -269,7 +269,7 @@ func WriteSitePlanAction(ctx context.Context, params ActionParams) (interface{},
 		InHeader        bool
 		InFooter        bool
 		NavOrder        int
-		Sections        []string // component names in declared order
+		Sections        []sectionEntry // component names + fact assignments, declared order
 	}
 	planRows := make([]planPageRow, 0, len(validated))
 
@@ -310,7 +310,7 @@ func WriteSitePlanAction(ctx context.Context, params ActionParams) (interface{},
 			InHeader:        datahelpers.GetBoolField(raw, "in_header", true),
 			InFooter:        datahelpers.GetBoolField(raw, "in_footer", true),
 			NavOrder:        datahelpers.GetIntField(raw, "nav_order", 100),
-			Sections:        extractSectionNames(raw),
+			Sections:        extractSectionEntries(raw),
 		})
 	}
 
@@ -384,15 +384,25 @@ func WriteSitePlanAction(ctx context.Context, params ActionParams) (interface{},
 	//     page's section list. component_name = the section component
 	//     name from the LLM; resolved IDs (component_version_id,
 	//     palette_id, layout_id, typography_set_id) are NULL here and
-	//     filled by a downstream resolver.
+	//     filled by a downstream resolver. assigned_fact_ids is NULL for
+	//     an unscoped section (nil Facts) and a JSON array otherwise —
+	//     the NULL/[] distinction is load-bearing (see migration 327).
 	sectionsWritten := 0
 	for _, r := range planRows {
-		for ord, componentName := range r.Sections {
+		for ord, section := range r.Sections {
+			var assignedFacts interface{}
+			if section.Facts != nil {
+				b, merr := json.Marshal(section.Facts)
+				if merr != nil {
+					return nil, fmt.Errorf("marshal assigned_fact_ids for %q[%d]: %w", r.Name, ord, merr)
+				}
+				assignedFacts = b
+			}
 			_, err = tx.ExecContext(ctx, `
 				INSERT INTO site_plan_sections
-				    (plan_id, page_name, ordering, component_name)
-				VALUES ($1, $2, $3, $4)
-			`, planID, r.Name, ord, componentName)
+				    (plan_id, page_name, ordering, component_name, assigned_fact_ids)
+				VALUES ($1, $2, $3, $4, $5)
+			`, planID, r.Name, ord, section.Name, assignedFacts)
 			if err != nil {
 				return nil, fmt.Errorf("insert site_plan_sections for %q[%d]: %w", r.Name, ord, err)
 			}
@@ -716,26 +726,70 @@ func transferDirectiveLocks(ctx context.Context, tx *sql.Tx, prevPlanID, newPlan
 	return transferred, nil
 }
 
-// extractSectionNames pulls the per-page sections list out of the raw
+// sectionEntry is one planned section: its component name and, optionally,
+// the evidence-base fact IDs assigned to it at plan time (bugs_open/151
+// candidate 1). Facts == nil means unscoped (the pre-existing behaviour: the
+// section gets the whole-site writer block); a non-nil empty slice means the
+// planner deliberately assigned NO facts to this section.
+type sectionEntry struct {
+	Name  string
+	Facts []string
+}
+
+// extractSectionEntries pulls the per-page sections list out of the raw
 // LLM page map. Tolerates both shapes the planner has historically
 // emitted: a list of strings ("hero", "features") or a list of objects
-// ({"name": "hero", ...}). Returns names in declared order.
-func extractSectionNames(raw map[string]interface{}) []string {
+// ({"name": "hero", ...}). Returns entries in declared order.
+//
+// Fact assignments are read from two places, in precedence order: the
+// section object's own "facts" key, else the page-level "section_facts"
+// array written by ValidateSitePlanAction's normalise pass. section_facts
+// is indexed by RAW position in the sections array — the lookup happens
+// before any malformed entry is skipped, so a skip can never shift an
+// assignment onto the wrong section.
+func extractSectionEntries(raw map[string]interface{}) []sectionEntry {
 	v, ok := raw["sections"].([]interface{})
 	if !ok {
 		return nil
 	}
-	out := make([]string, 0, len(v))
-	for _, item := range v {
+	pageFacts, _ := raw["section_facts"].([]interface{})
+	factsAt := func(i int) []string {
+		if i >= len(pageFacts) {
+			return nil
+		}
+		entry, ok := pageFacts[i].([]interface{})
+		if !ok {
+			return nil // null / wrong shape -> unscoped
+		}
+		ids := make([]string, 0, len(entry))
+		for _, e := range entry {
+			if s, ok := e.(string); ok && s != "" {
+				ids = append(ids, s)
+			}
+		}
+		return ids
+	}
+	out := make([]sectionEntry, 0, len(v))
+	for i, item := range v {
 		switch x := item.(type) {
 		case string:
 			if x != "" {
-				out = append(out, x)
+				out = append(out, sectionEntry{Name: x, Facts: factsAt(i)})
 			}
 		case map[string]interface{}:
 			for _, key := range []string{"name", "type", "component", "component_name"} {
 				if name, ok := x[key].(string); ok && name != "" {
-					out = append(out, name)
+					facts := factsAt(i)
+					if objFacts, ok := x["facts"].([]interface{}); ok {
+						ids := make([]string, 0, len(objFacts))
+						for _, e := range objFacts {
+							if s, ok := e.(string); ok && s != "" {
+								ids = append(ids, s)
+							}
+						}
+						facts = ids
+					}
+					out = append(out, sectionEntry{Name: name, Facts: facts})
 					break
 				}
 			}

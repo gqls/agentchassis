@@ -48,7 +48,7 @@ import (
 
 var PlanSectionsInputSpec = datahelpers.ActionInputSpec{
 	Required: []string{"site_id"},
-	Optional: []string{"sections", "page_name", "pipeline", "work_item_id", "site_type", "page_type"},
+	Optional: []string{"sections", "section_facts", "page_name", "pipeline", "work_item_id", "site_type", "page_type"},
 	// CheckConfig rather than ConfigKeys: this action reads nothing from
 	// params.StepConfig.Config directly — every key reaches it through
 	// ExtractActionInputs (:620), which iterates exactly Required ∪ Optional. The
@@ -785,6 +785,16 @@ type sectionPlanItem struct {
 	// html_template, render_mode, description, category, content_brief
 	// etc. from here instead of re-loading via load_page_section_components.
 	Component map[string]interface{} `json:"component,omitempty"`
+	// Plan-time fact scoping (bugs_open/151 candidate 1). FactsScoped is
+	// true when the plan row carried a non-NULL assigned_fact_ids — the
+	// writer prompt then uses AssignedWriterBlock (composed from ONLY the
+	// assigned facts, values current at compose time) instead of the
+	// whole-site writer_block; an empty AssignedWriterBlock with
+	// FactsScoped=true means the section deliberately states no verified
+	// facts. All three absent = unscoped = pre-existing behaviour.
+	FactsScoped         bool     `json:"facts_scoped,omitempty"`
+	AssignedFactIDs     []string `json:"assigned_fact_ids,omitempty"`
+	AssignedWriterBlock string   `json:"assigned_writer_block,omitempty"`
 }
 
 type missingField struct {
@@ -837,23 +847,56 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 		pageType = pageName // fall back to page name as page type
 	}
 
-	// Parse sections list
+	// Parse sections list. sectionFacts is the OPTIONAL plan-time fact
+	// assignment (bugs_open/151 candidate 1), an array aligned by index with
+	// the sections input — supplied only when the step config wires it (the
+	// feature is config-opt-in) and only ever emitted by
+	// load_page_sections_from_spec's authoritative tier. Facts are consumed
+	// in the SAME walk that accepts a name, so a skipped entry can never
+	// shift an assignment onto the wrong section. nil = unscoped.
 	sectionsRaw := inputs.GetRaw("sections")
+	factsRaw, _ := inputs.GetRaw("section_facts").([]interface{})
+	factsAt := func(i int) []string {
+		if i >= len(factsRaw) {
+			return nil
+		}
+		entry, ok := factsRaw[i].([]interface{})
+		if !ok {
+			return nil // null / wrong shape -> unscoped
+		}
+		ids := make([]string, 0, len(entry))
+		for _, e := range entry {
+			if s, ok := e.(string); ok && s != "" {
+				ids = append(ids, s)
+			}
+		}
+		return ids
+	}
 	var sectionNames []string
+	var sectionFacts [][]string
 
 	switch v := sectionsRaw.(type) {
 	case []interface{}:
-		for _, s := range v {
+		for i, s := range v {
 			if name, ok := s.(string); ok {
 				sectionNames = append(sectionNames, name)
+				sectionFacts = append(sectionFacts, factsAt(i))
 			}
 		}
 	case []string:
 		sectionNames = v
+		sectionFacts = make([][]string, len(v))
+		for i := range v {
+			sectionFacts[i] = factsAt(i)
+		}
 	case string:
 		// Try JSON parse
 		if err := json.Unmarshal([]byte(v), &sectionNames); err != nil {
 			return nil, fmt.Errorf("failed to parse sections: %w", err)
+		}
+		sectionFacts = make([][]string, len(sectionNames))
+		for i := range sectionNames {
+			sectionFacts[i] = factsAt(i)
 		}
 	}
 
@@ -862,7 +905,22 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 	// page sections list. These are site-level components handled by
 	// InjectHeader/InjectFooter — if we process them here they end up as
 	// page_components rows, causing duplicate headers/footers on assembly.
-	sectionNames = filterSiteLevelSections(sectionNames, logger)
+	// Names and facts are filtered as PAIRS so alignment survives.
+	{
+		keptNames := make([]string, 0, len(sectionNames))
+		keptFacts := make([][]string, 0, len(sectionFacts))
+		for i, s := range sectionNames {
+			if isSiteLevelSectionName(s) {
+				logger.Info("plan_sections: filtered site-level section",
+					zap.String("section", s))
+				continue
+			}
+			keptNames = append(keptNames, s)
+			keptFacts = append(keptFacts, sectionFacts[i])
+		}
+		sectionNames = keptNames
+		sectionFacts = keptFacts
+	}
 
 	if len(sectionNames) == 0 {
 		return map[string]interface{}{
@@ -933,6 +991,21 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 	var deferred []sectionPlanItem
 	var skipped []sectionPlanItem
 
+	// Plan-time fact scoping (bugs_open/151 candidate 1): the evidence base
+	// is already in the resolver's spec cache (ensureSpecs above), so scoping
+	// costs no query. scopeItem is a no-op for an unscoped section (nil
+	// facts), which is every section until a plan written WITH assignments
+	// reaches this action through the config-wired section_facts input.
+	evidenceBase := resolver.specs["evidence_base"]
+	scopeItem := func(item *sectionPlanItem, facts []string) {
+		if facts == nil {
+			return
+		}
+		item.FactsScoped = true
+		item.AssignedFactIDs = facts
+		item.AssignedWriterBlock = composeScopedWriterBlock(evidenceBase, facts, logger, item.Name)
+	}
+
 	// Build selector context for the fallback path.
 	// This is only used when a section name doesn't match a component function directly.
 	selCtx := SelectorContext{
@@ -941,7 +1014,7 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 		PageName: pageName,
 	}
 
-	for _, sectionName := range sectionNames {
+	for sectionIdx, sectionName := range sectionNames {
 		// Path 0: stored-identity lookup (bugs_open/204 — the build-path half
 		// of bugs_open/182). The page's own page_components row names exactly
 		// which component this slot is; that identity does not depend on slot
@@ -962,6 +1035,7 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 						zap.String("name_resolved_name", nameComp.Name))
 				}
 				item := planSection(ctx, sectionName, ci, resolver, logger)
+				scopeItem(&item, sectionFacts[sectionIdx])
 				switch item.Status {
 				case "ready":
 					ready = append(ready, item)
@@ -1005,6 +1079,7 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 		comp, ok := components[sectionName]
 		if ok {
 			item := planSection(ctx, sectionName, comp, resolver, logger)
+			scopeItem(&item, sectionFacts[sectionIdx])
 
 			switch item.Status {
 			case "ready":
@@ -1029,6 +1104,7 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 			// Preserve the original section_type name — downstream logging and
 			// the content writer use item.Name as the section identifier.
 			item.Name = sectionName
+			scopeItem(&item, sectionFacts[sectionIdx])
 			switch item.Status {
 			case "ready":
 				ready = append(ready, item)
@@ -1076,11 +1152,13 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 			logger.Warn("plan_sections: selector unavailable, passing section to content writer as-is",
 				zap.String("section", sectionName),
 				zap.String("resolution", resolution))
-			ready = append(ready, sectionPlanItem{
+			item := sectionPlanItem{
 				Name:   sectionName,
 				Status: "ready",
 				Reason: "selector unavailable — passing to content writer as-is",
-			})
+			}
+			scopeItem(&item, sectionFacts[sectionIdx])
+			ready = append(ready, item)
 		}
 	}
 
@@ -2048,23 +2126,58 @@ func sectionHasImageField(fieldsRaw map[string]interface{}) bool {
 // filterSiteLevelSections removes section names that correspond to site-level
 // components (headers, footers). These are managed by site_components and injected
 // during page assembly — they should never enter the page_components pipeline.
-func filterSiteLevelSections(sections []string, logger *zap.Logger) []string {
-	filtered := make([]string, 0, len(sections))
-	for _, s := range sections {
-		lower := strings.ToLower(s)
-		if strings.Contains(lower, "header") ||
-			strings.Contains(lower, "footer") ||
-			lower == "site-header" ||
-			lower == "site-footer" ||
-			lower == "head" ||
-			strings.HasPrefix(lower, "head-") {
-			logger.Info("plan_sections: filtered site-level section",
-				zap.String("section", s))
+func isSiteLevelSectionName(s string) bool {
+	lower := strings.ToLower(s)
+	return strings.Contains(lower, "header") ||
+		strings.Contains(lower, "footer") ||
+		lower == "site-header" ||
+		lower == "site-footer" ||
+		lower == "head" ||
+		strings.HasPrefix(lower, "head-")
+}
+
+// composeScopedWriterBlock builds the verified-facts block for ONE section
+// from its plan-time fact assignment (bugs_open/151 candidate 1): the site's
+// CURRENT evidence_base filtered to the assigned IDs, rendered by the same
+// composeWriterBlock that builds the site-wide block — so values are
+// substituted at compose time, and the assignment pins WHICH facts a section
+// states, never their numbers. An ID matching no current fact is logged and
+// inert: the section simply does not state it. allowed_entities are carried
+// unfiltered — scoping exists to stop FACT repetition; entity-relationship
+// permission is site-level and unchanged.
+func composeScopedWriterBlock(eb map[string]interface{}, assigned []string, logger *zap.Logger, sectionName string) string {
+	if len(assigned) == 0 || eb == nil {
+		return ""
+	}
+	factsRaw, _ := eb["facts"].([]interface{})
+	byID := make(map[string]interface{}, len(factsRaw))
+	for _, fr := range factsRaw {
+		fact, ok := fr.(map[string]interface{})
+		if !ok {
 			continue
 		}
-		filtered = append(filtered, s)
+		if id := datahelpers.GetStringField(fact, "id", ""); id != "" {
+			byID[id] = fr
+		}
 	}
-	return filtered
+	subset := make([]interface{}, 0, len(assigned))
+	for _, id := range assigned {
+		if f, ok := byID[id]; ok {
+			subset = append(subset, f)
+		} else {
+			logger.Warn("plan_sections: assigned fact id matches no current evidence_base fact — inert",
+				zap.String("section", sectionName),
+				zap.String("fact_id", id))
+		}
+	}
+	if len(subset) == 0 {
+		return ""
+	}
+	filtered := map[string]interface{}{"facts": subset}
+	if ents, ok := eb["allowed_entities"]; ok {
+		filtered["allowed_entities"] = ents
+	}
+	return composeWriterBlock(filtered)
 }
 
 // ============================================================================
