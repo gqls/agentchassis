@@ -6,9 +6,11 @@ the council's **`architecture` seat** in an APPROVED round (correlation
 named recurring class, which is evidence enough that the coordinator's overwrite semantics
 deserve their own RFC even though this specific fix should proceed unblocked."*
 
-**Status: OPEN — needs a human.** No code change is proposed alongside this RFC. The
-point fix that occasioned it (098 debt 5) is shipped, approved, and NOT dependent on any
-answer here.
+**Status: DECIDED 2026-08-06 — OWNER RULING: option B, as a DB-BACKED helper** (the
+addendum-2 amendment is part of the ruling — a reserved collected_data namespace does
+not survive the park and is NOT what was decided). See the ruling block at the end of
+this file. No code change was proposed alongside this RFC; the point fix that
+occasioned it (098 debt 5/5b) is shipped, approved, live and NOT dependent on it.
 
 ---
 
@@ -303,3 +305,39 @@ holds only the wrapped reply); pod `agent-chassis-5455ddcdcc-gpr92` strings cens
 coordinator.go:2052-2096 read in full. First-hand chain declared per the 2026-07-31
 ruling in place of a 090 run: three artefacts (binary, persisted row, source), each
 checked independently, agreeing.
+
+---
+
+# OWNER RULING 2026-08-06 — OPTION B, DB-BACKED
+
+Recorded by the 098 lane on the owner's word ("RFC012 can be B: DB-backed helper"),
+the same sitting that closed `bugs_closed/098`.
+
+**The decision:** the sibling-key escape hatch is promoted from folklore to a named,
+shared, **DB-backed** mechanism — addendum 2's amendment is binding, because it was
+proven live that an in-memory namespace, however well reserved and tested, dies at
+`persistAwaitingStateWithRetry`'s fresh load before the DB ever sees it. Findings that
+must survive an await are persisted as **direct DB rows through a shared writer**, the
+pattern 098 debt 5b proved end to end (`RETRACTION_AUDIT`/`RETRACTION_REFUSED` rows in
+`agent_error_log`, written before dispatch, live-probed 2026-08-05).
+
+**What B comprises** (per §4, amended): a shared `agent_error_log` writer in a leaf
+package importable from `actions` (retiring the ~15 hand-copied INSERT column lists —
+§3(c) is answered YES by inclusion), plus a named helper so a findings-plus-await
+action makes one call instead of inventing its own escape hatch. The reserved
+collected_data namespace and its coordinator guard test — §4-B's original in-memory
+half — are **dropped from B**, not deferred: they are the refuted mechanism.
+
+**Not decided here, left explicitly open:**
+- **(a)/(a′)** merge-not-replace in `applyResponseToState`/`storeActionResult` — not
+  taken now; available later only behind the reader census §3(a) names, which nobody
+  has run. B does not preclude A.
+- **(d)** the shared-`output_field` standing check — undecided. Anyone picking it up
+  is bound by the addendum-1 specification (full 13-key routing graph, different-action
+  discriminator); both naive detectors return 0 on the known bug.
+
+**Implementation: unassigned.** No thread owns building the helper yet. The next
+findings-plus-await action (or a thread adopting `bugs_open/158`/185-adjacent work)
+should build it as its own coherent task through the council gate, and register it in
+the concept register in the same commit. Until it exists, the LANDMINES entry (as
+corrected 2026-08-04: durable = direct DB row) is the guard.
