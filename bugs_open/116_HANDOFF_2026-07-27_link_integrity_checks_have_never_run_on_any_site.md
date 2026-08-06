@@ -248,3 +248,37 @@ A green run with no seeded fault proves the agent executed, not that it detects.
   plus `gqls/sites` commit `b0dbe8358`. **That repair is an artefact, not a
   property** — it expires the next time the page is generated, because nothing
   upstream changed.
+
+---
+
+## OWNER DECISION 2026-08-06 — D3: OPTION 4. Staged, supervised, per-site loop runs; full re-enable is the destination, not the starting point.
+
+The owner has answered the question §4 routed upward ("the 204 parked findings
+across 10 sites, and whether the three-month disconnection gets its own answer").
+The decision, from the four options presented:
+
+> **Option 4: run the improvement loop deliberately, one site at a time,
+> supervised** — the `294_TRIGGER` pattern (`finetuning_uk_repair/`). Each run
+> audits, triages and drains that one site's findings with a human watching.
+> Sites with the most parked findings first. **Full fleet re-enable (option 2)
+> is the destination** once a few supervised runs have shown the repairs are
+> sane — it is not authorised yet; each per-site run is.
+
+What this changes, and does not:
+
+- **D1 stands**: the `improvement-sweep` scheduled task stays OFF. Nothing
+  recurring is enabled by this decision. Per-site runs are hand-fired.
+- **D2 stands**: no per-build detectors while the queue has no automated
+  consumer. The revisit trigger is now concrete — after supervised runs have
+  drained the parked backlog and demonstrated sane repairs, D1/D2 get
+  re-asked with evidence.
+- **Bulk promotion (option 3) is explicitly rejected** — triage is the step
+  that decides what is worth doing, and it is not to be skipped on a queue
+  where 235 items have already failed at least once.
+- Executing sessions: fire ONE site per run, most-parked-findings first, watch
+  the repairs land, record each run's outcome here or in a lane doc. Do not
+  parallelise sites until the owner widens the authorisation.
+
+This file stays OPEN as the record of the staged programme; it closes when
+either the backlog is drained and G1 (the recurring task) gets its own owner
+go, or the owner rules the manual cadence permanent.
