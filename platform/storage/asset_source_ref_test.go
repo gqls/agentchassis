@@ -8,8 +8,16 @@ package storage
 import "testing"
 
 func TestAssetSourceRef(t *testing.T) {
+	// storage_path and url deliberately name DIFFERENT objects (…/abc.png vs
+	// …/zzz.png). A preference is only observable on an input where the two
+	// candidates DISAGREE — with one shared object path every ordering scores
+	// identically, and the "storage_path wins" case below would pass against
+	// code that reads url first, which is precisely the bugs_open/152 defect.
+	// Proven by mutation: swapping the candidate order fails this test only
+	// because of the distinct constants.
 	const (
-		presigned = "https://s3.us-east-005.backblazeb2.com/personae-prod-uk001-images/images/system/20260722/abc.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Expires=604800"
+		presigned = "https://s3.us-east-005.backblazeb2.com/personae-prod-uk001-images/images/system/20260722/zzz.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Expires=604800"
+		presignS3 = "s3://personae-prod-uk001-images/images/system/20260722/zzz.png"
 		httpsObj  = "https://s3.us-east-005.backblazeb2.com/personae-prod-uk001-images/images/system/20260722/abc.png"
 		s3URI     = "s3://personae-prod-uk001-images/images/system/20260722/abc.png"
 		bareKey   = "images/uploads/5fe15466/20260729/7b21c824.png"
@@ -24,17 +32,18 @@ func TestAssetSourceRef(t *testing.T) {
 		want        string
 	}{
 		// The five live row shapes.
-		{"presigned url only (205 rows)", "", presigned, s3URI},
+		{"presigned url only (205 rows)", "", presigned, presignS3},
 		{"flipped url with https storage_path (107 rows)", httpsObj, localPath, s3URI},
 		{"flipped url, no storage_path (49 rows) — unresolvable", "", localPath, ""},
 		{"bare-key storage_path (gaswholesalers logo)", bareKey, literal, bareKey},
+		// THE ordering case: both columns resolve, to DIFFERENT objects.
 		{"presigned url AND storage_path — storage_path wins", httpsObj, presigned, s3URI},
 
 		// Contract edges.
 		{"s3 storage_path passes through", s3URI, "", s3URI},
 		{"s3 in url passes through", "", s3URI, s3URI},
 		{"template-literal url with https storage_path", httpsObj, literal, s3URI},
-		{"local storage_path is a deployed location, not a source", localPath, presigned, s3URI},
+		{"local storage_path is a deployed location, not a source", localPath, presigned, presignS3},
 		{"both local — unresolvable", localPath, localPath, ""},
 		{"both empty", "", "", ""},
 		{"slashless value identifies nothing", "logo.png", "", ""},

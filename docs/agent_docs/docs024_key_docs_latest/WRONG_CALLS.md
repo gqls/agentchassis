@@ -21223,3 +21223,36 @@ And when a doc tells you a column does not exist, that is a claim about a schema
 truncated `\d`.* A partial schema quoted as complete converts one session's
 impatience into every later session's false premise — and unlike a wrong figure,
 it never looks stale, so nobody re-checks it.
+
+---
+
+## 2026-08-06 — my "storage_path wins" test could not observe which one won (bugfix_152_155 lane)
+
+**The claim.** That my new table test pinned `AssetSourceRef`'s preference order —
+the row's durable `storage_path` before its `url`. That order IS the fix for
+`bugs_open/152`; reading `url` first is the defect. I wrote a case named
+*"presigned url AND storage_path — storage_path wins"*, watched it pass, and
+treated the preference as held.
+
+**What caught it.** A mutation, run only because this codebase's house standard is
+to prove a guard by breaking it. I swapped the candidate order to `{url,
+storagePath}` — re-introducing the defect verbatim — and **the whole test still
+passed.** Both my constants pointed at the SAME object (`…/abc.png` in one column,
+a presigned URL of `…/abc.png` in the other), so every ordering produced an
+identical answer. The one case whose name asserted a ranking was the one case that
+structurally could not test it. Fixed by making the two columns name different
+objects (`abc.png` vs `zzz.png`); the mutation now fails on exactly that case, and
+a second mutation (accepting a site-local path as a source) fails on two others.
+
+**The cheap check.** *A ranking needs an input on which the candidates DISAGREE.*
+It is already in memory as `a-comparative-claim-needs-a-case-where-the-two-differ`
+and I walked into it anyway — because the case had the right NAME. Naming a test
+after the property is not testing the property, and a well-named passing case is
+harder to doubt than a badly-named one.
+
+**Why it matters beyond the test.** Had this shipped, the regression it was written
+to prevent would have been invisible: a future session could reverse the preference
+— a one-token edit that looks like tidying — and the suite would have gone green
+while every deployed asset silently resolved to its own deployed path instead of
+its source. **A test that passes under the mutation it exists to catch is worse
+than no test**, because it also stops the next person writing a real one.
