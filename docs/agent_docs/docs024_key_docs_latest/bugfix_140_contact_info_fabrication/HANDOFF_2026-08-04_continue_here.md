@@ -52,8 +52,10 @@ the `SUMMARY_…` series.
 > behaviour to probe), and the tool reports precisely 139. Verified from the other side by
 > query, and on a named new arrival that reports `0 analysed` and contains no `{{`.
 >
-> **Live tags when this was last updated: chassis `v1.0.1257`** (RFC_009 B+C re-proven on
-> it, both replicas, 2/1/1 + control 0), **render-check `v1.0.1258`**. Both go stale fast —
+> **Live tags when this was last updated: chassis `v1.0.1259`** (RFC_009 B+C re-proven on
+> it 2026-08-06 11:22 UTC, both replicas, 2/1/1 + control 0 — the fourth re-proof in
+> three days; the fleet rolls every few hours, so treat any tag written here as expired),
+> **render-check `v1.0.1258`**. Both go stale fast —
 > re-read before quoting. ⚠ **render-check's tag lives in its OVERLAY, not `IMAGE_TAG`** —
 > bump both in one commit or the deploy is a silent no-op (LANDMINE).
 >
