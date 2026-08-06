@@ -18,8 +18,8 @@ at commit `3851e90b5` — read that block, it is the authority, not this file):
 |---|---|---|
 | The rulings, recorded in the RFC | `3851e90b5` | durable — survives any session |
 | Lane docs (plan/notes/owner log) | `8b26e7fbb`-ish (the `docs(rfc012 lane)` commit) | open |
-| **B core**: `agenterrors` leaf package | `5f49b4cfd` | **DONE, tests green** |
-| **(d) detector**: `--shared-output-fields` | `abf5e8266` | **DONE, proven, live-run green** |
+| **B core**: `agenterrors` leaf package | `5f49b4cfd` | **DONE, tests green, POD-PROVEN LIVE on v1.0.1259** (both replicas: `agenterrors`=5, deleted log line=0) |
+| **(d) detector**: `--shared-output-fields` | `abf5e8266` | **DONE, proven, live-run green** — a `cmd/` binary, NOT in the chassis image, so it needs no roll |
 
 ### B core, in detail (`5f49b4cfd`)
 - **New leaf package `platform/orchestration/agenterrors`**: `Write` (byte-compatible
@@ -100,6 +100,10 @@ steps **derive** their output_field at runtime (`deriveOutputFieldFromLoopStepNa
 config-only census cannot see those keys.
 
 ---
+
+## Milestone read-out
+`SUMMARY_2026-08-06_two_of_three_built.md` — first in the series; read it before the
+detail if you are picking this up cold.
 
 ## Council + register, still owed for this lane
 One council round covers the RFC_012 code set (B + the (d) detector) — **not yet
