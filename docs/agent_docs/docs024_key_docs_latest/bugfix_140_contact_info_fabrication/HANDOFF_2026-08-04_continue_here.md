@@ -37,9 +37,25 @@ the `SUMMARY_…` series.
 > Job" expires — by the time you look at a morning failure the `doc_notes` row is the only
 > evidence left, which is why one is written on every run.
 >
-> **Live tags when this was written: chassis `v1.0.1252`** (RFC_009 B+C re-proven on it,
-> both replicas, 2/1/1 + control 0), **render-check `v1.0.1253`**. Both go stale fast —
-> re-read before quoting.
+> **UPDATE 2026-08-06 10:15 UTC.** Both daily checks passed **unattended** this morning —
+> render-check 06:55:15 (Job Complete, pod exit 0, `0 NEW, 13 inherited`), fallback-check
+> 06:40:24 (clean across 184 components). A single row rather than two is itself the tell
+> that the first attempt succeeded; yesterday's failure wrote two, the second being the
+> backoff retry. Since then: the coverage figure now carries its DENOMINATOR
+> (`139 of 184 active components (45 have no template actions to probe)`) — live on
+> render-check **`v1.0.1258`**, commits `a4c4ee96e`, `667757b5d`.
+>
+> **A REFUTED suspicion, recorded so nobody re-walks it:** `139 analysed` stayed constant
+> while the library grew 176 → 184, and +13 findings once arrived at +0 analysed. That
+> looks like coverage going blind to new components. **It is not** — 184 active, exactly
+> **139 carry any template action**, 45 carry none (JS-driven tools with no absent-field
+> behaviour to probe), and the tool reports precisely 139. Verified from the other side by
+> query, and on a named new arrival that reports `0 analysed` and contains no `{{`.
+>
+> **Live tags when this was last updated: chassis `v1.0.1257`** (RFC_009 B+C re-proven on
+> it, both replicas, 2/1/1 + control 0), **render-check `v1.0.1258`**. Both go stale fast —
+> re-read before quoting. ⚠ **render-check's tag lives in its OVERLAY, not `IMAGE_TAG`** —
+> bump both in one commit or the deploy is a silent no-op (LANDMINE).
 >
 > **If you are picking this lane up:** there is no task here. The next thing that will
 > ever need doing is responding to a genuine finding from one of the two daily checks.

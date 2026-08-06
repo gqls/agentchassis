@@ -430,3 +430,31 @@ next person just as easily.
 
 The morning job will now go green tomorrow rather than red. Nothing is outstanding from
 this piece of work.
+
+**2026-08-06 — the morning run passed, and I chased a scare that turned out to be nothing.**
+
+Both morning checks ran on their own and passed. The newer one reported no new problems;
+the older one found the library clean across 184 components. Worth noting the report
+itself proves which version of the program ran, because it contains a phrase that only
+exists in the version we shipped yesterday — so we didn't have to take the deployment's
+word for it.
+
+Then I went after something that looked wrong. The check has been saying it examined
+"139 components" for three days running, while the library grew from 176 to 184. A number
+that stays still while the thing it measures grows is usually a sign that something has
+stopped looking. If that were true here, it would be blind to precisely the newest
+components — the ones most likely to have just been broken.
+
+It isn't true. Of the 184 components, exactly 139 contain any instruction the check could
+test; the other 45 are tools whose content is filled in by the browser, so there is
+genuinely nothing for it to examine. The check reports 139 because 139 is the right
+number. I've written the negative result down, because the same constant will look just
+as suspicious to the next person and the hour it costs to chase is now saved.
+
+What the scare did turn up is a smaller, real fault: the check said "139" and never said
+"of how many". So the library could drift away from what it covers and nobody would see
+it in the output. It now says "139 of 184, and 45 have nothing to probe" — the same
+information it always had, stated so it can be checked rather than trusted. That is
+shipped and running.
+
+Nothing is outstanding.

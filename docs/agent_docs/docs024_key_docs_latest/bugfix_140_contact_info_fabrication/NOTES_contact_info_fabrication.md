@@ -1086,3 +1086,72 @@ whole story.
 Also re-proved RFC_009 B+C on the fresh chassis **`v1.0.1252`** (both replicas: 2/1/1,
 negative control 0), since a proof carries the tag it was taken on and the fleet had
 rolled again.
+
+---
+
+## 2026-08-06 — a suspicion checked and REFUTED, and the count that hid its denominator
+
+Chassis rolled again (`v1.0.1252` → **`v1.0.1257`**). RFC_009 B+C re-proven on it, both
+replicas: assert-marker 2, invents 1, `library_fabricated_hours` 1, negative control 0.
+
+### Both daily checks passed unattended this morning
+
+| check | job | pod exit | wrote |
+|---|---|---|---|
+| `component-render-check` 06:55:15 | Complete 1/1, 21s | 0 on `v1.0.1253` | 1036 findings, 0 NEW, 0 fixed, 0 UNCOVERED, 13 inherited |
+| `component-fallback-check` 06:40:24 | Complete 1/1, 29s | 0 | clean across 184 active components |
+
+**One row, not two** — yesterday's failure produced two (06:55:13 and 06:55:32, the
+backoff retry), so a single row is itself the tell that the first attempt succeeded. And
+the phrase `13 inherited from an identical template` exists only in `v1.0.1253`, so the
+row proves WHICH BINARY ran without reading the image at all.
+
+### The suspicion: was the check going blind to new components?
+
+`139 analysed` was printed on 08-04 (176 active) and again on 08-06 (184 active). Worse,
+between the 08-04 and 08-05 runs findings went **+13 while analysed went +0** — and the
++13 came from a component that demonstrably WAS analysed. That is the shape of a check
+whose coverage has stopped tracking the library, which would be blindness to exactly the
+newest components.
+
+**REFUTED, by measuring from the other side:**
+
+```sql
+SELECT count(*) FILTER (WHERE is_active)                                       AS active,        -- 184
+       count(*) FILTER (WHERE is_active AND html_template LIKE '%{{%')         AS has_actions,   -- 139
+       count(*) FILTER (WHERE is_active AND COALESCE(html_template,'') NOT LIKE '%{{%') AS static -- 45
+FROM content_components;
+```
+
+139 reported == 139 action-bearing, exactly. `checked++` fires only for a template that
+parses AND has children, so a component with no `{{` is not skipped-by-accident: it has
+no field whose absence could be probed. Confirmed on a specific new arrival —
+`/tmp/rck3 --component tool-css-specificity-calculator-webdesign-co-uk` → `0 analysed`,
+and that component's template contains no template action at all.
+
+Recording the negative deliberately. The constant 139 will look wrong to the next reader
+too, and re-walking it costs an hour. **[MEASURED 2026-08-06]** — and note the
+measurement could have come out otherwise: had the tool reported 139 while 150 components
+carried actions, that is a defect, and the query was written before the answer was known.
+
+The historical +13/+0 remains **[UNEXPLAINED]**: exactly one action-bearing component
+must have left the analysed set as the clone joined it. No per-day snapshot exists to
+settle it, and today's identity is exact, so it is not evidence of blindness — but it is
+not explained either, and saying so is cheaper than inventing a reason.
+
+### What WAS wrong: a filtered count with no denominator
+
+`139 analysed components` never said *of how many*. It read 139-of-176 on 08-04 and
+139-of-184 today, and nothing in the output would ever show the library growing away from
+coverage. That is the standing "a filtered count can ship inside a denominator" shape, in
+our own tool.
+
+Both output paths now print `139 of 184 active components (45 have no template actions to
+probe)`, and the census line adds the parse-failure count beside it, so the three
+populations are visible at once and add up in front of the reader. No behaviour change —
+same findings, same keys, same exit codes.
+
+Live on **`v1.0.1258`**, and this time the overlay `newTag` was bumped IN THE SAME COMMIT
+as `IMAGE_TAG`, which is the shape yesterday's landmine prescribes. Verified: apply said
+`configured`, image read back by jsonpath, new-image grep 2 / old-image grep 0, manual job
+pod `Completed` exit 0 printing the new line.
