@@ -1274,3 +1274,45 @@ guessed:
   — my two phrase-level supersedes cleaned violations but the document remains
   contamination-derived throughout. The classifier cannot re-anchor on the
   hand-built page: the bucket objects are deleted and the apex is dark.
+
+---
+
+## 2026-08-06 — new CF token live (302 RESTORED); writer-prompt overclaim review
+
+**Token** `806c8a11…` (owner-created, 2 zones + Tunnel Edit + Workers Read,
+expires 09-01) stored at `~/.config/cloudflare/token` (old kept as
+`.expired-2026-08`). Proven with a REAL zone call, not the lying verify.
+
+**Apex recovered.** Dashboard archaeology: the 302 rule AND the Worker binding
+were removed dashboard-side, and apex/www were repointed at `199.59.243.228` —
+with nothing answering, edge→parking-IP = the observed timeouts. Recreated the
+302 — **gotcha: `*webdesign.uk/*` also matches `preview.webdesign.uk`** and the
+preview 302'd too; replaced with two host-scoped rules (`webdesign.uk/*`,
+`www.webdesign.uk/*`, ids `6d4d5b67…`/`88794916…`). All three hostnames verified:
+apex+www 302, preview 200 (after ~30s propagation lag — re-test before
+diagnosing). **Workers custom domains: 1 account-wide (`*.fundamentallyai.com`),
+0 webdesign** ⇒ the old binding is fully gone; cutover needs no Worker step.
+
+**Prompt review (owner asked: does the friendlier prompt still land hard on
+overclaiming?): YES — arguably harder than before.** Current live
+`prompt_template` (12,826 B, `page-content-writer.generate_content`):
+- Rule 14 is the strongest single guard: never invent stats, **"a field being
+  required … is NOT permission to invent one"**, "an invented stat publishes a
+  false claim on a live site", allowed-number sources enumerated.
+- Rules 13/15/16/17: no invented people, quotes, clients, case studies;
+  testimonial slots become values statements with EMPTY name fields.
+- Standalone rule 135: **never promise accuracy we cannot guarantee** — the
+  anti-meta-overclaim (claims about our own reliability), rare and good.
+- `evidence_base.writer_block` is injected as "the ONLY numbers and named
+  entities you may assert"; "never approximate, extrapolate, or round".
+- The NEW HOUSE VOICE section is style-only and mostly REDUCES overclaim
+  pressure: "match the word to the size of the fact", "no hype adjectives in
+  either direction" (catches humility-brags), "preserve every fact, number and
+  name exactly" — and it bans em dashes PROMPT-SIDE, fleet-wide, which now
+  double-locks our seed's ban.
+- **One gap found: no superlative/market-position guard** ("best/leading/
+  number-one agency"). Closed site-side: 15th `banned_claims` row added to our
+  `evidence_base` (mechanical > advisory). Prompt-side is the owner's call.
+- Standing caveat unchanged: the prompt is the SOFT layer; the validation gate
+  is what held when the old prompt drifted ("same day"), and the gate's
+  title/head blind spot is already a landmine.
