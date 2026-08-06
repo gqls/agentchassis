@@ -1,7 +1,18 @@
 # HANDOFF — 071 fragment arm, written for a cold start
 
-**State: code APPROVED and committed; INERT until the next chassis roll.** Nothing
-is blocked. What remains is roll-time verification and three deliberately-deferred
+> **SUPERSEDED IN PART, 2026-08-06 (post-roll) — the roll happened and every step
+> below in §"Do this after the next roll" is DONE.** Do not re-run them looking for
+> something to do. Evidence in `NOTES_fragment_blindspot.md` §"(post-roll)":
+> `v1.0.1259` both replicas (`dead_fragment_link` 10, was 0, with both controls);
+> a real `completeness-discovery-agent` dispatch against a four-case fixture (both
+> dead fragments filed, both resolving ones silent, correct severity/routing);
+> retraction proven by repairing one case and watching 2 findings become 1; fleet
+> re-measured at 67 hrefs / 0 findings; fixture deleted and the pool site proven
+> restored. **The only step still owed is the verifier's Go function** — see
+> §"Still owed" below, rewritten.
+
+**State: LIVE on v1.0.1259 and induction-proven. APPROVED round 1.** Nothing is
+blocked. What remains is one small verification and three deliberately-deferred
 pieces.
 
 ## What exists now
@@ -26,7 +37,23 @@ objections, none high. All dispositioned in NOTES §"2026-08-06 (evening)".
 `af2667453` carries `Council-Submitted:`, so `098` credits it automatically —
 **do not try to amend it** (forward-only).
 
-## Do this after the next roll — in order
+## Still owed — one thing, and it is small
+
+`VerifyDeadFragmentLinkResolved` has not executed. Its three SQL shapes were
+validated in both directions against the live fixture (href-presence returns `t`
+for a rendered href and `f` for an absent one; the path normalisation resolves to
+the target page's document and discriminates the live id from the dead one), but
+the Go function is reachable only through `CompleteWorkItemAction`, whose live
+callers are the dispatch loops — and `build-dispatch-loop` takes
+`item_domain='build'` while these items are `content`. **The first real completion
+of a `dead_fragment_link` item exercises it.** Getting there deliberately was
+judged not worth spawning `page-build-handler` against a pool-site scratch page.
+
+When it happens, the thing to check is that a completion is REFUSED while the href
+is still rendered and the fragment still misses — a verifier that only ever agrees
+is the failure mode the whole registry exists to prevent.
+
+## DONE 2026-08-06 (kept for the method, not as work to repeat)
 
 1. **Prove it shipped.** One exec, every replica, three strings:
    ```bash
