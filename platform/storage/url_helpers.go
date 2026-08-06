@@ -107,6 +107,56 @@ func PresignedURLToS3URI(presignedURL string) string {
 	return BuildS3URI(parts[0], parts[1])
 }
 
+// AssetSourceRef resolves which stored object an assets row's SOURCE image is,
+// reading the row's own durable record instead of reconstructing it from
+// anywhere else. It is the source-side sibling of DeployedAssetPath (the one
+// derivation of where a deployed file GOES): one derivation of where the
+// original bytes LIVE, shared by the deployer (deploy_image_asset), both
+// derivers (brand-head, card) and the style-anchor resolver, so they cannot
+// disagree (bugs_open/152, bugs_open/155).
+//
+// Returns an s3://bucket/key URI or a bare object key — both forms are
+// accepted by S3Client.DownloadAndOptimizeImage and by ExtractKeyFromS3URI —
+// and NEVER an https URL or a site-local path. Returns "" when neither column
+// identifies a stored object (a hand-repaired row, a derived artefact whose
+// source is another row, or the unrendered template literal
+// /assets/images/input-data.asset-key.jpg); callers must treat "" as
+// unresolvable and fail or skip loudly, not guess.
+//
+// storage_path is preferred: it is written at generation (StoreAssetAction)
+// and backfilled at deploy, and it survives the deploy-time flip of url to
+// the local web path. url is the fallback for legacy rows that predate both
+// writers — its presigned signature may be long expired, which is fine,
+// because only the object path is read from it, never fetched. An https URL
+// is converted whatever its host, at parity with the previous readers: on a
+// non-object-store URL the conversion yields a key no bucket holds and the
+// download fails loudly, which is the pre-existing behaviour for that shape.
+func AssetSourceRef(storagePath, url string) string {
+	for _, candidate := range []string{storagePath, url} {
+		c := strings.TrimSpace(candidate)
+		if c == "" {
+			continue
+		}
+		if IsS3URI(c) {
+			return c
+		}
+		if strings.Contains(c, "://") {
+			if converted := PresignedURLToS3URI(c); converted != "" {
+				return converted
+			}
+			continue
+		}
+		// A bare object key (e.g. images/uploads/<site>/<date>/<id>.png) is
+		// downloadable against the client's own bucket. A leading slash means
+		// a site-local web path — a DEPLOYED location, not a source — and a
+		// slashless value identifies nothing; both are rejected.
+		if !strings.HasPrefix(c, "/") && strings.Contains(c, "/") {
+			return c
+		}
+	}
+	return ""
+}
+
 // AssetPaths holds the different path formats for an asset
 type AssetPaths struct {
 	// RelativeURL is the web-accessible path (e.g., /assets/images/hero.jpg)

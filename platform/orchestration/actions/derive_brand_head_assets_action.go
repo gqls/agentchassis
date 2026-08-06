@@ -89,15 +89,15 @@ func DeriveBrandHeadAssetsAction(ctx context.Context, params ActionParams) (inte
 	domain := inputs.Get("domain")
 
 	// ── Load the logo asset (prefer the locked/approved one) + brand colour ──
-	var logoURL, domainDB string
+	var logoURL, logoStoragePath, domainDB string
 	err = params.DB.QueryRowContext(ctx, `
-		SELECT a.url, si.domain
+		SELECT a.url, COALESCE(a.storage_path, ''), si.domain
 		  FROM assets a
 		  JOIN sites si ON si.id = a.site_id
 		 WHERE a.site_id = $1 AND a.asset_key = 'logo' AND a.status = 'active'
 		 ORDER BY (a.locked_at IS NOT NULL) DESC, a.updated_at DESC
 		 LIMIT 1
-	`, siteID).Scan(&logoURL, &domainDB)
+	`, siteID).Scan(&logoURL, &logoStoragePath, &domainDB)
 	if err != nil {
 		return map[string]interface{}{"derived": false, "reason": "no active logo asset"}, nil
 	}
@@ -132,9 +132,15 @@ func DeriveBrandHeadAssetsAction(ctx context.Context, params ActionParams) (inte
 	if !ok || s3Client == nil {
 		return nil, fmt.Errorf("storage client not available (this action must run in a storage-enabled agent, e.g. asset-deployer)")
 	}
-	key := storage.ExtractKeyFromS3URI(presignedURLToS3URI(logoURL))
+	// Resolve the logo's SOURCE object from the row itself (storage_path
+	// first, url as the legacy fallback). Reading url alone broke the moment
+	// deploy_image_asset started flipping it to the local web path
+	// (bugs_open/152) — measured 2026-08-06: five sites' active logo rows
+	// carried a non-presigned url, four of them recoverable only via
+	// storage_path.
+	key := storage.ExtractKeyFromS3URI(storage.AssetSourceRef(logoStoragePath, logoURL))
 	if key == "" {
-		return nil, fmt.Errorf("could not derive storage key from logo url")
+		return nil, fmt.Errorf("could not derive a storage key for the logo source (url %q, storage_path %q): neither identifies a stored object", logoURL, logoStoragePath)
 	}
 	rc, err := s3Client.Download(ctx, key)
 	if err != nil {

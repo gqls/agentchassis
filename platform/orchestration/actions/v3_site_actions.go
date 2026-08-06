@@ -1620,6 +1620,8 @@ func convertNavigationItems(items []NavigationItem) []NavItem {
 //   - context_field: path to render context in collected_data
 //   - content_field: path to additional content data
 //   - content_from: alias for content_field (for consistency)
+//   - slot_name_from: OPTIONAL path to the section's own slot name (e.g.
+//     "current_section.name"). See the emit site below (bugs_open/189).
 func RenderComponentAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("RenderComponentAction: Starting")
 
@@ -1898,6 +1900,26 @@ func RenderComponentAction(ctx context.Context, params ActionParams) (interface{
 		"component_name":     comp.Name,
 		"component_function": comp.Function,
 	}
+
+	// ── The section's OWN slot identity, when the caller knows it (bugs_open/189)
+	// Everything above names the COMPONENT. On a decomposed page the section's
+	// name is positional ("prose-0", "tool-2") and belongs to the page, not to
+	// the component that renders it — so nothing in this result held it, and the
+	// save derived a slot name from component_function instead: a silent rename
+	// that also defeats the locked-row guard, which matches on that name.
+	// The build loop already has it on `current_section.name`; the config path
+	// makes that available without this action having to know the loop's shape.
+	// Opt-in and silent when unset — a caller with no structured slot identity
+	// (tool recreation) must emit nothing, so the save keeps deriving as before.
+	if slotFrom, ok := config["slot_name_from"].(string); ok && slotFrom != "" {
+		if slot := datahelpers.ExtractNestedFieldString(params.CollectedData, slotFrom); slot != "" {
+			result["stored_slot_name"] = slot
+		} else {
+			params.Logger.Debug("RenderComponentAction: slot_name_from resolved to nothing — the save will derive the slot name",
+				zap.String("slot_name_from", slotFrom))
+		}
+	}
+
 	if sectionContentData != nil {
 		result["content_data"] = sectionContentData
 	}
@@ -2139,7 +2161,14 @@ func CompilePageSectionsAction(ctx context.Context, params ActionParams) (interf
 // and enrichSectionsWithComponentIDs skips every section, leaving page_components.component_id NULL.
 //
 // Returned meta always contains rendered_html. When available, also:
-// component_id, component_name, component_function, content_data.
+// component_id, component_name, component_function, content_data,
+// stored_slot_name.
+//
+// stored_slot_name is forwarded in BOTH shapes for the same reason the others
+// are (bugs_open/189): it is the section's own positional identity, the save
+// prefers it verbatim over a name derived from the component, and a metadata
+// entry that drops it here leaves the save with nothing but the component's
+// function — which is the rename that defeats the locked-row guard.
 // Returns ("", nil) if no HTML could be found in any known position.
 func extractSectionFromMap(m map[string]interface{}, logger *zap.Logger) (string, map[string]interface{}) {
 	// Extract HTML — check top-level first, then common substep keys.
@@ -2165,13 +2194,17 @@ func extractSectionFromMap(m map[string]interface{}, logger *zap.Logger) (string
 	if cd, ok := m["content_data"]; ok && cd != nil {
 		meta["content_data"] = cd
 	}
+	if slot, ok := m["stored_slot_name"].(string); ok && slot != "" {
+		meta["stored_slot_name"] = slot
+	}
 
 	// Remember whether top-level already had the name, so we only log recovery
 	// when the nested fallback actually contributed it.
 	_, hadTopName := m["component_name"].(string)
 
 	if meta["component_id"] == nil || meta["component_name"] == nil ||
-		meta["component_function"] == nil || meta["content_data"] == nil {
+		meta["component_function"] == nil || meta["content_data"] == nil ||
+		meta["stored_slot_name"] == nil {
 
 		for _, subKey := range []string{"section_output", "render_section", "render_from_template"} {
 			nested, ok := m[subKey].(map[string]interface{})
@@ -2198,8 +2231,14 @@ func extractSectionFromMap(m map[string]interface{}, logger *zap.Logger) (string
 					meta["content_data"] = cd
 				}
 			}
+			if meta["stored_slot_name"] == nil {
+				if slot, ok := nested["stored_slot_name"].(string); ok && slot != "" {
+					meta["stored_slot_name"] = slot
+				}
+			}
 			if meta["component_id"] != nil && meta["component_name"] != nil &&
-				meta["component_function"] != nil && meta["content_data"] != nil {
+				meta["component_function"] != nil && meta["content_data"] != nil &&
+				meta["stored_slot_name"] != nil {
 				break
 			}
 		}
@@ -2641,13 +2680,48 @@ func StoreAssetAction(ctx context.Context, params ActionParams) (interface{}, er
 		originModel = datahelpers.ExtractNestedFieldString(params.CollectedData, mf)
 	}
 
+	// Resolve the durable storage URI (s3://bucket/key) BEFORE the insert, so
+	// the row records its own source object from birth (bugs_open/152 + /155:
+	// this value used to be written only to the site-wide, purpose-keyed
+	// content_data cache — last-write-wins across every same-purpose asset —
+	// while the per-asset row kept just an expiring presigned url).
+	storageURI := ""
+	if assetDataMap, ok := assetData.(map[string]interface{}); ok {
+		if uri, ok := assetDataMap["image_uri"].(string); ok {
+			storageURI = uri
+		}
+	}
+	// Also check collected_data for {purpose}_result.image_uri pattern
+	if storageURI == "" {
+		uriField := strings.TrimSuffix(dataField, ".image_url") + ".image_uri"
+		if uri := datahelpers.ExtractNestedFieldString(params.CollectedData, uriField); uri != "" {
+			storageURI = uri
+		}
+	}
+	// Use assetURL if it's a storage URI
+	if storageURI == "" && storage.IsS3URI(assetURL) {
+		storageURI = assetURL
+	}
+	// For the COLUMN only: a presigned assetURL still names the object — keep
+	// the durable s3:// form of it even when nothing upstream supplied a URI.
+	// storageURI itself keeps its old value so the result fields and the
+	// collected_data key carry exactly what they used to.
+	storagePathValue := storageURI
+	if storagePathValue == "" {
+		storagePathValue = storage.PresignedURLToS3URI(assetURL)
+	}
+	storageProvider := ""
+	if storagePathValue != "" {
+		storageProvider = "backblaze"
+	}
+
 	// Insert into assets table - matches actual schema
 	assetID := uuid.New()
 
 	query := `
 		INSERT INTO assets (id, site_id, name, asset_type, purpose, asset_key, url, origin_type,
-		                    origin_prompt, origin_model, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
+		                    origin_prompt, origin_model, storage_path, storage_provider, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
 		ON CONFLICT (site_id, asset_key) WHERE asset_key IS NOT NULL AND status = 'active' DO UPDATE SET
 			purpose = EXCLUDED.purpose,
 			url = EXCLUDED.url,
@@ -2655,6 +2729,8 @@ func StoreAssetAction(ctx context.Context, params ActionParams) (interface{}, er
 			origin_type = EXCLUDED.origin_type,
 			origin_prompt = COALESCE(EXCLUDED.origin_prompt, assets.origin_prompt),
 			origin_model = COALESCE(EXCLUDED.origin_model, assets.origin_model),
+			storage_path = COALESCE(EXCLUDED.storage_path, assets.storage_path),
+			storage_provider = COALESCE(EXCLUDED.storage_provider, assets.storage_provider),
 			updated_at = NOW()
 		WHERE ` + assetAgentWritableSQL("assets.") + `
 		RETURNING id
@@ -2664,7 +2740,8 @@ func StoreAssetAction(ctx context.Context, params ActionParams) (interface{}, er
 	err := queryRowScanUUID(ctx, params.DB, query, &returnedID,
 		assetID, siteID, assetName, assetType, nullString(purpose),
 		nullString(assetKey), assetURL, originType,
-		nullString(originPrompt), nullString(originModel))
+		nullString(originPrompt), nullString(originModel),
+		nullString(storagePathValue), nullString(storageProvider))
 
 	// Phase I1 (D5, logo permanence): the conflict target matched a LOCKED
 	// asset — the DO UPDATE ... WHERE suppressed the write and RETURNING
@@ -2691,14 +2768,15 @@ func StoreAssetAction(ctx context.Context, params ActionParams) (interface{}, er
 
 		simpleQuery := `
 			INSERT INTO assets (id, site_id, name, asset_type, purpose, asset_key, url, origin_type,
-			                    origin_prompt, origin_model, created_at)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
+			                    origin_prompt, origin_model, storage_path, storage_provider, created_at)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
 			RETURNING id
 		`
 		err = queryRowScanUUID(ctx, params.DB, simpleQuery, &returnedID,
 			assetID, siteID, assetName, assetType, nullString(purpose),
 			nullString(assetKey), assetURL, originType,
-			nullString(originPrompt), nullString(originModel))
+			nullString(originPrompt), nullString(originModel),
+			nullString(storagePathValue), nullString(storageProvider))
 
 		if err != nil {
 			params.Logger.Warn("StoreAssetAction: Insert failed",
@@ -2715,36 +2793,20 @@ func StoreAssetAction(ctx context.Context, params ActionParams) (interface{}, er
 		}
 	}
 
-	// If purpose is set and we have a site_id, update sites.content_data
-	// This stores the storage URI (for download) and relative URL (for templates)
-	storageURI := ""
+	// If purpose is set and we have a site_id, update sites.content_data with
+	// the template-facing relative URL. The {purpose}_uri DB write that used
+	// to sit here is GONE (bugs_open/155): it was a site-wide, last-write-wins
+	// cache of a per-asset fact, and its only reader — deploy_image_asset's
+	// old Priority-1 — deployed the wrong asset's bytes on any site with 2+
+	// same-purpose assets. The source now travels on the asset row itself
+	// (storage_path, written above). The in-run collected_data copy stays:
+	// the legacy pageflow deploy step reads it within the same workflow.
 	if purpose != "" && siteID != nil {
-		// Find storage URI from asset data
-		if assetDataMap, ok := assetData.(map[string]interface{}); ok {
-			if uri, ok := assetDataMap["image_uri"].(string); ok {
-				storageURI = uri
-			}
-		}
-		// Also check collected_data for {purpose}_result.image_uri pattern
-		if storageURI == "" {
-			uriField := strings.TrimSuffix(dataField, ".image_url") + ".image_uri"
-			if uri := datahelpers.ExtractNestedFieldString(params.CollectedData, uriField); uri != "" {
-				storageURI = uri
-			}
-		}
-		// Use assetURL if it's a storage URI
-		if storageURI == "" && storage.IsS3URI(assetURL) {
-			storageURI = assetURL
-		}
-
 		// Generate paths using storage package helper (use correct extension for purpose)
 		_, _, _, purposeExt := storage.GetImageConfig(purpose)
 		paths := storage.BuildAssetPaths(purpose, purposeExt)
 
-		// Update sites.content_data
 		if storageURI != "" {
-			// Store URI for deploy_image_asset to download from
-			updateContentDataField(ctx, params.DB, *siteID, purpose+"_uri", storageURI, params.Logger)
 			params.CollectedData[purpose+"_uri"] = storageURI
 		}
 

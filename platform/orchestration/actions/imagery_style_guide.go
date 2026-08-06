@@ -52,6 +52,7 @@ import (
 	"go.uber.org/zap"
 
 	discovery_checks "github.com/gqls/agentchassis/platform/orchestration/actions/discovery_checks"
+	"github.com/gqls/agentchassis/platform/storage"
 )
 
 type imageryStyleGuide struct {
@@ -419,33 +420,45 @@ func (g *imageryStyleGuide) providerForKind(kind string) string {
 }
 
 // resolveReferenceAssetURIs maps the guide's reference asset keys to s3://
-// URIs the image adapter's ReferenceFetcher can read. assets.url holds a
-// presigned URL whose signature expires — presignedURLToS3URI strips it back
-// to the stable s3:// form so anchors keep working long after generation.
-// Missing keys are skipped silently: references are enhancement only.
+// URIs the image adapter's ReferenceFetcher can read. The row's own
+// storage_path is preferred, url is the legacy fallback (its presigned
+// signature may be expired — only the object path is read, never fetched).
+// Reading url alone was bugs_open/152's silent branch here: once a
+// referenced asset was DEPLOYED its url became a local web path and the
+// anchor vanished without a log line. Missing keys are still skipped
+// silently — references are enhancement only — but a key whose row cannot
+// name its source is now worth a warning, since the row exists and the
+// intent is unfulfillable. A bare-key ref is skipped too: the adapter needs
+// a full URI, and which bucket to prepend is its knowledge, not ours.
 func resolveReferenceAssetURIs(ctx context.Context, db interface{}, siteID string, keys []string, logger *zap.Logger) []string {
 	sqlDB, ok := db.(*sql.DB)
 	if !ok || siteID == "" || len(keys) == 0 {
 		return nil
 	}
 	const query = `
-		SELECT url FROM assets
+		SELECT url, COALESCE(storage_path, '') FROM assets
 		WHERE site_id = $1 AND asset_key = $2 AND status = 'active'
 		LIMIT 1
 	`
 	uris := make([]string, 0, len(keys))
 	for _, key := range keys {
-		var url string
-		if err := sqlDB.QueryRowContext(ctx, query, siteID, key).Scan(&url); err != nil {
+		var url, storagePath string
+		if err := sqlDB.QueryRowContext(ctx, query, siteID, key).Scan(&url, &storagePath); err != nil {
 			if err != sql.ErrNoRows {
 				logger.Warn("resolveReferenceAssetURIs: lookup failed",
 					zap.String("asset_key", key), zap.Error(err))
 			}
 			continue
 		}
-		if uri := presignedURLToS3URI(url); uri != "" {
-			uris = append(uris, uri)
+		ref := storage.AssetSourceRef(storagePath, url)
+		if storage.IsS3URI(ref) {
+			uris = append(uris, ref)
+			continue
 		}
+		logger.Warn("resolveReferenceAssetURIs: reference asset row cannot name its source object — anchor skipped",
+			zap.String("asset_key", key),
+			zap.String("url", url),
+			zap.String("storage_path", storagePath))
 	}
 	return uris
 }

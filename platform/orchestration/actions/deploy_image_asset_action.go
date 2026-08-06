@@ -9,8 +9,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"net/url"
-	"strings"
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
@@ -235,11 +233,11 @@ func DeployImageAssetAction(ctx context.Context, params ActionParams) (interface
 	if storageURI == "" {
 		storageURI = findStorageURI(params.CollectedData, config, purpose, logger)
 	}
-	// DB fallback: resolve from asset_id → site content_data → {purpose}_uri
+	// DB fallback: resolve from asset_id → the asset row's own storage_path/url
 	if storageURI == "" && params.DB != nil {
 		assetID := inputs.Get("asset_id")
 		if assetID != "" {
-			storageURI = resolveStorageURIFromAsset(ctx, params.DB, assetID, purpose, logger)
+			storageURI = resolveStorageURIFromAsset(ctx, params.DB, assetID, logger)
 		}
 	}
 	if storageURI == "" {
@@ -396,14 +394,20 @@ func DeployImageAssetAction(ctx context.Context, params ActionParams) (interface
 	return result, nil
 }
 
-// resolveStorageURIFromAsset looks up the s3:// URI for an asset.
+// resolveStorageURIFromAsset resolves the SOURCE object for an asset from the
+// asset row itself — storage_path first (durable: written at generation by
+// StoreAssetAction and backfilled at deploy), then url (presigned at
+// generation; a deploy flips it to the local web path).
 //
-// Priority 1: site content_data → {purpose}_uri (written by StoreAssetAction)
-// Priority 2: asset URL → convert presigned HTTPS to s3:// URI
-//
-// This makes the asset-deployer self-contained: callers pass asset_id,
-// the agent resolves the storage URI itself.
-func resolveStorageURIFromAsset(ctx context.Context, db *sql.DB, assetIDStr string, purpose string, logger *zap.Logger) string {
+// Until 2026-08-06 this consulted sites.content_data->>'{purpose}_uri' FIRST —
+// a site-wide, last-write-wins cache keyed by purpose alone. That was
+// bugs_open/155: on any site with 2+ active same-purpose assets (routine now —
+// 23 heroes on one site, 20 icons on another), a deploy by asset_id fetched
+// whichever same-purpose asset was stored LAST and shipped its bytes to the
+// requested asset's path, with success:true and no tell short of comparing
+// sha256s. The cache read is gone and StoreAssetAction no longer writes the
+// key; the identity is read from the row, never reconstructed.
+func resolveStorageURIFromAsset(ctx context.Context, db *sql.DB, assetIDStr string, logger *zap.Logger) string {
 	assetUUID, err := uuid.Parse(assetIDStr)
 	if err != nil {
 		logger.Warn("resolveStorageURIFromAsset: invalid asset_id",
@@ -412,66 +416,29 @@ func resolveStorageURIFromAsset(ctx context.Context, db *sql.DB, assetIDStr stri
 		return ""
 	}
 
-	// Priority 1: site content_data has the s3:// URI keyed by purpose
-	// StoreAssetAction writes: content_data->>'{purpose}_uri' = 's3://bucket/path'
-	uriKey := purpose + "_uri"
-	query1 := `
-		SELECT s.content_data->>$2
-		FROM assets a
-		JOIN sites s ON a.site_id = s.id
-		WHERE a.id = $1
-	`
-	var s3URI sql.NullString
-	if err := db.QueryRowContext(ctx, query1, assetUUID, uriKey).Scan(&s3URI); err == nil {
-		if s3URI.Valid && storage.IsS3URI(s3URI.String) {
-			logger.Info("Resolved s3_uri from site content_data via asset_id",
-				zap.String("asset_id", assetIDStr),
-				zap.String("key", uriKey),
-				zap.String("s3_uri", s3URI.String))
-			return s3URI.String
-		}
+	var storagePath, assetURL sql.NullString
+	if err := db.QueryRowContext(ctx,
+		`SELECT storage_path, url FROM assets WHERE id = $1`,
+		assetUUID).Scan(&storagePath, &assetURL); err != nil {
+		logger.Warn("resolveStorageURIFromAsset: asset row lookup failed",
+			zap.String("asset_id", assetIDStr),
+			zap.Error(err))
+		return ""
 	}
 
-	// Priority 2: convert asset's presigned URL to s3:// URI
-	query2 := `SELECT url FROM assets WHERE id = $1`
-	var assetURL sql.NullString
-	if err := db.QueryRowContext(ctx, query2, assetUUID).Scan(&assetURL); err == nil {
-		if assetURL.Valid && assetURL.String != "" {
-			if converted := storage.PresignedURLToS3URI(assetURL.String); converted != "" {
-				logger.Info("Converted asset presigned URL to s3_uri",
-					zap.String("asset_id", assetIDStr),
-					zap.String("s3_uri", converted))
-				return converted
-			}
-		}
+	ref := storage.AssetSourceRef(storagePath.String, assetURL.String)
+	if ref == "" {
+		logger.Warn("resolveStorageURIFromAsset: asset row identifies no stored source object",
+			zap.String("asset_id", assetIDStr),
+			zap.String("storage_path", storagePath.String),
+			zap.String("url", assetURL.String))
+		return ""
 	}
 
-	logger.Warn("resolveStorageURIFromAsset: could not resolve",
+	logger.Info("Resolved source object from asset row",
 		zap.String("asset_id", assetIDStr),
-		zap.String("purpose", purpose))
-	return ""
-}
-
-// presignedURLToS3URI converts a presigned S3/B2 URL to an s3:// URI.
-//
-// Input:  https://s3.us-east-005.backblazeb2.com/bucket-name/path/to/file.png?X-Amz-...
-// Output: s3://bucket-name/path/to/file.png
-//
-// Returns "" if the URL doesn't match the expected pattern.
-func presignedURLToS3URI(presignedURL string) string {
-	u, err := url.Parse(presignedURL)
-	if err != nil || u.Path == "" {
-		return ""
-	}
-
-	// Path is /bucket/key — strip leading slash and split
-	path := strings.TrimPrefix(u.Path, "/")
-	parts := strings.SplitN(path, "/", 2)
-	if len(parts) != 2 || parts[1] == "" {
-		return ""
-	}
-
-	return fmt.Sprintf("s3://%s/%s", parts[0], parts[1])
+		zap.String("source_ref", ref))
+	return ref
 }
 
 // findStorageURI looks for the storage URI in multiple locations

@@ -133,8 +133,8 @@ func TestDeriveBrandHeadBothLockedRefuses(t *testing.T) {
 	siteID := uuid.New()
 
 	mock.ExpectQuery("FROM assets a").WillReturnRows(
-		sqlmock.NewRows([]string{"url", "domain"}).
-			AddRow("https://s3.example.com/bucket/images/logo.png", "example.com"))
+		sqlmock.NewRows([]string{"url", "storage_path", "domain"}).
+			AddRow("https://s3.example.com/bucket/images/logo.png", "", "example.com"))
 	mock.ExpectQuery("color_palette").WillReturnRows(
 		sqlmock.NewRows([]string{"color_palette"}).AddRow(`{"background":"#ffffff"}`))
 	mock.ExpectQuery(`SELECT DISTINCT ON \(asset_key\)`).WillReturnRows(

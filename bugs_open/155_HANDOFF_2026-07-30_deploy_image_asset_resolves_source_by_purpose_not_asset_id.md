@@ -140,3 +140,41 @@ formatted `s3_uri` in spec (bypasses `resolveStorageURIFromAsset` entirely) — 
 `docs/agent_docs/docs024_key_docs_latest/dartsonline_traffic/SQL_2026-07-30w_retry_six_icons_correct_s3_uri.sql`.
 This does not touch the shared function; the next multi-same-purpose-asset site to go
 through the normal asset_id-only path will hit the same bug.
+
+---
+
+## Progress 2026-08-06 — fix candidate 1+2 combined, committed (with 152's, one change)
+
+Taken up together with `bugs_open/152` — `bugs_closed/179` had already named the
+shared root ("identity reconstructed rather than read") and asked for a joint
+design. Re-verified at HEAD first: `resolveStorageURIFromAsset`'s Priority-1
+purpose-cache read was unchanged, and the failure population has GROWN — multi
+same-purpose assets are now the norm (census 2026-08-06: robot-hands 23 active
+`hero` rows, dartsonline 20 `icon`, fundamentallyai 15 `icon`, 12 (site,purpose)
+groups >1). dartsonline's `content_data->>'icon_uri'` was last overwritten
+2026-08-05, so the wrong-bytes branch was still live and armed.
+
+**What shipped:** Priority-1 is DELETED, not scoped (this file's candidate 2 —
+and the "does any caller have purpose but not asset_id?" question is answered:
+`resolveStorageURIFromAsset` is only ever reached WITH an asset_id, so the cache
+had no legitimate consumer). Resolution is now one query of the asset row itself
+(`storage_path`, `url`) through the new shared `storage.AssetSourceRef`
+(register IMG-068). The write side (`StoreAssetAction`) stops writing the
+`{purpose}_uri` DB cache entirely — measured three ways that its ONLY reader was
+the deleted branch (Go grep; regex over live active `agent_definitions` configs,
+positive-controlled; grep over `sql_for_agents/` + core-manager) — and instead
+records `storage_path` (+ provider) on the row at generation, which is candidate
+1's cache-keying fixed by removing the cache rather than re-keying it. The
+in-run `collected_data[{purpose}_uri]` copy stays (legacy pageflow reads it
+same-workflow; `data_helpers.go:1199` is a strict path lookup, so it cannot leak
+across runs). `sql_for_agents/321` backfills `storage_path` on the 205
+presigned-only rows so the fallback parse is never load-bearing for long.
+
+**Still to close** (this file's own verify recipe): after the roll, deploy 2+
+same-purpose assets by `asset_id` alone and confirm DISTINCT sha256s each
+matching its own `origin_prompt` — the dartsonline founding icons are the
+natural re-run. Pod-grep first: `AssetSourceRef` ≥1 AND
+`Resolved s3_uri from site content_data via asset_id` = 0, both replicas. Then
+correct the LANDMINES entry ("resolves by PURPOSE") visibly, dated. The third
+independent defect noted in Evidence (generation/storage mix-up on
+`icon_specialist_range`) remains UNTOUCHED and open, deliberately.

@@ -94,3 +94,56 @@ Generate an image on any site, confirm `assets.url` is a `/assets/images/...` pa
 `s3...X-Amz...`) immediately after deploy — no need to wait 7 days. Then re-run
 `derive_brand_head_assets` / `derive_card_asset` against a row that WOULD have been
 7+ days old under the old behavior and confirm the fetch succeeds.
+
+---
+
+## Progress 2026-08-06 — the bug MORPHED, then got its structural fix (with 155, one commit)
+
+**Re-verified at HEAD before acting, because the ground moved since filing.** The
+"fetch the expired URL, get a 401" symptom as filed is GONE: none of the readers
+fetches `assets.url` any more — all of them PARSE it to a storage key and download
+with the client's own credentials (`derive_brand_head_assets_action.go:135`,
+`derive_card_asset_action.go:165`, both via `presignedURLToS3URI` → 
+`ExtractKeyFromS3URI`), so an expired signature stopped mattering. Meanwhile
+IMG-053's "Edit F" landed the deploy-time rewrite this file's candidate 3 asked
+for: `deploy_image_asset_action.go:357-381` flips `url` to the deployed local
+path and preserves the source into `storage_path`.
+
+**The live defect that replaced it: the flip strands every url reader, because
+NOTHING reads `storage_path` back.** Census 2026-08-06: 107 flipped rows carry a
+recoverable `storage_path` no reader consults; 49 flipped rows (hand-repairs,
+incl. this file's own leopardess workaround, and derived-card upserts) have
+neither. Five sites' ACTIVE logo rows carry a non-presigned `url` (four of them
+the `input-data.asset-key.jpg` template literal) — the next brand-head derivation
+on webdesign.co.uk / gaswholesalers.com / finetuning.uk / vetcomparison.uk /
+leopardessconsulting.co.uk fails at "could not derive storage key from logo url".
+A fourth reader was found in the same sweep: `resolveReferenceAssetURIs`
+(`imagery_style_guide.go`) reads `url` only and skips SILENTLY — style anchors
+vanish the moment the referenced asset is deployed.
+
+**Declared per the owner ruling of 2026-07-31**: this updated mechanism was
+established by first-hand verification substituting for a 090 run — all four
+readers and both writers read at HEAD with line citations, plus a live census
+whose result could have come out otherwise. 155's shared-cache half was already
+loop-CONFIRMED (corr `0dd9aee4`).
+
+**The fix (committed with 155's, one coherent change):** `storage.AssetSourceRef`
+— one derivation of "which stored object is this row's source" (storage_path
+first, url parse fallback; returns s3:// or bare key, never https/local, "" =
+fail loud) — resolved through by all four readers; `StoreAssetAction` writes
+`storage_path` at generation; `sql_for_agents/321` backfills the 205 remaining
+presigned-only rows (w9_04 fleet-wide). Full plan + evidence:
+`docs024_key_docs_latest/bugfix_152_155_asset_source_identity/PLAN_2026-08-06_asset_source_identity.md`.
+Register: IMG-068.
+
+**Fix-candidate disposition against the original list:** candidate 3 (write the
+durable value) = StoreAssetAction now records `storage_path` at birth and deploy
+still flips `url`; candidate 2 (readers resolve durably) = all four via
+`AssetSourceRef`; candidate 1 ("always pass asset_id") was a TRAP — 155 showed
+passing `asset_id` routed INTO the wrong-bytes purpose-cache branch; that branch
+is now deleted.
+
+**Still to close:** image roll + pod-grep (positive `AssetSourceRef` ≥1, negative
+`Resolved s3_uri from site content_data via asset_id` = 0, both replicas); apply
+321; then this file's own verify recipe (fresh deploy → `url` local AND
+`storage_path` names the source; a derivation against that row succeeds).

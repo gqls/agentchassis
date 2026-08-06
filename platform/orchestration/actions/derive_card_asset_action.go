@@ -149,7 +149,7 @@ func DeriveCardAssetAction(ctx context.Context, params ActionParams) (interface{
 
 	// ── Find the source hero: page-scope plan hero, else the site-scope brand
 	// hero. The plan row's key IS the asset_key convention (Lane A). ──
-	sourceAssetID, sourceURL, sourceKey, err := findCardSourceHero(ctx, params.DB, siteID, pageName)
+	sourceAssetID, sourceURL, sourceStoragePath, sourceKey, err := findCardSourceHero(ctx, params.DB, siteID, pageName)
 	if err != nil {
 		return map[string]interface{}{
 			"derived": false,
@@ -162,9 +162,13 @@ func DeriveCardAssetAction(ctx context.Context, params ActionParams) (interface{
 	if !ok || s3Client == nil {
 		return nil, fmt.Errorf("storage client not available (this action must run in a storage-enabled agent, e.g. asset-deployer)")
 	}
-	key := storage.ExtractKeyFromS3URI(presignedURLToS3URI(sourceURL))
+	// Resolve the hero's SOURCE object from the row itself — storage_path
+	// first, url as the legacy fallback (bugs_open/152: a deployed hero's url
+	// is the local web path, and the old url-only parse stranded it even
+	// though storage_path held the answer).
+	key := storage.ExtractKeyFromS3URI(storage.AssetSourceRef(sourceStoragePath, sourceURL))
 	if key == "" {
-		return nil, fmt.Errorf("could not derive storage key from hero url (asset %s; a url-flipped web path needs the presigned source restored or storage_path populated)", sourceAssetID)
+		return nil, fmt.Errorf("could not derive a storage key for the hero source (asset %s, url %q, storage_path %q): neither identifies a stored object", sourceAssetID, sourceURL, sourceStoragePath)
 	}
 	rc, err := s3Client.Download(ctx, key)
 	if err != nil {
@@ -285,9 +289,9 @@ func contentCardKey(pageName string) string {
 // content_image_missing check, so all three converge on one source): the
 // page's own plan hero, then the Lane B content hero (D13, literal
 // ContentHeroKey convention), then the site-scope brand hero.
-func findCardSourceHero(ctx context.Context, db *sql.DB, siteID uuid.UUID, pageName string) (assetID, url, assetKey string, err error) {
+func findCardSourceHero(ctx context.Context, db *sql.DB, siteID uuid.UUID, pageName string) (assetID, url, storagePath, assetKey string, err error) {
 	const q = `
-		SELECT a.id::text, a.url, a.asset_key
+		SELECT a.id::text, a.url, COALESCE(a.storage_path, ''), a.asset_key
 		  FROM site_plan_imagery spi
 		  JOIN site_plans sp ON sp.id = spi.plan_id AND sp.is_current = true
 		  JOIN assets a ON a.site_id = sp.site_id AND a.asset_key = spi.key AND a.status = 'active'
@@ -295,23 +299,23 @@ func findCardSourceHero(ctx context.Context, db *sql.DB, siteID uuid.UUID, pageN
 		   AND ($2 = 'site' OR spi.scope_ref = $3)
 		 ORDER BY spi.ordering
 		 LIMIT 1`
-	err = db.QueryRowContext(ctx, q, siteID, "page", pageName).Scan(&assetID, &url, &assetKey)
+	err = db.QueryRowContext(ctx, q, siteID, "page", pageName).Scan(&assetID, &url, &storagePath, &assetKey)
 	if err == sql.ErrNoRows {
 		err = db.QueryRowContext(ctx, `
-			SELECT a.id::text, a.url, a.asset_key
+			SELECT a.id::text, a.url, COALESCE(a.storage_path, ''), a.asset_key
 			  FROM assets a
 			 WHERE a.site_id = $1 AND a.asset_key = $2 AND a.status = 'active'
 			 LIMIT 1
-		`, siteID, imageryplan.ContentHeroKey(pageName)).Scan(&assetID, &url, &assetKey)
+		`, siteID, imageryplan.ContentHeroKey(pageName)).Scan(&assetID, &url, &storagePath, &assetKey)
 	}
 	if err == sql.ErrNoRows {
-		err = db.QueryRowContext(ctx, q, siteID, "site", "").Scan(&assetID, &url, &assetKey)
+		err = db.QueryRowContext(ctx, q, siteID, "site", "").Scan(&assetID, &url, &storagePath, &assetKey)
 	}
 	if err == sql.ErrNoRows {
-		return "", "", "", fmt.Errorf("no active page, content, or site hero for %q", pageName)
+		return "", "", "", "", fmt.Errorf("no active page, content, or site hero for %q", pageName)
 	}
 	if err != nil {
-		return "", "", "", fmt.Errorf("hero lookup failed: %w", err)
+		return "", "", "", "", fmt.Errorf("hero lookup failed: %w", err)
 	}
-	return assetID, url, assetKey, nil
+	return assetID, url, storagePath, assetKey, nil
 }
