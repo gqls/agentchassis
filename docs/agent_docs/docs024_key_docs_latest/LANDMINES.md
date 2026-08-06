@@ -5940,12 +5940,19 @@ WHERE site_id = (SELECT id FROM sites WHERE domain = 'finetuning.uk') AND status
 ---
 
 ## `WHERE domain IS NULL` on `agent_error_log` sees 1.3% of the rows that have no domain — three of the twenty writers store `''`
-- **footprint:** `agent_error_log.domain`, `count(domain)`, `domain IS NULL` /
-  `domain IS NOT NULL` on that table; the three clone writers
-  `platform/orchestration/agenterrors/agenterrors.go` (`Write`, formerly
-  `orchestration.LogAgentError`), `platform/orchestration/actions/store_generated_component_action.go`,
-  `platform/orchestration/actions/component_write_guard.go`; the reader
-  `platform/orchestration/actions/diagnose_load_runtime_action.go` (`domain = $2::text`)
+- **footprint:** `agent_error_log.domain`; `count(domain)`; `domain IS NULL`;
+  `domain IS NOT NULL`; `platform/orchestration/agenterrors/agenterrors.go`;
+  `platform/orchestration/actions/store_generated_component_action.go`;
+  `platform/orchestration/actions/component_write_guard.go`;
+  `platform/orchestration/actions/diagnose_load_runtime_action.go`;
+  `agenterrors.Write`; `orchestration.LogAgentError`
+- **which is which:** the first three files are the clone writers that store `''`; the
+  fourth is the reader that filters `domain = $2::text` and so silently drops them.
+  (Footprints are deliberately bare tokens with no prose and no bracketed asides —
+  `landmines-sync.py` splits this line on `,` and `;`, so
+  "`the three clone writers x.go (Write, formerly y)`" parses into three junk keys and
+  loses the path. My first version of this entry did exactly that. Check yours with
+  `SELECT subject_key FROM doc_notes WHERE subject_type='landmine' AND body LIKE '%<phrase>%'`.)
 - **fires when:** you count, filter or group `agent_error_log` by `domain` — including
   "how many rows are unattributed?", any per-domain error dashboard, and any
   site-scoped or domain-scoped diagnosis load. No symptom is needed and none appears.

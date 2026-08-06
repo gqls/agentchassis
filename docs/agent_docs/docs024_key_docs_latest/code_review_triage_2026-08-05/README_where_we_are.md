@@ -213,3 +213,58 @@ other side.
 None of that changes tonight's reading or what it will mean. It does mean the figures in the
 handoff are now the corrected ones, and I would rather a successor inherit the correction than
 the tidy-looking version I wrote at eight o'clock.
+
+---
+
+**2026-08-06, late morning.** Nothing to report on tonight's reading yet — it is due at about
+quarter to nine this evening and there is no way to bring it forward. I checked anyway: still no
+warnings recorded, all history. The other item I keep re-checking, the one sitting in a file
+another session is halfway through editing, is still halfway through being edited. So I turned to
+the loose end we had parked.
+
+That loose end was a small note saying that when we record an error without knowing which website
+it belongs to, we store an empty text box rather than a proper "unknown" marker — which matters
+because anyone asking "how many of these are unattributed?" gets a wrong answer that looks
+perfectly reasonable. We had written it down yesterday and moved on. Looking at it properly today,
+the note was right about the symptom and wrong about almost everything else, in ways that would
+have sent whoever picked it up at the wrong target.
+
+Three things. First, the file we said it lived in no longer holds the code — a separate piece of
+work moved that exact chunk into a new home *this morning*, and carried the fault across
+untouched. There is a general lesson there worth more than the bug: moving code is not the same as
+reviewing it, and a tidy-up can transport a defect into a fresh file where it looks newly written
+and unexamined.
+
+Second, our explanation of *why* it happens was wrong. We had said the neighbouring fields are
+handled properly and this one was overlooked, implying carelessness. In fact those neighbours are
+handled properly because the database physically refuses the alternative — they are a different
+type of field, and the empty box is illegal for them, so the code had no choice. Which means that
+one piece of code tells you nothing at all about what anyone intended for our field. I checked
+this by trying it directly and watching the database reject it.
+
+Third — and this is the part that changes the job — I nearly turned that finding into a worse
+mistake. Having established that the neighbours were forced, I was about to write "so there is no
+house style here, and our field is normal, and yesterday's note was simply wrong". Before writing
+it I counted, and found the house style is real and widely followed: I found thirty-two places
+doing it the careful way. So the true picture is the opposite of what I was about to record.
+Twenty different places in the system write these error records. Seventeen of them handle the
+unknown case properly. Three do not — and those three are obviously copies of one another, the
+same block of code pasted three times. One of the three happens to be the general-purpose one used
+across the whole system, which is why it produces most of the damage.
+
+I then checked whether that story actually holds against the real data, in a way that could have
+proved me wrong: if the explanation is right, the records written by the three bad copies should
+all show the empty box and the records from the other seventeen should all show a proper unknown.
+That is exactly what came back, with no overlap anywhere across fourteen thousand records. So this
+is now an explained fault rather than an observed oddity.
+
+What it means practically: the fix is smaller than we said — three characters in three places,
+bringing three stragglers into line with what everything else already does, rather than inventing
+a new convention. But it is still a change to what gets permanently stored by the busiest writer
+we have, so it wants a proper review round and it is not something to slip in quietly. I have not
+done it. What I have done is write the whole thing down properly, including in the fleet-wide
+"traps" file so that the next person to query this data is warned before they get a wrong number
+rather than after. And I logged my own near-miss, because the shape of it is worth remembering: I
+had genuinely verified one narrow fact, and let it lend its authority to a much broader claim
+sitting in the same sentence that I had not checked at all. The proportion is the thing to watch —
+the number I would have quoted, had I not counted, was out by a factor of about eighty.

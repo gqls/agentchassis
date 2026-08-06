@@ -72,6 +72,14 @@ The one real sub-finding it surfaced — `LogAgentError` writes `domain` as `''`
 gets `NULLIF`, so 3,189 rows read as "has a domain" when they do not — is recorded, NOT fixed:
 changing a shared writer's stored shape is a seam change and is not what F5 asked for.
 
+> **CORRECTED 2026-08-06 11:2xZ (NOTES §16).** The decision not to fix STANDS, and for the same
+> reason. The *description* was wrong twice over: the `NULLIF` on `site_id` is compelled by its
+> `::uuid` cast and so evidences no intent, and this is **3 of 20 writers breaking a convention
+> the other 17 keep**, not one writer lacking one. Figures now 9,949 `''` / 128 NULL (79×). That
+> makes the eventual fix smaller than this paragraph implies — three characters at three sites,
+> converging on the majority — but it is still a stored-shape change on the highest-volume error
+> writer, so it still wants a council round and its own lane.
+
 **7. Three council submissions, not one.** The norm is one run per coherent task. F11/F12 were
 discovered after the 194 submission was already dispatched, and were not in its plan, so they
 went as their own submission rather than riding a trailer that did not cover them.

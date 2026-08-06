@@ -68,8 +68,12 @@ restores exactly. (`WRONG_CALLS.md` records a session that lost a backup to a cl
 ## R5 — Reading agent_error_log without being fooled
 
 ```sql
--- WRONG: count(domain) counts the EMPTY STRING as present.
--- LogAgentError inserts domain as a bare $2 (no NULLIF), unlike site_id's NULLIF($1,'')::uuid.
+-- WRONG: count(domain) counts the EMPTY STRING as present. So does `domain IS NOT NULL`.
+-- And `WHERE domain IS NULL` sees only 1.3% of the no-domain rows [11:2xZ]: 3 of the 20
+-- writers store '' instead of NULL, and one of the three is the coordinator's GENERIC writer,
+-- so they produce most of the table. Use COALESCE(domain,'') = '' for "no domain". Full
+-- diagnosis + the writer census in NOTES §16 / R13. (Do NOT repeat the older gloss that
+-- site_id's NULLIF shows intent: that NULLIF is COMPELLED by the ::uuid cast.)
 SELECT CASE WHEN domain IS NULL THEN '(NULL)'
             WHEN domain = ''    THEN '(empty string)'
             ELSE domain END AS domain_value, count(*)
@@ -246,3 +250,46 @@ kubectl exec -n ai-persona-system <pod> -- grep -ac "<deliberate misspelling>" /
 **Gotcha:** re-probing proves *presence* only. Where no removed-unique-literal is available
 (NOTES §12 explains why this change set has none), the misspelling control proves the probe
 discriminates — it does not prove the old code is gone. Say which one you have.
+
+## R13 — Census every writer of a shared table, and tie stored shape to writer shape
+
+Two halves. Neither alone is enough: the code half tells you what *should* differ, the data half
+tells you whether it actually does — and the data half is what could come out otherwise.
+
+```bash
+# 1. EVERY writer, not the one you were sent to. Exclude tests; 20 exist as of 08-06.
+grep -rn "INSERT INTO agent_error_log" --include=*.go platform/ internal/ | grep -v _test.go
+
+# 2. Read each one's VALUES clause — the column list and the values are on different lines,
+#    so a one-line grep cannot pair them. Dump a window per hit:
+grep -rn "INSERT INTO agent_error_log" --include=*.go platform/ internal/ | grep -v _test.go \
+| while IFS=: read -r f l _; do echo "=== $f:$l"; sed -n "${l},$((l+13))p" "$f"; done
+```
+
+```sql
+-- 3. THE DISCRIMINATING HALF. Group by a column each writer sets distinctively (here
+--    error_code) and show all three shapes side by side. A clean partition confirms the
+--    mapping; a per-code MIX refutes it. That is what makes it evidence.
+SELECT error_code,
+       count(*) FILTER (WHERE domain = '')     AS empty_str,
+       count(*) FILTER (WHERE domain IS NULL)  AS is_null,
+       count(*) FILTER (WHERE domain <> '')    AS real_dom
+FROM agent_error_log GROUP BY 1 ORDER BY 2 DESC;
+```
+
+**Gotchas, in the order they bit:**
+
+- **`grep -F 'NULLIF($'` — the `$` needs fixed-string mode.** Unquoted in a double-quoted bash
+  string it becomes a bare `$`, and grep exits **2** with an empty result that a `| wc -l`
+  happily reports as `0`. An error mistaken for a measurement of zero.
+- **Do not classify the hits with `sed`.** I tried reducing each line to its `NULLIF(...)` form
+  and the regex silently dropped `::uuid` on most, producing a tidy table that said the opposite
+  of the truth. Print the real lines and read them.
+- **Check whether the pattern you are calling a convention is COMPELLED.** `NULLIF($n,'')::uuid`
+  is mandatory on a uuid column (`SELECT ''::uuid` → `ERROR: invalid input syntax`), so its
+  presence there says nothing about intent. Test the cast before inferring a house style —
+  and count the fleet before inferring one from a single site (I inferred "no convention for
+  text columns" from one INSERT; there are **32** `NULLIF($n,'')` uses on text across 24 files).
+- **A refactor is not a review of what it moves.** RFC_012 relocated this exact INSERT to a leaf
+  package on 2026-08-06 and carried the defect verbatim. Any file:line for a shared writer is a
+  *snapshot* — re-locate it (`grep -rn "INSERT INTO <table>"`) before citing one.

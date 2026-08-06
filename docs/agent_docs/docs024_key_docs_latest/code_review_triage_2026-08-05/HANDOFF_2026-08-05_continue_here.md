@@ -186,12 +186,25 @@ as its own content — see NOTES and the comment at the warning site.
   ownership table, described in none of its verdict sections, and the raw `/code-review` output
   was never saved (this directory held only the handoff). There is no record of what F6 claimed.
   Do not guess. If the reviewer can be re-run, that is the only recovery.
-- **`LogAgentError`'s `domain` asymmetry — real, fleet-wide, nobody's.** The INSERT writes
-  `domain` as a bare `$2` while `site_id` gets `NULLIF($1,'')::uuid`, so an unset domain is
-  stored as `''`, not NULL. Live: 4,155 rows with a real domain, **3,189 with `''`**, 122 NULL —
-  so `WHERE domain IS NULL` under-reports "no domain" by ~26×. Found while measuring F5;
-  outside what any finding asked; NOT fixed because changing a shared writer's stored shape is a
-  seam change needing its own review. Worth a lane if anyone is counting rows by domain.
+- **The `agent_error_log` `domain` divergence — real, fleet-wide, nobody's. RE-DIAGNOSED
+  2026-08-06 11:2xZ; read NOTES §16, not this paragraph's earlier version.** An unset domain is
+  stored as `''` rather than NULL by **three of twenty** writers, and those three are one
+  copy-paste family sharing a byte-identical 13-column block —
+  `agenterrors/agenterrors.go:94`, `store_generated_component_action.go:1358`,
+  `component_write_guard.go:320`. The other **17** store NULL (10 via `NULLIF($n,'')`, 7 by
+  omitting the column), **so the convention exists and these three break it** — this is
+  clone-and-drift, not a missing convention, and the fix is three characters at three sites.
+  Live [MEASURED 11:2xZ]: 4,688 real domain, **9,949 `''`**, 128 NULL of 14,765 — so
+  `WHERE domain IS NULL` sees **1.3%** of the no-domain rows, an under-report of **79×** (it was
+  26× yesterday; the ratio drifts because the broken family contains the coordinator's generic
+  writer, which produces most of the table). Confirmed by an exact `error_code` partition with
+  zero overlap (NOTES §16d). **Use `COALESCE(domain,'') = ''` meanwhile.** Still NOT fixed and
+  still nobody's: it is a stored-shape change on the fleet's highest-volume error writer, wants a
+  council round, and `090` has not been run on it.
+  **Two traps this re-diagnosis paid for**, both in NOTES §16: the `NULLIF` on the sibling
+  columns is **compelled** by their `::uuid` cast (`''::uuid` errors — so that INSERT's internal
+  asymmetry is not evidence of intent about `domain`); and **a refactor is not a review of what it
+  moves** — RFC_012 relocated this exact INSERT on 2026-08-06 and carried the defect over verbatim.
 
 ## 4. Traps this lane hit — do not re-pay for these
 

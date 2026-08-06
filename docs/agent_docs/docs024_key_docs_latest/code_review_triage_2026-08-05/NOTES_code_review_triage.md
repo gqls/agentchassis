@@ -72,6 +72,12 @@ findings:
   asymmetry means 3,189 rows read `''` where they mean "unknown" and only 122 read NULL, so
   `WHERE domain IS NULL` under-reports "no domain" by 26×. Recorded here; NOT fixed, because
   changing a shared writer's stored shape is a seam change and not what F5 asked for.
+  > **CORRECTED 2026-08-06 11:2xZ — see §16.** Three things here are wrong or stale. The file
+  > moved (`agenterrors/agenterrors.go:94`, RFC_012 option B, same day). The figures roughly
+  > doubled (**9,949** `''` / **128** NULL, **79×**). And the framing is misleading: the
+  > `NULLIF` on `site_id` is **compelled** by the `::uuid` cast (`''::uuid` errors), so this
+  > INSERT's internal asymmetry evidences no intent at all. The real shape is **three
+  > copy-paste clones breaking a 10-writer convention**, not one writer lacking one.
 - **The eviction scenario is narrower than filed.** `diagnose_load_runtime_action.go:267` is
   indeed `ORDER BY occurred_at DESC LIMIT $3`, but the same query filters
   `($1::uuid IS NULL OR site_id = $1::uuid) AND ($2::text IS NULL OR domain = $2::text)`.
@@ -479,3 +485,123 @@ declared); `orchestration_states.workflow_plan` is the **traffic** census (what 
 already unrolled into `*_loop_iter_N_*` instances). Counting config sites in the runtime plan
 over-counts; counting traffic in the definitions is impossible. §11 used the wrong walk over
 the right table; §15b used the right walk over the table that answers a different question.
+
+## 16. 2026-08-06 11:2xZ — the `domain` finding was real but MIS-FRAMED, and it is a clone family of three
+
+Picked the lane up at 11:20Z. The 20:45Z check (§13/§2a) is ~9h off and `CONTENT_DATA_REGRESSION`
+is **still 0 rows in all history** [MEASURED 11:2xZ] — nothing to do there but wait. F13 re-checked:
+`git diff --numstat` still **25/4**, last commit still `bcb6afbe8`, so still another session's
+uncommitted work and still not actionable.
+
+What did move is the `domain` asymmetry the handoff parked in §3 as "real, fleet-wide, nobody's".
+Three corrections to my own earlier account of it.
+
+### 16a. CORRECTION — the file:line is dead, and the figures had roughly doubled
+
+> **CORRECTED 2026-08-06 11:2xZ.** §5 above, `PLAN` §6 and the handoff §3 all locate this in
+> `LogAgentError`'s INSERT in `platform/orchestration/agent_error_log.go`. **That INSERT is no
+> longer there.** RFC_012 option B (owner ruling **2026-08-06**, i.e. the same day) moved the one
+> INSERT into the leaf package: it is now
+> `platform/orchestration/agenterrors/agenterrors.go:89–102`, and `LogAgentError` is a thin
+> forwarder onto `agenterrors.Write`. **The asymmetry travelled with it unchanged** — a refactor
+> that picked this exact query up and put it down elsewhere did not surface it, because moving a
+> query preserves it verbatim. Worth stating as its own lesson: *a refactor is not a review of
+> what it moves.*
+
+Re-measured [MEASURED 08-06 11:2xZ, `agent_error_log`, all history]:
+
+```
+domain IS NULL ....   128        (was 122)
+domain = ''    .... 9,949        (was 3,189)
+domain <> ''   .... 4,688        (was 4,155)
+total          .. 14,765        (was ~7,466)
+```
+
+So `WHERE domain IS NULL` now sees **128 of 10,077** rows that have no domain — **1.3%**, an
+under-report of **79×**, not the 26× recorded yesterday. The figure is not stable and should not
+be quoted without its date; the ratio drifts because the writers that produce `''` are the
+high-volume ones (16c).
+
+### 16b. CORRECTION — `NULLIF` on the sibling columns is COMPELLED, so that INSERT shows no intent
+
+My earlier framing was "`site_id` gets `NULLIF`, `domain` does not" — read as an inconsistency
+someone overlooked. That reading is wrong about the cause. `site_id` and `work_item_id` are
+**uuid**; `domain` is **text** (`\d agent_error_log`). And [MEASURED — this could have come out
+otherwise, so it is evidence]:
+
+```
+SELECT ''::uuid;  -- ERROR:  invalid input syntax for type uuid: ""
+SELECT ''::text;  -- legal, returns the empty string
+```
+
+`NULLIF($1,'')::uuid` is therefore **mandatory** for that INSERT to execute at all on an unset
+site_id. It was never a decision about NULL semantics. **So within that single writer there is no
+evidence of intent about `domain` either way** — and an argument from its internal asymmetry is an
+argument from a cast requirement. The intent is only visible across the fleet, which is 16c.
+
+**MISSTEP, recorded because I nearly wrote it down.** From the cast finding I inferred "there is no
+convention for text columns, so bare `$2` is normal". **Refuted in one grep:** `NULLIF($n,'')` on
+plain text columns appears **32 times across 24 files**. The convention exists; I had reasoned from
+one site to a fleet-wide claim without counting. `WRONG_CALLS.md` gets this.
+
+### 16c. What it actually is: 20 writers, one convention, and three clones that break it
+
+`grep -rn "INSERT INTO agent_error_log" --include=*.go` finds **20 non-test writers** — worth
+noting on its own, because `bugs_closed/034` closed partly on the claim of "**One**
+`agent_error_log` writer". That consolidation held for the two sites 034 was about and has since
+been overtaken by nineteen more. Read each one's `VALUES` clause (`RUNBOOK` R13):
+
+| how `domain` is written | writers | stored when unset |
+|---|---|---|
+| `NULLIF($n, '')` | **10** | NULL ✅ |
+| column omitted entirely | **7** | NULL ✅ (column default) |
+| **bare `$2`** | **3** | **`''`** ❌ |
+
+The three outliers are **one copy-paste family**, with a byte-identical 13-column block:
+
+```
+platform/orchestration/agenterrors/agenterrors.go:94
+platform/orchestration/actions/store_generated_component_action.go:1358
+platform/orchestration/actions/component_write_guard.go:320
+    NULLIF($1, '')::uuid, $2, NULLIF($3, '')::uuid, $4,
+```
+
+**So this is clone-and-drift against an existing majority convention, not a missing convention.**
+That matters for the fix: it is three characters at three sites converging onto what 17 of 20
+writers already do — not a novel contract.
+
+### 16d. The causal claim, confirmed by a partition that could have come out otherwise
+
+Writer shape predicts stored shape, with **zero overlap**, across all 14,765 rows
+[MEASURED 08-06 11:2xZ]. Grouping by `error_code`:
+
+- Every code carrying `domain=''` is a **classifier-generated** code — `LLM_API_ERROR` 3,481,
+  `PROCESSING_FAILED` 3,399, `TIMEOUT` 1,499, `UNKNOWN` 1,458, `VALIDATION_ERROR_DROPPED` 89,
+  `PARSE_ERROR` 21, `CHILD_ORCHESTRATION_FAILED` 13, `INCOMING_MESSAGE_REJECTED` 5,
+  `UNROUTED_IMAGE_KIND` 1 — i.e. exactly the codes `agenterrors.ClassifyError` and the coordinator
+  path emit, which is the bare-`$2` generic writer. **`is_null` is 0 for every one of them.**
+- Every one of the 128 NULL rows carries a code belonging to a `NULLIF` writer or a
+  column-omitting one: `TRUNCATION_DEGRADED_REVIEW` 41, `CONTENT_LINK_REPAIR_DETAIL` 30,
+  `REVIEW_SUPERSEDED_BY_PASSING_SAVE` 25, `CONTENT_CLAIMS_FLOOR_DETAIL` 17,
+  `CONTENT_DATA_LINK_AUDIT` 10, `FIX_PLAN_VALIDATION_REFUSED` 3,
+  `CONTENT_DUPLICATE_SECTIONS_COLLAPSED` 1, `CONTENT_DATA_ENVELOPE` 1.
+
+**The two sets do not intersect.** A per-code mix would have refuted the mapping; there is none.
+This is why the damage is lopsided — the one generic writer used by the whole coordinator path is
+in the broken family, so it produces the bulk of the table.
+
+### 16e. Why it still bites, and what is NOT claimed
+
+The consumer that loses most is the one §5 already identified:
+`diagnose_load_runtime_action.go:267` filters
+`($1::uuid IS NULL OR site_id = $1::uuid) AND ($2::text IS NULL OR domain = $2::text)`. A row with
+`site_id` NULL and `domain` `''` matches **neither** a site-scoped nor a domain-scoped diagnosis —
+only a fully unscoped load. That was 160 rows when §5 measured it; the `''` population is now
+**9,949**.
+
+**NOT claimed, and do not let this read as more than it is:** I have not audited every consumer, so
+"~79× under-report" is a property of the STORED DATA, not a measured harm to a named report. I have
+not run `090` on it. And the fix is still a stored-shape change on the fleet's highest-volume error
+writer — cheap to type, and therefore exactly the kind of change whose blast radius wants counting
+rather than assuming. **`WHERE domain IS NULL` is the wrong predicate for "no domain" on this table
+today; use `COALESCE(domain,'') = ''` until the writers converge.**
