@@ -118,6 +118,34 @@ already returns `{"html":"", "skipped":true, "skip_reason":…}` in two existing
   whose first real dispatch surfaced this. **Owned by another workstream**, so it is a
   consumer to be told, not just measured.
 
+### The damage is still UNREALISED — measured, not assumed
+
+The filing marked the damage `[INFERRED]` (correctly: it declined to induce it). I checked the
+current served state of all 14 exposed pages directly —
+`BASELINE_2026-08-06_owned_pages_served.txt`, http status + byte count + `<script>` count +
+interactive-element count + a body sha256 per URL.
+
+**[MEASURED 2026-08-06] 13 of 14 serve HTTP 200 with 5-7 `<script>` blocks and 2-15
+interactive elements — i.e. the tools are intact. The trap is armed and has NOT fired.**
+
+What would have disconfirmed this: a 200 of ~10-15KB with 0-1 scripts and no interactive
+elements, which is what generic regenerated prose looks like on this estate. None of the 13 is
+that shape.
+
+The 14th, `vonc.com/blog/provocation.html`, is a **404 with 0 `page_components`** — the
+`planned` owned page migration 164 deliberately parked ("the parked per-provocation page the
+experience spec will define (T4.3)"). So it has never been built at all.
+
+Two things follow, and both matter to the fix:
+
+1. We are fixing **before** the fire, not after it, and the baseline above is a clean control
+   set: after the fix these 14 bodies must be byte-identical (same sha256).
+2. **The no-op case is checked, not just the damage case.** The only owned page a
+   selection-level exclusion would remove from `pageflow-builder`'s `planned` set is a page
+   that 404s and has no components today — so excluding owned pages costs the live fleet
+   nothing observable, while protecting 13 working tools. A fix whose downside I had not
+   measured would be a guess dressed as a trade-off.
+
 ### Open question logged before it is answered
 
 `[UNMEASURED]` Whether excluding an owned page at selection leaves it stuck at

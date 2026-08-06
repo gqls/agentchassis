@@ -1,0 +1,18 @@
+# BASELINE 2026-08-06 — served state of every owned page at needs_rebuild/planned
+# The population bug 208 predicts would be destroyed by any generic rebuild dispatch.
+# Captured BEFORE any fix, as the control set: after a fix, these must be byte-identical.
+# cols: http | bytes | <script> count | interactive-el count | sha256(body) | url
+200 |  34255 |  7 | 15 | 1076c0750ffc0ed1 | https://ai-agent-orchestration.com/tools/agent-complexity-estimator.html
+200 |  16813 |  7 |  2 | a1d9f580380200b1 | https://ai-agent-orchestration.com/tools/password-entropy.html
+200 |  34047 |  7 | 12 | fd01dbcfb5a240d5 | https://finetuning.uk/tools/ai-agent-roi-estimator.html
+200 |  31600 |  6 |  6 | 1f0fd40c0c5f408c | https://gamesdesign.co.uk/tools/drop-rate-simulator/index.html
+200 |  31373 |  6 |  9 | 2ce18f17f0331f41 | https://gamesdesign.co.uk/tools/ehp-calculator/index.html
+200 |  31446 |  5 |  6 | a1dccfc28fb526c2 | https://gamesdesign.co.uk/tools/jump-physics/index.html
+200 |  32618 |  6 |  8 | 600f674f8c5093b7 | https://gamesdesign.co.uk/tools/lanchester-sim/index.html
+200 |  34658 |  6 |  8 | 1ad03513019d8c6d | https://gamesdesign.co.uk/tools/progression-architect/index.html
+200 |  31658 |  5 |  7 | 7d992a0e81f6213c | https://gamesdesign.co.uk/tools/ttk-calculator/index.html
+200 |  17962 |  7 |  2 | 01b9a71e9692a5e2 | https://leopardessconsulting.co.uk/tools/password-entropy.html
+404 |   2741 |  0 |  0 | c0044e2083a9f28d | https://vonc.com/blog/provocation.html
+200 |  25842 |  5 |  8 | c5b8d3dd21ec898e | https://vonc.com/tools/archetype-taster-quiz/index.html
+200 |  36328 |  5 |  3 | 31b2a058120fb551 | https://vonc.com/tools/arena/index.html
+200 |  49766 |  5 |  8 | 983761773ac3cf62 | https://vonc.com/tools/gauntlet/index.html
