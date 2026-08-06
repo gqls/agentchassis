@@ -325,3 +325,37 @@ roll past v1.0.1257. Sequence for the next session:
    assert the prose changed against the §How-to-verify baseline and that zero
    `needs_new_component` items were filed. Then close and `git mv` to
    `bugs_closed/` (name BOTH paths on the commit).
+
+## §CANARY RUNNING 2026-08-06 — plan_sections resolves both positional slots (the defect's exact inverse)
+
+`slot_name_from` applied (189's config half; both keys confirmed independently),
+so the BUILD path is fully live. Canary fired as 204 §How-to-verify prescribes:
+work item `996b9619-46aa-4b5e-ab71-80e141e0d87e` reusing the original
+`voiceh-canary` spec **verbatim** (copied by SQL from item `2517bc4b`, so the
+prompt cannot have drifted), dispatched to `page-build-handler` as orchestration
+`fa89217a-768b-4f22-bd7b-12209f58cbf3`.
+
+**`plan_sections`' own output, read live from `collected_data`:**
+
+```
+ready_count=2  deferred=0  skipped=0  ready_names=["prose-0", "prose-1"]
+resolved:  prose-0 -> ported-prose,  prose-1 -> ported-prose
+```
+
+This is the defect's exact inverse and it is the strongest single piece of
+evidence in this file:
+
+- **Both positional names resolved.** Pre-fix: 0 ready, 2 deferred, and the run
+  died `page-build-handler no-op: no sections ready to build`.
+- **Each resolved to the function `ported-prose`** — a value obtainable ONLY
+  through `page_components.component_id`, since `prose-0` is neither a component
+  name nor a function under any spelling. That is Path 0 executing.
+- **The item keeps its positional `name` while carrying the resolved
+  `function`**, which is the design: identity from the row, schema from the
+  component.
+- **Zero junk work items** filed in the window (pre-fix: 2
+  `needs_new_component` + 2 `needs_section_data` for components that already
+  existed; a full-site run would have filed 114).
+
+The run then proceeded to `call_content_writer` — i.e. past the gate that used
+to be a dead end. Save/deploy outcome and the prose comparison follow below.
