@@ -1,0 +1,15 @@
+# Acknowledged shared-output-field hazards (RFC_012 (d) ratchet).
+#
+# One line per acknowledged (agent, output_field, producer, refiner) pair.
+# Acknowledging here is a REVIEWED change — say WHY in the comment above the
+# line. The standing check exits green while only these reproduce, and reports
+# a stale ack if one stops reproducing.
+
+# bugs_open/192's own shape. The ACTION-side defect (wrapper return demoting
+# the plan) is fixed; the config shape that routes a different action onto the
+# same key remains by design and is the documented hazard the humans know.
+page-build-handler section_plan plan_sections load_current_section_content
+
+# RFC_012 addendum 1's second instance, found by the census not by a failure;
+# its early-out stub returns were fixed the same day. Config shape remains.
+site-adoption-agent design_fingerprint extract_fingerprint enrich_fingerprint

@@ -165,6 +165,10 @@ func main() {
 		emitRelayGaps()
 		return
 	}
+	if len(os.Args) > 1 && os.Args[1] == "--shared-output-fields" {
+		emitSharedOutputFields()
+		return
+	}
 	declared := datahelpers.ListDeclaredConfigKeys()
 	conditional := datahelpers.ListConditionalConfigKeys()
 
