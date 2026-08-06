@@ -137,6 +137,15 @@ This backstop is a detector, not a fix, and its own queue isn't being drained ei
    enough to have caught 11 of 13 before this filing — worth checking its actual schedule
    coverage, separately from this bug.
 
+## Taken up 2026-08-06 (session "bugfix 206" — renamed in intent to 203)
+
+A follow-on session has taken the remaining work: verdict read for the source fix's council
+round (`Council-Submitted: 42eda9a5` on `880a405a6`), live-image verification, census re-run,
+cleanup of the shipped instances through the framework (resolver + rerender, not hand-set
+URLs), detector-coverage measurement, and the `primary_cta_url`/`secondary_cta_url` defaults
+in `contextToMap` (same class, still at HEAD as of this note — under investigation).
+Workstream docs: `docs/agent_docs/docs024_key_docs_latest/bugfix_203_phantom_cta_cleanup/`.
+
 ## Related
 
 - `render_site_components_action.go:782-856` / `drop_dead_url_controls.go` — LNK-005, the
