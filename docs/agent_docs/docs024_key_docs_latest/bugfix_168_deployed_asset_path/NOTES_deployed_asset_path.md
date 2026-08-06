@@ -1433,3 +1433,67 @@ safe direction (nothing closed).
 test — it was *not contradicted*, which is a weaker thing. The 19 `failed` rows fleet-wide sit on
 other sites and this run was site-scoped. Saying so because "the exclusion held" would be a claim
 this run cannot support.
+
+## 2026-08-06 — SCHEDULED (owner approved), verified end-to-end, and it exposed two things I had wrong
+
+`scheduled_tasks` row **`review-queue-revalidate-daily`**, `interval_seconds=86400`,
+`concurrency_group='review-queue-revalidate'`, `max_concurrent=1`, enabled. Config, so live
+immediately — no build.
+
+### Verified BY EFFECT, not by the row's own timestamp
+
+The standing trap is that `last_triggered_at` is written by the scheduler at publish time and is
+**not** evidence the agent ran (cf. the thunder-reaper landmine: *`enabled` + a fresh tick ≠ ever
+RUN*). So the proof chain was taken end to end:
+
+1. `last_triggered_at` = **2026-08-06 08:37:50.088** — the scheduler published.
+2. Orchestration **`7e107c8a-65bd-4253-8b04-102989473f64`**, created **08:37:50.254** (0.17s later),
+   `current_step=complete`, `status=COMPLETED` — the agent actually ran.
+3. Its own counters: **`scanned 500, resolved 0, still_holds 31, unknown 469, dry_run false`**.
+
+**`resolved: 0` is correct, not a failure** — the hand-run at 08:05 had already closed the only
+eligible row, and `auto:revalidated` stayed at 34. A schedule that fires, runs in live mode, judges
+500 items and closes nothing *because nothing was closable* is the right outcome. Distinguishing
+that from "it did not run" is exactly why arm 2 of the check exists.
+
+### ⚠ WRONG #1 — my `max_items` was INERT, and I had already written it into a landmine as the fix
+
+I set `input_data = {"dry_run": false, "max_items": 1000}` specifically to defeat the starvation
+described below. The run reported **`capped_at: 500`**.
+
+`revalidate_review_queue_action.go:178` reads
+`datahelpers.GetIntField(config, "max_items", 50)` — from the **step config**, not `input_data` —
+and the `sweep` step has **no `input_mapping`**. So nothing in `scheduled_tasks.input_data` reaches
+it. The 500 is the agent definition's step config.
+
+**This is the two-gates shape for the third time in this lane** (`input_mapping` vs a claim query's
+`RETURNING`; the sweep's selection vs its two CAS guards; now `input_data` vs step config). **The
+gate you can reach is not the one that decides.**
+
+Two corrections made rather than left:
+- The `scheduled_tasks` row's `input_data` is back to `{}` and its `description` now says outright
+  that the row cannot tune the sweep and where the real knob is. **A dead config key that looks
+  live is its own defect** — leaving `max_items: 1000` sitting there would have taught the next
+  reader something false.
+- The `LANDMINES.md` entry I had written **minutes earlier** claimed "the scheduled row uses 1000
+  for exactly this reason". Corrected in place, same day, with the measurement.
+
+⚠ **I wrote a landmine asserting a fix I had not verified, and the verification was one query
+away.** The entry was accurate about the *hazard* and wrong about the *remedy* — which is the more
+dangerous half, because a remedy is what a reader copies.
+
+### ⚠ WRONG #2 — the starvation is real, present, and NOT fixed
+
+The first scheduled run measures it precisely: **500 scanned, 469 `unknown`** — 94% of the batch
+was types with no revalidator, which return `unknown` for ever and stay parked, stay oldest, and
+get re-selected next run. **279 of the 779 parked rows were never reached at all.**
+
+So the daily sweep will re-judge substantially the same 500-row head every day. It still works —
+it found and judged 31 covered items — but it is doing 94% wasted work and cannot see the tail.
+**Fixing it needs an `item_type` filter or a bigger step-config batch, and that is an
+`agent_definitions` change, not a schedule change.** Recorded as an open item in the handoff rather
+than fixed at the end of a long session.
+
+### State
+
+Schedule live and proven. `auto:revalidated` = **34**. Next natural fire ~2026-08-07 08:37Z.
