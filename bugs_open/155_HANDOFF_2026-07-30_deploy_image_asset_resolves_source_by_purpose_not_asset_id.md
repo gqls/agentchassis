@@ -191,3 +191,43 @@ this bug in manual form**: one URI per purpose, so on a multi-asset site it hand
 you the wrong file to deploy, and after this fix ships it is stale as well.
 Rewritten to select `storage_path`/`url` per `asset_key` from `assets`. The other
 hit was this bug's own 090 diagnosis row — not a consumer.
+
+---
+
+## LIVE 2026-08-06 on chassis `v1.0.1259` — the buggy branch is GONE from the binary
+
+Pod-verified on **both** replicas (`agent-chassis-5cf5db5bd8-54xsx`, `-ldx5z`),
+four controls in one exec, exactly the retirement test this lane wrote down:
+
+```
+AssetSourceRef                                        2   POSITIVE  (the fix is in)
+"Resolved s3_uri from site content_data via asset_id" 0   NEGATIVE  (the purpose-cache
+                                                                     branch is GONE)
+"Resolved source object from asset row"               1   the replacement, present
+"AssetSourceRefZZZnotreal"                            0   nonsense control (the grep
+                                                                     discriminates)
+```
+
+The negative is the one that matters: that string is the deleted branch's own log
+line, so its absence is evidence about *this* binary rather than about the tag or
+the roll (`bugs_open/153`). Pod start 10:50:29Z, fix commit `1d11827c1` 10:03:46Z
+— the build postdates the commit, which is the precondition, not the proof.
+
+**The founding case, re-measured** (dartsonline.com, 20 active `icon` assets):
+
+| resolution path | distinct sources across the 20 icons |
+|---|---|
+| OLD — `sites.content_data->>'icon_uri'` | **1** |
+| NEW — each row's own `storage_path`/`url` | **20** |
+
+That is this bug stated as arithmetic: one input for twenty deploys is exactly why
+six of them produced byte-identical files. `[INDUCTION, not the behavioural proof]`
+— it measures the INPUTS the live function now receives, and the function itself is
+unit-tested (incl. two mutation proofs) and confirmed present in the running binary.
+It is not a dispatch.
+
+**What is still owed to CLOSE this file**: one real deploy of 2+ same-purpose assets
+by `asset_id` alone (no `s3_uri` in spec), then `sha256sum` the resulting files and
+confirm they differ, opening at least one against its own `origin_prompt`. Nothing
+short of that is the recipe this file wrote, and `success:true` plus distinct
+destination paths were both already true while the bug was shipping identical bytes.

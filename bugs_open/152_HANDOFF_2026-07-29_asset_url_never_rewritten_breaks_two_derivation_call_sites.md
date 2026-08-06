@@ -159,3 +159,23 @@ window, so it is now `323` (applied under the old name; the file records that,
 its pre-flight count and its rollback statement). Migration `323` APPLIED
 2026-08-06: 205 rows, presigned-with-no-`storage_path` now **0** fleet-wide, and
 all five at-risk logo rows resolve via `storage_path`.
+
+---
+
+## LIVE 2026-08-06 on chassis `v1.0.1259`
+
+Pod-verified both replicas with positive, negative and nonsense controls (the table
+is in `bugs_open/155`'s live section — same binary, same exec). All four readers now
+resolve through `storage.AssetSourceRef`, so a deployed asset's `url` being a local
+web path no longer strands anything that has a `storage_path`.
+
+Fleet state after migration `323`: **0** rows presigned-with-no-`storage_path`, and
+all five previously at-risk logo rows (webdesign.co.uk, gaswholesalers.com,
+finetuning.uk, vetcomparison.uk, leopardessconsulting.co.uk) resolve via
+`storage_path` — so the next `derive_brand_head_assets` on each will find its source
+instead of erroring, which it would have done before today.
+
+**Owed before this closes**: a real derivation run against one of those five logo
+rows (favicon/og-card re-derived and served), which is the artefact-level proof;
+the 49 genuinely stranded rows stay stranded by design and are NOT a blocker — their
+source is unrecorded and inventing one would be worse than failing loud.

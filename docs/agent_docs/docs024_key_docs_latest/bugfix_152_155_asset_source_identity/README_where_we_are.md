@@ -57,3 +57,33 @@ the commit is tagged so it gets credited automatically when the verdict lands). 
 one thing still owed after it ships is the proof: deploy two same-kind images on one
 site by id alone and confirm the two files actually differ. That is the only check
 that would have caught the original bug, so it is the only one worth calling closure.
+
+## 2026-08-06 (later) — it went live, and I checked rather than assumed
+
+The chassis rolled again to v1.0.1259 and this time it does carry the fix. I checked
+the running binaries rather than the tag: the new code is there on both copies, and
+the old broken lookup's own log line is gone from both. I also grepped for a made-up
+string to be sure the check could come out negative — it did. So the thing that was
+deploying the wrong picture is no longer in the software that is running.
+
+The clearest way to see what changed: on dartsonline, across its twenty icons, the
+old route gave one answer for all twenty. The new route gives twenty different
+answers. That one line is the whole bug and the whole fix.
+
+The database side was already done earlier and needed no deployment, and the five
+sites whose logos were about to break their own favicon generation can all now find
+their source image.
+
+I am still leaving both bugs open, on purpose. What is proved is that the right code
+is running and is being given the right inputs. What is not proved is the thing the
+bug file itself asks for: actually deploy two same-kind images and confirm the two
+files are different. Green ticks and correct filenames were both true while it was
+shipping identical files, so neither is worth anything as evidence here — only
+opening the files is. That is about ten minutes' work and needs no new build.
+
+One thing worth knowing about how this tree behaves, because it happened twice today
+in opposite directions: a register line I wrote saying "built, not live yet" became
+false within hours because another session's build picked my commit up off the shared
+branch, and separately one of my own commits swept up two entries another session had
+written into a shared file. Nothing was lost either time. Both are recorded where
+they happened rather than tidied away.
