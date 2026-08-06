@@ -60,16 +60,43 @@ func GetPagesToBuildAction(ctx context.Context, params ActionParams) (interface{
 	// Whether to include all pages or just those needing build
 	includeAll := datahelpers.GetBoolField(config, "include_all", false)
 
+	// PAGE-OWNERSHIP EXCLUSION (bugs_open/208). A rebuild_policy='owned' page
+	// belongs to a tool/widget or is a runtime-fill shell, so it is NOT the
+	// generic builder's to compose — and every consumer of this action feeds a
+	// loop whose next steps are assemble_page -> deploy_page (git_commit), which
+	// replaces the served file BEFORE save_page_sections gets to refuse the save.
+	// Excluding here is what keeps the destructive state unreachable rather than
+	// caught after the commit.
+	//
+	// The unsafe branch is the one that must be asked for by name (owner ruling
+	// 2026-08-02 §2: a seam licensed by "callers must all be X" gets a field with
+	// the unsafe default OFF, because a comment is not a control on a tree this
+	// many sessions share). Nothing live sets it: measured 2026-08-06, both live
+	// consumers (page-rebuild, pageflow-builder) carry only include_all and
+	// build_statuses.
+	includeOwned := datahelpers.GetBoolField(config, "include_owned", false)
+
 	// Query pages from database
-	pages, err := queryPagesForBuild(ctx, params.DB, siteID, statusFilter, includeAll, logger)
+	pages, err := queryPagesForBuild(ctx, params.DB, siteID, statusFilter, includeAll, includeOwned, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query pages: %w", err)
+	}
+
+	// Name what was excluded, and record it where an operator will find it. A
+	// silent exclusion would leave the page at needs_rebuild for ever with nobody
+	// told why it never rebuilt.
+	var excludedOwned []string
+	if !includeOwned {
+		excludedOwned = censusExcludedOwnedPages(ctx, params.DB, siteID, statusFilter, includeAll,
+			"get_pages_to_build", logger)
 	}
 
 	logger.Info("GetPagesToBuildAction: Complete",
 		zap.Int("pages_found", len(pages)),
 		zap.String("site_id", siteIDStr),
 		zap.Strings("status_filter", statusFilter),
+		zap.Bool("include_owned", includeOwned),
+		zap.Int("owned_pages_excluded", len(excludedOwned)),
 	)
 
 	// Convert to interface slice for loop iteration
@@ -80,21 +107,47 @@ func GetPagesToBuildAction(ctx context.Context, params ActionParams) (interface{
 	}
 
 	return map[string]interface{}{
-		"pages":       pagesInterface, // items_field: "pages_to_build.pages" points here
-		"page_count":  len(pages),
-		"site_id":     siteIDStr,
-		"filter_used": statusFilter,
+		"pages":      pagesInterface, // items_field: "pages_to_build.pages" points here
+		"page_count": len(pages),
+		// Observability, not control flow: a reader of the run can see that pages
+		// were withheld and which ones, without joining back to the pages table.
+		"owned_pages_excluded":       excludedOwned,
+		"owned_pages_excluded_count": len(excludedOwned),
+		"site_id":                    siteIDStr,
+		"filter_used":                statusFilter,
 	}, nil
 }
 
+// ownedPageExclusionSQL is the ownership predicate shared by both branches of
+// queryPagesForBuild (bugs_open/208).
+//
+// COALESCE is deliberate even though pages.rebuild_policy is NOT NULL DEFAULT
+// 'generic' today (migration 164): a bare `rebuild_policy <> 'owned'` would drop
+// every row with a NULL policy if that default is ever relaxed, which is the same
+// shape of silent-omission bug this predicate exists to prevent.
+const ownedPageExclusionSQL = ` AND COALESCE(rebuild_policy, 'generic') <> 'owned'`
+
 // queryPagesForBuild queries pages that need building from the database
 // Returns page maps with fields needed by content writer and HTML builder
-func queryPagesForBuild(ctx context.Context, db interface{}, siteID uuid.UUID, statuses []string, includeAll bool, logger *zap.Logger) ([]map[string]interface{}, error) {
+//
+// includeOwned=false (the default for every caller) excludes rebuild_policy='owned'
+// pages: they are tool/widget-owned and must never be composed by a generic
+// builder. See GetPagesToBuildAction for why the exclusion lives at selection.
+func queryPagesForBuild(ctx context.Context, db interface{}, siteID uuid.UUID, statuses []string, includeAll bool, includeOwned bool, logger *zap.Logger) ([]map[string]interface{}, error) {
 	var query string
 	var args []interface{}
 
+	// Applied to BOTH branches. include_all drops the status filter, so without
+	// this it would sweep every owned page on the site, including the ~189 sitting
+	// at 'deployed' (measured 2026-08-06) — a wider blast radius than the
+	// needs_rebuild case that surfaced the bug.
+	ownershipClause := ownedPageExclusionSQL
+	if includeOwned {
+		ownershipClause = ""
+	}
+
 	if includeAll {
-		query = `
+		query = fmt.Sprintf(`
 			SELECT id, site_id, name, url, title, page_type, status,
 			       COALESCE(build_status, 'planned') as build_status,
 			       COALESCE(sections, '[]'::jsonb) as sections,
@@ -103,9 +156,9 @@ func queryPagesForBuild(ctx context.Context, db interface{}, siteID uuid.UUID, s
 			       meta_description,
 			       content_direction::text
 			FROM pages
-			WHERE site_id = $1 AND status = 'active'
+			WHERE site_id = $1 AND status = 'active'%s
 			ORDER BY nav_order ASC, name ASC
-		`
+		`, ownershipClause)
 		args = []interface{}{siteID}
 	} else {
 		// Build status filter with parameterized placeholders
@@ -127,14 +180,15 @@ func queryPagesForBuild(ctx context.Context, db interface{}, siteID uuid.UUID, s
 			FROM pages
 			WHERE site_id = $1
 			  AND status = 'active'
-			  AND COALESCE(build_status, 'planned') IN (%s)
+			  AND COALESCE(build_status, 'planned') IN (%s)%s
 			ORDER BY nav_order ASC, name ASC
-		`, strings.Join(placeholders, ", "))
+		`, strings.Join(placeholders, ", "), ownershipClause)
 	}
 
 	logger.Debug("Querying pages for build",
 		zap.String("site_id", siteID.String()),
 		zap.Int("status_count", len(statuses)),
+		zap.Bool("include_owned", includeOwned),
 	)
 
 	var pages []map[string]interface{}

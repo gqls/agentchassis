@@ -151,8 +151,21 @@ func WriteBuildItemsAction(ctx context.Context, params ActionParams) (interface{
 	// improvement-loop triggers, re-classification). sync_pages_to_db
 	// sets existing pages to 'needs_rebuild' when a planner re-plans
 	// them; the old filter on 'planned' alone would miss those.
+	// includeOwned=false: a rebuild_policy='owned' page must not be given a
+	// needs_page item at all (bugs_open/208). This is the same refusal
+	// ReconcileSitePlanAction already makes for its own route — it emits
+	// owned_page_review instead of needs_page (reconcile_site_plan_action.go:232-270)
+	// — and this action is a needs_page producer that had no such guard.
+	//
+	// Whether the item is then DANGEROUS depends on which consumer picks it up,
+	// and the two differ (measured 2026-08-06): page-build-handler runs
+	// save_sections -> update_status -> deploy_page, so its ownership refusal
+	// fires BEFORE anything is committed and that route is safe; but
+	// site-work-orchestrator's build_items_loop runs assemble_page -> deploy_page
+	// (git_commit) -> save_sections, so there the commit lands first. Not filing
+	// the item is what makes the difference irrelevant.
 	pages, err := queryPagesForBuild(ctx, params.DB, siteID,
-		[]string{"planned", "needs_rebuild"}, false, logger)
+		[]string{"planned", "needs_rebuild"}, false, false, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query pages: %w", err)
 	}
@@ -223,8 +236,16 @@ func WriteBuildItemsAction(ctx context.Context, params ActionParams) (interface{
 			"landing":    {handler: "page-build-handler", itemType: "needs_content_page"},
 			"blog-index": {handler: "page-build-handler", itemType: "needs_content_page"},
 			"blog-post":  {handler: "page-build-handler", itemType: "needs_content_page"},
+			// bugs_open/206: directory-build-handler ensures the page's plan
+			// layout (ensure_page_section_layout, defaulting to
+			// ["hero","directory-listing"]) then delegates the actual build
+			// to page-build-handler — see agent_definitions seed
+			// 001_directory_build_handler.sql. entity-page stays unavailable
+			// below: practice pages are deliberately on hold pending more
+			// source data (features_open/021's own P1), so no builder for it
+			// yet — building one now would be ahead of a demonstrated need.
+			"entity-directory": {handler: "directory-build-handler", itemType: "needs_directory"},
 			// Add here as builders become available:
-			// "entity-directory": {handler: "directory-build-handler", itemType: "needs_directory"},
 			// "entity-page":      {handler: "entity-page-build-handler", itemType: "needs_entity_page"},
 			// "tool":             {handler: "tool-build-handler", itemType: "needs_tool_page"},
 			// # "blog-index":       {handler: "blog-build-handler", itemType: "needs_blog_index"},
@@ -234,9 +255,8 @@ func WriteBuildItemsAction(ctx context.Context, params ActionParams) (interface{
 
 		// Known page types whose builders don't exist yet
 		unavailableBuilders := map[string]string{
-			"tool":             "tool-builder",
-			"entity-directory": "directory-builder",
-			"entity-page":      "entity-page-builder",
+			"tool":        "tool-builder",
+			"entity-page": "entity-page-builder",
 		}
 
 		handlerAgent := "page-build-handler"

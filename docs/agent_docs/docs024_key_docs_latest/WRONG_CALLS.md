@@ -21613,3 +21613,76 @@ worse than an absent one.
 the correction. Sibling entries: "a `Council-Submitted:` trailer is a SUBMISSION, not a
 verdict", and the 2026-08-06 entry above about a commit message being a claim about shared
 mutable state.
+
+---
+
+## 2026-08-06 — my test for a new guard passed with the guard DELETED, because a pre-existing guard in series returned the same shape
+
+**Lane:** bugfix 208 (owned page committed before the ownership guard refuses it). **My own
+call**, caught by mutation testing — i.e. caught only because I did not stop at green.
+
+**What I did.** I added an upstream-skip early exit to `SavePageSectionsAction` and wrote
+`TestSavePageSections_HonoursUpstreamSkip` to pin it. The assertion was: call the action with
+`assembled_page.skipped=true` in collected data, give sqlmock **no** expectations (so any query
+is an unexpected-call error), and require `res["skipped"] == true`. It passed. Then I mutated
+`upstreamAssemblySkipped` to `return false` — killing the guard outright — **and the test still
+passed.**
+
+**Why.** With the early exit dead, the action carries on, resolves the page name, calls
+`saveSectionsLookupPageID`, gets sqlmock's unexpected-query error, and takes its own
+**pre-existing** "page not found, skipping" branch (`save_page_sections_action.go:120-137`),
+which returns `{"success":true,"sections_saved":0,"skipped":true,...}` — **the same shape my
+assertion was reading.** Two different guards, one indistinguishable outcome. My test was
+asserting a *shape*, and the shape was over-determined.
+
+**What caught it.** Running the mutation at all. Three of my four mutations behaved as
+expected, which is exactly what makes the fourth worth having: the value of the exercise is
+entirely in the one that surprises you. Had I taken green as proof, I would have shipped a
+guard with a test that vouched for its absence — and the next session to refactor
+`upstreamAssemblySkipped` would have had a passing suite telling them it was fine.
+
+**The cheap check.** When a guard's success shape is `{skipped:true}` and the function already
+has other paths returning `{skipped:true}`, **the boolean cannot be the assertion.** Assert the
+DISCRIMINATOR — the field only your path sets. Here: the `reason` string, which the early exit
+fills from the upstream `skip_reason` (carrying the `OWNED_PAGE_GUARD` marker) while the
+not-found branch fills with `"page not found: <name>"`. The strengthened test now fails under
+the mutation and says why in its failure message.
+
+**Generalisation, and it is the sharper form of an entry already here.** "A mutation that
+PASSES usually hit a guard in SERIES" is recorded as a *hazard*. This is the recipe: before
+writing the assertion, grep the function for every other `return` that produces the same key
+you are about to assert on. If there is more than one, your assertion is on the wrong field.
+Sibling entries: "a mock's own bookkeeping cannot assert a NEGATIVE — MUTATE to prove a guard";
+"a quiet-test passes when the RULE is gone".
+
+---
+
+## 2026-08-06 — I wrote a producer attribution into a code comment from reading code, and the live table named a different producer for every observed row
+
+**Lane:** bugfix 208. **My own call**, caught by running the query I should have run first.
+
+**What I did.** Having found that `WriteBuildItemsAction` files `needs_page:<name>` work items
+and that its page selection had no ownership filter, I wrote into the fix's code comment that
+`write_build_items` "was the third producer of needs_page items with no such guard" — phrasing
+that reads as an account of how the observed owned-page items got there. I then queried
+`site_work_items.source` for the owned-page `needs_page` rows: **7 rows, 6 filed by
+`page-rerender` and 1 by `reconcile_site_plan`. Zero by `write_build_items`.**
+
+**Why it matters even though the code claim was true.** `write_build_items` *is* an unguarded
+producer — the code proves that, and the fix closes it. But a comment that implies it produced
+the rows a reader can see is an explanation, and it was the wrong one. The next session
+debugging an owned-page item would have gone to the wrong action. A reachable path and an
+exercised path are different claims, and only one of them was measured.
+
+**What also fell out of doing it properly** — the useful half. `needs_page` items route
+**exclusively** to `page-build-handler` (158 of 158 rows, all history), whose live order is
+`save_sections → update_status → deploy_page`: it saves before it deploys, so the ownership
+refusal fires before any commit and **that route was never the dangerous one.** The live
+danger to the work-item loop comes from somewhere else entirely — discovery-check fix items
+(`literal_markdown`, `placeholder_contact`) with `handler_agent='page-content-writer'`, of
+which **11 of 14 target owned pages** and all 11 failed. I would have missed that by trusting
+my own tidy story.
+
+**The cheap check.** Before attributing rows to a producer, `SELECT source, created_by,
+count(*)` on the rows themselves. Reading the code tells you what CAN write them; only the
+column tells you what DID. Sibling entry: "a filed ROOT CAUSE decays faster than its damage".

@@ -55,6 +55,31 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 
 	config := params.StepConfig.Config
 
+	// --- Upstream assembly skip (bugs_open/208) ---
+	//
+	// If the assemble step declared a skip, there is no composed page to save, so
+	// saving nothing is the correct outcome — and it must be a SKIP, not the hard
+	// refusal below. None of the three build loops sets continue_on_error
+	// (loop_error_handler.go:70-90 requires it), so an error here fails the whole
+	// workflow and strands every page after this one. Before this check, the
+	// ownership guard downstream turned "one owned page in the set" into "the
+	// operator's entire rebuild dies".
+	//
+	// This does NOT weaken that guard: it fires only when the assembly itself was
+	// skipped, so an owned page arriving WITH content — an older image, or a future
+	// path that bypasses assemble_page — still meets the loud refusal below.
+	if skipped, skipReason := upstreamAssemblySkipped(params.CollectedData); skipped {
+		params.Logger.Info("SavePageSectionsAction: upstream assembly skipped, nothing to save",
+			zap.String("skip_reason", skipReason),
+		)
+		return map[string]interface{}{
+			"success":        true,
+			"sections_saved": 0,
+			"skipped":        true,
+			"reason":         skipReason,
+		}, nil
+	}
+
 	// --- Resolve page name and site_id (needed for both paths) ---
 
 	var pageName, siteIDStr string

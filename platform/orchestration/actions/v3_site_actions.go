@@ -645,6 +645,37 @@ func UpdatePageStatusAction(ctx context.Context, params ActionParams) (interface
 	// AFTER save_page_sections has written the components (page-build-handler,
 	// page-rerender, section-editor and tool-recreation-handler all write their
 	// components before this step), so a shortfall here is a real one, not a race.
+	// Ownership skip (bugs_open/208): the page was deliberately left alone by the
+	// owned-page guard, so nothing was assembled and nothing was committed.
+	// Stamping it 'deployed' would be a claim about work that did not happen, and
+	// worse than cosmetic: the stamp also writes built_from_plan_version = the
+	// current plan, which makes ReconcileSitePlanAction's decideEmit return
+	// skip_built and permanently suppress the owned_page_review item that is this
+	// design's own visibility channel (reconcile_site_plan_action.go:210-214,
+	// 238-271). Refusing the stamp leaves the page at needs_rebuild with an open
+	// review item — reconcile's existing protocol for "requested, parked for
+	// owner-aware handling".
+	//
+	// Deliberately keyed to THIS guard's skip and not to any assembly skip. A
+	// generic page whose content generation failed is also stamped deployed today,
+	// which is its own defect — but un-stamping it would change retry behaviour on
+	// the fleet's main build path (the page would be re-selected every run), a
+	// wider blast radius than this bug. Filed separately rather than smuggled in.
+	if newStatus == "deployed" {
+		if skipped, skipReason := upstreamAssemblySkipped(params.CollectedData); skipped &&
+			strings.Contains(skipReason, ownedPageSkipReasonPrefix) {
+			params.Logger.Warn("UpdatePageStatusAction: refusing to stamp deployed — page was skipped by the owned-page guard",
+				zap.String("page_id", pageID.String()),
+				zap.String("skip_reason", skipReason))
+			return map[string]interface{}{
+				"updated": false,
+				"page_id": pageID.String(),
+				"skipped": true,
+				"reason":  "refused deploy stamp: " + skipReason,
+			}, nil
+		}
+	}
+
 	if newStatus == "deployed" {
 		hasComponents, checkErr := pageHasComponents(ctx, params.DB, pageID)
 		switch {
@@ -3085,7 +3116,7 @@ func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface
 				}
 				var filtered []interface{}
 				for _, s := range sectionsRaw {
-					name, ok := s.(string)
+					name, ok := sectionEntryName(s)
 					if !ok {
 						filtered = append(filtered, s)
 						continue
@@ -3128,9 +3159,9 @@ func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface
 				}
 				resolved := make([]interface{}, 0, len(sectionsRaw))
 				for _, s := range sectionsRaw {
-					name, ok := s.(string)
+					name, ok := sectionEntryName(s)
 					if !ok {
-						resolved = append(resolved, s) // brief objects pass through
+						resolved = append(resolved, s) // nameless entries pass through
 						continue
 					}
 					fn, ok := resolver.resolve(name)
@@ -3146,7 +3177,14 @@ func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface
 							zap.String("from", name),
 							zap.String("to", fn))
 					}
-					resolved = append(resolved, fn)
+					// Preserve the entry's shape: a string stays a string, an
+					// object keeps its other keys (facts) with the name resolved.
+					if obj, isObj := s.(map[string]interface{}); isObj {
+						obj["name"] = fn
+						resolved = append(resolved, obj)
+					} else {
+						resolved = append(resolved, fn)
+					}
 				}
 				pm["sections"] = resolved
 			}
@@ -3155,8 +3193,82 @@ func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface
 		}
 	}
 
+	// ── Normalise section entries: strings + per-page section_facts ──────
+	// The planner may emit object-form sections ({"name": …, "facts": […]})
+	// so plan-time fact assignments (bugs_open/151 candidate 1) survive this
+	// action's strips and drops with alignment intact — the assignment
+	// travels INSIDE the entry, never as a positionally-keyed sibling.
+	// Everything downstream of validate_plan expects plain string sections
+	// (sync_pages_to_db serialises the raw array into pages.sections), so
+	// the split happens HERE, after the last transformation that can remove
+	// an entry: sections becomes strings, and the fact assignments move to a
+	// page-level section_facts array aligned by index (null = unscoped). A
+	// page with no object-form entries is left byte-identical.
+	for _, p := range pages {
+		pm, ok := p.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		sectionsRaw, ok := pm["sections"].([]interface{})
+		if !ok {
+			continue
+		}
+		sawObject := false
+		names := make([]interface{}, 0, len(sectionsRaw))
+		facts := make([]interface{}, 0, len(sectionsRaw))
+		for _, s := range sectionsRaw {
+			switch x := s.(type) {
+			case string:
+				names = append(names, x)
+				facts = append(facts, nil)
+			case map[string]interface{}:
+				name, ok := sectionEntryName(x)
+				if !ok {
+					continue // nameless object: not a section, drop it
+				}
+				sawObject = true
+				names = append(names, name)
+				if f, ok := x["facts"].([]interface{}); ok {
+					facts = append(facts, f)
+				} else {
+					facts = append(facts, nil)
+				}
+			default:
+				// unrecognised entry shape: nothing downstream can use it
+			}
+		}
+		if sawObject {
+			pm["sections"] = names
+			pm["section_facts"] = facts
+			params.Logger.Info("ValidateSitePlanAction: normalised object-form sections",
+				zap.Any("page", pm["name"]),
+				zap.Int("sections", len(names)))
+		}
+	}
+
 	params.Logger.Info("ValidateSitePlanAction: Complete", zap.Int("pages", len(pages)))
 	return plan, nil
+}
+
+// sectionEntryName reads the component name from a planned-section entry in
+// either shape the planner emits: a bare string, or an object holding the
+// name under one of the historical keys. Key precedence mirrors
+// extractSectionEntries in write_site_plan_action.go — the two must agree or
+// a name validated here is not the name persisted there.
+func sectionEntryName(entry interface{}) (string, bool) {
+	switch x := entry.(type) {
+	case string:
+		if x != "" {
+			return x, true
+		}
+	case map[string]interface{}:
+		for _, key := range []string{"name", "type", "component", "component_name"} {
+			if name, ok := x[key].(string); ok && name != "" {
+				return name, true
+			}
+		}
+	}
+	return "", false
 }
 
 // nullString returns nil for empty strings, otherwise the string pointer

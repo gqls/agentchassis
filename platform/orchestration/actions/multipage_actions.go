@@ -29,6 +29,45 @@ func AssemblePageAction(ctx context.Context, params ActionParams) (interface{}, 
 
 	addNav, _ := config["add_navigation"].(bool)
 
+	// --- Page-ownership guard (bugs_open/208) ---
+	//
+	// Every consumer of this action feeds a loop whose next step is deploy_page
+	// (git_commit) — so this is the last point at which an owned page can be
+	// spared before its regenerated prose replaces the live tool in the site repo.
+	// The refusal is expressed as the action's EXISTING skip shape, not an error,
+	// for two reasons: git_commit already honours it (checkUpstreamSkipped), so no
+	// agent config changes; and none of the three loops sets continue_on_error, so
+	// an error here would fail the whole workflow and strand every page after this
+	// one. See owned_page_guard.go for why this seam rather than git_commit.
+	if pageID, pageName, ok := resolveGuardedPage(ctx, params.DB, params.CollectedData, params.Logger); ok {
+		if pageIsOwnedForGuard(ctx, params.DB, pageID, params.Logger) {
+			reason := fmt.Sprintf(
+				"%s: page %s is rebuild_policy=owned (tool/widget-owned); a generic recomposition "+
+					"would be committed over the live page. Use the tool pipeline for rebuilds or "+
+					"apply_section_edit for targeted edits.",
+				ownedPageSkipReasonPrefix, pageName)
+
+			params.Logger.Warn("AssemblePageAction: OWNED PAGE — generic assembly refused before deploy",
+				zap.String("page_name", pageName),
+				zap.String("page_id", pageID.String()),
+			)
+
+			if siteID, parseErr := uuid.Parse(
+				datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.site_id"),
+			); parseErr == nil {
+				emitOwnedPageReviewItem(ctx, params.DB, siteID, pageName,
+					"assemble_page", reason, params.Logger)
+			}
+
+			return map[string]interface{}{
+				"html":         "",
+				"skipped":      true,
+				"skip_reason":  reason,
+				"assembled_at": params.ExecutionContext.Timestamp,
+			}, nil
+		}
+	}
+
 	// Check if upstream content generation failed before trying to extract HTML
 	// contentField is typically "page_content.response.page_html"
 	// We need to check "page_content.response" for status/error fields
