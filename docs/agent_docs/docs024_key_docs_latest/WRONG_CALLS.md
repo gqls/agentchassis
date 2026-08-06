@@ -21503,3 +21503,78 @@ discipline as a claim about the database.**
 **Forward-only, so the message stands uncorrected in the log** — this row and the
 follow-up commit are the correction. Sibling entries: the same-file-passenger landmine,
 and "a quiet `git log` is NOT silence".
+
+---
+
+## 2026-08-06 — a recorded census query that could never have run, and the "13 rows" it is credited with
+
+**Lane:** bugfix 203 phantom-CTA cleanup. **Author of the row:** the follow-on session.
+**Whose call was wrong:** not mine — `bugs_open/203`'s own filing session, caught while
+re-running its work. Recorded here because the failure mode is ours collectively and the
+check is the transferable part.
+
+**The claim.** `bugs_open/203` records a fleet census under a quoted SQL block, and
+credits it with "13 rows, 7 sites", followed by a table of the 13. The query joins
+`sites s ON s.id=pc.site_id` against `page_components pc`.
+
+**Why it is wrong.** `page_components` has **no `site_id` column** and shows no sign of
+ever having had one (`\d page_components` — the reachable path is
+`pc.page_id → pages.site_id`). Postgres rejects the block outright:
+`ERROR: column pc.site_id does not exist`. So the 13-row table was produced by some
+*other* query, and what got written down is a plausible-looking reconstruction of it.
+
+**Why it matters more than a typo.** The census is the row-by-row worklist for a cleanup
+someone else was expected to execute — the bug file's own candidate 1 says "for each row".
+The next session copies the block, gets an error, and has to reconstruct the author's
+intent from a table of results whose selection criteria are now unknown. It also
+*silently changes what the number means*: my corrected re-run of the recorded signature
+returns **4** rows today, and I cannot tell how much of the 13→4 gap is real drift
+(rerenders since) versus a different predicate. That ambiguity is unrecoverable and it
+came free with a query nobody executed in the form they saved.
+
+**What caught it.** Running it. Nothing subtler — first paste, immediate error.
+
+**The cheap check.** Paste the block you are about to save back into `psql` **from the
+document**, not from your scrollback, and require it to return the row count you are
+claiming. A query in a handoff is executable evidence or it is prose; the difference is
+one paste. Corollary for anyone quoting a figure from another doc: **if the query does
+not run, the figure it is attached to has no provenance at all** — do not carry it
+forward as `[MEASURED]`, even though it is dated and attributed.
+
+**Sibling entries:** "re-running someone's SQL inherits its blindness" (this is the
+degenerate case — there was no SQL to inherit), and "a `[MEASURED]` figure is only
+evidence if the measurement could have come out otherwise".
+
+---
+
+## 2026-08-06 — I read a 25-minute window and was about to call it "24 hours of clean logs"
+
+**Lane:** bugfix 203. **My own call.**
+
+**The claim I nearly wrote.** That `component_library.go`'s regex-fallback render path
+does not fire in production, on the evidence of
+`kubectl logs --since=24h | grep -c "using regex fallback"` returning **0** on both
+chassis pods.
+
+**Why it was worthless.** The pods started at 19:54Z; I ran the grep at 20:19Z. A fresh
+roll had just landed (v1.0.1261). `--since=24h` is a *request*, not a guarantee — a pod
+cannot serve logs from before it existed, and it does not warn you that it is answering a
+narrower question than you asked. So the flag said 24 hours, the container had 25 minutes,
+and the zero meant nothing. Had I written it up, a reader would have inherited "measured
+over a day, never fires" from a quarter of an hour of a freshly-restarted process.
+
+**What caught it.** Asking for the pod start time *before* writing the conclusion, because
+the number was suspiciously convenient — a clean zero on the exact question I wanted
+closed. Convenience is the tell.
+
+**The cheap check, two forms.** (1) Always pair a `--since` grep with
+`kubectl get pod -o jsonpath='{.status.startTime}'` and compute the window you actually
+got; if it is shorter than the flag, say so at the claim. (2) Better, when it is
+available: **prefer a whole-population query over a log window**, because the population
+cannot expire. Here the durable substitute was one scan of stored `rendered_html` for
+literal `{{.` placeholders — the fallback's own fingerprint — which found exactly 1 row
+fleet-wide and remains true tomorrow.
+
+**Generalisation.** A log-based absence is bounded by *retention AND process age*,
+whichever is shorter, and only one of those is in the flag you typed. Sibling entry:
+"logs count REQUESTS; stay inside retention".
