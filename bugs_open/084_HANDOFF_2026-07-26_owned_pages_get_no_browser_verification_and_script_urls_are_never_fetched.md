@@ -304,3 +304,47 @@ the seat is right that this is another occupant of an open systemic gap.
 4. **Candidates 4 (T5.1 post-hydration dead-control assertion) and 5 (generalise
    `checkScriptParity`) are untouched** and are why this file cannot simply be
    closed once the check is live. Candidate 5 overlaps `bugs_open/178`/`198`.
+
+---
+
+## 2026-08-06 — the check is LIVE and ENABLED; still OPEN, and here is exactly why
+
+Chassis **v1.0.1257** carries it. Pod-grepped on the running pod **before** the
+config change (the order is forced: an unregistered check name fails the whole
+discovery step, `bugs_open/149` B4), all in one exec:
+
+```
+asset_reference_404      13   MINE
+agentchassis-discovery    1   MINE (the probe UA)
+unresolvable_reference    1   MINE (the finding kind)
+asset_reference_405       0   NEGATIVE control
+image_url_404             7   pre-existing positive control
+```
+
+Both replicas on the same image. Then `design-discovery-agent` 22 → 23 checks,
+in a transaction whose verify block is a `DO`/`RAISE` rather than a `SELECT`.
+Fixture `liveConfiguredChecks` updated in the same commit — `42e117c5e`.
+
+### Why this does NOT close the bug
+
+**1. Enabled is not run.** The check has still never executed. `improvement-sweep`
+is `enabled=f` (IMP-016) and nothing else drives design discovery, so the only
+route today is `294_TRIGGER_improvement_loop_v1.sh`, which fires the FULL loop —
+`discovery → triage_findings → call_dispatch` — and dispatches real content fixers
+at a real customer site. That is an outward-facing action taken purely for a
+verification, so it is being asked about rather than done unilaterally.
+
+**2. It has never been observed to BITE, and a clean run will not prove it does.**
+The live population is zero (96 of 96 referenced assets return 200). A future
+sweep reporting no findings is exactly what a silently broken check reports.
+The proof owed is an induced fault: add one unresolvable reference to a page we
+own, assert exactly one item keyed on the resolved URL, then revert and assert the
+retraction. Note the stated gap — retraction needs a *still-referenced* URL that
+now returns 200, so **deleting** the reference leaves the item open by design.
+
+**3. Fix candidates 4 and 5 are untouched.** T5.1 (post-hydration dead-control
+assertion) and generalising `checkScriptParity` — the latter overlaps
+`bugs_open/178`/`198`. Even once the check is proven, the honest end state is a
+**narrowed** bug, not a closed one. Whoever narrows it should say so explicitly in
+the title rather than closing a file whose §1 and §2 are now answered but whose
+§3 and §4 are not.

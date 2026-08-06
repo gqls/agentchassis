@@ -148,3 +148,45 @@ call and it binds me too.
 > RFC-scope under the 2026-07-29 ruling is triggered by a change to what the
 > shared mechanism GUARANTEES, not by a headcount. But a future RFC should argue
 > from 8, not from 63.
+
+## 2026-08-06 — LIVE and ENABLED on v1.0.1257, and the honest gap that remains
+
+The roll landed. Verified on the running pod **before** touching config, because
+an unregistered check name fails the whole discovery step:
+
+```
+asset_reference_404      13   MINE
+agentchassis-discovery    1   MINE (the probe UA)
+unresolvable_reference    1   MINE (the finding kind)
+asset_reference_405       0   NEGATIVE control
+image_url_404             7   pre-existing positive control
+```
+
+Both replicas on `v1.0.1257`, started 09:52Z; the exec ran at 10:00Z, so well
+past the ~300s post-restart window in which a dispatch is silently dropped.
+
+Then `agent_definitions`: `design-discovery-agent` 22 → 23 checks. The UPDATE ran
+inside a transaction whose verify block is a `DO ... RAISE EXCEPTION`, not a
+`SELECT` — **a verify block made of `SELECT`s cannot stop a `COMMIT`**, which is
+a trap already recorded on this estate. Fixture updated in the same commit
+(`42e117c5e`).
+
+**Found while enabling, and not mine: the fixture was under-asserting by one.**
+`literal_markdown` (bugs_open/184's lane) was live on `quality-discovery-agent`
+and absent from `liveConfiguredChecks`. It resolves, so there was no production
+risk — but a roster that drifts silently is the exact defect that file exists to
+prevent. Added, and named as not-mine in the commit rather than slipped in.
+
+> **THE GAP, STATED PLAINLY: enabled is not run.** The check is in the binary and
+> in the config, and it has still **never executed**. `improvement-sweep` is
+> `enabled=f` (IMP-016) and nothing else drives design discovery, so the only way
+> to make it run today is `294_TRIGGER_improvement_loop_v1.sh` — which fires the
+> FULL loop, `discovery → triage_findings → call_dispatch`, and dispatches real
+> content fixers at a real customer site. That is an outward-facing action for
+> the sake of a verification, so it is being asked about rather than done.
+>
+> This is the same class of claim this whole lane is about. "Live" is a fact
+> about the binary and the config. "Works" is a fact about a run, and I do not
+> have one. Anyone reading this file later should not upgrade the first into the
+> second — and a future clean sweep is *still* not proof, because the population
+> is zero and a silently broken check reports exactly that.

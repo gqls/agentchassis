@@ -46,32 +46,44 @@ Both commits carry the correlation (`Council-Submitted:` then
    2026-07-29. The bug's §1 is stale and I have marked it so. `bugs_open/146
    (ported_tool_pages…)` is stale in the same way; re-read it before working it.
 
+## STATUS UPDATE 2026-08-06 — LIVE AND ENABLED. Two steps of four are done.
+
+Chassis **v1.0.1257** carries it; pod-grepped before the config change with a
+negative control (`asset_reference_404` 13, UA 1, kind 1, `asset_reference_405`
+**0**, `image_url_404` 7, both replicas). `design-discovery-agent` 22 → 23 checks,
+`DO`/`RAISE` verify block, fixture updated in the same commit `42e117c5e`.
+
+Also fixed while there, and named as not-mine: `literal_markdown`
+(`bugs_open/184`'s lane) was live on `quality-discovery-agent` and missing from
+`liveConfiguredChecks` — the fixture was under-asserting by one. It resolves, so
+no production risk, but a silently drifting roster is what that file exists to
+prevent.
+
 ## Next actions, in order
 
-1. **Wait for / trigger a roll.** Verified 2026-08-05 21:50Z that **v1.0.1254
-   does NOT carry it**: pod-grep `asset_reference_404` = 0, `agentchassis-discovery`
-   = 0, negative control `asset_reference_405` = 0, positive control
-   `image_url_404` = 7. The image predates the commit — expected.
-2. **Pod-grep after the roll**, all four strings in ONE exec (command in the
-   RUNBOOK). A roll is not evidence your fix shipped.
-3. **Enable it** — add `asset_reference_404` to `design-discovery-agent`'s
-   `checks` array (SQL in the RUNBOOK), **and update `liveConfiguredChecks` in
-   `platform/orchestration/actions/discovery_checks_registration_test.go` in the
-   same commit**, or that fixture asserts a stale roster. An unregistered check
-   name **fails the whole discovery step** (`bugs_open/149` B4), which is why
-   this order is not negotiable.
-   *Gotcha:* `workflow.steps` is an OBJECT keyed by step name —
-   `jsonb_path_query('$.workflow.steps[*]')` returns a **silent zero**. Use
-   `jsonb_each`.
-4. **Prove it bites in production.** Induce one broken reference on a page we
-   own, run the sweep, assert exactly one item keyed on the resolved URL, then
-   revert and assert the retraction. Note the stated gap: retraction needs a
-   still-referenced URL that now returns 200, so *deleting* the reference leaves
-   the item open by design.
-5. **Then, and only then, consider closing.** Even live, 084 keeps candidates 4
-   (T5.1 post-hydration dead-control assertion) and 5 (generalise
-   `checkScriptParity`, overlaps `bugs_open/178`/`198`) untouched. Either narrow
-   the bug file to those two explicitly, or leave it open. Do not close it whole.
+1. ~~Roll~~ **DONE** — v1.0.1257.
+2. ~~Pod-grep with controls~~ **DONE** — see above.
+3. ~~Enable + fixture in one commit~~ **DONE** — `42e117c5e`.
+4. **MAKE IT RUN — this is the next thing, and it needs a decision.** The check
+   has never executed. `improvement-sweep` is `enabled=f` (IMP-016), so the only
+   route is `docs024_key_docs_latest/finetuning_uk_repair/294_TRIGGER_improvement_loop_v1.sh <site_id> [domain]`,
+   which fires the FULL loop — `discovery → triage_findings → call_dispatch` — and
+   **dispatches real content fixers at a real customer site**. That is an
+   outward-facing action taken for the sake of a verification. Get the owner's
+   go-ahead, or find a discovery-only path, before firing it. Its own pre-flight
+   refusals (300s post-restart window; in-flight queue check) are built in;
+   `FORCE=1` overrides them and should not be used casually.
+5. **PROVE IT BITES.** A clean run proves nothing — the population is zero and a
+   silently broken check reports exactly that. Induce one unresolvable reference
+   on a page we own, assert exactly one item keyed on the resolved URL, revert,
+   assert the retraction. Stated gap: retraction needs a still-referenced URL that
+   now returns 200, so *deleting* the reference leaves the item open by design.
+   Inducing it means writing to a live `page_components.rendered_html`, so plan
+   the revert before the induction.
+6. **Then narrow, do not close.** Candidates 4 (T5.1 post-hydration dead-control
+   assertion) and 5 (generalise `checkScriptParity`, overlaps `bugs_open/178`/`198`)
+   are untouched. Rename the bug to what actually remains rather than closing a
+   file whose §3 and §4 are still live.
 
 ## Open question left for a human, not for the next session to argue away
 
