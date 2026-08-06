@@ -1,7 +1,37 @@
 # PLAN — bugs_open/208: an owned page is committed over before the guard refuses it
 
-**Status:** design settled from evidence; a second model (fable) is reviewing it in parallel and
-this file records the design **and its reasons**, including the options rejected.
+**Status:** **SHIPPED IN CODE, `cb7b4d759`, inert until the chassis rolls.** Council submitted,
+corr `5d1dcb10-7929-431e-b9e5-496992ce3229`. Registered PBP-036 in the same commit.
+This file records the design **and its reasons**, including the options rejected — see the
+amendments block below for what the review changed, which is the part worth reading.
+
+> **AMENDED 2026-08-06, after the second model's review — three corrections, kept visible rather
+> than edited away.**
+>
+> 1. **Layer 2 is THREE touch points, not one.** A skip at `assemble_page` alone does not survive
+>    the iteration: `save_page_sections` has no upstream-skip check, so it reaches its own
+>    ownership refusal and hard-errors, and `update_page_status` then stamps the page. Damage
+>    prevented, run still lost. Both now honour the skip.
+> 2. **My open question in (e) was answered the OPPOSITE way to my assumption, and it was the
+>    dangerous direction.** I had assumed a skipped owned page would sit at `needs_rebuild`
+>    (untidy, harmless). In fact `UpdatePageStatusAction` stamps it **`deployed`** — both existing
+>    deploy guards pass for an owned page (it has components; it has no planned sections) — and the
+>    same statement writes `built_from_plan_version`, which makes reconcile's `decideEmit` return
+>    `skip_built` and **permanently suppresses the `owned_page_review` item that is this design's
+>    own visibility channel.** The "harmless" option would have disabled the alarm.
+> 3. **The visibility arm is UNHELD and shipped.** I had parked it citing the 114-junk-items
+>    incident. That objection does not transfer: `bugs_open/204` filed `needs_new_component` per
+>    unresolvable slot with **no stable key and an unbounded population**, whereas
+>    `owned_page_review` has one deterministic key per page arbitrated by the `(site_id, item_key)`
+>    partial unique index over open statuses. Different shape. Emitting.
+>
+> **And one correction in the other direction — the review's model of the third loop was wrong.**
+> Its plan assumed `site-work-orchestrator` is fed `needs_page` items. Measured: **all 158
+> `needs_page` rows fleet-wide route to `page-build-handler`**, which saves before it deploys and
+> is safe. That agent consumes `handler_agent='page-content-writer'` items —
+> `literal_markdown`/`placeholder_contact` — of which **11 of 14 targeted owned pages on
+> 2026-08-04, all failed.** The door is real and observed; it is just a different door, and it
+> changed which collected-data shape the guard must resolve.
 **Bug:** `bugs_open/208_HANDOFF_2026-08-06_page_rebuild_commits_a_regenerated_owned_page_before_the_guard_refuses_it.md`
 
 ## The defect in one line
