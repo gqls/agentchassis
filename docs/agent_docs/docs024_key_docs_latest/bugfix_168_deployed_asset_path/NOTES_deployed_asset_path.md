@@ -1762,3 +1762,40 @@ The general shape is worth keeping: **a row that is missing a stamp its siblings
 per-row skip, and "which rows got skipped" and "which rows were never loaded" are indistinguishable
 from the row itself.** Check reachability before theorising about a predicate — the sibling
 comparison that made the prefix look guilty was really an age comparison.
+
+### ⚠ WRONG #4 (mine) — I wrote "this lane has nothing open" without checking §5.3/§5.4, then mis-measured the thing I had not checked
+
+Two errors, an hour apart, both in the closing paperwork rather than the work.
+
+**(a) The status claim.** Having closed §0 and §0b I wrote "**This lane now has nothing open**" into
+the handoff's top box. §5.4 lists Decision 2's dedup half as open-and-blocked and §5.3 lists an
+armed-but-inert cap; I had read neither that session. **Closing the item a handoff was reopened for
+is not the same as closing the lane**, and the top box is precisely where a later reader takes the
+status on trust. Corrected in place.
+
+**(b) The re-measurement, which was worse, because it produced a confident number.** Checking
+§5.4's blocker I wrote the exclusion list **from memory of the phrase "terminal statuses"**:
+`status NOT IN ('complete','verified','cancelled','rejected')`. That returned **75 pairs / 227
+rows** and I was one keystroke from recording "the blocker has grown ~56%". The real predicate,
+read from the live index —
+
+```sql
+SELECT pg_get_indexdef(oid) FROM pg_class WHERE relname='idx_swi_dedup';
+-- ... WHERE item_key IS NOT NULL AND status <> ALL (ARRAY[
+--     'complete','verified','rejected','wont_fix','failed','cancelled','unresolved'])
+```
+
+— excludes **three more statuses** (`wont_fix`, `failed`, `unresolved`). My set silently included
+them, inflating the count. Measured against the *proposed* predicate (today's index minus
+`unresolved`, which is what Decision 2 actually changes): **53 pairs / 180 rows**, against 48 / 135
+recorded on 2026-08-03. It has grown — modestly, and by nothing like what I nearly wrote.
+
+**The cheap check, and it is the same one this file keeps re-learning:** `pg_get_indexdef` is one
+query and it is the *only* authority on what an index excludes. **A status list reconstructed from
+a name is a guess wearing a filter's clothing** — and here the guess and the truth differ by three
+statuses in the direction that flatters the finding. Related: the standing lesson that re-running
+someone's SQL inherits its blindness; this is the sibling where *not* re-running it, and inventing
+the predicate instead, inherits your own.
+
+**What caught it:** deciding the comparison had to be apples-to-apples before asserting growth —
+i.e. asking "is my filter the same as theirs?" *before* the number went into a document, not after.

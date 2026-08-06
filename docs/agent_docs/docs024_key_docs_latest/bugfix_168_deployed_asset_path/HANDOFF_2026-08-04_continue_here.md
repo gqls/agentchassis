@@ -41,8 +41,21 @@
 > scheduled run closed **0**. Fleet `auto:revalidated` 34 → 54. Pod-grep 0→1 on both replicas with a
 > live positive control. Full working in NOTES (2026-08-06, bottom).
 >
-> **This lane now has nothing open.** Next scheduled run ~2026-08-07 08:37Z should show the same
-> shape unattended.
+> ~~**This lane now has nothing open.**~~ **CORRECTED same day, by me, an hour after I wrote it —
+> that was an overstatement and I had not checked §5.3/§5.4 before making it.** What is closed is
+> **§0 and §0b**, i.e. the *inherited limit* this handoff was reopened for. Still open, unchanged in
+> kind:
+> - **§5.4 — Decision 2's dedup half.** Its prerequisite has **grown**: re-measured under the
+>   *proposed* predicate (today's `idx_swi_dedup` minus `unresolved`) it is now **53 colliding
+>   `(site_id, item_key)` pairs across 180 rows**, against the 48 / 135 recorded on 2026-08-03.
+>   `undeployed_asset` is still the largest single contributor (48 rows). Ordering hazard unchanged
+>   and still asymmetric — see §4.3.
+> - **§5.3 — the armed sibling.** `check_image_source_unsatisfiable.go:167` is still
+>   `return result, nil` and still populates `Resolved` **0** times, i.e. armed-but-inert exactly as
+>   documented. The commit that adopts the seam there is the one that must change it to `break`.
+> - **RFC_010 Q1** (two-strike) — owner-ruled accept-as-is, tracked, not work.
+>
+> Next scheduled run ~2026-08-07 08:37Z should show the §0 fix holding unattended.
 >
 > **§0 UNDERSTATED THE HARM.** It measured the waste but never asked whether any of the unreached
 > rows were rows the sweep could *judge*. They were: **64 judgeable rows sat permanently beyond the
