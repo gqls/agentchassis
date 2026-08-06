@@ -20924,3 +20924,44 @@ as a contact form, which undersells the product's whole premise).
 subresources from the serving root, and look at a render — the estate has a
 tool for exactly this; use it. And when settling "does X also apply to us?",
 verify on YOUR artefact, not a sibling's.
+
+## 2026-08-06 — code-review triage lane. I tested for a step name inside a field that holds a COUNT, and "0 of 23" nearly went into the record as "the step never ran"
+
+**The claim I nearly wrote.** Establishing a traffic denominator for the owed
+`CONTENT_DATA_REGRESSION` check, I needed to know whether 23 `page-rerender`
+orchestrations had actually executed their `save_page_sections` step. I wrote
+`execution_metadata->'completed_steps' @> to_jsonb(step_name)` and got
+**0 of 23**. The sentence forming was "the step never completed — the zero is
+vacuous".
+
+**What was actually true.** `completed_steps` is a **number**, not an array of
+step names. `jsonb_typeof(...)` returns `number`; the sample value is `0`. A
+containment test between a number and a string is not an error in Postgres — it
+is simply **false, for every row, forever**. All 23 orchestrations were in fact
+`status='COMPLETED'`, and 35 `page_components` rows were inserted across 10
+pages in the same window, ending **2 seconds** after the last orchestration.
+
+**What caught it.** Not rigour — contradiction. The 0 disagreed with a
+measurement I had already taken from a different table. If I had run the
+orchestration query first, or on its own, I would have believed it: "0 completed"
+is exactly the answer a genuinely-unexercised path gives, and it arrives with no
+error, no warning and no NULL.
+
+**The cheap check that would have caught it.** One command, before trusting any
+jsonb predicate: `SELECT jsonb_typeof(<the expression>), <the expression> FROM …
+LIMIT 3`. Type first, value second. It costs one query and it is the difference
+between reading a field and assuming its shape.
+
+**The transferable rule, and why this one keeps recurring.** This is the
+memory-index family *"your measurement answers the question you ENCODED"*, in its
+most silent form: **a type mismatch inside jsonb degrades to `false`, not to an
+error.** So the check does not fail — it *passes negatively*, which reads
+identically to a real negative finding. Before recording ANY zero from a jsonb
+predicate, ask what a non-zero would have required, and confirm the operands
+could ever have satisfied it. Sibling entries: `jsonb::text LIKE '%"k":"v"%'`
+matches nothing (space after the colon), and a jsonb PATH read cannot see the
+shape change underneath it. Same failure, three spellings.
+
+**Second finding, free:** `execution_metadata.completed_steps` is **dead** — 0 on
+all 23 runs that are `status='COMPLETED'`. Nobody should use it as an execution
+signal; use `status`. Recorded in the lane `RUNBOOK` R10.

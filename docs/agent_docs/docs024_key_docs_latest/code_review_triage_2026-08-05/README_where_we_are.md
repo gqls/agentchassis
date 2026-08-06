@@ -123,3 +123,54 @@ Right now the count is zero, which is the stated pass. It is also a weak pass an
 recorded it as one: the warning has never fired in any version, so zero is what a correct
 change and a broken one would both produce. The fleet is definitely running, but no page-save
 traffic has crossed the window yet. The real read-out is due tomorrow evening.
+
+---
+
+**2026-08-06, morning.** Picked this up about thirteen hours before that read-out is due, to
+get it ready rather than to take it early. Four things worth telling you, and one of them is a
+mistake in yesterday's own instructions.
+
+First, the system was rebuilt and restarted again overnight, for reasons nothing to do with
+this work. That quietly broke yesterday's proof — not the fix, which is still in there and I
+have re-checked it on both of the new machines, but the *evidence*. Yesterday's note named two
+specific machines, and those no longer exist. Anyone reading it later would have been quoting
+something that had vanished. So there is a general lesson written down now: after somebody
+else's rebuild, you have to go and look again, because your proof has an expiry date you don't
+control.
+
+Second, and this is the mistake: yesterday I wrote down a way of checking whether the thing
+we're measuring had actually happened at all, and that check cannot work. It counts entries in
+an *error* log. When the operation we care about runs perfectly it writes no error, so the
+answer is zero whether it ran a thousand times or never. I would have read a healthy system as
+a silent one. I have replaced it with a check that looks at what the operation actually leaves
+behind, and that one says clearly: it ran, on ten pages, and every single one kept its
+structured content. That turns tonight's zero from "we learned nothing" into "nothing went
+wrong, and here is the traffic that proves we'd have seen it if it had".
+
+Third, a piece of luck worth noticing. The rule attached to tonight's check says: if this
+warning fires for the *re-render* agent specifically, the design is wrong and we stop. It turns
+out the re-render agent is the **only** one that has run since the change went live — twenty-three
+times. So tonight's reading lands squarely on the case the rule was written about, which is
+better than it might have been.
+
+That third point came with a deadline I nearly missed. The records showing *which* agent ran
+are themselves deleted after twenty-four hours — meaning they would have disappeared at almost
+exactly the moment tonight's check was due to be read. I have taken and saved that evidence now.
+The general form of it: if you schedule a check for a day later, and the supporting evidence
+lives somewhere that clears itself out after a day, you have to grab the evidence early or you
+will arrive to find the answer and no way to interpret it.
+
+Fourth, my own slip, caught rather than shipped. Trying to confirm those twenty-three runs had
+really completed, I asked the question in a way that could only ever have answered "no" — I
+looked for a name in a list, and the field is actually a plain count, so the comparison was
+meaningless and came back empty every time. I only noticed because it contradicted the other
+measurement. It is a small thing, but it is the same shape as most of the errors in this
+project's log of wrong calls: a check that cannot come out any other way isn't a check. Written
+up where those go.
+
+Where that leaves tonight: the reading itself is unchanged and still due at about 20:45. What is
+different is that a zero will now mean something. I have also confirmed the second, smaller
+outstanding check is settled — I did it by inspecting the configuration rather than the logs,
+because the restart had wiped the logs down to half an hour, and configuration cannot expire the
+way a log can. All six callers are correctly set up, so that warning genuinely cannot fire until
+someone adds a new one.

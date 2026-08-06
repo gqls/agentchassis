@@ -308,3 +308,102 @@ the register's own stop condition fires and the per-caller opt-in must not proce
 because F9 widened the predicate, the first question is whether the row is a genuine
 non-deployed loss or the widening over-firing. Still zero → the mechanism remains unexercised
 and F9 is deployed-but-unproven, which is the state to record, not to round up to "verified".
+
+## 14. 2026-08-06 morning — preparing the 20:45Z read, and a correction to how §13 measures it
+
+Picked the lane up at 07:55Z, ~13h before the owed check. Four things changed or were wrong.
+
+### 14a. The image rolled again — §12's proof was against pods that no longer exist
+
+`v1.0.1254` → **`v1.0.1256`**, pods `agent-chassis-7d4d7b9669-2r8f2` / `-6f2ps`, restarted
+**07:24:04Z / 07:24:28Z**. §12's evidence named `d69d4467c-dvn8k` / `-fc8pq`, which are gone.
+A successor citing §12 would be citing a dead pod, so the probe was re-run [MEASURED 08-06 08:0xZ]:
+
+| literal | 2r8f2 | 6f2ps | means |
+|---|---|---|---|
+| `incoming_sections_with_content_data` | 1 | 1 | the lane's LAST code commit is in the new image |
+| `require_save_without_sections_metadata` (wrong spelling) | 0 | 0 | the probe still discriminates |
+
+The gap §12 states honestly — no removed-unique-literal negative is available for this change
+set — is unchanged and still applies. This re-verifies presence, not absence of the old code.
+
+**The general point, which is not in the handoff:** a roll you did not perform silently
+invalidates your pod-verification. `bugs_open/153` says a roll is not evidence your fix shipped;
+the converse also holds — **a later roll is not evidence it still ships, and it retires your
+pod names.** Re-probe rather than cite.
+
+### 14b. CORRECTION — §13's pairing check cannot do the job it is given
+
+> **CORRECTED 2026-08-06.** §13 and the handoff both propose
+> `... WHERE action='save_page_sections' AND occurred_at > <roll>` "to confirm the path ran at
+> all". **It cannot.** `agent_error_log` records *errors*. A `save_page_sections` that runs
+> perfectly writes no row, so zero there means "no errors", never "no traffic" — and reading it
+> as traffic would have turned a healthy fleet into apparent silence. Measured at 08:00Z: still
+> 0 rows for that action, while the table took **3,096** rows fleet-wide since the roll.
+
+The denominator that does work is the save's own side effect. `save_page_sections` DELETEs then
+INSERTs the agent-writable rows, so `page_components.created_at` is fresh on every save
+[MEASURED 08-06 08:0xZ, window = roll → now]:
+
+```
+rows_inserted 35 | distinct_pages 10 | rows_with_content_data 35
+window 2026-08-05 20:52:27Z → 2026-08-06 02:21:09Z
+```
+
+**All 35 of 35 carry content_data.** That is the discriminating part: the report fires only when
+an incoming save carries *none*, so it stayed quiet for a demonstrable reason rather than for
+want of traffic.
+
+**Its limit, stated rather than left to be found:** only the LAST save per page survives — 23
+runs (below) collapsed to 10 pages, so ~13 intermediate saves left no `page_components` trace.
+For those the detector is the only witness, which is circular if the detector is broken. §14d
+is what breaks the circularity.
+
+### 14c. The only caller that ran is `page-rerender` — the very one the stop condition names
+
+Callers are separable in `workflow_plan` by their distinctive `sections_metadata_field` (the
+§11 census): only `page-rerender` names `rerender_sections.sections_metadata`. Since the roll:
+
+```
+rerender_sections.sections_metadata | 23 orchestrations | all COMPLETED
+window 2026-08-05 20:54:05Z → 2026-08-06 02:21:07Z
+```
+
+That window ends 2s before the last `page_components` insert, which is what ties the two
+measurements to the same events.
+
+**Captured now, deliberately, because it will not survive to 20:45Z.** `orchestration_states`
+reaps terminal rows at ~24h (MEMORY, bugfix 003), so the 20:54Z runs age out around 20:54Z
+today — *while the owed check is being read*. The read-out would have found the error-log zero
+and no longer been able to establish which callers produced it. **When a check is scheduled for
+T+24h and its denominator lives in a 24h-retention table, the denominator must be taken early.**
+
+**MISSTEP — my first version of this query could not have come out otherwise.** I tested step
+completion with `execution_metadata->'completed_steps' @> to_jsonb(step_name)` and got 0 across
+all 23, which I nearly wrote down as "the step never ran". `completed_steps` is a **number**,
+not an array of names, so the containment test was type-mismatched and returned false for every
+row regardless of truth. The tell was that 0 contradicted the 35 inserted rows in the same
+window. The counter is also simply dead: **0 on all 23 runs that are `status='COMPLETED'`** — so
+it is not a usable execution signal for anyone else either. `WRONG_CALLS.md` gets this one.
+
+### 14d. There IS a positive control, and it passes at HEAD
+
+The worry a zero cannot answer is "can this detector fire at all". It can, at the predicate
+level: `TestShouldReportContentDataLoss` case 1 ("the 194 signature") asserts `want: true`.
+Run against **committed HEAD `61df92ff0`** via `git archive` — not the working tree, which holds
+two other sessions' WIP *in this very package* (trap #7) — all four cases and both
+`countExistingRowsWithContentData` tests **PASS**.
+
+Scope, honestly: this proves the *decision function* fires. It does not exercise
+predicate → INSERT → `agent_error_log` end to end. So a 20:45Z zero means "no regression
+occurred on 23 page-rerender runs", not "the whole path is proven".
+
+### 14e. 2b (the F3 warning) — settled, and by config rather than logs
+
+The handoff asks for a pod-log grep. Both pods return **0** — but they restarted at 07:24Z, so
+that grep covers ~35 minutes and is nearly worthless as evidence. **The invariant is config, not
+logs, so measure the config** — nothing can age out of it [MEASURED 08-06 08:1xZ, nested walk]:
+all **six** callers still explicit (five name `sections_metadata_field`, `tool-recreation-handler`
+declares `expects_no_sections_metadata=true`); zero would-warn rows. The warning remains
+structurally unreachable until someone adds a seventh caller. `RUNBOOK` R11 carries the query,
+which reports the warn condition as a column so it cannot be missed by eyeballing six rows.

@@ -153,3 +153,84 @@ git diff -- <file> | head -50         # is the code the finding cites on the + s
 names are in someone's uncommitted diff, the finding is not yours to fix — verify it, write
 down the corrected values, and leave it. (F13 was left this way; `WRONG_CALLS.md` was
 committed WITH a declared passenger because append-only made that the lesser harm.)
+
+## R10 — Did `save_page_sections` actually RUN? (never ask the error log)
+
+`agent_error_log` holds **errors**. A save that succeeds writes nothing, so
+`WHERE action='save_page_sections'` returning 0 means "no errors", **not** "no traffic" — and
+the check it is meant to support is precisely a traffic denominator. Ask the save's side effect
+instead; it DELETEs+INSERTs its rows, so `created_at` is fresh on every save:
+
+```sql
+SELECT count(*) AS rows_inserted, count(DISTINCT page_id) AS pages,
+       count(*) FILTER (WHERE content_data IS NOT NULL) AS rows_with_content_data,
+       min(created_at), max(created_at)
+FROM page_components WHERE created_at > '<roll>';
+```
+
+Then identify WHICH caller ran — they are separable by their distinctive
+`sections_metadata_field` (only `page-rerender` names `rerender_sections.sections_metadata`):
+
+```sql
+SELECT step.value #>> '{config,sections_metadata_field}' AS caller_fingerprint,
+       o.status, count(*), min(o.created_at), max(o.created_at)
+FROM orchestration_states o,
+     LATERAL jsonb_path_query(o.workflow_plan, '$.**.steps') AS steps,
+     LATERAL jsonb_each(steps) AS step
+WHERE o.created_at > '<roll>' AND step.value ->> 'action' = 'save_page_sections'
+GROUP BY 1,2 ORDER BY 3 DESC;
+```
+
+**Gotchas, three, each of which cost something here:**
+1. `execution_metadata->'completed_steps'` is a **NUMBER, not an array of step names** — a
+   `@> to_jsonb(step_name)` containment test is type-mismatched, returns false for every row,
+   and **cannot come out otherwise**. It is also dead: 0 on runs that are `status='COMPLETED'`.
+   Use `status`, not that counter.
+2. Only the **last** save per page survives in `page_components` (23 runs → 10 pages here), so
+   this is a floor on traffic, and intermediate saves leave no trace.
+3. **`orchestration_states` reaps terminal rows at ~24h.** If the check is scheduled T+24h and
+   its denominator lives here, the denominator ages out *as you read it* — **take it early.**
+
+## R11 — The F3 invariant, measured as config (a log grep cannot do this)
+
+A pod-log grep only sees since the last restart — 35 minutes, the morning this was run. The
+property is a config invariant, so query config and let the warn condition be a **column**
+rather than something you eyeball across six rows:
+
+```sql
+SELECT ad.type, coalesce(step.value #>> '{config,sections_metadata_field}','(unset)') AS meta_field,
+       coalesce(step.value #>> '{config,expects_no_sections_metadata}','-') AS expects_none,
+       coalesce(step.value #>> '{config,html_field}','(unset)') AS html_field,
+       CASE WHEN step.value #>> '{config,html_field}' IS NOT NULL
+             AND step.value #>> '{config,sections_metadata_field}' IS NULL
+             AND coalesce(step.value #>> '{config,expects_no_sections_metadata}','false') <> 'true'
+            THEN '*** WOULD WARN ***' ELSE 'explicit' END AS f3_status
+FROM agent_definitions ad,
+     LATERAL jsonb_path_query(ad.default_config, '$.**.steps') AS steps,
+     LATERAL jsonb_each(steps) AS step
+WHERE ad.is_active AND COALESCE(ad.is_snapshot,false)=false AND ad.deleted_at IS NULL
+  AND step.value ->> 'action' = 'save_page_sections' ORDER BY 1;
+```
+
+**Gotcha:** the nested `jsonb_path_query(..., '$.**.steps')` walk is mandatory — a top-level
+`jsonb_each` finds **3 of 6** (NOTES §11, `LANDMINES.md`). Expect exactly **6 rows, all
+`explicit`**. Note `grep -c` exits **1** when the count is 0, so a `for` loop over pods "fails"
+on the good result; read the printed number, not `$?`.
+
+## R12 — Re-probe the pod after ANY roll, including one you did not do
+
+`bugs_open/153` says a roll is not evidence your fix shipped. The converse bit this lane: a
+**later** roll retires the pod names your proof cites (`v1.0.1254`'s pods were gone by the next
+morning), so a successor quoting them is quoting nothing.
+
+```bash
+kubectl get pods -n ai-persona-system -l app=agent-chassis \
+  -o custom-columns='NAME:.metadata.name,IMAGE:.spec.containers[0].image,START:.status.startTime'
+# then, ONE exec per grep — batching times out on this binary and the image has no `strings`
+kubectl exec -n ai-persona-system <pod> -- grep -ac "<literal your change ADDED>" /app/agent-chassis
+kubectl exec -n ai-persona-system <pod> -- grep -ac "<deliberate misspelling>" /app/agent-chassis  # expect 0
+```
+
+**Gotcha:** re-probing proves *presence* only. Where no removed-unique-literal is available
+(NOTES §12 explains why this change set has none), the misspelling control proves the probe
+discriminates — it does not prove the old code is gone. Say which one you have.
