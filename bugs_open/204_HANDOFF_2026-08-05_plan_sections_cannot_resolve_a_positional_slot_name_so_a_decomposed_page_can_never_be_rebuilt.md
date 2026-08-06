@@ -278,3 +278,50 @@ item_type (rather than a new type) is a deliberate reuse — bug_historian notes
 consumers keyed on item_type shape changes have been missed before; the item's
 spec carries `component_id` + the "repair, do not create" reason, which is the
 queryable discriminator.
+
+## §LIVE 2026-08-06 at v1.0.1257 — verified in the binary and against the data; ONE gated step remains
+
+**The fix shipped.** Pod-grepped one pod per deployment running the chassis
+image (`agent-chassis`, `business-intel`, `vet-intel` — one image, many
+deployments, per the corrected step above):
+
+```
+load page slot identities                       -> 1   (added by 13252f714)
+slot_name repeats with different component_ids  -> 1   (added by 13252f714)
+stored component %s for slot                    -> 2   (added by 13252f714)
+NEGATIVE CONTROL (a string in no build)         -> 0   (the grep discriminates)
+```
+
+**The fix works on the live data**, proven read-only (no build fired, so the
+189 gate is respected). For loancalculator.co.uk, per section name in
+`pages.sections`:
+
+| | count |
+|---|---|
+| section names | 57 |
+| unresolvable by name/function (the defect) | **57** |
+| resolvable by stored `page_components.component_id` (the fix's route) | **57** |
+
+Every section the old lookup could never resolve has a stored component_id
+pointing at an ACTIVE component — which is exactly what Path 0 reads. The
+defect's population is fully covered by the fix's route.
+
+**Remaining to close: the behavioural canary only**, and it is still gated on
+`bugs_open/189` (see the amendment above). 189's fix is committed
+(`92e14493b`, council corr `87444080`) but NOT yet live — it needs the next
+roll past v1.0.1257. Sequence for the next session:
+
+1. Wait for / request a roll carrying `92e14493b`; pod-grep `stored_slot_name`
+   (expect ≥1; it is 0 at v1.0.1257, measured — that is the negative control
+   for 189's own verification).
+2. Apply the writer config: `slot_name_from` on `render_section` and
+   `render_from_template` (the seed's appended `jsonb_set` block in
+   `docs/agent_docs/sql_for_agents/023_page_content_writer_agent.sql`).
+   Without it the BUILD half of 189 is inert.
+3. Verify 189 first (its own §how to verify: fire `section_data_resolved` on
+   tool-loan-vs-savings, assert exactly 4 rows and `tool-2` still locked at
+   position 3 with id/locked_at unchanged).
+4. THEN fire this bug's canary un-gated at `guide-how-loans-are-calculated`,
+   assert the prose changed against the §How-to-verify baseline and that zero
+   `needs_new_component` items were filed. Then close and `git mv` to
+   `bugs_closed/` (name BOTH paths on the commit).
