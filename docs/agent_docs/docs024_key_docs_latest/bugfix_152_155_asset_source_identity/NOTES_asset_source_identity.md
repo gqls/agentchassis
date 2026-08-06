@@ -102,3 +102,34 @@ ignore `storage_path`). 205 rows backfilled, verify block silent, re-measured af
 presigned-with-no-storage_path is now **0**, and all five at-risk logo rows resolve
 via `storage_path`. The 49 stranded rows are deliberately untouched — their source is
 genuinely unrecorded, and inventing one would be worse than failing loud.
+
+## 2026-08-06 (later) — the council's two mediums, and a passenger I took
+
+**APPROVED round 1**, `c055840a-9edc-4f9a-8a4a-b23ac4cad02a`, 8 advisory
+objections, none high. Both mediums that were checkable turned out to be right,
+which is worth recording because my instinct on reading them was that they were
+generic reviewer caution:
+
+- *"the census cannot see dynamic/queue-built callers"* — correct. Widening it to
+  `site_work_items.spec` and `scripts/` found `081c_direct_asset_deployer.sh`,
+  an operator crib printing `content_data->>'{hero,hero_about,logo}_uri` as the
+  URI to paste into a hand deploy. **My three-way census was three views of the
+  same surface** (Go source, agent configs, two repo dirs) and every one of them
+  was blind to a shell script in a fourth dir. Three checks that share a blind
+  spot agree with each other — the memory line for it is
+  `two-blind-checks-agree-with-each-other`, and I had cited that very lesson when
+  designing the census.
+- *"a migration number is not yours until the ledger says so"* — correct, and
+  faster than I would have believed: I listed the directory, took `321` as free,
+  and a concurrent session committed its own `321` (`b14609e05`) inside the same
+  hour. `322` had gone too. Now `323`.
+
+**A passenger, disclosed.** My commit `bef973cb3` names `LANDMINES.md` on its
+pathspec for a one-line renumber, and took **another session's two new landmine
+entries** with it (19 added, 1 mine) — the same-file case CLAUDE.md says no hook
+can prevent. Nothing is lost and forward-only forbids an amend, so it is recorded
+here instead. The lesson is narrower than "be careful": **a pathspec protects you
+per FILE, and a shared append-only file is exactly where that protection is
+worth least.** Reading `git diff --numstat` before committing would have told me
+(it did — 19/2 for a 1/1 edit) if I had read it as a *gate* rather than as the
+append-only check I ran it for.
