@@ -75,3 +75,19 @@ CONTENT_VALIDATION_BLOCKER_DETAIL, CONTENT_LINK_REPAIR_DETAIL.
    census agent got as far as noting `enrich_fingerprint_with_css` is wrapper-adapted and
    was starting a third sweep for mid-string/condition references. Delegating both halves
    at once was the wrong call under an unknown quota — the census alone is a session's work.
+
+## 2026-08-06 (late) — B core PROVEN LIVE on v1.0.1259
+
+Pod-verified on BOTH replicas (`-54xsx`, `-ldx5z`, started 10:50Z; my commit `5f49b4cfd`
+was 08:55Z, so the image postdates it — but a roll is not evidence, so:)
+
+- positive `agenterrors` -> **5** on each replica (the new leaf package is in the binary);
+- negative `retract_page_deployment: failed to record condition` -> **0** on each (the
+  per-site log message the conversion DELETED; the generic one in agenterrors replaced it).
+
+A discriminating pair: the INSERT statement itself is byte-identical before and after, so
+grepping the SQL would have proved nothing either way — the removed log line is the only
+string that distinguishes the two binaries. Choosing the needle was the whole check.
+
+The (d) detector is a `cmd/` binary, NOT in the chassis image — it needs no roll, and the
+online CronJob half will ship it as its own image (component-render-check's pattern).
