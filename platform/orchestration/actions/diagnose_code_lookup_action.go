@@ -525,6 +525,14 @@ const docBlockHeader = "    ── documentation matches: PROSE from this reposi
 // code-answer lanes reach this function (diagnose_load_runtime_action.go:479
 // calls it — "same package, so this is reuse, not a second implementation"), so
 // this one guard covers the council's verify tier and the runtime lane alike.
+//
+// ROW-CAP INVARIANT (bugs_open/181), and a fourth kind must honour BOTH halves:
+// every arm binds probeLimit(rowCap) as its LIMIT — never rowCap itself — and
+// every arm ends by rendering rowCapNotice(capped, rowCap), where `capped` is
+// the OBSERVED arrival of the probe row, not an inference from the rendered
+// count. An arm that binds rowCap directly cannot tell a complete answer from a
+// truncated one, and that indistinguishability is the whole defect: a 40-of-305
+// answer rendered identically to a complete one.
 func answerCodeCheck(ctx context.Context, db *sql.DB, c codeCheck, repoFilter string, rowCap, excerptChars int, scope codeIndexScope, b *strings.Builder) error {
 	// Prose rows for THIS check, emitted after its code rows. Nil-safe: with no
 	// doc rows in the index (the state on the day this ships) it stays empty and
@@ -614,13 +622,19 @@ func answerCodeCheck(ctx context.Context, db *sql.DB, c codeCheck, repoFilter st
 			WHERE (body ILIKE '%' || $1 || '%' OR content ILIKE '%' || $1 || '%')
 			  AND ($2 = '' OR repo = $2)
 			ORDER BY path, symbol
-			LIMIT $3`, c.Query, repoFilter, rowCap)
+			LIMIT $3`, c.Query, repoFilter, probeLimit(rowCap))
 		if err != nil {
 			return err
 		}
 		defer rows.Close()
 		n := 0
+		capped := false
 		for rows.Next() {
+			// The probe row's ARRIVAL is the cap fact — break before scanning it.
+			if rowCap > 0 && n >= rowCap {
+				capped = true
+				break
+			}
 			var path, symbol, body, content, sha, kind string
 			var hasBody bool
 			if err := rows.Scan(&path, &symbol, &body, &content, &sha, &hasBody, &kind); err != nil {
@@ -642,10 +656,16 @@ func answerCodeCheck(ctx context.Context, db *sql.DB, c codeCheck, repoFilter st
 				path, symbol, docTag(kind), shortSHA(sha), where, matchingExcerpt(text, c.Query, excerptChars))
 			n++
 		}
+		if err := rows.Err(); err != nil {
+			return err
+		}
+		// n == 0 and capped are mutually exclusive, so these two branches cannot
+		// both fire: an empty answer stays exactly the empty answer it was.
 		if n == 0 {
 			b.WriteString(scope.emptyAnswer("content"))
 		}
-		return rows.Err()
+		b.WriteString(rowCapNotice(capped, rowCap))
+		return nil
 
 	case "ls":
 		// GROUP BY, not SELECT DISTINCT ... kind. `ls` lists one row per PATH, and
@@ -660,13 +680,22 @@ func answerCodeCheck(ctx context.Context, db *sql.DB, c codeCheck, repoFilter st
 			  AND ($2 = '' OR repo = $2)
 			GROUP BY path, COALESCE(commit_sha,'')
 			ORDER BY path
-			LIMIT $3`, c.Query, repoFilter, rowCap, codeKindsCSV)
+			LIMIT $3`, c.Query, repoFilter, probeLimit(rowCap), codeKindsCSV)
 		if err != nil {
 			return err
 		}
 		defer rows.Close()
 		n := 0
+		capped := false
 		for rows.Next() {
+			// The probe row's ARRIVAL is the cap fact — break before scanning it.
+			// This arm is ORDER BY path with nothing else to rank by, so its
+			// discarded tail is purely alphabetical: the shape bugs_closed/164 was
+			// filed for, and the reason an unreported cap here reads as absence.
+			if rowCap > 0 && n >= rowCap {
+				capped = true
+				break
+			}
 			var path, sha string
 			var hasCode bool
 			if err := rows.Scan(&path, &sha, &hasCode); err != nil {
@@ -679,10 +708,14 @@ func answerCodeCheck(ctx context.Context, db *sql.DB, c codeCheck, repoFilter st
 			fmt.Fprintf(out, "  - %s%s  (commit %s)\n", path, tag, shortSHA(sha))
 			n++
 		}
+		if err := rows.Err(); err != nil {
+			return err
+		}
 		if n == 0 {
 			b.WriteString(scope.emptyAnswer("ls"))
 		}
-		return rows.Err()
+		b.WriteString(rowCapNotice(capped, rowCap))
+		return nil
 	}
 	return fmt.Errorf("unrecognised kind %q", c.Kind)
 }
@@ -785,25 +818,76 @@ func dedupCodeChecks(in []codeCheck) []codeCheck {
 	return out
 }
 
+// probeLimit returns the LIMIT to bind so a cap can be OBSERVED rather than
+// inferred: one past rowCap. The extra row is never rendered — its arrival is
+// the fact "more matches exist". Inferring the cap from `n == rowCap` instead
+// would libel every answer that happens to hold exactly rowCap matches as
+// incomplete, which is the same class of quiet lie as saying nothing
+// (bugs_open/181). rowCap <= 0 is passed through unchanged so today's LIMIT 0
+// -> emptyAnswer edge keeps its exact behaviour.
+func probeLimit(rowCap int) int {
+	if rowCap <= 0 {
+		return rowCap
+	}
+	return rowCap + 1
+}
+
+// rowCapNotice is the one wording every arm renders when its lookup was capped
+// (empty string when it was not — which is what keeps every uncapped answer
+// byte-identical). capped is observed via probeLimit, never inferred from
+// n == rowCap, so an answer with exactly rowCap matches carries no notice.
+//
+// bugs_open/181: the three arms of answerCodeCheck all capped at row_cap and
+// none said so, while the same function's max_checks cap eight lines above the
+// first arm DID report itself — so a reviewer reasonably read the absence of
+// such a line as "nothing was capped". Live evidence: five rendered blocks at
+// exactly 40 rows in llm_call_log prompts, true match counts 82/43/305/279.
+// The wording says "this answer", never "the rows above", because a check's
+// rows are split between the code builder and the deferred doc block: the
+// notice lands after the code rows and before the doc block, and must stay
+// true whatever the split.
+func rowCapNotice(capped bool, rowCap int) string {
+	if !capped {
+		return ""
+	}
+	return fmt.Sprintf("  > this answer is CAPPED (row_cap=%d): the query matched more rows than are shown, "+
+		"and rows are ordered by path — the missing matches sort after those shown. Treat absence from this "+
+		"listing as UNKNOWN, not absent; narrow the query or raise row_cap.\n", rowCap)
+}
+
 // renderSymbolRows executes one symbol-arm SELECT and renders its rows: code
 // rows to codeOut, prose rows to docs (the D12 guard — a doc-comment mention
 // must never read as an implementation). Returns how many code rows and how
 // many rows in total were rendered. Extracted so the 163 name-only fallback
 // answers through the SAME renderer as the primary query — a second inline
-// copy is how the [doc] tagging or a future cap notice would silently apply to
-// one branch and not the other.
+// copy is how the [doc] tagging or a cap notice would silently apply to one
+// branch and not the other.
+//
+// That cap notice now lives HERE (bugs_open/181), which is what makes it
+// structural: the primary query and the 163 ELSEWHERE fallback both get it
+// without either call site remembering, and a capped ELSEWHERE listing carries
+// its notice inside the `elsewhere` builder it belongs to. `total` remains the
+// RENDERED row count, so `total > 0` / `altCode > 0` at the call sites keep
+// their meaning — the probe row is counted by nothing.
 func renderSymbolRows(ctx context.Context, db *sql.DB, clause string, args []interface{}, rowCap int, codeOut *strings.Builder, docs *strings.Builder) (codeRows, total int, err error) {
 	rows, err := db.QueryContext(ctx, `
 		SELECT path, symbol, COALESCE(signature,''), COALESCE(line_start,0), COALESCE(line_end,0), COALESCE(commit_sha,''), kind
 		FROM code_symbols
 		WHERE `+clause+`
 		ORDER BY path, symbol
-		LIMIT `+fmt.Sprintf("$%d", len(args)+1), append(args, rowCap)...)
+		LIMIT `+fmt.Sprintf("$%d", len(args)+1), append(args, probeLimit(rowCap))...)
 	if err != nil {
 		return 0, 0, err
 	}
 	defer rows.Close()
+	capped := false
 	for rows.Next() {
+		// The probe row's ARRIVAL is the cap fact. Break before scanning it, so
+		// it is observed and never rendered.
+		if rowCap > 0 && total >= rowCap {
+			capped = true
+			break
+		}
 		var path, symbol, sig, sha, kind string
 		var ls, le int
 		if err := rows.Scan(&path, &symbol, &sig, &ls, &le, &sha, &kind); err != nil {
@@ -818,7 +902,11 @@ func renderSymbolRows(ctx context.Context, db *sql.DB, clause string, args []int
 		fmt.Fprintf(out, "  - %s : %s%s  [L%d-%d]  %s  (commit %s)\n", path, symbol, docTag(kind), ls, le, truncateCell(sig, 160), shortSHA(sha))
 		total++
 	}
-	return codeRows, total, rows.Err()
+	if err := rows.Err(); err != nil {
+		return codeRows, total, err
+	}
+	codeOut.WriteString(rowCapNotice(capped, rowCap))
+	return codeRows, total, nil
 }
 
 // symbolQuery is a kind="symbol" check's query, parsed into the two columns
