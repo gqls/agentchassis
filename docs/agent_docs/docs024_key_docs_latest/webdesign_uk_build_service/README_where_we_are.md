@@ -814,3 +814,31 @@ Worth saying plainly: this morning the shopfront was a hand-made stand-in and
 the pipeline had never once run to the end. It's now the real thing, built by
 the machinery we're selling, checked by rules you set, on a machine nothing can
 reach except by permission. That's the product, working.
+
+---
+
+**2026-08-06, late evening. The missing-styling mystery is solved, and it's good news.**
+
+You asked why the page arrived with no styling. We now know exactly what
+happened, and it isn't a hole in the machinery. The pipeline did build
+everything — the stylesheet, the logo, the pictures, the little bits of
+JavaScript — and it filed them all correctly, by the rules it had at the time.
+The catch: on the morning of the 4th, when those files were made, the site's
+record still said "publish to the old shared shelf". We only pointed the record
+at the new machine that evening, after the box was ordered. So the page, which
+was re-made on the 5th, went to the new machine — and the styling, made in the
+morning, is still sitting on the old shelf. Nothing re-sent it.
+
+The fix costs nothing: the rebuild we already planned makes fresh styling and
+pictures anyway, and the record now points at the right place, so everything
+will land together this time. We watched the same machinery do exactly that for
+idea.uk the day after the record was corrected, so this isn't hope — it's
+observed.
+
+One new thing to check before we press the button on the rebuild: the address
+webdesign.uk currently forwards visitors to your webdesign.co.uk site. If the
+rebuild's first step — the part that looks at what's already on the domain —
+follows that forwarding, it would read the wrong site's hundred pages and get
+the wrong idea, the same class of mistake that produced the one-page version.
+We'll check how it behaves before submitting, and park the forwarding during
+the rebuild if we have to.

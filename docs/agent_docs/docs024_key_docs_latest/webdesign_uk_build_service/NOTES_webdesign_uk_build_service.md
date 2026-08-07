@@ -1316,3 +1316,67 @@ overclaiming?): YES — arguably harder than before.** Current live
 - Standing caveat unchanged: the prompt is the SOFT layer; the validation gate
   is what held when the old prompt drifted ("same day"), and the gate's
   title/head blind spot is already a landmine.
+
+---
+
+## 2026-08-06 evening — PATH step 1 DISCHARGED: the VM asset path is identified, and it was never a gap
+
+**Question from the handoff:** how did `idea.uk/assets/` and `relojistas.com/assets/`
+reach vm-sites, and why does `vm-sites/webdesign.uk/` hold only `index.html`?
+
+**Answer: one mechanism, four artefact kinds, all routed by the SITE ROW — and the
+row changed value mid-build-history.** Evidence, all from the repos' own commit
+logs (`gh api repos/gqls/{sites,vm-sites}/commits?path=…`) and HEAD:
+
+- **Images**: `deploy_image_asset_action.go:558` → `resolveGitRepoNameDB` →
+  git-adapter commit `"Deploy <purpose> image for <domain>"`.
+- **CSS**: webdesign-agent workflow's `git_commit` step → `GitCommitAction`
+  (`git_deployer_actions.go:102`) → same resolver → `"Update stylesheet via
+  webdesign-agent"`.
+- **JS**: `render_js_snippets_for_site_action.go` only EMITS `files` + `domain`;
+  the site-asset-renderer workflow's downstream `git_commit` step does the commit
+  (`"Update JS snippets bundle"`) — same resolver again.
+- **Pages**: `GitCommitAction`, same resolver.
+- `resolveGitRepoNameDB` (`helpers.go:228`): explicit step config → collected
+  `site_record.github_repo` → **`sites.github_repo` by domain** → default `sites`.
+  In the tree since 2026-07-16 (`d076c3c8e`), i.e. long before this build.
+
+**Why webdesign.uk split-brained:**
+- 08-04 08:41–08:55: the build deployed 2 heroes, 4 icons, logo, `styles.css`
+  (15,211 B) and the JS bundle — **into `gqls/sites/webdesign.uk/`**, because at
+  that moment the webdesign.uk `sites` row carried NO `github_repo` (NOTES 08-04
+  above: "Only idea.uk and relojistas carry `github_repo='vm-sites'`"). The
+  resolver correctly defaulted.
+- 08-04 ~20:30: Phase 1 set `github_repo='vm-sites'` + `deploy_config` (this
+  file, previous entry).
+- 08-05 11:27/11:56: the page rerenders routed to vm-sites under the new row
+  value. **Assets were never re-deployed after the flip**, so vm-sites holds only
+  `index.html` and every `href/src` 404s on the box.
+
+**Corrections this lands:**
+- The handoff's cause #2 line "Asset actions are git-blind (they write to B2)" is
+  **FALSE** — asset actions are git-routed through the same resolver as pages.
+  (The 08-06 WRONG_CALLS entry already covers the sibling-inference "no gap"
+  claim; this is its resolution, not a new wrong call.)
+- "The mechanism that populated the precedents' assets is unidentified" →
+  identified above. The precedents' FIRST asset arrivals were manual seeds
+  (07-16 `4cbaf2a34` idea.uk; 07-17 `cfd787cb2` relojistas — itself a migration
+  out of exactly this misroute, pre-dating the row-value fix), but every
+  subsequent automated deploy routes correctly by row.
+- **Live behavioural proof the routing works post-flip:** 08-05 10:29
+  `85bfcab55` "Deploy logo image for idea.uk" and the bug-200 retry both landed
+  IN vm-sites.
+
+**Consequence for the rebuild: nothing to fix, one thing to verify, one to tidy.**
+The resubmission's asset deploys will route to vm-sites because the row now says
+so. Verify like a visitor after the rebuild (handoff §3.5) — every `href/src`
+resolved from the serving root. Tidy-up (NOT now, after the rebuild proves its
+own assets): delete the stale `gqls/sites/webdesign.uk/` directory — it is
+orphaned junk from the pre-flip build; nothing serves it.
+
+**Residual risk carried FORWARD to step 2/3 (not yet checked): the apex 302.**
+The 08-04 classifier anchored on what it crawled. The apex now 302s to
+webdesign.co.uk — a 101-page live site. If the resubmission's classifier follows
+redirects, it re-anchors on the WRONG SITE's content and the one-page failure
+reproduces in a new costume. CHECK the classifier's fetch behaviour before
+resubmitting. [UNMEASURED as of this entry]

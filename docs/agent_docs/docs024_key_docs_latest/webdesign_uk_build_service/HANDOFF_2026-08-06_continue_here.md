@@ -49,6 +49,13 @@ apex+www 302 to webdesign.co.uk; the rejected v1 is visible only at
    actions are git-blind (they write to B2); the mechanism that populated
    `idea.uk/assets/` and `relojistas.com/assets/` in the repo is
    **unidentified**. My "no gap" claim was sibling-inference; WRONG_CALLS 08-06.
+   > **RESOLVED 2026-08-06 (evening session)** — the "git-blind" line above is
+   > FALSE. All four artefact kinds (pages, images, CSS, JS) commit via the same
+   > row-driven resolver (`resolveGitRepoNameDB`, in tree since 07-16). The 08-04
+   > build's assets went to `gqls/sites/webdesign.uk/` because the sites row only
+   > got `github_repo='vm-sites'` at 08-04 ~20:30 — AFTER the assets deployed
+   > (08:41–08:55) and BEFORE the 08-05 page rerenders. No platform gap; the
+   > rebuild will route assets correctly. Full evidence: NOTES 08-06 evening.
 3. **Brittle copy.** Contaminated `content_direction` + this lane's
    restraint-heavy writer_block + the pre-improvement prompt. The prompt is now
    improved (HOUSE VOICE); owner ruling: **rewrite everything under it**.
@@ -64,6 +71,15 @@ apex+www 302 to webdesign.co.uk; the rejected v1 is visible only at
    precedents too, that is a platform gap — file it with this page as evidence.
    **Do NOT hand-copy assets into the repo** (the hand-built error in
    miniature).
+   > **✅ DONE 2026-08-06 (evening) — no gap, nothing to make webdesign.uk use.**
+   > Routing is a property of the sites ROW; the row was flipped to vm-sites
+   > only after the 08-04 assets had already deployed to gqls/sites. The
+   > resubmission (step 3) regenerates and routes correctly by itself. Two
+   > follow-ons: (a) NEW RISK for step 2/3 — if the resubmission's classifier
+   > follows the apex 302 it re-anchors on webdesign.co.uk (101 pages, wrong
+   > site); check its fetch behaviour BEFORE submitting. (b) tidy-up AFTER the
+   > rebuild proves its own assets: delete stale `gqls/sites/webdesign.uk/`.
+   > Evidence: NOTES 08-06 evening.
 2. **Regenerate `content_direction` from scratch.** It is contamination-derived
    throughout; two phrase-patches were whack-a-mole. Supersede with a fresh
    generation (or delete + let the resubmission's classifier rewrite it — the
