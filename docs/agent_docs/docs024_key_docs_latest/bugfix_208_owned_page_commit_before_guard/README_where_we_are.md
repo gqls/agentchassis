@@ -117,3 +117,47 @@ counted. One upside for them: a bulk rebuild that hit a tool page used to kill t
 part-way through the site, silently skipping every page after it. That stops too.
 
 The council is reviewing the change now. I will read the verdict rather than assume it passed.
+
+## 2026-08-07 — it's live, it's verified, and there's one honest gap left
+
+The chassis rolled this morning (v1.0.1262) and the fix is in it. I checked that properly rather
+than trusting the version number, because on this system a new build is not evidence your change
+is in it — the image can predate your commit. So I looked inside the running program: the
+markers my change adds are there, and — the bit that actually settles it — a line my change
+*deleted* is gone. Added text alone would only tell you *some* version of my work shipped; the
+deleted line tells you it's the newest one. I also checked a made-up string that should find
+nothing, to be sure the check itself wasn't just saying yes to everything. All forty-one
+processes running this program are the same image, so that's the whole fleet, not a spot check.
+
+Then I re-fetched the fourteen tool pages and compared them to the fingerprints I took before.
+Thirteen are identical to the byte. The fourteenth changed — and it's worth saying what that
+turned out to be, because for a minute it looked like the thing we were trying to prevent. It's
+the vonc page that has never existed: a 404. Its database record hasn't been touched since June
+and it still has no content. What changed was the site's shared "page not found" template. So
+nothing was disturbed.
+
+**The gap, and I want to be straight about it: the guard has never actually stopped anything
+yet.** Everything above proves the code is present and that nothing broke. Neither of those is
+the same as proving it works. Nobody has run a rebuild at a site with tool pages since the roll,
+so the guard hasn't been asked a question. A clean result from a guard that's never been tried
+tells you nothing, and that's a mistake this system has made before and written down, so I'm not
+going to let my own notes imply otherwise.
+
+Closing that needs a deliberate test, and I'd like your go-ahead for it. There's an obvious
+candidate — vonc.com has exactly three tool pages waiting and no ordinary ones, so a rebuild
+there would touch nothing else. I don't want to use it. Those three are the arena, the gauntlet
+and the quiz, and the arena is the page whose destruction caused us to invent this protection in
+the first place. If I'm wrong about the fix, that test destroys them. You don't test a safety net
+by dropping the thing you built it for.
+
+What I'd rather do is invent a throwaway page, mark it as tool-owned, put it on a site with
+nothing else queued, and run a real rebuild at it. If the guard works: nothing gets built,
+nothing reaches the website, and a review note appears explaining why it was skipped. If it
+doesn't work, the only thing harmed is a page I made up for the test. It's a real operation
+against a live site, which is why I'm asking rather than just doing it.
+
+One more thing found along the way and deliberately not fixed: when a page's content generation
+fails, the system marks it "deployed" anyway, so the request to rebuild it quietly disappears.
+Same family of problem. I've written it up as bug 210 rather than folding it in, because fixing
+it changes how the whole fleet retries failed builds — that's a decision to take on purpose, not
+a tidy-up to slip into someone else's bug.

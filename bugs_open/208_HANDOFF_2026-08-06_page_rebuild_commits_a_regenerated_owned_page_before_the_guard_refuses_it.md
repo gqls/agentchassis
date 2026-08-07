@@ -6,7 +6,25 @@ fired** because of this. **OPEN, unowned.**
 
 ---
 
-## STATE 2026-08-06 (evening) — FIXED IN CODE, INERT UNTIL THE CHASSIS ROLLS. Taken by the `bugfix_208_owned_page_commit_before_guard` lane
+## STATE 2026-08-07 — **LIVE on v1.0.1262 and pod-verified; the guard has NOT yet been observed to FIRE**
+
+Rolled this morning. Verified in the running binary, not at the tag: `OWNED_PAGE_GUARD` **3**,
+`OWNED_PAGE_GUARD_UNCHECKED` **1**, `include_owned` **1**; the string `f5710d6b0` **removed**
+(`"guard standing down for this page"`) reads **0**, which is what proves this is the latest
+commit rather than an older image sharing some symbols; a fabricated string reads **0**. All
+**41** pods running this binary share one image digest, so that is the fleet by identity, not a
+sample. Baseline re-checked: **13 of 14 served bodies byte-identical**; the 14th is the
+never-built 404 (`planned`, 0 components, DB row untouched since June) whose hash moved because
+the site's shared 404 template changed.
+
+> **⚠ Still OPEN, and the reason is not bureaucratic.** Zero `owned_page_review` rows exist from
+> `get_pages_to_build` or `assemble_page` — all 12 in the table are reconcile's and pre-roll. No
+> dispatch has hit a site with owned pages since the roll, so **the guard has never been asked a
+> question.** "Fix live + baseline clean" proves presence and absence of harm; it does not prove
+> bite, and reading it as proof is 016b §9's silent-gate trap. The behavioural canary
+> (synthetic page, never a real tool — see "How to verify") is what closes this.
+
+## STATE 2026-08-06 (evening) — FIXED IN CODE. Taken by the `bugfix_208_owned_page_commit_before_guard` lane
 
 **Commit `cb7b4d759`.** Council **SUBMITTED**, verdict not yet read — corr
 `5d1dcb10-7929-431e-b9e5-496992ce3229` (the commit carries `Council-Submitted:`, not
