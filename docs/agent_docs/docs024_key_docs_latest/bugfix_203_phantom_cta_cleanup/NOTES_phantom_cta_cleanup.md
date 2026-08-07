@@ -290,3 +290,52 @@ is for, and batching them would forfeit it.
 The four `leopardessconsulting.co.uk` "Get Started" blog heroes are **NOT** in this table and
 are still parked per F21: fabricated label, plausible destination, 8–9 days stale — the worst
 risk/reward ratio of the eight.
+
+## 2026-08-07 08:15Z — THE CANARY EARNED ITS KEEP: the resolver mis-assigns CTA targets, and the writer cannot set a cta_url at all
+
+Read live out of the in-flight canary's `collected_data` (orchestration
+`a9e8e280-f937-4a3c-bb32-8949e6c07101`, step `resolve_links` → `response.sections_ready`,
+hero section). I enumerated the section's keys rather than path-reading for `cta_url`,
+which is the only reason I found it — a top-level `s->>'cta_url'` returns NULL and would
+have read as "the resolver did nothing":
+
+```
+hero.resolved_data = {
+  "cta_url":                    "/tools/password-entropy.html",
+  "cta_target_title":           "Password Strength Physics",
+  "secondary_cta_url":          "/tools/tool-ai-data-risk-checker.html",
+  "secondary_cta_target_title": "AI Data Risk Checker | Tools",
+  "background_image":           "/assets/images/hero.jpg"
+}
+hero.llm_fields = ["subheadline", "secondary_cta", "cta_text", "headline"]
+```
+
+**F22 — the resolver SWAPPED the two CTAs.** The primary button is labelled
+**"Run the Risk Checker"** and it resolved to the **password-entropy** tool; the secondary
+is labelled **"Speak to Us About Data Privacy"** and it got the **risk checker**. The
+correct target for the primary was available and the resolver had it in hand — it put it in
+the other slot. So this page's CTA is about to stop pointing at `/contact.html` and start
+pointing at a password-strength calculator, which is **worse**: `/contact.html` was at least
+a generic plausible destination, whereas this is a non-sequitur that looks deliberate.
+
+**F23 — and this is the structural half: `cta_url` is NOT a writer field.** `llm_fields`
+lists only `subheadline`, `secondary_cta`, `cta_text`, `headline`. URLs live in
+`resolved_data`, which the **resolver** owns. Consequences, both important:
+1. **My work item's instruction was unobeyable.** I told the writer to "set the hero's
+   `cta_url` to /tools/tool-ai-data-risk-checker.html — use that URL exactly as written".
+   The writer cannot write that field at all. The `create_tool_cross_link_items` precedent I
+   copied works because it asks for a link **inside prose** (an LLM field); a *structural*
+   CTA URL is a different thing wearing the same name, and I did not check before copying.
+2. **`bugs_open/203`'s candidate 1 is not achievable by asking the writer either** — "resolve
+   the real target from the CTA text and set a real `cta_url`" is resolver work, not writer
+   work, on every page with a structural CTA.
+
+**So route 2 does not fix this class.** It replaces a fabricated destination with a
+mis-resolved one. The defect to fix is the resolver's slot assignment.
+
+**[UNMEASURED] how wide F22 is.** One page, two CTAs, observed once. It could be a
+label-matching failure, a greedy/ordered assignment that ignores the label, or specific to a
+site with many similarly-named tools (finetuning.uk has 8 `page_type='tool'` rows). **Do not
+generalise from this single observation** — it wants the resolver's assignment code read and
+a fleet census of `resolved_data.cta_target_title` against the adjacent `cta_text`. That
+census is the natural next step and is cheap, because both values are persisted per run.
