@@ -177,10 +177,10 @@ func TestRenderCSS_InkCompanionsComeAfterTokenAliases(t *testing.T) {
 	}
 
 	if pos["buildTokenAliases"] > pos["buildLegibleInkDefaults"] {
-		t.Errorf("buildLegibleInkDefaults is called BEFORE buildTokenAliases.\n"+
-			"It skips names already present in the assembled CSS, so from this order a "+
-			"later block can define --color-primary-ink and win: the companion is emitted "+
-			"but inert, which is exactly the dead-config shape this seam exists to avoid "+
+		t.Errorf("buildLegibleInkDefaults is called BEFORE buildTokenAliases.\n" +
+			"It skips names already present in the assembled CSS, so from this order a " +
+			"later block can define --color-primary-ink and win: the companion is emitted " +
+			"but inert, which is exactly the dead-config shape this seam exists to avoid " +
 			"(bugs_open/122). Restore step 12 after step 11.")
 	}
 	if pos["buildSectionDefaults"] > pos["buildLegibleInkDefaults"] {
