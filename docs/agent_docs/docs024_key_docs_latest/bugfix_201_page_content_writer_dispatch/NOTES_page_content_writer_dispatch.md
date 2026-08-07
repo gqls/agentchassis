@@ -364,7 +364,57 @@ Migration 331 removed `literal_markdown` from the claimed-item-timeout sweep, so
 no longer auto-completed at 15 minutes on the handler's own evidence. Do not read "still claimed"
 as a hang without checking that first.
 
-*(Outcome recorded below when the run terminates.)*
+### OUTCOME — attempt 2 (corr `78e15724…`): **the verifier fired and BLOCKED completion.** Symptom 2 proven closed.
+
+```
+completion blocked: post-fix verification found the defect still present:
+18 finding(s) still present across 3 component(s); first: slot "news-listing"
+field "items[1].summary" pattern bold in content_data — "**the `animation`**"
+```
+
+That is `VerifyLiteralMarkdownResolved`'s own `Detail` format verbatim, wrapped by
+`CompleteWorkItemAction`'s block message. **The verifier was consulted, returned
+`Resolved:false`, and completion was refused.** The item went to `failed` instead of `complete`.
+
+**Before this change that run would have been stamped `complete`.** That is not a hypothetical:
+it is exactly what happened to the gaswholesalers item, which is 201's original symptom 2.
+
+**Artefact, against the baseline — the page WAS rebuilt, and the defect SURVIVED:**
+
+| slot | md5 before → after | bytes | `updated_at` | bold md |
+|---|---|---|---|---|
+| `hero` | `3e77770c…` → `23d29af3…` | 304 → 347 | 08-05 → **08-07 08:37:26Z** | false |
+| `news-listing` | `9df6c43d…` → `d90effc0…` | 10 232 → 10 157 | 08-05 → **08-07 08:37:26Z** | **still TRUE** |
+| `call-to-action` | `45f6f2b8…` → `34bf533c…` | 331 → 308 | 08-05 → **08-07 08:37:26Z** | false |
+
+All three components changed, so the repair genuinely ran and wrote. **It did not cure the
+defect** — the writer re-emitted literal markdown into the very field it was dispatched to clean
+(`items[1].summary`, `"**the `animation`**"`). 18 findings remain across 3 components.
+
+### The second finding, which is 184's and not 201's
+
+**Symptom 1's fix makes the dispatch WORK; it does not make the repair EFFECTIVE.** Routing
+`literal_markdown` at `page-build-handler` stops the hard fail (proven 08-06) and the handler now
+rebuilds the page — and `page-content-writer`, spawned behind it, writes markdown syntax back
+into a text field. That is `bugs_open/184`'s underlying defect, untouched by anything this lane
+did, and it is now **visible instead of hidden**. Noted on 184.
+
+That is the verifier earning its place on its first real run: it converted a silent false success
+into an attributable failure naming the field and the matched text.
+
+### Honest notes on the run
+
+- **`attempt_count` went 1 → 3 in a single dispatch**, so the item is now exhausted and terminally
+  `failed`. `[UNMEASURED]` why it jumped two rather than one — possibly an internal retry inside
+  the loop, possibly `fail_work_item` incrementing alongside the verification block. Not chased;
+  recorded so nobody reads "3" as three separate operator dispatches. A further attempt needs
+  `attempt_count` reset as well as `status`.
+- **Terminal `failed` is the correct destination**, not a regression: three attempts, defect not
+  cleared, so it goes to human review — which is where an uncleaned markdown defect belongs, and
+  what the deferral note meant by writing against the handler's remit.
+- **Attempt 1's failure was NOT the verifier** (spawn→call handshake race, upstream of
+  `complete_work_item`). Recorded above as inconclusive at the time rather than claimed as a pass,
+  which is the only reason attempt 2 was run at all.
 
 ---
 

@@ -444,3 +444,47 @@ Fleet moved to chassis `v1.0.1252` (2026-08-05 09:10) in the interim — checked
 `git log` since this bug's last commit (`49e8e3048`): nothing touched
 `page-content-writer`, `section_plan`, or `build-dispatch-loop`, so 201's
 finding is unaffected by the new build.
+
+---
+
+## CONTRIB 2026-08-07, `bugfix_201` lane — **201 is no longer your blocker, and the repair still does not work. Different reason.**
+
+`bugs_open/201` is fixed, live and proven on both symptoms, so **184's auto-repair leg is
+unblocked**. It is also **still not curing this defect**, and that is now demonstrated rather
+than suspected.
+
+**The run.** Item `efaa39a2…` (this bug's own `webdesign.co.uk` / `news` finding), re-armed onto
+`page-build-handler` per 201's fix, dispatched 2026-08-07 08:28Z on chassis `v1.0.1262`.
+
+**It dispatched cleanly** — no `fail_no_ready_sections`, which was 201 symptom 1 and used to kill
+11 of 11 attempts. **The handler rebuilt the page for real**: all three components rewritten at
+08:37:26Z (`hero` 304→347 B, `news-listing` 10 232→10 157 B, `call-to-action` 331→308 B,
+every md5 changed against a baseline taken beforehand).
+
+**And the markdown came straight back.** Completion was blocked by 201's new completion verifier:
+
+```
+completion blocked: post-fix verification found the defect still present:
+18 finding(s) still present across 3 component(s); first: slot "news-listing"
+field "items[1].summary" pattern bold in content_data — "**the `animation`**"
+```
+
+So `page-content-writer`, spawned behind the build handler, **wrote markdown syntax back into the
+very text field it was dispatched to clean** — 18 findings across 3 components after a full
+regeneration.
+
+**What this means for 184.** Routing was never the whole problem. The detector is right, the
+dispatch now works, and the *writer* is the remaining defect: it emits markdown into
+`type: text` fields, which is this bug's original diagnosis. Repairing by regeneration cannot fix
+that while the regenerator has the same habit — a rebuild is not a repair here. The likely lever
+is the writer's own prompt/rules (migration `304_forbid_markdown_in_text_fields.sql` exists and is
+**pending**, per the runner's dry run on 08-06 — worth checking whether it is applied and whether
+it says what this needs).
+
+**The item is now terminally `failed` at 3/3** and routed to human review, which is correct: three
+attempts, defect not cleared. A further attempt needs `attempt_count` reset as well as `status`.
+
+**No action requested of this lane** — flagging that the blocker is gone, the failure has moved,
+and the evidence is artefact-level rather than status-level. Full trail:
+`docs024_key_docs_latest/bugfix_201_page_content_writer_dispatch/NOTES` (2026-08-07) and
+`HANDOFF_2026-08-07_continue_here.md`.

@@ -3,7 +3,43 @@
 **Filed 2026-08-04** by the `bugfix_091_workitem_conflict_refresh`/`184` lane,
 found while verifying `bugs_open/184`'s auto-repair step. ~~**OPEN, unowned.**~~
 
-> ## STATUS 2026-08-07 08:05Z — **SYMPTOM 2 IS DEPLOYED AND POD-VERIFIED.** Behaviour not yet proven. 201 stays OPEN.
+> ## ✅ STATUS 2026-08-07 08:40Z — **BOTH SYMPTOMS FIXED, LIVE AND PROVEN.** The verifier blocked a completion in production.
+
+**Symptom 2 proven on `webdesign.co.uk` / `news`** (item `efaa39a2…`, corr `78e15724…`). The
+handler ran, rebuilt the page, and `complete_work_item` **refused to stamp it**:
+
+```
+completion blocked: post-fix verification found the defect still present:
+18 finding(s) still present across 3 component(s); first: slot "news-listing"
+field "items[1].summary" pattern bold in content_data — "**the `animation`**"
+```
+
+That is `VerifyLiteralMarkdownResolved`'s own `Detail` verbatim. **Before this change the run
+would have been stamped `complete`** — which is precisely what happened to the gaswholesalers
+item that this bug filed as symptom 2.
+
+**The artefact confirms the repair genuinely ran and genuinely failed:** all three components
+rewritten at 08:37:26Z (`hero` 304→347 B, `news-listing` 10 232→10 157 B, `call-to-action`
+331→308 B), and `news-listing` **still carries literal markdown**. Item now terminally `failed`
+at 3/3 → human review, which is the correct destination.
+
+> ### ⚠ A SECOND FINDING, and it belongs to `bugs_open/184`, not here
+> **Symptom 1's fix makes the dispatch work; it does not make the repair effective.** The handler
+> rebuilds the page and `page-content-writer` writes markdown syntax straight back into the text
+> field it was dispatched to clean. 184's auto-repair leg is therefore still not curing this
+> defect — for a different reason than before, and now **visibly** rather than silently. Noted on
+> 184. Nothing in this lane touched that.
+
+**What remains genuinely open** is `architecture_review/RFC_017` — the registry's
+fail-open-on-error policy, which this fix routes around locally and every other verifier still
+inherits. Not a blocker; an owner decision.
+
+**Per the owner ruling of 2026-08-06, this file STAYS in `bugs_open/` although it is fixed and
+live.**
+
+---
+
+## (superseded) STATUS 2026-08-07 08:05Z — symptom 2 deployed and pod-verified, behaviour not yet proven
 
 **Deployed on `v1.0.1262`** (both replicas, started 05:47Z; commit `7e62f4a07` at 01:37Z UTC
 predates it). **Pod-greppable, unlike symptom 1's fix** — `VerifyLiteralMarkdownResolved` is a

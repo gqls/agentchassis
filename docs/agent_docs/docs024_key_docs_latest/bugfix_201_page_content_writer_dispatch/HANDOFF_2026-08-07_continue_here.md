@@ -1,7 +1,37 @@
 # HANDOFF — `bugs_open/201`, 2026-08-07 · **start here.** Supersedes `HANDOFF_2026-08-05_continue_here.md`
 
-**Both symptoms are fixed, council-approved and deployed. ONE proof is outstanding, and it is
-the only work left.** Nothing below needs re-deriving.
+> ## ✅ UPDATE 08:40Z — THE PROOF LANDED. **Both symptoms are now FIXED, LIVE and PROVEN. §3 below is history.**
+>
+> Attempt 2 (corr `78e15724…`) did it. The handler ran, rebuilt the page, and completion was
+> **refused**:
+>
+> ```
+> completion blocked: post-fix verification found the defect still present:
+> 18 finding(s) still present across 3 component(s); first: slot "news-listing"
+> field "items[1].summary" pattern bold in content_data — "**the `animation`**"
+> ```
+>
+> That is `VerifyLiteralMarkdownResolved`'s own `Detail` verbatim — the verifier was consulted,
+> returned `Resolved:false`, and blocked the stamp. **Before this change that run would have been
+> marked `complete`**, exactly as the gaswholesalers item was.
+>
+> **The artefact confirms both halves:** all three components rewritten at 08:37:26Z against the
+> baseline in §3, and `news-listing` **still carries the markdown**. So the repair genuinely ran
+> and genuinely failed — and was caught.
+>
+> **⚠ SECOND FINDING, and it is `bugs_open/184`'s, not this lane's:** symptom 1's fix makes the
+> dispatch *work*; it does not make the repair *effective*. `page-content-writer` wrote markdown
+> straight back into the field it was dispatched to clean. Contributed to 184, which is now
+> unblocked and has a different failure than before — visible instead of silent.
+>
+> **Nothing is outstanding on 201 except `RFC_017`** (the generic fail-open policy — owner
+> decision, not a blocker). Item `efaa39a2…` is terminally `failed` at 3/3 → human review, which
+> is the correct destination; a further attempt would need `attempt_count` reset too.
+>
+> Per the owner ruling of 2026-08-06, `bugs_open/201` **stays in `bugs_open/`** although fixed.
+
+**Both symptoms are fixed, council-approved and deployed.** ~~ONE proof is outstanding, and it is
+the only work left.~~ **Proof landed 08:40Z — see the box above.** Nothing below needs re-deriving.
 
 ## 1. State in one table
 
