@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/orchestration/agenterrors"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
@@ -509,44 +510,37 @@ func writeSectionDedupLog(
 		workItemID = datahelpers.ExtractNestedFieldString(params.CollectedData, f)
 	}
 
-	contextData := map[string]interface{}{
-		"outcome":               outcome,
-		"page_name":             pageName,
-		"page_url":              pageURL,
-		"arrival_count":         arrival,
-		"kept_count":            keptCount,
-		"collapsed_count":       collapsed,
-		"adjacency_signature":   signature,
-		"collapsed_groups":      groupMaps,
-		"plan_protected_slots":  planProtected,
-		"plan_source":           planSource,
-		"sections_source":       sectionsSource,
-		"metadata_field":        metaField,
-		"metadata_field_origin": metaFieldOrigin,
-		"work_item_id":          workItemID,
-		"identity_rule":         "slot_name+rendered_html+component_id+content_data as bound by the INSERT; position excluded",
-		"bug":                   "bugs_open/156",
-	}
-	contextJSON, err := json.Marshal(contextData)
-	if err != nil {
-		logger.Warn("section dedup: failed to marshal finding context", zap.Error(err))
-		return
-	}
-
 	// Severity encodes the SAVE'S FATE in this family — the claims guard writes
 	// 'error' only when it refuses, and the content_data record writes 'warning'
 	// because it allows. This guard allows, so: warning. The loudness lives in
 	// the pod line above and in the error_code being queryable, not here.
-	if _, err := params.DB.ExecContext(ctx, `
-		INSERT INTO agent_error_log
-		    (site_id, domain, agent_type, step_name, action,
-		     error_message, error_code, severity, context)
-		VALUES ($1, NULLIF($2, ''), $3, $4, 'save_page_sections', $5, $6, $7, $8::jsonb)`,
-		siteID, domain, componentRepairAgentType(params), saveSectionsStepName(params),
-		fmt.Sprintf("Duplicate sections %s on page %s: %d arrived, %d were byte-identical duplicates of earlier entries (%s), %d saved",
+	LogActionEntry(ctx, params, agenterrors.Entry{
+		SiteID:    siteID.String(),
+		Domain:    domain,
+		AgentType: componentRepairAgentType(params),
+		StepName:  saveSectionsStepName(params),
+		Action:    "save_page_sections",
+		ErrorMessage: fmt.Sprintf("Duplicate sections %s on page %s: %d arrived, %d were byte-identical duplicates of earlier entries (%s), %d saved",
 			outcome, pageName, arrival, collapsed, signature, keptCount),
-		sectionDedupErrorCode, "warning", string(contextJSON),
-	); err != nil {
-		logger.Warn("section dedup: failed to write finding record", zap.Error(err))
-	}
+		ErrorCode: sectionDedupErrorCode,
+		Severity:  "warning",
+		Context: map[string]interface{}{
+			"outcome":               outcome,
+			"page_name":             pageName,
+			"page_url":              pageURL,
+			"arrival_count":         arrival,
+			"kept_count":            keptCount,
+			"collapsed_count":       collapsed,
+			"adjacency_signature":   signature,
+			"collapsed_groups":      groupMaps,
+			"plan_protected_slots":  planProtected,
+			"plan_source":           planSource,
+			"sections_source":       sectionsSource,
+			"metadata_field":        metaField,
+			"metadata_field_origin": metaFieldOrigin,
+			"work_item_id":          workItemID,
+			"identity_rule":         "slot_name+rendered_html+component_id+content_data as bound by the INSERT; position excluded",
+			"bug":                   "bugs_open/156",
+		},
+	}, logger)
 }

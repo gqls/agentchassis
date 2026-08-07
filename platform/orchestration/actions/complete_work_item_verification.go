@@ -33,6 +33,7 @@ import (
 	"go.uber.org/zap"
 
 	checks "github.com/gqls/agentchassis/platform/orchestration/actions/discovery_checks"
+	"github.com/gqls/agentchassis/platform/orchestration/agenterrors"
 )
 
 // verifyBeforeComplete runs the registered verifier for the item, if any.
@@ -192,37 +193,21 @@ func recordUnknownVerdict(ctx context.Context, params ActionParams, itemID uuid.
 		return
 	}
 
-	contextJSON, _ := json.Marshal(map[string]interface{}{
-		"response_status": status,
-		"guard":           "handlerReportedFailure",
-		"known_verdicts":  []string{"failed", "failure", "error"},
-		"remedy":          "if this is a failure verdict, widen the allowlist in handlerReportedFailure (complete_work_item_verification.go); see bugs_open/017",
-	})
-	if contextJSON == nil {
-		contextJSON = []byte("{}")
-	}
-
-	if _, err := params.DB.ExecContext(ctx, `
-		INSERT INTO agent_error_log (
-			work_item_id, orchestration_id, agent_type, agent_id, pod_name,
-			step_name, action, error_message, error_code, severity, context
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb)
-	`,
-		itemID,
-		params.ExecutionContext.OrchestrationID,
-		params.ExecutionContext.Sender.AgentType,
-		params.ExecutionContext.Sender.AgentID,
-		params.ExecutionContext.Sender.PodName,
-		params.ExecutionContext.StepName,
-		"complete_work_item",
-		"unrecognised handler verdict '"+status+"' — item completed, but this guard cannot tell success from failure for this vocabulary",
-		"UNKNOWN_HANDLER_VERDICT",
-		"warning",
-		string(contextJSON),
-	); err != nil {
-		logger.Warn("recordUnknownVerdict: could not persist to agent_error_log (completion unaffected)",
-			zap.Error(err))
-	}
+	// work_item_id is the caller's explicit item, not the one params carries —
+	// set it so the merge cannot substitute input_data.work_item_id.
+	LogActionEntry(ctx, params, agenterrors.Entry{
+		WorkItemID:   itemID.String(),
+		Action:       "complete_work_item",
+		ErrorMessage: "unrecognised handler verdict '" + status + "' — item completed, but this guard cannot tell success from failure for this vocabulary",
+		ErrorCode:    "UNKNOWN_HANDLER_VERDICT",
+		Severity:     "warning",
+		Context: map[string]interface{}{
+			"response_status": status,
+			"guard":           "handlerReportedFailure",
+			"known_verdicts":  []string{"failed", "failure", "error"},
+			"remedy":          "if this is a failure verdict, widen the allowlist in handlerReportedFailure (complete_work_item_verification.go); see bugs_open/017",
+		},
+	}, logger)
 }
 
 // failUnverifiedCompletion routes a blocked completion into the same

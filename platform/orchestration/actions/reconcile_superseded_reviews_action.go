@@ -37,6 +37,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/gqls/agentchassis/platform/orchestration/agenterrors"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
@@ -155,22 +156,21 @@ func ReconcileSupersededReviewsAction(ctx context.Context, params ActionParams) 
 		if dropped > 0 {
 			msg += fmt.Sprintf("; %d previously-flagged element(s) are ABSENT from the deployed content (dropped, not resolved)", dropped)
 		}
-		var orchestrationID, agentType interface{}
-		if params.ExecutionContext != nil {
-			orchestrationID = params.ExecutionContext.OrchestrationID
-			agentType = params.ExecutionContext.Sender.AgentType
-		}
-		if _, iErr := params.DB.ExecContext(ctx, `
-			INSERT INTO agent_error_log (
-				site_id, work_item_id, orchestration_id, agent_type,
-				action, error_message, error_code, severity, context
-			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb)
-		`, pair.siteID, pair.itemID, orchestrationID, agentType,
-			"reconcile_superseded_reviews", msg,
-			"REVIEW_SUPERSEDED_BY_PASSING_SAVE", "warning", string(reconJSON),
-		); iErr != nil {
+		// site_id and work_item_id are the PAIR's, not the running step's —
+		// set explicitly so the merge cannot substitute input_data's.
+		// gatherFlaggedFindings above reads these rows back by
+		// (site_id, error_code, context->>'page_name'), so all three are load-bearing.
+		if !LogActionEntry(ctx, params, agenterrors.Entry{
+			SiteID:       pair.siteID,
+			WorkItemID:   pair.itemID,
+			Action:       "reconcile_superseded_reviews",
+			ErrorMessage: msg,
+			ErrorCode:    "REVIEW_SUPERSEDED_BY_PASSING_SAVE",
+			Severity:     "warning",
+			Context:      reconContext,
+		}, logger) {
 			logger.Warn("could not persist supersession record; item left unannotated so a later sweep retries",
-				zap.String("item_id", pair.itemID), zap.Error(iErr))
+				zap.String("item_id", pair.itemID))
 			continue
 		}
 		if _, uErr := params.DB.ExecContext(ctx, `

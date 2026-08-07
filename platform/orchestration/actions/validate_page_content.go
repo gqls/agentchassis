@@ -82,6 +82,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/orchestration/agenterrors"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
@@ -569,45 +570,33 @@ func writeValidationFailureLog(
 		})
 	}
 
-	contextData := map[string]interface{}{
-		"blocker_count": blockerCount,
-		"error_count":   errorCount,
-		"issues":        failureIssues,
-		"page_name":     datahelpers.ExtractNestedFieldString(params.CollectedData, "page_record.name"),
-	}
-	contextJSON, err := json.Marshal(contextData)
-	if err != nil {
-		logger.Warn("ValidatePageContentAction: failed to marshal failure context", zap.Error(err))
-		return
-	}
-
 	// site_id is uuid; only include if parseable.
-	var siteIDArg interface{}
+	var siteIDArg string
 	if siteIDStr != "" {
 		if id, err := uuid.Parse(siteIDStr); err == nil {
-			siteIDArg = id
+			siteIDArg = id.String()
 		}
 	}
 
-	_, err = params.DB.ExecContext(ctx, `
-		INSERT INTO agent_error_log
-		    (site_id, domain, agent_type, step_name, action,
-		     error_message, error_code, severity, context)
-		VALUES ($1, NULLIF($2, ''), $3, $4, $5, $6, $7, 'warning', $8::jsonb)
-	`,
-		siteIDArg,
-		domain,
-		"page-build-handler", // best-effort; the action runs under this agent
-		"validate_content",
-		"validate_page_content",
-		fmt.Sprintf("Validation produced %d blocker(s) and %d error(s); see context.issues for detail",
+	// The agent/step/action literals are this recorder's own provenance — the
+	// row must keep naming the validation seam, not whichever step is running.
+	if !LogActionEntry(ctx, params, agenterrors.Entry{
+		SiteID:    siteIDArg,
+		Domain:    domain,
+		AgentType: "page-build-handler", // best-effort; the action runs under this agent
+		StepName:  "validate_content",
+		Action:    "validate_page_content",
+		ErrorMessage: fmt.Sprintf("Validation produced %d blocker(s) and %d error(s); see context.issues for detail",
 			blockerCount, errorCount),
-		validationDetailErrorCode,
-		string(contextJSON),
-	)
-	if err != nil {
-		logger.Warn("ValidatePageContentAction: failed to write structured failure log",
-			zap.Error(err))
+		ErrorCode: validationDetailErrorCode,
+		Severity:  "warning",
+		Context: map[string]interface{}{
+			"blocker_count": blockerCount,
+			"error_count":   errorCount,
+			"issues":        failureIssues,
+			"page_name":     datahelpers.ExtractNestedFieldString(params.CollectedData, "page_record.name"),
+		},
+	}, logger) {
 		return
 	}
 
@@ -674,44 +663,33 @@ func writeLinkRepairLog(
 		})
 	}
 
-	contextData := map[string]interface{}{
-		"rewritten": rewritten,
-		"unlinked":  unlinked,
-		"repairs":   repairMaps,
-		"page_name": origin.PageName,
-		"page_url":  origin.PageURL,
-	}
-	contextJSON, err := json.Marshal(contextData)
-	if err != nil {
-		logger.Warn("ValidatePageContentAction: failed to marshal link repair context", zap.Error(err))
-		return
-	}
-
-	var siteIDArg interface{}
+	var siteIDArg string
 	if siteIDStr != "" {
 		if id, err := uuid.Parse(siteIDStr); err == nil {
-			siteIDArg = id
+			siteIDArg = id.String()
 		}
 	}
 
-	_, err = params.DB.ExecContext(ctx, `
-		INSERT INTO agent_error_log
-		    (site_id, domain, agent_type, step_name, action,
-		     error_message, error_code, severity, context)
-		VALUES ($1, NULLIF($2, ''), $3, $4, $5, $6, $7, 'warning', $8::jsonb)
-	`,
-		siteIDArg,
-		domain,
-		origin.AgentType,
-		origin.StepName,
-		origin.ActionName,
-		fmt.Sprintf("Repaired %d dead internal link(s) before save: %d href(s) rewritten, %d link(s) removed; see context.repairs",
+	// Filed under the ORIGIN's provenance, not the running step's — the repair
+	// belongs to the writer whose content carried the dead links.
+	if !LogActionEntry(ctx, params, agenterrors.Entry{
+		SiteID:    siteIDArg,
+		Domain:    domain,
+		AgentType: origin.AgentType,
+		StepName:  origin.StepName,
+		Action:    origin.ActionName,
+		ErrorMessage: fmt.Sprintf("Repaired %d dead internal link(s) before save: %d href(s) rewritten, %d link(s) removed; see context.repairs",
 			len(repairs), rewritten, unlinked),
-		linkRepairErrorCode,
-		string(contextJSON),
-	)
-	if err != nil {
-		logger.Warn("ValidatePageContentAction: failed to write link repair log", zap.Error(err))
+		ErrorCode: linkRepairErrorCode,
+		Severity:  "warning",
+		Context: map[string]interface{}{
+			"rewritten": rewritten,
+			"unlinked":  unlinked,
+			"repairs":   repairMaps,
+			"page_name": origin.PageName,
+			"page_url":  origin.PageURL,
+		},
+	}, logger) {
 		return
 	}
 

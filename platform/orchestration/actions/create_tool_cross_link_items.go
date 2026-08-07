@@ -387,7 +387,7 @@ func recordCrossLinkSkip(
 	detail string,
 ) {
 	recordComponentWriteRejection(
-		ctx, params.DB, logger, params,
+		ctx, logger, params,
 		actionProvenance{
 			AgentType: params.ExecutionContext.Sender.AgentType,
 			StepName:  params.ExecutionContext.StepName,

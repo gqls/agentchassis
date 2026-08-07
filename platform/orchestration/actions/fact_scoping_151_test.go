@@ -344,8 +344,11 @@ func TestPlanSections_EmptyCompositionDegradesToUnscopedWithDurableRecord(t *tes
 
 	// The durable record is the assertion: severity and error_code pinned.
 	mock.ExpectExec("INSERT INTO agent_error_log").
-		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
-			sqlmock.AnyArg(), "plan_sections", sqlmock.AnyArg(), "FACT_SCOPING_EMPTY_COMPOSITION", "warning", sqlmock.AnyArg()).
+		// Canonical 13-column bind list (RFC_012 option B): action is bind 9,
+		// error_code bind 11, severity bind 12 — all three still pinned by value.
+		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
+			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
+			"plan_sections", sqlmock.AnyArg(), "FACT_SCOPING_EMPTY_COMPOSITION", "warning", sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	mock.ExpectExec("UPDATE pages").WillReturnResult(sqlmock.NewResult(0, 0))

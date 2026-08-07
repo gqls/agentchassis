@@ -43,9 +43,9 @@ package actions
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/orchestration/agenterrors"
 	"go.uber.org/zap"
 )
 
@@ -191,24 +191,21 @@ func writeLinkRepairSkipLog(
 		return
 	}
 
-	skipCtx, err := json.Marshal(map[string]string{
-		"page_name": origin.PageName,
-		"page_url":  origin.PageURL,
-	})
-	if err != nil {
-		logger.Warn("link repair: failed to marshal skip context", zap.Error(err))
-		return
-	}
-
-	if _, err := params.DB.ExecContext(ctx, `
-		INSERT INTO agent_error_log
-		    (site_id, domain, agent_type, step_name, action,
-		     error_message, error_code, severity, context)
-		VALUES (NULLIF($1,'')::uuid, NULLIF($2, ''), $3, $4, $5,
-		        $6, 'CONTENT_LINK_REPAIR_SKIPPED', 'warning', $7::jsonb)`,
-		siteIDStr, domain, origin.AgentType, origin.StepName, origin.ActionName,
-		message, string(skipCtx),
-	); err != nil {
-		logger.Warn("link repair: failed to write skip record", zap.Error(err))
-	}
+	// Filed under the ORIGIN's provenance, not the running step's: the skip
+	// belongs to the content's author, which is what makes the row joinable to
+	// the save that produced the link. LogActionEntry takes these verbatim.
+	LogActionEntry(ctx, params, agenterrors.Entry{
+		SiteID:       siteIDStr,
+		Domain:       domain,
+		AgentType:    origin.AgentType,
+		StepName:     origin.StepName,
+		Action:       origin.ActionName,
+		ErrorMessage: message,
+		ErrorCode:    "CONTENT_LINK_REPAIR_SKIPPED",
+		Severity:     "warning",
+		Context: map[string]interface{}{
+			"page_name": origin.PageName,
+			"page_url":  origin.PageURL,
+		},
+	}, logger)
 }

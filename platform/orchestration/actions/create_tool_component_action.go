@@ -125,7 +125,7 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 	// needs_human_review carrying this reason (same path as the header gate above).
 	if !componentTemplateValid(htmlContent, "tool") {
 		recordComponentWriteRejection(
-			ctx, params.DB, logger, params,
+			ctx, logger, params,
 			actionProvenance{
 				AgentType: params.ExecutionContext.Sender.AgentType,
 				StepName:  params.ExecutionContext.StepName,

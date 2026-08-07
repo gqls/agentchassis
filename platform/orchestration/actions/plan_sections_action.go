@@ -40,6 +40,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/orchestration/actions/queryresolve"
+	"github.com/gqls/agentchassis/platform/orchestration/agenterrors"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"github.com/gqls/agentchassis/platform/orchestration/imageryplan"
 	"github.com/gqls/agentchassis/platform/storage"
@@ -1014,33 +1015,20 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 			logger.Warn("plan_sections: fact assignment composed an empty writer block — degrading section to unscoped",
 				zap.String("section", item.Name),
 				zap.Strings("assigned_fact_ids", facts))
-			anomalyCtx, _ := json.Marshal(map[string]interface{}{
-				"section":           item.Name,
-				"page_name":         pageName,
-				"assigned_fact_ids": facts,
-				"remedy":            "the plan's assigned_fact_ids match no current evidence_base fact with a writer_line; replan the site or correct the register — the section built with the site-wide block meanwhile",
-			})
-			if _, insErr := params.DB.ExecContext(ctx, `
-				INSERT INTO agent_error_log (
-					site_id, orchestration_id, agent_type, agent_id, pod_name,
-					step_name, action, error_message, error_code, severity, context
-				) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb)
-			`,
-				siteID,
-				params.ExecutionContext.OrchestrationID,
-				params.ExecutionContext.Sender.AgentType,
-				params.ExecutionContext.Sender.AgentID,
-				params.ExecutionContext.Sender.PodName,
-				params.ExecutionContext.StepName,
-				"plan_sections",
-				fmt.Sprintf("fact assignment for section %q composed an empty writer block (%d assigned IDs, none resolvable)", item.Name, len(facts)),
-				"FACT_SCOPING_EMPTY_COMPOSITION",
-				"warning",
-				string(anomalyCtx),
-			); insErr != nil {
-				logger.Warn("plan_sections: could not record empty-composition anomaly to agent_error_log",
-					zap.Error(insErr))
-			}
+			LogActionEntry(ctx, params, agenterrors.Entry{
+				SiteID: siteID.String(),
+				Action: "plan_sections",
+				ErrorMessage: fmt.Sprintf("fact assignment for section %q composed an empty writer block (%d assigned IDs, none resolvable)",
+					item.Name, len(facts)),
+				ErrorCode: "FACT_SCOPING_EMPTY_COMPOSITION",
+				Severity:  "warning",
+				Context: map[string]interface{}{
+					"section":           item.Name,
+					"page_name":         pageName,
+					"assigned_fact_ids": facts,
+					"remedy":            "the plan's assigned_fact_ids match no current evidence_base fact with a writer_line; replan the site or correct the register — the section built with the site-wide block meanwhile",
+				},
+			}, logger)
 			return
 		}
 		item.FactsScoped = true
@@ -1262,34 +1250,20 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 				zap.String("page", pageName),
 				zap.Strings("skipped", skippedNames),
 				zap.Error(persistErr))
-			escCtx, _ := json.Marshal(map[string]interface{}{
-				"page_name":      pageName,
-				"skipped":        skippedNames,
-				"ready":          readyNames,
-				"remedy":         "the page's suppressed_sections was not updated; the 040 guard may refuse its deploy stamp until the next successful plan — see bugs_open/040 skip-not-recorded",
-				"council_review": "164058e6-4630-47a2-b0d7-58659997b291",
-			})
-			if _, escErr := params.DB.ExecContext(ctx, `
-				INSERT INTO agent_error_log (
-					site_id, orchestration_id, agent_type, agent_id, pod_name,
-					step_name, action, error_message, error_code, severity, context
-				) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb)
-			`,
-				siteID,
-				params.ExecutionContext.OrchestrationID,
-				params.ExecutionContext.Sender.AgentType,
-				params.ExecutionContext.Sender.AgentID,
-				params.ExecutionContext.Sender.PodName,
-				params.ExecutionContext.StepName,
-				"plan_sections",
-				"persistSectionSkips failed: "+persistErr.Error(),
-				"SKIP_PERSISTENCE_FAILED",
-				"warning",
-				string(escCtx),
-			); escErr != nil {
-				logger.Warn("plan_sections: could not escalate skip-persistence failure to agent_error_log",
-					zap.Error(escErr))
-			}
+			LogActionEntry(ctx, params, agenterrors.Entry{
+				SiteID:       siteID.String(),
+				Action:       "plan_sections",
+				ErrorMessage: "persistSectionSkips failed: " + persistErr.Error(),
+				ErrorCode:    "SKIP_PERSISTENCE_FAILED",
+				Severity:     "warning",
+				Context: map[string]interface{}{
+					"page_name":      pageName,
+					"skipped":        skippedNames,
+					"ready":          readyNames,
+					"remedy":         "the page's suppressed_sections was not updated; the 040 guard may refuse its deploy stamp until the next successful plan — see bugs_open/040 skip-not-recorded",
+					"council_review": "164058e6-4630-47a2-b0d7-58659997b291",
+				},
+			}, logger)
 		}
 	}
 

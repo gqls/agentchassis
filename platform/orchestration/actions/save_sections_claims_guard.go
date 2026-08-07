@@ -86,10 +86,10 @@ package actions
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/orchestration/agenterrors"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
@@ -331,21 +331,7 @@ func writeClaimsFloorLog(
 		outcome = "refused"
 	}
 
-	contextData := map[string]interface{}{
-		"outcome":       outcome,
-		"page_name":     pageName,
-		"page_url":      pageURL,
-		"blocker_count": len(blockers),
-		"error_count":   len(errs),
-		"blockers":      toMaps(blockers),
-		"errors":        toMaps(errs),
-	}
-	contextJSON, err := json.Marshal(contextData)
-	if err != nil {
-		logger.Warn("claims floor: failed to marshal finding context", zap.Error(err))
-		return
-	}
-
+	// agent_type is NOT NULL and this site's own fallback is what guarantees it.
 	agentType := params.AgentType
 	if agentType == "" {
 		agentType = "unknown"
@@ -356,16 +342,24 @@ func writeClaimsFloorLog(
 		severity = "error"
 	}
 
-	if _, err := params.DB.ExecContext(ctx, `
-		INSERT INTO agent_error_log
-		    (site_id, domain, agent_type, step_name, action,
-		     error_message, error_code, severity, context)
-		VALUES ($1, NULLIF($2, ''), $3, $4, 'save_page_sections', $5, $6, $7, $8::jsonb)`,
-		siteID, domain, agentType, saveSectionsStepName(params),
-		fmt.Sprintf("Claims floor %s: %d banned claim(s), %d unregistered number(s) on page %s",
+	LogActionEntry(ctx, params, agenterrors.Entry{
+		SiteID:    siteID.String(),
+		Domain:    domain,
+		AgentType: agentType,
+		StepName:  saveSectionsStepName(params),
+		Action:    "save_page_sections",
+		ErrorMessage: fmt.Sprintf("Claims floor %s: %d banned claim(s), %d unregistered number(s) on page %s",
 			outcome, len(blockers), len(errs), pageName),
-		claimsFloorErrorCode, severity, string(contextJSON),
-	); err != nil {
-		logger.Warn("claims floor: failed to write finding record", zap.Error(err))
-	}
+		ErrorCode: claimsFloorErrorCode,
+		Severity:  severity,
+		Context: map[string]interface{}{
+			"outcome":       outcome,
+			"page_name":     pageName,
+			"page_url":      pageURL,
+			"blocker_count": len(blockers),
+			"error_count":   len(errs),
+			"blockers":      toMaps(blockers),
+			"errors":        toMaps(errs),
+		},
+	}, logger)
 }

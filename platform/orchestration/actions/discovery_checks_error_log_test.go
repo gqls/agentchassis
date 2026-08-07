@@ -88,15 +88,25 @@ func TestDiscoveryCheckErrorLogColumnValues(t *testing.T) {
 	siteID := uuid.New()
 	batchID := uuid.New()
 
+	// The canonical 13-column bind list (RFC_012 option B): the writer moved to
+	// agenterrors.Write, so `action` and `severity` are ARGUMENTS here where they
+	// used to be SQL literals — asserted below rather than dropped, and the
+	// identity slots this site never filled are AnyArg.
 	var gotContext string
 	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO agent_error_log")).
 		WithArgs(
-			siteID,
+			siteID.String(),
 			"gamesdesign.co.uk",
+			sqlmock.AnyArg(), // work_item_id
+			sqlmock.AnyArg(), // orchestration_id
 			"design-discovery-agent",
-			"scan_site", // step_name comes from the ExecutionContext, not the default
+			sqlmock.AnyArg(), // agent_id
+			sqlmock.AnyArg(), // pod_name
+			"scan_site",      // step_name comes from the ExecutionContext, not the default
+			"run_discovery_checks",
 			sqlmock.AnyArg(),
 			discoveryCheckErrorCode,
+			"warning",
 			captureArg{&gotContext},
 		).
 		WillReturnResult(sqlmock.NewResult(1, 1))
@@ -157,7 +167,18 @@ func TestDiscoveryCheckErrorLogUsesWarningSeverity(t *testing.T) {
 	}
 	defer db.Close()
 
-	mock.ExpectExec("'warning'").WillReturnResult(sqlmock.NewResult(1, 1))
+	// Severity used to be a SQL literal, so this test matched the statement text.
+	// Under the shared writer it is bind 12 — the assertion moves to the argument
+	// rather than being dropped, which is the whole point of keeping this test.
+	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO agent_error_log")).
+		WithArgs(
+			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
+			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
+			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
+			"warning",
+			sqlmock.AnyArg(),
+		).
+		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	params := ActionParams{DB: db, Logger: zap.NewNop()}
 	writeDiscoveryCheckErrorLog(context.Background(), params, uuid.New(),
@@ -205,8 +226,12 @@ func TestDiscoveryCheckErrorLogDefaultsAgentType(t *testing.T) {
 
 	siteID := uuid.New()
 	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO agent_error_log")).
-		WithArgs(siteID, "x.com", "unknown", "run_discovery_checks",
-			sqlmock.AnyArg(), discoveryCheckErrorCode, sqlmock.AnyArg()).
+		WithArgs(siteID.String(), "x.com",
+			sqlmock.AnyArg(), sqlmock.AnyArg(), // work_item_id, orchestration_id
+			"unknown",
+			sqlmock.AnyArg(), sqlmock.AnyArg(), // agent_id, pod_name
+			"run_discovery_checks", "run_discovery_checks",
+			sqlmock.AnyArg(), discoveryCheckErrorCode, "warning", sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	params := ActionParams{DB: db, Logger: zap.NewNop()}
@@ -276,10 +301,12 @@ func TestDiscoveryCheckErrorLogMessageNamesTheConsequence(t *testing.T) {
 
 	var captured string
 	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO agent_error_log")).
-		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
+		WithArgs(
+			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
+			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
 			sqlmock.AnyArg(),
-			captureArg{&captured},
-			discoveryCheckErrorCode, sqlmock.AnyArg()).
+			captureArg{&captured}, // error_message, bind 10
+			discoveryCheckErrorCode, "warning", sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	params := ActionParams{DB: db, Logger: zap.NewNop()}
@@ -337,8 +364,11 @@ func TestRunDiscoveryChecksWritesDurableRecordForErroringCheck(t *testing.T) {
 	// THE ASSERTION: the erroring check left a durable row.
 	var gotMessage string
 	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO agent_error_log")).
-		WithArgs(siteID, "gamesdesign.co.uk", sqlmock.AnyArg(), sqlmock.AnyArg(),
-			captureArg{&gotMessage}, discoveryCheckErrorCode, sqlmock.AnyArg()).
+		WithArgs(siteID.String(), "gamesdesign.co.uk",
+			sqlmock.AnyArg(), sqlmock.AnyArg(), // work_item_id, orchestration_id
+			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), // agent_type, agent_id, pod_name
+			sqlmock.AnyArg(), "run_discovery_checks", // step_name, action
+			captureArg{&gotMessage}, discoveryCheckErrorCode, "warning", sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	params := ActionParams{

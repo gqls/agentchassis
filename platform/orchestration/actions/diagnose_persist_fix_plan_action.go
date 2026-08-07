@@ -39,6 +39,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/gqls/agentchassis/platform/orchestration/agenterrors"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
@@ -359,25 +360,9 @@ func recordPlanRefusal(
 		attemptText = fmt.Sprintf("%d", attempt)
 	}
 
-	contextJSON, err := json.Marshal(map[string]interface{}{
-		"outcome":         outcome,
-		"correlation_id":  corr,
-		"plan_shape":      shape,
-		"problems":        problems,
-		"problem_count":   len(problems),
-		"repair_attempt":  attemptField,
-		"max_attempts":    maxAttempts,
-		"exhausted":       exhausted,
-		"terminal_reason": terminalReason,
-		"note_kind":       planRefusalNoteKind,
-		"rejected_plan":   "diagnosis_artifacts kind=iteration_note, metadata->>'note_kind'=" + planRefusalNoteKind,
-		"bug":             "bugs_open/099 candidate 2; bookkeeping exits bugs_open/162",
-	})
-	if err != nil {
-		logger.Warn("plan refusal: could not marshal finding context", zap.Error(err))
-		return
-	}
-
+	// agent_type is NOT NULL on the table and this site's own fallback is what
+	// guarantees it — set it explicitly rather than letting the merge decide,
+	// because the merge can only fill from params that may both be empty.
 	agentType := params.AgentType
 	if agentType == "" {
 		agentType = "unknown"
@@ -386,19 +371,29 @@ func recordPlanRefusal(
 	// orchestration_id is a first-class column here, so a dashboard can join the
 	// refusal to its run without digging into context. The first live refusal wrote
 	// this row with it EMPTY (2026-07-31) — the correlation was in context but the
-	// column that every other query joins on was blank.
-	if _, err := params.DB.ExecContext(ctx, `
-		INSERT INTO agent_error_log
-		    (agent_type, step_name, action, error_message, error_code, severity, context, orchestration_id)
-		VALUES ($1, $2, 'diagnose_persist_fix_plan', $3, $4, $5, $6::jsonb, NULLIF($7,''))`,
-		agentType, params.ExecutionContext.StepName,
-		fmt.Sprintf("Fix plan refused (%s): %d structural problem(s), attempt %s of %d — %s",
+	// column that every other query joins on was blank. The merge now fills it.
+	LogActionEntry(ctx, params, agenterrors.Entry{
+		AgentType: agentType,
+		Action:    "diagnose_persist_fix_plan",
+		ErrorMessage: fmt.Sprintf("Fix plan refused (%s): %d structural problem(s), attempt %s of %d — %s",
 			shape, len(problems), attemptText, maxAttempts, outcome),
-		planRefusalErrorCode, severity, string(contextJSON),
-		params.ExecutionContext.OrchestrationID,
-	); err != nil {
-		logger.Warn("plan refusal: failed to write finding record", zap.Error(err))
-	}
+		ErrorCode: planRefusalErrorCode,
+		Severity:  severity,
+		Context: map[string]interface{}{
+			"outcome":         outcome,
+			"correlation_id":  corr,
+			"plan_shape":      shape,
+			"problems":        problems,
+			"problem_count":   len(problems),
+			"repair_attempt":  attemptField,
+			"max_attempts":    maxAttempts,
+			"exhausted":       exhausted,
+			"terminal_reason": terminalReason,
+			"note_kind":       planRefusalNoteKind,
+			"rejected_plan":   "diagnosis_artifacts kind=iteration_note, metadata->>'note_kind'=" + planRefusalNoteKind,
+			"bug":             "bugs_open/099 candidate 2; bookkeeping exits bugs_open/162",
+		},
+	}, logger)
 }
 
 // planValidationRefusal decides what a STRUCTURAL validation failure does.

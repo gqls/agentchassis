@@ -33,9 +33,13 @@ func runRecord(t *testing.T, damage []truncationDegradation, execErr error) []ma
 	codes := make([]string, len(damage))
 	for i := range damage {
 		e := mock.ExpectExec(`INSERT INTO agent_error_log`).
+			// Canonical 13-column bind list (RFC_012 option B): error_code is
+			// bind 11 and context bind 13, where they were 8 and 10 under this
+			// site's old 10-column hand-copy.
 			WithArgs(
 				sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
-				sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
+				sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
+				sqlmock.AnyArg(), sqlmock.AnyArg(),
 				captureArg{got: &codes[i]}, sqlmock.AnyArg(), captureArg{got: &captured[i]},
 			)
 		if execErr != nil {
@@ -152,7 +156,9 @@ func TestRecordTruncationDegradationMessageNamesSeatAndBranch(t *testing.T) {
 	mock.ExpectExec(`INSERT INTO agent_error_log`).
 		WithArgs(
 			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
-			sqlmock.AnyArg(), sqlmock.AnyArg(), captureArg{got: &msg},
+			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
+			sqlmock.AnyArg(),
+			captureArg{got: &msg}, // error_message, bind 10
 			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
 		).
 		WillReturnResult(sqlmock.NewResult(1, 1))

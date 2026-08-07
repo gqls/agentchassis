@@ -10,12 +10,12 @@ package actions
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
+	"github.com/gqls/agentchassis/platform/orchestration/agenterrors"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 
 	// This import triggers init() in every check_*.go file
@@ -372,36 +372,36 @@ func writeDiscoveryCheckErrorLog(
 		stepName = params.ExecutionContext.StepName
 	}
 
+	findings := make([]agenterrors.Finding, 0, len(failedChecks))
 	for _, fc := range failedChecks {
 		checkName := fc["check"]
 		checkErr := fc["error"]
-
-		errCtx, err := json.Marshal(map[string]string{
-			"check":          checkName,
-			"check_error":    checkErr,
-			"check_pipeline": checkPipeline,
-			"batch_id":       batchID.String(),
-		})
-		if err != nil {
-			logger.Warn("RunDiscoveryChecksAction: failed to marshal check error context",
-				zap.String("check", checkName), zap.Error(err))
-			continue
-		}
-
-		if _, err := params.DB.ExecContext(ctx, `
-			INSERT INTO agent_error_log
-			    (site_id, domain, agent_type, step_name, action,
-			     error_message, error_code, severity, context)
-			VALUES ($1, NULLIF($2, ''), $3, $4, 'run_discovery_checks',
-			        $5, $6, 'warning', $7::jsonb)`,
-			siteID, domain, agentType, stepName,
-			fmt.Sprintf("Discovery check %q errored and was skipped — the site was NOT checked for this class: %s",
+		findings = append(findings, agenterrors.Finding{
+			ErrorCode: discoveryCheckErrorCode,
+			Severity:  "warning",
+			Message: fmt.Sprintf("Discovery check %q errored and was skipped — the site was NOT checked for this class: %s",
 				checkName, checkErr),
-			discoveryCheckErrorCode,
-			string(errCtx),
-		); err != nil {
-			logger.Warn("RunDiscoveryChecksAction: failed to write discovery check error record",
-				zap.String("check", checkName), zap.Error(err))
-		}
+			Context: map[string]interface{}{
+				"check":          checkName,
+				"check_error":    checkErr,
+				"check_pipeline": checkPipeline,
+				"batch_id":       batchID.String(),
+			},
+		})
+	}
+
+	// agentType and stepName are this function's own, defaulted above — set
+	// explicitly so the merge cannot substitute the executing step's identity.
+	attempted, recorded := LogActionEntryFindings(ctx, params, agenterrors.Entry{
+		SiteID:    siteID.String(),
+		Domain:    domain,
+		AgentType: agentType,
+		StepName:  stepName,
+		Action:    "run_discovery_checks",
+	}, findings, logger)
+	if attempted != recorded {
+		logger.Warn("RunDiscoveryChecksAction: failed to write some discovery check error records",
+			zap.Int("attempted", attempted),
+			zap.Int("recorded", recorded))
 	}
 }

@@ -75,10 +75,10 @@ package actions
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/orchestration/agenterrors"
 	"go.uber.org/zap"
 )
 
@@ -263,60 +263,50 @@ func writeContentDataRegressionLog(
 		return
 	}
 
-	contextJSON, err := json.Marshal(map[string]interface{}{
+	contextPayload := map[string]interface{}{
 		"page_name":               pageName,
 		"metadata_field":          metadataField,
 		"metadata_field_origin":   origin,
 		"existing_rows_with_data": existingRowsWithContentData,
 		"incoming_sections":       len(sections),
 		"bug":                     "bugs_open/194",
-	})
-	if err != nil {
-		logger.Warn("content_data regression: failed to marshal context", zap.Error(err))
-		return
 	}
 
-	var siteIDArg interface{}
+	var siteIDStr string
 	if siteID != uuid.Nil {
-		siteIDArg = siteID
+		siteIDStr = siteID.String()
 	}
 
 	// orchestration_id, so the row can be joined to the run that produced it
 	// (code-review F10). Without it a CONTENT_DATA_REGRESSION row names a page
 	// and a time and nothing that reaches the orchestration — and this record
-	// exists precisely to make a silent loss investigable.
+	// exists precisely to make a silent loss investigable. The merge now fills it
+	// for every converted site, which is what this one had to do by hand.
 	//
-	// The finding also asked for this INSERT to be replaced by a call to
-	// orchestration.LogAgentError. It cannot be: platform/orchestration/
-	// coordinator.go:23 imports this package, so importing it back is a cycle.
-	// Every one of the ~20 agent_error_log writers in this package is a local
-	// INSERT for that reason — the copy is structural, not laziness.
-	var orchestrationID string
-	if params.ExecutionContext != nil {
-		orchestrationID = params.ExecutionContext.OrchestrationID
-	}
-
-	if _, err := params.DB.ExecContext(ctx, `
-		INSERT INTO agent_error_log
-		    (site_id, domain, agent_type, step_name, action,
-		     error_message, error_code, severity, context, orchestration_id)
-		VALUES ($1, NULLIF($2, ''), $3, $4, $5, $6, $7, 'warning', $8::jsonb, NULLIF($9, ''))`,
-		siteIDArg, domain, componentRepairAgentType(params), saveSectionsStepName(params),
-		"save_page_sections",
-		fmt.Sprintf("page %q had %d component(s) holding structured content_data and this save carries "+
+	// > **CORRECTED 2026-08-06 (RFC_012 option B):** this comment used to say the
+	// > finding's ask — replace the INSERT with the shared writer — "cannot" be
+	// > done, because platform/orchestration/coordinator.go imports this package
+	// > and importing it back is a cycle. That was true of the writer's OLD home
+	// > and is no longer true of anything: the writer moved DOWN to the leaf
+	// > package platform/orchestration/agenterrors, which both sides of that edge
+	// > can import. The copy was structural; the structure changed.
+	LogActionEntry(ctx, params, agenterrors.Entry{
+		SiteID:    siteIDStr,
+		Domain:    domain,
+		AgentType: componentRepairAgentType(params),
+		StepName:  saveSectionsStepName(params),
+		Action:    "save_page_sections",
+		ErrorMessage: fmt.Sprintf("page %q had %d component(s) holding structured content_data and this save carries "+
 			"none for any of its %d section(s): the page keeps its HTML but loses the only thing the "+
 			"rerender path can regenerate it from. Structured sections were sought at %q (%s). "+
 			"If this caller has no structured content by design, declare %s on the step; "+
 			"otherwise map %s to the writer's reply (bugs_open/194)",
 			pageName, existingRowsWithContentData, len(sections),
 			metadataField, origin, expectsNoSectionsMetadataKey, sectionsMetadataFieldKey),
-		contentDataRegressionErrorCode,
-		string(contextJSON),
-		orchestrationID,
-	); err != nil {
-		logger.Warn("content_data regression: failed to write record", zap.Error(err))
-		return
-	}
+		ErrorCode: contentDataRegressionErrorCode,
+		Severity:  "warning",
+		Context:   contextPayload,
+	}, logger)
 
 	logger.Warn("SavePageSectionsAction: saving a page that had structured content_data with none (bugs_open/194)",
 		zap.String("page_name", pageName),

@@ -125,7 +125,6 @@ package actions
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"sort"
@@ -134,6 +133,7 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
+	"github.com/gqls/agentchassis/platform/orchestration/agenterrors"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 )
 
@@ -343,33 +343,26 @@ func writeContentDataEnvelopeLog(
 		message = fmt.Sprintf("page %q section %q: %s", pageName, slotName, detail)
 	}
 
-	contextJSON, err := json.Marshal(map[string]interface{}{
-		"page_name": pageName,
-		"slot_name": slotName,
-		"outcome":   outcome,
-		"bug":       "bugs_open/190",
-	})
-	if err != nil {
-		params.Logger.Warn("content_data envelope: failed to marshal context", zap.Error(err))
-		return
-	}
-
-	var siteIDArg interface{}
+	var siteIDStr string
 	if siteID != uuid.Nil {
-		siteIDArg = siteID
+		siteIDStr = siteID.String()
 	}
 
-	if _, err := params.DB.ExecContext(ctx, `
-		INSERT INTO agent_error_log
-		    (site_id, domain, agent_type, step_name, action,
-		     error_message, error_code, severity, context)
-		VALUES ($1, NULLIF($2, ''), $3, $4, $5, $6, $7, $8, $9::jsonb)`,
-		siteIDArg,
-		datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.domain"),
-		componentRepairAgentType(params), saveSectionsStepName(params),
-		"save_page_sections",
-		message, contentDataEnvelopeErrorCode, severity, string(contextJSON),
-	); err != nil {
-		params.Logger.Warn("content_data envelope: failed to write record", zap.Error(err))
-	}
+	// Files under the save's own provenance helpers, not the running step's.
+	LogActionEntry(ctx, params, agenterrors.Entry{
+		SiteID:       siteIDStr,
+		Domain:       datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.domain"),
+		AgentType:    componentRepairAgentType(params),
+		StepName:     saveSectionsStepName(params),
+		Action:       "save_page_sections",
+		ErrorMessage: message,
+		ErrorCode:    contentDataEnvelopeErrorCode,
+		Severity:     severity,
+		Context: map[string]interface{}{
+			"page_name": pageName,
+			"slot_name": slotName,
+			"outcome":   outcome,
+			"bug":       "bugs_open/190",
+		},
+	}, params.Logger)
 }

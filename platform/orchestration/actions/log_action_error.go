@@ -56,13 +56,64 @@ func actionErrorEntry(params ActionParams, siteID, domain string) agenterrors.En
 // LogActionError persists one row from inside an action, identity resolved
 // from params. Best-effort: returns whether the row landed; a failure must
 // never change the disposition the caller has already decided.
+//
+// Use this when the row should be filed under the EXECUTING step's identity.
+// When the site carries its own provenance, use LogActionEntry — see the
+// warning there, which is a council finding, not a style preference.
 func LogActionError(ctx context.Context, params ActionParams, siteID, domain, action, code, severity, message string, contextPayload map[string]interface{}, logger *zap.Logger) bool {
-	entry := actionErrorEntry(params, siteID, domain)
-	entry.Action = action
-	entry.ErrorCode = code
-	entry.Severity = severity
-	entry.ErrorMessage = message
-	entry.Context = contextPayload
+	return LogActionEntry(ctx, params, agenterrors.Entry{
+		SiteID:       siteID,
+		Domain:       domain,
+		Action:       action,
+		ErrorCode:    code,
+		Severity:     severity,
+		ErrorMessage: message,
+		Context:      contextPayload,
+	}, logger)
+}
+
+// LogActionEntry persists one row, taking the caller's fields as authoritative
+// and filling ONLY what the caller left zero from ActionParams. It is the door
+// for a site that files under its OWN provenance rather than the executing
+// step's — an origin/provenance struct, or hard-coded literals.
+//
+// ⚠ PROVENANCE IS NOT INTERCHANGEABLE, and this is a council finding rather
+// than a preference. When consolidating the birth-path recorder in
+// store_generated_component_action.go was first proposed, the edit-quality and
+// guardian seats both objected that "a provenance-literal slip here would
+// silently misfile birth-path rejections fleet-wide" — a row attributed to the
+// wrong agent/step is worse than no row, because it is believed. Several
+// converted sites deliberately file under a provenance that is NOT the running
+// step (component_link_repair and the validate_page_content link recorder file
+// under the ORIGIN of the content they repaired; store_generated_component
+// files as "component-creator"/"store_component"). Set those fields explicitly
+// here; never let them be inherited.
+//
+// Merge semantics, stated because they are load-bearing: a field the caller
+// sets is used verbatim; a field left zero is filled from params (orchestration
+// id, sender agent/pod, step name, work item id). That is what gives the nine
+// historically orchestration_id-less sites their run join for free, while
+// leaving every provenance literal exactly where its author put it.
+func LogActionEntry(ctx context.Context, params ActionParams, entry agenterrors.Entry, logger *zap.Logger) bool {
+	base := actionErrorEntry(params, entry.SiteID, entry.Domain)
+	if entry.WorkItemID == "" {
+		entry.WorkItemID = base.WorkItemID
+	}
+	if entry.OrchestrationID == "" {
+		entry.OrchestrationID = base.OrchestrationID
+	}
+	if entry.AgentType == "" {
+		entry.AgentType = base.AgentType
+	}
+	if entry.AgentID == "" {
+		entry.AgentID = base.AgentID
+	}
+	if entry.PodName == "" {
+		entry.PodName = base.PodName
+	}
+	if entry.StepName == "" {
+		entry.StepName = base.StepName
+	}
 	return agenterrors.Write(ctx, params.DB, logger, entry)
 }
 
@@ -76,7 +127,36 @@ func LogActionError(ctx context.Context, params ActionParams, siteID, domain, ac
 //	audit["conditions_recorded"] = recorded
 //	if attempted != recorded { audit["conditions_lost"] = attempted - recorded }
 func LogActionFindings(ctx context.Context, params ActionParams, siteID, domain, action string, findings []agenterrors.Finding, logger *zap.Logger) (attempted, recorded int) {
-	entry := actionErrorEntry(params, siteID, domain)
-	entry.Action = action
-	return agenterrors.RecordFindings(ctx, params.DB, logger, entry, findings)
+	return LogActionEntryFindings(ctx, params, agenterrors.Entry{
+		SiteID: siteID,
+		Domain: domain,
+		Action: action,
+	}, findings, logger)
+}
+
+// LogActionEntryFindings is LogActionFindings for a site that files under its
+// OWN provenance — the findings form of LogActionEntry, with the same merge
+// semantics and the same warning about never inheriting a provenance literal.
+func LogActionEntryFindings(ctx context.Context, params ActionParams, base agenterrors.Entry, findings []agenterrors.Finding, logger *zap.Logger) (attempted, recorded int) {
+	merged := actionErrorEntry(params, base.SiteID, base.Domain)
+	if base.WorkItemID != "" {
+		merged.WorkItemID = base.WorkItemID
+	}
+	if base.OrchestrationID != "" {
+		merged.OrchestrationID = base.OrchestrationID
+	}
+	if base.AgentType != "" {
+		merged.AgentType = base.AgentType
+	}
+	if base.AgentID != "" {
+		merged.AgentID = base.AgentID
+	}
+	if base.PodName != "" {
+		merged.PodName = base.PodName
+	}
+	if base.StepName != "" {
+		merged.StepName = base.StepName
+	}
+	merged.Action = base.Action
+	return agenterrors.RecordFindings(ctx, params.DB, logger, merged, findings)
 }

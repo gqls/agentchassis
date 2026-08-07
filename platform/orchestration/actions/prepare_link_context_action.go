@@ -7,11 +7,11 @@ package actions
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/orchestration/agenterrors"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
@@ -470,36 +470,30 @@ func recordLinkContextUnavailable(
 		outcome = "writer instructed to emit NO internal links"
 	}
 
-	contextJSON, err := json.Marshal(map[string]interface{}{
-		"outcome":    outcome,
-		"failure":    failure,
-		"source":     source,
-		"page_count": pageCount,
-		"degraded":   degraded,
-		"site_id":    siteIDStr,
-		"bug":        "bugs_open/092",
-	})
-	if err != nil {
-		logger.Warn("link context: could not marshal finding context", zap.Error(err))
-		return
-	}
-
+	// agent_type is NOT NULL on the table and this site's own fallback is what
+	// guarantees it — set explicitly rather than left to the merge.
 	agentType := params.AgentType
 	if agentType == "" {
 		agentType = "unknown"
 	}
 
-	if _, err := params.DB.ExecContext(ctx, `
-		INSERT INTO agent_error_log
-		    (site_id, agent_type, step_name, action, error_message, error_code, severity, context, orchestration_id)
-		VALUES (NULLIF($1,'')::uuid, $2, $3, 'prepare_link_context', $4, $5, $6, $7::jsonb, NULLIF($8,''))`,
-		siteIDStr, agentType, params.ExecutionContext.StepName,
-		fmt.Sprintf("Writer link context unavailable — %s; %s", failure, outcome),
-		linkContextUnavailableCode, severity, string(contextJSON),
-		params.ExecutionContext.OrchestrationID,
-	); err != nil {
-		logger.Warn("link context: failed to write finding record", zap.Error(err))
-	}
+	LogActionEntry(ctx, params, agenterrors.Entry{
+		SiteID:       siteIDStr,
+		AgentType:    agentType,
+		Action:       "prepare_link_context",
+		ErrorMessage: fmt.Sprintf("Writer link context unavailable — %s; %s", failure, outcome),
+		ErrorCode:    linkContextUnavailableCode,
+		Severity:     severity,
+		Context: map[string]interface{}{
+			"outcome":    outcome,
+			"failure":    failure,
+			"source":     source,
+			"page_count": pageCount,
+			"degraded":   degraded,
+			"site_id":    siteIDStr,
+			"bug":        "bugs_open/092",
+		},
+	}, logger)
 }
 
 // extractPagesForLinking gets pages from collected data. The FALLBACK source —

@@ -76,6 +76,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/gqls/agentchassis/platform/orchestration/agenterrors"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
@@ -618,41 +619,32 @@ func recordTruncationDegradation(ctx context.Context, params ActionParams, corr,
 		return
 	}
 
+	findings := make([]agenterrors.Finding, 0, len(damage))
 	for _, d := range damage {
-		contextJSON, _ := json.Marshal(map[string]interface{}{
-			"correlation_id":       corr,
-			"review_field":         d.Field,
-			"reviewer":             d.Reviewer,
-			"recovered_verdict":    d.Verdict,
-			"objections_recovered": d.Objections,
-			"branch":               d.Branch,
-			"council_decision":     decision,
+		findings = append(findings, agenterrors.Finding{
+			ErrorCode: "TRUNCATION_DEGRADED_REVIEW",
+			Severity:  "warning",
+			Message:   "council seat '" + d.Field + "' was damaged by a TRUNCATED response (" + d.Branch + ") — the opinion counted here is partial or lost",
+			Context: map[string]interface{}{
+				"correlation_id":       corr,
+				"review_field":         d.Field,
+				"reviewer":             d.Reviewer,
+				"recovered_verdict":    d.Verdict,
+				"objections_recovered": d.Objections,
+				"branch":               d.Branch,
+				"council_decision":     decision,
+			},
 		})
-		if contextJSON == nil {
-			contextJSON = []byte("{}")
-		}
+	}
 
-		if _, err := params.DB.ExecContext(ctx, `
-			INSERT INTO agent_error_log (
-				orchestration_id, agent_type, agent_id, pod_name,
-				step_name, action, error_message, error_code, severity, context
-			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb)
-		`,
-			nullIfEmpty(params.ExecutionContext.OrchestrationID),
-			params.ExecutionContext.Sender.AgentType,
-			params.ExecutionContext.Sender.AgentID,
-			params.ExecutionContext.Sender.PodName,
-			params.ExecutionContext.StepName,
-			"diagnose_council_decide",
-			"council seat '"+d.Field+"' was damaged by a TRUNCATED response ("+d.Branch+") — the opinion counted here is partial or lost",
-			"TRUNCATION_DEGRADED_REVIEW",
-			"warning",
-			string(contextJSON),
-		); err != nil {
-			logger.Warn("recordTruncationDegradation: could not persist to agent_error_log (the decision is unaffected)",
-				zap.String("field", d.Field),
-				zap.Error(err))
-		}
+	// One row per damaged seat, identity shared. The loss is COUNTED rather than
+	// swallowed: a seat whose degradation went unrecorded must not read as a
+	// seat that was undamaged.
+	attempted, recorded := LogActionFindings(ctx, params, "", "", "diagnose_council_decide", findings, logger)
+	if attempted != recorded {
+		logger.Warn("recordTruncationDegradation: some rows did not persist (the decision is unaffected)",
+			zap.Int("attempted", attempted),
+			zap.Int("recorded", recorded))
 	}
 }
 

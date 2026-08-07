@@ -79,12 +79,15 @@ func TestRepairComponentHTML_RewritesUnlinksAndRecords(t *testing.T) {
 	mock.ExpectQuery(regexp.QuoteMeta(linkablePageStatusPredicate)).
 		WillReturnRows(pageIndexRows("/index.html", "/contact.html"))
 
+	// Canonical 13-column bind list (RFC_012 option B): action is bind 9,
+	// error_code bind 11 and context bind 13.
 	var gotAction, gotCode, gotContext string
 	mock.ExpectExec("INSERT INTO agent_error_log").
 		WithArgs(
 			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
+			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
 			captureArg{&gotAction}, sqlmock.AnyArg(), captureArg{&gotCode},
-			captureArg{&gotContext},
+			sqlmock.AnyArg(), captureArg{&gotContext},
 		).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
@@ -129,14 +132,19 @@ func TestRepairComponentHTML_UntrustworthyIndexShipsUnrepairedAndRecordsTheSkip(
 	mock.ExpectQuery(regexp.QuoteMeta(linkablePageStatusPredicate)).
 		WillReturnError(context.DeadlineExceeded)
 
-	// The skip code is a LITERAL in the statement, not a bound argument, so the
-	// query TEXT is where it has to be asserted — matching the INSERT verb alone
-	// would pass for a row carrying any code at all.
+	// > **UPDATED 2026-08-06 (RFC_012 option B).** The skip code USED to be a
+	// > literal in the statement, so the query TEXT was the only place it could
+	// > be asserted. Under the shared writer it is bind 11, so the assertion
+	// > moves to the argument — pinned by VALUE below, not relaxed to AnyArg.
+	// > Matching the INSERT verb alone would still pass for a row carrying any
+	// > code at all, which is what this test exists to prevent.
 	var gotAction, gotMessage string
-	mock.ExpectExec("CONTENT_LINK_REPAIR_SKIPPED").
+	mock.ExpectExec("INSERT INTO agent_error_log").
 		WithArgs(
 			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
-			captureArg{&gotAction}, captureArg{&gotMessage}, sqlmock.AnyArg(),
+			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
+			captureArg{&gotAction}, captureArg{&gotMessage},
+			"CONTENT_LINK_REPAIR_SKIPPED", "warning", sqlmock.AnyArg(),
 		).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 

@@ -44,10 +44,10 @@ package actions
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/orchestration/agenterrors"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
@@ -153,38 +153,36 @@ func writeContentDataLinkLog(
 		return
 	}
 
-	contextJSON, err := json.Marshal(map[string]interface{}{
-		"rewritten": rewritten,
-		"phantom":   phantom,
-		"findings":  findings,
-		"page_name": origin.PageName,
-		"page_url":  origin.PageURL,
-	})
-	if err != nil {
-		logger.Warn("content_data link audit: failed to marshal context", zap.Error(err))
-		return
-	}
-
-	var siteIDArg interface{}
+	// An unparseable site_id becomes NULL rather than an error, exactly as the
+	// parse-or-drop it replaces did.
+	var siteIDArg string
 	if siteIDStr != "" {
 		if id, err := uuid.Parse(siteIDStr); err == nil {
-			siteIDArg = id
+			siteIDArg = id.String()
 		}
 	}
 
-	if _, err := params.DB.ExecContext(ctx, `
-		INSERT INTO agent_error_log
-		    (site_id, domain, agent_type, step_name, action,
-		     error_message, error_code, severity, context)
-		VALUES ($1, NULLIF($2, ''), $3, $4, $5, $6, $7, 'warning', $8::jsonb)`,
-		siteIDArg, domain, origin.AgentType, origin.StepName, origin.ActionName,
-		fmt.Sprintf("content_data holds %d internal link(s) that resolve to no page: "+
+	// Filed under the ORIGIN's provenance — the audit belongs to the writer
+	// whose content_data carried the links, not to the running step.
+	if !LogActionEntry(ctx, params, agenterrors.Entry{
+		SiteID:    siteIDArg,
+		Domain:    domain,
+		AgentType: origin.AgentType,
+		StepName:  origin.StepName,
+		Action:    origin.ActionName,
+		ErrorMessage: fmt.Sprintf("content_data holds %d internal link(s) that resolve to no page: "+
 			"%d rewritten to the real stored url, %d phantom and left for authoring review; see context.findings",
 			len(findings), rewritten, phantom),
-		contentDataLinkErrorCode,
-		string(contextJSON),
-	); err != nil {
-		logger.Warn("content_data link audit: failed to write record", zap.Error(err))
+		ErrorCode: contentDataLinkErrorCode,
+		Severity:  "warning",
+		Context: map[string]interface{}{
+			"rewritten": rewritten,
+			"phantom":   phantom,
+			"findings":  findings,
+			"page_name": origin.PageName,
+			"page_url":  origin.PageURL,
+		},
+	}, logger) {
 		return
 	}
 

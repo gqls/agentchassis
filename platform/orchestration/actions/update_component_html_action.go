@@ -160,7 +160,7 @@ func UpdateComponentHTMLAction(ctx context.Context, params ActionParams) (interf
 			)
 
 			recordComponentWriteRejection(
-				ctx, params.DB, logger, params,
+				ctx, logger, params,
 				actionProvenance{
 					AgentType: params.ExecutionContext.Sender.AgentType,
 					StepName:  params.ExecutionContext.StepName,

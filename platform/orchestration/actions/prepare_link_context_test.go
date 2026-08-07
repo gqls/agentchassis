@@ -216,13 +216,18 @@ func TestPrepareLinkContextRecordsUnavailableWhenSiteIDIsUnresolvable(t *testing
 	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO agent_error_log")).
 		WithArgs(
 			sqlmock.AnyArg(), // site_id (empty — that IS the failure)
+			sqlmock.AnyArg(), // domain
+			sqlmock.AnyArg(), // work_item_id
+			sqlmock.AnyArg(), // orchestration_id — now bind 4, not last
 			sqlmock.AnyArg(), // agent_type
+			sqlmock.AnyArg(), // agent_id
+			sqlmock.AnyArg(), // pod_name
 			sqlmock.AnyArg(), // step_name
+			"prepare_link_context",
 			sqlmock.AnyArg(), // error_message
 			linkContextUnavailableCode,
 			"error",
 			sqlmock.AnyArg(), // context json
-			sqlmock.AnyArg(), // orchestration_id
 		).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 

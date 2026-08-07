@@ -98,11 +98,10 @@ package actions
 
 import (
 	"context"
-	"database/sql"
-	"encoding/json"
 	"fmt"
 	"strings"
 
+	"github.com/gqls/agentchassis/platform/orchestration/agenterrors"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
@@ -287,9 +286,12 @@ type actionProvenance struct {
 // agent_error_log so blocked writes are queryable across the fleet rather than
 // living only in pod logs. Best-effort — the caller's refusal is the real
 // outcome; a failure to log must never become a failure to protect.
+// The `db` parameter this used to take was dropped when the write moved to the
+// shared helper (RFC_012 B): all three callers passed params.DB, and a
+// signature that lets a caller name a DIFFERENT handle than the one actually
+// written to is the kind of seam that reads correct and is not.
 func recordComponentWriteRejection(
 	ctx context.Context,
-	db *sql.DB,
 	logger *zap.Logger,
 	params ActionParams,
 	prov actionProvenance,
@@ -298,47 +300,19 @@ func recordComponentWriteRejection(
 	severity string,
 	contextPayload map[string]interface{},
 ) {
-	if db == nil {
-		return
-	}
-
-	contextJSON, _ := json.Marshal(contextPayload)
-	if contextJSON == nil {
-		contextJSON = []byte("{}")
-	}
-
-	siteID := datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.site_id")
-	domain := datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.domain")
-	workItemID := datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.work_item_id")
-
-	_, err := db.ExecContext(ctx, `
-		INSERT INTO agent_error_log (
-			site_id, domain, work_item_id, orchestration_id,
-			agent_type, agent_id, pod_name, step_name, action,
-			error_message, error_code, severity, context
-		) VALUES (
-			NULLIF($1, '')::uuid, $2, NULLIF($3, '')::uuid, $4,
-			$5, $6, $7, $8, $9,
-			$10, $11, $12, $13::jsonb
-		)
-	`,
-		siteID,
-		domain,
-		workItemID,
-		params.ExecutionContext.OrchestrationID,
-		prov.AgentType,
-		params.ExecutionContext.Sender.AgentID,
-		params.ExecutionContext.Sender.PodName,
-		prov.StepName,
-		prov.Action,
-		errorMessage,
-		errorCode,
-		severity,
-		string(contextJSON),
-	)
-	if err != nil {
-		logger.Warn("recordComponentWriteRejection: failed to write to agent_error_log",
-			zap.Error(err),
-			zap.String("error_code", errorCode))
-	}
+	// prov is set explicitly on the entry and never inherited — this recorder is
+	// shared by three write paths, and a row that misattributes the writer sends
+	// the next investigation to the wrong file (see the type doc above).
+	LogActionEntry(ctx, params, agenterrors.Entry{
+		SiteID:       datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.site_id"),
+		Domain:       datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.domain"),
+		WorkItemID:   datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.work_item_id"),
+		AgentType:    prov.AgentType,
+		StepName:     prov.StepName,
+		Action:       prov.Action,
+		ErrorMessage: errorMessage,
+		ErrorCode:    errorCode,
+		Severity:     severity,
+		Context:      contextPayload,
+	}, logger)
 }
