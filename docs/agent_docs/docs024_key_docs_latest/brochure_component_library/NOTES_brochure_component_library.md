@@ -4694,3 +4694,21 @@ seats independently flagged the gap (editquality LOW, and it weakened the
 plan's own evidence). The tests existed and had run; the PLAN text under-
 carried them. Cheap check: an edits list should name every file the risks
 block leans on.
+
+## 2026-08-07 (morning) — v1.0.1262 verified, SLICE A APPLIED, Slice B _HOLD-renamed, handoff cut
+
+Fresh roll v1.0.1262: pod-verified on BOTH replicas with markers from BOTH
+commits plus negative (removed `extractSectionNames`→0) and positive
+(`diagnose_persist_fix_plan`→10) controls — the greps run ~60-90s each on this
+binary, budget for it. Then Slice A exactly per RFC_016: migration `327`
+applied (guard DO passed) and seed `329` applied (anchors 1/1/1, verify
+passed, `UPDATE 1`), both recorded `--record-only` with lane+RFC named in the
+note; live prompt read back carries the roster and rule 17. **The planner can
+now write assignments; nothing consumes them — by design.** Seeds `328`/`330`
+renamed `*_HOLD.sql` (`54f36a9ae`, hold-note headers state the unlock
+conditions) so a blanket `--apply` cannot ship Slice B early — the dry-run
+pending list carries ~15 other lanes' files, which is exactly the blanket-apply
+risk the rename closes. Next: observe a real plan's assignments
+(fundamentallyai is the acceptance site; a replan is a REAL action — check
+open work items first), then RFC_016 §5 needs the human decisions before
+Slice B moves. `HANDOFF_2026-08-07_continue_here.md` supersedes 08-05.
