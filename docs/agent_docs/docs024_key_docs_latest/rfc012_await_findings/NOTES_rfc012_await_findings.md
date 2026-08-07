@@ -91,3 +91,90 @@ string that distinguishes the two binaries. Choosing the needle was the whole ch
 
 The (d) detector is a `cmd/` binary, NOT in the chassis image — it needs no roll, and the
 online CronJob half will ship it as its own image (component-render-check's pattern).
+
+## 2026-08-07 (early) — B is FINISHED in code: all remaining INSERTs converted, one left on purpose
+
+Committed `f930de86b` (25 files). The 18 sites NOTES enumerated on 08-06 are converted,
+minus one deliberate exclusion, plus one that did not exist when the census was taken.
+
+**What each converted row gains.** Canonical 13 columns everywhere. Nine sites gain
+`orchestration_id` — the run join `save_sections_metadata_source.go:284` named and fixed
+only at its own site. `reconcile_superseded_reviews` additionally gains `step_name`, which
+it had never written.
+
+**The `domain` NULL→'' question, MEASURED before accepting it.** Nine sites used
+`NULLIF($2,'')`; the canonical writer passes `$2` raw, so they now write `''` where they
+wrote NULL. Rather than argue it:
+
+```sql
+SELECT CASE WHEN domain IS NULL THEN 'NULL' WHEN domain='' THEN 'EMPTY_STRING' ELSE 'set' END, count(*)
+FROM agent_error_log GROUP BY 1;   -- EMPTY_STRING 9,964 | set 4,696 | NULL 128
+```
+
+Both forms already coexist live and `''` is the overwhelming majority, so the converted
+rows join the shape every consumer already has to handle. The only reader that filters on
+domain — `diagnose_load_runtime_action.go:267`, `($2::text IS NULL OR domain = $2::text)` —
+excludes `''` and NULL identically when a filter is supplied and admits both when it is
+not. `site_id`/`orchestration_id` carry both forms live too. **This is the disconfirmable
+version of the check: had the census come back 9,964 NULL to 128 empty, the conversion
+would have needed a NULLIF in the shared writer.**
+
+**A NEW hand-copy landed DURING the work.** `plan_sections_action.go` gained an
+11-column `FACT_SCOPING_EMPTY_COMPOSITION` INSERT in `ff515351e`, committed by another
+session after this lane's 08-06 census and before it landed. Found only because I re-ran
+the grep before committing instead of trusting my own table. **A census of copies is stale
+the day it is written** — which is the argument for the shared door existing at all,
+rather than for a one-off tidy-up. Converted here too, so the total is 19, not 18.
+
+**The one site left unconverted, and why it is not laziness.**
+`store_generated_component_action.go:1353`. Three reasons, in order of weight:
+1. It is the site an earlier council round's **edit-quality and guardian seats named
+   directly** — the objection is quoted at `:1343-1351` and ends "Left standing on purpose
+   — the duplication is cheaper than the blast radius."
+2. It already writes the **canonical 13 columns**, so there is no drift for the conversion
+   to remove. The benefit is cosmetic; the objection is not.
+3. It is **dirty with another session's in-flight change** (a `PageWantedLivePredicateFor`
+   predicate swap at ~:869). A pathspec commit still takes a same-file passenger.
+   **When the file is clean**: convert it with `LogActionEntry` and set
+   `AgentType:"component-creator"`, `StepName:"store_component"`,
+   `Action:"store_generated_component"` **explicitly** — those literals are exactly what
+   the seats warned would be misfiled, and the merge must never be allowed to supply them.
+
+**MISSTEPS, recorded:**
+
+5. **I nearly used `LogActionError` at the provenance sites.** It resolves agent/step from
+   `ActionParams`, which for `component_link_repair`, `validate_page_content`'s link
+   recorder and both envelope guards would have *silently* replaced the ORIGIN's provenance
+   with the running step's — the precise misfiling the guardian seat objected to, arriving
+   under cover of a refactor with every test still green (they pin codes and messages, not
+   agent_type). Caught by reading the objection at `store_generated_component:1343` before
+   touching that file, then re-reading every other site for the same shape. **The fix was
+   structural, not vigilance:** `LogActionEntry` takes caller fields as AUTHORITATIVE and
+   fills only zero fields, so a named provenance cannot be overwritten by anything.
+6. **Two tests asserted a code/severity against the SQL TEXT, because they were literals.**
+   `mock.ExpectExec("'warning'")` and `mock.ExpectExec("CONTENT_LINK_REPAIR_SKIPPED")`.
+   Under the shared writer those are bind parameters, so both tests failed — and the
+   tempting fix (match `INSERT INTO agent_error_log` and let the values go to `AnyArg`)
+   would have left a test that passes for a row carrying **any** code at all, which is what
+   its own comment says it exists to prevent. Both assertions were MOVED to the argument
+   and pinned by value. **A test that changes shape is the moment its assertion is most
+   likely to be quietly weakened.**
+7. **`agent_type` is NOT NULL and three sites carry their own `"unknown"` fallback.**
+   Delegating that to the merge would yield `''` when both params sources are empty — a
+   constraint violation, and a best-effort writer would swallow it as a warn. Preserved
+   explicitly at each of those sites.
+
+**Proven NOT live, with a discriminating count.** Live `v1.0.1261` (both replicas,
+started 2026-08-06T19:54Z; the commit is 2026-08-07T01:24Z, so the image predates it):
+
+```
+kubectl exec -n ai-persona-system <pod> -- sh -c \
+  'strings /app/agent-chassis | grep -c "INSERT INTO agent_error_log"'   # 14 on BOTH
+grep -rn "INSERT INTO agent_error_log" platform/ --include=*.go | grep -v _test.go | wc -l   # 2 at HEAD
+```
+
+14 distinct statements in the shipped binary against 2 in the tree. **That count is the
+acceptance test for the next roll: after a build from a commit ≥ `f930de86b` it must be
+`2` on every replica.** It is a good needle precisely because it cannot be satisfied by a
+roll that happened to include someone else's work — the number only falls when these
+conversions are in.

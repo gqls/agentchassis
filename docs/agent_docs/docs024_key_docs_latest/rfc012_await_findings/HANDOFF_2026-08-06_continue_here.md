@@ -1,7 +1,8 @@
-# HANDOFF — RFC_012 execution · **START HERE** · 2026-08-06
+# HANDOFF — RFC_012 execution · **START HERE** · updated 2026-08-07
 
 Cold-start for the next session. Read this, then `NOTES_rfc012_await_findings.md` (the
-missteps) and `RUNBOOK_rfc012_await_findings.md` (every command, with its gotcha).
+missteps — they are the point) and `RUNBOOK_rfc012_await_findings.md` (every command, with
+its gotcha).
 
 **This lane owns three owner rulings** (RFC_012 second sitting, recorded in the RFC itself
 at commit `3851e90b5` — read that block, it is the authority, not this file):
@@ -12,70 +13,70 @@ at commit `3851e90b5` — read that block, it is the authority, not this file):
 
 ---
 
-## STATE: what is DONE and committed
+## STATE
 
 | piece | commit | state |
 |---|---|---|
 | The rulings, recorded in the RFC | `3851e90b5` | durable — survives any session |
-| Lane docs (plan/notes/owner log) | `8b26e7fbb`-ish (the `docs(rfc012 lane)` commit) | open |
-| **B core**: `agenterrors` leaf package | `5f49b4cfd` | **DONE, tests green, POD-PROVEN LIVE on v1.0.1259** (both replicas: `agenterrors`=5, deleted log line=0) |
-| **(d) detector**: `--shared-output-fields` | `abf5e8266` | **DONE, proven, live-run green** — a `cmd/` binary, NOT in the chassis image, so it needs no roll |
+| Lane docs (the standing five) | the `docs(rfc012 lane)` commits | open, updated 08-07 |
+| **B core**: `agenterrors` leaf package | `5f49b4cfd` | **DONE, POD-PROVEN LIVE on v1.0.1259** |
+| **B rest**: 18 site conversions + tests | `f930de86b` | **DONE, full `./platform/...` green — NOT LIVE** |
+| **(d) detector**: `--shared-output-fields` | `abf5e8266` | **DONE, proven, live-run green** — a `cmd/` binary, not in the chassis image, so it needs no roll |
+| Concept register: RSH-008 + WFA-011 | 08-07 | **DONE** (the standing ruling's debt from the split commits, now paid) |
+| Council round for the whole code set | corr `5c2bc265-84ac-452b-bd8b-22fd7b875427` | **SUBMITTED 08-07 — VERDICT NOT READ** |
 
-### B core, in detail (`5f49b4cfd`)
-- **New leaf package `platform/orchestration/agenterrors`**: `Write` (byte-compatible
-  13-column INSERT, best-effort, **returns whether the row landed**), `RecordFindings`
-  (returns `(attempted, recorded)` so a lost row cannot read as recorded), `ClassifyError`.
-  7 unit tests green.
-- **The cycle is retired**: the edge is `platform/orchestration → actions`, so the writer
-  moved BELOW both. `orchestration.LogAgentError` is now a thin forwarder and
-  `AgentErrorEntry` is a **type alias** of `agenterrors.Entry` — agentbase, messaging and
-  the coordinator compile unchanged (verified).
-- **`actions` door**: `LogActionError` / `LogActionFindings` in
-  `platform/orchestration/actions/log_action_error.go`, identity resolved from
-  `ActionParams` the way the proven debt-5b copy did.
-- **One exemplar converted**: `retract_page_deployment_action.go`'s
-  `insertRetractionConditionRow` is now a call through the helper; its 13-arg + ordering
-  pinning tests pass **unchanged**, which is the compatibility proof.
+### ⚠ FIRST THING: read the council verdict
 
-### (d) detector, in detail (`abf5e8266`)
-- `cmd/config-key-audit --shared-output-fields` (+ `--ack <file>`), the mode pattern
-  `singleowner.go` established. `scripts/audit-shared-output-fields.sh` is the hand-run form.
-- Key = same `output_field` + **transitively reachable over the FULL routing graph** +
-  **DIFFERENT action**. Graph = `next_step`/`error_step` + **13 config keys**.
-  **I re-derived those keys against the live fleet and the RFC's list was one short** —
-  there is a **config-level `error_step`** (158 occurrences) distinct from the top-level
-  field. Query in the RUNBOOK.
-- **Acceptance bar met**: tests fire on `bugs_open/192`'s own pre-fix shape, and the
-  mutation test proves the graph is real (sever the `config.then_step` edge → finding
-  disappears). Same-action retry loops and mutually-exclusive branches stay silent.
-- **Live run 2026-08-06: 176 agents, findings = EXACTLY the addendum's hand census** — the
-  2 known hazards, the 5 benign pairs correctly absent.
-- **Ack ratchet**: `scripts/shared_output_fields_ack.txt` holds the 2 known pairs with
-  reasons; the check exits 0 while only those reproduce, 1 on a NEW pair, and reports
-  **stale acks** (an ack that outlives its finding is how a ratchet loosens).
+Submitted 2026-08-07, covering B **and** the (d) detector. The code is already on the
+shared branch, so a REVISE/REJECTED must be acted on, not filed.
+
+```sql
+SELECT current_step, status FROM orchestration_states
+WHERE collected_data->'input_data'->>'fix_correlation_id' = '5c2bc265-84ac-452b-bd8b-22fd7b875427';
+SELECT body FROM doc_notes WHERE categories ? 'council-gate' ORDER BY created_at DESC LIMIT 1;
+```
+A missing row is latency, not a dropped dispatch — publish→run start measured at 29 min.
+`f930de86b` carries `Council-Submitted:`, so 098 credits it automatically once approved;
+**do not** write `Council-Reviewed:` anywhere without reading an approved verdict.
+
+### ⚠ SECOND: the conversions are committed and NOT live
+
+Live `v1.0.1261` started 2026-08-06T19:54Z; `f930de86b` landed 2026-08-07T01:24Z, so the
+image **predates** it. Verified rather than assumed, with a count that a roll cannot fake:
+
+```bash
+kubectl exec -n ai-persona-system <chassis-pod> -- sh -c \
+  'strings /app/agent-chassis | grep -c "INSERT INTO agent_error_log"'
+```
+**14 = pre-conversion binary (what is live now, both replicas). 2 = a build from
+`f930de86b` or later. This IS the acceptance test — run it on every replica after the
+next roll.** The SQL text is byte-identical before and after by design, so grepping the
+statement itself proves nothing either way; the count is the only discriminating needle.
 
 ---
 
 ## NEXT — three pieces, in this order
 
-### 1. The 18 remaining hand-copied INSERTs (finishes B)
-Sites, with their quirks, are enumerated in NOTES. Convert each to `LogActionError`
-(or `agenterrors.Write` where there is no `ActionParams` in scope). **Preserve each site's
-action/code/severity/message/context EXACTLY** — several carry them as SQL literals, which
-become ordinary Go arguments. Sites that previously omitted `orchestration_id` (nine of
-them) gain it — that is the point, note it in one line where it happens.
-**Tests**: several pin SHORT arity (9/10/11 args) and will fail; update those `WithArgs`
-to the canonical 13 (`AnyArg` for the newly-filled identity slots) **without weakening the
-assertions that name codes/severities**.
-⚠ **Check `git status --porcelain` per file first** — many `actions/` files carry other
-sessions' WIP right now, and the package currently does not build for an unrelated reason
-(`deploy_image_asset_action.go` signature mismatch, another session's in-flight change).
-Use targeted `go test -run`, not the whole package, and say so honestly.
+### 1. The reader census (gates (a)/(a′)) — the biggest remaining piece
+**Not started.** The delegated agent died on quota mid-sweep; its one partial finding worth
+keeping is that `enrich_fingerprint_with_css` is *wrapper-adapted*, and it had begun a third
+sweep for mid-string/condition-expression references two greps would miss.
+
+Deliverable: `architecture_review/CENSUS_2026-08-06_rfc012_await_step_readers.md` — config
+side (live `agent_definitions`, queries verbatim so it re-runs) + Go side (mechanically
+findable, honestly bounded), each reader marked BREAKS/SURVIVES/UNCLEAR under
+merge-not-replace. **The census does not decide (a)** — it is what (a) stays gated behind.
+
+⚠ Two things a naive census will miss: the **`call_agent`/`spawn_agent` branch already
+merges under `.response`**, so those readers already tolerate the shape; and dynamic loop
+steps **derive** their output_field at runtime (`deriveOutputFieldFromLoopStepName`), so a
+config-only census cannot see those keys. **This is a session's work on its own — do not
+delegate it alongside anything else** (that is misstep 4 in NOTES).
 
 ### 2. The online half of (d) — the CronJob
 Precedent to follow is **`component-render-check`**, NOT `single-owner-carriers-check`:
-ship the Go binary as its own image rather than re-implementing in Python. RFC_006's
-Python mirror exists only because a job cannot `go run` from source (262M clone); an image
+ship the Go binary as its own image rather than re-implementing in Python. RFC_006's Python
+mirror exists only because a job cannot `go run` from source (262M clone); an image
 dissolves that, and with it both of RFC_006's named drift risks (the `DECLARED_*` literal
 and the parity test).
 - copy `deployments/kustomize/services/component-render-check/` as the shape;
@@ -84,37 +85,53 @@ and the parity test).
 - **report to `doc_notes`** — one row per run **including clean**, so a missing row means
   THE JOB DID NOT RUN, which must not be indistinguishable from "nothing is wrong";
 - exit 1 on NEW findings so the Job shows failed;
-- the ack file must reach the image (it is in-repo, so it ships with the build).
+- the ack file is in-repo, so it ships with the build.
 
-### 3. The reader census (gates (a)/(a′))
-**Not started** — the delegated agent died on quota mid-sweep. Its one partial finding,
-worth keeping: `enrich_fingerprint_with_css` is *wrapper-adapted*, and it had begun a
-third sweep for mid-string/condition-expression references two greps would miss.
-Deliverable: `architecture_review/CENSUS_2026-08-06_rfc012_await_step_readers.md` — config
-side (live `agent_definitions`, queries verbatim so it re-runs) + Go side (mechanically
-findable, honestly bounded), each reader marked BREAKS/SURVIVES/UNCLEAR under
-merge-not-replace. **The census does not decide (a)** — it is what (a) stays gated behind.
-⚠ Two things a naive census will miss: the **`call_agent`/`spawn_agent` branch already
-merges under `.response`**, so those readers already tolerate the shape; and dynamic loop
-steps **derive** their output_field at runtime (`deriveOutputFieldFromLoopStepName`), so a
-config-only census cannot see those keys.
+### 3. The last INSERT site — only when the file is clean
+`store_generated_component_action.go:1353` is the **one** site left hand-copied, on three
+independent grounds (all in NOTES 08-07): a standing council objection naming it directly,
+it already writes the canonical 13 columns, and it was dirty with another session's
+`PageWantedLivePredicateFor` change (a pathspec commit still takes a same-file passenger).
+
+**When `git status --porcelain` on that file is clean:** convert with `LogActionEntry` and
+set `AgentType:"component-creator"`, `StepName:"store_component"`,
+`Action:"store_generated_component"` **explicitly**. Those three literals are exactly what
+the guardian/edit-quality seats warned would be misfiled fleet-wide, and no test in the
+package would catch the slip.
 
 ---
 
-## Milestone read-out
-`SUMMARY_2026-08-06_two_of_three_built.md` — first in the series; read it before the
-detail if you are picking this up cold.
+## What B actually changed, for anyone reviewing it cold
 
-## Council + register, still owed for this lane
-One council round covers the RFC_012 code set (B + the (d) detector) — **not yet
-submitted**; both commits carry no council trailer. Concept-register entries owed for the
-`agenterrors` seam and the `--shared-output-fields` mode (the register entry must land in
-the same commit as the seam per the standing ruling — that was missed here because the
-work was split across two commits; register both when the set is complete and say so).
+- **19 hand-copied INSERTs → one writer.** 18 converted (the 19th was left, above); the
+  count is 19 not 18 because `plan_sections_action.go` gained a **NEW** hand-copy
+  (`FACT_SCOPING_EMPTY_COMPOSITION`, `ff515351e`) from another session *after* this lane's
+  census and *before* it landed. That is the argument for the seam, not for a tidy-up.
+- **Nine sites gain `orchestration_id`** — the run join. `reconcile_superseded_reviews` also
+  gains `step_name`.
+- **`domain` goes `''` where nine sites wrote NULL.** Measured, not assumed: 9,964 `''` vs
+  128 NULL already live, and the only domain-filtering reader
+  (`diagnose_load_runtime_action.go:267`) treats them identically. Open review question,
+  recorded in RSH-008.
+- **12 test arity pins updated to 13.** Two of them asserted a code/severity against SQL
+  **literals** that are now bind parameters — both assertions were MOVED to the argument
+  and pinned by value, not relaxed to `AnyArg`.
 
-## Landmines this lane found
+## Landmines this lane found (all now in `LANDMINES.md`, synced to `doc_notes`)
+- **`LogActionEntry`'s merge fills a provenance you meant to set, and the whole suite stays
+  green** — the package's tests pin codes and messages, never `agent_type`. Full entry +
+  the `agent_type` NOT NULL and `domain` corollaries are in `LANDMINES.md`.
 - **A nil `Context` map marshals to `null`, not `{}`** — the old writer's nil-guard never
-  fired; byte-compatibility means pinning `"null"`.
+  fired; byte-compatibility means pinning `"null"` in tests, not `"{}"`.
 - **The RFC's own 13-key list is one key short** — trust the live query, not the prose.
-- A green live run of the census proves the fleet, never the detector; the mutation test
-  is what proves the detector.
+- **A green live run of the census proves the FLEET, never the DETECTOR** — the mutation
+  test (sever the `config.then_step` edge, lose the finding) is what proves the detector.
+- **The concept index's uniqueness check earned its place**: my first `WFA-007` collided
+  with a live relay-gaps entry. Renumbered to WFA-011 before landing. Always run the
+  id-uniqueness check, not just the row count — the count cannot see a collision.
+
+## Milestone read-outs
+`SUMMARY_2026-08-06_two_of_three_built.md` — the series' first. **A second is owed once the
+conversions go live** (the read-out genuinely changes then: "built" → "shipped and proven").
+Do not write one before that; it would say much the same as the first, which is the test
+the standing-five rules set.

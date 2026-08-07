@@ -6039,3 +6039,23 @@ WHERE site_id = (SELECT id FROM sites WHERE domain = 'finetuning.uk') AND status
 - **the check:** before reasoning about this table's lifecycle, read the live row: `SELECT pre_query FROM scheduled_tasks WHERE name='stale-orchestration-reaper';` — and treat "quiet vet pipeline" as TWO hypotheses, parked-vs-dead: `SELECT status, count(*) FROM business_intel.collection_tasks GROUP BY 1;` distinguishes them (parked = rows at `'failed'` with `error_message` naming 205; dead = `pending` piling up with `last_triggered_at` stale on `vet-batch-verify`). Un-parking is a deliberate operator UPDATE (RUNBOOK in `bugfix_205_poison_pill_reaper/`), and `ensure_collection_tasks` refuses to re-task a business whose task is `'failed'` — recreating the task would silently zero the counter.
 - **source:** 2026-08-07, bugfix_205 lane (`bugs_open/205`, `docs024_key_docs_latest/bugfix_205_poison_pill_reaper/`). Same class as the `stale-work-item-reaper` row-age entry (016b §9, 2026-07-25): a reaper that does not annotate its own work.
 - **added:** 2026-08-07, bugfix_205 lane
+
+---
+
+## `LogActionEntry`'s merge fills a provenance you meant to set — and every test in the package stays green
+
+- **footprint:** `platform/orchestration/actions/log_action_error.go` · `LogActionError` · `LogActionEntry` · `LogActionFindings` · `platform/orchestration/agenterrors` · `agent_error_log`
+- **added:** 2026-08-07 (RFC_012 option B, commits `5f49b4cfd` + `f930de86b`)
+
+**The trap.** `LogActionError(ctx, params, siteID, domain, action, code, severity, msg, ctxPayload, logger)` resolves `agent_type` and `step_name` from `ActionParams` — i.e. **from whatever step is executing**. Several recorders in this package deliberately file under a DIFFERENT provenance: `component_link_repair` and `validate_page_content`'s link recorder file under the **origin of the content they repaired**; `store_generated_component` files as `component-creator`/`store_component`; `discovery_checks` and both envelope guards use their own helpers. Reach for the obvious helper at one of those sites and the row is silently misattributed — it names the wrong agent and the wrong step, so the next investigation opens the wrong file. `component_write_guard.go:276-279` states the cost: *"a row in agent_error_log that misattributes the writer is worse than no row."*
+
+**Why you will not notice.** Every sqlmock test in this package pins the **error_code, the action and the message** — not `agent_type` and not `step_name`. A provenance slip is **green on the full suite**. A council round's edit-quality and guardian seats flagged exactly this risk on `store_generated_component_action.go` and it is quoted at `:1343-1351`; that objection is why the site is still unconverted.
+
+**The check.** Use **`LogActionEntry`** (or `LogActionEntryFindings` for a loop) and set `AgentType` / `StepName` / `Action` **explicitly** whenever the row belongs to anything other than the running step. The merge only fills fields left ZERO, so a named field can never be overwritten — but a field you *forgot* to name is filled silently. Before converting or adding a site, read what the OLD code bound to `agent_type`/`step_name`: if it was anything other than `params.ExecutionContext.Sender.AgentType` / `.StepName`, it is a provenance site.
+
+Two more in the same family, both cheap to get wrong:
+- **`agent_type` is NOT NULL.** Three sites carry their own `"unknown"` fallback. Delegating that to the merge yields `''` when both params sources are empty — a constraint violation that the best-effort writer swallows as a warn, so the row just vanishes. Keep the fallback explicit.
+- **A converted site's `domain` goes `''` where it was `NULL`** (the shared writer does not `NULLIF` it). Measured inert 2026-08-06 — 9,964 `''` against 128 NULL already live, and the only domain-filtering reader (`diagnose_load_runtime_action.go:267`) treats them identically — but if you add a reader doing `WHERE domain IS NULL`, it will not see these rows.
+
+**Proving a change to this seam is live** — the SQL text is byte-identical before and after by design, so grepping the statement proves nothing. Count the copies instead:
+`kubectl exec -n ai-persona-system <chassis-pod> -- sh -c 'strings /app/agent-chassis | grep -c "INSERT INTO agent_error_log"'` — **14** is the pre-conversion binary, **2** is a build from `f930de86b` or later. Run it on **every** replica.
