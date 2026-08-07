@@ -77,6 +77,8 @@
 package discovery_checks
 
 import (
+	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -88,7 +90,15 @@ import (
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 )
 
-func init() { Register(&LiteralMarkdownCheck{}) }
+func init() {
+	Register(&LiteralMarkdownCheck{})
+	// bugs_open/201 SYMPTOM 2: without this, a handler saga that reports success
+	// having written nothing gets its item stamped 'complete' on its own word.
+	// Live instance, gaswholesalers.com 2026-08-06: the existing literal_markdown
+	// item read status='complete' while the markdown was still in content_data on
+	// the page it named.
+	RegisterVerifier("literal_markdown", VerifyLiteralMarkdownResolved)
+}
 
 type LiteralMarkdownCheck struct{}
 
@@ -169,6 +179,113 @@ type pageMarkdownFindings struct {
 	Findings                  []literalMarkdownFinding
 }
 
+// scanComponentRowForMarkdown applies this check's predicate to ONE
+// page_components row, across both surfaces.
+//
+// Extracted 2026-08-06 (bugs_open/201 symptom 2) so the detector above and
+// VerifyLiteralMarkdownResolved below CANNOT DRIFT. verifiers.go's contract is that a
+// verifier re-runs "the SAME predicate the discovery check used to create the item";
+// two hand-kept copies of a five-line scan is exactly how that stops being true, and a
+// verifier that has drifted STRICTER strands correctly-handled items in 'failed' (the
+// page_rerender cautionary tale in verifier_coverage_test.go's own header).
+//
+// The row SELECTION is still written twice — site-wide in Run, page-scoped in the
+// verifier — because they genuinely differ in scope. Their WHERE clauses are otherwise
+// identical and must stay so: `locked_at IS NULL` plus the both-surfaces-empty exclusion.
+func scanComponentRowForMarkdown(slot, html, contentJSON string, logger *zap.Logger) []literalMarkdownFinding {
+	var fs []literalMarkdownFinding
+	if cd := decodeContentData(contentJSON, logger); cd != nil {
+		walkContentDataStrings("", cd, func(path, s string) {
+			fs = append(fs, scanPlainTextMarkdown(
+				s, slot, path, "content_data", !htmlMarkupRe.MatchString(s))...)
+		})
+	}
+	for _, block := range datahelpers.ExtractAssertionText(html) {
+		fs = append(fs, scanPlainTextMarkdown(block, slot, "", "rendered_html", true)...)
+	}
+	return fs
+}
+
+// VerifyLiteralMarkdownResolved is the completion-time guard for bugs_open/201
+// SYMPTOM 2: a handler saga can report success having written nothing, and
+// complete_work_item then stamps the item 'complete' on the saga's own word.
+// Proven live on gaswholesalers.com — its literal_markdown item read 'complete'
+// while the markdown was still in content_data on the page it named.
+//
+// SCOPE IS WHOLE-PAGE, AND THAT IS DELIBERATE. The remit test (verifier_coverage_test.go's
+// page_rerender entry) is that a verifier must not be STRICTER than the handler it judges.
+// This item's handler is page-build-handler (re-pointed by this same bug's fix-1), whose
+// build_pages_loop plans the page's sections from the site spec and rewrites all of them —
+// so "no literal markdown anywhere on this page" is exactly its remit, not more.
+//
+// FAILING VERIFICATION IS THE SAFE DIRECTION HERE, unlike page_rerender. A failed verify
+// routes the item into the attempt machinery and, after max_attempts, to human review —
+// which is the right destination for a markdown defect the writer did not clear. What we
+// must never do is stamp 'complete' over a defect that is still being served.
+func VerifyLiteralMarkdownResolved(ctx context.Context, db *sql.DB, target VerifyTarget, logger *zap.Logger) (VerifyResult, error) {
+	if target.PageID == nil {
+		return VerifyResult{}, fmt.Errorf("literal_markdown verifier: item carries no page_id")
+	}
+
+	rows, err := db.QueryContext(ctx, `
+		SELECT COALESCE(pc.slot_name, ''),
+		       COALESCE(pc.rendered_html, ''), COALESCE(pc.content_data::text, '')
+		FROM page_components pc
+		WHERE pc.page_id = $1
+		  AND pc.locked_at IS NULL
+		  AND ( (pc.rendered_html IS NOT NULL AND pc.rendered_html <> '')
+		     OR (pc.content_data IS NOT NULL AND pc.content_data::text <> '{}') )
+		ORDER BY pc.position
+	`, *target.PageID)
+	if err != nil {
+		return VerifyResult{}, fmt.Errorf("literal_markdown verifier: page load failed: %w", err)
+	}
+	defer rows.Close()
+
+	scanned := 0
+	var remaining []literalMarkdownFinding
+	for rows.Next() {
+		var slot, html, contentJSON string
+		if err := rows.Scan(&slot, &html, &contentJSON); err != nil {
+			return VerifyResult{}, fmt.Errorf("literal_markdown verifier: scan failed: %w", err)
+		}
+		scanned++
+		remaining = append(remaining, scanComponentRowForMarkdown(slot, html, contentJSON, logger)...)
+	}
+	if err := rows.Err(); err != nil {
+		return VerifyResult{}, fmt.Errorf("literal_markdown verifier: iteration failed: %w", err)
+	}
+
+	// A ZERO HERE HAS TWO CAUSES AND ONLY ONE OF THEM IS "FIXED".
+	// No scannable rows means either the page was repaired into emptiness or its
+	// components were lost (bugs_closed/194's damage class — 31 of 106 components on
+	// one live site carry NULL content_data). Both present as "no markdown found", and
+	// reporting Resolved on the second would stamp 'complete' over a destroyed page.
+	// Refuse to answer instead: an error means "could not verify", which the caller
+	// records rather than silently treating as success.
+	if scanned == 0 {
+		return VerifyResult{}, fmt.Errorf(
+			"literal_markdown verifier: page %s has no scannable components — "+
+				"cannot distinguish 'repaired' from 'content lost', refusing to certify",
+			target.PageID)
+	}
+
+	if len(remaining) == 0 {
+		return VerifyResult{
+			Resolved: true,
+			Detail: fmt.Sprintf("no literal markdown on either surface across %d component(s) of page %s",
+				scanned, target.PageID),
+		}, nil
+	}
+
+	first := remaining[0]
+	return VerifyResult{
+		Resolved: false,
+		Detail: fmt.Sprintf("%d finding(s) still present across %d component(s); first: slot %q field %q pattern %s in %s — %q",
+			len(remaining), scanned, first.SlotName, first.Field, first.Pattern, first.Source, first.Matched),
+	}, nil
+}
+
 func (c *LiteralMarkdownCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, error) {
 	rows, err := dctx.DB.QueryContext(dctx.Ctx, `
 		SELECT pc.page_id::text, p.name, COALESCE(p.url, ''),
@@ -199,16 +316,7 @@ func (c *LiteralMarkdownCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, er
 		}
 		scannedPages[pageID] = true
 
-		var fs []literalMarkdownFinding
-		if cd := decodeContentData(contentJSON, dctx.Logger); cd != nil {
-			walkContentDataStrings("", cd, func(path, s string) {
-				fs = append(fs, scanPlainTextMarkdown(
-					s, slot, path, "content_data", !htmlMarkupRe.MatchString(s))...)
-			})
-		}
-		for _, block := range datahelpers.ExtractAssertionText(html) {
-			fs = append(fs, scanPlainTextMarkdown(block, slot, "", "rendered_html", true)...)
-		}
+		fs := scanComponentRowForMarkdown(slot, html, contentJSON, dctx.Logger)
 		if len(fs) == 0 {
 			continue
 		}

@@ -167,7 +167,7 @@ SET pre_query = $q$
       -- 322_dead_fragment_link_claim_timeout_exclusion.sql; the live list was
       -- verified identical to this one first, so 322 carries nobody else's
       -- unapplied entry.
-      AND wi.item_type NOT IN ('truncated_component', 'hardcoded_section_colors', 'empty_section', 'orphan_element_refs', 'content_duplication', 'page_canonical_collision', 'dead_fragment_link')
+      AND wi.item_type NOT IN ('truncated_component', 'hardcoded_section_colors', 'empty_section', 'orphan_element_refs', 'content_duplication', 'page_canonical_collision', 'dead_fragment_link', 'literal_markdown')
       AND EXISTS (
         SELECT 1 FROM orchestration_states o
         WHERE o.initial_request_data->'input_data'->>'work_item_id' = wi.id::text
