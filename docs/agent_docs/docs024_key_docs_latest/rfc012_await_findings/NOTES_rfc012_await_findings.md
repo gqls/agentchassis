@@ -261,3 +261,62 @@ Corrected in place at all three publication points (this file above, HANDOFF, RS
 **What this does NOT change:** the conversion is live and correct. The count fell 14 → 1,
 and the singular/plural pair proves the specific commit rather than merely "some newer
 build". Both are recorded because the count alone is now known to be a poor instrument.
+
+## 2026-08-07 (morning, 2) — the `NULLIF` follow-up is REVERSED: measured, and adding it would be a regression
+
+The handoff carried one piece of follow-up code: RSH-008's *"adding the `NULLIF` is the real
+fix and is NOT done."* I wrote that yesterday after the council's read-only check pulled the
+`agent_error_log.domain` landmine I had missed. **I did not measure it. Measured now, the
+answer is no.**
+
+```sql
+SELECT CASE WHEN occurred_at >= '2026-08-07T05:47:39Z' THEN 'post-roll' ELSE 'pre-roll' END,
+       count(*) FILTER (WHERE domain IS NULL), count(*) FILTER (WHERE domain = ''),
+       count(*) FILTER (WHERE domain <> ''), count(*)
+FROM agent_error_log GROUP BY 1;
+-- post-roll:   0 NULL |     29 '' |    16 real |     45
+-- pre-roll:  128 NULL | 13,885 '' | 4,762 real | 18,775
+```
+
+**Zero NULL rows since the conversion went live**, and grouping the 128 NULL rows by
+`agent_type, action` returns nine groups, **every one of them a site this conversion
+changed**, newest `2026-08-05 20:14Z` — all pre-roll. The NULL bucket is closed; the 14/30-day
+reaper empties it. Adding a `NULLIF` would send 100% of new rows into the shape **0.9%** of
+rows use, re-split a table that has just converged, and strand 13,885 `''` rows behind a
+`domain IS NULL` query that would newly *appear* to work. The remedy the landmine already
+prescribes — `COALESCE(domain,'') = ''` — is unaffected and correct for both eras.
+
+The "be consistent with `site_id`" argument fails too: `site_id`/`work_item_id` take `NULLIF`
+because they are **uuid** columns and `''::uuid` raises. It is a type necessity, not a
+null-discipline precedent for a `text` column. I had been reading it as one.
+
+**Two real findings the `NULLIF` framing was hiding.** Both fell out of re-locating the
+writers instead of trusting my own file:line table (which the landmine on this very table
+tells you to do):
+
+1. **The census behind "nineteen copies" grepped `platform/` only.** There is a third live
+   INSERT site — `internal/agents/contentcreator/claims_guard.go:184` — which **omits the
+   `domain` column** and the column has **no DEFAULT**, making it the last latent NULL
+   producer. It has written **0 rows in the entire retained window** (oldest row in the table:
+   2026-07-08), so it is dormant, not benign.
+2. **It cannot use the shared door, structurally.** `contentcreator` holds a `*pgxpool.Pool`;
+   `agenterrors.Write` takes a `*sql.DB`. **"The ONE writer" is true of the `database/sql`
+   half of the estate only.** Converting that last site is a driver problem, not a
+   copy-paste job — worth knowing before anyone files it as a tidy-up ticket.
+
+**Left unchanged deliberately:** `claims_guard.go`. Dormant, another lane's package
+(`fa3b5207a`, bug 123, whose whole point is that this producer has no site), and a
+null-discipline patch without the driver fix is a half-measure that would make the file look
+converted when it is not.
+
+**MISSTEP 9 — I accepted a reviewer's implied remedy as "the real fix" without measuring it,
+one paragraph after being caught not measuring.** Yesterday's failure was under-checking (I
+argued NULL→`''` inert without grepping `LANDMINES.md`). The correction I then wrote
+over-accepted: the landmine says `domain IS NULL` undercounts, and I converted that true
+observation into a prescription — *therefore write NULL* — that I never tested and that the
+data contradicts. **Both errors have the same root: a claim about a shared table's semantics
+made without a query.** Being caught is a prompt to measure, not a licence to adopt whatever
+the catcher's framing implies. Filed in `WRONG_CALLS.md`.
+
+**What would have falsified the reversal:** post-roll NULL rows still arriving, or any
+NULL-domain group attributable to an unconverted writer. Both checked; both empty.

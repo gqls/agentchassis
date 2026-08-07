@@ -6057,6 +6057,45 @@ WHERE site_id = (SELECT id FROM sites WHERE domain = 'finetuning.uk') AND status
 > *calling* `agenterrors.go`, not editing it). The council gate caught it, not the lane. See
 > `WRONG_CALLS.md` 2026-08-07 and register entry **RSH-008**, whose stated open review question
 > — *should the shared writer `NULLIF` `domain`?* — is the real fix and is still open.
+>
+> **CORRECTED AGAIN 2026-08-07 (morning), and this reverses the sentence immediately above:
+> the `NULLIF` is NOT the real fix — adding it would be a REGRESSION. Question CLOSED, measured.**
+> `f930de86b` went live on v1.0.1262 at 05:47Z and the table has **converged on `''`**:
+> ```sql
+> SELECT CASE WHEN occurred_at >= '2026-08-07T05:47:39Z' THEN 'post-roll' ELSE 'pre-roll' END,
+>        count(*) FILTER (WHERE domain IS NULL), count(*) FILTER (WHERE domain = ''),
+>        count(*) FILTER (WHERE domain <> ''), count(*)
+> FROM agent_error_log GROUP BY 1;
+> -- post-roll:   0 NULL | 29 '' | 16 real |    45      [MEASURED 2026-08-07]
+> -- pre-roll:  128 NULL | 13,885 '' | 4,762 real | 18,775
+> ```
+> **Zero NULL rows since the roll.** And every one of the 128 NULL rows was written by a site
+> this conversion changed — `GROUP BY agent_type, action` over `domain IS NULL` returns nine
+> groups, all of them converted sites, newest `2026-08-05 20:14Z`, i.e. all pre-roll. **The NULL
+> bucket is closed and the 14/30-day reaper will empty it.** Adding a `NULLIF` now would send
+> 100% of new rows into the shape **0.9%** of rows use, re-splitting a table that has just
+> converged, and stranding 13,885 `''` rows against a `domain IS NULL` query that would newly
+> appear to work. The remedy this entry already prescribes — `COALESCE(domain,'') = ''` — is
+> unaffected and remains correct for both eras.
+>
+> **The "be consistent with `site_id`" argument does not survive contact with the schema
+> either:** `site_id` and `work_item_id` get `NULLIF` because they are **uuid** columns and
+> `''::uuid` raises — it is a type necessity, not a null-discipline choice. `domain` is `text`.
+>
+> **Two real findings this measurement turned up, which the NULLIF framing was hiding:**
+> 1. **The census that produced "twenty writers" grepped `platform/` only.** There is a third
+>    live INSERT site in `internal/`: `internal/agents/contentcreator/claims_guard.go:184`. It
+>    **omits the `domain` column entirely** and the column has **no DEFAULT**, so it is a latent
+>    NULL producer — the only one left. It has written **0 rows in the entire retained window**
+>    (oldest row in the table is 2026-07-08), so it is dormant, not benign. Left unchanged
+>    deliberately: dormant, another lane's package (`fa3b5207a`, bug 123), and see (2).
+> 2. **It CANNOT use the shared door, structurally.** `contentcreator` holds a `*pgxpool.Pool`;
+>    `agenterrors.Write` takes a `*sql.DB`. So RSH-008's "the ONE writer" is true of the
+>    `database/sql` half of the estate only. Any future "convert the last writer" task must
+>    solve the driver split first — it is not a copy-paste job.
+>
+> **What would have falsified this:** post-roll NULL rows still arriving, or a NULL-domain group
+> attributable to an *unconverted* writer. Both were checked; both came back empty.
 
 ## `LogActionEntry`'s merge fills a provenance you meant to set — and every test in the package stays green
 
@@ -6075,6 +6114,22 @@ Two more in the same family, both cheap to get wrong:
 
 **Proving a change to this seam is live** — the SQL text is byte-identical before and after by design, so grepping the statement proves nothing. Count the copies instead:
 `kubectl exec -n ai-persona-system <chassis-pod> -- sh -c 'strings /app/agent-chassis | grep -c "INSERT INTO agent_error_log"'` — **14** is the pre-conversion binary, **2** is a build from `f930de86b` or later. Run it on **every** replica.
+
+> **CORRECTED 2026-08-07 — do NOT run the count above; it reports a shipped binary as unshipped.**
+> A correct post-conversion binary reads **1**, not 2. The two surviving sites hold
+> **byte-identical** SQL and the **Go linker deduplicates identical string constants**, so two
+> sites contribute one string. The pre-conversion 14 was 14 only because the hand-copies had
+> drifted to 8/9/10/11/13 columns — **converging them is what collapsed the count**, so this
+> needle measures the symptom of success and reports it as failure. Measured 1 on both replicas
+> of v1.0.1262, which does carry `f930de86b`.
+> **Use a discriminating pair instead** — `f930de86b` reworded one log line singular→plural, so
+> both halves must hold in the same binary:
+> ```bash
+> strings /app/agent-chassis | grep -cF "failed to write some discovery check error records"  # POS -> 1
+> strings /app/agent-chassis | grep -cF "failed to write discovery check error record"        # NEG -> 0
+> ```
+> The general class — *a `strings | grep -c` counts distinct SPELLINGS, never SITES* — is its own
+> entry at the end of this file. See `WRONG_CALLS.md` 2026-08-07.
 
 ---
 
