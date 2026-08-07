@@ -37,7 +37,40 @@ objections, none high. All dispositioned in NOTES §"2026-08-06 (evening)".
 `af2667453` carries `Council-Submitted:`, so `098` credits it automatically —
 **do not try to amend it** (forward-only).
 
-## Still owed — one thing, and it is small
+## READ THIS FIRST if you are picking the lane up on 2026-08-07 or later
+
+Re-verified on **`v1.0.1262`**: arm intact on both replicas (`dead_fragment_link`
+10, verifier 2, `SplitFragment` 2, positive control 10, negative 0). No regression
+across two rolls.
+
+**The arm has still never run on a real site, and that is a CADENCE fact, not a
+fault.** `completeness-discovery-agent` — the agent whose `checks` array carries
+this check — is dispatched **by hand**: 9 days out of the last 21, 1–6 sites each,
+most recently 2026-08-05. `improvement-sweep` would drive it fleet-wide and is
+`enabled=f` since 2026-05-02 (`bugs_open/083`/`116`; the owner ruled staged
+supervised re-enablement on 08-06).
+
+So, two things not to conclude:
+
+1. **`SELECT … WHERE item_type='dead_fragment_link'` returning 0 does NOT mean the
+   fleet is clean.** It means the check has not run. The fleet claim — 67
+   fragment-bearing hrefs, 0 dead — comes from the **offline harness**
+   (`RUNBOOK_fragment_blindspot.md`), and that is the figure to quote.
+2. **Do not "fix" this by dispatching discovery at sites to make the queue
+   non-empty.** Nothing is broken. The arm runs the next time any lane dispatches
+   that agent for its own reasons, which happens every few days.
+
+My own overclaim on this is corrected in four places and logged in `WRONG_CALLS.md`
+(2026-08-07): I wrote "it rides an already-enabled check, so it cannot land inert",
+which is true about **enablement** and silent about **cadence**. *Enabled* and
+*driven* are two questions. The query that answers the second:
+
+```sql
+SELECT created_at::date, count(*) FROM site_work_items
+WHERE created_by='completeness-discovery-agent' GROUP BY 1 ORDER BY 1 DESC;
+```
+
+## Still owed — two things, both small
 
 `VerifyDeadFragmentLinkResolved` has not executed. Its three SQL shapes were
 validated in both directions against the live fixture (href-presence returns `t`
@@ -52,6 +85,14 @@ judged not worth spawning `page-build-handler` against a pool-site scratch page.
 When it happens, the thing to check is that a completion is REFUSED while the href
 is still rendered and the fragment still misses — a verifier that only ever agrees
 is the failure mode the whole registry exists to prevent.
+
+**Second, smaller: the arm's first production run.** Watch the next real
+`completeness-discovery-agent` dispatch that includes a site carrying fragment
+links (idea.uk, loancash.co.uk, loanandmortgagecalculator.co.uk,
+fundamentallyai.com, vonc.com all have some). Expect **silence** — every one of
+those resolves today — and read that silence as corroboration only if the run
+actually covered the site. `created_by` + `created_at` on any item type from that
+run is how you tell it ran at all.
 
 ## DONE 2026-08-06 (kept for the method, not as work to repeat)
 
