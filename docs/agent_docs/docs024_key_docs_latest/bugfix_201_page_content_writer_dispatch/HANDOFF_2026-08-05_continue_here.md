@@ -1,6 +1,34 @@
 # HANDOFF — `bugs_open/201` lane · read this first
 
-> ## STATE 2026-08-06 (evening) — BOTH symptoms addressed. Symptom 1 PROVEN LIVE; symptom 2 committed and INERT.
+> ## STATE 2026-08-07 08:05Z — BOTH symptoms fixed, approved and DEPLOYED. One behavioural proof outstanding.
+>
+> | | fix | council | deployed | behaviour proven |
+> |---|---|---|---|---|
+> | **Symptom 1** | `37afbb847` | APPROVED | ✅ | ✅ **yes** (08-06 11:34Z) |
+> | **Symptom 2** | `dc4f4e6b2` + `7e62f4a07` | **APPROVED r2** | ✅ `v1.0.1262`, pod-verified | ❌ **not yet** |
+>
+> **Pod-grep (symptom 2 IS greppable, unlike symptom 1):** `VerifyLiteralMarkdownResolved` = **4**
+> on both replicas; fabricated `…ResolvedV2` = **0** on both. Migration 331 applied and verified
+> at the live column. Both halves of the lockstep are live.
+>
+> **THE ONE THING LEFT:** no `literal_markdown` item has been completed on the new binary, so the
+> verifier has not gated anything yet.
+> - ⚠ **Do NOT canary on `gaswholesalers.com/how-pricing-works`** — envelope-guard confounded
+>   (re-confirmed 08-07); any result is uninterpretable. This also means **201's own Symptom-2
+>   evidence rests on that same row** — flagged, not overturned.
+> - ✅ **Use `webdesign.co.uk` / page `news` / slot `news-listing`** — the only other live
+>   instance fleet-wide and NOT envelope-shaped; one of `bugs_open/184`'s originals.
+> - Full recipe and both acceptable outcomes are in `bugs_open/201`'s status block.
+> - ⚠ Live customer site; a rebuild **regenerates the section's prose**. Owner's call.
+>
+> **Also out of this round: `architecture_review/RFC_017`** — two seats said the local fix routes
+> *around* the registry's fail-open-on-error policy rather than addressing it. Every other
+> verifier still completes on an error. Not a blocker; needs an owner decision and one
+> `[UNMEASURED]` number (how often verifiers actually error in production).
+>
+> ---
+>
+> ## (superseded) STATE 2026-08-06 (evening) — symptom 1 PROVEN LIVE; symptom 2 committed and INERT.
 >
 > | | state |
 > |---|---|

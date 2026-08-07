@@ -3,7 +3,52 @@
 **Filed 2026-08-04** by the `bugfix_091_workitem_conflict_refresh`/`184` lane,
 found while verifying `bugs_open/184`'s auto-repair step. ~~**OPEN, unowned.**~~
 
-> ## STATUS 2026-08-06 (evening) — **SYMPTOM 2 FIXED IN CODE, INERT UNTIL A ROLL.** 201 stays OPEN.
+> ## STATUS 2026-08-07 08:05Z — **SYMPTOM 2 IS DEPLOYED AND POD-VERIFIED.** Behaviour not yet proven. 201 stays OPEN.
+
+**Deployed on `v1.0.1262`** (both replicas, started 05:47Z; commit `7e62f4a07` at 01:37Z UTC
+predates it). **Pod-greppable, unlike symptom 1's fix** — `VerifyLiteralMarkdownResolved` is a
+genuinely new symbol:
+
+| replica | `VerifyLiteralMarkdownResolved` | `…ResolvedV2` (fabricated control) |
+|---|---|---|
+| `…-5ghft` | **4** | 0 |
+| `…-dfk4b` | **4** | 0 |
+
+Both replicas, same exec. The fabricated near-miss returns 0, so the grep discriminates rather
+than matching everything — the positive alone would only prove the pipeline.
+
+**Migration 331 is applied and verified at the live column** (8 entries, old string consumed).
+So both halves of the lockstep are live: the verifier exists *and* the claim-timeout sweep can no
+longer auto-complete past it.
+
+### What is NOT yet proven, and the clean target for proving it
+
+**No literal_markdown item has been completed on the new binary**, so the verifier has not
+actually gated anything yet. That is the remaining work.
+
+⚠ **Do NOT use `gaswholesalers.com/how-pricing-works` as the canary** — re-confirmed 2026-08-07,
+its `content_data` matches the envelope-guard landmine's detector
+(`type='text'` + `jsonb_typeof(result)='string'`), so any result is uninterpretable.
+
+**Use `webdesign.co.uk`, page `news`, slot `news-listing`** — measured 2026-08-07 as the only
+other live literal-markdown instance fleet-wide and **not** envelope-shaped. It is also one of
+`bugs_open/184`'s three original findings.
+
+**Recipe:** file/triage a `literal_markdown` item for that page (a `quality-discovery-agent`
+sweep at `webdesign.co.uk` will file it at `detected`; see this lane's
+`TRIGGER_fire_quality_discovery.sh`), dispatch it to `page-build-handler`, and on completion
+assert **either** outcome — both prove the verifier ran:
+- repair worked → `Resolved:true`, item `complete`, **and the markdown is gone from
+  `content_data`** (assert the artefact, not the status);
+- repair did nothing → **completion REFUSED**, item routed to attempts rather than stamped
+  `complete`. This is the outcome that actually demonstrates symptom 2 is closed.
+
+⚠ **This is a live customer site and a rebuild REGENERATES the section's prose** — an owner's
+call, not a verification convenience.
+
+---
+
+## STATUS 2026-08-06 (evening) — symptom 2 fixed in code, inert until a roll (superseded above)
 >
 > **Commits `dc4f4e6b2` (r1) + `7e62f4a07` (r2).** Council **APPROVED at r2** — corr
 > `f14a8b64-4f71-4915-88d0-9587db845052`, *"approved with 3 advisory objection(s) — none
