@@ -339,3 +339,53 @@ site with many similarly-named tools (finetuning.uk has 8 `page_type='tool'` row
 generalise from this single observation** — it wants the resolver's assignment code read and
 a fleet census of `resolved_data.cta_target_title` against the adjacent `cta_text`. That
 census is the natural next step and is cheap, because both values are persisted per run.
+
+## 2026-08-07 08:17Z — CANARY RESULT: honest page, preserved prose, and the button GONE not re-aimed
+
+Work item `complete` at 08:16:40Z, `attempt_count=0`, no error. Verified at all three layers.
+
+**F24 — what actually changed, measured against the pinned before-state:**
+
+| slot | before | after | verdict |
+|---|---|---|---|
+| hero | 2908 B `dd767cfb` | 2836 B `ab78a790` | changed — **all anchors removed** |
+| article-body | 12440 B `b958d624` | 12440 B `b958d624` | **byte-identical** |
+| call-to-action | 2443 B `b2d1e81a` | 2443 B `b2d1e81a` | **byte-identical** |
+
+**Served page** (`https://finetuning.uk/guides/tool-ai-data-risk-checker-guide.html`,
+29,396 → 29,324 B):
+- `<a href="/contact.html" class="btn btn-primary">Run the Risk Checker` — **GONE**. ✅
+- `"Run the Risk Checker"` no longer appears anywhere on the page (grep = 0).
+- `password-entropy` = **0** — the resolver's mis-aimed URL **never reached the page**. ✅
+  Note this was luck, not a control: nothing stopped it except `cta_url` being absent from
+  `content_data`, which is the same accident that removed the button.
+- The `/contact.html` links that remain are chrome (nav "Contact", header "Get Started"), not
+  this defect.
+
+**So the scorecard: two of three goals.** The page stopped lying, and `edit_live` genuinely
+protected the prose — both other sections byte-identical, and the hero's headline and
+subheadline unchanged, which is exactly what the acceptance test asked for and a real
+endorsement of 178's channel. **But the button was deleted, not re-aimed** — the same visible
+outcome a bare rerender would have produced, for the cost of an LLM pass over three sections.
+
+**Small content loss to be honest about:** the hero's `secondary_cta` went from
+`"Speak to Us About Data Privacy"` to `""`. `cta_text` was retained
+(`"Run the Risk Checker"`) but renders nothing, because the template guard needs both text
+and URL.
+
+**F25 — and I did NOT get to blame persistence, because I checked.** My first instinct was
+"resolved URLs are never persisted, so every rerender loses them" — a tidy explanation for
+the whole 203 class. It is **false**: fleet-wide, **129 of 1,247** components DO carry
+`cta_url` in `content_data` (and 90 carry `primary_cta_url`). So persistence happens; it did
+not happen *here*. **[UNMEASURED] why** — the plausible reading is that `cta_url` is absent
+from `llm_fields`, so the writer never emits it and the save has nothing to store, while
+`resolved_data` only ever feeds the render context. That is a hypothesis, not a finding, and
+the 129 rows are the counter-example that has to be explained before anyone acts on it.
+
+### Consequence: STOP the per-page dispatches (worklist rows 2–4 NOT dispatched)
+
+Route 2 does not achieve the stated goal, so repeating it three more times would spend three
+LLM passes to delete three more buttons — including on a 13-day-stale page. **The defect to
+fix is upstream: the resolver's slot assignment (F22), and the `resolved_data` → `content_data`
+gap (F25).** Rows 2–4 stay parked with their ids and verified targets in the worklist table
+above, ready for whoever fixes that.

@@ -125,6 +125,23 @@
   empty. A handler applying `suggested_target` would re-break working buttons at scale.
   **Precision before handler.**
 
+- **D9 (2026-08-07, after the canary): route 2 is PROVEN and REJECTED for this purpose — stop
+  the per-page dispatches.** The canary (worklist row 1) completed cleanly and delivered two of
+  three goals: the phantom is gone from the served page, and `edit_live` protected the prose
+  (both other sections byte-identical). **But it deleted the button instead of re-aiming it**,
+  which is what a bare rerender would have done for free. The cause is structural, not a bad
+  prompt: `cta_url` is **not** in the hero's `llm_fields`, so no instruction to the writer can
+  set it (F23) — and the resolver, which does own it, **assigned the wrong slot**, sending
+  "Run the Risk Checker" to `/tools/password-entropy.html` while the *secondary* CTA got the
+  risk checker (F22). We were saved from shipping that only because `resolved_data.cta_url` was
+  never persisted (F25).
+  **So rows 2–4 are NOT dispatched, and route 3 is re-aimed.** The class cannot be fixed
+  page-by-page from the outside; it needs (a) the resolver's slot assignment corrected, and
+  (b) the `resolved_data` → `content_data` gap understood — noting 129 of 1,247 components DO
+  carry `cta_url`, so "it never persists" is false and must not be assumed.
+  **This is what the canary was for.** Batching all four would have deleted four buttons and
+  taught us none of it.
+
 ## Phasing
 
 - **P0** standing docs + claim (done), verdict + liveness (done).

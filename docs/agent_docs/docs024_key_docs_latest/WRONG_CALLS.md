@@ -22010,3 +22010,44 @@ fix shipped — grep a positive AND a negative". I followed it and still nearly 
 answer, because I had chosen a **count** as the positive. The rule protects you from
 trusting the tag; it does not protect you from a badly chosen needle, and nothing in the
 rule as written says a count is a bad needle. It does now.
+
+---
+
+## 2026-08-07 — I copied a "name the exact URL" precedent onto a field the writer is not allowed to write
+
+**Lane:** bugfix 203 phantom-CTA cleanup. **My own call**, caught by the canary run I had
+argued for — which is the only reason it cost one page instead of four.
+
+**The claim, and it was load-bearing.** I built a `content_rewrite` work item instructing the
+content writer: *"Set the hero section's `cta_url` to /tools/tool-ai-data-risk-checker.html — use
+that URL exactly as written, do not alter or invent one."* I justified the shape in the SQL file's
+own header by citing prior art: `create_tool_cross_link_items.go:242-279` uses that exact
+sentence, so naming a URL in `suggestion` is established framework practice rather than
+hand-authored content.
+
+**Why it was wrong.** The precedent is real but it does not transfer. The cross-link emitter asks
+for a link **inside prose** — and prose is an LLM field, so the writer can obey. A *structural*
+CTA URL is not: the hero's `llm_fields` are `["subheadline","secondary_cta","cta_text","headline"]`,
+and `cta_url` lives in `resolved_data`, owned by the internal-link resolver. **The writer cannot
+write that field at all**, so my instruction was unobeyable no matter how precisely worded. I had
+matched on the *name* of the thing being set ("a URL in a work item's suggestion") without
+checking **who owns the field**.
+
+**What it cost, and what saved it.** One page's button was deleted rather than re-aimed. It cost
+only that because I ran it as a single canary against a pinned before-state instead of batching
+all four — so I could see, mid-flight, that the resolver had also swapped the two CTA targets
+(sending "Run the Risk Checker" to a password-strength tool). Batching would have deleted four
+buttons and taught me neither fact.
+
+**The cheap check, before copying any work-item instruction.** Ask **who owns the field you are
+asking the writer to change**: `SELECT s->>'llm_fields' …` from a prior run's `sections_ready`,
+or read the component's `llm_field_specs`. If the field is not in `llm_fields`, no prompt can set
+it and the instruction is decoration. One query, and it distinguishes "the writer authors this"
+from "the pipeline computes this".
+
+**Generalisation, and it is the part worth keeping: a precedent transfers on MECHANISM, not on
+wording.** Two instructions can be the same sentence and land on different owners. When citing
+prior art to license a shape — which this repo's council explicitly rewards — check that the
+cited case's *mechanism* matches, not just its phrasing. Sibling entries: the pod-age entry
+(2026-08-06) and the "clearly right" entry (2026-08-07), both the same root shape — a
+convenient answer accepted before the instrument was checked.

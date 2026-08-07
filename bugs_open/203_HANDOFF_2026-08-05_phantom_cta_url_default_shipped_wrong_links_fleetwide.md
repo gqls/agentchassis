@@ -195,6 +195,47 @@ Read this section before acting on anything above it. Full working:
   **123** rows at `needs_human_review`, `unresolved_cta` **26**. That is candidate 2's
   population and it dwarfs the 13.
 
+### 2026-08-07, later — CANARY RUN: candidate 1 is not achievable by asking the writer, and the resolver mis-assigns the slot
+
+Owner authorised the `edit_live` route; it was run on **one** page
+(`finetuning.uk/guides/tool-ai-data-risk-checker-guide.html`, hero, "Run the Risk Checker",
+freshest of the four at 2 days stale). Work item `complete` 08:16:40Z, no error. Full working:
+the cleanup lane's `NOTES` F22–F25 and `SQL_2026-08-07_canary_…sql` (before-state pinned).
+
+**Result: the page stopped lying, prose survived, the button was DELETED not re-aimed.**
+- Served page: `<a href="/contact.html" class="btn btn-primary">Run the Risk Checker` **gone**
+  (29,396 → 29,324 B); `"Run the Risk Checker"` now absent from the page entirely.
+- `article-body` and `call-to-action` came back **byte-identical** (`b958d624`, `b2d1e81a`) —
+  `edit_live` genuinely protects prose, which discharges my "maturity unverified" caveat on it.
+- Cost: an LLM pass over three sections to reach the same visible outcome a bare rerender
+  gives free. Minor loss: the hero's `secondary_cta` ("Speak to Us About Data Privacy") emptied.
+
+**Why candidate 1 cannot work as written — two findings, both structural:**
+1. **`cta_url` is NOT a writer field.** The hero's `llm_fields` are
+   `["subheadline","secondary_cta","cta_text","headline"]`; URLs live in `resolved_data`, owned
+   by the **resolver**. So *no* instruction to the content writer can set a `cta_url`. (My item
+   asked it to, copying `create_tool_cross_link_items`'s "use that URL exactly as written"
+   precedent — which works there only because *its* link goes in **prose**, an LLM field. I
+   copied the pattern without checking that difference.)
+2. **The resolver assigned the WRONG SLOT.** Read live from the in-flight run: the hero
+   labelled "Run the Risk Checker" resolved to **`/tools/password-entropy.html`**, while the
+   *secondary* CTA ("Speak to Us About Data Privacy") got
+   **`/tools/tool-ai-data-risk-checker.html`**. It had the correct target in hand and put it in
+   the other slot. That URL never reached the page — but only because `cta_url` was not
+   persisted, not because anything caught it.
+   ⚠ Found **only** by enumerating the section's keys; a path read of `s->>'cta_url'` returns
+   NULL and reads as "the resolver did nothing".
+
+**[UNMEASURED] why the resolved URL did not persist.** The tidy explanation ("resolved URLs are
+never stored, so every rerender loses them") is **false**: **129 of 1,247** components do carry
+`cta_url` in `content_data` (90 carry `primary_cta_url`). Persistence happens; it did not happen
+here. Explain those 129 before acting.
+
+**Rows 2–4 of the worklist were deliberately NOT dispatched** (ids + verified targets are in the
+lane's NOTES table, ready to finish in minutes once the resolver is fixed): repeating this would
+spend three LLM passes to delete three more buttons, one on a 13-day-stale page. **The class
+needs the resolver's slot assignment fixed, not more per-page dispatches.**
+
 ### 2026-08-07 — candidate 1 is NOT AVAILABLE as written, and the cleanup needs an owner call
 
 Candidate 1 above ("resolve the real target from the CTA text and either set a real `cta_url`

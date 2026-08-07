@@ -117,3 +117,40 @@ before anything drains it — I've corrected my own note.
 One good bit of news: the code side is now measured and it's a non-issue. The risky old
 rendering path I was worried about didn't run once in five and a half hours of live traffic,
 and neither of the two remaining invented-default cases can fire on a path that never runs.
+
+## 2026-08-07 (later) — we tried it on one page, and it taught us the real problem
+
+You said go ahead with the careful content-writer route, so I did it on one page first — the
+finetuning.uk risk-checker guide, chosen because it was the freshest of the four and so the
+least likely to spring surprises. Here's what happened, and it was worth doing on one.
+
+**The good part.** The page has stopped lying: the "Run the Risk Checker" button no longer
+points at the contact page, verified on the live site, not just in the database. And the
+cautious editing mode did exactly what it promised — the article body and the closing section
+came back **byte-for-byte identical**. Nothing was quietly rewritten. That's a real
+endorsement of that mechanism, which I'd flagged as unproven.
+
+**The bad part, and it's the useful bit.** The button wasn't re-aimed — it was removed. So we
+spent an AI writing pass to achieve exactly what a plain rebuild would have done for free.
+
+**And the reason why is a genuine defect we didn't know about.** Watching the run mid-flight, I
+could see what the link-resolving step decided: it pointed "Run the Risk Checker" at the
+**password strength calculator**, and gave the actual risk checker to the *other* button on the
+page, the one that says "Speak to Us About Data Privacy". It swapped them. That wrong link
+never reached the page, but only by luck — not by any safeguard.
+
+Underneath that there's a structural reason my instruction could never have worked: the button
+label is something the AI writer controls, but the button's **destination is not** — that
+belongs to the automatic resolver. So telling the writer "point this at the risk checker" was
+asking it to change a field it isn't allowed to touch. I'd copied that instruction pattern
+from working code elsewhere without noticing that the other case puts its link inside
+sentences, where the writer *is* in charge.
+
+**So I've stopped, and not done the other three pages.** Repeating this would spend three more
+AI passes to delete three more buttons, one of them on a page that hasn't been rebuilt in
+nearly two weeks. The thing actually worth fixing is the resolver picking the wrong slot. I've
+left the other three fully worked out — page ids, correct destinations, all verified — so
+whoever fixes the resolver can finish them in minutes.
+
+One small thing I should own: the hero's second button text, "Speak to Us About Data Privacy",
+was emptied during the edit. No prose was lost, but that phrase is gone.
