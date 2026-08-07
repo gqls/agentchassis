@@ -3,7 +3,56 @@
 **Filed 2026-08-04** by the `bugfix_091_workitem_conflict_refresh`/`184` lane,
 found while verifying `bugs_open/184`'s auto-repair step. ~~**OPEN, unowned.**~~
 
-> ## ✅ STATUS 2026-08-06 11:35Z — **SYMPTOM 1 IS FIXED, LIVE AND PROVEN.** 201 **STAYS OPEN** for symptom 2.
+> ## STATUS 2026-08-06 (evening) — **SYMPTOM 2 FIXED IN CODE, INERT UNTIL A ROLL.** 201 stays OPEN.
+>
+> **Commit `dc4f4e6b2`.** Council **SUBMITTED**, verdict not yet read — corr
+> `f14a8b64-4f71-4915-88d0-9587db845052`. Both halves of 201 are now addressed;
+> symptom 1 is proven live, symptom 2 is not yet.
+>
+> **What shipped.** `check_literal_markdown.go` registers **`VerifyLiteralMarkdownResolved`**
+> via the estate's existing `ItemVerifier` mechanism — `CompleteWorkItemAction` already consults
+> that registry before stamping `complete`, seven verifiers were already registered, and
+> `literal_markdown` was already on its backlog with a written deferral note. **This is filling a
+> declared gap with existing machinery, not a new seam**, and it changes nothing about
+> `complete_work_item`'s general trust of `handler_result` — every other unverified item type
+> behaves exactly as before. §2's observation about `mark_complete` remains true in general.
+>
+> **The remit test was the one way to get this wrong, and it was followed.** The deferral note
+> (carried from `page_rerender`'s cautionary tale) said to write the verifier against the
+> *repairing agent's* remit, not the detector's predicate — a whole-page verifier there would
+> have stranded 1,849 correctly-handled items in `failed`. Here the handler is
+> `page-build-handler` (symptom 1's fix), whose `build_pages_loop` rewrites **all** of the page's
+> spec sections, so whole-page scope **is** its remit rather than stricter than it.
+>
+> **A zero returns an ERROR, not `Resolved`.** A page with no scannable components scans clean
+> whether it was repaired or its content was **lost** — and `bugs_closed/194`'s damage class is
+> real (31 of 106 components NULL on one live site). Certifying there would stamp `complete`
+> over a destroyed page, so the verifier refuses to answer.
+>
+> **Both lockstep obligations discharged** — registering a verifier is *not* what makes it gate.
+> The `claimed-item-timeout` sweep auto-completes at 15 minutes on handler evidence alone unless
+> the type is excluded: `220_*.sql` (declared) **and migration `331`** for the LIVE
+> `scheduled_tasks.pre_query`, which no test can check. Live column read first per the LANDMINE —
+> one row, seven entries, identical to 220, **no drift carried**. ⚠ **331 is NOT YET APPLIED.**
+>
+> **Proven by mutation, not by a green suite:** making the `Resolved` branch unconditional fails
+> `TestVerifyLiteralMarkdownResolved_RefusesWhenMarkdownSurvives`. Archive-of-HEAD build clean —
+> and the *first* archive run failed because only the Go files were copied, which is independent
+> proof the lockstep test really does read `220` from disk.
+>
+> ### Still owed on symptom 2
+> 1. **Read the council verdict** (`f14a8b64-…`) and act on a REVISE/REJECTED — code is already
+>    on the shared branch.
+> 2. **Apply migration 331.** ⚠ `run-migrations.sh --apply` takes **every** pending file, so
+>    dry-run and read the list before applying; other lanes have pending migrations.
+> 3. **Verify after the roll**, at the artefact: the verifier is inert until an image carries it.
+>    The natural canary already exists — gaswholesalers.com's `literal_markdown` item on
+>    `how-pricing-works`, whose markdown is still in `content_data`. A repair attempt on it must
+>    now be *refused* completion rather than stamped `complete`.
+>
+> ---
+>
+> ## ✅ STATUS 2026-08-06 11:35Z — **SYMPTOM 1 IS FIXED, LIVE AND PROVEN.**
 >
 > **The proof, induced deliberately rather than waited for.** Fired `quality-discovery-agent` at
 > `gaswholesalers.com` (corr `35e24460-d3f9-4d0e-a4bb-28bb9bc82a5c`, run COMPLETED 11:34:22Z,

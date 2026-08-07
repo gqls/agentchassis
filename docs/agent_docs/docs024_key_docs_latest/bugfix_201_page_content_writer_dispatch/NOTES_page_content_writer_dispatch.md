@@ -287,3 +287,97 @@ other half.
 
 **State: symptom 1 fixed, live, proven. 201 stays OPEN for symptom 2, which is now the next
 work in this lane.**
+
+---
+
+## 2026-08-06 (evening) — symptom 2: the mechanism already existed, and the work was mostly not writing it
+
+### The fix was a REGISTRATION, and finding that out was most of the job
+
+Symptom 2 reads like "complete_work_item needs a new check". It does not. `verifiers.go` already
+declares `ItemVerifier` / `RegisterVerifier` / `GetVerifier`; `CompleteWorkItemAction` already
+consults the registry before stamping; **seven verifiers were already registered**; and
+`literal_markdown` was **already listed** in `itemTypesWithoutVerifiers` with a written deferral
+note explaining exactly how to write it. The header of `verifiers.go` even names symptom 2's
+general form — *"a saga can 'succeed' without touching the defect"*.
+
+So this is filling a declared gap with the estate's own machinery. **What I deliberately did NOT
+do is change `complete_work_item`'s general trust of `handler_result`** — 201 §2's observation
+stays true for every other unverified type, and narrowing it fleet-wide is a different, much
+wider change than this bug licenses.
+
+### The one way to get it wrong, and the note that stopped me
+
+`verifier_coverage_test.go`'s `page_rerender` entry is the estate's cautionary tale: a working
+verifier was written, tested, and then **deliberately held**, because re-running the detector's
+predicate over the whole page is *stricter than the handler's remit* — it would mark
+correctly-handled items unresolved, burn their attempts, and strand **1,849** of them in
+`failed`, destroying a designed escalation.
+
+`literal_markdown`'s deferral note carried that warning forward verbatim: *"write it against the
+REPAIRING agent's rewrite remit, not the detector's predicate"*. That instruction is the reason
+whole-page scope is defensible here: the handler is `page-build-handler` (symptom 1's own fix),
+whose `build_pages_loop` runs `load_spec_sections → plan_sections` and rewrites **all** of the
+page's spec sections. Whole-page **is** the remit. And unlike `page_rerender` there is no
+two-strike escalation on this type to destroy — a failed verify goes to attempts, then human
+review, which is where an uncleaned markdown defect belongs.
+
+**Had I not read that note I would have written the same verifier and been right by luck.**
+
+### The zero I refused to certify
+
+A page with no scannable components scans clean. That observation cannot distinguish *repaired*
+from *content lost* — and this lane has already measured the second: 31 of 106 components NULL
+across 10 pages on ai-agent-orchestration.com, every component on 9 of them. Returning `Resolved`
+there stamps `complete` over a destroyed page.
+
+So `scanned == 0` returns an **error**, not a verdict. The caller records "could not verify"
+rather than treating it as success. **I am aware that CompleteWorkItemAction fails open on an
+error** (`verifiers.go:60-63`) — that is the registry's existing documented policy, and inventing
+a different one for this verifier alone would be a silent divergence, so I left it and said so in
+the submission instead.
+
+### Drift, and why the scan is now one function
+
+`verifiers.go`'s contract is that a verifier re-runs *"the SAME predicate the discovery check
+used to create the item"*. Two hand-kept copies of a five-line scan is how that quietly stops
+being true — and a verifier drifted **stricter** is the page_rerender disaster. So the per-row
+scan is extracted into `scanComponentRowForMarkdown` and both call it. The row *selection* is
+still written twice (site-wide vs page-scoped) because the scopes genuinely differ; a comment
+records that their WHERE clauses must otherwise stay identical.
+
+### Both lockstep obligations, and the one no test can check
+
+Registering the verifier immediately failed **two** guards — the designed catch, working:
+
+1. `TestEveryItemTypeIsVerifiedOrAnAcknowledgedGap` — *"HAS a verifier but is still listed as a
+   gap … remove it from itemTypesWithoutVerifiers"*.
+2. `TestRegisteredVerifiersMatchClaimTimeoutExclusion` — *"HAS a Go verifier but is NOT excluded
+   in 220 … the claimed-item-timeout sweep will auto-complete it on handler-orchestration
+   evidence alone, bypassing the verifier"*.
+
+**Registering a verifier is not what makes it gate.** The sweep auto-completes at 15 minutes
+unless the item_type is in its `item_type NOT IN (...)` list. And per the LANDMINE, `220` is only
+the **declared** list — the LIVE `scheduled_tasks.pre_query` is a separate edit that no test can
+check, and a lane has already left a verifier bypassable for two days by doing one and not the
+other. Read the live column first (the landmine's own instruction): **one row, seven entries,
+byte-identical to 220 — no drift to carry.** Migration `331` written against that exact string,
+asserting both directions in `DO`/`RAISE` because plain `SELECT`s cannot stop a `COMMIT`.
+
+### Two things I proved rather than assumed
+
+- **The test bites.** Mutating `if len(remaining) == 0` to `>= 0` fails
+  `RefusesWhenMarkdownSurvives` with the live shape (`**Decision Engine**` still in
+  `content_data`). A happy-path test alone would pass for a verifier that always certified.
+- **The lockstep test really reads `220` from disk.** My first archive-of-HEAD run **failed** —
+  because I had copied only the Go files into the archive. Annoying, and it is the cleanest
+  possible evidence that half of the lockstep is live rather than decorative.
+
+### State
+
+Committed `dc4f4e6b2`, council submitted `f14a8b64-4f71-4915-88d0-9587db845052` (verdict unread).
+**Inert until a chassis roll** — Go change; the fleet is on `v1.0.1261`, which predates it.
+**Migration 331 not yet applied.** The post-roll canary already exists and needs no new dispatch:
+gaswholesalers.com's `literal_markdown` item on `how-pricing-works`, whose markdown is still in
+`content_data`; a repair attempt on it must now be refused completion rather than stamped
+`complete`.

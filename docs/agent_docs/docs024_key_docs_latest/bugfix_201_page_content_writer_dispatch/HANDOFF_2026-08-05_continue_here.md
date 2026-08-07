@@ -1,5 +1,38 @@
 # HANDOFF — `bugs_open/201` lane · read this first
 
+> ## STATE 2026-08-06 (evening) — BOTH symptoms addressed. Symptom 1 PROVEN LIVE; symptom 2 committed and INERT.
+>
+> | | state |
+> |---|---|
+> | **Symptom 1** (hard fail, 11/11) | ✅ fixed `37afbb847`, council **APPROVED**, **PROVEN LIVE** 08-06 11:34Z |
+> | **Symptom 2** (complete-but-wrote-nothing) | fixed `dc4f4e6b2`, council **SUBMITTED** `f14a8b64-…`, **INERT until a roll** |
+> | `bugs_open/201` | **STAYS OPEN** |
+>
+> **Symptom 2's fix in one line:** register `VerifyLiteralMarkdownResolved` on the estate's
+> existing `ItemVerifier` registry, which `CompleteWorkItemAction` already consults before
+> stamping `complete`. Reuse of a declared-gap mechanism, not a new seam; nothing about
+> `complete_work_item`'s general trust of `handler_result` changes.
+>
+> **Three things a successor should not re-derive:**
+> 1. **Whole-page scope is deliberate and was the one way to get this wrong.** The deferral note
+>    warned (from `page_rerender`, which stranded 1,849 items) to write against the *handler's*
+>    remit. `page-build-handler` rewrites all the page's spec sections, so whole-page **is** the
+>    remit.
+> 2. **A zero returns an ERROR, not `Resolved`** — an empty page scans clean whether repaired or
+>    content-lost (194's class), and certifying would stamp `complete` over a destroyed page.
+> 3. **Registering a verifier is not what makes it gate.** The `claimed-item-timeout` sweep walks
+>    past it at 15 minutes unless the type is excluded — `220_*.sql` **and** migration **331**
+>    for the live column. ⚠ **331 is NOT YET APPLIED.**
+>
+> **Owed:** read verdict `f14a8b64-…`; apply 331 (⚠ `--apply` takes *every* pending file — dry-run
+> first); verify after the roll. The canary already exists: gaswholesalers.com's `literal_markdown`
+> item on `how-pricing-works`, whose markdown is still in `content_data` — a repair attempt on it
+> must now be **refused** completion rather than stamped `complete`.
+>
+> ⚠ **`bugs_open/208`** (found in this lane's pre-flight, page-rebuild committing an owned page
+> before the guard) is **another thread's** as of 08-06 — fixed in `cb7b4d759`, PBP-036. Do not
+> pick it up here.
+
 > ## ✅ UPDATE 2026-08-06 11:35Z — **SYMPTOM 1 PROVEN LIVE. §3 below is now HISTORY; read this box instead.**
 >
 > Fired `quality-discovery-agent` at `gaswholesalers.com` (owner-authorised) rather than waiting
