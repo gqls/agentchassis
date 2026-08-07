@@ -239,3 +239,53 @@ deleted, no `dead_fragment_link` rows anywhere. Verified in the same statement.
 The three junk items the full 32-check run filed against the pool site
 (`needs_rerender`, `nav_drift`, `dead_control`) were deleted with it — they are
 artefacts of my fixture, not findings about anything real.
+
+## 2026-08-07 — CORRECTION to my own framing: I avoided 093's ENABLEMENT trap and inherited its CADENCE one
+
+Re-verified on `v1.0.1262` (a second roll since): arm intact on both replicas,
+`dead_fragment_link` 10 / verifier 2 / `SplitFragment` 2, positive control 10,
+negative 0. No regression.
+
+Then I asked whether any REAL finding had appeared, and the answer was more
+interesting than the zero.
+
+> **CORRECTED — "it rides an already-enabled check, so it cannot land inert"
+> (PLAN, the register entry, the commit message, and the 016b corollary) is TRUE
+> ABOUT ENABLEMENT AND MISLEADING ABOUT CADENCE.** The check is genuinely enabled
+> in `completeness-discovery-agent`'s `checks` array — that part stands, and it is
+> why no config change was needed. What I did not measure before asserting it was
+> **how often that agent runs.** Measured now:
+>
+> ```
+> items created by completeness-discovery-agent, by day, last 21 days:
+> 08-05: 9 (2 sites) · 08-04: 256 (6) · 08-03: 266 (5) · 08-02: 5 (1)
+> 07-31: 6 (1) · 07-29: 9 (1) · 07-22: 7 (1) · 07-20: 8 (1) · 07-17: 46 (3)
+> ```
+>
+> **Nine days out of twenty-one, 1–6 sites each time, most recently 2026-08-05 —
+> i.e. manual/one-shot dispatch, not a schedule.** `improvement-sweep`, the thing
+> that would drive it fleet-wide, is `enabled=f` and last fired 2026-05-02
+> (`bugs_open/083`/`116`). So **zero `dead_fragment_link` items exist and that is
+> NOT evidence the fleet is clean** — no dispatch has touched a real site since
+> the arm shipped. The only run it has ever had is the one I induced.
+>
+> This is `bugs_open/093`'s shape at one level out, and the distinction is the
+> transferable part: **an arm on an enabled check escapes "nobody switched it on"
+> but inherits whatever drives the agent.** "Enabled" and "driven" are two
+> questions and I answered one of them. The cheap check I skipped is the query
+> above — item counts by day for the producing agent — which takes one query and
+> would have stopped me writing "cannot land inert" in four places.
+
+**What is actually true, stated to survive:** the arm is live, correct and
+proven-by-induction; it will run the next time ANY lane dispatches
+`completeness-discovery-agent` at a site, which happens every few days; fleet-wide
+coverage needs either the improvement sweep re-enabled (`083`/`116`, owner ruled
+staged supervised re-enablement on 08-06) or per-site dispatches. **Fleet evidence
+for "no dead fragments today" comes from the offline harness (67 hrefs, 0
+findings), not from the queue**, and that distinction is now the one to quote.
+
+**Still owed, unchanged in substance:** `VerifyDeadFragmentLinkResolved` has not
+executed (needs a real completion). Now with a second, smaller owed item: the
+first real dispatch that includes a site with fragment links is the arm's first
+production exercise — worth watching, and worth *not* reading its silence as a
+clean bill of health.
