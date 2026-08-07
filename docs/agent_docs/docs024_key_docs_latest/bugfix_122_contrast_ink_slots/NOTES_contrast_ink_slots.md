@@ -176,3 +176,153 @@ claim built from greps whose functions it had never opened, and the loop refuted
 mechanisms that both *appear* to be in place, and a resolved value that contradicts
 both. That is a cause living somewhere other than the symptom, and "obvious" is
 explicitly not the gate.
+
+## 2026-08-06 (evening) — the council REVISEd me, and it was right: my sub-shape C was wrong
+
+Round 1 verdict on `c4d9c841-3658-4742-85b5-961e062ecad2`: **REVISE**, gated by the
+`editquality` seat. Its objection, verbatim in substance: the plan "makes accent_text
+reachable but ships no edit that actually consumes it for any of the cited failures".
+
+**It was right, and answering it properly refuted my own framing.** I had described
+sub-shape C as *"a component hard-coding an ink over a themed fill"*. I then read the
+three rules — which I had never opened, having inferred the shape from the audit's
+output — and **not one of them hard-codes anything**:
+
+```
+finetuning .csg-cta-btn   (case-studies-grid)
+    background: var(--color-accent, var(--color-secondary))  -> #C8873A
+    color:      var(--color-primary-text, #fff)              -> #ffffff   = 3.01:1
+```
+
+The `#fff` fallback never fires: `--color-primary-text` **is** defined, as `#ffffff`,
+and it is *correct for its own slot* (primary is `#1A1A2E`). The fill is **accent**.
+The component names the wrong ink slot. A grep for hard-coded whites finds nothing here.
+
+And the other two are the **opposite direction** again:
+
+```
+gaswholesalers .A   -> the LAYOUT's base rule  a { color: var(--color-accent); }  2.22:1 x6
+gamesdesign .stats-eyebrow (system-stats) -> color: var(--color-accent, #7dd3fc)  1.44:1
+```
+
+Those use accent **as** an ink. `--color-accent-text` — the ink that goes ON an accent
+fill — is the wrong repair and would have changed nothing on either site. So round 1's
+plan could not have fixed 7 of the 9 failures it claimed. **The seat caught a real
+hole, not a presentation problem.**
+
+The correction is that a palette colour needs **both** directions named:
+`--color-<x>-text` (ink ON an x fill) and `--color-<x>-ink` (x made legible AS an ink).
+Round 2 shipped three variables instead of two and was **APPROVED**.
+
+> **MISSTEP 5, and it is the same one as MISSTEP 3.** I described three CSS rules
+> from the audit's rendered output without opening the templates that produce them.
+> The audit tells you the computed colour; it cannot tell you which declaration chose
+> it. I wrote "hard-coding" into a plan, a bug file and a council submission on that
+> inference. The check is one query per selector and it is in the RUNBOOK now.
+
+## 2026-08-06 (evening) — a fourth shape, found by accident, deliberately not fixed here
+
+Chasing gamesdesign's other 8 failures found `rgba(255,255,255,0.7)` in **no**
+stylesheet. It comes from `system-stats`'s own inline `<style>`:
+
+```css
+.system-stats-section { --section-text-muted: rgba(255,255,255,0.7); }
+```
+
+— a component redefining a token the renderer emits under a comment reading
+*"Themes MUST NOT declare --section-* defaults; the renderer owns this."* The
+component's scoped selector beats the renderer's `body` block, so the
+contrast-checked value loses to a literal.
+
+**47 of 173** active unforked components do this; **32** with a raw rgb/rgba literal.
+~24 of the fleet's 109 failures. Filed as `bugs_open/212` rather than folded in — it
+is an unenforced contract, not a missing variable, and bundling it is what the
+guardian seat vetoes.
+
+## 2026-08-06 (evening) — sub-shape B: two diagnosis runs, no verdict, and run 1 was unanswerable
+
+Run `5853ee07` came back **UNVERIFIABLE** — *"Diagnosis NOT confirmed (stopped:
+iteration-cap)"*, five bundles, no cause.
+
+Then I went and measured, and found **the symptom I gave it was built on a false
+premise**. `PLAN_2026-08-06` §2B says ai-agent-orchestration.com's stylesheet
+*"does define `--color-heading: var(--color-text)`"*. It defines `--color-heading`
+**zero times**. Headings never consult it — the rule is
+`h1..h6 { color: var(--section-heading, var(--color-primary)) }`. The loop spent five
+iterations reading `tokenAliases` and `darkSchemeDerivations`, two mechanisms that do
+not participate in this failure, because I sent it there.
+
+What is actually true, measured:
+
+- the served stylesheet is **missing the renderer's step-11 compatibility-alias block
+  entirely**, and ends at the close of step 10's output. **4 of 4** other sampled sites
+  have it.
+- so `--hero-ink` is undefined; `hero`'s `--section-heading: var(--hero-ink)` is
+  therefore **guaranteed-invalid**; so the fallback `var(--color-primary)` applies;
+  and `--color-primary` `#0D1117` is **byte-identical to `--color-surface`**.
+- ruled out: staleness. `buildTokenAliases` landed 2026-07-06, the pages deployed
+  2026-08-06.
+
+Refiled as run `750e162e` with the corrected symptom — **also capped, also no verdict.**
+Filed as `bugs_open/211` with the mechanism marked MEASURED and the cause marked
+UNMEASURED, because I have not established *why* the block is missing and will not guess.
+
+> **A `090` symptom naming the wrong mechanism returns UNVERIFIABLE, not REFUTED.**
+> An iteration-cap stop reads like "hard bug" when it can mean "wrong question". That
+> is a genuinely new failure mode for me — the corrected section in CLAUDE.md is about
+> the loop catching *my* wrong claim, and this is the reverse: my wrong claim wasting
+> the loop. Run 2 capped too, so the loop also has a real gap here.
+
+## 2026-08-06 (evening) — the baseline I banked could not have verified my own fix
+
+`BASELINE_2026-08-06_render_audit.txt` as first written covered **10 sites, 82
+failures**. The plan quotes 15 sites and 109. The five missing were dartsonline,
+robot-hands, vonc, relojistas, vetcomparison — **and dartsonline and robot-hands are
+the two sub-shape A sites the entire fix targets.**
+
+So the artefact banked specifically to make the fix measurable omitted every site the
+fix was for, and nothing about the file said so — it looks complete, it is headed
+"BASELINE", and the total line reads `10 page(s): 82 contrast failure(s)`. Completed
+and appended; 15 sites / 109 now, which reconciles with the plan.
+
+> **The check: a baseline is only a baseline for the rows it contains.** Assert the
+> subject list against the thing you are about to change, not against the total. I
+> would have "verified" a fix for dartsonline against a file with no dartsonline row.
+
+## 2026-08-06 (evening) — writing the tests, and a fixture that could not have passed
+
+Three mutations, each producing a DISTINCT failure, so none is a guard in series:
+
+| mutation | fails | and only |
+|---|---|---|
+| move the ink call before `buildTokenAliases` | `InkCompanionsComeAfterTokenAliases` | that one |
+| `for _, g := range grounds[:1]` | `LegibleInkFor_TwoGroundsDisagree` | that one |
+| delete the `source:unchanged` branch | `LegibleInkFor_AlreadyLegibleIsLeftExactlyAlone` | that one |
+
+> **MISSTEP 6 — my first two-grounds fixture was arithmetically unsatisfiable.** I used
+> grounds `#101010` and `#E9E9E9`. AA against both is impossible: the darker demands
+> relative luminance ≥ 0.200, the lighter ≤ 0.140. Every candidate correctly fell
+> through to the achromatic fallback, so **the test failed while the code was right**.
+> A trap no value can escape does not test preference — it tests the fallback. Rebuilt
+> with two dark grounds, like dartsonline's real ones, where a satisfying colour
+> exists and the CHOICE is what is under test.
+
+Also: the package would not build in the working tree — another session's
+`diagnose_persist_fix_plan_action.go` edit is missing an `agenterrors` import. Built and
+tested against `git archive HEAD` + my four files instead, per the recorded practice.
+The pre-commit pattern check then caught my test file not being gofmt-clean, which
+would have failed the build gate. Both are the shared-tree tax, and both were caught by
+machinery rather than by me.
+
+## 2026-08-06 (evening) — two council objections that were measurement errors of mine
+
+Round 2 was APPROVED with three advisory objections. Two were fair and cheap:
+
+- **`reuse_agent`:** my "0 of 28 enabled `scheduled_tasks` target render-audit-agent"
+  **filtered on `enabled=true`**, and a DISABLED row would have been invisible. Re-asked
+  without the filter: **46 rows total, 29 enabled, 0 targeting render-audit-agent either
+  way.** The claim survived — but it was luck, not method, and the seat was pointing at
+  a recorded landmine. (Note "28" had already drifted to 29 in two hours.)
+- **`guardian`:** blast radius stated only for the failing sites. Real fleet count:
+  `tool-list` 6 placements / 4 sites, `system-stats` 5 / 4, `case-studies-grid` 4 / 3,
+  `image-hover-card-grid` 1 / 1 — **16 placements**. Modest, and now stated.

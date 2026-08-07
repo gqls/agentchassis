@@ -107,6 +107,23 @@ direction.
 
 ### B. `--color-heading` collapsing onto its own background — cause [UNMEASURED]
 
+> **CORRECTED 2026-08-06 (evening) — `--color-heading` IS NOT INVOLVED. This section's
+> premise is false and it sent a diagnosis run at the wrong mechanism.** The claim below
+> that "this site's stylesheet does define `--color-heading: var(--color-text)`" is
+> wrong: it defines `--color-heading` **zero** times. Headings resolve through
+> `h1..h6 { color: var(--section-heading, var(--color-primary)) }`.
+>
+> What is actually measured: the served stylesheet is **missing the renderer's step-11
+> alias block entirely** (4 of 4 other sites have it) and ends at step 10's output; so
+> `--hero-ink` is undefined; so `--section-heading: var(--hero-ink)` is
+> guaranteed-invalid; so the fallback `--color-primary` applies; and `--color-primary`
+> `#0D1117` is byte-identical to `--color-surface`.
+>
+> `090` run `5853ee07` returned **UNVERIFIABLE** (iteration-cap) having been sent at
+> `tokenAliases` and `darkSchemeDerivations` by this section. Refiled as `750e162e`
+> with the corrected symptom — also capped. Now filed as **`bugs_open/211`** with the
+> cause still open. **A wrong symptom returns UNVERIFIABLE, not REFUTED.**
+
 ai-agent-orchestration.com serves **six `.H3` headings at 1.00:1** —
 `rgb(13,17,23)` on `rgb(13,17,23)` — plus an `.H2` at 1.04 and a `.section-heading`
 at 1.10. This is the single worst instance on the fleet and **appears in no bug
@@ -121,6 +138,27 @@ already defined anywhere in the CSS, and this site's stylesheet does define
 reasoning about. Filed for diagnosis rather than asserted (§5).
 
 ### C. A component hard-coding an ink over a themed fill — 026 family 3 [MEASURED]
+
+> **CORRECTED 2026-08-06 (evening) — THE HEADING OF THIS SECTION IS WRONG AND SO IS
+> ITS DIAGNOSIS. Nothing here hard-codes an ink.** Caught by the council's
+> `editquality` seat (round 1 REVISE: the plan "ships no edit that actually consumes
+> [accent_text] for any of the cited failures"), and confirmed by opening the three
+> templates, which I had not done — I inferred the shape from the audit's *rendered*
+> output, and the audit can tell you the computed colour but never which declaration
+> chose it.
+>
+> - `.csg-cta-btn` reads `color: var(--color-primary-text, #fff)`. The fallback never
+>   fires — `--color-primary-text` IS defined, as `#ffffff`, and it is CORRECT for its
+>   own slot. The fill is **accent**. It names the **wrong ink slot**.
+> - `.A` (gaswholesalers) is the LAYOUT's base `a { color: var(--color-accent) }`, not a
+>   component, and uses accent **as** an ink — the OPPOSITE direction from `accent_text`.
+> - `.stats-eyebrow` likewise uses accent **as** an ink.
+>
+> So `--color-accent-text` fixes exactly ONE of the three, and this section's proposed
+> repair could not have touched gaswholesalers or gamesdesign at all. The real shape:
+> a palette colour needs **both** directions named — `--color-<x>-text` (ink ON an x
+> fill) and `--color-<x>-ink` (x made legible AS an ink). Shipped as three variables in
+> `1d2c93a87`, register VIZ-014. See NOTES 2026-08-06 (evening), MISSTEP 5.
 
 finetuning `.csg-cta-btn` white on `#C8873A` = **3.01**; `.cta-btn cta-btn-primary`
 white on white = **1.00**; gaswholesalers `.A` `#E8A020` on white = **2.22**;
@@ -260,3 +298,23 @@ cannot resolve the cascade, and a palette cannot see a literal that is in no pal
   anything — that is the whole of the remaining work". **The Go port, the orchestration
   and the work-item drain all now exist and are live**; the remaining work is a
   cadence row, not wiring.
+
+
+---
+
+## Corrections log (added 2026-08-06 evening, so the wrong turns are not lost)
+
+The three above are marked in place. Two more that change how this plan reads:
+
+- **§4.1's banked baseline covered 10 of 15 sites and omitted dartsonline and
+  robot-hands** — the two sub-shape A sites the whole fix targets. The artefact banked
+  to make the fix measurable could not have measured it. Completed to 15 sites / 109
+  failures; the file now says so in a header block.
+- **§3 candidate 2's "0 of 28 enabled `scheduled_tasks`" was filtered on `enabled=true`.**
+  Re-asked unfiltered on the council's objection: 46 rows, 29 enabled, **0 targeting
+  render-audit-agent either way**. The conclusion survived; the method did not.
+
+**What of this plan still stands:** §2A (sub-shape A) unchanged and now shipped;
+§3 candidate 1's *architecture* (renderer-owned emission, not 18 layouts) unchanged and
+APPROVED; §3 candidates 3 and 4 still correctly rejected; §4's verification discipline
+unchanged and now more important, not less.

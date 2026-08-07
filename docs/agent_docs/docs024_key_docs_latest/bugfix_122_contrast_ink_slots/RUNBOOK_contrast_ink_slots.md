@@ -162,3 +162,82 @@ kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user 
 `site_specs` has no `resolved_composition` either — it is a single `data` jsonb keyed
 by `aspect`. CLAUDE.md says schema first; these are the tables it is worth obeying on,
 because each query *reads* perfectly.
+
+## Which DECLARATION chose the colour the audit measured? (do this before saying "hard-coded")
+
+The render audit reports a *computed* colour. It cannot tell you which declaration
+produced it, and guessing is how a whole sub-shape got mis-diagnosed (NOTES misstep 5).
+
+```sql
+SELECT substring(html_template from '\.<selector>\s*\{[^}]*\}')
+FROM content_components WHERE name='<component>';
+```
+
+Then read which property names the palette colour:
+
+- `background:` names it → the element needs **`--color-<x>-text`** (the ink that goes ON an x fill)
+- `color:` names it → the element needs **`--color-<x>-ink`** (x made legible AS an ink)
+
+**GOTCHA — `var(--color-primary-text, #fff)` rendering white does NOT mean the fallback
+fired.** Check the served stylesheet before blaming the literal:
+
+```bash
+curl -fsS -A "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/126 Safari/537.36" \
+  https://<domain>/assets/css/styles.css | grep -- '--color-primary-text:'
+```
+
+On finetuning.uk it IS defined, as `#ffffff`, and it is correct for its own slot. The
+value is right and the slot is wrong — a grep for hard-coded whites finds nothing.
+
+**GOTCHA — the selector may not be in a component at all.** gaswholesalers' six `.A`
+failures are the *layout's* base `a { color: var(--color-accent) }`. Search `layouts`
+too, and remember `.A` in the audit means a bare `<a>` with no class.
+
+## Build and test when another session's WIP breaks the package
+
+```bash
+T=<scratch>/headtree; rm -rf $T && mkdir -p $T
+git archive HEAD | tar -x -C $T
+cp <your files> $T/platform/orchestration/actions/
+cd $T && go test ./platform/orchestration/actions/ -run '<YourTests>'
+```
+
+**GOTCHA — `go build ./...` in the working tree tests everyone's uncommitted work, not
+yours.** On 2026-08-06 the package would not compile because another session's
+`diagnose_persist_fix_plan_action.go` was missing an import. The clean-HEAD tree is the
+only way to know whose fault a failure is.
+
+**And run `gofmt -l` before committing** — un-gofmt'd code is rejected by the build gate,
+so it reaches CI as a failed gate and no PR. The pre-commit pattern check catches it,
+advisory only, so it is easy to skim past.
+
+## Prove a test assertion is load-bearing (mutate, expect a DISTINCT failure)
+
+Mutate in the HEAD tree, run, restore. A mutation that PASSES may have hit a guard in
+series; a mutation that fails the *wrong* test proves nothing about the one you meant.
+
+```bash
+cp <file> /tmp/x.bak
+python3 - <<'PY'   # e.g. grounds -> grounds[:1]
+...
+PY
+go test ./platform/orchestration/actions/ -run '<Tests>' 2>&1 | grep -E "FAIL:|ok "
+cp /tmp/x.bak <file>
+```
+
+**GOTCHA — a contrast fixture must be SATISFIABLE.** Grounds `#101010` and `#E9E9E9`
+admit no colour clearing AA against both (the darker demands relative luminance ≥ 0.200,
+the lighter ≤ 0.140), so every candidate correctly falls through to the achromatic
+fallback and your test fails while the code is right. Two grounds of similar lightness —
+like dartsonline's real `#0E1019` / `#1A1F2E` — is what tests the CHOICE.
+
+## psql: when a regex in `-c "..."` dies with `syntax error at or near ")"`
+
+Stop fighting the shell. Write the SQL to a file and feed it on stdin:
+
+```bash
+cat > /tmp/q.sql <<'SQL'
+SELECT name FROM layouts WHERE css_template ~ '(^|[^-.\w])a\s*\{[^}]*color:\s*var\(--color-accent';
+SQL
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -f - < /tmp/q.sql
+```
