@@ -6190,8 +6190,19 @@ Two more in the same family, both cheap to get wrong:
   with gaps like "zero hits for `package <x>`" or zero-match symbol searches, that is the
   frozen **code index** (`bugs_open/108`, pinned at `d98010e8b`, 2026-07-28), not a weak
   hypothesis — anything added since reads as ABSENT. Re-submitting spends another run for the
-  same answer. Fix the index ref first (migration 252 pins `086_experience_loop`; it wants
-  `'main'`).
+  same answer. Fix the index ref first. ~~(migration 252 pins `086_experience_loop`; it wants
+  `'main'`)~~ **CORRECTED 2026-08-07 08:2xZ, and this matters because the old advice made it
+  WORSE: `main` was 4,594 commits behind HEAD while the stale pin was only 2,365 behind, so
+  "change it to `'main'`" — which is what 252's own reversal trigger and the memory index both
+  said — would have roughly doubled the staleness.** The ref is the *constant* in
+  `scheduled_tasks.pre_query` for `code-index-refresh` (NOT `input_data->>'ref'`, which the
+  scheduler's pre-query overlay makes inert), and it must name **the live working branch**.
+  Repointed to `087_towards_multiple_domains` by **migration 332**.
+  **⚠ THE PIN ROTS EVERY TIME A BRANCH IS CUT, silently and while still reporting a real recent
+  commit** — so before believing any "no hits" answer, check the pin against the tree:
+  `git ls-remote --heads origin | grep -E '<pinned-ref>|<your-branch>'` and
+  `SELECT ref, commit_time FROM code_symbols GROUP BY 1,2`. A daily job that succeeds against a
+  dead branch looks exactly like a healthy index.
 - **source:** 2026-08-07, code-review triage lane (`code_review_triage_2026-08-05/` NOTES §18).
   Root cause of the validation rejection **NOT diagnosed** — `reply_to_request_id` is empty in
   the *failure* message and `DeliverReply` keys on it, but that is a **[HYPOTHESIS]**, not a
