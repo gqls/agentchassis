@@ -70,3 +70,64 @@ queue latency (this repo's own documented ~30 min, not ~2) + roll + pod
 verification + live re-triage + end-to-end page verification risked doing
 that work carelessly rather than with the same rigour as everything above.
 See `HANDOFF_2026-08-07_continue_here.md` for the exact remaining steps.
+
+## 2026-08-07 — Go code confirmed live (someone else's build/roll); council round 1 REVISE, fixed, resubmitted
+
+Checked the owner's report of "a fresh chassis build has been deployed"
+directly rather than assuming it meant this lane's code: pod-grepped both
+`agent-chassis` replicas (now `v1.0.1262`, rolled by another session) for
+`ensure_page_section_layout` (5), `business_directory` (4),
+`directory-build-handler` (1), negative control (0). **The Go code is
+genuinely live.** DB config is not: `agent_definitions` has no
+`directory-build-handler` row yet and `directory-listing`'s schema is
+unchanged — migrations 325/326 have not been applied.
+
+**Read the round-1 council verdict in full** (`diagnosis_artifacts`,
+`body` column — the `metadata` column only holds a summary, `doc_notes`
+truncates; go to `body` for the complete per-reviewer JSON). **REVISE**,
+gated by `bug_historian`'s edit-1 objection (high): `resolveBusinessDirectory`
+returned an empty slice, not an error, when a site had no
+`directory-export-json` config — indistinguishable from "genuinely zero
+eligible businesses." Three other reviewers independently raised high-severity
+objections too (`tooling_provenance`: no spawn before the `call_agent` to
+`page-build-handler`, a documented landmine shape; `prior_art_librarian`: no
+existence check attached for a pre-existing `directory-build-handler` row;
+`guardian`: unmeasured fleet-wide blast radius of the dispatch-map flip).
+
+**Fixed the gating objection and the two other fixable HIGH ones:**
+1. `resolveBusinessDirectory`'s no-config branch now returns an error, which
+   routes into `plan_sections_action.go`'s existing resolver-error handling
+   (distinct from the empty-list/`on_missing` path) — no new mechanism
+   needed, the platform already had the right path for this.
+2. `326_directory_build_handler_agent.sql`'s workflow gained a
+   `spawn_page_builder` step before `call_page_build_handler`, matching
+   `directory-export-orchestrator`'s own proven `spawn_exporter` →
+   `call_exporter` shape.
+3. (Not gating, but three independent reviewers — `reuse_agent`,
+   `constitution`, `architecture` — flagged the same thing): extracted
+   `insertSitePlanSectionRows` so the new action stops hand-copying
+   `write_site_plan_action.go`'s insert shape. **Did NOT** wire
+   `write_site_plan_action.go` itself onto the shared helper — it gained
+   `assigned_fact_ids` handling (`PBP-037`) from a separate, actively-revised
+   lane (council REJECTED on breadth, mid-`RFC_016`) during this exact
+   review round. Touching another lane's contested file to satisfy a
+   medium-severity reuse nit felt like the wrong call — documented as an
+   honest follow-up instead.
+
+**Answered, not code-changed** (evidence in the resubmission's
+`grounded_in`, not repeated here): the blast radius is exactly **one**
+pending `entity-directory` work item fleet-wide (the very one this fix
+targets) and **two** `entity-directory` pages total (the second already
+deployed, untouched by this change since it already has sections);
+`queryresolve.go` read in full both before round 1 and again now — no
+existing case touches `business_intel`; `cb7b4d759` re-confirmed via
+`git log -S` to genuinely carry the `load_work_item_actions.go` line;
+`page-build-handler`'s actual `input_contract` matches what
+`directory-build-handler` supplies it.
+
+**Rebuilt, retested (unit, against fresh `git archive HEAD` — moved twice
+more during this one session), committed** (`37560f120`), **resubmitted on
+the same correlation** (`RESUBMIT_CORR=5b8e4cf7-...`). Round-2 verdict not
+yet read as of this note — checked once, not landed yet (queue was visibly
+contended both times). **Read it before doing anything else in this lane** —
+see HANDOFF for the query.
