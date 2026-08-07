@@ -65,3 +65,49 @@ sitting in a queue waiting for a human, with no handler assigned. That's a diffe
 more serious problem than the one we thought we had. And a mistake of my own: I tagged a
 documentation-only commit as council-reviewed, which quietly pollutes the report that
 tracks which code changes went unreviewed. Logged it rather than let it pass.
+
+## 2026-08-07 — the tidy-up turns out to need a decision from you
+
+I picked this back up expecting to fix the eight wrong buttons and found the plan I'd left
+myself was wrong, so here's the honest position.
+
+**Three of those buttons have a correct destination sitting right there.** "Run the Risk
+Checker" on finetuning.uk, "Run MatchMatrix" on robot-hands, "Score your process" on
+leopardess — each of those tools genuinely exists as a page on its own site. That matters
+because the fix we shipped makes the system leave a button out when it can't work out where
+it goes. So if I simply rebuild those three pages, the wrong link disappears and so does the
+button — on pages whose entire job is to send the reader to that tool. Honest, but worse for
+the visitor.
+
+**And the obvious remedy isn't available.** I'd assumed we could just ask the system to
+re-work out the links for one page and then rebuild it. It can't: the part that works out
+where links should point only runs while a page's words are being written, not as a repair
+you can run afterwards. I checked the other repair machinery too — it only mends links that
+point at pages which don't exist, and ours point at the contact page, which does exist on
+every one of these sites. So there's nothing in the system today that re-aims a link that's
+live but wrong.
+
+That leaves three ways forward, and the middle one needs your say-so:
+
+1. **Rebuild the four blog buttons on leopardess and let them vanish.** These say "Get
+   Started" — words the system invented, on buttons nobody ever wrote. Nothing worth keeping.
+   I'd do this one without asking, it's clearly right.
+2. **Let the content writer edit those three tool pages.** This is the system's own proper
+   route and needs no new machinery — the link-resolving step is already part of writing, so
+   the buttons would come back pointing at the real tools. The catch: it puts the AI writer
+   over copy that's already published on customer sites. It edits rather than rewrites from
+   scratch, but it is still changing live pages, so I'm not doing it on my own initiative.
+3. **Build the missing piece properly** — a way to re-aim an existing page's links without
+   touching its words. That's the right long-term answer and it would fix this whole class
+   rather than these eight, but it's new shared machinery and wants a review round.
+
+**Also worth flagging, because it changes something I told you yesterday.** I said the
+detector's findings just need someone to act on them. Looking at the actual findings, most of
+them are wrong: it's flagging perfectly good "Get in Touch" buttons that point at the contact
+page as if they were misdirected. If we'd built something to auto-apply its suggestions, it
+would have broken a lot of working buttons. So that queue needs its accuracy sorted out
+before anything drains it — I've corrected my own note.
+
+One good bit of news: the code side is now measured and it's a non-issue. The risky old
+rendering path I was worried about didn't run once in five and a half hours of live traffic,
+and neither of the two remaining invented-default cases can fire on a path that never runs.

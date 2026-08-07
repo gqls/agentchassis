@@ -95,6 +95,36 @@
   artefact would leave the next session a half-finished dispatch and no way to tell whether
   it worked — worse than a clean handoff. Handed off with the worklist pinned.
 
+- **D7 (2026-08-07): the cleanup needs an OWNER DECISION, because every available route is
+  either wrong, outward-facing, or new machinery.** D3 ("resolve, then rerender") is
+  **retracted** — F18 shows the operation it names does not exist: the resolver is a pure
+  function whose only caller is `page-content-writer`, so resolution happens at
+  content-writing time and there is no repair-time entry point. With F17 (the correct targets
+  exist) and F19 (no misdirected-link repair path), the three real options are:
+  1. **Bare `page-rerender`.** Cheapest and safest; makes the pages stop lying immediately.
+     But it **deletes** three buttons whose correct destinations exist on the same site. Right
+     for the four fabricated "Get Started" heroes, wrong for the three tool CTAs.
+  2. **`page-content-writer` with `spec.mode=edit_live`** (`bugs_open/178`'s channel, which
+     hands the writer the page's current prose to EDIT rather than regenerate). This is the
+     framework's own path and needs no new machinery: the resolver already sits in that
+     workflow, so the CTA would come back pointing at the real tool page. **But it is an LLM
+     content operation on live customer pages** — outward-facing, costs credits, and can
+     change published copy. Not mine to trigger unilaterally, and `edit_live` is itself an
+     open bug's new channel whose maturity I have not verified.
+  3. **Build the missing capability: relink-an-existing-page.** The robust framework answer,
+     and the one that closes the class rather than these 8 rows — but it is new shared
+     machinery (council round, concept-register entry), and it is NOT the clean composition I
+     first assumed: `load_current_section_content` is bound to `spec.mode=edit_live` and
+     yields a writer `section_plan`, not sections in the resolver's shape.
+  **Recommendation: (1) for the four "Get Started" blog heroes — nothing there is worth
+  preserving — and (2) for the three tool CTAs plus `finetuning.uk/about`, once the owner
+  says yes to editing live copy.** Do not mix them in one dispatch.
+- **D8 (2026-08-07): F12 is downgraded, against my own earlier note.** "Give the
+  `cta_names_unknown_destination` queue a handler" is premature: F20 shows its output is
+  dominated by correct contact CTAs flagged by the excluded-area arm, with `affected_url`
+  empty. A handler applying `suggested_target` would re-break working buttons at scale.
+  **Precision before handler.**
+
 ## Phasing
 
 - **P0** standing docs + claim (done), verdict + liveness (done).

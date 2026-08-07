@@ -140,3 +140,64 @@ and this note is the correction. **The rule I should have followed: a docs commi
 trailer at all** — `Council-Reviewed:` belongs on the commit carrying the reviewed code,
 and `880a405a6` (which carried `Council-Submitted:`) is the one the report resolves
 automatically once the verdict turned approved. Added to WRONG_CALLS.
+
+## 2026-08-07 — the gate measurement lands, and the cleanup route is NOT what the handoff assumed
+
+**F15 — the owed measurement (D4's gate) is now TAKEN, with both controls.** Yesterday's
+attempt was worthless because the pods were 25 minutes old (F8). Today the same two pods
+have **5h24m** uptime (started 2026-08-06T19:54Z, measured 2026-08-07T01:18Z), same image
+v1.0.1261. Over that window, `"using regex fallback"` appears **0 times on both replicas**.
+Two controls make that zero mean something, and I checked them *before* believing it:
+- **rendering happened**: 11 `page_components` rows have `updated_at` inside the window
+  (54 in 24h), so the render path was exercised;
+- **Warn reaches me**: 34 `"level":"warn"` lines in the same window, and the fallback logs
+  at Warn — so the level is not being swallowed.
+`"RenderTemplate"` appears 0 times, which is consistent: the surrounding lines are Debug.
+Combined with yesterday's durable population bound (1 literal-`{{.` row in 1,247 stored
+components, and the Go path cannot produce that literal because it strips `<no value>` to
+empty), the regex fallback is **rare-to-never in practice**. 11 renders is a small
+denominator — it cannot separate "never" from "1 in 50" — so the honest statement is a
+bound, not a zero.
+
+**Consequence: D4's two candidates are both LOW priority, confirmed.** Neither member of the
+class can fire on a path that does not run. This does *not* license deleting lines
+1138/1140 — F6's reason still stands, and now there is even less reward for the risk.
+
+**F16 — the worklist is STABLE overnight.** All 8 rows still present, `updated_at`
+unchanged (07-25 → 08-05). Nobody else touched 203 overnight (`git log` on the bug file,
+the lane dir and `component_library.go` since 21:00Z: empty).
+
+**F17 — the real targets EXIST, so a bare rerender is the WRONG repair.** This is the
+finding that overturns the handoff's own method note:
+- "Run the Risk Checker" → `finetuning.uk/tools/tool-ai-data-risk-checker.html` **exists**
+- "Run MatchMatrix" → `robot-hands.com/tools/matchmatrix/index.html` (+ `/matchmatrix.html`) **exists**
+- "Score your process" → `leopardessconsulting.co.uk/tools/process-automation-scorer/index.html` **exists**
+A rerender on the fixed binary would apply correct-or-absent and **delete** all three
+buttons, on pages whose whole purpose is to send the reader to that tool. Honest, and a
+usefulness regression. The four "Get Started" blog heroes are the opposite case — label and
+destination both fabricated, nothing to preserve.
+
+**F18 — and the resolver CANNOT be run on its own, which is why the handoff's D3 was
+unbuildable as written.** `internal-link-resolver` is a **pure function**: its workflow is
+`resolve_links → complete`, returning `sections_ready`/`unresolved` to its caller, writing
+nothing. Fleet-wide, exactly **one** agent references it — `page-content-writer`, as
+`spawn_link_resolver → resolve_links (call_agent) → prepare_link_context →
+build_render_context`. So link resolution is a **content-writing-time** step, not a repair
+one. "Re-run resolve_internal_links for the page, then rerender" names an operation the
+framework does not expose.
+
+**F19 — and there is no existing repair path for a MISDIRECTED link, only for a DEAD one.**
+`component_link_repair.go` / `repairSectionLinks` is dead-internal-link repair — its own
+header says so, and it explicitly does **not** touch `content_data`. Our hrefs point at
+`/contact.html`, which **exists on all 7 sites**, so that machinery correctly no-ops on
+every one of the 8. Nothing in the estate re-points a link that is live but wrong.
+
+**F20 — a warning about F12's "just give the queue a handler".** Listing all 18
+`cta_names_unknown_destination` items for finetuning.uk (filed 08-03): they are dominated by
+**correct** CTAs — "Get in Touch", "Talk to Us", "Start a Conversation" — flagged under
+"lands in an excluded area (contact/legal/about)". A "Get in Touch" button pointing at
+`/contact.html` is exactly right. So the queue's precision is poor, `affected_url` is
+**empty on all 18**, and a handler that auto-applied `suggested_target` would **re-break
+correct buttons at scale**. Yesterday's F12 ("give its output a handler") is therefore
+premature as stated: precision first, then a handler. Recording this against my own earlier
+note rather than leaving it to be inherited.

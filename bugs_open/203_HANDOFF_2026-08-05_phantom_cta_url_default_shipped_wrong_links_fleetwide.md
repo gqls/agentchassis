@@ -195,6 +195,47 @@ Read this section before acting on anything above it. Full working:
   **123** rows at `needs_human_review`, `unresolved_cta` **26**. That is candidate 2's
   population and it dwarfs the 13.
 
+### 2026-08-07 — candidate 1 is NOT AVAILABLE as written, and the cleanup needs an owner call
+
+Candidate 1 above ("resolve the real target from the CTA text and either set a real `cta_url`
+… then page-rerender") assumes an operation the framework does not expose. Measured:
+
+- **`internal-link-resolver` is a pure function** — workflow `resolve_links → complete`,
+  returns `sections_ready`/`unresolved` to its caller and writes nothing. Fleet-wide exactly
+  **one** agent references it: `page-content-writer` (`spawn_link_resolver → resolve_links →
+  prepare_link_context → build_render_context`). **Link resolution is a content-writing-time
+  step; there is no repair-time entry point.**
+- **`component_link_repair`/`repairSectionLinks` cannot help**: it is *dead*-link repair, it
+  explicitly does not touch `content_data`, and `/contact.html` **exists on all 7 sites** — so
+  it correctly no-ops on all 8 rows. Nothing in the estate re-points a link that is live but wrong.
+- **The correct targets DO exist**, which makes a bare rerender the wrong repair for three of
+  them: `finetuning.uk/tools/tool-ai-data-risk-checker.html`,
+  `robot-hands.com/tools/matchmatrix/index.html`,
+  `leopardessconsulting.co.uk/tools/process-automation-scorer/index.html`. Correct-or-absent
+  would **delete** those buttons on pages whose purpose is to send the reader to that tool.
+
+**So the routes are (full reasoning in the lane's PLAN D7): (1) bare `page-rerender` — right
+for the four fabricated "Get Started" blog heroes, wrong for the three tool CTAs; (2)
+`page-content-writer` with `spec.mode=edit_live` (`bugs_open/178`'s edit-not-regenerate
+channel) — the framework's own path, needs no new machinery because the resolver already sits
+in that workflow, but it is an LLM content operation on live customer pages and so wants owner
+authorisation; (3) build a relink-an-existing-page capability — the robust class-closing answer,
+but new shared machinery, and NOT the clean composition it first appears
+(`load_current_section_content` is bound to `spec.mode=edit_live` and yields a writer
+`section_plan`, not resolver-shaped sections).** Nothing dispatched: (2) and (3) are not a
+follow-on session's call to make alone.
+
+⚠ **Also correcting my own note above**: "give the `cta_names_unknown_destination` queue a
+handler" is premature. Its 18 finetuning.uk items are dominated by **correct** CTAs
+("Get in Touch", "Talk to Us") flagged by the excluded-area arm, and `affected_url` is empty on
+all 18 — a handler applying `suggested_target` would re-break working buttons at scale.
+Precision before handler.
+
+**The code half is measured and LOW priority.** The regex-fallback path fired **0** times over
+a 5h24m window on both replicas, with both controls checked (11 components rendered inside it;
+34 `warn` lines present, and the fallback logs at Warn) — so neither remaining class member can
+fire on a path that does not run. It still must not be "fixed" by deleting lines 1138/1140.
+
 ## Taken up 2026-08-06 (session "bugfix 206" — renamed in intent to 203)
 
 A follow-on session has taken the remaining work: verdict read for the source fix's council

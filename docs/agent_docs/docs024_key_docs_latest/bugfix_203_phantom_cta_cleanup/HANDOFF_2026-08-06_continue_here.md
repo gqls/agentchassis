@@ -37,7 +37,18 @@ outcome is removal rather than resolution.
 **`/contact.html` exists on all 7 sites** — none of these is a broken link. Do not describe
 them as such to the owner.
 
-**Method (D3, and F3 is the evidence it works):** re-run `resolve_internal_links` for the
+> **CORRECTED 2026-08-07 — the method below is RETRACTED. Do not follow it; it names an
+> operation the framework does not expose.** `internal-link-resolver` is a **pure function**
+> (workflow `resolve_links → complete`, returns sections to its caller, writes nothing), and
+> fleet-wide exactly **one** agent calls it: `page-content-writer`. So link resolution happens
+> at content-writing time and there is **no repair-time entry point** to "re-run
+> resolve_internal_links for a page". See NOTES F18, and F19: `component_link_repair` is
+> *dead*-link repair and correctly no-ops here, because `/contact.html` exists on all 7 sites.
+> **The live routes and the owner decision they need are PLAN D7.** In short: a bare rerender
+> is right for the four fabricated "Get Started" heroes and *wrong* for the three tool CTAs,
+> because their correct targets exist (F17) and a rerender would delete the buttons.
+
+**Method (D3 — RETRACTED, see the correction above):** re-run `resolve_internal_links` for the
 page so the resolver writes a validated `cta_url` into `content_data` — or correctly leaves
 it absent and raises `unresolved_cta` — **then** rerender. A bare rerender on the fixed
 binary is sufficient to *remove* the phantom (proven: `dartsonline.com/news/index.html`
@@ -63,6 +74,15 @@ Do **not** simply delete `component_library.go:1138/1140`. `renderGoStyleSubstit
 returns the literal `{{.field}}` for an absent key, so that trade ships template syntax
 inside an `href` — already visible on `idea.uk/tools/ab-test-calculator/index.html`, which
 stores a literal `{{.section_heading}}` (1 row fleet-wide).
+
+> **UPDATE 2026-08-07 — the gate measurement is TAKEN (NOTES F15), and it says LOW PRIORITY.**
+> Same two pods, now 5h24m old: `"using regex fallback"` = **0** on both replicas, with both
+> controls checked first (11 components rendered inside the window, so the path was exercised;
+> 34 `warn` lines present, so the level is not swallowed). With yesterday's durable bound
+> (1 literal-`{{.` row in 1,247 stored components) the fallback is **rare-to-never**.
+> 11 renders is a small denominator, so this is a bound, not a zero — but neither class member
+> can fire on a path that does not run, so there is even less reward for F6's risk. **The
+> candidates below stay correct and stay unurgent.**
 
 The owed measurement, and it is the gate on the whole item: **how often does
 `executeGoTemplate` actually error?** The log route is a trap — I burned a check on it (F8):
