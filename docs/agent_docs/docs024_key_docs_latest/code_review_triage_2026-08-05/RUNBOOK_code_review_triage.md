@@ -293,3 +293,64 @@ FROM agent_error_log GROUP BY 1 ORDER BY 2 DESC;
 - **A refactor is not a review of what it moves.** RFC_012 relocated this exact INSERT to a leaf
   package on 2026-08-06 and carried the defect verbatim. Any file:line for a shared writer is a
   *snapshot* — re-locate it (`grep -rn "INSERT INTO <table>"`) before citing one.
+
+## R14 — Refresh the code index (the corpus every `code_checks` and `090` code answer reads)
+
+Needed because a stale index makes `090`/council code lookups return "zero hits" for anything
+recent, which reads as a finding about your claim rather than about the index (NOTES §18a).
+
+```bash
+# 1. WHAT IS PINNED vs WHAT IS LIVE. The pin is a CONSTANT in the pre_query;
+#    input_data->>'ref' is INERT (the scheduler merges the pre-query result as an OVERLAY).
+git ls-remote --heads origin | grep -E '086_experience_loop|087_towards|refs/heads/main$'
+git rev-list --count <remote-tip>..HEAD          # how far behind each candidate really is
+```
+```sql
+SELECT pre_query FROM scheduled_tasks WHERE name='code-index-refresh';   -- what WILL be indexed
+SELECT ref, count(*), min(commit_time), max(updated_at) FROM code_symbols GROUP BY 1;  -- what IS
+```
+
+```bash
+# 2. Repoint with a NEW migration (252's guard refuses a re-run; forward-only forbids editing it).
+#    Then apply it with the dir SCOPED — 95 files were pending fleet-wide and --apply takes ALL.
+S=<scratchpad>; mkdir -p $S/mig && cp docs/agent_docs/sql_for_agents/332_*.sql $S/mig/
+MIGRATIONS_DIR="$S/mig" ./scripts/migration/run-migrations.sh          # dry run + probe
+MIGRATIONS_DIR="$S/mig" ./scripts/migration/run-migrations.sh --apply
+```
+
+```sql
+-- 3. FORCE A RUN. Do NOT use 083b_TRIGGER_code_indexer_v2.sh to test a pre_query change: it
+--    passes `ref` directly in the Kafka message and BYPASSES the pre_query entirely.
+--    Nudge the schedule instead, so the real path reads the config you just changed.
+UPDATE scheduled_tasks
+SET last_triggered_at = last_triggered_at - (interval_seconds || ' seconds')::interval
+WHERE name='code-index-refresh';   -- fires within one 30s scheduler tick
+```
+
+```sql
+-- 4. VERIFY AT THE ARTEFACT. Watch the ORCHESTRATION, not the task row.
+SELECT owner_agent_type, status, current_step FROM orchestration_states
+WHERE owner_agent_type IN ('index-orchestrator','code-indexer') AND created_at > '<the nudge>';
+-- and the discriminating control: a symbol that CANNOT exist in the old corpus
+SELECT count(*) FROM code_symbols WHERE ref='<new ref>' AND path LIKE '%agenterrors%';
+```
+
+**Gotchas, in the order they bit:**
+
+- **`'main'` was the WRONG target even though 252's reversal trigger and MEMORY both name it.**
+  `main` was HEAD−4,594 while the stale pin was HEAD−2,365 — following the instruction literally
+  would have roughly doubled the staleness. Measure all three candidates before choosing; the pin
+  must name the **live working branch**, and repointing it is **part of cutting a branch**.
+- **Nothing was failing.** The job had run daily and succeeded for nine days against a dead
+  branch: `updated_at` yesterday, `commit_time` 07-28. A healthy cadence over a dead ref looks
+  exactly like a healthy index — which is why `bugs_open/108` made the banner key on `commit_time`.
+- **`scheduled_tasks.last_completed_at` means DISPATCHED, not indexed** on this task — it was
+  stamped equal to `last_triggered_at` while `code-indexer` was still `EXECUTING_STEP`.
+- **A non-zero symbol count for the new ref means indexing STARTED, not finished.** The old corpus
+  is replaced progressively (086 fell 4,992→3,334 while 087 climbed 0→1,839). I wrote a watcher
+  that fired "SUCCESS" at 36 symbols — 0.7% of the corpus. Gate on the orchestration's terminal
+  status, and expect minutes (every symbol is re-embedded; workflow timeout 1800s).
+- **The indexer fetches the REMOTE PUSHED tip.** An unpushed commit is invisible however current
+  the ref name looks — `commit_time` came back 01:53:30Z, matching the pushed tip, not my later
+  local commits. Check `git ls-remote` rather than `git log`.
+- `bugs_open/129`: this lane fails bursty at the spawn handshake, so a failure may just want a retry.

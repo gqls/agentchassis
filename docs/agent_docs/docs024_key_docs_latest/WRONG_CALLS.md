@@ -22154,3 +22154,46 @@ overclaim becomes platform folklore. It is also self-similar to the bug I was
 avoiding: `093`'s file says its own lesson is "a mechanism made correct and then
 guarded behind something that never runs", and I reproduced it one level out while
 citing it. Corrected in all four places on 08-07.
+
+---
+
+## 2026-08-07 — my own watcher reported SUCCESS at 0.7% done, because I wrote a PROGRESS signal as a COMPLETION predicate
+
+**The claim.** Repointing the code index onto the live branch (migration 332), I armed a monitor
+to tell me when the reindex finished. Its success condition was:
+
+```bash
+if [ "$N087" -gt 0 ]; then echo "SUCCESS: ... at ref=087_towards_multiple_domains"; exit 0; fi
+```
+
+It fired within two minutes: *"SUCCESS: code_symbols has 36 symbols at
+ref=087_towards_multiple_domains"*. I was one message away from reporting the index refreshed.
+
+**What caught it.** The number. The corpus it replaces held **4,992** symbols, so 36 is **0.7%** —
+and the orchestrations were still `AWAITING_RESPONSES` / `EXECUTING_STEP`. A non-zero count means
+indexing **started**. Worse, the old ref was being replaced *progressively*, not swapped: 086 fell
+4,992 → 3,334 while 087 climbed 0 → 1,839, so for several minutes both refs held partial corpora
+and any "is it done?" question asked of either was answerable and wrong.
+
+**The cheap check that would have.** Gate on the **producer's terminal state**, not on the
+appearance of its output: `code-indexer` reaching `COMPLETED`/`FAILED`. Where a count is the only
+signal available, the predicate has to be a *stable* count (unchanged across two polls) or a
+count compared against the expected magnitude — never `> 0`. **`> 0` answers "has anything
+happened", which is the question you ask when you are worried nothing will.** I was worried the
+spawn would drop (`bugs_open/129`), so I wrote the predicate for *that* fear and then read its
+answer as though it addressed a different one.
+
+**Why it is worth a row.** This is the "trust the artefact, not the status" rule failing in the
+direction nobody warns about. I did go to the artefact — I counted rows in `code_symbols` rather
+than believing a status — and still got it wrong, because **an artefact under construction is not
+a status but it is not evidence of completion either.** The rule needs its second half stated:
+*trust the artefact, and establish that the artefact is FINISHED.*
+
+**A second one in the same minute, same shape, and this one is a live trap for anyone else.**
+`scheduled_tasks.last_completed_at` for `code-index-refresh` was stamped **equal to
+`last_triggered_at`** at 08:26:28Z — so `last_completed_at >= last_triggered_at` read `true`,
+which is the scheduler's own "not in flight" test — **while `code-indexer` was still
+`EXECUTING_STEP`.** On this task that column means *dispatched*, not *indexed*. I had been about
+to use it as the completion signal after abandoning the row count. Recorded in `LANDMINES.md` and
+`RUNBOOK` R14, because the obvious two signals are both wrong and the right one (the child
+orchestration) is the least discoverable.
