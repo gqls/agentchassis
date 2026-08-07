@@ -22197,3 +22197,76 @@ which is the scheduler's own "not in flight" test — **while `code-indexer` was
 to use it as the completion signal after abandoning the row count. Recorded in `LANDMINES.md` and
 `RUNBOOK` R14, because the obvious two signals are both wrong and the right one (the child
 orchestration) is the least discoverable.
+
+---
+
+## 2026-08-07 — I ranked four fix candidates in a bug file and put a number on none of them
+
+**The claim.** `bugs_open/212` §5, filed by me the previous day, ordered four repairs "by
+what makes the bad state unrepresentable" and concluded: *"Candidate 2 is the only one
+that is a class fix and also the only one that can break something that currently works.
+That trade is the decision this file is asking for."* Candidate 2 was to emit the
+renderer's `--section-*` block at a specificity component CSS cannot beat.
+
+**What was actually true.** On the case the file is built around — gamesdesign's
+`.system-stats-section`, ground `rgb(13,191,214)` — the renderer's own contrast-checked
+value is `#e2e2e2` = **1.71:1**, against the component literal's **1.72:1**, and the
+muted slot **regresses 1.72 → 1.46**. Candidate 2 does not fix the motivating case; it
+very slightly worsens it. Candidate 3 resolves to the same value wherever the block is
+emitted, so it inherits the same numbers. The file's own framing was inverted: candidate
+2 does not risk breaking something that works, it breaks the thing it was proposed to fix.
+
+**What caught it.** Reading the first three lines of `buildSectionDefaults` the next
+morning — `if !bgIsDark && !surfaceIsDark { return "" }` — which prompted the question
+"what value *would* it emit here, then?", which is one subtraction away from the answer.
+
+**The cheap check that would have.** *Compute the candidate's own number before ranking
+it.* A fix candidate for a measured, numeric defect must state the number it would
+produce, or it is not a candidate — it is a direction. This costs about five minutes with
+the WCAG formula, and the value needed was already in the served stylesheet I had open to
+write §3. **The general form: a ranked list is an assertion about each item, and the
+"unmeasured" discipline applies to every row of it.** I marked figures in §2 and §3 as
+MEASURED and then wrote §5 in the same confident voice with nothing behind it — the
+asymmetry the marker rule exists to prevent, reappearing one section further down the
+same file.
+
+**Why it is worth a row.** The standing lesson is "order fix candidates by what closes the
+door". That rule is about the *shape* of a fix and I applied it correctly — candidate 2 is
+genuinely the most door-closing shape. The rule is silent on whether the door being closed
+is the right door, and ranking by shape alone reads as rigour. **A ranking derived from a
+principle still needs a measurement per row.**
+
+## 2026-08-07 — "an unenforced contract", when the platform had already enforced it and closed the ticket
+
+**The claim.** The header of `bugs_open/212`, again mine, the previous day: this is *"an
+unenforced contract, not a missing variable"* — and §5 accordingly asked which of four
+repairs to build.
+
+**What was actually true.** The defect had been detected on 2026-08-03 by the design
+audit, described correctly and specifically, given a mechanical `acceptance_test`, routed
+to a live fixer, and marked **`complete` 3m17s later** having written nothing (proved by
+`content_components.updated_at` being 10.5 hours *earlier* than the item's `created_at`).
+The class repair already exists in the tree and already handles the exact case —
+`fix_forced_text_colours_action.go`'s `classifySectionPainting` matches `system-stats`'
+`background: var(--color-primary, …)` as a `paintPaletteBand` and rewrites its
+`--section-*` literals to the on-colour family. So the file proposed building something
+that exists, and the real question — why the existing repair never ran — went unasked.
+
+**What caught it.** One query: `SELECT … FROM site_work_items WHERE
+handler_agent='color-variable-fixer'`. gamesdesign was the sixth row.
+
+**The cheap check that would have.** Before filing a bug about a class of defect, **ask
+the work-item queue what the platform already knows about the affected target** — not
+just the `needs_diagnosis` queue for duplicate filings, but *any* item touching the site
+or component, in any status including terminal ones. CLAUDE.md's "checking the pod does
+not check the queue" is written as a collision check ("another session may have a fix in
+flight"), and I read it as being only that. **A closed work item is a diagnosis somebody
+already paid for**, and on this route it was better written than my own.
+
+**Why it is worth a row.** Two skipped checks, one file, both in the "already available"
+category rather than the "needed a cluster run" category — and the second one produced a
+bigger finding than the bug it was filed under (`bugs_open/213`: seven of nine
+`complete` items on that route were graded by another producer's predicate). The tally
+this file exists for now has *check the queue for terminal items too* appearing alongside
+*grep before you file*; they are the same instinct applied to two different stores, and
+only one of them is currently written down as a rule.

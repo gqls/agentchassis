@@ -241,3 +241,95 @@ SELECT name FROM layouts WHERE css_template ~ '(^|[^-.\w])a\s*\{[^}]*color:\s*va
 SQL
 kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -f - < /tmp/q.sql
 ```
+
+## The section-token counterfactual — "would the renderer's own value be any better?"
+
+Added 2026-08-07. Written because `bugs_open/212` ranked two fix candidates as class
+fixes without this, and both turn out to be no-ops on the case that motivated the file.
+A browser can only measure what is *served*; a candidate fix is by definition not served,
+so this arithmetic is the only way to grade one before building it.
+
+**Validate the model before trusting it.** Include one row whose value IS live, and
+check it reproduces the browser's number (`scripts/render_audit.py`, or 212 §3). If the
+live row disagrees, every counterfactual row is worthless. On gamesdesign the model gave
+1.72:1 against a browser-measured 1.72:1 — that agreement is what licensed the rest.
+
+```python
+def srgb_to_lin(c):
+    c = c / 255.0
+    return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+
+def lum(rgb):
+    r, g, b = (srgb_to_lin(x) for x in rgb); return 0.2126*r + 0.7152*g + 0.0722*b
+
+def ratio(fg, bg):
+    a, b = lum(fg), lum(bg); hi, lo = max(a, b), min(a, b)
+    return (hi + 0.05) / (lo + 0.05)
+
+def over(fg, alpha, bg):      # composite — a semi-transparent ink is NOT its own colour
+    return tuple(alpha*f + (1-alpha)*b for f, b in zip(fg, bg))
+```
+
+**The ground is the trap, not the formula.** A section's ground is usually a composite,
+not a palette value: `.system-stats-section` is `--section-surface` (`rgba(255,255,255,0.05)`)
+over `--color-primary`, i.e. `over((255,255,255), 0.05, (0,188,212)) = rgb(13,191,214)`.
+Grade against *that*, not against `#00bcd4`. Getting the ground wrong changes the verdict,
+not just the third decimal.
+
+## Reading a `090` verdict — there is no `verdict` artifact kind
+
+Added 2026-08-07, having looked in three wrong places first. `doc_notes` (that is the
+**council** gate), `site_work_items.spec` (carries only the correlations) and
+`orchestration_states` (rows vanish from the `fix_correlation_id` filter as the run
+progresses, and reap at ~24h) all come up empty.
+
+```sql
+-- The run's artifacts. kind is CHECK-constrained to
+-- bundle | iteration_note | fix_plan | council_report | escalation — no 'verdict'.
+SELECT kind, created_at, metadata->>'decision' AS decision,
+       metadata->>'symbols_unreadable' AS unreadable, metadata->>'body_chars' AS chars
+FROM diagnosis_artifacts
+WHERE correlation_id::text = '<RUN_CORRELATION_ID>'   -- the dispatch one, NOT the intake
+ORDER BY created_at;
+```
+
+**Read it as follows.** `bundle` rows only, with no `metadata->>'decision'` on any of
+them, means the run **iteration-capped: UNVERIFIABLE**. That is the same outcome the
+trigger reports as "couldn't determine", and it does **not** mean the bug is hard — see
+the standing lesson that UNVERIFIABLE usually means the question was wrong.
+
+**Distinguish the two causes before concluding anything**, because they have opposite
+remedies: `symbols_unreadable > 0` on the later iterations means the loop could not read
+the code (the stale-code-index landmine — a symbol added since the index froze reads as
+absent, so re-ask about older symbols); `symbols_unreadable = 0` means it read the code
+fine and simply ran out of iterations, and the question needs narrowing instead.
+
+**Read the last bundle even with no verdict.** Its `## Hypothesis under test` section is
+the loop's live theory at the moment it stopped, and on 2026-08-07 that hypothesis was
+correct and useful despite the run producing no verdict:
+
+```sql
+SELECT body FROM diagnosis_artifacts
+WHERE correlation_id::text = '<RUN_CORRELATION_ID>' ORDER BY created_at DESC LIMIT 1;
+```
+
+## Is a `complete` work item a repair? Ask which producer filed it
+
+Added 2026-08-07 (`bugs_open/213`). `item_type` does not identify the producer, and the
+completion verifier is registered per `item_type` — so an item can be graded against a
+predicate its author never meant. `spec->>'audit_source'` is the discriminator.
+
+```sql
+SELECT status,
+       count(*) FILTER (WHERE spec->>'audit_source' = 'design-audit') AS producer_audit,
+       count(*) FILTER (WHERE spec->>'audit_source' IS NULL)          AS producer_discovery,
+       count(*) AS total
+FROM site_work_items WHERE handler_agent = '<agent>' GROUP BY 1;
+```
+
+**The tell is an asymmetry, not a number**: if one producer's items are *never*
+`unresolved` while the other's routinely are, the grader almost certainly cannot see the
+first producer's defect. Then prove it at the artefact, never at the row — compare the
+target's `updated_at` against the item's `created_at`. On gamesdesign the component was
+last written **10.5 hours before the item existed**, which is proof of no-write in a way
+that re-reading the template is not.

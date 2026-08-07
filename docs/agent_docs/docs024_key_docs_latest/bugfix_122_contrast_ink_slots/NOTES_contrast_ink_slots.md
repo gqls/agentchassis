@@ -326,3 +326,108 @@ Round 2 was APPROVED with three advisory objections. Two were fair and cheap:
 - **`guardian`:** blast radius stated only for the failing sites. Real fleet count:
   `tool-list` 6 placements / 4 sites, `system-stats` 5 / 4, `case-studies-grid` 4 / 3,
   `image-hover-card-grid` 1 / 1 — **16 placements**. Modest, and now stated.
+
+## 2026-08-07 — the engine is live; `212`'s premise and its fix ranking are both wrong
+
+**Deploy proven at the pod, not at the tag.** v1.0.1262 was rolled by another lane
+(the `201` thread) and carries VIZ-014. Both replicas, one exec each:
+
+| symbol | count | role |
+|---|---|---|
+| `buildLegibleInkDefaults` | 4 | the new emitter |
+| `legibleInkFor` | 3 | " |
+| `worstRatioAgainst` | 2 | " |
+| `fillDarkSchemeSpecialisedSlots` | 4 | positive control — proves the pipeline |
+| `zzzInventedControlXyz` | 0 | negative control — proves the grep discriminates |
+
+So step 1 of the handoff is done, and it was **not** done by us. The image carries no
+provenance; the symbols are the only evidence, which is why both controls are in the
+table. Migrations 324/325 are still unwritten — and **`324` is now TAKEN** by another
+session (`docs/agent_docs/sql_for_agents/324_asset_deployer_passes_asset_id.sql`,
+untracked in the tree). The handoff's own warning — *"a number is not yours because you
+named a file"* — fired within 24 hours. Pick a fresh number at write time, not now.
+
+**Then `bugs_open/212`, which I picked up next, and which I filed yesterday.** Three
+things in it are wrong, and all three were checkable when I wrote it.
+
+> **MISSTEP 7 — I ranked four fix candidates for 212 without putting a number on any of
+> them, and the two I ranked highest make the motivating case no better or worse.**
+> The renderer's own contrast-checked value on gamesdesign's `.system-stats-section`
+> ground (`rgb(13,191,214)`) is **`#e2e2e2` = 1.71:1**, against the component literal's
+> **1.72:1**; the muted slot **regresses 1.72 → 1.46**. So candidate 2 ("emit at a
+> specificity components cannot beat") is a very slightly worse repaint, and candidate 3
+> (`var(--section-text, <literal>)`) resolves to the same value, so it is candidate 2
+> with extra steps. I had written *"candidate 2 is the only class fix and also the only
+> one that can break something that currently works"* — it breaks the very case the file
+> is about. **What would have caught it: five minutes of arithmetic on a value that was
+> already sitting in the served stylesheet I had open.** The 1.72:1 row of my own script
+> reproduces the browser-measured 1.72:1 from the day before, which is what licenses the
+> other four rows — they are counterfactual and no browser can measure them.
+
+> **MISSTEP 8 — "an unenforced contract" was wrong; the contract is enforced, and the
+> enforcement closed the item.** gamesdesign's defect was *detected* by the design
+> audit on 2026-08-03, described correctly ("--color-primary as #00bcd4 (cyan)… making
+> white text nearly illegible"), given a correct `acceptance_test`, routed to a live
+> fixer, and stamped **`complete` 3m17s later** with nothing written. I filed a bug
+> asking which of four repairs to build, when the repair already exists
+> (`fix_forced_text_colours_action.go` classifies what a template paints and rewrites
+> `--section-*` to the on-colour family — `system-stats` matches its `paintPaletteBand`
+> regex) and the real question was why it never ran. **What would have caught it: asking
+> the work-item queue what it already knew about the site.** CLAUDE.md tells you to check
+> the queue *before dispatching*; I read that as being about collision with other
+> sessions, and it is also a source of diagnosis. Now `bugs_open/213`.
+
+> **MISSTEP 9 — I nearly filed 213 as an instance of RFC_017's fail-open policy.**
+> RFC_017 names `hardcoded_section_colors` explicitly as one of its seven inheriting
+> verifiers, so the fit looked exact. It is not that bug: the verifier **did not error**
+> and **was not wrong**. It answered producer A's question correctly on an item filed by
+> producer B. Reading its source looking for a defect finds a well-written function with
+> an honest doc comment. A named prior bug that matches on symbol and on symptom can
+> still be the wrong mechanism — the discriminator was one column, `spec->>'audit_source'`.
+
+**The measurement that reframed 213.** Splitting the route by producer rather than by
+status: **7 of the 9 `complete` items are design-audit (producer B), all seven carrying
+an `acceptance_test` nothing reads — and every item that ever failed to close or is still
+open is producer A's, 6 of 6.** A producer whose items never fail is the finding; the
+individual false-complete is just the instance. Disconfirmable, and it could easily have
+come out mixed.
+
+**`buildSectionDefaults` emits nothing at all unless something is dark**
+(`color_util.go:185-187`), and its surface variant covers a **hardcoded five-class list**
+that `.system-stats-section` is not in and cannot join. Served stylesheets agree:
+gamesdesign 1 block, vonc 1, **idea.uk 0**. That confirms 212's trap 4, which was a guess
+at filing time, at the source rather than from an absence.
+
+**090, run 3 for this lane: `b6ab22d6-e49c-4b55-a9d9-dd026532a595` — UNVERIFIABLE again**,
+and again by iteration cap: three `bundle` artifacts, no verdict artifact, no
+`metadata->>'decision'`. **This time it was not the stale code index** —
+`symbols_unreadable` was 1 on iteration 1 and **0** on iterations 2 and 3, and the bundle
+shrank to 1,943 chars by the last pass. It read the code fine and ran out of iterations.
+Its hypothesis, though, independently reached my §8.1/§8.2 conclusion before it stopped:
+
+> *"adding .system-stats-section to buildSectionDefaults' enumeration would not change
+> what ships… The low-contrast risk is not a coverage gap in the enumeration; it is that
+> the component's hardcoded near-white text assumes --color-primary is always dark enough
+> to read against, an assumption nothing in the render path (warnUnusablePrimary checks
+> primary-vs-background contrast, not primary-as-a-section-background-vs-hardcoded-white)
+> validates."*
+
+Corroboration, not proof — it is a hypothesis the loop never got to test. But it names
+`warnUnusablePrimary`'s exact blind spot, which is the remedy edit the council's
+`editquality` seat told us closes no failure. Consistent from two directions.
+
+**Three consecutive UNVERIFIABLE verdicts in this lane** (`5853ee07`, `750e162e`,
+`b6ab22d6`) — the first from a wrong question, the last two iteration-capped on
+questions that were sound enough for the loop to form the right hypothesis. That pattern
+is worth someone's attention on the loop itself, not on our symptoms. Run 4
+(`84c3da66-06c0-41a5-94dc-21fbf71260f0`, the 213 mechanism) was still `diagnosing` at
+handoff; **record its verdict here and in `bugs_open/213` §8 when it lands, including if
+it is REFUTED.**
+
+**Unrelated, noticed in the diagnosis bundle and not chased:** `agent_error_log` is
+carrying a steady flood of *"workflow completed but its result could not be delivered to
+the parent (failed_transient): message validation failed"* across `page-rerender`,
+`feed-ingester`, `page-build-handler`, `build-dispatch-loop` and others — roughly one
+every few seconds on 2026-08-07 morning. Not ours, not investigated, possibly adjacent to
+`bugs_open/207`. Flagging it because it is the sort of thing that makes an unrelated
+canary look broken.

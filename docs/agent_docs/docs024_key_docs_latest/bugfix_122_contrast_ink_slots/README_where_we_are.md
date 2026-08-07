@@ -142,3 +142,76 @@ new colours, and switching on the automatic contrast check that's been built and
 idle since v1.0.1257 — nothing has ever scheduled it, so it has run exactly once, by
 hand. Both are database changes, no rebuild needed. They're specified in detail in the
 approved submission and in the handoff.
+
+---
+
+**2026-08-07.** The new engine is live. Somebody else's build shipped it — another
+thread rolled a fresh chassis yesterday evening for their own fix, and ours went along
+for the ride, which is how this tree works. I checked it properly rather than trusting
+the version number: I asked the two running servers whether our new code is actually
+inside them, and included a deliberate nonsense word in the same check so that if the
+check were broken it would light up too. Real code present, nonsense word absent. It's
+in.
+
+The part that changes what a visitor sees is still not done. It's two database updates,
+both fully written out in the approved plan. One small thing to flag: the file number I'd
+reserved for the first one has been taken by another session in the meantime — no harm,
+but it's a reminder that nothing here is reserved until it's committed.
+
+**Then I went back to the bug I filed yesterday, and found I'd got it wrong in two ways.**
+
+The first is embarrassing and cheap to describe. I listed four possible fixes and ranked
+them, and I didn't do the arithmetic on any of them. When I did the arithmetic this
+morning, the two I'd ranked highest turn out to make the actual broken page **no better**
+— one of them very slightly worse. The colour the system would have imposed is almost
+exactly as unreadable as the colour it would have replaced, because both are pale and the
+panel behind them is pale cyan. The right answer was sitting in the same stylesheet the
+whole time: the site already publishes a near-black colour specifically for use on top of
+that cyan, and it scores 8.65 where everything else scores under 2. Five minutes of sums
+would have caught this yesterday.
+
+The second is more interesting, and it's the reason I'm not just fixing the page.
+
+**The system already found this bug on its own, four days ago, and closed the ticket.**
+On 3 August an automated design review looked at that page and wrote a description I
+couldn't improve on — it named the section, named the colour, worked out that the site's
+"primary" colour is cyan rather than the dark shade the component assumed, and concluded
+the white text would be nearly illegible. It even attached a precise pass/fail test. The
+ticket was handed to the tool that fixes exactly this, and marked **complete three
+minutes later**. Nothing was changed. I can prove nothing was changed, because the
+component was last edited ten and a half hours *before* the ticket was even created.
+
+The reason is a mismatch nobody would spot by reading any one file. Two different parts
+of the system file tickets under the same label. One of them — a routine scanner — checks
+for a specific narrow thing, and it wrote the final "is this fixed?" test. The other —
+the design review that found our bug — files under the same label but means something
+much broader. So when our ticket came up for closing, it was graded by the scanner's
+question, not its own. The scanner's question was "are there any hard-coded colour codes
+left?" There weren't, and there never had been: our problem is a *reference* to a colour,
+not a hard-coded one. So the grader said yes, all clear, and closed it. The grader wasn't
+broken. It answered its own question correctly. It was just never the right question, and
+the ticket's own attached test — the one that would have caught this — is read by
+nothing.
+
+I checked how widespread this is, and the pattern is stark: **every single ticket the
+design review has ever filed on this route has been closed successfully — seven out of
+seven. Every ticket that ever got stuck, or is still open, came from the other source —
+six out of six.** A source whose work never fails isn't a sign of quality. It's a sign
+that nobody is checking it. I've written that up separately as its own bug, because it's
+got nothing to do with colours — it will quietly close any ticket whose author doesn't
+happen to own the grader.
+
+**Where that leaves us.** The colour fix itself is now much cheaper than I thought
+yesterday — the tool to do it already exists and already handles this exact case, so this
+is about making it actually run, not about building anything. The two database updates
+for the original bug are still the next job. And there's a new, larger question I've
+deliberately not answered: the renderer only knows about two backgrounds on a page, and
+when a component paints its own, the renderer has no correct answer to give it. That's a
+design question rather than a bug, and I've said so rather than picking one.
+
+One process note. I sent both of today's findings to the automated diagnosis tool before
+writing them down, as the rules require. The first came back "couldn't determine" — the
+third time in a row for this workstream. Worth saying that it wasn't useless: before it
+ran out of road it had independently worked out the same thing I had. But three
+inconclusive runs in a row is starting to look like something about the tool rather than
+something about our questions.
