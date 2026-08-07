@@ -96,3 +96,21 @@
   ("before this fix, as of <time>") in both the landmine and the submission, or
   sync after the round.** Recorded in the resubmission verbatim.
 - Round 2 resubmitted same corr, run `8310b61e…`.
+
+## 2026-08-07 ~01:55 UTC — council APPROVED (round 2)
+
+- Verdict read from `diagnosis_artifacts` (latest council_report on the
+  correlation): **approved**, run `8310b61e…`, completed 01:52:56Z. The censuses
+  did the arguing: empty blast-radius population, sole-writer proof, enabled=f by
+  query, backup+rollback+RETURNING discipline shown.
+- Earlier commits (`d1eb3a6b5` Go, `8ab75a9fb` docs) carry `Council-Submitted:` and
+  are credited automatically by the 098 report now the verdict is approved; this
+  closing commit carries `Council-Reviewed:` on a verdict actually read.
+- Remaining to close the bug (per the "fixed AND live" bar — and note the owner's
+  08-06 ruling: a finished bug STAYS in `bugs_open/`):
+  1. Next chassis roll carries the Go halves — pod-prove with
+     `strings /app/agent-chassis | grep -c "max_tokens not configured at any level"`
+     (positive) and a negative control, every replica.
+  2. Owner call on candidate 2 (the step's own cap, ~8000 fits the fleet mode) —
+     the 33 parked tasks are the standing prompt; un-park runbook in RUNBOOK.
+  3. The WARN's first live firing will name any of the 8 uncapped steps that runs.
