@@ -6141,3 +6141,52 @@ Two more in the same family, both cheap to get wrong:
   Root cause of the validation rejection **NOT diagnosed** — `reply_to_request_id` is empty in
   the *failure* message and `DeliverReply` keys on it, but that is a **[HYPOTHESIS]**, not a
   finding: the inspected message is not the rejected one.
+
+## `strings <binary> | grep -c` counts DISTINCT strings, not SITES — the Go linker dedupes identical literals, so a de-duplication refactor moves the number you are using to prove it shipped
+- **footprint:** `strings /app/agent-chassis`; `grep -c`; `strings`;
+  `platform/orchestration/agenterrors/agenterrors.go`;
+  `platform/orchestration/actions/store_generated_component_action.go`;
+  `INSERT INTO agent_error_log`
+- **fires when:** you prove a deploy the way this estate correctly insists you prove one —
+  grep the running binary for a string your change touched — **and your needle is a COUNT
+  of a literal that appears at more than one site.** No symptom, and the check itself is
+  the recommended practice: the trap is in the choice of needle, not in the method.
+- **why the wrong answer looks right:** the Go linker **deduplicates identical string
+  constants**, so N sites holding byte-identical text contribute **one** string to
+  `.rodata`. The count therefore tracks *how many distinct spellings exist*, not *how many
+  call sites exist* — and those two numbers diverge exactly when a refactor makes copies
+  identical, which is what most de-duplication work is FOR. The failure is silent and
+  points the wrong way: you get a number lower than predicted and read it as "my change is
+  missing".
+- **the case, 2026-08-07 (RFC_012 lane, RSH-008).** The `agenterrors` conversion collapsed
+  19 hand-copied `INSERT INTO agent_error_log` statements onto one shared writer. The
+  pre-conversion binary carried **14** distinct statements (14 because the copies had
+  drifted to 8/9/10/11/13 columns); two INSERT sites remained in the tree afterwards, so
+  the published acceptance test — in the lane HANDOFF, in NOTES **and** in the concept
+  register — said the binary "must read **2** on every replica". A correct binary reads
+  **1**: the two survivors (`agenterrors.go:89` and the deliberately-unconverted
+  `store_generated_component_action.go:1353`) hold byte-identical SQL. **Converging the
+  copies is what collapsed the count**, so the needle measured the symptom of success and
+  reported it as failure. Caught on first use by the author, who could not explain the
+  number; a later session would have concluded the work had not shipped and possibly
+  rebuilt or reverted it.
+- **the check — use a DISCRIMINATING PAIR, never a count.** Pick one string your change
+  **added** and one it **removed**, and require both in the same exec on every replica.
+  Best of all is a reworded line, because the two halves are near-twins and no stale image
+  or lucky substring can satisfy both:
+  ```bash
+  kubectl exec -n ai-persona-system <pod> -- sh -c '
+    strings /app/agent-chassis | grep -cF "failed to write some discovery check error records"  # POS -> 1
+    strings /app/agent-chassis | grep -cF "failed to write discovery check error record"'       # NEG -> 0
+  ```
+  Derive the pair mechanically from your own commit rather than from memory:
+  `git show <sha> --unified=0 -- '**/*.go' | grep '^+' | grep -oP '"[^"]{20,80}"' | sort -u`
+  (and the same with `^-`), then **confirm each candidate negative is actually gone from
+  the tree** — many "removed" literals are merely moved from SQL text to a bind parameter
+  and are still in the binary.
+- **if you must use a count, state what it counts.** "14 distinct statements" is a fact
+  about spellings. Never write "N sites" over a `grep -c` of a literal, and never predict
+  a post-refactor count without asking whether the refactor makes any two sites textually
+  identical.
+- **source:** 2026-08-07, `docs024_key_docs_latest/rfc012_await_findings/` — NOTES 08-07
+  (morning) misstep 8; corrections in place in that lane's HANDOFF and in RSH-008.

@@ -220,3 +220,44 @@ discriminating figure matched, but I have not explained the gap (accretion? a di
 bucket definition?), so it is marked [UNRESOLVED]. Note also what the landmine says and my
 figures did not: this table is reaped at 14 days resolved / 30 unresolved, so **no census
 of it is ever "all history"**.
+
+## 2026-08-07 (morning) — the conversions are LIVE on v1.0.1262 — and the acceptance test I wrote for this moment was WRONG
+
+Both replicas (`-5ghft` started 05:47:39Z, `-dfk4b` 05:47:14Z) carry `f930de86b` (01:24Z).
+Proven with a discriminating pair on each replica independently, not with the roll:
+
+```
+POS  "failed to write some discovery check error records"   -> 1   (the PLURAL line f930de86b ADDED)
+NEG  "failed to write discovery check error record"         -> 0   (the SINGULAR line it DELETED)
+NEG  "content_data envelope: failed to write record"        -> 0   (per-site line, deleted)
+NEG  "claims floor: failed to write finding record"         -> 0   (per-site line, deleted)
+POS  "orchestration/agenterrors"                            -> 8
+```
+The singular/plural pair is the good needle: one string must be absent and its near-twin
+present **in the same binary**, so neither a stale image nor a lucky substring can satisfy
+both. Tree at HEAD agrees (plural 1, singular 0).
+
+**MISSTEP 8 — the acceptance test I published for exactly this moment gave the wrong
+answer, and it would have read as FAILURE.** NOTES 08-07 (early), the HANDOFF and RSH-008
+all said: *"after a build from a commit ≥ `f930de86b` it must be `2` on every replica"*
+(14 distinct `INSERT INTO agent_error_log` statements before, 2 INSERT sites in the tree
+after). The measured value on a **correct** binary is **1**.
+
+Cause: the two surviving sites — `agenterrors.go:89` and the deliberately-unconverted
+`store_generated_component_action.go:1353` — hold **byte-identical** SQL literals, and the
+Go linker **deduplicates identical string constants**. Two sites, one string in `.rodata`.
+The pre-conversion 14 was 14 because the hand-copies had genuinely drifted (8/9/10/11/13
+columns) — the very drift the conversion removed. **So converging the copies is what
+collapsed the count, and my needle counted the symptom of success as if it were a count of
+sites.** `1` is in fact a *stronger* pass than `2` would have been; but a session running
+the documented check would have seen 1 ≠ 2 and concluded the conversion had NOT shipped.
+
+The transferable part: **a needle that counts occurrences of a string literal cannot count
+SITES.** It counts *distinct* strings after linker dedupe, and the number moves when two
+sites become textually identical — which is precisely what a de-duplication refactor is
+for. The class is filed in `LANDMINES.md` (footprint: `strings <binary> | grep -c`).
+Corrected in place at all three publication points (this file above, HANDOFF, RSH-008).
+
+**What this does NOT change:** the conversion is live and correct. The count fell 14 → 1,
+and the singular/plural pair proves the specific commit rather than merely "some newer
+build". Both are recorded because the count alone is now known to be a poor instrument.

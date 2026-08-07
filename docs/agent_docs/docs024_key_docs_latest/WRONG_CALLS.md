@@ -21962,3 +21962,51 @@ figure (128) reproduced exactly. The gap is unexplained — plausibly accretion 
 different bucket definition, but I have not proved that, so it stays [UNRESOLVED] rather
 than being smoothed over. The table is reaped on a 14/30-day schedule, so **no census of it
 is ever "all history"** — a caveat the landmine states and my figures did not.
+
+## 2026-08-07 — I published an acceptance test that reports a SHIPPED change as UNSHIPPED, in three places at once
+
+**The claim.** RFC_012 lane, RSH-008. Having proved the `agenterrors` conversion was not
+yet live, I wrote the test for the next roll into the lane HANDOFF, into NOTES **and** into
+the concept register, in these words: *"after a build from a commit ≥ `f930de86b` it must
+be `2` on every replica"* —
+`strings /app/agent-chassis | grep -c "INSERT INTO agent_error_log"`, 14 before the
+conversion, 2 INSERT sites remaining in the tree after it.
+
+**What it actually returns on a correct binary: `1`.** v1.0.1262 rolled this morning
+carrying the commit, and both replicas read 1. By my own published criterion that is a
+FAIL.
+
+**Why.** The two surviving sites — `agenterrors.go:89` and the deliberately-unconverted
+`store_generated_component_action.go:1353` — hold **byte-identical** SQL, and the Go linker
+**deduplicates identical string constants**. Two sites, one string. The pre-conversion 14
+was 14 only because the nineteen hand-copies had drifted apart (8/9/10/11/13 columns).
+**Converging them is the entire purpose of the change, and it is also what invalidated the
+instrument.** I predicted a post-refactor count by counting sites in the tree, having never
+asked whether the refactor made any two of them textually identical.
+
+**What caught it.** Running it, getting a number I could not explain, and explaining it
+rather than rounding to the answer I wanted. That is thinner protection than it sounds: the
+prediction and the check were both mine, and the failure direction was towards *understating*
+my own work, which is the direction least likely to be challenged by anyone else.
+
+**The cheap check that would have.** Before publishing a predicted count, ask the tree
+whether the survivors are textually identical — one command, and it answers the question
+directly:
+
+```bash
+grep -rn "INSERT INTO agent_error_log" platform/ --include=*.go | grep -v _test.go
+# then diff the two literals; identical text => the linker emits ONE string, not two
+```
+
+**The transferable rule, now filed as a landmine.** `strings | grep -c` counts **distinct
+spellings**, never **sites** — and the two diverge exactly when a de-duplication refactor
+succeeds. Prove a deploy with a **discriminating pair** (a string the commit ADDED plus one
+it REMOVED, both asserted in the same exec) rather than with a count. A reworded log line
+is the ideal pair, because the halves are near-twins that no stale image can both satisfy.
+Corrections are in place at all three publication points.
+
+**The near-miss worth naming.** This estate's standing rule is "a roll is not evidence your
+fix shipped — grep a positive AND a negative". I followed it and still nearly got the wrong
+answer, because I had chosen a **count** as the positive. The rule protects you from
+trusting the tag; it does not protect you from a badly chosen needle, and nothing in the
+rule as written says a count is a bad needle. It does now.

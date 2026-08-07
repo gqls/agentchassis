@@ -20,7 +20,7 @@ at commit `3851e90b5` — read that block, it is the authority, not this file):
 | The rulings, recorded in the RFC | `3851e90b5` | durable — survives any session |
 | Lane docs (the standing five) | the `docs(rfc012 lane)` commits | open, updated 08-07 |
 | **B core**: `agenterrors` leaf package | `5f49b4cfd` | **DONE, POD-PROVEN LIVE on v1.0.1259** |
-| **B rest**: 18 site conversions + tests | `f930de86b` | **DONE, full `./platform/...` green — NOT LIVE** |
+| **B rest**: 18 site conversions + tests | `f930de86b` | **DONE and POD-PROVEN LIVE on v1.0.1262** (2026-08-07, both replicas) |
 | **(d) detector**: `--shared-output-fields` | `abf5e8266` | **DONE, proven, live-run green** — a `cmd/` binary, not in the chassis image, so it needs no roll |
 | Concept register: RSH-008 + WFA-011 | 08-07 | **DONE** (the standing ruling's debt from the split commits, now paid) |
 | Council round for the whole code set | corr `5c2bc265-84ac-452b-bd8b-22fd7b875427` | **REVISE** — read, acted on, **resubmission owed** (see below) |
@@ -46,19 +46,31 @@ the NOTES entry for 2026-08-07 before touching it.** In short:
 resubmission under this correlation is approved; **do not** write `Council-Reviewed:`
 anywhere without reading an approved verdict.
 
-### ⚠ SECOND: the conversions are committed and NOT live
+### ✅ SECOND: the conversions ARE live (v1.0.1262, 2026-08-07) — and the old acceptance test here was WRONG
 
-Live `v1.0.1261` started 2026-08-06T19:54Z; `f930de86b` landed 2026-08-07T01:24Z, so the
-image **predates** it. Verified rather than assumed, with a count that a roll cannot fake:
+Both replicas started 2026-08-07T05:47Z, after `f930de86b` (01:24Z). Proven per-replica
+with a **discriminating pair**, not with the roll — one string must be ABSENT and its
+near-twin PRESENT in the same binary:
 
 ```bash
-kubectl exec -n ai-persona-system <chassis-pod> -- sh -c \
-  'strings /app/agent-chassis | grep -c "INSERT INTO agent_error_log"'
+kubectl exec -n ai-persona-system <chassis-pod> -- sh -c '
+  strings /app/agent-chassis | grep -cF "failed to write some discovery check error records"  # POS -> 1
+  strings /app/agent-chassis | grep -cF "failed to write discovery check error record"        # NEG -> 0
+  strings /app/agent-chassis | grep -cF "content_data envelope: failed to write record"       # NEG -> 0'
 ```
-**14 = pre-conversion binary (what is live now, both replicas). 2 = a build from
-`f930de86b` or later. This IS the acceptance test — run it on every replica after the
-next roll.** The SQL text is byte-identical before and after by design, so grepping the
-statement itself proves nothing either way; the count is the only discriminating needle.
+`f930de86b` changed that discovery-checks log line from singular to plural, so no stale
+image and no lucky substring can satisfy both halves. Measured 1 / 0 / 0 on `-5ghft` and
+`-dfk4b` independently.
+
+> **CORRECTED 2026-08-07 — the needle this section used to publish gives the WRONG ANSWER
+> on a correct binary.** It said `strings … | grep -c "INSERT INTO agent_error_log"` must
+> read **2** after the roll (14 before, 2 INSERT sites in the tree). The real value is
+> **1**: the two surviving sites hold **byte-identical** SQL and the Go linker
+> **deduplicates identical string constants**, so two sites are one string. The old 14 was
+> 14 only because the hand-copies had drifted — converging them is what collapsed the
+> count. A session running the documented check would have seen 1 ≠ 2 and concluded the
+> work had not shipped. **A string-literal count cannot count SITES.** Full write-up:
+> NOTES 08-07 (morning), misstep 8; class filed in `LANDMINES.md`.
 
 ---
 

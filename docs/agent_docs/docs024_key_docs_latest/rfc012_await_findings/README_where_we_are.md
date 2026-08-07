@@ -99,3 +99,42 @@ detector on a schedule so it runs by itself instead of only when someone remembe
 I have sent the whole code set to the council for review (reference
 `5c2bc265-84ac-452b-bd8b-22fd7b875427`) — the verdict will arrive in about half an hour
 and needs reading, because the code is already on the shared branch either way.
+
+## 2026-08-07, morning — it's live, and my own test for "is it live" was wrong
+
+The nineteen-copies-into-one change is now running in production. A build went out at
+quarter to six this morning and both machines are on it.
+
+But the interesting part is how nearly I got the wrong answer. Yesterday I wrote down the
+test for this exact moment: *count how many copies of the database insert are inside the
+running program — fourteen means the old version, two means mine has landed.* I ran it this
+morning and got **one**. Not two. By my own published test, that reads as "it hasn't
+shipped".
+
+It had shipped. The reason the number is one is a detail of how Go builds programs: if two
+places in the code contain exactly the same piece of text, the compiler stores that text
+**once**. There are two inserts left in the code, and after my change they are now word for
+word identical — so the finished program contains a single copy. The old count of fourteen
+was fourteen precisely *because* the copies had drifted apart from each other over the
+years. Making them the same is the entire point of the work, and it is also the thing that
+made my counting method stop working.
+
+So the number was a bad instrument, and it was bad in the most awkward direction: it would
+have told a later session that a change which *had* shipped had *not*. I've replaced it
+everywhere it was written down with a test that can't do that — my change reworded one log
+message from singular to plural, so I check that the new wording is present **and** the old
+wording is absent in the same program. Both machines pass both halves. I've also written
+the general trap up in the shared landmines file, because "count how many times this text
+appears in the binary" is a check people here reach for often, and nobody would expect a
+de-duplication change to move that number.
+
+I'm flagging this to you rather than quietly fixing it because it is a small instance of
+something worth watching: a check written by the same person who wrote the change tends to
+be blind in the same places. This one only surfaced because I ran it and got a number I
+couldn't explain, and chose to explain it rather than round it to the answer I wanted.
+
+Still outstanding, unchanged: the survey of everything that reads a step's output (the big
+one, and the thing the remaining design decision waits on), putting the detector on a
+schedule, and a review resubmission — the council came back asking for the submission to be
+honest about the fact that it showed them seven files out of twenty-five, which was a fair
+hit and is being fixed rather than argued with.
