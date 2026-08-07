@@ -65,3 +65,17 @@ the fix is NOT in it (uncommitted at build time, and `make build-*` builds from 
 HEAD). Expected, not a misstep. The commit carries `Council-Reviewed:` (verdict read).
 Bug stays in `bugs_open/` per the owner's 08-06 ruling (finished bugs stay), with close
 criteria written in the bug file for whoever verifies after the NEXT roll.
+
+## 2026-08-07 — committed `9fa6f923b`; twins deliberately untouched
+
+Commit `9fa6f923b` (8 files, pathspec, `Council-Reviewed:` trailer — verdict read first).
+The pattern-check's two untouched-twin advisories are deliberate, not oversights:
+- `sendErrorResponseOLD` — legacy, ZERO callers (grep, non-def). Dead code; deleting it is
+  not this lane's task and would widen a reviewed commit.
+- `sendWorkflowResponse` — the SUCCESS sender; it has no failure to classify, and
+  `TestSuccessResponseStatusStillComplete` pins that its envelope is unchanged.
+LANDMINES.md deliberately NOT appended from this lane: the file is dirty with another
+session's edits (same-file passenger risk), and the trap ("call RetryDisposition, not
+MatchedTransientFailure bare, unless you have agentbase's call-order guard") is carried by
+RSH-007's register entry, the helper's own doc comment, and the memory topic file.
+Remaining to close 207: the next chassis roll + the three close criteria in the bug file.
