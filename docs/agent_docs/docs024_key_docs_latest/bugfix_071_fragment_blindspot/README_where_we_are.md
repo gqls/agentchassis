@@ -105,3 +105,35 @@ meant kicking off a page build I didn't want on a placeholder site.
 There is now a five-part summary in the lane you can read out to someone, and the
 handoff is marked up so a new session can see at a glance that the roll-time checks
 are done rather than repeating them.
+
+## 2026-08-07
+
+A correction to what I told you yesterday, and it is the kind worth hearing.
+
+I said the new check "cannot land inert" because it rides a checker that is already
+switched on — as opposed to the bug we have on the shelf whose fix is perfect and has
+never once run. The switched-on part is true. What I did not check is **how often the
+thing that runs it actually runs**, and the answer is: by hand, on about nine days out
+of the last twenty-one, on a handful of sites each time, most recently two days ago.
+The fleet-wide sweep that would drive it properly has been off since May.
+
+So the honest position is: the check is live, it is correct, I proved it works by
+planting broken links and watching it catch them — and it has still never run on a
+real site. There are no complaints in the queue, and that means "it hasn't looked",
+not "everything is fine". The reassuring number — all 67 real section links on the
+estate work — comes from me running the code over a copy of the data offline, which is
+the figure to trust and to quote.
+
+Nothing is broken and nothing needs doing about it. I have deliberately **not** started
+firing off checker runs to make the queue look busy; the check will run the next time
+any lane dispatches that checker for its own reasons. What I have done is correct the
+overclaim in all four places I had written it — including the platform's own debugging
+guide, where I had offered it to other sessions as a lesson — and logged it as a wrong
+call. It is a slightly embarrassing one: the bug I was carefully avoiding is described
+in its own file as "a mechanism made correct and then guarded behind something that
+never runs", and I reproduced it one level up while citing it.
+
+Two loose ends remain, both small and both written down: the piece that double-checks a
+fix before closing a problem still hasn't run, and neither has the checker itself on
+real pages. The lane's handoff now leads with all of this so whoever reads it next
+cannot make the same inference I did.
