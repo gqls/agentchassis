@@ -257,9 +257,28 @@ as its own content — see NOTES and the comment at the warning site.
   SELECT kind, metadata->>'verdict', left(body,4000) FROM diagnosis_artifacts
   WHERE correlation_id='a7b1e113-8857-4161-ad2b-f3b7387e33e9' ORDER BY created_at DESC;
   ```
-  **Read the verdict before writing a `bugs_open/` file.** A REFUTED verdict is the cheap outcome
-  and would be a success — it costs one run and saves every thread that would have believed the
-  claim. If CONFIRMED, the fix is three characters at three sites plus a council round.
+  **VERDICT READ 2026-08-07 01:3xZ — `UNVERIFIABLE`, and it does NOT weaken the claim. NOTES §18.**
+  The loop re-derived the mechanism independently from the code it could see — *"the mechanism (bare
+  `$2` for domain) is real, but at a different symbol than named"* — and then could not check my
+  **location** claim, because **it cannot see code written after 2026-07-28**: zero index hits for
+  `package agenterrors` (created 08-06 by RFC_012), and zero-match symbol searches for the
+  NULLIF-wrapping siblings, which are also post-07-28 files. It read the pre-RFC_012
+  `agent_error_log.go:LogAgentError`, which genuinely did its own INSERT — **both descriptions are
+  right about different trees.** The loop flagged its own staleness in its `code_requests`
+  (`bugs_open/108`'s fix working as designed: it reports stale, it does not claim fresh).
+  **⚠ DO NOT RESUBMIT until the code index moves** — same run, same answer, another round wasted.
+  The index ref is pinned by migration 252 to `086_experience_loop` and wants `'main'`.
+  **⚠ AND: the verdict was nearly LOST — read the new `LANDMINES` entry before you run any `090`.**
+  The item finished `complete`, all three orchestrations `COMPLETED`, and `diagnosis_artifacts` held
+  **5 rows, every one `kind='bundle'`, zero reports**. The verdict survived only in
+  `collected_data->'verdict'`, which the 24h COMPLETED reaper deletes. Cause: the reply failed
+  `message validation` and `coordinator.go` correctly converted it to a parent failure — but nothing
+  propagated that into the work item or the artifact table.
+  **Also corrects §16's volume claim (NOTES §18c):** the `''` population is **88% one live vet-lane
+  incident** (12,090 of 13,783, from 08-04, still firing), not steady-state generic traffic. So the
+  ratio is an **incident metric** — 26× on 08-05, 79× on 08-06, **~109× now** — and the defect's
+  severity must be argued from the mechanism and the reader-side blindness, **never from the row
+  count**. Argue the fix (three characters, three sites, converging on the majority) on that basis.
   **Two traps this re-diagnosis paid for**, both in NOTES §16: the `NULLIF` on the sibling
   columns is **compelled** by their `::uuid` cast (`''::uuid` errors — so that INSERT's internal
   asymmetry is not evidence of intent about `domain`); and **a refactor is not a review of what it

@@ -6075,3 +6075,69 @@ Two more in the same family, both cheap to get wrong:
 
 **Proving a change to this seam is live** — the SQL text is byte-identical before and after by design, so grepping the statement proves nothing. Count the copies instead:
 `kubectl exec -n ai-persona-system <chassis-pod> -- sh -c 'strings /app/agent-chassis | grep -c "INSERT INTO agent_error_log"'` — **14** is the pre-conversion binary, **2** is a build from `f930de86b` or later. Run it on **every** replica.
+
+---
+
+## A `090` diagnosis can finish `complete` with its verdict COMPUTED AND THROWN AWAY — the only copy is in `collected_data` and it reaps in 24h
+- **footprint:** `diagnosis_artifacts`; `site_work_items.item_type='needs_diagnosis'`;
+  `090_TRIGGER_needs_diagnosis_v1.sh`; `diagnose-agent`; `diagnose-orchestrator`;
+  `diagnose-dispatch-loop`; `platform/orchestration/coordinator.go`;
+  `platform/kafka/reply_delivery.go`; `notifyParentOfFailure`; `DeliverReply`
+- **fires when:** you run `090` (or any spawned child workflow) and go looking for its
+  verdict. No symptom, no error surfaced to you, and every status you would naturally
+  check says the run succeeded.
+- **why the wrong answer looks right:** measured 2026-08-07 on run
+  `a7b1e113-8857-4161-ad2b-f3b7387e33e9`. `site_work_items.status` = **`complete`**; all
+  three `orchestration_states` rows = **`COMPLETED`**; `diagnosis_artifacts` holds **5
+  rows, every one `kind='bundle'`** and **zero** report/verdict/diagnosis rows. A reader
+  checks the status, looks for the report, finds none, and has nothing to tell them
+  whether the loop declined to conclude or lost its conclusion. **It had concluded** — a
+  full verdict with citations and named evidence gaps.
+- **where the verdict actually is, and how long you have:**
+  ```sql
+  -- enumerate first: the keys are not documented anywhere
+  SELECT string_agg(k, ', ') FROM jsonb_object_keys(
+    (SELECT collected_data FROM orchestration_states
+     WHERE owner_agent_type='diagnose-agent'
+       AND collected_data::text LIKE '%<RUN_CORRELATION>%')) k;
+  -- then: 'verdict', 'diagnosis', 'diagnosis_note' are the ones that matter
+  SELECT jsonb_pretty(collected_data->'verdict') FROM orchestration_states
+  WHERE owner_agent_type='diagnose-agent' AND collected_data::text LIKE '%<RUN_CORRELATION>%';
+  ```
+  **`COMPLETED` rows are deleted 24h after `updated_at`** by
+  `scheduled_tasks.database-cleanup`, so the only copy of the verdict has about a day to
+  live. **Recover it before you do anything else**, and paste it into your lane's notes —
+  an artifact table with no report is not going to grow one later.
+- **the check, to tell "lost" from "declined":** ask the rows what happened, not the status —
+  ```sql
+  SELECT agent_type, pod_name, step_name, occurred_at, error_message
+  FROM agent_error_log
+  WHERE error_message LIKE '%could not be delivered to the parent%'
+    AND occurred_at > now() - interval '2 hours';
+  ```
+  Two rows (`diagnose-agent` + `diagnose-orchestrator`, `step_name='complete'`) mean the
+  verdict was produced and rejected in transit. `coordinator.go` is behaving correctly here —
+  it deliberately converts an undeliverable success into a parent-facing failure rather than
+  leaving silence — but **nothing propagates that into the work item or the artifact table.**
+- **three sub-traps, each of which cost me a step:**
+  1. **`error_code` on those rows is `UNKNOWN`**, the classifier's fallback — so you cannot
+     find this class by filtering `error_code`. The informative code
+     (`CHILD_ORCHESTRATION_FAILED`) exists only inside the Kafka message body. Filter on
+     `error_message LIKE`.
+  2. **Do not grep the chassis pods.** `diagnose-agent`/`diagnose-orchestrator` run in their
+     own `agent-diagnose-*` pods. I grepped both chassis replicas, got a clean zero, and it
+     was the wrong-service trap — a positive control showed 219 log lines in the window and
+     **0** containing "diagnose". `agent_error_log.pod_name` names the right pod outright.
+  3. **A `bundle` artifact count is not progress toward a report.** Five bundles looks like a
+     loop that worked. Bundles are *input* assembly; the report is a different `kind` that
+     may never arrive.
+- **adjacent, and the reason a re-run will not help:** if the verdict says **UNVERIFIABLE**
+  with gaps like "zero hits for `package <x>`" or zero-match symbol searches, that is the
+  frozen **code index** (`bugs_open/108`, pinned at `d98010e8b`, 2026-07-28), not a weak
+  hypothesis — anything added since reads as ABSENT. Re-submitting spends another run for the
+  same answer. Fix the index ref first (migration 252 pins `086_experience_loop`; it wants
+  `'main'`).
+- **source:** 2026-08-07, code-review triage lane (`code_review_triage_2026-08-05/` NOTES §18).
+  Root cause of the validation rejection **NOT diagnosed** — `reply_to_request_id` is empty in
+  the *failure* message and `DeliverReply` keys on it, but that is a **[HYPOTHESIS]**, not a
+  finding: the inspected message is not the rejected one.

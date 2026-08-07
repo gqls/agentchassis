@@ -747,3 +747,127 @@ post-roll question is answered. But **§13's stronger claim that "the report has
 version" is not establishable from this table** beyond 30 days, and no version of it existed 30
 days ago anyway. Net effect on the verdict: none. Net effect on how the verdict may be quoted:
 say "no regression in the retained window since the roll", never "never fired".
+
+## 18. 2026-08-07 01:3xZ — the `090` verdict: UNVERIFIABLE, and the verdict itself was nearly lost
+
+Filed the `domain` divergence at 01:16Z (§16, intake `94144fbc`, run correlation
+**`a7b1e113-8857-4161-ad2b-f3b7387e33e9`** — the run one is the artifact key). It completed at
+01:30Z. Three separate things came out of it and only the first is about `domain`.
+
+### 18a. Verdict: **UNVERIFIABLE** — and the mechanism was NOT refuted
+
+Not CONFIRMED, not REFUTED. The loop's own words on the mechanism:
+
+> "The mechanism (bare `$2` for domain) is real, but at a different symbol than named."
+
+Its three blocking gaps, all traceable to **one** cause — **it cannot see code written after
+2026-07-28**:
+
+1. **"the code index has zero hits for `package agenterrors` and zero indexed paths under
+   `platform/orchestration/agenterrors/`"**, so it read
+   `platform/orchestration/agent_error_log.go:LogAgentError` and found it does **its own**
+   bare-parameter INSERT with no forwarding — and correctly reported that as inconsistent with my
+   claim that the INSERT lives in `agenterrors.Write` and `LogAgentError` merely forwards.
+   **Both descriptions are accurate about different trees.** Mine is HEAD; the loop's is the
+   pre-RFC_012 file. RFC_012 landed 2026-08-06; the index is frozen at `d98010e8b` (07-28).
+2. Its symbol searches for the NULLIF-wrapping siblings (`save_sections_dedup.go`,
+   `discovery_checks.go`, `content_data_envelope_guard.go`, `save_sections_claims_guard.go`)
+   returned **zero** — same cause, these are post-07-28 files too.
+3. It could not attribute the dominant `domain=''` cluster to a specific writer, because those
+   bodies were not in scope.
+
+**The loop was honest about its own blindness**, which is worth recording as the mechanism working:
+one of its `code_requests` reads *"Re-check after the index catches up whether the `agenterrors`
+package the hypothesis's location claim depends on exists at all, given the prior 0-row answer was
+against a 9-day-stale index."* That is `bugs_open/108`'s fix behaving exactly as MEMORY says it
+does — **it reports stale, it does not claim fresh.**
+
+**So the honest reading: UNVERIFIABLE here means "the loop could not read the tree", not "the claim
+is doubtful".** It independently re-derived the bare-`$2` mechanism from the code it *could* see,
+and its own state query reproduced the shape. **What it could not do is check my location claim,
+and that is the one part a stale index guarantees it cannot check.** Re-running is pointless until
+the index moves — and the fix for that is the known LANDMINE (migration 252 pins the index ref to
+`086_experience_loop`; it wants `'main'`). **Do NOT resubmit this to `090` before then**: it will
+return UNVERIFIABLE again for the same reason and cost another run.
+
+### 18b. THE VERDICT WAS COMPUTED AND THEN LOST — and every status said success
+
+This is the more serious finding and it is not about `domain` at all.
+
+```
+site_work_items.status ......................... complete
+orchestration_states (all three) ............... COMPLETED
+diagnosis_artifacts for the correlation ........ 5 rows, EVERY ONE kind='bundle'
+                                                 0 report, 0 verdict, 0 diagnosis
+```
+
+A reader doing the obvious thing — check the status, then read the report — finds unambiguous
+success and **no report**, with nothing anywhere saying why. The verdict existed the whole time, in
+`orchestration_states.collected_data->'verdict'` of the `diagnose-agent` run, and
+**`collected_data` is on the 24-hour COMPLETED reaper (§17b), so it had ~24h to live.** I recovered
+it by enumerating `jsonb_object_keys(collected_data)` and finding `verdict`, `diagnosis` and
+`diagnosis_note` keys — not by any documented route.
+
+What actually happened, from the pods the rows name themselves (`agent_error_log.pod_name` —
+`agent-diagnose-agent-1db78640-zdgbs`, `agent-diagnose-orchestrator-19e0254b-cgm7t`; **these are
+dedicated per-agent pods, NOT the chassis**):
+
+```
+workflow completed but its result could not be delivered to the parent
+  (failed_transient): message validation failed          × 2, step_name='complete', 01:30:51/53Z
+```
+
+`coordinator.go:3754` is doing the **right** thing here — its own comment says so: *"A workflow
+whose result never reached its parent did not succeed from the parent's point of view"*, so it
+calls `notifyParentOfFailure`. The message body carries
+`error.code = CHILD_ORCHESTRATION_FAILED`. The defect is downstream of that correct decision: the
+**work item was still marked `complete`**, and no artifact recorded the loss.
+
+**Two traps for anyone reading this table, both first-hand:**
+- **`agent_error_log.error_code` for these rows is `UNKNOWN`** (the classifier's fallback). The
+  informative code, `CHILD_ORCHESTRATION_FAILED`, exists only in the Kafka message body. So you
+  cannot find this class by filtering `error_code`; filter `error_message LIKE '%could not be
+  delivered to the parent%'`.
+- **Do not grep the chassis for it.** I did, got a clean zero on both replicas, and the zero was
+  the wrong-service trap: a positive control showed 219 log lines in the window and **0** mentions
+  of `diagnose`. The rows' own `pod_name` column is the answer.
+
+**Root cause NOT diagnosed and NOT asserted.** `reply_to_request_id` is empty (`""`) in the failure
+message I read, and `DeliverReply` is passed `[]byte(replyToRequestID)` as the key — so "the
+success reply carried an empty key and validation rejected it" is a **[HYPOTHESIS, UNMEASURED]**,
+not a finding: the message I inspected is the *failure* notification, a different message from the
+one that was rejected. Anyone taking this further should capture the rejected reply, not infer from
+its replacement.
+
+### 18c. The loop surfaced a fact I did not have, and it CORRECTS §16's volume claim
+
+Its state citation disagreed with my §16 figures, so I re-measured rather than take it on trust
+[MEASURED 01:3xZ]. It is corroborated — 13,783 `''` / 4,742 real / **128 NULL** / 18,653 total,
+against the loop's 13,765 / 4,742 / 128 four minutes earlier. My own 08-06 11:2xZ figure was
+**9,949** `''`. So the empty-string population grew by ~3,800 in 14 hours, and:
+
+```
+vet-practice-verifier | scrape_website | 6752   2026-08-04 20:02Z → 2026-08-07 01:32Z
+vet-practice-verifier | (no step)      | 2726
+vet-intel             | (no step)      | 2612
+generic               | call_dispatch  |  439   (07-08 → 07-26, the old steady-state)
+```
+
+> **CORRECTED 2026-08-07 — §16 attributed the VOLUME to the wrong thing.** §16 says the damage is
+> lopsided because "the one generic writer used by the whole coordinator path … produces the bulk
+> of the table". The *mechanism* half stands — those rows do come through the bare-`$2` writer. The
+> *volume* half is wrong: **12,090 of 13,783 (88%) are one live incident in the vet lane**, dated
+> from 2026-08-04 and **still firing while I write this** (max 01:32:33Z). This is not steady-state
+> generic traffic; it is a burst. Consequences: (a) the under-report ratio is now **~109×**
+> (13,911 no-domain, 128 NULL) and moving fast — it was 26× on 08-05 and 79× on 08-06, so **the
+> ratio is an incident metric, not a property of the defect**, and any figure quoted without its
+> timestamp is worthless; (b) the `domain` defect's *severity* should be argued from the mechanism
+> and the reader-side blindness, **never from the row count**, which will fall when the vet lane
+> stops failing.
+
+**Separately, and not mine:** that burst is `PROCESSING_FAILED` 5,225 / `LLM_API_ERROR` 4,684 /
+`TIMEOUT` 2,060, and the loop's own runtime citation caught it mid-failure — *"scrape_website
+(scrape_web) fatal: … An SSL/TLS certificate error occurred"*. **~12,000 error rows in 2.5 days
+from one lane, still climbing, is worth an owner's attention on its own account.** Candidate
+neighbours, asserted as candidates only: `bugs_open/205` (2026-08-06, "two records retry forever")
+and `bugs_open/183`. I have not investigated and am filing nothing.

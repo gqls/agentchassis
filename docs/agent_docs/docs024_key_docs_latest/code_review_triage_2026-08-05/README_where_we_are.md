@@ -333,3 +333,58 @@ a fault of this kind as established, and I had skipped it yesterday. It is runni
 up its evidence. I will not write it up as a confirmed fault until I have read what it says, and I
 want to flag in advance that **being refuted would be a good outcome, not a wasted one** — it costs
 one run, and it is much cheaper to be wrong there than in a document other people go on to trust.
+
+---
+
+**2026-08-07, still the small hours — the diagnosis came back, and the headline is not what it says
+on the tin.**
+
+The verdict is **"unverifiable"**, which sounds like a failure and mostly is not one. The reviewer
+independently worked out the same fault I had described — it said in its own words that the
+mechanism is real — and then could not check the *one* thing I most wanted checked, namely *where*
+in the code it lives. The reason is worth understanding, because it will bite anyone else who uses
+this reviewer: **it reads the code through an index that has not been rebuilt since 28 July.** The
+file I pointed it at was created on 6 August. So from where it was standing, that file does not
+exist, and it looked at the older version of the same code instead — where, quite correctly, it
+found the fault sitting somewhere else. We were both right about different copies of the codebase.
+
+To its credit it *said* so, unprompted, and listed re-checking that as something it needed. That is
+a safeguard someone built deliberately and it worked. But the practical upshot is that **there is no
+point asking it again until the index is rebuilt** — it would spend another round and give the same
+answer. I have written that warning where the next person will see it.
+
+Now the part I did not expect, and which I think matters more than the domain question.
+
+**The reviewer's answer was very nearly thrown away, and every indicator said everything was fine.**
+The job was marked complete. All three internal records said completed. The place where reports are
+kept had five entries, and every single one of them was raw working material rather than a
+conclusion — no report at all. If I had done the obvious thing, which is check the status and then
+go and read the report, I would have found a clean bill of health and an empty shelf, with nothing
+anywhere to tell me whether the reviewer had declined to answer or had answered and lost it. It had
+answered. The conclusion was sitting in an internal scratch area that nothing points to, **and that
+area is automatically wiped twenty-four hours after a job finishes.** I found it by listing what was
+in there and spotting a field called "verdict".
+
+What went wrong is narrow and, oddly, half of it is the system behaving well: the reviewer's answer
+was rejected in transit by a message check, and the code that noticed this deliberately reported a
+failure upwards rather than pretend success — there is even a comment explaining that choice. The
+gap is that the failure never reached the job's own status or the report shelf. I have written this
+up as a trap with the recovery steps attached, because the cost of not knowing it is an entire
+review round plus a day to notice. I have **not** worked out *why* the message was rejected, and I
+have deliberately not guessed in the notes — I have an idea, and I have labelled it as an idea.
+
+One more correction to yesterday, from something the reviewer surfaced that I had missed. I had said
+the empty-domain records mostly come from the busiest general-purpose writer, as ordinary background
+volume. The mechanism was right but the volume story was wrong: **about eighty-eight per cent of
+them are a single failure happening right now in the veterinary lane** — roughly twelve thousand
+error records in two and a half days, still arriving as I write, largely website-scraping failures
+with certificate errors. That changes how the original problem should be argued: the eye-catching
+"eighty times under-reported" figure is really a measure of *that incident*, not of the fault, and it
+will shrink when the incident stops. So the case for fixing it has to rest on the mechanism and on
+readers getting wrong answers — not on the size of the number.
+
+And separately, and not something I have looked into: **twelve thousand failures in two and a half
+days out of one lane, still climbing, probably wants somebody's attention on its own account.** I
+have named two existing open items that might be related and have deliberately not investigated or
+filed anything, because that is somebody else's lane and guessing at it from here would be exactly
+the mistake this log keeps recording.
