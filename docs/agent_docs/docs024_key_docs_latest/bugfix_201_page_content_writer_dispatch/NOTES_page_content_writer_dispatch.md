@@ -290,6 +290,84 @@ work in this lane.**
 
 ---
 
+## 2026-08-07 — symptom 2 DEPLOYED, and the live behavioural test (owner-authorised)
+
+### Deployment, pod-verified — and this one COULD be greppable
+
+`v1.0.1262`, both replicas up 05:47Z; commit `7e62f4a07` at 01:37Z UTC predates it.
+
+| replica | `VerifyLiteralMarkdownResolved` | `…ResolvedV2` (fabricated) |
+|---|---|---|
+| `…-5ghft` | **4** | 0 |
+| `…-dfk4b` | **4** | 0 |
+
+**Unlike symptom 1's fix, this one is pod-greppable** — a genuinely new symbol rather than a swap
+between two literals that were both already in the binary. The fabricated near-miss returns 0, so
+the grep discriminates; the positive alone would only prove the pipeline.
+
+### Choosing a canary — the obvious one was the confounded one
+
+The natural canary was gaswholesalers.com/how-pricing-works. **It is the envelope-guard page**
+(re-confirmed 08-07: `type='text'` + `jsonb_typeof(result)='string'`), so any verdict on it is
+uninterpretable. Measured the fleet for the alternative instead of assuming one existed:
+
+```
+gaswholesalers.com | how-pricing-works | pricing      | envelope_confounded = true
+webdesign.co.uk    | news              | news-listing | (not envelope-shaped)
+```
+
+**Exactly two live literal-markdown instances exist fleet-wide**, and only one is clean. That one
+is also one of `bugs_open/184`'s three originals.
+
+### Method, and the three pre-flight checks
+
+`bugs_open/201` §"How to verify a fix" prescribes re-arming **one** of the failed items rather
+than dispatching fresh, and its precondition ("only once a real fix is ready to test") is now met.
+The `news` page's own item — `efaa39a2`, `failed` 3/3, error `fail_no_ready_sections`, i.e. 201's
+symptom-1 signature — is the ideal subject.
+
+1. **Site state:** `webdesign.co.uk` UNLOCKED; page `news` is `rebuild_policy='generic'` (not
+   `owned`, so `bugs_open/208`'s commit-before-guard trap cannot fire here).
+2. **What else would ride along:** the exact `load_work_items` predicate returned **zero**
+   triaged/approved items on that site, so triaging mine picks up one thing and nothing else.
+   (The 075 trigger's sin was doing this blind, on a hardcoded other domain.)
+3. **Artefact baseline BEFORE touching anything** — without it, "the markdown is gone" is
+   unfalsifiable:
+
+```
+hero          | md5 3e77770ccea4619f6d7b8c78c733e3a9 |    304 B | 08-05 14:21:41Z | bold_md=false
+news-listing  | md5 9df6c43d4eab12ab5600ca0f760daacc | 10 232 B | 08-05 14:21:41Z | bold_md=TRUE
+call-to-action| md5 45f6f2b8154d441af30e7c334f7c8af1 |    331 B | 08-05 14:21:41Z | bold_md=false
+```
+
+**Re-armed exactly one row** (`status=triaged, attempt_count=0, claimed_by=NULL, error=NULL`) —
+**and `handler_agent='page-build-handler'`**, which is RUNBOOK R6 trap 1: omit it and the re-arm
+re-runs the broken pre-fix route and looks like the fix failed.
+
+Dispatched `build-dispatch-loop` (corr `c0c88fcb-cd68-4560-bb42-2f009dededb5`). Confirmed it
+landed rather than trusting kcat's exit 0: the loop went `AWAITING_RESPONSES` at
+`process_item_iter_0_call_handler` and a **`page-build-handler` reached `spawn_content_writer`**.
+⚠ A *different* `build-dispatch-loop` row COMPLETED 19s in — that is the scheduled
+`build-pipeline-trigger`'s own instance, not this one. Reading it as "the run finished
+instantly" would have been the wrong conclusion from a correct query.
+
+### What either outcome proves
+
+- **Repair worked** → markdown gone from `content_data`, md5 of `news-listing` changed, verifier
+  returned `Resolved:true`, item `complete`.
+- **Repair wrote nothing** → verifier returns `Resolved:false` and **completion is REFUSED**, item
+  goes to attempts rather than being stamped `complete`. *This* is the outcome that demonstrates
+  symptom 2 is actually closed.
+
+⚠ **A third outcome is now possible and is BY DESIGN:** the item stays `claimed` indefinitely.
+Migration 331 removed `literal_markdown` from the claimed-item-timeout sweep, so a stuck item is
+no longer auto-completed at 15 minutes on the handler's own evidence. Do not read "still claimed"
+as a hang without checking that first.
+
+*(Outcome recorded below when the run terminates.)*
+
+---
+
 ## 2026-08-06 (evening) — symptom 2: the mechanism already existed, and the work was mostly not writing it
 
 ### The fix was a REGISTRATION, and finding that out was most of the job
