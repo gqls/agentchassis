@@ -508,7 +508,8 @@ Three corrections to my own earlier account of it.
 > query preserves it verbatim. Worth stating as its own lesson: *a refactor is not a review of
 > what it moves.*
 
-Re-measured [MEASURED 08-06 11:2xZ, `agent_error_log`, all history]:
+Re-measured [MEASURED 08-06 11:2xZ, `agent_error_log`, ~~all history~~ **the ≤30-day retained
+window — see §17c, this table is reaped and §4 already knew it**]:
 
 ```
 domain IS NULL ....   128        (was 122)
@@ -572,8 +573,8 @@ writers already do — not a novel contract.
 
 ### 16d. The causal claim, confirmed by a partition that could have come out otherwise
 
-Writer shape predicts stored shape, with **zero overlap**, across all 14,765 rows
-[MEASURED 08-06 11:2xZ]. Grouping by `error_code`:
+Writer shape predicts stored shape, with **zero overlap**, across all 14,765 rows **then retained**
+(§17c: a ≤30-day window, not all time) [MEASURED 08-06 11:2xZ]. Grouping by `error_code`:
 
 - Every code carrying `domain=''` is a **classifier-generated** code — `LLM_API_ERROR` 3,481,
   `PROCESSING_FAILED` 3,399, `TIMEOUT` 1,499, `UNKNOWN` 1,458, `VALIDATION_ERROR_DROPPED` 89,
@@ -605,3 +606,144 @@ not run `090` on it. And the fix is still a stored-shape change on the fleet's h
 writer — cheap to type, and therefore exactly the kind of change whose blast radius wants counting
 rather than assuming. **`WHERE domain IS NULL` is the wrong predicate for "no domain" on this table
 today; use `COALESCE(domain,'') = ''` until the writers converge.**
+
+## 17. 2026-08-07 01:1xZ — THE OWED 20:45Z READ, done 4.5h late. Verdict: STILL ZERO (branch 3)
+
+Read at **2026-08-07 01:1xZ**, i.e. **4h31m after** the 2026-08-06 20:45Z due time. The lateness
+costs one thing and only one: `orchestration_states` had reaped further, so the caller counts had
+to be reassembled from the durable record rather than read off in one query (§17b). Everything
+else was still measurable.
+
+**Live at the read:** `v1.0.1261`, pods `agent-chassis-c9c6d45cf-7c8wq` / `-nmscp`, both started
+**2026-08-06 19:54Z** — so the binary serving the due-time window is the one still running, and
+this is a *fifth* pod generation (1254 → 1256 → 1257 → … → 1261). Pod-probed both replicas
+[MEASURED 01:1xZ]: `incoming_sections_with_content_data` **1 / 1**, misspelled control
+`require_save_without_sections_metadata` **0 / 0**. §12's gap is unchanged — presence, not absence
+of the old code.
+
+### 17a. The read itself
+
+```
+CONTENT_DATA_REGRESSION, grouped by agent_type ....... 0 rows
+```
+
+**This is branch 3 of the three decided in §13: "still zero".** Not branch 1 (no
+`page-build-handler` rows) and — the one that mattered — **not branch 2: no `page-rerender` row,
+so `PBP-031`'s stop condition has NOT fired and the per-caller opt-in is not blocked by this
+read.**
+
+The denominator, which is what makes the zero mean anything:
+
+```
+page_components since the roll .. 55 rows | 16 pages | 55 of 55 with content_data
+                                  2026-08-05 20:52:27Z → 2026-08-06 20:15:36Z
+of those, on v1.0.1261 only ..... 11 rows |  3 pages | 11 of 11 with content_data
+                                  (pod start 2026-08-06 19:54:23Z)
+```
+
+**Callers, reassembled (§17b explains why it cannot be one query): 48 runs across THREE callers,
+all COMPLETED.**
+
+```
+page-rerender ....... 44   = 29 (durable record, 20:54:05Z→08:48:25Z) + 15 (11:36:53Z→20:15:33Z)
+page-build-handler ...  3   11:51:21Z → 20:39:42Z      <- NEW: a third caller, and see below
+page-rebuild .........  1   08:32:35Z
+```
+
+**`page-build-handler` has now run, three times, and produced no row.** That is worth saying
+plainly because it is the caller **F9's widening was about** — branch 1's subject. So the widened
+predicate has now been exercised by its own target caller and did **not** over-fire. That is a
+genuinely stronger result than yesterday's single-caller position, and it is the one thing this
+read adds beyond "still zero".
+
+**The honest sentence, per §13's instruction not to round up:** *48 runs across three callers and
+55 saves over 16 pages produced no regression row, on a predicate proven able to fire at the unit
+level (`TestShouldReportContentDataLoss` case 1) — and every one of those 55 saves carried
+`content_data`, so the report stayed quiet for a demonstrable reason rather than for want of
+traffic. It is NOT proven end to end: nothing here exercises predicate → INSERT →
+`agent_error_log`.* Known limit, unchanged from §14b: only the last save per page survives in
+`page_components` (55 rows, 16 pages), so intermediate saves left no trace and the detector is
+their only witness.
+
+### 17b. The ~24h reaper premise is CONFIRMED — and my first check of it was blind in the exact way `RUNBOOK` R6 warns about
+
+§14c took the denominator early on the premise that `orchestration_states` reaps terminal rows at
+~24h. **That premise is correct**, and is now characterised rather than believed. But the first
+query I ran to check it said the opposite, and I nearly recorded that.
+
+```
+min(created_at) over ALL of orchestration_states  ->  2026-07-13, i.e. 24 DAYS
+```
+
+Which reads as "there is no 24h reaper" and would have retro-justified not taking the denominator
+early. **It is the R6 trap verbatim** — a figure produced identically by a working reaper and by
+none at all — because the reaper's status set does not cover every row. Splitting by status
+discriminates it in one query [MEASURED 01:1xZ]:
+
+```
+COMPLETED   2056 rows | oldest 2026-08-06 00:46:30Z | 1d 00:33   <- reaped
+FAILED      1678 rows | oldest 2026-08-06 00:37:00Z | 1d 00:42   <- reaped
+CANCELLED     24 rows | oldest 2026-07-19           | 18d        <- NOT reaped
+RUNNING       15 rows | oldest 2026-07-29           |  8d        <- NOT reaped
+INITIALIZED    1 row  | oldest 2026-07-13           | 24d        <- the row that poisoned min()
+```
+
+Then read the reaper instead of inferring it — it is SQL in a `scheduled_tasks` column, invisible
+to a Go grep (`RUNBOOK` R6 again). Task **`database-cleanup`**, enabled, hourly, last triggered
+**2026-08-07 00:46:08Z**:
+
+```sql
+DELETE FROM orchestration_states
+WHERE status IN ('COMPLETED', 'FAILED') AND updated_at < NOW() - INTERVAL '24 hours'
+```
+
+**The boundary matches the reaper's own last run minus 24h to within 30 seconds** (ran 00:46:08Z;
+oldest surviving COMPLETED is 00:46:30Z the previous day). That is as clean a confirmation as this
+kind of claim gets. Three refinements worth carrying:
+
+1. It is **`updated_at`**, not `created_at` — a long-running orchestration survives longer than its
+   creation time suggests.
+2. **Only `COMPLETED` and `FAILED`.** `CANCELLED` is *not* in the set, which is why 24 cancelled
+   rows go back to 07-19. Whether that is deliberate or an oversight is **[UNMEASURED]** — I have
+   not found an argument either way and am not filing one. (Clause 4 separately reaps
+   `EXECUTING_STEP`/`AWAITING_RESPONSES` stale >4h, which is why the 07-29 `RUNNING` rows also
+   persist: `RUNNING` is in neither set.)
+3. So **§14c's decision to take the denominator early was right**, and for a better reason than it
+   gave: not "the table reaps at 24h" but "the table reaps *these two statuses* at 24h on
+   `updated_at`, and every row this lane cares about is `COMPLETED`."
+
+### 17c. CORRECTION to §16 — I wrote "all history" three times and this table does not have all history
+
+> **CORRECTED 2026-08-07 01:1xZ.** §16 and the `LANDMINES` entry both describe the `domain` census
+> as `agent_error_log`, **all history**. It is not. The same `database-cleanup` task's *first*
+> clause reaps this table:
+>
+> ```sql
+> DELETE FROM agent_error_log
+> WHERE (resolved = true  AND occurred_at < NOW() - INTERVAL '14 days')
+>    OR (resolved = false AND occurred_at < NOW() - INTERVAL '30 days')
+> ```
+>
+> So the 14,765-row population is a **≤30-day window** (≤14 days for anything resolved), not all
+> history. **And the aggravating detail: §4 OF THIS FILE already had this.** Yesterday I
+> discovered that same reaper the hard way — §4 is titled "MISSTEP — I read a working reaper's
+> output as proof there was no reaper" and quotes the 14/30-day `DELETE` verbatim. Then today I
+> wrote "all history" about the same table, three times, twelve sections further down. **The
+> check is: grep your own NOTES for the table before characterising its population**
+> (`grep -n "agent_error_log" NOTES_*.md` would have surfaced §4 instantly). A misstep recorded
+> in the right file still has to be *retrieved* to be worth anything, and a long append-only log
+> is exactly where a fact goes to be forgotten by its own author.
+> **What survives the correction:** the 79× under-report and the exact writer↔shape
+> partition are properties of *the population a reader can actually query*, which is the thing the
+> operational advice is about — so `COALESCE(domain,'') = ''` stands unchanged. **What does not:**
+> any claim about totals since the beginning, and the implication that the 26×→79× move was pure
+> growth (some of it is the mix ageing out). The ratio is a moving figure over a rolling window and
+> must never be quoted without its date.
+
+**The same caveat lands on this section's own headline, so state it rather than inherit it.**
+"`CONTENT_DATA_REGRESSION` = 0 rows in all history" is really "0 rows in the ≤30-day retained
+window". For *this* read that is sound — the roll was 2026-08-05, well inside the window, so the
+post-roll question is answered. But **§13's stronger claim that "the report has never fired in any
+version" is not establishable from this table** beyond 30 days, and no version of it existed 30
+days ago anyway. Net effect on the verdict: none. Net effect on how the verdict may be quoted:
+say "no regression in the retained window since the roll", never "never fired".

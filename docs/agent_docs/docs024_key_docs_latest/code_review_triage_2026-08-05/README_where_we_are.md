@@ -268,3 +268,68 @@ rather than after. And I logged my own near-miss, because the shape of it is wor
 had genuinely verified one narrow fact, and let it lend its authority to a much broader claim
 sitting in the same sentence that I had not checked at all. The proportion is the thing to watch —
 the number I would have quoted, had I not counted, was out by a factor of about eighty.
+
+---
+
+**2026-08-07, small hours.** The reading we had been waiting for is done, and it came out clean.
+
+The short version: **no problems recorded, and this time the silence means something.** Yesterday
+I was careful to say that a zero told us very little, because almost nothing had gone through the
+part of the system we had changed. That is no longer true. Since the change went live, the
+relevant operation has run **forty-eight times across three different agents**, and has saved
+**fifty-five pages' worth of sections across sixteen pages** — every single one of them carrying
+the structured content that the whole change exists to protect. Fifty-five out of fifty-five. So
+the alarm stayed quiet because there was nothing to complain about, not because nobody walked past
+it.
+
+One detail is more satisfying than the raw count. The specific agent we were most curious about —
+the one whose behaviour we had deliberately widened the check to cover — had never run at all until
+yesterday lunchtime. It has now run three times, and it recorded nothing. That is the case the rule
+was written for, and it passed.
+
+I want to be honest about what this does and does not prove, because it would be easy to write
+"verified" here and it would not be true. We have shown the alarm *can* go off, but only in a
+laboratory sense — a test proves the decision logic fires correctly. Nobody has ever seen the whole
+chain work end to end: decision, then write the record, then find the record. So the accurate
+sentence is "forty-eight runs, no problems, on an alarm we know can sound" — not "this is proven".
+I have written that distinction into the permanent record in three places, because it is exactly
+the kind of caveat that gets quietly dropped when someone quotes a result later.
+
+I was four and a half hours late doing this, and it is worth saying what that cost, because the
+answer is nearly nothing and I had expected worse. The system deletes its records of completed work
+after a day, so some of the evidence had already gone. But yesterday morning I had deliberately
+copied the important figures out *before* they could expire, precisely because I could see this
+coming — so the numbers were reassembled from that saved copy plus the part still on disk. The
+decision to take those figures early is the reason the lateness was survivable.
+
+Now the two things I got wrong, both caught in the same sitting.
+
+First, I tried to check the claim that this system deletes completed work after a day. I asked it
+for the oldest record it held, and it said **twenty-four days**, which flatly contradicts a
+one-day deletion policy. I was about to write that down as "the deletion policy we have been
+relying on does not exist". It does exist. The catch is that the deletion only applies to work that
+finished — and the twenty-four-day-old record is one lone job that got stuck halfway through in
+July and has been sitting there ever since, untouched because it never finished. Asking for the
+oldest record of *any* kind cannot tell you anything about a policy that only removes *finished*
+ones. When I split the question by outcome, the answer was immediate and precise: finished work is
+being removed at almost exactly twenty-four hours. I then found the actual cleanup instruction and
+read it, rather than continuing to infer it, and the boundary it produces matches what I measured
+to within thirty seconds. This is the second time in two days this lane has been caught by the same
+shape of mistake — a number that would have looked identical whether the thing existed or not.
+
+Second, and slightly embarrassing: yesterday I described a count of error records as covering "all
+history". It does not. That table is also cleaned out — anything older than a month is deleted.
+Worse, **this lane had already discovered that, yesterday, and written it down in the same
+document** about a dozen sections above where I then wrote "all history". So the fact was not
+missing; I simply did not go back and look at my own notes before making a claim about that table.
+The proportion I reported is still correct for the records anyone can actually look at, which is
+what matters in practice — but "all history" was wrong and is now marked as wrong everywhere it
+appeared.
+
+Finally, the loose end from yesterday. On your go-ahead I have **submitted the empty-domain problem
+to the diagnosis system** — the internal reviewer that reads the real code and the live database and
+either confirms a diagnosis or refutes it. That is the step our own rules require before writing up
+a fault of this kind as established, and I had skipped it yesterday. It is running now and building
+up its evidence. I will not write it up as a confirmed fault until I have read what it says, and I
+want to flag in advance that **being refuted would be a good outcome, not a wasted one** — it costs
+one run, and it is much cheaper to be wrong there than in a document other people go on to trust.

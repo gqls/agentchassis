@@ -1,20 +1,35 @@
 # CONTINUE HERE — code-review triage lane, 2026-08-05 evening
 
-**State: the work is DONE, LIVE and pod-verified. All three council verdicts APPROVED. What
-remains is two dated re-checks and three items that are deliberately somebody else's.**
+**State: the work is DONE, LIVE and pod-verified. All three council verdicts APPROVED. BOTH dated
+re-checks are now CLOSED. What remains is three items that are deliberately somebody else's — and
+one of those has moved.**
 
-> **UPDATED 2026-08-06 10:00Z.** Re-verified live on **`v1.0.1257`** (§1 — third pod generation
-> of the morning; re-probe, do not quote pod names). **2b is SETTLED** (§2b — by config census;
-> a log grep cannot answer it). **2a is still due ~20:45Z today**, but its denominator has been
-> taken early and its interpretation sharpened: `page-rerender` **29** runs and `page-rebuild`
-> **1**, all COMPLETED; 47 of 47 saved rows carry `content_data`; **0** regressions in all
-> history. **F13 re-checked: still another session's WIP, still not actionable.** Read §2a's
-> correction block before running anything.
+> **UPDATED 2026-08-07 01:1xZ — the owed 20:45Z read is DONE (4.5h late) and the verdict is
+> STILL ZERO. `PBP-031`'s stop condition did NOT fire; the per-caller opt-in is not blocked.**
+> Full read-out and its limits in **NOTES §17**; recorded in the register at `PBP-031`.
+> Headline: **48 runs across THREE callers** (page-rerender 44, page-build-handler **3** — a new
+> third caller, and the one F9's widening was actually about — page-rebuild 1), **55 saves over 16
+> pages, 55 of 55 carrying `content_data`**, zero regression rows. Live on **`v1.0.1261`**
+> (5th pod generation; re-probe, never quote a pod name). **Say "no regression in the retained
+> window since the roll", NOT "verified" and NOT "never fired"** — §17c explains why this table
+> has no "all history" to speak of.
+>
+> Two corrections this read produced, both in **NOTES §17**: the ~24h `orchestration_states`
+> reaper is **confirmed and now characterised** (`COMPLETED`/`FAILED` only, on **`updated_at`**,
+> hourly `database-cleanup`; boundary matched its own last run minus 24h to within 30s) — **and my
+> first check of it said "24 days" and was blind in exactly the way `RUNBOOK` R6 warns about**.
+> Second: §16's `domain` census is a **≤30-day window, not all history**, because clause 1 of the
+> same task reaps this table — a fact **§4 of NOTES already recorded yesterday**.
+>
+> **2b was SETTLED 2026-08-06** (§2b — by config census; a log grep cannot answer it).
+> **F13 re-checked 2026-08-06 11:2xZ: still another session's WIP (25/4), still not actionable.**
+> **The `domain` item was RE-DIAGNOSED 2026-08-06 and is now FILED for diagnosis** — see §3.
 
 Read `NOTES_code_review_triage.md` §11–13 first if you only read one thing — §11 and §13 are
-where a successor is most likely to repeat a mistake. **Then §14–15**, which correct §13's
-traffic check, correct §14c's own caller query, and record the evidence that would otherwise
-have expired by 20:45Z.
+where a successor is most likely to repeat a mistake. **Then §14–17.** §14–15 correct §13's
+traffic check and §14c's own caller query; **§16 re-diagnoses the `domain` finding (it was
+mis-framed three ways); §17 is the closing read plus two corrections to this lane's own
+measurements.**
 
 ---
 
@@ -63,12 +78,42 @@ the verdicts have landed; no amend is needed or permitted. The one substantive o
 reviewers: "'zero callers' is a session-side grep, not a Go-tooling proof") was answered by
 renaming both functions and rebuilding — `RUNBOOK` R3.
 
-## 2. TWO DATED RE-CHECKS — these are the actual outstanding work
+## 2. TWO DATED RE-CHECKS — ~~these are the actual outstanding work~~ **BOTH NOW CLOSED**
 
-### 2a. 2026-08-06 ~20:45Z — the `CONTENT_DATA_REGRESSION` read-out (24h post-roll)
+### 2a. 2026-08-06 ~20:45Z — the `CONTENT_DATA_REGRESSION` read-out (24h post-roll) — **DONE 2026-08-07 01:1xZ, verdict STILL ZERO**
 
-This is the one that matters, because **F9 changed the predicate the check tests** and the
-register carries a stop condition on it.
+> **CLOSED. Read 2026-08-07 01:1xZ, 4h31m after the due time. `CONTENT_DATA_REGRESSION`: 0 rows.**
+> That is **branch 3** of the three decided below — not branch 1 (no `page-build-handler` rows) and
+> **not branch 2, so `PBP-031`'s stop condition has NOT fired and the per-caller opt-in is not
+> blocked by this read.**
+>
+> | | |
+> |---|---|
+> | regression rows | **0** |
+> | runs since the roll | **48**, all COMPLETED, across **three** callers |
+> | — `page-rerender` | 44 (29 durable to 08:48:25Z + 15 to 20:15:33Z) |
+> | — `page-build-handler` | **3** (11:51Z → 20:39Z) — new, and the caller F9's widening was about |
+> | — `page-rebuild` | 1 (08:32Z) |
+> | saves | **55 rows / 16 pages / 55 of 55 carrying `content_data`** |
+> | on `v1.0.1261` alone | 11 saves / 3 pages / 11 of 11 |
+> | pod probe, both replicas | added literal **1 / 1**, misspelled control **0 / 0** |
+>
+> **The sentence to quote, and not a word stronger:** *48 runs across three callers and 55 saves
+> over 16 pages produced no regression row, on a predicate proven able to fire at the unit level;
+> every one of those saves carried `content_data`, so the silence has a demonstrable cause rather
+> than being absence of traffic. NOT proven end to end — nothing exercised predicate → INSERT →
+> `agent_error_log`.* Do **not** write "verified", and do **not** write "never fired": §17c shows
+> this table is reaped at 14/30 days, so it has no "all history".
+>
+> **The lateness cost exactly one thing** — `orchestration_states` had reaped further, so the
+> caller counts had to be reassembled from the durable 10:00Z record plus a non-overlapping
+> increment rather than read off in one query (NOTES §17b). The early-denominator decision in §14c
+> is thereby vindicated. Full read-out, the reaper characterisation, and two corrections to this
+> lane's own measurements: **NOTES §17**. Recorded in the register at `PBP-031`.
+
+The rest of this section is kept as written, because the decision rule was set in advance and the
+verdict must be readable against it. This was the one that mattered, because **F9 changed the
+predicate the check tests** and the register carries a stop condition on it.
 
 ```sql
 SELECT agent_type, count(*), min(occurred_at), max(occurred_at)
@@ -198,9 +243,23 @@ as its own content — see NOTES and the comment at the warning site.
   `WHERE domain IS NULL` sees **1.3%** of the no-domain rows, an under-report of **79×** (it was
   26× yesterday; the ratio drifts because the broken family contains the coordinator's generic
   writer, which produces most of the table). Confirmed by an exact `error_code` partition with
-  zero overlap (NOTES §16d). **Use `COALESCE(domain,'') = ''` meanwhile.** Still NOT fixed and
-  still nobody's: it is a stored-shape change on the fleet's highest-volume error writer, wants a
-  council round, and `090` has not been run on it.
+  zero overlap (NOTES §16d). **Use `COALESCE(domain,'') = ''` meanwhile.** Still NOT fixed: it is a
+  stored-shape change on the fleet's highest-volume error writer and wants a council round.
+  **⚠ Those figures are a ≤30-DAY WINDOW, not all history** — clause 1 of `database-cleanup` reaps
+  this table at 14 days resolved / 30 unresolved (NOTES §17c; §4 of NOTES already knew, and I still
+  wrote "all history"). The 79× and the partition hold for the population a reader can query, which
+  is what the advice is about; totals-since-the-beginning are not available from this table.
+  **FILED FOR DIAGNOSIS 2026-08-07 01:1xZ** via `090`, per the 2026-07-31 owner ruling that a
+  cross-cutting root-cause claim is not "filed" until it has been through the loop.
+  Intake correlation `94144fbc-3c01-4ed4-982a-bae8ac6caea8`; **the key the artifacts are written
+  under is the RUN correlation `a7b1e113-8857-4161-ad2b-f3b7387e33e9`** — use that one:
+  ```sql
+  SELECT kind, metadata->>'verdict', left(body,4000) FROM diagnosis_artifacts
+  WHERE correlation_id='a7b1e113-8857-4161-ad2b-f3b7387e33e9' ORDER BY created_at DESC;
+  ```
+  **Read the verdict before writing a `bugs_open/` file.** A REFUTED verdict is the cheap outcome
+  and would be a success — it costs one run and saves every thread that would have believed the
+  claim. If CONFIRMED, the fix is three characters at three sites plus a council round.
   **Two traps this re-diagnosis paid for**, both in NOTES §16: the `NULLIF` on the sibling
   columns is **compelled** by their `::uuid` cast (`''::uuid` errors — so that INSERT's internal
   asymmetry is not evidence of intent about `domain`); and **a refactor is not a review of what it
