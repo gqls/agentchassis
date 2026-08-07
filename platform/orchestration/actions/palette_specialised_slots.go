@@ -307,6 +307,176 @@ func pickInkOn(bgHex string, palette map[string]string) (hex, source string) {
 	return "#000000", "fallback:black"
 }
 
+// legibleInkFor answers "can this colour be READ on these grounds", which is
+// the inverse of the question pickInkOn answers ("what can be read ON this
+// fill"). It returns srcHex unchanged when srcHex already clears minRatio
+// against EVERY ground, otherwise the first palette colour that does,
+// otherwise whichever achromatic extreme has the better worst case.
+//
+// WHY grounds IS A SLICE AND NOT A COLOUR. A component may place one ink on
+// the page and on a card. dartsonline.com does exactly that with
+// --color-primary: the eyebrow lands on `background` (1.04:1) and the card
+// link on the derived `card_bg` (robot-hands, 1.07:1). One variable can only
+// be right for two grounds if it is right for the WORSE of them.
+//
+// If a later edit simplifies this to a single ground, the fix quietly becomes
+// a half-fix: correct on whichever surface the reviewer happens to open, still
+// broken on the other. TestLegibleInkFor_TwoGroundsDisagree is the assertion
+// that stops that, and it is the only test here that a single-ground
+// implementation fails.
+func legibleInkFor(srcHex string, grounds []string, palette map[string]string, minRatio float64) (hex, source string) {
+	clearsAll := func(candidate string) bool {
+		measured := false
+		for _, g := range grounds {
+			if g == "" {
+				continue
+			}
+			ratio, err := wcagContrastRatio(candidate, g)
+			if err != nil || ratio < minRatio {
+				return false
+			}
+			measured = true
+		}
+		// No ground was measurable, so nothing was actually checked. Report
+		// failure rather than a vacuous pass — a "pass" derived from measuring
+		// nothing is how a value that was never tested reaches a stylesheet
+		// looking tested.
+		return measured
+	}
+
+	if srcHex != "" && clearsAll(srcHex) {
+		return srcHex, "source:unchanged"
+	}
+	for _, key := range []string{"text", "accent", "text_muted", "secondary", "primary"} {
+		v, ok := palette[key]
+		if !ok || v == "" || v == srcHex {
+			continue
+		}
+		if clearsAll(v) {
+			return v, "palette:" + key
+		}
+	}
+	if worstRatioAgainst("#ffffff", grounds) >= worstRatioAgainst("#000000", grounds) {
+		return "#ffffff", "fallback:white"
+	}
+	return "#000000", "fallback:black"
+}
+
+// worstRatioAgainst returns the LOWEST contrast ratio candidate achieves across
+// grounds — the only figure that matters when one value has to serve them all.
+//
+// Returns 0 when no ground is measurable, so an unmeasurable candidate can
+// never win a comparison against a measurable one.
+func worstRatioAgainst(candidate string, grounds []string) float64 {
+	worst := 0.0
+	first := true
+	for _, g := range grounds {
+		if g == "" {
+			continue
+		}
+		ratio, err := wcagContrastRatio(candidate, g)
+		if err != nil {
+			continue
+		}
+		if first || ratio < worst {
+			worst, first = ratio, false
+		}
+	}
+	return worst
+}
+
+// buildLegibleInkDefaults returns a renderer-owned :root block defining the
+// legible-ink companions a component can opt into. Returns "" when there is
+// nothing to add.
+//
+// TWO DIRECTIONS, AND CONFLATING THEM IS THE MISTAKE THIS COMMENT EXISTS TO
+// STOP. A palette colour used as a fill and the same colour used as an ink are
+// different questions with different answers:
+//
+//	--color-<x>-text   the ink that goes ON an <x> fill. Already derived by
+//	                   darkSchemeDerivations — `accent_text` has existed since
+//	                   2026-07-27 — but 0 of 18 layouts declare it, so it has
+//	                   never reached one stylesheet. Emitting it here is what
+//	                   turns that dead derivation live.
+//	--color-<x>-ink    <x> ITSELF, made legible as an ink on the page. New;
+//	                   nothing in the platform computed this before.
+//
+// finetuning.uk's .csg-cta-btn needs the first: it fills with
+// var(--color-accent) (#C8873A) and inks with var(--color-primary-text) — the
+// ink for a PRIMARY fill — scoring 3.01:1. gaswholesalers.com's base `a {}`
+// rule needs the second: var(--color-accent) as the link colour on white,
+// 2.22:1, six times on the homepage. A change offering only one of these fixes
+// one site and reads as though it fixed both. It did, once; see bugs_open/122.
+//
+// SCHEME-INDEPENDENT, unlike fillDarkSchemeSpecialisedSlots above. That
+// function is dark-only because a LIGHT LITERAL is only wrong on a dark site.
+// "This ink is illegible on this ground" is true or false regardless of
+// scheme, and two of the three accent-direction sites are LIGHT
+// (gaswholesalers #F4F1EB, finetuning #F5F3EF), so a dark-only guard cannot
+// reach them at all. TestBuildLegibleInkDefaults_LightSchemeStillEmits fails
+// loudly if someone later tidies this behind an isDarkHex guard.
+//
+// ORDER: this must be appended AFTER buildSectionDefaults and buildTokenAliases
+// in RenderCSSFromSpecAction, because it skips any name the assembled CSS
+// already defines. Pinned by TestRenderCSS_InkCompanionsComeAfterTokenAliases.
+func buildLegibleInkDefaults(css string, palette map[string]string, logger *zap.Logger) string {
+	bg := lookupOrFallback(palette, "background", "")
+	if bg == "" {
+		// Nothing to measure against. Stay silent rather than guess: an
+		// emitted value nobody could check is worse than an absent one,
+		// because the consumer's var() fallback is today's working colour.
+		return ""
+	}
+	surface := lookupOrFallback(palette, "surface", "")
+	pageGrounds := []string{bg, surface} // an ink lands on the page or on a card
+
+	wanted := []struct {
+		name, src string
+		grounds   []string
+	}{
+		{"--color-primary-ink", palette["primary"], pageGrounds},
+		{"--color-accent-ink", palette["accent"], pageGrounds},
+		{"--color-accent-text", palette["text"], []string{palette["accent"]}},
+	}
+
+	var b strings.Builder
+	var substituted, unchanged []string
+	for _, w := range wanted {
+		if w.src == "" || strings.Contains(css, w.name+":") {
+			// Undeterminable, or the stylesheet already has an opinion. Same
+			// definition of "already defined" as buildTokenAliases: the name
+			// followed by a colon, which cannot match a var() usage.
+			continue
+		}
+		hex, src := legibleInkFor(w.src, w.grounds, palette, inkMinContrast)
+		b.WriteString("  " + w.name + ": " + hex + ";\n")
+		if src == "source:unchanged" {
+			unchanged = append(unchanged, w.name)
+		} else {
+			substituted = append(substituted, w.name+"<-"+src)
+		}
+	}
+	if b.Len() == 0 {
+		return ""
+	}
+
+	// A substituted value and a left-alone one are indistinguishable in the
+	// output CSS. That indistinguishability is the property that let the
+	// original defect hide for nine days, so both are logged by name.
+	sort.Strings(substituted)
+	sort.Strings(unchanged)
+	logger.Info("buildLegibleInkDefaults: emitted legible-ink companions a component can opt into",
+		zap.String("background", bg),
+		zap.String("surface", surface),
+		zap.Strings("substituted", substituted),
+		zap.Strings("already_legible_left_as_is", unchanged))
+
+	return "\n\n/* renderer-owned legible-ink companions. Opt in with\n" +
+		"   var(--color-primary-ink, var(--color-primary)) — never bare, so a\n" +
+		"   stylesheet rendered before this block renders byte-identically. */\n:root {\n" +
+		b.String() + "}\n"
+}
+
 // warnUnusablePrimary logs when `primary` cannot be read as a foreground on the
 // site's own background.
 //
@@ -321,10 +491,16 @@ func pickInkOn(bgHex string, palette map[string]string) (hex, source string) {
 // them generated dark palettes (dartsonline.com, fundamentallyai.com,
 // robot-hands.com, oufe.com).
 //
-// This warns rather than fails: unlike a scheme violation, there is no single
-// correct repair — the palette's author has to decide whether primary is the
-// brand's fill colour or its foreground colour. The discovery check
+// This warns rather than fails: the palette's author still has to decide
+// whether primary is the brand's fill colour or its foreground colour, and
+// that is not a decision the renderer can make. The discovery check
 // `palette_primary_unreadable` files it as durable work.
+//
+// CORRECTED 2026-08-06: this comment used to justify warning-only with "there
+// is no single correct repair". That stopped being true — buildLegibleInkDefaults
+// now emits --color-primary-ink, which IS the repair for the foreground half,
+// so the warning names it. The fill half is still the author's call, which is
+// why this is still a Warn.
 func warnUnusablePrimary(palette map[string]string, logger *zap.Logger) {
 	primary, okP := palette["primary"]
 	bg, okB := palette["background"]
@@ -345,5 +521,8 @@ func warnUnusablePrimary(palette map[string]string, logger *zap.Logger) {
 		zap.String("primary", primary),
 		zap.String("background", bg),
 		zap.Float64("contrast_ratio", ratio),
-		zap.Float64("minimum", 3.0))
+		zap.Float64("minimum", 3.0),
+		zap.String("remedy", "components rendering small text in this colour should read "+
+			"var(--color-primary-ink, var(--color-primary)); the renderer emits a legible "+
+			"substitute (buildLegibleInkDefaults). Fills using primary are unaffected."))
 }

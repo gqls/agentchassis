@@ -102,3 +102,42 @@ FAIL https://webdesign.uk/                                    contrast=2    brok
                'Read the guides'
 
 10 page(s): 82 contrast failure(s), 6 broken image(s)
+
+════════════════════════════════════════════════════════════════════════
+APPENDED 2026-08-06 (later session) — the five sites the first run MISSED.
+The banked baseline covered 10 sites / 82 failures. dartsonline and
+robot-hands are the two sub-shape A sites the fix targets, so the baseline
+as banked could not have verified the fix at all. Completed here.
+Fleet total: 15 pages, 109 contrast failures.
+════════════════════════════════════════════════════════════════════════
+FAIL https://dartsonline.com/                                 contrast=1    broken-img=0    (5 slow-loading image(s) re-checked OK)
+        1.04:1 need 4.5  rgb(17, 21, 32)        on rgb(14,16,25)      .image-hover-card-grid__eyebrow
+               'SPEC-FIRST GUIDES'
+FAIL https://robot-hands.com/                                 contrast=3    broken-img=0    (1 slow-loading image(s) re-checked OK)
+        1.07:1 need 4.5  rgb(26, 31, 46)        on rgb(30,37,53)      .tl-card-link
+               'Open tool'
+        1.14:1 need 4.5  rgb(26, 31, 46)        on rgb(15,18,24)      .tl-eyebrow
+               'Our Tools'
+        3.95:1 need 4.5  rgb(255, 255, 255)     on rgb(128,128,128)   .H2  (over an image — ratio approximate)
+               'Generate a gripper shortlist across 6 actuation technologies.'
+FAIL https://vonc.com/                                        contrast=23   broken-img=0   
+        1.63:1 need 4.5  rgb(252, 92, 125)      on rgb(131,70,255)    .gauntlet-eyebrow
+               'The Gauntlet'
+        1.63:1 need 4.5  rgb(252, 92, 125)      on rgb(131,70,255)    .stats-eyebrow
+               'By the Numbers'
+        1.76:1 need 4.5  rgb(124, 60, 255)      on rgb(252,92,125)    .gauntlet-btn-primary
+               'Enter the Gauntlet'
+        1.76:1 need 4.5  rgb(124, 60, 255)      on rgb(252,92,125)    .stats-cta
+               'View full report'
+        3.19:1 need 4.5  rgba(255, 255, 255, 0.7) on rgb(131,70,255)    .gauntlet-panel-body
+               'You click in. The Provocation is already up. You read it, you feel som'
+        3.19:1 need 4.5  rgba(255, 255, 255, 0.7) on rgb(131,70,255)    .gauntlet-micro
+               'No credit card required. Cancel anytime.'
+        3.19:1 need 4.5  rgba(255, 255, 255, 0.7) on rgb(131,70,255)    .stat-label
+               'Archetypes'
+        3.19:1 need 4.5  rgba(255, 255, 255, 0.7) on rgb(131,70,255)    .stat-description
+               'Every player fits one: Catalyst, Judge, Maker, Mentor, Oracle, Scout, '
+ok   https://relojistas.com/                                  contrast=0    broken-img=0    (2 slow-loading image(s) re-checked OK)
+ok   https://vetcomparison.uk/                                contrast=0    broken-img=0   
+
+5 page(s): 27 contrast failure(s), 0 broken image(s)

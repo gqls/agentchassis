@@ -341,3 +341,197 @@ func TestLightSiteGetsNoDerivationAtAll(t *testing.T) {
 		}
 	}
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Legible-ink companions (bugs_open/122). Each case is chosen to fail a
+// plausible WRONG implementation rather than to cover a line. Case 3 is the one
+// a single-ground implementation passes everything else and fails here.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// dartsonlinePalette is the real palette behind the measured failures:
+// .image-hover-card-grid__eyebrow at 1.04:1 on the page and .tl-card-link at
+// 1.07:1 on the card. primary sits in the background's own family.
+func dartsonlinePalette() map[string]string {
+	return map[string]string{
+		"primary": "#111520", "secondary": "#2A3348", "accent": "#E4B95B",
+		"background": "#0E1019", "surface": "#1A1F2E",
+		"text": "#E8EAF0", "text_muted": "#9BA3B8", "border": "#252B3D",
+	}
+}
+
+// The substitution has to be CORRECT, not merely present. A value that differs
+// from the source but still fails is the same defect wearing a fix.
+func TestLegibleInkFor_SubstitutesAndTheSubstituteActuallyWorks(t *testing.T) {
+	p := dartsonlinePalette()
+	grounds := []string{p["background"], p["surface"]}
+
+	hex, src := legibleInkFor(p["primary"], grounds, p, inkMinContrast)
+	if hex == p["primary"] {
+		t.Fatalf("primary %s was left as the ink, but it scores 1.04:1 on this background", hex)
+	}
+	if src == "source:unchanged" {
+		t.Errorf("source label says unchanged while the value changed: %s", hex)
+	}
+	for _, g := range grounds {
+		ratio, err := wcagContrastRatio(hex, g)
+		if err != nil {
+			t.Fatalf("contrast(%s,%s): %v", hex, g, err)
+		}
+		if ratio < inkMinContrast {
+			t.Errorf("substitute %s on ground %s = %.2f:1, want >= %.1f", hex, g, ratio, inkMinContrast)
+		}
+	}
+}
+
+// THE NO-OP CASE. A fix that repaints sites whose colours are already legible
+// is a regression dressed as a win, and a gate that fires on everything is as
+// useless as one that fires on nothing.
+func TestLegibleInkFor_AlreadyLegibleIsLeftExactlyAlone(t *testing.T) {
+	p := dartsonlinePalette()
+	p["primary"] = "#E8EAF0" // now a light ink on a dark page: already fine
+
+	hex, src := legibleInkFor(p["primary"], []string{p["background"], p["surface"]}, p, inkMinContrast)
+	if hex != "#E8EAF0" {
+		t.Errorf("a primary that already clears AA was changed to %s", hex)
+	}
+	if src != "source:unchanged" {
+		t.Errorf("source = %q, want source:unchanged so the log can distinguish a no-op", src)
+	}
+}
+
+// THE TWO-GROUNDS CONSTRAINT. dartsonline places the same ink on the page AND
+// on a card. A single-ground implementation passes every other test in this
+// file and fails here: it picks a colour that clears `background` while still
+// failing `surface`, which would have read as a working fix on whichever page
+// happened to be opened.
+// THE FIXTURE MUST BE SATISFIABLE, and my first one was not. It used grounds
+// #101010 and #E9E9E9, for which AA against BOTH is arithmetically impossible:
+// the darker ground demands relative luminance >= 0.200 and the lighter one
+// demands <= 0.140. Every candidate correctly fell through to the achromatic
+// fallback, so the test failed while the code was right. A trap that no value
+// can escape does not test preference — it tests the fallback. The grounds
+// below are both dark, like dartsonline's real #0E1019 / #1A1F2E, so a
+// satisfying colour exists and the CHOICE is what is under test.
+func TestLegibleInkFor_TwoGroundsDisagree(t *testing.T) {
+	p := map[string]string{
+		"primary": "#3A3A3A", // the failing source: below AA on both
+		// `text` is tried FIRST and is the trap: 4.61:1 on the background,
+		// 2.06:1 on the surface. A single-ground implementation stops here.
+		"text": "#7A7A7A",
+		// `accent` is tried second and clears both (18.0:1 and 8.1:1).
+		"accent":     "#F5F5F5",
+		"text_muted": "#6A6A6A",
+		"background": "#0A0A0A",
+		"surface":    "#4A4A4A",
+	}
+	grounds := []string{p["background"], p["surface"]}
+
+	hex, src := legibleInkFor(p["primary"], grounds, p, inkMinContrast)
+	if hex == p["text"] {
+		t.Fatalf("chose text %s, which clears background but scores below AA on surface %s — "+
+			"this is the single-ground bug: it fixes the page and leaves the card broken",
+			hex, p["surface"])
+	}
+	if hex != p["accent"] {
+		t.Errorf("chose %s (%s); wanted the palette's own %s, which clears both grounds — "+
+			"falling through to an achromatic fallback loses the site's character "+
+			"when a palette colour would have done", hex, src, p["accent"])
+	}
+	for _, g := range grounds {
+		ratio, err := wcagContrastRatio(hex, g)
+		if err != nil {
+			t.Fatalf("contrast(%s,%s): %v", hex, g, err)
+		}
+		if ratio < inkMinContrast {
+			t.Errorf("chose %s (%s) but it scores %.2f:1 on ground %s", hex, src, ratio, g)
+		}
+	}
+}
+
+// LIGHT SCHEME. gaswholesalers.com's real values. fillDarkSchemeSpecialisedSlots
+// is dark-only by deliberate design; this block is NOT, because "is this ink
+// legible on this ground" does not depend on scheme and two of the three
+// accent-direction sites are light. If someone later tidies this behind an
+// isDarkHex guard, this test is what says why they must not.
+func TestBuildLegibleInkDefaults_LightSchemeStillEmits(t *testing.T) {
+	p := map[string]string{
+		"primary": "#1A1A2E", "secondary": "#C8880A", "accent": "#E8A020",
+		"background": "#F4F1EB", "surface": "#FFFFFF",
+		"text": "#1A1A2E", "text_muted": "#5A5A6E",
+	}
+	css := buildLegibleInkDefaults("", p, zap.NewNop())
+	if css == "" {
+		t.Fatal("nothing emitted for a LIGHT palette; gaswholesalers' accent-on-white " +
+			"link ink (2.22:1, six on the homepage) is exactly what this must reach")
+	}
+	if !strings.Contains(css, "--color-accent-ink:") {
+		t.Errorf("no --color-accent-ink in:\n%s", css)
+	}
+	if strings.Contains(css, "--color-accent-ink: "+p["accent"]+";") {
+		t.Errorf("accent %s was kept as its own ink, but it scores 2.22:1 on white", p["accent"])
+	}
+}
+
+// Every emitted value must be a concrete colour. An EMPTY fallback is what makes
+// a CSS declaration drop entirely rather than degrade — the cascade failure mode
+// the council raised on round 1 — so nothing here may emit "" or a bare var().
+func TestBuildLegibleInkDefaults_NeverEmitsAnEmptyOrIndirectValue(t *testing.T) {
+	css := buildLegibleInkDefaults("", dartsonlinePalette(), zap.NewNop())
+	if css == "" {
+		t.Fatal("expected an emission for dartsonline's palette")
+	}
+	for _, line := range strings.Split(css, "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "--color-") {
+			continue
+		}
+		value := strings.TrimSuffix(strings.TrimSpace(strings.SplitN(line, ":", 2)[1]), ";")
+		if value == "" || strings.Contains(value, "var(") {
+			t.Errorf("emitted %q — an empty or indirect value makes the consuming "+
+				"declaration DROP rather than degrade", line)
+		}
+		if !strings.HasPrefix(value, "#") {
+			t.Errorf("emitted %q, want a literal hex", line)
+		}
+	}
+}
+
+// Mirrors buildTokenAliases' contract: a stylesheet that already has an opinion
+// keeps it, and the skip reads the ASSEMBLED css.
+func TestBuildLegibleInkDefaults_SkipsNamesTheCSSAlreadyDefines(t *testing.T) {
+	css := buildLegibleInkDefaults(":root{--color-primary-ink: #abcdef;}", dartsonlinePalette(), zap.NewNop())
+	if strings.Count(css, "--color-primary-ink:") != 0 {
+		t.Errorf("redefined a name the CSS already declares:\n%s", css)
+	}
+	if !strings.Contains(css, "--color-accent-ink:") {
+		t.Errorf("skipped the others too; only the defined name should be skipped:\n%s", css)
+	}
+}
+
+// The log has to distinguish a substitution from a no-op, because the output CSS
+// cannot — that indistinguishability is the property that let the defect hide.
+func TestBuildLegibleInkDefaults_LogNamesSubstitutedAndUnchangedSeparately(t *testing.T) {
+	core, logs := observer.New(zap.InfoLevel)
+	buildLegibleInkDefaults("", dartsonlinePalette(), zap.New(core))
+
+	entries := logs.FilterMessageSnippet("legible-ink companions").All()
+	if len(entries) != 1 {
+		t.Fatalf("want exactly one summary line, got %d", len(entries))
+	}
+	fields := entries[0].ContextMap()
+	if _, ok := fields["substituted"]; !ok {
+		t.Error("no `substituted` field: a reader cannot tell which values were replaced")
+	}
+	if _, ok := fields["already_legible_left_as_is"]; !ok {
+		t.Error("no `already_legible_left_as_is` field: a no-op emission would look like a repair")
+	}
+}
+
+// No measurable ground must not produce a vacuous pass. A value "checked"
+// against nothing reaches the stylesheet looking checked.
+func TestLegibleInkFor_UnmeasurableGroundsAreNotAPass(t *testing.T) {
+	p := dartsonlinePalette()
+	if hex, src := legibleInkFor(p["primary"], []string{"", ""}, p, inkMinContrast); src == "source:unchanged" {
+		t.Errorf("returned %s as unchanged after measuring zero grounds", hex)
+	}
+}

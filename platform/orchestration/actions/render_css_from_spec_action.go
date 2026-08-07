@@ -295,11 +295,32 @@ func RenderCSSFromSpecAction(ctx context.Context, params ActionParams) (interfac
 		renderedCSS = renderedCSS + aliasCSS
 	}
 
+	// 12. Append renderer-owned legible-ink companions. The palette already
+	// knows which of its own colours can be READ on which ground; until now it
+	// had no way to tell a component, so 17 of 18 layouts colour an ink with
+	// var(--color-primary) and nothing checks it (bugs_open/122).
+	//
+	// ORDER IS LOAD-BEARING: this must stay AFTER steps 10 and 11. It skips any
+	// name already defined in the assembled CSS, so running it earlier would
+	// let a later block define the same name and win — emitting a variable that
+	// is present and inert, which is the dead-config shape this seam exists to
+	// avoid. Pinned by TestRenderCSS_InkCompanionsComeAfterTokenAliases; if you
+	// move this call, that test fails and says why.
+	//
+	// Additive and inert: a component reaches these only by opting in with
+	// var(--color-primary-ink, var(--color-primary)), so every template that has
+	// not been repointed renders byte-identically.
+	inkDefaults := buildLegibleInkDefaults(renderedCSS, mergedPalette, logger)
+	if inkDefaults != "" {
+		renderedCSS = renderedCSS + inkDefaults
+	}
+
 	logger.Info("RenderCSSFromSpecAction: CSS rendered",
 		zap.Int("css_length", len(renderedCSS)),
 		zap.Int("snippet_css_length", len(snippetCSS)),
 		zap.Int("section_defaults_length", len(sectionDefaults)),
 		zap.Int("token_alias_length", len(aliasCSS)),
+		zap.Int("ink_companion_length", len(inkDefaults)),
 		zap.String("theme", comp.ThemeName),
 		zap.String("layout", comp.LayoutName),
 	)
