@@ -21731,3 +21731,124 @@ nothing else. If the decision applies to a class of call sites, the check belong
 helper (or a test) that all of them go through — the same lesson `bugs_closed/145` records as "a
 precondition parked in a caller is one port away from gone", arriving here as "a precondition
 parked in a COMMENT never left the file".
+
+## 2026-08-06 — "hard-coding an ink": three CSS rules described without opening one of them
+
+**The claim.** `bugs_open/122`'s sub-shape C, written into a PLAN, a bug file and a
+council submission: *"a component hard-coding an ink over a themed fill"*, naming
+finetuning `.csg-cta-btn`, gaswholesalers `.A` and gamesdesign `.stats-eyebrow`.
+
+**What is true.** None of the three hard-codes anything. `.csg-cta-btn` reads
+`color: var(--color-primary-text, #fff)` and the fallback never fires — that variable
+IS defined, as `#ffffff`, and is *correct for its own slot*. It names the wrong slot
+(the fill is accent). The other two use accent **as** an ink, the opposite direction,
+which `--color-accent-text` cannot repair at all. The proposed fix could not have
+touched 7 of the 9 failures it claimed.
+
+**What caught it.** The council gate's `editquality` seat, HIGH: *"ships no edit that
+actually consumes it for any of the cited failures"*. Round 1 REVISE.
+
+**The cheap check that would have.** One query per selector, before writing the word
+"hard-coded":
+`SELECT substring(html_template from '\.<selector>\s*\{[^}]*\}') FROM content_components WHERE name='<component>';`
+`background:` names the palette colour → it wants `--color-<x>-text`. `color:` names it
+→ it wants `--color-<x>-ink`.
+
+**Why it happened, which is the transferable part.** I inferred the *declaration* from
+the render audit's output. The audit reports a **computed** colour; it structurally
+cannot say which declaration chose it. Every figure was measured and correct, and the
+mechanism I hung on them was invented. **A measurement can be impeccable and still not
+be evidence for the claim it is placed under.**
+
+## 2026-08-06 — a contrast test fixture that could not have passed, whatever the code did
+
+**The claim.** A test asserting `legibleInkFor` must not pick a colour that clears one
+ground while failing another, using grounds `#101010` and `#E9E9E9`.
+
+**What is true.** No colour clears AA against both: the darker ground demands relative
+luminance ≥ 0.200, the lighter ≤ 0.140. Every candidate correctly fell through to the
+achromatic fallback, so **the test failed while the code was right**.
+
+**What caught it.** Running it. The failure message named the fallback, not the trap.
+
+**The cheap check that would have.** Before writing a fixture that asserts a *choice*,
+confirm the choice exists — solve the constraint, or pick grounds of similar lightness
+(dartsonline's real `#0E1019` / `#1A1F2E`). **A trap no value can escape does not test
+preference; it tests the fallback.** Same family as the marker rule: a fixture that
+could not have come out otherwise is not evidence.
+
+## 2026-08-06 — a `090` symptom that named the wrong mechanism, and what the loop said back
+
+**The claim.** In a 090 symptom statement: ai-agent-orchestration.com's stylesheet
+*"does define `--color-heading: var(--color-text)`"*, pointing the loop at
+`tokenAliases` and `darkSchemeDerivations`.
+
+**What is true.** It defines `--color-heading` **zero** times, and headings never
+consult it — the rule is `var(--section-heading, var(--color-primary))`.
+
+**What caught it.** Measuring the served stylesheet myself, *after* the loop returned.
+
+**The cost, and the reason this is worth a row.** The loop did not come back REFUTED. It
+came back **UNVERIFIABLE — "stopped: iteration-cap"** — having spent five iterations
+reading two mechanisms that do not participate. **An iteration-cap stop reads like "hard
+bug" when it can mean "wrong question".** CLAUDE.md's corrected diagnosis section is
+about the loop catching a thread's wrong claim; this is the reverse, and the failure is
+silent. Refiled with a corrected symptom (`750e162e`) and it also capped, so the loop has
+a genuine gap here too — but the first run was unanswerable and that was mine.
+
+**The cheap check that would have.** Grep the served artefact for the symbol before
+asserting it is there: `curl -A "<browser UA>" .../styles.css | grep -c -- '--color-heading'`.
+
+---
+
+## 2026-08-07 — I read a working 24h reaper's output as proof there was no reaper (the SECOND time this lane did it, on a different table)
+
+**The claim.** Closing the code-review triage lane's owed 24h read, I wanted to confirm the premise
+that `orchestration_states` reaps terminal rows at ~24h — the premise that had justified taking a
+denominator early the previous morning. I asked the obvious question:
+
+```sql
+SELECT min(created_at) FROM orchestration_states;   -- 2026-07-13, i.e. 24 DAYS
+```
+
+Twenty-four **days** against a claimed twenty-four **hours**. I was composing the sentence "the
+~24h reaper premise is refuted; the early-denominator decision was unnecessary caution" when I
+stopped.
+
+**What caught it.** Noticing the figure was the same *shape* as the one this lane had already been
+caught by. `RUNBOOK` R6 — written by this lane two days earlier, about `agent_error_log` — says in
+so many words that "oldest row is N days old" is produced identically by a working N-day reaper and
+by no reaper at all. The reaper here deletes only `status IN ('COMPLETED','FAILED')`; the 24-day row
+is a single `INITIALIZED` job stuck since 2026-07-13, permanently exempt. An unfiltered `min()` over
+a table whose reaper is status-scoped **cannot** see the reaper, whatever the truth is.
+
+Splitting by status answered it in one query and answered it sharply: `COMPLETED` oldest 1d 00:33,
+`FAILED` oldest 1d 00:42, `CANCELLED` 18 days, `RUNNING` 8 days, `INITIALIZED` 24 days. Then I read
+the reaper instead of inferring it — `scheduled_tasks.database-cleanup`, hourly, last run
+2026-08-07 00:46:08Z, `DELETE ... WHERE status IN ('COMPLETED','FAILED') AND updated_at < NOW() -
+INTERVAL '24 hours'`. **The boundary matches that run minus 24h to within 30 seconds.** Premise
+confirmed, and now characterised rather than believed: two statuses only, on `updated_at`, hourly.
+
+**The cheap check that would have.** When testing a retention claim, **filter on the same column
+the reaper filters on** — here `status` — or the measurement is blind by construction. Generalised:
+*before* running an aggregate to test a policy, name the rows the policy exempts and check whether
+your aggregate can see them. And read the reaper: it is SQL in a `scheduled_tasks.pre_query` column
+and invisible to any `--include=*.go` grep, which is the same trap in a different coat.
+
+**Why it is worth a row when R6 already says this.** Because R6 *did* already say it, in this lane's
+own runbook, about a different table — and I walked into it anyway roughly 40 hours later. The
+lesson that did not transfer was the *scope* of the trap: I had filed it as a fact about
+`agent_error_log`'s reaper, so when the subject changed to `orchestration_states` the guard did not
+fire. **A misstep recorded as a fact about one table protects only that table; recorded as a fact
+about a class of measurement it protects the class.** The `LANDMINES`/`016b` §9 split exists for
+exactly this, and R6 was on the wrong side of it.
+
+**A second one in the same sitting, and it has the same root.** I wrote that the `agent_error_log`
+`domain` census covered "all history" — three times, in NOTES, in the handoff, and in a `LANDMINES`
+entry. That table is reaped at 14 days resolved / 30 unresolved, so no census of it is ever all
+time. **This lane had already discovered that reaper the hard way and written it up as §4 of the
+same NOTES file**, about twelve sections above where I then typed "all history". The fact was not
+missing, unretrieved. Cheap check: `grep -n "<table>" NOTES_*.md` before characterising a table's
+population — your own append-only log is where facts go to be forgotten by their own author. What
+survives: the 79× ratio and the writer↔shape partition are properties of the queryable population,
+which is what the operational advice is about. What does not: any "since the beginning" claim.
