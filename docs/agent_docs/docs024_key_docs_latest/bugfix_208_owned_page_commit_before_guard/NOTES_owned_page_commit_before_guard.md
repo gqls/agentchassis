@@ -346,3 +346,64 @@ Both now pinned (`TestAssemblePage_FailsOpenWhenPolicyUnreadable` gained an `age
 expectation; `TestSavePageSections_RefusesOwnedPage` is new) and both re-mutated afterwards to
 confirm they fail. **Three mutation rounds, three findings — each time the informative mutation
 was the one I expected to be boring.**
+
+## 2026-08-07 — LIVE on v1.0.1262, proven at the binary; the guard has still never fired
+
+**Pod-grep, both controls in one exec** (the estate's rule: a positive control proves the
+pipeline, never your spelling — so a removed string is the one that proves the version):
+
+| string | expect | got |
+|---|---|---|
+| `OWNED_PAGE_GUARD` (added) | >0 | **3** |
+| `OWNED_PAGE_GUARD_UNCHECKED` (added by `f5710d6b0`, the objection-response commit) | >0 | **1** |
+| `include_owned` (added) | >0 | **1** |
+| `"guard standing down for this page"` (**REMOVED** by `f5710d6b0`) | 0 | **0** |
+| `OWNED_PAGE_GUARD_ZZFAKE` (fabricated) | 0 | **0** |
+
+The removed-string row is the load-bearing one: it distinguishes "the image carries my latest
+commit" from "the image carries *a* commit of mine", which the added strings alone cannot.
+
+**Fleet coverage by identity, not sampling.** Four pods were grepped; all **41** pods running this
+binary report one image digest (`sha256:039e5130a8b4db49…`), so the other 37 are the same bytes.
+This is the answer to the known trap that `-l app=agent-chassis` reaches only ~2 of ~41 pods —
+enumerate by image, then argue from digest identity.
+
+**Baseline re-check: 13 of 14 byte-identical.** The 14th, `vonc.com/blog/provocation.html`,
+changed hash but is still **404**, still `build_status='planned'`, still 0 `page_components`,
+`updated_at` unchanged since 2026-06-22 — the site's shared 404 template moved, not the page.
+Worth noting because a body-hash diff on a page in the protected set is exactly the shape that
+should trigger a look, and the look is what turned it from alarming into explained.
+
+### ⚠ The guard has NOT fired, and the clean result is not evidence that it works
+
+`SELECT * FROM site_work_items WHERE item_type='owned_page_review'` returns 12 rows, **all from
+`source='reconcile_site_plan'`, all dated 2026-08-02 — pre-roll.** Zero from
+`get_pages_to_build` or `assemble_page`. No `page-rebuild` or `pageflow-builder` dispatch has hit
+a site with owned pages since v1.0.1262 went out, so the guard has never been asked a question.
+
+Everything verified today proves *presence* and *absence of harm*. Neither is *bite*. Recording
+it this loudly because the next reader's natural inference from "13/14 identical, fix live" is
+"it works", and that inference is unsupported — 016b §9's "a silent gate either did not look or
+approved" in its purest form, and this file would be the thing that misled them.
+
+### Why the obvious canary is the wrong one
+
+`vonc.com` is the only site whose `needs_rebuild` set is **owned-only** (3 owned, 0 generic), so
+a dispatch there would sweep in nothing else — mechanically ideal. **Rejected.** Those three
+pages are `tool-arena-interface`, `tool-gauntlet` and `tool-archetype-taster-quiz`: the arena is
+the page whose destruction created the ownership marker in the first place. A canary whose
+failure mode is "destroy the exact artefacts this bug exists to protect" is not a canary. The
+runbook's own rule (R5) already said it: **synthetic page, never a real tool.**
+
+Correct shape, pending an owner go-ahead because it is a real dispatch at a live site: insert a
+throwaway `rebuild_policy='owned'`, `build_status='needs_rebuild'` page on a site with an
+otherwise-empty `needs_rebuild` set, dispatch `page-rebuild`, and assert — nothing built, nothing
+committed to the site repo, exactly one `owned_page_review` filed (a second dispatch files none),
+and the run **completes** rather than failing at `save_sections`. Failure damages only the
+throwaway.
+
+**And the negative control that canary structurally cannot supply:** if nothing is built, a
+"guard excludes everything" bug looks identical to success. That control already exists
+elsewhere and must be cited alongside it — `TestAssemblePage_GenericPageStillAssembles`, and the
+live row-identity proof on `ai-agent-orchestration.com` where the new predicate still returns the
+three generic pages and drops only the two owned ones.
