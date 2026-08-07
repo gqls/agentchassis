@@ -134,6 +134,13 @@ func Resolve(ctx context.Context, db *sql.DB, req QueryRequest, logger *zap.Logg
 	case "protocol_tracker_full":
 		return resolveDirectoryKind(ctx, db, "protocol", req.Limit, 50, logger)
 
+	case "business_directory":
+		// A site's own verified business_intel directory (bugs_open/206).
+		// No arg: the vertical is looked up from the site's own
+		// directory-export-json config, not a static parameter — see
+		// business_directory.go's header for why.
+		return resolveBusinessDirectory(ctx, db, req.SiteID, req.Limit, logger)
+
 	case "blog_posts":
 		// Article listings (content-listing, blog-listing components declare
 		// `source: "query.blog_posts"`). Fleet convention: articles are pages

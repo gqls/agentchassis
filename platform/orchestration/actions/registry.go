@@ -714,6 +714,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Execute content gap plan — create pages, work items, or spec updates",
 		IsLocal:     true,
 	},
+	"ensure_page_section_layout": {
+		Handler:     EnsurePageSectionLayoutAction,
+		Category:    "site",
+		Description: "Fill in a default section layout for a page with none — refuses if it already has one",
+		IsLocal:     true,
+	},
 	"update_site_spec_from_item": {
 		Handler:     UpdateSiteSpecFromItemAction,
 		Category:    "site",

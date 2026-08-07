@@ -202,3 +202,38 @@ func TestDefaultSectionsForPage_NewsIndexByType(t *testing.T) {
 		t.Errorf("faq archetype regressed: %v", faq)
 	}
 }
+
+// bugs_open/206: entity-directory pages get the real, data-backed
+// directory-listing layout, not the generic filler that fabricates no data
+// at all. Keyed on page_type, same reasoning as news-index above.
+func TestDefaultSectionsForPage_EntityDirectoryByType(t *testing.T) {
+	got := defaultSectionsForPage("directory-index", "entity-directory")
+	want := []string{"hero", "directory-listing"}
+	if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
+		t.Fatalf("got %v want %v", got, want)
+	}
+}
+
+// bugs_open/206: guides-index / tools-index mirror the ALREADY-DEPLOYED
+// fleet pattern (mortgagecalculator.co.uk, idea.uk, gamesdesign.co.uk,
+// relojistas.com for guides; gamesdesign.co.uk, robot-hands.com,
+// finetuning.uk, ai-agent-orchestration.com for tools) rather than inventing
+// a new layout — these are name-keyed because "section-index" as a page_type
+// is not specific to guides or tools.
+func TestDefaultSectionsForPage_IndexListingsByName(t *testing.T) {
+	cases := []struct {
+		name, pageType string
+		want           []string
+	}{
+		{"guides-index", "section-index", []string{"hero", "guide-list"}},
+		{"guide-index", "section-index", []string{"hero", "guide-list"}},
+		{"tools-index", "section-index", []string{"hero", "tool-list"}},
+		{"tool-index", "content", []string{"hero", "tool-list"}},
+	}
+	for _, c := range cases {
+		got := defaultSectionsForPage(c.name, c.pageType)
+		if len(got) != len(c.want) || got[0] != c.want[0] || got[1] != c.want[1] {
+			t.Errorf("defaultSectionsForPage(%q, %q) = %v, want %v", c.name, c.pageType, got, c.want)
+		}
+	}
+}

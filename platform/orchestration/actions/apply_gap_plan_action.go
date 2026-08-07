@@ -959,8 +959,16 @@ func defaultSectionsForPage(pageName, pageType string) []string {
 	// page_type outranks the name heuristics: a typed page has an
 	// archetype regardless of what it is called — the name is localised
 	// ("noticias"), the type is not (bugs_open/015).
-	if strings.ToLower(strings.TrimSpace(pageType)) == "news-index" {
+	switch strings.ToLower(strings.TrimSpace(pageType)) {
+	case "news-index":
 		return []string{"hero", "news-listing", "call-to-action"}
+	case "entity-directory":
+		// bugs_open/206: directory-listing resolves query.business_directory
+		// at plan time (queryresolve package) — a real, per-site business
+		// list, not fabricated content. Requires the site to have its own
+		// directory-export-json config; an unconfigured site's section
+		// resolves to an empty (not fabricated) list.
+		return []string{"hero", "directory-listing"}
 	}
 	key := strings.ToLower(strings.TrimSpace(pageName))
 	switch {
@@ -972,6 +980,16 @@ func defaultSectionsForPage(pageName, pageType string) []string {
 		return []string{"hero", "pricing", "faq", "call-to-action"}
 	case key == "about":
 		return []string{"hero-about", "about-content", "call-to-action"}
+	case key == "guides-index" || key == "guide-index":
+		// Matches the ALREADY-PROVEN fleet pattern exactly (verified live,
+		// bugs_open/206): mortgagecalculator.co.uk, idea.uk, gamesdesign.co.uk
+		// and relojistas.com all deploy this layout for this page shape,
+		// backed by guide-list's own query.pages_where_type:guide.
+		return []string{"hero", "guide-list"}
+	case key == "tools-index" || key == "tool-index":
+		// Same proven pattern, tool-list's sibling case (gamesdesign.co.uk,
+		// robot-hands.com, finetuning.uk, ai-agent-orchestration.com).
+		return []string{"hero", "tool-list"}
 	default:
 		return []string{"hero", "generic-text-block", "call-to-action"}
 	}
