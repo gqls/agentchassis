@@ -264,3 +264,29 @@ change no prose — with an `acceptance_test` naming the other two slots as need
 unchanged. The URL is derived from a real `pages` row, and the framework writes the copy;
 naming an exact URL in `suggestion` follows `create_tool_cross_link_items.go`'s own
 precedent, so this is not hand-authored content.
+
+### The full repair worklist, with ids, verified targets and STALENESS (2026-08-07)
+
+Every target below is a real `pages` row, checked live. Staleness matters as much as the
+target does — F21's lesson — so it is a column, and it sets the order.
+
+| # | site / page | slot | label | verified target | last built | stale |
+|---|---|---|---|---|---|---|
+| 1 | finetuning.uk `/guides/tool-ai-data-risk-checker-guide.html`<br>`856e2b44-49e1-4abb-a1eb-13df784d1f32` | hero | Run the Risk Checker | `/tools/tool-ai-data-risk-checker.html` | 08-05 | **2d** ← CANARY |
+| 2 | finetuning.uk `/about.html`<br>`c0c68034-469f-420c-90bd-d3c0fc0e13d2` | content-block-about | How We Work | `/how-we-work.html` | 08-03 | 4d |
+| 3 | robot-hands.com `/how-to-specify-a-gripper.html`<br>`5a385981-c2fd-4edb-bc4d-927b93177281` | hero | Run MatchMatrix | `/tools/matchmatrix/index.html` | 08-02 | 5d |
+| 4 | leopardessconsulting.co.uk `/who-we-help.html`<br>`3e480330-d2b3-4d08-951a-a4e4804a90da` | hero | Score your process | `/tools/process-automation-scorer/index.html` | 07-25 | **13d** ⚠ |
+
+Site ids: finetuning.uk `1368e337-dd1d-4799-bbb3-8221a1b79bcc` · robot-hands.com
+`00ff3af5-dad8-4770-9f70-3edc267a3c92` · leopardessconsulting.co.uk
+`4851f6fc-71cf-4160-a270-e03d6d3e0732`.
+
+**Order: 1 → 2 → 3, and 4 LAST and separately.** Row 4 is 13 days stale, so an `edit_live`
+pass over it carries the largest unaudited blast radius of the four (F21) — it should not
+ride along on a batch, and it wants its own before/after diff and a look at the served page.
+**Nothing is dispatched beyond the canary until the canary verifies**; that is what a canary
+is for, and batching them would forfeit it.
+
+The four `leopardessconsulting.co.uk` "Get Started" blog heroes are **NOT** in this table and
+are still parked per F21: fabricated label, plausible destination, 8–9 days stale — the worst
+risk/reward ratio of the eight.
