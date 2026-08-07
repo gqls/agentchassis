@@ -201,3 +201,25 @@ every one of the 8. Nothing in the estate re-points a link that is live but wron
 correct buttons at scale**. Yesterday's F12 ("give its output a handler") is therefore
 premature as stated: precision first, then a handler. Recording this against my own earlier
 note rather than leaving it to be inherited.
+
+**F21 — CORRECTION to my own README claim of an hour ago, caught before acting on it.**
+I wrote "I'd do this one without asking, it's clearly right" about rerendering the four
+"Get Started" blog heroes. Then I sized it: those pages are **8–9 days stale** (oldest
+components 07-29/07-30) and there have been **244 commits to
+`platform/orchestration/actions/` since 2026-07-29**. A rerender does not apply *my* fix —
+it applies all 244 changes' worth of behaviour to a live customer page, which is the
+`a-stale-page-holds-every-improvement-since-it-rendered` hazard exactly, now with a number
+on it.
+
+**And the reward is the smallest of the eight.** These four are the *least* harmful rows in
+the worklist: the label is fabricated ("Get Started") but `/contact.html` is a **plausible**
+destination, so today's visible defect is a generic button, not a promise broken. The three
+tool CTAs are the ones that actually mislead — and they are the ones a rerender would make
+worse by deleting (F17).
+
+**So the risk/reward inverts what I asserted:** the least harmful instances carry the
+largest unaudited blast radius, and the most harmful ones cannot be fixed by the cheap route
+at all. **Nothing dispatched.** PLAN D7's recommendation is amended accordingly: option (1)
+is no longer "do it unasked" — it wants the same two-page canary-and-diff discipline as any
+other rerender on this estate, and it is not urgent enough to spend that on ahead of the
+owner's call on the three that matter.

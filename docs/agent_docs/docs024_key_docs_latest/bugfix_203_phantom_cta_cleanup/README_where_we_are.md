@@ -91,7 +91,13 @@ That leaves three ways forward, and the middle one needs your say-so:
 
 1. **Rebuild the four blog buttons on leopardess and let them vanish.** These say "Get
    Started" — words the system invented, on buttons nobody ever wrote. Nothing worth keeping.
-   I'd do this one without asking, it's clearly right.
+   ~~I'd do this one without asking, it's clearly right.~~ **Corrected an hour later, before
+   I did it:** those four pages were last built 8–9 days ago, and there have been 244 changes
+   to the page-building code since. Rebuilding doesn't apply just our button fix — it applies
+   all 244, to a live customer page, and I can't tell you in advance what else would move.
+   Meanwhile these four are the *least* harmful of the eight, because "Get Started" pointing
+   at the contact page isn't really a broken promise. So it isn't worth doing casually after
+   all, and I've left it.
 2. **Let the content writer edit those three tool pages.** This is the system's own proper
    route and needs no new machinery — the link-resolving step is already part of writing, so
    the buttons would come back pointing at the real tools. The catch: it puts the AI writer

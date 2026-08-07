@@ -21852,3 +21852,46 @@ missing, unretrieved. Cheap check: `grep -n "<table>" NOTES_*.md` before charact
 population — your own append-only log is where facts go to be forgotten by their own author. What
 survives: the 79× ratio and the writer↔shape partition are properties of the queryable population,
 which is what the operational advice is about. What does not: any "since the beginning" claim.
+
+---
+
+## 2026-08-07 — I wrote "clearly right, I'd do it without asking" about a rerender, then sized it and it wasn't
+
+**Lane:** bugfix 203 phantom-CTA cleanup. **My own call**, caught before acting but **after
+committing the claim**, which is why it belongs here rather than in a scratchpad.
+
+**The claim.** In `README_where_we_are.md` I offered the owner three routes for eight bad CTA
+buttons and said of the cheapest: *"Rebuild the four blog buttons on leopardess and let them
+vanish … I'd do this one without asking, it's clearly right."*
+
+**Why it was wrong.** I had not sized the operation. Those four pages last rendered
+2026-07-29/30, and `git log --oneline --since="2026-07-29" -- platform/orchestration/actions/`
+returns **244 commits**. A rerender regenerates from `content_data` **on today's binary**, so
+it applies all 244 commits' worth of changed behaviour to a live customer page — not the one
+CTA fix I was thinking about. The estate already knows this
+(`a-stale-page-holds-every-improvement-since-it-rendered`: never size a rerender by YOUR
+change; canary two pages, they disagree) and I quoted a different landmine from that same file
+in the very handoff I was working from.
+
+**The reward was also the smallest in the worklist, which I had not weighed either.** Those
+four are the *least* harmful rows: the label is fabricated but `/contact.html` is a plausible
+destination, so the live defect is a generic button rather than a broken promise. The three
+genuinely misleading CTAs are ones a rerender would make **worse**, by deleting buttons whose
+correct targets exist. So the risk/reward inverted under one query: **cheapest ≠ safest, and
+"clearly right" was doing the work that a measurement should have.**
+
+**What caught it.** Re-reading my own recommendation before executing it and asking what a
+rerender actually *does*, rather than what I wanted it to do. The tell was the phrase itself —
+"clearly right" in my own prose, with no number anywhere near it.
+
+**The cheap check, two queries, both under a minute.** Before proposing *any* rerender:
+(1) `SELECT min(updated_at) … GROUP BY url` for the target pages — how stale are they?
+(2) `git log --oneline --since="<that date>" -- platform/orchestration/actions/ | wc -l` — how
+much has changed underneath them? A three-figure answer means the rerender is a platform
+upgrade wearing a bugfix's clothes, and it needs the canary-and-diff discipline, not a
+shrug. **Generalisation: "cheapest option" is a claim about cost, and an unmeasured rerender's
+cost is not the thing you are changing — it is everything that changed since.**
+
+**Sibling entries:** the 2026-08-06 pod-age entry above (same failure — a convenient answer
+believed before the instrument was checked), and
+`[[a-stale-page-holds-every-improvement-since-it-rendered]]`.
