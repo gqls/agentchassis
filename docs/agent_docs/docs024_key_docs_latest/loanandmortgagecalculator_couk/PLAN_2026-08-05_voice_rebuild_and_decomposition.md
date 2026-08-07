@@ -29,9 +29,41 @@ to `origin/master` `b318a8fad`** — the adoption-era crawl-DOM divergence the
 After decomposition the DB becomes the render source and git-adapter writes
 the repo: the `build_site.py` era ends at that moment, per page.
 
+> **⛔ CORRECTED 2026-08-06 — OWNER RULING: DECISION 1 BELOW IS SUPERSEDED.**
+> *"I want all the copy to be done through the framework and not through this
+> cli session. We'll need to restart all those that have been written through
+> this cli."*
+>
+> Decision 1 chose to TRANSFORM the existing copy in-session, on the reasoning
+> that the pipeline writer refuses owned pages and there is no site plan to
+> regenerate from. **Those facts are still true; they were the wrong thing to
+> optimise for.** The reasoning treated "which route can a session drive
+> today?" as the question, when the question was "who is allowed to write this
+> site's words?" — and CLAUDE.md already answers that: EVERY SITE GOES THROUGH
+> THE FRAMEWORK (owner ruling 2026-08-04, raised by a hand-built shopfront on
+> the lane whose product is framework-built sites). A hand-authored rewrite is
+> the same error wearing better checks: the guards I built verify that the copy
+> preserves facts and links, not that the platform could ever reproduce it.
+>
+> **What this changes.** Everything structural in this plan STANDS — decompose,
+> keep owned, widgets byte-original in locked rows, chrome, the verification
+> ladder. Only the source of the WORDS changes. `load_lmc.py` now defaults to
+> `manifest.json` (original copy); `voice_overlays/` (39 pages) and
+> `manifest_voiced.json` are superseded and retained only as evidence of the
+> register. The two pages already live with in-session copy are to be restored
+> and re-decomposed with their original words.
+>
+> **What is now the open question, and it is a real one:** the platform's
+> writer path REFUSES `rebuild_policy='owned'` pages
+> (`save_page_sections_action.go:150`), so decomposition alone does not make
+> the framework able to write here. See "Routing the framework's writer" below —
+> it needs an owner decision, and the measurement that informs it is done.
+
 ## Decisions, with reasons
 
-1. **TRANSFORM the existing copy; do not regenerate.** The owner approved
+1. ~~**TRANSFORM the existing copy; do not regenerate.**~~ **SUPERSEDED — see
+   the correction block above. Kept unedited because the reasoning is the
+   record of how the wrong call was reached.** The owner approved
    *transformations* of four real copy blocks — that is the reviewed method.
    Fresh regeneration (needs_page → page-build-handler) has no site plan to
    drive it, would discard hand-built substance, and the owner queue holds an
@@ -111,3 +143,48 @@ the repo: the `build_site.py` era ends at that moment, per page.
 - Two canaries minimum before bulk (the sibling's two canaries DISAGREED).
 - Dispatch discipline: nothing within ~300s of a chassis pod (re)start;
   find runs by payload, not printed id.
+
+## Routing the framework's writer (OPEN — owner decision, measurement done)
+
+Decomposition makes a page *editable*; it does not make the framework *able to
+write it*. `save_page_sections_action.go:150` refuses any
+`rebuild_policy='owned'` page outright. Two routes, and the risk in each is
+now measured rather than argued.
+
+**Route A — flip pages to `generic`, use the ordinary build pipeline.**
+The stated risk is TL-001: `save_page_sections` does DELETE-then-reinsert over
+`page_components`, which is how tool widgets have been destroyed before.
+**MEASURED 2026-08-06 — the widget SURVIVES, with a caveat that matters:**
+
+- The DELETE is itself lock-aware (`:708`, `pageComponentAgentWritableSQL`).
+  Induced against the real decomposed `/loans/consolidation.html` inside a
+  rolled-back transaction: `DELETE 2` — both prose rows went, **the locked
+  `tool-1` row stood**. The statement removed rows, so it was live, not a
+  no-op; ROLLBACK restored all three.
+- Three defences in series, which is why a passing mutation here needs care:
+  the lock-guarded DELETE, a Layer-1 "INTERACTIVITY REGRESSION BLOCKED" guard
+  (`:580`) that fails a save whose new content has no interactive section when
+  the old page had one, and a Layer-2 carry-forward (`:375-443`) that
+  re-appends a dropped interactive section even when unlocked.
+- **THE CAVEAT, and it is the deciding fact:** a locked row is repositioned by
+  matching `slot_name` against the incoming section name (`matchLockedRow`).
+  Our slots are positional (`tool-1`), so a writer's sections will NOT match,
+  and an unmatched locked row is moved to `len(sections)+1` — i.e. **the
+  calculator survives but lands at the BOTTOM of its page**, below all the new
+  prose, with a `lock_blocked` work item raised. On a calculator page that is
+  a serious layout regression, and it is silent unless someone looks at the
+  page. [UNMEASURED end-to-end: this is read from the code plus the SQL-level
+  test above, not from a full writer run against a live page.]
+
+**Route B — drive `apply_section_edit` / section-editor.** Respects owned
+pages and locked rows by construction, and edits a named section in place, so
+position is never disturbed. Cost: it is per-section, so it needs a work item
+per prose row rather than per page, and the section-editor workflow applies a
+pre-authored edit — the *writing* step still has to come from somewhere.
+
+**Recommendation, stated as a recommendation:** Route A is viable ONLY if the
+tool rows are re-slotted to names the plan will emit, so `matchLockedRow`
+matches and the widget keeps its position. That is a small, testable change to
+the decomposition (name the slot after the tool, not after its index) and it
+should be made BEFORE any page is flipped, not after a page has shipped with
+its calculator at the bottom.

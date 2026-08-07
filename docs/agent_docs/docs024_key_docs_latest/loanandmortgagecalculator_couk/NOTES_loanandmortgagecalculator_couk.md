@@ -503,3 +503,89 @@ compares one tool's golden against a different tool's live page and must
 report FAIL; it found 90 problems, so the comparator can still fail.
 A full post-rebuild golden re-baseline is owed once the site is finished (the
 sibling lane owed the same after its decomposition).
+
+### 2026-08-06 — OWNER RULING: the framework writes the copy, not this session
+
+*"I want all the copy to be done through the framework and not through this cli
+session. We'll need to restart all those that have been written through this
+cli."* Correction block filed at the head of the PLAN; decision 1 struck
+through, not deleted.
+
+**What I got wrong, precisely.** I asked "which write path can a session drive
+against owned pages today?" and answered it well — the writer refuses owned
+pages, there is no site plan, so transformation was the only route a *session*
+could take. That reasoning is sound and the conclusion was still wrong, because
+the question was never which route a session can drive. CLAUDE.md answers the
+real one outright (EVERY SITE GOES THROUGH THE FRAMEWORK, owner 08-04, raised
+by a hand-built shopfront on the lane whose product is framework-built sites),
+and I read that ruling, cited the sibling lane's practice, and still filed the
+in-session route as decision 1. **The tell I walked past: my own guards check
+that the copy preserves facts and links — nothing in them could ever check that
+the platform was capable of producing it.** A verification suite that cannot
+express the property that matters is a sign the property was never in scope.
+
+39 overlays, all passing every guard, are superseded. Kept on disk as evidence
+of the register; `load_lmc.py` now defaults to `manifest.json` so the
+superseded copy cannot ship by accident (a flag would have been enough, but the
+DEFAULT is what a future session actually runs).
+
+### 2026-08-06 — MEASURED: a locked tool row survives the generic rebuild's DELETE
+
+The owner asked for this to be verified before choosing a route, and it is the
+fact that decides Route A.
+
+Read first: `save_page_sections_action.go:708` deletes with
+`pageComponentAgentWritableSQL`, i.e. **lock-aware**. Three defences in series
+(which is why a passing mutation here would need care — a pass could be any one
+of them): the lock-guarded DELETE, the Layer-1 `INTERACTIVITY REGRESSION
+BLOCKED` guard (`:580`), and the Layer-2 interactive carry-forward
+(`:375-443`).
+
+Then induced, against the real decomposed `/loans/consolidation.html`, inside
+`BEGIN … ROLLBACK`, running the EXACT predicate the action uses:
+
+```
+BEFORE        prose-0 | tool-1 (locked) | prose-2
+DELETE 2
+AFTER-DELETE  tool-1 (locked)                  <- widget stands
+AFTER-ROLLBACK 3 rows                          <- nothing kept
+```
+
+**`DELETE 2` is the control**: the statement removed rows, so it was live. A
+delete that removed nothing would have "proved" the same thing while proving
+nothing — the no-op case, which is the one worth checking.
+
+⚠ **THE CAVEAT IS THE FINDING.** Surviving is not the same as staying put.
+`matchLockedRow` repositions a locked row by matching `slot_name` against the
+incoming section name; our slots are positional (`tool-1`), so a writer's
+sections will not match, and `:855` moves an unmatched locked row to
+`len(sections)+1` — **the calculator lands at the BOTTOM of the page**, under
+all the new prose, with a `lock_blocked` item raised and no other signal.
+Silent unless someone looks at the rendered page. [UNMEASURED end-to-end: read
+from code plus the SQL test above; no full writer run has been driven against a
+live page.] Remedy if Route A is chosen: re-slot tool rows to names the plan
+will emit, BEFORE flipping any page.
+
+### 2026-08-06 — OPEN GAP the owner named: our calculator checks prove CONSISTENCY, not CORRECTNESS
+
+*"check that we have a comprehensive check on the calculators that they produce
+validated output"* — we do not, and the distinction is exact:
+
+`GOLDEN_2026-08-05_prechange.json` records **what each calculator did on
+2026-08-05**. Every later comparison asks "does it still do that?". If a
+calculator has been wrong since the day it was written, the golden records the
+wrong answer faithfully and every future check certifies the bug — the same
+shape as [[a-pass-from-a-blind-check-outlives-the-blindness]]. This site has
+already produced one such case: `credit-health-check` was broken on the SOURCE
+site by CSS that was never written (07-31 session 1), and nothing computational
+noticed.
+
+What "validated" needs is an INDEPENDENT ORACLE — recompute from the standard
+amortisation formula, the published SDLT bands, the definition of LTV — and
+compare. NOT BUILT. Scope honestly when it is: roughly half the 23 are analytic
+(repayment, simple, standard-calc, overpayment ×2, consolidation, stamp-duty,
+investor, loan-vs-savings, settlement, compare-loans, rate stress ×2,
+fee-analyser, bridging, equity-release roll-up, portfolio aggregate); the rest
+(credit-health-check, damage-checker, application-tracker, fact-finder) are
+scoring tools or checklists with no external right answer to check against, and
+saying so is part of the deliverable.

@@ -31,12 +31,24 @@ first real render is diffed against it before anything else moves (the
 mirror is a hypothesis with a scheduled test, not an authority — sibling's
 words, kept).
 
+⛔ **OWNER RULING 2026-08-06: COPY IS THE FRAMEWORK'S JOB, NOT A CLI SESSION'S.**
+This tool ships the DECOMPOSITION — the structural change that turns a frozen
+document into rows a writer agent can reach. It must be run against
+`manifest.json` (the original copy, byte-for-byte), NOT against a manifest
+carrying hand-authored rewrites. `--manifest` therefore defaults to
+`manifest.json`. The `voice_overlays/` corpus and `manifest_voiced.json` are
+SUPERSEDED by this ruling and kept only as evidence of what the register
+looks like; see the PLAN's correction block. Passing
+`--manifest manifest_voiced.json` would re-introduce exactly what the ruling
+forbids, and there is no reason to.
+
 Usage:
   DECOMP_WORK=<dir> python3 load_lmc.py --check  <name> [...]
   DECOMP_WORK=<dir> python3 load_lmc.py --apply  <name> [...]
   DECOMP_WORK=<dir> python3 load_lmc.py --apply  --all
-  python3 load_lmc.py --restore <name> [...]
+  DECOMP_WORK=<dir> python3 load_lmc.py --restore <name> [...]
   python3 load_lmc.py --init          # backup + component lookup only, inert
+  [--manifest <filename>]             # default manifest.json
 """
 import json
 import os
@@ -106,6 +118,15 @@ def dollar_tag(*bodies):
         if all(tag not in b for b in bodies):
             return tag
     raise RuntimeError("no free dollar-quote tag")
+
+
+def manifest_name(argv):
+    """Default manifest.json — the ORIGINAL copy. See the owner ruling at the
+    top of this file: a CLI session ships structure, the framework ships
+    words."""
+    if "--manifest" in argv:
+        return argv[argv.index("--manifest") + 1]
+    return "manifest.json"
 
 
 def backup_everything():
@@ -193,7 +214,7 @@ def main():
         work = os.environ.get("DECOMP_WORK")
         if not work:
             sys.exit("set DECOMP_WORK (restore resolves names via the manifest)")
-        manifest = json.load(open(os.path.join(work, "manifest_voiced.json"),
+        manifest = json.load(open(os.path.join(work, manifest_name(argv)),
                                   encoding="utf-8"))["pages"]
         for n in names:
             pid = ids[manifest[n]["url"]]["id"]
@@ -215,8 +236,8 @@ def main():
 
     work = os.environ.get("DECOMP_WORK")
     if not work:
-        sys.exit("set DECOMP_WORK to the dir holding manifest_voiced.json")
-    manifest = json.load(open(os.path.join(work, "manifest_voiced.json"),
+        sys.exit("set DECOMP_WORK to the dir holding the manifest")
+    manifest = json.load(open(os.path.join(work, manifest_name(argv)),
                               encoding="utf-8"))["pages"]
 
     names = [a for a in argv if not a.startswith("--")]
