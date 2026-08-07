@@ -98,10 +98,21 @@ iteration-capped** — three `bundle` artifacts, no verdict artifact, no
 was 0 on iterations 2 and 3. Its final hypothesis independently reached §3's conclusion
 and named `warnUnusablePrimary`'s blind spot; corroboration, not proof.
 
-Run 4, **`84c3da66-06c0-41a5-94dc-21fbf71260f0`** (the 213 mechanism), was still
-`diagnosing` at handoff, on iteration 2 with `symbols_unreadable` 3 → 1. **Record its
-verdict in `NOTES_contrast_ink_slots.md` and in `bugs_open/213` §8 when it lands,
-including if it is REFUTED.**
+Run 4, **`84c3da66-06c0-41a5-94dc-21fbf71260f0`** (the 213 mechanism), was **still
+`diagnosing` at handoff** — three `bundle` artifacts, no `decision`, item `updated_at`
+frozen at 08:23:59Z. Same shape as run 3, but **it had not terminated, so it is not
+recorded as UNVERIFIABLE** — that would be a claim about behaviour rather than the
+behaviour. **Check it, and record the verdict in `NOTES_contrast_ink_slots.md` and in
+`bugs_open/213` §8 either way, including if it is REFUTED.**
+
+Its `symbols_unreadable` fell **3 → 1 → 0** across the three iterations, and that is not
+the loop improving: **migration 332 repointed the code index to the live working branch
+mid-run** (`code_symbols`: 5,754 symbols at `087_towards_multiple_domains`, indexed
+08:31Z, verified independently — the single-`ref` row proves the old `086_experience_loop`
+pin is gone). So this run straddles the fix. **A 090 filed before ~08:30Z on 2026-08-07
+was reading a stale index and one filed after was not** — worth knowing before concluding
+anything from an UNVERIFIABLE dated today, and it retires the standing "confirm from code,
+not the index" workaround.
 
 There is no `verdict` artifact kind and the outcome is not in `doc_notes`,
 `site_work_items.spec` or `orchestration_states` — the query and how to read it are now
