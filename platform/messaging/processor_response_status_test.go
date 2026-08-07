@@ -181,11 +181,12 @@ func TestReproducesTheBug_completeStampedFailureRoutesToCompleteArm(t *testing.T
 	}
 }
 
-// TestErrorResponseStatusIsTypedFromTheError pins the status/ErrorInfo mapping.
-// The decision is typed — code and the author's Retryable flag — never the
-// error prose: substring classification of messages is bugs_open/197's seam and
-// is deliberately not duplicated in the sender.
-func TestErrorResponseStatusIsTypedFromTheError(t *testing.T) {
+// TestErrorResponseStatusIsSequencedFromTheError pins the status/ErrorInfo
+// mapping. The decision goes through RetryDisposition — permanent first, then
+// transient, else terminal (bugs_open/207). Until that convergence this test
+// pinned the opposite for untyped transient prose (typed-only, everything
+// terminal); the flips below are the fix, taken deliberately, not a drift.
+func TestErrorResponseStatusIsSequencedFromTheError(t *testing.T) {
 	tests := []struct {
 		name            string
 		err             error
@@ -196,18 +197,44 @@ func TestErrorResponseStatusIsTypedFromTheError(t *testing.T) {
 		{
 			// A bare error carries no code. In production handleError wraps one
 			// in errors.InternalError before it reaches here, so an empty code is
-			// the direct-call edge case, not the live path.
-			name:            "untyped error",
+			// the direct-call edge case, not the live path. FLIPPED by 207: this
+			// is the census's ~30% headline shape, now recoverable.
+			name:            "untyped transient prose is recoverable",
 			err:             fmt.Errorf("llm call failed: context deadline exceeded"),
+			wantStatus:      "error_recoverable",
+			wantCode:        "",
+			wantRecoverable: true,
+		},
+		{
+			// FLIPPED by 207, through the deliberate Retryable=false fall-through:
+			// InternalError defaults Retryable=false while wrapping a transient
+			// cause, and the cause text renders into Error().
+			name:            "untyped transient as handleError wraps it",
+			err:             errors.InternalError("Processing failed", fmt.Errorf("context deadline exceeded")),
+			wantStatus:      "error_recoverable",
+			wantCode:        "INTERNAL_ERROR",
+			wantRecoverable: true,
+		},
+		{
+			// The sequencing pin, and why the sender uses RetryDisposition rather
+			// than MatchedTransientFailure alone: this prose carries a permanent
+			// needle ("invalid") AND a transient one ("connection"). Permanent
+			// must win, or handleError's validation branch drops the message
+			// while this status tells the coordinator to retry it. Fails if the
+			// two questions are ever reordered.
+			name:            "permanent needle outranks transient needle",
+			err:             fmt.Errorf("pq: invalid connection"),
 			wantStatus:      "error_unrecoverable",
 			wantCode:        "",
 			wantRecoverable: false,
 		},
 		{
-			name:            "untyped error as handleError wraps it",
-			err:             errors.InternalError("Processing failed", fmt.Errorf("context deadline exceeded")),
+			// Unclassifiable stays terminal: no permanent needle, no transient
+			// needle, no type. The convergence must not fail open.
+			name:            "unclassifiable untyped error stays terminal",
+			err:             fmt.Errorf("runtime error: index out of range [3] with length 2"),
 			wantStatus:      "error_unrecoverable",
-			wantCode:        "INTERNAL_ERROR",
+			wantCode:        "",
 			wantRecoverable: false,
 		},
 		{
@@ -290,10 +317,11 @@ func TestErrorResponseStatusIsTypedFromTheError(t *testing.T) {
 	}
 }
 
-// TestWorkflowFailureResponseStatusIsTyped covers the second error sender:
-// workflow-start failures, which the bug file did not name and which used to be
-// stamped complete by the same shared path.
-func TestWorkflowFailureResponseStatusIsTyped(t *testing.T) {
+// TestWorkflowFailureResponseStatusIsSequenced covers the second error sender:
+// workflow-start failures, which 196's bug file did not name and which used to
+// be stamped complete by the same shared path. A typed permanent failure stays
+// terminal through the sequenced decision (bugs_open/207).
+func TestWorkflowFailureResponseStatusIsSequenced(t *testing.T) {
 	p := &recordingResponseProducer{}
 	proc := responseTestProcessor(p)
 	failure := errors.New(errors.ErrWorkflowInvalid, "Invalid workflow configuration").
@@ -319,6 +347,33 @@ func TestWorkflowFailureResponseStatusIsTyped(t *testing.T) {
 	}
 	if got.message.Body.Error.Message != failure.Error() {
 		t.Errorf("Body.Error.Message = %q, want %q", got.message.Body.Error.Message, failure.Error())
+	}
+}
+
+// TestWorkflowFailureTransientProseIsRecoverable is 207's flip on the
+// workflow-start sender: an untyped dial failure while starting a workflow is
+// exactly the shape a retry can cure, and it used to be terminal here.
+func TestWorkflowFailureTransientProseIsRecoverable(t *testing.T) {
+	p := &recordingResponseProducer{}
+	proc := responseTestProcessor(p)
+	failure := fmt.Errorf("failed to start workflow: dial tcp 10.0.0.1:5432: connect: connection refused")
+
+	if err := proc.sendWorkflowFailureResponse(context.Background(), responseTestContext(), failure); err != nil {
+		t.Fatalf("sendWorkflowFailureResponse: %v", err)
+	}
+
+	got := onlyResponse(t, p)
+	if got.message.Headers.Status != "error_recoverable" {
+		t.Errorf("Status = %q, want error_recoverable", got.message.Headers.Status)
+	}
+	if arm := coordinatorArm(got.message.Headers.Status); arm != "recoverable" {
+		t.Errorf("routes to %q arm, want recoverable", arm)
+	}
+	if got.message.Body.Error == nil {
+		t.Fatal("Body.Error is nil on a workflow failure")
+	}
+	if !got.message.Body.Error.Recoverable {
+		t.Error("Body.Error.Recoverable = false; determineStatus re-derives the status from it, so it must move in lockstep")
 	}
 }
 

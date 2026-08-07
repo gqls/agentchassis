@@ -5,9 +5,40 @@ direction** (corr `7fbf4356`, `bug_historian`, medium severity): the convergence
 senders onto the shared classifier must be *"tracked and not just asserted in prose … given
 how often 'someone else owns the other call site' has been the exact gap that recurred."*
 
-**Status: OPEN, UNOWNED.** **Severity: medium — a retry-QUALITY defect, not a correctness
+**Status: OPEN — FIX COMMITTED 2026-08-06, awaiting the next chassis roll** (the v1.0.1261
+roll predates this commit and cannot carry it). Owned by the
+`bugfix_207_sender_convergence` lane (docs:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_207_sender_convergence/`).
+**Severity: medium — a retry-QUALITY defect, not a correctness
 one.** Nothing is corrupted and nothing is silent: failures are correctly shaped and
 correctly routed. Work that a retry would have saved is simply not retried.
+
+## DECISION TAKEN 2026-08-06 — option 1, CONVERGE. Council APPROVED round 1
+
+`Council-Reviewed: 155f4730-4526-4523-83d0-3ce4c4fc9f1c` (approved, 2 advisory objections,
+none high-severity). Registered **RSH-007**. The convergence is NOT the bug file's one-line
+sketch: `sendErrorResponse` also serves `handleError`'s validation branch, and an
+`"invalid connection"`-shaped failure carries both a permanent and a transient needle — the
+one-liner would have the processor drop it as validation while the wire tells the
+coordinator to retry it. Both senders instead decide through **`messaging.RetryDisposition`**
+(permanent first, then transient, else terminal — the sequence the classifier's own header
+documents and agentbase enforces by call order), for the status header AND
+`ErrorInfo.Recoverable` (which `datahelpers.determineStatus` re-derives a status from), and
+log the disposition + audit token. The 196 lane's pinned tests were flipped deliberately,
+with new pins: permanent-outranks-transient, and unclassifiable-stays-terminal.
+Re-measured at fix time: 1,001 of 3,399 census rows (~29%) deadline-exceeded; classifier
+proven live at the agentbase seam (122 `connection` + 56 `deadline exceeded` recoverable).
+
+**CLOSE CRITERIA (whoever verifies after the next roll):**
+1. Pod-grep EVERY replica for the long sender literal
+   `retry disposition decided at the processor sender by the sequenced shared classifier`
+   (expect ≥1) plus a negative control — use `scripts/pick-pod-marker.py <commit>`.
+2. Behavioural induction: a deadline-exceeded-shaped failure on the ORCHESTRATED path shows
+   `awaited_requests.retry_version >= 1` (pre-fix baseline: terminal on first attempt).
+3. **Storm-watch (the guardian's and architecture seat's advisory, made an obligation):**
+   `SELECT retry_version, count(*) FROM awaited_requests GROUP BY 1 ORDER BY 1;` — mass at
+   0-1, hard wall at 3, ZERO rows above. The recoverable arm has NO backoff (RSH-006 gap,
+   unchanged), so anything at 4+ falsifies the bound claim and is a stop-the-line finding.
 
 > **VERIFICATION STATEMENT (owner ruling 2026-07-31).** No `090` run; this is **not** a
 > new diagnosis. It is the *named, measured residual* of two closed bugs, filed as its own

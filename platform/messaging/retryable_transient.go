@@ -144,6 +144,36 @@ func MatchedTransientFailure(err error) string {
 	return matchedTransientNeedle(err.Error())
 }
 
+// RetryDisposition applies the two-stage classification in its documented
+// order — permanent first (MatchedPermanentFailure: drop, record, never
+// retry), then transient (MatchedTransientFailure: a retry can plausibly
+// cure), else terminal — and returns the wire disposition plus the audit
+// token naming what decided it ("permanent:<token>", a transient token,
+// or "" for unclassified-terminal).
+//
+// The ORDER is the contract, and it is why this exists as one function
+// rather than as guidance (bugs_open/207). The two questions are asked from
+// call sites that cannot all guarantee the sequence themselves:
+// handleError's validation branch sends its response through the same
+// sender as the transient branch, and a message like "invalid connection"
+// (a real DB-driver fault, quoted in validation_drop.go's header) carries
+// BOTH a permanent and a transient needle. Consulting the transient list
+// alone would have this seam tell the coordinator error_recoverable for a
+// failure the processor has just dropped as validation-never-retry —
+// two contradictory dispositions for one failure. Permanent-first makes
+// that unrepresentable, and matches the guard agentbase enforces by call
+// order (processMessage classifies permanent and drops before
+// handleProcessingError ever runs).
+func RetryDisposition(err error) (recoverable bool, matched string) {
+	if match := MatchedPermanentFailure(err); match != "" {
+		return false, "permanent:" + match
+	}
+	if match := MatchedTransientFailure(err); match != "" {
+		return true, match
+	}
+	return false, ""
+}
+
 // matchedTransientNeedle returns the first transient needle contained in
 // the case-folded message, or "".
 func matchedTransientNeedle(msg string) string {

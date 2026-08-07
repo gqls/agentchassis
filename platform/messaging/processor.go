@@ -557,13 +557,20 @@ func (p *MessageProcessor) sendWorkflowFailureResponse(ctx context.Context, msgC
 	)
 
 	// bugs_open/196: a workflow that failed at the start reached its parent as a
-	// completed step. Typed status only — see sendErrorResponse on why the body
-	// blob below stays exactly as it is, and on why this sender does NOT use
-	// messaging.MatchedTransientFailure yet.
+	// completed step. bugs_open/207: the status was then typed-only — a flag
+	// nothing in production sets — so every untyped transient failure here was
+	// terminal. Both senders now decide through RetryDisposition, the sequenced
+	// shared seam; see sendErrorResponse on why the body blob below stays
+	// exactly as it is.
+	recoverable, matched := RetryDisposition(err)
 	status := "error_unrecoverable"
-	if errors.IsRetryable(err) {
+	if recoverable {
 		status = "error_recoverable"
 	}
+	msgCtx.Logger.Info("retry disposition decided at the processor sender by the sequenced shared classifier",
+		zap.String("disposition", status),
+		zap.String("disposition_matched", matched),
+		zap.String("correlation_id", msgCtx.ExecutionContext.CorrelationID))
 
 	return p.sendWorkflowResponseWithStatus(ctx, msgCtx, map[string]interface{}{
 		"error":  err.Error(),
@@ -571,7 +578,7 @@ func (p *MessageProcessor) sendWorkflowFailureResponse(ctx context.Context, msgC
 	}, status, &types.ErrorInfo{
 		Code:        string(errors.CodeOf(err)),
 		Message:     err.Error(),
-		Recoverable: errors.IsRetryable(err),
+		Recoverable: recoverable,
 	})
 }
 
@@ -1965,26 +1972,35 @@ func (p *MessageProcessor) sendErrorResponse(ctx context.Context, msgCtx *Messag
 		return fmt.Errorf("no responses topic for error response")
 	}
 
-	// Typed decision only: the code and the author's Retryable flag, never the
-	// message text. The shared prose-capable classifier now EXISTS —
-	// messaging.MatchedTransientFailure (bugs_open/197, typed-first with a
-	// census-derived case-folded fallback; agentbase already classifies
-	// through it) — but this sender stays typed-only by the 196 lane's
-	// standing decision: its pinned tests (processor_response_status_test.go)
-	// assert untyped "context deadline exceeded" → error_unrecoverable here.
-	// Converging these two senders onto the shared seam is the scheduled
-	// follow-up recorded in RSH-006 and bugs_open/197's appendix — a
-	// deliberate guarantee change for that lane to accept, not a passenger
-	// edit for this one.
+	// bugs_open/207 — the scheduled convergence RSH-006 named, taken
+	// deliberately (the pinned tests flip in the same commit). The decision
+	// here was typed-only: the code and the author's Retryable flag, a flag
+	// nothing in production sets, so EVERY failure this sender shipped was
+	// error_unrecoverable — including the census's ~30% "deadline exceeded"
+	// rows — and on the orchestrated path this response claims the awaited
+	// request first, discarding agentbase's better verdict.
+	//
+	// RetryDisposition, not MatchedTransientFailure directly: this sender also
+	// serves handleError's validation branch, so the permanent question must
+	// be asked before the transient one or an "invalid connection"-shaped
+	// failure gets dropped by the processor and retried by the coordinator at
+	// the same time. Recoverable below moves in lockstep with the status —
+	// datahelpers.determineStatus re-derives a status from it, and the two
+	// must not disagree about the same failure.
+	recoverable, matched := RetryDisposition(err)
 	status := "error_unrecoverable"
-	if errors.IsRetryable(err) {
+	if recoverable {
 		status = "error_recoverable"
 	}
+	msgCtx.Logger.Info("retry disposition decided at the processor sender by the sequenced shared classifier",
+		zap.String("disposition", status),
+		zap.String("disposition_matched", matched),
+		zap.String("correlation_id", msgCtx.ExecutionContext.CorrelationID))
 
 	errInfo := &types.ErrorInfo{
 		Code:        string(errors.CodeOf(err)),
 		Message:     err.Error(),
-		Recoverable: errors.IsRetryable(err),
+		Recoverable: recoverable,
 	}
 
 	// The body keeps the legacy blob dialect verbatim. Several Go readers key on

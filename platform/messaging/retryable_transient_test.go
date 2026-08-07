@@ -157,3 +157,58 @@ func TestTransientNeedlesAreTheJudgedList(t *testing.T) {
 		}
 	}
 }
+
+// TestRetryDisposition pins the SEQUENCE, which is the helper's whole
+// contract (bugs_open/207): permanent first, then transient, else terminal.
+// The wire-level twins live in processor_response_status_test.go; these are
+// the classification-level pins, including the case that distinguishes the
+// sequenced helper from consulting MatchedTransientFailure alone.
+func TestRetryDisposition(t *testing.T) {
+	t.Run("PermanentNeedleOutranksTransientNeedle", func(t *testing.T) {
+		// "invalid connection" (a real DB-driver fault, quoted in
+		// validation_drop.go's header) carries both a permanent needle and a
+		// transient one. Reordering the two questions fails this case.
+		recoverable, matched := RetryDisposition(fmt.Errorf("pq: invalid connection"))
+		if recoverable {
+			t.Error("recoverable = true for a permanent-classified failure")
+		}
+		if matched != "permanent:invalid" {
+			t.Errorf("matched = %q, want permanent:invalid", matched)
+		}
+	})
+
+	t.Run("TypedPermanentIsTerminal", func(t *testing.T) {
+		err := errors.New(errors.ErrWorkflowInvalid, "Invalid workflow configuration").Build()
+		recoverable, matched := RetryDisposition(err)
+		if recoverable {
+			t.Error("recoverable = true for WORKFLOW_INVALID")
+		}
+		if matched != "permanent:code:WORKFLOW_INVALID" {
+			t.Errorf("matched = %q, want permanent:code:WORKFLOW_INVALID", matched)
+		}
+	})
+
+	t.Run("TransientProseIsRecoverable", func(t *testing.T) {
+		recoverable, matched := RetryDisposition(fmt.Errorf("llm call failed: context deadline exceeded"))
+		if !recoverable {
+			t.Error("recoverable = false for the census headline shape")
+		}
+		if matched != "deadline exceeded" {
+			t.Errorf("matched = %q, want deadline exceeded", matched)
+		}
+	})
+
+	t.Run("UnclassifiableIsTerminalWithEmptyToken", func(t *testing.T) {
+		recoverable, matched := RetryDisposition(fmt.Errorf("runtime error: index out of range [3] with length 2"))
+		if recoverable || matched != "" {
+			t.Errorf("= (%v, %q), want (false, \"\")", recoverable, matched)
+		}
+	})
+
+	t.Run("NilIsTerminal", func(t *testing.T) {
+		recoverable, matched := RetryDisposition(nil)
+		if recoverable || matched != "" {
+			t.Errorf("= (%v, %q), want (false, \"\")", recoverable, matched)
+		}
+	})
+}
