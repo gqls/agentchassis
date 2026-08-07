@@ -82,6 +82,47 @@ Guardian, verbatim intent: split into two independently reviewable slices.
   (`brochure_component_library/sql/page_content_writer_prompt_v4_2026-08-06.txt`) —
   the compliance seat's ask; the text is committed for exactly that purpose.
 
+### 3a. Slice A observation, 2026-08-07 — the entry evidence the Slice B round must cite
+
+Replan of fundamentallyai (corr `801b0732`, new plan `8ee5807b`, 71 sections /
+21 pages; full evidence trail in the lane NOTES, same date). Answers to §3's
+three questions:
+
+- **Sane: YES.** Both assignments topically exact (`F7-idea-stripe` → the
+  backend-engineering page's prose section; `F8-private-search` → the
+  search-infrastructure page's), none on hero/CTA roles, `[]` used
+  meaningfully on deliberately factless sections. Tri-state semantics arrived
+  intact; 71 emitted entries persisted as exactly 71 rows (zero
+  validate_plan drops); `pages.sections` stayed strings. The consumption
+  negatives (no `facts_scoped`/`assigned_writer_block` in the live writer, no
+  `section_facts` in page-build-handler) were re-verified while the replan's
+  own builds ran — the no-op guarantee was exercised, not assumed.
+- **Spread: YES, trivially** — no fact assigned twice, so no sharing to judge.
+- **Complete: NO.** Object-form on 5 of 24 pages, all pages the planner was
+  composing fresh; 2 of the 9 rostered facts assigned. Every carried-over page
+  — including index/capabilities/about, which hold the 9 fact-overlap pairs
+  that motivated 151 — emitted plain strings, i.e. NULL/unscoped. (Roster note:
+  9 of 15 pool facts offered is the deliberate `{{if .writer_line}}` filter,
+  mirroring `composeWriterBlock`; the other 6 are chart-only facts.)
+
+**Consequence for the Slice B round:** against this plan, consumption changes
+writer behaviour on 5 pages only, and the overlap pairs live on the unscoped
+pages — so the acceptance as stated in the 151 bug file (census pair-count
+falls on rebuild) would NOT move. The round must therefore choose, and say
+which: **(a)** strengthen rule 17 so object-form entries are required for
+every page (a fleet-wide planner-prompt change — reviewable in the same round,
+it is the same prompt seed 329 already touched), or **(b)** keep the prompt and
+re-scope the acceptance to engaged pages, accepting that coverage of legacy
+pages arrives replan-by-replan. Option (a) is what the motivating case needs;
+option (b) is honest about cost but leaves 151's headline symptom standing on
+fundamentallyai.
+
+Side-finding, promoted: §1's imagery `"<page>:<ordering>"` counter-example is
+not merely latent — a fleet census the same morning found 5 of 131
+section-scope refs orphaned (one minted by this very replan), four of them
+with paid-for active assets unreachable by any build. Filed as
+`bugs_open/214` with the census query and fix candidates.
+
 ## 4. Objections acted on / answered (so the next round is not re-litigated)
 
 - **bug_historian, empty-composition ambiguity: FIXED in code** (degrade + durable

@@ -1716,3 +1716,35 @@ commit carried half my change to the main line before I could commit it
 myself (harmless, recorded), and I had to surgically hold a third session's
 half-finished work out of my commit so the build everyone ships from would
 not break. All three sessions' work survived intact.
+
+---
+
+2026-08-07, mid-morning. We watched the planner use the new fact roster for the
+first time. The first half of the repetition fix went live yesterday morning
+(planner writes down which section owns which fact; nothing reads the notes
+yet), and today we re-planned fundamentallyai and looked at what it actually
+wrote. The plumbing is sound: everything the planner emitted landed in the
+database exactly as designed, and we checked mid-run that nothing live reads
+the assignments yet, so no page changed behaviour.
+
+The planner itself only half-engaged. On the five new pages it was composing
+it did the job, and did it well — the Stripe payment fact went to the
+backend-engineering page, the search-infrastructure fact to the search page,
+and it explicitly marked the rest of those pages' sections as "no facts here".
+But on the existing pages — home, capabilities, about, the very pages whose
+repeated claims started this whole effort — it kept the old plain format and
+assigned nothing. So before the second half ships there is a choice for the
+review round: push the planner harder (require an answer for every page — a
+prompt change with fleet-wide reach, which the reviewers will want to see), or
+accept that coverage arrives gradually as pages get re-planned. Both options
+are written up in RFC_016 with my recommendation implicit: the first one is
+what the motivating bug actually needs.
+
+Two side-effects of the morning. The re-plan queued a batch of page builds on
+fundamentallyai — that is the framework doing its normal job; we checked the
+one known danger for such builds and it does not apply to this site (no locked
+rows). And while reading the new plan we found a different plan field — the
+note saying which section an illustration belongs to — is quietly wrong in
+five places across two sites, four of them with paid-for images no page can
+ever use, one written fresh this very morning. That is now bug 214, with the
+evidence and a cheap fix candidate attached.

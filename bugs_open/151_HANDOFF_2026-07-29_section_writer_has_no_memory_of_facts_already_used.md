@@ -247,3 +247,17 @@ unclaimed.
 > the same night (empty-composition degradation + durable
 > `FACT_SCOPING_EMPTY_COMPOSITION` record — a broken assignment can no longer
 > render as a deliberately factless section).
+
+> **2026-08-07: SLICE A OBSERVED LIVE** — replan of fundamentallyai (corr
+> `801b0732`, plan `8ee5807b`): wiring end-to-end correct (71/71 emitted
+> entries persisted, tri-state intact, both consumption negatives re-verified
+> while the replan's own builds ran), planner uptake PARTIAL — object form on
+> 5/24 pages (all newly-composed ones), 2/9 offered facts assigned (both
+> topically exact), every carried-over page unscoped. **Consequence: against
+> this plan the acceptance above (census pair-count falls) would NOT move —
+> the overlap pairs live on the unscoped pages.** The Slice B council round
+> must choose: require object-form for every page (prompt change, same seed
+> 329 already touched) or re-scope the acceptance to engaged pages. Options +
+> evidence: RFC_016 §3a; full trail in the lane NOTES 2026-08-07. Side-find:
+> the imagery positional-keying defect this lane dodged is live in production
+> — filed `bugs_open/214`.

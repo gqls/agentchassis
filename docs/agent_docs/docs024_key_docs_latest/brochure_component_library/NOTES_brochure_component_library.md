@@ -4712,3 +4712,71 @@ risk the rename closes. Next: observe a real plan's assignments
 (fundamentallyai is the acceptance site; a replan is a REAL action — check
 open work items first), then RFC_016 §5 needs the human decisions before
 Slice B moves. `HANDOFF_2026-08-07_continue_here.md` supersedes 08-05.
+
+## 2026-08-07 (mid-morning) — SLICE A OBSERVED on a real plan: wiring proven, planner uptake PARTIAL; the imagery scope_ref defect is not latent (filed 214)
+
+Pre-flight per the handoff: no in-flight work on the site (20 open items, all
+needs_human_review/failed/blocked/deferred), site unlocked, chassis pods 153m
+old (past the ~300s drop window), evidence_base pool = 15, before-state pinned:
+current plan `81741260` (07-20), 29 sections, `assigned_fact_ids` all NULL.
+Dispatch via the kcat-safe pattern (payload in container command, PUBLISH_OK
+seen), corr `801b0732-ebdf-4f8b-9576-71ce301d5db7` published 08:22:21Z; row
+appeared **3 seconds** later (no queue this morning), COMPLETED 08:24. New plan
+`8ee5807b`, 71 sections over 21 pages.
+
+1. **Wiring PROVEN end-to-end.** LLM emitted 24 pages / 71 section entries
+   (validate_plan output in collected_data); persisted exactly 71 rows — zero
+   drops this run (the counts reconcile page by page). Tri-state intact: NULL
+   on the 16 non-engaged pages, `[]` on factless sections of engaged pages,
+   arrays where assigned. `pages.sections` all strings post-sync (checked
+   element types — no object leakage). Both consumption negatives re-verified
+   WHILE builds were running: `page-content-writer` carries no
+   `facts_scoped`/`assigned_writer_block` (positions 0/0), `page-build-handler`
+   no `section_facts` (0) — the builds the replan triggered consume nothing,
+   which is Slice A's no-op guarantee exercised live, not assumed.
+2. **Planner uptake PARTIAL, and patterned.** Object-form on **5 of 24** pages
+   — production-backend-engineering, private-search-embeddings,
+   digital-asset-recovery, platform-log-index, news — i.e. only pages it was
+   composing fresh. Every carried-over page (index, capabilities, about: the
+   pages holding the 9 overlap pairs that motivated 151) emitted plain strings
+   → NULL/unscoped. **2 of the 9 offered facts assigned**: `F7-idea-stripe` →
+   production-backend-engineering §1 (generic-text-block), `F8-private-search`
+   → private-search-embeddings §1. Both topically exact, both on prose
+   sections, none on hero/CTA; spread trivially satisfied (no fact appears
+   twice). Sane: yes. Spread: yes. **Complete: no.**
+3. **Roster shows 9 of 15 pool facts — deliberate.** The template's
+   `{{if .writer_line}}` filter mirrors `composeWriterBlock`, which skips
+   writer_line-less facts (PLAN doc:45); F3c/F9–F13 are chart-only facts,
+   invisible to prose assignment by design everywhere, not just here.
+4. **Consequence for Slice B acceptance:** on THIS plan, scoping would change
+   writer behaviour on 5 pages only, and the fact-overlap pairs live on the
+   unscoped pages — **the census pair-count fall the acceptance expects will
+   NOT materialise from this plan alone.** Options recorded in RFC_016 §3a
+   (decision deliberately not taken unilaterally): (a) strengthen rule 17 so
+   the planner must emit object form for EVERY page — a fleet-wide prompt
+   change, so it belongs in Slice B's council round; (b) accept incremental
+   adoption and re-scope the acceptance to engaged pages.
+5. **Replan aftermath (it was a real action, as the handoff warned).**
+   reconcile queued 32 items: 9 needs_page (new pages + 2 stale guides), 6
+   owned_page_review, 1 needs_rerender, 16 needs_imagery. build-dispatch-loop
+   claimed the first needs_page at 08:28 and page builds ran unattended.
+   Pre-checked 189 before letting them run: fundamentallyai has **zero locked
+   page_components rows**, so 189's duplicate-on-resolve path is unreachable
+   here. The two stale guides will be rewritten from scratch (the
+   recreate-mode landmine) — reconcile's own decision, noted not fought.
+6. **The imagery.sections defect is NOT latent — filed `bugs_open/214`** with
+   a fleet census: **5 of 131** section-scope scope_refs orphaned, including
+   `about:4` minted BY THIS MORNING'S RUN (about has ordinals 0–3;
+   `illustration_people_approach` presumably meant `people-feature-block` at
+   2) and gamesdesign's four `about:2` icons (its plan says `about-index`;
+   all four assets active since 06-06 and unreachable by the build's LIKE
+   join — bugs_open/114's symptom through this door). §9 entry added. The
+   needs_imagery item queued this morning for illustration_people_approach
+   will generate an asset against a dangling reference.
+
+Misstep, mine, for the tally: the orchestration monitor I armed had lowercase
+terminal-state patterns (`completed*`) against an UPPERCASE status column
+(`COMPLETED`) — it never exited on match. Harmless here (it kept reporting,
+which is how I caught the build cascade), but the same inverted match in a
+gate would be a silent never-fires. Cheap check: test the case-match against a
+real row before arming, not after.
