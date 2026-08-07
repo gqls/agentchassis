@@ -5,16 +5,26 @@
 -- anyone built it — commented out, listed under "known page types whose
 -- builders don't exist yet". This is that agent.
 --
--- WHAT IT DOES. Two steps, no content-writing logic of its own:
+-- WHAT IT DOES. Three steps, no content-writing logic of its own:
 --   1. ensure_layout   — calls the new `ensure_page_section_layout` Go action
 --      (this migration's sibling Go change). Fills the target page's plan
 --      with a default layout ONLY if it currently has none from any source
 --      (refuses otherwise — see the action's own header for the guard that
 --      makes this safe under "never re-plan this site", bugs_closed/001).
---   2. call_page_build_handler — delegates the actual build/deploy to the
---      EXISTING generic `page-build-handler`, passing through the same
---      site_id/domain/page_name. No new build logic; this agent's whole job
---      is making sure page-build-handler has something to build.
+--   2. spawn_page_builder + 3. call_page_build_handler — delegates the actual
+--      build/deploy to the EXISTING generic `page-build-handler` via the
+--      spawn-then-call two-step, matching this platform's own precedent
+--      (`directory-export-orchestrator`'s spawn_exporter -> call_exporter,
+--      009_directory_export_agents.sql). Council review round 1 (bugs_open/206,
+--      tooling_provenance + guidelines, both flagging the same documented
+--      landmine) is why this is two steps and not a bare `call_agent`: a
+--      `call_agent` step with no preceding spawn cannot be trusted to select
+--      the target's workflow correctly unless the target is independently
+--      confirmed to have a dedicated (non-generic-topic) consumer — spawning
+--      a pod for this specific agent_type first removes that ambiguity
+--      entirely, regardless of page-build-handler's own topic wiring. No new
+--      build logic; this agent's whole job is making sure page-build-handler
+--      has something to build.
 --
 -- image_tag: set to the build this migration ships alongside — v1.0.1260 is
 -- the FIRST tag containing ensure_page_section_layout_action.go and the
@@ -60,9 +70,16 @@ INSERT INTO agent_definitions (
                         "site_id": "input_data.site_id",
                         "page_name": "input_data.page_name"
                     },
-                    "next_step": "call_page_build_handler",
+                    "next_step": "spawn_page_builder",
                     "output_field": "layout_result",
                     "description": "Fill the page''s plan with a default layout if it has none"
+                },
+                "spawn_page_builder": {
+                    "action": "spawn_agent",
+                    "config": { "agent_type": "page-build-handler", "role": "page_builder" },
+                    "next_step": "call_page_build_handler",
+                    "output_field": "builder_spawn",
+                    "description": "Spawn a dedicated page-build-handler pod for this call (council round 1: never call_agent a target with no preceding spawn)"
                 },
                 "call_page_build_handler": {
                     "action": "call_agent",
@@ -78,7 +95,7 @@ INSERT INTO agent_definitions (
                     },
                     "next_step": "complete",
                     "output_field": "build_result",
-                    "description": "Delegate the actual build/deploy to the existing generic builder"
+                    "description": "Delegate the actual build/deploy to the existing generic builder, on the pod just spawned for it"
                 },
                 "complete": {
                     "action": "complete_workflow",
@@ -110,11 +127,14 @@ BEGIN
     IF cfg #>> '{workflow,steps,ensure_layout,action}' != 'ensure_page_section_layout' THEN
         RAISE EXCEPTION '326: ensure_layout step does not call ensure_page_section_layout';
     END IF;
+    IF cfg #>> '{workflow,steps,spawn_page_builder,config,agent_type}' != 'page-build-handler' THEN
+        RAISE EXCEPTION '326: spawn_page_builder does not spawn page-build-handler (council round 1 fix missing)';
+    END IF;
     IF cfg #>> '{workflow,steps,call_page_build_handler,config,agent_type}' != 'page-build-handler' THEN
         RAISE EXCEPTION '326: call_page_build_handler does not delegate to page-build-handler';
     END IF;
 
-    RAISE NOTICE '326 OK: directory-build-handler seeded, ensure_layout -> page-build-handler';
+    RAISE NOTICE '326 OK: directory-build-handler seeded, ensure_layout -> spawn -> call page-build-handler';
 END $$;
 
 COMMIT;

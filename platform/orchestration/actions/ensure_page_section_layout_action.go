@@ -147,13 +147,8 @@ func ensurePageSectionLayout(ctx context.Context, db *sql.DB, siteID uuid.UUID, 
 
 	sections := defaultSectionsForPage(pageName, pageType)
 
-	for ord, componentName := range sections {
-		if _, ierr := tx.ExecContext(ctx, `
-			INSERT INTO site_plan_sections (plan_id, page_name, ordering, component_name)
-			VALUES ($1, $2, $3, $4)
-		`, currentPlanID, pageName, ord, componentName); ierr != nil {
-			return nil, fmt.Errorf("insert site_plan_sections for %q[%d]: %w", pageName, ord, ierr)
-		}
+	if err := insertSitePlanSectionRows(ctx, tx, currentPlanID, pageName, sections); err != nil {
+		return nil, err
 	}
 
 	sectionsJSON, jerr := json.Marshal(sections)

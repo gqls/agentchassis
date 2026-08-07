@@ -100,9 +100,14 @@ func resolveBusinessDirectory(ctx context.Context, db *sql.DB, siteID uuid.UUID,
 		return nil, fmt.Errorf("resolveBusinessDirectory: config lookup failed: %w", err)
 	}
 	if !ok {
-		logger.Warn("queryresolve: business_directory has no exporter config for this site — returning empty",
-			zap.String("site_id", siteID.String()))
-		return []map[string]interface{}{}, nil
+		// council review (bugs_open/206, round 1, bug_historian — gating):
+		// this must NOT look like "zero eligible businesses", which is a
+		// legitimate empty result plan_sections already handles via
+		// min_items/on_missing. A missing exporter config is a
+		// MISCONFIGURATION (domain drift, vertical rename, a config edit
+		// that broke the site<->vertical link) and must surface as a loud
+		// failure, not a silent hollow section that looks like success.
+		return nil, fmt.Errorf("resolveBusinessDirectory: no directory-export-json config found for site %s — cannot distinguish this from a real zero-business result, refusing rather than rendering an unexplained empty directory", siteID)
 	}
 
 	query := `

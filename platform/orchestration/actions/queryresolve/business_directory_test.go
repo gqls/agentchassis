@@ -51,7 +51,11 @@ func TestProjectBusinessDirectoryRowHandlesEmptyLocation(t *testing.T) {
 	}
 }
 
-func TestResolveBusinessDirectory_NoConfig_ReturnsEmptyNotError(t *testing.T) {
+// bugs_open/206, council round 1 (bug_historian, gating): a missing
+// exporter config must NOT look like "zero eligible businesses" — that is a
+// legitimate empty result plan_sections already handles via min_items/
+// on_missing. This must be a loud failure, not a silent hollow section.
+func TestResolveBusinessDirectory_NoConfig_ReturnsErrorNotEmpty(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("sqlmock: %v", err)
@@ -64,12 +68,11 @@ func TestResolveBusinessDirectory_NoConfig_ReturnsEmptyNotError(t *testing.T) {
 		WillReturnError(sql.ErrNoRows)
 
 	got, err := resolveBusinessDirectory(context.Background(), db, siteID, 0, zap.NewNop())
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	if err == nil {
+		t.Fatalf("expected an error for a site with no exporter config, got result %#v", got)
 	}
-	items, ok := got.([]map[string]interface{})
-	if !ok || len(items) != 0 {
-		t.Fatalf("expected empty slice for a site with no exporter config, got %#v", got)
+	if got != nil {
+		t.Errorf("expected nil result alongside the error, got %#v", got)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("unmet expectations: %v", err)

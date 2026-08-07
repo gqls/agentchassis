@@ -995,6 +995,36 @@ func defaultSectionsForPage(pageName, pageType string) []string {
 	}
 }
 
+// insertSitePlanSectionRows writes one site_plan_sections row per section,
+// in order, for one page under one plan, with no per-section fact
+// assignment (assigned_fact_ids stays NULL — "unscoped", the documented
+// default shape, PBP-037). Used by ensure_page_section_layout_action.go.
+//
+// bugs_open/206 council round 1 (reuse_agent, constitution, architecture all
+// independently flagged the same "two writers, same target" shape): this was
+// meant to also replace write_site_plan_action.go's own equivalent loop, but
+// that file has SINCE gained per-section assigned_fact_ids handling
+// (PBP-037, a separate, actively-revised lane — council REJECTED on breadth,
+// re-sliced per RFC_016) mid-way through this review round. Forcing that
+// file onto this 4-column helper right now would either drop its new
+// fact-assignment column or require guessing at RFC_016's still-moving
+// shape — neither is this lane's call to make unilaterally. Left as a
+// genuine follow-up for whichever lane lands second: extend this helper
+// with an optional assignedFacts []interface{} parameter (nil per index =
+// today's NULL/unscoped behaviour) and have write_site_plan_action.go call
+// it too, once PBP-037 settles.
+func insertSitePlanSectionRows(ctx context.Context, tx *sql.Tx, planID uuid.UUID, pageName string, sections []string) error {
+	for ord, componentName := range sections {
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO site_plan_sections (plan_id, page_name, ordering, component_name)
+			VALUES ($1, $2, $3, $4)
+		`, planID, pageName, ord, componentName); err != nil {
+			return fmt.Errorf("insert site_plan_sections for %q[%d]: %w", pageName, ord, err)
+		}
+	}
+	return nil
+}
+
 // ============================================================================
 // update_spec: write a value to site_specs
 // ============================================================================
