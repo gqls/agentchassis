@@ -114,3 +114,18 @@
   2. Owner call on candidate 2 (the step's own cap, ~8000 fits the fleet mode) —
      the 33 parked tasks are the standing prompt; un-park runbook in RUNBOOK.
   3. The WARN's first live firing will name any of the 8 uncapped steps that runs.
+
+## 2026-08-07 ~08:20 UTC — Go halves POD-PROVEN on v1.0.1262; loop still dead 6h on
+
+- Fresh roll: both replicas on `v1.0.1262`. Pod-grep, each replica: WARN string
+  `max_tokens not configured at any level` = 1; the backfill's SQL literal
+  `'in_progress', 'failed'` = 1; nonsense negative control = 0. **Both Go halves
+  live** — cite as "live on v1.0.1262 as at 2026-08-07".
+- Six hours of behaviour: parked=33 holding, pending=0, in_progress=0,
+  **0 verifier runs since 02:00Z** (the single llm call in the 01:41–02:00 window
+  was the pre-parking batch draining, already recorded above). WARN unfired in 6h
+  of logs — correct: the only ACTIVE uncapped step is the parked verifier; it will
+  fire the first time any of the 8 uncapped steps runs.
+- Bug 205 is now **fixed AND live in full** (config proven 01:40Z, Go proven
+  08:17Z on v1.0.1262). Stays in `bugs_open/` per the owner's 08-06 ruling.
+  What remains is OWNER DECISIONS (see README_where_we_are).

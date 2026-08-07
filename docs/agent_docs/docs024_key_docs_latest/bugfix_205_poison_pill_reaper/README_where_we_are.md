@@ -33,3 +33,31 @@ after 64 failures.
 What we're deliberately NOT doing: raising the vet step's output limit. That's the
 owner's call (it costs money and belongs to the vet lane). Parking stops the
 bleeding either way; the parked task is the reminder to make that call.
+
+## 2026-08-07 morning — done, proven, and four decisions for you
+
+The fix is now fully live. The housekeeping job has parked all 33 doomed tasks
+(they stopped burning money at 01:40 last night and have stayed quiet since), and
+this morning's software release carries the two code changes: the back door that
+could have silently un-parked them is closed, and the platform now says out loud
+when a step runs without a chosen output limit.
+
+Decisions needed, in order of usefulness:
+
+1. **The vet step's output limit.** The one expensive record can never verify
+   until its step gets a real limit. 8000 matches what the rest of the fleet uses
+   and is four times what its successful calls need. Say yes and we set it and
+   un-park that one task to prove it completes.
+2. **The other 32 parked tasks.** They fail fetching the practices' websites —
+   likely dead or bot-blocking sites. Options: un-park them for one more bounded
+   round (they'll park again after 5 tries if still broken), investigate the
+   scrape errors first, or cancel them like the 574 before. No money burns while
+   parked, so this can wait.
+3. **Future-proofing note (from the review).** Any future task type on this queue
+   inherits "park after 5" silently. Today none exist. If you'd rather each task
+   type choose its own ceiling, that's a small follow-up; otherwise awareness is
+   enough — it's written where the next builder will look.
+4. **The bigger pattern.** This is the second or third housekeeping job that
+   needed its own hand-written "count and park" logic. The review's architecture
+   seat suggests a shared mechanism. That's an architecture-track item if you
+   want it; nothing breaks without it.
