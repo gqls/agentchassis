@@ -99,6 +99,14 @@ func TestVerifyLiteralMarkdownResolved_PassesWhenClean(t *testing.T) {
 
 // A zero-row page must NOT be certified. "No markdown found" and "the components
 // are gone" are the same observation; only one of them means repaired.
+//
+// ⚠ IT MUST RETURN Resolved:false, NOT AN ERROR — and this test asserts the absence
+// of the error deliberately. The first version returned an error, which reads as the
+// cautious choice and is the opposite: the registry FAILS OPEN on a verifier error
+// (verifiers.go:60-63), so an error stamps the item 'complete' anyway. On this input
+// the ambiguous case IS content loss, so the error branch delivered precisely the
+// outcome the verifier exists to prevent. Caught by the council's bug_historian seat
+// (gating, HIGH). If a future change reintroduces the error, this test fails.
 func TestVerifyLiteralMarkdownResolved_RefusesToCertifyAnEmptyPage(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
@@ -109,13 +117,17 @@ func TestVerifyLiteralMarkdownResolved_RefusesToCertifyAnEmptyPage(t *testing.T)
 	mock.ExpectQuery("FROM page_components").WillReturnRows(literalMarkdownComponentRows())
 
 	res, err := VerifyLiteralMarkdownResolved(context.Background(), db, literalMarkdownVerifyTarget(), zap.NewNop())
-	if err == nil {
-		t.Fatalf("expected an error (cannot verify), got Resolved=%v Detail=%q — certifying a page with no "+
-			"scannable components stamps 'complete' over bugs_closed/194's content-loss class",
-			res.Resolved, res.Detail)
+	if err != nil {
+		t.Fatalf("must NOT return an error here: the registry fails open on error, so an error would "+
+			"stamp 'complete' on a page whose content may have been lost — the exact outcome this "+
+			"verifier exists to prevent. Return Resolved:false instead. Got: %v", err)
 	}
 	if res.Resolved {
-		t.Errorf("Resolved must stay false alongside the error; got true")
+		t.Fatalf("Resolved=true for a page with no scannable components — that certifies "+
+			"bugs_closed/194's content-loss class as a successful repair. Detail: %q", res.Detail)
+	}
+	if !strings.Contains(res.Detail, "cannot distinguish") {
+		t.Errorf("Detail should say why completion was refused so a human reviewer can act; got %q", res.Detail)
 	}
 }
 

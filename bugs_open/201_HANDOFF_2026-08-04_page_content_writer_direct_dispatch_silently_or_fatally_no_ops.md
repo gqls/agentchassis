@@ -81,9 +81,32 @@ found while verifying `bugs_open/184`'s auto-repair step. ~~**OPEN, unowned.**~~
 > `load_items`' action (`load_work_items`, predicate `status IN ('triaged','approved')`,
 > `load_work_item_actions.go:633`), not assumed.
 >
-> ⚠ **Incidental corroboration of SYMPTOM 2, from the same pre-flight:** gaswholesalers' *existing*
-> `literal_markdown` item is `status='complete'` **while the markdown is still in `content_data`
-> on that very page.** That is symptom 2 reproduced independently, a day after it was filed.
+> ⚠⚠ **RETRACTED 2026-08-07 — I claimed this as "incidental corroboration of SYMPTOM 2" and it
+> is CONFOUNDED. Caught by the council's `prior_art_librarian` seat, not by me.**
+>
+> ~~Incidental corroboration of SYMPTOM 2, from the same pre-flight: gaswholesalers' *existing*
+> `literal_markdown` item is `status='complete'` while the markdown is still in `content_data` on
+> that very page. That is symptom 2 reproduced independently, a day after it was filed.~~
+>
+> `gaswholesalers.com` / `how-pricing-works` is **named in a LANDMINE**: *"The `content_data`
+> envelope guard REFUSES one live page on purpose, for ever."* Measured 2026-08-07, that
+> component matches the landmine's own detector exactly — `content_data->>'type' = 'text'` **and**
+> `jsonb_typeof(content_data->'result') = 'string'`. So the `**Decision Engine**` the scan found
+> sits inside an **undecoded LLM transport envelope**, not in a normally-stored field, and the
+> item reaching `complete` with markdown intact may be explained by the envelope guard refusing
+> to normalise — **not** by a handler silently writing nothing.
+>
+> **This matters beyond my claim: it is the only `complete` `literal_markdown` item in existence,
+> so §"Symptom 2 — the one item that reached `complete` silently wrote nothing" rests on the same
+> row.** Whoever next works symptom 2 should re-read that section against the envelope landmine
+> before quoting its artefact-level proof. I am flagging it, not overturning it — the filer did
+> artefact-level work I have not repeated.
+>
+> **What does NOT change: symptom 2's mechanism is established from CODE, not from this page** —
+> `mark_complete` passes `handler_result` with no check that a write occurred, and the verifier
+> registry existed with this item_type unregistered. The fix stands on that. What I lost is a
+> live instance I should not have called corroboration without reading the landmine on the site
+> I was standing on.
 >
 > ---
 >

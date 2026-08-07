@@ -260,14 +260,30 @@ func VerifyLiteralMarkdownResolved(ctx context.Context, db *sql.DB, target Verif
 	// No scannable rows means either the page was repaired into emptiness or its
 	// components were lost (bugs_closed/194's damage class — 31 of 106 components on
 	// one live site carry NULL content_data). Both present as "no markdown found", and
-	// reporting Resolved on the second would stamp 'complete' over a destroyed page.
-	// Refuse to answer instead: an error means "could not verify", which the caller
-	// records rather than silently treating as success.
+	// certifying the second would stamp 'complete' over a destroyed page.
+	//
+	// ⚠ RETURN Resolved:false, NOT AN ERROR. The first version of this returned an
+	// error, reasoning that "could not verify" is the honest answer. It is — and it is
+	// also USELESS HERE, because the registry's documented policy is to FAIL OPEN on a
+	// verifier error (verifiers.go:60-63): CompleteWorkItemAction records the error and
+	// stamps 'complete' anyway. So the error branch delivered exactly the outcome this
+	// verifier exists to prevent, on the one input where the ambiguous case IS content
+	// loss — bugs_closed/032's shape ("verifier reads a deleted target as a successful
+	// fix"), and bugs_open/201's own symptom 2 reproduced through its new guard.
+	// Caught by the council's bug_historian seat (gating, HIGH,
+	// corr f14a8b64-4f71-4915-88d0-9587db845052). Noting the fail-open in prose, as the
+	// first submission did, is not a control on it.
+	//
+	// Resolved:false blocks completion and routes the item into the attempt machinery
+	// and then human review, which is the correct destination for a page that cannot be
+	// shown to be repaired. An unverifiable page is not a repaired page.
 	if scanned == 0 {
-		return VerifyResult{}, fmt.Errorf(
-			"literal_markdown verifier: page %s has no scannable components — "+
-				"cannot distinguish 'repaired' from 'content lost', refusing to certify",
-			target.PageID)
+		return VerifyResult{
+			Resolved: false,
+			Detail: fmt.Sprintf("page %s has no scannable components — cannot distinguish "+
+				"'repaired' from 'content lost' (bugs_closed/194's class), so completion is refused "+
+				"rather than taken on trust", target.PageID),
+		}, nil
 	}
 
 	if len(remaining) == 0 {
