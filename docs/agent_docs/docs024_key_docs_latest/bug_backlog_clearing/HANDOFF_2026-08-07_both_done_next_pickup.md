@@ -4,7 +4,7 @@ Supersedes `HANDOFF_2026-08-06c_…` and everything earlier in this series. Noth
 is outstanding on either bug. Standing owner brief:
 `HANDOFF_2026-08-05_next_bug_pickup.md` — re-read it, it is the job description.
 
-## Both bugs: finished, and re-confirmed after the v1.0.1261 roll
+## Both bugs: finished, and re-confirmed after each roll since (latest v1.0.1262)
 
 **`bugs_open/204`** — the build path could not resolve a positional slot name
 (`prose-0`), so a decomposed page could never be rebuilt and each miss filed junk
