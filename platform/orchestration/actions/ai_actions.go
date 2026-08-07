@@ -360,6 +360,16 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 		options["max_tokens"] = int(maxTokens)
 	} else if maxTokens, ok = aiServiceConfig["max_tokens"].(float64); ok {
 		options["max_tokens"] = int(maxTokens)
+	} else {
+		// No cap at any level: the provider client's hardcoded fallback will
+		// apply (anthropic.go: 2048 — the smallest number in the estate). That
+		// is a transport safety net, not a sizing decision; a step reaching it
+		// means nobody chose this step's output budget, and the first oversized
+		// document meets a silent cliff (bugs_open/205: 8 of 126 active LLM
+		// steps ran unconfigured, 64 truncations before anything said so).
+		params.Logger.Warn("max_tokens not configured at any level; provider hardcoded default will apply",
+			zap.String("agent_type", params.AgentType),
+			zap.String("step", params.ExecutionContext.StepName))
 	}
 
 	// Pass through budget_tokens for extended thinking

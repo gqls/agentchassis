@@ -5958,8 +5958,10 @@ WHERE site_id = (SELECT id FROM sites WHERE domain = 'finetuning.uk') AND status
   site-scoped or domain-scoped diagnosis load. No symptom is needed and none appears.
 - **why the wrong answer looks right:** the query is well-formed, returns promptly and
   returns a plausible small number. **`domain IS NULL` matched 128 rows of the 10,077
-  that have no domain** [MEASURED 2026-08-06 11:2xZ, all history: 128 NULL, **9,949
-  `''`**, 4,688 real, 14,765 total] — an under-report of **79×**, and `count(domain)`
+  that have no domain** [MEASURED 2026-08-06 11:2xZ — **the retained window, NOT all
+  history**: this table is reaped by `scheduled_tasks.database-cleanup` at 14 days
+  resolved / 30 days unresolved, so no census of it is ever "all time". 128 NULL,
+  **9,949 `''`**, 4,688 real, 14,765 total] — an under-report of **79×**, and `count(domain)`
   is worse because it counts `''` as present. The ratio is **not stable**: it was 26×
   on 2026-08-05, because the writers producing `''` are the high-volume ones. Do not
   quote a factor without its date.
@@ -6029,3 +6031,11 @@ WHERE site_id = (SELECT id FROM sites WHERE domain = 'finetuning.uk') AND status
 - **while you are in there:** the fixture for such a test must be **satisfiable**. A first version used grounds `#101010` and `#E9E9E9`, for which AA against both is arithmetically impossible (the darker demands relative luminance ≥ 0.200, the lighter ≤ 0.140), so every candidate correctly fell through to the achromatic fallback and the test failed while the code was right. A trap no value can escape does not test preference — it tests the fallback.
 - **source:** 2026-08-06, `bugfix_122_contrast_ink_slots` lane; council `c4d9c841-3658-4742-85b5-961e062ecad2` (round 1 REVISE on exactly this, round 2 APPROVED). Register entry VIZ-014.
 - **added:** 2026-08-06, bugfix_122 lane
+
+### `collection_tasks.retry_count` is written ONLY by the reaper's pre_query — a repo grep says the column is dead, and the parking behaviour it drives is invisible in Go
+
+- **footprint:** `business_intel.collection_tasks` (`retry_count`, `status='failed'`, `scheduled_for`), `scheduled_tasks` row `stale-orchestration-reaper` (`pre_query`, `reset_tasks` CTE), `platform/orchestration/actions/business_intel_actions.go` (`LoadBusinessBatchAction`), `platform/orchestration/actions/ensure_collection_tasks.go`, `vet-batch-verify` / `vet-batch-processor` / `vet-practice-verifier`
+- **fires when:** you read the vet-collection Go code and conclude (a) `retry_count` is never incremented so it can be repurposed or dropped, (b) a task failure ends the matter because nothing re-queues it, or (c) `status='failed'` rows are written by some failure handler you should go looking for. All three are wrong the same way: **the lifecycle's third writer is SQL inside the reaper's `pre_query`** (every 180 s), which no repo grep can see — no seed file defines that row, the live row is the source. Since 2026-08-07 it counts each stale-claim reset in `retry_count`, backs off re-eligibility via `scheduled_for`, and PARKS the task as `'failed'` on what would be the 5th reset (`bugs_open/205`: unconditional resurrection burned 1,575 failed dispatches/day across 33 doomed tasks, invisible until one of them started buying LLM calls).
+- **the check:** before reasoning about this table's lifecycle, read the live row: `SELECT pre_query FROM scheduled_tasks WHERE name='stale-orchestration-reaper';` — and treat "quiet vet pipeline" as TWO hypotheses, parked-vs-dead: `SELECT status, count(*) FROM business_intel.collection_tasks GROUP BY 1;` distinguishes them (parked = rows at `'failed'` with `error_message` naming 205; dead = `pending` piling up with `last_triggered_at` stale on `vet-batch-verify`). Un-parking is a deliberate operator UPDATE (RUNBOOK in `bugfix_205_poison_pill_reaper/`), and `ensure_collection_tasks` refuses to re-task a business whose task is `'failed'` — recreating the task would silently zero the counter.
+- **source:** 2026-08-07, bugfix_205 lane (`bugs_open/205`, `docs024_key_docs_latest/bugfix_205_poison_pill_reaper/`). Same class as the `stale-work-item-reaper` row-age entry (016b §9, 2026-07-25): a reaper that does not annotate its own work.
+- **added:** 2026-08-07, bugfix_205 lane

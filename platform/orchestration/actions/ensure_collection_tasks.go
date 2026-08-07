@@ -12,6 +12,13 @@
 // Idempotent — the partial unique index on (business_id, task_type)
 // WHERE status='pending' prevents duplicates even without ON CONFLICT.
 //
+// A 'failed' task also blocks re-creation (bugs_open/205): the
+// stale-orchestration-reaper PARKS a task as 'failed' after 5 stale-claim
+// resets, because a deterministically-failing task re-queued for ever burned
+// 1,575 orchestrations in a day. Recreating a task here would silently un-park
+// it with a fresh retry_count. Un-parking is an operator decision — reset the
+// existing row, don't mint a new one.
+//
 // Workflow config:
 //
 //	"ensure_tasks": {
@@ -99,7 +106,7 @@ func EnsureCollectionTasksAction(ctx context.Context, params ActionParams) (inte
 			  SELECT 1 FROM business_intel.collection_tasks ct
 			  WHERE ct.business_id = b.id
 				AND ct.task_type = $2
-				AND ct.status IN ('pending', 'in_progress')
+				AND ct.status IN ('pending', 'in_progress', 'failed')
 		  )`,
 		verticalID, taskType, taskPriority)
 	if err != nil {

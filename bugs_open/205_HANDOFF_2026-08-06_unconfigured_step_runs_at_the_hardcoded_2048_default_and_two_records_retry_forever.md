@@ -69,15 +69,43 @@ orchestration retrying inside `max_attempts`. It is a fresh dispatch each time.
 - [VERIFIED, live] `scheduled_tasks` row **`vet-batch-verify`**: `enabled=true`,
   `interval_seconds=300`, `target_agent_type='vet-batch-processor'`,
   `fire_message=true`, last triggered minutes before this file was written.
-- [INFERRED — NOT YET READ IN CODE] that the batch selects records by "not yet
+- ~~[INFERRED — NOT YET READ IN CODE] that the batch selects records by "not yet
   verified", so a record whose verification step can never succeed is re-selected
-  every cycle, indefinitely. The evidence for it is strong but circumstantial: fresh
-  correlation ids, a constant 5-minute-driven cadence, byte-identical prompts, and a
-  second record taking over from the first at 00:34 on 08-06.
-  **The next session must read `vet-batch-processor`'s selection step before
-  asserting this.** If confirmed, the class is a *poison-pill loop*: a deterministic
-  failure that a sweep re-drives for ever, with no attempt ceiling because each
-  dispatch is a new attempt-1.
+  every cycle, indefinitely.~~
+
+> **CORRECTED 2026-08-06 (bugfix-205 session) — the inference above was WRONG in
+> detail; the loop is real but the door is elsewhere. Read in code and config:**
+> - The batch honestly selects **`status='pending'` only** and claims to
+>   `in_progress` (`LoadBusinessBatchAction`, `business_intel_actions.go:557-598`).
+>   Success writes `completed`; **failure writes NOTHING** — a whole-repo grep finds
+>   no Go writer of `pending`.
+> - The `pending` is manufactured by the **`stale-orchestration-reaper`** scheduled
+>   task (every 180 s): its `pre_query` carries a `reset_tasks` CTE —
+>   `UPDATE business_intel.collection_tasks SET status='pending', started_at=NULL,
+>   orchestration_id=NULL WHERE status='in_progress' AND started_at < NOW() -
+>   INTERVAL '20 minutes'` — **unconditional; no retry ceiling, no backoff**. The
+>   table's `retry_count` column is written by nothing (still 0 on the poisoned task
+>   after ~50 dispatches). No repo seed defines this row; the live row is the source.
+> - Loop period = 20 min reap + ≤5 min schedule + batch time — matches the observed
+>   25–55 min between byte-identical failures, each under a fresh
+>   `vet-batch-processor` parent (verified by joining `llm_call_log` →
+>   `orchestration_states`: all 08-06 truncations are task `ea489aed-…`, business
+>   `926410bc-…`, every parent distinct).
+> - **[MEASURED 2026-08-06 ~20:30 UTC] The class is 33 tasks, not 2 records:**
+>   `vet-practice-verifier` ran **1,576 times in 24 h, 1,575 FAILED, 33 distinct
+>   task_ids** (~50 dispatches per task per day). Only ONE reaches
+>   `extract_and_reconcile` and burns an LLM call; the other 32 die earlier at
+>   `scrape_website` on external API/URL errors — **invisible to the token-pressure
+>   check that found this bug**, which watches only LLM calls.
+> - The second poisoned prompt (`33749de2…`) no longer appears in the window; only
+>   `105ca46f…` loops as of 08-06 evening.
+>
+> So the class is confirmed as a *poison-pill loop*, with the sharper statement:
+> **a reaper that resurrects stale claims without counting resurrections converts
+> any deterministic failure into an infinite loop.** 016b §9 already documents the
+> sibling defect (`stale-work-item-reaper`, 2026-07-25) and prescribes
+> attempt-counting — this is that pattern's second instance.
+> Fix in flight: `docs024_key_docs_latest/bugfix_205_poison_pill_reaper/PLAN_2026-08-06_poison_pill_reaper.md`.
 
 ## Fix candidates, ordered by what closes the door
 
@@ -125,7 +153,12 @@ orchestration retrying inside `max_attempts`. It is a fresh dispatch each time.
    to the 183 lane that found this. Deliberately NOT done here.
 3. **Break the poison-pill loop** — a record that has failed verification N times
    must be parked, not re-selected. Without this, candidate 2 only moves the cliff:
-   the next oversized record loops again. Gated on part 3 being read in code.
+   the next oversized record loops again. ~~Gated on part 3 being read in code.~~
+   **UN-GATED 2026-08-06: part 3 is read (see the correction above), and this is now
+   the PRIMARY fix** — the reaper's `reset_tasks` CTE parks at `retry_count` 5
+   instead of resetting for ever, plus `ensure_collection_tasks.go` treats a parked
+   task as blocking re-creation. Plan and verification:
+   `docs024_key_docs_latest/bugfix_205_poison_pill_reaper/`.
 4. Weakest: `tolerate_truncation` on the step. **Probably wrong here** for 183's own
    reason — a salvaged partial ends at the last complete value, so trailing fields go
    silently ABSENT and the record would be reconciled from a fragment and marked
