@@ -1,4 +1,4 @@
-# HANDOFF 2026-08-07 — 189 and 204 are DONE (verified, still holding at v1.0.1261); start a fresh pickup here
+# HANDOFF 2026-08-07 — 189 and 204 are DONE (verified, still holding at v1.0.1262); start a fresh pickup here
 
 Supersedes `HANDOFF_2026-08-06c_…` and everything earlier in this series. Nothing
 is outstanding on either bug. Standing owner brief:
@@ -26,13 +26,14 @@ Both were **induced, not argued**:
   requested voice, **zero** junk items, `pages.sections` unchanged, and the
   served page carries the new prose with the pre-fix opening returning **0**.
 
-**Re-verified 2026-08-07 at v1.0.1261** (a later roll than the one they were
-proven on): `load page slot identities` = 1 and `stored_slot_name` = 1 on
+**Re-verified 2026-08-07 at v1.0.1261 and again at v1.0.1262** (both later
+rolls than the one they were proven on): `load page slot identities` = 1 and `stored_slot_name` = 1 on
 agent-chassis / business-intel / vet-intel, fabricated control 0; config keys
 still present on both writer steps — and note they **survived another session's
 `page-content-writer` update at 08-06 19:53**, which was the live risk, since
 re-running that seed's stale full-workflow block would have reverted them; both
-verified pages still hold their rows and slot names.
+verified pages still hold their rows and slot names. Re-checked unchanged at
+v1.0.1262 (same three markers, same control, config keys still present).
 
 **Both files stay in `bugs_open/`** — owner direction 2026-08-06, which overrides
 CLAUDE.md's `/bugs_closed/` bar. The closure evidence is written inside each
