@@ -5,9 +5,28 @@ found while verifying `bugs_open/184`'s auto-repair step. ~~**OPEN, unowned.**~~
 
 > ## STATUS 2026-08-06 (evening) — **SYMPTOM 2 FIXED IN CODE, INERT UNTIL A ROLL.** 201 stays OPEN.
 >
-> **Commit `dc4f4e6b2`.** Council **SUBMITTED**, verdict not yet read — corr
-> `f14a8b64-4f71-4915-88d0-9587db845052`. Both halves of 201 are now addressed;
-> symptom 1 is proven live, symptom 2 is not yet.
+> **Commits `dc4f4e6b2` (r1) + `7e62f4a07` (r2).** Council **APPROVED at r2** — corr
+> `f14a8b64-4f71-4915-88d0-9587db845052`, *"approved with 3 advisory objection(s) — none
+> high-severity"*, 15 reviewers, 2 abstained. Both halves of 201 are now addressed; symptom 1 is
+> proven live, symptom 2 is not yet (inert until a roll).
+>
+> **r1 was REVISE on a GATING HIGH, and it was right.** My zero-rows branch returned an *error* —
+> and the registry **fails open on error** (`verifiers.go:60-63`), so `complete_work_item` stamped
+> `complete` anyway, on the one input where the ambiguous case *is* content loss. That is
+> `bugs_closed/032`'s shape and 201's own symptom 2 reproduced through its new guard. I had
+> written "I am aware this means the caller fails open" into the submission and shipped it.
+> **Fixed in r2: `Resolved:false`, which BLOCKS completion**; the test now asserts `err == nil`
+> *and* `!Resolved`, so the error branch cannot return. Proven by mutation.
+>
+> **Two seats then said the local fix routes AROUND the policy rather than addressing it** — every
+> other registered verifier still completes on an error. Filed as
+> **`architecture_review/RFC_017_verifier_registry_fails_open_on_error.md`**, with the
+> unmeasured number that should decide it (how often verifiers actually error in production).
+> Not a blocker on 201.
+>
+> Remaining advisories, both low, both accepted as stated: migration 331 reaches into
+> `scheduled_tasks`, which is **shared scheduler infrastructure** rather than this pipeline's —
+> flagged as such, additive-only, read-before-write guarded, with a rollback sidecar.
 >
 > **What shipped.** `check_literal_markdown.go` registers **`VerifyLiteralMarkdownResolved`**
 > via the estate's existing `ItemVerifier` mechanism — `CompleteWorkItemAction` already consults
