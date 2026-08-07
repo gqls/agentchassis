@@ -1,8 +1,14 @@
 # HANDOFF — mortgagecalculator.co.uk COMPLETE ADOPTION — cold start, read this first
 
-**Written 2026-08-05 ~21:00 UTC.** Supersedes `HANDOFF_2026-08-03_continue_here.md` as
-the entry point (its §3 lock correction, §12 chrome map and §13→`bugs_open/191` remain
-load-bearing — read them second). Chassis at handoff: **v1.0.1254** (pods 20:41 UTC).
+**Written 2026-08-05 ~21:00 UTC; state RE-VERIFIED 2026-08-06 ~20:10 UTC** — chassis now
+**v1.0.1261** (pods 19:54 UTC), site LOCKED, **0 armed**, homepage is the ORIGINAL
+(11,125 B at the wire). §§1–8 below remain accurate; §7 is the work. Supersedes
+`HANDOFF_2026-08-03_continue_here.md` as the entry point (its §3 lock correction, §12
+chrome map and §13→`bugs_open/191` remain load-bearing — read them second).
+
+**The milestone read-out for the owner:
+`SUMMARY_2026-08-06_complete_adoption_tools_rebuilt_unverified.md`** — the lane's first;
+read it for the plain-prose arc before diving into sections.
 
 ## 0. The owner's rulings, in order — these define the lane
 
