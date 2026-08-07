@@ -1726,7 +1726,17 @@ the page's ids;
 > v1.0.1259) rather than a new check, because a new check needs its own entry in a discovery
 > agent's `checks` array — the `bugs_open/093` shape, where a correct fix has never once
 > executed. **The corollary for anyone extending a detector: prefer an arm on an
-> already-running check over a new check whose enablement is a separate act.** The
+> already-running check over a new check whose enablement is a separate act — but
+> ASK BOTH QUESTIONS, because when this was first written I only asked one.**
+> *Enabled* and *driven* are different. This arm's check was genuinely enabled, and
+> the agent carrying it turns out to be dispatched by hand — 9 days out of 21, 1–6
+> sites each, last 2026-08-05, with the fleet-wide `improvement-sweep` off since
+> 2026-05 (`bugs_open/083`/`116`). So the arm escaped "nobody switched it on" and
+> inherited "nothing schedules it". **An arm inherits its host agent's cadence, so
+> an empty queue after shipping one is NOT evidence of a clean estate** — that claim
+> needs an offline run over the corpus instead. One query settles cadence before you
+> assert a mechanism is driven: `SELECT created_at::date, count(*) FROM
+> site_work_items WHERE created_by='<agent>' GROUP BY 1 ORDER BY 1 DESC;` The
 > id-presence test was extracted from `OrphanElementRefs` rather than rewritten, because
 > that check had already paid for its false positives; a second implementation re-buys the
 > lesson. Proving the extraction changed nothing needed a differential over real corpora
