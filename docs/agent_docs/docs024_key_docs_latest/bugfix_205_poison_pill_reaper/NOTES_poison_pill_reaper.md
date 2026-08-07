@@ -41,3 +41,58 @@
   looked 65 min stale while un-reaped; DB `timezone` is UTC and local wall-clock is
   BST, so the gap was 7 min, not 65. Check `SELECT now(), current_setting('timezone')`
   before reading naive timestamps against wall-clock.
+
+## 2026-08-07 ~01:30 UTC — config applied, loopers seeded
+
+- Council submission fired: `SUBMISSION_CORR=2db88f8f-11ea-47ed-b37d-35a6096d5597`
+  (budget ~30 min; find the run by payload, not the printed id).
+- Go + docs committed `d1eb3a6b5` with `Council-Submitted:` trailer. Commit-scope
+  report showed one same-file passenger in LANDMINES.md (another session's
+  window-bounded-census correction) — named in the commit message, taken as found.
+- Live row backed up to `BACKUP_2026-08-07_reaper_pre_query.sql` (60 lines,
+  reset_tasks present), then `SQL_2026-08-07_reaper_parking.sql` applied clean
+  (both DO/RAISE verifies passed). Live row re-read: `tasks_parked` counter and
+  `bugs_open/205` marker both present, `updated_at 01:26:49Z`.
+- Seed: exactly **33 rows** updated to `retry_count=4` — row identity returned and
+  it matches the measured looper set, poisoned task `ea489aed…` included. All 33
+  were `in_progress` at seed time, so each parks when its current claim passes
+  20 min stale. The parked message will say "5 stale-claim resets", counting from
+  the seed — their true history (~50 dispatches each) is recorded here and in the
+  bug file.
+- Council round 1 went `complete_invalid` in 7 min: edit 3's `file` field described
+  the DB row in prose and the fix_plan validator requires a repo-relative path
+  ("file path must be repo-relative with no traversal or whitespace"). Re-pointed
+  edit 3 at the repo-recorded apply script and resubmitted with
+  `RESUBMIT_CORR=2db88f8f…` — same correlation, run `a45cee3f…`. Lesson for the
+  next config-change submission: name the apply SCRIPT in `file`, put the live-row
+  target in the rationale.
+
+## 2026-08-07 ~01:45 UTC — parking PROVEN; council round 2 (REVISE) answered and resubmitted
+
+- **Parking behaviourally proven**: all 33 seeded loopers parked in ONE reaper pass
+  (watcher: parked=0 at 01:37:46, parked=33 at 01:40:48). Table now
+  failed=33 / completed=2527 / cancelled=574, **pending=0, in_progress=0**.
+- **Quiet-because-parked, not dead**: both scheduled tasks' stamps advance past the
+  apply; 0 llm calls on the step since; the only verifier runs since 01:41 all
+  belong to parent `c3c8aaea…` (created 01:15:39 — the last pre-parking batch
+  draining its in-memory item list; parked tasks cannot be RE-claimed but an
+  already-running batch keeps walking its list until done).
+- **Council REVISE (round counting ours: refused-schema, then REVISE), gating seat
+  `debug_historian`.** All objections answered with queries, not prose:
+  - task_type census: the whole table is `initial_verification`/`veterinary`
+    (3,134 rows) — guardian's blast-radius concern has an empty population today;
+    the structural point (a future task_type inherits park-at-5 silently) is
+    recorded as an owner note in the bug file.
+  - pre_query census: exactly 2 rows mention the table; only the reaper writes it.
+  - `vet-sweep-continue` enabled=f BY QUERY; `ensure_collection_tasks` has exactly
+    one consumer by definitions census.
+  - `ROLLBACK_2026-08-07_reaper_pre_query.sql` generated mechanically FROM the
+    backup (asserts the parking branch is gone after rollback).
+- **The best objection was a mirror**: two seats cited "a landmine contradicting
+  the premise that nothing writes retry_count" — that landmine is THIS lane's own
+  entry, written after the fix, synced to doc_notes at ~01:20Z, read by the council
+  at 01:36Z as pre-existing prior art. **Lesson: a landmine you sync mid-task
+  becomes prior art against your own submission — date-stamp premise claims
+  ("before this fix, as of <time>") in both the landmine and the submission, or
+  sync after the round.** Recorded in the resubmission verbatim.
+- Round 2 resubmitted same corr, run `8310b61e…`.

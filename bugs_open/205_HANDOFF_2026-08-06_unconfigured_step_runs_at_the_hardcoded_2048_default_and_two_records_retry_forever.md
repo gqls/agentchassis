@@ -1,6 +1,32 @@
 # 205 — `extract_and_reconcile` has NO configured cap, runs at the hardcoded 2048, and two poisoned records have been re-dispatched every few minutes for 34 hours
 
-**Filed:** 2026-08-06 · **Status:** OPEN · **Severity:** live and burning right now
+**Filed:** 2026-08-06 · **Status:** OPEN — FIX IN FLIGHT (see below) · **Severity:** live and burning right now
+
+> **FIX STATUS 2026-08-07 ~01:45 UTC (bugfix-205 session):**
+> - **Config half LIVE and BEHAVIOURALLY PROVEN:** the reaper's `reset_tasks` CTE
+>   now counts each reset in `retry_count`, backs off via `scheduled_for`, and
+>   PARKS a task as `'failed'` on what would be the 5th reset. Applied 01:26 UTC
+>   with a row backup; the 33 measured loopers seeded to `retry_count=4` and
+>   **all 33 parked in one reaper pass at 01:40:48Z**. Table now failed=33 /
+>   pending=0 / in_progress=0; zero LLM calls on the step since; both scheduled
+>   tasks' stamps still advance (quiet-because-parked, not dead). Apply script +
+>   backup + ROLLBACK + runbook (incl. un-parking):
+>   `docs024_key_docs_latest/bugfix_205_poison_pill_reaper/`.
+> - **OWNER NOTE (from the council's guardian seat, and it is right):** the reset
+>   arm is generic over `collection_tasks`, so a FUTURE task_type would inherit
+>   park-at-5 silently. Today the census says the whole table is ONE task_type in
+>   ONE vertical (`initial_verification`/`veterinary`, 3,134 rows all-time), so
+>   the population of surprised consumers is empty — but whoever adds a second
+>   task_type should choose its ceiling deliberately.
+> - **Go half committed `d1eb3a6b5`, INERT until the next chassis roll** (the
+>   08-06 build predates it): `ensure_collection_tasks.go` refuses to re-task a
+>   parked business; `ai_actions.go` WARNs when `max_tokens` resolves to the
+>   hardcoded transport fallback (candidate 1). Verify at the pod with
+>   `strings /app/agent-chassis | grep -c "max_tokens not configured at any level"`.
+> - **Council:** `Council-Submitted: 2db88f8f-11ea-47ed-b37d-35a6096d5597`
+>   (round 1 `complete_invalid` — schema, not substance; resubmitted same corr).
+> - **Candidate 2 (the step's own cap) remains an OWNER CALL, deliberately not
+>   taken here.** Parking stops the burn; the parked task is the prompt.
 **Found by:** the first run of `fleet-step-token-pressure` (bugs_open/183 candidate 4).
 It was the top line of the check's first note — 64 truncations, the largest in the
 fleet — and nothing else was watching it. See
