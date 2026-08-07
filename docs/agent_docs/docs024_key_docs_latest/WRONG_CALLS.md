@@ -22270,3 +22270,32 @@ bigger finding than the bug it was filed under (`bugs_open/213`: seven of nine
 this file exists for now has *check the queue for terminal items too* appearing alongside
 *grep before you file*; they are the same instinct applied to two different stores, and
 only one of them is currently written down as a rule.
+
+---
+
+## 2026-08-07 — the acceptance criterion I wrote was satisfiable by the defective path on its way to failing (bugfix_207 lane)
+
+**The claim.** In `bugs_open/207`'s close criteria (written 2026-08-06, by me): *"a
+deadline-exceeded-shaped failure on the orchestrated path shows
+`awaited_requests.retry_version >= 1`"* — offered as the behavioural proof that the fixed
+sender's `error_recoverable` verdict causes work to be RETRIED.
+
+**What was wrong with it.** `retry_version` is bumped by `handleRecoverableError` BEFORE
+the replay decision. The coordinator's response-driven recoverable arm re-arms the row,
+then refuses its own replay (`bugs_open/216`: `RETRY_PAYLOAD_UNAVAILABLE` from a re-read
+whose predicate the claim itself had falsified) and fails the workflow terminal 4ms
+later. The criterion passed — `retry_version = 1` — while the composed behaviour it was
+meant to prove (a retry reaches the target) did not happen and structurally could not.
+The same blindness applies retroactively: the retry_version histograms cited by the 197
+storm-watch count these re-arm-then-terminal writes indistinguishably from real retries.
+
+**What caught it.** Not the criterion — the parent's terminal state. I read WHY the
+parent was FAILED after the criterion had already passed, instead of stopping at the
+green number.
+
+**The cheap check that would have.** Assert the retry's EFFECT, not its bookkeeping: the
+target topic receives a replayed request (consume it), or the child logs a second
+attempt. A counter written by the deciding function itself can never falsify that
+function — same family as *a count proves the damage, never the no-op* and *the check
+answers the question you encoded*, one seam up: I encoded "was the retry booked?" while
+asking "was the work retried?".

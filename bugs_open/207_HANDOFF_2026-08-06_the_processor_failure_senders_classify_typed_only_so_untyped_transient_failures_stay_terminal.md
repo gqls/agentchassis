@@ -5,10 +5,34 @@ direction** (corr `7fbf4356`, `bug_historian`, medium severity): the convergence
 senders onto the shared classifier must be *"tracked and not just asserted in prose … given
 how often 'someone else owns the other call site' has been the exact gap that recurred."*
 
-**Status: OPEN — FIX COMMITTED 2026-08-06, awaiting the next chassis roll** (the v1.0.1261
-roll predates this commit and cannot carry it). Owned by the
-`bugfix_207_sender_convergence` lane (docs:
+**Status: FIXED, LIVE on v1.0.1262, PROVEN BY INDUCTION 2026-08-07 — all three close
+criteria met at this bug's own seam.** Stays in `bugs_open/` per the owner's 08-06 ruling
+(finished bugs stay). **BUT the ~30% prize is NOT yet realised** — the induction that
+proved this fix also found the next two defects downstream, and the retried work this fix
+promises is gated on them: `bugs_open/216` (the coordinator's response-driven recoverable
+arm re-arms then refuses its own replay — terminal anyway, cross-pod) and `bugs_open/217`
+(`notifyParentOfFailure` hardcodes `error_unrecoverable` and answers the parent FIRST on
+child-orchestration failures). Owned by the `bugfix_207_sender_convergence` lane (docs:
 `docs/agent_docs/docs024_key_docs_latest/bugfix_207_sender_convergence/`).
+
+## CLOSE CRITERIA RESULTS (2026-08-07, v1.0.1262, corr `b155c554-0753-4f57-97a0-fcaec5d229d8`)
+
+1. **PASSED — pod-grep, both replicas:** added marker (the long sender log literal) = 1,
+   negative control (removed comment text) = 0, positive control = 1, same exec.
+2. **PASSED at the letter, and the spirit exposed 216:** the induced deadline-exceeded
+   child produced `disposition=error_recoverable, matched='deadline exceeded'` in the pod
+   log and `status=error_recoverable / body.error.recoverable=true` on the wire (the
+   pre-fix binary pinned this exact shape `error_unrecoverable`); delivered to the
+   parent, the coordinator accepted it and re-armed `retry_version` 0→1. **Then the
+   replay refused** (`bugs_open/216`) — so `retry_version >= 1` was satisfied by a
+   bookkeeping write on the way to terminal. The criterion as written measured the
+   re-arm, not the retry; recorded in `WRONG_CALLS.md`.
+3. **PASSED — storm-watch:** retry_version histogram 25025/2126/1413/126, hard wall at 3,
+   zero above, all history.
+
+Also live in the same induction: a second answer to the same awaited request from
+`notifyParentOfFailure`, hardcoded `error_unrecoverable`, one second EARLIER than the
+converged sender's — first response claims (`bugs_open/217`).
 **Severity: medium — a retry-QUALITY defect, not a correctness
 one.** Nothing is corrupted and nothing is silent: failures are correctly shaped and
 correctly routed. Work that a retry would have saved is simply not retried.

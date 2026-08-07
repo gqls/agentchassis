@@ -79,3 +79,38 @@ session's edits (same-file passenger risk), and the trap ("call RetryDisposition
 MatchedTransientFailure bare, unless you have agentbase's call-order guard") is carried by
 RSH-007's register entry, the helper's own doc comment, and the memory topic file.
 Remaining to close 207: the next chassis roll + the three close criteria in the bug file.
+
+## 2026-08-07 — v1.0.1262 CARRIES THE FIX; induction run; criteria met; TWO new defects found downstream
+
+- Pod-grep (criterion 1): both replicas — added marker 1, negative 0, positive control 1.
+- No real orchestrated failures since the roll (fleet quiet, 33 pipelines parked
+  yesterday), so induced: adapted 196's two-dispatch recipe (their seeds + missteps
+  pre-applied; SEED_test_207_probe.sql in this dir). Parent `812f770d` parked awaiting
+  R=`cef0a691`; flat child with INLINE workflow (query_database +
+  local_action_timeout_seconds 0.001 — RSH-004's machinery) failed exactly as designed.
+- **The flip, live**: pod log `disposition=error_recoverable, matched='deadline exceeded'`
+  (corr `b155c554`); wire envelope `status=error_recoverable, body.error.recoverable=true`
+  (partition 1 offset 45163 on legacy `system.generic.responses` — 196's header-drop
+  wrinkle holds, the reply headers do not survive this probe intake path even though the
+  child execCtx logged reply_to_request_id).
+- Criterion 2: re-published the captured envelope byte-identical to the parent's real
+  topic → coordinator accepted it, `retry_version` 0→1 (sent_at 08:25:21.5635). **Then
+  the parent FAILED 4ms later** — chased it instead of stopping at the green number:
+  - `ClaimAwaitedRequest` sets `status='processing'` and RETURNS the full row;
+    `handleRecoverableError` discards it, re-reads via `GetAwaitedRequest`
+    (`status IN ('waiting','retrying')`) — misses by construction — falls back to
+    in-memory whose `RequestPayload` is `json:"-"`-lost → `RETRY_PAYLOAD_UNAVAILABLE` →
+    `handleUnrecoverableError`. DB row HAS the payload (queried). **Filed
+    `bugs_open/216`**; 090 submitted, run corr `0e7e9640-7b22-4f10-8ea8-1994454993f3`.
+  - The same failure also drew a SECOND answer to R, one second EARLIER, from
+    `notifyParentOfFailure` — hardcoded `error_unrecoverable` (coordinator.go:3924/3937).
+    First response claims. **Filed `bugs_open/217`** (census correction included:
+    `TimeoutMonitor.sendTimeoutResponse` helpers.go:409 is a sibling suspect, liveness
+    unmeasured; adapters have their own stamps, out of scope).
+- Criterion 3: histogram 25025/2126/1413/126, wall at 3 holds, zero above.
+- WRONG_CALLS row appended: my criterion 2 measured the re-arm, not the retry — the
+  bump is written by the same function that then refuses.
+- Cleanup: probe seed deleted, void topic deleted, parent terminal (FAILED) — no reaping
+  needed. Orchestration rows left as evidence (~24h retention; ids above).
+- 207 status: FIXED + LIVE + PROVEN at its own seam; stays in bugs_open per owner 08-06
+  ruling; the ~30% prize is gated on 216 (and 217 for child-orchestration failures).

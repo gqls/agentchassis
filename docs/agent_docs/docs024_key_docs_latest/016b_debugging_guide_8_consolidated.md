@@ -5206,6 +5206,32 @@ information", never as "confirmed hard", and go and measure something yourself.
 result cannot tell you which *declaration* produced it, and inferring the mechanism from
 the output is the same class of error one layer down (`WRONG_CALLS.md`, 2026-08-06).
 
+### A retry_version bump is NOT a retry — the response-driven recoverable arm books the retry, then refuses its own replay
+
+**Symptom.** An awaited request shows `retry_version >= 1` yet the child never saw a
+second attempt, and the parent orchestration is FAILED with `Request <id> failed: …` —
+the re-arm and the terminal failure milliseconds apart in `processing_history`
+(`bugs_open/216`, induced live 2026-08-07: re-arm at `.5635`, `workflow_failed` at
+`.5677`, cross-pod).
+
+**Diagnose.** For the request id, compare `awaited_requests.request_payload IS NOT NULL`
+(usually true) against the failure's shape: `handleUnrecoverableError`'s message wrapping
+the child's own error means the recoverable arm ran and then bailed. The deciding read is
+`GetAwaitedRequest` (`state.go:1606`): predicate `status IN ('waiting','retrying')` —
+but the response path's own `ClaimAwaitedRequest` set `'processing'` first, so the
+re-read misses, and the in-memory fallback carries no `request_payload` (`json:"-"`,
+lost through the `orchestration_states` JSONB round-trip) → `RETRY_PAYLOAD_UNAVAILABLE`.
+
+**Root cause.** Two claim paths write different statuses (`'processing'` on the response
+path, `'retrying'` on the timeout ticker) and the re-read predicate kept only one. The
+claim already RETURNS the full authoritative row; the arm discards it and re-reads.
+
+**Fix.** `bugs_open/216` candidates — pass the claimed row through (closes the door);
+090 run `0e7e9640` pending at the time of writing. **Measurement corollary:** a
+`retry_version` histogram cannot certify retries happen — the bump is written by the
+same function that then refuses (this poisons any storm-watch that counts it as retry
+evidence; see `WRONG_CALLS.md` 2026-08-07).
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
