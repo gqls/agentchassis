@@ -1419,3 +1419,44 @@ objections were answerable with a query, so they were answered:
   `architecture` seat's signal was **`point_fix`**, explicitly because the mechanism
   change had already been through the RFC and been ratified — "the seat's own remedy
   working as intended, not the failure mode it exists to catch."
+
+### 2026-08-07 — seven DRAFT provocations written at the owner's request
+
+**This crosses a rule this lane has been repeating since 07-31** ("they publish as
+the owner's opinions under his name, so a session must not invent them"). The owner
+asked for the text directly and repeated the instruction, so it is his call and it
+is recorded as taken. What that rule was protecting is authorship, and the way to
+keep protecting it without disobeying is **containment, not refusal**:
+
+- inserted `status='draft'`, which `loadProvocations` cannot select (`status =
+  'approved'` only), so a draft cannot reach the site by any path;
+- `source='llm'` — the honest label, matching what `generatorInsertSQL` writes —
+  with a `source_ref` saying plainly that an assistant session drafted them at the
+  owner's request, that they are **not generator-produced** and **not gate-judged**;
+- **parked on dates** (2026-08-07..13) rather than left NULL. That deviates from the
+  generator's "never dated" containment, deliberately: migration 282's own comment
+  sanctions it — *"drafts may be parked on a date speculatively; the collision then
+  surfaces at approval time"* — and it makes the owner's approval ONE command
+  instead of two. The partial unique index is scoped to approved rows, so dated
+  drafts cannot collide with anything.
+
+**Verified inert, not assumed inert.** After the insert, the feed builder's exact
+predicate (`domain, category='general', status='approved', publish_on IS NOT NULL,
+publish_on <= CURRENT_DATE`, order by date desc, limit 1) still returns
+`nobody-wants-personalised-internet` / 2026-07-26. Pool is 9 approved+human, 7
+draft+llm.
+
+**Written against the corpus spec** (PLAN §4 Phase 2), not free-hand: a flat
+contestable assertion; a `detail_body` that makes the case then genuinely makes the
+counter-case; nothing tribal-political; arguable from ordinary experience; aimed at
+the §9.3 audience (people who argue online recreationally — the r/changemyview / HN
+axis; work, technology, attention, institutions). Both shapes authored — the
+runbook's GOTCHA — so no fallback is exercised.
+
+**They have NOT been through the gate**, which is committed but not live. The owner
+reading them before approving is a stronger check than the gate is, but if the gate
+does go live it would be a genuinely useful calibration exercise to run these seven
+through it: a gate that rejects all seven, or approves all seven, is informative
+either way, and unlike the nine real ones these were not part of the corpus it was
+tuned on. **That is the first honestly-independent calibration set this gate can
+get** — worth not wasting.

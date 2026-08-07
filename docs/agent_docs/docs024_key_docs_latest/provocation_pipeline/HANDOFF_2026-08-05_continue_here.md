@@ -62,9 +62,24 @@ then, because nothing reaches the branch.
 
 Ten days stale. Two routes, and the first is the owner's call:
 
-- **Content:** you supply provocation text, a session `INSERT`s it. Minutes. They
-  publish as the owner's opinions under his name, so **a session must not invent
-  them.**
+- **Content — 7 DRAFTS ARE NOW WAITING (2026-08-07).** The owner asked a session to
+  write them, directly and twice, so the "a session must not invent them" rule was
+  waived by him and the work was contained instead: `status='draft'`, `source='llm'`,
+  honest `source_ref`, parked on 2026-08-07..13. **Verified inert** — the feed
+  builder's exact predicate still returns the 26 Jul entry. **Nothing is published
+  and nothing will be until the owner reads them and runs one command:**
+
+  ```sql
+  UPDATE provocations SET status='approved', updated_at=now()
+   WHERE domain='vonc.com' AND status='draft' AND source='llm';
+  UPDATE scheduled_tasks SET last_triggered_at=NULL, last_completed_at=NULL
+   WHERE name='provocation-feed-refresh';   -- make it due; else wait up to 6h
+  ```
+
+  Approve a subset by naming slugs instead. To discard: `DELETE ... WHERE
+  status='draft'`. **They have NOT been gate-judged** (the gate is committed, not
+  live) — and they are the first calibration set the gate could get that it was
+  *not* tuned on, so consider running them through it rather than discarding.
 - **The generator:** built and approved but needs (a) a fleet release and (b) the
   live-model calibration run the other session flagged as owed — `cmd/provocation-gate-calibrate`.
   Its own README/NOTES are the authority; **do not re-derive its state from here.**
