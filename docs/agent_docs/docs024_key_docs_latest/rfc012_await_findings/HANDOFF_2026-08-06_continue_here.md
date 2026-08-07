@@ -23,9 +23,37 @@ at commit `3851e90b5` — read that block, it is the authority, not this file):
 | **B rest**: 18 site conversions + tests | `f930de86b` | **DONE and POD-PROVEN LIVE on v1.0.1262** (2026-08-07, both replicas) |
 | **(d) detector**: `--shared-output-fields` | `abf5e8266` | **DONE, proven, live-run green** — a `cmd/` binary, not in the chassis image, so it needs no roll |
 | Concept register: RSH-008 + WFA-011 | 08-07 | **DONE** (the standing ruling's debt from the split commits, now paid) |
-| Council round for the whole code set | corr `5c2bc265-84ac-452b-bd8b-22fd7b875427` | **REVISE** — read, acted on, **resubmission owed** (see below) |
+| Council round for the whole code set | corr `5c2bc265-84ac-452b-bd8b-22fd7b875427` | **round 2 SUBMITTED 2026-08-07 08:29Z, verdict not yet read** |
+| The `domain` `NULLIF` follow-up | `8e786652b` | **CLOSED as NO — measured; adding it would be a REGRESSION** |
 
-### ⚠ FIRST THING: the verdict came back **REVISE** — resubmit, do not re-argue
+### ✅ FIRST THING — DONE 2026-08-07 08:29Z: round 2 is submitted. Read the verdict, do not resubmit again
+
+`RESUBMIT_CORR=5c2bc265-…` under the same correlation; it began executing immediately
+(`review_editquality | EXECUTING_STEP`), no 29-minute queue. Submission file:
+`…/e62271e7-…/scratchpad/rfc012_submission_r2.json`. What changed — **the submission, not
+the code**: the edits array is now declared a **REPRESENTATIVE SAMPLE** in the summary, the
+scope is stated as 34 unique files across three commits, all eight entries name one distinct
+SHAPE, and `validate_page_content.go` — the provenance site the verdict said I described but
+did not show — is now IN the array. Claims about unshown files are given as counts with the
+command that produces them.
+
+**Preparing it turned up a second instance of the same objection:** last round's seventh edit
+named `cmd/config-key-audit/shared_output_fields.go`, **which is not a file** (it is
+`sharedoutputs.go`). So the array did not merely under-cover the change, it carried a path
+that does not exist. **Before submitting, assert every `edits[].file` exists** — one loop over
+the array against the tree.
+
+Read the verdict with:
+```sql
+SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
+WHERE correlation_id='5c2bc265-84ac-452b-bd8b-22fd7b875427' AND kind='council_report' ORDER BY created_at;
+```
+`f930de86b` carries `Council-Submitted:`, so 098 credits it automatically **if** this round is
+approved. **Never write `Council-Reviewed:` on a verdict you have not read.**
+
+<details><summary>The round-1 REVISE this answered (kept for the record)</summary>
+
+### the verdict came back **REVISE** — resubmit, do not re-argue
 
 Corr `5c2bc265-84ac-452b-bd8b-22fd7b875427`, gating objection from `editquality`. **Read
 the NOTES entry for 2026-08-07 before touching it.** In short:
@@ -41,6 +69,22 @@ the NOTES entry for 2026-08-07 before touching it.** In short:
   its own footprint. Correction written onto that landmine, `WRONG_CALLS.md` entry filed,
   and **RSH-008 now states the real fix — give the shared writer a `NULLIF` on `domain` —
   which is NOT done and is the one piece of follow-up code this verdict implies.**
+
+</details>
+
+> **CORRECTED 2026-08-07 (`8e786652b`) — that last sentence is WRONG and the follow-up is
+> CANCELLED. Adding the `NULLIF` would be a REGRESSION.** Measured post-roll, the table has
+> **converged on `''`**: 0 NULL / 29 `''` / 16 real since 05:47Z, against 128 / 13,885 / 4,762
+> before. All 128 NULL rows were written by sites *this conversion changed* (nine groups by
+> `agent_type, action`, newest 2026-08-05, all pre-roll), so the NULL bucket is closed and the
+> 14/30-day reaper empties it. A `NULLIF` now would put 100% of new rows into the shape 0.9%
+> of rows use. The `site_id` `NULLIF` is a **uuid type necessity** (`''::uuid` raises), not a
+> precedent. **The remedy is the reader's: `COALESCE(domain,'') = ''`.** Two findings fell out
+> of measuring instead of conceding: the "nineteen copies" census **grepped `platform/` only**
+> (a third live site exists at `internal/agents/contentcreator/claims_guard.go:184`, dormant,
+> the last latent NULL producer), and **it cannot use the shared door at all** — `contentcreator`
+> holds a `*pgxpool.Pool` while `agenterrors.Write` takes a `*sql.DB`, so "the ONE writer" is
+> true of the `database/sql` half of the estate only. NOTES 08-07 misstep 9; `WRONG_CALLS.md`.
 
 `f930de86b` carries `Council-Submitted:`, so 098 credits it automatically **if** a
 resubmission under this correlation is approved; **do not** write `Council-Reviewed:`
@@ -106,7 +150,13 @@ and the parity test).
 - exit 1 on NEW findings so the Job shows failed;
 - the ack file is in-repo, so it ships with the build.
 
-### 3. The last INSERT site — only when the file is clean
+### 3. The last INSERT site — STILL BLOCKED (re-checked 2026-08-07)
+`git status --porcelain` on it is **still ` M`** — one line, another session's
+`PageWantedLivePredicateFor` change at `:872`, untouched by the INSERT at `:1353`
+(`git diff -U0 <file> | grep -c agent_error_log` → 0). Converting now would take their line
+as a same-file passenger, so it stays blocked. Re-check with the two commands above; the
+status goes stale within minutes.
+
 `store_generated_component_action.go:1353` is the **one** site left hand-copied, on three
 independent grounds (all in NOTES 08-07): a standing council objection naming it directly,
 it already writes the canonical 13 columns, and it was dirty with another session's
