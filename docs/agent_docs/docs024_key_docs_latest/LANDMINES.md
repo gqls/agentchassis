@@ -6188,7 +6188,9 @@ Two more in the same family, both cheap to get wrong:
      may never arrive.
 - **adjacent, and the reason a re-run will not help:** if the verdict says **UNVERIFIABLE**
   with gaps like "zero hits for `package <x>`" or zero-match symbol searches, that is the
-  frozen **code index** (`bugs_open/108`, pinned at `d98010e8b`, 2026-07-28), not a weak
+  frozen **code index** (`bugs_open/108`; it was pinned at `d98010e8b`/2026-07-28 until
+  migration 332 repointed it on 2026-08-07 — **do not read that sha as current, re-check the
+  pin**), not a weak
   hypothesis — anything added since reads as ABSENT. Re-submitting spends another run for the
   same answer. Fix the index ref first. ~~(migration 252 pins `086_experience_loop`; it wants
   `'main'`)~~ **CORRECTED 2026-08-07 08:2xZ, and this matters because the old advice made it
@@ -6256,3 +6258,22 @@ Two more in the same family, both cheap to get wrong:
   identical.
 - **source:** 2026-08-07, `docs024_key_docs_latest/rfc012_await_findings/` — NOTES 08-07
   (morning) misstep 8; corrections in place in that lane's HANDOFF and in RSH-008.
+
+### A `complete` work item was graded by whichever producer OWNS the `item_type` — not by the producer that filed it, and the grader is right about the wrong question
+
+- **footprint:** `site_work_items` (the `status` and `item_type` columns, and `spec->>'audit_source'`), `platform/orchestration/actions/write_audit_findings_action.go` (`designItemTypes`, `designRouting`), `platform/orchestration/actions/discovery_checks/` (`RegisterVerifier`, every `Verify*Resolved`), `platform/orchestration/actions/complete_work_item*`
+- **fires when:** you read a work item's `status` to decide whether a defect was repaired, or you close/query a route and conclude from `complete` that its sites are clean. Two or more producers may file under one `item_type`; the completion verifier is registered **per `item_type`**, by whichever check happened to define that name first. An item from any other producer is then re-checked against a predicate its author never meant.
+- **why the usual defences miss it:** this is **not** the fail-open policy of `RFC_017` — nothing errors, so no error is recorded. And it is not a buggy verifier: reading the verifier's source looking for a wrong predicate finds a *correct* one, with an honest doc comment describing the question it answers. The mismatch is invisible in the item_type, invisible in the verifier, and invisible in the status. It is visible in exactly one place: **which producer filed the row.**
+- **the worked case:** design-audit category `dark_section` maps to item_type `hardcoded_section_colors` (`write_audit_findings_action.go:117`). That item_type's verifier re-runs the *discovery check's* population and filters it by `ReplaceHardcodedColors`' remit — "are there hardcoded dark hex literals left?". gamesdesign's defect was `background: var(--color-primary, #1a1a2e)`, **already a `var()`**, so the population was empty and the verifier returned `Resolved: true` with the detail *"no unlocked component carries a colour within the fixer's remit"*. Item `complete` in 3m17s, nothing written, defect still live four days later. `bugs_open/213`.
+- **the check — an asymmetry, not a number.** Split the route by producer and look at which one ever fails:
+  ```sql
+  SELECT status,
+         count(*) FILTER (WHERE spec->>'audit_source' IS NOT NULL) AS from_audit,
+         count(*) FILTER (WHERE spec->>'audit_source' IS NULL)     AS from_discovery,
+         count(*) AS total
+  FROM site_work_items WHERE handler_agent = '<agent>' GROUP BY 1;
+  ```
+  If one producer's items are **never** `unresolved`/`failed` while the other's routinely are, the grader almost certainly cannot see the first producer's defect. On this route it was 7 of 7 `complete` for the audit producer and 6 of 6 not-complete for the discovery producer.
+- **then prove it at the target, and use the CLOCK, not the content:** compare the target's `updated_at` against the item's `created_at`. A component last written **10.5 hours before the item existed** is proof no handler wrote it — re-reading the template only tells you it looks unfixed, which a re-render can muddy. (On gamesdesign the page *did* re-render 16 minutes after the close, which makes the row look more trustworthy, not less.)
+- **and check whether the item graded itself:** `spec->>'acceptance_test'` is written by the audit producer and, on this route, **read by nothing** — every consumer in the tree belongs to the `improve_tool` / tool-acceptance family. An item carrying its own pass condition and closed without it being read is the shape to distrust.
+- **source:** 2026-08-07, `bugs_open/213`, found from `bugs_open/212` by the `bugfix_122_contrast_ink_slots` lane. Related: `bugs_closed/077` (same detector, remit split), `RFC_017` (the other hole in this registry), owner ruling 2026-08-02 / RFC_010 narrowing 1 (N producers on one `item_type` is permitted **provided** the producer set and key shape are written down — this is the cost when they are not).

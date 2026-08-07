@@ -871,3 +871,43 @@ generic               | call_dispatch  |  439   (07-08 → 07-26, the old steady
 from one lane, still climbing, is worth an owner's attention on its own account.** Candidate
 neighbours, asserted as candidates only: `bugs_open/205` (2026-08-06, "two records retry forever")
 and `bugs_open/183`. I have not investigated and am filing nothing.
+
+## 19. 2026-08-07 08:3xZ — the code index is CURRENT, and §18a's blocker is cleared
+
+Migration **332** repointed `scheduled_tasks.code-index-refresh` from the dead
+`086_experience_loop` to the live `087_towards_multiple_domains`; nudged the schedule; the run
+completed. Full procedure and its six gotchas: `RUNBOOK` **R14**.
+
+```
+BEFORE  086_experience_loop          4,992 symbols  commit_time 2026-07-28 10:31:33Z
+AFTER   087_towards_multiple_domains 5,754 symbols  commit_time 2026-08-07 01:53:30Z
+        668 paths, ONE commit_sha, and 086 leftovers = 0 (clean cutover)
+```
+
+`commit_time` matches the remote pushed tip `2c3041f7d` exactly — the indexer fetches the pushed
+tip, so my own later local commits are legitimately absent.
+
+**Verified with a discriminating pair, not just a count.** The positive control is the very thing
+the `090` run reported "zero hits" for, and it cannot exist in a corpus frozen at 07-28:
+
+```
+agenterrors ....................  5   <- POSITIVE: created 2026-08-06 (RFC_012)
+save_sections_dedup ............  7   \
+discovery_checks ............... 490   |  the four sibling writers whose symbol
+content_data_envelope_guard ....  7   |  searches returned zero in §18a
+save_sections_claims_guard .....  5   /
+agenterrorz ....................  0   <- NEGATIVE: the LIKE discriminates
+```
+
+**So all three of §18a's blocking gaps are now resolvable, and the "DO NOT RESUBMIT" advice there
+is spent** — it was conditional on the stale corpus and that condition is gone. A fresh `090` on
+the `domain` divergence would now be able to check the location claim it could not check before.
+That is a live option, not a done thing: it costs a run, and **the `090` delivery defect in §18b is
+NOT fixed**, so anyone resubmitting must still recover the verdict from
+`collected_data->'verdict'` within 24h rather than expect a report artifact.
+
+**One thing this does NOT fix, and it is the reason R14 exists rather than a one-line note:** the
+pin is a constant, so it goes stale again silently the day work moves to `088_*` — daily job still
+green, `updated_at` fresh, `commit_time` ageing. 252 rejected the self-deriving alternative for
+reasons that still hold. **Repointing it is part of cutting a branch**, now recorded in
+`LANDMINES.md`, `RUNBOOK` R14 and the memory index.

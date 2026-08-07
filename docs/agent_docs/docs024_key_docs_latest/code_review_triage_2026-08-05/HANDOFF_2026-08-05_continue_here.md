@@ -266,8 +266,15 @@ as its own content — see NOTES and the comment at the warning site.
   `agent_error_log.go:LogAgentError`, which genuinely did its own INSERT — **both descriptions are
   right about different trees.** The loop flagged its own staleness in its `code_requests`
   (`bugs_open/108`'s fix working as designed: it reports stale, it does not claim fresh).
-  **⚠ DO NOT RESUBMIT until the code index moves** — same run, same answer, another round wasted.
-  The index ref is pinned by migration 252 to `086_experience_loop` and wants `'main'`.
+  ~~**⚠ DO NOT RESUBMIT until the code index moves**~~ **BLOCKER CLEARED 2026-08-07 08:3xZ — the
+  index is now CURRENT, so a resubmission would be productive (NOTES §19, `RUNBOOK` R14).**
+  Migration **332** repointed it to `087_towards_multiple_domains`: **5,754 symbols, `commit_time`
+  2026-08-07 01:53:30Z, 086 leftovers 0**, and the positive control is decisive — `agenterrors`
+  now returns **5** symbols (negative control `agenterrorz` → 0). All three of §18a's gaps are
+  resolvable. **NB the ref was NOT set to `'main'`** as 252's trigger said: main was HEAD−4,594
+  versus the stale pin's HEAD−2,365, so that would have doubled the staleness.
+  **If you do resubmit, §18b's delivery defect is NOT fixed** — recover the verdict from
+  `collected_data->'verdict'` within 24h rather than expecting a report artifact.
   **⚠ AND: the verdict was nearly LOST — read the new `LANDMINES` entry before you run any `090`.**
   The item finished `complete`, all three orchestrations `COMPLETED`, and `diagnosis_artifacts` held
   **5 rows, every one `kind='bundle'`, zero reports**. The verdict survived only in
