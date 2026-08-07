@@ -22051,3 +22051,106 @@ prior art to license a shape — which this repo's council explicitly rewards �
 cited case's *mechanism* matches, not just its phrasing. Sibling entries: the pod-age entry
 (2026-08-06) and the "clearly right" entry (2026-08-07), both the same root shape — a
 convenient answer accepted before the instrument was checked.
+
+## 2026-08-07 — caught not measuring, I "corrected" myself to a prescription I also did not measure — and it was backwards
+
+**Yesterday's error, already logged above:** I argued that the `agenterrors` conversion moving
+nine sites from `domain=NULL` to `domain=''` was "measured inert", without grepping
+`LANDMINES.md`, where the trap was filed a day earlier with `agenterrors.go` in its own
+footprint. The council's read-only check found it. Fair hit.
+
+**Today's error is the correction I wrote in response.** The landmine says `WHERE domain IS
+NULL` sees 1.3% of the rows that have no domain. From that true observation I concluded — and
+recorded in RSH-008, in the lane HANDOFF and on the landmine itself — that *"adding the
+`NULLIF` is the real fix and is NOT done"*, leaving it as the one piece of follow-up code the
+verdict implied. **I never queried whether it would help. It would not: it is a regression.**
+
+**The measurement, taken this morning after the conversion went live:**
+
+```sql
+SELECT CASE WHEN occurred_at >= '2026-08-07T05:47:39Z' THEN 'post-roll' ELSE 'pre-roll' END,
+       count(*) FILTER (WHERE domain IS NULL), count(*) FILTER (WHERE domain = ''),
+       count(*) FILTER (WHERE domain <> ''), count(*)
+FROM agent_error_log GROUP BY 1;
+-- post-roll:   0 NULL |     29 '' |    16 real |     45
+-- pre-roll:  128 NULL | 13,885 '' | 4,762 real | 18,775
+```
+
+Zero NULL rows since the roll, and all 128 historical NULL rows come from sites this
+conversion changed (nine groups, newest 2026-08-05, all pre-roll). **The table has converged
+on `''` and the reaper will empty the NULL bucket within 14–30 days.** Adding the `NULLIF`
+would push 100% of new rows into the shape 0.9% of rows use, re-split a just-converged table,
+and strand 13,885 rows behind a `domain IS NULL` query that would newly *appear* to work.
+
+**The reasoning error, which is the transferable part.** The landmine describes a *reader*
+problem: "`domain IS NULL` undercounts, so ask `COALESCE(domain,'') = ''`". I silently
+promoted it to a *writer* prescription: "so writers should produce NULL". Those are different
+claims and only the first was evidenced. Under review pressure the second felt like the
+rigorous, self-critical option — it conceded more — and conceding is not the same as being
+right. **Both my errors here have one root: a durable claim about a shared table's semantics
+made without running a query. Being caught not measuring is a prompt to measure, not a
+licence to adopt the catcher's framing.**
+
+**A supporting argument I had also not checked.** I read the `NULLIF($1,'')::uuid` on
+`site_id`/`work_item_id` as this table's null discipline, which domain should match. It is
+not: those are **uuid** columns and `''::uuid` raises. It is a type necessity. `domain` is
+`text`. One `\d agent_error_log` would have shown me that, and I had already run one.
+
+**The cheap check that would have caught both**, before writing "the real fix" anywhere:
+
+```sql
+-- does the proposed shape MATCH what the table is actually converging on?
+SELECT count(*) FILTER (WHERE domain IS NULL), count(*) FILTER (WHERE domain = '')
+FROM agent_error_log WHERE occurred_at > now() - interval '6 hours';
+```
+
+**What it turned up as a bonus, which is why measuring beats conceding.** Re-locating the
+writers (rather than trusting my own file:line table) found a **third** live INSERT site the
+original census missed because it grepped `platform/` only —
+`internal/agents/contentcreator/claims_guard.go:184`, which omits `domain` entirely and is the
+last latent NULL producer — and that it **cannot** use the shared writer at all, because
+`contentcreator` holds a `*pgxpool.Pool` while `agenterrors.Write` takes a `*sql.DB`. So
+RSH-008's "the ONE writer" is true of the `database/sql` half of the estate only. **Neither
+fact would have surfaced from arguing about `NULLIF`.**
+
+
+## 2026-08-07 — "it rides an already-enabled check, so it cannot land inert": ENABLED is not DRIVEN (bugfix_071_fragment_blindspot)
+
+**The claim.** The whole design rationale for shipping bugs_open/071's fragment
+detection as an *arm* on `check_phantom_internal_links` rather than as a new check
+was that a new check needs an entry in a discovery agent's `checks` array, and a
+platform bug (`bugs_open/093`) already exists where a correct fix has never once
+executed because that step was never taken. I wrote "so it cannot land inert" — or
+words to that effect — into **four** places: the PLAN, the concept-register entry
+LNK-031, the fix commit message, and a new 016b corollary offered as a
+generalisable lesson. The council read it too; no seat challenged it.
+
+**What is true.** The check IS enabled — that half is right, verified in live
+`agent_definitions`, and it is why no config change was owed. But the agent
+carrying it, `completeness-discovery-agent`, is **dispatched by hand**: 9 days out
+of the last 21, 1–6 sites each time, most recently 2026-08-05. `improvement-sweep`,
+which would drive it fleet-wide, is `enabled=f` and last fired 2026-05-02. So the
+arm shipped, is correct, and **has still never run on a real site** — and the zero
+`dead_fragment_link` rows I might have quoted as "the fleet is clean" is actually
+"the check has not run", the two-causes-for-one-zero trap.
+
+**What caught it.** Asking, a day later, whether any real finding had appeared —
+and then not stopping at the zero. The discriminating query was for items of *any*
+of the check's four types since my own induction run: also zero, which cannot mean
+the estate is clean and can only mean nothing dispatched.
+
+**The cheap check that would have.** One query, before asserting a mechanism is
+driven:
+`SELECT created_at::date, count(*) FROM site_work_items WHERE created_by='<agent>' GROUP BY 1 ORDER BY 1 DESC;`
+It takes seconds and it is the same query I would have run had I been auditing
+someone else's claim. **"Enabled" and "driven" are two questions**; I checked the
+`checks` array, found my check in it, and treated that as both answers.
+
+**Why it is worth a row despite the fix being sound.** The code is right and the
+induction proved it. What was wrong is a *claim about coverage* — the most
+quotable sentence I wrote — and it had already propagated into the concept register
+and into 016b as advice to other sessions, which is precisely how a plausible
+overclaim becomes platform folklore. It is also self-similar to the bug I was
+avoiding: `093`'s file says its own lesson is "a mechanism made correct and then
+guarded behind something that never runs", and I reproduced it one level out while
+citing it. Corrected in all four places on 08-07.
