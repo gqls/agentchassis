@@ -223,3 +223,44 @@ at all. **Nothing dispatched.** PLAN D7's recommendation is amended accordingly:
 is no longer "do it unasked" — it wants the same two-page canary-and-diff discipline as any
 other rerender on this estate, and it is not urgent enough to spend that on ahead of the
 owner's call on the three that matter.
+
+## 2026-08-07 — route 2 AUTHORISED by the owner, and the canary is dispatched
+
+Chassis rolled to **v1.0.1262** overnight (both pods, started 05:47Z).
+
+**Pre-flight, all four checks passed before anything was queued:**
+- `load_current_section_content` **is wired into the live `page-build-handler` workflow**
+  (`load_current_section_content → spawn_content_writer`), read from `agent_definitions`.
+- The **binary carries it**, both replicas, with a negative control:
+  `load_current_section_content`=2, `edit_live`=4, `zzz_no_such_symbol_203`=**0**. So this is
+  the pipeline being proven, not my spelling.
+- The channel has **already completed real work**: 7 `content_rewrite` rows fleet-wide with
+  `spec.mode='edit_live'` and status `complete`. My earlier "maturity unverified" caveat is
+  discharged.
+- **The defect is live on the SERVED page**, not merely stored — fetched
+  `https://finetuning.uk/guides/tool-ai-data-risk-checker-guide.html` (29,396 bytes) and it
+  carries `<a href="/contact.html" class="btn btn-primary">Run the Risk Checker`.
+
+**Canary chosen deliberately: `finetuning.uk/guides/tool-ai-data-risk-checker-guide.html`.**
+It is the strongest of the four mismatches (a tool CTA whose target provably exists) and, at
+**2 days stale** (rendered 08-05), it carries far less rerender blast radius than the 8–9-day
+blog pages F21 warned about. Before-state pinned in
+`SQL_2026-08-07_canary_cta_repair_finetuning_risk_checker.sql`: hero 2908 B /
+`dd767cfb…`, article-body 12440 B / `b958d624…`, call-to-action 2443 B / `b2d1e81a…`; the
+hero's `content_data` holds `cta_text` and **no** `cta_url`, confirming the href was
+fabricated at render time and is not recoverable from stored data.
+
+**Dispatched 08:09:46Z** — `content_rewrite` / `mode=edit_live` / `status=triaged` /
+`handler_agent=page-build-handler`, then `build-dispatch-loop` fired at the site by hand
+(it is scheduler-driven with a fixed `system.internal` input, so it never fires for a real
+site on its own). `kcat -P` exit 0 was **not** treated as evidence: verified at the DB —
+item `claimed` by `build-dispatch-loop` at 08:09:46.18Z, child orchestration
+`c5a254b8` at `spawn_content_writer` by 08:10:07Z, then `call_content_writer`, then a
+research-agent spawn at 08:10:58Z. The chain is running.
+
+**The instruction is deliberately narrow**: set the hero's `cta_url` to
+`/tools/tool-ai-data-risk-checker.html` "exactly as written", keep the existing label, and
+change no prose — with an `acceptance_test` naming the other two slots as needing to be
+unchanged. The URL is derived from a real `pages` row, and the framework writes the copy;
+naming an exact URL in `suggestion` follows `create_tool_cross_link_items.go`'s own
+precedent, so this is not hand-authored content.
