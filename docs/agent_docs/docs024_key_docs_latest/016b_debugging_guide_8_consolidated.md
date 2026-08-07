@@ -11095,3 +11095,36 @@ assets returning 200**, so the new check's expected yield on day one was zero.
 rather than repaired would leave its item open, because retraction fires only on a
 positive observation. The revert step tested that claim for free and it held. A
 documented limitation nobody has exercised is a guess with good grammar.
+
+### An LLM-minted cross-reference is free text wearing a foreign key's clothes — nothing validates it at mint, and every consumer that "works" is just tolerating it (`bugs_open/214`, 2026-08-07)
+
+**The trap.** A planner LLM emits `imagery.sections` keyed `"page:ordinal"`, and
+`flattenImageryBlock` copies the key verbatim into `site_plan_imagery.scope_ref`.
+It looks like a foreign key; it is a string the model composed, checked against
+nothing. Measured 2026-08-07: 5 of 131 section-scope rows fleet-wide reference a
+section that does not exist — one minted out of range (`about:4` on a 4-section
+page, same-day, newest prompt), four minted against a page-name variant
+(`about:2` where the plan says `about-index`). All four of those have **active
+generated assets** no build can reach: `bugs_open/114`'s symptom (imagery
+generated, deployed, never referenced) arrived through this door.
+
+**Why it stays invisible:** the consumers are ACCIDENTALLY tolerant. The build
+join is `scope_ref LIKE <page> || ':%'` — it ignores the ordinal, so a wrong
+ordinal degrades silently to "right page, unlabelled section"; only the
+page-name flavour drops rows, and dropped imagery looks like imagery nobody
+asked for. Meanwhile the lock carry-forward matches exact `scope_ref` across
+plan rewrites, so ordinal drift between plans quietly fails to carry a lock (or
+carries it onto the wrong section's imagery).
+
+**The transferable checks:**
+- Wherever an LLM output field is consumed by *matching* rather than *reading*,
+  ask what validates it at the door. If the answer is a consumer's LIKE pattern,
+  nothing does.
+- Symptom "generated imagery/asset never appears on the page" → run the orphan
+  census in `bugs_open/214` before blaming the renderer: the reference may
+  point at a section that never survived planning (or never existed).
+- When a positional key (`page:ordinal`) is minted BEFORE a filter pass
+  (validate_plan drops unresolvable/nameless entries), one drop mis-keys every
+  later ordinal on that page. The census reads 0 today only because the last
+  run dropped nothing; RFC_016 §1's rule (the field travels INSIDE the entry)
+  exists because of exactly this.
