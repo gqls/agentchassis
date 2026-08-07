@@ -33,6 +33,33 @@ SELECT created_at, body FROM doc_notes
  ORDER BY created_at DESC LIMIT 3;
 ```
 
+## Reading a finding: the KIND decides the fix, and two of them are opposites
+
+| kind | means | the fix |
+|---|---|---|
+| **C** | died on the **clock**, not the cap | **Do NOT raise the cap** — it is already unreachable. Stream, shrink the unit, or use a faster model. |
+| **T** | has truncated **at** this cap | Raise the cap, or shrink the unit. Check the SHAPE first (below). |
+| **N** | near-miss, peak ≥ 95% of cap | Watch, or pre-emptively raise. |
+| **P** | pressure, p95 ≥ 85% of cap | The body of the distribution is near the ceiling. |
+
+**Before acting on a T, check the shape, not the count** — a big truncation number can
+be one stuck record on a retry loop rather than cap drift, and those want opposite fixes
+(`bugs_open/205` is the worked case):
+
+```sql
+SELECT md5(prompt_rendered), count(*), count(*) FILTER (WHERE success) AS ok
+  FROM llm_call_log WHERE step_name='X' AND created_at > now() - interval '7 days'
+ GROUP BY 1 ORDER BY 2 DESC;
+-- many distinct prompts near the cap = genuine cap drift
+-- one or two prompts repeating   = a stuck item; a bigger cap treats the symptom
+```
+
+**The clock ceiling in tokens.** Output runs ~98 tok/s on Sonnet 5 and 47–82 on Sonnet
+4.6 against a 600s non-streaming HTTP timeout (`aiservice/anthropic.go:72`; ollama is
+120s at `ollama.go:55`). So the reachable ceiling is ~58,000 tokens on Sonnet 5 and
+~28,000–42,000 on Sonnet 4.6 — **a `max_tokens` above that cannot be reached whatever
+the config says.**
+
 ## Re-run the measurement by hand (thresholds live in the pre_query, not here)
 
 ```sql

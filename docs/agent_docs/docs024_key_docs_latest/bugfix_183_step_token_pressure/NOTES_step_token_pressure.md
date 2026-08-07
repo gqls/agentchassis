@@ -235,3 +235,91 @@ than recalling:
    confirmed only what its author already believed. Fix recommended (add the timeout
    strings to the pre_query's vocabulary) but **not applied** — it changes a live shared
    check and belongs in a deliberate edit, not a footnote.
+
+## 2026-08-06 (evening) — closing the blind spot, and what the enumeration actually found
+
+Owner asked for the fix. **I started with the check I said I should have run first** —
+enumerate the error families in `llm_call_log` rather than write a predicate from what
+I expected to find:
+
+```sql
+SELECT left(error_message,52), count(*) FROM llm_call_log
+ WHERE created_at > now()-interval '90 days' AND error_message IS NOT NULL
+ GROUP BY 1 ORDER BY 2 DESC;
+```
+
+It immediately paid for itself, and it **corrected my own summary from two hours
+earlier**:
+
+- **The timeout blind spot was LATENT, not live.** Zero `context deadline exceeded` and
+  zero `Client.Timeout` rows in 90 days; the clock has **never** fired on Anthropic at
+  all. All 231 in the whole history are **ollama** (120s client), April 2026. The 34
+  recent `context canceled` rows I had cited as evidence are **not** clock exhaustion —
+  median latency **23s**, peak 110s. Ordinary caller-side cancellation. Corrected in
+  `SUMMARY_2026-08-06b`.
+- **But there WAS a live gap I had not suspected**, and only the enumeration could have
+  shown it: `RETRY (bugs_open/119) TRUNCATED and tolerated` is a real cap-reaching
+  truncation (`output_tokens = max_tokens = 120`) carrying **neither** matched string.
+  A genuine truncation scored as an ordinary call. The other two wrappers were fine —
+  `TOLERATED (…): response truncated: …` and `REFUSED (bugs_open/076 …): response
+  truncated: …` both carry the original text.
+
+**So the lesson from MISSTEP 6 sharpens.** I had framed it as "I chose the wrong error
+strings". The truer version: **I never asked what strings exist.** Enumerating a column
+before filtering it is a two-minute query that finds both the thing you feared and the
+thing you did not know to fear — and it found the second one here, which was the real
+one.
+
+## The design decision that took the most thought
+
+**Do NOT fold clock kills into the truncation count.** It is tempting (one more `OR` in
+the vocabulary, one number goes up) and it would be wrong:
+
+- **T = the cap was reached** ⇒ raise the cap, or shrink the unit.
+- **C = the cap could NOT be reached** ⇒ raising it is **actively wrong**; the bigger
+  number is unreachable too. The levers are streaming, a smaller unit, a faster model.
+
+Scoring a clock kill as `frac = 1.0` merges them and makes the instrument recommend the
+one action that cannot work. So `C` is its own kind, ranks above `T`, and the note text
+says why in the body where an operator will actually read it.
+
+Two sub-decisions, both forced by data rather than taste:
+
+- **The C arm requires no known cap.** The only real case — `scrape_prices`, 246 calls,
+  Apr 2026, peak **600,001 ms** — recorded **no `max_tokens` at all**. Keying C on
+  (step, cap) like the T/N/P arms would have made the detector blind to the single case
+  that proves it works. Nearly did this by reflex, for symmetry with the existing CTEs.
+- **`context canceled` needs a 480,000 ms floor** (80% of 600s), or the arm fires on
+  every pod restart — 34 rows at a 23s median would all have flagged.
+
+Also kept deliberately: the `NOT LIKE 'review_%'` pattern is **unescaped**, matching
+FIX-058's `LIKE 'review_%'` exactly. `_` is a single-char wildcard, so escaping mine
+without escaping theirs would open a step name that lands in **neither** task's
+population — the partition is only exact while both patterns are byte-identical.
+
+## Verification run (all four, 2026-08-06 evening)
+
+1. **Pinned known case — the disconfirmable one.** As-of 2026-04-10 the check emits
+   `C scrape_prices@clock — 246 call(s) died on the CLOCK, peak 600001ms`. v1 could not
+   see this at all. **A detector that cannot fire on a real instance of what it detects
+   is inert, and this is the run that proves it is not.**
+2. **Live, unchanged.** Same 10 cap findings, same digest
+   (`375838c62973a66d3bcb50de672bb95e`) as this morning's note — so the widened
+   vocabulary did **not** start crying wolf, and dedup correctly suppressed a duplicate
+   note.
+3. **Body renders, no NULL-collapse.** Rendered the full note body as a SELECT without
+   inserting. Worth doing explicitly: the body is one long `||` chain, and a single NULL
+   anywhere in it makes the *entire* body NULL — a note that exists and says nothing.
+4. **C-kind body renders too** — re-ran (3) pinned to April so a real C line flowed
+   through the concatenation, not just the flagged set.
+
+## NOT done, and why
+
+**FIX-058 (`council-seat-token-pressure`) has gap 1 identically** — vocabulary is
+`stop_reason=max_tokens` only, and the one observed `TRUNCATED and tolerated` row is on
+`review_adoption_guardian`, squarely in **its** population, not mine. One `OR` would fix
+it. I have not touched it: `bugs_closed/138` is closed and owes nothing, but editing
+another lane's live shared check unilaterally is precisely the config-clobber pattern
+this estate keeps getting bitten by, and `bugs_closed/019` records two threads declining
+the same shortcut on the same day for the same reason. Flagged here and in the summary
+for whoever picks it up.

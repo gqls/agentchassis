@@ -106,10 +106,27 @@ dies on the clock instead matches neither, *and* logs `output_tokens = NULL`, so
 excluded from the population entirely rather than counted as pressure. A step that
 moves from truncating to timing out would look like a step that got *better*.
 
-This is not hypothetical wiring — 35 rows carry
-`Post "https://api.anthropic.com/v1/messages": context canceled`, most recently
-2026-08-04. (Note those are caller-side cancellations, a different mechanism from the
-600s HTTP timeout; both produce the same blind spot.)
+> **CORRECTED 2026-08-06, later the same day — I overstated this, and the correction
+> matters because it changes how urgent the gap is.** The paragraph above originally
+> continued: *"This is not hypothetical wiring — 35 rows carry `context canceled`,
+> most recently 2026-08-04."* Those rows are **not clock exhaustion**. Measured:
+> 34 `context canceled` rows in 90 days with **median latency 23s and peak 110s** —
+> ordinary caller-side cancellation (pod restart, parent orchestration cancelled),
+> nowhere near the 600s limit. What caught it was enumerating the error families
+> instead of grepping for the string I expected.
+>
+> **The honest position:** in 90 days there are **zero** `context deadline exceeded`
+> and **zero** `Client.Timeout` rows, and the clock has **never** fired on Anthropic
+> at all. All 231 such rows in the entire history are **ollama** (120s client) in
+> April 2026. So the blind spot was a **latent** hole, not a live incident — real
+> mechanism, no current victim.
+>
+> **But the enumeration found a live gap I had not suspected**, which is the argument
+> for doing it: `RETRY (bugs_open/119) TRUNCATED and tolerated` is a genuine
+> cap-reaching truncation (`output_tokens = max_tokens = 120` on the observed row)
+> carrying **neither** of the strings the check matched on. A real truncation, scored
+> as an ordinary call. It sits on `review_adoption_guardian` — FIX-058's population,
+> not this one, so **that instrument still has this gap** (see §6).
 
 ## 5. What this means for the classifier cap we just raised
 
@@ -124,19 +141,46 @@ would go silently absent), so the extra headroom costs nothing and the runaway c
 ~10× the observed maximum. But the honest statement is that **the effective ceiling for
 this step is ~28,000–42,000 tokens of wall-clock, not the 64,000 in the config.**
 
-## 6. What I would do about the blind spot (not done, recommend)
+## 6. What was done about the blind spot
 
-Three options, cheapest first:
+**DONE 2026-08-06** — `SQL_2026-08-06c_close_the_clock_blind_spot.sql`, applied and
+verified. Two changes, and the design decision between them is the load-bearing part:
 
-1. **Teach the monitor to see timeouts.** Add `context canceled` / `Client.Timeout` to
-   the pressure check's error vocabulary and score them as cap-reaching. One edit to a
-   live `scheduled_tasks` pre_query, no code, no roll. Closes the blind spot for every
-   step at once. **Recommended.**
-2. **Stream the Anthropic client.** Removes the wall-clock ceiling properly and unlocks
-   the model's real 128K. This is a platform change to a seam every agent uses —
-   architecture scope, an RFC, and not worth it while nothing is near the limit.
-3. **Nothing.** Defensible today: no step is near 28,000 except `verdict`, which peaked
-   at 31,860 and is the one population where this could bite first.
+1. **Truncation vocabulary widened** to include `TRUNCATED and tolerated` (the live gap
+   above). The other two wrappers — `TOLERATED (step continued on the partial): …` and
+   `REFUSED (bugs_open/076 …): …` — both carry the original `response truncated:` text
+   and were already matched.
+2. **A new `C` kind for clock-limited calls, deliberately NOT folded into `T`.** This is
+   the point: a truncation means *the cap was reached*, so the remedy is a bigger cap or
+   a smaller unit. A clock kill means *the cap could not be reached*, so raising it is
+   **actively wrong advice** — the new number is unreachable too. Scoring a clock kill
+   as `frac = 1.0` would have merged them and produced exactly that wrong
+   recommendation. `C` outranks `T` when a step has both.
+
+Two sub-decisions worth keeping:
+
+- **The clock arm requires no known cap.** The only real case in the history —
+  `scrape_prices`, 246 calls, April 2026, peak **600,001 ms**, i.e. the literal HTTP
+  timeout — recorded **no `max_tokens` at all**. Keying it on (step, cap) would have
+  made the detector blind to the one case that proves it works.
+- **`context canceled` needs a latency floor of 480,000 ms** (80% of the timeout), or
+  the arm fires on every pod restart — 34 such rows in 90 days at a 23s median.
+
+**Proven, not asserted:** pinned to 2026-04-10, the check now emits
+`C scrape_prices@clock — 246 call(s) died on the CLOCK, peak 600001ms`, a case v1 could
+not see at all; and the live run is unchanged at the same 10 cap findings with the same
+digest, so it did not start crying wolf.
+
+**Still open, and not mine to close:** FIX-058 (`council-seat-token-pressure`) has gap 1
+identically — its vocabulary is `stop_reason=max_tokens` only, and the observed
+`TRUNCATED and tolerated` row is on `review_adoption_guardian`, squarely in *its*
+population. Editing another lane's live check unilaterally is the config-clobber
+pattern this estate keeps getting bitten by, so it is flagged rather than fixed.
+
+**Deliberately not done: streaming the Anthropic client.** That removes the wall-clock
+ceiling properly and unlocks the real 128K, but it is a platform change to a seam every
+agent uses — architecture scope, an RFC, and not worth it while nothing is near the
+limit.
 
 ## 7. The one number to watch
 

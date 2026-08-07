@@ -89,7 +89,8 @@ duplicate pair collapsed; LCO-005/006/007 added post-freeze).
   output distribution runs to its token cap — p95, peak, and truncation count — and
   writes ONE `doc_notes` row when the flagged set CHANGES (md5 digest in
   `subject_key`, 30-day dedup look-back: an event, not a heartbeat). Thresholds:
-  T any truncation · N near-miss peak ≥ 95% of cap · P pressure p95 ≥ 85%, at n ≥ 5.
+  **C died on the CLOCK** · T any truncation · N near-miss peak ≥ 95% of cap ·
+  P pressure p95 ≥ 85%, at n ≥ 5 (no n floor for C).
   It is **FIX-058 (`council-seat-token-pressure`) generalised past `review_%`**; the
   two tasks partition the fleet exactly, and the `review_%` naming convention IS the
   contract between them. `fire_message=false` means the `pre_query` is the whole
@@ -108,6 +109,18 @@ duplicate pair collapsed; LCO-005/006/007 added post-freeze).
   `llm_call_log` rather than a definitions jsonb path); RFC_006 (live config is
   guarded by a scheduled check, never a commit-time hook); RFC_012 second sitting
   ("online within the framework")
+- **C AND T WANT OPPOSITE FIXES — this is the reason C is a separate kind (added
+  2026-08-06).** T means the cap was REACHED: raise it, or shrink the unit. C means the
+  cap could NOT be reached, because the call died on wall-clock first — the chassis does
+  not stream (`aiservice/anthropic.go:72` and `gemini.go:185` are 600s blocking HTTP
+  clients; `ollama.go:55` is 120s). **Raising a cap in response to a C is actively wrong**
+  — the bigger number is unreachable too. Scoring a clock kill as `frac = 1.0` would have
+  merged the two signals and produced exactly that recommendation, which is why it is
+  counted separately and outranks T. The clock converts to a token ceiling: ~98 tok/s on
+  Sonnet 5 and 47–82 on Sonnet 4.6 ⇒ ~58,000 and ~28,000–42,000 tokens respectively.
+  Two sub-decisions: the C arm requires **no known cap** (the only real case in the
+  history, `scrape_prices` Apr 2026, recorded none), and `context canceled` needs a
+  **480,000 ms floor** or it fires on every pod restart.
 - **LANDMINE — the check reports a NUMBER; the SHAPE is a different question.** A `T`
   flag means "this step truncated", not "this step's cap is too small for its
   workload". On its first run the top line (64 truncations) was **two byte-identical
