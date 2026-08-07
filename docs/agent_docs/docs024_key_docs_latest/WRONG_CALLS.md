@@ -21895,3 +21895,70 @@ cost is not the thing you are changing — it is everything that changed since.*
 **Sibling entries:** the 2026-08-06 pod-age entry above (same failure — a convenient answer
 believed before the instrument was checked), and
 `[[a-stale-page-holds-every-improvement-since-it-rendered]]`.
+
+## 2026-08-07 — bugfix-205 lane: a naive timestamp read against local wall-clock manufactured a 65-minute contradiction
+
+While reading the poison-pill loop live, I held for ~10 minutes the belief that 33
+`collection_tasks` rows claimed at "11:45:43" had sat `in_progress` for over an hour
+un-reaped — which contradicted the 20-minute reaper arm I had just read, and nearly
+sent me hunting for a reason the reaper skips them. The rows were 7 minutes old.
+`started_at` is `timestamp without time zone` written in UTC; my wall-clock was BST.
+Caught by: running `SELECT now(), current_setting('timezone')` when the
+contradiction refused to resolve. Cheap check that would have prevented it: run that
+one-liner BEFORE comparing any naive column against "now" — a naive timestamp is not
+in your timezone until the session proves it. Not written into any doc before it was
+caught (NOTES records it as a false alarm), so the cost was time, not a poisoned
+handoff — but the shape (a contradiction between a fresh code-read and a fresh
+measurement) deserved the check first, not a theory. Tally candidates: this is the
+first TZ row; if a second appears, a `\timing`-style preamble snippet in the shared
+runbooks is the automation.
+
+---
+
+## 2026-08-07 — I argued "measured inert" about `agent_error_log.domain` without grepping LANDMINES, where the trap was already written down — by another lane, the day before
+
+**The claim.** Converting 18 hand-copied INSERTs onto the shared writer (RFC_012 option B,
+`f930de86b`) moves nine sites from `NULLIF(domain,'')` to storing `''`. I measured the live
+table (9,964 `''` vs 128 NULL), read the one reader that filters on domain
+(`diagnose_load_runtime_action.go:267`), found it treats `''` and NULL identically, and
+wrote **"measured inert for the known readers"** into the commit message, NOTES, the
+concept register entry and the council submission.
+
+**What caught it.** The council gate. A reviewer seat pulled a landmine I had never seen —
+`` `WHERE domain IS NULL` on `agent_error_log` sees 1.3% of the rows that have no domain ``,
+filed 2026-08-06 by another lane, **with `platform/orchestration/agenterrors/agenterrors.go`
+in its own footprint**. It says the same thing I measured and then says the part I missed:
+a census question — "how many rows are unattributed?" — returns 128 instead of ~10,077,
+promptly and plausibly.
+
+**Why my claim was not false, and why that is not the point.** Both statements hold: the
+one *filtering* reader is genuinely indifferent, and `''` was already the majority. But my
+change moves nine more writers out of the NULL bucket, so the `domain IS NULL` undercount
+gets **worse**, and I shipped that without saying so — because I only asked "does this break
+a reader?", never "does this enlarge a trap someone has already documented?". The landmine
+had done the harder half of my own risk analysis a day earlier and I re-derived the easy
+half from scratch.
+
+**The cheap check I skipped**, and it is one command:
+
+```bash
+grep -n "agent_error_log\|\.domain" docs/agent_docs/docs024_key_docs_latest/LANDMINES.md
+```
+
+**Why I did not run it, which is the transferable bit.** The `SessionStart` hook surfaces
+landmines matching files **already dirty in the tree**. `agenterrors.go` was not dirty this
+session — I was calling it, not editing it — so the entry naming it was never shown, and I
+read the hook's silence as coverage. *This is written down in my own memory index in those
+words* ("grep LANDMINES for the SYMBOL you are about to trust — the hook only matches files
+already DIRTY, so the shared helper you are reaching for is never shown"), and I still did
+not do it. **The rule needs to fire on "I am about to make a durable claim about a shared
+table's semantics", not on "I am about to edit a file"** — the trigger I had was the wrong
+one, not missing.
+
+**Also recorded, without resolving it:** the reviewer's own re-run of my census returned
+**13,765** empty-domain rows where I measured **9,964**, hours apart, with the NULL count
+**identical at 128**. The direction of the claim is unaffected and the discriminating
+figure (128) reproduced exactly. The gap is unexplained — plausibly accretion plus a
+different bucket definition, but I have not proved that, so it stays [UNRESOLVED] rather
+than being smoothed over. The table is reaped on a 14/30-day schedule, so **no census of it
+is ever "all history"** — a caveat the landmine states and my figures did not.

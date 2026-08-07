@@ -23,21 +23,28 @@ at commit `3851e90b5` — read that block, it is the authority, not this file):
 | **B rest**: 18 site conversions + tests | `f930de86b` | **DONE, full `./platform/...` green — NOT LIVE** |
 | **(d) detector**: `--shared-output-fields` | `abf5e8266` | **DONE, proven, live-run green** — a `cmd/` binary, not in the chassis image, so it needs no roll |
 | Concept register: RSH-008 + WFA-011 | 08-07 | **DONE** (the standing ruling's debt from the split commits, now paid) |
-| Council round for the whole code set | corr `5c2bc265-84ac-452b-bd8b-22fd7b875427` | **SUBMITTED 08-07 — VERDICT NOT READ** |
+| Council round for the whole code set | corr `5c2bc265-84ac-452b-bd8b-22fd7b875427` | **REVISE** — read, acted on, **resubmission owed** (see below) |
 
-### ⚠ FIRST THING: read the council verdict
+### ⚠ FIRST THING: the verdict came back **REVISE** — resubmit, do not re-argue
 
-Submitted 2026-08-07, covering B **and** the (d) detector. The code is already on the
-shared branch, so a REVISE/REJECTED must be acted on, not filed.
+Corr `5c2bc265-84ac-452b-bd8b-22fd7b875427`, gating objection from `editquality`. **Read
+the NOTES entry for 2026-08-07 before touching it.** In short:
 
-```sql
-SELECT current_step, status FROM orchestration_states
-WHERE collected_data->'input_data'->>'fix_correlation_id' = '5c2bc265-84ac-452b-bd8b-22fd7b875427';
-SELECT body FROM doc_notes WHERE categories ? 'council-gate' ORDER BY created_at DESC LIMIT 1;
-```
-A missing row is latency, not a dropped dispatch — publish→run start measured at 29 min.
-`f930de86b` carries `Council-Submitted:`, so 098 credits it automatically once approved;
-**do not** write `Council-Reviewed:` anywhere without reading an approved verdict.
+- **The objection is about the SUBMISSION and it is correct.** My prose named files that
+  were not in the `edits` array (7 entries, 25 files changed), so I described work the
+  council could not judge. **Fix:** declare the array a REPRESENTATIVE SAMPLE in the
+  summary, name the file count, list the distinct shapes it covers, and stop referring to
+  files it does not contain. Then:
+  `RESUBMIT_CORR=5c2bc265-84ac-452b-bd8b-22fd7b875427 ./…/097_TRIGGER_council_review_v1.sh <file>`
+- **It also caught a real miss, already acted on:** a landmine on `agent_error_log.domain`
+  existed a day before I argued NULL→`''` was "measured inert", with `agenterrors.go` in
+  its own footprint. Correction written onto that landmine, `WRONG_CALLS.md` entry filed,
+  and **RSH-008 now states the real fix — give the shared writer a `NULLIF` on `domain` —
+  which is NOT done and is the one piece of follow-up code this verdict implies.**
+
+`f930de86b` carries `Council-Submitted:`, so 098 credits it automatically **if** a
+resubmission under this correlation is approved; **do not** write `Council-Reviewed:`
+anywhere without reading an approved verdict.
 
 ### ⚠ SECOND: the conversions are committed and NOT live
 
@@ -109,10 +116,11 @@ package would catch the slip.
   census and *before* it landed. That is the argument for the seam, not for a tidy-up.
 - **Nine sites gain `orchestration_id`** — the run join. `reconcile_superseded_reviews` also
   gains `step_name`.
-- **`domain` goes `''` where nine sites wrote NULL.** Measured, not assumed: 9,964 `''` vs
-  128 NULL already live, and the only domain-filtering reader
-  (`diagnose_load_runtime_action.go:267`) treats them identically. Open review question,
-  recorded in RSH-008.
+- **`domain` goes `''` where nine sites wrote NULL.** The filtering reader
+  (`diagnose_load_runtime_action.go:267`) is genuinely indifferent — but a landmine filed
+  the day before already showed this makes the `domain IS NULL` census undercount WORSE,
+  and I missed it. **The real fix, NOT done: give `agenterrors.Write` a `NULLIF` on
+  `domain`.** See RSH-008, `WRONG_CALLS.md` 08-07, and NOTES 08-07.
 - **12 test arity pins updated to 13.** Two of them asserted a code/severity against SQL
   **literals** that are now bind parameters — both assertions were MOVED to the argument
   and pinned by value, not relaxed to `AnyArg`.

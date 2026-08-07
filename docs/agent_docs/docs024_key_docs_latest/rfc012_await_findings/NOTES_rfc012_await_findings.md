@@ -178,3 +178,45 @@ acceptance test for the next roll: after a build from a commit ≥ `f930de86b` i
 `2` on every replica.** It is a good needle precisely because it cannot be satisfied by a
 roll that happened to include someone else's work — the number only falls when these
 conversions are in.
+
+## 2026-08-07 — council verdict: REVISE. The objection is correct, and it caught a real miss
+
+Corr `5c2bc265-84ac-452b-bd8b-22fd7b875427` → `complete_revise`, **gating objection from
+`editquality`**, 7 seats abstained.
+
+**The gating objection is about the SUBMISSION, not the code, and it is right.** My prose
+asserted explicit provenance-setting at `component_link_repair`, `validate_page_content`'s
+link recorder and both envelope guards, and mentioned "four other updated test files" —
+**none of which appear in the `edits` array**. The array holds 7 entries (the cap is 8) and
+the change spans 25 files, so I described work the council was not shown and could not
+judge. The seat's read is exact: *"Either real edits are missing from the plan the council
+is asked to approve…"*. **Fix on resubmit: make the edits array the REPRESENTATIVE SET and
+say so explicitly in the summary — name the file count, state that the array is a sample
+chosen for the distinct shapes (merge door / provenance site / loop site / corrected
+comment / new-copy-found-mid-work / test arity), and stop describing files it does not
+contain.** Resubmit with `RESUBMIT_CORR=5c2bc265-84ac-452b-bd8b-22fd7b875427`.
+
+**The genuinely valuable finding — a seat's read-only check pulled a landmine I had never
+seen.** `` `WHERE domain IS NULL` on `agent_error_log` sees 1.3% of the rows that have no
+domain — three of the twenty writers store `''` ``, filed 2026-08-06 by another lane,
+**with `agenterrors.go` in its own footprint**. My NULL→`''` risk argument re-derived half
+of it from scratch and missed the other half: the *filtering* reader really is indifferent,
+but this conversion makes the `domain IS NULL` census undercount **worse**, and I shipped
+that without saying so. Actions taken: dated correction on the landmine itself (title left
+alone, it is the sync key); `WRONG_CALLS.md` entry for the check I skipped; RSH-008's open
+review question now cites it and states plainly that **adding the `NULLIF` is the real fix
+and is not done**.
+
+**Why I missed it, which is the transferable part.** The `SessionStart` hook only surfaces
+landmines for files **already dirty**. I was *calling* `agenterrors.go`, not editing it, so
+the entry naming it was never shown and I read that silence as coverage. My own memory
+index says to grep by SYMBOL for exactly this reason. **The trigger needs to be "I am about
+to make a durable claim about a shared table's semantics", not "I am about to edit a file".**
+
+**One unresolved discrepancy, left unresolved rather than smoothed.** The seat's re-run of
+my census returned **13,765** empty-domain rows against my **9,964**, hours apart — while
+the NULL count reproduced **exactly at 128**. The claim's direction is unaffected and the
+discriminating figure matched, but I have not explained the gap (accretion? a different
+bucket definition?), so it is marked [UNRESOLVED]. Note also what the landmine says and my
+figures did not: this table is reaped at 14 days resolved / 30 unresolved, so **no census
+of it is ever "all history"**.

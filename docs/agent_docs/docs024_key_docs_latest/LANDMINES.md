@@ -6041,6 +6041,22 @@ WHERE site_id = (SELECT id FROM sites WHERE domain = 'finetuning.uk') AND status
 - **added:** 2026-08-07, bugfix_205 lane
 
 ---
+> **CORRECTED 2026-08-07 (RFC_012 option B, `f930de86b`) — the headline count is now WRONG in
+> the direction that makes this trap WORSE, and the title is left unchanged only because it is
+> the `landmines-sync.py` key.** "Three of the twenty writers store `''`" was true when this was
+> filed. Since `f930de86b`, **every** converted writer in `platform/orchestration/actions/` goes
+> through `agenterrors.Write`, which passes `domain` as `$2` with no `NULLIF` — so nine sites
+> that used to store NULL now store `''` too, and the only writer still hand-copying its INSERT
+> (`store_generated_component_action.go:1353`) already stored `''`. **`domain IS NULL` is
+> therefore an even smaller and even less representative slice than the 1.3% measured here.**
+> Re-measure before quoting any figure on this line; do not carry the 1.3%.
+>
+> Recorded because the RFC_012 lane made exactly the mistake this entry exists to prevent: it
+> argued "NULL→`''` is measured inert" from ONE reader without grepping this file first (the
+> `SessionStart` hook only surfaces landmines for files already DIRTY, and that lane was
+> *calling* `agenterrors.go`, not editing it). The council gate caught it, not the lane. See
+> `WRONG_CALLS.md` 2026-08-07 and register entry **RSH-008**, whose stated open review question
+> — *should the shared writer `NULLIF` `domain`?* — is the real fix and is still open.
 
 ## `LogActionEntry`'s merge fills a provenance you meant to set — and every test in the package stays green
 
