@@ -103,7 +103,7 @@ Run 4, **`84c3da66-06c0-41a5-94dc-21fbf71260f0`** (the 213 mechanism), was **sti
 frozen at 08:23:59Z. Same shape as run 3, but **it had not terminated, so it is not
 recorded as UNVERIFIABLE** — that would be a claim about behaviour rather than the
 behaviour. **Check it, and record the verdict in `NOTES_contrast_ink_slots.md` and in
-`bugs_open/213` §8 either way, including if it is REFUTED.**
+`bugs_open/213` §9 either way, including if it is REFUTED.**
 
 Its `symbols_unreadable` fell **3 → 1 → 0** across the three iterations, and that is not
 the loop improving: **migration 332 repointed the code index to the live working branch

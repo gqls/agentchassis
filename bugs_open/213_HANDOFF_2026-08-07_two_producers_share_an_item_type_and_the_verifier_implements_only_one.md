@@ -142,10 +142,13 @@ happens to own each name. Every pair wants the same audit.
    An item that states its own pass condition and is closed without it being read
    is the honest description of this bug. Costs a general evaluator; the
    `criteria_check` vocabulary (RFC_002) may already be the right one.
-3. **Make a verifier declare the producers it speaks for**, and fail closed on an
-   item whose producer it does not recognise. Cheapest structural change, and it
-   converts silence into `Resolved: false` — but a wrong-but-loud `false` is its
-   own cost, so it wants a look at how many items it would re-open.
+3. ~~**Make a verifier declare the producers it speaks for**, and fail closed on an
+   item whose producer it does not recognise.~~ **REFUTED 2026-08-07 by the
+   `bugs_open/071` fragment-arm lane (`2efc29bd5`) — see §9.** A code-side producer
+   list cannot be complete: **any agent definition can file any `item_type` from DB
+   config, with no code change.** So the declaration would be authoritative-looking
+   and permanently behind the live config. Enforcement has to sit at **creation**,
+   which collapses this into candidate 1.
 4. Re-check and re-open the nine by hand. Necessary as **remediation** regardless
    of which of 1–3 is chosen; rejected as **the** fix — "operators must remember
    the verifier does not mean what the item says" is the defect.
@@ -178,7 +181,37 @@ error to fire), owner ruling **2026-08-02 / RFC_010 narrowing 1** (N producers,
 one `item_type`, and the conditions that were meant to prevent exactly this),
 `write_audit_findings_action.go`, `discovery_checks/check_hardcoded_section_colors.go`.
 
-## 8. Diagnosis status
+## 8. Contributed by the `bugs_open/071` fragment-arm lane, 2026-08-07 (`2efc29bd5`)
+
+That lane owns `dead_fragment_link`, one of the registry's other verifiers, and
+audited its own exposure to this bug within an hour of it being filed. **Its
+verifier is not exposed today** — one producer in code, no `designItemTypes`
+route, and zero config-driven producers of any verified `item_type` (a
+disconfirmable zero: the same query without the `item_type` filter returns **11**
+config producers, so the shape matches when there is something to match). Safe by
+circumstance, not by construction.
+
+Two of its measurements generalise to this file and are folded in above:
+
+- **`created_by` cannot enumerate producers, so do not reach for it.** It is
+  `config[source]` falling back to `params.AgentType`, bottoming out at the
+  literal `generic` (`agentbase/agent.go:158`, `coordinator.go:3482`,
+  `processor.go:909`). `generic` carries 20+ item_types — `phantom_internal_link`
+  alone at 45 rows — and two live definitions file with an empty `source`. So
+  **`count(DISTINCT created_by) = 1` is not evidence of a single producer**, and a
+  route that looks single-producer by that column may not be. `spec->>'audit_source'`
+  is the discriminator that worked here, and it only works because the audit
+  producer happens to set it — **absence of it is not proof of the discovery
+  producer**, merely consistent with it.
+- **Candidate 3 is not satisfiable from code** — the refutation now recorded in §5.
+
+The lane deliberately did **not** edit this file: it was untracked at the time and
+its author mid-session, so appending risked the same-file passenger case in
+`LANDMINES.md`. It recorded the findings in its own commit and flagged them for
+handover instead. Folded in here on 2026-08-07 once the file was committed. That
+is the norm working in both directions, and it is worth copying.
+
+## 9. Diagnosis status
 
 `090` filed before this file asserted its root cause, per the owner ruling of
 2026-07-31: correlation **`84c3da66-06c0-41a5-94dc-21fbf71260f0`** (intake

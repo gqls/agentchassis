@@ -421,7 +421,7 @@ Corroboration, not proof — it is a hypothesis the loop never got to test. But 
 questions that were sound enough for the loop to form the right hypothesis. That pattern
 is worth someone's attention on the loop itself, not on our symptoms. Run 4
 (`84c3da66-06c0-41a5-94dc-21fbf71260f0`, the 213 mechanism) was still `diagnosing` at
-handoff; **record its verdict here and in `bugs_open/213` §8 when it lands, including if
+handoff; **record its verdict here and in `bugs_open/213` §9 when it lands, including if
 it is REFUTED.**
 
 **Unrelated, noticed in the diagnosis bundle and not chased:** `agent_error_log` is
