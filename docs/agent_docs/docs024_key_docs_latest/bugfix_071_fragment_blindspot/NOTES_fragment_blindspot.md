@@ -289,3 +289,86 @@ executed (needs a real completion). Now with a second, smaller owed item: the
 first real dispatch that includes a site with fragment links is the arm's first
 production exercise — worth watching, and worth *not* reading its silence as a
 clean bill of health.
+
+---
+
+## 2026-08-07 (later) — state re-verified unchanged; and 213 lands on this lane's registry
+
+Picked the lane up cold from the handoff. **Nothing in it needed correcting** —
+both owed items are still owed and both are still passive waits.
+
+**Re-verified live, `v1.0.1262`, both replicas** (same exec, four strings):
+`dead_fragment_link` 10 · `VerifyDeadFragmentLinkResolved` 2 · positive control
+`phantom_internal_link` 10 · negative control 0. Image confirmed at the pod spec
+(`docker.io/aqls/agent-chassis:v1.0.1262`), not inferred from the makefile.
+
+**Cadence, re-measured — unchanged, so the handoff's framing holds:**
+
+```
+completeness-discovery-agent, items by day: 08-05: 9 · 08-04: 256 · 08-03: 266 …
+```
+
+Still nothing after 08-05, i.e. **no dispatch since the arm rolled**, and
+`SELECT … item_type='dead_fragment_link'` returns **0 rows**. That remains "it has
+not looked", not "the fleet is clean". [MEASURED 2026-08-07]
+
+### The new thing: `bugs_open/213` is about the registry this lane just joined
+
+Filed today by the `bugfix_122` lane: two producers file under one `item_type`,
+the registered verifier implements only one producer's predicate, and the other
+producer's items close `complete` untouched. **071 owns the newest verifier in
+that registry**, so the first question is whether our own arm is exposed.
+
+**It is not, today.** Three checks, all measured:
+
+1. **One producer in code.** `grep -rn dead_fragment_link --include=*.go` over
+   `platform/ internal/ pkg/` returns only the check pair that owns it
+   (`check_phantom_internal_links_fragments.go`, `check_phantom_internal_links.go`)
+   plus doc comments. No second filer.
+2. **No design-audit route.** `designItemTypes`
+   (`write_audit_findings_action.go:111-119`) maps seven categories onto five
+   item_types; `dead_fragment_link` is not among them. Only
+   `hardcoded_section_colors` — 213's case — collides with a registered verifier.
+3. **No config producer.** Zero live agent definitions file a verified item_type
+   via `create_work_item`. **This zero is disconfirmable**: the same query without
+   the item_type filter returns **11** config-driven producers (improvement-loop,
+   claims-auditor, domain-strategist, …), so the query shape does match when there
+   is something to match.
+
+### But the exposure is structural, and this is the part worth carrying to 213
+
+`CreateWorkItemAction` sets `createdBy: source` where
+`source, _ := config["source"].(string)` and falls back to `params.AgentType`
+(`create_work_item_action.go:129-131, 283`). Two consequences, both measured:
+
+- **`created_by` cannot enumerate producers.** `params.AgentType` itself falls
+  back to the literal `"generic"` (`agentbase/agent.go:158`,
+  `coordinator.go:3482`, `processor.go:909`). `generic` carries **20+ item_types**
+  including `phantom_internal_link` (45 rows), and two live definitions
+  (`claims-auditor`, `grounded-explainer`) file with an **empty** `source`. So
+  `count(DISTINCT created_by) = 1` is **not** evidence of a single producer —
+  distinct real producers collapse into one label. 213 used
+  `spec->>'audit_source'`, which is right for producer B specifically, but there
+  is no general producer field to generalise it with.
+- **The producer set is not enumerable from code at all.** Any agent definition
+  can file any `item_type` with any `source` — DB config, no code change, no
+  registration. So `dead_fragment_link` could acquire a second producer tomorrow
+  and `VerifyDeadFragmentLinkResolved` would grade it against the fragment
+  predicate regardless of what it described. **Our arm is safe by luck of nobody
+  having done it, not by construction.**
+
+That bears on 213's fix ordering: its candidate 3 ("make a verifier declare the
+producers it speaks for") **cannot be satisfied from a code-side list**, because
+the producers live in config a Go allow-list cannot see. Enforcement would have to
+sit at *creation*, which is closer to its candidate 1.
+
+**Not written into `bugs_open/213`:** its author (`bugfix_122`) was writing that
+lane's handoff **26 seconds** before I checked, and 213 is still **untracked**.
+Appending to a live session's uncommitted file is the same-file-passenger case in
+LANDMINES — my section would be lost on their next Write, or theirs on mine. Left
+here, flagged for handover instead. **[UNVERIFIED whether 213's author agrees with
+the qualification above — it has not been put to them.]**
+
+213's own `090` (`84c3da66-06c0-41a5-94dc-21fbf71260f0`) had **no orchestration row
+yet** when I looked, which per CLAUDE.md is latency, not a dropped dispatch. Not
+retried.

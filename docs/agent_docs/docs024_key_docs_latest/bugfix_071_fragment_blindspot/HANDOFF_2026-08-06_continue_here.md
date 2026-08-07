@@ -43,6 +43,12 @@ Re-verified on **`v1.0.1262`**: arm intact on both replicas (`dead_fragment_link
 10, verifier 2, `SplitFragment` 2, positive control 10, negative 0). No regression
 across two rolls.
 
+**Re-verified again 2026-08-07 08:35Z, still `v1.0.1262`** (image read off the pod
+spec, not the makefile): 10 / 2 / 10 / 0 on both replicas. Cadence re-measured —
+**still no `completeness-discovery-agent` dispatch since 08-05**, still 0
+`dead_fragment_link` rows. Both owed items below are unchanged and both are
+passive waits: there is nothing to *do* on them, only something to watch for.
+
 **The arm has still never run on a real site, and that is a CADENCE fact, not a
 fault.** `completeness-discovery-agent` — the agent whose `checks` array carries
 this check — is dispatched **by hand**: 9 days out of the last 21, 1–6 sites each,
@@ -93,6 +99,36 @@ fundamentallyai.com, vonc.com all have some). Expect **silence** — every one o
 those resolves today — and read that silence as corroboration only if the run
 actually covered the site. `created_by` + `created_at` on any item type from that
 run is how you tell it ran at all.
+
+## `bugs_open/213` lands on this lane's registry — checked 2026-08-07, we are clear
+
+Filed today by `bugfix_122`: when two producers file under one `item_type` and the
+registered verifier implements only one producer's predicate, the other's items
+close `complete` untouched. **This lane owns the registry's newest verifier**, so
+it needed checking. **`dead_fragment_link` is not exposed today** — one producer in
+code (grep over `platform/ internal/ pkg/` finds only our own check pair), no
+`designItemTypes` route, and zero config-driven producers of any verified item_type
+(a disconfirmable zero: the same query minus the filter returns 11).
+
+**But it is safe by circumstance, not by construction**, and that is the bit to
+carry forward. `createdBy` is `config["source"]` falling back to `params.AgentType`
+(`create_work_item_action.go:129-131, 283`), so **any agent definition can file
+`dead_fragment_link` with any producer label, from DB config, with no code change**
+— and `VerifyDeadFragmentLinkResolved` would then grade it against the fragment
+predicate whatever it actually described. Two knock-ons, both measured, both in
+NOTES §"2026-08-07 (later)":
+
+- `count(DISTINCT created_by)` **cannot** enumerate producers — `params.AgentType`
+  bottoms out at the literal `"generic"`, which carries 20+ item_types including
+  `phantom_internal_link` (45 rows).
+- 213's fix candidate 3 (verifier declares its producers) **cannot be satisfied
+  from a code-side list**, because the producers live in config Go cannot see.
+
+**Not written into `bugs_open/213` — deliberate.** That file is untracked and its
+author was mid-session when I looked; appending would have risked losing their work
+or mine. **If you pick this lane up and 213 is now committed, contribute the two
+bullets above into it** (do not open a competing file — `who-owns.py 213` says
+OWNED/ACTIVE by `bugfix_122`).
 
 ## DONE 2026-08-06 (kept for the method, not as work to repeat)
 

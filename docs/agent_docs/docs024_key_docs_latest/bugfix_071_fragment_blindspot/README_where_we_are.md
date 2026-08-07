@@ -137,3 +137,41 @@ Two loose ends remain, both small and both written down: the piece that double-c
 fix before closing a problem still hasn't run, and neither has the checker itself on
 real pages. The lane's handoff now leads with all of this so whoever reads it next
 cannot make the same inference I did.
+
+## 2026-08-07 (later)
+
+Picked this back up cold. First job was to check nothing had rotted, and nothing
+had: the check is still in both running copies of the service, I read the version
+off the running pods rather than trusting the build file, and I used a string that
+should be there and one that shouldn't so the check itself is proved honest. Still
+no complaints in the queue, and still for the reason I explained yesterday — the
+thing that runs it hasn't been run since two days before it shipped. So both loose
+ends are unchanged, and neither is something I can *do*; they are things to watch
+for.
+
+The interesting thing today came from somebody else. Another session filed a bug
+this morning about the machinery my check plugs into. The shape of it: when two
+different things file the same kind of problem, but only one of them wrote the
+double-checker that decides when it's fixed, the other one's problems get graded
+against the wrong question — and because the double-checker is perfectly correct
+about *its* question, it says "fixed" and the problem closes untouched. Four days
+and no repair, in the case they found.
+
+Since I added the newest double-checker to exactly that machinery last week, I
+checked whether mine has the same hole. **It doesn't** — only one thing files my
+kind of problem, and I confirmed that three ways rather than one. But I also found
+that mine is safe by luck rather than by design: the label saying who filed a
+problem is just a free-text setting, so anyone could start filing under my name
+tomorrow from configuration alone, without touching any code, and my double-checker
+would grade their problem against my question and wave it through. Same trap, one
+step away.
+
+That also undercuts one of the fixes the other session was considering — having
+each double-checker list who it speaks for — because the list of who *can* file
+lives in the database, where code can't see it. Worth them knowing.
+
+I have **not** written this into their bug file. They were actively typing in it
+when I looked — it isn't even saved into version control yet — and adding my bit
+would likely have destroyed one of us. So it's written up in my own lane, flagged
+clearly, and it's yours to route: either I hand it to them, or whoever picks this
+lane up next adds it once their file has settled.
