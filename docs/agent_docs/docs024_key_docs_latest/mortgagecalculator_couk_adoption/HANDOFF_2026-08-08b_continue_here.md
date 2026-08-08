@@ -97,9 +97,14 @@ THE SHIPPED DEFAULTS") — grep LANDMINES for the symbol you are about to trust.
    → back up + DELETE their `page_components` (§10e precedent — the guards then
    have nothing to compare against), re-file the recreation items (same spec
    shape as the 08-08 batch; copy from items `1b74c60c`/`d935c3a4`); portfolio →
-   same, plus the 222 comment-style workaround clause (in the bug file) until
-   222 is fixed. Site is unlocked — plain re-file dispatches; use a §10c
-   backstop only if you need to keep other queue items out of the window.
+   same. **222 IS FIXED AND LIVE (2026-08-08 ~23:10 BST, chassis v1.0.1269,
+   pod-verified both replicas — `NegationGuard`/`negated declaration ignored`
+   present, confirmed against the OLD binary's absence first).** The
+   comment-style workaround clause can come OUT of the portfolio recreation
+   spec now — the gate no longer convicts a denial like "no fabricated data".
+   Full writeup: `docs024_key_docs_latest/bugfix_222_fabrication_negation/`.
+   Site is unlocked — plain re-file dispatches; use a §10c backstop only if
+   you need to keep other queue items out of the window.
 5. **Wire tool improvement into the experience/tool loops** (ruling §0.4) — the
    lane hand-drove two batches; the loops should own iteration from here. The
    replay comparator from step 1 becomes their acceptance check ("results don't
@@ -107,8 +112,10 @@ THE SHIPPED DEFAULTS") — grep LANDMINES for the symbol you are about to trust.
 6. Fences (unchanged, after ids are stable on 12/12) · owner README kept current.
 7. Housekeeping calls for the owner, listed not urgent: two portfolio
    fabrication review items (`aca92097` 08-05, `3d11e960` 08-08 — the 08-08 one
-   is a proven false positive per 222); 2 `save_refused_incomplete` items
-   (superseded if step 4 runs); `pages.build_status` cosmetically stale.
+   is a proven false positive per 222, **now fixed and live** — both can be
+   cleared by hand, or superseded by re-filing the recreation per step 4);
+   2 `save_refused_incomplete` items (superseded if step 4 runs);
+   `pages.build_status` cosmetically stale.
 
 ## 4. Landmines active on this exact work
 

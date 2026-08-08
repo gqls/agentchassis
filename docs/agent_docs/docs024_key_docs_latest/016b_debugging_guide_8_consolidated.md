@@ -11339,6 +11339,25 @@ detector's pattern list — every shared term is a manufactured false-positive p
 "declaration" tier that reads CODE COMMENTS polices text no visitor sees — scope it
 to prose, or make it negation-aware, before widening it.
 
+> **FIXED + LIVE 2026-08-08 ~23:10 BST, chassis v1.0.1269, pod-verified both
+> replicas.** The mechanism-level rule this fix generalised, worth carrying past
+> this one gate: **negation awareness at position N of a regex proximity match is
+> not the same check at position N+1.** This platform already had a negation guard
+> (`negatedClaimMatch`, CLM-017 in `datahelpers/claims.go`) built for an unrelated
+> marketing-claims checker, and reusing its *algorithm* (not its vocabulary — the
+> two domains disagree on whether bare "no" is a negator) closed this gate too.
+> The qualifier a negation guard must check is the token whose PRESENCE the gate
+> convicts on — and that token sits in a DIFFERENT capture group depending on the
+> regex's own word order (`fabQualifierNearData` puts it first, `fabDataNearQualifier`
+> puts it second), so a guard that only scans back from a match's overall start
+> misses a negator sitting between two capture groups, inside the match itself
+> (the same shape CLM-019 found independently in a third, unrelated consumer).
+> **So: before writing a NEW negation check for a NEW proximity detector, grep for
+> `NegationGuard` first — reuse the algorithm with a domain-tuned cue list, don't
+> re-derive the clause-boundary-and-window scan a third time.** Full writeup +
+> plan + tests: `docs024_key_docs_latest/bugfix_222_fabrication_negation/`,
+> concept register `CLM-020`.
+
 ### A regression baseline recorded from a NEVER-CORRECT artefact certifies the defect for ever — consistency checks cannot refute, and the estate's only calculator check is a consistency check (`bugs_open/224`, `bugs_open/225`, 2026-08-08)
 
 **Pattern.** A behavioural golden captures what an artefact produced on day X and every
