@@ -19,6 +19,14 @@ Given verbatim-in-intent after the (wrong) formula-divergence report:
    improved. The byte-frozen "originals are the contract" posture ENDS for tools.
    The golden remains the drive-plan source and a regression reference — not an
    arithmetic authority.
+5. **ADDENDUM (same night, later): both-right → supply BOTH.** "If the two
+   calculators are right in different ways then we can explain it and supply
+   both calculators for each task — maybe as a separate, but well flagged and
+   signposted page (for those that are interested or need one or the other)."
+   Divergence routing is therefore three-way: rebuild wrong → fix · original
+   wrong → improve past it · **both defensible → primary tool keeps one model,
+   the alternative ships as its own signposted page explaining when each
+   applies** (bridging-loan is the standing candidate). Framework-built, per §0.4.
 
 ## 1. Why the compare said "it's all different" — the actual answer
 
@@ -78,10 +86,13 @@ THE SHIPPED DEFAULTS") — grep LANDMINES for the symbol you are about to trust.
    rebuild wrong → fix item with the correct formula stated; ORIGINAL wrong →
    record it and improve the rebuild past it — do not regress the rebuild to
    match.
-3. **Bridging-loan model judgement** — the one known genuine divergence. Route
-   to the experience/tool improvement loop with both models stated (§1 table).
-   The retained-interest gross-up is the standard bridging quote; "best it can
-   be" may mean that model plus clearer breakdown — the loop decides.
+3. **Bridging-loan model judgement** — the one known genuine divergence. Per
+   ruling §0.5: both models are defensible answers to different questions, so
+   the plan is BOTH — primary page keeps the retained-interest gross-up (the
+   structure lenders quote), and the compound-interest variant becomes a
+   separate, well-signposted page explaining when each applies. Route to the
+   experience/tool improvement loop with both models stated (§1 table);
+   framework-built, never hand-rolled.
 4. **Finish id-alignment on the three stragglers**: affordability + fact-finder
    → back up + DELETE their `page_components` (§10e precedent — the guards then
    have nothing to compare against), re-file the recreation items (same spec

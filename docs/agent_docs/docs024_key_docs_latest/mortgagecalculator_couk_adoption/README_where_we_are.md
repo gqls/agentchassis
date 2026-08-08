@@ -625,3 +625,45 @@ Also actioned from your message: the site is UNLOCKED, and the stance changes �
 correctness beats faithfulness to the originals, the improvement loops own tool
 quality, and everything runs from the framework. The handoff for the next thread
 says all of this.
+
+**2026-08-08, night (continued) — your "supply both calculators" direction is
+recorded and is now the plan for the bridging-loan case.** Where two calculators
+are right in different ways — as with bridging, where your original quotes the
+retained-interest structure lenders actually use and the rebuild compounds the
+interest another way — we won't pick a silent winner. The main tool page keeps
+one model, and the other becomes its own clearly signposted page that explains
+the difference and who each version is for. That page will be built through the
+framework like everything else, so the improvement loops can keep it honest.
+First, though, this session is fixing the comparison tool so it feeds both
+calculators identical inputs — that's what tells us which tools agree already
+and which genuinely differ.
+
+**2026-08-08, late night — the comparison tool now asks both calculators the
+same question, and the answers are in.** I rebuilt the checker so it feeds every
+rebuilt calculator the exact same numbers your originals were tested with, and
+then compared the answers. The headline: not one rebuilt calculator gets a wrong
+answer. Six of the nine testable tools agree with your originals outright —
+sometimes to the penny where your originals round to the pound, and two of the
+"differences" turned out to be my test's own blind spot (your investor and
+equity-release pages each have two Calculate buttons, and the test only ever
+pressed the first one, so it recorded zeros your originals never actually show
+a user).
+
+Three tools genuinely differ, and in each case both sides are right about
+different things — exactly the situation your "supply both, well signposted"
+direction covers. The bridging calculator: yours quotes the retained-interest
+structure lenders use; the rebuild compounds the interest. The rate forecaster:
+yours models rates changing over the life of the mortgage (a genuinely cleverer
+model — I checked it to the penny); the rebuild answers the simpler "what if my
+rate were X" question. The fee analyser: yours counts every pound leaving your
+pocket during the deal; the rebuild counts only the true cost — interest and
+fees — treating repaid principal as money you keep. All three are queued for the
+both-calculators treatment.
+
+One genuine error was found — in the original, not the rebuild. Your stamp duty
+calculator gives first-time buyers relief on homes priced between £500,000 and
+£625,000, but under the rules in force since April 2025 the relief disappears
+entirely above £500,000. On a £595,000 home yours quotes £14,750 where the
+correct bill is £19,750 — a £5,000 under-quote. The rebuild gets this right. Per
+your ruling we improve past the original rather than copying its mistake — the
+rebuild already does.

@@ -1177,3 +1177,96 @@ byte-frozen "originals are the contract" posture ENDS for tools (the golden
 remains the drive-plan source and a regression reference, not an arithmetic
 authority); the site lock is RELEASED (done, this session); fidelity-to-wrong
 is out, correctness is the bar.
+
+### 2026-08-08 night (later) — OWNER RULING addendum: both-right → supply BOTH
+
+Owner, verbatim intent, on the bridging-loan class (two models, each defensible):
+**"If the two calculators are 'right' in different ways then we can explain it
+and supply both calculators for each task — maybe as a separate, but well
+flagged and signposted page (for those that are interested or need one or the
+other)."** So the routing for a genuine model divergence is now three-way, not
+two-way: rebuild wrong → fix; original wrong → improve past it; **both right in
+different ways → keep the primary tool, and supply the alternative model as a
+separate, clearly signposted page explaining when each applies.** For
+bridging-loan specifically: retained-interest gross-up (the structure lenders
+quote) and the compound-interest variant are both legitimate answers to
+different questions — candidates for exactly this treatment. Goes through the
+framework as everything does (ruling §0.4); the improvement loop owns the pages.
+
+## 2026-08-08 (late night) — replay comparator built; all 9 id-aligned tools JUDGED on identical inputs
+
+**The checker fix (handoff §3.1) is done and the answer is in.** `compare_rebuilt.py`
+rewritten: it now REPLAYS the golden's recorded fill plan (`sel`/`action`/`value`)
+into the rebuilt page — fills set the literal recorded value and read it back,
+selects go BY VALUE never index, checkables are set not toggled. Press still uses
+toolgolden's heuristic (no original press button carries an id — `pressed.sel` is
+null on all 12). Verdicts: VERIFIED / DIVERGED / NEEDS-JUDGEMENT / DOMAIN-DIFF
+(one side refused an input the other accepts — validation, not arithmetic) /
+REPLAY-FAIL (an input did not take; tool NOT judged). Rounding-equal = within half
+a unit of the coarser side's displayed precision. Ids whose text hits the 200-char
+fingerprint slice are listed for eyeball, never machine-judged (the two sides
+truncate at different points of e.g. an amortization table). Harness validated
+first on repayment per the handoff's instruction: it reproduces the 08-08 hand
+drive exactly (rebuilt £1,389.58 vs golden £1,390 on 250000/4.5/25, rounding-equal).
+Report of record: `acceptance/COMPARE_2026-08-08_replay_absolute_inputs.txt`.
+
+**Per-tool judgement (identical inputs, evidence inline):**
+
+- **simple — VERIFIED.** All 4 vectors rounding-equal (£1,111.66 vs £1,112 etc.).
+  The old "half diverges" was the derive-from-defaults artefact; absolute replay
+  of 12.5 years passes — the rebuilt simple tool ACCEPTS fractional years.
+- **repayment — VERIFIED where both answer + a domain difference.** defaults/
+  double rounding-equal on every display id AND on the visible amortization rows
+  (£11,136.70 vs £11,137…). asym/half (terms 57.5/12.5y): rebuild refuses —
+  `Number.isInteger(years)` in its validation (curl-verified). Original accepts
+  fractional terms. Stricter domain, defensible; not an arithmetic defect.
+- **overpayment — VERIFIED in substance.** Sole diff across all vectors:
+  `dispYearsEarlier` golden `0` (years) vs rebuilt `6 months` — same fact,
+  rebuild reports finer units.
+- **investor — VERIFIED in substance; golden's 0% is a HARNESS ARTEFACT.** Yield
+  ids agree identically. `ltvResult`: golden 0% on every vector because the
+  original page has TWO calculators with TWO buttons and toolgolden's PRESS_JS
+  presses only the FIRST ("Calculate Yield") — the LTV section was never pressed
+  during capture. Replayed inputs ltvLoan 225000 / ltvPrice 300000 = 75.0% =
+  exactly what the rebuilt shows (asym 247500/690000 = 35.87% → 35.9% ✓).
+- **equity-release — mostly verified; same single-press artefact + one real
+  table difference.** debt10/20/30 golden £0s: the original's "Project Future
+  Debt" is a SECOND button never pressed by capture (read in its HTML). Rebuilt
+  projections are penny-exact compound (100000×1.065^y = 187,714/352,365/661,437).
+  Real difference: max-LTV at 65 — original step table `>=65 → 0.31` (£124,000),
+  rebuilt linear `0.20+(age−55)×0.01` → 0.30 (£120,000). Both self-described
+  industry approximations; the original's own comment says "65: ~30%" while its
+  code uses 0.31. Improvement-loop judgement; not wrong-vs-right.
+- **stamp-duty — REBUILD RIGHT, ORIGINAL WRONG in the FTB £500–625k window; plus
+  a spec gap.** Replay first hit honest REPLAY-FAIL: rebuilt renamed option
+  VALUES (`ftb`→`firstTime`, `next`→`homeMover`) — the id contract pinned element
+  ids, not option values. Hand-replay with the value mapped: defaults/double/half
+  (£350k/£700k/£175k FTB) match EXACTLY. asym £595k FTB: golden £14,750 vs
+  rebuilt £19,750. Post-April-2025 rules: FTB relief nil to £300k, 5% to £500k,
+  LOST ENTIRELY above £500k → correct = standard rates = £19,750 = rebuilt. The
+  original implements a no-regime hybrid (300k nil + 625k cap; its own comments
+  hedge "rules vary… avoid under-quoting" then under-quote by £5,000).
+- **rate-forecaster — BOTH RIGHT, DIFFERENT MODELS (ruling §0.5 class).**
+  Original = 3-phase rate path: years 1–2 at rate1, years 3–5 at rate2 on
+  remaining balance/term, year 6+ at rate3 on the balance after year 5 (read in
+  `calcForecast`; reproduced to the penny: 1389.58/1525.78/1286.39 vs golden
+  1390/1526/1286). Rebuild = each rate from day one over the full term
+  (textbook-exact: 1535.22/1251.56). The original's model is the more
+  product-realistic "forecast"; the rebuild's is a rate comparison. Candidate
+  for the both-calculators treatment.
+- **fee-analyser — BOTH RIGHT, DIFFERENT DEFINITIONS (ruling §0.5 class).**
+  Original `tcTotal` = total repayments over the deal + fees (25y amortization:
+  1076.77×24+999 = 26,841.44 = golden exactly). Rebuild = simple interest + fees
+  (200000×4.19%×2+999 = 17,759 exactly). "Cash out the door" vs "cost excluding
+  principal you keep as equity" — a definitional split worth explaining to users.
+- **bridging-loan — BOTH RIGHT, DIFFERENT MODELS (known since 08-08 evening,
+  now quantified on all 4 vectors).** Retained-interest gross-up vs compound
+  variant; each internally consistent (fee = 2% of each side's own gross).
+
+**Scoreboard per ruling §0.2: on identical inputs, ZERO rebuilt tools compute a
+wrong number. ONE ORIGINAL does** (stamp-duty FTB £500–625k). Three tools split
+on legitimate model/definition grounds → the §0.5 both-calculators treatment.
+Two harness artefacts found and understood (single-press blindness; 200-char
+truncation). One spec gap (option VALUES belong in the id contract — stamp-duty
+re-file should pin them; emitted criteria also select by value, so fences hit
+the same wall until aligned).

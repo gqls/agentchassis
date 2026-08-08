@@ -1,0 +1,250 @@
+SKIP      affordability    not id-aligned yet — run by name
+
+DIVERGED  bridging-loan    identical inputs, different numbers:
+      vector asym:
+         resFee                     golden  '£8,761|inline'
+                                    rebuilt '£8,659.09|block'
+      vector asym:
+         resGross                   golden  '£398,220|block'
+                                    rebuilt '£393,594.84|block'
+      vector asym:
+         resInterest                golden  '£49,459|inline'
+                                    rebuilt '£44,935.75|block'
+      vector defaults:
+         resFee                     golden  '£4,494|inline'
+                                    rebuilt '£4,473.08|block'
+      vector defaults:
+         resGross                   golden  '£224,719|block'
+                                    rebuilt '£223,654.07|block'
+      vector defaults:
+         resInterest                golden  '£20,225|inline'
+                                    rebuilt '£19,180.99|block'
+      vector double:
+         resFee                     golden  '£26,667|inline'
+                                    rebuilt '£24,259.19|block'
+      vector double:
+         resGross                   golden  '£666,667|block'
+                                    rebuilt '£606,479.70|block'
+      vector double:
+         resInterest                golden  '£240,000|inline'
+                                    rebuilt '£182,220.51|block'
+      vector half:
+         resGross                   golden  '£103,391|block'
+                                    rebuilt '£103,359.15|block'
+      vector half:
+         resInterest                golden  '£2,357|inline'
+                                    rebuilt '£2,325.56|block'
+      rounding-equal detail (-v):
+      vector asym:
+         dispNet                    golden  '£340,000|inline'
+                                    rebuilt '£340,000.00|block'
+      vector defaults:
+         dispNet                    golden  '£200,000|inline'
+                                    rebuilt '£200,000.00|block'
+      vector double:
+         dispNet                    golden  '£400,000|inline'
+                                    rebuilt '£400,000.00|block'
+      vector half:
+         dispNet                    golden  '£100,000|inline'
+                                    rebuilt '£100,000.00|block'
+      vector half:
+         resFee                     golden  '£1,034|inline'
+                                    rebuilt '£1,033.59|block'
+
+DIVERGED  equity-release   identical inputs, different numbers:
+      vector defaults:
+         debt10                     golden  '£0|block'
+                                    rebuilt '£187,714|block'
+      vector defaults:
+         debt20                     golden  '£0|block'
+                                    rebuilt '£352,365|block'
+      vector defaults:
+         debt30                     golden  '£0|block'
+                                    rebuilt '£661,437|block'
+      vector defaults:
+         erMaxCash                  golden  '£124,000|block'
+                                    rebuilt '£120,000|inline'
+SKIP      fact-finder      not id-aligned yet — run by name
+
+DIVERGED  fee-analyser     identical inputs, different numbers:
+      vector asym:
+         tcTotal                    golden  '£85,390|block'
+                                    rebuilt '£40,355|block'
+      vector defaults:
+         tcTotal                    golden  '£26,841|block'
+                                    rebuilt '£17,759|block'
+      vector double:
+         tcTotal                    golden  '£155,052|block'
+                                    rebuilt '£136,078|block'
+      vector half:
+         tcTotal                    golden  '£5,644|block'
+                                    rebuilt '£2,600|block'
+
+DIVERGED  investor         identical inputs, different numbers:
+      vector asym:
+         ltvResult                  golden  '0%|block'
+                                    rebuilt '35.9%|block'
+      vector defaults:
+         ltvResult                  golden  '0%|block'
+                                    rebuilt '75.0%|block'
+      vector double:
+         ltvResult                  golden  '0%|block'
+                                    rebuilt '75.0%|block'
+      vector half:
+         ltvResult                  golden  '0%|block'
+                                    rebuilt '75.0%|block'
+
+DIVERGED  overpayment      identical inputs, different numbers:
+      vector half:
+         dispYearsEarlier           golden  '0|inline'
+                                    rebuilt '6 months|block'
+SKIP      portfolio        not id-aligned yet — run by name
+
+DIVERGED  rate-forecaster  identical inputs, different numbers:
+      vector asym:
+         diff2                      golden  '-£962 decrease|inline'
+                                    rebuilt '−£1,060.62|block'
+      vector asym:
+         pay2                       golden  '£3,697|block'
+                                    rebuilt '£3,597.88|block'
+      vector asym:
+         pay3                       golden  '£4,548|block'
+                                    rebuilt '£4,790.58|block'
+      vector defaults:
+         diff2                      golden  '+£136 increase|inline'
+                                    rebuilt '+£145.64|block'
+      vector defaults:
+         pay2                       golden  '£1,526|block'
+                                    rebuilt '£1,535.22|block'
+      vector defaults:
+         pay3                       golden  '£1,286|block'
+                                    rebuilt '£1,251.56|block'
+      vector double:
+         diff2                      golden  '+£804 increase|inline'
+                                    rebuilt '+£809.77|block'
+      vector double:
+         pay2                       golden  '£4,597|block'
+                                    rebuilt '£4,602.62|block'
+      vector double:
+         pay3                       golden  '£3,035|block'
+                                    rebuilt '£3,008.44|block'
+      vector half:
+         diff2                      golden  '+£24 increase|inline'
+                                    rebuilt '+£28.91|block'
+      vector half:
+         pay2                       golden  '£981|block'
+                                    rebuilt '£985.70|block'
+      vector half:
+         pay3                       golden  '£946|block'
+                                    rebuilt '£928.40|block'
+      rounding-equal detail (-v):
+      vector asym:
+         pay1                       golden  '£4,659|block'
+                                    rebuilt '£4,658.50|block'
+      vector defaults:
+         pay1                       golden  '£1,390|block'
+                                    rebuilt '£1,389.58|block'
+      vector double:
+         pay1                       golden  '£3,793|block'
+                                    rebuilt '£3,792.85|block'
+      vector half:
+         pay1                       golden  '£957|block'
+                                    rebuilt '£956.78|block'
+
+DOMAIN-DIFF repayment        one side answered, the other refused (input-domain difference, not arithmetic):
+      vector asym:
+         displayMonthly             golden  '£1,214|block'
+                                    rebuilt '—|block'
+      vector asym:
+         displayTotalInterest       golden  '£412,419|inline'
+                                    rebuilt '—|block'
+      vector asym:
+         displayTotalRepayable      golden  '£837,419|inline'
+                                    rebuilt '—|block'
+      vector asym:
+         resultsArea                golden  'Monthly Payment £1,214 Total Interest £412,419 Total Repayable £837,419|block'
+                                    rebuilt 'Monthly Repayment — Total Interest — Total Repayable —|flex'
+      vector half:
+         displayMonthly             golden  '£957|block'
+                                    rebuilt '—|block'
+      vector half:
+         displayTotalInterest       golden  '£18,517|inline'
+                                    rebuilt '—|block'
+      vector half:
+         displayTotalRepayable      golden  '£143,517|inline'
+                                    rebuilt '—|block'
+      vector half:
+         resultsArea                golden  'Monthly Payment £957 Total Interest £18,517 Total Repayable £143,517|block'
+                                    rebuilt 'Monthly Repayment — Total Interest — Total Repayable —|flex'
+      note: 4 truncated id(s) (200-char fingerprint slice) not machine-judged — eyeball:
+      vector asym:
+         amortizationTable          golden  'Year 1 £11,436 £3,127 £421,873 Year 2 £11,351 £3,213 £418,660 Year 3 £11,263 £3,301 £415,359 Year 4 £11,173 £3,391 £411,968 Year 5 £11,080 £3,484 £408,485 Year 6 £10,985 £3,579 £404,906 Year 7 £10,887|table-row-group'
+                                    rebuilt 'Year Opening Balance Payments Interest Paid Principal Paid Closing Balance Enter your details above and press “Calculate Repayments” to see your schedule.|table'
+      vector defaults:
+         amortizationTable          golden  'Year 1 £11,137 £5,538 £244,462 Year 2 £10,882 £5,793 £238,669 Year 3 £10,616 £6,059 £232,610 Year 4 £10,338 £6,337 £226,273 Year 5 £10,047 £6,628 £219,645 Year 6 £9,742 £6,933 £212,712 Year 7 £9,424 £|table-row-group'
+                                    rebuilt 'Year Opening Balance Payments Interest Paid Principal Paid Closing Balance 1 £250,000.00 £16,674.97 £11,136.70 £5,538.27 £244,461.73 2 £244,461.73 £16,674.97 £10,882.27 £5,792.70 £238,669.02 3 £238,66|table'
+      rounding-equal detail (-v):
+      vector defaults:
+         displayMonthly             golden  '£1,390|block'
+                                    rebuilt '£1,389.58|block'
+      vector defaults:
+         displayTotalInterest       golden  '£166,874|inline'
+                                    rebuilt '£166,874.36|block'
+      vector defaults:
+         displayTotalRepayable      golden  '£416,874|inline'
+                                    rebuilt '£416,874.36|block'
+      vector defaults:
+         resultsArea                golden  'Monthly Payment £1,390 Total Interest £166,874 Total Repayable £416,874|block'
+                                    rebuilt 'Monthly Repayment £1,389.58 Total Interest £166,874.36 Total Repayable £416,874.36|flex'
+      vector double:
+         displayMonthly             golden  '£3,793|block'
+                                    rebuilt '£3,792.85|block'
+      vector double:
+         displayTotalInterest       golden  '£1,775,709|inline'
+                                    rebuilt '£1,775,708.92|block'
+      vector double:
+         displayTotalRepayable      golden  '£2,275,709|inline'
+                                    rebuilt '£2,275,708.92|block'
+      vector double:
+         resultsArea                golden  'Monthly Payment £3,793 Total Interest £1,775,709 Total Repayable £2,275,709|block'
+                                    rebuilt 'Monthly Repayment £3,792.85 Total Interest £1,775,708.92 Total Repayable £2,275,708.92|flex'
+VERIFIED  simple           identical inputs -> same answers (4 rounding-equal, 12 wording-only, ≤2 one-sided ids)
+      rounding-equal detail (-v):
+      vector asym:
+         monthlyResult              golden  '£971|block'
+                                    rebuilt '£970.92|block'
+      vector defaults:
+         monthlyResult              golden  '£1,112|block'
+                                    rebuilt '£1,111.66|block'
+      vector double:
+         monthlyResult              golden  '£3,034|block'
+                                    rebuilt '£3,034.28|block'
+      vector half:
+         monthlyResult              golden  '£765|block'
+                                    rebuilt '£765.43|block'
+
+REPLAY-FAIL stamp-duty       NOT judged — 4 step(s) did not take:
+         asym: select #buyerType -> no-option
+         defaults: select #buyerType -> no-option
+         double: select #buyerType -> no-option
+         half: select #buyerType -> no-option
+      note: 4 truncated id(s) (200-char fingerprint slice) not machine-judged — eyeball:
+      vector asym:
+         breakdown                  golden  'First Time Buyer Relief Applied.|block'
+                                    rebuilt 'Standard residential ratesBandRateTaxableSDLT£0–£125,0000%£125,000£0£125,000–£250,0002%£125,000£2,500£250,000–£925,0005%£345,000£17,250Total SDLT£19,750Effective rate: 3.32% of the property price.Stan|block'
+      vector defaults:
+         breakdown                  golden  'First Time Buyer Relief Applied.|block'
+                                    rebuilt 'Standard residential ratesBandRateTaxableSDLT£0–£125,0000%£125,000£0£125,000–£250,0002%£125,000£2,500£250,000–£925,0005%£100,000£5,000Total SDLT£7,500Effective rate: 2.14% of the property price.Standa|block'
+
+== summary ==
+   bridging-loan    DIVERGED
+   equity-release   DIVERGED
+   fee-analyser     DIVERGED
+   investor         DIVERGED
+   overpayment      DIVERGED
+   rate-forecaster  DIVERGED
+   repayment        DOMAIN-DIFF
+   simple           VERIFIED
+   stamp-duty       REPLAY-FAIL
+
+8 tool(s) not verified: bridging-loan, equity-release, fee-analyser, investor, overpayment, rate-forecaster, repayment, stamp-duty
