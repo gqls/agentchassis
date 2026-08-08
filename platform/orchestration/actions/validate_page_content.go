@@ -1202,9 +1202,16 @@ func loadEvidenceBase(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger 
 //
 // Patterns are deliberately narrow: schema/pipeline vocabulary and
 // first-person refusals never belong in page copy, whereas broader phrases
-// ("this section requires…") risk false-positiving legitimate content. A
-// false positive here routes to needs_human_review, not silent breakage —
-// but keep the list unambiguous anyway.
+// ("this section requires…") risk false-positiving legitimate content.
+//
+// CORRECTED 2026-08-08 (bugs_open/219). This paragraph used to end: "A false
+// positive here routes to needs_human_review, not silent breakage — but keep
+// the list unambiguous anyway." That was wrong, and the wrongness is why the
+// list's narrowness was treated as sufficient. A blocker makes this action
+// RETURN AN ERROR (see the categorise block, ~:428), so the step fails and
+// the page is never saved. A false positive here is not a review queue: it is
+// a page that can never be rebuilt until someone edits the artefact the
+// scanner mis-read. Keep the list unambiguous AND keep the scope prose-only.
 
 var metaCommentaryPatterns = []struct {
 	Pattern string
@@ -1228,20 +1235,55 @@ var metaCommentaryPatterns = []struct {
 }
 
 func checkMetaCommentary(html string) []ValidationIssue {
-	lower := strings.ToLower(html)
+	// These are PROSE patterns, so they scan assertion text, not raw HTML —
+	// the same seam bugs_open/218 settled for the placeholder scan, and for
+	// the same reason. Substring-matching the whole assembled artefact
+	// convicted a HUMAN's documentation: three locked calculator components
+	// explain themselves in a `/* … */` comment inside their <script>, and
+	// those notes say "input_schema" because that is the word for the thing
+	// they document. Severity here is blocker, so the four pages carrying
+	// those components could never be rebuilt again — the build failed before
+	// save_page_sections, every time, quoting a developer note written five
+	// days earlier (bugs_open/219).
+	//
+	// ExtractAssertionText is the claims checks' existing prose scope (real
+	// HTML parse; script/style/code/pre/head/template and attributes
+	// excluded, comments and doctypes skipped as non-assertions), reused here
+	// rather than a second stripper.
+	//
+	// NOTE for anyone reading 219's fix candidates: "strip HTML comments"
+	// would NOT have fixed this. The offending notes are JavaScript block
+	// comments inside <script>, and two of the three templates contain no
+	// HTML comment at all. Scope is what was wrong, not the comment syntax.
+	//
+	// headProseBlocks re-adds <title> and the meta descriptions, which the
+	// extractor drops with the rest of <head>: those are prose a visitor
+	// reads (tab, SERP, unfurl), so meta-commentary must not be able to hide
+	// there. Without them this check would be a narrowing, not a re-scoping.
 	var issues []ValidationIssue
 
+	blocks := append(datahelpers.ExtractAssertionText(html), headProseBlocks(html)...)
 	for _, p := range metaCommentaryPatterns {
-		idx := strings.Index(lower, p.Pattern)
-		if idx >= 0 {
+		for _, block := range blocks {
+			idx := strings.Index(strings.ToLower(block), p.Pattern)
+			if idx < 0 {
+				continue
+			}
 			issues = append(issues, ValidationIssue{
-				Type:        "meta_commentary",
-				Category:    "meta_commentary",
-				Severity:    "blocker",
-				Location:    extractSnippet(html, idx, 80),
-				Value:       p.Pattern,
-				Description: fmt.Sprintf("LLM meta-commentary in content: '%s' (%s) — the model wrote about its task instead of doing it", p.Pattern, p.Label),
+				Type:     "meta_commentary",
+				Category: "meta_commentary",
+				Severity: "blocker",
+				Location: extractSnippet(block, idx, 80),
+				Value:    p.Pattern,
+				// Says what was established — that this vocabulary is in the
+				// page's visible copy — and no longer asserts WHO put it
+				// there. The old wording ("the model wrote about its task
+				// instead of doing it") is a cause the check cannot know: it
+				// is a substring scan, and on 2026-08-08 it named the model
+				// for an hour for a human's changelog note.
+				Description: fmt.Sprintf("Schema/pipeline vocabulary in visible page copy: '%s' (%s) — reads as commentary about the task rather than content", p.Pattern, p.Label),
 			})
+			break
 		}
 	}
 	return issues
