@@ -1834,3 +1834,76 @@ old footer and are being re-deployed individually to pick up the link. Until tho
 finish, tool 2 is reachable by URL but not linked from the rest of the site — the
 exact orphan condition the 07-29 session spent an afternoon on, so **verify by
 `curl`ing a page and grepping for the link, not by the orchestration status.**
+
+## 2026-08-08 — rerender-safety: the honesty note and the CTA rewrite now SURVIVE a rebuild (STY-052/053), and the wire is restored 9/9
+
+Owner directive: "any oufe rerender should not break the site." Worked by a
+fresh session picking up the 117-lane contribution at the bottom of the 07-30
+handoff.
+
+**What was actually broken (measured before touching anything):**
+- Stored footer: `footer-note` div and note text both ABSENT since the
+  2026-07-31 19:21 chrome rebuild (the 117 lane's finding, confirmed).
+- Stored header: `Get Started` → /contact.html BACK — the 07-31 rebuild also
+  reverted FIX_2026-07-26's CTA rewrite, which nobody had noticed. Confirmed
+  on the wire (`<a href="/contact.html" class="header-cta">Get Started</a>`
+  served on index.html, 2026-08-08).
+- So the site had TWO artefact-only hand-patches and both were already lost;
+  the tool links were fine because they are data-carried (nav flags →
+  buildServicesHTML).
+
+**The fix (the durable option the 117 contribution named):** carry both in the
+template+config path so a rebuild REPRODUCES them. Third and fourth consumers
+of the STY-050 mechanism, mirroring STY-051's worked example end to end:
+- `footer-theme-chrome` (16 sites): `{{if .footer_note}}`-gated band, CSS
+  inside the gate (mig 253's final form), `input_schema` →
+  `config.chrome.footer_note`. **STY-052.**
+- `header-theme-chrome` (15 sites): CTA line now prefers
+  `{{if and .header_cta_url .header_cta_label}}`, falling through to the old
+  action text byte-for-byte. NEW field names because the fixed vocabulary
+  always supplies non-empty `cta_text`/`cta_url` and the schema fill is
+  gap-fill-only (presence wins) — the existing names are structurally
+  un-overridable. Both-or-nothing by design. **STY-053.**
+- oufe `site_specs` site_config: the three values (note = the owner-approved
+  DRAFT §A wording; `/cases/index.html`; "Read the cases"), merged in place,
+  `analytics.gtm_container_id` asserted surviving.
+
+**Artifacts:** tests `chrome_note_and_cta_override_test.go` (7/7; old-template
+constants md5-identical to the live rows; byte-identity for unset, empty-string
+and partial-config sites), migration `sql_for_agents/339` (GENERATED from the
+test constants so SQL and pinned templates cannot drift; md5 drift guards +
+DO/RAISE verifies; applied clean, ledger-recorded), commit `efc879d92`,
+council trail `5c18ccaa` (round 1 REVISE — the gating objection was that the
+propagation sat outside the edit set as a commented section; it had in fact
+been dispatched and completed between submission and verdict; resubmitted
+round 2 with the executed evidence in the sketch).
+
+**Propagation + verification (all timestamps 2026-08-08):** `needs_rerender`
+item 17:34:51Z → three chrome slots re-rendered 17:36:08–09Z (footer has note,
+header has "Read the cases", tool links intact, **all three slots
+`render_inputs`-stamped — the fleet's first post-roll stamps; reported to the
+117 lane's watch**) → 9 `page_rerender` items, ALL NINE complete including the
+four `rebuild_policy='owned'` pages (the 07-30 silent-skip did NOT recur) →
+wire sweep with byte-count guards: **9/9 pages note≥1, "Read the cases"=1,
+"Get Started"=0**; tool integrity: 115 `rw-` markers on tool 1, consent gate
+present on tool 2. disclaimer.html reads note=2 — footer + its own body copy,
+correct.
+
+**Missteps this session:**
+1. First wire check (`curl -s | grep -o ...`) returned EMPTY and I wrote "the
+   wire shows neither CTA variant" — the curl had silently failed. Caught in
+   minutes because the result fit no hypothesis; logged in WRONG_CALLS
+   (2026-08-08, "silently empty curl|grep pipeline") with the cheap check
+   (assert body bytes before reading any zero). Every subsequent wire check
+   printed `bytes=` first, and one later fetch DID fail mid-artefact-swap and
+   was caught by exactly that guard.
+2. Committing `000_concept_index.md` swept the PBP-038 lane's uncommitted
+   header narration + index row as a same-file passenger — known, named in the
+   commit message, nothing of theirs lost.
+
+**What this does NOT cover:** the header CTA override bypasses
+`chromeLinks.Allows` (only the fixed-vocab default is vetted) — flagged in the
+schema description, the register landmine, and the council round as an open
+question (whether bugs_open/191's artefact-level checks see it). And locked
+slots / 069 remain the other legitimate protection for anything that must
+never rebuild — nothing on oufe is locked; nothing now needs to be.

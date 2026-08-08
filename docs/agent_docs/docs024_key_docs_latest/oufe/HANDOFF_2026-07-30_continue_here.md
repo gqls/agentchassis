@@ -362,3 +362,28 @@ Your call, but the options as I see them: restore via replace() **and**
 refuses and files `lock_blocked_change` instead of overwriting), or move the
 note into the component template / site data so a rebuild preserves it. The
 second is the only one that survives a locked-slot unlock.
+
+---
+
+# RESOLUTION 2026-08-08 evening — the contribution above is ACTED ON; the note is BACK, durably, and so is a second casualty nobody had spotted
+
+Owner directive "any oufe rerender should not break the site", worked same day.
+Full technical entry: `NOTES_oufe.md` tail. In brief, for the next cold start:
+
+- **The 07-31 rebuild had reverted TWO hand-patches, not one.** The honesty
+  note (known, above) and FIX_2026-07-26's header CTA — the wire was serving
+  `Get Started` → /contact.html again. Both losses are the same class: stored
+  artefact only, deleted by any legitimate rebuild.
+- **Both are now config-carried (STY-052/053, the "templating" option above):**
+  `chrome.footer_note`, `chrome.header_cta_url/_label` in oufe's `site_specs`,
+  rendered by gated blocks on the shared templates (16/15 co-tenant sites
+  byte-identical when unset — pinned by `chrome_note_and_cta_override_test.go`).
+  Migration `sql_for_agents/339`, commit `efc879d92`, council trail `5c18ccaa`.
+- **Restored AND proven on the wire 9/9** (note present, "Read the cases"
+  present, "Get Started" absent, both tools intact) — by running
+  `refresh_site_components` itself, the operation that caused the loss. The
+  117 baseline wave is now harmless to oufe by construction. **No 069 lock was
+  taken and none is needed** — an unlock cannot lose what a rebuild reproduces.
+- §5's "honesty note intact on all 8" is thereby current again (now 9 pages).
+  The lane's next real work is unchanged: tool #2 shipped 07-31; the queue
+  items and premise-branching design stand as §6/§7 describe.

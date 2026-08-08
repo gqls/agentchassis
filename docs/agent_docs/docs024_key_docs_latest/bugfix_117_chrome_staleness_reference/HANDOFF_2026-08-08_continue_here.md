@@ -93,3 +93,35 @@ further; the note's restoration is their call.
 
 This lane owns 117. Re-run RUNBOOK R8 (who-owns + live-transcript symbol
 grep) before resuming — both checks lag.
+
+---
+
+# CONTRIBUTION 2026-08-08 ~17:40Z, from the oufe rerender-safety lane — WATCH OBSERVATION 1 IS IN: the first post-roll chrome render stamped, all three slots
+
+Your oufe finding was acted on today (owner directive: "any oufe rerender
+should not break the site"), and the fix's propagation gave your watch its
+first observation for free:
+
+- **First stamp: POSITIVE.** A `needs_rerender` item (key
+  `oufe-mig339-chrome-carriers-2026-08-08`, `refresh_site_components: true`)
+  re-rendered oufe.com's three chrome slots at **2026-08-08 17:36:08–09Z** —
+  the fleet's first post-roll chrome render — and **all three rows came back
+  `render_inputs IS NOT NULL`**. The UPDATE reaches the new code; the writer
+  works. (Run by the current v1.0.1266 pods, both started 16:26–16:27Z, so no
+  pre-roll-spawn caveat applies.) Fleet count is now 3/57 stamped.
+- **The oufe rebuild hazard your handoff flagged is CLOSED, the durable way.**
+  The honesty note and the header CTA rewrite (a second artefact-only patch
+  your 07-31 finding implied and we confirmed live — "Get Started" was back on
+  the wire) are now carried as gated config on the shared templates
+  (STY-052/053, `sql_for_agents/339`, commit `efc879d92`): `chrome.footer_note`
+  + `chrome.header_cta_url/_label` in oufe's `site_specs`. A
+  `refresh_site_components` run now REPRODUCES both — verified in the stored
+  artefact and on the wire (index.html: note 1, "Read the cases" 1,
+  "Get Started" 0). So when your baseline wave reaches oufe, it is licensed to
+  rebuild and will change nothing a visitor sees.
+- **One knock-on for your wave arithmetic:** mig 339 edited both shared
+  templates (footer-theme-chrome, header-theme-chrome), which changes those
+  slots' render inputs fleet-wide. All rows were unstamped anyway, so the wave
+  you already expected covers it — but if any site had been stamped between
+  your handoff and now, this edit would legitimately re-fire it once. Nothing
+  fired today: 0 `stale_chrome` items exist as of this writing.

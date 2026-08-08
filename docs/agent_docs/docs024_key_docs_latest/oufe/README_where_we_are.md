@@ -638,3 +638,39 @@ day. Nor on the two smaller follow-ups. Those stay open and are written up as su
 The rest is unchanged: the fix is live and verified on both replicas, the checker
 queue keeps nine of its twelve items, and oufe's second tool is still the lane's next
 real piece of work.
+
+---
+
+2026-08-08, evening. The instruction was simple: a rebuild of oufe must never
+break the site again. Here is what that turned up and what changed.
+
+When the platform rebuilt oufe's page furniture on the 31st of July, it threw
+away two things we had put there by hand: the honesty note in the footer (the
+paragraph that says we make mistakes and that AI assistance can invent
+convincing detail), and the header button change — we had replaced "Get
+Started", which invites a purchase on a site that sells nothing, with "Read
+the cases". The note's loss was already known. The button's loss was not: the
+live site had been showing "Get Started" again for eight days and nobody had
+noticed. That is the trouble with hand-edits to generated furniture — the next
+rebuild erases them, silently, and the rebuild is always legitimate.
+
+The fix is to stop keeping either thing as a hand-edit. Both now live in the
+site's own configuration, and the shared templates know how to render them
+when a site provides them. So a rebuild now RE-CREATES the note and the button
+instead of deleting them — we proved that by running the exact operation that
+destroyed them before, and watching it restore them instead. All nine pages on
+the live site now carry the note and the right button; the two calculator
+tools came through untouched. Any other of our sites can now have its own
+footer note or its own header button by adding two lines of configuration —
+without affecting any site that doesn't.
+
+The change went through the review council. The reviewers' one blocking
+complaint was fair: the plan as written promised to fix the live site
+"separately", which reads as "maybe never". In fact the restoration had
+already run and been verified by the time the verdict landed; we resubmitted
+with that evidence attached.
+
+One more thing worth saying plainly: the review the platform's own detector
+now runs (the one fixed under bug 117) stamped its first pages today on
+exactly this rebuild — so the machinery that decides "this furniture is stale,
+rebuild it" is working, and when it next fires on oufe it will do no harm.

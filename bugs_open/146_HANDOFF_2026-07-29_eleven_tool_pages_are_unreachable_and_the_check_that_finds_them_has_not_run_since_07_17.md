@@ -273,3 +273,26 @@ chrome and confirm a site-specific footer note survives.
 `bugs_open/098` (deployed ≠ fetchable; this is fetchable ≠ reachable) ·
 `bugs_open/140` (filed the same morning — a component asserting what the site never
 said; same family of "the artefact and the data disagree") · oufe NOTES 2026-07-29.
+
+---
+
+# ADDENDUM 2026-08-08 (oufe rerender-safety lane) — the oufe chrome-regeneration trap this file documents is RETIRED
+
+The trap this file warns about — *"the standard remedy is regenerate chrome,
+which would have deleted oufe's footer honesty note, which is in no template
+and no Go code"* — is no longer true, and in fact the loss it predicted HAD
+HAPPENED (2026-07-31 19:21 chrome rebuild deleted the note from the store and
+the wire, plus FIX_2026-07-26's header CTA rewrite, unnoticed for eight days).
+
+Both are now carried in config on the shared templates (STY-052
+`chrome.footer_note`, STY-053 `chrome.header_cta_url/_label`;
+`sql_for_agents/339`, commit `efc879d92`), so **a chrome regeneration on oufe
+now REPRODUCES the note and the CTA** — proven by running
+`refresh_site_components` itself and verifying the wire 9/9. "Check for
+hand-patched chrome before regenerating anyone's" REMAINS the rule for every
+other site; the durable remedy when you find one is now a worked, twice-used
+pattern (this migration mirrors SQL_2026-08-02d exactly).
+
+Also: the "site-wide reassemble left the 3 owned pages at triaged, unclaimed"
+behaviour did NOT recur on 2026-08-08 — a 9-page batch (4 owned) drained
+complete and all four owned pages picked up the new chrome on the wire.
