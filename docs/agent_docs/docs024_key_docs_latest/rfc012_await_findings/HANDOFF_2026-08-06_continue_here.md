@@ -11,15 +11,23 @@ at commit `3851e90b5` — read that block, it is the authority, not this file):
 2. **The §3(a) reader census — COMMISSIONED.**
 3. **Option B implementation — ASSIGNED here.**
 
-**ALL THREE ARE NOW DELIVERED, and both council rounds are APPROVED.** What is left is
-follow-up work that no ruling requires, listed at the bottom. Nothing is broken and nothing
-is in flight — the 090 diagnosis this lane filed has come back (UNVERIFIABLE, §2 below) and
-there is no verdict outstanding.
+**ALL THREE ARE NOW DELIVERED, and all FOUR council rounds are APPROVED** (3a, 3b, and rounds
+4 + 5 on the provenance hardening, which share one trail correlation). **The follow-up work the
+rulings did not require is also done and LIVE on v1.0.1268.** Nothing is broken and nothing is
+in flight: the 090 diagnosis this lane filed came back UNVERIFIABLE (§2 below), and the only
+outstanding verdict — the landmine verifier's — has been read and dispositioned as a false
+alarm caused by code-index lag (see STATE).
+
+**The lane's remaining work is ONE named job, §1a, and it is architecture-scope.** If you want
+the shortest path in, read §1a and the RUNBOOK's "provenance seam" section; everything else
+below is history that explains why §1a is shaped the way it is.
 
 ~~**START HERE IF YOU ARE PICKING THIS UP COLD:** the single highest-value piece of work is
-**§1 — hardening `LogActionEntry`'s merge**.~~ **§1 IS DONE (2026-08-08 evening) — built,
-mutation-proven, registered and submitted (corr `5d200313-f6c3-4fec-8457-503ac620d5ef`,
-verdict outstanding). Read §1 below for what shipped and what it deliberately did not fix.**
+**§1 — hardening `LogActionEntry`'s merge**.~~ **§1 IS DONE AND LIVE (2026-08-08 night):
+built, mutation-proven, registered, APPROVED over two council rounds
+(corr `5d200313-f6c3-4fec-8457-503ac620d5ef` — both reports approved), and **pod-proven on
+v1.0.1268, both chassis replicas**. Read §1 below for what shipped and what it deliberately
+did not fix.**
 
 **START HERE IF YOU ARE PICKING THIS UP COLD:** the highest-value piece of work is now
 **§1a — hoisting the `RunAgentType` ladder onto `*types.ExecutionContext`**, which §1 found and
@@ -45,9 +53,10 @@ It is a shared seam, so budget a council round and a concept-register entry in t
 | **Council round 3a** (B conversions) | corr `5c2bc265-84ac-452b-bd8b-22fd7b875427` | **APPROVED** 2026-08-08, 5 advisory objections, none high |
 | **Council round 3b** (the detector) | corr `7b6497d7-8147-4b15-aee4-fa6e361827f2` | **APPROVED** 2026-08-08 |
 | doc_notes provenance rows | `created_by='rfc012-lane'` | **FILED** for `cmd/config-key-audit` and `platform/orchestration/agenterrors` |
-| **§1 provenance hardening** (the merge split) | see §1 | **BUILT + COMMITTED 2026-08-08, INERT until the next roll.** 12 tests, 5 mutations, RSH-008 amended in the same commit |
+| **§1 provenance hardening** (the merge split) | see §1 | **LIVE on v1.0.1268, pod-proven BOTH chassis replicas 2026-08-08 evening.** 15 tests, 6 mutations, RSH-008 amended in the same commit. ⚠ re-verify with a full PHRASE, never `grep -c "^unattributed$"` — anchored needles cannot match a Go constant |
 | **Council round 4** (the hardening) | corr `5d200313-f6c3-4fec-8457-503ac620d5ef` | **APPROVED** 2026-08-08 17:32Z, round 1, 10 seats, 2 advisory objections, no veto. `architecture` ruled it `point_fix` — council-gate was the right forum |
 | **Objection responses** (round 4's own) | see §1 | **DONE** — the `step_name` asymmetry CLOSED, the census recounted to **21**, the live figures re-run |
+| **Landmine verifier** | corr `1ffae4bf-…` | **NEEDS_HUMAN_REVIEW — DISPOSITIONED as a false alarm.** Code index pinned at `93c576963`, an ANCESTOR of the commit that created the symbol, so it could not see it. Settled by `git grep` at HEAD + the pod-grep; disposition written into the LANDMINES entry |
 
 ### How the rejection was turned round, because the lesson generalises
 

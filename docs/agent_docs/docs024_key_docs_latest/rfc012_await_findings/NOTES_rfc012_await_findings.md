@@ -1014,3 +1014,67 @@ outstanding, and a session picking this lane up should read it before trusting t
 numbers.** Worth noticing that the useful thing here was another lane writing its mistake down
 within the hour; I would not have known the status was consumable otherwise, because both my syncs
 reported success.
+
+## 2026-08-08 (night) — the hardening is LIVE on v1.0.1268, and verifying it broke two of my own instruments
+
+A fresh chassis build rolled. **Both commits are in the binary, pod-proven on both chassis
+replicas independently** (`agent-chassis-67ddcc695f-jvfmc`, `-dwsdl`, v1.0.1268, started 18:57Z):
+
+| needle | expect | got |
+|---|---|---|
+| `Failed to write to agent_error_log` (unchanged — proves the pipeline) | 1 | **1** |
+| `recorded as unattributed rather than credited to the running step` (the split) | 1 | **1** |
+| `names an agent_type but no step_name` (the symmetry — separates commit 2 from commit 1) | 1 | **1** |
+| `provenance_running_agent_type` (the context diagnostic) | 1 | **1** |
+| `credited to the walking step` (exists in no version) | 0 | **0** |
+
+The third needle is the load-bearing one: it exists only after `0dc2d71a2`, so it distinguishes
+"round 4 shipped" from "both rounds shipped". Without it a build made between my two commits
+would have passed.
+
+**PICKING THE PODS was the first trap and the RUNBOOK already warned me.** `-l app=agent-chassis`
+is the wrong selector, so I picked by image TAG — and the first two pods I picked were *gone by the
+time I exec'd*, one `Succeeded` and one `NotFound`. The fleet spawns ephemeral per-job pods that run
+the same image, so a tag census returns dozens of pods that will not exist in thirty seconds.
+**Add `--field-selector=status.phase=Running` and prefer the long-lived `agent-chassis-*`
+deployment replicas.** Tag histogram over Running pods: 44 on v1.0.1268, 0 on anything else — the
+v1.0.1266 straggler I had lined up as a free negative control evaporated mid-check.
+
+### MISSTEP 13 — my anchored needle returned 0 on a binary that contains the string
+
+I checked the sentinel constant with `strings /app/agent-chassis | grep -c "^unattributed$"` and got
+**0**, on the same exec where four other needles returned 1. Not a shipping failure — **a broken
+instrument.** The Go linker packs string constants into contiguous blobs, so `strings` emits them
+concatenated dozens-to-a-line; there is nothing for `^…$` to anchor to. Proven in place: unanchored,
+the same binary returns **4**, and one of the lines reads
+`…conditions_recordededitorial_referrerscomponents_examinedassembled_page.html…`.
+
+**Why this one is worth a landmine rather than a shrug: it fails in the direction that reads as
+"your fix did not ship".** Had I run only that needle I would have concluded the roll missed my
+commit, gone looking for a build problem that does not exist, and possibly rebuilt. Filed as a
+second failure mode on the existing `strings | grep -c` entry, whose first mode (counts SPELLINGS,
+not SITES) bit this same lane on 08-07. **Needle on a distinctive full PHRASE, never a short bare
+constant, never anchored.**
+
+### The landmine verifier said NEEDS_HUMAN_REVIEW, and it is structurally guaranteed to for any fresh entry
+
+`1ffae4bf-521d-462b-bd48-d26a4988a6bd` came back **NEEDS_HUMAN_REVIEW**: *"`LogActionEntryInheritingProvenance`
+… returns 0 results from the code index (commit 93c57696), meaning either it was never merged to
+this branch, was removed, or the entry's new-API section is stale."*
+
+**The verifier is honest — it names all three possibilities and declines to pick.** I can pick,
+because I have tools it does not: `git merge-base --is-ancestor 93c576963 f993554f6` → **true**, so
+the index is pinned to an **ancestor of the commit that created the symbol** and could not contain
+it under any circumstances. `git grep` finds it at HEAD; both pods carry the enclosing code. The
+index's newest row is 08-08 08:28Z, about ten hours before my commit.
+
+**The generalisation, which is the part worth keeping: a landmine describing a NEW symbol will
+ALWAYS come back `NEEDS_HUMAN_REVIEW` if filed the same day, so that verdict on a fresh entry
+carries no information whatsoever.** It is not a signal to weaken the entry. Settle it with
+`git grep` at HEAD plus a pod-grep and write the disposition INTO the entry — which I have done,
+because the next reader will otherwise meet a scary-looking verdict with no resolution beside it.
+This also means my earlier note ("verdict not read — genuinely outstanding") is now discharged.
+
+**And the wrapper lesson from `c7d4af7cc` applied properly this time:** ran
+`./scripts/landmines-verify-dispatch.sh` INSTEAD OF the bare `--apply`, and it reported
+`content changed: 1 / orphaned: 0` and dispatched in one go.
