@@ -184,3 +184,61 @@ that is a fact about my calendar, not about the code, and they should be split.
 Nothing here is broken or at risk: the code has been running in production since yesterday
 morning and is confirmed still running on today's build. The rejection blocks a rubber stamp,
 not the work.
+
+---
+
+## 2026-08-08 (evening) — all three instructions are done, and the reviewers came round
+
+Short version: the code change the reviewers turned down this morning is now approved, the
+other half is approved too, and the last of the three things the owner asked for — the check
+that runs by itself — is live in production and has reported its first clean run. Nothing is
+outstanding and nothing needs watching.
+
+The rejection was not the problem it looked like. The reviewer refused because I had told it
+honestly that the form showed it 8 files out of 34, and judging how far a change reaches is
+its actual job. What it wanted was named in its own refusal: just give it the list of file
+names. That costs nothing and doesn't use up the 8 slots. I did that, and split the
+submission in two because two reviewers had fairly said I'd bundled two unrelated pieces of
+work into one round. **I changed no code.** Both halves came back approved.
+
+The thing I'd actually want you to know about, though, is smaller and more interesting. One
+reviewer had made a passing remark — approve, but did you check this new audit's way of
+reading agent definitions against the older tool in the same folder that does much the same
+thing? Nobody had. I did, and it was a real fault, not a tidiness point.
+
+A repeating block of work in a definition can be written two ways. The audit could only see
+one of them — and the one it couldn't see is the one the platform prefers when both are
+present. So against a definition written that way it would have found nothing and said all
+clear. And against one written both ways, it inspected the half that never runs.
+
+What makes this worth the paragraph: **nothing could have caught it by running the thing.** No
+definition in production currently uses the style it was blind to, so every real run came back
+clean, and would have kept coming back clean until the first person who preferred that style
+silently disappeared from the audit's view. So I had to build the proof instead of observing
+it — two tests that fail on the old version and pass on the new, and a side-by-side of both
+versions over the same snapshot showing they agree exactly, which mattered because seventeen
+live agents do use the style it could see and I needed to show I hadn't disturbed them.
+
+I also went back and settled three challenges the reviewers made about how this lane proves
+things, instead of leaving them on the record. One of them was simply wrong and I can show it.
+One was right and worse than the reviewer said: our normal way of confirming a change has
+reached production checks two containers out of forty-two. One was a fair complaint that
+something load-bearing had never been checked; it holds up, and it's a check now rather than
+an assertion.
+
+Two things I deliberately did not do. A file the old notes said to tidy up "when it's free to
+touch" I have left alone and marked as closed — the review that just passed says it stays, and
+I can now show there's nothing to gain, because the two bits of code in question are identical
+character for character. And one loose end I'd hand on: four reviewers independently found the
+same soft spot in the new shared mechanism. If somebody uses it and *forgets* one particular
+detail, it fills that detail in wrongly and quietly, and no test we have would notice. All
+eighteen current uses are fine. The nineteenth is the risk. It's a small fix and it's written
+down where the next person will meet it.
+
+One more, honestly flagged: there's a diagnosis running on a suspected fault in how deployed
+hero and logo images reach a page. My reading of the code says it is broken today — the action
+computes the image address and asks an outside service to do something in the *same breath*,
+which is this whole RFC's own trap biting the very thing we went looking for. But I tried to
+observe it happening in the records and found nothing either way, so I've filed it as a
+hypothesis for the diagnosis loop to test rather than writing it up as a finding. If it comes
+back refuted, that's a good outcome and cost one run.

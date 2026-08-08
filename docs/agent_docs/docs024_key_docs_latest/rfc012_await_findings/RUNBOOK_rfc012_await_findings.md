@@ -16,8 +16,18 @@ WHERE deleted_at IS NULL AND COALESCE(is_snapshot,false)=false AND is_active
 ```
 
 2026-08-06 baseline: **176 agents, 0 new / 2 acked / 0 stale, exit 0.**
+2026-08-08 re-measure: **177 agents, 0 new / 2 acked / 0 stale, exit 0** (fleet grew by one;
+the result is otherwise unchanged, including across the descent swap).
 
-Gotcha 1: `--ack` must be argv[2]/[3] (`--shared-output-fields --ack <file>`), not later.
+> **CORRECTED 2026-08-08 — gotcha 1 below is RETIRED, because the defect it warned about is
+> fixed rather than documented.** It read: *"`--ack` must be argv[2]/[3]
+> (`--shared-output-fields --ack <file>`), not later."* That was true and it was a trap: passed
+> anywhere else the flag was ignored **silently**, so the ratchet reverted to a raw check that
+> exits 1 for ever. Arguments are now SCANNED (`22ed9aa04`), position is free, and a typo'd
+> flag REFUSES instead of proceeding with the flag dropped —
+> `TestParseSharedOutputArgs` pins both. What made it worth closing was putting the check on a
+> schedule: a permanently-red job is one everybody learns to ignore, which is the same
+> blindness this check exists to prevent, reached by another route.
 Gotcha 2: a clean run here proves the FLEET, not the detector — the detector's ability to
 fire is proven by `go test ./cmd/config-key-audit/ -run TestSharedOutputs` (it fires on
 192's own shape and LOSES the finding when the `config.then_step` edge is severed). Never
@@ -129,8 +139,45 @@ Write it to a file and assert the byte count first (1,097,081 bytes / 177 agents
 2026-08-08). The tool refuses a 0-agent decode by design, which is what caught this — but
 it cannot catch a *partial* array that still parses.
 
+## Filing a 090 diagnosis from this lane
+
+Gotcha — **the 090 trigger does not escape DOUBLE QUOTES in the symptom.** A symptom
+containing `"image_url"` dies server-side with `ERROR: invalid input syntax for type json
+... Token "image_url" is invalid`, after the script has already printed a correlation and
+looked like it was working. Write key names bare or bracketed (`result[image_url]`), never
+quoted. Cost me one intake on 2026-08-08.
+
+Gotcha — **the printed intake correlation is NOT the key the artifacts land under.** The
+dispatch loop mints its own and stamps it onto the item; the script waits up to 180s and
+prints `RUN_CORRELATION_ID`. Use that one:
+```sql
+SELECT kind, left(body, 4000) FROM diagnosis_artifacts
+WHERE correlation_id::text LIKE '<RUN_CORRELATION_ID prefix>%' ORDER BY created_at DESC;
+```
+
+## The standing (d) CronJob
+
+```bash
+make build-shared-output-fields-check push-shared-output-fields-check deploy-shared-output-fields-check
+make shared-output-fields-check-now      # immediate run
+kubectl -n ai-persona-system logs -l app=shared-output-fields-check --tail=40
+```
+Then read the row it must write on EVERY run, clean included — a missing row means the job
+did not run and must never read as "nothing is wrong":
+```sql
+SELECT created_at, left(body, 240) FROM doc_notes
+WHERE source = 'shared_output_fields_check' ORDER BY created_at DESC LIMIT 7;
+```
+Exit codes, all four verified against the built image before deploying: 0 clean, 1 a NEW
+pair, 2 unusable input (empty fleet or bad JSON — it refuses to print a clean report over an
+empty fleet). Verify them on the IMAGE, not just with `go test`: `docker run --rm -i
+<image> < live_agents.json` exercises the CMD, the embedded ack path and the arg order in
+one go. That is how I confirmed `/app/shared_output_fields_ack.txt` was actually readable.
+
 ## Not-yet-built (see the handoff)
 
-The online CronJob for (d). **Everything else on the old list here is DONE**: the 18
-hand-copied INSERT conversions shipped (`f930de86b`, live) and the reader census artefact is
-delivered (`architecture_review/CENSUS_2026-08-07_rfc012_await_step_readers.md`).
+**NOTHING** — all three owner rulings are delivered as of 2026-08-08. The CronJob is live
+(`22ed9aa04`), the 18 conversions shipped (`f930de86b`), and the census is delivered
+(`architecture_review/CENSUS_2026-08-07_rfc012_await_step_readers.md`). Remaining work is
+follow-up nobody ruled on — see the handoff's NEXT section, top item being the
+required-provenance hardening four council seats asked for.
