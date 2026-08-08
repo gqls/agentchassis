@@ -1563,3 +1563,57 @@ mechanism (CLAUDE.md 07-31 ruling).
 **Cold-start moved to `HANDOFF_2026-08-08_continue_here.md`** — the drive-loop
 recipe (claim → orchestrate handler → verify by payload → complete → next) is
 its §1. Check `f37d5cd6…`'s outcome FIRST on resume.
+
+---
+
+## 2026-08-08 (5) — THE BUILD IS DONE AND SERVING: five pages, all assets, zero ban hits, hand-driven end to end
+
+**Every stage from briefing to final assembly ran tonight, all by direct
+dispatch** (queue still starved; every item claim/complete done by hand per
+HANDOFF §1). Sequence + outcomes:
+- briefing 22:17 → site plan 22:18 (**exactly the 5 roadmap pages; archived v1
+  row untouched — the rename held**) → fan-out 22:22 (5 needs_page + 4 hero
+  needs_imagery, batch-dispatched, **9/9 parents COMPLETED 0 FAILED**; imagery
+  items self-complete, page items do not — the loop's mark_complete is what I
+  replaced by hand).
+- **The claims gate BLOCKED contact v1** ("We usually reply the same day" —
+  Speed-class ban). Upstream specs swept with the validator's own regexes
+  BEFORE re-driving: "same day" exists ONLY as the ban row itself (avoid-list
+  KEEP). Re-drive → rewrite passed → deployed.
+- **Stranded-assets diagnosis**: this build's reconciler filed NO needs_design /
+  needs_composition / logo item because the DB already held all three from
+  08-04 — whose FILES sat in gqls/sites. Cloned the 08-04 needs_design +
+  site/logo items, drove webdesign-agent + image-build-handler: **"Update
+  stylesheet via webdesign-agent" landed IN VM-SITES 22:33:11** (the exact
+  commit type that misrouted on 08-04 — routing now proven at the artefact),
+  logo.jpg 22:33:58. `favicon.png` is referenced but has NEVER been produced by
+  either build — pre-existing fleet weak spot (131 family), owner-visible, not
+  chased tonight.
+- **Ban sweep vs the gate, measured**: raw grep said 33 hits; visible-text says
+  what matters — ONE real copy violation fleet-wide (what-you-get "not a single
+  template page…", violating the ban's "even to deny it" clause) plus em dashes
+  confined to the INDEX TITLE + its JSON-LD mirrors (the known head blind spot,
+  recurring from 08-05). The gate passed "template" in a paragraph while
+  blocking "same day" in a paragraph with identically-shaped rows — consistent
+  with the save_sections landmine's measured coverage (3 of 949 components
+  scannable): **a green gate means the component wasn't scanned, not that the
+  copy is clean. The repo-side visible-text sweep is the real floor; run it
+  every build.**
+- Fixes: index title em dash → colon by mechanical substitution (08-05
+  precedent), rerendered; what-you-get REBUILT through the framework (writer
+  regenerated; verified clean at the artefact). Final state: **0 visible-text
+  ban hits, 0 title em dashes, all five pages**.
+- **Assembly**: the site-wide rerender DELEGATES (files 5 page_rerender items;
+  it does not render) — drove all five, 0 failed; index nav now links every
+  page (it had rendered before its siblings existed). 4 "re-render after image"
+  needs_page items cancelled as moot with artefact evidence (heroes landed
+  before each page's own final render).
+- **Parked FOR THE OWNER: 9 unresolved_cta needs_human_review items** — hero/CTA
+  slots have no real-page destination. This IS the input-box question (handoff
+  §3 step 7 / §4): the intended destination is the chat/input box, which is
+  phase-gated on the chat service. Do not resolve them mechanically.
+- Two of my own script bugs bit mid-drive, both known classes: psql -tA status
+  line riding into a captured variable (envelope built from garbage → kcat
+  silently sent nothing while echoing DISPATCHED), and `kubectl run -i` inside
+  `while read` eating the id list (1 of 5 dispatched). Both in WRONG_CALLS
+  territory but already-tallied classes; noted here, not re-filed.

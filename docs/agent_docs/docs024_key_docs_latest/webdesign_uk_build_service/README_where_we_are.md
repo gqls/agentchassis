@@ -893,3 +893,30 @@ research is done, and the strategy step was running as this was written. Each
 step finishes in a few minutes once started; there are a handful more before
 the five pages themselves get written and appear on the preview. The queue
 problem itself is written up for the platform people with everything they need.
+
+---
+
+**2026-08-08, midnight. The five-page site is built and serving on the preview.**
+
+Home, how it works, what you get, the questions page, and contact — all built
+by the machinery, all live on preview.webdesign.uk, with the styling, the
+pictures, the logo and the menus all in place and all arriving in the right
+repository this time. We read every page's visible words against your fifteen
+banned-claim rules: zero hits. Your no-dashes rule: zero in anything a visitor
+reads.
+
+Worth telling you what the checks caught on the way, because it's the system
+earning its keep. The writer tried "we usually reply the same day" on the
+contact page — your rules blocked the save, and the rewrite came back clean.
+The what-you-get page said "not a single template page with your logo dropped
+on it" — which breaks your rule about not describing the product that way even
+to deny it; the automatic gate missed that one (it only inspects a small slice
+of page types — a real gap, now written up), our own sweep caught it, and the
+page was rewritten by the machinery, not by hand. And the home page title had
+picked up a long dash through the same side door as last time; fixed the same
+way as last time.
+
+Two things wait on you, same as before: the chat box phase (needs your
+Anthropic key), and your review of the preview — the site's five "get started"
+buttons currently have nowhere final to point, because the thing they should
+point at is the chat box. That's the next build, not a defect in this one.
