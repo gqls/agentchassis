@@ -22626,3 +22626,42 @@ Related: the same file already carried a `> **CORRECTION, same session**` about 
 error message naming an unestablished cause (`the model wrote about its task`). Two
 corrections in one bug file, both the same failure: **a plausible sentence adopted
 because nothing in the workflow required it to be discriminating.**
+
+---
+
+## 2026-08-08 — the monitor I armed to watch a live run was blind from its first poll, and its heartbeats read as evidence of queue latency
+
+**The claim:** "no orchestration row yet after 5 min… after 10 min (queue latency is
+normal here, budget ~30m)" — reported twice, in chat, while watching a one-shot
+improvement-loop run (`bugs_open/206` lane).
+
+**The truth:** the run had started within seconds of dispatch and was COMPLETE
+(14 orchestrations, all COMPLETED) before the first heartbeat fired. My monitor's
+polling query selected a column that does not exist on `orchestration_states`
+(`agent_type`); every poll errored; the `2>/dev/null || true` I had wrapped it in
+swallowed the error and returned an empty string — which the loop's logic renders
+as "no row yet". The failure mode was indistinguishable, by design of my own
+script, from the thing I was told to expect (queue latency), so each blind poll
+CONFIRMED the prior.
+
+**What caught it:** a cross-check I ran only because 10 minutes felt long against a
+LAG-0 queue — `count(*) FROM orchestration_states WHERE created_at > NOW()-'15
+min'` (no suspect column) returned 41 rows, and the follow-up per-row query errored
+loudly on `agent_type` the moment I dropped the error-swallowing wrapper.
+
+**The cheap check that would have caught it at t=0:** run the monitor's exact query
+ONCE in the foreground, and require it to return a non-error before arming the
+background loop. A watcher you have never seen produce a true positive is not a
+watcher. (Same session, second monitor: query foreground-tested first, worked
+first time.) The `|| true` compounds it — a poll loop must distinguish "queried
+fine, nothing there" from "query failed", or it converts every one of its own
+defects into its target's silence. Schema-first (`\d` before writing SQL) is
+already this repo's rule for migrations and reads; it applies to WATCHERS doubly,
+because a watcher's wrong answer arrives repeatedly, on a schedule, wearing a
+timestamp.
+
+**The transferable shape:** *silence from an instrument is only evidence if the
+instrument can prove it can speak.* Emit the error channel distinctly, or
+foreground-test once before trusting a background loop — related, from the other
+side: `kcat-publish-silently-drops` ("a step with no receipt is a step you cannot
+reason about").

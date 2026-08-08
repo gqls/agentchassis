@@ -234,3 +234,116 @@ Run orchestration `c7f494a4-de65-43e9-9fec-62d635e871e5`, dispatched
 steps — this session is handing off here rather than push through the
 ~30-minute queue wait plus the remaining apply/build/re-triage/verify
 sequence in one sitting.
+
+## 2026-08-08b — round 3 APPROVED; migrations applied; improvement-loop experiment (predictions registered BEFORE the run)
+
+Round 3 verdict read from `diagnosis_artifacts`: **approved**, 2026-08-08
+09:18:48Z (the handoff's "submitted ~10:11" was BST; verdict landed ~7 min
+after submission). Subsequent commits in this lane carry
+`Council-Reviewed: 5b8e4cf7-31c3-4793-a550-d6b9be1f00e8`.
+
+Applied 325 + 326 by hand (each printed its own `OK` NOTICE via the
+`IS DISTINCT FROM` guards), recorded both with `--record-only`, and set
+`directory-build-handler.image_tag='v1.0.1264'` — the tag moved AGAIN
+under this lane (1263 → 1264, third external roll); pod-grepped both
+replicas 5/3/1/1 with negative control 0 before trusting it.
+
+**Owner asked: would the improvement loop have picked these problems up?
+Experiment: run it one-shot over vetcomparison.uk and watch.** Baseline
+work-item snapshot taken first. The baseline itself already answers the
+detection half: **discovery ran on 2026-08-02 and minted three
+`unbuilt_internal_link` items** (index→/directory/index.html,
+about→/directory/index.html, index→calculator). All three are `complete`,
+`attempt_count=0` — and the pages are still unbuilt. Their `result` shows
+what happened: **the dispatch rebuilt and redeployed the CONTAINING page
+(`/index.html`, `/about.html`), not the target.** Cause, read from live
+config: `build-dispatch-loop.process_item.call_handler.input_mapping` maps
+`"page_name?": "current_item.spec.page_name"` (the container) and never
+reads the item's `page_id` column (the target the check deliberately filed
+against — its spec even says "Do NOT rebuild the linking page"). Then
+`mark_complete` runs unconditionally on handler success.
+
+Predictions for the fresh run (disconfirmable, stated before firing):
+- P1 re-detects unbuilt_internal_link for /directory/index.html (index +
+  about) and the calculator; `complete` is terminal so dedup does NOT block
+  re-minting. Practice (/entities/practice.html) may fire too — it did not
+  on 08-02, reason unknown.
+- P2 NO detection for guides-index via phantom links (nothing in deployed
+  HTML links to it — checked homepage hrefs); `incomplete_page_group` may
+  detect it but its `needs_page:guides-index` item_key dedups against the
+  parked `needs_human_review` row, so no new item.
+- P3 the dispatched "fixes" rebuild the containers again (index/about),
+  mark complete, and directory-index remains unbuilt — the wrong-page
+  mapping above, plus (stacked) bare page-build-handler has no ensure_layout
+  step so even the right page would no-op.
+- P4 the two parked needs_page rows (needs_human_review) are untouched by
+  the loop (triage promotes only status='detected').
+- P5 no colour churn (design_intent.palette.reference_values pin present;
+  content_data ? 'color_scheme' = t; check-side generic_theme fix live).
+What refutes P3: directory/index.html deploying with real business data.
+
+## 2026-08-08c — experiment results: the loop did BETTER than predicted, and found a real bug in 326
+
+Run: correlation `867d6054-3f8f-4b11-9352-b29cecd9aaaa`, dispatched 14:32Z,
+14 orchestrations, all COMPLETED by 14:40Z (queue was NOT contended — my
+"still queued" reports were my own monitor's blindness, see WRONG_CALLS
+2026-08-08: its query named a non-existent column and `|| true` swallowed
+the error every poll).
+
+Predictions vs outcomes:
+- **P1 CONFIRMED and exceeded**: 7 `unbuilt_internal_link` + 1
+  `empty_internal_href` minted — directory link from THREE pages (index,
+  how-it-works, guide-independent-strategy), practice from two, calculator
+  from one. Dedup did not block (old items terminal).
+- **P2 CONFIRMED for phantom links** (zero stored surfaces link to
+  /guides/index.html — pre-verified) — but see P4: the page was covered
+  anyway, by `incomplete_page_group`.
+- **P3 WRONG in the most useful way.** The dispatched fix did NOT re-run the
+  wrong-page rebuild for the needs_page rows, because...
+- **P4 REFUTED — the loop REVIVED both parked `needs_page` rows.**
+  `incomplete_page_group` re-minted `needs_page:directory-index` /
+  `needs_page:guides-index`; the `refreshOpenWorkItem` machinery
+  (bugs 091/184, closed THIS WEEK — newer than the 08-02 run) refreshed the
+  open rows, taking the handler from the builder map: directory-index →
+  **directory-build-handler** (correct, new), guides-index →
+  page-build-handler (its page_type isn't in the map). Both re-dispatched
+  within the run:
+  - directory-index: `ensure_layout` RAN AND WORKED — `site_plan_sections`
+    now carries `directory-index: [hero, directory-listing]` under the
+    current plan, written by the loop's own dispatch. Then
+    `call_page_build_handler` FAILED: contract violation, child received
+    fields literally named `input_data.site_id` etc. **Migration 326 put the
+    `input_data.` prefix on the input_mapping KEYS** (the child-field-name
+    side); working precedents (build-dispatch-loop's call_handler, the
+    improvement-loop trigger itself) use plain keys. Fixed in
+    **migration 336** (applied + recorded 15:0xZ, its own IS DISTINCT FROM
+    guard, NOTICE seen); item left `triaged` att 1/3 so build-pipeline-trigger
+    re-dispatches it unaided.
+  - guides-index: re-dispatched on bare page-build-handler and no-op'd AGAIN
+    ("no sections ready to build") — the 2026-08-07 handoff's Step 5
+    ("handler unchanged") is hereby CONFIRMED DEFECTIVE by the live system,
+    exactly as this session predicted from the workflow read. **Deviation
+    from handoff**: re-routed 2f50bfda to directory-build-handler
+    (ensure_layout is page-name-generic; defaultSectionsForPage has an
+    explicit guides-index case), status triaged, attempts reset.
+- **P5 HELD (with a footnote)**: stylesheet was rewritten and redeployed
+  14:41Z but the accent value is byte-identical to the 08-05 stylesheet
+  (checked at the sites repo: `#059669` present in a5c0d3c9 AND 85ed11d2) —
+  no churn FROM THIS RUN. Standing pre-existing discrepancy: the
+  design_intent pin says accent `#10b981`, live has had `#059669` since an
+  earlier webdesign run. One shade apart, same hue family. Noted, not chased
+  in this lane.
+- Backlog effects: the loop also promoted the 08-06 stranded `detected`
+  items (3 undeployed_asset, audit_tool → triaged; stale_sc_* rerenders →
+  complete) and queued a full page_rerender wave — the loop doing its
+  ordinary job on a site it hadn't visited since 08-02.
+
+**Filed `bugs_open/220`** (unbuilt_internal_link dispatch rebuilds the
+CONTAINER page, marks complete, re-detects forever): the 08-02 items proved
+it (deploy results name /index.html, /about.html — not the target); the
+8 fresh triaged link items will re-demonstrate whichever way they resolve —
+append their outcome there.
+
+Still open at this note: both needs_page rows `triaged` for
+directory-build-handler post-336, monitor armed (foreground-tested this
+time) on their status + pages.deployed_at.
