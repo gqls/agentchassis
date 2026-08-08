@@ -3388,3 +3388,53 @@ Unchanged from the handoff except that the blocker is now a roll, not a bug:
   page that has not been rewritten) — a grader that has never failed is not evidence.
 - **Re-baseline the golden**, after those 3 land and not before.
 - **The expansion question is still the owner's.**
+
+### CORRECTION (2026-08-08, same evening) — both candidates above contain bad English, owner-caught
+
+The owner picked candidate 2 on tone and then found two faults in it. **Both faults are
+in candidate 1 as well** — I wrote the same phrases into each and did not re-read them.
+
+1. **"what a personal loan repays over its full term"** — a loan does not repay
+   anything; the borrower does. The subject is simply wrong. It scans as fluent and
+   means nothing precise.
+2. **"once the term is longer" / "once the term stretches"** — longer than *what*? It
+   silently compares against the terms of the debts the reader already holds, and never
+   says so. The whole point of the consolidation trap is that comparison, and the
+   sentence omits it.
+
+> **The transferable bit, and it is uncomfortably on-topic.** I compressed for tone and
+> broke the sense, and it read smoothly enough that I committed it and presented it. This
+> is the same failure this lane has been documenting all week from the other side:
+> **fluency covering for imprecision.** No rule in any voice spec would have caught it —
+> it violates none of them. It needed a reader who knew what a loan actually does.
+
+**Corrected candidates. Faults fixed, tone preserved, and the sentence openings varied
+deliberately — my drafts had three consecutive "You can…" openings, which is precisely
+the sameness the owner objected to in the first place.**
+
+**2a**
+> Free UK loan calculators, with guides that explain what the numbers mean.
+>
+> You can see what a personal loan costs in total, not just each month. If you're
+> thinking about putting several debts into one, you can check whether that saves you
+> money or just spreads the same cost over more years. There's one for car finance too,
+> which shows how much of the deal is interest. Your figures stay in your browser.
+>
+> Start with the standard calculator below, or use the Tools and Guides menus.
+
+**2b** — plainer, and the car finance line carries more
+> Free UK loan calculators, with guides that explain what the numbers mean.
+>
+> Work out what a personal loan will cost you in total, not just each month. If you're
+> considering consolidation, you can compare your current debts against a single loan and
+> see whether it really saves anything. The car finance tool shows how much of a deal is
+> interest rather than car. Your figures stay in your browser.
+>
+> Start with the standard calculator below, or use the Tools and Guides menus.
+
+Changes: *"what a personal loan repays"* → *"what a personal loan costs you"* (cost sits
+on the reader, where it belongs); *"once the term is longer"* → *"over more years"* with
+the comparison named (one loan against the debts you hold now).
+
+⚠ **Candidates 1 and 2 as first drafted are superseded — do not apply them.** They are
+left above rather than edited away because the fault is the record.
