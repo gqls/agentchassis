@@ -23691,3 +23691,53 @@ look at it for three days, because I already had an explanation I liked.
 shallow half, filed 08-05, now known insufficient on its own); MDL-040 in
 `register/model-infrastructure.md` (corrected 08-08); `brochure_component_library/`
 HANDOFF §2b. The revert of the chassis env change is `1ee0da4a8`.
+
+---
+
+## 2026-08-08 — I handed the owner a wrapped `VAR=x cmd`, and it applied four other threads' migrations
+
+**The claim.** I told the owner the apply was safe to run because it was scoped to a
+directory containing only my file, and gave the command. I had verified the scoping myself
+minutes earlier — `MIGRATIONS_DIR=… ./run-migrations.sh` correctly printed `Pending (1)`.
+
+**What was actually true.** The command I handed over was long enough to wrap, and it was
+entered as two lines. `VAR=value cmd` is one statement that exports to that child;
+`VAR=value` on its own line is an unexported shell assignment the child never sees. So the
+runner used its default directory — **98 pending files** — and applied four of them, oldest
+first, before halting on a syntax error in the fifth:
+
+| file | effect |
+|---|---|
+| `198_tools_api_gauntlet_rounds.sql` | created `gauntlet_rounds` in `clients_db`; migration 276's own guard says that table belongs on the ISLAND, not here |
+| `203_link_resolver_sections_optional.sql` | genuine no-op, said so itself |
+| `204_robot_hands_matchmatrix_normalized_specs.sql` | **10 live `products.content_data` rows** on robot-hands |
+| `207_report_dossier_component.sql` | one `content_components` row updated |
+
+And **338 — the only file the exercise was for — never ran**, because the run stopped at
+`208`.
+
+**What caught it.** Reading the failure output rather than the exit code. The give-away was
+`Pending (98)` in the runner's own header, which is printed before it applies anything.
+
+**The cheap check that would have.** Two, and I did neither:
+1. **`env VAR=x cmd`, never `VAR=x cmd`, for anything handed to a human or a prompt.** `env`
+   makes it a single command word, so splitting it produces an error instead of a silent
+   behaviour change. This costs four characters.
+2. **Read `Pending (N)` before `--apply`.** The runner asserts its own scope on stdout. I
+   had seen `Pending (1)` in my dry run and treated that as a property of the *command
+   text* rather than of the *invocation* — but the whole point of the failure is that the
+   text and the invocation came apart.
+
+**Why it is worth a row.** The verification I did was real and it was thorough — dry run,
+three induced RAISEs, backups, number re-checked. None of it protected anything, because
+the risk was never in the SQL. **I audited the payload and shipped the delivery
+unexamined.** The blast radius of the thing I checked was four database rows; the blast
+radius of the thing I did not check was ~100 other threads' migrations, and the only reason
+it was four and not ninety-eight is that an unrelated file happened to have a syntax error.
+That is luck, and it is the second time in three days this lane has been saved by luck it
+did not earn (see the v1.0.1264/1266 roll note, same file).
+
+**Also on me:** I had *read* the landmine that says "`--apply` takes EVERY pending file —
+scope the dir" and acted on it correctly in my own shell. Knowing the trap and still
+walking into it via a different surface — the handover, not the command — is the part
+worth recording.

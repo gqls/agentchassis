@@ -6945,3 +6945,23 @@ mid-write can leave the tree uncompilable for seconds, and the honest test is
 - **the tell:** the golden side is a suspiciously inert `0%`/`£0` across EVERY vector while the other side moves plausibly with the inputs — and it reads as "the original is broken" or "the rebuild invents numbers". Measured 2026-08-08 (mortgagecalculator.co.uk): golden `ltvResult` 0% on all four vectors vs rebuilt 75.0%/35.9% — and 225000/300000 IS 75.0%, the rebuilt was simply answering the question the original was never asked; same shape on `debt10/20/30` (golden £0s; rebuilt penny-exact `100000×1.065^y`).
 - **the check:** before convicting either side, count the Calculate buttons on the ORIGINAL page (`curl -s <url> | grep -c 'btn-primary\|onclick="calc'` or read it) and ask which one the golden's `pressed.label` names. An id that never moves in ANY golden vector while its section's inputs were driven is an unpressed-section suspect, not a measurement. Judge only ids downstream of the button the golden actually pressed; the other section needs its own capture (press ITS button) before any claim about it.
 - **added:** 2026-08-08, mortgagecalculator lane (replay-comparator session)
+
+### `MIGRATIONS_DIR=… ./run-migrations.sh --apply` scopes NOTHING if the assignment lands on its own line — and the unscoped run applies ~100 other threads' pending files
+
+- **footprint:** `scripts/migration/run-migrations.sh`, `docs/agent_docs/sql_for_agents/`, `schema_migrations`, and **any** `VAR=value cmd` you paste into a terminal or hand to someone
+- **fires when:** you scope a migration run with the documented `MIGRATIONS_DIR` env override and the command wraps, gets copied as two lines, or is pasted into a prompt that splits it. `VAR=value cmd` is ONE statement and exports `VAR` to that child only. `VAR=value` followed by a newline is a plain shell assignment — **not exported** — so the child process never sees it and silently uses its default. There is no error, no warning, and the run looks exactly like the scoped one for the first few seconds.
+- **why it is severe here and not merely untidy:** this repo's migrations directory carries a very deep pending backlog — **98 pending files on 2026-08-08**, spanning weeks and dozens of threads, because most sessions apply their own file by hand and never record it. `--apply` takes **every** pending file in number order. So the failure mode is not "my migration ran in the wrong place", it is "**~100 other people's migrations ran, oldest first, in a database none of them were re-verified against**".
+- **the worked case, 2026-08-08:** the intended scope was one file (`338`). The assignment landed on its own line. The runner applied and RECORDED four other threads' migrations before halting:
+  - `198_tools_api_gauntlet_rounds.sql` — **created `gauntlet_rounds` in `clients_db`**, while migration 276's own guard says that table belongs on *"the ISLAND, not clients_db"*. Empty (0 rows, 11 cols), but now in the ledger.
+  - `203_link_resolver_sections_optional.sql` — genuine no-op, said so itself.
+  - `204_robot_hands_matchmatrix_normalized_specs.sql` — **10 live `products.content_data` rows** on robot-hands now carry `matchmatrix`.
+  - `207_report_dossier_component.sql` — one `content_components` row updated.
+  It then FAILED on `208_robot_hands_report_island_config.sql` (which uses psql `:'var'` interpolation and needs `-v`), and **stopped — so the file we actually wanted, 338, never ran at all.**
+- **the check, and it is the command shape, not a query:** keep it on ONE line, or `export` it, or use `env`. Verify the scope BEFORE `--apply` by reading the dry run's own `Pending (N)` line:
+  ```bash
+  env MIGRATIONS_DIR=/abs/path ./scripts/migration/run-migrations.sh          # dry run FIRST
+  # the output must say  Pending (1):  and name YOUR file. If it says Pending (98), STOP.
+  ```
+  **`Pending (N)` is the scope assertion.** It is printed before anything is applied, it cannot be faked, and on this tree the correct N for a scoped run is almost always 1.
+- **and never hand this command to a human or a prompt as a wrapped line.** A two-line `VAR=x`/`cmd` pair is indistinguishable from the one-liner in most renderings and behaves completely differently. Write `env VAR=x cmd`, which survives being split because it is a single command word.
+- **source:** 2026-08-08, `bugfix_122_contrast_ink_slots` lane; `WRONG_CALLS.md` same date. Related: `bugs_open/007` (unrecorded-but-applied migrations, which is *why* the backlog is 98 deep).
