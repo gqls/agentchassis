@@ -3924,3 +3924,62 @@ about legal rights kept in place as instructed. 26/26 pages 200, **toolgolden 11
 > by separating the two mentions further. **Given a reason rather than a rule, it made an
 > editorial judgement.** That is the first thing all week that has looked like writing
 > rather than compliance, and the difference in the prompt was stating WHY.
+
+## 2026-08-08 (night) — 219 shipped, the last 3 pages rebuilt, ROLLOUT COMPLETE at 26/26
+
+**Chassis v1.0.1269 (22:02Z) carries `bugs_open/219`'s fix**, so `index`,
+`tool-car-finance-calculator` and `tool-interest-rate-stress-test` are unblocked. All
+three rebuilt tonight. **No page on this site is left in the old voice** — prose last
+written 08-08 on 25 pages, 08-06 on the remaining one (the 204 canary).
+
+> **⚠ MY 219 PROBE WAS BLIND, TWICE, AND I REPORTED "NOT LIVE" ON IT.** I pod-grepped for
+> `"does not name the matched pattern"` — a literal that lives in
+> `validate_page_content_meta_scope_test.go`, **not in production code**. A test string is
+> never in the binary, so the probe returned 0 whatever the truth was. `744bfdb3d` added
+> **no unique production string literal**: its two candidate symbols both fail to
+> discriminate — `ExtractAssertionText` predates it (2026-07-16) and `headProseBlocks` was
+> added the same day by a *sibling* commit (`35889819c`). **Symbol archaeology could not
+> answer this question at all.**
+>
+> **What settled it was firing one rebuild at a blocked page and watching it succeed.**
+> When a fix adds no new string, the empirical test is not a fallback — it is the only
+> instrument. Check that a probe string is in a non-test file *before* trusting its zero;
+> `git show <sha> -- '<production file>'` rather than `git show <sha>`.
+
+### The homepage now carries the approved opening — and my guidance duplicated it 3×
+
+Fired with bespoke guidance carrying the agreed copy verbatim plus the reasoning (why
+accuracy is the wrong thing to lead with; no privacy sentence; British English).
+
+**It worked and it over-applied.** `prose-0`, `prose-1` AND `prose-2` each came back
+containing the new opening, because my guidance said *"REPLACE the opening block"* — a
+**page-level instruction delivered to a per-section prompt**, so every section decided it
+was the opening block. `prose-1` (the Standard Calculator intro) and `prose-2` were
+overwritten with it. Restored both exactly from backup; opening now appears once.
+
+> **Third instance this week of the same root shape, and the sharpest.** The writer sees
+> one section and never its siblings. A rule, an exemplar, a pinned guidance and now a
+> *page-level instruction* have each been applied uniformly because uniform application is
+> all a section-scoped prompt can do. **Guidance must be written in the second person to
+> ONE section** — "if this section is the page opener, use this copy" — never "replace the
+> opening block", which every section can believe it satisfies.
+
+**Live now, verified on the wire:** opening appears once, `mathematically rigorous` = 0,
+`true cost of credit` = 0, 26/26 pages 200, **toolgolden 11/11 exact**.
+
+⚠ **RESIDUE, precisely located and NOT fixed:** `index` `prose-2` still reads *"Calculate
+your exact monthly repayments and see the true total cost of borrowing."* It is unlocked
+`ported-prose`, and it is there **because my restore brought the old copy back with it**.
+The owner's named paragraph is fixed; the same register survives one line below it. One
+targeted rewrite closes it — and per the lesson above, that guidance must address the
+section, not the page.
+
+### Guidance lineage (each pinned as a work item; the tool copies it by SQL, never retyped)
+
+```
+2517bc4b  canary, owner-reviewed 08-06   mandated the conditional opening  <- caused the tic
+4a9edd45  v2                             mandate -> prohibition + "vary"   <- broke the tic
+6d52beaf  v3                             + preserve <style> byte-for-byte  <- current
+7933edd4  one-off                        debt-help section reorder
+50c8ba5c  one-off                        index opening block
+```
