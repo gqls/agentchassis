@@ -121,6 +121,44 @@ kubectl logs -n ai-persona-system <chassis-pod> | grep "Storage client initializ
 yet"* as **"deployment contract unverified"**, not "unused". Wire-shape tests assert
 request bodies and pass happily in a world where the action can never obtain a client.
 
+> ## ⚠ CORRECTED 2026-08-08 — THE STORAGE FIX DID NOT FIX IT, AND THE OWNER HAS RULED THE WHOLE APPROACH OUT
+>
+> **Everything above about `820a033c0` making the eye work is WRONG.** The fix went to the
+> `agent-chassis` **deployment**. That is not where this agent runs. Agents run in
+> **dynamically spawned per-agent pods** — `agent-tool-acceptance-agent-<hash>` — and
+> **46 pods** run the chassis image (`agent-build-dispatch-loop-*`,
+> `agent-directory-build-handler-*`, `agent-internal-link-resolver-*`, …).
+>
+> Proof, from the pod that actually processed the run (`processing_node` on
+> `orchestration_states` is the column that names it — I should have read it on day one):
+> ```
+> agent-tool-acceptance-agent-e702cc67-2dnsp
+>   IMAGE_BUCKET = <ABSENT>   S3_ENDPOINT = <ABSENT>   B2_APPLICATION_KEY_ID = <ABSENT>
+>   agentbase/agent.go:329  "Storage client not configured (IMAGE_BUCKET not set)"
+> ```
+> That pod has **no S3 credentials at all** — not merely a missing bucket name. The
+> 2026-08-08 17:16 run failed with the identical `no storage client` error as the first
+> one, three days later, on a fully rolled fleet. **`render-critique` notes: 0.
+> `llm_call_log` rows for step `look`: 0. The machine eye has never once seen anything.**
+>
+> **Why I believed otherwise, and the check that would have caught it:** I verified
+> `IMAGE_BUCKET` on the `agent-chassis` pods and at `agent.go:324`'s success line, and both
+> were real — but on the wrong pods. *"Prove it at the artefact"* is not enough on its own;
+> you must prove it **on the node that ran the work**. `processing_node` names it, and no
+> amount of grepping the deployment you assumed would ever contradict you.
+>
+> **OWNER RULING 2026-08-08: all S3 interaction stays with the client; credentials must not
+> be spread across agents.** So the remaining route — injecting S3 credentials into the
+> spawn template for every agent that might critique — is **closed**, and rightly: it would
+> put bucket credentials into dozens of dynamically spawned pods.
+>
+> **TL-035 (e) is therefore BLOCKED ON AN ARCHITECTURE DECISION, not on a bug.** The seed
+> 317 wiring stays in place and is harmless — its whole point is that a failed look cannot
+> hurt the run, and three failures across two dates have demonstrated exactly that. But
+> `execute_vision_prompt` needs image BYTES, and under this ruling the agent pod may not
+> fetch them itself. See the CONTRIB to `vigilant_designer_offer_analysis` — their A2
+> critic hits the identical wall, because it is the same action.
+
 ## 3. Open, in the order I would take them
 
 1. **151 candidate 1 — assign facts to sections at plan time.** The lane's largest
