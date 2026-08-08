@@ -2049,3 +2049,37 @@ lendzy.co.uk dropped as a proof site (origin flaky behind Cloudflare, 522s).
 Line rule from the twins: when two components share a root CLASS and can share a PAGE
 (team-section), every check resolves by the data-component attribute and grid-child
 assertions are dropped (a string-replace mutant cannot scope to the first `.team-grid`).
+
+## 2026-08-08 — resumed after 3 days; batch 5 closes the uncontested static stock (9 more end-to-end, 8 blocked on chrome, 2 more drift rows)
+
+**State re-established before acting** (3-day gap): no other session touched the lane;
+census 78 sections + 37 tools no-PLAN (consistent with 08-05 + 2 new tools born);
+browser-runner now v1.0.1267 (rolled today 16:27 UTC) and **pod-grep confirms `reload`
+is IN the deployed binary now** ("reload navigation failed" → 1) — the 08-05 vocabulary
+skew is closed at the fleet end. gaswholesalers logo **still 404 (3+ days)** — fce S6
+stays deferred. Scratchpad had been tmp-wiped (as the 08-05 handoff predicted for
+anything left there; all instruments were committed, nothing lost).
+
+**Batch 5 — 19 candidates, split by evidence:**
+- **9 done end-to-end** (all S6 all_passed, controls red):
+  about-commercial-block (3d5d46cd 9/9) · archetype-combinations (11403df8 10/10) ·
+  case-studies-list (196c63c1 10/10) · gripper-spec-sheet (cfb009ae 9/9) ·
+  hero-use-cases (ef852c33 10/10) · image-hover-card-grid (dcac64db 9/9, darts INDEX is
+  clean unlike its about page) · intent-probe (21d25046 10/10, asserts the POST form;
+  serve_local latest-news.json) · portfolio-showcase (e371e7f0 9/9) · stat-band
+  (39ac13ba 9/9; shares its proof page with portfolio-showcase, attribute-scoped).
+- **8 BLOCKED on site chrome 404s** — fences authored + committed, NOT proven/persisted
+  (baseline cannot go green; the bar stays every-check-watched-red): archetype-grid +
+  intent... no — archetype-grid (relojistas glosario hero.jpg), directory-listing
+  (**vetcomparison.uk hero.jpg — a NEW member of the bugs_closed/128 family, not in its
+  07-31 list**), funding-fit + patent-check (idea.uk favicon+hero), game-master-explanation
+  + platform-comparison (vonc about hero.jpg), people-feature-block (fundamentallyai
+  about hero.jpg), social-proof (gaswholesalers logo). One asset fix per site unblocks
+  its subjects; the hero.jpg family now measures at LEAST 7 sites.
+- **2 more PLACEMENT-DRIFT rows**: featured-content (finetuning/ai-guides) and pricing
+  (gaswholesalers/how-pricing-works) have placement rows whose served pages contain no
+  such component at all. Effectively unplaced; listed, not fenced.
+
+**Running D10 tally: 42 sections + 2 tools end-to-end.** Remaining: ~16 interactive
+sections (JS read each), ~10 ready tools, 8+3 chrome-blocked, 7 lane-owned
+(coordination), ~35 unplaced + drift rows (listings).

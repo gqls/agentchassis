@@ -1,0 +1,45 @@
+{
+  "profiles": [
+    "desktop",
+    "mobile"
+  ],
+  "container": "section.funding-fit[data-component=\"funding-fit\"]",
+  "checks": [
+    {
+      "id": "page-serves-200",
+      "type": "page_status_ok"
+    },
+    {
+      "id": "section-renders",
+      "type": "selector_exists",
+      "profiles": [
+        "desktop"
+      ],
+      "selector": "section.funding-fit[data-component=\"funding-fit\"]"
+    },
+    {
+      "id": "section-has-visible-area",
+      "type": "has_visible_area",
+      "selector": "section.funding-fit[data-component=\"funding-fit\"]"
+    },
+    {
+      "id": "heading-has-text",
+      "type": "interaction",
+      "profiles": [
+        "desktop"
+      ],
+      "expect": {
+        "selector": "section.funding-fit[data-component=\"funding-fit\"] h2.ff-heading",
+        "text_matches": "\\S"
+      }
+    },
+    {
+      "id": "no-horizontal-overflow",
+      "type": "no_horizontal_overflow"
+    },
+    {
+      "id": "no-console-errors",
+      "type": "no_console_errors"
+    }
+  ]
+}

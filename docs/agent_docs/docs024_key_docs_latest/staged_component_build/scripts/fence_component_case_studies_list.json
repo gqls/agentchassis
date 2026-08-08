@@ -1,0 +1,45 @@
+{
+  "profiles": [
+    "desktop",
+    "mobile"
+  ],
+  "container": "section.case-studies-section[data-component=\"case-studies-list\"]",
+  "checks": [
+    {
+      "id": "page-serves-200",
+      "type": "page_status_ok"
+    },
+    {
+      "id": "section-renders",
+      "type": "selector_exists",
+      "profiles": [
+        "desktop"
+      ],
+      "selector": "section.case-studies-section[data-component=\"case-studies-list\"]"
+    },
+    {
+      "id": "section-has-visible-area",
+      "type": "has_visible_area",
+      "selector": "section.case-studies-section[data-component=\"case-studies-list\"]"
+    },
+    {
+      "id": "heading-has-text",
+      "type": "interaction",
+      "profiles": [
+        "desktop"
+      ],
+      "expect": {
+        "selector": "section.case-studies-section[data-component=\"case-studies-list\"] h2",
+        "text_matches": "\\S"
+      }
+    },
+    {
+      "id": "no-horizontal-overflow",
+      "type": "no_horizontal_overflow"
+    },
+    {
+      "id": "no-console-errors",
+      "type": "no_console_errors"
+    }
+  ]
+}

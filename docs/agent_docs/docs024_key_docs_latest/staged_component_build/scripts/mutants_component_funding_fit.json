@@ -1,0 +1,49 @@
+[
+  {
+    "name": "the page stops being served (404)",
+    "serve_status": 404,
+    "expect_fail": [
+      "page-serves-200"
+    ]
+  },
+  {
+    "name": "the section loses the identity acceptance resolves it by",
+    "from": "data-component=\"funding-fit\"",
+    "to": "data-component=\"funding-fit-renamed\"",
+    "expect_fail": [
+      "section-renders"
+    ]
+  },
+  {
+    "name": "the section collapses below visible size (10x10, overflow hidden)",
+    "from": "</body>",
+    "to": "<style>section.funding-fit[data-component=\"funding-fit\"]{width:10px!important;height:10px!important;overflow:hidden!important;padding:0!important}</style></body>",
+    "expect_fail": [
+      "section-has-visible-area"
+    ]
+  },
+  {
+    "name": "the heading renders empty",
+    "from": "<h2 class=\"ff-heading\">Answer honestly and we will point you at the right doors \u2014 or tell you to wait</h2>",
+    "to": "<h2 class=\"ff-heading\"></h2>",
+    "expect_fail": [
+      "heading-has-text"
+    ]
+  },
+  {
+    "name": "a wide element pushes the page past the viewport",
+    "from": "</body>",
+    "to": "<div style=\"width:3000px;height:8px\"></div></body>",
+    "expect_fail": [
+      "no-horizontal-overflow"
+    ]
+  },
+  {
+    "name": "a script error reaches the console",
+    "from": "</body>",
+    "to": "<script>window.__deliberatelyUndefined.boom = 1;</script></body>",
+    "expect_fail": [
+      "no-console-errors"
+    ]
+  }
+]
