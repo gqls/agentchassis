@@ -188,3 +188,55 @@ check.** All 77 `needs_content_page` items fleet-wide already carry `page-build-
 they come from `write_build_items`, not from this sub-check, which appears never to have fired.
 The council's `editquality` seat made exactly this point. That edit is a consistency fix and is
 **unverifiable from runtime data**; say so rather than claiming it passed.
+
+## R8 — the verifier-error census (RFC_017's missing number), and the three ways it lies to you
+
+Answers *"how often do registered verifiers actually error in production?"* Run all four steps;
+steps 2–4 are what stop step 1 being read as a rate.
+
+```sql
+-- 1. THE CENSUS. Enumerate statuses; never read a named key you assumed was there.
+SELECT result->'_verification'->>'status' AS v_status, count(*)
+FROM site_work_items WHERE result ? '_verification' GROUP BY 1 ORDER BY 2 DESC;
+
+-- 2. THE DENOMINATOR IS THE FINDING. A low error count with a tiny denominator is not
+--    "verifiers are reliable" — it is "verifiers barely run". Split by type.
+SELECT item_type, count(*) FILTER (WHERE status='complete') AS completed,
+       count(*) FILTER (WHERE result ? '_verification') AS consulted
+FROM site_work_items WHERE item_type IN (<the registered types>) GROUP BY 1 ORDER BY 2 DESC;
+
+-- 3. READ THE ERROR TEXT, not just the count. The shape decides the RFC; the rate does not.
+SELECT id, status, attempt_count, result->'_verification'->>'error'
+FROM site_work_items WHERE result->'_verification'->>'status'='error';
+```
+
+**Trap 1 — `result` is OVERWRITTEN on every completion attempt**, by both the complete path and
+`failUnverifiedCompletion`. So this is a **current-state census, not a history**: an item that
+errored and later verified now reads `verified`, and your error count is a **floor**. There is no
+history table; do not present the number as a rate without saying this.
+
+**Trap 2 — a completion with no `_verification` key is usually NOT a bypassed gate.** Three
+different shapes complete an item and only one is the gate:
+`result ? '_verification'` = the gate ran · `result ? 'resolved_by'` = the **check retracted its own
+item** after re-observing it healthy (`work_items_common.go:287-301`) — that is verification by
+construction, not a bypass · neither = completed before that type had a verifier, or by hand.
+Ten of `empty_section`'s twelve completions are the middle case. Reading them as "the gate was
+bypassed 10 times" is the confident wrong answer here, and the identical-microsecond `updated_at`
+across a batch is the tell that a sweep, not a saga, wrote them.
+
+**Trap 3 — ⚠ THE VERIFIER'S TABLE IS NOT THE ONE YOU EXPECT.** `VerifyEmptySectionResolved` reads
+**`page_components`**; `VerifyTruncatedComponentResolved` reads **`content_components`**; the
+slot-level artefact lives in **`site_components`**, which is keyed `UNIQUE (site_id, slot_name)` and
+holds nothing per-page. I checked a vanished `component_id` against `site_components`, got `0 rows`,
+and had "the component is gone" ready to write down — it was never in that table to begin with.
+**Read the verifier's own query before checking existence**, and note the "does it exist" answer is
+whatever table you named, not a fact about the platform:
+`grep -n "FROM .*components" platform/orchestration/actions/discovery_checks/check_*.go`
+
+```sql
+-- 4. Is an "ambiguous absent component" genuinely removed, or DELETED? bugs_closed/032's own
+--    disambiguator, and the only step that tells a correct fail-open from a buried defect.
+--    pages.sections is an array of BARE STRINGS (jsonb_object_keys errors on it), and it spells
+--    slots snake_case while page_components.slot_name is kebab — compare with that in mind.
+SELECT p.id, p.name, p.sections::text FROM pages p WHERE p.id = '<page_id>';
+```

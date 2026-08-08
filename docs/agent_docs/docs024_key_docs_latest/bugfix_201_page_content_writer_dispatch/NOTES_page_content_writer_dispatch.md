@@ -509,3 +509,82 @@ Committed `dc4f4e6b2`, council submitted `f14a8b64-4f71-4915-88d0-9587db845052` 
 gaswholesalers.com's `literal_markdown` item on `how-pricing-works`, whose markdown is still in
 `content_data`; a repair attempt on it must now be refused completion rather than stamped
 `complete`.
+
+---
+
+## 2026-08-08 — RFC_017's missing number, measured. And it says option 4, which is not what I expected.
+
+Picked this up because it is the only thing the lane had left that was ours to do: `RFC_017` asked
+*"how often do registered verifiers actually error in production?"* and said the choice between
+options 3 and 4 should not be made without it. Full write-up is now in the RFC itself; queries in
+`RUNBOOK` R8. Evidence and the wrong turns here.
+
+### The number
+
+11 verifier consultations across the whole life of the gate (live `e1b8e1f84`, 2026-07-14,
+v1.0.1116): **8 `verified`, 2 `error`, 1 `defect_persists`** — the last being this lane's own proof
+of 08-07. Per verifier: `hardcoded_section_colors` 8/0 errors, `empty_section` **2/2**,
+`literal_markdown` 1/0, and **the other five registered verifiers have never been consulted at all.**
+
+`[MEASURED 2026-08-08]` and it could have come out otherwise — the query returns three distinct
+statuses, so it demonstrably distinguishes them; a blind version would have returned one bucket.
+**But two caveats make `2` a floor, not a count**, and they belong next to the figure every time it
+is repeated: `result` is overwritten on each completion attempt, so this is current-state, not
+history; and `n=11` over five days.
+
+### The shape matters more than the rate, and that is the actual finding
+
+**Zero infrastructural errors.** Both errors are one deliberate branch —
+`check_empty_sections.go:412`, which is `bugs_closed/032`'s own accepted fix, choosing `error` over
+`Resolved:false` precisely so the gate fails open and records a *visible unknown* instead of a false
+green. The same branch is duplicated at `check_truncated_component.go:272` (never fired). So the
+error path is armed on 2 of 8 verifiers by two authors, both citing the documented policy correctly.
+
+Then the part that inverted my expectation. 032 named its own disambiguator — *if the page still
+expects the component, absence is deletion, not ambiguity* — and **both items pass that test**:
+
+```
+177bbb2e… (page ai-guides) and 8c4b10f1… (page insights), site 1368e337…, slot featured-article
+  → both stamped 'complete' 2026-08-03, attempt_count 0, _verification.status='error'
+  → pages.sections still lists "featured_article" on BOTH
+  → both pages now serve a deployed 334-byte shell in slot featured-content:
+    <section …><article class="featured-article"><div …><h1 …></h1></div></article></section>
+```
+
+The defect is still live on two production pages, recorded as `complete`. And the backstop the
+policy leans on has not fired: **no item for a `featured-content` slot has ever existed
+fleet-wide**, although `findEmptySections`' predicate run verbatim returns both components right now
+(`empty_heading`, unlocked, unsuppressed, `build_status='deployed'` — so `bugs_open/185` is not the
+explanation), and the check demonstrably ran on that site four times afterwards, retracting 10 other
+items. So fail-closed would have been right on 2 of 2, and its feared harm — stranding a
+legitimately-removed item — happened 0 of 2 times.
+
+**Why detection never re-filed is NOT established and I am not asserting it.** Ruled out by
+measurement, not by argument: the dedup index excludes `unresolved`, so April's zombies cannot block
+a new key; and `bugs_closed/041` is cleared too — the site's four `needs_new_component` rows are
+`category_section`/`article_grid` with `already_exists=f`, genuinely absent components rather than
+041's snake-case miss. That is a `090` job, not another hour of grep.
+
+### Three wrong turns, in the order I made them
+
+1. **I checked component existence in the wrong table and nearly wrote it down.** Queried
+   `site_components` for the two vanished `component_id`s, got `0 rows`, and had "the slot has no
+   component at all" drafted. The verifier reads **`page_components`** — I only caught it by opening
+   the function to quote its error branch. `site_components` is slot-level and `UNIQUE (site_id,
+   slot_name)`; those ids were never eligible to be in it. An absence is only ever an absence *in the
+   table you named*. Now R8 trap 3.
+2. **Then I over-corrected into the opposite wrong answer.** With the right table I found both pages
+   rebuilt seconds before the verification, carrying a `featured-content` slot where the item named
+   `featured-article`, and concluded "legitimately replanned, so fail-open completed them correctly"
+   — and said so out loud before checking. `pages.sections` reversed it: both pages still declare
+   `featured_article`. Two confident readings in ten minutes, opposite conclusions, same data. The
+   only thing that settled it was 032's disambiguator, which was written down a fortnight ago and
+   which I had already quoted without applying.
+3. **I read a `resolved_by` batch as a bypassed gate.** Ten `empty_section` completions carry no
+   `_verification`; I took that as the gate being walked around, which would have been a much bigger
+   claim than the RFC's. They are the check **retracting its own items** after re-observing them
+   healthy (`work_items_common.go:287-301`) — verification by construction. The tell was
+   identical-microsecond `updated_at` across each batch: a sweep, not a saga. Now R8 trap 2.
+
+All three have the same shape as the pattern this lane's 08-06 summary already named: the check that
+would have caught it was written down, by me or by someone else, and not applied to the case in hand.

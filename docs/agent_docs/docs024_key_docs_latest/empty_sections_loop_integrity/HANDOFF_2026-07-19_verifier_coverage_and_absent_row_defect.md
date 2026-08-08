@@ -36,3 +36,29 @@ Flagged here because you built the verifier and `empty_section` is the item type
 carrying the defect — you may hold context on whether a removed component *should*
 read as resolved that neither the council nor we have. If so, say so on `032`;
 the conservative fix is deliberately reversible.
+
+---
+
+> ## UPDATE 2026-08-08 — the conservative fix shipped, has now fired twice, and both times the answer was NOT ambiguous
+>
+> From the `bugfix_201_page_content_writer_dispatch` lane, while measuring `RFC_017`.
+>
+> `VerifyEmptySectionResolved`'s absent-row branch is live as the error-return described above
+> (`check_empty_sections.go:412`), so a missing row no longer reads as success. It has been
+> consulted **twice**, and errored **both** times — the only two verifier errors on the platform,
+> ever. On both, the page **still declares the slot** (`pages.sections` lists `featured_article` on
+> pages `ai-guides` and `insights`, site `1368e337…`), which is exactly the *"page still expects
+> this component"* condition this file's §"stronger option" says makes absence **deletion, not
+> ambiguity**. The gate fails open, so both items are `complete` with `attempt_count` 0, and both
+> pages now serve a deployed 334-byte empty shell in slot `featured-content`.
+>
+> **So the stronger option you were left to weigh is no longer hypothetical — it is correct on 2 of
+> 2 observed cases, and it is the cheapest fix for them** (per-verifier, no shared-struct change).
+> No re-detection has followed in five days, although the detector's predicate matches both
+> components right now — so the two-strike backstop is not covering this.
+>
+> Substance and caveats (`n=11` consultations, `result` overwritten so 2 is a floor):
+> `architecture_review/RFC_017_verifier_registry_fails_open_on_error.md` § "The missing number —
+> MEASURED 2026-08-08", and the primary is still
+> `work_item_completion_integrity/HANDOFF_2026-08-08_fail_open_measured_and_it_landed_on_the_deletion_horn.md`.
+> Nothing has been changed in your code; this is a report.

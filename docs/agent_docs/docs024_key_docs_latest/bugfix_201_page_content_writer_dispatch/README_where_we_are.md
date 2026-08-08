@@ -128,3 +128,59 @@ review too. I have written that up as a proposal with three costed options; the 
 few hours' work and would catch it at build time. That is a decision for you, not something I
 should quietly start.
 
+
+---
+
+**2026-08-08 — I measured the number you were left waiting on, and it changed my mind.**
+
+The one thing still open on this bug was a decision for you: our repair-checking system has a rule
+that when a check *cannot* run — a database hiccup, a page it can't make sense of — the job gets
+marked done anyway. Two reviewers said that rule was the real problem and my fix only stepped around
+it. Nobody knew how often those checks actually fail, and I said the decision shouldn't be made
+without that number. So I went and got it.
+
+**The number is small: eleven checks have ever run, and two of them failed.** But the interesting
+thing isn't the count, it's what the two failures were. Neither was a database hiccup. Both were the
+same deliberate decision by the same piece of code: *"the thing I was asked to inspect has
+disappeared, and I can't tell whether someone repaired it properly or whether we silently deleted
+it, so I'll refuse to answer."* That refusal was written a fortnight ago as the careful option, and
+it was reviewed and approved as such. Another check has the same refusal written into it and simply
+hasn't fired yet.
+
+**Then I looked at whether the refusal was justified, and it wasn't — either time.** The bug report
+that introduced this careful option had said, in passing, how to tell the two cases apart: *if the
+page still asks for that section, it wasn't repaired, it was deleted.* Both pages still ask for it.
+So the honest answer was "not fixed" on both, and both jobs were marked done instead. Two pages on a
+live site — `ai-guides` and `insights` — are today serving an empty section: a heading with no words
+in it and nothing underneath. Recorded as repaired, five days ago.
+
+**And the safety net that was supposed to catch this hasn't.** The argument for marking jobs done
+when we can't check is that our detectors will simply find the fault again next time round. They
+haven't — no new job has been raised for those sections in five days. I checked whether the detector
+is blind to them and it isn't: I ran the detector's own query by hand and it finds both pages
+straight away. So the detection works, the sections are still broken, and no job exists. **Why is
+something I have deliberately not guessed at** — I ruled out the two most likely explanations by
+measurement and stopped there, because guessing at causes is how this lane wasted a day last week.
+That wants the diagnosis loop, which is a quick job and your call.
+
+So the recommendation has flipped. I had assumed the answer would be "these checks hardly ever fail,
+so it's safe to be stricter". The measurement says something more useful: being stricter would have
+been **right both times**, and the harm we were afraid of — stranding jobs on sections that were
+legitimately removed — didn't happen once. There's also a cheaper fix that doesn't touch the general
+rule at all: teach that one check to look at whether the page still wants the section, which is
+correct on both cases and was already suggested a fortnight ago by the person who wrote the careful
+option.
+
+**I want to be straight about the size of this evidence.** Two failures out of eleven checks, over
+five days, and the way we store the result means an older failure gets overwritten — so two is a
+floor, not a count. It points somewhere; it doesn't settle anything. Your decision on the general
+rule is still genuinely open, and the write-up now has the measurement attached to each of the four
+options.
+
+**One more thing worth telling you, because it is becoming this lane's signature.** I got two
+confident wrong answers on the way to this one, ten minutes apart, and both were caught by a check
+that was already written down. First I looked for the missing section in the wrong table and had
+"it's gone entirely" ready to type. Then I over-corrected and concluded the section had been
+legitimately renamed and everything was fine — and said so out loud before checking the one thing
+that would settle it. The last summary said the pattern of this week was *checks I had written down
+and not applied to myself*. That is still true, and it is now three for three.
