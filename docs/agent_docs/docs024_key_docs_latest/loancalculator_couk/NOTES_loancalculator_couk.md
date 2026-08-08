@@ -2949,3 +2949,85 @@ that will drift again, or one shared carrier both/all read at prompt-assembly ti
 empty-description 0 across all 26. Nothing has re-rendered since the roll, so served
 bytes are necessarily unchanged; **the byte check proper (re-render on the new image,
 compare) is OWED** — see the handoff.
+
+---
+
+## 2026-08-08 — the voice H rollout begins: owner approved the canary, and the blocker is gone
+
+**Owner ruling:** *"yes voice H is much better (still not perfect but is a huge
+improvement and we can look again later) please go ahead with the rewrites."*
+So: roll the voice across the site's copy **as it stands**, do not tune the prompt
+mid-run. Plan with the phasing and the grading table:
+`PLAN_2026-08-08_voice_h_rollout.md`.
+
+The 08-05 blocker (`bugs_open/204`) and the trap underneath it (`bugs_open/189`) were
+both fixed and proven by the `bug_backlog_clearing` lane on 08-06. Nothing in this lane
+was needed for that; it just became possible.
+
+### Pre-flight, re-run at v1.0.1263 (a fresh build landed mid-setup)
+
+Every precondition re-measured against the NEW image rather than carried over, because
+a roll is not evidence and the writer's own row had been updated by another session at
+08-07 05:46.
+
+```
+chassis            v1.0.1263, pods started 08:54:57Z / 08:55:18Z (14 min — past the ~300s drop window)
+binary markers     "load page slot identities" 1 · "stored_slot_name" 1 · fabricated control 0
+voice H            site_specs content_direction: formatted 24,556 b, 23 rules,
+                   has_H marker true, retired "Avoid contractions" rule absent
+ported-prose       input_schema.fields.content.source = "llm"   (the 08-05 correction holds)
+slot_name_from     present on BOTH render_section and render_from_template
+```
+
+⚠ **The `slot_name_from` check read NULL the first time and it was MY path that was
+wrong, not the config.** The keys are not on `workflow.steps.*` — they are nested at
+`workflow.steps.process_sections_loop.config.sub_workflow.steps.*.config`. A jsonb path
+read that misses returns NULL, which is indistinguishable from "another session reverted
+it" — and that revert was a live, documented risk on this exact row, so the wrong
+reading was extremely believable. **Before concluding a key is absent, prove the path
+resolves at all**: `default_config::text LIKE '%slot_name_from%'` returned 1 in one
+query and settled it. Going to `LANDMINES.md`.
+
+Also checked, because it would have changed the output: `330_page_content_writer_prompt_v4_scoped_facts`
+(bugs_open/151's writer half, per-section fact scoping) is **NOT applied** — the file
+carries a `_HOLD` suffix, `agent_definitions_bak_330` does not exist, and the live
+template does not contain its anchor string. So the writer prompt is the same one the
+owner's canary was produced by.
+
+### The route, and the two things that make it repeatable
+
+`voiceh_rewrite.sh <page-name>` (this lane). It copies the prompt **by SQL from the
+canary work item `2517bc4b`** and substitutes only page/page_id/page_name, so what the
+owner approved is bit-for-bit what every page gets — no retyping, no drift. It files the
+item `status='detected'` (the dispatcher selects `triaged`/`approved`, so nothing else
+can pick it up) and the direct Kafka publish is the only dispatch.
+
+**MISSTEP, caught on the first run:** `INSERT … RETURNING id` prints its `INSERT 0 1`
+command tag on stdout *even under `-t -A`*, so the captured variable was
+`"<uuid>\nINSERT 0 1"` and the next query died with `invalid input syntax for type
+uuid`. Loud, cheap, fixed by wrapping the insert in a CTE (`WITH ins AS (INSERT …
+RETURNING id) SELECT id FROM ins;`) — a SELECT prints no tag under `-t -A`. Worth
+knowing because the failure mode is *not* always loud: had the variable been
+interpolated into a `LIKE` or a text column it would have silently carried the tag.
+The orphaned item from that run was deleted before re-firing.
+
+### Predicted before firing: what happens to the 11 calculator pages
+
+Traced, not assumed, so that a surprise would be a real signal:
+
+- all 12 tool components have **0 `source='llm'` fields**, so `llm_field_specs`
+  serialises absent → `check_render_mode` takes `render_from_template` → **no LLM runs
+  on a tool section**;
+- `save_page_sections` preloads actively-locked rows, holds them out of the DELETE and
+  lets the locked copy stand, so the row keeps its id **and** its `updated_at`.
+
+Protected twice. Expected side effect: one `lock_blocked_change` item at
+`needs_human_review` per preserved lock — up to 12 — true about the mechanism, spurious
+in substance (the "blocked" change was a byte-identical re-render). Cancel with a note
+at the end rather than leaving them looking like real HITL work.
+
+### Rollback assets, taken before anything fired
+
+`page_components_bak_20260807_voiceh` (63 rows) · `baseline_20260807.json` (76 KB —
+every row's full text, length, md5, row id, so it serves fact-by-fact comparison as
+well as restore).

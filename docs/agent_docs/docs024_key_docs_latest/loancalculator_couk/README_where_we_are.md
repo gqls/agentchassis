@@ -1017,3 +1017,46 @@ which is close to the opposite of the new style's "start where the reader is sta
 They agree on the important half, so it's reconcilable, but it's a change to an existing
 instruction rather than an addition, and the reviewers will rightly want that said out
 loud.
+
+---
+
+## 8 August — starting the rewrites you approved
+
+You've seen the new voice on one page and said to go ahead, so that's what's happening
+now. Two things worth saying before the copy starts changing.
+
+**The thing that was blocking this is genuinely fixed.** Back on the 5th I couldn't
+rewrite a single page, because the build pipeline looked up the pieces of a page by
+type name and this site's pieces are named by position — "prose-0", "prose-1" — so it
+found nothing and gave up on all 57 of them. That got fixed properly in the code (by
+the bug lane, not here), reviewed, and proved on a real page: both pieces resolved, the
+prose actually changed, and none of the junk "please build me a component called
+prose-0" requests appeared. That proved page is the one you looked at.
+
+**I re-checked everything this morning rather than trusting the earlier check**, because
+a new build of the system went out while I was setting up, and because another session
+had edited the writing agent's settings the day before. The style is still loaded and
+still correct; the labels that let the pipeline touch this prose are still right; the
+two settings the fix depends on are still there. One of those checks looked like it had
+been wiped and hadn't — I'd looked in the wrong place in a nested settings file, which
+gives you exactly the same answer as "someone reverted it". I've written that trap down,
+because on this row that revert was a real risk and I'd have believed it.
+
+**How it will run.** Twenty-five pages left, in batches of four or five rather than all
+at once, so a bad batch costs a batch. Every page goes through the framework — the same
+route as the page you approved, with the instructions copied across by machine rather
+than retyped, so what you saw is exactly what each page gets. The calculators are safe
+twice over: the system never sends a calculator to the writer at all, and the locks you
+have on those twelve rows would stop an overwrite even if it did. I'll be checking after
+each batch that the calculator rows haven't so much as changed their timestamps, and at
+the end that all twelve still compute the same answers they did before.
+
+**One page I want to flag now rather than after.** The legal page is copy, so by your
+instruction it's in scope, and I'll do it — but it's the one page where a nicer-sounding
+rewrite could be a worse page, if a disclaimer or a statutory reference comes out softer
+than it went in. So it goes last, and I'll read its before-and-after myself line by line
+instead of just confirming it changed. If anything shifts in meaning rather than in
+phrasing, I'll put that one page back as it was and tell you.
+
+Everything is backed up first — every piece of copy on the site, with its original text
+saved, so any page or the whole site can go back exactly as it was.
