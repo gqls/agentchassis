@@ -552,3 +552,33 @@ ruling requires.
 **Not live until**: fleet roll (both images) → apply 342 → first-run
 verification per the seed header (a 0-findings run must be cross-checked
 against §1b's manual call the same day — a green scan must prove it LOOKED).
+
+### Council round 1 on FTW-042: REVISE — and the gating objection was right for the wrong reason
+
+Verdict 18:25Z: REVISE, 12 reviewers, 5 abstained, gated by the guidelines
+seat (high): my targetless `ON CONFLICT DO NOTHING` dedup write, for which
+it prescribed DELETE+INSERT as "the documented idiom". **Measured: DELETE
+FROM site_work_items appears at ZERO sites in the codebase** — the named
+remedy does not exist here. But the objection was right in substance, and
+the codebase itself says so: `load_work_item_actions.go` has the SHARED
+writer (`insertWorkItem` — targeted idx_swi_dedup clause via
+workItemTerminalStatuses, within-cycle suppression, two-strike unresolved
+labelling), and the `workItem.parentItemID` comment records a prior council
+round (bugs_open/091) objecting to precisely the hand-rolled bypass I had
+written. My round-1 code was that documented failure mode, recurring.
+Lesson (also the round's best output): **before hand-rolling any write to a
+shared table, grep for the shared writer first** — "reuse existing
+machinery" applies to single INSERT statements, not just subsystems.
+
+Other seats, all dispositioned in the revision (`ecbb0f362`) + round-2
+resubmission (same corr, RESUBMIT_CORR trail): register entry now a covered
+edit (it had shipped in the commit but the plan never listed it);
+doc_notes write-back added to the seed (measured: NO pipeline subject
+existed for any thunder mechanism — 4 landmine rows only); guardian's
+generic-topic workflow-selection worry answered by code read
+(extractGroupInfo reads config.agent_type first, which the scheduler writes
+from target_agent_type — the landmine is about call_agent children; the
+reaper's COMPLETED run today on the identical path is the live proof);
+DO/RAISE verify block now inside the seed transaction; 342 numbering
+checked against the directory + git log (343 taken concurrently; no
+collision).
