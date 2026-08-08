@@ -3887,3 +3887,40 @@ record**. Demoted by hand; that is cleanup, not a fix. Both filed as `bugs_open/
 judge the ordering directly — it is not a large question (*should a page for someone who
 has just missed a payment lead with free expert charities rather than with negotiation
 tactics?*), and the honest answer may be that it needed a person all along.
+
+### debt-help-uk reordered — free expert advice FIRST. Owner ruling, done directly.
+
+**Owner 2026-08-08: *"it didn't need the instrument and we can fix 227 later."*** So the
+ordering judgement was made by him and executed as a content change, not discovered by the
+experience loop. `bugs_open/227` stays filed and unworked.
+
+Route: a one-off `content_rewrite` through the framework with **bespoke guidance**, not the
+voice guidance — this is a structure change, and saying so in the prompt is what made it
+work. The guidance stated the REASON, not just the order: *"this page is read by someone
+who has just missed a payment, and this site is a calculator site, not a debt adviser."*
+Source item `7933edd4-…`, run `9e94084f-…`, row `18cd4ec7` → `40c67de1` (3,103 → 3,428 b).
+
+**Result on the served page:**
+
+```
+1. Where to get free, expert advice      <- StepChange, National Debtline, Citizens Advice
+2. Talk to your lender immediately
+3. The "Breathing Space" scheme
+   A note on your credit score
+```
+
+**Facts preserved, all nine checked on the wire:** `stepchange.org`,
+`nationaldebtline.org`, `citizensadvice.org.uk`, `60 days`, `Financial Conduct Authority`,
+`Debt Respite Scheme`, `Reduced Payment Plan`, `Loan Extension`, `CCJ`. Opening paragraph
+about legal rights kept in place as instructed. 26/26 pages 200, **toolgolden 11/11 exact**.
+
+> **The writer did something better than it was told, and it is worth recording.** The
+> guidance said Breathing Space now "follows naturally" from section 1. The writer instead
+> wrote a bridge back to the lender section: *"That first option, a Breathing Space, also
+> exists as a formal legal protection, not just something your lender might offer as a
+> favour."* That sentence did not exist before and no instruction asked for it. It resolves
+> a genuine ambiguity the original had — Breathing Space appears both as a lender
+> concession and as a statutory scheme — which the reorder would otherwise have made worse
+> by separating the two mentions further. **Given a reason rather than a rule, it made an
+> editorial judgement.** That is the first thing all week that has looked like writing
+> rather than compliance, and the difference in the prompt was stating WHY.
