@@ -45,6 +45,36 @@ scheme is the counter-example: **an entry dropped by validate_plan after those k
 are written mis-keys every later ordering silently.** That latent defect in the
 imagery scheme is real today and deserves its own bug file.
 
+### 1a. Scope clarification (owner question, 2026-08-08): what "never positional-from-outside" does and does not forbid
+
+The rule targets one specific shape: **a positional cross-reference that is
+STORED — written by counting into a sibling structure, persisted separately,
+and consumed later, after either side may have changed.** That is the imagery
+counter-example (`bugs_open/214`): "about, section 4" recorded at plan time,
+wrong by the time anything reads it, and silently so.
+
+It does NOT forbid:
+
+- **Addressing by stable identity from outside.** Editing a particular image
+  means naming it — `asset_key` (`icon_fine_tuning`), the plan-imagery `key`,
+  a page name, a work-item key. Names survive reorders; ordinals do not.
+  Every existing edit path already works this way (`needs_imagery` items carry
+  the key; hero lookup goes through `imageryplan.ContentHeroKey(page)`).
+- **Ephemeral positional language resolved immediately.** A human telling an
+  operator flow "change the second image on the about page" is fine — the
+  position is resolved to an identity in the same breath, against the live
+  artefact, and the IDENTITY is what gets stored or acted on. Position used as
+  a pointing gesture is harmless; position used as an ADDRESS THAT OUTLIVES
+  the state it counted is the defect.
+- **Alignment INSIDE one atomically-written structure** — the `section_facts`
+  sibling array is index-aligned, but it is derived and written in the same
+  pass that finalises the section list, and nothing re-derives one without the
+  other. Alignment is safe exactly as long as both sides live and die together.
+
+The test for a new design: *if someone reorders, drops or renames an entry on
+one side, does the other side follow automatically or lie silently?* If it can
+lie, it needed a name.
+
 ## 2. Blast radius (measured, not asserted)
 
 - `site_plan_sections` readers: `load_page_sections_from_spec`, `reconcile_site_plan`,
@@ -146,15 +176,27 @@ with paid-for active assets unreachable by any build. Filed as
   `call_agent` boundary; treated as internal, this RFC is where the shape is now
   written down regardless.
 
-## 5. The two decisions this RFC actually asks for
+## 5. The two decisions this RFC actually asks for — ALL DECIDED (owner, 2026-08-08)
 
 1. **Ratify the section-entry rule in §1** (object form is a validate_plan-internal
    transient; downstream carriers keep historical shapes; aligned sibling keys, never
    positional-from-outside) as the standing contract for the NEXT structured
    per-section field — so the next lane extends this instead of inventing a rival
-   carrier.
+   carrier. **DECIDED: RATIFIED (owner, 2026-08-08).** With one scope
+   clarification the owner's own question surfaced, now recorded in §1a below:
+   the rule bans STORED positional cross-references between separately-stored
+   structures; it does not ban addressing a thing by its stable NAME or id from
+   outside (asset_key, page name, work-item key), nor a human saying "the
+   second image" to an operator flow that resolves it to identity immediately
+   against the live artefact.
 2. **Approve the Slice A / Slice B order in §3**, including the pilot-cohort and
-   the human read of the v4 prompt before Slice B.
+   the human read of the v4 prompt before Slice B. **DECIDED: APPROVED (owner,
+   2026-08-08).** The v4 plaintext read remains an open ACTION (owner or
+   delegate) gating seed 330's apply — approval of the process is not the read.
+3. **§3a's follow-on: DECIDED for option (a)** (owner, 2026-08-08) — strengthen
+   rule 17 so the planner must state fact ownership for EVERY page, with the
+   recommended safeguard: one more observed replan before the consuming half
+   applies. Shipped as seed `331` in the same Slice B council round.
 
 ## 6. Sources
 
