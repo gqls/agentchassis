@@ -15,6 +15,30 @@ voice H      23 of 26 active pages  (3 blocked by bugs_open/219, unchanged and h
 live         26/26 HTTP 200 · 12/12 locked calculator rows identical · toolgolden 11/11 exact
 ```
 
+> **UPDATE 2026-08-08 afternoon — 219 IS FIXED AND APPROVED; THE ONLY BLOCKER LEFT IS
+> A RELEASE.** Commit `744bfdb3d`, council APPROVED round 1
+> (`c9104844-b303-43dd-a426-73386ebbb25e`). `IMAGE_TAG` is set to **`v1.0.1265`** in
+> the makefile, ready for the owner's whole-fleet release; the fleet is on `v1.0.1264`,
+> which does **not** carry it. **Do not fire `voiceh_batch.sh` until you have proven
+> the fix is in the running pod** — a roll is not evidence, so grep a positive AND a
+> negative marker on every replica:
+> `kubectl exec -n ai-persona-system <chassis-pod> -- sh -c 'strings /app/agent-chassis | grep -c "Schema/pipeline vocabulary in visible page copy"'`
+> (expect ≥1) and the removed string `'the model wrote about its task instead of doing it'`
+> (expect **0**).
+>
+> **⚠ AND `index` IS NO LONGER A ROUTINE REBUILD — read this before batching it.**
+> A parallel session took the first owner review of the homepage that afternoon
+> (`ecf50b634`, `SUMMARY_2026-08-08b…`): `index`'s prose rows were last written
+> **2026-08-02**, by the decomposition — so the page still carries **original
+> hand-built copy**, and the owner's *praise* for it, as well as his complaint about
+> the opening, are both about writing the framework never touched. **Rebuilding
+> `index` replaces the parts he liked too.** `tool-car-finance-calculator` and
+> `tool-interest-rate-stress-test` carry no such question and can go first.
+>
+> Fix detail, the correction it required, and the council's JSON-LD objection:
+> `bugs_open/219`. A second live instance of the same check, which this fix does
+> **not** solve: `bugs_open/221` (webdesign.co.uk — that lane has been told).
+
 ## 1. The rewrite is DONE except for three pages, and those are a platform bug
 
 `index`, `tool-car-finance-calculator`, `tool-interest-rate-stress-test` could not be
