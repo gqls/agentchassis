@@ -6597,6 +6597,14 @@ payload.
 > every pre-roll row) **and by the item's own `status`** — an error row that is `complete`
 > is the old era, one that is `triaged`/`failed` is the new. Never infer the outcome from
 > `status='error'` alone, in either direction.
+> **⚠ `fail_open` dates ERROR rows ONLY.** It is written on the error branch and nowhere
+> else, so a `verified` or `defect_persists` payload has no era marker in EITHER era — the
+> first post-roll row (a `verified`, 18:58:44Z on `v1.0.1268`) duly carries none, and reading
+> that absence as "pre-roll" is the second-order version of this same trap. For a non-error
+> row, date it by `updated_at` against the roll, never by the payload's shape.
+> **LIVE from `v1.0.1268`** (pod-verified both replicas 2026-08-08: `fails closed (RFC_017)`
+> = 1, negative `failing open` = 0). The fail-closed branch itself has **not yet executed in
+> production** — deployment proven, behaviour not.
 
 **The original trap, which is still exactly why this matters.** Reading a `_verification`
 payload, `status='error'` looks like the gate having stopped something: the item is

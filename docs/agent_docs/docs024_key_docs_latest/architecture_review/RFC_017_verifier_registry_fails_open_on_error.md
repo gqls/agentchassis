@@ -19,8 +19,21 @@
 >    would justify the bigger change** — see the named cost below.
 >
 > **Built the same day**, committed with its register entry (`WII-011`) per the platform-seams
-> ordering exemption. Council gate corr `a104d454-a4ff-4c95-a578-9a7e48c95100`. **Go change — inert
-> until the next chassis roll**, which is whole-fleet and the owner's to run.
+> ordering exemption. Council gate corr `a104d454-a4ff-4c95-a578-9a7e48c95100` — **APPROVED round 1**
+> (2 advisory objections, neither high-severity; one of them found a real error of mine, see the
+> correction box below).
+>
+> **✅ LIVE on chassis `v1.0.1268` since 2026-08-08 18:57Z**, pod-verified on both replicas with a
+> negative control: positives `fails closed (RFC_017)` / `blocking completion (fail-closed)` /
+> `failing OPEN by explicit policy` / `verification_unavailable` all = 1; **negative** `failing open`
+> (the removed lowercase spelling) = **0**, and that needle is present twice in the pre-change source
+> and zero times at HEAD. Whole fleet uniform on `v1.0.1268` (43 pods) — no mixed-fleet window.
+>
+> **⚠ DEPLOYED IS NOT EXERCISED.** The gate demonstrably ran post-roll (a `hardcoded_section_colors`
+> item verified 63 seconds after the pods came up) but returned `Resolved:true`. **The fail-closed
+> branch has never executed in production**, and cannot be made to without the absent-target case
+> recurring — which has happened twice in the registry's entire life. Do not report this ruling as
+> behaviourally proven; the deployment is proven and that is a different claim.
 >
 > **Shape of the implementation**, so a successor need not re-derive it: `RegisterVerifier` keeps its
 > signature and silently becomes the safe registration, so the flip reached all 8 verifiers without

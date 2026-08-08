@@ -693,3 +693,46 @@ the decision word. Triage of every objection, including the ones that turned out
 **The pattern, for the fourth time today:** the thing that caught the error was a check already
 written down — this lane's own R8 trap 3 (*"an absence is only ever an absence in the table you
 named"*, and its sibling for spellings) — applied by someone else, after the fact.
+
+### 2026-08-08, post-roll — the flip is LIVE on v1.0.1268, and what that does NOT mean
+
+Fleet rolled ~18:57Z. **All 43 chassis-imaged pods are on `v1.0.1268`** — uniform, so today's
+mixed-fleet landmine (another lane, same day: *"after a whole-fleet release the fleet is MIXED for
+hours"*) has no window here; checked rather than assumed.
+
+**Pod-grep, both replicas, one exec each, positives AND a negative in the same command:**
+
+```
+fails closed (RFC_017)            : 1     blocking completion (fail-closed) : 1
+failing OPEN by explicit policy   : 1     verification_unavailable          : 1
+failing open   (removed spelling) : 0   <- negative control
+```
+
+The negative needle discriminates: `failing open` (lowercase) is in the **pre-change source twice**
+(`1c5d9ceb5^`, lines 64 and 87) and **zero** times at HEAD; the new code says `failing OPEN by
+explicit policy`, so the case change is what makes it a clean 1→0.
+
+> **⚠ Honest limit, and it is my own miss.** The "before" half of that transition is **source-derived,
+> not binary-derived** — the fleet is uniformly 1268, so no pre-roll chassis binary was left to read
+> the needle at 1 on. **The baseline should have been taken before the roll.** Another lane logged
+> precisely this in `WRONG_CALLS.md` today (a needle that read 6 on a binary without the change), and
+> I read that entry hours before the roll and still did not take my own baseline.
+
+**What is proven and what is not, kept apart on purpose:**
+
+- **Proven:** the binary carries the change, on every replica.
+- **Proven:** the gate runs post-roll — one `hardcoded_section_colors` item verified at **18:58:44Z**,
+  63 seconds after the pods came up.
+- **NOT proven:** the fail-closed branch has **never executed in production**. That item returned
+  `Resolved:true`, so no error was raised. It cannot be forced without the absent-target case
+  recurring, and that has happened **twice in the registry's entire life**. Anyone reporting this as
+  "behaviourally proven" is repeating the mistake this lane spent a week catching in symptom 2.
+
+**A gap in my own era-marker, found by running the census rather than by thinking about it.**
+I added `fail_open` to the payload so a future census could tell a completed error from a blocked
+one — but it is written **on the error branch only**. So `verified` and `defect_persists` rows carry
+no era marker in *either* era, and the first post-roll row duly has none. My census filter
+`result->'_verification' ? 'fail_open'` therefore returned **0 post-roll-shaped rows** on a day when
+a post-roll row demonstrably exists — a filter that answers a narrower question than the one I asked
+it. Corrected in the `LANDMINES` entry and `WII-011`: date a non-error row by `updated_at` against
+the roll, never by payload shape.
