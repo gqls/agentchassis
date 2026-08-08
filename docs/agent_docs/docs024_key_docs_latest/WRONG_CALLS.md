@@ -22665,3 +22665,47 @@ instrument can prove it can speak.* Emit the error channel distinctly, or
 foreground-test once before trusting a background loop — related, from the other
 side: `kcat-publish-silently-drops` ("a step with no receipt is a step you cannot
 reason about").
+
+## 2026-08-08 — 218 defect B filed "the engine never reads the nested error_step"; the coordinator has an explicit fallback that reads exactly there
+
+**The claim (bugs_open/218, defect B):** `validate_tool`'s `error_step` lives
+nested inside `config` on the live row, "where the engine never reads it
+(`platform/messaging/processor.go:433` reads `error_step` from the step map)"
+— so step-level routing is absent, the failure falls into the generic fail
+path, and that is why the recreation output is discarded.
+
+**The truth:** `routeToErrorStepOrFail`
+(`platform/orchestration/coordinator.go:3529-3537`) checks `step.ErrorStep`
+first and then **falls back to `step.Config["error_step"]`** — the exact
+nested location. The routing fires. Moreover the live row's `next_step` and
+`error_step` are the SAME step (`save_sections`), so success and failure
+converge — there is no divergent fail path for this step at all. The real
+discard is downstream: `save_sections` reads
+`html_field: validation_result.clean_html`, which only exists on validation
+SUCCESS (the action returns `nil, error` before writing its output_field), and
+`save_page_sections_action.go:321-330` reports the resulting empty input as
+**success** (`skipped: true, sections_saved: 0`), so the workflow completes on
+the happy path having saved nothing.
+
+**What caught it:** the 090 run (`c56b691d`) — it died at iteration cap with
+no verdict, but its final bundle's hypothesis-under-test was this refutation;
+this session then verified all three legs first-hand (coordinator fallback,
+live row config, save action skip arm).
+
+**The cheap check that would have caught it at t=0:** read the DECIDING arm,
+not the extraction site. The filing quoted where `error_step` is *parsed*
+(`processor.go:433`) and inferred where it is *consumed*. One grep —
+`grep -n 'error_step' platform/orchestration/coordinator.go` — lands on the
+fallback line within seconds. This is `cite-the-arm-not-the-function` in its
+purest form: a claim that "X is never read" must quote every reader, and the
+one that decides is the one to quote. Corollary that made the wrongness
+invisible: `next_step == error_step` means NO experiment on this workflow could
+ever distinguish "routing works" from "routing dead" by observing which step
+runs next — the filed mechanism was untestable by the very evidence pattern
+(items complete, 0 components) offered for it.
+
+**The transferable shape:** *"the engine never reads key K" is a claim about
+every consumer, provable only by enumerating them — citing one reader that
+doesn't is not evidence about the one that does.* And when success and failure
+paths converge on the same step, no downstream observation can attribute the
+outcome to routing at all.

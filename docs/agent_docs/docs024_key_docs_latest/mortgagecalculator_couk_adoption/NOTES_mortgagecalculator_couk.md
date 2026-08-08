@@ -972,3 +972,34 @@ code `35889819c`. The Council-Submitted trailers on all four code commits resolv
 to this approval at 098 time — no amends, forward-only held throughout. Defect B's
 diagnosis (`c56b691d`) still `diagnosing` at close; its verdict is the next
 session's first read alongside the roll check.
+
+### 2026-08-08 afternoon — fix confirmed LIVE; defect-B diagnosis died, its refutation verified first-hand
+
+**Validator fix is live.** Chassis rolled to v1.0.1264 at 13:08 UTC (both
+replicas). Pod-grep, same exec, both pods: `headProseBlocks` (round-4 ADDED
+symbol) = 2, `stripScriptAndStyle` (round-1 symbol round 2 REMOVED) = 0. Both
+tells correct on both replicas — the binary carries the full round-4 fix, not
+round 1. (The handoff's suggested positive control `ExtractAssertionText` was
+weak — it pre-exists in datahelpers with other callers; `headProseBlocks` is
+unique to `35889819c`.)
+
+**Defect-B 090 run (`c56b691d`) produced NO verdict** — work item `8f460338`
+`failed` at `call_diagnoser` 10:27 UTC, `result={}`, five bundles then
+iteration cap. But its final bundle's hypothesis-under-test REFUTED the filed
+mechanism, and this session verified the refutation first-hand (all three
+legs): `coordinator.go:3529-3537` falls back to `step.Config["error_step"]`
+(nested key IS read); live row has `next_step` = `error_step` =
+`save_sections` (paths converge — no divergent fail path exists);
+the real discard is `save_sections` reading `validation_result.clean_html`
+(success-only field) and `save_page_sections_action.go:321-330` reporting the
+empty input as SUCCESS (`skipped: true, sections_saved: 0`) → happy-path
+completion with 0 components. `bugs_open/218` defect B corrected in place
+(mechanism refuted, phenomenon stands, fix candidates re-ranked: candidate 2
+"restore step-level error_step" is a no-op); WRONG_CALLS entry appended
+(cite-the-arm shape, plus: converged next/error steps make routing claims
+unobservable downstream).
+
+**Consequence for the re-runs:** with the validator fixed, overpayment and
+fact-finder should PASS validation and save normally. If a re-run fails
+validation for a REAL reason, expect the same silent discard (item complete,
+0 components) — that door is still open until defect B's design call lands.

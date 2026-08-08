@@ -108,37 +108,84 @@ p.name IN ('tool-overpayment','game-fact-finder')` goes 0 → >0).
 
 ## Defect B — `validate_tool`'s failure routing is dead config, so a failed validation discards the recreation and completes the item
 
+> **CORRECTED 2026-08-08 (afternoon session) — the MECHANISM below is REFUTED;
+> the PHENOMENON stands.** The 090 run (`c56b691d`) FAILED at `call_diagnoser`
+> 10:27 UTC with no verdict (work item `8f460338` `failed`, `result={}` — five
+> evidence bundles, iteration cap). Its final bundle's hypothesis-under-test was
+> a refutation of the filed mechanism, and this session verified that refutation
+> first-hand (stated substitution per the 2026-07-31 ruling; evidence below).
+> What caught the original error: the filing cited `processor.go:433` (the
+> step-map read) but never quoted the deciding arm —
+> `routeToErrorStepOrFail`, `platform/orchestration/coordinator.go:3529-3537`,
+> which checks `step.ErrorStep` first and then **explicitly falls back to
+> `step.Config["error_step"]`** — the exact nested location the live row uses.
+> The nested key is NOT dead config; the routing fires.
+>
+> **The real discard mechanism, verified first-hand 2026-08-08:**
+> 1. On failure `validate_page_content` returns `nil, error`
+>    (`validate_page_content.go:429`), so its `output_field`
+>    (`validation_result`) is never written.
+> 2. The coordinator routes to `error_step: save_sections` (live row:
+>    `config.error_step` = `next_step` = `"save_sections"` — success and
+>    failure converge on the same step, so there is no divergent fail path).
+> 3. `save_sections` reads `html_field: "validation_result.clean_html"` — a
+>    field that only exists on validation SUCCESS. Empty in the failure path.
+> 4. `save_page_sections_action.go:321-330`: html empty + no sections metadata
+>    → returns **SUCCESS** with `skipped: true, sections_saved: 0` (a Warn log,
+>    not an error). The workflow proceeds down its happy path
+>    (`next_step: update_status`) and completes normally.
+>
+> So the discard is a data-contract hole plus a skip-as-success, not dead
+> routing: the error path lands on a step whose input contract is only
+> satisfiable on the success path, and that step reports the resulting no-op as
+> success. The seed-vs-live `error_step` placement difference is behaviourally
+> EQUIVALENT (the coordinator reads both locations) — the drift inference below
+> is moot for behaviour.
+
 > **ROUTED 2026-08-08, not just filed** (the council's gating seat was right that
 > a prose filing rots): 090 intake `315f7f88-ca07-4ab0-b3de-0ecd11b0edee`,
 > claimed by `diagnose-dispatch-loop` as run `c56b691d-43c3-4ad2-ab48-f043689100ea`.
-> Read that run's verdict before starting independent work here.
+> ~~Read that run's verdict before starting independent work here.~~ The run
+> produced NO verdict (failed at iteration cap); the correction above is the
+> current account.
 
-The seed (`docs/agent_docs/sql_for_agents/099_tool_recreation_handler.sql:153`)
+~~The seed (`docs/agent_docs/sql_for_agents/099_tool_recreation_handler.sql:153`)
 puts `"error_step": "save_sections"` at STEP level on `validate_tool` — the
 stated intent is that this validation is advisory on the recreation path.
 The LIVE `agent_definitions` row instead carries `error_step` nested INSIDE
 `config`, where the engine never reads it (`platform/messaging/processor.go:433`
 reads `error_step` from the step map). Step-level routing is therefore absent:
-a `validate_tool` failure falls into `routeToErrorStepOrFail`'s fail path, the
+a `validate_tool` failure falls into `routeToErrorStepOrFail`'s fail path,~~
+**[REFUTED — see the correction above; `coordinator.go:3535` reads the nested
+key. What stands:]** the
 recreate output (a full, paid-for LLM response — 9–12k output tokens each, per
 `llm_call_log`) is discarded, and the work item still ends `complete`.
 
 The live row has no snapshots and its `updated_at` (2026-08-08 08:54) was
 bumped by this morning's roll, so who moved the key and when is not
 reconstructable. [INFERRED: the misplacement is drift, not design — the seed
-and the live row disagree and only one can be the intent.]
+and the live row disagree and only one can be the intent.] *(Moot for
+behaviour — both placements route; see correction.)*
 
-**Fix candidates, ordered by what closes the door:**
+**Fix candidates, ordered by what closes the door (re-ranked 2026-08-08 after
+the correction):**
 1. Make a workflow run that discards its output incapable of marking the item
    `complete` (engine-level; kills the whole "complete with nothing" class —
-   the standing `complete ≠ artefact` landmine made structural).
-2. Restore `error_step` to step level per the seed (one-key UPDATE on the live
-   row; live immediately; but it makes a REAL validation failure save anyway —
-   which is the seed's stated intent, and defensible only while Defect A's fix
-   keeps validation honest).
+   the standing `complete ≠ artefact` landmine made structural). **Still the
+   door-closer, unchanged.**
+2. ~~Restore `error_step` to step level per the seed~~ **REFUTED as a fix — it
+   changes nothing.** The routing already fires (nested fallback); the discard
+   is the data contract. The actual "save anyway" candidate is: make the
+   failure path carry the html the validator was given
+   (`completeness_check.clean_html`) into `save_sections` — e.g. point
+   `html_field` at the pre-validation field, or have the validator write its
+   input through on failure. Design call (save-anyway vs cannot-complete)
+   still owed; defensible only while Defect A's fix keeps validation honest.
 3. Do nothing and rely on Defect A's fix — validation stops false-failing, so
-   the dead routing stops mattering except for genuine failures, exactly the
-   case where discard-vs-save needs a human decision anyway.
+   the discard stops mattering except for genuine failures, exactly the
+   case where discard-vs-save needs a human decision anyway. **Note this leaves
+   `save_page_sections`' skip-as-success in place fleet-wide** (any caller
+   whose html field resolves empty completes with 0 components saved).
 
 ## Diagnosis provenance (per the 2026-07-31 owner ruling)
 
