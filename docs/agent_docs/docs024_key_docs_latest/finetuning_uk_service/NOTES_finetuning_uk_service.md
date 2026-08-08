@@ -502,3 +502,53 @@ Cleanup: drill row deleted (matched `id` AND `thunder_instance_id`,
 **186 is fixed AND live.** Recorded in the bug file (which stays in
 `bugs_open/` per owner ruling 08-06); RUNBOOK §1b caveat updated. Next lane
 steps: Phase 0 (needs owner-ish supervision) and task #6 orphan sweep.
+
+## 2026-08-08 (late evening) — task #6 BUILT: the orphan sweep (FTW-042)
+
+Commit `81484df8a` (+ gofmt fix `2ef4ab581`), council submission
+`7ffecfa2-ff96-4d73-be0d-25eb9589c6df` (Council-Submitted trailer; verdict
+being read when it lands). Three pieces, all read-and-report:
+
+- thunder-adapter `list_instances` — verbatim `GET /instances/list`
+  passthrough (the client method existed, unit-tested, exposed by nothing).
+- chassis `dispatch_thunder_list` — awaited dispatch, cloned from the
+  decommission dispatch envelope.
+- chassis `reconcile_thunder_instances` — pure classifier (12 table cases +
+  a pinned unknown-age test): orphan_no_row / orphan_terminal_row filed as
+  `thunder_orphan` work items on system.internal (severity high, dedup via
+  idx_swi_dedup targetless ON CONFLICT), ghost_row reported-not-filed,
+  30-min grace absorbs the provision INSERT-after-up window, zero createdAt
+  cannot hide behind the grace.
+- seed `sql_for_agents/342` — thunder-orphan-scan every 6h, NO pre_query
+  (deliberate: always fire), shares thunder-lifecycle group with the reaper.
+
+Design decisions worth remembering:
+- **No remediation authority, considered and refused** — decommission needs
+  the very row an orphan lacks; auto-pausing thunder_config would not stop
+  an orphan billing, only block innocent lanes. Read-and-report is the whole
+  scope; the work item's summary tells the human to kill the box at the
+  console.
+- **Ghosts not filed** because nothing is billing and the decommission path
+  self-heals them (404≡success); filing them would train operators that
+  thunder_orphan items are ignorable.
+- **Adapter stays thin**: every site_work_items writer lives in
+  platform/orchestration/actions and that invariant held — the adapter
+  gained only the vendor passthrough.
+- Collisions measured before submitting: 0 rows for the item_type across 86
+  live types, both names unclaimed.
+
+Missteps this session (small, both caught in-flight): the loose register
+count regex (over-counts by 7 — the index header's own table says so; used
+the strict command and said so in the chain); and the shell cwd persisting
+into a later call so `docs/...` greps returned "No such file" from inside
+the register dir — absolute paths after any cd.
+
+Concurrency note: my two 000_concept_index.md edits (FTW-042 row + headline
+link) were swept to HEAD by `a60a13cbb` (the 220 lane) minutes after they
+landed on disk — same-file passenger, recorded in my commit message per the
+sweep rule; the register ENTRY itself travelled in my commit as the seam
+ruling requires.
+
+**Not live until**: fleet roll (both images) → apply 342 → first-run
+verification per the seed header (a 0-findings run must be cross-checked
+against §1b's manual call the same day — a green scan must prove it LOOKED).

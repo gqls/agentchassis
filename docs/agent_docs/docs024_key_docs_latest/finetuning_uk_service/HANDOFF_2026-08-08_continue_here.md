@@ -169,16 +169,18 @@ IS the deploy; verify by md5 round-trip).
      `RUN_SH_DONE ⟹ durable` is proven — its DONE_OK path decommissions the
      box, FTW-035).
    - Phase 0 closes flywheel gates FTW-032/035.
-3. **Task #6 — orphan sweep** (the top uncovered risk): an instance billing at
-   Thunder with NO row in `thunder_instances` is invisible to every automated
-   check (the row is INSERTed only after the box exists — a crash in between
-   orphans it). `api.Client.ListInstances`
-   (`internal/adapters/thunder/api/client.go:91`) is built + unit-tested but
-   exposed by no action. Build: an adapter action exposing it + a reconcile
-   (Thunder's list vs our live rows), route the mismatch somewhere a human
-   sees. Go change ⇒ council gate + image roll. Until then the manual net is
-   **RUNBOOK §1b** ("AM I BEING BILLED RIGHT NOW?" — ten seconds, run it
-   before bed).
+3. ~~**Task #6 — orphan sweep** (the top uncovered risk)~~ **BUILT 2026-08-08
+   late evening (FTW-042), commit `81484df8a` + gofmt `2ef4ab581`, council
+   corr `7ffecfa2` (Council-Submitted — READ THE VERDICT if it hasn't been).**
+   `list_instances` adapter action + `dispatch_thunder_list` +
+   `reconcile_thunder_instances` (orphans filed as `thunder_orphan` items on
+   system.internal; ghosts reported not filed; 30-min grace) +
+   `sql_for_agents/342` (6-hourly scan). **Remaining: after the next fleet
+   roll, apply 342 (image FIRST — the seed header has the verify commands),
+   then first-run verification: kick the task, check the COMPLETED
+   orchestration's counts against §1b's manual API call the same day.** Until
+   then the manual net is still **RUNBOOK §1b** ("AM I BEING BILLED RIGHT
+   NOW?" — ten seconds, run it before bed).
 4. **Phase 1 — page + payment link**: BLOCKED on coordination with the
    `finetuning_uk_repair` thread (see boundary above). Also owner calls: final
    price (after Phase 0 measurement), playground booking shape

@@ -178,3 +178,19 @@ unchanged: a machine Thunder is billing us for that our records never heard of
 would still be invisible — that reconciliation check is the next build item,
 and the ten-second manual check remains the net until then. Otherwise the lane
 is clear for the rehearsal run, which wants you around when it happens.
+
+Later the same evening: the reconciliation check I called "the next build
+item" above is now written. Every six hours the system will ask Thunder
+directly "what machines are you charging us for?" and compare that against
+our own records — if Thunder is billing for something we have no record of,
+it raises a high-priority flag with instructions for whoever sees it (kill
+the machine at the console, then work out how it got created without a
+record). It deliberately does not try to fix anything itself: a machine we
+have no record of is exactly the machine our cleanup tools cannot reach, and
+guessing would risk killing something real. It also knows the difference
+between a genuine stray and a machine that is simply mid-setup (new machines
+get a half-hour of benefit of the doubt — but a machine whose age Thunder
+won't state gets flagged regardless, so nothing can hide). The code is
+written, reviewed by the automated panel (verdict due shortly), and switches
+on with the next software release plus one database step afterwards — until
+that first scan is verified, the ten-second bedtime check stands.
