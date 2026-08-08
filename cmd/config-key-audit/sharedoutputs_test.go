@@ -10,6 +10,7 @@
 package main
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/gqls/agentchassis/pkg/models"
@@ -248,5 +249,112 @@ func TestSharedOutputs_BothShapesResolveToTheExecutedOne(t *testing.T) {
 	if findings[0].Producer != "executed_inner" {
 		t.Fatalf("reported producer %q — the inert sub_workflow half was walked instead of the "+
 			"substeps half that actually executes: %+v", findings[0].Producer, findings[0])
+	}
+}
+
+// TestParseSharedOutputArgs pins the argument handling, which became
+// load-bearing when this check went on a schedule.
+//
+// The old code read --ack at exactly os.Args[2]/[3]. Passed anywhere else it was
+// ignored SILENTLY, so the ratchet reverted to a raw check that exits 1 for ever
+// — and a scheduled job that always fails is one everybody learns to ignore,
+// which is the same blindness this check exists to prevent, reached by a
+// different route. Position-independence and refusal-on-typo are the fix, so
+// they get a test rather than a comment.
+func TestParseSharedOutputArgs(t *testing.T) {
+	cases := []struct {
+		name    string
+		argv    []string
+		wantAck string
+		wantRep bool
+		wantErr bool
+	}{
+		{
+			name:    "canonical order, as the runbook documents it",
+			argv:    []string{"--shared-output-fields", "--ack", "scripts/shared_output_fields_ack.txt"},
+			wantAck: "scripts/shared_output_fields_ack.txt",
+		},
+		{
+			// The case the old positional read got WRONG: --report first pushes
+			// --ack past argv[2], and the ack file was then silently ignored.
+			name:    "--ack AFTER --report is still honoured",
+			argv:    []string{"--shared-output-fields", "--report", "--ack", "/app/ack.txt"},
+			wantAck: "/app/ack.txt",
+			wantRep: true,
+		},
+		{
+			name:    "--report alone",
+			argv:    []string{"--shared-output-fields", "--report"},
+			wantRep: true,
+		},
+		{
+			name:    "no ack file is legal — that is the raw form the wrapper runs",
+			argv:    []string{"--shared-output-fields"},
+			wantAck: "",
+		},
+		{
+			// A typo must REFUSE, not proceed with the flag dropped: proceeding
+			// is how a ratchet loosens with nobody choosing to loosen it.
+			name:    "a typo'd flag is refused, not ignored",
+			argv:    []string{"--shared-output-fields", "--akc", "scripts/shared_output_fields_ack.txt"},
+			wantErr: true,
+		},
+		{
+			name:    "--ack with no value is refused",
+			argv:    []string{"--shared-output-fields", "--ack"},
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := parseSharedOutputArgs(tc.argv)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("want an error, got %+v — a silently-dropped flag is the defect this test exists for", got)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got.ackPath != tc.wantAck {
+				t.Errorf("ackPath = %q, want %q", got.ackPath, tc.wantAck)
+			}
+			if got.report != tc.wantRep {
+				t.Errorf("report = %v, want %v", got.report, tc.wantRep)
+			}
+		})
+	}
+}
+
+// TestSharedOutputRunSummary_StatesScopeNotJustResult: the doc_notes body must
+// carry the SCOPE of the run, because a finding count alone cannot tell "looked
+// at 177 agents and found nothing" from "looked at 3 and found nothing", and the
+// second is a broken export reporting success. Also pins that an undecodable
+// agent row is disclosed — a clean result that silently excludes rows is the
+// pass-bought-by-going-blind case.
+func TestSharedOutputRunSummary_StatesScopeNotJustResult(t *testing.T) {
+	clean := sharedOutputRunSummary(177, 0, nil, []sharedOutputFinding{{Agent: "a"}, {Agent: "b"}}, nil)
+	for _, want := range []string{"CLEAN", "177 live agents", "routing keys", "2 acknowledged"} {
+		if !strings.Contains(clean, want) {
+			t.Errorf("clean summary missing %q: %s", want, clean)
+		}
+	}
+
+	withUndecoded := sharedOutputRunSummary(3, 4, nil, nil, nil)
+	if !strings.Contains(withUndecoded, "WARNING") || !strings.Contains(withUndecoded, "does not cover them") {
+		t.Errorf("a run with undecodable rows must say its clean result does not cover them: %s", withUndecoded)
+	}
+
+	withFinding := sharedOutputRunSummary(177, 0, []sharedOutputFinding{{
+		Agent: "page-build-handler", OutputField: "section_plan",
+		Producer: "plan_sections", ProducerAct: "plan_sections",
+		Refiner: "load_current_section_content", RefinerAct: "load_current_section_content",
+	}}, nil, []string{"stale-agent field prod refine"})
+	for _, want := range []string{"1 NEW hazard", "page-build-handler", "section_plan", "STALE ACK", "shared_output_fields_ack.txt"} {
+		if !strings.Contains(withFinding, want) {
+			t.Errorf("finding summary missing %q: %s", want, withFinding)
+		}
 	}
 }

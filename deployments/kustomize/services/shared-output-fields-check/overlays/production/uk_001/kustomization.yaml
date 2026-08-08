@@ -1,0 +1,18 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: ai-persona-system
+resources:
+  - ../../../base
+
+labels:
+  - pairs:
+      environment: production
+      region: uk
+
+# Pinned, like every other overlay here. This is a CronJob image on its OWN tag
+# sequence — it does NOT ride the fleet release (component-render-check sits at
+# v1.0.1258 while the chassis fleet is on v1.0.1264), because nothing in a
+# pipeline depends on it and rebuilding it for every chassis roll would be noise.
+images:
+  - name: docker.io/aqls/shared-output-fields-check
+    newTag: v1.0.1265

@@ -1,0 +1,118 @@
+# deployments/kustomize/services/shared-output-fields-check/base/cronjob.yaml
+#
+# RFC_012 (d), the ONLINE half — the last undone piece of that RFC's second owner
+# sitting, whose ruling was "(d) as a STANDING check, ONLINE if the framework
+# allows". The offline half (the detector) shipped 2026-08-06 in abf5e8266 and has
+# been run by hand since, which is the failure mode the ruling was written against:
+# a check that runs when someone remembers is a check that stops running.
+#
+# WHAT IT CHECKS. Every pair of steps in one live workflow that write the SAME
+# output_field, where the second is transitively reachable from the first over the
+# FULL routing graph, and the two run DIFFERENT actions. That is bugs_open/192's
+# shape — a step's work silently replaced by a differently-shaped value from a
+# later step — and both simpler forms of the check return ZERO rows on a fleet
+# that contained it. The detector's tests pin that case and a mutation of it.
+#
+# WHY AN IMAGE AND NOT A ConfigMap SCRIPT. Following component-render-check
+# (CGV-030), deliberately NOT single-owner-carriers-check. The check is a Go binary
+# that walks workflow definitions through platform/validation.WalkSteps — the SAME
+# traversal the runtime validator enforces against. A Python re-implementation
+# would be a replica, and a replica proves the replica works. RFC_006's Python
+# mirror exists only because a CronJob cannot `go run` from a 262M clone; an image
+# dissolves that, and with it both of RFC_006's named drift risks (a DECLARED_*
+# literal kept in step by hand, and a parity test to notice when it is not).
+#
+# CONNECTS TO POSTGRES DIRECTLY — never kubectl exec. The ai-persona-app service
+# account has no pods/exec RBAC in this namespace (the constraint
+# component-render-check, single-owner-carriers-check and bugs-open-staleness-sweep
+# all hit), and a kubectl-only tool fails there in a way that looks like a CLEAN
+# RUN unless you are watching exit codes. PG_CLIENTS_HOST being set is how this job
+# declares itself; see cmd/config-key-audit/fleetdb.go, which also explains why the
+# DB and stdin routes share one decoder rather than growing a second.
+#
+# IT REPORTS ON EVERY RUN, INCLUDING CLEAN ONES, and that is not politeness. A
+# check that only speaks when it fails is INDISTINGUISHABLE FROM ONE THAT HAS
+# STOPPED RUNNING — bugs_open/140 is what that ambiguity costs. So a missing
+# doc_notes row means THE JOB DID NOT RUN, and can never be read as "nothing is
+# wrong":
+#   SELECT created_at, left(body, 200) FROM doc_notes
+#   WHERE source = 'shared_output_fields_check' ORDER BY created_at DESC LIMIT 7;
+# The body states the SCOPE of the run (agents scanned, routing keys read), because
+# a finding count alone cannot tell "looked at 177 agents and found nothing" from
+# "looked at 3 and found nothing", and the second is a broken export reporting
+# success.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: shared-output-fields-check
+  labels:
+    app: shared-output-fields-check
+    component: config-integrity
+spec:
+  # Daily, 07:10 UTC. Chosen to be clear of every other scheduled job's connection
+  # window rather than merely of the one before it — verified against the live
+  # cluster on 2026-08-08, not against a list in a handoff: database-backup 02:00,
+  # bugs-open-staleness-sweep Sun 06:00, single-owner-carriers-check 06:20,
+  # component-fallback-check 06:40, concept-register-drift-check 06:50,
+  # component-render-check 06:55. (agent-job-cleanup runs */10 and is cheap.)
+  # 07:10 leaves the 06:20-06:55 cluster a clear 15 minutes.
+  schedule: "10 7 * * *"
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      # 1, not 0: a transient database blip should get one retry, because a failed
+      # run here is indistinguishable at a glance from a NEW finding and both page
+      # a human. Not more than 1 — a retried job that keeps failing on a real
+      # finding just writes the same row three times.
+      backoffLimit: 1
+      # The whole check is one query plus an in-memory graph walk over ~180
+      # workflows. Measured ~2s by hand against the live fleet; 300s is a wide
+      # margin that still stops a hung job blocking tomorrow's.
+      activeDeadlineSeconds: 300
+      template:
+        metadata:
+          labels:
+            app: shared-output-fields-check
+            component: config-integrity
+        spec:
+          restartPolicy: Never
+          # REQUIRED, and easy to miss by copying a job that pulls a public image:
+          # this one pulls from aqls/, which is private. Without it the job sits in
+          # ImagePullBackOff — which reports as a Job still "Running", never as a
+          # failure, so a scheduled check would go permanently silent while looking
+          # merely slow. component-render-check caught this on its first manual run;
+          # this job inherits the fix rather than rediscovering it.
+          imagePullSecrets:
+            - name: docker-hub-creds
+          containers:
+            - name: check
+              # Tag is set by the overlay, as every other service here does it.
+              image: docker.io/aqls/shared-output-fields-check:latest
+              # The image's CMD is already
+              #   --shared-output-fields --report --ack /app/shared_output_fields_ack.txt
+              # so this job fails ONLY on a NEW pair. The two pairs the fleet
+              # already knows about (bugs_open/192's own shape, and RFC_012
+              # addendum 1's second instance) are acknowledged IN THE IMAGE with
+              # written reasons, so they never fail it — a permanently-red job is
+              # one everybody learns to ignore. The ack list is also a ratchet in
+              # the other direction: an acknowledged pair that STOPS reproducing is
+              # reported as a stale ack, because an ack list that outlives its
+              # findings is how a check goes green by going blind.
+              env:
+                - name: PG_CLIENTS_HOST
+                  value: postgres-clients
+                - name: CLIENTS_DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: personae-platform-secrets
+                      key: CLIENTS_DB_PASSWORD
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 300m
+                  memory: 256Mi

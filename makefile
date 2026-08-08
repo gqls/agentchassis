@@ -14,7 +14,7 @@ REGION ?= uk001
 REGION_PATH ?= uk_001
 REGISTRY ?= docker.io/aqls
 #IMAGE_TAG ?= latest
-IMAGE_TAG ?= v1.0.1258
+IMAGE_TAG ?= v1.0.1265
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
@@ -181,6 +181,16 @@ build-web-search-adapter: ## Build web-search-adapter (committed HEAD; REF=<ref>
 .PHONY: build-component-render-check
 build-component-render-check: ## Build component-render-check CronJob image (committed HEAD; REF=<ref> to pin)
 	$(call ref_build,component-render-check)
+
+# Not a service — a CronJob image (RFC_012 (d), the ONLINE half). It ships the
+# config-key-audit binary AND the ack list it ratchets against, for the same
+# reason component-render-check ships its baseline: the ack list is the check's
+# own definition of "already known", so a working-tree build could bake in an
+# unreviewed acknowledgement — a silenced finding with no diff. Committed-HEAD
+# build makes that unrepresentable rather than merely discouraged.
+.PHONY: build-shared-output-fields-check
+build-shared-output-fields-check: ## Build shared-output-fields-check CronJob image (committed HEAD; REF=<ref> to pin)
+	$(call ref_build,shared-output-fields-check)
 
 .PHONY: build-web-scrape-adapter
 build-web-scrape-adapter: ## Build web-scrape-adapter (committed HEAD; REF=<ref> to pin, -tree for WIP)
@@ -1899,6 +1909,23 @@ component-render-check-now: ## Trigger an immediate component-render-check run
 	KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) create job \
 		--from=cronjob/component-render-check \
 		component-render-check-manual-$$(date +%Y%m%d-%H%M%S)
+
+.PHONY: push-shared-output-fields-check
+push-shared-output-fields-check: ## Push the shared-output-fields-check CronJob image
+	docker push $(REGISTRY)/shared-output-fields-check:$(IMAGE_TAG)
+
+.PHONY: deploy-shared-output-fields-check
+deploy-shared-output-fields-check: ## Deploy the daily shared-output-fields-check CronJob (RFC_012 (d) online half)
+	@echo "$(YELLOW)Deploying shared-output-fields-check CronJob...$(NC)"
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/shared-output-fields-check/overlays/$(OVERLAY_PATH)
+	@echo "$(GREEN)CronJob deployed. Next run:$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) get cronjob shared-output-fields-check
+
+.PHONY: shared-output-fields-check-now
+shared-output-fields-check-now: ## Trigger an immediate shared-output-fields-check run
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) create job \
+		--from=cronjob/shared-output-fields-check \
+		shared-output-fields-check-manual-$$(date +%Y%m%d-%H%M%S)
 
 .PHONY: bugs-open-staleness-sweep-now
 bugs-open-staleness-sweep-now: ## Trigger an immediate sweep run (creates a Job from the CronJob)
