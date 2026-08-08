@@ -946,3 +946,20 @@ JSON — escaped double-quotes in the symptom text reach the script's dollar-quo
 JSON as literal backslashes; write symptoms with NO quote characters (this cost one
 correlation id, `741bf434`, which has no row). Round 3 submitted under the same
 trail; verdict unread.
+
+### 2026-08-08 evening — round 3: 9/11 approve, still REVISE; the head escape was REAL and is fixed; round 4 in
+
+Round 3's editquality objection was a genuine code catch, not plan-record noise:
+narrowing to ExtractAssertionText silently dropped <head> — a placeholder in
+<title> or a meta description (visitor-visible prose the OLD scan covered) escaped.
+Fixed in `35889819c`: headProseBlocks scans title + description/og/twitter meta
+content alongside body blocks; JSON-LD deliberately unread (code-shaped — the very
+collision class being fixed); mutation dropping it fails 6 cases. Census re-checked:
+zero of the 46 historical convictions were head-context, so nothing was lost in the
+window. The gating seat escalated to "routing defect B is not a fix" — answered in
+round 4 with the process fact: defect B is under ACTIVE diagnosis (`c56b691d`,
+status diagnosing), the 090 coverage rule forbids a second thread patching a target
+mid-diagnosis, and the right fix is a design decision (save-anyway vs
+cannot-complete) that the diagnosis run should land, not a rider on this patch.
+Lesson worth keeping: **a reviewer pool with fresh eyes each round keeps finding
+real things — round 3's "new objection" was the best catch of the three rounds.**
