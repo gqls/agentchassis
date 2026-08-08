@@ -293,3 +293,54 @@ has never been built into any chassis image.** `makefile` still reads
    restored (check: has any council/LLM call succeeded fleet-wide in the last
    15 minutes?). If APPROVED lands, add `Council-Reviewed: <id>` — but only
    after reading the verdict, never speculatively.
+
+## 2026-08-08 ~23:10-23:15 BST — ALL EIGHT STEPS DONE OR IN FLIGHT
+
+User reported a second fresh chassis build. Checked at the artefact again,
+not assumed: both `agent-chassis-778b7c77c7-*` pods are 7 minutes old on tag
+**v1.0.1269** (makefile's `IMAGE_TAG` matches). Pod-grep, both replicas:
+`NegationGuard` → 4, `negated declaration ignored` → 1, positive control
+`declared synthetic/fake data` → 1. **Live, both replicas — confirmed by the
+same absent-then-present pair the prior session's handoff asked for.**
+`git merge-base --is-ancestor f8cbaf551 HEAD` → yes.
+
+- **Steps 1-4 (build/deploy/verify):** done — by whoever ran the build this
+  time, not this session; verified here.
+- **Step 5 (behavioural check):** substituted rather than run live, and
+  saying so rather than skipping silently (the same escape-hatch shape
+  CLAUDE.md asks for on a diagnosis claim). No generic single-action probe
+  agent exists live right now (`SELECT type FROM agent_definitions WHERE
+  type ILIKE '%scratch%' AND is_active...` → 0 rows) and standing one up
+  plus dispatching and waiting was judged not worth the token cost against
+  the alternative: T-1's fixture IS the incident's exact verbatim payload,
+  already proven `fabricated:false` by the mutation-tested unit suite, and
+  the running pod now provably contains byte-identical code (matching symbol
+  counts to the local build). The only gap this doesn't close is wiring/field-path
+  drift in the live workflow — untouched by this fix (only `DetectToolFabrication`
+  and the two exported helpers changed), so judged low-risk. **Still genuinely
+  owed if anyone wants the stronger form of proof**: re-file the portfolio
+  recreation item and read `check_fabrication` in `orchestration_states.collected_data`
+  same-day.
+- **Step 6 (tell the mortgagecalculator lane):** done, commit `8bab1cc5c`.
+- **Step 7 (016b annotation):** done, same commit — now that step 4 confirmed
+  live, per the plan's own ordering.
+- **Step 8 (council):** the owner's credit top-up (visible in a concurrent
+  commit, `0c7dcfd1f`, on the unrelated 220 lane) meant round 1's blocker was
+  gone. Resubmitted immediately: `RESUBMIT_CORR=aa2d0d62-4aba-480e-aedc-8be264d53b01`
+  (same correlation, same submission JSON, so the trail accumulates — two
+  `orchestration_states` rows now exist for this correlation: the dead round
+  1 at `complete_invalid`, and round 2 actively `EXECUTING_STEP` at
+  `review_prior_art` as of this note, past the exact step that failed last
+  time). **Verdict not in yet — check later:**
+  ```sql
+  SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
+   WHERE correlation_id='aa2d0d62-4aba-480e-aedc-8be264d53b01' AND kind='council_report'
+   ORDER BY created_at;
+  ```
+  If APPROVED: add `Council-Reviewed: aa2d0d62-4aba-480e-aedc-8be264d53b01`
+  on a small follow-up commit (docs only — no code change needed either way).
+  If REVISE: read the objections, act in a follow-up commit, resubmit again
+  with the same `RESUBMIT_CORR`.
+
+**Everything else in this workstream is closed.** The only open thread is
+reading the round-2 verdict once it lands.

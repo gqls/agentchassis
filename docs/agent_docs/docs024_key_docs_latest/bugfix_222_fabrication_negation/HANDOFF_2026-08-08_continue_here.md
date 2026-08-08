@@ -1,5 +1,24 @@
 # HANDOFF — bugfix 222 (fabrication gate negation-blindness), 2026-08-08 ~21:30 BST
 
+> **UPDATE 2026-08-08 ~23:15 BST — steps 1-7 below are DONE. Only step 8
+> (reading the council verdict) is still open.** Fix is live and pod-verified
+> on chassis v1.0.1269 (both replicas). The mortgagecalculator lane has been
+> told, 016b is annotated, the bug file's status line is updated in place
+> (stays in `bugs_open/` per owner direction — do not move it). Council round
+> 2 is in flight (`aa2d0d62-4aba-480e-aedc-8be264d53b01`, `RESUBMIT_CORR`
+> already used) after the owner's credit top-up cleared round 1's fleet-wide
+> block. Full detail in `NOTES_fabrication_negation.md`'s final entry. If you
+> are picking this up: just check the verdict query below and act on it —
+> nothing else in this workstream is open.
+> ```sql
+> SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
+>  WHERE correlation_id='aa2d0d62-4aba-480e-aedc-8be264d53b01' AND kind='council_report'
+>  ORDER BY created_at;
+> ```
+> APPROVED → commit `Council-Reviewed: aa2d0d62-4aba-480e-aedc-8be264d53b01`
+> (docs-only, no code change). REVISE → read objections, fix, resubmit with
+> the same `RESUBMIT_CORR`. Original (now largely historical) handoff below.
+
 Written because this session's context is large (extensive research + a fable
 planning pass + full implementation + mutation testing) and the remaining work
 is a build/deploy/verify cycle plus a council resubmission — cleaner to pick up

@@ -1,6 +1,10 @@
 # 222 — the fabrication gate's declaration tier convicts a comment that DENIES fabrication, and the recreate prompt makes such comments likely
 
-**Filed 2026-08-08 by the mortgagecalculator adoption lane.** Status: OPEN.
+**Filed 2026-08-08 by the mortgagecalculator adoption lane.** Status: FIXED +
+LIVE (chassis v1.0.1269, 2026-08-08 ~23:10 BST, pod-verified both replicas —
+see "Fix landed" section below). Council round 2 in flight, round 1 blocked
+on a fleet-wide credit outage, not on this submission. **Kept in `bugs_open/`
+per owner direction (2026-08-06)** — do not move to `bugs_closed/`.
 Severity: medium — it discards paid-for, correct recreations and files
 `needs_human_review` items whose review burden lands on the owner; it does not
 damage live pages (the artefact is refused, nothing is overwritten).
@@ -124,3 +128,13 @@ edited). Council submission `SUBMISSION_CORR=aa2d0d62-4aba-480e-aedc-8be264d53b0
 preserved payload above to `DetectToolFabrication`) and confirm
 `fabricated:false`. Once confirmed, the workaround clause above can come out
 of the recreate spec.
+
+**CONFIRMED LIVE 2026-08-08 ~23:10 BST.** Pod-verified both
+`agent-chassis-778b7c77c7-*` replicas on chassis `v1.0.1269`: `NegationGuard`
+and `negated declaration ignored` present (absent on the prior build,
+v1.0.1268, checked before this roll — positive control `declared
+synthetic/fake data` present on both, confirming the grep methodology).
+`mortgagecalculator_couk_adoption` told; their comment-style workaround
+clause can come out. Council round 2 submitted after the owner's credit
+top-up (round 1 was blocked fleet-wide, not a finding against this
+submission); verdict pending, correlation `aa2d0d62-4aba-480e-aedc-8be264d53b01`.
