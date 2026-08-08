@@ -214,3 +214,39 @@
   is now an 8-entry SUPERSET already containing both types 305 adds
   (plus `dead_fragment_link`, `literal_markdown`). Applied-in-substance by
   other means; the 080 lane owns the record-or-supersede call.
+
+## 2026-08-08 ~22:40 UTC — the WARN HAS fired; the log-based watch could never have told us
+
+- Asked directly ("has the uncapped-step WARN fired?"), swept all **125**
+  chassis-image pods in parallel: 0 WARN lines everywhere. But every pod had
+  restarted ~22:00–22:25Z (another fleet roll — the second today), so that
+  sweep's honest reach was under an hour. The logs were the wrong instrument.
+- **The DB answered: the WARN's condition occurred 7 times on 08-07,
+  15:14–21:23Z** — `med-price-collector/scrape_prices`, model
+  `mistral-small3.1` (Ollama), rows with `max_tokens IS NULL`. Config census on
+  the live row: no `max_tokens` at the step's `ai_service` path, the wrong
+  path, or agent level — genuinely uncapped, and the 183 lane's clock-blind-spot
+  work already knew this step as "no cap recorded". Fleet was on v1.0.1262
+  (WARN live) from ~08:00Z that day [INFERRED from whole-fleet release
+  practice; that pod no longer exists to grep].
+- **Shape pin, both transports**: uncapped ANTHROPIC call → `max_tokens=2048`
+  logged (transport fallback; 112 pre-fix verifier rows 08-05→08-07 all read
+  2048). Uncapped OLLAMA call → `max_tokens NULL` (all 243 mistral rows since
+  07-25 are NULL). So the **durable watch query** is:
+  `SELECT agent_type, step_name, count(*), max(created_at) FROM llm_call_log
+   WHERE created_at > '<since>' AND (max_tokens = 2048 OR max_tokens IS NULL)
+   GROUP BY 1,2;` — cross-check a 2048 hit against config before calling it
+  uncapped (2048 could someday be a chosen value).
+- Impact: nil so far — all 7 calls `success=t`, local model (no paid spend),
+  and the Anthropic 2048 cliff does not apply to the Ollama transport (its own
+  defaults govern). The step still needs a deliberately chosen cap — med-price
+  lane / owner call, not taken here.
+- **Misstep recorded in WRONG_CALLS (2026-08-08)**: "WARN unfired" was asserted
+  three times across two sessions (each time correctly scoped to pod age, each
+  time conveying "has not fired") while the firing sat 7 hours after the first
+  claim, in logs whose delivery window was hours. A watch-item defined as
+  "grep pod stdout" on a fleet that restarts daily reads as a clean pass
+  precisely when it has lost the evidence. Signals meant to outlive a pod
+  belong in a table; the WARN worked, the watch definition did not.
+- Since 08-08 00:00Z: zero uncapped calls on either shape. 6 uncapped steps
+  remain unheard-from.

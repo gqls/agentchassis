@@ -24067,3 +24067,40 @@ that asserted them as done. Caught on re-read, seconds later, and replaced with 
 until the real ids existed. No other check would have caught it: an invented uuid is
 well-formed, joins to nothing, and looks exactly like a real one to every reader and every grep.
 **Never write an identifier you have not been given** — leave the sentence unfinished instead.
+
+---
+
+## 2026-08-08 — "the WARN is unfired" was true of the LOGS and false of the WORLD; the watch-item's own design guaranteed nobody would see it fire (bugfix-205 lane)
+
+**The claim.** Written 2026-08-07 ~08:20Z into NOTES, the HANDOFF and the bug file: *"WARN unfired
+in 6h of logs — correct: the only ACTIVE uncapped step is the parked verifier."* Repeated on 08-08
+by the next session (me), twice, each time as "0 WARN lines on all chassis-image pods", each time
+correctly scoped to pod age — and each time still conveying "it has not fired".
+
+**What was true.** The WARN's trigger condition occurred **seven times on 2026-08-07 between 15:14
+and 21:23Z** — `med-price-collector/scrape_prices`, an Ollama-backed step with no `max_tokens` at
+any config level — roughly seven hours after the "quiet in 6h" note. The fleet was on v1.0.1262
+(WARN live) from ~08:00Z that day [INFERRED from whole-fleet release practice; the pod is gone].
+Every pod that held those log lines has since restarted (two further rolls); by the time anyone
+looked, `grep` over every one of 125 chassis-image pods honestly returned 0.
+
+**What caught it.** Asking the DB instead of the logs: `llm_call_log WHERE max_tokens IS NULL` —
+7 rows, one step, dates that predate every surviving pod. The follow-up pinned the two shapes: an
+uncapped ANTHROPIC call logs `max_tokens=2048` (transport fallback, 112 pre-fix verifier rows), an
+uncapped OLLAMA call logs `NULL`. So the durable watch is:
+
+```sql
+SELECT agent_type, step_name, count(*), max(created_at)
+FROM llm_call_log
+WHERE created_at > '<since>' AND (max_tokens = 2048 OR max_tokens IS NULL)
+GROUP BY 1,2;  -- cross-check any 2048 hit against config before calling it uncapped
+```
+
+**The cheap check that would have caught it at the time: a watch-item that only exists in pod
+stdout is a watch-item nobody is watching.** Pods here restart ~daily; a WARN into logs has a
+delivery window of hours, and "grep the logs when you next think of it" loses every firing outside
+that window while READING as a clean pass — the zero is real, the inference is not. The estate
+already knows this shape (`a-hook-that-writes-to-stderr-reaches-nobody`, "detection works,
+DISPATCH does not"): **when you create a signal, decide at creation time where it lands durably —
+a log line is for the human tailing it TODAY; anything meant to outlive the pod belongs in a
+table.** The WARN did its job; the watch-item's definition ("watch the logs") could never do its.

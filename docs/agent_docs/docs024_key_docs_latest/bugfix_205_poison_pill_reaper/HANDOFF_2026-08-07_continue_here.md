@@ -10,7 +10,12 @@
 > 606 cancelled / 2528 completed, zero pending/in_progress/failed; reaper stamp
 > advancing; live pre_query calls the function. Sole watch-item: the framework
 > WARN names whichever of the 7 remaining uncapped steps runs first — size that
-> step when it fires. One fresh trap paid for on re-verification:
+> step when it fires. **CORRECTED 08-08 evening: it fired 7× on 08-07
+> (`med-price-collector/scrape_prices`, Ollama, no cap anywhere) and the log
+> lines expired before anyone looked — watch the DB instead:
+> `llm_call_log WHERE max_tokens = 2048 OR max_tokens IS NULL` (Anthropic
+> fallback logs 2048, Ollama logs NULL). Step still needs an owner-chosen cap;
+> 6 uncapped steps remain unheard-from. See WRONG_CALLS 2026-08-08.** One fresh trap paid for on re-verification:
 > **`reaper_policies` lives in schema `public`, NOT `business_intel`** — a
 > schema-qualified probe reads "relation does not exist" and looks like the
 > migration never applied; query it unqualified, as the LANDMINES check spells

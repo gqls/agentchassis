@@ -39,6 +39,19 @@
 >   **This bug is CLOSED in substance** (stays in `bugs_open/` per the owner's
 >   08-06 filing ruling); the only live watch-item left is the framework WARN
 >   announcing whichever of the 7 remaining uncapped steps runs first.
+>   **CORRECTED 2026-08-08 evening: it already HAS — and the announcement
+>   expired unread.** `med-price-collector/scrape_prices` (Ollama-backed, no cap
+>   at any config level) ran 7× on 08-07 15:14–21:23Z; the WARN fired into pod
+>   logs that two subsequent fleet rolls have since destroyed, so every later
+>   log-grep honestly read 0. Caught by `llm_call_log`: an uncapped Ollama call
+>   logs `max_tokens NULL` (an uncapped Anthropic call logs `2048` — the
+>   transport fallback; 112 pre-fix verifier rows prove the shape). **The
+>   durable watch is the DB, not the logs**: `WHERE max_tokens = 2048 OR
+>   max_tokens IS NULL`, cross-checking any 2048 hit against config. All 7
+>   calls succeeded (local model, no paid spend, no truncation observed) — the
+>   step still needs a deliberately chosen cap, which is the med-price lane's /
+>   owner's call. 6 uncapped steps remain unheard-from. Full account:
+>   WRONG_CALLS 2026-08-08 + lane NOTES.
 **Found by:** the first run of `fleet-step-token-pressure` (bugs_open/183 candidate 4).
 It was the top line of the check's first note — 64 truncations, the largest in the
 fleet — and nothing else was watching it. See
