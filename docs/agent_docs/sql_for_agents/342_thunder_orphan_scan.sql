@@ -44,6 +44,13 @@
 --   main.go:191 — pre_query is only consulted when non-empty). This task
 --   wants that: the whole point is looking when we BELIEVE nothing is there.
 --
+-- Numbering: sql_for_agents is not schema_migrations-ledgered; the check is
+-- the directory listing + git log at commit time. Verified 2026-08-08 evening:
+-- 342 carries only this file (a concurrent lane took 343 — no collision; the
+-- doubled 340/341 pairs in this directory are exactly the race this check is
+-- for). The DO/RAISE block before COMMIT makes a botched apply fail loudly
+-- instead of committing a half-seeded pipeline.
+--
 -- Verification queries + the manual drill are at the bottom.
 -- ============================================================================
 
@@ -156,6 +163,76 @@ VALUES (
                               timeout_seconds = EXCLUDED.timeout_seconds,
                               enabled = EXCLUDED.enabled,
                               updated_at = NOW();
+
+-- ── 3. doc_notes write-back (council round 1, tooling_provenance seat) ──
+-- The durable Postgres-side trace of this pipeline, keyed so the next
+-- session touching thunder-lifecycle or this scan finds the reasoning
+-- without re-deriving it from bug files. Measured before adding: doc_notes
+-- carried NO pipeline-subject row for thunder-adapter, thunder-reaper or
+-- thunder-lifecycle (only 4 landmine rows) — this is the first.
+
+INSERT INTO doc_notes (subject_type, subject_key, body, categories, source, created_by)
+SELECT 'pipeline', 'thunder-orphan-scan',
+       'thunder-orphan-scan (FTW-042): 6-hourly vendor-truth reconcile. '
+           || 'dispatch_thunder_list asks thunder-adapter for GET /instances/list '
+           || '(read-only), reconcile_thunder_instances compares against '
+           || 'thunder_instances. Orphans (billing at Thunder, no live row) are '
+           || 'filed as thunder_orphan work items on system.internal via '
+           || 'insertWorkItem (sole producer: reconcile_thunder_instances; '
+           || 'item_key thunder_orphan:<vendor id>; NO automated consumer — the '
+           || 'human path is the Error log + RUNBOOK finetuning_uk_service '
+           || 'section 1b query). Ghosts (live row, nothing at Thunder) are reported, '
+           || 'not filed. Tuning knob: grace_minutes (step config, default 30) '
+           || 'absorbs the provision INSERT-after-up window; unknown createdAt '
+           || 'cannot hide behind it. SHARES the thunder-lifecycle concurrency '
+           || 'group with thunder-reaper (max_concurrent 1 each): a scan never '
+           || 'snapshots a reap mid-flight, and can delay a reaper tick by at '
+           || 'most its own runtime (one HTTP GET + one small query). '
+           || 'Read-and-report only: no DeleteInstance, no thunder_config writes.',
+       '["thunder", "reconcile", "work-dispatch"]'::jsonb,
+       'sql_for_agents/342_thunder_orphan_scan.sql',
+       'finetuning_uk_service lane'
+WHERE NOT EXISTS (
+    SELECT 1 FROM doc_notes
+    WHERE subject_type = 'pipeline' AND subject_key = 'thunder-orphan-scan'
+);
+
+-- ── 4. Verify INSIDE the transaction, or the COMMIT proves nothing ──
+-- A verify block of SELECTs cannot stop the COMMIT (ON_ERROR_STOP ignores a
+-- non-empty result) — DO/RAISE is the form that can.
+
+DO $verify$
+DECLARE
+    def_start text;
+    task_ok   boolean;
+    note_ok   boolean;
+BEGIN
+    SELECT default_config->'workflow'->>'start_step' INTO def_start
+    FROM agent_definitions
+    WHERE type = 'thunder-orphan-scan' AND is_active
+      AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
+    IF def_start IS DISTINCT FROM 'dispatch_list' THEN
+        RAISE EXCEPTION 'thunder-orphan-scan agent_definition wrong or missing (start_step=%)', def_start;
+    END IF;
+
+    SELECT enabled AND interval_seconds = 21600
+           AND concurrency_group = 'thunder-lifecycle'
+           AND pre_query IS NULL
+    INTO task_ok
+    FROM scheduled_tasks WHERE name = 'thunder-orphan-scan';
+    IF task_ok IS DISTINCT FROM true THEN
+        RAISE EXCEPTION 'thunder-orphan-scan scheduled_tasks row wrong or missing';
+    END IF;
+
+    SELECT EXISTS (
+        SELECT 1 FROM doc_notes
+        WHERE subject_type = 'pipeline' AND subject_key = 'thunder-orphan-scan'
+    ) INTO note_ok;
+    IF NOT note_ok THEN
+        RAISE EXCEPTION 'thunder-orphan-scan doc_notes row missing';
+    END IF;
+END
+$verify$;
 
 COMMIT;
 

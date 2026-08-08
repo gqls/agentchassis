@@ -36,11 +36,15 @@
 //
 // Work items go to the system.internal site (the platform-level site row
 // that needs_diagnosis items already use), item_type thunder_orphan,
-// item_key "thunder_orphan:<vendor id>", targetless ON CONFLICT DO NOTHING
-// against the idx_swi_dedup partial unique index (a targeted conflict
-// clause without the index's exact WHERE predicate raises 42P10 — see
-// create_rerender_items_action.go). Re-observing an already-filed orphan
-// is dedup-suppressed while the item is open.
+// item_key "thunder_orphan:<vendor id>", written through insertWorkItem —
+// the shared door (load_work_item_actions.go), which carries the targeted
+// idx_swi_dedup conflict clause via workItemTerminalStatuses, within-cycle
+// suppression, and the two-strike unresolved labelling. Hand-rolling this
+// INSERT is exactly what a prior council round objected to at three other
+// call sites (bugs_open/091, workItem.parentItemID's own comment tells the
+// story). Re-observing an already-filed orphan is dedup-suppressed while
+// the item is open; an orphan closed twice in seven days and re-observed
+// is born unresolved, which the RFC_010 revalidation path can see.
 //
 // There is deliberately NO automated remediation here: decommissioning
 // needs a thunder_instances row, which is exactly what an orphan lacks,
@@ -57,6 +61,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
@@ -399,14 +404,20 @@ func loadThunderDBRows(ctx context.Context, params ActionParams) ([]thunderDBRow
 }
 
 // fileThunderOrphanItem writes one thunder_orphan work item against the
-// system.internal site. Returns (true, nil) on insert, (false, nil) when
-// dedup-suppressed by an open item with the same key.
+// system.internal site, through insertWorkItem — the shared door. Returns
+// (true, nil) on insert, (false, nil) when suppressed (open-item dedup, the
+// within-cycle window, or a two-strike relabel — all the shared helper's
+// business, not this caller's).
 func fileThunderOrphanItem(ctx context.Context, params ActionParams, f thunderReconcileFinding) (bool, error) {
-	var siteID string
+	var siteIDStr string
 	err := params.DB.QueryRowContext(ctx,
-		`SELECT id::text FROM sites WHERE domain = 'system.internal'`).Scan(&siteID)
+		`SELECT id::text FROM sites WHERE domain = 'system.internal'`).Scan(&siteIDStr)
 	if err != nil {
 		return false, fmt.Errorf("resolve system.internal site: %w", err)
+	}
+	siteID, err := uuid.Parse(siteIDStr)
+	if err != nil {
+		return false, fmt.Errorf("system.internal site id %q: %w", siteIDStr, err)
 	}
 
 	spec, err := json.Marshal(f)
@@ -414,23 +425,31 @@ func fileThunderOrphanItem(ctx context.Context, params ActionParams, f thunderRe
 		return false, fmt.Errorf("marshal finding spec: %w", err)
 	}
 
-	// Targetless ON CONFLICT DO NOTHING — idx_swi_dedup is a partial
-	// unique index and a targeted clause without its exact predicate
-	// raises 42P10.
-	res, err := params.DB.ExecContext(ctx, `
-		INSERT INTO site_work_items
-			(site_id, source, item_type, severity, summary, spec,
-			 handler_agent, status, created_by, item_key, pipeline)
-		VALUES ($1, 'thunder-orphan-scan', 'thunder_orphan', 'high', $2, $3,
-			 '', 'detected', 'reconcile_thunder_instances', $4, 'maintenance')
-		ON CONFLICT DO NOTHING`,
-		siteID, f.Summary, spec, "thunder_orphan:"+f.VendorID)
+	tx, err := params.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return false, fmt.Errorf("begin filing tx: %w", err)
+	}
+	defer tx.Rollback() //nolint:errcheck // no-op after Commit
+
+	inserted, err := insertWorkItem(ctx, tx, workItem{
+		siteID:       siteID,
+		source:       "thunder-orphan-scan",
+		pipeline:     "maintenance",
+		itemType:     "thunder_orphan",
+		severity:     "high",
+		summary:      f.Summary,
+		spec:         string(spec),
+		priority:     20, // urgent to a human reader; no automated consumer exists
+		handlerAgent: "",
+		status:       "detected",
+		createdBy:    "reconcile_thunder_instances",
+		itemKey:      "thunder_orphan:" + f.VendorID,
+		// recurrenceExpected stays false on purpose: a re-observed orphan
+		// after two closes IS a strike — the condition persists and the
+		// unresolved label is the honest one.
+	}, params.Logger)
 	if err != nil {
 		return false, err
 	}
-	n, err := res.RowsAffected()
-	if err != nil {
-		return false, err
-	}
-	return n > 0, nil
+	return inserted, tx.Commit()
 }
