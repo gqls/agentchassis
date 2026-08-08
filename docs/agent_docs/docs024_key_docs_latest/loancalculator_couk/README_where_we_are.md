@@ -1114,3 +1114,74 @@ stay. Everything is backed up either way.
 **Not touched, as agreed:** the other finance sites are still waiting on your review,
 and the fleet-wide change to the house voice is still a separate decision that needs a
 proper design round rather than being slipped in here.
+
+---
+
+**Saturday 8 August, afternoon — the last three pages are unblocked, but the fix
+needs a release before they can be rebuilt.**
+
+This morning I said three pages could not be rebuilt because of a platform bug, and
+that when it was fixed each page would take about three minutes. The bug is now
+fixed, reviewed and approved. It is not yet *live* — the code has to go out with the
+next whole-fleet release, which is yours to run. Until then those three pages sit
+exactly as they were: serving fine, in the old voice, unchanged and healthy.
+
+**When you next run a release, that fix goes with it**, and I can finish the last
+three pages and re-baseline the calculator golden the same afternoon. The command is
+the usual one:
+
+```
+date; make release redeploy-agents ENVIRONMENT=production REGION=uk001; date
+```
+
+I have set the version tag to `v1.0.1265` ready for it. There is no rush from my side
+and nothing degrades while it waits.
+
+**What the bug turned out to be is worth two minutes of your time, because I got it
+wrong first and the wrong version would have looked fixed.**
+
+The checker that reads every page before it saves has a list of phrases that should
+never appear in customer copy — the sort of thing a machine writes when it talks
+about its task instead of doing it. Sensible check. But it was reading the *whole
+file*, including the parts no reader ever sees: the code, and the notes the
+programmer leaves in the code. Our three calculators each carry a careful note
+explaining how the arithmetic works and why. Those notes mention the word the checker
+objects to — because that word is the name of the thing they are explaining. So the
+checker refused to save the page, and its error message blamed the machine for
+something a human had written five days earlier.
+
+This morning I wrote down that those notes were in one kind of comment, and proposed
+the obvious fix: ignore that kind of comment. **They are in a different kind.** Two
+of the three files contain none of the sort I named. Had I built the fix I proposed,
+it would have passed review, shipped, changed nothing, and I would have recorded the
+bug as fixed. What caught it was asking the database to pull out just the comments
+and count — it found none of the offending word, where counting the whole file found
+three. Two counts that had to agree, and did not.
+
+The real fix is smaller and better: the checker now reads only the words a visitor
+actually sees. I proved it on the exact pages that failed — the system had kept the
+precise files from this morning's failures, so I could run the new checker over the
+bytes that broke it rather than over an example I invented. All three now pass, and
+the check still catches the thing it is for.
+
+**Two side-effects, one of which you may want to act on.**
+
+While measuring whether this could break anything elsewhere, I found the same checker
+is quietly blocking a page on **webdesign.co.uk** — the tools index. Its copy says
+*"LocalBusiness schema, as an AI-builder prompt"*, which is a perfectly good
+description of what that tool does, and the checker sees the phrase "as an AI" and
+refuses. Nothing is broken today and the page serves normally; but the next time
+anyone asks that page for a content change, it will fail. My fix does **not** solve
+that one — that copy really is visible text — so I have written it up separately and
+told that lane rather than quietly reword their page to suit a scanner. It needs its
+own small fix.
+
+The other: the reviewers approved my change but caught a genuine gap — I had measured
+one thing and not another, and was leaning on the answer being obvious. It was, but
+they were right that I had not checked. I have since checked it properly. Worth
+recording because that is the review working, not the review being awkward.
+
+**Nothing else has changed.** The other 23 pages are still in the new voice, the
+calculators are still proven untouched, and the question I asked you yesterday — the
+one about whether the framework was right to *fill* those near-empty pages with new
+explanatory copy rather than just restyling them — is still open and still yours.

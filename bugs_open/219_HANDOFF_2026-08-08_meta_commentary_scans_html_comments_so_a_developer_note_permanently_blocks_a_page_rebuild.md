@@ -198,6 +198,50 @@ content it convicts nothing new: 1,244 `page_components` rows on active pages gi
 control: 122). `<title>`/meta were already in the old whole-HTML scan's reach, so they
 are not new surface.
 
+## Council verdict — APPROVED round 1, and the one objection worth answering
+
+`Council-Reviewed: c9104844-b303-43dd-a426-73386ebbb25e` — *approved with 2 advisory
+objections, none high-severity*; 6 seats abstained, `gated_by_truncation: false`.
+`reuse_agent` approved it explicitly as reuse-over-reimplementation (the 218 REVISE
+precedent), `editquality` confirmed the causal path and that `221` was "correctly
+scoped out rather than papered over".
+
+**The objection that had teeth**, raised by `bug_historian` at medium and echoed by
+`guidelines`: `ExtractAssertionText` excludes `<script type="application/ld+json">`,
+this file already carries a landmine that the banned-claims sweep misses JSON-LD, and
+**I measured `<title>`/meta but never measured JSON-LD** — so I had created a possible
+blind spot in the same shape the file has already been burned by, and asked a human to
+sign it off. That is a fair hit: the measurement was missing, not merely unpersuasive.
+
+**Answered by measurement, both directions, each with a control that could have come
+out otherwise:**
+
+1. **There was no JSON-LD coverage to lose.** Of the 37 assembled pages still in
+   `collected_data` — the validator's *actual input*, `page_content.response.page_html`
+   — **0 contain `application/ld+json` at all**. Positive control: 19 of the same 37
+   contain `<script>`, so the query finds scripts when they are there.
+2. **The mechanism says why**, so the zero is not a sampling accident: JSON-LD is
+   appended to `<head>` at **render** time, after content validation —
+   `rerender_single_page_action.go:931` and `data_helpers.go:1505`
+   (`doc.Find("head").AppendHtml(…<script type="application/ld+json">…)`). It is not in
+   the string this check has ever scanned. Independently corroborated by a dated
+   measurement already in the code: *"none: measured 2026-07-28, ZERO of 14 live sites
+   emitted any application/ld+json"* (`rerender_single_page_action.go:602`).
+3. **And where JSON-LD does exist, it carries none of the vocabulary.** Across the 27
+   `ld+json` blocks stored in `page_components.rendered_html` on active pages (3
+   sites): **0** match any meta-commentary pattern. Positive control: 25 of the 27
+   match `schema.org`.
+
+So the re-scoping removed no JSON-LD coverage from this check, because it never had
+any. **The landmine the seat cited is real and stays real for `banned_claims`** — that
+check runs on a different surface — and nothing here changes it.
+
+The second objection (low): meta-commentary inside `<code>`/`<pre>`/`<textarea>` or
+attributes now passes **silently**. Accepted as the deliberate trade, stated in the
+submission's risk 1 and unchanged by the above: a model apologising inside a `<pre>`
+is rarer than a human documenting a template, and only one of the two can permanently
+disable a page.
+
 ## What this fix does NOT fix — `bugs_open/221`
 
 That single live hit is a **different defect**, found while measuring this one:

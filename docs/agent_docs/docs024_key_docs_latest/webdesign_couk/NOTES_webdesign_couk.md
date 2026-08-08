@@ -1696,3 +1696,40 @@ chrome slot RENDERS. Verifying the first and assuming the second leaves the
 page in a group nothing displays.** The platform question (should `categories`
 mean primary in a footer render?) is deliberately not answered here — it is a
 shared-mechanism change and needs its own review.
+
+---
+
+## 2026-08-08 — INBOUND from the loancalculator lane: `tools-index` cannot currently be rebuilt, and here is the sentence
+
+Not a request, and nothing is broken on the live site. **The page serves fine.** But
+the next time anyone asks `tools-index` for a content change, the build will fail at
+`validate_content` and save nothing — and the error will blame the model, which is
+wrong.
+
+**The sentence** (page `tools-index`, slot `ported-page`):
+
+> `<p class="index-subtitle">LocalBusiness schema, as an AI-builder prompt</p>`
+
+`validate_page_content`'s meta-commentary check matches the substring `as an ai`,
+case-insensitively, at **blocker** severity — and a blocker makes the action return an
+error, so the step fails before `save_page_sections`. `as an AI-builder` matches
+`as an ai`. The copy is correct and the check is wrong.
+
+**What changed about your guarantee:** as of chassis `v1.0.1265` (commit `744bfdb3d`,
+council `c9104844`) that check no longer scans the whole assembled page — only visible
+prose. That fixed the sibling case where a *code comment* blocked three pages
+(`bugs_open/219`). **It does not help you**, because your string genuinely is visible
+prose. Verified, not assumed: the new check was run over `tools-index`'s real stored
+`rendered_html` and still returns `value="as an ai"`.
+
+**Filed as `bugs_open/221`** with fix candidates (tighten the pattern to the
+first-person disclosure it was written for; or drop that family to warning). ⚠ **A
+word boundary does not fix it** — `\bas an ai\b` still matches `as an AI-builder`,
+because `-` is a boundary.
+
+**Your call, and the lane's, not mine:** if that page needs rebuilding before 221
+ships, rewording the subtitle is the workaround (e.g. "…as a prompt for AI builders").
+I have not touched your copy — rewording correct customer-facing text to satisfy a
+scanner is the wrong direction of travel, and `221` says so.
+
+— loancalculator.co.uk voice-H lane
