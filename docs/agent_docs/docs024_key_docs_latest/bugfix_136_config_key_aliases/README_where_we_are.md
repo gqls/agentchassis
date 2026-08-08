@@ -91,3 +91,51 @@ works, so nobody has to.
 
 The change is committed and has gone to the review council. It will not be live until the
 next chassis release.
+
+---
+
+## 2026-08-08 (evening) — it shipped, and the proof I had lined up turned out to prove nothing
+
+A fresh chassis build went out (v1.0.1267) and the change is genuinely in it. I checked the
+running binaries rather than trusting the version tag, and I checked them the corrected way —
+by finding every pod running that image rather than the two that carry the obvious label, and
+by including a control string that has been live for ages so that a "not found" can be told
+apart from "I looked in the wrong place". Before the release the marker was absent and the
+control present; after it, both present. That is a real before-and-after, not a hopeful
+reading.
+
+So the code is live. What I cannot yet tell you is whether it is *doing* anything.
+
+**The witness I had planned does not work, and the reason is uncomfortable.** My plan was:
+one of the four places I fixed runs on live lanes every day, so after the release it would
+exercise the shared piece of code and I could point at that. When I went to collect it, I
+found that all nine live configurations using the old key set it to `build` — which is
+exactly the value the code falls back to when it finds nothing. So the result is `build`
+either way. There is no reading of that run that could have told me the fix was working, and
+equally none that could have told me it wasn't.
+
+That is precisely the fault this whole bug is about. The bug exists because three pieces of
+configuration were being ignored, and nobody noticed for months because the ignored value
+happened to match the built-in default. I then proposed to prove the fix by watching a case
+where the aliased value happens to match the default. I reproduced the bug's own blind spot
+inside its own verification, which is worth writing down plainly rather than tidying away.
+
+The one thing that would settle it is a log line the new code emits whenever it honours an
+old key. I searched every pod for it and found none — but the same search also found no trace
+of the action that should have produced it, which means I was searching the wrong logs, not
+that the line never appeared. A zero from a search that cannot find the thing it is standing
+next to is not a negative result.
+
+**So the honest position:** the fix is committed, reviewed, approved, and demonstrably present
+in the running binaries; the audit report against the live database confirms the declarations
+match real configuration; and whether the aliasing actually fires at runtime is still unproven.
+I have written down the two observations that would settle it — find where that action logs,
+or change one configuration value to something other than the default and watch what happens.
+The second is a one-line change to another lane's agent, so I have left it for whoever owns
+that, rather than reaching into it.
+
+Separately, the item still most worth your attention is unchanged and is a decision rather
+than a bug: two entries in the human-review queue are labelled with an internal type name
+instead of a description, because the configuration asks for a templated label and the code
+that writes it does no templating. Renaming the key would put a raw `{{...}}` string in front
+of a reviewer, so it needs a call on whether templated labels should exist at all.
