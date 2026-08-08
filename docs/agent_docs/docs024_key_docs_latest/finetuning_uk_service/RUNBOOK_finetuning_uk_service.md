@@ -167,9 +167,21 @@ UPDATE thunder_config SET is_paused = true, pause_reason = '<why>';
   `thunder_instance_id`. `thunder_decommission_dispatch.go:62-67` requires
   **either** `provisioning_id` **or** `thunder_identifier`; the query supplies
   `provisioning_id`, the form the source marks preferred. Checked 08-03.
-- **Still uncovered: orphans** (billing at Thunder, unknown to us). Needs an
-  action exposing `api.Client.ListInstances` — built and unit-tested in the Go
-  client, exposed by nothing. Until then, §1b above is the only net.
+- **Orphans: the automated sweep is BUILT, NOT YET LIVE** (2026-08-08 evening,
+  FTW-042 in the concept register). `list_instances` adapter action +
+  `dispatch_thunder_list`/`reconcile_thunder_instances` chassis actions +
+  `sql_for_agents/342` (thunder-orphan-scan, every 6h). Inert until BOTH the
+  agent-chassis and thunder-adapter images roll, **then apply 342** (image
+  first, then seed — the file's header carries the verify commands). Orphans
+  found are filed as `thunder_orphan` work items on `system.internal`:
+  ```sql
+  SELECT summary, status, created_at FROM site_work_items
+  WHERE item_type = 'thunder_orphan' AND status NOT IN ('complete','cancelled','rejected');
+  ```
+  **Until 342 is applied and its first run verified, §1b above remains the only
+  net** — and even after, §1b is the independent cross-check for a 0-findings
+  scan (a green run must be proven to have LOOKED, same day, before it is
+  trusted).
 - **Prove it can reap before trusting it** (drill, after the token is live):
   insert one synthetic `running` row with an obviously bogus
   `thunder_instance_id` (e.g. `T-DRILL-1`, never a bare small integer — real

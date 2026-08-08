@@ -339,6 +339,8 @@ func (a *Adapter) handleMessage(msg kafka.Message) {
 		a.handleSSHExec(body, headers, replyToTopic, l)
 	case "ssh_get_status":
 		a.handleSSHGetStatus(body, headers, replyToTopic, l)
+	case "list_instances":
+		a.handleListInstances(headers, replyToTopic, l)
 	default:
 		a.sendErrorResponse(headers, replyToTopic, action,
 			"not_implemented",
@@ -542,6 +544,45 @@ func (a *Adapter) handleDecommissionInstance(
 			"cost_usd":           result.CostUSD,
 			"decommissioned_at":  result.DecommissionedAt.Format(time.RFC3339),
 			"was_already_done":   result.WasAlreadyDone,
+		}, l)
+}
+
+// handleListInstances returns every instance visible to the authenticated
+// Thunder token, verbatim from GET /instances/list. Read-only: no DB access,
+// no state change, no request parameters. Built for the orphan sweep — the
+// reconcile_thunder_instances chassis action compares this list against
+// thunder_instances, because our DB is not the source of truth for the bill;
+// Thunder is. An instance visible here with no row there is invisible to the
+// reaper and every other automated check.
+func (a *Adapter) handleListInstances(
+	reqHeaders map[string]string,
+	replyToTopic string,
+	l *zap.Logger,
+) {
+	if replyToTopic == "" {
+		l.Warn("No reply_to_topic on list_instances request — cannot send response")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	instances, err := a.thunderAPI.ListInstances(ctx)
+	if err != nil {
+		// There is no invalid-input branch — the request has no parameters —
+		// so any failure here is infrastructure-shaped (auth, 5xx, network)
+		// and the chassis retry policy may reasonably try again.
+		a.sendErrorResponse(reqHeaders, replyToTopic, "list_instances",
+			"thunder_api_error", err.Error(), "error_recoverable", l)
+		return
+	}
+
+	// instances marshals through api.Instance's json tags (camelCase,
+	// id-as-string) — the response body carries Thunder's own field shapes.
+	a.sendSuccessResponse(reqHeaders, replyToTopic, "list_instances",
+		map[string]interface{}{
+			"count":     len(instances),
+			"instances": instances,
 		}, l)
 }
 

@@ -1,0 +1,202 @@
+-- ============================================================================
+-- 342_thunder_orphan_scan.sql
+--
+-- thunder-orphan-scan: the reconcile the reaper cannot do.
+--
+-- The reaper reads only thunder_instances, and provision_action.go INSERTs
+-- that row AFTER the vendor instance is up — so a crash in that window, or
+-- any hand-created instance, leaves a box billing at Thunder that no
+-- automated check can see (the orphan gap; bugs_open/186 "Related" section,
+-- finetuning_uk_service RUNBOOK §1b). This scan asks Thunder for its own
+-- view of the account and compares:
+--
+--   scheduled_tasks (thunder-orphan-scan, every 6h, no pre_query = always fires)
+--      → thunder-orphan-scan agent_definition (task mode, in-chassis)
+--      → step 1 dispatch_thunder_list  → thunder-adapter list_instances
+--        (read-only GET /instances/list, awaited)
+--      → step 2 reconcile_thunder_instances → classify + file work items
+--      → complete
+--
+-- Mismatches billing at Thunder are filed as site_work_items rows:
+--   site   system.internal (the platform-level site needs_diagnosis uses)
+--   item_type 'thunder_orphan', item_key 'thunder_orphan:<vendor id>'
+--   severity high, status detected, pipeline maintenance
+-- Dedup: idx_swi_dedup suppresses refiling while an item is open.
+-- Ghost rows (live row, no vendor instance) are reported in the run result
+-- and logged, not filed — nothing is billing, and the decommission path
+-- self-heals them.
+--
+-- ⚠ ORDERING: apply ONLY AFTER both images carrying the actions are live —
+--   agent-chassis (dispatch_thunder_list, reconcile_thunder_instances) and
+--   thunder-adapter (list_instances handler). A seed naming an unregistered
+--   action fails at runtime. Verify first:
+--     chassis:  kubectl exec <chassis-pod> -- sh -c \
+--               'strings /app/agent-chassis | grep -c reconcile_thunder_instances'
+--               → non-zero
+--     adapter:  fire one manual list_instances request, or check the
+--               adapter pod's strings for handleListInstances.
+--
+-- ⚠ The scan shares concurrency_group 'thunder-lifecycle' with the reaper
+--   (max_concurrent 1 each): a scan never runs while a reap is mid-flight,
+--   so it cannot snapshot a decommission halfway through.
+--
+-- ⚠ The scheduler treats NO pre_query as "always fire" (cmd/scheduler/
+--   main.go:191 — pre_query is only consulted when non-empty). This task
+--   wants that: the whole point is looking when we BELIEVE nothing is there.
+--
+-- Verification queries + the manual drill are at the bottom.
+-- ============================================================================
+
+BEGIN;
+
+-- ── 1. thunder-orphan-scan agent_definition ──
+
+INSERT INTO agent_definitions (
+    type, display_name, description,
+    category, agent_category, status,
+    default_config,
+    capabilities,
+    is_active, version
+)
+VALUES (
+           'thunder-orphan-scan',
+           'Thunder Orphan Scan',
+           'Every 6h, fetches Thunder''s own instance list and reconciles it '
+               || 'against thunder_instances. An instance billing at Thunder with '
+               || 'no live row here is invisible to the reaper and every other '
+               || 'automated check — this scan files it as a thunder_orphan work '
+               || 'item on system.internal. Read-and-report only: no remediation.',
+           'specialist',
+           'executor',
+           'experimental',
+           jsonb_build_object(
+                   'processing_mode', 'task',
+                   'workflow', jsonb_build_object(
+                           'start_step', 'dispatch_list',
+                           'processing_mode', 'task',
+                           'timeout_seconds', 120,
+                           'steps', jsonb_build_object(
+                                   'dispatch_list', jsonb_build_object(
+                                           'action', 'dispatch_thunder_list',
+                                           'description', 'Ask thunder-adapter for Thunder''s own view of '
+                                               || 'the account (GET /instances/list, awaited).',
+                                           'config', jsonb_build_object(
+                                                   'output_field', 'thunder_list',
+                                                   'timeout_seconds', 60
+                                                     ),
+                                           'next_step', 'reconcile'
+                                                    ),
+                                   'reconcile', jsonb_build_object(
+                                           'action', 'reconcile_thunder_instances',
+                                           'description', 'Compare the vendor list against thunder_instances; '
+                                               || 'file thunder_orphan work items for instances billing '
+                                               || 'with no live row; report ghosts.',
+                                           'config', jsonb_build_object(
+                                                   'output_field', 'reconcile_result',
+                                                   'list_field', 'thunder_list',
+                                                   'grace_minutes', 30
+                                                     ),
+                                           'next_step', 'complete'
+                                                ),
+                                   'complete', jsonb_build_object(
+                                           'action', 'complete_workflow',
+                                           'config', jsonb_build_object(
+                                                   'output_field', 'orphan_scan_summary'
+                                                     )
+                                               )
+                                    )
+                               )
+           ),
+           '["lifecycle", "thunder", "reconcile"]'::jsonb,
+           true,
+           1
+       )
+    ON CONFLICT (type, version) DO UPDATE SET
+    display_name = EXCLUDED.display_name,
+                                       description = EXCLUDED.description,
+                                       category = EXCLUDED.category,
+                                       agent_category = EXCLUDED.agent_category,
+                                       status = EXCLUDED.status,
+                                       default_config = EXCLUDED.default_config,
+                                       capabilities = EXCLUDED.capabilities,
+                                       is_active = EXCLUDED.is_active,
+                                       updated_at = NOW();
+
+
+-- ── 2. scheduled_tasks row ──
+-- No pre_query: the task fires every 6h unconditionally. Gating it on our
+-- own tables would rebuild the exact blindness this scan exists to remove.
+
+INSERT INTO scheduled_tasks (
+    name, description,
+    interval_seconds, target_agent_type, target_topic,
+    concurrency_group, max_concurrent, timeout_seconds,
+    enabled
+)
+VALUES (
+           'thunder-orphan-scan',
+           'Every 6h, reconciles Thunder''s instance list against '
+               || 'thunder_instances and files thunder_orphan work items for '
+               || 'instances billing at Thunder that our automation cannot see.',
+           21600,                                    -- 6 hours
+           'thunder-orphan-scan',
+           'system.agent.generic.requests',
+           'thunder-lifecycle',                      -- shared with thunder-reaper
+           1,
+           180,
+           true
+       )
+    ON CONFLICT (name) DO UPDATE SET
+    description = EXCLUDED.description,
+                              interval_seconds = EXCLUDED.interval_seconds,
+                              target_agent_type = EXCLUDED.target_agent_type,
+                              target_topic = EXCLUDED.target_topic,
+                              concurrency_group = EXCLUDED.concurrency_group,
+                              max_concurrent = EXCLUDED.max_concurrent,
+                              timeout_seconds = EXCLUDED.timeout_seconds,
+                              enabled = EXCLUDED.enabled,
+                              updated_at = NOW();
+
+COMMIT;
+
+
+-- ============================================================================
+-- Verification (run after applying)
+-- ============================================================================
+--
+-- SELECT type, status, is_active,
+--        default_config->'workflow'->>'start_step' AS start_step
+-- FROM agent_definitions WHERE type = 'thunder-orphan-scan';
+-- -- Expect: thunder-orphan-scan | experimental | t | dispatch_list
+--
+-- SELECT name, interval_seconds, enabled, concurrency_group, pre_query IS NULL AS no_pq
+-- FROM scheduled_tasks WHERE name = 'thunder-orphan-scan';
+-- -- Expect: thunder-orphan-scan | 21600 | t | thunder-lifecycle | t
+--
+-- ── First-run verification (the scan on a clean account is a NO-OP that
+--    must still prove it LOOKED — a 0-findings result has two causes with
+--    opposite meanings) ──
+--
+-- 1. Kick it: UPDATE scheduled_tasks SET last_triggered_at = NULL
+--             WHERE name = 'thunder-orphan-scan';
+-- 2. SELECT current_step, status,
+--           collected_data->'reconcile_result' AS result
+--    FROM orchestration_states
+--    WHERE owner_agent_type = 'thunder-orphan-scan'      -- owner_agent_type, NOT agent_type
+--    ORDER BY created_at DESC LIMIT 1;
+--    -- Expect status COMPLETED and a result whose vendor_billing /
+--    -- db_rows / matched counts are TRUTHFUL for the account right now —
+--    -- check them against RUNBOOK §1b's manual API call, same day.
+--
+-- ── Orphan drill (proves the FILING path, ~$0 — no vendor call touches
+--    the synthetic id) ──
+--
+-- The scan flags a vendor instance with no row; we cannot fake Thunder's
+-- side without a real (billable) instance, but the GHOST direction and the
+-- work-item write CAN be drilled by pointing the classifier at a synthetic
+-- live row (reported, not filed) — or wait for the first real provision
+-- (Phase 0) and check matched=1. The filing INSERT itself is unit-tested
+-- at the classification boundary and exercised the first time a real
+-- orphan appears; the honest status for the filing path until then is
+-- BUILT, NOT YET FIRED IN ANGER (concept register entry says so).
+-- ============================================================================
