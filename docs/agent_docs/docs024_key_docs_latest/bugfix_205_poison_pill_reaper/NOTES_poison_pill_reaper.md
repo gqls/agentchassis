@@ -129,3 +129,32 @@
 - Bug 205 is now **fixed AND live in full** (config proven 01:40Z, Go proven
   08:17Z on v1.0.1262). Stays in `bugs_open/` per the owner's 08-06 ruling.
   What remains is OWNER DECISIONS (see README_where_we_are).
+
+## 2026-08-08 ~15:00 UTC — all four owner decisions executed and proven
+
+- **Decision 1 (cap 8000):** 067-sweep first — `extract_and_reconcile` is the
+  agent's ONLY LLM step. Backup of the ai_service block taken
+  (`BACKUP_2026-08-08_verifier_ai_service_block.txt`), then `jsonb_set` at the
+  nested path, guarded (row count 1, `jsonb_typeof='number'` asserted — the
+  resolver type-asserts float64). Un-parked `ea489aed…`; batch claimed it 14:48;
+  **LLM call succeeded: max_tokens=8000, output_tokens=3135** — the document
+  needed ~3,100 tokens, so the 2048 fallback could NEVER have passed it. Task
+  `completed`, business `926410bc…` now **`verified`**, first attempt at the
+  right cap after ~64 failures.
+- **Decision 2 (cancel the 32):** cancelled in the same guarded transaction as
+  the un-park, RETURNING all 32 ids, `error_message` appended with the owner
+  decision and date. Precedent: the 574 earlier cancels.
+- **Decisions 3+4 (per-type ceiling + shared mechanism):** migration
+  `sql_for_agents/335` applied — `reaper_policies` table (a task type declares
+  its ceiling by INSERT; undeclared → 5/20m/20m defaults),
+  `business_intel.reap_stale_collection_tasks()` carries the accounting once,
+  and the reaper's `reset_tasks` CTE is now a one-line call to it. **Induced
+  test (transaction, rolled back, zero residue): undeclared type parked on the
+  5th reset at defaults; declared `park_after=2` policy honoured with backoff
+  stamped.** RFC_018 defines the contract + the deliberate stopping point (no
+  dynamic-SQL generalisation until a second queue adopts — a mechanism with no
+  live caller rots). Register SCH-024; LANDMINES 205 entry corrected in place
+  (the check now includes `\sf` the function + reading reaper_policies).
+- Post-migration the reaper runs the function-backed pre_query on schedule.
+  Rollback ladder: 335_ROLLBACK (back to the 08-07 inline parking CTE) →
+  ROLLBACK_2026-08-07 (emergency, back to unconditional resets).

@@ -25,8 +25,20 @@
 >   `strings /app/agent-chassis | grep -c "max_tokens not configured at any level"`.
 > - **Council:** `Council-Submitted: 2db88f8f-11ea-47ed-b37d-35a6096d5597`
 >   (round 1 `complete_invalid` — schema, not substance; resubmitted same corr).
-> - **Candidate 2 (the step's own cap) remains an OWNER CALL, deliberately not
->   taken here.** Parking stops the burn; the parked task is the prompt.
+> - ~~**Candidate 2 (the step's own cap) remains an OWNER CALL, deliberately not
+>   taken here.** Parking stops the burn; the parked task is the prompt.~~
+>   **ALL FOUR OWNER DECISIONS RULED AND EXECUTED 2026-08-08:** (1) cap set to
+>   **8000** (nested-path write, type-verified) — the poisoned record then
+>   verified on its FIRST attempt (`output_tokens=3135`; the 2048 fallback could
+>   never have passed it); task `completed`, business `verified`. (2) The other
+>   32 parked tasks **cancelled** (RETURNING all ids, message dated). (3+4)
+>   **Per-task_type park ceilings + the shared reaper-accounting mechanism are
+>   live**: `reaper_policies` + `business_intel.reap_stale_collection_tasks()`,
+>   migration `sql_for_agents/335`, contract + migration-invitation in
+>   `architecture_review/RFC_018`, register SCH-024, induced-test proven.
+>   **This bug is CLOSED in substance** (stays in `bugs_open/` per the owner's
+>   08-06 filing ruling); the only live watch-item left is the framework WARN
+>   announcing whichever of the 7 remaining uncapped steps runs first.
 **Found by:** the first run of `fleet-step-token-pressure` (bugs_open/183 candidate 4).
 It was the top line of the check's first note — 64 truncations, the largest in the
 fleet — and nothing else was watching it. See
