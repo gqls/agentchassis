@@ -98,3 +98,29 @@ requirements: write code comments that describe what the code DOES, and do not
 use the words fabricated/synthetic/fake/mock/dummy/placeholder near the word
 data in comments. This dodges the false positive without weakening the gate
 (the gate still runs, and real fabrication is still code, which tier B reads).
+
+## Fix landed 2026-08-08 evening, submitted to council, INERT until the next chassis roll
+
+Picked up by a separate lane (`bugfix_222_fabrication_negation`); full plan,
+notes and runbook at
+`docs/agent_docs/docs024_key_docs_latest/bugfix_222_fabrication_negation/`.
+Fix candidate 1 taken, but **not as a one-off local regex** — this platform
+already had a negation guard for exactly this class (`negatedClaimMatch`,
+CLM-017 in `datahelpers/claims.go`), so the algorithm was extracted as an
+exported `NegationGuard` and reused, with a fabrication-domain cue vocabulary
+(deliberately including `no`/`without`/`zero`, which the claims layer excludes
+on purpose for unrelated reasons) applied at each Tier A regex's qualifier
+submatch position — a second regex-position subtlety (CLM-019) that the
+original candidate 1 sketch did not anticipate. Registered as CLM-020.
+
+Reproduced first (five new tests run red against unfixed code, confirming
+each fixture actually triggers the bug — two of my own fixture-authoring
+mistakes were caught this way), then fixed, then mutation-and-control tested
+against a clean `git archive HEAD` overlay. Zero behaviour change to the
+claims layer, proven mechanically (its full suite passes with no test file
+edited). Council submission `SUBMISSION_CORR=aa2d0d62-4aba-480e-aedc-8be264d53b01`.
+
+**Verify once live:** re-run the portfolio recreation item (or feed the exact
+preserved payload above to `DetectToolFabrication`) and confirm
+`fabricated:false`. Once confirmed, the workaround clause above can come out
+of the recreate spec.

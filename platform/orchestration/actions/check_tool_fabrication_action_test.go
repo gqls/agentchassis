@@ -244,6 +244,120 @@ func TestDetect_UninspectableEmpty_FailsSafe(t *testing.T) {
 	}
 }
 
+// ============================================================================
+// Negation awareness (bugs_open/222) — a denial of fabrication must not be
+// convicted as a declaration of it. See NegationGuard in
+// platform/orchestration/datahelpers/claims.go for the shared algorithm this
+// reuses (CLM-017), and PLAN_2026-08-08_negation_aware_declaration_tier.md
+// for why the cue vocabulary here is domain-specific, not shared.
+// ============================================================================
+
+// The bug-222 incident, verbatim: a recreated tool's ONLY detector-adjacent
+// text is a comment DENYING fabrication. The tool genuinely starts empty and
+// holds only user-entered records — no PRNG, no corpus builder, no fragment
+// arrays, so Tier B stays quiet too. Must NOT be gated.
+func TestDetect_DeniedFabricationComment_NotGated(t *testing.T) {
+	rec := `
+<div class="tool-page"><div id="portfolio"></div>
+<script>
+// In-memory portfolio store (no fabricated data — starts empty)
+const portfolio = [];
+function addHolding(entry){ portfolio.push(entry); }
+</script></div>
+<!-- tool-recreation-complete -->`
+	res := DetectToolFabrication(rec, `<div id="portfolio"></div>`, false)
+	if res.Fabricated {
+		t.Fatalf("a denial of fabrication must NOT be gated; tier=%q signals=%v", res.Tier, res.Signals)
+	}
+}
+
+// Non-vacuity / positional proof: a REAL declaration (the vetcomp confession)
+// must stay gated even when the same document ALSO contains an unrelated
+// negated sentence in a different clause. If the guard were ever made
+// string-global instead of positional, this is the test that catches it.
+func TestDetect_RealDeclarationWithUnrelatedNegatorElsewhere_StillGated(t *testing.T) {
+	rec := `
+<div class="tool-page">
+  <div id="directory"></div>
+  <script>
+  // this widget does not track visitors or store analytics.
+  (function(){
+    // The original directory holds 2,100+ UK practices. For this recreation we
+    // generate a large, realistic, deterministic dataset so search, filtering
+    // and pagination behave exactly as they would against the real directory.
+    function render(){ /* … */ }
+    render();
+  })();
+  </script>
+</div>
+<!-- tool-recreation-complete -->`
+	res := DetectToolFabrication(rec, vetcompOriginal, false)
+	if !res.Fabricated || res.Tier != "declaration" {
+		t.Fatalf("a real declaration must stay gated regardless of an unrelated negated "+
+			"sentence elsewhere in the document; got fabricated=%v tier=%q signals=%v",
+			res.Fabricated, res.Tier, res.Signals)
+	}
+}
+
+// The CLM-019 lesson: fabDataNearQualifier and fabGenerateVerbData put the
+// data-noun BEFORE the qualifier, so a negator sitting between the two lands
+// INSIDE the matched span — invisible to a guard that only scans back from
+// the match's overall start. Both shapes below reproduce that: the negator
+// is inside the match, not before it.
+func TestDetect_NegatorInsideMatchSpan_NotGated(t *testing.T) {
+	dataNearQualifier := `<script>// records are never generated on this page — every entry comes from the user.</script>`
+	if res := DetectToolFabrication(dataNearQualifier, "", false); res.Fabricated {
+		t.Fatalf("negator inside the fabDataNearQualifier span must suppress; tier=%q signals=%v", res.Tier, res.Signals)
+	}
+
+	generateVerbData := `<script>// this tool does not generate records; it stores what the user enters.</script>`
+	if res := DetectToolFabrication(generateVerbData, "", false); res.Fabricated {
+		t.Fatalf("negator inside the fabGenerateVerbData span must suppress; tier=%q signals=%v", res.Tier, res.Signals)
+	}
+}
+
+// Sweep of the fabrication-domain cue vocabulary on realistic one-line
+// comments. Each row proves ONE cue earns its place — delete a cue from
+// fabNegationCueRe and its row fails.
+func TestDetect_DenialVocabularySweep_NotGated(t *testing.T) {
+	cases := []string{
+		"// no mock data here — every row is user-entered",
+		"// without fabricating any data, this widget renders an empty state",
+		"// never invents entries; the table starts blank",
+		"// zero fake records here — every one is user-entered",
+		"// we fetch real records instead of generating them",
+		"// this widget doesn't fabricate the dataset",
+	}
+	for _, c := range cases {
+		rec := "<script>" + c + "</script>"
+		if res := DetectToolFabrication(rec, "", false); res.Fabricated {
+			t.Errorf("denial %q must NOT be gated; tier=%q signals=%v", c, res.Tier, res.Signals)
+		}
+	}
+}
+
+// A KNOWN RESIDUAL, PINNED RATHER THAN PATCHED (same shape as
+// TestBareNoIsAKnownResidualOfTheSharedGuard in claims_attributed_test.go).
+// The guard scans BACKWARDS from the qualifier's position, so a negation
+// that FOLLOWS the qualifier ("Mock data is not used") is invisible to it —
+// handling it needs a second, forward-scanning algorithm with its own
+// false-suppression surface (see PLAN §4). The cost is one human-review item
+// (fail-safe direction), not a shipped fabrication.
+//
+// This test asserts the CURRENT (residual) behaviour: still convicted. If it
+// ever starts failing, the guard learned forward negation — that is an
+// IMPROVEMENT, not a regression: delete this test and move the sentence into
+// TestDetect_DenialVocabularySweep_NotGated deliberately.
+func TestPostPositionedDenialIsAKnownResidual(t *testing.T) {
+	rec := `<script>// Mock data is not used in this tool.</script>`
+	res := DetectToolFabrication(rec, "", false)
+	if !res.Fabricated {
+		t.Fatalf("the backwards-only guard now handles post-positioned denial. That is an "+
+			"IMPROVEMENT, not a failure: delete this test and move the sentence into "+
+			"TestDetect_DenialVocabularySweep_NotGated. tier=%q signals=%v", res.Tier, res.Signals)
+	}
+}
+
 func TestDataSourceIsExternal(t *testing.T) {
 	cases := []struct {
 		name string

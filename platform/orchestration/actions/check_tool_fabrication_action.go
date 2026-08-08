@@ -90,7 +90,10 @@ var (
 	// a synthetic qualifier near a data noun, in either order.
 	fabQualifierNearData = regexp.MustCompile(`(?is)(synthetic|fabricat\w+|\bfake\b|\bdummy\b|\bmock\b|placeholder|realistic|deterministic|invent\w+|made[-\s]?up)[^\n]{0,48}(dataset|data[-\s]?set|\bdata\b|records|entries|practices|entities|listings|businesses)`)
 	fabDataNearQualifier = regexp.MustCompile(`(?is)(dataset|data[-\s]?set|records|entries|practices|entities|listings)[^\n]{0,48}(synthes\w+|generat\w+|fabricat\w+|randomly|seeded|deterministic\w*|invent\w+)`)
-	fabGenerateVerbData  = regexp.MustCompile(`(?is)\bgenerat\w+[^\n]{0,64}(dataset|records|entries|list of (?:practices|businesses|entities|items|records|companies|listings))`)
+	// Verb wrapped as a capture group (bugs_open/222) so the negation guard can
+	// scan back from the QUALIFIER specifically — see declGenerateVerbData.
+	// Nothing else read this group when it was unparenthesised.
+	fabGenerateVerbData = regexp.MustCompile(`(?is)(generat\w+)[^\n]{0,64}(dataset|records|entries|list of (?:practices|businesses|entities|items|records|companies|listings))`)
 
 	// Tier A — synthetic real-world IDENTIFIER generators. These fabricate PII
 	// (postcodes/phones/addresses/coordinates) and are unambiguous.
@@ -121,6 +124,109 @@ var (
 )
 
 const fabLiteralRecordThreshold = 15
+
+// ── Negation guard (bugs_open/222) ──────────────────────────────────────
+//
+// Tier A convicts a QUALIFIER word near a data noun, with no regard for
+// whether the sentence DENIES fabrication rather than declaring it. Real
+// incident: a recreation's only matching text was the comment
+// "// In-memory portfolio store (no fabricated data — starts empty)" — a
+// denial, on a tool that genuinely starts empty. The recreate prompt's own
+// Data Integrity section spends ~9 lines forbidding fabrication, so a
+// conscientious model echoing that prohibition as a comment is the COMMON
+// case, not a freak one (prompt-text-poisons-its-own-detector).
+//
+// The scanning ALGORITHM is not new: platform/orchestration/datahelpers/
+// claims.go built and proved it for the banned-claims layer (CLM-017) —
+// bounded backwards window, trimmed to the current clause, tested against a
+// cue regex, with a non-obvious multibyte-rune fix already paid for.
+// datahelpers.NegationGuard exports exactly that algorithm so this package
+// does not reimplement it (CLM-004's anti-drift argument: one algorithm, not
+// two that diverge).
+//
+// The VOCABULARY below is deliberately NOT shared with claims.go's
+// negationCueRe, and must never be merged with it in either direction:
+// negationCueRe excludes bare "no"/"without" ON PURPOSE, because in marketing
+// prose they are intensifiers ("Without exception, every claim is verified")
+// whose exclusion is pinned by a dedicated residual test. In a code comment
+// about a tool's own data, "no"/"without" are plain denials — the motivating
+// payload above is negated by exactly the cue claims.go excludes. Widening
+// the shared vocabulary to fix this gate would risk reintroducing the false
+// negative CLM-017 was built to prevent, in an unrelated layer. Two
+// vocabularies, one algorithm.
+var fabNegationCueRe = regexp.MustCompile(
+	`(?i)\b(?:no|not|never|nor|none|without|zero|cannot|instead of|rather than)\b` +
+		`|[a-z]n['’‘]t\b` +
+		`|\b(?:cant|dont|doesnt|didnt|isnt|arent|wasnt|werent|wont|couldnt|shouldnt|wouldnt|mustnt)\b`,
+)
+
+// DELIBERATELY ABSENT from fabNegationCueRe, each because it would license a
+// REAL declaration rather than deny one:
+//
+//	"avoid"          — "to avoid an empty state we generate placeholder rows"
+//	                    IS a declaration; avoid negates the empty state, not
+//	                    the fabrication.
+//	"fails to"/"unable to" — the vetcomp incident verbatim: "if the fetch
+//	                    fails to load, generate a realistic dataset" — the
+//	                    fetch's failure is what LICENSES the fabrication.
+//	"rarely"/"seldom" — hedges; "rarely uses mock data" still admits the act.
+
+// fabNegationWindowBytes: half the claims layer's 64. This domain's cues
+// include bare "no"/"without", whose false-suppression risk grows with
+// distance from the qualifier; 32 clears every observed denial shape
+// ("instead of dynamically generating", 24 bytes) with slack for one more
+// short adverb. Known residual at this width: "no real data anywhere in the
+// tool so we generate…" — Tier B still catches that class (see the risk
+// register in PLAN_2026-08-08_negation_aware_declaration_tier.md §7).
+const fabNegationWindowBytes = 32
+
+// fabNegationClauseBoundary: the claims-layer boundary set plus brackets —
+// this domain scans raw JS/HTML, where a bracket ends a comment's natural
+// clause. Each added boundary only SHRINKS the guard's reach, which is the
+// conservative direction (toward convicting, not away from it).
+const fabNegationClauseBoundary = ".!?;:,<>\n\r\t–—(){}[]"
+
+var fabNegationGuard = datahelpers.NegationGuard{Cue: fabNegationCueRe, Boundary: fabNegationClauseBoundary, Window: fabNegationWindowBytes}
+
+// declPattern pairs a Tier A declaration regex with the submatch index of its
+// negatable QUALIFIER token. The three Tier A regexes disagree on where that
+// token sits — fabQualifierNearData puts it first, fabDataNearQualifier and
+// fabGenerateVerbData put it second — and a negator between the two capture
+// groups lands INSIDE the match, invisible to a guard that only scans back
+// from the match's overall start ("records are never generated": the match
+// starts at "records", and "never" sits inside the span). Scanning from the
+// qualifier's own submatch position sees it regardless of which group it is.
+type declPattern struct {
+	re        *regexp.Regexp
+	qualGroup int
+}
+
+var (
+	declQualifierNearData = declPattern{fabQualifierNearData, 1}
+	declDataNearQualifier = declPattern{fabDataNearQualifier, 2}
+	declGenerateVerbData  = declPattern{fabGenerateVerbData, 1}
+)
+
+// firstAssertedDeclaration returns the first match of p in text whose
+// qualifier is NOT negated in its clause, plus every match the guard
+// suppressed. Suppressed matches are returned rather than dropped silently —
+// a guard that suppresses without a trace is indistinguishable from a gate
+// that stopped working (the same argument as ScanBannedClaimsIgnoringNegation
+// in claims.go): they are surfaced in FabricationResult.Signals for
+// observability, never counted toward Fabricated.
+func firstAssertedDeclaration(text string, p declPattern) (asserted string, suppressed []string) {
+	for _, m := range p.re.FindAllStringSubmatchIndex(text, -1) {
+		qStart := m[2*p.qualGroup]
+		if qStart >= 0 && fabNegationGuard.NegatedAt(text, qStart) {
+			suppressed = append(suppressed, text[m[0]:m[1]])
+			continue
+		}
+		if asserted == "" {
+			asserted = text[m[0]:m[1]]
+		}
+	}
+	return asserted, suppressed
+}
 
 // FabricationResult is the outcome of the detector. Exported for tests.
 type FabricationResult struct {
@@ -154,17 +260,30 @@ func DetectToolFabrication(recreation, original string, analysisDataBacked bool)
 	}
 
 	// ── Tier A: declaration ────────────────────────────────────────────
+	// Checked in order, first asserted (non-negated) match wins — same
+	// priority as the original fabQualifierNearData → fabDataNearQualifier →
+	// fabGenerateVerbData chain. Every pattern's suppressed matches are kept
+	// for observability regardless of which arm ultimately convicts.
 	declSignals := []string{}
-	if m := fabQualifierNearData.FindString(recreation); m != "" {
-		declSignals = append(declSignals, "declared synthetic/fake data: "+snippet(m))
-	} else if m := fabDataNearQualifier.FindString(recreation); m != "" {
-		declSignals = append(declSignals, "declared generated data: "+snippet(m))
-	} else if m := fabGenerateVerbData.FindString(recreation); m != "" {
-		declSignals = append(declSignals, "declared it generates a dataset: "+snippet(m))
+	var negatedNotes []string
+	for _, arm := range []struct {
+		pattern declPattern
+		label   string
+	}{
+		{declQualifierNearData, "declared synthetic/fake data: "},
+		{declDataNearQualifier, "declared generated data: "},
+		{declGenerateVerbData, "declared it generates a dataset: "},
+	} {
+		m, suppressed := firstAssertedDeclaration(recreation, arm.pattern)
+		negatedNotes = append(negatedNotes, suppressed...)
+		if m != "" && len(declSignals) == 0 {
+			declSignals = append(declSignals, arm.label+snippet(m))
+		}
 	}
 
 	// Tier A: synthetic PII generator the recreation INTRODUCED (not inherited
-	// from a faithful original that already had it).
+	// from a faithful original that already had it). Not negation-guarded: an
+	// identifier generator is code the recreation runs, not deniable prose.
 	if pii := fabSyntheticPII.FindString(recreation); pii != "" && !fabSyntheticPII.MatchString(original) {
 		declSignals = append(declSignals, "synthetic identifier generator introduced: "+pii)
 	}
@@ -175,6 +294,12 @@ func DetectToolFabrication(recreation, original string, analysisDataBacked bool)
 		res.Signals = declSignals
 		res.Detail = "The recreation declares or introduces invented data — this is fabrication regardless of the original tool."
 		return res
+	}
+	// Nothing convicted at Tier A. Surface any denial the guard suppressed —
+	// informational only, never re-considered for gating — so a reviewer of a
+	// later Tier B conviction on the same text can see what Tier A declined.
+	for _, s := range negatedNotes {
+		res.Signals = append(res.Signals, "negated declaration ignored: "+snippet(s))
 	}
 
 	// ── Tier B: corpus signature + corroboration ───────────────────────

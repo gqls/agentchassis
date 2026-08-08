@@ -11,6 +11,7 @@
 package datahelpers
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -308,5 +309,37 @@ func TestParseEvidenceBase(t *testing.T) {
 	banned := eb.ScanBannedClaims([]string{"we have eight departments( in the org"})
 	if len(banned) != 1 {
 		t.Errorf("literal fallback must still match, got %+v", banned)
+	}
+}
+
+// ============================================================================
+// NegationGuard — the shared algorithm, proven domain-parametric (bugs_open/222)
+// ============================================================================
+
+// A NegationGuard built with a DIFFERENT cue vocabulary (one that includes
+// bare "no", which negationCueRe deliberately excludes — see the doctrine
+// block above negatedClaimMatch) suppresses at a position where the
+// package's own claimNegationGuard does not, over the identical string. This
+// is the mechanical proof that the extraction is parameterised by domain and
+// that claimNegationGuard's vocabulary was NOT widened to make it so — if it
+// had been, this test would no longer distinguish the two guards.
+func TestNegationGuardIsParameterisedByDomain(t *testing.T) {
+	text := "no fabricated data"
+	pos := strings.Index(text, "fabricated")
+	if pos < 0 {
+		t.Fatalf("fixture broken: %q", text)
+	}
+
+	if claimNegationGuard.NegatedAt(text, pos) {
+		t.Fatalf("claimNegationGuard must NOT treat bare 'no' as a negator — " +
+			"that exclusion is pinned by TestBareNoIsAKnownResidualOfTheSharedGuard; " +
+			"if this now fails, the shared vocabulary was widened and that test should too")
+	}
+
+	wideCue := regexp.MustCompile(`(?i)\bno\b`)
+	fabDomainGuard := NegationGuard{Cue: wideCue, Boundary: negationClauseBoundary, Window: negationWindowBytes}
+	if !fabDomainGuard.NegatedAt(text, pos) {
+		t.Fatalf("a guard with its own cue vocabulary must suppress at the same position — " +
+			"the algorithm is not domain-parametric if it can't")
 	}
 }

@@ -588,19 +588,50 @@ const negationClauseBoundary = ".!?;:,<>\n\r\t–—"
 // keeping the scan cheap: this runs per match, per pattern, per block.
 const negationWindowBytes = 64
 
-// negatedClaimMatch reports whether the banned phrase starting at `start` is
+// NegationGuard is the clause-local negation test behind negatedClaimMatch,
+// factored out (bugs_open/222) so a second domain can reuse the ALGORITHM
+// without inheriting this package's CUE VOCABULARY.
+//
+// What is shared: a bounded backwards window, trimmed to the current clause,
+// tested against a cue regex — including the multibyte-rune handling in
+// NegatedAt, which cost a real bug to get right (a dash's trailing bytes
+// surviving the trim). What is deliberately NOT shared: negationCueRe itself.
+// It excludes bare "no"/"without" on purpose (see the doctrine block above) —
+// intensifiers in marketing prose, not negators — and that exclusion is
+// pinned by TestBareNoIsAKnownResidualOfTheSharedGuard. A different domain
+// (check_tool_fabrication_action.go's code-comment denials) needs those cues
+// and builds its OWN NegationGuard with its own vocabulary; it must never
+// reach into this package's negationCueRe, and this package's guard must
+// never be widened to serve it. Two vocabularies, one algorithm — the same
+// anti-drift shape CLM-004 states for scan implementations generally.
+type NegationGuard struct {
+	Cue      *regexp.Regexp // matches a cue that negates a following token
+	Boundary string         // clause-boundary characters that end the backwards scan
+	Window   int            // maximum bytes scanned back from the token
+}
+
+// NegatedAt reports whether the token starting at byte offset pos in text is
 // negated by a cue earlier in the same clause.
-func negatedClaimMatch(block string, start int) bool {
-	window := block[maxInt(0, start-negationWindowBytes):start]
+func (g NegationGuard) NegatedAt(text string, pos int) bool {
+	window := text[maxInt(0, pos-g.Window):pos]
 
 	// Trim to the current clause. LastIndexAny returns the byte index of the
 	// START of a multibyte boundary rune, so step over the whole rune rather
 	// than one byte — otherwise the window keeps a dash's trailing bytes.
-	if i := strings.LastIndexAny(window, negationClauseBoundary); i >= 0 {
+	if i := strings.LastIndexAny(window, g.Boundary); i >= 0 {
 		_, size := utf8.DecodeRuneInString(window[i:])
 		window = window[i+size:]
 	}
-	return negationCueRe.MatchString(window)
+	return g.Cue.MatchString(window)
+}
+
+// claimNegationGuard binds the shared algorithm to this package's vocabulary.
+var claimNegationGuard = NegationGuard{Cue: negationCueRe, Boundary: negationClauseBoundary, Window: negationWindowBytes}
+
+// negatedClaimMatch reports whether the banned phrase starting at `start` is
+// negated by a cue earlier in the same clause.
+func negatedClaimMatch(block string, start int) bool {
+	return claimNegationGuard.NegatedAt(block, start)
 }
 
 // Number-bearing claim candidates: integers with thousands separators or
