@@ -22,3 +22,41 @@ right now, so gave that a wide berth), and confirmed the bug is still live in
 the code as filed. Next: use Fable to draft the fix plan, then implement,
 test, and put it through the council review gate before committing, per the
 standing rules for platform-code changes.
+
+## 2026-08-08 evening — fixed, tested, committed
+
+The Fable-drafted plan turned up something better than the bug file's own
+suggested fix. Fable found that this platform already has a "does this
+sentence deny something, or admit it?" checker — built weeks ago for a
+completely different problem (a marketing-copy checker that was wrongly
+flagging honest disclaimers like "we do not claim this is verified" as if
+they were the very overclaim it was meant to catch). Rather than write a
+second, separate version of that same idea for the tool-recreation checker, I
+pulled the general mechanism out into something both checkers can share, and
+gave the tool-recreation checker its own list of "denial" words tuned for
+code comments rather than marketing prose — the two need genuinely different
+word lists (a marketing checker has to ignore "no" and "without" because they
+show up as sales-speak intensifiers; a code comment saying "no fabricated
+data" means exactly what it says).
+
+I wrote the failing tests first, watched them fail against the real bug
+(catching two of my own test-writing mistakes along the way — one test
+didn't actually trigger anything, another one accidentally tripped a
+different, unrelated glitch in the same checker), then wrote the fix and
+watched them pass. Then I deliberately broke the fix on purpose twice, to
+prove the tests would actually notice if it stopped working, and made an
+unrelated tweak to prove the tests wouldn't falsely complain about that.
+
+Submitted it to the review council before committing (correlation
+`aa2d0d62-4aba-480e-aedc-8be264d53b01`) and committed it straight after,
+using the "submitted, verdict not in yet" commit marker rather than waiting —
+that's the normal practice here so code doesn't sit around unshipped for half
+an hour. Also hit a small, harmless collision: while I still had an
+unfinished note sitting in a shared log file, another person's session
+appended their own note to the same file and committed it, which
+automatically carried my note along with theirs. Nothing was lost, just
+filed under someone else's commit instead of mine.
+
+Still to do: check the council's verdict when it lands, and once this ships
+in the next build, verify live and tell the mortgagecalculator team they can
+drop their workaround.
