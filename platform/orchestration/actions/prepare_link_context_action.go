@@ -477,7 +477,10 @@ func recordLinkContextUnavailable(
 		agentType = "unknown"
 	}
 
-	LogActionEntry(ctx, params, agenterrors.Entry{
+	// step_name is the running step's and is inherited DELIBERATELY — declared,
+	// because the strict door no longer borrows it for a caller that named only
+	// agent_type (two council seats objected to that asymmetry, 2026-08-08).
+	LogActionEntryInheritingProvenance(ctx, params, agenterrors.Entry{
 		SiteID:       siteIDStr,
 		AgentType:    agentType,
 		Action:       "prepare_link_context",

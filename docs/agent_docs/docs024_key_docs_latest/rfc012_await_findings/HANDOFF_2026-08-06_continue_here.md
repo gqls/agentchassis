@@ -46,7 +46,8 @@ It is a shared seam, so budget a council round and a concept-register entry in t
 | **Council round 3b** (the detector) | corr `7b6497d7-8147-4b15-aee4-fa6e361827f2` | **APPROVED** 2026-08-08 |
 | doc_notes provenance rows | `created_by='rfc012-lane'` | **FILED** for `cmd/config-key-audit` and `platform/orchestration/agenterrors` |
 | **§1 provenance hardening** (the merge split) | see §1 | **BUILT + COMMITTED 2026-08-08, INERT until the next roll.** 12 tests, 5 mutations, RSH-008 amended in the same commit |
-| **Council round 4** (the hardening) | corr `5d200313-f6c3-4fec-8457-503ac620d5ef` | **SUBMITTED** 2026-08-08 evening — verdict OUTSTANDING, committed with `Council-Submitted:` |
+| **Council round 4** (the hardening) | corr `5d200313-f6c3-4fec-8457-503ac620d5ef` | **APPROVED** 2026-08-08 17:32Z, round 1, 10 seats, 2 advisory objections, no veto. `architecture` ruled it `point_fix` — council-gate was the right forum |
+| **Objection responses** (round 4's own) | see §1 | **DONE** — the `step_name` asymmetry CLOSED, the census recounted to **21**, the live figures re-run |
 
 ### How the rejection was turned round, because the lesson generalises
 
@@ -159,12 +160,33 @@ tests (the first in the package to pin `agent_type`/`step_name` at all), 5 mutat
 counts **3 / 10 / 3 / 4 / 1**, restored 12/12. Recipe + the two census greps + the detector SQL
 are in the RUNBOOK under "The provenance seam".
 
-**All 20 consumers named and settled in the shipping commit:** 13 already explicit (untouched), 4
-migrated to the opt-in door (`complete_work_item_verification`, `plan_sections` ×2,
-`reconcile_superseded_reviews`), 3 route through `LogActionError`/`LogActionFindings` whose contract
-already *is* running-step identity (no call site changed). `agenterrors.Write` callers outside the
-actions package are **not** consumers of the merge — they build a full `Entry` — so nothing about
-their rows changes.
+**All consumers named and settled — and the count is 21, not the 20 the approved plan says.**
+13 strict-door sites already explicit (untouched); 4 migrated to the opt-in door
+(`complete_work_item_verification`, `plan_sections` ×2, `reconcile_superseded_reviews`); 2 more
+migrated in the objection-response commit (`prepare_link_context`, `diagnose_persist_fix_plan` —
+see below); 4 route through `LogActionError`/`LogActionFindings` whose contract already *is*
+running-step identity, so no call site changed. **Repo-wide: 0 callers outside
+`platform/orchestration/actions`**, which answers `guardian`'s standing question — the
+`agenterrors.Write` callers (agentbase, messaging, coordinator) build a full `Entry` and never
+touch this merge.
+
+⚠ **The 21st arrived DURING the council round and needed nothing.** `page_build_failure_guard.go:110`
+(PBP-038, another lane, `2c3efc9f5`) reached for `LogActionError` and so got the safe behaviour
+without its author knowing this change existed — the "caller 19" case the four seats worried
+about, landing right in the wild. Second time this seam has gained a caller mid-flight
+(`f930de86b`: *"the 19th arrived DURING the work"*). **Treat every call-site count here as a
+measurement with a timestamp.**
+
+**The two advisory objections were acted on, not filed.** `bug_historian` (medium) and
+`editquality` both said the door was strict on only ONE of its two provenance columns — a caller
+naming `agent_type` but not `step_name` still had the running step's borrowed, which is *"a
+narrower recurrence of the exact defect being fixed"*. They were right and my scope argument was a
+false trade-off: the two sites of that shape did not need the asymmetry, they needed *inheritance*,
+and there is now a door for that. So the strict door is strict on **both** columns (naming only
+`agent_type` yields an empty `step_name` plus a `logger.Warn`), and both sites declare inheritance
+— **no live row's contents change, pinned by a table test rather than asserted.** `guardian`'s two
+census objections are answered by the repo-wide grep and the recount; `debug_historian`'s by
+re-running all six live figures at commit time (they held).
 
 ### 1a. **NEXT — hoist the `RunAgentType` ladder so both packages share ONE copy**
 

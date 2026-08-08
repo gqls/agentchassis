@@ -372,7 +372,10 @@ func recordPlanRefusal(
 	// refusal to its run without digging into context. The first live refusal wrote
 	// this row with it EMPTY (2026-07-31) — the correlation was in context but the
 	// column that every other query joins on was blank. The merge now fills it.
-	LogActionEntry(ctx, params, agenterrors.Entry{
+	// step_name is the running step's and is inherited DELIBERATELY — declared,
+	// because the strict door no longer borrows it for a caller that named only
+	// agent_type (two council seats objected to that asymmetry, 2026-08-08).
+	LogActionEntryInheritingProvenance(ctx, params, agenterrors.Entry{
 		AgentType: agentType,
 		Action:    "diagnose_persist_fix_plan",
 		ErrorMessage: fmt.Sprintf("Fix plan refused (%s): %d structural problem(s), attempt %s of %d — %s",

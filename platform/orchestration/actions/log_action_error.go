@@ -37,6 +37,13 @@
 //     RULING 2026-08-02 (RFC_010 §2): "when a seam's widest branch is licensed
 //     by 'callers must all be X', make X a field with the unsafe default OFF …
 //     a comment is not a control on a tree this many sessions share."
+//     BOTH columns, and the symmetry was earned rather than designed in: the
+//     first version inherited step_name whenever agent_type was named, and two
+//     seats of the approving council round (bug_historian medium, editquality)
+//     objected that a mixed row — agent from the caller, step from the runtime —
+//     is "a narrower recurrence of the exact defect being fixed". They were
+//     right. An empty step_name asserts nothing; a borrowed one asserts
+//     something nobody claimed.
 //
 // Why a named door rather than a bool on agenterrors.Entry (the shape the
 // RFC_012 handoff sketched): Entry is the ROW, and agenterrors.Write — the
@@ -180,13 +187,24 @@ func resolveProvenance(params ActionParams, entry *agenterrors.Entry, inheritPro
 	}
 
 	if entry.AgentType != "" {
-		// The caller named its provenance, so it owns this row. step_name
-		// follows the running step when left zero — the shape
-		// prepare_link_context and diagnose_persist_fix_plan were reviewed and
-		// approved with, and narrowing it here would be scope creep onto two
-		// sites that are not the reported defect.
-		if entry.StepName == "" {
-			entry.StepName = runningStepName
+		// The caller named its provenance, so it owns this row — INCLUDING
+		// step_name, which is deliberately NOT filled from the running step.
+		//
+		// This branch used to inherit step_name, and two council seats
+		// (bug_historian medium, editquality) objected in the same round that it
+		// was "a narrower recurrence of the exact defect being fixed": a mixed
+		// row, agent from the caller and step from the runtime, is a claim
+		// neither of them made. An EMPTY step_name asserts nothing, which is the
+		// property that matters — the defect was false attribution, not absence.
+		// The only two sites of that shape (prepare_link_context,
+		// diagnose_persist_fix_plan) now declare inheritance instead, so no
+		// row's contents changed.
+		if entry.StepName == "" && logger != nil {
+			logger.Warn("agent_error_log row names an agent_type but no step_name — recorded with step_name empty rather than borrowing the running step's",
+				zap.String("agent_type", entry.AgentType),
+				zap.String("action", entry.Action),
+				zap.String("running_step_name", runningStepName),
+				zap.String("remedy", "set Entry.StepName, or call LogActionEntryInheritingProvenance if the running step IS the right step"))
 		}
 		return
 	}

@@ -263,11 +263,19 @@ func TestLogActionEntry_ExplicitProvenanceIsUsedVerbatim(t *testing.T) {
 	}
 }
 
-// prepare_link_context and diagnose_persist_fix_plan name agent_type and
-// deliberately leave step_name to the merge. Both shapes were council-reviewed
-// as they stand, so narrowing them here would be scope creep onto two sites
-// that are not the reported defect.
-func TestLogActionEntry_NamingAgentTypeStillInheritsStepName(t *testing.T) {
+// The strict door is strict on BOTH provenance columns, not just agent_type.
+//
+// The first version of this seam inherited step_name whenever agent_type was
+// named, and this test asserted that. Two seats of the approving council round
+// (bug_historian at medium, editquality) independently objected that a mixed row
+// — agent from the caller, step from the runtime — is "a narrower recurrence of
+// the exact defect being fixed", leaving the same failure shape live for any
+// future caller of that shape. They were right, so the assertion is INVERTED
+// here rather than deleted: an empty step_name asserts nothing, a borrowed one
+// asserts something no caller claimed. The only two sites of that shape
+// (prepare_link_context, diagnose_persist_fix_plan) now declare inheritance, so
+// no live row's contents changed — see the two tests below this one.
+func TestLogActionEntry_NamingOnlyAgentTypeDoesNotBorrowTheRunningStep(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("sqlmock: %v", err)
@@ -277,25 +285,67 @@ func TestLogActionEntry_NamingAgentTypeStillInheritsStepName(t *testing.T) {
 	mock.ExpectExec(regexp.QuoteMeta(insertRE)).
 		WithArgs(
 			"", "", "item-1234", "orch-1234",
-			"unknown",      // 5: the site's own NOT NULL fallback
-			"agent-id-1",   // 6
-			"pod-1",        // 7
-			"running_step", // 8: inherited, because agent_type WAS named
-			"prepare_link_context", "msg", "A_CODE", "warning",
-			jsonLacks{"provenance_missing"},
+			"unknown",    // 5: the site's own NOT NULL fallback, kept verbatim
+			"agent-id-1", // 6
+			"pod-1",      // 7
+			"",           // 8: NOT "running_step" — the caller named no step, so the row claims none
+			"an_action", "msg", "A_CODE", "warning",
+			jsonLacks{"provenance_missing"}, // agent_type WAS named, so this is not an unattributed row
 		).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	LogActionEntry(context.Background(), runningStepParams(db), agenterrors.Entry{
 		AgentType:    "unknown",
-		Action:       "prepare_link_context",
+		Action:       "an_action",
 		ErrorMessage: "msg",
 		ErrorCode:    "A_CODE",
 		Severity:     "warning",
 	}, zap.NewNop())
 
 	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Errorf("naming agent_type must not stop step_name being inherited: %v", err)
+		t.Errorf("a caller that named only agent_type must not have step_name filled from the running step: %v", err)
+	}
+}
+
+// The two sites the inversion above moved, pinned so the claim "no live row's
+// contents changed" is a test rather than an assertion. Both name their own
+// agent_type (each carries a NOT NULL fallback of its own) and want the running
+// step's step_name — which is now declared instead of assumed.
+func TestLogActionEntryInheritingProvenance_KeepsAnExplicitAgentTypeAndStillFillsStepName(t *testing.T) {
+	for _, tc := range []struct{ name, agentType, action string }{
+		{"prepare_link_context", "unknown", "prepare_link_context"},
+		{"diagnose_persist_fix_plan", "diagnose-agent", "diagnose_persist_fix_plan"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			db, mock, err := sqlmock.New()
+			if err != nil {
+				t.Fatalf("sqlmock: %v", err)
+			}
+			defer db.Close()
+
+			mock.ExpectExec(regexp.QuoteMeta(insertRE)).
+				WithArgs(
+					"", "", "item-1234", "orch-1234",
+					tc.agentType, // 5: the caller's, NOT "running-agent"
+					"agent-id-1", "pod-1",
+					"running_step", // 8: inherited, because inheritance is DECLARED
+					tc.action, "msg", "A_CODE", "warning",
+					jsonLacks{"provenance_missing"},
+				).
+				WillReturnResult(sqlmock.NewResult(1, 1))
+
+			LogActionEntryInheritingProvenance(context.Background(), runningStepParams(db), agenterrors.Entry{
+				AgentType:    tc.agentType,
+				Action:       tc.action,
+				ErrorMessage: "msg",
+				ErrorCode:    "A_CODE",
+				Severity:     "warning",
+			}, zap.NewNop())
+
+			if err := mock.ExpectationsWereMet(); err != nil {
+				t.Errorf("the declared door must keep an explicit agent_type AND still fill step_name: %v", err)
+			}
+		})
 	}
 }
 

@@ -818,3 +818,93 @@ Full-tree baseline, so the pre-existing failures are not read as mine: `git arch
 -x` into a scratch dir at `6f2f2b1ce` reproduces the **identical** failure set (thunder adapter,
 `test/integration/*`, `test/performance/*`, `test/e2e/*`). `./platform/orchestration/...` is
 **9 packages green** with the change in.
+
+### The verdict: APPROVED round 1 — and two of its objections were worth acting on, not noting
+
+`5d200313-f6c3-4fec-8457-503ac620d5ef`, 2026-08-08 17:32Z. **10 seats, verdict APPROVED, 2
+advisory objections counted, none high, no veto.** Dispatch→run start was ~1 second, not the 29
+minutes the runbook warns about — so the lane was idle; do not read my timing as the norm.
+
+**The scope question got answered by the seat I asked, which is the durable part.** I had written
+into the submission's risks that I judged this council-gate scope rather than RFC scope under the
+2026-07-29 §1 test, and invited the `architecture` seat to disagree on record. It approved, with
+`ARCHITECTURE_SIGNAL: point_fix` and an explicit trigger test: *"stays inside
+platform/orchestration/actions, adds no schema column, no new reserved key on a shared action
+config, no wire-shape change — agenterrors.Entry and agent_error_log are untouched. New exported
+symbols are additive wrappers; every existing call site's behavior is provably unchanged (backed
+by mutation te…"* (truncated in the artifact). **That is now a worked precedent for the next
+seam of this shape**, and it is better than my own reasoning because it names the test rather
+than the conclusion.
+
+`bug_historian`'s note is the one to hand the next author: *"unlike that case it audits ALL 20
+call sites rather than patching one and leaving the mechanism generic — that is the correct fix
+shape per the historian's own charter (c)."*
+
+#### Objection 1 (bug_historian medium + editquality): the step_name asymmetry. THEY WERE RIGHT.
+
+I had scoped it out: a caller naming `agent_type` but leaving `step_name` zero still had
+`step_name` filled from the running step, and I justified that as preserving two
+council-approved sites and avoiding scope creep. `bug_historian` called it *"a narrower
+recurrence of the exact defect being fixed … leaving the same failure shape live for any future
+caller of that shape"*, and `editquality` flagged the same thing independently.
+
+**The scope argument was a false trade-off and I should have seen it.** The two sites did not
+need the asymmetry — they needed *inheritance*, which there is now a door for. So: the strict
+door is strict on **both** columns (naming only `agent_type` yields an empty `step_name` plus a
+`logger.Warn`), and `prepare_link_context` + `diagnose_persist_fix_plan` call
+`LogActionEntryInheritingProvenance`, keeping their own explicit `agent_type` while declaring the
+step. **No live row's contents change**, and that is pinned by a table test over both sites
+rather than asserted. Mutation 6 — restore the asymmetry — fails exactly
+`TestLogActionEntry_NamingOnlyAgentTypeDoesNotBorrowTheRunningStep` and nothing else, while both
+migrated-site subtests keep passing, which is the proof the migration is behaviour-preserving.
+
+The reasoning that matters for next time: **an empty value asserts nothing; a borrowed one
+asserts something no caller claimed.** The defect class here is false attribution, not absence,
+so "leave it blank and warn" is the honest floor and "fill it from whatever is nearby" never is.
+
+#### Objection 2 (guardian medium ×2): facts a council cannot check. Both now checked.
+
+- *"whether any caller outside `platform/orchestration/actions` … also calls LogActionEntry
+  directly and would be silently switched from lenient to strict."* Repo-wide grep across all
+  six doors: **0 callers outside that package.** The `agenterrors.Write` callers (agentbase,
+  messaging, coordinator) build a full `Entry` and never touch this merge.
+- *"the 20-call-site census … is the single fact the whole containment argument rests on.
+  Flagging so a human with full repo access confirms the count before merge."* Recounted, and
+  **the count had MOVED: it is 21.** See the next section — this is the finding of the hour.
+- The same-file passenger objection was **discharged by fact, not by argument**: the concurrent
+  session committed its own work (`1c5d9ceb5`) before I committed, so there was no passenger.
+
+#### Objection 3 (debug_historian + prior_art_librarian): re-run the figures, do not carry them
+
+Both seats flagged that I cited live counts from earlier in the session without re-running them
+at commit time, `debug_historian` naming the WRONG_CALLS shapes it matches (*"a two-day-old
+figure carried into a fix's own header"*). **Correct, and it cost one query.** Re-run at commit
+time, all six in one statement: `unattributed` **0**, `agent_type IN ('','unknown')` **0**,
+`generic` **559** rows over **25** distinct `step_name`s, `REVIEW_SUPERSEDED_BY_PASSING_SAVE`
+**25** rows of which **0** are non-`generic`. Every figure held. **That they held is not the
+point — that they were checkable and I had not checked them is.**
+
+### THE 21st CALL SITE ARRIVED WHILE THE CHANGE WAS IN COUNCIL, AND IT LANDED RIGHT WITHOUT KNOWING
+
+Recounting for `guardian` turned up `page_build_failure_guard.go:110`, which was not in my
+census and therefore not in the approved plan. It is not a miss — the file did not exist when I
+counted. Another lane committed it as `2c3efc9f5` (PBP-038, deploy-stamp refusal) while my round
+was running.
+
+**How the tree hid it, which is the transferable bit.** `git log --oneline -3 -- <path>` returned
+**empty** and `git status` showed nothing, so my first read was "untracked file, another session
+is mid-write". Both were wrong in the same way: the commit had landed *between* my two commands,
+and a `git log` pathspec query is answered from **HEAD at the moment it runs**. `git ls-tree -r
+HEAD -- <path>` plus `git log --all` settled it in one command. **An empty `git log` for a file
+that visibly exists means your HEAD is older than the file, not that the file is untracked** —
+this is the `a-quiet-git-log-is-not-silence` trap wearing a different hat.
+
+**And the design news is good.** The new site calls `LogActionError` — the door whose contract
+already *is* running-step identity — so it required no migration and got the safe behaviour
+**without its author knowing this change existed.** That is precisely the "caller 19" scenario
+the four seats were worried about, arriving in the wild and landing correctly. It is also the
+*second* time this seam gained a caller mid-flight; `f930de86b`'s own commit message says *"the
+19th arrived DURING the work"*. **So: never write a call-site count here as a constant. It is a
+measurement with a timestamp, and on this tree the timestamp expires in minutes.** Corrected
+everywhere it appears: 21, not 20 — 13 strict-door (all naming provenance), 4 declared
+inheritance, 4 through the simple doors.
