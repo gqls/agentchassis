@@ -194,3 +194,16 @@ won't state gets flagged regardless, so nothing can hide). The code is
 written, reviewed by the automated panel (verdict due shortly), and switches
 on with the next software release plus one database step afterwards — until
 that first scan is verified, the ten-second bedtime check stands.
+
+One more thing tonight, and it needs you: **the AI account ran out of
+credits at half past six this evening** (UK time: about half past seven).
+Every automated process that thinks — the review panel, the site builders,
+the diagnosis loops, all of it, across every project — has been failing
+since that moment. Nothing is broken; it is a billing top-up on the
+Anthropic account (Plans & Billing page). The review of tonight's new
+billing-watchdog code was mid-flight when the credits ran dry: the first
+round had come back asking for one improvement (a fair catch — I was
+writing my own database entry instead of using the shared, safer routine;
+now fixed), and the second round died on the empty account before any
+reviewer saw it. Once you top up, the resubmission is one saved command —
+it's written in the technical notes next to this file.

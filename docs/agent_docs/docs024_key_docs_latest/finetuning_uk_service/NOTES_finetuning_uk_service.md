@@ -582,3 +582,25 @@ reaper's COMPLETED run today on the identical path is the live proof);
 DO/RAISE verify block now inside the seed transaction; 342 numbering
 checked against the directory + git log (343 taken concurrently; no
 collision).
+
+### Council round 2: DID NOT RUN — fleet-wide Anthropic credit exhaustion at 18:25:48Z
+
+Round 2 (submitted ~19:15Z, same trail corr, all round-1 objections
+dispositioned) reached `complete_invalid` in 5s — **not** a validation
+failure: `__step_error` shows the FIRST seat (`review_editquality`) got API
+400 "Your credit balance is too low to access the Anthropic API".
+Measured in `llm_call_log`: first credit failure 18:25:48Z (my round-1
+verdict composed 18:25:25 — through by 23 seconds), **zero successful
+anthropic calls since**, 16 credit failures and counting. Every LLM-driven
+pipeline fleet-wide is dead until the owner tops up Plans & Billing.
+Owner notified (push).
+
+**Resubmission owed once credits are restored** — the exact JSON is saved
+beside this file (`council_r2_submission_ftw042.json`); the command:
+```bash
+RESUBMIT_CORR=7ffecfa2-ff96-4d73-be0d-25eb9589c6df \
+  ./docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/097_TRIGGER_council_review_v1.sh \
+  docs/agent_docs/docs024_key_docs_latest/finetuning_uk_service/council_r2_submission_ftw042.json
+```
+Do NOT rebuild the submission from scratch; do NOT retry before credits
+exist (each attempt consumes a dispatch for nothing).
