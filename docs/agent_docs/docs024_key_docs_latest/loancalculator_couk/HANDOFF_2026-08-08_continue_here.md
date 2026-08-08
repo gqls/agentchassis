@@ -26,14 +26,25 @@ live         26/26 HTTP 200 · 12/12 locked calculator rows identical · toolgol
 > (expect ≥1) and the removed string `'the model wrote about its task instead of doing it'`
 > (expect **0**).
 >
-> **⚠ AND `index` IS NO LONGER A ROUTINE REBUILD — read this before batching it.**
-> A parallel session took the first owner review of the homepage that afternoon
-> (`ecf50b634`, `SUMMARY_2026-08-08b…`): `index`'s prose rows were last written
-> **2026-08-02**, by the decomposition — so the page still carries **original
-> hand-built copy**, and the owner's *praise* for it, as well as his complaint about
-> the opening, are both about writing the framework never touched. **Rebuilding
-> `index` replaces the parts he liked too.** `tool-car-finance-calculator` and
-> `tool-interest-rate-stress-test` carry no such question and can go first.
+> **`index` GOES THROUGH THE FRAMEWORK LIKE EVERYTHING ELSE — OWNER RULING,
+> 2026-08-08.** Build all three together; no special handling, no holding it back.
+>
+> I had flagged `index` as "no longer a routine rebuild", because a parallel session
+> established that its prose was last written **2026-08-02** by the decomposition — so
+> the page still carries **original hand-built copy**, and the owner's *praise* for it,
+> as well as his complaint about the opening, are both about writing the framework
+> never touched (`ecf50b634`, `SUMMARY_2026-08-08b…`). That observation is correct and
+> stays on the record. **The caution I drew from it was wrong and the owner removed
+> it:** *"I am happy for the whole site to be built through the framework because that
+> is what I am judging."*
+>
+> The reasoning matters more than the instruction, because it generalises: **preserving
+> hand-built copy the owner liked protects the wrong thing.** What is under evaluation
+> is the framework's output, so a page that keeps its hand-built paragraphs is a page
+> that tells him nothing — and the same standing rule already forbids the alternative
+> (`CLAUDE.md`, owner ruling 2026-08-04: every site goes through the framework, never
+> hand-built). If a framework rebuild makes `index` worse, **that is the finding**, and
+> the pre-run bytes are in `page_components_bak_20260807_voiceh` either way.
 >
 > Fix detail, the correction it required, and the council's JSON-LD objection:
 > `bugs_open/219`. A second live instance of the same check, which this fix does

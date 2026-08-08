@@ -1185,3 +1185,28 @@ recording because that is the review working, not the review being awkward.
 calculators are still proven untouched, and the question I asked you yesterday — the
 one about whether the framework was right to *fill* those near-empty pages with new
 explanatory copy rather than just restyling them — is still open and still yours.
+
+---
+
+**Saturday 8 August, later — your ruling on the homepage, and I have taken the
+caution back out.**
+
+I had flagged the homepage as needing a decision before rebuilding it, on the grounds
+that it still carries the original hand-built copy and that a framework rebuild would
+replace the paragraphs you liked as well as the opening you objected to. You have
+ruled the other way:
+
+> "I am happy for the whole site to be built through the framework because that is
+> what I am judging."
+
+That is the right call and I have removed the flag from the handoff rather than leave
+a caution you have overruled. The reasoning generalises, so I have written it down
+next to the instruction: **keeping hand-built copy because it reads well protects the
+wrong thing.** What is being judged here is what the framework produces. A page that
+holds on to its hand-written paragraphs is a page that tells you nothing about that —
+and if the rebuild makes the homepage worse, that is the finding, not an accident to
+be avoided. The pre-run copy is backed up either way, so nothing is lost by trying it.
+
+So when the release goes out, all three remaining pages go through together — the
+homepage, the car finance calculator and the interest rate stress test — with no
+special handling for any of them.
