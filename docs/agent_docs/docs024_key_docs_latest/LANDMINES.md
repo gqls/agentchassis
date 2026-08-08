@@ -6313,3 +6313,34 @@ Two more in the same family, both cheap to get wrong:
 - **the check:** before consuming scope_ref as a reference, run the orphan census in `bugs_open/214` (page+ordinal resolved against `site_plan_sections`, per plan). If you are writing rows: resolve against the post-validate sections array in the same `CollectedData` — fix candidate 1 in the bug file, ~30 lines at the single door.
 - **relations:** `bugs_open/214` (mechanism + census + fixes), `bugs_open/114` (the unreachable-asset symptom), RFC_016 §1 (the contract rule that forbids this keying for new fields; imagery is its named counter-example), 016b §9 2026-08-07 (the transferable pattern).
 - **added:** 2026-08-07, brochure_component_library lane
+
+### `stale_site_components` fires on chrome that is not stale and stays silent on chrome that is — 36 of its 39 live firings are unrelated to its own subject
+
+- **footprint:** `platform/orchestration/actions/discovery_checks/check_integrity.go` (`StaleSiteComponentsCheck`, the `stale_site_components` check), `site_components`, `site_work_items` rows with `item_key LIKE 'stale\_sc\_%'`, `needs_rerender` items handled by `rerender-pages`
+- **fires when:** you trust a `stale_sc_*` work item, or the absence of one, as evidence about whether a site's header/footer/head is out of date — e.g. verifying a chrome fix reached the fleet, sizing a chrome re-render, or concluding a site is clean because no item was filed.
+- **the tell:** there is none from the item. Its summary reads *"Site component <slot> is stale — last rendered before page content was updated"*, and the second clause is the whole defect stated out loud: the check compares `site_components.updated_at` against `MAX(page_components.updated_at)` for the site (`check_integrity.go:320-331`). Chrome is rendered from `content_components.html_template`, `site_nav_items` and site identity — **never from `page_components`.** The reference is independent of the subject, so the item's presence tracks recent page-content activity, not chrome drift. It is a live, draining check (7 complete per slot, latest 2026-08-06), which is what makes it dangerous: its output is believed and it consumes real rebuild capacity.
+- **the check:** never read the item; run the cross-tab and read both off-diagonals. This is the query, and it must reproduce the production predicate exactly — including `- INTERVAL '24 hours'` and the `pc.rendered_html IS NOT NULL` filter, or the disagreement you measure is your own:
+  ```sql
+  WITH real_stale AS (
+    SELECT sc.site_id, sc.slot_name, (cc.updated_at > sc.updated_at) AS truly_stale
+    FROM site_components sc JOIN content_components cc ON cc.id = sc.component_id
+    WHERE sc.rendered_html IS NOT NULL AND sc.rendered_html <> ''
+  ), detector AS (
+    SELECT sc.site_id, sc.slot_name,
+           (sc.updated_at < mx.latest - INTERVAL '24 hours') AS detector_fires
+    FROM site_components sc
+    CROSS JOIN LATERAL (
+      SELECT MAX(pc.updated_at) AS latest FROM page_components pc
+      JOIN pages p ON p.id = pc.page_id
+      WHERE p.site_id = sc.site_id AND pc.rendered_html IS NOT NULL) mx
+    WHERE sc.rendered_html IS NOT NULL AND sc.rendered_html <> '' AND mx.latest IS NOT NULL
+  )
+  SELECT r.truly_stale, d.detector_fires, count(*)
+  FROM real_stale r JOIN detector d USING (site_id, slot_name) GROUP BY 1,2;
+  ```
+  Measured 2026-08-07 over 53 rows: **t/t 3 · t/f 1 · f/t 36 · f/f 14.** All four cells populated, so it could have come out otherwise.
+- **and the corrected comparison is NOT "widen the timestamps".** `GREATEST(cc.updated_at, nav.updated_at, sites.updated_at)` marks ~every row stale — `sites.updated_at` churns for unrelated reasons. Worse, **no timestamp can be complete here:** `fixTemplateColors` (`fix_harcoded_colours_action.go:180`) does `UPDATE content_components SET html_template = $1 WHERE id = $2` with **no `updated_at`**, and its selection query joins through `site_components`, so it edits chrome templates invisibly to every timestamp-based detector. It is the only one of ~9 `UPDATE content_components` writers that omits the stamp.
+- **and a timestamp answer is unfalsifiable anyway:** "stale" by timestamp does not mean the output would change. On the 4 rows flagged 2026-08-07, **no** `class="…"` literal in `footer-theme-chrome` splits the 16 stored footers by the template-change time — so a re-render might be a no-op. The question worth asking is *"would a re-render change anything?"*, which is a render-input fingerprint, not a comparison of two `updated_at`s.
+- **do NOT duplicate the sibling check:** `deactivated_site_components`, same file, already covers "`component_id` points at an `is_active=false` component" (extended by `bugs_open/170` to the `style_collections` pin). 17 of 19 `head` rows are in that state — it is a known, covered condition, not a new finding.
+- **relations:** `bugs_open/117` (chrome is a stored artefact no page re-render regenerates — this is the detector half of it), `bugs_open/170` (the pin half of the sibling check), `bugs_closed/049` (stale chrome fleet-wide), 016b §9 *"Light site renders dark chrome"* (the two-assembly-paths prior art), `docs024_key_docs_latest/bugfix_117_chrome_staleness_reference/` (measurements, runbook, handoff)
+- **added:** 2026-08-08, `bugfix_117_chrome_staleness_reference` lane
