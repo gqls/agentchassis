@@ -1641,3 +1641,45 @@ like a gate that gave no reasons.
 **Owed:** see the 08-08b handoff. The content calibration is done and stable; the
 safety leak and the empty body are what remain, and neither is a reason to hold the
 wiring council round — they are inputs to it.
+
+**2026-08-08 — §10.6 SATISFIED. Calibration passes on v1.0.1267 and reproduces.**
+`a9c2d0afe`. Full scorecard in the 08-05 handoff's new closing section.
+
+8/9 real approved, 4/4 bad rejected, and **every row matched the prediction written
+into the handoff before the run** — which is the only reason the result is readable
+as evidence rather than as a number to admire.
+
+**Two methodological things worth carrying forward.**
+
+1. **A real negative control, finally.** Every previous deploy check on this lane
+   used a *synthetic* negative (a string never compiled), which proves the grep
+   works and nothing else. The 08-06 edit DELETED `every entry in the corpus does`,
+   so grepping 0 for it on both replicas proves the binary **post-dates** the edit.
+   A removed string is strictly stronger evidence than an added one, because an
+   added string cannot distinguish "my change shipped" from "my change was already
+   there". Prefer an edit that removes something when you need provenance.
+2. **Ran it TWICE and diffed.** One run of an LLM judge is one sample. The two runs
+   are byte-identical across all 13 verdicts, so the judge is stable on this corpus
+   — a fact no single scorecard could have told me, and the thing that would have
+   been most embarrassing to discover after wiring.
+
+**My own rule, broken, and the cost.** `gateVersion` carries the instruction "bump
+it whenever a rule changes". On 08-06 I changed what the gate *decides* — retired
+the two-sidedness rejection, added contestability — and left it at `"1"`. On 08-08 a
+calibration run appeared in the pool that I had not dispatched, and `gate_version`
+could not say whether it came from the old rules or the new. I had to establish it
+indirectly by grepping the verdicts for a `one_sided` note only the new code emits.
+It worked; it is also precisely the reconstruction that field exists to make
+unnecessary. Now `"2"`, with the reason recorded on the constant. **The transferable
+part is WHERE the bump belongs: not a release chore, but part of the same edit that
+changes a rule** — if you are editing the fatal/advisory split, the version line is
+in that change or the change is not finished.
+
+**Still true and now the only content blocker:** `group-chats-replaced-friendship`
+has a zero-character body in production. The gate rejects it correctly. Per the
+owner's ruling, the framework fills that, not a session — it is the first real task
+for `generate_provocations` once wired.
+
+**NEXT = WIRING, and it needs its OWN council round** — the `architecture` seat said
+the 08-05 approval covers the unwired code and that "the WIRING submission is the one
+to re-check against the trigger test".
