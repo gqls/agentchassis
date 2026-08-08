@@ -167,7 +167,6 @@ var placeholderPatterns = []struct {
 var templateVarRegex = regexp.MustCompile(`\{\{[\s]*[\.\w]+[\s]*\}\}`)
 var templateBlockRegex = regexp.MustCompile(`\{\{[\s]*(range|if|with|end|else|template|block|define)[\s]`)
 
-
 // ============================================================================
 // Main action
 // ============================================================================
