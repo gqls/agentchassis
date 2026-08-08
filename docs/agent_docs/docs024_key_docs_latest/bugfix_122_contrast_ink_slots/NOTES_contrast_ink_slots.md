@@ -477,3 +477,49 @@ reason carries every change since it last rendered. So the banked before-state m
 longer be the before-state. Marked `[UNMEASURED]` in the handoff §6 with the instruction to
 re-run and diff the baseline *before* grading the migrations, rather than quietly trusting
 a file that was complete two days ago.
+
+## 2026-08-08 (later) — writing migration 338, and what measuring the live rows did to the approved plan
+
+Chassis rolled again to **v1.0.1266**; VIZ-014 re-proved on both replicas, identical
+counts, controls holding. Third roll in three days, none of them ours.
+
+**Wrote `338_components_opt_into_legible_ink_slots.sql` — committed `5e77607cf`, NOT
+applied.** The pre-flight against the live rows changed it substantially, and the change
+is the interesting part.
+
+The approved sketch (submission edit 7) used a bare global `replace()` per component,
+gated on a **row** count. But `replace()` is global **within the string**, and a row-count
+gate is structurally blind to that. Occurrences vs intended targets, measured today:
+
+| component | needle occurrences | intended | the extras |
+|---|---|---|---|
+| `case-studies-grid` | 2 | 2 | — sketch correct |
+| `system-stats` | 5 | 1 | 2 backgrounds, 1 outline, 1 other ink |
+| `image-hover-card-grid` | 2 | 1 | 1 outline |
+| `tool-list` | 6 | 2 | **2 backgrounds**, 2 hover-fallbacks |
+
+> **MISSTEP 11 — the approved plan would have repainted two backgrounds with an ink
+> colour, and the gate it specified could not have caught it.** `tool-list` has
+> `.tl-card-icon { background: var(--color-primary); }` and
+> `.tl-cta-btn { background: var(--color-primary); }`. Repointing those to
+> `--color-primary-ink` is the *exact inversion* this bug is about — an ink used as a fill.
+> The council approved this, and so did I when I wrote it: five seats read the sketch and
+> none of us asked how many times the needle occurs. **The check that would have caught it
+> is one query and it is not about the fix at all — it is about the DATA the fix runs
+> against.** A needle gate proves your string is present; it says nothing about how many
+> other rules contain it. Every needle in 338 is now rule-scoped and each block carries a
+> negative control asserting the non-targets survived.
+
+**The layouts half did not exist as specified either.** The sketch's
+`a { color: var(--color-accent); }` one-liner matches **0 of 18** layouts. Four of the five
+named layouts use a multi-line rule (`a {\n  color: var(--color-accent);`) and
+`tool-portal-light` uses a different single-line form — two separate blocks now. Worth
+noting *how* this was missed: the five layout names in the plan are correct, and they are
+the five with the most bare accent uses (16/13/12/9/8), so the plan's *conclusion* was
+right and only its *needle* was invented. A correct list of targets makes a wrong needle
+look verified.
+
+**Deliberately not done, and it is the next thing:** none of the `RAISE`s have been
+induced. A verify block that cannot fail is the trap 338's own header warns about, and
+writing careful-looking assertions is not evidence they fire. That, plus the apply,
+propagation enqueue and served-page verification, is §2 of the handoff.

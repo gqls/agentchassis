@@ -7,10 +7,10 @@ there before touching code. Everything else below is new or changed.
 
 ## The one-paragraph state
 
-The **engine half is live and stayed live across two more rolls**: v1.0.1264 carries
-VIZ-014, pod-proven on both replicas (§1). No lane in this workstream rolled it. The
-**config half — the part that changes a visitor's page — is still NOT WRITTEN**: two
-migrations, fully specified in the approved submission (§2). Separately, picking up
+The **engine half is live and has stayed live across three rolls**: v1.0.1266 carries
+VIZ-014, pod-proven on both replicas (§1). No lane in this workstream rolled any of them. The
+**config half — the part that changes a visitor's page — is WRITTEN BUT NOT APPLIED**:
+migration `338`, committed `5e77607cf`, plus a second migration still unwritten (§2). Separately, picking up
 `bugs_open/212` reframed it twice over: its fix ranking is refuted by arithmetic, its
 "unenforced contract" premise is wrong, and the real blocker turned out to be a work-item
 contract defect now filed as **`bugs_open/213`** (§3, §4).
@@ -29,25 +29,27 @@ lane's own history.
 5. **Read `bugs_open/212` §8 before its §1–§7**, and `bugs_open/213` whole. §1–§7 of 212
    are the version of the story that was wrong.
 
-Then pick up at **§2** — the two migrations are the entire remaining job for bug 122.
+Then pick up at **§2** — migration `338` is written and committed but **not applied**,
+and that plus one more migration is the entire remaining job for bug 122.
 
 ## 0. What changed on 2026-08-08, before you trust anything below
 
-Re-measured at the start of the 08-08 session. **Three of this file's own figures had
-gone stale inside 24 hours** — that rate is the point, not the individual numbers.
+Re-measured at the start of the 08-08 session. **Four of this file's own figures went stale
+within a day**, one of them twice — that rate is the point, not the individual numbers.
 
 | what | was (08-07) | is (08-08) | so |
 |---|---|---|---|
-| chassis image | v1.0.1262 | **v1.0.1264** | re-proved, §1 — a new image is a new fact |
-| next free migration number | 324 | **335** (334 exists, untracked) | §2 — 324 *and* 325 are both taken now |
+| chassis image | v1.0.1262 | **v1.0.1266** (08-08 pm, re-proved again) | §1 — a new image is a new fact |
+| next free migration number | 324 | **338, now used** — 324/325/334/336/337 all taken | §2 |
 | `090` run 4 | still `diagnosing` | **`complete`, UNVERIFIABLE** | §5 |
+| the config half | not written | **338 written + committed, NOT applied** | §2 |
 
 Nothing has touched `bugs_open/212`, `bugs_open/213` or this directory since the 08-07
 commits (`git log b938b54d8..HEAD -- …` is empty), so §3–§4 stand as written.
 
 ## 1. DONE — the engine is live, pod-proven [re-proved 2026-08-08]
 
-Both replicas of `agent-chassis`, image `docker.io/aqls/agent-chassis:v1.0.1264`:
+Both replicas of `agent-chassis`, image `docker.io/aqls/agent-chassis:v1.0.1266`:
 
 | symbol | count | role |
 |---|---|---|
@@ -57,12 +59,12 @@ Both replicas of `agent-chassis`, image `docker.io/aqls/agent-chassis:v1.0.1264`
 | `fillDarkSchemeSpecialisedSlots` | 4 | positive control |
 | `zzzInventedControlXyz` | 0 | negative control |
 
-Identical counts on v1.0.1262 (08-07) and v1.0.1264 (08-08). Nothing downstream of a
+Identical counts on v1.0.1262, v1.0.1264 and v1.0.1266 — three rolls, none of them ours. Nothing downstream of a
 build records which commit it came from, so the symbols are the only evidence — which is
 why both controls are in the table and why every replica was checked. **Do not re-derive
 this from the tag, and do not carry this table forward across another roll without
-re-running it** — it has already survived two rolls it was not written for, which is luck,
-not evidence.
+re-running it** — it has already survived three rolls it was not written for, which is
+luck, not evidence.
 
 ```bash
 for POD in $(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[*].metadata.name}'); do
@@ -73,32 +75,74 @@ for POD in $(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonp
 done
 ```
 
-## 2. NEXT — the two migrations. This is the whole remaining job for 122
+## 2. NEXT — migration 338 is WRITTEN and COMMITTED but NOT APPLIED
 
-**Nothing else in this lane changes what a visitor sees.** Both are fully specified in
-`SUBMISSION_2026-08-06b_ink_slots_round2.json` (edit 7, and the render-audit cadence).
-The replacement tables and the five layouts are in `HANDOFF_2026-08-06b_continue_here.md`
-§2–§3 — **use those, they are the approved plan; do not re-derive them.**
+**`docs/agent_docs/sql_for_agents/338_components_opt_into_legible_ink_slots.sql`**
+(`5e77607cf`, 2026-08-08). This is the config half of 122 — the only thing left that
+changes a visitor's page. **Read its header block before running it**: it explains, with
+the measurements, why it does not match the approved sketch.
 
-- **Pick the number at the moment you write the file.** `324` was free when the plan was
-  approved; **`324` and `325` are both taken now**, and `334` exists untracked on disk.
-  Highest applied in `schema_migrations` is `333`. So **335 is the first plausible free
-  number and you must still re-check it**, twice: when you create the file, and again
-  immediately before `--apply`. This file has now been wrong about this number twice in
-  two days.
-  ```bash
-  ls docs/agent_docs/sql_for_agents/ | grep -oE '^[0-9]{3}' | sort -n | tail -3
-  kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db \
-    -t -A -c "SELECT filename FROM schema_migrations ORDER BY filename DESC LIMIT 3;"
-  ```
-- The council's non-negotiables hold verbatim: on the ledger, needle gate with
-  `position()` not `LIKE`, `\copy` backup, inline rollback, **every check `DO`/`RAISE`
-  and induced once** (a verify block of bare `SELECT`s cannot stop the `COMMIT`), and
-  **propagation enqueued as a separate step** — that last one is still the open
-  `editquality` medium objection, and §4 is why it matters more than it looks.
-- **Watch for `_HOLD` neighbours.** `328` and `330` are `_HOLD`-renamed so a blanket
-  `--apply` cannot ship them. Scope your `--apply` to your own file; do not sweep the
-  directory.
+### Why 338 diverges from the approved plan, and why that was necessary
+
+The sketch used a bare global `replace()` per component, gated on a **row** count.
+`replace()` is global **within the string**, so a row-count gate cannot see
+over-application. Measured against the live rows on 08-08:
+
+| component | needle occurrences | intended targets |
+|---|---|---|
+| `case-studies-grid` | 2 | 2 — sketch correct |
+| `system-stats` | **5** | 1 (`.stats-eyebrow`) |
+| `image-hover-card-grid` | **2** | 1 (`__eyebrow`) |
+| `tool-list` | **6** | 2 (`.tl-eyebrow`, `.tl-card-link`) |
+
+The extras are not harmless. `tool-list`'s four include
+`.tl-card-icon { background: var(--color-primary); }` and
+`.tl-cta-btn { background: var(--color-primary); }` — the approved form would have
+**repointed two backgrounds to an ink colour**, the exact inversion this bug is about.
+`system-stats` has two backgrounds and an outline among its five; `image-hover-card-grid`'s
+second is an outline. So every needle in 338 is rule-scoped, every block asserts its
+expected occurrence count, and the three risky ones carry a **negative control** asserting
+the non-targets survived.
+
+**The layouts half did not match either.** The sketch's `a { color: var(--color-accent); }`
+one-liner exists in **0 of 18** layouts. Four of the five named layouts use a multi-line
+rule; `tool-portal-light` uses a different single-line form. Two separate blocks in 338.
+
+### What is left to do, in order
+
+1. **Induce every `RAISE` against a scratch copy before applying.** Not done. A verify
+   block that cannot fail is precisely the trap 338's own comments warn about, and
+   asserting that it is careful is not the same as proving it fires. Clone the four
+   component rows and five layout rows into a scratch table, break each needle in turn,
+   confirm each `RAISE EXCEPTION` actually aborts.
+2. **Re-check the number.** `338` was free at write time (`337` highest on disk and in
+   `schema_migrations`). Re-check immediately before `--apply` — this file has been wrong
+   about a migration number twice already.
+   ```bash
+   ls docs/agent_docs/sql_for_agents/ | grep -oE '^[0-9]{3}' | sort -n | tail -3
+   kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db \
+     -t -A -c "SELECT filename FROM schema_migrations ORDER BY filename DESC LIMIT 3;"
+   ```
+3. **Take the two `\copy` backups** named in 338's header, outside the transaction.
+4. **Apply**, scoped to this file. `328` and `330` are `_HOLD`-renamed so a blanket
+   `--apply` cannot ship them — do not sweep the directory.
+5. **Enqueue the propagation.** The UPDATE changes the SOURCE; a visitor sees nothing
+   until the pages re-render. This is the still-open `editquality` MEDIUM objection, and
+   **listing the rows is not enough — the approved plan only listed them and the seat was
+   right that this is insufficient.** The query is at the foot of 338. §4 is why a
+   `complete` work item is not evidence this happened.
+6. **Verify at the served page** — never row counts, never a work-item status. And re-run
+   the baseline first: see §6, it has drifted risk.
+
+### Still unwritten: the second migration
+
+The **render-audit cadence** (`scheduled_tasks` row, submission edit 8) is not written.
+One row; `\d scheduled_tasks` first — it is `interval_seconds`, not a cron string, plus
+`target_topic`, `input_data`, `pre_query`, `fire_message`. Weekly, not daily: findings
+dedupe on `contrast_failure:<page-path>#<selector>` and a falling count is
+content-dependent, so daily multiplies noise without signal. The whole detection chain has
+been live since v1.0.1257 with **0 `scheduled_tasks` rows targeting `render-audit-agent`**,
+enabled or disabled — it has run exactly once, by hand.
 
 ## 3. `bugs_open/212` — reframed. Read its §8 before acting on §1–§7
 
