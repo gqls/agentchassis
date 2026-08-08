@@ -1003,3 +1003,55 @@ unobservable downstream).
 fact-finder should PASS validation and save normally. If a re-run fails
 validation for a REAL reason, expect the same silent discard (item complete,
 0 components) — that door is still open until defect B's design call lands.
+
+### 2026-08-08 evening — the three re-runs LANDED; 12/12 tools live
+
+Three fresh `needs_tool_recreation` items filed at `triaged` (cloned spec from
+the terminal-complete rows; dedup index permits key reuse once the old row is
+terminal): `aaaa8861` tool-overpayment, `eac0c3bb` game-fact-finder,
+`c21a1b32` tool-portfolio. Unlock window 15:34–15:57 UTC; §10c backstop every
+15s (foreground-tested first) — **deferred nothing the whole window** (78 ticks
+of `UPDATE 0`); killed the moment the batch settled (§10g); site re-locked
+15:57.
+
+Outcomes, all evidence captured live to
+`acceptance/EVIDENCE_2026-08-08_rerun_3tools_orchestration_capture.jsonl`
+(44 snapshots; the orchestration rows purge ~a day, this file is the durable
+copy):
+
+- **tool-overpayment**: validate_tool PASSED (`validation_issues: []`,
+  clean_html present) — the 218 defect-A fix works on the exact case that
+  motivated it. Then `deploy_page` FAILED with `CHILD_ORCHESTRATION_FAILED`
+  ("workflow completed but its result could not be delivered to the parent
+  (failed_transient)") → `complete_error`. **The known spawn→call handshake
+  race, and the child had actually deployed** — the page was on the wire and
+  byte-identical to the repo. Item reads `complete`; nothing to re-run.
+- **game-fact-finder**: full happy path. Validation clean, fabrication check
+  `fabricated: false` with no signals. 4 components. `build_status` even went
+  `deployed` for once.
+- **tool-portfolio**: full happy path — **the 08-05 fabrication conviction did
+  NOT reproduce**: `{"fabricated": false, "signals": null, "tier": "",
+  "detail": ""}` — a clean pass, not a borderline. Whether the 08-05 conviction
+  was a true positive is now unknowable (its signals purged before anyone read
+  them), but the artefact standing today passed the gate. The 08-05
+  `needs_human_review` item (`aca92097`) is now MOOT — its subject artefact was
+  discarded and has been superseded by this clean run; closing it is an owner
+  call, flagged in README.
+
+**Wire verification**: all three 200 at the FULL `/index.html` form
+(32,888B / 17,679B / 35,998B), chrome present (header/nav/footer), correct
+tool on each page, zero cross-wiring. §10f sweep across the whole domain:
+exactly one line, `robots.txt` — originals intact.
+
+**Misstep (cheap, self-caught, but the shape matters):** my first wire-check
+used bare directory URLs (`/tools/overpayment/`) and read 404 — as did
+`/tools/repayment/`, one of the 9 verified live 08-07, which briefly read as a
+site-wide regression. **This host does not resolve directory URLs to
+index.html anywhere except the root.** The RUNBOOK sweep (§10f) was never
+wrong — it fetches full file paths; the bare-URL form was my invention. Check
+added to RUNBOOK §10f. The tell that unpicked it: `/` served 11,125B — the
+original homepage byte count — so the site could not be "down".
+
+Remaining on this lane (unchanged from handoff §2): the id-alignment batch
+(08-05 §7 path a), fences to `staged_component_build`, arithmetic verification
+still **0 of 12 proven** — now 12/12 candidates live to verify against.

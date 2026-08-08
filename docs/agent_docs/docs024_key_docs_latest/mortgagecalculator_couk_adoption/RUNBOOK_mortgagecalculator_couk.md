@@ -432,6 +432,15 @@ directory makes every `sha256sum` compare against a non-existent file and **ever
 reports "differs"** — which reads exactly like the site being destroyed. That happened on
 08-04 (the session scratchpad had been relocated by another lane) and cost a genuine scare.
 
+⚠ **Spot-check at the FULL `/index.html` form, never the bare directory URL** (added
+2026-08-08). This host resolves a directory to its `index.html` at the ROOT only:
+`/` serves, but `/tools/repayment/` and `/tools/repayment` both 404 while
+`/tools/repayment/index.html` serves 200. A bare-URL spot-check therefore reads as
+"every rebuilt tool is down" — which briefly diagnosed as a site-wide regression on
+08-08. The sweep above was never at risk (it fetches full file paths); the trap only
+bites hand-typed checks. The tell that it is THIS and not an outage: `/` still serves
+the original homepage byte count (11,125B).
+
 ### §10g A backstop OUTLIVING its batch defers the NEXT batch's follow-ons (added 2026-08-05)
 
 The §10c backstop loops on a timer (240×15s). If a second batch starts while an earlier

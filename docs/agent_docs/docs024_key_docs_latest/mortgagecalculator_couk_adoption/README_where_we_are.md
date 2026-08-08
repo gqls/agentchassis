@@ -529,3 +529,43 @@ The site itself is untouched by all of this: still locked, your original pages a
 verified byte-for-byte again, the nine live rebuilt calculators still serving. The
 arithmetic verification of those nine (the ID-alignment work) is the next job after
 the three re-runs.
+
+**2026-08-08, evening — all twelve tools are now live.** The checker fix shipped in
+this afternoon's platform release (I verified the running system actually carries it,
+not just that a release happened), and I re-ran the three stalled rebuilds. All three
+came back clean. The overpayment calculator and the fact-finder quiz — the two that
+the faulty checker had wrongly convicted — passed validation this time, which is the
+fix proving itself on the exact cases that motivated it. The portfolio dashboard,
+the one stopped by the fake-data guard, passed that guard cleanly this time with
+nothing flagged at all; whether its earlier conviction was genuine we'll never know
+(the record was purged before anyone could read it), but the version now live was
+checked and passed. There's one open loose end from that earlier conviction — a
+"needs a human to look at this" ticket from the 5th that's now about a version of
+the page that no longer exists. It's harmless, but closing it is your call rather
+than mine.
+
+I verified the results the hard way: all three pages serve on the live site with the
+site's own header and footer, each one contains the right calculator (a mix-up
+between pages was a real risk we'd seen signs of), and a byte-for-byte comparison of
+the entire live site against our copy shows the only difference anywhere is the
+robots.txt file Cloudflare rewrites — meaning your original pages are all still
+exactly as they were. The site is locked again.
+
+One wrinkle worth knowing about: the overpayment rebuild's paperwork says "completed
+with errors" — the deploy itself worked, but the internal message saying "done"
+failed to get back to the workflow that sent it, a known intermittent fault in the
+platform's plumbing that we have on the books already. The page is live and correct;
+only the paperwork grumbled.
+
+Also corrected today: the write-up I'd done of the "failed check throws the work
+away" defect had the mechanism wrong. The lost-instruction theory didn't survive
+contact with the code — the instruction is there and the system does read it; the
+real problem is that the failure path hands over to a step that then can't find the
+work (it looks in a box that's only filled on success) and shrugs "nothing to save"
+as if that were a success. Same behaviour seen from outside, different — and
+actually simpler — thing to fix. The decision about what SHOULD happen on a genuine
+failure is still yours to make; nothing has been quietly changed.
+
+Next: the ID-alignment pass across all twelve calculators, then the arithmetic
+verification — none of the twelve is yet proven to compute the same answers as your
+originals, and that remains the biggest open item on this adoption.

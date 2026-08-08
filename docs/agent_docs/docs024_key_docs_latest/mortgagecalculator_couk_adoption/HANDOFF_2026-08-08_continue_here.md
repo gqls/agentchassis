@@ -91,3 +91,36 @@ warranted until the re-runs land) · `acceptance/` (goldens, criteria,
 compare_rebuilt.py). Bugs: **`bugs_open/218`** (this diagnosis; defect B open),
 `bugs_open/191` (fixed live, file unmoved). Council runbook:
 `fixloop_eg_dartsonline/RUNBOOK_council_gate.md`.
+
+## ADDENDUM 2026-08-08 evening — §2 steps 1–3 DONE; 12/12 tools live
+
+Steps 1–3 above are complete (full detail: NOTES 08-08 evening entry; evidence:
+`acceptance/EVIDENCE_2026-08-08_rerun_3tools_orchestration_capture.jsonl`):
+
+1. **Fix confirmed live** on v1.0.1264, both replicas — `headProseBlocks` = 2
+   (round-4-unique symbol; a stronger positive tell than this file's suggested
+   `ExtractAssertionText`, which pre-exists with other callers),
+   `stripScriptAndStyle` = 0.
+2. **Defect-B verdict: the 090 run died at iteration cap with NO verdict** — and
+   its refutation direction was verified first-hand: the filed mechanism in
+   `bugs_open/218` was WRONG (routing is not dead; `coordinator.go:3535` reads the
+   nested key; the real discard is `save_sections` reading a success-only field
+   and `save_page_sections_action.go:321-330` calling the empty result a
+   success). 218 corrected in place; fix candidates re-ranked; the
+   save-anyway-vs-cannot-complete design call still owed, still not this lane's.
+3. **All three re-runs landed 15:34–15:57 UTC**: overpayment + fact-finder passed
+   validation (defect-A fix proven on its motivating cases); portfolio passed the
+   fabrication gate cleanly (`fabricated:false`, no signals — the 08-05
+   conviction did not reproduce; its `needs_human_review` item `aca92097` is now
+   moot, owner call to close). Overpayment's run ended `complete_error` via the
+   known spawn→call handshake race at `deploy_page` — **the child had deployed;
+   the page is live and byte-identical to the repo.** Wire: all three 200 at the
+   full `/index.html` form (⚠ bare directory URLs 404 on this host everywhere
+   except root — new §10f gotcha), chrome present, correct tool per page. §10f
+   sweep: exactly `robots.txt`. Site RE-LOCKED 15:57. Backstop deferred nothing
+   and was killed on batch completion.
+
+Remaining: **§2 step 4 (id-alignment batch) is the live front** — now against
+12/12 live tools; then fences (step 5). Arithmetic verification still 0 of 12.
+`pages.build_status` remains cosmetically stale (`needs_rebuild`) for
+overpayment/portfolio — known, ignore.
