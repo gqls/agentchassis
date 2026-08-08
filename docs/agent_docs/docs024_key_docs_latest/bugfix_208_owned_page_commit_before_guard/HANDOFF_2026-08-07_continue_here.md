@@ -1,4 +1,14 @@
-# HANDOFF — bugs_open/208, continue here
+# HANDOFF — bugs_open/208 ~~, continue here~~ — **THE ASKED-FOR WORK IS DONE (2026-08-08)**
+
+> **CLOSED 2026-08-08, same lane.** The one remaining task this file was written for — the
+> behavioural canary — **ran on 2026-08-08 with owner authorisation and every assertion passed,
+> twice** (runs `a00dac64-…`, `d09ad12e-…` on oufe.com; full table in `NOTES_…`, verdict in
+> `bugs_open/208`'s state section). 208 is FIXED, LIVE (v1.0.1262) and BEHAVIOURALLY PROVEN;
+> the canary was cleaned up with provenance. **Do not execute the canary section below again** —
+> it is kept as the record of what was run and as the template for proving a future guard of this
+> shape. Still genuinely open for a future session: `bugs_open/210`, and the class sweep
+> ("what else has a DB-row guard behind a git commit?") — see "Then, in priority order", items
+> 2 and 3.
 
 **Written 2026-08-07** by the `bugfix_208_owned_page_commit_before_guard` lane, at a clean
 stopping point. Everything below is committed. **Cold-start reading order:** this file, then
