@@ -5236,6 +5236,34 @@ has the full read, including why a bare "REFUTED" quote against it would be wron
 same function that then refuses (this poisons any storm-watch that counts it as retry
 evidence; see `WRONG_CALLS.md` 2026-08-07).
 
+### A validator that scans the WHOLE artefact for prose patterns convicts the code embedded in it — and the checker's own history is the tell
+
+**Symptom.** A generated artefact with inline `<script>` fails validation on a
+"placeholder text" (or any prose-shaped) blocker, but the quoted match is plainly
+code: `input[name=`, `fields[name]`, `([name, val]) =>`. The producing item ends
+`complete` with nothing saved (see `bugs_open/218` for why the failure path discards).
+
+**Diagnose.** Read the blocker row's `context.issues[].location` in `agent_error_log`
+— if the snippet is script, the conviction is the scanner's scope, not the content:
+`SELECT occurred_at, domain, i->>'value', left(i->>'location',100) FROM agent_error_log,
+jsonb_array_elements(context->'issues') i WHERE step_name='validate_content' AND
+i->>'type'='placeholder_text' ORDER BY occurred_at DESC;`
+Then check the pattern list for a comment recording a previous same-class removal —
+`validate_page_content.go` had already dropped bare `placeholder` for firing on HTML
+attributes. **A checker that has once convicted markup will later convict script; the
+first exemption is the class's announcement, not its resolution.**
+
+**Root cause.** Prose patterns substring-matched against the full HTML including
+`<script>`/`<style>` bodies; every hit a blocker. Sibling of the toolgolden ratio-tool
+false conviction (2026-08-05): a checker whose question is unanswerable for a class of
+correct inputs reads as that class being broken.
+
+**Fix** (committed `201350e23`, council `a9ffed15`): scope the placeholder scan to
+prose by stripping script/style bodies first; leave every other check on the full HTML.
+Pin with the convicted snippets verbatim AND guard-survival cases (real `[Name]` prose
+must still block), then mutate the fix off and watch the new tests fail — a quiet test
+passes when the rule is gone.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
@@ -5399,6 +5427,7 @@ See `/bugs_closed/README.md`.
 | 181 | **The code-lookup's three row caps were silent while a sibling cap eight lines away reported itself.** `diagnose_code_lookup_action.go` `answerCodeCheck` — the `symbol`, `content` and `ls` arms each bound `LIMIT row_cap` (default **40**) with **no `n == rowCap` branch anywhere in the file**, so a 40-of-305 answer rendered byte-identically to a complete 40-row one — while the same function's `max_checks` cap printed `> N further code_check(s) dropped … coverage was capped, not complete` at `:410`. `ls` is the worst arm (`ORDER BY path` ⇒ the loss is an alphabetical tail). **Fourth member of the silent-cap family** (`bd003f67a` → `164` → `172` → this), found by the inventory the council's `bug_historian` seat demanded when approving `172` — each earlier pass narrowed to the shape it happened to grep for | **FIXED AND LIVE on `v1.0.1259`, but the file is KEPT IN `bugs_open/` BY OWNER DIRECTION (2026-08-06) — this thread moved it to `bugs_closed/` and he moved it back, so do NOT re-close it on the evidence below. LIVE, pod-verified BOTH replicas with a positive AND negative control, and INDUCED IN PRODUCTION both directions in ONE run** (orch `f370cfe4`: over-cap `ls platform/orchestration/actions/` → 40 rows **+ the notice**; under-cap control in the same payload → 1 row, **no notice**). **The filing's `[UNMEASURED]` is RESOLVED and it HAD FIRED:** the right corpus was `llm_call_log.prompt_rendered` (`results_text` travels into the next LLM prompt), **not** retained bundles where the filer correctly found 0 rendered blocks — 233 blocks across 39 prompts, **FIVE at exactly 40 rows, all `landmine-verifier`**, the agent that judges whether landmines still apply; true match counts 82 / 43 / **305** / 279, i.e. up to an **87% alphabetical-tail loss read as complete**. Fix makes the cap **OBSERVED, never inferred**: bind `probeLimit(rowCap)` = `LIMIT rowCap+1`, render `rowCap`, the extra row's arrival IS the fact — `formatRowsText` (`diagnose_load_runtime_action.go:647`) already did exactly this, so the convention was in-family. Inference from `n == rowCap` was REJECTED: it false-positives on every genuinely-complete at-cap answer, which is this defect inverted. Symbol arm's notice lives in `renderSymbolRows`, the single writer whose own doc comment reserved the spot, so the 163 ELSEWHERE fallback is covered structurally. Council `f22f7ff1` **APPROVED r1**, 12/12 voted, 0 unreadable. Mutation-tested both ways (reverting the probe bind fails the at-cap test on the bind args; `n >= rowCap` inference fails all three equality-form negative controls). ⚠ **A fourth consumer the ticket never named** — `diagnose_load_runtime_action.go:483`'s `code_requests` lane (`code_row_cap`) shares `answerCodeCheck` and inherited the fix unedited. **TWO FOLLOW-UPS LEFT OPEN and named in the file:** re-examine the five capped `landmine-verifier` renders for verdicts that rested on one, and the **codebase-wide silent-cap inventory** the same seat asked for so a fifth is found by audit not rediscovery |
 | 211 | ai-agent-orchestration.com serves a stylesheet **missing the renderer's step-11 compatibility-alias block** — 4 of 4 other sampled sites have it, and the file ends exactly at step 10's output. So `--hero-ink` is undefined → `--section-heading: var(--hero-ink)` is **guaranteed-invalid** → `h1..h6 { color: var(--section-heading, var(--color-primary)) }` falls back to `--color-primary`, which is **byte-identical to `--color-surface`**. Six `.H3` at **1.00:1**, painted in their own ground; 30 failures, the worst on the fleet | **OPEN, filed 2026-08-06** (`bugfix_122_contrast_ink_slots` lane). Mechanism MEASURED; **cause UNMEASURED and marked so** — why the block is absent is not established (staleness ruled out: `buildTokenAliases` landed 2026-07-06, pages deployed 2026-08-06). Two `090` runs (`5853ee07`, `750e162e`) both **UNVERIFIABLE / iteration-cap**; the first was unanswerable because the symptom named `--color-heading`, which the site defines **zero** times |
 | 212 | **47 of 173** active unforked `content_components` redefine the `--section-*` tokens the renderer emits under its own contract *"Themes MUST NOT declare --section-* defaults; the renderer owns this"* — **32 with a raw rgb/rgba literal**. The component's scoped selector beats the renderer's `body` block, so the contrast-checked value loses to a constant. ~24 of the fleet's 109 contrast failures (gamesdesign 8 at 1.72:1, idea.uk 14, vonc 2) | **OPEN, filed 2026-08-06**. Deliberately NOT folded into 122's approved fix — an unenforced contract, not a missing variable. **Carries a decision that wants a human:** of four candidates the only class fix (raise the renderer block's specificity) is also the only one that can repaint a component that was RIGHT to override. No `090` run yet |
+| 218 | `checkPlaceholderPatterns` substring-matches prose placeholder patterns against the WHOLE artefact HTML — `<script>` included — so `[name` convicts `input[name=`, `fields[name]`, `([name, val])`; every hit a blocker. 3 convictions / 2 domains on 2026-08-05; on mortgagecalculator both killed tool recreations whose items read `complete` with 0 components (defect B: `validate_tool`'s live `error_step` sits inside `config` where `processor.go:433` never reads it, so the failure path discards the paid-for recreation) | **Defect A FIXED, committed `201350e23` (council `a9ffed15`), INERT until a post-`201350e23` roll.** Defect B open — needs a decision (restore seed's step-level routing vs make discard-runs unable to complete). §9 pattern: "a validator that scans the whole artefact for prose convicts the code in it" |
 
 > **Index gap (noted 2026-07-19; partly closed 2026-07-20; re-measured 2026-07-26;
 > RE-MEASURED 2026-08-03).** This table is **materially behind** and a miss here is a
