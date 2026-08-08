@@ -930,3 +930,19 @@ on this path until someone looks.
 > from live definitions: page-build-handler, content-reviewer,
 > tool-recreation-handler, report-builder. bug_historian's gating point (failed
 > validation → silent complete, no escalation) = 218 defect B, related to 034/040.
+
+### 2026-08-08 later still — round 2 also REVISE; round 3 in; defect B routed
+
+Round 2 objections were about the PLAN RECORD, not the code (unchanged since
+`f51ac6af8`): (a) my "verification edit" was mislabelled config_change AND stepped
+into two documented landmines — label-selector pod coverage and grep -c printing
+nothing on zero — both now fixed in 218's verify block; (b) "no evidence the other
+three consumers don't rely on attribute/code-context detection" — answered by
+MEASUREMENT: all-history census = 46 convictions, 43 prose (preserved), 3 = the JS
+false positives, zero attribute/code true positives ever; (c) bug_historian gated
+again on "filed ≠ routed" for defect B — answered by routing it: 090 intake
+`315f7f88`, dispatch-loop run `c56b691d`. First 090 attempt FAILED with invalid
+JSON — escaped double-quotes in the symptom text reach the script's dollar-quoted
+JSON as literal backslashes; write symptoms with NO quote characters (this cost one
+correlation id, `741bf434`, which has no row). Round 3 submitted under the same
+trail; verdict unread.

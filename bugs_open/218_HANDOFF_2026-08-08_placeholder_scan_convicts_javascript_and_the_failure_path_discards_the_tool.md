@@ -56,7 +56,15 @@ markup-shaped and parses away, so it keeps scanning the raw document (a test
 pins this — moving it would have made the pattern silently inert). Every other
 check still reads full HTML. Tests carry the three convicted snippets plus
 guard-survival cases; a mutation run (scan raw HTML) fails the ignore-tests.
-Round-2 council verdict pending under the same correlation.
+**Council trail (all under `a9ffed15`):** round 1 REVISE (reuse, answered by the
+code above) · round 2 REVISE (plan-record issues only, code unchanged: the
+verification recipe was mislabelled as an edit AND stepped into two documented
+landmines; consumer reliance asserted, not measured; defect B "filed" ≠ routed)
+· round 3 submitted 2026-08-08 answering all three — **read round 3's verdict.**
+The consumer-reliance question is now MEASURED: the check's entire recorded
+history is 46 convictions (2026-07-15→08-07); 43 are visible-prose contexts the
+new scope preserves, the only 3 non-prose ones are the JS false positives fixed
+here — zero attribute- or code-context true positives ever, for any consumer.
 
 **All four live consumers inherit the change** (from live definitions):
 `page-build-handler/validate_content`, `content-reviewer/validate_content`,
@@ -64,14 +72,31 @@ Round-2 council verdict pending under the same correlation.
 Stated narrowing: placeholders living only in attributes, code samples or
 script-emitted strings are no longer caught by this check.
 
-**Verify live:** after a post-`f51ac6af8` roll, on EVERY replica:
-`strings /app/agent-chassis | grep -c stripScriptAndStyle` must be **0** (the
-removed symbol is the negative control proving the image post-dates round 2),
-then a re-run of the two dead recreations saves components
+**Verify live** after a post-`f51ac6af8` roll — two landmines are baked into the
+commands (the council caught them in an earlier draft of this recipe): enumerate
+the pods, never trust a label selector (one image serves many services); and
+`grep -c` prints NOTHING and exits 1 on a zero count, so defuse it:
+
+```bash
+for p in $(kubectl get pods -n ai-persona-system -o name | grep agent-chassis); do
+  echo -n "$p  strip="; kubectl exec -n ai-persona-system ${p#pod/} -- sh -c \
+    'strings /app/agent-chassis | grep -c stripScriptAndStyle || echo 0'
+done
+# required: strip=0 on EVERY replica (round 2 REMOVED the symbol — a 1 means the
+# image carries round 1 only). Positive control that the binary is readable:
+# grep -c ExtractAssertionText || echo 0 must be non-zero.
+```
+
+Then a re-run of the two dead recreations saves components
 (`SELECT count(*) FROM page_components pc JOIN pages p ON p.id=pc.page_id WHERE
 p.name IN ('tool-overpayment','game-fact-finder')` goes 0 → >0).
 
 ## Defect B — `validate_tool`'s failure routing is dead config, so a failed validation discards the recreation and completes the item
+
+> **ROUTED 2026-08-08, not just filed** (the council's gating seat was right that
+> a prose filing rots): 090 intake `315f7f88-ca07-4ab0-b3de-0ecd11b0edee`,
+> claimed by `diagnose-dispatch-loop` as run `c56b691d-43c3-4ad2-ab48-f043689100ea`.
+> Read that run's verdict before starting independent work here.
 
 The seed (`docs/agent_docs/sql_for_agents/099_tool_recreation_handler.sql:153`)
 puts `"error_step": "save_sections"` at STEP level on `validate_tool` — the

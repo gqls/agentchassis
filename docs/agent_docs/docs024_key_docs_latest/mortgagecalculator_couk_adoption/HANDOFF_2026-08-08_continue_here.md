@@ -41,9 +41,15 @@ live, queue drained — re-verified 08-07 and unchanged.
    replica of an image that post-dates `f51ac6af8` (a 1 means the image carries
    round 1 only). Until then, re-running the two convicted recreations just
    re-convicts them.
-2. **Read the ROUND-2 council verdict for `a9ffed15`** (query in §1; round 1 was
-   REVISE, answered same day). APPROVED → nothing to do (098 credits the commits).
-   REVISE/REJECTED → act immediately; the code is live on the shared branch.
+2. **Read the ROUND-3 council verdict for `a9ffed15`** (query in §1). Rounds 1–2
+   were REVISE, both answered same day: r1 = reuse ExtractAssertionText (code
+   changed); r2 = plan-record only (verification edit mislabelled + two landmines,
+   consumer reliance now MEASURED — 46-conviction census in bugs_open/218, zero
+   attribute/code-context true positives ever; defect B ROUTED as 090 intake
+   `315f7f88`, run `c56b691d`). Code is unchanged since `f51ac6af8`. APPROVED →
+   nothing to do (098 credits the commits). REVISE/REJECTED → act immediately.
+   Also check the defect-B diagnosis verdict (run `c56b691d`) — its outcome may
+   change step 3's expectations for what a failed validation does.
 3. **Re-run the three recreations** (§10c unlock + backstop pattern — kill the
    backstop the moment the batch completes, §10g). Their `needs_tool_recreation`
    items are terminal-`complete`, so file fresh items (same spec shape — copy from
