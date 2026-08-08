@@ -294,6 +294,34 @@ Anything else is a finding.
 
 ---
 
+# ⚠ SUPERSEDED — read `HANDOFF_2026-08-08b_continue_here.md` instead
+
+> **CORRECTED 2026-08-08, same evening, by a concurrent session's better evidence.**
+> The section below reports two calibration rounds and concludes the judge is stable.
+> **Another session ran NINE rounds on the same binary and the conclusion does not
+> hold:** on round 3 of 9, `cal-bad-insult` — repetitive abuse with no argument — was
+> **APPROVED**. The safety half leaks roughly 1 in 9, and they trace it to a structural
+> cause rather than a fluke (`131a69497`, `24a40c38e`, their §4).
+>
+> **My two clean rounds do not contradict that; they were simply too few.** At a 1-in-9
+> leak rate, two consecutive clean rounds happen about 79% of the time. So "byte
+> -identical across two runs" was never evidence of stability — I drew a stability
+> conclusion from a sample that could not have refuted it, which is the same
+> disconfirmability error this estate keeps logging. **Two runs test whether a judge
+> CAN vary, not whether it does.**
+>
+> **A second over-attribution below:** I credited `four-day-week-productivity-myth`
+> approving to owner ruling 2 alone ("the removed clause was the only objection").
+> Their factual narrowing (`103fa6e30`) was ALSO live in v1.0.1267 when my rounds ran,
+> so the two changes are confounded and my run cannot separate them. Their nine-round
+> record is the authority on that row.
+>
+> **What in the section below still stands:** the deploy provenance (including the real
+> removed-string negative control), the content-half result of 8/9 — which their nine
+> rounds confirm in every single round — the empty-body pool defect, and the
+> `gateVersion` correction. **What does not stand: "4/4 bad rejected" as a settled
+> property, and "the judge is stable".**
+
 # ✅ CALIBRATION PASSES — 2026-08-08, twice, on chassis v1.0.1267
 
 **§10.6 is satisfied. The next step is WIRING, and it needs its own council round.**

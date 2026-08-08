@@ -1683,3 +1683,31 @@ for `generate_provocations` once wired.
 **NEXT = WIRING, and it needs its OWN council round** — the `architecture` seat said
 the 08-05 approval covers the unwired code and that "the WIRING submission is the one
 to re-check against the trigger test".
+
+> **CORRECTED 2026-08-08, within the hour, by a concurrent session's nine rounds.**
+> The entry above concludes from TWO byte-identical rounds that "the judge is stable
+> on this corpus". **It is not.** Round 3 of their nine approved `cal-bad-insult` —
+> repetitive abuse, no argument — so the safety half leaks about 1 in 9
+> (`131a69497`, `24a40c38e`; their `HANDOFF_2026-08-08b_continue_here.md` §4 has the
+> structural cause).
+>
+> **My two rounds do not contradict theirs — they were under-powered.** At a 1-in-9
+> leak rate, two consecutive clean rounds occur ~79% of the time. So my result was
+> the *expected* observation whether the judge was stable or not, and a check that
+> comes out the same either way is not evidence. I wrote "a single run of an LLM
+> judge is one sample" and then treated two as sufficient; the number that mattered
+> was never 1 vs 2, it was **how many rounds it takes to see a rare failure**, which
+> I never asked.
+>
+> **The transferable check:** before claiming stability, state the failure rate the
+> sample could have detected. Two rounds can refute "fails most of the time"; only a
+> double-figure count can speak to "fails one in ten". Same shape as the
+> `[MEASURED]`-but-undisconfirmable entries in `WRONG_CALLS.md`.
+>
+> Also over-attributed: I credited `four-day-week` approving to owner ruling 2 alone.
+> Their factual narrowing `103fa6e30` was live in the same binary, so the two are
+> confounded in my run and their nine-round record is the authority.
+>
+> **Standing from my entry:** deploy provenance with the real removed-string control,
+> the 8/9 content result (which their nine rounds confirm every round), the empty-body
+> pool defect, and the `gateVersion` bump.
