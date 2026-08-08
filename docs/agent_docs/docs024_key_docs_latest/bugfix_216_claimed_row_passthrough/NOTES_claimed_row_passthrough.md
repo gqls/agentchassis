@@ -45,3 +45,23 @@
   coordinator.go 17+/18-, state.go 5+/3- (comment truth-up: GetAwaitedRequest's doc
   cited the re-read this fix removes), + the new test file. Verified the two files
   carry no other session's edits before committing (same-file passenger check).
+
+## 2026-08-08 (later) — submitted, committed, tag raced away from under me (fine)
+
+- Council submitted: `SUBMISSION_CORR = fcf8794c-92df-4c8e-9677-5ca284a20cce`
+  (`SUBMISSION_2026-08-08_council_216.json` in this dir). Run picked up fast — at
+  `review_guardian` within minutes of publish, no 29-minute queue this time.
+- Committed `22899b809` (fix + tests + bug-file update + lane docs, pathspec,
+  `Council-Submitted:` trailer), then `9036d19d0` (ratchet line). HEAD re-verified from
+  a clean `git archive`: `go build ./...` + orchestration tests green at HEAD, not just
+  in the (other-sessions'-WIP-bearing) working tree.
+- **IMAGE_TAG moved v1.0.1264 → v1.0.1265 (uncommitted) between two reads minutes
+  apart** — another session is preparing the next build. Deliberately did NOT bump
+  again: the deploy procedure is the owner's whole-fleet
+  `make release redeploy-agents` (owner, 2026-08-03), and any roll at v1.0.1265 built
+  from post-`22899b809` HEAD ships this fix. Verification (markers in the RUNBOOK)
+  is owed at whichever roll lands next, against the running pods, per replica.
+- Bug-file sharpening recorded in `bugs_open/216` as a visible correction: the
+  same-pod `[INFERRED]` survival caveat is refuted (fresh `GetState` at
+  coordinator.go:261 + `json:"-"` ⇒ the fallback was payload-less on every
+  response-driven recoverable).
