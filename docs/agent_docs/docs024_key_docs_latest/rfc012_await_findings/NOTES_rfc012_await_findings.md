@@ -398,3 +398,121 @@ approved verdict.
 `Council-Submitted:` trailer on `40992cbce`, a **docs-only** commit. The gate refuses docs
 client-side, so the trailer is meaningless there. It asserts nothing so it cannot be a false
 claim, but it is noise in 098's join and I should not have copied it across.
+
+## 2026-08-08 (later) — round 3a APPROVED, and the reuse objection I had not looked at was a real defect
+
+**Round 3a: APPROVED**, corr `5c2bc265-84ac-452b-bd8b-22fd7b875427`, verdict 15:25:32Z,
+`decided_by: "approved with 5 advisory objection(s) — none high-severity"`. Thirteen seats
+fired, 2 abstained. The split worked and the file list worked: `editquality` says the
+plan "correctly answers the prior veto's request" and notes "Scope corrected: unrelated
+detector split out". Nothing was rewritten to earn this — the code is identical to the
+rejected round. What changed was showing the whole scope and removing the second bug.
+
+**Round 3b submitted** as its own correlation `7b6497d7-8147-4b15-aee4-fa6e361827f2`
+(FORCE=1 — every file is under `cmd/`/`scripts/`, and the 2026-07-17 scope rule exists to
+stop *docs* spending credits, so I overrode it and said why in the rationale rather than
+letting a path filter written for prose decide). Its edits array covers **all five files
+of the change exactly** — `diff` of the commits' file set against the array is empty — so
+the round-2 veto is structurally unavailable to it.
+
+### The correction that matters: my file-count arithmetic, and the split's effect on it
+
+The handoff told me to put "the full 27-non-test-file list" in 3a. **That figure was for the
+THREE-commit set, and splitting the round splits it.** Measured, not transcribed: 3a is
+`5f49b4cfd` + `f930de86b` = 29 files / 23 non-test; 3b is `abf5e8266` + `867037f5a` = 5 / 4.
+The sets are disjoint (`comm -12` empty), so 23 + 4 = 27 and 29 + 5 = 34. I stated that
+arithmetic in the submission explicitly, because handing the guardian a *shorter* list than
+its `missing` field asked for, with no explanation, would have read as a dodge.
+
+Both headline figures were also re-measured at the pre-B base `3e92c6a7a` rather than
+carried forward from my own prose, and both reproduce: **19 INSERT sites across 18 files,
+9 missing `orchestration_id`** — counted per SITE, because `validate_page_content.go` holds
+two and a per-file count gives 18/8.
+
+### MISSTEP 11 — the reuse objection was right, and "I did not look" was the whole defect
+
+The round-2 handoff recorded `reuse_agent`'s point as an open question: had
+`sharedoutputs.go`'s routing-graph walk been checked against `relaygaps.go` in the same
+package? It had not. I looked, and it was not a style point.
+
+`relaygaps.go:207` walks through `validation.WalkSteps` **on purpose**, and says why in its
+own comment: "bugs_open/144's rule that a second hand-written descent goes blind in its own
+direction". `sharedoutputs.go` had written exactly such a descent, with a stated
+justification — "the walker does not expose containment" — **which is false**. `WalkSteps`
+hands over a qualified path; the container is its third-from-last segment; `containerOf` is
+four lines.
+
+And it *had* gone blind, in the direction 144 predicts. A loop's body is declared as either
+`substeps` or `sub_workflow`, and **`substeps` wins at execution** (`loop_actions.go:91`,
+precedence mirrored by `validation.subWorkflowsOf`). The private descent read `sub_workflow`
+only. Two consequences, and the second is worse than the first:
+
+1. a `substeps` body is invisible → **0 findings**, indistinguishable from clean;
+2. on a step carrying **both**, it walked the `sub_workflow` half — **reporting a hazard in
+   config the executor ignores.** A reader chasing that finding would not find the behaviour.
+
+**Fixed in `867037f5a`.** Three measurements, because "0 findings" is what this bug class
+produces for free:
+
+- **the gap was inert:** `$.** ? (@.substeps != null)` over live definitions → **0** at any
+  depth. Widened to every row regardless of state → exactly 2, both *soft-deleted*
+  `multipage-website-builder` rows. So the shape has been used here and retired, and no live
+  run could ever have shown the gap. **This is why the proof had to be tests.**
+- **the tests fail without the fix:** both new cases were written first and run red —
+  `SubstepsShapeIsSeenToo` returned 0 findings, `BothShapesResolveToTheExecutedOne` named
+  `inert_inner` by name. Green after.
+- **the fix is a proven no-op on today's fleet, not an assumed one** — which mattered
+  because **17 live agents do use `sub_workflow`**, so the container derivation and the
+  executor's nested decode had to be shown not to move them. One 1,097,081-byte export of
+  177 agents, both binaries (old from `git archive HEAD`, new from the tree),
+  **byte-identical reports**.
+
+Landmine filed with ten parseable footprints, and two things went wrong writing it that are
+worth knowing: `landmines-sync.py` splits footprints on **commas**, not the `·` the file's
+prose style uses, so my first append became one unsearchable blob (the hook could never have
+matched it); and the entry format is `###`, not `##` — a `##` heading is treated as a section
+divider and the sync warns. **Check the sync output for your own slug rather than assuming
+`applied:` covered it**, and verify the rows by querying `body`, not the heading text.
+
+### Three challenges from the 3a verdict, settled with measurements rather than left standing
+
+- **`debug_historian`: "`grep -c` prints NOTHING on a zero count", so the NEG half of the
+  pod-proof might be capturing an empty result. REFUTED, measured:** `grep -cF` prints `0`
+  and exits **1** — `stdout=[0] exit=1`. The printed number is trustworthy. **But the seat
+  was pointing at something real one step over:** the *exit code* is not, and with a NEG
+  grep last, `kubectl exec` returns "command terminated with exit code 1" on a **correct**
+  result. Any wrapper branching on exec status reads a pass as a failure. RUNBOOK now ends
+  the probe with `true`.
+- **`debug_historian`: "`-l app=agent-chassis` is 2 pods; 41 run that binary". CONFIRMED and
+  sharper than stated:** 42 pods run an agent-chassis image under **four** app labels
+  (`dynamic-agent` 38, `agent-chassis` 2, `business-intel` 1, `vet-intel` 1), of which **19
+  are Running** — the rest are completed job pods, and exec'ing one fails with "cannot exec
+  into a completed pod" rather than answering wrongly. So this lane's "both replicas" proof
+  covered 2 of 19. What licenses the generalisation is **tag uniformity**, a separate query,
+  now in the RUNBOOK. Re-proved 1/0/0 on **v1.0.1264** across two labels — and note the
+  fleet had rolled twice since the last proof (1262 → 1264) with nobody in this lane looking.
+- **`prior_art_librarian`: the import-cycle justification is asserted, never code-checked.
+  Fair, and it holds:** `platform/orchestration/coordinator.go:23` imports
+  `platform/orchestration/actions`, and `agenterrors` imports only stdlib + zap. The leaf
+  package is necessary, and now that is a check rather than a claim.
+
+### The objection FOUR seats raised independently, which I am recording rather than fixing
+
+`bug_historian` (medium), `guardian` (low), `architecture` (low) and my own risks block all
+name the same gap: `LogActionEntry`'s merge fills only zero fields, so a provenance you
+**deliberately omit** is safe but one you **forget** is filled silently from the running
+step — no error, no warning, and no test in the package would catch it, because they pin
+codes and messages, never `agent_type`. `bug_historian` classes it with `missingkey=zero`:
+the 18 known sites got the rigorous treatment while the shared mechanism stays exploitable
+for caller 19. The named remedy is a required-provenance variant. **This is a real open
+item, not a disagreement** — it is exactly the "make the bad state unrepresentable" move
+this estate prefers, and it is now written into the `agenterrors` provenance row so caller
+19 meets it before the trap does.
+
+`tooling_provenance` also asked for a travelling `doc_notes` row for `agenterrors` itself,
+not just for the audit tool. Both are filed (`subject_type='tool'`, keys
+`cmd/config-key-audit` and `platform/orchestration/agenterrors`, `created_by='rfc012-lane'`).
+
+`constitution` (low) objected to the rationale's tone — all-caps, combative — and noted the
+plain-tone rule covers plan rationale, not just generated content. That is fair; 3b is
+written plainly, which cost nothing.
