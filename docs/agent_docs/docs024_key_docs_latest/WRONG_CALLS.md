@@ -22872,3 +22872,34 @@ about it — `gh api repos/gqls/sites/contents/.github/workflows/deploy-to-b2.ym
 expected (a file that survives a revert) matched. **Two traps on the same file, with the same
 symptom and opposite causes, and the entry I reached for was the one I had already read.**
 Both are now in `LANDMINES.md`, and the new one says explicitly that it is not the old one.
+
+---
+
+## 2026-08-08 (same session, second entry) — I "prioritised" two work items to the BACK of the queue and read 45 minutes of starvation as queue congestion
+
+**The claim (acted on, twice):** "bumped the two needs_page rows to priority 95 to
+get ahead of the 14-item rerender wave (priority 80)". Later, when a 45-minute
+monitor window showed zero movement while priority-80 and priority-45 items were
+being claimed and completed, I diagnosed everything EXCEPT the bump: the post-roll
+spawn-drop window, an orphaned claim blocking the site selector, a stalled
+scheduler.
+
+**The truth:** `LoadWorkItemsAction` orders `wi.priority ASC, wi.created_at ASC`
+(`load_work_item_actions.go:683`) — LOWER number dispatches FIRST on this
+platform. 95 put the items behind everything; the arriving stream of 45/60/80
+items starved them indefinitely. Setting priority=10 dispatched them within a
+cycle.
+
+**What I ignored:** the disconfirming observation was already in my transcript —
+`audit_tool` at priority 140 sat unclaimed while priority-80 items processed. I
+even asked the question ("why did rerenders at 80 go before audit_tool at 140?")
+and moved on without answering it. Worse, my belief came from my OWN display
+query, which I had written `ORDER BY priority DESC` — I sorted the output by my
+assumption and then read the sorted output as confirmation of it.
+
+**The cheap check that would have caught it at t=0:** grep the consumer's ORDER BY
+before writing to a scheduling column — one grep, and the file was already open in
+the session. General form: **a column's semantics live in its READER, not its
+name.** "priority" told me nothing about direction; only line 683 does. Same class
+as re-reading your own presentation as the system's behaviour (see
+`re-running-a-query-is-not-re-measuring` — this is the write-side twin).
