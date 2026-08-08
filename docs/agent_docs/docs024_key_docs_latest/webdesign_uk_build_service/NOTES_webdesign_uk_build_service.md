@@ -1489,3 +1489,77 @@ Monitor armed on: new webdesign.uk orchestrations, NEW `classification` spec
 **Still open in this window: re-enable both page rules the moment the
 classifier's scrape is past** (classification spec landing proves it). PATCH
 `{"status":"active"}` to both rule ids — same call shape as the disable.
+
+---
+
+## 2026-08-08 (3) — the item sat an hour untouched: the fleet dispatch queue is FIFO-starved and cron-less; bypassed with a site-scoped production loop
+
+After 62 min `needs_domain_research` was still `triaged`, attempt_count 0, no
+errors. Not a failure — **nothing had looked.** Chain of facts, each measured:
+- **No build heartbeat CronJob exists** (`kubectl get cronjobs` both namespaces:
+  cleanups + checks only). 076's own header calls itself "the manual equivalent
+  of the CronJob heartbeat that would normally fire every 30 minutes" — that
+  CronJob is aspiration, not deployment. Matches the standing memory
+  "detection works; SCHEDULE and DISPATCH do not".
+- Fired 076 manually (extracted from below the shebang as documented; heartbeat
+  CORR `40da3711…`). It ran fine — and picked **leopardessconsulting.co.uk**,
+  not us: `find_dispatchable_site` is **fleet-wide FIFO by item created_at,
+  LIMIT 1** — one site per heartbeat, oldest item first.
+- **306 dispatchable items sit ahead of ours** across 4 sites (61 leopardess —
+  oldest **2026-07-26**, 188 webdesign.co.uk, 18+39 loan-calc). A two-week-old
+  triaged item that FIFO always prefers and that is STILL triaged means the
+  queue effectively does not drain between rare manual heartbeats. [MEASURED
+  via the trigger's own query with `created_at < our item`; disconfirmable —
+  an empty result would have said "next heartbeat takes us".]
+- **Bypass, per the stalled-queue practice:** dispatched `build-dispatch-loop`
+  DIRECTLY, input_data `{site_id, domain}` (20:23:42Z, CORR `e8d21f21…`). This
+  is the production loop itself, self-loading items for OUR site only — claim /
+  spawn-by-`item.handler_agent` / call / mark_complete all platform-managed, so
+  no bookkeeping is bypassed, only the fleet-FIFO site selection. Item verified
+  fully formed first (handler_agent=domain-research-classifier, auto, 0/3, no
+  deps).
+
+---
+
+## 2026-08-08 (4) — CLASSIFICATION CLEAN AND PROVEN; the drive-loop pattern established; handoff superseded
+
+**The re-classification is everything the v1 one was not.** Landed 22:08:44Z
+(orch `18c96d16…`, corr `b3e472f1…`, COMPLETED): **brochure @ 0.97,
+page_count_estimate 5, has_existing_site=false, existing_site_quality=none.**
+Its own `detected_signals` cite: "No existing site (522 timeout — domain parked
+or unbuilt)" · "Five named pages in roadmap: index, how-it-works, what-you-get,
+faq, contact" · "No testimonials, no portfolio — new service" · "No backend or
+form required in phase one". The scraped_data in collected_data holds the CF 522
+error page — zero webdesign.co.uk text. content_direction regenerated
+mission-derived (its avoid-list is the mission's own: agency-speak, wireframe/
+colour-swatch clichés). identity/design_intent likewise 22:08:44-45.
+
+Timeline for the record: pods restarted 22:01:39/22:02:01 (v1.0.1269 — third
+roll today); classifier dispatched 22:06:17 — nominally 44s INSIDE the 300s
+window, and it was NOT dropped (row appeared 22:06:4x). One data point against
+the window's universality, not a licence to ignore it.
+
+**Bookkeeping done by hand (the loop's own steps, mirrored):** classifier item
+`01a167b4…` → complete (resolution_path says how). Next item filed by the
+classifier: `needs_vertical_research` → `vertical-exemplar-researcher`, claimed
++ dispatched 22:10:54Z (corr `f37d5cd6…`, orch `954f1ad9…` — crawl_exemplar_*
+steps running at write time).
+
+**302s restored 22:07:52Z** and verified all three hostnames (apex 302, www 302
+→ webdesign.co.uk, preview 200). Parked window total: 20:19–22:07 UTC.
+
+**The queue findings, sharpened by bugs_closed/169+176** (read before
+re-theorising): the FIFO-by-age order IS the 08-02 fix (284); the loader/selector
+predicate mismatch was 176. What remains TODAY: no CronJob fires the trigger, so
+the queue only moves when a session hand-fires 076, one site per firing — and
+`build-dispatch-loop` under bare `action=orchestrate` no-ops silently (4e26e881:
+loads 1 item, has_items=true, "Loop expansion handled — outer continueExecution
+exiting", CompleteWorkflowAction, item untouched, attempt_count 0). Via the
+trigger's spawn+call (`action: process`) the same loop processed leopardess's
+item fine tonight (67fe4fae → item `2a0e1bdc…` complete 21:14:46). NOT filed as
+a bug yet — next session: fold into a `090` run rather than asserting a
+mechanism (CLAUDE.md 07-31 ruling).
+
+**Cold-start moved to `HANDOFF_2026-08-08_continue_here.md`** — the drive-loop
+recipe (claim → orchestrate handler → verify by payload → complete → next) is
+its §1. Check `f37d5cd6…`'s outcome FIRST on resume.

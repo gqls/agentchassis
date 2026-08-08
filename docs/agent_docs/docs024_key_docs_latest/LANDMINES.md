@@ -6116,7 +6116,9 @@ WHERE site_id = (SELECT id FROM sites WHERE domain = 'finetuning.uk') AND status
 
 - **footprint:** `platform/orchestration/actions/log_action_error.go` · `LogActionError` · `LogActionEntry` · `LogActionEntryInheritingProvenance` · `LogActionFindings` · `LogActionEntryFindings` · `platform/orchestration/agenterrors` · `agent_error_log`
 - **added:** 2026-08-07 (RFC_012 option B, commits `5f49b4cfd` + `f930de86b`)
-- ⚠ **FIXED AT SOURCE 2026-08-08 — AND THE TRAP STILL STANDS UNTIL THE NEXT FLEET ROLL.** Go changes are inert until an image is rebuilt and rolled, so every pod running today still performs the silent merge. Read the whole entry as LIVE, and read the new-API paragraph at the bottom before writing a call site. Verify with a pod-grep for `LogActionEntryInheritingProvenance` on every replica, never with `git log`.
+- ✅ **FIXED AND NOW LIVE — v1.0.1268, pod-proven on BOTH chassis replicas 2026-08-08 evening.** The silent merge is gone from the fleet; **read the new-API paragraph at the bottom, not the pre-roll one above it.** Both commits are in the binary, checked with a discriminating set on `-jvfmc` and `-dwsdl` independently: control `Failed to write to agent_error_log` = 1 (proves the pipeline), `recorded as unattributed rather than credited to the running step` = 1 (the split), `names an agent_type but no step_name` = 1 (the step_name symmetry — this one separates the second commit from the first), `provenance_running_agent_type` = 1, and a needle present in no version = 0 (proves the grep can still return zero).
+  - ⚠ **DO NOT verify this with an ANCHORED needle.** `strings /app/agent-chassis | grep -c "^unattributed$"` returns **0 on a binary that carries it** — the Go linker packs string constants into contiguous blobs, so `strings` emits dozens of them concatenated on one line and `^…$` can never match a constant. My own check returned that 0 and it is a needle artefact, not evidence. Use a **distinctive full phrase** from a log message or a context key; those are long enough to be unique without anchoring. General class filed separately below.
+  - ⚠ **the `landmine-verifier` verdict on this entry is `NEEDS_HUMAN_REVIEW`, and it is a FALSE alarm — dispositioned here so nobody re-opens it.** It reported `LogActionEntryInheritingProvenance` returning 0 hits and correctly said it could not tell "never merged, removed, or stale". It is stale: the code index it reads is pinned at `93c576963` (08-07 09:31), which `git merge-base --is-ancestor` confirms is an **ancestor of the commit that created the symbol**, so the symbol could not possibly be in it. `git grep` finds it at HEAD and both pods carry the enclosing code. **The general lesson, because it will recur for every lane:** a landmine describing a NEW symbol is *guaranteed* to come back `NEEDS_HUMAN_REVIEW` when filed the same day, so that verdict on a fresh entry carries no information — settle it with `git grep` at HEAD plus a pod-grep, and write the disposition into the entry as here.
 
 **The trap.** `LogActionError(ctx, params, siteID, domain, action, code, severity, msg, ctxPayload, logger)` resolves `agent_type` and `step_name` from `ActionParams` — i.e. **from whatever step is executing**. Several recorders in this package deliberately file under a DIFFERENT provenance: `component_link_repair` and `validate_page_content`'s link recorder file under the **origin of the content they repaired**; `store_generated_component` files as `component-creator`/`store_component`; `discovery_checks` and both envelope guards use their own helpers. Reach for the obvious helper at one of those sites and the row is silently misattributed — it names the wrong agent and the wrong step, so the next investigation opens the wrong file. `component_write_guard.go:276-279` states the cost: *"a row in agent_error_log that misattributes the writer is worse than no row."*
 
@@ -6154,6 +6156,17 @@ Two more in the same family, both cheap to get wrong:
 > ```
 > The general class — *a `strings | grep -c` counts distinct SPELLINGS, never SITES* — is its own
 > entry at the end of this file. See `WRONG_CALLS.md` 2026-08-07.
+>
+> **AND A SECOND WAY THE SAME COMMAND LIES, found 2026-08-08 verifying the provenance fix:
+> an ANCHORED needle can never match a Go string constant.** `strings /app/agent-chassis | grep -c
+> "^unattributed$"` returns **0 on a binary that contains it**, because the linker packs constants
+> into contiguous blobs — `strings` emits them concatenated dozens-to-a-line, so `^…$` has nothing
+> to anchor to. Confirmed in place: unanchored, the same binary returns 4, and the surrounding line
+> reads `…conditions_recordededitorial_referrerscomponents_examined…`. So: **needle on a
+> distinctive full PHRASE** from a log message or a context key (long enough to be unique without
+> anchoring), never on a short bare constant, and never with `^`/`$`. A 0 from an anchored needle is
+> not a negative control — it is a broken instrument, and it fails in the direction that reads as
+> "the fix did not ship".
 
 ---
 
@@ -7014,3 +7027,48 @@ mid-write can leave the tree uncompilable for seconds, and the honest test is
 - **the tell:** the scrape returns `statusCode: 200` and coherent content while `curl` against the same URL shows something else entirely (a 522, a redirect, new content). Measured 2026-08-08 on `https://webdesign.uk`: edge PROVEN parked (curl 522), yet a default scrape returned the pre-parking redirect target (`webdesign.co.uk`, full markdown) with `metadata.cacheState: "hit"` and a `cachedAt` matching the earlier probe — the probe run to MEASURE the contamination is what wrote the cache entry the pipeline would then have read.
 - **the check:** read `metadata.cacheState`/`cachedAt` in every scrape you treat as evidence — `"hit"` means you are reading the past. To measure current state, send `maxAge: 0` explicitly (step config: `"scrape_config": {"max_age": 0}`). Before dispatching a pipeline whose decision anchors on a scrape (the classifier anchors the ENTIRE build), confirm its step config carries `max_age: 0` or accept that it may read a snapshot up to the default TTL old — and remember your own probes populate the same cache the pipeline reads.
 - **source:** 2026-08-08, webdesign_uk_build_service lane (rebuild resubmission); WRONG_CALLS.md same date.
+
+### `build-dispatch-loop` invoked with bare `action=orchestrate` reports COMPLETED and processes NOTHING — the supported invocation is the trigger's spawn+call
+
+- **footprint:** `build-dispatch-loop` (agent_definitions), `platform/orchestration/coordinator.go` (`ErrLoopExpansionHandled`), any hand-rolled kcat dispatch of a loop-bearing agent
+- **fires when:** you bypass a stalled build queue by orchestrating `build-dispatch-loop` directly (the obvious move — the same envelope shape works for every linear agent). The run loads the site's items (`pending.has_items: true`), logs "Loop expansion handled — outer continueExecution exiting", then the workflow completes: status COMPLETED, current_step complete, no error — and the items are untouched, `status='triaged'`, `attempt_count` 0. Nothing failed, nothing was claimed, nothing was dispatched.
+- **the tell:** COMPLETED with `pending.items` populated but NO `claim_result`/`handler_spawned`/`item_completed` keys in `collected_data`. Compare a trigger-driven run (spawn_agent + call_agent with `action: process`): it carries `claim_result` and its item reaches `complete`. Measured 2026-08-08: direct orch `4e26e881…` no-opped on webdesign.uk's item; trigger-driven `67fe4fae…` processed leopardess's item the same evening.
+- **the check:** after ANY dispatch-loop invocation, read the ITEM rows, not the orchestration status — `SELECT status, attempt_count FROM site_work_items WHERE id='<item>';` still-`triaged` after a COMPLETED loop run means the run was a no-op. To hand-drive a starved queue, skip the loop entirely: claim the item yourself, orchestrate its `handler_agent` directly with the loop's `input_mapping` shape (worked recipe: webdesign_uk_build_service/HANDOFF_2026-08-08 §1), and mark it complete on verified output.
+- **source:** 2026-08-08, webdesign_uk_build_service lane; NOTES 08-08 §3–4. Mechanism NOT yet diagnosed (090 candidate) — this entry records the behaviour, not the cause.
+
+---
+
+### `revalidate_review_queue` cannot be scoped by a dispatch — `site_id` and `item_type` come from STEP CONFIG, and a filter in `input_data` is silently ignored
+**footprint** `platform/orchestration/actions/revalidate_review_queue_action.go` · `agent_definitions` type `diagnosis-review-queue-revalidator` · `scheduled_tasks.review-queue-revalidate-daily` · `revalidation_result`
+
+Both filters are read from the step config and nowhere else:
+
+```go
+config := params.StepConfig.Config              // :266
+siteFilter, _ := config["site_id"].(string)     // :275
+typeFilter, _ := config["item_type"].(string)   // :276
+```
+
+The live `sweep` step has **no `input_mapping`** and its entire config is
+`{"dry_run": false, "max_items": 1500}`. **So a hand-dispatch carrying
+`{"site_id":…,"item_type":…}` in `input_data` runs FLEET-WIDE over every covered type, and looks
+exactly like a scoped run** — gate 2 stamps `result.revalidation` on every row it scans and does not
+close (~150 rows today), and a run that closes 1 row is indistinguishable from a filter that worked.
+
+This has already produced a false record: the 2026-08-06 hand-dispatch was written up as
+*"**Scoped deliberately**, not fleet-wide"* and was not scoped. **The same file had documented the
+trap two entries earlier** — which is the real lesson: *documenting a trap creates a feeling of
+having handled it.*
+
+**the check:** before believing any dispatch of this action was scoped, read the step config, not
+your payload —
+```sql
+SELECT jsonb_pretty(s.value) FROM agent_definitions d, jsonb_each(d.default_config->'workflow'->'steps') s
+WHERE d.type='diagnosis-review-queue-revalidator' AND d.is_active
+  AND COALESCE(d.is_snapshot,false)=false AND d.deleted_at IS NULL AND s.key='sweep';
+```
+If you genuinely need a scoped run, the honest routes are to add `site_id`/`item_type` to the **step
+config** (config, live immediately, no build — but you are editing a shared definition every
+scheduled run then reads), or to add an `input_mapping` first. **Do not infer scope from what you
+published.** And confirm effect at `site_work_items.resolution_path='auto:revalidated'` and the
+run's `scanned` count, never at the payload you sent.

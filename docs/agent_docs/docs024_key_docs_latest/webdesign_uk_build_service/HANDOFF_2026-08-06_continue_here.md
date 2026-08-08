@@ -1,5 +1,10 @@
 # HANDOFF 2026-08-06 — webdesign.uk: infrastructure DONE and proven; the site itself is REJECTED and rebuilds under a roadmap
 
+> **SUPERSEDED 2026-08-08 by `HANDOFF_2026-08-08_continue_here.md`** — the
+> rebuild was resubmitted and re-classified CLEAN that evening; steps 1–4 of §3
+> below are discharged and the new handoff carries the drive-loop for the rest.
+> §1's state table remains accurate for box/tunnel/preview/token.
+
 **Start here cold. Supersedes `HANDOFF_2026-08-05_continue_here.md`** (kept for
 the trail; its §4a corrective plan is folded in here, updated). Read with:
 `PLAN_2026-08-04_webdesign_uk_vm_hosting.md` (architecture; §2a one-box ruling)
