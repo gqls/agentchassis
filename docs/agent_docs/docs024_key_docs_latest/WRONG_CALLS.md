@@ -22416,3 +22416,27 @@ before it reached any durable doc. Cost: one wrong sentence to the user.
 `jsonb-text-like-cannot-match-a-key-value-pair`): the failure mode is always
 "the tool succeeded and found nothing", and the remedy is always to induce a
 non-zero result before trusting a zero.
+
+## 2026-08-08 — I proved "the reaper has never reaped" with a column nothing can write (finetuning_uk_service lane)
+
+**The claim.** 2026-07-31, NOTES + memory + a chat report: "0 of 23 all-time
+`thunder_instances` rows have `reaped_at` set — the reaper has never once
+reaped", quoted since as the headline measurement of the reaper audit.
+
+**What was wrong with it.** `reaped_at` (and `reaped_reason`, and the `'reaped'`
+status in the CHECK constraint) has **no writer anywhere** — grep `reaped` over
+Go and platform: nothing. A fully successful reap ends at
+`status='decommissioned'` via the ordinary decommission path. So "0 of 23 have
+reaped_at" is true on a healthy system and a broken one alike — the figure could
+never have come out otherwise. The CONCLUSION happened to be right (the
+selector provably matched nothing, proven separately with synthetic rows), but
+the quoted evidence was decorative.
+
+**What caught it.** Designing the vendor-half drill on 08-08: asking "what does
+success look like?" forced reading what actually writes the columns before
+watching for them.
+
+**The cheap check that would have.** Before quoting a column as a success
+signal, **grep for its writer**. Same family as the 08-03 entries the preamble
+already names: dated-and-marked is not disconfirmable — a measurement is only
+evidence if some world produces a different number.
