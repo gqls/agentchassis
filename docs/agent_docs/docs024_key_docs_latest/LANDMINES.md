@@ -6540,17 +6540,30 @@ payload.
   fix is provably free and the gap was provably invisible.
 - **added:** 2026-08-08, rfc012_await_findings lane
 
-## A `_verification.status='error'` row is a COMPLETED item, not a caught one — the gate fails open, so "could not verify" and "verified" have the identical outcome
+## A `_verification.status='error'` row means the OPPOSITE side of 2026-08-08 — it was a COMPLETED item, it is now a BLOCKED one, and nothing in the row says which era it came from
 
 **footprint:** `site_work_items.result->'_verification'` · `platform/orchestration/actions/complete_work_item_verification.go` (`verifyBeforeComplete`) · `platform/orchestration/actions/discovery_checks/` (every `Verify*Resolved`, `RegisterVerifier`) · `check_empty_sections.go:412` · `check_truncated_component.go:272`
 
-Reading a `_verification` payload, `status='error'` looks like the gate having stopped
-something: the item is annotated, the failure is named, the record is honest. **The item
-completed anyway.** `verifyBeforeComplete` returns `(payload, true)` on the error path by
-documented design — only `Resolved:false` blocks a stamp. So an error row is
-indistinguishable *in effect* from a `verified` row; the difference is only in what the
-record says, and `bugs_closed/032` says so explicitly: *"Item flow is unchanged — the item
-completes either way."*
+> **⚠ CORRECTED 2026-08-08, hours after this entry was written, by the owner ruling on
+> `RFC_017` that the entry itself prompted. The behaviour it describes is now the OLD one.**
+> Fail-closed is the default from chassis `v1.0.126x` (the next roll): an error **blocks**
+> the completion and routes the item into the attempt machinery. **Both readings are
+> therefore live in the data at once** — rows written before the roll mean "completed", rows
+> after mean "blocked", and the `status` value is identical. This is the worst shape a fact
+> can change in, which is why the entry is corrected in place rather than deleted.
+> **Tell them apart by the payload's `fail_open` key** (added by the same change; absent on
+> every pre-roll row) **and by the item's own `status`** — an error row that is `complete`
+> is the old era, one that is `triaged`/`failed` is the new. Never infer the outcome from
+> `status='error'` alone, in either direction.
+
+**The original trap, which is still exactly why this matters.** Reading a `_verification`
+payload, `status='error'` looks like the gate having stopped something: the item is
+annotated, the failure is named, the record is honest. **Before the flip the item completed
+anyway.** `verifyBeforeComplete` returned `(payload, true)` on the error path by documented
+design — only `Resolved:false` blocked a stamp. So an error row was indistinguishable *in
+effect* from a `verified` row; the difference was only in what the record said, and
+`bugs_closed/032` says so explicitly: *"Item flow is unchanged — the item completes either
+way."* Every such row already in the table is one of those.
 
 **Why this fires without a symptom.** Two verifiers return an error on their ambiguous
 "target row is absent" case (`check_empty_sections.go:412`,
@@ -6561,12 +6574,16 @@ Measured 2026-08-08: those are the **only two verifier errors on the platform, e
 so `Resolved:false` was the honest verdict and the defect is still live on two production
 pages, stamped `complete` at `attempt_count` 0.
 
-**the check:** never read `status='error'` as "blocked". Ask the outcome column, and ask
-whether the page still wants the thing before believing a "legitimately removed" story:
+**the check:** never read `status='error'` as an outcome in EITHER direction — ask the item's
+own status, and ask whether the page still wants the thing before believing a "legitimately
+removed" story:
 
 ```sql
--- an error row that is 'complete' is a fail-open, not a catch
-SELECT id, status, attempt_count, result->'_verification'->>'status'
+-- pre-roll: an error row that is 'complete' is a fail-open, not a catch.
+-- post-roll: the same v_status BLOCKS, and fail_open says so on the row itself.
+SELECT id, status, attempt_count,
+       result->'_verification'->>'status'    AS v_status,
+       result->'_verification'->>'fail_open' AS fail_open  -- NULL on every pre-roll row
 FROM site_work_items WHERE result ? '_verification';
 -- then, for an "absent target" error, 032's disambiguator. sections is an array of BARE
 -- STRINGS (jsonb_object_keys errors on it) and is snake_case where slot_name is kebab:
@@ -6579,12 +6596,15 @@ measures how rarely verifiers run, not how reliably. And **`result` is OVERWRITT
 completion attempt** (the complete path and `failUnverifiedCompletion` both write it), so
 any count off this column is a floor, not a history — there is no history table.
 
-- **source:** `architecture_review/RFC_017` § "The missing number — MEASURED 2026-08-08",
-  measured by the `bugfix_201_page_content_writer_dispatch` lane; the fail-open policy is
-  `bugs_closed/032`'s accepted fix and RFC_017 (open, owner decision) is where changing it
-  is argued. `RUNBOOK_page_content_writer_dispatch.md` R8 has the census plus the three
-  ways it lies to you.
-- **added:** 2026-08-08, bugfix_201_page_content_writer_dispatch lane
+- **source:** `architecture_review/RFC_017` § "The missing number — MEASURED 2026-08-08" and
+  its ✅ DECIDED banner (owner ruling the same day, taken on that measurement); register
+  entry `WII-011`; the old fail-open policy is `bugs_closed/032`'s accepted fix.
+  `RUNBOOK_page_content_writer_dispatch.md` R8 has the census plus the three ways it lies to
+  you.
+- **added:** 2026-08-08, bugfix_201_page_content_writer_dispatch lane. **Corrected the same
+  day**, by the ruling this entry's own measurement produced — the entry is ~6 hours old and
+  its headline fact has already inverted, which is the point rather than an embarrassment:
+  the trap is now that BOTH readings are true, of different rows, in one table.
 
 ### `ActionInputSpec.Deprecated` cannot carry a renamed SETTING — it resolves the old key's VALUE as a data path, so the alias reads as wired and silently takes the default
 
@@ -6709,3 +6729,52 @@ Nothing logged. A test asserting current behaviour passes either way.
 - **⚠ the automated landmine-verifier CANNOT check this entry, or its `--skip-newer` neighbour** — it returned NEEDS_HUMAN_REVIEW on 2026-08-08 saying "the `code_symbols` index does not cover `.github/workflows/deploy-to-b2.yml` (all six lookups returned 0 rows)". That is correct and it is a property of the **verifier**, not a doubt about the entry: the file lives in a **different repository** (`gqls/sites`), which the index does not ingest. **Read that verdict as "unverifiable here", never as "unconfirmed".** This entry is human-confirmed first-hand — the workflow source was read via `gh api repos/gqls/sites/contents/.github/workflows/deploy-to-b2.yml --jq .content | base64 -d`, and the behaviour observed in run `31266031734`'s own log. Any landmine footprinted on another repo's file inherits this
 - **source:** 2026-08-08, `bugfix_071_fragment_blindspot` lane, cleaning up after the `nav-link-fixer` commit landmine above; the removal was correct in git and inert at the origin
 - **added:** 2026-08-08, bugfix_071_fragment_blindspot lane
+
+---
+
+## After a whole-fleet release the fleet is MIXED, and "the fleet is on vX" is false for hours — the pod that runs YOUR action may still be on the old image
+
+- **footprint:** `make release`, `make redeploy-agents`, `kubectl get pods -n ai-persona-system`,
+  any post-roll verification of a Go change
+
+**The trap.** `make release redeploy-agents` rolls the long-lived **Deployments**
+(`agent-chassis`, `business-intel`, `vet-intel`, the adapters). It does **not** replace
+the **spawned per-agent pods** — `agent-page-rebuild-*`, `agent-build-dispatch-loop-*`,
+`agent-landmine-verifier-*`, `agent-diagnose-*` and friends — which keep running on
+whatever image they were created with. Measured 2026-08-08, ~15 minutes after a
+release: **20 pods on `v1.0.1264`, 5 on `v1.0.1266`.** A `kubectl get pods | head`
+lands on either group depending on sort order, and both answers look authoritative.
+
+So the sentence "the fleet is on `v1.0.1266`" was false, and the sentence "the fleet is
+still on `v1.0.1264`" was equally false. **Neither is a state the cluster was in.**
+
+**Why it bites even when you follow the pod-grep rule.** Grepping "a chassis pod" is
+not enough: if you happen to exec into a *spawned* pod you will prove your fix is
+ABSENT and conclude the release failed; if your action actually executes in a spawned
+pod, you can prove the fix PRESENT on the deployment and still run old code. The
+grep is right and the pod is wrong, which is the worst shape — a correct method
+producing a confident wrong answer.
+
+**the check:** ask for the distribution, never a sample, and then name the pod that
+will run *your* action:
+
+```bash
+# 1. what is actually out there — a mixture is the expected state, not an anomaly
+kubectl get pods -n ai-persona-system \
+  -o jsonpath='{range .items[*]}{.spec.containers[0].image}{"\n"}{end}' | sort | uniq -c | sort -rn
+
+# 2. grep the pod that consumes YOUR topic, with a POSITIVE and a NEGATIVE marker
+kubectl exec -n ai-persona-system <that-pod> -- sh -c \
+  'strings /app/agent-chassis | grep -c "<string your change ADDED>";
+   strings /app/agent-chassis | grep -c "<string your change REMOVED>"'   # expect >=1 then 0
+```
+
+A pod still on the old tag is the **free control** this rule otherwise lacks: run the
+same two greps there and you should get the exact inverse (`0` then `>=1`). If you get
+the same answer on both pods, your marker is wrong and neither result means anything.
+Confirmed working on 2026-08-08 (`bugs_open/219`): `v1.0.1266` replicas gave `1 / 0`,
+a `v1.0.1264` pod gave `0 / 1`.
+
+⚠ **And do not wait for the mixture to clear before dispatching.** The spawned pods are
+per-job and age out on their own; the ones you saw may be `Succeeded` already. What
+matters is the image of the pod that will pick up your message, not fleet uniformity.
