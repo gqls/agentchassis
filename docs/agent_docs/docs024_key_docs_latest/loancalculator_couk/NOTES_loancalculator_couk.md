@@ -3202,3 +3202,189 @@ bypasses the loop's `mark_complete`, so completing on grade is the honest order)
   filled with 800–1,900 b of new explanatory copy. That is more than a voice rewrite.
   Nothing invented a number the claims gate would reject, but it is new substance on a
   finance site and it should be looked at rather than assumed acceptable.
+
+## 2026-08-08 (evening) — first owner review of the homepage, and two surprises
+
+**Owner verdict:** likes the homepage copy except the opening paragraph, which is too
+strong — *"exact"*, *"mathematically rigorous"*, *"true cost of credit"*. His reasoning
+is the useful part: *"these are good points but just too strong, it is positioning us as
+the authority in accurate tools but that's not usually a top reader request or need —
+they already trust our tools, and everyone else's."* Routed the positioning half to the
+`vigilant_designer_offer_analysis` lane as `CONTRIB_2026-08-08_a_true_well_evidenced_claim_can_still_be_the_wrong_thing_to_lead_with.md`.
+
+### Surprise 1 — the paragraph he reviewed is NOT ours
+
+`index`'s prose rows were last written **2026-08-02 18:46:05**, which is the
+decomposition, not the voice rewrite. index is one of the three pages `bugs_open/219`
+blocked, so it still carries the ORIGINAL hand-built copy.
+
+**Both his praise and his complaint are about writing the framework never touched.**
+Worth stating plainly before anyone reads this thread as feedback on the rewrite —
+and worth remembering when 219 ships, because rebuilding index will replace the parts
+he said he liked along with the paragraph he didn't.
+
+### Surprise 2 — a voice fix would NOT have prevented it, and the DEFAULT is softer
+
+Re-ran the exact source block through the live writer twice against the production key
+and model (`gemini-pro-latest`, key pulled from `content-creator-agent`), same neutral
+brief both times:
+
+| | opening claim it produced |
+|---|---|
+| live copy (never rewritten) | "mathematically rigorous" · "exact" · "true cost of credit" |
+| **A — platform default house voice only** | "These tools calculate the cost of credit" — all three gone |
+| **B — this site's H voice spec** | "the true cost of borrowing" — two gone, one survives |
+
+**Both dropped "mathematically rigorous" and "exact" unprompted, and the plain default
+was the SOFTER of the two.** The house voice's "match the word to the size of the fact"
+rule does this work; H's rules are about warmth and walk-in openings and police claim
+strength less hard.
+
+So: the over-claiming is not a voice defect, and a voice fix will not reliably prevent
+the class. What no voice can decide is whether the sentence is worth having at all.
+
+> **MISSTEP, caught and corrected mid-experiment.** My first brief to the model literally
+> said the site *"takes no applications and sends nothing anywhere"*, and the output came
+> back with "We take no applications and send nothing anywhere" — a negation pile I then
+> nearly wrote up as the default voice's failure. **I had planted it.** Re-ran both arms
+> with the facts stated positively ("It is independent. The calculators run in the
+> reader's own browser."), and the negation pile did not reappear in either. A prompt that
+> hands the model a phrasing and then measures whether it uses that phrasing is not a
+> measurement of the voice.
+
+⚠ Second-order: run A truncated mid-sentence at `maxOutputTokens: 3000`. Cause was
+**`thoughtsTokenCount: 2769`** — thinking ate 92% of the ceiling, leaving ~230 for visible
+text. Re-ran at 8000, `finishReason: STOP`, 119 visible tokens. This is the trap
+`scripts/gemini-probe.sh` exists to answer; budget for thinking separately from output on
+any `gemini-pro-latest` call.
+
+### The two rewrites drafted for the owner
+
+Both drop all three strong claims, lead with the reader's job rather than our rigour, and
+let specifics carry authority instead of asserting it. Neither is applied.
+
+**Candidate 1 — reader-first**
+> Working out what a loan really costs you is harder than it should be. The monthly
+> payment is the number lenders lead with, and it's the one that tells you least.
+>
+> These calculators show you the rest of it: what a personal loan repays over its full
+> term, whether consolidating your debts actually saves anything once the term stretches,
+> and what the interest inside a car finance deal adds up to. They're free, and your
+> figures stay on your own screen.
+>
+> The standard calculator is just below. The Tools and Guides menus have the rest.
+
+**Candidate 2 — plainer, quietly confident**
+> Free UK loan calculators, with guides that explain what the numbers mean.
+>
+> You can work out what a personal loan repays over its full term, test whether
+> consolidating your debts saves you anything once the term is longer, and see what the
+> interest inside a car finance agreement really comes to. Your figures stay in your
+> browser.
+>
+> Start with the standard calculator below, or use the Tools and Guides menus.
+
+⚠ **`index` cannot be rebuilt through the framework until `219` ships**, so applying
+either means an SQL row write plus an assemble-only redeploy — the offline route — which
+is what the owner's standing "through the framework, not this CLI" instruction rules out.
+**Wait for 219 and seed the wording as guidance to the writer** rather than hand-writing
+the row. Also note the site's `content_direction` is where a lasting fix goes: neither
+candidate is protected from being written back over by the next rebuild unless the
+positioning judgement is in the spec.
+
+---
+
+## 2026-08-08 (afternoon) — 219 fixed, and the fix candidate I filed that morning would have shipped inert
+
+**Fixed:** `744bfdb3d`, council APPROVED round 1 (`c9104844-b303-43dd-a426-73386ebbb25e`),
+awaiting the roll at `v1.0.1265`. Full account in `bugs_open/219`; only the parts that
+belong to this lane's log are here.
+
+### The wrong turn, which is the useful part
+
+This morning's bug file says the developer note lives in an **HTML comment**, and its
+leading fix candidate follows from that: *"strip HTML comments before scanning"*. Both
+wrong. The notes are **JavaScript `/* … */` comments inside `<script>`**:
+
+```
+        function         | hit_pos | last_script_open | next_script_close | last_html_comment_open
+ tool-car-finance-pcp-hp |    8048 |             5379 |             11603 |   (none)
+ tool-loan-repayment     |    8224 |             5019 |              9568 |     3560  <- closes before the script opens
+ tool-rate-stress-test   |    5692 |             3884 |              7303 |   (none)
+```
+
+A comment-stripper would have unblocked **none** of the three pages, passed review,
+and left the bug closed and live. What caught it was not re-reading — it was running
+the extraction as a query: pulling only the `<!--…-->` text gave **0** hits where the
+whole-template scan gave **3**. Two counts that should agree, disagreeing. Logged in
+`WRONG_CALLS.md`; the shape is *a fix candidate is an untested claim wearing the
+clothes of a conclusion*, sitting in the same file, same register, as a diagnosis that
+was genuinely rigorous.
+
+### What shipped
+
+`checkMetaCommentary` now scans `datahelpers.ExtractAssertionText(html)` +
+`headProseBlocks(html)` — the same seam `218` settled for the placeholder scan this
+morning, after a council REVISE that said *reuse it, do not write a second stripper*.
+Scope was the defect, not comment syntax, so this puts script/style/code/pre/head/
+attributes/comments out of reach in one move rather than the one that bit us.
+
+### Proving it, without composing a fixture
+
+The three failing runs still held their exact input — `collected_data ->
+'page_content' -> 'response' ->> 'page_html'`, unpruned inside the ~24h window. Ran
+the real function over the real bytes:
+
+| orchestration | page | bytes | old (production) | new (local) |
+|---|---|---|---|---|
+| `fbd3da9d…` | index | 14,436 | `1 blockers, 0 errors` | 0 issues |
+| `0752258f…` | tool-interest-rate-stress-test | 10,475 | `1 blockers, 0 errors` | 0 issues |
+| `01072bcf…` | tool-car-finance-calculator | 14,147 | `1 blockers, 0 errors` | 0 issues |
+
+The old-code half is production's own error text, not a local replica of the old
+function — a stronger control than anything I could have written, and free. **Worth
+keeping as a habit: for a validator fix, the artefact that failed is usually still in
+`collected_data` for a day.** The test also asserts each artefact still *contains* the
+blocking string, so a truncated or wrong file cannot masquerade as a pass.
+
+### Two things found while measuring, neither of which I went looking for
+
+1. **`bugs_open/221`** — webdesign.co.uk's `tools-index` is blocked by the same check
+   on *"LocalBusiness schema, as an AI-builder prompt"* (`as an ai` in genuinely
+   visible copy). My fix does not help it; verified by running the new check over that
+   page's real HTML. Filed separately and the lane has been told in their NOTES,
+   because measuring that nothing breaks is not the same as telling the people whose
+   page it is.
+2. **The census that found it is the one that nearly did not run.** 1,244
+   `page_components` rows, positive control 268. Had I only checked "does my change
+   break anything on loancalculator", both the second instance and the JSON-LD answer
+   below would have stayed invisible.
+
+### The council objection, and why it was worth answering rather than noting
+
+`bug_historian` (medium) + `guidelines`: `ExtractAssertionText` excludes JSON-LD, this
+file already has a landmine about the banned-claims sweep missing JSON-LD, and I had
+measured `<title>`/meta but **not** JSON-LD — so I was asking a human to sign off a
+blind spot. Correct hit. Answered:
+
+- 0 of the 37 assembled pages in `collected_data` contain `application/ld+json` at all
+  (control: 19 of 37 contain `<script>`);
+- because JSON-LD is appended to `<head>` at **render** time, after validation
+  (`rerender_single_page_action.go:931`, `data_helpers.go:1505`) — corroborated by a
+  dated note already in that file: *"measured 2026-07-28, ZERO of 14 live sites emitted
+  any application/ld+json"*;
+- and of the 27 `ld+json` blocks that do exist in stored component HTML, **0** carry
+  any meta-commentary vocabulary (control: 25 match `schema.org`).
+
+So there was no JSON-LD coverage to lose. **The seat was right that I had not
+measured it** — the answer happening to be favourable does not retire the point.
+
+### Still owed on this lane
+
+Unchanged from the handoff except that the blocker is now a roll, not a bug:
+
+- **The 3 pages**, once `v1.0.1265` is live. The recipe is unchanged: `voiceh_batch.sh`
+  then `voiceh_grade.py`. ⚠ Prove the grader can still FAIL first (run it against a
+  page that has not been rewritten) — a grader that has never failed is not evidence.
+- **Re-baseline the golden**, after those 3 land and not before.
+- **The expansion question is still the owner's.**
