@@ -1,5 +1,33 @@
 # CONTINUE HERE — code-review triage lane, 2026-08-05 evening
 
+> # ⇢ START HERE (2026-08-08 16:2xZ) — TWO OPEN ITEMS, ONE READY TO CODE
+>
+> **1. WRITE THE APPROVED `domain` FIX. Council APPROVED, code NOT written.**
+> `Council-Reviewed: 5d6501ba-db0e-4963-a1ca-e4736d41210e` — put that trailer on the code commit
+> (I read the verdict, so it is honest). Two one-line edits, spec in
+> `SUBMISSION_2026-08-08_domain_nullif.json`, full account NOTES §21–22:
+> ```
+> platform/orchestration/agenterrors/agenterrors.go:94              <- the ONE writer
+> platform/orchestration/actions/store_generated_component_action.go:1358   <- the straggler
+>   NULLIF($1, '')::uuid, $2, ...   ->   NULLIF($1, '')::uuid, NULLIF($2, ''), ...
+> ```
+> Do **not** touch `internal/agents/contentcreator/claims_guard.go` — it omits the column and
+> already stores NULL. Add the source-scan regression test **with its stated limitation**:
+> `NULLIF` is server-side, so `sqlmock` cannot observe the NULL; the behavioural proof is
+> post-deploy at the artefact (the `domain IS NULL` bucket starts growing, the `''` bucket stops),
+> plus a pod-grep with a misspelled negative control per `bugs_open/153`. **No backfill** — 13,783
+> `''` rows stay, so `COALESCE(domain,'') = ''` remains correct for historical queries.
+> Build from committed HEAD (`make build-agent-chassis`), then verify at the pod, never the tag.
+>
+> **2. `PBP-031`'s STOP CONDITION IS FIRED — do not proceed with the per-caller opt-in.** Details
+> in the banner below and NOTES §20b. The open question is whether the report's precondition
+> `content_data IS NOT NULL` (`save_sections_metadata_source.go:226`) should be tightened, since
+> `{}` satisfies it. **That is an owner call, not a drive-by** — it changes a live fleet-wide
+> report's firing behaviour. Nothing is blocked on it except the opt-in.
+>
+> **Live as of 2026-08-08 16:0xZ:** chassis **`v1.0.1266`** (re-probe, never quote a pod name);
+> code index **current** and self-refreshing (mig 332 → `087_towards_multiple_domains`).
+
 **State: the shipped work is DONE, LIVE and pod-verified; all three council verdicts APPROVED. But
 §2a is REOPENED — the stop condition it was watching has now FIRED, and §16's writer census has
 been superseded by a refactor. Read the 2026-08-08 banner first.**

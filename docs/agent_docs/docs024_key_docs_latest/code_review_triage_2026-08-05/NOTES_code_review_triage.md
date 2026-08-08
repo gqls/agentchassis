@@ -1009,3 +1009,88 @@ for a reason nobody had identified.
 — PBP-031 says a NULL escalates the whole page to a full LLM rebuild, so the transition may have a
 real cost even though no *content* was lost. That is the next question, not a settled one. **One
 row is not a rate**, either: this is a single occurrence on one tool page, not a measured frequency.
+
+## 21. 2026-08-08 16:0xZ — the `domain` fix is AT THE COUNCIL GATE
+
+Submitted the one-line fix. **`SUBMISSION_CORR = 5d6501ba-db0e-4963-a1ca-e4736d41210e`**
+(submission file kept in this lane: `SUBMISSION_2026-08-08_domain_nullif.json`).
+Fresh chassis confirmed live first: **`v1.0.1266`**, pods `agent-chassis-856dff6b46-f86mr` /
+`-smr28`, started 2026-08-08 16:00:40/16:01:01Z.
+
+**The change:** `NULLIF($2,'')` on the `domain` parameter at two sites —
+`agenterrors/agenterrors.go:94` (the one writer since RFC_012 B, so it covers every consolidated
+caller) and `store_generated_component_action.go:1358` (the only unconsolidated straggler that
+names the column). The third surviving INSERT,
+`internal/agents/contentcreator/claims_guard.go:184`, omits `domain` and already stores NULL —
+deliberately not edited. Plus a source-scan regression test, **submitted with its own limitation
+stated**: `NULLIF` is server-side, so `sqlmock` still sees the bind arg as `''` and **a unit test
+cannot prove this behaviour** — it guards the SQL text only, and the behavioural proof is the
+post-deploy artefact check.
+
+**Blast radius MEASURED before submitting, not delegated to the reviewer** (the 2026-07-28 ruling):
+
+- **Exactly one Go reader filters on `domain`** — `diagnose_load_runtime_action.go:269`,
+  `AND ($2::text IS NULL OR domain = $2::text)`. **Its behaviour does not change**, and the reason
+  is the *binding*, not the predicate: `nullText("")` returns nil (`:542`), so an unscoped
+  diagnosis binds NULL and the clause short-circuits; a scoped one binds a real domain, which
+  rows carrying `''` never matched and rows carrying NULL will not match either.
+- **Zero** hits sweeping `*.sql`/`*.sh`/`*.py`/`*.ts`/`*.tsx` for `domain IS NULL`,
+  `count(domain)` or `domain = ''` against this table.
+- So **no consumer's result set changes.** The only change is what is stored going forward.
+
+**Named, not smuggled:** no backfill — the 13,783 existing `''` rows keep their value, so the
+table holds a **mixed shape indefinitely** and `COALESCE(domain,'') = ''` stays the safe predicate
+for historical queries. And the case is argued **from the mechanism and the reader-side trap, never
+from the row count**, because 88% of that count is one live vet-lane incident (§18c) and will fall
+when it stops.
+
+**Deliberately NOT done in this session:** the code edit is not written and nothing is committed.
+The submission describes it; a successor writes it. If you commit before the verdict lands, use
+`Council-Submitted: 5d6501ba-db0e-4963-a1ca-e4736d41210e` — **never `Council-Reviewed:` on a
+verdict you have not read** (098 buckets that as MISMATCH).
+
+Read the verdict **by this correlation**, never `ORDER BY created_at DESC LIMIT 1`:
+
+```sql
+SELECT created_at, metadata->>'decision', left(body,4000) FROM diagnosis_artifacts
+WHERE correlation_id='5d6501ba-db0e-4963-a1ca-e4736d41210e' AND kind='council_report'
+ORDER BY created_at DESC;
+```
+
+## 22. 2026-08-08 16:13Z — **APPROVED**, and both objections answered rather than filed away
+
+`5d6501ba-db0e-4963-a1ca-e4736d41210e` → **`approved`**, *"approved with 1 advisory objection(s) —
+none high-severity"*. Six seats reviewed (editquality, reuse_agent, tooling_provenance, guardian,
+diagnosis_guardian, compliance), six abstained on relevance. `gated_by_truncation: false` — worth
+checking, given the architecture seat's first reviews were 2 of 3 truncated. **~14 minutes end to
+end, not the ~30 budgeted.**
+
+The seats independently reached the framing this lane arrived at the hard way — reuse_agent: *"the
+opposite of the founding-incident pattern … extending the one existing mechanism instead of adding
+a parallel one"*; guardian: *"blast-radius work is unusually thorough already"*.
+
+**Both criticisms were checkable, so I checked them instead of banking the approval.**
+
+1. **guardian (low, advisory):** *"the one gap is trusting 'only two remaining hand-rolled sites'
+   without an independent check."* **Fair — my census was scoped to `platform/ internal/`.**
+   Re-run repo-wide, and again case/whitespace-insensitively
+   (`grep -rniE "insert[[:space:]]+into[[:space:]]+agent_error_log"`): **3 sites, the same three**
+   [MEASURED 08-08 16:1xZ]. The claim holds repo-wide. This is the "a grep proves absence only for
+   the spelling *and the scope* it searches" trap, and the seat caught the scope half.
+2. **reuse_agent (missing):** *"did not verify whether this exact fix has already been through
+   council."* **Checked:** two prior `council_report`s mention both `agenterrors` and `NULLIF`, and
+   both are correlation `5c2bc265` — **RFC_012 B's own consolidation**, REJECTED 08-07 08:39
+   (for presenting an 8-file sample of 34 as representative) and APPROVED 08-08 15:25 on
+   resubmission. **Not this fix.** No duplicate.
+
+> **Context a successor should have, though it is not this lane's to relitigate: the consolidation
+> my one-line fix sits on top of was itself rejected once, on blast-radius/sampling grounds.** It
+> shipped anyway and was approved a day later — which is exactly CLAUDE.md's "review here is after
+> the fact, by design". It also means `agenterrors.Write` became fleet-wide plumbing *between* a
+> rejection and an approval, and the `''` shape rode along unremarked in both rounds.
+
+**STATE: approved, and the CODE IS NOT WRITTEN.** The submission describes the edits; nothing is
+implemented and nothing is committed against them. That is the next action — see the handoff.
+The commit that ships it carries `Council-Reviewed: 5d6501ba-db0e-4963-a1ca-e4736d41210e`
+(I have read this verdict, so the trailer is honest). **Docs-only commits carry no trailer** —
+the gate refuses docs client-side and `098` joins on platform-code commits.

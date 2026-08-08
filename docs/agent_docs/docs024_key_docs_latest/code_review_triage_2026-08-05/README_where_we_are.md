@@ -388,3 +388,45 @@ days out of one lane, still climbing, probably wants somebody's attention on its
 have named two existing open items that might be related and have deliberately not investigated or
 filed anything, because that is somebody else's lane and guessing at it from here would be exactly
 the mistake this log keeps recording.
+
+---
+
+**2026-08-08, evening.** The small fix has been through the review council and **passed** — six
+reviewers, one minor comment, about fourteen minutes. What is approved is genuinely tiny: two
+lines, each adding the same wrapper the neighbouring columns in the very same statement already
+have, so that "we don't know which website this error belongs to" is recorded as *unknown* rather
+than as an empty box. **The code is not written yet.** The council reviewed the plan; writing and
+shipping it is the next job, and it is a small one.
+
+Two things are worth telling you because they changed the shape of this.
+
+First, the problem got both worse and much easier on the same day, and I only found out because
+the reviewer looked at fresher code than I had. On the 7th another thread consolidated eighteen
+separate copies of this error-writing code into one. That means the flaw is now everywhere by
+construction rather than in three odd corners — but it also means **the fix went from three places
+to one line in one shared place**. My earlier survey of the code was correct when I made it and
+was false about twenty-four hours later. That is worth remembering about this codebase generally:
+a survey of how something is built has a shelf life of roughly a day here.
+
+Second, the council raised two criticisms and I checked both rather than pocketing the approval.
+One reviewer said, fairly, that I had claimed "only two places remain" without proving it
+independently — and my search had indeed only covered part of the tree. I re-ran it across the
+whole repository, and in a form that would catch different spellings and spacing: still the same
+three places. The other asked whether this exact fix had already been reviewed before; it has not
+— the two earlier reviews that looked similar were the consolidation work itself.
+
+That consolidation is worth one more sentence, because it is a bit uncomfortable and a successor
+should know: **it was rejected by the council the first time**, on the grounds that it asked for
+approval of thirty-four files on the strength of an eight-file sample. It shipped anyway and was
+approved a day later. That is how this place is designed to work — review happens after the fact
+because no thread can hold code back on a shared branch — but it does mean the shared writer
+everything now depends on passed through a rejection on its way in, and nobody noticed the
+empty-box flaw in either round.
+
+Separately, and still needing a decision from you: the safety report we have been watching **has
+now gone off**, on a live page. I dug into it and the honest answer is that it is a false alarm of
+a very particular kind — it fired because a page "had structured content" where that content was
+literally an empty container. It is the *same* mistake as the one we are fixing: something empty
+being counted as something present. The rule we wrote in advance says that when this report fires
+this way, we must not switch on the stricter save-refusal behaviour, so I have not. Whether to
+tighten the report itself is your call, because it would change how a fleet-wide check behaves.
