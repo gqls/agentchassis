@@ -157,3 +157,96 @@ func TestSharedOutputs_NestedSubWorkflowOverApproximates(t *testing.T) {
 		t.Fatalf("nested producer -> post-container refiner not surfaced: %+v", findings)
 	}
 }
+
+// TestSharedOutputs_SubstepsShapeIsSeenToo is the same fixture in the OTHER
+// nesting shape, and it is the reason this file's descent is no longer its own.
+//
+// A loop declares its body as EITHER `substeps` or `sub_workflow`, and at
+// execution `substeps` WINS: loop_actions.go:91 reads it first and consults
+// sub_workflow only when it is absent or empty (the precedence
+// validation.subWorkflowsOf mirrors exactly). This detector's original descent
+// read `sub_workflow` ONLY — so it was blind to the shape that takes priority
+// at runtime, which is bugs_open/144's founding failure ("two hand-written
+// traversals, blind in the same direction, agreeing with each other") in the
+// direction that matters most.
+//
+// It cost nothing when written: measured 2026-08-08 over live agent_definitions
+// (is_active, non-snapshot, not deleted) with a recursive jsonpath
+// `$.** ? (@.substeps != null)`, ZERO live definitions carry the shape at any
+// depth — the only two rows that do are soft-deleted multipage-website-builder
+// definitions. That is precisely why a test is the right place for this: the
+// gap was invisible to every live run and would have stayed invisible until the
+// first author who preferred `substeps` silently dropped out of view.
+func TestSharedOutputs_SubstepsShapeIsSeenToo(t *testing.T) {
+	agent := liveAgent{
+		Type: "looper-substeps",
+		Workflow: models.WorkflowPlan{
+			Steps: map[string]models.Step{
+				"loop": {
+					Action:   "loop",
+					NextStep: "after",
+					Config: map[string]interface{}{
+						"substeps": map[string]interface{}{
+							"inner": map[string]interface{}{
+								"action":       "producer_action",
+								"output_field": "shared_key",
+							},
+						},
+					},
+				},
+				"after": {Action: "consumer_action", OutputField: "shared_key"},
+			},
+		},
+	}
+	findings := findSharedOutputFields([]liveAgent{agent})
+	if len(findings) != 1 || findings[0].Producer != "inner" || findings[0].Refiner != "after" {
+		t.Fatalf("substeps-nested producer -> post-container refiner not surfaced (%d findings): %+v — "+
+			"substeps is the shape the loop executor PREFERS, so a descent that cannot see it "+
+			"is blind exactly where the runtime looks first", len(findings), findings)
+	}
+}
+
+// TestSharedOutputs_BothShapesResolveToTheExecutedOne pins the precedence
+// itself, not merely the presence of each shape. A step carrying BOTH must be
+// walked as `substeps`, because that is the half that runs; walking the
+// sub_workflow half would make this detector report on config that never
+// executes. The two halves are given DIFFERENT output_fields so the assertion
+// can only pass for one of them.
+func TestSharedOutputs_BothShapesResolveToTheExecutedOne(t *testing.T) {
+	agent := liveAgent{
+		Type: "looper-both",
+		Workflow: models.WorkflowPlan{
+			Steps: map[string]models.Step{
+				"loop": {
+					Action:   "loop",
+					NextStep: "after",
+					Config: map[string]interface{}{
+						"substeps": map[string]interface{}{
+							"executed_inner": map[string]interface{}{
+								"action":       "producer_action",
+								"output_field": "shared_key",
+							},
+						},
+						"sub_workflow": map[string]interface{}{
+							"steps": map[string]interface{}{
+								"inert_inner": map[string]interface{}{
+									"action":       "producer_action",
+									"output_field": "shared_key",
+								},
+							},
+						},
+					},
+				},
+				"after": {Action: "consumer_action", OutputField: "shared_key"},
+			},
+		},
+	}
+	findings := findSharedOutputFields([]liveAgent{agent})
+	if len(findings) != 1 {
+		t.Fatalf("want exactly 1 finding (the EXECUTED half only), got %d: %+v", len(findings), findings)
+	}
+	if findings[0].Producer != "executed_inner" {
+		t.Fatalf("reported producer %q — the inert sub_workflow half was walked instead of the "+
+			"substeps half that actually executes: %+v", findings[0].Producer, findings[0])
+	}
+}

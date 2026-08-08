@@ -29,6 +29,36 @@
 // a human reads once; the two forbidden naive forms erred toward silence on a
 // live outage, which is the worst possible failure for a check nobody
 // re-reads.
+//
+// THE DESCENT IS validation.WalkSteps, NOT ITS OWN (changed 2026-08-08, and the
+// reason is worth reading before you write another one). The council gate's
+// reuse seat objected that this file walked agent_definitions routing config
+// with a hand-written recursion while relaygaps.go — in THIS package — walks the
+// same structure through validation.WalkSteps on purpose, citing bugs_open/144's
+// rule that "a second hand-written descent goes blind in its own direction".
+// The objection was right, and the justification this header used to give for
+// the private descent ("the walker does not expose containment") was simply
+// false: WalkSteps hands over a QUALIFIED PATH, and the container is the
+// third-from-last segment of it, which is why containerOf below is four lines.
+//
+// It had gone blind, in the exact direction 144 predicts. A loop declares its
+// body as EITHER `substeps` or `sub_workflow`, and `substeps` WINS at execution
+// (loop_actions.go:91 reads it first and consults sub_workflow only when it is
+// absent or empty — the precedence validation.subWorkflowsOf mirrors exactly).
+// The private descent read `sub_workflow` ONLY. So it could not see the shape
+// the runtime looks at first, and on a step carrying BOTH it walked the inert
+// half — reporting a hazard in config that never executes.
+//
+// MEASURED before and after, because "0 findings" is the one result this class
+// of bug produces for free: over live agent_definitions (is_active,
+// non-snapshot, not deleted) with a recursive jsonpath
+// `$.** ? (@.substeps != null)`, ZERO live definitions carry `substeps` at any
+// depth on 2026-08-08 — the only two rows that do are soft-deleted
+// multipage-website-builder definitions. The gap therefore cost nothing yet and
+// no live run could ever have revealed it, which is why the proof is two tests
+// (TestSharedOutputs_SubstepsShapeIsSeenToo and
+// TestSharedOutputs_BothShapesResolveToTheExecutedOne) that both FAILED against
+// the private descent and pass through the shared one.
 package main
 
 import (
@@ -40,6 +70,7 @@ import (
 	"strings"
 
 	"github.com/gqls/agentchassis/pkg/models"
+	"github.com/gqls/agentchassis/platform/validation"
 )
 
 // routingConfigKeys is the config-level half of the routing graph, resolved
@@ -73,59 +104,61 @@ type graphStep struct {
 }
 
 // flattenWorkflowGraph walks the workflow (nested sub-workflows included) and
-// returns the step graph. Its own recursion rather than validation.WalkSteps
-// because the EDGES of a nested step matter here, not just its presence, and
-// the walker does not expose containment.
+// returns the step graph, through validation.WalkSteps — the SAME step set the
+// runtime validator enforces against and relaygaps.go audits. See the header for
+// what the private descent it replaced could not see.
+//
+// Two properties inherited from the shared walker, both of which the private
+// descent had to get right by hand and got wrong: nested bodies are found in
+// BOTH shapes with the executor's precedence, and each nested step is decoded by
+// models.DecodeSubWorkflowStep — the function the loop action executes with —
+// rather than by a JSON round-trip into models.Step. The round-trip populated
+// fields the executor drops, so a detector reading one would have vouched for
+// behaviour that does not happen. Every field this check reads (action, config,
+// next_step, error_step, output_field) is in the honoured seven, so the switch
+// costs nothing here and closes that door for whatever this file reads next.
 func flattenWorkflowGraph(wf models.WorkflowPlan) []graphStep {
 	var out []graphStep
-	var walk func(steps map[string]models.Step, container string)
-	walk = func(steps map[string]models.Step, container string) {
-		for name, step := range steps {
-			gs := graphStep{
-				name:      name,
-				action:    step.Action,
-				output:    step.OutputField,
-				container: container,
-			}
-			if step.NextStep != "" {
-				gs.succs = append(gs.succs, step.NextStep)
-			}
-			if step.ErrorStep != "" {
-				gs.succs = append(gs.succs, step.ErrorStep)
-			}
-			for _, k := range routingConfigKeys {
-				if v, ok := step.Config[k].(string); ok && v != "" {
-					gs.succs = append(gs.succs, v)
-				}
-			}
-			out = append(out, gs)
-			if sub := subWorkflowOf(step); sub != nil {
-				walk(sub, name)
+	validation.WalkSteps(wf, func(path string, step models.Step, nested bool) {
+		gs := graphStep{
+			// Authored name, not the qualified path: routing edges name steps as
+			// an author writes them. Two nested steps sharing an authored name at
+			// different depths therefore collapse into one node — pre-existing
+			// behaviour, preserved deliberately, and it over-approximates
+			// reachability rather than under-approximating it.
+			name:      stepName(path),
+			action:    step.Action,
+			output:    step.OutputField,
+			container: containerOf(path),
+		}
+		if step.NextStep != "" {
+			gs.succs = append(gs.succs, step.NextStep)
+		}
+		if step.ErrorStep != "" {
+			gs.succs = append(gs.succs, step.ErrorStep)
+		}
+		for _, k := range routingConfigKeys {
+			if v, ok := step.Config[k].(string); ok && v != "" {
+				gs.succs = append(gs.succs, v)
 			}
 		}
-	}
-	walk(wf.Steps, "")
+		out = append(out, gs)
+	})
 	return out
 }
 
-// subWorkflowOf extracts a nested sub-workflow's steps from a step's config,
-// tolerating both the typed and the raw-map shapes.
-func subWorkflowOf(step models.Step) map[string]models.Step {
-	raw, ok := step.Config["sub_workflow"]
-	if !ok {
-		return nil
+// containerOf recovers the containing step's authored name from a WalkSteps
+// path, which is what the old header wrongly claimed the walker could not give.
+// A path is "steps.<name>" at the top level and
+// "steps.<container>.<shape>.<name>" nested, where <shape> is substeps or
+// sub_workflow, appending a further pair per level — so the container is always
+// the third segment from the end, and its absence means top-level.
+func containerOf(path string) string {
+	parts := strings.Split(path, ".")
+	if len(parts) < 4 {
+		return ""
 	}
-	b, err := json.Marshal(raw)
-	if err != nil {
-		return nil
-	}
-	var sub struct {
-		Steps map[string]models.Step `json:"steps"`
-	}
-	if err := json.Unmarshal(b, &sub); err != nil || len(sub.Steps) == 0 {
-		return nil
-	}
-	return sub.Steps
+	return parts[len(parts)-3]
 }
 
 // findSharedOutputFields is the pure check (I/O split off, per this binary's
