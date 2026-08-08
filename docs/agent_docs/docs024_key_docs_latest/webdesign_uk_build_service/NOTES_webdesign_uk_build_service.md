@@ -1445,3 +1445,47 @@ Other findings this session, for the record:
 - orchestration_states currently holds a `petclinic.jollyes.co.uk` run FAILING
   at `extract_and_reconcile` every ~30 min since at least 08-06 18:32 — another
   lane's loop, not touched, noted in passing.
+
+---
+
+## 2026-08-08 (2) — DISPATCHED; but first the parking plan survived its own positive control only by running it
+
+**Owner approved the CF API route** (AskUserQuestion in-session). Both page
+rules PATCHed to `disabled` (`6d4d5b67…`, `88794916…` — backup JSON committed
+earlier). Edge verified parked: apex + www **522** (edge → parking IP
+`199.59.243.228`, nothing answering), preview **200** untouched.
+
+**Then the positive control failed, correctly.** Re-ran the Firecrawl probe
+after parking: still webdesign.co.uk at 200 — `metadata.cacheState: "hit"`,
+`cachedAt` = my OWN first probe (17:53Z). Three-probe sequence established:
+1. default shape (no `maxAge`) → **cached** webdesign.co.uk snapshot;
+2. `maxAge: 0` → fresh fetch → **522 Cloudflare error page** (reads plainly as
+   "no working site" — exactly what a blank-domain classifier should see);
+3. default shape again → **still the stale 200 snapshot** ⇒ a fresh non-200
+   does NOT evict the cached 200. Parking alone was insufficient, and the
+   measurement probe is what poisoned the cache. → `WRONG_CALLS.md` 08-08 +
+   new LANDMINES entry (synced to doc_notes).
+
+**Fix applied — fleet config, live immediately, no roll:** added
+`"scrape_config": {"max_age": 0}` to `domain-research-classifier` →
+`scrape_site.config`. Verified by SELECT. Provider plumbing verified at
+`providers/firecrawl.go:129` (scrape) and `:362` (crawl) — both read
+`max_age`; `isCrawlAction("scrape_web")=false` so this step is a SINGLE-PAGE
+scrape of the apex (its `max_pages`/`follow_links` are inert — bugs_open/101
+shape), meaning the apex cache entry was the only one that mattered.
+**Revert if ever needed:**
+`UPDATE agent_definitions SET default_config = default_config #- '{workflow,steps,scrape_site,config,scrape_config}' WHERE type='domain-research-classifier' AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;`
+Kept deliberately: a classifier that anchors an entire build should never read
+a days-old snapshot of the domain it is classifying.
+
+**Dispatch:** 2026-08-08 19:15:41Z, CORR `4b15d6eb-74d7-4023-8781-156ed5829c5a`
+(kcat -P -c 1, envelope file piped; exit 0 treated as NOTHING per the kcat
+landmine). **Verified by payload:** submitter orchestration `7675605b…`
+COMPLETED 19:15:48; `submission`/`mission_brief`/`roadmap_brief` specs all
+current at 19:15:48–49; `needs_domain_research` item `triaged` 19:15:49.
+Monitor armed on: new webdesign.uk orchestrations, NEW `classification` spec
+(terminal), `agent_error_log`.
+
+**Still open in this window: re-enable both page rules the moment the
+classifier's scrape is past** (classification spec landing proves it). PATCH
+`{"status":"active"}` to both rule ids — same call shape as the disable.
