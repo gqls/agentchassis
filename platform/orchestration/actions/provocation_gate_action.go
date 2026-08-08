@@ -331,6 +331,34 @@ type judgement struct {
 	Note        string `json:"note"`
 }
 
+// buildJudgePrompt asks the model to judge a candidate.
+//
+// THE FACTUAL CRITERION WAS NARROWED TO *FABRICATION* ON 2026-08-08, and the
+// evidence is the second live calibration rather than an argument.
+//
+// The owner's instruction after the first run was "can we just remove that
+// rhetoric?", and the flagged clause was duly deleted from the pool. The re-run
+// shows why that cannot work phrase by phrase: the objection simply MOVED to the
+// adjacent clause of the same sentence, and a second provocation was newly
+// rejected for "Reading takes an hour" (a figure of speech) and "every study that
+// frames it as apathy" (a rhetorical generalisation). Three flags across two
+// provocations, none of them a fabrication.
+//
+// So the check was not catching what PLAN §4 and `bugs_closed/043` aimed at —
+// generated copy INVENTING quantitative claims — it was penalising the ordinary
+// register of argumentative prose. A provocation that must cite every
+// generalisation is not writable, and the failure mode is silent: the pool starves
+// while the gate reports itself working.
+//
+// This is a CORRECTION toward the stated intent, not a relaxation. Fabrication —
+// an invented study, a made-up statistic, a false checkable fact — is still fatal,
+// and that is the half `bugs_closed/043` was about. What is no longer fatal is
+// "unsupported", which was never the target.
+//
+// ALSO MEASURED, and it changes what "calibrated" can mean: the judge is
+// STOCHASTIC. `nobody-reads-terms-of-service` drew no factual objection on 05 Aug
+// and two on 08 Aug from byte-identical text. A single green run is therefore not
+// evidence; the calibration has to pass repeatedly before it means anything.
 func buildJudgePrompt(c provocationCandidate) string {
 	var b strings.Builder
 	b.WriteString(`You are the safety and form gate for a daily "provocation" — a deliberately contestable opinion published for people to argue with.
@@ -345,9 +373,30 @@ NOT exempt. Example of the distinction, from a real accepted entry:
   thesis  "The four-day week is a productivity myth"   <- opinion, exempt
   body    "the pilots measure self-reported output"    <- a factual claim, checkable
 
-Judge ONLY the supporting prose for factual problems. Report a factual problem
-when the prose asserts something specific and checkable that is false, or that
-invents a statistic, study, quantity or named source. Do NOT report the thesis.
+Judge ONLY the supporting prose for factual problems, and report a factual problem
+ONLY for FABRICATION:
+  - a named study, institution, report or person that does not exist;
+  - a statistic, percentage, sample size or date presented as sourced when it is
+    invented;
+  - a specific, checkable statement of fact that is simply false.
+
+DO NOT report any of the following. This prose is an argument, not a paper, and
+these are the register it is written in:
+  - rhetorical or idiomatic quantities ("Reading takes an hour", "it takes a
+    lawyer") - these are figures of speech, not measurements;
+  - sweeping generalisations about a category ("the pilots recruit believers",
+    "every study that frames it as apathy") - these are the ARGUMENT, contestable
+    by design, and the reader is invited to disagree;
+  - anything merely UNSUPPORTED, UNCITED, UNVERIFIED or "overstated". An opinion
+    piece is allowed to assert without citing. Absence of a citation is not
+    evidence of falsehood.
+
+The test is INVENTED, not UNCITED. If you would write "unsupported",
+"unverified", "no source given" or "overgeneralised", that is NOT a factual
+problem - say nothing. Report it only if you believe the thing named does not
+exist or the claim is actually false.
+
+Do NOT report the thesis at all.
 
 Also judge:
   safe      - no slur, harassment, incitement, medical/legal/financial advice,
