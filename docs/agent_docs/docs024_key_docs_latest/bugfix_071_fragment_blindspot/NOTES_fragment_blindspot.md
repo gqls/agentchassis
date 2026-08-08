@@ -677,3 +677,46 @@ Ran in one transaction with an all-zero post-assertion: pool pages 0 · pool
 page_components 0 · pool site_components 0 (the handler had created a `header` row
 too) · pool work items 0 · **`dead_fragment_link` fleet-wide 0** · lane one-shot
 `scheduled_tasks` 0 · probe `agent_definitions` row 0.
+
+### The cleanup itself found a second, bigger trap — the revert went green and deployed nothing
+
+The owner ran the deletion (`0709f572b`, 16:03:48Z). `gh api repos/gqls/sites/contents/
+pool-ai-agents.internal` now 404s, so **the repo is clean.** The bucket is not.
+
+I had told the owner to check the B2 **origin** with a cache-buster, citing the
+`b2 sync --skip-newer` landmine. That check was the right instinct for the wrong
+mechanism, and the real one is worse:
+
+```
+run 31266031734   conclusion: success
+Changed domains: pool-ai-agents.internal
+WARNING: pool-ai-agents.internal in changed set but no directory — skipped
+```
+
+`deploy-to-b2.yml` syncs per domain behind `if [ -d "$domain" ]`. Removing the
+directory's only file removes the **directory**, so the domain is correctly detected
+as changed and then **skipped** — `b2 sync --delete` never runs for it, and there is
+no code path anywhere that deletes a bucket prefix. Zero `Syncing … to B2` lines in a
+green run.
+
+**[MEASURED, and disconfirmable: the run log would have carried a `Syncing
+pool-ai-agents.internal to B2...` line if the sync had happened; it carries the
+WARNING instead, and the two branches are mutually exclusive in the workflow source.]**
+
+So `b2://portfolio-sites/pool-ai-agents.internal/assets/js/snippets.js` is orphaned.
+It is not reachable — `pool-ai-agents.internal` has no DNS and the bucket is fronted
+per-domain — but it is there, and only the B2 credentials (GitHub secrets, not
+available to a session) can remove it: `b2 rm --recursive
+"b2://portfolio-sites/pool-ai-agents.internal"`.
+
+**This generalises well past my junk file, which is why it is a LANDMINE rather than
+a footnote:** retiring a site by deleting its directory leaves the WHOLE SITE live in
+the bucket, and the run that did it is green. `gh run rerun` — the fix for the
+neighbouring `--skip-newer` entry — cannot help, because a fresh checkout still has no
+directory.
+
+**Correction to my own write-up earlier today:** where the NOTES and the LANDMINE say
+the original junk commit "reached B2 too" (run 31264883288), that is right for the
+CREATE. What I then implied — that the same pipeline would carry the delete back out —
+is wrong, and the workflow says so in one line I had not read before recommending the
+check.

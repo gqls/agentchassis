@@ -22841,3 +22841,34 @@ me over the enumeration of what actually reaches it.
 unaffected: the config was inert, the framework gap was real, and honouring what the config
 says is right whether or not today's consumers can tell the difference. What was wrong was the
 argument, and this estate carries arguments forward.
+
+---
+
+### 2026-08-08 (later) — I named the right check for the wrong mechanism, and it would have sent the owner chasing a cache (`bugfix_071` lane)
+
+Handing the owner a cleanup command for a junk file this lane had pushed into `gqls/sites`,
+I wrote: *"then a cache-busted check at the B2 **origin** — the `b2 sync --skip-newer`
+LANDMINE bites reverts specifically."* I had that landmine in front of me and it is real. It
+is also **not what happens here.**
+
+The deletion removed the directory's only file, which removes the **directory**. `deploy-to-b2.yml`
+syncs behind `for domain in <changed>; do if [ -d "$domain" ]`, so the domain was correctly
+detected as changed and then **skipped entirely** — zero `Syncing … to B2` lines, one WARNING,
+conclusion `success`. `--skip-newer` never came into it, because **no sync ran at all**.
+
+**What the wrong advice would have cost:** my check inspects the origin, finds the file still
+there, and attributes it to the known `--skip-newer` trap — whose recorded remedy is
+`gh run rerun`. That rerun is guaranteed to fail the same way (a fresh checkout still has no
+directory), which reads as "the cache is stubborn" rather than "the sync never ran". The
+misdiagnosis is self-reinforcing.
+
+**What caught it:** reading the run log for the *positive* line (`Syncing … to B2`) instead of
+just checking the conclusion. Its absence, next to a correctly-populated `Changed domains:`,
+is the whole signal.
+
+**The cheap check that would have:** open the 6-line workflow step before citing a landmine
+about it — `gh api repos/gqls/sites/contents/.github/workflows/deploy-to-b2.yml --jq .content
+| base64 -d`. I cited a neighbouring entry's mechanism from memory because the *symptom* I
+expected (a file that survives a revert) matched. **Two traps on the same file, with the same
+symptom and opposite causes, and the entry I reached for was the one I had already read.**
+Both are now in `LANDMINES.md`, and the new one says explicitly that it is not the old one.

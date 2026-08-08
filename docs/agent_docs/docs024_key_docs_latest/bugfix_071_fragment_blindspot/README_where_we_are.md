@@ -291,3 +291,39 @@ close — which means if anyone asks "how often has this safety mechanism actual
 something?", the obvious way to count it will systematically miss the very cases it
 exists to catch. I've written that down where people will hit it, but it's a real gap in
 what we can measure about our own safety net, and it's not this lane's to fix.
+
+---
+
+**8 August, later — you deleted the stray file, and that turned up a bigger problem
+than the file.**
+
+The removal worked: the folder is gone from the repository, and the deploy that
+followed reported success. But it did not actually delete anything from the storage
+bucket, and it never could have.
+
+The deploy job works one website folder at a time: it lists which folders changed,
+then for each one, checks the folder is there and syncs it. Deleting the only file in
+that folder deleted the folder as well — so the job correctly spotted that something
+about `pool-ai-agents.internal` had changed, went looking for the folder to sync,
+didn't find it, printed a single warning line, and moved on. Green tick, nothing done.
+There is no part of that job that can delete anything from the bucket when the folder
+is simply absent.
+
+For this particular file it doesn't matter: that domain isn't real, nothing points at
+it, and the file isn't reachable by anyone. Clearing it properly needs the storage
+credentials, which live in GitHub and not anywhere I can reach. It's one command if
+you ever want it gone; I'd say it's tidiness rather than anything urgent.
+
+**What does matter is the general case, and I want to be blunt about it.** If we ever
+retire a website by deleting its folder from the repository — which is the obvious way
+to do it — the deploy will go green and **the entire site will stay live in the
+bucket.** Nothing fails, nothing warns except one line in the middle of a successful
+log, and the repository will look exactly right. That is now written down where
+someone will hit it before they do it, rather than after.
+
+I also want to correct myself. When I flagged the stray file this morning I told you
+the check afterwards was to look at the origin with a cache-buster, because I knew of
+an existing trap where reverts get skipped for being older than the copy already
+there. Right instinct, wrong trap — and I recommended the check without having read
+the one line of the deploy job that actually decides this. The check I gave you would
+have shown the file still present and I'd have blamed caching.

@@ -156,13 +156,29 @@ repo gqls/sites   path pool-ai-agents.internal/assets/js/snippets.js
 commit "Update JS snippets bundle" 2026-08-08 15:36:28Z   Actions run 31264883288 green (so it reached B2 too)
 ```
 
-The owner accepted this cost in advance. The deletion was attempted and **refused by
-the tool sandbox as a destructive remote action**; it was not worked around. It needs
-one `gh api -X DELETE` (or a hand-made commit), then a cache-busted check at the B2
-**origin** — the `b2 sync --skip-newer` LANDMINE bites reverts specifically.
+The owner accepted this cost in advance and **deleted it from the repo the same day**
+(`0709f572b`, 16:03:48Z; `gh api repos/gqls/sites/contents/pool-ai-agents.internal`
+now 404s).
 
-This is now a LANDMINE in its own right: dispatching `nav-link-fixer` at ANY site
-writes to the shared repo, and the handler's own result never mentions it.
+> **THE BUCKET COPY IS STILL THERE, AND THE DELETE RUN WENT GREEN.** `deploy-to-b2.yml`
+> syncs per domain behind `if [ -d "$domain" ]`; removing the directory's only file
+> removed the **directory**, so run `31266031734` detected the domain as changed and
+> then printed `WARNING: pool-ai-agents.internal in changed set but no directory —
+> skipped`, with **zero** `Syncing … to B2` lines and conclusion `success`. There is no
+> code path that deletes a bucket prefix. Remaining owed, and it needs credentials a
+> session does not have (GitHub secrets):
+> `b2 rm --recursive "b2://portfolio-sites/pool-ai-agents.internal"`.
+>
+> Impact is nil in practice — no DNS for that name, and the bucket is fronted
+> per-domain — so this is tidiness, not exposure. **But the mechanism is not**: retiring
+> any real site by deleting its directory would leave the whole site live in the bucket
+> behind a green run. Now a LANDMINE of its own, and explicitly **not** the
+> `--skip-newer` one next to it — `gh run rerun` cannot fix this, because a fresh
+> checkout still has no directory.
+
+Two LANDMINES came out of this cleanup: dispatching `nav-link-fixer` at ANY site writes
+to the shared repo and its own result never mentions it; and deleting a domain directory
+deploys nothing while reading green.
 
 > **CORRECTED 2026-08-08 — the reason given here until today was FALSE.** It read:
 > *"whose live callers are the dispatch loops — and `build-dispatch-loop` takes

@@ -6691,3 +6691,20 @@ Nothing logged. A test asserting current behaviour passes either way.
   To count refusals, do **not** ask `result`; the only contemporaneous records are the pod log (`"CompleteWorkItemAction: completion blocked"`, which rotates) and `error` (stale-prone, per above)
 - **source:** 2026-08-08, `bugfix_071_fragment_blindspot` lane, watching one item go detected → refused → triaged → complete
 - **added:** 2026-08-08, bugfix_071_fragment_blindspot lane
+
+---
+
+### Deleting a whole domain DIRECTORY from `gqls/sites` deploys NOTHING — the run goes green, prints one WARNING, and the bucket copy is orphaned for ever
+- **footprint:** `.github/workflows/deploy-to-b2.yml` in the `gqls/sites` repo (the `Get changed domains` step and the `for domain in …; do if [ -d "$domain" ]` guard in `Sync to B2`), `b2://portfolio-sites/<domain>`, any retirement/removal of a site directory or the last file under one
+- **fires when:** you remove a domain's whole directory — retiring a site, or (as here) deleting the single junk file that was the directory's only content, which removes the tree with it. It is the obvious way to un-publish something and it is the one case the sync cannot express
+- **the tell:** ONE line, in a green run, in the middle of a step whose other branch is chatty: `WARNING: <domain> in changed set but no directory — skipped`. The domain IS correctly detected as changed (`Changed domains: <domain>`), so the "did it notice?" check passes and reads like success. There is no error, no failed step, and the repo is genuinely correct — only the bucket is wrong
+- **why:** `--delete` removes what is missing from the SOURCE DIRECTORY, and it only ever runs for domains the loop actually enters. `git diff --name-only` still lists the deleted paths, so the domain lands in the changed set; `[ -d "$domain" ]` is then false, and the `else` branch skips it. **There is no code path that deletes a bucket prefix.** Measured 2026-08-08: run `31266031734`, commit `0709f572b` removing `pool-ai-agents.internal/assets/js/snippets.js` — conclusion `success`, zero `Syncing … to B2` lines, the WARNING above, and the object still in the bucket
+- **the check:** after removing a directory, **grep the run for the WARNING, not for failure** — and never conclude from a green run that the bucket followed:
+  ```bash
+  gh run view <id> --repo gqls/sites --log | grep -E "Changed domains:|Syncing .* to B2|no directory — skipped"
+  ```
+  A domain in `Changed domains:` with **no** matching `Syncing` line is an orphaned prefix, every time
+- **what to use instead:** there is no repo-side fix — emptying the directory cannot reach zero files, because a directory with no files is not a directory. Removing the bucket prefix needs the **B2 CLI with the `B2_APPLICATION_KEY_ID` / `B2_APPLICATION_KEY` credentials**, which live only as GitHub secrets: `b2 rm --recursive "b2://portfolio-sites/<domain>"`. Budget that before deleting a directory, or leave the directory in place with the content you actually want served
+- **⚠ this is NOT the `--skip-newer` landmine above it, and the check for that one does not catch this one.** That entry is about a file whose bucket copy is newer being silently skipped **inside** a sync; this is the sync **never running for the domain at all**. Its remedy (`gh run rerun`) is useless here — a fresh checkout still has no directory
+- **source:** 2026-08-08, `bugfix_071_fragment_blindspot` lane, cleaning up after the `nav-link-fixer` commit landmine above; the removal was correct in git and inert at the origin
+- **added:** 2026-08-08, bugfix_071_fragment_blindspot lane
