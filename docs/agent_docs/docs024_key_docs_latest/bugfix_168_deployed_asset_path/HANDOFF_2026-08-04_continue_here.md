@@ -1,5 +1,12 @@
 # HANDOFF — 2026-08-06 — the retraction lane is DONE, and so is the inherited limit.
 
+> # ⛔ SUPERSEDED FOR STATE — read `HANDOFF_2026-08-08_continue_here.md` instead.
+> **2026-08-08.** The §0 fix is live and has now been proven running **unattended** across two days
+> and five chassis builds. This file is kept for its *reasoning* and its *traps*, which are still
+> good — but every "state" and "what's next" line below has been overtaken. In particular §5.4's
+> figures are stale (re-measured: **53 pairs / 180 rows**, not 48 / 135) and §0's own recommendation
+> is retracted.
+
 > **START HERE. Sections 1–8 below are HISTORY (pre-option-A) — read for context, do not act on
 > them.** Plain-prose account: `SUMMARY_2026-08-06_deployed_asset_path.md`.
 >

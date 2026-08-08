@@ -1799,3 +1799,53 @@ the predicate instead, inherits your own.
 
 **What caught it:** deciding the comparison had to be apples-to-apples before asserting growth —
 i.e. asking "is my filter the same as theirs?" *before* the number went into a document, not after.
+
+---
+
+## 2026-08-08 — the unattended proof, two days and five builds later
+
+The 2026-08-06 entry ended with a prediction: *"the next scheduled run ~2026-08-07 08:37Z should
+show the same shape unattended."* Tested, and it holds.
+
+**Runs happened with nobody watching, twice** — measured from the closures, not inferred:
+
+```sql
+SELECT completed_at::date, count(*) FROM site_work_items
+WHERE resolution_path='auto:revalidated' GROUP BY 1 ORDER BY 1 DESC;
+--  2026-08-08 | 3      <- unattended
+--  2026-08-07 | 1      <- unattended
+--  2026-08-06 | 21     (20 of them my one hand-dispatched drain)
+--  2026-08-04 | 33     (pre-fix history)
+```
+
+Fleet `auto:revalidated`: **34 → 58**. Today's scheduled run (`1ac359c4`, 08:38:29Z, unprompted):
+
+```
+scanned 151 · capped_at 1500 · cap_binding false · resolved 3 · still_holds 37 · unknown 111
+uncovered_backlog 625
+```
+
+**Three independent cross-checks, each of which could have failed:**
+
+- **`scanned` 151 is the judgeable population, not the queue.** Live now: 148 judgeable, 625
+  uncovered, **773 parked**. `151 − 3 resolved = 148`. The sweep looked at 151 of 773 — the exact
+  right 151.
+- **`uncovered_backlog` 625 matches the live uncovered count to the row.** Not a sampled or
+  cap-truncated figure, which is what the old code could only ever produce.
+- **`cap_binding` false**, with 151 against a cap of 1500.
+
+⚠ **Do not read `resolved 3` as degradation from 20.** The 20 was a one-off drain of a backlog that
+had been unreachable for a fortnight; 1 and 3 are steady state — the sweep is keeping up rather than
+catching up. A trickle after a flush is the *correct* shape, and the number to watch is
+`cap_binding`, not `resolved`.
+
+**No regression across five builds.** Verified on `v1.0.1262` (was `v1.0.1257` when first proven):
+both replicas still carry the cap warning and the refusal string, positive control non-zero. Worth
+re-checking precisely because none of these builds were mine — the change has simply ridden along
+at HEAD, which is the normal condition on this tree, not a special case.
+
+⚠ **The 2026-08-06 evidence is GONE from the database.** `orchestration_states` holds **1** reval
+run now; the 08:05, 08:37 and 10:03 rows from 08-06, including the one carrying the `scanned 168 /
+resolved 20` payload, have aged out at ~24h retention. **The only surviving record of the decisive
+run is what was written into these docs at the time.** That is the whole argument for recording a
+payload the day you take it, and it is the standing `~24h retention` lesson arriving on schedule.
