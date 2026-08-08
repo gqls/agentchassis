@@ -6344,3 +6344,42 @@ Two more in the same family, both cheap to get wrong:
 - **do NOT duplicate the sibling check:** `deactivated_site_components`, same file, already covers "`component_id` points at an `is_active=false` component" (extended by `bugs_open/170` to the `style_collections` pin). 17 of 19 `head` rows are in that state — it is a known, covered condition, not a new finding.
 - **relations:** `bugs_open/117` (chrome is a stored artefact no page re-render regenerates — this is the detector half of it), `bugs_open/170` (the pin half of the sibling check), `bugs_closed/049` (stale chrome fleet-wide), 016b §9 *"Light site renders dark chrome"* (the two-assembly-paths prior art), `docs024_key_docs_latest/bugfix_117_chrome_staleness_reference/` (measurements, runbook, handoff)
 - **added:** 2026-08-08, `bugfix_117_chrome_staleness_reference` lane
+
+## A decomposed site's `prose-N` slot may hold the page's `<style>` block, and rewriting it deletes the CSS while every guard still passes
+
+**footprint:** `page_components.slot_name LIKE 'prose-%'` · `content_rewrite` /
+`page-build-handler` on any decomposed site · `ported-prose`
+
+A decomposer that splits a hand-built page into positional slots classifies by
+POSITION, not by content. On loancalculator.co.uk **8 of 51 `prose-*` rows are not
+prose at all** — they hold the `<style>` block that styles the page's calculator
+(`.comparison-wrapper`, `.loan-column`, `.stat-label`, `.stat-value`). They look
+exactly like prose rows in every listing: same slot name, same component
+(`ported-prose`), same `content.source = "llm"`, so a voice rewrite sends them to
+the writer like any other block.
+
+**Every protection in place says yes to this.** The component's own `llm_guidance`
+promises *"this block contains NO form control and NO element addressed by any
+script, so rewriting this prose cannot break a calculator"* — which is **true**, and
+says nothing about CSS. The locked-row guard protects the tool row, not the style
+row. `validate_page_content` did not object. The tool's arithmetic still computes
+perfectly; only its layout collapses.
+
+**And it is a coin flip, not a rule:** on the same run the writer PRESERVED the
+`<style>` block on 3 of these pages and DROPPED it on the 4th. A single spot-check
+of one page would have cleared the whole class.
+
+**the check:** before rewriting, list the slots that carry CSS —
+```sql
+SELECT p.name, pc.slot_name, length(pc.content_data->>'content')
+FROM pages p JOIN page_components pc ON pc.page_id=p.id
+WHERE p.site_id='<site>' AND pc.slot_name LIKE 'prose%'
+  AND pc.content_data->>'content' ILIKE '%<style%';
+```
+— then after each rewrite assert every selector survived, **per page, never sampled**:
+extract `([.#][\w-]+)\s*\{` from the baseline row and require each one to still match
+`selector\s*\{` in the new row. Checking for the literal `<style` tag is NOT enough —
+what breaks the page is a lost selector, and a rewrite can keep the tag while dropping
+rules. Recovery is an exact row restore (`content_data`, `rendered_html`,
+`content_hash`) from a pre-run backup plus an assemble-only rerender; confirm at the
+SERVED page, because the stored row and the deployed file are independent facts.

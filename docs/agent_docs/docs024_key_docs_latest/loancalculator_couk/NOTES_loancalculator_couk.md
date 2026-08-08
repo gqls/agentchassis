@@ -3031,3 +3031,121 @@ at the end rather than leaving them looking like real HITL work.
 `page_components_bak_20260807_voiceh` (63 rows) · `baseline_20260807.json` (76 KB —
 every row's full text, length, md5, row id, so it serves fact-by-fact comparison as
 well as restore).
+
+### The guides are done — 13 of 13 — and my own checker was wrong three times
+
+Canary `guide-can-i-overpay` first, graded in full before anything else fired: row
+replaced (new id — proof the save ran, not a carry), 3,012 → 3,045 b, every number,
+link and heading preserved, no form control or script introduced, and on the served
+page the new opening present **1** with the baseline opening **0**. Then batches of
+4/4/3.
+
+**The rewrite is on-spec, not merely different.** It opens where the reader is standing
+(*"If you're thinking about paying extra off your loan, the short answer is yes,
+usually"*), explains before naming (*"you'll need to ask your lender for the total
+amount required to close the account today. Lenders call this the Settlement Figure"* —
+plain words first, the term second), and it quietly retired an absolute claim:
+*"Overpaying is almost always a smart financial move"* → *"For most people, overpaying
+is worth doing."*
+
+**Every batch threw flags, and 3 of the 4 flag CLASSES were defects in my checker, not
+in the copy.** Worth recording because each one would have read as "the framework
+damaged the page" and each was disprovable in one query:
+
+1. **"new opening NOT on the served page"** (3 of 4 pages in batch 2a) — my `opening()`
+   stripped tags from the whole document first, which welds the `<h1>` to the following
+   subtitle into a pseudo-sentence that exists nowhere in the served HTML, because tags
+   sit between them. Fixed by taking the opening from inside a single `<p>`.
+2. **Same message again on a later page, different cause** — I compared tag-stripped DB
+   text against the RAW served HTML, so an inline `<strong>PCP (Personal Contract
+   Purchase)</strong>` inside the first sentence broke the substring match. Fixed by
+   stripping tags from the served side too. **Two distinct bugs behind one identical
+   symptom**; fixing the first made the second look like a real failure.
+3. **"FACTS LOST"** — the H voice tells the writer to speak numbers as a person would,
+   so it turns `4-5 years` into *"four to five years"* and `£25k+` into *"£25,000 or
+   more"*. A digit-only comparison called every one of those a lost fact: 5 of the 6
+   fact flags. The figures were all present, spelled out. `still_present()` now accepts
+   the spelled-out and k/comma variants and reports only what is absent under all of
+   them.
+4. **The one real flag class**: heading wording. Two pages had a heading reworded — one
+   `h4`, and one **`h1` page title** (`Typical Fees & The Power of APR` → `Hidden Loan
+   Fees & The Power of APR`). The brief says keep the heading *structure*, and the
+   structure is intact (same count, levels, order), so these are notes rather than
+   failures — but an h1 is the page's title and that is the owner's call, so it is
+   surfaced separately and has gone to `README_where_we_are`.
+
+> **The lesson is not "my regex was loose".** It is that **a checker built from the
+> shape of the OLD artefact will convict the new one of being different**, and every
+> one of these failures pointed at the framework rather than at me. The tell each time
+> was that the *content* probe passed while the *identity* probe failed — chunks of the
+> new body were plainly on the served page while "the opening" was not. Where a check
+> and a spot-read disagree, suspect the check. Going in `WRONG_CALLS.md`.
+
+**The checker can come out otherwise, and I proved it rather than assuming it.** Run
+against `guide-jargon-buster` before it was rewritten, and against `index` after the
+guides were done, it correctly FAILED every prose row with *"row id UNCHANGED — the
+save did not run"*. A grader that has never failed on a known-unrewritten page is not
+evidence of anything.
+
+**One accepted flag, adjudicated by hand rather than by the tool:**
+`guide-document-checklist` dropped `100%` from *"Lenders need to be 100% sure you are
+who you say you are"* → *"Lenders need to be sure you're who you say you are"*. That
+`100%` is a rhetorical intensifier, not a figure about the world, and the voice spec
+explicitly bans advertising emphasis. Accepted as correct behaviour. Left in the
+checker as a FAIL on purpose — the tool should not be taught to swallow a missing
+number, because next time it may be a real one.
+
+**Also observed, and it is an addition rather than a preservation:** the writer expanded
+*"under the Consumer Credit Act"* to *"under the Consumer Credit Act 1974"*. Correct —
+that is the right statute for a settlement figure — but the brief said preserve, not
+improve. Recorded, not reverted; flagged to the owner as the kind of thing to watch.
+
+### The calculator pages: the framework refused one page, and a rewrite deleted a page's CSS
+
+Batch 3a (`tool-application-tracker`, `tool-car-finance-calculator`,
+`tool-compare-loans`, `tool-credit-roadmap`). **The lock prediction held exactly**: all
+three locked tool rows kept their row id AND their 2026-08-02 `updated_at`, and the two
+expected `lock_blocked_change` notices were filed. No calculator was touched.
+
+**Two things happened that were not predicted.**
+
+**1. `validate_page_content` REFUSED `tool-car-finance-calculator`, and was right to.**
+1 blocker, `meta_commentary`: the writer emitted the string `input_schema` into the
+copy — *"…ymbol come from the input_schema. FIXED 2026-08-03 — 0% APR, as its own
+change…"*. That is the model narrating its own task and echoing this lane's changelog
+back as body text. **The string is not in the baseline prose** (checked before
+concluding), so the writer invented it. The page was NOT saved: both prose rows still
+carry their original ids and bytes, and the live page is untouched. Detail is in
+`agent_error_log.context.issues`, not in `collected_data` — that is where
+`validate_page_content` persists its issue list.
+
+**2. A rewrite DELETED a page's CSS, and every guard in the system said yes.**
+`tool-compare-loans`' `prose-0` was never prose: it held the `<style>` block for the
+comparison layout. The rewrite replaced it with 2,124 b of (good) copy and took
+`.comparison-wrapper`, `.loan-column`, `.stat-label` and `.stat-value` off the served
+page — **while the markup still referenced two of them**.
+
+Nothing in the platform was wrong. The component's `llm_guidance` promises *"no element
+addressed by any script, so rewriting this prose cannot break a calculator"* — which is
+TRUE and silent about CSS. The locked-row guard protects the tool row, not the style
+row. The validator did not object. The arithmetic still computed; only the layout
+collapsed.
+
+**Census after finding it: 8 of this site's 51 `prose-*` rows carry a `<style>` block**
+(`guide-jargon-buster`, `tool-application-tracker`, `tool-car-finance-calculator`,
+`tool-compare-loans`, `tool-consolidation`, `tool-credit-health-check`,
+`tool-loan-vs-savings`, `tool-overpayment-calculator`). Of the four already fired, the
+writer **kept** the style block on three and **dropped** it on one. So this is a coin
+flip, not a rule — and a single spot-check of one page would have cleared the whole
+class wrongly. That is the entry now in `LANDMINES.md`.
+
+**Repaired**: exact row restore of `content_data`/`rendered_html`/`content_hash` from
+`page_components_bak_20260807_voiceh` inside a transaction with a `DO … RAISE
+EXCEPTION` verify block (a bare `SELECT` cannot stop a COMMIT), then an assemble-only
+rerender, then confirmed **at the served page**: all four selectors back, `prose-1`'s
+rewrite retained, 4 `<script>` blocks intact. prose-0 is left un-rewritten, which is
+the correct end state — there was never any prose in it.
+
+**The grader now fails on any lost CSS selector**, per page, never sampled. Checking for
+the literal `<style` tag would not have been enough: a rewrite can keep the tag and drop
+the rules.

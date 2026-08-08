@@ -22462,3 +22462,34 @@ mechanism was invoked at `validate_page_content.go:342`, in the same function
 whose behaviour I was changing. "Reuse existing machinery before building new"
 is a platform convention precisely because the machinery is usually nearer
 than a search would even need to look.
+
+## 2026-08-08 — loancalculator voice H: my grader convicted the framework three times, and was wrong each time
+
+**The claim I nearly wrote down:** "the rewrite is not reaching the served pages" and
+"the writer is dropping facts" — on 3 of 4 pages in one batch, then again on a later
+page, then on 5 of 6 numeric flags.
+
+**What was actually true:** every page had deployed correctly and every figure was
+still stated. Three separate defects in my own checker:
+
+- it built the "opening" by stripping tags from the WHOLE document, which welds the
+  `<h1>` to the subtitle into a sentence that exists nowhere in the served HTML;
+- after fixing that, it compared tag-stripped DB text against RAW served HTML, so an
+  inline `<strong>` inside the first sentence broke the match — **the same symptom,
+  a different cause, and fixing the first made the second look real**;
+- it matched figures by digits, while the voice being applied deliberately spells
+  numbers out (`4-5 years` → "four to five years", `£25k+` → "£25,000 or more").
+
+**What caught it:** probing for OTHER chunks of the new body on the same served page.
+They were all present. A check that says "the new copy is absent" while three other
+fragments of that same new copy are demonstrably on the page is failing at matching,
+not detecting a failure.
+
+**The cheap check that would have:** before believing a detector that indicts the
+system, run its OWN positive control — assert something you know is true of the new
+artefact. One `probe in served` line, ten seconds, would have settled all three.
+
+**The transferable shape:** a checker written from the shape of the OLD artefact will
+convict the new one of being different. That is the failure mode of every before/after
+gate, and it points at the system under test rather than at the gate, which is exactly
+the wrong direction. Where a check and a spot-read disagree, suspect the check first.
