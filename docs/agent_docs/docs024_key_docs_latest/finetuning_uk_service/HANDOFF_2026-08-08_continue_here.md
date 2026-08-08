@@ -170,8 +170,14 @@ IS the deploy; verify by md5 round-trip).
      box, FTW-035).
    - Phase 0 closes flywheel gates FTW-032/035.
 3. ~~**Task #6 — orphan sweep** (the top uncovered risk)~~ **BUILT 2026-08-08
-   late evening (FTW-042), commit `81484df8a` + gofmt `2ef4ab581`, council
-   corr `7ffecfa2` (Council-Submitted — READ THE VERDICT if it hasn't been).**
+   late evening (FTW-042), commits `81484df8a` + `2ef4ab581` + revision
+   `ecbb0f362`, council corr `7ffecfa2`.** Round 1: REVISE, read and fully
+   dispositioned (gating objection led to the shared-door `insertWorkItem`
+   adoption — see NOTES + WRONG_CALLS). **Round 2 DID NOT RUN: fleet-wide
+   Anthropic credit exhaustion from 18:25:48Z killed it at the first seat.
+   Once the owner tops up, resubmit with the saved JSON — one command,
+   recorded in NOTES (do not rebuild it):**
+   `RESUBMIT_CORR=7ffecfa2-… 097_TRIGGER… council_r2_submission_ftw042.json`.
    `list_instances` adapter action + `dispatch_thunder_list` +
    `reconcile_thunder_instances` (orphans filed as `thunder_orphan` items on
    system.internal; ghosts reported not filed; 30-min grace) +
