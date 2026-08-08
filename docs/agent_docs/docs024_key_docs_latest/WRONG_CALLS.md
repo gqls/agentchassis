@@ -23792,3 +23792,117 @@ page rows that have never deployed and serve 404.
 an "N of M succeeded" summary hides two different failures — not-yet-propagated, and
 never-existed. **Identical response sizes across unrelated URLs mean you are measuring the error
 page.** Check bytes, not just presence.
+
+### 2026-08-08 — bugfix 222 — "no existing negation-aware regex helper in the codebase — this will be the first"
+
+**The claim I wrote into NOTES:** researching a false-positive fix for the fabrication gate
+(`check_tool_fabrication_action.go`, whose Tier A convicts "no fabricated data" as a declaration
+of fabrication instead of a denial), I checked `LANDMINES.md`/`WRONG_CALLS.md` for the file name
+and the two memory topics I already knew were the right precedent class, found nothing, and
+wrote: "No existing negation-aware regex helper in the codebase to reuse — this will be the
+first."
+**Actually:** `negatedClaimMatch` in `platform/orchestration/datahelpers/claims.go:593` already
+does exactly this — a clause-local backwards-window negation scan — registered in the concept
+register as **CLM-017**, with two live consumers (`ScanBannedClaims`,
+`ScanAttributedUncitedStats`) and a test deliberately pinning a known residual (bare "no"
+excluded on purpose, for claims-prose reasons). Handing the research to a second planning pass
+(fable, per this task's own instruction to use it) caught the false claim before any code was
+written — it grepped `platform/` for the plain word "negat" and got 30 hits in seconds.
+**Caught by:** the fable planning pass, not by me. I had grepped for absence-shaped phrases
+("negation-aware regex helper") and file/topic names I already had; I never ran the one grep
+that would have found the mechanism under its OWN name.
+**The cheap check that would have caught it:** `grep -rln "negat" platform/ --include=*.go`
+before writing any "no existing X" sentence — one command, seconds, and it is the same shape as
+[[a-grep-proves-absence-only-for-its-spelling]]: "negation-aware regex helper" was never going to
+be the codebase's own term for it (the register calls it "the negation guard").
+**Cost:** none reached implementation — the false claim sat in NOTES for one research pass before
+the plan corrected it, and the plan was built on the real mechanism (extracting `NegationGuard`
+as a shared, parameterised primitive) rather than a reinvented one-off regex. Worth logging
+anyway because the near-miss is structural: a "does X exist" search framed around the ABSENCE
+you expect to find is exactly the search least likely to find X under a name you didn't guess.
+
+---
+
+## 2026-08-08 — `grep … | head -30` over a 7,000-line file, and I wrote "no such entry exists" from the first 1,921 lines of it
+
+**Lane:** `bugfix_221_ai_disclosure_precision`. **What I wrote down:** in NOTES,
+and committed: *"No `LANDMINES.md` entry footprints `checkMetaCommentary`,
+`metaCommentaryPatterns` or `validate_page_content.go`'s meta scan."*
+
+False. `LANDMINES.md:6413` is exactly that entry — *"A new pattern in
+`validate_page_content` is a BLOCKER by default…"* — it names both symbols in its
+footprint, and it **already cites `bugs_open/221`**, the very bug I was picking
+up. It was committed in `e4d620fca`, the same commit that filed 221, so it
+predated my session entirely.
+
+I had done the right thing and grepped (the memory topic
+`grep-landmines-for-your-symbols` exists precisely for this, and I followed it).
+The command was:
+
+```bash
+grep -n "validate_page_content\|checkMetaCommentary\|…" …/LANDMINES.md | head -30
+```
+
+All 30 matches I read came from lines ≤1,921. The entry is at 6,413 — below the
+cut. **`head` does not announce that it truncated.** A partial answer arrives
+looking exactly like a complete one, and there is no tell anywhere in the output.
+
+**What caught it: luck, wearing the costume of diligence.** Two hours later I ran
+`landmines_lib.parse()` to confirm my *own* new entry had synced, and it reported
+**two** entries matching `metaCommentaryPatterns`. I was checking something else
+entirely. Had I not, I would have shipped a second landmine entry competing with
+the first, and left the false claim standing in a committed doc.
+
+**The cheap check that would have caught it, and now does:** for an existence
+question, get the **count** first — `grep -c`, or `| tail`, or no pipe at all. A
+count cannot be silently truncated, and if it exceeds the window you are about to
+read, you know your sample is a sample. **`head` is for previewing output whose
+size you already know. It is never an answer to "does this exist?"** — and that
+is the one question I was asking.
+
+**Why this one is worth the tally rather than a shrug.** This is the third
+silent-truncation entry from this single session (`kubectl exec -i` eating a
+`while read` loop; a `sed` range terminated by `/^}/` matching `}{` and comparing
+15 items against zero). Different tools, one shape: **an operation that yields
+less than everything, at exit 0, with no marker in the output.** The estate
+already has a committed detector for the first of the three
+(`pattern-check.py:check_stdin_eater`) and it only scans `.sh` files — so none of
+the three could have been caught by anything, because all three were typed
+straight into a tool call.
+
+**The generalisable habit, which does not require recognising any of the
+individual traps: before believing a result that is an ABSENCE or a SET, assert
+its size against something independent.** Count the manifest against the files
+written; print both operands' counts before diffing them; take `grep -c` before
+`grep | head`. Each is one extra token and each converts a silent truncation into
+a visible one. Every one of today's three would have died on it.
+
+---
+
+## 2026-08-08 — "Parking the redirect closes the scrape inlet" — the scraper was never going to look
+
+**The claim** (written into the lane NOTES and the handoff, and the premise of a
+permission request to the owner): disable the two `webdesign.uk` 302 page rules
+and the build classifier's scrape can no longer read `webdesign.co.uk` as the
+domain's content. **False as stated.** The scraper is Firecrawl, Firecrawl
+caches 200-responses by default, and the platform's step config sent no
+`maxAge` — so the classifier would have read the cached pre-parking snapshot
+of webdesign.co.uk regardless of anything the edge now serves. The entry it
+would have read was written by MY OWN measurement probe an hour earlier: the
+check that proved the contamination path is what armed it.
+
+**What caught it: re-running the probe AFTER the change, as a positive
+control, before dispatching.** Edge proven parked by curl (522) — then the
+default-shaped scrape still returned webdesign.co.uk, `cacheState: hit`. One
+more probe with `maxAge: 0` proved the fresh path sees the 522 — and a third
+probe proved the fresh 522 does NOT evict the stale 200 (error responses are
+not cached over it).
+
+**The cheap check that would have avoided it:** read
+`metadata.cacheState`/`cachedAt` on the FIRST probe — the field was in the
+response all along, announcing that scrape results are a cache. More
+generally: after changing live state, never re-use a pre-change measurement
+path without asking what that path remembers. The fix that closed it
+structurally: `scrape_config: {"max_age": 0}` on the classifier's scrape step
+(the one step whose output anchors an entire site build), plus a LANDMINES
+entry for the class.

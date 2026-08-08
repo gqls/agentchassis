@@ -89,10 +89,43 @@ the check is in the RUNBOOK.
   thread wants to widen this to 'how should the fleet's blocker-severity string
   scans be governed', that is a 090 or an RFC, not this file."* Honoured — the
   change stays inside `checkMetaCommentary`.
-- No `LANDMINES.md` entry footprints `checkMetaCommentary`, `metaCommentaryPatterns`
+- ~~No `LANDMINES.md` entry footprints `checkMetaCommentary`, `metaCommentaryPatterns`
   or `validate_page_content.go`'s meta scan. The nearest entry (line 1895)
   concerns the runtime-fill marker and explicitly lists `validate_page_content.go`
-  as a **caller, not a test site**.
+  as a **caller, not a test site**.~~
+
+  > **CORRECTED 2026-08-08 (same session, ~2h later) — THIS WAS FALSE, and it was
+  > false when I wrote it.** There *is* such an entry, and it is a good one:
+  > `LANDMINES.md:6413`, *"A new pattern in `validate_page_content` is a BLOCKER by
+  > default, and a blocker there means 'this page can never be rebuilt again'"* —
+  > footprinting `metaCommentaryPatterns` and `checkMetaCommentary` by name, and
+  > **already citing `bugs_open/221` as one of its two live instances.** It was
+  > committed in `e4d620fca`, the same commit that filed 221, i.e. it existed
+  > before this session started.
+  >
+  > **What caught it:** nothing I did deliberately. I only found it because
+  > `landmines_lib.parse()` reported *two* entries matching `metaCommentaryPatterns`
+  > when I expected one — I was checking my own append had synced, and the
+  > duplicate fell out. Had I not run that check for an unrelated reason, I would
+  > have shipped a second entry competing with the first.
+  >
+  > **The cause:** I ran `grep -n "…|checkMetaCommentary|…" LANDMINES.md | head -30`
+  > over a **7,000-line** file. The 30 matches I read all came from the first 1,921
+  > lines. The entry is at line **6,413** — *below the cut*. `head` does not say it
+  > truncated, so a partial answer arrives looking exactly like a complete one, and
+  > I wrote "no entry exists" from it.
+  >
+  > **The check, which costs nothing:** for an existence question, `grep -c` FIRST
+  > (or `| tail`, or no pipe at all). A count cannot be truncated, and if it exceeds
+  > the window you are about to read, you know your sample is a sample. **`head` is
+  > for previewing output you already know the size of; it is never an answer to
+  > "does this exist?"** Logged in `WRONG_CALLS.md`.
+  >
+  > **Consequence, already applied:** the duplicate entry I had appended was
+  > **removed**, and only the genuinely-new material (the `Re` field and its unsafe
+  > nil default; the "SQL `LIKE` is not this check" trap; the
+  > `error_message`-vs-`context.issues` trap) was folded into the existing entry as
+  > a dated addendum. One entry per trap — two would have drifted.
 
 ### Diagnosis provenance
 
@@ -207,3 +240,62 @@ Useful for the fix design: blocks are **per-element prose units**, not the whole
 document, so a pattern needing first-person context has a sentence-sized window
 to work in — the disclosure form (`As an AI, I cannot…`) and the noun-phrase form
 (`as an AI-builder prompt`) arrive as separate blocks, not as one haystack.
+
+## 2026-08-08 — the fix, and a third misstep (a check that measured nothing and said so with a number)
+
+Design in `PLAN_2026-08-08_ai_disclosure_precision.md`; prepared with fable,
+then every load-bearing claim in it re-verified here before implementing (one
+production call site, `regexp` already imported, the extractor's block shape).
+
+**Sequencing that earned its keep:** the test went in FIRST and was run at HEAD.
+7/7 must-not-block cases failed, 7/7 must-block cases passed. That is worth more
+than the green run afterwards — it proves the test can fail, and it proves the
+change is a pure narrowing rather than a rewrite of what blocking means.
+
+Committed `61c8cc6ff`. Council submission `377a0488-214e-4e5c-bd3d-66343d34d9b2`
+(`Council-Submitted:` trailer — the code is on the shared branch, per the
+2026-07-20 rule that a coherent change is not held for a verdict).
+
+### MISSTEP — `sed -n '/^var .../,/^}/p'` stopped at `}{`, so my "nothing was dropped" check compared 15 patterns against ZERO and I nearly read that as a diff
+
+Before committing I wanted to assert that no pattern had been silently lost when
+the table was rewritten from positional to keyed literals. The check:
+
+```bash
+comm -3 <(git show HEAD:…  | sed -n '/^var metaCommentaryPatterns/,/^}/p' | grep -oP '…') \
+        <(…now…)
+```
+
+It printed all 15 patterns as "only in NOW", which reads exactly like *the
+entire pattern set is new and HEAD's is gone*. Alarming, and false.
+
+The range terminator `/^}/` matched the line **`}{`** — the closing brace of the
+anonymous struct *type*, immediately followed by the opening brace of the
+literal. So the HEAD-side range was four lines long, ended before a single
+pattern, and yielded **zero**. The NOW side used `/^}$/` (anchored), which
+skips `}{` correctly, so only one side was broken — and the asymmetry is what
+manufactured the scary output.
+
+**Two lessons, and the second is the general one:**
+
+1. Anchor a sed range terminator (`/^}$/`), because `}{`, `})` and `},` all
+   start with `}` in Go.
+2. **A comparison where one side silently yields nothing does not report "I
+   measured nothing" — it reports a maximal difference.** An empty operand and a
+   total mismatch are the same output. The cheap check, which I only ran because
+   the result looked wrong: **print each side's COUNT before diffing them**
+   (`HEAD count: 15 / NOW count: 15`). A zero on either side then names itself
+   instead of masquerading as a finding.
+
+This is the `check-answers-the-question-you-encoded` class, with the aggravation
+that the failure direction was *alarming* rather than reassuring — which is the
+lucky case. The same broken extraction, had it been on the NOW side, would have
+printed a clean empty diff and I would have committed believing the set was
+verified. **A silent-empty operand is dangerous in whichever direction it falls;
+it just only gets caught in one of them.**
+
+Corrected check, now in use — both counts printed, then `diff`:
+```
+HEAD count: 15 / NOW count: 15
+IDENTICAL — no pattern added, dropped or altered
+```

@@ -6465,6 +6465,39 @@ function over those, not over a fixture you composed — a fixture you write to
 exercise a rule will exercise it. The old-code half of the control pair is the
 production row's own `error` text, which is stronger than any local replica.
 
+**ADDENDUM 2026-08-08 (`bugfix_221_ai_disclosure_precision`, fix `61c8cc6ff`) — an entry may now carry a REGEX, and the default is still the dangerous one.**
+`metaCommentaryPatterns` entries gained an optional `Re *regexp.Regexp`. **`Re: nil`
+means substring — the status quo, NOT the cautious direction.** Substring
+over-matching is precisely what 221 was, and the compiler will not remind you: a new
+entry whose needle can sit inside a longer legitimate phrase (`as an ai` inside `as
+an AI-builder`) must set `Re` and match the **construction**, not the noun phrase.
+⚠ **A word boundary is not a substitute** — `\bas an ai\b` still matches `as an
+AI-builder`, because `-` IS a boundary. That is the single fact that made 221 survive
+the obvious fix.
+
+**Two measurement traps on top of the census above, both of which hand you a
+confident zero** (each cost this lane a wrong reading on 2026-08-08):
+
+1. **A SQL `LIKE` is not this check, and they disagree BY DESIGN.** `LIKE` over
+   `rendered_html` sees `<script>`/`<style>`/attribute bodies; since 218/219 the
+   checker sees only extracted prose. Use SQL to *locate* rows, then run the real
+   function over those rows' stored bytes — otherwise you will "reproduce" 219's
+   already-fixed scope bug and chase it again. Four `input_schema`/`on_missing` rows
+   are live right now that `LIKE` flags and the checker correctly ignores; they are a
+   ready-made **negative control** for any harness you build here.
+2. **Past firings are NOT in `agent_error_log.error_message`.** That column holds only
+   *"content validation failed: 1 blockers, 0 errors"* / *"see context.issues for
+   detail"*, so every spelling of your pattern against it returns **0 fleet-wide while
+   the check is actively blocking builds**. Enumerate the jsonb:
+   `SELECT iss->>'category', iss->>'value', count(*) FROM agent_error_log ael,
+   jsonb_array_elements(ael.context->'issues') iss GROUP BY 1,2;`
+   ⚠ and not `context::text LIKE '%"category":"meta_commentary"%'` either — jsonb
+   renders a **space** after the colon, so that form matches nothing.
+
+**Same class, different checker, separately owned:** `bugs_open/222` —
+`check_tool_fabrication_action.go`'s `fabQualifierNearData` regex has no negation
+awareness, so a comment *denying* fabrication convicts. Do not fix it from here.
+
 ---
 
 ### The work-item dispatcher hands EVERY handler `spec.page_name` — an item filed against a different page (its `page_id` column) is acted on at the WRONG page, successfully
@@ -6965,3 +6998,11 @@ mid-write can leave the tree uncompilable for seconds, and the honest test is
   **`Pending (N)` is the scope assertion.** It is printed before anything is applied, it cannot be faked, and on this tree the correct N for a scoped run is almost always 1.
 - **and never hand this command to a human or a prompt as a wrapped line.** A two-line `VAR=x`/`cmd` pair is indistinguishable from the one-liner in most renderings and behaves completely differently. Write `env VAR=x cmd`, which survives being split because it is a single command word.
 - **source:** 2026-08-08, `bugfix_122_contrast_ink_slots` lane; `WRONG_CALLS.md` same date. Related: `bugs_open/007` (unrecorded-but-applied migrations, which is *why* the backlog is 98 deep).
+
+### Firecrawl serves a CACHED snapshot by default — changing what a domain serves does NOT change what a scrape returns, and your own diagnostic probe CREATES the poisoned entry
+
+- **footprint:** `internal/adapters/webscrape/providers/firecrawl.go` (`buildScrapePayload`/`buildCrawlPayload` `max_age`), every `scrape_web`/`firecrawl_*` step config, `domain-research-classifier` `scrape_site`
+- **fires when:** you change what a URL serves (park a redirect, take a site down, deploy a fix) and then scrape it to see the new state — or dispatch any pipeline whose scrape step omits `scrape_config.max_age`. Firecrawl v2 caches 200-responses and serves them for its default TTL when the request carries no `maxAge`; the platform's provider only sends `maxAge` when the step config has `max_age`, and as of 2026-08-08 no step in `agent_definitions` set it except `domain-research-classifier.scrape_site` (added that day). Worse: error responses do NOT overwrite the cache — a fresh fetch that gets a 522 leaves the stale 200 snapshot in place, so "I forced one fresh fetch" does not clean it.
+- **the tell:** the scrape returns `statusCode: 200` and coherent content while `curl` against the same URL shows something else entirely (a 522, a redirect, new content). Measured 2026-08-08 on `https://webdesign.uk`: edge PROVEN parked (curl 522), yet a default scrape returned the pre-parking redirect target (`webdesign.co.uk`, full markdown) with `metadata.cacheState: "hit"` and a `cachedAt` matching the earlier probe — the probe run to MEASURE the contamination is what wrote the cache entry the pipeline would then have read.
+- **the check:** read `metadata.cacheState`/`cachedAt` in every scrape you treat as evidence — `"hit"` means you are reading the past. To measure current state, send `maxAge: 0` explicitly (step config: `"scrape_config": {"max_age": 0}`). Before dispatching a pipeline whose decision anchors on a scrape (the classifier anchors the ENTIRE build), confirm its step config carries `max_age: 0` or accept that it may read a snapshot up to the default TTL old — and remember your own probes populate the same cache the pipeline reads.
+- **source:** 2026-08-08, webdesign_uk_build_service lane (rebuild resubmission); WRONG_CALLS.md same date.
