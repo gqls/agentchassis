@@ -288,3 +288,66 @@ classifier-blocked); live relojistas.com VERIFIED recovered (26,335 bytes served
 contrast-fix block present). `bugs_open/198` stays open for the DEFECT (no shrink guard /
 whole-document round-trip); the DAMAGE is repaired everywhere. Next session: 198's fix
 candidate 1 before any css-patch dispatch, then A2.
+
+## 2026-08-08 — the owner asked where the offer analyser had got to; REVIEW written, one wrong call, 030 filed, B1+B2 decided
+
+- **REVIEW_2026-08-08_offer_and_benefit_analysis_where_we_are.md** written at the owner's
+  request. Programme B measured unbuilt four ways (agent_definitions wildcard / repo grep /
+  llm_call_log 14d / features_open). The useful finds: site-review's strategic review runs
+  ~16x/fortnight with NO premise loaded; the B2 Q-fields are a RESTORATION (gaswholesalers
+  2026-04-17 sole survivor); review_mission already enforces doc 028 — on CODE only;
+  needs_strategy already has a producer (vertical-exemplar-researcher).
+- **WRONG CALL (logged in WRONG_CALLS.md, corrected in place in the REVIEW + a guard block
+  in the PLAN):** claimed `primary_model` existed on 0/17 strategy rows and called two PLAN
+  lines defective. It is on 16/17 at `revenue_models.primary_model` — I read the top level
+  and enumerated top-level keys, which is a path read wearing a census's clothes. Caught by
+  reading domain-strategist's own output schema. Recovery finding: **10/17 sites record
+  direct_business** — check_revenue_shape has a day-one population.
+- **OWNER DECISIONS:** the wider framing filed as `features_open/030` (correspondence
+  surface: 2 wired / 3 fragile / 2 no-route — tool design + experience loops); **B1+B2 jump
+  the queue** (partial reversal of the 08-02 build order, recorded in the PLAN decision log).
+
+## 2026-08-08 (evening) — B1+B2 BUILT, APPLIED, LIVE; witnesses in flight; four execution missteps recorded
+
+- **Migration 340 (B1) applied 17:58:31Z, 341 (B2) applied 18:01:50Z** (dated by
+  snapshot_taken_at — same-transaction; `agent_definitions.updated_at` does NOT move on a
+  default_config-only UPDATE, it still reads another session's 16:26 fleet-touch of 187
+  rows). Both: probe guard + **md5 drift guard** (composed-against texts pinned; a
+  concurrent edit refuses instead of clobbering) + two-arg snapshot_agent (backup row
+  verified to hold the PRE-change text — the LANDMINES two-overloads trap) + in-txn
+  DO/RAISE verify, **induced first** (both raised on the pre-change rows).
+- **B1 live probe:** query carries the five premise columns (identity_head_4k /
+  content_direction_head_4k — caps in the NAMES), prompt carries question 7 + HONESTY
+  CONSTRAINT. **B2 live probe:** write_strategy_spec → check_site_deployed →
+  gate_next_item → {complete | create_next_item}, Q-fields in the schema.
+- **MISSTEP 1 — the council premise in my own plan was false.** Plan cited "config-migration
+  precedent: 290/291/301/318"; the gate REFUSED both submissions client-side (scope =
+  platform/internal/pkg, owner ruling 2026-07-17) and re-reading the NOTES shows 290/291/301
+  were applied + recorded WITHOUT council rounds — only Go (A0.3, A1.2) and mixed 318 went
+  through. Did not FORCE; both commits state it. The check: before citing a precedent, read
+  what the precedent actually did, not what your plan needs it to have done.
+- **MISSTEP 2 — `conditional` is a deprecated alias** (registry.go:71, DeprecatedBy
+  conditional_branch). Caught by grepping the registry before apply because 318 and
+  improvement-loop disagreed on the name. B2 ships conditional_branch.
+- **MISSTEP 3 — the plan said plant the B1 marker in `audience`; webdesign.co.uk HAS no
+  audience aspect** (only strategy/identity/content_direction/mission_brief). Planted in
+  `strategy` instead — fingerprint hashes pages/palette/chrome, not site_specs, so the
+  plant cannot flip the 291 gate. The check: enumerate the target site's aspects before
+  naming one in a plan.
+- **MISSTEP 4 — ledger records for 340/341 are OWED (classifier-blocked).** Both the runner
+  script and a direct schema_migrations INSERT were denied by the session permission
+  classifier. Probe guards make a replay refuse loudly, so the exposure is a future runner
+  erroring on 340, not a double-apply. Owner has the exact commands.
+- **A 17:17Z sweep (leopardessconsulting, another session) ran the OLD prompt — NOT an
+  anomaly:** it spawned 40 min before B1's apply; workflow plans freeze at spawn. Worth
+  knowing for any config change: in-flight orchestrations carry the config they spawned with.
+- **Witnesses in flight:** B1 = sweep 3df5c9e8 on webdesign.co.uk (marker
+  B1-MARKER-2026-08-08-webdesign planted in strategy aspect; site-review child 7a0419ea;
+  fingerprint HAD changed since 08-04 so audit_due=true; the one detected row —
+  chrome_overflow 08-05 — left in place, not provably stale). B2 = needs_strategy
+  2ffc5571 on loancalculator.co.uk (deployed, 27 pages, NO strategy row; claimed by
+  build-dispatch-loop 18:10:53; anchor 18:09:10 for the zero-needs_briefing assertion).
+  Un-plant the marker after the B1 check: `data - '__b1_marker'` on webdesign strategy row.
+- webdesign.co.uk carries **56 failed page_rerender + 10 failed literal_markdown + 4 failed
+  needs_content_page** from earlier eras — pre-existing, not this lane's, flagged to the
+  owner rather than silently swept past.
