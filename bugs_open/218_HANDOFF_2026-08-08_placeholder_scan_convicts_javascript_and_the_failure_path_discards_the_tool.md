@@ -57,10 +57,17 @@ pins this — moving it would have made the pattern silently inert). Every other
 check still reads full HTML. Tests carry the three convicted snippets plus
 guard-survival cases; a mutation run (scan raw HTML) fails the ignore-tests.
 **Council trail (all under `a9ffed15`):** round 1 REVISE (reuse, answered by the
-code above) · round 2 REVISE (plan-record issues only, code unchanged: the
-verification recipe was mislabelled as an edit AND stepped into two documented
-landmines; consumer reliance asserted, not measured; defect B "filed" ≠ routed)
-· round 3 submitted 2026-08-08 answering all three — **read round 3's verdict.**
+code above) · round 2 REVISE (plan-record issues only: verification recipe
+mislabelled + two landmines; consumer reliance asserted, not measured; defect B
+"filed" ≠ routed) · round 3 REVISE at 9/11 approve — **its editquality objection
+was a real code catch**: the narrowing dropped `<head>`, so a `<title>`/meta
+placeholder escaped. Fixed `35889819c`: `headProseBlocks` scans title +
+description/og/twitter meta alongside body blocks; JSON-LD deliberately unread
+(code-shaped — the collision class being fixed); mutation-pinned. Round 3's
+gating seat escalated to "routing defect B is not a fix" — answered in round 4
+with the process fact (defect B under ACTIVE diagnosis `c56b691d`; the 090
+coverage rule forbids a parallel patch; the save-anyway-vs-cannot-complete call
+belongs to that run). Round 4 submitted 2026-08-08 — **read round 4's verdict.**
 The consumer-reliance question is now MEASURED: the check's entire recorded
 history is 46 convictions (2026-07-15→08-07); 43 are visible-prose contexts the
 new scope preserves, the only 3 non-prose ones are the JS false positives fixed
