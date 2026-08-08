@@ -1,8 +1,28 @@
 # 210 — a content-failed page build is stamped `deployed`, so the rebuild request is silently forgotten
 
 **Filed 2026-08-06** by the `bugfix_208_owned_page_commit_before_guard` lane, as the follow-up
-that bug's fix deliberately did **not** include. **OPEN, unowned.** Severity: medium — silent
+that bug's fix deliberately did **not** include. ~~**OPEN, unowned.**~~ Severity: medium — silent
 loss of a build request, no data destroyed.
+
+> **FIX BUILT + COMMITTED 2026-08-08** by the `bugfix_210_content_failed_build_stamped_deployed`
+> lane — **INERT until the next chassis roll** (Go only, no config half). Fix candidate 1 below,
+> as filed: `UpdatePageStatusAction` refuses the stamp on ANY assembly skip (OWNED branch keeps
+> 208's semantics), flips to `needs_rebuild` + NULL plan stamp, writes an `agent_error_log` row
+> `DEPLOY_STAMP_REFUSED_ON_SKIP` on every refusal (measurement candidate 2 below, so the
+> frequency question this file could not answer becomes a count), and on the **third refusal
+> since the last successful deploy** parks the page behind an OPEN `page_build_failed` item
+> holding the shared `needs_page:<name>` dedup slot — bounding the retry loop the naive
+> widening would have created. A later successful deploy auto-closes the park. Registered as
+> **PBP-038** (producer set + key shape per owner ruling 2026-08-02 §1); two LANDMINES entries
+> (the park must stay a raw insert; a false `insertWorkItem` return may be a parked page).
+> The named tests were updated as this file demanded: `TestUpdatePageStatus_OrdinarySkipStillStamps`
+> → `TestUpdatePageStatus_OrdinarySkipRefusesStamp` (+ park + auto-close tests, all
+> mutation-proven); `TestSavePageSections_OrdinarySkipIsNotClaimed` deliberately unchanged.
+> Council corr `c9647117-3a4b-48a2-b34c-1ea25f4e1f7f`. Lane docs:
+> `docs/agent_docs/docs024_key_docs_latest/bugfix_210_content_failed_build_stamped_deployed/`.
+> **Stays OPEN until the fix is live on the fleet and pod-verified** (grep
+> `DEPLOY_STAMP_REFUSED_ON_SKIP`, 0 pre-roll → non-zero every replica; then the first non-zero
+> `agent_error_log` count is also this bug's first real frequency measurement).
 
 > **Filed as a code-derived finding, and the label is doing work.** The mechanism below is read
 > first-hand from the live code and is not inferred. What is **NOT** established is how often it

@@ -145,3 +145,12 @@ outcome in `NOTES_…` and in PBP-036's `status-evidence`.
 - **Writing a landmine for your own unshipped change manufactures prior-art evidence about it** —
   a council seat read my own hour-old `doc_notes` footprints as proof of a prior attempt at this
   bug. Harmless here; know the shape.
+
+---
+
+**2026-08-08 (bugfix_210 lane):** the successor bug this file names — `bugs_open/210` — is
+TAKEN and its fix is built+committed (register PBP-038, lane
+`docs024_key_docs_latest/bugfix_210_content_failed_build_stamped_deployed/`). The
+`TestUpdatePageStatus_OrdinarySkipStillStamps` scope pin this lane wrote did its job: the
+widening happened as a decision, with the bound 210's file demanded. Item 3 of "Then, in
+priority order" (the class sweep) remains open for a future session.

@@ -503,12 +503,14 @@ func TestUpdatePageStatus_RefusesDeployStampAfterOwnershipSkip(t *testing.T) {
 	}
 }
 
-// TestUpdatePageStatus_OrdinarySkipStillStamps pins the SCOPE of the previous
-// guard. Keying it to any assembly skip would change retry behaviour on the
-// fleet's main build path (a content-failed page would be re-selected every run) —
-// a wider blast radius than this bug, deliberately left out and filed separately.
-// If someone widens the condition, this test is what tells them they did.
-func TestUpdatePageStatus_OrdinarySkipStillStamps(t *testing.T) {
+// TestUpdatePageStatus_OrdinarySkipRefusesStamp pins bugs_open/210's fix. This
+// test's predecessor (TestUpdatePageStatus_OrdinarySkipStillStamps) pinned the
+// OPPOSITE behaviour — the 208 guard's deliberately narrow scope — precisely so
+// that widening it would be a decision rather than a side effect. This is that
+// decision: an ordinary content-failure skip now refuses the deploy stamp,
+// records the refusal in agent_error_log, and flips the page to needs_rebuild.
+// The 208 scope pin is carried forward as the NOT-the-ownership-branch assert.
+func TestUpdatePageStatus_OrdinarySkipRefusesStamp(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("sqlmock: %v", err)
@@ -516,9 +518,20 @@ func TestUpdatePageStatus_OrdinarySkipStillStamps(t *testing.T) {
 	defer db.Close()
 
 	pageID := uuid.New()
+	siteID := uuid.New()
 
-	// The pre-existing deploy guards run, then the stamp.
-	mock.ExpectQuery("FROM page_components").
+	// The refusal path, in order: identity lookup, refusal trace, honest flip,
+	// strike count (first refusal — below the park threshold).
+	mock.ExpectQuery("FROM pages p JOIN sites s").
+		WithArgs(pageID).
+		WillReturnRows(sqlmock.NewRows([]string{"site_id", "name", "domain", "deployed_at"}).
+			AddRow(siteID, "about", "example.com", nil))
+	mock.ExpectExec("INSERT INTO agent_error_log").
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("UPDATE pages SET build_status = 'needs_rebuild'").
+		WithArgs(pageID).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectQuery(`SELECT count\(\*\) FROM agent_error_log`).
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
 
 	params := ActionParams{
@@ -535,18 +548,135 @@ func TestUpdatePageStatus_OrdinarySkipStillStamps(t *testing.T) {
 		ExecutionContext: &orchtypes.ExecutionContext{StepName: "update_page_status"},
 	}
 
-	// Not asserting the outcome (the pre-existing guards own that) — only that the
-	// OWNERSHIP branch did not claim this skip as its own.
 	out, err := UpdatePageStatusAction(context.Background(), params)
-	if err == nil && out != nil {
-		if res, ok := out.(map[string]interface{}); ok {
-			if reason, _ := res["reason"].(string); strings.Contains(reason, ownedPageSkipReasonPrefix) {
-				t.Fatal("an ordinary content-failure skip was treated as an ownership skip; " +
-					"the guard's condition has been widened beyond bugs_open/208's scope")
-			}
-		}
+	if err != nil {
+		t.Fatalf("UpdatePageStatusAction: %v", err)
 	}
-	_ = mock
+	res := out.(map[string]interface{})
+	if updated, _ := res["updated"].(bool); updated {
+		t.Fatal("page was stamped deployed after a content-failure skip — the rebuild request is forgotten (bugs_open/210)")
+	}
+	reason, _ := res["reason"].(string)
+	if !strings.Contains(reason, "assembly was skipped") {
+		t.Fatalf("refusal did not come from the skip guard — reason was %q", reason)
+	}
+	if strings.Contains(reason, ownedPageSkipReasonPrefix) {
+		t.Fatal("an ordinary content-failure skip was claimed by the OWNERSHIP branch — 208's scope pin broken")
+	}
+	if bs, _ := res["build_status"].(string); bs != "needs_rebuild" {
+		t.Fatalf("build_status = %q, want needs_rebuild", bs)
+	}
+	if parked, _ := res["parked"].(bool); parked {
+		t.Fatal("first refusal must not park the page — the park threshold is three")
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("refusal path did not run in full (trace + flip + strike count): %v", err)
+	}
+}
+
+// TestUpdatePageStatus_ThirdRefusalParksThePage: the strike-limit refusal files
+// the page_build_failed park via the RAW insert — holding the needs_page:<name>
+// dedup slot open is what bounds the fleet's retry loop.
+func TestUpdatePageStatus_ThirdRefusalParksThePage(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	pageID := uuid.New()
+	siteID := uuid.New()
+
+	mock.ExpectQuery("FROM pages p JOIN sites s").
+		WithArgs(pageID).
+		WillReturnRows(sqlmock.NewRows([]string{"site_id", "name", "domain", "deployed_at"}).
+			AddRow(siteID, "about", "example.com", nil))
+	mock.ExpectExec("INSERT INTO agent_error_log").
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("UPDATE pages SET build_status = 'needs_rebuild'").
+		WithArgs(pageID).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectQuery(`SELECT count\(\*\) FROM agent_error_log`).
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(3))
+	mock.ExpectExec("INSERT INTO site_work_items").
+		WithArgs(siteID, sqlmock.AnyArg(), sqlmock.AnyArg(), pageID, "needs_page:about").
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	params := ActionParams{
+		StepConfig: models.Step{Config: map[string]interface{}{"status": "deployed"}},
+		CollectedData: map[string]interface{}{
+			"current_page": map[string]interface{}{"id": pageID.String(), "name": "about"},
+			"assembled_page": map[string]interface{}{
+				"skipped":     true,
+				"skip_reason": "content generation failed: 429 quota exceeded",
+			},
+		},
+		DB:               db,
+		Logger:           zap.NewNop(),
+		ExecutionContext: &orchtypes.ExecutionContext{StepName: "update_page_status"},
+	}
+
+	out, err := UpdatePageStatusAction(context.Background(), params)
+	if err != nil {
+		t.Fatalf("UpdatePageStatusAction: %v", err)
+	}
+	res := out.(map[string]interface{})
+	if updated, _ := res["updated"].(bool); updated {
+		t.Fatal("page was stamped deployed on the third content failure")
+	}
+	if parked, _ := res["parked"].(bool); !parked {
+		t.Fatal("third refusal did not park the page — retries stay unbounded")
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("park insert was not issued with the shared page-slot key: %v", err)
+	}
+}
+
+// TestUpdatePageStatus_SuccessfulStampClosesPark: success is the definitive
+// evidence the parked condition is resolved — the deploy stamp must complete any
+// open page_build_failed item so the page's work-item slot is freed.
+func TestUpdatePageStatus_SuccessfulStampClosesPark(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	pageID := uuid.New()
+
+	// No skip in collected_data: the ordinary guards run, the stamp lands,
+	// then the park close.
+	mock.ExpectQuery("FROM page_components").
+		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+	mock.ExpectQuery("jsonb_array_elements_text").
+		WillReturnRows(sqlmock.NewRows([]string{"planned", "rendered"}).AddRow(1, 1))
+	mock.ExpectExec("UPDATE pages").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec("UPDATE site_work_items").
+		WithArgs(pageID).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	params := ActionParams{
+		StepConfig: models.Step{Config: map[string]interface{}{"status": "deployed"}},
+		CollectedData: map[string]interface{}{
+			"current_page": map[string]interface{}{"id": pageID.String(), "name": "about"},
+		},
+		DB:               db,
+		Logger:           zap.NewNop(),
+		ExecutionContext: &orchtypes.ExecutionContext{StepName: "update_page_status"},
+	}
+
+	out, err := UpdatePageStatusAction(context.Background(), params)
+	if err != nil {
+		t.Fatalf("UpdatePageStatusAction: %v", err)
+	}
+	res := out.(map[string]interface{})
+	if updated, _ := res["updated"].(bool); !updated {
+		t.Fatalf("healthy deploy was refused: %v", res["reason"])
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("successful stamp did not close the open park: %v", err)
+	}
 }
 
 // TestSavePageSections_OrdinarySkipIsNotClaimed pins the SCOPE of the early exit,

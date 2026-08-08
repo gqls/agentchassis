@@ -219,3 +219,20 @@ purpose, and the intended answer for a genuinely pipeline-owned page is to chang
 domains when I measured (2026-08-06), 13 of them serving working tools. All 13 are intact —
 this was fixed before it fired, not after. Baseline with per-body sha256:
 `docs024_key_docs_latest/bugfix_208_owned_page_commit_before_guard/BASELINE_2026-08-06_owned_pages_served.txt`.
+
+---
+
+## 2026-08-08 — cross-lane notice from the bugfix_210 lane (not this lane's author)
+
+**Your entry point's guarantee changed** (bugs_open/210 fix, committed 2026-08-08, inert until
+the next chassis roll; register PBP-038). Previously, a bulk rebuild whose CONTENT GENERATION
+failed for a page was silently stamped `deployed` — the operator's request was forgotten and
+the page read as current. Now `update_page_status` refuses that stamp: the page goes honestly
+to `needs_rebuild` (retryable), every refusal is countable
+(`agent_error_log.error_code='DEPLOY_STAMP_REFUSED_ON_SKIP'`), and after 3 failures since the
+last successful deploy the page is PARKED behind an open `page_build_failed` work item
+(`needs_human_review`, holds the page's `needs_page:<name>` slot) — so a re-fired bulk rebuild
+skips it rather than paying for a fourth LLM failure. A successful deploy auto-closes the park.
+Operationally: after a bulk run, pages that failed content now show up in
+`SELECT ... FROM site_work_items WHERE item_type='page_build_failed'` instead of vanishing
+into a false `deployed`. — bugfix_210 lane

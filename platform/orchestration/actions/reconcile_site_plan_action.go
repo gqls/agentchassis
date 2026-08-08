@@ -537,15 +537,26 @@ func loadPlanSections(ctx context.Context, db *sql.DB, planID uuid.UUID) (map[st
 	return out, rows.Err()
 }
 
-// loadOpenPageItems returns a set of item_keys for needs_page items in
-// open status (i.e. matching the dedup index's WHERE clause).
+// loadOpenPageItems returns a set of item_keys for page-slot items in open
+// status. page_build_failed is in the type list so a parked page (bugs_open/210)
+// is counted as skipped-queued honestly, rather than "emitted" while the bare
+// ON CONFLICT DO NOTHING silently drops the insert against the open park.
+//
+// The status list is deliberately NOT workItemTerminalStatuses: 'cancelled' is
+// closed here (migration 157's ruling — a cancelled row must not hold the dedup
+// slot, and until 2026-08-08 the reconciler alone still honoured it, so a human
+// cancelling a page-slot item freed the planner path but wedged this one), while
+// 'unresolved' stays OPEN/blocking on purpose. unresolved is the two-strike
+// parked state; freeing it would make this action re-emit every parked page on
+// every run through its raw INSERT below, which has no two-strike of its own —
+// exactly the unbounded retry loop bugs_open/210 closes.
 func loadOpenPageItems(ctx context.Context, db *sql.DB, siteID uuid.UUID) (map[string]struct{}, error) {
 	rows, err := db.QueryContext(ctx, `
 		SELECT item_key FROM site_work_items
 		WHERE site_id = $1
-		  AND item_type IN ('needs_page','owned_page_review')
+		  AND item_type IN ('needs_page','owned_page_review','page_build_failed')
 		  AND item_key IS NOT NULL
-		  AND status NOT IN ('complete','verified','rejected','wont_fix','failed')
+		  AND status NOT IN ('complete','verified','rejected','wont_fix','failed','cancelled')
 	`, siteID)
 	if err != nil {
 		return nil, err

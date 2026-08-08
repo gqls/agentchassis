@@ -656,23 +656,27 @@ func UpdatePageStatusAction(ctx context.Context, params ActionParams) (interface
 	// review item — reconcile's existing protocol for "requested, parked for
 	// owner-aware handling".
 	//
-	// Deliberately keyed to THIS guard's skip and not to any assembly skip. A
-	// generic page whose content generation failed is also stamped deployed today,
-	// which is its own defect — but un-stamping it would change retry behaviour on
-	// the fleet's main build path (the page would be re-selected every run), a
-	// wider blast radius than this bug. Filed separately rather than smuggled in.
+	// Originally keyed to THIS guard's skip only; bugs_open/210 widened it to any
+	// assembly skip, with the retry bound that widening was filed to demand (see
+	// page_build_failure_guard.go). The OWNED branch keeps its 208 semantics —
+	// no status flip, reconcile's owned_page_review protocol owns that state —
+	// while every other skip refuses via refuseDeployStampOnSkip: needs_rebuild +
+	// cleared plan stamp, an agent_error_log refusal row, and a park after the
+	// third consecutive failure so the retry loop is bounded rather than silent.
 	if newStatus == "deployed" {
-		if skipped, skipReason := upstreamAssemblySkipped(params.CollectedData); skipped &&
-			strings.Contains(skipReason, ownedPageSkipReasonPrefix) {
-			params.Logger.Warn("UpdatePageStatusAction: refusing to stamp deployed — page was skipped by the owned-page guard",
-				zap.String("page_id", pageID.String()),
-				zap.String("skip_reason", skipReason))
-			return map[string]interface{}{
-				"updated": false,
-				"page_id": pageID.String(),
-				"skipped": true,
-				"reason":  "refused deploy stamp: " + skipReason,
-			}, nil
+		if skipped, skipReason := upstreamAssemblySkipped(params.CollectedData); skipped {
+			if strings.Contains(skipReason, ownedPageSkipReasonPrefix) {
+				params.Logger.Warn("UpdatePageStatusAction: refusing to stamp deployed — page was skipped by the owned-page guard",
+					zap.String("page_id", pageID.String()),
+					zap.String("skip_reason", skipReason))
+				return map[string]interface{}{
+					"updated": false,
+					"page_id": pageID.String(),
+					"skipped": true,
+					"reason":  "refused deploy stamp: " + skipReason,
+				}, nil
+			}
+			return refuseDeployStampOnSkip(ctx, params, pageID, skipReason), nil
 		}
 	}
 
@@ -774,6 +778,13 @@ func UpdatePageStatusAction(ctx context.Context, params ActionParams) (interface
 		zap.String("page_id", pageID.String()),
 		zap.String("build_status", newStatus),
 		zap.Int64("rows_affected", rowsAffected))
+
+	if newStatus == "deployed" {
+		// A successful deploy resolves any parked build-failure condition for
+		// this page (bugs_open/210); an open park would keep the page's
+		// needs_page:<name> work-item slot blocked after the condition ended.
+		closePageBuildFailureItems(ctx, params.DB, pageID, params.Logger)
+	}
 
 	// Mirror the deploy mark onto one page_component when the caller names it via
 	// config page_component_id_field. Every discovery check matches
