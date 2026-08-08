@@ -3836,3 +3836,54 @@ Row counts 4 and 4 — **no 189 duplication**. Served: both pages carry 5 `<styl
 > instrument applies needed the population measured, not assumed: the handoff said "8 of
 > 51 prose rows hold the page's `<style>` block", which is true and would have produced
 > the wrong fix for half of them.
+
+### The journey run: the instrument produced a confident plan for the WRONG SITE — `bugs_open/227`
+
+Owner: *"can you run the journey to judge that ordering choice?"* Fired
+`092_TRIGGER_experience_plan.sh loancalculator.co.uk debt-difficulty-help "getting help
+when you cannot keep up with a loan repayment"` (corr `a30b0c5b-…`). Preconditions
+checked first: `66d32477d` is an ancestor of HEAD and the image is built from today's HEAD
+(pod-grep is impossible for that fix — it added a CONDITION, no production string literal,
+so ancestry is the honest check available); planner active with 5 review seats; pods 2h
+past restart.
+
+**It returned a detailed, well-structured EXPERIENCE_PLAN about vonc.com** — four journeys
+over `/provocations/index.html`, `/tools/arena/index.html`, `/tools/gauntlet/index.html`
+and lobby cards. loancalculator has **0** such pages; vonc.com has 6.
+
+**Inputs and context were both CORRECT.** The run's own `input_data` carried
+loancalculator's site_id and my experience name; its `load_context` output contains
+loancalculator's pages (`guide-hidden-loan-fees`) and **zero** occurrences of
+`provocation`. Searching every `collected_data` key for where vonc entered: `compose`,
+`reframe`, `proposal`, `review_mvp`, **`agent_config`**, `review_contracts`,
+`review_feasibility` — and `agent_config` is the agent's own definition.
+
+**Root cause: the shared `experience-planner` prompt hardcodes vonc's diagnosis as the
+task** — *"## The diagnosis you are fixing (three broken surfaces, artifact-verified
+2026-07-17) 1. /provocations/index.html …"* — immediately after correctly interpolating
+`{{.experience_domain}}`. `provocation` ×24, `gauntlet` ×8, `arena` ×5 in the live config.
+
+> **This is the week's lesson at platform scale.** Three times in this lane a worked
+> example has beaten the instruction around it: the spec rules, the spec exemplars, and
+> the pinned per-item guidance. Here a worked example beats **the actual data**. The model
+> held loancalculator's real page list and wrote another site's plan, because the prompt
+> said *"the diagnosis you are fixing"* and named vonc's surfaces in the imperative.
+
+**Latent since 2026-07-18, and the reason is clean:** all-history, `doc_plans` holds 61
+experience plans — **59 `vonc-spark-game`, 2 mine.** `debt-difficulty-help` is the first
+non-vonc experience ever planned, so the agent had only ever run on the site it is
+hardcoded for. Contamination on the only non-vonc subject: 2 of 2.
+
+**What worked:** the council **rejected** it — 5 reviewers, `decided_by: "veto from
+feasibility"`, run ended `complete_refused`. A feasibility seat reading journeys over
+pages that do not exist correctly refused. The review layer is not the defect.
+
+⚠ **Second, separable defect:** the vetoed plan was persisted `is_current=true` at
+18:25:45 and the run refused at 18:25:53, so **a council-rejected plan became the plan of
+record**. Demoted by hand; that is cleanup, not a fix. Both filed as `bugs_open/227`.
+
+**And the owner's actual question is still unanswered.** The instrument for judging the
+`debt-help-uk` ordering produced nothing usable about it. Options: fix 227 and re-run, or
+judge the ordering directly — it is not a large question (*should a page for someone who
+has just missed a payment lead with free expert charities rather than with negotiation
+tactics?*), and the honest answer may be that it needed a person all along.
