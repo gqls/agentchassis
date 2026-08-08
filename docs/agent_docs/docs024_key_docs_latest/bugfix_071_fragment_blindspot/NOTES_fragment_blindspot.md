@@ -372,3 +372,104 @@ the qualification above — it has not been put to them.]**
 213's own `090` (`84c3da66-06c0-41a5-94dc-21fbf71260f0`) had **no orchestration row
 yet** when I looked, which per CLAUDE.md is latency, not a dropped dispatch. Not
 retried.
+
+---
+
+## 2026-08-08 — the roll, and the handoff's stated blocker is WRONG
+
+**Re-verified on `v1.0.1264`** (fresh pods, started 13:08Z), both replicas, five
+strings: `dead_fragment_link` 10 · `VerifyDeadFragmentLinkResolved` 2 ·
+`SplitFragment` 2 · positive control `phantom_internal_link` 10 · negative control
+0. **Three rolls, no regression.** Still 0 `dead_fragment_link` rows; still no
+`completeness-discovery-agent` dispatch since 08-05. [MEASURED 2026-08-08]
+
+Then I went after owed item 1 properly instead of waiting for it.
+
+> **CORRECTED — the handoff's reason the verifier cannot run is FALSE.** It said:
+> *"`build-dispatch-loop` takes `item_domain='build'` while these items are
+> `content`."* There is **no such filter.** Measured: that loop's only
+> `load_work_items` step carries **no `item_pipeline`, no `item_domain`, no
+> `handler_agent`** — and the Go filter is optional
+> (`load_work_item_actions.go:635-673`, applied only `if pipelineFilter != ""`).
+> The loop therefore loads items of **any** pipeline for the site.
+>
+> **The real gate is `status`**: `load_work_items` selects
+> `wi.status IN ('triaged','approved')` (`:653`), and every discovery item —
+> including ours — is filed `Status: "detected"`
+> (`check_phantom_internal_links.go:175`). A `dead_fragment_link` item would sit
+> at `detected` until something triages it. `emit_imagery_items_action.go:18`
+> names the split: *"'triaged' (build path auto-dispatch) vs 'detected' (loop
+> triages)"*.
+>
+> The cheap check that would have caught it: dump the loop's own config
+> (one query) instead of reasoning from the item's pipeline. Logged in
+> `WRONG_CALLS.md`.
+
+**Also corrected: `dead_fragment_link` is not always `content`.** I misread
+`check_phantom_internal_links.go:145` as the fragment arm's routing; that line
+belongs to `unbuilt_internal_link`. The `dead_fragment_link` block (`:133-142`)
+only adjusts priority, `spec["fix"]` and `summary` — routing falls through to
+`routeBySurface` (`:195-201`): **chrome/`site_component` → `nav-link-fixer`,
+pipeline `build`**; page/`page_component` → `page-build-handler`, pipeline
+`content`. So a chrome-surface dead fragment lands in the pipeline where the
+verifier path demonstrably works.
+
+### The verifier registry DOES work — measured, including the refusal direction
+
+`result ? '_verification'` (note the underscore — `verification` returns 0 and
+reads like "never ran"): **11 items fleet-wide**, and they are informative:
+
+| pipeline | detected | triaged | complete | carry `_verification` | total |
+|---|---|---|---|---|---|
+| build | 118 | 2 | 2,447 | **11** | 3,420 |
+| content | 25 | **0** | 29 | **0** | 321 |
+| design | 31 | 0 | 2 | 0 | 121 |
+
+One of the 11 is `literal_markdown`, **`failed`**, 2026-08-07 — a completion the
+verifier **refused** in production (the `bugfix_201` lane's `45e0020af`). So the
+registry's dangerous direction is proven live by another lane, which is the thing
+this lane's owed item was worried about.
+
+**But zero `content`-pipeline items have ever been closed through the verifier
+path — 0 of 321** — and content currently holds 0 `triaged`/0 `approved`. The 29
+complete content items were closed by `revalidate_review_queue` (a `revalidation`
+block in `result`, not `_verification`) — the "count the CLOSERS" landmine's own
+worked case, appearing again.
+
+**So owed item 1 restated, accurately:** the verifier is reachable — via
+`build-dispatch-loop` → `process_item` (a `loop` action) → sub_workflow step
+`mark_complete` → `complete_work_item`. It needs a `dead_fragment_link` item that
+(a) exists at all and (b) reaches `triaged`. A chrome-surface one is the likelier
+first exercise, because it lands in `build`.
+
+**Method note:** the nested `mark_complete` step is invisible to a top-level
+`jsonb_each(default_config->'workflow'->'steps')` scan — my first "who calls
+`complete_work_item`?" query returned only `report-`/`diagnose-dispatch-loop` and
+**missed `build-dispatch-loop`, the one that matters**. Steps inside a `loop`
+action live under `config.sub_workflow.steps`.
+
+### `improvement-sweep`: this lane has been quoting ONE of two disagreeing columns
+
+```
+name=improvement-sweep  enabled=f  target_agent_type=improvement-loop
+last_triggered_at = 2026-05-02 10:11:07+00
+last_completed_at = 2026-08-05 12:24:20+00   <-- three days before this session
+```
+
+The lane (and 016b, and my memory line) repeat *"last fired 2026-05-02"* from
+`bugs_open/083`/`116`. That is `last_triggered_at`. **`last_completed_at` is three
+months later**, and 08-05 is also the day `completeness-discovery-agent` last
+filed (9 items). **[UNRESOLVED — I did not establish what wrote that stamp, and
+`enabled=f` means the scheduler did not trigger it.]** Do not repeat either column
+alone; quote both, or check what actually ran.
+
+> **MISSTEP, caught before it was written anywhere durable.** To corroborate a run
+> I queried `orchestration_states WHERE workflow_plan::text ~ 'improvement-loop'`
+> and got **7 COMPLETED rows dated today**, which I briefly read as "the loop is
+> running after all". They are **council-gate** runs — `current_step` is
+> `complete_approved` / `complete_revise` — that merely *mention* the string in
+> their payload. A text match over a jsonb blob proves the spelling occurs, not
+> that the agent ran. (Also: `orchestration_states` has **no `agent_type` column**,
+> and `client_id` is only `demo_client`/`system`, so my first attempt answered a
+> question I had not asked. Retention reaches back to 2026-07-13, so an absence
+> there *would* be meaningful — if asked correctly.)

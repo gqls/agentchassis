@@ -44,17 +44,31 @@ Re-verified on **`v1.0.1262`**: arm intact on both replicas (`dead_fragment_link
 across two rolls.
 
 **Re-verified again 2026-08-07 08:35Z, still `v1.0.1262`** (image read off the pod
-spec, not the makefile): 10 / 2 / 10 / 0 on both replicas. Cadence re-measured —
-**still no `completeness-discovery-agent` dispatch since 08-05**, still 0
-`dead_fragment_link` rows. Both owed items below are unchanged and both are
-passive waits: there is nothing to *do* on them, only something to watch for.
+spec, not the makefile): 10 / 2 / 10 / 0 on both replicas.
+
+**Re-verified 2026-08-08 on `v1.0.1264`** (fresh pods, started 13:08Z), five
+strings, both replicas: `dead_fragment_link` 10 · verifier 2 · `SplitFragment` 2 ·
+positive control 10 · negative control 0. **Three rolls, no regression.** Cadence
+unchanged — still no `completeness-discovery-agent` dispatch since 08-05, still 0
+`dead_fragment_link` rows.
 
 **The arm has still never run on a real site, and that is a CADENCE fact, not a
 fault.** `completeness-discovery-agent` — the agent whose `checks` array carries
 this check — is dispatched **by hand**: 9 days out of the last 21, 1–6 sites each,
 most recently 2026-08-05. `improvement-sweep` would drive it fleet-wide and is
-`enabled=f` since 2026-05-02 (`bugs_open/083`/`116`; the owner ruled staged
-supervised re-enablement on 08-06).
+`enabled=f` (`bugs_open/083`/`116`; the owner ruled staged supervised
+re-enablement on 08-06).
+
+> **CORRECTED 2026-08-08 — "since 2026-05-02" quotes ONE of two columns that
+> disagree by three months.** The live row: `last_triggered_at = 2026-05-02`,
+> **`last_completed_at = 2026-08-05 12:24:20+00`** — three days before this was
+> written, and the same day `completeness-discovery-agent` last filed. `enabled=f`
+> means the *scheduler* has not triggered it; it does not establish that nothing
+> ran. **[UNRESOLVED — I did not establish what wrote the later stamp.]** Quote
+> both columns or check what actually ran; do not repeat the May date alone. My own
+> attempt to corroborate a run via a `workflow_plan::text ~ 'improvement-loop'`
+> match produced **7 false positives** (council-gate runs mentioning the string) —
+> see NOTES.
 
 So, two things not to conclude:
 
@@ -82,11 +96,42 @@ WHERE created_by='completeness-discovery-agent' GROUP BY 1 ORDER BY 1 DESC;
 validated in both directions against the live fixture (href-presence returns `t`
 for a rendered href and `f` for an absent one; the path normalisation resolves to
 the target page's document and discriminates the live id from the dead one), but
-the Go function is reachable only through `CompleteWorkItemAction`, whose live
-callers are the dispatch loops — and `build-dispatch-loop` takes
-`item_domain='build'` while these items are `content`. **The first real completion
-of a `dead_fragment_link` item exercises it.** Getting there deliberately was
-judged not worth spawning `page-build-handler` against a pool-site scratch page.
+the Go function is reachable only through `CompleteWorkItemAction`. **The first
+real completion of a `dead_fragment_link` item exercises it.**
+
+> **CORRECTED 2026-08-08 — the reason given here until today was FALSE.** It read:
+> *"whose live callers are the dispatch loops — and `build-dispatch-loop` takes
+> `item_domain='build'` while these items are `content`."* **There is no such
+> filter.** That loop's only `load_work_items` step carries no `item_pipeline`, no
+> `item_domain` and no `handler_agent`, and the Go filter is applied only
+> `if pipelineFilter != ""` (`load_work_item_actions.go:635-673`). It loads **any**
+> pipeline.
+>
+> **The real gate is `status`:** `load_work_items` selects
+> `wi.status IN ('triaged','approved')` (`:653`), and discovery files every item as
+> `detected` (`check_phantom_internal_links.go:175`). So a `dead_fragment_link`
+> item sits at `detected` until something triages it.
+>
+> Two more corrections in the same pass: **`dead_fragment_link` is not always
+> `content`** — `:145`'s routing override belongs to `unbuilt_internal_link`, not
+> to us; ours falls through to `routeBySurface`, so a **chrome/`site_component`
+> fragment routes to pipeline `build`** (page surfaces go to `content`). And the
+> call path is **`build-dispatch-loop` → `process_item` (a `loop`) → sub_workflow
+> step `mark_complete` → `complete_work_item`** — nested, so a top-level
+> `jsonb_each` over `workflow.steps` cannot see it and reports the wrong callers.
+> Full working in NOTES §2026-08-08.
+
+**The registry itself is proven, including the direction that matters.** Fleet-wide
+`result ? '_verification'` (underscore — `verification` returns 0 and reads like
+"never ran") = **11 items, all pipeline `build`**, one of them `literal_markdown`
+**`failed`** on 08-07: a completion the verifier *refused* in production, proven by
+the `bugfix_201` lane (`45e0020af`). **But 0 of 321 `content` items have ever gone
+through that path**, and content holds 0 `triaged`/0 `approved` — its 29 completions
+came from `revalidate_review_queue` (a `revalidation` block, not `_verification`).
+
+**So the cheapest real exercise is a chrome-surface fragment**, which lands in
+`build` where the path demonstrably works — not the page-surface case that would
+need a `page-build-handler` run against a pool site.
 
 When it happens, the thing to check is that a completion is REFUSED while the href
 is still rendered and the fragment still misses — a verifier that only ever agrees

@@ -175,3 +175,51 @@ when I looked — it isn't even saved into version control yet — and adding my
 would likely have destroyed one of us. So it's written up in my own lane, flagged
 clearly, and it's yours to route: either I hand it to them, or whoever picks this
 lane up next adds it once their file has settled.
+
+## 2026-08-08
+
+A new build went out. I checked the running copies again — the check is still in
+both of them, with the same honest-string test as before, and that is now three
+builds in a row with no damage. Still no complaints in the queue, still because
+nothing has run it since two days before it shipped.
+
+Then I stopped waiting on the one loose end and went and looked at it properly,
+and I am glad I did, because **the reason I gave you for it was wrong.**
+
+I had written that the part which double-checks a fix before closing a problem
+couldn't be reached, because the machine that closes problems only handles one
+category of work and ours is a different category. That is not true. I read the
+machine's actual settings today rather than repeating my own note, and it has **no
+category filter at all** — it takes anything. What actually holds our problems back
+is something much more ordinary: a newly-found problem starts life marked "spotted",
+and the machine only picks up ones marked "triaged". Nothing has promoted ours,
+because none exist yet.
+
+I also had a second thing wrong in the same note: I'd said our kind of problem
+always lands in the awkward category. It doesn't — if the broken link is in the
+page furniture (the header or footer) rather than the page body, it lands in the
+*easy* category, the one where this machinery is already proven to work. So the
+cheap way to test the last loose end was available the whole time and I had talked
+myself out of it.
+
+The good news underneath all this: somebody else's lane proved yesterday that this
+double-checking machinery genuinely **refuses** to close a problem that isn't fixed
+— which is exactly the failure I was worried about, and it is now demonstrated in
+production rather than assumed. Eleven of these double-checks have run across the
+estate. None of them in our category yet, which is worth knowing.
+
+One more thing I want to flag rather than bury. The estate-wide sweep that would
+drive all of this has been described in our notes — including mine — as "switched
+off since May". The record has two dates in it that disagree by three months: it was
+last *started* by the scheduler in May, but it last *finished* three days ago. I
+could not establish what ran it, and I am explicitly not guessing. I tried one way
+of checking, got seven results that looked like proof, and they turned out to be a
+different system entirely that merely mentioned the name. So: the May date is not
+the whole story, and I have marked it unresolved rather than replacing one confident
+claim with another.
+
+All of the above is written into the lane's notes, the handoff, and the fleet-wide
+log of wrong calls — that last one because the shape of this mistake is worth other
+people knowing: a stated *reason something can't be done* is the claim least likely
+to ever get re-checked, because it explains something everyone can already see and
+it recommends doing nothing.

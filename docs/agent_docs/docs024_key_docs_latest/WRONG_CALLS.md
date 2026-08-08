@@ -22493,3 +22493,76 @@ artefact. One `probe in served` line, ten seconds, would have settled all three.
 convict the new one of being different. That is the failure mode of every before/after
 gate, and it points at the system under test rather than at the gate, which is exactly
 the wrong direction. Where a check and a spot-read disagree, suspect the check first.
+
+---
+
+## 2026-08-08 — `bugfix_071_fragment_blindspot`: I said the dispatch loop filtered by `item_domain`. It has no filter at all.
+
+**The claim, written into the lane's cold-start HANDOFF on 08-06** and left there
+through two subsequent sessions that both re-read the file:
+
+> *"the Go function is reachable only through `CompleteWorkItemAction`, whose live
+> callers are the dispatch loops — and `build-dispatch-loop` takes
+> `item_domain='build'` while these items are `content`."*
+
+It was offered as the reason `VerifyDeadFragmentLinkResolved` could not be
+exercised, and it justified a decision not to try ("judged not worth spawning
+`page-build-handler` against a pool-site scratch page").
+
+**What is actually true.** `build-dispatch-loop`'s only `load_work_items` step
+carries **no `item_pipeline`, no `item_domain`, no `handler_agent`** — and the Go
+filter is applied only `if pipelineFilter != ""`
+(`load_work_item_actions.go:635-673`). The loop loads **every** pipeline for the
+site. The real gate is one line up: `wi.status IN ('triaged','approved')` (`:653`),
+against items that discovery files as `detected`.
+
+So the conclusion ("it has not run") was right and **every clause of the reason was
+wrong** — which is the dangerous shape, because the correct conclusion is what stops
+anyone re-checking the reason.
+
+**Two further errors found in the same pass**, both from reading near the code
+rather than the code:
+
+- **`dead_fragment_link` is not always pipeline `content`.** I read
+  `check_phantom_internal_links.go:145`'s routing override as the fragment arm's.
+  It belongs to `unbuilt_internal_link`. Ours falls through to `routeBySurface`, so
+  a chrome-surface fragment routes to **`build`** — the pipeline where the verifier
+  path demonstrably works, i.e. the cheap exercise was available all along.
+- **My "who calls `complete_work_item`?" query returned the wrong callers.** A
+  top-level `jsonb_each(default_config->'workflow'->'steps')` cannot see steps
+  nested in a `loop` action's `config.sub_workflow.steps`. It named
+  `report-`/`diagnose-dispatch-loop` and **missed `build-dispatch-loop`** — the one
+  that matters. A scan that silently cannot reach the answer returns a confident
+  wrong list, not an empty one.
+
+**What caught it:** deciding to actually exercise the verifier instead of waiting
+for it, which meant reading the loop's live config rather than restating the
+handoff. Nothing else would have — three sessions had read that sentence.
+
+**The cheap check that would have:** dump the loop's own selection step, one query,
+before asserting what it selects on:
+
+```sql
+SELECT st.k, s->>'action', s->'config'->>'item_pipeline', s->'config'->>'item_domain'
+FROM agent_definitions ad, LATERAL jsonb_each(ad.default_config->'workflow'->'steps') AS st(k,s)
+WHERE ad.type='build-dispatch-loop' AND ad.is_active
+  AND COALESCE(ad.is_snapshot,false)=false AND ad.deleted_at IS NULL;
+```
+
+**The transferable shape:** *a blocker is a claim about a mechanism, and it is the
+claim least likely to be re-checked* — because it explains an absence everyone can
+already see, and because it recommends inaction, which produces no evidence against
+itself. A wrong root cause that survives is expensive; a wrong **blocker** is worse,
+because it also stops the work that would have exposed it. When a doc says "X cannot
+run because Y", read Y's config, not Y's description. Same family as
+`LANDMINES.md`'s "count the CLOSERS" entry: both are cases where the *reason* given
+for a mechanism's silence was never measured.
+
+**One more, caught in flight and not written anywhere durable** (recorded because
+the tally is the point): trying to corroborate an `improvement-loop` run, I matched
+`orchestration_states.workflow_plan::text ~ 'improvement-loop'` and got 7 COMPLETED
+rows dated today. They are **council-gate** runs (`current_step` =
+`complete_approved`/`complete_revise`) that merely mention the string. A text match
+over a jsonb blob proves the spelling occurs, not that the agent ran — which is the
+landmine I appended to `LANDMINES.md` myself the previous day, in a different
+spelling.
