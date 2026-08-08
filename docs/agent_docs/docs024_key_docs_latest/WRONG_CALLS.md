@@ -23398,3 +23398,296 @@ same gate's party-politics rule works and has never varied in 9 rounds), and rep
 leak rate with an explicit `[UNMEASURED]` on the rate itself. One event establishes
 non-zero; it does not establish how often. Both halves of that sentence matter — the
 first stops it being dismissed, the second stops "1 in 9" being quoted as a figure.
+
+---
+
+## 2026-08-08 — I built the checker that found two real defects, and got four things wrong building it. Three of the four were caught by the checker's own controls; one was caught by the site.
+
+Lane: `loanandmortgagecalculator_couk`, owner-requested arithmetic validation of
+23 calculators. Full account: that lane's
+`REPORT_2026-08-08_arithmetic_validation.md`. Findings: `bugs_open/224`, `bugs_open/225`.
+
+### 1. I filed 4 FAILs against a page that was right, because my ORACLE was the naive one
+
+**The claim:** `mortgages/rate-forecaster` miscomputes the payment in its second
+and third rate windows — £1,526 shown against my £1,535, £1,286 against £1,251.
+
+**It was false.** My oracle amortised the FULL original principal over the FULL
+original term at each new rate. The page amortises the balance **remaining** at
+each window's start over the term **remaining**, which is what a remortgage
+actually does. Recomputing from that definition reproduces its figures to the
+pound (1525.78 → £1,526; 1286.39 → £1,286).
+
+**What caught it:** doing the sum a second way before writing it down. Nothing
+else would have — the deltas were small, plausible, and in the direction a
+rounding bug would go.
+
+**The cheap check:** *before* filing an oracle disagreement, ask what OTHER
+defensible model produces the observed number, and compute it. I had already
+built that mechanism for a different purpose (the `alt` conventions bucket) and
+did not point it at my own strongest claim. **An independent oracle is only as
+independent as its weakest assumption, and the assumption you did not notice
+making is the one that convicts a working page.**
+
+**The general shape, which is the transferable part:** an oracle that disagrees
+with a mature artefact is evidence about EITHER side. I treated the site as the
+suspect by default because the lane's brief had primed me to expect defects, and
+the brief was right — there were two — which is precisely why the third
+"defect" sailed through. *Being right about the class makes you careless about
+the instance.*
+
+### 2. My own reporting mechanism downgraded the biggest finding to an advisory
+
+`oracle.py` had ONE bucket for "the tool matches something other than my
+expectation": `alt`, reported as `CONVENTION` rather than `FAIL`, so a rounding
+choice would not be convicted as a bug. Sound. But I populated it with
+"the SUPERSEDED HMRC First Time Buyer rule" — so the very first stamp-duty run
+reported a calculator running a tax rule that **expired 16 months ago** as a
+matter of convention, in the same voice as a penny-rounding difference.
+
+**The machinery for NAMING a cause was the same machinery for EXCUSING one.**
+Split into `alt` (defensible → CONVENTION) and `defect_alt` (a named WRONG
+answer → still FAIL, with a `DIAGNOSIS:` line).
+
+**The cheap check:** when you add a category that softens a verdict, enumerate
+what you have put in it and ask of each entry — *would I defend this to the
+owner as a legitimate alternative?* One pass over three entries would have
+caught it.
+
+### 3. A control found a bug in my parser that would have shown up as a silent N/A
+
+`--selftest-parse` asserts `parse_money` refuses garbage rather than returning
+0.0. It also asserts the real formats still parse — and that half failed:
+`'£0 / mo Rent'`, a live reading from `mortgages/portfolio`'s `#d_rent`, was
+refused, because I required a unit suffix to start with a letter and this one
+starts with `/`.
+
+**Consequence had I not run it:** that check reports N/A. **A check quietly not
+made reads exactly like a check made** — the aggregate line still says "21
+invariant checks" and nothing says one of them never happened.
+
+**The cheap check is the one that worked:** a control must assert BOTH
+directions. "Refuses garbage" alone is satisfiable by a parser that refuses
+everything.
+
+### 4. Two "class C defects" were my harness, and the exclusion I needed was already written down
+
+- `loans/credit-health-check`: my wizard walk clicked the first button in each
+  active step. Step 5 is the RESULT panel and its only button is "Start Over" →
+  `location.reload()`. So the walk answered every question, reached the verdict,
+  and immediately destroyed it — reported as a non-deterministic wizard.
+- `loans/application-tracker`: the notes field debounces its save by 1000 ms and
+  says so in `#save-status`. I reloaded immediately and reported that notes do
+  not persist.
+
+**`toolgolden.PRESS_JS` already excludes reset-ish buttons AND carries a comment
+explaining that exact failure.** I imported that module for its browser handling
+and left its hard-won exclusion behind.
+
+**The transferable shape: reusing a harness means reusing its EXCLUSIONS, not
+just its entry points.** The exclusions are where the previous thread's debugging
+is stored; the entry points are the cheap part. Before driving anything with a
+borrowed driver, read what the original refuses to do and why — the refusals are
+the accumulated knowledge, and skipping them costs the same day it cost the
+first time.
+
+**Second lesson, on the second one:** I nearly wrote "notes are not persisted"
+into a bug file. The tool ADVERTISES its own contract in `#save-status`
+("✓ Saved to browser memory"); polling that is both more honest and more robust
+than any sleep I could pick. **When a tool states its own completion condition,
+assert on that, not on a duration you guessed.**
+
+### And the one the design got right, worth recording because it is the counterfactual
+
+The `--mutate crosstool` control left 4 checks PASSing, and my first instinct —
+visible in the commit history — was that the comparator must be blind. It was
+not: this suite packs vectors onto adjacent boundaries, and £1,500,000 vs
+£1,500,001 of SDLT differ by 12p, inside any tolerance, so a borrowed
+expectation equal to the true one **cannot** fail. Excluding those by NAME
+(`NON-TEST`, printed with both figures) rather than by loosening the bar is the
+difference between a control and a formality. A fifth PASS was a third thing
+again — at £39,999 the borrowed expectation equals what the *buggy* page prints
+— and prints as `MUTATION DID NOT BITE`. **Tempting failure mode avoided: relax
+the control until it goes green.** The rule that saved it: never change a check's
+threshold to accommodate a result; change what the check EXCLUDES, and print the
+exclusion.
+
+---
+
+## 2026-08-08 — `kubectl exec -i` inside a `while read` loop ate the loop's stdin, and reported ONE row where there were five
+
+**Lane:** `bugfix_221_ai_disclosure_precision`. **What I wrote down:** nothing —
+it was caught in the same minute, which is the only reason this is cheap.
+
+Dumping the five `page_components` rows that a census had just located, I wrote
+the obvious loop:
+
+```bash
+while IFS='|' read -r id dom pname slot; do
+  kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql … -c "SELECT rendered_html … '$id'" > $SP/rows/$id.html
+  echo "$id  $(wc -c < $SP/rows/$id.html) bytes"
+done < $SP/rows/manifest.txt
+```
+
+It printed **one** line and exited **0**. No error, no warning, no empty file —
+it looks exactly like a manifest with one row in it, and I had just run a census
+whose headline figure *was* 1 (`as_an_ai = 1`). The confirming shape was sitting
+right there, which is what makes this class expensive: **the wrong result agreed
+with what I already believed.**
+
+`kubectl exec -i` attaches stdin. Inside `while … done < manifest.txt`, the
+stdin it attaches to and drains is the manifest. The first `kubectl` call
+swallowed rows 2–5 and the loop had nothing left to read.
+
+**The cheap check that would have caught it, and now does:** print a line per
+iteration and **assert the count against the source** — `wc -l < manifest.txt`
+vs the number of files produced. I had the per-row echo and still did not compare
+it to anything; an unasserted echo is decoration.
+
+**The fix:** `< /dev/null` on any `kubectl exec -i` / `ssh` / `psql` inside a
+read loop. In the RUNBOOK.
+
+### The part worth more than the incident: this class is ALREADY SOLVED, and the solution could not see me
+
+`016b` §9 #20 documents this exact trap, and `scripts/pattern-check.py` carries
+a detector for it — `check_stdin_eater` (`:230`), which is unusually
+well-built: it strips `#` comments so it cannot flag a script's own *warning*
+about the trap, and deliberately does NOT use the shared `strip_comments()`
+because that one eats `--`, i.e. kubectl's argument separator, which would make
+`kubectl exec -i pod -- psql … </dev/null` read as unguarded. Two bugs were
+found and fixed in that check by whoever wrote it. It would have caught my loop
+instantly.
+
+It never had a chance to. Its first two lines are:
+
+```python
+if not (path.endswith(".sh") or path.endswith(".bash")):
+    continue
+```
+
+I did not write a script. I typed the loop straight into a Bash tool call, ran
+it once, and threw it away. **The detector guards committed files; the mistake
+was made in ad-hoc shell that no commit hook will ever see** — and ad-hoc shell
+is where most of a session's `kubectl`/`psql` work actually happens.
+
+So the honest lesson is not "remember `< /dev/null`" — the estate already knew
+that and wrote it down twice. It is: **a check that runs at commit time protects
+the code, not the investigation, and an investigation is where the wrong number
+gets believed.** My census figure would have gone into a bug file having been
+produced by a loop that ran once.
+
+The generalisable habit, which costs nothing and does not depend on remembering
+this specific trap: **when a loop produces files or rows, assert the count
+against its source** (`wc -l < manifest` vs files written) rather than reading
+the output and finding it plausible. That check is blind to *why* the loop
+truncated, which is exactly why it works — it would have caught this without my
+knowing anything about stdin. I had a per-row `echo` and compared it to nothing;
+**an unasserted echo is decoration.**
+
+## 2026-08-08 (bugfix 220 lane) — appended a LANDMINES entry, then ran the sync directly, arming a verifier for nothing
+
+**The claim I acted on:** "after you append, run `./scripts/landmines-sync.py
+--apply`" — CLAUDE.md's own instruction, followed to the letter.
+
+**What was wrong with it:** the instruction is a superseded half of a newer
+mechanism. `landmines-verify-dispatch.sh` wraps that sync AND fires the
+landmine-verifier at the new entry; running the bare sync first consumes the
+"new entry" status, so the verifier would have fired for nothing and the entry
+would never be checked. The trap is DOCUMENTED — in the very file I was
+appending to (`LANDMINES.md:6896`), a page above my cursor.
+
+**What caught it:** the sync's own `NEEDS_VERIFICATION:` line, which I read
+back instead of treating as noise, plus the second `--apply` run's warning
+naming the wrapper. Recovered by the documented hand-fire:
+`trigger-landmine-verifier.sh 'LANDMINES.md#<slug>'`, correlation
+`f70fb3af-4b0d-46bd-8b93-7750ff5c94bb`.
+
+**The cheap check that would have caught it:** the standing rule already in
+memory — grep LANDMINES for the SYMBOL you are about to trust — applied to the
+TOOL, not just the code: `grep -n "landmines-sync" LANDMINES.md` before running
+it. I grepped LANDMINES for my fix-site symbols and never for the maintenance
+script I was about to invoke. A script that maintains the landmine corpus is
+exactly as likely to have a landmine as the corpus's subjects.
+
+**The tally point:** CLAUDE.md and the newer wrapper disagree; a doc
+instruction is a snapshot like any other. When a standing doc names a command,
+grep LANDMINES for that command before running it — the doc's own staleness is
+the class, and this file already holds the "re-read CLAUDE.md, it is co-edited
+state" lesson from the other direction.
+
+---
+
+## 2026-08-08 — "the machine eye can see now": I proved a deploy on the wrong pod, and a positive control made it look like success
+
+**The claim.** 2026-08-05, brochure lane, TL-035 (e): the vision step's blocker —
+`params.StorageClient` nil — was *"fixed and LIVE from v1.0.1254"*. Written into the lane
+NOTES, the handoff, the concept register (MDL-040) and a commit message.
+
+**It was false, and it stayed false through a full fleet roll.** The 2026-08-08 run failed
+with the byte-identical error three days later. Real tally: **`llm_call_log` rows for the
+vision step = 0, `render-critique` notes = 0.** The eye has never seen anything.
+
+**Why the check passed anyway — this is the whole lesson.** I did do the verification this
+estate demands. I read the env on the pods, and I read the code's own success log line
+rather than inferring from `printenv`:
+
+```
+agentbase/agent.go:324  "Storage client initialized"  bucket=personae-prod-uk001-images
+```
+
+Both readings were **true**. Both were **irrelevant**. I read them on the `agent-chassis`
+deployment's pods, and **agents do not execute there.** They run in dynamically spawned
+per-agent pods (`agent-<type>-<hash>`) — **46 pods run the chassis image** — and the one
+that actually ran the work had *no S3 credentials at all*:
+
+```
+agent-tool-acceptance-agent-e702cc67-2dnsp
+  IMAGE_BUCKET / S3_ENDPOINT / B2_APPLICATION_KEY_ID   all <ABSENT>
+  agentbase/agent.go:329  "Storage client not configured (IMAGE_BUCKET not set)"
+```
+
+**A positive control on the wrong pod is indistinguishable from success.** Every anti-
+folklore rule this estate has — prove it at the artefact, grep the running binary, use a
+negative control, read the log not the env — I followed, and every one of them is silent
+about *which pod*. The controls were sound; the population was wrong. This is the
+"your measurement answers the question you ENCODED" family, arriving through the one
+variable none of the existing checks name.
+
+**The cheap check that would have caught it, in one query:**
+
+```sql
+SELECT processing_node FROM orchestration_states WHERE orchestration_id = '<the run>';
+```
+
+`processing_node` names the pod that executed the work. Read it **first**, then verify env
+and binary **on that pod**. I had this column available from the first failure and did not
+look at it for three days, because I already had an explanation I liked.
+
+**The cheap checks, in order:**
+
+1. **Verify on the node that RAN it, not the deployment you assume runs it.** In a fleet
+   with dynamically spawned per-agent pods, "the service's pods" is a guess. Make
+   `processing_node` the first thing you read after any runtime failure, before forming a
+   theory — it is one column and it settles which environment is even relevant.
+2. **A fix that does not change the symptom has not been proven, however good the
+   evidence for it looks.** The 08-08 error was byte-identical to the 08-05 error. I had
+   treated "queued behind 10 rerenders" as the reason there was no confirmation yet, so an
+   *absence* of contrary evidence was doing the work of a positive result. When the re-run
+   finally landed, it disagreed — and it had been disagreeing all along.
+3. **"Credentials are present" never implies "the client exists".** The first half of this
+   misstep (05 Aug) was reading six storage env vars and concluding storage was configured,
+   when the gate is `IMAGE_BUCKET`. Already filed as a landmine; it recurs here because the
+   *corrected* check was then run against the wrong pod. **Fixing the shallow error can
+   leave you more confident and no more correct.**
+4. **The owner's architectural instinct arrived before my evidence did, and was right.**
+   The ruling — all S3 interaction stays with the S3 client, credentials not spread across
+   agents — closed the only remaining route (credentials into the spawn template) and would
+   have spared the whole line of work. Worth recording as a tally point in its own right:
+   when a directive contradicts the path you are on, price in that it may be load-bearing
+   before defending the path. My reflex was to establish that my change added no
+   credentials — true, and beside the point.
+
+**Related:** `LANDMINES.md` "`params.StorageClient` is nil on the agent-chassis…" (the
+shallow half, filed 08-05, now known insufficient on its own); MDL-040 in
+`register/model-infrastructure.md` (corrected 08-08); `brochure_component_library/`
+HANDOFF §2b. The revert of the chassis env change is `1ee0da4a8`.
