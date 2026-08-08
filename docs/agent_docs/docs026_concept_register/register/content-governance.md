@@ -4,7 +4,7 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
-29 concepts (CGV-029 added 2026-08-02), consolidated from 68 raw extractions (34 unique blocks, each duplicated
+31 concepts (CGV-031 added 2026-08-08; CGV-029 2026-08-02), consolidated from 68 raw extractions (34 unique blocks, each duplicated
 once in the source cluster file) across units U01, U02, U04, U07, U09, U14, U17a,
 U17b, U18, U19, U20, U21, U22, U24a, U24c, U25.
 
@@ -263,3 +263,11 @@ U17b, U18, U19, U20, U21, U22, U24a, U24c, U25.
 - **sources:** `cmd/component-render-check/rendercheck.go`; `bugfix_140_contact_info_fabrication/HANDOFF_2026-08-03_continue_here.md` item 1 (the rechecked spec) + NOTES (the 20/20 harness this promotes)
 - **relations:** CGV-029 (the template-shape sibling — two implementations, opposite blindnesses, deliberately both); `check_empty_sections.go` (the SECTION-granularity sibling; this is element-granularity, the gap it cannot see); `component-fallback-check` CronJob (the intended carrier); DOC-073 (`pick-pod-marker`, same session's deploy-verification sibling)
 - **verify-later:** ~~the CronJob wiring (image + overlay)~~ **DONE 2026-08-04**; whether the first UNATTENDED 06:55 firing succeeds (the manual run proves the image and the query, not the schedule); whether the baseline/ratchet mode gets built or the census stays a by-hand read; whether `{{else}}`-branch fields (`empty_state_text`) get their own probe arm (list-empty rather than field-absent — the current positive control correctly refuses to vouch for them)
+
+### CGV-031 — Decision records: allow change, forbid regression (RFC_015 — steer / guard / citation gate)
+- **status:** partial — steer LIVE (webdesign-agent, 2026-08-08, snapshot 9dc5f47a); guards + citation gate CODE COMMITTED, inert until the next chassis roll; second seam (save_sections) deliberately deferred until the steer reaches page-content-writer
+- **status-evidence:** `agent_definitions` webdesign-agent carries `load_decisions` (query_database → `{{.decisions.text}}` in analyze_design); `go build ./platform/orchestration/...` clean; four typed decisions live for idea.uk (doc_notes, `categories ? 'decision'`, keys D-001..D-004, covers/guard fences verified)
+- **what:** One decision record, three faces, replacing locks for content protection. A doc_notes row (category `decision`) holds WHY (prose), STEER (aggregated into design agents' prompts via a query_database step — the palette-pin pattern made general), and optional machine fences: ```covers (pages/slots the CITATION GATE protects — `ApplySectionEditAction` refuses a covered write unless the item names the decision via `acknowledges_decision`/`supersedes_decision`, skip-result semantics mirroring the lock gate) and ```guard (an outcome assertion — `contains`/`not_contains` over the page's stored assembly — evaluated by the `decision_guards` discovery check, filing `decision_regression` at needs_human_review on violation). Self-scoping and inert: no decision rows ⇒ no behaviour change anywhere. The bar it clears: change anything you can name; never what you did not know existed.
+- **sources:** `architecture_review/RFC_015_decision_records_allow_change_forbid_regression.md` (owner-approved 2026-08-08); `platform/orchestration/actions/decision_guard.go`; `section_editor_actions.go` (citation gate after the lock gate); `discovery_checks/check_decision_guards.go`; `sql_for_agents/340_doc_notes_decision_subject_type.sql` (pending)
+- **relations:** lock gate / bugs_open/058 (the mechanism this supersedes for content); bugfix 161 (register-as-writer-and-gate, the pattern generalised); banned_claims (CGV siblings); owner ruling 2026-08-02 §2 (authority as opt-in field)
+- **verify-later:** first real citation-gated refusal and first decision_regression item after the roll; whether `save_sections` gains the gate once page-content-writer is steered; migration 340 applied

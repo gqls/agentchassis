@@ -6,7 +6,7 @@ owner's direction, after the owner removed all 35 component locks on idea.uk
 should be what stops the planner from overwriting and regressing decisions —
 we want the site to improve, so changes should be allowed, but not regress."**
 
-Status: PROPOSED — steer + guards (§4.1–4.2) are data/config and may proceed
+Status: **APPROVED (owner, 2026-08-08: "please go ahead with this, all the way")** — implemented same day: steer LIVE on webdesign-agent (snapshot 9dc5f47a); guards + citation gate code committed (council corr c2940987), inert until the next chassis roll; migration 340 pending; save_sections seam deferred until page-content-writer is steered. Originally: steer + guards data/config may proceed
 under the normal council gate; the citation gate (§4.3) is a shared write-seam
 change and needs this RFC decided first (it changes what the seam GUARANTEES,
 which is the 2026-07-29 ruling's RFC trigger).

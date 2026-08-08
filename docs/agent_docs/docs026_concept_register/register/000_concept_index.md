@@ -2115,6 +2115,7 @@ an ID prefix, or a status word.
 | DEV-029 | Prompt/workflow-jsonb migration convention (snapshot-first, anchored, idempotent) | deployed | snapshot_agent() first, anchor-drift-checked edit, idempotency marker, live-row-only filter. | development-guide.md |
 | DBG-066 | Snapshot-shadowing defect (version+1000 outranks active row) | superseded | snapshot_agent() rows sorted ahead of active in naive ORDER BY version loaders | debugging.md |
 | CGV-009 | Snapshot-before-change backup conventions | deployed | snapshot_agent, manual component_versions inserts, CTAS bak tables before every mutation | content-governance.md |
+| CGV-031 | Decision records (RFC_015): steer / guard / citation gate | partial | Change what you can name, never what you did not know existed; steer live, gate awaits roll | content-governance.md |
 | DBI-001 | Snapshot-before-mutate discipline | deployed | snapshot_agent/take_site_snapshot + backup naming convention before any mutation | database-and-infrastructure.md |
 | CTS-056 | Static-source schema fields force fleet-generic labels/suffixes | partial | source:static label fields re-apply generic fallback text on every render; fix is static→llm | contracts-and-standards.md |
 | ASG-001 | Agent spawning (agents as DB records claimed by generic pods) | deployed | spawn_agent creates agent_instances row; generic chassis pod loads config | agent-spawning-and-groups.md |

@@ -3836,3 +3836,41 @@ lock_blocked_change items in the queue were them working). If churn appears
 on the guides or the home CTAs, the remedy is re-locking the specific row —
 the free/paid CTA pair and tool-list removal now live UNLOCKED. Upside:
 the owed tool-page hero image wiring no longer needs scoped unlocks.
+
+## §X.47 — 2026-08-08: RFC_015 implemented "all the way" (owner approval = the ruling)
+
+**Stage 1 STEER — LIVE.** webdesign-agent: snapshot `9dc5f47a` taken first
+(snapshot_agent), then `load_decisions` (query_database over
+`doc_notes categories ? 'decision'`, fences stripped, 400-char caps) spliced
+read_site_specs→analyze_design, decisions in input_fields, and an
+"Established Decisions (allow change, never regress)" block in the prompt.
+Verified: rewired/step_added/prompt_wired all true; 16 steps. Inert for
+every site without decision rows. page-content-writer steer NOT done (its
+context is a Go action + delegated writer) — owed, and it gates stage 3b.
+
+**Stage 2 GUARDS — code committed, inert until roll.**
+`check_decision_guards.go`: per-decision ```guard fences
+(contains/not_contains over STORED assembly — stored-not-served is stated in
+the header, not hidden), violations file `decision_regression` @
+needs_human_review, deduped per decision key. D-001/D-002 carry guards;
+D-003 is auditor-class; D-004 is gate-only.
+
+**Stage 3 CITATION GATE — code committed, inert until roll.**
+`decision_guard.go` (coverage/citation helpers, category-filtered NEVER
+subject_type) + the gate in `ApplySectionEditAction` immediately after the
+lock gate, identical skip-result semantics, fails OPEN on query error; two
+new Optional inputs `acknowledges_decision`/`supersedes_decision`.
+`go build ./platform/orchestration/...` clean. Second seam
+(save_page_sections) DEFERRED with reasoning: gating rebuilds before the
+writer is steered blocks legitimate regeneration. Migration 340 written
+(pending, runner-applied): +'decision' subject_type, 270's guarded pattern.
+
+**Council: corr `c2940987-6bfe-49db-88d8-60f73738d7ca`** — and a wrong call
+to own: my corr-grep RE-RAN the 097 trigger, submitting a duplicate round
+(the guidance says one run per coherent task; the first run's output was
+scrolled past instead of captured). Cost: one duplicate council round.
+
+**Owed:** roll carries the Go (next fleet release); then induce one
+citation-gated refusal + one decision_regression on purpose (mutate a guard
+target) — a gate proven only in the allow direction is not proven; migration
+340 via the runner; steer for page-content-writer; then save_sections gate.

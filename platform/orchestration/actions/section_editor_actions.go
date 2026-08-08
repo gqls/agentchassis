@@ -51,6 +51,8 @@ var ApplySectionEditInputSpec = datahelpers.ActionInputSpec{
 		"replacement_content_data", // content_edit or component_swap: full replacement content_data
 		"new_component_function",   // component_swap
 		"page_component_id",        // target (can also come from edit_context)
+		"acknowledges_decision",    // RFC_015 citation gate: decision key(s) this edit knowingly works within
+		"supersedes_decision",      // RFC_015 citation gate: decision key(s) this edit knowingly replaces
 	},
 	Defaults: map[string]interface{}{},
 	Deprecated: map[string]string{
@@ -319,6 +321,40 @@ func ApplySectionEditAction(ctx context.Context, params ActionParams) (interface
 			"reason": fmt.Sprintf("component %s (%s) is locked by %q — unlock via the admin dashboard to edit it",
 				pcIDStr, slotName, lock.LockedBy),
 		}, nil
+	}
+
+	// ── Decision citation gate (RFC_015) ────────────────────────────────────
+	// If an active decision record covers this page/slot, the edit must NAME
+	// it (acknowledges_decision or supersedes_decision) to proceed. Change is
+	// allowed — regression by an item that did not know the decision existed
+	// is not. Skip-result, not error, mirroring the lock gate above; a
+	// coverage-check failure fails OPEN with a warning (same posture as the
+	// lock check: the gate is advisory messaging, the decision trail is the
+	// authority). Self-scoping: sites/slots with no covering decision rows
+	// are untouched.
+	if covered, covErr := CheckDecisionCoverage(ctx, params.DB, siteID, pageName, slotName); covErr != nil {
+		logger.Warn("ApplySectionEditAction: decision coverage check failed — proceeding without gate",
+			zap.Error(covErr))
+	} else if len(covered) > 0 {
+		citation := inputs.Get("acknowledges_decision") + "," + inputs.Get("supersedes_decision")
+		if !CitationSatisfies(citation, covered) {
+			logger.Warn("ApplySectionEditAction: refusing edit on decision-covered slot without citation (RFC_015)",
+				zap.String("page", pageName),
+				zap.String("slot", slotName),
+				zap.String("covering_decisions", CoveredKeys(covered)),
+			)
+			return map[string]interface{}{
+				"success":        true,
+				"skipped":        true,
+				"decision_gated": true,
+				"decisions":      CoveredKeys(covered),
+				"reason": fmt.Sprintf(
+					"slot %q on page %q is covered by decision(s) %s — re-submit with acknowledges_decision (work within it) or supersedes_decision (replace it) naming the key; read the decision row in doc_notes first",
+					slotName, pageName, CoveredKeys(covered)),
+			}, nil
+		}
+		logger.Info("ApplySectionEditAction: decision citation accepted",
+			zap.String("covering_decisions", CoveredKeys(covered)))
 	}
 
 	// --- Apply the edit ---
