@@ -538,3 +538,39 @@ untouched. The lesson I have written down is that from a single row you genuinel
 
 **Nothing in this lane is open now.** The only thing worth a glance is tomorrow morning's automatic
 run, which should do the same thing unattended.
+
+**2026-08-08 — it has been running itself for two days, and that was the thing left to prove.**
+
+When I finished on the 6th I said the only thing worth a glance was whether the next morning's
+automatic run would do the same job with nobody watching. It did, and so did this morning's. One
+item closed on the 7th, three today. That is the right shape and I want to be clear about why,
+because the numbers look like a collapse from the twenty I closed by hand on the 6th: those twenty
+were a fortnight's worth of items that had piled up unreachable, so clearing them was a one-off
+flush. One and three are the sweep simply keeping up. The number that would signal trouble is not
+how many it closes — it is a flag saying it ran out of room, and that has stayed clear.
+
+I also re-checked that the change is still in the running software, because five new builds have
+gone out since and **none of them were mine** — my change has just been carried along each time.
+It is still there on both machines. That check is worth repeating after any release, since nothing
+in a version number tells you whose work it contains.
+
+One thing that vindicates the paperwork more than I expected: the database only keeps about a day
+of run history, so **the record of the run that proved this — the one that closed twenty items —
+has already been deleted.** The figures now exist only because they were written down at the time.
+If I had planned to "check the numbers later", there would be nothing to check.
+
+**What is genuinely left, stated plainly, and I got this wrong once already.** On the 6th I wrote
+"nothing open" and had to correct myself an hour later: I had closed the problem this lane was
+reopened for, not the lane. Two things remain, both known and neither urgent. One is a
+de-duplication change blocked behind a set of duplicate rows — and when I re-measured that blocker
+I made a second mistake worth recording, guessing at a database filter from memory instead of
+reading it, which produced a number nearly 50% too high that I almost wrote down as growth. Read
+properly, it has grown from 48 to 53. The other is a dormant tripwire in a related check that will
+matter to whoever next extends it, and is harmless until then.
+
+The bigger honest number is 625: that many parked items are of kinds nothing knows how to re-check.
+Not new, not mine, and now visible on every single run instead of invisible — which is what has to
+be true before anyone can sensibly work on it.
+
+There is a fresh cold-start handoff (`HANDOFF_2026-08-08_continue_here.md`) so a new session can
+pick this up without reading the whole history.
