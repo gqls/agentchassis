@@ -227,3 +227,70 @@ converting its own blind spot into a verdict against the corpus.
 - `LANDMINES.md` — the entry added alongside this file, so a session reading a `STALE`
   verdict tomorrow does not act on it.
 - `architecture_review/RFC_005` §3.2 — the mechanism's own design doc.
+
+---
+
+# THIRD FAILURE MODE, 2026-08-08 late — a **Go** footprint fails too, when it names a package-level `var`
+
+Contributed by the `bugfix_209_deploy_purpose_keyed_source` lane (I do not own this
+bug — this is evidence into the shared account, not a competing fix). It matters
+because this file currently says of `bugs_closed/163`: *"this file assumes its fix
+is working, and it is."* **For `var` declarations it is not.**
+
+## What happened
+
+Re-fired the verifier for the 221 lane's entry (its handoff's outstanding loose
+end, unblocked once fleet credit returned — last credit/quota error 20:13Z, run
+dispatched 22:32Z). Verdict:
+
+> **NEEDS_HUMAN_REVIEW.** Core footprint file and all five checker functions still
+> exist at expected paths, but `metaCommentaryPatterns` and `placeholderPatterns`
+> **no longer resolve as standalone symbols (possibly inlined or renamed)**…
+
+**Both symbols exist at HEAD, unrenamed and not inlined** —
+`validate_page_content.go:105` (`placeholderPatterns`) and `:1229`
+(`metaCommentaryPatterns`), each `var X = []struct{…}`.
+
+## The cause is the indexer's KIND COVERAGE, not staleness
+
+Staleness was the obvious suspect and it is **not** the cause. The verifier read
+commit `93c576963` (2026-08-07 09:31), ~38h behind HEAD — but both vars long
+predate that commit, so a stale index would still have seen them.
+
+One query settles it. `code_symbols` holds **no `var` kind at all**:
+
+```sql
+SELECT kind, count(*) FROM code_symbols GROUP BY 1 ORDER BY 2 DESC;
+--  func 3592 | method 1114 | struct 973 | alias 40 | interface 36   (total 5755)
+```
+
+So a package-level `var` is **unrepresentable** in the index. Any landmine
+footprint naming one resolves to nothing, 100% of the time, on a current index, in
+a language the verifier is supposed to handle.
+
+**Disconfirming control, in the same run:** the three `func` footprints on the
+entry I filed the same evening (`ExtractActionInputs`, `findFieldRecursive`,
+`findStorageURI`) all resolved, and that entry returned **STILL_VALID**. So this is
+not "the verifier is broken" — it is the same shape this bug already describes:
+a gap in the table it reads, converted into a verdict against the corpus.
+
+## Why this one is worse than the non-Go case
+
+The non-Go case at least returns a verdict whose wrongness a reader may suspect.
+Here the verdict **names a specific, plausible, false mechanism** — *"possibly
+inlined or renamed"* — which is precisely what a session would act on: go looking
+for the rename, fail to find it, and conclude the entry is stale. The phrasing
+manufactures a hypothesis the evidence never supported.
+
+## What this adds to the fix
+
+Whatever scoping fix this bug takes, the verifier must distinguish **"the symbol is
+absent from the code"** from **"the index cannot represent symbols of this kind"**,
+and must not emit a rename/inline hypothesis it has no evidence for. Cheapest
+correct behaviour today: treat a footprint that matches no indexable kind as
+**UNVERIFIABLE**, never as a change in the code. (An `UNVERIFIABLE` verdict means
+"wrong question asked", not "premise false" — the distinction this estate has been
+bitten by before.)
+
+**Do not downgrade the 221 entry on this verdict.** It was re-checked by hand and
+is accurate.

@@ -24104,3 +24104,48 @@ already knows this shape (`a-hook-that-writes-to-stderr-reaches-nobody`, "detect
 DISPATCH does not"): **when you create a signal, decide at creation time where it lands durably —
 a log line is for the human tailing it TODAY; anything meant to outlive the pod belongs in a
 table.** The WARN did its job; the watch-item's definition ("watch the logs") could never do its.
+
+---
+
+## 2026-08-08 — I read a retention window off `min(created_at)` and turned 24 hours into 26 days
+
+**The claim.** Investigating `bugs_open/209`, I needed to know whether two legacy workflows
+(`pageflow-builder`, `site-work-orchestrator`) still run. `orchestration_states` had zero rows for
+either, and its oldest row was 2026-07-13, so I stated: **"they have not run in 26 days."** I said
+it in chat as a finding, in the same voice as the measured facts around it.
+
+**What was true.** The table is effectively a **~24-hour window for completed runs**. Bucketing by
+status: **13** `COMPLETED` rows older than 24h out of ~2,457, and **zero** older than 7 days — the
+older tail is `CANCELLED` / `RUNNING` / `INITIALIZED` only. The honest claim was "they did not run
+today", which is roughly 1/26th of what I asserted.
+
+**What caught it.** Asking what the old rows *are* before treating their age as coverage:
+
+```sql
+SELECT CASE WHEN created_at > now() - interval '24 hours' THEN 'last_24h'
+            WHEN created_at > now() - interval '7 days'  THEN '1-7d'
+            ELSE 'older_than_7d' END AS age, status, count(*)
+FROM orchestration_states GROUP BY 1,2;
+```
+
+**The cheap check that would have caught it: `min(created_at)` over a REAPED table measures the
+survivors, not the window.** Reaping is status-selective here, so the oldest row is a
+`CANCELLED` one — precisely the row least like the ones I was counting. Before reading a retention
+depth off any table with a cleanup job, **bucket by the column the cleanup keys on** and confirm
+rows of *your* class survive that far back. This is the same shape as
+`a-count-you-kept-is-not-a-census`: the surviving population was selected by a rule I had not asked
+about, and it answered a question I had not meant to ask.
+
+**A second one the same hour, caught for a different reason — and this one I discarded rather than
+published.** To settle the same question I queried `llm_call_log` (retains to 2026-03-25, 50,861
+rows) and got **0 rows for all four agent types**. It would have made a tidy "never runs" finding.
+It was blind: the same query returned **0 for `asset-deployer`**, which I had watched run **16
+times that day**. **Running the positive control in the same query is what turned a publishable
+false finding into a discarded one** — cost about fifteen seconds. Add a known-live value to the
+`IN (…)` list every time you use an absence in that table as evidence.
+
+**Why both belong here rather than only in the lane's NOTES.** Neither was caused by missing
+information — both queries were correct, ran clean and returned exactly what I asked. The error was
+asking a question whose answer could not have come out otherwise, which is the failure mode the
+`[MEASURED]` marker rule explicitly does **not** catch (`MEMORY.md`, 2026-08-03): I would have
+dated and marked both.

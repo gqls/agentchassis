@@ -171,3 +171,39 @@ characterisation tests, all passing, pinning: the last-write-wins branch; that
 distinct purposes do not collide; the 86% asset_id instability; and which route
 supplies the legacy source today. Written to characterise, not to assert a fix, so
 a future naive deletion of Priority 2 trips over the recorded reason it was kept.
+
+### Pre-existing HEAD failure in the same package — NOT mine, not fixed
+
+`go test ./platform/orchestration/actions/` has exactly **one** failure,
+`TestValidDocSubjectTypes_LockstepWithMigrationCheck`: migration 340 adds `decision`
+to `doc_notes`' subject types but `validDocSubjectTypes`
+(`doc_subjects_common.go:63`) does not carry it. Every input to that test is
+committed and unmodified in this tree (`git status` clean for all three files), so
+the result is identical to HEAD's — it is another lane's lockstep break
+(`bugs_open/064`; checklist at `experience_register/design/subject_type_addition.md`),
+not a consequence of anything here. Recorded so the next reader of this lane does
+not spend the same five minutes on it. My four tests pass.
+
+## 2026-08-08, 22:33Z — the landmine entry was independently verified
+
+Fired `trigger-landmine-verifier.sh` on the new entry. **Verdict: `STILL_VALID`** —
+all four footprint symbols (`ExtractActionInputs`, `ExtractFields`,
+`extractSingleField`, `findFieldRecursive`) and both files resolved, and the verdict
+confirms the call chain and the randomised-map-iteration hazard by reading the code
+independently of my test.
+
+That verdict is worth more than usual because it doubles as the **disconfirming
+control** for something else measured in the same batch: the 221 lane's entry, fired
+minutes earlier, came back `NEEDS_HUMAN_REVIEW` claiming its symbols "no longer
+resolve as standalone symbols (possibly inlined or renamed)". They do exist, at
+`validate_page_content.go:105` and `:1229` — they are just declared
+`var X = []struct{…}`, and `code_symbols` holds **no `var` kind at all** (func 3592,
+method 1114, struct 973, alias 40, interface 36; total 5,755). My entry's footprints
+are all `func`, which is exactly why mine resolved and theirs could not. Filed into
+`bugs_open/223` as a third failure mode; the 221 entry was **not** downgraded.
+
+The transferable point for this lane: **a landmine footprint should name a `func`,
+`method`, `struct`, `alias` or `interface` if you want the verifier to be able to
+check it.** A footprint naming a package-level `var`, a table or a command is
+unverifiable by construction today, and the verifier will not say so — it will
+suggest a rename instead.

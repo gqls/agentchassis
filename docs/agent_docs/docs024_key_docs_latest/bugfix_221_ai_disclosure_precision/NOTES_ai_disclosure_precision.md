@@ -483,3 +483,44 @@ severity.
   webdesign.co.uk lane and a rebuild regenerates content; firing it at another
   lane's site to collect my own proof would be taking their decision. They have
   been told; the queue will do it.
+
+---
+
+## 2026-08-08, 22:32Z — LOOSE END 1 CLOSED: the landmine verifier ran, and its verdict is a FALSE ALARM
+
+Re-fired by the `bugfix_209_deploy_purpose_keyed_source` lane (the next session on
+this handoff), once fleet credit was confirmed back: last credit/quota row in
+`agent_error_log` was **20:13Z**, none since; the 18:00–20:00Z burst that killed the
+first attempt had cleared. No queue this time — the run started within seconds, not
+the ~29 minutes the platform's normal-load figure warns about.
+
+**Verdict: `NEEDS_HUMAN_REVIEW`** —
+
+> Core footprint file and all five checker functions still exist at expected paths,
+> but `metaCommentaryPatterns` and `placeholderPatterns` no longer resolve as
+> standalone symbols (possibly inlined or renamed), and function bodies were not
+> available…
+
+**The entry is fine. The verdict is wrong, and the reason is now measured.** Both
+symbols exist at HEAD, unrenamed and not inlined — `validate_page_content.go:105`
+and `:1229`, each declared `var X = []struct{…}`. The verifier's index
+(`code_symbols`) holds **no `var` kind whatsoever**:
+
+```sql
+SELECT kind, count(*) FROM code_symbols GROUP BY 1 ORDER BY 2 DESC;
+--  func 3592 | method 1114 | struct 973 | alias 40 | interface 36   (total 5755)
+```
+
+So a package-level `var` is unrepresentable in the index and can never resolve. Not
+staleness: the verifier read `93c576963` (2026-08-07 09:31, ~38h behind HEAD), but
+both vars predate that commit comfortably.
+
+**Per the handoff's own instruction, the entry is NOT downgraded or deleted.** The
+handoff predicted a weak verdict here and it was right, though for a sharper reason
+than "non-Go footprints" — this entry's footprints *are* Go. Filed as a **third
+failure mode** into `bugs_open/223`, with the kind census and the disconfirming
+control (the 209 lane's entry, whose three `func` footprints all resolved and which
+returned `STILL_VALID` in the same batch).
+
+Loose end 2 (the queued webdesign.co.uk rebuild) is unchanged and still correctly
+left to that lane.
