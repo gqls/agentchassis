@@ -305,3 +305,94 @@ they go up in batches with the same verification each time. One practical wrinkl
 the step that writes to the live database needs your approval each time it runs, so
 you will see a few of those come past — or you can allow it once in settings and I
 will run the batches through.
+
+---
+
+## 2026-08-08 — we now check whether the calculators are RIGHT, and two of them are not
+
+You asked, back on the 6th, for "a comprehensive check on the calculators that
+they produce validated output". I had to tell you at the time that we did not
+have one. We do now, and it found real problems on the first run.
+
+**The distinction that mattered.** Everything we had built until now recorded
+what each calculator answered on a particular day and checked it still answers
+the same. That catches a calculator we break. It cannot catch a calculator that
+was wrong from the day it was written, because the recording faithfully captured
+the wrong answer and every check since has been confirming it.
+
+So the new work computes the answers independently — from the standard loan
+formula, and from the stamp duty tables published by HMRC — in code that has
+never looked at the website's own workings. Then it types numbers into the real
+pages in a real browser and compares. Being genuinely independent is the whole
+point: if I had written the checker by reading the site's code, it would have
+agreed with every mistake in it.
+
+**The first problem: the stamp duty calculator is running a tax rule that
+expired sixteen months ago.** First-time buyers used to get relief on properties
+up to £625,000. That was a temporary rule, and it ended on 31 March 2025 — since
+then the relief stops at £500,000, and above that you pay the ordinary rates on
+the whole price. Our calculator still uses £625,000. For anyone buying between
+£500,000 and £625,000 it quotes exactly £5,000 too little.
+
+The uncomfortable detail is that the page itself says, in its own text just
+above the calculator, that the temporary period ended in March 2025. The words
+are right, the table of rates beside them is right, and only the arithmetic is
+out of date. Whoever wrote it clearly wasn't sure — the code still carries their
+comments saying "rules vary" and "let's use standard rates for safety". There is
+a second, smaller version of the same thing: it charges the buy-to-let surcharge
+on properties under £40,000, where the surcharge doesn't apply at all.
+
+**I have not changed the numbers.** These are tax figures a real person would
+budget against, and changing what we tell them is a decision for you, not for
+me. The finding is written up with the HMRC pages cited in `bugs_open/225`.
+
+**The second problem: type a 0% interest rate and six of the seven loan
+calculators break.** That is not a made-up input — 0% credit cards, interest-free
+car finance and employer loans are all ordinary things, and the car finance
+calculator is exactly where somebody would type it.
+
+There's a tidy explanation. The site has one shared file with the loan formula
+written properly, including the special case where the rate is zero. Every
+calculator in the mortgages section uses it, and every one of those passed.
+Every calculator in the loans section has its own private copy of the formula,
+and not one of those copies handles the zero case. So it isn't seven separate
+mistakes, it's one mistake copied six times.
+
+Three of them show "£NaN" on screen, which at least looks broken. The other
+three are worse: they quietly show you the answer to whatever you typed *before*,
+with no warning at all. The clearest way I found to demonstrate that doesn't
+involve reading any code — type the same three numbers into the same three
+boxes, but get there in a different order, and you get a different answer.
+£143.47 one way, £429.81 the other, same numbers on screen.
+
+The one I'd want fixed first is the loan comparison tool. Give it a 0% loan and
+a 5% loan and it tells you the 5% one is cheaper. Confidently, in a green box.
+
+**Something I got wrong, which is worth telling you about.** My first version of
+the checker accused the rate forecaster of miscalculating. It hadn't — my
+formula was the naive one and the page was doing the more careful thing, working
+out what's left of the mortgage at each stage rather than starting from scratch.
+The page was right and my checker was wrong, and I only found that out by going
+and doing the sums a second way. I've kept the wrong version in the code as a
+deliberately-labelled wrong answer, so if anybody ever rewrites that page badly,
+it'll be recognised rather than just failing.
+
+There were three more like that — including one where my own reporting quietly
+downgraded the stamp duty finding from "this is wrong" to "this is a matter of
+opinion", because I'd used the same mechanism for both. That one is worth
+remembering: the tool I built to explain findings was capable of explaining the
+most important one away.
+
+**Where that leaves us.** Eighteen of the twenty-three calculators now have an
+independent check on their arithmetic, run on the live site. Five of them —
+the credit score, the damage checklist, the application tracker, the mortgage
+scorecard, and the portfolio dashboard — don't have a right answer to check
+against, because they're our own scoring judgements rather than sums. I haven't
+invented one for them. Instead I check things that must be true whatever the
+scoring is: answering worse can't score better, percentages stay between 0 and
+100, the same answers give the same result, saved data comes back unchanged. All
+of those pass, and I'd want you to read them as weaker evidence than the
+arithmetic ones, because they are.
+
+**What I need from you:** a decision on the stamp duty numbers. Everything else
+I can get on with.

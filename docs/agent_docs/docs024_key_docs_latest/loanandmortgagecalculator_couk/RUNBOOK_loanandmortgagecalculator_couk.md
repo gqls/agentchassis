@@ -493,3 +493,86 @@ DECOMP_WORK=... python3 $LANE/load_lmc.py --restore <page>
 - **A page that is still verbatim ignores `site_components` entirely**, so
   chrome can be broken, rerender 41 pages, report success and change nothing.
   Check the chrome RESOLVES, never that rows exist.
+
+## 13. Arithmetic validation — is the tool doing the RIGHT thing? (2026-08-08)
+
+§4 and `golden_compare_post.py` prove a calculator still does what it did.
+**They cannot prove it was ever right.** This section is the independent oracle:
+expected answers recomputed from the annuity formula and the published HMRC
+bands, in code that has never read these pages' JavaScript. Full account:
+`REPORT_2026-08-08_arithmetic_validation.md`.
+
+```bash
+LANE=docs/agent_docs/docs024_key_docs_latest/loanandmortgagecalculator_couk
+cd $LANE       # the modules import each other by name; run from HERE
+
+# 1. all 18 class A/B tools, ~55 boundary vectors, against the LIVE site (~12 min)
+python3 oracle.py --json /tmp/oracle.json
+
+# 2. one tool while iterating
+python3 oracle.py --tools stamp-duty
+python3 oracle.py --tools standard-calc,compare-loans,consolidation
+
+# 3. class C: monotonicity / bounds / determinism / round-trip / portfolio aggregate
+python3 invariants.py
+
+# 4. re-dump each tool's user-facing interface (labels, not script)
+python3 inventory.py --out /tmp/inventory.json
+```
+
+### RUN THE CONTROLS IN THE SAME SESSION — a green oracle run alone is not evidence
+
+```bash
+python3 oracle.py --selftest-parse                      # no browser; ~1s
+python3 oracle.py --mutate expectation --tools simple,repayment
+python3 oracle.py --mutate crosstool  --tools simple,repayment,stamp-duty
+python3 oracle.py --mutate parse      --tools simple
+```
+
+Each must print `CONTROL OK`. **The criterion is "no check may PASS", not "some
+check must FAIL"** — `--mutate parse` legitimately produces N/A, because an
+`<input type=number>` rejects `£200,000`, the field holds `''`, and `set()`
+refuses to drive on rather than comparing against an empty field. That refusal
+IS the property the control tests.
+
+### The gotchas, each one measured
+
+- **Do not author a tool spec by reading the page's `<script>`.** An oracle
+  transcribed from the code it is checking agrees with the bug. Use
+  `inventory.py`, which reports the visible `<label>` bound to each control and
+  the caption above each result box — the site's own claim about what each
+  number means, read the way a user reads it. Open the arithmetic only AFTER a
+  check has failed; that is diagnosis, not authorship.
+- **Tolerance is derived from the tool's own display precision, never chosen.**
+  `£1,390` cannot be checked to the penny by anyone, so it is asserted at ±£0.50
+  and every result line prints its resolution. A single global ±£0.01 would
+  convict every whole-pound tool on this site.
+- **A boundary vector must be one where a BROKEN implementation gives a
+  different answer.** `consolidation` passed a 0%-APR-*debt* vector because its
+  guard returns 0 and 0 is the right answer there; the defect only shows on a
+  0% *new loan*, where 0 means a £0.00 monthly payment. Testing where a broken
+  guard coincides with the truth yields a green tick and no information.
+- **`--mutate crosstool` will leave a few PASSes and they are not failures of
+  the control.** This suite deliberately packs vectors onto adjacent boundaries
+  and £1,500,000 vs £1,500,001 of SDLT differ by 12p, inside any tolerance —
+  a borrowed expectation equal to the true one cannot fail. Those print as
+  `NON-TEST`. A separate case prints `MUTATION DID NOT BITE`: at £39,999 the
+  borrowed expectation equals what the *buggy* page shows. Read the labels;
+  do not loosen the bar to make the control green.
+- **Exclude reset-ish buttons when walking any wizard.** `credit-health-check`'s
+  result panel contains "Start Over" → `location.reload()`, so a naive
+  "click the first button in the active step" walk answers every question,
+  reaches the verdict and immediately destroys it — reporting a
+  non-deterministic tool. `toolgolden.PRESS_JS` carries this exclusion and the
+  comment explaining it; reuse the exclusion, not just the browser.
+- **Wait for a tool's own save confirmation, never a fixed sleep.**
+  `application-tracker` debounces its notes field by 1000 ms and reports
+  `#save-status` = "✓ Saved to browser memory". Reloading immediately reports
+  that notes do not persist — a harness fault wearing the tool's clothes.
+- **Two routes to one vector is the check that catches a STALE answer.** A
+  calculator gated `if (rate > 0)` writes nothing at 0% and the previous answer
+  stays on screen looking fresh. Comparing against a single primed reading MISSES
+  it, because the stale figure is whatever the last ACCEPTED vector produced —
+  including an intermediate state created halfway through typing the new one.
+  Drive the same final vector from two different priming vectors and compare;
+  the readings must agree whatever the tool computes.

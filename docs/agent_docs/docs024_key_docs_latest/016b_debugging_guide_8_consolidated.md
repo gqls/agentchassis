@@ -11338,3 +11338,66 @@ detector's pattern list — every shared term is a manufactured false-positive p
 (`prompt-text-poisons-its-own-detector`, now with a second confirmed case); (3) a
 "declaration" tier that reads CODE COMMENTS polices text no visitor sees — scope it
 to prose, or make it negation-aware, before widening it.
+
+### A regression baseline recorded from a NEVER-CORRECT artefact certifies the defect for ever — consistency checks cannot refute, and the estate's only calculator check is a consistency check (`bugs_open/224`, `bugs_open/225`, 2026-08-08)
+
+**Pattern.** A behavioural golden captures what an artefact produced on day X and every
+later run diffs against it. That answers *"did we break it?"* and is silent on *"was it
+ever right?"* — so a defect present at capture time is recorded faithfully, and each
+green run afterwards is a confirmation of the bug. The same shape as
+`a-pass-from-a-blind-check-outlives-the-blindness`, but sharper, because a golden is
+*named* like a correctness baseline and is usually the only tool-checking machinery a
+lane has. Tier-2 `tool_acceptance` cannot cover the gap either — its own header says its
+static checks "CONFIRM, never refute". Measured: 27 failing boundary vectors across 8 of
+23 calculators on loanandmortgagecalculator.co.uk, every one green in the golden since
+the day it was taken, including a stamp-duty tool running a tax rule that expired 16
+months earlier (a flat £5,000 under-quote on a real tax bill).
+
+**What refutes.** An independent oracle: recompute the expected answer from the
+DEFINITION (the annuity formula, the published HMRC bands) in code that has never read
+the artefact's own logic. Four things make the difference between an oracle and a second
+copy of the bug:
+
+1. **Author the spec from the interface, not the implementation.** An oracle must know
+   which control takes which quantity, and reading the source to find that is one line
+   away from reading the arithmetic. Read the visible `<label>`, the button text and the
+   result caption instead (`inventory.py`), and **open the calculation body only after a
+   check has FAILED** — then it is diagnosis, not authorship. That ordering makes
+   contamination impossible rather than merely unlikely.
+2. **Choose vectors on BOUNDARIES, and check they can discriminate.** Generic harnesses
+   scale a field's own default (x1/x2/x0.5) to stay in-domain for any tool with no
+   per-tool config — which is exactly why no such vector ever lands on a band edge. And a
+   boundary is only a test where a BROKEN implementation gives a DIFFERENT answer: a
+   consolidation tool passed a 0%-rate *debt* vector because its guard returns 0 and 0 is
+   correct there; only the 0% *new loan* case exposed it, where 0 means a £0.00 monthly
+   payment.
+3. **Separate "a defensible alternative convention" from "a named wrong answer".** One
+   bucket for both means the machinery that NAMES a cause is the machinery that EXCUSES
+   one — the first run here reported a calculator implementing an expired HMRC rule as a
+   CONVENTION rather than a FAIL.
+4. **Derive tolerance from the artefact's own display precision and PRINT it.** A page
+   formatting to whole pounds cannot be checked to the penny by anybody; one global
+   tolerance either convicts every such tool or excuses every penny-level defect.
+
+**Two failure modes to expect, and the silent one needs a different instrument.** A
+missing edge case either produces visible garbage (`£NaN`) or, where someone added
+`if (rate > 0) { …write the DOM… }`, produces **nothing** — so the previous answer stays
+on screen looking fresh. A value comparison reports that as an ordinary numeric mismatch
+and sends you hunting an arithmetic error that does not exist. Priming with a known
+vector and checking whether the reading moved **also misses it**, because the stale
+figure is whatever the last ACCEPTED vector produced, including an intermediate state
+created halfway through typing the new one. **Drive the same final vector by two
+different routes and compare** — the readings must agree whatever the tool computes, so
+it needs no oracle, no formula and no source at all: *"the SAME final inputs give
+'£143.47' by one route and '£429.81' by another"*.
+
+**And prove the checker can fail before believing it.** Mutate the expectation; mutate
+the input parse; judge each vector against a NEIGHBOURING vector's expectations on the
+real page. Criterion is **"no check may PASS under mutation"**, not "some check must
+FAIL" — a driver that refuses an unparseable input is satisfying the property, not
+failing to test it. When a control leaves a stray PASS, exclude it **by name and in
+print** (`NON-TEST`: adjacent boundary vectors that genuinely expect the same figure;
+`MUTATION DID NOT BITE`: the borrowed expectation equals what the buggy artefact
+prints) — **never by loosening the threshold**, which is how a control becomes a
+formality. Full worked case, including the four things the harness itself got wrong:
+`docs/agent_docs/docs024_key_docs_latest/loanandmortgagecalculator_couk/REPORT_2026-08-08_arithmetic_validation.md`.

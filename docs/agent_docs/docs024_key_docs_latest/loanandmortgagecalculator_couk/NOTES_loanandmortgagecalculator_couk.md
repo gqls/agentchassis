@@ -589,3 +589,134 @@ fee-analyser, bridging, equity-release roll-up, portfolio aggregate); the rest
 (credit-health-check, damage-checker, application-tracker, fact-finder) are
 scoring tools or checklists with no external right answer to check against, and
 saying so is part of the deliverable.
+
+### 2026-08-08 — the open gap is CLOSED: an independent oracle, and it found two defect families
+
+The 08-06 entry above ended "NOT BUILT". It is built. Full account:
+`REPORT_2026-08-08_arithmetic_validation.md`; commands in RUNBOOK §13.
+
+**176 oracle checks against the live site — 143 PASS, 27 FAIL, 6 CONVENTION;
+21 class-C invariant checks, all passing.** Two bug files: `bugs_open/225`
+(SDLT), `bugs_open/224` (zero rate). 8 of 23 tools affected.
+
+**How independence was kept, since it is the whole value.** `inventory.py`
+reads each page the way a user does — the visible `<label>` bound to each
+control, the button text, the caption above each result box — so the per-tool
+specs could be authored without opening a single calculation body.
+`oracles.py` computes from the annuity formula, the gov.uk SDLT tables and
+arithmetic identities. **No page's arithmetic was read until a check had
+already FAILED.** Both SDLT defects and all seven zero-rate defects were found
+before any of that source was opened; reading it afterwards is diagnosis, not
+authorship.
+
+**Defect family 1 — `mortgages/stamp-duty` is running an expired tax rule.**
+Its FTB branch is gated `price <= 625000`, which was the cap between
+2022-09-23 and 2025-03-31. Since 2025-04-01 relief is unavailable above
+£500,000 and standard rates apply to the whole price. Flat **−£5,000** for
+every FTB purchase in (£500,000, £625,000]. The page's own prose says the
+temporary period ended and its band table is current — only the arithmetic is
+16 months stale. Separately, it charges the 5% surcharge below the £40,000
+higher-rate floor: +£2,000 at £39,999.
+
+**Defect family 2 — a 0% rate breaks six of the seven `loans/*` calculators.**
+`assets/js/calculators.js` has an explicit `if (rate === 0)` branch; every
+`mortgages/*` payment tool calls it and all five pass. Every `loans/*` tool
+re-implements the formula inline and none of the private copies has the
+branch. Three print `£NaN`; three are gated `if (rate > 0)` and so write
+NOTHING, leaving the previous answer on screen. `compare-loans` compares two
+NaNs, falls to its `else`, and **declares a 0% loan the more expensive
+option**. `consolidation` quotes **£0.00/month** for an interest-free loan.
+
+⚠ **The sharpest statement of family 2 needed no source at all.** Driving the
+same final vector by two different routes:
+
+```
+standard-calc, 0% APR:  '£143.47' by one route and '£429.81' by another
+car-finance,   0% APR:  '£501.78' by one route and '£1222.56' by another
+settlement,    0% APR:  '£5,158.11' by one route and '£5,023.84' by another
+```
+
+Same numbers in the same boxes, different answer. That check (`determinism`)
+exists because the first attempt at detecting staleness — compare against a
+single primed reading — MISSED it: the stale figure was the answer to an
+intermediate state created halfway through typing the new vector, a
+combination the user never entered and the harness never recorded.
+
+**A boundary suite that tested 0% still nearly missed `consolidation`.** Driven
+first with a 0% *debt*, it passed — the guarded branch returns 0 and 0 is the
+right answer for "interest remaining on a 0% debt". Only a 0% *new consolidation
+loan* exposes it, where returning 0 means a £0.00 monthly payment. Testing the
+case where a broken guard's output coincides with the correct one produces a
+green tick and no information.
+
+**Four things the harness got wrong (all in `WRONG_CALLS.md`):**
+
+1. **My oracle was WRONG about `rate-forecaster`; the page was right.** I
+   asserted each window's payment on the FULL original principal over the FULL
+   original term and filed 4 FAILs. It amortises the balance REMAINING over the
+   term REMAINING — the correct model — and recomputing that way reproduces
+   £1,526 and £1,286 to the pound. Kept in the checks as a named wrong answer.
+2. **My reporting mechanism downgraded the biggest finding to an advisory.** One
+   bucket served both "defensible alternative convention" and "named wrong
+   answer", so the first run labelled an EXPIRED TAX RULE a CONVENTION. Split
+   into `alt` and `defect_alt`.
+3. **`--selftest-parse` found a gap in my own parser**: `£0 / mo Rent`, a live
+   `portfolio` reading, was refused — that check would have come back N/A, and a
+   check quietly not made reads exactly like a check made.
+4. **Two "class C defects" were my harness.** The credit-health walk clicked the
+   result panel's "Start Over" (`location.reload()`) and reported a
+   non-deterministic wizard; the tracker round-trip reloaded before the notes
+   field's 1-second debounce fired and reported that notes do not persist.
+   `toolgolden.PRESS_JS` already excludes reset-ish buttons AND SAYS WHY — I
+   reused the browser harness and left its hard-won exclusion behind.
+
+**Classification disagrees with the brief's 14/3/6 — mine is 15/3/5**, recorded
+rather than silently re-bucketed. `car-finance-calculator` C→A (measured: it
+uses the discounted-balloon PCP convention, so it has one right answer);
+`portfolio` stays C but its aggregate is checked as arithmetic. **And the brief
+is wrong that `loans/overpayment-calculator` shares `/assets/js/calculators.js`
+— it does not load that file at all**, which is exactly why it is a zero-rate
+casualty while `mortgages/overpayment` is not.
+
+**Controls.** Four, all red on demand; two needed their own criterion corrected
+first. `--mutate parse` came out N/A and my first exit rule called that inert —
+wrong: the field rejects `£200,000`, `set()` refuses to drive on, and that IS
+the "silent 0" the control forbids. Criterion is now "no check may PASS under
+mutation". `--mutate crosstool` left 4 PASSes that are NON-TESTS (adjacent
+boundary vectors expecting the same figure — £1,500,000 and £1,500,001 differ by
+12p) and one where the mutation DID NOT BITE (at £39,999 the borrowed
+expectation equals what the buggy page prints). Both are excluded **by name and
+printed**, not by loosening the bar.
+
+**Filed to the diagnosis loop** per CLAUDE.md, the structural claim in 224 being
+cross-cutting: intake `fe69a7b8-d364-4e12-8039-f93f42a4170c`, run correlation
+`3e18a949-8732-4603-b19b-f0c159860fa5`.
+
+### 2026-08-08 (later) — the 090 run finished with NO VERDICT, and the reason is a fleet-wide blind spot
+
+The run above (`3e18a949-8732-4603-b19b-f0c159860fa5`) reached
+`current_step='complete'`, `status='COMPLETED'`, work item `complete`, and wrote
+**5 `bundle` artifacts and no verdict artifact, no `doc_notes` row**, in ~9 min.
+
+Measured, not inferred:
+
+```sql
+SELECT DISTINCT repo FROM code_symbols;   -- gqls/agentchassis   (ONE row)
+SELECT DISTINCT substring(path from '\.[a-zA-Z0-9]+$') FROM code_symbols;  -- .go  (ONE row)
+SELECT count(*) FROM code_symbols;                                          -- 5755
+SELECT count(*) FROM code_symbols WHERE path LIKE '%calculators.js%'
+    OR path LIKE '%standard-calc%' OR path LIKE '%loanandmortgage%';        -- 0
+```
+
+**The diagnosis agent could not open one file the symptom named.** They are
+`.html`/`.js` in the `sites` repo. Its five bundles fetched `page_sections`
+rows — the DB half — so it looked, found the ported page records, and never
+reached the JavaScript the claim is about.
+
+⚠ **A 090 run on a non-Go artefact terminates as a SUCCESS.** Nothing separates
+"diagnosed, found nothing" from "structurally could not look". Same Go-only
+index behind `bugs_open/223` (another lane, same day, landmine verifier) — one
+index, two consumers, silence wearing a finding's clothes. Landmine filed.
+`bugs_open/224` takes CLAUDE.md's stated escape hatch explicitly and says what
+was substituted; the determinism evidence needs no source reading at all, which
+is why the filing does not depend on the loop.
