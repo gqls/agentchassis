@@ -3696,3 +3696,45 @@ sit at `detected`, which is NOT in the index's excluded-status list
 re-fire. That `detected` state is deliberate — the tool leaves items ungraded on purpose —
 so **grading a batch is now a precondition for re-running it**, not just good manners.
 Closed the three with their findings recorded in `error`.
+
+### Guidance v2 WORKED — third intervention, first one aimed at the layer that was driving
+
+`voiceh_rewrite_v2.sh` (guidance `4a9edd45-…`, conditional mandate replaced by its
+prohibition half plus an explicit instruction to VARY). Same three pages, same everything
+else. Measured on the served pages, blocks opening with a conditional:
+
+```
+legal.html            0 of 4    <- was "If you're using the calculators and guides…"
+                                   now "The calculators and guides on loancalculator.co.uk
+                                   are built for illustration and learning."
+tools/consolidation   1 of 10
+guides/debt-help-uk   2 of 10   <- and the one it kept is the right one:
+                                   "If you've missed a payment and you're starting to panic"
+```
+
+**The tic is broken as a universal pattern.** It now appears where the reader's situation
+genuinely is the subject and not where it isn't — which was the whole point. The legal
+page, the clearest case of it being wrong, opens flatly. **Two spec-layer fixes: no
+effect. One guidance-layer fix: immediate effect.** That ratio is the finding.
+
+⚠ **The CSS trap fired AGAIN on `tool-consolidation`, and worse than last time.** prose-0
+came back with `<style>` entirely **absent** (not appended-to, deleted) — served CSS class
+matches 8 → 5. Restored from backup; verified 8 again, 35,206 b, no duplication, and
+**toolgolden 11/11 exact**, 26/26 pages 200, zero locked rows touched.
+
+> **This row has now been destroyed by two consecutive rewrites, and the guard is a
+> RESTORE SCRIPT, not a preventer.** The lane's handoff says the rewrite "drops it about
+> half the time"; today it was two for two. Every rewrite of this site pays a coin-flip on
+> 8 of its 51 prose rows, and the only thing standing between that and a broken calculator
+> layout is a human remembering to check. **The real fix is to stop handing a CSS-only row
+> to a prose writer at all** — the row is identifiable (`content_data.content` starts with
+> `<style>` and holds no sentence), so it can be excluded from the rewrite set rather than
+> repaired after. Filed as the next thing to do in this lane.
+
+**Where the three owner faults now stand:**
+
+| fault | status |
+|---|---|
+| `legal` "if"s | **FIXED** — opens flatly |
+| `tool-consolidation` "appeal" | **FIXED** — the word is gone from the live page |
+| `debt-help-uk` ordering (experts first) | **NOT DONE** — a journey judgement, not a copy one; `experience-planner` is its home |
