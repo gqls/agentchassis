@@ -71,6 +71,17 @@ DECLARE
     hits     int;
     rows_hit int;
 BEGIN
+    -- IDEMPOTENCY. Every replacement in this file NESTS its own needle, so a
+    -- second run would double-wrap rather than no-op. schema_migrations should
+    -- prevent that; this makes it impossible rather than merely unlikely.
+    PERFORM 1 FROM content_components
+      WHERE is_active AND forked_from IS NULL AND name = 'case-studies-grid'
+        AND position('var(--color-accent-text,' in html_template) > 0;
+    IF FOUND THEN
+        RAISE EXCEPTION '338/case-studies-grid: already applied (var(--color-accent-text,… present). The replacement '
+                        'nests its own needle, so re-running would double-wrap. STOP.';
+    END IF;
+
     SELECT (length(html_template) - length(replace(html_template, needle, '')))
            / length(needle)
       INTO hits
@@ -117,6 +128,17 @@ DECLARE
     hits     int;
     rows_hit int;
 BEGIN
+    -- IDEMPOTENCY. Every replacement in this file NESTS its own needle, so a
+    -- second run would double-wrap rather than no-op. schema_migrations should
+    -- prevent that; this makes it impossible rather than merely unlikely.
+    PERFORM 1 FROM content_components
+      WHERE is_active AND forked_from IS NULL AND name = 'system-stats'
+        AND position('var(--color-accent-ink,' in html_template) > 0;
+    IF FOUND THEN
+        RAISE EXCEPTION '338/system-stats: already applied (var(--color-accent-ink,… present). The replacement '
+                        'nests its own needle, so re-running would double-wrap. STOP.';
+    END IF;
+
     SELECT (length(html_template) - length(replace(html_template, needle, '')))
            / length(needle)
       INTO hits
@@ -148,14 +170,31 @@ BEGIN
         RAISE EXCEPTION '338/system-stats: post-state missing --color-accent-ink; rolling back';
     END IF;
 
-    SELECT (length(html_template) - length(replace(html_template, 'var(--color-accent, #7dd3fc)', '')))
-           / length('var(--color-accent, #7dd3fc)')
+    -- NB: do NOT count the bare needle here. The replacement NESTS it
+    -- (var(--color-accent-ink, var(--color-accent, #7dd3fc))), so the total is
+    -- unchanged at 5 by design. Counting it was this file's own first bug, caught
+    -- by the dry run on 2026-08-08. Count the DECLARATIONS instead, which the
+    -- replacement does not reproduce:
+    --   color:      2 before (eyebrow + .stat-suffix) -> 1 after (.stat-suffix)
+    --   background: 2 before -> 2 after (.stat-card::after, .stats-cta)
+    SELECT (length(html_template) - length(replace(html_template, 'color: var(--color-accent, #7dd3fc);', '')))
+           / length('color: var(--color-accent, #7dd3fc);')
       INTO hits
       FROM content_components
      WHERE is_active AND forked_from IS NULL AND name = 'system-stats';
-    IF hits <> 4 THEN
-        RAISE EXCEPTION '338/system-stats: expected 4 untouched accent uses to remain, found % — '
-                        'the replace over-applied; rolling back', hits;
+    IF hits <> 1 THEN
+        RAISE EXCEPTION '338/system-stats: expected exactly 1 bare accent ink declaration (.stat-suffix) '
+                        'to remain, found % — the replace over- or under-applied; rolling back', hits;
+    END IF;
+
+    SELECT (length(html_template) - length(replace(html_template, 'background: var(--color-accent, #7dd3fc);', '')))
+           / length('background: var(--color-accent, #7dd3fc);')
+      INTO hits
+      FROM content_components
+     WHERE is_active AND forked_from IS NULL AND name = 'system-stats';
+    IF hits <> 2 THEN
+        RAISE EXCEPTION '338/system-stats: expected 2 untouched accent BACKGROUNDS, found % — '
+                        'an ink replacement hit a fill; rolling back', hits;
     END IF;
 END $$;
 
@@ -171,6 +210,17 @@ DECLARE
     hits     int;
     rows_hit int;
 BEGIN
+    -- IDEMPOTENCY. Every replacement in this file NESTS its own needle, so a
+    -- second run would double-wrap rather than no-op. schema_migrations should
+    -- prevent that; this makes it impossible rather than merely unlikely.
+    PERFORM 1 FROM content_components
+      WHERE is_active AND forked_from IS NULL AND name = 'image-hover-card-grid'
+        AND position('var(--color-primary-ink,' in html_template) > 0;
+    IF FOUND THEN
+        RAISE EXCEPTION '338/image-hover-card-grid: already applied (var(--color-primary-ink,… present). The replacement '
+                        'nests its own needle, so re-running would double-wrap. STOP.';
+    END IF;
+
     SELECT (length(html_template) - length(replace(html_template, needle, '')))
            / length(needle)
       INTO hits
@@ -227,6 +277,17 @@ DECLARE
     hits      int;
     rows_hit  int;
 BEGIN
+    -- IDEMPOTENCY. Every replacement in this file NESTS its own needle, so a
+    -- second run would double-wrap rather than no-op. schema_migrations should
+    -- prevent that; this makes it impossible rather than merely unlikely.
+    PERFORM 1 FROM content_components
+      WHERE is_active AND forked_from IS NULL AND name = 'tool-list'
+        AND position('var(--color-primary-ink,' in html_template) > 0;
+    IF FOUND THEN
+        RAISE EXCEPTION '338/tool-list: already applied (var(--color-primary-ink,… present). The replacement '
+                        'nests its own needle, so re-running would double-wrap. STOP.';
+    END IF;
+
     SELECT (length(html_template) - length(replace(html_template, n_eyebrow, ''))) / length(n_eyebrow)
       INTO hits FROM content_components
      WHERE is_active AND forked_from IS NULL AND name = 'tool-list';
@@ -286,6 +347,17 @@ DECLARE
     hits     int;
     rows_hit int;
 BEGIN
+    -- IDEMPOTENCY. Every replacement in this file NESTS its own needle, so a
+    -- second run would double-wrap rather than no-op. schema_migrations should
+    -- prevent that; this makes it impossible rather than merely unlikely.
+    PERFORM 1 FROM layouts
+      WHERE is_active AND name = ANY(targets)
+        AND position('var(--color-accent-ink,' in css_template) > 0;
+    IF FOUND THEN
+        RAISE EXCEPTION '338/layouts: already applied (var(--color-accent-ink,… present). The replacement '
+                        'nests its own needle, so re-running would double-wrap. STOP.';
+    END IF;
+
     SELECT count(*) INTO hits
       FROM layouts
      WHERE is_active AND name = ANY(targets)
@@ -324,6 +396,17 @@ DECLARE
     hits     int;
     rows_hit int;
 BEGIN
+    -- IDEMPOTENCY. Every replacement in this file NESTS its own needle, so a
+    -- second run would double-wrap rather than no-op. schema_migrations should
+    -- prevent that; this makes it impossible rather than merely unlikely.
+    PERFORM 1 FROM layouts
+      WHERE is_active AND name = 'tool-portal-light'
+        AND position('var(--color-accent-ink,' in css_template) > 0;
+    IF FOUND THEN
+        RAISE EXCEPTION '338/tool-portal-light: already applied (var(--color-accent-ink,… present). The replacement '
+                        'nests its own needle, so re-running would double-wrap. STOP.';
+    END IF;
+
     SELECT (length(css_template) - length(replace(css_template, needle, ''))) / length(needle)
       INTO hits FROM layouts WHERE is_active AND name = 'tool-portal-light';
     IF hits IS NULL THEN
