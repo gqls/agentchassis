@@ -471,3 +471,32 @@ landed roughly 15 minutes after `296` queued it — it waited behind finetuning.
 header predicted and priced. `SUMMARY_2026-08-03b` was written while it was still
 in flight and now carries a visible dated update rather than an edit: the series
 is the record, and what a summary believed at the time is part of it.
+
+---
+
+## 2026-08-08 — Thunder keys VERIFIED working; the roll shipped the checker; queue fully drained
+
+**Thunder API, both keys, functionally proven** (service lane ask, recorded here
+because the fresh-thread handoff cites it):
+
+- Local `~/.config/thundercompute/token` → `GET /v1/instances/list` **HTTP 200**
+  (`{}`, zero instances — matches all-23-decommissioned). **Negative controls:**
+  invalid token → 401, no token → 401. The 200 discriminates.
+- Cluster `THUNDER_COMPUTE_API_KEY`, exercised from **inside the adapter pod**
+  via its own env (never printed): 200-class. Same-string question remains
+  unanswerable (secret read is classifier-blocked) and now immaterial — both
+  authenticate.
+
+**The chassis roll happened** (owner said "later when quiet"; between 08-05 and
+08-08 it did). Pod-grep, both replicas, with control:
+`image_url_404:bare-token-src` = **1** · `empty-src` control = **1**. The
+bare-token checker is LIVE fleet-wide. New pod hash 67ddcc695f (was 7fcc74d89d).
+
+**Queue state**: 259 complete · 0 triaged/claimed — the 08-03 promotion has fully
+drained. Remaining: 85 needs_human_review, 25 unresolved, 13 failed, 11 blocked
+(the case-study `image_url_404` flags), 4 wont_fix.
+
+**Still open, unchanged**: the five case-study images 404 (re-checked today).
+Next actions and their traps are in
+`../finetuning/HANDOFF_2026-08-08_continue_here.md` §3 — that file is now the
+cold-start for both lanes.
