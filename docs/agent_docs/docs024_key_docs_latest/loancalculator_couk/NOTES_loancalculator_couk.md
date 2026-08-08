@@ -3560,3 +3560,83 @@ a *completion* claim, which is the kind most likely to be repeated to the owner.
 26/26 active pages in voice H. 26/26 HTTP 200 (swept live, not inferred). 11/11 tools
 identical to golden. `219` fixed, live, proven, and kept in `bugs_open/` per owner
 direction with the evidence inside the file. `221` open and belongs to webdesign.co.uk.
+
+## 2026-08-08 (late) — the rule-trim trial: mostly FAILED, and the failure is the useful part
+
+**Owner question:** *"it's all too mechanical, either we extend the rules further or
+remove some rules?"* Answer given: remove, and specifically remove **prescriptions**,
+keeping prohibitions. The argument — a prohibition applied to 100 sections still permits
+100 different openings; a prescription applied to 100 sections produces 100 openings of
+the same shape, which is a template wearing a rule's clothes.
+
+**The trial:** `trim_voice_rules.py` (gated on the same formatter port as
+`seed_voice_h.py`; backup `site_specs_bak_20260808_ruletrim`; `--revert` provided).
+23 rules → 22:
+
+| rule | edit |
+|---|---|
+| "Open sections where the reader is standing… conditional or situational clause" | demoted to its prohibition half |
+| "Lead every guide section with the practical bottom line…" | DELETED — duplicate mandate |
+| "State facts positively, including privacy… 'your numbers stay on your own screen'" | demoted to "never a negation pile" |
+| "Paragraphs are 2-4 sentences maximum" | relaxed to "vary their length" |
+
+Then rebuilt three pages through the framework: `guide-debt-help-uk`, `tool-consolidation`,
+`legal`. All 3 orchestrations COMPLETED, all 5 prose row ids changed (so the saves ran),
+locked calculator rows untouched, CSS survived.
+
+### RESULT — the tic SURVIVED, and I know why
+
+`legal.html` still opens *"If you're using the calculators and guides…"*.
+`debt-help-uk` still opens *"If you've missed a payment and you're starting to panic…"*.
+
+**Because I removed the RULE and left the EXEMPLARS.** The spec's `voice_exemplars` —
+which I wrote on 08-05 — demonstrate the pattern in three of four worked examples:
+
+```
+before_after_1_consolidation  AFTER: "If you're thinking about rolling several debts…"
+before_after_2_car_finance    AFTER: "If you're looking at car finance…"
+before_after_3_overpayment    AFTER: "If you have spare money each month…"
+```
+
+**And the VOICE doc says exactly why that wins:** *"A writer model follows exemplars more
+reliably than rules — the rules explain the register, the pairs teach it."* So I deleted
+the weaker teacher and left the stronger one standing. **A rule and its worked example are
+not two statements of one instruction; the example is the instruction, and the rule is
+commentary.** Any future trim must trim BOTH or it is theatre.
+
+### And it introduced a NEW defect, from the rule I relaxed
+
+`tool-consolidation` prose-0 went **1060 → 3306 bytes**. prose-0 is a **CSS-only row** (the
+`<style>` block; 8 of 51 prose rows on this site are). Handed a row with no prose to edit,
+the writer **invented a whole topic section** — and, unable to see prose-1, wrote what
+prose-1 already says. The served page then carried *"the appeal is usually the monthly
+figure"* and *"the appeal is usually the monthly payment"*, two disclaimers and two
+"Need help?" blocks.
+
+> **This is the cross-section collision I predicted on 08-06 and then RETRACTED when
+> measurement found no repetition.** The retraction was correct for the copy as it stood:
+> with the 2–4 sentence cap in force, no section had room to wander into a neighbour's
+> territory. **The cap was suppressing the symptom of a defect I had concluded was absent.**
+> Relaxing it released the symptom immediately, on the first page with a CSS row. So: the
+> mechanism was real all along, the measurement was honest, and the conclusion drawn from
+> it — "no repetition, therefore not a problem" — was wrong because it measured a system
+> whose guard was still on.
+
+Restored with `voiceh_restore_css_slot.sh tool-consolidation prose-0`.
+
+### What the owner's three specific faults did
+
+- **`debt-help-uk` order** — unchanged, as expected: not attempted in this trial. It is a
+  **journey** judgement, not a copy one. Nearest existing home is `experience-planner`
+  (its vocabulary is literally journeys and journey criteria). `visual-designer` could
+  never have caught it — that agent "handles images, logos, and visual assets".
+- **`tool-consolidation` "appeal"** — NOT fixed, and briefly doubled. Nothing in the spec
+  addresses it, so nothing was going to.
+- **`legal` "if"s** — NOT fixed, per the exemplar finding above.
+
+### Standing conclusion, updated
+
+The answer to "extend or remove" is still **remove** — but removal has to reach the
+exemplars, and length rules turn out to be load-bearing in a way nobody intended: they are
+the only thing stopping independently-written sections from colliding, because no writer
+sees its siblings. Remove them and you need the page-level view first, not after.
