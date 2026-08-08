@@ -158,28 +158,29 @@ answer is now in. **It did not refute anything in `bugs_open/213`** — it never
 verdict to refute with, so 213's root cause still rests on the first-hand evidence in its
 §3, which is timestamp-based and does not depend on this run.
 
+**Run 4 straddles the code-index fix, and that explains a number in its artifacts that
+otherwise looks like progress.** Its `symbols_unreadable` fell **3 → 1 → 0 → 0 → 0** across
+its five bundles. That is not the loop reading better each pass: **migration 332 repointed
+the code index to the live working branch mid-run** (`code_symbols`: 5,754 symbols at
+`087_towards_multiple_domains`, indexed 08:31Z, verified independently — the single-`ref`
+row proves the old `086_experience_loop` pin is gone). **A `090` filed before ~08:30Z on
+2026-08-07 was reading a stale index and one filed after was not** — worth knowing before
+concluding anything from an UNVERIFIABLE dated that day, and it retires the standing
+"confirm from code, not the index" workaround.
+
 **So: four consecutive UNVERIFIABLE `090` runs in this lane** (`5853ee07`, `750e162e`,
 `b6ab22d6`, `84c3da66`) — the first from a demonstrably wrong question, the last three
-iteration-capped on questions sound enough that the loop formed a correct hypothesis
-before it ran out of road. **Do not read a fifth UNVERIFIABLE as evidence about your
-symptom.** The standing lesson says UNVERIFIABLE means the question was wrong; four in a
-row, two of them with the right hypothesis visible in the final bundle, is evidence about
-the loop's iteration budget instead. If you file another, read the last bundle's
-`## Hypothesis under test` regardless of the verdict — on both of my runs that section was
-the useful output.
+iteration-capped. **Do not read a fifth UNVERIFIABLE as evidence about your symptom.** The
+standing lesson says UNVERIFIABLE means the question was wrong; four in a row — one of
+them (run 3) with a *correct* hypothesis visible in its final bundle, and run 4 reaching
+its cap with the index problem fixed under it — is evidence about the loop's iteration
+budget instead. If you file another, read the last bundle's `## Hypothesis under test`
+regardless of the verdict: on run 3 that section was the useful output, on run 4 it was
+still my own symptom echoed back unrefined.
 
 **This is worth someone's attention as its own item, and I have not filed it** — it is a
 claim about the diagnosis loop, not about 122, and filing it properly needs the run
 history across lanes, not just ours.
-
-Its `symbols_unreadable` fell **3 → 1 → 0** across the three iterations, and that is not
-the loop improving: **migration 332 repointed the code index to the live working branch
-mid-run** (`code_symbols`: 5,754 symbols at `087_towards_multiple_domains`, indexed
-08:31Z, verified independently — the single-`ref` row proves the old `086_experience_loop`
-pin is gone). So this run straddles the fix. **A 090 filed before ~08:30Z on 2026-08-07
-was reading a stale index and one filed after was not** — worth knowing before concluding
-anything from an UNVERIFIABLE dated today, and it retires the standing "confirm from code,
-not the index" workaround.
 
 There is no `verdict` artifact kind and the outcome is not in `doc_notes`,
 `site_work_items.spec` or `orchestration_states` — the query and how to read it are now
