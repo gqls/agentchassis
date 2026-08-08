@@ -950,3 +950,67 @@ inbound passengers, and would never have told me my own content had *left*.
 append-only, so it is the file most likely to be dirty in several sessions simultaneously. Same
 goes for `WRONG_CALLS.md` and `MEMORY*.md`. For those three, commit narrowly and then grep your
 own needle out of your own sha.
+
+### Round 5 also APPROVED — and its objections were all ONE objection, which is the useful signal
+
+`5d200313` now carries two approved reports: 17:32:13Z (the split) and 17:49:21Z (the symmetry).
+Round 5: **APPROVED, 2 advisory objections counted, none high.** Ten seats; `guardian`,
+`prior_art_librarian` and `editquality` all objected, and — read together — **they objected to the
+same thing three times**: the claim "exactly two call sites have `agent_type` set and `step_name`
+zero" is a Go-source fact the council structurally cannot check, and a miscount fails *quietly*
+(an empty `step_name`, not a marked row).
+
+**That convergence is worth more than any single objection, and it is not answerable by asserting
+harder.** What answers it is the shape of the failure, and it is worth stating plainly because I
+did not say it well enough in the submission: **the `agent_type` half of this seam does not depend
+on the census at all** — a missed site writes `agent_type='unattributed'`, which is one SQL query
+away, and no count is needed to find it. The `step_name` half genuinely is weaker: a missed site
+writes an empty `step_name` visible only in a pod log, and pod logs do not survive a rollout. So
+the seats put their finger on the one asymmetry that survives, which is a good showing for the
+gate. **A source-scanning test is the obvious next lever and I am deliberately not reaching for
+it** — the landmine `a-source-scanning-test-makes-comments-load-bearing` says first-occurrence-wins
+scanning would be satisfied by a commented-out `AgentType:`, so it would create a control that
+reports clean for the wrong reason. Left as a named question rather than a half-answer.
+
+**`prior_art_librarian` caught a real unverified assertion, and it was mine.** It objected that
+*"types.ExecutionContext.RunAgentType … unreachable from actions across the import edge"* was
+*"an unfixability claim resting on an import-cycle assertion. Not verified against the actual
+package graph in this round."* **Correct — I had written that into the register, the LANDMINES
+entry AND a code comment on the strength of reading the type's receiver, never once asking the
+compiler.** Three documents resting on one unchecked inference. It took one command:
+
+```bash
+go list -f '{{range .Imports}}{{println .}}{{end}}' ./platform/orchestration \
+  | grep -x github.com/gqls/agentchassis/platform/orchestration/actions      # found
+```
+
+The claim **holds** — `platform/orchestration` does import `actions`, so the reverse edge is a
+genuine cycle. But holding is not the point; **it could have come out the other way and I would
+have shipped an unfixability claim into three durable documents.** [MEASURED 2026-08-08]
+
+**And the same command answered a question I had not thought to ask, which is the better outcome.**
+Running it over *both* packages shows `platform/orchestration/types` is imported by each of them —
+so the proposed hoist target for §1a is **confirmed reachable from both consumers** rather than
+merely plausible. The next session no longer has to discover whether the shape compiles. That is
+the objection paying for itself: I ran the check to defend a claim and came away with a fact that
+de-risks the hand-off.
+
+Third objection, cheapest and also fine: *"assumes `LogActionEntryInheritingProvenance` already
+exists rather than being newly invented here"* — `git show f993554f6 -- log_action_error.go | grep
+-c "^+func LogActionEntryInheritingProvenance"` → **1**, so round 4's commit did ship it and round
+5 really was a pure call-site swap.
+
+### Owed, not done: the landmine verifier, and why the bare `--apply` cost me the trigger
+
+Another session filed a landmine at 18:44 (`c7d4af7cc`) that lands squarely on what I had already
+done twice: **`landmines-sync.py --apply` consumes the `new`/`changed` status, so a later
+`landmines-verify-dispatch.sh` fires for nothing.** Its remedy is to run the wrapper *instead of*
+the bare apply, and, if you have already applied, to fire the entry by hand with the slug from the
+first sync's `NEEDS_VERIFICATION:` line. I ran the bare `--apply` twice before reading it, so I did
+exactly the thing the entry warns about — then used its escape hatch:
+`./scripts/trigger-landmine-verifier.sh 'LANDMINES.md#logactionentry-s-merge-fills-a-provenance-you-meant-to-set-and-every-test-in-the'`
+→ `CORRELATION_ID=1ffae4bf-521d-462b-bd48-d26a4988a6bd`. **Verdict not read — genuinely
+outstanding, and a session picking this lane up should read it before trusting the entry's
+numbers.** Worth noticing that the useful thing here was another lane writing its mistake down
+within the hour; I would not have known the status was consumable otherwise, because both my syncs
+reported success.

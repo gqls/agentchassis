@@ -210,13 +210,24 @@ decision visible; it does not make the value good, and the value is usually the 
   `Sender.AgentType`, then `os.Getenv("AGENT_TYPE")`, then logs an Error and returns `"generic"`.
   Corroboration from another direction: `agent_error_log_test.go:187` puts `"generic"` in the same
   set as `""` for values that must not pass a review gate.
-- **Why it is not done:** `actions` cannot call `determineOwnerAgentType` — it is a
-  `*SagaCoordinator` method in the package that imports `actions`, the same import edge that forced
-  `agenterrors` into a leaf package. Duplicating the ladder is the drift class this council reviews
-  for. **The fix is to hoist it onto `*types.ExecutionContext`** (a leaf both sides import) as e.g.
-  `func (ec *ExecutionContext) ResolvedAgentType() string`, have `determineOwnerAgentType` delegate
-  to it, and have `runningStepProvenance` in `log_action_error.go` call it too. One ladder, two
-  consumers, no drift.
+- **Why it is not done — and the import claim is now MEASURED, not asserted.** `prior_art_librarian`
+  objected in round 5 that "unreachable from actions across the import edge" was *"an unfixability
+  claim resting on an import-cycle assertion, not verified against the actual package graph"*. Fair,
+  and it was one command. Verified:
+  ```bash
+  go list -f '{{range .Imports}}{{println .}}{{end}}' ./platform/orchestration \
+    | grep -x github.com/gqls/agentchassis/platform/orchestration/actions   # -> found
+  ```
+  `platform/orchestration` **does** import `platform/orchestration/actions`, so `actions` importing
+  `orchestration` back is a genuine cycle and `determineOwnerAgentType` is genuinely out of reach.
+  Duplicating the ladder is the drift class this council reviews for.
+- ✅ **AND THE HOIST TARGET IS CONFIRMED REACHABLE, which is the part that de-risks this job.** The
+  same command over both packages shows **`platform/orchestration/types` is imported by BOTH**
+  (`grep -cx …/types` → 1 from each). So `func (ec *types.ExecutionContext) ResolvedAgentType()
+  string` really is callable from the coordinator *and* from `actions`: have
+  `determineOwnerAgentType` delegate to it and have `runningStepProvenance` in
+  `log_action_error.go` call it too. **One ladder, two consumers, no drift** — and you no longer
+  have to find out the hard way whether the shape compiles.
 - ⚠ **`os.Getenv("AGENT_TYPE")` is in the coordinator's ladder and does not belong on a `types`
   method** — decide where that rung lives before you write it, or you will have moved a drift
   problem rather than fixed one.
