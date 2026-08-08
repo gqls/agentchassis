@@ -6471,3 +6471,103 @@ TARGET's name in the check (the working workaround), or fix the mapping to honou
 `page_id` (the class fix, `bugs_open/220` candidates 1/3). Verify at the TARGET
 page's `pages.deployed_at`, never at the item's `status` or the handler's success
 payload.
+
+### A hand-written walk into `sub_workflow` cannot see `substeps` — and `substeps` is the half that RUNS, so on a step carrying both you audit the inert copy
+
+- **footprint:** `platform/validation/subworkflow.go`, `platform/validation.WalkSteps`,
+  `subWorkflowsOf`, `pkg/models/substep_decode.go`, `pkg/models.DecodeSubWorkflowStep`,
+  `platform/orchestration/actions/loop_actions.go`,
+  `cmd/config-key-audit/sharedoutputs.go`, `cmd/config-key-audit/relaygaps.go`,
+  `step.Config["sub_workflow"]`, `substeps`
+- **fires when:** you write anything that walks workflow steps in Go — a detector, an
+  audit, a census, a "which agents carry action X" answer — and you descend into
+  nested steps yourself. The obvious descent reads `step.Config["sub_workflow"]`,
+  because that is the shape 17 of the 18 live nested steps use and the only one you
+  will see while reading definitions. **A loop's body may instead be declared under
+  `substeps`, and at execution `substeps` WINS** — `loop_actions.go:91` reads it first
+  and consults `sub_workflow` only when it is absent or empty.
+- **the tell:** there is none, and the failure is worse than a miss. A `sub_workflow`-only
+  descent returns **0 findings** over a `substeps` body, which is indistinguishable from
+  a clean report. On a step carrying **both** shapes it is not silent but WRONG: it walks
+  the `sub_workflow` half, which the executor ignores, so it reports a hazard in config
+  that never runs — and a reader chasing that finding will not find the behaviour.
+  Neither direction produces an error, a warning, or an empty result.
+- **the check:** do not write the descent. `validation.WalkSteps` is exported for exactly
+  this and is the step set the runtime validator enforces against, so it cannot disagree
+  with the executor about what exists; it also decodes each nested step with
+  `models.DecodeSubWorkflowStep`, the loop action's own decoder, rather than a JSON
+  round-trip that populates fields the executor drops. **If you think you cannot use it
+  because you need containment, you can:** `WalkSteps` hands over a qualified path
+  (`steps.<container>.<shape>.<name>`) and the container is its third-from-last segment —
+  that objection is written into the header of `sharedoutputs.go` as the reason it wrote
+  its own descent, and it was simply false. If you must write one anyway, prove it with a
+  fixture in **both** shapes plus one carrying both, asserting the `substeps` half wins;
+  a live run cannot prove it (see below).
+- **why a green live run is no evidence here, measured 2026-08-08:** ZERO live definitions
+  carry `substeps` at any depth, so every fleet run of a blind descent is green and stays
+  green. The only two rows that carry it are soft-deleted `multipage-website-builder`
+  definitions — i.e. the shape has been used on this fleet before and retired, not never
+  used, and nothing stops the next author preferring it.
+  ```sql
+  SELECT count(*) FROM agent_definitions
+  WHERE is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL
+    AND default_config->'workflow' @? '$.** ? (@.substeps != null)';   -- 0 on 2026-08-08
+  ```
+  The SQL twin of this trap is already recorded under the `continue_on_error` entry
+  above ("COALESCE both or you will get a confident 0 from the wrong key") — this entry
+  is the Go side of the same fact, plus the precedence, which a COALESCE in the wrong
+  order also gets wrong.
+- **source:** RFC_012 (d), 2026-08-08. Found only because the council gate's `reuse_agent`
+  seat asked whether `sharedoutputs.go`'s walk had been checked against `relaygaps.go` in
+  the same package — which walks the same structure through `WalkSteps` on purpose, citing
+  `bugs_open/144`'s rule that "a second hand-written descent goes blind in its own
+  direction". It had. Fixed in `867037f5a`, where the swap is also shown to be a
+  byte-identical no-op over the live fleet (both binaries, one 177-agent export), so the
+  fix is provably free and the gap was provably invisible.
+- **added:** 2026-08-08, rfc012_await_findings lane
+
+## A `_verification.status='error'` row is a COMPLETED item, not a caught one — the gate fails open, so "could not verify" and "verified" have the identical outcome
+
+**footprint:** `site_work_items.result->'_verification'` · `platform/orchestration/actions/complete_work_item_verification.go` (`verifyBeforeComplete`) · `platform/orchestration/actions/discovery_checks/` (every `Verify*Resolved`, `RegisterVerifier`) · `check_empty_sections.go:412` · `check_truncated_component.go:272`
+
+Reading a `_verification` payload, `status='error'` looks like the gate having stopped
+something: the item is annotated, the failure is named, the record is honest. **The item
+completed anyway.** `verifyBeforeComplete` returns `(payload, true)` on the error path by
+documented design — only `Resolved:false` blocks a stamp. So an error row is
+indistinguishable *in effect* from a `verified` row; the difference is only in what the
+record says, and `bugs_closed/032` says so explicitly: *"Item flow is unchanged — the item
+completes either way."*
+
+**Why this fires without a symptom.** Two verifiers return an error on their ambiguous
+"target row is absent" case (`check_empty_sections.go:412`,
+`check_truncated_component.go:272`), both citing the fail-open policy correctly, and that
+branch reads as the *cautious* choice — which is exactly how it shipped here twice.
+Measured 2026-08-08: those are the **only two verifier errors on the platform, ever** (2 of
+11 consultations), and on **both**, the page still declared the slot in `pages.sections`,
+so `Resolved:false` was the honest verdict and the defect is still live on two production
+pages, stamped `complete` at `attempt_count` 0.
+
+**the check:** never read `status='error'` as "blocked". Ask the outcome column, and ask
+whether the page still wants the thing before believing a "legitimately removed" story:
+
+```sql
+-- an error row that is 'complete' is a fail-open, not a catch
+SELECT id, status, attempt_count, result->'_verification'->>'status'
+FROM site_work_items WHERE result ? '_verification';
+-- then, for an "absent target" error, 032's disambiguator. sections is an array of BARE
+-- STRINGS (jsonb_object_keys errors on it) and is snake_case where slot_name is kebab:
+SELECT p.sections::text FROM pages p WHERE p.id = '<page_id>';
+```
+
+Two adjacent traps in the same payload. **The denominator is tiny and silence is not
+health** — 5 of the 8 registered verifiers have never been consulted, so a low error count
+measures how rarely verifiers run, not how reliably. And **`result` is OVERWRITTEN on every
+completion attempt** (the complete path and `failUnverifiedCompletion` both write it), so
+any count off this column is a floor, not a history — there is no history table.
+
+- **source:** `architecture_review/RFC_017` § "The missing number — MEASURED 2026-08-08",
+  measured by the `bugfix_201_page_content_writer_dispatch` lane; the fail-open policy is
+  `bugs_closed/032`'s accepted fix and RFC_017 (open, owner decision) is where changing it
+  is argued. `RUNBOOK_page_content_writer_dispatch.md` R8 has the census plus the three
+  ways it lies to you.
+- **added:** 2026-08-08, bugfix_201_page_content_writer_dispatch lane
