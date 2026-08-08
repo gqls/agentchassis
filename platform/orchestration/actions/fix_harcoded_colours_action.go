@@ -176,8 +176,14 @@ func fixTemplateColors(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger
 			continue
 		}
 
+		// updated_at was missing here — the ONLY one of the ~9
+		// content_components template writers that skipped it (117 lane census,
+		// 2026-08-07), which made a chrome template edit by this action
+		// invisible to every timestamp-based reader. The render-inputs
+		// fingerprint hashes the VALUE so detection no longer depends on this
+		// stamp, but the census queries and R2-style audits still do.
 		_, err := db.ExecContext(ctx, `
-			UPDATE content_components SET html_template = $1 WHERE id = $2
+			UPDATE content_components SET html_template = $1, updated_at = now() WHERE id = $2
 		`, newTemplate, compID)
 		if err != nil {
 			logger.Error("fixTemplateColors: update failed",

@@ -87,3 +87,42 @@ partway through. **No code has been changed and no plan exists yet.** What exist
 is the evidence, the measurements, the queries that produced them, and a clear
 statement of which fix shape the evidence points at. The next session picks up at
 designing the fingerprint. I have written a handoff with the specifics.
+
+**2026-08-08, the fix is designed, built and submitted for review.**
+
+Picking up where the cut-off session left it, I read the whole render path and
+answered the one open question: what is chrome actually built from? The answer
+is nine things — the component's template, the site's name-and-contact details,
+its colour scheme, its navigation, the footer's services list, its logo and
+sprite images, a handful of site settings (including the Google Tag Manager id
+— so analytics config is chrome input, which raised the stakes), and the
+copyright year.
+
+The fix follows from that list. When chrome is rendered, we now save alongside
+it a compact receipt — one short digest per ingredient. The existing check then
+stops comparing dates (it was comparing chrome against page content, which
+chrome is not built from — nearly every alarm it raised was noise, and the one
+real problem it never saw) and instead re-derives the receipt and asks: does it
+still match? If any ingredient changed, the site's chrome gets rebuilt through
+the same pipe that already exists and works. Both the writer and the checker
+use literally the same piece of SQL, so they cannot drift apart — and tests pin
+the seams so future edits cannot quietly unpin them. I proved the tests can
+fail by breaking the code both ways on purpose.
+
+Before proposing anything I ran the candidate against the live database: it is
+deterministic, it distinguishes the 19 sites properly, and in a throwaway
+transaction the whole cycle — stamp, check, converge — behaved exactly as
+designed.
+
+Two things to know. First, on the day this goes live, every site will rebuild
+its chrome once — that is deliberate: none of the existing rows carries a
+receipt, and treating "no receipt" as "rebuild" is what finally fixes
+oufe.com's footer, the one real stale row. It replaces a check that was firing
+33 false alarms continuously. Second, there is a small database change (one new
+column) that must be applied before the new code rolls — the order matters and
+is written down everywhere.
+
+Council review submitted (correlation f62e20ae…); committing now with the
+submitted-trailer rather than holding finished code for the verdict. Still to
+do: apply the migration, roll the image, and verify at the pod — then watch the
+one-time rebuild wave go quiet.

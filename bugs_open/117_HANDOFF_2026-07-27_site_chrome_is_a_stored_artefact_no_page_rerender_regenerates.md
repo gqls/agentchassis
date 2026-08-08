@@ -279,3 +279,36 @@ symbols_unreadable:1`. **The verdict itself was not retrievable** — no
 (the defect recorded in commit `0252b3cae`). **[UNVERIFIED] — nothing here is
 claimed on the loop's authority.** The findings above rest on first-hand
 measurement, declared per the owner ruling of 2026-07-31.
+
+---
+
+# CONTRIBUTION 2026-08-08 — the fix is BUILT: render-inputs fingerprint, committed, not yet live
+
+Same lane as the 2026-08-07/08 measurement above. **Bug stays OPEN until the
+roll is pod-verified and the baseline drain goes quiet** (the bar is fixed AND
+live). Full design: the lane's `PLAN` D6–D8; register entry **IMP-052**
+(`docs026_concept_register/register/improvement-loop.md`).
+
+**What shipped, in one paragraph.** One shared SQL expression
+(`datahelpers.ChromeRenderInputsSQL`) digests every store chrome renders from —
+template+schema, identity, style, `site_specs` (site_config/identity/
+design_intent — `resolveConfigPath`'s own list, pinned by test), nav with
+per-target fetchability, the services query, logo/sprite assets, plan logo,
+copyright year. `render_site_components` stamps it into a new
+`site_components.render_inputs` column (migration 334) in the same lock-guarded
+UPDATE that stores `rendered_html`; `stale_site_components` recomputes the same
+string and fires the existing `needs_rerender` → `rerender-pages` pipe on
+`IS DISTINCT FROM` — one site-level item (`stale_chrome`) instead of three
+per-slot keys. `fix_harcoded_colours_action.go:180` (this file's constraint 1)
+now stamps `updated_at` too. Fix candidate 2 above is thereby implemented in
+its fingerprint form; candidate 1 remains open as a complement.
+
+- Council: `Council-Submitted: f62e20ae-f340-40d9-a1ac-562f347c0e38`.
+- **Rollout expectation, so nobody files it as a bug:** every site fires ONE
+  `stale_chrome` item on its first post-roll discovery pass (no stamp = stale,
+  deliberately — backfilling would have declared oufe's footer fresh). ~19
+  items, one wave, then quiet.
+- **Ordering:** migration 334 BEFORE the image roll, or chrome stores error
+  fleet-wide on the missing column.
+- Verification recipe: lane RUNBOOK R10 (positive `render_inputs` / negative
+  `stale_sc_` pod-grep, then watch the wave converge).

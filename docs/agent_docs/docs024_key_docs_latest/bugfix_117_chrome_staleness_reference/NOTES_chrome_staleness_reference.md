@@ -197,3 +197,66 @@ The fable planning agent was cut off by a session limit partway through reading
 `render_site_components_action.go`. **No implementation plan exists yet**, and
 no code has been changed. Nothing is committed to `platform/`. See
 `HANDOFF_2026-08-08_continue_here.md`.
+
+## 2026-08-08 (second session) — ownership re-checked, R1 re-run, numbers moved slightly
+
+- R8 re-run: `who-owns` names THIS lane as the owner; symbol grep across all 23
+  transcripts active in 5h — every hit incidental (file listings, closed-191
+  citations, quotes of this lane's own WRONG_CALLS entry). Code free.
+- R1 re-run before designing: **3 / 1 / 33 / 17** (was 3 / 1 / 36 / 14). Three
+  former false positives became true negatives — page-content churn moved,
+  which is itself a demonstration of the defect (the detector's output tracks
+  page renders, not chrome). Same shape, same conclusion; designing against
+  the fresh numbers.
+
+## 2026-08-08 — D6 answered by reading the whole render path, and one measurement changed the design
+
+Per-slot render inputs are now in PLAN D6 with file:line. The surprise that
+changed the design: **the schema-fill sources are not a marginal gap.**
+Querying live chrome components' `input_schema` for non-static sources:
+`config.analytics.gtm_container_id` is declared on nearly every head/header
+(the GTM estate), plus `config.color_scheme.*`, `config.chrome.compliance_lines`
+(misstep 1's own field!), `site_specs.identity.company_name`,
+`site_assets.logo`, `pages.contact`. All resolve from three stores
+(`site_specs` — `resolveConfigPath` hard-codes aspects
+`site_config`/`identity`/`design_intent` — `assets`, `pages`), so the
+fingerprint covers the namespace WITHOUT allow-listing individual keys. Aspect
+churn measured: the three chrome-relevant aspects move 1–3 times/7d
+(deliberate changes — correct firings); `tools`/`evidence_base`/
+`classification` churn 6–8/7d and are rightly excluded.
+
+## 2026-08-08 — candidate fingerprint validated live BEFORE proposing (the R4 rule)
+
+- **Determinism:** two runs, byte-identical (every aggregate carries ORDER BY).
+- **Variance:** identity 19/19 sites distinct, specs 19, nav 18, services 17,
+  style 16, template 10 (library components shared across sites — correct),
+  brand_assets 3. Template digest NULL only on the 3 `component_id IS NULL`
+  rows. Neither ~0% nor ~100%.
+- **Round trip on live data, nothing persisted:** in one transaction —
+  ALTER TABLE (add column), the renderer's exact UPDATE (composed from the
+  real Go strings via `go run`, not re-typed), then the checker's exact
+  SELECT, then ROLLBACK. The UPDATE stamped 1 row; the check then fired on
+  exactly the 2 still-unstamped rows and NOT the stamped one. Stamp → check →
+  convergence proven end to end.
+- **Pages-fallback boundary sized:** 0 of 19 chrome sites lack nav rows.
+- Wrong-guess caught by reading, not by luck: I first inlined the deployment
+  predicate as `build_status NOT IN (...)` from memory; the real
+  `NeverDeployedPagePredicateFor` is `deployed_at IS NULL AND
+  COALESCE(build_status,'') <> 'deployed'`. The shipped Go interpolates the
+  helper rather than hand-copying — the exact drift bugs_open/185 documents.
+
+## 2026-08-08 — guards proven by mutation, not by passing
+
+Both new pins were made to FAIL before being trusted: dropping `design_intent`
+from the SQL constant failed `TestChromeFingerprintSpecsAspectsMatchResolver`;
+replacing the renderer's stamp with `render_inputs = NULL` failed
+`TestRendererStampsTheSharedFingerprint`. Both reverts pass. The pre-existing
+`TestDiscoveryChromeLockFilterMatchesSharedPredicate` passes unchanged across
+the lock-predicate delegation (output string identical).
+
+## 2026-08-08 — council submitted
+
+`SUBMISSION_CORR = f62e20ae-f340-40d9-a1ac-562f347c0e38` (7 edits; rationale
+carries the full measurement trail; risks names the 19-item baseline drain and
+the migration-before-roll ordering). Committing with `Council-Submitted:`
+rather than holding code for the verdict, per the 2026-07-30 practice.

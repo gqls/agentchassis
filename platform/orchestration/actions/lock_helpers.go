@@ -31,6 +31,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
 
@@ -39,10 +40,14 @@ import (
 // columns). alias is the table alias including the trailing dot ("pc.") or ""
 // when the statement has no alias. Single source of truth: every automated
 // writer's UPDATE/DELETE must use this fragment, not its own lock test.
+//
+// The text itself now lives in datahelpers (AgentWritableSQLFor) so the
+// stale_site_components discovery check — which cannot import this package —
+// filters on the SAME predicate the writers enforce. This wrapper stays so
+// no call site changed; the pinning test in site_component_lock_guard_test.go
+// holds across the move.
 func pageComponentAgentWritableSQL(alias string) string {
-	return fmt.Sprintf(
-		"(%[1]slocked_at IS NULL OR (%[1]slock_type = 'timed' AND %[1]slock_expires_at IS NOT NULL AND %[1]slock_expires_at < NOW()))",
-		alias)
+	return datahelpers.AgentWritableSQLFor(alias)
 }
 
 // ComponentLockStatus represents the lock state of a page component.

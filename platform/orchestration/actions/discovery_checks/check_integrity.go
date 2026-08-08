@@ -20,7 +20,11 @@ package discovery_checks
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
+	"sort"
+	"strings"
 
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
 
@@ -303,11 +307,42 @@ func (c *DeactivatedSiteComponentsCheck) Run(dctx DiscoveryCheckContext) (*Check
 }
 
 // --- stale_site_components ---
-// Detects site_components.rendered_html that hasn't been updated since page
-// content was last generated. This means the header/footer is out of date —
-// nav items may have changed, company name may have changed, template may
-// have been upgraded.
-// Threshold: site_component older than newest page_component by > 24 hours.
+// Detects stored chrome whose RENDER INPUTS have changed since it was stored:
+// each site_components row carries a render_inputs stamp (written by
+// render_site_components in the same UPDATE as the artefact), and this check
+// recomputes the SAME shared fingerprint expression against the live rows.
+// A difference means a re-render would consume different inputs — template,
+// identity, style, specs, nav, services, brand assets or the copyright year.
+//
+// HISTORY (bugs_open/117, measured 2026-08-07 over 53 provenanced rows): the
+// previous predicate compared sc.updated_at against MAX(page_components.
+// updated_at) - 24h. Chrome is not rendered from page_components, so the
+// reference was independent of the subject and the check was wrong in both
+// directions at once — 36 of 39 firings were unrelated to chrome drift, and
+// the one genuinely stale row (oufe.com/footer) did not fire. The fingerprint
+// answers the question the timestamp never could: "would a re-render change
+// anything?" — immune to writers that skip updated_at
+// (fix_harcoded_colours_action.go was one), to timestamp bumps that change no
+// output, and to unrelated churn.
+//
+// A row with NO stamp is stale by definition (provenance unknown — and
+// stamping current state as a baseline instead would have declared oufe's
+// known-stale footer fresh). At rollout that fires once per site, a bounded
+// one-time baseline drain that replaces the 33 false positives the old
+// predicate produced continuously. component_id IS NULL rows fire on their
+// own clause: no provenance can exist, and the rebuild's fallback path
+// assigns one.
+//
+// Lock-held rows are SKIPPED via the same writable predicate the render path
+// enforces: the handler could not restamp them, so firing would churn items
+// to `unresolved`. A locked slot's staleness is deliberately 069's surface,
+// not this check's.
+//
+// ONE item per site (item_key `stale_chrome`, sole producer: this check),
+// not one per slot: the rerender-pages handler force-rerenders ALL slots on
+// any firing, so per-slot items only multiplied full-site rebuilds — the old
+// `stale_sc_<slot>` keys are retired. Same item_type, same handler, same
+// refresh_site_components spec key, so the detect→rebuild pipe is unchanged.
 
 type StaleSiteComponentsCheck struct{}
 
@@ -317,62 +352,102 @@ func (c *StaleSiteComponentsCheck) Run(dctx DiscoveryCheckContext) (*CheckResult
 	result := &CheckResult{}
 
 	rows, err := dctx.DB.QueryContext(dctx.Ctx, `
-		SELECT sc.slot_name, sc.updated_at, max_pc.latest_update
+		SELECT sc.slot_name,
+		       COALESCE(sc.render_inputs::text, ''),
+		       (`+datahelpers.ChromeRenderInputsSQL+`)::text
 		FROM site_components sc
-		CROSS JOIN LATERAL (
-			SELECT MAX(pc.updated_at) as latest_update
-			FROM page_components pc
-			JOIN pages p ON p.id = pc.page_id
-			WHERE p.site_id = $1 AND pc.rendered_html IS NOT NULL
-		) max_pc
 		WHERE sc.site_id = $1
-		  AND sc.rendered_html IS NOT NULL
-		  AND max_pc.latest_update IS NOT NULL
-		  AND sc.updated_at < max_pc.latest_update - INTERVAL '24 hours'
+		  AND sc.rendered_html IS NOT NULL AND sc.rendered_html <> ''
+		  AND `+datahelpers.AgentWritableSQLFor("sc.")+`
+		  AND (sc.component_id IS NULL
+		       OR sc.render_inputs IS NULL
+		       OR sc.render_inputs IS DISTINCT FROM (`+datahelpers.ChromeRenderInputsSQL+`))
 	`, dctx.SiteID)
 	if err != nil {
 		return nil, fmt.Errorf("stale_site_components: %w", err)
 	}
 	defer rows.Close()
 
+	staleSlots := []string{}
+	drifted := map[string]interface{}{}
 	for rows.Next() {
-		var slotName string
-		var scUpdated, pcUpdated interface{}
-		if err := rows.Scan(&slotName, &scUpdated, &pcUpdated); err != nil {
+		var slotName, stamped, current string
+		if err := rows.Scan(&slotName, &stamped, &current); err != nil {
 			continue
 		}
-
-		spec, _ := json.Marshal(map[string]interface{}{
-			"slot_name":               slotName,
-			"reason":                  "stale_render",
-			"refresh_site_components": true,
-		})
-
-		result.WorkItems = append(result.WorkItems, WorkItemSpec{
-			SiteID:       dctx.SiteID,
-			Source:       "discovery",
-			Pipeline:     "build",
-			ItemType:     "needs_rerender",
-			Severity:     "medium",
-			Summary:      fmt.Sprintf("Site component %s is stale — last rendered before page content was updated", slotName),
-			SpecJSON:     string(spec),
-			Priority:     8,
-			HandlerAgent: "rerender-pages",
-			Status:       "detected",
-			CreatedBy:    dctx.AgentType,
-			ItemKey:      fmt.Sprintf("stale_sc_%s", slotName),
-			BatchID:      dctx.BatchID,
-		})
+		staleSlots = append(staleSlots, slotName)
+		drifted[slotName] = chromeDriftedKeys(stamped, current)
 	}
 
-	if len(result.WorkItems) > 0 {
-		result.Findings = append(result.Findings, map[string]interface{}{
-			"check": "stale_site_components",
-			"count": len(result.WorkItems),
-		})
+	if len(staleSlots) == 0 {
+		return result, nil
 	}
+	sort.Strings(staleSlots)
+
+	spec, _ := json.Marshal(map[string]interface{}{
+		"slot_names":              staleSlots,
+		"drifted":                 drifted,
+		"reason":                  "render_inputs_drift",
+		"refresh_site_components": true,
+	})
+
+	result.WorkItems = append(result.WorkItems, WorkItemSpec{
+		SiteID:       dctx.SiteID,
+		Source:       "discovery",
+		Pipeline:     "build",
+		ItemType:     "needs_rerender",
+		Severity:     "medium",
+		Summary:      fmt.Sprintf("Site chrome is stale — render inputs changed since it was stored (%s)", strings.Join(staleSlots, ", ")),
+		SpecJSON:     string(spec),
+		Priority:     8,
+		HandlerAgent: "rerender-pages",
+		Status:       "detected",
+		CreatedBy:    dctx.AgentType,
+		ItemKey:      "stale_chrome",
+		BatchID:      dctx.BatchID,
+	})
+
+	result.Findings = append(result.Findings, map[string]interface{}{
+		"check":   "stale_site_components",
+		"count":   len(staleSlots),
+		"drifted": drifted,
+	})
 
 	return result, nil
+}
+
+// chromeDriftedKeys names which fingerprint keys differ between the stored
+// stamp and the recomputed value, so the work item can say WHICH input moved
+// rather than only that one did. "unstamped" when the row has no stamp at all
+// (rollout baseline, or a writer that predates the stamp). Best-effort: an
+// unparseable side reports itself rather than failing the check — the row is
+// already known stale by the SQL predicate.
+func chromeDriftedKeys(stamped, current string) []string {
+	if stamped == "" {
+		return []string{"unstamped"}
+	}
+	var was, now map[string]interface{}
+	if err := json.Unmarshal([]byte(stamped), &was); err != nil {
+		return []string{"stamp_unparseable"}
+	}
+	if err := json.Unmarshal([]byte(current), &now); err != nil {
+		return []string{"recompute_unparseable"}
+	}
+	keys := map[string]bool{}
+	for k := range was {
+		keys[k] = true
+	}
+	for k := range now {
+		keys[k] = true
+	}
+	var out []string
+	for k := range keys {
+		if !reflect.DeepEqual(was[k], now[k]) {
+			out = append(out, k)
+		}
+	}
+	sort.Strings(out)
+	return out
 }
 
 // --- shared_css_theme ---

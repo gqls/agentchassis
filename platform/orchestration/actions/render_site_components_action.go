@@ -925,10 +925,21 @@ func renderAndStoreSiteComponent(
 	// Store the rendered HTML. The lock predicate makes the refusal race-free
 	// (bugs_open/069) — the pre-check above is for the message and to save the
 	// work, this is the enforcement.
+	//
+	// render_inputs is the render-provenance stamp (bugs_open/117): the shared
+	// fingerprint expression digests every store this chrome renders from, in
+	// the SAME statement that persists the artefact, so the stamp can never
+	// describe a different render than the bytes beside it. The
+	// stale_site_components discovery check recomputes the SAME expression and
+	// fires when the two differ — which is what finally couples "the thing
+	// chrome is built from changed" to "a chrome rebuild runs". The row alias
+	// is load-bearing: the fingerprint correlates on `sc` (see the fragment's
+	// header in datahelpers/chrome_render_inputs.go).
 	res, err := db.ExecContext(ctx, `
-		UPDATE site_components
-		SET rendered_html = $1, build_status = 'rendered', updated_at = now()
-		WHERE site_id = $2 AND slot_name = $3 AND `+pageComponentAgentWritableSQL("")+`
+		UPDATE site_components AS sc
+		SET rendered_html = $1, build_status = 'rendered', updated_at = now(),
+		    render_inputs = (`+datahelpers.ChromeRenderInputsSQL+`)
+		WHERE sc.site_id = $2 AND sc.slot_name = $3 AND `+pageComponentAgentWritableSQL("sc.")+`
 	`, renderedHTML, siteID, slot)
 
 	if err != nil {

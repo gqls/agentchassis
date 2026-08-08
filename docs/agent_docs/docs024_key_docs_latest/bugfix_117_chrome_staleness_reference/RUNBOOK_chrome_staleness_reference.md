@@ -166,3 +166,49 @@ mentioned `site_components` without mentioning 117; none touched
 **Gotcha:** `bugs_open/` contains **finished** bugs by owner ruling (2026-08-06).
 Presence there is not evidence a bug is unfixed — 2 of my 8 candidates (126, 181)
 were already closed and live. Read the file's status section.
+
+## R9 — validate composed Go SQL against the live DB without persisting anything
+
+The renderer's UPDATE and the checker's SELECT are composed from Go string
+constants. Do not re-type them into psql (that validates your re-typing, not
+the code). Print them FROM the constants and run inside a rolled-back
+transaction:
+
+```go
+// scratchpad/sqlprint/main.go — prints BEGIN; ALTER TABLE ... ADD COLUMN IF NOT
+// EXISTS ...; <the exact UPDATE>; <the exact SELECT>; ROLLBACK;
+fmt.Println(`UPDATE site_components AS sc SET ..., render_inputs = (` +
+    datahelpers.ChromeRenderInputsSQL + `) WHERE ...`)
+```
+```bash
+go run scratchpad/sqlprint/main.go > composed.sql
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
+  psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 < composed.sql
+```
+**Gotcha:** the fingerprint fragment correlates on an `sc` alias. Un-aliased,
+every subquery's own `site_id` column (pages, assets, site_specs) captures the
+reference and the expression compares each site with itself — valid SQL, wrong
+answer, no error.
+
+**What R9 proved (2026-08-08):** UPDATE stamped 1 row; the checker SELECT then
+fired on exactly the 2 still-unstamped rows and not the stamped one.
+
+## R10 — deploy order and verification for this fix
+
+1. Apply migration `334_site_components_render_inputs.sql` FIRST (scoped —
+   `--apply` takes every pending file; name the file). The column is inert
+   until the image rolls; the new image ERRORS on the old schema (the store
+   UPDATE names the column), so the order is not optional.
+2. Bump IMAGE_TAG, `make build-agent-chassis` (builds committed HEAD), push,
+   deploy.
+3. Pod-verify, positive AND negative, same exec, every replica:
+   ```bash
+   kubectl exec -n ai-persona-system <pod> -- sh -c \
+     'strings /app/agent-chassis | grep -c "render_inputs"; strings /app/agent-chassis | grep -c "stale_sc_"'
+   # expect: >0 and 0 — the second is the retired per-slot item-key literal
+   ```
+4. Induction is the rollout itself: the first discovery pass per site fires ONE
+   `stale_chrome` item (`SELECT site_id, status FROM site_work_items WHERE
+   item_key='stale_chrome'`), the rebuild restamps, the item does NOT re-fire.
+   A check that never fires OR never goes quiet is broken in one of two
+   opposite ways — check both directions.
