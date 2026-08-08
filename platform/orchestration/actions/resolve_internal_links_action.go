@@ -146,6 +146,13 @@ func ResolveInternalLinksAction(ctx context.Context, params ActionParams) (inter
 	}
 	validPages := loadResolverPageSet(ctx, params, siteID, logger)
 	primary, secondary := chooseCTATargets(pageType, pageName, interactive, hubs)
+	candidates := candidatesFromHubs(interactive, hubs)
+
+	// Existing published label per slot, if this page has been built before —
+	// nil/empty for a brand-new page, which is fine: there is nothing yet to
+	// match against, so every section falls through to today's positional pick
+	// exactly as before. Loaded once per page, not per section.
+	existingLabels := loadExistingSectionContentData(ctx, params, siteID, pageName, logger)
 
 	var unresolved []map[string]interface{}
 	for _, raw := range sections {
@@ -159,8 +166,10 @@ func ResolveInternalLinksAction(ctx context.Context, params ActionParams) (inter
 		// the component's own schema and log the delta vs the map, plus a Warn
 		// per url field the derivation cannot see. ctaFieldNames still decides
 		// every write this stage.
+		var labelFieldOf map[string]string
 		if schema := sectionInputSchema(section); schema != nil {
-			if d := ctaDerivationDelta(fields, isCTA, datahelpers.DeriveCTAURLFields(schema)); d != "" {
+			derived := datahelpers.DeriveCTAURLFields(schema)
+			if d := ctaDerivationDelta(fields, isCTA, derived); d != "" {
 				logger.Info("resolve_internal_links: cta derivation delta (observe-only)",
 					zap.String("component", function), zap.String("delta", d))
 			}
@@ -168,14 +177,21 @@ func ResolveInternalLinksAction(ctx context.Context, params ActionParams) (inter
 				logger.Warn("resolve_internal_links: uncovered cta url field",
 					zap.String("component", function), zap.String("field", f))
 			}
+			labelFieldOf = make(map[string]string, len(derived))
+			for _, cf := range derived {
+				labelFieldOf[cf.URLField] = cf.LabelField
+			}
 		}
 		if !isCTA {
 			continue
 		}
 		sectionName := stringOrEmpty(section["name"])
 		resolved := sectionResolvedData(section)
-		setCTAField(resolved, fields[0], primary, validPages, function, sectionName, "primary", &unresolved)
-		setCTAField(resolved, fields[1], secondary, validPages, function, sectionName, "secondary", &unresolved)
+		existing := existingLabels[sectionName]
+		setCTAField(resolved, fields[0], primary, validPages, function, sectionName, "primary", &unresolved,
+			existingLabelFor(existing, labelFieldOf[fields[0]]), candidates)
+		setCTAField(resolved, fields[1], secondary, validPages, function, sectionName, "secondary", &unresolved,
+			existingLabelFor(existing, labelFieldOf[fields[1]]), candidates)
 		section["resolved_data"] = resolved
 	}
 
@@ -278,10 +294,31 @@ func emitUnresolvedCTAItems(ctx context.Context, params ActionParams, siteID uui
 // "<field-minus-_url>_target_title" (cta_url -> cta_target_title,
 // primary_cta_url -> primary_cta_target_title) so the content writer can
 // write CTA copy FOR the actual destination instead of guessing one.
+//
+// If this slot already has a published label (existingLabel, non-empty only
+// when the page has been built before — see loadExistingSectionContentData),
+// a real candidate whose name/title/nav_label matches that label's own
+// distinctive tokens is preferred over the generic positional pick. This is
+// the bugs_open/203 follow-on: chooseCTATargets alone cannot tell "Run the
+// Risk Checker" from any other button on the same page, so two labelled
+// slots on one page could otherwise both receive the site's top-ranked hubs
+// in nav-order regardless of what either button claims to do. A generic
+// label ("Get Started") or one matching no candidate falls through to
+// today's positional behaviour unchanged.
 func setCTAField(resolved map[string]interface{}, field string, target contentHub, validPages datahelpers.PageURLSet,
-	function, sectionName, slot string, unresolved *[]map[string]interface{}) {
+	function, sectionName, slot string, unresolved *[]map[string]interface{},
+	existingLabel string, candidates []datahelpers.LabelMatchCandidate) {
 	if field == "" {
 		return // single-URL component — no field in this slot, nothing to resolve or report
+	}
+	if existingLabel != "" {
+		if match, ok := datahelpers.BestLabelMatch(existingLabel, candidates); ok && validPages.Contains(match.URL) {
+			resolved[field] = match.URL
+			if match.Title != "" {
+				resolved[ctaTargetTitleField(field)] = match.Title
+			}
+			return
+		}
 	}
 	if target.URL != "" && validPages.Contains(target.URL) {
 		resolved[field] = target.URL
@@ -296,6 +333,80 @@ func setCTAField(resolved map[string]interface{}, field string, target contentHu
 		"field":     field,
 		"slot":      slot,
 	})
+}
+
+// candidatesFromHubs converts the ranked interactive/hub contentHub lists
+// into label-match candidates. Both lists are already filtered (excluded
+// areas, the page's own URL) by chooseCTATargets' own rank() — this reuses
+// that filtering rather than re-deriving it, so the candidate set label
+// matching searches is always a subset of what positional choice would have
+// picked from.
+func candidatesFromHubs(interactive, hubs []contentHub) []datahelpers.LabelMatchCandidate {
+	var out []datahelpers.LabelMatchCandidate
+	add := func(list []contentHub, isInteractive bool) {
+		for _, h := range list {
+			if c, ok := datahelpers.NewLabelMatchCandidate(h.Name, h.Name, h.Title, h.URL, isInteractive, h.Name, h.Title); ok {
+				out = append(out, c)
+			}
+		}
+	}
+	add(interactive, true)
+	add(hubs, false)
+	return out
+}
+
+// existingLabelFor reads a string field from a possibly-nil content_data map,
+// returning "" (never matches, falls through to positional pick) for a
+// missing/non-string/empty value or an unknown label field name.
+func existingLabelFor(contentData map[string]interface{}, labelField string) string {
+	if contentData == nil || labelField == "" {
+		return ""
+	}
+	s, _ := contentData[labelField].(string)
+	return s
+}
+
+// loadExistingSectionContentData returns this page's CURRENTLY PERSISTED
+// content_data per slot, keyed by slot_name — the published label a build is
+// about to overwrite, if the page already exists. Returns an empty map (not
+// an error) for a brand-new page or a load failure: an existing label is an
+// enhancement to today's positional pick, never a requirement, so a miss here
+// must degrade to exactly today's behaviour rather than block resolution.
+func loadExistingSectionContentData(ctx context.Context, params ActionParams, siteID uuid.UUID, pageName string, logger *zap.Logger) map[string]map[string]interface{} {
+	out := map[string]map[string]interface{}{}
+	if pageName == "" {
+		return out
+	}
+	rows, err := params.DB.QueryContext(ctx, `
+		SELECT COALESCE(pc.slot_name, ''), pc.content_data
+		FROM page_components pc
+		JOIN pages p ON p.id = pc.page_id
+		WHERE p.site_id = $1 AND p.name = $2
+	`, siteID, pageName)
+	if err != nil {
+		logger.Warn("resolve_internal_links: loadExistingSectionContentData query failed, degrading to no existing labels", zap.Error(err))
+		return out
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var slotName string
+		var cdJSON []byte
+		if err := rows.Scan(&slotName, &cdJSON); err != nil {
+			continue
+		}
+		if len(cdJSON) == 0 {
+			continue
+		}
+		var cd map[string]interface{}
+		if err := json.Unmarshal(cdJSON, &cd); err != nil {
+			continue
+		}
+		out[slotName] = cd
+	}
+	if err := rows.Err(); err != nil {
+		logger.Warn("resolve_internal_links: loadExistingSectionContentData iteration failed", zap.Error(err))
+	}
+	return out
 }
 
 // ctaTargetTitleField derives the companion title field for a CTA url field.

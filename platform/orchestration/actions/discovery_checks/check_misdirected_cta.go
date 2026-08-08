@@ -59,92 +59,11 @@ type MisdirectedCTACheck struct{}
 
 func (c *MisdirectedCTACheck) Name() string { return "misdirected_cta" }
 
-// ctaStopwords: words that carry no destination meaning in link text. One
-// combined set — grammatical stopwords plus generic CTA verbs/nouns. A text
-// whose every token is in here is "generic" and is never matched.
-var ctaStopwords = map[string]bool{
-	"a": true, "an": true, "and": true, "as": true, "at": true, "be": true,
-	"by": true, "for": true, "from": true, "in": true, "into": true,
-	"is": true, "it": true, "its": true, "of": true, "on": true, "or": true,
-	"our": true, "s": true, "the": true, "their": true, "this": true,
-	"to": true, "with": true, "your": true, "you": true, "yours": true,
-	"we": true, "us": true,
-	// generic CTA vocabulary
-	"all": true, "click": true, "discover": true, "enter": true,
-	"explore": true, "get": true, "go": true, "here": true, "learn": true,
-	"meet": true, "more": true, "now": true, "read": true, "see": true,
-	"start": true, "started": true, "take": true, "today": true,
-	"todays": true, "try": true, "view": true, "visit": true, "join": true,
-}
-
 // ctaExcludedAreas mirrors resolve_internal_links' areasExcludedFromCTA —
 // destinations that link copy never "names" and CTAs should not target.
 // Duplicated (not imported) because actions imports this package.
 var ctaExcludedAreas = map[string]bool{
 	"about": true, "contact": true, "privacy": true, "terms": true, "legal": true,
-}
-
-// ctaTokens reduces text to its distinctive lowercase tokens.
-func ctaTokens(text string) []string {
-	var tokens []string
-	var cur strings.Builder
-	flush := func() {
-		if cur.Len() > 0 {
-			t := cur.String()
-			if !ctaStopwords[t] {
-				tokens = append(tokens, t)
-			}
-			cur.Reset()
-		}
-	}
-	for _, r := range strings.ToLower(text) {
-		switch {
-		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
-			cur.WriteRune(r)
-		default:
-			flush()
-		}
-	}
-	flush()
-	return tokens
-}
-
-// ctaMatchPage is one real page as a match candidate.
-type ctaMatchPage struct {
-	ID          string
-	Name        string
-	Title       string
-	URL         string
-	Interactive bool // page_type tool/game — preferred CTA destinations
-	tokens      map[string]bool
-}
-
-// bestPageMatch returns the candidate page whose tokens best overlap the
-// anchor's, or nil. Ranking: interactive pages beat content pages, then
-// higher overlap, then name (deterministic). Requires >= 1 token overlap.
-func bestPageMatch(anchorTokens []string, pages []ctaMatchPage) *ctaMatchPage {
-	var best *ctaMatchPage
-	bestOverlap := 0
-	for i := range pages {
-		p := &pages[i]
-		overlap := 0
-		for _, t := range anchorTokens {
-			if p.tokens[t] {
-				overlap++
-			}
-		}
-		if overlap == 0 {
-			continue
-		}
-		if best == nil ||
-			(p.Interactive && !best.Interactive) ||
-			(p.Interactive == best.Interactive && overlap > bestOverlap) ||
-			(p.Interactive == best.Interactive && overlap == bestOverlap && p.Name < best.Name) {
-			best = p
-			bestOverlap = overlap
-		}
-	}
-	return best
 }
 
 // ctaClassifyAnchor is THE definition of "this CTA is misdirected", shared by
@@ -161,13 +80,9 @@ func bestPageMatch(anchorTokens []string, pages []ctaMatchPage) *ctaMatchPage {
 //
 // Generic link text ("Learn More") reduces to zero distinctive tokens and is
 // reported as named=false, so it is never a misdirect.
-func ctaClassifyAnchor(a datahelpers.Anchor, slotName string, pages []ctaMatchPage) (*misdirectedAnchor, bool) {
-	tokens := ctaTokens(a.Text)
-	if len(tokens) == 0 {
-		return nil, false
-	}
-	best := bestPageMatch(tokens, pages)
-	if best == nil {
+func ctaClassifyAnchor(a datahelpers.Anchor, slotName string, pages []datahelpers.LabelMatchCandidate) (*misdirectedAnchor, bool) {
+	best, found := datahelpers.BestLabelMatch(a.Text, pages)
+	if !found {
 		return nil, false
 	}
 	if datahelpers.NormalizePagePath(best.URL) == datahelpers.NormalizePagePath(a.Href) {
@@ -396,7 +311,7 @@ func ctaAreaExcluded(href string) bool {
 // loadCTAMatchIndex loads the real pages as match candidates (index/home
 // excluded — link text rarely "names" the homepage) plus the full validity
 // set (which DOES include the homepage) for phantom tests.
-func loadCTAMatchIndex(dctx DiscoveryCheckContext) ([]ctaMatchPage, datahelpers.PageURLSet, error) {
+func loadCTAMatchIndex(dctx DiscoveryCheckContext) ([]datahelpers.LabelMatchCandidate, datahelpers.PageURLSet, error) {
 	rows, err := dctx.DB.QueryContext(dctx.Ctx, `
 		SELECT p.id::text, p.name, COALESCE(p.title, p.name),
 		       COALESCE(p.nav_label, ''), p.url,
@@ -411,7 +326,7 @@ func loadCTAMatchIndex(dctx DiscoveryCheckContext) ([]ctaMatchPage, datahelpers.
 	}
 	defer rows.Close()
 
-	var pages []ctaMatchPage
+	var pages []datahelpers.LabelMatchCandidate
 	var urls []string
 	for rows.Next() {
 		var id, name, title, navLabel, url, pageType string
@@ -422,23 +337,14 @@ func loadCTAMatchIndex(dctx DiscoveryCheckContext) ([]ctaMatchPage, datahelpers.
 		if name == "index" || name == "home" {
 			continue
 		}
-		tokens := map[string]bool{}
-		for _, src := range []string{name, title, navLabel} {
-			for _, t := range ctaTokens(src) {
-				tokens[t] = true
-			}
-		}
-		if len(tokens) == 0 {
+		candidate, ok := datahelpers.NewLabelMatchCandidate(
+			id, name, title, url, pageType == "tool" || pageType == "game",
+			name, title, navLabel,
+		)
+		if !ok {
 			continue
 		}
-		pages = append(pages, ctaMatchPage{
-			ID:          id,
-			Name:        name,
-			Title:       title,
-			URL:         url,
-			Interactive: pageType == "tool" || pageType == "game",
-			tokens:      tokens,
-		})
+		pages = append(pages, candidate)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, nil, fmt.Errorf("misdirected_cta pages iteration failed: %w", err)

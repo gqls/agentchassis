@@ -421,6 +421,13 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 			continue
 		}
 
+		// Derived once, reused by both the CTA recompute below and the
+		// observe-only ownership-conflict log — previously computed twice.
+		var derivedCTAFields []datahelpers.CTAField
+		if schema := datahelpers.ParseInputSchemaValue(comp.Raw["input_schema"]); schema != nil {
+			derivedCTAFields = datahelpers.DeriveCTAURLFields(schema)
+		}
+
 		// CTA recompute — ONLY for reason=cta_links_stale, so image_landed /
 		// section_data_resolved rerenders behave byte-identically to before.
 		// After migrations 091/098 the schema no longer sources CTA urls, so a
@@ -438,8 +445,14 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 				if plan.ResolvedData == nil {
 					plan.ResolvedData = map[string]interface{}{}
 				}
-				applyCTARecompute(plan.ResolvedData, s.contentData, fields[0], cta.primary, cta.validPages, pageURL)
-				applyCTARecompute(plan.ResolvedData, s.contentData, fields[1], cta.secondary, cta.validPages, pageURL)
+				labelFieldOf := make(map[string]string, len(derivedCTAFields))
+				for _, cf := range derivedCTAFields {
+					labelFieldOf[cf.URLField] = cf.LabelField
+				}
+				applyCTARecompute(plan.ResolvedData, s.contentData, fields[0], cta.primary, cta.validPages, pageURL,
+					existingLabelFor(s.contentData, labelFieldOf[fields[0]]), cta.candidates)
+				applyCTARecompute(plan.ResolvedData, s.contentData, fields[1], cta.secondary, cta.validPages, pageURL,
+					existingLabelFor(s.contentData, labelFieldOf[fields[1]]), cta.candidates)
 			}
 		}
 
@@ -454,17 +467,15 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 		// log as its evidence. (An earlier sketch placed this log inside
 		// planSection, where resolvedData is a fresh local map and the
 		// condition could never fire — doc_notes correction, b6e374fc2.)
-		if schema := datahelpers.ParseInputSchemaValue(comp.Raw["input_schema"]); schema != nil {
-			for _, cf := range datahelpers.DeriveCTAURLFields(schema) {
-				stored, hasStored := s.contentData[cf.URLField]
-				fresh, hasFresh := plan.ResolvedData[cf.URLField]
-				if hasStored && hasFresh && stored != fresh {
-					logger.Info("rerender_page_sections: cta ownership conflict (observe-only)",
-						zap.String("section", s.slotName),
-						zap.String("field", cf.URLField),
-						zap.String("source", cf.Source),
-						zap.String("reason", reason))
-				}
+		for _, cf := range derivedCTAFields {
+			stored, hasStored := s.contentData[cf.URLField]
+			fresh, hasFresh := plan.ResolvedData[cf.URLField]
+			if hasStored && hasFresh && stored != fresh {
+				logger.Info("rerender_page_sections: cta ownership conflict (observe-only)",
+					zap.String("section", s.slotName),
+					zap.String("field", cf.URLField),
+					zap.String("source", cf.Source),
+					zap.String("reason", reason))
 			}
 		}
 
@@ -611,6 +622,7 @@ func slotLabel(s storedSection) string {
 type rerenderCTAState struct {
 	primary, secondary contentHub
 	validPages         datahelpers.PageURLSet
+	candidates         []datahelpers.LabelMatchCandidate
 }
 
 // loadRerenderCTAState reuses the internal-link-resolver's loaders and ranking
@@ -631,22 +643,47 @@ func loadRerenderCTAState(ctx context.Context, params ActionParams, siteID uuid.
 		primary:    primary,
 		secondary:  secondary,
 		validPages: loadResolverPageSet(ctx, params, siteID, logger),
+		candidates: candidatesFromHubs(interactive, hubs),
 	}
 }
 
 // applyCTARecompute writes the recomputed CTA target into resolved (which the
-// caller merges LAST, beating stale stored content_data) — unless the stored
-// value is an explicitly authored link worth keeping. Keep = resolves to a
-// real page AND is not an excluded destination (contact/legal/about) AND is
-// not the page linking to itself. Everything else — phantom, empty, circular,
-// or excluded — is replaced, provided a valid target exists.
+// caller merges LAST, beating stale stored content_data).
+//
+// bugs_open/203 follow-on: this is the check_misdirected_cta.go repair path
+// (triggered by reason=cta_links_stale, which that check itself sets on the
+// work item it files) — so it must be able to fix exactly the defect that
+// triggered it: a label naming one real page while the href points at a
+// different one. Before this change it could not — "authored link to a real,
+// sensible destination, keep it" accepted ANY valid, non-excluded, non-self
+// URL, including a misdirected one, so a detected mismatch on a stored (as
+// opposed to phantom) target was silently kept forever and re-detected every
+// pass. Now: if the slot's existing label names a real candidate whose URL
+// disagrees with what's currently stored, the label-matched candidate wins —
+// this is the actual repair. Only when the label matches nothing (generic
+// text, or no candidate at all) does the function fall back to today's
+// keep-if-valid-else-positional-target behaviour, unchanged.
 func applyCTARecompute(resolved, stored map[string]interface{}, field string, target contentHub,
-	validPages datahelpers.PageURLSet, pageURL string) {
+	validPages datahelpers.PageURLSet, pageURL string, existingLabel string, candidates []datahelpers.LabelMatchCandidate) {
 
 	if field == "" {
 		return // single-URL component — no field in this slot
 	}
-	if current, ok := stored[field].(string); ok && current != "" &&
+
+	current, hasCurrent := stored[field].(string)
+
+	if existingLabel != "" {
+		if match, ok := datahelpers.BestLabelMatch(existingLabel, candidates); ok && validPages.Contains(match.URL) &&
+			(!hasCurrent || datahelpers.NormalizePagePath(match.URL) != datahelpers.NormalizePagePath(current)) {
+			resolved[field] = match.URL
+			if match.Title != "" {
+				resolved[ctaTargetTitleField(field)] = match.Title
+			}
+			return
+		}
+	}
+
+	if hasCurrent && current != "" &&
 		validPages.Contains(current) &&
 		!ctaExcludedDestination(current) &&
 		datahelpers.NormalizePagePath(current) != datahelpers.NormalizePagePath(pageURL) {

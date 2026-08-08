@@ -23,18 +23,12 @@ import (
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 )
 
-func ctaTestPages() []ctaMatchPage {
-	return []ctaMatchPage{
-		{
-			ID: "1", Name: "gauntlet", Title: "The Gauntlet", URL: "/gauntlet.html",
-			Interactive: true,
-			tokens:      map[string]bool{"gauntlet": true},
-		},
-		{
-			ID: "2", Name: "pricing", Title: "Pricing", URL: "/pricing.html",
-			tokens: map[string]bool{"pricing": true},
-		},
-	}
+func ctaTestPages() []datahelpers.LabelMatchCandidate {
+	gauntlet, _ := datahelpers.NewLabelMatchCandidate(
+		"1", "gauntlet", "The Gauntlet", "/gauntlet.html", true, "The Gauntlet")
+	pricing, _ := datahelpers.NewLabelMatchCandidate(
+		"2", "pricing", "Pricing", "/pricing.html", false, "Pricing")
+	return []datahelpers.LabelMatchCandidate{gauntlet, pricing}
 }
 
 func TestCTAClassifyAnchor(t *testing.T) {

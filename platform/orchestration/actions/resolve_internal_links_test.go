@@ -98,7 +98,7 @@ func TestApplyCTARecompute(t *testing.T) {
 		if storedURL != "" {
 			stored["cta_url"] = storedURL
 		}
-		applyCTARecompute(resolved, stored, "cta_url", gauntlet, valid, pageURL)
+		applyCTARecompute(resolved, stored, "cta_url", gauntlet, valid, pageURL, "", nil)
 		return resolved
 	}
 
@@ -127,7 +127,7 @@ func TestApplyCTARecompute(t *testing.T) {
 	// No valid target to offer: stored value left alone even when bad.
 	resolved := map[string]interface{}{}
 	applyCTARecompute(resolved, map[string]interface{}{"cta_url": "/services.html"},
-		"cta_url", contentHub{}, valid, pageURL)
+		"cta_url", contentHub{}, valid, pageURL, "", nil)
 	if len(resolved) != 0 {
 		t.Errorf("wrote a value with no valid target: %v", resolved)
 	}
@@ -135,7 +135,7 @@ func TestApplyCTARecompute(t *testing.T) {
 	// Empty field name (a single-URL component's absent secondary slot):
 	// no-op, no panic, nothing written under "".
 	resolved = map[string]interface{}{}
-	applyCTARecompute(resolved, map[string]interface{}{}, "", gauntlet, valid, pageURL)
+	applyCTARecompute(resolved, map[string]interface{}{}, "", gauntlet, valid, pageURL, "", nil)
 	if len(resolved) != 0 {
 		t.Errorf("empty field name wrote a value: %v", resolved)
 	}
@@ -178,7 +178,7 @@ func TestSetCTAFieldEmptyField(t *testing.T) {
 
 	resolved := map[string]interface{}{}
 	var unresolved []map[string]interface{}
-	setCTAField(resolved, "", gauntlet, valid, "archetype-grid", "archetype-grid", "secondary", &unresolved)
+	setCTAField(resolved, "", gauntlet, valid, "archetype-grid", "archetype-grid", "secondary", &unresolved, "", nil)
 	if len(resolved) != 0 {
 		t.Errorf("empty field name wrote a value: %v", resolved)
 	}
