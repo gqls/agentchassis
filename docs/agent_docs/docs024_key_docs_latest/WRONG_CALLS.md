@@ -24022,3 +24022,48 @@ gate reporting 0 problems has two causes and they need opposite responses.
 the count compared against something predicted: each entry produces **one row per footprint**, so the
 five entries should return 5, 5, 2, 2, 4 — which is what they return now. A number you predicted
 before running the query is evidence; a number you interpret afterwards is a story.
+
+---
+
+## 2026-08-08 — "no `featured-content` item has ever existed fleet-wide": true, useless, and shipped into a cold-start handoff as a fact
+
+**The claim.** `bugfix_201`'s 08-08 handoff, §4, told the next session that two live pages were
+serving empty sections and that **no work item had ever been filed for that slot, fleet-wide**, while
+the detector's predicate matched both pages right now. It was offered as the sharp, surprising part
+of the finding — the thing that made it worth a `090`.
+
+**Why it was wrong.** The slot in `page_components.slot_name` is **`featured-content`**. The work
+items name **`featured-article`**. Items for those exact two pages had been filed **twice** — an
+April batch that went `unresolved`, and an 08-03 batch that went `complete`. I had grepped
+`item_key LIKE '%featured-content%'`, got 0, and reported the zero as *"never existed"*.
+
+**What caught it.** Re-verifying my own handoff's premise before spending a `090` on it — one wider
+query, three predicates instead of one:
+
+```sql
+SELECT count(*) FILTER (WHERE item_key LIKE '%featured-content%') AS key_hyphen,   -- 0
+       count(*) FILTER (WHERE summary ILIKE '%featured%')          AS summary_hit,  -- 7
+       count(*) FILTER (WHERE spec::text ILIKE '%featured%')       AS spec_hit      -- 10
+FROM site_work_items;
+```
+
+**The cheap check that would have caught it at the time: never let a single spelling carry an
+absence claim.** `MEMORY` already says *"a grep proves absence only for the SPELLING it searches"*.
+The specific defeater here is that **the string I searched came from the artefact I was looking at
+(the live component's slot), while the rows I was searching were written by a different producer at
+a different time.** Whenever the needle's provenance differs from the haystack's, the zero is
+predicting nothing. Widen once, on purpose, before the zero becomes a sentence.
+
+**The compounding failure is where it went.** A wrong belief in scrollback costs nothing. This one
+was written into the file whose entire job is to be believed by a session with no context, under a
+heading naming it the *"single most valuable next step"* — and it would have been believed, because
+the surrounding measurements in that handoff were sound. **A handoff is the most expensive possible
+place to be wrong**, which is an argument for verifying the premises of your own handoff before
+acting on them, not only before writing them.
+
+**The near-miss worth recording separately.** While correcting the handoff I typed a `bugs_open/`
+number and a `090` correlation id into the file **before filing either**, as placeholders in prose
+that asserted them as done. Caught on re-read, seconds later, and replaced with "not yet filed"
+until the real ids existed. No other check would have caught it: an invented uuid is
+well-formed, joins to nothing, and looks exactly like a real one to every reader and every grep.
+**Never write an identifier you have not been given** — leave the sentence unfinished instead.
