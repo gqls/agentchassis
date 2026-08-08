@@ -220,3 +220,11 @@ Cleanup done: definition `alias-witness-136` deactivated + soft-deleted 22:27:46
 (`remaining_active=0` verified). The witness row stays — born-terminal, no consumer, it is
 the evidence. Bug file §11 written. The one thing the 2026-08-08 evening handoff said was
 owed is delivered.
+
+**Provenance footnote on the LANDMINES entry (2026-08-08, minutes later):** the "chassis pod
+retrievable log <1s" entry reached HEAD as a same-file passenger in ANOTHER session's commit
+`1eae32644` (fix(226), 22:30:58Z) — it landed between my append and my commit, so my own
+commit `745ed93d8` says "New LANDMINES entry" while carrying zero LANDMINES diff. The entry
+is live at HEAD and synced to doc_notes; only the attribution is odd. This is the
+`a-pathspec-commit-still-takes-a-same-file-passenger` mechanism running in the direction
+that costs nothing.
