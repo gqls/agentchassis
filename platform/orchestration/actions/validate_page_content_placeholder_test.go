@@ -80,6 +80,18 @@ func TestPlaceholderScanIgnoresNonProseContexts(t *testing.T) {
 			"multiple script blocks all excluded",
 			`<html><body><script>a[name] = 1;</script><p>Real content.</p><script>b[client] = 2;</script></body></html>`,
 		},
+		{
+			// JSON-LD is code-shaped: its keys collide with the bracket
+			// patterns exactly like JS. headProseBlocks must not read it.
+			"json-ld in head is not prose",
+			`<html><head><title>Fine title</title><script type="application/ld+json">{"@type":"FAQPage","mainEntity":[{"name":"What is APR?","acceptedAnswer":{"text":"The yearly cost."}}]}</script></head><body><p>Fine prose.</p></body></html>`,
+		},
+		{
+			// A meta tag that is NOT one of the prose names must not be
+			// scanned even if its content carries a pattern-shaped string.
+			"non-prose meta content ignored",
+			`<html><head><meta name="generator" content="builder [name] v2"></head><body><p>Fine prose.</p></body></html>`,
+		},
 	}
 
 	for _, tc := range cases {
@@ -125,6 +137,18 @@ func TestPlaceholderScanStillCatchesProse(t *testing.T) {
 			"unrendered no-value artifact in raw html",
 			`<html><body><p>Rates from <no value> percent.</p></body></html>`,
 			"<no value>",
+		},
+		{
+			// ExtractAssertionText skips <head>, but the old scan covered it
+			// and title text is visitor-visible prose — headProseBlocks keeps it.
+			"placeholder in the title element",
+			`<html><head><title>[Your Company] Mortgage Tools</title></head><body><p>Fine prose.</p></body></html>`,
+			"[your ",
+		},
+		{
+			"placeholder in a meta description, content attribute first",
+			`<html><head><meta content="Tools from [Company] for UK buyers" name="description"></head><body><p>Fine prose.</p></body></html>`,
+			"[company",
 		},
 	}
 

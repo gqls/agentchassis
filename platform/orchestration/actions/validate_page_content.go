@@ -167,6 +167,37 @@ var placeholderPatterns = []struct {
 var templateVarRegex = regexp.MustCompile(`\{\{[\s]*[\.\w]+[\s]*\}\}`)
 var templateBlockRegex = regexp.MustCompile(`\{\{[\s]*(range|if|with|end|else|template|block|define)[\s]`)
 
+// ExtractAssertionText skips <head>, but <title> and meta descriptions are
+// prose a visitor sees (tab, SERP, link unfurl) and the old whole-HTML scan
+// covered them — so they are extracted here and scanned alongside the body
+// blocks. JSON-LD is deliberately NOT included: it is code-shaped (its keys
+// collide with the bracket patterns the same way JS does), which is the exact
+// false-positive class this scan just stopped convicting.
+var titleTextRegex = regexp.MustCompile(`(?is)<title[^>]*>(.*?)</title>`)
+var metaTagRegex = regexp.MustCompile(`(?is)<meta\b[^>]*>`)
+var metaProseNameRegex = regexp.MustCompile(`(?is)\b(?:name|property)\s*=\s*["'](?:description|og:title|og:description|twitter:title|twitter:description)["']`)
+var metaContentRegex = regexp.MustCompile(`(?is)\bcontent\s*=\s*["']([^"']*)["']`)
+
+func headProseBlocks(html string) []string {
+	var blocks []string
+	if m := titleTextRegex.FindStringSubmatch(html); m != nil {
+		if t := strings.TrimSpace(m[1]); t != "" {
+			blocks = append(blocks, t)
+		}
+	}
+	for _, tag := range metaTagRegex.FindAllString(html, -1) {
+		if !metaProseNameRegex.MatchString(tag) {
+			continue
+		}
+		if c := metaContentRegex.FindStringSubmatch(tag); c != nil {
+			if t := strings.TrimSpace(c[1]); t != "" {
+				blocks = append(blocks, t)
+			}
+		}
+	}
+	return blocks
+}
+
 // ============================================================================
 // Main action
 // ============================================================================
@@ -729,7 +760,7 @@ func checkPlaceholderPatterns(html string) []ValidationIssue {
 		})
 	}
 
-	blocks := datahelpers.ExtractAssertionText(html)
+	blocks := append(datahelpers.ExtractAssertionText(html), headProseBlocks(html)...)
 	for _, p := range placeholderPatterns {
 		if p.Pattern == "<no value>" {
 			continue
