@@ -1,11 +1,30 @@
 # 216 — the response-driven recoverable arm re-arms the request, then refuses its own replay: an `error_recoverable` RESPONSE is terminal (at least cross-pod), and the retry_version bump it leaves looks like a retry happened
 
 **Filed 2026-08-07** by the `bugfix_207_sender_convergence` lane, found live during 207's
-post-roll induction on v1.0.1262. **Status: OPEN — FIXED IN CODE 2026-08-08, awaiting
-roll + live proof.** Owned by the `bugfix_216_claimed_row_passthrough` lane
-(docs024_key_docs_latest/bugfix_216_claimed_row_passthrough/). **Severity: high for the
-retry-quality programme** — it is the seam 195/197/207 all deliver INTO, and while it
-stands, every classifier improvement upstream buys a bookkeeping write instead of a retry.
+post-roll induction on v1.0.1262. **Status: FIXED + LIVE on v1.0.1266 + PROVEN BY
+INDUCTION 2026-08-08 — all three close criteria met; stays in `bugs_open/` per the
+owner's 08-06 ruling.** Owned by the `bugfix_216_claimed_row_passthrough` lane
+(docs024_key_docs_latest/bugfix_216_claimed_row_passthrough/). The seam 195/197/207 all
+deliver INTO now delivers: a recoverable response produces a replay on the wire.
+
+> **PROOF (2026-08-08, v1.0.1266, all ids in the lane NOTES).** (1) Pod-grep, both
+> settled replicas, same exec: positive marker 1, removed-string negative 0, unchanged
+> `RETRY_PAYLOAD_UNAVAILABLE` control 1. (2) Induction (207's recipe): parent
+> `f5e167c5…` parked awaiting R=`59c49316…` (payload recorded, 600s timeout, sent
+> ~16:07); a genuine deadline-exceeded `error_recoverable` envelope was captured and
+> re-published to the parent's topic; **the void topic then carried the REPLAYED
+> original request at offset 1 — `retry_version=1`, the child's own orchestration id
+> `7b2b476c…` (self-address guard held), stamped 16:10:08 — seven minutes before the
+> original timeout could first fire (~16:17), so only the response-driven arm can have
+> produced it.** Offsets 2–3 (16:15:08, 16:20:08, +300s each) are the healthy timeout
+> path's retries — which also proves the response arm RELEASED the row to `'waiting'`
+> (a `'processing'` row is unclaimable by `ClaimAwaitedRequestForRetry`). The parent
+> survived the response-driven retry and failed only at budget exhaustion (~16:25,
+> "timed out after 3 retries" — the healthy-path message, cap wall at 3 intact). On
+> v1.0.1262 the same drive died 4ms after the bump with nothing on the wire. Caveat,
+> stated: the chassis log lines for the 16:10 event had rotated (<5-min window, 016b)
+> before they were read — the wire artifact + DB timestamps carry the proof without
+> them. Probe seed and void topic deleted; orchestration rows left as evidence (~24h).
 
 > **FIX RECORD (2026-08-08).** Candidate 1 implemented as argued below:
 > `handleRecoverableError` now takes the claimed row from its caller (mirroring

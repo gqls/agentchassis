@@ -92,3 +92,48 @@
   (started 13:08Z) — pre-fix. IMAGE_TAG sits at v1.0.1265 uncommitted (another
   session's bump). The fix ships with whichever whole-fleet release next builds from
   post-`22899b809` HEAD.
+
+## 2026-08-08 evening — ROLLED (v1.0.1266), VERIFIED AT THE POD, PROVEN BY INDUCTION
+
+- Roll detected ~16:00Z (monitor): chassis went v1.0.1264 → **v1.0.1266** (tag raced
+  again, 1265→1266 — irrelevant, provenance is proven at the binary). Rollout churned
+  through three replicasets; after `rollout status` settled on `856dff6b46` (2
+  replicas), pod-grep same-exec on BOTH: `POS=1` (new marker) `NEG=0` (removed
+  fallback string) `CTRL=1` (`RETRY_PAYLOAD_UNAVAILABLE`, unchanged — pipeline+guard
+  control). Two mid-churn execs returned empty (terminating pods) — re-ran on the
+  settled set rather than trusting silence.
+- **Induction, per the RUNBOOK (all four criteria):**
+  - Seeded `test-207-parent`, created void topic, held the 300s post-restart dispatch
+    freeze. Dispatch 1 `CORR=32a4c28e… ORCH=f5e167c5…` parked at `call_child`
+    awaiting **R=`59c49316-bdc6-41e4-85ca-cff3fda59ce5`** (`retry_version=0`,
+    `payload_present=t`, topic=void, `timeout_seconds=600`, sent ~16:07:0x).
+  - Dispatch 2 (`CHILD_ORCH=b417c210…`, inline workflow, `pg_sleep(5)` under
+    `local_action_timeout_seconds:0.001`) FAILED deadline-exceeded as designed.
+  - **BOTH failure senders answered R on legacy `system.generic.responses`** (196's
+    header-drop wrinkle): `error_unrecoverable` `CHILD_ORCHESTRATION_FAILED`
+    (`notifyParentOfFailure` — **bugs_open/217 observed live again on v1.0.1266**,
+    16:07:45) then 207's converged `error_recoverable` (16:07:46). Unconsumed there,
+    so the probe chose which drives the parent — 217 isolated away by construction.
+  - Re-published the `error_recoverable` envelope byte-identical (headers included) to
+    `system.agent.generic.responses` (PUBLISH_OK ~16:10).
+  - **THE PROOF — void topic offset 1: the replayed original request,
+    `retry_version=1`, orchestration_id `7b2b476c…` (child's own; parent id separate —
+    RETRY_SELF_ADDRESSED held), `timestamp=2026-08-08T16:10:08.36Z`.** The original
+    timeout could not fire before ~16:17 — a 16:10:08 replay is only reachable through
+    the response-driven arm. Offsets 2–3: 16:15:08 / 16:20:08 (+300s each), sender
+    `…f86mr` — the healthy timeout path, which could only claim the row because the
+    response arm had released it to `'waiting'`.
+  - Post-acceptance trajectory exactly as the RUNBOOK predicted: nothing answers the
+    void topic, retries exhausted at the wall of 3, row `status='error'`, parent
+    FAILED ~16:25 with "timed out after 3 retries" (the healthy-path message — NOT the
+    216 signature "Request … failed: workflow failed", which on v1.0.1262 arrived 4ms
+    after the bump).
+  - **Caveat, honestly:** criterion 4 (the chassis log lines at 16:10) was NOT
+    captured — a turn gap put the event outside the <5-min log window (016b landmine).
+    Criteria 1–3 (wire artifact + DB timestamps + pod-grep) carry the proof; the log
+    line would have been redundant corroboration.
+- Cleanup done: probe seed `DELETE 1`, void topic deleted (list shows 0). Orchestration
+  rows (`f5e167c5…`, `b417c210…`) left as evidence — reap ~24h, quoted here same-day.
+- **216 is FIXED + LIVE + PROVEN. Next: `bugs_open/217`** — its mechanism re-confirmed
+  live today (envelope above); with 216 fixed, converging `notifyParentOfFailure` no
+  longer converts hardcoded-terminal into re-arm-then-terminal.

@@ -8245,6 +8245,40 @@ full payload" — as one did here for adapters — that comment is the bug repor
 everything without the carve-out. **A special case written to preserve fidelity is
 evidence that fidelity was lost generally.**
 
+### Your own CLAIM makes your own RE-READ miss — claim-then-re-read across two predicates is a self-defeating pair (2026-08-08)
+
+**The shape.** An exclusive claim (`UPDATE … SET status='processing' WHERE
+status='waiting' RETURNING *`) hands the actor the full authoritative row — which the
+code then **discards**, re-reading the same row through a helper whose predicate
+(`status IN ('waiting','retrying')`) excludes the very status the claim just wrote.
+The re-read misses *by construction*, 100% of the time, and the fallback it triggers
+(an in-memory copy whose critical field is `json:"-"` by design) silently lacks what
+the decision needs. `bugs_open/216`: every response-driven recoverable retry died at
+`RETRY_PAYLOAD_UNAVAILABLE` milliseconds after persisting its own `retry_version`
+bump — while the sibling caller (the timeout driver, whose claim writes `'retrying'`,
+which the predicate happens to include) worked, making the arm look half-alive.
+
+**Why it survives.** Each half is locally correct: the claim is the textbook atomic
+pattern; the re-read helper is right for its *other* callers; the fallback is a
+reasonable-looking safety net. The defect lives in the composition, and no single
+function's review sees it. The bookkeeping the arm completes before refusing
+(`retry_version++`) doubles as camouflage — the counter says retries happen.
+
+**The check.** For any claim-then-decide sequence: *does the decide path re-read what
+the claim already returned?* If yes, diff the claim's post-state against the
+re-read's predicate — a status the claim writes that the predicate excludes is the
+bug, today or after the next predicate edit. The fix that closes the door: **pass the
+claimed row through** (the `RETURNING` row IS the current DB row, and exclusivity
+means nothing can be fresher), and delete the re-read and the fallback rather than
+widening the predicate — two reads of one row in one decision is the drift class.
+
+**Generalises to:** any `FOR UPDATE SKIP LOCKED` / conditional-UPDATE claim followed
+by a `GET` through a status-filtered accessor; job queues where the worker "re-loads"
+its job; leases re-validated through a liveness view that excludes leased rows.
+Proof-side corollary (this file's retry-histogram warning, sharpened): **a counter
+bumped by the same function that then fails cannot certify the happy path** — assert
+the *effect on the wire* (consume the replayed message), never the bookkeeping.
+
 ### On a shared HEAD that builds from HEAD, COMMITTING IS SHIPPING — "hold the deploy pending review" is not an available strategy (2026-07-28)
 
 **The shape.** Three rules that are individually correct combine into one that nobody

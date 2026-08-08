@@ -29,3 +29,25 @@ watched the test fail, so it genuinely discriminates. Next: council review, comm
 build, roll, and then the real proof — re-run the live induction from the 207 lane and
 watch the retried request actually arrive where it's addressed, because a bumped
 counter is exactly what the broken version produced too.
+
+## 2026-08-08 evening — approved, shipped, and proven on the wire
+
+The review approved it first time round (nine reviewers, one minor note). The fleet
+release later that afternoon carried it out, and I checked the actual running binaries
+rather than trusting the version number: the new code is in, the old fallback is gone.
+
+Then the real test. I staged the same little drama as before: a parent workflow waiting
+on a request that nothing will ever answer, a child that fails in the "worth retrying"
+way, and the child's answer delivered to the parent. Last time, the parent wrote down
+"retry number 1" and killed the whole job four milliseconds later. This time, the retry
+actually went out: the original request reappeared on its queue, marked as attempt
+number one, three minutes into a ten-minute wait — too early for anything but the fixed
+path to have sent it. The parent stayed alive, kept waiting, retried twice more on
+schedule, and only gave up when the retry budget ran out — which is exactly right,
+because in this staged scenario nobody was ever going to answer.
+
+So the retry machinery the last three fixes were feeding now actually fires. The
+remaining piece is the sibling bug (217): a different corner of the code that answers
+for failed child workflows still stamps every failure "unrecoverable" — and it answers
+first, so its verdict wins. We saw it do this again today during the test. That's the
+next job, and it's now worth doing, because a retry it permits will actually happen.

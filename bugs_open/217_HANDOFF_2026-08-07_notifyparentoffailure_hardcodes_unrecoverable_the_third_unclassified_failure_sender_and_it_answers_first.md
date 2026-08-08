@@ -5,6 +5,16 @@ post-roll induction on v1.0.1262. **Status: OPEN, UNOWNED.** **Severity: medium 
 class as 207 (retry-quality, nothing corrupted, nothing silent), at the third and last
 unconverged failure sender.**
 
+> **RE-OBSERVED LIVE on v1.0.1266, 2026-08-08 16:07:45** (216's acceptance induction,
+> corr `32a4c28e…`): the same child-orchestration failure drew BOTH envelopes on
+> `system.generic.responses` — this sender's hardcoded
+> `status=error_unrecoverable / CHILD_ORCHESTRATION_FAILED / recoverable:false` at
+> 16:07:45, then the converged sender's `error_recoverable` at 16:07:46. One second
+> apart, unclassified answers first, exactly as filed. **The gate this file named is
+> now open: `bugs_open/216` is FIXED + LIVE + PROVEN (v1.0.1266)** — a recoverable
+> verdict now produces a real replay, so converging this sender buys actual retries,
+> not re-arm-then-terminal.
+
 > **VERIFICATION STATEMENT (owner ruling 2026-07-31).** Self-evidencing single-site
 > finding: the deciding code is a hardcoded literal, read and cited; the behaviour was
 > captured live on the wire during 207's induction. No 090 run for this file — the
