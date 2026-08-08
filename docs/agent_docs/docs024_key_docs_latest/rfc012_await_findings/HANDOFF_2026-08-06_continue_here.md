@@ -1,4 +1,11 @@
-# HANDOFF — RFC_012 execution · **START HERE** · rewritten 2026-08-08 (evening)
+# HANDOFF — RFC_012 execution · rewritten 2026-08-08 (evening)
+
+> ⚠ **SUPERSEDED 2026-08-08 (night) by `HANDOFF_2026-08-08_continue_here.md` — START THERE.**
+> That file is the cold-start: the lane is clear, the provenance hardening is LIVE on
+> v1.0.1268 and pod-proven, all four council rounds are APPROVED, and ONE job remains (§1a,
+> the `RunAgentType` ladder). Keep reading HERE only for the back-story: §1/§1b on how the
+> hardening was designed and why §1a was carved out of it, the (d) CronJob runbook, and the
+> 090 hero/logo thread in §2.
 
 Cold-start for the next session. Read this, then `NOTES_rfc012_await_findings.md` (the
 missteps — they are the point) and `RUNBOOK_rfc012_await_findings.md` (every command, with
