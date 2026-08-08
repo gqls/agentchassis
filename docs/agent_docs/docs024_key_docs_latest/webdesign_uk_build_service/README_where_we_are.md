@@ -842,3 +842,30 @@ follows that forwarding, it would read the wrong site's hundred pages and get
 the wrong idea, the same class of mistake that produced the one-page version.
 We'll check how it behaves before submitting, and park the forwarding during
 the rebuild if we have to.
+
+---
+
+**2026-08-08, afternoon. The rebuild is loaded and aimed; one switch needs your hand.**
+
+We checked the thing we said we'd check before pressing the button. The crawler
+that reads a domain at the start of a build does follow the forwarding, and it
+came back with your webdesign.co.uk site — title, copy, links, the lot —
+presented as if that were what lives at webdesign.uk. If we submitted now, the
+machinery would study the wrong site's hundred pages and shape the new build
+around them. Same family of mistake that produced the one-page version, so we
+didn't submit.
+
+Everything else is ready. The five-page plan is written — home, how it works,
+what you get, the questions page with the price and VAT answers, and contact —
+with the chat box explicitly parked for the phase after the chat service
+exists. The rejected first version has been moved out of the way so the new
+plan starts clean, and the two leftover to-do items pointing at it are closed.
+
+The one thing between here and pressing go: the forwarding rules need switching
+off for roughly half an hour while the build's first look at the domain
+happens, then switching back on. The account this session runs under isn't
+allowed to touch those rules itself, so we need you to either run the two
+commands we've prepared, or allow the session to call the Cloudflare API and
+we'll handle the off, the timing, and the on. Nothing visitors would notice
+much either way: for that half hour, webdesign.uk would simply time out instead
+of forwarding to webdesign.co.uk, and the preview link stays up throughout.

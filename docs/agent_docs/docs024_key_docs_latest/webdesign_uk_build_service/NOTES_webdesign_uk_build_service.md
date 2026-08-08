@@ -1380,3 +1380,68 @@ webdesign.co.uk — a 101-page live site. If the resubmission's classifier follo
 redirects, it re-anchors on the WRONG SITE's content and the one-page failure
 reproduces in a new costume. CHECK the classifier's fetch behaviour before
 resubmitting. [UNMEASURED as of this entry]
+
+---
+
+## 2026-08-08 — rebuild STAGED to one step; the 302 risk is now MEASURED, and it is real
+
+**The [UNMEASURED] from 08-06 evening is closed, by direct measurement.** Called
+Firecrawl's `/v2/scrape` on `https://webdesign.uk` with the adapter's own key
+(from `personae-default-secrets`) and the provider's own default shape
+(`providers/firecrawl.go` buildScrapePayload): **success=true, statusCode 200,
+final url `https://webdesign.co.uk/`**, title "webdesign.co.uk — Tools and
+guides for people who build websites", full markdown of the owner's OTHER site,
+links all webdesign.co.uk. **The scraper follows the 302 and reports the
+redirect target as the domain's content.** A resubmission with the 302 live
+would anchor the classifier on a mature ~100-page tools platform — the v1
+contamination class in a new costume. Parking the 302 during the classifier
+window is therefore REQUIRED, not cautious.
+
+**Everything else is staged; the submission is one step away:**
+- **Roadmap authored** → `SUBMISSION_2026-08-08_roadmap_brief.txt` (oufe format:
+  plain prose, bold page names, no figures, explicit not-now exclusions). Five
+  pages: index, how-it-works, what-you-get, faq, contact. The chat/input box is
+  named a LATER phase gated on the chat service existing. No structured
+  `roadmap` aspect — oufe precedent: roadmap_brief alone; `persist_roadmap` is
+  skipped-if-absent.
+- **Envelope composed** → `SUBMISSION_2026-08-08_rebuild_envelope.json` (5,141 B
+  single line, python-composed so the JSON embedding is guaranteed): domain-
+  submitter, mission_brief reused VERBATIM from the current submission spec,
+  roadmap_brief as `{"text": …}` — matching the stored shape the planner reads
+  (`.site_specs.specs.roadmap_brief.text`).
+- **Rejected v1 page row ARCHIVED + RENAMED** (`index-rejected-v1-20260806`,
+  status archived, id `b9c9a2a3…` kept for history). Rename is load-bearing, not
+  cosmetic: `pages_site_id_name_key` is UNIQUE(site_id,name) with NO status
+  scope, and `SyncPagesToDBAction`'s upsert (`site_db_actions.go:1141`) does
+  **NOT set status on conflict** — an archived row named `index` would have been
+  updated in place and LEFT ARCHIVED: planner-invisible, nav-invisible, and the
+  home page would silently never build. Renaming frees the name so the new plan
+  inserts a fresh active row.
+- Also load-bearing: the planner's `load_existing_pages` selects
+  `status='active'` and its prompt PRESERVES existing pages exactly — an
+  unarchived rejected row would have imported the rejected landing shape into
+  the new plan.
+- **Two stale `needs_human_review` items cancelled** (unresolved_cta,
+  needs_section_data — both describe the rejected v1 index; `resolution_path`
+  says why).
+- **Page rules captured** → `PAGERULES_backup_2026-08-08.json` (ids `6d4d5b67…`
+  apex, `88794916…` www, both forwarding_url 302 → webdesign.co.uk/).
+
+**BLOCKED at the parking step: the CF PATCH (status→disabled) was denied by the
+session's permission classifier.** Asking the owner/user to either run the two
+PATCHes (`!` commands provided in chat) or grant the permission. Dispatch order
+once unblocked: disable both rules → verify apex no longer 302s → kcat the
+envelope → watch `site_specs` for a NEW `classification` row (08-04 precedent:
+~4 min from submission once running; dispatch queueing can add ~30) → sanity-read
+`has_existing_site` (must be false) → re-enable both rules → let the build run.
+Chassis v1.0.1264 both replicas up since 13:08Z; ≥v1.0.1257 so the 204
+plan_sections fix is in (no needs_new_component junk expected — sweep after
+anyway, per the 204 memory).
+
+Other findings this session, for the record:
+- The `roadmap` STRUCTURED aspect appears to have NO reader (planner reads
+  roadmap_brief.text; oufe shipped without `roadmap`) — [INFERRED from grep of
+  planner prompt + oufe precedent, not exhaustively verified].
+- orchestration_states currently holds a `petclinic.jollyes.co.uk` run FAILING
+  at `extract_and_reconcile` every ~30 min since at least 08-06 18:32 — another
+  lane's loop, not touched, noted in passing.

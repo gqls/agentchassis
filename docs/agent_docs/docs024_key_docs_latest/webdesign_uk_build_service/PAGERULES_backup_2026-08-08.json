@@ -1,0 +1,57 @@
+{
+    "result": [
+        {
+            "id": "6d4d5b6711a74db7e9c5be32a5996224",
+            "targets": [
+                {
+                    "target": "url",
+                    "constraint": {
+                        "operator": "matches",
+                        "value": "webdesign.uk/*"
+                    }
+                }
+            ],
+            "actions": [
+                {
+                    "id": "forwarding_url",
+                    "value": {
+                        "url": "https://webdesign.co.uk/",
+                        "status_code": 302
+                    }
+                }
+            ],
+            "priority": 2,
+            "status": "active",
+            "created_on": "2026-08-06T08:19:10.000000Z",
+            "modified_on": "2026-08-06T08:19:10.000000Z"
+        },
+        {
+            "id": "88794916d6ac25fe7056b1a78fe31643",
+            "targets": [
+                {
+                    "target": "url",
+                    "constraint": {
+                        "operator": "matches",
+                        "value": "www.webdesign.uk/*"
+                    }
+                }
+            ],
+            "actions": [
+                {
+                    "id": "forwarding_url",
+                    "value": {
+                        "url": "https://webdesign.co.uk/",
+                        "status_code": 302
+                    }
+                }
+            ],
+            "priority": 1,
+            "status": "active",
+            "created_on": "2026-08-06T08:19:11.000000Z",
+            "modified_on": "2026-08-06T08:19:11.000000Z"
+        }
+    ],
+    "success": true,
+    "errors": [],
+    "messages": []
+}

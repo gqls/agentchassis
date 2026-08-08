@@ -84,6 +84,16 @@ apex+www 302 to webdesign.co.uk; the rejected v1 is visible only at
    throughout; two phrase-patches were whack-a-mole. Supersede with a fresh
    generation (or delete + let the resubmission's classifier rewrite it — the
    contamination sources are gone: bucket objects deleted, apex 302s).
+   > **CORRECTED + STAGED 2026-08-08.** "The contamination sources are gone" was
+   > wrong: the apex 302 IS a contamination source — MEASURED, Firecrawl follows
+   > it and returns webdesign.co.uk's content as webdesign.uk's (NOTES 08-08).
+   > The resubmission's classifier DOES supersede content_direction (unconditional
+   > `write_site_spec`; no site_archetype so the adoption path that would re-read
+   > the old one cannot fire) — so step 2 is satisfied by step 3, PROVIDED the two
+   > 302 page rules are DISABLED for the classifier window and re-enabled after.
+   > Everything is staged (envelope, roadmap, page row archived+renamed, stale
+   > items cancelled — see `SUBMISSION_2026-08-08_*` + NOTES 08-08); the CF PATCH
+   > is permission-blocked for the session, so the parking step is with the owner.
 3. **Resubmit with an authoritative ROADMAP** — pages: home, how-it-works,
    what-you-get, faq (incl. the VAT/price answers), contact. `build-site-planner`
    treats a roadmap as authoritative ("build ONLY the pages listed").
