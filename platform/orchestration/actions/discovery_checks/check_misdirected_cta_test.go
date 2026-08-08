@@ -14,10 +14,10 @@ import (
 
 func TestCTAAreaExcluded(t *testing.T) {
 	cases := map[string]bool{
-		"/contact.html":       true, // top-level page — the firstPathSegment blind spot
-		"/contact/index.html": true,
-		"/legal/privacy.html": true,
-		"/about.html":         true,
+		"/contact.html":              true, // top-level page — the firstPathSegment blind spot
+		"/contact/index.html":        true,
+		"/legal/privacy.html":        true,
+		"/about.html":                true,
 		"/tools/gauntlet/index.html": false,
 		"/archetypes.html":           false,
 		"/":                          false,
