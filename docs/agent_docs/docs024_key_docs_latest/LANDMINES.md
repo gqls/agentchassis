@@ -6778,3 +6778,78 @@ a `v1.0.1264` pod gave `0 / 1`.
 ⚠ **And do not wait for the mixture to clear before dispatching.** The spawned pods are
 per-job and age out on their own; the ones you saw may be `Succeeded` already. What
 matters is the image of the pod that will pick up your message, not fleet uniformity.
+
+---
+
+### A voice_tells retraction cannot tell "the prose was fixed" from "we read nothing" — and one of them closes a live human-review row
+**footprint** `platform/orchestration/actions/revalidate_voice_tells.go` · `platform/orchestration/actions/discovery_checks/check_voice_tells.go` · `ScanVoiceTells` · `VoicePageScan` · `site_work_items.item_type='voice_tells'`
+
+`ScanVoiceTells` returns an empty `Findings` slice in **three** unrelated situations, and only one
+of them means the copy improved:
+
+1. components were examined and are clean → **the prose was fixed**
+2. **nothing was read at all** — page deleted, not `active`/`deployed`, or no rendered components
+3. **only human-LOCKED components were read** — the emit side has always skipped `locked_at IS NOT NULL`
+
+**the check:** never branch on `len(scan.Findings) == 0` alone. Assert `scan.ComponentsExamined > 0`
+first, and treat `scan.ComponentsSkippedLocked > 0` as unanswerable rather than clean — a page whose
+only offending component was pinned by a human scans clean while the copy is untouched. The verdict
+ladder in `voiceTellsVerdict` is ordered so `still_holds` is answered before the locked arms; reorder
+it and a page that still trips the gate gets reported as unreadable. Each of the three guards has a
+mutation test (`if false` → distinct failure), so a future edit that drops one fails loudly.
+
+### A `voice_tells` item can retract with the copy completely unchanged, because the gate is a moving standard
+**footprint** `platform/orchestration/actions/revalidate_voice_tells.go` · `site_specs` aspect `voice` · `voice_gate` · `datahelpers.VoiceGate` · `resolution_path='auto:revalidated'`
+
+The revalidator re-runs the site's **current** `voice_gate` thresholds. If a site loosens them — or
+disables `voice_gate` entirely and later re-enables it looser — prose that failed on 17 July passes
+today and the item closes, **with no edit to the page at all**. The stored evidence records
+`components_examined` and the page name; it does **not** record which thresholds were in force, so a
+`resolved` stamp read later cannot distinguish "rewritten" from "standard relaxed".
+
+**the check:** before citing `auto:revalidated` on a `voice_tells` row as evidence that copy was
+improved, compare the page's churn against the item's age —
+```sql
+SELECT swi.id, swi.created_at, max(pc.updated_at) AS last_component_edit
+FROM site_work_items swi
+JOIN page_components pc ON pc.page_id = (swi.spec->>'page_id')::uuid
+WHERE swi.item_type='voice_tells' AND swi.resolution_path='auto:revalidated'
+GROUP BY 1,2;
+```
+`last_component_edit` earlier than `created_at` means the page was never touched and the *standard*
+moved, not the prose. (The gate being **absent** is already refused — that arm returns `unknown`,
+because opting out of an audit is not evidence of passing it.)
+
+### A grep needle short enough to be convenient is long enough to be someone else's string
+**footprint** `kubectl exec … strings /app/agent-chassis | grep -c` · any pre-roll deploy baseline
+
+Taking a pre-roll baseline for an additive Go change on 2026-08-08, I grepped `no longer exists` — a
+fragment of a new error string — and got **6 on both replicas of a build that did not contain the
+change at all**. Had the post-roll reading been 6 or 7 I would have had no idea whether it shipped.
+The whole value of an additive proof is the dated **0 → 1** transition, and a needle with a non-zero
+baseline destroys it silently.
+
+**the check:** every needle must be **verified to return 0 on a build that predates your commit**,
+in the same command that records the baseline — a needle you did not disconfirm is not a control.
+Prefer a whole distinctive clause (`opting out is not evidence the copy was fixed`) over a fragment,
+keep it **ASCII-only** (an em-dash mangles crossing `exec -- sh -c` and returns a 0 that reads like a
+failed deploy), and always carry a positive control string that is non-zero on the *current* binary
+so a post-roll 0 is distinguishable from a broken probe.
+
+### `cmd | head -N && echo "OK"` reports success on a FAILED command
+**footprint** any `go build`/`go test` wrapped in a pipeline · `${PIPESTATUS[0]}`
+
+`TMPDIR=… go build ./platform/... 2>&1 | head -20 && echo "=== BUILD OK ==="` printed **BUILD OK**
+under a real compile error on 2026-08-08. `&&` tests the exit status of the **last** command in the
+pipeline — `head` — which succeeds regardless. The truncation compounds it: `head -10` cut the error
+list down to one line, and I then reasoned confidently from the survivor about which session had
+broken the tree.
+
+**the check:** gate on the pipeline's real status, and never let a truncating pager decide what you
+diagnose from —
+```bash
+TMPDIR=/home/ant/.cache/buildtmp go build ./platform/... 2>&1 | head -40; echo "exit: ${PIPESTATUS[0]}"
+```
+On a shared tree, also confirm a failure is actually yours before saying so: another session's
+mid-write can leave the tree uncompilable for seconds, and the honest test is
+`git archive HEAD` + your own files, not the working tree.

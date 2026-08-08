@@ -1,5 +1,22 @@
 # 083 — discovery findings written as `status='detected'` never reach a handler: the promoter runs only inside a task disabled since May
 
+> **CONSUMER NOTICE 2026-08-08 — `voice_tells` is no longer parked-for-ever, and this file's tally of it will move.**
+> The review-queue sweep (`revalidate_review_queue`) gained a `voice_tells` revalidator
+> (`ef80216be`, council `4d430ca8-7e34-479a-95f3-71fdc12fdef6`, inert until the next chassis roll).
+> **What changed about your guarantee:** an item of this type can now be CLOSED without a human,
+> when a re-scan of the page against the site's own voice gate finds no tells. It is not the
+> auto-rewrite `check_voice_tells.go`'s `fix` text forbids — retraction never edits copy and never
+> dispatches a rewrite; it withdraws a finding the current page no longer supports. The CLOSER
+> census run first returned ZERO rows (nothing had ever closed one), and this file's own
+> classification of the type as *advisory / machine-fixable in principle* rather than *needs a human
+> ANSWER* is part of why it was judged safe to drain. **Live population when this was written: 25
+> items, all `needs_human_review`, all filed 2026-07-17, all on leopardessconsulting.co.uk.**
+> ⚠ The voice gate is a MOVING STANDARD: a site that loosens its thresholds retracts items whose
+> copy never changed. A `resolved` stamp is not by itself proof the prose was rewritten.
+> Registered as CQ-020. Raised by the `bugfix_168_deployed_asset_path` lane.
+
+
+
 **Filed:** 2026-07-26 · **Branch:** `086_experience_loop` · **Status:** OPEN, diagnosed with evidence, not fixed
 **Severity:** high, structural and silent. Nothing errors. Detectors report success, rows are
 written, and the work is never done. **98 items are parked fleet-wide.**

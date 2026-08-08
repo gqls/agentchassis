@@ -574,3 +574,67 @@ be true before anyone can sensibly work on it.
 
 There is a fresh cold-start handoff (`HANDOFF_2026-08-08_continue_here.md`) so a new session can
 pick this up without reading the whole history.
+
+---
+
+**2026-08-08, afternoon.**
+
+Picked the lane up cold. First thing was to check the sweep we fixed on Thursday was still
+running on its own, because the chassis had been rebuilt twice since anyone looked. It is: the
+daily job fired at 08:38, looked at the right 151 rows out of 773, closed 3, and reported the cap
+as not binding — which is the number that matters, because if it ever says otherwise the old
+starvation bug is back. Three closures on Friday, one on Thursday, both with nobody watching.
+
+Then I picked up the "teach the sweep another item type" thread. The previous handoff named three
+candidates. **Two of them were wrong, and the check that showed it took about ten seconds.**
+`content_rewrite` looked like the biggest prize at 34 parked items — but 51 of them have already
+been closed by a real fix pipeline that rewrites the prose and redeploys the page. It doesn't need
+us. `needs_sprite_css` has a re-run path of its own that I haven't traced yet, so I left it.
+
+The one that was genuinely stuck was `voice_tells` — the check that flags copy reading like a
+machine wrote it. **Nothing has ever closed one of those. Not once.** Twenty-five of them, all
+filed on 17 July, all on the leopardess site, still sitting there twenty-two days later. They were
+never going to move, because the check deliberately files them for a human and there is no human
+surface that drains them.
+
+There was one thing that looked like it might stop me, and it's worth writing down because I
+nearly took it at face value. The check's own code says the fix must be *"never an unreviewed
+auto-rewrite"*, and another bug file quotes that line approvingly. Read quickly, that sounds like
+"don't automate this". But it's about *fixing* the copy — rewriting it without a human. What I've
+built doesn't rewrite anything. It re-reads the page and asks whether the complaint is still true;
+if the words have since been changed and now read fine, it stops making the complaint. The human
+still decides how to fix anything that genuinely reads badly. I checked both bug files that count
+these items and neither of them puts the type under an open decision, so I wasn't stepping on
+anyone.
+
+The interesting part of the build was a trap I want to flag, because it's the kind that looks like
+success. "The page has no problems" and "we couldn't read the page" produce **exactly the same
+empty result**. If the page was deleted, or was never published, or every part of it is pinned by
+a human, the scan comes back with nothing found — which reads identically to "somebody fixed the
+prose". If I'd taken that at face value, the thing would have quietly closed live complaints on the
+strength of having read nothing at all. So it now counts what it actually examined, and refuses to
+close anything unless it genuinely read something.
+
+I also checked whether this would do anything at all before building it — 13 of the 25 pages have
+been edited since their complaint was filed, so there is real change to judge. If that had come
+back zero I'd have said so and dropped it rather than shipping something that adds cost and closes
+nothing.
+
+Two honest caveats. The first is that the "page is pinned" and "page is gone" cases don't exist on
+today's data, so that part is careful reasoning and unit tests, not something I've watched work.
+The second is more interesting: the standard being measured can move. If a site relaxes its own
+voice rules, complaints will close even though nobody touched the words. That's arguably right —
+the site changed its mind about what good looks like — but it means a closed item isn't proof the
+copy improved, and I've written that down in two places so nobody reads more into it later.
+
+The code is committed and has gone to the review council; the verdict hadn't come back when I
+wrote this. It won't do anything until the next chassis rebuild. I took the "before" measurement
+first, which is the only way to prove it shipped afterwards — and my first attempt at that
+measurement was wrong in a way worth admitting: I searched for too short a phrase and got six
+matches on a build that doesn't contain my change at all. A short search term is somebody else's
+words. Fixed, re-taken, and the real "before" reading is zero on both machines.
+
+Still blocked, and getting slowly worse: the duplicate-rows cleanup. 55 clashing pairs today
+against 53 this morning and 48 five days ago. It drifts up about two a day and still needs a
+judgement call from you — which copy to keep, and whether throwing the others away loses anything
+real.

@@ -1,5 +1,12 @@
 # HANDOFF — 2026-08-08 — cold start. The sweep lane is DONE and self-running. Two known items remain.
 
+> # SUPERSEDED FOR STATE — read `HANDOFF_2026-08-08b_continue_here.md` instead.
+> **2026-08-08, later the same day.** The sweep gained a fifth covered type (`voice_tells`,
+> `ef80216be`), the dedup figures in §4.1 moved again (now **55 pairs / 184 rows**), and §4.3's
+> candidate list did not survive its own CLOSER check — `content_rewrite` is drained by a real fix
+> pipeline and is NOT a retraction candidate. The reasoning and the traps below are still good.
+
+
 **Read this file only.** It supersedes `HANDOFF_2026-08-04_continue_here.md` for state; that file
 stays for its reasoning and its traps. Plain-prose account: `SUMMARY_2026-08-06b_…`. Missteps and
 working: `NOTES_deployed_asset_path.md` (newest at the bottom).

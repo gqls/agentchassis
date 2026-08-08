@@ -1849,3 +1849,110 @@ run now; the 08:05, 08:37 and 10:03 rows from 08-06, including the one carrying 
 resolved 20` payload, have aged out at ~24h retention. **The only surviving record of the decisive
 run is what was written into these docs at the time.** That is the whole argument for recording a
 payload the day you take it, and it is the standing `~24h retention` lesson arriving on schedule.
+
+---
+
+## 2026-08-08 (second session) — §4.3 opened: `voice_tells` is the sweep's fifth covered type
+
+**Lane re-verified first, across two more rolls I did not make.** `v1.0.1264` then `v1.0.1266`,
+both replicas: `capwarn=1 refusal=1 positive_control=2` each time. Latest scheduled run
+(`1ac359c4`, 08:38:28Z) `scanned 151 · capped_at 1500 · cap_binding false · resolved 3 ·
+uncovered_backlog 625`. Closures by day 3 / 1 / 21 / 33 — steady state, unattended.
+
+**Dedup half re-measured [MEASURED 2026-08-08]: 55 colliding pairs across 184 rows**, against the
+53 / 180 recorded in the morning's handoff and 48 / 135 on 08-03. Contributors unchanged:
+`undeployed_asset` 48, `improve_tool` 30, `needs_internal_links` 29. **The index definition was READ,
+not reconstructed** — `pg_get_indexdef` — which is the trap the handoff records costing a 56% growth
+figure that was an artefact of a remembered exclusion list. It still drifts upward; §4.1 stays
+blocked and gets more expensive.
+
+### Candidate triage — and two of the three named candidates were wrong
+
+The handoff named `content_rewrite` (~34), `voice_tells` (~25), `needs_sprite_css` (~10). **The
+CLOSER check separated them immediately, and it is the check this lane exists to have learned:**
+
+| candidate | closer census | verdict |
+|---|---|---|
+| `content_rewrite` | 51 `complete`, carrying `deploy_result` payloads — *"prose rewritten in voice H … verified at the served page"* | **REJECTED.** A real fix pipeline already drains it. Weakest retraction candidate of the three, not the largest one |
+| `needs_sprite_css` | zero closed — but all 10 rows are `unresolved`, and its own source comment says *asset-deployer's sprite_css mode re-runs* | **DEFERRED.** A re-run path may exist; needs its own producer/closer pass |
+| `voice_tells` | **zero rows have ever reached `complete`/`verified`** | **ADOPTED** |
+
+**`voice_tells` had no closer of any kind.** `HandlerAgent: ""` by design, no dispatch path, no
+revalidator: 25 items, all `needs_human_review`, all filed **2026-07-17**, all on
+leopardessconsulting.co.uk, still parked 22 days later. Parked for ever by construction.
+
+### The objection I expected to kill it, and why it did not
+
+`bugs_open/033` quotes `check_voice_tells.go:142` — ***"never an unreviewed auto-rewrite"*** — as
+evidence the type was filed correctly for human review. That reads like a prohibition on exactly
+what I was about to build. **It is not: it governs the FIX path, not the retraction path.**
+Retraction never edits copy and never dispatches a rewrite; it withdraws a claim the current page no
+longer supports. The human decision about *how* to fix machine-written prose is untouched.
+
+Checked both consuming bug files rather than assuming: **083 classifies `voice_tells` under
+*advisory / machine-fixable in principle* (186 items), NOT under *needs a human ANSWER* (50).**
+033 lists it among ~175 *deliberate, documented escalations*. **Neither places it under an open
+owner decision** — which is the check that once stopped this lane pointing an auto-closer at 21 rows
+mid-decision.
+
+### What I built, and the one design choice that matters
+
+`actions` imports `discovery_checks`, one-way, so shared code had to go in `discovery_checks`.
+Extracted the emit side's query + scan into exported `ScanVoiceTells`; **both ends now call it**, so
+the two ends of an item's life cannot answer *"does this read machine-written?"* differently. Same
+precedent as `revalidateNeedsPage` sitting beside its own resolver. Registered as CQ-020.
+
+**The subtle part is not the predicate — it is that `len(Findings) == 0` collapses three states:**
+
+1. components were examined and are clean → **the prose was fixed** (the only state that may close)
+2. **nothing was read at all** — page deleted, not `active`/`deployed`, no rendered components
+3. **only human-LOCKED components were read** — the emit side has always skipped those
+
+States 2 and 3 produce an empty findings list identical to state 1. So `VoicePageScan` reports
+`ComponentsExamined` and `ComponentsSkippedLocked`, and the ladder refuses on both. This is the
+no-op-case rule arriving in a new costume: **I checked what could break before I checked what would
+be a silent no-op, and the no-op is the one that closes a live human-review row.**
+
+### Measurements taken before writing the arms, not after
+
+[MEASURED 2026-08-08, live clients_db] All 25 items: `page_missing 0 · page_not_live 0 ·
+no_unlocked_components 0 · has_locked_components 0`. **So the two locked-component arms are
+UNEXERCISED on today's data — reasoned and unit-tested, NOT observed in production.** Said plainly
+in the code comment, the submission's risks block and CQ-020, because "handled" and "seen to work"
+are different claims and this lane has paid for conflating them.
+
+[MEASURED] **13 of the 25 pages have a `page_components.updated_at` later than their item's
+`created_at`** — so this judges real change rather than running inert. That was the disconfirming
+check: had it come back 0, registering the type would have added scan cost and closed nothing, and
+I would have said so rather than shipping it.
+
+[MEASURED] The site is still opted in — `aspect='voice'`, `is_current=true`,
+`voice_gate.enabled=true` — so the gate loads and the refusal arm is not the common path.
+
+### Missteps this session
+
+- **I read the wrong handoff first.** Opened `HANDOFF_2026-08-04_continue_here.md` because it was
+  the path I was handed; its own top banner says it is superseded. Cost nothing because the banner
+  is there, which is the argument for putting one on every superseded file.
+- **I called a build failure another session's WIP, on one truncated error.** `go build` failed with
+  `undefined: verificationOutcome`; I saw `verifiers.go` dirty in the tree and said so. The symbol
+  was defined 24 lines below its call site, and the next build passed with no intervention — the
+  tree had simply been read mid-write. **The real lesson is not "it was theirs" but that I piped
+  the error through `head -10` and then reasoned from the survivor**, and that my `&& echo "BUILD
+  OK"` printed after a FAILED build because `head` exited 0. A shell idiom that reports success on
+  a failed command is a landmine I built myself, in the same session I was writing landmine notes.
+  Fixed by checking `${PIPESTATUS[0]}` and by building against `git archive HEAD` plus my files
+  only, which is what the lane's own trap list says to do when the shared tree is broken.
+- **Mutation testing caught a guard passing in series.** Deleting the *examined nothing* guard did
+  not fail the locked-only ladder case — it fell through to the *some components locked* arm and
+  produced a plausible-looking `unknown`. Only the separate property test
+  (`TestVoiceTellsNeverResolvesWithoutReadingSomething`) caught the pure 0/0 case. **A per-case
+  table cannot prove an invariant; state the invariant separately.** All three guards mutated to
+  `if false` one at a time, each caught, green on restore.
+
+### State
+
+Committed `ef80216be`, council `4d430ca8-7e34-479a-95f3-71fdc12fdef6` submitted alongside with
+`Council-Submitted:` (verdict pending at time of writing — **read it, and act on a REVISE**).
+**Go change: inert until the next chassis roll.** The verification recipe is the same 0→1 transition
+shape as the selection filter, and **the baseline must be taken BEFORE the roll** — see the handoff.

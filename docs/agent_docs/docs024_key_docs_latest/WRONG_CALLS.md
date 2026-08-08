@@ -23007,3 +23007,50 @@ place"*, not *"it did not happen"* — the discipline is already in this file's 
 entries and in `a-silent-gate-either-did-not-look-or-approved`. I nearly recorded "the alias
 did not fire". Recorded instead as UNWITNESSED, with the two things that would actually
 discriminate written into `bugs_open/136` §9.
+
+---
+
+### 2026-08-08 — "Another session's WIP is breaking the build", said from ONE line of a truncated error
+**lane:** bugfix_168_deployed_asset_path (voice_tells revalidator)
+
+**The claim.** `go build ./platform/...` failed with `undefined: verificationOutcome`. I saw
+`discovery_checks/verifiers.go` and `complete_work_item_verification.go` both dirty in the shared
+tree, and told the owner: *"Another session is mid-edit on verifiers.go + complete_work_item_verification.go
+— their WIP breaks `checks.VerifyResult`, which cascades to `verificationOutcome`. Not mine."*
+
+**What was actually true.** `verificationOutcome` was defined 24 lines below the call site, in the
+same file. `VerifyResult` was present and identical at HEAD and in the tree. I checked those two
+things, found the story didn't hold, re-ran the build **with no intervention at all** — and it
+passed. The tree had been read mid-write; by the next command the other session had finished. My
+cascade explanation was invented to fit a symptom that had already gone.
+
+**What caught it.** Checking the specific claim (`grep VerifyResult` in tree vs HEAD) instead of
+acting on it. It cost one command. Had I not, I would have "worked around" a problem that did not
+exist, and the workaround would have looked like it fixed something.
+
+**The cheap check that would have prevented it.** Don't diagnose from a truncated error. I ran
+`go build … 2>&1 | head -10 && echo "BUILD OK"`, which (a) discarded every error after the tenth and
+(b) **printed BUILD OK on a failed build**, because `&&` reads `head`'s exit status, not the
+compiler's. So I reasoned about *one surviving line* of an error list I never saw, from a command
+that had just told me it succeeded. `echo "exit: ${PIPESTATUS[0]}"`, then re-run before attributing.
+
+**The transferable bit, and why it is worse than a normal mis-read.** On a shared tree, "another
+session broke it" is *always available* as an explanation, it is *frequently true*, and it is
+**unfalsifiable by the time you finish typing it** — the evidence mutates under you. That
+combination makes it the most attractive wrong answer on this repo. Confirm the specific symbol at
+HEAD before naming another session, and prove your own work against `git archive HEAD` plus your own
+files, which is the only build signal here that does not move.
+
+### 2026-08-08 — a deploy baseline needle that returned 6 on a binary without the change
+**lane:** same
+
+Taking the pre-roll baseline for a string-additive Go change, I grepped `no longer exists` — a
+fragment of one of the new error strings — and got **6 on both replicas of `v1.0.1267`**, a build
+that does not contain the commit. Not recorded as evidence (I caught it in the same command that
+produced it, because the expected value was 0 and it wasn't), but it was one careless step from
+becoming the baseline, and a baseline of 6 makes the post-roll reading uninterpretable for ever.
+
+**The cheap check:** the baseline command is itself the disconfirmation — write down what you expect
+(**0**), and treat any other value as a broken needle rather than an interesting fact. A needle must
+be a whole distinctive clause, ASCII-only, and **verified zero on a pre-commit build**; the 0 → 1
+transition is the entire proof for an additive change and it cannot be recreated after the roll.
