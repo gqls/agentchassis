@@ -488,3 +488,76 @@ latency. **Foreground-tested with `ONESHOT=1` before arming** — it emitted a r
 transition on that first call, which is the proof the arming was worth having.
 
 Outcome appended below when it lands.
+
+## 2026-08-08 17:21:53Z — the run COMPLETED, deployed nothing, and left the backlog 31% bigger
+
+`99d39725` reached `complete|COMPLETED` in **9 minutes**. Every figure below is
+`[MEASURED]` against the live DB after the run, with the run window pinned to
+`created_at/updated_at > 2026-08-08 17:12:00+00`.
+
+| | before (17:05Z) | after (17:26Z) |
+|---|---|---|
+| open items (not complete/cancelled/rejected/wont_fix) | **189** | **248** |
+| complete | 40 | 49 |
+| total rows | 232 | 300 |
+
+- **68 items created** by the run: 34 `page_rerender` (the fan-out, exactly one per
+  page — dedup worked) + 34 fresh findings (7 `voice_tells`, 6 `undeployed_asset`,
+  5 `claims_unverified`, 2 `cta_improvement`, and singles).
+- **10 items dispatched**: 9 `complete`, 1 still `claimed`.
+- **0 pages deployed. 0 pages rebuilt.** `pages.deployed_at`, `pages.updated_at` and
+  `pages.last_built_at` each returned **zero rows** moved on this site.
+  *Positive control: the same `deployed_at` query returns 614 pages fleet-wide and a
+  newest deploy of 17:16:59Z — inside my own run window, on another site. The column
+  moves; it did not move here.*
+- Changed instead: **3 `site_components`** (all of the chrome, 17:21:15) and **1
+  `page_component`** (blog-listing, 17:21:20).
+
+**Net: +59 open items, −0 pages deployed.** The dispatch stage's whole output was
+work items and chrome rows.
+
+> **CORRECTION to what this session told the owner mid-run.** I said the run would
+> repair **"at most 5 items"**, from `load_work_items`' `max_items: 5` — which I had
+> verified is read from *step* config (`load_work_item_actions.go:641`, the live knob,
+> not the inert `input_data` one another lane hit today) and passed as the query LIMIT,
+> and from `build-dispatch-loop`'s step graph having no edge back to `load_items`.
+> **Observed: 10 items claimed by `build-dispatch-loop`, exactly 2×5.** Reading the
+> action and reading the step graph were both correct and still did not bound the run —
+> something re-enters the claim, and *which* is `[UNVERIFIED]` (two dispatch passes and
+> a re-query inside the `process_item` loop both fit; I have not distinguished them).
+> **The lesson is the one this repo keeps paying for: a cap proven present in the code
+> is not a cap proven binding at runtime.** I checked that the knob was wired and
+> inferred the bound instead of counting the rows, and the count was one query away.
+
+**Is the fan-out a defect?** Not obviously — and the honest read is more interesting
+than "bug". Six site-level items (4 `needs_rerender`, 2 `deactivated_component`) each
+reported `items_created: 34, pages_total: 34` under its own `batch_id`; six batches of
+34 collapsed to **exactly 34 distinct rows**, so *the dedup is doing its job*. The
+fan-out itself is sane design: a site-level rerender becomes one item per page, to be
+drained by later passes. Nor did `bugs_closed/166` regress — its fix is visibly
+working, the chrome re-rendered to real content (3,487 / 4,501 / 3,944 bytes,
+`build_status='rendered'`), and the leopardess lane's documented damage class did
+**not** occur: all five `/tools/*` links and `/blog.html` survive in the new chrome
+(the only live-vs-stored diff is three `/assets/` links, which live in the `head` slot
+my extract did not cover — not a loss).
+
+**The defect is arithmetic, not a function.** One run mints ~68 and drains ~10. At
+that ratio a per-site supervised run cannot converge, and the more thoroughly discovery
+works the further behind dispatch falls. **This is D3's own question — "have the
+supervised runs shown the repairs are sane?" — answered on its first run: the repairs
+that ran were sane; the loop that runs them does not terminate.** Draining
+leopardess's backlog this way needs ~25 more runs *if discovery minted nothing further*,
+which it does every time.
+
+**Two smaller things worth carrying:**
+1. **`COMPLETED` on the orchestration did not mean the work had finished.** Item
+   `ec9bf724` (`content_rewrite`) was still `claimed` and its `updated_at` moved to
+   17:24:58 — **three minutes after the parent reported `COMPLETED` at 17:21:53.** A
+   spawned handler outlives the orchestration that dispatched it, so an outcome read
+   at the terminal status is read too early. Re-read after the children settle.
+2. **A real finding the run surfaced, for whoever owns the tool pages:**
+   `acceptance_run` on `tool-process-automation-scorer` returned **7 passed / 2 failed**
+   — `submit-shows-error` failing at *both* `@desktop` and `@mobile`, `fix_cycles_spent: 0`.
+3. **220 did not fire here**: zero `unbuilt_internal_link` minted, so the residual risk
+   flagged in the pre-flight did not materialise. The archived never-deployed page did
+   not attract one. That is one run's evidence, not a general clearance.

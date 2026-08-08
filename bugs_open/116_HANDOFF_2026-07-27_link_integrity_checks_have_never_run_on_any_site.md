@@ -282,3 +282,43 @@ What this changes, and does not:
 This file stays OPEN as the record of the staged programme; it closes when
 either the backlog is drained and G1 (the recurring task) gets its own owner
 go, or the owner rules the manual cadence permanent.
+
+### RUN 1 of the D3 programme — leopardessconsulting, 2026-08-08 — the repairs were sane, the loop does not converge
+
+Owner-selected target (biggest backlog, as D3 directs). Orchestration
+`99d39725-1223-4cbb-b4c5-60e66483d734`, corr `25e9d675-c287-401e-b081-c3277ebe2ea5`,
+fired by `finetuning_uk_repair/294_TRIGGER_improvement_loop_v1.sh`,
+17:12:54 → 17:21:53Z, status COMPLETED. **Full evidence, pre-flight and corrections:**
+`docs024_key_docs_latest/bugfix_179_deploy_path_override/NOTES_deploy_path_override.md`,
+2026-08-08 entries.
+
+**Outcome in one line: 68 items created, 10 dispatched, 0 pages deployed; open work
+went 189 → 248.**
+
+**This bears directly on the decision D3 defers.** D3 makes full fleet re-enable the
+destination "once a few supervised runs have shown the repairs are sane". Run 1 splits
+that question in two, and the halves have different answers:
+
+- **The repairs that ran WERE sane.** No wrong-page rebuild, no chrome damage on a site
+  whose lane had documented that exact risk, `bugs_closed/166`'s fix visibly working,
+  dedup collapsing six 34-item fan-outs to exactly 34 rows.
+- **The loop that runs them does not converge.** One run mints ~68 findings and drains
+  ~10. Discovery outruns dispatch by roughly 7:1, so a per-site run cannot drain a
+  per-site backlog — and re-enabling fleet-wide would multiply a divergent loop across
+  30-odd sites rather than clear anything. **Re-enablement should be gated on the
+  throughput ratio, not only on repair quality**, or the destination D3 names is a
+  queue that grows faster under supervision than it did while switched off.
+
+Deciding what to do about the ratio is an owner call and is NOT taken here. The cheap
+levers visible from run 1, unranked and uncosted: raise `build-dispatch-loop`'s
+`load_work_items.max_items` (config, live immediately); give the dispatcher an edge back
+to `load_items` so one run drains until empty; or run discovery and dispatch on separate
+cadences so a drain pass is not forced to re-audit first.
+
+Two operational findings for whoever fires run 2:
+- **`COMPLETED` is read too early.** A dispatched handler outlived the orchestration by
+  3 minutes (`ec9bf724`, still `claimed` at 17:24:58 after COMPLETED at 17:21:53). Let
+  the children settle before recording an outcome.
+- **`max_items: 5` did not bind** — 10 items were claimed. The cap is real in the code
+  and read from the live knob; something re-enters the claim. Count the rows; do not
+  infer the bound from the config, as this lane did and had to correct.
