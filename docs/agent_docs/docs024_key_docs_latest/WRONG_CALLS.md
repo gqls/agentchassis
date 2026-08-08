@@ -22299,3 +22299,120 @@ attempt. A counter written by the deciding function itself can never falsify tha
 function — same family as *a count proves the damage, never the no-op* and *the check
 answers the question you encoded*, one seam up: I encoded "was the retry booked?" while
 asking "was the work retried?".
+
+## 2026-08-08 — "the planner only engaged on newly-composed pages" (brochure lane, RFC_016 §3a r1)
+
+**The claim.** The 2026-08-07 Slice A read-out (RFC_016 §3a, NOTES, the 151 bug
+file, and the owner's README): *"the planner used the object form only on the 5
+pages it was composing fresh; every carried-over page emitted plain strings"* —
+stated as the planner's behaviour, and it drove a real owner decision (option
+(a): strengthen the prompt).
+
+**What was wrong with it.** I read `collected_data->'validate_plan'->'pages'`
+and called it "what the LLM emitted". It is what SURVIVED
+`reconcilePlanWithRealised` (Pass B2 restores the realised sections over the
+LLM's for every deployed page — `v3_site_actions.go:3031`, header at `:5118`),
+which runs INSIDE ValidateSitePlanAction, upstream of where I looked. The
+planner's actual engagement on built pages was invisible in the data I used,
+whatever it was. My "71/71 emitted entries persisted, zero drops" count
+reconciliation was real but proved the WRONG boundary: validate→write
+fidelity, cited as if it were LLM→persist fidelity.
+
+**What caught it.** The next morning's compliance replan under seed 333 FAILED
+at write, and diagnosing it meant finally reading the RAW `llm_plan.result` —
+which carried object-form facts on deployed pages (index stat-band:
+F1+F2+F4) that the validate output no longer had. The mechanism claim for the
+07-07 run itself is now permanently [UNVERIFIABLE]: completed orchestration
+rows expire in ~24h and yesterday's raw emission is gone.
+
+**The cheap check that would have.** Read the emission at the EMISSION —
+`llm_plan.result` was sitting in the same `collected_data` I was already
+querying, one key over. General form: when a pipeline stage both TRANSFORMS
+and FILTERS, any conclusion about the producer read from the stage's OUTPUT
+needs the stage's INPUT beside it; and pin raw evidence the day you cite it,
+because this table forgets in 24 hours.
+
+---
+
+## 2026-08-07 — I used a DATA-gated template block as a TEMPLATE-VERSION discriminator (bug 117 lane)
+
+**The claim.** Four sites' stored footers were rendered before the
+`footer-theme-chrome` template changed on 2026-08-02. To show they actually
+serve stale HTML, I diffed the stored footer of a site rendered 3 minutes AFTER
+the change (lendzy.co.uk) against one rendered two days BEFORE (oufe.com) and
+found exactly one distinguishing token: `class="footer-compliance"`. I was about
+to report its absence on oufe as proof that oufe serves the pre-08-02 template.
+
+**What was wrong with it.** The token is inside `{{if .compliance_lines}}`. It
+discriminates **site data**, not template version — lendzy is a loan site with
+compliance lines, oufe has none. Both sites would render identically from either
+version of the template. The "discriminator" was measuring the difference
+between two SITES and I was reading it as the difference between two TEMPLATE
+REVISIONS.
+
+**What caught it.** Reading the 800 characters of template surrounding the token
+before trusting it. The `{{if` was two lines up.
+
+**The cheap check that would have.** Before using any literal as a version
+discriminator, print its template context and look for a conditional gate:
+`SELECT substring(html_template, greatest(1, position('<token>' in html_template) - 400), 800) …`.
+A token inside `{{if …}}` can never be evidence about which revision produced a
+render. General form: **a discriminator found by diffing two INSTANCES is a
+difference between those instances — it is only evidence about VERSION if you
+have separately shown it is unconditional.**
+
+**The consequence, recorded honestly.** With that token discarded I tested every
+`class="…"` literal in the template against all 16 footers rendered from it, split
+by the change timestamp — **none** splits them. So the claim "4 stale footers" is
+a TIMESTAMP claim and I could not upgrade it to a CONTENT claim. This is now
+stated as `[NOT ESTABLISHED]` wherever it appears rather than quietly dropped,
+because the gap is the strongest argument in the case: a timestamp cannot tell
+"stale and it matters" from "stale and it is a no-op".
+
+---
+
+## 2026-08-07 — my own corrected detector reproduced the defect it was correcting (bug 117 lane)
+
+**The claim (nearly made).** The live `stale_site_components` check compares
+stored chrome against the wrong table. My proposed correction was to widen the
+reference to everything chrome plausibly depends on:
+`GREATEST(content_components.updated_at, site_nav_items.updated_at, sites.updated_at) > site_components.updated_at`.
+
+**What was wrong with it.** `sites.updated_at` moves for any touch of the site
+row. Run live, the predicate marks **essentially every row stale** — the same
+false-positive defect I had just spent an hour measuring in the existing check,
+with a bigger numerator. I had swapped one signal uncorrelated with chrome for
+three, one of which is uncorrelated with chrome.
+
+**What caught it.** Running the candidate predicate as a query before writing it
+into the plan. It took one minute.
+
+**The cheap check that would have.** **Every candidate detector predicate gets
+run against live data before it is proposed, and its firing rate reported.** If
+it flags ~100% or ~0% of rows, it is measuring the wrong thing — that is true of
+a predicate you are fixing AND of the one you are replacing it with. The tally
+this joins: `narrowing-a-detector-can-make-it-inert`, `two-blind-checks-agree`,
+and `a-filter-from-the-question-describes-a-small-world` are all the same
+failure at different ends of the same dial.
+
+---
+
+## 2026-08-07 — I reported a code change that had not happened, because the shell ate my grep (bug 117 lane)
+
+**The claim.** Re-validating after a chassis build, I said
+"`fix_harcoded_colours_action.go:180` — that line has changed under me".
+
+**What was wrong with it.** Nothing had changed. The grep pattern was
+double-quoted and contained `$1`/`$2`, which bash expanded to empty:
+`grep -n "UPDATE content_components SET html_template = \$1 WHERE id = \$2"`.
+Zero matches, exit 0, no error. The line was intact.
+
+**What caught it.** Re-grepping with a shorter pattern within the same turn,
+before it reached any durable doc. Cost: one wrong sentence to the user.
+
+**The cheap check that would have.** **Single-quote any grep pattern containing
+`$`.** Joins the standing family of exit-0-zero-match traps
+(`grep-silent-on-non-utf8`, `kcat-publish-silently-drops`,
+`jsonb-text-like-cannot-match-a-key-value-pair`): the failure mode is always
+"the tool succeeded and found nothing", and the remedy is always to induce a
+non-zero result before trusting a zero.

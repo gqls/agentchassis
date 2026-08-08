@@ -261,3 +261,20 @@ unclaimed.
 > evidence: RFC_016 §3a; full trail in the lane NOTES 2026-08-07. Side-find:
 > the imagery positional-keying defect this lane dodged is live in production
 > — filed `bugs_open/214`.
+
+> **CORRECTED 2026-08-08 (the day after): the 08-07 note above attributes the
+> wrong mechanism.** "Planner uptake PARTIAL — object form on 5/24 pages (all
+> newly-composed ones)" was read from validate_plan's output, which is
+> downstream of `reconcilePlanWithRealised` Pass B2 — the pass that (correctly)
+> restores realised sections over the LLM's for every DEPLOYED page, discarding
+> fact assignments with them. The 08-08 compliance replan under seed 333 (rule
+> 17 mandatory-per-page, owner decision RFC_016 §5) proved at the RAW emission
+> that the planner assigns richly on built pages (index stat-band = F1+F2+F4) —
+> and that Pass B2 throws it away. **So: prompt half DONE (333 live); candidate
+> 1 cannot reach deployed pages without candidate 1b (RFC_016 §3b: planner
+> re-emits realised sections for deployed pages + Pass B2 carries facts by
+> name-match); Slice B round HELD until 1b is designed in.** The replan itself
+> died on `bugs_open/215` (canonicalised page-name collision kills the plan
+> write — pre-existing, unrelated to facts, gates clean observations). No data
+> damage (transactional write; plan 8ee5807b still current). Incident trail:
+> WRONG_CALLS 2026-08-08; evidence in RFC_016 §3b.

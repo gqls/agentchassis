@@ -4780,3 +4780,65 @@ terminal-state patterns (`completed*`) against an UPPERCASE status column
 which is how I caught the build cascade), but the same inverted match in a
 gate would be a silent never-fires. Cheap check: test the case-match against a
 real row before arming, not after.
+
+## 2026-08-08 — owner decides all three; seed 333 live; the compliance replan FAILS and the failure rewrites yesterday's conclusion
+
+Owner (in chat, recorded in RFC_016 §5): §5.1 RATIFIED (+ §1a scope
+clarification from their own question — stored positional cross-references are
+the ban; identity-addressing and immediately-resolved positional language are
+fine), §5.2 APPROVED, §3a = option (a). Executed: seed `333` generated
+byte-exact from a fresh live dump (`gen_seed_333.py`), applied (anchors 1/1/1,
+verify passed, `bak_333` + snapshot, ledger row), commit `d6e9dcf06`. Rule 17
+v2: object form + explicit facts key mandatory per page; roster instruction
+updated; the JSON example made all-object (the old mixed example modelled the
+partial shape). Compliance replan corr `1cb17b11` (kcat-safe, PUBLISH_OK; one
+transient permission-classifier denial, retried clean).
+
+**It FAILED at write_site_plan — and the diagnosis was worth more than a pass:**
+
+1. `insert site_plan_pages for "tool-llm-cost-calculator": duplicate key ...
+   idx_site_plan_pages_name`. The LLM emitted BOTH `llm-cost-calculator`
+   (3 sections) and a `tool-llm-cost-calculator` stub (0 sections);
+   `CanonicalisePage` (write_site_plan_action.go:277) maps the first onto the
+   second's name; no post-canonicalisation dedup; insert at :379 dies. Write
+   is transactional — verified: plan `8ee5807b` still current, no orphan rows,
+   NO damage. Yesterday's run emitted one variant and passed: emission
+   variance decides which replans die. **Filed `bugs_open/215`** (fix: dedup
+   by canonical name at write, stub loses to composed entry).
+2. **Rule 17 v2 WORKS.** Raw `llm_plan.result`: object form + facts on
+   effectively every composed page — index/stat-band = F1+F2+F4, features =
+   F6, digital-asset-recovery = F3+F3b, production-backend-engineering = F7.
+   The prompt half of option (a) is done.
+3. **The real blocker, found by diffing raw vs validate output in ONE run:**
+   `reconcilePlanWithRealised` (INSIDE ValidateSitePlanAction,
+   v3_site_actions.go:3031; Pass B2 header :5118) restores realised sections
+   over the LLM's for every DEPLOYED page — correctly, that is its job — and
+   fact assignments travel inside the LLM's entries, so they are discarded
+   with them. Raw index = 6 objects with facts; validate index = the 6
+   realised strings, no section_facts. Yesterday's cascade deployed the
+   remaining planned pages overnight, so today this discards assignments for
+   essentially the whole site. **Candidate 1 as shipped reaches only pages
+   built AFTER their plan carries assignments; the motivating (built) pages
+   need candidate 1b** (prompt: deployed pages re-emit realised sections
+   verbatim + assign to those names; Go: Pass B2 name-matched fact carry,
+   misses logged). 1b sketched in RFC_016 §3b, NOT implemented — it belongs in
+   the Slice B council round.
+
+**Misstep, mine, the expensive kind (WRONG_CALLS 2026-08-08):** yesterday's
+"the planner only engaged on newly-composed pages" was read from
+validate_plan's OUTPUT — i.e. post-Pass-B2 — and stated as the planner's
+behaviour. The raw emission was one jsonb key away (`llm_plan.result`) and I
+never read it; by the time the failure forced me to, yesterday's completed
+orchestration row had expired (~24h) and the r1 mechanism claim is permanently
+[UNVERIFIABLE]. The 71=71 count reconciliation proved validate→write fidelity;
+I cited it as LLM→persist fidelity. Cheap check, now §9: when a stage
+transforms AND filters, read its INPUT next to its OUTPUT before attributing
+behaviour to the producer. Corrections written visibly into RFC_016 §3a, the
+151 file, and the owner's README.
+
+**Slice B round: HELD** (draft with hold-note:
+`COUNCIL_DRAFT_slice_b_2026-08-08.json`). Not coherent until 1b is designed in
+and 215's fix unblocks a clean compliance observation. Owner's v4-plaintext
+read still owed, gates 330's apply. Current live state unchanged and safe:
+seeds 327/329/333 live, planner emits richly, everything discarded for
+deployed pages (= today's behaviour), nothing consumes, 328/330 held.

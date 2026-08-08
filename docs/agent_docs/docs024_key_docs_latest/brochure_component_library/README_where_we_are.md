@@ -1748,3 +1748,38 @@ note saying which section an illustration belongs to — is quietly wrong in
 five places across two sites, four of them with paid-for images no page can
 ever use, one written fresh this very morning. That is now bug 214, with the
 evidence and a cheap fix candidate attached.
+
+---
+
+2026-08-08. You decided all three questions this morning (recorded in the RFC:
+the naming rule is ratified — with the clarification your question earned:
+editing an image by its NAME is and stays fine, what's banned is writing down
+"page X, section number 4" and trusting the count later; the two-stage rollout
+is approved; and we push the planner to decide facts for every page).
+
+The push worked and then taught us something bigger. The planner, re-run under
+the stricter instruction, did exactly what we asked — on the home page it put
+the "live sites" and "council seats" numbers into the stats band and nowhere
+else, which is precisely the de-duplication you originally asked for. But the
+run then failed, and unpicking the failure showed two things. First, a
+long-standing safety rule — "never let a re-plan silently redesign a page
+that's already built" — works by throwing away the planner's version of every
+built page and keeping the real one. Right, and necessary — but the fact
+assignments ride on the planner's version, so for every page that's already
+live (which is now nearly all of them) the assignments get thrown away too.
+Yesterday I told you the planner was only half-engaging; that was me reading
+the data on the wrong side of that safety rule, and I've corrected it in
+writing everywhere it was stated. The fix is a modest, well-understood
+addition — let the planner see a built page's real sections and copy the fact
+notes across onto them — but it touches that safety rule, so it goes to the
+review council as part of the second stage rather than being slipped in
+quietly. Second, the failure itself was a separate, pre-existing flaw: if the
+planner happens to name the same page two ways in one run ("llm-cost-calculator"
+and "tool-llm-cost-calculator"), the whole plan write dies. Written up as bug
+215 with a small fix; nothing was damaged — the system correctly refused the
+whole write rather than half-applying it.
+
+So: nothing you decided changes. The prompt half is live and proven. Before
+the second stage switches on we need the two small fixes above through review,
+and your read of the writer's new instructions (the v4 file) is still the one
+action only you can do.

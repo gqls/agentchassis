@@ -135,6 +135,21 @@ three questions:
   9 of 15 pool facts offered is the deliberate `{{if .writer_line}}` filter,
   mirroring `composeWriterBlock`; the other 6 are chart-only facts.)
 
+> **CORRECTED 2026-08-08 (next morning, by the same lane): the "Complete: NO"
+> figures above are what SURVIVED, not what the planner emitted — the
+> mechanism attribution was wrong.** The numbers were read from
+> `validate_plan`'s output, which is downstream of `reconcilePlanWithRealised`
+> (runs INSIDE ValidateSitePlanAction, `v3_site_actions.go:3031`): its Pass B2
+> restores the REALISED sections over the LLM's for every deployed page — by
+> design, a built page must not be recomposed (bugs_open/001/037/050 lineage)
+> — and the LLM's section entries are exactly where fact assignments travel.
+> So assignments on built pages were structurally discarded before the data
+> this section read. Whether the planner engaged on built pages in THIS run is
+> now [UNVERIFIABLE] — the completed orchestration row expired (~24h) before
+> its raw `llm_plan.result` was read. What caught it, and the proof of the
+> real mechanism: the 2026-08-08 compliance run in §3b. Full incident:
+> `WRONG_CALLS.md` 2026-08-08.
+
 **Consequence for the Slice B round:** against this plan, consumption changes
 writer behaviour on 5 pages only, and the overlap pairs live on the unscoped
 pages — so the acceptance as stated in the 151 bug file (census pair-count
@@ -152,6 +167,56 @@ not merely latent — a fleet census the same morning found 5 of 131
 section-scope refs orphaned (one minted by this very replan), four of them
 with paid-for active assets unreachable by any build. Filed as
 `bugs_open/214` with the census query and fix candidates.
+
+### 3b. Slice A observation, round 2 (2026-08-08, compliance replan under seed 333) — the prompt half WORKS; the carrier cannot reach built pages; and the run died on an unrelated write defect
+
+Owner decisions landed (§5); seed `333` applied (rule 17: object form
+mandatory per page); compliance replan fired (corr `1cb17b11`). Outcome, three
+findings:
+
+1. **Rule 17 v2 compliance: PROVEN at the emission.** The raw
+   `llm_plan.result` carries object-form entries with facts on effectively
+   every composed page, including long-built ones — index/stat-band was
+   assigned `F1-live-sites` + `F2-council-seats` + `F4-day-turnaround`,
+   features `F6-zero-fabricated`, digital-asset-recovery both relojistas
+   facts, production-backend-engineering `F7`. Assignment quality: exactly the
+   deconcentration the motivating case wants. **Option (a)'s prompt change did
+   its job.**
+2. **The structural finding that supersedes r1's conclusion: fact assignments
+   cannot reach DEPLOYED pages at all in the current design.** Pass B2 of
+   `reconcilePlanWithRealised` (correctly) restores realised sections over the
+   LLM's for every deployed page — and assignments travel inside the LLM's
+   entries, so they are discarded with them. Verified in one run's own
+   collected_data: raw index = 6 object entries with facts; validate output
+   index = the 6 realised STRING sections, `section_facts` absent. Since
+   yesterday's build cascade deployed the remaining planned pages, this now
+   discards assignments for essentially the whole site. **Candidate 1 as
+   shipped scopes facts only for pages built AFTER their plan first carries
+   assignments; the motivating pages (already built) are out of reach without
+   a follow-up.** Proposed follow-up (candidate 1b, needs its own review in
+   the Slice B round): (i) prompt — for deployed pages the planner re-emits
+   the CURRENT realised section list verbatim (it must be shown it) and
+   assigns facts to those names; (ii) Go — Pass B2, when restoring realised
+   sections, carries facts from the LLM's entries onto restored entries
+   matched by component name, logging misses durably. (i) makes (ii)'s match
+   near-total; (ii) alone already carries whatever names coincide.
+3. **The run failed at write on a pre-existing, unrelated defect** — two
+   emitted pages canonicalised to one name (`llm-cost-calculator` +
+   `tool-llm-cost-calculator` stub → `idx_site_plan_pages_name` 23505), the
+   whole write rolled back (transactional — verified: prior plan still
+   current, zero orphan rows). Filed as `bugs_open/215` with the differential
+   (the 08-07 run emitted one variant and passed) and fix candidates. Note the
+   interaction: rule 17 v2's every-page requirement plausibly RAISES the odds
+   of exhaustive (duplicate-spelling) enumeration, so 215's dedup-at-write fix
+   is sequenced INTO this lane's acceptance path — replans stay
+   emission-variance-fragile until it ships.
+
+**Consequence for the Slice B round: HELD, not submitted, as of 2026-08-08.**
+The round's honest content now includes candidate 1b (a Go change to a
+guarded, bug-lineage-laden merge — exactly what reviewers should see whole)
+and is not coherent until 1b is designed and 215's fix unblocks a clean
+compliance observation. Draft submission (evidence current to this morning):
+`brochure_component_library/COUNCIL_DRAFT_slice_b_2026-08-08.json`.
 
 ## 4. Objections acted on / answered (so the next round is not re-litigated)
 
