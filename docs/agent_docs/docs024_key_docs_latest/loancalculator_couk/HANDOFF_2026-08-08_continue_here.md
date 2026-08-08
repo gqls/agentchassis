@@ -24,8 +24,11 @@ live         26/26 HTTP 200 · 12/12 locked calculator rows identical · toolgol
 > voice H      26 of 26 active pages          (was 23; the last 3 landed on v1.0.1266)
 > live         26/26 HTTP 200 (swept live)
 > calculators  11/11 identical to golden, re-baselined GOLDEN_2026-08-08_voice_h_complete.json
-> 219          FIXED, LIVE, PROVEN — kept in bugs_open/ by owner direction, evidence inside
-> 221          OPEN, belongs to webdesign.co.uk — same check, different mechanism
+> 219          FIXED, LIVE, PROVEN on v1.0.1266 — re-verified on v1.0.1268 after the
+>              next roll. Kept in bugs_open/ by owner direction, evidence inside
+> 221          FIXED by the bugfix_221_ai_disclosure_precision lane (61c8cc6ff, council
+>              APPROVED) — NOT ours to verify or close; that lane was actively on it
+>              2026-08-08 late. Do not compete: contribute into the bug file if at all
 > ```
 >
 > **§1 is closed:** `index`, `tool-car-finance-calculator` and

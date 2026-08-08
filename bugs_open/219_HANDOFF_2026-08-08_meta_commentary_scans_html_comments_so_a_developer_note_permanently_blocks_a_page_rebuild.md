@@ -336,3 +336,18 @@ satisfy a validator.
 **What is NOT closed by this:** `bugs_open/221` — the same check still blocks
 webdesign.co.uk's `tools-index` on `as an ai` in genuinely visible copy. Different
 mechanism, filed separately, that lane told.
+
+### Re-verified after the next roll — `v1.0.1268`, 2026-08-08 late
+
+A fix is only as live as the most recent build. Re-grepped both `agent-chassis`
+replicas on `v1.0.1268` (fleet now 47 pods on that tag, near-uniform, unlike the
+mixed state during the `v1.0.1266` roll): **ADDED marker 1, REMOVED marker 0** on each.
+The fix survived a second, independently-triggered build.
+
+**Honest limit on this particular check:** no old-image chassis pod remained by the
+time it ran — the last `v1.0.1267` pod aged out between two `kubectl` calls — so this
+run had **no contemporaneous control**. The marker pair's ability to discriminate was
+established earlier the same day against a `v1.0.1264` pod, which returned the exact
+inverse (`0` / `1`). Recorded rather than glossed: a control run hours earlier on a
+different image is weaker evidence than one run alongside, and a reader should know
+which of the two this line rests on.
