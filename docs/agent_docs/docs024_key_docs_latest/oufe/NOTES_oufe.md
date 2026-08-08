@@ -1907,3 +1907,33 @@ schema description, the register landmine, and the council round as an open
 question (whether bugs_open/191's artefact-level checks see it). And locked
 slots / 069 remain the other legitimate protection for anything that must
 never rebuild — nothing on oufe is locked; nothing now needs to be.
+
+### 2026-08-08 addendum — council rounds 1+2 both REVISE; acted on the record instead of a round 3
+
+Round 1 gate (editquality): propagation outside the edit set — answered by
+having executed it; that seat approves in round 2. Round 2 gate
+(bug_historian, HIGH): this is the fourth per-field carrier on the same two
+components and the GENERAL mechanism — a chrome rebuild silently discards
+anything not reproducible from template+config, no warning — stays open for
+the next undeclared hand-patch on any of the 16/15 sharing sites; plus why
+not 069 locks (bugs 058/069); plus no fail-loud guard. Response, per the
+advisory-gate norms (the code is live and verified; the objection asks for a
+mechanism-level piece this task never had):
+
+- **`bugs_open/226` filed** — the silent-discard mechanism, the twice-measured
+  damage, the three containment shapes that already exist and why none makes
+  an UNDECLARED patch loud, fix candidates ranked (divergence check at
+  overwrite time using the 117 stamped inputs > loss ledger > convention).
+  The lock question is answered there directly: for content that should
+  evolve with the site, reproduction beats a freeze; locks stay right for
+  content with no data path.
+- **`339_..._ROLLBACK.sql` sidecar written** (debug_historian's ask) —
+  restores the pinned pre-339 bytes, removes the schema keys and oufe's
+  config values; uppercase suffix so the runner never auto-applies it.
+- guardian's "independently confirm the owned-pages claim": already done —
+  the 9/9 wire sweep with byte guards IS independent of the batch statuses,
+  and the tool-integrity greps (115 rw- markers, consent gate) confirm the
+  owned pages were reassembled, not clobbered.
+- No round 3 submitted: one run per coherent task, and the remaining ask is
+  226's task, not this one's. The commits stand on `Council-Submitted:` —
+  098 will show the trail honestly as submitted-not-approved.
