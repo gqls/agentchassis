@@ -485,13 +485,21 @@ func VerifyUnbuiltInternalLinkResolved(ctx context.Context, db *sql.DB, target V
 	//    NOTE the container/target split: spec.page_id is the page CONTAINING
 	//    the link; target.PageID (the work item's page_id column) is the TARGET
 	//    the href points at. Confusing the two is this bug's whole mechanism.
+	// position(), not LIKE-concatenation: `_` is a SQL wildcard and hrefs
+	// routinely carry underscores, so a LIKE built from the raw href
+	// over-matches (href="/my_page.html" would also "find" /myXpage.html) and
+	// this verifier would then refuse a genuinely resolved item. position() is
+	// a plain substring test with no pattern semantics and needs no escaping
+	// (council round 1 on bugs_open/220, bug_historian; the undeployed-assets
+	// LIKE landmine is the same class one field over). NOTE the dead_fragment
+	// verifier in this package's sibling file still uses the LIKE shape.
 	var stillPresent bool
 	var err error
 	if surface == "site_component" {
 		err = db.QueryRowContext(ctx, `
 			SELECT EXISTS (
 				SELECT 1 FROM site_components
-				WHERE site_id = $1 AND COALESCE(rendered_html, '') LIKE '%' || $2 || '%'
+				WHERE site_id = $1 AND position($2 in COALESCE(rendered_html, '')) > 0
 			)`, target.SiteID, `href="`+href+`"`).Scan(&stillPresent)
 	} else {
 		containerIDStr, _ := target.Spec["page_id"].(string)
@@ -502,7 +510,7 @@ func VerifyUnbuiltInternalLinkResolved(ctx context.Context, db *sql.DB, target V
 		err = db.QueryRowContext(ctx, `
 			SELECT EXISTS (
 				SELECT 1 FROM page_components
-				WHERE page_id = $1 AND COALESCE(rendered_html, '') LIKE '%' || $2 || '%'
+				WHERE page_id = $1 AND position($2 in COALESCE(rendered_html, '')) > 0
 			)`, containerID, `href="`+href+`"`).Scan(&stillPresent)
 	}
 	if err != nil {

@@ -188,10 +188,29 @@ func LoadPageRecordAction(ctx context.Context, params ActionParams) (interface{}
 // id, never consulting the name inputs. Split out so the main flow's page_name
 // fallback recovery (which would re-fill an emptied name from the spec and win
 // the priority race all over again) cannot reach it.
+//
+// Zero rows is a FATAL ERROR here, not the {found:false} soft miss the
+// name-based flow returns (council round 1 on bugs_open/220, bug_historian,
+// HIGH). The id comes from the work item's page_id column, so a valid uuid
+// matching no row means the target was deleted (or belongs to another site) —
+// a state the caller cannot remedy by building anything. A soft miss would
+// route the saga through the success-labelled complete_error path, which is
+// the exact silent no-op shape this input exists to close for its own target
+// case; failing loudly routes the item into the dispatcher's error handling
+// instead.
 func loadPageRecordByID(ctx context.Context, params ActionParams, siteID, pageID uuid.UUID, logger *zap.Logger) (interface{}, error) {
 	logger.Info("LoadPageRecordAction: authoritative page_id supplied — loading by id, name inputs ignored",
 		zap.String("authoritative_page_id", pageID.String()))
-	return queryPageRecordRow(ctx, params.DB, siteID, "", pageID.String(), logger)
+	res, err := queryPageRecordRow(ctx, params.DB, siteID, "", pageID.String(), logger)
+	if err != nil {
+		return nil, err
+	}
+	if m, ok := res.(map[string]interface{}); ok {
+		if found, _ := m["found"].(bool); !found {
+			return nil, fmt.Errorf("authoritative_page_id %s names no page row for site %s — the id came from the work item's page_id column, so this target is deleted or foreign, and falling back to a name lookup would load a different page", pageID, siteID)
+		}
+	}
+	return res, nil
 }
 
 // queryPageRecordRow runs the page lookup — by name when pageName is non-empty,

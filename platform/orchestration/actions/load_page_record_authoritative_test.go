@@ -130,6 +130,50 @@ func TestLoadPageRecord_WithoutAuthoritativeIDNameStillWins(t *testing.T) {
 	}
 }
 
+// A VALID uuid that matches no row must be FATAL, not the {found:false} soft
+// miss the name flow returns (council round 1, bug_historian, HIGH). The id
+// came from the work item's page_id column, so no-row means the target was
+// deleted or is foreign to the site — a soft miss would route the saga through
+// the success-labelled complete_error path, the exact silent no-op shape this
+// input exists to close. This test pins that it neither errors-as-not-found
+// NOR silently falls back to the (resolving) container name.
+func TestLoadPageRecord_AuthoritativeIDMatchingNoRowIsFatal(t *testing.T) {
+	siteID := uuid.New()
+	targetID := uuid.New()
+
+	params, mock := loadPageRecordParams(t,
+		map[string]interface{}{
+			"site_id":               "site_record.site_id",
+			"page_name":             "input_data.spec.page_name",
+			"authoritative_page_id": "input_data.page_id",
+		},
+		map[string]interface{}{
+			"site_record": map[string]interface{}{"site_id": siteID.String()},
+			"input_data": map[string]interface{}{
+				"page_id": targetID.String(),
+				"spec":    map[string]interface{}{"page_name": "index"},
+			},
+		})
+
+	mock.ExpectQuery(`WHERE site_id = \$1 AND id = \$2::uuid`).
+		WithArgs(siteID.String(), targetID.String()).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "title", "page_type", "sections", "url", "build_status", "nav_label", "nav_order", "content_direction"}))
+
+	_, err := LoadPageRecordAction(context.Background(), params)
+	if err == nil {
+		t.Fatal("expected a fatal error for an authoritative id matching no row — a soft {found:false} " +
+			"routes the saga through the success-labelled complete_error path, and a silent name fallback " +
+			"loads the container: both are the defect")
+	}
+	if !strings.Contains(err.Error(), "authoritative_page_id") {
+		t.Fatalf("error should name the input; got: %v", err)
+	}
+	if merr := mock.ExpectationsWereMet(); merr != nil {
+		t.Fatalf("the zero-row id lookup must be the one and only query — a second (name) query would be "+
+			"the silent fallback this test forbids: %v", merr)
+	}
+}
+
 // A malformed authoritative value is a misconfigured path, not a data state:
 // falling through to the name would silently load a different page, which is
 // the exact defect the field exists to close. Loud error, matching site_id's
