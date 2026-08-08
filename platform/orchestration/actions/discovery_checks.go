@@ -53,6 +53,21 @@ var RunDiscoveryChecksInputSpec = datahelpers.ActionInputSpec{
 	ConfigKeys: []string{"checks", "check_pipeline", "allow_unregistered_checks"},
 	Defaults:   map[string]interface{}{},
 	Deprecated: map[string]string{},
+	// The other half of bugs_open/136, added 2026-08-08. Declaring the key above
+	// made the defect VISIBLE; this makes it stop happening. `check_domain` is
+	// what all three live callers actually write, and it is now honoured.
+	//
+	// This IS a behaviour change and the file it changes is this one, so state it
+	// here: completeness-discovery-agent asks for "content" and quality- for
+	// "build", and until now both silently got the "design" default below. The
+	// original filing measured that as harmless. It stopped being harmless on
+	// 2026-08-04, when `content_duplication` and `page_canonical_collision` —
+	// two checks that propagate dctx.Pipeline rather than hardcoding their own —
+	// joined completeness-discovery-agent's list and filed four rows under
+	// `design` on an agent whose config says `content`. countDispatchableWorkItems
+	// (work_items_common.go) filters on pipeline, so a row under the wrong one is
+	// invisible to the count that should see it.
+	DeprecatedConfigKeys: map[string]string{"check_domain": "check_pipeline"},
 }
 
 func init() {
@@ -88,10 +103,8 @@ func RunDiscoveryChecksAction(ctx context.Context, params ActionParams) (interfa
 	}
 
 	config := params.StepConfig.Config
-	checkPipeline, _ := config["check_pipeline"].(string)
-	if checkPipeline == "" {
-		checkPipeline = "design"
-	}
+	checkPipeline, _ := datahelpers.ResolveConfigSetting(
+		config, RunDiscoveryChecksInputSpec, "check_pipeline", "design", logger)
 
 	// --- Parse enabled checks from config ---
 	enabledChecks := []string{"empty_sections", "undeployed_assets", "missing_css", "duplicate_palette"}

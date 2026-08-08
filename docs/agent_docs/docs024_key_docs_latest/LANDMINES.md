@@ -6571,3 +6571,52 @@ any count off this column is a floor, not a history — there is no history tabl
   is argued. `RUNBOOK_page_content_writer_dispatch.md` R8 has the census plus the three
   ways it lies to you.
 - **added:** 2026-08-08, bugfix_201_page_content_writer_dispatch lane
+
+### `ActionInputSpec.Deprecated` cannot carry a renamed SETTING — it resolves the old key's VALUE as a data path, so the alias reads as wired and silently takes the default
+
+**footprint:** `platform/orchestration/datahelpers/action_inputs.go` (`ActionInputSpec.Deprecated`, `ExtractActionInputs` Strategy 3) · `platform/orchestration/datahelpers/config_key_aliases.go` (`ResolveConfigSetting`, `DeprecatedConfigKeys`) · `ActionInputSpec.ConfigKeys`
+
+You have renamed a step-config key and you want the old name to keep working. The spec has
+a field called `Deprecated`, documented as *"old config key -> new field name"* with a
+deprecation warning. It is the obvious thing to reach for and **for a settings key it is
+the wrong one, in the direction that looks right.**
+
+`Deprecated` is honoured in exactly one place — `ExtractActionInputs` Strategy 3 — and what
+it does there is `ExtractNestedField(collectedData, config[oldKey])`. It treats the old
+key's **value as a dot-path into `collected_data`**. That is correct for the shape it was
+built for, a *reference* alias like `"site_id_field": "site_record.site_id"`.
+
+Put a **setting** there — `"check_domain": "content"` — and the runtime looks for a
+`collected_data` key called `content`, finds nothing, sets nothing, and the action falls
+through to its hardcoded default. No error. No warning (Strategy 3 warns only when the
+lookup *succeeds*). `UnknownConfigKeys` reports the key as **recognised**, because
+`Deprecated` keys are recognised on purpose. So you end up strictly worse off than before
+you declared it: the behaviour is unchanged and the detector has gone quiet about it.
+
+**the check:** ask which side of the extractor the key is on, and pick the matching field.
+
+- Value is a **dot-path resolved against `collected_data`**, action reads it via
+  `inputs.Get(...)` → `Deprecated`.
+- Value **IS the value**, action reads it via `config["k"].(string)` → **`DeprecatedConfigKeys`**
+  (SCR-006), honoured by `datahelpers.ResolveConfigSetting` at the read site. This is also
+  the tell for which field the key belongs in generally: `ConfigKeys` and
+  `DeprecatedConfigKeys` are the settings pair, `Required`/`Optional` and `Deprecated` are
+  the reference pair.
+
+```bash
+# does the action read this key straight from config, or through the extractor?
+grep -n '"<key>"' platform/orchestration/actions/<action>.go
+# ^ grep the KEY NAME, not config["  — a key can reach the action through a helper
+#   (GetIntField, resolveAIServiceConfig) and a config[" grep will not see it. That
+#   mistake was made in this lane on 2026-08-08 and is logged in WRONG_CALLS.md.
+```
+
+**Why this is a landmine and not a §9 pattern:** there is no symptom. The half-landed
+`domain` -> `pipeline` rename sat on three actions for months, correct on all three, because
+each hardcoded default happened to equal what its config asked for. It only stopped being
+correct on 2026-08-04, when two checks that propagate `dctx.Pipeline` joined an agent whose
+config asks for `content`, and four work items were filed under `design`. Nothing failed.
+Nothing logged. A test asserting current behaviour passes either way.
+
+- **source:** `bugs_open/136`, register SCR-006, docs024_key_docs_latest/bugfix_136_config_key_aliases/
+- **added:** 2026-08-08, bugfix_136_config_key_aliases lane

@@ -73,6 +73,20 @@ var CreateWorkItemInputSpec = datahelpers.ActionInputSpec{
 	Optional:   []string{"spec_data", "parent_item_id", "page_id", "component_id", "summary"},
 	Defaults:   map[string]interface{}{},
 	Deprecated: map[string]string{},
+	// The `domain` -> `pipeline` rename, declared rather than hand-rolled
+	// (bugs_open/136). This action carried the rename in three lines of
+	// back-compat Go for months; the declaration does the same job and adds the
+	// two things the Go could not: the offline audit can now see that nine live
+	// steps still spell it the old way, and the next author renaming a setting
+	// has a mechanism to reach for instead of a precedent to copy.
+	//
+	// NOT an opt-in to unknown-key detection: this action's full contract is
+	// still unsettled (`summary_template`, `spec_fields` and `domain` are carried
+	// by live steps and read by nothing — bugs_open/136 §3/§4), and declaring a
+	// contract while three keys are unadjudicated would either emit false
+	// warnings or silence real ones. DeprecatedConfigKeys is deliberately
+	// independent of that gate so this alias works anyway.
+	DeprecatedConfigKeys: map[string]string{"item_domain": "item_pipeline"},
 }
 
 func init() {
@@ -115,13 +129,11 @@ func CreateWorkItemAction(ctx context.Context, params ActionParams) (interface{}
 	if handlerAgent == "" {
 		return nil, fmt.Errorf("handler_agent config is required")
 	}
-	itemPipeline, _ := config["item_pipeline"].(string)
-	if itemPipeline == "" {
-		itemPipeline, _ = config["item_domain"].(string) // backwards compat
-	}
-	if itemPipeline == "" {
-		itemPipeline = "build"
-	}
+	// Same truth table as the hand-rolled shim this replaces — new name wins,
+	// old name works, "build" when neither is set — now driven by the spec's
+	// DeprecatedConfigKeys so the audit and the next author can both see it.
+	itemPipeline, _ := datahelpers.ResolveConfigSetting(
+		config, CreateWorkItemInputSpec, "item_pipeline", "build", logger)
 	severity, _ := config["severity"].(string)
 	if severity == "" {
 		severity = "high"

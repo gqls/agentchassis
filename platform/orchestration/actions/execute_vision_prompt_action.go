@@ -45,6 +45,19 @@ var ExecuteVisionPromptInputSpec = datahelpers.ActionInputSpec{
 	CheckConfig: true,
 	Required:    []string{},
 	Optional:    []string{"images_field", "max_images", "prompt_template", "output_type"},
+	// ai_service is read, but not by this file: resolveAIServiceConfig
+	// (ai_actions.go:61) is handed params.StepConfig.Config below and overlays a
+	// step-level `ai_service` block onto the agent's. It belongs in ConfigKeys
+	// rather than Optional because it never passes through ExtractActionInputs
+	// and is a settings block, not a reference.
+	//
+	// Declared 2026-08-08 (bugs_open/136 lane): this action opted into
+	// unknown-key detection without it, so the audit reported `ai_service` as an
+	// unknown key on a step that genuinely uses it — a FALSE POSITIVE, and the
+	// worst thing that can happen to a report people are meant to act on. It is
+	// also not this action's key alone: any action calling resolveAIServiceConfig
+	// reads it, so the next one to opt in must declare it too.
+	ConfigKeys: []string{"ai_service"},
 	Defaults: map[string]interface{}{
 		"images_field": "render_audit",
 		"max_images":   16,

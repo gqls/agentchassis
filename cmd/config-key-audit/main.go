@@ -137,7 +137,12 @@ type specDump struct {
 	Optional   []string `json:"optional"`
 	ConfigKeys []string `json:"config_keys"`
 	Deprecated []string `json:"deprecated"`
-	OptedIn    bool     `json:"opted_in"`
+	// DeprecatedConfigKeys is the LITERAL-setting alias map (old -> canonical),
+	// distinct from Deprecated's path-reference aliases. Emitted so --specs keeps
+	// answering "who is one line away" honestly: an action carrying an alias has
+	// already stated part of its contract (bugs_open/136).
+	DeprecatedConfigKeys map[string]string `json:"deprecated_config_keys,omitempty"`
+	OptedIn              bool              `json:"opted_in"`
 }
 
 func main() {
@@ -182,12 +187,20 @@ func main() {
 		os.Exit(2)
 	}
 
-	// Two maps, not one: "every key this action recognises" and "of those, the
-	// ones honoured only under a condition". Merging them would recreate exactly
-	// the blindness this second map was added to fix.
+	// Three maps, not one: "every key this action recognises", "of those, the
+	// ones honoured only under a condition", and "of those, the ones that are an
+	// OLD NAME still being honoured". Merging any of them would recreate exactly
+	// the blindness each was added to fix — a recognised key can be inert
+	// (conditional) or wired-under-a-name-nobody-should-write (deprecated), and a
+	// report with one bucket calls all three clean.
+	//
+	// `deprecated` is deliberately NOT gated on opt-in: create_work_item carries
+	// an alias on nine live steps and has never declared ConfigKeys, so gating
+	// would hide the largest real user of the mechanism.
 	out := map[string]interface{}{
 		"declared":    declared,
 		"conditional": conditional,
+		"deprecated":  datahelpers.ListDeprecatedConfigKeys(),
 	}
 
 	enc := json.NewEncoder(os.Stdout)
@@ -233,13 +246,21 @@ func emitSpecs() {
 			dep = append(dep, k)
 		}
 		sort.Strings(dep)
+		var depConfig map[string]string
+		if len(spec.DeprecatedConfigKeys) > 0 {
+			depConfig = make(map[string]string, len(spec.DeprecatedConfigKeys))
+			for old, canonical := range spec.DeprecatedConfigKeys {
+				depConfig[old] = canonical
+			}
+		}
 		_, isOptedIn := optedIn[name]
 		out[name] = specDump{
-			Required:   nonNil(spec.Required),
-			Optional:   nonNil(spec.Optional),
-			ConfigKeys: nonNil(spec.ConfigKeys),
-			Deprecated: dep,
-			OptedIn:    isOptedIn,
+			Required:             nonNil(spec.Required),
+			Optional:             nonNil(spec.Optional),
+			ConfigKeys:           nonNil(spec.ConfigKeys),
+			Deprecated:           dep,
+			DeprecatedConfigKeys: depConfig,
+			OptedIn:              isOptedIn,
 		}
 	}
 

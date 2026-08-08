@@ -129,6 +129,40 @@ type ActionInputSpec struct {
 	// ConfigKeys is opt-in: an over-strict detector is a worse bug than the
 	// thing it chases.
 	SingleOwner bool
+
+	// DeprecatedConfigKeys maps an OLD LITERAL-SETTING config key to the
+	// canonical key the action reads now: e.g. "check_domain" ->
+	// "check_pipeline". Honoured by ResolveConfigSetting at the action's own
+	// config-read site; see config_key_aliases.go.
+	//
+	// THIS IS NOT `Deprecated`, AND THE DIFFERENCE IS THE WHOLE POINT
+	// (bugs_open/136). `Deprecated` is for extractor FIELDS: there the old
+	// key's VALUE is a dot-path resolved against collected_data by
+	// ExtractActionInputs Strategy 3. Declaring a literal setting there —
+	// `check_domain: "content"` — would make the runtime look up a
+	// collected_data key called "content", find nothing, and fall through to
+	// the default while reading as though it were wired. Silently wrong, and
+	// worse than the inert key it was meant to rescue.
+	//
+	// Why it exists rather than three hand-rolled shims. The `domain` ->
+	// `pipeline` rename landed in Go and never in the data. `create_work_item`
+	// carried it with three lines of back-compat Go (item_pipeline falling back
+	// to item_domain); `run_discovery_checks` and `triage_detected_items` did
+	// not, and their configs have been inert ever since — correct only because
+	// each hardcoded default happened to equal what the config asked for. That
+	// coincidence broke on 2026-08-04, when two checks that propagate
+	// dctx.Pipeline joined completeness-discovery-agent and filed four rows
+	// under `design` on an agent whose config says `content`. A shim written in
+	// one action's body is invisible to the audit and to the next author; a
+	// declaration is neither.
+	//
+	// Deliberately does NOT set checksConfig(): the alias must work, and be
+	// reported, for an action that has not opted into unknown-key detection.
+	// Coupling the two would make a declaration silently inert for every action
+	// that has not adopted an unrelated mechanism — the "declared but never
+	// consulted" shape recorded in WRONG_CALLS.md 2026-07-28, and the same
+	// argument already written on SingleOwner above.
+	DeprecatedConfigKeys map[string]string
 }
 
 // frameworkStepConfigKeys are step-config keys the orchestrator itself reads or
@@ -190,6 +224,15 @@ func UnknownConfigKeys(actionName string, config map[string]interface{}) (unknow
 	// about them here would duplicate ExtractActionInputs' own deprecation
 	// warning with a misleading "unknown" label.
 	for k := range spec.Deprecated {
+		recognised[k] = true
+	}
+	// Same for DeprecatedConfigKeys, and for the same reason: ResolveConfigSetting
+	// honours them and warns at the read site. Calling one "unknown" here would be
+	// FALSE — the action does read it. The audit reports these separately, as
+	// DEPRECATED, so they stay visible as a migration list rather than becoming
+	// quiet (bugs_open/136; the failure mode is bugs_closed/101's, where declaring
+	// a key was itself a way of hiding it).
+	for k := range spec.DeprecatedConfigKeys {
 		recognised[k] = true
 	}
 
@@ -294,11 +337,17 @@ func ListDeclaredConfigKeys() map[string][]string {
 		if !spec.checksConfig() {
 			continue
 		}
-		keys := make([]string, 0, len(spec.Required)+len(spec.Optional)+len(spec.ConfigKeys)+len(spec.Deprecated))
+		keys := make([]string, 0, len(spec.Required)+len(spec.Optional)+len(spec.ConfigKeys)+len(spec.Deprecated)+len(spec.DeprecatedConfigKeys))
 		keys = append(keys, spec.Required...)
 		keys = append(keys, spec.Optional...)
 		keys = append(keys, spec.ConfigKeys...)
 		for k := range spec.Deprecated {
+			keys = append(keys, k)
+		}
+		// Alias keys are part of the recognised set at runtime (UnknownConfigKeys
+		// above), so they must be part of it here too. Two copies of one gate that
+		// can disagree is the drift class this whole tool exists to detect.
+		for k := range spec.DeprecatedConfigKeys {
 			keys = append(keys, k)
 		}
 		sort.Strings(keys)

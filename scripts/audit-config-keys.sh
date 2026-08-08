@@ -124,6 +124,11 @@ from collections import defaultdict
 _dump = json.loads(os.environ["DECLARED"])
 declared = _dump["declared"]
 conditional = _dump.get("conditional", {})
+# Literal-setting aliases: old key -> canonical key, per action (bugs_open/136).
+# NOT gated on opt-in, unlike `declared` — create_work_item carries an alias on
+# nine live steps and has never declared ConfigKeys, so gating would hide the
+# mechanism's largest real user.
+deprecated_cfg = _dump.get("deprecated", {})
 # Already computed by the binary, which walked the same definitions with the same
 # traversal — passed in as JSON rather than re-derived here, so there is one
 # implementation of "what counts as suspicious" and it is the tested one.
@@ -141,6 +146,7 @@ framework = {
 unknown_by_action = defaultdict(list)
 undeclared_by_action = defaultdict(list)
 conditional_by_action = defaultdict(list)
+deprecated_by_action = defaultdict(list)   # (old_key, canonical_key) pairs actually carried
 
 # Where each pair was found. A pair carried ONLY by a step inside a loop
 # sub-workflow was invisible to this report until 2026-07-29 (bugs_open/144), so the
@@ -166,6 +172,15 @@ for line in os.environ["LIVE"].splitlines():
 for action, key in sorted(seen_top | seen_nested):
     if key in framework:
         continue
+    # Deprecated aliases are classified FIRST, before the declared/undeclared
+    # split. Both other buckets would give the wrong answer: on an opted-in
+    # action the key is recognised, so it would vanish into "declared, clean";
+    # on a non-opted-in action it would land in UNDECLARED among keys nothing is
+    # known about. Neither says the true thing, which is "the code reads this,
+    # under a name that should be migrated".
+    if key in deprecated_cfg.get(action, {}):
+        deprecated_by_action[action].append((key, deprecated_cfg[action][key]))
+        continue
     if action in declared:
         if key not in declared[action]:
             unknown_by_action[action].append(key)
@@ -184,6 +199,8 @@ if os.environ["JSON_OUT"] == "1":
     json.dump({
         "unknown_keys": {k: sorted(v) for k, v in unknown_by_action.items()},
         "conditional_keys": {k: sorted(v) for k, v in conditional_by_action.items()},
+        "deprecated_keys": {k: {old: new for old, new in sorted(v)}
+                            for k, v in deprecated_by_action.items()},
         "undeclared_actions": {k: sorted(v) for k, v in undeclared_by_action.items()},
         "suspicious_keys": suspicious,
         "declared_action_count": len(declared),
@@ -209,9 +226,28 @@ else:
             print(f"  {action}: {', '.join(sorted(unknown_by_action[action]))}")
     else:
         print("  none")
-        if conditional_by_action:
-            print("  ^ read this WITH the next section — 'none' here does NOT mean")
+        if conditional_by_action or deprecated_by_action:
+            print("  ^ read this WITH the next two sections — 'none' here does NOT mean")
             print("    'no step misdescribes itself'.")
+
+    print()
+    print("=== DEPRECATED KEYS (an OLD NAME the code still honours — rename when convenient) ===")
+    if deprecated_by_action:
+        for action in sorted(deprecated_by_action):
+            for old, new in sorted(set(deprecated_by_action[action])):
+                print(f"  {action}.{old} -> {new}")
+        print()
+        print("  These are WIRED: the action reads them through ResolveConfigSetting and")
+        print("  logs a deprecation warning when one supplies a value. They are neither")
+        print("  unknown nor silent, so this section is a migration list, not a defect")
+        print("  list — and the exit code deliberately ignores it.")
+        print("  It exists because the alternative was worse in both directions: an")
+        print("  UNKNOWN label would be false (the action does read the key), and saying")
+        print("  nothing would leave the old spelling spreading unremarked, which is how")
+        print("  the domain -> pipeline rename reached three actions and was honoured by")
+        print("  one (bugs_open/136).")
+    else:
+        print("  none")
 
     print()
     print("=== CONDITIONALLY HONOURED (declared, so not unknown — but may not apply) ===")

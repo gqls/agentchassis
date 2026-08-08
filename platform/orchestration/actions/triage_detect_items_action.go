@@ -78,6 +78,16 @@ var TriageDetectedItemsInputSpec = datahelpers.ActionInputSpec{
 	ConfigKeys: []string{"target_pipeline"},
 	Defaults:   map[string]interface{}{},
 	Deprecated: map[string]string{},
+	// Declaring the key (above) made bugs_open/136 visible here; this closes it.
+	// `target_domain` is what the sole live caller writes, and it is now read.
+	//
+	// No value changes today: improvement-loop asks for "build", which is also
+	// the default. That is the point — the key stops being a coincidence and
+	// starts being a specification, so changing it to "content" will do what it
+	// says instead of nothing. (The three carriers named in the comment above
+	// are now one: migration 286 removed the two child triage steps under
+	// RFC 006. Re-measured 2026-08-08.)
+	DeprecatedConfigKeys: map[string]string{"target_domain": "target_pipeline"},
 
 	// This action promotes EVERY `detected` row on the site — no type filter,
 	// no ownership filter (:108-120). Its blast radius is the site, not the run
@@ -142,10 +152,8 @@ func TriageDetectedItemsAction(ctx context.Context, params ActionParams) (interf
 
 	// --- Config ---
 	config := params.StepConfig.Config
-	targetPipeline := "build"
-	if td, ok := config["target_pipeline"].(string); ok && td != "" {
-		targetPipeline = td
-	}
+	targetPipeline, _ := datahelpers.ResolveConfigSetting(
+		config, TriageDetectedItemsInputSpec, "target_pipeline", "build", logger)
 
 	// --- Promote detected → triaged ---
 	// Sets pipeline to targetPipeline so the dispatch loop (which filters item_pipeline='build')
