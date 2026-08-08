@@ -124,13 +124,18 @@ BEGIN
     IF cfg IS NULL THEN
         RAISE EXCEPTION '326: directory-build-handler not found after insert';
     END IF;
-    IF cfg #>> '{workflow,steps,ensure_layout,action}' != 'ensure_page_section_layout' THEN
+    -- IS DISTINCT FROM, not !=: `#>>` on a MISSING path returns NULL, and
+    -- `NULL != 'expected'` is NULL (not TRUE) -- an IF on that never fires,
+    -- so a wrong/missing key would sit GREEN forever (LANDMINES: "A migration
+    -- verify block comparing a jsonb path with `<>` sits GREEN for ever when
+    -- the key does not exist").
+    IF cfg #>> '{workflow,steps,ensure_layout,action}' IS DISTINCT FROM 'ensure_page_section_layout' THEN
         RAISE EXCEPTION '326: ensure_layout step does not call ensure_page_section_layout';
     END IF;
-    IF cfg #>> '{workflow,steps,spawn_page_builder,config,agent_type}' != 'page-build-handler' THEN
+    IF cfg #>> '{workflow,steps,spawn_page_builder,config,agent_type}' IS DISTINCT FROM 'page-build-handler' THEN
         RAISE EXCEPTION '326: spawn_page_builder does not spawn page-build-handler (council round 1 fix missing)';
     END IF;
-    IF cfg #>> '{workflow,steps,call_page_build_handler,config,agent_type}' != 'page-build-handler' THEN
+    IF cfg #>> '{workflow,steps,call_page_build_handler,config,agent_type}' IS DISTINCT FROM 'page-build-handler' THEN
         RAISE EXCEPTION '326: call_page_build_handler does not delegate to page-build-handler';
     END IF;
 
