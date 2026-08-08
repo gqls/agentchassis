@@ -516,3 +516,104 @@ not just for the audit tool. Both are filed (`subject_type='tool'`, keys
 `constitution` (low) objected to the rationale's tone — all-caps, combative — and noted the
 plain-tone rule covers plan rationale, not just generated content. That is fair; 3b is
 written plainly, which cost nothing.
+
+## 2026-08-08 (evening) — the (d) CronJob is live, and two items closed as decisions rather than tasks
+
+**All three owner rulings are now delivered.** `22ed9aa04` ships
+`shared-output-fields-check`: daily 07:10 UTC, own image `v1.0.1265`, own tag sequence (it
+does not ride the fleet release). First manual run 15:45Z — **CLEAN, 177 live agents, 0 new /
+2 acked / 0 stale, container exit 0**, and it wrote its `doc_notes` row.
+
+Three things the binary needed that it did not have, and each one is a trap avoided rather
+than a feature:
+
+1. **Direct Postgres.** Every mode read its fleet from stdin via `kubectl exec`; a CronJob
+   cannot, because `ai-persona-app` has no `pods/exec` RBAC — and a kubectl-only tool fails
+   there **looking like a clean run**. `PG_CLIENTS_HOST` is how the job declares itself. The
+   DB and stdin routes **share one decoder**: `loadLiveAgentsFromDB` runs the wrapper's own
+   query and hands the bytes to `decodeLiveAgents`, so the two can differ in how they FETCH a
+   fleet and never in how they PARSE one. A third hand-written decoder is how 144 happened.
+2. **Reporting on every run, clean ones included.** A check that only speaks when it fails is
+   indistinguishable from one that has stopped. The body states the **scope** (agents scanned,
+   routing keys read), because a finding count cannot distinguish "looked at 177 and found
+   nothing" from "looked at 3 and found nothing" — and the second is a broken export reporting
+   success. An undecodable agent row is disclosed in the row itself.
+3. **Arguments scanned, not positional** — see the RUNBOOK correction. `--ack` at a fixed
+   argv index was ignored silently anywhere else, and the image's CMD puts `--report` first,
+   which is exactly the shape that broke. Fixed, and pinned by `TestParseSharedOutputArgs`.
+
+**Proven on the IMAGE, not just with `go test`** — which is the check worth copying: `docker
+run --rm -i <image> < live_agents.json` exercises the CMD, the ack path inside the image and
+the argument order in one command, and it is how I confirmed
+`/app/shared_output_fields_ack.txt` was actually readable. All four exit codes verified there
+before deploying: 0 clean, 1 NEW pair, 2 unusable input (empty fleet, bad JSON).
+
+⚠ **A shell artefact nearly gave me a false pass, and re-testing directly is what caught it.**
+My first exit-code check printed `EXIT=0` for the empty-fleet case, which would have meant a
+broken export PASSES. It was `${PIPESTATUS[0]}` in my own one-liner, not the binary: measured
+directly, empty fleet → 2, bad JSON → 2, clean → 0, no ack list → 1. **A wrong exit code
+would have been invisible in production** — the Job would simply have gone green.
+
+### Item 3 CLOSED as won't-do, and the handoff instruction retired
+
+`store_generated_component_action.go:1353`. The old handoff said "when clean, convert". I have
+retired that, on two decisive grounds plus one practical:
+- the **round-3a plan the council APPROVED says this site is unconverted.** Converting it now
+  contradicts an approved plan and reopens an objection two seats raised;
+- **"no drift to remove" is now a CHECK, not a claim:** extract both surviving statements,
+  normalise whitespace, `diff` — **byte-identical**. Which is precisely why the Go linker
+  dedupes them and why `strings | grep -c` reads 1 rather than 2. A conversion changes nothing
+  about the row and buys only the risk of a provenance-literal slip;
+- it is *still* dirty with another session's one-line `PageWantedLivePredicateFor` change, two
+  days on. (`git diff -U0 <file> | grep -c agent_error_log` → 0, so it does not touch the
+  INSERT.)
+
+### Item 2 — the census understated it, and my attempt to confirm it FAILED. Filed, not asserted.
+
+Reading `deploy_image_asset_action.go` made the finding stronger than the census had it.
+`DeployImageAssetAction` has **one** path: it calls `sendGitCommitRequest` — whose return map
+carries `await_response: true` and **no** `image_url` — and *then* assigns
+`result["image_url"]` from `processed.Paths.RelativeURL` onto that same map. So the action's
+own computed workings and the await signal travel in ONE map under
+`hero_deployed`/`logo_deployed`. **That is RFC_012's own mechanism biting the very keys the
+census flagged**, not a future risk conditional on (a) shipping. The readers
+(`v3_site_actions.go:1010`/`:1021`, `assemble_from_library.go:452`) are two-level direct map
+access with an `ok` guard and **no else branch**, so a mismatch sets no `hero_url`/`logo_url`
+and logs nothing.
+
+**And I could not establish the empirical half — so I did not claim it.** `hero_deployed` and
+`logo_deployed` appear in **0 of the 1,667 retained `orchestration_states` rows** (window
+opens 2026-07-13), so I observed no live shape in either direction. The config side IS durable
+and measured: 4 steps declare these keys, on `pageflow-builder` and `site-work-orchestrator`,
+`await_response` unset in the definition because it comes from the action's return.
+
+Per CLAUDE.md's default for a structural, cross-cutting claim, filed to the loop rather than
+written up: **`RUN_CORRELATION_ID=dce40cf4-5a8a-4316-93c0-0f3c37d2f3a7`** (intake
+`59780c12-…`; the printed intake corr is NOT the artifact key). Queue and both bug dirs
+grepped first — the adjacent `deploy_image_asset` bugs (152, 155, 179, 209) are all about
+**source resolution**, not this overwrite. **A REFUTED verdict is a good outcome here** and I
+would rather have that than a confident paragraph in a handoff.
+
+Gotcha, cost me one intake: **the 090 trigger does not escape double quotes in the symptom** —
+`"image_url"` dies server-side with `invalid input syntax for type json`, *after* printing a
+correlation, so it looks like it worked. Now in the RUNBOOK.
+
+### Two small self-corrections, recorded rather than amended (forward-only)
+
+- **I put `Council-Reviewed:` on a docs-only commit** (`d42dcdba5`). The verdict is genuinely
+  approved and I had read it, so it is not a false claim and 098 confirms **MISMATCH: 0** — but
+  the gate refuses docs client-side, so it is noise in the join. This is the SECOND time this
+  lane has done this (the earlier one put `Council-Submitted:` on `40992cbce`). Trailers belong
+  on the commit whose CODE was reviewed.
+- **I briefly told the user a landmine append had been lost.** It had not: another session had
+  committed it minutes earlier as a *declared* same-file passenger (`e492c2abc`, whose message
+  names my entry and its line count — good citizenship). My grep said 0 because I searched
+  `substeps is the half that RUNS` while the heading reads ``substeps` is the half that RUNS``
+  — **a grep proves absence only for the spelling it searches**, and I walked straight into it
+  seconds after quoting the same rule about someone else's needle.
+
+**098 coverage, for the record:** `f930de86b` is now credited `[5c2bc265, by correlation, via
+submitted]` — the `Council-Submitted:` trailer resolved itself at report time, with no amend,
+exactly as designed. `5f49b4cfd` remains in UNREVIEWED because it carries no trailer at all
+(it predates the submission); forward-only, so it stays that way. `867037f5a` and `22ed9aa04`
+are outside the report's scope, which is `platform/`-shaped commits only.
