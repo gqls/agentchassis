@@ -22566,3 +22566,63 @@ rows dated today. They are **council-gate** runs (`current_step` =
 over a jsonb blob proves the spelling occurs, not that the agent ran — which is the
 landmine I appended to `LANDMINES.md` myself the previous day, in a different
 spelling.
+
+---
+
+## 2026-08-08 — "the developer note is in an HTML comment", and the fix candidate built on it would have shipped inert
+
+**The claim.** `bugs_open/219` (mine, filed that morning): `validate_page_content`'s
+meta-commentary check "scans HTML COMMENTS", because a component template's
+developer note contains `input_schema` and the note "already ships to readers
+(1 occurrence in the served `car-finance-calculator.html`, **inside a comment**)".
+Its leading fix candidate followed directly: **"Strip HTML comments before
+scanning."** The title of the bug file says it too.
+
+**What was true.** The notes are **JavaScript `/* … */` block comments inside the
+tool's own `<script>`**. Measured across all three affected components: every hit
+lies between a `<script>` open and its `</script>` close; two contain no `<!--` at
+all, and the third's only HTML comment opens at 3560 and closes before the script
+starts at 5019. **A comment-stripper would have unblocked none of the three pages.**
+
+**Why it survived.** The evidence was never wrong — "inside a comment" was
+*observed*, in the served page, correctly. It just was not asked one more question:
+*which kind of comment?* The word covered both readings, so the observation
+confirmed the fix candidate without ever discriminating between them. And the
+candidate was written into an ordered list under "what closes the door", which reads
+as analysis rather than as an untested inference — the file offers no way to see
+that its #1 rests on a word rather than a measurement.
+
+**What caught it.** Not reading the file again — running it as a query. Extracting
+just the comment text (`regexp_matches(html_template, '<!--(.*?)-->', 'gs')`) and
+scanning *that* returned **0** meta-commentary hits, where scanning the whole
+template returned **3**. Two counts that should have agreed and did not.
+
+**The cheap check that would have.** Before writing a fix candidate that strips a
+delimiter, extract what the delimiter actually contains and confirm the offending
+string is in there:
+
+```sql
+-- the hit must be INSIDE what you plan to strip, or the strip is a no-op
+SELECT function,
+       position('input_schema' in html_template)                            AS hit,
+       (SELECT max(s) FROM generate_series(1, position('input_schema' in html_template)) g,
+               LATERAL (SELECT g AS s WHERE substring(html_template from g for 7)='<script') q) AS script_open,
+       (SELECT max(s) FROM generate_series(1, position('input_schema' in html_template)) g,
+               LATERAL (SELECT g AS s WHERE substring(html_template from g for 4)='<!--') q)    AS html_comment_open
+FROM content_components WHERE html_template ~* 'input_schema';
+```
+
+**The transferable shape:** *a fix candidate is an untested claim wearing the
+clothes of a conclusion.* The diagnosis here was rigorous — a 3-of-12 predictor,
+a control group, the source read at three line numbers — and the candidate that
+followed it was a guess, sitting in the same document, in the same confident
+register, with no marker distinguishing them. **The rigour of the diagnosis
+transfers no credibility to the remedy**, and the remedy is the half that gets
+implemented. Mark a fix candidate `[UNVERIFIED]` unless you have run the check that
+would show it working — and the check for "strip X" is always "is the thing I care
+about actually inside X?".
+
+Related: the same file already carried a `> **CORRECTION, same session**` about the
+error message naming an unestablished cause (`the model wrote about its task`). Two
+corrections in one bug file, both the same failure: **a plausible sentence adopted
+because nothing in the workflow required it to be discriminating.**

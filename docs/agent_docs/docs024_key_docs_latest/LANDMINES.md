@@ -6384,3 +6384,60 @@ what breaks the page is a lost selector, and a rewrite can keep the tag while dr
 rules. Recovery is an exact row restore (`content_data`, `rendered_html`,
 `content_hash`) from a pre-run backup plus an assemble-only rerender; confirm at the
 SERVED page, because the stored row and the deployed file are independent facts.
+
+---
+
+## A new pattern in `validate_page_content` is a BLOCKER by default, and a blocker there means "this page can never be rebuilt again"
+
+- **footprint:** `platform/orchestration/actions/validate_page_content.go`
+  (`placeholderPatterns`, `metaCommentaryPatterns`, `checkPlaceholderPatterns`,
+  `checkMetaCommentary`, `checkUnrenderedTemplates`, `checkDomainContamination`),
+  `content_components.html_template`
+
+**The trap.** Adding a string to one of those pattern lists looks like adding a
+warning. It is not. `Severity: "blocker"` reaches a categorise block that does
+`return nil, fmt.Errorf("content validation failed: …")` — the **action errors**, the
+step fails, and the page is never saved. There is no review queue, no partial save,
+no retry that behaves differently: the page becomes **permanently un-rebuildable**
+until someone edits whatever the scanner mis-read. Until 2026-08-08 the file's own
+doc comment said the opposite in as many words — *"A false positive here routes to
+needs_human_review, not silent breakage"* — and that sentence is why the pattern
+lists were treated as safe to extend (now corrected in place).
+
+**It fires with no symptom and no suspicion**, because the page keeps serving. The
+failure only appears the next time someone asks for a content change, possibly weeks
+later, in a different lane — and the error blames the model. Both live instances were
+found by someone doing unrelated work: `bugs_open/219` (three pages; the string was
+in a developer's `/* … */` note inside the tool's `<script>`) and `bugs_open/221`
+(webdesign.co.uk `tools-index`; the copy *"LocalBusiness schema, as an AI-builder
+prompt"* matches the pattern `as an ai`).
+
+**Two prose scans have already been re-scoped and a third written the old way
+inherits the defect.** `checkPlaceholderPatterns` (218) and `checkMetaCommentary`
+(219) now scan `datahelpers.ExtractAssertionText(html)` + `headProseBlocks(html)` —
+a real HTML parse that excludes `script/style/code/pre/head/template/noscript/svg/
+iframe/textarea/select/option`, attributes, comments and doctypes. Reaching for
+`strings.Index(strings.ToLower(html), pattern)` is the idiom the file used to use and
+it is still what the surrounding code looks like. **Do not add a second stripper**
+either — a council REVISE refused exactly that on 218.
+
+**the check:** before adding or widening a pattern, ask what ELSE in an assembled
+page contains that string — the answer is usually "a comment a conscientious human
+wrote about the thing your pattern names". Census it, and note the query must scan
+the whole template, because the string will not be in an HTML comment:
+
+```sql
+-- how many components would this pattern convict, and in what?
+SELECT function, substring(html_template from greatest(position('<pattern>' in html_template)-120,1) for 300)
+FROM content_components WHERE html_template ILIKE '%<pattern>%';
+```
+
+Then decide severity deliberately: `blocker` is correct only if a page serving that
+string is worse than a page nobody can ever rebuild.
+
+**And for verifying a fix to any of these checks, the artefact you need is usually
+still there.** `orchestration_states.collected_data->'page_content'->'response'->>'page_html'`
+holds the **exact bytes** that failed, for ~24h before pruning. Run the changed
+function over those, not over a fixture you composed — a fixture you write to
+exercise a rule will exercise it. The old-code half of the control pair is the
+production row's own `error` text, which is stronger than any local replica.

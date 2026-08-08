@@ -1,5 +1,17 @@
 # 219 — `checkMetaCommentary` scans HTML COMMENTS, so a developer note in a component template permanently blocks that page from ever being rebuilt
 
+> **FIXED 2026-08-08, commit `744bfdb3d` — but the title above is WRONG and so was
+> this file's leading fix candidate. Read the correction in §"What the title got
+> wrong" before you use anything here.** Short version: the notes are **JavaScript
+> `/* … */` comments inside `<script>`, not HTML comments**, and two of the three
+> templates contain no HTML comment at all — so "strip HTML comments before
+> scanning" would have shipped **inert** and the three pages would still be blocked.
+> The defect is the scan's **scope**, not comment syntax. The fix re-scopes the
+> check to assertion text (`datahelpers.ExtractAssertionText` + `headProseBlocks`),
+> the seam `bugs_open/218` settled for the sibling placeholder scan.
+> **STAYS OPEN until the fleet rolls past `744bfdb3d`** — the defect is reproducible
+> until the image ships (fleet was at `v1.0.1264`; the fix needs `v1.0.1265`).
+
 **Filed 2026-08-08 by the loancalculator voice-H rollout lane.** Not urgent — it
 breaks no live page. It makes three pages **permanently un-rebuildable**, and it will
 do the same on any site whose component templates carry the conscientious thing to
@@ -92,11 +104,43 @@ produced is involved. The prose baseline for that page does **not** contain the 
   GROUP BY 1;
   ```
 
+## What the title got wrong (CORRECTION 2026-08-08, by the same lane, before fixing)
+
+**The offending notes are not in HTML comments.** They are JavaScript block comments
+inside the tool's own `<script>`. Measured on all three components, live:
+
+```
+        function         | hit_pos | last_script_open | next_script_close | last_html_comment_open
+ tool-car-finance-pcp-hp |    8048 |             5379 |             11603 |   (none)
+ tool-loan-repayment     |    8224 |             5019 |              9568 |     3560  <- before the script opens
+ tool-rate-stress-test   |    5692 |             3884 |              7303 |   (none)
+```
+
+Every hit lies between a `<script>` open and its `</script>` close. Two templates
+contain no `<!--` at all, and `tool-loan-repayment`'s sole HTML comment is at 3560,
+**before** its script opens at 5019 — so the hit is not inside it either.
+
+**Therefore fix candidate 1 below, "strip HTML comments before scanning", would have
+unblocked NONE of the three pages.** It would have passed review, shipped, and left
+the bug exactly where it was — with the fix marked done. What made this visible was
+running the extraction as a query (`regexp_matches(html_template, '<!--(.*?)-->')`)
+and getting **0 meta-commentary hits** where the whole-template scan got 3. The
+disagreement between two counts is the finding; either alone reads as confirmation.
+
+I wrote candidate 1 in this file, so this is my own error, and it is the same shape
+as the one recorded in §"CORRECTION, same session" above: **the evidence said
+"comment", and I did not ask which kind of comment.** "Inside a comment" was true and
+useless. The fix candidate has to name the mechanism, not the appearance.
+
 ## Fix candidates, ordered by what closes the door
 
-1. **Strip HTML comments before scanning** in `checkMetaCommentary` (and audit the
+> **SUPERSEDED — see the correction above. 1 was inert; the shipped fix is 2's
+> principle applied via the existing prose extractor.**
+
+1. ~~**Strip HTML comments before scanning** in `checkMetaCommentary` (and audit the
    other whole-HTML scanners for the same assumption). Makes the bad state
-   unrepresentable: a comment can never again be read as copy. ⚠ Deliberately keep
+   unrepresentable: a comment can never again be read as copy.~~ **INERT — would have
+   fixed nothing. The comments are JS, not HTML.** ⚠ Deliberately keep
    scanning comments for the *first-person AI disclosure* patterns if a model emitting
    `<!-- as an AI -->` is judged worth blocking — that is a separate decision, and it
    should be made explicitly rather than inherited.
@@ -107,6 +151,62 @@ produced is involved. The prose baseline for that page does **not** contain the 
    the instance, leaves the class, and edits a locked calculator's template to satisfy
    a validator, which is the wrong direction of travel. Reasonable as a *workaround* if
    a page must be rebuilt before 1 ships.
+
+## What was actually shipped (`744bfdb3d`, 2026-08-08)
+
+`checkMetaCommentary` now scans **assertion text** —
+`datahelpers.ExtractAssertionText(html)` plus `headProseBlocks(html)` — instead of the
+raw assembled page. That is candidate 2's principle ("grade the copy, not the
+artefact") reached through machinery that already exists and is already trusted at
+blocker severity in this same file: `bugs_open/218` re-scoped the sibling placeholder
+scan to it this morning, after a council REVISE said *reuse it, do not add a second
+stripper*. Its non-assertion set is `script, style, noscript, template, code, pre,
+svg, iframe, textarea, select, option, head`, its walk skips comments and doctypes,
+and attributes are never assertion text — so **every** non-prose context goes out of
+reach at once, not just the one that happened to bite.
+
+`headProseBlocks` is appended deliberately: `<head>` is a non-assertion context, but
+`<title>` and the meta descriptions are prose a visitor reads. Without them this would
+have been a narrowing rather than a re-scoping — and it is the exact escape the
+placeholder scan shipped without and had to reopen hours earlier (`35889819c`).
+
+**Proven on the real bytes, not on a fixture.** The three runs that failed this
+morning still hold their exact input in `collected_data` (unpruned, ~24h window):
+
+```
+orchestration_states                    page                            page_html   old code      new code
+fbd3da9d-f9d9-42d4-8b68-3a8e6d4ce788    index                           14,436 B    1 blocker  →  0 issues
+0752258f-b03b-4a5a-9f46-61a67bb2d15d    tool-interest-rate-stress-test  10,475 B    1 blocker  →  0 issues
+01072bcf-88e1-46d1-b738-db590e8989a2    tool-car-finance-calculator     14,147 B    1 blocker  →  0 issues
+```
+
+The old-code half of that pair is production's own record, not a local replica:
+`error = "step validate_content failed: … content validation failed: 1 blockers, 0
+errors"` on all three. Each artefact still contains `input_schema` — asserted in the
+test, so a truncated or wrong file cannot masquerade as a pass.
+
+**The negative control is induced, not assumed** (`validate_page_content_meta_scope_test.go`):
+`input_schema` in a `<p>`, `on_missing` in an `<li>`, refusal prose, `as an ai` in a
+meta description and `the data schema` in a `<title>` are each still blockers, each
+with a location.
+
+**Measured widening.** Assertion blocks collapse whitespace, so a multi-word pattern
+split across a line break now matches where the raw substring scan did not. On live
+content it convicts nothing new: 1,244 `page_components` rows on active pages give
+**1** collapsed hit and the **same 1** raw hit (positive control: 268 match
+`calculator`), and 585 active pages give **0** title/meta_description hits (positive
+control: 122). `<title>`/meta were already in the old whole-HTML scan's reach, so they
+are not new surface.
+
+## What this fix does NOT fix — `bugs_open/221`
+
+That single live hit is a **different defect**, found while measuring this one:
+webdesign.co.uk's `tools-index` carries the copy *"LocalBusiness schema, as an
+AI-builder prompt"*, and `as an ai` matches it in genuinely **visible prose**. The new
+check was run over that page's real stored HTML and **still returns a blocker** — no
+re-scoping can help, because the string really is copy. That is pattern precision, not
+scan scope, and loosening the pattern is a false-negative decision that deserves its
+own evidence. Filed as `221`; deliberately not folded in here.
 
 ## How to verify a fix
 
