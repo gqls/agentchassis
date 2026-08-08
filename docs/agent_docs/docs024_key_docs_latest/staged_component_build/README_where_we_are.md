@@ -562,3 +562,31 @@ the remaining ten tools (one to two sessions). A few pieces belong to other acti
 workstreams — the darts arena, the provocations feed — and I've deliberately left those
 alone rather than write contracts over their owners' heads; they're listed for a
 coordination note instead. The handoff for the next sitting has the full work-list.
+
+---
+
+**8 August 2026 — picked the line back up after three days: the simple components are now DONE, and the blockers have names**
+
+Re-checked everything before trusting anything (three days is a long time on this
+system): nobody else had touched the lane, the missing testing feature from Tuesday's
+lesson has since shipped to the live system, and the gas wholesalers logo is *still*
+missing — three days on.
+
+Today's batch closed out every remaining simple page-section that has a healthy page to
+test it on: nine more contracts, written, break-proven, and passed live with the
+wrong-page control refused every time. That includes the intent-probe form on the watch
+site, the portfolio showcase, and vonc's archetype explainer. **Every static section
+component in the estate that CAN be proven now HAS a proven contract — forty-two
+sections plus two tools in total.**
+
+What's left is exactly three piles, and each has a clear unblock:
+1. **Eight sections are written but stuck behind missing site images** — the same
+   `hero.jpg`/logo 404s the platform's checker found on 31 July and nobody ever
+   repaired. It's now at least seven sites, including one (vetcomparison) the original
+   measurement missed. One image fix per site releases its subjects; this is the
+   single most valuable small repair on the board.
+2. **Sixteen interactive sections** (news listings, quizzes, calculators-in-sections)
+   each need their JavaScript read properly before a contract can be honest — half an
+   hour to forty-five minutes each, two to three sittings.
+3. **The ten remaining tools with working pages**, plus the coordination notes for the
+   darts-arena and provocations pieces that belong to other active workstreams.
