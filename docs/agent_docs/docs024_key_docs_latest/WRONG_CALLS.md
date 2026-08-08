@@ -23133,3 +23133,74 @@ recorded as `[UNVERIFIED]` rather than guessed, which is the one part of this I 
 **Rhymes with the sibling above but inverts it:** that one searched too narrow a spelling and
 undercounted a population it could see. This one read the right code and never looked at the
 population at all.
+
+---
+
+## 2026-08-08 — "schema first" skipped TWICE in one session, same session, same rule (bugfix 210 lane)
+
+**The claim-shaped act:** I wrote SQL against `agent_error_log` assuming a `created_at` column
+(it is `occurred_at`), got the error, and then — minutes later, warm from that lesson — wrote
+SQL against `orchestration_states` assuming an `id` column (its PK is `orchestration_id`).
+Both against tables I was reading for the first time this session.
+
+**What caught it:** the database, immediately and loudly. Cost: two error round-trips, ~0.
+This row exists not because the cost was high but because of the tally: CLAUDE.md has said
+"Schema first: `\d <table>` before writing SQL" for as long as the file has existed, and the
+misses keep happening precisely BECAUSE the failure is cheap, loud and instantly corrected —
+so no single instance ever feels worth changing behaviour over. That reasoning is how the same
+skip lands in a `WHERE` clause someday, where a wrong column name in a filter can return a
+silently wrong POPULATION instead of an error (`narrow-filter` family), and nothing is loud.
+
+**The cheap check:** `\d <table>` in the same psql heredoc as the first query against any table
+not yet described THIS session — it costs one line and its output is the evidence the query is
+shaped right.
+
+## 2026-08-08 — "6 tools diverge on FORMULA": I published an arithmetic verdict from a comparator that drives each page with DIFFERENT inputs, and never drove one case by hand
+
+**The claim (NOTES + handoff addendum 2 + README owner log + commit `2790330e4`,
+all same evening):** after the id-alignment batch, "6 tools diverge on formula
+after press — the rebuilds write textbook maths where the originals compute
+their own; the golden is the contract."
+
+**The truth:** `toolgolden.py`'s DRIVE_JS derives every driven value by SCALING
+the page's own markup defaults (`parseFloat(e.getAttribute('value'))` × vector
+factor), and fills a fixed 1000 into any field with NO value attribute. It was
+designed to golden a page against ITSELF. `compare_rebuilt.py` inherited it, so
+the original was driven with the ORIGINAL's defaults and the rebuild with the
+REBUILD's different (or absent) defaults — two correct calculators, two input
+sets. Hand-driving rebuilt repayment with the golden's actual values (250000/
+4.5/25) returned **£1,389.58 — textbook-correct, matching the original to the
+pound**; the comparator's £1,169.18 is the correct answer to the REBUILD's own
+defaults (200000/5.0/25). Investor's absurd "1200% yield (£12,000/yr)" is the
+no-value-attribute branch driving 1000 into rent AND price. Fee-analyser's "—"
+is 1000 driven into a 2-year deal field, refused by validation. Simple's half-
+vector £765-vs-£739.94 is the rebuilt's `step="1"` rounding the driven 12.5
+years to 13 — both answers correct for their own term. Stamp-duty was already
+diagnosed as select-ORDER (options[1] by index lands on a different buyer
+type). Net: **zero demonstrated arithmetic defects**; one genuine MODEL
+difference (bridging-loan, identical defaults, different retained-interest
+model) survives as a real finding.
+
+**What caught it:** the owner asked "explain why it's all different" — and the
+first hand-verification (is the golden's £1,390 textbook-correct?) contradicted
+the story's premise within minutes, because the story had the sides backwards.
+
+**The cheap check that would have caught it at t=0:** before publishing a
+comparative verdict, DRIVE ONE CASE BY HAND — one CDP fill+press with known
+inputs (3 minutes) — and CHECK ONE GOLDEN VALUE against an independent
+calculation. Related shape to `a-comparative-claim-needs-a-case-where-the-two-
+differ`, inverted: a comparative claim also needs proof the two sides were
+given the SAME case. A harness that derives its inputs FROM the page under
+test cannot compare two pages; it compares each page with itself.
+
+**The transferable shape:** *a differential test is only differential if the
+inputs are held fixed; when the harness reads its stimulus from the artefact
+under test, every artefact difference becomes a stimulus difference and
+reports as a behaviour difference.*
+
+**Addendum, same night:** the mechanism was ALREADY ON RECORD — LANDMINES.md has
+carried "`toolgolden.py` only ever drives NEIGHBOURHOODS OF THE SHIPPED DEFAULTS"
+since the loancalculator lane wrote it. `grep -n toolgolden LANDMINES.md` before
+publishing the verdict (the standing practice the memory index states verbatim:
+grep LANDMINES for the SYMBOL you are about to trust) would have surfaced the
+sentence that unravels the whole claim. Two checks skipped, either sufficient.

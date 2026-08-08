@@ -596,3 +596,32 @@ as inspiration. One happy resolution: the stamp-duty calculator's worrying
 the rebuild had reordered the drop-down — its actual sums check out correctly for
 every band we drove. The whole site was byte-verified against our copy again
 tonight; your original pages remain untouched and the site is locked.
+
+**2026-08-08, night — correction to the entry above, and it's good news: the
+rebuilt calculators are NOT getting wrong answers.** Your question — "explain why
+it's all different" — made me check by hand, and the checking overturned my earlier
+report. The comparison tool I used has a quirk I hadn't appreciated: it doesn't feed
+both calculators the same numbers. It reads whatever starting values each page
+happens to ship with and drives multiples of those — so your original repayment
+calculator was tested with £250,000 at 4.5%, while the rebuild (which ships
+£200,000 at 5% as its example values) was tested with those instead. Both answered
+their own question correctly; I mistook the two different questions for six broken
+calculators. When I drove the rebuilt repayment calculator by hand with your
+original's exact inputs, it answered £1,389.58 against your original's £1,390 —
+the same answer, to the pound, just shown with pence. The other "differences"
+dissolve the same way (one rebuild ships no example values at all, so the test
+poured meaningless 1000s into every box — that's the "1200% yield").
+
+Two real things survive: the bridging-loan calculator genuinely models the loan
+differently from your original (your original uses the retained-interest structure
+bridging lenders actually quote; the rebuild compounds it another way) — and per
+your ruling, the improvement loop should decide which is right rather than blindly
+copying either. And the comparison tool itself needs the fix implied above: replay
+the exact same inputs on both sides, which it already records but doesn't yet use.
+That's queued as the first job for the next session, because per your direction the
+checker's job is to prove results don't differ on identical inputs.
+
+Also actioned from your message: the site is UNLOCKED, and the stance changes —
+correctness beats faithfulness to the originals, the improvement loops own tool
+quality, and everything runs from the framework. The handoff for the next thread
+says all of this.

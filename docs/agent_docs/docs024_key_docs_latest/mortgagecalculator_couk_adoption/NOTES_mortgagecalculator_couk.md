@@ -1121,3 +1121,59 @@ comparator catches it" + results populate only on press (except fact-finder's
 live score) + portfolio's comment-style clause (`bugs_open/222` workaround) +
 delete affordability/fact-finder components first (per §10e precedent) so the
 shrink/prune guards compare against nothing.
+
+---
+
+## 2026-08-08 — cross-lane notice from the bugfix_210 lane (not this lane's author)
+
+**A new mechanism can silently swallow your re-recreation dispatches, and the swallow reads
+like ordinary dedup.** bugs_open/210's fix (committed 2026-08-08, inert until the next roll;
+register PBP-038) parks a page after 3 content-failed generic builds behind an OPEN
+`page_build_failed` item that holds the same `(site_id, 'needs_page:<page>')` dedup slot your
+`needs_tool_recreation` items use (e.g. `needs_page:tool-overpayment`). While a park is open,
+your emitter's insert returns "already covered" and no item is created. Check before
+diagnosing your dispatcher:
+`SELECT item_type, status, spec->>'skip_reason' FROM site_work_items WHERE site_id='<site>' AND item_key='needs_page:<page>' AND status='needs_human_review';`
+A hit means the generic pipeline is repeatedly failing on that page — close the park (or fix
+the cause; a successful deploy auto-closes it) and your dispatch works again. Full entry:
+LANDMINES.md § "An `insertWorkItem` false return on a `needs_page:<name>` key may be a PARKED
+page". — bugfix_210 lane
+
+> **CORRECTED 2026-08-08 (same night, owner question exposed it):** the entry
+> above's central claim — "6 tools diverge on FORMULA … rebuilds write textbook
+> maths where the originals compute their own" — is **WRONG**, and the proposed
+> "copy the original's calculation verbatim" contract with it. What caught it:
+> the owner asked "explain why it's all different", and the first hand check
+> (golden repayment £1,390 IS textbook-correct; hand-driving the rebuilt page
+> with the same inputs returns £1,389.58) contradicted the story. The real
+> mechanism, verified per tool below: `toolgolden.py` DRIVE_JS derives every
+> driven value by SCALING THE PAGE'S OWN markup `value` attributes (and drives
+> a fixed 1000 into fields with none) — it goldens a page against ITSELF, so
+> `compare_rebuilt.py` drove the original with the original's defaults and the
+> rebuild with the rebuild's different/absent defaults. Full account + per-tool
+> arithmetic: `WRONG_CALLS.md` 2026-08-08 (differential-test entry) and the
+> 08-08b handoff. **Zero demonstrated arithmetic defects in any rebuilt tool.**
+> Surviving REAL findings: (1) bridging-loan — identical defaults, genuinely
+> different interest model (original: retained-interest gross-up
+> `gross = net/(1 − fee% − monthlyRate%×months)`, the standard bridging quote
+> structure; rebuild: a compound variant) — a correctness judgement for the
+> improvement loop, not a copy-the-original fix; (2) stamp-duty select-option
+> ORDER (both sides' SDLT arithmetic verified correct for what each actually
+> selected); (3) the comparator itself cannot prove input-equality until it
+> REPLAYS the golden's recorded absolute fill plan (sel/action/value are
+> already recorded in the golden for exactly this purpose) instead of
+> re-deriving a drive from the page under test.
+
+### 2026-08-08 night — OWNER RULING (verbatim intent, recorded same hour)
+
+The owner, on reading the formula-divergence report: **(1) do NOT copy an
+original's calculation method if it is wrong — improve every tool to the best
+it can be; the experience/tool loops own that improvement. (2) The arithmetic
+checker's job is to prove results don't differ (on identical inputs) and to
+catch wrong results. (3) The site need not stay locked — especially not to
+preserve tools reporting wrong results. (4) All content and tools are to be
+controlled from the framework so they can be improved.** Consequences: the
+byte-frozen "originals are the contract" posture ENDS for tools (the golden
+remains the drive-plan source and a regression reference, not an arithmetic
+authority); the site lock is RELEASED (done, this session); fidelity-to-wrong
+is out, correctness is the bar.
