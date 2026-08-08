@@ -323,3 +323,42 @@ mine is outstanding; the only modified file in my area at handoff was
 | plain-prose history for the owner | `oufe/README_where_we_are.md` |
 | last milestone read-out | `oufe/SUMMARY_2026-07-29_oufe.md` — **written before the orphan discovery, so it predates §3/§4.** A new summary is arguably due; I did not write one because the queue is filed and unstarted, and "where we are now" would mostly restate this handoff. Write it when C1 lands. |
 | commits | `67c420a96` (146), `b15b1456f` (149 filed), `c0903eb66` (149 A1 corrected) |
+
+---
+
+# CONTRIBUTION 2026-08-08, from the bugfix_117 lane — the footer honesty note is GONE from the live site, since 2026-07-31
+
+Found while checking oufe as a chrome-rebuild canary; nothing from my lane has
+run against oufe. Measured 2026-08-08 ~16:20Z:
+
+- `site_components` footer for oufe.com: `rendered_html LIKE '%OUFE publishes
+  educational analysis%'` → **false**; `'%footer-note%'` → **false**;
+  `updated_at = 2026-07-31 19:21:06Z`.
+- The wire: `curl -s https://oufe.com/index.html | grep -c 'OUFE publishes
+  educational analysis'` → **0**.
+
+So the note migration 268 patched in survived about a day: a chrome re-render
+at 07-31 19:21 rebuilt the footer from the template (which never carried the
+note — your own landmine) and the pages picked that up. Your §5 measurement
+("intact on all 8", 07-29) predates it. **The trigger of that 19:21 rebuild is
+unidentified** — no oufe work item moved that evening and no orchestration row
+for the site's uuid was found in the window; do not assume it was the
+stale-chrome detector (I did, wrongly, for three minutes — the 19:18 item is
+idea.uk's; WRONG_CALLS 2026-08-08).
+
+Two things changed under you since 07-30, both relevant to the durable fix:
+
+1. **The stale-chrome detector is corrected as of v1.0.1266** (bugs_open/117,
+   register IMP-052): it now fires only when chrome's actual render inputs
+   drift, and a one-time baseline wave will rebuild EVERY site's chrome once
+   (all rows are unstamped). oufe's slots are **unlocked**, so that wave — or
+   any legitimate input drift — is licensed to rewrite the footer again.
+2. Because the note is ALREADY absent, the wave cannot make oufe worse; but
+   restoring it with another mig-268-style `replace()` WITHOUT locking or
+   templating will just lose it again on the next legitimate rebuild.
+
+Your call, but the options as I see them: restore via replace() **and**
+069-lock the footer slot (`site_components` lock columns; automation then
+refuses and files `lock_blocked_change` instead of overwriting), or move the
+note into the component template / site data so a rebuild preserves it. The
+second is the only one that survives a locked-slot unlock.

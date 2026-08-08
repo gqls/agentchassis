@@ -312,3 +312,28 @@ its fingerprint form; candidate 1 remains open as a complement.
   fleet-wide on the missing column.
 - Verification recipe: lane RUNBOOK R10 (positive `render_inputs` / negative
   `stale_sc_` pod-grep, then watch the wave converge).
+
+## UPDATE 2026-08-08 evening — LIVE on v1.0.1266, binary-verified; behaviour watch is what remains
+
+Fleet release rolled the chassis; pod-grep on BOTH replicas, one exec each:
+`render_inputs` 6 / `stale_sc_` 0 / `stale_render` 0 / `chrome_dead_control` 5
+(positive, two negatives, pipeline control). Migration 334 was applied before
+the roll. Council APPROVED round 1 (`f62e20ae`).
+
+**Still owed before this bug's own bar is met:** the stamp and the wave are
+verified in the binary and in a rolled-back live transaction, but not yet
+OBSERVED in production — no chrome render (57/57 rows unstamped) and no
+discovery pass (`stale_chrome` items: 0) has run post-roll. Watch recipe:
+lane RUNBOOK R10 step 4.
+
+**Live evidence of this bug's cost, found while choosing a canary:**
+oufe.com's footer honesty note — hand-patched by migration 268 into the
+stored artefact only, per that lane's landmine — has been GONE from the
+stored chrome and the served site since a chrome re-render at 2026-07-31
+19:21 (trigger unidentified; an earlier attribution to the idea.uk
+`stale_sc_footer` drain was WRONG — see the lane's NOTES misstep 4). oufe's
+chrome slots are unlocked, so any rebuild may rewrite them; handed to the
+oufe lane. The transferable rule stands either way: **hand-patched chrome
+must be 069-locked or carried in template/data — a stored artefact is one
+legitimate rebuild away from reset, and this fix makes rebuilds *rarer and
+better-aimed*, not gone.**

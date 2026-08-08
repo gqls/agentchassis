@@ -299,3 +299,50 @@ Triage, so the reasoning is on record rather than in a scrollback:
 
 Verdict is APPROVED so the commit (`998bf4c9f`, `Council-Submitted:` trailer)
 is credited automatically by 098 at report time. No amend — forward-only.
+
+## 2026-08-08 — LIVE on v1.0.1266, verified at the binary (R10 step 3)
+
+Fleet release rolled agent-chassis to v1.0.1266 (both replicas started
+~16:00Z). Pod-grep, same exec, BOTH replicas, four controls:
+`render_inputs` **6** (positive — my strings present), `stale_sc_` **0** and
+`stale_render` **0** (negatives — the retired literals are gone; the one repo
+occurrence of `stale_sc_` is a comment, which does not compile into the
+binary), `chrome_dead_control` **5** (pre-existing string proving the
+extraction pipeline). Migration 334 was applied BEFORE the roll, so the
+ordering constraint held.
+
+**What is NOT yet proven live:** no chrome render has run post-roll (57/57
+rows unstamped) and no discovery pass has fired (`stale_chrome` items: 0).
+The stamp-write and the baseline wave are still to be OBSERVED, not assumed —
+that is the next session's watch.
+
+Old-predicate queue debt, left deliberately: 6 `detected` `stale_sc_*` items
+(dartsonline ×3 from 07-28, leopardessconsulting ×3 from 07-26) and 1
+`deferred` (idea.uk footer). When dispatch drains them the rebuilds will
+STAMP those sites — accelerating baseline convergence, not fighting it.
+
+## 2026-08-08 — MISSTEP 4: I read a timestamp coincidence as causation, across two different sites
+
+Investigating oufe.com (candidate for a stamp-path induction), I found its
+footer honesty note — hand-patched by migration 268, "in no template and no
+Go code" — **gone from the stored chrome AND from the live wire** (0 matches
+on oufe.com/index.html), deleted by a chrome re-render at 2026-07-31
+19:21:06. I then wrote that "the old detector's false-positive drain deleted
+it", because a `stale_sc_footer` item went `deferred` at 19:18 the same
+evening. **Wrong: that item is idea.uk's.** No oufe work item moved in that
+window, and no orchestration row for oufe's uuid survives in the window
+searched — the trigger of the 07-31 oufe rebuild is UNIDENTIFIED.
+
+**What caught it:** joining the item row to its site before repeating the
+claim. **The cheap check:** a timestamp coincidence is not a join — name the
+site_id on BOTH sides before asserting "X caused Y". (Also logged in
+WRONG_CALLS.)
+
+**What stands, measured:** the note has been absent from the served site
+since 2026-07-31 (~8 days, unnoticed — the oufe lane's 07-29 "intact on all
+8" predates the deletion); oufe's chrome slots are UNLOCKED, so ANY rebuild
+— including the coming baseline wave — is licensed to rewrite them. Nothing
+of mine has run against oufe. Handed to the oufe lane (dated contribution in
+their handoff + their workstreams memory line); the durable fix there is
+theirs to choose: restore via a mig-268-style replace, then 069-LOCK the
+slot or move the note into template/data so a rebuild preserves it.

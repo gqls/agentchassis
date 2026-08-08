@@ -22903,3 +22903,23 @@ the session. General form: **a column's semantics live in its READER, not its
 name.** "priority" told me nothing about direction; only line 683 does. Same class
 as re-reading your own presentation as the system's behaviour (see
 `re-running-a-query-is-not-re-measuring` — this is the write-side twin).
+
+## 2026-08-08 — a `deferred` item at 19:18 "explains" a rebuild at 19:21 — on a different site (117 lane)
+
+**The claim.** "oufe's footer honesty note was deleted by the old
+stale_site_components detector's false-positive drain" — asserted because a
+`stale_sc_footer` item went `deferred` at 2026-07-31 19:18 and oufe's footer
+was re-rendered 19:21.
+
+**What was wrong with it.** The item belongs to idea.uk. No oufe work item
+moved that evening; the actual trigger of oufe's 07-31 rebuild is
+unidentified. The deletion itself is real and measured (note absent from
+stored chrome and the wire since 07-31); only the attributed CAUSE was false.
+
+**What caught it.** Selecting the item WITH its site domain before writing
+the claim into NOTES.
+
+**The cheap check that would have prevented it.** A timestamp coincidence is
+not a join: put the site_id on both sides of any "X caused Y" across two
+tables before asserting it. Three minutes apart fleet-wide is nothing — this
+estate runs dozens of orchestrations an hour.
