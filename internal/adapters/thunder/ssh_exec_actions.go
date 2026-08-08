@@ -131,7 +131,7 @@ func (s *SSHExecAction) loadConnectionInfo(ctx context.Context, provisioningID s
 		}
 		return nil, fmt.Errorf("lookup instance %s: %w", provisioningID, err)
 	}
-	if inst.InstanceIP == "" {
+	if !inst.InstanceIP.Valid || inst.InstanceIP.String == "" {
 		return nil, fmt.Errorf("instance %s has no instance_ip (not yet running?)", provisioningID)
 	}
 	if !inst.SSHPort.Valid || inst.SSHPort.Int64 == 0 {
@@ -145,7 +145,7 @@ func (s *SSHExecAction) loadConnectionInfo(ctx context.Context, provisioningID s
 		user = "ubuntu"
 	}
 	return &connectionInfo{
-		IP:            inst.InstanceIP,
+		IP:            inst.InstanceIP.String,
 		Port:          int(inst.SSHPort.Int64),
 		SSHUser:       user,
 		SSHSecretName: inst.SSHKeySecretName,

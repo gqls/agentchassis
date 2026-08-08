@@ -26,14 +26,14 @@ type Instance struct {
 	ID                uuid.UUID // DB row PK
 	ThunderInstanceID string    // TEXT in schema — stores Thunder's numeric identifier as string
 	InstanceType      string
-	InstanceIP        string
-	SSHPort           sql.NullInt64 // nullable: rows provisioned before port capture have NULL
+	InstanceIP        sql.NullString // nullable: a hand-filed row for an instance seen at Thunder may have no IP
+	SSHPort           sql.NullInt64  // nullable: rows provisioned before port capture have NULL
 	SSHUser           string
 	SSHKeySecretName  string
 	Status            string // see schema CHECK constraint values
 	MaxUptimeHours    int
 	TrainingRunID     sql.NullString
-	RequestedBy       string
+	RequestedBy       sql.NullString // nullable in schema
 	HourlyRateUSD     float64
 	CostUSD           sql.NullFloat64
 	ProvisionedAt     sql.NullTime

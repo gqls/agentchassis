@@ -183,15 +183,26 @@ COMMIT;
 --    treats 404 as success, marks the row decommissioned. Cost will be 0 if
 --    running_since wasn't set sensibly — pick a value in the past).
 --
+--    ⚠ instance_ip is DELIBERATELY OMITTED (NULL) — that omission IS the test.
+--    This template used to supply '10.0.0.42', which made it structurally unable
+--    to catch bugs_open/186: store.Instance scanned the nullable instance_ip
+--    into a plain Go string, so the whole decommission died at the DB lookup on
+--    any NULL-IP row — and the one procedure written to prove the reaper worked
+--    could never produce that input. When you inherit a drill, ask which inputs
+--    it CANNOT produce; that set is where the bugs live.
+--    ⚠ Confirm on the account before using a numeric id: instances/list must be
+--    empty, or use a non-numeric id (the adapter refuses an unparseable id
+--    before calling Thunder — decommission_action.go strconv.Atoi guard).
+--    Real live ids here are bare small integers ('0', '1').
+--
 -- INSERT INTO thunder_instances (
---     id, thunder_instance_id, instance_type, instance_ip, ssh_user,
+--     id, thunder_instance_id, instance_type, ssh_user,
 --     ssh_key_secret_name, status, max_uptime_hours, requested_by,
 --     hourly_rate_usd, provisioned_at, running_since
 -- ) VALUES (
 --     gen_random_uuid(),
 --     '999999',
 --     'synthetic_reaper_test',
---     '10.0.0.42',
 --     'ubuntu',
 --     'thunder-ssh-fake-uuid-for-test',
 --     'running',
