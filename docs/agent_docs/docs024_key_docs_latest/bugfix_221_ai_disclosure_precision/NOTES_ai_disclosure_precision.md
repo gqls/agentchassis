@@ -374,3 +374,47 @@ pre-empt it.
 **A chassis roll, then the pod grep.** The fix is Go and therefore inert. The
 defect is still reproducible in production right now. The file stays OPEN, per
 the owner's 2026-08-06 direction and on its own merits.
+
+### CORRECTION 2026-08-08 (minutes later) — the verifier did not "queue", it FAILED, and I inferred the wrong cause from an absence
+
+Above I wrote that the landmine verifier's verdict was *"still queued at
+hand-off (newest verification row predates the dispatch)"*. **That was wrong.**
+I had observed an absence — no verdict row — and supplied the flattering
+explanation (latency) without asking the orchestration what happened to it:
+
+```sql
+SELECT current_step, status, updated_at FROM orchestration_states
+WHERE correlation_id='49f3a981-0d4c-49fa-95f2-5f40634cf372';
+
+ call_verifier | FAILED | 2026-08-08 19:16:40
+ derive_checks | FAILED | 2026-08-08 19:16:39
+```
+
+**Cause, and it is not mine:** a fleet-wide Anthropic credit exhaustion.
+Measured independently rather than taken from the neighbouring lane's commit
+message that put me onto it —
+
+```
+ credit_failures |             min              |              max
+              33 | 2026-08-08 18:25:48+00       | 2026-08-08 19:22:15+00
+```
+
+My verifier fired at ~18:26 and failed at 19:16, squarely inside that window.
+(The council run got in at 18:22–18:23, about two minutes before it started —
+timing, not merit.)
+
+**The lesson, which is the same one this session keeps re-learning in new
+clothes:** *"the row isn't there yet"* and *"the row will never be there"* look
+identical from the read side. The `090` runbook warns about exactly this in the
+other direction — *"a missing orchestration row is almost always latency, not a
+dropped dispatch — do not retry on that evidence"* — and the correct move is
+neither to assume latency nor to assume failure, but to **ask the
+`orchestration_states` row for its status**, which distinguishes them in one
+query and which I did not run until something else prompted me.
+
+**Consequence:** the amended LANDMINES entry is synced to `doc_notes` (that half
+worked and is verified) but is **unverified by the verifier**. Given
+`bugs_open/223` — verdicts on entries with non-Go footprints are weak evidence
+in both directions — this costs little, but it is an open loop, not a done one.
+**Re-fire when the fleet has credit:**
+`./scripts/trigger-landmine-verifier.sh 'LANDMINES.md#a-new-pattern-in-validatepagecontent-is-a-blocker-by-default-and-a-blocker-there'`
