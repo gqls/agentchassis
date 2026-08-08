@@ -22923,3 +22923,87 @@ the claim into NOTES.
 not a join: put the site_id on both sides of any "X caused Y" across two
 tables before asserting it. Three minutes apart fleet-wide is nothing — this
 estate runs dozens of orchestrations an hour.
+
+## 2026-08-08 — "the field does not exist on any of 17 rows" — it existed on 16, one level down (vigilant_designer offer track)
+
+**The claim.** Reviewing the offer/benefit analyser's plan for the owner, I wrote
+that `primary_model` "does not exist in any strategy row (0/17)", and called two
+lines of the approved PLAN — a prompt instruction and a verifier — **plan defects
+referencing a field that has never been written**. It went into a committed REVIEW
+file and into the owner's plain-prose log.
+
+**What was wrong with it.** `primary_model` exists on **16 of 17** sites, nested at
+`revenue_models.primary_model`. The PLAN was right; my "defect" was the error. I
+had read `site_specs.data->>'primary_model'` — the top level — got 17 empties, and
+converted that into a claim about the field.
+
+**What caught it.** Reading `domain-strategist`'s live prompt an hour later while
+writing up a *different* item (B2). Its declared output schema puts `primary_model`
+inside the `revenue_models` object, in plain sight. Nothing about the failed query
+prompted the re-check — I went looking for something else and fell over the answer.
+
+**Why the existing landmine did not save me.** `a-path-read-cannot-see-the-shape-
+change-underneath-it` says *enumerate keys*, and I DID enumerate keys — with
+`jsonb_object_keys(data)`, which enumerates **one level**. Top-level enumeration is
+still a path read; it just looks like a census. The 16 rows all carried
+`revenue_models`, and I read that key and moved past it.
+
+**The cheap check that would have caught it at t=0:** when a field is missing from
+*every* row, read the WRITER's schema before writing the word "absent". A field no
+row has is far more often a field you are looking for in the wrong place than a
+field nobody writes — the all-or-nothing result is itself the tell. One query:
+`SELECT data->'revenue_models'->>'primary_model' …`, or one read of the prompt that
+produces the row. General form: **a uniform zero is a hypothesis about your query,
+not a finding about the data.** Same family as
+`jsonb-text-like-cannot-match-a-key-value-pair` (induce a non-zero before trusting
+a zero) — and note the *disconfirming* result here was cheap and never sought.
+
+**The recovery was worth more than the claim.** Reading the field properly produced
+the finding the wrong one displaced: **10 of 17 live sites record `direct_business`**
+— the consultancy shape doc 028 names as "a failure mode, not a safe fallback" —
+which gives `check_revenue_shape` a real population and a day-one question.
+
+---
+
+## 2026-08-08 — I nominated a live witness without asking what the disconfirming result would look like. It could not have come out otherwise.
+
+**Lane:** `bugfix_136_config_key_aliases`. Third entry from this session; same family as the
+other two.
+
+**The claim**, written into the lane PLAN, `bugs_open/136` §4 and a council submission:
+that `create_work_item` running on live lanes was *"the cheapest honest live proof"* and
+*"the available witness"* for the new alias mechanism, because it exercises the same shared
+helper the two quiesced actions call.
+
+**It exercises the helper and proves nothing.** All nine live `item_domain` carriers set
+`"build"` — which is exactly `create_work_item`'s hardcoded default. So the row it writes
+carries `pipeline='build'` whether the alias was honoured or the default was taken. **The
+observation is identical under both hypotheses.**
+
+**What caught it:** the roll landed, I went to collect the witness, and found the one live
+run produced `build` — then asked, one step too late, what value would have told me the
+alias *hadn't* fired. There is none.
+
+**The cheap check that would have caught it at t=0:** before nominating any witness, write
+down the disconfirming observation. One query — `SELECT item_domain FROM (the carriers)` —
+shows all nine equal the default, and the witness dies on the spot. **A measurement whose
+two hypotheses predict the same reading is not weak evidence, it is no evidence**, and this
+estate has the rule already: *a `[MEASURED]` figure is only evidence if it could have come
+out otherwise.* I followed the marker discipline and skipped the disconfirmability check
+that discipline exists to enforce.
+
+**The bitter part, and why it belongs here rather than in a runbook:** this is the bug's own
+defect, committed by its fix's verification plan. `bugs_open/136` exists because three
+actions took a hardcoded default that *happened to equal what the config asked for*, so
+nothing could tell working config from inert config. I then proposed proving the fix by
+observing a case where the alias value *happens to equal the default* — so nothing could
+tell an honoured alias from an ignored one. **I reproduced the exact epistemics of the bug
+inside its own verification.**
+
+**Second-order, and it is the reason the sweep result is not evidence either:** when I swept
+all 23 pods for the deprecation warning and got 0, `create_work_item` also appeared 0 times
+in those same logs. A zero whose positive control is also zero means *"I looked in the wrong
+place"*, not *"it did not happen"* — the discipline is already in this file's 2026-07-28
+entries and in `a-silent-gate-either-did-not-look-or-approved`. I nearly recorded "the alias
+did not fire". Recorded instead as UNWITNESSED, with the two things that would actually
+discriminate written into `bugs_open/136` §9.

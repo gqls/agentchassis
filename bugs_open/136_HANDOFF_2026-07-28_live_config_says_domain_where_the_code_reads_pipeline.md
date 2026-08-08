@@ -593,3 +593,71 @@ done
 `new` must go 0 → 1 on every pod. `pos_control` (Strategy 3's long-live warn) must be 1
 **before and after** — it proves the grep and the path to the binary, which a
 new-string-only check cannot. `neg_control` must be 0 always.
+
+### 9. 2026-08-08 (evening) — LIVE on v1.0.1267. Binary proven; runtime behaviour still UNWITNESSED, and the witness I designed could never have worked
+
+**The code is live.** Verified with §8's corrected recipe — enumerate by image, both controls
+— and it is a genuine before/after across the roll, same command both times:
+
+| when | `new` | `pos_control` | `neg_control` |
+|---|---|---|---|
+| pre-roll (v1.0.1264/1266, banked in §8) | **0** | 1 | 0 |
+| post-roll, `agent-chassis-88f79d88c-4v2d2` (v1.0.1267) | **1** | 1 | 0 |
+| post-roll, `agent-build-dispatch-loop-e4e60240-xdg5w` (v1.0.1267) | **1** | 1 | 0 |
+
+`ResolveConfigSetting` resolves 2 in both. **Roll coverage at 17:05Z: 17 of 19 pods carrying
+a chassis image are on v1.0.1267**; one lags on v1.0.1266 and one on v1.0.1264, so the fleet
+is not uniformly on it yet. My commit is `2026-08-08 15:41:13 UTC` — stated in UTC because
+this machine is BST and comparing a BST `git log` against a UTC `kubectl` is how a live fix
+reads as un-shipped.
+
+> **CORRECTED 2026-08-08 — §4 and the lane PLAN both said `create_work_item` running on live
+> lanes was "the cheapest honest live proof" and "the available witness". THAT IS WRONG, and
+> wrong in this bug's own signature way.**
+>
+> **All nine live `item_domain` carriers set `"build"` — which is exactly
+> `create_work_item`'s hardcoded default.**
+>
+> ```sql
+> SELECT ad.type, e.v->'config'->>'item_domain' FROM agent_definitions ad,
+>        jsonb_each(ad.default_config->'workflow'->'steps') AS e(k,v)
+>  WHERE ad.is_active AND COALESCE(ad.is_snapshot,false)=false AND ad.deleted_at IS NULL
+>    AND e.v->>'action'='create_work_item' AND e.v->'config' ? 'item_domain';
+> --  all 9 rows: build
+> ```
+>
+> So a `create_work_item` run produces `pipeline='build'` **whether the alias was honoured or
+> the default was taken**. The observation cannot come out otherwise, and a measurement that
+> cannot come out otherwise is not evidence — the rule this estate already wrote down after
+> two dated-and-marked figures turned out to be unfalsifiable. I proposed it as a witness
+> without asking what the disconfirming result would have looked like.
+
+**The only discriminator is the log line**, which fires solely when an alias supplies the
+value. Swept all 23 pods carrying the image, `--since=3h`: **0 hits — and `create_work_item`
+itself also appears 0 times in every one of those logs.** The positive control is zero, so
+the sweep says *"these executions are not visible in these logs"*, **not** *"the alias did
+not fire"*. One `create_work_item` run did happen on the new binary (`tool-improver`,
+orchestration `2801f868`, row at 16:39:36Z, `pipeline='build'`) and its execution appears in
+no pod log I could reach.
+
+**Honest state, therefore:**
+
+| claim | status |
+|---|---|
+| the binary carries the change | **PROVEN** — pod-grep, both controls, before/after a roll |
+| the declarations join real live definitions | **PROVEN** — audit UNKNOWN KEYS 4 → 1 against production `agent_definitions` |
+| the alias is honoured at runtime | **UNWITNESSED** — and not obtainable from `create_work_item`, whose every live carrier's value equals the default |
+| `run_discovery_checks` / `triage_detected_items` behaviour | **UNWITNESSED** — quiesced by owner ruling; unchanged from §4 |
+
+**What would actually discriminate**, for whoever picks this up:
+1. **Find where `create_work_item` logs.** The action does log; those lines are not in the
+   pod logs I swept, so the sink or the level is the question. Answer that and the warn line
+   becomes reachable — it fires on *every* call from those nine agents.
+2. **Or change one carrier's `item_domain` to a non-default value** (`"content"`) and watch
+   the next row's `pipeline`. That is a definition edit on another lane's agent and I have
+   not done it — but it is the only single-step live discriminator that exists, and it is
+   cheap and reversible.
+
+**This bug stays OPEN**, and now for a sharper reason than "not yet rolled": it is rolled,
+and the runtime half is unproven. Per the owner ruling of 2026-08-06 a finished bug stays in
+`bugs_open/` regardless.
