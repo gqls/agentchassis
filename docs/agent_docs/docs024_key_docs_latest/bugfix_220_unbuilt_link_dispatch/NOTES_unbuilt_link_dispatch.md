@@ -115,3 +115,23 @@ only the COLUMN carries the target). Fix shape per RFC_010 §2: opt-in field
   e55cbfa64; migs 340/341 applied+verified+recorded; register WII-012; LANDMINES;
   docs). OWED: (a) round-2 verdict once credits return; (b) post-roll pod-grep +
   behavioural acceptance (RUNBOOK); (c) candidate 4, deferred on record.
+
+## 2026-08-08 ~22:06 UTC — round 2 APPROVED (3 advisory objections, none high; 3 abstained)
+
+Credits refilled by the owner; the saved re-fire command ran unchanged (orch
+`f42cff55`). Verdict: **approved**. The advisory objections, answered on the record:
+- **Two-gates lore** (bug_historian + debug_historian): "input_mapping is an
+  ALLOW-LIST and so is a claim query's RETURNING". The second gate is OPEN for this
+  loop: `LoadWorkItemsAction`'s SELECT includes `wi.page_id`
+  (`load_work_item_actions.go:646`) and exposes it on `current_item` (`:776-777`) —
+  which is the very column-exposure the 154 lane built; round 1's own answered
+  checks confirmed it live ("mentions_page_id: true" + the claim-step read). No
+  second edit needed.
+- **Operation label** (guardian): migration edits should be labelled
+  `config_change`, not `add` — bookkeeping for FUTURE submissions, adopted.
+- **tool-recreation-handler stays name-first** (guardian): deliberate — the opt-in
+  is per-caller by the RFC_010 ruling; its lane opts in when its items need it. The
+  landmine entry names both carrying agents so the next reader sees the split.
+The platform commits carry `Council-Submitted: def4441c` and are auto-credited by
+098 now the verdict is approved. Lane's remaining owed items: post-roll pod-grep +
+behavioural acceptance (RUNBOOK), candidate 4 on its demand signal.

@@ -240,3 +240,10 @@ design).
 LIKE-concatenation shape the council flagged here — `COALESCE(rendered_html,'')
 LIKE '%' || href || '%'` with the raw href. Same over-match class, same fix shape
 (position()). Flagged rather than edited under you.
+
+**Round 2 APPROVED 2026-08-08 ~22:06 UTC** (3 advisory objections, none high). The
+two-gates advisory is answered in the lane NOTES: the claim query's second gate
+already selects and exposes `wi.page_id` (`load_work_item_actions.go:646`, `:776`).
+Remaining owed on this bug: the post-roll proof (pod-grep + behavioural acceptance,
+lane RUNBOOK) — the fix is inert until the next fleet roll. Fixed-and-live is the
+close bar; per the owner's 08-06 ruling the file stays in `bugs_open/` either way.
