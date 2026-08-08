@@ -523,3 +523,58 @@ look verified.
 induced. A verify block that cannot fail is the trap 338's own header warns about, and
 writing careful-looking assertions is not evidence they fire. That, plus the apply,
 propagation enqueue and served-page verification, is §2 of the handoff.
+
+## 2026-08-08 (late) — 338 APPLIED. And the near-miss on the way there was worse than the migration.
+
+Chassis rolled again to **v1.0.1269**; VIZ-014 re-proved, both replicas, controls holding.
+Fourth roll in three days, none of them ours.
+
+**Migration 338 is applied and recorded** — 2026-08-08 22:12:55Z. Post-state matches the
+dry run exactly, including both negative controls: `tool-list` gained 2 `--color-primary-ink`
+and **kept both `background: var(--color-primary)` rules**; `system-stats` gained 1
+`--color-accent-ink` and **kept both accent backgrounds**. All 5 layouts carry the new token.
+
+**The dry run earned its keep before that, by failing.** It caught two bugs in my own file:
+the `system-stats` negative control counted the bare needle and expected it to drop, but the
+replacement NESTS the needle, so the count is unchanged by design — the replace was right and
+my assertion was wrong. That same nesting made all six blocks non-idempotent. Then three
+induced RAISEs proved the guards fire, the important one being the control that stops an ink
+replacement reaching `.tl-card-icon`/`.tl-cta-btn`.
+
+> **MISSTEP 12 — I audited the payload and shipped the delivery unexamined, and it applied
+> four other threads' migrations.** The scoped apply was handed over as
+> `MIGRATIONS_DIR=… ./run-migrations.sh --apply` on a line long enough to wrap. Entered as
+> two lines, `VAR=value` is an unexported shell assignment the child never sees, so the
+> runner used its default directory — **98 pending files** — and applied 198, 203, 204 and
+> 207 before halting on a syntax error in 208. `204` wrote 10 live `products.content_data`
+> rows on robot-hands; `198` created `gauntlet_rounds` in `clients_db` when migration 276's
+> own guard says that table belongs on the ISLAND. **338 itself never ran** — the run died
+> before reaching it.
+>
+> Everything I had verified was real and thorough and protected nothing, because the risk was
+> never in the SQL. **The blast radius of what I checked was four rows; the blast radius of
+> what I did not check was ~100 other threads' migrations, and the only reason it stopped at
+> four is that an unrelated file happened to have a syntax error.** That is luck.
+>
+> Two checks, both four characters or one glance: **`env VAR=x cmd`** (a single command word,
+> so splitting it errors instead of silently changing behaviour), and **read the runner's own
+> `Pending (N)` line before `--apply`** — it asserts its scope on stdout before touching
+> anything. I had seen `Pending (1)` in my own shell and treated it as a property of the
+> command *text* rather than of the *invocation*, which is exactly what came apart.
+>
+> Sharpest part: I had read the landmine that says "`--apply` takes EVERY pending file —
+> scope the dir", and obeyed it correctly in my own shell. Knowing a trap does not protect a
+> **different surface** — here the handover rather than the command. Recorded in
+> `LANDMINES.md` (with the `Pending (N)` check) and `WRONG_CALLS.md`.
+
+The four applied migrations are **left in place**: forward-only, they are other threads'
+files, their own guards passed, and whether they stand is the owner's call rather than this
+lane's. Flagged to the owner explicitly rather than quietly reverted.
+
+**Where the work stands.** The source is fixed; **no visitor sees anything yet**. The
+propagation re-render is the whole remaining job and it is §2b of the handoff: 16 component
+placements across 8 sites, plus a wider stylesheet re-render for 14 `css_themes` on the five
+changed layouts. Two things I did NOT resolve and have marked as such: the enqueue mechanism
+(ran out of budget on schema archaeology, not on the decision), and **whether the layouts
+change even reaches gaswholesalers.com — the site with 6 of the 12 expected closures, and
+the one site absent from the theme join.** If it does not, §6's expected-12 is wrong.

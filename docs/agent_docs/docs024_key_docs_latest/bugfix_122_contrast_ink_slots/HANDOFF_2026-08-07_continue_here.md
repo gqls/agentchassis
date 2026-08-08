@@ -9,8 +9,9 @@ there before touching code. Everything else below is new or changed.
 
 The **engine half is live and has stayed live across three rolls**: v1.0.1266 carries
 VIZ-014, pod-proven on both replicas (§1). No lane in this workstream rolled any of them. The
-**config half — the part that changes a visitor's page — is WRITTEN BUT NOT APPLIED**:
-migration `338`, committed `5e77607cf`, plus a second migration still unwritten (§2). Separately, picking up
+**config half is APPLIED** (migration `338`, 2026-08-08 22:12:55Z, verified at the rows)
+— but **nothing a visitor sees has changed yet**: the propagation re-render is the whole
+remaining job (§2b), and a second migration is still unwritten (§2b foot). Separately, picking up
 `bugs_open/212` reframed it twice over: its fix ranking is refuted by arithmetic, its
 "unenforced contract" premise is wrong, and the real blocker turned out to be a work-item
 contract defect now filed as **`bugs_open/213`** (§3, §4).
@@ -29,8 +30,8 @@ lane's own history.
 5. **Read `bugs_open/212` §8 before its §1–§7**, and `bugs_open/213` whole. §1–§7 of 212
    are the version of the story that was wrong.
 
-Then pick up at **§2** — migration `338` is written and committed but **not applied**,
-and that plus one more migration is the entire remaining job for bug 122.
+Then pick up at **§2b** — migration 338 is applied; the propagation re-render is what is
+left, and until it runs no visitor sees any of this.
 
 ## 0. What changed on 2026-08-08, before you trust anything below
 
@@ -39,17 +40,17 @@ within a day**, one of them twice — that rate is the point, not the individual
 
 | what | was (08-07) | is (08-08) | so |
 |---|---|---|---|
-| chassis image | v1.0.1262 | **v1.0.1266** (08-08 pm, re-proved again) | §1 — a new image is a new fact |
-| next free migration number | 324 | **338, now used** — 324/325/334/336/337 all taken | §2 |
+| chassis image | v1.0.1262 | **v1.0.1269** (re-proved; four rolls, none ours) | §1 — a new image is a new fact |
+| migration 338 | not written | **APPLIED + verified 22:12:55Z** | §2 |
 | `090` run 4 | still `diagnosing` | **`complete`, UNVERIFIABLE** | §5 |
-| the config half | not written | **338 written + committed, NOT applied** | §2 |
+| what is left | the migrations | **the propagation re-render** | §2b |
 
 Nothing has touched `bugs_open/212`, `bugs_open/213` or this directory since the 08-07
 commits (`git log b938b54d8..HEAD -- …` is empty), so §3–§4 stand as written.
 
 ## 1. DONE — the engine is live, pod-proven [re-proved 2026-08-08]
 
-Both replicas of `agent-chassis`, image `docker.io/aqls/agent-chassis:v1.0.1266`:
+Both replicas of `agent-chassis`, image `docker.io/aqls/agent-chassis:v1.0.1269`:
 
 | symbol | count | role |
 |---|---|---|
@@ -59,7 +60,7 @@ Both replicas of `agent-chassis`, image `docker.io/aqls/agent-chassis:v1.0.1266`
 | `fillDarkSchemeSpecialisedSlots` | 4 | positive control |
 | `zzzInventedControlXyz` | 0 | negative control |
 
-Identical counts on v1.0.1262, v1.0.1264 and v1.0.1266 — three rolls, none of them ours. Nothing downstream of a
+Identical counts on v1.0.1262, 1264, 1266 and 1269 — four rolls, none of them ours. Nothing downstream of a
 build records which commit it came from, so the symbols are the only evidence — which is
 why both controls are in the table and why every replica was checked. **Do not re-derive
 this from the tag, and do not carry this table forward across another roll without
@@ -75,74 +76,89 @@ for POD in $(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonp
 done
 ```
 
-## 2. NEXT — migration 338 is WRITTEN and COMMITTED but NOT APPLIED
+## 2. DONE — migration 338 is APPLIED and verified at the rows [2026-08-08 22:12:55Z]
 
-**`docs/agent_docs/sql_for_agents/338_components_opt_into_legible_ink_slots.sql`**
-(`5e77607cf`, 2026-08-08). This is the config half of 122 — the only thing left that
-changes a visitor's page. **Read its header block before running it**: it explains, with
-the measurements, why it does not match the approved sketch.
+`338_components_opt_into_legible_ink_slots.sql`, recorded in `schema_migrations`.
+The run printed `Pending (1)`, six `DO` blocks, `COMMIT`, `recorded`, and nothing else.
 
-### Why 338 diverges from the approved plan, and why that was necessary
+Post-state, and it matches the dry run exactly:
 
-The sketch used a bare global `replace()` per component, gated on a **row** count.
-`replace()` is global **within the string**, so a row-count gate cannot see
-over-application. Measured against the live rows on 08-08:
-
-| component | needle occurrences | intended targets |
+| row | new token | negative control |
 |---|---|---|
-| `case-studies-grid` | 2 | 2 — sketch correct |
-| `system-stats` | **5** | 1 (`.stats-eyebrow`) |
-| `image-hover-card-grid` | **2** | 1 (`__eyebrow`) |
-| `tool-list` | **6** | 2 (`.tl-eyebrow`, `.tl-card-link`) |
+| `case-studies-grid` | 2 × `--color-accent-text` | — |
+| `system-stats` | 1 × `--color-accent-ink` | **2 accent backgrounds intact** |
+| `image-hover-card-grid` | 1 × `--color-primary-ink` | focus outline intact |
+| `tool-list` | 2 × `--color-primary-ink` | **2 primary backgrounds intact** |
+| 5 layouts | 1 × `--color-accent-ink` each | — |
 
-The extras are not harmless. `tool-list`'s four include
-`.tl-card-icon { background: var(--color-primary); }` and
-`.tl-cta-btn { background: var(--color-primary); }` — the approved form would have
-**repointed two backgrounds to an ink colour**, the exact inversion this bug is about.
-`system-stats` has two backgrounds and an outline among its five; `image-hover-card-grid`'s
-second is an outline. So every needle in 338 is rule-scoped, every block asserts its
-expected occurrence count, and the three risky ones carry a **negative control** asserting
-the non-targets survived.
+Before applying: the whole file was dry-run in a rolled-back transaction (which found two
+bugs in the migration itself — see NOTES), three RAISE paths were induced to prove they
+fire, and both `\copy` backups were taken to
+`…/scratchpad/backups/backup_338_{content_components,layouts}.tsv`. Rollback is at the foot
+of 338.
 
-**The layouts half did not match either.** The sketch's `a { color: var(--color-accent); }`
-one-liner exists in **0 of 18** layouts. Four of the five named layouts use a multi-line
-rule; `tool-portal-light` uses a different single-line form. Two separate blocks in 338.
+> **READ THIS BEFORE ANY FUTURE `--apply`.** The first attempt at this apply was made with
+> `MIGRATIONS_DIR=… ./run-migrations.sh --apply` entered as **two lines**. `VAR=value` on
+> its own line is an unexported shell assignment, so the runner used its default directory
+> — **98 pending files** — and applied four other threads' migrations (198, 203, 204, 207)
+> before halting on a syntax error in 208. `204` changed 10 live `products.content_data`
+> rows on robot-hands; `198` created `gauntlet_rounds` in `clients_db` when migration 276's
+> own guard says it belongs on the ISLAND. **Those four are still applied and recorded —
+> forward-only, and they are other threads' files, so whether they stand is the owner's
+> call, not this lane's.** Full account: `LANDMINES.md` and `WRONG_CALLS.md`, 2026-08-08.
+> **Always `env VAR=x cmd` on one line, and always read the runner's `Pending (N)` line
+> before `--apply` — on a scoped run it must say 1.**
 
-### What is left to do, in order
+## 2b. NEXT — PROPAGATION. Nothing a visitor sees has changed yet
 
-1. **Induce every `RAISE` against a scratch copy before applying.** Not done. A verify
-   block that cannot fail is precisely the trap 338's own comments warn about, and
-   asserting that it is careful is not the same as proving it fires. Clone the four
-   component rows and five layout rows into a scratch table, break each needle in turn,
-   confirm each `RAISE EXCEPTION` actually aborts.
-2. **Re-check the number.** `338` was free at write time (`337` highest on disk and in
-   `schema_migrations`). Re-check immediately before `--apply` — this file has been wrong
-   about a migration number twice already.
-   ```bash
-   ls docs/agent_docs/sql_for_agents/ | grep -oE '^[0-9]{3}' | sort -n | tail -3
-   kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db \
-     -t -A -c "SELECT filename FROM schema_migrations ORDER BY filename DESC LIMIT 3;"
-   ```
-3. **Take the two `\copy` backups** named in 338's header, outside the transaction.
-4. **Apply**, scoped to this file. `328` and `330` are `_HOLD`-renamed so a blanket
-   `--apply` cannot ship them — do not sweep the directory.
-5. **Enqueue the propagation.** The UPDATE changes the SOURCE; a visitor sees nothing
-   until the pages re-render. This is the still-open `editquality` MEDIUM objection, and
-   **listing the rows is not enough — the approved plan only listed them and the seat was
-   right that this is insufficient.** The query is at the foot of 338. §4 is why a
-   `complete` work item is not evidence this happened.
-6. **Verify at the served page** — never row counts, never a work-item status. And re-run
-   the baseline first: see §6, it has drifted risk.
+**This is now the whole remaining job.** The migration changed the SOURCE; every live page
+still carries its old `rendered_html` and every site still serves its old stylesheet. This
+is the council's still-open `editquality` MEDIUM objection, and §4 is why "the queue says
+complete" will not be evidence it happened.
 
-### Still unwritten: the second migration
+**Component placements — 16 across 8 sites [MEASURED 2026-08-08]:**
 
-The **render-audit cadence** (`scheduled_tasks` row, submission edit 8) is not written.
-One row; `\d scheduled_tasks` first — it is `interval_seconds`, not a cron string, plus
-`target_topic`, `input_data`, `pre_query`, `fire_message`. Weekly, not daily: findings
-dedupe on `contrast_failure:<page-path>#<selector>` and a falling count is
-content-dependent, so daily multiplies noise without signal. The whole detection chain has
-been live since v1.0.1257 with **0 `scheduled_tasks` rows targeting `render-audit-agent`**,
-enabled or disabled — it has run exactly once, by hand.
+| site | component | placements |
+|---|---|---|
+| ai-agent-orchestration.com | case-studies-grid 2, system-stats 2, tool-list 1 | 5 |
+| gamesdesign.co.uk | system-stats 1, tool-list 2 | 3 |
+| idea.uk | tool-list 2 | 2 |
+| robot-hands.com | system-stats 1, tool-list 1 | 2 |
+| dartsonline.com | image-hover-card-grid 1 | 1 |
+| finetuning.uk | case-studies-grid 1 | 1 |
+| leopardessconsulting.co.uk | case-studies-grid 1 | 1 |
+| vonc.com | system-stats 1 | 1 |
+
+```sql
+SELECT s.domain, cc.name, count(*) FROM page_components pc
+  JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
+  JOIN content_components cc ON cc.id=pc.component_id
+ WHERE cc.name IN ('case-studies-grid','system-stats','image-hover-card-grid','tool-list')
+ GROUP BY 1,2 ORDER BY 1,2;
+```
+
+**The layouts half is WIDER and is a stylesheet re-render, not a page one.** The site↔layout
+join runs through `css_themes.layout_id` (there is no `sites.layout_id` — that cost several
+wrong guesses). 14 active themes carry the five changed layouts:
+
+| layout | themes |
+|---|---|
+| brochure-formal | 5 — default, standard-brochure, professional-dark, fundamentallyai.com, leopardessconsulting.co.uk |
+| tool-portal-light | 4 — idea.uk, lendzy.co.uk, mortgagecalculator.co.uk, webdesign.co.uk |
+| technical-precise | 2 — modern-engineering-clean, premium-elegant |
+| tool-portal-dark | 2 — gamesdesign.co.uk, robot-hands.com |
+| high-energy | 1 — boxing |
+
+> **[UNMEASURED] gaswholesalers.com is not in that list and it is the site with the most
+> expected closures (6 of the 12).** It presumably runs one of the generic themes (`default`,
+> `standard-brochure`, `professional-dark`), but I did not confirm which. **Confirm this
+> before concluding the layouts change reaches it** — if it does not, the expected-12 figure
+> in §6 is wrong and the layouts half needs re-scoping.
+
+**Enqueue mechanism: NOT YET DETERMINED.** I ran out of budget on schema archaeology rather
+than on the decision. Start from the standing note that a single-page deploy can be fired
+directly when the queue is stalled, check whether a stylesheet re-render is a distinct
+action from a page re-render, and **prefer the framework's own path over hand-firing**.
 
 ## 3. `bugs_open/212` — reframed. Read its §8 before acting on §1–§7
 
