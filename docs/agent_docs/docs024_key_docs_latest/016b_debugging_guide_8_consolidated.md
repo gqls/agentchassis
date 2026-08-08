@@ -5258,11 +5258,17 @@ first exemption is the class's announcement, not its resolution.**
 false conviction (2026-08-05): a checker whose question is unanswerable for a class of
 correct inputs reads as that class being broken.
 
-**Fix** (committed `201350e23`, council `a9ffed15`): scope the placeholder scan to
-prose by stripping script/style bodies first; leave every other check on the full HTML.
-Pin with the convicted snippets verbatim AND guard-survival cases (real `[Name]` prose
-must still block), then mutate the fix off and watch the new tests fail — a quiet test
-passes when the rule is gone.
+**Fix** (round 2 `b75f36601`+`f51ac6af8` after a REVISE, council `a9ffed15`): scope the
+placeholder scan to PROSE by reusing the file's existing prose mechanism —
+`datahelpers.ExtractAssertionText` (real HTML parse; script/style/code/pre/head and
+attributes excluded) — NOT a new regex stripper; round 1 wrote one and the council's
+reuse seats caught the duplication (`WRONG_CALLS.md` 2026-08-08: the reusable helper was
+called two lines below the edit). Watch the inversion when reusing a parser: a
+markup-shaped pattern (`<no value>`) PARSES AWAY, so it must keep scanning the raw
+document or the reuse silently kills it — pin that with a test. Pin with the convicted
+snippets verbatim AND guard-survival cases (real `[Name]` prose must still block), then
+mutate the fix off and watch the new tests fail — a quiet test passes when the rule is
+gone.
 
 ## 10. Open bug queue (`/bugs_open/`) — index
 

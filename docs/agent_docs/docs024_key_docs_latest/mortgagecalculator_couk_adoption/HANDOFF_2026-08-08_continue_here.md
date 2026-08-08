@@ -28,20 +28,22 @@ live, queue drained — re-verified 08-07 and unchanged.
 | 9 rebuilt tools | live at new URLs, chrome present, wire-checked 08-07. `pages.build_status` still stale (`needs_rebuild`) for 7 — known, cosmetic |
 | tool-overpayment, game-fact-finder | 404, 0 components — recreations were discarded by the validator false positive (`bugs_open/218` defect A). **Re-run AFTER the fix is live** |
 | tool-portfolio | 404, 0 components — held by the bug-020 fabrication gate 08-05 12:55:38 (`needs_human_review` item on the site, still open). Signals unrecoverable; re-run and READ `check_fabrication` output from the live orchestration row before it purges |
-| Validator fix | committed `201350e23` (strip script/style from placeholder scan; tests + mutation-proven). Council verdict **UNREAD** — `SELECT ... FROM diagnosis_artifacts WHERE correlation_id='a9ffed15-8e27-42a4-8ecd-e48f919470c9' AND kind='council_report'`; on REVISE/REJECTED act, the code is already on the shared branch |
+| Validator fix | **round 2 landed** `b75f36601` + gofmt `f51ac6af8` (round 1 `201350e23` drew a council REVISE — a second stripper where `ExtractAssertionText` already existed; corrected same day, `WRONG_CALLS.md`). Scan now reads assertion-text blocks; `<no value>` exempted onto raw HTML (would otherwise go inert). **Round-2 verdict UNREAD** — `SELECT left(body,600) FROM diagnosis_artifacts WHERE correlation_id='a9ffed15-8e27-42a4-8ecd-e48f919470c9' AND kind='council_report' ORDER BY created_at DESC LIMIT 1;` — act on REVISE/REJECTED, the code is on the shared branch |
 | 090 diagnosis | run `86721efd`: UNVERIFIABLE at iteration-cap; the two missing evidence items are supplied first-hand in `bugs_open/218` (stated-substitution per the 07-31 ruling) |
 | Arithmetic verification | **still 0 of 12 proven** — unchanged from 08-05 §7; the id-renaming problem and path (a) stand |
 
 ## 2. Next actions, in order
 
 1. **Confirm the fix is live** before anything else touches the tools. A roll is not
-   evidence: `kubectl exec -n ai-persona-system <chassis-pod> -- sh -c
-   'strings /app/agent-chassis | grep -c stripScriptAndStyle'` ≥1 on EVERY replica
-   (+ a negative control string). Until then, re-running the two convicted
-   recreations just re-convicts them.
-2. **Read the council verdict for `a9ffed15`** (query in §1). APPROVED → nothing to
-   do (098 credits the commit). REVISE/REJECTED → act immediately; the code is live
-   on the shared branch.
+   evidence, and the tell is INVERTED because round 2 REMOVED round 1's symbol:
+   `kubectl exec -n ai-persona-system <chassis-pod> -- sh -c
+   'strings /app/agent-chassis | grep -c stripScriptAndStyle'` must be **0** on EVERY
+   replica of an image that post-dates `f51ac6af8` (a 1 means the image carries
+   round 1 only). Until then, re-running the two convicted recreations just
+   re-convicts them.
+2. **Read the ROUND-2 council verdict for `a9ffed15`** (query in §1; round 1 was
+   REVISE, answered same day). APPROVED → nothing to do (098 credits the commits).
+   REVISE/REJECTED → act immediately; the code is live on the shared branch.
 3. **Re-run the three recreations** (§10c unlock + backstop pattern — kill the
    backstop the moment the batch completes, §10g). Their `needs_tool_recreation`
    items are terminal-`complete`, so file fresh items (same spec shape — copy from

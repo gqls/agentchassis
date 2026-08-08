@@ -37,16 +37,37 @@ self-contained tool with inline JS is convictable. The pattern list's own
 comment records this exact class once before: bare `placeholder` was removed
 for firing on `<input placeholder="...">` attributes and CSS class names.
 
-**Fix (committed `201350e23`):** strip script/style bodies before the
-placeholder scan only (`stripScriptAndStyle`); every other check (unrendered
-`{{templates}}`, contamination, links, emails, claims) still reads the full
-HTML. Tests carry the three convicted snippets verbatim plus guard-survival
-cases (`[Name]` in a heading and `[your company]` in prose must still block);
-a mutation run with stripping disabled fails the new test.
+**Fix — two rounds, read both:**
 
-**Verify live:** after a post-`201350e23` roll,
-`kubectl exec -n ai-persona-system <chassis-pod> -- sh -c 'strings /app/agent-chassis | grep -c stripScriptAndStyle'`
-≥1 on every replica, and a re-run of the two dead recreations saves components
+> **CORRECTED 2026-08-08 (council REVISE, round `a9ffed15`):** the first fix
+> (`201350e23`) added a regex `stripScriptAndStyle` helper. The council's
+> `reuse_agent` and `prior_art_librarian` seats caught what I missed: this
+> file's claims checks already own a prose scope — `datahelpers.
+> ExtractAssertionText`, called two lines below the placeholder scan — so the
+> stripper was a second mechanism for a solved problem. Logged in
+> `WRONG_CALLS.md`; the cheap check was one grep of `datahelpers/` before
+> writing a new helper.
+
+The landed fix (`b75f36601` + gofmt `f51ac6af8`): the placeholder scan reads
+`ExtractAssertionText(html)` blocks (real HTML parse; script/style/code/pre/
+head and attributes excluded) — which also dissolves the literal-`</script>`
+edge case and stops code-sample convictions. One exemption: `<no value>` is
+markup-shaped and parses away, so it keeps scanning the raw document (a test
+pins this — moving it would have made the pattern silently inert). Every other
+check still reads full HTML. Tests carry the three convicted snippets plus
+guard-survival cases; a mutation run (scan raw HTML) fails the ignore-tests.
+Round-2 council verdict pending under the same correlation.
+
+**All four live consumers inherit the change** (from live definitions):
+`page-build-handler/validate_content`, `content-reviewer/validate_content`,
+`tool-recreation-handler/validate_tool`, `report-builder/validate_page`.
+Stated narrowing: placeholders living only in attributes, code samples or
+script-emitted strings are no longer caught by this check.
+
+**Verify live:** after a post-`f51ac6af8` roll, on EVERY replica:
+`strings /app/agent-chassis | grep -c stripScriptAndStyle` must be **0** (the
+removed symbol is the negative control proving the image post-dates round 2),
+then a re-run of the two dead recreations saves components
 (`SELECT count(*) FROM page_components pc JOIN pages p ON p.id=pc.page_id WHERE
 p.name IN ('tool-overpayment','game-fact-finder')` goes 0 → >0).
 

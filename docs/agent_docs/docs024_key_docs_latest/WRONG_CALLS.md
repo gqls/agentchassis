@@ -22440,3 +22440,25 @@ watching for them.
 signal, **grep for its writer**. Same family as the 08-03 entries the preamble
 already names: dated-and-marked is not disconfirmable — a measurement is only
 evidence if some world produces a different number.
+
+## 2026-08-08 — wrote a second HTML-stripper when the file already owned a prose scope, two lines below my edit
+
+**The claim/action:** fixing the placeholder scan's JS false positives
+(`bugs_open/218`), I wrote a new regex `stripScriptAndStyle` helper into
+`validate_page_content.go` — in a function 250 lines above an existing call to
+`datahelpers.ExtractAssertionText`, the claims checks' prose extractor, which
+already excludes script/style/code/pre/head via a real HTML parse and is
+strictly better (my regex kept convicting `<code>` samples and had a
+literal-`</script>` edge I could only disclose as a risk).
+
+**What caught it:** the council gate — `reuse_agent` and `prior_art_librarian`
+independently, REVISE round `a9ffed15`. Not my tests, which all passed; a
+passing suite says nothing about duplication.
+
+**The cheap check skipped:** one grep before writing a new helper —
+`grep -rn "prose\|script" platform/orchestration/datahelpers/*.go` — or even
+just reading the function I was editing to its call sites: the reusable
+mechanism was invoked at `validate_page_content.go:342`, in the same function
+whose behaviour I was changing. "Reuse existing machinery before building new"
+is a platform convention precisely because the machinery is usually nearer
+than a search would even need to look.

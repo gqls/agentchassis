@@ -913,3 +913,20 @@ purge was real for that day, but the first query could not have distinguished
 describe the WRONG artefacts (overpayment's = a stamp-duty calculator; fact-finder's
 = a legal-disclaimer page proposal). In bugs_open/218's tail. Do not trust `result`
 on this path until someone looks.
+
+### 2026-08-08 later — council round 1: REVISE, and the objection was RIGHT
+
+> **CORRECTED 2026-08-08:** the entry above says the fix "strips script/style
+> bodies". That was round 1 (`201350e23`) and it drew a REVISE: `reuse_agent` +
+> `prior_art_librarian` caught that `datahelpers.ExtractAssertionText` — the
+> claims checks' prose scope, called TWO LINES below my edit — already solved
+> "read prose, not markup", with a real HTML parse that also excludes
+> code/pre/head/attributes. Round 2 (`b75f36601` + gofmt `f51ac6af8`) reuses it
+> and deletes the stripper. Wrong call logged in `WRONG_CALLS.md` (the cheap
+> check: grep datahelpers before writing a helper). One reuse trap found and
+> pinned: `<no value>` parses away as markup, so it stays on the raw document
+> or the pattern goes silently inert. Resubmitted under the same trail
+> `a9ffed15`; **round-2 verdict unread as of this writing.** Consumers named
+> from live definitions: page-build-handler, content-reviewer,
+> tool-recreation-handler, report-builder. bug_historian's gating point (failed
+> validation → silent complete, no escalation) = 218 defect B, related to 034/040.
