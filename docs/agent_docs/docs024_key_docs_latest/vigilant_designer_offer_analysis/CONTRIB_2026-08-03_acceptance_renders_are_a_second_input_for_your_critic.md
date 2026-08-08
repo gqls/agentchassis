@@ -6,6 +6,38 @@ TL-035 (`capture_renders`).
 **Status of this note:** informational. **I have deliberately not seeded anything.** A2 is
 yours, the Gemini-vs-Claude trial is yours, and MDL-040's first live call is yours to make.
 
+> ## ⚠⚠ 2026-08-08 — BEFORE ANYTHING ELSE: `execute_vision_prompt` CANNOT RUN IN A SPAWNED AGENT POD, AND THAT BLOCKS A2 ITSELF
+>
+> **Do not seed `design-critique-agent` against this action until the architecture question
+> below is settled.** This is not about my image source — it is about the action you were
+> going to build A2 on, and I have now driven it in production three times.
+>
+> `execute_vision_prompt` requires `params.StorageClient` to download the PNGs. **Agents run
+> in dynamically spawned per-agent pods** (`agent-<type>-<hash>`; 46 pods run the chassis
+> image), and those pods have **no S3 credentials at all** — verified on the pod that
+> actually processed my run, which `orchestration_states.processing_node` names:
+> ```
+> agent-tool-acceptance-agent-e702cc67-2dnsp
+>   IMAGE_BUCKET / S3_ENDPOINT / B2_APPLICATION_KEY_ID  all <ABSENT>
+>   agentbase/agent.go:329  "Storage client not configured (IMAGE_BUCKET not set)"
+> ```
+> Result across 2026-08-05 and 2026-08-08, either side of a full fleet roll:
+> **`llm_call_log` rows for the vision step = 0, critique notes = 0.** MDL-040's provider
+> path has never executed. Its "built + wire-shape tested" status is honest about the code
+> and silent about the deployment, which is the trap.
+>
+> **I patched the `agent-chassis` deployment's env and it changed nothing** — that is not
+> where agents run. If you were planning the same fix, save yourself the cycle.
+>
+> **OWNER RULING 2026-08-08: all S3 interaction stays with the client; credentials must not
+> be spread across agents.** So the obvious remedy — S3 credentials in the spawn template —
+> is closed. Something has to give on the *action's contract* ("hand me a storage client and
+> `s3://` URIs"), and since A2 is the flagship consumer, **your lane probably owns that
+> decision more than mine does.** I have not attempted it: the critic is yours.
+>
+> Everything below still describes the image source accurately; it just cannot be consumed
+> by that action today.
+>
 > ## ⚠ CORRECTED SAME DAY — READ §7 BEFORE §3
 >
 > **These renders photograph the page AFTER the checks have driven it, not as a visitor
