@@ -23090,3 +23090,46 @@ the enumeration that settled it was available at every one of those points.
 loosely it matched a binary without the change; this one is a *census* scoped so narrowly it could
 not see half its own population. Same root — the search string was inherited from what I had already
 seen, instead of derived from what I was claiming.
+
+---
+
+## 2026-08-08 — I proved a cap was wired, told the owner it bounded the run, and it bounded nothing
+
+**The claim:** mid-run, supervising the first D3 improvement-loop run on leopardessconsulting,
+I told the owner in chat: *"this run repairs at most 5 items, not all 75"* — offered as good
+news about a bounded blast radius while a live site was being repaired.
+
+**Why I believed it, and why that reasoning was not worthless:** `build-dispatch-loop`'s
+`load_work_items` step config carries `max_items: 5`. Another lane had that same day found a
+`max_items` that was **inert** because it was set on `input_data` while the action reads step
+config, so I went and checked *this* one properly: `load_work_item_actions.go:641` reads
+`max_items` from `config` (documented at :40-41 as `params.StepConfig.Config`) and appends it
+to the query args as the LIMIT. Then I pulled the dispatcher's whole step graph —
+`load_items → check_has_items → process_item(loop) → complete` — and confirmed **no edge back
+to `load_items`**. Knob wired, no loop-back, therefore ≤5. Both readings were correct.
+
+**What caught it:** counting, twenty minutes later, while verifying the outcome —
+`SELECT handled_by, claimed_by, status, count(*) … WHERE updated_at > <run start>` returned
+**9 `complete` + 1 `claimed` = 10**, exactly 2×5. Nothing subtle caught it; I only found it
+because the verification step happened to group by `handled_by`. Had I written the outcome up
+from the step log alone, the false claim would have survived into the lane docs and into 116's
+programme record.
+
+**The cheap check:** the one-line row count above, run *once* after the first dispatch
+completed — thirty seconds, at a moment I was already querying that table. I ran the expensive
+checks (read the action, read the graph, avoid the known inert-knob trap) and skipped the cheap
+one that would have settled it.
+
+**The transferable shape, and it is NOT "read the code more carefully" — I did read it
+carefully:** *a cap proven PRESENT in the code is not a cap proven BINDING at runtime.* Static
+reading establishes that a limit exists and is reachable; only counting establishes what it
+did. Config + call graph tell you the intended bound; they cannot see re-entry, retries, a
+second pass, or another caller. **Whenever a bound is about to be stated as reassurance —
+especially to the owner, especially about something irreversible already in flight — the
+evidence has to be the count, not the configuration.** I still do not know *which* re-entry
+produced the 10 (two dispatch passes and a re-query inside `process_item` both fit); that is
+recorded as `[UNVERIFIED]` rather than guessed, which is the one part of this I got right.
+
+**Rhymes with the sibling above but inverts it:** that one searched too narrow a spelling and
+undercounted a population it could see. This one read the right code and never looked at the
+population at all.
