@@ -1213,25 +1213,65 @@ func loadEvidenceBase(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger 
 // a page that can never be rebuilt until someone edits the artefact the
 // scanner mis-read. Keep the list unambiguous AND keep the scope prose-only.
 
+// CORRECTED 2026-08-08 (bugs_open/221), the precision half of the same defect.
+// 219 fixed WHERE this scans; a bare substring is still the wrong test for the
+// first-person family, in prose that no re-scoping can exclude. "as an ai"
+// matched "LocalBusiness schema, as an AI-builder prompt" — a correct product
+// description on webdesign.co.uk's tools-index — and blocked that page from
+// ever being rebuilt. A word boundary does not help: `\bas an ai\b` still
+// matches "as an AI-builder", because '-' IS a boundary.
+//
+// So an entry may now carry a regex instead. This is the smallest declarative
+// way to say "this entry matches a CONSTRUCTION, not a literal", and it stays
+// inside this check: how the fleet's blocker-severity string scans should be
+// governed is an RFC question (bugs_open/221 says so explicitly, and
+// bugs_open/222 is the same class in a different checker, separately owned).
 var metaCommentaryPatterns = []struct {
+	// Pattern is the entry's canonical key. It is reported as the issue Value
+	// — which is why it stays a stable literal even for regex entries: the 219
+	// tests, the agent_error_log census and any query written against either
+	// keep working across this change. When Re is nil it is ALSO the
+	// case-insensitive substring needle, i.e. exactly today's behaviour.
 	Pattern string
 	Label   string
+	// Re, when set, replaces substring matching for this entry.
+	//
+	// Nil means substring, so the thirteen entries below are byte-for-byte
+	// unchanged. That default is deliberate but it is NOT the cautious one:
+	// substring over-matches, which is the failure this bug is about. A new
+	// entry whose text could appear inside a longer legitimate word or phrase
+	// should set Re. The compiler will not remind you.
+	Re *regexp.Regexp
 }{
-	{"as an ai", "first-person AI disclosure"},
-	{"as a language model", "first-person AI disclosure"},
-	{"i cannot generate", "refusal prose"},
-	{"i can't generate", "refusal prose"},
-	{"i am unable to generate", "refusal prose"},
-	{"i'm unable to generate", "refusal prose"},
-	{"i don't have access to", "refusal prose"},
-	{"i do not have access to", "refusal prose"},
-	{"the data schema", "schema vocabulary in copy"},
-	{"per the schema definition", "schema vocabulary in copy"},
-	{"input_schema", "schema vocabulary in copy"},
-	{"on_missing", "pipeline vocabulary in copy"},
-	{"skip_section", "pipeline vocabulary in copy"},
-	{"required: true", "schema vocabulary in copy"},
-	{"marked `required", "schema vocabulary in copy"},
+	// The disclosure is a construction — "as a/an <AI noun phrase>(,) I …" —
+	// not a noun phrase. The first person must follow IMMEDIATELY: allowing
+	// any gap would convict "As an AI engineer, I built this", which is a
+	// human's bio and contains both halves. A closed suffix set plus strict
+	// adjacency is what separates the apology from the job title.
+	{Pattern: "as an ai", Label: "first-person AI disclosure",
+		Re: regexp.MustCompile(`(?i)\bas\s+an\s+(?:ai|artificial\s+intelligence|llm)` +
+			`(?:[\s-]+(?:language[\s-]+)?model|[\s-]+assistant|[\s-]+system|[\s-]+chatbot)?` +
+			`(?:\s*,\s*|\s+)i\b`)},
+	// Same rule, same reason. Today's census finds no live hit, but "run any
+	// checkpoint as a language model backend" is exactly the copy this estate
+	// writes, and the cost of being wrong is a page that cannot be rebuilt.
+	// A genuine "as a language model" disclosure is first-person by
+	// construction, so narrowing it costs essentially no detection.
+	{Pattern: "as a language model", Label: "first-person AI disclosure",
+		Re: regexp.MustCompile(`(?i)\bas\s+a\s+(?:large[\s-]+)?language[\s-]+model(?:\s*,\s*|\s+)i\b`)},
+	{Pattern: "i cannot generate", Label: "refusal prose"},
+	{Pattern: "i can't generate", Label: "refusal prose"},
+	{Pattern: "i am unable to generate", Label: "refusal prose"},
+	{Pattern: "i'm unable to generate", Label: "refusal prose"},
+	{Pattern: "i don't have access to", Label: "refusal prose"},
+	{Pattern: "i do not have access to", Label: "refusal prose"},
+	{Pattern: "the data schema", Label: "schema vocabulary in copy"},
+	{Pattern: "per the schema definition", Label: "schema vocabulary in copy"},
+	{Pattern: "input_schema", Label: "schema vocabulary in copy"},
+	{Pattern: "on_missing", Label: "pipeline vocabulary in copy"},
+	{Pattern: "skip_section", Label: "pipeline vocabulary in copy"},
+	{Pattern: "required: true", Label: "schema vocabulary in copy"},
+	{Pattern: "marked `required", Label: "schema vocabulary in copy"},
 }
 
 func checkMetaCommentary(html string) []ValidationIssue {
@@ -1265,9 +1305,23 @@ func checkMetaCommentary(html string) []ValidationIssue {
 	blocks := append(datahelpers.ExtractAssertionText(html), headProseBlocks(html)...)
 	for _, p := range metaCommentaryPatterns {
 		for _, block := range blocks {
-			idx := strings.Index(strings.ToLower(block), p.Pattern)
-			if idx < 0 {
-				continue
+			// Both arms yield a byte offset into `block` itself, which is what
+			// extractSnippet slices. The regex arm carries (?i) and runs on the
+			// original-case block rather than a lowered copy — so the offset is
+			// exact, where strings.ToLower can in principle shift it (a handful
+			// of runes change byte length when lowered).
+			var idx int
+			if p.Re != nil {
+				loc := p.Re.FindStringIndex(block)
+				if loc == nil {
+					continue
+				}
+				idx = loc[0]
+			} else {
+				idx = strings.Index(strings.ToLower(block), p.Pattern)
+				if idx < 0 {
+					continue
+				}
 			}
 			issues = append(issues, ValidationIssue{
 				Type:     "meta_commentary",

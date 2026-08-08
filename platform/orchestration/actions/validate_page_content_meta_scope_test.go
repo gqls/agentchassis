@@ -193,3 +193,101 @@ func TestMetaCommentaryDescriptionDoesNotBlameTheModel(t *testing.T) {
 		}
 	}
 }
+
+// bugs_open/221 — pattern PRECISION, where 219 was scope. The two are the same
+// check and the same permanent consequence (a blocker makes the action return
+// an error, so the page is never saved), but nothing 219 did could help here:
+// "as an ai" convicted a product description in genuinely visible prose —
+//
+//	<p class="index-subtitle">LocalBusiness schema, as an AI-builder prompt</p>
+//
+// on webdesign.co.uk's tools-index, which is correct, deliberate customer copy
+// for a tool that emits a prompt for an AI builder. Re-scoping cannot save
+// prose that IS prose, and a word boundary cannot either: `\bas an ai\b` still
+// matches "as an AI-builder", because '-' is a boundary.
+//
+// So the disclosure family now matches the CONSTRUCTION it was always for —
+// "as a/an <AI noun phrase>(,) I …" — rather than the noun phrase. The
+// adjacency of the first person is the load-bearing part and is what the
+// human-bio case below pins: "As an AI engineer, I built this" contains both
+// "as an ai" and a first-person "I", and must NOT convict, so "ai near I" is
+// not the rule. Only a closed noun-phrase set with no gap before the "I" gets
+// that case right.
+//
+// MEASURED before the change (2026-08-08): 283 component rows across 10 live
+// domains already use "AI" as a word, so this is not one page's problem — it is
+// a trap that the estate's own subject matter keeps walking into.
+func TestMetaCommentaryDisclosureRequiresFirstPerson(t *testing.T) {
+	pass := []struct{ name, html string }{
+		{
+			// The live row, verbatim. This is the bug.
+			"the live row, verbatim",
+			`<p class="index-subtitle">LocalBusiness schema, as an AI-builder prompt</p>`,
+		},
+		{
+			// Suffix noun IS in the closed set, but the subject is "it".
+			"third-person AI assistant product copy",
+			`<p>Deployed as an AI assistant, it drafts replies your team approves.</p>`,
+		},
+		{"AI product", `<p>We ship it as an AI product, not a plugin.</p>`},
+		{"AI agent", `<p>Designed as an AI agent that watches your build queue.</p>`},
+		{
+			// First person present AND "as an ai" present. The noun phrase is a
+			// human's job title. If this convicts, the rule has degenerated to
+			// "ai near I" and the fix is wrong.
+			"human bio in the first person — the noun phrase is a role, not a disclosure",
+			`<p>As an AI engineer, I built this to stop pasting prompts by hand.</p>`,
+		},
+		{
+			"language model as a product noun",
+			`<p>Run any open-weights checkpoint as a language model backend.</p>`,
+		},
+		{
+			// The head path narrows too — headProseBlocks re-adds these.
+			"copy about AI in a meta description",
+			`<html><head><meta name="description" content="Generate LocalBusiness schema as an AI-builder prompt."></head><body><p>Tools.</p></body></html>`,
+		},
+	}
+	for _, tc := range pass {
+		t.Run("must not block/"+tc.name, func(t *testing.T) {
+			if got := checkMetaCommentary(tc.html); len(got) != 0 {
+				t.Errorf("legitimate copy about AI convicted: %v", metaValues(got))
+			}
+		})
+	}
+
+	// THE NEGATIVE CONTROL, and the whole test of a narrowing: the disclosure
+	// this family exists for must still be a blocker. Every sentence here bar
+	// the verbatim control deliberately contains NO other listed pattern, so
+	// the disclosure family is proven to fire on its own rather than riding on
+	// a co-occurring "i cannot generate".
+	block := []struct{ name, html, wantVal string }{
+		{"comma form", `<p>As an AI, I can't provide current lender rates.</p>`, "as an ai"},
+		{"no-comma form", `<p>As an AI I do not include pricing here.</p>`, "as an ai"},
+		{"language-model suffix", `<p>As an AI language model, I am not able to browse listings.</p>`, "as an ai"},
+		{"assistant suffix, first person", `<p>As an AI assistant, I will not recommend a specific lender.</p>`, "as an ai"},
+		{"as a language model", `<p>As a language model, I can only describe typical fees.</p>`, "as a language model"},
+		{"the 221 negative control, verbatim", `<p>As an AI, I cannot generate this listing.</p>`, "as an ai"},
+		{"disclosure in a meta description", `<html><head><meta name="description" content="As an AI, I cannot summarise these rates."></head><body><p>Rates.</p></body></html>`, "as an ai"},
+	}
+	for _, tc := range block {
+		t.Run("must block/"+tc.name, func(t *testing.T) {
+			got := checkMetaCommentary(tc.html)
+			found := false
+			for _, issue := range got {
+				if issue.Value == tc.wantVal {
+					found = true
+					if issue.Severity != "blocker" {
+						t.Errorf("severity = %q, want blocker", issue.Severity)
+					}
+					if issue.Location == "" {
+						t.Error("no location snippet — a blocker that cannot be located is not actionable")
+					}
+				}
+			}
+			if !found {
+				t.Errorf("flagged %v, want a hit on %q", metaValues(got), tc.wantVal)
+			}
+		})
+	}
+}
