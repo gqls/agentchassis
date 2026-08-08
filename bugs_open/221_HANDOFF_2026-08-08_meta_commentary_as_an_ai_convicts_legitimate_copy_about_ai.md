@@ -1,5 +1,85 @@
 # 221 — `as an ai` convicts legitimate copy ABOUT AI, so a page that sells AI tooling cannot be rebuilt
 
+> ## STATUS 2026-08-08 (evening) — FIXED IN CODE, council APPROVED round 1, **INERT UNTIL THE NEXT CHASSIS ROLL.**
+>
+> Taken by the `bugfix_221_ai_disclosure_precision` lane. Fix `61c8cc6ff`, council
+> `377a0488-214e-4e5c-bd3d-66343d34d9b2` (APPROVED, 11 seats, 1 medium + 3 low
+> advisory objections, all dispositioned below). Lane docs:
+> `docs024_key_docs_latest/bugfix_221_ai_disclosure_precision/`.
+>
+> **This file stays OPEN.** The defect is still reproducible in production: the fix
+> is Go, the chassis has not been rebuilt, and per the owner's 2026-08-06 direction a
+> finished bug stays in `bugs_open/` regardless. It closes when a pod grep proves it.
+>
+> ### What shipped
+>
+> `metaCommentaryPatterns` entries gained an optional `Re *regexp.Regexp`. Nil keeps
+> substring matching, so the other 13 entries are byte-for-byte unchanged. The two
+> disclosure entries now require the **construction** — an AI noun phrase from a
+> **closed** set, then the first person **immediately** (optional comma, no other gap):
+>
+> ```
+> (?i)\bas\s+an\s+(?:ai|artificial\s+intelligence|llm)
+>     (?:[\s-]+(?:language[\s-]+)?model|[\s-]+assistant|[\s-]+system|[\s-]+chatbot)?
+>     (?:\s*,\s*|\s+)i\b
+> ```
+>
+> Both of this file's open questions are answered in
+> `PLAN_2026-08-08_ai_disclosure_precision.md`: **`as a language model` gets the same
+> narrowing** (identical mechanism and exposure; a genuine disclosure of that form is
+> first-person by construction, so detection cost is ~nil), and **candidate 2 is
+> rejected — severity stays `blocker`** (narrowing the pattern AND dropping severity
+> in one change would be two simultaneous loosenings, and the live row's absolution
+> could no longer be attributed to precision rather than disarmament).
+>
+> ### Verification — this file's own "how to verify" honoured, plus the mutations
+>
+> This file says: *do not verify by observing zero findings — induce the fault.* Done.
+>
+> | check | result |
+> |---|---|
+> | Test written and run **BEFORE** the fix | 7/7 must-not-block **FAILED**, 7/7 must-block **PASSED** — the test can fail, and the fix is a pure narrowing |
+> | Real `checkMetaCommentary` over the live 12,879-byte artefact | 1 blocker → **0** |
+> | Same artefact with `As an AI, I cannot generate this listing.` injected | still **blocks** (2 hits) — the narrowing did not disarm the check |
+> | Mutation: `Re` → nil | 6 must-not-block cases fail ✓ |
+> | Mutation: first person made optional | same 6 fail, **incl. the human bio** ✓ — adjacency is load-bearing |
+> | Mutation: delete the `as a language model` entry | only its own case fails ✓ — not inert |
+> | Pattern set, HEAD vs now, by set difference | 15 = 15, identical |
+>
+> ### Council objections, dispositioned
+>
+> - **`bug_historian`, MEDIUM — "222 is the same class; is the deferral tracked, or
+>   open-ended?"** Fair, and answered with evidence rather than assurance: `bugs_open/222`
+>   is filed, and `scripts/who-owns.py 222` names `mortgagecalculator_couk_adoption`
+>   [ACTIVE, 40 commits/14d, 12 mentions] as its owning lane. It is an owned bug, not an
+>   open-ended deferral. **The seat's wider point stands and is NOT closed by that**: the
+>   generic mechanism — *any* blocker-severity prose scan that can wedge a page's rebuild
+>   forever — is untouched by this fix. `bugs_open/221` routes that to an RFC by name, and
+>   this lane deliberately did not pre-empt it. Recorded in LANDMINES against the shared
+>   footprint so the next author of a pattern meets it.
+> - **`guardian` + `prior_art_librarian`, LOW — "the single-call-site claim is a repo
+>   grep; is it reached from `agent_definitions` config?"** The right question, and my
+>   submission stated only half the truth. Both halves, now measured:
+>   the **Go function** `checkMetaCommentary` does have exactly one caller
+>   (`validate_page_content.go:332`), **but the `validate_page_content` ACTION is
+>   configured in 4 live agent definitions** — `content-reviewer`, `page-build-handler`,
+>   `report-builder`, `tool-recreation-handler`. That is the behavioural blast radius,
+>   and it is four, not one. The change is a strict narrowing for all four.
+> - **`debug_historian`, LOW — "no pod-verification step stated."** Correct omission.
+>   ⚠ **And there is NO negative-control string for this change** — measured, not
+>   assumed: of the strings the commit removes, **zero** are not re-added (every
+>   `Pattern` literal survives, because `Value` deliberately stays the canonical key).
+>   So the usual added-marker/removed-marker pair from `bugs_open/153` is **not
+>   available here**, and claiming one would be a fiction. The discriminator instead:
+>   the compiled regex literal is absent from every binary before this commit. On the
+>   pod that will run the step (the fleet can be MIXED — chassis rolled while spawned
+>   agent pods lag):
+>   ```
+>   strings /app/agent-chassis | grep -cF 'artificial\s+intelligence|llm'   # expect >=1; 0 on any older image
+>   ```
+>   Prove the marker discriminates by running it against a pod still on the previous
+>   tag and getting 0, rather than trusting that it would.
+
 **Filed 2026-08-08 by the loancalculator voice-H lane, found while measuring the
 fix for `bugs_open/219`.** Same check, same severity, same permanent consequence
 — **different mechanism, which is why it is a separate bug and was deliberately
