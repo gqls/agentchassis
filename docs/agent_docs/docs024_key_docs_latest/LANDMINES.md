@@ -6851,7 +6851,7 @@ matters is the image of the pod that will pick up your message, not fleet unifor
 ---
 
 ### A voice_tells retraction cannot tell "the prose was fixed" from "we read nothing" — and one of them closes a live human-review row
-**footprint** `platform/orchestration/actions/revalidate_voice_tells.go` · `platform/orchestration/actions/discovery_checks/check_voice_tells.go` · `ScanVoiceTells` · `VoicePageScan` · `site_work_items.item_type='voice_tells'`
+- **footprint:** `platform/orchestration/actions/revalidate_voice_tells.go`, `platform/orchestration/actions/discovery_checks/check_voice_tells.go`, `ScanVoiceTells`, `VoicePageScan`, `site_work_items.item_type='voice_tells'`
 
 `ScanVoiceTells` returns an empty `Findings` slice in **three** unrelated situations, and only one
 of them means the copy improved:
@@ -6868,7 +6868,7 @@ it and a page that still trips the gate gets reported as unreadable. Each of the
 mutation test (`if false` → distinct failure), so a future edit that drops one fails loudly.
 
 ### A `voice_tells` item can retract with the copy completely unchanged, because the gate is a moving standard
-**footprint** `platform/orchestration/actions/revalidate_voice_tells.go` · `site_specs` aspect `voice` · `voice_gate` · `datahelpers.VoiceGate` · `resolution_path='auto:revalidated'`
+- **footprint:** `platform/orchestration/actions/revalidate_voice_tells.go`, `site_specs` aspect `voice`, `voice_gate`, `datahelpers.VoiceGate`, `resolution_path='auto:revalidated'`
 
 The revalidator re-runs the site's **current** `voice_gate` thresholds. If a site loosens them — or
 disables `voice_gate` entirely and later re-enables it looser — prose that failed on 17 July passes
@@ -6890,7 +6890,7 @@ moved, not the prose. (The gate being **absent** is already refused — that arm
 because opting out of an audit is not evidence of passing it.)
 
 ### A grep needle short enough to be convenient is long enough to be someone else's string
-**footprint** `kubectl exec … strings /app/agent-chassis | grep -c` · any pre-roll deploy baseline
+- **footprint:** `kubectl exec … strings /app/agent-chassis | grep -c`, any pre-roll deploy baseline
 
 Taking a pre-roll baseline for an additive Go change on 2026-08-08, I grepped `no longer exists` — a
 fragment of a new error string — and got **6 on both replicas of a build that did not contain the
@@ -6906,7 +6906,7 @@ failed deploy), and always carry a positive control string that is non-zero on t
 so a post-roll 0 is distinguishable from a broken probe.
 
 ### `cmd | head -N && echo "OK"` reports success on a FAILED command
-**footprint** any `go build`/`go test` wrapped in a pipeline · `${PIPESTATUS[0]}`
+- **footprint:** any `go build`/`go test` wrapped in a pipeline, `${PIPESTATUS[0]}`
 
 `TMPDIR=… go build ./platform/... 2>&1 | head -20 && echo "=== BUILD OK ==="` printed **BUILD OK**
 under a real compile error on 2026-08-08. `&&` tests the exit status of the **last** command in the
@@ -7039,7 +7039,7 @@ mid-write can leave the tree uncompilable for seconds, and the honest test is
 ---
 
 ### `revalidate_review_queue` cannot be scoped by a dispatch — `site_id` and `item_type` come from STEP CONFIG, and a filter in `input_data` is silently ignored
-**footprint** `platform/orchestration/actions/revalidate_review_queue_action.go` · `agent_definitions` type `diagnosis-review-queue-revalidator` · `scheduled_tasks.review-queue-revalidate-daily` · `revalidation_result`
+- **footprint:** `platform/orchestration/actions/revalidate_review_queue_action.go`, `agent_definitions` type `diagnosis-review-queue-revalidator`, `scheduled_tasks.review-queue-revalidate-daily`, `revalidation_result`
 
 Both filters are read from the step config and nowhere else:
 

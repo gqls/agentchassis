@@ -23984,3 +23984,41 @@ buys nothing and costs a 25-minute collision window on the worst file for it.
 `git log -S` on the needle finds it regardless of whose message carries it. The cost is only that
 `git log --oneline -- LANDMINES.md` reads as though unrelated lanes wrote your entries — annoying
 for an audit, harmless for a reader who greps.
+
+### 2026-08-08 — "All four landmines synced to doc_notes" — none of them had, and my check was an OR-count
+**lane:** bugfix_168_deployed_asset_path (voice_tells revalidator)
+
+**The claim.** After appending four landmine entries and running `landmines-sync.py --apply`, I told
+the owner *"All four landmines synced"* and reported `--check` as *"in sync"*.
+
+**What was actually true. Zero of them reached `doc_notes`.** All four were being
+`skipped (no footprint)` by the parser — and so was a fifth I added an hour later. My footprint line
+read `**footprint** a · b · c`; the format the parser accepts is a list item with a colon and commas,
+`- **footprint:** a, b, c`. The entries sat in the file looking perfect and were delivered to nobody
+— which is precisely what `LANDMINES.md` exists to prevent, so the failure was total rather than
+partial.
+
+**How the check managed to pass.** I verified with **one query ORing four phrases together**:
+
+```sql
+SELECT count(*) FROM doc_notes WHERE categories ? 'landmine'
+  AND (body ILIKE '%ScanVoiceTells%' OR body ILIKE '%moving standard%'
+    OR body ILIKE '%PIPESTATUS%'    OR body ILIKE '%someone else''s string%');
+--  -> 4
+```
+
+**It returned 4 and I read that as "my four entries".** It was four PRE-EXISTING rows matching
+`PIPESTATUS`, which some other entry already mentions. Splitting the same query one phrase per line
+returns `0, 0, 4, 0`. **A count of 4 across four predicates does not mean one row per predicate**,
+and I had written the memory note that says exactly this — *a row COUNT proves the damage, never that
+work happened; assert row IDENTITY* — earlier the same day.
+
+**`--check` saying "in sync" did not save me either**, and this is the sharper half: the tool
+partitions its warnings, and `skipped (no footprint)` is not counted as drift. **"In sync" means
+"the rows I own match the entries I parsed" — it says nothing about entries I failed to parse.** A
+gate reporting 0 problems has two causes and they need opposite responses.
+
+**The cheap check that would have caught it.** One phrase per entry, each asserted separately, and
+the count compared against something predicted: each entry produces **one row per footprint**, so the
+five entries should return 5, 5, 2, 2, 4 — which is what they return now. A number you predicted
+before running the query is evidence; a number you interpret afterwards is a story.

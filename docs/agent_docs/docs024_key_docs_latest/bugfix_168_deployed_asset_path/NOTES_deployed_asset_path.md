@@ -1992,3 +1992,65 @@ The crowd-out objection (guardian, medium) is refuted by headroom: 151 scanned a
 1500, `cap_binding false`; +32 is 12% of budget. It would have been CORRECT at the old cap of 500 —
 it is the 2026-08-06 stopgap that makes it moot, which is a dependency worth knowing rather than a
 bad objection.
+
+## 2026-08-08 (evening) — LIVE on `v1.0.1268`, and a correction to this file's own 08-06 entry
+
+### The voice_tells revalidator is LIVE. The 0 -> 1 transition completed.
+
+> **POST-ROLL `v1.0.1268`, BOTH replicas:** `opting out is not evidence the copy was fixed` = **1** ·
+> `the scan read nothing` = **1** · `an unserved page is not evidence the prose was fixed` = **1** ·
+> positive control `auto:revalidated` = **2**
+>
+> Against the **BASELINE 2026-08-08T17:13:45Z on `v1.0.1267`: 0 / 0 / 0 / 2.**
+
+That is the whole proof for a string-additive change, and it exists only because the 0 was taken
+before the roll. **The build was not mine** — `v1.0.1268` is another session's; the change rode
+along at HEAD, which is the normal condition here.
+
+**Not yet proven by EFFECT.** The next scheduled sweep is ~08:37Z tomorrow. See below for why I did
+not force it.
+
+### ⚠ CORRECTION to the 2026-08-06 entry in this file: that hand-dispatch was NOT scoped
+
+The 08-06 entry says, in bold: *"**Scoped deliberately**, not fleet-wide:
+`{"site_id":"199733a8-…","item_type":"needs_page","dry_run":false,"max_items":50}`"*.
+
+**Both filters are inert from `input_data`. Read the code:**
+
+```go
+config := params.StepConfig.Config          // revalidate_review_queue_action.go:266
+siteFilter, _ := config["site_id"].(string) // :275
+typeFilter, _ := config["item_type"].(string)   // :276
+```
+
+Confirmed against the live `diagnosis-review-queue-revalidator` definition: the `sweep` step has
+**no `input_mapping`**, and its whole config is `{"dry_run": false, "max_items": 1500}` — no
+`site_id`, no `item_type`. **So that run was fleet-wide across all four covered types.** It closed
+exactly 1 row because exactly 1 was closable, which is indistinguishable from a filter working.
+
+**Why this matters more than a tidy-up.** This lane had *already documented the trap* — "`item_type`
+is read from `config` = `params.StepConfig.Config`, **the step config, not `input_data`**" — and the
+08-06 session then wrote `input_data` filters two entries later and recorded the result as scoped.
+That is the *second* instance in this lane of the same shape, and the first is already written down
+as **"A trap you have just documented is not disarmed for your next paragraph."** Twice is a
+pattern, not a slip: **documenting a trap creates a feeling of having handled it.**
+
+The 08-06 conclusions are **unaffected** — both arms moved, the closed row was the predicted one,
+and a fleet-wide run was a superset of the intended one. Only the *characterisation* was wrong, and
+it would have misled the next session into believing a scoped dispatch is available. It is not.
+
+### What I deliberately did NOT do, and why
+
+**Did not hand-dispatch a sweep to prove the new revalidator by effect.** Not caution for its own
+sake — the scoping I would have used does not exist:
+
+- A dispatch **cannot be filtered** to `voice_tells` or to one site (above). It runs fleet-wide over
+  **five** covered types now.
+- Gate 2 stamps `result.revalidation` on every row it scans and does not close, so an unfiltered run
+  writes to ~150 rows.
+- The blast radius now includes my own untested-in-production arms on 32 live rows.
+- **The scheduled run does exactly this at ~08:37Z anyway**, unattended, which is the condition the
+  change was reviewed for. Waiting costs ~12 hours and nothing else.
+
+The precedent is this file's own: the 08-05 session declined for the same reason, and the 08-06
+dispatch happened **because the owner asked for one**. That is the bar; I have not been asked.
