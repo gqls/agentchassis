@@ -50,3 +50,14 @@ billing top-up from you.** The moment credit is back, one saved command re-runs 
 review (it's in the notes file). The fix itself is unaffected: code is on the shared
 branch and goes live with the next release; the database side is already applied and
 verified.
+
+## 2026-08-08 late night — review approved
+
+Your credit top-up went through, the saved command re-ran the review, and it came
+back approved (a few advisory notes, all answered in the technical log — none
+needing action). So this piece of work is now finished except for the proof that
+only the next release can provide: once you roll the fleet, the notes file has the
+two checks that confirm the fix is really running — a binary check on every pod, and
+one live run of the improvement loop against a site with a missing page, which
+should now build the missing page rather than pointlessly rebuilding the page that
+links to it.
