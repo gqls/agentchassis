@@ -1055,3 +1055,69 @@ original homepage byte count — so the site could not be "down".
 Remaining on this lane (unchanged from handoff §2): the id-alignment batch
 (08-05 §7 path a), fences to `staged_component_build`, arithmetic verification
 still **0 of 12 proven** — now 12/12 candidates live to verify against.
+
+### 2026-08-08 late — id-alignment batch: 9/12 saved+live; the comparator finally speaks, and it says FORMULA divergence
+
+Mechanism verified BEFORE spending: the `recreate_tool` prompt renders
+`spec.interactive_features[]` under "Mandatory Behaviour Requirements …
+OVERRIDE" — so 12 fresh items each carried an "ID Contract" entry naming that
+tool's golden ids verbatim (generated from the golden; inputs = `controls`
+keys, outputs = tracked ids minus controls) plus the button rule (first
+button, inline onclick — that is what toolgolden actually presses).
+Window ~16:10–16:58 UTC, §10c backstop (deferred nothing), monitor captured
+per-tick evidence → `acceptance/EVIDENCE… (idalign jsonl in scratchpad;
+summarised here)`. All 12 items `complete` in ~45 min.
+
+**Saved + deployed (9):** repayment, stamp-duty, overpayment, simple,
+bridging-loan, equity-release, investor-index, fee-analyser, rate-forecaster —
+fresh components 16:12–16:52, §10f sweep clean (robots.txt only).
+**ID compliance proved by the comparator itself: the one-sided "wholesale
+rename" noise is GONE for these 9** — golden ids now resolve on both sides.
+
+**Refused/discarded (3), each keeping its previous live version — nothing lost:**
+- `tool-affordability`: SHRINK REFUSED (hero 14,907→6,495 chars, floor 50%,
+  `bugs_open/178` guard). Payload preserved; id-complete 5/5.
+- `game-fact-finder`: prune REFUSED (re-confirmed 1 of 4 stored sections).
+  Payload preserved; id-complete 19/19.
+- `tool-portfolio`: fabrication gate `tier:declaration` on the payload's ONLY
+  matching line — `// In-memory portfolio store (no fabricated data — starts
+  empty)` — **a FALSE POSITIVE, judged and evidenced** (the handoff's morning
+  instruction "judge true/false positive THEN" is hereby answered). Filed as
+  **`bugs_open/222`** (regex at `check_tool_fabrication_action.go:91` has no
+  negation awareness; the recreate prompt's own Data Integrity section
+  manufactures the echo). New review item `3d11e960` filed by the gate; the
+  morning's `aca92097` now has a strong same-class prior. Payload preserved;
+  id-complete 15/15.
+
+**Comparator (`acceptance/COMPARE_2026-08-08_id_aligned_9of12.txt`), the real
+milestone — arithmetic is now COMPARABLE, and it diverges on FORMULA, not ids:**
+- Judge `after_press` only: `after_input` is systematically incomparable —
+  several rebuilds live-compute while the originals hold stale display from
+  the previous vector, so after_input diffs are behaviour, not arithmetic.
+  (Corollary found en route: the 08-05 §7 claim "several originals computed
+  live on input" is WRONG against the golden — only fact-finder does.)
+- REAL after_press divergences: **repayment** (£1,390 vs £1,169.18 monthly on
+  defaults — the original does not compute textbook monthly amortisation),
+  **overpayment** (£12,949 vs £24,505 interest saved), **bridging-loan**
+  (£20,225 vs £19,180.99 interest), **investor** (yield 5.76% vs 1200% — the
+  rebuild reads rent as annual where the original reads monthly, or v.v.),
+  **rate-forecaster** (£1,390 vs £1,111.66 — same repayment-formula class),
+  **simple** (half-rate vector only: £765 vs £739.94; defaults/double match).
+- **stamp-duty: arithmetic is SELF-CONSISTENT** — £7,500 standard vs golden
+  £2,500 FTB-relief are BOTH correct for their buyer type; the rebuild
+  reordered/renamed the `buyerType` select options so the driver lands on a
+  different type. Fix is OPTION-SET alignment (text+values+order verbatim),
+  not maths. The long-standing "£0 after press" mystery dissolves the same
+  way: the old rebuild's select order made the driven selection a no-op.
+- **fee-analyser: shows '—' even after press** despite an inline-onclick
+  first button (contract honoured, verified at the wire) — likely its input
+  validation rejects a driven value; needs a local drive with console.
+
+**Next batch contract (formula alignment, ALL 12 in one window):** ids
+verbatim (proven) + select options verbatim (text, values, order) + "copy the
+CALCULATION LOGIC verbatim from the original source — same formula, same
+rounding, same units; reference-only reading invites reimplementation and the
+comparator catches it" + results populate only on press (except fact-finder's
+live score) + portfolio's comment-style clause (`bugs_open/222` workaround) +
+delete affordability/fact-finder components first (per §10e precedent) so the
+shrink/prune guards compare against nothing.

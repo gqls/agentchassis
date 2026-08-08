@@ -1,0 +1,506 @@
+
+DIVERGED  /affordability.html -> /tools/affordability/index.html
+   defaults / after_input
+      8d81e665-3ee0-443d-a873-690268c15fbb text/display None -> "What This Number Actually Tells You The figure this calculator produces is an estimate of what a lender might offer, not a promise of what one will. It's built from the same starting inputs a bank use|block"
+      affordability-borrowing      NUMBER    None -> '£0|block'
+      affordability-form           NUMBER    None -> 'Your Income Applicant 1 gross annual income (£) Applicant 2 gross annual income (£) optional Other annual income (£) optional Your Monthly Outgoings Loans & credit repayments (£/month) Essential livin|block'
+      applicant1-income            text/display None -> '|inline-block'
+      applicant2-income            text/display None -> '|inline-block'
+      borrowing-basis              text/display None -> '|block'
+      credit-commitments           text/display None -> '|inline-block'
+      dependants                   text/display None -> '|inline-block'
+      deposit                      text/display None -> '|inline-block'
+      detail-disposable            NUMBER    None -> '£0|block'
+      detail-income                NUMBER    None -> '£0|block'
+      detail-stress                NUMBER    None -> '0%|block'
+      detail-term                  NUMBER    None -> '25 years|block'
+      error-message                text/display None -> '|none'
+      expenses                     text/display '|inline-block' -> None
+      income-multiple              text/display None -> '|inline-block'
+      income1                      text/display '|inline-block' -> None
+      income2                      text/display '|inline-block' -> None
+      living-costs                 text/display None -> '|inline-block'
+      max-borrowing                NUMBER    None -> '£0|block'
+      monthly-payment              NUMBER    None -> '£0|block'
+      multiple-borrowing           NUMBER    None -> '£0|block'
+      other-income                 text/display None -> '|inline-block'
+      property-value               NUMBER    None -> '£0|block'
+      resHigh                      NUMBER    '£166,500|block' -> None
+      resLow                       NUMBER    '£148,000|block' -> None
+      reset-btn                    text/display None -> 'Reset|block'
+      results                      NUMBER    None -> 'Your Indicative Results Estimated maximum borrowing £0 Based on income multiple £0 Based on affordability £0 Est. property value with deposit £0 Est. monthly payment (stress rate) £0 Total annual inco|none'
+      stress-rate                  text/display None -> '|inline-block'
+      term                         text/display None -> '|inline-block'
+   defaults / after_press
+      8d81e665-3ee0-443d-a873-690268c15fbb text/display None -> "What This Number Actually Tells You The figure this calculator produces is an estimate of what a lender might offer, not a promise of what one will. It's built from the same starting inputs a bank use|block"
+      affordability-borrowing      NUMBER    None -> '£0|block'
+      affordability-form           NUMBER    None -> 'Your Income Applicant 1 gross annual income (£) Applicant 2 gross annual income (£) optional Other annual income (£) optional Your Monthly Outgoings Loans & credit repayments (£/month) Essential livin|block'
+      applicant1-income            text/display None -> '|inline-block'
+      applicant2-income            text/display None -> '|inline-block'
+      borrowing-basis              text/display None -> 'No borrowing available on current figures|block'
+      credit-commitments           text/display None -> '|inline-block'
+      dependants                   text/display None -> '|inline-block'
+
+DIVERGED  /bridging-loan.html -> /tools/bridging-loan/index.html
+   defaults / after_input
+      brCalcBtn                    text/display None -> 'Calculate|inline-block'
+      brFee                        text/display '|inline-block' -> '|block'
+      brLoan                       text/display '|inline-block' -> '|block'
+      brNote                       text/display None -> '|block'
+      brRate                       text/display '|inline-block' -> '|block'
+      brTerm                       text/display '|inline-block' -> '|block'
+      dispNet                      NUMBER    '£200,000|inline' -> '£200,000.00|block'
+      resFee                       NUMBER    '£4,494|inline' -> '£4,473.08|block'
+      resGross                     NUMBER    '£224,719|block' -> '£223,654.07|block'
+      resInterest                  NUMBER    '£20,225|inline' -> '£19,180.99|block'
+   defaults / after_press
+      brCalcBtn                    text/display None -> 'Calculate|inline-block'
+      brFee                        text/display '|inline-block' -> '|block'
+      brLoan                       text/display '|inline-block' -> '|block'
+      brNote                       text/display None -> '|block'
+      brRate                       text/display '|inline-block' -> '|block'
+      brTerm                       text/display '|inline-block' -> '|block'
+      dispNet                      NUMBER    '£200,000|inline' -> '£200,000.00|block'
+      resFee                       NUMBER    '£4,494|inline' -> '£4,473.08|block'
+      resGross                     NUMBER    '£224,719|block' -> '£223,654.07|block'
+      resInterest                  NUMBER    '£20,225|inline' -> '£19,180.99|block'
+   double / after_input
+      brCalcBtn                    text/display None -> 'Calculate|inline-block'
+      brFee                        text/display '|inline-block' -> '|block'
+      brLoan                       text/display '|inline-block' -> '|block'
+      brNote                       text/display None -> '|block'
+      brRate                       text/display '|inline-block' -> '|block'
+      brTerm                       text/display '|inline-block' -> '|block'
+      dispNet                      NUMBER    '£200,000|inline' -> '£400,000.00|block'
+      resFee                       NUMBER    '£4,494|inline' -> '£24,259.19|block'
+      resGross                     NUMBER    '£224,719|block' -> '£606,479.70|block'
+      resInterest                  NUMBER    '£20,225|inline' -> '£182,220.51|block'
+   double / after_press
+      brCalcBtn                    text/display None -> 'Calculate|inline-block'
+      brFee                        text/display '|inline-block' -> '|block'
+      brLoan                       text/display '|inline-block' -> '|block'
+      brNote                       text/display None -> '|block'
+      brRate                       text/display '|inline-block' -> '|block'
+      brTerm                       text/display '|inline-block' -> '|block'
+
+DIVERGED  /equity-release.html -> /tools/equity-release/index.html
+   defaults / after_input
+      debt10                       NUMBER    '£0|block' -> '—|block'
+      debt20                       NUMBER    '£0|block' -> '—|block'
+      debt30                       NUMBER    '£0|block' -> '—|block'
+      dispAge                      NUMBER    '65|inline' -> '—|inline'
+      erAge                        text/display '|inline-block' -> '|block'
+      erCalcBtn                    text/display None -> 'Calculate Projection|inline-block'
+      erLoan                       text/display '|inline-block' -> '|block'
+      erMaxCash                    NUMBER    '£0|block' -> '£90,000|inline'
+      erRate                       text/display '|inline-block' -> '|block'
+      erValue                      text/display '|inline-block' -> '|block'
+      limitResult                  NUMBER    'Maximum Cash Release £0 Based on typical LTV for age 65|none' -> 'Enter your details and press Calculate.|flex'
+   defaults / after_press
+      debt10                       NUMBER    '£0|block' -> '£168,942|block'
+      debt20                       NUMBER    '£0|block' -> '£317,128|block'
+      debt30                       NUMBER    '£0|block' -> '£595,293|block'
+      erAge                        text/display '|inline-block' -> '|block'
+      erCalcBtn                    text/display None -> 'Calculate Projection|inline-block'
+      erLoan                       text/display '|inline-block' -> '|block'
+      erMaxCash                    NUMBER    '£124,000|block' -> '£90,000|inline'
+      erRate                       text/display '|inline-block' -> '|block'
+      erValue                      text/display '|inline-block' -> '|block'
+      limitResult                  NUMBER    'Maximum Cash Release £124,000 Based on typical LTV for age 65|block' -> "This releases about 30.0% of your property value, within the suggested maximum of £90,000. After 30 years the debt could reach £595,293 — that's 198% of today's property value.|flex"
+   double / after_input
+      debt10                       NUMBER    '£0|block' -> '—|block'
+      debt20                       NUMBER    '£0|block' -> '—|block'
+      debt30                       NUMBER    '£0|block' -> '—|block'
+      dispAge                      NUMBER    '65|inline' -> '—|inline'
+      erAge                        text/display '|inline-block' -> '|block'
+      erCalcBtn                    text/display None -> 'Calculate Projection|inline-block'
+      erLoan                       text/display '|inline-block' -> '|block'
+      erMaxCash                    NUMBER    '£0|block' -> '£330,000|inline'
+      erRate                       text/display '|inline-block' -> '|block'
+      erValue                      text/display '|inline-block' -> '|block'
+      limitResult                  NUMBER    'Maximum Cash Release £0 Based on typical LTV for age 65|none' -> 'Enter your details and press Calculate.|flex'
+   double / after_press
+      debt10                       NUMBER    '£0|block' -> '£611,022|block'
+      debt20                       NUMBER    '£0|block' -> '£2,074,156|block'
+      debt30                       NUMBER    '£0|block' -> '£7,040,862|block'
+      dispAge                      NUMBER    '130|inline' -> '95|inline'
+
+DIVERGED  /fact-finder.html -> /games/fact-finder/index.html
+   defaults / after_input
+      addrmonths                   text/display None -> '|inline-block'
+      addrmonthsOut                NUMBER    None -> '30|inline'
+      bankruptcy                   text/display None -> '|inline-block'
+      commitments                  text/display None -> '|inline-block'
+      creditscore                  text/display None -> 'Excellent Good Fair Poor Very poor|inline-block'
+      defaults                     text/display None -> '|inline-block'
+      deposit                      text/display None -> 'Own savings Gifted deposit Existing property equity Other / unverified|inline-block'
+      displayScore                 NUMBER    '80|block' -> None
+      employment                   NUMBER    None -> 'Permanent (employed) Employed — in probation Fixed-term contract Self-employed (2+ yrs accounts) Self-employed (<2 yrs accounts) Day-rate contractor Not currently employed|inline-block'
+      income                       text/display None -> '|inline-block'
+      jobmonths                    text/display None -> '|inline-block'
+      jobmonthsOut                 NUMBER    None -> '36|inline'
+      loan                         text/display None -> '|inline-block'
+      missed                       text/display None -> '|inline-block'
+      missedOut                    NUMBER    None -> '0|inline'
+      property                     text/display None -> '|inline-block'
+      q_accounts                   NUMBER    'Less than 1 year 1 Year 2 Years 3+ Years|inline-block' -> None
+      q_address                    NUMBER    'Less than 1 year 1 - 3 Years 3+ Years|inline-block' -> None
+      q_ccj                        NUMBER    'None Satisfied (Over 3 years ago) Recent or Unsatisfied|inline-block' -> None
+      q_deposit                    NUMBER    '5% Deposit (95% LTV) 10% Deposit (90% LTV) 15-24% Deposit 25%+ Deposit|inline-block' -> None
+      q_empType                    text/display 'Permanent (PAYE) Self-Employed / Contractor|inline-block' -> None
+      q_gambling                   text/display 'None Occasional (National Lottery) Frequent / High Value|inline-block' -> None
+      q_jobTime                    NUMBER    'Less than 6 months 6 - 12 months 1+ Years|inline-block' -> None
+      q_missed                     NUMBER    'None 1 or 2 (Over 2 years ago) Recent (Last 12 months)|inline-block' -> None
+      q_overdraft                  text/display 'Never use it Occasional (Cleared monthly) Permanent (Living in it)|inline-block' -> None
+      q_probation                  text/display 'Completed / Not Applicable Currently in Probation|inline-block' -> None
+      q_vote                       text/display 'Registered Not Registered|inline-block' -> None
+      questionForm                 NUMBER    '1. Stability & Identity Time at Current Address Less than 1 year 1 - 3 Years 3+ Years Lenders love stability. Moving frequently suggests flight risk. Electoral Roll Status Registered Not Registered Of|block' -> None
+      residency                    text/display None -> 'Homeowner Renting Living with family|inline-block'
+      scoreBadge                   text/display 'High Risk / Decline|inline-block' -> None
+      scoreComment                 text/display "Automated decline is likely. You may need a Specialist Lender who accepts 'Adverse Credit'.|block" -> None
+      sub_perm                     NUMBER    'Probation Period Completed / Not Applicable Currently in Probation Time with Employer Less than 6 months 6 - 12 months 1+ Years|none' -> None
+      sub_self                     NUMBER    'Years of Accounts (SA302) Less than 1 year 1 Year 2 Years 3+ Years 1 year of accounts drastically reduces your lender pool.|block' -> None
+      w_credit                     text/display '|inline-block' -> None
+      w_self                       text/display '|inline-block' -> None
+   defaults / after_press
+      addrmonths                   text/display None -> '|inline-block'
+      addrmonthsOut                NUMBER    None -> '30|inline'
+      bankruptcy                   text/display None -> '|inline-block'
+
+DIVERGED  /fee-analyser.html -> /tools/fee-analyser/index.html
+   defaults / after_input
+      tcAmount                     text/display '|inline-block' -> '|block'
+      tcCalculate                  text/display None -> 'Analyse Deal|block'
+      tcDeal                       text/display '|inline-block' -> '|block'
+      tcEffective                  NUMBER    '0.00%|block' -> '—|block'
+      tcError                      text/display None -> '|block'
+      tcFee                        text/display '|inline-block' -> '|block'
+      tcOther                      text/display '|inline-block' -> '|block'
+      tcRate                       text/display '|inline-block' -> '|block'
+      tcReset                      text/display None -> 'Reset|block'
+      tcResults                    text/display None -> 'Effective (true) interest rate — Headline rate adjusted for all fees over the deal period Total cost over deal period — Interest paid plus all fees|grid'
+      tcTotal                      NUMBER    '£0|block' -> '—|block'
+   defaults / after_press
+      tcAmount                     text/display '|inline-block' -> '|block'
+      tcCalculate                  text/display None -> 'Analyse Deal|block'
+      tcDeal                       text/display '|inline-block' -> '|block'
+      tcEffective                  NUMBER    '4.44%|block' -> '—|block'
+      tcError                      NUMBER    None -> 'Please enter realistic values (rate ≤ 100%, sensible amount and term).|block'
+      tcFee                        text/display '|inline-block' -> '|block'
+      tcOther                      text/display '|inline-block' -> '|block'
+      tcRate                       text/display '|inline-block' -> '|block'
+      tcReset                      text/display None -> 'Reset|block'
+      tcResults                    text/display None -> 'Effective (true) interest rate — Headline rate adjusted for all fees over the deal period Total cost over deal period — Interest paid plus all fees|grid'
+      tcTotal                      NUMBER    '£26,841|block' -> '—|block'
+   double / after_input
+      tcAmount                     text/display '|inline-block' -> '|block'
+      tcCalculate                  text/display None -> 'Analyse Deal|block'
+      tcDeal                       text/display '|inline-block' -> '|block'
+      tcEffective                  NUMBER    '0.00%|block' -> '—|block'
+      tcError                      text/display None -> '|block'
+      tcFee                        text/display '|inline-block' -> '|block'
+      tcOther                      text/display '|inline-block' -> '|block'
+      tcRate                       text/display '|inline-block' -> '|block'
+      tcReset                      text/display None -> 'Reset|block'
+      tcResults                    text/display None -> 'Effective (true) interest rate — Headline rate adjusted for all fees over the deal period Total cost over deal period — Interest paid plus all fees|grid'
+      tcTotal                      NUMBER    '£0|block' -> '—|block'
+   double / after_press
+      tcAmount                     text/display '|inline-block' -> '|block'
+      tcCalculate                  text/display None -> 'Analyse Deal|block'
+      tcDeal                       text/display '|inline-block' -> '|block'
+
+DIVERGED  /investor.html -> /investor/index.html
+   defaults / after_input
+      btlCalculate                 text/display None -> 'Calculate Metrics|inline-block'
+      ltvComment                   text/display '|block' -> 'Enter your figures and press Calculate to see an assessment.|block'
+      ltvResult                    NUMBER    '0%|block' -> '—|block'
+      yieldResult                  NUMBER    '0.0%|block' -> '—|block'
+   defaults / after_press
+      btlCalculate                 text/display None -> 'Calculate Metrics|inline-block'
+      ltvComment                   NUMBER    '|block' -> 'The gross yield of 1200.0% is strong for a buy-to-let. The LTV of 100.0% is high and above most BTL lender caps (~75%). This is a guide only and not financial advice.|block'
+      ltvResult                    NUMBER    '0%|block' -> '100.0%|block'
+      yieldResult                  NUMBER    '5.76%|block' -> '1200.0% (£12,000/yr)|block'
+   double / after_input
+      btlCalculate                 text/display None -> 'Calculate Metrics|inline-block'
+      ltvComment                   text/display '|block' -> 'Enter your figures and press Calculate to see an assessment.|block'
+      ltvResult                    NUMBER    '0%|block' -> '—|block'
+      yieldResult                  NUMBER    '0.0%|block' -> '—|block'
+   double / after_press
+      btlCalculate                 text/display None -> 'Calculate Metrics|inline-block'
+      ltvComment                   NUMBER    '|block' -> 'The gross yield of 1200.0% is strong for a buy-to-let. The LTV of 100.0% is high and above most BTL lender caps (~75%). This is a guide only and not financial advice.|block'
+      ltvResult                    NUMBER    '0%|block' -> '100.0%|block'
+      yieldResult                  NUMBER    '5.76%|block' -> '1200.0% (£24,000/yr)|block'
+   half / after_input
+      btlCalculate                 text/display None -> 'Calculate Metrics|inline-block'
+      ltvComment                   text/display '|block' -> 'Enter your figures and press Calculate to see an assessment.|block'
+      ltvResult                    NUMBER    '0%|block' -> '—|block'
+      yieldResult                  NUMBER    '0.0%|block' -> '—|block'
+   half / after_press
+      btlCalculate                 text/display None -> 'Calculate Metrics|inline-block'
+      ltvComment                   NUMBER    '|block' -> 'The gross yield of 1200.0% is strong for a buy-to-let. The LTV of 100.0% is high and above most BTL lender caps (~75%). This is a guide only and not financial advice.|block'
+      ltvResult                    NUMBER    '0%|block' -> '100.0%|block'
+      yieldResult                  NUMBER    '5.76%|block' -> '1200.0% (£6,000/yr)|block'
+   asym / after_input
+      btlCalculate                 text/display None -> 'Calculate Metrics|inline-block'
+      ltvComment                   text/display '|block' -> 'Enter your figures and press Calculate to see an assessment.|block'
+      ltvResult                    NUMBER    '0%|block' -> '—|block'
+      yieldResult                  NUMBER    '0.0%|block' -> '—|block'
+   asym / after_press
+      btlCalculate                 text/display None -> 'Calculate Metrics|inline-block'
+      ltvComment                   NUMBER    '|block' -> 'The gross yield of 423.5% is strong for a buy-to-let. The LTV of 209.1% exceeds the property value — the loan is larger than the asset. This is a guide only and not financial advice.|block'
+      ltvResult                    NUMBER    '0%|block' -> '209.1%|block'
+      yieldResult                  NUMBER    '2.03%|block' -> '423.5% (£7,200/yr)|block'
+
+DIVERGED  /overpayment.html -> /tools/overpayment/index.html
+   defaults / after_input
+      calcBtn                      text/display None -> 'Calculate Savings|inline-block'
+      dispOpAmount                 text/display '£100|inline' -> '£100|block'
+      dispYearsEarlier             NUMBER    '2|inline' -> '3 years 6 months|block'
+      errorMsg                     text/display None -> '|block'
+      opAmount                     text/display '|inline-block' -> '|block'
+      opBalance                    text/display '|inline-block' -> '|block'
+      opRate                       text/display '|inline-block' -> '|block'
+      opYears                      text/display '|inline-block' -> '|block'
+      resultsPanel                 NUMBER    None -> 'Monthly Overpayment £100 Interest Saved £24,505 Time Saved 3 years 6 months Mortgage-Free Earlier By 3 years 6 months|grid'
+      saveInterest                 NUMBER    '£12,949|block' -> '£24,505|block'
+      saveTime                     NUMBER    '2 Years 3 Months|block' -> '3 years 6 months|block'
+   defaults / after_press
+      calcBtn                      text/display None -> 'Calculate Savings|inline-block'
+      dispOpAmount                 text/display '£100|inline' -> '£100|block'
+      dispYearsEarlier             NUMBER    '2|inline' -> '3 years 6 months|block'
+      errorMsg                     text/display None -> '|block'
+      opAmount                     text/display '|inline-block' -> '|block'
+      opBalance                    text/display '|inline-block' -> '|block'
+      opRate                       text/display '|inline-block' -> '|block'
+      opYears                      text/display '|inline-block' -> '|block'
+      resultsPanel                 NUMBER    None -> 'Monthly Overpayment £100 Interest Saved £24,505 Time Saved 3 years 6 months Mortgage-Free Earlier By 3 years 6 months|grid'
+      saveInterest                 NUMBER    '£12,949|block' -> '£24,505|block'
+      saveTime                     NUMBER    '2 Years 3 Months|block' -> '3 years 6 months|block'
+   double / after_input
+      calcBtn                      text/display None -> 'Calculate Savings|inline-block'
+      dispOpAmount                 text/display '£100|inline' -> '£100|block'
+      dispYearsEarlier             NUMBER    '2|inline' -> '3 years 6 months|block'
+      errorMsg                     text/display None -> '|block'
+      opAmount                     text/display '|inline-block' -> '|block'
+      opBalance                    text/display '|inline-block' -> '|block'
+      opRate                       text/display '|inline-block' -> '|block'
+      opYears                      text/display '|inline-block' -> '|block'
+      resultsPanel                 NUMBER    None -> 'Monthly Overpayment £100 Interest Saved £24,505 Time Saved 3 years 6 months Mortgage-Free Earlier By 3 years 6 months|grid'
+      saveInterest                 NUMBER    '£12,949|block' -> '£24,505|block'
+      saveTime                     NUMBER    '2 Years 3 Months|block' -> '3 years 6 months|block'
+   double / after_press
+      calcBtn                      text/display None -> 'Calculate Savings|inline-block'
+      dispOpAmount                 text/display '£200|inline' -> '£200|block'
+      dispYearsEarlier             NUMBER    '12|inline' -> '22 years 2 months|block'
+
+DIVERGED  /portfolio.html -> /tools/portfolio/index.html
+   defaults / after_input
+      cancelBtn                    text/display None -> 'Cancel|none'
+      cashflowCard                 NUMBER    None -> 'Monthly cash flow £0|flex'
+      d_cashflow                   NUMBER    '£0|block' -> None
+      d_count                      NUMBER    '0 Properties|block' -> None
+      d_equity                     NUMBER    '£0|block' -> None
+      d_ltv                        NUMBER    '0% LTV|block' -> None
+      d_rent                       NUMBER    '£0 / mo Rent|block' -> None
+      d_totalVal                   NUMBER    '£0|block' -> None
+      d_yield                      NUMBER    '0.0%|block' -> None
+      emptyState                   text/display 'Your dashboard is currently empty. Add your first property below to start generating portfolio analytics.|block' -> 'No properties in your portfolio yet. Use the form above to add your first buy-to-let property.|block'
+      formError                    NUMBER    None -> 'Please enter a property value greater than £0.|block'
+      formTitle                    text/display None -> 'Add a Property|block'
+      inMortgage                   text/display '|inline-block' -> None
+      inName                       text/display '|inline-block' -> None
+      inPayment                    text/display '|inline-block' -> None
+      inRent                       text/display '|inline-block' -> None
+      inValue                      text/display '|inline-block' -> None
+      monthlyCosts                 text/display None -> '|block'
+      monthlyRent                  text/display None -> '|block'
+      mortgageBalance              text/display None -> '|block'
+      mortgageRate                 text/display None -> '|block'
+      mortgageTerm                 text/display None -> '|block'
+      mortgageType                 text/display None -> 'Interest only Repayment (capital & interest)|block'
+      portfolioCount               text/display None -> 'No properties added yet.|block'
+      propName                     text/display None -> '|block'
+      propTable                    text/display 'Property Name / Address Value (£) Mortgage (£) LTV (%) Monthly Rent (£) Mortgage Payment (£) Actions|none' -> None
+      propertyBody                 text/display None -> '|table-row-group'
+      propertyForm                 text/display None -> 'Property name / reference Property value (£) Outstanding mortgage (£) Monthly rent (£) Mortgage rate (% p.a.) Other monthly costs (£) Management, insurance, maintenance etc. Mortgage type Interest onl|block'
+      propertyTable                text/display None -> 'Property Value Mortgage Equity LTV Rent (mo) Gross yield Net cash flow Actions|none'
+      purchasePrice                text/display None -> '|block'
+      submitBtn                    text/display None -> 'Add property|flex'
+      sumCashflow                  NUMBER    None -> '£0|block'
+      sumDebt                      NUMBER    None -> '£0|block'
+      sumEquity                    NUMBER    None -> '£0|block'
+      sumGrossYield                NUMBER    None -> '0.00%|block'
+      sumLtv                       NUMBER    None -> '0.00%|block'
+      sumNetYield                  NUMBER    None -> '0.00%|block'
+      sumRent                      NUMBER    None -> '£0|block'
+      sumValue                     NUMBER    None -> '£0|block'
+
+DIVERGED  /rate-forecaster.html -> /tools/rate-forecaster/index.html
+   defaults / after_input
+      diff2                        NUMBER    '|inline' -> '+£116.51|block'
+      fcAmount                     text/display '|inline-block' -> '|block'
+      fcCalculate                  text/display None -> 'Forecast Payments|inline-block'
+      fcError                      text/display None -> '|block'
+      fcResults                    NUMBER    None -> 'Scenario 1 Monthly Payment £1,111.66 Scenario 2 Monthly Payment £1,228.17 Scenario 3 Monthly Payment £1,350.41|grid'
+      fcTerm                       text/display '|inline-block' -> '|block'
+      pay1                         NUMBER    '£0|block' -> '£1,111.66|block'
+      pay2                         NUMBER    '£0|block' -> '£1,228.17|block'
+      pay3                         NUMBER    '£0|block' -> '£1,350.41|block'
+      rate1                        text/display '|inline-block' -> '|block'
+      rate2                        text/display '|inline-block' -> '|block'
+      rate3                        text/display '|inline-block' -> '|block'
+   defaults / after_press
+      diff2                        NUMBER    '+£136 increase|inline' -> '+£116.51|block'
+      fcAmount                     text/display '|inline-block' -> '|block'
+      fcCalculate                  text/display None -> 'Forecast Payments|inline-block'
+      fcError                      text/display None -> '|block'
+      fcResults                    NUMBER    None -> 'Scenario 1 Monthly Payment £1,111.66 Scenario 2 Monthly Payment £1,228.17 Scenario 3 Monthly Payment £1,350.41|grid'
+      fcTerm                       text/display '|inline-block' -> '|block'
+      pay1                         NUMBER    '£1,390|block' -> '£1,111.66|block'
+      pay2                         NUMBER    '£1,526|block' -> '£1,228.17|block'
+      pay3                         NUMBER    '£1,286|block' -> '£1,350.41|block'
+      rate1                        text/display '|inline-block' -> '|block'
+      rate2                        text/display '|inline-block' -> '|block'
+      rate3                        text/display '|inline-block' -> '|block'
+   double / after_input
+      diff2                        NUMBER    '|inline' -> '+£627.73|block'
+      fcAmount                     text/display '|inline-block' -> '|block'
+      fcCalculate                  text/display None -> 'Forecast Payments|inline-block'
+      fcError                      text/display None -> '|block'
+      fcResults                    NUMBER    None -> 'Scenario 1 Monthly Payment £3,085.45 Scenario 2 Monthly Payment £3,713.18 Scenario 3 Monthly Payment £4,358.06|grid'
+      fcTerm                       text/display '|inline-block' -> '|block'
+      pay1                         NUMBER    '£0|block' -> '£3,085.45|block'
+      pay2                         NUMBER    '£0|block' -> '£3,713.18|block'
+      pay3                         NUMBER    '£0|block' -> '£4,358.06|block'
+      rate1                        text/display '|inline-block' -> '|block'
+      rate2                        text/display '|inline-block' -> '|block'
+      rate3                        text/display '|inline-block' -> '|block'
+   double / after_press
+
+DIVERGED  /repayment.html -> /tools/repayment/index.html
+   defaults / after_input
+      amortizationTable            NUMBER    'Year 1 £11,137 £5,538 £244,462 Year 2 £10,882 £5,793 £238,669 Year 3 £10,616 £6,059 £232,610 Year 4 £10,338 £6,337 £226,273 Year 5 £10,047 £6,628 £219,645 Year 6 £9,742 £6,933 £212,712 Year 7 £9,424 £|table-row-group' -> 'Year Opening Balance Payments Interest Paid Principal Paid Closing Balance 1 £200,000.00 £14,030.16 £9,906.35 £4,123.81 £195,876.19 2 £195,876.19 £14,030.16 £9,695.37 £4,334.80 £191,541.39 3 £191,541.|table'
+      calcError                    text/display None -> '|block'
+      calculateBtn                 text/display None -> 'Calculate Repayments|inline-block'
+      displayMonthly               NUMBER    '£1,390|block' -> '£1,169.18|block'
+      displayTotalInterest         NUMBER    '£166,874|inline' -> '£150,754.02|block'
+      displayTotalRepayable        NUMBER    '£416,874|inline' -> '£350,754.02|block'
+      resultsArea                  NUMBER    'Monthly Payment £1,390 Total Interest £166,874 Total Repayable £416,874|block' -> 'Monthly Repayment £1,169.18 Total Interest £150,754.02 Total Repayable £350,754.02|flex'
+   defaults / after_press
+      amortizationTable            NUMBER    'Year 1 £11,137 £5,538 £244,462 Year 2 £10,882 £5,793 £238,669 Year 3 £10,616 £6,059 £232,610 Year 4 £10,338 £6,337 £226,273 Year 5 £10,047 £6,628 £219,645 Year 6 £9,742 £6,933 £212,712 Year 7 £9,424 £|table-row-group' -> 'Year Opening Balance Payments Interest Paid Principal Paid Closing Balance 1 £200,000.00 £14,030.16 £9,906.35 £4,123.81 £195,876.19 2 £195,876.19 £14,030.16 £9,695.37 £4,334.80 £191,541.39 3 £191,541.|table'
+      calcError                    text/display None -> '|block'
+      calculateBtn                 text/display None -> 'Calculate Repayments|inline-block'
+      displayMonthly               NUMBER    '£1,390|block' -> '£1,169.18|block'
+      displayTotalInterest         NUMBER    '£166,874|inline' -> '£150,754.02|block'
+      displayTotalRepayable        NUMBER    '£416,874|inline' -> '£350,754.02|block'
+      resultsArea                  NUMBER    'Monthly Payment £1,390 Total Interest £166,874 Total Repayable £416,874|block' -> 'Monthly Repayment £1,169.18 Total Interest £150,754.02 Total Repayable £350,754.02|flex'
+   double / after_input
+      amortizationTable            NUMBER    'Year 1 £11,137 £5,538 £244,462 Year 2 £10,882 £5,793 £238,669 Year 3 £10,616 £6,059 £232,610 Year 4 £10,338 £6,337 £226,273 Year 5 £10,047 £6,628 £219,645 Year 6 £9,742 £6,933 £212,712 Year 7 £9,424 £|table-row-group' -> 'Year Opening Balance Payments Interest Paid Principal Paid Closing Balance 1 £200,000.00 £14,030.16 £9,906.35 £4,123.81 £195,876.19 2 £195,876.19 £14,030.16 £9,695.37 £4,334.80 £191,541.39 3 £191,541.|table'
+      calcError                    text/display None -> '|block'
+      calculateBtn                 text/display None -> 'Calculate Repayments|inline-block'
+      displayMonthly               NUMBER    '£1,390|block' -> '£1,169.18|block'
+      displayTotalInterest         NUMBER    '£166,874|inline' -> '£150,754.02|block'
+      displayTotalRepayable        NUMBER    '£416,874|inline' -> '£350,754.02|block'
+      resultsArea                  NUMBER    'Monthly Payment £1,390 Total Interest £166,874 Total Repayable £416,874|block' -> 'Monthly Repayment £1,169.18 Total Interest £150,754.02 Total Repayable £350,754.02|flex'
+   double / after_press
+      amortizationTable            NUMBER    'Year 1 £44,978 £536 £499,464 Year 2 £44,928 £586 £498,878 Year 3 £44,873 £641 £498,237 Year 4 £44,813 £701 £497,535 Year 5 £44,747 £767 £496,768 Year 6 £44,675 £839 £495,929 Year 7 £44,596 £918 £495,0|table-row-group' -> 'Year Opening Balance Payments Interest Paid Principal Paid Closing Balance 1 £400,000.00 £40,277.07 £39,986.94 £290.12 £399,709.88 2 £399,709.88 £40,277.07 £39,956.56 £320.50 £399,389.37 3 £399,389.37|table'
+      calcError                    text/display None -> '|block'
+      calculateBtn                 text/display None -> 'Calculate Repayments|inline-block'
+      displayMonthly               NUMBER    '£3,793|block' -> '£3,356.42|block'
+      displayTotalInterest         NUMBER    '£1,775,709|inline' -> '£1,613,853.30|block'
+      displayTotalRepayable        NUMBER    '£2,275,709|inline' -> '£2,013,853.30|block'
+      resultsArea                  NUMBER    'Monthly Payment £3,793 Total Interest £1,775,709 Total Repayable £2,275,709|block' -> 'Monthly Repayment £3,356.42 Total Interest £1,613,853.30 Total Repayable £2,013,853.30|flex'
+   half / after_input
+      amortizationTable            NUMBER    'Year 1 £11,137 £5,538 £244,462 Year 2 £10,882 £5,793 £238,669 Year 3 £10,616 £6,059 £232,610 Year 4 £10,338 £6,337 £226,273 Year 5 £10,047 £6,628 £219,645 Year 6 £9,742 £6,933 £212,712 Year 7 £9,424 £|table-row-group' -> 'Year Opening Balance Payments Interest Paid Principal Paid Closing Balance 1 £200,000.00 £14,030.16 £9,906.35 £4,123.81 £195,876.19 2 £195,876.19 £14,030.16 £9,695.37 £4,334.80 £191,541.39 3 £191,541.|table'
+      calcError                    text/display None -> '|block'
+      calculateBtn                 text/display None -> 'Calculate Repayments|inline-block'
+      displayMonthly               NUMBER    '£1,390|block' -> '£1,169.18|block'
+      displayTotalInterest         NUMBER    '£166,874|inline' -> '£150,754.02|block'
+      displayTotalRepayable        NUMBER    '£416,874|inline' -> '£350,754.02|block'
+      resultsArea                  NUMBER    'Monthly Payment £1,390 Total Interest £166,874 Total Repayable £416,874|block' -> 'Monthly Repayment £1,169.18 Total Interest £150,754.02 Total Repayable £350,754.02|flex'
+
+DIVERGED  /simple.html -> /tools/simple/index.html
+   defaults / after_input
+      amt                          text/display '|inline-block' -> '|block'
+      calcBtn                      text/display None -> 'Calculate Repayment|block'
+      monthlyResult                NUMBER    '£1,112|block' -> '—|block'
+      rate                         text/display '|inline-block' -> '|block'
+      resultDetail                 text/display None -> '|block'
+      years                        text/display '|inline-block' -> '|block'
+   defaults / after_press
+      amt                          text/display '|inline-block' -> '|block'
+      calcBtn                      text/display None -> 'Calculate Repayment|block'
+      monthlyResult                NUMBER    '£1,112|block' -> '£1,111.66|block'
+      rate                         text/display '|inline-block' -> '|block'
+      resultDetail                 NUMBER    None -> 'Total repaid over 25 years: £333,499.49Total interest: £133,499.49|block'
+      years                        text/display '|inline-block' -> '|block'
+   double / after_input
+      amt                          text/display '|inline-block' -> '|block'
+      calcBtn                      text/display None -> 'Calculate Repayment|block'
+      monthlyResult                NUMBER    '£1,112|block' -> '—|block'
+      rate                         text/display '|inline-block' -> '|block'
+      resultDetail                 text/display None -> '|block'
+      years                        text/display '|inline-block' -> '|block'
+   double / after_press
+      amt                          text/display '|inline-block' -> '|block'
+      calcBtn                      text/display None -> 'Calculate Repayment|block'
+      monthlyResult                NUMBER    '£3,034|block' -> '£3,034.28|block'
+      rate                         text/display '|inline-block' -> '|block'
+      resultDetail                 NUMBER    None -> 'Total repaid over 50 years: £1,820,567.14Total interest: £1,420,567.14|block'
+      years                        text/display '|inline-block' -> '|block'
+   half / after_input
+      amt                          text/display '|inline-block' -> '|block'
+      calcBtn                      text/display None -> 'Calculate Repayment|block'
+      monthlyResult                NUMBER    '£1,112|block' -> '—|block'
+      rate                         text/display '|inline-block' -> '|block'
+      resultDetail                 text/display None -> '|block'
+      years                        text/display '|inline-block' -> '|block'
+   half / after_press
+      amt                          text/display '|inline-block' -> '|block'
+      calcBtn                      text/display None -> 'Calculate Repayment|block'
+      monthlyResult                NUMBER    '£765|block' -> '£739.94|block'
+      rate                         text/display '|inline-block' -> '|block'
+
+DIVERGED  /stamp-duty.html -> /tools/stamp-duty/index.html
+   defaults / after_input
+      breakdown                    NUMBER    '|block' -> 'Standard residential ratesBandRateTaxableSDLT£0–£125,0000%£125,000£0£125,000–£250,0002%£125,000£2,500£250,000–£925,0005%£100,000£5,000Total SDLT£7,500Effective rate: 2.14% of the property price.Standa|block'
+      buyerType                    text/display 'Next Home (Standard Mover) First Time Buyer Additional Property / Buy-to-Let|inline-block' -> 'First-time buyer Home mover (main residence) Additional property / second home|inline-block'
+      calculateBtn                 text/display None -> 'Calculate Stamp Duty|inline-block'
+      resultsPanel                 NUMBER    None -> 'Total Stamp Duty payable £7,500 Standard residential ratesBandRateTaxableSDLT£0–£125,0000%£125,000£0£125,000–£250,0002%£125,000£2,500£250,000–£925,0005%£100,000£5,000Total SDLT£7,500Effective rate: 2.|block'
+   defaults / after_press
+      breakdown                    NUMBER    'First Time Buyer Relief Applied.|block' -> 'Standard residential ratesBandRateTaxableSDLT£0–£125,0000%£125,000£0£125,000–£250,0002%£125,000£2,500£250,000–£925,0005%£100,000£5,000Total SDLT£7,500Effective rate: 2.14% of the property price.Standa|block'
+      buyerType                    text/display 'Next Home (Standard Mover) First Time Buyer Additional Property / Buy-to-Let|inline-block' -> 'First-time buyer Home mover (main residence) Additional property / second home|inline-block'
+      calculateBtn                 text/display None -> 'Calculate Stamp Duty|inline-block'
+      resultsPanel                 NUMBER    None -> 'Total Stamp Duty payable £7,500 Standard residential ratesBandRateTaxableSDLT£0–£125,0000%£125,000£0£125,000–£250,0002%£125,000£2,500£250,000–£925,0005%£100,000£5,000Total SDLT£7,500Effective rate: 2.|block'
+      sdltResult                   NUMBER    '£2,500|block' -> '£7,500|block'
+   double / after_input
+      breakdown                    NUMBER    '|block' -> 'Standard residential ratesBandRateTaxableSDLT£0–£125,0000%£125,000£0£125,000–£250,0002%£125,000£2,500£250,000–£925,0005%£450,000£22,500Total SDLT£25,000Effective rate: 3.57% of the property price.Stan|block'
+      buyerType                    text/display 'Next Home (Standard Mover) First Time Buyer Additional Property / Buy-to-Let|inline-block' -> 'First-time buyer Home mover (main residence) Additional property / second home|inline-block'
+      calculateBtn                 text/display None -> 'Calculate Stamp Duty|inline-block'
+      resultsPanel                 NUMBER    None -> 'Total Stamp Duty payable £25,000 Standard residential ratesBandRateTaxableSDLT£0–£125,0000%£125,000£0£125,000–£250,0002%£125,000£2,500£250,000–£925,0005%£450,000£22,500Total SDLT£25,000Effective rate:|block'
+      sdltResult                   NUMBER    '£7,500|block' -> '£25,000|block'
+   double / after_press
+      breakdown                    NUMBER    '|block' -> 'Standard residential ratesBandRateTaxableSDLT£0–£125,0000%£125,000£0£125,000–£250,0002%£125,000£2,500£250,000–£925,0005%£450,000£22,500Total SDLT£25,000Effective rate: 3.57% of the property price.Stan|block'
+      buyerType                    text/display 'Next Home (Standard Mover) First Time Buyer Additional Property / Buy-to-Let|inline-block' -> 'First-time buyer Home mover (main residence) Additional property / second home|inline-block'
+      calculateBtn                 text/display None -> 'Calculate Stamp Duty|inline-block'
+      resultsPanel                 NUMBER    None -> 'Total Stamp Duty payable £25,000 Standard residential ratesBandRateTaxableSDLT£0–£125,0000%£125,000£0£125,000–£250,0002%£125,000£2,500£250,000–£925,0005%£450,000£22,500Total SDLT£25,000Effective rate:|block'
+   half / after_input
+      breakdown                    NUMBER    '|block' -> 'Standard residential ratesBandRateTaxableSDLT£0–£125,0000%£125,000£0£125,000–£250,0002%£50,000£1,000Total SDLT£1,000Effective rate: 0.57% of the property price.Standard residential rates applied for a|block'
+      buyerType                    text/display 'Next Home (Standard Mover) First Time Buyer Additional Property / Buy-to-Let|inline-block' -> 'First-time buyer Home mover (main residence) Additional property / second home|inline-block'
+      calculateBtn                 text/display None -> 'Calculate Stamp Duty|inline-block'
+      resultsPanel                 NUMBER    None -> 'Total Stamp Duty payable £1,000 Standard residential ratesBandRateTaxableSDLT£0–£125,0000%£125,000£0£125,000–£250,0002%£50,000£1,000Total SDLT£1,000Effective rate: 0.57% of the property price.Standard|block'
+      sdltResult                   NUMBER    '£7,500|block' -> '£1,000|block'
+   half / after_press
+      breakdown                    NUMBER    'First Time Buyer Relief Applied.|block' -> 'Standard residential ratesBandRateTaxableSDLT£0–£125,0000%£125,000£0£125,000–£250,0002%£50,000£1,000Total SDLT£1,000Effective rate: 0.57% of the property price.Standard residential rates applied for a|block'
+      buyerType                    text/display 'Next Home (Standard Mover) First Time Buyer Additional Property / Buy-to-Let|inline-block' -> 'First-time buyer Home mover (main residence) Additional property / second home|inline-block'
+      calculateBtn                 text/display None -> 'Calculate Stamp Duty|inline-block'
+      resultsPanel                 NUMBER    None -> 'Total Stamp Duty payable £1,000 Standard residential ratesBandRateTaxableSDLT£0–£125,0000%£125,000£0£125,000–£250,0002%£50,000£1,000Total SDLT£1,000Effective rate: 0.57% of the property price.Standard|block'
+      sdltResult                   NUMBER    '£0|block' -> '£1,000|block'
+   asym / after_input
+      breakdown                    NUMBER    '|block' -> 'Standard residential ratesBandRateTaxableSDLT£0–£125,0000%£125,000£0£125,000–£250,0002%£125,000£2,500£250,000–£925,0005%£345,000£17,250Total SDLT£19,750Effective rate: 3.32% of the property price.Stan|block'
+      buyerType                    text/display 'Next Home (Standard Mover) First Time Buyer Additional Property / Buy-to-Let|inline-block' -> 'First-time buyer Home mover (main residence) Additional property / second home|inline-block'
+      calculateBtn                 text/display None -> 'Calculate Stamp Duty|inline-block'
+      resultsPanel                 NUMBER    None -> 'Total Stamp Duty payable £19,750 Standard residential ratesBandRateTaxableSDLT£0–£125,0000%£125,000£0£125,000–£250,0002%£125,000£2,500£250,000–£925,0005%£345,000£17,250Total SDLT£19,750Effective rate:|block'
+      sdltResult                   NUMBER    '£7,500|block' -> '£19,750|block'
+
+12 tool(s) diverged / uncapturable

@@ -569,3 +569,30 @@ failure is still yours to make; nothing has been quietly changed.
 Next: the ID-alignment pass across all twelve calculators, then the arithmetic
 verification — none of the twelve is yet proven to compute the same answers as your
 originals, and that remains the biggest open item on this adoption.
+
+**2026-08-08, late evening — the calculators now speak the same language as your
+originals, and the first honest comparison found real differences to fix.** After
+this afternoon's twelve went live, I ran a second pass asking each rebuild to keep
+the exact internal names your original calculators use — that's what lets our
+checker drive both versions side by side and compare the actual numbers. Nine of the
+twelve took the change and are live; three were stopped by the platform's own safety
+guards and kept their earlier versions (nothing was lost or broken). One of those
+three was stopped by the fake-data guard again — and this time I caught it in the
+act: it convicted a comment in the code that says "no fabricated data — starts
+empty". The guard read the words "fabricated data" and couldn't see the "no". I've
+written that up as a platform bug with the exact evidence; the same guard probably
+convicted the same tool the same way on the 5th.
+
+The real news is what the side-by-side comparison found now that it can finally
+compare like with like: six of the calculators get DIFFERENT ANSWERS from your
+originals — not because anyone's arithmetic is sloppy, but because the rebuilds
+compute the standard textbook way while your originals have their own way of
+working things out (for example, your repayment calculator answers £1,390 a month
+where a textbook calculation says £1,169). For adoption, your originals are the
+contract — the rebuilds must match them, and the next pass will instruct each
+rebuild to copy the original's calculation method exactly rather than treating it
+as inspiration. One happy resolution: the stamp-duty calculator's worrying
+"£0 result" turned out to be our test pressing the wrong buyer-type option because
+the rebuild had reordered the drop-down — its actual sums check out correctly for
+every band we drove. The whole site was byte-verified against our copy again
+tonight; your original pages remain untouched and the site is locked.

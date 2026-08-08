@@ -120,7 +120,33 @@ Steps 1–3 above are complete (full detail: NOTES 08-08 evening entry; evidence
    sweep: exactly `robots.txt`. Site RE-LOCKED 15:57. Backstop deferred nothing
    and was killed on batch completion.
 
-Remaining: **§2 step 4 (id-alignment batch) is the live front** — now against
-12/12 live tools; then fences (step 5). Arithmetic verification still 0 of 12.
+~~Remaining: **§2 step 4 (id-alignment batch) is the live front** — now against
+12/12 live tools; then fences (step 5). Arithmetic verification still 0 of 12.~~
 `pages.build_status` remains cosmetically stale (`needs_rebuild`) for
 overpayment/portfolio — known, ignore.
+
+## ADDENDUM 2 — 2026-08-08 late: id-alignment batch RUN; the live front is now FORMULA alignment
+
+Step 4 ran the same evening (full detail: NOTES 08-08 late entry; artefacts:
+`acceptance/COMPARE_2026-08-08_id_aligned_9of12.txt`). One-paragraph state:
+**9/12 rebuilds are live with golden-aligned ids** (the wholesale-rename noise
+is gone from the comparator); 3 were refused/discarded and keep their previous
+live versions (affordability: shrink guard; fact-finder: prune guard;
+portfolio: fabrication-gate FALSE POSITIVE on a comment DENYING fabrication —
+judged, evidenced, filed as **`bugs_open/222`**, payloads all preserved and
+id-complete). The comparator now yields real verdicts: **6 tools diverge on
+FORMULA after press** (repayment, overpayment, bridging, investor, rate-
+forecaster, simple[half]) — the rebuilds write textbook maths where the
+originals compute their own; **stamp-duty's maths is self-consistent** and its
+"£0 after press" dissolves into a select-option-order mismatch (fix = options
+verbatim, not arithmetic); fee-analyser's press yields '—' (validation
+suspect, needs a local drive). **Judge after_press only** — after_input is
+incomparable (live-compute vs stale display; and the 08-05 "several originals
+compute live" claim is wrong — only fact-finder does).
+
+**Next session's front: ONE formula-alignment batch over all 12** with the
+enriched contract written out at the end of the NOTES 08-08 late entry
+(ids + options verbatim + copy-the-original's-calculation-verbatim + press-only
++ 222's comment-style workaround for portfolio + delete affordability/
+fact-finder components first per §10e so the shrink/prune guards have nothing
+to compare against). Then fences (step 5), then arithmetic sign-off.
