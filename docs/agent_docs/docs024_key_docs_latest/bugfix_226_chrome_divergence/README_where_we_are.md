@@ -32,3 +32,26 @@ applied, before that wave — so the wave becomes the first thing the new safety
 net catches rather than the last thing that slips through it.
 
 Next: council review of the plan, then the code.
+
+## 2026-08-08, later — safety net live, council asked for changes, changes made
+
+The database half is done and live: from this evening, nothing can replace a
+stored header or footer with different content without the old version being
+kept. We proved it on a real row before trusting it — patched one, watched the
+copy appear, put it back, cleaned up.
+
+The reviewer council looked at the whole plan and said "revise". Some of their
+worries turned out to be wrong once we measured — for instance, the fear that
+only the first site to lose content would ever get a review ticket isn't true,
+because tickets are already filed per site. But three worries were right and
+we fixed all three: a second loss on the same slot could have been mistaken
+for a duplicate of the first and dropped (each loss now gets its own ticket);
+a ticket could have been filed even when a protective lock had actually
+stopped the rebuild (the ticket now only files when something was really
+replaced); and our promise to deal with the same problem on ordinary page
+sections "later" wasn't concrete (it is now bug 229, written up properly with
+its own evidence).
+
+We resubmitted with the fixes and the measurements. The code is committed and
+will be in the next release; the bug stays open until we've seen it working on
+the running system, and the checklist for that is written into the bug file.
