@@ -94,12 +94,27 @@ not manufacture one on a live customer site without asking. Waiting is the corre
   to **4 of 8** verifiers (`empty_section`, `truncated_component`, `content_duplication` = page gone,
   `page_canonical_collision` = site gone). **This is RFC_017 option 3's trigger** — if it shows in
   the numbers, that is the case for building the parking outcome.
-- **Two live pages still serving empty sections**, recorded `complete` on 08-03:
+- ~~**Two live pages still serving empty sections**, recorded `complete` on 08-03:
   `ai-guides` + `insights`, site `1368e337-dd1d-4799-bbb3-8221a1b79bcc`, slot `featured-content`,
   334-byte shells. **Unfiled**, and no `featured-content` item has ever existed fleet-wide although
   `findEmptySections`' predicate matches both right now. **Why detection never re-filed is NOT
   established** — dedup and `bugs_closed/041` ruled out by measurement. **This wants a `090` run**
-  and is the single most valuable next step in the area.
+  and is the single most valuable next step in the area.~~
+  > **CORRECTED 2026-08-08 (late) — two slot names conflated, and the answer is now established.**
+  > The live slot is **`featured-content`**; the work items name **`featured-article`**. Items for
+  > those two pages have existed **twice** (April → `unresolved`; 08-03 → `complete`), so
+  > "never existed fleet-wide" was an artefact of grepping `item_key` for the wrong spelling.
+  > The site is **`finetuning.uk`**, held by two other lanes.
+  > **Both halves are now measured** (NOTES, 2026-08-08 late): (1) the 08-03 items closed via the
+  > absent-target fail-OPEN path — they ARE §3's "fired twice in the registry's entire life" cases,
+  > and `RFC_017` now makes this same case fail closed; (2) `featured-content` is unfiled because
+  > **site discovery has no recurring driver** — 0 of 5 `scheduled_tasks` rows targeting
+  > `quality`/`completeness`/`design-discovery-agent` are enabled, all five are `oneshot-*`, and no
+  > CronJob fires them. Detection follows whichever site a lane is hand-driving.
+  > **`090` FILED** — intake corr `c5778c3e-8cf9-41b3-b36f-6d1ad37b708a`, run corr
+  > **`2ccc7551-76d3-40d2-ac2a-01d8120ea0fb`** (the run corr is the artifact key). No `bugs_open/`
+  > file yet **by design**: the owner ruling of 2026-07-31 says a cross-cutting root cause is not
+  > "filed" until it has been through the loop, so the verdict comes first. Evidence in NOTES.
 - **`bugfix_071` lane's landmine** — the success UPDATE never clears `site_work_items.error`, so a
   row refused then completed keeps the refusal text. Fail-closed makes it *commoner*, not caused by
   us. Plausibly a one-line fix (`error = NULL`) on the success path; **theirs, not ours.**

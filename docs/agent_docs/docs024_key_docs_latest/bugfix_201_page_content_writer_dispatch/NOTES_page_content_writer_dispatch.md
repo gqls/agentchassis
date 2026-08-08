@@ -736,3 +736,84 @@ no era marker in *either* era, and the first post-roll row duly has none. My cen
 a post-roll row demonstrably exists — a filter that answers a narrower question than the one I asked
 it. Corrected in the `LANDMINES` entry and `WII-011`: date a non-error row by `updated_at` against
 the roll, never by payload shape.
+
+---
+
+## 2026-08-08 (late) — picking up §4's "single most valuable next step", and correcting my own handoff first
+
+`HANDOFF_2026-08-08_continue_here.md` §4 names two live pages on site
+`1368e337-dd1d-4799-bbb3-8221a1b79bcc` still serving empty sections, and asserts:
+*"no `featured-content` item has ever existed fleet-wide although `findEmptySections`' predicate
+matches both right now"*, with the whole thing wanting a `090` run.
+
+> **CORRECTED 2026-08-08 — the handoff conflated TWO slot names, and the absence claim is an
+> artefact of the spelling it searched.** The slot in `page_components.slot_name` is
+> **`featured-content`**. The slot the work items name is **`featured-article`**. They are different
+> strings, and items for `featured-article` on exactly these two pages have existed **twice** — an
+> April batch that went `unresolved` after 2 attempts, and an 08-03 batch that went **`complete`**.
+> Caught by widening the search off `item_key` onto `summary`/`spec`:
+>
+> ```sql
+> SELECT count(*) FILTER (WHERE item_key LIKE '%featured-content%') AS key_hyphen,   -- 0
+>        count(*) FILTER (WHERE summary ILIKE '%featured%')          AS summary_hit,  -- 7
+>        count(*) FILTER (WHERE spec::text ILIKE '%featured%')       AS spec_hit      -- 10
+> FROM site_work_items;
+> ```
+>
+> This is `MEMORY`'s *"a grep proves absence only for the SPELLING it searches"*, committed by me,
+> into a handoff, as a fact. The zero was real; it just answered a question nobody asked.
+
+**The site is `finetuning.uk`** (`sites.domain`, status `deployed`) — not an anonymous test site.
+Two other lanes hold it (`finetuning_uk_repair`, `finetuning_uk_service`), so nothing gets dispatched
+at it from here without asking.
+
+### What is actually true, and it is two separate mechanisms
+
+**(1) The 08-03 items closed wrongly, and it is exactly `bugs_closed/032`.** Both items carry:
+
+```
+result->'_verification' = {"status":"error","item_type":"empty_section",
+  "error":"cannot verify: component a390860e-… no longer exists
+           (genuinely fixed or silently deleted — indistinguishable here)"}
+status = complete
+```
+
+The fix replaced the component rather than filling it: old components `a553f25f` / `a390860e`
+(slot `featured-article`) are gone; a new component `b3e0c2c0` sits in slot **`featured-content`**
+on both pages at **334 bytes** — i.e. still empty. The verifier looked for the old id, found nothing,
+errored, and **fail-OPEN stamped it `complete`.** These two rows ARE the "fired twice in the
+registry's entire life" absent-target cases §3 refers to. Under `RFC_017`'s fail-closed flip
+(live on `v1.0.1268`) this same case now lands `triaged`/`failed` instead. `[MEASURED]`
+
+**(2) `featured-content` has never been filed because NOTHING HAS LOOKED SINCE 08-03.** Every
+`empty_section` item for this site was created in exactly two batches (`2026-08-03 10:15:22`, seven
+items sharing one timestamp; and April). The predicate matches *right now* — I ran
+`findEmptySections`' WHERE clause verbatim against the live DB and it returns both pages plus
+`tools/tool-list`; `page_type` is `content` (not `blog-index`), `locked_at` is NULL, `build_status`
+is `deployed`, and neither slot is in `suppressed_sections`. So detection is not blinded. It is
+**undriven**: `[MEASURED]`
+
+```sql
+SELECT count(*) FILTER (WHERE enabled) AS enabled_site_discovery,  -- 0
+       count(*)                        AS total_site_discovery     -- 5
+FROM scheduled_tasks
+WHERE target_agent_type IN ('quality-discovery-agent',
+                            'completeness-discovery-agent','design-discovery-agent');
+```
+
+**All five rows are `oneshot-*` and all five are disabled** — including
+`oneshot-completeness-discovery-fai-20260803`, this very site's 08-03 run, switched off after it
+fired. No cluster CronJob fires them either (`kubectl get cronjobs -A` — the eight that exist are
+cleanup/backup/drift checks). The only enabled rows matching `%discovery%` target
+`adoption-researcher` / `directory-researcher`, which are the model-directory research agents, a
+different subsystem entirely.
+
+Fleet-wide the shape holds: `empty_section` last filed **08-04 19:36**, while sibling checks in the
+same family filed on **08-08** (`hardcoded_section_colors` 18:11, `literal_markdown` 18:09,
+`voice_tells` 17:13) — and those three landed on `webdesign.co.uk` and `leopardessconsulting.co.uk`,
+the two sites other lanes were hand-driving today. Detection follows attention, not a clock.
+
+> **This CORROBORATES rather than discovers.** `MEMORY` already carries *"a silent mechanism is
+> usually UNDRIVEN, not missing"* and *"detection works; SCHEDULE and DISPATCH do not"*. I did not
+> derive that from first principles — I checked the schedule because the memory line told me to.
+> Recording it as a fresh finding would overstate it.
