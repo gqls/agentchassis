@@ -351,3 +351,37 @@ candidate 1 before any css-patch dispatch, then A2.
 - webdesign.co.uk carries **56 failed page_rerender + 10 failed literal_markdown + 4 failed
   needs_content_page** from earlier eras — pre-existing, not this lane's, flagged to the
   owner rather than silently swept past.
+
+## 2026-08-08 (late evening) — BOTH WITNESSES PASSED; B1 and B2 are live and SEEN
+
+- **B1 WITNESSED** — sweep 3df5c9e8 on webdesign.co.uk, site-review orchestration
+  `9a1f97da` (NOT 7a0419ea — my waiter watched a sibling child; identify site-review by
+  `workflow_plan->'steps' ? 'run_strategic_review'`, not by step-name resemblance).
+  llm_call_log 18:13:43Z: **marker t / premise block t / honesty t**, prompt 29,110 chars,
+  output 1,763 < 4,000, error_message empty (no truncation). Marker un-planted (returning
+  `still_planted=f`). An earlier "0 rows" read was TIMING (query ran 18:12, call landed
+  18:13:43) — a zero was about to become non-zero; poll the terminal state, not the middle.
+- **B1 qualitative — the point, visible:** the review's summary opens FROM the premise
+  ("premium domain, client-side tools, editorial pairing, zero commercial friction") and
+  files "structural mismatches between the recorded premise and what the pages deliver":
+  a CTA labelled 'Read the guides' routing to a tool page (breaks the recorded closed-loop
+  differentiator), the About page rendering wrong content vs the recorded trust function, a
+  hero that buries the recorded no-account/client-side moat, and a finding judged explicitly
+  against `saas_tools` primary_model. Zero "users want" phrasing. Before B1 this review saw
+  domain+dream_spec+plan only.
+- **B2 WITNESSED** — item 2ffc5571 → orchestration `d31b7e5f` COMPLETED, no `__step_error`.
+  (a–e): (b) **first-ever strategy row for loancalculator.co.uk** 18:12:25, `revenue_models
+  .primary_model='affiliate'`, ALL FOUR premise fields present and concrete (money_flow
+  names commission-per-completed-application, monthly in arrears); (c) **ZERO
+  needs_briefing** since the 18:09:10 anchor, by row identity; (d) `site_state.is_deployed
+  = true` in collected_data AND `next_item_created` ABSENT while `strategy_written` = t —
+  the gate evaluated and took then_step=complete; (e) the one other row since anchor
+  (`lock_blocked_change` 18:14:37) is `save_page_sections`' — the content-rewrite traffic
+  running on this site since 17:10, unreachable from domain-strategist's workflow.
+- **[NOT EXERCISED] the greenfield arm post-change** — else_step routes to the byte-identical
+  create_next_item, but no greenfield strategist run has happened since 18:01. The next real
+  greenfield build is the natural negative control; whoever sees it, check needs_briefing
+  appears and note it here.
+- **OWED: schema_migrations ledger rows for 340 + 341** (classifier-blocked; commands with
+  the owner). Until recorded, a blanket runner pass will hit 340's probe guard and error
+  LOUDLY — that is the guard working, not a new bug.
