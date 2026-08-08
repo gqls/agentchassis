@@ -486,3 +486,75 @@ dispatch anything this pass rather than force a match to the brief — noted her
 session doesn't re-run this same census expecting a different answer without new information
 (the resolver capability question from the entry above, or an owner sign-off on the two
 flagged buckets, are the actual unlocks).
+
+## 2026-08-08 (later) — the resolver capability is BUILT: label-aware CTA matching, calibrated against the live fleet
+
+Answers this file's own open fork ("build the capability vs. accept D7's narrower per-page
+options") by building the capability. Full design in
+`architecture_review/` scoping (this session's plan, not yet a numbered RFC file — see
+"what's owed" below) and the commits themselves; this entry is the evidence trail.
+
+**What shipped, all behind mutation-proven tests:**
+1. `check_misdirected_cta.go`'s existing token-overlap matcher (`ctaTokens`/`bestPageMatch`,
+   proven at audit time since this lane's own earlier work) extracted to
+   `datahelpers.LabelTokens`/`BestLabelMatch`/`NewLabelMatchCandidate` — one definition, not two.
+   Behaviour-preserving: that file's own existing tests pass unchanged post-extraction.
+2. `resolve_internal_links_action.go`'s `setCTAField` now tries a label match FIRST when the
+   page has a currently-published label for this slot (a new small query,
+   `loadExistingSectionContentData`, keyed on site+page name — content_data is otherwise empty
+   at resolve time, confirmed by tracing the actual pipeline: the writer's prompt never even
+   receives `resolved_data`/`cta_target_title`, so a "the writer will see the resolved target"
+   design intent in this file's own doc comment was dead code, not a real coordination path).
+   Falls back to today's positional pick unchanged when no label exists yet or it matches
+   nothing real.
+3. `applyCTARecompute` (the actual repair path `check_misdirected_cta`'s own
+   `cta_links_stale` work item triggers) gets the same matcher. **This was a live, separate bug
+   in the platform's own remediation loop**, found while tracing this fix: the function's
+   old "authored link to a real, sensible destination — keep it" guard accepted ANY valid,
+   non-excluded, non-self URL — including a misdirected-but-otherwise-fine-looking one, which
+   is EXACTLY what triggers `cta_links_stale` in the first place. So the detector's own repair
+   action could not fix what it was invoked to fix; it silently kept the wrong link and the
+   next discovery pass re-flagged the same page forever. Now: a label match that disagrees
+   with the currently-stored URL wins over the old "keep if valid" guard.
+
+**Calibrated against the real shipping function over the live fleet before submitting**
+(`CALIBRATION_2026-08-08_label_match_report.txt`, this dir — `cmd/ctacalibrate`, a throwaway
+harness importing the actual `datahelpers` package via a `kubectl port-forward` to
+`postgres-clients`, deleted before commit, not part of the platform build):
+- 1,251 labelled CTA fields examined fleet-wide (the six `ctaFieldNames` components).
+- 634 label-matched a real candidate (interactive/hub pages only — same pool
+  `chooseCTATargets` itself offers; an early pass over ALL active pages produced a
+  materially larger, unfaithful number and was corrected before trusting it — worth recording
+  as its own small lesson: calibrate against the SAME candidate pool the shipped code uses, not
+  "every real page", or the measurement answers a different question than the one asked).
+- 315 would be newly resolved where nothing was stored before (a pure fill-in, no override).
+- **162 would OVERRIDE an existing, different, valid stored URL — the risk-bearing case.**
+  Spot-checked the full 162: dominated by clear improvements (exact tool-name matches — "Open
+  Drop Rate Tuner" → the Drop Rate Tuner tool; "Read Guides" → the actual guides index), a
+  handful of plausible-but-looser token matches (a "architecture" token sending a CTA to a
+  complexity-estimator tool rather than a prose page — defensible, not obviously wrong), and
+  one class of genuine false positive **found and fixed before shipping**: interrogatives
+  ("what", "how", "why"...) were not in the stopword list, so "See What We Build" token-matched
+  a page titled "What It Costs to Work With Us" on "what" alone. Added to
+  `datahelpers.LabelStopwords`; re-calibration confirmed the specific case is gone and the
+  matched-count dropped 662→634 (28 fewer spurious matches fleet-wide from this one
+  word-class fix).
+- **[UNMEASURED, noted rather than chased]**: a second, rarer collision class exists —
+  a common preposition inside a label ("...about your use case") can coincide with a page
+  literally named "About". Seen once in the pre-fix sample, absent from the post-fix run, but
+  not independently isolated as fixed-by-the-same-change or just no-longer-triggered by a
+  different removed match. Not adding "about" to the stopword list speculatively — that word
+  legitimately appears in real distinctive labels too ("Learn about our process") and
+  over-narrowing the stopword list is how a detector goes quiet on what it exists to catch
+  (LANDMINES: narrowing past an invented false positive can make a rule inert). Flagged for
+  whoever reviews the submission to look at directly rather than pre-emptively patched.
+
+**What's owed, not done this pass:** the scoping plan itself recommends this go through
+architecture review (a shared-mechanism guarantee change, not a point fix) alongside the
+normal council gate — not yet submitted as of this entry. Two things named as explicitly OUT
+of this round, for whoever picks them up: feeding `cta_target_title` into the content-writer's
+own prompt (closes the coordination gap from the writer's side too, separate council
+footprint), and a `repairSectionsBeforePersist` arm (alongside the existing
+`RepairContentDataLinks`, LNK-028) so the 2 real-tool-CTA pages and 4 parked "Get Started"
+heroes from this lane's own earlier cleanup pass could self-heal on their next ordinary save
+without a per-page dispatch.

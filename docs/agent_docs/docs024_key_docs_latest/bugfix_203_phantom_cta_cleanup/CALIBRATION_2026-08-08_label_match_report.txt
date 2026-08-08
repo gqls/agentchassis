@@ -1,0 +1,898 @@
+=== CTA label-match calibration ===
+labeled CTA fields examined: 1251
+label matched a real candidate: 634
+newly resolved (current was empty, nothing overridden): 315
+OVERRIDDEN (current was a different, non-empty url): 162
+
+--- sample of newly-resolved (up to 20) ---
+[vetcomparison.uk] /guides/index.html (hero.cta_text)
+  label="Read the CMA vet remedies guide"
+  match="/tools/cma-obligation-checker/index.html" (CMA Obligation Self-Assessment for Practices | Tools)
+
+[vetcomparison.uk] /guides/index.html (hero.secondary_cta)
+  label="Read the CMA market investigation explainer"
+  match="/tools/cma-obligation-checker/index.html" (CMA Obligation Self-Assessment for Practices | Tools)
+
+[vetcomparison.uk] /guides/index.html (hero.secondary_cta)
+  label="Read the CMA market investigation explainer"
+  match="/tools/cma-obligation-checker/index.html" (CMA Obligation Self-Assessment for Practices | Tools)
+
+[vetcomparison.uk] /guides/index.html (hero.cta_text)
+  label="Read the CMA vet remedies guide"
+  match="/tools/cma-obligation-checker/index.html" (CMA Obligation Self-Assessment for Practices | Tools)
+
+[vetcomparison.uk] /how-it-works.html (hero.cta_text)
+  label="Check your CMA obligations"
+  match="/tools/cma-obligation-checker/index.html" (CMA Obligation Self-Assessment for Practices | Tools)
+
+[vetcomparison.uk] /how-it-works.html (hero.secondary_cta)
+  label="Read the CMA remedies guide"
+  match="/tools/cma-obligation-checker/index.html" (CMA Obligation Self-Assessment for Practices | Tools)
+
+[vetcomparison.uk] /how-it-works.html (hero.secondary_cta)
+  label="Read the CMA remedies guide"
+  match="/tools/cma-obligation-checker/index.html" (CMA Obligation Self-Assessment for Practices | Tools)
+
+[vetcomparison.uk] /how-it-works.html (hero.cta_text)
+  label="Check your CMA obligations"
+  match="/tools/cma-obligation-checker/index.html" (CMA Obligation Self-Assessment for Practices | Tools)
+
+[vetcomparison.uk] /how-it-works.html (call-to-action.secondary_cta)
+  label="Practices can check the CMA Obligation Self-Assessment at /tools/cma-obligation-checker/index.html, or read the full requirements in /guides/cma-compliance/index.html."
+  match="/tools/cma-obligation-checker/index.html" (CMA Obligation Self-Assessment for Practices | Tools)
+
+[vetcomparison.uk] /how-it-works.html (call-to-action.primary_cta)
+  label="Check your obligations with the compliance checker"
+  match="/tools/cma-obligation-checker/index.html" (CMA Obligation Self-Assessment for Practices | Tools)
+
+[vetcomparison.uk] /how-it-works.html (call-to-action.secondary_cta)
+  label="Practices can check the CMA Obligation Self-Assessment at /tools/cma-obligation-checker/index.html, or read the full requirements in /guides/cma-compliance/index.html."
+  match="/tools/cma-obligation-checker/index.html" (CMA Obligation Self-Assessment for Practices | Tools)
+
+[vetcomparison.uk] /index.html (hero.cta_text)
+  label="Search practices"
+  match="/tools/cma-obligation-checker/index.html" (CMA Obligation Self-Assessment for Practices | Tools)
+
+[vetcomparison.uk] /index.html (hero.cta_text)
+  label="Search practices"
+  match="/tools/cma-obligation-checker/index.html" (CMA Obligation Self-Assessment for Practices | Tools)
+
+[vetcomparison.uk] /index.html (hero.secondary_cta)
+  label="Read about the CMA requirements"
+  match="/tools/cma-obligation-checker/index.html" (CMA Obligation Self-Assessment for Practices | Tools)
+
+[vetcomparison.uk] /index.html (hero.secondary_cta)
+  label="Read about the CMA requirements"
+  match="/tools/cma-obligation-checker/index.html" (CMA Obligation Self-Assessment for Practices | Tools)
+
+[finetuning.uk] /blog/how-to-audit-your-business-for-ai-automation.html (hero.cta_text)
+  label="Talk to FineTuning About Your Automation Audit"
+  match="/tools/automation-savings-estimator/index.html" (AI Automation Time Savings Estimator | Tools)
+
+[finetuning.uk] /blog/how-to-audit-your-business-for-ai-automation.html (hero.secondary_cta)
+  label="Explore Our AI Automation Systems"
+  match="/tools/automation-savings-estimator/index.html" (AI Automation Time Savings Estimator | Tools)
+
+[finetuning.uk] /blog/how-to-audit-your-business-for-ai-automation.html (hero.secondary_cta)
+  label="Explore Our AI Automation Systems"
+  match="/tools/automation-savings-estimator/index.html" (AI Automation Time Savings Estimator | Tools)
+
+[finetuning.uk] /blog/how-to-audit-your-business-for-ai-automation.html (hero.cta_text)
+  label="Talk to FineTuning About Your Automation Audit"
+  match="/tools/automation-savings-estimator/index.html" (AI Automation Time Savings Estimator | Tools)
+
+[finetuning.uk] /blog/how-to-audit-your-business-for-ai-automation.html (call-to-action.secondary_cta)
+  label="See how our AI Automation Systems work"
+  match="/tools/automation-savings-estimator/index.html" (AI Automation Time Savings Estimator | Tools)
+
+--- ALL overridden rows (the risk-bearing case) ---
+[ai-agent-orchestration.com] /enterprise-reference-deployment.html (call-to-action.secondary_cta)
+  label="Review the Architecture"
+  current="/services.html"
+  match="/tools/agent-complexity-estimator.html" (Agent Architecture Complexity Estimator)
+
+[ai-agent-orchestration.com] /enterprise-reference-deployment.html (call-to-action.secondary_cta)
+  label="Review the Architecture"
+  current="/services.html"
+  match="/tools/agent-complexity-estimator.html" (Agent Architecture Complexity Estimator)
+
+[ai-agent-orchestration.com] /enterprise-reference-deployment.html (hero.secondary_cta)
+  label="See the Architecture"
+  current="/services.html"
+  match="/tools/agent-complexity-estimator.html" (Agent Architecture Complexity Estimator)
+
+[ai-agent-orchestration.com] /enterprise-reference-deployment.html (hero.secondary_cta)
+  label="See the Architecture"
+  current="/services.html"
+  match="/tools/agent-complexity-estimator.html" (Agent Architecture Complexity Estimator)
+
+[ai-agent-orchestration.com] /case-study-kafka-consumer-group-remediation.html (call-to-action.secondary_cta)
+  label="See How We Architect Agent Pipelines"
+  current="/services.html"
+  match="/tools/agent-complexity-estimator.html" (Agent Architecture Complexity Estimator)
+
+[ai-agent-orchestration.com] /case-study-kafka-consumer-group-remediation.html (call-to-action.secondary_cta)
+  label="See How We Architect Agent Pipelines"
+  current="/services.html"
+  match="/tools/agent-complexity-estimator.html" (Agent Architecture Complexity Estimator)
+
+[ai-agent-orchestration.com] /containment-first-architecture.html (hero.secondary_cta)
+  label="See How the Architecture Works"
+  current="/services.html"
+  match="/tools/agent-complexity-estimator.html" (Agent Architecture Complexity Estimator)
+
+[ai-agent-orchestration.com] /containment-first-architecture.html (hero.secondary_cta)
+  label="See How the Architecture Works"
+  current="/services.html"
+  match="/tools/agent-complexity-estimator.html" (Agent Architecture Complexity Estimator)
+
+[ai-agent-orchestration.com] /case-study-kafka-consumer-group-remediation.html (hero.secondary_cta)
+  label="See How We Architect Agent Pipelines"
+  current="/services.html"
+  match="/tools/agent-complexity-estimator.html" (Agent Architecture Complexity Estimator)
+
+[ai-agent-orchestration.com] /case-study-kafka-consumer-group-remediation.html (hero.secondary_cta)
+  label="See How We Architect Agent Pipelines"
+  current="/services.html"
+  match="/tools/agent-complexity-estimator.html" (Agent Architecture Complexity Estimator)
+
+[fundamentallyai.com] /guides/tool-model-approach-selector-guide.html (call-to-action.secondary_cta)
+  label="See how we build and review"
+  current="/tools/llm-cost-calculator.html"
+  match="/tools/review-council-simulator/index.html" (Review Council Simulator — See Multi-Agent Governance in Action)
+
+[fundamentallyai.com] /guides/tool-model-approach-selector-guide.html (call-to-action.secondary_cta)
+  label="See how we build and review"
+  current="/tools/llm-cost-calculator.html"
+  match="/tools/review-council-simulator/index.html" (Review Council Simulator — See Multi-Agent Governance in Action)
+
+[gamesdesign.co.uk] /guides/fairness-in-rng/index.html (hero.secondary_cta)
+  label="Read Guides"
+  current="/games/auto-battler/index.html"
+  match="/guides/index.html" (Guides & Theory - GameDesign.uk)
+
+[gamesdesign.co.uk] /guides/skinner-box/index.html (hero.secondary_cta)
+  label="Read Design Guides"
+  current="/games/auto-battler/index.html"
+  match="/guides/index.html" (Guides & Theory - GameDesign.uk)
+
+[gamesdesign.co.uk] /guides/rng-design/index.html (hero.cta_text)
+  label="Launch Drop Rate Tuner"
+  current="/tools/ttk-calculator/index.html"
+  match="/tools/tool-drop-rate-tuner.html" (Drop Rate Tuner | Tools)
+
+[gamesdesign.co.uk] /guides/rng-design/index.html (hero.secondary_cta)
+  label="Browse 11 Design Tools"
+  current="/games/auto-battler/index.html"
+  match="/tools/damage-formula-designer/index.html" (Damage Formula Designer | Tools)
+
+[gamesdesign.co.uk] /guides/rng-design/index.html (hero.secondary_cta)
+  label="Browse 11 Design Tools"
+  current="/games/auto-battler/index.html"
+  match="/tools/damage-formula-designer/index.html" (Damage Formula Designer | Tools)
+
+[gamesdesign.co.uk] /guides/rng-design/index.html (hero.cta_text)
+  label="Launch Drop Rate Tuner"
+  current="/tools/ttk-calculator/index.html"
+  match="/tools/tool-drop-rate-tuner.html" (Drop Rate Tuner | Tools)
+
+[gamesdesign.co.uk] /index.html (hero.cta_text)
+  label="Browse Tools"
+  current="/tools/ttk-calculator/index.html"
+  match="/tools/damage-formula-designer/index.html" (Damage Formula Designer | Tools)
+
+[gamesdesign.co.uk] /index.html (hero.secondary_cta)
+  label="Read Guides"
+  current="/games/auto-battler/index.html"
+  match="/guides/index.html" (Guides & Theory - GameDesign.uk)
+
+[gamesdesign.co.uk] /index.html (hero.secondary_cta)
+  label="Read Guides"
+  current="/games/auto-battler/index.html"
+  match="/guides/index.html" (Guides & Theory - GameDesign.uk)
+
+[gamesdesign.co.uk] /tools/index.html (tool-list.cta_label)
+  label="Browse All Tools"
+  current="/tools/index.html"
+  match="/tools/damage-formula-designer/index.html" (Damage Formula Designer | Tools)
+
+[gamesdesign.co.uk] /tools/index.html (hero.secondary_cta)
+  label="Open Bayesian Ranking Calculator"
+  current="/games/auto-battler/index.html"
+  match="/tools/bayesian-ranking.html" (Bayesian Ranking Calculator)
+
+[gamesdesign.co.uk] /tools/index.html (hero.cta_text)
+  label="Browse All Tools"
+  current="/tools/ttk-calculator/index.html"
+  match="/tools/damage-formula-designer/index.html" (Damage Formula Designer | Tools)
+
+[gamesdesign.co.uk] /tools/index.html (hero.cta_text)
+  label="Browse All Tools"
+  current="/tools/ttk-calculator/index.html"
+  match="/tools/damage-formula-designer/index.html" (Damage Formula Designer | Tools)
+
+[gamesdesign.co.uk] /tools/index.html (hero.secondary_cta)
+  label="Open Bayesian Ranking Calculator"
+  current="/games/auto-battler/index.html"
+  match="/tools/bayesian-ranking.html" (Bayesian Ranking Calculator)
+
+[gamesdesign.co.uk] /guides/index.html (hero.cta_text)
+  label="Browse All Guides"
+  current="/tools/ttk-calculator/index.html"
+  match="/guides/index.html" (Guides & Theory - GameDesign.uk)
+
+[gamesdesign.co.uk] /guides/index.html (hero.cta_text)
+  label="Browse All Guides"
+  current="/tools/ttk-calculator/index.html"
+  match="/guides/index.html" (Guides & Theory - GameDesign.uk)
+
+[gamesdesign.co.uk] /guides/skinner-box/index.html (hero.cta_text)
+  label="Open Drop Rate Tuner"
+  current="/tools/ttk-calculator/index.html"
+  match="/tools/tool-drop-rate-tuner.html" (Drop Rate Tuner | Tools)
+
+[gamesdesign.co.uk] /index.html (hero.cta_text)
+  label="Browse Tools"
+  current="/tools/ttk-calculator/index.html"
+  match="/tools/damage-formula-designer/index.html" (Damage Formula Designer | Tools)
+
+[gamesdesign.co.uk] /guides/skinner-box/index.html (hero.secondary_cta)
+  label="Read Design Guides"
+  current="/games/auto-battler/index.html"
+  match="/guides/index.html" (Guides & Theory - GameDesign.uk)
+
+[gamesdesign.co.uk] /guides/skinner-box/index.html (hero.cta_text)
+  label="Open Drop Rate Tuner"
+  current="/tools/ttk-calculator/index.html"
+  match="/tools/tool-drop-rate-tuner.html" (Drop Rate Tuner | Tools)
+
+[gamesdesign.co.uk] /guides/fairness-in-rng/index.html (hero.cta_text)
+  label="Launch Design Tools"
+  current="/tools/ttk-calculator/index.html"
+  match="/tools/damage-formula-designer/index.html" (Damage Formula Designer | Tools)
+
+[gamesdesign.co.uk] /guides/economy-basics/index.html (hero.secondary_cta)
+  label="Browse 11 Design Tools"
+  current="/games/auto-battler/index.html"
+  match="/tools/damage-formula-designer/index.html" (Damage Formula Designer | Tools)
+
+[gamesdesign.co.uk] /guides/economy-basics/index.html (hero.secondary_cta)
+  label="Browse 11 Design Tools"
+  current="/games/auto-battler/index.html"
+  match="/tools/damage-formula-designer/index.html" (Damage Formula Designer | Tools)
+
+[gamesdesign.co.uk] /guides/fairness-in-rng/index.html (hero.cta_text)
+  label="Launch Design Tools"
+  current="/tools/ttk-calculator/index.html"
+  match="/tools/damage-formula-designer/index.html" (Damage Formula Designer | Tools)
+
+[gamesdesign.co.uk] /guides/fairness-in-rng/index.html (hero.secondary_cta)
+  label="Read Guides"
+  current="/games/auto-battler/index.html"
+  match="/guides/index.html" (Guides & Theory - GameDesign.uk)
+
+[gaswholesalers.com] /wholesale-fuel-distribution.html (hero.secondary_cta)
+  label="How to Buy Wholesale Fuel"
+  current="/tools/tool-fuel-budget-forecaster.html"
+  match="/tools/supplier-comparison-calculator/index.html" (Wholesale Fuel Supplier Comparison Calculator | Tools)
+
+[gaswholesalers.com] /wholesale-fuel-distribution.html (hero.secondary_cta)
+  label="How to Buy Wholesale Fuel"
+  current="/tools/tool-fuel-budget-forecaster.html"
+  match="/tools/supplier-comparison-calculator/index.html" (Wholesale Fuel Supplier Comparison Calculator | Tools)
+
+[gaswholesalers.com] /who-we-serve.html (call-to-action.secondary_cta)
+  label="Read how to buy wholesale fuel"
+  current="/tools/tool-fuel-budget-forecaster.html"
+  match="/tools/supplier-comparison-calculator/index.html" (Wholesale Fuel Supplier Comparison Calculator | Tools)
+
+[gaswholesalers.com] /pricing-transparency.html (hero.primary_cta)
+  label="Request Wholesale Pricing"
+  current="/contact.html"
+  match="/tools/tool-breakeven-volume-calculator.html" (Wholesale Break-Even Volume Calculator | Tools)
+
+[gaswholesalers.com] /rack-pricing-programs.html (call-to-action.secondary_cta)
+  label="Read how wholesale pricing works"
+  current="/tools/tool-fuel-budget-forecaster.html"
+  match="/tools/tool-breakeven-volume-calculator.html" (Wholesale Break-Even Volume Calculator | Tools)
+
+[gaswholesalers.com] /rack-pricing-programs.html (call-to-action.secondary_cta)
+  label="Read how wholesale pricing works"
+  current="/tools/tool-fuel-budget-forecaster.html"
+  match="/tools/tool-breakeven-volume-calculator.html" (Wholesale Break-Even Volume Calculator | Tools)
+
+[gaswholesalers.com] /how-pricing-works.html (hero.primary_cta)
+  label="Talk to a Fuel Specialist"
+  current="/contact.html"
+  match="/tools/tool-fuel-budget-forecaster.html" (Fuel Budget Forecaster | Tools)
+
+[gaswholesalers.com] /supply-terms-and-eligibility.html (call-to-action.secondary_cta)
+  label="Email Us at gas@contactforsales.com"
+  current="/services.html"
+  match="/tools/tool-gas-unit-converter.html" (Gas Unit Converter | Tools)
+
+[gaswholesalers.com] /supply-terms-and-eligibility.html (call-to-action.secondary_cta)
+  label="Email Us at gas@contactforsales.com"
+  current="/services.html"
+  match="/tools/tool-gas-unit-converter.html" (Gas Unit Converter | Tools)
+
+[gaswholesalers.com] /who-we-serve.html (call-to-action.secondary_cta)
+  label="Read how to buy wholesale fuel"
+  current="/tools/tool-fuel-budget-forecaster.html"
+  match="/tools/supplier-comparison-calculator/index.html" (Wholesale Fuel Supplier Comparison Calculator | Tools)
+
+[idea.uk] /report.html (hero.secondary_cta)
+  label="See what the report covers"
+  current="/tools/funding-fit/index.html"
+  match="/report.html" (Verified Idea Report — idea.uk)
+
+[idea.uk] /tools/funding-fit/index.html (hero.cta_text)
+  label="Read the funding guides first"
+  current="/guides/funding-ways/index.html"
+  match="/tools/funding-fit/index.html" (Which funding route fits? A free finder)
+
+[idea.uk] /report.html (hero.secondary_cta)
+  label="See what the report covers"
+  current="/tools/funding-fit/index.html"
+  match="/report.html" (Verified Idea Report — idea.uk)
+
+[idea.uk] /report.html (hero.cta_text)
+  label="Request a Verified Idea Report"
+  current="#request-a-report"
+  match="/report.html" (Verified Idea Report — idea.uk)
+
+[idea.uk] /report.html (call-to-action.secondary_cta)
+  label="See what the report contains"
+  current="/tools/funding-fit/index.html"
+  match="/report.html" (Verified Idea Report — idea.uk)
+
+[idea.uk] /report.html (call-to-action.primary_cta)
+  label="Request a Verified Idea Report"
+  current="#request-a-report"
+  match="/report.html" (Verified Idea Report — idea.uk)
+
+[idea.uk] /report.html (call-to-action.secondary_cta)
+  label="See what the report contains"
+  current="/tools/funding-fit/index.html"
+  match="/report.html" (Verified Idea Report — idea.uk)
+
+[idea.uk] /guides/index.html (hero.cta_text)
+  label="Browse the guides"
+  current="/report.html"
+  match="/guides/index.html" (Guides — idea.uk)
+
+[idea.uk] /report.html (hero.cta_text)
+  label="Request a Verified Idea Report"
+  current="#request-a-report"
+  match="/report.html" (Verified Idea Report — idea.uk)
+
+[idea.uk] /guides/index.html (hero.secondary_cta)
+  label="See how the tools work"
+  current="/tools/patent-check/index.html"
+  match="/tools/ab-test-calculator/index.html" (A/B Test Significance Calculator)
+
+[idea.uk] /guides/index.html (hero.secondary_cta)
+  label="See how the tools work"
+  current="/tools/patent-check/index.html"
+  match="/tools/ab-test-calculator/index.html" (A/B Test Significance Calculator)
+
+[idea.uk] /guides/index.html (hero.cta_text)
+  label="Browse the guides"
+  current="/report.html"
+  match="/guides/index.html" (Guides — idea.uk)
+
+[idea.uk] /index.html (tool-list.cta_label)
+  label="Browse All Tools"
+  current="/tools.html"
+  match="/tools/ab-test-calculator/index.html" (A/B Test Significance Calculator)
+
+[idea.uk] /tools/funding-fit/index.html (hero.cta_text)
+  label="Read the funding guides first"
+  current="/guides/funding-ways/index.html"
+  match="/tools/funding-fit/index.html" (Which funding route fits? A free finder)
+
+[leopardessconsulting.co.uk] /our-approach.html (hero.cta_text)
+  label="Start with an architecture conversation"
+  current="/tools/password-entropy.html"
+  match="/tools/tool-agent-complexity-estimator.html" (Agent Architecture Complexity Estimator | Tools)
+
+[leopardessconsulting.co.uk] /blog/hierarchical-multi-agent-orchestration-explained.html (call-to-action.primary_cta)
+  label="Start an architecture conversation"
+  current="/tools/password-entropy.html"
+  match="/tools/tool-agent-complexity-estimator.html" (Agent Architecture Complexity Estimator | Tools)
+
+[leopardessconsulting.co.uk] /blog/ai-data-trust-in-financial-services.html (call-to-action.primary_cta)
+  label="Start with an architecture conversation"
+  current="/tools/password-entropy.html"
+  match="/tools/tool-agent-complexity-estimator.html" (Agent Architecture Complexity Estimator | Tools)
+
+[leopardessconsulting.co.uk] /blog/ai-data-trust-in-healthcare.html (call-to-action.primary_cta)
+  label="Start with an architecture conversation"
+  current="/tools/password-entropy.html"
+  match="/tools/tool-agent-complexity-estimator.html" (Agent Architecture Complexity Estimator | Tools)
+
+[leopardessconsulting.co.uk] /guides/ai-agent-roi-estimator-guide.html (hero.cta_text)
+  label="Calculate Your ROI"
+  current="/tools/password-entropy.html"
+  match="/tools/ai-agent-roi-estimator.html" (AI Agent ROI Estimator)
+
+[leopardessconsulting.co.uk] /guides/ai-agent-roi-estimator-guide.html (hero.cta_text)
+  label="Calculate Your ROI"
+  current="/tools/password-entropy.html"
+  match="/tools/ai-agent-roi-estimator.html" (AI Agent ROI Estimator)
+
+[leopardessconsulting.co.uk] /blog/can-you-trust-ai-with-your-data.html (call-to-action.primary_cta)
+  label="Start with an architecture conversation"
+  current="/tools/password-entropy.html"
+  match="/tools/tool-agent-complexity-estimator.html" (Agent Architecture Complexity Estimator | Tools)
+
+[leopardessconsulting.co.uk] /blog/hierarchical-multi-agent-orchestration-explained.html (hero.cta_text)
+  label="Read the Architecture Breakdown"
+  current="/tools/password-entropy.html"
+  match="/tools/tool-agent-complexity-estimator.html" (Agent Architecture Complexity Estimator | Tools)
+
+[leopardessconsulting.co.uk] /blog/hierarchical-multi-agent-orchestration-explained.html (hero.cta_text)
+  label="Read the Architecture Breakdown"
+  current="/tools/password-entropy.html"
+  match="/tools/tool-agent-complexity-estimator.html" (Agent Architecture Complexity Estimator | Tools)
+
+[leopardessconsulting.co.uk] /index.html (call-to-action.primary_cta)
+  label="Book an architecture conversation"
+  current="/tools/password-entropy.html"
+  match="/tools/tool-agent-complexity-estimator.html" (Agent Architecture Complexity Estimator | Tools)
+
+[leopardessconsulting.co.uk] /blog/ai-data-trust-in-hiring-and-hr.html (call-to-action.primary_cta)
+  label="Start with an architecture conversation"
+  current="/tools/password-entropy.html"
+  match="/tools/tool-agent-complexity-estimator.html" (Agent Architecture Complexity Estimator | Tools)
+
+[leopardessconsulting.co.uk] /our-approach.html (hero.cta_text)
+  label="Start with an architecture conversation"
+  current="/tools/password-entropy.html"
+  match="/tools/tool-agent-complexity-estimator.html" (Agent Architecture Complexity Estimator | Tools)
+
+[leopardessconsulting.co.uk] /technical-architecture.html (hero.cta_text)
+  label="Start with an architecture conversation"
+  current="/tools/password-entropy.html"
+  match="/tools/tool-agent-complexity-estimator.html" (Agent Architecture Complexity Estimator | Tools)
+
+[leopardessconsulting.co.uk] /technical-architecture.html (hero.cta_text)
+  label="Start with an architecture conversation"
+  current="/tools/password-entropy.html"
+  match="/tools/tool-agent-complexity-estimator.html" (Agent Architecture Complexity Estimator | Tools)
+
+[leopardessconsulting.co.uk] /who-we-help.html (hero.cta_text)
+  label="Run the AI Readiness Assessment"
+  current="/tools/password-entropy.html"
+  match="/tools/ai-agent-roi-estimator.html" (AI Agent ROI Estimator)
+
+[leopardessconsulting.co.uk] /who-we-help.html (hero.cta_text)
+  label="Run the AI Readiness Assessment"
+  current="/tools/password-entropy.html"
+  match="/tools/ai-agent-roi-estimator.html" (AI Agent ROI Estimator)
+
+[leopardessconsulting.co.uk] /who-we-help.html (call-to-action.primary_cta)
+  label="Talk through your process"
+  current="/tools/password-entropy.html"
+  match="/tools/process-automation-scorer/index.html" (Process Automation Suitability Scorer | Tools)
+
+[leopardessconsulting.co.uk] /tools/ai-vendor-trust-checklist.html (tool-ai-vendor-trust-checklist.cta_label)
+  label="Talk to us about assessing a vendor"
+  current="/contact.html"
+  match="/tools/ai-vendor-trust-checklist.html" (AI Vendor Trust Checklist)
+
+[robot-hands.com] /gripper-catalog.html (hero.secondary_cta)
+  label="Read MatchMatrix methodology"
+  current="/tools/gripper-payload-calculator/index.html"
+  match="/tools/matchmatrix/index.html" (Run MatchMatrix | Gripper Selection Tool | Robot-Hands.com)
+
+[robot-hands.com] /gripper-selection-guide.html (call-to-action.primary_cta)
+  label="Open the Gripper Catalog"
+  current="/gripper-catalog/index.html"
+  match="/tools/gripper-cycle-time-estimator/index.html" (Gripper Cycle Time Estimator | Robot-Hands.com)
+
+[robot-hands.com] /gripper-cycle-time-estimator.html (hero.primary_cta)
+  label="Run the Estimator"
+  current="/contact.html"
+  match="/tools/gripper-cycle-time-estimator/index.html" (Gripper Cycle Time Estimator | Robot-Hands.com)
+
+[robot-hands.com] /gripper-cycle-time-estimator.html (call-to-action.secondary_cta)
+  label="View MatchMatrix Methodology"
+  current="/matchmatrix-methodology.html"
+  match="/tools/matchmatrix/index.html" (Run MatchMatrix | Gripper Selection Tool | Robot-Hands.com)
+
+[robot-hands.com] /gripper-cycle-time-estimator.html (call-to-action.primary_cta)
+  label="Run the Cycle Time Estimator"
+  current="/tools/matchmatrix/index.html"
+  match="/tools/gripper-cycle-time-estimator/index.html" (Gripper Cycle Time Estimator | Robot-Hands.com)
+
+[robot-hands.com] /gripper-cycle-time-estimator.html (call-to-action.secondary_cta)
+  label="View MatchMatrix Methodology"
+  current="/matchmatrix-methodology.html"
+  match="/tools/matchmatrix/index.html" (Run MatchMatrix | Gripper Selection Tool | Robot-Hands.com)
+
+[robot-hands.com] /learning-center.html (hero.secondary_cta)
+  label="Filter the catalog"
+  current="/tools/gripper-payload-calculator/index.html"
+  match="/gripper-catalog/index.html" (Browse Gripper Catalog | Filter by Technology, Payload, IP Rating | Robot-Hands.com)
+
+[robot-hands.com] /learning-center.html (hero.secondary_cta)
+  label="Filter the catalog"
+  current="/tools/gripper-payload-calculator/index.html"
+  match="/gripper-catalog/index.html" (Browse Gripper Catalog | Filter by Technology, Payload, IP Rating | Robot-Hands.com)
+
+[robot-hands.com] /matchmatrix.html (hero.secondary_cta)
+  label="Read the MatchMatrix Methodology"
+  current="/matchmatrix-methodology.html"
+  match="/tools/matchmatrix/index.html" (Run MatchMatrix | Gripper Selection Tool | Robot-Hands.com)
+
+[robot-hands.com] /matchmatrix.html (hero.secondary_cta)
+  label="Read the MatchMatrix Methodology"
+  current="/matchmatrix-methodology.html"
+  match="/tools/matchmatrix/index.html" (Run MatchMatrix | Gripper Selection Tool | Robot-Hands.com)
+
+[robot-hands.com] /learning-center-hub.html (hero.cta_text)
+  label="Browse the Learning Center"
+  current="/tools/matchmatrix/index.html"
+  match="/gripper-catalog/index.html" (Browse Gripper Catalog | Filter by Technology, Payload, IP Rating | Robot-Hands.com)
+
+[robot-hands.com] /learning-center-hub.html (hero.secondary_cta)
+  label="See How MatchMatrix Works"
+  current="/matchmatrix-methodology.html"
+  match="/tools/matchmatrix/index.html" (Run MatchMatrix | Gripper Selection Tool | Robot-Hands.com)
+
+[robot-hands.com] /learning-center-hub.html (hero.secondary_cta)
+  label="See How MatchMatrix Works"
+  current="/matchmatrix-methodology.html"
+  match="/tools/matchmatrix/index.html" (Run MatchMatrix | Gripper Selection Tool | Robot-Hands.com)
+
+[robot-hands.com] /learning-center-hub.html (hero.cta_text)
+  label="Browse the Learning Center"
+  current="/tools/matchmatrix/index.html"
+  match="/gripper-catalog/index.html" (Browse Gripper Catalog | Filter by Technology, Payload, IP Rating | Robot-Hands.com)
+
+[robot-hands.com] /learning-center-hub.html (call-to-action.secondary_cta)
+  label="Read the MatchMatrix Methodology"
+  current="/matchmatrix-methodology.html"
+  match="/tools/matchmatrix/index.html" (Run MatchMatrix | Gripper Selection Tool | Robot-Hands.com)
+
+[robot-hands.com] /learning-center-hub.html (call-to-action.primary_cta)
+  label="Browse the Learning Center"
+  current="/tools/matchmatrix/index.html"
+  match="/gripper-catalog/index.html" (Browse Gripper Catalog | Filter by Technology, Payload, IP Rating | Robot-Hands.com)
+
+[robot-hands.com] /learning-center-hub.html (call-to-action.secondary_cta)
+  label="Read the MatchMatrix Methodology"
+  current="/matchmatrix-methodology.html"
+  match="/tools/matchmatrix/index.html" (Run MatchMatrix | Gripper Selection Tool | Robot-Hands.com)
+
+[robot-hands.com] /pneumatic-vs-electric-grippers.html (call-to-action.secondary_cta)
+  label="View full specification index"
+  current="/tools/gripper-payload-calculator/index.html"
+  match="/gripper-catalog/index.html" (Browse Gripper Catalog | Filter by Technology, Payload, IP Rating | Robot-Hands.com)
+
+[robot-hands.com] /pneumatic-vs-electric-grippers.html (call-to-action.secondary_cta)
+  label="View full specification index"
+  current="/tools/gripper-payload-calculator/index.html"
+  match="/gripper-catalog/index.html" (Browse Gripper Catalog | Filter by Technology, Payload, IP Rating | Robot-Hands.com)
+
+[robot-hands.com] /how-it-works.html (hero.cta_text)
+  label="Explore the MatchMatrix Methodology"
+  current="/matchmatrix-methodology.html"
+  match="/tools/matchmatrix/index.html" (Run MatchMatrix | Gripper Selection Tool | Robot-Hands.com)
+
+[robot-hands.com] /how-it-works.html (hero.cta_text)
+  label="Explore the MatchMatrix Methodology"
+  current="/matchmatrix-methodology.html"
+  match="/tools/matchmatrix/index.html" (Run MatchMatrix | Gripper Selection Tool | Robot-Hands.com)
+
+[robot-hands.com] /how-it-works.html (call-to-action.secondary_cta)
+  label="Read the MatchMatrix Methodology"
+  current="/matchmatrix-methodology.html"
+  match="/tools/matchmatrix/index.html" (Run MatchMatrix | Gripper Selection Tool | Robot-Hands.com)
+
+[robot-hands.com] /how-it-works.html (call-to-action.secondary_cta)
+  label="Read the MatchMatrix Methodology"
+  current="/matchmatrix-methodology.html"
+  match="/tools/matchmatrix/index.html" (Run MatchMatrix | Gripper Selection Tool | Robot-Hands.com)
+
+[robot-hands.com] /services.html (call-to-action.secondary_cta)
+  label="Review the MatchMatrix Methodology"
+  current="/matchmatrix-methodology.html"
+  match="/tools/matchmatrix/index.html" (Run MatchMatrix | Gripper Selection Tool | Robot-Hands.com)
+
+[robot-hands.com] /services.html (call-to-action.secondary_cta)
+  label="Review the MatchMatrix Methodology"
+  current="/matchmatrix-methodology.html"
+  match="/tools/matchmatrix/index.html" (Run MatchMatrix | Gripper Selection Tool | Robot-Hands.com)
+
+[robot-hands.com] /product-detail.html (call-to-action.secondary_cta)
+  label="Read the MatchMatrix Methodology"
+  current="/matchmatrix-methodology.html"
+  match="/tools/matchmatrix/index.html" (Run MatchMatrix | Gripper Selection Tool | Robot-Hands.com)
+
+[robot-hands.com] /product-detail.html (call-to-action.secondary_cta)
+  label="Read the MatchMatrix Methodology"
+  current="/matchmatrix-methodology.html"
+  match="/tools/matchmatrix/index.html" (Run MatchMatrix | Gripper Selection Tool | Robot-Hands.com)
+
+[robot-hands.com] /gripper-payload-calculator.html (call-to-action.secondary_cta)
+  label="View MatchMatrix Methodology"
+  current="/matchmatrix-methodology.html"
+  match="/tools/matchmatrix/index.html" (Run MatchMatrix | Gripper Selection Tool | Robot-Hands.com)
+
+[robot-hands.com] /gripper-payload-calculator.html (call-to-action.secondary_cta)
+  label="View MatchMatrix Methodology"
+  current="/matchmatrix-methodology.html"
+  match="/tools/matchmatrix/index.html" (Run MatchMatrix | Gripper Selection Tool | Robot-Hands.com)
+
+[robot-hands.com] /news.html (hero.cta_text)
+  label="Search the Gripper Catalog"
+  current="/tools/matchmatrix/index.html"
+  match="/tools/gripper-cycle-time-estimator/index.html" (Gripper Cycle Time Estimator | Robot-Hands.com)
+
+[robot-hands.com] /news.html (hero.cta_text)
+  label="Search the Gripper Catalog"
+  current="/tools/matchmatrix/index.html"
+  match="/tools/gripper-cycle-time-estimator/index.html" (Gripper Cycle Time Estimator | Robot-Hands.com)
+
+[robot-hands.com] /news.html (hero.secondary_cta)
+  label="How MatchMatrix Scoring Works"
+  current="/tools/gripper-payload-calculator/index.html"
+  match="/tools/matchmatrix/index.html" (Run MatchMatrix | Gripper Selection Tool | Robot-Hands.com)
+
+[robot-hands.com] /news.html (hero.secondary_cta)
+  label="How MatchMatrix Scoring Works"
+  current="/tools/gripper-payload-calculator/index.html"
+  match="/tools/matchmatrix/index.html" (Run MatchMatrix | Gripper Selection Tool | Robot-Hands.com)
+
+[robot-hands.com] /news.html (call-to-action.secondary_cta)
+  label="Read the MatchMatrix Methodology"
+  current="/tools/gripper-payload-calculator/index.html"
+  match="/tools/matchmatrix/index.html" (Run MatchMatrix | Gripper Selection Tool | Robot-Hands.com)
+
+[robot-hands.com] /news.html (call-to-action.secondary_cta)
+  label="Read the MatchMatrix Methodology"
+  current="/tools/gripper-payload-calculator/index.html"
+  match="/tools/matchmatrix/index.html" (Run MatchMatrix | Gripper Selection Tool | Robot-Hands.com)
+
+[robot-hands.com] /entities/gripper-detail.html (call-to-action.secondary_cta)
+  label="Read the MatchMatrix Methodology"
+  current="/tools/gripper-payload-calculator/index.html"
+  match="/tools/matchmatrix/index.html" (Run MatchMatrix | Gripper Selection Tool | Robot-Hands.com)
+
+[robot-hands.com] /entities/gripper-detail.html (call-to-action.secondary_cta)
+  label="Read the MatchMatrix Methodology"
+  current="/tools/gripper-payload-calculator/index.html"
+  match="/tools/matchmatrix/index.html" (Run MatchMatrix | Gripper Selection Tool | Robot-Hands.com)
+
+[robot-hands.com] /about.html (content-block-about.cta_label)
+  label="Read the MatchMatrix Methodology"
+  current="/matchmatrix-methodology.html"
+  match="/tools/matchmatrix/index.html" (Run MatchMatrix | Gripper Selection Tool | Robot-Hands.com)
+
+[robot-hands.com] /gripper-catalog.html (call-to-action.secondary_cta)
+  label="Read the MatchMatrix methodology"
+  current="/tools/gripper-payload-calculator/index.html"
+  match="/tools/matchmatrix/index.html" (Run MatchMatrix | Gripper Selection Tool | Robot-Hands.com)
+
+[robot-hands.com] /gripper-catalog.html (call-to-action.primary_cta)
+  label="Filter the catalog"
+  current="/tools/matchmatrix/index.html"
+  match="/gripper-catalog/index.html" (Browse Gripper Catalog | Filter by Technology, Payload, IP Rating | Robot-Hands.com)
+
+[robot-hands.com] /gripper-catalog.html (call-to-action.secondary_cta)
+  label="Read the MatchMatrix methodology"
+  current="/tools/gripper-payload-calculator/index.html"
+  match="/tools/matchmatrix/index.html" (Run MatchMatrix | Gripper Selection Tool | Robot-Hands.com)
+
+[robot-hands.com] /gripper-selection-guide.html (call-to-action.secondary_cta)
+  label="Read the MatchMatrix Methodology"
+  current="/matchmatrix-methodology.html"
+  match="/tools/matchmatrix/index.html" (Run MatchMatrix | Gripper Selection Tool | Robot-Hands.com)
+
+[robot-hands.com] /gripper-selection-guide.html (hero.secondary_cta)
+  label="View MatchMatrix Methodology"
+  current="/matchmatrix-methodology.html"
+  match="/tools/matchmatrix/index.html" (Run MatchMatrix | Gripper Selection Tool | Robot-Hands.com)
+
+[robot-hands.com] /gripper-selection-guide.html (call-to-action.secondary_cta)
+  label="Read the MatchMatrix Methodology"
+  current="/matchmatrix-methodology.html"
+  match="/tools/matchmatrix/index.html" (Run MatchMatrix | Gripper Selection Tool | Robot-Hands.com)
+
+[robot-hands.com] /gripper-catalog.html (hero.secondary_cta)
+  label="Read MatchMatrix methodology"
+  current="/tools/gripper-payload-calculator/index.html"
+  match="/tools/matchmatrix/index.html" (Run MatchMatrix | Gripper Selection Tool | Robot-Hands.com)
+
+[robot-hands.com] /gripper-selection-guide.html (hero.secondary_cta)
+  label="View MatchMatrix Methodology"
+  current="/matchmatrix-methodology.html"
+  match="/tools/matchmatrix/index.html" (Run MatchMatrix | Gripper Selection Tool | Robot-Hands.com)
+
+[vetcomparison.uk] /guides/tool-cma-obligation-checker-guide.html (call-to-action.secondary_cta)
+  label="Read the main compliance guide"
+  current="/tools/cma-obligation-checker/index.html"
+  match="/tools/compliance-deadline-calculator/index.html" (CMA Compliance Deadline Calculator | VetComparison.uk)
+
+[vetcomparison.uk] /guides/tool-cma-obligation-checker-guide.html (hero.cta_text)
+  label="Open the self-assessment tool"
+  current="/tools/compliance-deadline-calculator/index.html"
+  match="/tools/cma-obligation-checker/index.html" (CMA Obligation Self-Assessment for Practices | Tools)
+
+[vetcomparison.uk] /guides/tool-cma-obligation-checker-guide.html (hero.cta_text)
+  label="Open the self-assessment tool"
+  current="/tools/compliance-deadline-calculator/index.html"
+  match="/tools/cma-obligation-checker/index.html" (CMA Obligation Self-Assessment for Practices | Tools)
+
+[vetcomparison.uk] /guides/tool-cma-obligation-checker-guide.html (call-to-action.secondary_cta)
+  label="Read the main compliance guide"
+  current="/tools/cma-obligation-checker/index.html"
+  match="/tools/compliance-deadline-calculator/index.html" (CMA Compliance Deadline Calculator | VetComparison.uk)
+
+[vetcomparison.uk] /guides/tool-cma-obligation-checker-guide.html (call-to-action.primary_cta)
+  label="Use the self-assessment tool"
+  current="/tools/compliance-deadline-calculator/index.html"
+  match="/tools/cma-obligation-checker/index.html" (CMA Obligation Self-Assessment for Practices | Tools)
+
+[vonc.com] /about.html (content-block-about.cta_label)
+  label="Find Your Archetype"
+  current="/tools/gauntlet/index.html"
+  match="/tools/archetype-taster-quiz/index.html" (What's Your Archetype? | Spark)
+
+[vonc.com] /archetypes/maker.html (hero.cta_text)
+  label="Run the Gauntlet"
+  current="/tools/gauntlet/index.html"
+  match="/tools/gauntlet/round.html" (A round of The Gauntlet | Vonc)
+
+[vonc.com] /archetypes/oracle.html (hero.cta_text)
+  label="Run the Gauntlet"
+  current="/tools/gauntlet/index.html"
+  match="/tools/gauntlet/round.html" (A round of The Gauntlet | Vonc)
+
+[vonc.com] /archetypes/oracle.html (hero.cta_text)
+  label="Run the Gauntlet"
+  current="/tools/gauntlet/index.html"
+  match="/tools/gauntlet/round.html" (A round of The Gauntlet | Vonc)
+
+[vonc.com] /archetypes/oracle.html (call-to-action.primary_cta)
+  label="Enter the Gauntlet"
+  current="/tools/gauntlet/index.html"
+  match="/tools/gauntlet/round.html" (A round of The Gauntlet | Vonc)
+
+[vonc.com] /index.html (hero.cta_text)
+  label="Enter the Gauntlet"
+  current="/tools/gauntlet/index.html"
+  match="/tools/gauntlet/round.html" (A round of The Gauntlet | Vonc)
+
+[vonc.com] /index.html (hero.cta_text)
+  label="Enter the Gauntlet"
+  current="/tools/gauntlet/index.html"
+  match="/tools/gauntlet/round.html" (A round of The Gauntlet | Vonc)
+
+[vonc.com] /archetypes/surgeon.html (hero.cta_text)
+  label="Run the Gauntlet"
+  current="/tools/gauntlet/index.html"
+  match="/tools/gauntlet/round.html" (A round of The Gauntlet | Vonc)
+
+[vonc.com] /archetypes/surgeon.html (hero.cta_text)
+  label="Run the Gauntlet"
+  current="/tools/gauntlet/index.html"
+  match="/tools/gauntlet/round.html" (A round of The Gauntlet | Vonc)
+
+[vonc.com] /archetypes/surgeon.html (call-to-action.primary_cta)
+  label="Enter the Gauntlet"
+  current="/tools/gauntlet/index.html"
+  match="/tools/gauntlet/round.html" (A round of The Gauntlet | Vonc)
+
+[vonc.com] /archetypes/mentor.html (hero.cta_text)
+  label="Run the Gauntlet"
+  current="/tools/gauntlet/index.html"
+  match="/tools/gauntlet/round.html" (A round of The Gauntlet | Vonc)
+
+[vonc.com] /archetypes/mentor.html (hero.cta_text)
+  label="Run the Gauntlet"
+  current="/tools/gauntlet/index.html"
+  match="/tools/gauntlet/round.html" (A round of The Gauntlet | Vonc)
+
+[vonc.com] /archetypes/mentor.html (call-to-action.primary_cta)
+  label="Enter the Gauntlet"
+  current="/tools/gauntlet/index.html"
+  match="/tools/gauntlet/round.html" (A round of The Gauntlet | Vonc)
+
+[vonc.com] /archetypes/judge.html (hero.cta_text)
+  label="Run the Gauntlet"
+  current="/tools/gauntlet/index.html"
+  match="/tools/gauntlet/round.html" (A round of The Gauntlet | Vonc)
+
+[vonc.com] /archetypes/maker.html (hero.cta_text)
+  label="Run the Gauntlet"
+  current="/tools/gauntlet/index.html"
+  match="/tools/gauntlet/round.html" (A round of The Gauntlet | Vonc)
+
+[vonc.com] /archetypes.html (call-to-action.primary_cta)
+  label="Enter the Gauntlet"
+  current="/tools/gauntlet/index.html"
+  match="/tools/gauntlet/round.html" (A round of The Gauntlet | Vonc)
+
+[vonc.com] /archetypes/maker.html (call-to-action.primary_cta)
+  label="Enter the Gauntlet"
+  current="/tools/gauntlet/index.html"
+  match="/tools/gauntlet/round.html" (A round of The Gauntlet | Vonc)
+
+[vonc.com] /archetypes/wildcard.html (hero.cta_text)
+  label="Run the Gauntlet"
+  current="/tools/gauntlet/index.html"
+  match="/tools/gauntlet/round.html" (A round of The Gauntlet | Vonc)
+
+[vonc.com] /archetypes/wildcard.html (hero.cta_text)
+  label="Run the Gauntlet"
+  current="/tools/gauntlet/index.html"
+  match="/tools/gauntlet/round.html" (A round of The Gauntlet | Vonc)
+
+[vonc.com] /archetypes/wildcard.html (call-to-action.primary_cta)
+  label="Enter the Gauntlet"
+  current="/tools/gauntlet/index.html"
+  match="/tools/gauntlet/round.html" (A round of The Gauntlet | Vonc)
+
+[vonc.com] /archetypes/judge.html (call-to-action.primary_cta)
+  label="Enter the Gauntlet"
+  current="/tools/gauntlet/index.html"
+  match="/tools/gauntlet/round.html" (A round of The Gauntlet | Vonc)
+
+[vonc.com] /archetypes.html (hero.cta_text)
+  label="Enter the Gauntlet"
+  current="/tools/gauntlet/index.html"
+  match="/tools/gauntlet/round.html" (A round of The Gauntlet | Vonc)
+
+[vonc.com] /archetypes/judge.html (hero.cta_text)
+  label="Run the Gauntlet"
+  current="/tools/gauntlet/index.html"
+  match="/tools/gauntlet/round.html" (A round of The Gauntlet | Vonc)
+
+[vonc.com] /archetypes/scout.html (call-to-action.primary_cta)
+  label="Enter the Gauntlet"
+  current="/tools/gauntlet/index.html"
+  match="/tools/gauntlet/round.html" (A round of The Gauntlet | Vonc)
+
+[vonc.com] /archetypes/scout.html (hero.cta_text)
+  label="Run the Gauntlet"
+  current="/tools/gauntlet/index.html"
+  match="/tools/gauntlet/round.html" (A round of The Gauntlet | Vonc)
+
+[vonc.com] /archetypes/scout.html (hero.cta_text)
+  label="Run the Gauntlet"
+  current="/tools/gauntlet/index.html"
+  match="/tools/gauntlet/round.html" (A round of The Gauntlet | Vonc)
+
+[vonc.com] /archetypes/catalyst.html (hero.cta_text)
+  label="Run the Gauntlet"
+  current="/tools/gauntlet/index.html"
+  match="/tools/gauntlet/round.html" (A round of The Gauntlet | Vonc)
+
+[vonc.com] /archetypes/catalyst.html (hero.cta_text)
+  label="Run the Gauntlet"
+  current="/tools/gauntlet/index.html"
+  match="/tools/gauntlet/round.html" (A round of The Gauntlet | Vonc)
+
+[vonc.com] /archetypes.html (hero.cta_text)
+  label="Enter the Gauntlet"
+  current="/tools/gauntlet/index.html"
+  match="/tools/gauntlet/round.html" (A round of The Gauntlet | Vonc)
+
+[webdesign.co.uk] /index.html (hero.cta_text)
+  label="Browse all 63 tools"
+  current="/tools/ab-test-calculator/index.html"
+  match="/tools/css-specificity-calculator/index.html" (CSS Specificity Calculator | Tools)
+
+[webdesign.co.uk] /index.html (hero.cta_text)
+  label="Browse all 63 tools"
+  current="/tools/ab-test-calculator/index.html"
+  match="/tools/css-specificity-calculator/index.html" (CSS Specificity Calculator | Tools)
+
+[webdesign.co.uk] /index.html (call-to-action.primary_cta)
+  label="Browse all tools"
+  current="/tools/ab-test-calculator/index.html"
+  match="/tools/css-specificity-calculator/index.html" (CSS Specificity Calculator | Tools)
+
