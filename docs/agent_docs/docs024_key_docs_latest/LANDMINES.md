@@ -7121,3 +7121,36 @@ warn line fired and was unreachable before any grep could run).
   `SELECT k, count(*) FROM orchestration_states o, LATERAL jsonb_object_keys(o.collected_data) k WHERE o.owner_agent_type='<type>' GROUP BY k;` then enumerate the keys *inside* the sibling outputs, not just the top level. **The fix is to name `input_fields` (or an explicit dotted path) on the step — config, live immediately, no roll.**
 - **⚠ corollary that has already misled one fix plan:** because of this, "remove the purpose-keyed lookup and let the `asset_id` path resolve it" is a *downgrade* wherever the caller has no `input_fields` — it replaces a correct discriminator with an 86%-wrong one. `bugs_open/209` ranked exactly that fix first; see the 2026-08-08 verification block in that file before acting on any similar "just use the id" simplification.
 - **added:** 2026-08-08, `bugfix_209_deploy_purpose_keyed_source` lane; evidence in `platform/orchestration/actions/deploy_image_asset_purpose_source_test.go`
+
+### An `empty_section` item's `item_key` names the slot as it was WHEN FILED — a fix that replaces the component renames the slot, so grepping `item_key` for the slot you can see returns 0
+
+- **footprint:** `site_work_items`, `item_key`, `page_components`, `slot_name`, `platform/orchestration/actions/discovery_checks/check_empty_sections.go`, `findEmptySections`, `VerifyEmptySectionResolved`
+- **fires when:** you are looking at a live page with a visibly empty section, you read its slot out of `page_components.slot_name`, and you ask whether it was ever detected — `WHERE item_key LIKE '%<slot>%'`. The handler is allowed to satisfy an `empty_section` item by **replacing** the component rather than filling it, and the replacement can land in a **differently named slot**. Measured 2026-08-08 on `finetuning.uk` pages `ai-guides` and `insights`: items exist under slot `featured-article`, while the component sitting empty on both pages today is slot `featured-content` — a different string, so the `item_key` grep returns **0** and reads as "never detected".
+- **why it hides:** the zero is *true*, it is just about a different slot, and nothing on the page records the old name. Both halves look authoritative — you took the needle off the live artefact and searched the table that is supposed to hold the answer. It is worse than a plain naming drift because the same divergence ALSO defeats the completion gate: `VerifyEmptySectionResolved` looks up the component id the item names, finds it deleted, and (pre-`RFC_017`) failed OPEN — so the item reads `complete` while the page still serves a 334-byte shell. An item that says `complete` and a grep that says `never filed` are the two things you would check, and both lie in the same direction.
+- **the check:** never let `item_key` carry an absence claim for this type. Search the **item's own prose and spec as well**, then reconcile against the page by *page id*, not by slot name:
+  ```sql
+  SELECT item_key, status, summary FROM site_work_items
+  WHERE item_type='empty_section' AND page_id='<page uuid>' ORDER BY created_at DESC;
+  ```
+  If an item shows `complete` for this type, read `result->'_verification'` before believing it — `{"status":"error", …"no longer exists (genuinely fixed or silently deleted — indistinguishable here)"}` means the verifier never confirmed anything. **Post-`RFC_017` (live `v1.0.1268`) that same case now lands `triaged`/`failed` instead of `complete`** — so on a pre-roll row the identical payload means the OPPOSITE outcome; date the row against the roll.
+- **⚠ corollary — this is a rebuild burner now.** `empty_section` is one of the 4-of-8 verifiers whose target can legitimately vanish. With fail-closed live and the handler still free to replace-not-fill, an absent-target case burns up to `max_attempts` (3) page rebuilds before a human sees it. `bugs_closed/032`'s own "stronger option" — ask whether the page still declares the slot, return `Resolved:false` — is the cheap fix, and this is the recurrence that argues for it and for `RFC_017` option 3.
+- **added:** 2026-08-08, `bugfix_201_page_content_writer_dispatch` lane
+
+### `landmines-sync.py --apply` CONSUMES the NEEDS_VERIFICATION signal — run it directly, as CLAUDE.md tells you to, and your new entry can never be verified
+
+- **footprint:** `scripts/landmines-sync.py`, `scripts/landmines-verify-dispatch.sh`, `scripts/trigger-landmine-verifier.sh`, `docs/agent_docs/docs024_key_docs_latest/LANDMINES.md`, `doc_notes`, `landmine-verification`
+- **fires when:** you append a landmine entry and run `./scripts/landmines-sync.py --apply` — which is exactly what **CLAUDE.md instructs** ("After you append, run `./scripts/landmines-sync.py --apply` so the `doc_notes` rows follow"). The sync computes its `NEEDS_VERIFICATION` list as `new + changed` **relative to the rows already in `doc_notes`**. Applying writes those rows, so on the next invocation your entry is neither new nor changed. Running the wrapper `landmines-verify-dispatch.sh` afterwards then prints **"Nothing needs verification (no new or changed entries this run)"** and dispatches nothing — permanently. Observed 2026-08-08, first run of the wrapper after a direct `--apply`.
+- **why it hides:** every visible signal says success. The entry parsed (it lists its footprint count, not `skipped (no footprint)`), the rows are really in `doc_notes` and verifiable by identity, the owned-row total went up by exactly the footprint count, and the wrapper exits 0 with a sentence that reads like good news. Nothing anywhere says "this entry has no verification and now cannot get one". The two scripts are also documented as interchangeable — `landmines-verify-dispatch.sh`'s header says plain `--apply` "still works standalone ... for anyone who wants the sync without the dispatch", which describes the *choice* but not that the choice is **irreversible for that entry**.
+- **the check:** to get an entry synced *and* verified, run the wrapper **instead of**, never after, the plain sync: `./scripts/landmines-verify-dispatch.sh`. If you have already applied directly, the signal is gone and the only route left is to fire the verifier by hand with the entry's `doc_notes.source` slug (take the slug from the sync's own output line, do not hand-derive it):
+  ```bash
+  ./scripts/trigger-landmine-verifier.sh 'LANDMINES.md#<slug-from-sync-output>'
+  ```
+  Then confirm the dispatch actually landed rather than trusting exit 0 — `kcat -P` is known to send nothing and succeed:
+  `SELECT current_step, status FROM orchestration_states WHERE collected_data::text LIKE '%<correlation>%';`
+  To find entries that silently lost their pass, ask which landmines have no verdict:
+  ```sql
+  SELECT DISTINCT n.source FROM doc_notes n WHERE n.categories ? 'landmine'
+    AND NOT EXISTS (SELECT 1 FROM doc_notes v
+                    WHERE v.categories ? 'landmine-verification' AND v.subject_key = n.source);
+  ```
+- **added:** 2026-08-08, `bugfix_201_page_content_writer_dispatch` lane
