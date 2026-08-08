@@ -1,9 +1,35 @@
 # 216 — the response-driven recoverable arm re-arms the request, then refuses its own replay: an `error_recoverable` RESPONSE is terminal (at least cross-pod), and the retry_version bump it leaves looks like a retry happened
 
 **Filed 2026-08-07** by the `bugfix_207_sender_convergence` lane, found live during 207's
-post-roll induction on v1.0.1262. **Status: OPEN, UNOWNED.** **Severity: high for the
+post-roll induction on v1.0.1262. **Status: OPEN — FIXED IN CODE 2026-08-08, awaiting
+roll + live proof.** Owned by the `bugfix_216_claimed_row_passthrough` lane
+(docs024_key_docs_latest/bugfix_216_claimed_row_passthrough/). **Severity: high for the
 retry-quality programme** — it is the seam 195/197/207 all deliver INTO, and while it
 stands, every classifier improvement upstream buys a bookkeeping write instead of a retry.
+
+> **FIX RECORD (2026-08-08).** Candidate 1 implemented as argued below:
+> `handleRecoverableError` now takes the claimed row from its caller (mirroring
+> `handleCompleteResponse`), and the doomed re-read + in-memory fallback are deleted;
+> both call sites (response switch, timeout retry driver) pass the row their claim's
+> `RETURNING` gave them. Regression tests in
+> `platform/orchestration/response_retry_claimed_row_test.go` recreate the hostile world
+> (unreachable DB, payload-less in-memory copy) and assert the replay reaches the wire;
+> the discriminating test was mutation-verified (reintroducing the fallback fails it
+> with this file's shape). Council gate: `Council-Submitted:
+> fcf8794c-92df-4c8e-9677-5ca284a20cce`. Close criteria: pod-grep the positive marker
+> (`Retry decided on the claimed awaited row passed through from the claim`) + negative
+> control (`Using in-memory awaited request`, expect 0) on every replica, then re-run
+> the 207 induction and CONSUME the replayed request from the target topic — a
+> retry_version bump is NOT a retry.
+>
+> **CORRECTED 2026-08-08 (by the fixing lane's code read):** the `[INFERRED]` caveat in
+> step 3 below — that a pod still holding the creating process's state object might
+> retain the payload, so same-pod responses may survive — is **refuted**.
+> `ProcessResponse` loads state fresh from the DB on every response
+> (`coordinator.go:261`, `repo.GetState`), and the payload never enters that JSONB
+> (`json:"-"`, the contract `retry_payload_capture_test.go` asserts), so the fallback
+> was payload-less on EVERY response-driven recoverable. The arm was 100% dead on this
+> path, same-pod included — the scope is wider than filed, not narrower.
 
 > **VERIFICATION STATEMENT (owner ruling 2026-07-31).** First-hand verification, declared:
 > the failure was **induced live** (one observed case, cross-pod), the deciding code path

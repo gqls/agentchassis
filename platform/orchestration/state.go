@@ -1600,9 +1600,11 @@ func (r *StateRepository) InsertAwaitedRequest(ctx context.Context, req *Awaited
 // GetAwaitedRequest retrieves an awaited request by request_id
 // Returns nil if not found or already processed.
 // 'retrying' is included (bugs_open/003 F2): a row claimed by the retry
-// driver is still an awaited request — handleRecoverableError re-reads it
-// here for the authoritative retry_version, and filtering it out would send
-// that path to the possibly-stale in-memory fallback.
+// driver is still an awaited request. Note the predicate EXCLUDES
+// 'processing' — which is why the retry paths must not read here: a claimed
+// row is passed through from the claim's own RETURNING instead, because a
+// re-read of a row you hold in 'processing' misses by construction
+// (bugs_open/216).
 func (r *StateRepository) GetAwaitedRequest(ctx context.Context, requestID string) (*AwaitedRequest, error) {
 	query := `
 		SELECT ` + awaitedRequestColumns + `

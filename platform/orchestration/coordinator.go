@@ -319,7 +319,7 @@ func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.Ex
 	case "complete", "success":
 		return s.handleCompleteResponse(ctx, state, requestID, execCtx, response, awaitedReq)
 	case "error_recoverable":
-		return s.handleRecoverableError(ctx, state, requestID, execCtx, response)
+		return s.handleRecoverableError(ctx, state, requestID, execCtx, response, awaitedReq)
 	case "error_unrecoverable", "failed", "error":
 		return s.handleUnrecoverableError(ctx, state, requestID, execCtx, response)
 	default:
@@ -2947,31 +2947,30 @@ func nextAdapterRetryAttempt(retryCounts map[string]int, stepName string, retryV
 	return attempts + 1, false
 }
 
-// handleRecoverableError handles errors that can be retried
-func (s *SagaCoordinator) handleRecoverableError(ctx context.Context, state *OrchestrationState, requestID string, execCtx *types.ExecutionContext, response types.ResponseMessage) error {
+// handleRecoverableError handles errors that can be retried. awaited is the
+// row the CALLER claimed — the claim's RETURNING carries the current DB row,
+// request_payload included, and the claim is exclusive, so no re-read can be
+// fresher. This function used to re-read the row here instead, but the
+// response path's claim sets status='processing', which the re-read predicate
+// ('waiting','retrying') excludes — so every cross-pod response-driven retry
+// fell to an in-memory fallback whose request_payload is never populated
+// (json:"-", bugs_closed/129) and died at RETRY_PAYLOAD_UNAVAILABLE
+// milliseconds after bumping retry_version (bugs_open/216).
+func (s *SagaCoordinator) handleRecoverableError(ctx context.Context, state *OrchestrationState, requestID string, execCtx *types.ExecutionContext, response types.ResponseMessage, awaited *AwaitedRequest) error {
 	s.logger.Warn("Recoverable error received",
 		zap.String("request_id", requestID),
 		zap.Int("retry_version_from_execCtx", execCtx.RetryVersion),
 	)
 
-	// Get awaited request from DATABASE to get current retry_version
-	// The in-memory state.AwaitedRequests may have stale retry_version
 	repo := NewStateRepository(s.db, s.logger)
-	awaited, err := repo.GetAwaitedRequest(ctx, requestID)
-	if err != nil || awaited == nil {
-		// Fall back to in-memory if DB lookup fails
-		awaited = state.AwaitedRequests[requestID]
-		if awaited == nil {
-			return fmt.Errorf("no awaited request found for %s", requestID)
-		}
-		s.logger.Warn("Using in-memory awaited request (DB lookup failed)",
-			zap.String("request_id", requestID),
-			zap.Error(err))
+	if awaited == nil {
+		return fmt.Errorf("no awaited request found for %s", requestID)
 	}
 
-	s.logger.Info("Loaded awaited request for retry",
+	s.logger.Info("Retry decided on the claimed awaited row passed through from the claim",
 		zap.String("request_id", requestID),
-		zap.Int("retry_version_from_db", awaited.RetryVersion),
+		zap.Int("retry_version_from_claim", awaited.RetryVersion),
+		zap.Bool("payload_present", len(awaited.RequestPayload) > 0),
 		zap.String("step_name", awaited.StepName))
 
 	// Check retry count - max 3 retries to prevent infinite loops
@@ -3446,7 +3445,7 @@ func (s *SagaCoordinator) retryExpiredAwaitedRequest(ctx context.Context, awaite
 				},
 			}
 
-			s.handleRecoverableError(ctx, state, requestID, execCtx, timeoutResponse)
+			s.handleRecoverableError(ctx, state, requestID, execCtx, timeoutResponse, awaited)
 		} else {
 			s.routeToErrorStepOrFail(ctx, state, awaited.StepName, fmt.Sprintf("Request %s timed out after %d retries", requestID, awaited.RetryVersion))
 		}
