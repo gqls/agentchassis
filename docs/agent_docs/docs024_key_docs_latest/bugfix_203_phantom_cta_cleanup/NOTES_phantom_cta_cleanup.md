@@ -449,3 +449,40 @@ site has that tool ranked early by `(NavOrder, Name)`. Query: `page_components.c
   further pages this pass — flagging the fork (build the capability vs. accept D7's narrower
   per-page options) as a decision worth the owner's or this lane's explicit call before more
   session-hours go in either direction.
+
+## 2026-08-08 (later) — re-checked the worklist for a "bare rerender is safe" subset: there isn't one
+
+Owner asked (via a different session) to clean up the remaining sites, scoped down to a
+**safe subset only** — bare `page-rerender`, no LLM edits, nothing this lane flagged as
+risky or parked. Checked every row against that bar rather than assuming the original 13
+still all exist.
+
+**3 of the original census have self-healed on their own** via ordinary site activity in the
+3 days since filing (rerender on the now-fixed binary regenerates from `content_data`, so a
+page that got rebuilt for any unrelated reason stopped lying for free): dartsonline.com/news
+(fixed directly, prior session), and — newly confirmed now —
+`leopardessconsulting.co.uk/who-we-help.html` (component id changed, hero rewritten entirely,
+`updated_at` today, no anchor) is no longer phantom; not the same content as when the
+worklist recorded it ("Score your process" is gone, replaced by "Find the work worth
+automating"). Component ids drift on this estate (multiple sites' pages get rewritten
+independently of this bug); re-verify by id before trusting a row, not by url alone.
+
+**What's actually left, checked live just now, is exactly the two buckets this lane already
+marked unsafe — nothing new, nothing safer:**
+- **finetuning.uk/about.html** (`content-block-about`, label "How We Work") and
+  **robot-hands.com/how-to-specify-a-gripper.html** (hero, "Run MatchMatrix") are still
+  phantom. Both are real tool CTAs with a verified live target (worklist rows 2 and 3) — a
+  bare rerender **deletes** an achievable correct button rather than fixing it (F17). Not a
+  safe-subset candidate; the unsafe part is the outcome, not the staleness.
+- **The 4 leopardessconsulting.co.uk "Get Started" blog heroes** are still phantom, still
+  parked. Re-measured the blast radius F21 costed: **237 commits** to
+  `platform/orchestration/actions/` since these pages last rendered (07-29/07-30), measured
+  today — same order of magnitude as F21's 244, i.e. **the risk has not shrunk**, only aged
+  three more days. No new information makes these safer to touch today than on 08-07.
+
+**So: zero rows currently qualify as "phantom link, bare rerender clearly improves it, nothing
+this lane flagged against it."** The set that's left IS the set that's flagged. Declining to
+dispatch anything this pass rather than force a match to the brief — noted here so the next
+session doesn't re-run this same census expecting a different answer without new information
+(the resolver capability question from the entry above, or an owner sign-off on the two
+flagged buckets, are the actual unlocks).
