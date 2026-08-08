@@ -23155,6 +23155,11 @@ silently wrong POPULATION instead of an error (`narrow-filter` family), and noth
 not yet described THIS session — it costs one line and its output is the evidence the query is
 shaped right.
 
+**Addendum, same day, ~90 minutes after writing the above:** a THIRD miss, same session —
+`diagnosis_artifacts.content` (the column is `body`), first query against a table not yet
+described. Writing the entry did not change the behaviour; only the heredoc habit will. Tally
+for 2026-08-08: three, one session.
+
 ## 2026-08-08 — "6 tools diverge on FORMULA": I published an arithmetic verdict from a comparator that drives each page with DIFFERENT inputs, and never drove one case by hand
 
 **The claim (NOTES + handoff addendum 2 + README owner log + commit `2790330e4`,
@@ -23204,3 +23209,87 @@ since the loancalculator lane wrote it. `grep -n toolgolden LANDMINES.md` before
 publishing the verdict (the standing practice the memory index states verbatim:
 grep LANDMINES for the SYMBOL you are about to trust) would have surfaced the
 sentence that unravels the whole claim. Two checks skipped, either sufficient.
+
+## 2026-08-08 — "the wire serves NEITHER CTA variant" — it served one of them; my curl|grep pipeline was silently empty (oufe rerender-safety lane)
+
+**The wrong call.** Checking whether the 07-31 chrome rebuild had put the
+"Get Started" CTA back on oufe.com's live pages, I ran
+`curl -s https://oufe.com/index.html | grep -o 'Get Started\|Read the cases\|header-cta[^"]*' | sort | uniq -c`
+— empty output, exit 0 — and concluded, in writing, that the wire showed
+*neither* CTA variant, which fit no hypothesis and nearly sent me diagnosing a
+phantom third state. Two minutes later a direct
+`curl -s ... | sed -n '/<header/,/<\/header>/p'` showed
+`<a href="/contact.html" class="header-cta">Get Started</a>` plainly present.
+
+**What caught it.** Not trusting a result that fit no story: the stored chrome
+said `Get Started` = true, so a wire with NEITHER string contradicted both the
+regression story and the healthy story, and the direct second look took seconds.
+
+**The cheap check that would have caught it at t=0.** `curl -s` swallows every
+failure silently and an empty body greps to an empty result with exit 0 — the
+same shape as `jsonb::text LIKE` matching nothing and `kcat -P` sending nothing.
+Before believing ANY zero from a `curl | grep` pipeline: capture the body and
+assert its size first (`body=$(curl -sf ...); printf %s "$body" | wc -c`), or
+at minimum use `-f` so an HTTP failure is an exit code, not an empty success.
+The very next check in the same session did exactly this (`bytes=` printed per
+page) and was trustworthy for it.
+
+**The transferable shape:** *a pipeline whose first stage can silently produce
+zero bytes makes every downstream zero unfalsifiable — induce or assert a
+non-zero at the stage boundary before reading any zero as a fact.* Same family
+as grep-silent-on-non-utf8 and kcat-publish-silently-drops (both already in the
+memory index); the curl half was not written down anywhere I looked.
+
+## 2026-08-08 — my commit message said "register + landmine in this same commit"; the landmine half had been swept into ANOTHER session's commit four minutes earlier (rfc012 provenance-hardening lane)
+
+**The wrong call.** `f993554f6` (18:30:34) ships the RSH-008 provenance
+hardening, and its message asserts: *"Register + landmine in this same commit
+(owner ruling 2026-07-28 condition 2): RSH-008 amended, its index row corrected,
+and the LANDMINES entry marked FIXED AT SOURCE but STILL LIVE."* The register
+half is true. **The landmine half is false.** My `LANDMINES.md` edits were
+already gone from my commit by the time I made it — another session's
+`111e5b817` (18:26:22, an RFC_017 verifier correction) had swept them up four
+minutes earlier. Worse in the other direction: my pathspec commit then carried
+**11 lines of THEIR uncommitted `page_build_failed` park entries** as a same-file
+passenger, so `git show f993554f6 -- LANDMINES.md` contains none of my text and
+all of someone else's.
+
+**Nothing was lost** — my landmine text is at HEAD, and forward-only holds. The
+damage is purely to the record: `git log -S"FIXED AT SOURCE 2026-08-08" --
+LANDMINES.md` now names an RFC_017 commit as the author of a provenance landmine,
+and anyone auditing whether this seam met condition (2) by reading my commit
+would find the claim unsupported.
+
+**What caught it.** The `pre-commit` pattern check on my SECOND commit, which
+flagged *"1 line(s) removed from LANDMINES.md, a fleet-wide append-only
+ledger"*. I went to prove the removed line was my own from 40 minutes earlier —
+and `git show f993554f6 -- LANDMINES.md | grep -c <my own text>` returned **0**.
+I would not have looked otherwise: the file on disk contained my text throughout,
+every sync reported `content changed: 1, orphaned: 0`, and the commit itself
+succeeded and listed the file.
+
+**The cheap check that would have caught it at t=0.** *After committing, verify
+your change is in YOUR COMMIT, not merely in the file.* Two commands, and the
+grep needle must be text your change introduced:
+
+```bash
+git show <sha> --numstat -- <path>                 # did the file move at all?
+git show <sha> -- <path> | grep -c "<text you added>"   # is it YOUR change that moved?
+```
+
+A non-zero numstat is not evidence — mine was `11 0`, entirely another session's
+lines. **This is the `git mv` landmine's rule generalised beyond renames: verify
+at HEAD, not at the tree.** `ls`, a successful commit, a dirty-file list and a
+clean sync all report identically whether your hunk is in your commit or in
+somebody else's.
+
+**The transferable shape:** *on a shared tree, "the file contains my edit" and
+"my commit contains my edit" are INDEPENDENT facts, and every tool in the
+loop reports the first one.* A fleet-wide append-only ledger is the worst case,
+because it is the file most likely to be dirty in several sessions at once — so
+for `LANDMINES.md`, `WRONG_CALLS.md` and `MEMORY*.md`, commit narrowly and then
+**grep your own needle out of your own sha**. Sibling of
+`a-pathspec-commit-still-takes-a-same-file-passenger` (which covers the passenger
+direction, already in the memory index) — this is the *other* direction of the
+same collision, and the passenger rule alone would not have told me my own
+content had left.

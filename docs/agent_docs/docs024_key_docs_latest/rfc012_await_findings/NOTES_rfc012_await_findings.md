@@ -908,3 +908,45 @@ the four seats were worried about, arriving in the wild and landing correctly. I
 measurement with a timestamp, and on this tree the timestamp expires in minutes.** Corrected
 everywhere it appears: 21, not 20 — 13 strict-door (all naming provenance), 4 declared
 inheritance, 4 through the simple doors.
+
+### CORRECTION to `f993554f6`'s own commit message — the landmine did NOT ship in that commit
+
+> **`f993554f6` asserts "Register + landmine in this same commit (owner ruling 2026-07-28
+> condition 2)". The REGISTER half is true and verified (`git show f993554f6 --
+> register/resilience-self-heal.md | grep -c "THE MERGE IS NOW TWO HALVES"` → 1, so condition
+> (2) IS satisfied — the register is the artefact the ruling names). The LANDMINE half is
+> FALSE.** Another session's `111e5b817` (18:26:22, an RFC_017 verifier correction) swept my
+> `LANDMINES.md` edits into itself four minutes before I committed at 18:30:34. My commit's
+> `LANDMINES.md` diff is `11 0` — **eleven lines of THEIR uncommitted `page_build_failed` park
+> entries**, and none of my text. So my commit took their passenger while my own content left
+> in their commit: the collision ran in both directions at once.
+
+**Nothing is lost and forward-only holds** — the landmine text is at HEAD, correct and synced to
+`doc_notes`. What is damaged is only the record: `git log -S"FIXED AT SOURCE 2026-08-08" --
+LANDMINES.md` now credits an RFC_017 commit with authoring a provenance landmine.
+
+**What caught it, and it was luck dressed as diligence.** The `pre-commit` pattern check on my
+*second* commit flagged "1 line(s) removed from LANDMINES.md, a fleet-wide append-only ledger". I
+went to prove the removed line was my own from 40 minutes earlier — and
+`git show f993554f6 -- LANDMINES.md | grep -c "<my own text>"` came back **0**. Every other
+signal said fine: the file on disk held my text the whole time, both
+`landmines-sync.py --apply` runs reported `content changed: 1, orphaned: 0`, the commit succeeded
+and listed the file, and `git status` was clean afterwards.
+
+**The check I am adding to my own routine** (and to `WRONG_CALLS.md`, because the tally is the
+point): after committing, verify the change is in **your commit**, not merely in the file —
+
+```bash
+git show <sha> --numstat -- <path>                        # did the file move at all?
+git show <sha> -- <path> | grep -c "<text YOU added>"     # is it YOUR change that moved?
+```
+
+A non-zero numstat is **not** evidence: mine was `11 0`, all of it somebody else's. This is the
+`git mv` landmine's "verify at HEAD, not at the tree" rule generalised past renames, and it is the
+missing half of `a-pathspec-commit-still-takes-a-same-file-passenger` — that rule warns you about
+inbound passengers, and would never have told me my own content had *left*.
+
+**Why `LANDMINES.md` specifically is the high-risk file for this:** it is fleet-wide and
+append-only, so it is the file most likely to be dirty in several sessions simultaneously. Same
+goes for `WRONG_CALLS.md` and `MEMORY*.md`. For those three, commit narrowly and then grep your
+own needle out of your own sha.
