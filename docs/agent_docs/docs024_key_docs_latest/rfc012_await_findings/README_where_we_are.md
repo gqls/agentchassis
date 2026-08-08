@@ -242,3 +242,55 @@ which is this whole RFC's own trap biting the very thing we went looking for. Bu
 observe it happening in the records and found nothing either way, so I've filed it as a
 hypothesis for the diagnosis loop to test rather than writing it up as a finding. If it comes
 back refuted, that's a good outcome and cost one run.
+
+---
+
+**2026-08-08, evening — the loose end from the last entry is closed, and looking at it turned up
+something bigger.**
+
+The soft spot four reviewers all found is fixed. To recap in plain terms: we have one shared
+piece of code that writes a durable error record, and it was being helpful in a way that turned
+out to be dangerous. If the thing calling it didn't say *who* the record belonged to, it quietly
+filled that in with whoever happened to be running at the time. If you left it out on purpose,
+fine. If you forgot, you got a record with the wrong name on it — and a record with the wrong
+name is worse than no record, because people believe it. Nothing warned you and no test caught
+it.
+
+It's now split in two. The bookkeeping bits — which run, which machine — still get filled in
+automatically, because there's no way to get those wrong. But the *who* is never filled in
+silently any more. Either you say who it belongs to, or you explicitly ask for "whoever is
+running", by calling a differently-named function so anyone reviewing your code can see you
+chose it. If you do neither, the record still gets written — that matters, because this table is
+the only place a finding survives a certain kind of pause — but it's written as **unattributed**,
+with a loud log line, and it's one SQL query to find every one of them. There are none today.
+
+Twelve new tests, and I proved they actually work by deliberately breaking the code five
+different ways and checking that the right tests failed each time. That sounds like overkill; it
+isn't. The original problem was precisely that the whole test suite passed while the bug was
+there, so "the tests pass" couldn't be the evidence this time.
+
+**The bigger thing.** While checking the live records to make sure I wasn't about to make things
+worse, I found that the "whoever is running" answer is very often the useless placeholder
+`generic`. All 25 of one recorder's live rows say `generic`. Across the whole table, `generic`
+appears on 559 rows spread over 25 different steps — far more scattered than any real agent,
+which is the fingerprint of a placeholder being copied around. And we already know about this:
+there's a comment in our own code saying the value we're reading "is often 'generic'", pointing
+at a bug from July, with the proper answer sitting right next to it — but only one part of the
+system bothers to use the proper answer.
+
+I have **not** fixed that, deliberately. It's a second shared mechanism, and this exact lane got
+a change rejected two days ago for bundling an unrelated fix into one submission. So I've written
+it down in the three places somebody will actually trip over it and left it for its own round.
+It's a real improvement waiting to be made: it would mean our error records finally name the
+agent that produced them.
+
+One small confession worth recording because it could have been much worse: while writing the
+tests, a pair of apostrophes I typed arrived on disk as a curly quotation mark. It was inside a
+comment, so it cost nothing — the code compiled and every test passed. Inside a piece of text
+the program actually uses, that would have been a silent change in behaviour that no formatter,
+compiler or test we have would have flagged. I now check every file I write for stray
+non-English characters before I finish with it.
+
+The change is committed and submitted for review. It doesn't take effect on the live system
+until the next fleet rebuild, and the warning note about the old trap says so rather than
+claiming it's fixed — because on every machine running right now, it isn't yet.

@@ -201,3 +201,85 @@ one go. That is how I confirmed `/app/shared_output_fields_ack.txt` was actually
 (`architecture_review/CENSUS_2026-08-07_rfc012_await_step_readers.md`). Remaining work is
 follow-up nobody ruled on — see the handoff's NEXT section, top item being the
 required-provenance hardening four council seats asked for.
+
+## The provenance seam — census it, detect a mistake, and prove a change by mutation
+
+Three commands and one query. All four were hard enough to get right that they belong here
+rather than in a scrollback.
+
+**1. Census: who trusts the running step's identity?** This is the whole point of using a named
+door rather than a struct field — the answer is a grep, not a read of twenty struct bodies.
+
+```bash
+grep -rn "LogActionEntryInheritingProvenance(\|LogActionEntryFindingsInheritingProvenance(" \
+  --include=*.go platform/ | grep -v log_action_error
+```
+Expect **4** (`complete_work_item_verification`, `plan_sections` ×2,
+`reconcile_superseded_reviews`), plus the two internal call sites inside `log_action_error.go`
+itself where `LogActionError`/`LogActionFindings` declare inheritance on their callers' behalf.
+
+**2. Census: any strict-door caller that names no provenance?** Must be **0**. A non-zero result
+is a site that will write `unattributed` rows the moment it fires. The 15-line window is the
+gotcha — an `agenterrors.Entry` literal runs long, and 10 lines misses `AgentType` at several
+real sites:
+
+```bash
+for spec in $(grep -rn "LogActionEntry(\|LogActionEntryFindings(" --include=*.go \
+              platform/orchestration/actions/*.go | grep -v _test.go \
+              | grep -v log_action_error.go | cut -d: -f1,2); do
+  f="${spec%%:*}"; l="${spec##*:}"
+  [ "$(sed -n "${l},$((l+15))p" "$f" | grep -c 'AgentType:')" = "0" ] && echo "UNNAMED: $spec"
+done
+```
+⚠ **the line numbers this prints are stale on arrival** — several of these files are edited
+concurrently, and one of them moved 67 lines between two commands in one session. Re-derive by
+symbol before you open an editor.
+
+**3. The standing detector.** A non-zero count is a code defect, never traffic:
+
+```sql
+SELECT action, error_code, count(*), max(occurred_at)
+FROM agent_error_log WHERE agent_type = 'unattributed' GROUP BY 1,2 ORDER BY 3 DESC;
+```
+**0 rows, 2026-08-08.** Two companions worth running in the same pass, because they are what
+makes the sentinel choice defensible: `agent_type IN ('','unknown')` → **0 rows** (so the
+sentinel collides with nothing), and the `generic` shape below (so you know what inheritance
+buys you).
+
+```sql
+SELECT agent_type, count(*) rows, count(DISTINCT step_name) steps, max(occurred_at)::date last
+FROM agent_error_log GROUP BY 1 ORDER BY rows DESC LIMIT 12;
+```
+⚠ **the timestamp column is `occurred_at`, not `created_at`** — `created_at` raises, and it
+raised twice for me before I ran `\d agent_error_log`. Read the schema first; the table also
+carries `resolved`/`resolved_at`/`resolved_by`, which nothing in this lane touches.
+
+**4. Prove a change to the merge by MUTATION.** Non-negotiable here: every pre-existing test in
+the package pins `error_code`, `action` and `message` and passes `sqlmock.AnyArg()` for
+`agent_type`, so **a broken merge is green on the whole suite** — that was the defect, and a
+green suite therefore cannot be its proof.
+
+```bash
+GOOD=$(mktemp); cp platform/orchestration/actions/log_action_error.go "$GOOD"
+# mutate one anchor, run, restore. Anchors that each catch a distinct guard:
+#   'if inheritProvenance {'                    -> 'if true {'        (the OLD merge)
+#   'inheritJoinIdentity(entry, actionJoin...'  -> '_ = actionJoin...' (join half)
+#   'resolveProvenance(params, &entry, true, '  -> '..., false, '      (the opt-in door)
+#   'const unattributedAgentType = "unattributed"' -> '= ""'           (the NOT NULL guard)
+#   the map-copy loop in withUnattributedDiagnostics -> 'annotated := payload'
+go test ./platform/orchestration/actions/ -run 'TestLogAction' -count=1 2>&1 | grep '^--- FAIL'
+cp "$GOOD" platform/orchestration/actions/log_action_error.go
+```
+Expect **3 / 10 / 3 / 4 / 1** failures respectively, and **12/12 pass** once restored. Check the
+*identity* of the failures, not just the count: a mutation that fails everything usually means
+the harness is wired wrong, and a mutation that PASSES may have hit a guard in series rather
+than proving your change inert.
+
+**5. Finish any Go file you write with a non-ASCII sweep.** My channel turned a typed `''` into
+`U+201D` inside a comment; `gofmt` was silent, the package compiled, 12/12 passed. Harmless in a
+comment, a silent behaviour change in a string literal.
+
+```bash
+grep -o -P '[^\x00-\x7F]' <file> | sort | uniq -c          # — § ⚠ are intentional
+grep -n -P '[\x{2018}\x{2019}\x{201C}\x{201D}]' <file>     # smart quotes never are
+```

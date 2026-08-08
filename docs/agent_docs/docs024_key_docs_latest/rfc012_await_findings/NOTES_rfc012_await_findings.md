@@ -676,3 +676,145 @@ becomes `Entry.InheritProvenance bool`, default `false`; the 7 declare it, the 1
 untouched, and an Entry with neither an `AgentType` nor the opt-in is a state the writer can
 refuse instead of papering over. Go's zero value makes the unsafe default OFF for free. Full
 working in the handoff so the next session does not re-derive it.
+
+### §1 BUILT — and I did NOT build the design the last entry above specified
+
+> **CORRECTION to the entry immediately above, recorded rather than edited away.** That entry
+> concluded the design should be `agenterrors.Entry.InheritProvenance bool`, default `false`.
+> **I did not do that, on a structural ground the entry had not considered:** `Entry` is the
+> ROW, and `agenterrors.Write` — the package that OWNS the type — would ignore the field
+> entirely. Worse, `orchestration.AgentErrorEntry` is a type ALIAS of `Entry`, so agentbase,
+> messaging and the coordinator would each acquire a knob that does nothing for them. An inert
+> field on a shared leaf type is its own trap, and this estate has been bitten by that class.
+> **Shipped instead: a named door** — `LogActionEntryInheritingProvenance` /
+> `LogActionEntryFindingsInheritingProvenance`. It satisfies the RFC_010 ruling's *purpose*
+> (unsafe branch declared at the call site, unsafe default OFF) while keeping the leaf type
+> row-shaped, and it makes the census a grep rather than a struct-body read. The departure is
+> disclosed in the council submission's risks block as item 2, for a seat to overrule.
+
+What shipped: the merge is split into a **JOIN half** (`orchestration_id`, `agent_id`,
+`pod_name`, `work_item_id`) still inherited when zero, and a **PROVENANCE half**
+(`agent_type`, `step_name`) never inherited unless declared. `actionErrorEntry` is gone,
+replaced by `actionJoinIdentity` + `runningStepProvenance`, so the dangerous half is **not
+reachable** from the function that performs the fill — the control is structural, not a comment.
+
+**A forgotten provenance LANDS as `agent_type='unattributed'`, and I want to record why, because
+I nearly refused the write instead.** `component_write_guard.go:276-279` says "a row in
+`agent_error_log` that misattributes the writer is worse than no row", which reads like a
+licence to refuse. It is not: `agenterrors.go`'s own header says **this table is the only sink
+that survives an awaited step**, so a refusal silently destroys a finding — and a sentinel does
+not misattribute, it declares ignorance. Landing the row with the running step **demoted into
+`context`** (where it asserts nothing) satisfies both. It also closes the second half of the
+old landmine for free: `''` can no longer reach a NOT NULL column, so the vanishing-row case is
+now unrepresentable from this door.
+
+### The measurement I did not expect, and it makes the 7 "merge-filled" sites look worse than the last entry said
+
+The entry above says the 7 merge-filled sites are "RIGHT to be" — the running step IS their
+correct provenance. That is true as a statement about intent. **What the running step actually
+resolves to is another matter, and I only found out because I queried the live table:**
+
+```
+ error_code                        | agent_type | step_name | rows | last
+ REVIEW_SUPERSEDED_BY_PASSING_SAVE | generic    |           |   25 | 2026-07-23
+```
+
+`generic`, and an **empty** `step_name`. Then the fleet-wide shape: `generic` holds **559 rows
+across 25 distinct `step_name`s** — the widest step spread of any `agent_type` on the table,
+against e.g. `vet-practice-verifier`'s 9,696 rows across 5. That is the signature of a filler
+being inherited across unrelated sites, on a table whose main investigation index is
+`(agent_type, occurred_at DESC)`.
+
+**And the estate already knows.** `types/context.go:62` documents `RunAgentType` as *"the
+RESOLVED real agent type whose workflow is executing … as opposed to the dispatch-path sender
+which is often 'generic'"*, citing `bugs_open/060`; `coordinator.determineOwnerAgentType` reads
+it precisely so `owner_agent_type` stops recording `generic`. Corroborating, from a different
+direction: `agent_error_log_test.go:187` lists `"generic"` alongside `""` in the set of values
+that must NOT pass a review gate — this estate already treats it as a non-identity.
+
+⚠ **I deliberately did not fix it, and the reason is this lane's own scar.** `actions` cannot
+call `determineOwnerAgentType` — it is a `*SagaCoordinator` method in the package that imports
+`actions`, i.e. the exact import edge that forced `agenterrors` into existence. The structural
+fix is to hoist the ladder onto `*types.ExecutionContext` so both sides share ONE copy, and
+that is a **second shared seam** in a commit that already ships one. Round 2 of this lane was
+REJECTED on precisely that (two seats called an unrelated detector scope creep). So it is
+recorded in three places a future session will actually hit — the register entry, the LANDMINES
+entry, and a comment at the `reconcile_superseded_reviews` call site — and bundled nowhere.
+
+> ⚠ **Scope honesty, marked because it is an inference:** [INFERRED] that the other 3
+> merge-filled `LogActionEntry` sites also resolve to `generic`. Only `reconcile` has live rows
+> (25); the other three have **written none in the retained window**, so I could not measure
+> them and have not claimed them. What IS measured is the fleet-wide 559/25 shape and the
+> `RunAgentType` doc comment saying the sender is "often" generic.
+
+### MISSTEP 12 — my own channel corrupted a Go source file, and `gofmt` was clean either way
+
+Writing the test file, I typed a pair of ASCII apostrophes (`''`) inside a comment. What
+reached disk was **U+201D, a right double quotation mark**:
+
+```
+$ grep -n "does not produce a bad row" log_action_error_test.go | cat -A
+151:// so M-bM-^@M-^] does not produce a bad row, it produces NO row.$
+```
+
+`gofmt -l` was silent (UTF-8 in a comment is legal Go), the package compiled, and all 12 tests
+passed. I only caught it because the harness echoed the changed line back and the glyph looked
+wrong. **In a comment this cost nothing. In a string literal — an error code, a SQL fragment, a
+`banned_claims` needle — it would be a silent behaviour change that no formatter, compiler or
+test in this estate would flag.** The cheap check, and it is now how I finish any file I write:
+
+```bash
+grep -o -P '[^\x00-\x7F]' <file> | sort | uniq -c        # inventory; — and § are intentional
+grep -n -P '[\x{2018}\x{2019}\x{201C}\x{201D}]' <file>   # smart quotes are NEVER intentional here
+```
+
+Both files came back with exactly one offender, in the test file, now fixed.
+
+### The mutation runs, because a green suite was the defect and could not also be the proof
+
+Five mutations, each caught by exactly the expected tests and no others — the "no others" half
+matters, because a mutation caught by *everything* usually means the harness is wired wrong:
+
+| mutation | tests that fail |
+|---|---|
+| restore the pre-split merge (inherit unconditionally) | **3** — incl. the reported defect's own test |
+| strict door stops inheriting the JOIN half | **10** — the RFC_012-B run-join win is guarded |
+| the opt-in door silently becomes strict | **3** |
+| annotate the caller's context map in place, not a copy | **1** |
+| sentinel becomes the empty string | **4** |
+
+Restored: **12/12 pass**. The map-copy mutation is worth its own line: `RecordFindings` shares
+one base `Entry` across a batch and **replaces `Context` per finding**, so annotating in place
+would both leak into the caller's own map and be silently dropped for every findings row. That
+is why the diagnostics are applied per finding in `recordFindings`, not once on the base.
+
+### Two things about the TREE, not the code, that cost me time and would cost the next session more
+
+1. **`complete_work_item_verification.go` was being edited by another session while I read it.**
+   My census grep put the call site at line 198; a `sed` of 190-215 two minutes later showed
+   comments, because the file had gained 89 lines in between. **A line number from a grep is
+   stale the moment you print it on this tree.** I re-derived by symbol
+   (`grep -n "LogActionEntry(" <file>` → 265), verified the concurrent diff does not touch the
+   INSERT (`git diff -U0 <file> | grep -c agent_error_log` → **0**), and confirmed their WIP
+   compiles and its own tests pass before taking it as an unavoidable same-file passenger.
+   > **CORRECTED, same session, ~40 minutes later — there was NO passenger in the end.** They
+   > committed their own work first (`1c5d9ceb5`, RFC_017), so `git diff` on that file came back
+   > as my one call site and nothing else. **The council submission still discloses the passenger
+   > as a risk, because it was dispatched before this resolved** — an over-disclosure of a risk
+   > that evaporated, not an over-claim, and not worth a duplicate round to correct. Worth
+   > recording as the *good* outcome of the concurrency rule: the answer to "their WIP is sitting
+   > in my file" is often just **wait until you are ready to commit, then re-check**, because on
+   > this tree everyone else is committing narrowly too. Their commit message is also a neat
+   > independent corroboration of this change's design — *"fails CLOSED, with fail-open an opt-in
+   > field whose unsafe default is OFF"* — the same RFC_010 §2 shape, reached the same day by a
+   > different lane on a different seam.
+2. **`LANDMINES.md` changed under me mid-edit** — the Edit tool reported the file had been
+   modified on disk since I read it. The edit still applied because I anchored on an exact
+   quoted span rather than a line number. `landmines-sync.py --apply` then reported
+   `content changed: 1` and `orphaned: 0`, which is the check that my edit disturbed nobody
+   else's entry.
+
+Full-tree baseline, so the pre-existing failures are not read as mine: `git archive HEAD | tar
+-x` into a scratch dir at `6f2f2b1ce` reproduces the **identical** failure set (thunder adapter,
+`test/integration/*`, `test/performance/*`, `test/e2e/*`). `./platform/orchestration/...` is
+**9 packages green** with the change in.

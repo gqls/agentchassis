@@ -16,6 +16,51 @@
 // SURVIVES AN AWAITED STEP: the collected_data sibling key was refuted live
 // (park loads fresh state; RFC_012 addendum 2). Both helpers are best-effort
 // and COUNT their failures rather than swallowing them.
+//
+// TWO HALVES, AND ONLY ONE OF THEM IS SAFE TO INHERIT (2026-08-08). The merge
+// this file performs was originally one undifferentiated fill-what-is-zero pass.
+// Four council seats — bug_historian, guardian, architecture, and the RFC_012
+// lane's own risks block — independently named the same gap: a provenance the
+// caller DELIBERATELY omits is safe, but one it FORGETS was filled silently
+// from the running step, with no error, no warning, and no test in the package
+// that would catch it. So the merge is now split explicitly:
+//
+//   - the JOIN half (orchestration_id, agent_id, pod_name, work_item_id) is
+//     inherited whenever the caller leaves it zero. Nobody can get this wrong:
+//     these columns answer "which run/pod produced this row", and the running
+//     step is always the right answer. This is what gave the nine historically
+//     orchestration_id-less sites their run join for free.
+//
+//   - the PROVENANCE half (agent_type, step_name) is NEVER inherited unless the
+//     caller says so, by choosing LogActionEntryInheritingProvenance over
+//     LogActionEntry. Unsafe default OFF, declared at the call site, per OWNER
+//     RULING 2026-08-02 (RFC_010 §2): "when a seam's widest branch is licensed
+//     by 'callers must all be X', make X a field with the unsafe default OFF …
+//     a comment is not a control on a tree this many sessions share."
+//
+// Why a named door rather than a bool on agenterrors.Entry (the shape the
+// RFC_012 handoff sketched): Entry is the ROW, and agenterrors.Write — the
+// package that owns the type — would ignore such a field entirely. An inert
+// field on a shared leaf type is its own trap, and orchestration.AgentErrorEntry
+// is an alias of Entry, so agentbase, messaging and the coordinator would all
+// see a knob that does nothing for them. A function name costs nothing, is
+// visible to a reviewer reading only the caller, and makes the census a grep.
+//
+// WHY THE UNATTRIBUTED ROW STILL LANDS. The tempting alternative is to refuse
+// the write, and component_write_guard.go's "a row that misattributes the
+// writer is worse than no row" appears to license it. But this table is the
+// only sink that survives an awaited step, so a refusal silently destroys a
+// finding — and a sentinel does not misattribute, it declares ignorance. So the
+// row lands carrying agent_type = unattributedAgentType, the running step's
+// identity demoted into context where it asserts nothing, and an Error log
+// naming the caller. It is queryable as a standing detector:
+//
+//	SELECT action, error_code, count(*) FROM agent_error_log
+//	WHERE agent_type = 'unattributed' GROUP BY 1, 2;
+//
+// Live at the time of writing: 0 rows, and 0 rows carrying agent_type '' or
+// 'unknown' either — so this path fires for a MISTAKE, never for normal
+// traffic.
 
 package actions
 
@@ -27,41 +72,148 @@ import (
 	"go.uber.org/zap"
 )
 
-// actionErrorEntry builds the identity half of an agent_error_log row from
-// ActionParams. Fields the caller sets on the returned Entry win; this only
-// fills what the params can answer.
-func actionErrorEntry(params ActionParams, siteID, domain string) agenterrors.Entry {
+// unattributedAgentType is what a row carries when its writer named no
+// provenance and did not declare inheritance.
+//
+// It is deliberately a non-empty literal: agent_type is NOT NULL on
+// agent_error_log, and the best-effort writer swallows a constraint violation
+// as a warn — so an empty string does not produce a bad row, it produces NO
+// row, which is the worst outcome of the three. It is also deliberately not
+// "generic" or "unknown": both are live values with real traffic ("generic" has
+// 559 rows across 25 distinct step_names, the widest spread of any agent_type
+// on the table, precisely because it is what an unresolved sender falls back
+// to), so a detector keyed on either could never separate a provenance mistake
+// from ordinary noise.
+const unattributedAgentType = "unattributed"
+
+// actionJoinIdentity builds the JOIN half of an agent_error_log row from
+// ActionParams — the columns that answer "which run, which pod" and never
+// "whose finding is this". Safe to inherit unconditionally.
+func actionJoinIdentity(params ActionParams, siteID, domain string) agenterrors.Entry {
 	entry := agenterrors.Entry{
-		SiteID:    siteID,
-		Domain:    domain,
-		AgentType: params.AgentType,
-		StepName:  params.CurrentStep,
+		SiteID: siteID,
+		Domain: domain,
 	}
 	if params.ExecutionContext != nil {
 		entry.OrchestrationID = params.ExecutionContext.OrchestrationID
-		if params.ExecutionContext.Sender.AgentType != "" {
-			entry.AgentType = params.ExecutionContext.Sender.AgentType
-		}
 		entry.AgentID = params.ExecutionContext.Sender.AgentID
 		entry.PodName = params.ExecutionContext.Sender.PodName
-		if params.ExecutionContext.StepName != "" {
-			entry.StepName = params.ExecutionContext.StepName
-		}
 	}
 	// The item id most actions carry, when they carry one.
 	entry.WorkItemID = datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.work_item_id")
 	return entry
 }
 
-// LogActionError persists one row from inside an action, identity resolved
-// from params. Best-effort: returns whether the row landed; a failure must
-// never change the disposition the caller has already decided.
+// runningStepProvenance resolves the PROVENANCE half — the identity of the step
+// currently executing. Resolution order is the historical one, preserved
+// exactly: the ExecutionContext's sender wins over the params fallback when it
+// is non-empty, because a spawned child's params can lag its sender.
+func runningStepProvenance(params ActionParams) (agentType, stepName string) {
+	agentType, stepName = params.AgentType, params.CurrentStep
+	if params.ExecutionContext != nil {
+		if params.ExecutionContext.Sender.AgentType != "" {
+			agentType = params.ExecutionContext.Sender.AgentType
+		}
+		if params.ExecutionContext.StepName != "" {
+			stepName = params.ExecutionContext.StepName
+		}
+	}
+	return agentType, stepName
+}
+
+// inheritJoinIdentity fills the join half of entry from base, leaving anything
+// the caller set alone. Provenance is deliberately absent from this function:
+// that is the whole point of the split.
+func inheritJoinIdentity(entry *agenterrors.Entry, base agenterrors.Entry) {
+	if entry.WorkItemID == "" {
+		entry.WorkItemID = base.WorkItemID
+	}
+	if entry.OrchestrationID == "" {
+		entry.OrchestrationID = base.OrchestrationID
+	}
+	if entry.AgentID == "" {
+		entry.AgentID = base.AgentID
+	}
+	if entry.PodName == "" {
+		entry.PodName = base.PodName
+	}
+}
+
+// withUnattributedDiagnostics returns a COPY of the caller's context payload
+// carrying the diagnostics for an unattributed row. A copy, not a mutation:
+// the map belongs to the caller (and, in the findings path, is shared across
+// every finding in the batch), so writing into it would leak this row's
+// bookkeeping into the caller's own state.
+func withUnattributedDiagnostics(payload map[string]interface{}, agentType, stepName string) map[string]interface{} {
+	annotated := make(map[string]interface{}, len(payload)+3)
+	for k, v := range payload {
+		annotated[k] = v
+	}
+	annotated["provenance_missing"] = true
+	// Demoted, not asserted: this is who was RUNNING, which is not the same
+	// claim as who the finding belongs to.
+	if agentType != "" {
+		annotated["provenance_running_agent_type"] = agentType
+	}
+	if stepName != "" {
+		annotated["provenance_running_step_name"] = stepName
+	}
+	annotated["remedy"] = "this row's writer named no agent_type: set Entry.AgentType explicitly, or call LogActionEntryInheritingProvenance if the running step IS the right provenance"
+	return annotated
+}
+
+// resolveProvenance applies the merge to entry in place. inheritProvenance is
+// the caller's declaration, not a guess: false means an unnamed agent_type is a
+// mistake and is marked as one.
+func resolveProvenance(params ActionParams, entry *agenterrors.Entry, inheritProvenance bool, logger *zap.Logger) {
+	inheritJoinIdentity(entry, actionJoinIdentity(params, entry.SiteID, entry.Domain))
+	runningAgentType, runningStepName := runningStepProvenance(params)
+
+	if inheritProvenance {
+		if entry.AgentType == "" {
+			entry.AgentType = runningAgentType
+		}
+		if entry.StepName == "" {
+			entry.StepName = runningStepName
+		}
+		return
+	}
+
+	if entry.AgentType != "" {
+		// The caller named its provenance, so it owns this row. step_name
+		// follows the running step when left zero — the shape
+		// prepare_link_context and diagnose_persist_fix_plan were reviewed and
+		// approved with, and narrowing it here would be scope creep onto two
+		// sites that are not the reported defect.
+		if entry.StepName == "" {
+			entry.StepName = runningStepName
+		}
+		return
+	}
+
+	// Neither named nor declared. Land the row — it may be the only surviving
+	// copy of a finding — but never let it claim an identity it did not earn.
+	entry.AgentType = unattributedAgentType
+	entry.StepName = ""
+	entry.Context = withUnattributedDiagnostics(entry.Context, runningAgentType, runningStepName)
+	if logger != nil {
+		logger.Error("agent_error_log row written with NO provenance — recorded as unattributed rather than credited to the running step",
+			zap.String("action", entry.Action),
+			zap.String("error_code", entry.ErrorCode),
+			zap.String("running_agent_type", runningAgentType),
+			zap.String("running_step_name", runningStepName),
+			zap.String("remedy", "set Entry.AgentType at the call site, or call LogActionEntryInheritingProvenance if the running step IS the right provenance"))
+	}
+}
+
+// LogActionError persists one row from inside an action, filed under the
+// EXECUTING step's identity — provenance inheritance is this helper's whole
+// contract, so it declares it on the caller's behalf.
 //
-// Use this when the row should be filed under the EXECUTING step's identity.
-// When the site carries its own provenance, use LogActionEntry — see the
+// When the site carries its OWN provenance, use LogActionEntry — see the
 // warning there, which is a council finding, not a style preference.
 func LogActionError(ctx context.Context, params ActionParams, siteID, domain, action, code, severity, message string, contextPayload map[string]interface{}, logger *zap.Logger) bool {
-	return LogActionEntry(ctx, params, agenterrors.Entry{
+	return LogActionEntryInheritingProvenance(ctx, params, agenterrors.Entry{
 		SiteID:       siteID,
 		Domain:       domain,
 		Action:       action,
@@ -72,62 +224,56 @@ func LogActionError(ctx context.Context, params ActionParams, siteID, domain, ac
 	}, logger)
 }
 
-// LogActionEntry persists one row, taking the caller's fields as authoritative
-// and filling ONLY what the caller left zero from ActionParams. It is the door
-// for a site that files under its OWN provenance rather than the executing
-// step's — an origin/provenance struct, or hard-coded literals.
+// LogActionEntry persists one row for a site that files under its OWN
+// provenance — an origin/provenance struct, or hard-coded literals. The
+// caller's fields are authoritative; the JOIN half is filled from ActionParams
+// where the caller left it zero.
 //
-// ⚠ PROVENANCE IS NOT INTERCHANGEABLE, and this is a council finding rather
-// than a preference. When consolidating the birth-path recorder in
+// ⚠ PROVENANCE IS NOT INHERITED HERE, and this is a council finding rather than
+// a preference. When consolidating the birth-path recorder in
 // store_generated_component_action.go was first proposed, the edit-quality and
 // guardian seats both objected that "a provenance-literal slip here would
 // silently misfile birth-path rejections fleet-wide" — a row attributed to the
-// wrong agent/step is worse than no row, because it is believed. Several
-// converted sites deliberately file under a provenance that is NOT the running
-// step (component_link_repair and the validate_page_content link recorder file
-// under the ORIGIN of the content they repaired; store_generated_component
-// files as "component-creator"/"store_component"). Set those fields explicitly
-// here; never let them be inherited.
+// wrong agent/step is worse than no row, because it is believed. Several sites
+// deliberately file under a provenance that is NOT the running step
+// (component_link_repair and the validate_page_content link recorder file under
+// the ORIGIN of the content they repaired; store_generated_component files as
+// "component-creator"/"store_component").
 //
-// Merge semantics, stated because they are load-bearing: a field the caller
-// sets is used verbatim; a field left zero is filled from params (orchestration
-// id, sender agent/pod, step name, work item id). That is what gives the nine
-// historically orchestration_id-less sites their run join for free, while
-// leaving every provenance literal exactly where its author put it.
+// So: name AgentType, or call LogActionEntryInheritingProvenance. An Entry that
+// does neither still lands, marked unattributed — see the file header for why
+// that beats both silent inheritance and a refused write.
 func LogActionEntry(ctx context.Context, params ActionParams, entry agenterrors.Entry, logger *zap.Logger) bool {
-	base := actionErrorEntry(params, entry.SiteID, entry.Domain)
-	if entry.WorkItemID == "" {
-		entry.WorkItemID = base.WorkItemID
-	}
-	if entry.OrchestrationID == "" {
-		entry.OrchestrationID = base.OrchestrationID
-	}
-	if entry.AgentType == "" {
-		entry.AgentType = base.AgentType
-	}
-	if entry.AgentID == "" {
-		entry.AgentID = base.AgentID
-	}
-	if entry.PodName == "" {
-		entry.PodName = base.PodName
-	}
-	if entry.StepName == "" {
-		entry.StepName = base.StepName
-	}
+	resolveProvenance(params, &entry, false, logger)
+	return agenterrors.Write(ctx, params.DB, logger, entry)
+}
+
+// LogActionEntryInheritingProvenance is LogActionEntry for a site where the
+// RUNNING STEP genuinely is the right provenance — the declared opt-in to the
+// inheritance LogActionEntry refuses to perform silently.
+//
+// Use it when the row belongs to the step that is executing and the site still
+// needs the Entry door for the rest of the shape (an explicit work_item_id or
+// site_id that is NOT the running step's, most often). Reach for it
+// deliberately: `grep -rn LogActionEntryInheritingProvenance` is the census of
+// every site trusting the running step's identity, and a reviewer of the caller
+// can see the decision without opening this file.
+func LogActionEntryInheritingProvenance(ctx context.Context, params ActionParams, entry agenterrors.Entry, logger *zap.Logger) bool {
+	resolveProvenance(params, &entry, true, logger)
 	return agenterrors.Write(ctx, params.DB, logger, entry)
 }
 
 // LogActionFindings persists a set of findings an action computed and needs to
-// survive an await — one row each, identity shared. Call BEFORE the dispatch,
-// so a failed send cannot unrecord what the action found. Put the difference
-// between the returns in your audit rather than letting a lost row read as a
-// recorded one:
+// survive an await — one row each, identity shared, filed under the EXECUTING
+// step's identity. Call BEFORE the dispatch, so a failed send cannot unrecord
+// what the action found. Put the difference between the returns in your audit
+// rather than letting a lost row read as a recorded one:
 //
 //	attempted, recorded := LogActionFindings(ctx, params, siteID, domain, action, findings, logger)
 //	audit["conditions_recorded"] = recorded
 //	if attempted != recorded { audit["conditions_lost"] = attempted - recorded }
 func LogActionFindings(ctx context.Context, params ActionParams, siteID, domain, action string, findings []agenterrors.Finding, logger *zap.Logger) (attempted, recorded int) {
-	return LogActionEntryFindings(ctx, params, agenterrors.Entry{
+	return LogActionEntryFindingsInheritingProvenance(ctx, params, agenterrors.Entry{
 		SiteID: siteID,
 		Domain: domain,
 		Action: action,
@@ -136,27 +282,33 @@ func LogActionFindings(ctx context.Context, params ActionParams, siteID, domain,
 
 // LogActionEntryFindings is LogActionFindings for a site that files under its
 // OWN provenance — the findings form of LogActionEntry, with the same merge
-// semantics and the same warning about never inheriting a provenance literal.
+// semantics and the same refusal to inherit a provenance the caller did not
+// name.
 func LogActionEntryFindings(ctx context.Context, params ActionParams, base agenterrors.Entry, findings []agenterrors.Finding, logger *zap.Logger) (attempted, recorded int) {
-	merged := actionErrorEntry(params, base.SiteID, base.Domain)
-	if base.WorkItemID != "" {
-		merged.WorkItemID = base.WorkItemID
+	return recordFindings(ctx, params, base, findings, false, logger)
+}
+
+// LogActionEntryFindingsInheritingProvenance is the findings form of
+// LogActionEntryInheritingProvenance: the declared opt-in for a batch that
+// belongs to the running step.
+func LogActionEntryFindingsInheritingProvenance(ctx context.Context, params ActionParams, base agenterrors.Entry, findings []agenterrors.Finding, logger *zap.Logger) (attempted, recorded int) {
+	return recordFindings(ctx, params, base, findings, true, logger)
+}
+
+// recordFindings resolves the shared identity once and delegates the per-row
+// write. The unattributed diagnostics need per-finding handling: RecordFindings
+// REPLACES the base Context with each Finding's own, so a diagnostic left on
+// the base would be silently dropped for every row.
+func recordFindings(ctx context.Context, params ActionParams, base agenterrors.Entry, findings []agenterrors.Finding, inheritProvenance bool, logger *zap.Logger) (attempted, recorded int) {
+	resolveProvenance(params, &base, inheritProvenance, logger)
+	if base.AgentType == unattributedAgentType {
+		runningAgentType, runningStepName := runningStepProvenance(params)
+		annotated := make([]agenterrors.Finding, len(findings))
+		for i, f := range findings {
+			f.Context = withUnattributedDiagnostics(f.Context, runningAgentType, runningStepName)
+			annotated[i] = f
+		}
+		findings = annotated
 	}
-	if base.OrchestrationID != "" {
-		merged.OrchestrationID = base.OrchestrationID
-	}
-	if base.AgentType != "" {
-		merged.AgentType = base.AgentType
-	}
-	if base.AgentID != "" {
-		merged.AgentID = base.AgentID
-	}
-	if base.PodName != "" {
-		merged.PodName = base.PodName
-	}
-	if base.StepName != "" {
-		merged.StepName = base.StepName
-	}
-	merged.Action = base.Action
-	return agenterrors.RecordFindings(ctx, params.DB, logger, merged, findings)
+	return agenterrors.RecordFindings(ctx, params.DB, logger, base, findings)
 }

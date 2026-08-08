@@ -16,11 +16,16 @@ follow-up work that no ruling requires, listed at the bottom. Nothing is broken 
 is in flight — the 090 diagnosis this lane filed has come back (UNVERIFIABLE, §2 below) and
 there is no verdict outstanding.
 
-**START HERE IF YOU ARE PICKING THIS UP COLD:** the single highest-value piece of work is
-**§1 — hardening `LogActionEntry`'s merge**. Four council seats asked for it independently,
-the naive design is already ruled out by a measurement in that section, and the design the
-estate's own owner rulings point at is written out for you. It is a shared seam, so budget a
-council round and a concept-register entry in the same commit.
+~~**START HERE IF YOU ARE PICKING THIS UP COLD:** the single highest-value piece of work is
+**§1 — hardening `LogActionEntry`'s merge**.~~ **§1 IS DONE (2026-08-08 evening) — built,
+mutation-proven, registered and submitted (corr `5d200313-f6c3-4fec-8457-503ac620d5ef`,
+verdict outstanding). Read §1 below for what shipped and what it deliberately did not fix.**
+
+**START HERE IF YOU ARE PICKING THIS UP COLD:** the highest-value piece of work is now
+**§1a — hoisting the `RunAgentType` ladder onto `*types.ExecutionContext`**, which §1 found and
+deliberately left alone. It is measured, it has an existing reviewed precedent to reuse, and it
+is the difference between our error records naming a real agent and naming the filler `generic`.
+It is a shared seam, so budget a council round and a concept-register entry in the same commit.
 
 ---
 
@@ -40,6 +45,8 @@ council round and a concept-register entry in the same commit.
 | **Council round 3a** (B conversions) | corr `5c2bc265-84ac-452b-bd8b-22fd7b875427` | **APPROVED** 2026-08-08, 5 advisory objections, none high |
 | **Council round 3b** (the detector) | corr `7b6497d7-8147-4b15-aee4-fa6e361827f2` | **APPROVED** 2026-08-08 |
 | doc_notes provenance rows | `created_by='rfc012-lane'` | **FILED** for `cmd/config-key-audit` and `platform/orchestration/agenterrors` |
+| **§1 provenance hardening** (the merge split) | see §1 | **BUILT + COMMITTED 2026-08-08, INERT until the next roll.** 12 tests, 5 mutations, RSH-008 amended in the same commit |
+| **Council round 4** (the hardening) | corr `5d200313-f6c3-4fec-8457-503ac620d5ef` | **SUBMITTED** 2026-08-08 evening — verdict OUTSTANDING, committed with `Council-Submitted:` |
 
 ### How the rejection was turned round, because the lesson generalises
 
@@ -126,7 +133,72 @@ their edges had to be shown not to move. **The recipe is in the RUNBOOK.**
 
 ## NEXT — follow-up work, none of it required by a ruling
 
-### 1. Harden `LogActionEntry`'s merge — FOUR seats asked for this independently
+### 1. Harden `LogActionEntry`'s merge — **DONE 2026-08-08. Kept below because the reasoning is the record; the instructions are retired.**
+
+**What shipped.** The merge is two halves now. The **JOIN half** (`orchestration_id`, `agent_id`,
+`pod_name`, `work_item_id`) is still inherited when the caller leaves it zero — nobody can get
+those wrong, and it is what gives the nine historically `orchestration_id`-less sites their run
+join. The **PROVENANCE half** (`agent_type`, `step_name`) is **never** inherited unless the caller
+says so, by calling `LogActionEntryInheritingProvenance` / `LogActionEntryFindingsInheritingProvenance`
+instead of `LogActionEntry` / `LogActionEntryFindings`. `actionErrorEntry` is gone: the dangerous
+half is no longer *reachable* from the function that performs the fill, so the control is
+structural rather than a warning. A forgotten provenance still **lands** — this table is the only
+sink surviving an await, so refusing would destroy a finding — as `agent_type='unattributed'` with
+the running step demoted into `context` and a `logger.Error`. Detector: `SELECT action, error_code,
+count(*) FROM agent_error_log WHERE agent_type='unattributed' GROUP BY 1,2;` (**0 rows** today).
+
+⚠ **I did NOT build the `Entry.InheritProvenance bool` this section specified below.** `Entry` is
+the ROW; `agenterrors.Write` — the package that owns the type — would ignore the field, and
+`orchestration.AgentErrorEntry` is an ALIAS of it, so agentbase, messaging and the coordinator
+would each get a knob that does nothing for them. An inert field on a shared leaf type is its own
+trap. A named door satisfies the ruling's purpose and makes the census a grep. Disclosed as risks
+item 2 in the submission for a seat to overrule.
+
+**Proven by mutation, because a green suite was the defect and could not also be the proof:** 12
+tests (the first in the package to pin `agent_type`/`step_name` at all), 5 mutations, failure
+counts **3 / 10 / 3 / 4 / 1**, restored 12/12. Recipe + the two census greps + the detector SQL
+are in the RUNBOOK under "The provenance seam".
+
+**All 20 consumers named and settled in the shipping commit:** 13 already explicit (untouched), 4
+migrated to the opt-in door (`complete_work_item_verification`, `plan_sections` ×2,
+`reconcile_superseded_reviews`), 3 route through `LogActionError`/`LogActionFindings` whose contract
+already *is* running-step identity (no call site changed). `agenterrors.Write` callers outside the
+actions package are **not** consumers of the merge — they build a full `Entry` — so nothing about
+their rows changes.
+
+### 1a. **NEXT — hoist the `RunAgentType` ladder so both packages share ONE copy**
+
+Found while measuring §1, deliberately not bundled into it. **Declaring inheritance makes the
+decision visible; it does not make the value good, and the value is usually the filler `generic`.**
+
+- **Measured 2026-08-08:** all **25** live `REVIEW_SUPERSEDED_BY_PASSING_SAVE` rows carry
+  `agent_type='generic'` with an **empty** `step_name`. Fleet-wide, `generic` holds **559 rows
+  across 25 distinct `step_name`s** — the widest step spread of any `agent_type`, against
+  `vet-practice-verifier`'s 9,696 rows over 5. That scatter is the fingerprint of a placeholder,
+  on a table whose main investigation index is `(agent_type, occurred_at DESC)`.
+- **The estate already knows and already has the answer.** `types/context.go:62` documents
+  `RunAgentType` as *"the RESOLVED real agent type whose workflow is executing … as opposed to the
+  dispatch-path sender which is often 'generic'"*, citing `bugs_open/060`.
+  `coordinator.determineOwnerAgentType` (`coordinator.go:3465`) reads it first, then
+  `Sender.AgentType`, then `os.Getenv("AGENT_TYPE")`, then logs an Error and returns `"generic"`.
+  Corroboration from another direction: `agent_error_log_test.go:187` puts `"generic"` in the same
+  set as `""` for values that must not pass a review gate.
+- **Why it is not done:** `actions` cannot call `determineOwnerAgentType` — it is a
+  `*SagaCoordinator` method in the package that imports `actions`, the same import edge that forced
+  `agenterrors` into a leaf package. Duplicating the ladder is the drift class this council reviews
+  for. **The fix is to hoist it onto `*types.ExecutionContext`** (a leaf both sides import) as e.g.
+  `func (ec *ExecutionContext) ResolvedAgentType() string`, have `determineOwnerAgentType` delegate
+  to it, and have `runningStepProvenance` in `log_action_error.go` call it too. One ladder, two
+  consumers, no drift.
+- ⚠ **`os.Getenv("AGENT_TYPE")` is in the coordinator's ladder and does not belong on a `types`
+  method** — decide where that rung lives before you write it, or you will have moved a drift
+  problem rather than fixed one.
+- **Scope:** shared seam touching `types/context.go` and `coordinator.go`, so architecture-scope:
+  register it in the same commit, name the consumers, budget a council round. It changes what
+  `agent_error_log.agent_type` **means** for existing readers, which is a guarantee change — read
+  the 2026-07-29 §1 test and consider whether this one wants an RFC rather than the gate.
+
+### 1b. The reasoning that produced §1, kept verbatim — FOUR seats asked for it independently
 `bug_historian` (medium), `guardian` (low), `architecture` (low) and this lane's own risks
 block all name the same gap: the merge fills only zero fields, so a provenance you
 **deliberately omit** is safe but one you **forget** is filled silently from the running

@@ -1015,7 +1015,10 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 			logger.Warn("plan_sections: fact assignment composed an empty writer block — degrading section to unscoped",
 				zap.String("section", item.Name),
 				zap.Strings("assigned_fact_ids", facts))
-			LogActionEntry(ctx, params, agenterrors.Entry{
+			// The running step IS the right provenance here — plan_sections
+			// records its own degradation — so inheritance is declared rather
+			// than left to a silent merge.
+			LogActionEntryInheritingProvenance(ctx, params, agenterrors.Entry{
 				SiteID: siteID.String(),
 				Action: "plan_sections",
 				ErrorMessage: fmt.Sprintf("fact assignment for section %q composed an empty writer block (%d assigned IDs, none resolvable)",
@@ -1250,7 +1253,9 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 				zap.String("page", pageName),
 				zap.Strings("skipped", skippedNames),
 				zap.Error(persistErr))
-			LogActionEntry(ctx, params, agenterrors.Entry{
+			// Running step is the right provenance — declared, not inherited
+			// silently (see LogActionEntry's doc).
+			LogActionEntryInheritingProvenance(ctx, params, agenterrors.Entry{
 				SiteID:       siteID.String(),
 				Action:       "plan_sections",
 				ErrorMessage: "persistSectionSkips failed: " + persistErr.Error(),

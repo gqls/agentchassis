@@ -261,8 +261,10 @@ func recordUnknownVerdict(ctx context.Context, params ActionParams, itemID uuid.
 	}
 
 	// work_item_id is the caller's explicit item, not the one params carries —
-	// set it so the merge cannot substitute input_data.work_item_id.
-	LogActionEntry(ctx, params, agenterrors.Entry{
+	// set it so the merge cannot substitute input_data.work_item_id. The
+	// PROVENANCE is the running step's (this guard records its own verdict), so
+	// inheritance is declared rather than left to a silent merge.
+	LogActionEntryInheritingProvenance(ctx, params, agenterrors.Entry{
 		WorkItemID:   itemID.String(),
 		Action:       "complete_work_item",
 		ErrorMessage: "unrecognised handler verdict '" + status + "' — item completed, but this guard cannot tell success from failure for this vocabulary",

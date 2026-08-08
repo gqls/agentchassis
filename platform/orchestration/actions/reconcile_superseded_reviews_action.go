@@ -160,7 +160,15 @@ func ReconcileSupersededReviewsAction(ctx context.Context, params ActionParams) 
 		// set explicitly so the merge cannot substitute input_data's.
 		// gatherFlaggedFindings above reads these rows back by
 		// (site_id, error_code, context->>'page_name'), so all three are load-bearing.
-		if !LogActionEntry(ctx, params, agenterrors.Entry{
+		//
+		// The PROVENANCE, by contrast, is the running step's, so it is declared
+		// rather than inherited silently. ⚠ what that resolves to today is
+		// 'generic' — all 25 live REVIEW_SUPERSEDED_BY_PASSING_SAVE rows carry
+		// it, because the dispatch-path sender usually does. types.ExecutionContext
+		// already has the fix (RunAgentType, bugs_open/060) but only the
+		// coordinator consults it; hoisting that ladder somewhere both packages
+		// can reach is deliberately NOT in this change's scope.
+		if !LogActionEntryInheritingProvenance(ctx, params, agenterrors.Entry{
 			SiteID:       pair.siteID,
 			WorkItemID:   pair.itemID,
 			Action:       "reconcile_superseded_reviews",
