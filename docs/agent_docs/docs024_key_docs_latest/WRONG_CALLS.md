@@ -23939,3 +23939,22 @@ to a shared table, grep for the shared writer first —
 exists; only the helper everyone else calls is the convention. (Same shape as
 "a grep proves absence only for the SPELLING it searches": I grepped for the
 idiom, not for the door.)
+
+---
+
+## 2026-08-08 — published "8 dartsonline pages" into three docs and a commit message; the query output in front of me said 7 (bugfix 210 lane)
+
+**The claim-shaped act:** summarising the cancel-as-mute audit, I wrote "8 dartsonline pages
+will re-emit LLM builds" into the lane NOTES, the owner README, the bug file and the follow-up
+commit message. The query result I was summarising listed SEVEN non-deployed dartsonline pages
+(brands, brands-index, grip-styles, guides, product-detail, shop, shop-index). Nobody disputed
+the 8; re-running the audit after the roll is what surfaced it.
+
+**What caught it:** re-measurement, not review — the fresh run returned 7 rows for dartsonline
+and the mismatch forced a recount of the original output, which had also said 7. The error was
+transcription at the summarising step, i.e. the count I KEPT was not the count returned
+(`a-count-you-kept-is-not-a-census` family, in miniature).
+
+**The cheap check:** when a count is about to be published as a headline figure, derive it
+mechanically from the same output being cited — `grep -c` / `wc -l` on the rows, pasted next to
+the list — not by eye. A figure that ships with its derivation cannot drift from it.

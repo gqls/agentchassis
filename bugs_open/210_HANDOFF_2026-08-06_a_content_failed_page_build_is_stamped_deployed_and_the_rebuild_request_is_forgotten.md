@@ -4,8 +4,15 @@
 that bug's fix deliberately did **not** include. ~~**OPEN, unowned.**~~ Severity: medium — silent
 loss of a build request, no data destroyed.
 
+> **FIX LIVE ON v1.0.1268, POD-VERIFIED 2026-08-08** — all 12 chassis containers on one image
+> digest; greped replicas show both commits' strings present, a fabricated string 0, positive
+> control 3. Baseline at verification: 0 refusals, 0 parks — the frequency counter is armed.
+> In substance this bug is CLOSED (stays in `bugs_open/` per the owner's 08-06 filing rule);
+> what remains is watching `agent_error_log.error_code='DEPLOY_STAMP_REFUSED_ON_SKIP'`, whose
+> first non-zero count is the first real measurement of how often this ever fired.
+>
 > **FIX BUILT + COMMITTED 2026-08-08** by the `bugfix_210_content_failed_build_stamped_deployed`
-> lane — **INERT until the next chassis roll** (Go only, no config half). Fix candidate 1 below,
+> lane — Go only, no config half. Fix candidate 1 below,
 > as filed: `UpdatePageStatusAction` refuses the stamp on ANY assembly skip (OWNED branch keeps
 > 208's semantics), flips to `needs_rebuild` + NULL plan stamp, writes an `agent_error_log` row
 > `DEPLOY_STAMP_REFUSED_ON_SKIP` on every refusal (measurement candidate 2 below, so the
@@ -21,8 +28,12 @@ loss of a build request, no data destroyed.
 > Council corr `c9647117-3a4b-48a2-b34c-1ea25f4e1f7f` — **APPROVED, round 1** (4 advisory
 > objections, none high; all ten read and dispositioned with evidence in the lane NOTES). One
 > objection found a real population: the `loadOpenPageItems` 'cancelled' alignment releases
-> the mute on **8 dartsonline pages** (cancelled 2026-07-20) at that site's next reconcile —
-> owner call whether to re-mute them as `wont_fix` (the durable verb); query in the RUNBOOK.
+> the mute on **7 dartsonline pages** (~~8~~ — CORRECTED 2026-08-08, transcription miscount,
+> caught by re-running the audit post-roll; WRONG_CALLS entry) cancelled 2026-07-20, at that
+> site's next reconcile — owner call whether to re-mute them as `wont_fix` (the durable
+> verb); query in the RUNBOOK. The seven: brands, brands-index, grip-styles, guides,
+> product-detail, shop, shop-index. Plus `vonc.com/provocation` (owned) → one review item,
+> no LLM build.
 > Lane docs:
 > `docs/agent_docs/docs024_key_docs_latest/bugfix_210_content_failed_build_stamped_deployed/`.
 > **Stays OPEN until the fix is live on the fleet and pod-verified** (grep

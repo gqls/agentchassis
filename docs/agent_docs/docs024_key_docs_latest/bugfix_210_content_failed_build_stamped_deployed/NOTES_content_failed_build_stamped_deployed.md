@@ -127,3 +127,23 @@ queueing this time). Every objection read; dispositions, each with its evidence:
 
 **Third schema-first miss today** (`diagnosis_artifacts.content` — it is `body`) — after
 writing the WRONG_CALLS entry about the first two. The tally is the point; entry updated.
+
+## 2026-08-08 (later) — LIVE on v1.0.1268, pod-verified; and a correction
+
+- **Fleet rolled to v1.0.1268.** All 12 chassis containers share ONE image digest
+  (`4c08b8d8d7d6…`); 5 pods greped before the exec loop timed out, every one `1 1 0 3`:
+  `DEPLOY_STAMP_REFUSED_ON_SKIP` 1 (commit 2c3efc9f5), `bugs_open/210` 1 (follow-up
+  8d95779a2 — proves the roll is at/after the SECOND commit), fabricated
+  `DEPLOY_STAMP_ZZFAKE_210` 0 (the grep can return zero), `OWNED_PAGE_GUARD` 3 (positive
+  control). Digest identity generalises the 5 to all 12, the 208 practice.
+- Baseline at verification time: **0 refusals, 0 parks** — correct this early; the counter
+  is armed and starts measuring the bug's real frequency from now.
+- > **CORRECTED 2026-08-08:** the unmute population is **SEVEN** dartsonline pages, not the
+  > "8" published in yesterday's NOTES/README/bug file/commit message. The original query
+  > output listed seven; the 8 was a transcription error at the summarising step, caught by
+  > re-running the audit post-roll. WRONG_CALLS entry added. The seven: brands, brands-index,
+  > grip-styles, guides, product-detail, shop, shop-index.
+- `vonc.com/provocation` verified `rebuild_policy='owned'` (plan role blog-post) — its
+  release produces ONE owned_page_review row via the reconciler's ownership branch, no LLM
+  build. The single cancelled `owned_page_review` is oufe's `zz-canary-208` cleanup row —
+  the page is in no plan, so releasing it does nothing.

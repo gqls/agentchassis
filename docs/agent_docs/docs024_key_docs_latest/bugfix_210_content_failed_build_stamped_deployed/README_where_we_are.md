@@ -37,3 +37,12 @@ deliberate and should stay, someone needs to re-mark those eight items as "won't
 stays muted under both the old and new rules) before dartsonline is next replanned. That is an
 owner/operator decision — the eight are listed in the notes; the query to find them is in the
 runbook.
+
+**2026-08-08, after the roll.** The fix is live on the whole fleet and verified on the running
+binaries. Nothing has fired yet (correct — the counter starts at zero and now measures how often
+this bug really happens). One correction to my last note: it is SEVEN dartsonline pages that the
+mute-release affects, not eight — I miscounted when summarising and the re-check after the roll
+caught it. The seven are: brands, brands-index, grip-styles, guides, product-detail, shop and
+shop-index, all muted on 20 July. They rebuild only when dartsonline is next replanned, so
+there is time to re-mark them "won't fix" if the mute should stand. One more page, vonc.com's
+"provocation", is owner-flagged rather than rebuilt — it raises a review ticket, costs nothing.
