@@ -389,3 +389,63 @@ LLM passes to delete three more buttons — including on a 13-day-stale page. **
 fix is upstream: the resolver's slot assignment (F22), and the `resolved_data` → `content_data`
 gap (F25).** Rows 2–4 stay parked with their ids and verified targets in the worklist table
 above, ready for whoever fixes that.
+
+## 2026-08-08 — F22 answered from the code, and confirmed live on a second and third site
+
+Picked this bug up (`who-owns.py` correctly named this lane; contributing here rather than
+competing). Answered the 08-07 handoff's "start here": **is the target chosen by matching the
+CTA's own label, or by position/order? — Read `chooseCTATargets`
+(`resolve_internal_links_action.go:319-350`) end to end: it takes `pageName` only to exclude a
+page's own URL from its candidate list (line 326, "don't point a page's hero at itself") — that
+is the ENTIRE use of anything page-specific. Every other line ranks candidates by
+`(NavOrder, Name)` and returns `ordered[0]`/`ordered[1]` as primary/secondary. `cta_text` /
+`secondary_cta` — the button's own label — is never read by this function or anywhere in its
+call chain. So F22 is not a bug in matching logic gone wrong; **there is no matching logic**.
+Confirms the file's own doc comment (line 22-24): "agent boundary lets this be upgraded (LLM
+intent-matching...) without changing callers" — that upgrade has not happened. v1 fills
+primary/secondary with the site's top nav-ranked hubs, full stop, regardless of what the
+button claims to do.
+
+**This makes F22 systemic-by-construction, not [UNMEASURED]-width.** Whether it's *visible* on
+a given page depends on whether that page's CTA label happens to be specific enough to name a
+destination the position-based pick disagrees with — generic labels ("Learn More") never
+expose it; named ones always can. So the right question isn't "how wide" but "how many live
+CTAs are named specifically enough to be checkable" — and I did that census the cheap way (F25's
+129 `page_components` rows that already persist `cta_url`, i.e. **live, published pages** —
+better ground truth than ephemeral `orchestration_states` history, which turned out to hold
+only the resolver's OWN output snapshot, pre-writer, so `cta_text` isn't even present alongside
+it there — a dead end for this specific census, noted so nobody re-tries it).
+
+**Confirmed on real, currently-published pages, at least 2 sites beyond finetuning.uk:**
+
+| page | slot | label | got | should be (label-implied) |
+|---|---|---|---|---|
+| `/guides/ai-agent-roi-estimator-guide.html` | hero primary | "Calculate Your ROI" | `/tools/password-entropy.html` | an ROI estimator tool |
+| `/privacy.html` | hero primary | "Read the policy" | `/tools/password-entropy.html` | the privacy page itself, or nothing |
+| `/gripper-catalog.html` | hero secondary | "Read MatchMatrix methodology" | `/tools/gripper-payload-calculator/index.html` | a methodology page |
+
+`password-entropy.html` recurring as the wrong target across unrelated pages/sites is the same
+shape as the finetuning.uk canary (F22) — not a coincidence of one page, a property of whichever
+site has that tool ranked early by `(NavOrder, Name)`. Query: `page_components.content_data ?
+'cta_url'` (129 rows fleet-wide, F25's set) — cheap to re-run, no orchestration history needed.
+
+**What this means for the open questions:**
+- F22 is answered: **not a bug to patch, a capability that doesn't exist yet** (label/intent
+  matching). D7 option 3 ("build the missing capability") was already naming this correctly;
+  it is not a smaller job than that framing suggested.
+- F25 is separately still open — WHY 129 rows persist `cta_url` in `content_data` when the
+  resolver's contract writes to `resolved_data` only. **[UNMEASURED, not attempted this pass]**:
+  worth checking whether these 129 predate `resolve_internal_links` entirely (an older writer
+  generation path that DID let the LLM emit a URL directly) rather than being resolver output
+  that somehow persisted — the sample above shows plausible-looking real tool URLs, which reads
+  more like "an LLM was once allowed to write this field" than "the resolver's output leaked
+  into content_data by accident." Whoever picks up F25 next: check `created_at` on these 129
+  against `880a405a6`'s deploy and against when `cta_url` was removed from any `llm_fields` list,
+  if it ever was one.
+- **Recommendation, not yet actioned**: this is now clearly a scoped feature addition (resolver
+  gains label-aware/intent-based hub selection), not a bugfix — architecture-adjacent per this
+  repo's own "guarantee change on a shared mechanism" bar, since it changes what every
+  CTA-bearing page's resolved link is allowed to depend on. Did not start building it or dispatch
+  further pages this pass — flagging the fork (build the capability vs. accept D7's narrower
+  per-page options) as a decision worth the owner's or this lane's explicit call before more
+  session-hours go in either direction.
