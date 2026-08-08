@@ -242,3 +242,54 @@ credits are restored; read the real verdict then; if APPROVED, no code
 change needed — just note the approval (098 auto-credits the existing
 commit via the correlation, forward-only forbids an amend anyway). If
 REVISE/REJECTED, act on it in a follow-up commit.
+
+## 2026-08-08 21:27 BST — the "fresh chassis build" the user reported does NOT carry this fix
+
+The user reported a fresh chassis build had been deployed and asked to carry
+on. **Checked at the artefact rather than trusting the report** (per
+CLAUDE.md — a roll is not evidence a specific fix shipped):
+
+```bash
+kubectl -n ai-persona-system get pods -l app=agent-chassis   # both replicas, age 89m
+kubectl -n ai-persona-system exec <pod> -- sh -c 'strings /app/agent-chassis | grep -c "negated declaration ignored"'   # 0, both replicas
+kubectl -n ai-persona-system exec <pod> -- sh -c 'strings /app/agent-chassis | grep -c "NegationGuard"'                  # 0, both replicas
+kubectl -n ai-persona-system exec <pod> -- sh -c 'strings /app/agent-chassis | grep -c "declared synthetic/fake data"'   # 1, both — POSITIVE CONTROL: the gate exists, methodology sound
+```
+
+**Why, once the timestamps are lined up — not a bug, just ordering.** The
+running pods are 89 minutes old (started ≈19:58 BST). My fix committed at
+**20:35:33** — 37 minutes AFTER these pods started. Whatever build the user
+saw deployed was built from a HEAD that necessarily predates my commit; it
+cannot contain code that did not exist yet when it was built. **`f8cbaf551`
+has never been built into any chassis image.** `makefile` still reads
+`IMAGE_TAG ?= v1.0.1268` — unbumped since before this fix.
+
+**Not yet done, in order, for whoever continues this:**
+1. Bump `IMAGE_TAG` in `makefile` (currently `v1.0.1268`) — a same-tag
+   rebuild ships the stale cached binary.
+2. `make build-agent-chassis` (builds from committed HEAD — my fix is
+   committed, so this is safe; check for "leaving out N uncommitted changes"
+   in the build output, should be none of mine).
+3. Push + deploy per the makefile's own `push-agent-chassis`/
+   `deploy-agent-chassis` targets (or whatever the owner's usual release
+   command is — `releases are WHOLE-FLEET, owner runs make release` is a
+   standing note in memory; check whether this needs to go through that
+   route rather than a one-service deploy).
+4. **Re-verify at the artefact**, both replicas, same grep as above — now
+   expect `negated declaration ignored` ≥0 occurrences is not the test (it's
+   conditional on the string being reachable in a live run); the load-bearing
+   check is `NegationGuard` / `fabNegationCueRe`-shaped literals present
+   (count ≥1), same command as above.
+5. Behavioural check: re-run the portfolio recreation item (or dispatch a
+   fresh one) and read `check_fabrication` in `orchestration_states.collected_data`
+   same-day (it purges) — expect `fabricated:false`.
+6. Tell `mortgagecalculator_couk_adoption` (their handoff docs) the workaround
+   clause can come out.
+7. Annotate `016b` §9's existing entry for this bug (deferred deliberately
+   until live, per the PLAN §10) — do NOT do this before step 4 confirms live.
+8. Re-check the council verdict — round 1 was blocked fleet-wide on Anthropic
+   credit exhaustion (`SUBMISSION_CORR=aa2d0d62-4aba-480e-aedc-8be264d53b01`),
+   not reviewed. Resubmit with `RESUBMIT_CORR=aa2d0d62-…` once credits are
+   restored (check: has any council/LLM call succeeded fleet-wide in the last
+   15 minutes?). If APPROVED lands, add `Council-Reviewed: <id>` — but only
+   after reading the verdict, never speculatively.
