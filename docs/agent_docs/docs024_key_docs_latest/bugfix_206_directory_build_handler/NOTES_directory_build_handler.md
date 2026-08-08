@@ -131,3 +131,106 @@ the same correlation** (`RESUBMIT_CORR=5b8e4cf7-...`). Round-2 verdict not
 yet read as of this note — checked once, not landed yet (queue was visibly
 contended both times). **Read it before doing anything else in this lane** —
 see HANDOFF for the query.
+
+## 2026-08-08 — Go code confirmed LIVE on a fresh build; round 2 was REVISE; round 3 submitted
+
+Picked up cold from the 2026-08-07 handoff. Re-ran Step 0 first: `37560f120`
+and `f750595dd` both still on the branch. Pod-grepped `v1.0.1262` (both
+replicas) for the round-2 marker string
+(`"cannot distinguish this from a real zero-business result"`) — **absent**
+on both, so at that point the running binary carried round 1's code only,
+not round 2's fix, even though `directory-build-handler`/`business_directory`/
+`ensure_page_section_layout` were all present (round 1's symbols).
+
+**Read round 2's verdict in full** (`body` column, not `metadata` — the
+gating summary alone doesn't carry the per-reviewer detail): **REVISE
+again**, `decided_by: "gating objection from bug_historian"`. The gate:
+edit 1's fix (missing-config → error, not empty slice) was applied at
+`resolveBusinessDirectory` alone with no audit of whether
+`queryresolve.go`'s other resolvers share the same "no source config →
+silent empty" shape. Four other MEDIUM objections rode along, not gating but
+needing an answer: `editquality` (edit 3's sketch claimed
+`ensure_page_section_layout_action.go` was switched to the new shared
+helper, but the submission's own `edits` array never listed that file — a
+submission-metadata gap, not a code defect: the code change was real,
+already committed in `37560f120`); `guardian` (326.sql's edit was labelled
+`operation:"modify"` against a `.sql` path with the owning pipeline only
+inferable, not stated — surface-ownership rule wants `config_change` +
+explicit pipeline name); `prior_art_librarian` (the "build-dispatch-loop and
+build-pipeline-trigger both return `[]`" claim licensing the dispatch-map
+flip was inherited from round 1 without a fresh check, against a documented
+LANDMINE that these two can silently disagree); `debug_historian` (326's
+`DO`/`RAISE` guard uses `!=` against a `#>>` path — same class already
+flagged for 325 in round 1).
+
+**Did the actual audit** (bug_historian's gate) rather than just asserting
+it: read every resolver in `queryresolve` package —
+`resolvePagesWhereType`/`resolvePagesUnderSection`/`resolveProducts`
+(`queryresolve.go`), `resolveSectionIndexForType` (`section_index_for.go`),
+`resolveLatestNews`/`resolveNewsArchive` (`news_items.go`),
+`resolveModelDirectory`/`resolveModelDirectoryFull`/`resolveDirectoryKind`
+(`directory_items.go`). **None share the shape.** Every one of them either
+queries a platform table directly (no external config lookup at all — a
+zero result is unambiguously zero matching rows) or reads a GLOBAL registry
+not scoped per-site. `resolveBusinessDirectory` is the only resolver in the
+package whose data source is itself gated by a separate per-site config row
+that can be present or absent. This is real evidence, not an inherited
+claim — first time this specific audit had actually been run.
+
+**Fresh-checked the dispatch-gate claim** (prior_art_librarian) rather than
+re-asserting round 1's: pulled the LIVE `find_dispatchable_site` SQL
+straight from `agent_definitions` (not a seed file — "the seed is not the
+system") and the LIVE `build-dispatch-loop` `load_items` step config. Both
+now carry IDENTICAL item-eligibility predicates (status/attempt_count/
+approval_mode/depends_on) — the divergence the LANDMINE describes was fixed
+by `284`/`285` and still holds today. Neither filters on item_type/
+handler_agent absent an explicit step-config filter, and `load_items`
+carries none. Then made it concrete: checked the two named work items
+(`715ec305`, `2f50bfda`) and their site (`vetcomparison.uk`,
+`72b9e3a6-...`) directly — site unlocked, no claimed items, `depends_on IS
+NULL` on both, `attempt_count(1) < max_attempts(3)` — both will pass both
+gates once re-triaged.
+
+**Found and fixed a REAL bug while investigating debug_historian's
+objection**, not just a style nit: 326's guard used
+`cfg #>> '{...}' != 'expected'` — `#>>` on a MISSING path returns NULL, and
+`NULL != 'expected'` is NULL, which an `IF` treats as false, so the `RAISE`
+would never fire and `'326 OK'` would print even against a wrong/absent key.
+Exact match for a documented LANDMINE ("A migration verify block comparing a
+jsonb path with `<>` sits GREEN for ever when the key does not exist").
+Fixed all three checks to `IS DISTINCT FROM`, induced the fix directly
+(`SELECT NULL::text != 'x', NULL::text IS DISTINCT FROM 'x'` → `NULL, true`)
+rather than trusting the rewrite. Checked 325's LIKE-based checks for the
+same class too: safe, because the same migration statement unconditionally
+UPDATEs the same row with a non-null literal, and the guard's own
+`schema_txt IS NULL` check already catches a missing row first — 325's
+residual weakness is LIKE's substring imprecision (round 1's original, lower
+severity), not NULL-swallowing.
+
+**Checked guidelines' non-gating "missing" note** (processing_mode) too,
+since it was cheap and concrete: fleet-wide `processing_mode` is deserialized
+in three places and never once branched on — it has no behavioural effect
+anywhere in the platform. The precedent 326 cites
+(`directory-export-orchestrator`) and `page-build-handler` itself both have
+it NULL in the live DB today. Its absence from 326 cannot cause any
+divergence from the cited precedent.
+
+**Committed the 326 guard fix alone** (`528f545f6`, `Council-Submitted:`
+trailer — migration not yet applied anywhere, so this was a plain edit, no
+rollback). **Owner reported a fresh chassis build was deployed mid-session**
+— checked rather than assumed: pods moved to `v1.0.1263`, and this time the
+round-2 marker string IS present (1/1, negative control 0/0) — round 2's Go
+fix (`37560f120`) is now genuinely live, not merely committed.
+
+**Resubmitted round 3** on the same correlation
+(`RESUBMIT_CORR=5b8e4cf7-31c3-4793-a550-d6b9be1f00e8`), adding the missing
+edit entry (editquality), relabelling 326's edit to `config_change` with the
+owning pipeline named (guardian), and putting all of the above audits into
+`grounded_in` as quoted, checkable evidence rather than restated assertions.
+Run orchestration `c7f494a4-de65-43e9-9fec-62d635e871e5`, dispatched
+2026-08-08 ~10:11; queue was clear (LAG 0) at submit time and a
+`council-gate-orchestrate` run was already `EXECUTING_STEP` within seconds.
+**Verdict not yet read as of this note.** See HANDOFF for the query and next
+steps — this session is handing off here rather than push through the
+~30-minute queue wait plus the remaining apply/build/re-triage/verify
+sequence in one sitting.
