@@ -377,3 +377,23 @@ step.** The dispatcher's mapping is the de-facto contract; mirror it, don't
 sample it. guides-index's in-flight run snapshotted the pre-337 mapping
 (workflow_plan is copied at claim) and will fail once more at update_status
 by design; its retry picks up 337.
+
+## 2026-08-08e — DONE: both pages live; closure written; register updated
+
+Post-roll (v1.0.1266, pod-grepped, negative control 0): held both items
+through the ~300s spawn-drop window, auto-re-triaged after.
+**> CORRECTED same session:** my priority "bump" to 95 was BACKWARDS — the
+dispatcher orders `priority ASC` (`load_work_item_actions.go:683`), so I
+starved the two builds for ~45 min and misread it as congestion; the
+disconfirming tell (priority-140 audit_tool unclaimed while 80s processed)
+was in my own transcript. Caught by finally greping the ORDER BY.
+WRONG_CALLS second 08-08 entry. priority=10 dispatched both within a cycle.
+
+Outcomes: directory-index deployed 17:02:22Z (item complete, att 2/3),
+serving 61 real alphabetical practices/49 postcodes at HTTP 200;
+guides-index deployed 17:07:31Z, repo commit 836fd73b, listing exactly the
+three real guides + real tool CTA. Closure evidence written INTO
+bugs_open/206 (stays there, owner direction 08-06). BLD-017 status +
+verify-later discharged in the register, index row updated. The owner's
+original complaint (homepage "Search the directory" → 404) is resolved on
+the live site.

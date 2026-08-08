@@ -135,3 +135,50 @@ correctly triaged by the 07-26 review).
   works; unrelated pipeline, REBUILD-only, cannot create a new page regardless of this bug.
 - `bugs_closed/001` — general re-plan risk for this site; not the mechanism here (this is about
   a single unplanned page's sections, not a full re-plan).
+
+---
+
+# CLOSURE EVIDENCE 2026-08-08 — fixed AND live, both pages serving; file stays in bugs_open/ by owner direction (2026-08-06)
+
+**The fix**: `directory-build-handler` (fix candidate 1, as designed in the lane PLAN) —
+`ensure_page_section_layout` + `queryresolve.resolveBusinessDirectory` + the builder-map flip,
+council **APPROVED round 3** (corr `5b8e4cf7-31c3-4793-a550-d6b9be1f00e8`, 09:18Z), code live
+on v1.0.1264→1266 (pod-grepped both replicas each roll, negative control 0), config via
+migrations **325, 326, and two live-fire corrections 336/337** (326's delegation input_mapping
+was defective twice over — prefixed keys, then missing spec/current_page; each found by a real
+dispatch failing, each fixed by migration same-day; the seed 326 alone does NOT match the live
+row).
+
+**Proof at the artefacts, not the statuses** (both built by ordinary `build-pipeline-trigger`
+dispatch of the ORIGINAL parked work items — no manual dispatch, which was the point):
+
+- `715ec305` (`needs_page:directory-index`) → **complete**, page `deployed_at 2026-08-08
+  17:02:22Z`, repo commit `65ade0ee`; `https://vetcomparison.uk/directory/index.html` HTTP 200
+  serving **61 real practices, 49 postcodes, alphabetical** (24 Hour Vetcare … 608 Equine &
+  Farm Vets …), sourced from `business_intel` via the site's own directory-export config.
+- `2f50bfda` (`needs_page:guides-index`) → page `deployed_at 2026-08-08 17:07:31Z`, repo commit
+  `836fd73b`; the page lists **exactly the three real guide pages** by their real URLs
+  (cma-compliance, cma-market-investigation, independent-strategy) + the real
+  obligation-checker CTA — no fabricated entries. (URL 200 confirmed after CDN lag; directory
+  URL took ~60s to flip.)
+- `site_plan_sections` carries both pages' layouts (`hero, directory-listing` /
+  `hero, guide-list`), written by `ensure_page_section_layout` — its first production runs.
+
+**Corrections to this file's own account, discovered in closing it** (per the lane NOTES
+2026-08-08b/c/d, where the full trail lives):
+
+1. The re-triage plan's "guides-index needs NO new handler" was **wrong** — bare
+   `page-build-handler` has no layout-filling step and no-op'd again when the improvement loop
+   re-dispatched it (live refutation). Both pages route to `directory-build-handler`; its
+   `ensure_layout` step is page-name-generic.
+2. The impact section's "not surveyed here" fleet question got a partial answer for free: the
+   improvement loop detects this page-class symptom (`unbuilt_internal_link`, since 08-02) but
+   its remediation dispatch rebuilds the WRONG page and self-reports success —
+   **`bugs_open/220`**, filed from this lane with live reproduction. The loop cannot fix this
+   bug's class; it CAN now route it correctly once a `needs_page` item exists (proven: it
+   revived and re-routed `715ec305` itself via `incomplete_page_group` + `refreshOpenWorkItem`).
+3. `practice`/`entity-page` remains deliberately unbuilt (P1 crawl 10/~2,109 at 08-06) — that
+   was scope-out, not omission, and stands.
+
+Operator note that cost 45 minutes: the dispatcher orders `priority ASC` — LOWER dispatches
+first (`load_work_item_actions.go:683`; WRONG_CALLS 2026-08-08 second entry).
