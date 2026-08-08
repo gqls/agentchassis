@@ -16,7 +16,7 @@ import (
 func TestClassifyThunderReconcile(t *testing.T) {
 	now := time.Date(2026, 8, 8, 18, 0, 0, 0, time.UTC)
 	grace := 30 * time.Minute
-	old := now.Add(-2 * time.Hour)   // well past grace
+	old := now.Add(-2 * time.Hour)     // well past grace
 	young := now.Add(-5 * time.Minute) // inside grace
 
 	cases := []struct {
@@ -30,9 +30,9 @@ func TestClassifyThunderReconcile(t *testing.T) {
 		wantDeleted int
 	}{
 		{
-			name:      "old vendor instance with no row is an orphan",
-			vendor:    []thunderVendorInstance{{ID: "3", Status: "RUNNING", GpuType: "A6000", CreatedAt: old}},
-			wantKinds: []string{"orphan_no_row"},
+			name:        "old vendor instance with no row is an orphan",
+			vendor:      []thunderVendorInstance{{ID: "3", Status: "RUNNING", GpuType: "A6000", CreatedAt: old}},
+			wantKinds:   []string{"orphan_no_row"},
 			wantBilling: 1,
 		},
 		{
@@ -42,9 +42,9 @@ func TestClassifyThunderReconcile(t *testing.T) {
 			wantBilling: 1,
 		},
 		{
-			name:      "unknown age cannot hide behind the grace window",
-			vendor:    []thunderVendorInstance{{ID: "3", Status: "RUNNING"}}, // zero CreatedAt
-			wantKinds: []string{"orphan_no_row"},
+			name:        "unknown age cannot hide behind the grace window",
+			vendor:      []thunderVendorInstance{{ID: "3", Status: "RUNNING"}}, // zero CreatedAt
+			wantKinds:   []string{"orphan_no_row"},
 			wantBilling: 1,
 		},
 		{
@@ -81,14 +81,14 @@ func TestClassifyThunderReconcile(t *testing.T) {
 			wantDeleted: 1,
 		},
 		{
-			name:   "live row with no vendor instance is a ghost",
-			rows:   []thunderDBRow{{RowID: "r1", ThunderInstanceID: "7", Status: "running"}},
+			name:      "live row with no vendor instance is a ghost",
+			rows:      []thunderDBRow{{RowID: "r1", ThunderInstanceID: "7", Status: "running"}},
 			wantKinds: []string{"ghost_row"},
 		},
 		{
-			name:   "live row whose vendor instance is DELETED is a ghost",
-			vendor: []thunderVendorInstance{{ID: "7", Status: "DELETED", CreatedAt: old}},
-			rows:   []thunderDBRow{{RowID: "r1", ThunderInstanceID: "7", Status: "decommissioning"}},
+			name:        "live row whose vendor instance is DELETED is a ghost",
+			vendor:      []thunderVendorInstance{{ID: "7", Status: "DELETED", CreatedAt: old}},
+			rows:        []thunderDBRow{{RowID: "r1", ThunderInstanceID: "7", Status: "decommissioning"}},
 			wantKinds:   []string{"ghost_row"},
 			wantDeleted: 1,
 		},
@@ -100,16 +100,16 @@ func TestClassifyThunderReconcile(t *testing.T) {
 			},
 		},
 		{
-			name:   "vendor status casing does not matter",
-			vendor: []thunderVendorInstance{{ID: "9", Status: "deleted", CreatedAt: old}},
+			name:        "vendor status casing does not matter",
+			vendor:      []thunderVendorInstance{{ID: "9", Status: "deleted", CreatedAt: old}},
 			wantDeleted: 1,
 		},
 		{
 			name: "mixed account: one orphan, one match, one ghost, one in grace",
 			vendor: []thunderVendorInstance{
-				{ID: "0", Status: "RUNNING", CreatedAt: old},           // matched
+				{ID: "0", Status: "RUNNING", CreatedAt: old},                  // matched
 				{ID: "1", Status: "RUNNING", GpuType: "H100", CreatedAt: old}, // orphan
-				{ID: "2", Status: "PENDING", CreatedAt: young},         // in grace
+				{ID: "2", Status: "PENDING", CreatedAt: young},                // in grace
 			},
 			rows: []thunderDBRow{
 				{RowID: "r0", ThunderInstanceID: "0", Status: "running"},
