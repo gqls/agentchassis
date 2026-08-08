@@ -1956,3 +1956,39 @@ Committed `ef80216be`, council `4d430ca8-7e34-479a-95f3-71fdc12fdef6` submitted 
 `Council-Submitted:` (verdict pending at time of writing — **read it, and act on a REVISE**).
 **Go change: inert until the next chassis roll.** The verification recipe is the same 0→1 transition
 shape as the selection filter, and **the baseline must be taken BEFORE the roll** — see the handoff.
+
+### Council verdict + the correction it forced (same day, ~1h after the section above)
+
+**APPROVED r1, 13 seats, 5 advisory objections, none high, `gated_by_truncation: false`.** Full
+answers with the checks run: `OBJECTIONS_2026-08-08_voice_tells_council.md`. Four seats
+independently asked the same thing (show the second-producer search, do not assert it) and one
+(`debug_historian`) landed a real hit.
+
+> **CORRECTED 2026-08-08: the population is 32, not the 25 recorded above.** Seven more
+> `voice_tells` rows were filed **today** by `quality-discovery-agent` while I was building the
+> revalidator. I found them only because objection 1 sent me back to the provenance table — nothing
+> in my own process would have caught it. **The check is actively filing, so this type GROWS; it is
+> not a fixed backlog of 25.** Churn re-measured over all 32 is still 13 (the 7 new rows were filed
+> today, so none can have changed since filing) — the ratio moved, the absolute count did not.
+> My figure survived about four hours. A population count is a measurement with a timestamp.
+
+> **`debug_historian` was RIGHT about the mechanism and wrong about the consequence, and the two
+> must be scored separately.** It flagged `p.status IN ('active','deployed')` as the `pages.status`
+> vs `build_status` landmine. Enumerated: `active` 585, `archived` 29 — **`'deployed'` NEVER OCCURS
+> in `pages.status`, so half that disjunct is dead.** The seat was right. But all 32 items sit on
+> `status='active'`, so the revalidator is **not inert** and the feared WRONG_CALLS-shaped failure
+> does not happen. The dead literal is inherited verbatim from the emit side and **stays**:
+> narrowing the shared predicate inside a retraction commit would change what the CHECK matches, for
+> no behavioural gain. Recorded, not silently fixed.
+
+⚠ **The provenance census produced a FALSE POSITIVE in the direction of alarm.** Two `created_by`
+values (`generic` 25, `quality-discovery-agent` 7) look exactly like two producers. They are two
+AGENTS running one check — `created_by` is `dctx.AgentType`, not the filing code. This is the
+landmine's own point arriving as a live example: **`created_by` cannot answer "is there a second
+producer"**, and the answer is the Go call-site census (one) plus the config census (one row, and it
+is enablement rather than a filing path).
+
+The crowd-out objection (guardian, medium) is refuted by headroom: 151 scanned against a cap of
+1500, `cap_binding false`; +32 is 12% of budget. It would have been CORRECT at the old cap of 500 —
+it is the 2026-08-06 stopgap that makes it moot, which is a dependency worth knowing rather than a
+bad objection.

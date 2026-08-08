@@ -1,5 +1,21 @@
 # 033 — the human-review queue has no working surface: 292 items, none ever actioned through it
 
+> **RAISED HERE 2026-08-08 by a council seat, and it belongs to THIS file's ~175 figure, not to the lane that found it.**
+> The `bug_historian` seat (medium, council `4d430ca8`) objected that registering a `voice_tells`
+> revalidator patches one map entry when the shape is generic: **an item_type filed
+> `HandlerAgent: ""` has no dispatch, no handler, no revalidator, and parks for ever.** It wants the
+> *registration contract* constrained — a lint or test requiring every `HandlerAgent: ""` item_type
+> to have either a revalidator or a documented exemption — rather than an Nth registration.
+> **The ~175 "deliberate, documented escalations" tabulated in this file are the evidence for that
+> claim**, which is why it is recorded here rather than in the adopting lane.
+> ⚠ Not actioned, deliberately: a test constraining what every discovery check may file changes a
+> SHARED CONTRACT, which the platform-seams ruling puts at architecture scope, and two seats
+> disagreed in the same round — `architecture` recorded `point_fix` and *"uses the extension point as
+> designed … does not meet the RFC bar"*. **Seats disagreeing with each other is the signal it needs
+> a human, not a resubmission.** Needs an owner call on whether the contract gets a mechanism.
+
+
+
 > **CONSUMER NOTICE 2026-08-08 — `voice_tells` is no longer parked-for-ever, and this file's tally of it will move.**
 > The review-queue sweep (`revalidate_review_queue`) gained a `voice_tells` revalidator
 > (`ef80216be`, council `4d430ca8-7e34-479a-95f3-71fdc12fdef6`, inert until the next chassis roll).
