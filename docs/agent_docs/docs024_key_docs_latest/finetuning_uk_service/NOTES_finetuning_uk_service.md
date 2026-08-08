@@ -356,3 +356,107 @@ dispatch rule — nothing was dispatched at finetuning.uk from my side.
   it decoded; do not rerender that page before it is.
 
 — bugfix_140 lane
+
+---
+
+## 2026-08-08 — Phase −1 COMPLETE: token live via terraform; pricing captured; vendor-half drill
+
+### Token — live and proven at the artefact
+
+Owner direction (08-05): **the token is set via terraform `047-base-configs`,
+not `kubectl patch`** — the truth of the key is `terraform.tfvars.secret` (from
+`~/.config/thundercompute/token`), and the secret is that root's
+`kubernetes_secret.personae_default_api_keys`. Procedure written as RUNBOOK §1c.
+This retro-explains the 401 episode: the rejected `a73…96` key MATCHED the
+tfvars exactly, so the cluster key *came from terraform*, and any hand-patched
+key was one apply away from silent reversion. The mechanism was fighting the
+rotation, not failing it.
+
+What happened, honestly recorded:
+- I updated the tfvars (`f39…ff`, from the token file, value never printed) and
+  fingerprint-compared **all 19 values across both managed secrets plus the
+  configmap's AGENT_IMAGE_TAG** against live before any apply: zero drift, so
+  the apply was provably single-key. Plan: `0 add, 1 change, 0 destroy`.
+- The tool classifier blocked `terraform apply` from my session (twice). Owner
+  ran it via `!` on 08-05 → **"No changes"** — the value had ALREADY landed by
+  another hand between my plan and their run (probably the other thread; the
+  adapter pod also restarted 08-06 19:54, which I did not do). [UNATTRIBUTED —
+  which hand applied it is not knowable from here, and does not matter: the
+  tfvars edit I made is the change that shipped.]
+- **Verified 08-08 from inside the pod** (the artefact, not the tag): pod env
+  `len=64 f39..ff`; `GET /v1/instances/list` → **`{}`** — authenticated, and
+  zero instances exist on the account. The same call was 401 on 08-03.
+
+### Pricing — /specs has NO prices; the plan's assumption was wrong
+
+`GET /v1/specs` (verified 08-08): 32 entries, hardware only — no price field
+anywhere in the payload. The PLAN and RUNBOOK both said "capture rates from
+/v1/specs"; **that endpoint cannot do it.** Rates captured from
+https://www.thundercompute.com/pricing instead:
+
+| gpu_type | VRAM | $/hr |
+|---|---|---|
+| **a6000** | 48GB | **$0.35** |
+| l40 | 48GB | $0.79 |
+| a100xl | 80GB | $1.09 |
+| h100 | 80GB | $2.19 |
+
+Billed per minute; +$0.04/vCPU/hr beyond 4; storage $0.03/100GB/hr beyond
+100GB; snapshots $0.05/GB/mo.
+- ⚠ **`l40s` does not exist** — the plan guessed it; the real playground GPU is
+  the **a6000 at $0.35/hr** (only x1 and x1_prototyping variants). A 2-hour
+  playground window ≈ **$0.70** — better than the plan's £1–£3 guess.
+- ⚠ `thunder_config.default_hourly_rate_usd` still says **$1.80** for a100xl;
+  live rate is **$1.09** — stale HIGH, so the cost gate over-refuses, which is
+  the safe direction. Correct only when Phase 0 is about to run (RUNBOOK §1
+  step 5).
+
+### `reaped_at` is a DEAD COLUMN — nothing writes it
+
+Grepped Go + platform for `reaped`: **no writer exists** for
+`reaped_at`/`reaped_reason`, and the `'reaped'` status in the CHECK constraint
+is written by nothing either. A fully successful reap ends at
+`status='decommissioned'` via the ordinary decommission path.
+> **CORRECTION to the 07-31 metric:** "0 of 23 rows have `reaped_at` set" was
+> quoted as proof the reaper had never reaped. The conclusion was right (the
+> selector provably matched nothing) but the metric was unfalsifiable — that
+> column could never have been set by any code path. The honest success signal
+> for a reap is the row reaching `decommissioned` with `decommissioned_at` and
+> `cost_usd` stamped, plus the reaper orchestration row.
+
+### Vendor-half drill (in progress at time of writing)
+
+The 08-03 drill proved select+dispatch but was stopped by design before the
+vendor call (non-numeric id + invalid token). Today both blockers are gone, so:
+drill row `5a00b2a4-c0fd-4a7f-88ca-2eeb61dfa02c`, `thunder_instance_id='999999'`
+(numeric-but-implausible — SAFE BY MEASUREMENT this time: `instances/list`
+returned `{}`, zero instances on the account, so no id can match a real box, and
+`DeleteInstance` treats 404 as success), `instance_ip` SET (dodging the
+still-open `bugs_open/186`), rate $0, 30h old vs 18h cap. Expected pass:
+lookup → `decommissioning` → Thunder delete 404≡ok → `decommissioned`,
+`cost_usd=0`. Result recorded below when the tick lands.
+
+### Vendor-half drill RESULT — the reaper is now proven END TO END
+
+Tick 09:23:42Z, row terminal at **09:24:14Z** (32 seconds tick-to-terminal):
+`running` → `decommissioned`, `cost_usd=0`, no error. Adapter log confirms
+every stage that matters, including the two the 08-03 drill could not reach:
+`Received request` → `Thunder API request` → `Thunder API response` →
+**`Thunder instance already deleted (404)`** (a real, authenticated vendor
+call; 404 on the fake id treated as success, exactly as designed) →
+`Decommission complete, cost_usd=0` → `Sent success response`.
+
+So the chain select → dispatch → lookup → MarkDecommissioning → **Thunder
+delete** → Secret delete → MarkDecommissioned is now **proven live**, with the
+one caveat recorded honestly: the lookup step passed because the drill row
+carried an IP — the NULL-IP case is `bugs_open/186`, whose fix is committed
+(`f83927375`) and **council-APPROVED round 1** (`862583b1`, verdict read) but
+inert until the thunder-adapter image rolls. Re-run THIS drill with
+`instance_ip` omitted after that roll (the 114 template now does exactly that).
+
+Drill row deleted (matched id AND thunder_instance_id); table verified back to
+23 rows / 0 live / 0 drill remnants; `can_provision=t`, spend $0.
+
+**Cost of the entire two-drill campaign: $0.00** — no real instance was ever
+created, both fake ids were unreachable-by-construction, and the account's
+`instances/list` was `{}` throughout.

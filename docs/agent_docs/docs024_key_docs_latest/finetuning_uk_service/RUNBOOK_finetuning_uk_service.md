@@ -7,16 +7,16 @@ not in scrollback. Companion: `PLAN_2026-07-31_finetuning_uk_service.md`.
 
 ## 1. Phase −1 — rotate the Thunder Compute token (OWNER ACTION, blocks all GPU work)
 
-> **STATUS 2026-08-03: STILL BLOCKED — the key in the cluster returns 401.**
-> The secret holds a 64-char key fingerprinted `a73…96`, the pod's env matches it,
-> and `GET /v1/instances/list` with it returns **401 Unauthorized**. Controls (a
-> bogus token, and no header at all) also return 401, so 401 is this API's
-> auth-rejection response and the key is genuinely invalid — not a header-shape
-> artefact. That fingerprint is **not** the key minted on 07-31 (`5a2…c2`), so
-> the patch in step 2 below has not yet been run.
-> **Silver lining: an invalid key cannot provision either, so nothing can be
-> billing.** The real cost is that §1b — the only orphan-visible check — is blind
-> until this is fixed.
+> **STATUS 2026-08-08: RESOLVED — token live and verified from the pod**
+> (`instances/list` → `{}`, authenticated, zero instances). **The mechanism of
+> record changed (owner, 2026-08-05): the token is set via TERRAFORM, not
+> `kubectl patch`** — see §1c below, which supersedes steps 2–3 for this key.
+> The 401 episode's cause is now explained: the old key came FROM the tfvars, so
+> any hand-patched key would have been silently reverted by the next apply.
+>
+> ~~STATUS 2026-08-03: STILL BLOCKED — the key in the cluster returns 401.~~
+> (Old key `a73…96` rejected; controls — bogus token, no header — also 401,
+> proving 401 = auth-reject. An invalid key cannot provision, so nothing billed.)
 
 The key is `THUNDER_COMPUTE_API_KEY` in secret **`personae-default-secrets`**
 (ns `ai-persona-system`), consumed via `envFrom` by the `thunder-adapter`
@@ -53,17 +53,60 @@ and refuses to start if empty.
    NOTE the container may lack `wget`/`curl` — if both are missing, run the same
    request from any pod that has curl, exporting the key via
    `kubectl get secret personae-default-secrets -o jsonpath='{.data.THUNDER_COMPUTE_API_KEY}' | base64 -d`.)
-5. While the token is fresh, **capture current per-GPU rates** for pricing:
-   `GET /v1/specs` (same header). Record the a100xl, l40, l40s, a6000 hourly
-   rates in NOTES, and correct `thunder_config` if drifted:
+5. While the token is fresh, **capture current per-GPU rates** for pricing.
+   ⚠ **`GET /v1/specs` carries NO prices** (verified 2026-08-08: 32 spec entries,
+   hardware only — no price/rate/cost field anywhere in the payload). Rates come
+   from https://www.thundercompute.com/pricing. Captured 2026-08-08:
+   **a6000 $0.35/hr · l40 $0.79/hr · a100xl $1.09/hr · h100 $2.19/hr**, billed
+   per minute; +$0.04/vCPU/hr beyond 4; storage $0.03/100GB/hr beyond 100GB;
+   snapshots $0.05/GB/mo. ⚠ **There is NO `l40s` gpu_type** — the earlier plan
+   text guessed one; the real menu is a100xl, a6000, h100, l40 (in x1/x2/x4/x8
+   and prototyping/production variants). ⚠ `thunder_config` still says $1.80/hr
+   for a100xl — the live rate is $1.09, so the gate over-estimates. Correct it
+   with the UPDATE below **only when Phase 0 is actually about to run** — the
+   gate also protects every other lane that might provision:
    ```sql
    -- rates informing the cost gate; $20 estimated_new_run_cost_usd is sized for
    -- 70B runs and will over-refuse small ones if left
    UPDATE thunder_config SET default_hourly_rate_usd = <rate>,
           estimated_new_run_cost_usd = <small-run estimate>;
    ```
-   ⚠ Do this UPDATE only when Phase 0 is actually about to run — the gate also
-   protects every other lane that might provision.
+
+## 1c. Token rotation THE MECHANISM OF RECORD — terraform (owner direction, 2026-08-05)
+
+`personae-default-secrets` is **owned by Terraform root
+`deployments/terraform/environments/production/uk001/047-base-configs`**
+(`kubernetes_secret.personae_default_api_keys`, `main.tf:114-134`). A
+`kubectl patch` on this secret is DRIFT and the next `terraform apply` reverts
+it — which is exactly what made the 07-31 rotation vanish.
+
+1. Owner puts the fresh token in `~/.config/thundercompute/token` (one line).
+2. Update the tfvars **without printing the value** (from the root dir):
+   ```bash
+   python3 - <<'EOF'
+   import re
+   new = open('/home/ant/.config/thundercompute/token').read().strip()
+   assert len(new) == 64 and '"' not in new
+   p = 'terraform.tfvars.secret'
+   s, n = re.subn(r'^(default_thunder_compute_api_key\s*=\s*)".*"$',
+                  lambda m: m.group(1)+'"'+new+'"', open(p).read(), flags=re.M)
+   assert n == 1; open(p,'w').write(s)
+   EOF
+   ```
+   (`terraform.tfvars.secret` is gitignored — verified; never commit it.)
+3. **Fingerprint-compare every key in the tfvars against BOTH live secrets
+   before applying** (len + first-3/last-2 only). This root manages the whole of
+   `personae-default-secrets` AND `personae-platform-secrets` AND the prod
+   configmap — an apply against a drifted tfvars silently reverts someone
+   else's hand-rotated key. 2026-08-05: all 19 values matched, so the apply was
+   provably single-key.
+4. `terraform plan -var-file=terraform.tfvars.secret` — expect exactly
+   `0 to add, 1 to change, 0 to destroy`. Then apply (same `-var-file`).
+   ⚠ The tool classifier blocks `terraform apply` from an agent session — the
+   owner runs it (`!` prefix works).
+5. The adapter reads the key at pod start: `rollout restart deployment
+   thunder-adapter`, then verify from inside the pod (§1 step 4). `{}` =
+   authenticated, zero instances.
 
 ## 1b. "AM I BEING BILLED RIGHT NOW?" — the check to run before bed
 
@@ -134,6 +177,15 @@ UPDATE thunder_config SET is_paused = true, pause_reason = '<why>';
   `running_since` 30h ago; wait one tick; confirm the dispatch fired and the row
   moved. Decommission is idempotent on a 404, so a bogus id is safe. Delete the
   row afterwards.
+- ✅ **PROVEN END TO END 2026-08-08** (drill row id `999999`, numeric-but-safe:
+  `instances/list` was `{}` so no id could match a real box). Tick → terminal in
+  32s: `running` → `decommissioned`, cost stamped, adapter log shows the real
+  authenticated Thunder delete with `Thunder instance already deleted (404)`
+  treated as success. Both drills together cost **$0.00**. Two caveats: the
+  lookup passed because the row carried an IP — the NULL-IP case is
+  `bugs_open/186` (fix committed `f83927375`, council-APPROVED `862583b1`,
+  **inert until the adapter image rolls** — re-drill with `instance_ip` omitted
+  after that roll, per the 114 template); and orphans (below) remain uncovered.
 
 ## 2. Scripts bundle — the training deploy unit
 

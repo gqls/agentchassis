@@ -119,3 +119,41 @@ Better to find that now than after someone has paid.
 
 Nothing I've touched today goes anywhere near the site itself, so your other
 thread and this one aren't going to collide.
+
+## 8 August 2026 — the key works, the safety net is proven, and the prices came down
+
+Three pieces of good news, each checked rather than hoped.
+
+First, the key. Your new Thunder Compute token is in and working — I checked
+from inside the actual machine that uses it, and Thunder answered properly
+where a week ago it refused. The important change is HOW it got there: the key
+now lives in the Terraform configuration, which is the system that owns that
+secret. That also finally explains last week's mystery — the key we thought we
+had installed kept not working because Terraform, quite correctly, kept putting
+its own older key back. Fighting the mechanism looked exactly like a broken
+key. The procedure is written down now, and it starts from the file where you
+keep the token.
+
+Second, the safety net. The automatic sweep that shuts down forgotten GPU
+machines has now been proven all the way to the end. Last week it correctly
+noticed an overdue machine but choked on our own database before it could act
+— and even that test couldn't reach Thunder itself, because the key was bad.
+Today, with the working key, I staged another fake overdue machine and watched
+the sweep notice it, call Thunder for real, handle Thunder's "no such machine"
+answer gracefully, work out the cost, and close the record — thirty-two
+seconds from trigger to done. The database bug it tripped over last week has
+been fixed, reviewed and approved (the review panel passed it first time), and
+that fix goes live with the next software release. Total spend across all this
+testing: nothing. No real machine was ever created.
+
+Third, the prices. The A100 we budgeted at $1.80 an hour is now $1.09. Better
+still, there's a smaller card (an A6000, plenty for the try-it-out playground)
+at thirty-five cents an hour — so a customer's two-hour playground session
+costs us about seventy cents, comfortably inside a few-pounds price. One
+correction to my earlier plan: the mid-range card I named ("L40S") doesn't
+actually exist in Thunder's catalogue — the real options are the A6000 and the
+L40, and the A6000 is cheaper anyway.
+
+What's next is the rehearsal run: one small model trained end to end, timed
+and priced for real. That was always the gate before putting a price on the
+page, and nothing blocks it any more.
