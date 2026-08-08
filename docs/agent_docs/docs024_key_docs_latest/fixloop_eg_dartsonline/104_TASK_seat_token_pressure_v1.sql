@@ -58,15 +58,39 @@ WITH live AS (
   -- 'output_tokens >= max_tokens' can never match one. Shipped that way 2026-07-30 and
   -- it undercounted 94 truncations to 4, while also dropping the most extreme calls
   -- from the headroom stats. A truncated call scores frac = 1.0: it reached its cap.
+  --
+  -- THIRD INSTANCE OF THE SAME CLASS, 2026-08-08 (bugfix_183 lane, with permission).
+  -- The vocabulary was still one needle short: the bugs_open/119 retry path writes
+  -- `RETRY (bugs_open/119) TRUNCATED and tolerated` with NO 'stop_reason=max_tokens'
+  -- in it, so a genuine cap-reaching truncation scored as an ordinary call. Found by
+  -- ENUMERATING the error strings rather than grepping for the expected one:
+  --   SELECT left(error_message,60), count(*) FROM llm_call_log
+  --    WHERE created_at > now()-interval '90 days' AND error_message IS NOT NULL
+  --      AND step_name LIKE 'review_%' GROUP BY 1 ORDER BY 2 DESC;
+  -- Measured impact on this window: 58 -> 59 truncations. The one row is
+  -- review_adoption_guardian@120 (n=2), far under the n>=20 floor, so TODAY'S flagged
+  -- set does not move — this is correctness for when the string recurs at volume.
+  --
+  -- DO NOT widen to '%RETRY (bugs_open/119%': that also matches
+  -- `RETRY (bugs_open/119: first attempt did not parse)`, which is a PARSE failure,
+  -- not a truncation (4 rows, all with output_tokens set, none at cap). The needle
+  -- must be 'TRUNCATED and tolerated'.
+  -- The other two wrappers need no change — 'TOLERATED (step continued on the
+  -- partial): …' and 'REFUSED (bugs_open/076 …): …' both carry the original
+  -- 'stop_reason=max_tokens' text and were already matched.
   SELECT step_name AS seat, max_tokens AS cap, agent_type,
-         (error_message ILIKE '%stop_reason=max_tokens%') AS was_truncated,
+         (error_message ILIKE '%stop_reason=max_tokens%'
+          OR error_message ILIKE '%TRUNCATED and tolerated%') AS was_truncated,
          COALESCE(output_tokens::numeric / max_tokens,
-                  CASE WHEN error_message ILIKE '%stop_reason=max_tokens%' THEN 1.0 END) AS frac
+                  CASE WHEN error_message ILIKE '%stop_reason=max_tokens%'
+                         OR error_message ILIKE '%TRUNCATED and tolerated%' THEN 1.0 END) AS frac
   FROM llm_call_log
   WHERE created_at > now() - interval '14 days'
     AND step_name LIKE 'review_%'
     AND max_tokens > 0
-    AND (output_tokens IS NOT NULL OR error_message ILIKE '%stop_reason=max_tokens%')
+    AND (output_tokens IS NOT NULL
+         OR error_message ILIKE '%stop_reason=max_tokens%'
+         OR error_message ILIKE '%TRUNCATED and tolerated%')
 ), agg AS (
   SELECT p.seat, p.cap, p.councils,
          count(c.frac) AS n,

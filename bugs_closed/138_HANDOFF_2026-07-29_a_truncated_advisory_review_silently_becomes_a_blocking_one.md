@@ -870,3 +870,61 @@ induction programme by refusing an instructed verdict — the full account is
 Passive watch, no owner: if `metadata->>'gated_by_truncation'='true'` ever appears on
 a `council_report`, the last artefact is witnessed for free — note it here and nothing
 more is owed.
+
+---
+
+## Post-closure correctness fix to FIX-058, 2026-08-08 (bugfix_183 lane, owner-approved)
+
+**The bug stays CLOSED. This changes nothing about its findings** — it corrects the
+instrument's counter, which was still one needle short of the truncation vocabulary.
+
+**Third instance of this file's own signature defect.** The count went 4→94 when
+`output_tokens >= max_tokens` was replaced by an `error_message` match (`4e24d1263`),
+and again when the same blind counter was found in the scheduled task (`1f0a9879b`).
+It was still missing one wrapper: the `bugs_open/119` retry path writes
+
+```
+RETRY (bugs_open/119) TRUNCATED and tolerated
+```
+
+with **no `stop_reason=max_tokens` anywhere in it**, so a genuine cap-reaching
+truncation (`output_tokens = max_tokens = 120`) scored as an ordinary call.
+
+**Found by enumerating the error strings rather than grepping for the expected one** —
+the check that would have closed this class the first time:
+
+```sql
+SELECT left(error_message,60), count(*) FROM llm_call_log
+ WHERE created_at > now()-interval '90 days' AND error_message IS NOT NULL
+   AND step_name LIKE 'review_%' GROUP BY 1 ORDER BY 2 DESC;
+```
+
+**Impact, measured, and deliberately small:** review-step truncations in the task's
+14-day window go **58 → 59**. The one row is `review_adoption_guardian@120` at n=2,
+far below the `n >= 20` floor, so **today's flagged set does not move** (re-rendered
+after the change: the same 9 findings, `review_prior_art@8000` still top at 6
+truncations). This is correctness for when the string recurs at a seat with volume,
+not a live alert change.
+
+**The trap for whoever edits this next:** do **not** widen to `%RETRY (bugs_open/119%`.
+That also matches `RETRY (bugs_open/119: first attempt did not parse)` — a *parse*
+failure, not a truncation (4 rows, all with `output_tokens` set, none at cap). The
+needle must be `TRUNCATED and tolerated`. The other two wrappers needed no change:
+`TOLERATED (step continued on the partial): …` and `REFUSED (bugs_open/076 …): …`
+both carry the original `stop_reason=max_tokens` text.
+
+**Scope deliberately NOT widened.** The sibling task `fleet-step-token-pressure`
+(LCO-007) also gained a clock-exhaustion arm on 2026-08-06, because a non-streaming
+600s HTTP client means a call can die on wall-clock instead of on its cap. **That arm
+was not added here**: review seats have **never** hit the clock — 29 cancellation rows
+all-history, **zero** at the 480s floor, peak 78s, median 22s. Adding a detector for a
+condition this population has never produced would be speculative scope creep into a
+closed lane.
+
+**Applied to both halves, verified byte-identical:** the file
+(`fixloop_eg_dartsonline/104_TASK_seat_token_pressure_v1.sql`) and the live
+`scheduled_tasks.council-seat-token-pressure` row, via a targeted `UPDATE` rather than
+a delete-and-reseed so the task keeps its identity and schedule. The seeded query was
+then executed verbatim out of the live row.
+
+Nothing further is owed on this bug. Passive watch above still stands.

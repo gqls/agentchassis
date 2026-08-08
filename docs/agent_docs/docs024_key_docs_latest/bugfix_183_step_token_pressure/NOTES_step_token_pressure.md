@@ -323,3 +323,58 @@ another lane's live shared check unilaterally is precisely the config-clobber pa
 this estate keeps getting bitten by, and `bugs_closed/019` records two threads declining
 the same shortcut on the same day for the same reason. Flagged here and in the summary
 for whoever picks it up.
+
+## 2026-08-08 — took on FIX-058's gap, after checking it was free
+
+Owner asked me to check whether the lane was still closed and, if so, take it.
+
+**The ownership check, four ways, because `who-owns` alone is saturated:**
+
+- `bugs_closed/138` — still in `bugs_closed/`, last commit `319775eb9` *"close(138):
+  owner decision — every fix live, every arm witnessed"*. Closed by the owner.
+- `who-owns.py 138` → `VERDICT: OWNED or recently active` — **ignored, as the memory
+  says to**: it returns that for essentially every bug at ~1,500 commits/week. The
+  discriminating section listed a dozen dirs at 2–4 mentions each, which is
+  mention-noise; one of them was **my own lane**.
+- **Live transcripts, grepped for FIX-058's fix-site symbols** — 4 sessions touched
+  `council-seat-token-pressure`, but reading the hits rather than tallying them showed
+  both multi-symbol sessions were **readers**: one was quoting my own NOTES and
+  `LANDMINES.md`, the other was an `orchestration_states` dump of a council run in
+  flight. Neither is a fixer. `104_TASK_seat_token_pressure` scored **0**.
+- **File mtimes** — `104_TASK`/`104_REPORT` untouched since Jul 31.
+
+**A false signal worth recording: `scheduled_tasks.updated_at` is useless as an
+"edited?" check.** The scheduler stamps it on every trigger, so it equals
+`last_triggered_at` on both tasks and can never tell a config edit from a run. I
+reached for it first. The reliable check is the pre_query content itself.
+
+## The measurement narrowed the change rather than widening it
+
+Two questions decided scope, and both answers made the change *smaller*:
+
+1. **Should FIX-058 also get the clock arm?** No. Review seats have **never** hit the
+   clock — 29 cancellation rows all-history, **zero** at the 480s floor, peak 78s,
+   median 22s. Adding it would have been speculative scope creep into a closed lane.
+2. **How big is the vocabulary gap?** Exactly **one row**, 58 → 59 in the task's own
+   14-day window, on `review_adoption_guardian@120` at n=2 — under the n≥20 floor, so
+   **today's flagged set does not move at all**. Stated plainly in the bug file so
+   nobody reads this as an alert change.
+
+**The trap I nearly walked into:** the obvious widening is `%RETRY (bugs_open/119%`,
+which would also swallow `RETRY (bugs_open/119: first attempt did not parse)` — 4 rows
+that are *parse* failures, not truncations, none at cap. That would have inflated the
+count while claiming to fix it. The needle has to be `TRUNCATED and tolerated`. Only
+the enumeration showed both strings side by side; a grep for the one I wanted would
+have shown neither.
+
+**Applied to both halves and proven:** file and live verified **byte-identical**
+after the change (they already were before it — no pre-existing drift); a targeted
+`UPDATE` rather than delete-and-reseed so the task keeps its identity and schedule;
+the seeded query then executed **verbatim out of the live row**; and — the check that
+distinguishes "unchanged" from "went silent" — the flagged set re-rendered to its
+usual **9 findings**, `review_prior_art@8000` still top at 6 truncations. A 0-row
+insert alone would not have proven that.
+
+Recorded **into `bugs_closed/138` itself**, not a parallel account, per the ownership
+guidance, plus the register's FIX-058 entry as a fourth instance of that entry's own
+signature defect.
