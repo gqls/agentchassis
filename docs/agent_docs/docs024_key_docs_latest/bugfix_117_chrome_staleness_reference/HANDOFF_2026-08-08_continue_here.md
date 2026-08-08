@@ -36,11 +36,12 @@ tests in `chrome_render_inputs_contract_test.go`.
   live and inert — the running image (v1.0.1258 fleet) neither reads nor
   writes it. The ordering constraint (column before code) is therefore already
   satisfied for ANY future roll.
-- **Council:** `Council-Submitted: f62e20ae-f340-40d9-a1ac-562f347c0e38` —
-  run was EXECUTING_STEP `review_guidelines` at 14:50Z. **READ THE VERDICT**
-  (`SELECT body FROM doc_notes WHERE categories ? 'council-gate' ORDER BY
-  created_at DESC LIMIT 1;`) and act on a REVISE/REJECTED — the code is
-  already on the shared branch.
+- **Council: APPROVED round 1** (14:57Z, correlation `f62e20ae-…`), 6 advisory
+  objections, none high-severity — triaged with evidence in NOTES (the
+  "content_hash already exists" objection from two seats is refuted by
+  measurement: the column is populated on 0 of 1,884 live rows and hashes
+  output, not inputs). The `998bf4c9f` commit carries `Council-Submitted:`;
+  098 credits it automatically now the verdict is approved — no amend.
 - **NOT deployed, deliberately.** Deploys are owner-run and whole-fleet
   (`make release redeploy-agents ENVIRONMENT=production REGION=uk001` — owner
   feedback 2026-08-03; a single-service roll at its own tag fragments the
@@ -49,8 +50,7 @@ tests in `chrome_render_inputs_contract_test.go`.
 
 ## What the next session does, in order
 
-1. Read the council verdict; on REVISE, revise and resubmit with
-   `RESUBMIT_CORR=f62e20ae-f340-40d9-a1ac-562f347c0e38`.
+1. ~~Read the council verdict~~ — DONE, APPROVED r1 (see above).
 2. After the owner's next fleet release: run RUNBOOK **R10** — pod-grep
    positive `render_inputs` / negative `stale_sc_` on every replica, same exec.
 3. Watch the one-time baseline wave: ~19 `stale_chrome` items (one per site,

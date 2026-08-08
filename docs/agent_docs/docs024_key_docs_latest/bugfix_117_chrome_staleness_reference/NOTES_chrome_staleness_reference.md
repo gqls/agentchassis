@@ -260,3 +260,42 @@ the lock-predicate delegation (output string identical).
 carries the full measurement trail; risks names the 19-item baseline drain and
 the migration-before-roll ordering). Committing with `Council-Submitted:`
 rather than holding code for the verdict, per the 2026-07-30 practice.
+
+## 2026-08-08 — council verdict: APPROVED round 1, 6 advisory objections, triaged
+
+`complete_approved` 14:57:41Z, ~7 minutes after dispatch. None high-severity.
+Triage, so the reasoning is on record rather than in a scrollback:
+
+1. **"page_components already carries content_hash for exactly this"** (2
+   seats, medium) — REFUTED BY MEASUREMENT: the column exists on `pages` and
+   `page_components` but is populated on **0 of 614 and 0 of 1,270 rows** (its
+   writer `computeContentHash`, site_db_actions.go:1553, never persists on the
+   live path), does not exist on `site_components` at all, and hashes CONTENT
+   (output), which cannot answer "would a re-render change anything?" without
+   re-rendering. A dead column looking like a live mechanism — the
+   grep-the-config-key class, this time inside a council seat.
+2. **Dedup swallow on the coarser key** (medium) — considered in design: while
+   a `stale_chrome` item is open, drift on another slot IS swallowed by
+   `UNIQUE(site_id, item_key)` — and the handler rebuilds ALL slots when the
+   open item drains, so the swallowed finding is covered by the same rebuild.
+   Drift arriving after the rebuild but before the item goes terminal re-fires
+   on the next discovery pass. Worst case: one-cycle delay; no finding lost.
+3. **Declared exclusions = invisible staleness of exactly 117's class**
+   (medium) — true, deliberate, and each boundary is measured + written in
+   IMP-052 (fallback nav: 0 sites; dead-CTA: owned by 191's marker). The
+   alternative — hashing stores the render does not read — is misstep 2.
+4. **Locked rows newly excluded** (low) — deliberate: the old check fired on
+   them and its handler could not restamp them, which is the unresolved-churn
+   shape. 069's lock_blocked_change surface owns locked-slot changes.
+5. **Migration ledger / ordering / deploy-verification** (medium+low) — all
+   closed in practice the same hour: 334 checked against the dir numbering,
+   applied scoped, recorded in `schema_migrations` (applied_by
+   `bugfix_117_lane_hand_applied`); ordering risk window closed by applying
+   BEFORE any roll; RUNBOOK R10 is the pod-grep recipe (positive
+   `render_inputs`, negative `stale_sc_`).
+6. **updated_at fix is scope creep** (low, 2 seats) — acknowledged in the
+   submission itself; one line, closes the single-writer outlier the census
+   found; kept.
+
+Verdict is APPROVED so the commit (`998bf4c9f`, `Council-Submitted:` trailer)
+is credited automatically by 098 at report time. No amend — forward-only.
