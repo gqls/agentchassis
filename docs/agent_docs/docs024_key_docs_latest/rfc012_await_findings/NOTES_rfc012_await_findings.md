@@ -1078,3 +1078,26 @@ This also means my earlier note ("verdict not read — genuinely outstanding") i
 **And the wrapper lesson from `c7d4af7cc` applied properly this time:** ran
 `./scripts/landmines-verify-dispatch.sh` INSTEAD OF the bare `--apply`, and it reported
 `content changed: 1 / orphaned: 0` and dispatched in one go.
+
+### The BEHAVIOURAL proof, which is worth more than the pod-grep
+
+A pod-grep proves the code is in the binary. It does not prove the code runs, or that any call site
+is correct. This does:
+
+```sql
+SELECT count(*) rows_since_roll, count(DISTINCT agent_type) FROM agent_error_log
+WHERE occurred_at > '2026-08-08 18:57:00+00';                  -- 305 rows, 26 distinct agents
+SELECT action, error_code, count(*) FROM agent_error_log
+WHERE agent_type='unattributed' GROUP BY 1,2;                  -- 0 rows
+```
+
+**305 rows from 26 distinct agent types have flowed through the new strict door since the roll, and
+not one of them is `unattributed`.** So every live call site names its provenance, the merge split
+is executing, and the census (11 strict / 6 declared / 4 simple = 21) is confirmed by production
+rather than by my grep.
+
+**The pairing is the point, and it is the rule this estate keeps having to relearn:** the second
+query alone is worthless — 0 rows is exactly what a dead code path, an empty table or a wrong
+predicate returns. The first query is what makes the zero *disconfirmable*, because it shows the
+writer is demonstrably busy in the window. `[MEASURED 2026-08-08, both halves]` Had the first
+returned 0 too I would have learned nothing and would have had to induce a row deliberately.
