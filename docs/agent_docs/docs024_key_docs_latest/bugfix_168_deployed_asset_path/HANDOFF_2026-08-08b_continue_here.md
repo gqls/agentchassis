@@ -1,11 +1,11 @@
-# HANDOFF — 2026-08-08b — `voice_tells` adopted and APPROVED. One baseline left to spend.
+# HANDOFF — 2026-08-08b — `voice_tells` adopted, APPROVED and LIVE. Nothing is owed but a look at tomorrow's sweep.
 
 **Read this file only.** It supersedes `HANDOFF_2026-08-08_continue_here.md` for state; that file
 stays for its reasoning and its traps, all of which still hold. Working and missteps:
 `NOTES_deployed_asset_path.md` (newest at the bottom).
 
-**One thing is owed — the post-roll grep in §0b — and it is cheap. Everything else is finished,
-blocked-by-design, or waiting on an owner call.**
+**Nothing is half-applied and nothing needs a decision tonight.** The code is live and proven at
+the binary; the only thing left is to look at the ~08:37Z sweep and confirm it by EFFECT (§0b).
 
 ---
 
@@ -50,7 +50,22 @@ no amend. **So a REVISE or REJECTED is real work, not a formality.** Do not writ
 
 </details>
 
-### 0b. ⚠ THE PRE-ROLL BASELINE IS TAKEN. SPEND IT AFTER THE NEXT ROLL.
+### 0b. ✅ LIVE on `v1.0.1268` — the baseline was spent and the transition completed
+
+> **POST-ROLL, BOTH replicas: `1 / 1 / 1`, positive control `2`.** Against the pre-roll baseline of
+> **`0 / 0 / 0 / 2`** on `v1.0.1267`. That is the whole proof for an additive change.
+> **The build was not mine** — the change rode along at HEAD, which is normal here.
+>
+> **STILL TO DO, and it is just a look:** confirm by EFFECT after the ~08:37Z scheduled sweep.
+> `scanned` should rise by roughly the live `voice_tells` count and `uncovered_backlog` fall by the
+> same; **`cap_binding` must stay `false`**. Any closures appear as `resolution_path='auto:revalidated'`,
+> which outlives the ~24h orchestration retention — so if you miss the run, the closures still tell you.
+>
+> ⚠ **Do NOT hand-dispatch to force it.** See §3.5 — a dispatch cannot be scoped, so it would run
+> fleet-wide over five types and stamp ~150 rows. The scheduled run does the same thing unattended,
+> which is the condition this change was reviewed for.
+
+<details><summary>How the baseline was taken, kept because the reasoning is reusable</summary>
 
 The change is **purely string-additive**, so there is **no valid negative control** — nothing was
 removed that can be greped for 0. For an additive change the dated **0 → 1 transition is the whole
@@ -75,6 +90,8 @@ done
 **After the roll all three must be ≥1 on every replica, positive control still non-zero.** A 0/0/0/0
 means the probe broke, not that the change did not ship. `N=${N:-0}` is not optional (`grep -c`
 prints nothing and exits 1 on zero) and the needles are **ASCII-only on purpose**.
+
+</details>
 
 ⚠ **My first baseline attempt used a BAD NEEDLE and I nearly recorded it.** I grepped
 `no longer exists` — a fragment of one of my new reason strings — and got **6** on a binary that
@@ -112,7 +129,7 @@ is being left behind and the starvation this lane fixed is back.
 | Sweep starvation fix | **LIVE, PROVEN UNATTENDED.** Re-greped 1/1/2 on `1264`, `1266`, `1267` |
 | Latest scheduled run (`1ac359c4`, 08:38Z) | `scanned 151 · cap_binding false · resolved 3 · uncovered_backlog 625` |
 | Closures by day | 3 (08-08) · 1 (08-07) · 21 (08-06) · 33 (08-04) — steady state |
-| **`voice_tells` revalidator** | **COMMITTED `ef80216be`, council APPROVED r1, INERT until the next roll.** §0b |
+| **`voice_tells` revalidator** | **LIVE on `v1.0.1268`, council APPROVED r1, pod-proven 1/1/1 both replicas.** §0b |
 | Council objections | **ANSWERED** — `OBJECTIONS_2026-08-08_voice_tells_council.md`, commit `23e5b6721` |
 | `voice_tells` population | **32 and GROWING** (25 filed 07-17, 7 filed 08-08). NOT a fixed backlog |
 | Concept register | CQ-020 added, index 1,794 → **1,795** (re-greped, 1,795 unique ids) |
@@ -213,6 +230,34 @@ WHERE item_type='<your type>' AND status IN ('complete','verified') GROUP BY 1,3
 A `result.revalidation` block means `revalidate_review_queue` already owns the type — extend it
 rather than writing a second closer. **A `deploy_result` block means a real fix pipeline owns it, and
 retraction is the wrong tool.**
+
+### 3.5 ⚠ A DISPATCH OF THIS SWEEP CANNOT BE SCOPED — and this lane's record said otherwise
+
+Both filters are read from the **step config** and nowhere else:
+
+```go
+config := params.StepConfig.Config              // revalidate_review_queue_action.go:266
+siteFilter, _ := config["site_id"].(string)     // :275
+typeFilter, _ := config["item_type"].(string)   // :276
+```
+
+The live `sweep` step has **no `input_mapping`**, and its entire config is
+`{"dry_run": false, "max_items": 1500}` — no `site_id`, no `item_type`. **So a hand-dispatch
+carrying filters in `input_data` runs FLEET-WIDE over every covered type and looks exactly like a
+scoped run.** Gate 2 stamps `result.revalidation` on every row it scans and does not close (~150
+rows), and a run that closes one row is indistinguishable from a filter that worked.
+
+> **CORRECTED 2026-08-08:** `NOTES` records the 2026-08-06 hand-dispatch as *"**Scoped
+> deliberately**, not fleet-wide"*. **It was not scoped.** Conclusions unaffected — a fleet-wide run
+> is a superset and the closed row was the predicted one — but the characterisation would have told
+> you a scoped dispatch exists. **It does not.** The same file documented that trap two entries
+> earlier, which makes this the second instance in this lane of *a trap you have just documented is
+> not disarmed for your next paragraph*.
+
+If you genuinely need a scoped run: put `site_id`/`item_type` in the **step config** (live
+immediately, no build — but you are editing a shared definition every scheduled run then reads), or
+add an `input_mapping` first. **Never infer scope from what you published**; confirm at the run's
+`scanned` count and at `resolution_path='auto:revalidated'`.
 
 ### 3.4 Or take the next unowned bug from `bugs_open/`
 
