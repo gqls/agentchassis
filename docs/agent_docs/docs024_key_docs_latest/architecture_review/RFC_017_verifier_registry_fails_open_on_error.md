@@ -178,11 +178,41 @@ deliberate branch, `check_empty_sections.go:412`:
 > indistinguishable here)`
 
 That branch is `bugs_closed/032`'s own accepted fix, and its comment states the trade plainly:
-error → fail open → *"a false success becomes a visible unknown."* **The identical branch is
-duplicated in a second verifier** — `check_truncated_component.go:272` — which has never been
-consulted (0 completions of that type). So the error path is armed on **2 of 8** verifiers, by two
-authors, both reasoning correctly from the documented policy. This is not forgetfulness, and
-**option 2 (a lint) would have forbidden a reasoned, documented choice** rather than caught a slip.
+error → fail open → *"a false success becomes a visible unknown."*
+
+> **⚠ CORRECTED 2026-08-08, after the council round. This paragraph said the branch was
+> "duplicated in a second verifier … armed on 2 of 8 verifiers, by two authors". That was WRONG,
+> and it under-stated the blast radius by half.** It is on **4 of 8**, by four authors. I had
+> grepped for the spelling I had already read — `"no longer exists (genuinely fixed or silently
+> deleted — indistinguishable here)"` — instead of for the class, which is the exact failure this
+> lane's own `RUNBOOK` R8 trap 3 warns about and the third time today the check I had written down
+> caught me only afterwards. What forced it into the open was the council `guardian` seat asking
+> for the per-verifier enumeration I had asserted instead of performed (*"asserted ('I assert none
+> does') rather than enumerated per item_type/pipeline"*). The enumeration is below and is now the
+> record; **the ruling is unaffected — blocking is right for all four — but the reach was twice
+> what I told the owner and the council.**
+
+**The deliberate "target absent → cannot distinguish a fix from a loss" branch, enumerated** (the
+`guardian` seat's `missing`, and the answer to it). 34 error returns exist across the 8 verifiers;
+they fall in two classes, and only the second is the one this RFC is about:
+
+| verifier | the ambiguity branch | what is absent |
+|---|---|---|
+| `empty_section` | `check_empty_sections.go:411` | the `page_components` row |
+| `truncated_component` | `check_truncated_component.go:271` | the `content_components` row |
+| `content_duplication` | `check_content_duplication.go:631` | *"page %s no longer exists — cannot distinguish a fix from content loss"* |
+| `page_canonical_collision` | `check_page_canonical_collision.go:382` | *"site %s no longer exists — cannot distinguish a fix from a deleted site"* |
+
+A fifth is adjacent but not clearly the same reasoning — `dead_fragment_link`
+(`check_phantom_internal_links_fragments.go:284`, *"target document … has no stored HTML"*). Every
+remaining error return across all 8 is **infrastructural or malformed-input** (DB error, scan
+failure, a spec with no `page_id`/`component_id`/`site_id`) — and for those, fail-closed's retry is
+the *correct* response, which is the half of the flip that needs no argument.
+
+So the error path is armed on **4 of 8** verifiers, by four authors, every one of them reasoning
+correctly from the documented policy. This is not forgetfulness, and **option 2 (a lint) would have
+forbidden a reasoned, documented choice** rather than caught a slip — an argument that gets
+*stronger*, not weaker, with the corrected count.
 
 ### The part that inverts the expected answer: on both occasions the honest verdict was `Resolved:false`
 
@@ -243,8 +273,9 @@ somewhere else and wants the `090` loop, not another hour of grep.
   plus the completion path for every verified type) is now harder to justify on `n=11`.
 - **Option 2 (lint)** — would have fired on both, and been **wrong** about why. These authors did
   not reach for `err` carelessly; they followed the documented policy and cited it.
-- **Option 1 (do nothing)** — weakest it has looked: the branch is on 2 of 8 verifiers already, and
-  its first two live firings both completed a live defect.
+- **Option 1 (do nothing)** — weakest it has looked: the branch is on **4 of 8** verifiers already
+  (corrected 2026-08-08, was "2 of 8" — see the box above), and its first two live firings both
+  completed a live defect.
 
 **Cheapest thing that fixes the observed cases without touching the registry:** take
 `bugs_closed/032`'s own "stronger option" — check whether the page still declares the slot, and

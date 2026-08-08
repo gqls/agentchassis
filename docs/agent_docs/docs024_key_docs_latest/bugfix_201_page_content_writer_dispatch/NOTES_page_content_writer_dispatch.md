@@ -538,7 +538,10 @@ history; and `n=11` over five days.
 `check_empty_sections.go:412`, which is `bugs_closed/032`'s own accepted fix, choosing `error` over
 `Resolved:false` precisely so the gate fails open and records a *visible unknown* instead of a false
 green. The same branch is duplicated at `check_truncated_component.go:272` (never fired). So the
-error path is armed on 2 of 8 verifiers by two authors, both citing the documented policy correctly.
+error path is armed on ~~2 of 8 verifiers by two authors~~ **[CORRECTED 2026-08-08 after the council
+round: 4 of 8, by four authors — `content_duplication:631` and `page_canonical_collision:382` carry
+it too, under different wording. I grepped the spelling instead of the class. See the triage entry
+at the foot of this file.]**, both citing the documented policy correctly.
 
 Then the part that inverted my expectation. 032 named its own disambiguator — *if the page still
 expects the component, absence is deletion, not ambiguity* — and **both items pass that test**:
@@ -635,3 +638,58 @@ exact scenario CLAUDE.md describes. Worth recording because the *entry itself* i
 hours of being written: `_verification.status='error'` meant "completed" this morning and means
 "blocked" after the next roll, with **both readings live in one table** and nothing in the row
 saying which era it came from. `fail_open` (absent on every pre-roll row) is the discriminator.
+
+### Council verdict read — APPROVED round 1, and one objection was RIGHT
+
+`a104d454-a4ff-4c95-a578-9a7e48c95100` — **approved, 2 advisory objections, none high-severity**,
+11 seats reviewing, 6 abstained, `gated_by_truncation:false`. Verdict read in full, not taken from
+the decision word. Triage of every objection, including the ones that turned out to be answered:
+
+1. **`guardian` [medium] + `editquality` [low] — "confirm no other caller of `GetVerifier` exists".**
+   **Answered, and it was already evidence I held:** exactly one caller
+   (`complete_work_item_verification.go:57`), and `go build ./...` is clean — assigning a two-value
+   return to one variable is a compile error, so the build *is* the sweep. Recorded rather than
+   waved: the seats could not see the build from the submission.
+2. **`guardian` [medium] — "the other 7 verifiers' owning pipelines … asserted ('I assert none
+   does') rather than enumerated".** **THIS ONE WAS RIGHT AND IT CAUGHT A REAL ERROR OF MINE.** The
+   enumeration I then did says the ambiguity branch is on **4 of 8** verifiers, not 2:
+   `content_duplication:631` (*"page no longer exists — cannot distinguish a fix from content
+   loss"*) and `page_canonical_collision:382` (*"site no longer exists"*) carry it under different
+   wording. I had grepped the one spelling I had already read. Corrected in `RFC_017` (visible box),
+   `WII-011`, the `LANDMINES` entry and above; logged in `WRONG_CALLS.md`. **The ruling is
+   unaffected** — blocking is right for all four — but the reach was twice what I told the owner and
+   the council, and I told them a measured-sounding number.
+3. **`prior_art_librarian` [medium] — does the restructure break what `verifier_coverage_test.go`
+   enforces?** **Answered:** that test walks `RegisteredVerifierItemTypes()`, which I did not touch;
+   `RegisterVerifier` still populates `verifiers` (via the policy overload), so its
+   *"zero verifiers registered — either init() ordering broke or the registry moved"* fatal cannot
+   trip, and the package tests pass.
+4. **`prior_art_librarian` + `reuse_agent` + `guardian` — the stale-error-text landmine on
+   `failUnverifiedCompletion` / `result._verification`.** **Real, pre-existing, and my change makes
+   it MORE visible rather than causing it.** That entry (added today by the
+   `bugfix_071_fragment_blindspot` lane) records that the success UPDATE never clears `error`, so a
+   row refused and later completed keeps the refusal text — measured there as `status='complete'` +
+   `_verification='verified'` + a "completion blocked" `error`, simultaneously. With fail-closed,
+   refusals get commoner, so more rows will carry a stale `verification_unavailable` sentence beside
+   a later success. **Not fixed here** — it is another lane's filed defect and it lives on the
+   success path, outside the ruling I was executing. Flagged to the owner as available: it is
+   plausibly one line (`error = NULL` on the success UPDATE).
+   Its second half also **independently corroborates my own caveat**: `result._verification` is
+   replaced per attempt, so a census of it "counts surviving verdicts, not verifications performed,
+   and systematically under-counts exactly the refusals". Two sources, same mechanism, arrived at
+   separately on the same day.
+5. **`debug_historian` [medium] — no post-roll pod-verification step.** **Answered by the artefact,
+   not by the submission:** `WII-011`'s `verify-later` carries the pod-grep with a **negative
+   control** (positive `verification could not run, and this item type fails closed` ≥1; negative
+   `verifier error — failing open`, the removed string, expect 0) plus the behavioural check. Fair
+   objection against what the council could see — the submission JSON did not include it.
+6. **`editquality` [low] — the register edit is documentation, shouldn't count as plan substance.**
+   Noted, no action: it is a required artefact under the platform-seams ordering exemption, and the
+   seat says so itself.
+7. **`architecture` — recorded `DEFLECTIONS: unknown`**, having run out of budget before querying
+   whether these files had been bounced before. Not an objection; recorded so nobody reads the blank
+   as a clean bill.
+
+**The pattern, for the fourth time today:** the thing that caught the error was a check already
+written down — this lane's own R8 trap 3 (*"an absence is only ever an absence in the table you
+named"*, and its sibling for spellings) — applied by someone else, after the fact.

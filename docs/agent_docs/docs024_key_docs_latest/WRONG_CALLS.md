@@ -23054,3 +23054,39 @@ becoming the baseline, and a baseline of 6 makes the post-roll reading uninterpr
 (**0**), and treat any other value as a broken needle rather than an interesting fact. A needle must
 be a whole distinctive clause, ASCII-only, and **verified zero on a pre-commit build**; the 0 → 1
 transition is the entire proof for an additive change and it cannot be recreated after the roll.
+
+### 2026-08-08 — "the branch is armed on 2 of 8 verifiers": it was 4, and I put the number in a ruling record
+**lane:** bugfix_201_page_content_writer_dispatch (RFC_017 fail-closed flip)
+
+Measuring RFC_017's missing number, I found `empty_section`'s "target row is absent, cannot tell a
+fix from a deletion" branch, then grepped for a **second** instance and found
+`check_truncated_component.go`. I wrote **"armed on 2 of 8 verifiers, by two authors"** into the RFC,
+the concept-register entry `WII-011`, a `LANDMINES` entry, the council submission, the commit
+message, and my summary to the owner.
+
+It is **4 of 8**. `check_content_duplication.go:631` (*"page … no longer exists — cannot distinguish
+a fix from content loss"*) and `check_page_canonical_collision.go:382` (*"site … no longer
+exists"*) carry the same branch in different words, and a fifth is adjacent. **I had grepped the
+spelling I had already read, not the class** — the string `"(genuinely fixed or silently deleted —
+indistinguishable here)"` — so the search could only ever return the instances phrased like the one
+I started from.
+
+**What caught it:** the council `guardian` seat, which did not spot the error but refused the
+*form* of the claim — *"whether any relies on fail-open as a deliberate backstop is asserted ('I
+assert none does') rather than enumerated per item_type"*. Doing the enumeration it asked for took
+one command and produced the right number. **A seat objecting to an unenumerated assertion found a
+factual error nobody was looking for.**
+
+**The cheap check:** when counting instances of a *pattern*, never grep the wording — grep the
+**shape**, then read the hits. Here that is one line, and it is the line I should have run first:
+`grep -n "return VerifyResult{}, " discovery_checks/check_*.go` — 34 hits across 8 files, classify
+them by hand, and the count is unarguable. The general form: **a count of "how many places do X" is
+only as wide as the spelling you searched, and the fix is to search the structure the compiler sees
+rather than the prose the authors wrote.** Doubly so before the number goes into a decision record —
+this one reached an owner ruling, a council round and a register entry before it was checked, and
+the enumeration that settled it was available at every one of those points.
+
+**Not a repeat of the sibling below it, though they rhyme:** that one is a *needle* chosen so
+loosely it matched a binary without the change; this one is a *census* scoped so narrowly it could
+not see half its own population. Same root — the search string was inherited from what I had already
+seen, instead of derived from what I was claiming.

@@ -6114,14 +6114,23 @@ WHERE site_id = (SELECT id FROM sites WHERE domain = 'finetuning.uk') AND status
 
 ## `LogActionEntry`'s merge fills a provenance you meant to set — and every test in the package stays green
 
-- **footprint:** `platform/orchestration/actions/log_action_error.go` · `LogActionError` · `LogActionEntry` · `LogActionFindings` · `platform/orchestration/agenterrors` · `agent_error_log`
+- **footprint:** `platform/orchestration/actions/log_action_error.go` · `LogActionError` · `LogActionEntry` · `LogActionEntryInheritingProvenance` · `LogActionFindings` · `LogActionEntryFindings` · `platform/orchestration/agenterrors` · `agent_error_log`
 - **added:** 2026-08-07 (RFC_012 option B, commits `5f49b4cfd` + `f930de86b`)
+- ⚠ **FIXED AT SOURCE 2026-08-08 — AND THE TRAP STILL STANDS UNTIL THE NEXT FLEET ROLL.** Go changes are inert until an image is rebuilt and rolled, so every pod running today still performs the silent merge. Read the whole entry as LIVE, and read the new-API paragraph at the bottom before writing a call site. Verify with a pod-grep for `LogActionEntryInheritingProvenance` on every replica, never with `git log`.
 
 **The trap.** `LogActionError(ctx, params, siteID, domain, action, code, severity, msg, ctxPayload, logger)` resolves `agent_type` and `step_name` from `ActionParams` — i.e. **from whatever step is executing**. Several recorders in this package deliberately file under a DIFFERENT provenance: `component_link_repair` and `validate_page_content`'s link recorder file under the **origin of the content they repaired**; `store_generated_component` files as `component-creator`/`store_component`; `discovery_checks` and both envelope guards use their own helpers. Reach for the obvious helper at one of those sites and the row is silently misattributed — it names the wrong agent and the wrong step, so the next investigation opens the wrong file. `component_write_guard.go:276-279` states the cost: *"a row in agent_error_log that misattributes the writer is worse than no row."*
 
 **Why you will not notice.** Every sqlmock test in this package pins the **error_code, the action and the message** — not `agent_type` and not `step_name`. A provenance slip is **green on the full suite**. A council round's edit-quality and guardian seats flagged exactly this risk on `store_generated_component_action.go` and it is quoted at `:1343-1351`; that objection is why the site is still unconverted.
 
-**The check.** Use **`LogActionEntry`** (or `LogActionEntryFindings` for a loop) and set `AgentType` / `StepName` / `Action` **explicitly** whenever the row belongs to anything other than the running step. The merge only fills fields left ZERO, so a named field can never be overwritten — but a field you *forgot* to name is filled silently. Before converting or adding a site, read what the OLD code bound to `agent_type`/`step_name`: if it was anything other than `params.ExecutionContext.Sender.AgentType` / `.StepName`, it is a provenance site.
+**The check, ON A PRE-ROLL POD (still every pod today).** Use **`LogActionEntry`** (or `LogActionEntryFindings` for a loop) and set `AgentType` / `StepName` / `Action` **explicitly** whenever the row belongs to anything other than the running step. The merge only fills fields left ZERO, so a named field can never be overwritten — but a field you *forgot* to name is filled silently. Before converting or adding a site, read what the OLD code bound to `agent_type`/`step_name`: if it was anything other than `params.ExecutionContext.Sender.AgentType` / `.StepName`, it is a provenance site.
+
+**The check, ON THE NEW API (at HEAD from 2026-08-08; the one to WRITE against).** The forgotten field is no longer silent, so the discipline changes from "remember to name it" to "say which one you mean" — and there is no longer a default that guesses:
+- the row belongs to something OTHER than the running step → `LogActionEntry` / `LogActionEntryFindings` and name `AgentType`. Unchanged.
+- the row belongs to the RUNNING STEP and you need the Entry door anyway (an explicit `work_item_id` or `site_id` that is not the running step's) → **`LogActionEntryInheritingProvenance`** / **`LogActionEntryFindingsInheritingProvenance`**. Declaring it is the whole point: `grep -rn LogActionEntryInheritingProvenance` is the census of every site trusting the running step, and a reviewer of the CALLER can see the decision without opening the helper.
+- the row belongs to the running step and you need nothing else → `LogActionError` / `LogActionFindings`, exactly as before. Their contract already *is* running-step identity, so they declare inheritance for you.
+- **forget entirely and the row still lands — as `agent_type = 'unattributed'`**, with `context.provenance_missing`, the running step demoted into `context.provenance_running_agent_type` / `_step_name`, and a `logger.Error`. It is not silent and it is not lost, but it is not attributed either, so it will not answer an investigation. Standing detector: `SELECT action, error_code, count(*) FROM agent_error_log WHERE agent_type = 'unattributed' GROUP BY 1,2;` (0 rows as of 2026-08-08 — a non-zero result is a code defect, not traffic).
+
+⚠ **AND WHAT THE INHERITING DOOR GIVES YOU IS OFTEN THE FILLER `generic`, WHICH IS THE TRAP INSIDE THIS ONE.** Declaring inheritance makes the decision visible; it does not make the value good. The ladder is `ExecutionContext.Sender.AgentType` → `params.AgentType`, and the dispatch-path sender is *usually* `generic` — all **25** live `REVIEW_SUPERSEDED_BY_PASSING_SAVE` rows carry it, and `generic` holds **559 rows across 25 distinct `step_name`s**, the widest spread of any `agent_type` on a table whose main investigation index is `(agent_type, occurred_at DESC)`. `types.ExecutionContext.RunAgentType` is the estate's existing answer (`bugs_open/060`, and its own doc comment says the sender "is often 'generic'"), but **only `coordinator.determineOwnerAgentType` consults it** and `actions` cannot reach that ladder across the very import edge that created `agenterrors`. So: if the row matters for attribution, do not settle for inheritance — read `RunAgentType` yourself or name the provenance. Hoisting the ladder onto `*types.ExecutionContext` so both packages share ONE copy is the structural fix and is NOT done.
 
 Two more in the same family, both cheap to get wrong:
 - **`agent_type` is NOT NULL.** Three sites carry their own `"unknown"` fallback. Delegating that to the merge yields `''` when both params sources are empty — a constraint violation that the best-effort writer swallows as a warn, so the row just vanishes. Keep the fallback explicit.
@@ -6565,10 +6574,16 @@ effect* from a `verified` row; the difference was only in what the record said, 
 `bugs_closed/032` says so explicitly: *"Item flow is unchanged — the item completes either
 way."* Every such row already in the table is one of those.
 
-**Why this fires without a symptom.** Two verifiers return an error on their ambiguous
-"target row is absent" case (`check_empty_sections.go:412`,
-`check_truncated_component.go:272`), both citing the fail-open policy correctly, and that
+**Why this fires without a symptom.** ~~Two~~ **FOUR** verifiers return an error on their ambiguous
+"target row is absent" case — `check_empty_sections.go:411` (the `page_components` row),
+`check_truncated_component.go:271` (the `content_components` row),
+`check_content_duplication.go:631` (*"page … no longer exists — cannot distinguish a fix
+from content loss"*) and `check_page_canonical_collision.go:382` (*"site … no longer
+exists"*) — every one citing the fail-open policy correctly, and that
 branch reads as the *cautious* choice — which is exactly how it shipped here twice.
+**(Count corrected 2026-08-08 after a council seat asked for the enumeration: the first
+version said "two", because I grepped the one spelling I had already read instead of the
+class. A fifth, `check_phantom_internal_links_fragments.go:284`, is adjacent.)**
 Measured 2026-08-08: those are the **only two verifier errors on the platform, ever** (2 of
 11 consultations), and on **both**, the page still declared the slot in `pages.sections`,
 so `Resolved:false` was the honest verdict and the defect is still live on two production
