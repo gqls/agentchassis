@@ -215,3 +215,30 @@ my own commit's pathspec (there is nothing left to add — the diff is empty).
 This is the exact landmine `LANDMINES.md` already documents ("a pathspec
 commit still takes a SAME-FILE passenger"), now hit live rather than just
 read.
+
+## 2026-08-08 evening — council round 1 blocked fleet-wide, not on this submission
+
+Checked the verdict:
+```sql
+SELECT current_step, status FROM orchestration_states
+ WHERE collected_data->'input_data'->>'fix_correlation_id' = 'aa2d0d62-4aba-480e-aedc-8be264d53b01';
+-- current_step=complete_invalid, status=COMPLETED
+```
+`__step_error`: `step review_editquality failed ... AI endpoint unavailable:
+... "Your credit balance is too low to access the Anthropic API."` — this is
+the **same fleet-wide Anthropic credit exhaustion** the 220 lane's docs
+recorded the same evening (31 failures 18:25-19:20Z, owner billing action
+needed), not a defect in this submission. Nothing to fix on my side; a retry
+now would fail identically. **Not resubmitting** — this needs the owner's
+billing action first, then a fresh round (reuse `RESUBMIT_CORR=aa2d0d62-…`
+so the trail accumulates). Commit already carries `Council-Submitted:`,
+which is correct either way: it asserts nothing, and 098 will resolve the
+verdict once a round actually completes.
+
+**Status at end of this session's work:** fix implemented, tested (including
+mutation-proof), committed (`f8cbaf551` + `06241a516`), council round 1
+blocked on infra rather than reviewed. Owed: re-submit once Anthropic
+credits are restored; read the real verdict then; if APPROVED, no code
+change needed — just note the approval (098 auto-credits the existing
+commit via the correlation, forward-only forbids an amend anyway). If
+REVISE/REJECTED, act on it in a follow-up commit.
