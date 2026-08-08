@@ -418,3 +418,68 @@ worked and is verified) but is **unverified by the verifier**. Given
 in both directions — this costs little, but it is an open loop, not a done one.
 **Re-fire when the fleet has credit:**
 `./scripts/trigger-landmine-verifier.sh 'LANDMINES.md#a-new-pattern-in-validatepagecontent-is-a-blocker-by-default-and-a-blocker-there'`
+
+## 2026-08-08 (late evening) — LIVE on v1.0.1268, and the negative control I said I did not have, built
+
+The chassis rolled. Fleet is **uniform**: 45/45 pods on `v1.0.1268` — checked,
+not assumed, because a MIXED fleet bit the loancalculator lane the same day.
+
+### The submission's admitted gap, closed properly
+
+I had recorded that `bugs_open/153`'s added/removed marker pair was **not
+available** for this change: `comm -23 removed added` = **0**, because every
+`Pattern` literal is re-added by design. A positive-only grep cannot tell a new
+string from a pre-existing one, and the tempting move — nominate any string as
+"removed", print a zero — produces a fiction indistinguishable from evidence.
+
+So I **built** the missing half: a throwaway pod on the previous image.
+
+```
+IMAGE            MY_MARKER  SHARED_CONTROL
+v1.0.1267 (OLD)      0           1
+v1.0.1268 (NEW)      1           1        agent-chassis-67ddcc695f-dwsdl
+v1.0.1268 (NEW)      1           1        agent-chassis-67ddcc695f-jvfmc
+```
+
+**The `SHARED_CONTROL` column is the load-bearing one.** Without it, the `0` on
+the old image is equally well explained by a typo in my grep, a wrong binary
+path, or a pod that never started — every one of which looks like a triumphant
+negative. With it, the 0 is a real 0. Technique written into the RUNBOOK, because
+"my change removes no strings" is not rare — it is the normal case for any
+narrowing that keeps its reported value stable.
+
+### Behaviour on the real row
+
+Re-dumped the component (it had been touched today): **12,879 bytes, unchanged**,
+still carrying `as an AI-builder prompt`. Under the shipped code it returns
+**0 blockers**.
+
+And it was **not hypothetical after all**: `pages.build_status` for that page is
+**`needs_rebuild`**. A rebuild is queued for the page that could not have been
+rebuilt. Had the roll not carried this fix, that rebuild would have failed and
+been blamed on the model.
+
+### Consumer told
+
+`webdesign_couk/CONTRIB_2026-08-08_221_tools_index_unblocked.md` — the
+notification `bugs_open/221` recorded as owed and unsent. It leads with what
+changed about their guarantee (their page was unbuildable; it now is not; their
+copy did not have to change and should not), and names what is **not** fixed:
+the other 13 entries are unchanged and still substring-matched at blocker
+severity.
+
+### Still open, and not mine to close
+
+- **Landmine verifier still unrun.** Credit exhaustion has not cleared — 12
+  failures in the last 20 minutes at the time of writing — so re-firing now
+  would burn a dispatch to no purpose. Command is in the previous entry.
+  ⚠ Per `bugs_open/223` its verdict is weak evidence either way for an entry
+  with non-Go footprints.
+- **The generic mechanism** (any blocker-severity prose scan able to wedge a
+  rebuild forever) — the `bug_historian` seat's medium objection. Untouched by
+  design; that is the RFC `bugs_open/221` names, and `bugs_open/222` is the
+  sibling instance, owned elsewhere.
+- **I did not dispatch the queued rebuild.** The page belongs to the
+  webdesign.co.uk lane and a rebuild regenerates content; firing it at another
+  lane's site to collect my own proof would be taking their decision. They have
+  been told; the queue will do it.

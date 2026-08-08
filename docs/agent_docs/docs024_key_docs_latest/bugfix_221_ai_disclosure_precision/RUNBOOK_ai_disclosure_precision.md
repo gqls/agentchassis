@@ -111,7 +111,45 @@ kubectl exec -n ai-persona-system <pod> -- sh -c \
 pipeline shipped *something*; the negative one proves it shipped *yours*
 (`bugs_open/153`). ⚠ The fleet can be MIXED — the `agent-chassis` deployment may
 have rolled while spawned agent pods still run the old image (loancalculator
-lane, 2026-08-08). Grep the pod that will actually execute the step.
+lane, 2026-08-08). Grep the pod that will actually execute the step. Check it
+rather than assume it: on 2026-08-08 the fleet was uniform, 45/45 pods on 1268 —
+```bash
+kubectl get pods -n ai-persona-system -o json | python3 -c "
+import json,sys,collections; d=json.load(sys.stdin); c=collections.Counter()
+[c.update([ct['image']]) for p in d['items'] for ct in p['spec'].get('containers',[]) if 'agent-chassis' in ct.get('image','')]
+[print(n, img) for img,n in sorted(c.items())]"
+```
+
+### ⚠ WHEN YOUR CHANGE REMOVES NO STRINGS, YOU HAVE NO NEGATIVE MARKER — BUILD ONE
+
+`bugs_open/153`'s discipline needs a string the change ADDED **and** one it
+REMOVED. **Check whether you actually have the second one** — do not assume:
+
+```bash
+git show <sha> -- <file> | grep '^-' | grep -v '^---' | grep -oE '"[^"]{5,}"' | sort -u > /tmp/removed.txt
+git show <sha> -- <file> | grep '^+' | grep -v '^+++' | grep -oE '"[^"]{5,}"' | sort -u > /tmp/added.txt
+comm -23 /tmp/removed.txt /tmp/added.txt          # removed-and-not-re-added
+```
+
+For 221 that count was **0** — every literal came straight back, because the
+issue `Value` deliberately stays the canonical `Pattern`. A positive-only grep
+then cannot distinguish your new string from one that was always there, and
+nominating some string as "removed" to print a comforting zero is a **fiction
+that reads exactly like evidence**.
+
+**Construct the control instead: run a throwaway pod on the PREVIOUS image.**
+
+```bash
+kubectl run zz-<bug>-oldimg -n ai-persona-system   --image=docker.io/aqls/agent-chassis:<previous-tag> --restart=Never --command -- sleep 300
+# then, on OLD and NEW alike, grep TWO things in the same exec:
+#   your marker            -> expect 0 on OLD, >=1 on NEW
+#   a string in BOTH       -> expect >=1 everywhere   <-- this is what makes the 0 real
+kubectl delete pod zz-<bug>-oldimg -n ai-persona-system --wait=false
+```
+
+⚠ **The shared-string control is not optional.** Without it, a `0` on the old
+image is equally well explained by a typo in your grep, a wrong binary path, or
+a pod that never started — all of which look like a triumphant negative.
 
 ## 5. Has this check ever actually blocked a build?
 

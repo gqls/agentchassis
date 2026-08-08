@@ -1,15 +1,43 @@
 # 221 — `as an ai` convicts legitimate copy ABOUT AI, so a page that sells AI tooling cannot be rebuilt
 
-> ## STATUS 2026-08-08 (evening) — FIXED IN CODE, council APPROVED round 1, **INERT UNTIL THE NEXT CHASSIS ROLL.**
+> ## STATUS 2026-08-08 (late evening) — **FIXED, LIVE AND PROVEN ON v1.0.1268.** Council APPROVED round 1.
 >
 > Taken by the `bugfix_221_ai_disclosure_precision` lane. Fix `61c8cc6ff`, council
 > `377a0488-214e-4e5c-bd3d-66343d34d9b2` (APPROVED, 11 seats, 1 medium + 3 low
 > advisory objections, all dispositioned below). Lane docs:
 > `docs024_key_docs_latest/bugfix_221_ai_disclosure_precision/`.
 >
-> **This file stays OPEN.** The defect is still reproducible in production: the fix
-> is Go, the chassis has not been rebuilt, and per the owner's 2026-08-06 direction a
-> finished bug stays in `bugs_open/` regardless. It closes when a pod grep proves it.
+> **File stays in `bugs_open/` per the owner's 2026-08-06 direction** (a finished bug
+> stays here), not because anything is outstanding.
+>
+> ### Live proof on v1.0.1268 — with a REAL negative control, built rather than claimed
+>
+> The submission had to admit it could not supply `bugs_open/153`'s added/removed
+> marker pair: **zero** strings this commit removes are not re-added, because `Value`
+> deliberately stays the canonical `Pattern`. A positive-only grep cannot tell a new
+> string from a pre-existing one. So the negative control was **constructed** —
+> a throwaway pod on the PREVIOUS image, with a shared string as the grep's own control:
+>
+> ```
+> IMAGE            MY_MARKER  SHARED_CONTROL
+> v1.0.1267 (OLD)      0           1        <- kubectl run zz-221-oldimg --image=…:v1.0.1267
+> v1.0.1268 (NEW)      1           1        <- agent-chassis-67ddcc695f-dwsdl
+> v1.0.1268 (NEW)      1           1        <- agent-chassis-67ddcc695f-jvfmc
+> ```
+> `MY_MARKER` = `strings /app/agent-chassis | grep -cF 'artificial\s+intelligence|llm'`
+> `SHARED_CONTROL` = `… grep -cF 'content validation failed'`
+>
+> **The shared control is what makes the 0 a real 0** rather than a broken exec or a
+> wrong binary path. Both replicas grepped, not one. Fleet is uniformly on 1268 (45/45
+> pods), so there is no mixed-image caveat this time — which had to be checked, not
+> assumed, because it bit the loancalculator lane the same day.
+>
+> ### And the behaviour, on the real row
+>
+> The offending copy is **still on the page** (`as an AI-builder prompt`, row unchanged
+> at 12,879 bytes) and under the shipped code returns **0 blockers**. The page's
+> `build_status` is **`needs_rebuild`** — so this was not a hypothetical trap: a rebuild
+> is already queued for the page that could not have been rebuilt.
 >
 > ### What shipped
 >
