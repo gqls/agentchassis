@@ -661,3 +661,34 @@ no pod log I could reach.
 **This bug stays OPEN**, and now for a sharper reason than "not yet rolled": it is rolled,
 and the runtime half is unproven. Per the owner ruling of 2026-08-06 a finished bug stays in
 `bugs_open/` regardless.
+
+### 10. 2026-08-08 (late) — §4's biting key RESOLVED by owner decision: A + D, template rendering declined
+
+**Owner decision 2026-08-08**, options presented with the re-measured facts: **A** (static
+`summary` literal, drop `summary_template`) **+ D** (recaption the two existing rows).
+**Option C — implementing template rendering in `create_work_item` — was explicitly
+declined**: all ten other live `create_work_item` steps use a static summary, the sole
+would-be consumer has executed zero orchestrations, and a template naming a missing key
+fails on the path to a human reviewer. If interpolated captions ever have real demand,
+build it then, on evidence.
+
+**Applied and verified live** (migration `343_grounded_explainer_summary_literal.sql`;
+DB config, effective immediately, no roll):
+
+- definition: `summary_template` gone, `summary` literal in — confirmed by re-reading the
+  live row;
+- both `grounded_draft_review` items now read *"Grounded explainer draft ready for review"*
+  — the data UPDATE was keyed on `summary = item_type`, so a row a human had since retitled
+  would have been left alone;
+- the repo seed (`224_grounded_explainer_agent.sql:183`) corrected in the same commit, so a
+  replay cannot reintroduce the dead key — the `bugs_open/134` lesson.
+
+**The topic is NOT in the repaired captions, and cannot be:** the same step's `spec_fields`
+is also a dead key (§3), so both rows' `spec` is completely empty — the topic was never
+captured anywhere. The generic caption is the truth of what those rows can say.
+
+**§5's still-owed list, updated:** item 2 (`summary_template`) is DONE. Items 1 (the four
+mislabelled pipeline rows), 3 (`plan_sections.domain`), 4 (`create_work_item` full opt-in —
+note `spec_fields` remains dead and remains listed there), and 5 (definition renames /
+`resolveAgentTypeForSpawn` convergence candidate) stand. The runtime witness question from
+§9 also stands.
