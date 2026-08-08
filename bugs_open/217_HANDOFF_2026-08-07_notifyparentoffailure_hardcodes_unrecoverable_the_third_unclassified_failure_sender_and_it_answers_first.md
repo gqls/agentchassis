@@ -145,3 +145,24 @@ lane PLAN_2026-08-08_217_notify_parent_disposition.md).
    16:07:45-shaped hardcoded terminal), and the parent's `awaited_requests.retry_version >= 1`.
 3. Storm watch: retry_version histogram — mass 0–1, wall at 3, ZERO above; and
    week-over-week `severity='fatal'` row rate for cross-level amplification.
+
+## 2026-08-08 (later) — council verdict READ: **APPROVED round 1** (`471a969e…`)
+
+"Approved with 2 advisory objection(s), none high-severity" — 9 reviewers, 8 abstained.
+Commit `b19ef6930` carries `Council-Submitted:`; 098 credits it automatically.
+Objections and answers are on the record in the lane NOTES. Two things they improved:
+
+1. **The close-criteria monitors are now concrete SQL, not prose** (guardian's point —
+   they are operator-run queries, not deployed automation):
+   ```sql
+   -- storm watch: mass at 0-1, hard wall at 3, ZERO above (no backoff exists on the arm)
+   SELECT retry_version, count(*) FROM awaited_requests
+   WHERE sent_at > now() - interval '24 hours' GROUP BY 1 ORDER BY 1;
+   -- amplification watch: week-over-week fatal-notification rate (this sender's own rows)
+   SELECT date_trunc('day', occurred_at) d, count(*) FROM agent_error_log
+   WHERE severity='fatal' AND occurred_at > now() - interval '21 days' GROUP BY 1 ORDER BY 1;
+   ```
+2. **TimeoutMonitor deadness now stands on three legs** (prior-art's asserted-absence
+   challenge): bare-type grep → one COMMENT outside helpers.go; deployments/ → zero;
+   `agent_definitions.default_config` → 0 rows. No construction site, no receiver, no
+   config route.

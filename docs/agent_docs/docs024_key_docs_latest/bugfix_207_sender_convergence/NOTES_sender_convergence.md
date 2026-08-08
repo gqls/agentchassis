@@ -162,3 +162,38 @@ Remaining to close 207: the next chassis roll + the three close criteria in the 
 - Plan: `PLAN_2026-08-08_217_notify_parent_disposition.md` (this dir). Amplification
   risk sized there: measured depth ≤ 1 ⇒ worst case (1+3)² = 16 innermost runs, monitors
   named, terminal-exhaustion marker recorded as the follow-up if storm-watch fires.
+
+## 2026-08-08 (evening, cont.) — 217 council verdict READ: APPROVED r1; objections answered
+
+Verdict landed 18:21Z, ~25 min after submission (`471a969e…`): **approved with 2
+advisory objection(s), none high-severity** — 9 reviewers, 8 abstained, no truncation.
+Commit `b19ef6930` went in pre-verdict with `Council-Submitted:` (correct; 098 credits
+it at report time). Seat-by-seat answers, on the record:
+
+- **guardian obj 1** ("no evidence the RSH-006 storm-watch / fatal-rate monitors exist
+  before this merges"): fair — they are OPERATOR-RUN QUERIES, not deployed automation.
+  Answered by writing the exact SQL into the bug file's close criteria (appended
+  today), so the "monitor" is a runnable check, not a promise. The close criteria gate
+  the CLOSE, not the merge — the roll is what arms the behaviour.
+- **guardian obj 2** ("load-bearing behaviour change to foundational plumbing"):
+  acknowledged, not disputed — it is why the close criteria demand the induction AND
+  the storm watch before the file moves anywhere.
+- **prior_art obj 1** (TimeoutMonitor deadness rested on symbol-name greps —
+  asserted-absence pattern): re-checked wider, post-verdict: bare-type grep
+  `TimeoutMonitor` across platform/internal/pkg/cmd → ONE hit outside helpers.go, a
+  comment in reply_delivery_adoption_test.go:125; deployments/ → zero;
+  `agent_definitions.default_config` LIKE both spellings → 0 rows. A Go method needs a
+  receiver, no Go code constructs one, and config wiring can only name Go-registered
+  actions. Dead stands, now on three legs.
+- **prior_art obj 2** (cycle + platform/errors-shape claims "trusted from a session
+  grep"): they were read first-hand this session (processor.go:21,
+  validation_drop.go:27), and the COMPILER now proves both: the committed tree builds
+  with orchestration→platform/errors beside messaging→orchestration; were the leaf
+  claim wrong the build would have failed.
+- **prior_art obj 3** (landmine-indexed symbol; guard text must be read): it WAS read
+  before editing — the 090-verdict-recovery LANDMINES entry is why Code/Message stay
+  verbatim; the code comment at the sender says so.
+
+No WRONG_CALLS entry from this session: no recorded claim was refuted. The near-miss
+worth naming: the first TimeoutMonitor deadness check was two spellings; the council's
+prior-art seat is what pushed it to three legs. That is the gate working, not a wrong call.
