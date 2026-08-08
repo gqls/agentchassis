@@ -851,3 +851,65 @@ How the 12 fences get installed for the RECREATED tools (precedent format known;
 `staged_component_build` lane before writing PLAN rows — they are actively authoring
 these), whether tool-recreation's prompt needs the id-contract stated, then arm the 12
 recreations and verify each against its fence.
+
+---
+
+## 2026-08-07 → 08-08 — the three zero-output recreations DIAGNOSED; validator fixed (committed, inert); portfolio was held by the fabrication gate
+
+State re-verified at session start (08-07): queue drained (0 triaged/claimed), site
+LOCKED (21:19 08-05 lock note intact), 9 rebuilt tools live at the wire with chrome,
+3 confirmed 404, originals intact — the §10f sweep flagged `data/latest-news.json`
+which was only a stale local checkout (77 commits behind; the news feed auto-commits
+daily ~08:10 UTC; `git pull --rebase` cleared it). The `**` hits on rebuilt tools are
+JSDoc `/**` blocks in inline JS, NOT bugs_open/184.
+
+**Why 3 of 12 recreations produced nothing (items `complete`, 0 components, 404):**
+
+1. **tool-overpayment + game-fact-finder — convicted by a validator false positive.**
+   `validate_tool` (action `validate_page_content`) failed each with "1 blockers":
+   `checkPlaceholderPatterns` substring-matches `[name` against the WHOLE HTML
+   including inline `<script>`, hitting `fields[name]` (overpayment, 12:21:33) and
+   `([name, val]) =>` destructuring (fact-finder, 12:59:20). A third conviction the
+   same day on idea.uk (`querySelector('input[name=...')`). Evidence: `agent_error_log`
+   `step_name='validate_content'`, `context.issues` type `placeholder_text`. The
+   recreate_tool LLM calls had SUCCEEDED (9–12k output tokens, not cut) — the finished
+   tools were discarded.
+2. **tool-portfolio — held by the bug-020 fabrication gate** (`needs_human_review`
+   item 12:55:38 "appears to INVENT data"). Which signals fired is UNRECOVERABLE:
+   orchestration row purged, pod logs rotated with the 08-06 roll. Original
+   portfolio.html is self-contained (no fetch/XHR, users type their own properties),
+   so likely a false positive (Tier A declaration match, or `dataSourceIsExternal`'s
+   loose reading of the analysis), but that is [INFERRED] — a fresh run will
+   regenerate the signals; read `check_fabrication` output from the orchestration row
+   BEFORE it is purged.
+3. **Secondary defect found while answering the 090's open question:** the LIVE
+   `tool-recreation-handler` row carries `validate_tool`'s `error_step` INSIDE
+   `config` where the engine never reads it (`processor.go:433` reads step level);
+   the seed has it at step level (= "validation advisory, save anyway"). So a
+   validation failure discards the recreation and the item still completes. Filed as
+   defect B in `bugs_open/218`; needs a deliberate decision, NOT hot-fixed.
+
+**Process trail:** 090 filed BEFORE asserting (intake `0de6e0e4`, run `86721efd`) —
+verdict **UNVERIFIABLE / iteration-cap**, sub-claims confirmed, two named missing
+evidence items supplied first-hand in `bugs_open/218` (the ruling's stated-substitution
+hatch, stated there). Fix committed `201350e23` (strip script/style bodies from the
+placeholder scan only; tests carry the three convicted snippets + guard-survival cases;
+mutation run proves the tests bite). Council submission `a9ffed15` (Council-Submitted
+trailer on the commit) — **verdict unread as of this writing, read it**. §9 pattern
+added to 016b; index row 218 added.
+
+**Chassis rolled TWICE during this work (v1.0.1262→1263, pods 08-08 08:54 UTC) — both
+predate `201350e23`, so the validator fix is NOT live.** Wait for a post-`201350e23`
+roll; prove at the pod: `strings /app/agent-chassis | grep -c stripScriptAndStyle` ≥1
+every replica, and a negative control.
+
+**Wrong turn logged:** first diagnosis query filtered `orchestration_states` by
+`created_at > '2026-08-05'` + regex and returned only unrelated feed runs — read as
+"runs purged". The refined check (whole 09:00–14:00 window, no regex) showed the
+purge was real for that day, but the first query could not have distinguished
+"purged" from "my filter missed them": the count you keep is not a census.
+
+**Also noted, unowned:** the three dead items' `site_work_items.result` payloads
+describe the WRONG artefacts (overpayment's = a stamp-duty calculator; fact-finder's
+= a legal-disclaimer page proposal). In bugs_open/218's tail. Do not trust `result`
+on this path until someone looks.

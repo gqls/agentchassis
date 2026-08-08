@@ -489,3 +489,43 @@ system needs, so the rebuilt versions will gain them — that's the one delibera
 difference, and it's invisible to visitors.
 
 Nothing needs a decision from you right now. The homepage remains yours and untouched.
+
+---
+
+**2026-08-08 — why three calculators came back empty, and what's been done about it.**
+
+You'll remember twelve calculator rebuilds ran, and three of them produced nothing at
+all — the overpayment calculator, the portfolio dashboard, and the fact-finder game.
+I've now got to the bottom of all three, and none of them failed because the rebuild
+itself went wrong.
+
+Two of them were killed by our own quality checker. It scans a finished page for
+leftover template text — things like "[Name]" that an AI sometimes leaves behind —
+but it was reading the page's program code as well as its visible text. Calculator
+code is full of harmless phrases that happen to start the same way, so the checker
+declared two perfectly good calculators "unfinished", threw them away, and — worse —
+still marked the job as done, which is why nothing flagged it at the time. The same
+thing bit one other site the same day. I've fixed the checker so it only reads what a
+visitor would actually see, proved the fix against the exact three lines it wrongly
+convicted (and proved it still catches real leftover template text), and put the
+change through the review council. It's committed and will take effect on the next
+platform release — the three failed rebuilds should then be re-run.
+
+The third, the portfolio dashboard, was stopped by a different guard — one that
+checks a rebuilt tool hasn't invented fake data (a real incident on another site a
+few weeks back). Your original portfolio page doesn't load any data — visitors type
+in their own properties — so I suspect this was also over-caution, but the record of
+exactly what it objected to has since been cleaned away, so the honest answer is:
+re-run it and watch. That's queued for after the checker fix lands.
+
+Separately, while digging, I found the "mark the job done even though the output was
+thrown away" behaviour is its own defect — the workshop's paperwork says a failed
+check should still hand the work over, but the live settings lost that instruction in
+a way nobody can now trace. I've written that up for a deliberate decision rather
+than quietly changing it, because "what should happen when a rebuilt tool fails its
+checks" is a judgement call, not a typo.
+
+The site itself is untouched by all of this: still locked, your original pages all
+verified byte-for-byte again, the nine live rebuilt calculators still serving. The
+arithmetic verification of those nine (the ID-alignment work) is the next job after
+the three re-runs.
