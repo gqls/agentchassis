@@ -161,6 +161,10 @@ func refuseDeployStampOnSkip(ctx context.Context, params ActionParams, pageID uu
 // or any later successful deploy stamp — reopens the slot.
 func parkPageBuildFailure(ctx context.Context, db *sql.DB, siteID, pageID uuid.UUID, pageName, skipReason string, strikes int, logger *zap.Logger) {
 	spec, err := json.Marshal(map[string]interface{}{
+		// "bug" is the queue-drain convention mistyped_deployed_page established
+		// (LANDMINES): a needs_human_review row with no handler must say which
+		// decision it is, so a drain never routes it to a model to guess at.
+		"bug":         "bugs_open/210",
 		"page_name":   pageName,
 		"page_id":     pageID.String(),
 		"skip_reason": skipReason,

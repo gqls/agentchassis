@@ -18,7 +18,12 @@ loss of a build request, no data destroyed.
 > The named tests were updated as this file demanded: `TestUpdatePageStatus_OrdinarySkipStillStamps`
 > → `TestUpdatePageStatus_OrdinarySkipRefusesStamp` (+ park + auto-close tests, all
 > mutation-proven); `TestSavePageSections_OrdinarySkipIsNotClaimed` deliberately unchanged.
-> Council corr `c9647117-3a4b-48a2-b34c-1ea25f4e1f7f`. Lane docs:
+> Council corr `c9647117-3a4b-48a2-b34c-1ea25f4e1f7f` — **APPROVED, round 1** (4 advisory
+> objections, none high; all ten read and dispositioned with evidence in the lane NOTES). One
+> objection found a real population: the `loadOpenPageItems` 'cancelled' alignment releases
+> the mute on **8 dartsonline pages** (cancelled 2026-07-20) at that site's next reconcile —
+> owner call whether to re-mute them as `wont_fix` (the durable verb); query in the RUNBOOK.
+> Lane docs:
 > `docs/agent_docs/docs024_key_docs_latest/bugfix_210_content_failed_build_stamped_deployed/`.
 > **Stays OPEN until the fix is live on the fleet and pod-verified** (grep
 > `DEPLOY_STAMP_REFUSED_ON_SKIP`, 0 pre-roll → non-zero every replica; then the first non-zero

@@ -27,3 +27,13 @@ sibling team's tool-recreation requests for that page are held while the ticket 
 have been told, in their own notes. Third: we found and fixed a small inconsistency next door —
 a cancelled ticket used to free the slot for one producer but not the other; now both agree.
 Awaiting the council verdict and the next build roll.
+
+**2026-08-08, evening.** The council approved the change (first round, four advisory
+objections, none serious; each is answered with evidence in the notes). One of them earned
+its keep: checking a reviewer's worry, we found 25 old "cancelled" build requests sitting in
+the queue, and our tidy-up means eight pages on dartsonline.com — muted by someone on 20 July
+— will be rebuilt (at LLM cost) the next time that site is replanned. If that mute was
+deliberate and should stay, someone needs to re-mark those eight items as "won't fix" (which
+stays muted under both the old and new rules) before dartsonline is next replanned. That is an
+owner/operator decision — the eight are listed in the notes; the query to find them is in the
+runbook.

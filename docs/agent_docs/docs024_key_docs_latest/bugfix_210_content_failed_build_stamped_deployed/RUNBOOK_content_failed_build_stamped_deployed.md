@@ -41,3 +41,18 @@ done
 # first number ≥1 (added string), second stays ≥1 (unchanged 208 guard = positive control
 # for the grep pipeline, not for this change — the ADDED string is the real evidence)
 ```
+
+## Cancel-as-mute audit (guardian objection 6 — run before dartsonline is next replanned)
+```sql
+-- items whose mute the loadOpenPageItems 'cancelled' alignment releases;
+-- re-mark intentional mutes as wont_fix (closed under BOTH old and new rules)
+SELECT s.domain, w.id, replace(w.item_key,'needs_page:','') AS page, p.build_status
+FROM site_work_items w
+JOIN sites s ON s.id=w.site_id
+LEFT JOIN pages p ON p.site_id=w.site_id AND p.name=replace(w.item_key,'needs_page:','')
+WHERE w.item_type='needs_page' AND w.status='cancelled'
+  AND COALESCE(p.build_status,'') NOT IN ('deployed')
+  AND NOT EXISTS (SELECT 1 FROM site_work_items w2 WHERE w2.site_id=w.site_id
+                  AND w2.item_key=w.item_key AND w2.status NOT IN
+                  ('complete','verified','rejected','wont_fix','failed','cancelled'));
+```

@@ -57,3 +57,73 @@
 - Consumers told by append-only notes: mortgagecalculator lane (ACTIVE session — used
   `cat >>` append rather than a whole-file Write to be collision-safe), feature_021 lane,
   208 lane handoff pointer.
+
+## 2026-08-08 — post-commit
+
+- Commit `2c3efc9f5`, 14 files, commit-scope report clean. Three shared files deliberately
+  LEFT OUT (they carried other live sessions' appends): LANDMINES.md — my two entries were
+  already swept to HEAD inside `f993554f6` (RSH-008 lane), nothing lost; WRONG_CALLS.md and
+  the mortgagecalculator NOTES — my appends ride with those lanes' next commits.
+- **Pattern-check advisory answered — the untouched twin `UpdatePageComponentsStatusAction`
+  does NOT share the defect**: it stamps `page_components` review status (default 'approved')
+  in the review flow, never writes `pages.build_status` or `built_from_plan_version`, and is
+  not a step in the three assemble loops — so it cannot silence the reconciler, which is the
+  whole of bug 210's mechanism. No change made there, deliberately.
+- The other advisory (logged-model-output at v3_site_actions.go:5750) predates this lane's
+  edits and belongs to whoever owns that call site — not smuggling a fix into this commit.
+- Council run live at commit time (review_architecture executing ~17:34 UTC); verdict below
+  when read.
+
+## 2026-08-08 — council verdict READ: APPROVED, round 1, 4 advisory objections (none high)
+
+Corr `c9647117`. Verdict `approved` at 17:36 UTC, ~10 minutes after submission (no dispatch
+queueing this time). Every objection read; dispositions, each with its evidence:
+
+1. **editquality (medium): "no edit touches the concept register."** True of the submission's
+   edit list (platform files only); refuted by the COMMIT — `2c3efc9f5` carries PBP-038 +
+   the index row, same commit as the code, which is the ruling's actual condition.
+2. **guidelines (medium): raw ON CONFLICT vs the DELETE+INSERT contract.** Answered by
+   induction THIS session, same design as 208's: in a rolled-back tx, my exact park INSERT
+   gave `INSERT 0 1` then `INSERT 0 0` (deduped while open, bare conflict — no 42P10), then
+   after driving the row terminal a re-insert succeeded (correct re-arm), 0 rows after
+   ROLLBACK. The dedup-only intent needs no DELETE+INSERT: nothing is ever updated on
+   conflict, and the open row WINNING is the design.
+3. **guidelines (low): 'unresolved' left out of the reconciler's closed set.** Deliberate and
+   comment-carried (code + register): freeing it re-emits every two-strike-parked page
+   through a raw INSERT with no two-strike. Their alternative (check the park before treating
+   unresolved as clear) adds a second query for the same behaviour.
+4. **tooling_provenance (medium): no doc_notes trail.** The two LANDMINES entries were synced
+   to doc_notes BEFORE the commit (`landmines-sync.py --apply`, 1350 rows), footprinted on
+   `page_build_failure_guard.go`, `insertWorkItem`, `page_build_failed` and the `needs_page:`
+   keys — that is the doc_notes mechanism the seat asked for.
+5. **guardian (medium): can the tool-recreation lane tell "my dedup" from "someone's park"?**
+   Yes — the discriminating query is in their NOTES and in LANDMINES: an open
+   `page_build_failed` row at `needs_human_review` on the key IS the park, and its spec now
+   carries `bug: bugs_open/210` (follow-up commit) per the mistyped_deployed_page convention.
+6. **guardian (low): cancel-as-mute on the two older types.** MEASURED, and the seat was right
+   to ask: 25 cancelled `needs_page` + 1 `owned_page_review` rows exist. Decomposition:
+   14 sit on `deployed`+current pages (decideEmit `skip_built` — no effect), 3 are synthetic
+   verify-keys matching no plan page (no effect), 1–2 produce cheap review items —
+   **8 dartsonline pages (planned/needs_rebuild, cancelled 07-20) would genuinely re-emit
+   LLM builds on that site's next reconcile.** Surfaced to the owner in README; the durable
+   mute verb is `wont_fix`/`rejected` (closed in BOTH mechanisms), and re-statusing those 8
+   is an operator call, not this lane's.
+7. **debug_historian (medium): does an item-type/handler parity script choke?** No such
+   script exists (grepped); the no-handler decision-item shape is established, deliberate
+   precedent — the `mistyped_deployed_page` LANDMINE says "no handler by design". Its
+   column trap (handler_agent is NOT NULL DEFAULT '', so IS NULL finds nothing) applies to
+   the park row too and is why the spec carries the bug pointer.
+8. **debug_historian (low): needs_rebuild selectors over-firing on parked pages.** Slot-keyed
+   automatic producers are blocked by the park; the remaining selectors are demand-driven and
+   every retry passes back through the guard (counted, bounded). The error-log counter is the
+   watch instrument.
+9. **prior_art_librarian (medium/low): blast-radius and 0-rows claims "unverified this
+   session".** They WERE run this session against `agent_definitions` (both the action match
+   and the `output_field` match — three agents) and `site_work_items` (0 `page_build_failed`
+   rows); the grounded_in block said so. No further action.
+10. **architecture (medium): size park inflow vs queue drain.** Post-roll watch item — the
+    refusal counter is the sizing instrument (RUNBOOK query); expected inflow is bounded by
+    bugs_open/202's quota-failure rate, and the seat itself says "not before merge".
+
+**Third schema-first miss today** (`diagnosis_artifacts.content` — it is `body`) — after
+writing the WRONG_CALLS entry about the first two. The tally is the point; entry updated.
