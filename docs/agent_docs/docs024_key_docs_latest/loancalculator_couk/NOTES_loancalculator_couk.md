@@ -3487,3 +3487,76 @@ three violates any rule we have. **Two of the three were CAUSED by a rule** — 
 told the writer to state privacy this way, and the H register's warmth rules kept "true
 cost of borrowing" where the plain default dropped it. Rules here are not merely failing
 to catch faults; they are generating them.
+
+---
+
+## 2026-08-08 (evening) — the rollout is COMPLETE: 26/26, and the golden re-baselined
+
+`v1.0.1266` shipped the `219` fix. Everything below was done against that image.
+
+### Pod verification, with a control that could have failed
+
+Not "a roll happened". Both `agent-chassis` replicas: the string the fix ADDED = 1, the
+string it REMOVED = 0. Then a pre-fix pod still on `v1.0.1264`
+(`agent-page-rebuild-a104b2fc-tzk95`): ADDED = 0, REMOVED = 1 — the exact inverse, so
+neither grep is one that always passes. ⚠ **The fleet was mixed at this point** (20
+pods on 1264, 5 on 1266): the long-lived `agent-chassis` deployment had rolled, the
+spawned agent pods had not. Check the pod that will actually run your action, not "the
+fleet".
+
+### The three pages
+
+Fired all three (owner ruling: `index` goes through the framework like everything else,
+no special handling). All reached `current_step = complete`; this morning the same
+three ended `complete_error` with `1 blockers, 0 errors`.
+
+`voiceh_grade.py` **3/3 PASS**:
+```
+[PASS] tool-car-finance-calculator     prose-0 683->2328b, prose-1 174->638b
+[PASS] tool-interest-rate-stress-test  prose-0  34->2120b, prose-1 131->850b
+[PASS] index                           prose-0 1101->1126b, prose-1 133->2210b,
+                                       prose-2 117->295b,  prose-4 2803->2813b
+```
+
+**And the grader was proven able to fail, this session, not by reputation.** Mutated
+the baseline so `index`'s recorded row ids equal its CURRENT ids, re-ran: `0/1 pass`,
+4/4 rows flagged *"row id UNCHANGED — the save did not run"*. That is the mutation
+test, not a spot-check: it proves the check can fire, which a pass alone never does.
+
+### The calculators
+
+`toolgolden.py --compare GOLDEN_2026-08-03b`: **all 11 tools reproduce their golden
+values exactly** — including the two whose pages had just been rebuilt. Ran the compare
+BEFORE re-baselining, deliberately: capturing first would have silently blessed
+whatever the rebuild did, and the compare is the only step that could have said no.
+
+Re-baselined as `acceptance/GOLDEN_2026-08-08_voice_h_complete.json` — 11 pages, and
+now 4 vectors, since the old golden predates `asym` (added 2026-08-05 for the
+ratio-calculator blind spot; it compared on 3 and said so each time).
+
+### Work items completed AFTER grading
+
+The three items were `detected` until the grade passed, then set `complete` with the
+verdict and the falsifiability note in `result`. A direct dispatch bypasses the loop's
+`mark_complete`, so `detected` honestly meant "built, not yet graded".
+
+### A near-miss worth recording: my own filter nearly invented a missing page
+
+Counting coverage with `max(prose.updated_at) >= '2026-08-07'` returned **25 of 26**,
+and I was one keystroke from reporting a page the rollout had missed. It had not.
+`guide-how-loans-are-calculated` is the **voice-H canary** (item `2517bc4b`, the page
+the owner reviewed), rewritten `2026-08-06 11:53` — the day BEFORE the batches. My
+filter date drew the line after the canary and the canary fell outside it.
+
+The lane's own baseline should have tipped me off and didn't: the 08-07 backup already
+contained that page's voice-H text. **The date in a coverage filter is a claim about
+when the work happened, and it is exactly as fallible as any other claim** — here it
+encoded "the rollout is the batches", which was false. Same family as the entries in
+`MEMORY.md` about a filter defining its own conclusion; logged here because it fired on
+a *completion* claim, which is the kind most likely to be repeated to the owner.
+
+### Final state
+
+26/26 active pages in voice H. 26/26 HTTP 200 (swept live, not inferred). 11/11 tools
+identical to golden. `219` fixed, live, proven, and kept in `bugs_open/` per owner
+direction with the evidence inside the file. `221` open and belongs to webdesign.co.uk.

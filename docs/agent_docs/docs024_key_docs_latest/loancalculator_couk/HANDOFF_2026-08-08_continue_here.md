@@ -15,16 +15,36 @@ voice H      23 of 26 active pages  (3 blocked by bugs_open/219, unchanged and h
 live         26/26 HTTP 200 · 12/12 locked calculator rows identical · toolgolden 11/11 exact
 ```
 
-> **UPDATE 2026-08-08 afternoon — 219 IS FIXED AND APPROVED; THE ONLY BLOCKER LEFT IS
-> A RELEASE.** Commit `744bfdb3d`, council APPROVED round 1
-> (`c9104844-b303-43dd-a426-73386ebbb25e`). `IMAGE_TAG` is set to **`v1.0.1265`** in
-> the makefile, ready for the owner's whole-fleet release; the fleet is on `v1.0.1264`,
-> which does **not** carry it. **Do not fire `voiceh_batch.sh` until you have proven
-> the fix is in the running pod** — a roll is not evidence, so grep a positive AND a
-> negative marker on every replica:
-> `kubectl exec -n ai-persona-system <chassis-pod> -- sh -c 'strings /app/agent-chassis | grep -c "Schema/pipeline vocabulary in visible page copy"'`
-> (expect ≥1) and the removed string `'the model wrote about its task instead of doing it'`
-> (expect **0**).
+> # ✅ DONE — 2026-08-08 evening. THE ROLLOUT IS COMPLETE; §1 AND §4 BELOW ARE CLOSED.
+>
+> Read `SUMMARY_2026-08-08c_the_rollout_is_complete.md` first; this file is kept for
+> its still-live §2/§3/§5/§6, which are unchanged and still worth reading.
+>
+> ```
+> voice H      26 of 26 active pages          (was 23; the last 3 landed on v1.0.1266)
+> live         26/26 HTTP 200 (swept live)
+> calculators  11/11 identical to golden, re-baselined GOLDEN_2026-08-08_voice_h_complete.json
+> 219          FIXED, LIVE, PROVEN — kept in bugs_open/ by owner direction, evidence inside
+> 221          OPEN, belongs to webdesign.co.uk — same check, different mechanism
+> ```
+>
+> **§1 is closed:** `index`, `tool-car-finance-calculator` and
+> `tool-interest-rate-stress-test` were rebuilt through the framework, graded 3/3 PASS,
+> and their work items completed after grading. **§4 is closed:** golden re-baselined
+> (11 pages, now including the `asym` vector the old one predated) — and the compare
+> was run BEFORE the capture, deliberately, because capturing first would have blessed
+> whatever the rebuild did.
+>
+> **The only thing still owed on this lane is §5 — the owner's expansion question.**
+>
+> **If you are here to rebuild a page anyway, the two checks that earned their keep:**
+> a roll is not evidence, so grep a positive AND a negative marker on **the pod that
+> will run your action** (the fleet was MIXED — the `agent-chassis` deployment had
+> rolled while 20 spawned agent pods were still on the old image):
+> `strings /app/agent-chassis | grep -c "Schema/pipeline vocabulary in visible page copy"`
+> (expect ≥1) and `'the model wrote about its task instead of doing it'` (expect **0**).
+> And prove `voiceh_grade.py` can FAIL before believing a pass — mutate the baseline to
+> carry the page's CURRENT row ids and re-run; it must flag every row.
 >
 > **`index` GOES THROUGH THE FRAMEWORK LIKE EVERYTHING ELSE — OWNER RULING,
 > 2026-08-08.** Build all three together; no special handling, no holding it back.

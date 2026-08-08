@@ -9,8 +9,9 @@
 > The defect is the scan's **scope**, not comment syntax. The fix re-scopes the
 > check to assertion text (`datahelpers.ExtractAssertionText` + `headProseBlocks`),
 > the seam `bugs_open/218` settled for the sibling placeholder scan.
-> **STAYS OPEN until the fleet rolls past `744bfdb3d`** — the defect is reproducible
-> until the image ships (fleet was at `v1.0.1264`; the fix needs `v1.0.1265`).
+> **FIXED, LIVE AND PROVEN 2026-08-08 16:17 BST — `v1.0.1266`.** Kept in `bugs_open/`
+> by owner direction (2026-08-06); the closure evidence is the
+> §"Verified live" section at the foot of this file, not a move to `bugs_closed/`.
 
 **Filed 2026-08-08 by the loancalculator voice-H rollout lane.** Not urgent — it
 breaks no live page. It makes three pages **permanently un-rebuildable**, and it will
@@ -280,3 +281,58 @@ every page using that component"*.
 `save_page_sections`, so their prose still carries its original bytes and row ids, and
 all three serve HTTP 200. They are the only pages of loancalculator's 26 that the
 voice-H rollout could not convert.
+
+---
+
+## Verified live — 2026-08-08 16:17 BST, chassis `v1.0.1266`
+
+Kept in `bugs_open/` per the owner's 2026-08-06 direction. This section is the closure
+record.
+
+**1. The binary, on every replica, with a control pair.** Not "a roll happened" —
+a string the fix ADDED and a string it REMOVED, on each pod, plus a pre-fix pod to
+prove the grep discriminates:
+
+```
+agent-chassis-856dff6b46-f86mr  (v1.0.1266)   NEW marker 1   OLD marker 0
+agent-chassis-856dff6b46-smr28  (v1.0.1266)   NEW marker 1   OLD marker 0
+agent-page-rebuild-a104b2fc-tzk95 (v1.0.1264) NEW marker 0   OLD marker 1   <- control
+```
+(NEW = `Schema/pipeline vocabulary in visible page copy`; OLD = `the model wrote about
+its task instead of doing it`.) The control pod is the exact inverse, so neither result
+is a grep that always passes.
+
+**2. The behaviour, on the three pages that could not be built.** Re-fired through the
+framework (`voiceh_batch.sh`, unchanged recipe), all three reached
+`current_step = complete`:
+
+| page | this morning (v1.0.1264) | now (v1.0.1266) |
+|---|---|---|
+| `index` | `complete_error` — 1 blockers | `complete` |
+| `tool-car-finance-calculator` | `complete_error` — 1 blockers (×3) | `complete` |
+| `tool-interest-rate-stress-test` | `complete_error` — 1 blockers | `complete` |
+
+**3. The artefact, not the status.** `voiceh_grade.py` **3/3 PASS** — row ids replaced
+(so `save_page_sections` genuinely ran, not a carry branch), every baseline fact still
+present, locked calculator rows keeping both id and `updated_at`, and the served page
+carrying the new opening with **0** occurrences of the baseline opening.
+
+**4. The grader was proven able to FAIL in the same session**, because a checker that
+has never failed is not evidence. The baseline was mutated to carry the pages' CURRENT
+row ids and re-run: `0/1 pass`, all four rows correctly flagged *"row id UNCHANGED —
+the save did not run"*.
+
+**5. The calculators were not disturbed.** `toolgolden.py --compare` against
+`GOLDEN_2026-08-03b`: **all 11 tools reproduce their golden values exactly**, including
+`car-finance-calculator` and `interest-rate-stress-test`, whose pages were just
+rebuilt. The prose around them changed; the arithmetic did not. Re-baselined afterwards
+as `GOLDEN_2026-08-08_voice_h_complete.json` (11 pages, now including the `asym` vector
+the old golden predates).
+
+**6. The census the fix was measured against is unchanged**, as this file required: the
+three components still contain the string, because nothing edited a locked template to
+satisfy a validator.
+
+**What is NOT closed by this:** `bugs_open/221` — the same check still blocks
+webdesign.co.uk's `tools-index` on `as an ai` in genuinely visible copy. Different
+mechanism, filed separately, that lane told.

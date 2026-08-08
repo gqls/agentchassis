@@ -1210,3 +1210,54 @@ be avoided. The pre-run copy is backed up either way, so nothing is lost by tryi
 So when the release goes out, all three remaining pages go through together — the
 homepage, the car finance calculator and the interest rate stress test — with no
 special handling for any of them.
+
+---
+
+**Saturday 8 August, evening — it is done. All twenty-six pages are in the new
+voice, and the calculators still give exactly the same answers.**
+
+Your release went out and carried the fix. I checked it had actually arrived rather
+than trusting that a deployment happened: I looked inside the running program for a
+phrase the fix adds and a phrase it removes, on both copies of the service, and then
+did the same on an older one still running the previous version to make sure the check
+could tell the difference. It could.
+
+Then the last three pages went through the framework — the homepage included, as you
+ruled. All three built cleanly. This morning the same three failed every time.
+
+**What I checked before telling you it worked.** Not the status — a job can report
+success and have saved nothing. For each page: that the text in the database is
+genuinely new (the rows were replaced, not left alone), that every number, price,
+percentage and legal reference from the old copy is still there, that the locked
+calculators were not touched, and that the live page on the internet is serving the
+new words and none of the old ones.
+
+I also deliberately broke the checker to make sure it was capable of failing — I fed
+it a version of the "before" record that should have made it complain, and it
+complained about all four rows. A test that has never failed isn't a test.
+
+**The calculators.** Before re-recording what "correct" looks like, I ran the existing
+record against the live site: all eleven tools produce identical numbers, including
+the two whose pages had just been rewritten. That order matters — if I had re-recorded
+first, I would have quietly enshrined whatever the rebuild did, and the one step that
+could have caught a problem would never have run. Only then did I take the new
+reference recording, which now also covers a test case the old one predated.
+
+**One thing I nearly got wrong, and it is the sort you would never have caught.** When
+I counted how many pages were in the new voice, I got twenty-five out of twenty-six,
+and was about to tell you one page had been missed. It hadn't. The page in question is
+the very first one we did — the one you reviewed and approved — and it was rewritten a
+day before the main run, so the date I used to count "done" excluded it. The count was
+right and the question was wrong. I have written that down, because a wrong number
+attached to the word "complete" is the kind that gets repeated.
+
+**Where that leaves us.** Twenty-six of twenty-six pages in the new voice, every page
+loading, every calculator unchanged. The platform bug is fixed, live and proven, and
+I have left the record of it open for you rather than filing it away.
+
+**Two things still want you, neither urgent.** The question from yesterday about
+whether the framework was right to *fill* the near-empty pages with new explanatory
+copy rather than just restyling them — still open, still yours. And the separate
+problem I found on webdesign.co.uk, where a page cannot currently be rebuilt because
+its own copy says "as an AI-builder prompt" and the checker objects to the phrase.
+That one needs a small fix of its own and I have left it with that lane.
