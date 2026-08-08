@@ -139,3 +139,27 @@ than a bug: two entries in the human-review queue are labelled with an internal 
 instead of a description, because the configuration asks for a templated label and the code
 that writes it does no templating. Renaming the key would put a raw `{{...}}` string in front
 of a reviewer, so it needs a call on whether templated labels should exist at all.
+
+### Correction to this morning's entry, which I should have added earlier today
+
+The afternoon entry above says of the four wrongly-filed items: *"It matters because the
+system counts outstanding work per pipeline to decide whether a site is finished — so an item
+under the wrong heading is invisible to the count that should find it."* **That is wrong and
+I corrected it hours later in the bug file, but not here, which is the file you actually
+read.**
+
+The count I cited is real, but it has exactly one caller and that caller always asks about
+the `build` pipeline. An item filed under `design` and one filed under `content` are equally
+invisible to it — it cannot tell those two apart, so it cannot be evidence that confusing
+them costs anything. I checked every other consumer afterwards, in the code and in the live
+configuration: they all name `build`, `reports` or `diagnose` specifically. **Nothing today
+treats `design` and `content` differently.**
+
+So the accurate version: the four items are genuinely mislabelled, and nothing currently
+reads that label in a way that makes the mislabelling cost anything. The exposure is that
+the labels are right-or-wrong by luck, and the first thing that ever does distinguish them
+inherits whatever the default happened to write — which is the same fault as the original
+bug, one level out. That is a good reason to fix it and a poor reason to have called it
+urgent, and I called it urgent.
+
+Nothing about the fix changes. What was wrong was my argument for it.
