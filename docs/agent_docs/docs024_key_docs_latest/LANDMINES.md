@@ -7179,3 +7179,29 @@ warn line fired and was unreachable before any grep could run).
   ```
   30 rows on 2026-08-08 and `contact-block` was the only one false on both. **And when you write its acceptance fence, assert the VALIDATION path, not the success message** — otherwise the contract makes the defect permanent.
 - **added:** 2026-08-08, `staged_component_build` lane (D10 batch 6)
+
+### Adding a template variable to a prompt WITHOUT adding its field to that step's `input_fields` renders EMPTY and errors nothing — the migration looks applied and does nothing
+
+- **footprint:** `input_fields`, `execute_llm_prompt`, `prompt_template`, `agent_definitions`,
+  `default_config`, `llm_call_log.prompt_rendered`, `docs/agent_docs/sql_for_agents/`
+- **fires when:** you add a new load step (`query_database` → `output_field: foo`) and
+  reference `{{.foo.text}}` in a downstream prompt, but leave that step's
+  `input_fields` list as it was. This is the normal shape of "give the agent one more
+  piece of context", and it is how most config-only agent fixes are written.
+- **the tell:** there isn't one. The step only receives the fields it lists; an
+  unreferenced variable renders empty, the LLM call succeeds, the workflow completes, and
+  every structural check passes — the new step ran, its `output_field` is populated in
+  `collected_data`, the prompt contains the placeholder, the row updated. The failure is
+  visible in exactly one place: the **rendered** prompt. It is invisible in the template.
+- **the check:** assert the field is listed, at apply time —
+  `default_config #> '{workflow,steps,<step>,config,input_fields}' @> '["<field>"]'::jsonb` —
+  and then prove it at runtime from `llm_call_log.prompt_rendered`, which is the only
+  record of what the model was actually handed. **The runtime assertion needs a POSITIVE
+  CONTROL or it cannot fail usefully:** a channel that loads nothing produces the same
+  "absent" reading as a subject that legitimately has nothing. Pick one subject whose
+  content you know is non-empty and one you know is empty, and require the two to come out
+  OPPOSITE ways in the same query. Checking only the empty case passes perfectly on a
+  channel that has never worked.
+- **source:** found while writing `bugs_open/227`'s fix (345, experience-planner) — caught
+  in review of my own SQL, before apply, not by a failure
+- **added:** 2026-08-08, loancalculator_couk lane

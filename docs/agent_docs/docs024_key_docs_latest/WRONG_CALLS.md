@@ -24165,3 +24165,80 @@ it.** Caught by re-running `ls` at WRITE time rather than trusting the number fr
 The check that caught it is the check: **re-derive the next-free number in the same breath as the
 `Write`, never carry it forward from earlier in the session.** Same shape as
 `prior-art-search-goes-stale`, at minute-scale.
+
+## 2026-08-08 — loancalculator lane, fixing `bugs_open/227`: I censused a shared prompt for one site's vocabulary CASE-SENSITIVELY, told the owner "three prompts", and drafted the fix against three of the five
+
+**The claim.** Auditing `experience-planner`'s live config for how far vonc.com's hardcoded
+diagnosis had spread, I ran `regexp_matches(step::text, 'provocation|gauntlet|arena', 'g')` per
+step. It returned **37 hits across three steps**. I reported "the hardcoded text is in THREE
+prompts, not one" to the owner as a correction to the bug file, wrote it into the bug file, and
+composed the fix SQL — including its md5 drift guard — against exactly those three.
+
+**It is FIVE steps and 48 hits.** `reframe` and `review_honesty` were invisible because
+**"Gauntlet" is capitalised everywhere it appears in both**, and my pattern was lower-case. Both
+missed steps hold a veto; `review_honesty` holds a *hard* veto and was carrying a second site's
+evidence_base premise as its anti-fabrication rule. `reframe` is the step that had actually
+produced the second contaminated plan in the run the bug was filed from — so the blind census hid
+the step nearest the damage.
+
+**What caught it.** Nothing external. I re-ran the census with `lower()` before writing the verify
+block, on the general principle rather than on any suspicion, and the count changed. Roughly one
+query and thirty seconds, *after* the wrong number had already been stated twice.
+
+**The cheap check, and it is already a fleet rule — this is a recurrence, not a discovery.**
+"A grep proves an absence only for the SPELLING it searches" is recorded in this file several times
+over and in `MEMORY.md`. The new wrinkle worth the tally mark: **the differing spelling was CASE,
+on a proper noun**, which is the spelling difference least likely to occur to you, because you type
+the lower-case form and the prompt reads naturally either way. Two concrete habits:
+- **Census with `~*` / `lower()` by default** when the needle is a name. Reserve case-sensitivity
+  for when case is the thing you are testing.
+- **Make the verify assertion case-insensitive too.** My first verify block used
+  `NOT ILIKE '%gauntlet%'` — which would have passed while "Gauntlet" survived in two steps. The
+  same blindness in the check that is supposed to catch the blindness. It now reads
+  `!~* 'provocation|gauntlet|arena|vonc|spark'`.
+
+**Why it belongs here.** The query was correct, ran clean, and returned exactly what I asked. The
+error was asking about one casing of a word I already knew was a proper noun — and then wiring that
+answer into a drift guard, a fix and a bug-file correction before re-asking it.
+
+---
+
+## 2026-08-08 — I sized a live defect from `page_components` and called it "three live pages"; it was two
+
+**The claim.** `bugs_open/228`, as first written: *"Three live pages on three client sites invite
+a visitor to type their name, email and message, and then tell them it was sent."* The table under
+it listed robot-hands.com/contact.html, leopardessconsulting.co.uk/ai-readiness-quiz.html and
+finetuning.uk/case-studies.html, each marked `active`.
+
+**What was actually true.** Two. `finetuning.uk/case-studies.html` has a `contact-block` placement
+row and an `active` page, and its served HTML contains **no** `contact-block` markup at all —
+`grep -c 'data-component="contact-block"'` returns 0; the page serves `hero-case-studies`,
+`case-studies-list` and `testimonials`. The row is drift.
+
+**Why it is the annoying kind of wrong.** The rest of the bug was verified *at the artefact*, on
+purpose and at some cost: I curled the page, curled the served 2,100-byte script, and grepped both
+for a transport rather than trusting the DB row. Then, for the blast radius — the one number a
+reader uses to decide how urgent this is — I asked `page_components` and wrote down what it said.
+**The most carefully-evidenced document in the session had its headline figure taken on trust from
+a table, three paragraphs below a paragraph explaining why I do not trust that table.**
+
+**What caught it.** Not a review, and not suspicion about this figure. A *different* sweep, run
+half an hour later for an unrelated question — "does every page carrying a JS-bearing component
+actually load that component's script?" — probed all 38 active placements against their served
+pages, and reported this row as component-absent on the way past. Pure luck of adjacency: had I not
+happened to run a sweep that curls every placement, the wrong figure would have shipped.
+
+**The cheap check.** One curl per row, before the row is quoted:
+```bash
+curl -s -L "https://<domain><url>" | grep -c 'data-component="<function>"'
+```
+Zero means the row is a claim, not a placement. **This lane had already found four such rows**
+(`ported-page` x58 on lmc/loancash, `featured-content`, `pricing`,
+`leopardessconsulting.co.uk/blog.html`) and had written "placement rows move — re-verify the row
+AND the served markup" into its own handoff. I re-verified the row I was going to *test on*, and
+took the rows I was only going to *count* on trust — which is exactly backwards, because the ones
+you test on announce their own absence and the ones you count on never do.
+
+**The transferable rule, and it is narrower than "verify things".** *A placement row is a claim
+about a page, not a measurement of one.* Any figure of the form "N live pages are affected" that
+comes from a join over `page_components` is an UPPER BOUND. Quote it as one, or spend the N curls.

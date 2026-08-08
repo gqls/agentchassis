@@ -3983,3 +3983,117 @@ section, not the page.
 7933edd4  one-off                        debt-help section reorder
 50c8ba5c  one-off                        index opening block
 ```
+
+---
+
+## 2026-08-08, late — picking up `bugs_open/227`: the fix is written and dry-run proven, not applied
+
+The site is finished; this is the platform bug the lane filed on its way out. Owner asked
+for it to be picked up and handed to a fresh session, so: design, SQL, dry run, and a
+handoff — `HANDOFF_2026-08-09_continue_here.md`.
+
+### What the bug file got wrong, and how much of it I got wrong first
+
+**The bug file names `compose`. It is five prompts.** Case-insensitive census of
+`provocation|gauntlet|arena|vonc|spark` over the live row `e0194bee-…`:
+
+```
+compose             41
+review_feasibility   2   (veto)
+review_honesty       2   (HARD veto)
+review_mvp           2
+reframe              1   (rewrites a vetoed plan)
+                    48
+```
+
+**My own first census was case-sensitive and returned 37 hits across three steps** — I
+told the owner "three prompts, not one" and drafted the fix, and its md5 drift guard,
+against three. `reframe` and `review_honesty` hide because "Gauntlet" is capitalised in
+both. Logged in `WRONG_CALLS.md` as a recurrence of the oldest rule in the file. The
+verify block in 345 now asserts `!~*`, not `NOT ILIKE` — my first draft of the *check*
+had the same blindness as the measurement it was checking.
+
+### The finding that changed the fix
+
+**Three of the four council seats hold vonc's criteria as their general judging rule.**
+`review_feasibility` asks whether data is "in /data/provocations.json or
+client-computable" and watches for "the daily emitter"; `review_mvp` is told the core
+loop is "land on a provocation → file a position → …; enter a real timed Gauntlet round";
+`review_honesty` is told "vonc's evidence_base has ZERO facts".
+
+So the bug file's *"the review layer is not the defect here"* is too generous, and I have
+corrected it in place. The verdict it praises was right, but **over-determined**: a
+vonc-shaped plan on a non-vonc site fails a generic check *and* a contaminated one, and
+the run cannot tell us which did the work. The practical consequence is the trap: **a
+correct post-fix plan can still be objected to by a seat hunting for a feed and a timer
+this site never had**, which would read exactly like "the fix didn't work".
+
+### And the premise is stale, not just misplaced
+
+`review_honesty` — a **hard veto** — asserts vonc's `evidence_base` has zero facts. True
+when written 2026-07-18. False since **2026-08-08 08:58Z**: `site_specs` aspect
+`evidence_base`, `is_current`, 4 facts (first is `vonc-archetypes`, a `count` with a SQL
+source and `verified_at: 2026-08-08`). loancalculator has no such spec row at all.
+
+A vonc plan run today is told by its own anti-fabrication seat that four verified facts do
+not exist. **Nothing updates a premise pinned inside a shared prompt when the site moves
+underneath it** — which is an argument for the brief being data that does not depend on
+227 being true at all.
+
+### The design, and why the brief had to be rehomed rather than deleted
+
+D1/D2 are owner rulings carrying "do NOT relitigate", and 59 of 61 plans all-history are
+vonc's. Deleting the text without rehoming it trades a contaminated plan for a de-briefed
+one on the only site that has ever used this agent in anger. So 345 moves vonc's brief
+verbatim into `doc_notes` (`subject_type='experience'`, category `experience-brief`) **in
+the same transaction** that strips it from the prompt.
+
+`doc_notes` because it is existing machinery: `append_council_note` already writes there
+with `subject_type='experience'`, the CHECK constraint already allows it, there is a GIN
+index on `categories`, and `query_database` takes N params with an `input_data.` fallback
+(`database_actions.go:32-62`) — so the whole channel is config, no Go. Rejected: the
+intake work item's `spec` (the trigger's `ON CONFLICT DO NOTHING` means a second run keeps
+a stale spec, and work items get completed), and a trigger argument (a brief living in a
+shell-script parameter is "operators must remember X", which this lane's own rule says to
+rank last).
+
+**The `load_brief` query returns a scalar `COALESCE`, so it always yields exactly one row.**
+A miss returns a visible sentinel — "(no brief on file …)" — never NULL and never empty.
+That is deliberate: an empty string would read exactly like a site that legitimately has
+no brief, and the sentinel is what makes a mis-keyed brief disconfirmable.
+
+### The trap in my own fix, recorded because it nearly shipped
+
+`compose.config.input_fields` is `["experience_context","input_data"]`. A step only
+receives the fields it lists. **Adding `load_brief` without adding `experience_brief` to
+that list renders `{{.experience_brief.text}}` empty and errors nothing** — the migration
+would look applied and do nothing. 345 sets it and the verify block asserts it, but the
+runtime proof is the positive control in the handoff: vonc must come out `leaked=true,
+sentinel=false` while loancalculator comes out the other way. **One direction alone cannot
+distinguish a working channel from a channel that silently loads nothing.**
+
+### Dry run
+
+Ran the file with `COMMIT` → `ROLLBACK` against the live DB: both guards passed, snapshot
+captured, `INSERT 0 1`, `UPDATE 1`, verify `DO` block silent (so all five `replace()`
+calls matched and the whole-row census is clean), `ROLLBACK`. Re-queried after: 0
+`load_brief` steps, 0 brief notes, 0 backup rows, row still contaminated — the dry run
+left no trace. **It has never been run against a live orchestration; no plan has been
+composed with it.**
+
+Two paren errors were caught by that dry run and nothing else would have caught them:
+`to_jsonb(($prompt$…)::text)` was one short of closing its `jsonb_set`, and I then
+"fixed" the `replace(replace(…))` nest by adding a paren it did not need. Eight-deep
+`jsonb_set` nesting is not reviewable by eye.
+
+### Live facts worth dating
+
+- Anthropic credits: exhausted fleet-wide 18:00–20:00Z today (20 failures in
+  `llm_call_log`); **recovered** — 21:00Z and 22:00Z hours are 81 calls, 0 failures. A
+  verification run is possible.
+- `agent_definitions` was bulk-updated at **22:01:02.606329Z across 187 rows in a single
+  statement, no snapshot taken**. Not `UpdateUsageCount` (`usage_count` still 0), not
+  migration 338 (22:12:55Z, components/css_themes, "nothing else touched"). Mechanism
+  **[UNIDENTIFIED]** — I looked in `sql_for_agents`, `scripts/`, and the Go writers and
+  did not find it. It did not change the contamination counts. This is why 345 carries an
+  md5 drift guard on all five prompts rather than trusting the row to sit still.

@@ -7,6 +7,54 @@ page-ordering question and got back a detailed, confident plan about a different
 ever been run on the site it is hardcoded for.** `debt-difficulty-help` is the FIRST
 non-vonc experience ever planned. See Measured.
 
+> ## ⚠ CORRECTED 2026-08-08 ~23:00Z by the same lane, before writing the fix. THREE
+> ## corrections, and each one changes what the fix has to do.
+>
+> **1. It is FIVE prompts, not one.** This file says the `compose` prompt. A
+> case-INSENSITIVE census of `provocation|gauntlet|arena|vonc|spark` over the live
+> row (`e0194bee-…`) returns **48 hits across five steps**: `compose` 41,
+> `review_feasibility` 2, `review_honesty` 2, `review_mvp` 2, `reframe` 1.
+> **My own first census missed two of them because it was case-sensitive** —
+> "Gauntlet" is capitalised everywhere it appears in `reframe` and `review_honesty`,
+> so a `~ 'gauntlet'` grep returns 37 hits and shows only three steps, and both
+> veto-holding seats read as clean. A grep proves absence only for the spelling it
+> searches; measure `lower()`.
+>
+> **2. The council is contaminated too, so "the review layer is not the defect
+> here" (below) is too generous — and a fix to `compose` alone is a trap.** Three
+> of the four seats hold vonc's specifics as their general judging criteria:
+> `review_feasibility` (veto) asks whether data is "in /data/provocations.json or
+> client-computable" and watches for "the daily emitter"; `review_mvp` is told the
+> core loop is "land on a provocation → file a position → …; enter a real timed
+> Gauntlet round"; `review_honesty` (**hard** veto) is told "vonc's evidence_base
+> has ZERO facts". And `reframe` — the step that rewrites a vetoed plan, i.e. the
+> one that produced the SECOND contaminated plan in the run measured below —
+> carries "If the Gauntlet is what was vetoed …". The seat that correctly refused
+> the loancalculator plan was itself holding another site's criteria. **So a
+> CORRECT post-fix plan can still be objected to by a seat looking for a feed and a
+> timer this site was never going to have, and that would look exactly like "the fix
+> did not work".**
+>
+> **3. The hardcoded premise is not only wrong-site, it is STALE — inside a hard
+> veto.** `review_honesty`'s "vonc's evidence_base has ZERO facts" was true when
+> written on 2026-07-18. It is **false now**: `site_specs` aspect `evidence_base`,
+> `is_current`, for vonc.com holds **4 facts**, written **2026-08-08 08:58Z**
+> (loancalculator has no such spec row at all). A vonc plan run today is told by its
+> own anti-fabrication seat that four verified facts do not exist. Nothing updates a
+> premise pinned inside a shared prompt when the site moves underneath it — which is
+> an argument for the brief being data that stands independently of this bug.
+>
+> **A fix must also NOT leave vonc briefless.** D1/D2 are owner rulings marked "do
+> NOT relitigate" and 59 of 61 plans all-history are vonc's; deleting the text
+> without rehoming it trades a contaminated plan for a de-briefed one on the only
+> site that has ever used this agent in anger.
+>
+> **Fix candidate 1 is written, dry-run proven, and NOT applied:**
+> `docs/agent_docs/sql_for_agents/345_experience_planner_site_brief_becomes_data.sql`
+> (+ `_ROLLBACK`). Config only, live on apply, no image. See that file's header for
+> the design; see the `loancalculator_couk` lane's
+> `HANDOFF_2026-08-09_continue_here.md` for what is left to do.
+
 ## The defect
 
 `agent_definitions` row `experience-planner` (active, one row, fleet-shared) has proper
@@ -70,7 +118,17 @@ reason it has never bitten is that nobody has run it elsewhere until today.
 **The council caught it.** Round 1, 5 reviewers, `"decision": "rejected"`,
 `"decided_by": "veto from feasibility"`, `should_reframe: true`. The run ended
 `complete_refused`. A feasibility seat reading a plan about pages that do not exist on the
-site correctly refused it. **The review layer is not the defect here.**
+site correctly refused it. ~~**The review layer is not the defect here.**~~
+
+> **CORRECTED 2026-08-08 ~23:00Z — the last sentence is wrong; see correction 2 at the
+> top.** The verdict was right, but the seat that produced it carries vonc's criteria in
+> its own prompt, as do two of the other three. The right verdict here is
+> over-determined: a vonc-shaped plan on a non-vonc site fails a generic check ("these
+> pages do not exist") *and* would fail a contaminated one. **What this run cannot tell
+> us is which check did the work** — so it is not evidence that the review layer is
+> sound, and I should not have written that it was. What caught the correction was
+> re-measuring case-insensitively, one query, after the fix was already drafted against
+> the three steps a case-sensitive census had shown.
 
 ## ⚠ SECOND, SEPARABLE DEFECT — a REJECTED plan is persisted as `is_current`
 
@@ -116,7 +174,18 @@ Candidate 1 is the real fix; 3 is independent and cheap.
   `body ILIKE '%provocation%'` must return **false**, which it has never done for a
   non-vonc subject.
 - `SELECT count(*) FROM agent_definitions WHERE type='experience-planner' AND is_active
-  AND default_config::text ILIKE '%provocation%'` → **0**.
+  AND default_config::text ILIKE '%provocation%'` → **0**. ⚠ **Insufficient on its own,
+  and case-sensitively it is worse than insufficient** — use
+  `default_config::text !~* 'provocation|gauntlet|arena|vonc|spark'`, which is what
+  caught the two steps this file originally missed.
+- **The behavioural check needs a POSITIVE CONTROL, or a fix that loads no brief at all
+  passes it.** `llm_call_log.prompt_rendered` is the only record of what the model was
+  actually handed — the field that would have caught this bug on day one. On the
+  `compose` step of a post-fix run: for `debt-difficulty-help`, `prompt_rendered` must
+  NOT match `provocation` and MUST contain the no-brief sentinel; for `vonc-spark-game`
+  it must come out the **other way** (matches `provocation`, no sentinel), because vonc's
+  brief legitimately contains the word. One direction alone cannot tell a working channel
+  from a channel that silently loads nothing.
 - After a rejected round, `SELECT is_current FROM doc_plans …` → **false**.
 
 ## Filing basis

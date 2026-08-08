@@ -1330,3 +1330,75 @@ their old wording, and one of them still says "your exact monthly repayments" an
 true total cost" — the same register you objected to, one line below the paragraph we
 fixed. It needs one careful rewrite, written to that section rather than to the page, and
 I've left precise instructions.
+
+---
+
+**Saturday 8 August, late — you asked me to pick up the planner bug and leave it ready
+for a fresh session. It is written, tested as far as it can be tested without spending a
+run, and not switched on.**
+
+A reminder of what the bug is, because it is a good one. There is an agent whose job is
+to plan an "experience" — a whole journey across a site rather than a single page. When I
+pointed it at this site to settle the debt page ordering, it came back with a confident,
+detailed plan about a completely different site: a game, its daily provocation, its
+timed round. The reason turned out to be simple and slightly embarrassing. Somebody had
+written that other site's situation directly into the agent's instructions — its broken
+pages, the decisions you had made about it, the exact file its widgets read. Every time
+the agent runs, for any site, it is told that *that* is the problem it is fixing. It went
+unnoticed for three weeks because nobody had ever run it anywhere else. Sixty-one plans
+exist; fifty-nine are that one site's.
+
+**Three things I found while writing the fix, and each one made the fix bigger.**
+
+First, I said yesterday it was in one place. Then I measured and told you three. It is
+five. My own count was wrong twice, for a daft reason worth admitting: I searched for the
+word "gauntlet" in lower case, and in two of the files it is written "Gauntlet" with a
+capital. So two whole sections came back clean when they were not. I have logged that
+where we log wrong calls; it is a recurrence of a rule we already have written down.
+
+Second — and this is the one that matters — **the reviewers are contaminated too.** This
+agent writes a plan and then a small council of critics judges it. I said yesterday that
+the council was the part that worked, because it correctly refused the nonsense plan.
+That was too generous and I have corrected it. Three of the four critics are themselves
+told what the *other* site's data file is called, what its core loop is, and what counts
+as a fabricated number *there*. The refusal was right, but the plan was so obviously
+wrong that both a fair critic and a contaminated one would have rejected it, so it tells
+us nothing about whether the critics are sound. The practical danger is the reverse case:
+once the fix lands, a *correct* plan for this site could still be objected to by a critic
+looking for a feed and a timer this site was never going to have — and that would look
+exactly like the fix having failed.
+
+Third, the hardcoded facts have gone stale as well as being about the wrong site. One
+critic — the one that can veto on its own for dishonesty — is told that the other site has
+no verified facts at all, so any number in a plan must be invented. That was true when it
+was written in July. It stopped being true at nine o'clock this morning, when that site
+gained four verified facts. So that critic is now telling itself four real facts do not
+exist. Nothing goes back and updates a fact pinned inside an instruction when the world
+moves; that is an argument for the change I have made even if the original bug had never
+happened.
+
+**What the fix does.** It takes the site-specific brief out of the shared instructions and
+puts it where it belongs: attached to the site, as data. Each experience can have its own
+brief; the agent reads whichever one applies. If a site has no brief — which will be the
+normal case — the agent is told so explicitly, and told not to borrow anyone else's. The
+other site keeps its brief word for word; it just moves house, in the same single
+operation that removes it from the shared prompt, so there is no moment where it is lost.
+
+**What I have deliberately not done: switched it on.** I ran the whole thing against the
+real database with the final "save" turned into "discard" — so every safety check, every
+edit and the verification all actually executed, and then it was thrown away. It passed,
+and I confirmed afterwards that it left no trace. That proves the change is
+mechanically sound. It does **not** prove the agent then writes a better plan, because
+that costs a real run of about half an hour, and the fresh session should spend it and
+watch the result rather than inherit my word for it. Two paren-level errors in the SQL
+were caught by that dry run and by nothing else, which is the argument for doing it that
+way round.
+
+There is a second, separate fault in the same area that I have written up but not touched:
+when the council rejects a plan, the rejected plan still becomes the official one. It was
+demoted by hand at the time so nothing is building from it. Fixing it properly is a choice
+between two approaches and I have laid both out rather than picking one, because one of
+them changes shared machinery and should go through review.
+
+Everything is in `HANDOFF_2026-08-09_continue_here.md`. The site itself remains finished
+and untouched by any of this.
