@@ -114,3 +114,39 @@ have recorded it rather than argued it away — but that checker belongs to
 another team who are actively working it, and the question of how *all* our
 text-scanning checks should behave is a bigger design decision than this bug
 should be allowed to settle on its own.
+
+## 2026-08-08 (late) — it is live, and it was not a hypothetical after all
+
+The new chassis went out and the fix is on it. I checked it properly rather than
+trusting the version number: the tell-tale from my change is present on both
+running copies of the service and absent from the previous image, and a third
+string that exists in both proves my "absent" was a real absence rather than me
+mistyping the command. That last bit sounds pedantic and is the whole point —
+without it, a triumphant zero and a typo look identical.
+
+The page that was blocked still has the sentence on it, and the check now lets it
+through. The apology the check exists for is still refused; I tested that by
+putting one into the real page.
+
+**The thing I did not expect:** that page is already sitting in the queue marked
+"needs rebuild". So this was not a trap waiting for someone to step on it in a
+month — a rebuild was pending, and had the fix not landed it would have failed
+and the error would have blamed the model for a sentence a person wrote on
+purpose. That is the second time in a week this check has done that.
+
+I have told the team that owns the site. The message is that their page was
+unbuildable and now is not, and that their wording did not have to change and
+should not — the fix was to the checker, not to their copy.
+
+I have not fired the rebuild myself. It is their site, rebuilding regenerates
+content, and firing it to collect my own evidence would be taking a decision that
+belongs to them.
+
+One reviewer's challenge is worth repeating because I could not answer it and
+did not pretend to: fixing this one checker leaves the general problem alone.
+Any of our text-scanning checks can still permanently block a page, and there is
+a near-identical bug open right now where a comment saying "no fabricated data"
+is convicted for containing the words "fabricated data". Another team owns that
+one. How all these checks ought to behave is a bigger decision than this bug
+should settle by itself, so I have written the challenge down rather than argued
+it away.
