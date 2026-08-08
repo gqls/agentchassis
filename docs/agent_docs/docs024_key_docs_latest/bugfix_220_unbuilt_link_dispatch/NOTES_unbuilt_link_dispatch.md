@@ -56,3 +56,62 @@ only the COLUMN carries the target). Fix shape per RFC_010 §2: opt-in field
   (submission JSON in this dir). Committing with `Council-Submitted:` per the
   2026-07-30 trailer rule; budget ~30 min for the verdict, find the run by payload
   not by printed id.
+
+## 2026-08-08 ~19:20 UTC — committed, migrations applied+recorded, council executing
+
+- Timestamp correction for the entries above: earlier stamps written "Z" were BST
+  (local); UTC is one hour earlier. This entry and later ones use UTC.
+- Commit `a60a13cbb` (20 files) with `Council-Submitted: def4441c`; gofmt followup
+  `03433f4b5` (the pre-commit pattern check caught verifier_coverage_test.go — the
+  map realigned after the entry removal).
+- Same-file passengers, disclosed in the commit message: `000_concept_index.md`
+  carried FTW-042 + SQAM-003 rows from concurrent lanes; my header paragraph
+  accounts for all three counts. Also observed the reverse: my WRONG_CALLS.md entry
+  was committed by ANOTHER session's sweep (`ee945d7da`) minutes after I appended it
+  — nothing lost, entry is in HEAD under their message, findable by path.
+- Migs 340+341 applied by hand and verified live (mapping key, load_page_record key,
+  9-entry claim-timeout list — all read back), recorded with --record-only in the
+  same motion. [MEASURED — the three read-backs are in the ledger notes]
+- Council run found by payload: `current_step=review_reuse_agent, EXECUTING_STEP`
+  at 18:14 UTC — dispatch was ~5 min this time, not 29.
+
+## 2026-08-08 ~18:20-18:50 UTC — round 1 REVISE; both real catches fixed; round 2 in
+
+- REVISE, gating objection from bug_historian. Round completed in ~6 min from
+  submission (dispatch was ~5 min, not the budgeted 29). Full report:
+  `diagnosis_artifacts kind='council_report', correlation def4441c` (column is
+  `body`, not `content` — the first read errored).
+- **The HIGH was a real catch**: a valid uuid matching no row returned {found:false}
+  — the soft-miss contract — routing the saga through the success-labelled
+  complete_error path, the exact silent no-op the input exists to close. FIXED
+  (fatal error + a test that also pins "no second query" via ExpectationsWereMet).
+- **The LIKE catch was real too**: raw href into LIKE-concatenation; `_` is a
+  wildcard, over-match refuses a resolved item. FIXED with position(). ⚠ the
+  sibling VerifyDeadFragmentLinkResolved carries the same LIKE shape — flagged in
+  the code comment and in bugs_open/220, NOT edited (active lane's file).
+- Everything else answered by measurement in submission_220_r2.json: ONE producer
+  at source (the fragments arm `continue`s on unbuilt targets by design); ledger
+  rows quoted; 340's pre/post guards quoted (the seat had only the sketch);
+  zero-history reads verbatim.
+- Fixes committed e55cbfa64. Round 2 resubmitted on the SAME correlation
+  (RESUBMIT_CORR), run orch id e3df060f.
+
+## 2026-08-08 ~19:30 UTC — round 2 blocked on FLEET-WIDE API credit exhaustion; lane parked clean
+
+- Round 2 terminated at `complete_invalid` — NOT a verdict and NOT a validation
+  refusal of the plan: `review_editquality`'s LLM call failed with the Anthropic
+  API "credit balance is too low" 400. **Fleet-wide: 31 such failures 18:25–19:20
+  UTC** — every LLM-driven pipeline is down until the owner tops up billing.
+  [MEASURED — agent_error_log]
+- Re-fire when credits are restored (same command, same correlation):
+  `RESUBMIT_CORR=def4441c-df3a-460a-b2ce-208da04f4023 ./docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/097_TRIGGER_council_review_v1.sh docs/agent_docs/docs024_key_docs_latest/bugfix_220_unbuilt_link_dispatch/submission_220_r2.json`
+- Landmine-verifier verdict on my entry: NEEDS_HUMAN_REVIEW — "authoritative_page_id
+  returns 0 hits in the content index". Explained: the verifier ran 18:07 UTC against
+  the CODE INDEX; the commit carrying the symbol (a60a13cbb) landed minutes later.
+  `git grep authoritative_page_id HEAD -- platform/` returns hits (load_page_record_action.go
+  + the test). The index-lag shape is bugs_open/108's; the verifier's own blindness to
+  non-Go footprints is bugs_open/223's. No entry defect; no action needed beyond this note.
+- Lane state at park: substance COMPLETE (Go committed a60a13cbb + 03433f4b5 +
+  e55cbfa64; migs 340/341 applied+verified+recorded; register WII-012; LANDMINES;
+  docs). OWED: (a) round-2 verdict once credits return; (b) post-roll pod-grep +
+  behavioural acceptance (RUNBOOK); (c) candidate 4, deferred on record.

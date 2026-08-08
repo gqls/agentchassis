@@ -223,3 +223,20 @@ reads `input_data.page_id`; the old binary's InputSpec does not declare
 `authoritative_page_id`, and ExtractActionInputs only reads declared fields).
 Behavioural acceptance after the roll is this file's § How to verify, unchanged —
 plus: completion must carry `result._verification.status='verified'`.
+
+## COUNCIL TRAIL 2026-08-08 (corr def4441c)
+
+Round 1: REVISE, gating objection from bug_historian — and its HIGH was a genuine
+catch: the authoritative-id path's no-row case returned the {found:false} soft miss
+(the silent complete_error shape this very fix targets). Fixed with a fatal error +
+a no-second-query test, commit `e55cbfa64`; the LIKE-concatenation in the verifier's
+presence check likewise replaced with position() (raw hrefs carry `_`, a SQL
+wildcard). Round 2 resubmitted on the same correlation, everything else answered by
+measurement (one producer at source; the fragments arm defers unbuilt targets by
+design).
+
+**For the dead_fragment_link lane:** `VerifyDeadFragmentLinkResolved`
+(check_phantom_internal_links_fragments.go:235-248) carries the same
+LIKE-concatenation shape the council flagged here — `COALESCE(rendered_html,'')
+LIKE '%' || href || '%'` with the raw href. Same over-match class, same fix shape
+(position()). Flagged rather than edited under you.

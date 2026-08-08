@@ -23,3 +23,30 @@ One deliberate deferral: pointing directory-type pages at the new directory buil
 (rather than the generic page builder) is left as a recorded follow-up — with the
 completion check in place, that case now fails loudly instead of lying, and the
 directory team's own machinery is the proper fix for it.
+
+## 2026-08-08 late evening — built, committed, live config applied; waiting on review + the next release
+
+All three pieces are done and committed. The database side is already applied and
+proven by reading it back: the dispatcher now hands workers the right page's ID, and
+the sweep that used to auto-complete these jobs on circumstantial evidence now leaves
+them to the real check. The code side (the loader honouring that ID, and the
+completion check itself) is in the shared branch and takes effect when the owner next
+rolls the fleet — until then everything behaves exactly as before, which was measured
+rather than assumed. The reviewer council is looking at the change now; the commit
+carries the pending-review marker so it gets credited automatically on approval. One
+honest wrinkle for the record: two other teams' index rows travelled in my commit
+(unavoidable when several people edit one file), and my own log entry travelled out in
+someone else's — both noted where they happened, nothing lost either way.
+
+## 2026-08-08 night — reviewers caught two real gaps (fixed), then the review system ran out of API credit
+
+The reviewer council sent the change back once, and two of its objections were
+genuinely right — a missing-page case that would have failed silently, and a text
+match that could misread links containing underscores. Both are fixed, tested and
+committed. The resubmission then died for a reason nothing to do with the work:
+**the platform's Anthropic API account is out of credit, and every AI-driven process
+fleet-wide has been failing since about half past six this evening — that needs a
+billing top-up from you.** The moment credit is back, one saved command re-runs the
+review (it's in the notes file). The fix itself is unaffected: code is on the shared
+branch and goes live with the next release; the database side is already applied and
+verified.
