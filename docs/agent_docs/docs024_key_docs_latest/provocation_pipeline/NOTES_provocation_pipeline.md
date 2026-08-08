@@ -1460,3 +1460,53 @@ through it: a gate that rejects all seven, or approves all seven, is informative
 either way, and unlike the nine real ones these were not part of the corpus it was
 tuned on. **That is the first honestly-independent calibration set this gate can
 get** — worth not wasting.
+
+---
+
+**2026-08-08 — second live calibration on v1.0.1264: 6/9, not the 8/9 I predicted.
+The prediction being wrong is the useful part.** `103fa6e30`.
+
+Deploy provenance was finally clean in both directions: `not_contestable` 1 and
+`one_sided` 1 (added by the 08-06 rulings) with **`not_two_sided` = 0** — a string the
+change genuinely REMOVED, so a real negative control rather than the synthetic one
+earlier runs had to use. Both replicas identical.
+
+**Bad set 4/4 again**, with slop now caught by `not_contestable` — the criterion added
+precisely because ruling 1 removed the only thing that had been catching it. That
+substitution worked.
+
+**The two unpredicted rejections:**
+
+1. **`four-day-week` still fails, and the owner's deletion is how we know why.** The
+   clause came out cleanly; the model then flagged the *next clause of the same
+   sentence*. **Removing rhetoric phrase by phrase is whack-a-mole** — the provocation
+   IS a generalisation about pilots, so there is always another clause to flag.
+2. **`nobody-reads-terms-of-service` newly fails** on "Reading takes an hour" and
+   "every study that frames it as apathy". Figures of speech, not fabrications.
+
+**So the check was never doing the job it was built for.** PLAN §4 and
+`bugs_closed/043` aimed at generated copy **inventing** claims; the implementation
+penalised **unsupportedness**, which is the register argumentative prose is written in.
+Narrowed to fabrication — *"the test is INVENTED, not UNCITED"* — with idiomatic
+quantities, category generalisations and anything merely uncited explicitly excluded.
+Fabrication stays fatal, so `043` is still covered. **This is a correction toward the
+stated intent; do not read it as loosening the gate to pass the test** (that would be
+`fixing-a-checker-to-agree-with-a-broken-site`, and the distinction is that the
+intent, not the score, decided it).
+
+**THE JUDGE IS STOCHASTIC, and I only found out by re-running.**
+`nobody-reads-terms-of-service` drew **no** factual objection on 05 Aug and **two** on
+08 Aug from **byte-identical text** — confirmed by querying for the phrase in the row
+that was judged, not from memory. Consequence for anyone who declares this thing
+calibrated: **one green run is not evidence.** Run it three times and require all
+three, or say plainly that you did not.
+
+Also worth recording because it is a nicer result than expected: the scratch tmpdir
+move from 08-03 is holding. `/tmp` is at **18%**, down from the 100% that started that
+work, and I reaped my own 389 MB `git archive` extraction rather than leaving it — the
+tool's own advice, taken.
+
+**Owed:** build + roll, then a third run. Expected 8/9, with
+`group-chats-replaced-friendship` still rejected because its body is empty in the pool
+— a POOL defect the framework must fill, not me (ruling 3). Cold start:
+`HANDOFF_2026-08-08_continue_here.md`.
