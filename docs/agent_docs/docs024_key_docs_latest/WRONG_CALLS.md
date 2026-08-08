@@ -23958,3 +23958,29 @@ transcription at the summarising step, i.e. the count I KEPT was not the count r
 **The cheap check:** when a count is about to be published as a headline figure, derive it
 mechanically from the same output being cited — `grep -c` / `wc -l` on the rows, pasted next to
 the list — not by eye. A figure that ships with its derivation cannot drift from it.
+
+### RECURRENCE, same session, ~90 minutes later — and this time the check above caught it in seconds
+
+`LANDMINES.md` was swept again, into `7c462a787` (a webdesign.uk lane commit). I named five paths
+on a pathspec commit; four landed. **The difference is that I knew to look**: `git show <sha>
+--numstat` showed four files instead of five, and `git show HEAD:…LANDMINES.md | grep -c "<my
+text>"` → 1 confirmed nothing was lost. Elapsed: under a minute, versus the first occurrence which
+I found only because an unrelated pre-commit warning sent me digging.
+
+**Two sweeps of the same file in ninety minutes makes this structural, not bad luck.**
+`LANDMINES.md` is fleet-wide, append-only, and edited by ~30 sessions, so it is the
+highest-collision file in the repo — and the window that matters is *edit → commit*, which for me
+was ~25 minutes both times because I batched it with code and doc work.
+
+**Upgraded remedy, beyond "verify at HEAD":** when you append to `LANDMINES.md`, `WRONG_CALLS.md`
+or `MEMORY*.md`, **commit that file on its own, immediately, before you do anything else.** Do not
+batch it with the code commit it belongs to. The commit-per-task rule says one commit per coherent
+task, and CLAUDE.md's own reasoning applies exactly here: *"commit each task the moment it is
+coherent, narrowly … a long-lived dirty tree is not a private workspace — it is shared, mutable
+state."* A landmine entry is coherent the moment it is written. Holding it to travel with the code
+buys nothing and costs a 25-minute collision window on the worst file for it.
+
+**What is NOT worth doing:** chasing the attribution. Forward-only holds, the text is at HEAD, and
+`git log -S` on the needle finds it regardless of whose message carries it. The cost is only that
+`git log --oneline -- LANDMINES.md` reads as though unrelated lanes wrote your entries — annoying
+for an audit, harmless for a reader who greps.
