@@ -62,3 +62,24 @@ the conservative fix is deliberately reversible.
 > MEASURED 2026-08-08", and the primary is still
 > `work_item_completion_integrity/HANDOFF_2026-08-08_fail_open_measured_and_it_landed_on_the_deletion_horn.md`.
 > Nothing has been changed in your code; this is a report.
+
+> ### FOLLOW-UP, same day — the owner flipped the policy, so your verifier's error branch now BLOCKS
+>
+> `RFC_017` was decided hours after the update above: **verifier errors fail CLOSED by default**
+> (built 2026-08-08, inert until the next chassis roll; council corr
+> `a104d454-a4ff-4c95-a578-9a7e48c95100`, register entry `WII-011`).
+>
+> **What that does to `VerifyEmptySectionResolved` specifically.** Its absent-row branch —
+> `check_empty_sections.go:412`, written deliberately as an error *because* the gate failed open —
+> now stops the completion instead of annotating it. The item returns to the queue, the handler
+> **rebuilds the page again, up to `max_attempts` (3)**, and then lands in `failed`. For a case the
+> verifier structurally cannot answer, that is three wasted rebuilds before a human sees it. Nothing
+> about your code changed; what changed is what an error MEANS.
+>
+> **So the "stronger option" is now the cheap fix as well as the honest one.** Ask whether the page
+> still declares the slot (`pages.sections`) and return `Resolved:false` when it does: correct on the
+> 2 observed cases, and it converts three futile rebuilds into one true verdict. If instead you think
+> `empty_section` genuinely wants the old behaviour, the opt-in exists and is one line —
+> `RegisterVerifierWithPolicy("empty_section", VerifyEmptySectionResolved,
+> VerifierPolicy{FailOpenOnError: true})` — but it now has to be argued at the registration site,
+> where a reviewer can see it, which is the whole point of the ruling.

@@ -1,5 +1,50 @@
 # RFC 017 — the completion-verifier registry FAILS OPEN on error, so a verifier that cannot run waves the item through
 
+> ## ✅ DECIDED — OWNER RULING, 2026-08-08. **Fail-CLOSED (option 4). Option 2 declined. Option 3 explicitly NOT taken, and stays open below.**
+>
+> Taken on the measurement in § "The missing number", which was produced for this decision and
+> reversed the expectation going in: the error path had fired **twice in the registry's life**, was
+> **wrong both times**, and the transient-failure case fail-open protects against has **never once
+> been observed**.
+>
+> **What was ruled:**
+> 1. **Verifier errors now fail CLOSED by default** — the item does not complete; it routes into the
+>    attempt machinery exactly as a persisting defect does. Per-verifier opt-out available.
+> 2. **Option 2 (the lint) declined.** Under fail-closed, `return VerifyResult{}, err` means "do not
+>    complete", which is the safe direction — the guard largely evaporates. Revisit only if the
+>    default is ever flipped back.
+> 3. **Option 3 (a third `Indeterminate` outcome that parks without burning attempts) NOT taken.** It
+>    remains the structural answer and this RFC stays the place it is argued. The owner chose the
+>    cheap reversible flip first, deliberately, **with the wasted-retry cost as the evidence that
+>    would justify the bigger change** — see the named cost below.
+>
+> **Built the same day**, committed with its register entry (`WII-011`) per the platform-seams
+> ordering exemption. Council gate corr `a104d454-a4ff-4c95-a578-9a7e48c95100`. **Go change — inert
+> until the next chassis roll**, which is whole-fleet and the owner's to run.
+>
+> **Shape of the implementation**, so a successor need not re-derive it: `RegisterVerifier` keeps its
+> signature and silently becomes the safe registration, so the flip reached all 8 verifiers without
+> editing 8 files; fail-open is now reachable only via
+> `RegisterVerifierWithPolicy(t, v, VerifierPolicy{FailOpenOnError: true})` — **an opt-in field with
+> the unsafe default OFF**, per the owner's 2026-08-02 shared-seam ruling, because the old authority
+> was licensed by a doc comment no reviewer of a calling check could see. **No verifier opts in
+> today.** `GetVerifier` returns `(ItemVerifier, VerifierPolicy)` so a caller cannot consult one and
+> forget the other; the zero policy is the safe one.
+>
+> **⚠ THE NAMED COST, which is the option-3 trigger.** With this live and `empty_section`'s verifier
+> unchanged, its absent-target case now blocks → the item returns to the queue → **page-build-handler
+> rebuilds the page again, up to `max_attempts` (3)** → `failed`. For a structurally-unanswerable
+> check that is three wasted LLM rebuilds before a human sees it. Retrying is the right response to a
+> DB blip and the wrong one to "I structurally cannot tell", and only the second kind has ever been
+> observed. The cheap per-verifier remedy is `bugs_closed/032`'s own stronger option (ask whether the
+> page still declares the slot → `Resolved:false`), owned by `empty_sections_loop_integrity` and told
+> on 2026-08-08. **If that cost shows up in the numbers, option 3 is what it buys.**
+>
+> **⚠ A FACT INVERTED TODAY.** A `result._verification.status='error'` row **used to mean the item
+> COMPLETED** — annotated, honest-looking, waved through. From this change it means the item was
+> BLOCKED. Any query, doc or belief about that column formed before 2026-08-08 now reads backwards;
+> the payload gains `fail_open` so the two can be told apart. Recorded in `LANDMINES.md`.
+
 **Filed 2026-08-07** by the `bugfix_201_page_content_writer_dispatch` lane.
 **Raised independently by TWO council seats in the same APPROVED round** — `bug_historian`
 (medium) and `architecture` (medium), correlation

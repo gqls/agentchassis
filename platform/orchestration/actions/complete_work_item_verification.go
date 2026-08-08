@@ -11,14 +11,27 @@
 // still served empty markup on 2026-07-14; the two-strike rule then parked
 // the re-detections as non-dispatchable 'unresolved' zombies.
 //
-// Policy:
+// Policy (CHANGED 2026-08-08 by owner ruling on architecture_review/RFC_017 —
+// the first three lines below used to read "verifier errors → fail OPEN"):
 //   - no verifier registered for the item_type → complete as before
-//   - verifier errors → fail OPEN (complete, recording the error under
-//     result._verification) — discovery re-detection + two-strike is the
-//     backstop, and failing closed would wedge items on transient errors
+//   - verifier errors → fail CLOSED. Do NOT complete; route into the attempt
+//     machinery, exactly as for a persisting defect. "I could not check" is no
+//     longer treated as "I checked and it is fixed".
+//   - unless that item type registered VerifierPolicy{FailOpenOnError: true},
+//     which is the explicit, per-type opt-in to the old behaviour
 //   - verifier says the defect persists → do NOT complete; route into the
 //     same attempt machinery as fail_work_item (attempt_count+1 →
 //     'triaged' for retry, 'failed' when attempts are exhausted)
+//
+// Why the flip, in one line of evidence: the old policy's justification was that
+// "discovery re-detection + two-strike is the backstop". Measured 2026-08-08 over
+// the registry's whole life, the error path had fired twice, both times the page
+// still declared the slot (so the honest verdict was Resolved:false), both items
+// were stamped 'complete' at attempt_count 0, and five days later no re-detection
+// had followed although the detector's own predicate still matched. The backstop
+// did not catch the only two cases it was ever asked to catch. Zero of the errors
+// were infrastructural — the transient-DB-blip case fail-open was protecting
+// against has never once been observed.
 
 package actions
 
@@ -54,22 +67,19 @@ func verifyBeforeComplete(ctx context.Context, db *sql.DB, itemID uuid.UUID, log
 		return nil, true
 	}
 
-	verifier := checks.GetVerifier(itemType)
+	verifier, policy := checks.GetVerifier(itemType)
 	if verifier == nil {
 		return nil, true
 	}
 
 	var spec map[string]interface{}
 	if err := json.Unmarshal(specJSON, &spec); err != nil {
-		logger.Warn("verifyBeforeComplete: unparseable spec — failing open",
-			zap.String("item_id", itemID.String()),
-			zap.String("item_type", itemType),
-			zap.Error(err))
-		return map[string]interface{}{
-			"status":    "error",
-			"item_type": itemType,
-			"error":     "unparseable spec: " + err.Error(),
-		}, true
+		// Same class as a verifier error — verification could not run — so it takes
+		// the same policy. Deliberately not exempted: an unparseable spec is if
+		// anything MORE suspicious than a verifier's own error, and exempting it
+		// would leave a second silent completion path behind the one RFC_017 closed.
+		return verificationOutcome(itemType,
+			checks.VerifyResult{}, fmt.Errorf("unparseable spec: %w", err), policy, itemID, logger)
 	}
 
 	target := checks.VerifyTarget{
@@ -83,16 +93,58 @@ func verifyBeforeComplete(ctx context.Context, db *sql.DB, itemID uuid.UUID, log
 	}
 
 	result, err := verifier(ctx, db, target, logger)
-	if err != nil {
-		logger.Warn("verifyBeforeComplete: verifier error — failing open",
+	return verificationOutcome(itemType, result, err, policy, itemID, logger)
+}
+
+// verificationOutcome turns a verifier's return into the _verification payload
+// and the may-complete decision. Split out from verifyBeforeComplete so the
+// POLICY is testable without a database — the fail-open/fail-closed branch is the
+// whole subject of RFC_017 and was previously reachable only through a live DB
+// call, which is why no test asserted it and the behaviour was documented rather
+// than proven. verificationDecision below is the pure core; this wrapper only logs.
+func verificationOutcome(itemType string, result checks.VerifyResult, err error,
+	policy checks.VerifierPolicy, itemID uuid.UUID, logger *zap.Logger) (map[string]interface{}, bool) {
+
+	payload, mayComplete := verificationDecision(itemType, result, err, policy)
+
+	switch payload["status"] {
+	case "error":
+		if mayComplete {
+			logger.Warn("verifyBeforeComplete: verifier error — failing OPEN by explicit policy",
+				zap.String("item_id", itemID.String()),
+				zap.String("item_type", itemType),
+				zap.Error(err))
+		} else {
+			logger.Warn("verifyBeforeComplete: verification could not run — blocking completion (fail-closed)",
+				zap.String("item_id", itemID.String()),
+				zap.String("item_type", itemType),
+				zap.Error(err))
+		}
+	case "defect_persists":
+		logger.Warn("verifyBeforeComplete: defect persists — blocking completion",
 			zap.String("item_id", itemID.String()),
 			zap.String("item_type", itemType),
-			zap.Error(err))
+			zap.String("detail", result.Detail))
+	}
+
+	return payload, mayComplete
+}
+
+// verificationDecision is the pure policy core. Table-tested.
+func verificationDecision(itemType string, result checks.VerifyResult, err error,
+	policy checks.VerifierPolicy) (map[string]interface{}, bool) {
+
+	if err != nil {
 		return map[string]interface{}{
 			"status":    "error",
 			"item_type": itemType,
 			"error":     err.Error(),
-		}, true
+			// Recorded so a payload says which policy produced the outcome. Without
+			// it, 'error' + complete and 'error' + blocked are indistinguishable in
+			// the stored row, and the census that produced RFC_017 read exactly this
+			// column.
+			"fail_open": policy.FailOpenOnError,
+		}, policy.FailOpenOnError
 	}
 
 	if result.Resolved {
@@ -103,15 +155,30 @@ func verifyBeforeComplete(ctx context.Context, db *sql.DB, itemID uuid.UUID, log
 		}, true
 	}
 
-	logger.Warn("verifyBeforeComplete: defect persists — blocking completion",
-		zap.String("item_id", itemID.String()),
-		zap.String("item_type", itemType),
-		zap.String("detail", result.Detail))
 	return map[string]interface{}{
 		"status":    "defect_persists",
 		"item_type": itemType,
 		"detail":    result.Detail,
 	}, false
+}
+
+// blockedCompletionReason renders the recorded reason for a blocked completion.
+//
+// Exists because the two blocking causes are not the same claim and must not
+// share a sentence: before RFC_017 only 'defect_persists' could block, so the
+// caller hard-coded "found the defect still present" — which, once an error can
+// block too, would record a finding the verifier never made, on a payload whose
+// text lives under "error" rather than "detail" (so the message would also have
+// come out empty). Returns (message, reason code).
+func blockedCompletionReason(v map[string]interface{}) (string, string) {
+	if status, _ := v["status"].(string); status == "error" {
+		text, _ := v["error"].(string)
+		return "completion blocked: verification could not run, and this item type fails closed (RFC_017): " + text,
+			"verification_unavailable"
+	}
+	detail, _ := v["detail"].(string)
+	return "completion blocked: post-fix verification found the defect still present: " + detail,
+		"verification_failed"
 }
 
 // handlerReportedFailure reports whether the result we are about to store is

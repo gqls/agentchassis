@@ -184,3 +184,36 @@ that was already written down. First I looked for the missing section in the wro
 legitimately renamed and everything was fine — and said so out loud before checking the one thing
 that would settle it. The last summary said the pattern of this week was *checks I had written down
 and not applied to myself*. That is still true, and it is now three for three.
+
+**Later the same day — you decided, and it is built.**
+
+You chose to make the system stricter: when a check cannot run, the repair job no longer gets marked
+done. You also decided not to bother with the build-time guard, which I agree with — once "I can't
+check" means "don't finish", the thing that guard was protecting against mostly stops mattering.
+
+It is written, tested and committed, and it is with the review board now. It does nothing until the
+next fleet release, which is yours to run.
+
+Two things I want on the record rather than buried.
+
+**First, a small thing I only found by writing the change.** When a job gets blocked, we record a
+sentence explaining why, and that sentence was hard-coded to say *"the defect is still present"* —
+because until today that was the only way a job could be blocked. With your change there are two
+ways, and on the new one that sentence would have claimed a finding the check never made, with the
+explanation itself coming out blank. It now says which of the two happened. I didn't reason my way
+to that; I hit it while editing the code that prints it.
+
+**Second, the cost I flagged before you decided is now real and I've written it down where it will
+be found.** One of our checks genuinely cannot answer its question in some cases. Under the new rule
+those jobs will be retried three times — three full page rebuilds — before anyone looks at them.
+That is the wasteful outcome I described, and it is exactly the evidence that would justify the
+bigger change you set aside (the one where a job that can't be checked is parked for a person
+instead of retried). If it shows up after the release, that's the case for revisiting. There is also
+a cheap fix for that one check, which the team that owns it has now been told about twice.
+
+One oddity worth knowing about, because it says something about how we work: I wrote a warning note
+this morning saying *"a recorded check failure means the job was completed anyway"* — and your
+decision inverted it before the day was out. Both versions are now true, of different rows, in the
+same table, and nothing in a row says which era it belongs to. I've corrected the note and added the
+one field that tells them apart. A session committed that file while I was editing it and carried my
+correction along with their own work, which is normal here and cost nothing.

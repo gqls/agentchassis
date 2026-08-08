@@ -65,3 +65,39 @@ MEASURED 2026-08-08"). RFC_017 is an owner decision and remains open.
 Queries: `bugfix_201_page_content_writer_dispatch/RUNBOOK_…` **R8**, including the three ways this
 census gives a confident wrong answer — one of which I walked into and one of which I nearly
 published.
+
+---
+
+> ## UPDATE, same day — **the owner ruled, and the policy you own has been flipped.**
+>
+> This file was written as a measurement with no ask attached. Hours later the owner took the
+> decision on `RFC_017`: **fail-CLOSED by default.** Built and committed the same day; **inert until
+> the next chassis roll**, which is whole-fleet and the owner's to run. Council gate corr
+> `a104d454-a4ff-4c95-a578-9a7e48c95100`.
+>
+> **What changed in code you own** (`complete_work_item_verification.go`, `verifiers.go`):
+> - A verifier error no longer completes the item. It routes into the attempt machinery via
+>   `failUnverifiedCompletion`, exactly as a persisting defect does.
+> - Fail-open survives only as an **explicit per-item_type opt-in** —
+>   `RegisterVerifierWithPolicy(t, v, VerifierPolicy{FailOpenOnError: true})`, unsafe default OFF per
+>   the 2026-08-02 shared-seam ruling. **No verifier opts in today.** `RegisterVerifier` keeps its
+>   signature, so all 8 registrations became fail-closed without their files being touched.
+> - `GetVerifier` now returns `(ItemVerifier, VerifierPolicy)`. One caller, already updated.
+> - **A message you own was wrong the moment errors could block:** the blocked-completion text was
+>   hard-coded to *"post-fix verification found the defect still present"* and read from
+>   `payload["detail"]`. On an error payload that claims a finding the verifier never made, with an
+>   empty body. `blockedCompletionReason` now returns `verification_unavailable` vs
+>   `verification_failed` with the right text.
+> - The payload gains `fail_open`, so a census can tell a completed error from a blocked one. The one
+>   that produced RFC_017 could not.
+> - The **unparseable-spec** branch takes the same policy deliberately — same class, and exempting it
+>   would leave a second silent completion path behind the one this closes.
+>
+> **What is now yours to weigh.** The retry cost is real and named: a structurally-unanswerable
+> verifier now burns up to `max_attempts` (3) page rebuilds before a human sees the item. RFC_017's
+> option 3 — a third `Indeterminate` outcome that parks without burning attempts — was **explicitly
+> not taken**, and the owner's stated reasoning is that this cost is the evidence that would justify
+> it. It stays open in RFC_017. If you see that cost in the numbers after the roll, that is the case.
+>
+> Register entry: **`WII-011`** (`work-item-integrity.md`), landed in the same commit as the seam per
+> the platform-seams ordering exemption. Verification recipe is in its `verify-later`.

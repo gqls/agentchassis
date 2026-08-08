@@ -588,3 +588,50 @@ a new key; and `bugs_closed/041` is cleared too — the site's four `needs_new_c
 
 All three have the same shape as the pattern this lane's 08-06 summary already named: the check that
 would have caught it was written down, by me or by someone else, and not applied to the case in hand.
+
+### Same day, later — the owner ruled fail-CLOSED, and it is built
+
+Ruling: **option 4 (fail-closed), option 2 (the lint) declined, option 3 (park) explicitly not
+taken.** The reasoning for declining 2 is worth keeping: under fail-closed, `return VerifyResult{},
+err` means "do not complete", which is the safe direction, so the guard it provides largely
+evaporates. Option 3 stays open in RFC_017 with the retry cost named as the evidence that would buy
+it.
+
+Built, tested and committed the same day. Shape:
+
+- `RegisterVerifier` keeps its signature and becomes the SAFE registration — the flip reaches all 8
+  verifiers without editing 8 files. Fail-open is now `RegisterVerifierWithPolicy(t, v,
+  VerifierPolicy{FailOpenOnError: true})`: **an opt-in field, unsafe default OFF**, per the
+  2026-08-02 shared-seam ruling, because the old authority was a doc comment no reviewer of a
+  calling check could see. **Nothing opts in.**
+- `GetVerifier` → `(ItemVerifier, VerifierPolicy)`, so a caller cannot take the verifier and forget
+  the terms; the zero policy is the safe one, so an ignored return lands safe.
+- `verificationDecision` extracted as a **pure** function. Not tidiness — the policy branch was
+  reachable only through a live `*sql.DB`, which is exactly why no test asserted the behaviour
+  RFC_017 was written about. **Mutation-proven:** restoring `}, true` fails
+  `TestVerificationDecision` on the two rows that encode the ruling, and passes again on restore.
+- **A message that was silently wrong the moment errors could block.** The blocked-completion text
+  was hard-coded to "post-fix verification found the defect still present" and read from
+  `payload["detail"]` — on an error payload that is a claim the verifier never made, with an EMPTY
+  body (error text lives under `"error"`). `blockedCompletionReason` splits it:
+  `verification_unavailable` vs `verification_failed`. I found this by writing the caller edit, not
+  by reasoning about it; a flip that only touched the policy would have shipped the false sentence.
+- Payload gains `fail_open`, so a future census can tell a completed error from a blocked one — the
+  census that produced RFC_017 could not, and would have read the post-roll rows backwards.
+- The **unparseable-spec** branch takes the same policy. Same class; exempting it leaves a second
+  silent completion path behind the one being closed. **Honest gap: I did not measure how many live
+  specs fail to parse** — 0 such payloads appear in the census, which is weak evidence, and it is in
+  the submission's risks block rather than glossed.
+
+Council `a104d454-a4ff-4c95-a578-9a7e48c95100`, submitted before committing, so the commit carries
+`Council-Submitted:` — the trailer that asserts nothing. Register entry `WII-011` in the same commit
+as the seam (ordering-exemption condition 2), index row added, count re-grepped (1,794) and
+uniqueness checked in the same pass.
+
+**Misstep, and it is the multi-session one rather than a technical one.** While I was correcting my
+own LANDMINES entry, another session committed that file (`d485b60ac`) and swept my in-progress
+correction into their commit. Nothing was lost — it is at HEAD, forward-only holds — and it is the
+exact scenario CLAUDE.md describes. Worth recording because the *entry itself* inverted within six
+hours of being written: `_verification.status='error'` meant "completed" this morning and means
+"blocked" after the next roll, with **both readings live in one table** and nothing in the row
+saying which era it came from. `fail_open` (absent on every pre-roll row) is the discriminator.

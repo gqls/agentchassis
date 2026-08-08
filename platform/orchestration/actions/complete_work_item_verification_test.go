@@ -7,7 +7,13 @@
 
 package actions
 
-import "testing"
+import (
+	"errors"
+	"strings"
+	"testing"
+
+	checks "github.com/gqls/agentchassis/platform/orchestration/actions/discovery_checks"
+)
 
 func TestHandlerReportedFailure(t *testing.T) {
 	tests := []struct {
@@ -134,5 +140,121 @@ func TestHandlerReportedFailure(t *testing.T) {
 				t.Errorf("detail = %q, want %q", detail, tc.wantDetail)
 			}
 		})
+	}
+}
+
+// TestVerificationDecision covers the fail-closed flip (owner ruling on RFC_017,
+// 2026-08-08). Every case below EXCEPT the explicit opt-in row would have passed
+// under the old policy with mayComplete=true — so the table is written to fail
+// loudly if the default is ever flipped back by accident rather than by ruling.
+func TestVerificationDecision(t *testing.T) {
+	closed := checks.VerifierPolicy{}                    // the default
+	open := checks.VerifierPolicy{FailOpenOnError: true} // explicit opt-in
+
+	tests := []struct {
+		name            string
+		result          checks.VerifyResult
+		err             error
+		policy          checks.VerifierPolicy
+		wantMayComplete bool
+		wantStatus      string
+	}{
+		{
+			// THE RULING, in one row. Pre-2026-08-08 this returned true.
+			name:            "verifier error fails CLOSED by default",
+			err:             errors.New("cannot verify: component 123 no longer exists"),
+			policy:          closed,
+			wantMayComplete: false,
+			wantStatus:      "error",
+		},
+		{
+			// The escape hatch must still work, or the flip is a wall rather than a
+			// default and the next author routes around the registry entirely.
+			name:            "verifier error fails OPEN only with the explicit opt-in",
+			err:             errors.New("transient: dial tcp: connection refused"),
+			policy:          open,
+			wantMayComplete: true,
+			wantStatus:      "error",
+		},
+		{
+			name:            "resolved completes",
+			result:          checks.VerifyResult{Resolved: true, Detail: "no findings"},
+			policy:          closed,
+			wantMayComplete: true,
+			wantStatus:      "verified",
+		},
+		{
+			// An opt-in to fail-open must NOT leak into the verdict path: it licenses
+			// completing when the check could not RUN, never when it ran and said no.
+			name:            "fail-open policy does not rescue a persisting defect",
+			result:          checks.VerifyResult{Resolved: false, Detail: "18 findings still present"},
+			policy:          open,
+			wantMayComplete: false,
+			wantStatus:      "defect_persists",
+		},
+		{
+			// err wins over a Resolved:true carried alongside it — a verifier that
+			// returns both has not verified anything.
+			name:            "error beats a resolved result returned with it",
+			result:          checks.VerifyResult{Resolved: true, Detail: "ignore me"},
+			err:             errors.New("boom"),
+			policy:          closed,
+			wantMayComplete: false,
+			wantStatus:      "error",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			payload, mayComplete := verificationDecision("empty_section", tc.result, tc.err, tc.policy)
+			if mayComplete != tc.wantMayComplete {
+				t.Fatalf("mayComplete = %v, want %v (payload %v)", mayComplete, tc.wantMayComplete, payload)
+			}
+			if got, _ := payload["status"].(string); got != tc.wantStatus {
+				t.Errorf("status = %q, want %q", got, tc.wantStatus)
+			}
+			if payload["item_type"] != "empty_section" {
+				t.Errorf("item_type = %v, want empty_section", payload["item_type"])
+			}
+			if tc.err != nil {
+				// The stored row must say which policy produced the outcome; the
+				// RFC_017 census read exactly this payload and could not tell a
+				// completed error from a blocked one.
+				if got, ok := payload["fail_open"].(bool); !ok || got != tc.policy.FailOpenOnError {
+					t.Errorf("fail_open = %v (ok=%v), want %v", got, ok, tc.policy.FailOpenOnError)
+				}
+			}
+		})
+	}
+}
+
+// TestBlockedCompletionReason: the two blocking causes must not share a sentence.
+// Before the flip only a persisting defect could block, so the caller hard-coded
+// "found the defect still present" and read the text from "detail" — on an error
+// payload that produces a false claim with an empty body.
+func TestBlockedCompletionReason(t *testing.T) {
+	msg, reason := blockedCompletionReason(map[string]interface{}{
+		"status": "error",
+		"error":  "cannot verify: component 123 no longer exists",
+	})
+	if reason != "verification_unavailable" {
+		t.Errorf("reason = %q, want verification_unavailable", reason)
+	}
+	if strings.Contains(msg, "still present") {
+		t.Errorf("an unrunnable verification must not claim the defect was found present: %q", msg)
+	}
+	if !strings.Contains(msg, "component 123 no longer exists") {
+		t.Errorf("message must carry the verifier's own text, got %q", msg)
+	}
+
+	msg, reason = blockedCompletionReason(map[string]interface{}{
+		"status": "defect_persists",
+		"detail": "18 findings still present",
+	})
+	if reason != "verification_failed" {
+		t.Errorf("reason = %q, want verification_failed", reason)
+	}
+	if !strings.Contains(msg, "18 findings still present") {
+		t.Errorf("message must carry the detail, got %q", msg)
 	}
 }

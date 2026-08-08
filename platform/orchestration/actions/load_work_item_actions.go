@@ -923,10 +923,13 @@ func CompleteWorkItemAction(ctx context.Context, params ActionParams) (interface
 	}
 
 	if !mayComplete {
-		detail, _ := verification["detail"].(string)
+		// Two distinct causes reach here since RFC_017 (the defect persisting, and
+		// verification being unable to run at all under a fail-closed type); the
+		// message and reason code must say which, because this text is what a human
+		// reads off the item's error column.
+		msg, reason := blockedCompletionReason(verification)
 		return failUnverifiedCompletion(ctx, params.DB, itemID, agentType, string(resultJSON),
-			"completion blocked: post-fix verification found the defect still present: "+detail,
-			"verification_failed", logger)
+			msg, reason, logger)
 	}
 
 	// Guard: do NOT overwrite a status a handler deliberately set to a flagged

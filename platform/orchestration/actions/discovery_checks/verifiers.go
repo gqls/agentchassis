@@ -58,22 +58,63 @@ type VerifyTarget struct {
 }
 
 // ItemVerifier re-checks the defect described by a work item.
-// Returning an error means the verification could not run at all —
-// the caller decides policy (CompleteWorkItemAction fails open and
-// records the error in the result).
+//
+// Returning an error means the verification could not run at all. Since the
+// OWNER RULING of 2026-08-08 (architecture_review/RFC_017) that is FAIL-CLOSED
+// by default: CompleteWorkItemAction does NOT stamp 'complete', and routes the
+// item into the attempt machinery instead. An error is therefore a real refusal,
+// not an annotation — if your ambiguous case should still complete, you must say
+// so explicitly at registration (see VerifierPolicy).
 type ItemVerifier func(ctx context.Context, db *sql.DB, target VerifyTarget, logger *zap.Logger) (VerifyResult, error)
 
-var verifiers = map[string]ItemVerifier{}
-
-// RegisterVerifier adds a verifier for an item_type. Called from init()
-// in check files, alongside Register(check).
-func RegisterVerifier(itemType string, v ItemVerifier) {
-	verifiers[itemType] = v
+// VerifierPolicy carries per-item_type registration options.
+//
+// It exists because the previous behaviour — every verifier failing OPEN on
+// error — was licensed by a doc comment rather than by anything a reviewer of
+// the CALLING check could see, and the owner's 2026-08-02 ruling on shared seams
+// is that authority like that "ships as an OPT-IN FIELD, not a documented
+// contract", with the unsafe default OFF. The unsafe direction here is
+// completing an item nobody verified, so that is what now costs a line of code.
+type VerifierPolicy struct {
+	// FailOpenOnError completes the item when the verifier returns an error.
+	//
+	// UNSAFE, and OFF by default. Measured before the flip (RFC_017, 2026-08-08):
+	// verifiers had errored twice in the registry's whole life, both on the same
+	// "target row is absent" branch, and on BOTH the page still declared the slot
+	// — so the honest verdict was Resolved:false and fail-open completed a defect
+	// that is still live. Zero infrastructural errors were ever observed, which is
+	// the failure mode fail-open exists to protect against.
+	//
+	// Set it only when completing-without-verification is genuinely the lesser
+	// harm for THIS item type, and say why at the registration site.
+	FailOpenOnError bool
 }
 
-// GetVerifier returns the verifier for an item_type, or nil if none.
-func GetVerifier(itemType string) ItemVerifier {
-	return verifiers[itemType]
+var (
+	verifiers = map[string]ItemVerifier{}
+	policies  = map[string]VerifierPolicy{}
+)
+
+// RegisterVerifier adds a verifier for an item_type, FAIL-CLOSED on error.
+// Called from init() in check files, alongside Register(check).
+func RegisterVerifier(itemType string, v ItemVerifier) {
+	RegisterVerifierWithPolicy(itemType, v, VerifierPolicy{})
+}
+
+// RegisterVerifierWithPolicy registers a verifier with an explicit policy.
+// Use this only to opt INTO an unsafe behaviour; the zero policy is the safe one.
+func RegisterVerifierWithPolicy(itemType string, v ItemVerifier, p VerifierPolicy) {
+	verifiers[itemType] = v
+	policies[itemType] = p
+}
+
+// GetVerifier returns the verifier for an item_type (nil if none) and the policy
+// governing it. The policy is returned alongside rather than fetched separately
+// so a caller cannot consult the verifier while forgetting the terms it runs
+// under — the zero VerifierPolicy is fail-closed, so an unregistered type and a
+// caller that ignores this value both land on the safe branch.
+func GetVerifier(itemType string) (ItemVerifier, VerifierPolicy) {
+	return verifiers[itemType], policies[itemType]
 }
 
 // RegisteredVerifierItemTypes returns every item_type that has a verifier.
