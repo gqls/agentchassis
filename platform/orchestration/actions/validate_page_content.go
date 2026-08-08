@@ -167,6 +167,21 @@ var placeholderPatterns = []struct {
 var templateVarRegex = regexp.MustCompile(`\{\{[\s]*[\.\w]+[\s]*\}\}`)
 var templateBlockRegex = regexp.MustCompile(`\{\{[\s]*(range|if|with|end|else|template|block|define)[\s]`)
 
+// Script and style bodies are excluded from the placeholder scan: the bracket
+// patterns match idiomatic code — querySelector('input[name=...]') attribute
+// selectors, fields[name] indexing, ([name, val]) destructuring — and each hit
+// is a blocker, so a correct self-contained tool fails validation outright
+// (three convictions on two domains, 2026-08-05). Same false-positive class
+// that got bare "placeholder" removed from the list. The other checks
+// (unrendered templates, contamination, links) still see the full HTML.
+var scriptBlockRegex = regexp.MustCompile(`(?is)<script\b[^>]*>.*?</script>`)
+var styleBlockRegex = regexp.MustCompile(`(?is)<style\b[^>]*>.*?</style>`)
+
+func stripScriptAndStyle(html string) string {
+	html = scriptBlockRegex.ReplaceAllString(html, "")
+	return styleBlockRegex.ReplaceAllString(html, "")
+}
+
 // ============================================================================
 // Main action
 // ============================================================================
@@ -703,7 +718,10 @@ func writeLinkRepairLog(
 // ============================================================================
 
 func checkPlaceholderPatterns(html string) []ValidationIssue {
-	lower := strings.ToLower(html)
+	// Scan prose only — see stripScriptAndStyle. Snippet offsets are taken
+	// against the stripped string so location context stays aligned.
+	stripped := stripScriptAndStyle(html)
+	lower := strings.ToLower(stripped)
 	var issues []ValidationIssue
 
 	for _, p := range placeholderPatterns {
@@ -713,7 +731,7 @@ func checkPlaceholderPatterns(html string) []ValidationIssue {
 				Type:        "placeholder_text",
 				Category:    "placeholder",
 				Severity:    "blocker",
-				Location:    extractSnippet(html, idx, 80),
+				Location:    extractSnippet(stripped, idx, 80),
 				Value:       p.Pattern,
 				Description: fmt.Sprintf("Found placeholder text '%s' (%s)", p.Pattern, p.Label),
 			})
