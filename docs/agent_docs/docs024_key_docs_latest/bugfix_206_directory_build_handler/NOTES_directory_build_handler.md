@@ -347,3 +347,33 @@ append their outcome there.
 Still open at this note: both needs_page rows `triaged` for
 directory-build-handler post-336, monitor armed (foreground-tested this
 time) on their status + pages.deployed_at.
+
+## 2026-08-08d — second live-fire defect in 326's delegation: spec/current_page missing (337)
+
+Attempt 2 on directory-index (with 336's plain keys) got PAST the contract
+check, through ensure_layout / plan / content-write / validate / save — then
+died at `update_status`: "could not determine page_id". Cause read at
+`v3_site_actions.go` (UpdatePageStatusAction) + the live step config:
+update_status resolves the page via `input_data.spec.page_name`, falling back
+to `current_page.name`; the dispatcher supplies both ("spec":
+"current_item.spec", "current_page": "current_item.spec"); 326's delegation
+supplied neither. load_page_record reads `input_data.page_name` — which IS
+passed — which is exactly why the failure moved five steps downstream.
+**Step order matters here: update_status runs BEFORE deploy_page**, so
+content was written and saved but nothing deployed — the page 404s while the
+DB holds its components (checked the artefact, not the status, before
+assuming a deploy).
+
+**Migration 337** (applied + recorded, own guard, NOTICE seen) mirrors the
+dispatcher's proven keys into the delegation: spec + current_page alongside
+the 336 plain keys. Pre-checked the remaining chain before letting the LAST
+attempt run: deploy_page reads only site_record.*/page_record.id (child-
+produced), spawn_rerender_agent takes no inputs — self-sufficient.
+
+Transferable shape for the eventual 016b entry if this recurs elsewhere: **a
+delegating agent that hand-picks which fields to forward re-runs the target's
+whole input contract from scratch — every consumer step, not just the entry
+step.** The dispatcher's mapping is the de-facto contract; mirror it, don't
+sample it. guides-index's in-flight run snapshotted the pre-337 mapping
+(workflow_plan is copied at claim) and will fail once more at update_status
+by design; its retry picks up 337.
