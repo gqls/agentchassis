@@ -1291,3 +1291,42 @@ loading, every calculator giving identical answers to before, and the reference
 recording refreshed. The platform bug that blocked the last three is fixed, live and
 proven. The only thing left with our name on it is the separate problem on
 webdesign.co.uk, which belongs to that lane and is written up for them.
+
+---
+
+## 2026-08-08, late — the whole site now speaks in the new voice, and the homepage says what you approved
+
+The platform fix we were waiting on arrived in tonight's build, so the last three pages
+could finally be rebuilt. That's done. All twenty-six pages are now in the new voice —
+nothing is left in the old one — and the homepage opens with the copy you signed off.
+Both phrases you objected to are gone from it. The calculators still give exactly the
+right answers and every page is up.
+
+Two things worth telling you, because both are mistakes of mine rather than the system's.
+
+I told you twice this week that the platform fix wasn't live yet. I was checking for a
+piece of text that only exists in the fix's *test* file, never in the shipped program, so
+my check was always going to say "not there" whether it was or not. What settled it in
+about a minute was simply trying to rebuild one of the blocked pages and watching it work.
+When a fix doesn't add any new visible text, there's nothing to look for, and trying it is
+the only real test.
+
+And when I applied your homepage copy, it appeared three times on the page. I'd written
+the instruction as "replace the opening block" — but the system writes a page one section
+at a time, and each section only ever sees itself. So three different sections each
+decided they were the opening block and each inserted your paragraph. Two of them had
+their own content destroyed in the process, which I restored from backup. The page is
+correct now.
+
+That's the fourth time this week the same thing has bitten from a different direction. A
+rule, a worked example, a stored instruction and now a page-level note have each been
+obeyed by every section, because obeying everything uniformly is the only thing a
+section-by-section writer can do. It's the clearest argument yet for giving the writer the
+whole page instead — which is on the list, and which I'd now put above almost everything
+else on it.
+
+One small thing still owed, and it's my fault. Restoring those two sections brought back
+their old wording, and one of them still says "your exact monthly repayments" and "the
+true total cost" — the same register you objected to, one line below the paragraph we
+fixed. It needs one careful rewrite, written to that section rather than to the page, and
+I've left precise instructions.
