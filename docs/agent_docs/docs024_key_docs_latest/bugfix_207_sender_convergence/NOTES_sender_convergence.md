@@ -114,3 +114,20 @@ Remaining to close 207: the next chassis roll + the three close criteria in the 
   needed. Orchestration rows left as evidence (~24h retention; ids above).
 - 207 status: FIXED + LIVE + PROVEN at its own seam; stays in bugs_open per owner 08-06
   ruling; the ~30% prize is gated on 216 (and 217 for child-orchestration failures).
+
+## 2026-08-08 — 090 verdict read for 216: no clean verdict, filing stands; verdict recovery route recorded
+
+- The run COMPLETED (5 iterations) but wrote NO verdict artifact and its orchestration
+  rows reaped within ~24h — the verdicts were recovered from `llm_call_log`
+  (`step_name='verdict'`, correlation `0e7e9640…`). RUNBOOK note: that is the durable
+  route to a 090 conclusion once the state rows are gone.
+- Trail: 3× UNVERIFIABLE, then iter-4 REFUTED a misreading of its own (log rationale text
+  taken for the mechanism), then iter-5 refuted iter-4 while citing the code in a way
+  that RESTATES the filed mechanism (guard fires in the DecodeRetryPayload err branch).
+  Outcome labels grade each round's REVISED hypothesis — recorded prominently in 216 so
+  nobody quotes "REFUTED" against the filing without reading what was refuted.
+- First-hand verification remains the primary evidence for 216; independent verification
+  remains OPEN.
+- By-product surfaced by the loop, unfiled: completed workflows failing
+  "message validation failed" on complete_workflow delivery to the parent (corr
+  `aee5853d`, several */complete steps). Left for the next thread — grep bugs first.

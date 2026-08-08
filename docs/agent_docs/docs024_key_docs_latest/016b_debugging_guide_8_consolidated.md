@@ -5226,8 +5226,12 @@ lost through the `orchestration_states` JSONB round-trip) → `RETRY_PAYLOAD_UNA
 path, `'retrying'` on the timeout ticker) and the re-read predicate kept only one. The
 claim already RETURNS the full authoritative row; the arm discards it and re-reads.
 
-**Fix.** `bugs_open/216` candidates — pass the claimed row through (closes the door);
-090 run `0e7e9640` pending at the time of writing. **Measurement corollary:** a
+**Fix.** `bugs_open/216` candidates — pass the claimed row through (closes the door).
+090 run `0e7e9640` completed 5 iterations with NO clean verdict on the filed symptom
+(3× UNVERIFIABLE, then two rounds refuting each other's own revisions — the final
+round's citations restate this entry's mechanism); the verdict block in `bugs_open/216`
+has the full read, including why a bare "REFUTED" quote against it would be wrong.
+**Measurement corollary:** a
 `retry_version` histogram cannot certify retries happen — the bump is written by the
 same function that then refuses (this poisons any storm-watch that counts it as retry
 evidence; see `WRONG_CALLS.md` 2026-08-07).
@@ -11154,3 +11158,29 @@ carries it onto the wrong section's imagery).
   later ordinal on that page. The census reads 0 today only because the last
   run dropped nothing; RFC_016 §1's rule (the field travels INSIDE the entry)
   exists because of exactly this.
+
+### A step's OUTPUT read as the producer's behaviour — when the step also REWRITES, you are describing the rewriter (`WRONG_CALLS` 2026-08-08, RFC_016 §3a/§3b)
+
+**The trap.** `collected_data->'validate_plan'` looks like "the validated form
+of what the planner emitted". It is what survived `reconcilePlanWithRealised`,
+which runs INSIDE ValidateSitePlanAction (`v3_site_actions.go:3031`) and — by
+design, Pass B2 — replaces the LLM's sections wholesale with the realised ones
+for every deployed page. A read-out built on it attributed the merge's
+behaviour to the planner ("only engages on new pages"), drove a real owner
+decision, and was refuted the next morning by the raw `llm_plan.result` —
+sitting one key over in the same jsonb the whole time.
+
+**The checks:**
+- Before attributing behaviour to a producer, read the stage INPUT next to the
+  stage OUTPUT — any stage that transforms AND filters (reconcile passes,
+  allow-lists, dedup, snap-backs) makes its output evidence about ITSELF.
+- A count reconciliation proves fidelity only across the boundary it spans:
+  "validate output 71 = persisted 71" says nothing about LLM→validate. Name
+  the boundary when you cite the count.
+- Pin raw LLM emissions the day you cite them: completed `orchestration_states`
+  rows expire in ~24h, after which the mechanism claim becomes permanently
+  unverifiable (this one did).
+- Corollary for 151/fact-assignment work specifically: **any per-section field
+  riding the LLM's section entries is discarded by Pass B2 for every deployed
+  page.** A "planner ignores X on existing pages" symptom should be checked
+  against raw emission FIRST — the planner may be complying into a shredder.

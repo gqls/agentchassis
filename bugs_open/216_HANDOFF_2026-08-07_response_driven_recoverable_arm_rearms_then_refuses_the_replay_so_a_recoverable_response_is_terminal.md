@@ -14,6 +14,28 @@ stands, every classifier improvement upstream buys a bookkeeping write instead o
 > `0e7e9640-7b22-4f10-8ea8-1994454993f3` (find it by
 > `spec.dispatch_correlation_id`, not the intake id). Read its verdict before building
 > the fix on this file's mechanism claim.
+>
+> **090 OUTCOME READ 2026-08-08 — the run COMPLETED after 5 iterations with NO clean
+> verdict on the filed symptom; it did not falsify this file, and its final citations
+> independently re-derive the central code fact.** The trail (verdicts in `llm_call_log`,
+> `step_name='verdict'`, this correlation — the orchestration rows are reaped and no
+> verdict artifact was written): iterations 1–3 UNVERIFIABLE ("no information", per 016b —
+> not "confirmed hard"); iteration 4 REFUTED **a misreading of its own** (it took the
+> `RETRY_PAYLOAD_UNAVAILABLE` log message's rationale text — "would carry this
+> orchestration's own id" — for the firing mechanism); iteration 5 REFUTED **iteration 4's
+> revision**, citing the code to show the guard "is logged inside the `if err != nil`
+> branch immediately after `types.DecodeRetryPayload(awaited.RequestPayload)` fails —
+> i.e. exactly the no/undecodable-stored-payload case", with `RETRY_SELF_ADDRESSED` as the
+> separate later check — **which is this file's filed mechanism, restated**. The loop's
+> outcome labels grade each round's REVISED hypothesis, not the filing; do not quote
+> "REFUTED" against this file without reading what was refuted. First-hand verification
+> (live induction + code read + DB row) stands as the primary evidence; treat independent
+> verification as still open. Two useful by-products: the loop re-read the induced row
+> live (`cef0a691…: status=expired, retry_version=1, payload_present=true`), and it
+> surfaced an unexplained sibling symptom — completed workflows whose results fail
+> **"message validation failed"** on `complete_workflow` delivery to the parent
+> (correlation `aee5853d`, several `*/complete` steps) — unfiled at the time of writing,
+> worth its own look.
 
 ## The mechanism (read from source, confirmed by induction)
 
