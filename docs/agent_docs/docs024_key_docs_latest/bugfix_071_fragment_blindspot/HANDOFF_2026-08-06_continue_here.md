@@ -133,6 +133,38 @@ came from `revalidate_review_queue` (a `revalidation` block, not `_verification`
 `build` where the path demonstrably works — not the page-surface case that would
 need a `page-build-handler` run against a pool site.
 
+### The recipe, if you take it on — READ THE RISK FIRST
+
+**This is NOT the previous session's induction test repeated.** That one was
+read-only: plant a fixture, run discovery, watch it file, remove the fixture. This
+one has to let a **handler actually run** (`nav-link-fixer`) so that
+`mark_complete` fires and the verifier executes. A handler rewrites site
+components — chrome, i.e. **every page of the site**. Do not point it at anything
+you are not willing to have rewritten, and re-read the lane's landmine that
+unlinking a label-bearing anchor leaves the label as bare text.
+
+1. Plant a **chrome-surface** dead fragment on a low-traffic pool site — an
+   `<a href="#zzz-induced-control">` in a `site_components` row, so
+   `routeBySurface` returns `nav-link-fixer` / `build` / 40.
+2. Dispatch `completeness-discovery-agent` at that site; assert exactly one
+   `dead_fragment_link` item, `pipeline='build'`, `status='detected'`.
+3. **Promote it to `triaged`** — this is the step the old handoff hid behind a
+   non-existent domain filter. Nothing will dispatch a `detected` item.
+4. Let `build-dispatch-loop` pick it up. The verifier runs at
+   `process_item` → `mark_complete`.
+5. **The assertion that matters is a REFUSAL.** With the href still rendered and
+   the fragment still resolving to nothing, `VerifyDeadFragmentLinkResolved` must
+   return `Resolved: false` and the completion must be blocked — look for
+   `result->'_verification'` on the item and a non-`complete` status, exactly the
+   shape of the `literal_markdown` `failed` row from 08-07. **A verifier that only
+   ever agrees is the failure mode the whole registry exists to prevent**, and it
+   is the reason this is worth doing rather than waiting.
+6. Only then repair the fragment and confirm it closes clean.
+
+Budget the chrome-rewrite risk against the value. If that trade is not worth it,
+the honest alternative is to keep waiting for a real one — but say so as a
+decision, not as a blocker, because the blocker was fictional.
+
 When it happens, the thing to check is that a completion is REFUSED while the href
 is still rendered and the fragment still misses — a verifier that only ever agrees
 is the failure mode the whole registry exists to prevent.
