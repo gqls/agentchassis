@@ -138,3 +138,49 @@ one, and the thing the remaining design decision waits on), putting the detector
 schedule, and a review resubmission — the council came back asking for the submission to be
 honest about the fact that it showed them seven files out of twenty-five, which was a fair
 hit and is being fixed rather than argued with.
+
+## 2026-08-08 — the survey is done, and the reviewers turned us down for being honest
+
+Two things happened.
+
+**The big survey you commissioned is finished.** The question was: if we change the system so
+that an agent's own workings survive when an outside service replies, what else breaks? The
+answer is much better than we feared. On the configuration side — hundreds of little
+references scattered through the agent definitions — **nothing breaks at all.** Some of them
+survive because a helper written years ago for a different purpose already copes with exactly
+this shape. The rest survive because they are dead: they are configured in six agents and
+read by nobody, carried forward by copy-paste for who knows how long.
+
+In the actual program code there are **three places that would break, and they break
+silently**, which is the bad kind. They are the bits that put the hero image and the logo on
+a page. If we made this change without fixing them first, pages would render with no hero and
+no logo, no error would be raised anywhere, and nothing would tell us. Three small fixes, all
+in one place, all now written down.
+
+There is also a nice bonus: I found a fallback that has **never once worked** — it looks up a
+web address in a way the lookup function physically cannot do — so it has silently done
+nothing since the day it was written. That belongs to another team; it is recorded.
+
+**The reviewers rejected the code change, and the reason is worth your attention.** Last time
+they told me off, correctly, for describing work I had not shown them — I sent seven files out
+of twenty-five and wrote as though I had sent all of them. So this time I said plainly: here
+are eight representative files, the change is thirty-four, and here is what the other
+twenty-six do. One reviewer confirmed that fixed the earlier complaint. **And then the senior
+reviewer vetoed it precisely because I admitted twenty-six files were out of view** — its job
+is to judge how far a change reaches, and I had just told it that most of the change was
+invisible to it.
+
+So being honest about the gap is what triggered the veto. I want to be clear that I do not
+think the reviewer was wrong: it is doing its job, and the honest version is still the right
+version. The real problem is structural — the submission form allows eight files and this
+change is thirty-four, and no amount of good writing reconciles those two numbers.
+
+The good news is the reviewer said exactly what would satisfy it: **just give it the list of
+all the file names.** A list is not one of the eight slots. That is a cheap fix and it is the
+first thing the next session should do. The reviewers also, fairly, said I had bundled two
+unrelated pieces of work into one review because they happened to arrive on the same day —
+that is a fact about my calendar, not about the code, and they should be split.
+
+Nothing here is broken or at risk: the code has been running in production since yesterday
+morning and is confirmed still running on today's build. The rejection blocks a rubber stamp,
+not the work.

@@ -320,3 +320,81 @@ the catcher's framing implies. Filed in `WRONG_CALLS.md`.
 
 **What would have falsified the reversal:** post-roll NULL rows still arriving, or any
 NULL-domain group attributable to an unconverted writer. Both checked; both empty.
+
+## 2026-08-08 — the census is delivered; council round 2 came back REJECTED on SCOPE VISIBILITY
+
+**Still live.** v1.0.1263 (both replicas, started 08:54Z) re-verified with the same
+discriminating pair: POS plural 1 / NEG singular 0 / NEG envelope 0 on each.
+
+**The census landed** — `architecture_review/CENSUS_2026-08-07_rfc012_await_step_readers.md`,
+commit `40992cbce`. Headline: **the config side breaks NOWHERE and the Go side breaks in
+exactly 3 places, silently.** 138 of 221 awaited steps already merge under `.response`, so
+(a) is a far smaller change than RFC_012 §4 feared. Full reasoning in the artefact; the two
+findings worth carrying are that `ExtractNestedField` retries every unfound segment through
+`["response"]` (so a wrapper is transparent to every dotted-path reader), and that
+`hero_deployed`/`logo_deployed` are read by two-level direct map access with an `ok` guard,
+so under a wrapper the page renders with no image and **nothing records it**.
+
+**MISSTEP 10 — my first pass at "which actions await" returned 24, and the true answer is
+40.** I grepped for the map-literal form `"await_response": true` and *excluded* lines
+carrying `json:"await_response"` on the reasoning that a struct tag is an outbound request
+field, not a result. But adapter actions signal await through a **typed result struct** —
+`web_search_action.go:221` returns `&WebSearchResult{… AwaitResponse: true …}`. My exclusion
+silently dropped **every adapter dispatch**: `web_search`, all five `firecrawl_*`,
+`scrape_web`, `git_commit`, `generate_image`, `batch_webscrape`, browser-run, render-audit,
+repo-analysis — i.e. the steps most likely to be awaited at all. Caught only because
+`git_commit` steps were obviously missing from a list that had `deploy_page` in it.
+**A census of a BEHAVIOUR must enumerate every way the behaviour is EXPRESSED**; I enumerated
+one syntax and called it the behaviour.
+
+## 2026-08-08 — council round 2: REJECTED, hard veto from `guardian`. The catch-22 is the point
+
+Corr `5c2bc265-…`, verdict at 2026-08-07 08:39Z. Seats: `guardian` **veto**,
+`editquality` object (medium), `reuse_agent` **approve**, `tooling_provenance` **approve**,
+5 abstained. `decided_by: "hard veto from guardian"`.
+
+**The veto is explicitly NOT about craftsmanship.** Its own notes say so: *"the merge-fill
+design, the withdrawn-and-corrected NULLIF fix, the discriminating pod-verification, and the
+disclosed dormant third writer are all genuinely careful work."* The objection is
+**scope-visibility**: *"Guardian cannot assess blast radius on 26 files it cannot see — this
+is the textbook 'MANY packages at once' signal the charter says to veto rather than approve
+piecemeal."*
+
+**And that is a genuine catch-22 between the two rounds, which is the transferable finding.**
+Round 1's gating objection (`editquality`) was that my prose described files **not** in the
+edits array. The fix was to declare the array a representative sample and say so plainly.
+Round 2's `editquality` seat confirms that worked — *"The sample-not-exhaustive framing is an
+honest and adequate resolution of the prior gating objection — the array now matches the
+prose."* — and the **same honesty is what the guardian vetoed**: by stating that 26 files
+were out of view, I gave the guardian the exact fact its mandate requires it to veto on.
+**The 8-edit cap and a 34-file change are structurally irreconcilable inside one round.**
+
+**The way out is named in the verdict itself, and it is cheap.** Guardian's `missing` field:
+*"Full 34-file diff (or at minimum **the list of all 27 non-test files**) was not
+supplied."* A list is not an edit and does not consume the cap. This is NOT the `bugs_open/124`
+situation where a scope veto must not be answered by resubmitting — that veto was about *how
+a capability reached production*. This one names a supplyable artefact.
+
+**Three more actionable objections, all worth doing regardless of the verdict:**
+1. **`editquality` (medium) and `guardian` (low) both say edit 8 — the (d) detector — is
+   scope creep.** It is: it shares an RFC number and an owner sitting with B, and nothing
+   else. *"Bundling an unrelated detector into the same reviewed plan violates (c) and makes
+   the round judge two different bugs at once."* **Split it into its own round.** I bundled
+   them because they arrived in the same sitting, which is a reason about my calendar, not
+   about the code.
+2. **`reuse_agent` (approve, but):** `sharedoutputs.go`'s routing-graph walk was never checked
+   against **`relaygaps.go` in the same package**, which also walks `agent_definitions`
+   routing config. Extend rather than reimplement, or state why not. I did not look.
+3. **`tooling_provenance` (approve, but):** `cmd/config-key-audit` is an existing tool with
+   history, and I added a detector to it without leaving a `doc_notes` PLAN/NOTES row for
+   that subject — so the next lane must re-derive the ack-ratchet design and the
+   13-vs-11-routing-key correction from source.
+
+**No trailer written.** `f930de86b` carries `Council-Submitted:`, which asserts nothing and
+is now simply uncredited. **Do not write `Council-Reviewed:` anywhere** — there is no
+approved verdict.
+
+**A small thing I got wrong and am recording rather than amending (forward-only):** I put a
+`Council-Submitted:` trailer on `40992cbce`, a **docs-only** commit. The gate refuses docs
+client-side, so the trailer is meaningless there. It asserts nothing so it cannot be a false
+claim, but it is noise in 098's join and I should not have copied it across.
