@@ -5965,7 +5965,21 @@ WHERE site_id = (SELECT id FROM sites WHERE domain = 'finetuning.uk') AND status
   is worse because it counts `''` as present. The ratio is **not stable**: it was 26×
   on 2026-08-05, because the writers producing `''` are the high-volume ones. Do not
   quote a factor without its date.
-- **the mechanism, so you can predict it rather than re-measure it:** of **20** non-test
+- **⚠ THE CENSUS BELOW WAS SUPERSEDED WITHIN A DAY — re-measure before quoting it.**
+  `f930de86b` (2026-08-07, RFC_012 B) retired **18 hand-copied INSERTs into one writer**, so
+  the 20 sites are now **3**: `agenterrors/agenterrors.go:89`,
+  `store_generated_component_action.go:1353`, `internal/agents/contentcreator/claims_guard.go:184`.
+  Files listed below as `NULLIF` writers now build an `agenterrors.Entry` and call
+  `LogActionEntry` (`actions/log_action_error.go`), **which never touches `entry.Domain`** and
+  forwards to the bare-`$2` INSERT. **Net effect: the convention was consolidated ONTO the broken
+  shape**, so `''` is now fleet-wide by construction — measured 08-08, `domain IS NULL` returns
+  **0 on every error_code** written since the consolidation, where the guard codes used to produce
+  NULL. **The upside is bigger than the downside: the fix is now ONE LINE** — `NULLIF($2,'')` at
+  `agenterrors.go:94` covers every consolidated caller (plus one line in
+  `store_generated_component_action.go`; `contentcreator/claims_guard.go` omits the column and
+  already writes NULL).
+- **the mechanism as it stood 2026-08-06, kept because it is what the shapes below still mean:**
+  of **20** non-test
   writers, 10 write `NULLIF($n,'')`, 7 omit the column (both → NULL), and **3 write a
   bare `$2`** (→ `''`). Those three share a byte-identical 13-column `VALUES` block —
   clone-and-drift, not a missing convention. One of the three is the coordinator's

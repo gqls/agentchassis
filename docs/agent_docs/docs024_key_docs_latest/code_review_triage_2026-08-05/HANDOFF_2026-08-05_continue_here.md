@@ -1,8 +1,25 @@
 # CONTINUE HERE — code-review triage lane, 2026-08-05 evening
 
-**State: the work is DONE, LIVE and pod-verified. All three council verdicts APPROVED. BOTH dated
-re-checks are now CLOSED. What remains is three items that are deliberately somebody else's — and
-one of those has moved.**
+**State: the shipped work is DONE, LIVE and pod-verified; all three council verdicts APPROVED. But
+§2a is REOPENED — the stop condition it was watching has now FIRED, and §16's writer census has
+been superseded by a refactor. Read the 2026-08-08 banner first.**
+
+> **⚠ UPDATED 2026-08-08 15:1xZ — TWO THINGS CHANGED, both in NOTES §20.**
+>
+> **1. `CONTENT_DATA_REGRESSION` HAS FIRED on `page-rerender`, so `PBP-031`'s stop condition is
+> live: the per-caller opt-in of `refuse_save_without_sections_metadata` MUST NOT PROCEED.**
+> `vetcomparison.uk` / `tool-cma-obligation-checker`, `build_status='deployed'`, 15:14:35Z. §2a's
+> "still zero" verdict was correct when taken and stood ~38 hours — **it is now superseded.** The
+> register's "the predicate is misconceived" is *vindicated*, and the reason is new: the
+> precondition is `content_data IS NOT NULL` and the prior value was `{}`, a 2-char empty object.
+> **Same defect family as the `domain` finding — a non-NULL-but-EMPTY value read as present.**
+> Not the F9 widening (the page is deployed). §20b.
+>
+> **2. §16's writer census is SUPERSEDED by `f930de86b` (2026-08-07, RFC_012 B), which retired 18
+> hand-copied INSERTs into one writer.** The 20 INSERT sites are now **3**. Files §16 called
+> `NULLIF` writers now route through `LogActionEntry`, which never touches `entry.Domain`. So the
+> defect is fleet-wide by construction — **and the fix collapses from three sites to ONE LINE** at
+> `agenterrors.go:94`. A structural census has a shelf life of about a day on this tree. §20a.
 
 > **UPDATED 2026-08-07 01:1xZ — the owed 20:45Z read is DONE (4.5h late) and the verdict is
 > STILL ZERO. `PBP-031`'s stop condition did NOT fire; the per-caller opt-in is not blocked.**

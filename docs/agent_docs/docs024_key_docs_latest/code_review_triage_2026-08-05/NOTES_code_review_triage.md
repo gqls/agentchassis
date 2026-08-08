@@ -911,3 +911,101 @@ pin is a constant, so it goes stale again silently the day work moves to `088_*`
 green, `updated_at` fresh, `commit_time` ageing. 252 rejected the self-deriving alternative for
 reasons that still hold. **Repointing it is part of cutting a branch**, now recorded in
 `LANDMINES.md`, `RUNBOOK` R14 and the memory index.
+
+## 20. 2026-08-08 15:1xZ — the resubmitted 090, a refactor that superseded §16, and the STOP CONDITION FIRED
+
+Resubmitted the `domain` divergence on the now-current index (§19). Run correlation
+**`61153a74-a285-4815-a533-bd89ed8b6d07`**. Three outcomes, and the third is the consequential one.
+
+### 20a. Verdict UNVERIFIABLE again — but it earned its run by finding a refactor I had missed
+
+`diagnosis_artifacts`: **4 rows, all `kind='bundle'`, zero reports** — §18b's delivery defect
+reproduced exactly. This time the watcher captured `collected_data->'verdict'` to disk on terminal,
+by design, so nothing was at risk. **And the previous run's rows were gone when I checked (0 rows
+for `a7b1e113`), which confirms the 24h reaper claim was real** — recovering that verdict when I did
+was the only chance anyone had to read it.
+
+The verdict says the code **confirms the structural claim**, then asks for runtime evidence. What
+makes the run worth its cost is a citation I had never seen:
+
+```
+platform/orchestration/actions/log_action_error.go:LogActionEntry
+  base := actionErrorEntry(params, entry.SiteID, entry.Domain)
+  return agenterrors.Write(ctx, params.DB, logger, entry)
+```
+
+> **CORRECTION TO §16 — my writer census is SUPERSEDED, and by a commit dated the day AFTER it.**
+> `f930de86b` (2026-08-07 02:24) — *"RFC_012 B: the copy class is retired — 18 hand-copied
+> `agent_error_log` INSERTs become one writer, and the 19th arrived DURING the work"*. Re-measured
+> [MEASURED 08-08 15:1xZ]: **the 20 INSERT sites are now 3** —
+> `agenterrors/agenterrors.go:89` (the one writer), `store_generated_component_action.go:1353`,
+> `internal/agents/contentcreator/claims_guard.go:184`. Several files §16 listed as **`NULLIF`
+> writers** now build an `agenterrors.Entry` and call `LogActionEntry`, which **never touches
+> `entry.Domain`** and forwards to the bare-`$2` INSERT.
+>
+> **So §16's shape is inverted, and both halves matter.** The bad news: this is no longer "3 clones
+> breaking a 10-writer convention" — the convention was **consolidated onto the broken shape**, so
+> the defect is now fleet-wide by construction. The good news, and it is bigger: **the fix collapses
+> from three sites to one line.** `NULLIF($2,'')` at `agenterrors.go:94` fixes every consolidated
+> caller at once; only `store_generated_component_action.go:1353` needs its own (and
+> `contentcreator/claims_guard.go` omits the column, so it already writes NULL).
+>
+> **The lesson is not "I was wrong", it is that a structural census has a shelf life of about a
+> day on this tree.** §16 was measured correctly and became false while sitting in a committed
+> document, because a refactor landed under it. A census is evidence about a moment; date it, and
+> re-run it before acting on it.
+
+**And the runtime evidence the loop asked for now exists — but not where it looked.** Its
+`data_request` queried three guard error codes; all their rows are **07-31 → 08-05, i.e.
+PRE-consolidation** [MEASURED], so that query could not discriminate. The discriminating cut is
+post-consolidation rows by domain shape:
+
+```
+rows since 2026-08-07 12:00Z, by error_code:  is_null = 0  ON EVERY ONE OF 8 CODES
+  (UNKNOWN 206 ''/237 real · VALIDATION_ERROR_DROPPED 2 '' · CONTENT_LINK_REPAIR_DETAIL 2 real · …)
+```
+
+Before the consolidation those same guard codes produced **NULL** (§16d: `CONTENT_LINK_REPAIR_DETAIL`
+30 NULL, `CONTENT_CLAIMS_FLOOR_DETAIL` 17 NULL, …). **The NULL-producing shape is gone from the
+fleet** — a row now lands `''` or a real domain, never NULL. That is the mechanism confirmed at
+runtime, and it is what the loop wanted; it simply asked the codes whose traffic predates the change.
+
+### 20b. `CONTENT_DATA_REGRESSION` HAS FIRED, and it is a `page-rerender` row
+
+Found incidentally while measuring the above. **This supersedes §17a's "still zero" verdict.**
+
+```
+agent_type   page-rerender          <- PBP-031's stop condition names exactly this
+occurred_at  2026-08-08 15:14:35.326571Z
+site         vetcomparison.uk   page  tool-cma-obligation-checker   build_status  deployed
+```
+
+`PBP-031` verbatim: *"any `page-rerender` row means the report's predicate is misconceived and the
+follow-up opt-in must not proceed."* **So the stop condition is FIRED and the per-caller opt-in of
+`refuse_save_without_sections_metadata` MUST NOT PROCEED.** §17a's verdict stood for ~38 hours.
+
+§13 said settle one question first — genuine loss, or the F9 widening over-firing? **Neither
+branch as written, and the real answer vindicates the register's wording.**
+
+- **Not the widening.** The page is `build_status='deployed'`, so the pre-F9 predicate would have
+  caught it too. [MEASURED]
+- **The save proceeded and did null the column.** The new `page_components` row was created at
+  `15:14:35.357283Z` — **31ms after the warning** — with `content_data` NULL and 13,967 chars of
+  `rendered_html` intact. [MEASURED]
+- **But there was no substantive content to lose.** The pre-save snapshot
+  (`page_component_history`, `source='save_page_sections_overwrite'`, `15:14:35.336054Z`) holds
+  `content_data` of type `object` and **2 characters** — i.e. `{}`. [MEASURED]
+- **And the predicate's precondition is `content_data IS NOT NULL`**
+  (`save_sections_metadata_source.go:226`, read at source), **which `{}` satisfies.** So the
+  warning's "had 1 component(s) holding structured content_data" is true only in the IS-NOT-NULL
+  sense.
+
+**This is the same defect family as the `domain` finding, in the report that was tracking it: a
+non-NULL-but-EMPTY value read as present.** `content_data IS NOT NULL` counts `{}` exactly as
+`count(domain)` counts `''`. The register guessed "the predicate is misconceived" and was right,
+for a reason nobody had identified.
+
+**NOT claimed:** whether `{}` → NULL matters behaviourally to the rerender path is **[UNMEASURED]**
+— PBP-031 says a NULL escalates the whole page to a full LLM rebuild, so the transition may have a
+real cost even though no *content* was lost. That is the next question, not a settled one. **One
+row is not a rate**, either: this is a single occurrence on one tool page, not a measured frequency.
