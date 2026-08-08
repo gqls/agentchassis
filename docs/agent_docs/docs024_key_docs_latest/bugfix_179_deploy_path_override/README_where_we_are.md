@@ -159,3 +159,49 @@ library ones instead, and wrote nothing. Under the old code that same run would
 have reverted July's repair and blanked the site's header and footer. That bug
 is now closed, and the one about the vet data provenance closed earlier tonight,
 so the evening retired three open bugs.
+
+## 2026-08-08 (evening) — we fired the first supervised repair run, and it told us something we needed to know
+
+You picked leopardessconsulting, the site with the biggest pile of outstanding
+findings, and we ran the improvement loop at it under supervision. It finished
+cleanly in nine minutes.
+
+Before firing I checked one thing that turned out to matter. The rule says
+"biggest backlog first", and that points straight at the one site whose own
+rebuild notes say its hand-corrected content survives only *because* this loop
+never runs. So the instruction we were following pointed at the site the loop was
+most likely to damage. I checked whether that fear was still real, and it isn't:
+nothing in the loop can reach the agent they were worried about, no step in the
+chain rewrites the kind of content they corrected, and the specific damage they
+had documented — the site's menu links being silently deleted — did not happen.
+I confirmed that afterwards too, by comparing the new menu against the live one.
+
+Now the result, which is the useful part. **The run created 68 new pieces of
+work, finished 10, and published nothing at all.** The site went from 189
+outstanding items to 248. Nothing was broken, nothing was lost — the repairs it
+did make were sound. But the loop discovers problems about seven times faster
+than it fixes them, so running it does not shrink the pile. It grows it.
+
+That is worth knowing before the next step rather than after it. The plan says
+we do a few supervised runs and, once the repairs look sane, switch the loop back
+on across all thirty-odd sites. Run one splits that into two separate questions.
+Are the repairs sane? Yes — genuinely, and I checked it against real pages rather
+than trusting the "completed" labels. Will running it drain the backlog? No, not
+as currently configured, and switching it on fleet-wide would multiply that
+problem by thirty rather than clear anything.
+
+The fix for this is probably small — the dispatcher is configured to pick up a
+handful of items and then stop, and never comes back for more in the same run.
+But which lever to pull is your call, not mine, so I have written the options
+down without choosing one.
+
+One correction I owe you. Mid-run I told you the run would repair "at most five
+items", based on the setting in the dispatcher's configuration. Ten were picked
+up. The setting is real and I had read the code correctly; it simply does not
+bind the way I assumed, and I could have counted the actual rows instead of
+reasoning from the config. It does not change any conclusion above — the run
+still published nothing — but I stated it as verified and it was not.
+
+The run also turned up one concrete defect on a real page, unrelated to all of
+the above: the process-automation-scorer tool fails its own acceptance check on
+the "submit shows an error" case, on both desktop and mobile.
