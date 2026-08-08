@@ -188,3 +188,45 @@ matches and the widget keeps its position. That is a small, testable change to
 the decomposition (name the slot after the tool, not after its index) and it
 should be made BEFORE any page is flipped, not after a page has shipped with
 its calculator at the bottom.
+
+### OWNER DECISION 2026-08-08: Route A — the new build decides the calculator's placement
+
+*"I'd like the new builds to decide the placement of the calculator."*
+
+This settles the open routing question **and reframes the caveat above.** The
+worry was that an unmatched locked row is appended to the page bottom. If the
+plan is the authority on placement, the requirement is not "preserve the old
+position" — it is that **the plan must be able to place the widget at all**,
+which needs `matchLockedRow` to match.
+
+So, precisely:
+
+- **Route A is chosen**: pages flip to `rebuild_policy='generic'` and the
+  ordinary build pipeline writes the copy. The lock keeps the widget's
+  CONTENTS byte-original (measured 2026-08-06); the plan chooses its POSITION.
+- **PRECONDITION — re-slot the tool rows before the first generic build.**
+  `matchLockedRow` matches `page_components.slot_name` against the incoming
+  section's component name (exact, then kebab-normalised). Our slots are
+  positional (`tool-1`), which matches nothing, so today the widget would be
+  appended at `len(sections)+1` — the page bottom — which is the plan NOT
+  deciding placement. Rename each tool row's slot to the name the site plan
+  emits for that section, and the same code path (`:736`) repositions it to
+  the plan's chosen index instead.
+- **Re-slotting is BYTE-FREE and can happen any time before that first build.**
+  Verified 2026-08-08: `slot_name` is read by `getPageSections` only for
+  diagnostics/logging (`rerender_single_page_action.go:777,800,812`) and never
+  reaches the assembled page — assembly concatenates `rendered_html` ordered by
+  `position`. So it does not invalidate the 39 verified predictions, and the
+  decomposition can ship first.
+- **The name is NOT chosen yet, deliberately.** The site plan does not exist
+  (no `site_plan` spec, no `site_plan_sections` — measured 08-05), so any name
+  picked now is a guess, and a guessed name that misses is exactly as bad as a
+  positional one. The tool pipeline's own convention is the tool FUNCTION name
+  (`deploy_tool_action` sets `["hero-tool","tool-guide-intro","<toolFunction>",
+  "tool-cta"]`), so that is the shape to match — but pin it to what the plan
+  ACTUALLY emits when the plan is generated, and re-slot then.
+- **Sequencing that follows:** decompose (now) → generate the site plan →
+  read the section names it emits for the 23 tool pages → re-slot tool rows to
+  match → flip to `generic` → build. **Do not flip to `generic` before the
+  re-slot**, or the first build ships 23 calculators underneath their prose,
+  silently, with only a `lock_blocked` work item as the signal.
