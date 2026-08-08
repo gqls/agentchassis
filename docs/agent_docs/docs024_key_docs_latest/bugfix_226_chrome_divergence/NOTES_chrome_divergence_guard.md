@@ -70,3 +70,43 @@
   both-halves-in-one-commit landmine (LANDMINES.md:646). Owning sessions were
   live at 23:26 (mtimes), so left to them; flagged in this lane's close-out.
   `go build` is unaffected; only `go test` reddens.
+
+## 2026-08-08 — session 1 (council round 1 → REVISE → round 2)
+
+- Round 1 verdict ~22:31Z: **REVISE**, decided by a gating objection from the
+  `guardian` seat. Full report parsed from `diagnosis_artifacts.body` (note:
+  the column is `body`, not `content` — schema-first would have saved one
+  errored query; logged in WRONG_CALLS as the cheap check).
+- **Objections REFUTED by measurement (no change made):**
+  - guardian HIGH "item_key has no site_id → only the first site ever gets an
+    item": `idx_swi_dedup` is `UNIQUE (site_id, item_key) WHERE non-terminal`
+    — site-scoped by the index; the two-strike guard is also site-scoped.
+  - guardian "no GRANT for core-manager's role → admin edits hard-error":
+    `pg_roles` has exactly `clients_user` (owns both tables, is every chrome
+    writer's role), `auth_user` (no chrome), `diagnose_ro` (read-only). Empty
+    gap.
+  - reuse_agent "extend the existing content_hash convention": DEAD COLUMN —
+    0/1294 `page_components.content_hash`, 0/619 `pages.content_hash`
+    populated. Live `content_hash` uses are insert-dedup identity, different
+    semantics.
+  - prior_art "is page_component_history trigger-fed?": application-fed (Go
+    INSERTs at 4 sites, no trigger on page_components) — the raw-psql gap was
+    unique to this case, as the plan claimed.
+- **Objections CONCEDED and fixed:**
+  - editquality: within-site repeat suppression — item_key now carries the
+    patched digest (first 12 chars) AND `recurrenceExpected: true`.
+  - render_guardian: emit could fire for a lock-refused store — WARN + emit
+    moved AFTER `RowsAffected > 0`; classify stays before the store (it reads
+    the outgoing bytes). Source-pinned (order: RowsAffected → hand_patched →
+    emit; exactly one call site).
+  - editquality: vacuous mock negatives — negatives moved to source pins.
+  - bug_historian: page-side sibling — **filed as `bugs_open/229`** (228 was
+    taken by another session between my ls and my write — re-check the number
+    at write time, not at plan time).
+  - architecture/debug_historian: staged rollout + fail-closed weighing now a
+    dedicated PLAN section; work-item closure design stated (needs_human_review,
+    no verifier registration — records an event, not a re-checkable state).
+  - debug_historian: pod-grep close criteria added to the bug file (positive
+    symbol + negative removed-string, every replica).
+- Round 2 submitted on the SAME trail: `RESUBMIT_CORR=cffbfec4…`, run
+  envelope `b3587307`, orch `6905d256`. All tests green after revisions.

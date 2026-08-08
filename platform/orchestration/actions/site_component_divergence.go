@@ -93,8 +93,17 @@ func classifySiteComponentArtefact(ctx context.Context, db *sql.DB,
 	return v, nil
 }
 
-func chromeDivergenceItemKey(slot string) string {
-	return fmt.Sprintf("chrome_divergence_overwritten:site_component:%s", slot)
+// chromeDivergenceItemKey carries the CURRENT (patched) digest, not just the
+// slot, so distinct hand patches on one slot are distinct findings while an
+// identical repeat is deduped (idx_swi_dedup is UNIQUE on site_id + item_key
+// over non-terminal rows — per-site by the index, per-patch by this key).
+// Council round 1 (corr cffbfec4) objected to the slot-only key on exactly
+// this ground.
+func chromeDivergenceItemKey(slot, currentDigest string) string {
+	if len(currentDigest) > 12 {
+		currentDigest = currentDigest[:12]
+	}
+	return fmt.Sprintf("chrome_divergence_overwritten:site_component:%s:%s", slot, currentDigest)
 }
 
 // emitChromeDivergenceItem files ONE deduped work item recording that a chrome
@@ -153,7 +162,12 @@ func emitChromeDivergenceItem(ctx context.Context, db *sql.DB, siteID uuid.UUID,
 		priority:  30,
 		status:    "needs_human_review",
 		createdBy: sourceAction,
-		itemKey:   chromeDivergenceItemKey(slot),
+		itemKey:   chromeDivergenceItemKey(slot, v.CurrentDigest),
+		// Each divergence is a NEW genuine event (a different patch destroyed);
+		// without this, the two-strike guard births the third same-key item per
+		// site terminal — a silent drop of exactly the finding class this
+		// mechanism exists to surface (council round 1, editquality seat).
+		recurrenceExpected: true,
 	}, logger)
 	if err != nil {
 		_ = tx.Rollback()

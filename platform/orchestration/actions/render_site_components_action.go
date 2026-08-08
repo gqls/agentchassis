@@ -922,27 +922,26 @@ func renderAndStoreSiteComponent(
 		renderedHTML = injectBrandHeadTags(renderedHTML, renderCtx, spriteCount > 0, logger)
 	}
 
-	// Divergence gate (bugs_open/226). The artefact about to be replaced may
-	// hold bytes the pipeline did not put there — a psql patch, an admin edit,
-	// a chrome-fix artefact patch — and this store would silently destroy
-	// them. The RECOVERY is not here: trg_site_component_archive (a DB
-	// trigger, sql_for_agents/344 — invisible to any grep of Go, which is why
-	// this comment exists) archives the outgoing bytes atomically with every
-	// differing overwrite, from every writer. This read is the LOUD half only,
-	// so a race with a concurrent writer costs at most a mislabelled log line,
-	// never the artefact.
-	if v, vErr := classifySiteComponentArtefact(ctx, db, siteID, slot); vErr != nil {
+	// Divergence gate, read half (bugs_open/226). The artefact about to be
+	// replaced may hold bytes the pipeline did not put there — a psql patch,
+	// an admin edit, a chrome-fix artefact patch — and this store would
+	// silently destroy them. The RECOVERY is not here: trg_site_component_archive
+	// (a DB trigger, sql_for_agents/344 — invisible to any grep of Go, which
+	// is why this comment exists) archives the outgoing bytes atomically with
+	// every differing overwrite, from every writer. This read is the LOUD half
+	// only, so a race with a concurrent writer costs at most a mislabelled log
+	// line, never the artefact.
+	//
+	// The read must run BEFORE the store (it classifies the outgoing bytes),
+	// but the WARN + work item fire only AFTER the store reports rows>0 —
+	// a lock refusal between here and there destroys nothing, so filing
+	// "bytes were overwritten" on that path would be a false record (council
+	// round 1, render_guardian seat).
+	divergence, divErr := classifySiteComponentArtefact(ctx, db, siteID, slot)
+	if divErr != nil {
 		logger.Warn("site chrome: divergence classification failed — overwrite proceeds, the 344 trigger still archives (bugs_open/226)",
-			zap.String("slot", slot), zap.Error(vErr))
-	} else if v.State == artefactHandPatched {
-		logger.Warn("site chrome: artefact diverges from its render stamp — hand-patched bytes are being overwritten (bugs_open/226)",
-			zap.String("slot", slot),
-			zap.String("site_id", siteID.String()),
-			zap.String("stamped_digest", v.StampedDigest),
-			zap.String("current_digest", v.CurrentDigest),
-			zap.Int("artefact_bytes", v.Bytes),
-		)
-		emitChromeDivergenceItem(ctx, db, siteID, slot, v, "render_site_components", logger)
+			zap.String("slot", slot), zap.Error(divErr))
+		divergence = nil
 	}
 
 	// Store the rendered HTML. The lock predicate makes the refusal race-free
@@ -996,6 +995,20 @@ func renderAndStoreSiteComponent(
 		logger.Error("Failed to store rendered component: no row matched",
 			zap.String("slot", slot), zap.String("site_id", siteID.String()))
 		return false, false, degraded
+	}
+
+	// Divergence gate, loud half (bugs_open/226): the store wrote (rows>0), so
+	// the trigger has archived the outgoing bytes — if they were hand-patched,
+	// say so where an operator will see it.
+	if divergence != nil && divergence.State == artefactHandPatched {
+		logger.Warn("site chrome: artefact diverged from its render stamp — hand-patched bytes were overwritten and archived (bugs_open/226)",
+			zap.String("slot", slot),
+			zap.String("site_id", siteID.String()),
+			zap.String("stamped_digest", divergence.StampedDigest),
+			zap.String("current_digest", divergence.CurrentDigest),
+			zap.Int("artefact_bytes", divergence.Bytes),
+		)
+		emitChromeDivergenceItem(ctx, db, siteID, slot, divergence, "render_site_components", logger)
 	}
 
 	logger.Info("Site component rendered and stored",

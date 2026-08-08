@@ -132,6 +132,41 @@ and the outgoing HTML recoverable from `site_component_history`. Negative
 control: an unpatched (stamped, matching) slot rebuilds with no item and —
 if byte-identical — no archive row.
 
+## Blast radius and staged rollout (added after council round 1 — the architecture seat asked for this as its own section, not risk-notes prose)
+
+**What ships when, and what each stage can break:**
+
+| stage | live from | failure surface | rollback |
+|---|---|---|---|
+| mig 344 (table + column + trigger) | applied 2026-08-08 ~23:30Z, probe-verified | EVERY differing chrome overwrite, all six writer classes, errors if `site_component_history` becomes un-insertable (fail-closed) | `344_..._ROLLBACK.sql` — one statement pair, drops trigger+function, keeps data |
+| Go half (digest stamp + classify + work item) | next chassis image | none new: a failed classify SELECT logs WARN and proceeds; emitter failures log and swallow (069 rule) | ordinary image roll-back; digest column simply stops being written |
+
+**The unstamped window, sized:** between mig 344 and the first post-image
+re-render of each row, all 57 rows classify `unstamped` — archived on
+overwrite, never work-itemed. No false accusations are possible in the window
+(work items need a stamped mismatch); the cost is only that a hand patch made
+IN the window is archived-but-not-flagged at its destruction. The 117 wave
+closes the window fleet-wide in one pass.
+
+**Fail-closed, weighed deliberately (round-1 `debug_historian` HIGH flag):**
+the trigger converts "archive impossible" into "chrome write refused" — a
+platform-wide stop on chrome writes if the ledger table is dropped or
+unwritable. Held because: (a) the alternative (fail-open) silently recreates
+bug 226 exactly when the archive is most needed; (b) the failure is loud,
+attributable (the error names the table), and one-statement recoverable;
+(c) the only login roles are `clients_user` (owns the table — every chrome
+writer), `auth_user` (never touches chrome), `diagnose_ro` (read-only), so
+there is no permissions path to an accidental fail-closed: measured, not
+assumed. RFC_017 (fail-closed on) is the standing precedent.
+
+**Work-item closure (round-1 `architecture` seat):** `chrome_divergence_overwritten`
+routes `needs_human_review` with NO handler — deliberately, mirroring
+`lock_blocked_change` and `chrome_dead_control` (owner ruling 2026-07-22: 033
+IS a worked queue). It does not enter the discovery-check verifier registry
+because it is not a re-checkable condition: it records an event (bytes
+destroyed and archived), which no re-run can un-happen. Closure = a human
+reads the diff and either re-declares the content (STY-050/lock) or dismisses.
+
 ## Consumers told, not merely measured (owner ruling 2026-07-29 §3)
 
 - **117 lane** (`bugfix_117`): your wave now archives every artefact it

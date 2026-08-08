@@ -24149,3 +24149,19 @@ information — both queries were correct, ran clean and returned exactly what I
 asking a question whose answer could not have come out otherwise, which is the failure mode the
 `[MEASURED]` marker rule explicitly does **not** catch (`MEMORY.md`, 2026-08-03): I would have
 dated and marked both.
+
+## 2026-08-08 — bugfix_226 lane: two small ones, same session, both caught cheap
+
+**(1) Queried `diagnosis_artifacts.content` for the council verdict; the column is `body`.** One
+errored query, caught by the DB itself — recorded not for the thirty seconds it cost but because
+the skipped check is the oldest rule in CLAUDE.md ("Schema first: `\d <table>` before writing
+SQL") and I had already run `\d` on three OTHER tables the same evening. The rule decays exactly
+when a table's name suggests its columns ("artifacts have content"). The cheap check existed,
+was written down, and was skipped on familiarity.
+
+**(2) Planned the page-side sibling filing as `bugs_open/228`; 228 was taken by the time I wrote
+it.** Caught by re-running `ls` at WRITE time rather than trusting the number from PLAN time
+(minutes earlier) — on this tree a bug number reserved in your head has a half-life of minutes.
+The check that caught it is the check: **re-derive the next-free number in the same breath as the
+`Write`, never carry it forward from earlier in the session.** Same shape as
+`prior-art-search-goes-stale`, at minute-scale.

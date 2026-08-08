@@ -105,6 +105,52 @@ func TestChromeStoreStampsDigestInSameStatement(t *testing.T) {
 	}
 }
 
+// The item_key carries the patched digest so distinct hand patches on one
+// slot are distinct findings (idx_swi_dedup is UNIQUE on site_id + item_key
+// over non-terminal rows: per-site by the index, per-patch by this key), while
+// an identical repeat still dedups. Council round 1 (corr cffbfec4) gated on
+// the slot-only key.
+func TestChromeDivergenceItemKeyCarriesDigest(t *testing.T) {
+	got := chromeDivergenceItemKey("footer", "0123456789abcdef0123456789abcdef")
+	want := "chrome_divergence_overwritten:site_component:footer:0123456789ab"
+	if got != want {
+		t.Errorf("item_key = %q, want %q", got, want)
+	}
+	if k := chromeDivergenceItemKey("head", "short"); k != "chrome_divergence_overwritten:site_component:head:short" {
+		t.Errorf("short digest must pass through untruncated, got %q", k)
+	}
+}
+
+// The work item may fire ONLY on a hand_patched verdict and ONLY after the
+// store reported rows>0 — an item filed for a lock-refused store would assert
+// destruction that never happened (round-1 render_guardian objection). Pinned
+// at the SOURCE because the mock-based alternative ("no insert expected") is
+// the documented vacuous-pass trap: a mock with no registered expectations
+// proves nothing about a call that was skipped.
+func TestDivergenceItemGatedOnHandPatchedAfterStore(t *testing.T) {
+	src, err := os.ReadFile("render_site_components_action.go")
+	if err != nil {
+		t.Fatalf("cannot read render_site_components_action.go: %v", err)
+	}
+	s := string(src)
+
+	if n := strings.Count(s, "emitChromeDivergenceItem("); n != 1 {
+		t.Fatalf("expected exactly 1 emitChromeDivergenceItem call site in the render action, found %d", n)
+	}
+	store := strings.Index(s, "UPDATE site_components AS sc")
+	emit := strings.Index(s, "emitChromeDivergenceItem(")
+	if store == -1 {
+		t.Fatal("cannot locate the guarded store statement")
+	}
+	if emit < store {
+		t.Error("emitChromeDivergenceItem is called BEFORE the store — a lock-refused store would file a false 'bytes were overwritten' record")
+	}
+	gate := regexp.MustCompile(`(?s)RowsAffected\(\).*?divergence\.State == artefactHandPatched.*?emitChromeDivergenceItem\(`)
+	if !gate.Match(src) {
+		t.Error("the emit is no longer gated on rows-affected THEN artefactHandPatched, in that order")
+	}
+}
+
 // The Go vocabulary and the 344 trigger's CASE are two copies of one
 // judgement. This pin fails when either side renames a verdict or the trigger
 // stops judging by md5 — the drift would otherwise surface as work items that

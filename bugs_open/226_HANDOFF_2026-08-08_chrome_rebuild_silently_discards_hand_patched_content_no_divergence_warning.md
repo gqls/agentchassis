@@ -85,6 +85,22 @@ None of the three makes an **undeclared** hand-patch loud. That is the gap.
 > `docs/agent_docs/docs024_key_docs_latest/bugfix_226_chrome_divergence/`.
 > Still true and unchanged from the candidate: unstamped rows (46/57 at fix
 > time) cannot be classified and converge as the fleet re-renders.
+>
+> **CLOSE CRITERIA (this bug stays OPEN until all three, per the fixed-AND-live
+> bar; the DB half alone is not the fix):**
+> 1. **Pod-verified image** (the 153 discipline — a roll is not evidence):
+>    `strings /app/agent-chassis | grep -c classifySiteComponentArtefact`
+>    (expect >0) AND a negative control grep for
+>    `hand-patched bytes are being overwritten` — a round-1 log string the
+>    round-2 revision REMOVED (expect 0; the live string ends `were
+>    overwritten and archived`) — same exec, EVERY replica.
+> 2. **The verification protocol above run end-to-end**: hand-patch a test
+>    site's footer artefact, rebuild, require the WARN + the
+>    `chrome_divergence_overwritten` item + the ledger row; negative control:
+>    a stamped, untouched slot rebuilds with no item and no archive row when
+>    byte-identical.
+> 3. **The 117 wave's first pass observed**: archive rows present, zero
+>    `trg_site_component_archive` errors in the wave's window.
 
 1. **Divergence check at overwrite time** (closes the door): in
    `renderAndStoreSiteComponent`, before replacing `rendered_html`, re-render
