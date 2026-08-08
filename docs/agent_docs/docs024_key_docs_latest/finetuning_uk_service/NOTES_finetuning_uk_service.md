@@ -460,3 +460,45 @@ Drill row deleted (matched id AND thunder_instance_id); table verified back to
 **Cost of the entire two-drill campaign: $0.00** — no real instance was ever
 created, both fake ids were unreachable-by-construction, and the account's
 `instances/list` was `{}` throughout.
+
+## 2026-08-08 (evening) — 186 VERIFIED LIVE: the NULL-IP re-drill passed
+
+The fleet roll landed at 16:27Z (thunder-adapter `v1.0.1267`, pod
+`thunder-adapter-86c889c64-7lwdt`). Provenance chain, honestly bounded:
+the fix commit `f83927375` is 10:19 +0100; local docker shows `v1.0.1267`
+built 14:03 +0100 (after the commit; `make build-*` builds committed HEAD).
+Necessary but not sufficient — **and the standing pod-grep practice
+(a string ADDED + a string REMOVED) is structurally unavailable for this
+diff**: it changes only Go field types and comments, no string literal in
+either direction. Nothing to grep means the behavioural drill IS the
+verification, which is what the 114 template was rewritten to be.
+
+Pre-drill checks all green: `instances/list` = `{}` at 17:51Z (authenticated,
+zero instances — which is the ONLY condition under which a numeric drill id is
+safe), table at baseline 23/23 decommissioned/0 running, reaper enabled with
+280's widened pre_query (t/t/t), last tick 17:50:59Z, chassis pods 85 min old
+(clear of the 300s dispatch rule).
+
+Drill: row `2890abab-9d00-4e95-9bb3-2ce232e0adc7`,
+`thunder_instance_id='999999'`, **`instance_ip` OMITTED → NULL** (confirmed at
+insert: `ip_is_null=t`) — the exact input that killed the 08-03 dispatch with
+"converting NULL to string is unsupported". Kicked the scheduler
+(`last_triggered_at=NULL`) at ~17:52Z.
+
+Result: **terminal in ~30s.** First poll 17:52:34 already showed
+`decommissioned`, `cost_usd=3.6045` (2h × $1.80 synthetic rate),
+`decommissioned_at` 17:52:31.9Z, `instance_ip` STILL NULL. Adapter log
+17:52:31: `Received request` → lookup **passed** (the old binary died here) →
+real authenticated `POST /instances/999999/delete` → 404 →
+`Thunder instance already deleted (404)` treated as success →
+`Decommission complete` → `Sent success response`. Reaper orchestration row
+COMPLETED 17:52:34. The row reached `decommissioned` — one state beyond the
+`decommissioning` the bug file's verify recipe predicted; full terminal
+success.
+
+Cleanup: drill row deleted (matched `id` AND `thunder_instance_id`,
+`DELETE 1`), table re-verified 23/23/0. Campaign still $0.00 total.
+
+**186 is fixed AND live.** Recorded in the bug file (which stays in
+`bugs_open/` per owner ruling 08-06); RUNBOOK §1b caveat updated. Next lane
+steps: Phase 0 (needs owner-ish supervision) and task #6 orphan sweep.

@@ -157,3 +157,24 @@ L40, and the A6000 is cheaper anyway.
 What's next is the rehearsal run: one small model trained end to end, timed
 and priced for real. That was always the gate before putting a price on the
 page, and nothing blocks it any more.
+
+---
+
+**2026-08-08, evening.** The software release went out this afternoon, and the
+database fix I mentioned this morning is now confirmed working in production.
+I proved it the same way as before: staged a fake overdue machine — this time
+deliberately missing the network address that used to crash the sweep — and
+watched the whole thing complete in about thirty seconds: the sweep picked it
+up, the lookup that used to fall over sailed through, Thunder was asked for
+real and answered "no such machine", the cost was worked out and the record
+closed. Cleaned up the test row afterwards; still nothing spent across all of
+this testing. One honest footnote: the usual trick for proving a release
+contains a particular change (searching the running program for tell-tale
+text) doesn't work for this change, because it altered only how data is typed,
+not any message text — so the live test above isn't a nice-to-have, it's the
+only real proof, which is exactly why it was designed in. The cleanup sweep is
+now fully proven end to end, including the awkward case. The remaining gap is
+unchanged: a machine Thunder is billing us for that our records never heard of
+would still be invisible — that reconciliation check is the next build item,
+and the ten-second manual check remains the net until then. Otherwise the lane
+is clear for the rehearsal run, which wants you around when it happens.

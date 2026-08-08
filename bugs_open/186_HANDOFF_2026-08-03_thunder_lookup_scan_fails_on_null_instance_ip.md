@@ -1,6 +1,6 @@
 # 186 — thunder_instances lookup scans a NULLABLE column into a non-nullable Go string, so decommission dies before it reaches Thunder
 
-**Filed:** 2026-08-03 · **Status:** OPEN — fix COMMITTED `f83927375` (2026-08-08), NOT LIVE until the thunder-adapter image rolls · **Severity:** latent today, blocking the moment a row is created by hand
+**Filed:** 2026-08-03 · **Status:** FIXED AND LIVE — verified by re-drill 2026-08-08 17:52Z on adapter `v1.0.1267` (file stays in `bugs_open/` per owner ruling 2026-08-06) · **Severity:** was latent; now closed in substance
 **Found by:** the reap drill in `docs024_key_docs_latest/finetuning_uk_service/` (see NOTES 2026-08-03)
 
 > **FIX 2026-08-08 (`f83927375`, `Council-Submitted: 862583b1`):** candidate 1
@@ -9,8 +9,29 @@
 > **omits `instance_ip`** so the drill can produce the failing input.
 > `go test -vet=off ./internal/adapters/thunder/` ok (the vet failures at
 > `provision_action.go:161` and `api/client_test.go` reproduce on clean HEAD —
-> pre-existing). **Stays OPEN until rolled and re-drilled per "How to verify"**
-> — the running adapter still carries the defect.
+> pre-existing). ~~**Stays OPEN until rolled and re-drilled per "How to
+> verify"** — the running adapter still carries the defect.~~ **Rolled and
+> re-drilled, see below.**
+
+> **VERIFIED LIVE 2026-08-08 17:52Z.** Fleet roll 16:27Z put adapter
+> `v1.0.1267` up (image built 14:03 +0100, after the 10:19 fix commit; `make
+> build-*` builds committed HEAD). **The usual pod-grep controls are
+> structurally unavailable for this diff** — it changes only Go types and
+> comments, adding and removing no string literal — so the proof is the
+> behavioural re-drill per the 114 template: synthetic overdue row
+> `2890abab-9d00-4e95-9bb3-2ce232e0adc7` / `thunder_instance_id` `999999`
+> (numeric was safe ONLY because `instances/list` was `{}` at 17:51Z),
+> `instance_ip` NULL — **the exact input that produced the Scan error on
+> 2026-08-03**. Tick→terminal ~30s: the DB lookup **passed** (adapter log
+> 17:52:31 shows the flow continuing to a real authenticated
+> `POST /instances/999999/delete` → 404 → "Thunder instance already deleted
+> (404)" treated as success), `Decommission complete` with `cost_usd` 3.60
+> stamped, row `decommissioned` with `instance_ip` still NULL, reaper
+> orchestration run COMPLETED 17:52:34. Drill row deleted (matched `id` AND
+> `thunder_instance_id`); table verified back to 23 rows / 23 decommissioned /
+> 0 running. Note the row reached `decommissioned`, one state *beyond* the
+> `decommissioning` this file's "How to verify" predicts — full terminal
+> success, not just past the lookup.
 
 ## On the "file it through the loop" ruling (CLAUDE.md, 2026-07-31)
 

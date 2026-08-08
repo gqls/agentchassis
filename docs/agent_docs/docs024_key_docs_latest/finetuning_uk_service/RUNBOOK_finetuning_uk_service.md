@@ -183,9 +183,16 @@ UPDATE thunder_config SET is_paused = true, pause_reason = '<why>';
   authenticated Thunder delete with `Thunder instance already deleted (404)`
   treated as success. Both drills together cost **$0.00**. Two caveats: the
   lookup passed because the row carried an IP — the NULL-IP case is
-  `bugs_open/186` (fix committed `f83927375`, council-APPROVED `862583b1`,
-  **inert until the adapter image rolls** — re-drill with `instance_ip` omitted
-  after that roll, per the 114 template); and orphans (below) remain uncovered.
+  `bugs_open/186` (fix committed `f83927375`, council-APPROVED `862583b1`);
+  and orphans (below) remain uncovered.
+- ✅ **186 VERIFIED LIVE 2026-08-08 17:52Z** — after the 16:27Z fleet roll
+  (adapter `v1.0.1267`), the NULL-IP re-drill per the 114 template passed:
+  `instance_ip` NULL row `999999` went tick→`decommissioned` in ~30s, lookup
+  passed, real Thunder delete 404≡ok, cost stamped, drill row deleted, table
+  back to baseline. The NULL-IP caveat above is closed; **orphans are now the
+  only uncovered gap**. (Pod-grep controls were structurally unavailable — the
+  diff adds/removes no string literal — so the drill is the proof of the roll,
+  not a supplement to it.)
 
 ## 2. Scripts bundle — the training deploy unit
 

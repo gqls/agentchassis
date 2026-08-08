@@ -86,7 +86,16 @@ Two of that thread's findings that change OUR plan (from its PLAN, read 08-03):
   the widened query — ALWAYS delete drill rows (match `id` AND
   `thunder_instance_id`).
 
-### bugs_open/186 — fix APPROVED, NOT LIVE (the one thing mid-flight)
+### bugs_open/186 — ✅ VERIFIED LIVE 2026-08-08 17:52Z (section kept for the trail)
+
+> **DONE (evening session, 08-08):** the fleet roll landed 16:27Z (adapter
+> `v1.0.1267`, built 14:03 — after the 10:19 fix commit). Pod-grep controls
+> were structurally unavailable (the diff adds/removes no string literal), so
+> the proof is the behavioural re-drill: NULL-IP row `999999` →
+> `decommissioned` in ~30s, lookup passed, real Thunder delete 404≡ok, cost
+> stamped, drill row deleted, table back to 23/23/0. Recorded in the bug file
+> (stays in `bugs_open/`), NOTES, RUNBOOK §1b. **Next step 1 below is done;
+> the lane's next work is Phase 0 (owner-ish supervision) and task #6.**
 - Defect: `store.Instance` scanned nullable `instance_ip`/`requested_by` into
   plain Go strings → any NULL-IP row killed the decommission at the DB lookup,
   before any Thunder call. Found by the 08-03 drill (reaper's first-ever
@@ -139,8 +148,10 @@ IS the deploy; verify by md5 round-trip).
 
 ## Next steps, in order
 
-1. **(gated on the next fleet roll)** Verify 186 live: pod-grep both controls,
-   re-drill with `instance_ip` omitted, record in the bug file + NOTES.
+1. ~~**(gated on the next fleet roll)** Verify 186 live: pod-grep both controls,
+   re-drill with `instance_ip` omitted, record in the bug file + NOTES.~~
+   **DONE 2026-08-08 17:52Z** — see the 186 section above. (Pod-grep was
+   structurally unavailable for this diff; the re-drill is the proof.)
 2. **Phase 0 — the measured rehearsal (~$1–2, needs owner-ish supervision):**
    - Correct `thunder_config` rates (RUNBOOK §1 step 5) — just before, not
      earlier.
@@ -177,7 +188,7 @@ IS the deploy; verify by md5 round-trip).
 
 ## Open bugs this lane owns / watches
 
-- **186** (above) — approved, awaiting roll + re-drill. Stays in `bugs_open/`.
+- **186** (above) — **FIXED AND LIVE, verified 08-08 17:52Z.** Stays in `bugs_open/`.
 - Orphan gap — not filed as a numbered bug; it is task #6 + RUNBOOK §1b + the
   concept-register follow-up.
 - Adjacent, not ours: `bugs_open/190` (raw LLM envelope in a page_components
