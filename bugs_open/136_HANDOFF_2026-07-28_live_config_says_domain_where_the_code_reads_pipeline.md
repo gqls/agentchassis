@@ -334,3 +334,121 @@ kubectl -n ai-persona-system logs -l app=agent-chassis --tail=-1 --since=1h \
 -- the summary must stop equalling the item_type
 SELECT summary, item_type FROM site_work_items WHERE created_by='grounded-explainer';
 ```
+
+---
+
+## Update 2026-08-08 — §2a's `[MEASURED] Nothing is mislabelled today` is now FALSE, and the framework gap behind all three instances is closed
+
+**Fixed in code (`3f93456fd`), INERT until the next chassis roll.** Do not close it on the
+commit — the bar is *fixed AND live*, and until the image ships the defect is still
+reproducible. Council `Council-Submitted: 433de2c0-682f-4d8d-8c48-28637309f1ba`.
+Workstream: `docs024_key_docs_latest/bugfix_136_config_key_aliases/`.
+
+### 1. This file predicted its own trigger, and the trigger has fired
+
+§2a said the containment was *"a coincidence of today's check-to-agent mapping"* and named
+what would break it: *"The moment a check that propagates `dctx.Pipeline` is added to the
+content or build agent's list … those findings are written as `design` and land in the wrong
+queue."*
+
+Since 2026-07-28, **two such checks have joined `completeness-discovery-agent`** —
+`content_duplication` and `page_canonical_collision`, both of which set
+`Pipeline: dctx.Pipeline` rather than hardcoding their own. That agent's config asks for
+`check_domain: "content"`; the code read `check_pipeline`, found nothing, and took `"design"`.
+
+```sql
+SELECT item_type, pipeline, status, created_at::date FROM site_work_items
+WHERE created_by='completeness-discovery-agent' AND pipeline='design';
+--  page_canonical_collision | design | complete | 2026-08-04
+--  page_canonical_collision | design | complete | 2026-08-04
+--  capability_gap           | design | detected | 2026-08-04
+--  capability_gap           | design | detected | 2026-08-03
+```
+
+> **CORRECTED 2026-08-08 — §2a's `[MEASURED] Nothing is mislabelled today` no longer holds.**
+> Four rows, two still open. The measurement was honest when it was taken; what it measured
+> was a check-to-agent mapping, and that is not a stable property. **The lesson is the one
+> §2a itself half-stated: a figure that depends on which checks are registered where has a
+> shelf life measured in days on this estate, and it should have been marked as such.**
+
+The harm is not cosmetic. `countDispatchableWorkItems` (`work_items_common.go:198-211`)
+filters `AND pipeline = $2` to answer *"is there unfinished promoted work on this site"*, so
+a row under the wrong pipeline is invisible to the count that should see it.
+
+### 2. Why two of three actions never got the shim — the framework gap this file did not name
+
+§2 correctly identified `create_work_item`'s hand-rolled fallback as the pattern to prefer,
+and asked why *"They wrote it on one action and not on the other two."* The answer is that
+the framework offered no way to declare it.
+
+`ActionInputSpec.Deprecated` **looks** like the field for this and is not. It is honoured in
+exactly one place — `ExtractActionInputs` Strategy 3 — and there it does
+`ExtractNestedField(collectedData, config[oldKey])`: it treats the old key's **value as a
+dot-path into `collected_data`**. Correct for a *reference* alias (`site_id_field` →
+`site_id`). For a *setting* — `check_domain: "content"` — it would look up a `collected_data`
+key called `content`, find nothing, take the default, **and go quiet**, because
+`UnknownConfigKeys` recognises `Deprecated` keys on purpose. Declaring it there is strictly
+worse than not declaring it.
+
+So the honest options were "hand-roll Go" or "do nothing", and two of three authors did
+nothing. That is a framework defect wearing a per-action costume.
+
+### 3. What shipped
+
+`ActionInputSpec.DeprecatedConfigKeys` (old setting key → canonical key) + one shared reader,
+`datahelpers.ResolveConfigSetting`, in the new `datahelpers/config_key_aliases.go`. Opt-in and
+inert until a spec names it. Precedence is byte-for-byte the shim it replaces. Registered as
+**SCR-006** and landmined in the same commit. Adopted by four actions:
+
+| action | alias declared | value change |
+|---|---|---|
+| `run_discovery_checks` | `check_domain` → `check_pipeline` | **yes** — completeness's two propagating checks move `design` → `content`. design-agent asks for the value it already got; quality-agent runs six checks, none propagating |
+| `triage_detected_items` | `target_domain` → `target_pipeline` | none — the sole caller asks for `"build"`, which is the default. **§2b's "3 agents" is now 1**: migration 286 removed the two child steps under RFC 006 |
+| `create_work_item` | `item_domain` → `item_pipeline` | none — the hand-rolled shim converges onto the declared form |
+| `execute_vision_prompt` | *(declares `ai_service`)* | none — it was a **false positive**: the action reads it via the shared `resolveAIServiceConfig` |
+
+**Live audit, run against production `agent_definitions` after the change:**
+UNKNOWN KEYS went **4 → 1**, and a new DEPRECATED section names all three renames.
+The one left is `plan_sections: domain` — see §5.
+
+### 4. How to verify, and where verification runs out
+
+- **Reporting half needs no roll.** `./scripts/audit-config-keys.sh` runs `go run` from the
+  tree against the live DB. UNKNOWN KEYS must be exactly `plan_sections: domain`; DEPRECATED
+  must name `run_discovery_checks.check_domain` (3 steps), `triage_detected_items.target_domain`
+  (1), `create_work_item.item_domain` (9).
+- **Behaviour half, after the roll**, using a literal this change created (verified to appear
+  nowhere else in the tree, so the grep discriminates):
+  ```bash
+  POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[0].metadata.name}')
+  kubectl -n ai-persona-system exec "$POD" -- sh -c "strings /app/agent-chassis | grep -c 'config setting arrived via a deprecated alias'"   # 0 before, 1 after
+  kubectl -n ai-persona-system exec "$POD" -- sh -c "strings /app/agent-chassis | grep -c 'ResolveConfigSetting'"                             # positive control
+  kubectl -n ai-persona-system logs -l app=agent-chassis --tail=-1 --since=24h | grep "deprecated alias"   # -l, NOT logs deploy/…
+  ```
+  `create_work_item` runs on live lanes today, so it exercises the **same shared helper** the
+  two quiesced actions call — that is the available witness.
+- **For `check_domain` / `target_domain` themselves there is NO live proof available**, and
+  that is stated rather than worked around. The improvement loop is stopped by the owner
+  ruling above, and *a verification that requires restarting something the owner stopped on
+  purpose is not a verification worth having.* The claim chain is: shared helper proven live
+  via `create_work_item` · per-action wiring proven by unit tests each killed by a deliberate
+  mutation (see `config_key_alias_adopters_test.go`, including a sqlmock test that catches the
+  action body being reverted while the declaration stays) · pod strings-grep proving the
+  binary carries it.
+
+### 5. Still owed on this file — deliberately not done, not forgotten
+
+1. **The four mislabelled rows are NOT repaired.** Two `complete`, two `detected` (a queue
+   with no consumer, `bugs_open/083`). Repairing them is a data edit on another lane's queue.
+2. **`summary_template` (§4) is still biting** — two human-review items captioned with their
+   own `item_type`. It is **not** an alias case: aliasing it to `summary` would ship a raw
+   `{{.input_data.topic}}` string to the reviewer. It needs the render-or-literal decision.
+3. **`plan_sections.domain`** stays in UNKNOWN KEYS. It is genuinely dead (the action reads
+   neither `domain` nor the `pipeline` its spec declares), but `page-build-handler` is hot
+   with several sessions on it, and the UNKNOWN line is the honest standing record until its
+   owner deletes the key.
+4. **`create_work_item`'s full opt-in** — blocked on adjudicating `summary_template`,
+   `spec_fields` and `domain`. Note §3's read-list was wrong on one row: **`priority` IS
+   read**, at `:144` via `datahelpers.GetIntField`, which a `config["…"]` grep cannot see.
+5. **The definition renames.** Not needed for correctness now that the aliases are honoured;
+   the DEPRECATED audit section is the standing migration list.

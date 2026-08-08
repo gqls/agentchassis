@@ -22709,3 +22709,49 @@ every consumer, provable only by enumerating them — citing one reader that
 doesn't is not evidence about the one that does.* And when success and failure
 paths converge on the same step, no downstream observation can attribute the
 outcome to routing at all.
+
+---
+
+## 2026-08-08 — I enumerated an action's config reads with `grep 'config\["'`, which cannot see a key that arrives through a helper
+
+**Lane:** `bugfix_136_config_key_aliases`.
+
+**The claim:** briefing a planner on `bugs_open/136`, I listed which step-config keys
+`create_work_item` reads and which its live steps carry but it ignores. I put `priority` in
+the second list — carried by nine live steps, read by nothing — and offered it as evidence
+for how much of that action's contract is unadjudicated.
+
+**It was false.** `create_work_item_action.go:144` reads it:
+`priority := datahelpers.GetIntField(config, "priority", 100)`.
+
+**What caught it:** the planner, on the first pass, before anything was written down outside
+a prompt. It went and read the file instead of taking the enumeration.
+
+**The cheap check that would have caught it, at identical cost:** I grepped the **access
+pattern**, `grep -n 'config\["' <file>`, when the question was about a **key name**.
+`grep -n '"priority"' <file>` finds it immediately. The access-pattern grep silently
+excludes every key that reaches the action through a helper — `GetIntField`,
+`GetBoolField`, `resolveAIServiceConfig` — and those helpers are exactly where the
+non-obvious reads live, because a key simple enough to read inline is a key nobody wrapped.
+
+**The transferable shape, and why it belongs in this file rather than being a typo:** *a
+grep for how a value is FETCHED answers a different question from a grep for WHICH value*,
+and the first one fails silently in the direction that looks like a finding. An absent
+result reads as "nothing reads this key" — a positive claim — when what it actually means is
+"nothing reads this key *in the one way I searched for*". This is
+`a-grep-proves-absence-only-for-its-spelling` with the spelling being a **syntax** rather
+than a word, which made it harder to notice: I did vary the key name, and never questioned
+the `config["` prefix wrapped around it.
+
+Cost: nil, because it was caught before it reached a doc. It is logged anyway because the
+tally is the point, and because this lane's whole subject is keys that are read in a way the
+obvious search does not see — I made the bug's own mistake while writing its fix. The check
+is now in the LANDMINES entry that shipped with the fix.
+
+**Near miss the same session, recorded because the instrument was the fault:** to decide
+whether a `go test ./...` failure in `internal/adapters/thunder` was mine, I built the same
+package from a clean `git archive HEAD` — it passed, which looked like proof I had broken
+it. I had not. `go build` does not run vet, and the failure was a vet diagnostic
+(`non-constant format string`); `go vet` at HEAD reproduces it exactly. **Comparing a tree
+with `go test` against HEAD with `go build` is not a comparison** — match the instrument
+before attributing the difference, or the toolchain answers a question you did not ask.
