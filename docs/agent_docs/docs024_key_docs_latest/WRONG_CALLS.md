@@ -23293,3 +23293,59 @@ for `LANDMINES.md`, `WRONG_CALLS.md` and `MEMORY*.md`, commit narrowly and then
 direction, already in the memory index) — this is the *other* direction of the
 same collision, and the passenger rule alone would not have told me my own
 content had left.
+
+---
+
+## 2026-08-08 — I wrote a landmine to stop the next session misreading two columns, and got the two columns the wrong way round. My own verification passed 9 of 9 and could not have failed.
+
+**The claim.** Appended a LANDMINES.md entry about the provocation pool's five prose
+columns, prescribing this as the check: compare a calibration fixture against
+`COALESCE(NULLIF(detail_body,''), body)` — *`detail_body` first*.
+
+**What was true.** The gate reads the **opposite** precedence:
+`COALESCE(NULLIF(body, ''), COALESCE(detail_body, ''))` —
+`provocation_gate_action.go:663`, `loadGateCandidates`. `body` first.
+
+**What caught it.** The `landmine-verifier` dispatched for the entry itself (RFC_005
+§3.2), within the hour, by reading the loader and quoting the line. Verdict
+NEEDS_HUMAN_REVIEW. **The mechanism designed to check landmines caught the landmine on
+its first outing** — worth recording as a point in its favour, since its footprint
+lookups also returned nothing for the three non-Go footprints (a DB domain value, a
+`docs/` SQL filename, an `agent_definitions.type`), which the symbol index cannot see.
+
+**Why my own check passed anyway, and this is the whole lesson.** I verified with md5
+across all 9 fixture rows and got 9 of 9. That result was **structurally incapable of
+dissent**: no row in the must-approve fixture has BOTH prose columns populated, so on
+that set the two precedences return the identical string every time. The two disagree on
+exactly the rows the fixture does not contain — all 7 newer `draft` rows (2026-08-07
+vintage), where the gate judges the ~400-char `body` and my formula returned the
+~780-char `detail_body`. So a green 9/9, dated and evidenced, over a set where the
+question could not arise.
+
+**The cheap check that would have caught it.** One query, and I ran it only *after*
+being corrected:
+
+```sql
+SELECT slug,
+       length(COALESCE(NULLIF(body,''), COALESCE(detail_body,''))) AS gate_reads,
+       length(COALESCE(NULLIF(detail_body,''), body, ''))          AS my_formula,
+       (COALESCE(NULLIF(body,''), COALESCE(detail_body,'')) = COALESCE(NULLIF(detail_body,''), body, '')) AS agree
+  FROM provocations WHERE domain='vonc.com' ORDER BY agree;
+```
+It partitions cleanly: `agree=true` for all 9 fixture rows, `agree=false` for all 7
+others. **Two candidate readings need an input on which they DIFFER; a corpus where they
+agree tests neither.** Also: read the consumer. The authority on how a column is read is
+the code that reads it, and `loadGateCandidates` was one grep away the whole time — I
+derived the precedence from the data's *shape* instead of from the *reader*, which is
+the same error as inferring a contract from a sample.
+
+**Cost:** near zero, because the verifier is fast and the entry was hours old. Had it
+stood, the next session building a fixture from the newer vintage would have read a
+false mismatch — *the exact failure the entry exists to prevent, one vintage along.*
+
+**Second, smaller wrong call the same session, same shape.** Chasing the same columns I
+briefly concluded the production pool "had been drained" — 7 of 9 rows showing 0-length
+bodies — when I had simply queried the column production does not use for those rows.
+Caught before it was written anywhere durable, by enumerating all five columns instead
+of one. `[The tell worth remembering]`: a result far more alarming than the bug you were
+looking for deserves a schema check before it deserves an incident.

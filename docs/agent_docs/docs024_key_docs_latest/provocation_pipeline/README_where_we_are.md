@@ -770,3 +770,70 @@ nine on the same nine pieces. It is logged with the others.
 Everything is written up in a handoff so this can be picked up cold. Nothing is
 wired to publish, the site is still showing 26 July, and the next move is your two
 answers.
+
+---
+
+**2026-08-08, evening.** Three things: the fix is live, the gate now passes your
+provocations reliably, and I found something that needs your decision before this
+goes anywhere near your site.
+
+**The fix is live.** The change I committed this morning needed a rebuilt image to do
+anything. Another session had already rebuilt and rolled the fleet, so it went live
+without me. I checked it properly rather than trusting the version number: I looked
+inside the running binary on both copies of the service for a phrase the change added,
+and also for the old phrase it deleted, which should now be absent. Added phrase
+present, deleted phrase gone, on both. That is the fix, running.
+
+**Your provocations now pass, and they keep passing.** I ran the test nine times, not
+once, because last week I learned the judge gives slightly different answers to
+identical text. All nine runs scored the same: **eight of your nine approved.** The
+ninth is the one whose body text is genuinely empty in the database — it fails on
+"there is no body here", which is true, and it is the framework's job to write that
+body, not mine. The two that were failing last week for "overstated generalisation"
+now pass, and the deliberately fabricated one still fails every time, which is the
+half that matters most: made-up studies are still caught.
+
+**Now the thing I need you to decide.** I also test the gate with four pieces written
+to be rejected. One of them is pure abuse — repeated name-calling about people who
+indent code differently, with no argument in it. **On the third of my nine runs, the
+gate approved it.** Not because it missed it. The judge's own written note on that run
+says the piece is "pure repeated insult with no actual argument" — and then it answered
+"yes, this is safe" anyway, and the gate believed the answer and ignored the note.
+
+The reason is simple enough. The safety decision rests on a single yes/no answer from
+the model, and nothing anywhere checks that answer against the model's own written
+reasoning. If it says safe, the piece is safe. There is protection against the model's
+reply arriving cut off or garbled — that works — but no protection against a reply that
+arrives complete and confidently wrong.
+
+It happened once in nine runs. I want to be straight about what that number is worth:
+one occurrence cannot tell you the true rate, only that it is not zero. What I can say
+is that it is frequent enough to matter and rare enough to hide.
+
+**And this quietly undermines the rule I was working to.** The handoff I inherited said
+"run it three times and require all three passes". Runs four through nine were six
+clean runs in a row. Any three of them would have declared this gate ready. I only saw
+the failure because it happened to fall on run three, before the clean streak. On the
+rough numbers, "three clean runs" would pass a gate with this fault about seven times
+in ten. So that rule is not a safe bar for something that must never happen, and I have
+said so in the notes rather than leaving the next person to inherit it.
+
+Nothing is published, and nothing is wired to publish, so none of this has reached
+anyone. But it is the kind of fault that only shows up in public.
+
+**A correction to something written in this file on 5 August.** It says eight of your
+nine provocations "have no body text stored", which is why that session wrote the body
+text itself. **That was wrong, and backwards.** Eight of the nine do have your text
+stored — it is in a different column from the one that session looked at, and it is
+marked as written by a human, meaning yours. Exactly one is genuinely empty. So your
+words were in the database the whole time, one column over. The test now uses your real
+prose, which is why these results mean something. I mention it because that mistake led
+directly to a test that graded my writing instead of yours, and because I made a
+version of the same mistake again today — I briefly thought your whole set of
+provocations had been wiped, when I was simply reading the wrong column.
+
+I also got a smaller thing wrong and want it on the record: the warning note I wrote
+today to stop the next person misreading those columns had the two columns the wrong
+way round. An automated checker read the actual code and caught it within the hour.
+My own check had passed — but it was a check that could not have failed, because I only
+tested it on the rows where both readings give the same answer.

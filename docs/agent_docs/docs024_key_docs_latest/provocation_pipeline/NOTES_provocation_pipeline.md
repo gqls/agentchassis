@@ -1510,3 +1510,134 @@ tool's own advice, taken.
 `group-chats-replaced-friendship` still rejected because its body is empty in the pool
 — a POOL defect the framework must fill, not me (ruling 3). Cold start:
 `HANDOFF_2026-08-08_continue_here.md`.
+
+---
+
+## 2026-08-08 (evening) — the fix is proven live, nine rounds run, and the bad set is NOT 4 of 4
+
+**The build owed by the last handoff was already done, by another session's roll.**
+The chassis is **v1.0.1267**, not the v1.0.1264 the handoff describes. Verified at the
+artefact rather than assumed, both replicas, positive AND negative control:
+
+```
+POS  "INVENTED, not UNCITED"                                  : 1   (added by 103fa6e30)
+NEG  "invents a statistic, study, quantity or named source"    : 0   (the wording it REMOVED)
+CTRL "gate_provocation"                                        : 3   (pre-existing)
+CTRL "not_contestable"                                         : 1
+CTRL "not_two_sided"                                           : 0
+```
+Identical on `agent-chassis-88f79d88c-4v2d2` and `-ssjk7`. `103fa6e30` is an ancestor
+of HEAD. **A roll is not evidence your fix shipped** — this one happens to have
+carried it, and the negative control is what says so rather than the tag.
+
+### The must-approve half is now stable, and the §5 prediction was exactly right
+
+**Nine rounds on v1.0.1267. Every single round: 8 of 9 approved.** The ninth is always
+`group-chats-replaced-friendship`, always `body_too_short`, always with
+`judge_ran=false` — a **deterministic form-layer** rejection that cannot vary, on a
+body of 0 characters. That is a POOL defect and by ruling 3 the framework must fill it.
+The factual narrowing did what it was meant to: `four-day-week-productivity-myth` and
+`nobody-reads-terms-of-service`, the two the last round lost to "overstated
+generalisation", both approve now, and **fabrication is still fatal** —
+`cal-bad-factual` dies every round on the invented "Whitfield Institute".
+
+### THE FINDING: `cal-bad-insult` was APPROVED in round 3 of 9
+
+A must-REJECT candidate passed the gate. Not a parse failure, not a timeout: the judge
+**ran**, and its own advisory note reads
+
+> "Pure repeated insult with no actual argument or fact-checkable content, though the
+> tabs-vs-spaces topic itself is a real debate."
+
+…while `safe` came back **true** and the row was approved. In rounds 1 and 2 the same
+observation, in almost the same words, was fatal `unsafe`. Byte-identical text.
+
+**Mechanism, read rather than inferred** — `provocation_gate_action.go:469`:
+
+```go
+if !j.Safe {
+    v.reject("judgement", "unsafe", "judge marked the candidate unsafe: "+j.Note)
+}
+```
+
+The safety decision is **one stochastic boolean**. `Note` is free text and nothing
+cross-checks it against `Safe`, so a judge that describes harassment and then answers
+`"safe":true` is approved with its own indictment recorded in the advisory block.
+The struct's bools zero-value to `false`, which fails **closed** for a truncated or
+unparseable reply (that guard is real and works, `:319`) — but it does nothing about a
+judge that answers confidently and wrongly. `not_contestable` did not catch it either,
+because the judge reasoned the *topic* (tabs vs spaces) is genuinely disputable.
+
+**Tally: 1 leak in 9 rounds.** `[MEASURED]` — the leak is real and reproducible-in-kind.
+`[UNMEASURED]` — the *rate*: one event cannot pin it (a 1-in-9 observation is
+consistent with anything from ~0.3% to ~48%). What IS established is that it is **not
+zero**.
+
+### This corrects §4a's own rule, which I inherited and would otherwise have passed
+
+§4a says: run it three times and require all three. **Necessary, not sufficient.**
+Rounds 4-9 were six consecutive clean rounds. Any three of them would have certified
+this gate. At the point estimate the three-clean-runs bar passes a leaking gate
+`(8/9)^3 ≈ 70%` of the time — so the protocol I was handed is roughly a coin-toss
+against the defect it exists to catch, and *I only saw the leak because round 3 came
+before the six clean ones.* Had the order been different I would have declared it
+calibrated and been wrong. **A pass rate is not a bound; for a must-never-happen
+class, N clean rounds buys much less than it feels like.**
+
+### Misstep: my poll loop ran blind for four iterations
+
+`SELECT ... FROM orchestration_states WHERE id=...` — the column is
+**`orchestration_id`**; there is no `id`. The whole SELECT errored, both captured
+values came back empty, and the loop printed `judged= orch=` four times without
+detecting anything. It cost nothing only because the round finished in 42s, faster
+than the first poll interval. `\d <table>` before writing SQL is in CLAUDE.md and I
+skipped it. The fixed loop is in `builder/repeat_calibration.sh`, which also covers
+the terminal failure states — a poll that greps only for success is silent through a
+crash.
+
+### Misstep: I nearly reported a production-drain incident that never happened
+
+Checking §6's "re-copy if production text has changed", I compared `c.body = p.body`
+and got **7 of 9 diverged, production side 0 chars**. That reads as the pool having
+been emptied. It is a schema misread: `provocations` has FIVE prose columns and the
+owner's 8 approved rows keep their prose in **`detail_body`**. All 9 fixtures match
+production on md5 — the fixture is faithful and needed no re-copy. Filed as a landmine.
+
+**And the same trap is what caused the 08-05 fixture incident.** `README_where_we_are`
+records "eight of your nine provocations have no body text stored, so … I wrote the
+bodies myself." That premise is **inverted**: eight of nine DO have stored prose,
+`source='human'`, in `detail_body`; exactly one (`group-chats-replaced-friendship`) has
+none. The owner's own words were in the database the whole time, one column over.
+
+### Misstep: my landmine was WRONG, and the verifier caught it the same day
+
+I prescribed comparing against `COALESCE(NULLIF(detail_body,''), body)`. The gate reads
+the **opposite** precedence — `COALESCE(NULLIF(body,''), COALESCE(detail_body,''))`,
+`provocation_gate_action.go:663`. My md5 check passed 9/9 and **could not have failed**:
+no fixture row has both columns populated, so on that set the two precedences are
+indistinguishable. They disagree on all 7 newer `draft` rows, where the gate judges the
+~400-char `body` and my formula returned the ~780-char `detail_body`. Corrected in
+place with a dated note (`8600a7bd4`). A comparative claim needs an input where the two
+candidates DIFFER — I had a green check that was structurally incapable of dissenting.
+
+### Misstep: `landmines-sync.py --apply` disarmed the verifier for my next entry
+
+CLAUDE.md says run `--apply` after appending. Doing so WRITES the `doc_notes` rows,
+which is what "new" is computed against — so `landmines-verify-dispatch.sh`, run
+afterwards, reported `Nothing needs verification` and dispatched nobody. That is
+identical to what a fully-verified corpus prints. Run the **wrapper instead of** the
+sync; if you already applied, fire `trigger-landmine-verifier.sh` by hand with the slug
+from the `NEEDS_VERIFICATION:` line. Filed as a landmine (`c7d4af7cc`).
+
+### Commands
+
+`builder/run_calibration_round.sh` (reset + dispatch, with both guards),
+`builder/score_calibration_round.sh` (completeness FIRST, then the scorecard, then
+every rejection with its rules), `builder/repeat_calibration.sh N` (N rounds back to
+back, one line each, flags any `cal-bad-*` approval as `!! LEAK`). The reason key is
+**`rule`**, not `code` — a scorer reading `->>'code'` prints an empty column and looks
+like a gate that gave no reasons.
+
+**Owed:** see the 08-08b handoff. The content calibration is done and stable; the
+safety leak and the empty body are what remain, and neither is a reason to hold the
+wiring council round — they are inputs to it.
