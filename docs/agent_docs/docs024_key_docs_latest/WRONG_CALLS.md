@@ -23906,3 +23906,36 @@ path without asking what that path remembers. The fix that closed it
 structurally: `scrape_config: {"max_age": 0}` on the classifier's scrape step
 (the one step whose output anchors an entire site build), plus a LANDMINES
 entry for the class.
+
+---
+
+## 2026-08-08 — I cited A precedent as THE convention, and the shared door I bypassed documents my exact bypass as a prior council objection
+
+**Session:** finetuning_uk_service lane, FTW-042 orphan sweep, council corr `7ffecfa2`.
+
+**The claim** (written into a council submission's plan, grounded_in and code
+comment): targetless `ON CONFLICT DO NOTHING` is the sanctioned idiom for
+keyed `site_work_items` inserts, citing `create_rerender_items_action.go`'s
+comment as authority. **Half-false in the way that matters.** That comment
+sanctions the idiom *for its own INSERT*; the platform's actual shared door is
+`insertWorkItem`/`writeWorkItem` (`load_work_item_actions.go`) — targeted
+idx_swi_dedup clause, within-cycle suppression, two-strike labelling — and the
+`workItem.parentItemID` comment RECORDS a council round (`bugs_open/091`,
+corr `a5b70424`) objecting to three call sites that hand-rolled
+`INSERT … ON CONFLICT DO NOTHING` around it. I reproduced a documented,
+previously-objected-to failure mode while citing a neighbouring file as
+licence.
+
+**What caught it:** the council's guidelines seat (round 1 REVISE, gating) —
+which itself named a remedy that exists at ZERO sites (DELETE+INSERT), so the
+catch was right while its prescription was wrong; the measured rebuttal and
+the shared-door adoption went back in round 2 together.
+
+**The cheap check that would have avoided it:** before hand-rolling ANY write
+to a shared table, grep for the shared writer first —
+`grep -rn 'func.*[Ww]orkItem' --include='*.go' platform/orchestration/actions/ | grep -i 'insert\|write\|file'`
+— and treat "a precedent exists for this shape" as a different claim from
+"this is the shared door". One neighbouring INSERT is evidence the deviation
+exists; only the helper everyone else calls is the convention. (Same shape as
+"a grep proves absence only for the SPELLING it searches": I grepped for the
+idiom, not for the door.)
