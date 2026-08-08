@@ -97,3 +97,60 @@ in `detected`, a queue with no consumer — `bugs_open/083`); `summary_template`
 biting and is **not** an alias case (aliasing it to `summary` would ship a raw
 `{{.input_data.topic}}` to a human reviewer); `create_work_item`'s full opt-in; every
 definition edit.
+
+## 2026-08-08 — council APPROVED, and the objections were better than the verdict
+
+`433de2c0` — approved, 2 advisory objections, none high-severity, 12 seats, ~8 min. Full
+trail in `bugs_open/136` §7. The `architecture` seat confirmed the scope call explicitly:
+additive/inert/opt-in field + same-commit LANDMINE and register entry = **normal gate, not an
+RFC**, per the 2026-07-29 owner ruling. The registration is what earns that, not the size of
+the diff.
+
+Three seats independently found things I had to go and fix or answer:
+
+- **`guardian`**: the consumer search was "a grep over Go, not over every consumer that might
+  exist in a definition". True — a `query_database` step filtering `pipeline='design'` would
+  not appear in a Go grep. Closed both surfaces; nothing names `design` or `content`.
+- **`debug_historian`**: the pod-grep recipe was positive-only and used `-l app=agent-chassis`.
+  **Measured: that selector returns 2 pods and 25 RUNNING pods carry the image (34 including
+  non-Running) — 8% coverage.** RUNBOOK recipe replaced: enumerate by IMAGE, and carry a
+  positive control (`Using deprecated config pattern`, Strategy 3's long-live warn) plus an
+  invented negative. Pre-roll baseline banked: `new=0 pos_control=1 neg_control=0`.
+- **`reuse_agent`**: "confirm no other ad-hoc alias shim exists that should have converged."
+  It does. `resolveAgentTypeForSpawn` (`spawn_actions.go:3154-3163`) hand-rolls
+  `group_type` → `agent_type`, a literal-setting alias, this exact class. **Measured before
+  deciding: `group_type` is set by ZERO live steps**, so it guards a shape nobody writes.
+  Recorded as a convergence candidate with no live exposure rather than pulled in.
+
+**`editquality` was right about the submission and wrong about the world**, and the gap is
+worth naming: it objected that the parity test, the behaviour-preserving test, the LANDMINE
+and the register entry are *"claimed in the rationale but absent from the edits list — if they
+exist they should be edits; if not, the risk mitigations are fictional."* All four shipped in
+`3f93456fd`. The cause is the schema's **8-edit cap**: I spent all eight slots on code and
+described the rest in prose. **A reviewer can only see the edits list. A mitigation named only
+in the rationale reads as fiction, and it is not the reviewer's job to assume otherwise.**
+Next submission: spend a slot on the test file, or say in terms "shipped in the same commit,
+not listed, cap reached".
+
+## 2026-08-08 — the second misstep, and it is the same shape as the first
+
+Logged in `WRONG_CALLS.md`. I claimed the four mislabelled rows were doing measurable damage,
+citing `countDispatchableWorkItems`' `WHERE ... AND pipeline = $2`. **That query has one
+caller and it always passes `"build"`** — so it cannot distinguish `design` from `content` and
+cannot be evidence about confusing them. Every live pipeline-filtering consumer, Go and
+definition alike, names `build`, `reports` or `diagnose`. The rows are mislabelled; the
+demonstrated cost today is nil.
+
+What caught it: going to answer the *opposite* question — whether anything would BREAK when
+the fix moved those rows. The enumeration that proves a change safe is the same enumeration
+that grades the harm claim, and I had done it in only one direction.
+
+**Both of today's missteps are one shape**: I trusted the code in front of me over the
+enumeration of what reaches it. A `config["` grep hid a key read through a helper; a `$2` in a
+predicate hid a caller that always passes a constant. **A parameterised filter tells you what a
+query CAN discriminate, never what it DOES.** Corrected in place at `bugs_open/136` §6, which
+is the version to quote — §1's "the harm is not cosmetic" is superseded and says so.
+
+Both corrections went in *after* the council had my overstated version. The `guardian` seat
+found the same gap independently, from the submission alone, which is the argument for
+submitting before you are certain rather than after.

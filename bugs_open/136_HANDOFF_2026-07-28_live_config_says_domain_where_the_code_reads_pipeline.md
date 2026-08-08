@@ -452,3 +452,144 @@ The one left is `plan_sections: domain` — see §5.
    read**, at `:144` via `datahelpers.GetIntField`, which a `config["…"]` grep cannot see.
 5. **The definition renames.** Not needed for correctness now that the aliases are honoured;
    the DEPRECATED audit section is the standing migration list.
+
+### 6. CORRECTION 2026-08-08 (same session, hours later) — I overstated the harm, and the enumeration I should have done first is below
+
+> **§1 above says of the four mislabelled rows: *"The harm is not cosmetic"*, and cites
+> `countDispatchableWorkItems` filtering `AND pipeline = $2`. That citation does not support
+> the claim, and I made it in the council submission too (`433de2c0`).**
+
+`countDispatchableWorkItems` has **exactly one caller** —
+`triage_detect_items_action.go:189` — which passes `targetPipeline`, and the sole live
+carrier asks for `"build"`. A row under `design` and a row under `content` are **equally
+invisible** to that count. It cannot distinguish the two, so it cannot be evidence that
+confusing them costs anything.
+
+**The enumeration, done properly this time.** Every live consumer that filters
+`site_work_items.pipeline` names a *specific* pipeline, and it is never `design` or `content`:
+
+| consumer | predicate |
+|---|---|
+| `countDispatchableWorkItems` (1 caller) | `pipeline = $2`, always `"build"` today |
+| `triageGatherFailures` | `pipeline <> 'diagnose'` — and excludes `capability_gap` by type anyway |
+| `triageGatherCapabilityGaps` | **no pipeline filter at all** |
+| `stale-work-item-reaper` | `status='triaged' AND pipeline='build'` |
+| `report-dispatch-loop` claim/reap | `pipeline='reports'` |
+| `diagnose-dispatch-loop` claim/reap | `pipeline='diagnose'` |
+
+Live distribution: `build` 3475 · `content` 321 · `design` 118 · `diagnose` 30 ·
+`maintenance` 1. **Nothing dispatches, reaps or counts `design` or `content` distinctly.**
+
+**So the accurate statement, which is weaker than §1's and is the one to quote:**
+
+- **The four rows ARE mislabelled.** That is measured and is not in doubt: an agent
+  configured `content` filed them `design`.
+- **No live consumer distinguishes those two values today**, so there is no demonstrated
+  downstream failure — the label is wrong, and nothing currently reads it in a way that
+  makes the wrongness cost anything.
+- **The exposure is therefore the same shape as the original bug, one level out:** the
+  labels are correct-or-not by luck, and the first consumer to filter on `design` vs
+  `content` inherits whatever the default happened to write. That is a real reason to fix
+  it and a poor reason to call it urgent.
+
+**Nothing about the fix changes.** The config was inert (measured), the framework gap was
+real (read from the code), and honouring what the config says is right whether or not
+today's consumers can tell. What changes is the *argument*, and an argument that overstates
+its evidence is the thing this estate is least willing to carry forward — the more so
+because §2a's original `[MEASURED]` claim was over-trusted in exactly the same way, by me,
+five hours earlier in this same file.
+
+**The check that would have caught it at t=0, and it is one grep:** before citing a
+consumer as harmed, `grep -rn "<function>" --include=*.go` for its **callers** and read
+what each passes. I read the predicate (`AND pipeline = $2`) and inferred the harm from the
+*shape* of the query without asking what `$2` is ever bound to. A parameterised filter
+tells you what a query *can* discriminate, never what it *does*. Logged in `WRONG_CALLS.md`.
+
+### 7. Council round 1 — APPROVED, and four of the objections were worth acting on
+
+`433de2c0-682f-4d8d-8c48-28637309f1ba` · **approved with 2 advisory objections, none
+high-severity** · 12 seats reviewed, 5 abstained, `unreadable: 0`, ~8 minutes.
+
+The `architecture` seat explicitly confirmed the scope call: the change *"satisfies the
+2026-07-29 owner-ruling condition for treating additive/inert/opt-in struct fields as a
+normal gate"* — LANDMINE and register entry in the same commit, plus the parity test — and
+called it *"the fix taking the shared-mechanism route deliberately, correctly, and with the
+guardrails an RFC would otherwise force"*. So this did **not** need an RFC, and the reason
+it did not is the same-commit registration, not the smallness of the diff.
+
+**Acted on, with the result:**
+
+1. **`guardian` (medium) — "confirm the pipeline-consumer search is complete, not just a Go
+   grep; a definition-level consumer (an `agent_definitions` `query_database` step filtering
+   `pipeline='design'`) would not show up."** Correct, and it is the same gap §6 above found
+   independently. Done: every live step-config query touching `site_work_items` and
+   `pipeline` names a *specific* pipeline — `build`, `reports`, `diagnose` — and **none names
+   `design` or `content`**. Combined with §6's Go-side enumeration, the consumer search is now
+   complete across both surfaces.
+2. **`debug_historian` (medium) — the pod-grep proof is positive-only, validated against
+   source uniqueness rather than the running binary, and `-l app=agent-chassis` may cover a
+   fraction of the pods running that image.** Both true, and the second is worse than the
+   seat guessed: **`-l app=agent-chassis` returns 2 pods; 25 running pods carry an
+   agent-chassis image (34 including non-Running).** The label selector covers **8%** of the
+   surface. §4's recipe is superseded by §8 below, which enumerates by IMAGE and carries both
+   controls.
+3. **`reuse_agent` (low) — "confirm no other ad-hoc config-rename shim exists platform-wide
+   that should have converged here rather than spawning a third pattern."** Searched. Two
+   candidates, one real: `section_editor_actions.go:56-59` uses the existing `Deprecated`
+   field **correctly** (both entries are reference aliases), so it is not a candidate. But
+   `resolveAgentTypeForSpawn` (`spawn_actions.go:3154-3163`) **is a fourth hand-rolled
+   instance** — `group_type` → `agent_type` is a literal-setting alias, exactly this class,
+   hand-rolled and invisible to the audit. **Not converged, and measured before deciding
+   that:** `group_type` and `group_type_field` are set by **zero** live steps
+   (`agent_type_field` by 3), so it guards a config shape nobody writes. Recorded as a
+   convergence candidate with no live exposure rather than pulled into this change.
+4. **`prior_art_librarian` — "not independently confirmed there is no second consumer of
+   `Deprecated`."** Confirmed: `spec.Deprecated` is *honoured* in exactly one place
+   (`ExtractActionInputs` Strategy 3, `:521`) and *reported* in four more
+   (`UnknownConfigKeys:226`, `ListDeclaredConfigKeys:344`, `GenerateInputContract:743`,
+   `cmd/config-key-audit:244`). `registry.go`'s `def.Deprecated` is a **different field** — a
+   bool on the action registry entry, not the spec's map — and is unrelated.
+
+**Recorded, not acted on:**
+
+- **`editquality` (medium ×2) — the parity test, the behaviour-preserving test, the LANDMINE
+  and the concept-register entry are claimed in the rationale but absent from the `edits`
+  list, so "the mitigations described in prose do not exist in the plan".** The seat is right
+  about the *submission* and wrong about the *world*: all four exist and shipped in
+  `3f93456fd`. The cause is the schema's 8-edit cap — I spent all eight on code and described
+  the rest in prose. **The lesson is that a reviewer can only see the edits list, so a
+  mitigation named only in the rationale reads as fiction.** Next time: spend an edit slot on
+  the test file, or say plainly "shipped in the same commit, not listed, cap reached".
+- **`editquality` (low) — edit 8 (`ai_service`) is scope creep, not on the causal path.**
+  Fair on minimality. I keep it: the false positive was in the very report this change is
+  judged by, and a report with a known-false line is one people stop reading.
+- **`architecture` (low) — two fields named `Deprecated` and `DeprecatedConfigKeys` with
+  opposite resolution semantics is "a durable readability tax on every future action
+  author".** Agreed, and unmitigable beyond what shipped (the LANDMINE, the parity test, and
+  the doc comment on each field pointing at the other). Noted as an accepted cost.
+
+### 8. The verification recipe, corrected (supersedes §4's pod-grep)
+
+Enumerate by **image**, not by label, and carry both controls. Measured pre-roll on
+2026-08-08 — `new=0` (not yet shipped), `pos_control=1` (the grep works and this is the right
+binary), `neg_control=0` (it is not matching everything):
+
+```bash
+PODS=$(kubectl -n ai-persona-system get pods -o json | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+print(' '.join(p['metadata']['name'] for p in d['items']
+      if p.get('status',{}).get('phase')=='Running'
+      and any('agent-chassis' in c.get('image','') for c in p['spec'].get('containers',[]))))")
+echo \"pods carrying the image: $(echo $PODS | wc -w)\"   # 25 on 2026-08-08; -l app=agent-chassis sees 2
+for P in $PODS; do
+  kubectl -n ai-persona-system exec "$P" -- sh -c "
+    echo -n '$P new=';        strings /app/agent-chassis | grep -c 'config setting arrived via a deprecated alias'
+    echo -n '$P pos_control='; strings /app/agent-chassis | grep -c 'Using deprecated config pattern'
+    echo -n '$P neg_control='; strings /app/agent-chassis | grep -c 'zzz_invented_control_string_136'"
+done
+```
+
+`new` must go 0 → 1 on every pod. `pos_control` (Strategy 3's long-live warn) must be 1
+**before and after** — it proves the grep and the path to the binary, which a
+new-string-only check cannot. `neg_control` must be 0 always.

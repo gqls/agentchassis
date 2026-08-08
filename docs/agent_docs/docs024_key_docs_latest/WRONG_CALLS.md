@@ -22790,3 +22790,54 @@ expected 1, and my first instinct was that the query was wrong. The query was ri
 piece of machinery had rewritten the row 6 seconds after being dispatched, 4 minutes before I
 looked. **On a shared cluster, read `updated_at` before doubting your predicate**: an assertion
 that "fails" may be faithfully reporting a change something else made while you were typing.
+
+---
+
+## 2026-08-08 — I read a query's `WHERE pipeline = $2` and inferred a harm, without asking what `$2` is ever bound to
+
+**Lane:** `bugfix_136_config_key_aliases`. Same session as the entry above.
+
+**The claim, and it went into a council submission and a bug file before I caught it:** that
+four work-item rows filed under the wrong `pipeline` value were doing measurable damage,
+because *"`countDispatchableWorkItems` (`work_items_common.go:198-211`) filters
+`AND pipeline = $2` … so a row under the wrong pipeline is invisible to the count that should
+see it."*
+
+**It does not follow.** `countDispatchableWorkItems` has **exactly one caller**
+(`triage_detect_items_action.go:189`), and it passes `targetPipeline`, which the sole live
+carrier sets to `"build"`. A row under `design` and a row under `content` are **equally**
+invisible to that count. It cannot tell the two apart, so it cannot be evidence that
+confusing them costs anything.
+
+The full enumeration, done after the fact: every live consumer that filters
+`site_work_items.pipeline` — in Go and in `agent_definitions` step configs alike — names a
+*specific* pipeline, and it is always `build`, `reports` or `diagnose`. **Nothing dispatches,
+reaps or counts `design` versus `content` distinctly.** The rows are genuinely mislabelled;
+the demonstrated downstream cost today is nil.
+
+**What caught it:** going to answer a *different* question — whether any consumer would break
+when the fix changed those rows from `design` to `content`. Enumerating the callers to prove
+the change was safe is what revealed the harm claim had never been supported. The council's
+`guardian` seat independently raised the same gap in the same round, having only my
+submission to go on.
+
+**The cheap check that would have caught it at t=0, and it is one grep:** before citing a
+query as evidence of harm, `grep -rn "<function>" --include=*.go` for its **callers** and read
+what each one binds. I read the *predicate* and inferred the harm from the *shape* of the
+query. **A parameterised filter tells you what a query CAN discriminate, never what it DOES** —
+`WHERE x = $2` looks like it partitions on x, and if every caller passes the same constant it
+partitions on nothing.
+
+**The transferable shape:** this is `impact-claims-need-the-demand-table-too` wearing a
+different disguise. There I would have known to ask "who wants this?"; here the demand side
+was hidden behind a bind variable, so the query *looked* like it contained its own answer.
+**A `$n` in a predicate is an unmeasured input, not a measured one** — and the same file's
+2026-08-08 entry above is the same failure at a different layer (a `config["` grep hiding a
+key read through a helper). Twice in one session I trusted the shape of the code in front of
+me over the enumeration of what actually reaches it.
+
+**Cost:** an overstated urgency argument in a council submission (`433de2c0`) and in
+`bugs_open/136` §1. Both corrected in place — `bugs_open/136` §6 — and the fix itself is
+unaffected: the config was inert, the framework gap was real, and honouring what the config
+says is right whether or not today's consumers can tell the difference. What was wrong was the
+argument, and this estate carries arguments forward.

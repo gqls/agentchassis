@@ -78,19 +78,43 @@ what turned this bug from latent to live. **Re-run it; do not cite the last answ
 
 ## Proving the fix after the roll
 
+> **CORRECTED 2026-08-08 after the council's `debug_historian` seat objected — the first
+> version of this recipe used `-l app=agent-chassis` and a positive-only grep. Measured:
+> that selector returns 2 pods, and 25 RUNNING pods carry an agent-chassis image (34
+> including non-Running). It was verifying 8% of the surface.** Enumerate by IMAGE.
+
 ```bash
-POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[0].metadata.name}')
-# discriminating literal — verified to exist nowhere else in the tree before relying on it
-kubectl -n ai-persona-system exec "$POD" -- sh -c "strings /app/agent-chassis | grep -c 'config setting arrived via a deprecated alias'"
-kubectl -n ai-persona-system exec "$POD" -- sh -c "strings /app/agent-chassis | grep -c 'ResolveConfigSetting'"   # positive control
+PODS=$(kubectl -n ai-persona-system get pods -o json | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+print(' '.join(p['metadata']['name'] for p in d['items']
+      if p.get('status',{}).get('phase')=='Running'
+      and any('agent-chassis' in c.get('image','') for c in p['spec'].get('containers',[]))))")
+echo "pods carrying the image: $(echo $PODS | wc -w)"
+for P in $PODS; do
+  kubectl -n ai-persona-system exec "$P" -- sh -c "
+    echo -n '$P new=';         strings /app/agent-chassis | grep -c 'config setting arrived via a deprecated alias'
+    echo -n '$P pos_control='; strings /app/agent-chassis | grep -c 'Using deprecated config pattern'
+    echo -n '$P neg_control='; strings /app/agent-chassis | grep -c 'zzz_invented_control_string_136'"
+done
 kubectl -n ai-persona-system logs -l app=agent-chassis --tail=-1 --since=24h | grep "deprecated alias"
 ```
 
-**Gotcha:** `-l app=agent-chassis`, never `logs deploy/…`, which reads one pod of N.
-**Gotcha 2:** before trusting any pod-grep marker, confirm the literal is new —
+**Baseline measured pre-roll 2026-08-08:** `new=0 pos_control=1 neg_control=0` on every pod
+sampled. After the roll `new` must be 1 everywhere.
+
+**Gotcha:** the **positive control is the load-bearing one** and a new-string-only check
+cannot supply it. `Using deprecated config pattern` is Strategy 3's long-live warn: it proves
+the grep works *and* that you are reading the binary you think you are. A `0` from a
+new-string grep is ambiguous between "not shipped" and "I mistyped it / exec'd the wrong
+container" until a control disambiguates.
+**Gotcha 2:** before trusting any marker, confirm the literal is new —
 `grep -rc "<literal>" --include=*.go .` must return exactly your own file. `093`'s marker was
 vacuous because the new code deliberately mirrored existing wording and greped `1` before
-anything shipped.
+anything shipped. **But source-uniqueness is not binary-presence**: it tells you the string
+would be new, not that it is spelled right in the image. That is what the two controls are for.
+**Gotcha 3:** `logs deploy/…` reads one pod of N; `-l` is right for logs and wrong for
+establishing coverage.
 
 ## Testing on a shared tree
 
