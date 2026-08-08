@@ -1,7 +1,16 @@
 # 186 — thunder_instances lookup scans a NULLABLE column into a non-nullable Go string, so decommission dies before it reaches Thunder
 
-**Filed:** 2026-08-03 · **Status:** OPEN · **Severity:** latent today, blocking the moment a row is created by hand
+**Filed:** 2026-08-03 · **Status:** OPEN — fix COMMITTED `f83927375` (2026-08-08), NOT LIVE until the thunder-adapter image rolls · **Severity:** latent today, blocking the moment a row is created by hand
 **Found by:** the reap drill in `docs024_key_docs_latest/finetuning_uk_service/` (see NOTES 2026-08-03)
+
+> **FIX 2026-08-08 (`f83927375`, `Council-Submitted: 862583b1`):** candidate 1
+> below, exactly — `InstanceIP`/`RequestedBy` → `sql.NullString`, the two
+> ssh_exec readers updated, and `114_thunder_reaper.sql`'s smoke template now
+> **omits `instance_ip`** so the drill can produce the failing input.
+> `go test -vet=off ./internal/adapters/thunder/` ok (the vet failures at
+> `provision_action.go:161` and `api/client_test.go` reproduce on clean HEAD —
+> pre-existing). **Stays OPEN until rolled and re-drilled per "How to verify"**
+> — the running adapter still carries the defect.
 
 ## On the "file it through the loop" ruling (CLAUDE.md, 2026-07-31)
 
