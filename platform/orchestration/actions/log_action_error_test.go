@@ -104,6 +104,29 @@ func (j jsonLacks) Match(v driver.Value) bool {
 	return true
 }
 
+// jsonValueIs pins the VALUE at a key, not merely its presence. jsonHas would
+// pass on a diagnostic that named the wrong agent, which is the failure mode
+// worth catching: a misdirecting diagnostic is worse than an absent one.
+type jsonValueIs map[string]string
+
+func (j jsonValueIs) Match(v driver.Value) bool {
+	s, ok := v.(string)
+	if !ok {
+		return false
+	}
+	var payload map[string]interface{}
+	if err := json.Unmarshal([]byte(s), &payload); err != nil {
+		return false
+	}
+	for k, want := range j {
+		got, present := payload[k].(string)
+		if !present || got != want {
+			return false
+		}
+	}
+	return true
+}
+
 const insertRE = `INSERT INTO agent_error_log`
 
 // ---------------------------------------------------------------------------
@@ -532,5 +555,149 @@ func TestLogActionEntryFindings_ExplicitProvenanceIsUsedVerbatim(t *testing.T) {
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("an explicit findings provenance was not used verbatim: %v", err)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// The hoisted ladder (2026-08-08). runningStepProvenance used to read
+// Sender.AgentType directly, one rung short of the ladder
+// coordinator.determineOwnerAgentType climbs, so a row filed under "the running
+// step" recorded the dispatch-path sender while the orchestration row for the
+// same run recorded the real agent.
+//
+// runningStepParams deliberately leaves RunAgentType EMPTY, which is why every
+// test above still passes unchanged — that is the no-op half of the proof, and
+// it is the half normally skipped. The cases below drive the rung itself.
+// ---------------------------------------------------------------------------
+
+// resolvedRunParams is runningStepParams with the processor's resolved agent
+// type present and the sender left as the generic dispatcher — the exact live
+// shape, and the one that produced 'generic' rows.
+func resolvedRunParams(db *sql.DB) ActionParams {
+	params := runningStepParams(db)
+	params.ExecutionContext.RunAgentType = "resolved-real-agent"
+	params.ExecutionContext.Sender.AgentType = "generic"
+	return params
+}
+
+// The damage case: a declared-inheritance row must be credited to the resolved
+// agent, not to the dispatcher that happened to carry the message.
+func TestRunningStepProvenance_PrefersTheResolvedRunAgentOverTheDispatchSender(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	mock.ExpectExec(regexp.QuoteMeta(insertRE)).
+		WithArgs(
+			"site-1", "example.com", "item-1234", "orch-1234",
+			"resolved-real-agent", // 5: NOT "generic", which is what the sender says
+			"agent-id-1", "pod-1", "running_step",
+			"an_action", "boom", "A_CODE", "error",
+			jsonLacks{"provenance_missing"},
+		).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	LogActionError(context.Background(), resolvedRunParams(db),
+		"site-1", "example.com", "an_action", "A_CODE", "error", "boom", nil, zap.NewNop())
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("the running step's provenance is still read from the dispatch sender rather than the resolved run agent: %v", err)
+	}
+}
+
+// The findings door shares resolveProvenance, but "shares a helper" is a claim
+// about the code, not about the row — the batch path resolves its identity once
+// and then rewrites every Context, which is exactly where a shared fix has been
+// lost before. Driven end to end rather than assumed.
+func TestRunningStepProvenance_TheFindingsDoorClimbsTheSameLadder(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	mock.ExpectExec(regexp.QuoteMeta(insertRE)).
+		WithArgs(
+			"site-1", "example.com", "item-1234", "orch-1234",
+			"resolved-real-agent", // 5
+			"agent-id-1", "pod-1", "running_step",
+			"an_action", "one", "FIRST", "warning",
+			jsonLacks{"provenance_missing"},
+		).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	LogActionFindings(context.Background(), resolvedRunParams(db), "site-1", "example.com", "an_action",
+		[]agenterrors.Finding{{ErrorCode: "FIRST", Severity: "warning", Message: "one"}}, zap.NewNop())
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("the findings door does not climb the hoisted ladder: %v", err)
+	}
+}
+
+// The demoted diagnostic must move with the ladder. An unattributed row records
+// who was RUNNING so a human can find the forgetful call site; if that stayed on
+// the old rung it would name the dispatcher, and the remedy line would point at
+// the wrong agent — a diagnostic that misdirects is worse than none.
+func TestRunningStepProvenance_TheUnattributedDiagnosticNamesTheResolvedAgent(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	mock.ExpectExec(regexp.QuoteMeta(insertRE)).
+		WithArgs(
+			"", "", "item-1234", "orch-1234",
+			unattributedAgentType, "agent-id-1", "pod-1", "",
+			"an_action", "msg", "A_CODE", "warning",
+			jsonValueIs{"provenance_running_agent_type": "resolved-real-agent"},
+		).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	LogActionEntry(context.Background(), resolvedRunParams(db), agenterrors.Entry{
+		Action:       "an_action",
+		ErrorMessage: "msg",
+		ErrorCode:    "A_CODE",
+		Severity:     "warning",
+	}, zap.NewNop())
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("the demoted running-agent diagnostic did not follow the ladder: %v", err)
+	}
+}
+
+// The floor below the context, which no test drove before this change even
+// though runningStepParams has always carried it. It is this package's own tail
+// and is deliberately NOT in the shared method: params.AgentType is
+// state.OwnerAgentType, the durable output of the same ladder. If a future
+// refactor moved the tail into types, this is the test that would notice the
+// coordinator's 'generic' filler arriving here instead.
+func TestRunningStepProvenance_FallsBackToParamsWhenTheContextCannotAnswer(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	params := runningStepParams(db)
+	params.ExecutionContext.Sender.AgentType = "" // and RunAgentType was never set
+
+	mock.ExpectExec(regexp.QuoteMeta(insertRE)).
+		WithArgs(
+			"site-1", "example.com", "item-1234", "orch-1234",
+			"params-fallback-agent", // 5: the params tail, not "" and not a filler
+			"agent-id-1", "pod-1", "running_step",
+			"an_action", "boom", "A_CODE", "error",
+			jsonLacks{"provenance_missing"},
+		).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	LogActionError(context.Background(), params,
+		"site-1", "example.com", "an_action", "A_CODE", "error", "boom", nil, zap.NewNop())
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("the params floor below the context ladder was lost: %v", err)
 	}
 }

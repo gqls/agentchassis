@@ -731,6 +731,64 @@ func (ec *ExecutionContext) ToHeaders() map[string]string {
 	return headers
 }
 
+// ResolvedAgentType answers "which agent's workflow is this context executing?"
+// from the context ALONE, and is the one ladder both consumers of that question
+// share. It returns "" when the context cannot answer — a caller with a better
+// fallback than the context has is expected to supply it, and each of the two
+// does (see below).
+//
+// The rungs, in order:
+//
+//  1. RunAgentType — the RESOLVED real agent type, set by the processor from
+//     the loaded agent definition before the workflow runs.
+//  2. Sender.AgentType — the dispatch-path sender, which on the generic
+//     dispatch path is literally "generic" (bugs_open/060). Kept as a rung
+//     because it is right on a dedicated pod and on older messages that carry
+//     no run_agent_type header.
+//
+// WHY THIS IS A METHOD ON THE CONTEXT AND NOT A HELPER IN EITHER CONSUMER.
+// Both rungs are fields of this struct, and until 2026-08-08 exactly one
+// consumer climbed both of them: coordinator.determineOwnerAgentType, which
+// feeds orchestration_states.owner_agent_type. The actions-package error-log
+// door (runningStepProvenance in actions/log_action_error.go) implemented only
+// rung 2, so a row it filed under "the running step" recorded the dispatch
+// sender — "generic" — while the orchestration row for the very same run
+// recorded the real agent. Two implementations of one question is the drift
+// class this estate reviews for; there is now one.
+//
+// ⚠ WHAT THIS METHOD DELIBERATELY DOES NOT DO: read os.Getenv("AGENT_TYPE"),
+// which IS a rung of the coordinator's ladder, and does not belong here.
+// Two reasons, and the second is the load-bearing one:
+//
+//   - AGENT_TYPE is a property of the PROCESS, not of the message. This type is
+//     deserialised from Kafka headers and passed around as data; a method whose
+//     answer changes with the pod it happens to be called on is invisible at the
+//     call site and untestable without mutating the environment.
+//   - The two consumers legitimately DISAGREE about what comes after the
+//     context runs out, and that disagreement is correct rather than drift. The
+//     coordinator falls back to the pod's AGENT_TYPE and then to the "generic"
+//     filler, because owner_agent_type is NOT NULL and a row must be written.
+//     The actions door falls back to params.AgentType — which IS
+//     state.OwnerAgentType, this ladder's own durable output, so strictly more
+//     specific than the pod — and must NOT reach for a filler at all: an
+//     unresolvable provenance there lands as 'unattributed' by design
+//     (RFC_010 §2, unsafe default OFF). Folding both tails into one method
+//     would hand one of them the other's answer.
+//
+// A `ResolvedAgentType(fallback string)` taking the tail as a parameter was the
+// obvious alternative and is worse: it would look like one ladder while two
+// callers passed different fallbacks, which is the drift again wearing the
+// shared-helper costume.
+func (ec *ExecutionContext) ResolvedAgentType() string {
+	if ec == nil {
+		return ""
+	}
+	if ec.RunAgentType != "" {
+		return ec.RunAgentType
+	}
+	return ec.Sender.AgentType
+}
+
 // IsChildOrchestration returns true if this is a child orchestration
 func (ec *ExecutionContext) IsChildOrchestration() bool {
 	return ec.ParentOrchestrationID != ""

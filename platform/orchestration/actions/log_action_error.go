@@ -112,14 +112,28 @@ func actionJoinIdentity(params ActionParams, siteID, domain string) agenterrors.
 }
 
 // runningStepProvenance resolves the PROVENANCE half — the identity of the step
-// currently executing. Resolution order is the historical one, preserved
-// exactly: the ExecutionContext's sender wins over the params fallback when it
-// is non-empty, because a spawned child's params can lag its sender.
+// currently executing. The context wins over the params fallback when it can
+// answer, because a spawned child's params can lag its sender.
+//
+// The agent-type half is NOT this function's own ladder any more, and that is
+// the point of the change. It asks types.ExecutionContext.ResolvedAgentType,
+// which is the same ladder coordinator.determineOwnerAgentType climbs to fill
+// orchestration_states.owner_agent_type. Before 2026-08-08 this function read
+// Sender.AgentType directly — one rung short — so a row filed under "the
+// running step" recorded the dispatch-path sender ('generic') while the
+// orchestration row for the same run recorded the real agent. Two
+// implementations of one question, and they disagreed in production.
+//
+// The tail below the context is deliberately this package's own and is NOT in
+// the shared method: params.AgentType is state.OwnerAgentType, i.e. the durable
+// output of that same ladder recorded when the orchestration was created. It is
+// the right floor HERE and the wrong one in the coordinator, which is why the
+// shared method stops at the context and returns "".
 func runningStepProvenance(params ActionParams) (agentType, stepName string) {
 	agentType, stepName = params.AgentType, params.CurrentStep
 	if params.ExecutionContext != nil {
-		if params.ExecutionContext.Sender.AgentType != "" {
-			agentType = params.ExecutionContext.Sender.AgentType
+		if resolved := params.ExecutionContext.ResolvedAgentType(); resolved != "" {
+			agentType = resolved
 		}
 		if params.ExecutionContext.StepName != "" {
 			stepName = params.ExecutionContext.StepName

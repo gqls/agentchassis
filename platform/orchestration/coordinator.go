@@ -3464,16 +3464,14 @@ func (s *SagaCoordinator) retryExpiredAwaitedRequest(ctx context.Context, awaite
 
 // Helper methods
 func (s *SagaCoordinator) determineOwnerAgentType(execCtx *types.ExecutionContext) string {
-	// The RESOLVED real agent type whose workflow is executing, set by the
-	// processor. Preferred so owner_agent_type records the real agent rather than
-	// the dispatch-path 'generic' (bugs_open/060). Falls back to the pre-existing
-	// behaviour when unset (child spawns that inherit the parent's Sender, older
-	// messages without the header).
-	if execCtx.RunAgentType != "" {
-		return execCtx.RunAgentType
-	}
-	if execCtx.Sender.AgentType != "" {
-		return execCtx.Sender.AgentType
+	// The context's own answer: the RESOLVED real agent type set by the processor,
+	// falling back to the dispatch-path sender (bugs_open/060). Both rungs now
+	// live on the context itself so the actions-package error-log door climbs the
+	// SAME ladder instead of its own shorter one — see
+	// types.ExecutionContext.ResolvedAgentType, which also records why the two
+	// rungs below stay here rather than moving with them.
+	if agentType := execCtx.ResolvedAgentType(); agentType != "" {
+		return agentType
 	}
 	if agentType := os.Getenv("AGENT_TYPE"); agentType != "" {
 		return agentType

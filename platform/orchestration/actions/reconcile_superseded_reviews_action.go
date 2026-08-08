@@ -162,12 +162,17 @@ func ReconcileSupersededReviewsAction(ctx context.Context, params ActionParams) 
 		// (site_id, error_code, context->>'page_name'), so all three are load-bearing.
 		//
 		// The PROVENANCE, by contrast, is the running step's, so it is declared
-		// rather than inherited silently. ⚠ what that resolves to today is
-		// 'generic' — all 25 live REVIEW_SUPERSEDED_BY_PASSING_SAVE rows carry
-		// it, because the dispatch-path sender usually does. types.ExecutionContext
-		// already has the fix (RunAgentType, bugs_open/060) but only the
-		// coordinator consults it; hoisting that ladder somewhere both packages
-		// can reach is deliberately NOT in this change's scope.
+		// rather than inherited silently.
+		//
+		// > CORRECTED 2026-08-08: this comment used to warn that "what that
+		// > resolves to today is 'generic' — all 25 live
+		// > REVIEW_SUPERSEDED_BY_PASSING_SAVE rows carry it", and that hoisting
+		// > the RunAgentType ladder was out of scope. The hoist has since
+		// > landed (types.ExecutionContext.ResolvedAgentType), so the door here
+		// > climbs the same ladder the coordinator does. The 25 rows were also
+		// > a stale sample — every one of them was written on 2026-07-23, before
+		// > the coordinator's own ladder shipped, and this action has not filed
+		// > a row since.
 		if !LogActionEntryInheritingProvenance(ctx, params, agenterrors.Entry{
 			SiteID:       pair.siteID,
 			WorkItemID:   pair.itemID,
