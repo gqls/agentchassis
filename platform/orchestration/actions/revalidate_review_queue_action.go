@@ -169,6 +169,13 @@ var reviewRevalidators = map[string]reviewRevalidator{
 	"needs_section_data": revalidateNamedFields("missing"),
 	// spec.page_name: "tungsten-guide"
 	"needs_page": revalidateNeedsPage,
+	// spec.page_id: "2c106994-…" — asks a third question: does the page still
+	// trip the site's own voice gate? Its implementation re-runs the emit side's
+	// scanner (discovery_checks.ScanVoiceTells) rather than restating the
+	// predicate, for the same reason needs_page sits beside its resolver.
+	// Added 2026-08-08: 25 items, nothing had ever closed one — see
+	// revalidate_voice_tells.go for the closer census that established that.
+	"voice_tells": revalidateVoiceTells,
 }
 
 // coveredItemTypes is the selection's source of truth, derived from

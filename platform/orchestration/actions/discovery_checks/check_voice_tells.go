@@ -20,6 +20,14 @@
 // automated handler. The optional auto-rewrite mode in the spec (§3c) is a
 // later phase, off by default, and NOT implemented here.
 //
+// RETRACTION (2026-08-08): the review-queue sweep can now CLOSE an item of this
+// type when a re-scan of the page finds no tells — see revalidateVoiceTells in
+// the actions package. That is not the auto-rewrite §3c defers and this file's
+// `fix` text forbids: retraction never edits copy, it only stops asserting a
+// finding that the current page no longer supports. The scan it re-runs is
+// ScanVoiceTells below, shared with this check so the two ends of an item's
+// life cannot answer the same question differently.
+//
 // Skips locked components (human-pinned) by precedent. Skips site_components
 // chrome: nav labels and footer link lists are not prose.
 //
@@ -29,6 +37,7 @@
 package discovery_checks
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -47,7 +56,7 @@ type VoiceTellsCheck struct{}
 func (c *VoiceTellsCheck) Name() string { return "voice_tells" }
 
 func (c *VoiceTellsCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, error) {
-	gate, err := loadVoiceGateForCheck(dctx)
+	gate, err := LoadVoiceGate(dctx.Ctx, dctx.DB, dctx.SiteID)
 	if err != nil {
 		return nil, err
 	}
@@ -55,83 +64,46 @@ func (c *VoiceTellsCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, error) 
 		return &CheckResult{}, nil // site not opted in
 	}
 
-	rows, err := dctx.DB.QueryContext(dctx.Ctx, `
-		SELECT pc.page_id::text, p.name, COALESCE(p.page_type,''), p.url,
-		       COALESCE(pc.slot_name, ''), pc.rendered_html
-		FROM page_components pc
-		JOIN pages p ON p.id = pc.page_id
-		WHERE p.site_id = $1
-		  AND p.status IN ('active','deployed')
-		  AND pc.rendered_html IS NOT NULL AND pc.rendered_html <> ''
-		  AND pc.locked_at IS NULL
-		ORDER BY p.name, pc.position
-	`, dctx.SiteID)
+	scans, err := ScanVoiceTells(dctx.Ctx, dctx.DB, dctx.SiteID, "", gate, dctx.Logger)
 	if err != nil {
-		return nil, fmt.Errorf("voice_tells page query failed: %w", err)
+		return nil, err
 	}
-	defer rows.Close()
 
-	type pageAgg struct {
-		pageID, pageName string
-		findings         []map[string]interface{}
-	}
-	byPage := map[string]*pageAgg{}
-	var order []string
-
-	for rows.Next() {
-		var pageID, pageName, pageType, url, slotName, html string
-		if err := rows.Scan(&pageID, &pageName, &pageType, &url, &slotName, &html); err != nil {
-			dctx.Logger.Warn("voice_tells: scan error", zap.Error(err))
+	// ScanVoiceTells reports every page it examined, including the clean ones, so
+	// the revalidator can tell "examined and clean" from "examined nothing". Only
+	// the pages that actually tripped the gate become work items — filtering here
+	// keeps this check's emitted output exactly what it was before the scan was
+	// shared.
+	var affected []*VoicePageScan
+	total := 0
+	for _, s := range scans {
+		if len(s.Findings) == 0 {
 			continue
 		}
-		longForm := pageType == "blog-post" || strings.HasPrefix(url, "/guides/") || strings.HasPrefix(url, "/blog/")
-		fs := gate.ScanVoice(datahelpers.ExtractAssertionText(html), longForm)
-		if len(fs) == 0 {
-			continue
-		}
-		agg, ok := byPage[pageID]
-		if !ok {
-			agg = &pageAgg{pageID: pageID, pageName: pageName}
-			byPage[pageID] = agg
-			order = append(order, pageID)
-		}
-		for _, f := range fs {
-			agg.findings = append(agg.findings, map[string]interface{}{
-				"check": f.Check, "slot_name": slotName, "matched": f.Matched,
-				"reason": f.Reason, "snippet": f.Snippet,
-				"value": f.Value, "threshold": f.Threshold, "occurrences": f.Occurrences,
-			})
-		}
+		affected = append(affected, s)
+		total += len(s.Findings)
 	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("voice_tells iteration failed: %w", err)
-	}
-	if len(order) == 0 {
+	if len(affected) == 0 {
 		return &CheckResult{}, nil
 	}
 
-	total := 0
-	for _, id := range order {
-		total += len(byPage[id].findings)
-	}
 	result := &CheckResult{
 		Findings: []map[string]interface{}{{
-			"check": "voice_tells", "count": total, "pages": len(order),
+			"check": "voice_tells", "count": total, "pages": len(affected),
 		}},
 	}
-	for _, id := range order {
-		agg := byPage[id]
+	for _, agg := range affected {
 		specJSON, _ := json.Marshal(map[string]interface{}{
 			"check":     "voice_tells",
-			"page_id":   agg.pageID,
-			"page_name": agg.pageName,
-			"findings":  agg.findings,
+			"page_id":   agg.PageID,
+			"page_name": agg.PageName,
+			"findings":  agg.Findings,
 			"fix": "Human review. The register fix is the site's approved rewrite path " +
 				"(page-build-handler + the stored rewrite prompt in spec.suggestion), " +
 				"followed by re-review — never an unreviewed auto-rewrite.",
 		})
 		var pageIDPtr *uuid.UUID
-		if parsed, perr := uuid.Parse(agg.pageID); perr == nil {
+		if parsed, perr := uuid.Parse(agg.PageID); perr == nil {
 			pageIDPtr = &parsed
 		}
 		result.WorkItems = append(result.WorkItems, WorkItemSpec{
@@ -141,32 +113,130 @@ func (c *VoiceTellsCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, error) 
 			Pipeline:     "content",
 			ItemType:     "voice_tells",
 			Severity:     "medium", // style is softer than truth — never high
-			Summary:      fmt.Sprintf("Voice tells on %s: %d finding(s) read machine-written", agg.pageName, len(agg.findings)),
+			Summary:      fmt.Sprintf("Voice tells on %s: %d finding(s) read machine-written", agg.PageName, len(agg.Findings)),
 			SpecJSON:     string(specJSON),
 			Priority:     40, // behind claims (25/35): truth outranks register
 			HandlerAgent: "", // HITL-terminal in this phase (spec §3c)
 			Status:       "needs_human_review",
 			CreatedBy:    dctx.AgentType,
-			ItemKey:      fmt.Sprintf("voice:%s", agg.pageID),
+			ItemKey:      fmt.Sprintf("voice:%s", agg.PageID),
 			BatchID:      dctx.BatchID,
 		})
 	}
 
 	dctx.Logger.Info("voice_tells: findings",
 		zap.Int("finding_count", total),
-		zap.Int("pages_affected", len(order)),
+		zap.Int("pages_affected", len(affected)),
 		zap.String("site_id", dctx.SiteID.String()))
 	return result, nil
 }
 
-// loadVoiceGateForCheck reads the site's current voice spec and compiles its
+// VoicePageScan is one page's voice scan. It carries the findings AND the two
+// counts that say how the scan reached them, because the review-queue
+// revalidator has to distinguish three states a bare `len(Findings) == 0`
+// collapses into one:
+//
+//   - examined some components, found no tells      -> the prose was fixed
+//   - examined NOTHING (page gone, unbuilt, empty)  -> we cannot answer
+//   - the only components are human-LOCKED          -> we cannot answer
+//
+// Only the first licenses closing a live work item. The other two look
+// identical from the findings list alone, which is exactly the no-op case that
+// reads like a success.
+type VoicePageScan struct {
+	PageID   string
+	PageName string
+	Findings []map[string]interface{}
+	// ComponentsExamined counts components actually passed to ScanVoice.
+	ComponentsExamined int
+	// ComponentsSkippedLocked counts human-pinned components, which the emit
+	// side has always skipped and this scan still does — counted rather than
+	// silently dropped so a page whose only tells sit in a locked component
+	// cannot be read as "the prose was fixed".
+	ComponentsSkippedLocked int
+}
+
+// ScanVoiceTells runs the site's voice gate over its live rendered components
+// and returns one VoicePageScan per page examined, INCLUDING pages with no
+// findings.
+//
+// It is shared by the emit side (VoiceTellsCheck.Run, pageIDFilter "") and the
+// review-queue revalidator (one page). That sharing is the point: the two ends
+// of a voice_tells item's life must not be able to answer "does this copy read
+// machine-written?" differently, which is what two copies of this query and
+// these thresholds would eventually do. Same precedent as needs_page, whose
+// revalidator sits beside the resolver its emit-side guards use.
+func ScanVoiceTells(ctx context.Context, db *sql.DB, siteID uuid.UUID, pageIDFilter string, gate *datahelpers.VoiceGate, logger *zap.Logger) ([]*VoicePageScan, error) {
+	query := `
+		SELECT pc.page_id::text, p.name, COALESCE(p.page_type,''), p.url,
+		       COALESCE(pc.slot_name, ''), pc.rendered_html, pc.locked_at
+		FROM page_components pc
+		JOIN pages p ON p.id = pc.page_id
+		WHERE p.site_id = $1
+		  AND p.status IN ('active','deployed')
+		  AND pc.rendered_html IS NOT NULL AND pc.rendered_html <> ''`
+	args := []interface{}{siteID}
+	if strings.TrimSpace(pageIDFilter) != "" {
+		query += ` AND pc.page_id = $2::uuid`
+		args = append(args, strings.TrimSpace(pageIDFilter))
+	}
+	query += ` ORDER BY p.name, pc.position`
+
+	rows, err := db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("voice_tells page query failed: %w", err)
+	}
+	defer rows.Close()
+
+	byPage := map[string]*VoicePageScan{}
+	var order []*VoicePageScan
+
+	for rows.Next() {
+		var pageID, pageName, pageType, url, slotName, html string
+		var lockedAt sql.NullTime
+		if err := rows.Scan(&pageID, &pageName, &pageType, &url, &slotName, &html, &lockedAt); err != nil {
+			logger.Warn("voice_tells: scan error", zap.Error(err))
+			continue
+		}
+		agg, ok := byPage[pageID]
+		if !ok {
+			agg = &VoicePageScan{PageID: pageID, PageName: pageName}
+			byPage[pageID] = agg
+			order = append(order, agg)
+		}
+		if lockedAt.Valid {
+			agg.ComponentsSkippedLocked++
+			continue
+		}
+		agg.ComponentsExamined++
+
+		longForm := pageType == "blog-post" || strings.HasPrefix(url, "/guides/") || strings.HasPrefix(url, "/blog/")
+		for _, f := range gate.ScanVoice(datahelpers.ExtractAssertionText(html), longForm) {
+			agg.Findings = append(agg.Findings, map[string]interface{}{
+				"check": f.Check, "slot_name": slotName, "matched": f.Matched,
+				"reason": f.Reason, "snippet": f.Snippet,
+				"value": f.Value, "threshold": f.Threshold, "occurrences": f.Occurrences,
+			})
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("voice_tells iteration failed: %w", err)
+	}
+	return order, nil
+}
+
+// LoadVoiceGate reads the site's current voice spec and compiles its
 // voice_gate. nil,nil = not opted in (mirrors loadEvidenceBaseForCheck).
-func loadVoiceGateForCheck(dctx DiscoveryCheckContext) (*datahelpers.VoiceGate, error) {
+//
+// Exported for the review-queue revalidator: a site that is not opted in cannot
+// have its parked voice items re-judged at all, and that has to be answerable
+// from the `actions` package.
+func LoadVoiceGate(ctx context.Context, db *sql.DB, siteID uuid.UUID) (*datahelpers.VoiceGate, error) {
 	var data []byte
-	err := dctx.DB.QueryRowContext(dctx.Ctx, `
+	err := db.QueryRowContext(ctx, `
 		SELECT data FROM site_specs
 		WHERE site_id = $1 AND aspect = 'voice' AND is_current = true
-	`, dctx.SiteID).Scan(&data)
+	`, siteID).Scan(&data)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}

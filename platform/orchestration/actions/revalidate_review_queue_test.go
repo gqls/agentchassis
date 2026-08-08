@@ -180,7 +180,13 @@ func TestSpecString(t *testing.T) {
 // built by another route sat for ever. Its verdicts are pinned in
 // page_section_satisfiability_test.go.
 func TestRevalidatorCoverageIsDeliberate(t *testing.T) {
-	want := []string{"unresolved_cta", "required_fields_missing", "needs_section_data", "needs_page"}
+	// voice_tells added 2026-08-08. Deliberate, and it cleared the bar this lane
+	// set after shipping a duplicate closer: the CLOSER census
+	// (item_type='voice_tells' AND status IN ('complete','verified')) returned
+	// ZERO rows, so nothing else drains the type, and its single producer is
+	// check_voice_tells.go:142. Retraction is not the auto-rewrite that check's
+	// `fix` text forbids — see revalidate_voice_tells.go.
+	want := []string{"unresolved_cta", "required_fields_missing", "needs_section_data", "needs_page", "voice_tells"}
 	for _, itemType := range want {
 		if _, ok := reviewRevalidators[itemType]; !ok {
 			t.Errorf("revalidator for %q is missing", itemType)
