@@ -1261,3 +1261,33 @@ copy rather than just restyling them — still open, still yours. And the separa
 problem I found on webdesign.co.uk, where a page cannot currently be rebuilt because
 its own copy says "as an AI-builder prompt" and the checker objects to the phrase.
 That one needs a small fix of its own and I have left it with that lane.
+
+---
+
+**Saturday 8 August, later still — you have answered the last open question: keep the
+explanatory copy.**
+
+So nothing is trimmed, nothing is re-run, and the pages stay exactly as the framework
+built them. That was the last thing owed on this site, so the workstream is finished.
+
+For the record of what you decided, because in six weeks the question will be harder to
+reconstruct than the answer: several of the calculator pages had almost nothing on them
+— a line or two, sometimes barely a sentence. When the framework rewrote the site it
+did not just restyle those, it **wrote them properly**, turning a stub into eight or
+nine hundred words of explanation. That was more than the brief asked for. The brief
+said change the voice and add nothing. So there were two fair readings — the pages are
+better and readers are served, or the machine exceeded its instruction and we should
+put it back. You have taken the first.
+
+I have also taken your answer as covering the two smaller things I listed under the
+same question: the writer expanded "Consumer Credit Act" to "Consumer Credit Act 1974",
+which is correct but still an addition, and it reworded two headings, one of which was
+a main page heading. They are the same act by the same writer and were asked as part of
+the same question. If you meant only the long copy and want those two put back, say so
+and it is a few minutes' work — but I have not held anything up waiting to find out.
+
+**Where that leaves the site.** All twenty-six pages in the new voice, every page
+loading, every calculator giving identical answers to before, and the reference
+recording refreshed. The platform bug that blocked the last three is fixed, live and
+proven. The only thing left with our name on it is the separate problem on
+webdesign.co.uk, which belongs to that lane and is written up for them.

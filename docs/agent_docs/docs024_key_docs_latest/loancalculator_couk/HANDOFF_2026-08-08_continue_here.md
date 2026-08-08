@@ -35,7 +35,8 @@ live         26/26 HTTP 200 · 12/12 locked calculator rows identical · toolgol
 > was run BEFORE the capture, deliberately, because capturing first would have blessed
 > whatever the rebuild did.
 >
-> **The only thing still owed on this lane is §5 — the owner's expansion question.**
+> **NOTHING IS OWED ON THIS LANE.** §5 was answered the same evening — the owner ruled
+> **keep the explanatory copy**, so nothing is trimmed and there is no follow-up work.
 >
 > **If you are here to rebuild a page anyway, the two checks that earned their keep:**
 > a roll is not evidence, so grep a positive AND a negative marker on **the pod that
@@ -128,21 +129,33 @@ fails on any lost selector; keep that check. Full entry in `LANDMINES.md`.
   and `toolgolden.py` refuses a partial capture because such a file certifies nothing.
 - **An owner decision on expansion** (§5).
 
-## 5. The open question for the owner — do NOT resolve it unilaterally
+## 5. ~~The open question for the owner~~ — ANSWERED 2026-08-08: **KEEP THE COPY**
 
-Several calculator pages had near-empty prose stubs (32–156 bytes). The framework did
-not restyle them, it **filled them**, to 800–1,900 bytes of new explanatory copy. It
-reads well and nothing in it trips the claim gate, but it is **new substance on a
-finance site**, and the brief said "voice only, preserve every fact, add nothing".
+> **OWNER RULING, 2026-08-08 evening: "keep the explanatory copy."** Nothing to do —
+> the pages stay exactly as the framework built them. **Nothing was trimmed, and
+> nothing should be.** This was the last item owed on the lane; with §1 and §4 closed
+> the same evening, the workstream is complete.
 
-Both readings are defensible — the pages were thin and are now useful; and the writer
-exceeded its instruction. It is asked in `README_where_we_are.md` and is the owner's
-call. If the answer is "trim", the material is all in the backup table.
+The question, kept because the ruling is only legible next to it: several calculator
+pages had near-empty prose stubs (32–156 bytes). The framework did not restyle them, it
+**filled them**, to 800–1,900 bytes of new explanatory copy. It reads well and nothing
+in it trips the claim gate, but it was **new substance on a finance site**, and the
+brief said "voice only, preserve every fact, add nothing". Both readings were
+defensible — the pages were thin and are now useful; and the writer exceeded its
+instruction. The owner took the first.
 
-Smaller observations in the same family, all recorded, none acted on: the writer expands
-`Consumer Credit Act` to `Consumer Credit Act 1974` (correct, and still an addition),
-and it reworded two headings including one `h1` (`Typical Fees & The Power of APR` →
-`Hidden Loan Fees & The Power of APR`, which matches the URL better).
+**What the ruling covers, stated so a later thread does not silently widen or narrow
+it.** The expansion itself, explicitly. I am reading it as also settling the two
+smaller observations in the same family, which were listed under this question and are
+the same act by the same writer — it expands `Consumer Credit Act` to `Consumer Credit
+Act 1974` (correct, and still an addition), and it reworded two headings including one
+`h1` (`Typical Fees & The Power of APR` → `Hidden Loan Fees & The Power of APR`, which
+matches the URL better). If that reading is wrong it is a trim of two headings and a
+statute year, not a re-run. **Do not re-open this as "should we trim?" — it is decided.**
+
+⚠ **`page_components_bak_20260807_voiceh` (63 rows) is no longer the undo for this
+decision**, since there is nothing to undo. Keep it anyway: §3's CSS trap is what it
+actually protects against, and `voiceh_restore_css_slot.sh` reads it.
 
 ## 6. Method notes worth keeping
 

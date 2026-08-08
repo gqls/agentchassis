@@ -3738,3 +3738,39 @@ matches 8 → 5. Restored from backup; verified 8 again, 35,206 b, no duplicatio
 | `legal` "if"s | **FIXED** — opens flatly |
 | `tool-consolidation` "appeal" | **FIXED** — the word is gone from the live page |
 | `debt-help-uk` ordering (experts first) | **NOT DONE** — a journey judgement, not a copy one; `experience-planner` is its home |
+
+---
+
+## 2026-08-08 (late) — OWNER RULING on the expansion question: keep the copy. Lane complete.
+
+*"keep the explanatory copy."* No trim, no re-run, no work. The pages stand as the
+framework built them, and with §1 and §4 closed earlier the same evening this lane is
+**finished**.
+
+Recorded here as well as in the handoff and `README_where_we_are` because the ruling is
+worth more than its one-line content:
+
+- **The framework was allowed to exceed its brief, and that is the finding.** The brief
+  said "voice only, preserve every fact, add nothing"; the writer turned 32–156 byte
+  stubs into 800–1,900 bytes of explanation. The instinct — mine — was to treat
+  exceeding the instruction as a defect to be reverted. The owner's judgement is that
+  the output is the thing being evaluated, which is the same reasoning that removed the
+  `index` caution earlier today. **Two rulings, one principle**, and worth carrying into
+  the next lane: on this estate, "the framework did more than asked" is a result to
+  look at, not automatically a regression to undo.
+- **The question was still right to ask and not to resolve unilaterally.** It was new
+  substance on a finance site. Both readings were defensible, which is exactly the
+  shape that belongs with the owner rather than with a thread's default.
+- **Scope of the ruling is stated in the handoff, not assumed silently.** I read it as
+  also covering the two smaller items filed underneath it (the `Consumer Credit Act
+  1974` expansion and the two reworded headings) since they are the same act by the
+  same writer, asked in the same question. That reading is written down where it can be
+  contradicted rather than left implicit — if it is wrong it costs a two-heading trim.
+- **The backup table's purpose has changed.** `page_components_bak_20260807_voiceh` was
+  being held partly as the undo for a "trim" answer. There is nothing to undo now, but
+  it stays: §3's CSS-in-a-prose-slot trap is what it really protects against, and
+  `voiceh_restore_css_slot.sh` reads it.
+
+Final lane state: 26/26 pages in voice H · 26/26 HTTP 200 · 11/11 calculators identical
+to golden, re-baselined · `219` fixed, live, proven, kept open per owner direction ·
+`221` open and owned by webdesign.co.uk · nothing owed here.
