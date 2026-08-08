@@ -166,3 +166,27 @@ Objections and answers are on the record in the lane NOTES. Two things they impr
    challenge): bare-type grep → one COMMENT outside helpers.go; deployments/ → zero;
    `agent_definitions.default_config` → 0 rows. No construction site, no receiver, no
    config route.
+
+## 2026-08-08 (night) — **FIXED + LIVE + PROVEN on v1.0.1269. All three close criteria met.**
+
+Stays in `bugs_open/` per the owner's 08-06 ruling. The sender-convergence series
+(207 → 216 → 217) is COMPLETE: all three chassis failure senders decide through
+`RetryDisposition`, and the classifier has one implementation in `platform/errors`.
+
+1. **Pod-grep** both v1.0.1269 replicas: POS sender literal 1, NEG synthetic 0
+   (marker pair from `scripts/pick-pod-marker.py b19ef6930`).
+2. **Induction** (216 runbook recipe; corr `1b4b43f2…`, R `a64d935a…`): THIS sender
+   answered the deadline-exceeded child-orchestration failure with
+   `error_recoverable` / `CHILD_ORCHESTRATION_FAILED` / `recoverable:true` at
+   22:14:04.503Z (wire: legacy responses part 2 offset 36692) — the envelope that was
+   hardcoded terminal in the 16:07:45 re-observation. It still answers FIRST; the
+   processor's converged envelope 1s later now agrees. Re-driving the parent:
+   `retry_version` 0→1 + `status='waiting'`, parent unfailed, and **the replay
+   consumed from the void topic at offset 1** (`retry_version:1`, fresh
+   message_id/timestamp) — a real retry, not a bookkeeping bump.
+3. **Storm watch** (24h): retry_version histogram 2,392 / 58 / 4 / 9, hard wall at 3,
+   ZERO above; fatal-rate steady across the roll (41–146/hr, no spike). Keep the
+   week-over-week fatal-rate check running per the monitor SQL above — the
+   amplification worst-case (16 at depth ≤ 1) remains theoretical, unobserved.
+
+Evidence with every id and timestamp: lane NOTES 2026-08-08 (night) entry.

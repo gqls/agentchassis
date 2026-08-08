@@ -197,3 +197,43 @@ it at report time). Seat-by-seat answers, on the record:
 No WRONG_CALLS entry from this session: no recorded claim was refuted. The near-miss
 worth naming: the first TimeoutMonitor deadness check was two spellings; the council's
 prior-art seat is what pushed it to three legs. That is the gate working, not a wrong call.
+
+## 2026-08-08 (night) — 217 PROVEN LIVE on v1.0.1269: all three close criteria met
+
+Roll landed twice while verifying (v1.0.1268 pods 18:57Z were replaced by v1.0.1269
+pods 22:01/22:02Z mid-check — re-ran the pod-grep on the survivors, per the
+snapshot-goes-stale rule).
+
+- **Criterion 1 — pod-grep, both replicas** (`8skkf`, `rd27g`): POS
+  `retry disposition decided at the child-orchestration failure` = 1,
+  POS `disposition_matched` = 1, NEG synthetic = 0. Marker pair from
+  `scripts/pick-pod-marker.py b19ef6930` (which also listed 8 comment-only strings
+  as traps — the moved headers are NOT in the binary; do not probe with them).
+- **Criterion 2 — induction** (no natural firing in the pods' first 15 min; used the
+  216 runbook recipe verbatim). Ids: CORR `1b4b43f2-bf13-425c-adec-a3d5f30265fd`,
+  parent ORCH `b9b7f126-6363-40cb-b190-e3c3cc50a661`, R
+  `a64d935a-6ff8-43ef-87c1-142aece85561`, chassis-minted child orch `1cfb581e…`.
+  - **The flip, live at 22:14:04.503Z** (pod log, captured before rotation ate it):
+    `disposition=error_recoverable, disposition_matched="deadline exceeded"` from THIS
+    sender — the envelope that was hardcoded terminal at 16:07:45 yesterday.
+  - **Wire**: legacy `system.generic.responses` part 2 offset 36692, key=R:
+    `status=error_recoverable`, `body.error.code=CHILD_ORCHESTRATION_FAILED`,
+    `recoverable:true` at 22:14:04.503 — and the processor's converged envelope
+    (part 1 offset 45931) 1.0s later, now AGREEING instead of losing the claim.
+    This sender still answers first; both verdicts now match.
+  - Re-published offset 36692 byte-identical (single kcat container, consume→file→
+    produce, headers reconstructed) to `system.agent.generic.responses`.
+  - **Acceptance**: R `retry_version=1` + `status='waiting'` (22:17:21.673); parent
+    still `AWAITING_RESPONSES`, `error` NULL; **THE PROOF: void topic offset 1 = the
+    replay** — `retry_version:1`, fresh `message_id`/`timestamp` (22:17:21.675),
+    otherwise byte-matching offset 0. (Replay carries `timeout_seconds:300` where the
+    original had 600 — same as 216's run shape, noted, not a falsifier.)
+  - Log corroboration is PARTIAL and honestly so: the claimed-row marker line rotated
+    away before the grep — **oldest retained line on both pods was ~20 SECONDS old**
+    (post-roll surge; the 216-era "minutes" figure is optimistic under load). The
+    decisive falsifier (parent FAILED ms after re-arm) is refuted by the DB directly.
+- **Criterion 3 — storm watch** (24h): retry_version 0→2,392 · 1→58 · 2→4 · 3→9 ·
+  **nothing above 3**. Fatal-rate 41–146/hr across 6h, 22:00 hour mid-range (83) —
+  no post-roll amplification signal. Re-check week-over-week per the bug file.
+- Probe expected to exhaust at the wall (nothing answers the void topic) — that is
+  RSH-006 binding, not a failure. Cleanup after exhaustion: seed row + void topic.
