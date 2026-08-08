@@ -218,19 +218,31 @@ Expect **4** (`complete_work_item_verification`, `plan_sections` ×2,
 `reconcile_superseded_reviews`), plus the two internal call sites inside `log_action_error.go`
 itself where `LogActionError`/`LogActionFindings` declare inheritance on their callers' behalf.
 
-**2. Census: any strict-door caller that names no provenance?** Must be **0**. A non-zero result
-is a site that will write `unattributed` rows the moment it fires. The 15-line window is the
-gotcha — an `agenterrors.Entry` literal runs long, and 10 lines misses `AgentType` at several
-real sites:
+**2. Census: any strict-door caller that names an INCOMPLETE provenance?** Must be **0**.
+
+⚠ **THE RULE CHANGED THE SAME DAY THIS RUNBOOK ENTRY WAS WRITTEN, so use this version.** The
+first form checked `AgentType:` only, because the door was strict on `agent_type` alone. Two
+council seats objected that a caller naming `agent_type` and leaving `step_name` to the merge was
+the same defect one column narrower; the door is strict on **both** from 2026-08-08, so a census
+that checks only `AgentType:` now passes sites that will write an empty `step_name`. Check both:
 
 ```bash
 for spec in $(grep -rn "LogActionEntry(\|LogActionEntryFindings(" --include=*.go \
               platform/orchestration/actions/*.go | grep -v _test.go \
               | grep -v log_action_error.go | cut -d: -f1,2); do
   f="${spec%%:*}"; l="${spec##*:}"
-  [ "$(sed -n "${l},$((l+15))p" "$f" | grep -c 'AgentType:')" = "0" ] && echo "UNNAMED: $spec"
+  blk=$(sed -n "${l},$((l+16))p" "$f")
+  at=$(printf '%s' "$blk" | grep -c "AgentType:")
+  sn=$(printf '%s' "$blk" | grep -c "StepName:")
+  { [ "$at" = "0" ] || [ "$sn" = "0" ]; } && \
+    printf "INCOMPLETE (AgentType=%s StepName=%s) %s\n" "$at" "$sn" "$spec"
 done
 ```
+The **16**-line window is the gotcha — an `agenterrors.Entry` literal runs long, 10 lines misses
+`AgentType` at several real sites, and 15 was one short of reaching `StepName` at the longest.
+A non-zero result is a site that will write an `unattributed` `agent_type` or an empty
+`step_name` the moment it fires. Totals as of 2026-08-08: **11 strict / 6 declared-inheritance /
+4 simple doors = 21**.
 ⚠ **the line numbers this prints are stale on arrival** — several of these files are edited
 concurrently, and one of them moved 67 lines between two commands in one session. Re-derive by
 symbol before you open an editor.

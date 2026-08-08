@@ -161,14 +161,19 @@ counts **3 / 10 / 3 / 4 / 1**, restored 12/12. Recipe + the two census greps + t
 are in the RUNBOOK under "The provenance seam".
 
 **All consumers named and settled — and the count is 21, not the 20 the approved plan says.**
-13 strict-door sites already explicit (untouched); 4 migrated to the opt-in door
-(`complete_work_item_verification`, `plan_sections` ×2, `reconcile_superseded_reviews`); 2 more
-migrated in the objection-response commit (`prepare_link_context`, `diagnose_persist_fix_plan` —
-see below); 4 route through `LogActionError`/`LogActionFindings` whose contract already *is*
+Final breakdown, **11 + 6 + 4 = 21** (it read 13 + 4 + 3 for about forty minutes, which did not
+even add up to its own 21 — the arithmetic moved when the symmetry fix migrated two more sites):
+**11** strict-door sites naming BOTH provenance columns, untouched; **6** declaring inheritance
+(the 4 that relied on the merge for both columns — `complete_work_item_verification`,
+`plan_sections` ×2, `reconcile_superseded_reviews` — plus `prepare_link_context` and
+`diagnose_persist_fix_plan`, which named `agent_type` only and moved in the objection-response
+commit); **4** through `LogActionError`/`LogActionFindings`, whose contract already *is*
 running-step identity, so no call site changed. **Repo-wide: 0 callers outside
 `platform/orchestration/actions`**, which answers `guardian`'s standing question — the
 `agenterrors.Write` callers (agentbase, messaging, coordinator) build a full `Entry` and never
-touch this merge.
+touch this merge. ⚠ **The re-verification grep changed with the rule**: checking `AgentType:` at
+every strict-door site is the round-4 rule and is no longer sufficient — check `StepName:` too.
+Both are complete as of 2026-08-08; recipe in the RUNBOOK.
 
 ⚠ **The 21st arrived DURING the council round and needed nothing.** `page_build_failure_guard.go:110`
 (PBP-038, another lane, `2c3efc9f5`) reached for `LogActionError` and so got the safe behaviour
