@@ -6,6 +6,20 @@ Read with: `NOTES` 08-06 evening → 08-08 (the asset-path discharge, the firecr
 cache, the queue starvation) · `SUBMISSION_2026-08-08_*` (the envelope + roadmap
 actually submitted) · `WRONG_CALLS.md` 08-08 (the cache wrong-call).
 
+> **UPDATE, same night (~23:50 UTC): THE BUILD IS DONE AND SERVING.** All
+> remaining stages were hand-driven to completion — briefing, plan (exactly the
+> 5 roadmap pages), page+imagery fan-out (9/9), stranded-asset re-drives
+> (stylesheet+logo now IN vm-sites), title fix, what-you-get rebuild, full
+> rerender pass. `preview.webdesign.uk` serves all five pages with css/js/
+> heroes/logo resolving and **0 visible-text ban hits**. §1's drive loop stands
+> for future stages. **Open on this site:** 9 `unresolved_cta`
+> `needs_human_review` items (= the input-box question, owner-gated, do not
+> resolve mechanically) · no favicon.png has ever been produced (fleet 131
+> family) · meta_descriptions are empty · the claims-gate coverage gap is
+> written up in NOTES 08-08 (5) — the repo-side visible-text sweep is the real
+> floor, run it every build. Next per §3 of the 08-06 handoff: owner review,
+> then the chat service phase.
+
 ## 0. One paragraph
 
 The rejected v1's four causes are all closed: the asset path needed no fix
