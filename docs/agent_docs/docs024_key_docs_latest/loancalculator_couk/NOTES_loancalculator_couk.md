@@ -3774,3 +3774,65 @@ worth more than its one-line content:
 Final lane state: 26/26 pages in voice H · 26/26 HTTP 200 · 11/11 calculators identical
 to golden, re-baselined · `219` fixed, live, proven, kept open per owner direction ·
 `221` open and owned by webdesign.co.uk · nothing owed here.
+
+### The CSS trap turned into a PREVENTER — and it needed two different fixes, not one
+
+Owner: *"exclude the `<style>` no sentence set from the rewrite set."* Measuring the set
+first turned a one-line job into a two-part one.
+
+**8 rows carry a `<style>` block, and they are not one population.** Prose characters
+remaining after stripping style blocks and tags:
+
+```
+tool-compare-loans            prose-0    20   <- pure carrier
+tool-credit-health-check      prose-0    20   <- pure carrier
+tool-overpayment-calculator   prose-0    26   <- pure carrier
+tool-consolidation            prose-0    32   <- pure carrier
+tool-application-tracker      prose-0   170   <- MIXED: real prose + a style block
+tool-car-finance-calculator   prose-0  1523   <- MIXED
+tool-loan-vs-savings          prose-0  2293   <- MIXED
+guide-jargon-buster           prose-0  2637   <- MIXED
+```
+
+A clean gap at 32→170. **Locking all eight would have frozen four rows of real copy**,
+including `application-tracker`'s (which, incidentally, is a negation pile — *"There's no
+account to create, and nothing gets sent to us or anyone else"* — so it is a row that
+particularly needs rewriting, not protecting).
+
+**Part 1 — lock the 4 pure carriers.** `locked_by='loancalculator_css_carrier_20260808'`,
+`lock_type='permanent'`. Reuses the existing lock mechanism rather than inventing a
+filter: these rows are layout in a prose slot, and the platform already has one honest
+way to say "the writer may not have this". Site total 12 → 16 locked. Backup
+`page_components_bak_20260808_csslock` (63 rows).
+
+⚠ **Checked before locking, because `bugs_open/189` duplicates locked rows on the build
+path:** 189's config half **IS applied** — `slot_name_from: current_section.name` is set on
+BOTH `render_section` and `render_from_template`. My memory entry said UNAPPLIED and was
+stale. Verified from live config, then again empirically below.
+
+**Part 2 — guidance v3 for the mixed rows,** which must NOT be locked. Adds: *"if the
+existing content contains a `<style>` block, reproduce that entire block byte-for-byte in
+your output, unchanged and in the same position. It is the page's layout, not prose."*
+
+**Both halves PROVEN on one run** (`tool-consolidation` = locked carrier,
+`tool-loan-vs-savings` = mixed row):
+
+```
+tool-consolidation   prose-0  1060 b  style=YES  locked=YES  updated 18:00:28
+                                                             ^ the RESTORE time, not the
+                                                               rewrite's 18:14:37 — the
+                                                               writer never touched it
+tool-loan-vs-savings prose-0  3071 b  style=YES  locked=no   updated 18:12:46
+                                                             ^ rewritten AND kept its CSS
+```
+
+Row counts 4 and 4 — **no 189 duplication**. Served: both pages carry 5 `<style>` blocks,
+26/26 pages 200, **toolgolden 11/11 exact**.
+
+> **The distinction worth keeping.** A lock says "this is not yours to write". A guidance
+> clause says "write this, but carry that part through untouched". They are different
+> instruments and the earlier restore-script approach was neither — it let the damage
+> happen and then undid it, which only works while a human is watching. Deciding which
+> instrument applies needed the population measured, not assumed: the handoff said "8 of
+> 51 prose rows hold the page's `<style>` block", which is true and would have produced
+> the wrong fix for half of them.
