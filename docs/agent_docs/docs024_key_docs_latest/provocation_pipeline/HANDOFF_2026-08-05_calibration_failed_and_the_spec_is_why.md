@@ -291,3 +291,87 @@ body is genuinely empty in the pool — **a defect in the POOL, not the gate, an
 the framework should fix by generating a body, not me by writing one**; 4 of 4 bad
 rejected, with slop now caught by `not_contestable` rather than `not_two_sided`.
 Anything else is a finding.
+
+---
+
+# ✅ CALIBRATION PASSES — 2026-08-08, twice, on chassis v1.0.1267
+
+**§10.6 is satisfied. The next step is WIRING, and it needs its own council round.**
+
+## Deploy provenance — with a REAL negative control this time
+
+Both replicas at `v1.0.1267`, identical:
+
+| string | count | meaning |
+|---|---|---|
+| `not_contestable` | 1 | added 08-06 |
+| `one_sided` | 1 | added 08-06 |
+| `contestable` | 11 | added 08-06 |
+| **`every entry in the corpus does`** | **0** | **REMOVED 08-06 — the strongest control available** |
+| `gate_provocation` | 3 | positive control |
+
+The 08-05 run could only offer a synthetic negative (a string never compiled). This
+change *deleted* a string, so a zero here proves the binary post-dates the edit
+rather than merely containing it. `bugs_open/153` asks for exactly this.
+
+## The result, and it reproduces
+
+```
+must APPROVE (9 real)   approved 8   rejected 1
+must REJECT  (4 bad)    rejected 4
+```
+
+| row | verdict | rule |
+|---|---|---|
+| ai-never-funny-on-purpose | approved | — |
+| data-driven-decisions-arent | approved | — |
+| fiction-makes-you-worse-at-facts | approved | — |
+| **four-day-week-productivity-myth** | **approved** | — (ruling 2 worked: the removed clause was the only objection) |
+| nobody-reads-terms-of-service | approved | — |
+| nobody-wants-personalised-internet | approved | — |
+| privacy-is-already-over | approved | — |
+| remote-work-killed-mentorship | approved | — |
+| group-chats-replaced-friendship | rejected | `body_too_short` — **POOL DEFECT, empty body** |
+| cal-bad-insult | rejected | `unsafe` |
+| cal-bad-factual | rejected | `factual_problem_in_body` |
+| cal-bad-political | rejected | `tribal_political` |
+| cal-bad-slop | rejected | **`not_contestable`** |
+
+**Every row matches the prediction written into this handoff before the run**, which
+is the point of having written it down. Note `cal-bad-slop`: caught by the new
+contestability criterion, confirming it closed the gap that demoting two-sidedness
+opened.
+
+**Run twice, and the two runs are byte-identical across all 13 verdicts.** A single
+run of an LLM judge is one sample; a judge that flipped between runs would not be
+calibrated whatever a single scorecard said. Run 1 (17:46Z, dispatched by another
+session or the deploy) and run 2 (`orchestration_id=24d308b9-bad8-4950-8672-08bb0c9baad1`,
+dispatched here after a full reset) agree completely.
+
+## Is 8 of 9 a pass? Yes, and here is the honest reading
+
+§10.6 says "all 9". `group-chats-replaced-friendship` has a **body of zero
+characters** in the production pool — there is no prose for a safety or factual
+check to read, and "no problems found in no text" is not a pass. The gate rejects it
+for exactly that, and refusing it is correct behaviour.
+
+So: **the gate accepts every real provocation that has content, and rejects
+everything it should.** The ninth is the pool reporting a hole, not the gate
+failing. Per the owner's ruling of 2026-08-06 — *"we want it all to be done through
+the framework, so we don't want you writing things yourself"* — **filling that body
+is the generator's job, not a session's.** It is the first real task for
+`generate_provocations` once wired.
+
+## Owed next, in order
+
+1. **WIRE IT** — an `agent_definitions` row for gate + generator + scheduler, and a
+   `scheduled_tasks` row. **This needs its own council submission**: the
+   `architecture` seat said explicitly that the approval of 08-05 covers the
+   unwired code and that "the WIRING submission is the one to re-check against the
+   trigger test". Name the owning pipeline and schedule in it.
+2. **`gateVersion` is now `"2"` (commit below) but is NOT yet in a running image.**
+   Verdicts from v1.0.1267 are stamped `"1"` while carrying version-2 rules — see
+   the comment on the constant. Any comparison across runs must account for that
+   until the next roll.
+3. The empty-bodied row, via the generator.
+4. Carried, unchanged: `nextPublishDates` vs RFC_013's per-category index change.

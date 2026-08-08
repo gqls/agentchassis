@@ -189,7 +189,24 @@ type gateVerdict struct {
 // gateVersion is stamped into every verdict so a calibration run can be tied to
 // the rules that produced it. Bump it whenever a rule changes, or the corpus
 // evidence for an old verdict silently stops meaning what it says.
-const gateVersion = "1"
+//
+// > **I broke this rule on 2026-08-06 and it cost real ambiguity two days later.**
+// > The owner's rulings retired the two-sidedness rejection and added the
+// > contestability one — a change to what the gate DECIDES — and I left the
+// > version at "1". On 08-08 a calibration run appeared in the pool that I had not
+// > dispatched, and `gate_version` could not tell me whether it came from the old
+// > rules or the new ones. It had to be established indirectly, by grepping the
+// > verdicts for a `one_sided` note that only the new code can emit. That worked,
+// > but it is exactly the reconstruction this field exists to make unnecessary.
+// >
+// > **The lesson is about WHERE the bump belongs, not about remembering harder:**
+// > it is not a release chore, it is part of the edit that changes a rule. If you
+// > are editing `applyJudgement`, `checkForm` or the fatal/advisory split, this
+// > line is in the same change or the change is not finished.
+//
+// 2 — one-sided provocations accepted (advisory `one_sided` note); contestability
+// added as a fatal criterion; minBodyLen re-justified. Owner rulings 2026-08-06.
+const gateVersion = "2"
 
 func (v *gateVerdict) reject(layer, rule, detail string) {
 	v.Approved = false
