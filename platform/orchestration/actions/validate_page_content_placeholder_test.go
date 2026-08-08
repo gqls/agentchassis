@@ -2,20 +2,26 @@
 //
 // The placeholder scan reads PROSE, not code. Its bracket patterns ('[name',
 // '[client', '[company') are substrings of idiomatic JavaScript and CSS
-// attribute selectors, and every hit is a blocker — so before script/style
-// stripping, a correct self-contained tool failed validation outright. The
-// three "convicted JS" cases below are the exact matched snippets from the
+// attribute selectors, and every hit is a blocker — so when the scan read the
+// whole artefact, a correct self-contained tool failed validation outright.
+// The three "convicted JS" cases below are the exact matched snippets from the
 // live agent_error_log rows (2026-08-05: idea.uk once, mortgagecalculator
-// twice); each cost a tool recreation that completed without saving anything.
+// twice); each cost a tool recreation that completed without saving anything
+// (bugs_open/218).
 //
-// The "still caught" cases are the other half of the contract: stripping
-// scripts must not take the rule with it. A genuine template leftover in
+// Prose scope comes from datahelpers.ExtractAssertionText — the claims checks'
+// existing mechanism in this same file (council REVISE a9ffed15: reuse it, do
+// not add a second stripper). One deliberate exception: "<no value>" is a Go
+// template artifact that PARSES AWAY as markup, so it must scan the raw
+// document or it goes silently inert.
+//
+// The "still caught" cases are the other half of the contract: scoping to
+// prose must not take the rule with it. A genuine template leftover in
 // visible HTML stays a blocker.
 
 package actions
 
 import (
-	"strings"
 	"testing"
 )
 
@@ -29,7 +35,7 @@ func placeholderValues(issues []ValidationIssue) []string {
 	return vals
 }
 
-func TestPlaceholderScanIgnoresScriptAndStyleBodies(t *testing.T) {
+func TestPlaceholderScanIgnoresNonProseContexts(t *testing.T) {
 	cases := []struct {
 		name string
 		html string
@@ -57,14 +63,21 @@ func TestPlaceholderScanIgnoresScriptAndStyleBodies(t *testing.T) {
 		},
 		{
 			"todo comment inside script",
-			`<html><body><p>Fine prose.</p><script>// TODO: tune the rounding\nlet x = 1;</script></body></html>`,
+			`<html><body><p>Fine prose.</p><script>// TODO: tune the rounding
+			 let x = 1;</script></body></html>`,
 		},
 		{
-			"bracket pattern inside style body",
+			"attribute selector inside style body",
 			`<html><head><style>input[name="term"] { width: 4rem; }</style></head><body><p>Fine prose.</p></body></html>`,
 		},
 		{
-			"multiple script blocks all stripped",
+			// New coverage the ExtractAssertionText reuse buys over a regex
+			// stripper: code samples are examples, not page prose.
+			"bracket pattern inside a code sample",
+			`<html><body><p>Use the selector like this:</p><pre><code>document.querySelector('input[name="email"]')</code></pre></body></html>`,
+		},
+		{
+			"multiple script blocks all excluded",
 			`<html><body><script>a[name] = 1;</script><p>Real content.</p><script>b[client] = 2;</script></body></html>`,
 		},
 	}
@@ -99,6 +112,20 @@ func TestPlaceholderScanStillCatchesProse(t *testing.T) {
 			`<html><body><p>Lorem ipsum filler that never got replaced.</p></body></html>`,
 			"lorem ipsum",
 		},
+		{
+			// A claim split across inline markup still reads as one block, so
+			// a placeholder wrapped in <strong> is still caught.
+			"placeholder spanning inline markup",
+			`<html><body><p>Brought to you by <strong>[Company</strong> Ltd].</p></body></html>`,
+			"[company",
+		},
+		{
+			// "<no value>" is markup-shaped and parses away — it must be
+			// caught on the raw document, or the pattern is silently inert.
+			"unrendered no-value artifact in raw html",
+			`<html><body><p>Rates from <no value> percent.</p></body></html>`,
+			"<no value>",
+		},
 	}
 
 	for _, tc := range cases {
@@ -111,18 +138,5 @@ func TestPlaceholderScanStillCatchesProse(t *testing.T) {
 			}
 			t.Fatalf("real placeholder %q not caught; got %v", tc.want, got)
 		})
-	}
-}
-
-func TestStripScriptAndStyleKeepsSurroundingProse(t *testing.T) {
-	in := `<p>before</p><script type="text/javascript">gone()</script><p>after</p><style>.x{}</style><p>end</p>`
-	out := stripScriptAndStyle(in)
-	for _, want := range []string{"before", "after", "end"} {
-		if !strings.Contains(out, want) {
-			t.Fatalf("stripping removed surrounding prose %q: %s", want, out)
-		}
-	}
-	if strings.Contains(out, "gone()") || strings.Contains(out, ".x{}") {
-		t.Fatalf("script/style body survived stripping: %s", out)
 	}
 }

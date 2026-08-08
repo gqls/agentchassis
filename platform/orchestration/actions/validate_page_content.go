@@ -167,20 +167,6 @@ var placeholderPatterns = []struct {
 var templateVarRegex = regexp.MustCompile(`\{\{[\s]*[\.\w]+[\s]*\}\}`)
 var templateBlockRegex = regexp.MustCompile(`\{\{[\s]*(range|if|with|end|else|template|block|define)[\s]`)
 
-// Script and style bodies are excluded from the placeholder scan: the bracket
-// patterns match idiomatic code — querySelector('input[name=...]') attribute
-// selectors, fields[name] indexing, ([name, val]) destructuring — and each hit
-// is a blocker, so a correct self-contained tool fails validation outright
-// (three convictions on two domains, 2026-08-05). Same false-positive class
-// that got bare "placeholder" removed from the list. The other checks
-// (unrendered templates, contamination, links) still see the full HTML.
-var scriptBlockRegex = regexp.MustCompile(`(?is)<script\b[^>]*>.*?</script>`)
-var styleBlockRegex = regexp.MustCompile(`(?is)<style\b[^>]*>.*?</style>`)
-
-func stripScriptAndStyle(html string) string {
-	html = scriptBlockRegex.ReplaceAllString(html, "")
-	return styleBlockRegex.ReplaceAllString(html, "")
-}
 
 // ============================================================================
 // Main action
@@ -718,23 +704,50 @@ func writeLinkRepairLog(
 // ============================================================================
 
 func checkPlaceholderPatterns(html string) []ValidationIssue {
-	// Scan prose only — see stripScriptAndStyle. Snippet offsets are taken
-	// against the stripped string so location context stays aligned.
-	stripped := stripScriptAndStyle(html)
-	lower := strings.ToLower(stripped)
+	// These are PROSE patterns, so they scan assertion text, not raw HTML.
+	// Substring-matching the whole artefact convicted idiomatic code — the
+	// bracket entries are substrings of querySelector('input[name=...]'),
+	// fields[name] indexing and ([name, val]) destructuring (three blocker
+	// convictions on two domains, 2026-08-05; bugs_open/218) — the same
+	// false-positive class that got bare "placeholder" removed from the list.
+	// ExtractAssertionText is the claims checks' existing prose scope (real
+	// HTML parse; script/style/code/pre/head and attributes excluded), reused
+	// here rather than a second stripper.
+	//
+	// The one non-prose pattern, "<no value>", parses away as markup and so
+	// must keep scanning the raw document — moving it to assertion text would
+	// make it silently inert.
 	var issues []ValidationIssue
 
+	if idx := strings.Index(strings.ToLower(html), "<no value>"); idx >= 0 {
+		issues = append(issues, ValidationIssue{
+			Type:        "placeholder_text",
+			Category:    "placeholder",
+			Severity:    "blocker",
+			Location:    extractSnippet(html, idx, 80),
+			Value:       "<no value>",
+			Description: "Found placeholder text '<no value>' (unrendered template variable)",
+		})
+	}
+
+	blocks := datahelpers.ExtractAssertionText(html)
 	for _, p := range placeholderPatterns {
-		idx := strings.Index(lower, p.Pattern)
-		if idx >= 0 {
-			issues = append(issues, ValidationIssue{
-				Type:        "placeholder_text",
-				Category:    "placeholder",
-				Severity:    "blocker",
-				Location:    extractSnippet(stripped, idx, 80),
-				Value:       p.Pattern,
-				Description: fmt.Sprintf("Found placeholder text '%s' (%s)", p.Pattern, p.Label),
-			})
+		if p.Pattern == "<no value>" {
+			continue
+		}
+		for _, block := range blocks {
+			lower := strings.ToLower(block)
+			if idx := strings.Index(lower, p.Pattern); idx >= 0 {
+				issues = append(issues, ValidationIssue{
+					Type:        "placeholder_text",
+					Category:    "placeholder",
+					Severity:    "blocker",
+					Location:    extractSnippet(block, idx, 80),
+					Value:       p.Pattern,
+					Description: fmt.Sprintf("Found placeholder text '%s' (%s)", p.Pattern, p.Label),
+				})
+				break
+			}
 		}
 	}
 	return issues
