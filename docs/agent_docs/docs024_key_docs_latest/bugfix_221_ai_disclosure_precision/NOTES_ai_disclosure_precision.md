@@ -103,3 +103,107 @@ matching substring was read in its rendered context, and the negative control
 (four rows that must NOT convict) came out negative. There is no cross-cutting
 structural claim here — the cross-cutting half of this check was `bugs_open/219`
 (scope), which is fixed and whose fix these same four rows demonstrate working.
+
+## 2026-08-08 — sizing the real-world damage, and a second misstep of my own
+
+**Question:** has this check actually blocked anything, and has the `as an ai`
+arm ever fired?
+
+### MISSTEP — I searched `agent_error_log.error_message` and got 0, which would have read as "this check has never fired at all"
+
+First query filtered `error_message ILIKE '%meta_commentary%'` (plus two other
+spellings) over all history: **0 rows**. Written up carelessly that becomes
+"the meta-commentary check has never blocked a page", which is **false** — it
+blocked three page builds on loancalculator.co.uk on 2026-08-08, which is the
+whole of `bugs_open/219`.
+
+The messages carry no detail at all:
+
+```
+step validate_content failed: … content validation failed: 1 blockers, 0 errors
+Validation produced 1 blocker(s) and 0 error(s); see context.issues for detail
+```
+
+The message literally *tells you* where the detail is, and I had searched the
+one column that structurally cannot contain it. This is
+`a-grep-proves-absence-only-for-its-spelling`, with the aggravation that the
+right place was named in the text I was reading.
+
+**The check that works, and is now the RUNBOOK's:** enumerate the jsonb rather
+than pattern-match a rendered string —
+
+```sql
+SELECT iss->>'category' AS category, iss->>'value' AS value, count(*) AS hits,
+       count(DISTINCT domain) AS domains, max(occurred_at)::date AS newest
+FROM agent_error_log ael, jsonb_array_elements(ael.context->'issues') iss
+WHERE ael.occurred_at > now() - interval '14 days'
+GROUP BY 1,2 ORDER BY 3 DESC;
+```
+
+(Deliberately NOT `context::text LIKE '%"category":"meta_commentary"%'` — jsonb
+renders a space after the colon, so that form matches nothing and returns a
+confident zero.)
+
+### What it says [MEASURED 2026-08-08, retention floor 2026-07-09, 19,493 rows]
+
+```
+ category        | value        | hits | domains | newest
+ meta_commentary | input_schema |    6 |       1 | 2026-08-08
+ …
+ (no meta_commentary row with value 'as an ai', in the whole retained window)
+```
+
+Two findings, and they point opposite ways:
+
+1. **The `as an ai` arm has never fired in production.** 221 is a **latent
+   trap, not an active fire** — exactly as the bug file states, and now
+   independently confirmed from the error log rather than from the page census.
+   Nobody has requested a rebuild of webdesign.co.uk `tools-index` since the
+   copy landed.
+2. **The check itself is not theoretical.** The same function's `input_schema`
+   arm blocked **6** builds on 1 domain, most recently the day of filing. This
+   check demonstrably stops page builds when it matches. So the consequence
+   claimed for 221 — "that page cannot be rebuilt" — is not an inference from
+   reading the severity constant; the same code path has already done it to
+   somebody else's pages, six times, this week.
+
+**[ASSUMED] Not established:** that no page was *silently* abandoned earlier
+than the retention floor (2026-07-09). The window is 30 days of rows but the
+check's scope changed on 2026-08-08 (219), so pre-219 counts measure a
+different function and are not comparable.
+
+### The exposed surface, because "one page" understates it [MEASURED 2026-08-08]
+
+```sql
+SELECT count(*) FILTER (WHERE pc.rendered_html ~* '\mAI\M')            AS rows_mentioning_ai,
+       count(DISTINCT s.domain) FILTER (WHERE pc.rendered_html ~* '\mAI\M') AS domains_mentioning_ai,
+       count(*) FILTER (WHERE pc.rendered_html ~* 'as an AI')          AS as_an_ai
+FROM page_components pc JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
+WHERE p.status='active';
+```
+```
+ rows_mentioning_ai | domains_mentioning_ai | as_an_ai
+                283 |                    10 |        1
+```
+
+**283 component rows across 10 domains already use "AI" as a word** (word-boundary
+match, so `said`/`plain` do not count). One of them has so far landed on the
+five-character sequence that convicts. The fix is therefore not "unblock one
+page": it is removing a trap that 283 rows of existing copy, and every future
+sentence written about AI tooling on ten sites, can step on. The estate's own
+subject matter is what loads the mine.
+
+### Where the hit sits in the extractor's output — checked, not assumed
+
+Ran `ExtractAssertionText + headProseBlocks` over the offending artefact: **154
+blocks**, and the conviction is block 134, which is exactly the paragraph text
+and nothing else:
+
+```
+block[134] (len 45): "LocalBusiness schema, as an AI-builder prompt"
+```
+
+Useful for the fix design: blocks are **per-element prose units**, not the whole
+document, so a pattern needing first-person context has a sentence-sized window
+to work in — the disclosure form (`As an AI, I cannot…`) and the noun-phrase form
+(`as an AI-builder prompt`) arrive as separate blocks, not as one haystack.

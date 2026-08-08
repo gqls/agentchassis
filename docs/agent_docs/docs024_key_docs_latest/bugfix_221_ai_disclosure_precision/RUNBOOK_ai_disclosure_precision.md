@@ -112,3 +112,27 @@ pipeline shipped *something*; the negative one proves it shipped *yours*
 (`bugs_open/153`). ⚠ The fleet can be MIXED — the `agent-chassis` deployment may
 have rolled while spawned agent pods still run the old image (loancalculator
 lane, 2026-08-08). Grep the pod that will actually execute the step.
+
+## 5. Has this check ever actually blocked a build?
+
+```sql
+SELECT iss->>'category' AS category, iss->>'value' AS value, count(*) AS hits,
+       count(DISTINCT domain) AS domains, max(occurred_at)::date AS newest
+FROM agent_error_log ael, jsonb_array_elements(ael.context->'issues') iss
+WHERE ael.occurred_at > now() - interval '14 days'
+GROUP BY 1,2 ORDER BY 3 DESC;
+```
+
+⚠ **Do NOT search `error_message`.** It carries no detail — the whole of it is
+*"content validation failed: 1 blockers, 0 errors"* and *"see context.issues for
+detail"*. Every spelling of `%meta_commentary%` against that column returns **0**,
+fleet-wide, all history, and reads as "this check has never fired" when it had
+blocked six builds that week. Cost this lane a near-miss on 2026-08-08.
+
+⚠ **Do NOT use `context::text LIKE '%"category":"meta_commentary"%'`.** jsonb
+renders a **space** after the colon, so that form matches nothing and hands you a
+confident zero. Enumerate with `jsonb_array_elements` and read the keys.
+
+⚠ **`agent_error_log` has no `created_at`** — the column is `occurred_at`. And
+`pages` has no `deleted_at`. Both mistakes error loudly, which is the good case;
+the two above do not.
