@@ -181,3 +181,26 @@ is ever replayed from the seed, the dead key does not come back.
 
 The declined option — teaching the work-item writer to render templated captions — stays
 declined and recorded: one consumer, which has never run, is not demand.
+
+## 2026-08-08 (night) — the last unproven claim is now proven: the alias works in production
+
+The evening handoff left one thing owed: we had proven the fixed code was *in* the running
+system, but never actually *seen* it work. The difficulty was that all nine real agents that
+use the old key name ask for the same value the code would fall back to anyway — so watching
+them proves nothing either way. And the log line that would have settled it turns out to be
+unreachable: these pods produce so much debug output that the logs are overwritten within
+seconds — I measured a pod whose oldest surviving log line was less than half a second old.
+That explains why every earlier log search came back empty, and it is now written up as a
+trap for future sessions.
+
+So instead I ran a controlled experiment. I created a small throwaway agent — owned by this
+workstream, touching nobody else's — whose only job is to file one work item using the old
+key name with a value that is NOT the default. If the fix works, the item lands under that
+value; if it does not, it lands under the default. It landed under the right value, in
+production, three minutes after dispatch. The item was deliberately created in a cancelled
+state so nothing will ever act on it, and the throwaway agent has been switched off again.
+
+That completes the proof at every level: the code is in the binary, the declarations match
+the live configuration, and the behaviour has now been observed in production with an
+experiment that could have failed. The bug file stays open as you ruled, with the smaller
+deferred items listed at the end of it.

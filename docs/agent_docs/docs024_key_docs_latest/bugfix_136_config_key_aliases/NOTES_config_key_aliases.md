@@ -154,3 +154,69 @@ is the version to quote — §1's "the harm is not cosmetic" is superseded and s
 Both corrections went in *after* the council had my overstated version. The `guardian` seat
 found the same gap independently, from the submission alone, which is the argument for
 submitting before you are certain rather than after.
+
+## 2026-08-08 (late evening, cold-start session) — §9's "where do these executions log?" ANSWERED, and the answer kills log-sweeping as a witness
+
+The executions log exactly where they should: **stdout of an ephemeral per-agent pod**
+(`agent-<type>-<agent_id[:8]>-<hash>` — the tool-improver row of 21:18:16Z was filed from
+`agent-tool-improver-3f5db2ad-pqjn9`, which was still Running when I looked). The sweep in §9
+found nothing because **two independent mechanisms destroy the evidence within minutes**:
+
+1. **Container log rotation eats the lines within seconds.** That pod's retrievable log
+   *starts at 21:18:21.613Z* — five seconds AFTER the work-item row landed (21:18:16.17). The
+   chassis's `DEBUGaa` state dumps are so large (223 retrievable lines ≈ tens of MB) that the
+   rotation window during an active orchestration is measured in seconds. The
+   `create_rerender_item` execution WAS logged and was already rotated away by the first
+   opportunity to grep. A `--since=3h` sweep is theatre against a <1-minute retention.
+2. **`agent-job-cleanup` deletes Completed agent pods within minutes** (a CronJob, visible
+   completing every few minutes), so for short-lived carriers the pod itself is gone. Measured
+   live: the domain cascade ran classifier→exemplar→strategist→briefing 22:09→22:17Z, filing
+   four carrier rows, and at 22:18:13Z **zero** of those pods existed.
+
+So §9's option 1 (find the logs) is answered and closed: the logs exist, and no after-the-fact
+sweep can reach them. A 5s polling watcher over carrier pods is armed this session as a
+belt-and-braces (`alias_witness_watcher.sh` in the session scratchpad), but rotation can
+outrun even that during a dump-heavy step.
+
+## 2026-08-08 (late evening) — the deterministic witness, designed and fired BEFORE reading the result
+
+§9's option 2 (edit a live carrier to `item_domain: "content"`) touches another lane's agent
+and risks a real row landing outside `pipeline='build'`, which `countDispatchableWorkItems`
+and the stale-item reaper DO filter on. Instead: a **one-shot agent definition I own**
+(`alias-witness-136`, category `test`), whose single `create_work_item` step carries ONLY the
+deprecated `item_domain` key with the NON-default value `content`, filing an item that is
+**born `status='cancelled'`** — outside `idx_swi_dedup`'s partial index, outside every
+dispatcher's status predicate, and NOT `detected` (which `triage_detect_items` launders to
+`pipeline='build'` — 090 trigger header, note 4). Anchored to `system.internal`, the 090
+pseudo-site. No LLM steps, no credits.
+
+**The disconfirming observation, written down before firing** (the rule this lane's third
+wrong call bought): row `pipeline='content'` → alias honoured at runtime; row
+`pipeline='build'` → the alias fell through to the default in production — each outcome
+refutes the other, unlike every observation available from the nine live carriers, whose
+configured value equals the default.
+
+Fired 2026-08-08 ~22:40Z, `WITNESS_CORR=6e89cad7-29e1-4a9d-9d9c-c0a66b79d0cb`, publish
+confirmed by the `PUBLISH_OK` marker pattern (payload in the container COMMAND — the kcat
+stdin trap). Dispatch queues behind the shared generic lane: budget ~30 min. Cleanup owed
+after the read: deactivate the definition; the witness row stays (it is the evidence and is
+inert).
+
+## 2026-08-08 (night) — the witness landed: pipeline='content'. WITNESSED.
+
+Row `1d46cf49` at 22:25:39Z: `pipeline='content'`, `status='cancelled'`,
+`item_key=alias_witness_136_eac60db8`. The config carried only `item_domain: "content"`;
+the default is `"build"`; the row reads `content`. The alias is honoured at runtime in
+production on v1.0.1268. Orchestration `8a46f229` COMPLETED on
+`agent-chassis-778b7c77c7-rd27g` — the generic lane runs on the long-lived chassis
+deployment pods, not an ephemeral pod, which is worth knowing for the next dispatch trace.
+Dispatch→row ~3 minutes (quiet lane; budget 30 anyway).
+
+The corroborating warn line was already unreachable ~2 minutes later on that same still-
+running pod — measured the retention: oldest retrievable line was **0.4 seconds old**. That
+number closes §9's log question permanently and became a LANDMINES entry.
+
+Cleanup done: definition `alias-witness-136` deactivated + soft-deleted 22:27:46Z
+(`remaining_active=0` verified). The witness row stays — born-terminal, no consumer, it is
+the evidence. Bug file §11 written. The one thing the 2026-08-08 evening handoff said was
+owed is delivered.

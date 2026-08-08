@@ -692,3 +692,53 @@ mislabelled pipeline rows), 3 (`plan_sections.domain`), 4 (`create_work_item` fu
 note `spec_fields` remains dead and remains listed there), and 5 (definition renames /
 `resolveAgentTypeForSpawn` convergence candidate) stand. The runtime witness question from
 §9 also stands.
+
+### 11. 2026-08-08 (night) — RUNTIME WITNESSED: the alias is honoured in production. §9's open question is closed, and so is §9's log question
+
+**The observation** (2026-08-08 22:25:39Z, production, chassis v1.0.1268):
+
+```
+site_work_items 1d46cf49-eddd-4817-a1ec-958a5e2f490b
+  item_type = alias_witness_136   item_key = alias_witness_136_eac60db8
+  pipeline  = content             status   = cancelled
+```
+
+A one-shot agent definition (`alias-witness-136`, category `test`, owned by this lane)
+carried a single `create_work_item` step whose config held ONLY the deprecated key —
+`item_domain: "content"` — no canonical `item_pipeline`, hardcoded default `"build"`. The
+row landed as **`pipeline='content'`**: the value could only have come through
+`DeprecatedConfigKeys` → `ResolveConfigSetting`. Had the alias fallen through to the
+default, the row would read `build`. **The observation could have come out otherwise; it
+did not.** Orchestration `8a46f229` COMPLETED on `agent-chassis-778b7c77c7-rd27g`;
+dispatch → row was ~3 minutes on a quiet generic lane.
+
+Design notes, so the next witness costs minutes not hours: the filed row is **born
+`status='cancelled'`** — outside `idx_swi_dedup`'s partial index and every dispatcher's
+status predicate, and deliberately NOT `detected`, which `triage_detect_items` rewrites to
+`pipeline='build'` (090 trigger header, note 4 — that laundering would have destroyed the
+witness value on its way through). Anchored to `system.internal`. No LLM steps. The
+definition is deactivated + soft-deleted (`deleted_at` 22:27:46Z); the row stays as the
+evidence and is inert. Full recipe in the lane RUNBOOK.
+
+**§9's question 1 ("where do these executions log?") is also answered, and closed as a
+dead end**: they log to pod stdout exactly as expected — and the retrievable window on an
+active chassis pod is **under one second** (measured 22:27:17Z: oldest retrievable line
+0.4s old; the coordinator's `DEBUGaa` state dumps rotate the file within seconds). The
+witness run's own warn line was unreachable ~2 minutes after it fired, on a pod that was
+still running. Ephemeral carrier pods are additionally deleted by `agent-job-cleanup`
+within minutes. So §9's zero-hit sweep was measuring log retention, not alias behaviour —
+now a LANDMINES entry ("chassis pod retrievable log holds less than a second").
+
+**Honest state, updated from §9's table:**
+
+| claim | status |
+|---|---|
+| the binary carries the change | **PROVEN** (§9 — pod-grep, both controls, across the roll) |
+| the declarations join real live definitions | **PROVEN** (§8 — audit UNKNOWN KEYS 4 → 1) |
+| the alias is honoured at runtime | **WITNESSED** — this section; discriminating value, production, v1.0.1268 |
+| `run_discovery_checks` / `triage_detected_items` behaviour | UNWITNESSED — quiesced by owner ruling; unchanged, and the mechanism is the same helper the witness just exercised |
+
+**Still owed on this file** (§5 as amended by §10): items 1 (four mislabelled rows), 3
+(`plan_sections.domain`), 4 (`create_work_item` full opt-in), 5 (convergence candidates) —
+all deliberately deferred, none blocking. The fix itself is now proven at every layer this
+estate can observe: binary, declarations, runtime.

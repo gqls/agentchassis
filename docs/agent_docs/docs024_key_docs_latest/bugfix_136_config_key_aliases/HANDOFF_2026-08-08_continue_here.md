@@ -88,3 +88,23 @@ whole reason two of the three renames never got a shim.
   deploy proof, and pair a new-string grep with a positive control — source-uniqueness proves
   a string *would be* new, never that it is spelled right in the binary.
 - **`go build` at HEAD vs `go test` in the tree is not a comparison** — `go build` skips vet.
+
+---
+
+## UPDATE 2026-08-08 (night, next session) — the one live thing owed above is DELIVERED
+
+The runtime behaviour is **WITNESSED**: `bugs_open/136` §11. Neither of the two
+observations proposed above was the route —
+
+1. "Find where `create_work_item` logs" is answered and is a dead end: the executions log
+   to pod stdout, and an active chassis pod retains **<1 second** of log (measured 0.4s;
+   LANDMINES entry added). The §9 sweep was measuring retention, not behaviour.
+2. Editing a live carrier was not needed. A throwaway lane-owned definition
+   (`alias-witness-136`) filed a born-`cancelled` item with `item_domain: "content"` —
+   non-default, so the observation could come out otherwise — and the row landed
+   `pipeline='content'` at 22:25:39Z on v1.0.1268. Recipe in the lane RUNBOOK; definition
+   deactivated after the run.
+
+The proven/unproven table above should now read: runtime = **WITNESSED**. Remaining items
+are §5-as-amended-by-§10 only (all deliberately deferred; the highest-value one,
+`summary_template`, was resolved by owner decision A+D in §10).

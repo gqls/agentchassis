@@ -144,3 +144,43 @@ ORDER BY created_at;
 **Gotcha:** budget ~30 minutes, not ~2 — the council itself takes 2–5 but the dispatch queues
 behind the fleet. A missing row is latency, not a dropped dispatch; retrying costs a
 duplicate round.
+
+## Witnessing an alias at runtime (the recipe that finally worked, 2026-08-08)
+
+Log-sweeping CANNOT witness it — an active chassis pod retains **<1s** of log (measured;
+see the LANDMINES entry "chassis pod's retrievable log holds less than a second"), and
+`agent-job-cleanup` deletes Completed carrier pods within minutes. The witness must be a
+**DB row whose value could come out otherwise**.
+
+Recipe: a throwaway agent definition whose single `create_work_item` step config carries
+ONLY the deprecated key with a NON-default value, filing a born-`cancelled` item on
+`system.internal`:
+
+```sql
+-- the step config that discriminates (item_pipeline absent, default is "build"):
+--   "item_domain": "content", "status": "cancelled", "item_type": "alias_witness_136",
+--   "handler_agent": "none", "site_id": "input_data.site_id"
+```
+
+then one orchestrate publish to `system.agent.generic.requests` (payload in the container
+COMMAND with a `PUBLISH_OK` marker — the kcat stdin trap), then read the row:
+
+```sql
+SELECT pipeline, status FROM site_work_items WHERE item_type='alias_witness_136';
+-- content → alias honoured; build → alias fell through to the default
+```
+
+Working scripts (worked first time, ~3 min dispatch→row on a quiet lane):
+`witness_136_fire.sh` / `witness_136_poll.sh`, preserved in the session scratchpad and
+reproduced in full in `bugs_open/136` §11's commit. Clean up: `UPDATE agent_definitions
+SET is_active=false, deleted_at=now() WHERE type='alias-witness-136'` — the row stays,
+it IS the evidence.
+
+**Gotcha 1:** the filed row must be born `cancelled`, NOT `detected` — `triage_detect_items`
+REWRITES `detected` rows to `pipeline='build'` with no pipeline filter, which would destroy
+the witness value in a way that reads exactly like the alias failing.
+**Gotcha 2:** the witness value must differ from the hardcoded default. All nine live
+carriers set `"build"` = the default, which is why no live execution can ever witness this
+(§9's wrong call).
+**Gotcha 3:** find the run by payload, not the printed orchestration id:
+`WHERE collected_data->'input_data'->>'witness_marker' = '<uuid you sent>'`.
