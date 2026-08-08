@@ -344,3 +344,64 @@ same absent-then-present pair the prior session's handoff asked for.**
 
 **Everything else in this workstream is closed.** The only open thread is
 reading the round-2 verdict once it lands.
+
+## 2026-08-08 ~23:35 BST — verdict read: APPROVED, 3 advisory objections, all checked
+
+```sql
+SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
+ WHERE correlation_id='aa2d0d62-4aba-480e-aedc-8be264d53b01' AND kind='council_report';
+-- 2026-08-08 22:16:21 | approved
+```
+11 reviewers, 6 abstained, 0 unreadable, decided "approved with 3 advisory
+objection(s) — none high-severity". 8 approved outright (`reuse_agent`,
+`adoption_guardian`, `improvement_guardian`, `debug_historian`, `constitution`,
+`mission`, `prior_art_librarian`, `architecture` — architecture explicitly
+scored it `point_fix`, not `needs_rfc`, and named the counterfactual cost of
+NOT extracting the shared primitive). 3 objected, all checked rather than
+just noted:
+
+1. **`editquality`, medium** — the plan's own risk text flags the
+   `declPattern.qualGroup` indices as "easy to get backwards" and asks the
+   reviewer to confirm rather than asserting it. **Checked:** `T-3`
+   (`TestDetect_NegatorInsideMatchSpan_NotGated`) exercises exactly the two
+   regexes whose qualifier sits in the second group and passes — a backwards
+   index would make that test fail (the guard would scan from the wrong
+   submatch and never see the negator). Confirmed correct by the test that
+   was already there, not by re-reading the regex.
+2. **`editquality` low + `debug_historian` low-severity note** — mutation
+   evidence came from a `git archive HEAD` extraction into the shared tmpfs
+   scratchpad, which has a documented silent-degrade failure mode. **Checked
+   by re-reasoning about what a corrupted extraction would have produced**:
+   the mutation run showed a PRECISE, predicted differential pass/fail
+   pattern across three separate mutations (A/B/control), including one
+   informative deviation from the plan's own prediction that had a coherent
+   explanation (the PII arm's independence) — a silently degraded archive
+   would far more likely have produced compile failures or incoherent
+   results, not a result matching the prediction in that much detail. Not
+   re-run; judged sufficient given the specificity of the original result.
+3. **`guardian`, medium** — confirm no third caller of `negatedClaimMatch`
+   exists beyond the two named. **Checked:**
+   `grep -rn "negatedClaimMatch" platform/ --include=*.go` — exactly the two
+   call sites claimed (`claims.go:494`, `claims_attributed.go:192`), plus
+   comments. No third caller.
+4. **`guardian`, low** — this exact mechanism convicted a false positive
+   twice; has council reviewed a prior fix attempt at this site? **Checked:**
+   only one prior council interaction ever touched
+   `check_tool_fabrication_action.go` — correlation `8eef369f` from
+   2026-07-21 (two REVISE rounds), which is the ORIGINAL bug-020 gate build,
+   predating bug 222 entirely. No prior attempt at THIS false-positive class
+   was ever submitted before mine.
+5. **`compliance`, medium — the one real correction, not just a check.** The
+   risk register's closing line overclaimed the gate's post-fix guarantee
+   ("every failure mode routes to human review, never to deploying a
+   fabrication") in a way R1 itself contradicts: a fabrication that escapes
+   both this guard and the untouched Tier B/PII arm ships **unreviewed**, not
+   merely "not deployed [as a review item]" — there is no backstop named for
+   that path. Reworded in `PLAN` §7 and `CLM-020`'s register entry the same
+   evening, both marked as council-round-2 corrections rather than silently
+   edited.
+
+**Committing with `Council-Reviewed: aa2d0d62-4aba-480e-aedc-8be264d53b01`.**
+No code changes from this round — only the two documentation corrections
+above (PLAN §7, CLM-020), which are docs-only and don't touch anything
+already pod-verified live.

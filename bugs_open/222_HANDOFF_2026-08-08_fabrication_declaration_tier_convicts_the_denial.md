@@ -2,9 +2,11 @@
 
 **Filed 2026-08-08 by the mortgagecalculator adoption lane.** Status: FIXED +
 LIVE (chassis v1.0.1269, 2026-08-08 ~23:10 BST, pod-verified both replicas —
-see "Fix landed" section below). Council round 2 in flight, round 1 blocked
-on a fleet-wide credit outage, not on this submission. **Kept in `bugs_open/`
-per owner direction (2026-08-06)** — do not move to `bugs_closed/`.
+see "Fix landed" section below). **Council round 2 APPROVED** (3 advisory
+objections, none high-severity, all checked — see NOTES for the full
+disposition; round 1 was blocked fleet-wide on a credit outage, not a finding
+against this submission). **Kept in `bugs_open/` per owner direction
+(2026-08-06)** — do not move to `bugs_closed/`.
 Severity: medium — it discards paid-for, correct recreations and files
 `needs_human_review` items whose review burden lands on the owner; it does not
 damage live pages (the artefact is refused, nothing is overwritten).

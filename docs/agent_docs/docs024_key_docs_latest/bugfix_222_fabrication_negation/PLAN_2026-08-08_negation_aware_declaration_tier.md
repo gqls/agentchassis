@@ -148,7 +148,19 @@ All in `check_tool_fabrication_action_test.go` unless noted.
 - **R1 — a defensively-phrased real fabrication is now Tier A-blind.** Accepted: Tier B is unaffected (early return only fires on non-empty `declSignals`) and the vetcomp incident carries four independent Tier B signals plus corroboration; the synthetic-PII arm is untouched (proven by Mutation B). Residual: a fabrication with a defensive comment AND no PRNG/builder/fragment/fetch signature AND <15 literal records — small, and Tier A was never the sole defence against it.
 - **R2 — vocabulary drifts wider over time, quietly disarming Tier A.** Mitigated structurally: DELIBERATELY ABSENT block with counter-examples, T-2 as a string-global tripwire, Mutation B on record, suppressed matches surfaced in `Signals`.
 - **R3 — claims-layer regression via the extraction.** Zero by construction (§2: identical-body wrapper, unexported vocabulary), proven by T-0.
-- **R4 — false-positive direction preserved.** Every failure mode routes to `needs_human_review`, never to deploying a fabrication; the guard can only *remove* convictions; the fail-safe empty-input branch is untouched.
+- **R4 — false-positive direction preserved, WORDED CORRECTLY (council round 2,
+  `compliance`, medium — fixed here rather than in code).** The original text
+  here read "every failure mode routes to `needs_human_review`, never to
+  deploying a fabrication" — **overclaimed**, and R1 contradicts it: a
+  fabrication that escapes this guard AND the untouched Tier B/PII arm has no
+  other backstop named in this plan, and ships *without* review, not merely
+  "never deployed". Correct statement: **this guard can only *remove*
+  convictions, never add one — a false suppression here is silent (no review
+  item filed for that match), and the only floor under it is Tier B/PII,
+  which is unaffected by this change (proven by mutation B) but is not
+  exhaustive either.** The fail-safe empty-input branch (`tier:
+  "uninspectable"`) is untouched and remains the one path that is genuinely
+  fail-closed.
 
 **Out of scope, noted not folded in:** `invent\w+` matches "inventory"; `realistic` has no left `\b` (matches "unrealistic"). Pre-existing precision defects, unrelated to negation — file separately if they ever bite.
 
