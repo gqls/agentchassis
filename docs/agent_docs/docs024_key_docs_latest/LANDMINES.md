@@ -6441,3 +6441,33 @@ holds the **exact bytes** that failed, for ~24h before pruning. Run the changed
 function over those, not over a fixture you composed — a fixture you write to
 exercise a rule will exercise it. The old-code half of the control pair is the
 production row's own `error` text, which is stronger than any local replica.
+
+---
+
+### The work-item dispatcher hands EVERY handler `spec.page_name` — an item filed against a different page (its `page_id` column) is acted on at the WRONG page, successfully
+
+- **footprint:** `platform/orchestration/actions/discovery_checks/`, `build-dispatch-loop`, `site_work_items.page_id`, `input_mapping`
+- **added:** 2026-08-08, from `bugs_open/220` (found by the `bugs_open/206` lane)
+
+If you write or modify a discovery check whose remediation should act on a page OTHER
+than the one the finding lives on (an unbuilt link's TARGET, a sibling, an index over
+its members), setting `WorkItemSpec.PageID` to that other page does **nothing at
+dispatch time**: `build-dispatch-loop`'s `call_handler` maps `"page_name?":
+"current_item.spec.page_name"` and reads no routing column. Your handler will receive
+the FINDING's page, rebuild it, succeed, and `mark_complete` will close the item.
+The wrong result is a green row plus a real (irrelevant) deploy — nothing errors,
+and dedup's terminal-status rule re-mints the item next pass, forever.
+
+**the check:** before trusting a cross-page item type end-to-end, read the live
+mapping —
+
+```sql
+SELECT default_config #> '{workflow,steps,process_item,config,sub_workflow,steps,call_handler,config,input_mapping}'
+FROM agent_definitions WHERE type='build-dispatch-loop' AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+```
+
+— and if your actionable page ≠ `spec.page_name`, either set `spec.page_name` to the
+TARGET's name in the check (the working workaround), or fix the mapping to honour
+`page_id` (the class fix, `bugs_open/220` candidates 1/3). Verify at the TARGET
+page's `pages.deployed_at`, never at the item's `status` or the handler's success
+payload.

@@ -11219,3 +11219,26 @@ sitting one key over in the same jsonb the whole time.
   riding the LLM's section entries is discarded by Pass B2 for every deployed
   page.** A "planner ignores X on existing pages" symptom should be checked
   against raw emission FIRST — the planner may be complying into a shredder.
+
+### A dispatcher's GENERIC input mapping quietly overrides an item's own routing columns — the check files against the TARGET, the dispatch acts on the CONTAINER, and success on the wrong object reads as success (`bugs_open/220`, 2026-08-08)
+
+`check_phantom_internal_links` deliberately files an `unbuilt_internal_link` work item
+against the never-deployed TARGET page (the item's `page_id` column; its spec even says
+"Do NOT rebuild the linking page"). But `build-dispatch-loop`'s `call_handler` maps
+`"page_name?": "current_item.spec.page_name"` — the page CONTAINING the link — and no
+mapping key reads `page_id`. Result, proven live on vetcomparison.uk (2026-08-02 items,
+re-demonstrated 2026-08-08): the homepage was rebuilt and redeployed, the handler
+returned success, `mark_complete` ran unconditionally, and the target stayed a 404.
+`complete` is terminal for dedup, so the next discovery pass re-mints the same key and
+repeats — a convergence-free loop where every cycle spends a real build on the wrong
+page and reports green.
+
+The transferable rules: (1) when a work item can name a page in TWO places (a routing
+column and a spec field), grep the dispatcher's input_mapping before assuming the
+check's filing choice survives dispatch — the mapping is the behaviour, the check's
+comment is prose; (2) an unconditional `mark_complete` after `call_handler` means
+"handler returned" not "the actionable thing changed" — for any item type whose fix
+target differs from its spec's page, verify against the TARGET's row (`deployed_at`),
+never the handler's own success payload. Same family as "a `complete` work item is not
+a repaired artefact" and `bugs_open/192`'s wrong-result-looks-right shape, one level
+up: here the WRONG OBJECT succeeded.
