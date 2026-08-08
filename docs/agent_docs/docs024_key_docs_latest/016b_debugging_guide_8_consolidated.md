@@ -11277,6 +11277,40 @@ never the handler's own success payload. Same family as "a `complete` work item 
 a repaired artefact" and `bugs_open/192`'s wrong-result-looks-right shape, one level
 up: here the WRONG OBJECT succeeded.
 
+### A verifier that consults ONE index reports "does not exist" for every class the index never ingested — and the absence is indistinguishable from a finding (`bugs_open/223`, 2026-08-08)
+
+The `landmine-verifier` (RFC_005 §3.2) checks a `LANDMINES.md` entry's footprints
+against `code_symbols`, which is **100% Go** — measured 2026-08-08, the extension
+census returns exactly ONE row: 5,755 symbols across 668 `.go` files, no `.py`, `.sh`,
+`.sql` or `.md`. A footprint naming a script, migration, table, command, config value
+or agent type therefore returns 0 rows from both halves of the lookup, and the verifier
+narrates that structural absence as non-existence. One verdict is **self-refuting**: it
+asserts the `landmine-verification` `doc_notes` category "does not exist anywhere in the
+indexed codebase" and is itself row 32 of that category, written by the very script
+chain it says has no footprint.
+
+Scope makes it the common case rather than an edge: **1,116 of 1,371 footprint rows
+(81%), spanning 284 of 288 entries**, can never resolve. Distinct from `bugs_closed/163`
+(the Go-symbol half — genuinely fixed and live on v1.0.1245): no repair to the query
+form can conjure a row class the index never held, which is why 163's fix is working and
+this still happens.
+
+The damage is not a missing tick. `STALE` is precisely the signal a later session uses
+to discount or delete an entry, so a blind verifier **argues for removing protection
+that is correct** — and a MIXED footprint list is the dangerous shape, because the
+confirmed Go half makes the whole verdict read as diligent.
+
+Transferable rules: (1) **a tool's silence about a class it cannot see must not be
+emitted in the same vocabulary as a negative finding** — classify the query first and
+return `NOT_CHECKABLE` where that is the truth, structurally barred from contributing to
+an adverse verdict; (2) before believing any automated "X does not exist", ask what
+corpus the checker consulted and whether X's *kind* is in it — `git ls-files`,
+`information_schema` and a row lookup each answer a class the symbol index cannot;
+(3) the corollary is worth as much as the warning — **the same verifier is trustworthy on
+the half it can see**, and on this occasion it caught a genuine backwards column-precedence
+error in the entry that motivated this file, by reading the function whose absence from my
+own passing check was the reason the error survived.
+
 ### A proximity detector convicts the DENIAL — and the prompt that forbids X makes the output mention X, so the gate's own instruction manufactures its false positives (`bugs_open/222`, 2026-08-08)
 
 The fabrication gate's declaration tier (`check_tool_fabrication_action.go:91`)

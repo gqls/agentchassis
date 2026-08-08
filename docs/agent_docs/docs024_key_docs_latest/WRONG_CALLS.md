@@ -23349,3 +23349,52 @@ bodies — when I had simply queried the column production does not use for thos
 Caught before it was written anywhere durable, by enumerating all five columns instead
 of one. `[The tell worth remembering]`: a result far more alarming than the bug you were
 looking for deserves a schema check before it deserves an incident.
+
+---
+
+## 2026-08-08 — I inherited "run it three times and require all three", and it would have certified a gate that leaks abuse 1 in 9. Six clean runs in a row came AFTER the failure.
+
+**Not a false claim I published — a false claim I was one ordering away from
+publishing**, which is why it belongs here rather than in a lane doc nobody else reads.
+
+**The rule.** The provocation-gate handoff, having discovered the LLM judge is
+stochastic, wrote the sensible-sounding remedy: *"Whoever declares this gate calibrated
+should run it at least three times and require all three, or state plainly that they did
+not."* I set out to satisfy exactly that.
+
+**What happened.** Nine rounds. The must-approve half scored 8 of 9 in every single
+round — genuinely stable. The must-REJECT half was clean in eight rounds and **leaked a
+pure-abuse candidate in round 3**. Rounds 4 through 9 were **six consecutive clean
+rounds**. Any three of them satisfies the rule in full.
+
+**So the arithmetic.** At the point estimate (1 leak in 9, so p≈0.11), the probability
+that three consecutive rounds are all clean is `(1-0.11)^3 ≈ 0.70`. **The protocol I was
+handed would have declared this gate calibrated about seven times in ten**, and the only
+reason I saw the fault is that it fell on round 3 rather than round 11. Had I run exactly
+the three rounds asked of me and stopped, I would have written "calibrated, three for
+three" and been wrong — with the evidence the rule specifies, fully complied with.
+
+**The transferable shape, and it is not "run more rounds".** *For a
+must-never-happen class, a count of clean runs is not a bound.* N passes constrains the
+rate only weakly and constrains the worst case not at all; it is evidence about the
+common case, and safety is a claim about the tail. Three greens on a stochastic gate is
+roughly as strong as one green on a deterministic one — which is to say, it tells you the
+thing is plumbed in, not that it is safe. The rule's real defect is that it converts an
+unbounded risk into a satisfiable checklist item, and a satisfied checklist reads as an
+answer.
+
+**The cheap check that would have caught it: run the rounds, then ask what a FAILING
+round would have looked like and whether your N could have contained one.** Nine rounds
+cost about seven minutes and 13 model calls each; the marginal cost of rounds 4-9 over
+rounds 1-3 was trivial next to the cost of certifying a gate that publishes abuse. And
+when a run DOES fail, the streak that follows it is not a retraction — I had six clean
+rounds after the leak and the leak is still real. **Do not let a later clean streak
+argue down an earlier observed failure**; the failure is a fact about the mechanism, and
+the streak is a fact about sampling.
+
+**What to do instead, when the class is must-never-happen:** move the decision off the
+stochastic path entirely (in this case a deterministic pre-judge check, which is how the
+same gate's party-politics rule works and has never varied in 9 rounds), and report the
+leak rate with an explicit `[UNMEASURED]` on the rate itself. One event establishes
+non-zero; it does not establish how often. Both halves of that sentence matter — the
+first stops it being dismissed, the second stops "1 in 9" being quoted as a figure.
