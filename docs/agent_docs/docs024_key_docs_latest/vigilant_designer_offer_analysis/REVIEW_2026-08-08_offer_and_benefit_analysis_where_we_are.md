@@ -118,11 +118,37 @@ read cannot see a shape change underneath it):
   visitor_type`. **Those are, almost exactly, the four "Q-fields" PLAN §B2 proposes to add.**
   So B2 is a *restoration of an abandoned shape*, not an invention — which is a much easier
   argument to make, and it means there is one live worked example to copy.
-- **`primary_model` does not exist in any strategy row (0/17).** PLAN §B1 says the prompt
+- ~~**`primary_model` does not exist in any strategy row (0/17).** PLAN §B1 says the prompt
   should "judge against `primary_model`" and the §B3 verifier is "strategy row with
   `primary_model`". **Both reference a field that has never been written.** This is a plan
-  defect, caught here rather than at build time; the equivalent live field is
-  `revenue_models` / `monetisation`. Whoever picks up B must fix the plan text first.
+  defect, caught here rather than at build time.~~
+
+  > **CORRECTED 2026-08-08, same session, before anything was built on it — the claim above
+  > is FALSE and the PLAN was right.** `primary_model` exists on **16 of 17** sites, nested
+  > at **`revenue_models.primary_model`**. I read `data->>'primary_model'` — the *top level*
+  > — got 17 empties, and called the field absent.
+  >
+  > **What caught it:** reading `domain-strategist`'s own prompt while writing up B2. Its
+  > output schema puts `primary_model` inside the `revenue_models` object, in plain sight.
+  > **The cheap check:** when a key is missing everywhere, read the WRITER's schema before
+  > concluding it is absent — a field that no row has is far more likely to be a field you
+  > are looking for in the wrong place. I had even enumerated the top-level keys and treated
+  > that as "enumerating the shape"; enumerating one level is still a path read.
+  > Logged in `WRONG_CALLS.md`.
+  >
+  > **The distribution is the real finding, and it is better than the error was:**
+  > `direct_business` 10, `saas_tools` 3, `display_advertising` 2, `lead_generation` 1,
+  > `sponsored_listings` 1, absent 1 (gaswholesalers, the old shape). So **10 of 17 live
+  > sites are recorded as the consultancy shape** — the one doc 028 names as *"a failure
+  > mode, not a safe fallback"* when the signal is absent.
+  >
+  > **What that number does and does not establish.** It does NOT show 10 misclassified
+  > sites: several genuinely are businesses (finetuning.uk, leopardessconsulting.co.uk,
+  > webdesign.uk, oufe.com). It DOES establish that `check_revenue_shape` (§B3) has a real
+  > population to run against and a testable question on day one — *does each site's CTA
+  > lexicon match its own recorded shape?* — and that the disconfirming answer ("all 17
+  > agree") was available and is not what came back. The candidates worth looking at first
+  > are the `direct_business` rows on domains that read as topic or tool, not brand.
 
 ### 4.4 `needs_strategy` is already a live type with a live producer — B3 would be the second
 
@@ -255,9 +281,13 @@ misunderstanding:
 - **Reconcile the scope.** Write the larger offer/benefit analyser as a `features_open/`
   entry in the owner's own framing, the way `018` was written for the design critic. It is
   the missing artefact and it is where other lanes will look.
-- **Fix the plan's two factual defects before anyone builds to it**: `primary_model` does not
-  exist (§4.3), and `needs_strategy` already has a producer (§4.4, with its register
-  obligation under the 2026-08-02 ruling).
+- ~~**Fix the plan's two factual defects before anyone builds to it**: `primary_model` does
+  not exist (§4.3), and `needs_strategy` already has a producer (§4.4).~~
+  **REVISED 2026-08-08 — there is ONE defect, not two.** The `primary_model` half was my own
+  error (§4.3 correction); the PLAN's text is correct and must NOT be "fixed". What stands:
+  the four Q-fields are a **restoration** of an abandoned shape with one live worked example,
+  not an invention (§4.3), and `needs_strategy` already has a producer, which carries a
+  register obligation under the 2026-08-02 ruling rather than an RFC (§4.4).
 - **Consider unblocking B1 + B2 now** — independent of Programme A, cheap, and each fixes a
   live problem rather than adding a new mechanism.
 - **Decide which council** the offer judgement belongs to (§6.2) — the answer may be

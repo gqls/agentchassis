@@ -192,9 +192,49 @@ calls at the time; lendzy only after the positioning lane's marker test passes.
 4. Two archetype-different sites structurally diverge after A4.1/A4.2 (section lists compared).
 5. One offer finding end-to-end on webdesign.co.uk + both planted-marker proofs.
 
+## Corrections to Programme B (2026-08-08, from `REVIEW_2026-08-08_…`)
+
+Marked here rather than edited into §B above, so the original text stays readable.
+
+- **B2's four Q-fields are a RESTORATION, not an invention.** `satisfaction_condition`,
+  `trust_threshold`, `recurring_value` and the money-flow field are the shape
+  **gaswholesalers.com** has carried since 2026-04-17 (its whole strategy spec is those six
+  keys — `satisfaction_condition, trust_threshold, recurring_value, monetisation,
+  primary_intent, visitor_type` — and it is the only site with it; the other 16 carry the
+  current 12-key shape). Copy the live row rather than designing from the plan text.
+- **`primary_model` is NOT a defect in this plan — do not "fix" §B1 or §B3.** A first pass of
+  the 08-08 review claimed the field had never been written and called those two lines
+  defective. **That was wrong**: it exists on **16 of 17** sites, nested at
+  `revenue_models.primary_model` (the shape `domain-strategist`'s own prompt declares). The
+  reviewer had read the top level only. Recorded because a future reader who finds only the
+  first claim would "correct" two correct lines. `WRONG_CALLS.md` 2026-08-08.
+  - Distribution, worth having: `direct_business` **10**, `saas_tools` 3,
+    `display_advertising` 2, `lead_generation` 1, `sponsored_listings` 1, absent 1. So §B3's
+    `check_revenue_shape` has a real population on day one.
+- **`needs_strategy` already has a live producer** (`vertical-exemplar-researcher` →
+  `domain-strategist`; 3 complete rows). §B3 makes this lane the **second** producer on an
+  existing `item_type` ⇒ the **owner ruling 2026-08-02 / RFC_010 §1** applies: no architecture
+  round, **but the concept-register entry must name the full producer set and state the shared
+  `item_key` shape**. Not optional.
+- **B2's hazard is verified three links deep, not one**: `domain-strategist.create_next_item`
+  (unconditional) → `needs_briefing` → `build-briefing-agent` → `needs_site_plan` →
+  `build-site-planner`. All 3 historical `needs_briefing` rows are greenfield builds, where
+  the chain is correct; it has never run against a deployed site.
+  [UNVERIFIED beyond the planner — `build-site-planner` files no further work items.]
+
 ## Decision log
 
 - **2026-08-02** — programme approved by the owner with the four decisions tabled above.
   Chosen over: re-enabling the sweep now (owner kept the 07-29 stop in force); offer-first
   ordering; single-model critic. Broad autonomy chosen over detail-auto/structure-review —
   the two stated exceptions are platform constraints, not authority limits.
+- **2026-08-08 — OWNER DECISION: B1 and B2 jump the queue.** This **partially reverses the
+  08-02 "designer first" build order**, for these two items only; the rest of Programme B
+  stays behind Programme A, and A's own order is unchanged. Reason: neither B1 nor B2 depends
+  on anything in Programme A, both are `agent_definitions` config (live on apply, no image
+  roll, no committed-but-inert window), and each fixes something already wrong — B1 because
+  `site-review-agent` asks the offer question ~16×/fortnight with no premise in context, B2
+  because a premise refresh on a deployed site would re-plan it. Taken after
+  `REVIEW_2026-08-08_…`; the owner also directed the wider scope be written up as
+  `features_open/030_FEATURE_offer_and_benefit_analyser.md`, which now holds the
+  correspondence surface, the council question and the open questions.

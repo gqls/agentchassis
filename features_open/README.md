@@ -58,7 +58,8 @@ hazard has materialised. A risk with no test is an opinion.
 | 020 | FEATURE | [Traffic probe on apis.uk — where is existing traffic coming from?](020_FEATURE_apis_uk_traffic_probe.md) — island-side, £0; stage 2 owner-gated |
 | 022 | FEATURE | [Rendered-text legibility guard for generated imagery](022_FEATURE_rendered_text_legibility_guard.md) — was `011` R2; carries the 60-asset legacy sweep |
 | 023 | FEATURE | [Infographic figures from the evidence base (+ where generated images stop)](023_FEATURE_infographic_figures_from_the_evidence_base.md) — was `011` R3/R4 |
+| 030 | FEATURE | [The offer and benefit analyser](030_FEATURE_offer_and_benefit_analyser.md) — Programme B of `vigilant_designer_offer_analysis`; **B1+B2 promoted by owner 2026-08-08**, rest specified-not-built |
 
 *(index gap: 014, 015, 017–019, and 024–029 exist on disk but were never indexed
 by their filing sessions. 016 and 021 added 2026-08-05 while correcting their
-stale status, above.)*
+stale status, above. 030 indexed by its filing session, 2026-08-08.)*

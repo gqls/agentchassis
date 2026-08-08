@@ -176,3 +176,60 @@ errors in the existing plan; and consider letting the two cheap offer pieces jum
 since neither depends on the designer track and one of them removes a live hazard — right
 now, any strategy refresh kicks off a full rebuild chain on a live site, which is why nobody
 dares run one.
+
+## 2026-08-08 (later) — one thing I told you this morning was wrong, and B1/B2 are now first
+
+Two things to record: a correction to my own entry above, and your decision.
+
+**The correction.** I told you the plan referred twice to a field called `primary_model` that
+had never existed on any site, and called that a defect to fix before anyone built against it.
+That was wrong. It exists on sixteen of the seventeen sites — it just sits one level down,
+inside the revenue-model record rather than at the top of it. The plan was right and those two
+lines must be left alone; if anyone "fixes" them on the strength of what I said this morning,
+they will break correct instructions.
+
+What caught it was reading the strategy agent's own prompt an hour later while writing up
+something else — its output format puts the field exactly where it turned out to be, in plain
+sight. Nothing about my failed query prompted the re-check; I went looking for something else
+and fell over the answer. The lesson is written down where it will be found again: when a
+field is missing from *every* row, that is a hypothesis about your query, not a finding about
+the data.
+
+The correction is worth more than the mistake was, because reading the field properly answered
+a better question. **Ten of our seventeen sites are recorded as "direct business" — the
+consultancy shape** — which is the exact shape the mission document calls a failure mode when
+the signal isn't there. That is not me saying ten sites are wrong; several of them plainly are
+businesses. It is me saying the revenue-shape check has something real to bite on from day one,
+and that the boring answer ("they all agree, nothing to see") was available and isn't what came
+back. The ones worth looking at first are the "direct business" sites whose domain name reads
+as a topic or a tool rather than a company.
+
+The other thing I flagged this morning still stands: the four fields the plan wants to add to
+each site's strategy — what would satisfy the visitor, what brings them back, how much trust
+the purchase needs, how the money flows — aren't new. gaswholesalers has had exactly those
+since April and is the only site that does. We're restoring something we dropped, and there's a
+live example to copy rather than a blank page.
+
+**Your decision, recorded: B1 and B2 jump the queue.** Both are now written into the plan's
+decision log, and the bigger version you described is written up properly as
+`features_open/030_FEATURE_offer_and_benefit_analyser.md` — that is the directory where
+"decided but not built" lives, and it is where another thread will look for it.
+
+Neither of the two depends on the designer work at all, and both are configuration rather than
+code, which means they go live the moment they're applied — no image build, and no period where
+they're written down but doing nothing.
+
+- **B1** stops the strategic review working blind. It already runs on every site sweep and
+  already asks good offer-shaped questions; it just isn't given the site's own strategy,
+  audience, identity or content direction to answer them against. It's one query.
+- **B2** makes it safe to refresh a site's premise at all. At the moment, running the strategy
+  agent unconditionally files a briefing job, which files a re-planning job. On a brand-new
+  site that chain is right, and it's the only way it has ever been run. On a live site it would
+  quietly re-plan it. That's why nobody has touched it, and it's why the check that would find
+  sites with a missing premise can't be switched on until this is gated.
+
+The one thing I'd keep in front of you as this grows: **we have no data on what visitors
+actually do.** Everything the offer analyser can say is "the site does or doesn't match the
+premise we wrote down for it". That's genuinely useful. It is not the same as knowing what
+converts, and an analyser that started sounding like it did would be the most confidently wrong
+thing we've built.
