@@ -6,7 +6,37 @@ fired** because of this. **OPEN, unowned.**
 
 ---
 
-## STATE 2026-08-07 — **LIVE on v1.0.1262 and pod-verified; the guard has NOT yet been observed to FIRE**
+## STATE 2026-08-08 — **FIXED, LIVE AND BEHAVIOURALLY PROVEN. The guard fired, twice, on real dispatches**
+
+Owner-authorised canary on **oufe.com** (empty build queue, re-verified at fire time; the one
+site excluded by the owner was not used). A **synthetic** `rebuild_policy='owned'` page —
+`zz-canary-208`, created at `deployed` so the operator path itself did the flagging — was put
+through `rebuild_pages.sh` end to end, **twice**:
+
+- **Both runs terminated `complete_no_pages`** (COMPLETED, not failed — pre-fix, an owned page
+  failed the whole workflow), with the guard's own observability fields reading
+  `pages_selected=0, owned_pages_excluded_count=1, excluded_names=["zz-canary-208"]`.
+- **Exactly one `owned_page_review` item across both runs** — `source='get_pages_to_build'`
+  (distinguishable from reconcile's pre-roll rows by that column), reason carrying
+  `OWNED_PAGE_GUARD`; the dedup key held on the re-dispatch.
+- **Nothing was built, committed or stamped:** 0 `page_components`, URL 404 before/during/after,
+  `updated_at` equal to the flag timestamp by identity after run 1, `build_status` still
+  `needs_rebuild` throughout, `deployed_at` NULL.
+- Cleanup complete with provenance: item cancelled (correlation ids in `result`), canary row
+  deleted, 0 residuals. Runs: `a00dac64-…` and `d09ad12e-…` (orch `ce935d87-…` for run 1).
+
+**Boundary of the proof:** this exercises Layer 1 (selection) + visibility + batch-survival
+through the real operator path. Layer 2 (`assemble_page`) is unreachable when selection is
+correct; it remains proven at unit level (mutations M2/M2b) and by the live row-identity
+predicate check. Negative control (guard-excludes-everything would look identical): cited from
+`TestAssemblePage_GenericPageStillAssembles` + the ai-agent-orchestration.com row-identity proof
+(3 generic kept, 2 owned dropped).
+
+**The file stays in `bugs_open/` per the owner ruling of 2026-08-06** (finished bugs stay put).
+Follow-ups live elsewhere: `bugs_open/210` (deploy stamp after a content-failure skip), and the
+unstarted class sweep for other DB-row guards sitting behind git commits.
+
+## STATE 2026-08-07 — LIVE on v1.0.1262 and pod-verified; at this point the guard had not yet been observed to fire
 
 Rolled this morning. Verified in the running binary, not at the tag: `OWNED_PAGE_GUARD` **3**,
 `OWNED_PAGE_GUARD_UNCHECKED` **1**, `include_owned` **1**; the string `f5710d6b0` **removed**

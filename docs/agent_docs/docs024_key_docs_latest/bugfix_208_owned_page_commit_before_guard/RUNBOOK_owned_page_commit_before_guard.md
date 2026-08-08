@@ -148,3 +148,32 @@ Then the *live* consumers of the action, with R1's nested walk. On 2026-08-06 th
 consumers and the function had 3 call sites; the third (`WriteBuildItemsAction`) was invisible to
 the action-level query and was found only by the compiler complaining about the new parameter.
 **A changed signature is a free consumer census — read the compiler errors as a list.**
+
+## R9 — The canary's assertion set (run after the dispatch terminates)
+
+One psql block, six assertions. `<FLAG_TS>` is the timestamp `flagPagesForRebuild` stamped when
+it set `needs_rebuild` — the flagging is upstream of the guard and legitimately moves
+`updated_at` once; the assertion is that nothing moves it AGAIN.
+
+```sql
+-- A2: exactly one review item, and from MY guard, not reconcile
+SELECT source, status, spec->>'refused_by', created_at FROM site_work_items
+WHERE item_key='owned_page_review:zz-canary-208';
+-- A4: row untouched since the flag; still needs_rebuild; never stamped deployed
+SELECT name, build_status, updated_at, deployed_at,
+       updated_at = '<FLAG_TS>'::timestamptz AS untouched_since_flag
+FROM pages WHERE name='zz-canary-208';
+-- A1+A5: the run's outcome + which terminal step it took
+SELECT status, current_step FROM orchestration_states WHERE orchestration_id='<REBUILD_ORCH>';
+-- A3a: no components were written
+SELECT count(*) AS must_be_0 FROM page_components pc JOIN pages p ON p.id=pc.page_id
+WHERE p.name='zz-canary-208';
+```
+
+A3b (nothing committed): `curl -sS -o /dev/null -w '%{http_code}' https://oufe.com/zz-canary-208.html`
+must stay **404** (it was 404 pre-test — measured, not assumed).
+A6 (dedup): re-dispatch, then re-run the first query — still exactly one row.
+
+**Gotcha:** `updated_at` moving at flag time is CORRECT and is not a guard failure —
+`flagPagesForRebuild` is a bare `UPDATE pages SET build_status='needs_rebuild'` and sits upstream
+of selection. Reading that first bump as "the guard touched my page" would be a false alarm.

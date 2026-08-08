@@ -161,3 +161,38 @@ fails, the system marks it "deployed" anyway, so the request to rebuild it quiet
 Same family of problem. I've written it up as bug 210 rather than folding it in, because fixing
 it changes how the whole fleet retries failed builds — that's a decision to take on purpose, not
 a tidy-up to slip into someone else's bug.
+
+## 2026-08-08 — the test ran, twice, and the guard held
+
+You gave the go-ahead, so I ran it — on oufe.com, whose build queue was empty, not on the site
+you excluded and not on vonc.
+
+I invented a page, marked it as tool-owned, and asked the real rebuild machinery to rebuild it —
+the same script an operator would use, end to end. What should happen is: the system notices the
+page is tool-owned, refuses to touch it, leaves a note for a human saying why, and finishes
+cleanly. That is exactly what happened. Nothing was written, nothing reached the website (the
+test page's address returned "not found" before, during and after), the page's record was left
+alone, and the run finished normally instead of dying half-way — which is what the old code would
+have done.
+
+Then I ran it a second time, deliberately, to check two things: that the refusal happens every
+time rather than once, and that the note-for-a-human doesn't pile up into duplicates. Both held —
+same refusal, still exactly one note.
+
+One moment worth being honest about: my final check before deleting the test page flagged that
+the record had been touched more recently than I expected. For a minute that looked like the
+guard had failed. It hadn't — the second test run re-marks the page for rebuilding before the
+guard refuses it, and that re-marking is what moved the timestamp. The lesson I wrote down for
+next time is about my own procedure: I deleted the test page in the same breath as running that
+final check, which destroyed the detail I'd have wanted to double-check. The conclusion was safe
+on other evidence, but check first, delete second.
+
+So bug 208 is now what I'd call properly finished: fixed, live on the whole fleet, and seen
+working — twice — on a real dispatch. The file stays in the open-bugs folder because that's how
+you prefer finished bugs kept, but its status says proven. Everything synthetic from the test has
+been removed, with a note left in the audit trail saying what it was and pointing at the runs.
+
+Next up, when a session picks it up: bug 210 (a failed rebuild gets marked as done, so the
+request quietly vanishes — same family, needs a decision about retries before fixing), and the
+question 208 raised that nobody has answered yet: what else in this platform checks permission
+only after it has already committed?

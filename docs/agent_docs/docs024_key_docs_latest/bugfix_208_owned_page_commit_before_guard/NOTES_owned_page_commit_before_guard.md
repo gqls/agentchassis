@@ -407,3 +407,81 @@ throwaway.
 elsewhere and must be cited alongside it — `TestAssemblePage_GenericPageStillAssembles`, and the
 live row-identity proof on `ai-agent-orchestration.com` where the new predicate still returns the
 three generic pages and drops only the two owned ones.
+
+## 2026-08-08 — THE GUARD FIRED. Behavioural canary run and every assertion green
+
+Owner authorised ("any site except loancalculator"). Target **oufe.com** — chosen because its
+build queue was provably empty (re-checked at fire time: 0 pages at `needs_rebuild`/`planned`),
+its 11 open work items are all parked at `needs_human_review` with no handler (nothing to race),
+and the site is unlocked. Dispatch lane lag was **0**. Pre-test control: `zz-canary-208.html`
+served **404**.
+
+**The synthetic page** (`f3b4dae4-9d18-4e9b-b98c-21b6e48ce8e0`): `zz-canary-208`,
+`page_type='content'`, `rebuild_policy='owned'`, `sections='[]'`, out of nav, created at
+`build_status='deployed'` so the OPERATOR path itself would do the flagging — the canary
+exercises feature_021's entry point end to end, not a hand-arranged DB state.
+
+**The run** (`rebuild_pages.sh`, corr `a00dac64-…`, queue row `a4464114-…`):
+`maintenance-triage` claimed the task and `flagPagesForRebuild` set the canary `needs_rebuild`
+at **15:17:45.417667** (this is upstream of the guard and legitimately moves `updated_at` — the
+assertion is that nothing moves it AGAIN). It spawned `page-rebuild` `ce935d87-…`, which
+terminated ~2 minutes later.
+
+| # | assertion | result |
+|---|---|---|
+| A1 | run COMPLETED, not failed | ✅ `COMPLETED` |
+| A5 | terminal step is the no-work branch | ✅ `complete_no_pages` |
+| — | observability fields | ✅ `pages_selected=0`, `owned_pages_excluded_count=1`, `excluded_names=["zz-canary-208"]` |
+| A2 | exactly one review item, from MY guard | ✅ 1 row, `source='get_pages_to_build'`, `refused_by='get_pages_to_build'`, reason carries `OWNED_PAGE_GUARD` — **distinguishable from reconcile's 12 pre-roll rows by the source column** |
+| A3a | no components written | ✅ 0 rows |
+| A3b | nothing committed/served | ✅ URL still **404** |
+| A4 | row untouched since the flag | ✅ `updated_at` **exactly equals** the 15:17:45.417667 flag stamp; still `needs_rebuild`; `deployed_at` NULL |
+
+A4 is asserted by **timestamp identity**, not by "looks unchanged" — the flag stamp is the known
+last-writer, so equality proves no later write of any kind.
+
+**What this run proves and what it does not.** It proves Layer 1 (selection exclusion), the
+census emission, and the run-completes property, end to end through the real operator path on
+the real fleet binary. It does **not** exercise Layer 2 (`assemble_page`): with selection
+correct, no owned page ever reaches the loop — Layer 2 is reachable only via a work-item route
+or with `include_owned:true`, and remains proven at unit level (mutation M2/M2b) plus the live
+row-identity predicate check. Recording that boundary so nobody cites this canary as behavioural
+proof of the assemble arm.
+
+**Negative control** (a guard that excluded *everything* would produce the identical
+observations): cited, not re-run — `TestAssemblePage_GenericPageStillAssembles`, and the live
+row-identity proof on `ai-agent-orchestration.com` (new predicate keeps the 3 generic pages,
+drops only the 2 owned). The stronger in-run control (a generic sibling building in the same
+dispatch) was considered and skipped deliberately: it would publish a junk LLM page to a live
+framework-showcase site for the sake of a control that already exists elsewhere.
+
+### Run 2 (A6, dedup) and cleanup — with one misstep of mine recorded
+
+**A6 ✅.** Re-dispatch (corr `d09ad12e-…`, queue row `77ea6cbc-…`, claimed 15:21:14): the child
+run again terminated `complete_no_pages` with `pages_selected=0`, `owned_excluded=1`,
+`excluded_names=["zz-canary-208"]` — the guard fired identically on the second pass — and the
+review-item count **stayed at exactly 1**. The dedup key does its job across repeated dispatches.
+
+**Cleanup done:** review item `cancelled` with provenance (both correlation ids + the verdict in
+`result`), the canary `pages` row deleted, 0 residual items, 0 residual pages, URL still 404.
+
+**The misstep, so the next reader doesn't repeat it.** My cleanup block printed
+`still_untouched = f` — the row's `updated_at` no longer equalled run 1's flag stamp. Momentarily
+alarming, fully explained: **run 2's `flagPagesForRebuild` re-ran** (a bare
+`UPDATE pages SET build_status='needs_rebuild'` bumps `updated_at` even when writing the same
+value), and that is upstream of the guard and legitimate, exactly as R9's gotcha already said for
+run 1. The evidence that nothing *else* wrote the row: `build_status` was still `needs_rebuild`
+in the same cleanup output (the deploy stamp would have set `deployed`), and run 2's own
+`complete_no_pages` means the loop never entered. **What I did wrong:** I printed the *boolean*,
+not the timestamp value, in the same block that then DELETED the row — destroying the exact
+evidence a sceptic would want. The conclusion survives on the surviving records, but the shape is
+the lesson: **when a final check and a destructive cleanup share a transaction, print the VALUES,
+not just the predicates — you cannot re-query a deleted row.**
+
+### Verdict
+
+**bugs_open/208 is FIXED, LIVE (v1.0.1262) and BEHAVIOURALLY PROVEN** — two real dispatches
+through the real operator path on the fleet binary, both refusing the owned page at selection,
+filing exactly one deduplicated review item between them, committing nothing, stamping nothing,
+and completing rather than stranding the batch. The file stays in `bugs_open/` per the owner
+ruling of 2026-08-06 (finished bugs stay put); its status section says PROVEN.
