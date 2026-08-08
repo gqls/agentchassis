@@ -299,3 +299,78 @@ Corrected check, now in use — both counts printed, then `diff`:
 HEAD count: 15 / NOW count: 15
 IDENTICAL — no pattern added, dropped or altered
 ```
+
+## 2026-08-08 — council APPROVED round 1, and two seats found something I had got wrong
+
+`377a0488-214e-4e5c-bd3d-66343d34d9b2` — APPROVED, 11 seats reviewed, 5
+abstained (relevance filter), 1 medium + 3 low advisory objections, no
+truncation. Submitted 18:22, verdict 18:23 — about a minute, well under the
+~30 the runbook budgets for.
+
+Full disposition of all four objections is in `bugs_open/221`'s status block.
+The two that were **right about something I had actually got wrong**:
+
+1. **`guardian` and `prior_art_librarian` (low, independently).** My submission
+   said "checkMetaCommentary has exactly ONE production call site". True — of
+   the Go **function**. But `validate_page_content` is an **action**, and the
+   seats asked the question I had not: is it reached from `agent_definitions`
+   config? Measured after the fact:
+
+   ```
+    content-reviewer | page-build-handler | report-builder | tool-recreation-handler
+   ```
+
+   **Four live agent definitions carry a `validate_page_content` step.** The
+   behavioural blast radius is four, not one. My claim was not false, but it
+   was the half that made the change look smaller than it is, and I did not
+   notice I had only measured the half that was easy to grep. *A call-site count
+   for an action is a DB fact, not a repo fact.*
+
+2. **`debug_historian` (low).** No pod-verification step stated. Correct — and
+   writing it up produced a finding I would not otherwise have looked for:
+   **there is no negative-control string available for this change at all.**
+   Measured rather than assumed —
+
+   ```
+   removed-and-not-re-added strings in 61c8cc6ff: 0
+   ```
+
+   because `Value` deliberately stays the canonical `Pattern`, so every literal
+   the diff removes comes straight back. `bugs_open/153`'s discipline is a
+   positive marker AND a negative one; **this change can only supply the
+   positive.** Recording that honestly matters more than the check itself: the
+   tempting move is to nominate some string as "removed" and produce a
+   comforting `0`, which would be a fiction that reads exactly like evidence.
+   The stated substitute is the compiled regex literal (absent from every
+   earlier binary), with the instruction to prove it discriminates against a pod
+   on the older tag rather than assume it does.
+
+**The medium objection (`bug_historian`) I did not fully absorb, and said so.**
+It asked whether the `bugs_open/222` deferral is tracked; answered with evidence
+(owned by `mortgagecalculator_couk_adoption`, ACTIVE). But its wider point —
+that the *generic* mechanism, any blocker-severity prose scan able to wedge a
+rebuild forever, is untouched — **stands, and this fix does not close it.**
+That is the RFC `bugs_open/221` names, and this lane deliberately did not
+pre-empt it.
+
+### Closing state
+
+- Fix `61c8cc6ff`, trailer upgraded to `Council-Reviewed:` in `99ef0510e`.
+- **HEAD itself verified**, not just my working tree: `git archive HEAD` into a
+  clean dir builds green and the meta tests pass there — the shared-tree check,
+  since `make build-*` builds from committed HEAD and other sessions commit
+  between my add and my build.
+- Landmine verifier fired by hand (`49f3a981`) for the amended entry; **verdict
+  still queued** at hand-off (newest verification row predates the dispatch).
+  ⚠ Per `bugs_open/223`, whatever it returns is weak evidence in **both**
+  directions for an entry with non-Go footprints — do not delete or downgrade
+  the entry on a STALE verdict.
+- `102_coverage_ratchet.txt` updated: nothing new is callable (the `Re` field is
+  a private member of an unexported var with one caller), so this lane is a
+  ratchet line, not a register entry.
+
+### Still owed — the one thing that would close this bug
+
+**A chassis roll, then the pod grep.** The fix is Go and therefore inert. The
+defect is still reproducible in production right now. The file stays OPEN, per
+the owner's 2026-08-06 direction and on its own merits.

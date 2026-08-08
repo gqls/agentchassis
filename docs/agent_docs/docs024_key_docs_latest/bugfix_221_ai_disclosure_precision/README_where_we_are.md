@@ -67,3 +67,50 @@ I am deliberately *not* widening this into "how should all our text-scanning
 safety checks work", even though there is a second, near-identical bug open
 against a different checker. That is a bigger question with an owner, and the
 bug file itself says so.
+
+## 2026-08-08 (evening) — done and reviewed, but not yet live
+
+The fix is written, tested and approved. The check now looks for the *sentence
+shape* a model uses when it apologises — "as an AI, I …" — instead of the three
+letters "ai". The tools-index page it was blocking is clear, and the apology it
+was built to catch is still caught: I took the real page, injected "As an AI, I
+cannot generate this listing." into it, and the checker still refused it. That
+was the test I cared most about, because the easy way to fix a check that
+complains too much is to quieten it until it stops, and that would have been
+worse than the bug.
+
+The review council approved it first time round, with four advisory comments.
+Two of them caught me out, and both are worth repeating because they are the
+same kind of mistake:
+
+**I said the change affected one place. It affects four.** I had counted the
+places in the *code* that call this function — one — and reported that. The
+reviewers asked the question I had not: how many of the running agents are
+configured to use this check at all? The answer is four. Nothing I wrote was
+untrue; I had just measured the half that was easy to look up and let it stand
+for the whole.
+
+**I claimed a verification step I could not actually perform.** The house rule
+for proving a change reached production is to look for something the change
+added *and* something it removed — the second half is what proves you are
+looking at your own change and not somebody else's. When I went to write those
+two commands down, it turned out my change removes nothing: every phrase it
+touches is still there afterwards, by design. So the usual proof is not
+available here. I have said so plainly rather than nominate some string as
+"removed" and print a reassuring zero, which would have looked exactly like
+evidence and been worth nothing.
+
+**What is left.** The fix is Go code, so it does nothing until the chassis is
+rebuilt and rolled — which happens on the fleet's schedule, not mine. Until
+then the bug is still real in production, and the file stays open. When it does
+roll, there is one command in the runbook to confirm it landed, with a note on
+how to check that command can actually tell the difference.
+
+One thing I have deliberately *not* done: there is a second, near-identical bug
+in a different checker (a comment saying "no fabricated data" gets convicted for
+containing the words "fabricated data"). One reviewer pushed on whether fixing
+mine and leaving that one is really a fix at all. That is a fair challenge and I
+have recorded it rather than argued it away — but that checker belongs to
+another team who are actively working it, and the question of how *all* our
+text-scanning checks should behave is a bigger design decision than this bug
+should be allowed to settle on its own.
