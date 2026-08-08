@@ -3640,3 +3640,59 @@ The answer to "extend or remove" is still **remove** — but removal has to reac
 exemplars, and length rules turn out to be load-bearing in a way nobody intended: they are
 the only thing stopping independently-written sections from colliding, because no writer
 sees its siblings. Remove them and you need the page-level view first, not after.
+
+### The exemplar fix ALSO failed — and the third layer is where the instruction actually lives
+
+`fix_voice_exemplars.py`: five exemplars replacing four, five different opening shapes,
+one still a conditional so the opposite tic is not taught instead. Also removed the
+privacy line (still sitting in `register_anchor`, a second instance of the same oversight)
+and the "appeal" wording the owner flagged. Gated and applied; `formatted` 24,361 →
+24,779 b, conditional openings demonstrated in AFTER examples 3 → 0.
+
+Rebuilt the same three pages. **The tic survived again**, including on
+`tool-consolidation`, whose exemplar I had specifically rewritten to open with the plain
+fact. So the exemplar hypothesis is refuted too.
+
+**Both interventions were inert, and here is why.** `voiceh_rewrite.sh` copies the
+rewrite guidance **by SQL from the canary work item the owner approved on 2026-08-06**,
+and that guidance says, in the item's own `spec.suggestion`:
+
+> "Apply the register: **open each section where the reader is standing (a conditional or
+> situational clause such as 'If you are paying off a loan…')** rather than opening cold
+> with the assertion…"
+
+An explicit mandate **carrying its own inline example**, arriving as the task's own
+instruction — the signal closest to the work and the strongest of the three. Editing the
+spec's rules or its exemplars could never have reached it.
+
+> **THREE LAYERS CARRY THIS VOICE AND ONLY ONE OF THEM WAS DRIVING.**
+> 1. `site_specs.content_direction.writing_rules` — trimmed 08-08, no effect
+> 2. `site_specs.content_direction.voice_exemplars` — fixed 08-08, no effect
+> 3. **`site_work_items.spec.suggestion`** — the per-item rewrite guidance, pinned to a
+>    canary. This is the one.
+>
+> **The pin is a deliberate safety property that became the blocker.** The script's own
+> header explains it: the prompt is "COPIED BY SQL from the original canary item, never
+> retyped, so it cannot drift from the spec the owner reviewed." That is good practice and
+> it is exactly why two spec fixes did nothing — the reviewed prompt was frozen, including
+> the instruction the owner had since rejected. **A prompt pinned for reproducibility stops
+> tracking the decisions made after it was pinned.**
+>
+> **The general check:** before editing a prompt layer, establish which layer the model is
+> actually reading. Diff what you changed against what the run received. I changed the spec
+> twice without once looking at the work item's own `suggestion`, and the run text was one
+> query away.
+
+**Guidance v2** (`4a9edd45-…`, item_key `voiceh-guidance-v2-source`,
+`voiceh_rewrite_v2.sh`): the conditional mandate replaced by its prohibition half plus an
+explicit instruction to VARY, matching the spec change. ⚠ **This departs from the prompt
+the owner reviewed on 08-06** — deliberately, because the clause removed is the one he has
+since objected to twice. Old guidance kept at `2517bc4b-…` for comparison.
+
+⚠ **Second-order trap hit on the way:** re-firing failed with
+`duplicate key value violates unique constraint "idx_swi_dedup"`. The previous run's items
+sit at `detected`, which is NOT in the index's excluded-status list
+(`complete/verified/rejected/wont_fix/failed/unresolved/cancelled`), so the key blocks a
+re-fire. That `detected` state is deliberate — the tool leaves items ungraded on purpose —
+so **grading a batch is now a precondition for re-running it**, not just good manners.
+Closed the three with their findings recorded in `error`.
