@@ -237,3 +237,12 @@ snapshot-goes-stale rule).
   no post-roll amplification signal. Re-check week-over-week per the bug file.
 - Probe expected to exhaust at the wall (nothing answers the void topic) — that is
   RSH-006 binding, not a failure. Cleanup after exhaustion: seed row + void topic.
+
+- **Probe exhaustion observed and cleaned up (22:32Z):** rv walked 1→2 (22:22:21,
+  +300s exactly) → 3 (22:27:21) → parent FAILED on budget 22:32:31. The wall at 3
+  held for the probe itself — RSH-006 binds on the newly-recoverable path, observed
+  end-to-end, not inferred from the fleet histogram alone. Cleanup done: seed row
+  deleted (DELETE 1), void topic deleted (list shows 0). Lane closed; nothing further
+  planned. Next candidate for a fresh thread, still unfiled: the "message validation
+  failed on complete_workflow delivery" by-product (named in 216's file; needs its
+  own 090 before filing per the 07-31 ruling).
