@@ -1,6 +1,6 @@
 # 205 — `extract_and_reconcile` has NO configured cap, runs at the hardcoded 2048, and two poisoned records have been re-dispatched every few minutes for 34 hours
 
-**Filed:** 2026-08-06 · **Status:** OPEN — FIX IN FLIGHT (see below) · **Severity:** live and burning right now
+**Filed:** 2026-08-06 · **Status:** CLOSED in substance 2026-08-08 — fixed AND live, all four owner decisions executed; stays in `bugs_open/` per the owner's 08-06 ruling · **Severity:** ~~live and burning right now~~ burn stopped 2026-08-07 01:40Z; poisoned record verified 2026-08-08
 
 > **FIX STATUS 2026-08-07 ~01:45 UTC (bugfix-205 session):**
 > - **Config half LIVE and BEHAVIOURALLY PROVEN:** the reaper's `reset_tasks` CTE

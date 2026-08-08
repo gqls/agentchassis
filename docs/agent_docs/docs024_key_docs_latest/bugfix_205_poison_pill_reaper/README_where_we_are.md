@@ -61,3 +61,34 @@ Decisions needed, in order of usefulness:
    needed its own hand-written "count and park" logic. The review's architecture
    seat suggests a shared mechanism. That's an architecture-track item if you
    want it; nothing breaks without it.
+
+## 2026-08-08 — all four decisions carried out; this workstream is done
+
+You ruled on all four questions today, and all four are now done and proven:
+
+1. **The vet step got its real output limit of 8000.** We then woke the one
+   parked task that had been failing all along — it succeeded on its very first
+   try. The document it produces needed about 3,100 tokens of output, half again
+   more than the old built-in limit of 2048 could ever allow — arithmetic proof
+   that no amount of retrying could ever have worked. That practice's record is
+   now verified, after roughly 64 wasted attempts.
+2. **The other 32 parked tasks are cancelled**, each with a dated note saying
+   why — the same treatment as the 574 cancelled before them.
+3. **and 4.** The housekeeping job's "count the rescues and park after five"
+   logic is now a **shared mechanism** rather than a hand-written one-off: each
+   kind of task can declare its own ceiling in a small table, and anything that
+   doesn't declare one gets the safe default of five. The vet queue's
+   housekeeping job now uses it, and it was tested by deliberately inducing both
+   cases (an undeclared type parking at the default, a declared type honouring
+   its own ceiling) with no residue left behind. We deliberately stopped there —
+   no grand generalisation until a second queue actually wants it, because
+   machinery with no user rots.
+
+A later session re-checked the live system the same afternoon: the queue holds
+only completed and cancelled work, nothing pending, nothing looping, and the
+housekeeping job is running the new shared logic on schedule.
+
+Nothing is left on this workstream. The one thing still worth watching for is
+the new log warning: the platform will now say out loud when any of the seven
+remaining unsized steps runs, and the first time that happens someone should go
+and choose that step a limit.

@@ -1,5 +1,21 @@
 # HANDOFF 2026-08-07 — bug 205: COLD-START for the next session
 
+> **SUPERSEDED 2026-08-08 — the four decisions below were RULED AND EXECUTED the
+> same day (NOTES tail, commit `b6e70cd70`). NOTHING REMAINS on this lane.**
+> Cap 8000 live and proven (the poisoned record verified on its FIRST attempt,
+> `output_tokens=3135`); the 32 cancelled; per-type ceilings + the shared park
+> function live via migration `sql_for_agents/335` (`reaper_policies` +
+> `business_intel.reap_stale_collection_tasks()`, RFC_018, register SCH-024).
+> Re-verified live 2026-08-08 ~15:30Z by a later session: collection_tasks =
+> 606 cancelled / 2528 completed, zero pending/in_progress/failed; reaper stamp
+> advancing; live pre_query calls the function. Sole watch-item: the framework
+> WARN names whichever of the 7 remaining uncapped steps runs first — size that
+> step when it fires. One fresh trap paid for on re-verification:
+> **`reaper_policies` lives in schema `public`, NOT `business_intel`** — a
+> schema-qualified probe reads "relation does not exist" and looks like the
+> migration never applied; query it unqualified, as the LANDMINES check spells
+> it. The traps section below remains valid.
+
 **State: fixed AND live in full. Nothing is burning. What remains is executing
 whichever of the four owner decisions land.** Read PLAN → NOTES tail → this file.
 

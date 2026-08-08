@@ -158,3 +158,31 @@
 - Post-migration the reaper runs the function-backed pre_query on schedule.
   Rollback ladder: 335_ROLLBACK (back to the 08-07 inline parking CTE) →
   ROLLBACK_2026-08-07 (emergency, back to unconditional resets).
+
+## 2026-08-08 ~15:30 UTC — cold-start re-verification; docs closed out; lane ends
+
+- Fresh session picked up the 08-07 HANDOFF, found the 08-08 execution already
+  committed (`b6e70cd70`), and re-verified live rather than re-proving:
+  - `collection_tasks`: cancelled=606 (574+32), completed=2528 (2527+1),
+    **zero** pending/in_progress/failed — decisions 1+2 hold.
+  - `public.reaper_policies` exists with the declared
+    `initial_verification` policy (5/20m);
+    `business_intel.reap_stale_collection_tasks()` exists; the live
+    `stale-orchestration-reaper.pre_query` contains the function call (grep=1);
+    reaper stamp advancing post-migration (15:13:53Z).
+- **Misstep, paid this session:** probed the table as
+  `business_intel.reaper_policies` (reasoning: the function and the tasks table
+  live there) → "relation does not exist", which reads as *migration never
+  applied*. Migration 335 creates the table UNQUALIFIED, so it landed in
+  `public`. The LANDMINES 205 check already spells the query unqualified
+  (`SELECT * FROM reaper_policies;`) and is correct as written — the trap only
+  fires if you "improve" it with a schema prefix. Recorded in the HANDOFF
+  banner; LANDMINES left unedited (entry is right, and the file carries another
+  session's 30 uncommitted lines — not taking a same-file passenger for a nil
+  correction).
+- Closed the three doc gaps the 08-08 commit left: bug 205 header status line
+  (still said "OPEN — FIX IN FLIGHT / live and burning"), README_where_we_are
+  closing entry (owner's log ended at "four decisions for you"), HANDOFF
+  superseded-banner. No new SUMMARY: against the five headings it would repeat
+  SUMMARY_2026-08-08 with only the tense changed ("executing" → "executed"),
+  and the rarity rule says that is not a milestone.
