@@ -3438,3 +3438,52 @@ the comparison named (one loan against the debts you hold now).
 
 ⚠ **Candidates 1 and 2 as first drafted are superseded — do not apply them.** They are
 left above rather than edited away because the fault is the record.
+
+### FINAL homepage opening (owner-approved shape, 2026-08-08) — and the spec rule that will fight it
+
+Owner chose **2b** and cut the privacy line: *"neither needs the 'Your figures stay in
+your browser' point here. It suddenly moves the reader from thinking about loans to
+suddenly being technical."* Right, and the middle paragraph now stays on the reader's
+money question from first word to last.
+
+**FINAL:**
+> Free UK loan calculators, with guides that explain what the numbers mean.
+>
+> Work out what a personal loan will cost you in total, not just each month. If you're
+> considering consolidation, you can compare your current debts against a single loan and
+> see whether it really saves anything. The car finance tool shows how much of a deal is
+> interest rather than car.
+>
+> Start with the standard calculator below, or use the Tools and Guides menus.
+
+⚠ **THE SPEC WILL PUT THE PRIVACY LINE BACK.** I did not invent that sentence — this
+site's seeded `content_direction` contains, verbatim:
+
+> "State facts positively, including privacy and cost: 'free', **'your numbers stay on
+> your own screen'** — never a negation pile ('no sign-up, no credit check, nothing sent
+> anywhere')."
+
+So every framework rebuild of this page will reassert it. **Fixing the copy without
+fixing the rule buys one render.**
+
+The rule is half right and half wrong, and the halves are worth separating:
+
+- **Right:** if privacy is mentioned, state it positively. The negation pile it forbids
+  ("no sign-up, no credit check, nothing sent anywhere") is genuinely worse.
+- **Wrong:** it reads as licence for the fact to appear anywhere, and supplies the exact
+  wording, which is why it landed in an opening about money. **A rule about HOW to phrase
+  something silently authorises WHETHER to include it.**
+
+**Proposed amendment** (not applied — it is a change to the seeded spec and belongs with
+the owner's positioning work): make placement part of the rule. Privacy answers a
+question the reader has when they are **about to type their own figures into a box** —
+so it belongs beside the calculator inputs or in the footer, not in an opening whose job
+is to say what the site is for. Same shape as the `mathematically rigorous` finding: a
+true, defensible, positively-stated fact, put where nobody asked for it.
+
+**Third instance this session of one pattern**, which is now worth naming: over-claiming
+accuracy, my own "what a personal loan repays", and now the privacy line. None of the
+three violates any rule we have. **Two of the three were CAUSED by a rule** — the spec
+told the writer to state privacy this way, and the H register's warmth rules kept "true
+cost of borrowing" where the plain default dropped it. Rules here are not merely failing
+to catch faults; they are generating them.
