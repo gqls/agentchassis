@@ -67,7 +67,15 @@ description/og/twitter meta alongside body blocks; JSON-LD deliberately unread
 gating seat escalated to "routing defect B is not a fix" — answered in round 4
 with the process fact (defect B under ACTIVE diagnosis `c56b691d`; the 090
 coverage rule forbids a parallel patch; the save-anyway-vs-cannot-complete call
-belongs to that run). Round 4 submitted 2026-08-08 — **read round 4's verdict.**
+belongs to that run). Round 4: **APPROVED 2026-08-08** ("2 advisory objections, none high-severity").
+The `Council-Submitted: a9ffed15` trailer on all four code commits resolves to
+this approval at 098-report time — nothing owed, no amends. Advisories worth a
+future reader's minute: (a) compliance notes JSON-LD is now a declared blind
+spot for THIS check while being exactly where fabricated prices/ratings would
+surface machine-readably — a structured-data detector is its own design, not a
+prose-scan rider; (b) debug_historian asks whether the mutation runs were
+behavioural — they were: both sed mutations compiled and ran (scan-raw-HTML,
+drop-head-append), failing 3 and 6 assertion cases respectively.
 The consumer-reliance question is now MEASURED: the check's entire recorded
 history is 46 convictions (2026-07-15→08-07); 43 are visible-prose contexts the
 new scope preserves, the only 3 non-prose ones are the JS false positives fixed

@@ -41,17 +41,13 @@ live, queue drained — re-verified 08-07 and unchanged.
    replica of an image that post-dates `f51ac6af8` (a 1 means the image carries
    round 1 only). Until then, re-running the two convicted recreations just
    re-convicts them.
-2. **Read the ROUND-4 council verdict for `a9ffed15`** (query in §1). Rounds 1–3
-   all REVISE, all answered same day — full trail in `bugs_open/218`. Code now ends
-   at `35889819c` (r3's head-escape catch: title/meta prose scanned again, JSON-LD
-   deliberately not). The one live thread r4 may still draw fire on: the gating
-   seat wants defect B FIXED, and the answer given is that it's under active
-   diagnosis (`c56b691d`) whose fix path owns the design call. If r4 comes back
-   REVISE on that same ground, it is a judgement disagreement, not a missing fact —
-   consider stopping the trail there (the gate is advisory, 098 tracks the trailer)
-   and let the defect-B diagnosis land its own plan. Also check the defect-B
-   diagnosis verdict (run `c56b691d`) — its outcome changes step 3's expectations
-   for what a failed validation does.
+2. **Council: DONE — round 4 APPROVED 2026-08-08** (trail: 3× REVISE, each
+   answered same day, full read in `bugs_open/218`). Code ends at `35889819c`.
+   The `Council-Submitted` trailers resolve to the approval automatically —
+   nothing owed. **Still check the defect-B diagnosis verdict (run `c56b691d`,
+   was `diagnosing` at hand-over)** — its outcome changes step 3's expectations
+   for what a failed validation does, and its fix plan (not this lane) owns the
+   save-anyway-vs-cannot-complete design call.
 3. **Re-run the three recreations** (§10c unlock + backstop pattern — kill the
    backstop the moment the batch completes, §10g). Their `needs_tool_recreation`
    items are terminal-`complete`, so file fresh items (same spec shape — copy from

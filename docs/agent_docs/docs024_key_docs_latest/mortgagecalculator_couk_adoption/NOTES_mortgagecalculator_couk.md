@@ -963,3 +963,12 @@ mid-diagnosis, and the right fix is a design decision (save-anyway vs
 cannot-complete) that the diagnosis run should land, not a rider on this patch.
 Lesson worth keeping: **a reviewer pool with fresh eyes each round keeps finding
 real things — round 3's "new objection" was the best catch of the three rounds.**
+
+### 2026-08-08 close — round 4 APPROVED
+
+"Approved with 2 advisory objections, none high-severity." Trail: 3× REVISE
+(reuse → plan-record+census+routing → head escape), each answered same day, final
+code `35889819c`. The Council-Submitted trailers on all four code commits resolve
+to this approval at 098 time — no amends, forward-only held throughout. Defect B's
+diagnosis (`c56b691d`) still `diagnosing` at close; its verdict is the next
+session's first read alongside the roll check.
