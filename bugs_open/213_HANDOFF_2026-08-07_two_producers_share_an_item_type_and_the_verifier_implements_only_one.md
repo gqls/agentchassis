@@ -215,6 +215,25 @@ is the norm working in both directions, and it is worth copying.
 
 `090` filed before this file asserted its root cause, per the owner ruling of
 2026-07-31: correlation **`84c3da66-06c0-41a5-94dc-21fbf71260f0`** (intake
-`19c509ea-0bc1-4047-af29-d4f946677fde`). Verdict recorded in
-`docs/agent_docs/docs024_key_docs_latest/bugfix_122_contrast_ink_slots/NOTES_contrast_ink_slots.md`
-when it lands — **update this section with it, including if it is REFUTED.**
+`19c509ea-0bc1-4047-af29-d4f946677fde`).
+
+**VERDICT [2026-08-08]: UNVERIFIABLE — iteration-capped.** The run reached `complete` at
+08:48:02Z having written five `bundle` artifacts and **no `decision` on any of them**. Its
+final bundle's `## Hypothesis under test` was still this file's own symptom echoed back,
+unrefined — unlike the sibling run on `bugs_open/212`, it did not get far enough to form
+an independent theory.
+
+**Read that as neither support nor refutation.** It never reached a verdict, so there is
+nothing in it that either corroborates or contradicts §1–§4. **This file's root cause does
+not rest on it** and never did: §3 is timestamp evidence from `site_work_items` and
+`content_components` that any reader can re-run in one query, and §4 is a census. The
+`090` was filed because the ruling requires it for a cross-cutting structural claim, and
+the honest report is that the loop did not reach an opinion.
+
+**Context that matters if you file another:** this was the **fourth consecutive
+UNVERIFIABLE** in the `bugfix_122_contrast_ink_slots` lane. One was a demonstrably wrong
+question; the other three ran out of iterations, and two of those had a correct hypothesis
+visible in the final bundle. So a fifth UNVERIFIABLE here would be weak evidence about
+your symptom. Read the last bundle regardless of the verdict — the query is in the lane's
+`RUNBOOK_contrast_ink_slots.md` § "Reading a 090 verdict", and there is no `verdict`
+artifact kind to look for.

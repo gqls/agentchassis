@@ -431,3 +431,49 @@ the parent (failed_transient): message validation failed"* across `page-rerender
 every few seconds on 2026-08-07 morning. Not ours, not investigated, possibly adjacent to
 `bugs_open/207`. Flagging it because it is the sort of thing that makes an unrelated
 canary look broken.
+
+## 2026-08-08 — run 4's verdict landed, and three of yesterday's figures had already gone stale
+
+**`090` run 4 (`84c3da66-06c0-41a5-94dc-21fbf71260f0`, the 213 mechanism): `complete` at
+08:48:02Z, five `bundle` artifacts, no `decision` on any — UNVERIFIABLE, iteration-capped.**
+Same ending as run 3. It did **not** refute `bugs_open/213`: it never reached a verdict, so
+213's root cause still rests on the timestamp evidence in its §3, which never depended on
+this run. Recorded in `bugs_open/213` §9 and in the handoff §5.
+
+That makes **four consecutive UNVERIFIABLE runs in this lane**. Worth stating precisely,
+because the standing lesson ("UNVERIFIABLE means the question was wrong") does not fit the
+last three: run 3's final bundle contained a *correct* hypothesis about
+`warnUnusablePrimary`'s blind spot, and run 4's last bundle was still echoing my symptom
+back unrefined. One wrong question and three that ran out of iterations is a statement
+about the loop's budget, not about our symptoms. **Not filed** — it is a claim about the
+diagnosis loop and filing it honestly needs the cross-lane run history, not just ours.
+
+**Three figures in the handoff I wrote yesterday were stale within 24 hours**, which is the
+more useful finding:
+
+| figure | 08-07 | 08-08 |
+|---|---|---|
+| chassis image | v1.0.1262 | **v1.0.1264** (two more rolls, neither ours) |
+| next free migration number | 324 | **335** — 324 *and* 325 both taken, 334 exists untracked |
+| 090 run 4 | `diagnosing` | `complete`, UNVERIFIABLE |
+
+I re-proved VIZ-014 on v1.0.1264 rather than carrying yesterday's table forward: identical
+counts on both replicas, both controls holding. **The table surviving two rolls it was not
+written for is luck, not evidence** — a rebuild from a HEAD that happened to contain our
+commit. The handoff now says so, because the next roll could just as easily predate
+something.
+
+> **MISSTEP 10 — I wrote a migration number into a handoff as though reserving it, twice.**
+> 08-06's handoff said 324; by 08-07 it was taken. 08-07's said "re-check at write time" but
+> still left 324 as the anchor; by 08-08 both 324 and 325 were gone and the ledger was at
+> 334. **A number in a handoff reads as a reservation no matter how it is caveated.** The
+> fix that stuck: give the *command* that finds the number, and state that the file has been
+> wrong about it twice — a reader will run a command and will not re-derive a caveat.
+
+**One thing I have flagged but not measured: the 08-06 baseline is ageing.** Other lanes
+ship to these same 15 sites continuously — the 08-07/08-08 log alone carries a 23-page
+voice rollout and a placeholder-scan validator. A page re-rendered for someone else's
+reason carries every change since it last rendered. So the banked before-state may no
+longer be the before-state. Marked `[UNMEASURED]` in the handoff §6 with the instruction to
+re-run and diff the baseline *before* grading the migrations, rather than quietly trusting
+a file that was complete two days ago.
