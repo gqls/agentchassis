@@ -186,3 +186,31 @@
   superseded-banner. No new SUMMARY: against the five headings it would repeat
   SUMMARY_2026-08-08 with only the tense changed ("executing" → "executed"),
   and the rarity rule says that is not a milestone.
+
+## 2026-08-08 ~17:10 UTC — post-roll re-proof on v1.0.1266; migration 335 ledger gap closed
+
+- Fresh chassis roll (`v1.0.1266`, both replicas started ~16:00Z; vet-intel +
+  business-intel on the same image). Per the fleet practice (a roll is not
+  evidence your fix still ships), re-proved both Go halves at the pod, each
+  replica, same exec: WARN string `max_tokens not configured at any level` = 1,
+  backfill guard literal `'in_progress', 'failed'` = 1, nonsense negative
+  control = 0. **205's Go halves survive the roll — cite as live on v1.0.1266.**
+- WARN watch-item: 0 firings on all four chassis-image pods — scoped claim:
+  logs reach back only to pod start (~16:00Z), so this proves the last hour,
+  not "never". Standing watch unchanged.
+- Parked-state and reaper both hold post-roll: 606 cancelled / 2528 completed,
+  zero pending/in_progress/failed; both scheduled tasks' stamps advance past
+  the roll (17:02–17:03Z vs now() 17:04Z).
+- **Migration dry-run (per session + after every roll) caught a real gap: 335
+  was never RECORDED.** The 08-08 session applied it by hand but skipped the
+  ledger; its `IF NOT EXISTS` / `CREATE OR REPLACE` shapes re-run clean, so the
+  dry-run listed it as innocently pending — exactly the "applied by hand and
+  never recorded" case the runner's NOTE warns about, and a future scoped
+  `--apply` would have re-run it silently. Recorded via `--record-only` with
+  the verification note (artifacts confirmed live this session, above).
+- Cross-thread observation, not ours to fix: 305's probe refusal ("4-entry
+  exclusion list, found 0") is NOT the 205 reaper rewrite — 305 targets the
+  `claimed-item-timeout` sweep on site_work_items, and its live exclusion list
+  is now an 8-entry SUPERSET already containing both types 305 adds
+  (plus `dead_fragment_link`, `literal_markdown`). Applied-in-substance by
+  other means; the 080 lane owns the record-or-supersede call.
