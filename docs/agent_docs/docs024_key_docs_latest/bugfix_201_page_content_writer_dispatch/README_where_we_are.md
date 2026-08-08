@@ -217,3 +217,53 @@ decision inverted it before the day was out. Both versions are now true, of diff
 same table, and nothing in a row says which era it belongs to. I've corrected the note and added the
 one field that tells them apart. A session committed that file while I was editing it and carried my
 correction along with their own work, which is normal here and cost nothing.
+
+---
+
+**Later the same night — I went to do the one job I'd flagged as most valuable, and the first thing
+I found was that I'd got it wrong myself.**
+
+This morning's handoff pointed at two pages on a live site that are still showing empty sections,
+and said the striking thing was that the system had *never once* raised a job about them, even
+though its own detector would spot them today. That was meant to be the interesting part. It was
+wrong, and the way it was wrong is worth a minute.
+
+The section on the page is called `featured-content`. The jobs the system had raised call it
+`featured-article`. Different words for the same slot, because a repair earlier this month replaced
+the section rather than filling it, and the replacement came back under a new name. I searched for
+the name I could see on the page, got nothing back, and reported "never raised" as a fact — into the
+very document a fresh session reads first and has no way to check. The jobs were there all along.
+There have been two rounds of them: one in April that gave up after two tries, and one on 3 August
+that was marked **done**.
+
+Marked done, on a page that is still empty. That is our old friend and it is precisely the fault you
+ruled on this week: the checker went looking for the section it had been told to check, found it
+gone (because the repair had renamed it), and couldn't tell "someone fixed this" from "someone
+deleted this". Under the old rule that counted as good news and the job was closed. **Those two jobs
+turn out to be the only two times this has ever happened** — the exact case I told you this morning
+had never been seen since your change went live. So we now know what it looks like when it happens,
+even though it hasn't happened again since the change.
+
+**Then the second half, which is the more useful finding.** The reason no *new* job has been raised
+about the section as it is named today is simpler and worse than a bug: **nothing has looked.** The
+checks that find problems like this don't run on a timetable. There is a table of scheduled jobs, and
+every single entry that would run these site checks is switched off — all five of them are one-off
+entries somebody created by hand, fired once, and left disabled. No overnight job runs them either.
+They only run when a person points them at a site. Look at which sites got checked today and it's the
+two that other people happened to be working on. **The system inspects whatever we're already looking
+at, which is the one place problems are least likely to go unnoticed.**
+
+I've put that through the diagnosis loop rather than just asserting it, because it's a claim about
+the whole platform rather than about one page, and that's the rule. I've also written up both traps
+where the next person will hit them, and logged my own wrong call — including a near-miss I'd rather
+record than quietly fix: while correcting the handoff I typed in a bug number and a reference code
+for the diagnosis *before I'd actually filed either*, as placeholders in a sentence that stated them
+as done. I caught it on re-reading, seconds later. Nothing would have caught it later — an invented
+reference code looks exactly like a real one to everybody and every search.
+
+**One thing I need you to decide.** The site is finetuning.uk, and two other threads are working on
+it. I could point the detector at it — detect only, no repairs, using the script this lane already
+has that deliberately cannot change a job's status. That would raise a proper job for the two empty
+sections and put them in front of someone. It would also, if the repair again replaces rather than
+fills, be the first time your new fail-closed rule actually fires in production, which is the one
+thing we still haven't seen. But it writes into another lane's site, so I haven't done it.
