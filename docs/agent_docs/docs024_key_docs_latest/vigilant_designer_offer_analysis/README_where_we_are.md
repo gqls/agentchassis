@@ -120,3 +120,59 @@ was reported "clean" forever) was waiting on — it's now formally closed.
 One correction to our own plan: the sweep does not include the new browser-measurement
 audit; that runs as its own job. Proving that half — a browser measurement becoming a
 work item — is the next small step, after the page refresh settles. Then the critic.
+
+## 2026-08-08 — you asked how far the offer analyser has got. Honestly: one plan, no code.
+
+You asked me to go through the docs and threads and work out how far we'd got on a
+dedicated offer and benefit analysis step. The full write-up is in
+`REVIEW_2026-08-08_offer_and_benefit_analysis_where_we_are.md` next to this file. The
+short version is below.
+
+**Nothing is built.** There is no offer agent, no offer checks, and no offer analysis has
+ever run — I checked four different ways rather than trusting one, because a single grep
+can lie. The only thing that exists is the plan you approved on 2 August, and in that plan
+you yourself put the designer first and the offer analyser second. That is the whole
+reason it hasn't moved: it is queued behind work you asked to come first, and that work is
+itself paused three days after the stylesheet accident on relojistas.
+
+**But we have more than nothing to build on, and one piece of it is quietly wrong today.**
+There is already a strategic review that runs inside every sweep — it ran on webdesign.co.uk
+last week — and it asks good offer-shaped questions like "what single change would most
+improve conversion?". The problem is that it asks them with almost none of the site's own
+premise in front of it: it never loads the strategy, the audience, the identity or the
+content direction. So sixteen times a fortnight the platform asks the offer question
+blindfolded. Fixing that is a single database query rewrite, and it does not depend on the
+designer work at all.
+
+Two other things I found that change the shape of the job:
+
+- The strategy record we keep for each site has drifted. Sixteen sites carry one set of
+  fields; one old site (gaswholesalers, April) carries a completely different and frankly
+  better set — what would satisfy the visitor, what makes them come back, how much trust the
+  purchase needs, how the money actually flows. Our plan proposes adding those four fields
+  as if they were new. They aren't new, they're abandoned, and there is one live example to
+  copy. Separately, the plan twice refers to a field called `primary_model` that has never
+  existed on any site — that needs correcting before anyone builds against it.
+- Your instinct that this belongs in a council is half already true. The code review council
+  has an always-on seat whose entire job is the rule from the mission doc — the revenue model
+  shapes the site, and a tools site with a "Start a Project" button means something upstream
+  is being ignored. It fires on every submission. But it only ever looks at *code*. It will
+  never look at a *site*. So if what you want is "no site ships with an offer that doesn't
+  answer its market", that is a new seat on the other council we already have (the experience
+  one, which has run 36 times), not a change to the one that exists.
+
+**The gap between your description and the plan.** You described something that talks to
+copywriting, design, planning, imagery, the tool designer, the experience loops and the spec
+at several points. The plan describes something much smaller: an agent that reads the site,
+writes findings, and lets existing workers pick them up — talking to nobody. Of the seven
+things you named, two are already wired (spec, copywriting), three are wired but fragile
+(design, imagery, planning — the planning one has no worker built yet), and two have no
+route at all (tool design, the experience loops). That last pair is where the actual design
+work is, and it isn't in the plan.
+
+**What I'd put to you as choices**, not things I'll do unasked: write the bigger version up
+properly as a feature file the way we did for the design critic in July; fix the two factual
+errors in the existing plan; and consider letting the two cheap offer pieces jump the queue,
+since neither depends on the designer track and one of them removes a live hazard — right
+now, any strategy refresh kicks off a full rebuild chain on a live site, which is why nobody
+dares run one.
