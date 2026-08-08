@@ -6634,3 +6634,60 @@ Nothing logged. A test asserting current behaviour passes either way.
 
 - **source:** `bugs_open/136`, register SCR-006, docs024_key_docs_latest/bugfix_136_config_key_aliases/
 - **added:** 2026-08-08, bugfix_136_config_key_aliases lane
+
+---
+
+### `nav-link-fixer` ALWAYS commits `<domain>/assets/js/snippets.js` to the shared `gqls/sites` repo — even for a site with zero snippets, even for a domain that does not exist
+- **footprint:** `nav-link-fixer` (agent), `render_js_snippets_for_site_action.go` (`RenderJSSnippetsForSiteAction`), the `deploy_js_snippets` step, `git_commit` / `GitCommitAction`, repo `gqls/sites`
+- **fires when:** you dispatch `nav-link-fixer` at a site — including deliberately, at a scratch/pool/internal site, to exercise something else. It is also reached indirectly: `routeBySurface` gives every `site_component`-surface finding `handler_agent='nav-link-fixer'`, so **any** chrome-surface work item you let reach `build-dispatch-loop` will run it
+- **the tell:** none in the handler's own result. The workflow's `complete` step declares `output_fields: ["template_fix_result","rerender_result"]`, so the git result is not in the response the work item stores. The item reads `complete`, the response reads `success:true`, and nothing in it mentions a commit
+- **why it is unconditional:** `RenderJSSnippetsForSiteAction` returns `{"files": {"assets/js/snippets.js": …}}` for a site with **no** components (`render_js_snippets_for_site_action.go:86-94` — an empty bundle, deliberately, so the head's `<script src>` does not 404). So there is no zero-snippet path that skips the commit, and `git_commit` defaults `repo_name` to `"sites"` (`git_deployer_actions.go:99-102`)
+- **the check:** before dispatching, know what domain will be written and confirm afterwards — the push also triggers the repo's deploy workflow, so it reaches B2:
+  ```bash
+  gh api repos/gqls/sites/contents/<domain> --jq '.[].path'      # exists? then you wrote there
+  gh run list --repo gqls/sites --limit 5 --json displayTitle,createdAt,conclusion
+  ```
+  Measured 2026-08-08: dispatching it at `pool-ai-agents.internal` (a `status='pool'` site nothing serves) created `pool-ai-agents.internal/assets/js/snippets.js` in `gqls/sites`, commit "Update JS snippets bundle" 15:36:28Z, Actions run 31264883288 green 2 seconds later
+- **and, separately:** do **not** predict a no-op from "this site has no templates". In the same run `fix_nav_link_templates` reported `"no header/footer component templates assigned to site"` and updated 0, and `render_site_components` then rendered **both** slots from generic templates anyway — wiping hand-planted chrome HTML. Chrome is every page of the site
+- **⚠ `deploy_js_snippets` is a WORKFLOW STEP NAME IN THE DATABASE, not a Go symbol** — `grep -rn deploy_js_snippets --include=*.go` returns **zero**, and that is correct, not evidence the step is gone. Read it where it lives:
+  ```sql
+  SELECT jsonb_pretty(default_config->'workflow'->'steps'->'deploy_js_snippets')
+  FROM agent_definitions WHERE type='nav-link-fixer'
+    AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+  ```
+  (Noted because the automated landmine-verifier returned NEEDS_HUMAN_REVIEW on exactly this, 2026-08-08: it code-searched a name that only ever existed in config. Line numbers re-checked by hand the same day and are exact — `render_js_snippets_for_site_action.go:86-94` is the `len(components) == 0` early return; `git_deployer_actions.go:~102` is `resolveGitRepoNameDB`, whose documented fallback chain ends at `"sites"`.)
+- **source:** 2026-08-08, `bugfix_071_fragment_blindspot` lane, exercising the `dead_fragment_link` verifier; the owner had accepted the side effect in advance, which is the only reason it was harmless
+- **added:** 2026-08-08, bugfix_071_fragment_blindspot lane
+
+---
+
+### A literal in a workflow step's `config` is NOT a value — `ExtractActionInputs` resolves multi-segment dot-paths and nothing else, and the error says the field is MISSING
+- **footprint:** `platform/orchestration/datahelpers/action_inputs.go` (`ExtractActionInputs`, "Strategy 0"), any `agent_definitions.default_config->workflow->steps->*->config` you hand-author, every action with a registered `ActionInputSpec`
+- **fires when:** you write a one-shot or ad-hoc workflow and put a concrete value where the shipped definitions put a path — `"work_item_id": "<a real uuid>"`, `"site_id": "<a real uuid>"`. It is the obvious thing to write, because you know the value and there is nowhere else to put it
+- **the tell:** the run fails with `input extraction failed: missing required fields: [work_item_id]` — naming the field that is **sitting in the config you just wrote**. It reads as "you forgot it", so the instinct is to add it again, or to add `work_item_id_field`, rather than to suspect the value's *shape*
+- **why:** Strategy 0 resolves `config[field]` only `if strings.Contains(pathStr, ".")` (`action_inputs.go:472-488`); a value with no dot is skipped entirely and never becomes an input. Strategies 1/2 then look for a key of that name inside `collectedData` — which, for a value that exists only in your config, is not there
+- **the check:** put the value in the message and reference it — for a `scheduled_tasks`-fired one-shot, `input_data` becomes `body.input_data`, so:
+  ```
+  scheduled_tasks.input_data  = {"work_item_id": "<uuid>", "handler_result": {...}}
+  step config                 = {"work_item_id": "input_data.work_item_id", "result": "input_data.handler_result"}
+  ```
+  A single-segment path (`"work_item_id": "work_item_id"`) is also skipped — it needs the dot. If a config value must be a literal, the action has to read `params.StepConfig.Config` directly, as `fail_work_item` does for `error_message`
+- **source:** 2026-08-08, `bugfix_071_fragment_blindspot` lane — cost one full dispatch round while probing `complete_work_item`
+- **added:** 2026-08-08, bugfix_071_fragment_blindspot lane
+
+---
+
+### A completed `site_work_items` row keeps the `error` text from an earlier REFUSED completion — and `result._verification` is overwritten, so the refusal leaves no durable trace at all
+- **footprint:** `site_work_items.error`, `site_work_items.result->'_verification'`, `CompleteWorkItemAction` (`load_work_item_actions.go:941-949`), `failUnverifiedCompletion` (`complete_work_item_verification.go:213-240`)
+- **fires when:** you audit work items by `error IS NOT NULL`, or read one item's `error` to judge whether it is really fixed, or try to count how often the verifier registry has refused a completion
+- **the tell:** none — the row is internally contradictory and every column is individually plausible. Measured 2026-08-08 on one item, minutes apart: `status='complete'`, `result->'_verification'->>'status' = 'verified'`, and `error = 'completion blocked: post-fix verification found the defect still present: …'` **simultaneously.** The success UPDATE writes `status`, `result`, `completed_at`, `handled_by` and never touches `error`
+- **the second half, which is worse:** each completion attempt REPLACES `result._verification`. A refusal's `defect_persists` verdict is destroyed by the next attempt that succeeds. So the fleet census this estate quotes — `SELECT … WHERE result ? '_verification'` — counts **surviving** verdicts, not verifications performed, and systematically under-counts exactly the refusals the registry exists to produce
+- **the check:** never read `error` alone. Read it beside `status` and `completed_at`, and treat a non-empty `error` on a `complete` row as history, not state:
+  ```sql
+  SELECT status, attempt_count, completed_at,
+         result->'_verification'->>'status' AS verdict, left(error,120) AS error_history
+  FROM site_work_items WHERE id = '<uuid>';
+  ```
+  To count refusals, do **not** ask `result`; the only contemporaneous records are the pod log (`"CompleteWorkItemAction: completion blocked"`, which rotates) and `error` (stale-prone, per above)
+- **source:** 2026-08-08, `bugfix_071_fragment_blindspot` lane, watching one item go detected → refused → triaged → complete
+- **added:** 2026-08-08, bugfix_071_fragment_blindspot lane

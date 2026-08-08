@@ -22755,3 +22755,38 @@ it. I had not. `go build` does not run vet, and the failure was a vet diagnostic
 (`non-constant format string`); `go vet` at HEAD reproduces it exactly. **Comparing a tree
 with `go test` against HEAD with `go build` is not a comparison** — match the instrument
 before attributing the difference, or the toolchain answers a question you did not ask.
+
+---
+
+### 2026-08-08 — I gave the owner a *reason a run would fail* as a decision-input, and had not checked it (`bugfix_071` lane)
+
+Asking the owner how to exercise the `dead_fragment_link` verifier, I set out the options and
+wrote of the pool-site option: *"it may also yield nothing: `nav-link-fixer` force-rerenders
+header/footer from templates the pool site does not have, so the run can error before
+`mark_complete`."* The run happened an hour later and **succeeded**: `fix_nav_link_templates`
+did report `"no header/footer component templates assigned to site"` and updated 0 — and
+`render_site_components` then rendered **both** slots anyway, from generic templates
+(`rerender_result.rendered = {header:true, footer:true}`).
+
+**What caught it:** the handler ran unprompted (a refusal had promoted the item to `triaged`,
+and `build-pipeline-trigger` dispatched it 61 seconds later), so the prediction was tested
+within the hour instead of standing unchallenged.
+
+**The cheap check that would have:** read the *second* action, not the first. I inferred the
+behaviour of `render_site_components` from what `fix_nav_link_templates` said about templates —
+two different actions, one of which has a fallback. One `grep -n "func RenderSiteComponents" -A
+40` would have shown it.
+
+**Why it is logged even though nothing downstream was wrong:** it is the same shape as this
+file's 2026-08-07 entry from the same lane — *a stated reason something cannot be done is the
+claim least likely to be re-checked, because it explains an absence everyone can already see and
+it recommends doing nothing.* That entry was about a blocker I had written into a handoff; this
+one I said to the owner's face while he was choosing between options, which is worse, because it
+was load-bearing on a decision rather than on a doc. **[MEASURED — the disconfirming result is
+recorded above: `rendered:{header:true,footer:true}` on the very site I said had no templates.]**
+
+Second, smaller, same session: an assertion of mine returned `href_still_rendered = 0` where I
+expected 1, and my first instinct was that the query was wrong. The query was right — another
+piece of machinery had rewritten the row 6 seconds after being dispatched, 4 minutes before I
+looked. **On a shared cluster, read `updated_at` before doubting your predicate**: an assertion
+that "fails" may be faithfully reporting a change something else made while you were typing.

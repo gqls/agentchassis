@@ -223,3 +223,71 @@ log of wrong calls — that last one because the shape of this mistake is worth 
 people knowing: a stated *reason something can't be done* is the claim least likely
 to ever get re-checked, because it explains something everyone can already see and
 it recommends doing nothing.
+
+---
+
+**8 August, afternoon — the last thing this lane owed is done, and the system refused
+a fix that hadn't worked.**
+
+The one outstanding item was that the double-checking code we wrote for dead
+in-page links had never actually run. It was written, reviewed, shipped and sitting
+in production for three days, but no real work item had ever reached it, so we had
+no evidence it did anything. Writing a check that has never fired is a familiar way
+to be wrong around here, so it mattered.
+
+I set up a controlled case on the throwaway site nobody serves. I put a broken
+"jump to" link into the site's footer — the kind that sits on every page — pointing
+at a spot that doesn't exist anywhere on the site, and alongside it an identical-looking
+link that points at a spot that *does* exist. Then I ran the real discovery pass.
+
+It found exactly one problem: the broken one. The working one it left alone. It also
+worked out on its own that a footer problem is a job for the chrome-fixing agent rather
+than the page-building one, which is what we'd expect from reading the code but had
+never watched happen.
+
+Then the part that mattered. I asked the system to close the item, as if a repair had
+been done, while the broken link was still sitting there. **It refused.** It said, in
+its own words, that the link was still on the page and still pointed at nothing, put
+the item back in the queue instead of closing it, and recorded why. That is exactly the
+behaviour the whole double-checking mechanism exists for — the failure it's meant to
+prevent is machinery that always agrees with whoever asks it to close something.
+
+What happened next was better than what I'd planned. Because it had put the item back
+in the queue, the estate's ordinary dispatcher picked it up a minute later and ran the
+real repair agent, unprompted. That agent rebuilt the footer, which removed the broken
+link, and the double-check ran again and this time **agreed** — correctly, because the
+link genuinely was gone. So the full loop ran end to end, with no intervention from me:
+found, refused, repaired, verified, closed.
+
+I then did one more thing to make sure the check is genuinely reasoning and not just
+looking for a piece of text. I put the *identical* broken link back, but this time also
+added the missing destination. Same link, same wording, same everything — and it now
+said the opposite: the link resolves, close it. So it is really following the link to
+where it lands and looking there, not matching strings.
+
+Finally I ran discovery once more over the repaired site: nothing found, where an hour
+earlier the same check on the same site had found one. So the check and the double-check
+agree with each other, having got there by different routes.
+
+Everything I planted has been removed and the throwaway site is back to empty.
+
+**Two things I want to flag.**
+
+The first is a mess I made with your permission and haven't been able to finish clearing
+up. The repair agent, as its last act, always writes a small JavaScript file into our
+shared website repository — for every site, every time, even one with nothing in it. So
+running it against a site that doesn't really exist has left a folder called
+`pool-ai-agents.internal` in that repository, containing one near-empty file. You agreed
+to that cost in advance. I tried to delete it and my tooling blocked the deletion as a
+destructive remote action, and I didn't try to go around the block. **It needs one
+command, from you or with your say-so.**
+
+The second is something I found while watching the item go round the loop, and it will
+bite someone else. When the system refuses to close an item and then later closes it
+properly, it leaves the old refusal message sitting in the item's "error" field. So a
+finished, genuinely-fixed item can read, in that column, exactly like one that's still
+broken. Worse, the record of the refusal itself gets overwritten by the successful
+close — which means if anyone asks "how often has this safety mechanism actually stopped
+something?", the obvious way to count it will systematically miss the very cases it
+exists to catch. I've written that down where people will hit it, but it's a real gap in
+what we can measure about our own safety net, and it's not this lane's to fix.

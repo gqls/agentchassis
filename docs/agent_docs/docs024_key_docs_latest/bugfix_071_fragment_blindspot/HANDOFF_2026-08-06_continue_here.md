@@ -8,12 +8,28 @@
 > dead fragments filed, both resolving ones silent, correct severity/routing);
 > retraction proven by repairing one case and watching 2 findings become 1; fleet
 > re-measured at 67 hrefs / 0 findings; fixture deleted and the pool site proven
-> restored. **The only step still owed is the verifier's Go function** — see
-> §"Still owed" below, rewritten.
+> restored. ~~**The only step still owed is the verifier's Go function**~~
+> **DISCHARGED 2026-08-08 — see the banner immediately below.**
 
-**State: LIVE on v1.0.1259 and induction-proven. APPROVED round 1.** Nothing is
-blocked. What remains is one small verification and three deliberately-deferred
-pieces.
+> **THE OWED VERIFIER ITEM IS DONE, 2026-08-08 15:35–15:41Z, on `v1.0.1264`.**
+> `VerifyDeadFragmentLinkResolved` has executed in production and **refused** a
+> completion while the defect was live; the real `build-dispatch-loop` →
+> `nav-link-fixer` → `mark_complete` leg then ran unprompted and the verifier
+> **agreed** once the handler had genuinely removed the href; and a third run with
+> the identical href replanted beside a now-present `id` agreed for the *other*
+> reason. **All three of the function's exits are proven live.** Full evidence,
+> timeline, missteps and teardown: `NOTES_fragment_blindspot.md`
+> §"2026-08-08 (later)"; how to re-run it: `RUNBOOK_fragment_blindspot.md`
+> §"Make a verifier actually RUN".
+>
+> **One thing is genuinely still open and it is not code:** that run left
+> `pool-ai-agents.internal/assets/js/snippets.js` in the shared `gqls/sites` repo
+> (an unconditional side effect of `nav-link-fixer` — now a LANDMINE). It has not
+> been deleted. See §"Still owed" below.
+
+**State: LIVE on v1.0.1264, induction-proven on BOTH surfaces, and the verifier is
+execution-proven in all three directions. APPROVED round 1.** Nothing is blocked.
+What remains is one repo cleanup and three deliberately-deferred pieces.
 
 ## What exists now
 
@@ -90,14 +106,63 @@ SELECT created_at::date, count(*) FROM site_work_items
 WHERE created_by='completeness-discovery-agent' GROUP BY 1 ORDER BY 1 DESC;
 ```
 
-## Still owed — two things, both small
+## Still owed — ONE thing, and it is a repo cleanup, not code
 
-`VerifyDeadFragmentLinkResolved` has not executed. Its three SQL shapes were
-validated in both directions against the live fixture (href-presence returns `t`
-for a rendered href and `f` for an absent one; the path normalisation resolves to
-the target page's document and discriminates the live id from the dead one), but
-the Go function is reachable only through `CompleteWorkItemAction`. **The first
-real completion of a `dead_fragment_link` item exercises it.**
+**The verifier item that used to head this section is DISCHARGED (2026-08-08).**
+Kept below, struck through, because the *reasoning* about how to reach the function
+is still the map — and because the reason it stayed undone for two days was twice
+stated wrongly, which is the more useful lesson.
+
+> ~~`VerifyDeadFragmentLinkResolved` has not executed. Its three SQL shapes were
+> validated in both directions against the live fixture … but the Go function is
+> reachable only through `CompleteWorkItemAction`. **The first real completion of a
+> `dead_fragment_link` item exercises it.**~~
+
+**What actually happened, 2026-08-08 on `v1.0.1264`** (evidence: NOTES §"2026-08-08
+(later)"; commands: RUNBOOK §"Make a verifier actually RUN"):
+
+| # | run | verdict | how it was reached |
+|---|---|---|---|
+| 1 | href live, fragment resolves nowhere | **`defect_persists` — REFUSED** | one-shot agent calling the real `complete_work_item` |
+| 2 | handler had removed the href | `verified` ("no longer rendered") | the REAL `build-dispatch-loop` → `nav-link-fixer` → `mark_complete`, unprompted |
+| 3 | identical href replanted, `id` now present | `verified` ("now resolves") | one-shot again |
+
+Run 1 is the assertion this section always said was the point, and it is
+corroborated by the verifier's own log line
+(`check_phantom_internal_links_fragments.go:290`, inside the function past both
+queries). Run 3 is what proves the predicate resolves **ids**, not href strings —
+same href as run 1, opposite verdict, one `<div id="…">` different.
+
+**Run 2 was not staged, and that is the transferable fact:** a refusal sets
+`status='triaged'` (`complete_work_item_verification.go:224-231`), which makes a
+`detected` item dispatchable, and `build-pipeline-trigger` (120s) picked it up 61
+seconds later. **Refusing an item is itself the thing that queues it for a handler.**
+Do not refuse one you are not ready to have handled.
+
+Also settled in the same run: the **chrome/`site_component` surface** had never been
+induced (08-06 was page-surface only). It files correctly, with its resolving twin
+silent in the same run, and routes to `nav-link-fixer` / `build` / priority **30** —
+confirming by observation what the correction below had only read off the source.
+
+### ⚠ STILL OWED — delete the junk this cost, from a SHARED repo
+
+`nav-link-fixer`'s last step commits `<domain>/assets/js/snippets.js` to `gqls/sites`
+**unconditionally** — `render_js_snippets_for_site_action.go:86-94` returns that
+`files` map even for a site with zero snippets. Running it at the pool site therefore
+created, and left behind:
+
+```
+repo gqls/sites   path pool-ai-agents.internal/assets/js/snippets.js
+commit "Update JS snippets bundle" 2026-08-08 15:36:28Z   Actions run 31264883288 green (so it reached B2 too)
+```
+
+The owner accepted this cost in advance. The deletion was attempted and **refused by
+the tool sandbox as a destructive remote action**; it was not worked around. It needs
+one `gh api -X DELETE` (or a hand-made commit), then a cache-busted check at the B2
+**origin** — the `b2 sync --skip-newer` LANDMINE bites reverts specifically.
+
+This is now a LANDMINE in its own right: dispatching `nav-link-fixer` at ANY site
+writes to the shared repo, and the handler's own result never mentions it.
 
 > **CORRECTED 2026-08-08 — the reason given here until today was FALSE.** It read:
 > *"whose live callers are the dispatch loops — and `build-dispatch-loop` takes
@@ -133,7 +198,17 @@ came from `revalidate_review_queue` (a `revalidation` block, not `_verification`
 `build` where the path demonstrably works — not the page-surface case that would
 need a `page-build-handler` run against a pool site.
 
-### The recipe, if you take it on — READ THE RISK FIRST
+### ~~The recipe, if you take it on~~ — EXECUTED 2026-08-08, kept for the method
+
+> **This ran, and it came out better than written.** Steps 1–2 landed exactly as
+> described. Step 3 (promote to `triaged`) turned out to be **unnecessary as a
+> manual step** — the refusal in step 5 promotes the item itself, and the fleet then
+> did steps 4 and 6 unprompted. Step 5's refusal is confirmed. **The risk warning
+> below was right and the mitigation was wrong**: I judged the chrome-rewrite risk
+> as the thing to budget, and it was harmless on a pool site — the cost that
+> actually landed was a commit into the **shared `gqls/sites` repo**, which this
+> recipe never mentioned. See §"STILL OWED" above. Do not re-run it as written
+> without reading that first.
 
 **This is NOT the previous session's induction test repeated.** That one was
 read-only: plant a fixture, run discovery, watch it file, remove the fixture. This
@@ -169,7 +244,9 @@ When it happens, the thing to check is that a completion is REFUSED while the hr
 is still rendered and the fragment still misses — a verifier that only ever agrees
 is the failure mode the whole registry exists to prevent.
 
-**Second, smaller: the arm's first production run.** Watch the next real
+**Still open, and unchanged by 2026-08-08: the arm's first production run on a REAL
+site.** (Everything proven so far — both surfaces, all three verifier exits — was
+induced on the pool site. That is deliberate and it is not the same thing.) Watch the next real
 `completeness-discovery-agent` dispatch that includes a site carrying fragment
 links (idea.uk, loancash.co.uk, loanandmortgagecalculator.co.uk,
 fundamentallyai.com, vonc.com all have some). Expect **silence** — every one of

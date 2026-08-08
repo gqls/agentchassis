@@ -473,3 +473,207 @@ alone; quote both, or check what actually ran.
 > and `client_id` is only `demo_client`/`system`, so my first attempt answered a
 > question I had not asked. Retention reaches back to 2026-07-13, so an absence
 > there *would* be meaningful — if asked correctly.)
+
+---
+
+## 2026-08-08 (later) — the owed verifier ran, in production, and REFUSED. All three branches now proven.
+
+Chassis `v1.0.1264`, both pods started 13:08Z (≫300s, so no spawn-drop window).
+Owner's instruction was "go ahead with nav-link-fixer", and on being shown the
+side effect below, "do both": exercise the verifier cleanly first, then the full
+handler recipe. In the event the second half **fired by itself** — see the
+timeline.
+
+### The fixture — chrome surface this time, which had never been induced
+
+Previous induction (08-06) was `page_component` only. `site_component` is the
+other half of the arm and it is judged by a *different rule* (rule 2, "resolves if
+ANY page does"), routed by a different branch (`routeBySurface` → `nav-link-fixer`
+/ `build` / 40−10) and verified down a different SQL path (`concatAllPageHTML`,
+not `concatPageHTML`). None of that had ever executed.
+
+Pool site `pool-ai-agents.internal` (`29e0ffc4-…`), measured clean first:
+0 pages / 0 page_components / 0 site_components / 0 work items.
+
+- one page `zzz-frag-chrome-a` with a component carrying `id="zzz-page-anchor-live"`
+- one `site_components` row, slot `footer`, with **two** anchors:
+  `#zzz-page-anchor-live` (resolves on page A → must be SILENT) and
+  `#zzz-induced-chrome-dead` (resolves nowhere → must FIRE)
+
+Both controls in one run, so the zero half is disconfirmable by construction.
+
+### Result: exactly one item, routed exactly as the corrected handoff predicted
+
+```
+item_type   dead_fragment_link      surface site_component   slot footer
+href        #zzz-induced-chrome-dead
+pipeline    build     status detected    severity low    priority 30
+handler_agent nav-link-fixer
+item_key    dead_fragment_link:site_component:footer:#zzz-induced-chrome-dead
+```
+
+Priority **30** = `routeBySurface`'s 40 minus the fragment arm's `priority -= 10`.
+The resolving control filed nothing. Two junk items from unrelated checks
+(`needs_internal_links`, `needs_rerender`) — fixture artefacts, deleted.
+
+**This confirms by observation what 08-08's earlier correction had only read off
+the source:** a chrome-surface dead fragment routes to `nav-link-fixer`/`build`,
+not to `page-build-handler`/`content`.
+
+### Timeline of the completion runs (all times UTC, 2026-08-08)
+
+| time | what | verdict |
+|---|---|---|
+| 15:16:54 | one-shot `completeness-discovery-agent` at the pool site | 1 `dead_fragment_link`, `detected` |
+| 15:33:54 | probe fire #1 | **FAILED to reach the verifier** — see misstep below |
+| 15:35:24 | probe fire #2 → `complete_work_item` | **REFUSED**: `defect_persists` |
+| 15:36:25 | `build-pipeline-trigger` → `build-dispatch-loop` → **`nav-link-fixer`** (unprompted) | handler rewrote the chrome |
+| 15:36:31 | that loop's `mark_complete` → verifier again | **verified**, branch 1 (href gone) |
+| 15:40:24 | probe fire #3, href replanted with the id now present | **verified**, branch 2 (fragment resolves) |
+| 15:41:54 | discovery re-run over the repaired state | **0** `dead_fragment_link` |
+
+### 1. The refusal — the assertion the handoff said was the point
+
+```
+status        detected -> triaged      attempt_count 0 -> 1      claimed_by cleared
+error         completion blocked: post-fix verification found the defect still present:
+              href "#zzz-induced-chrome-dead" is still rendered and
+              #zzz-induced-chrome-dead still resolves to no element
+result._verification  {"status":"defect_persists","item_type":"dead_fragment_link","detail": …}
+```
+
+Corroborated by the verifier's **own** log line — the `logger.Info` at
+`check_phantom_internal_links_fragments.go:290`, which sits *past* both queries, so
+it cannot fire unless the function body ran:
+
+```
+"msg":"dead_fragment_link verifier: fragment still unresolved"
+pod agent-chassis-dc56548fb-zn2bl  orchestration 11e14fc2-d4bd-4575-ac04-40f0146bfb68
+step_name complete_item  action complete_work_item  item_id 53983137-…  href #zzz-induced-chrome-dead
+```
+
+**`VerifyDeadFragmentLinkResolved` had never executed before this line.** The owed
+item is discharged.
+
+### 2. The full recipe ran ON ITS OWN, because a refusal promotes the item
+
+This was not staged and it is the most useful thing in the session.
+`failUnverifiedCompletion` sets `status = 'triaged'` on a retryable refusal
+(`complete_work_item_verification.go:224-231`). Our item was `detected`; the
+refusal made it **`triaged`**, i.e. dispatchable. 61 seconds later
+`build-pipeline-trigger` (120s, enabled) selected the pool site, `build-dispatch-loop`
+claimed the item and spawned its real `handler_agent`, `nav-link-fixer`.
+
+What the handler actually did (from the item's own `result.response`):
+
+```json
+"template_fix_result": {"reason":"no header/footer component templates assigned to site","updated":0}
+"rerender_result":     {"success":true,"rendered":{"header":true,"footer":true}}
+```
+
+`render_site_components` force-rerendered header and footer from **generic**
+templates — wiping the planted anchor — and `mark_complete` then ran the verifier a
+second time, which took branch 1 and agreed:
+
+```
+_verification {"status":"verified","detail":"href \"#zzz-induced-chrome-dead\" is no longer rendered on this site_component"}
+status complete   handled_by build-dispatch-loop
+```
+
+So the handler leg is proven end to end for this item type, by the real dispatcher,
+without my having fired it.
+
+### 3. Branch 2 — the one that proves it resolves IDS, not hrefs
+
+Branch 1's agreement is weak evidence about the predicate: "the href vanished" is
+a string test. So I replanted the identical href into the footer, with
+`<div id="zzz-induced-chrome-dead">` now present on page A, and re-fired:
+
+```
+_verification {"status":"verified","detail":"fragment #zzz-induced-chrome-dead now resolves on the target page"}
+```
+
+**Same href string as the refusal; opposite verdict.** The only difference is a
+`<div id="…">` on a different row of a different table, reached through
+`concatAllPageHTML` (rule 2 — any page on the site). A verifier that pattern-matched
+the href could not have produced both answers. All three of the function's exits are
+now demonstrated live: refuse · agree-because-gone · agree-because-resolves.
+
+### 4. Convergence — and the contrast with `bugs_open/220`
+
+Re-ran discovery over the repaired state (href rendered, id present): **0
+`dead_fragment_link`**, while the same check on the same site had filed exactly 1 an
+hour earlier. So the zero is disconfirmable, and the **check** and the **verifier**
+agree on the same live data despite building "the document" through different SQL
+(the discovery loader vs `concatAllPageHTML` + `concatSiteComponentHTML`).
+
+`bugs_open/220` describes the same dispatcher, the same `mark_complete`, and a loop
+that reads green for ever because nothing re-checks. The difference here is only that
+this `item_type` has a registered verifier. That is direct evidence for the verifier
+registry as 220's fix shape, from a different lane's item type.
+
+### Missteps, in the order I made them
+
+**(a) I authored the probe with a literal UUID in the step's `config`, and it could
+not be read.** `complete_work_item` returned
+`input extraction failed: missing required fields: [work_item_id]` — which reads like
+"you forgot it" when it is sitting right there in the config. `ExtractActionInputs`
+only resolves a config value when it is a **multi-segment dot-path**
+(`action_inputs.go:472-488`, "Strategy 0"); everything else comes from an aggressive
+recursive search of `collectedData` (Strategy 2). A literal is therefore never a
+value. Fix: put the value in the scheduled task's `input_data` and point the config
+at `input_data.<key>`. Now a LANDMINE.
+
+**(b) I told the owner the pool-site handler run "can error before mark_complete"
+because the site has no templates. It did not — it succeeded.** I inferred that from
+`fix_nav_link_templates` having nothing to fix; but `render_site_components` falls
+back to generic templates and rendered both slots. Logged in `WRONG_CALLS.md`: a
+stated *reason a thing will fail* is a prediction, and I offered it as a
+decision-input to the owner without checking it.
+
+**(c) `href_still_rendered` came back 0 when I expected 1**, four minutes after the
+refusal — I briefly read it as a bad assertion. It was true: `nav-link-fixer` had
+rewritten the footer 6 seconds after being dispatched. The tell was
+`site_components.updated_at = 15:36:25`, which I only looked at second. **On a shared
+cluster an assertion that "fails" may be reporting a change someone else's machinery
+made while you were typing** — read the row's `updated_at` before doubting the query.
+
+### Two things about the completion record that will mislead somebody
+
+Both found by reading the row after each run rather than trusting the status.
+
+1. **A successful completion does NOT clear `error`.** The success UPDATE
+   (`load_work_item_actions.go:941-949`) writes `status`, `result`, `completed_at`,
+   `handled_by` — and leaves `error` holding the earlier refusal text. Our item
+   finished as `status=complete`, `_verification.status=verified`, and
+   `error = "completion blocked: … the defect still present …"` **at the same time.**
+   Any audit keyed on `error IS NOT NULL` will call this item broken.
+2. **`result._verification` is OVERWRITTEN by each attempt, so a refusal leaves no
+   durable trace in `result`.** The `defect_persists` verdict from 15:35 was gone by
+   15:36. "How often has a verifier refused?" is therefore **not** answerable from
+   `result` — only from `error` (stale-prone, per 1) and pod logs (they rotate). The
+   11-item `result ? '_verification'` census this lane has been quoting counts
+   **surviving** verdicts, not verifications performed.
+
+### The side effect the owner accepted, and its cleanup — NOT FINISHED
+
+`nav-link-fixer`'s last two steps render a JS snippets bundle and `git_commit` it,
+and `render_js_snippets_for_site_action.go:86-94` returns a `files` map **even for a
+site with zero snippets**, so the commit is unconditional. Dispatching it at the pool
+site therefore pushed a real file for a domain that does not exist:
+
+```
+repo gqls/sites   path pool-ai-agents.internal/assets/js/snippets.js
+commit "Update JS snippets bundle" 15:36:28Z   GH Actions run 31264883288 succeeded 15:36:30Z (so it also synced to B2)
+```
+
+**Still present.** My `gh api -X DELETE` was refused by the tool sandbox, and I did
+not work around it. Owed: delete that path from `gqls/sites` (and confirm at the B2
+origin with a cache-buster — the `b2 sync --skip-newer` landmine bites reverts).
+
+### Teardown
+
+Ran in one transaction with an all-zero post-assertion: pool pages 0 · pool
+page_components 0 · pool site_components 0 (the handler had created a `header` row
+too) · pool work items 0 · **`dead_fragment_link` fleet-wide 0** · lane one-shot
+`scheduled_tasks` 0 · probe `agent_definitions` row 0.

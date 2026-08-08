@@ -124,3 +124,110 @@ The check is `phantom_internal_links` (plural); the item type is
 `phantom_internal_link` (singular), and one check files **three** types. Querying
 the check name returns 0 rows and reads exactly like "never fired". Take the
 spelling from the `ItemType:` literal in the check's source.
+
+## Make a verifier actually RUN (added 2026-08-08)
+
+`VerifyDeadFragmentLinkResolved` is reachable only through `CompleteWorkItemAction`.
+Two ways to get there; the first is deterministic and side-effect-free.
+
+### A. Drive `complete_work_item` directly, with a one-shot agent
+
+**The literal-in-config trap comes first, because it costs you a whole round.**
+`ExtractActionInputs` resolves a config value only if it is a **multi-segment
+dot-path** (`action_inputs.go:472-488`). A literal UUID in
+`config.work_item_id` is silently not a value, and the action fails with
+`missing required fields: [work_item_id]` — which reads like you omitted it.
+**Pass values through the scheduled task's `input_data` and point config at them.**
+
+```sql
+INSERT INTO agent_definitions (type, display_name, description, category, agent_category, status, is_active, default_config)
+VALUES ('oneshot-frag-verify-probe','…','…','orchestrator','coordinator','experimental', true,
+'{"workflow":{"start_step":"complete_item","processing_mode":"orchestrator","timeout_seconds":300,
+  "steps":{
+    "complete_item":{"action":"complete_work_item",
+      "config":{"work_item_id":"input_data.work_item_id","result":"input_data.handler_result"},
+      "next_step":"done","output_field":"completion"},
+    "done":{"action":"complete_workflow","config":{"output_fields":["completion"]}}}}}'::jsonb);
+
+INSERT INTO scheduled_tasks (name, interval_seconds, target_agent_type, target_topic, input_data, enabled, fire_message)
+VALUES ('oneshot-frag-verify-probe-20260808', 86400, 'oneshot-frag-verify-probe',
+        'system.agent.scheduled.requests',
+        '{"work_item_id":"<uuid>","handler_result":{"probe":"…"}}'::jsonb, true, true);
+```
+
+Then **disable it the moment it fires** (`UPDATE scheduled_tasks SET enabled=false …`);
+to re-fire, `SET enabled=true, last_triggered_at=NULL, last_completed_at=NULL`.
+
+**The `result` you pass must carry no `response.status` of `failed`/`failure`/`error`,**
+or completion gate 1 (`handlerReportedFailure`) short-circuits and the verifier never
+runs — the guard is deliberately *before* the verifier. A result with no `response`
+key at all passes.
+
+Read the verdict at the item, not at the workflow:
+
+```sql
+SELECT status, attempt_count, left(error,160), jsonb_pretty(result->'_verification')
+FROM site_work_items WHERE id='<uuid>';
+```
+
+Confirm the function body ran, not just the policy wrapper — this line is inside it
+(`check_phantom_internal_links_fragments.go:290`) and past both queries:
+
+```bash
+for p in $(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[*].metadata.name}'); do
+  kubectl -n ai-persona-system logs $p --since=10m | grep -o '"msg":"dead_fragment_link verifier[^"]*"[^}]*item_id[^,]*'
+done
+```
+
+**Gotcha:** run it over **every** replica — `logs deploy/X` reads one pod of N, and
+the probe lands on whichever pod took the message.
+
+### B. Let the real dispatcher do it — note it may happen WITHOUT you
+
+A refusal sets `status='triaged'` (`complete_work_item_verification.go:224-231`),
+which makes a `detected` item **dispatchable**. `build-pipeline-trigger` runs every
+120s and picks the oldest `triaged` item's site fleet-wide, so a refused item can be
+picked up and handled a minute later on its own. Budget for that before refusing an
+item you are not ready to have handled.
+
+`build-dispatch-loop`'s `load_items` carries **no** pipeline/domain/handler filter —
+`item_pipeline` is applied only `if pipelineFilter != ""` (`load_work_item_actions.go:635-673`).
+It loads any pipeline for the site; `status IN ('triaged','approved')` is the only gate.
+
+### ⚠ Before you dispatch `nav-link-fixer` anywhere
+
+Its last two steps render a JS snippets bundle and `git_commit` it to **`gqls/sites`**
+under `<domain>/assets/js/snippets.js`, and `render_js_snippets_for_site_action.go:86-94`
+returns that `files` map **even when the site has zero snippets** — so the commit is
+unconditional, and for a pool/internal domain it is junk in a shared repo that then
+deploys to B2. Check what you are about to push:
+
+```bash
+gh run list --repo gqls/sites --limit 5 --json displayTitle,createdAt,conclusion
+gh api repos/gqls/sites/contents/<domain> --jq '.[].path'
+```
+
+Also: `render_site_components` does **not** need site-assigned templates. On a site
+where `fix_nav_link_templates` reports `"no header/footer component templates assigned
+to site"` it still rendered both slots from generic templates. Do not predict a no-op
+from the absence of templates.
+
+## Assert a chrome-surface finding, with its own negative control
+
+One `site_components` row carrying both anchors, so the silent half is disconfirmable
+in the same run:
+
+```sql
+INSERT INTO site_components (site_id, slot_name, rendered_html, build_status)
+VALUES ('<site>', 'footer',
+  '<footer><nav><a href="#zzz-page-anchor-live">live</a>' ||
+  '<a href="#zzz-induced-chrome-dead">dead</a></nav></footer>', 'deployed');
+```
+
+The site needs **at least one page with rendered `page_components`**, or rule 2 declines
+to judge at all (`resolvesAnywhere` returns `judged=false` when `len(byPageID)==0`) and
+you get a zero that means "no verdict", not "clean".
+
+Expect exactly one item: `surface=site_component`, `pipeline=build`,
+`handler_agent=nav-link-fixer`, `priority=30` (40 from `routeBySurface`, minus the
+fragment arm's 10).
