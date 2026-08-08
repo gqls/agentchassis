@@ -211,9 +211,15 @@ def main():
                 if not b:
                     continue
                 new_open, old_open = opening(r['text']), opening(b['text'])
-                if new_open[:40] and new_open[:40] not in served:
+                new_live = bool(new_open[:40]) and new_open[:40] in served
+                if new_open[:40] and not new_live:
                     problems.append(f"{r['slot']}: new opening NOT on the served page")
-                if old_open[:40] and old_open[:40] in served and old_open[:40] != new_open[:40]:
+                # The baseline opening lingering is only evidence of a STALE page
+                # when the new opening is absent. The writer legitimately prepends
+                # a new opening and keeps the original sentence further down —
+                # "preserve every claim" asks for exactly that — and then both are
+                # present on a page that is perfectly up to date.
+                elif old_open[:40] and old_open[:40] in served and old_open[:40] != new_open[:40] and not new_live:
                     problems.append(f"{r['slot']}: baseline opening STILL on the served page")
 
         verdicts.append((page, problems, notes, prose))

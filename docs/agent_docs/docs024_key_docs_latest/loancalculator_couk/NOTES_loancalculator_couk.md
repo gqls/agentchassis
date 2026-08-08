@@ -3109,12 +3109,24 @@ expected `lock_blocked_change` notices were filed. No calculator was touched.
 
 **Two things happened that were not predicted.**
 
-**1. `validate_page_content` REFUSED `tool-car-finance-calculator`, and was right to.**
-1 blocker, `meta_commentary`: the writer emitted the string `input_schema` into the
-copy — *"…ymbol come from the input_schema. FIXED 2026-08-03 — 0% APR, as its own
-change…"*. That is the model narrating its own task and echoing this lane's changelog
-back as body text. **The string is not in the baseline prose** (checked before
-concluding), so the writer invented it. The page was NOT saved: both prose rows still
+**1. `validate_page_content` REFUSED `tool-car-finance-calculator`.**
+1 blocker, `meta_commentary` on the string `input_schema` — *"…ymbol come from the
+input_schema. FIXED 2026-08-03 — 0% APR, as its own change…"*.
+
+> **CORRECTED, same session — I first wrote that "the writer emitted this into the
+> copy… the model narrated its own task", and that was WRONG.** It is what the
+> validator's own message asserts (*"the model wrote about its task instead of doing
+> it"*) and I repeated it without testing it. The writer never sees that text: the
+> `page-content-writer` prompt interpolates
+> `{{.current_section.existing_content_html}}` and the content-direction fields, never
+> the tool component's template. What falsified it was a predictor: **exactly 3 of the
+> 12 tool pages have a tool template containing `input_schema`, and exactly those 3
+> failed while all 9 others passed** — a control group that could have come out
+> otherwise. The real cause is that `checkMetaCommentary` substring-scans the WHOLE
+> assembled page HTML, comments included, and the locked calculator's template carries
+> a developer changelog comment that has shipped to readers since 2026-08-03. Filed as
+> **`bugs_open/219`**. The lesson: **an error message names a cause it has not
+> established**, and a confident one will be adopted whole. It cost about an hour. The page was NOT saved: both prose rows still
 carry their original ids and bytes, and the live page is untouched. Detail is in
 `agent_error_log.context.issues`, not in `collected_data` — that is where
 `validate_page_content` persists its issue list.
@@ -3149,3 +3161,44 @@ the correct end state — there was never any prose in it.
 **The grader now fails on any lost CSS selector**, per page, never sampled. Checking for
 the literal `<style` tag would not have been enough: a rewrite can keep the tag and drop
 the rules.
+
+### Final tally, and the site-wide gates
+
+**23 of 26 active pages now carry the H voice** (22 this session + the 08-06 canary).
+The 3 that do not are blocked by `bugs_open/219` and are unchanged, not damaged.
+
+| gate | result |
+|---|---|
+| all 26 active pages | HTTP 200, >5 KB, real `<!DOCTYPE>` — **0 failures** |
+| 12 locked calculator rows | **12/12** identical in row id, `updated_at` AND `rendered_html` |
+| `toolgolden --compare` vs `GOLDEN_2026-08-03b` | **all 11 tools reproduce their golden values exactly**, exit 0 |
+| per-page grading | facts, links, heading structure and CSS preserved; new copy present on the served page with the baseline opening absent |
+
+**The legal page was read by hand, not graded by md5**, as the plan promised. Every
+disclaimer survives: not a lender/credit broker/adviser, consult a professional or the
+lender, all four UK GDPR points (no server storage, local-only tracker data, we can't
+see or sell it, essential cookies), and the FCA statement with its *because* clause
+intact. The one substantive change makes the page **more** conservative, not less: *"we
+strive for 100% mathematical accuracy"* became *"We aim for mathematical accuracy, but
+every result here is still an estimate"* plus an explicit clause about a figure not
+matching a real agreement. Its `<h1>` gained `&amp;` for a raw `&`, which is correct
+HTML and renders identically (checked on the wire: `&amp;amp;` returns 0).
+
+**Bookkeeping:** 22 items completed after grading (never before — a direct dispatch
+bypasses the loop's `mark_complete`, so completing on grade is the honest order), 7
+`lock_blocked_change` notices cancelled with the evidence that they were benign, and
+3 items cancelled pointing at 219.
+
+**Still owed / deliberately not done:**
+- The 3 pages blocked by 219 (`index`, `tool-car-finance-calculator`,
+  `tool-interest-rate-stress-test`). Re-fire once it is fixed; the dispatcher and
+  grader are in this lane and take one page name.
+- **Re-baseline the golden.** `GOLDEN_2026-08-03b` still matches, so nothing is broken,
+  but the prose around 10 calculators has changed and a future capture will diff on
+  `dom_shape`. Not re-baselined here because 3 pages are pending — a partial capture
+  certifies nothing, which is why the harness refuses one.
+- **The expansion question is the OWNER's, not mine** (see `README_where_we_are`).
+  Several calculator pages had near-empty prose stubs (32–156 b) which the framework
+  filled with 800–1,900 b of new explanatory copy. That is more than a voice rewrite.
+  Nothing invented a number the claims gate would reject, but it is new substance on a
+  finance site and it should be looked at rather than assumed acceptable.

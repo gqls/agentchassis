@@ -1060,3 +1060,57 @@ phrasing, I'll put that one page back as it was and tell you.
 
 Everything is backed up first — every piece of copy on the site, with its original text
 saved, so any page or the whole site can go back exactly as it was.
+
+---
+
+## 8 August, later — the rewrites are done: 23 of 26 pages, calculators proven untouched
+
+**Where it landed.** Twenty-three of the site's twenty-six pages now read in the new
+voice. All twenty-six are up and healthy. The calculators are the thing I was most
+careful about and they are provably fine: all twelve locked calculator blocks are
+byte-for-byte what they were before I started, and the harness that drives every
+calculator and checks its arithmetic reports **all eleven reproducing their expected
+values exactly**. Nothing about the maths has moved.
+
+**The copy itself is doing what you liked about the sample.** It opens where the reader
+is standing rather than with a flat assertion, it explains a thing before naming it —
+"you'll need to ask your lender for the total amount required to close the account
+today; lenders call this the Settlement Figure" — and it quietly drops the salesy
+absolutes. "Overpaying is almost always a smart financial move" became "For most
+people, overpaying is worth doing."
+
+**Three pages I could not convert, and it is not a copy problem.** The home page, the
+car finance calculator and the interest rate stress test are refused by the platform's
+own content checker, every single time. The reason turned out to be nothing to do with
+the writing: each of those three pages contains a calculator whose code carries a
+developer's note explaining how it works, and one of the words in that note is on the
+checker's list of "things a machine writes when it talks about its own task instead of
+doing the work". The checker reads the whole page including the invisible notes, sees
+that word, and refuses. Those notes have been on the live site since 3 August and are
+harmless in themselves. I proved it rather than guessed: exactly the three pages with
+that word in their calculator failed, and all nine without it passed. **Those three
+pages are untouched and working** — they simply still read in the old voice. I've
+written it up as a bug for the platform to fix, and the moment it is fixed those three
+take about three minutes each.
+
+**One thing I broke and fixed, worth telling you about.** On four pages the rewrite
+deleted the styling that lays the calculator out. When the site was broken into editable
+pieces, some pieces that got labelled "prose" were actually the page's stylesheet, and
+rewriting prose in those slots threw the styling away — while every safety check in the
+system said fine, because the calculator itself was untouched and only its appearance
+collapsed. I caught it on the first page, put that page back, then found the other three
+and put those back too, and confirmed each one on the live site rather than in the
+database. All four are correct now. I've written the trap down so the next person to
+rewrite a site like this checks for it before starting rather than after.
+
+**One decision I'd like you to make.** On several calculator pages the intro text was
+almost empty — a single line, sometimes thirty characters. The framework didn't just
+restyle those, it filled them out, in some cases to a page of new explanation. It reads
+well and nothing in it trips the site's claim checks, but it is **new material rather
+than a rewrite of yours**, and on a money site that is your call, not mine. If you'd
+rather those slots stayed short, say so and I'll trim them back; if you're happy, they
+stay. Everything is backed up either way.
+
+**Not touched, as agreed:** the other finance sites are still waiting on your review,
+and the fleet-wide change to the house voice is still a separate decision that needs a
+proper design round rather than being slipped in here.
