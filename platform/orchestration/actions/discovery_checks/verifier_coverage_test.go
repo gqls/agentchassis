@@ -157,7 +157,13 @@ var itemTypesWithoutVerifiers = map[string]verificationGap{
 	"needs_rerender":                {catMechanical, "43 of 142 carry component_id; predicate is the section-drift check"},
 	"needs_component_regeneration":  {catMechanical, "12 of 57 carry component_id"},
 	"phantom_internal_link":         {catMechanical, "all 65 carry page_id; predicate is check_phantom_internal_links"},
-	"unbuilt_internal_link":         {catMechanical, "bugs_open/049 mechanism 2; carries the TARGET page_id (never-deployed page the link 404s at); predicate is check_phantom_internal_links deployed_at IS NULL"},
+	// unbuilt_internal_link: VERIFIER WRITTEN 2026-08-08 (bugs_open/220) —
+	// VerifyUnbuiltInternalLinkResolved in check_phantom_internal_links.go. Entry
+	// removed from this map rather than edited, per the literal_markdown precedent.
+	// The verdict is judged by the SAME shared predicate the detector minted the
+	// finding by (datahelpers.NeverDeployedPagePredicate), with link-removal as the
+	// accepted alternative remedy — see the verifier's own header for the remit
+	// argument, and bugs_open/220 for why completion had to stop trusting the saga.
 	"needs_internal_links":          {catMechanical, "all 49 carry page_id"},
 	"link_resolution_rebuild":       {catMechanical, "all 26 carry page_id"},
 	"needs_section_data":            {catMechanical, "all 69 carry component_id"},

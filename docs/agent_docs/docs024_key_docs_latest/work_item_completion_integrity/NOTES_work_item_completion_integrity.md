@@ -612,3 +612,17 @@ the backlog* — holding at a second altitude.
    because they test the assertion function and not the scan. So: a bogus agent
    name was inserted into `check_generic_theme.go`, the guard went red with the
    right message, and it went green again on restore — `git diff --stat` clean.
+
+## 2026-08-08 ~19:45Z — contributed from the bugfix_220 lane (not this workstream): ninth verifier registered
+
+`unbuilt_internal_link` now has `VerifyUnbuiltInternalLinkResolved`
+(`check_phantom_internal_links.go`, bugs_open/220, register WII-012) — registered
+fail-closed under WII-011's default, coverage-map entry removed per the
+literal_markdown precedent, claim-timeout lockstep done both halves (declared list in
+`sql_for_agents/220` same commit; live column via mig 341, 331's template — the live
+list read before writing was the 8-entry one, no drift). Two disjuncts (target shipped
+OR link removed), judged by the detector's own `NeverDeployedPagePredicate`. One
+consequence for this workstream's censuses: this type's completions were previously
+ALL false-greens (the dispatch built the wrong page — see the bug file), so any
+completion-quality figure that counts pre-roll `unbuilt_internal_link` completions as
+successes overstates; 13/13 all-history rows are the wrong-page shape. — bugfix_220 lane

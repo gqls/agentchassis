@@ -178,3 +178,48 @@ alone. Re-run before shipping — the census moves daily.
 It says nothing about what a *discovery pass* mints mid-run, and this file's own
 REPRODUCED section shows a run re-minting 7. The mint condition is a live link to a
 never-deployed page.
+
+## TAKEN 2026-08-08 ~19:00Z — fix built (candidates 1+3), candidate 4 deferred on record
+
+Taken by a fresh lane after the 206 lane's closing message explicitly left it ("the
+follow-up is the separate bug 220 dispatcher fix") and a transcript sweep found no
+session holding the fix-site symbols. Working docs:
+`docs024_key_docs_latest/bugfix_220_unbuilt_link_dispatch/`. Register: **WII-012**.
+
+**A correction to candidate 1 as written above:** "map `page_id?` and have
+`load_page_record` prefer it over `page_name`" is INSUFFICIENT as stated —
+`load_page_record_action.go` resolves **page_name first** (its documented priority),
+and its empty-name branch re-fills the name from `input_data.spec.page_name` plus three
+more fallback paths. For this item type the container's name always resolves, so a
+forwarded id would always lose. The shipped shape (per the 2026-08-02 RFC_010 §2
+ruling — new authority on a shared seam is an opt-in FIELD):
+
+1. `build-dispatch-loop` `call_handler.input_mapping` += `"page_id?": "current_item.page_id"`
+   (mig **340**; precedent: `site-work-orchestrator` already maps exactly this shape).
+2. `load_page_record` gains optional `authoritative_page_id`: resolves-and-parses →
+   lookup BY ID, name ignored; malformed → loud error; absent → prior behaviour
+   byte-for-byte. Only `page-build-handler`'s step opts in (mig 340);
+   `tool-recreation-handler`'s stays name-first.
+3. `VerifyUnbuiltInternalLinkResolved` registered (fail-closed per RFC_017): resolved
+   when the container no longer renders the href OR the target page has shipped, judged
+   by `datahelpers.NeverDeployedPagePredicate` — the detector's own predicate. Claim-
+   timeout lockstep: declared list in `sql_for_agents/220` + live column via mig **341**
+   (the `TestRegisteredVerifiersMatchClaimTimeoutExclusion` obligation, 331's template).
+
+**Candidate 2 not taken** (narrow, and would make spec.page_name lie about which page
+contains the link). **Candidate 4 deferred**: `availableBuilders` lives in package
+`actions`, which imports `discovery_checks` — the check cannot reach it without a leaf-
+package refactor of the 206 lane's day-old machinery; with the verifier live a
+directory-target item now fails LOUDLY into the attempt machinery (→ `failed`, two-
+strike parks re-detections) instead of lying green, and the 206 lane's
+`needs_directory` path is the designed remediation for those targets. Whoever picks
+candidate 4 up: expect exactly that `failed` population as your demand signal.
+
+**Verification state:** unit tests green against a clean `git archive HEAD` overlay
+(the load-bearing test asserts at the QUERY ARGUMENTS that a resolving container name
+loses to the forwarded target id). Go rides the next fleet roll; migs 340/341 are
+inert against the pre-roll binary (measured: no live handler dispatched by this loop
+reads `input_data.page_id`; the old binary's InputSpec does not declare
+`authoritative_page_id`, and ExtractActionInputs only reads declared fields).
+Behavioural acceptance after the roll is this file's § How to verify, unchanged —
+plus: completion must carry `result._verification.status='verified'`.

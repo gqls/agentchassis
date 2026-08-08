@@ -55,6 +55,8 @@
 package discovery_checks
 
 import (
+	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -444,4 +446,94 @@ func loadSitePageTargets(dctx DiscoveryCheckContext) (sitePageTargets, error) {
 	delete(unbuilt, datahelpers.NormalizePagePath("/"))
 
 	return sitePageTargets{valid: datahelpers.NewPageURLSet(urls), unbuilt: unbuilt}, nil
+}
+
+func init() { RegisterVerifier("unbuilt_internal_link", VerifyUnbuiltInternalLinkResolved) }
+
+// VerifyUnbuiltInternalLinkResolved re-checks one unbuilt_internal_link item at
+// completion time (bugs_open/220): the handler saga can succeed having rebuilt
+// the page CONTAINING the link — the dispatch defect this bug is about — and
+// until this verifier existed that stamped the item 'complete' with the target
+// still a live 404, terminal for the dedup index, so the next discovery pass
+// re-minted the same item and the loop converged on nothing, green, forever.
+//
+// BOTH DISJUNCTS ARE THE FIX, exactly as for VerifyDeadFragmentLinkResolved:
+// the item's own spec.fix names two remedies — build and deploy the target, or
+// remove the link — so the defect is gone when the container no longer renders
+// the href, OR when the target page has shipped. A verifier asking only about
+// the target would refuse an item fixed the way the item itself recommended.
+//
+// The shipped/unbuilt judgement is datahelpers.NeverDeployedPagePredicate — the
+// SAME SQL predicate the detector minted the finding by, which is verifiers.go's
+// stated contract, and the same reason the predicate is a shared constant at all
+// (each hand-written copy is a chance to spell it `build_status = 'deployed'`
+// and disagree with the check).
+//
+// Remit check (the page_rerender trap in verifier_coverage_test.go): the handler
+// for this item type is pointed at the TARGET page and its remit is to build and
+// deploy it, so "target shipped" is not stricter than what the handler is
+// responsible for; link-removal is the documented alternative remedy, accepted
+// not required.
+func VerifyUnbuiltInternalLinkResolved(ctx context.Context, db *sql.DB, target VerifyTarget, logger *zap.Logger) (VerifyResult, error) {
+	href, _ := target.Spec["href"].(string)
+	if href == "" {
+		return VerifyResult{}, fmt.Errorf("unbuilt_internal_link verifier: item carries no href")
+	}
+	surface, _ := target.Spec["surface"].(string)
+
+	// 1. Is the offending href still rendered on the surface it was found on?
+	//    NOTE the container/target split: spec.page_id is the page CONTAINING
+	//    the link; target.PageID (the work item's page_id column) is the TARGET
+	//    the href points at. Confusing the two is this bug's whole mechanism.
+	var stillPresent bool
+	var err error
+	if surface == "site_component" {
+		err = db.QueryRowContext(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM site_components
+				WHERE site_id = $1 AND COALESCE(rendered_html, '') LIKE '%' || $2 || '%'
+			)`, target.SiteID, `href="`+href+`"`).Scan(&stillPresent)
+	} else {
+		containerIDStr, _ := target.Spec["page_id"].(string)
+		containerID, perr := uuid.Parse(containerIDStr)
+		if perr != nil {
+			return VerifyResult{}, fmt.Errorf("unbuilt_internal_link verifier: page-surface item carries no container page_id in spec (%q): %w", containerIDStr, perr)
+		}
+		err = db.QueryRowContext(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM page_components
+				WHERE page_id = $1 AND COALESCE(rendered_html, '') LIKE '%' || $2 || '%'
+			)`, containerID, `href="`+href+`"`).Scan(&stillPresent)
+	}
+	if err != nil {
+		return VerifyResult{}, fmt.Errorf("unbuilt_internal_link verifier: surface load failed: %w", err)
+	}
+	if !stillPresent {
+		return VerifyResult{Resolved: true, Detail: fmt.Sprintf("href %q is no longer rendered on this %s — the link was removed, which the item's own fix text accepts", href, surface)}, nil
+	}
+
+	// 2. The link is still live, so the target must now have shipped.
+	if target.PageID == nil {
+		return VerifyResult{}, fmt.Errorf("unbuilt_internal_link verifier: item carries no target page_id")
+	}
+	var stillUnbuilt bool
+	err = db.QueryRowContext(ctx, `
+		SELECT `+datahelpers.NeverDeployedPagePredicate+`
+		FROM pages
+		WHERE id = $1 AND site_id = $2 AND status NOT IN ('deleted', 'archived')
+	`, *target.PageID, target.SiteID).Scan(&stillUnbuilt)
+	if err == sql.ErrNoRows {
+		// The target row is gone (deleted or archived) while the link is still
+		// rendered: the href 404s with no page left to build. Resolved:false,
+		// not an error — this is a judged defect, and the phantom arm of the
+		// same check is what will re-classify the finding on the next pass.
+		return VerifyResult{Resolved: false, Detail: fmt.Sprintf("href %q is still rendered and its target page row %s is deleted/archived — the link now dangles with nothing to build", href, target.PageID)}, nil
+	}
+	if err != nil {
+		return VerifyResult{}, fmt.Errorf("unbuilt_internal_link verifier: target page load failed: %w", err)
+	}
+	if stillUnbuilt {
+		return VerifyResult{Resolved: false, Detail: fmt.Sprintf("target page %s has still never been deployed and href %q is still rendered — a handler that rebuilt the CONTAINER instead of the target lands here (bugs_open/220)", target.PageID, href)}, nil
+	}
+	return VerifyResult{Resolved: true, Detail: fmt.Sprintf("target page %s has shipped; href %q now resolves", target.PageID, href)}, nil
 }

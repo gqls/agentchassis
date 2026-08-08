@@ -5,9 +5,23 @@
 // compiled Go, not fragile JSON strings.
 //
 // Lookup priority:
+//   0. authoritative_page_id (if provided) — lookup by site_id + id, and the
+//      name inputs are IGNORED. Opt-in, absent everywhere by default; see below.
 //   1. page_name (if provided) — lookup by site_id + name
 //   2. page_id (if page_name is empty) — lookup by site_id + id
-//   At least one of page_name or page_id must be provided.
+//   At least one of the three must be provided.
+//
+// authoritative_page_id (bugs_open/220). The work item's page_id COLUMN names the
+// ACTIONABLE page — for a cross-page item type (unbuilt_internal_link) that is the
+// page to build, while spec.page_name/spec.page_id name the page CONTAINING the
+// defect. Under the name-first priority above, forwarding the right id changes
+// nothing: the container's name always resolves, always wins, and the handler
+// rebuilds the wrong page while reporting success. The dispatcher therefore
+// forwards the column as input_data.page_id, and a step that wants it decisive
+// maps it into THIS input. It is a separate opt-in field, not a priority flip,
+// per the owner ruling of 2026-08-02 (RFC_010 §2): the id-wins authority is
+// visible in the config of the step that asserts it, and every config that does
+// not name it keeps today's behaviour exactly.
 //
 // Handles:
 //   - Page found: returns full page record with parsed sections
@@ -51,7 +65,7 @@ import (
 var LoadPageRecordInputSpec = datahelpers.ActionInputSpec{
 	CheckConfig: true,
 	Required:    []string{"site_id"},
-	Optional:    []string{"page_name", "page_id"},
+	Optional:    []string{"page_name", "page_id", "authoritative_page_id"},
 	Defaults:    map[string]interface{}{},
 	Deprecated:  map[string]string{},
 }
@@ -92,6 +106,21 @@ func LoadPageRecordAction(ctx context.Context, params ActionParams) (interface{}
 	siteID, err := uuid.Parse(siteIDStr)
 	if err != nil {
 		return nil, fmt.Errorf("invalid site_id %q: %w", siteIDStr, err)
+	}
+
+	// Priority 0: an authoritative id supplied by the dispatcher from the work
+	// item's page_id column. When present it IS the page this step is about —
+	// the name inputs describe where a defect was seen, not what to load.
+	if authIDStr := strings.TrimSpace(inputs.Get("authoritative_page_id")); authIDStr != "" {
+		authID, err := uuid.Parse(authIDStr)
+		if err != nil {
+			// The only wiring for this input is a work-item column, which is a
+			// uuid or absent — a malformed value means a misconfigured path, and
+			// falling through to the name would silently load a different page,
+			// which is the exact defect this input exists to close.
+			return nil, fmt.Errorf("invalid authoritative_page_id %q: %w", authIDStr, err)
+		}
+		return loadPageRecordByID(ctx, params, siteID, authID, logger)
 	}
 
 	pageName := strings.TrimSpace(inputs.Get("page_name"))
@@ -152,7 +181,23 @@ func LoadPageRecordAction(ctx context.Context, params ActionParams) (interface{}
 		return nil, fmt.Errorf("either page_name or page_id is required")
 	}
 
-	// Query the page — by name if available, otherwise by page_id
+	return queryPageRecordRow(ctx, params.DB, siteID, pageName, pageIDInput, logger)
+}
+
+// loadPageRecordByID serves the authoritative_page_id path: lookup strictly by
+// id, never consulting the name inputs. Split out so the main flow's page_name
+// fallback recovery (which would re-fill an emptied name from the spec and win
+// the priority race all over again) cannot reach it.
+func loadPageRecordByID(ctx context.Context, params ActionParams, siteID, pageID uuid.UUID, logger *zap.Logger) (interface{}, error) {
+	logger.Info("LoadPageRecordAction: authoritative page_id supplied — loading by id, name inputs ignored",
+		zap.String("authoritative_page_id", pageID.String()))
+	return queryPageRecordRow(ctx, params.DB, siteID, "", pageID.String(), logger)
+}
+
+// queryPageRecordRow runs the page lookup — by name when pageName is non-empty,
+// by id otherwise — and builds the page_record result map. Shared by the normal
+// name-first flow and the authoritative-id path above.
+func queryPageRecordRow(ctx context.Context, db *sql.DB, siteID uuid.UUID, pageName, pageIDInput string, logger *zap.Logger) (interface{}, error) {
 	var (
 		pageID           string
 		name             string
@@ -171,15 +216,16 @@ func LoadPageRecordAction(ctx context.Context, params ActionParams) (interface{}
 	// page-build-handler maps current_page <- page_record (this row).
 	selectCols := `SELECT id::text, name, title, page_type, sections::text, url, build_status, nav_label, nav_order, content_direction::text FROM pages`
 
+	var err error
 	if pageName != "" {
-		err = params.DB.QueryRowContext(ctx,
+		err = db.QueryRowContext(ctx,
 			selectCols+` WHERE site_id = $1 AND name = $2 LIMIT 1`,
 			siteID, pageName,
 		).Scan(&pageID, &name, &title, &pageType,
 			&sectionsJSON, &url, &buildStatus, &navLabel, &navOrder, &contentDirection)
 	} else {
 		// Lookup by page_id — the work item column always has this
-		err = params.DB.QueryRowContext(ctx,
+		err = db.QueryRowContext(ctx,
 			selectCols+` WHERE site_id = $1 AND id = $2::uuid LIMIT 1`,
 			siteID, pageIDInput,
 		).Scan(&pageID, &name, &title, &pageType,
