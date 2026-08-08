@@ -11242,3 +11242,31 @@ target differs from its spec's page, verify against the TARGET's row (`deployed_
 never the handler's own success payload. Same family as "a `complete` work item is not
 a repaired artefact" and `bugs_open/192`'s wrong-result-looks-right shape, one level
 up: here the WRONG OBJECT succeeded.
+
+### A proximity detector convicts the DENIAL — and the prompt that forbids X makes the output mention X, so the gate's own instruction manufactures its false positives (`bugs_open/222`, 2026-08-08)
+
+The fabrication gate's declaration tier (`check_tool_fabrication_action.go:91`)
+convicts any qualifier (`fabricat\w+|fake|mock|synthetic|...`) within 48 chars of a
+data-noun — with no negation awareness. A recreation of the portfolio tool was
+convicted on its ONLY matching line: `// In-memory portfolio store (no fabricated
+data — starts empty)` — a comment DENYING fabrication, on a tool that starts empty
+and holds only user-entered records. The recreation (id-complete, marker present,
+every other gate green) was discarded and a human-review item filed.
+
+The compounding mechanism is the part worth carrying: the recreate prompt's Data
+Integrity section spends ~9 lines forbidding fabricated data, so a conscientious
+model echoes the prohibition as a comment — **the more emphatically a prompt forbids
+X, the more the output MENTIONS X, and a keyword-proximity detector cannot tell the
+mention from the act.** The same page's 08-05 conviction (signals purged unread) now
+has a strong same-class prior; its 08-08 morning run passed only because the model
+happened not to write the comment — a gate whose verdict flips on comment phrasing
+at temperature 0.1 is measuring prose style, not fabrication.
+
+Transferable rules: (1) before trusting any keyword/proximity conviction, read the
+matched snippet for negators — `no|not|never|without|do not` before the qualifier
+inverts the meaning and the regex cannot see it; (2) when a detector and the prompt
+it polices are written by the same lane, grep the prompt's vocabulary against the
+detector's pattern list — every shared term is a manufactured false-positive path
+(`prompt-text-poisons-its-own-detector`, now with a second confirmed case); (3) a
+"declaration" tier that reads CODE COMMENTS polices text no visitor sees — scope it
+to prose, or make it negation-aware, before widening it.
