@@ -65,3 +65,30 @@
   same-pod `[INFERRED]` survival caveat is refuted (fresh `GetState` at
   coordinator.go:261 + `json:"-"` ⇒ the fallback was payload-less on every
   response-driven recoverable).
+
+## 2026-08-08 (later still) — council APPROVED round 1; verdict read in full
+
+- `complete_approved` at 14:49:53 — ~5 minutes after dispatch pickup, no queue this
+  time. Decision: "approved with 1 advisory objection(s) — none high-severity",
+  8 abstained, 9 seats reviewed. Verdict body read from `diagnosis_artifacts`
+  (`kind='council_report'`, corr `fcf8794c`). ⚠ Gotcha re-learned: the runbook's
+  "latest doc_notes row" query returned ANOTHER submission's verdict (concurrent
+  council traffic) — filter `body LIKE '%<corr>%'`, never trust LIMIT 1 bare.
+- The one advisory objection (editquality, low): the state.go doc-comment edit is
+  comment-only and should not count toward mechanism coverage. Correct — it was
+  submitted as doc-truthing, no action.
+- Guardian objected containment-only (medium: verify the "exactly two callers" claim
+  independently; low: confirm nothing mutates the row between the timeout path's claim
+  and its call; low: confirm the test fixtures aren't fresh shared infra). All three
+  were verified first-hand before submission and the answers are now in the bug file's
+  fix record. debug_historian's low objection (name the deploy-verification step) was
+  already answered by the RUNBOOK's pod-grep markers — recorded there before the
+  submission went in.
+- Commit stays `Council-Submitted:`-trailed (forward-only forbids an amend); 098
+  resolves it to this approval automatically. The verdict IS read, so citing
+  `Council-Reviewed: fcf8794c-92df-4c8e-9677-5ca284a20cce` in prose is honest — it just
+  cannot retroactively enter the commit message.
+- Fleet baseline at verdict time: both agent-chassis replicas on **v1.0.1264**
+  (started 13:08Z) — pre-fix. IMAGE_TAG sits at v1.0.1265 uncommitted (another
+  session's bump). The fix ships with whichever whole-fleet release next builds from
+  post-`22899b809` HEAD.

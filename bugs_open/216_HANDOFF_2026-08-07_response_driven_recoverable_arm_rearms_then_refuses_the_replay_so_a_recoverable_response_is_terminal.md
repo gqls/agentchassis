@@ -15,8 +15,16 @@ stands, every classifier improvement upstream buys a bookkeeping write instead o
 > `platform/orchestration/response_retry_claimed_row_test.go` recreate the hostile world
 > (unreachable DB, payload-less in-memory copy) and assert the replay reaches the wire;
 > the discriminating test was mutation-verified (reintroducing the fallback fails it
-> with this file's shape). Council gate: `Council-Submitted:
-> fcf8794c-92df-4c8e-9677-5ca284a20cce`. Close criteria: pod-grep the positive marker
+> with this file's shape). Council gate: **APPROVED round 1, 2026-08-08 14:49 —
+> verdict read** (`Council-Reviewed: fcf8794c-92df-4c8e-9677-5ca284a20cce`; the commit
+> carries the `Council-Submitted:` trailer, which 098 resolves to this approval —
+> forward-only forbids an amend). One advisory objection (editquality, low: the
+> doc-comment edit is not mechanism coverage — correct, it was counted as
+> doc-truthing). Guardian's containment checks, answered first-hand: callers verified
+> by independent grep (exactly two, both in coordinator.go; the signature change makes
+> a third a compile error); nothing writes the row between either claim and the decide
+> (read line-by-line); the test fixtures are fresh but local to the one test file.
+> Close criteria: pod-grep the positive marker
 > (`Retry decided on the claimed awaited row passed through from the claim`) + negative
 > control (`Using in-memory awaited request`, expect 0) on every replica, then re-run
 > the 207 induction and CONSUME the replayed request from the target topic — a
