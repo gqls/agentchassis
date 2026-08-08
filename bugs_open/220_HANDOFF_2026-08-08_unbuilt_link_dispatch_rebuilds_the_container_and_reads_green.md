@@ -6,7 +6,8 @@ the improvement loop have picked these problems up?". Diagnosed first-hand rathe
 below is quoted from the live system (the live `agent_definitions` config, the work item's own
 `spec`/`page_id`/`result` columns, the `pages` table), not inferred; and a live re-demonstration
 was fired the same day (correlation `867d6054-3f8f-4b11-9352-b29cecd9aaaa`, one-shot
-improvement-loop over vetcomparison.uk — outcome to be appended below when read).
+improvement-loop over vetcomparison.uk — outcome: **REPRODUCED, see the dated section
+at the bottom**).
 
 ## One-line mechanism
 
@@ -108,3 +109,27 @@ item completes with a result naming the target's file — not the container's.
   "phantom_internal_link … fixed zero times, ever" table shows the type had never fired).
 - Memory/lesson: "a `complete` work item is not a repaired artefact"; "a doc comment is not an
   enforcement mechanism".
+
+## REPRODUCED 2026-08-08 15:19Z — same session, platform fully carrying 206's fix
+
+The one-shot improvement-loop run (corr `867d6054`) re-minted 7 `unbuilt_internal_link`
+items (dedup did not block — the 08-02 items are terminal, absence 3 above). The first
+two dispatched before this lane intervened:
+
+| item | finding (container → target) | what the dispatch deployed | target after |
+|---|---|---|---|
+| `3f066b90` | guide-independent-strategy → /directory/index.html | `/guides/independent-strategy/index.html` | still `deployed_at NULL` |
+| `4ba1d4dd` | how-it-works → /entities/practice.html | `/how-it-works.html` | still `deployed_at NULL` |
+
+Both `complete`, no error. This is with `directory-build-handler` live in
+`agent_definitions` (migrations 325/326/336 applied) — confirming the check's
+hardcoded `HandlerAgent: "page-build-handler"` + the dispatcher's `spec.page_name`
+mapping bypass the new capability entirely, exactly as the "Note" paragraph above
+predicts. The remaining 5 re-minted items were **cancelled by the 206 lane** (error
+text on each points here) because the correct remediation for their targets — the
+`needs_page` rows routed at `directory-build-handler` — was already queued; without
+that intervention each would have spent a further multi-minute LLM rebuild on the
+wrong page. A companion `empty_internal_href` item (`5cc5c24b`, tool page) dispatched
+and no-op'd to `needs_human_review` ("no sections ready to build") — the parallel
+failure shape for an item type whose container IS the right page but has no plan
+sections.
