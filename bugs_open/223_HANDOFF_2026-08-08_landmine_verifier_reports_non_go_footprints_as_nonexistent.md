@@ -18,6 +18,51 @@ verifier agent, `landmines-verify-dispatch.sh`, `trigger-landmine-verifier.sh`),
 `bugfix_163_symbol_lookup` as the lane that already knows this code. I have not touched
 their code; this file is the account, not a competing fix.
 
+> ## CORRECTED 2026-08-08, within the hour, by the verifier itself. **The title overstates and the cause does not.**
+>
+> **What stands, and is now independently corroborated.** The index really is Go-only and
+> the blind spot is real. Two further verdicts arrived after filing, and one of them
+> *verified this bug's own landmine entry* and reached the same conclusion unprompted:
+>
+> > **STILL_VALID.** "The lookup results themselves demonstrate the entry's thesis: non-Go
+> > footprints (scripts, doc_notes categories, bug references) returned **0 rows** while
+> > Go-side components resolved abundantly, **confirming the index is Go-only and the
+> > described blind spot persists.**"
+>
+> **What is WRONG: "reports EVERY non-Go footprint as non-existent."** It does not. Given
+> the identical 0-row input, the conclusion the verifier draws **varies run to run** —
+> three verdicts within one hour, all on non-Go footprints, all on v1.0.1267:
+>
+> | verdict | what it concluded from 0 rows |
+> |---|---|
+> | on the sync-ordering entry | **STALE** — "do not exist anywhere in the indexed codebase; the entire described workflow has no footprint" (flatly false) |
+> | on the prose-columns entry, first run | hedged — "either lives outside indexed scope **or has been removed**" |
+> | on the prose-columns entry, re-run | **correct abstention** — "cannot be mechanically verified" |
+> | on this bug's own landmine entry | **correct, and reasoned about the blindness itself** |
+>
+> **So the defect is one layer up from where I filed it.** The blind spot is
+> *deterministic*; the **inference drawn from it is stochastic**, ranging from a correct
+> abstention to a flat assertion of non-existence, with nothing binding the conclusion to
+> the blindness. That is the same shape as `163`'s invented staleness cause, and — noted
+> because it is the second instance found on one day — the same shape as the provocation
+> gate's safety boolean (`provocation_pipeline/HANDOFF_2026-08-08b` §4): **a model-authored
+> conclusion sitting over a mechanical blind spot, with no structural guard between them.**
+>
+> **This makes fix candidate 1 stronger, not weaker.** "Ask the model to abstain when it
+> cannot check" is already what it does *most* of the time — 3 of 4 verdicts here — and the
+> failure mode is precisely that you cannot tell which run you got. An entry is degraded by
+> the one flat STALE, not rescued by the three careful ones. **Only a structural bar on the
+> inference removes it.**
+>
+> **And a consequence I had not seen, which matters for reading the corpus:** a
+> `STILL_VALID` on a non-Go-footprint entry is **not evidence FOR that entry either** — the
+> footprints were equally unchecked. My own entry passed because the model reasoned about
+> its thesis, not because anything was verified. For 284 of 288 entries, *both* verdict
+> directions are uninformative about the footprints, and only the prose reasoning carries
+> signal.
+>
+> Original title kept rather than rewritten, so the overstatement stays visible.
+
 **Why it matters more than a wrong verdict on one entry.** `LANDMINES.md` is the
 system of record for traps that fire when you touch a thing (owner ruling D10), it is
 synced into `doc_notes` for council seats and agents to read, and a `SessionStart` hook
