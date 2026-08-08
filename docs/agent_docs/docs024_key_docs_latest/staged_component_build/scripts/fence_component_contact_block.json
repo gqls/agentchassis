@@ -1,0 +1,70 @@
+{
+  "profiles": [
+    "desktop",
+    "mobile"
+  ],
+  "container": "section.contact-block-section[data-component=\"contact-block\"]",
+  "checks": [
+    {
+      "id": "page-serves-200",
+      "type": "page_status_ok"
+    },
+    {
+      "id": "section-renders",
+      "type": "selector_exists",
+      "profiles": [
+        "desktop"
+      ],
+      "selector": "section.contact-block-section[data-component=\"contact-block\"]"
+    },
+    {
+      "id": "section-has-visible-area",
+      "type": "has_visible_area",
+      "selector": "section.contact-block-section[data-component=\"contact-block\"]"
+    },
+    {
+      "id": "heading-has-text",
+      "type": "interaction",
+      "profiles": [
+        "desktop"
+      ],
+      "expect": {
+        "selector": "section.contact-block-section[data-component=\"contact-block\"] .cb-heading",
+        "text_matches": "\\S"
+      }
+    },
+    {
+      "id": "form-present",
+      "type": "selector_exists",
+      "profiles": [
+        "desktop"
+      ],
+      "selector": "section.contact-block-section[data-component=\"contact-block\"] form.cb-form"
+    },
+    {
+      "id": "empty-submission-is-rejected-with-a-reason",
+      "type": "interaction",
+      "profiles": [
+        "desktop"
+      ],
+      "steps": [
+        {
+          "action": "click",
+          "selector": "section.contact-block-section[data-component=\"contact-block\"] #cb-submit-btn"
+        }
+      ],
+      "expect": {
+        "selector": "section.contact-block-section[data-component=\"contact-block\"] #cb-status.cb-error",
+        "text_matches": "\\S"
+      }
+    },
+    {
+      "id": "no-horizontal-overflow",
+      "type": "no_horizontal_overflow"
+    },
+    {
+      "id": "no-console-errors",
+      "type": "no_console_errors"
+    }
+  ]
+}

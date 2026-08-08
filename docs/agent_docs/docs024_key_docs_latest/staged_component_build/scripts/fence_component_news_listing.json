@@ -1,0 +1,64 @@
+{
+  "profiles": [
+    "desktop",
+    "mobile"
+  ],
+  "container": "section.news-listing-section[data-component=\"news-listing\"]",
+  "checks": [
+    {
+      "id": "page-serves-200",
+      "type": "page_status_ok"
+    },
+    {
+      "id": "section-renders",
+      "type": "selector_exists",
+      "profiles": [
+        "desktop"
+      ],
+      "selector": "section.news-listing-section[data-component=\"news-listing\"]"
+    },
+    {
+      "id": "section-has-visible-area",
+      "type": "has_visible_area",
+      "selector": "section.news-listing-section[data-component=\"news-listing\"]"
+    },
+    {
+      "id": "heading-has-text",
+      "type": "interaction",
+      "profiles": [
+        "desktop"
+      ],
+      "expect": {
+        "selector": "section.news-listing-section[data-component=\"news-listing\"] .news-listing-title",
+        "text_matches": "\\S"
+      }
+    },
+    {
+      "id": "at-least-one-item",
+      "type": "selector_exists",
+      "profiles": [
+        "desktop"
+      ],
+      "selector": "section.news-listing-section[data-component=\"news-listing\"] .news-listing-items article.news-list-item"
+    },
+    {
+      "id": "feed-load-fills-the-count",
+      "type": "interaction",
+      "profiles": [
+        "desktop"
+      ],
+      "expect": {
+        "selector": "section.news-listing-section[data-component=\"news-listing\"] #news-listing-count",
+        "text_matches": "\\d+ item"
+      }
+    },
+    {
+      "id": "no-horizontal-overflow",
+      "type": "no_horizontal_overflow"
+    },
+    {
+      "id": "no-console-errors",
+      "type": "no_console_errors"
+    }
+  ]
+}

@@ -1,0 +1,69 @@
+{
+  "profiles": [
+    "desktop",
+    "mobile"
+  ],
+  "container": "section.blog-listing-section[data-component=\"blog-listing\"]",
+  "checks": [
+    {
+      "id": "page-serves-200",
+      "type": "page_status_ok"
+    },
+    {
+      "id": "section-renders",
+      "type": "selector_exists",
+      "profiles": [
+        "desktop"
+      ],
+      "selector": "section.blog-listing-section[data-component=\"blog-listing\"]"
+    },
+    {
+      "id": "section-has-visible-area",
+      "type": "has_visible_area",
+      "selector": "section.blog-listing-section[data-component=\"blog-listing\"]"
+    },
+    {
+      "id": "heading-has-text",
+      "type": "interaction",
+      "profiles": [
+        "desktop"
+      ],
+      "expect": {
+        "selector": "section.blog-listing-section[data-component=\"blog-listing\"] .bl-heading",
+        "text_matches": "\\S"
+      }
+    },
+    {
+      "id": "at-least-one-card",
+      "type": "selector_exists",
+      "profiles": [
+        "desktop"
+      ],
+      "selector": "section.blog-listing-section[data-component=\"blog-listing\"] .bl-grid article.bl-card"
+    },
+    {
+      "id": "real-click-moves-the-filter",
+      "type": "interaction",
+      "profiles": [
+        "desktop"
+      ],
+      "steps": [
+        {
+          "action": "click",
+          "selector": "section.blog-listing-section[data-component=\"blog-listing\"] .bl-filter-btn[data-filter=\"cat1\"]"
+        }
+      ],
+      "expect": {
+        "selector": "section.blog-listing-section[data-component=\"blog-listing\"] .bl-filter-btn[data-filter=\"cat1\"].active"
+      }
+    },
+    {
+      "id": "no-horizontal-overflow",
+      "type": "no_horizontal_overflow"
+    },
+    {
+      "id": "no-console-errors",
+      "type": "no_console_errors"
+    }
+  ]
+}

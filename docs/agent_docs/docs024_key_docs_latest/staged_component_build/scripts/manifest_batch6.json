@@ -1,0 +1,122 @@
+[
+  {
+    "function": "news-listing",
+    "aim": "The full news archive page: headline, optional subtitle, a list of items, and a footer\nreporting how many items are shown and when the feed was last updated. 9 active placements\n/ 8 sites at authoring time. The items are server-rendered AND then replaced client-side\nfrom `/data/news-archive.json`; the server copy is a deliberate fallback (bugs_open/027) so\nan empty or failing feed leaves a readable page rather than a blank one.",
+    "contract": [
+      "- Root `section.news-listing-section[data-component=\"news-listing\"]`.",
+      "- `{{.headline}}` is unconditional -> `.news-listing-title` must carry text. `{{.subheadline}}`",
+      "  is conditional and is NOT asserted.",
+      "- `{{range .items}}` -> at least one `article.news-list-item` inside `.news-listing-items`.",
+      "- **The interactive half.** `/tools/assets/news-listing.js` fetches `/data/news-archive.json`,",
+      "  rewrites the items, un-hides `#news-listing-footer` (server-rendered `style=\"display:none\"`)",
+      "  and writes `#news-listing-count`. The fence asserts that count reads `\\d+ item`, which is",
+      "  reachable ONLY if the client-side feed load completed -- it is the one assertion here that",
+      "  a static render cannot satisfy. `#news-listing-count` is read with InnerText, so a hidden",
+      "  footer reads empty and the check fails, which is the intended discrimination.",
+      "- Consequence to know before re-pointing this fence: on a proof page whose feed is",
+      "  deliberately EMPTY the designed behaviour is a placeholder and a hidden footer, so this",
+      "  check would fail correctly-but-uselessly. Point it at a placement whose feed serves."
+    ],
+    "fence": "fence_component_news_listing.json",
+    "proof_url": "https://robot-hands.com/news/index.html",
+    "proof_note": "Single-instance placement; 21 assets and CSS url() backgrounds probed, all 200; `/data/news-archive.json` serves 200.",
+    "mutants": "8/8 caught, every check watched red, baseline green",
+    "accommodations": "serve_local `/data/news-archive.json` -- the page's own same-origin fetch, which the redirect harness would turn cross-origin and CORS would kill"
+  },
+  {
+    "function": "latest-news",
+    "aim": "The homepage news teaser: heading, a card grid of recent items, and a \"More insights\" link\nthe feed supplies. 6 active placements / 6 sites at authoring time. Like `news-listing` its\nitems are server-rendered and then replaced from `/data/latest-news.json`.",
+    "contract": [
+      "- Root `section.latest-news-section[data-component=\"latest-news\"]`.",
+      "- `h2#news-headline` is unconditional AND is the slot the feed overwrites -- asserted for text",
+      "  by its id, not by position, because the id is what the script writes into.",
+      "  `#news-subheadline` is conditional and is NOT asserted.",
+      "- `{{range .items}}` -> at least one `article.news-card` inside `.news-grid`.",
+      "- **The interactive half.** `/tools/assets/latest-news.js` fetches `/data/latest-news.json` and,",
+      "  when the feed carries `insights_url`, fills the server-rendered EMPTY `<div id=\"news-footer\">`",
+      "  with `a.news-more-link`. That anchor exists in no server render, so asserting it is a direct",
+      "  assertion that the client-side feed load completed."
+    ],
+    "fence": "fence_component_latest_news.json",
+    "proof_url": "https://robot-hands.com/index.html",
+    "proof_note": "Single-instance placement; 30 assets probed, all 200; `/data/latest-news.json` serves 200 with 6 items and an `insights_url`.",
+    "mutants": "8/8 caught, every check watched red, baseline green",
+    "accommodations": "serve_local `/data/latest-news.json` -- same reason as `news-listing` (this exact path is the measured precedent recorded in the prover's own header)"
+  },
+  {
+    "function": "case-studies-grid",
+    "aim": "The case-studies index with a category filter bar: eyebrow, headline, intro, five filter\nbuttons, and a grid of fixed cards each tagged with a `data-category`. 4 active placements /\n3 sites at authoring time.",
+    "contract": [
+      "- Root `section.case-studies-grid-section[data-component=\"case-studies-grid\"]`.",
+      "- `.csg-headline` is unconditional -> must carry text.",
+      "- At least one `article.csg-card` inside `.csg-grid`.",
+      "- **The interactive half.** `/tools/assets/case-studies-grid.js` binds a click on every",
+      "  `.csg-filter-btn`: the clicked button gains `.active` AND `aria-current=\"true\"`, the others",
+      "  lose both, and cards whose `data-category` does not match are hidden. The fence dispatches",
+      "  the visitor's REAL click on the `strategy` filter and asserts",
+      "  `.csg-filter-btn[data-filter=\"strategy\"].active[aria-current=\"true\"]`. No server render",
+      "  carries `aria-current` at all (grep of the served proof page: 0 occurrences), so this can",
+      "  only pass if the handler ran."
+    ],
+    "fence": "fence_component_case_studies_grid.json",
+    "proof_url": "https://leopardessconsulting.co.uk/who-we-help.html",
+    "proof_note": "Single-instance placement; 29 assets probed, all 200.",
+    "mutants": "8/8 caught, every check watched red, baseline green",
+    "notes": [
+      "**A defect found by choosing the proof page, recorded here rather than fixed.**",
+      "`finetuning.uk/index.html` carries this component and 404s FIVE of its card images:",
+      "`/assets/images/case-study-{facilities,financial-data,legal-rag,logistics-strategy,private-ai}.jpg`.",
+      "That is the same detected-but-never-repaired class as the `hero.jpg` family",
+      "(`bugs_closed/128`), and it is why the proof placement is leopardess rather than finetuning."
+    ]
+  },
+  {
+    "function": "contact-block",
+    "aim": "The contact section: enquiry details (email, phone, location, response-time badge) beside a\nvalidated enquiry form. 3 active placements / 3 sites at authoring time.",
+    "contract": [
+      "- Root `section.contact-block-section[data-component=\"contact-block\"]`.",
+      "- `.cb-heading` is unconditional -> must carry text.",
+      "- `form.cb-form` present.",
+      "- **The interactive half, and the deliberate limit of it.** `/tools/assets/contact-block.js`",
+      "  binds submit, calls `preventDefault()`, and runs four client-side validations. The fence",
+      "  clicks submit on an EMPTY form and asserts `#cb-status.cb-error` carries text -- an invalid",
+      "  submission must come back with a reason. That is real behaviour and it is mutation-proven.",
+      "- **What this fence deliberately does NOT assert: the success message.** The component prints",
+      "  \"Your message has been sent. We'll be in touch shortly.\" from a 1,200 ms `setTimeout`, and",
+      "  the component contains NO transport whatsoever -- no `action` on the form, and zero",
+      "  `fetch(`/`XMLHttpRequest`/`sendBeacon` in the served 2,100-byte asset. Asserting that message",
+      "  would make this contract vouch for a claim that is false to the visitor. Filed as",
+      "  `bugs_open/228`; when it is fixed, the right addition here is a check that the success state",
+      "  is downstream of a RESPONSE, not of a timer."
+    ],
+    "fence": "fence_component_contact_block.json",
+    "proof_url": "https://robot-hands.com/contact.html",
+    "proof_note": "Single-instance placement; 22 assets probed, all 200.",
+    "mutants": "8/8 caught, every check watched red, baseline green"
+  },
+  {
+    "function": "blog-listing",
+    "aim": "The blog index with a category filter bar: eyebrow, heading, intro, four filter buttons and a\ngrid of post cards. 2 placement rows at authoring time, of which ONE renders (see Notes).",
+    "contract": [
+      "- Root `section.blog-listing-section[data-component=\"blog-listing\"]`.",
+      "- `.bl-heading` is unconditional -> must carry text.",
+      "- At least one `article.bl-card` inside `.bl-grid`.",
+      "- **The interactive half.** `/tools/assets/blog-listing.js` binds a click on every",
+      "  `.bl-filter-btn`; the clicked button gains `.active` and the others lose it. Unlike its",
+      "  sibling `case-studies-grid` it sets NO `aria-current`, so the assertion is on `.active`",
+      "  alone -- and the fence clicks `cat1`, never `all`, because `all` carries `.active` in the",
+      "  server render and asserting it would pass with the script deleted."
+    ],
+    "fence": "fence_component_blog_listing.json",
+    "proof_url": "https://fundamentallyai.com/platform-log/index.html",
+    "proof_note": "Single-instance placement; 18 assets probed, all 200.",
+    "mutants": "8/8 caught, every check watched red, baseline green",
+    "notes": [
+      "**Placement drift, recorded not fixed.** The other placement row,",
+      "`leopardessconsulting.co.uk/blog.html`, points at a page whose served HTML contains NO",
+      "`data-component` attribute at all -- not this component's, not any component's. The row",
+      "is effectively unplaced. Same class as the `featured-content` / `pricing` / `ported-page`",
+      "rows recorded in this lane's NOTES on 2026-08-05 and 2026-08-08."
+    ]
+  }
+]

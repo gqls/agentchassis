@@ -1,0 +1,65 @@
+[
+  {
+    "name": "the page stops being served (404)",
+    "serve_status": 404,
+    "expect_fail": [
+      "page-serves-200"
+    ]
+  },
+  {
+    "name": "the section loses the identity acceptance resolves it by",
+    "from": "data-component=\"blog-listing\"",
+    "to": "data-component=\"blog-listing-renamed\"",
+    "expect_fail": [
+      "section-renders"
+    ]
+  },
+  {
+    "name": "the section collapses below visible size (10x10, overflow hidden)",
+    "from": "</body>",
+    "to": "<style>section.blog-listing-section[data-component=\"blog-listing\"]{width:10px!important;height:10px!important;overflow:hidden!important;padding:0!important}</style></body>",
+    "expect_fail": [
+      "section-has-visible-area"
+    ]
+  },
+  {
+    "name": "the heading renders empty",
+    "from": "<h2 class=\"bl-heading\">Entries From the Platform Log</h2>",
+    "to": "<h2 class=\"bl-heading\"></h2>",
+    "expect_fail": [
+      "heading-has-text"
+    ]
+  },
+  {
+    "name": "the card grid loses its container class, so no card sits inside the grid",
+    "from": "class=\"bl-grid\"",
+    "to": "class=\"bl-grid-renamed\"",
+    "expect_fail": [
+      "at-least-one-card"
+    ]
+  },
+  {
+    "name": "the component's own script never runs, so clicking a filter does nothing",
+    "from": "<script src=\"/tools/assets/blog-listing.js\"></script>",
+    "to": "<script>/* component script removed by mutant */</script>",
+    "expect_fail": [
+      "real-click-moves-the-filter"
+    ]
+  },
+  {
+    "name": "a wide element pushes the page past the viewport",
+    "from": "</body>",
+    "to": "<div style=\"width:3000px;height:8px\"></div></body>",
+    "expect_fail": [
+      "no-horizontal-overflow"
+    ]
+  },
+  {
+    "name": "a script error reaches the console",
+    "from": "</body>",
+    "to": "<script>window.__deliberatelyUndefined.boom = 1;</script></body>",
+    "expect_fail": [
+      "no-console-errors"
+    ]
+  }
+]

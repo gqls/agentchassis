@@ -1,0 +1,61 @@
+{
+  "profiles": [
+    "desktop",
+    "mobile"
+  ],
+  "container": "section.latest-news-section[data-component=\"latest-news\"]",
+  "checks": [
+    {
+      "id": "page-serves-200",
+      "type": "page_status_ok"
+    },
+    {
+      "id": "section-renders",
+      "type": "selector_exists",
+      "profiles": [
+        "desktop"
+      ],
+      "selector": "section.latest-news-section[data-component=\"latest-news\"]"
+    },
+    {
+      "id": "section-has-visible-area",
+      "type": "has_visible_area",
+      "selector": "section.latest-news-section[data-component=\"latest-news\"]"
+    },
+    {
+      "id": "heading-slot-has-text",
+      "type": "interaction",
+      "profiles": [
+        "desktop"
+      ],
+      "expect": {
+        "selector": "section.latest-news-section[data-component=\"latest-news\"] h2#news-headline",
+        "text_matches": "\\S"
+      }
+    },
+    {
+      "id": "at-least-one-card",
+      "type": "selector_exists",
+      "profiles": [
+        "desktop"
+      ],
+      "selector": "section.latest-news-section[data-component=\"latest-news\"] .news-grid article.news-card"
+    },
+    {
+      "id": "feed-load-fills-the-footer",
+      "type": "selector_exists",
+      "profiles": [
+        "desktop"
+      ],
+      "selector": "section.latest-news-section[data-component=\"latest-news\"] #news-footer a.news-more-link"
+    },
+    {
+      "id": "no-horizontal-overflow",
+      "type": "no_horizontal_overflow"
+    },
+    {
+      "id": "no-console-errors",
+      "type": "no_console_errors"
+    }
+  ]
+}

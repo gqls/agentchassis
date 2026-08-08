@@ -1,0 +1,69 @@
+{
+  "profiles": [
+    "desktop",
+    "mobile"
+  ],
+  "container": "section.case-studies-grid-section[data-component=\"case-studies-grid\"]",
+  "checks": [
+    {
+      "id": "page-serves-200",
+      "type": "page_status_ok"
+    },
+    {
+      "id": "section-renders",
+      "type": "selector_exists",
+      "profiles": [
+        "desktop"
+      ],
+      "selector": "section.case-studies-grid-section[data-component=\"case-studies-grid\"]"
+    },
+    {
+      "id": "section-has-visible-area",
+      "type": "has_visible_area",
+      "selector": "section.case-studies-grid-section[data-component=\"case-studies-grid\"]"
+    },
+    {
+      "id": "headline-has-text",
+      "type": "interaction",
+      "profiles": [
+        "desktop"
+      ],
+      "expect": {
+        "selector": "section.case-studies-grid-section[data-component=\"case-studies-grid\"] .csg-headline",
+        "text_matches": "\\S"
+      }
+    },
+    {
+      "id": "at-least-one-card",
+      "type": "selector_exists",
+      "profiles": [
+        "desktop"
+      ],
+      "selector": "section.case-studies-grid-section[data-component=\"case-studies-grid\"] .csg-grid article.csg-card"
+    },
+    {
+      "id": "real-click-moves-the-filter",
+      "type": "interaction",
+      "profiles": [
+        "desktop"
+      ],
+      "steps": [
+        {
+          "action": "click",
+          "selector": "section.case-studies-grid-section[data-component=\"case-studies-grid\"] .csg-filter-btn[data-filter=\"strategy\"]"
+        }
+      ],
+      "expect": {
+        "selector": "section.case-studies-grid-section[data-component=\"case-studies-grid\"] .csg-filter-btn[data-filter=\"strategy\"].active[aria-current=\"true\"]"
+      }
+    },
+    {
+      "id": "no-horizontal-overflow",
+      "type": "no_horizontal_overflow"
+    },
+    {
+      "id": "no-console-errors",
+      "type": "no_console_errors"
+    }
+  ]
+}
