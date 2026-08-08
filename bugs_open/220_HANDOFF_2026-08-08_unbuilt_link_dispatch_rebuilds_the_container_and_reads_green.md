@@ -133,3 +133,48 @@ wrong page. A companion `empty_internal_href` item (`5cc5c24b`, tool page) dispa
 and no-op'd to `needs_human_review` ("no sections ready to build") — the parallel
 failure shape for an item type whose container IS the right page but has no plan
 sections.
+
+## CONTRIB 2026-08-08 (116 lane) — fix candidate 1's blast radius, MEASURED: `unbuilt_internal_link` is the only type affected
+
+Candidate 1 asks for a measurement before shipping — *"measure which live item types
+carry a `page_id` differing from `spec.page_name`'s page"*. Run 2026-08-08 ~17:10Z by
+the `bugs_open/116` lane, which needed the same number to decide whether the first
+supervised improvement-loop run (owner ruling D3, 116:254) could safely be fired at
+leopardessconsulting's 61 parked findings. Contributed rather than forked — this bug
+is the 206 lane's.
+
+**Method.** Left-join each work item to (a) the page its `page_id` names and (b) the
+page `spec->>'page_name'` resolves to *within the same site*, then count agreement.
+The dispatcher reads only (b); the check files against (a).
+
+**Result over all live items (`status IN ('detected','triaged','approved')`), 24 types, 168 items: DISAGREE = 0 for every type.** The types split three ways, and only the
+third is even capable of exhibiting this defect:
+
+| shape | types | can it disagree? |
+|---|---|---|
+| `page_id IS NULL` (dispatcher's `page_name` is the only page signal) | 16 types incl. `needs_internal_links` 18, `undeployed_asset` 20, `needs_rerender` 11 | no — nothing to disagree with |
+| `page_id` present and **equal** to the named page | `page_rerender` 66, `phantom_internal_link` 12, `empty_internal_href` 4, `empty_section` 3, `literal_markdown` 1, `improve_tool` 1 | no — filed against the container, which IS the actionable page |
+| `page_id` present and **different** | **`unbuilt_internal_link` only** | **yes — this bug** |
+
+**The zero is disconfirmable, and was disconfirmed on purpose before being trusted.**
+Positive control: re-run unfiltered by status, the same query flags **13/13**
+`unbuilt_internal_link` rows as DISAGREE — including both rows this file names
+(`8abc9f8d` index→directory-index, `b99dea13` about→directory-index) plus 11 more
+across the fleet (`10b4fc72`, `49f0e189`, `6d1cb353`, `5686a320`, `bdf76041`,
+`4ba1d4dd`, `2ef4eb51`, `3f066b90`, `240e4020`, `46f732a4`, `b20fa738`). All 13 are
+`complete` or `cancelled`, which is why they fall outside the live filter — **the live
+zero is a real zero, not the empty-set kind.**
+
+**What this means for the fix.** Candidate 1 (`"page_id?": "current_item.page_id"` +
+`load_page_record` preferring it) has **no live behaviour change outside
+`unbuilt_internal_link`** — every other live type either supplies no `page_id` or
+supplies one that already agrees. That is the narrow blast radius candidate 1 hoped
+for, now measured rather than assumed. It does **not** speak to types that are
+currently absent from the queue; a future cross-page check would newly depend on the
+mapping, which is the argument for pairing it with candidate 3 rather than shipping
+alone. Re-run before shipping — the census moves daily.
+
+**Caveat this lane could not close:** the measurement covers items that already exist.
+It says nothing about what a *discovery pass* mints mid-run, and this file's own
+REPRODUCED section shows a run re-minting 7. The mint condition is a live link to a
+never-deployed page.
