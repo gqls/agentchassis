@@ -77,3 +77,111 @@ two-store-one-deploy run proves the branch, not the exposure.
 - `bugs_open/152` — the source-recording half; `storage.AssetSourceRef` (IMG-068) is
   the shared derivation both arms should end up resolving through.
 - LANDMINES: the 155 entry, retired 2026-08-06 — **it covers the DB arm only.**
+
+---
+
+# VERIFICATION 2026-08-08 — `bugfix_209_deploy_purpose_keyed_source` lane
+
+Picked up unowned (the `who-owns.py` hit naming `bugfix_221` is a false positive —
+that lane's handoff merely *cites* this file). Full evidence and every misstep:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_209_deploy_purpose_keyed_source/`.
+No fix written — three findings changed the plan, and two of them change *this file*.
+
+**Method note (per the 2026-07-31 owner ruling):** `090` was not run. Substituted
+first-hand verification, stated plainly: a census of **every** live agent definition
+carrying the action, branch-level reads of the routing that decides exclusivity,
+key enumeration over the live `collected_data` of all 18 recent runs, and the real
+Go helpers executed 400× under test. The claims below are measurements, not reads.
+
+## 1. `[MEASURED]` The defect is LATENT — no live workflow can reach it
+
+Upgrades this file's `[UNMEASURED]` to a measured negative. Exactly **three** live
+definitions carry `deploy_image_asset`: `asset-deployer`, `pageflow-builder`,
+`site-work-orchestrator`. None can produce the two-same-purpose-assets-in-one-run
+shape:
+
+- `pageflow-builder` / `site-work-orchestrator` store+deploy **hero and logo** —
+  different purposes, so `hero_uri` and `logo_uri` are distinct slots.
+- `image-build-handler` (this file's named suspect) **does** have two `store_asset`
+  steps both at static `purpose: "hero"` — but they sit on **mutually exclusive
+  branches** (`check_item_type_imagery` → `check_imagery_brand_update` vs
+  `check_item_type`), so one runs per orchestration. It has **no deploy step**: it
+  delegates via `call_asset_deployer` with `s3_uri: asset_stored.image_uri`, i.e.
+  the just-stored asset carried **by identity**.
+- `asset-deployer`'s `collected_data` holds **no `{purpose}_uri` key at all**
+  (enumerated across 18 runs), and `ExtractNestedField` is a strict path walk, not a
+  recursive search — so Priority 2 is unreachable there even when the store fails
+  and the deliberate `error_step` still deploys. That path degrades to a safe skip.
+
+**Latent, not closed.** Real defect, no reachable instance; the door is open for the
+next workflow that stores two same-purpose assets and deploys in-run.
+
+## 2. `[MEASURED]` Fix candidate 1 would CAUSE the failure it prevents — do not take it
+
+Both legacy deploy steps carry **no `input_fields`**, so they resolve through
+`ExtractActionInputs` Strategy 2 → `extractSingleField` Strategy 4 → aggressive
+recursive search. `findFieldRecursive` walks `for key, val := range m`
+(`unified_extractor.go:494`) — **Go randomises map iteration order.**
+
+Running the real helper 400× on identical input with both `hero_stored.asset_id`
+and `logo_stored.asset_id` present:
+
+```
+hero asset_id : 344/400   <- WRONG asset for the LOGO deploy step
+logo asset_id :  56/400
+```
+
+**The logo step resolved the hero's `asset_id` in 86% of runs.** Priority 2 is
+therefore *load-bearing*, not cruft: for these workflows the two assets differ
+exactly by purpose, so the purpose key is the correct discriminator. Deleting it
+swaps a correct lookup for an 86%-wrong one.
+
+Today those steps in fact resolve earlier still: both carry `uri_field`
+(`hero_result.image_uri` / `logo_result.image_uri`), which the spec's `Deprecated`
+map bridges to `s3_uri` before `findStorageURI` is ever called.
+
+## 3. `[MEASURED]` The defect is wider than "Priority 2"
+
+Priorities **3–7** are *also* purpose-keyed (`{purpose}_result.image_uri`,
+`{purpose}_stored.asset_url`, …, `deploy_image_asset_action.go:460-495`). "Delete
+Priority 2 so the asset_id path is the only DB-free route" does not achieve that —
+it falls through to five more purpose-keyed lookups. A real fix must change the
+function's **keying**, not one branch.
+
+## Recommended ranking, replacing the one above
+
+1. **Key by asset identity, additively** (this file's candidate 2): write
+   `asset_uris.<asset_key>` *alongside* `{purpose}_uri`, reader prefers `asset_key`
+   when supplied (`asset-deployer` already passes it; `image-build-handler` passes
+   `asset_key?`). Nothing deleted, every caller keeps working. **This is a platform
+   seam** — new reserved key namespace on a shared action — so per the 2026-07-28/29
+   rulings: concept-register entry *in the same commit*, council submission
+   alongside, and the other consumers **told**, not merely measured.
+2. **Give the legacy deploy steps explicit `input_fields`** — config-only, live
+   immediately, and it fixes the general recursive-resolution hazard rather than
+   just this bug.
+3. Retire the purpose-keyed priorities only once no caller depends on them.
+
+Candidate 3 (guard on "exactly one same-purpose asset") stays last: a guard against
+a state the code can still express.
+
+## Pinned in code
+
+`platform/orchestration/actions/deploy_image_asset_purpose_source_test.go` — four
+characterisation tests (all passing) recording the last-write-wins branch, that
+distinct purposes do not collide, the 86% instability, and which route supplies the
+legacy source today. They exist so a future thread reaching for candidate 1 trips
+over the reason Priority 2 was kept.
+
+## Still open
+
+- `[UNVERIFIED]` Are `pageflow-builder` / `site-work-orchestrator` reachable at all?
+  No live definition spawns or calls either, and neither ran today — but
+  `orchestration_states` retains completed runs only ~24h (13 rows older than 24h,
+  **0** older than 7 days), and the longer-retention cross-check was **blind**
+  (`llm_call_log` returned 0 for `asset-deployer` on a day it ran 16 times; positive
+  control failed, result discarded). **Dormant, not proven dead.** If they are dead,
+  retiring them removes the legacy constraint and makes fix 1 clean.
+- Does the recursive-`asset_id` instability bite other actions with a
+  no-`input_fields` step whose spec field name occurs twice in `collected_data`?
+  That is a shared-helper question wider than 209.

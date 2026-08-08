@@ -1,0 +1,70 @@
+# Where we are — bug 209, the image deploy that picks its source by "purpose"
+
+Plain-prose log, append-only, newest at the bottom.
+
+---
+
+## 2026-08-08, late evening — first look, and it turned out better and worse than expected
+
+Picked this up because the previous session's handoff said 209 was the only bug in
+the open pile that nobody owned. Checked that myself first, since the ownership
+script reads commit history and can't see a session that's mid-fix. Three other
+sessions were live at the time; none of them was working on this. One was my own
+predecessor, which is why the script pointed at me.
+
+The bug is about how we deploy an image. When the system deploys, say, a hero
+image, it has to find where that image is stored. One of the ways it looks is by
+asking "what's the URL for the *hero* image in this run?" — and that's the
+problem: "hero" is a category, not a name. If a run produced two hero images, the
+second one quietly overwrites the first, and a deploy asking for "the hero" gets
+whichever came last. You'd deploy the wrong picture and nothing would complain.
+
+**The good news: I can't find any way this actually happens today.** I went
+through every live workflow that can deploy an image — there are three, plus one
+more that was the prime suspect. The two workflows that do handle several images
+in one go handle a *hero* and a *logo*, which are different categories, so they
+never tread on each other. The suspect workflow does have two steps that both
+claim the "hero" slot, but they sit on opposite sides of a fork in the road —
+only one can run in any given job. And it doesn't deploy anything itself; it hands
+off to a separate deployer, passing the exact image it just saved, by name rather
+than by category. I also checked what that deployer actually has in memory when it
+runs: the category-keyed values simply aren't there.
+
+So the fault is real in the code but currently unreachable. Latent, not live.
+That's a downgrade in urgency, not a clean bill of health — the door is still
+open for the next workflow anyone writes that makes two of the same kind of image.
+
+**The bad news, and it's the useful part: the fix the bug file recommends would
+cause the very bug it's trying to prevent.** The file's first suggestion is to
+delete the category lookup and rely on the image's ID instead. But the two older
+workflows don't tell the deploy step which fields to use, so the system falls back
+to rummaging through everything in memory looking for anything called "asset_id" —
+and the order it rummages in is deliberately randomised by Go. I ran the real code
+400 times on identical input: **the step deploying the logo picked up the hero's ID
+344 times out of 400.** So the category lookup, which looks like legacy cruft, is
+actually the thing keeping those two workflows correct — because for them, the
+category *is* the difference between the two images.
+
+Given that, I've deliberately not written a fix tonight. Changing how a shared
+piece of machinery resolves things, to fix something that can't currently happen,
+on the evening I just discovered the obvious fix is the harmful one, is how you
+turn a latent bug into a live one. What I've done instead is lock the behaviour
+down with tests that record *why* the lookup was kept, so the next person who
+reads the bug file's ranking and reaches for the obvious fix hits the 86% figure
+before they ship it.
+
+**One thing I got wrong and want on the record.** I first wrote that those two
+older workflows "haven't run in 26 days", because the run table has rows going
+back to mid-July. Then I checked what those old rows actually are — and they're
+all cancelled or stuck jobs. Completed runs get cleared out after about a day. So
+the honest statement is "they didn't run today", which is a much weaker claim, and
+I'd have been quoting a made-up month if I hadn't looked. I also tried a second,
+longer-lived log to settle it properly, and threw the answer away: it reported
+zero runs for a service I'd just watched run sixteen times, so it can't see these
+agents at all. A measurement that can't come out the other way isn't evidence.
+
+What I'd want a decision on, when there's appetite: whether those two older
+workflows are actually dead. Nothing schedules them any more as far as I can see.
+If they're genuinely retired we can delete them, and then the clean fix for this
+bug becomes available with no awkward legacy constraint. While they're merely
+dormant, we have to keep supporting them.
