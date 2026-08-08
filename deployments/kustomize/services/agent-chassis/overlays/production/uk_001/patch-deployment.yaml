@@ -97,34 +97,33 @@ spec:
                   name: personae-storage-secrets
                   key: B2_APPLICATION_KEY
 
-            # === Storage BUCKET/ENDPOINT — needed for params.StorageClient ===
-            # The credentials above are NOT sufficient. agentbase.go:308-330 builds
-            # the StorageClient only `if storageConfig.Bucket != ""`, reading the
-            # bucket from IMAGE_BUCKET and the endpoint from S3_ENDPOINT. Without
-            # these two, a.storageClient stays nil, the coordinator passes nil to
-            # every action, and any action requiring params.StorageClient fails at
-            # runtime with "no storage client — cannot download screenshots".
+            # === Storage bucket/endpoint: DELIBERATELY NOT SET (owner ruling 2026-08-08) ===
+            # An earlier revision of this file set IMAGE_BUCKET/S3_ENDPOINT/S3_REGION
+            # here so that agentbase.go:308-330 would construct a StorageClient
+            # (it builds one only `if storageConfig.Bucket != ""`). That was ADDED
+            # 2026-08-05 in 820a033c0 and REMOVED again three days later. Do not
+            # re-add it without re-opening the ruling — two reasons, and the second
+            # is the one that actually settles it:
             #
-            # Measured 2026-08-05: that is exactly what happened on the first live
-            # call of `execute_vision_prompt` (TL-035 (e), seed 317) — the action is
-            # the ONLY chassis action that takes params.StorageClient rather than
-            # building its own client (contrast storage_actions.go:95/:612, which
-            # read bucket from agent/step config), so nothing had ever exercised
-            # this path and the gap was invisible.
+            # 1. OWNER RULING 2026-08-08: all interaction with the S3 bucket stays
+            #    with the S3 client. Credentials must not be spread across agents,
+            #    and the chassis image runs 46 pods across every spawned agent type.
             #
-            # Values HARDCODED deliberately, matching the business-intel precedent
-            # (its overlay carries the same comment). A configMapKeyRef to
-            # storage-config would be a single source of truth but makes pod START
-            # depend on a key name: a typo is CreateContainerConfigError and the
-            # whole chassis stops. Not a trade worth making for two stable strings.
-            # Bucket confirmed against the live render URIs, which are
-            # s3://personae-prod-uk001-images/acceptance-evidence/...
-            - name: IMAGE_BUCKET
-              value: "personae-prod-uk001-images"
-            - name: S3_ENDPOINT
-              value: "https://s3.us-east-005.backblazeb2.com"
-            - name: S3_REGION
-              value: "us-east-005"
+            # 2. IT DID NOT WORK ANYWAY, so nothing is lost by removing it. Agents
+            #    do not execute in this deployment — they run in dynamically spawned
+            #    per-agent pods (`agent-<type>-<hash>`), which is where the action
+            #    actually looked for a client and found none.
+            #    `orchestration_states.processing_node` names the pod that ran the
+            #    work; read it before concluding anything about which env matters.
+            #    Measured on the pod that processed the failing run
+            #    (agent-tool-acceptance-agent-e702cc67-2dnsp): IMAGE_BUCKET,
+            #    S3_ENDPOINT and B2_APPLICATION_KEY_ID all ABSENT, and
+            #    agentbase/agent.go:329 logged "Storage client not configured".
+            #
+            # NOTE the AWS_*/B2_* credentials above are OLDER than all of this
+            # (019cf8d94) and are NOT part of that revert. Removing them is a
+            # separate question with a real blast radius — see WRONG_CALLS.md
+            # 2026-08-08 and the TL-035 (e) handoff section.
 
             # default request and responses topics
             - name: RESPONSES_TOPIC
