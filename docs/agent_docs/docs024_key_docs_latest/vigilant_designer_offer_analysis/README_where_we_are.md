@@ -233,3 +233,45 @@ actually do.** Everything the offer analyser can say is "the site does or doesn'
 premise we wrote down for it". That's genuinely useful. It is not the same as knowing what
 converts, and an analyser that started sounding like it did would be the most confidently wrong
 thing we've built.
+
+## 2026-08-08 (night) — B1 and B2 are built, live, and watched working
+
+Both of the pieces you promoted this morning are done — not just applied, but witnessed
+doing the thing they were built for, each on a real site.
+
+**The strategic review now reads the premise.** To prove it end to end, I hid a small marker
+inside webdesign.co.uk's recorded strategy, fired one sweep, and then checked the exact text
+that was put in front of the model: the marker was there, along with the site's strategy,
+identity, content direction and mission brief. Then I removed the marker. The difference in
+the output is immediate and worth reading — the review's first sentence now starts from what
+the site is FOR ("premium domain, client-side tools, editorial pairing, zero commercial
+friction") and every complaint it raises is a mismatch between that recorded intent and what
+the pages actually do. It caught a button labelled "Read the guides" that takes you to a
+tool page instead — breaking the exact tool-and-article loop the strategy names as the
+site's differentiator — an About page showing entirely wrong content, and a homepage
+headline that buries the site's strongest selling point. None of that was visible to the
+blind version.
+
+**And refreshing a site's premise is now safe.** I ran the strategy agent against
+loancalculator.co.uk — a live, deployed site with twenty-seven pages and, until tonight, no
+recorded strategy at all. Two things had to be true afterwards and both were: the site got
+its first proper premise (including the four new questions — what satisfies the visitor,
+how the money flows, what brings people back, how much trust the ask needs — all answered
+concretely, down to "commission per completed application, paid monthly in arrears"), and
+NOT ONE rebuild job appeared. Before tonight, that same run would have kicked off the
+briefing-and-replan chain against a live site. The new gate saw "this site is deployed" and
+stopped the chain; a brand-new site still gets the full chain exactly as before.
+
+Three honest notes. First, my morning claim that the plan referenced a field that never
+existed was wrong (the field lives one level down; the plan was right) — corrected
+everywhere it was written, with the check that would have caught it. Second, the review
+council refused both of these as out of its scope — it reviews platform code, and these are
+configuration; that also corrects what I told you earlier about the plan including council
+rounds. Third, one small thing needs your hands: the migration ledger wants two rows
+recorded and my session's permission system wouldn't let me write them — the exact commands
+are in my report, thirty seconds of copy-paste, and nothing breaks meanwhile (a re-run
+would refuse loudly rather than double-apply).
+
+Next on this track when you want it: B3's two checks (the premise-gap finder can now safely
+file refresh jobs, because the gate exists) — or back to the designer track, whose next step
+is still the one witnessed CSS run and then the critic.
