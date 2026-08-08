@@ -23741,3 +23741,54 @@ did not earn (see the v1.0.1264/1266 roll note, same file).
 scope the dir" and acted on it correctly in my own shell. Knowing the trap and still
 walking into it via a different surface — the handover, not the command — is the part
 worth recording.
+
+---
+
+### 2026-08-08 — I quoted a work item's evidence as the live state, and the artefact had already moved (because of my own action)
+
+**Lane:** brochure_component_library (fundamentallyai sweep front).
+**The claim I made to the owner:** "the capabilities page advertises 97 approved council rounds
+when the real figure is 205 — it is understating its headline differentiator by more than half."
+**What caught it:** capturing a proper before/after baseline at the artefact before firing the
+re-render. The page was serving **187**, not 97. The real correction shipped was 187 → 214.
+**Why it could not have come out right:** a finding's `matched`/`snippet` fields are a snapshot
+of `rendered_html` **at filing time**. This one was filed 08-05 12:14; the same sweep's later
+re-renders (13:29, 13:54, 15:16) moved the page that afternoon. So I was quoting a figure that
+my own earlier action had already invalidated — the work item is not a live view, and on this
+estate the artefact frequently moves *because of the very run that filed the finding*.
+**The cheap check:** re-read the artefact before quoting any figure out of a work item, and
+state the filing timestamp next to it. Related and stronger: **your own action moves the thing
+you are about to describe** — the sweep that files a finding is also the thing most likely to
+fix it.
+**Tally note:** third stale-figure error on this front in four days (07-24 audit findings quoted
+as current; "only 2 of 27 components contain images"; this one). All three shared one shape —
+**a recorded observation repeated without re-measuring** — which is precisely what CLAUDE.md's
+"ground every figure against the live system before repeating it" exists to stop.
+
+### 2026-08-08 — a bare `grep -o` count on bare integers matched inside dates, and my "baseline" was noise
+
+**The claim I was about to record:** a before/after baseline for the capabilities chart, built by
+counting occurrences of `7843`, `97`, `202` etc. in the served HTML. It reported `202` nine times
+and `7843` zero times, which I briefly read as "the page has already changed".
+**What caught it:** the number 9 was implausible for a chart with five figures. `202` is a
+substring of **`2026`**, so every date on the page matched; `97` matches inside any longer run of
+digits too.
+**Why it could not have come out right:** an unanchored substring search for a short integer in a
+document full of dates, IDs and byte counts cannot distinguish the value from its context. The
+measurement had no way to be wrong-shaped enough to look wrong.
+**The cheap check:** extract the field, don't search for the value — here
+`grep -oE 'evidence-chart__value[^>]*>[^<]*'` paired the numbers with their labels and settled it
+in one command. Never count bare integers in HTML.
+
+### 2026-08-08 — a reconcile script's "STILL MISSING" list was 40% false negatives, and 3 of the rest were 404s
+
+**The claim I would have written:** "5 pages failed to take the new footer link."
+**What caught it:** re-checking each named page at the artefact. `about` carried **2** references
+and `platform-log-index` carried **17** — both fine; the script's poll simply ran before
+propagation settled. Of the remaining three, all returned **exactly 2696 bytes** — the identical
+size across three unrelated URLs was the tell that this was an error page, not content. They are
+page rows that have never deployed and serve 404.
+**The lesson that generalises:** a reconciler's own failure list is a claim like any other, and
+an "N of M succeeded" summary hides two different failures — not-yet-propagated, and
+never-existed. **Identical response sizes across unrelated URLs mean you are measuring the error
+page.** Check bytes, not just presence.

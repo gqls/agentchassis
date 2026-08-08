@@ -1039,3 +1039,77 @@ b=$(curl -s --retry 3 --retry-all-errors "https://<domain><path>")
 n=$(printf '%s' "$b" | wc -c)
 [ "$n" -lt 2000 ] && echo "SUSPECT FETCH ($n bytes)" || printf '%s' "$b" | grep -c '<header'
 ```
+
+---
+
+## Linking a NEWLY BUILT page into the site chrome (added 2026-08-08)
+
+The case: `platform-log-index` built and deployed 2026-08-07 11:07, `in_footer=true`,
+and **no live page linked to it**. Chrome is a STORED artefact (REB-006 / `bugs_open/117`)
+— a page build never refreshes it — so the stored footer, rendered 09:38, predated the page
+by 90 minutes and simply had no such link. A new page can be live, navigable in config, and
+still orphaned to every visitor.
+
+**Do NOT reach for `nav-updater`.** Its first step `populate_nav_tables` does
+`DELETE FROM site_nav_items WHERE site_id=$1` and rebuilds from `pages`, and
+`classifyPagesForNav` skips child-path URLs (`/tools/`, `/blog/`, `/guides/`, …) unless the
+page_type is a section-index type — `tool` is not one. Read the full LANDMINES entry
+including its **2026-07-31 narrowing** before acting on the headline.
+
+### The three steps that work
+
+```bash
+# 0. PRE-FLIGHT — every nav target must already serve, or you publish 404s site-wide.
+#    The nav table can hold rows for pages whose build failed.
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -c \
+ "SELECT url, label, status FROM site_nav_items WHERE site_id='<site>' ORDER BY position;"
+# then curl every url and require 200 before continuing.
+
+# 1. Refresh the stored chrome FROM the existing nav tables (no populate step, no deletion).
+./docs/leopardessconsulting/scripts/orchestrate_safe.sh nav-link-fixer \
+  '{"site_id":"<site>","domain":"<domain>"}'
+# verify the link actually landed in the stored html BEFORE propagating:
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -c \
+ "SELECT slot_name, updated_at, rendered_html LIKE '%<url-fragment>%' AS has_link
+    FROM site_components WHERE site_id='<site>' ORDER BY slot_name;"
+# expect the link in the slot whose nav flag the page declares — a page with in_footer=t
+# and in_header=f SHOULD show footer=true, header=false. That asymmetry is correct, not a
+# half-failure.
+
+# 2. Propagate to already-deployed pages in ASSEMBLE mode, reconciling until each serves it.
+./docs/leopardessconsulting/scripts/reconcile_footer_nav.sh <site> <domain> '<marker>' 3
+```
+
+### Why assemble mode, and the trap that makes it load-bearing
+
+`page-rerender` regenerates section HTML from `content_data` **only** when
+`spec.reason='section_data_resolved'`. Omitting the reason takes the else branch, which
+re-assembles the STORED section HTML with FRESH chrome — all a nav change needs. Sending the
+reason instead runs `rerender_page_sections`, whose pre-check escalates the WHOLE page to the
+content writer when any section is missing a schema-required `source:"llm"` field. Chrome
+propagation must never carry that risk.
+
+Two more, both from the same landmine: the assemble branch needs **`page_id`**, not
+`page_name` (`rerender_single_page` errors `page_id not found in input`); and pages with
+`rebuild_policy='owned'` are excluded, because `save_sections` refuses them — firing at them
+only produces FAILED orchestrations.
+
+### The complementary case: a content_data edit must NOT use assemble mode
+
+Assemble mode re-ships stored section HTML, so a `content_data` edit is invisible to it.
+To serve an edited field, use `rerender_page_sections_direct.sh` (reason
+`section_data_resolved`) — and check first that **no** section on that page has NULL
+`content_data`, or the whole page escalates to the writer:
+```sql
+SELECT slot_name, content_data IS NULL FROM page_components pc
+ JOIN pages p ON p.id=pc.page_id WHERE p.site_id='<site>' AND p.name='<page>';
+```
+
+### Authored vs sourced fields — check before editing either
+
+`SELECT k, v->>'source' FROM content_components, jsonb_each(input_schema->'fields') e(k,v)
+ WHERE name='<component>' AND is_active;`
+A field with a static `source` (e.g. `site_specs.evidence_base.facts`) is **re-resolved on
+every render and overwrites whatever you author** — which is exactly why the capabilities
+chart self-corrects from the register. A `source:"llm"` field is authored and persists, but a
+future content-writer run can regenerate it, so a hand-corrected number there is not durable.

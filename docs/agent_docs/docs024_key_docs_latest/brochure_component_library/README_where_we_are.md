@@ -1783,3 +1783,60 @@ So: nothing you decided changes. The prompt half is live and proven. Before
 the second stage switches on we need the two small fixes above through review,
 and your read of the writer's new instructions (the v4 file) is still the one
 action only you can do.
+
+---
+
+## 8 August 2026 — your three answers are done, and the linking turned out to be the real job
+
+**The capabilities page is corrected and live.** It now shows the current figures — 9,136 feed
+items collected, 7,856 with a credibility assessment, 208 council rounds sent back, 214
+approved, 16 rejected — all matching the audited register exactly. The way this works is worth
+knowing, because it means the page maintains itself: the chart doesn't store its numbers, it
+asks the evidence register at render time. So the numbers were never wrong, only old, and a
+re-render is the whole fix.
+
+I do have to correct something I told you. I said the page was advertising 97 approved rounds
+against a real 205, and made rather a lot of that. It was true when the machine first noticed
+it on 5 August, and it had already stopped being true by the time I said it to you — the
+sweep's own re-renders that afternoon had moved the page to 187. The genuine correction I
+shipped today was 187 to 214. Smaller, still worth doing, and I should have re-read the page
+before quoting the figure rather than trusting the report. That's the third time this week
+I've repeated a number that had moved under me.
+
+**On the seats: you and the register already agree.** You said every seat available to be
+chosen, all listed seats. That is exactly what the register counts, and the answer is 17. So
+nothing needed changing. The "26" I flagged isn't on the site at all — the simulator page says
+"12+ reviewer seats", which is the floor form your own rule asks for. It had already been
+fixed before I raised it.
+
+**The Platform Log built itself, and then sat there invisible.** The job to build it had been
+waiting for a human since 20 July; it went through on 7 August and the page has been live and
+correct since. But nothing linked to it. The site's header and footer are stored as finished
+artefacts, and ours had been generated ninety minutes *before* the page existed — so the
+footer simply had no such link in it. The page was live, listed in the navigation settings,
+and unreachable by anyone actually browsing. That gap between "the database says it's in the
+footer" and "the footer says it" is worth remembering; they are genuinely two different facts.
+
+That's now fixed: **25 of 28 pages carry the Platform Log link.**
+
+I deliberately did not use the tool actually called the navigation updater. Its first act is to
+wipe the navigation table and rebuild it from scratch, and it has a known habit of dropping
+every link that lives under /tools/, /blog/ or /guides/ — which on this site would have quietly
+removed all your tool links. I used the safer route that rebuilds the header and footer from the
+existing navigation without deleting anything. I also checked all twelve navigation targets
+actually load before publishing the navigation everywhere, and that was worth doing.
+
+**Which turned up something you should know about.** Three of the pages wouldn't take the link,
+and the reason is that they don't exist. A planning pass yesterday created three duplicate page
+entries pointing at addresses that return errors: a second cost calculator, a nonsense
+"/tools/tools/" address, and a second AI-readiness guide. Each duplicates a page that already
+works fine. They're marked "active" in the database, which means the system currently treats
+them as legitimate places to send visitors — this is exactly the fault I described to you on
+Wednesday, now with three live examples. I have **not** deleted them, because the planner made
+them only hours ago and there may be work in flight I'd collide with. It needs a decision
+rather than a quick tidy.
+
+**One small thing fixed along the way:** the tools page was advertising two companion guides
+when three are published. It now says three. Worth flagging that this number is hand-written
+rather than counted, so it will drift again next time a guide ships — unlike the capabilities
+chart, which looks its figures up. If that matters, the fix is to make it a counted fact too.

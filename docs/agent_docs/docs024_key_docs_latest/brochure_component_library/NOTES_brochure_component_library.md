@@ -4842,3 +4842,96 @@ and 215's fix unblocks a clean compliance observation. Owner's v4-plaintext
 read still owed, gates 330's apply. Current live state unchanged and safe:
 seeds 327/329/333 live, planner emits richly, everything discarded for
 deployed pages (= today's behaviour), nothing consumes, 328/330 held.
+
+---
+
+## 2026-08-08 (sweep front) — the owner's three decisions, executed and verified
+
+Continues the 08-05 sweep entry. Owner rulings: (1) count **every listed seat** — all seats
+available to be chosen; (2) let the Platform Log **proceed, and make sure it is linked to**;
+(3) re-render the capabilities page now.
+
+### Capabilities re-render — DONE, verified at the artefact
+
+`section_data_resolved` via `rerender_page_sections_direct.sh`. Served figures went
+8537/7359/201/187/14 → **9136/7856/208/214/16**, matching `evidence_base` exactly
+(re-verified 08-08). This works because the chart's `facts` field declares
+`source: site_specs.evidence_base.facts` — a static-source field is re-resolved on every
+render and overwrites stored content_data, so the chart self-corrects from the register.
+Confirmed in code before firing: `plan_sections_action.go:1000` (`resolver.specs["evidence_base"]`)
+and `:2162` ("CURRENT evidence_base"). No LLM call; all four sections had non-NULL
+content_data, so no content-writer escalation.
+
+> **CORRECTED 2026-08-08 — I told the owner the page showed 97 approved rounds against a
+> real 205.** That was true when the finding was FILED (08-05 12:14) and false by the time I
+> said it: the sweep's own re-renders that afternoon had already moved the page to 187. The
+> actual correction I shipped was 187 → 214. I quoted a work item's `matched` value instead
+> of re-reading the live page. **A finding's evidence is a snapshot of the artefact at filing
+> time; the artefact moves, and on this estate it often moves because of your own earlier
+> action.** Third stale-figure error of this lane's sweep front.
+
+### Seats — the register already matched the owner's definition
+
+`F2-council-seats` = **17**, and its SQL is
+`jsonb_array_length(default_config->'workflow'->'steps'->'council_decide'->'config'->'review_fields')`
+on the live `council-gate` — i.e. every listed seat, which is exactly "available to be
+chosen". Relevance-gating decides which FIRE, not which exist. **No change needed.**
+The flagged "26" is not on the live page: the simulator serves the floor form
+`12+ Reviewer Seats`, and the snippets the finding matched ("council runs measured 362",
+"reviewer seats 26", "51%") are all gone — the 08-05 re-renders replaced them. For the record
+the fix-proposer's own roster is **29** `review_*`/`gate_*` steps, a different council, which
+is the likeliest origin of a 26 that once existed.
+
+### Platform Log — built itself; the LINK was the real work
+
+The `needs_page` (filed 07-20, sat in `needs_human_review` for 18 days) went `complete`:
+page deployed **2026-08-07 11:07**, hero + blog-listing, serving 200. So "let it proceed" was
+already satisfied before the owner said it.
+
+**But nothing linked to it.** Stored chrome was rendered 08-07 **09:38** — 90 minutes BEFORE
+the page existed — and a page build never refreshes chrome (REB-006 / `bugs_open/117`). So
+`site_components.footer.rendered_html LIKE '%platform-log%'` was FALSE and only `/about.html`
+mentioned it, in prose. **A page can be live, correct in `pages`, present in `site_nav_items`,
+and invisible to every visitor.** `in_footer=true` is a declaration, not a link.
+
+Fix, per the `nav-updater` LANDMINE's own prescription — and NOT `nav-updater`, whose
+`populate_nav_tables` would `DELETE FROM site_nav_items` and drop every `/tools/` link:
+1. pre-flight: all 12 nav targets curl 200 (the nav table DID hold rows for pages whose
+   re-render had failed — publishing the nav blind would have shipped 404s site-wide);
+2. `orchestrate_safe.sh nav-link-fixer` → COMPLETED, and the link landed in the stored
+   footer (`footer=true`, `header=false` — correct, the page is `in_footer` only);
+3. `reconcile_footer_nav.sh <site> <domain> /platform-log/index.html 3` — assemble mode.
+
+Result: **25 of 28 pages serve the link.** The script reported 23 and named 5 missing; two of
+those (`about`, `platform-log-index`) were **false negatives** — re-checked at the artefact
+they carry 2 and 17 references. Its poll ran before propagation settled.
+
+### What the other three "missing" pages actually exposed
+
+All three returned **exactly 2696 bytes** — the identical size was the tell; that is the error
+page, not content. Three page rows created by the 08-07 planning pass are `status='active'`,
+`build_status='planned'`, never deployed, serving **404**, and each duplicates a page that
+already serves:
+
+| row (created 08-07) | serves | duplicate of |
+|---|---|---|
+| `tool-llm-cost-calculator` → `/tools/llm-cost-calculator/index.html` | 404 | `/tools/llm-cost-calculator.html` (200, 07-25) |
+| `tool-tools` → `/tools/tools/index.html` | 404 | `/tools.html` (200, 08-03) |
+| `ai-readiness-checker-guide` → `/blog/ai-readiness-checker-guide.html` | 404 | `/guides/tool-ai-readiness-checker-guide.html` (200, 08-05) |
+
+These are live instances of the class filed in `HANDOFF_2026-08-05b` §5.7: **`status='active'`
+is treated as "linkable" with no test that the page ever shipped**, so all three are valid CTA
+and internal-link targets right now. `queryresolve.ListedPageEligibilitySQL`
+(`deployed_at IS NOT NULL` + non-empty `sections`) exists for exactly this and
+`resolve_internal_links_action.go:440-500` still does not use it.
+**NOT ACTED ON** — the planner created them hours ago and `owned_page_review` items are open
+against them; archiving them could collide with work in flight. Flagged for the owner.
+
+### Tools page: "2 Companion guides" corrected to 3
+
+Three guides are deployed and active; the page said 2. The `stat_*` fields are `source: llm`
+(checked before editing — a static-source field would have overwritten the edit on next
+resolve), so the correction persists in `content_data`, but a future content-writer run can
+regenerate it. **Not durable**; the durable form is a register-sourced fact, as the chart uses.
+Note assemble mode could not have shipped this — a `content_data` edit needs
+`section_data_resolved`, which is the mirror image of the chrome rule above.
