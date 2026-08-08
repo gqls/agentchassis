@@ -922,6 +922,29 @@ func renderAndStoreSiteComponent(
 		renderedHTML = injectBrandHeadTags(renderedHTML, renderCtx, spriteCount > 0, logger)
 	}
 
+	// Divergence gate (bugs_open/226). The artefact about to be replaced may
+	// hold bytes the pipeline did not put there — a psql patch, an admin edit,
+	// a chrome-fix artefact patch — and this store would silently destroy
+	// them. The RECOVERY is not here: trg_site_component_archive (a DB
+	// trigger, sql_for_agents/344 — invisible to any grep of Go, which is why
+	// this comment exists) archives the outgoing bytes atomically with every
+	// differing overwrite, from every writer. This read is the LOUD half only,
+	// so a race with a concurrent writer costs at most a mislabelled log line,
+	// never the artefact.
+	if v, vErr := classifySiteComponentArtefact(ctx, db, siteID, slot); vErr != nil {
+		logger.Warn("site chrome: divergence classification failed — overwrite proceeds, the 344 trigger still archives (bugs_open/226)",
+			zap.String("slot", slot), zap.Error(vErr))
+	} else if v.State == artefactHandPatched {
+		logger.Warn("site chrome: artefact diverges from its render stamp — hand-patched bytes are being overwritten (bugs_open/226)",
+			zap.String("slot", slot),
+			zap.String("site_id", siteID.String()),
+			zap.String("stamped_digest", v.StampedDigest),
+			zap.String("current_digest", v.CurrentDigest),
+			zap.Int("artefact_bytes", v.Bytes),
+		)
+		emitChromeDivergenceItem(ctx, db, siteID, slot, v, "render_site_components", logger)
+	}
+
 	// Store the rendered HTML. The lock predicate makes the refusal race-free
 	// (bugs_open/069) — the pre-check above is for the message and to save the
 	// work, this is the enforcement.
@@ -935,9 +958,17 @@ func renderAndStoreSiteComponent(
 	// chrome is built from changed" to "a chrome rebuild runs". The row alias
 	// is load-bearing: the fingerprint correlates on `sc` (see the fragment's
 	// header in datahelpers/chrome_render_inputs.go).
+	//
+	// rendered_html_digest is the ARTEFACT stamp (bugs_open/226), in the same
+	// statement for the same reason: digest = md5(bytes) thereafter means
+	// "these are exactly the bytes this path wrote", and a mismatch at the
+	// next overwrite is how a hand patch is told from a machine render. Only
+	// this path may write the digest — a stamp beside patched bytes silences
+	// the detector.
 	res, err := db.ExecContext(ctx, `
 		UPDATE site_components AS sc
 		SET rendered_html = $1, build_status = 'rendered', updated_at = now(),
+		    rendered_html_digest = md5($1),
 		    render_inputs = (`+datahelpers.ChromeRenderInputsSQL+`)
 		WHERE sc.site_id = $2 AND sc.slot_name = $3 AND `+pageComponentAgentWritableSQL("sc.")+`
 	`, renderedHTML, siteID, slot)

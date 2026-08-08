@@ -64,6 +64,28 @@ None of the three makes an **undeclared** hand-patch loud. That is the gap.
 
 ## Fix candidates, ranked by what closes the door
 
+> **CORRECTED 2026-08-08 (fixing lane, session `1eb2bf20`): candidate 1 as
+> written below cannot be built.** "Re-render with the row's *stamped* inputs"
+> assumes the stamp holds inputs; `render_inputs` is a jsonb map of md5
+> **digests** of the input stores (`datahelpers/chrome_render_inputs.go` — "a
+> map of NAMED per-input digests"), which detects input drift but cannot
+> reproduce a render. This file's own "What already exists" section describes
+> the fingerprint correctly; the candidate contradicts it two paragraphs later
+> — the LANDMINES "fix candidate refuted by its own file" shape, caught by
+> reading the helper before planning. **Shipped instead (same intent, stronger
+> mechanism):** stamp `rendered_html_digest = md5(rendered_html)` in the SAME
+> statement that stores the bytes; a mismatch at the next overwrite IS the
+> hand-patch signal — no re-render, no determinism assumption. The archive
+> half is a DB **trigger** (`trg_site_component_archive`, mig 344, live
+> 2026-08-08) so the raw-psql writer class — this bug's origin — is covered,
+> along with every other writer present and future; candidate 2's ledger ships
+> inside it as `site_component_history`. Divergence WARNs + files
+> `chrome_divergence_overwritten`, then proceeds (holding is the 069 locks'
+> job). Register: STY-054. Plan + council corr `cffbfec4`:
+> `docs/agent_docs/docs024_key_docs_latest/bugfix_226_chrome_divergence/`.
+> Still true and unchanged from the candidate: unstamped rows (46/57 at fix
+> time) cannot be classified and converge as the fleet re-renders.
+
 1. **Divergence check at overwrite time** (closes the door): in
    `renderAndStoreSiteComponent`, before replacing `rendered_html`, re-render
    with the row's *stamped* inputs (117 stores them) and compare to the stored

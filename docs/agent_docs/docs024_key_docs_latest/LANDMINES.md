@@ -7072,3 +7072,52 @@ config** (config, live immediately, no build — but you are editing a shared de
 scheduled run then reads), or to add an `input_mapping` first. **Do not infer scope from what you
 published.** And confirm effect at `site_work_items.resolution_path='auto:revalidated'` and the
 run's `scanned` count, never at the payload you sent.
+
+---
+
+### A chassis pod's retrievable log holds LESS THAN A SECOND of history under load — a 0-hit grep for a past event is evidence of nothing
+- **footprint:** `kubectl logs`, `agent-chassis`, `platform/orchestration/coordinator.go`, `agent-job-cleanup`
+
+Measured 2026-08-08 22:27:17Z on `agent-chassis-778b7c77c7-rd27g` (v1.0.1268): the oldest
+retrievable log line was stamped 22:27:16.878Z — **0.4 seconds old**. The coordinator's
+`DEBUGaa` whole-state dumps run to hundreds of KB per step transition, so container log
+rotation eats the file within seconds whenever an orchestration is active. Ephemeral
+`agent-<type>-<id>` pods stack a second destroyer on top: `agent-job-cleanup` deletes
+Completed pods within minutes, taking even the rotated remnant. A `--since=3h` sweep over 23
+pods therefore returns 0 for an event that WAS logged minutes earlier, and that 0 reads
+exactly like "the code path never ran" — it cost `bugs_open/136` §9 a witness (the alias
+warn line fired and was unreachable before any grep could run).
+
+- **the check:** to witness a runtime behaviour, do not sweep logs after the fact. Arrange a
+  **DB-visible observable** whose value could come out otherwise (the `bugs_open/136` §11
+  witness pattern), or attach `kubectl logs -f` BEFORE the event. If you must grep for a
+  recent event, first bound the window you actually have:
+  `kubectl logs <pod> --tail=-1 | grep -oE '"ts":"[^"]*' | head -1` — if the oldest line
+  postdates your event, the grep was theatre, not absence.
+- **source:** 2026-08-08, `bugfix_136_config_key_aliases` lane; `bugs_open/136` §9/§11.
+
+### An UPDATE of `site_components.rendered_html` fires a DB trigger no grep of Go will ever show you — and a failing chrome rebuild may be the trigger REFUSING to destroy an unarchived artefact
+
+- **footprint:** `site_components`, `rendered_html`, `rendered_html_digest`, `trg_site_component_archive`, `site_component_history`, `renderAndStoreSiteComponent`, `sql_for_agents/344`
+- **fires when:** (a) you UPDATE `rendered_html` by any means — Go, admin dashboard, raw psql — and a row appears in `site_component_history` you did not write (that is the bugs_open/226 archive working: the outgoing bytes are kept whenever the new value differs); or (b) a chrome overwrite ERRORS mentioning `site_component_history` and it looks like your change broke the render path — it did not; the trigger is FAIL-CLOSED and is refusing to destroy bytes it cannot archive (ledger table dropped/unwritable is the usual cause).
+- **the check:** the mechanism is `trg_site_component_archive` (mig `344_site_component_history_divergence_guard.sql`) — a trigger, so `grep -rn` over `platform/` finds nothing; read the migration, and `SELECT tgname, tgenabled FROM pg_trigger WHERE tgname='trg_site_component_archive'`. Do NOT "fix" a failing rebuild by dropping the trigger (the ROLLBACK sidecar exists for a deliberate, stated rollback). And never set `rendered_html_digest` from any writer except `renderAndStoreSiteComponent`'s store statement — a stamp written beside your own bytes classifies them machine-made and silences the hand-patch detector for the slot.
+- **added:** 2026-08-08, bugfix_226_chrome_divergence lane (STY-054)
+
+### A step with NO `input_fields` resolves its inputs by RANDOMISED recursive search — the wrong sibling's id wins ~86% of the time and looks exactly like the right one
+
+- **footprint:** `ExtractActionInputs`, `ExtractFields`, `extractSingleField`, `findFieldRecursive`, `platform/orchestration/datahelpers/action_inputs.go`, `platform/orchestration/datahelpers/unified_extractor.go`, `input_fields`, `deploy_image_asset`, `asset_id`
+- **fires when:** you add, re-point or "simplify" a step whose config has **no `input_fields`** and no explicit dotted path for the field in question, in a workflow where two sibling steps each emit a map containing the **same key name** (`asset_id`, `work_item_id`, `page_id`, `site_id` …). `ExtractActionInputs` falls to Strategy 2, which reaches `extractSingleField` Strategy 4 — `findFieldRecursive`, which walks `for key, val := range m`. **Go randomises map iteration order**, so the field resolves to an arbitrary sibling's value, differently between runs of the same code on the same data. Nothing errors; the value is well-formed and of the right type. Measured 2026-08-08 on the real helper, 400 iterations, identical input: a **logo** deploy step resolved the **hero's** `asset_id` in **344/400 (86%)** runs.
+- **why it hides:** the code already carries a comment acknowledging this ("aggressive recursive search that can find stale values from previous loop iterations", `action_inputs.go:466-471`) — but that comment only documents **Strategy 0**, the escape hatch for configs that *do* supply an explicit multi-segment path. A step with neither `input_fields` nor a dotted config path gets no protection at all, and reading the comment leaves you believing the case is handled. A single-asset test passes every time, because with one sibling there is nothing to pick wrongly.
+- **the check:** never reason about which value a no-`input_fields` step will get — **run it, repeatedly.** Extract the resolution into a test and iterate ≥100× on the same input, asserting the value is *stable*, not merely correct:
+  ```go
+  seen := map[string]int{}
+  for i := 0; i < 400; i++ {
+      in, _ := datahelpers.ExtractActionInputs(freshCollectedData(), cfg, TheInputSpec, zap.NewNop())
+      seen[in.Get("asset_id")]++
+  }
+  // len(seen) > 1  =>  the step is picking a sibling at random
+  ```
+  One run proves nothing here — a single pass is right ~14% of the time in the measured case, and 100% of the time when only one sibling exists. Before believing a step is safe, ask the DB whether the field name is unique in that run's `collected_data`:
+  `SELECT k, count(*) FROM orchestration_states o, LATERAL jsonb_object_keys(o.collected_data) k WHERE o.owner_agent_type='<type>' GROUP BY k;` then enumerate the keys *inside* the sibling outputs, not just the top level. **The fix is to name `input_fields` (or an explicit dotted path) on the step — config, live immediately, no roll.**
+- **⚠ corollary that has already misled one fix plan:** because of this, "remove the purpose-keyed lookup and let the `asset_id` path resolve it" is a *downgrade* wherever the caller has no `input_fields` — it replaces a correct discriminator with an 86%-wrong one. `bugs_open/209` ranked exactly that fix first; see the 2026-08-08 verification block in that file before acting on any similar "just use the id" simplification.
+- **added:** 2026-08-08, `bugfix_209_deploy_purpose_keyed_source` lane; evidence in `platform/orchestration/actions/deploy_image_asset_purpose_source_test.go`
