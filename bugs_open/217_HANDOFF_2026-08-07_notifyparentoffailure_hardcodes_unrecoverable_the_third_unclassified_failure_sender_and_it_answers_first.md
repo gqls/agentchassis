@@ -89,3 +89,59 @@ outcome with better-looking bookkeeping.
 - `bugs_open/216` — the dead response-driven recoverable arm this sender's convergence
   would deliver into.
 - `bugs_closed/196` — established the failure-status envelope this sender predates.
+
+---
+
+## 2026-08-08 — DECISION: CONVERGE (option 1). FIX BUILT; inert until its chassis roll.
+
+Taken by a fresh session (ownership checked: who-owns, live transcripts, work-item
+queue — all clear; literals re-verified at HEAD before starting).
+
+**The import-direction question resolves to a CYCLE**: `platform/messaging` imports
+`platform/orchestration` (processor.go:21, validation_drop.go:27 — the drop recorder
+calls `orchestration.LogAgentError`), so the coordinator can never import
+`messaging.RetryDisposition`. The fix moves the classification core (both Matched*
+classifiers, their needle lists, `RetryDisposition`) to `platform/errors` — a
+stdlib-only leaf that already owns `DomainError` and the typed codes — and leaves
+re-export shims in messaging so every caller and every pinning test is unchanged
+(agentbase's source-scan pin included). One implementation, reachable from both layers.
+
+**The fix** (`coordinator.go notifyParentOfFailure`): classify before stamping —
+`perrors.RetryDisposition(errors.New(errorMsg))`; status and `ErrorInfo.Recoverable`
+move in lockstep; `Code: CHILD_ORCHESTRATION_FAILED` and the message stay verbatim
+(their consumers key on them). New log line carries the disposition + matched token:
+`retry disposition decided at the child-orchestration failure sender by the sequenced shared classifier`.
+
+**Blast radius, measured before submission** (`severity='fatal'` rows are written only
+by this sender, after the parent-exists check — the fatal rows ARE its sends):
+14d population 11,970 → **6,239 (52%) flip to error_recoverable** (connection 4,163,
+dominated by browser-runner `ERR_TUNNEL_CONNECTION_FAILED`; deadline exceeded 1,989,
+firecrawl POSTs; timeout 87) · 4,756 permanent-terminal · 975 unclassified-terminal.
+Chain depth measured 0 or 1 only (8,557 / 3,417 rows, none deeper) ⇒ retry
+amplification across levels is bounded at (1+3)² = 16 innermost executions worst-case;
+monitors: RSH-006 storm-watch + weekly fatal-row rate. Named follow-up if it fires:
+terminal-exhaustion marker minted at the cap site (NOT shipped here — the 124
+seam-in-a-bug-patch lesson).
+
+**Sibling suspect RESOLVED: `TimeoutMonitor.sendTimeoutResponse` is DEAD CODE.**
+`NewTimeoutMonitor`, `MonitorChildOrchestration`, `MonitorRequest(` and
+`TimeoutMonitor{` have zero call sites outside helpers.go and tests (two spellings
+searched). Nothing to converge.
+
+**Tests**: `notify_parent_disposition_test.go` (216's harness). Mutation-verified both
+ways: hardcoding the literal back fails the transient pin; swapping RetryDisposition
+for MatchedTransientFailure fails the sequencing pin (`pq: invalid connection` must
+stay terminal). All four packages green.
+
+**Council**: `Council-Submitted: 471a969e-3546-4d34-bc9c-a481aca7f1d6` (plan:
+lane PLAN_2026-08-08_217_notify_parent_disposition.md).
+
+**Close criteria (post-roll — verify at the artefact, never the tag):**
+1. Pod-grep every replica: POS `retry disposition decided at the child-orchestration failure sender` ≥1,
+   NEG a string the diff removed — the old envelope had no removable literal, so use
+   the marker pair from `scripts/pick-pod-marker.py`.
+2. Induction (SEED_test_207_probe recipe): a deadline-exceeded child-orchestration
+   failure draws `error_recoverable` from THIS sender (the envelope that used to be the
+   16:07:45-shaped hardcoded terminal), and the parent's `awaited_requests.retry_version >= 1`.
+3. Storm watch: retry_version histogram — mass 0–1, wall at 3, ZERO above; and
+   week-over-week `severity='fatal'` row rate for cross-level amplification.

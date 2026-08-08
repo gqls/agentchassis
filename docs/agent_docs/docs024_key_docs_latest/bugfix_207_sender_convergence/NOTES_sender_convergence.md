@@ -131,3 +131,34 @@ Remaining to close 207: the next chassis roll + the three close criteria in the 
 - By-product surfaced by the loop, unfiled: completed workflows failing
   "message validation failed" on complete_workflow delivery to the parent (corr
   `aee5853d`, several */complete steps). Left for the next thread — grep bugs first.
+
+## 2026-08-08 (evening) — 217 taken up (new session)
+
+- Ownership: `who-owns 217` → only this lane's finished dirs; live transcript tails all
+  wrapped (216 done, 207 handed off); `site_work_items` queue clean on
+  notifyParent/unrecoverable/failure-sender matches. Taken.
+- Validity: `coordinator.go:3924/3937` literals unchanged at HEAD — bug live.
+- **Import cycle confirmed** (the bug file's open question): `platform/messaging` →
+  `platform/orchestration` via processor.go:21 + validation_drop.go:27, so the
+  coordinator cannot import `messaging.RetryDisposition`. Chosen route: extract the
+  classification core to `platform/errors` (leaf; stdlib-only imports, checked), keep
+  messaging re-exports so the pinning tests and agentbase's source-scan test
+  (`agent_test.go:109/138` asserts `messaging.Matched*` calls in agent.go) stay green
+  and agentbase stays untouched.
+- **Population measured** (`severity='fatal'` is written only at coordinator.go:3917,
+  after the parent-exists check — the fatal rows ARE this sender's sends):
+  ```sql
+  -- 14d, needle logic replayed permanent-first (perm needles case-sensitive, transient folded)
+  SELECT count(*), count(*) FILTER (WHERE perm), count(*) FILTER (WHERE NOT perm AND trans) ...
+  -- → 11,970 total | 4,756 permanent-terminal | 6,239 RECOVERABLE (52%) | 975 unclassified
+  -- needle split of the flip: connection 4,163 (ERR_TUNNEL_CONNECTION_FAILED dominant),
+  -- deadline exceeded 1,989 (firecrawl POSTs), timeout 87
+  -- chain depth via count of 'workflow failed:' per message: depth 0 = 8,557, depth 1 = 3,417, NO depth >= 2
+  ```
+- **TimeoutMonitor.sendTimeoutResponse is DEAD** — `NewTimeoutMonitor`,
+  `MonitorChildOrchestration`, `MonitorRequest(`, and `TimeoutMonitor{` have zero hits
+  outside helpers.go and tests (two spellings tried per the grep-absence rule). The bug
+  file's sibling suspect resolves to "no convergence needed"; recording in 217.
+- Plan: `PLAN_2026-08-08_217_notify_parent_disposition.md` (this dir). Amplification
+  risk sized there: measured depth ≤ 1 ⇒ worst case (1+3)² = 16 innermost runs, monitors
+  named, terminal-exhaustion marker recorded as the follow-up if storm-watch fires.

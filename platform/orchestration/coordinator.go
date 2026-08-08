@@ -17,6 +17,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/pkg/models"
+	perrors "github.com/gqls/agentchassis/platform/errors"
 	"github.com/gqls/agentchassis/platform/governance"
 	"github.com/gqls/agentchassis/platform/kafka"
 	"github.com/gqls/agentchassis/platform/orchestration/actioncheck"
@@ -3917,10 +3918,31 @@ func (s *SagaCoordinator) notifyParentOfFailure(ctx context.Context, state *Orch
 	entry.Severity = "fatal" // workflow failed entirely
 	s.logAgentError(ctx, entry)
 
+	// bugs_open/217: this sender used to hardcode error_unrecoverable, making
+	// every child-orchestration failure terminal at the parent — and on the
+	// orchestrated path this response claims the awaited request FIRST, so no
+	// later, better-classified response could win. Classify before stamping,
+	// through the same sequenced seam as the processor senders (bugs_open/207).
+	// Only errorMsg survives to here — callers stringified long ago — so the
+	// typed DomainError branches cannot fire and the prose needles decide,
+	// which is exactly the fallback they exist for. RetryDisposition, never
+	// MatchedTransientFailure bare: this prose can carry both a permanent and
+	// a transient needle, and permanent must be asked first.
+	recoverable, matched := perrors.RetryDisposition(errors.New(errorMsg))
+	status := "error_unrecoverable"
+	if recoverable {
+		status = "error_recoverable"
+	}
+	s.logger.Info("retry disposition decided at the child-orchestration failure sender by the sequenced shared classifier",
+		zap.String("disposition", status),
+		zap.String("disposition_matched", matched),
+		zap.String("orchestration_id", state.OrchestrationID),
+		zap.String("correlation_id", state.CorrelationID))
+
 	failureResponse := types.ResponseMessage{
 		Headers: types.ResponseHeaders{
 			InResponseToRequestID: replyToRequestID,
-			Status:                "error_unrecoverable",
+			Status:                status,
 			IsError:               true,
 			MessageType:           "response",
 			//MessageID:             uuid.New().String(),
@@ -3931,9 +3953,12 @@ func (s *SagaCoordinator) notifyParentOfFailure(ctx context.Context, state *Orch
 		Body: types.ResponseBody{
 			Success: false,
 			Error: &types.ErrorInfo{
+				// The code and message stay verbatim whatever the disposition:
+				// their consumers (agenterrors' code mapper, the 090 verdict
+				// recovery runbook) key on CHILD_ORCHESTRATION_FAILED.
 				Code:        "CHILD_ORCHESTRATION_FAILED",
 				Message:     errorMsg,
-				Recoverable: false,
+				Recoverable: recoverable,
 			},
 		},
 	}

@@ -316,11 +316,18 @@ func GetAgentContext(err error) (agentType, agentID, orchestrationID, stepName, 
 // case-folded substring classifier with ZERO callers fleet-wide (verified
 // 2026-08-06) that disagreed with the live agentbase classifier on case —
 // two lists for one judgement, the drift bugs_closed/034 closed on the
-// permanent side. The judgement now lives in ONE place:
-// messaging.MatchedTransientFailure, whose pattern set was rebuilt from a
-// live census with each entry individually argued (see
-// platform/messaging/retryable_transient.go's header, including the
-// patterns from this function's list that were REJECTED and why). Do not
-// recreate a recoverability list here — this package is imported by
-// everything and is the wrong altitude for operational retry policy, which
-// is precisely how this function rotted unexercised.
+// permanent side. The judgement now lives in ONE place: the pattern set was
+// rebuilt from a live census with each entry individually argued, including
+// the patterns from this function's list that were REJECTED and why. Do not
+// recreate a SECOND recoverability list anywhere.
+//
+// > **CORRECTED 2026-08-08 (bugs_open/217).** This note used to say the one
+// > place was messaging.MatchedTransientFailure and that this package "is the
+// > wrong altitude for operational retry policy". The single implementation
+// > now lives HERE (transient_failure.go / permanent_failure.go), because the
+// > coordinator's failure sender needed RetryDisposition and messaging imports
+// > orchestration — a cycle. What made the old IsRecoverable rot was not its
+// > package but its ZERO callers beside a live twin; the relocated classifier
+// > is the live twin, called by messaging (via re-exports), agentbase and the
+// > coordinator. The rule that survives: ONE list, and change it only through
+// > its pinning tests (platform/messaging).
