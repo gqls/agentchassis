@@ -163,3 +163,21 @@ bug, one level out. That is a good reason to fix it and a poor reason to have ca
 urgent, and I called it urgent.
 
 Nothing about the fix changes. What was wrong was my argument for it.
+
+## 2026-08-08 (late) — your decision on the review-queue captions, done
+
+You chose the plain version: a fixed caption, and repair the two existing items. Both are
+done and live — configuration changes take effect immediately, no release needed. The two
+items in the human-review queue now say "Grounded explainer draft ready for review" instead
+of their internal type name, and any future item from that agent will say the same.
+
+One honest limitation: the caption does not name the topic, and cannot. The same
+configuration had a second dead key which was supposed to capture the draft and its topic
+into the item, and it never captured anything — so there was nothing to put in the caption.
+The generic wording is what the records can truthfully say.
+
+I also corrected the original seed file in the repository, so if that agent's configuration
+is ever replayed from the seed, the dead key does not come back.
+
+The declined option — teaching the work-item writer to render templated captions — stays
+declined and recorded: one consumer, which has never run, is not demand.
