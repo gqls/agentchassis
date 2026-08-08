@@ -617,3 +617,62 @@ submitted]` — the `Council-Submitted:` trailer resolved itself at report time,
 exactly as designed. `5f49b4cfd` remains in UNREVIEWED because it carries no trailer at all
 (it predates the submission); forward-only, so it stays that way. `867037f5a` and `22ed9aa04`
 are outside the report's scope, which is `platform/`-shaped commits only.
+
+## 2026-08-08 (late) — v1.0.1266, the mixed-fleet trap, and the 090 came back UNVERIFIABLE
+
+**A fresh chassis build went out mid-session (v1.0.1266) and re-proving it caught a trap my
+own RUNBOOK had only half-covered.** The fleet was **mid-roll: 20 pods on v1.0.1264 and 5 on
+v1.0.1266 at the same moment.** My documented loop picks one pod per *label*, which is only
+sound when every pod runs the same tag — and here a label-picked pod could have answered for
+either build, so "it is live" would have been a coin toss dressed as a measurement. Fixed the
+RUNBOOK to enumerate one Running pod **per distinct image tag**. Both tags read `1 / 0 / 0`,
+so the conversions are live on the new build — **but that was a finding, not an assumption**.
+
+Generalises beyond this lane: **tag uniformity is a precondition of the pod-proof, and on this
+cluster it is false for minutes at a time after every release.** The council's
+`debug_historian` seat got me half-way here by pointing out the label selector covers 2 pods
+of 42; the other half is that the 42 are not necessarily running the same thing.
+
+### The 090 verdict: UNVERIFIABLE — which is NOT a refutation, and the distinction matters
+
+`dce40cf4-…` ran **5 iterations** and stopped: `status: UNVERIFIABLE`, `conclusion: NOT
+CONFIRMED (stopped: evidence-not-growing)`, `is_fix: false`, *"Hand to a human with the full
+trail; do NOT auto-conclude."* It hit **exactly the wall I hit** — there is no retained
+runtime evidence to grow into, because those keys appear in 0 of 1,667 orchestration rows.
+
+**Read against `an-unverifiable-verdict-does-not-say-your-premise-was-false`: this says the
+QUESTION could not be settled by the evidence available, not that the premise is wrong.** And
+what it did settle cuts my way: its final round tested a RIVAL hypothesis — that the
+downstream reader uses a plain `hero_url`/`logo_url` — and returned **`last verdict:
+REFUTED`**, on the ground that *"BuildRenderContextAction's actual, PRIMARY read for both
+images is the exact two-level raw access the original symptom describes … executed BEFORE any
+check of a plain hero_url/logo_url key … the raw two-level read … is in fact the primary,
+unmitigated path"*. It also found no evidence that `DeployImageAssetAction` writes
+`hero_url`/`logo_url` unconditionally.
+
+**One genuinely new fact from the trail: a `hero_url`/`logo_url` FALLBACK exists**, running
+after the raw read and labelled `(fallback)` in the code. Whether anything populates it is now
+the crux — it decides live defect vs latent one — and neither I nor the loop could answer it
+statically. **So the next move is a CANARY, not more reading**: trigger a page build and catch
+`collected_data->'hero_deployed'` in flight, then look at the rendered page. One run settles
+what five iterations could not. Recorded in the handoff.
+
+**Cost of the exercise: one 090 run, and I would spend it again.** It refuted a rival
+explanation I had not considered and surfaced the fallback path, which is more than the
+confident paragraph I would otherwise have written into a handoff.
+
+### The measurement that kills the obvious fix for the merge gap
+
+Before handing on §1 I measured which call sites actually rely on the merge, because "make
+provenance required" is the remedy four seats gestured at and it **does not work**: **13 sites
+name their provenance EXPLICITLY, 7 are MERGE-FILLED and are RIGHT to be** (the running step
+IS the correct provenance for `complete_work_item_verification`, `diagnose_council_decide`,
+`multipage_actions`, `plan_sections` ×2, `reconcile_superseded_reviews`,
+`retract_page_deployment`). A hard requirement breaks those 7.
+
+The design that survives is the estate's own: RFC_010's owner ruling of 2026-08-02 — *"make X
+a field with the unsafe default OFF"*. Here the unsafe branch is silent inheritance, so it
+becomes `Entry.InheritProvenance bool`, default `false`; the 7 declare it, the 13 are
+untouched, and an Entry with neither an `AgentType` nor the opt-in is a state the writer can
+refuse instead of papering over. Go's zero value makes the unsafe default OFF for free. Full
+working in the handoff so the next session does not re-derive it.

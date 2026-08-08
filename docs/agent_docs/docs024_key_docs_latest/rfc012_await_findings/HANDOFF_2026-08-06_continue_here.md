@@ -12,8 +12,15 @@ at commit `3851e90b5` — read that block, it is the authority, not this file):
 3. **Option B implementation — ASSIGNED here.**
 
 **ALL THREE ARE NOW DELIVERED, and both council rounds are APPROVED.** What is left is
-follow-up work that no ruling requires, listed at the bottom. Nothing is broken, nothing is
-in flight that needs watching, and there is no verdict to wait for.
+follow-up work that no ruling requires, listed at the bottom. Nothing is broken and nothing
+is in flight — the 090 diagnosis this lane filed has come back (UNVERIFIABLE, §2 below) and
+there is no verdict outstanding.
+
+**START HERE IF YOU ARE PICKING THIS UP COLD:** the single highest-value piece of work is
+**§1 — hardening `LogActionEntry`'s merge**. Four council seats asked for it independently,
+the naive design is already ruled out by a measurement in that section, and the design the
+estate's own owner rulings point at is written out for you. It is a shared seam, so budget a
+council round and a concept-register entry in the same commit.
 
 ---
 
@@ -23,7 +30,7 @@ in flight that needs watching, and there is no verdict to wait for.
 |---|---|---|
 | The rulings, recorded in the RFC | `3851e90b5` | durable — survives any session |
 | **B core**: `agenterrors` leaf package | `5f49b4cfd` | **LIVE**, pod-proven |
-| **B rest**: 18 site conversions + tests | `f930de86b` | **LIVE**, re-proven on **v1.0.1264** 2026-08-08 |
+| **B rest**: 18 site conversions + tests | `f930de86b` | **LIVE**, re-proven on **v1.0.1266** 2026-08-08 (and on 1262/1263/1264) |
 | **(d) detector** (offline half) | `abf5e8266` | **DONE, proven** |
 | **(d) detector — descent fixed** | `867037f5a` | **DONE** — it was blind to the nesting shape the executor prefers; see below |
 | **(d) ONLINE half — the CronJob** | `22ed9aa04` | **LIVE AND PROVEN.** `shared-output-fields-check`, daily 07:10 UTC, image `v1.0.1265` |
@@ -52,10 +59,13 @@ single round again you will be over-claiming.
 
 ### Proving the B conversions are still live (run after any roll)
 
-**The command moved to the RUNBOOK** and it changed — the old form here was proving less
-than it looked. `-l app=agent-chassis` is **2 pods of 42** that run that image under four
-labels, and `grep -c` exits 1 on a legitimate zero, so the exec's status lies. Use the
-RUNBOOK version; expect `1 / 0 / 0`.
+**The command moved to the RUNBOOK** and it changed twice — the old form here was proving
+less than it looked. `-l app=agent-chassis` is **2 pods of 42** that run that image under four
+labels; `grep -c` exits 1 on a legitimate zero, so the exec's status lies; and **pods must be
+picked by image TAG, not by label, because the fleet is routinely mid-roll** (caught on
+2026-08-08 with 20 pods on v1.0.1264 and 5 on v1.0.1266 at the same moment — a label-picked
+pod would have answered for whichever it happened to land on). Use the RUNBOOK version;
+expect `1 / 0 / 0` on **every distinct tag present**. Last run: both tags, clean.
 
 ---
 
@@ -127,13 +137,69 @@ caller 19. **Named remedy: a required-provenance variant** (or a vet on the zero
 This is the "make the bad state unrepresentable" move, and it is the highest-value item left.
 It is written into the `agenterrors` doc_notes row so caller 19 meets it before the trap does.
 
-### 2. The hero/logo silent breaks — **a 090 diagnosis is RUNNING, do not re-file**
-`RUN_CORRELATION_ID=dce40cf4-5a8a-4316-93c0-0f3c37d2f3a7` (intake corr
-`59780c12-52e5-4a96-972e-e0665c62eb24`). Read the verdict before acting:
+**MEASURE FIRST — and I have, because the obvious design does not work.** "Make provenance
+required" would break the sites that legitimately want the merge. Counted at HEAD 2026-08-08,
+per call site (`grep` the four helpers, then look 12 lines on for an explicit `AgentType:`):
+
+| | sites | files |
+|---|---|---|
+| **EXPLICIT** (names its own provenance) | **13** | component_link_repair · component_write_guard · content_data_envelope_guard · diagnose_persist_fix_plan · discovery_checks · prepare_link_context · render_content_envelope_guard · save_sections_claims_guard · save_sections_content_data_links · save_sections_dedup · save_sections_metadata_source · validate_page_content (×2) |
+| **MERGE-FILLED** (running step IS correct) | **7** | complete_work_item_verification · diagnose_council_decide · multipage_actions · plan_sections (×2) · reconcile_superseded_reviews · retract_page_deployment |
+
+So 7 sites depend on the merge and are RIGHT to. A hard requirement breaks them; that is why
+no seat could just say "require it" and why this needs a design rather than a patch.
+
+**The design the estate's own rulings point at** — OWNER RULING 2026-08-02 (RFC_010) §2:
+*"when a seam's widest branch is licensed by 'callers must all be X', make X a field with the
+unsafe default OFF … a comment is not a control on a tree this many sessions share."* Applied
+here: the unsafe branch is **silent inheritance**, so it becomes an explicit opt-in —
+`agenterrors.Entry.InheritProvenance bool`, default `false`. The 7 merge-filled sites declare
+it; the 13 explicit ones are unaffected; and a **forgotten** field stops being silent because
+an Entry with neither an `AgentType` nor `InheritProvenance` is a state the writer can refuse
+(or loudly flag) rather than paper over. Go's zero value does the work: the unsafe default is
+OFF for free, which is exactly the property the ruling asks for.
+
+⚠ **Two things to get right, both learned the hard way in this lane:** (1) test by MUTATION,
+not by suite-green — every test in this package pins codes and messages and none pins
+`agent_type`, so a broken merge passes the whole suite (that is the defect, restated); (2) it
+is a **shared seam**, so it is architecture-scope under the 2026-07-28 ruling — register it in
+the concept register **in the same commit that ships it**, and name the consumers rather than
+merely measuring them (OWNER RULING 2026-07-29 §3).
+
+### 2. The hero/logo silent breaks — 090 came back **UNVERIFIABLE**, and that is NOT a refutation
+`RUN_CORRELATION_ID=dce40cf4-5a8a-4316-93c0-0f3c37d2f3a7` (intake corr `59780c12-…`).
+Ran 5 iterations, then: **`status: UNVERIFIABLE`, `conclusion: NOT CONFIRMED (stopped:
+evidence-not-growing)`, `is_fix: false`, and in its own words "Hand to a human with the full
+trail; do NOT auto-conclude."** Read the trail before touching this:
 ```sql
-SELECT kind, left(body, 4000) FROM diagnosis_artifacts
-WHERE correlation_id='dce40cf4-5a8a-4316-93c0-0f3c37d2f3a7' ORDER BY created_at DESC;
+SELECT jsonb_pretty(result->'response') FROM site_work_items
+WHERE item_key LIKE 'needs_diagnosis:deploy-image-asset%';   -- conclusion + 5-step evidence_trail
 ```
+**Read the verdict correctly — UNVERIFIABLE means the evidence would not grow, not that the
+premise is false** (`an-unverifiable-verdict-does-not-say-your-premise-was-false`). It hit the
+same wall I did: there is no retained runtime evidence to grow into.
+
+**What it DID establish, and it strengthens the concern rather than weakening it.** The loop's
+last round tested a RIVAL hypothesis — that the downstream reader uses a plain
+`hero_url`/`logo_url` key rather than `hero_deployed[image_url]` — and returned **`last
+verdict: REFUTED`** on it, because: *"BuildRenderContextAction's actual, PRIMARY read for both
+images is the exact two-level raw access the original symptom describes … both executed BEFORE
+any check of a plain hero_url/logo_url key. The direct hero_url/logo_url lookup … only runs
+afterward, labelled in the code itself as '(fallback)' … the raw two-level read … is in fact
+the primary, unmitigated path for the render-context build."* It also found **no evidence that
+`DeployImageAssetAction` ever writes `hero_url`/`logo_url` into collected_data
+unconditionally**.
+
+**New fact worth having: there IS a `hero_url`/`logo_url` fallback**, running after the raw
+read. Whether anything populates it decides whether this is a live page defect or a latent
+one — and that question is now the crux, not the overwrite itself.
+
+**The cheapest decisive test is a CANARY, not more code reading** — both I and the loop
+exhausted what static analysis can settle. Run a page build on `pageflow-builder` or
+`site-work-orchestrator`, and while it is in flight read
+`orchestration_states.collected_data->'hero_deployed'` (it is absent from all 1,667 retained
+rows, so it must be caught live), then check whether the rendered page carries a hero and a
+logo. That answers in one run what five diagnosis iterations could not.
 **The census's version of this was understated, and reading the action changed it.**
 `DeployImageAssetAction` has ONE path: it calls `sendGitCommitRequest` — whose return map
 carries `await_response: true` and **no** `image_url` — and *then* assigns

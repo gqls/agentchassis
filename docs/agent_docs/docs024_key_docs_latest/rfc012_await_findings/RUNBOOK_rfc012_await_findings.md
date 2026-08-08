@@ -87,8 +87,28 @@ for sel in app=agent-chassis app=dynamic-agent; do
     true'   # <- see gotcha 2
 done
 ```
-Expect `1 / 0 / 0` per pod. Measured on v1.0.1262, v1.0.1263 and **v1.0.1264** (2026-08-08,
-both labels).
+Expect `1 / 0 / 0` per pod. Measured on v1.0.1262, v1.0.1263, v1.0.1264 and **v1.0.1266**
+(2026-08-08).
+
+⚠ **PICK PODS BY IMAGE TAG, NOT BY LABEL, AND EXPECT THE FLEET TO BE MIXED.** The loop above
+takes one pod per *label*, which is fine only when every pod runs the same tag. Caught live at
+16:0xZ on 2026-08-08: a fresh build had gone out and the fleet was **mid-roll — 20 pods on
+v1.0.1264 and 5 on v1.0.1266**. A label-picked pod could have answered for either, so "it is
+live" would have been a coin toss dressed as a measurement. Enumerate one Running pod per
+DISTINCT TAG and grep each:
+```bash
+kubectl -n ai-persona-system get pods --field-selector status.phase=Running -o json | python3 -c "
+import json,sys
+d=json.load(sys.stdin); seen={}
+for p in d['items']:
+    for c in p['spec'].get('containers',[]):
+        if 'agent-chassis' in c['image']:
+            seen.setdefault(c['image'].split(':')[-1], (p['metadata']['name'], p['metadata'].get('labels',{}).get('app')))
+for t,(n,l) in sorted(seen.items()): print(t,n,l)"
+```
+Both tags read 1/0/0 in that mixed window, so the answer happened to be uniform — **but that
+was a finding, not an assumption**, and a roll that is only partly out is the normal state for
+minutes at a time on this cluster.
 
 Gotcha 1 — **`-l app=agent-chassis` is 2 pods and it is NOT the fleet.** Raised by the
 council's `debug_historian` seat against this lane's own evidence, and it was right:
