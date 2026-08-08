@@ -869,3 +869,27 @@ commands we've prepared, or allow the session to call the Cloudflare API and
 we'll handle the off, the timing, and the on. Nothing visitors would notice
 much either way: for that half hour, webdesign.uk would simply time out instead
 of forwarding to webdesign.co.uk, and the preview link stays up throughout.
+
+---
+
+**2026-08-08, late evening. The rebuild is under way, and this time it read the domain right.**
+
+We pressed go. Before submitting we found one more trap: the crawler keeps a
+copy of what it last saw, so even with the forwarding switched off it would
+have "seen" your other site again from memory — and the copy it held was one
+our own checking had put there. We told the pipeline's first-look step to
+always fetch fresh, switched the forwarding off, submitted, and watched. The
+classifier's own notes this time read: no existing site, five named pages from
+the roadmap, no testimonials because the service is new, no chat box in phase
+one. Five pages, exactly as planned. The forwarding went back on within the
+hour; visitors never saw more than a brief timeout.
+
+One thing we had to work around, worth knowing about: the machinery that is
+supposed to notice queued build work and start it isn't running on a timer —
+it only moves when someone gives it a push, and the shared queue has a
+fortnight of other sites' work piled ahead of ours. So we're walking this
+build through step by step by hand: the domain study is done, the market
+research is done, and the strategy step was running as this was written. Each
+step finishes in a few minutes once started; there are a handful more before
+the five pages themselves get written and appear on the preview. The queue
+problem itself is written up for the platform people with everything they need.
