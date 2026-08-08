@@ -2083,3 +2083,124 @@ anything left there; all instruments were committed, nothing lost).
 **Running D10 tally: 42 sections + 2 tools end-to-end.** Remaining: ~16 interactive
 sections (JS read each), ~10 ready tools, 8+3 chrome-blocked, 7 lane-owned
 (coordination), ~35 unplaced + drift rows (listings).
+
+## 2026-08-08 (later, fresh session) — batch 6 opens the INTERACTIVE stock: 5 subjects end-to-end, and one of them lies to the visitor
+
+**State re-established before acting.** Fresh chassis roll landed while this session
+started: chassis + browser-runner both **v1.0.1269** (chassis pods up 22:01–22:02 UTC,
+browser-runner 22:02). No other session had touched the lane since `5c5ab9256`. Census
+re-run: **112 active sections, 43 with a PLAN, 69 without; 60 active tools, 23 with,
+37 without** — consistent with 08-08 morning plus batch 5's nine.
+
+**Vocabulary pod-grepped in the DEPLOYED binary before authoring anything** (the 08-05
+skew landmine). On `browser-runner-adapter-c6ccdf86c-ndlft`: `"reload navigation failed"`
+→ 1, `"non-numeric w/h in result"` → 1, `"computed_values"` → 1, `"no element matches"`
+→ 1. **`"has_visible_area"` → 0 and that is NOT a miss** — it is the short-literal
+artefact `bugs_closed/157` §3 warns about; the same binary carries that check's own
+error strings, which is the long-marker proof. HEAD's switch (`run_checks_action.go:554`)
+admits exactly `page_status_ok, selector_exists, selector_count, no_console_errors,
+no_horizontal_overflow, interaction, has_visible_area, computed_values`, and this batch
+uses no vocabulary outside it.
+
+**Candidate set re-measured, not carried forward.** 17 active section components with
+`length(js_content) > 0` and no PLAN (the 08-05 handoff said "~16"). Batch 6 took the
+five most-placed of them.
+
+| subject | placements/sites | checks | prover | proof page | S6 CID |
+|---|---|---|---|---|---|
+| news-listing | 9 active / 8 | 8 | 8/8 | robot-hands.com/news/index.html | `5cb3f14d` 12/12 |
+| latest-news | 6 / 6 | 8 | 8/8 | robot-hands.com/index.html | `55f5c2cf` 12/12 |
+| case-studies-grid | 4 / 3 | 8 | 8/8 | leopardessconsulting.co.uk/who-we-help.html | `10651039` 12/12 |
+| contact-block | 3 / 3 | 8 | 8/8 | robot-hands.com/contact.html | `57d41cf0` 12/12 |
+| blog-listing | 1 real / 1 | 8 | 8/8 | fundamentallyai.com/platform-log/index.html | `9f5d8639` 12/12 |
+
+All five landed on `current_step='neg_control_confirmed_red'`, `all_passed: true`, and
+**every skip is a profile gate** (`…@mobile` on a desktop-only check) — not one
+`not implemented`, which is the skip that reads as a PASS.
+
+### The line rule this batch adds: an interactive fence needs one check a STATIC render cannot satisfy
+
+Batches 1–5 asserted structure. For a JS-driven component that is not enough: every
+check can pass with the component's script deleted, and the fence would then certify a
+dead panel. So each of these five carries exactly one assertion reachable **only** if the
+script ran, chosen from what the JS itself observably does:
+
+- `news-listing` — `#news-listing-count` must read `\d+ item`. The footer is server-rendered
+  `style="display:none"` and the count element is empty; the script un-hides it and writes
+  the text after `/data/news-archive.json` resolves. Read with `InnerText`, so a hidden
+  footer reads `""` — the hiding does half the discrimination for free.
+- `latest-news` — `#news-footer a.news-more-link` must exist. The server renders
+  `<div id="news-footer"></div>`, literally empty; that anchor exists in no server render.
+- `case-studies-grid` — click the `strategy` filter, expect
+  `.csg-filter-btn[data-filter="strategy"].active[aria-current="true"]`. The served page
+  contains **zero** `aria-current` attributes (grepped), so nothing but the handler can
+  produce one.
+- `blog-listing` — same shape, but its script sets **no** `aria-current`, so the assertion
+  is `.active` alone — and it clicks `cat1`, **never `all`**, because `all` carries
+  `.active` in the server render and asserting it would pass with the script deleted. That
+  distinction is the whole difference between a driven check and a decorative one.
+- `contact-block` — click submit on an EMPTY form, expect `#cb-status.cb-error` to carry
+  text.
+
+Each was mutation-proven by replacing the component's own `<script src=…>` with an inert
+`<script>/* … */</script>` — no 404, so no console-error collateral, and the only check
+that goes red is the driven one.
+
+### Two authoring traps found the hard way, both about the component re-rendering over your mutant
+
+1. **You cannot kill a JS-rendered list by deleting the server-rendered items.** The
+   obvious mutant for `at-least-one-item` — remove or rename the `<article>` markup — is
+   defeated twice over: the `from` string occurs 20 times (the prover demands exactly
+   one), and the script re-renders the list from the feed anyway. What works is renaming
+   the **container class** the fence's descendant selector goes through
+   (`class="news-listing-items"` → `…-renamed`), leaving the `id` the script binds to
+   untouched: the items are still created, they are just no longer inside the listing the
+   contract names.
+2. **`serve_local` for the feed is mandatory AND it disarms feed-side mutants.** Without
+   it the same-origin `fetch("/data/…")` turns cross-origin under the redirect harness and
+   CORS reds `no-console-errors` on a page that is clean live. With it the prover serves
+   the real feed verbatim in every run — so no mutant can change the DATA, only the page.
+   That is why every driven mutant here attacks the SCRIPT or the SLOT, never the feed.
+
+### Three finds, routed rather than fixed
+
+1. **`bugs_open/228` FILED — `contact-block` tells the visitor "Your message has been
+   sent" and there is no transport in the component at all.** No `action`, no `method`,
+   and `grep -cE 'fetch\(|XMLHttpRequest|sendBeacon|form\.submit\('` over the SERVED
+   2,100-byte `/tools/assets/contact-block.js` returns **0**. The success message comes
+   from a 1,200 ms `setTimeout`, then `form.reset()` wipes what the visitor typed. Live on
+   three pages, one of them robot-hands' contact page. Blast radius measured, not
+   estimated: a census over all 30 active form-bearing components asked three questions
+   (`action` present / JS transport present / claims-sent) and **contact-block is the only
+   one false on both of the first two while true on the third**.
+   **The fence deliberately asserts the VALIDATION path and NOT the success message** —
+   asserting it would have made this lane's own contract vouch for a false claim to a
+   visitor, which is `bugs_open/161`'s failure applied before the fact rather than after.
+   Landmine appended + verification dispatched (`0b5aceb7`).
+   `[UNVERIFIED, deliberately not claimed]` the sibling `contact-form` (13 pages) resolves
+   its action to a **`mailto:` URL with `method="POST"`**; what a current browser does with
+   that is a separate question and is recorded in 228 as an adjacent observation with the
+   check that would settle it, not as a finding.
+2. **`finetuning.uk/index.html` 404s FIVE `case-studies-grid` card images** —
+   `/assets/images/case-study-{facilities,financial-data,legal-rag,logistics-strategy,private-ai}.jpg`.
+   Same detected-but-never-repaired class as the `hero.jpg` family (`bugs_closed/128`).
+   It is why the proof placement is leopardess, not finetuning.
+3. **A third placement-drift row**: `leopardessconsulting.co.uk/blog.html` has a
+   `blog-listing` placement row and its served HTML carries **no `data-component`
+   attribute at all** — not this component's, not any. Joins `featured-content`,
+   `pricing` and the `ported-page` 58.
+
+### Instrument committed that batches 1–5 kept losing
+
+`scripts/gen_component_plan_sql.py` — the persist generator (RUNBOOK §9's supersede-then-
+insert, dollar-quoted, driven from a per-batch manifest). Batches 1–5 hand-rolled this in
+a session scratchpad every time and lost it to tmp-cleanup every time. Its length assert
+is a `DO`/`RAISE`, **not** a `SELECT`: `ON_ERROR_STOP` ignores a non-empty result set, so
+a verify block made of SELECTs cannot stop the COMMIT (RFC_006's landmine). Dry-run
+(ROLLBACK) first, then `--apply`; all five bodies asserted to the byte, then **read back
+out of `doc_plans` and diffed byte-identical against the proven files**, and two were
+re-run through the evaluator from the DB copy — writing the field is not reading it.
+
+**Running D10 tally: 47 sections + 2 tools end-to-end.** Remaining: ~12 interactive
+sections, ~10 ready tools, 8+3 chrome-blocked, 7 lane-owned (coordination), ~35 unplaced
++ 3 drift rows.

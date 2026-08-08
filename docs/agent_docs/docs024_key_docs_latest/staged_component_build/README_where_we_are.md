@@ -590,3 +590,61 @@ What's left is exactly three piles, and each has a clear unblock:
    hour to forty-five minutes each, two to three sittings.
 3. **The ten remaining tools with working pages**, plus the coordination notes for the
    darts-arena and provocations pieces that belong to other active workstreams.
+
+---
+
+**8 August 2026, late evening — the interactive pieces have started, and the first one we
+opened up turns out to be lying to visitors**
+
+Your fresh build had landed, so I checked it before trusting it — chassis and browser
+robot both on the new version, both restarted about half an hour before I started, which
+is what you want (there's a rule here that nothing dispatched within five minutes of a
+restart actually runs). Nobody else had touched this workstream since this morning.
+
+The simple page-pieces were finished this morning. Tonight I started the harder pile: the
+ones with their own JavaScript, where a contract has to check what the thing *does*, not
+just what it looks like. Five done end-to-end: the news archive page, the homepage news
+teaser, the case-studies grid, the contact block, and the blog index. Every one written
+against the real live page, every check deliberately broken first to prove it can catch a
+fault, then written into the database and tested for real in the cluster — all five
+passed, and all five correctly refused the deliberately-wrong page I pointed at them as a
+control.
+
+**The new rule I had to invent for this pile, and it matters.** For a static page-piece,
+checking that the markup is there is enough. For an interactive one it isn't: you can
+delete the component's entire script and every "is it there?" check still passes, so the
+contract would happily certify a dead panel. So each of these five carries one check that
+can only pass if the code actually ran — the news page has to show its item count, which
+is only written after it fetches the feed; the two filter bars have to actually move when
+I click a filter, and I made sure to click a filter that *isn't* the one already selected
+when the page loads, because clicking the pre-selected one would pass with the script
+deleted. That distinction is the entire difference between a real check and a decorative
+one.
+
+**Now the thing you'll want to know about.** The contact block — the form on
+robot-hands' contact page, and on two other client sites — **does not send anything,
+anywhere, and tells the visitor it has.** You fill it in, you press Send, it pauses for a
+moment like it's talking to a server, and then it says in green: "Your message has been
+sent. We'll be in touch shortly." It then clears everything you typed. There is no
+address on the form for it to send to, and the script it runs has no code in it that
+sends anything at all — I checked the actual file the visitor's browser downloads, not
+just our copy. The pause is a timer. It exists purely to look convincing.
+
+Its validation is real, which is exactly why nobody has caught it: mistype your email and
+it tells you properly, so the form looks wired up. I checked every other form on the whole
+estate and this is the only one like it — the others all have a real destination.
+
+I've written it up as a bug (`bugs_open/228`) with the three fix options ranked, and I've
+put a warning in the shared traps file so the next person to touch it doesn't repeat my
+first assumption. One deliberate choice worth flagging: the contract I wrote for that
+component checks that an *invalid* submission gets a proper error back, and pointedly does
+**not** check the "message sent" message — because if it did, our own quality system would
+start certifying that claim as correct, and we'd have baked the lie in. We've been bitten
+by exactly that before.
+
+Two smaller finds: five case-study images are missing on finetuning.uk (the same
+"we detected it and never fixed it" pattern as the hero images), and one more page whose
+records say a component is on it when the page plainly hasn't got one.
+
+Forty-seven page-pieces and two tools now have proven contracts. Left: about a dozen more
+interactive ones, ten tools, and the pieces still blocked behind those missing images.

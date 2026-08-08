@@ -7154,3 +7154,28 @@ warn line fired and was unreachable before any grep could run).
                     WHERE v.categories ? 'landmine-verification' AND v.subject_key = n.source);
   ```
 - **added:** 2026-08-08, `bugfix_201_page_content_writer_dispatch` lane
+
+### A form component's validation being real is not evidence its SUBMIT is — `contact-block` prints "your message has been sent" from a `setTimeout` and has no transport at all
+
+- **footprint:** `contact-block`, `cb-contact-form`, `cb-submit-btn`, `/tools/assets/contact-block.js`, `content_components`, `js_content`, `html_template`
+- **fires when:** you touch, fence, port, restyle or QA any form-bearing section component and satisfy yourself that it works by *using* it. `contact-block`'s client-side validation is genuine and specific — mistype the email and you get "Please enter a valid email address"; leave the message short and you get the character count. Submit it correctly and after ~1.2s you get a green "Your message has been sent. We'll be in touch shortly." **Nothing is sent.** The served form carries no `action` and no `method`, and the served `/tools/assets/contact-block.js` (2,100 bytes) contains **zero** `fetch(` / `XMLHttpRequest` / `sendBeacon` / `form.submit(`. The 1,200 ms delay exists only to look like a network round-trip, and `form.reset()` then wipes the visitor's text. Live on three client pages including `robot-hands.com/contact.html`. Filed as `bugs_open/228`.
+- **why it hides:** every signal a human checks points the right way. The validation errors are correct and specific, so the form is visibly *wired up*; the success message is styled as a success; the pause reads as a request in flight; and the fields clearing afterwards is exactly what a real submit does. A browser check that drives the form and asserts the success text — the obvious acceptance check to write — **passes**, and then the contract vouches for the lie (`bugs_open/161`'s class: the record ratifies the claim it caused).
+- **the check:** ask the ARTEFACT for a destination, never the behaviour for a verdict. Two greps, both on what is actually served, not on the DB row alone:
+  ```bash
+  curl -s https://<site>/<page> | grep -oE '<form[^>]*id="cb-contact-form"[^>]*>'   # expect action= and method=
+  curl -s https://<site>/tools/assets/<component>.js | grep -cE 'fetch\(|XMLHttpRequest|sendBeacon|form\.submit\('
+  ```
+  A `0` from the second with no `action` in the first means the form is inert no matter what the page says back to you. To sweep the fleet for the same shape rather than this one component, ask all three questions at once — a component can be honest by EITHER route:
+  ```sql
+  SELECT cc.function,
+         (cc.html_template ~* '<form[^>]*action=')                          AS form_has_action,
+         (coalesce(cc.js_content,'') ~ 'fetch\(|XMLHttpRequest|sendBeacon')  AS js_has_transport,
+         count(DISTINCT pc.page_id) AS pages
+    FROM content_components cc
+    LEFT JOIN page_components pc ON pc.component_id = cc.id
+    LEFT JOIN pages p ON p.id = pc.page_id AND p.status = 'active'
+   WHERE cc.is_active AND cc.html_template ~* '<form'
+   GROUP BY 1,2,3 ORDER BY 4 DESC;
+  ```
+  30 rows on 2026-08-08 and `contact-block` was the only one false on both. **And when you write its acceptance fence, assert the VALIDATION path, not the success message** — otherwise the contract makes the defect permanent.
+- **added:** 2026-08-08, `staged_component_build` lane (D10 batch 6)
