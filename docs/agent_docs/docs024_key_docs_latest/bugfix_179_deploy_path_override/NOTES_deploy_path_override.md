@@ -411,3 +411,80 @@ First run NOT yet fired — the owner should be watching when it goes.
 `SUMMARY_2026-08-06_five_closures_and_the_shape_of_the_problem.md` — features
 the soft-404 (200-for-404) trap as the worked example of the fleet's recurring
 failure shape, per the owner's request.
+
+## 2026-08-08 ~17:12Z — D3's FIRST supervised improvement-loop run fired at leopardessconsulting
+
+Owner picked leopardess (option A of four presented) after the pre-flight below.
+`ORCH_ID=99d39725-1223-4cbb-b4c5-60e66483d734`, corr `25e9d675-c287-401e-b081-c3277ebe2ea5`,
+fired by `finetuning_uk_repair/294_TRIGGER_improvement_loop_v1.sh`. Contrary to
+the 08-05 handoff's note, the **kcat dispatch pod was NOT classifier-blocked this
+time** — it ran and published; and contrary to the trigger's own 30-minute latency
+warning, the orchestration row existed **within 20 seconds**. Neither of those is a
+rule; both are dated observations.
+
+**Pre-flight, all re-derived live rather than carried from the 08-06 handoff:**
+
+- Census **[MEASURED 17:05Z]**: leopardess 61 detected — *unchanged since 08-03*.
+  Fleet total is **170 detected across 8 sites**, not the 204/10 the handoff and
+  116 both quote; that figure is from 08-03 and has moved. leopardess 61 ·
+  ai-agent-orchestration 37 · dartsonline 33 · robot-hands 33 · then a long tail of
+  ones and threes.
+- Nothing claimed/in_progress/triaged/approved on the site; youngest chassis pod
+  2,744s (past the 300s silent-drop window).
+- **`who-owns.py` reads commits, so it cannot see a live session.** Grepping the
+  running `.jsonl` transcripts found **two sessions live on the improvement loop at
+  that moment**, which no committed artefact would have shown.
+
+**The pre-flight finding that actually mattered — and it cut BOTH ways.**
+
+The leopardess lane's own docs (`REPLICATION_in_chassis.md:39`,
+`RUNNING_NOTES.md:143`) state that its hand-corrected specs survive only because
+`improvement-sweep` is disabled, since `WriteSiteSpec` supersedes unconditionally and
+**no write path checks `pinned`**. Read literally, D3's "biggest backlog first" points
+the first supervised run straight at the one site whose lane is relying on that loop
+never running. Checked rather than assumed, and it clears:
+
+- **No live agent config references `content-gap-planner`** — the agent that lane
+  records as having rewritten `identity` twenty times. It exists and is active, but
+  nothing in the improvement-loop chain reaches it. *Positive control: the agent row
+  does exist, so the zero is not a misspelling.*
+- Of the chain (`site-review`, `quality`/`design`/`completeness-discovery`,
+  `design-audit`, `build-dispatch-loop`), **no step has a spec-write action.**
+  *Positive control: 9 live agents fleet-wide DO have `write_site_spec`, so the
+  filter can match.*
+- The one reachable spec write is via the single `evaluate_tools` item →
+  `tool-suggester`, whose `save_tool_spec` writes **`aspect: "tools"`** only. It
+  *reads* identity/classification/brand_dna and writes none of them.
+- Rerender safety: all **111 page_components across 36 pages have `content_data`**,
+  so the 22 `page_rerender` + 4 `needs_rerender` items regenerate from stored content.
+  The July-era hazard that lane recorded (fabrications baked into `rendered_html`
+  against NULL `content_data`) is **no longer present** — that premise expired.
+
+**A live defect in the dispatcher, found by another lane hours earlier, and bounded.**
+`bugs_open/220` (filed today by the 206 lane) — for `unbuilt_internal_link` items the
+dispatcher rebuilds the *containing* page instead of the target, marks itself
+`complete`, and re-detects next run. They reproduced it live on vetcomparison.uk and
+had to cancel 5 re-minted items mid-run to stop wasted rebuilds. **That is the D3
+programme's own question — "are the repairs sane?" — already answered "not always",
+by a different lane, before this run started.** Measured whether it reaches leopardess:
+`unbuilt_internal_link` is the **only** live item type where `page_id` disagrees with
+`spec.page_name`, and leopardess's queue holds none of them. Full measurement
+contributed to `220` itself (`1e4d67e6f`) rather than forked, since its fix candidate 1
+asks for exactly that number. **The zero was disconfirmed before being trusted** —
+unfiltered by status the same query flags 13/13 known-bad rows, including both that
+220 names.
+
+**Residual this lane could NOT close, stated as a risk and not as a clearance:**
+leopardess has one never-deployed page (`case-study-document-intelligence-pipeline`,
+`build_status='planned'`, **`status='archived'`**). If the discovery pass mints an
+`unbuilt_internal_link` against it mid-run, that single item hits 220's defect. Watch
+for it; do not assume the archived status suppresses the mint — that is
+`[UNVERIFIED]`, traced from the mint condition, never observed.
+
+**Watcher armed** (`scratchpad/watch_leopardess_run.sh`): emits on TRANSITIONS only
+and exits on terminal status, per today's `WRONG_CALLS` entry from the 206 lane about
+a monitor that was blind from its first poll while its heartbeats read as queue
+latency. **Foreground-tested with `ONESHOT=1` before arming** — it emitted a real
+transition on that first call, which is the proof the arming was worth having.
+
+Outcome appended below when it lands.
