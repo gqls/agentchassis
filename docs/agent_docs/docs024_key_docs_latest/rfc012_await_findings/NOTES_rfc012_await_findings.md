@@ -1101,3 +1101,120 @@ query alone is worthless — 0 rows is exactly what a dead code path, an empty t
 predicate returns. The first query is what makes the zero *disconfirmable*, because it shows the
 writer is demonstrably busy in the window. `[MEASURED 2026-08-08, both halves]` Had the first
 returned 0 too I would have learned nothing and would have had to induce a row deliberately.
+
+## 2026-08-09 — §1a shipped, and the first thing it did was falsify the evidence it was commissioned on
+
+`1bc08d1ce` — `(*types.ExecutionContext).ResolvedAgentType()`, both consumers on it, register
+entry `RSH-009`, `RFC_019`, council corr `6186ab10-a006-4c34-b9ea-ecedfde8ea2d` (round 1,
+verdict pending). This is the whole of §1a. What follows is what went wrong, which is the point
+of this file.
+
+### Misstep 14 — I nearly repeated the handoff's headline figure into a fourth durable document
+
+The handoff sized §1a at "**559** rows across **25** distinct `step_name`s — the widest step
+spread of any `agent_type`" and "all **25** live `REVIEW_SUPERSEDED_BY_PASSING_SAVE` rows carry
+`generic`". I opened the RFC draft with those numbers, because they were measured, dated, marked,
+and had already survived a council round in which two seats asked for them to be re-run at commit
+time — which they were.
+
+Then, deciding whether this needed an RFC at all, I went to look at *whose* rows they were, and
+put `min`/`max(occurred_at)` in the `GROUP BY` because I wanted to know which producers were still
+alive:
+
+```sql
+SELECT count(*) FILTER (WHERE occurred_at <  '2026-07-27') AS before,
+       count(*) FILTER (WHERE occurred_at >= '2026-07-27') AS after
+FROM agent_error_log WHERE agent_type = 'generic';           -- 499 / 56
+```
+
+**499 of 555 predate 2026-07-26 — the day `RunAgentType` itself shipped (`baf887a8e`).** The
+coordinator's own ladder had already removed ~89% of the damage the change was being justified
+by. The dominant producer, `call_agent`/`call_dispatch` (394 rows), stops dead on **2026-07-25**.
+All 25 `REVIEW_SUPERSEDED` rows were written on **one day**, 2026-07-23, and that action has not
+filed a row since. Reachable residue: **~36 rows in 13 days**, from three actions-door producers
+(`diagnose_council_decide` 31, `retract_page_deployment` 4, `emit_tool_cross_link_items` 1); the
+other 20 residual `generic` rows are `orchestrate`/`process_message`/coordinator paths this change
+does not touch.
+
+`[MEASURED 2026-08-08, live]`. **The dates fell out of a query I asked for a different reason.**
+Nothing failed, nobody contradicted me, and if I had not been weighing the forum I would have
+shipped 559 forward again. The check is one extra column and it is now a landmine, a
+`WRONG_CALLS` row, and a correction in all three places that carried the figure.
+
+The general shape is worth stating because the marker discipline did not catch it: **a
+retention-bounded table makes a FIXED defect and a RAGING one produce the identical number.**
+`[MEASURED]` is satisfied in full by a figure that could never have come out otherwise. Same
+family as the narrow-filter trap, reached by a different route — not a filter that defines its own
+answer, but a *window* that does.
+
+**What this did to the case for the change:** it did not kill it, it re-based it. §1a is now
+justified structurally — one question, two ladders, in packages that cannot import each other, so
+nothing stops the gap widening — and explicitly **not** by volume. That is a weaker-sounding
+argument and a truer one, and `RFC_019` §3 lists "do nothing" as a serious option because of it.
+
+### Misstep 15 — the join I reached for to check the claim could only see one day, and its big bucket looked like a finding
+
+To test whether the error row disagreed with its run, the obvious query is a `LEFT JOIN` from
+`agent_error_log` to `orchestration_states`. It returned **550 of 555 `generic` rows under
+`'<no orchestration row>'`**, which reads exactly like a finding about missing runs. It is
+**retention**: the log spans ~30 days (20,022 rows, oldest 2026-07-09), `orchestration_states`
+keeps ~24h (1,667 rows).
+
+I then ran the inner join anyway and got 1,137 rows / 18 disagreements / 3 of the shape
+"logged `generic`, owner real" — and for about a minute treated that as the answer. It is a true
+statement about **yesterday** wearing the clothes of a statement about the month. Worse, all three
+`generic` disagreements were `orchestrate`/`process_message` rows — **not the actions door at
+all** — so the join could not evaluate a single row of the class I was changing.
+
+That is why `RSH-009`'s acceptance evidence is a **post-roll** measurement against a stated 36-row
+baseline and not more archaeology: the archaeology is structurally unavailable. Landmine filed.
+
+### What the mechanism actually turned out to be, which the handoff had half-right
+
+The handoff said `runningStepProvenance` "implements only the middle rung". True, but the sharper
+statement is that the door had the better answer in its hand and threw it away:
+`buildActionParams` sets `AgentType: state.OwnerAgentType` (`coordinator.go:1691`) — i.e.
+`params.AgentType` **is** `determineOwnerAgentType`'s own durable output — and the old code let
+`Sender.AgentType` override it whenever the sender was non-empty, which on the dispatch path means
+`"generic"` beat the resolved agent. So the fix is a hoist, and the floor was already right.
+
+This also settled the design question the handoff flagged as "the design decision of the job"
+(where `os.Getenv("AGENT_TYPE")` lives): it stays coordinator-side, because the actions door's
+floor is *more* specific than the pod, and because the door must never reach for the `"generic"`
+filler — that is the exact value `RSH-008` chose `unattributed` to avoid colliding with.
+`t.Setenv` pins the exclusion so nobody "completes" the ladder later.
+
+### The one thing I could not settle, stated rather than buried
+
+**§1a may be a partial no-op on RESUMED steps.** `RunAgentType` reaches the door on the
+first-step/same-message path (pinned by a round-trip test). On a step resumed after an await,
+`execCtx` is rebuilt from the response's headers, and `ensureFullExecutionContext`
+(`coordinator.go:1589`) backfills `Sender` from `state.OwnerAgentType` **only when `Sender` is
+empty** — and never backfills `RunAgentType`. Undecidable before the roll for the reason in
+misstep 15. The contained remedy is one `if`; it is deliberately not taken, because it adds a rung
+sourced from durable state and this lane's round 2 was REJECTED for exactly that kind of bundling.
+
+### Proof was by mutation, and the identities are the finding
+
+Six mutations, full matrix in `RFC_019` §5. Two worth repeating here:
+
+- **revert the actions door to its old one-rung read → exactly the 3 new tests fail and nothing
+  else.** That is the defect reproduced *and* the proof the old suite could not see it: every
+  pre-existing test in the package passes `sqlmock.AnyArg()` for `agent_type`.
+- **revert the coordinator's delegation → only the new coordinator test fails.**
+  `determineOwnerAgentType` had **no test at all** before this. A claim of the form "one ladder,
+  two consumers" is worth exactly as much as its least-pinned consumer, and I nearly shipped it
+  with one side bare.
+
+Honest note on the third: the nil-guard mutation fails the `types` test only, and 0 elsewhere,
+because both consumers nil-check before calling. The guard is defence for future callers, not a
+live path, and the register says so rather than counting it as coverage.
+
+### Housekeeping, and one thing that is NOT mine
+
+`go test ./platform/orchestration/actions/` has **one failing test at committed HEAD**,
+`TestValidDocSubjectTypes_LockstepWithMigrationCheck` — another lane adding a `decision` doc
+`subject_type` to `340_doc_notes_decision_subject_type.sql` without moving
+`validDocSubjectTypes`. Verified pre-existing by running it inside a clean
+`git archive HEAD` tree, named in the council submission so no seat reads it as mine, and
+deliberately **not** fixed here.
