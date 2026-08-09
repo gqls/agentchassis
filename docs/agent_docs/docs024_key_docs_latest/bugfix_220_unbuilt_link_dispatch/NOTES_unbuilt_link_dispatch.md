@@ -277,3 +277,30 @@ session made about `076_improvement_loop_trigger.sh`. The fix is mechanical
 (payload into the container COMMAND, `&& echo PUBLISH_OK`) and
 `fire_improvement_loop_dartsonline.sh` in this session's scratchpad is a working
 template for whoever picks it up.
+
+## 2026-08-09 ~13:30 UTC — why the acceptance item does not dispatch promptly: `max_items: 5`, and the order is ASCENDING priority
+
+Two facts that together set the timescale of every acceptance run in this lane, and
+neither is guessable from the loop's name:
+
+- **`build-dispatch-loop.load_items.max_items` = 5.** One run claims FIVE items and
+  stops. Firing the improvement loop does not drain a queue; it takes one bite. The
+  90 items this run triaged will be worked off by many separate runs.
+- **Dispatch order is ASCENDING by `priority`** — the lower number goes first.
+  Measured twice, so it is not a four-sample fluke: this run's completions went
+  5 → 8 → 10 → 10, and the morning run dispatched the priority-**35** misdirected-CTA
+  rerenders (09:44–09:47) BEFORE the priority-**45** unbuilt item (10:01) and the
+  priority-**80** page rerenders (10:43+). If you read `priority` as "urgency",
+  every estimate you make about when your item runs will be backwards.
+
+Consequence for `unbuilt_internal_link` at priority 45: about 20 items sit ahead of
+it (1×15, 6×30, 12×35, 1×40). **Something re-fires the dispatch loop against a site
+independently of the improvement loop** — `3e71ad69` (13:13:47) and `3912bfe1`
+(12:51) hit dartsonline on correlations that are not mine, and the 10:09→12:57
+stream was ~15 such runs at 5–15 minute intervals. So the queue does drain on its
+own; expect the acceptance item roughly 30–60 minutes after minting, matching the
+morning run's ~1 hour from mint (08:58) to unbuilt dispatch (10:00).
+
+**Do not read a slow dispatch as a stalled one, and do not force it.** The
+`process_item_iter_N_call_handler` step in `orchestration_states.current_step` is
+the live progress indicator — it names the iteration inside the current bite.
