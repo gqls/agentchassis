@@ -7560,3 +7560,25 @@ SELECT type FROM agent_definitions
 - **and a stale comment will tell you the opposite.** `inject_canonical_link_test.go`'s header states *"assemblePage is the single live assembly path … no live agent uses assemble_page"*. That was **false when measured on 2026-08-09** — the query above returns three active agents. A source comment is not a census; run the query.
 - **source:** 2026-08-09, `bugs_open/232` lane, found while adding the third head injection and checking whether it would actually be fleet-wide. Concept register SEO-003 carries the same warning and the open convergence question.
 - **added:** 2026-08-09, bugs_open/232 lane
+
+### A handler saga's `deploy_result` in `site_work_items.result` is nested ONE LEVEL DEEPER than it reads — and the shallow path returns empty on every row, which is a legitimate value meaning "the deploy skipped"
+
+- **footprint:** `site_work_items.result`, `site_work_items`, `deploy_result`, `rendered_page`, `sections_saved`, `_verification`, `unbuilt_internal_link`, `build-dispatch-loop`, `page-build-handler`
+- **fires when:** you read a work item's `result` to decide whether a dispatch actually shipped anything — acceptance tests, residue censuses, "did the fix converge?" checks. No symptom needed; the query runs clean and returns a plausible answer.
+- **the trap:** the obvious path is `result->'response'->'deploy_result'->'rendered_page'`. The real shape interposes **another `response`**: `result → response → deploy_result → response → rendered_page`, with the storage payload deeper still at `… → response → deploy_result → response → data`. The outer `deploy_result` holds only `{response, response_status, response_received_at}`. So the obvious path returns **empty for every row in the table**, converged or not.
+- **why the wrong result looks exactly like the right one:** empty is a *meaningful* value here. A dispatch that routed correctly but skipped its deploy (target had no component rows) legitimately produces an empty deploy leg — that is the documented disjunct-(b) outcome. So a path typo is indistinguishable from the honest-skip case that the same investigation is looking for, and it reads as a **finding** rather than a bug in the query.
+- **and the obvious control cannot catch it:** the 220 lane had a control row and ran it first, exactly as practice demands. But that control's *expected* value for the deploy column was empty — so a wrong path matched the prediction perfectly. **A control only tests a column that is expected to be NON-EMPTY in the control case.**
+- **the check, before you trust an empty deploy leg:**
+  ```sql
+  -- enumerate, never guess: three keys, and `response` is where the payload went
+  SELECT jsonb_object_keys(result->'response'->'deploy_result')
+    FROM site_work_items WHERE left(id::text,8)='<item>';
+  -- then assert on a row you KNOW shipped (non-empty positive control)
+  SELECT result->'response'->'deploy_result'->'response'->'deploy_result'->'response'->'data'->>'success'   AS deploy_ok,
+         result->'response'->'deploy_result'->'response'->'deploy_result'->'response'->'data'->>'file_path' AS deployed_file,
+         length(result->'response'->'deploy_result'->'response'->'rendered_page'->>'html')                  AS rendered_len
+    FROM site_work_items WHERE left(id::text,8)='69818add';   -- must read: true | /brands/index.html | 18495
+  ```
+  `rendered_len` is the leg that separates a real deploy from an honest skip: a **skipped** deploy still emits a `rendered_page` object carrying the correct target `page_id`, with `html` of length 0. Matching page ids prove routing, never shipping.
+- **source:** 2026-08-09, bugfix 220 lane, caught when a genuine convergence (`69818add`, `/brands/index.html` → 200) printed a blank deploy column through the lane's own documented query. Written up in `WRONG_CALLS.md` and `bugfix_220_unbuilt_link_dispatch/RUNBOOK_unbuilt_link_dispatch.md`.
+- **added:** 2026-08-09, bugfix 220 lane

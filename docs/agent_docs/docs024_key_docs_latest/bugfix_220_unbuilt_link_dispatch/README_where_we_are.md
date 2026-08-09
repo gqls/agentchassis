@@ -104,3 +104,55 @@ I have started that run. What I am watching for is the missing grip-styles page
 going from "planned" to actually published, and the job that fixes it closing with
 its own verification saying the target page has shipped — rather than the weaker
 reason it gave this morning, which was really just a side effect of the damage.
+
+## 2026-08-09 half past two — it worked. The missing page built itself, and the link is alive
+
+The run I started before lunch reached our jobs at twenty past two, and the thing we
+have been trying to watch happen for two days happened twice in six minutes.
+
+The grip-styles guide — the page that has been "planned but never built" all week,
+the one every dead link on the site was pointing at — got built. Three sections
+written, published to the site at 14:28, and the address that has been returning
+"page not found" all morning now returns the page. I fetched it to be sure: it is
+there, it has its own title, it is the grip-styles article and not a copy of
+something else. And the page that contained the dead link, the barrel-weight guide,
+still says "Barrel Weight Guide" and still contains its own writing. That last part
+is the whole bug. The old behaviour was that the system would rebuild the page that
+*contained* the broken link instead of the page the link *pointed at*, overwrite it
+with the wrong content, and then announce success. It did none of that. It built the
+right page, left the other one alone, and only then closed the job — and the reason
+it gave for closing was the strong one: "the target page has shipped, the link now
+resolves."
+
+So bug 220 is finished. Fixed, live, and proven from the dead link all the way to a
+working web page.
+
+Two things I want to flag, because both mean somebody was wrong and it is better
+said out loud.
+
+The first is mine. Before I started watching, I ran the check this folder tells you
+to run — a known-bad job from this morning, which the notes say should come out
+looking wrong in a particular way. It did, so I said the check was sound and could
+be trusted. It was not sound. One of the columns it looks at was reading blank for
+every job on the system, because the instructions had the wrong address for that
+piece of data. I could not tell, because on the known-bad job that column was
+*supposed* to be blank. A blank that means "nothing was published" and a blank that
+means "you are looking in the wrong place" are the same blank. If the first success
+had not landed in front of me while my check was still calling it a failure, I would
+have told you the fix had not worked. I have corrected the instructions, added a
+second check that reads a job which definitely did publish, and written the whole
+thing up as a wrong call. The lesson is small and sharp: a check only tests the
+things it expects to *find*. Anything it expects to be empty, it is not testing at
+all.
+
+The second is this folder's. We had written down, twice, that four of the ten jobs
+were expected to fail loudly, because they pointed at a different kind of page —
+section listings rather than articles — that we believed the builder could not make.
+One of those four is what succeeded first. It built the brands listing page and
+published it, no complaints. So that belief was wrong, and it was never actually
+tested before we wrote it down; we had extrapolated it from a different kind of page
+failing earlier in the day. It matters because that supposed failure was being used
+as the argument for a further piece of work we deferred. On this evidence the
+argument is weaker than we thought and possibly gone. Three of those four jobs are
+still working through the queue as I write; their results are the honest answer, and
+nobody should pick that deferred work up without looking at them first.

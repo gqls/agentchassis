@@ -304,3 +304,71 @@ morning run's ~1 hour from mint (08:58) to unbuilt dispatch (10:00).
 **Do not read a slow dispatch as a stalled one, and do not force it.** The
 `process_item_iter_N_call_handler` step in `orchestration_states.current_step` is
 the live progress indicator — it names the iteration inside the current bite.
+
+## 2026-08-09 ~14:30 UTC — CONVERGENCE PROVEN (twice), and two of this lane's own claims corrected
+
+Picked up cold from `HANDOFF_2026-08-09_continue_here.md`. STEP 0 at 14:00Z: all 10
+items still `triaged`, grip-styles `planned`/never deployed/0 comps, 11 items ahead
+in the queue — i.e. exactly the state the handoff was written in, three minutes
+earlier. Did **not** re-fire; the handoff's "watch, do not force" call was right and
+the queue reached priority 45 at 14:21Z on its own, ~68 minutes after minting
+(handoff predicted 30–60; the morning run took ~62).
+
+**The proof, both halves, is written up in the bug file** (§ "2026-08-09 14:29Z —
+CONVERGENCE PROVEN") rather than duplicated here. Headline: `4151471c`
+(barrel-weight → grip-styles, blog-post) and `69818add` (about → brands-index,
+section-index) each saved sections to the **target**, rendered real bytes, deployed
+the target's own file, verified via disjunct **(a)**, and turned a 404 into a 200 —
+with the container still serving its own content in both cases.
+
+### MISSTEP 1 (mine, caught by dumping the JSON) — I declared the acceptance query "validated against the control" when the disputed leg had never been tested
+
+Before arming a watcher I ran the handoff's control (`338deb27`) and reported that it
+"came out wrong in exactly the predicted way … my jsonb paths are sound". **That was
+an overclaim and I should not have made it.** Four of the five columns were genuinely
+validated. The fifth — `deployed_page_id`, the leg that decides whether anything
+shipped — was **expected to be empty in the control**, and it read empty for the
+wrong reason: the documented path is one level too shallow
+(`response→deploy_result→rendered_page` where the real shape is
+`response→deploy_result→response→rendered_page`), so it returns empty on *every* row.
+
+A wrong path and absent data are indistinguishable when both render as empty. **The
+control agreed with the broken instrument, and I read that agreement as validation.**
+Had `69818add` not converged in front of me — with a deploy that was obviously
+successful in `jsonb_pretty(result)` while my query printed a blank deploy column — I
+would have reported the genuine convergence as a failure on leg 2, and probably
+concluded the fix was incomplete.
+
+**The cheap check I skipped:** a control only tests a column if that column is
+expected to be **NON-EMPTY** in the control case. I had no positive control for the
+one column whose value the whole acceptance rested on. Fixed in the RUNBOOK: the
+corrected query plus a second control asserting `deploy_ok = true` on `69818add`.
+Logged in `WRONG_CALLS.md`. This is the `a-path-read-cannot-see-the-shape-change-
+underneath-it` landmine arriving through a side door — I did enumerate nothing and
+trusted a documented path, and the control I *did* run was structurally incapable of
+objecting.
+
+### MISSTEP 2 (this lane's, inherited) — "the four section-index items are expected to FAIL loudly" is REFUTED
+
+Recorded in the 13:20Z NOTES entry and repeated in the handoff as candidate 4's
+demand signal. `69818add` targeted `brands-index` (`page_type = section-index`) and
+**converged cleanly** — built 2 components, deployed `/brands/index.html`, served 200.
+
+The prediction was extrapolated from the morning run's honest skip, which happened on
+a **blog-post** target with no component rows; it was never tested against a
+section-index target before being written down as an expectation. So it is not that
+the handler cannot build `section-index` — on this evidence it can. **Anyone reading
+"section-index targets fail" as justification for picking up candidate 4 should
+re-measure first.** The remaining three (`6e1b562b`, `0469f44f`, `b4184d0f`) were
+still dispatching at the time of writing; a watcher is collecting their outcomes and
+those are the honest demand signal.
+
+### Two smaller facts worth keeping
+
+- **Dispatch cadence held**: priority-45 items began claiming at 14:21:14Z, one item
+  at a time, each taking ~3 minutes end to end (claim → components → deploy →
+  verify → complete). 69818add 14:21:14→14:24:26; 4151471c 14:24:29→~14:28:5x.
+- **Container `about` was re-deployed at 14:23:52Z by something that is not
+  `69818add`** (that item's payload lists one file, `/brands/index.html`; no other
+  work item touched `about` in the window). Content is uncontaminated, so it is not
+  220's signature. Recorded in the bug file as unexplained rather than guessed at.

@@ -1,5 +1,17 @@
 # 220 — `unbuilt_internal_link` dispatch rebuilds the CONTAINING page, not the target; marks itself `complete`; re-detects next run — a convergence-free green loop
 
+> **STATUS 2026-08-09 14:29Z — FIXED, LIVE, AND PROVEN END TO END. The convergence
+> proof that was the last thing owed has landed.** Item `4151471c` (container
+> `barrel-weight` → target `grip-styles`) saved sections to the **target**, rendered
+> 27,623 bytes, deployed `/blog/grip-styles.html`, verified via disjunct **(a)**, and
+> the page now serves **200** while its container still serves its own content.
+> A second, independent convergence landed five minutes earlier on a different page
+> type (`69818add`, target `brands-index`, `/brands/index.html` → 200).
+> **The file stays in `bugs_open/` per the owner's 2026-08-06 ruling.** Full evidence:
+> § "2026-08-09 14:29Z — CONVERGENCE PROVEN" at the bottom. Two findings in that
+> section correct earlier claims in this lane — read them before reusing the
+> acceptance query or citing candidate 4's demand signal.
+
 **Filed 2026-08-08** by the `bugs_open/206` lane while answering the owner's question "would
 the improvement loop have picked these problems up?". Diagnosed first-hand rather than via the
 090 loop — declaring the substitute per the 2026-07-31 ruling: every link in the causal chain
@@ -346,3 +358,89 @@ dartsonline today. No repair item, no backfill, no migration: **the residue is o
 discovery pass away from being self-correcting, and hand-cleaning it would prove
 less than letting the machinery clear it.** Whoever runs the next improvement loop
 on that site gets the second, independent end-to-end proof for free.
+
+## 2026-08-09 14:29Z — CONVERGENCE PROVEN: the target is built, deployed and served, and the container is untouched
+
+The last thing this bug owed was an end-to-end convergence: not "the routing was
+right and the deploy honestly skipped" (which the morning run gave us via disjunct
+**b**), but a dispatch that **built the target, shipped it, and made the 404 a 200**.
+It landed twice in six minutes, on two different `page_type`s.
+
+**Run**: corr `576f0ab9-5a17-4449-9bbc-ee1983576433`, fired 13:10Z at dartsonline.com,
+re-minted 10 `unbuilt_internal_link` items at 13:12:45Z. Dispatch reached priority 45
+at 14:21Z.
+
+### Proof 1 — `4151471c`, target `grip-styles` (page_type `blog-post`)
+
+The acceptance family's own case: `grip-styles` was `planned`, never deployed, 0
+components, and `/blog/grip-styles.html` was a live 404 all morning.
+
+| leg | value read at 14:29Z |
+|---|---|
+| `spec.page_name` (container) | `barrel-weight` |
+| `sections_saved.page_name` | **`grip-styles`** — the TARGET. Mig 342's leg |
+| `sections_saved.page_id` | `769e3b72…` |
+| `rendered_page.page_id` | `769e3b72…` — same page |
+| `rendered_page.html` length | **27,623** — a real render |
+| `deploy_result…data.success` | **`true`** |
+| `deploy_result…data.file_path` | **`/blog/grip-styles.html`** |
+| `_verification.status` / `.detail` | `verified` / disjunct **(a)**: *"target page 769e3b72… has shipped; href \"/blog/grip-styles.html\" now resolves"* |
+| `pages` (grip-styles) | `build_status=deployed`, `deployed_at=2026-08-09 14:28:45Z`, 3 components |
+| `curl https://dartsonline.com/blog/grip-styles.html` | **200** |
+| container `barrel-weight` served title | *"Barrel Weight Guide — …"* — its own. **Not contaminated** |
+
+The last row is the bug's actual damage signature and it is absent: the container
+kept its own content while the target was built.
+
+### Proof 2 — `69818add`, target `brands-index` (page_type `section-index`), 14:24Z
+
+Container `about` → target `brands-index`. `sections_saved.page_name` =
+`brands-index`, `rendered_page.page_id` = `92b8bb46…` = `sections_saved.page_id`,
+html 18,495 bytes, `success: true`, `file_path` `/brands/index.html`, verified via
+disjunct **(a)**, `pages.deployed_at` 14:24:22Z with 2 components,
+`curl /brands/index.html` → **200**, and the container `about` still serves *"About
+Darts Online | Spec-First Darts Guides"* with zero `All Brands` content.
+
+> **CORRECTION — this refutes this lane's own stated expectation.** The 08-09 handoff
+> and NOTES both recorded that the four `section-index`-targeting items were
+> **expected to fail LOUDLY** and were "deferred candidate 4's demand signal". One of
+> them **converged cleanly instead**. So `section-index` targets are NOT unbuildable
+> by the current handler, and **candidate 4's demand signal is weaker than this lane
+> claimed — on this evidence it may be absent.** Do not cite "section-index targets
+> fail" as a reason to pick up candidate 4 without re-measuring; the prediction was
+> made from the morning run's honest skip on a *different* page type and was never
+> tested on a section-index target until now. The remaining three
+> (`6e1b562b`, `0469f44f` → brands-index; `b4184d0f` → shop-index) were still
+> dispatching when this was written — their outcomes are the real demand signal and
+> should be read before anyone re-opens candidate 4.
+
+### ⚠ The acceptance query in the RUNBOOK was WRONG, and its control could not catch it
+
+The documented deploy leg was
+`result->'response'->'deploy_result'->'rendered_page'->>'page_id'`. The real shape
+nests **another `response`** in between:
+`response → deploy_result → response → rendered_page`. The documented path therefore
+returns **empty on every row, converged or not** — it would have reported the proof
+above as a failure on leg 2.
+
+**Why the lane's control did not catch it:** the control (`338deb27`) expected that
+column to be *empty*, and a wrong path and absent data render identically. The
+control agreed with a broken instrument. **A control only tests a column if that
+column is expected to be NON-EMPTY in the control case.** Corrected query, plus a
+second control that reads `deploy_ok = true` on `69818add`, is in
+`RUNBOOK_unbuilt_link_dispatch.md` § "THE acceptance assertion".
+
+Note the substantive claim about the morning run was *right*: at the corrected depth
+`338deb27` has `rendered_page.page_id` = `769e3b72` (grip-styles — routing correct)
+with html length **0** and no `success` — a genuine honest skip. Only the path used
+to express it was wrong.
+
+### One unexplained, benign observation
+
+Container `about` has `deployed_at` = 14:23:52Z, inside item `69818add`'s dispatch
+window — yet that item's own deploy payload lists exactly one file
+(`files_count: 1`, `["/brands/index.html"]`), no other work item on the site touched
+`about` between 14:15 and 14:30, and the served `/about.html` is uncontaminated.
+So the container was re-deployed by something outside this item, with its own
+content. **Recorded rather than explained** — it is not this bug's signature (no
+content damage) but a reader who greps `about`'s timestamps will trip over it.

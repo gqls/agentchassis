@@ -25112,3 +25112,45 @@ column they existed to test. This one is a **string assertion whose needle is pl
 haystack by the very change under test** — and it is a standing hazard for anything asserted
 against `llm_call_log.prompt_rendered`, because a rendered prompt always contains its own
 template. Filed as a landmine on that footprint.
+
+---
+
+## 2026-08-09 (bugfix 220 lane) — I called a jsonb path "validated against the control" when the control was structurally incapable of testing it
+
+**The claim.** Picking up the 220 acceptance run cold, I ran the lane's documented control
+row (`338deb27`) before arming a watcher and reported: *"Control validates exactly as the
+handoff predicted — `saved_page_name`=`beginners`, `deployed_page_id` empty, `verified` via
+disjunct (b). My jsonb paths are sound, so a pass will be readable."* Dated, first-hand, and
+the control did print exactly the predicted row.
+
+**Why it was wrong.** Four of the five columns were genuinely exercised. The fifth —
+`deployed_page_id`, the leg that decides whether anything actually shipped, and therefore the
+entire point of the acceptance test — was **predicted to be EMPTY in the control**. It read
+empty. But it read empty because the documented path was one level too shallow
+(`response→deploy_result→rendered_page`; the real shape interposes another `response`), so it
+returns empty on **every row in the table, converged or not**. An absent value and a typo'd
+path are the same glyph. **The control agreed with a broken instrument, and I reported the
+agreement as validation.**
+
+**What caught it.** A genuine convergence landing in front of me while the query said
+otherwise. `69818add` deployed `/brands/index.html` — `jsonb_pretty(result)` showed
+`"success": true` and an 18KB render — while my "validated" query printed a blank deploy
+column. Without that accident I would have read the real proof as a failure on leg 2 and
+reported the fix incomplete.
+
+**The cheap check that would have caught it.** **A control only tests a column if that column
+is expected to be NON-EMPTY in the control case.** Every column whose predicted value is
+blank, zero, or NULL is *untested* by that control no matter how precisely it matches — the
+match is overdetermined. Before trusting a control, list the columns it leaves blank; those
+are your blind ones, and each needs its own row where the value is present. One
+`jsonb_object_keys(result->'response'->'deploy_result')` — three keys, `response` among them —
+would have shown the shape in a single command.
+
+**The shape, for the tally.** Third sibling of the 08-03 pair and the vonc sentinel above:
+**a check that could not have come out otherwise.** Those were a filter on the tested column
+and a needle planted by the change under test. This one is subtler and probably commoner —
+**a multi-column control where only the non-blank columns carry information.** The lane had
+done everything the practice asks (a control, run first, before trusting a pass) and the
+control still could not object. Distinct from the existing
+`a-path-read-cannot-see-the-shape-change-underneath-it` landmine, which warns you off
+trusting a path: here a path *was* checked, and the check was hollow.

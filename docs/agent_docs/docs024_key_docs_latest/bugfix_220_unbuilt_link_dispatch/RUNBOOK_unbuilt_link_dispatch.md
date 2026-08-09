@@ -130,25 +130,52 @@ first disjunct rather than by eye —
 "link still rendered?" is what separates residue from a legitimately resolved item.
 
 ## THE acceptance assertion — all four legs of one dispatch, in one row
+
+> **CORRECTED 2026-08-09 (afternoon): the deploy leg's jsonb path in the previous
+> version of this section was ONE LEVEL TOO SHALLOW, and the control below could
+> not catch it.** The old path was
+> `result->'response'->'deploy_result'->'rendered_page'->>'page_id'`. The real shape
+> nests another `response` in between, so that path returns **empty on every row,
+> converged or not**. Caught by dumping `jsonb_pretty(result)` on the first genuinely
+> converged item (`69818add`), whose deploy was plainly successful in the JSON while
+> the documented query printed a blank deploy leg.
+> **Why the control did not catch it:** the control's expected value for that column
+> was *empty*, and a wrong path and absent data both render as empty. The control
+> agreed with the broken instrument. **A control only tests a column if the column is
+> expected to be NON-EMPTY in the control case** — see the corrected control below.
+
 ```sql
 SELECT left(w.id::text,8) AS item,
        w.result->'response'->'sections_saved'->>'page_name'              AS saved_page_name,
        left(w.result->'response'->'sections_saved'->>'page_id',8)        AS saved_page_id,
-       left(w.result->'response'->'deploy_result'->'rendered_page'->>'page_id',8) AS deployed_page_id,
+       -- NOTE the second ->'response': deploy_result wraps its payload one level deeper
+       left(w.result->'response'->'deploy_result'->'response'->'rendered_page'->>'page_id',8) AS rendered_pid,
+       length(w.result->'response'->'deploy_result'->'response'->'rendered_page'->>'html')    AS rendered_len,
+       w.result->'response'->'deploy_result'->'response'->'deploy_result'->'response'->'data'->>'success'   AS deploy_ok,
+       w.result->'response'->'deploy_result'->'response'->'deploy_result'->'response'->'data'->>'file_path' AS deployed_file,
        w.result->'_verification'->>'status'                              AS verif,
        left(w.result->'_verification'->>'detail',90)                     AS detail
 FROM site_work_items w WHERE w.id::text LIKE '<item-prefix>%';
 ```
 `response.sections_saved` and `response.deploy_result` are the two step outputs the
 handler saga returns; `_verification` is stamped at completion. A CONVERGED item
-reads: `saved_page_name` = the **target**, `saved_page_id` = `deployed_page_id` =
-the target's id, `verif` = `verified`, and the detail says *"target page … has
+reads: `saved_page_name` = the **target**, `saved_page_id` = `rendered_pid` = the
+target's id, `rendered_len` non-zero, `deploy_ok` = `true`, `deployed_file` = the
+target's `pages.url`, `verif` = `verified`, and the detail says *"target page … has
 shipped"* (disjunct **a**).
 
-**This query has a built-in positive control — use it before trusting a pass.** Run
-it against `338deb27` (08-09 morning, pre-mig-342) and it must print the known
-FAILURE: `saved_page_name` = `beginners` (the container), `saved_page_id` =
-`5009f5c8` (the container's id), `deployed_page_id` **empty** (the deploy skipped
-honestly — the target had no component rows), `verif` = `verified` via disjunct
-(b) *"href … is no longer rendered"*. If that row does not come out wrong, your
-jsonb paths are wrong and every "pass" you read next is a path typo, not a result.
+**`rendered_len` and `deploy_ok` are the legs that separate a real deploy from an
+honest skip, and the old query had neither.** A skipped deploy still emits a
+`rendered_page` object carrying the correct target `page_id` — so `rendered_pid`
+alone does NOT prove anything shipped. On `338deb27` the render is present, points at
+grip-styles, and is **empty** (`rendered_len` 0, `deploy_ok` NULL).
+
+**Two controls, and the second is the one that tests the deploy path.**
+1. *Negative control* — run against `338deb27` (08-09 morning, pre-mig-342). It must
+   print the known FAILURE: `saved_page_name` = `beginners` (the container),
+   `saved_page_id` = `5009f5c8` (the container's id), `rendered_len` = 0, `deploy_ok`
+   empty, `verif` = `verified` via disjunct (b) *"href … is no longer rendered"*.
+2. *Positive control for the deploy leg* — run against `69818add` (08-09 14:24, the
+   first genuine convergence). `deploy_ok` must read **`true`** and `deployed_file`
+   **`/brands/index.html`**. **If this column comes out empty your path is a typo**,
+   which is exactly the failure the single negative control could not see.
