@@ -401,3 +401,31 @@ candidate 1 before any css-patch dispatch, then A2.
   by number** (the bugs-directory rule, now true of sql_for_agents too). My apply-time
   "take the next free number" check ran at ~17:5x and was already stale by commit time —
   on this tree a number is reserved by the COMMIT, not by the ls.
+
+## 2026-08-09 — B3 BUILT: the two offer checks, and what the guards caught on the way
+
+- **check_premise_incomplete + check_revenue_shape** written into the discovery_checks
+  package (commits `ad51ca863` + `b26fdc81b`), tests green, gofmt clean, register entry
+  BIZ-031 (the RFC_010 §1 producer-set duty), council corr `5cd586c9` (Go → in scope,
+  unlike B1/B2; verdict UNREAD at session end). INERT until roll + array naming.
+- **The package's own guards drove the design, in order:** (1)
+  TestRegisteredVerifiersMatchClaimTimeoutExclusion failed the moment the two verifiers
+  registered → 220 declared-list edit + migration 358 (applied; the 331 position — zero
+  items exist, window closed before it opens). (2) handler-coverage guard required
+  domain-strategist added to knownHandlerAgents (union refresh). (3) The commit-time
+  pattern check caught BOTH checks hand-typing `build_status='deployed'` — and the same
+  predicate was live in B2's gate pointing the DANGEROUS way (an all-needs_rebuild site
+  reads not-deployed → gate chains a re-plan of a serving site). Fixed in Go via
+  PageHasShippedPredicateFor + migration 359 (applied; loancalculator invariant
+  re-verified under both predicates first).
+- **MISSTEPS (schema-first violated three times in one file, caught at build not at
+  runtime):** site_components has `slot_name` not component_type; pages has `url` not
+  filename; `datahelpers.StripTags` does not exist (its equivalent is unexported). The
+  check: \d the table and grep the helper BEFORE writing the call site, not after.
+- **Pre-existing failure correctly NOT absorbed:** TestEveryCheckProducedItemTypeIsClassified
+  fails on decision_regression at CLEAN HEAD (git-archive-verified) — RFC_015 lane's
+  obligation (e1628f7df). Named in my commit rather than silently ridden or wrongly fixed.
+- **Numbers moved 355→357 during the session; took 358/359.** Resolve by slug, always.
+- Docs: SUMMARY_2026-08-09 written (milestone: B1+B2 witnessed, B3 built);
+  HANDOFF_2026-08-09_continue_here supersedes 08-03's. Next: verdict → roll → pod-grep →
+  array naming (observe-only) → first witnessed check run.
