@@ -53,6 +53,76 @@ non-verbatim rows loudly), and `deploy_pages.py` died polling its own INSERT
 (the psql command tag rode along in the returned id; fixed). Both in the lane
 NOTES 2026-08-08/09 entries.
 
+## 2026-08-09 — THE SAME DEFECT IS LIVE ON loancalculator.co.uk (5 pages). NOT FIXED
+
+Found by sweeping the sibling sites after the owner asked for the 0% bug fixed
+"in all the calculators". Measured, not grepped, with a new general detector
+(`zero_rate_sweep.py`, same lane) that needs no per-tool oracle: it drives every
+rate-labelled field to 0 and reports (a) any output containing `NaN`/`Infinity`
+and (b) any output that differs when the SAME final inputs are reached by a
+different route.
+
+| site | result |
+|---|---|
+| loanandmortgagecalculator.co.uk | **clean** — 0 of 6 (this bug's fix, verified) |
+| **loancalculator.co.uk** | **5 of 8 pages AFFECTED** |
+| mortgagecalculator.co.uk | clean — it uses a shared engine; see the false-positive note below |
+
+Affected on **loancalculator.co.uk**, live 2026-08-09:
+
+```
+index.html                            HIST  #monthly-display  '£202.29' vs '£251.22'
+                                      HIST  #total-interest   '£2,137.40' vs '£5,073.20'
+tools/compare-loans.html              NaN   #res-m-a #res-i-a #res-m-b #res-i-b  (£NaN)
+tools/interest-rate-stress-test.html  NaN   #curr-pay (£NaN)
+tools/overpayment-calculator.html     NaN   #save-display (£NaN)
+tools/settlement-calculator.html      HIST  #settle-result '£5,078.66' vs '£5,139.04'
+```
+
+Note the first line: **the site's HOMEPAGE carries the standard-calc widget**,
+so the stale-answer mode is on the front door.
+
+**`tools/consolidation.html` reads clean and probably is not** — the detector is
+blind to this site's third failure mode (a guard that deterministically returns
+£0.00 is neither `NaN` nor history-dependent), which is exactly how the same
+page nearly escaped here. Treat it as unmeasured, not as passing.
+
+⚠ **The fix is NOT the same shape as the one above.** Two differences:
+1. **loancalculator.co.uk has no `assets/js/calculators.js`** — there is no
+   shared engine to delete the private copies in favour of. One would have to be
+   created, or the copies fixed in place.
+2. **All five pages are DECOMPOSED**: the calculator lives in a `tool-N`
+   `page_components` row and the DB is the render source, so editing the repo
+   file changes nothing and would be overwritten by the next rerender
+   (RUNBOOK §12). The route is operator SQL through the lock plus an
+   assemble-only rerender, as used for `consolidation` here.
+
+```
+/index.html                            prose-0,prose-1,prose-2,prose-4,tool-3
+/tools/compare-loans.html              prose-0,prose-1,tool-2
+/tools/consolidation.html              prose-0,prose-1,prose-3,tool-2
+/tools/interest-rate-stress-test.html  prose-0,prose-1,tool-2
+/tools/overpayment-calculator.html     prose-0,prose-1,prose-2,prose-4,tool-3
+/tools/settlement-calculator.html      prose-0,prose-1,prose-3,tool-2
+```
+
+**Why the owning lane has not seen it**: its handoff records `toolgolden 11/11
+exact` — the consistency check that, by this bug's whole argument, cannot refute
+a defect present when the golden was taken. That is the finding restated on a
+second site, and it is the reason not to read that 11/11 as reassurance.
+
+**Detector's known blind spots, so a clean sweep is not over-read:**
+- deterministic-zero mode (see consolidation above) is invisible to it;
+- accumulator tools produce FALSE POSITIVES — `mortgagecalculator.co.uk`'s two
+  portfolio pages flagged as history-dependent because route B presses the
+  first non-reset button ("Add property") twice, adding a second row. Verified
+  as harness artefact, not a defect: `#portfolioCount` read '1 property' vs
+  '2 properties'.
+- Controls run 2026-08-09: the pre-fix pages of THIS site, served from git at
+  `2bbe50582`, flagged 6 of 7 (consolidation being the known blind spot) and
+  cleared the known-good `mortgages/simple.html` — so the detector fires and can
+  also stay silent.
+
 Original handoff below, unchanged.
 
 ---
