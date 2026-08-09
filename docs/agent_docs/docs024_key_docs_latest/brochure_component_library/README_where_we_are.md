@@ -1928,3 +1928,57 @@ should not simply be re-rendered. Its stored design brief asks for a white
 background on a site whose own rules forbid white backgrounds, and that is not what
 it currently serves — so a re-render might pull the wrong colours in and make it
 worse. That needs looking at before anyone pushes the button.
+
+---
+
+**2026-08-09, later in the day — the replan-killer is fixed, and the check we had written down for it was worthless**
+
+The job today was the bug that has been blocking this front: every so often the
+planner writes a whole new site plan, and the write dies completely, losing the
+lot. The cause was mundane. The planner sometimes lists the same page twice
+under two different spellings — "llm-cost-calculator" and
+"tool-llm-cost-calculator" are the same page as far as the system is concerned.
+The code tidied each name up separately, then tried to save both, and the
+database refused the second one because the name was already taken. Because it
+all happens in one go, the entire plan was thrown away, not just the duplicate.
+
+The fix is small and dull, which is what you want: before saving, collapse any
+pages that have ended up with the same name, keeping the fuller one. It is
+committed and has gone to the review council. It will not take effect until the
+next time the chassis is rebuilt and rolled out.
+
+Three things I found while doing it that were not in the write-up.
+
+There were **two** ways this could kill a plan, not one. Our notes named the
+page table; the sections table has the same kind of uniqueness rule on it. We
+had never seen it fire only because the first one always failed first. The same
+fix covers both.
+
+There were **three** ways two names can collapse into one, and our notes had the
+rarest. The other two are more likely — in particular, a planner that lists both
+a homepage and a page called "home" hits exactly this, and that is a much more
+ordinary slip than listing a tool page twice. So this was probably biting us
+more often than we thought.
+
+The third is the one I want to flag properly, because it is a lesson about how
+we check our own work rather than about this bug. The bug write-up told us how
+to confirm the fix had worked: count the failures of this type in the database
+afterwards and expect none. I went to run it and checked what that count could
+actually see. **Failed runs are only kept for about a day.** So the count comes
+back zero today, it would have come back zero yesterday, and it would come back
+zero if the fix did nothing at all — and the failure we are fixing, from the
+8th, has already aged out of view. It reads exactly like proof and is not. We
+had written down a test that could only ever pass. I have replaced it with a
+counter inside the code itself, which can actually be non-zero, and recorded the
+trap in the shared landmines file so the next person counting failures in that
+table stops and checks the window first.
+
+One mistake of my own worth recording: my first version of the fix, when it
+found two full versions of the same page, kept the wrong one — it discarded the
+richer one and kept the first. My own test caught it before it went anywhere.
+
+What I have deliberately not done: there is a quieter version of this same
+problem, where a plan and a live site end up holding two identities for one page
+and you get pages that exist but 404. That needs fixing somewhere else in the
+system, and doing it here would have smuggled a much bigger change in under
+cover of a bug fix. It stays open, and it is written down.

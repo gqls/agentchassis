@@ -159,3 +159,81 @@ WHERE p.status NOT IN ('deleted','archived')
   AND p.deployed_at IS NULL AND COALESCE(p.build_status,'')='planned'
 ORDER BY 1,2;   -- fleet-wide phantom candidates; HTTP-test before acting
 ```
+
+---
+
+## 2026-08-09 — CRASH MODE FIXED (committed `14b1cff28`, inert until the chassis rolls). Three corrections to this file, one of them to its own verification step
+
+Fix candidate 1 built as `dedupePlanPageRows` in `write_site_plan_action.go`,
+called between canonicalisation and the transaction. Council-Submitted
+`8ab18991-ee83-4048-8965-4f7990baa188`. **This bug stays OPEN**: the fix is
+inert until a chassis roll, and the quiet mode below is deliberately not fixed.
+
+**Correction 1 — there are TWO crash doors, not one.** This file names only
+`idx_site_plan_pages_name`. Read from the live schema 2026-08-09,
+`site_plan_sections` carries `idx_site_plan_sections_key` UNIQUE
+`(plan_id, page_name, ordering)` — so two composed pages sharing a canonical
+name would ALSO collide there. It has never been the observed error only
+because the pages insert runs first and aborts the transaction. The same dedup
+closes both. (Checked and negative: there is **no** unique index on `url`, so a
+URL collision is not a third door.)
+
+**Correction 2 — there are THREE collision families, and this file names the
+least likely one.** Read from `datahelpers/page_canonical.go` at HEAD rather
+than inferred from the incident:
+
+| family | two spellings that collide | canonical result |
+|---|---|---|
+| prefix collapse (`:153-184`) | slug `llm-cost-calculator` / `tool-llm-cost-calculator`, role `tool` | `tool-llm-cost-calculator` |
+| **homepage collapse** (`:117-127`) | role `index` / slug `home` under content-landing-empty | `index` |
+| section-index (`:136-149`) | slug `guides` / `guides-index` under any section-index role | `guides-index` |
+
+`guide-` and `game-` behave exactly as `tool-`. **The homepage family is the
+likeliest of the three in ordinary emission** — a planner listing both a
+homepage and a "home" page is a far more ordinary slip than emitting a
+tool page twice — so the frequency implied by "the LLM happened to emit both
+spellings" is understated in the original filing. All three are pinned by
+`TestCanonicalisePage_CollapseFamilies`, which exists so that if the
+canonicaliser ever stops collapsing, the suite reports the dedup as dead code
+rather than leaving it silently inert.
+
+**Correction 3 — THIS FILE'S OWN "how to verify a fix" STEP CANNOT COME OUT
+OTHERWISE, and I nearly shipped it as proof.** The step above says: after the
+fix, re-run `error LIKE '%idx_site_plan_pages_name%'` over
+`orchestration_states` and expect no failures. Measured today:
+
+```
+status      count  oldest      newest
+COMPLETED    4822  2026-08-08  2026-08-09
+FAILED         60  2026-08-08  2026-08-09      -- and 'failed rows older than 24h' = 0
+```
+
+4,935 rows, oldest overall `2026-07-13` — so the **table** is not 24h-limited,
+but **failures are**. The census returns 0 today, and the 2026-08-08 incident
+in this file's own header **is one of the rows it cannot see**. For an event
+whose period is longer than the retention window, that query reads 0 before the
+fix and 0 after it, whatever the truth. It is not a verification; it is a
+formality that would have looked like one.
+
+Replaced by two signals that can actually be non-zero: a
+`duplicate_pages_merged` counter on the action's result (additive — grep across
+non-test Go and a scan of active `agent_definitions` both return **zero**
+consumers of any key of that map), and the merge log lines, which name both raw
+spellings so a collision stays diagnosable after the run row expires. The real
+proof of the fix is the unit suite plus mutation evidence (pass-through fails
+6/7 tests; always-keep-first fails; unguarded backfill fails), not a census.
+
+**Still OPEN — the quiet mode is NOT fixed, deliberately.** A plan row whose
+canonical name differs from a live page's name but resolves to the same page
+still creates a second identity (the three phantom 404s above). That
+reconciliation belongs in the reconciler against realised pages under either
+spelling — not in `WriteSitePlanAction`, which sees only one plan's emission and
+has no knowledge of realised pages. Putting it here would also be exactly the
+"shared seam smuggled inside a bug patch" the 2026-07-28 ruling forbids. The
+phantom census in the section above is still the right check for it: **20**
+candidates fleet-wide today.
+
+**Also unchanged, and adjacent enough to trip someone:** page-scope imagery
+`scope_ref` keys off the **raw** LLM page name, not the canonical one
+(`flattenImageryBlock`), so the two name-spaces coexist on this path. That is
+`bugs_open/214`'s territory; this fix neither improves nor worsens it.

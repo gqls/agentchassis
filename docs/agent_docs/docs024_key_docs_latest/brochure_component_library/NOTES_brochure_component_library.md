@@ -4981,3 +4981,70 @@ happened to have open.
 Cold-start for this front is now
 `HANDOFF_2026-08-09_fact_assignment_front_continue_here.md` (renamed by FRONT,
 because two live threads share this directory and one site).
+
+---
+
+## 2026-08-09 (later) — 215 crash mode fixed, and the bug file's own verification step was the most interesting thing in it
+
+**Fix.** `dedupePlanPageRows` in `write_site_plan_action.go`, called between
+canonicalisation and the transaction (commit `14b1cff28`, Council-Submitted
+`8ab18991-ee83-4048-8965-4f7990baa188`). Hoisted the function-local
+`planPageRow` to package scope so the helper is a pure function testable
+without a DB — that refactor is the reason there are seven tests rather than
+none. Merge rule: richer wins, tie keeps first, blank-only metadata backfill.
+
+**Three things the bug file had wrong or missing, all found by reading rather
+than by re-running anything:**
+
+1. **Two crash doors, not one.** `site_plan_sections` also carries a UNIQUE
+   `(plan_id, page_name, ordering)`. It has never been the observed error only
+   because the pages insert aborts the transaction first. `\d` on both tables
+   before writing the fix; the negative matters too — **no** unique index on
+   `url`, so a URL collision is not a third door.
+2. **Three collision families, and the filed one is the least likely.** Read
+   `page_canonical.go` rather than the incident: prefix collapse
+   (`tool-`/`guide-`/`game-`), **homepage collapse** (role `index`, or slug
+   `home`/`index` under content/landing/empty → `index`), and section-index
+   (`guides` / `guides-index` → `guides-index`). A planner naming both a
+   homepage and a "home" page is far more ordinary than emitting a tool page
+   twice, so the frequency the filing implies is understated.
+3. **The "how to verify a fix" step could not come out otherwise, and I nearly
+   used it.** It said: re-run the `SQLSTATE 23505` census over
+   `orchestration_states.error` after the fix and expect none. Measured:
+   `FAILED` rows span 08-08→08-09 **only**, and `failed rows older than 24h` =
+   **0** — against 4,935 rows whose oldest is 2026-07-13, so the *table* looks
+   long-lived while its *failures* are not. The census reads 0 today, and the
+   08-08 incident in the bug's own header is one of the rows it cannot see.
+   0 before, 0 after, whatever the truth. Replaced with a
+   `duplicate_pages_merged` counter (zero consumers measured, in Go and in live
+   `agent_definitions`) plus merge log lines naming both raw spellings. Now a
+   LANDMINE, footprinted on `orchestration_states.error`.
+
+**Misstep, mine, caught by my own test.** The first draft let the "both entries
+are composed" branch force keep-first, which **discarded the richer page** —
+the count rule and the loud-log branch disagreed and the log branch won.
+`TestDedupePlanPageRows_ThreeWayAndMultipleCollisions` failed on exactly that
+(expected 2 sections, got 1). Fixed so the branch *reports* the loss rather
+than deciding it, and pinned by a test named for the defect. The general shape:
+**a logging branch that also reassigns is a decision wearing a log's clothing.**
+Worth noting the test only caught it because the fixture had three entries with
+2/1/0 sections — a two-entry stub-vs-composed fixture passes the buggy code.
+
+**Guards mutation-tested** (each applied to a copy, run, reverted): dedup made a
+pass-through → 6 of 7 fail, and the one that still passes is the no-op
+order-preservation test, which *must*; section-count comparison → `if false`
+fails; backfill guard → `if true` fails.
+
+**Stale premise corrected in the handoff I was working from:** it says HEAD is
+RED (`TestValidDocSubjectTypes_LockstepWithMigrationCheck`). It is **green** as
+of today, in the working tree and at clean HEAD via `git archive` — another
+lane landed the migration work (`9ccb896e4` / `b2371b4b5` region). Re-checked
+rather than inherited, because "HEAD is red" is exactly the kind of claim that
+masks a failure you did cause.
+
+**Not fixed, deliberately:** the quiet mode (a plan row and a live page holding
+two identities for one page). It needs reconciliation against realised pages
+under either spelling, which lives in the reconciler — `WriteSitePlanAction`
+sees one emission and knows nothing of realised pages. Putting it here would be
+the "shared seam inside a bug patch" the 2026-07-28 ruling forbids. 20 phantom
+candidates fleet-wide today.
