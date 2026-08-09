@@ -176,8 +176,19 @@ tooling. No Go changed, so **nothing here rides a chassis build**.
 
 ## 7. OWNER DECISIONS ON §3, taken 2026-08-09
 
-1. **Unattended fences: YES.** Being implemented — see the NOTES entry for the
-   route chosen and its blast-radius check.
+1. **Unattended fences: YES — DONE, 16 of 17.** `page_type='tool'` on the 16
+   calculators that have exactly one component; the eligibility predicate now
+   returns exactly those 16, each matching an installed fence. No decomposition
+   was needed. **`loans-consolidation` is NOT included** (2 active components
+   fails the sole-component clause) and stays manual-only until decomposed.
+   Cadence: 7-day cooldown per tool, and each run costs a Sonnet VISION call in
+   the agent's `look` step — so budget ~16 vision calls a week, not zero.
+   **Two auto-rewrite paths had to be closed first, and the second was one I
+   created:** every fence carries `no_auto_fix: true` (binds Tier 4), and
+   `page_status_ok` was REMOVED because it was the only check Tier 2 could fail
+   — Tier 2 ignores `no_auto_fix` and its `improve_tool` aims at the
+   `ported-page` shell shared by ~154 pages on three sites. See the LANDMINES
+   entry and the NOTES entry of 2026-08-09 (late).
 2. **A shared engine for loancalculator.co.uk: NO, and not worth an RFC.**
    Decision closed. Its six tools keep their own zero branch, following that
    lane's 08-03 precedent. **Do not reopen this as "tech debt"** — it was
