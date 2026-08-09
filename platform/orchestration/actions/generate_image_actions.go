@@ -394,6 +394,31 @@ func GenerateImageAction(ctx context.Context, params ActionParams) (interface{},
 	// Get prompt using three-tier priority system
 	promptTemplate, promptSource := getImagePromptWithPriority(params, agentConfig)
 
+	// REFUSE the generic fallback rather than paint from it (bugs_open/210).
+	//
+	// getImagePromptWithPriority returns ("Generate content based on the
+	// provided context.", generic_fallback) when NO caller supplied a prompt.
+	// Generating from that produces a meaningless image which the caller then
+	// stores AS A BRAND ASSET — store_logo_asset would save it as the site's
+	// logo. A silently wrong logo is strictly worse than a loud failure, and
+	// this is the one place every image the platform generates passes through,
+	// so refusing here does not depend on any producer remembering anything.
+	//
+	// This is not a theoretical rung. Priorities 2 and 3 do not exist on this
+	// fleet: exactly one step runs this action (image-generator's `generate`)
+	// and neither its agent default_config nor its step config carries a
+	// prompt_template, so it is Priority 1 or this. Measured 2026-08-09:
+	// 0 of 344 assets with a recorded origin_prompt were generated from it.
+	if promptSource == imagePromptSourceGenericFallback {
+		params.Logger.Error("generate_image REFUSED: no prompt supplied by any caller",
+			zap.String("agent_type", params.AgentType),
+			zap.String("kind", kind),
+			zap.String("site_id", siteID))
+		return nil, fmt.Errorf("generate_image refused: no prompt supplied for kind %q (site %q) — "+
+			"the caller must map a prompt into input_data.prompt or step config; generating from "+
+			"the generic fallback would store a meaningless image as a brand asset", kind, siteID)
+	}
+
 	// Phase 0.1 / Phase 2I: prepend design_intent.imagery_direction (read from
 	// site_specs) when site_id is available AND the kind is photographic.
 	// Direction is enrichment, not a requirement — if site_id is missing or no
@@ -827,6 +852,14 @@ func createImageGenerationTopics(ctx context.Context, requestsTopic, responsesTo
 	return nil
 }
 
+// imagePromptSourceGenericFallback is the source label returned when NO tier
+// supplied a prompt. GenerateImageAction REFUSES on it (bugs_open/210): the
+// accompanying text is meaningless and its output would be stored as a brand
+// asset. Named rather than repeated as a literal so the guard and the value it
+// guards cannot drift apart — a comparison against a duplicated literal is the
+// shape where a later rename silences the guard with no test failing.
+const imagePromptSourceGenericFallback = "generic_fallback"
+
 // getPromptWithPriority implements three-tier priority for prompt selection
 func getImagePromptWithPriority(params ActionParams, agentConfig map[string]interface{}) (prompt string, source string) {
 	logger := params.Logger
@@ -894,7 +927,7 @@ func getImagePromptWithPriority(params ActionParams, agentConfig map[string]inte
 
 	// Generic fallback if nothing found
 	logger.Warn("No prompt found in any tier, using generic fallback")
-	return "Generate content based on the provided context.", "generic_fallback"
+	return "Generate content based on the provided context.", imagePromptSourceGenericFallback
 }
 
 // Add to platform/orchestration/actions/generate_image_actions.go

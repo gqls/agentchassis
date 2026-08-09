@@ -344,41 +344,38 @@ func WriteBuildItemsAction(ctx context.Context, params ActionParams) (interface{
 		}
 	}
 
-	// Asset tracking items
+	// Asset tracking items.
+	//
+	// image-build-handler REQUIRES spec.image_prompts.<key> for the logo and
+	// hero branches (call_logo_gen maps "prompt" from
+	// input_data.spec.image_prompts.logo, call_hero_gen from …hero_home, and
+	// input_mapping is a strict allow-list), while needs_logo/needs_images are
+	// booleans the planner sets INDEPENDENTLY of whether it wrote any prompt —
+	// plan["image_prompts"] is defaulted to an empty map at
+	// v3_site_actions.go:3107 by a separate branch. So a plan saying
+	// needs_logo:true with no logo prompt files an item that can never be
+	// handled: it dies at input extraction with "source path
+	// 'input_data.spec.image_prompts.logo' not found" (bugs_open/210).
+	//
+	// Do not file a generation request we already know is unconsumable.
 	if needsLogo {
-		logoSpec, _ := json.Marshal(map[string]interface{}{
-			"purpose":       "logo",
-			"image_prompts": planData["image_prompts"],
-		})
-		ok, _ := insertWorkItem(ctx, tx, workItem{
-			siteID: siteID, source: "planner", pipeline: "build",
-			itemType: "needs_logo", severity: "high",
-			summary: "Generate site logo", spec: string(logoSpec),
-			priority: 5, handlerAgent: "image-build-handler",
-			status: "triaged", createdBy: "site-planner",
-			itemKey: "needs_logo", batchID: batchID,
-		}, logger)
-		if ok {
-			inserted++
-		}
+		insertImageBuildItem(ctx, tx, imageBuildItemArgs{
+			siteID: siteID, batchID: batchID, planData: planData,
+			purpose: "logo", promptKey: "logo",
+			itemType: "needs_logo", itemKey: "needs_logo",
+			summary: "Generate site logo", severity: "high",
+		}, &inserted, logger)
 	}
 	if needsImages {
-		heroSpec, _ := json.Marshal(map[string]interface{}{
-			"purpose":       "hero",
-			"image_prompts": planData["image_prompts"],
-		})
-		ok, _ := insertWorkItem(ctx, tx, workItem{
-			siteID: siteID, source: "planner", pipeline: "build",
-			itemType: "needs_hero_image", severity: "medium",
-			summary: "Generate hero image", spec: string(heroSpec),
-			priority: 5, handlerAgent: "image-build-handler",
-			status: "triaged", createdBy: "site-planner",
-			itemKey: "needs_hero:home", batchID: batchID,
-		}, logger)
-		if ok {
-			inserted++
-		}
+		insertImageBuildItem(ctx, tx, imageBuildItemArgs{
+			siteID: siteID, batchID: batchID, planData: planData,
+			purpose: "hero", promptKey: "hero_home",
+			itemType: "needs_hero_image", itemKey: "needs_hero:home",
+			summary: "Generate hero image", severity: "medium",
+		}, &inserted, logger)
 	}
+
+	// (helpers for the two blocks above live at the bottom of this file)
 
 	// Design tracking item
 	// The existing block just inserted needs_design. Replace with the two-step
@@ -1528,4 +1525,99 @@ func normalizePageType(pt string) string {
 	pt = strings.ReplaceAll(pt, "_", "-")
 	pt = strings.ReplaceAll(pt, " ", "-")
 	return pt
+}
+
+// ---------------------------------------------------------------------------
+// bugs_open/210 — a logo/hero item is only well-formed if it carries a prompt
+// ---------------------------------------------------------------------------
+
+type imageBuildItemArgs struct {
+	siteID    uuid.UUID
+	batchID   uuid.UUID
+	planData  map[string]interface{}
+	purpose   string // assets.purpose — "logo" / "hero"
+	promptKey string // key inside plan.image_prompts — "logo" / "hero_home"
+	itemType  string
+	itemKey   string
+	summary   string
+	severity  string
+}
+
+// imagePromptFromPlan reads one prompt out of a plan's image_prompts map.
+// Returns "" when the map is absent, null, not an object, or the key is
+// missing or non-string — every one of which reaches this code as a plain
+// absence rather than an error, which is why the caller must check.
+func imagePromptFromPlan(planData map[string]interface{}, promptKey string) string {
+	prompts, ok := planData["image_prompts"].(map[string]interface{})
+	if !ok {
+		return ""
+	}
+	s, _ := prompts[promptKey].(string)
+	return s
+}
+
+// insertImageBuildItem files a generation request when the plan carries the
+// prompt its handler requires, and a human-review item when it does not.
+//
+// The disposition matches check_placeholder_image_in_use: an unplanned brand
+// image has no automated author on this platform by design (logos are excluded
+// from style-guide direction — "the 2026-05-20 contamination lesson" — and the
+// stated lifecycle is "generated once, human-approved, then locked"), so the
+// honest item is a human ruling, not a generation request that must fail at
+// input extraction.
+func insertImageBuildItem(ctx context.Context, tx *sql.Tx, a imageBuildItemArgs, inserted *int, logger *zap.Logger) {
+	prompt := imagePromptFromPlan(a.planData, a.promptKey)
+
+	item := workItem{
+		siteID: a.siteID, source: "planner", pipeline: "build",
+		itemType: a.itemType, severity: a.severity,
+		priority: 5, status: "triaged", createdBy: "site-planner",
+		itemKey: a.itemKey, batchID: a.batchID,
+	}
+
+	spec := map[string]interface{}{
+		"purpose":       a.purpose,
+		"prompt_key":    a.promptKey,
+		"image_prompts": a.planData["image_prompts"],
+	}
+
+	if prompt == "" {
+		logger.Warn("WriteBuildItemsAction: plan asks for an image but carries no prompt for it — "+
+			"filing for human review instead of an unhandleable generation item",
+			zap.String("site_id", a.siteID.String()),
+			zap.String("purpose", a.purpose),
+			zap.String("prompt_key", a.promptKey))
+
+		spec["reason"] = "no planned prompt for this purpose; generation cannot be requested"
+		specJSON, _ := json.Marshal(spec)
+		item.spec = string(specJSON)
+		item.summary = fmt.Sprintf("%s — but the plan carries no %s prompt, so the brand direction needs a human ruling",
+			a.summary, a.promptKey)
+		// Empty handler + needs_human_review status is the platform's canonical
+		// HITL disposition (migration 217): the STATUS is what keeps the row out
+		// of the dispatch selector, so it is never claimed and never marked
+		// 'blocked'. 433 live rows do it this way.
+		item.handlerAgent = ""
+		item.status = "needs_human_review"
+	} else {
+		// Both key shapes, matching check_unfulfilled_image_prompt's dual
+		// format: the two legacy handler branches read the nested
+		// image_prompts.<key>, the two Phase-2E branches read the flat
+		// spec.prompt. Writing both keeps this producer correct under either.
+		spec["prompt"] = prompt
+		specJSON, _ := json.Marshal(spec)
+		item.spec = string(specJSON)
+		item.summary = a.summary
+		item.handlerAgent = "image-build-handler"
+	}
+
+	ok, err := insertWorkItem(ctx, tx, item, logger)
+	if err != nil {
+		logger.Warn("WriteBuildItemsAction: image item insert error",
+			zap.String("item_type", a.itemType), zap.Error(err))
+		return
+	}
+	if ok {
+		*inserted++
+	}
 }
