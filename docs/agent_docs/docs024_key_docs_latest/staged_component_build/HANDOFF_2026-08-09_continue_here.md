@@ -173,6 +173,14 @@ passed through (no action at all; `action=""`). 9 checks, 10/10 mutants, S6 `f3c
 5. `article-body` ships no `pre`/`code` overflow CSS.
 6. Broken tool pages: tool-gas-unit-converter, tool-ab-test-calculator (idea.uk serves raw
    `{{.placeholders}}`), tool-equity-release (active row, 404 URL).
+7. **NEW (batch 7):** `tool-ai-agent-roi-estimator` scrolls sideways on mobile —
+   `h3.roi-inputs-title` carries a fixed 297.9px width inside the tool
+   (leopardessconsulting.co.uk/tools/ai-agent-roi-estimator.html). One-line CSS fix;
+   its proven fence is committed and waits on it.
+8. **NEW (batch 7):** all four tracker feeds 404 on ai-agent-orchestration.com
+   (`adoption-tracker[-full].json`, `protocol-tracker[-full].json`) — the two tracker
+   pages' client refresh has never once worked. CONTRIB filed with
+   `model_directory_pipeline` (their publish trigger is the likely one-dispatch fix).
 
 ---
 
