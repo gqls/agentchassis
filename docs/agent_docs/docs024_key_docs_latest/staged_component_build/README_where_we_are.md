@@ -648,3 +648,39 @@ records say a component is on it when the page plainly hasn't got one.
 
 Forty-seven page-pieces and two tools now have proven contracts. Left: about a dozen more
 interactive ones, ten tools, and the pieces still blocked behind those missing images.
+
+---
+
+**9 August 2026, early hours — two more done, one turned out not to be interactive at all,
+and I got a number wrong and had to correct myself**
+
+Two more contracts written and proven live: the games index on gamesdesign, and the
+AI-readiness quiz on leopardess. The quiz one is the most thorough contract this lane has
+written — it presses Start like a visitor, checks the first question actually appears,
+answers it, and checks the Next button unlocks. All of that had to be broken deliberately
+first to prove the checks can catch a fault, and all of it passed live in the cluster.
+
+**The games index taught me something about our own backlog.** It was on my list as an
+"interactive" piece needing three-quarters of an hour. It isn't interactive at all: its
+JavaScript looks for a filter bar and a "load more" button that don't exist anywhere in
+the component, and no page even loads the file. Nothing is broken for a visitor — it
+renders correctly as a plain list and the missing script would add nothing — but I'd have
+budgeted 45 minutes for a 9-minute job. So I checked all thirty-eight pages that carry a
+JavaScript-driven piece, and this is the only one like it: two pages, both on gamesdesign.
+Everything else loads its script properly. Worth knowing rather than worth fixing.
+
+**And a correction I owe you.** Last night I told you the fake contact form was on three
+live pages. It's two. The third — finetuning's case-studies page — has a record saying the
+form is on it, and the actual page doesn't have it. The frustrating part is that I'd been
+careful everywhere else in that write-up: I went and fetched the real page and the real
+script rather than trusting our database, and then for the one number that tells you how
+urgent it is, I asked the database and wrote down its answer. I've fixed the bug report,
+noted what caught it, and written the lesson into the shared file we keep for exactly this.
+
+The defect itself is unchanged and still live on robot-hands' contact page and on
+leopardess's quiz page. **That's the one thing I need a decision from you on**: either we
+give the form a real destination (we already have two working patterns to copy from), or
+we take the form off and leave the contact details, which are correct. I'd do the first,
+but where the enquiries should actually land is your call, not mine.
+
+Forty-nine page-pieces and two tools now have proven contracts.
