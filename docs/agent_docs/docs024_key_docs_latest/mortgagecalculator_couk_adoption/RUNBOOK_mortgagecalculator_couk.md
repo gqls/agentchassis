@@ -456,3 +456,31 @@ out); one backstop at a time; recovery is cheap — re-arm the deferred rerender
 them drain (`UPDATE ... SET status='triaged' WHERE item_type='page_rerender' AND ...`).
 And re-check "did my batch actually DEPLOY" at the pages table, never at the work items:
 12/12 `complete` with 2/12 `deployed` is exactly what this failure looks like.
+
+## §11 Checking the legislation watch (evidence-freshness) on this site
+
+Seeded 2026-08-09: `site_specs` aspect `evidence_base` (pinned), 4 SDLT facts
+citing GOV.UK. The daily `evidence-freshness` scheduled task re-fetches each
+citation URL and requires the stored verbatim quote to still appear
+(normalised: case/whitespace/curly-punctuation/thousands).
+
+```sql
+-- Did the sweep run, and what did it think of our facts?
+SELECT f->>'id' AS fact, f->>'verified_at' AS verified_at
+FROM site_specs ss JOIN sites s ON s.id=ss.site_id,
+     jsonb_array_elements(ss.data->'facts') f
+WHERE s.domain='mortgagecalculator.co.uk' AND ss.aspect='evidence_base' AND ss.is_current;
+
+-- Any drift/staleness items raised?
+SELECT item_type, status, left(summary,80) FROM site_work_items swi
+JOIN sites s ON s.id=swi.site_id
+WHERE s.domain='mortgagecalculator.co.uk' AND swi.item_type ~ 'stale_evidence|citation'
+ORDER BY swi.created_at DESC LIMIT 5;
+```
+
+Gotchas: a `citation_lost` on the FIRST sweep after seeding means the stored
+quote does not survive `VisibleTextFromHTML` extraction (my python extraction
+vs the Go extractor) — fix the quote, do not read it as legislation moving.
+The sweep task row's `last_completed_at` covers the WHOLE fleet, not this
+site — proof this site was swept is `verified_at` moving on OUR facts (or an
+item naming us), never the task timestamp.

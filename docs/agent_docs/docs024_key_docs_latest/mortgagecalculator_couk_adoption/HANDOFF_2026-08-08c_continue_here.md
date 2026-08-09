@@ -46,15 +46,30 @@ pages golden the unpressed section's placeholders).
 
 ## 2. Next actions, in order
 
-1. **Route the three §0.5 tools to the improvement loop** with both models
-   stated (table above + NOTES formulas). Primary-page model proposals:
-   bridging → retained-interest (the structure lenders quote); rate-forecaster
-   → the 3-phase path model (it is the better "forecast"); fee-analyser → keep
-   interest+fees as "true cost" but SHOW the total-outlay figure too. Each
-   alternative model = separate signposted page (owner §0.5). Everything
-   framework-built — the `add_tool` item shape already exists on this site's
-   queue (`add_tool_novel_mortgagecalculator.co.uk`, deferred, is the worked
-   example to copy).
+1. **DONE 08-09 — the three §0.5 tools are ROUTED (owner approved the model
+   proposals).** Five items filed + armed, FIFO order add_tool first:
+   `0dc7a786` add_tool tool-bridging-compound · `0c529013` add_tool
+   tool-rate-scenarios · `c9f810a3` recreation tool-bridging-loan
+   (retained-interest primary) · `df5c5935` recreation tool-rate-forecaster
+   (3-phase path primary) · `ba68c674` recreation tool-fee-analyser (both
+   figures, new ids tcTerm/tcOutlay). Each spec embeds the formula AND a worked
+   check the implementation must reproduce (NOTES 08-09). **Follow up: after
+   they build, re-run the replay comparator** — bridging + forecaster should
+   then MATCH the golden; fee-analyser tcTotal stays a recorded definitional
+   split (amortized interest, so ~17,385 not ~17,759 on golden defaults).
+1b. **Legislation watch (owner ask 08-09): the mechanism EXISTED — the site is
+   now ENROLLED.** Daily `evidence-freshness` sweep re-verifies citation facts
+   by re-fetch + verbatim-quote match (V5). Seeded `site_specs` aspect
+   `evidence_base` (pinned): 4 SDLT facts citing GOV.UK, incl. the £500k FTB
+   relief cap the original violates. **CHECK THE FIRST SWEEP (~24h): a
+   `citation_lost` on day one = quote-extraction mismatch, NOT moved
+   legislation** — fix the quote. Then two design pieces, in order: (a) the
+   published "current SDLT rates" page (owner wants it; numbers from
+   writer_lines; blocked on confirming how a NEW guide page row gets created
+   on this site); (b) tools-vs-facts acceptance — an oracle-from-the-register
+   check so a tool encoding a stale threshold FAILS acceptance (platform seam
+   → council gate when built; loanandmortgagecalculator's oracle.py is the
+   pattern).
 2. **Stamp-duty option-value alignment**: fold option VALUES into the id
    contract (spec `interactive_features` should name them like ids) and re-file
    the recreation so `#buyerType` carries `ftb`/`next`/`additional`. Until then

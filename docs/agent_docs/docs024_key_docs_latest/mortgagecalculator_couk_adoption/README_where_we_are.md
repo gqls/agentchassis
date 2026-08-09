@@ -667,3 +667,34 @@ entirely above £500,000. On a £595,000 home yours quotes £14,750 where the
 correct bill is £19,750 — a £5,000 under-quote. The rebuild gets this right. Per
 your ruling we improve past the original rather than copying its mistake — the
 rebuild already does.
+
+**2026-08-09 — the three both-ways calculators are in the improvement queue,
+and your legislation question has a pleasing answer.** Five jobs are filed and
+live: the bridging page switches to the retained-interest structure lenders
+quote, with a new companion page for the compound-interest way of charging;
+the rate forecaster adopts your original's cleverer over-time model, with a
+new companion page for simple what-if comparisons; and the fee analyser will
+show both cost figures side by side — the true cost of borrowing and the total
+cash out the door — each with a one-line explanation. Every job carries a
+worked example the new calculator must reproduce exactly, so a wrong
+implementation fails loudly instead of looking plausible.
+
+On legislation: we don't need to build a watcher — the platform already has
+one. Every day it re-checks each site's registered facts against their
+official sources, re-fetching the cited page and confirming the exact quoted
+sentence still appears; if the wording moves or vanishes, it raises a review
+item. What mortgagecalculator.co.uk was missing was any registered facts for
+it to watch. That's fixed: the site now carries the stamp duty rules — the
+standard bands, the first-time-buyer thresholds, the £500,000 cliff your
+original calculator missed, and the additional-property surcharge — each
+quoting GOV.UK verbatim. From tomorrow the platform checks them daily, so
+when the Treasury next moves the thresholds, we hear about it from the
+machine rather than from a wrong calculator.
+
+Publishing the rules on the site, as you suggested, is a good idea and the
+natural next step: a "current stamp duty rates" page whose numbers can only
+come from those registered facts, so it stays correct by construction. That's
+queued behind one mechanical check about how new guide pages get created.
+The remaining gap, being designed properly rather than rushed: connecting the
+registered facts to the calculators themselves, so a tool that encodes an
+out-of-date threshold fails its acceptance check automatically.

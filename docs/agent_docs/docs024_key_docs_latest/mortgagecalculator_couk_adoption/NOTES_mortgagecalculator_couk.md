@@ -1270,3 +1270,59 @@ Two harness artefacts found and understood (single-press blindness; 200-char
 truncation). One spec gap (option VALUES belong in the id contract — stamp-duty
 re-file should pin them; emitted criteria also select by value, so fences hit
 the same wall until aligned).
+
+## 2026-08-09 — supply-both items FILED + legislation watch answered by SEEDING, not building
+
+**Improvement-loop routing (owner "yes, put them through", 08-09): five items
+filed and armed (`triaged`), insertion order add_tool first so FIFO builds the
+companion pages early.** Row identity verified after insert:
+`0dc7a786` add_tool `tool-bridging-compound` · `0c529013` add_tool
+`tool-rate-scenarios` · `c9f810a3` recreation `tool-bridging-loan`
+(retained-interest gross-up primary) · `df5c5935` recreation
+`tool-rate-forecaster` (3-phase path primary) · `ba68c674` recreation
+`tool-fee-analyser` (both cost figures, one page, new ids tcTerm/tcOutlay).
+Each recreation spec embeds the model FORMULA and a worked check the
+implementation must reproduce (bridging 200000/1.0/10/2.0 → G=227272.73;
+forecaster 250000/25/4.5/5.5/3.5 → 1389.58/1525.78/1286.39; fee-analyser
+200000/4.19/2y/999/25y → outlay 26841.44, true cost 17384.79) — a wrong model
+now fails a stated check instead of reading as plausible. ID contracts copied
+verbatim from the 08-08 batch. Cross-links via the framework's own cross-link
+items (add_tool `related_pages`), NOT hardcoded URLs (bugs_open/029's lesson).
+Dedup slots were free (prior `needs_page:` holders all `complete`; no
+`page_build_failed` parks — bugfix_210 check done). `add_tool` path is LIVE:
+12 complete fleet-wide; the 2 deferred rows on this site were parked by
+triage, not a dead pipeline.
+
+**The owner's legislation question — the scheduled task ALREADY EXISTS; what
+was missing was this site's enrolment.** `scheduled_tasks.evidence-freshness`:
+daily, enabled, ran 08-09; drives `refresh_evidence_base` which (V4) re-runs
+`source.sql` facts mechanically and (V5) re-verifies CITATION facts by
+re-fetching the source URL and matching the stored verbatim quote
+(`evidence_citations.go` → `datahelpers.QuoteFoundInText`, normalising curly
+punctuation/thousands/whitespace/case on both sides); drift → `stale_evidence`
+/ citation_lost work items; `staleness_days` forces periodic re-attestation.
+The fact schema already carries legislation (leopardessconsulting cites
+legislation.gov.uk). mortgagecalculator.co.uk simply had NO evidence base row.
+
+**Seeded it (site_specs aspect `evidence_base`, pinned, is_current): 4 SDLT
+facts** citing the GOV.UK residential-rates page with quotes extracted
+PROGRAMMATICALLY from the fetched HTML (never retyped — the emission-rewrite
+trap): `sdlt-standard-bands` (12% top), `sdlt-ftb-nil-rate` (300000),
+`sdlt-ftb-relief-cap` (500000 — THE fact the original stamp-duty tool
+violates), `sdlt-additional-surcharge` (5). All carry `writer_line`s;
+`writer_block_managed: true`; governing_rule states "a calculator is a claim
+about legislation". **CHECK NEXT SWEEP (within ~24h): a `citation_lost` on day
+one means my extraction differs from `VisibleTextFromHTML`'s, NOT moved
+legislation** — fix the quote, don't believe the alarm. `[UNVERIFIED]` until
+that first sweep passes: quote-normalisation parity between my python
+extraction and the Go extractor is designed-for but not yet observed.
+
+**Still open on this thread (handoff updated):** (1) tools-vs-facts acceptance
+— nothing yet connects an evidence fact to the JS constants inside a tool; the
+real fix is an oracle-from-the-register acceptance check (platform seam →
+council when built; the loanandmortgagecalculator lane's oracle.py is the
+worked pattern). (2) The published "current rules" page the owner floated —
+right vehicle is a framework-built guide page whose numbers come from
+writer_lines; BLOCKED on confirming the page-row creation path for a new guide
+page on this site before filing (add_tool creates tool pages; guides arrived
+with the adoption).
