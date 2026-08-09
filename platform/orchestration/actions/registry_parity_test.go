@@ -17,6 +17,7 @@
 package actions
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
@@ -34,6 +35,19 @@ var dormantActions = map[string]string{
 
 func TestEveryActionInputSpecHasARegistryEntry(t *testing.T) {
 	for _, name := range datahelpers.ListActionInputSpecNames() {
+		// Test fixtures are not actions. A test that probes spec behaviour has to
+		// register a spec to probe, the registry is process-global, and there is
+		// no removal path — so a fixture registered by ANY test in this package is
+		// visible to this one, and only when the whole package runs. That is why
+		// this failed in `go test ./...` and passed under `-run` on its own name,
+		// which is the most misleading pair of results a test can produce.
+		// Adding an unregister helper would fix it at the source, but that is a new
+		// exported symbol on a package three others import — architecture-scope by
+		// PROCESS_architecture_review's trigger — for a test-only concern. The
+		// prefix is the contained answer; keep using it for fixture specs.
+		if strings.HasPrefix(name, "test_only_") {
+			continue
+		}
 		if _, registered := GlobalActionRegistry[name]; registered {
 			if why, dormant := dormantActions[name]; dormant {
 				t.Errorf("action %q is registered but still listed as dormant (%s) — remove it from dormantActions", name, why)
