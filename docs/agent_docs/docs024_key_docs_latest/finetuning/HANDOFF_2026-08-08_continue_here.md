@@ -224,3 +224,89 @@ Evidence, queries and the slot-rename trap: `bugs_open/230`, `LANDMINES.md` (202
 `bugfix_201_page_content_writer_dispatch/NOTES` (2026-08-08 late).
 
 — `bugfix_201_page_content_writer_dispatch` lane
+
+---
+
+## 7. SESSION 2026-08-09 — credential fix shipped; imagery Phase 1 (task A) dispatched
+
+Written mid-flight so a fresh thread can take over cleanly. Everything below was
+measured today unless dated otherwise.
+
+### 7.1 The B2 credential trap in §4 is FIXED and LIVE — with one straggler
+
+`bugs_open/233` (council **APPROVED** round 1, corr
+`7490388d-c945-42c0-b3c4-c452741a10cd`; commits `43c1801d6`, `08a94b474`,
+`aeeffb800`, `3ece76804`).
+
+- The §4 trap **under-stated the scope twice.** `NewS3Client` is shared by **8
+  call sites**, so every storage-touching service leaked, not just
+  thunder-adapter; and the same-class grep found a second leak —
+  `CLIENTS_DB_PASSWORD` logged at INFO on **every dynamic-agent spawn**
+  (`spawn_actions.go`). Both are now presence booleans.
+- **Verified live on v1.0.1274** at the pod, added-string 1 / removed-string 0,
+  both chassis replicas and thunder-adapter.
+- **STILL LEAKING: `render-audit-adapter`** (runs `browser-runner-adapter:v1.0.1194`,
+  80 tags behind). The credential is in its retained log buffer **now**. Cause is
+  a release-coverage gap — the service appears **nowhere** in the makefile, so no
+  release ever bumps its tag. Filed as **`bugs_open/237`**, landmine added.
+- **⚠ THIS GATES THE OWNER'S KEY ROTATION.** That pod reads the credential from
+  env at startup, so **rotating while it is still on v1.0.1194 means the next
+  restart logs the NEW key in plaintext.** Roll it to ≥v1.0.1274 first. Do **not**
+  `kubectl delete pod` it as a shortcut — its overlay pins the old tag, so it
+  returns on the same leaking image and writes a fresh credential line.
+
+### 7.2 Task A (five case-study images) — QUEUED AND DISPATCHED, verification pending
+
+`ORCH_ID=18b299ff-59d0-4676-b969-650f38ded505`, corr
+`80076b13-b8fe-4d15-9d2e-03f9b87e4b44`, fired 14:50Z via the standing 294
+trigger (both pre-flights passed).
+
+**The extension trap §3A warned about is RESOLVED — and the answer inverts the
+worry.** The generator **does** emit `.png`; the deploy leg publishes `.jpg`.
+Proof is a completed run's own record (08-03 `llm-cost-calculator`): S3 original
+`…796d3589….png`, `deploy_result.data.file_path`
+`/assets/images/content-hero-llm-cost-calculator.jpg`. Confirmed independently by
+`ImagePurposes["content_hero"] = {1600,900,85,"jpg"}` and by three live assets on
+this site (200), with `.png` and underscore variants as negative controls (404).
+**Reading only the generator gives a confident wrong answer here.**
+
+**What was queued:** five `needs_imagery` rows, `handler_agent =
+image-build-handler`, `purpose = content_hero`, `asset_key = case-study-<slug>`,
+`status = triaged`, prompts derived from the site's own card titles/excerpts and
+existing `card*_image_alt` art direction. SQL kept at
+`scratchpad/queue_case_study_imagery.sql` (reproduced in the lane NOTES).
+
+**Three mechanism facts a successor needs:**
+- `detected` is **not claimable** — `load_work_items` takes
+  `status IN ('triaged','approved') AND attempt_count < max_attempts AND
+  approval_mode='auto'`. Hand-raised items must be written `triaged`.
+- `build-dispatch-loop.load_items` sets **`max_items: 5`**, no pipeline/handler
+  filter, `ORDER BY priority ASC, created_at ASC`. Five items and no other
+  `triaged` row = one clean batch; a sixth would have been silently left behind.
+- `check_image_url_404` is flag-only by design, so **discovery will never raise
+  these** — hand-queueing is the plan's Phase 1, not a bypass.
+
+**VERIFY AT THE SERVED URL, not the item status:**
+```
+for s in facilities legal-rag private-ai financial-data logistics-strategy; do
+  curl -s -o /dev/null -w "$s %{http_code}\n" \
+    "https://finetuning.uk/assets/images/case-study-$s.jpg"; done
+```
+All five were **404** at 14:50Z. If they are 200, task A is done and **task B
+(the visual-designer pass) is simply the 294 trigger fired again** — but only
+once these are verified at the artefact, or the designer spends its LLM call
+re-reporting the holes.
+
+**If an item goes `failed`:** read `result->'_verification'` and `error` before
+re-firing. `max_attempts` is 3 and each attempt is a real generation.
+
+### 7.3 Other threads are active on this site — check before dispatching
+
+Runs at 13:51–14:44Z today (discovery + a design review) came from another lane;
+all COMPLETED, none in flight at 14:50Z. Two `needs_imagery` items appeared at
+13:51 for `model-approach-selector` and `tool-automation-savings-estimator` —
+**other pages' content heroes, unrelated to these five.** Also note five
+`phantom_internal_link` items (`needs_human_review`): the case-study cards link to
+`/case-studies/<slug>.html` pages that **do not exist**. Related to the cards but
+a separate, human-decision task — the images will render on cards whose links
+still 404.
