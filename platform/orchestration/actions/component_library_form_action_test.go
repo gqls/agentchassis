@@ -13,6 +13,8 @@ package actions
 import (
 	"strings"
 	"testing"
+
+	"go.uber.org/zap"
 )
 
 func TestSanitiseFormAction(t *testing.T) {
@@ -230,5 +232,81 @@ func TestFormActionInfoFallbackNotFabricatedOnRegexFallbackPath(t *testing.T) {
 	if got := contextToMap(ctx)["form_action"]; got != "#contact" {
 		t.Errorf("form_action = %q, want it left as #contact — info@<own domain> "+
 			"is the synthesised display fallback, not a real inbox", got)
+	}
+}
+
+// TestRenderTemplateReportingMissingSeedsFormActionWhenTemplateReferencesIt is
+// the regression guard for bugs_open/228: a component whose html_template
+// references {{.form_action}} but whose ContentData never authored the field
+// (contact-block's actual shape — the content-generation schema never asked
+// for one) must still get the sanitiser's protection, not a silently
+// empty/absent field.
+func TestRenderTemplateReportingMissingSeedsFormActionWhenTemplateReferencesIt(t *testing.T) {
+	ctx := &RenderContext{
+		Domain: "example.com",
+		Email:  "hello@example.com",
+		ContentData: map[string]interface{}{
+			"heading": "Contact us",
+		},
+	}
+
+	out, _, _ := RenderTemplateReportingMissing(
+		`<form action="{{.form_action}}" method="POST"><h2>{{.heading}}</h2></form>`,
+		ctx, zap.NewNop(),
+	)
+
+	want := `mailto:hello@example.com?subject=example.com enquiry`
+	if !strings.Contains(out, `action="`+want+`"`) {
+		t.Fatalf("rendered form action = %q, want it to contain action=%q (bugs_open/228: "+
+			"a template referencing form_action must get the sanitiser even when "+
+			"ContentData never authored the field)", out, want)
+	}
+	if strings.Contains(out, "<no value>") {
+		t.Fatalf("rendered output still contains the raw <no value> artefact: %q", out)
+	}
+}
+
+// TestRenderTemplateReportingMissingLeavesFormActionHonestWhenNoAddress mirrors
+// the sanitiser's own refusal-to-fabricate rule through the seeding path: a
+// site with no resolvable email must not get a fabricated mailto just because
+// the seed made the field present.
+func TestRenderTemplateReportingMissingLeavesFormActionHonestWhenNoAddress(t *testing.T) {
+	ctx := &RenderContext{
+		Domain:      "robot-hands.com",
+		ContentData: map[string]interface{}{},
+	}
+
+	out, _, _ := RenderTemplateReportingMissing(
+		`<form action="{{.form_action}}" method="POST"></form>`,
+		ctx, zap.NewNop(),
+	)
+
+	if !strings.Contains(out, `action=""`) {
+		t.Errorf("rendered output = %q, want action=\"\" (seeded, sanitised, "+
+			"left empty — not fabricated, not the stripped <no value> shape)", out)
+	}
+	if strings.Contains(out, "mailto:") {
+		t.Errorf("rendered output = %q, fabricated a mailto with no resolvable address", out)
+	}
+}
+
+// TestRenderTemplateReportingMissingDoesNotSeedFormActionForUnrelatedTemplate
+// guards the OTHER direction: a template that never mentions form_action must
+// not have the key injected into its shared ContentData map — mirroring
+// TestSanitiseFormAction's "a component with no form does not acquire a
+// form_action" at the RenderTemplateReportingMissing entry point, since that
+// is where the seeding actually happens.
+func TestRenderTemplateReportingMissingDoesNotSeedFormActionForUnrelatedTemplate(t *testing.T) {
+	ctx := &RenderContext{
+		Domain:      "example.com",
+		Email:       "hello@example.com",
+		ContentData: map[string]interface{}{"heading": "No form here"},
+	}
+
+	RenderTemplateReportingMissing(`<h2>{{.heading}}</h2>`, ctx, zap.NewNop())
+
+	if _, present := ctx.ContentData["form_action"]; present {
+		t.Fatalf("form_action was seeded into ContentData for a template that never "+
+			"references it — got %v", ctx.ContentData["form_action"])
 	}
 }

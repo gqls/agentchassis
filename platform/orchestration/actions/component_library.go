@@ -967,6 +967,29 @@ func RenderTemplateReportingMissing(templateStr string, ctx *RenderContext, logg
 		return "", nil, nil
 	}
 
+	// sanitiseFormAction's presence gate ("Absent is only a defect if this
+	// component actually has a form to point somewhere") is meant to be proxied
+	// by the template itself, not by whether the content-generation schema
+	// remembered to author a form_action field. contact-block (bugs_open/228)
+	// never asked its schema for one, so ctx.ContentData["form_action"] was
+	// never present, the gate silently declined to act, and the form shipped
+	// with no action at all. Seeding an empty placeholder — already one of
+	// nonDeliveringFormActions' recognised values — makes the gate's own
+	// stated condition mechanical: any template that references form_action
+	// gets the sanitiser's protection, with zero dependency on content
+	// authoring remembering to supply the field. A template that never
+	// mentions form_action gains nothing.
+	if strings.Contains(templateStr, "form_action") {
+		if ctx.ContentData == nil {
+			ctx.ContentData = map[string]interface{}{}
+		}
+		if _, present := ctx.ContentData["form_action"]; !present {
+			ctx.ContentData["form_action"] = ""
+			logger.Debug("RenderTemplateReportingMissing: seeded empty form_action for sanitiser",
+				zap.String("template_preview", datahelpers.TruncateString(templateStr, 100)))
+		}
+	}
+
 	// Convert context to map[string]interface{} - preserves nested structures
 	data := contextToInterfaceMap(ctx)
 
