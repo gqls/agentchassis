@@ -167,6 +167,28 @@ pages and it deserves its own check before anyone asserts it — drive one of th
 in a real browser and watch the result. It is recorded here only so the next reader does
 not assume the sibling component is known-good simply because it names an action.
 
+## In progress — 2026-08-09, `bugfix_228_contact_block_transport` lane
+
+Taking fix candidate 1. Traced the root cause one level below what's written
+above: the chassis already has a proven mechanism for exactly this (the
+`sanitiseFormAction`/`deliverableFormAction` mailto repair `contact-form`
+uses), but it only fires when `content_data` already carries a `form_action`
+key — `contact-block`'s content-generation schema never asked for one, so the
+sanitiser's own presence-gate silently declined to help. Framework fix: widen
+that gate to key off whether the *template* references `form_action`, not
+whether content authoring remembered to supply it (covers `contact-block` and
+any future component built the same way). Committed as `85390ee33` (+ tests,
++ concept-register entry `LNK-031`). Data-side edit to this component's own
+`html_template`/`js_content` is written and staged but **deliberately not yet
+applied** — hard ordering constraint: it must not land until the code above
+is pod-verified live on the fleet (an old binary rendering the new template
+reference would ship a silently empty form action, worse than today's bug).
+Council: round 1 REVISE (correctly caught that the code-only submission was a
+no-op for this bug without the data-side edit); resubmitted with both parts on
+the same correlation (`46f87e4c-05fc-4a5c-bd6a-93a073b63253`), round 2 in
+flight. Full standing docs:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_228_contact_block_transport/`.
+
 ## Cross-links
 
 - `bugs_open/012` — the same family: a status reported over work that did not happen.
