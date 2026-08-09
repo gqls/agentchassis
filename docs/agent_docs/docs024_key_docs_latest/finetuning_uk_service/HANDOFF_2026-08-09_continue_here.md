@@ -57,14 +57,20 @@ filed. 30-min grace absorbs the provision INSERT-after-up window; unknown
   `insertWorkItem`; see WRONG_CALLS 08-08) · r2 REVISE (gating: my "no
   ledger" claim was FALSE — see WRONG_CALLS 08-09; plus system.internal
   assert, ROLLBACK sidecar, category fix, all shipped `cfaa93126`) ·
-  **r3 submitted ~12:05Z 08-09, reviewing shipped+live state — READ THE
-  VERDICT**: `SELECT created_at, metadata->>'decision' FROM
+  r3 REVISE 12:00Z (all verification requests — dispositioned by
+  measurement, including proving the seed's DO/RAISE fail-closed by
+  INDUCING the config-nested regression on the live row, rolled back) ·
+  **r4 submitted ~12:15Z 08-09, EVIDENCE-ONLY (no code/config changes) —
+  READ THE VERDICT**: `SELECT created_at, metadata->>'decision' FROM
   diagnosis_artifacts WHERE correlation_id='7ffecfa2-…' AND
-  kind='council_report' ORDER BY created_at;` (3rd row = r3). If APPROVED:
+  kind='council_report' ORDER BY created_at;` (4th row = r4). If APPROVED:
   the `Council-Submitted:` trailers on `81484df8a`/`ecbb0f362`/`cfaa93126`
-  are credited automatically by 098 — nothing to amend. If REVISE: the
-  saved submission to iterate on is
-  `council_r3_submission_ftw042.json` in this directory.
+  are credited automatically by 098 — nothing to amend. If REVISE again:
+  iterate on `council_r4_submission_ftw042.json` in this directory; note
+  the trail is now 4 rounds on ONE coherent task — if the round is again
+  only verification-requests a council tier cannot itself satisfy, consider
+  the RUNBOOK_council_gate guidance about when to stop iterating and let
+  the 098 report + a human carry it.
 - **Commits:** `81484df8a` (build) · `2ef4ab581` (gofmt) · `ecbb0f362`
   (r1 revision: shared door) · `95a455d35` (output_field correction, LIVE
   proof) · `cfaa93126` (r2 revisions) · plus NOTES/WRONG_CALLS/LANDMINES
