@@ -7610,3 +7610,28 @@ SELECT type FROM agent_definitions
   A palette's NAME is not its scheme: `professional-dark` is a fully light palette (`background #f8fafc`, `card_bg #ffffff`, `text #1e293b`). Read `colours`, never the name. And only **8** slots (`corePaletteKeys`, `render_css_composition_helpers.go:41-50`) can be overridden by a site's spec — the other ~13 belong to the shared palette, so a site whose spec is dark and whose palette is light ships a mixture that no single input reveals.
 - **source:** 2026-08-09, brochure lane / `bugs_open/113`. A three-site audit concluded a site was a live instance of 113 on the strength of `source_domain` returning 0 rows; the site in fact renders from a shared seed palette that supplies the disputed value explicitly. Written up in `WRONG_CALLS.md` and in 113's third-pass section.
 - **added:** 2026-08-09, brochure lane
+
+### A dotted-path config census reads clean while Go builds paths at runtime — and `ExtractNestedField` stopped being map-only on 2026-08-09
+
+- **footprint:** `platform/orchestration/datahelpers/data_helpers.go`, `ExtractNestedField`, `ExtractNestedFieldString`, `ExtractNestedFieldMap`, `ExtractNestedFieldInt`, `ExtractActionInputs`, `agent_definitions.default_config`, `fallback_url_field`, `resolveFieldPath`, `getNestedValueForLoop`, `getNestedValueForSpawn`, `traverseNestedPath`, `GetValueAtExactPath`, `FindByPath`
+- **fires when:** you change, or size the blast radius of, any dot-path resolver — or you read an older doc that tells you a numeric path segment cannot resolve. No symptom needed either way.
+- **the trap, half one — the behaviour changed.** Until 2026-08-09 `ExtractNestedField` did **map access only**, so any path with a numeric segment (`search_results.results.0.url`) walked to the array and returned `nil`. Docs, bug files and censuses written before that date say so, correctly for their time. It now indexes `[]interface{}` on a bare non-negative in-range integer segment. **So an "it is structurally impossible for this to resolve" line in a pre-08-09 document is now false**, and it is the kind of claim that gets quoted forward for months — `CENSUS_2026-08-07_rfc012_await_step_readers.md` §6.1 carried exactly one, and has been corrected in place.
+- **the trap, half two — and this is the one that will bite a measurement.** Sizing such a change from live config (`agent_definitions.default_config::text` regex for a numeric dotted segment) **cannot see a path that Go assembles at runtime**. Seven live call sites concatenate rather than pass a literal — `render_css_from_spec_action.go:463,466`, `thunder_ssh_exec_dispatch.go:248,348`, `v3_site_actions.go:977`, `database_actions.go:50` — and the census is blind to every one of them. Measured 08-09: all seven append a field **name**, never an index, and no `Sprintf` builds a numeric segment, so the answer came out clean. **The answer being clean is not the point; the query could not have found the dangerous case.**
+- **why the wrong result looks exactly like the right one:** the config regex returns a small, confident, correct-looking set (fleet-wide it returns exactly **one** row), and a small set reads as "narrow blast radius, safe to proceed". Nothing about the output hints that a whole category of caller was never in scope. The residual route that keeps the config census honest is `database_actions.go:50`, whose `pathStr` comes **from config** — so config is still a real surface, which makes the census feel sufficient when it is merely necessary.
+- **the check, before you trust a path census:**
+  ```bash
+  # the callers a config regex cannot see: non-literal path arguments
+  grep -rn "ExtractNestedField[A-Za-z]*(" --include=*.go platform/ internal/ \
+    | grep -v _test.go | grep -vE '"[^"]*"\s*\)'
+  # and the numeric-segment builders specifically
+  grep -rn 'Sprintf("[a-z_]*\.%d\|Sprintf("%s\.%d' --include=*.go platform/ internal/ | grep -v _test.go
+  ```
+  Then the config half, and run it **coarse as well as strict** — two regexes that fail differently, because a strict whole-string path match silently misses an embedded one:
+  ```sql
+  SELECT type, m[1] FROM (SELECT type, default_config::text AS cfg FROM agent_definitions
+    WHERE is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL) live,
+    LATERAL regexp_matches(cfg, '[a-zA-Z_][a-zA-Z_0-9]*\.[0-9]+(\.|")', 'g') AS m;
+  ```
+- **also worth knowing:** about ten near-clone walkers remain **map-only** (`resolveFieldPath` and two copies, `getFieldByPath`, `GetValueByPath`, `FindByPath`, `GetValueAtExactPath`, `getNestedValueForLoop`, `getNestedValueForSpawn`, `traverseNestedPath`, and an unexported `extractNestedField` dupe in `multipage_actions.go:1129`). A numeric segment resolves through **one** resolver and not its siblings, so "dot paths support indexes now" is false as a general statement about this codebase.
+- **source:** 2026-08-09, `rfc012_await_findings` lane, at the owner's direction to clear the lane's residuals. The vet fallback `search_results.results.0.url` had never once fired; council round `c961b79e-59e7-45db-a9ad-abb61aaad935` APPROVED, with the `guardian` seat raising the runtime-built-path blind spot that this entry exists to preserve.
+- **added:** 2026-08-09, rfc012_await_findings lane
