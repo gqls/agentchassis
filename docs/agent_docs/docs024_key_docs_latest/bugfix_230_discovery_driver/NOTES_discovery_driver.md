@@ -94,3 +94,62 @@ answer is now *"yes, for a build phase that has ended, on handler-readiness grou
 owner has since ruled the residual state a defect"*.
 
 — `bugfix_201_page_content_writer_dispatch` lane
+
+## 2026-08-09 — council APPROVED r1; applied; LIVE and behaving
+
+**Verdict read in full** (report saved to scratchpad; doc_notes verdict row + council_report
+artifact): **APPROVED round 1, "4 advisory objection(s) — none high-severity", 6 abstained,
+no truncation gating.** Every objection dispositioned:
+
+- **editquality M — agent_type strings unguarded against agent_definitions.type:** REAL;
+  closed before apply — migration guard now asserts each of the 3 tasks' target_agent_type
+  matches a live active non-snapshot agent_definitions row (would have raised on a typo).
+- **tooling_provenance M — no doc_notes subject row for the new pipeline:** closed — the
+  migration now writes subject_key `site-discovery-rotation` (source `migration-346`);
+  rollback removes it.
+- **guardian M — enabled=true fleet-wide:** answered by the owner ruling recorded in
+  bugs_open/230 §4 between submission and verdict ("probably a defect, I haven't made any
+  costs decisions lately") plus IMP-016's real gate being handler-readiness, which
+  observe-only respects. Kept ON; one-UPDATE pause stands in the RUNBOOK.
+- **guardian M / tooling_provenance L — doc_notes.source landmine:** verified consistent —
+  the sibling checks write the CHECK name (not the script filename) as source; ours matches
+  its CronJob/service/dir name exactly, comment added in check.py, runbook queries by
+  categories.
+- **debug_historian M — sites.status filter unenumerated:** it WAS enumerated this session
+  (GROUP BY: deployed 20 / pool 17 / system 1; no other values). 'active' matches nothing
+  today and is kept only to mirror the designed driver's predicate. pool/system excluded
+  deliberately.
+- **editquality M / guardian L — ImagePullBackOff on the CronJob:** verified at the POD, not
+  the Job: first manual run reached `Completed`, logs show the full report.
+- **reuse L — 4th bespoke watchdog fork:** no generic scheduled-task-coverage watchdog
+  exists (services dir enumerated); the architecture seat's forward note adopted: the
+  stamp-table rotation is instance ONE of a potential shared primitive — if a second
+  rotation of this shape is needed, THAT is the moment for an RFC, not a third copy.
+- **improvement_guardian L — bespoke concurrency group:** deliberate; documented in PLAN §4b
+  (avoids contending with the shared 'dispatch' group).
+- **prior_art M — corroborate 0-of-5 from a DB-access session:** this session IS that
+  corroboration (measured twice: filing lane 08-08/09, me 08-09 morning).
+- **debug_historian L — no standalone verify script:** RUNBOOK §1/§3 hold the queries; the
+  watchdog is the standing verifier.
+
+**Applied ~10:47Z** by psql -f (whole file, guard passed) + `--record-only` with a note
+(`--apply` NOT used: pending 342/345 belong to other threads — 345 is the 227 lane's
+deliberately-parked fix). Watchdog applied with `kubectl apply -k`.
+
+**Live behaviour, first 10 minutes — all three links working:**
+- 09:49:51/09:50:21/09:50:51Z: the three tasks fired 30s apart (concurrency spacing as
+  designed), all picking robot-hands.com (lowest site_id among unstamped, each agent's own
+  rotation), stamps written.
+- All three orchestrations **COMPLETED** (`*-orchestrate-0809-094x`, domain robot-hands.com)
+  within ~1.5s of their stamp — selections produce runs.
+- The runs FILED: 17 undeployed_asset + 4 literal_markdown + others, `status='detected'`,
+  observe-only as designed.
+- Watchdog manual run: pod `Completed`, exit 0, clean report (grace suppressing install-day
+  NULLs; stamps 1/1/1 vs orchestrations 5/5/7 — the extra runs are the hand-fired
+  dartsonline cycle in the same window), doc_notes row written.
+
+**Still owed:** bugs_open/230 §6's canary — an `empty_section` item for finetuning.uk
+`featured-content` appearing WITHOUT dispatch when the completeness rotation reaches it
+(site_id order: robot-hands 00ff…, loancalculator 0162…, finetuning 1368… — ETA a few
+hourly ticks). Until it lands, 230 stays OPEN; the fix is live but the bug's own
+verification criterion is the arrival of that item.

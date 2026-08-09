@@ -10,6 +10,7 @@ BEGIN;
 
 DELETE FROM scheduled_tasks WHERE name LIKE 'site-discovery-rotation-%';
 DROP TABLE IF EXISTS site_discovery_rotation;
+DELETE FROM doc_notes WHERE source = 'migration-346' AND subject_key = 'site-discovery-rotation';
 
 DO $$
 DECLARE remaining integer;

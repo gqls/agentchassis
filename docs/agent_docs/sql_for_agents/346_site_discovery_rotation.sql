@@ -99,14 +99,50 @@ FROM (VALUES
     ('completeness', 'completeness-discovery-agent')
 ) AS agents(short_name, agent_type);
 
+-- One doc_notes row establishing the new pipeline as a queryable subject, so the
+-- next fix touching this mechanism finds a subject_key-keyed record instead of
+-- rediscovering it from scattered bug files (council 2281fc48, tooling_provenance
+-- seat, medium).
+INSERT INTO doc_notes (subject_type, subject_key, body, categories, source)
+VALUES ('pipeline', 'site-discovery-rotation',
+        'site-discovery-rotation: fair recurring driver for the three site-discovery '
+        'agents (bugs_open/230, migration 346, register SCH-025). One stamp table '
+        'site_discovery_rotation (site_id, agent_type, last_selected_at = SELECTION, '
+        'not completion) + three hourly scheduled_tasks (site-discovery-rotation-'
+        '{quality,design,completeness}), each picking the least-recently-selected '
+        'active/deployed site older than the 7-day period, busy-skip deferring (never '
+        'excluding) sites with a claimed build item. Observe-only: findings land where '
+        'each check already writes them; triage/drain stays bugs_open/083''s pending '
+        'owner decision. Watched daily by the site-discovery-staleness-check CronJob '
+        '(doc_notes subject_key site-discovery-staleness). Plan/notes/runbook: '
+        'docs024_key_docs_latest/bugfix_230_discovery_driver/. Council-Reviewed: '
+        '2281fc48-f0c5-4842-88c7-8391d0098944.',
+        '["site-discovery-rotation"]'::jsonb, 'migration-346');
+
 -- Guard: assert the exact post-conditions; any failure rolls the whole file back.
 DO $$
 DECLARE
     task_count integer;
     bad_preq   integer;
+    live_agents integer;
 BEGIN
     IF to_regclass('public.site_discovery_rotation') IS NULL THEN
         RAISE EXCEPTION 'guard: site_discovery_rotation table missing';
+    END IF;
+
+    -- The three target_agent_type strings are free text; a typo would make a
+    -- rotation task silently never fire its agent (council 2281fc48, editquality
+    -- seat, medium). Assert each names a live, active, non-snapshot agent.
+    SELECT count(*) INTO live_agents
+    FROM scheduled_tasks st
+    WHERE st.name LIKE 'site-discovery-rotation-%'
+      AND EXISTS (SELECT 1 FROM agent_definitions ad
+                  WHERE ad.type = st.target_agent_type
+                    AND ad.is_active
+                    AND COALESCE(ad.is_snapshot, false) = false
+                    AND ad.deleted_at IS NULL);
+    IF live_agents <> 3 THEN
+        RAISE EXCEPTION 'guard: only % of 3 rotation tasks name a live active agent_definitions.type', live_agents;
     END IF;
 
     SELECT count(*) INTO task_count

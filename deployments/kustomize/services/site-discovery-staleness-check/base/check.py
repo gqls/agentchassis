@@ -195,6 +195,10 @@ def render_report(state, rotation, findings):
 
 
 def write_doc_note(body, password, host):
+    # source is the CHECK's name (matching its siblings), which here equals the
+    # CronJob and service-directory name — kept identical on purpose so the
+    # doc_notes.source landmine (script name vs CronJob name diverging) cannot
+    # fire. Query by categories ? 'site-discovery-staleness', as the runbook does.
     tag = "sdscbody"
     sql = (
         "INSERT INTO doc_notes (subject_type, subject_key, body, categories, source) "
