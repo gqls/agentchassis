@@ -116,3 +116,66 @@ did not. The over-claim you objected to survived H and was removed by the defaul
 one comparison on one page and it was about claim strength, not openings — but it's the
 reason I've written this up as "for now" and given it two specific triggers for revisiting,
 rather than filing it as settled.
+
+---
+
+**2026-08-09, later — we compared our voice against a real published standard, and it was
+more useful than I expected.**
+
+You pointed me at a Simplified Technical English skill — ASD-STE100, the standard aerospace
+and defence use for maintenance manuals, where the whole design goal is that a tired
+engineer reading in a second language cannot possibly misread a procedure. The question was
+what our content writer would look like under those rules instead of ours.
+
+I extracted it into the same shape as our house voice block, so the two are genuinely
+comparable rather than described at each other, then measured our finished loancalculator
+site against it. All twenty-six pages, five hundred and forty-two sentences.
+
+**Fifty-six percent of the site breaks at least one of its rules.** Mostly three things:
+sentences over its word limit, contractions, and phrasal verbs — "pay off", "take out a
+loan", "hand the car back". Those aren't accidents in our copy. They're the register we
+chose on purpose, and H states the contraction rule outright. The standard also mandates
+American spelling, which is a non-starter for a UK lending site.
+
+So the answer to "should we adopt it" is no, and I'd say that fairly confidently. Its
+uniformity is exactly right for a manual and exactly wrong for copy whose job is to keep a
+nervous borrower reading.
+
+But three things came out of it that I think are worth having.
+
+The first is that it caught something in our own spec. H says sentences should average
+eighteen to twenty-five words. An average isn't a check — you can hit it perfectly while
+writing a fifty-word sentence, and we do: our mean is exactly eighteen, sitting on the floor
+of our own band, while our longest live sentence is forty-nine words. STE uses a hard
+per-sentence ceiling instead. That's enforceable and ours isn't.
+
+The second is that it makes the writer decide, before it writes anything, whether a section
+is instructions or explanation, and applies different limits to each. Our spec has one
+register for the whole site. Our site plainly has both — the tool pages instruct and the
+guides explain — and when I rewrote samples of each, the same rules helped one and flattened
+the other.
+
+The third is the one I didn't expect. On warnings, STE is simply better than us. It requires
+the command first and the risk second. Our live overpayment warning opens "there's a catch
+worth checking before you commit to it" and makes the reader dig the instruction out of it;
+the STE form opens "examine your loan agreement before you overpay", then gives the ten
+percent, then the charge. On the handful of sentences where being misread actually costs the
+reader money, theirs is the better shape. H has a rule about callout boxes but says nothing
+about ordering. I'd take that one narrowly and leave the rest.
+
+There's also a structural point for the "how does it ship" question you've got open. The
+skill splits into three files — rules, dictionary, worked examples — pulled in separately.
+That's the shared-carrier option already worked out. Though note it loads its examples last
+and only "when unsure", which given what we proved this week about examples beating rules is
+the wrong way round. If we copy the structure we should invert that.
+
+Two corrections on myself, since they're the useful part. My first measurement said sixty
+percent and I nearly wrote it down; it was counting "Financial Conduct Authority" as a style
+violation because "conduct" is on the banned word list, and scoring "promise" and "otherwise"
+as British spellings. Reading every hit rather than the total caught it. And I had a
+confident argument ready that the standard's ban on "should" would be dangerous for
+regulated finance copy — until I checked, and our site uses "should" zero times in five
+hundred and forty-two sentences. Good argument, false premise.
+
+Nothing was changed. No agent edited, no copy touched, no test fired at the live site. The
+candidate block, the comparison and the measuring script are all in this directory.
