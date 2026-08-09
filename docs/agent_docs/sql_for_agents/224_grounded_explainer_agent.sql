@@ -180,8 +180,7 @@ SELECT
           "handler_agent": "human-review",
           "priority": 20,
           "severity": "medium",
-          "summary": "Grounded explainer draft ready for review",
-          "spec_fields": ["draft", "grounding_audit", "registration", "input_data"]
+          "summary": "Grounded explainer draft ready for review"
         },
         "next_step": "complete",
         "output_field": "review_item",

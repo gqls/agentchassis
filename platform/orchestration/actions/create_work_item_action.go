@@ -80,13 +80,60 @@ var CreateWorkItemInputSpec = datahelpers.ActionInputSpec{
 	// steps still spell it the old way, and the next author renaming a setting
 	// has a mechanism to reach for instead of a precedent to copy.
 	//
-	// NOT an opt-in to unknown-key detection: this action's full contract is
-	// still unsettled (`summary_template`, `spec_fields` and `domain` are carried
-	// by live steps and read by nothing — bugs_open/136 §3/§4), and declaring a
-	// contract while three keys are unadjudicated would either emit false
-	// warnings or silence real ones. DeprecatedConfigKeys is deliberately
-	// independent of that gate so this alias works anyway.
 	DeprecatedConfigKeys: map[string]string{"item_domain": "item_pipeline"},
+
+	// The literal-setting contract: every key this action reads straight from
+	// params.StepConfig.Config rather than through ExtractActionInputs. The
+	// data-input keys are above (Required/Optional); the framework's own keys
+	// (input_fields, error_step, timeout_seconds, …) are recognised centrally
+	// by datahelpers.IsFrameworkStepConfigKey and must NOT be repeated here —
+	// listing one would misstate whose contract it belongs to.
+	//
+	// Taken from the action body, key name by key name, NOT by grepping for
+	// `config["`: `priority` arrives through datahelpers.GetIntField and
+	// `item_pipeline` through ResolveConfigSetting, so an access-pattern grep
+	// misses exactly the two least obvious entries. That grep is the recorded
+	// mistake in WRONG_CALLS.md 2026-08-08 — the §3 read-list it produced was
+	// wrong about `priority`, which is read.
+	ConfigKeys: []string{
+		"item_type",             // :124
+		"handler_agent",         // :128
+		"item_pipeline",         // :135, via ResolveConfigSetting
+		"severity",              // :137
+		"source",                // :141
+		"status",                // :152
+		"priority",              // :156, via GetIntField
+		"item_key_prefix",       // :159
+		"item_key_suffix_field", // :184
+		"recurrence_expected",   // :198
+		"spec_paths",            // :219
+		"spec_literal",          // :236
+	},
+
+	// Opted in (bugs_open/136 item D). The three keys that blocked this are
+	// adjudicated and gone from live config: `summary_template` (migration 343,
+	// owner decision — a static literal, template rendering declined),
+	// `spec_fields` and `domain` (migration 350 — both dead, established by
+	// reading every strategy in ExtractActionInputs rather than by grep: each
+	// one iterates Required ∪ Optional, or config["input_fields"], or
+	// spec.Deprecated, so a key in none of the three is resolved by nothing).
+	//
+	// KNOWN TRUE POSITIVE, left standing deliberately: three live steps
+	// (improvement-loop ×2, deduplicate-sections ×1) carry a config key named
+	// `spec`, which this action has never read — it builds the item spec from
+	// spec_data / spec_paths / spec_literal (:208-236). It is dead the same way
+	// the others were, but unlike them it has a live consequence
+	// (improvement-loop's `refresh_site_components` flag never reaches the
+	// rerender gate, and every such row's spec is empty), and the fix is a
+	// behaviour change rather than a removal. It is under diagnosis separately.
+	// So this opt-in will REPORT one unknown key on three steps, and that
+	// report is the detector working, not a regression to silence.
+	//
+	// Not StrictConfig: that turns the same finding into a hard validation
+	// error on live definitions, which is the over-strict-detector failure the
+	// ConfigKeys doc comment warns about. Warn first, and only consider strict
+	// once the recognised set has been checked against every live step.
+	CheckConfig: true,
 }
 
 func init() {
