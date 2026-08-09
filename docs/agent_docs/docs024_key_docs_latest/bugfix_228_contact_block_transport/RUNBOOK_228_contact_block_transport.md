@@ -125,19 +125,53 @@ Respect the ~300s no-dispatch window after any chassis pod restart
 
 ## Verifying the live fix
 
-```
-curl -s https://robot-hands.com/contact.html | grep -o '<form[^>]*>'
-# expect action="mailto:robot-hands@contactforsales.com?subject=robot-hands.com enquiry"
-curl -s https://robot-hands.com/tools/assets/contact-block.js \
-  | grep -cE 'setTimeout|has been sent'
-# expect 0 (fabrication removed)
-curl -s https://robot-hands.com/tools/assets/contact-block.js \
-  | grep -c 'Opening your email client'
-# expect 1 (new honest status string, and confirms the NEW asset was fetched)
-```
+**Superseded 2026-08-09 after council round 3** (`prior_art_librarian`, HIGH
+gating) — a bare curl right after dispatch lands on two documented
+LANDMINES.md traps ("verifying straight after firing a rerender shows a 404
+or stale copy" and "curl|grep twice against the same URL during a deploy
+reports a regression that never happened"). Use `verify_228_deployed_page.sh`
+instead — it checks `pages.deployed_at` before trusting a fetch, cache-busts,
+and greps ONE saved response for every property rather than re-curling. Exact
+invocations are in `dispatch_228_rerenders.sh`'s trailing output.
 
 Re-run the bug file's own census query and confirm `contact-block` now
 reports `form_has_action = true` with no other row changed.
+
+## Council round 3, medium objections — investigated, not code changes
+
+- **`reuse_agent`: should this use `content_components.forked_from` instead
+  of in-place mutation?** Read `fork_theme_from_site_action.go`: forking
+  exists to let ONE site diverge from a shared library asset (a per-site
+  customisation promoted or split out), and creates a new row plus repoints
+  that site's own reference. This fix wants the OPPOSITE property — both
+  consuming sites should get IDENTICALLY the same repair, not a per-site
+  fork. The `finetuning.uk` drift row isn't a content-divergence case forking
+  would fix either: that page's serving pipeline doesn't render the
+  component in its build output at all (a placement issue), so a forked row
+  would sit there just as unreferenced as the shared one does today. In-place
+  mutation of the one shared row is correct here; forking would add
+  `page_components` repointing blast radius for no benefit.
+- **`prior_art_librarian`: does `sql_for_agents/NNN_slug.sql` +
+  `_ROLLBACK.sql` already cover this shape?** That house convention exists
+  for `agent_definitions.default_config`-style JSON config patches, where the
+  OLD value is a known literal at write time, so a rollback file can be
+  hand-written statically alongside the apply file (e.g.
+  `340_unbuilt_link_dispatch_authoritative_page_id_ROLLBACK.sql` just removes
+  the keys the paired apply file added). `content_components.html_template`/
+  `js_content` have no git-tracked source of truth — the only correct
+  rollback content is whatever the row held immediately before THIS run, which
+  cannot be known until runtime. `apply_228_contact_block_fix.sh`'s dynamic
+  backup-then-generate-rollback step is a deliberate, evidenced departure
+  from the static convention, not an oversight of it — a static rollback file
+  for this specific mutation would risk restoring stale content if the live
+  row had drifted between planning and execution.
+- **`guardian`: does the html_template/js_content change risk the
+  quote-in-`<script>`-block landmine?** Grepped the current template: its
+  only `<script>` tag is `<script src="/tools/assets/contact-block.js">` —
+  external reference, no inline substitution. `form_action`'s value is always
+  either `""` or a server-built `mailto:<email>?subject=<domain> enquiry`
+  (never containing a literal `"`). The landmine's footprint (a schema value
+  substituted INTO an inline `<script>` block) does not apply to this edit.
 
 ## Council submission gotcha: a DB/config edit's `file` field must be a real repo path
 
