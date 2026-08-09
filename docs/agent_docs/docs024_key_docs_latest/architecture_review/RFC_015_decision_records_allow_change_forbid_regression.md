@@ -111,6 +111,16 @@ field with the unsafe default OFF, not as a documented convention.
   D-001..D-004). Widening the constraint is a stage-1 migration — additive
   and inert until something writes the new type, so per the 2026-07-29 ruling
   it takes the normal council gate, not an RFC of its own.
+- **SUBSTRATE EVIDENCE, measured 2026-08-09 (argues for the dedicated table):**
+  `categories ? 'decision'` was ALREADY in use by three rows from other lanes,
+  meaning "a note about a decision", not "an enforceable record". They are
+  inert here (site_id NULL, no fences, and both readers require both), but the
+  category this RFC declared as "the stable interface" is not exclusively
+  ours. Mitigated in data today by adding a `decision-record` category to the
+  four RFC_015 rows; **owed at the next roll: tighten both readers from
+  `'decision'` to `'decision-record'`.** If the owner prefers, a dedicated
+  `decisions` table removes the ambiguity permanently — this is the concrete
+  cost of the doc_notes substrate, now paid once and visible.
 - Approve the citation-gate semantics (refuse-unless-named) for
   decision-covered subjects, replacing locks for content protection.
 - Rule on supersession authority: may any agent supersede any decision by

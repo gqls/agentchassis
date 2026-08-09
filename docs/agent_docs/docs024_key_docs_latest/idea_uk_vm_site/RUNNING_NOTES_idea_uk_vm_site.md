@@ -3928,3 +3928,39 @@ skipped), positive control (SAME edit WITH `acknowledges_decision` → must
 proceed: a gate that refuses everything is not a gate), and a re-fired
 discovery for the guard (throwaway decision `D-TEST-guard-proof-20260809`,
 impossible pattern → expect one `decision_regression`).
+
+## §X.49 — 2026-08-09: GUARD PROVEN LIVE; gate awaiting queue; and the category was already occupied
+
+**GUARD: PROVEN.** After 355A drove the check, the re-fired discovery filed
+**exactly one** `decision_regression` — naming `D-TEST-guard-proof-20260809`
+and its impossible pattern, at needs_human_review. Fence → check → work item,
+end to end. Both proof artefacts then CLEANED UP (decision row deleted, item
+cancelled with an explanatory suffix): a fake regression left at
+needs_human_review on the owner's live site would read to any other session
+as a real finding.
+
+**GATE: refusal proven (§X.48), clean-terminus retest still QUEUED.** Proof 2
+and its positive control sat `triaged` ~15 min. Not breakage — checked rather
+than assumed: dispatcher healthy (122 items moved fleet-wide in 15 min),
+section-editor workflow well-formed (apply_edit → check_edit_skipped →
+conditional_branch verified in the live row), no agent_error_log entries, and
+idea.uk has nothing else in flight. It is fleet fairness: **my own discovery
+run bumped this site's activity and sorted it to the back of the selector** —
+the [[your-action-moves-you-to-the-back-of-the-selector]] pattern, at
+priority 40 against a 171-item triaged queue.
+
+**FINDING 3 — the category I declared as "the stable interface" was already
+occupied.** `categories ? 'decision'` had THREE pre-existing rows from other
+lanes (council-gate-orchestrator 07-28; plan_sections, page-content-writer
+08-06) meaning "a note ABOUT a decision", not an enforceable record. Inert
+today ONLY because they have site_id NULL + no fences and both readers demand
+both — luck, not design. Mitigated in data now (`decision-record` category
+added to the four RFC_015 rows); **owed at the next roll: tighten both Go
+readers from `'decision'` to `'decision-record'`.** Recorded as a fleet
+landmine and as substrate evidence in RFC_015 §5 — it is the concrete cost of
+the doc_notes substrate, and the owner's open substrate question now has a
+measured data point rather than a preference.
+
+**Still owed:** the two queued proof items (they will dispatch; do NOT re-fire
+— a duplicate proves nothing and costs a round); the council verdict on
+c2940987; steer for page-content-writer, then the save_sections seam.

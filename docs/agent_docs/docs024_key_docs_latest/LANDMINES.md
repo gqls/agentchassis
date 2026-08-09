@@ -7754,3 +7754,33 @@ SELECT type FROM agent_definitions
 - **why it is a landmine:** every other multi-session rule in `CLAUDE.md` is about the *index* and the *working tree*; the stash stack is a third piece of shared mutable state that none of them mention, and it has no commit-scope report, no pathspec discipline and no hook watching it. `git stash list` is also the only place that WIP is recorded, so a wrong pop is not visible in `git status` as anything other than "files you do not recognise".
 - **source:** 2026-08-09, `WRONG_CALLS.md` entry 2 of the bugfix_210 lane — a near-miss, not a loss
 - **added:** 2026-08-09, bugfix_210_needs_logo_unhandleable lane
+
+### `categories ? 'decision'` in doc_notes means TWO different things — three pre-existing rows are prose notes, not enforceable RFC_015 decision records
+
+- **footprint:** `doc_notes`, `categories ? 'decision'`, `decision_guard.go`, `check_decision_guards.go`, `rfc015-staging`, `decision-record`
+
+RFC_015 (2026-08-08) made `categories ? 'decision'` the interface for decision
+records — the rows the citation gate and the guards check read. Measured
+2026-08-09: **the category already had three occupants**, written by other
+lanes before the convention existed (`council-gate-orchestrator` 07-28;
+`plan_sections`, `page-content-writer` 08-06) meaning "a note ABOUT a decision
+we took", not "an enforceable record".
+
+**Why it does not bite TODAY, and why that is luck rather than design:** all
+three have `site_id IS NULL` and carry no ```covers / ```guard fence, and both
+RFC_015 readers filter `WHERE site_id = $1` AND require a fence before they do
+anything. So gating and guarding are unaffected. But **a census is not**: any
+query that counts or lists "the decisions" by category alone over-reports by
+three, and a reader who assumes the category implies the RFC_015 shape will
+mis-read prose as policy.
+
+**the check:** filter RFC_015 decision records on **`categories ? 'decision-record'`**
+(added to the four idea.uk rows 2026-08-09) or on the presence of a fence —
+never on `'decision'` alone, and never on `subject_type` (they are typed
+'component'; migration 354 widened the vocabulary but the staged rows were
+never retyped, exactly as migration 270's landmine rows were left alone). The
+shipped Go still reads `'decision'`; tightening it to `'decision-record'` is a
+code change owed at the next roll, tracked in RFC_015 §5.
+
+- **source:** 2026-08-09, idea_uk_vm_site lane; RUNNING_NOTES §X.48-49; RFC_015 §5
+- **added:** 2026-08-09, ideauk-sec session
