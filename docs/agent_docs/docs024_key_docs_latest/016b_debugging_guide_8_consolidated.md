@@ -11464,3 +11464,57 @@ contradict it. **Two independent mechanisms produced one silence** — and the t
 session would naturally run (is there an item? did it complete?) both lie in the same
 direction. When a stale "fixed" and an undriven detector line up, nothing in the system
 disagrees with anything else, which is what makes the state durable.
+
+### The diagnosis loop's own `data_requests` are written against a schema that does not exist — so any hypothesis whose evidence lives in `agent_definitions` step config comes back UNVERIFIABLE for a reason that has nothing to do with the hypothesis (`bugs_open/234`, 2026-08-09)
+
+**Symptom.** A `090` run completes and returns **UNVERIFIABLE**. Its `needed_evidence`
+reads as a reasonable list of things it could not confirm, so it looks like the symptom was
+under-specified — the standard advice — and the natural response is to rewrite the symptom
+and pay for another round.
+
+**Mechanism.** Read the verdict's `data_requests` before rewriting anything. On the
+2026-08-09 run (`be967639`) both requests were:
+
+```sql
+SELECT agent_type, step_name, config FROM agent_definitions WHERE agent_type IN (…) AND step_name IN (…)
+```
+
+`agent_definitions` has **`type`** and a **`default_config` jsonb**. It has no `agent_type`,
+no `step_name`, and no `config` — `information_schema.columns` returns **0 of 3**. Steps do
+not have rows at all; they are jsonb keys under `default_config->'workflow'->'steps'`, and
+half of them are nested inside a loop's `sub_workflow`. Those queries could not have
+returned a row for any hypothesis, about any agent, ever. The loop then correctly reported
+"unconfirmed" — an honest verdict drawn from evidence it was structurally unable to fetch.
+
+**Why the verdict still reads as plausible.** It compounds with a second, unrelated limit
+that fires on the same class: the code index lags HEAD (~2 days on this run), so symbol
+searches for the step names returned 0 rows too, which it correctly recorded as *"unknown,
+not absent"*. Two independent blind spots, both pointing the same way, both about
+**definitions rather than Go** — which is exactly where config-key and workflow-shape bugs
+live. A third trap sits underneath: a consumer expressed as a **workflow conditional in a
+seed** (`"input_data.spec.x == true"`) is not a Go symbol, so no amount of index freshness
+would have found it.
+
+**What to do.**
+- **UNVERIFIABLE means the loop could not see; it does not mean your premise was false.**
+  Distinguish the two by reading `needed_evidence` and `data_requests` — if the queries
+  could not run, the verdict carries no information about your claim.
+- **Do not resubmit a reworded symptom.** It will fail the same way; the blindness is in the
+  fetch, not the question.
+- **Substitute first-hand verification and SAY SO** (owner ruling 2026-07-31 allows this
+  explicitly, but the substitution must be declared, not silent). For a step-config claim
+  that means: the action body read end to end, every `ExtractActionInputs` strategy
+  enumerated, the live config read **at all depths**, and the damage measured with a
+  positive control.
+- **If your evidence lives in `agent_definitions`, put the resolved VALUES in the symptom**
+  rather than pointing at the table — the loop cannot fetch them itself, and a symptom that
+  names table-and-column is normally the right shape (`090`'s own authoring guidance) but is
+  the wrong shape for this one table.
+
+**The general form, which outlives this defect:** a diagnostic tool's *inability to fetch*
+and a *negative finding* are different facts that arrive in the same field. Before acting on
+any "not found" from an automated investigator — this loop, a verifier, an index-backed
+search — check that the retrieval it performed was capable of returning a positive. Same
+shape as `bugs_open/223` (a verifier that consults one index reports "does not exist" for
+every class the index never ingested) and the `landmine-verifier` NEEDS_HUMAN_REVIEW caused
+by index staleness rather than by anything about the entry.

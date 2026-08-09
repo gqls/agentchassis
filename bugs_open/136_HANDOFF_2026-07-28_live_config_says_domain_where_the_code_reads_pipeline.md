@@ -849,3 +849,63 @@ it said so. Corrected in place; a fourth test isolates the second signal. `WRONG
 
 **Still owed on this file: nothing from §5.** Items 1–5 are done or explicitly skipped with
 reasons. What is open is NEW and separate: the `spec` key above, under diagnosis.
+
+### 13. 2026-08-09 — item D's council round: APPROVED, and the one objection worth the round was checkable
+
+`98d0ef43-818f-4512-960f-1e7868661629` · **approved with 1 advisory objection set, none
+high-severity** · 13 seats reviewed, 3 abstained, `unreadable: 0`, ~7 minutes
+(publish → verdict, far quicker than the ~30 the runbook budgets).
+
+The `architecture` seat classified it **`point_fix`**: *"this adopts an EXISTING shared
+mechanism … it does not create a namespace, contract, or schema column"*, and *"clears none
+of the architecture-review triggers"*. So no RFC, on the same ground as round 1.
+
+**`editquality` (medium) — "the whole plan's safety rests on the claim that the enumerated
+ConfigKeys list plus `spec` is the COMPLETE set … a landmine on this exact estate warns
+that a hand-written walk into sub_workflow/substeps misses the half that runs."**
+
+The best objection of the round, and it cites the landmine **I wrote earlier the same day**
+from the same failure. It is right to ask, and it is answerable rather than arguable:
+
+```
+depth_class          | create_work_item steps
+---------------------+-----------------------
+nested: sub_workflow |  6
+top level            | 11
+```
+
+**17 steps; a naive `->'workflow'->'steps'` descent finds 11.** The enumeration was a
+recursive walk that descends every object and array key with no whitelist, so `substeps`
+is reached by the same code path as `sub_workflow` — there happen to be no `substeps`
+instances on this action today. The claim held; the seat could not have known that from
+the submission, which is the point of asking.
+
+**`editquality` (medium) — "the rationale asserts the three keys are absent from live
+config as the precondition for opting in safely … the plan does not re-verify at edit
+time."** Re-verified after the verdict, against live config:
+`summary_template` **0**, `spec_fields` **0**, `domain` on a `create_work_item` step at any
+depth **0** — with `spec_literal` (1 def) as positive control and an invented string as
+negative, and `spec` still at **3**, the known true positive, exactly as declared.
+
+**`prior_art_librarian` / `architecture` (low) — "attach the lookup rather than trust the
+precedent citation", and "confirm this is EXISTING shared machinery, since if the seam were
+newly built for this bug the plan would be silently constructing dormant machinery under an
+'opt-in' label".** Both checked:
+- `433de2c0-682f-4d8d-8c48-28637309f1ba` → `council_report`, `decision=approved`,
+  2026-08-08 15:47Z. The precedent is real.
+- **66** actions already set `CheckConfig: true` and 6 carry a non-empty `ConfigKeys`; the
+  fields were introduced by `ce9e28784` and `2ebabf2ca` for bugs 100/101, months before
+  this bug. Not dormant machinery, and not new.
+
+**`editquality` (low) — "edit 4 (the CheckConfig isolation test) is the least load-bearing
+edit; flagging under minimality."** Kept, and the seat's own framing is the reason:
+*"defensible given the mutation-testing landmine about two guards absorbing the same
+mutation."* That test exists precisely because the mutation DID get absorbed — see §12.
+
+**Recorded, not acted on:** `bug_historian` and `guidelines` both noted they could not
+independently confirm the live-config enumeration from their own tooling and routed it to
+checks rather than objections; the two queries above answer them too.
+
+**Trailer:** the commit (`ee07e3d86`) carries `Council-Submitted: 98d0ef43…`, written
+before the verdict landed. `098` resolves it at report time now that the correlation is
+approved, so it is credited without an amend — which forward-only forbids anyway.
