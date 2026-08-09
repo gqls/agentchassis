@@ -244,3 +244,29 @@ docs' only mention of rerender is the confounded-proxy discussion:
   or who reads PBP-038 as "the stamp is now refused on any skip", is one deletion away from
   reproducing 210 on the rerender path with no code guard underneath. LANDMINES entry added;
   PBP-038's scope line now states it.
+
+## 2026-08-09 — the landmine verifier's verdict, and the human pass that answers it
+
+Fired `trigger-landmine-verifier.sh` on the new entry (corr `d65dbd74`, the RFC_005 §3.2 flow
+that `landmines-sync.py --apply` asks for on a new/changed entry). Verdict ~13 minutes later:
+**NEEDS_HUMAN_REVIEW** — worth reading precisely, because it is not a contradiction. It resolved
+every symbol (`owned_page_guard.go`, `upstreamAssemblySkipped`, `UpdatePageStatusAction`,
+`check_skipped`), said **nothing contradicts the entry's claims**, and then declined to certify
+for two reasons that are about ITS instruments, not my entry: the **code index was ~2 days stale**
+relative to the entry, and `rerender_single_page_action.go` "did not resolve via ls (possible
+path-prefix issue)" — its own suspicion, and correct: the file is present, 41KB, dated 08-06.
+
+**Human pass done the same hour, first-hand at the tree** (recorded in the entry):
+- guard reads one key — `owned_page_guard.go:309`, `collectedData["assembled_page"]`;
+- rerender emits the skip under a different key — `rerender_single_page_action.go:200`,
+  `"skipped": true` with `html: ""`;
+- **the decisive one, which I added to the entry**: `grep -rn '"rendered_page"'
+  platform/orchestration/actions/*.go` (minus tests) returns **nothing**. No Go code reads that
+  key at all. The config conditional is not merely the first guard, it is the ONLY one — the
+  claim reduced to a single command whose result could plainly have come out otherwise.
+
+**Not re-dispatched after the edit.** The sync flags the entry changed and asks for verification
+again, but the blocker was index staleness; a second run re-reads the same stale index and would
+return the same verdict for the same reason. Recording the human pass in the entry is the
+substantive answer. [ASSUMED] that a later index refresh will let a routine sweep certify it —
+not checked, and nothing depends on it.
