@@ -133,3 +133,26 @@
   driver is the 230 rotation once 083 gives detection a drain. Not folded
   in: a sweep with no driver is a helper with no callers, and file-don't-fold
   is the disposition the owner ratified for this bug's own birth.
+
+## 2026-08-09 — session 1 (round 3 → REVISE → round 4)
+
+- Round 3 ~21:4xZ: **REVISE, gated by editquality again — and again the
+  submission, not the code.** The plan's RISKS field still said "loudness
+  contained to save_page_sections + rebuild_blog_listing...
+  section_editor/create_report_page overwrites archive but do not emit" —
+  ROUND-1 text, carried through two rewrites while the edit list shipped
+  four emitters. Three seats (editquality, guardian ×2) flagged the
+  self-contradiction. **The lesson generalises: a multi-field submission is
+  a document, and every field is a claim — I updated rationale, summary and
+  edits each round and never re-read risks.** Round 4 rewrites risks to
+  state the four-emitter reality once, WITH the blast radius sized (zero
+  emits on day one — 0/1331 rows stamped; steady state bounded by
+  hand-patch frequency, not write volume; the chrome sibling's production
+  day measured ~1 item).
+- debug_historian medium (no pod-grep step): answered honestly — the Go
+  half is inert until the owner's whole-fleet release, so today's pod-grep
+  would verify an absence we assert (1274 predates the code). The
+  verification plan is now IN the submission: post-release pod-grep by
+  image+ownerKind enumeration with positive AND temporal-negative controls,
+  then the e2e protocol. Already the bug file's close criterion.
+- Round 4 submitted on the trail. No code change since round 2.
