@@ -212,6 +212,118 @@ CASES = [
                    "loan-benefit": "£30.00", "save-benefit": "£50.00"},
         "prefix_missing": ["loan-badge", "save-badge"],
     },
+
+    # ── 0% RATE, added 2026-08-09 by the bugfix-224 session ──────────────────
+    # These six tools had no case here at all, which is why the defect survived
+    # a green `toolgolden 11/11` for months: its vectors scale each field's own
+    # default by x1/x2/x0.5, and no scaling of 7.9 is 0. The pre-fix readings
+    # below are the DEFAULT-vector answers for the two stale tools (the DOM was
+    # never written, so the first paint's figures stayed) and literal £NaN for
+    # the three ungated ones — all reproducible at PRE_FIX_REF, because these
+    # defects predate the 08-03 batch rather than being introduced by it.
+    {
+        "name": "loan-repayment computes at 0% instead of leaving the last answer",
+        # Staged as standard-calc because that is the slug verify_rewrite's SPECS
+        # knows; the component is `tool-loan-repayment`, and the LIVE page that
+        # carries it is the HOMEPAGE (/tools/standard-calc.html was retired by
+        # owner ruling and 404s, though its DB rows remain).
+        "slug": "standard-calc",
+        "why": (
+            "Guarded `r > 0` with no else, so a 0% APR returned without touching "
+            "the DOM: the same inputs showed two different answers depending on "
+            "the route taken to them. This widget is on the HOMEPAGE."),
+        "set": [("amount", "10000"), ("interest", "0"), ("years", "5")],
+        # 10000 over 60 months, no interest: 10000/60 = 166.666... -> £166.67
+        "expect": {"monthly-display": "£166.67", "total-interest": "£0.00",
+                   "total-cost": "£10,000.00"},
+        "prefix_expect_instead": {"monthly-display": "£202.29"},
+    },
+    {
+        "name": "loan-repayment is UNCHANGED at a non-zero rate",
+        "slug": "standard-calc",
+        "why": "The control for the case above: the r>0 path must still compute.",
+        "set": [("amount", "10000"), ("interest", "7.9"), ("years", "5")],
+        "expect": {"monthly-display": "£202.29", "total-interest": "£2,137.40",
+                   "total-cost": "£12,137.40"},
+        "same_pre_and_post": True,
+    },
+    {
+        "name": "compare-loans prices a 0% offer and does not invert the verdict",
+        "slug": "compare-loans",
+        "why": (
+            "Ungated, so 0/0 printed £NaN — and `NaN < x` is false, so the "
+            "verdict fell through and declared the OTHER option cheaper. A 0% "
+            "loan in slot A was ALWAYS reported as the more expensive one."),
+        "set": [("amt-a", "5000"), ("apr-a", "0"), ("term-a", "3"),
+                ("amt-b", "5000"), ("apr-b", "10"), ("term-b", "3")],
+        # 5000/36 = 138.888... -> £138.89, and no interest on an interest-free loan
+        "expect": {"res-m-a": "£138.89", "res-i-a": "£0.00"},
+        "expect_contains": {"verdict": "A"},
+        "prefix_expect_instead": {"res-m-a": "£NaN", "res-i-a": "£NaN"},
+    },
+    {
+        "name": "rate stress test prices the current payment at 0%",
+        "slug": "interest-rate-stress-test",
+        "why": (
+            "Only P and n were guarded, never the rate, so #curr-pay read £NaN "
+            "at 0% while #new-pay (at apr + the stress delta) stayed correct — "
+            "which is why only one selector was ever visibly wrong."),
+        "set": [("stress-bal", "10000"), ("stress-apr", "0"), ("stress-term", "3")],
+        "expect": {"curr-pay": "£277.78"},          # 10000/36
+        "prefix_expect_instead": {"curr-pay": "£NaN"},
+    },
+    {
+        "name": "overpayment at 0% saves nothing and says so in months too",
+        "slug": "overpayment-calculator",
+        "why": (
+            "M was NaN, so `NaN > balance` was false, the else branch ran, the "
+            "balance became NaN, `NaN > 0` was false and the loop exited after "
+            "ONE iteration — which is where '59 months saved' came from."),
+        "set": [("bal", "15000"), ("rate", "0"), ("term", "5"), ("over", "50")],
+        # 15000/60 = 250; at +50 the debt clears in 50 months, so 10 saved and
+        # there is no interest to save on an interest-free debt.
+        "expect": {"save-display": "£0.00", "time-display": "10"},
+        "prefix_expect_instead": {"save-display": "£NaN", "time-display": "59"},
+    },
+    {
+        "name": "early settlement at 0% is the balance, not the last rate's figure",
+        "slug": "settlement-calculator",
+        "why": (
+            "Guarded `apr > 0` with no else. This estimate is LINEAR in the rate, "
+            "so zero is simply 'no 58-day interest' — the one tool here where "
+            "widening the guard is the right fix rather than the wrong one."),
+        "set": [("settle-bal", "5000"), ("settle-apr", "0")],
+        "expect": {"settle-result": "£5,000.00"},
+        "prefix_expect_instead": {"settle-result": "£5,078.66"},
+    },
+    {
+        "name": "consolidation prices a 0% new loan instead of quoting £0.00 a month",
+        "slug": "consolidation",
+        "why": (
+            "newMonthly was initialised to 0 and the guard was `newR > 0`, so an "
+            "interest-free consolidation was quoted at £0.00 a month — a "
+            "DETERMINISTIC wrong answer, which is why the sweep that caught the "
+            "other five is blind to it. And the verdict tested newN but not newR, "
+            "so newTotalInterest = 0 fed 'this will SAVE you' on the page whose "
+            "job is to warn about term extension."),
+        "set": [("debt-1-bal", "5000"), ("debt-1-rate", "10"), ("debt-1-months", "24"),
+                ("new-rate", "0"), ("new-term", "5")],
+        # 5000 over 60 months at 0%: 83.33/month, no interest.
+        "expect": {"new-monthly": "£83.33", "new-int": "£0.00"},
+        "prefix_expect_instead": {"new-monthly": "£0.00"},
+    },
+    {
+        "name": "consolidation still refuses a BLANK new-loan rate after the 0% fix",
+        "slug": "consolidation",
+        "why": (
+            "The regression the 0% fix could most easily have introduced: once a "
+            "zero rate prices a real loan, `parseFloat('') || 0` would price an "
+            "UNFILLED form as interest-free. Blank stays distinct from zero, the "
+            "same distinction the debt loop already makes."),
+        "set": [("debt-1-bal", "5000"), ("debt-1-rate", "10"), ("debt-1-months", "24"),
+                ("new-rate", ""), ("new-term", "5")],
+        "expect": {"verdict": ""},
+    },
 ]
 
 DRIVE = r"""
