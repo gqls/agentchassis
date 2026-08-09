@@ -576,3 +576,53 @@ in flight when I dispatched). Two new `needs_imagery` items appeared at 13:51
 for `model-approach-selector` and `tool-automation-savings-estimator` — those
 are content heroes for other pages, not case studies, and are unrelated to
 these five.
+
+### 2026-08-09, later — the run COMPLETED and fixed nothing, and one claim above is now CORRECTED
+
+> **CORRECTED 2026-08-09.** Earlier in this entry I wrote, as a checked mechanism fact:
+> *"Five items and no other `triaged` row on the site = one clean batch."*
+> **That was true when measured and false by the time it mattered — my own dispatch
+> destroyed it.** Full account in `WRONG_CALLS.md` (2026-08-09).
+
+`ORCH 18b299ff` ran 48 minutes, reported `complete / COMPLETED`, and left all five
+items `triaged` with `attempt_count = 0`. Nothing failed. It dispatched a batch of
+five — a priority-5 `deactivated_component`, a `needs_design_review` and three
+others — **none of them mine.**
+
+**The mechanism I missed sits inside the loop I fired.** `improvement-loop` runs
+`triage_findings` *before* `spawn_dispatch`/`call_dispatch`, and that step promotes
+`detected → triaged` in bulk across the site. It moved ~95 findings in this run:
+
+```
+priority 35 → 20 items (19 page_rerender + 1 content_rewrite)
+priority 60 →  8 · priority 65 → 5 · priority 80 → 46 page_rerender
+priority 90 →  my 5 (+2 other needs_imagery, +3 needs_page)
+```
+
+`load_work_items` is `ORDER BY priority ASC, created_at ASC LIMIT max_items(5)`, so
+the five case-study items went from *the only claimable rows on the site* to
+*positions ~80–84 of a 95-item queue that drains five per run* — during the very run
+meant to serve them. At five per firing that is ~16 further loop runs.
+
+**What caught it: the watcher's authority was the served URL.** It held at
+`SERVED: 0/5` across 30 polls while the orchestration said COMPLETED. Both the
+orchestration status and the item status would have read as success — the run *did*
+succeed, at other work. This is the lane's own "trust the artefact, not the status"
+rule paying for itself a second time.
+
+**Fix applied:** the five re-prioritised to `priority = 1` — exactly one `max_items`
+batch — with an in-transaction assertion that **zero** claimable items sit ahead of
+them. `1` rather than something softer because triage mints low numbers itself (the
+batch that displaced them carried a priority-5 item), so any middling value can be
+outranked again by the next run's own promotions. SQL:
+`scratchpad/reprioritise_case_study_imagery.sql`.
+
+**Not queue-jumping, correct ordering:** 65 of the items ahead were `page_rerender`,
+and a rerender that runs *before* the images exist re-staples pages that still lack
+them and has to run again.
+
+**Also confirmed while diagnosing this** (`LANDMINES.md`, 2026-08-08,
+webdesign_uk_build_service): hand-dispatching `build-dispatch-loop` with a bare
+`action=orchestrate` to skip the expensive loop **reports COMPLETED and processes
+nothing**. So re-firing the full 294 trigger is the supported route, not a
+convenience — the cheap-looking shortcut is a documented no-op.

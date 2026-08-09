@@ -25595,3 +25595,57 @@ lesson with the twist that **I did not have to commit anything for it to bite �
 
 **The shape, for the tally.** Third entry in the "your comparison's two arms were not comparable"
 family, and the first where the difference was introduced by **another session mid-measurement**.
+
+---
+
+## 2026-08-09 — "Five items and no other triaged row = one clean batch" — falsified by the very act of firing the loop (finetuning imagery, Phase 1)
+
+**The claim.** Queueing the five finetuning.uk case-study `needs_imagery` items, I wrote
+into the lane NOTES, as a checked mechanism fact:
+
+> `build-dispatch-loop`'s `load_items` step sets **`max_items: 5`** and no
+> pipeline/handler filter, ordered `priority ASC, created_at ASC`. Five items and no
+> other `triaged` row on the site = one clean batch. Had there been six, one would
+> have been left behind silently.
+
+Every component of that was true and I had measured it: `max_items: 5` read from the
+live agent definition, `ORDER BY wi.priority ASC` read from
+`load_work_item_actions.go:680`, and a `SELECT` returning **exactly my five** rows as
+the only `triaged` items on the site.
+
+**What actually happened.** The loop ran for 48 minutes, reported
+`current_step=complete / COMPLETED`, and **never touched the five items** — still
+`triaged`, `attempt_count` 0. Its `dispatch_result` shows a batch of 5 loaded, none of
+them mine: a priority-5 `deactivated_component`, a `needs_design_review`, and others.
+
+**Why.** The improvement loop's own `triage_findings` step promotes `detected →
+triaged` **in bulk, as part of the same run**. It moved ~95 findings, 20 of them at
+priority 35 and 46 at priority 80 — all ahead of my 90. My five went from "the only
+triaged rows on the site" to "positions 80–84 of a 95-item queue that drains 5 per
+run" **during the run I fired to serve them**.
+
+**What caught it.** The watcher's authority was the served URL, not the item status —
+it sat at `SERVED: 0/5` through 30 polls while the orchestration went COMPLETED. Had I
+verified at the work-item status or the orchestration status, both would have said the
+run succeeded, because it did succeed; it just succeeded at other work.
+
+**The cheap check.** **A pre-flight that your own action invalidates is not a
+pre-flight.** Before relying on queue position, ask what the thing you are about to
+fire *does to the queue* — one read of the loop's own step list would have shown
+`triage_findings` sitting between me and dispatch. Concretely: re-measure the
+ordering predicate *as the dispatcher will evaluate it*, after the promoting step,
+not before it —
+`SELECT priority, count(*) FROM site_work_items WHERE site_id=… AND status IN
+('triaged','approved') GROUP BY 1 ORDER BY 1` — and compare against `max_items`.
+
+**The shape, for the tally.** This is the `your-action-moves-you-to-the-back-of-the-
+selector` family (filing a finding bumps `updated_at` and re-sorts it), but through a
+different door: not my write re-sorting my row, but **my dispatch promoting ~95
+competitors past a row I had just verified was unopposed.** The measurement was
+correct, dated, and had a shelf life of seconds — and nothing in "verify before you
+act" catches a precondition that the action itself destroys.
+
+**Fixed by** re-prioritising the five to `priority = 1` (exactly one `max_items`
+batch) with an in-transaction assertion that nothing claimable sits ahead of them —
+`priority = 1` rather than a middling value precisely because triage mints low numbers
+of its own and would outrank anything softer on the next run.
