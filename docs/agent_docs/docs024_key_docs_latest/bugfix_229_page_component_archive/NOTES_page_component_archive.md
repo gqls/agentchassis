@@ -101,3 +101,35 @@
     no reader outside the two divergence mechanisms exists.
 - All tests green after revisions; round 2 submitted on the same trail
   (`RESUBMIT_CORR=eee2888b…`).
+
+## 2026-08-09 — session 1 (round 2 → REVISE → round 3)
+
+- Round 2 ~21:0xZ: **REVISE, gated by editquality (HIGH)** — and the defect
+  was in MY SUBMISSION, not the code: the round-1→schema restructuring script
+  split the combined edit entry `"section_editor_actions.go +
+  create_report_page_action.go"` on " + " and KEPT ONLY THE FIRST file, so
+  the round-2 edit list promised four loud writers and named three. The code
+  ships all four (`ebb879fc1`); the JSON under-declared. A reviewer can only
+  see the submission — an edit list is a CLAIM, and mine was false by
+  transformation. Round 3 fixes the list (create_report_page as its own
+  edit; the migration + rollback entries merged to stay within 8).
+- **reuse_agent: APPROVE** — the round-1 gating objection (column already
+  exists) accepted the three-proof answer. The after-the-fact-review artefact
+  class is now demonstrated on this trail: the reviewer's schema contains
+  the submission's own applied half.
+- **Guardian mediums, both EXECUTED not argued**:
+  - Migration ledger: 351 AND 357 were applied by single-file psql but never
+    RECORDED — a later `--apply` would have re-run both (the exact NNN/ledger
+    landmine). Both now `--record-only`'d with notes naming the probe story.
+    A real catch; the 344 practice said "record" and I did it for neither.
+  - Rollback drill: the sidecar's statements executed inside a
+    BEGIN…ROLLBACK — DROP×3 clean, guard NOTICE fired ("0 triggers remain
+    inside txn"), and after ROLLBACK both triggers verified still live and
+    enabled ('O'). The drill proves execution + guard without ever exposing
+    the fleet to an unguarded window.
+- **bug_historian medium (unenumerated writers archive-but-never-surface)**:
+  filed as STY-056 open-review (e) WITH the sweep query written out — the
+  ledger's trigger-written verdicts make it one indexed query; its natural
+  driver is the 230 rotation once 083 gives detection a drain. Not folded
+  in: a sweep with no driver is a helper with no callers, and file-don't-fold
+  is the disposition the owner ratified for this bug's own birth.
