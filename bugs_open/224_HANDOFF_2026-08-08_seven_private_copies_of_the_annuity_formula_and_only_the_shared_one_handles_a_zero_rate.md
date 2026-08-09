@@ -53,6 +53,45 @@ non-verbatim rows loudly), and `deploy_pages.py` died polling its own INSERT
 (the psql command tag rode along in the returned id; fixed). Both in the lane
 NOTES 2026-08-08/09 entries.
 
+### STATE 2026-08-09 (evening) — loancalculator.co.uk FIXED IN THE DATABASE, six components, awaiting six queued rerenders
+
+Taken by the bugfix-224 session on the owner's direction ("fix it in all the
+calculators"); the loancalculator lane was told first, in
+`loancalculator_couk/CONTRIB_2026-08-09b_bugfix224_session_taking_the_zero_rate_fix.md`.
+Their two live threads are copy/voice and `bugs_open/227`; neither is
+arithmetic, and no work item mentioned this defect.
+
+**Six components fixed** (templates committed `767681e0d` BEFORE apply, per that
+lane's own landmine), through their pipeline — `update_component --apply` →
+`render_tool_row --apply` — so `page_components.rendered_html` now holds the
+fix on all seven rows (`tool-loan-repayment` writes two: the homepage and the
+retired `/tools/standard-calc.html`).
+
+- `tool-loan-repayment` (HOMEPAGE widget), `tool-early-settlement` — stale-answer
+  guards → zero branch / `apr >= 0`, plus always-write.
+- `tool-compare-loan-offers` — zero branch, **and the verdict is now withheld
+  unless BOTH offers compute**, which is what let `NaN < x` recommend the wrong
+  loan.
+- `tool-rate-stress-test`, `tool-overpayment-impact` — zero limit in the payment
+  (also kills the "59 months saved": NaN exited the loop after one iteration).
+- `tool-consolidation-risk` — the detector-blind one: a deterministic £0.00/month
+  **with a "this is better" verdict**. Fixed, and a **blank** rate is kept
+  distinct from a zero rate (mirroring the debt loop) — without that, this fix
+  would have priced an unfilled form as interest-free.
+
+**Verified before shipping, on the exact bytes that will ship**: the rewritten
+rows were pulled from the DB and driven headless — 18/18
+(`loancalculator_couk/rewrite/probe_zero_rate_rows.py`). **8 new
+`defect_vectors.py` cases** now cover the 0% rate on all six; that lane had none
+for these tools, which is precisely why a green `toolgolden 11/11` coexisted
+with five broken pages.
+
+⏳ **NOT YET LIVE.** Six assemble-only `page_rerender` items
+(`source='bugfix224-zero-rate'`) are `triaged` behind ~73 older items in the
+fleet queue. They are waiting, not stuck — do not re-file. Live verification
+when they land is in
+`loanandmortgagecalculator_couk/HANDOFF_2026-08-09_continue_here.md` §1.
+
 ## 2026-08-09 — THE SAME DEFECT IS LIVE ON loancalculator.co.uk (5 pages). NOT FIXED
 
 > **CLAIMED — DO NOT START A SECOND FIX. Corrected 2026-08-09, ~1 hour after
