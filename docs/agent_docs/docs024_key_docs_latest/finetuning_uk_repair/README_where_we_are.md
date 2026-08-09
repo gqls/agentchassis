@@ -230,3 +230,47 @@ have handlers and are queued.
 
 Still yours: what to do about the 204 findings parked across ten sites. That is
 unchanged and is the biggest thing this exercise turned up.
+
+---
+
+## 2026-08-09 — the five case-study pictures are now being made
+
+Picking up where the handoff left off. First I checked the thing everyone had been
+warned about: the five case-study pictures were still missing, and they were.
+
+The worry written into the plan was that the picture-maker might produce a file in
+the wrong format — a PNG where the pages are asking for a JPG — in which case the
+system would cheerfully report success while the pages stayed broken. That turned
+out to be a real risk and a solved one, and the way I found out is worth repeating
+because it is the opposite of what reading the code alone would have told you.
+
+The picture-maker **does** produce a PNG. I could see it in the record of a job
+that ran successfully a week ago. But the step that publishes the picture to the
+website converts it to a JPG on the way out, and the file that actually landed is
+a JPG. So the chain works — but only if you look at the end of it. If I had read
+the picture-making code and stopped there, I would have concluded we had a
+problem, and if I had read only the plan I would have assumed we did not.
+
+So the five jobs are queued and running now. Each one is told what the case study
+is about, using the descriptions already on the site — the ones written for people
+who cannot see images, which turn out to be a good brief for making one
+("abstract geometric network diagram", "calm atmospheric geometry", and so on).
+Nothing about the imagery is my invention; it comes from the site's own words.
+
+One thing I want to flag because it looks like a shortcut and is not. Normally the
+system finds this kind of problem by itself. In this case it deliberately does not:
+the check that spots a missing picture is built to raise a flag and stop, on the
+reasoning that deciding what to do about a broken picture reference is not
+something a picture generator can judge. That is sensible for a stale link and
+wrong for this case, where five real cards want five real pictures. So I raised
+the five jobs by hand, then let the normal machinery do the rest — same job type,
+same handler, same dispatcher as the ten that worked last week.
+
+I will not call this done until I have loaded the five addresses in a browser and
+got a picture back. A job marked "complete" is not a picture on a page, and this
+lane has already been caught by that distinction once.
+
+Separately, and unrelated to the site: the credential-logging problem you asked
+about is fixed and the fix is live on the fleet as of today. There is one loose
+end that matters for the key rotation you said you would do later, and it is a
+timing one — details in the note below.

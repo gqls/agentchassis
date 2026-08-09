@@ -500,3 +500,79 @@ drained. Remaining: 85 needs_human_review, 25 unresolved, 13 failed, 11 blocked
 Next actions and their traps are in
 `../finetuning/HANDOFF_2026-08-08_continue_here.md` §3 — that file is now the
 cold-start for both lanes.
+
+---
+
+## 2026-08-09 — Phase 1 fired: the five case-study images queued and dispatched
+
+Picked up from `../finetuning/HANDOFF_2026-08-08_continue_here.md` §3 task A,
+after verifying the unrelated B2 credential fix had shipped on v1.0.1274
+(`bugs_open/233`).
+
+**State on arrival, re-measured rather than carried forward:** all five
+`/assets/images/case-study-*.jpg` still **404**, positive control
+`/index.html` = 200, so the check discriminates.
+
+**The extension trap is RESOLVED, and the answer is that the framework already
+handles it.** The plan flagged `[UNVERIFIED] that the generated extension will
+be .jpg` as the live risk that "fails silently in the direction of looking
+successful". Settled three ways rather than by reading one of them:
+
+1. `platform/storage/url_helpers.go` — `ImagePurposes["content_hero"]` is
+   `{1600, 900, 85, "jpg"}`; `DeployedAssetPath` takes the extension from
+   `GetImageConfig(purpose)` and the filename from
+   `AssetKeyFilename(assetKey, dotExt)`, which is
+   `strings.ReplaceAll(assetKey, "_", "-") + ext`.
+2. **Live, on this site, with negative controls** — three assets that already
+   went through this exact chain:
+   `content-hero-ai-agent-roi-estimator.jpg` 200,
+   `content-hero-llm-cost-calculator.jpg` 200, `hero-case-studies.jpg` 200;
+   the same asset as `.png` → **404**, and with underscores kept → **404**.
+   So both halves of the derivation are confirmed, not just the happy path.
+3. **The decisive one — a completed run's own record.** The 08-03
+   `llm-cost-calculator` item's `result` shows the generated original in S3 is
+   a **`.png`** (`…/796d3589-….png`) while `deploy_result.data.file_path` is
+   **`/assets/images/content-hero-llm-cost-calculator.jpg`**. The generator
+   emitting PNG was the exact failure the plan feared; the deploy leg converts.
+   Reading only the generator would have produced a confident wrong answer.
+
+**What was queued.** Five `needs_imagery` rows, `handler_agent =
+image-build-handler`, `purpose = content_hero` (the jpg config),
+`asset_key = case-study-<slug>` — so `DeployedWebPath` yields exactly the five
+paths **both** surfaces already reference, per the plan's resolved item 3.
+Prompts derive from the site's OWN copy: each card's title, its excerpt, and
+its existing `card*_image_alt`, which already carries the art direction
+("abstract geometric network diagram…", "calm atmospheric geometry…"). Nothing
+invented — the framework wrote that copy and the images should match it.
+
+**Why hand-queued at all** (it looks like bypassing the framework and is not):
+`check_image_url_404` is flag-only by design, so its eleven items sit `blocked`
+with "No handler_agent set" and **no discovery pass will ever raise these**.
+Same item type, same handler, same dispatcher as the ten that succeeded on
+08-03 — only the raising step is manual, which is precisely what the plan's
+Phase 1 specifies.
+
+**Two mechanism facts worth keeping** (both read from the live rows, not assumed):
+- `status='detected'` is NOT claimable. `load_work_items` claims
+  `status IN ('triaged','approved') AND attempt_count < max_attempts AND
+  approval_mode='auto'`, so the rows were written `triaged` directly.
+- `build-dispatch-loop`'s `load_items` step sets **`max_items: 5`** and no
+  pipeline/handler filter, ordered `priority ASC, created_at ASC`. Five items
+  and no other `triaged` row on the site = one clean batch. Had there been six,
+  one would have been left behind silently.
+
+**Dispatched** via the standing per-site trigger; both pre-flights passed
+(youngest chassis pod 8822s old; 0 claimed items).
+`ORCH_ID=18b299ff-59d0-4676-b969-650f38ded505`,
+correlation `80076b13-b8fe-4d15-9d2e-03f9b87e4b44`.
+
+**Verification is at the served URL, not the item status** — a `complete`
+`needs_imagery` row is not a serving image, and this lane has the 08-03
+precedent for exactly that gap.
+
+**Note for whoever runs Phase 2/3:** another thread fired discovery and a design
+review at this site earlier today (runs at 13:51–14:44 UTC, all COMPLETED, none
+in flight when I dispatched). Two new `needs_imagery` items appeared at 13:51
+for `model-approach-selector` and `tool-automation-savings-estimator` — those
+are content heroes for other pages, not case studies, and are unrelated to
+these five.
