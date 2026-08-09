@@ -24653,3 +24653,24 @@ gets option 3 ("leave it inert") chosen by default. And it is the second row thi
 the falsifier was already in hand when the claim was written (see 08-08, `Pending (98)`).
 The pattern is not "didn't measure"; it is **measured, got a contradiction with a known
 fact, and did not treat the contradiction as the result.**
+
+- **CORRECTED 2026-08-08 (same entry, sharper cause).** The entry above says "eight
+  of the nine live rows have an empty `body` column, so I composed long-form bodies".
+  True of that column and **misleading as a diagnosis**: the prose was there the whole
+  time, one column over. Measured on the live pool —
+  `SELECT count(*) FILTER (WHERE COALESCE(body,'')=''), count(*) FILTER (WHERE
+  COALESCE(detail_body,'')=''), count(*) FILTER (WHERE COALESCE(NULLIF(body,''),
+  COALESCE(detail_body,''))='') FROM provocations WHERE domain='vonc.com' AND
+  status='approved';` returns **8 | 2 | 1**. So `body` is empty in 8 of 9,
+  `detail_body` is empty in only 2, and **exactly ONE row has no prose in either
+  column**.
+  **The real error was reading one column of a five-column prose schema and
+  concluding the content did not exist** — not "the owner's text is missing" but "I
+  looked in the wrong place, then wrote a replacement for text that was already
+  there." Caught by a concurrent session, which hit the same trap the same week and
+  had it briefly suggest the entire pool had been wiped.
+  **The check:** when a table spreads prose across several columns
+  (`body`/`detail_body`/`teaser`/`card_desc`/`headline`), never read one and infer
+  absence — enumerate them (`SELECT ... count(*) FILTER (WHERE col='')` per column,
+  as above) and match the COALESCE order the consuming code actually uses. A single
+  `length(body)=0` is a fact about a column, never about the content.
