@@ -32,7 +32,8 @@ dispositions and the LIVE verification evidence live there). Register entry: **P
    `SELECT * FROM site_work_items WHERE item_type='page_build_failed';` (also 0 at baseline).
    The architecture seat asked for park-inflow vs queue-drain sizing "shortly after rollout" —
    these two queries are that sizing.
-2. **Owner decision, time-bounded: the 7 un-muted dartsonline pages.** The `cancelled`
+2. **~~Owner decision, time-bounded~~ DONE 2026-08-09: mute stands, all 7 re-marked
+   `wont_fix` with provenance, audit re-run clean (NOTES). Original item:** The `cancelled`
    alignment releases the 07-20 mute on brands, brands-index, grip-styles, guides,
    product-detail, shop, shop-index — they re-emit LLM builds when dartsonline is next
    REPLANNED (reconcile runs inside build-site-planner, demand-driven — so nothing happens

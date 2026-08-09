@@ -147,3 +147,31 @@ writing the WRONG_CALLS entry about the first two. The tally is the point; entry
   release produces ONE owned_page_review row via the reconciler's ownership branch, no LLM
   build. The single cancelled `owned_page_review` is oufe's `zz-canary-208` cleanup row —
   the page is in no plan, so releasing it does nothing.
+
+## 2026-08-09 — owner decisions taken; the 7 re-muted (UPDATE 7, row identity verified)
+
+- **Watch checked before anything else**: 0 refusals (`DEPLOY_STAMP_REFUSED_ON_SKIP`),
+  0 parks (`page_build_failed`) — [MEASURED] ~09:45 UTC, ~16h post-roll. No first
+  measurement yet; this is also the architecture seat's park-inflow-vs-drain sizing (both 0).
+- **Owner decisions (AskUserQuestion this session):** (1) the 07-20 mute STANDS — re-mark
+  the 7 as `wont_fix`; (2) the behavioural canary is AUTHORISED (live dispatch).
+- **The audit returned EIGHT rows on re-run, not seven** — the snapshot went stale exactly
+  as the RUNBOOK warns. The 8th is `new-arrivals`: its PAGE flipped to `needs_rebuild` at
+  08:58:41 UTC today, flipped by whoever is actively driving dartsonline right now (a
+  full-site `page_rerender` wave filed 09:03 UTC, pages deploying as I watched: contact
+  09:29, about 09:25, index 09:16; `sale` flipped in the same second, and `sale` has no
+  cancelled item so it never enters the audit). **Not the guard** — refusal count was 0.
+  **Deliberately left alone**: not in the approved seven, actively owned by another lane,
+  and a `wont_fix` on its 07-20 row would not stop a direct build anyway (the mute only
+  blocks reconcile re-emission).
+- **Checked before updating: reconcile had NOT yet fired** — zero new `needs_page` rows on
+  dartsonline in 24h (the wave is `page_rerender` + one `chrome_divergence_overwritten`,
+  different item_type, different keys, no collision with the 07-20 rows). The door closed
+  before any replan tripped it.
+- **The UPDATE**: 7 rows by id, `status='wont_fix'`, provenance merged into `result`
+  (`remute: owner decision 2026-08-09 …`), `RETURNING` listed exactly brands, brands-index,
+  grip-styles, guides, product-detail, shop, shop-index — row identity, not just `UPDATE 7`.
+- **Verified by audit re-run**: the 7 are gone; remaining rows are `vonc.com/provocation`
+  (left released per the owner decision's framing — one review item, no build),
+  `new-arrivals` (above), and synthetic `verify*`/`page_rerender:*` keys matching no plan
+  page (webdesign.uk rows newly present from other lanes' churn — same no-effect class).

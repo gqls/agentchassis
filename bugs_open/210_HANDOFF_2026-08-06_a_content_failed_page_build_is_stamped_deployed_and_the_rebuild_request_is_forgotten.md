@@ -30,10 +30,13 @@ loss of a build request, no data destroyed.
 > objection found a real population: the `loadOpenPageItems` 'cancelled' alignment releases
 > the mute on **7 dartsonline pages** (~~8~~ — CORRECTED 2026-08-08, transcription miscount,
 > caught by re-running the audit post-roll; WRONG_CALLS entry) cancelled 2026-07-20, at that
-> site's next reconcile — owner call whether to re-mute them as `wont_fix` (the durable
-> verb); query in the RUNBOOK. The seven: brands, brands-index, grip-styles, guides,
+> site's next reconcile — ~~owner call whether to re-mute them as `wont_fix` (the durable
+> verb); query in the RUNBOOK~~ **DECIDED + EXECUTED 2026-08-09: the mute stands — all 7
+> re-marked `wont_fix` by id with provenance in `result`, row identity verified, audit
+> re-run clean (lane NOTES). Done before any replan tripped it — checked: zero re-emitted
+> `needs_page` rows.** The seven: brands, brands-index, grip-styles, guides,
 > product-detail, shop, shop-index. Plus `vonc.com/provocation` (owned) → one review item,
-> no LLM build.
+> no LLM build — deliberately left released.
 > Lane docs:
 > `docs/agent_docs/docs024_key_docs_latest/bugfix_210_content_failed_build_stamped_deployed/`.
 > **Stays OPEN until the fix is live on the fleet and pod-verified** (grep

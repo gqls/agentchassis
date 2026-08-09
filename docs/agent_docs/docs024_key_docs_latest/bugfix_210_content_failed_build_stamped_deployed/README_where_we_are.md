@@ -46,3 +46,15 @@ caught it. The seven are: brands, brands-index, grip-styles, guides, product-det
 shop-index, all muted on 20 July. They rebuild only when dartsonline is next replanned, so
 there is time to re-mark them "won't fix" if the mute should stand. One more page, vonc.com's
 "provocation", is owner-flagged rather than rebuilt — it raises a review ticket, costs nothing.
+
+**2026-08-09.** You made the two calls this morning: the darts-site mute stands, and the live
+test of the new guard is a go. The mute is done — the seven pages are now marked "won't fix",
+which holds under both the old rules and the new ones, so a replan of dartsonline will no longer
+quietly rebuild them. Worth knowing: when I re-ran the check before acting, an eighth page
+(new-arrivals) had joined the list — someone is actively working dartsonline this morning,
+rerendering most of the site, and they set that page up for a rebuild deliberately. I left it
+alone; it isn't part of the July mute decision. I checked the timing too: nothing had re-emitted
+yet, so the door closed before anything slipped through. The guard's own counter is still at
+zero — it has not fired for real yet. Next up: the live test (a throwaway page on a quiet site,
+made to fail three times on purpose, to watch the guard refuse, park it, and then release it
+when a build finally succeeds).
