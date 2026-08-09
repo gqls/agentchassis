@@ -290,3 +290,18 @@ distinction, the sql_for_agents convention) that a careful-enough re-read
 would have caught before submitting. The council is functioning exactly as
 CLAUDE.md describes it: slower than skipping it, and each round has been
 strictly correct.
+
+**Council round 4: APPROVED** (2026-08-09 10:09:55 UTC, 15 reviewers, 2
+abstained, correlation `46f87e4c-05fc-4a5c-bd6a-93a073b63253`). All 6 edits
+(the committed Go framework fix + tests + register entry, plus the 3 staged
+scripts: apply, dispatch, verify) approved. `85390ee33` already carries
+`Council-Submitted:`, so per CLAUDE.md's design this resolves automatically
+at 098-report time — no amend, no new commit needed for that trailer. The
+later docs/script commits are out of council scope (docs, not
+platform/internal/pkg) and correctly carry no trailer.
+
+Deploy status unchanged: 39 chassis-binary pods fleet-wide (35 Job + 4
+ReplicaSet, down from 54 as completed Jobs age out), **all still on
+v1.0.1270**, zero on `v1.0.1271`. The redeploy is the sole remaining blocker
+for the entire fix — the plan is now fully designed, tested, mutation-checked,
+and council-approved end to end; nothing left to build.
