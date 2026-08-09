@@ -1,8 +1,8 @@
 # HANDOFF — bugfix 224 and everything it grew into. Start here in a new chat.
 
-**Written 2026-08-09 by the bugfix-224 session.** Covers two sites, the platform
-acceptance fences, and one thing still in flight. Read §1 and §2; the rest is
-reference.
+**Written 2026-08-09 by the bugfix-224 session.** Covers two sites and the
+platform acceptance fences. Everything is done, live and verified — what is left
+is three DECISIONS (§3), not tasks. Read §1 and §2; the rest is reference.
 
 ---
 
@@ -66,15 +66,17 @@ DOM — answer or cleared state — so the stale mode is dead as a class.
 **Oracle 23 FAIL → 0; full estate PASS 170 FAIL 0; all four mutation controls
 green.** Sites `ea72609d6`, rerender `5b55a1ca4`.
 
-### loancalculator.co.uk — the same defect, SIX components, fix written and staged
+### loancalculator.co.uk — the same defect, SIX components, FIXED + LIVE
 Found by sweeping the siblings after the owner asked for it fixed "in all the
 calculators". Fixed through that lane's own pipeline (template → commit →
 `update_component --apply` → `render_tool_row --apply` → assemble-only
 rerender). Templates committed `767681e0d`. **Verified before shipping** by
 driving the exact rewritten rows out of the database:
-`scratchpad/probe_lc_rows.py`, 18/18. **8 new `defect_vectors.py` cases** cover
-the 0% rate on all six — that lane had none for these tools, so the fix would
-otherwise have been unguarded tomorrow.
+`rewrite/probe_zero_rate_rows.py`, 18/18 — then confirmed on the SERVED pages:
+sweep **0 of 5 affected** (was 5 of 8), `defect_vectors --live` **16/16**,
+serving guard 26/26. **8 new `defect_vectors.py` cases** cover the 0% rate on all
+six — that lane had none for these tools, so the fix would otherwise have been
+unguarded tomorrow — and all eight score **PROVEN** under `--both`.
 
 ### Platform acceptance — 17 fences INSTALLED and proven in-cluster
 `--emit-criteria` first refused 10 of 17 tools because their action button had
