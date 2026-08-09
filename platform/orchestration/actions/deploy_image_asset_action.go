@@ -51,7 +51,12 @@ func init() {
 //
 // Inputs (via ActionInputSpec):
 //   - domain (required): site domain for git commit
-//   - s3_uri (optional): storage URI — if not provided, falls back to findStorageURI lookup
+//   - s3_uri (optional): the source object, named by the caller. If absent, the
+//     only remaining route is asset_id → the asset row; there is no longer any
+//     purpose-keyed fallback (bugs_open/209, removed 2026-08-09). Supply it as an
+//     explicit dotted path so Strategy 0 resolves it — a bare field name is found
+//     by recursive search, which picks a sibling asset's value at random when the
+//     run holds more than one.
 //   - purpose (optional, default "hero"): image purpose — controls resize dimensions via ImagePurposes
 //   - deploy_path: NO LONGER HONOURED. An explicit value draws a refusal result
 //     (bugs_open/179 finding A) — see the guard below the brand-head one. The
@@ -227,12 +232,30 @@ func DeployImageAssetAction(ctx context.Context, params ActionParams) (interface
 		}, nil
 	}
 
-	// Resolve storage URI
-	// Priority: inputs.Get("s3_uri") (from input_fields) → findStorageURI (legacy lookup)
+	// Resolve the SOURCE object, by identity only, in two steps:
+	//
+	//   1. s3_uri — the caller names the object. Every live caller supplies it as
+	//      an explicit dotted path (asset-deployer: input_data.s3_uri; the legacy
+	//      pageflow/site-work steps: {purpose}_stored.s3_uri), which
+	//      ExtractActionInputs Strategy 0 resolves before any recursive search.
+	//   2. asset_id — the asset row's own storage_path/url.
+	//
+	// Both are per-ASSET. Until 2026-08-09 a seven-priority lookup sat between
+	// them, keyed on PURPOSE — `{purpose}_uri`, `{purpose}_result.image_uri` and
+	// five more shapes read out of collected_data (bugs_open/209). Purpose is a
+	// shared, last-write-wins slot: two same-purpose assets stored in one run
+	// collapse to one source, and the deploy of the first shipped the second's
+	// bytes with success:true. It is deleted, so that state is now unrepresentable
+	// rather than merely unreached.
+	//
+	// Removing it is safe because nothing reached it: measured 2026-08-09 across
+	// all three live callers, and watched in production on a full pageflow-builder
+	// build (cookly.uk) where Strategy 0 resolved s3_uri from the step's own store
+	// output and the lookup was never consulted. A caller that supplies neither
+	// input now takes the loud skip below — which is the honest outcome, and was
+	// always the outcome for asset-deployer, whose collected_data holds no
+	// purpose-keyed key for the old lookup to find.
 	storageURI := inputs.Get("s3_uri")
-	if storageURI == "" {
-		storageURI = findStorageURI(params.CollectedData, config, purpose, logger)
-	}
 	// DB fallback: resolve from asset_id → the asset row's own storage_path/url
 	if storageURI == "" && params.DB != nil {
 		assetID := inputs.Get("asset_id")
@@ -439,74 +462,6 @@ func resolveStorageURIFromAsset(ctx context.Context, db *sql.DB, assetIDStr stri
 		zap.String("asset_id", assetIDStr),
 		zap.String("source_ref", ref))
 	return ref
-}
-
-// findStorageURI looks for the storage URI in multiple locations
-func findStorageURI(collectedData map[string]interface{}, config map[string]interface{}, purpose string, logger *zap.Logger) string {
-	// Priority 1: Config-specified field
-	if uriField, ok := config["uri_field"].(string); ok && uriField != "" {
-		if uri := datahelpers.ExtractNestedFieldString(collectedData, uriField); uri != "" {
-			logger.Debug("Found URI via config uri_field", zap.String("path", uriField))
-			return uri
-		}
-	}
-
-	// Priority 2: {purpose}_uri (set by StoreAssetAction)
-	if uri := datahelpers.ExtractNestedFieldString(collectedData, purpose+"_uri"); uri != "" {
-		logger.Debug("Found URI at purpose_uri", zap.String("path", purpose+"_uri"))
-		return uri
-	}
-
-	// Priority 3: {purpose}_result.image_uri pattern
-	resultField := purpose + "_result.image_uri"
-	if uri := datahelpers.ExtractNestedFieldString(collectedData, resultField); uri != "" {
-		logger.Debug("Found URI at result.image_uri", zap.String("path", resultField))
-		return uri
-	}
-
-	// Priority 4: Deep nested from image-generator agent response
-	// Pattern: {purpose}_result.response.generate.response.image_uri
-	deepField := purpose + "_result.response.generate.response.image_uri"
-	if uri := datahelpers.ExtractNestedFieldString(collectedData, deepField); uri != "" {
-		logger.Debug("Found URI at deep nested path", zap.String("path", deepField))
-		return uri
-	}
-
-	// Priority 5: Slightly less nested pattern
-	// Pattern: {purpose}_result.response.image_uri
-	lessDeepField := purpose + "_result.response.image_uri"
-	if uri := datahelpers.ExtractNestedFieldString(collectedData, lessDeepField); uri != "" {
-		logger.Debug("Found URI at response.image_uri", zap.String("path", lessDeepField))
-		return uri
-	}
-
-	// Priority 6: Check generate_hero_image step directly (step name pattern)
-	generateStepField := "generate_" + purpose + "_image.response.generate.response.image_uri"
-	if uri := datahelpers.ExtractNestedFieldString(collectedData, generateStepField); uri != "" {
-		logger.Debug("Found URI at generate step", zap.String("path", generateStepField))
-		return uri
-	}
-
-	// Priority 7: {purpose}_stored.asset_url if it's a storage URI
-	storedField := purpose + "_stored.asset_url"
-	if url := datahelpers.ExtractNestedFieldString(collectedData, storedField); storage.IsS3URI(url) {
-		logger.Debug("Found URI at stored.asset_url", zap.String("path", storedField))
-		return url
-	}
-
-	// Log what we searched for debugging
-	logger.Debug("Storage URI not found, searched paths",
-		zap.String("purpose", purpose),
-		zap.Strings("searched", []string{
-			purpose + "_uri",
-			purpose + "_result.image_uri",
-			purpose + "_result.response.generate.response.image_uri",
-			purpose + "_result.response.image_uri",
-			"generate_" + purpose + "_image.response.generate.response.image_uri",
-			purpose + "_stored.asset_url",
-		}))
-
-	return ""
 }
 
 // findDomain extracts domain from collected data
