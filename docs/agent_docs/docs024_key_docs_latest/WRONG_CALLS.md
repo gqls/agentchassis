@@ -25324,3 +25324,51 @@ flagged that blind spot in writing and marked the page "unmeasured, not
 passing", which was the right call — but a stated blind spot is not a
 measurement, and had I proceeded I would have shipped a fix for five of six
 components and called the site done.
+
+---
+
+## 2026-08-09 — "Confirmed end to end": I named the mechanism for the hero/logo loss before reading the function that decides it
+
+**The lane:** `rfc012_await_findings`, clearing the residual problems at the owner's direction.
+
+**What I claimed.** Live rows finally showed `logo_deployed` carrying
+`{response, response_status, response_received_at}` and **none** of the three keys
+`DeployImageAssetAction` assigns onto its own result. I traced the writer, traced the readers,
+found `storeActionResult` writing the full result under `output_field` *before* the await — and
+said, in as many words, **"Confirmed end to end"**, with the mechanism being *the awaited-response
+merge overwrites the key and discards the action's own workings*. It is a tidy story, every step of
+it was evidence-backed, and the conclusion does not follow from any of them.
+
+**What caught it: reading the merge.** `coordinator.go:2719-2748` does
+`existingData, exists := state.CollectedData[stepName].(map[string]interface{})` and then **adds**
+`response`/`response_received_at`/`response_status` to it — preserve-then-add, on both the
+step-name and the `output_field` branch. It cannot be what removed `image_url`. One `sed` of thirty
+lines, and it arrived *after* I had said "confirmed".
+
+**Why the shape is worth recording rather than the incident.** Everything I had was real: the
+symptom (measured), the writer (read), the readers (read), the ordering of `storeActionResult`
+before `processAwaitResponse` (read). The one thing I had NOT read was the function that performs
+the step I was naming as the cause. **A chain of verified links does not verify the link you did
+not look at** — and the more of the chain you have checked, the more finished it feels, which is
+precisely when the unchecked link gets narrated as though it were checked. This is the same failure
+as the 2026-07-19 rerender claim that CLAUDE.md's diagnosis section was rewritten for: *confident,
+built from real evidence, and refuted by opening the one function the thread had skipped.*
+
+**The cheap check that would have caught it, and it is embarrassingly cheap:** before writing
+"confirmed" about a mechanism, name the function that performs the step you are blaming and open
+it. Not grep it — grep tells you it exists, which I already knew. If you cannot name that function,
+you do not have a mechanism, you have a story that fits.
+
+**What it cost, and why it was nearly worse.** Nothing, because the bug file was written after the
+refutation, so `bugs_open/236` states the root cause is **not** established and records the wrong
+theory as refuted rather than dropping it. Had I written the file in the order I formed the belief,
+a confident, wrong, evidence-decorated root cause would have gone into `bugs_open/` — and per
+CLAUDE.md that is the expensive kind, because the next thread inherits it stated with confidence.
+The saving grace was not discipline; it was that I happened to keep reading after I had my answer.
+**The rule that would make it discipline: the sentence "confirmed" is itself the trigger to go and
+read one more function — the one you are about to blame.**
+
+**Filed with it:** `bugs_open/236`, and a `090` diagnosis run (`074beb8a-adb4-4074-905a-cb0f857e7f85`)
+for the question I could not answer — which is what should have happened before I said "confirmed",
+not after. Note the earlier `090` on this same symptom came back UNVERIFIABLE (`dce40cf4`) purely
+for want of evidence; the evidence, not the framing, is what changed today.
