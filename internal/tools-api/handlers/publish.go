@@ -77,6 +77,15 @@ func PublishHandler(pool *pgxpool.Pool) gin.HandlerFunc {
 // cannot silently widen what is public — client_ip_hash is not in it.
 func PublicRoundHandler(pool *pgxpool.Pool) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// bugs_open/232: the only per-round URL in existence, serving raw
+		// visitor UGC + an AI verdict. Set before any body write so it
+		// covers every outcome below, including the 404/error paths.
+		// Defence in depth alongside the round.html page's own noindex meta
+		// (platform/orchestration/actions/rerender_single_page_action.go) --
+		// this stops the JSON endpoint itself being indexed; it does not
+		// and cannot protect the HTML page, which is a different URL.
+		c.Header("X-Robots-Tag", "noindex, nofollow")
+
 		siteID := c.GetString("site_id")
 		slug := c.Param("slug")
 

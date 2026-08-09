@@ -489,17 +489,45 @@ func injectComponentCSS(headHTML, cssBlock string) string {
 	return cssBlock + headHTML
 }
 
+// robotsNoindexTag is the exact tag injectRobotsNoindex inserts; its presence
+// is also the idempotency marker (same pattern as componentCSSMarker).
+const robotsNoindexTag = `<meta name="robots" content="noindex, nofollow">`
+
+// injectRobotsNoindex inserts a robots exclusion meta immediately before
+// </head>. Gating on page.Noindex happens at the call site in assemblePage,
+// not here, per the opt-in-field ruling of 2026-08-02: the decision must be
+// visible to a reviewer of the caller. Idempotent on ITS OWN exact tag rather
+// than on any "name=robots" match — a foreign, more permissive robots meta
+// (e.g. "index, follow") must not silently disable this one; crawlers combine
+// multiple robots directives by taking the most restrictive, so coexistence
+// still noindexes. bugs_open/232.
+func injectRobotsNoindex(headHTML string, logger *zap.Logger) string {
+	if strings.Contains(headHTML, robotsNoindexTag) {
+		return headHTML
+	}
+	if loc := reHeadClose.FindStringIndex(headHTML); loc != nil {
+		if logger != nil {
+			logger.Info("assemblePage: injected robots noindex meta into page head")
+		}
+		return headHTML[:loc[0]] + robotsNoindexTag + "\n" + headHTML[loc[0]:]
+	}
+	if logger != nil {
+		logger.Warn("assemblePage: no </head> found; prepending robots noindex meta to head fragment")
+	}
+	return robotsNoindexTag + "\n" + headHTML
+}
+
 // getPageInfo loads page metadata including site and area
 func getPageInfo(ctx context.Context, db *sql.DB, pageID uuid.UUID) (*PageInfo, error) {
 	var p PageInfo
 	var areaID sql.NullString
 
 	err := db.QueryRowContext(ctx, `
-		SELECT 
-			p.id, p.site_id, p.site_area_id, 
+		SELECT
+			p.id, p.site_id, p.site_area_id,
 			p.name, COALESCE(p.title, p.name), p.url,
 			COALESCE(p.meta_description, ''),
-			s.domain
+			s.domain, p.noindex
 		FROM pages p
 		JOIN sites s ON p.site_id = s.id
 		WHERE p.id = $1
@@ -507,7 +535,7 @@ func getPageInfo(ctx context.Context, db *sql.DB, pageID uuid.UUID) (*PageInfo, 
 		&p.ID, &p.SiteID, &areaID,
 		&p.Name, &p.Title, &p.URL,
 		&p.MetaDesc,
-		&p.Domain,
+		&p.Domain, &p.Noindex,
 	)
 	if err != nil {
 		return nil, err
@@ -619,6 +647,17 @@ func assemblePage(ctx context.Context, db *sql.DB, page *PageInfo, logger *zap.L
 	// 2026-08-02: zero canonicals fleet-wide (lendzy 0/15, any-attribute-order
 	// check); nothing in the platform emitted one on any path.
 	head = injectCanonicalLink(head, page, logger)
+
+	// 5a3. Per-page robots exclusion (bugs_open/232) — opt-in via pages.noindex,
+	// default false, so every unflagged page's head is byte-identical to
+	// before this change. Today only vonc.com's Gauntlet round-record page
+	// (published visitor UGC + an AI verdict, potentially naming real people)
+	// is flagged. NOT read by the separate assemble_page/AssemblePageAction
+	// build path (multipage_actions.go) — see the LANDMINES entry alongside
+	// this commit before relying on this for a page reached via that path.
+	if page.Noindex {
+		head = injectRobotsNoindex(head, logger)
+	}
 
 	// 5b. Inject the CSS for this page's components (bugs_open/072). The site
 	// stylesheet is frozen at the last design run, so a component added since

@@ -24,6 +24,10 @@ type PageInfo struct {
 	MetaDesc    string     `json:"meta_desc"`
 	Description string     `json:"description"`
 	Domain      string
+	// Noindex is opt-in, default false (pages.noindex, bugs_open/232). When
+	// true, assemblePage injects a robots-exclusion meta into the page head.
+	// DB-populated only — no json tag, matching SiteID/AreaID/Domain.
+	Noindex bool
 }
 
 func getDomainForSite(ctx context.Context, db *sql.DB, siteID uuid.UUID) (string, error) {
