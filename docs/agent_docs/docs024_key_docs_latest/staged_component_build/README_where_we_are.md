@@ -818,3 +818,9 @@ The updated handoff ends with a suggested order, cheapest unblock first: one lin
 releases an already-proven contract today; one image-repair programme releases nine more
 plus three entries on the defect list. A fresh chat starts at
 `HANDOFF_2026-08-09_continue_here.md` and has everything.
+
+> **Correction, 9 August (later):** the fresh-chat starting point is now
+> `HANDOFF_2026-08-09b_continue_here.md` — one consolidated file (state from both
+> sessions, the full production-line rules, and the D11 work programme) so a new
+> conversation no longer has to chain through three handoffs. Content unchanged,
+> just gathered.
