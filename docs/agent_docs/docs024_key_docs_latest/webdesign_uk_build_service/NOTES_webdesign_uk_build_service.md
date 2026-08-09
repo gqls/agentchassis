@@ -1707,3 +1707,25 @@ copy's commercial claims are only as capped as the SPEC CHAIN that instructs
 them — mission → identity/strategy/briefing → section plans → writer. A ban
 list bounds spellings; it cannot bound an offer. Change offers at the mission
 and regenerate the chain.**
+
+---
+
+## 2026-08-09 (3) — the writer's actual diet, measured: bans subtract, rules compel
+
+The capped-chain rewrites (3 of 4 first-pass clean) produced pages that no
+longer OVERPROMISE but also never STATE the caps — vague where they should be
+specific ("full refund if you're not happy before you accept": ban-compliant,
+cap-free). Cause, measured from the live definition: **page-content-writer
+injects identity, content_direction, the section plan and
+evidence_base.writer_block — NOT briefing, NOT strategy, NOT roadmap** (those
+shape the PLANNER, and the reconciler restamped rather than re-emitted).
+`pages.page_spec` is NULL fleet-pattern here, so no page-level content
+requirement reaches the writer. **writer_block facts are permissive (may
+state), bans are subtractive (must not say) — nothing was IMPERATIVE.** Fix:
+appended an 11th `writing_rules` entry to content_direction (versioned
+supersede, same `owner-caps-amendment-2026-08-09` source): wherever a page
+discusses refunds/revisions/changes/acceptance, STATE the rounds and the
+window from the evidence base; never open-endedly. The writing_rules are
+demonstrably obeyed (the served copy follows the other ten). Final coordinated
+4-page round dispatched after the in-flight what-you-get retry (pre-rule)
+lands.
