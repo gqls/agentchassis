@@ -128,3 +128,27 @@ and only one is genuine residue. Then settle each candidate with the verifier's 
 first disjunct rather than by eye —
 `position('href="'||href||'"' in COALESCE(pc.rendered_html,'')) > 0` — because
 "link still rendered?" is what separates residue from a legitimately resolved item.
+
+## THE acceptance assertion — all four legs of one dispatch, in one row
+```sql
+SELECT left(w.id::text,8) AS item,
+       w.result->'response'->'sections_saved'->>'page_name'              AS saved_page_name,
+       left(w.result->'response'->'sections_saved'->>'page_id',8)        AS saved_page_id,
+       left(w.result->'response'->'deploy_result'->'rendered_page'->>'page_id',8) AS deployed_page_id,
+       w.result->'_verification'->>'status'                              AS verif,
+       left(w.result->'_verification'->>'detail',90)                     AS detail
+FROM site_work_items w WHERE w.id::text LIKE '<item-prefix>%';
+```
+`response.sections_saved` and `response.deploy_result` are the two step outputs the
+handler saga returns; `_verification` is stamped at completion. A CONVERGED item
+reads: `saved_page_name` = the **target**, `saved_page_id` = `deployed_page_id` =
+the target's id, `verif` = `verified`, and the detail says *"target page … has
+shipped"* (disjunct **a**).
+
+**This query has a built-in positive control — use it before trusting a pass.** Run
+it against `338deb27` (08-09 morning, pre-mig-342) and it must print the known
+FAILURE: `saved_page_name` = `beginners` (the container), `saved_page_id` =
+`5009f5c8` (the container's id), `deployed_page_id` **empty** (the deploy skipped
+honestly — the target had no component rows), `verif` = `verified` via disjunct
+(b) *"href … is no longer rendered"*. If that row does not come out wrong, your
+jsonb paths are wrong and every "pass" you read next is a path typo, not a result.
