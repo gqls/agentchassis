@@ -236,3 +236,57 @@ described:**
 Resubmitted (round 3) with these two scripts as new edits (`add`, not
 `modify`) and the above evidence folded into `grounded_in`/`risks`. Verdict
 pending as of this note.
+
+**Council round 3: REVISE**, gating objection from `prior_art_librarian`
+(**HIGH**): `dispatch_228_rerenders.sh`'s verification step — printing curl
+commands to run right after dispatch — landed directly on two documented
+LANDMINES.md traps neither round-2 script nor its submission cited:
+"Verifying a page straight after firing its rerender shows a 404 or stale
+copy, and both look like you broke the site" (poll `pages.deployed_at`,
+cache-bust, poll rather than sample once, assert a control) and "`curl |
+grep` twice against the same URL during a deploy reports a regression that
+never happened" (fetch once, re-grep the same file). The very verification
+step built to close round 2's false-green gap could itself produce a false
+positive or false negative. Correct catch — I'd built the propagation fix
+without checking whether the VERIFICATION method itself was landmine-clean.
+
+Also three medium, non-gating objections, all investigated properly rather
+than dismissed:
+- `reuse_agent`: should `content_components.forked_from` be used instead of
+  in-place mutation? Read `fork_theme_from_site_action.go` — forking exists
+  for per-site divergence; this fix wants identical behaviour on both
+  consuming sites, and the `finetuning.uk` drift row is a placement issue a
+  fork wouldn't touch anyway. Not applicable, reasoning written down.
+- `prior_art_librarian`: does the house `sql_for_agents/NNN_slug.sql` +
+  `_ROLLBACK.sql` convention already cover this? Read an actual paired
+  example (`340_..._ROLLBACK.sql`) — that convention is for
+  `agent_definitions` JSON patches where the old value is a known static
+  literal, so the rollback can be hand-written ahead of time.
+  `content_components` has no git-tracked source of truth, so a static
+  rollback risks restoring stale content — the dynamic backup-then-generate
+  approach in `apply_228_contact_block_fix.sh` is deliberate, not an
+  oversight of house style.
+- `guardian`: does the quote-in-`<script>`-block landmine apply to this edit?
+  Grepped the actual template: its only `<script>` tag is an external `src=`
+  reference with zero inline substitution, and `form_action`'s value can
+  never contain a literal quote. Landmine's footprint doesn't match.
+
+**Fixed and resubmitted (round 4):** rewrote `dispatch_228_rerenders.sh` to
+only dispatch + print verifier invocations, and wrote
+`verify_228_deployed_page.sh` — a generalised single-artefact verifier
+(works for a page or a JS asset) that checks `pages.deployed_at` first,
+cache-busts, fetches once per poll iteration to a file, and re-greps that
+same file for a must-contain / must-not-contain / control triple, polling up
+to 10× at 20s intervals. Committed. Round-3's three medium objections written
+into the RUNBOOK with their investigation, no code change needed for those.
+Verdict pending.
+
+**Pattern across all three rounds, worth naming explicitly:** every gating
+objection so far has been a genuine, previously-undetected gap in THIS
+session's own plan, not a false positive or a stylistic preference — and each
+one traced back to a landmine or design principle already documented
+somewhere in this repo (LANDMINES.md twice, the CLC-001/fork-vs-mutate
+distinction, the sql_for_agents convention) that a careful-enough re-read
+would have caught before submitting. The council is functioning exactly as
+CLAUDE.md describes it: slower than skipping it, and each round has been
+strictly correct.
