@@ -283,3 +283,58 @@ likely owners — **both false positives for the current break**: they own the
 *mechanism's history* (064's original fix and the `component` addition), not the
 08-08 recurrence. Same lesson as the 209/223 hits: `who-owns` measures who has
 *touched the subject*, and recency of citation is not authorship of the defect.
+
+## 2026-08-09, late morning — costing "into line" found a live defect: the Defaults shadow (bugs_open/231)
+
+Owner asked: how much surgery to bring the legacy pair into line rather than
+diverge? Costing it required knowing how their deploy steps' `purpose` actually
+resolves under the modern spec — and the probe answered with a bug.
+
+**[MEASURED] The logo deploy steps of both legacy workflows resolve
+`purpose="hero"` today.** Mechanism, each arm cited and *executed*:
+
+- `ExtractActionInputs` applies `spec.Defaults` into `Values` **first**
+  (`action_inputs.go:457-460`); `DeployImageAssetInputSpec` defaults
+  `purpose: "hero"` (since `34d2315ce`, **2026-02-20**).
+- Strategies 1/2/3 each skip a field already in `Values` (`:499`, `:511`, `:523`)
+  — a defaulted field always is. Strategy 0 reads only **dotted** config paths
+  (`:478`) — static `"logo"` is invisible to it.
+- The action's own fallback (`deploy_image_asset_action.go:92-99`,
+  `if purpose == "" { config["purpose"] }`) is **unreachable** — the default means
+  purpose is never empty.
+- Consequence if run: hero resize class, and `BuildAssetPaths` (`url_helpers.go:190`,
+  `filename = purpose + ext`) commits the logo's bytes to the **hero's path** —
+  clobbering the hero and never writing the `logo_url` the store step just
+  promised in `content_data`.
+
+Proven by running the real resolver + real spec (a probe first — deliberately
+failing, removed from the shared tree within a minute of confirming — then three
+committed characterisation tests that PASS by pinning the defect:
+`TestLegacyLogoStep_StaticPurposeIsShadowedByDefault`,
+`TestPurposeFieldBridge_DeadForDefaultedField`,
+`TestStrategy0DottedPaths_DefeatTheDefaultAndTheRecursiveSearch`). The third also
+proves the repair mechanism: a Strategy-0 dotted path defeats both the default
+and the recursive search, deterministically (100/100).
+
+`[UNMEASURED]` whether the shadow ever fired live — the pair has no dispatcher and
+completed-run retention is ~24h. The honest state: **broken-if-run today, at the
+resolver level.** Filed as `bugs_open/231` with the method-note substitution
+stated per the 07-31 ruling; the **fleet class** (any static config value for any
+spec-defaulted field, ~10+ specs carry `Defaults`) was NOT asserted — handed to
+the loop: **090 fired, RUN_CORRELATION_ID `e952039b-dcf1-4218-864e-c8c7a1a23a85`**.
+LANDMINES entry added (func-shaped footprints, per this lane's 08-08 lesson) and
+synced.
+
+**What the discovery does to the costing:** the pair needs the same 4-step config
+edit *just to be runnable* ("not dead" — owner) that "into line" Phase 1 consists
+of. So repair and alignment are one edit, and divergence-without-repair leaves
+the pair logo-broken. Full costed comparison in README_where_we_are (2026-08-09,
+late morning) — the chat answer and that entry are the same text.
+
+**Blast-radius note for the eventual fix:** the two definitions carry **6
+references each** to `hero_uri|logo_uri|hero_result|logo_result` beyond the
+deploy steps (measured via `jsonb_each_text` sweep) — so retiring the
+`{purpose}_uri` **writers** is NOT part of Phase 1/2; those references must be
+classified first (Phase 3, optional, not needed for 209). Also noted in passing:
+`generate_image_actions.go:999` writes `contentData[purpose+"_uri"]` into the
+in-memory site record — 155-adjacent, not chased here.

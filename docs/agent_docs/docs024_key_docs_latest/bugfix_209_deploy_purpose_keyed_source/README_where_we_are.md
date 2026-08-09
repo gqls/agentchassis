@@ -165,3 +165,53 @@ tripped over the red test and correctly recorded it as not theirs. The
 idea_uk_vm_site thread's own notes don't mention it, so they likely don't know.
 The fix is one word in one list, plus the closed bug's own checklist — it belongs
 to that thread, and they should be told.
+
+## 2026-08-09, late morning — you asked what "into line" would cost, and checking surfaced a real bug
+
+The costing question forced one measurement I hadn't made: when the older
+workflows' logo step runs, what category does the deploy code *actually think*
+it's handling? The answer is **"hero"** — and it has been since February.
+
+Here's why. The modern input machinery fills in a default of "hero" for the
+category before it reads anything else, and every later step of the resolution
+refuses to overwrite a value that's already set. The older workflows state their
+category as a plain word in their config — "logo" — and a plain word is exactly
+the one shape the machinery can never read. So the default wins, silently. The
+code's own last-resort check ("if no category was found, read the config") never
+fires, because the default means a category is always found. Run the logo step
+today and it would resize the logo as if it were a hero image and — worse —
+write the logo's bytes over the hero image's file, while the page goes on
+pointing at a logo file that never gets written.
+
+I proved this by running the real resolution code with the real live config, not
+by reading it, and the proof is pinned as tests. Whether it ever actually
+happened on a live site is unknowable — the run records only keep a day, and
+these workflows haven't run in that window. Filed as bug 231; the wider question
+("how many OTHER workflow configs have a plain-word setting that's silently
+losing to a default?") has gone to the diagnosis loop rather than being guessed at.
+
+**What this does to your question.** It roughly halves the honest cost of "into
+line", because the biggest piece was already owed:
+
+- **The repair the pair needs anyway** (to be runnable at all, which "not dead"
+  implies) is a config-only change: four deploy steps, four pointer-style paths
+  each, one migration. That same edit IS the "into line" step — it makes every
+  input explicit and deterministic, kills the February bug, and kills the
+  86%-wrong rummage in one go.
+- **The only cost unique to "into line"** is then a deletion: remove the
+  category-lookup fallback from the deploy code (~90 lines), through the council,
+  built and rolled *after* the config migration is applied — order stated in the
+  plan. That ends bug 209 for everyone with one code path and no opt-in switch.
+- **Divergence now buys nothing.** It was designed to avoid touching the frozen
+  pair; the February bug means we must touch their config regardless. Once we
+  have, the opt-in switch protects nothing the deletion doesn't handle cleaner.
+- **What into-line does NOT require:** touching how the workflows generate or
+  store images, or the six other places each workflow references these keys —
+  those stay as they are (tidying them is optional and can wait indefinitely).
+- **Verification:** one throwaway-domain run of each workflow, checking the hero
+  and logo files both arrive with different bytes. That also finally satisfies
+  bug 209's own "verify on the real workflow" bar.
+
+So: recommendation changed from yesterday. **Into line, two phases (config
+migration, then the deletion), with the config phase doubling as the bug-231
+repair.** Awaiting your go-ahead.

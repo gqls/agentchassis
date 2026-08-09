@@ -174,3 +174,117 @@ func TestDeployImageAsset_LegacyShape_SourceRouteToday(t *testing.T) {
 		t.Fatalf("legacy logo deploy would use %q, want the logo source", effective)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// bugs_open/231 — the spec's Defaults SHADOW a static config value.
+//
+// ExtractActionInputs applies spec.Defaults into Values FIRST, and strategies
+// 1/2/3 all skip a field that already has a value. A single-segment (non-dotted)
+// config value is invisible to Strategy 0. Net: a step config carrying a STATIC
+// value for a spec-defaulted field is dead — the default wins — and the
+// action's own `if purpose == ""` fallback can never fire because the default
+// means purpose is never empty.
+//
+// These tests PIN the defective behaviour deliberately (characterisation, same
+// contract as the tests above): when bugs_open/231 is fixed, update them with
+// the fix, citing it.
+// ---------------------------------------------------------------------------
+
+// The live shape of pageflow-builder / site-work-orchestrator `deploy_logo_image`:
+// static purpose "logo" + uri_field, no input_fields. The step believes it is
+// deploying a logo; the action resolves purpose="hero" (the spec default), which
+// drives resize dimensions AND the deploy path (BuildAssetPaths: filename =
+// purpose + ext) — the logo's bytes would land at the HERO's path.
+func TestLegacyLogoStep_StaticPurposeIsShadowedByDefault(t *testing.T) {
+	logger := zap.NewNop()
+	legacyConfig := map[string]interface{}{
+		"purpose":   "logo",
+		"uri_field": "logo_result.image_uri",
+	}
+	collected := map[string]interface{}{
+		"site_record": map[string]interface{}{"domain": "example.test"},
+		"logo_result": map[string]interface{}{"image_uri": "s3://assets/logo.png"},
+	}
+	inputs, err := datahelpers.ExtractActionInputs(collected, legacyConfig, DeployImageAssetInputSpec, logger)
+	if err != nil {
+		t.Fatalf("ExtractActionInputs: %v", err)
+	}
+
+	// Replicates DeployImageAssetAction's own purpose resolution (lines ~92-99).
+	purpose := inputs.Get("purpose")
+	if purpose == "" {
+		if p, ok := legacyConfig["purpose"].(string); ok && p != "" {
+			purpose = p
+		} else {
+			purpose = "hero"
+		}
+	}
+
+	if purpose != "hero" {
+		t.Fatalf("bugs_open/231 behaviour changed: legacy logo step now resolves purpose=%q "+
+			"(was shadowed to \"hero\" by the spec default). If this is a deliberate fix, "+
+			"update this test to assert the fixed behaviour and cite the fix commit.", purpose)
+	}
+	t.Logf("PINNED DEFECT (bugs_open/231): logo step's effective purpose = %q — static config value is dead", purpose)
+}
+
+// The deprecated purpose_field bridge is equally dead for a defaulted field:
+// Strategy 3 skips fields that already hold a value, and the default always has.
+func TestPurposeFieldBridge_DeadForDefaultedField(t *testing.T) {
+	logger := zap.NewNop()
+	cfg := map[string]interface{}{
+		"purpose_field": "logo_stored.purpose",
+	}
+	collected := map[string]interface{}{
+		"site_record": map[string]interface{}{"domain": "example.test"},
+		"logo_stored": map[string]interface{}{"purpose": "logo"},
+	}
+	inputs, err := datahelpers.ExtractActionInputs(collected, cfg, DeployImageAssetInputSpec, logger)
+	if err != nil {
+		t.Fatalf("ExtractActionInputs: %v", err)
+	}
+	if got := inputs.Get("purpose"); got != "hero" {
+		t.Fatalf("bugs_open/231 behaviour changed: purpose_field bridge now yields %q; update deliberately", got)
+	}
+	t.Logf("PINNED DEFECT (bugs_open/231): purpose_field bridge is inert for a defaulted field")
+}
+
+// The one mechanism that DOES defeat the default: a Strategy-0 explicit dotted
+// path in the step config. This is the into-line repair shape for the legacy
+// workflows — deterministic for every field, no recursive search, and it kills
+// both bugs_open/231 (the shadow) and the 86% asset_id instability above.
+func TestStrategy0DottedPaths_DefeatTheDefaultAndTheRecursiveSearch(t *testing.T) {
+	logger := zap.NewNop()
+	intoLineConfig := map[string]interface{}{
+		"purpose":  "logo_stored.purpose",
+		"s3_uri":   "logo_stored.s3_uri",
+		"asset_id": "logo_stored.asset_id",
+		"domain":   "site_record.domain",
+	}
+	collected := map[string]interface{}{
+		"site_record": map[string]interface{}{"domain": "example.test"},
+		"hero_stored": map[string]interface{}{
+			"asset_id": "11111111-1111-1111-1111-111111111111",
+			"purpose":  "hero",
+			"s3_uri":   "s3://assets/hero.png",
+		},
+		"logo_stored": map[string]interface{}{
+			"asset_id": "22222222-2222-2222-2222-222222222222",
+			"purpose":  "logo",
+			"s3_uri":   "s3://assets/logo.png",
+		},
+	}
+
+	// Deterministic across iterations — unlike the no-input_fields shape above,
+	// which resolves the wrong sibling ~86% of the time.
+	for i := 0; i < 100; i++ {
+		inputs, err := datahelpers.ExtractActionInputs(collected, intoLineConfig, DeployImageAssetInputSpec, logger)
+		if err != nil {
+			t.Fatalf("iteration %d: %v", i, err)
+		}
+		if p, s, a := inputs.Get("purpose"), inputs.Get("s3_uri"), inputs.Get("asset_id"); p != "logo" ||
+			s != "s3://assets/logo.png" || a != "22222222-2222-2222-2222-222222222222" {
+			t.Fatalf("iteration %d: non-deterministic or wrong: purpose=%q s3_uri=%q asset_id=%q", i, p, s, a)
+		}
+	}
+}

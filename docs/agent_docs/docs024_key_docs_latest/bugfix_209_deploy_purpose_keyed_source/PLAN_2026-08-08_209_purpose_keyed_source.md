@@ -130,3 +130,38 @@ entry in the same commit, council submission alongside, consumers told.
 
 **No code yet.** The owner asked for the problem explained clearly before moving
 further; building starts on their pick of shape 1 vs shape 2.
+
+## REVISED 2026-08-09 (late morning) — a THIRD shape, after the owner asked the cost of "into line"
+
+Costing the into-line option surfaced `bugs_open/231`: the legacy pair's
+`deploy_logo_image` steps resolve `purpose="hero"` today (spec default shadows the
+static config value; measured, pinned in tests). Two consequences for this plan:
+
+1. **The pair needs Phase 1 anyway.** "Not dead" (owner) means "must be runnable";
+   runnable requires repairing the shadow; the repair IS the into-line config edit
+   (Strategy-0 dotted paths). Divergence no longer avoids touching them — it just
+   leaves them broken.
+2. **The into-line sequencing is safe and cheap once stated:**
+   - **Phase 1 (config, one migration):** 4 deploy steps × 4 dotted paths
+     (`purpose`/`s3_uri`/`asset_id` from `{p}_stored.*`, `domain` from
+     `site_record.domain`); retire `uri_field` + static `purpose` keys. Kills the
+     shadow AND the 86% recursive hazard AND makes every field deterministic.
+     Proven shape: `TestStrategy0DottedPaths_DefeatTheDefaultAndTheRecursiveSearch`.
+   - **Phase 2 (Go, council):** delete `findStorageURI` + call site (~90 lines).
+     **Order matters and is statable:** Phase 2 must not reach a fleet image
+     before Phase 1's migration is applied — until then the purpose-keyed lookups
+     are the legacy pair's correct fallback. Sequence inside one lane: apply +
+     verify migration, then build.
+   - **Phase 3 (optional, NOT needed for 209):** retire the `{purpose}_uri`
+     writers — blocked on classifying the 6-per-definition other references.
+- **Verification:** unit harness (exists) + one sacrificial-domain run per
+  workflow, asserting `hero.*` and `logo.*` both committed with different bytes
+  and `content_data.logo_url` serving 200. This is also 209's own "verify on the
+  workflow that really does it" criterion, satisfiable for the first time.
+
+**Decision now three-way** (owner to pick): divergence (opt-in field), into-line
+(Phases 1–2 above), or divergence + Phase-1-as-repair (pays most of into-line's
+cost and still keeps two resolution regimes — listed for completeness, not
+recommended). Recommendation: **into-line** — the marginal cost over the repair
+the pair needs anyway is one well-scoped Go deletion, and it ends 209 with a
+single code path and no opt-in surface.
