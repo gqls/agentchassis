@@ -122,3 +122,38 @@ errors, the fingerprint count creeping up as designed. That part just takes
 however long it takes; the checking queries are written down for whoever
 looks next. In substance, this one is done: built, reviewed, approved,
 rehearsed, and already earning its keep.
+
+## 2026-08-09, early afternoon — you asked if the wave had finished; it hasn't, and I had it wrong
+
+Short answer: no, and my summary this morning gave you a rosier picture than
+the facts support. I said the fingerprinting was rolling out at about a site an
+hour and would simply fill in. Two and a half hours later it has gone from 3
+slots to 6, out of 57 — and one of those two sites got done by accident, by an
+unrelated job that happened to rebuild its header and footer on other business.
+
+What I got wrong is worth saying plainly, because it is a thinking error rather
+than a typo. I kept counting how many things had been *found* and treated that
+as evidence that things were being *fixed*. Those two look identical if you only
+count — a pile that is growing looks the same whether it is being worked through
+or just growing. The moment I looked at how long each item had waited, it was
+obvious: the three that got done were picked up within five minutes each, and
+the newest one has been sitting untouched for over three hours.
+
+The reason is not a fault in our safety net, which is behaving perfectly — no
+errors at all since it went live. It is that the thing filing these jobs is a
+brand-new hourly checker another thread switched on this morning, and it is
+deliberately "look, don't touch": it writes down what it finds and stops there.
+The part that would pick those jobs up and act on them is a known open problem
+of its own (bug 83), untouched on purpose.
+
+So where does that leave us. The protection itself is finished and proven — a
+hand-edit is archived at the moment it is destroyed on every site, fingerprinted
+or not, so nothing can be silently lost anywhere today. What the fingerprint
+adds is the *alarm*: on a site that has one, we also get told. That alarm is
+live on two sites and will reach the others gradually as ordinary rebuild
+traffic touches them, with no schedule and no timetable I can honestly give you.
+I have rewritten the checklist item accordingly, because as I had written it, it
+was waiting for an event that was never going to arrive. If you want the
+remaining 17 sites fingerprinted sooner, that is a one-line job to dispatch and
+I can do it on your word — but it is a rebuild of every site's chrome, so it is
+your call rather than mine.

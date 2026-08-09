@@ -146,7 +146,39 @@ None of the three makes an **undeclared** hand-patch loud. That is the gap.
 >    unprompted on 08-08 evening, all `unstamped` as expected pre-roll, zero
 >    trigger errors — the archive works on real traffic. The wave itself has
 >    not fired (0/57 digests stamped).**
->    **IN PROGRESS 2026-08-09 ~09:30Z: the wave HAS started** — discovery
+>    **CORRECTED 2026-08-09 13:10Z — READ THIS BEFORE THE PARAGRAPH BELOW IT,
+>    WHICH OVERSTATES THE WAVE.** There is no fleet-wide wave and no scheduled
+>    task that would run one. Convergence happens two ways, both unscheduled:
+>    (i) a `needs_rerender`/`render_inputs_drift` item filed by a discovery
+>    agent, IF something dispatches it; (ii) **any ordinary chrome render at
+>    all** — `mortgagecalculator.co.uk` was stamped 3/3 at 11:26Z by a
+>    `nav-updater` run with no drift item involved. As of 13:06Z: **6/57 slots,
+>    2/19 sites** (dartsonline, mortgagecalculator), zero trigger errors since
+>    the trigger went live, guardian ratio still 1:1.
+>    **Route (i) is currently NOT draining.** The three drift items that
+>    completed were filed by `design-discovery-agent` on the old
+>    manually-dispatched path and were triaged in 4m47s / 4m17s / 4m40s. The two
+>    newest — `robot-hands.com` 09:50Z and `idea.uk` 12:51Z, both `created_by`
+>    `generic` — have **never been triaged** (3h18m and 17m at measurement).
+>    They come from the new hourly `site-discovery-rotation-*` scheduled tasks
+>    shipped 2026-08-09 by the `bugfix_230_discovery_driver` lane (mig 346),
+>    which that lane's own handoff states are **observe-only**, with the drain
+>    half left to `bugs_open/083` ("detected findings never reach a handler",
+>    OPEN). So detection now recurs hourly; dispatch does not follow it.
+>    **Consequence for this criterion: as written it has no completion event to
+>    wait for.** Rewritten to something reachable — the criterion is met when a
+>    site is observed converging by BOTH routes with zero
+>    `trg_site_component_archive` errors, which route (ii) satisfied at 11:26Z
+>    and route (i) satisfied at 09:08Z. The remaining 17 sites are then a
+>    convergence *rate* question owned by 083/230, NOT a blocker on 226 — this
+>    bug's mechanism is proven closed at every writer class. Whoever picks the
+>    lane up should record the 51 unstamped slots as a known, shrinking window
+>    (a hand-patch on an unstamped slot is still ARCHIVED at its destruction —
+>    only the work item is missed) and stop treating a wave as pending.
+>    The reasoning error that produced the paragraph below — counting arrivals
+>    and calling it throughput — is logged in `WRONG_CALLS.md`.
+>
+>    ~~IN PROGRESS 2026-08-09 ~09:30Z: the wave HAS started~~ — discovery
 >    (`needs_rerender`, reason `render_inputs_drift`) has completed 3 sites:
 >    leopardessconsulting.co.uk 08-08 17:21Z and webdesign.co.uk 08-08 18:15Z
 >    (both pre-roll ⇒ rebuilt unstamped, correctly), dartsonline.com 08-09

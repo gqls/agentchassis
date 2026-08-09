@@ -24734,3 +24734,70 @@ Enumerate by image + owner kind
 spelling-negative control, and treat `Job`-owned stragglers as a reachability question
 (`default_config::text LIKE '%<your action>%'`, with a row whose answer you know).
 Then write the tag and the date into the claim.
+
+## 2026-08-09 (bugfix 226 lane) — "the rest fill in as the wave reaches them": I called a stalled queue a running wave, in a summary, from three data points that were all the OLD dispatch path
+
+**What I wrote**, in `bugfix_226_chrome_divergence/SUMMARY_2026-08-09`, committed
+`7e78c2203` at ~10:35Z and in the bug file's close criterion 3: *"the wave has
+started — three sites through, a fourth queued as this was written — with zero
+errors and the fingerprint count climbing exactly as designed (3 of 57 slots so
+far; the rest fill in as the wave reaches them, at roughly a site an hour)."*
+
+**What is true**, measured 13:06Z, ~2.5h later. Fingerprints: **6/57 slots, 2/19
+sites** — and only ONE of those two came from the thing I called the wave.
+`mortgagecalculator.co.uk` was stamped at 11:26Z by a **`nav-updater`** run, ordinary
+traffic that happens to include `render_site_components`. Meanwhile the "fourth
+queued" item (`robot-hands.com`, filed 09:50Z) **has never been triaged — 3h18m
+old**, and a fifth (`idea.uk`, 12:51Z) joined it. The three I counted as the wave
+running were all filed by `design-discovery-agent` on the OLD manually-dispatched
+path and drained in **4m47s / 4m17s / 4m40s** — a tight, consistent time-to-triage
+that makes 3h18m an unambiguous stall, not slowness. The two stuck ones were filed
+by the NEW hourly `site-discovery-rotation-*` scheduled tasks (shipped the same day
+by the `bugfix_230_discovery_driver` lane, migration 346), whose own handoff says in
+writing that they are **observe-only** and that the drain half — `bugs_open/083`,
+"detected findings never reach a handler" — is deliberately untouched. So detection
+now recurs hourly and dispatch does not follow it at all.
+
+**What caught it.** The owner asking "has the re-stamping wave finished?" — i.e.
+nothing in my own process. I had already written the projection into a summary and
+committed it.
+
+**The cheap check that would have.** Two columns I never selected on a table I
+queried four times: `triaged_at` and `created_by`.
+```sql
+SELECT s.domain, swi.status, swi.created_by,
+       swi.triaged_at - swi.created_at AS to_triage, now() - swi.created_at AS age
+FROM site_work_items swi JOIN sites s ON s.id=swi.site_id
+WHERE swi.item_type='needs_rerender' AND swi.spec->>'reason'='render_inputs_drift'
+ORDER BY swi.created_at;
+```
+One row of that output at 10:30Z would have shown robot-hands 40 minutes old and
+never triaged, against three siblings that each triaged inside five minutes.
+
+**Why it is worth a row** — the failure is not "didn't measure", I measured four
+times:
+1. **I counted arrivals and called it throughput.** Every figure I quoted was a
+   COUNT of items filed or slots stamped. Not one of them could distinguish "the
+   queue is draining" from "the queue is filling and nothing drains it" — the two
+   hypotheses produce the identical rising count. The disconfirming column
+   (`triaged_at IS NULL`) was in the table the whole time. Sibling of
+   [[a-count-you-kept-is-not-a-census]] and the "check the NO-OP case" rule: I
+   checked what could break (trigger errors: 0) and never what would be inert.
+2. **A queue's health is a LATENCY question, never a count.** Three items with a
+   4–5 minute time-to-triage is a distribution; it makes the fourth item's 3h18m
+   falsifiable at a glance. Counts have no such property.
+3. **The producer changed under me mid-observation, and same-shaped rows hid it.**
+   `created_by` went `design-discovery-agent` → `generic` between my third and
+   fourth data point because another lane shipped a new driver that morning. The
+   items look identical in every column I selected. On a tree this many sessions
+   share, **"the mechanism I am watching is still the mechanism I started
+   watching" is an assumption with a shelf life of hours**, and `created_by` is
+   the cheapest way to test it.
+4. **I inherited the lane's word for it.** "The 117 wave closes the window
+   fleet-wide in one pass" came from the PLAN and I repeated it without ever
+   asking what executes it. There is no fleet-wide wave and no scheduled task that
+   would run one; convergence is per-site, and `nav-updater` stamping
+   mortgagecalculator shows it happens through ambient rebuild traffic as much as
+   through anything named. **A noun in a plan is not a mechanism** — grep
+   `scheduled_tasks` for the thing you are waiting on before you project a rate
+   for it.

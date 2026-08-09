@@ -3,6 +3,23 @@
 *The lane's first summary. Written the morning the rehearsal passed; current
 state only — the chronology lives in NOTES and README_where_we_are.*
 
+> **CORRECTED 2026-08-09 13:10Z — the last section of this file was wrong about
+> the wave, and the prose below is left standing so the error is visible.** It
+> says the fingerprinting "fills in as the wave reaches them, at roughly a site
+> an hour". There is **no fleet-wide wave**, no scheduled task that would run
+> one, and nothing is currently pulling sites through. Measured 2.5h after this
+> file was committed: 6/57 slots on 2/19 sites, and one of those two
+> (`mortgagecalculator.co.uk`) was stamped by an unrelated `nav-updater` run,
+> not by anything wave-shaped. The two newest detection items have sat
+> **untriaged for 3h18m and 17m** against three siblings that each drained in
+> under five minutes, because the new hourly discovery rotation that files them
+> (shipped the same morning by the `bugfix_230_discovery_driver` lane) is
+> **observe-only by design** and the drain half is `bugs_open/083`, open.
+> What caught it: the owner asking whether the wave had finished. The reasoning
+> error — counting arrivals and calling it throughput — is logged in
+> `WRONG_CALLS.md`. Convergence is real but ambient and unscheduled; see the
+> corrected close criterion 3 in `bugs_open/226`.
+
 ## What we're trying to do
 
 Every site's header, footer and head are stored as ready-made HTML that the

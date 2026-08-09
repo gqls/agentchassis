@@ -216,3 +216,50 @@
   - `SELECT count(*) FILTER (WHERE rendered_html_digest IS NOT NULL), count(*) FROM site_components;` — 3/57 at 09:30Z, should climb
   - `SELECT count(*) FROM agent_error_log WHERE occurred_at > '2026-08-08 20:00Z' AND error_message ILIKE '%site_component_history%';` — 0 so far (column is `occurred_at`, not `created_at`)
   - guardian ratio: hand_patched ledger rows vs `chrome_divergence_overwritten` items per site+slot — 1:1 (the probe's own pair)
+
+## 2026-08-09 — session 3 (afternoon): the wave is not a wave, and my morning projection was wrong
+
+Owner asked whether the re-stamping wave had finished. It has not, and the
+question exposed a wrong model I had already committed to a SUMMARY.
+
+- **Measured 13:06Z: 6/57 slots, 2/19 sites** (dartsonline 3/3, mortgagecalculator
+  3/3). Zero trigger errors since the trigger went live (`agent_error_log`,
+  `occurred_at` — 0 rows mentioning `site_component_history`). Guardian
+  accumulation ratio still 1:1.
+- **`mortgagecalculator.co.uk` was stamped with NO drift item.** A `nav-updater`
+  orchestration at 11:26:40Z did it — that agent's workflow includes
+  `render_site_components`, so it stamps like any other renderer. Six agent types
+  carry that step (`nav-updater`, `rerender-pages`, `rerender-site`,
+  `pageflow-builder`, `nav-link-fixer`, `site-work-orchestrator`). **Convergence
+  is ambient**, not the property of any one wave.
+- **Route via discovery items is NOT draining.** Time-to-triage for the three
+  that completed: 4m47s, 4m17s, 4m40s (filed by `design-discovery-agent`).
+  `robot-hands.com` (09:50Z) and `idea.uk` (12:51Z), both `created_by='generic'`,
+  have never been triaged — 3h18m and 17m at measurement. Against a 4–5 minute
+  distribution that is a stall, not slowness, and the tightness of those three is
+  what makes it falsifiable.
+- **Why**: the two stuck items come from `site-discovery-rotation-{design,
+  quality,completeness}` — hourly `scheduled_tasks`, enabled, last fired 12:51Z,
+  shipped THIS MORNING by the `bugfix_230_discovery_driver` lane (mig 346). That
+  lane's handoff states they are **observe-only** and that the drain question is
+  `bugs_open/083` ("detected findings never reach a handler"), deliberately
+  untouched. Behaviour matches: the same two rotation timestamps filed batches
+  across many types (21 `undeployed_asset`, 14 `audit_tool`, 20 `page_rerender`
+  …) and none were triaged. Meanwhile `page_rerender` items created as late as
+  11:59Z DID complete — so the dispatch machinery is alive; these items are not
+  entering it. [INFERRED, from 230's stated design + this behaviour: the
+  rotation does not dispatch. Not read from its workflow config.]
+- **The misstep, logged in WRONG_CALLS**: at 10:35Z I wrote "the rest fill in as
+  the wave reaches them, at roughly a site an hour" into a committed SUMMARY. I
+  had queried `site_work_items` four times and never selected `triaged_at` or
+  `created_by` — the two columns that separate "draining" from "filling". Every
+  figure I quoted was a COUNT of arrivals, and a rising count is produced
+  identically by both hypotheses. **A queue's health is a latency question.**
+  Also: the producer changed under me mid-observation (another lane shipped the
+  driver that morning) and the rows look identical without `created_by`.
+- **Close criterion 3 rewritten in the bug file** to something with a completion
+  event: both convergence routes observed working with zero trigger errors —
+  which is satisfied (route i 09:08Z, route ii 11:26Z). The fleet-wide
+  convergence *rate* belongs to 083/230, not to 226. 51 slots remain unstamped;
+  on those, a hand-patch is still archived at its destruction, only the work
+  item is missed.
