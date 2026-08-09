@@ -12,11 +12,37 @@ neither blocks you.
 
 ## 0. OPEN ITEMS — none of them is code
 
-### 0a. ⏳ Council verdict on `claims_unverified` — `b67eb26a-14ef-45d7-b755-3e489fd57ef0`
+### 0a. 🔴 Council **REVISE at r1** — answered and resubmitted; ONE HIGH objection is the OWNER'S, not yours
 
-Submitted 09:40Z, still running at last check (`review_improvement_guardian`). Committed
-`4030cadb9` with `Council-Submitted:`, which asserts nothing and is credited automatically by
-`098` once approved — **no amend needed, and forward-only forbids one.**
+**Full read-out: `OBJECTIONS_2026-08-09_claims_unverified_council.md`.** 15 seats, 2 abstained,
+`gated_by_truncation: false`, gated by `editquality`. Round 2 resubmitted under the same trail
+(`RESUBMIT_CORR=b67eb26a-…`, run `6774ab51-…`). Corrections committed `6ab7ff594`.
+
+> **The gating objection caught a REAL ERROR, and it narrows the change.** This lane claimed
+> **TWO converging producers** and invoked the owner ruling of 2026-08-02 §1 as the authority for
+> shipping without an RFC. **There is ONE producer, so that ruling never applied.**
+> `check_unverified_claims_stats.go` registers no check, has no `init()`, emits no `WorkItemSpec`
+> — its `scanStoredStatClaims()` is called from inside `ScanDeployedClaims`
+> (`check_unverified_claims.go:385`, `:427`) and nowhere else in production. Corrected in all five
+> places it had spread to, visibly. The seat's sharper question — is the *scan logic* shared, not
+> just the item_key shape? — is answered favourably by that same call graph: ONE scan, both halves
+> inside it.
+>
+> 🔴 **DO NOT RESUBMIT AROUND THE `compliance` OBJECTION (HIGH). It is an OWNER decision and it is
+> open.** Three seats reached it independently from different mandates — `compliance`,
+> `bug_historian`, `architecture` — and **all three routed it to a human rather than blocking.**
+> The argument: `claims_unverified` was made HITL-terminal *because* it is a factual-claims
+> surface, and **the evidence register proves provenance, not correctness** — so a sloppy register
+> entry can retract a live claims-integrity finding unattended. That is a policy narrowing, not a
+> bugfix, and it is materially different from the voice_tells precedent (style vs truth).
+> **Seats agreeing it needs a human IS the signal** — same shape as `bugs_closed/124`'s scope veto,
+> which resubmitting with better measurements does not answer. Options costed for the owner in
+> `README_where_we_are` (2026-08-09, later); **the recommendation there is (b): close only when
+> `page_components.updated_at > item.created_at`, ~4 lines, which converts the objection from a
+> policy argument into a mechanical guarantee.** Await the owner's call before building it.
+
+Committed `4030cadb9` with `Council-Submitted:`, which asserts nothing and is credited
+automatically by `098` once approved — **no amend needed, and forward-only forbids one.**
 
 ```sql
 SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts

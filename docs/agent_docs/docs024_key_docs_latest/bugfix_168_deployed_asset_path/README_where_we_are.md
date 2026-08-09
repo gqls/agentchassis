@@ -687,3 +687,55 @@ way, so it cannot see them either. It has been telling us 625 when the real numb
 and our own rules say I should not assert something like that on my own reading. So I have put it
 through the diagnosis loop and will act on what comes back. It may well come back saying the
 scoping is deliberate and correct — that would be a good outcome, not a wasted run.
+
+**2026-08-09 (later) — the review council pushed back, it was right, and there is one question
+only you can answer**
+
+Two things came back from the review board on this morning's work. I'll take the easy one first.
+
+They caught me getting a fact wrong. I had described the thing I was building as covering a case
+where *two* different checks file the same kind of work item, and I leaned on one of your rulings
+from the 2nd — the one saying that situation doesn't need a full architecture review as long as
+both checks are named in the register. It turns out there is only **one** check. The second file I
+named isn't a check at all; it's a helper the first one calls. So the ruling I invoked never
+applied to this change in the first place. The work is fine — actually simpler than I described
+it, and the reviewer's sharper question ("are you sure both halves are re-checked the same way?")
+has a good answer, because there is only one scan and both halves are inside it. But I asserted
+something false, in the register, which is the file other reviewers treat as ground truth. I've
+corrected it in all five places it had spread to, visibly rather than quietly.
+
+Now the one for you. Three of the fifteen reviewers, working from completely different remits,
+independently said the same thing and all three said it should go to a human rather than be
+decided by them:
+
+> This item type was made human-only **on purpose**, because it is about factual claims — whether
+> a page is asserting something the site cannot back up. Letting a scheduled job close those
+> unattended is a policy change, not a bug fix.
+
+The sharpest version of it: **the evidence register proves provenance, not correctness.** My
+machine can confirm that a number on a page now appears in the site's register of facts. It cannot
+confirm the fact is *true*. So if someone adds a sloppy or wrong entry to that register, my sweep
+will quietly retract a live claims-integrity finding and no human will ever look at it.
+
+I think that concern is real and I have not tried to argue my way around it. It is genuinely
+different from the voice one we shipped yesterday: that one closes findings about *tone*, and the
+worst case is that some slightly stilted prose stops being flagged. This one closes findings about
+*truth*, and the worst case is that an unsupported claim stays on a customer's website with the
+warning switched off.
+
+The reviewers asked for explicit sign-off from the owners of the two bug files that track this
+work, rather than the notification I'd already sent them. So the question for you is simply:
+
+**do you want a machine closing factual-claim review items at all, and if so, under what
+condition?** Some options, cheapest first — I have not built any of them, I want your call before
+I do. (a) Ship as is: it only ever closes when it can positively re-verify, and it refuses on
+anything ambiguous. (b) Let it close only when the page's copy has actually changed since the item
+was filed, so a register edit alone can never retract a finding — that is about four lines and it
+kills the whole failure mode above. (c) Don't close at all for this type; downgrade the finding
+and leave it for a person. (d) Leave it human-only and drop the change.
+
+For what it's worth, (b) is what I'd suggest. It costs almost nothing and it turns the reviewers'
+objection from a policy argument into a mechanical guarantee.
+
+The code is committed either way — on this tree, committing *is* shipping, and I can't hold it
+back. But it does nothing until the next deploy, so there is time.

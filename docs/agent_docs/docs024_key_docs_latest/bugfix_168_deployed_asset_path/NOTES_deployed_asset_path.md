@@ -2247,3 +2247,66 @@ unfetchable symbol. Landmine added with the pre-flight check.
 `bugs_open/083`, and the `voice_tells` notices in both updated to say it is now LIVE with a first
 closure. `083` additionally gets the status-ceiling warning, since "findings never reach a handler"
 is precisely the file whose subject those 467 invisible rows are.
+
+### Council REVISE — and the misstep that earned it
+
+`b67eb26a-…` came back **REVISE**, 15 seats, gated by `editquality` (HIGH). Full read-out and every
+answer with its check: `OBJECTIONS_2026-08-09_claims_unverified_council.md`. Resubmitted round 2
+under the same trail; corrections committed `6ab7ff594`.
+
+**The misstep, which is the entry worth keeping.** I asserted **"TWO converging producers"** and
+then invoked the owner ruling of 2026-08-02 §1 as my authority for shipping a shared-vocabulary
+change without an RFC. **There is one producer.** `check_unverified_claims_stats.go` registers no
+check, has no `init()`, and emits no `WorkItemSpec`; its `scanStoredStatClaims()` has exactly two
+production call sites, both inside `ScanDeployedClaims`. What misled me was its own header line —
+*"reuses the existing `claims_unverified` item type, so it incurs no [new type]"* — which describes
+contributing findings to a type, and which I read as filing items under it.
+
+**The cheap check that would have caught it, and which I skipped:** before calling anything a
+producer, grep it for the emission, not for the type name.
+
+```bash
+grep -n "WorkItemSpec\|ItemKey\|ItemType\|func init\|Register(" <candidate.go>   # no output ⇒ not a producer
+grep -rn "<itsScanFunc>(" --include=*.go platform/ | grep -v "func <itsScanFunc>"  # where is it actually called?
+```
+
+This is the same family as the entry two above about `created_by` — **"two things mention the type"
+is not "two things file the type"**, and both times I reached for a name rather than a call graph.
+Recorded there as well.
+
+⚠ **It is worse than a wording slip, because the false claim had already propagated into the
+concept register**, which the next council round reads as ground truth (bugfix 161's lesson: the
+register both instructs the writer and vouches for the claim). Corrected visibly in all five places
+— code header, map comment, coverage test, CQ-021 entry, index row — rather than quietly dropped.
+
+**The seat's actual question was better than my error**, and its answer is favourable: it asked
+whether the shared scan reproduces the *second producer's logic*, not merely its item_key shape.
+It does, structurally — ONE scan, both halves inside it — so the feared "judged by the wrong
+predicate" outcome cannot occur.
+
+**Measurements the other seats asked for**, all folded into `grounded_in`:
+
+| seat | check | result |
+|---|---|---|
+| `guardian` | anything else close this type? | `ever_closed 0 · deploy_result 0 · handler_agent 0 · distinct resolution_paths 0` |
+| `bug_historian` | archived pages in the population? | **active 19 · archived 2 · deleted 2** — exposure is real, 2 of 23 |
+| `guidelines` | does adding a type starve the budget? | `max_items 1500` vs `scanned 186`, `cap_binding false` — ~14% of cap |
+| `debug_historian` | deploy verification? | existed, wasn't in the submission; baseline already spent (§0c) |
+
+⚠ **AND A TRAP READING THE VERDICT.** CLAUDE.md's documented command —
+`SELECT body FROM doc_notes WHERE categories ? 'council-gate' ORDER BY created_at DESC LIMIT 1` —
+returned **another lane's verdict** (`46f87e4c-…`, `bugs_open/228`). On a tree this concurrent,
+"most recent" is almost never yours, and the note reads perfectly plausibly until you notice it
+discusses contact forms. Read by **your own correlation**, and note the objections live in
+`diagnosis_artifacts.body`, not in `metadata` (which carries only `decision`/`reviewers`/`abstained`):
+
+```sql
+SELECT body FROM diagnosis_artifacts
+WHERE correlation_id='<YOUR_CORR>' AND kind='council_report';
+```
+
+**Left for the owner, deliberately:** the `compliance` HIGH objection that auto-closing a
+factual-claims HITL type is a policy change. Three seats, three mandates, all routed it to a human.
+Options costed in `README_where_we_are`; recommendation is the ~4-line "only close if the copy
+changed since filing" gate, which converts the objection into a mechanical guarantee. **Not
+resubmitted around** — a policy veto is not answered with better measurements.
