@@ -3874,3 +3874,57 @@ scrolled past instead of captured). Cost: one duplicate council round.
 citation-gated refusal + one decision_regression on purpose (mutate a guard
 target) — a gate proven only in the allow direction is not proven; migration
 340 via the runner; steer for page-content-writer; then save_sections gate.
+
+## §X.48 — 2026-08-09: post-roll — the code IS live, and both halves needed wiring nobody had done
+
+**Roll verified at the ARTEFACT, both replicas:** `decision_gated` ×1,
+`DecisionGuardsCheck` ×11, negative control `zzz_nonexistent_control_zzz` ×0.
+Positive strings alone would only have proven the pipeline.
+
+**Council round c2940987 was a CREDIT CASUALTY, not a verdict.**
+`complete_invalid` at 19:20:57Z with `review_editquality` returning "credit
+balance is too low" — inside the outage window another lane had already
+recorded. Credits confirmed restored (481 successful LLM calls today) BEFORE
+re-firing, so the round wasn't wasted twice. Resubmitted under
+`RESUBMIT_CORR` so the trail accumulates on the same correlation.
+
+**FINDING 1 — the guard check was UNDRIVEN.** Registering in Go is not
+enough: every discovery agent runs an explicit check ALLOW-LIST
+(quality-discovery: 6 names; design-discovery: 23). `decision_guards` was in
+none, so a throwaway decision carrying a deliberately impossible guard
+produced ZERO findings across a full discovery run — and that silence is
+indistinguishable from "nothing wrong". Exactly the fleet lesson "a silent
+mechanism is usually UNDRIVEN, not missing"; I shipped the detector and
+skipped the driver.
+
+**FINDING 2 — a gated refusal reported as a FAILED item.** The gate itself
+behaved perfectly (edit_result: `decision_gated:true`, named D-001, content
+untouched) — then the workflow walked on to deploy_page → update_page_status,
+which cannot resolve a page_id for an edit that never happened: item
+`failed`, "could not determine page_id". **The lock gate has always had this
+latent flaw** — all 13 historical section_edit items completed because none
+had ever hit a locked component, so nothing had walked the skip path. My gate
+is the first thing to walk it. The skip-result comment's whole intent ("an
+error would fail/retry the orchestration for a state only a human unlock can
+change") was defeated three steps downstream.
+
+**Both fixed in migration 355 (config, live immediately, no roll):** A adds
+`decision_guards` to quality-discovery's list; B branches apply_edit through
+`check_edit_skipped` → complete when `edit_result.skipped == true`.
+**A shape I invented and caught before applying:** I first wrote the branch as
+`{"action":"check_condition","condition_field":…,"true_step":…}` — no such
+action; the live shape is `conditional_branch` with a STRING condition and
+then_step/else_step (webdesign-agent's check_update_db is the working
+example). `go build` cannot see a wrong step shape; only reading a live one
+can. Recorded in the migration header.
+
+**Migration renumbered 340 → 354:** another session had already taken 340
+(`340_site_review_agent_loads_the_premise.sql`). Applied with a SCOPED
+`MIGRATIONS_DIR=/tmp/rfc015_mig` so `--apply` could not sweep the 20+ other
+pending files, per the runner's own warning.
+
+**Proofs in flight:** gate proof 2 (uncited → expect clean `complete` with
+skipped), positive control (SAME edit WITH `acknowledges_decision` → must
+proceed: a gate that refuses everything is not a gate), and a re-fired
+discovery for the guard (throwaway decision `D-TEST-guard-proof-20260809`,
+impossible pattern → expect one `decision_regression`).
