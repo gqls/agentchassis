@@ -7337,3 +7337,32 @@ SELECT type FROM agent_definitions
 - **the check:** before asserting where a step's output lands, read the STORER, not a specimen: `applyResponseToState` (coordinator.go:2636) stores under stepName always, plus step-level `OutputField` when set. When authoring: `output_field` as a SIBLING of `action`, never inside `config`. When verifying: pick a case where step name and output_field DIFFER — a specimen whose two names collide cannot discriminate.
 - **source:** finetuning_uk_service lane, FTW-042 first live run (both runs FAILED at `reconcile`: `collected_data.thunder_list missing`); the council guardian seat had flagged the wiring as its low-severity objection and the round-2 answer asserted the wrong model with a non-discriminating specimen as proof
 - **added:** 2026-08-09, finetuning_uk_service lane
+
+### A `LEFT JOIN` from `agent_error_log` to `orchestration_states` drops ~97% of rows to retention, and the survivors are a RECENT-BIASED sample that looks like the whole answer
+
+- **footprint:** `agent_error_log` · `orchestration_states` · any join between a long-lived log table and a pruned state table (`awaited_requests`, `processed_messages` have the same shape) · any question of the form "does the error row agree with its run?"
+- **fires when:** you check a provenance/attribution claim by joining the error row to the orchestration that produced it — the obvious and correct-looking way to test whether `agent_error_log.agent_type` matches `orchestration_states.owner_agent_type`.
+- **the tell:** the `LEFT JOIN` returns a huge bucket under `'<no orchestration row>'` — measured 2026-08-08: **550 of 555** `agent_type='generic'` rows. It reads as a finding ("these errors have no run"), and it is **retention**: `agent_error_log` spans ~30 days (20,022 rows, oldest 2026-07-09), `orchestration_states` retains ~24h (1,667 rows). The five that DO join are a sample of one day, and an inner join quietly makes that sample the entire study — mine returned 1,137 rows and 18 disagreements, which is a true statement about yesterday dressed as a true statement about the month.
+- **the check:** before reading a join result, **measure both spans in the same pass and put them in the output**, so the reader cannot miss which one bounds the answer:
+  ```sql
+  SELECT 'agent_error_log' t, min(occurred_at)::date lo, max(occurred_at)::date hi, count(*) FROM agent_error_log
+  UNION ALL SELECT 'orchestration_states', min(created_at)::date, max(created_at)::date, count(*) FROM orchestration_states;
+  ```
+  If the log's span exceeds the state table's, the join **cannot** answer a question about the log's history — only about its last day. Say which you asked. When the answer must cover the history, the evidence has to come from somewhere durable (the log's own columns, `agent_run_stats`) or from a **post-change measurement**, not from archaeology.
+- **source:** rfc012 lane §1a (`RFC_019` / `RSH-009`), verifying whether the actions door's `generic` rows disagreed with their run. They do — but only 5 rows could be evaluated, so the claim had to be scoped to "the last day" and the real proof deferred to a post-roll baseline. Caught by asking why one bucket held 99% of the rows, not by anything failing.
+- **added:** 2026-08-09, rfc012_await_findings lane
+
+### A whole-table count on `agent_error_log` spans a MONTH, so it prices a defect its own fix already retired — the bad rows are history, and nothing in the number says so
+
+- **footprint:** `agent_error_log` (`agent_type`, `error_code`, `action`) · `SELECT count(*) … GROUP BY agent_type` · any bug/handoff/RFC sizing a write-path defect from this table
+- **fires when:** you size a provenance or classification defect the obvious way — `SELECT agent_type, count(*), count(DISTINCT step_name) FROM agent_error_log GROUP BY 1` — and quote the number as the live damage. The table keeps ~30 days, so a fix that shipped three weeks ago is invisible in it.
+- **the tell:** there is none. That is the point: **555 rows across 25 distinct `step_name`s is a true count and a false claim**, and it looks identical whether the defect is raging or was fixed a fortnight ago. Measured 2026-08-08: **499 of those 555 `agent_type='generic'` rows predate 2026-07-26**, the day `RunAgentType` shipped (`baf887a8e`) — ~89% of the "live damage" was already fixed, the dominant producer (`call_agent`/`call_dispatch`, 394 rows) stops dead the day before, and the 25 `REVIEW_SUPERSEDED_BY_PASSING_SAVE` rows quoted as evidence were **all written on one day, 2026-07-23**. A handoff, a code comment and a register entry all carried the whole-table figure forward as current.
+- **the check:** never quote a bucket from this table without **splitting it at the date of the last commit that could have changed it**, and print `min`/`max(occurred_at)` per group so a dead producer is visible as a stale `max`:
+  ```sql
+  SELECT action, step_name, count(*), min(occurred_at)::date first, max(occurred_at)::date last
+  FROM agent_error_log WHERE agent_type = '<value>' GROUP BY 1,2 ORDER BY 3 DESC;
+  -- then: git log -S'<the symbol that would fix it>' --format='%h %ad %s' --date=short
+  ```
+  A group whose `last` is weeks old is not evidence of anything except that it stopped. The **rate** (rows/day since the last relevant commit) is the number that can be acted on; the total is the number that gets quoted.
+- **source:** rfc012 lane §1a — the handoff commissioning the work sized it at "559 rows across 25 distinct `step_name`s, the widest spread of any `agent_type`". Re-measured before building, which turned a volume argument into a structural one and moved the honest residue to ~36 rows in 13 days. Nothing failed; the figure was simply never bucketed.
+- **added:** 2026-08-09, rfc012_await_findings lane
