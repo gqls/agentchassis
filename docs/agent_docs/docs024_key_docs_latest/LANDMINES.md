@@ -7313,3 +7313,18 @@ WHERE path = '<your/file.go>' AND symbol = '<YourSymbol>';
   Zero rows ⇒ **name the enclosing FUNCTION instead** (function bodies are read in full, and the `var` is usually referenced inside one), or state the membership as a fact in the symptom text so the hypothesis does not depend on fetching it. Re-frame the question around what IS readable: a function body plus a `DataRequest` the loop can run beats a symbol it cannot open.
 - **source:** 2026-08-09, bugfix_168_deployed_asset_path — run `f3d18013-0b78-472f-b2cb-5bf5e4e893b8` came back UNVERIFIABLE on exactly this, having named `work_items_common.go:workItemRevalidatableStatuses`. Re-filed function-scoped as `a174b184-dac2-47a1-95ca-df2d192e183a`. The premise was independently true and first-hand verified; the loop simply never got to see the list
 - **added:** 2026-08-09, bugfix_168_deployed_asset_path
+
+### A prompt census that iterates `default_config->'workflow'->'steps'` MISSES every loop-nested prompt — and the miss reads as a clean, confident absence
+
+- **footprint:** `agent_definitions.default_config->'workflow'->'steps'` · `process_sections_loop` / any step whose config holds a **`sub_workflow`** · `page-content-writer`, `page-build-handler` · any fleet-wide audit of prompt text ("which agents carry the house voice / this rule / this claim?")
+- **fires when:** you census prompts with the obvious query — `LATERAL jsonb_each(default_config->'workflow'->'steps') s(name, step)` reading `step->'config'->>'prompt_template'`. It is correct for flat agents and silently blind for looping ones.
+- **the tell:** there is none in the output. A loop step's real prompt lives at `config->'sub_workflow'->'steps'-><inner>->'config'->'prompt_template'`, **two levels below where the census looks**, so the agent is simply absent from the result — it does not appear with a NULL, it does not error. Worse, the natural follow-up ("let me check that one agent directly") reproduces the blindness: `…->'config'->'steps'->…` is the *wrong* path — the key is **`sub_workflow`**, not `steps` — and a wrong path returns NULL, which reads exactly like "this agent has no house voice".
+- **the check:** for a census, **search the whole config as text** — it cannot be fooled by nesting depth:
+```sql
+SELECT type FROM agent_definitions
+ WHERE is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL
+   AND default_config::text ILIKE '%<distinctive phrase>%' ORDER BY type;
+```
+  And before believing any single-agent NULL, **induce a non-zero**: `SELECT length(<the same path>)`. A non-NULL length is the positive control that the path is real; a NULL length means you measured your own typo, not the agent. Proven 2026-08-09: the step-level census returned **6** agents carrying the house voice and confidently excluded `page-content-writer` — the agent that writes every decomposed site's sections. Its prompt is 12,813 chars, nested under `sub_workflow`, and **does** carry it. True count **7**. The blind census was about to be written into a handoff as a correction to a figure that was right all along.
+- **source:** loancalculator_couk lane, grounding the "SEVEN copies across seven agents" figure before carrying it into a new handoff — caught by running a positive control on the single-agent read, not by anything in the census output
+- **added:** 2026-08-09, loancalculator_couk lane

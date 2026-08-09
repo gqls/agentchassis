@@ -1,4 +1,11 @@
-# HANDOFF — loancalculator.co.uk · continue here (written 2026-08-08 late, for 08-09)
+# HANDOFF — loancalculator.co.uk · **the `bugs_open/227` PLATFORM thread** · continue here (written 2026-08-08 late, for 08-09)
+
+> ⚠ **SCOPE, added 2026-08-09 — this directory has two live handoffs dated 08-09.**
+> **This file is the `bugs_open/227` job** (experience-planner writes another site's plan):
+> the fix is written, dry-run proven and **NOT applied**. Everything below is still owed
+> and still accurate about 227.
+> **The site's COPY/VOICE thread is `HANDOFF_2026-08-09b_continue_here.md`** — note the
+> **`b`**. They are different jobs; neither supersedes the other.
 
 **Supersedes `HANDOFF_2026-08-08_continue_here.md`.** That file is correct about the
 voice rollout and can be read for its §2/§3/§6 (the tools, the CSS trap, the method

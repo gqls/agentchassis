@@ -4235,3 +4235,32 @@ lock every sibling you are not targeting.
   `save_page_sections_action.go:769` — the guard matches on slot name alone) and the
   behaviour was measured on a real run with both arms (2 obeyed, 1 leaked). A verifier
   pass is still owed if anyone wants it independently confirmed.
+
+### Second misstep, same session — I nearly "corrected" a figure that was right
+
+Writing the next handoff I went to ground §7's *"the house voice block is SEVEN copies
+across seven agents"* rather than repeat it unchecked. The obvious census —
+`LATERAL jsonb_each(default_config->'workflow'->'steps')` reading
+`step->'config'->>'prompt_template'` — returned **6**, and pointedly did **not** include
+`page-content-writer`, the agent that writes this site's every section. That is a
+striking result and I was one keystroke from writing "the figure is stale, it is 6, and
+it does not even touch our writer".
+
+**It was my query that was wrong.** A loop step's prompt lives at
+`config->'sub_workflow'->'steps'->'generate_content'->'config'->'prompt_template'` —
+below where the census looks. My first attempt to check that one agent directly used
+`config->'steps'->…` (the key is `sub_workflow`), which returned NULL, i.e. it
+*reproduced* the blindness and looked like confirmation. What broke it was asking for
+`length()` as a positive control: NULL length = I measured my own typo. On the right
+path the prompt is **12,813 chars and does carry the house voice**.
+
+Nesting-proof census (`default_config::text ILIKE '%size of the fact%'`): **7 agents** —
+`content-creator-about`, `content-creator-hero`, `content-creator-hero-without-research`,
+`content-writer`, `grounded-explainer`, `page-content-writer`,
+`simple-content-writer-with-approval`. **§7's figure is CONFIRMED, not stale.**
+
+Two things carry forward. **(1)** The fleet-wide base-prompt job in §7 is exactly a
+fleet-wide prompt census, so this is the first query it will write and the first way it
+will be wrong. Filed as a landmine. **(2)** `page-content-writer` IS in scope for that
+change — the agent this lane has spent a week driving is one of the seven, which is an
+argument for the wide option the owner already chose, not against it.

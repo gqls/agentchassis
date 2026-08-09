@@ -26,6 +26,11 @@ live      26/26 HTTP 200 · toolgolden 11/11 exact · 16 locked rows (12 tool + 
 - Copy still judged good by him: `hidden-loan-fees`. Judged clunky and now fixed:
   `consolidation` ("appeal"), `legal` (the "if" tic).
 
+> **SUPERSEDED 2026-08-09 by `HANDOFF_2026-08-09b_continue_here.md`** (the COPY/VOICE
+> thread's cold start — note the **`b`**; the plain `HANDOFF_2026-08-09` is the separate
+> `bugs_open/227` platform thread). §4, §5 and §6 below still stand and are still worth
+> reading; §3 carries a correction; §2 is closed.
+>
 > **CLOSED 2026-08-09 (morning).** §2 is **done** — `index`/`prose-2` now reads *"Enter
 > your loan amount, rate and term below to see how the monthly figure and the total cost
 > move together."*, written through the framework (corr `26648f55`). Struck register 0 on
