@@ -951,3 +951,39 @@ is decomposed into per-tool components (what the sibling lane did) or its pages
 are re-typed. Anyone reading "17 fences installed" without this paragraph would
 reasonably believe the calculators are now watched. They are not — they are
 *checkable*, in one command per tool.
+
+### 2026-08-09 (evening) — the sibling site, and a fourth checker-was-wrong
+
+Owner asked for the 0% defect fixed "in all the calculators", so this session
+took loancalculator.co.uk too. Full account in `bugs_open/224` and the new
+`HANDOFF_2026-08-09_continue_here.md`; only the transferable parts here.
+
+- **Told the lane before touching it** (`CONTRIB_2026-08-09b_*` in their dir),
+  per the 07-29 ruling that a shared mechanism's other consumers must be told,
+  not merely measured. Checked their threads first: copy/voice ("site DONE") and
+  `bugs_open/227` — neither arithmetic, no work item on the defect.
+- **No shared engine there, deliberately.** Their only shared JS plumbing
+  (`assets/js/snippets.js`, already on every page) is generated from the
+  **fleet-wide `js_snippets` table — no `site_id`**. Adding a row changes a
+  shared mechanism for every site: architecture scope, an RFC, not a bug patch.
+  So each tool got its own zero branch, following their 08-03 precedent, and the
+  door-closing version is written down as an open decision rather than done
+  quietly.
+- **`render_tool_row.py`'s control refused to write, and it was RIGHT to.** Its
+  default `--control-ref` is `6e8098022` (pre-08-03), which can no longer
+  reproduce rows written since. Passing `--control-ref 767681e0d^` — the commit
+  that actually produced the stored rows — REPRODUCES on all seven. The lesson
+  is the lane's own MISSTEP 2 recurring: **a pinned baseline expires when the
+  thing it baselines moves**, and the failure reads as "the renderer drifted".
+- **Verified before shipping by driving the DB rows themselves**
+  (`probe_zero_rate_rows.py`, 18/18) rather than waiting for the deploy. On a
+  consumer-credit site a wrong number should cost an edit, not a live page.
+
+> **MISSTEP 4 — my "no NaN on the page" check matched my own comment.** The
+> probe asserted `"NaN" not in page.content()` and failed on three tools whose
+> displayed values were all correct: the **fix comments explain the NaN defect**,
+> so the detector found its own explanation. This is
+> [[prompt-text-poisons-its-own-detector]] in a new costume. Now it reads the
+> textContent of `[id]` elements — the things a user actually sees.
+> **Four times this session the red result was my harness, not the site.** The
+> lane handoff said that prior was high; it is higher than I believed.
