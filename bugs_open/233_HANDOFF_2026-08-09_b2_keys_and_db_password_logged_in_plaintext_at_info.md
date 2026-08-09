@@ -96,7 +96,10 @@ material.
 ## Council trail
 
 Submitted 2026-08-09, correlation `7490388d-c945-42c0-b3c4-c452741a10cd`
-(commit `43c1801d6` carries it as `Council-Submitted:`). Verdict:
+(commit `43c1801d6` carries it as `Council-Submitted:`).
+**Verdict: APPROVED, round 1, all reviewers** (council_report row
+2026-08-09 11:44 UTC; the trailer is credited by 098 at report time —
+forward-only forbids amending it to `Council-Reviewed:`). Query:
 
 ```sql
 SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
