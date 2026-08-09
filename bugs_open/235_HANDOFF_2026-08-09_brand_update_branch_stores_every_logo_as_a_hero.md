@@ -113,3 +113,48 @@ cannot produce them.
   corrected by this lane 08-09.
 - `bugs_open/223` — `code_symbols` var-blindness, third consumer (the 090 could
   not fetch `ImagePurposes`).
+
+---
+
+## FIXED AT SOURCE 2026-08-09 — migration 360 applied, live immediately (config, no roll)
+
+Fix candidate 1 taken. `store_imagery_brand_asset` no longer carries a static
+`purpose`; it reads `purpose_field: "input_data.spec.purpose"`, matching its own
+siblings `store_imagery_asset` / `store_variant_asset`.
+
+**Both keys had to move together, and this is the part worth remembering:**
+StoreAssetAction resolves purpose literal-first
+(`v3_site_actions.go:2662-2670`) — `config["purpose"]` wins, and
+`config["purpose_field"]` is consulted only when it is empty. Adding the field
+without deleting the static would have changed nothing while looking like a fix.
+
+`[MEASURED]` before applying, the safety question this file raised — **do the
+hero-arm items carry `spec.purpose`?** Yes, all of them:
+
+| brand_update | asset_key | spec.purpose | items | window |
+|---|---|---|---|---|
+| true | `logo` | `logo` | 4 | 08-02 → 08-08 |
+| true | `hero_home` | `hero` | 4 | 08-02 → 08-09 |
+
+No `brand_update=true` item is missing `spec.purpose`, so the hero arm keeps
+resolving `"hero"` and is behaviourally unchanged; only the logo arm moves, which
+is the defect. If the key were ever absent the purpose resolves to `""` and the
+asset row gets a NULL purpose — visibly wrong rather than silently mislabelled,
+which is the failure mode to prefer.
+
+`[MEASURED]` the verify block was **induced against the unmigrated row first**
+(raised "0 of 1") before the apply raised nothing and logged "1 of 1"; live row
+then re-read BY CONTENT, showing `purpose` absent and `purpose_field` set on the
+brand step while the two legacy single-purpose steps (`store_hero_asset`,
+`store_logo_asset`) correctly keep their statics.
+
+### STILL OPEN — the 11 published artefacts are NOT repaired
+
+This migration stops new ones. It does not touch the JPEGs already served by
+gamesdesign, idea.uk, vonc, dartsonline, robot-hands, vetcomparison,
+fundamentallyai, oufe, webdesign.co.uk, lendzy, webdesign.uk. Fix candidate 2 is
+still owed, and note two traps in it: a deploy writes the DERIVED path only, so
+the stale `logo.jpg` is not removed by re-running anything, and **pages currently
+reference it** (robot-hands' HTML points at `/assets/images/logo.jpg`) — so the
+order is re-deploy the correct `logo.png`, re-render the pages that reference the
+old name, then delete the stale file.

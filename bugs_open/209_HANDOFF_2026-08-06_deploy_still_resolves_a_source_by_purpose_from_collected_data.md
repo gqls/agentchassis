@@ -243,3 +243,37 @@ replaces the **fallback**: correct-by-purpose becomes 86%-wrong-by-recursive-sea
 Conditional exposure — it fires on the day a `*_result` map goes missing — but a
 fallback that deploys the wrong asset's bytes exactly when the primary hiccups is
 the defect class this whole family (152/155/209) exists to remove. Ranking unchanged.
+
+---
+
+## PHASE 2 IS LIVE — pod-verified on chassis v1.0.1276, 2026-08-09
+
+`findStorageURI` and its call site are **gone from the running binary**. Verified
+per replica with a negative control, which is the only grep that can prove a
+DELETION shipped:
+
+| replica | `Found URI at purpose_uri` (removed → expect **0**) | `Resolved source object from asset row` (kept → expect ≥1) | `no storage URI found for` (kept) |
+|---|---|---|---|
+| `agent-chassis-767d7f5674-5sxdc` | **0** | 1 | 1 |
+| `agent-chassis-767d7f5674-sfct5` | **0** | 1 | 1 |
+
+Both on `docker.io/aqls/agent-chassis:v1.0.1276`. The positive controls prove the
+grep and the pipeline, so the zeros mean the strings are absent rather than the
+check being broken (`bugs_open/153`'s rule).
+
+Council: **APPROVED**, correlation `cc4909c6-de80-4e40-910f-9186e9da8762` — read
+in full, one advisory objection at low severity from `editquality` noting the
+doc-comment and file-header edits add no behaviour (true, and harmless). Nothing
+to act on. The commit carries `Council-Submitted:`, which `098` credits
+automatically now the verdict is approved.
+
+**So 209's own defect is fixed AND live**: a source can no longer be resolved by
+purpose from `collected_data` — only `s3_uri` (named by the caller) or the asset
+row, then a loud skip. Behavioural proof landed earlier the same day on both
+legacy workflows.
+
+**What keeps this file open:** Phase 3 (optional) — `StoreAssetAction` still
+writes `collected_data[{purpose}_uri]` at `v3_site_actions.go:2852` and, as of
+this roll, **nothing reads it**. Retiring the writers is cheaper now than when it
+was written up, and a writer with no reader is exactly what the next author will
+assume is load-bearing.
