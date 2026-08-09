@@ -49,3 +49,82 @@ then assert: the minted `unbuilt_internal_link` item's `result` names the TARGET
 file, `pages.deployed_at` is now set on the target, and `result._verification.status`
 = `verified`. The wrong outcome (pre-fix) deploys the CONTAINER's file and leaves the
 target NULL.
+
+## Re-check the three config legs are still live (do this before every acceptance run)
+```sql
+-- leg 1: the dispatcher mapping. NOTE THE DEPTH: input_mapping lives under
+-- call_handler->'config', not on the step. Reading the step and asking for
+-- ->'input_mapping' returns EMPTY, which looks exactly like a missing leg.
+SELECT jsonb_pretty(default_config->'workflow'->'steps'->'process_item'->'config'
+                    ->'sub_workflow'->'steps'->'call_handler'->'config'->'input_mapping')
+FROM agent_definitions
+WHERE type='build-dispatch-loop' AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+-- expect: "page_id?": "current_item.page_id"
+
+-- legs 2 and 3 in one read, without needing to know either step's nesting:
+SELECT s.key AS step, jsonb_pretty(s.value->'config')
+FROM agent_definitions a, LATERAL jsonb_each(a.default_config->'workflow'->'steps') s
+WHERE a.type='page-build-handler' AND a.is_active AND COALESCE(a.is_snapshot,false)=false AND a.deleted_at IS NULL
+  AND s.key IN ('load_page_record','save_sections');
+-- expect: load_page_record.authoritative_page_id = input_data.page_id   (mig 340)
+--         save_sections.page_name_field         = page_record.name      (mig 342)
+```
+Gotcha: always confirm the agent row count is 1 first — a zero-row result and a
+wrong-path result are the same empty output.
+
+## Re-grep the binary on the CURRENT pods (an earlier pod-grep expires at the next roll)
+```bash
+for p in $(kubectl -n ai-persona-system get pods -l app=agent-chassis \
+             -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}'); do
+  echo "--- $p"
+  kubectl -n ai-persona-system exec "$p" -- sh -c \
+    'strings /app/agent-chassis | grep -c "authoritative_page_id"; \
+     strings /app/agent-chassis | grep -c "unbuilt_internal_link"; \
+     strings /app/agent-chassis | grep -c "authoritative_page_identity_XYZ"' </dev/null
+done
+# expect per replica: 3, 7, 0 — the third is an INVENTED string, the negative
+# control that proves the grep could have come out zero.
+```
+Gotcha: `kubectl exec` inside a loop eats the loop's stdin — `</dev/null` it. The
+final `grep -c` returning 0 makes the whole `sh -c` exit 1; that is the control
+working, not a failure.
+
+## Fire the improvement loop at a chosen site (the shipped trigger CANNOT do this)
+`scripts/initial_messages/060improvement_loop/076_improvement_loop_trigger.sh`
+re-assigns SITE_ID/DOMAIN to robot-hands.com *after* parsing its own arguments, so
+passing a site is silently ignored. Build the payload by hand instead — working
+copy kept at `scratchpad/fire_improvement_loop_dartsonline.sh`. Two rules:
+payload goes in the container COMMAND (never stdin — `kubectl run -i | kcat -P`
+drops ~4 of 5 silently at exit 0), and the command ends `&& echo PUBLISH_OK`.
+**No `PUBLISH_OK` in the output means nothing was published.**
+
+## Verify a page at the served artefact — READ THE URL, NEVER BUILD IT
+```sql
+SELECT name, url, build_status, COALESCE(deployed_at::text,'NEVER') AS deployed
+FROM pages WHERE site_id='<site>' AND name IN ('<container>','<target>');
+```
+then `curl` those `url` values verbatim. Gotcha, and it has now bitten twice in
+this lane: the URL is **not** derivable from `pages.name` — `beginners` serves at
+`/blog/beginners.html`, `guide-first-time-buyer` at
+`/guides/first-time-buyer/index.html`. A guessed URL 404s, and a 404 is exactly
+the signal that means "never deployed", so the wrong guess reads as a finding.
+For a dead-link claim the honest triple is: container **200**, target **404**, and
+`grep -c 'href="<href>"'` ≥ 1 in the container's served bytes.
+
+## The residue census — what did the pre-verifier completions leave behind?
+```sql
+SELECT left(w.id::text,8) AS item, s.domain, w.updated_at AS completed,
+       COALESCE(t.name,'(no row)') AS target, COALESCE(t.deployed_at::text,'NEVER') AS tgt_deployed,
+       (w.result->'_verification'->>'status') AS verification
+FROM site_work_items w
+LEFT JOIN pages t ON t.id=w.page_id
+LEFT JOIN sites s ON s.id=w.site_id
+WHERE w.item_type='unbuilt_internal_link' AND w.status='complete'
+ORDER BY w.updated_at;
+```
+Gotcha: ask by IDENTITY, not `count(*)`. The count says "6 complete" and hides
+that three targets shipped days later by unrelated work, one had its link removed,
+and only one is genuine residue. Then settle each candidate with the verifier's own
+first disjunct rather than by eye —
+`position('href="'||href||'"' in COALESCE(pc.rendered_html,'')) > 0` — because
+"link still rendered?" is what separates residue from a legitimately resolved item.
