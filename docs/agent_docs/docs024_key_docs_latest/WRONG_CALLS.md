@@ -25154,3 +25154,173 @@ done everything the practice asks (a control, run first, before trusting a pass)
 control still could not object. Distinct from the existing
 `a-path-read-cannot-see-the-shape-change-underneath-it` landmine, which warns you off
 trusting a path: here a path *was* checked, and the check was hollow.
+
+---
+
+## 2026-08-09 — `bugs_open/232` lane. I read "your file is clean" as "your edit is gone", and nearly re-appended it
+
+**The claim, and it was wrong for about ninety seconds.** I appended an entry to
+`LANDMINES.md`, then ran `git diff --numstat` and got `41 added, 1 deleted`. I had
+appended only — nothing could have been deleted — so I investigated rather than
+shrugging, which was right. Then a minute later `git status --short LANDMINES.md`
+returned **nothing at all**, and `git diff` was empty. The natural reading of a
+suddenly-clean file you just edited is *my write did not land*, and the natural next
+action is to write it again.
+
+**What was actually happening.** Two different concurrent-session effects, back to back,
+and they look identical from my side:
+
+1. The `-1` was never mine. `LANDMINES.md` was **already dirty** with another session's
+   uncommitted edits when I appended, so my diff showed *their* modified line as a
+   deletion alongside my addition. A same-file passenger, seen from the passenger's seat.
+2. The file then went clean because that session **committed it** (`9a9fef332`), taking my
+   entry with it. Same again minutes later for `000_concept_index.md`, committed by the
+   loancalculator lane (`e42000bb0`) with my SEO-003 row inside their 227 commit.
+
+Nothing was lost either time — forward-only holds, and CLAUDE.md already says a swept
+commit costs nothing. **The near-miss was the re-append**, which would have duplicated a
+40-line landmine entry in an append-only file that syncs to `doc_notes`.
+
+**The cheap check, and it is one command.** On a shared tree, *clean* and *absent* are
+different facts, and `git status` cannot tell them apart — it compares the tree to HEAD,
+and HEAD moves under you. **Ask HEAD for your content, not the tree for your file:**
+
+```bash
+git show HEAD:docs/agent_docs/docs024_key_docs_latest/LANDMINES.md | grep -c "<a distinctive phrase from YOUR entry>"
+```
+
+`1` means it landed (whoever committed it). `0` means it really is gone and you may
+rewrite. `git status` returning nothing answers neither question. This is the same shape
+as the existing `git mv` entry — *verify at HEAD, not at the tree, because `ls` cannot
+tell you this* — arriving through a different door: there, the file was gone from disk
+either way; here, the file is clean either way.
+
+**Second-order, and the reason this is worth a row rather than a shrug:** because
+`9a9fef332` ran `landmines-sync.py --apply` as part of their own commit, my entry was
+synced to `doc_notes` (14 footprint rows) **and its NEEDS_VERIFICATION signal was consumed
+in the same motion** — `bugs_open/223`'s documented second trap, now observed happening to
+a *third party's* entry rather than to the runner's own. 0 verification rows exist for it
+and none will appear unprompted. So on this tree the trap is not merely "do not run
+`--apply` before dispatching"; it is **your entry's verification can be consumed by a
+session that has never heard of your entry**, and the only way to notice is to query for
+the verdict yourself.
+
+**Not logged as a landmine:** it needs no symptom, but the footprint is "any shared
+append-only doc", which is too broad to guard usefully — the existing `git mv` landmine
+already carries the verify-at-HEAD check for the path-shaped case.
+
+---
+
+## 2026-08-09 (brochure lane, `bugs_open/113`) — I attributed a served `#ffffff` to a fallback without checking that the supplier emits `#ffffff` too. Both did, so the artefact could never have answered the question
+
+**The claim.** In a three-site audit I wrote a discriminator table concluding that
+`ai-agent-orchestration.com` still carried 113's own defect — a palette slot falling
+through to the layout's light literal — and that it was *"this bug's remaining live
+instance, of these three"*. The evidence was the served stylesheet: `--color-card-bg:
+#ffffff` sitting on a `#080B10` background.
+
+**It was false.** The site's theme palette **defines `card_bg: "#ffffff"` explicitly**.
+`card_bg` is a specialised slot, so the theme wins it outright, and the derivation added
+by 113's own fix skips any slot the palette defines. The layout's fallback is never
+reached on that site. The `#ffffff` was **curated**, not fallen-through.
+
+**Why no amount of care at the artefact would have caught it.** The layout declares
+`{{palette "card_bg"        "#ffffff"}}` and the palette supplies `#ffffff`. **Both
+candidate sources emit the same seven characters.** The served value was
+*over-determined*, so reading it more carefully, on more pages, at higher confidence,
+would have produced the same wrong answer every time. This is the parent bug's own
+founding sentence — *"a derived value and a curated one are indistinguishable in the
+output CSS"* — catching the person who wrote it down.
+
+**What actually caused the miss: I asked the right table by the wrong key.** I ran
+`SELECT … FROM palettes WHERE source_domain='ai-agent-orchestration.com'`, got 0 rows, and
+recorded *"there is no `palettes` row for this domain at all"*. True, and irrelevant —
+`source_domain` is stamped only on a per-site **fork**. The site renders from a **shared
+seed palette** reached through `sites → style_collections → css_themes → palettes`, a
+chain that never mentions the domain. A 0-row answer to a wrong-key query reads exactly
+like an absence.
+
+**The tell I had and did not use.** The open-work-item check I ran in the *same* session
+returned `47ce091c` — *"shares its style collection with 3 other site(s)"*. That sentence
+says the palette is shared, i.e. not stamped with any one domain, and I read past it.
+
+**The cheap check, and I had already run it correctly on the neighbouring row.** One
+predicate, on the input rather than the output:
+
+```sql
+SELECT p.name, p.colours ? 'card_bg' AS palette_supplies_it, p.colours->>'card_bg'
+FROM sites s JOIN style_collections sc ON sc.id=s.style_collection_id
+JOIN css_themes t ON t.id=sc.css_theme_id JOIN palettes p ON p.id=t.palette_id
+WHERE s.domain='<domain>';
+```
+
+`false` ⇒ the served value can only have been derived or fallen through. `true` ⇒ **the
+artefact cannot discriminate and neither can you.** The dartsonline row of the very same
+table was sound *because* I ran this there (`colours ? 'card_bg'` = false) — so the check
+was in my hands, applied to the negative case and skipped on the positive one. **Asserting
+a positive is exactly where the confirming check gets dropped.**
+
+**Cost.** Low, and only because it was caught within the day: the false line would have
+sent the 122 lane's already-queued re-render (`e97fb5c5`) at a site it cannot repair, and
+the failure mode would have been a *silent non-improvement* — 44 white-card failures still
+there afterwards, with the re-render reported `complete`.
+
+**Generalisable, and it is not about colours:** *when you attribute an observed value to a
+fallback, establish that the non-fallback source does not also produce it.* If both
+produce it, the observation is over-determined and no amount of measuring the output will
+separate them — only the input will.
+
+---
+
+## 2026-08-09 — I cleared a lane of ownership, then found the claim committed in that very lane an hour later. Every check I ran was correct and none of them could have caught it.
+
+Lane: `loanandmortgagecalculator_couk`. The owner asked for the 0% defect
+(`bugs_open/224`) fixed "in all the calculators", so I swept the sibling sites,
+found 5 affected pages on loancalculator.co.uk, filed the finding, and asked the
+owner whether to extend to that site. **The owner said yes. The owner then asked
+me to check whether another thread had already fixed it — and one was already on
+it, with the claim committed and five templates edited in the working tree.**
+
+**What I actually checked, and why each was insufficient:**
+
+| check | result | why it missed |
+|---|---|---|
+| `scripts/who-owns.py 224` | pointed at MY lane | it reads COMMITS; the other session's edits were uncommitted |
+| sibling lane's current handoff | two live threads, both copy/voice + `bugs_open/227` | **true, and irrelevant** — the claiming session was not in that lane |
+| open `site_work_items` | nothing on the defect | the claim was a doc commit, not a work item |
+| `git status` on the sibling lane | *not run* | this was the one that would have shown it |
+
+**The cheap check that would have caught it, in one command:**
+`git log --since="6 hours ago" --oneline -- <target lane>/` **plus**
+`git status --porcelain -- <target lane>/`. The claim was sitting in a
+`CONTRIB_*` file committed 40 minutes before my sweep, in the lane I had just
+cleared, and five `rewrite/tool-*.html.tmpl` files were dirty in the tree.
+
+**The transferable shape, and it is not "run more ownership checks".**
+*Every ownership signal in this estate is a record of what has FINISHED.*
+`who-owns` reads commits; a handoff describes threads that got far enough to
+write one; a work item exists because someone filed it. **A session mid-fix has
+produced none of those.** The recency-weighted question — "has anything moved
+here in the last few hours, committed or not?" — is the only one that sees a
+thread that is currently working, and it is cheaper than all the others put
+together. `MEMORY.md` already carries this as
+[[who-owns-is-blind-to-uncommitted-sessions]]; I read that line at session start
+and still ran only the lagging checks, because they are the ones with a script.
+
+**Second lesson, on clearing a lane rather than a task.** I asked "is this LANE
+busy?" and answered it correctly. The right question was "is this TASK claimed?"
+— and the claimant was a session in a *different* lane reaching into this one,
+which is exactly what I was about to do myself. **When you are about to cross a
+lane boundary, the check must follow the TASK across the boundary too**, because
+whoever else is doing the same thing is, by construction, also a stranger to
+that lane.
+
+**And the part that stings usefully:** their measurement was better than mine.
+Reading the six components' `rendered_html` directly, they found a **sixth**
+affected component that my detector reported clean — the consolidation tool,
+whose 0% mode is a deterministic `£0.00` rather than a `NaN` or a
+history-dependence, *plus* an inverted "this will save you" verdict. I had
+flagged that blind spot in writing and marked the page "unmeasured, not
+passing", which was the right call — but a stated blind spot is not a
+measurement, and had I proceeded I would have shipped a fix for five of six
+components and called the site done.

@@ -55,6 +55,40 @@ NOTES 2026-08-08/09 entries.
 
 ## 2026-08-09 — THE SAME DEFECT IS LIVE ON loancalculator.co.uk (5 pages). NOT FIXED
 
+> **CLAIMED — DO NOT START A SECOND FIX. Corrected 2026-08-09, ~1 hour after
+> this section was written.** The **bugfix-224 session already owns this work**
+> and published its claim before I swept:
+> `docs/agent_docs/docs024_key_docs_latest/loancalculator_couk/CONTRIB_2026-08-09_*`
+> (commit `0e4e810f4`, "the bugfix-224 session is taking the 0% fix on your
+> site"), with five `rewrite/tool-*.html.tmpl` edits live in the working tree at
+> the time of writing. **My closing line below — "awaiting a scope decision
+> before touching another lane's live site" — is therefore withdrawn**: the
+> decision was not mine to take and had already been taken.
+>
+> **How I nearly duplicated it, which is the reusable part.** `who-owns.py`
+> pointed at MY lane, because it reads COMMITS and the other session's work was
+> uncommitted. The doc-level check I ran (the sibling lane's own handoff) said
+> its threads were copy/voice and `bugs_open/227` — true, and irrelevant, because
+> the claiming session is not in that lane. **The claim was in a file I had not
+> thought to look at, in a lane I had already cleared.** What would have caught
+> it in one command is a `git log --since` over BOTH the target lane and the
+> whole tree, plus `git status` for uncommitted work — a session mid-fix is
+> invisible to every ownership check that reads history.
+>
+> **Their measurement is better than mine and supersedes it on one row.** They
+> read the six components' `rendered_html` directly and found a **sixth**
+> affected component, `tool-consolidation-risk`, which my detector reported
+> clean — confirming the blind spot I flagged below was real and load-bearing,
+> not a hedge. Worse than I guessed, too: `newMonthly` initialises to `0`, and
+> the verdict branch tests `totalBal > 0 && newN > 0` but **not** `newR`, so a 0%
+> consolidation is presented as £0.00/month **with a "this will save you"
+> verdict attached** — on the page whose purpose is to warn about term
+> extension. Read their contrib note, not this section, for the component list.
+>
+> What stands from this section: the detector, its two controls, and its two
+> stated blind spots. Live re-measure at the time of writing this correction
+> still showed 5 of 6 affected, i.e. their fix had not yet deployed.
+
 Found by sweeping the sibling sites after the owner asked for the 0% bug fixed
 "in all the calculators". Measured, not grepped, with a new general detector
 (`zero_rate_sweep.py`, same lane) that needs no per-tool oracle: it drives every
