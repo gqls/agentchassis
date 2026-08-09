@@ -38,7 +38,15 @@ import (
 // past TestValidDocSubjectTypes_LockstepWithMigrationCheck because that test
 // only scans migrations recreating doc_plans_subject_type_check — 270 never
 // touches doc_plans (landmine rows never belong there), so the test had
-// nothing to catch. See the sibling test below, added for the same reason).
+// nothing to catch. See the sibling test below, added for the same reason);
+// +'decision' (migration 340, doc_notes ONLY — RFC_015 decision records, which
+// are per-site verdicts about a change and so have no shared-contract shape to
+// put in doc_plans. Shipped by e1628f7df on 2026-08-08 as the migration alone,
+// leaving this list behind: exactly 184's split, caught this time by the
+// lockstep test rather than by a live failure, and closed here on 2026-08-09.
+// Read migration 340's own landmine before querying: the four staged decision
+// rows are typed 'component', so filter on `categories ? 'decision'`, never on
+// subject_type).
 //
 // WHY 'component' IS KEYED BY function, AND WHY THE PLAN CARRIES NO SITE.
 // A component's TEMPLATE is fleet-shared — one content_components row serves
@@ -60,7 +68,7 @@ import (
 // TestValidDocSubjectTypes_LockstepWithMigrationCheck reads the newest
 // migration that sets the CHECK and fails on drift, so this list and the
 // migration must land in the SAME commit.
-var validDocSubjectTypes = []string{"tool", "pipeline", "experience", "action", "experience-pattern", "component", "landmine"}
+var validDocSubjectTypes = []string{"tool", "pipeline", "experience", "action", "experience-pattern", "component", "landmine", "decision"}
 
 // isValidDocSubjectType reports membership in validDocSubjectTypes.
 func isValidDocSubjectType(subjectType string) bool {
