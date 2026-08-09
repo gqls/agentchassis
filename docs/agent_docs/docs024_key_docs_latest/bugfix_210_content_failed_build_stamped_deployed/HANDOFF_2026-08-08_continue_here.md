@@ -1,7 +1,11 @@
 # HANDOFF — bugs_open/210, cold-start here (2026-08-08, post-roll)
 
 **State in one line: FIXED, council-APPROVED (round 1), LIVE on v1.0.1268, pod-verified —
-in substance closed; what remains is a watch, one owner decision, and one optional canary.**
+~~in substance closed; what remains is a watch, one owner decision, and one optional canary~~
+**UPDATED 2026-08-09: the owner decision is EXECUTED and the canary is CLOSED OUT (stood down,
+not inducible — reasoning in the bug file + NOTES). Only the passive watch remains, and it is
+still 0/0.** A scope boundary was found on the way out: the guard does not cover `page-rerender`
+(LANDMINES + PBP-038).**
 
 Cold-start reading order: this file → `bugs_open/210_…md` (state block at top) →
 `SUMMARY_2026-08-08_…md` → `NOTES_…md` (newest at the bottom; the council-objection
@@ -41,12 +45,15 @@ dispositions and the LIVE verification evidence live there). Register entry: **P
    `wont_fix` (durable under both old and new rules). Audit query: RUNBOOK § cancel-as-mute.
    Also released, no cost: `vonc.com/provocation` (owned → one review item, no build);
    3 synthetic verify-keys (match no plan page); 14 deployed-and-current pages (skip_built).
-3. **Optional behavioural canary** (the 208 template, `bugfix_208_…/HANDOFF` § canary): a
-   synthetic generic page whose content step is made to fail, driven through page-rebuild
-   3×, asserting refusal rows accumulate, the park appears on the 3rd, producers are blocked,
-   and a successful build closes the park. Needs owner authorisation (live dispatch). The
-   unit tests + live induction cover everything except "the real pipeline shape reaches the
-   guard" — which 208's identical plumbing already proved once.
+3. **~~Optional behavioural canary~~ CLOSED OUT 2026-08-09 — authorised by the owner, then
+   STOOD DOWN as not inducible. Do not re-plan it without reading why** (bug file state block;
+   NOTES § "the canary was AUTHORISED and then STOOD DOWN"): all three routes into
+   `assemble_page` are the same `check_review_approved` conditional, so both of the guard's
+   triggers sit downstream of an LLM review gate — an induced content failure diverts there and
+   never reaches `update_page_status`. Reaching this arm needs the reviewer to APPROVE a failed
+   payload. A throwaway workflow row to force it was rejected (scratch config on a shared fleet,
+   and no longer the real workflow). Residual gap, stated narrowly: no production run has been
+   observed on the non-owned arm; 208's canary already proved the skip flag reaches this entry.
 4. **The class sweep the 208 lane left** ("what else has a DB-row guard behind a git
    commit?") — not this bug, still unclaimed, see 208's handoff item 3.
 

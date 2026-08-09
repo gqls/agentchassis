@@ -4,6 +4,34 @@
 that bug's fix deliberately did **not** include. ~~**OPEN, unowned.**~~ Severity: medium — silent
 loss of a build request, no data destroyed.
 
+> **2026-08-09 — the two remaining items are closed out. (1) The dartsonline mute DECISION is
+> executed (below). (2) The behavioural canary was AUTHORISED and then STOOD DOWN as
+> structurally not inducible**, with the reasoning recorded rather than the task silently
+> dropped: censused fleet-wide, there are exactly **three routes into `assemble_page`, all three
+> the same `check_review_approved` conditional** (`page-rebuild`/`pageflow-builder` → else
+> `complete_page`; `site-work-orchestrator` → else `fail_item`), and no workflow or loop starts
+> there. Both of the guard's triggers therefore sit **downstream of an LLM review gate**: a
+> content failure deterministic enough to induce diverts at that gate and never reaches
+> `update_page_status`, so the canary would assert its own diversion. The arm is reachable only
+> when the reviewer APPROVES a failed/empty payload. A throwaway `agent_definitions` row to
+> force it was considered and rejected (scratch config on a shared fleet, and no longer the real
+> workflow). **What IS live-proven:** 208's canary drove `assembled_page.skipped` into this exact
+> shared entry (`v3_site_actions.go:667`) through the real pipeline. **The honest residual gap is
+> one sentence: no production run has yet been observed taking the non-owned arm.** Also found
+> and written down: the guard's cover follows `output_field='assembled_page'`, so `page-rerender`
+> is NOT covered — see "Scope" below. Watch at 2026-08-09 ~10:00 UTC: **still 0 refusals, 0
+> parks** (~16h post-roll), which the reachability finding now explains.
+>
+> **Scope, stated because the headline overstates it if left alone:** "refuses on ANY assembly
+> skip" means any skip that writes `assembled_page` — the three BUILD loops.
+> `upstreamAssemblySkipped` reads that key and nothing else (`owned_page_guard.go:308-319`).
+> **`page-rerender` renders into `rendered_page`**, so its skip
+> (`rerender_single_page_action.go:198-209`) is invisible to this guard, and the only thing
+> stopping a skipped rerender being stamped `deployed` is that workflow's own `check_skipped`
+> conditional — **config, not code**, i.e. the fragility class this fix removed from the build
+> path. Correct and present today (verified live 2026-08-09); LANDMINES entry + PBP-038 scope
+> line added so an edit there cannot silently reproduce this bug.
+>
 > **FIX LIVE ON v1.0.1268, POD-VERIFIED 2026-08-08** — all 12 chassis containers on one image
 > digest; greped replicas show both commits' strings present, a fabricated string 0, positive
 > control 3. Baseline at verification: 0 refusals, 0 parks — the frequency counter is armed.

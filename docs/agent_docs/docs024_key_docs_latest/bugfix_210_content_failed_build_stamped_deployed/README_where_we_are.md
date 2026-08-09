@@ -58,3 +58,25 @@ yet, so the door closed before anything slipped through. The guard's own counter
 zero — it has not fired for real yet. Next up: the live test (a throwaway page on a quiet site,
 made to fail three times on purpose, to watch the guard refuse, park it, and then release it
 when a build finally succeeds).
+
+**2026-08-09, later.** The live test is off, and the reason is more interesting than the test
+would have been. Before firing it I went looking for a way to make a page's content fail on
+demand, and found that you can't get there: every route into the assembly step runs through the
+content reviewer first, so any failure I could induce deliberately gets diverted by the reviewer
+and never reaches the code we wanted to watch. The only way into that code is for the reviewer to
+approve content that is broken or empty — which is exactly the accident the guard exists to catch,
+and not something I can stage. So the honest position is narrow: the plumbing was already proven
+live by the previous bug's test (the same shared entry point), the behaviour beyond it is covered
+by tests that I proved actually bite, and what nobody has yet seen is the real thing happening in
+production. That is what the counter is for, and it is still at zero.
+
+Two things worth knowing came out of the attempt. First, I ran a query to ask how often this had
+happened historically, got a clean "never", and nearly wrote it down — it turns out that table
+doesn't keep the per-page detail at all, so that "never" was guaranteed before I ran it. Logged as
+a wrong call, because the number looked perfectly respectable. Second, and more useful: the guard
+we shipped protects the three page-BUILDING paths, but not the page-RERENDERING one, which uses a
+different internal name for the same "nothing to do" signal. That path is safe today, but only
+because of a setting in its workflow rather than the code — which is the exact weakness we just
+spent this bug removing elsewhere. Nothing is broken, so there's nothing to fix today; I've
+written it into the traps file and the component register so that whoever edits that workflow next
+can't walk into it blind.

@@ -7411,3 +7411,23 @@ SELECT type FROM agent_definitions
   Then `curl` the `url` values verbatim. If you are asserting a dead link, the honest pair is **container 200 + target 404 + the href present in the container's served bytes** (`grep -c 'href="<the exact href>"'`); any of the three missing and you have not shown a dead link. Note the href in `site_work_items.spec->>'href'` is already the real path — it is the one string in the whole flow you do NOT have to derive.
 - **source:** 2026-08-09, bugfix_220 lane — the residue census in `bugs_open/220` (§ 2026-08-09 midday), where the guessed container URL 404'd and briefly read as evidence the page was gone; the correct URL served 200 and carried the dead link, which is what made the finding real
 - **added:** 2026-08-09, bugfix_220_unbuilt_link_dispatch lane
+
+### The deploy-stamp guard does NOT cover `page-rerender` — that path's skip flag is a different key, and its only protection is a workflow conditional
+
+- **footprint:** `page-rerender` (agent_definitions), `check_skipped`, `rendered_page`, `upstreamAssemblySkipped`, `platform/orchestration/actions/owned_page_guard.go`, `rerender_single_page_action.go`, `update_page_status`, PBP-038, `bugs_open/210`
+- **fires when:** you edit the `page-rerender` workflow, or you reason about where a page can be stamped `deployed` after work that did not happen, and you carry over PBP-038's headline — "`UpdatePageStatusAction` refuses the stamp on ANY assembly skip" (`bugs_open/210`, live v1.0.1268). It is true of the three *build* loops and false of the rerender path, which uses the same `update_page_status` action.
+- **the tell:** none at the action. `upstreamAssemblySkipped` reads **`collected_data["assembled_page"]` and nothing else** (`owned_page_guard.go:308-319`). `page-rerender` renders via `rerender_single_page` into **`rendered_page`** (`output_field`, measured 2026-08-09), and that action emits `{"skipped": true, "html": ""}` on "no component rows" (`rerender_single_page_action.go:198-209`). Same skip, different key, so the code guard cannot see it and the `deployed` stamp would be written normally — the exact outcome bug 210 exists to prevent, on a path whose docs now say it is prevented.
+- **what actually holds it shut:** a **config-level** conditional in the workflow — `render_page → check_skipped` (`rendered_page.skipped == true` → `complete_skipped`, else → `deploy_page`). Present and correct in the live definition, verified 2026-08-09. Delete it, rename the render step's `output_field`, or add a second route into `update_status`, and there is no code guard underneath: the page is stamped `deployed`, `built_from_plan_version` is set, and reconcile's `decideEmit` returns `skip_built` for ever. That is 210, reproduced, on the fleet's busiest page path.
+- **the check:** before changing that workflow, or before citing PBP-038 as fleet-wide cover, ask which KEY the step writes and whether the guard reads it:
+  ```sql
+  -- every live route into update_page_status, and the skip key its predecessor writes
+  SELECT ad.type, e.path, e.step->>'action', e.step->>'output_field'
+  FROM agent_definitions ad,
+    LATERAL jsonb_path_query(ad.default_config,'$.**.steps') AS steps,
+    LATERAL jsonb_each(steps) AS e(path, step)
+  WHERE ad.is_active AND COALESCE(ad.is_snapshot,false)=false AND ad.deleted_at IS NULL
+    AND (e.step->>'action' IN ('update_page_status','assemble_page','rerender_single_page'));
+  ```
+  Guard cover follows `output_field = 'assembled_page'`, NOT the presence of `update_page_status`. Today: covered = `page-rebuild`, `pageflow-builder`, `site-work-orchestrator`; **uncovered = `page-rerender` (config only), `section-editor`** (commits `edit_result.html`, writes no skip flag at all).
+- **source:** 2026-08-09, bugfix_210 lane — found while establishing which paths can reach the guard at all, after the behavioural canary was stood down; NOTES § "A scope boundary nobody had written down"
+- **added:** 2026-08-09, bugfix_210_content_failed_build_stamped_deployed lane

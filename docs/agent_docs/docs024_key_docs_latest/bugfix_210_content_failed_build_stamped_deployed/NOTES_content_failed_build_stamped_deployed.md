@@ -175,3 +175,72 @@ writing the WRONG_CALLS entry about the first two. The tally is the point; entry
   (left released per the owner decision's framing — one review item, no build),
   `new-arrivals` (above), and synthetic `verify*`/`page_rerender:*` keys matching no plan
   page (webdesign.uk rows newly present from other lanes' churn — same no-effect class).
+
+## 2026-08-09 — the canary was AUTHORISED and then STOOD DOWN: the branch is not inducible
+
+The owner authorised the live canary. Investigating the lever before firing (plan step 2a)
+established it cannot be built as specified, so it was stood down with the owner's agreement.
+The reasoning, because "we skipped the canary" is worthless without it:
+
+- **[MEASURED 2026-08-09] There are exactly THREE doors into `assemble_page` fleet-wide, and
+  all three are the same conditional.** Census over every active, non-snapshot definition —
+  every step whose `next_step`/`then_step`/`else_step` is `assemble_page`:
+  `site-work-orchestrator.check_review_approved` (then→assemble, else→`fail_item`),
+  `pageflow-builder.check_review_approved` (else→`complete_page`),
+  `page-rebuild.check_review_approved` (else→`complete_page`). No workflow and no loop starts
+  there either (`page-rebuild` loop starts `plan_sections`, `pageflow-builder` at
+  `write_page_content`, `site-work-orchestrator` at `spawn_handler`). Query in the RUNBOOK.
+  Disconfirmable: a fourth door, or a loop entering at `assemble_page`, would have shown up.
+- **Therefore the ordinary-skip arm is reachable only when the LLM reviewer APPROVES a failed
+  or empty payload.** Both of the guard's triggers live *inside* `assemble_page`
+  (`multipage_actions.go:91` upstream-failure, `:107` empty content) — downstream of
+  `check_review_approved`. Any content failure I can induce deterministically diverts at that
+  gate to `complete_page`/`fail_item` and never reaches `update_page_status` at all. A canary
+  built on an induced failure would assert its own diversion, not the guard.
+- **What that leaves is not nothing.** 208's canary already drove `assembled_page.skipped`
+  into `UpdatePageStatusAction` through the real pipeline — the same `collected_data` key, the
+  same shared entry (`v3_site_actions.go:667`, `upstreamAssemblySkipped`). The plumbing "a real
+  run's skip flag reaches this guard" is behaviourally proven; 210 changed the branch taken
+  *after* that entry. Unit tests cover the branch, each mutation-proven, plus the live DB
+  induction of the park insert. **The uncovered gap is narrow and should be stated narrowly:
+  no production run has yet been observed taking the non-owned arm.**
+- **Rejected: a throwaway `agent_definitions` row** copying the loop from `assemble_page`
+  onward with a deterministic failing step. It would be end-to-end through the real actions but
+  no longer the real workflow, and it puts scratch config on a shared fleet mid-flight for a
+  branch three other instruments already cover. Owner agreed.
+
+### The measurement I ran that could not have come out otherwise (WRONG_CALLS entry added)
+
+Trying to answer "has this branch ever fired historically", I queried
+`orchestration_states.collected_data->'assembled_page'->>'skipped'` over all 4,457 rows
+(2026-07-13 → today) and got **0**, with only ONE row carrying the key at all. That "0" is
+worthless and I nearly wrote it down as evidence of rarity. Enumerating the keys instead of
+path-reading them (`jsonb_object_keys` over `owner_agent_type='page-rebuild'`) shows why:
+collected_data retains **only pre-loop steps** — `get_pages_to_rebuild`, `load_rebuild_context`,
+`select_style_collection`, `site_record`, `pages_to_build` — and **no per-iteration loop state
+whatsoever**. No `assembled_page`, no `page_content`, no `update_page_status`. A recursive
+`$.**.assembled_page` walk finds it in `pageflow-builder` rows only (9, none skipped).
+**So `orchestration_states` cannot answer the historical-frequency question for the two loops
+that matter, and the refusal counter remains the only instrument** — which is what the bug file
+already said, now with the reason. [MEASURED] the estate's own landmine ("a jsonb PATH read
+cannot see the shape change underneath it — enumerate keys") caught this one exactly.
+
+### A scope boundary nobody had written down: the guard does NOT cover `page-rerender`
+
+Checked while establishing which paths reach the guard, and worth recording because the lane
+docs' only mention of rerender is the confounded-proxy discussion:
+
+- `upstreamAssemblySkipped` reads **`collected_data["assembled_page"]` and nothing else**
+  (`owned_page_guard.go:308-319`). `page-rerender` renders via `rerender_single_page` into
+  **`rendered_page`**, so a skipped rerender is invisible to the 210 guard — its
+  `update_page_status` step (status `deployed`) would stamp normally.
+- It does not, because that workflow carries its own **config-level** guard:
+  `render_page → check_skipped` (`rendered_page.skipped == true` → `complete_skipped`, else
+  `deploy_page`). Verified live 2026-08-09; `rerender_single_page_action.go:198-209` is the
+  producer of that flag (`skipped:true`, `html:""`, on "no component rows").
+- **No bug today** — the conditional is present and correct. But the rerender path's only
+  protection against exactly bug 210's outcome is a workflow conditional, i.e. the fragility
+  class 210 was filed to remove from the build path in code. Anyone who edits that workflow,
+  or who reads PBP-038 as "the stamp is now refused on any skip", is one deletion away from
+  reproducing 210 on the rerender path with no code guard underneath. LANDMINES entry added;
+  PBP-038's scope line now states it.
