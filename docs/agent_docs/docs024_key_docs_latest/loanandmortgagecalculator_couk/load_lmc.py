@@ -84,8 +84,18 @@ SITE_ID = "ed633ada-f8af-424b-b4d4-8af79160dbcd"
 DOMAIN = "loanandmortgagecalculator.co.uk"
 CHROME = os.path.join(HERE, "chrome")
 BAK = "page_components_bak_20260805_lmc"
+# RE-BASELINED 2026-08-09 (bugfix-224 session). The 08-05 file is KEPT, not
+# replaced: it is the record of what the pages were before the arithmetic fixes.
+# 17 of 41 pages moved between the two, and every one is accounted for — 15 by
+# the 0%-rate fix (bugs_open/224), the button ids and the SDLT fix
+# (bugs_open/225), and 2 by the voice lane's decomposition (consolidation, now
+# 3 rows, and one guide). NOTHING moved unexplained, which is the only thing
+# that makes a re-baseline safe: this guard exists to catch another session
+# having written a page, so regenerating it blindly would absorb exactly what
+# it is meant to surface. If you re-baseline again, diff first and account for
+# every moved row.
 BASELINE = os.path.join(HERE, "acceptance",
-                        "BASELINE_2026-08-05_stored_md5_at_b318a8fad.txt")
+                        "BASELINE_2026-08-09_stored_md5_at_b26fdc81b.txt")
 PROSE_FUNCTION = "ported-prose"
 PROSE_TEMPLATE = ('<section class="ported-prose" data-component="ported-prose">'
                   '%s</section>')
