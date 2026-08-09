@@ -338,14 +338,34 @@
       // toward the balance and owes nothing. Same numbers as before the fix.
     }
 
-    var newR = (parseFloat(document.getElementById('new-rate').value) || 0) / 100 / 12;
-    var newN = (parseFloat(document.getElementById('new-term').value) || 0) * 12;
+    // FIXED 2026-08-09 (bugs_open/224). The guard was `newR > 0`, and newMonthly
+    // was initialised to 0, so a 0% consolidation loan — an ordinary balance-
+    // transfer or interest-free offer — was quoted at £0.00 A MONTH. Because it
+    // is a deterministic zero rather than a NaN or a stale value, the sweep that
+    // found the other five tools is blind to it. It was worse than a £0 payment:
+    // the verdict below tested newN but not newR, so newTotalInterest = 0 fed
+    // "consolidating will SAVE you…" — a confident recommendation, on the page
+    // whose job is to warn about term extension.
+    //
+    // A BLANK rate is still not a zero rate: the same distinction the debt loop
+    // above makes. Without it this fix would quietly price an unfilled form as
+    // interest-free, which is the original defect wearing the fix's clothes.
+    var rawNewRate = parseFloat(document.getElementById('new-rate').value);
+    var rawNewTerm = parseFloat(document.getElementById('new-term').value);
+    var newLoanReady = totalBal > 0
+      && isFinite(rawNewRate) && rawNewRate >= 0
+      && isFinite(rawNewTerm) && rawNewTerm > 0;
+
+    var newR = (isFinite(rawNewRate) ? rawNewRate : 0) / 100 / 12;
+    var newN = (isFinite(rawNewTerm) ? rawNewTerm : 0) * 12;
 
     var newMonthly = 0;
     var newTotalInterest = 0;
 
-    if (totalBal > 0 && newR > 0 && newN > 0) {
-      newMonthly = (totalBal * newR * Math.pow(1 + newR, newN)) / (Math.pow(1 + newR, newN) - 1);
+    if (newLoanReady) {
+      newMonthly = newR === 0
+        ? (totalBal / newN)          // the r->0 limit: the balance over the term
+        : (totalBal * newR * Math.pow(1 + newR, newN)) / (Math.pow(1 + newR, newN) - 1);
       newTotalInterest = (newMonthly * newN) - totalBal;
     }
 
@@ -372,7 +392,10 @@
     document.getElementById('new-monthly').innerText = gbp.format(newMonthly);
     document.getElementById('new-int').innerText = gbp.format(newTotalInterest);
 
-    if (totalBal > 0 && newN > 0) {
+    // Gated on newLoanReady, not on newN alone: the old test let a new loan with
+    // no usable rate reach the comparison carrying newTotalInterest = 0, which
+    // always reads as a saving.
+    if (newLoanReady) {
       if (newTotalInterest > oldTotalInterest) {
         verdict.innerText = copy('worse-prefix')
           + gbp.format(newTotalInterest - oldTotalInterest) + copy('worse-suffix');

@@ -149,7 +149,20 @@
     var n = parseFloat(document.getElementById('term').value) * 12;
     var over = parseFloat(document.getElementById('over').value) || 0;
 
-    var M = (P * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
+    // FIXED 2026-08-09 (bugs_open/224). The rate was ungated, so a 0% balance
+    // made this 0/0: M became NaN, `NaN > balance` is false so the else branch
+    // ran, `balance -= NaN` made the balance NaN, `NaN > 0` is false, and the
+    // loop exited after ONE iteration — which is where the nonsense "59 months
+    // saved" came from. At 0% the contractual payment is the debt over the term
+    // and there is no interest to save.
+    if (!(P > 0 && n > 0) || !isFinite(r) || r < 0) {
+      document.getElementById('save-display').innerText =
+        SYM + (0).toLocaleString(LOCALE, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      document.getElementById('time-display').innerText = 0;
+      return;
+    }
+
+    var M = r === 0 ? (P / n) : (P * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
     var originalTotalInterest = (M * n) - P;
 
     var balance = P;

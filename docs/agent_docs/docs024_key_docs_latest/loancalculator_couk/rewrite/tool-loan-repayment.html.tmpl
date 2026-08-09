@@ -200,21 +200,41 @@
     var months = parseFloat(document.getElementById('years').value) * 12;
 
     var r = (APR / 100) / 12;
+    var fmt = new Intl.NumberFormat(LOCALE, { style: 'currency', currency: CURRENCY });
 
-    if (P > 0 && r > 0 && months > 0) {
-      var x = Math.pow(1 + r, months);
-      var monthly = (P * x * r) / (x - 1);
-      monthly = Math.round((monthly + Number.EPSILON) * 100) / 100;
-
-      var totalRepayable = monthly * months;
-      var totalCostOfCredit = totalRepayable - P;
-
-      var fmt = new Intl.NumberFormat(LOCALE, { style: 'currency', currency: CURRENCY });
-
+    function show(monthly, totalRepayable, totalCostOfCredit) {
       document.getElementById('monthly-display').innerText = fmt.format(monthly);
       document.getElementById('total-cost').innerText = fmt.format(totalRepayable);
       document.getElementById('total-interest').innerText = fmt.format(totalCostOfCredit);
     }
+
+    // FIXED 2026-08-09 (bugs_open/224). The guard used to be `r > 0` with no
+    // else, so a 0% APR returned without touching the DOM and the PREVIOUS
+    // answer stayed on screen looking like a fresh one — the same inputs gave
+    // two different answers depending on the route taken to them. Every path
+    // now writes: an answer, or a cleared state.
+    if (!(P > 0 && months > 0) || !(APR >= 0) || !isFinite(APR)) {
+      show(0, 0, 0);
+      return;
+    }
+
+    if (r === 0) {
+      // 0% is an advertised product, not a degenerate input, and the annuity
+      // formula is 0/0 here. This is its limit as r->0: the debt divided by
+      // the term, and no interest.
+      var flat = Math.round((P / months + Number.EPSILON) * 100) / 100;
+      show(flat, P, 0);
+      return;
+    }
+
+    var x = Math.pow(1 + r, months);
+    var monthly = (P * x * r) / (x - 1);
+    monthly = Math.round((monthly + Number.EPSILON) * 100) / 100;
+
+    var totalRepayable = monthly * months;
+    var totalCostOfCredit = totalRepayable - P;
+
+    show(monthly, totalRepayable, totalCostOfCredit);
   }
 
   ids.forEach(function (id) {

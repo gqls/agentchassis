@@ -147,7 +147,12 @@
   var STRESS = parseFloat("{{.stress_delta_points}}");
   var ids = ['stress-bal', 'stress-apr', 'stress-term'];
 
+  // FIXED 2026-08-09 (bugs_open/224). The rate was never guarded — only P and n
+  // were — so a 0% current APR made this 0/0 and #curr-pay read £NaN while
+  // #new-pay (at apr + STRESS) stayed correct. The zero limit is the debt
+  // divided by the term.
   function monthly(p, r, n) {
+    if (r === 0) return p / n;
     return (p * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
   }
 
@@ -158,14 +163,19 @@
     var rNew = ((apr + STRESS) / 100) / 12;
     var n = Number(document.getElementById('stress-term').value) * 12;
 
-    if (P > 0 && n > 0) {
-      var currentM = monthly(P, rCurrent, n);
-      var newM = monthly(P, rNew, n);
-
-      document.getElementById('curr-pay').innerText = SYM + currentM.toFixed(2);
-      document.getElementById('new-pay').innerText = SYM + newM.toFixed(2);
-      document.getElementById('extra-cost').innerText = (newM - currentM).toFixed(2);
+    if (!(P > 0 && n > 0) || !(apr >= 0) || !isFinite(apr)) {
+      document.getElementById('curr-pay').innerText = SYM + '0.00';
+      document.getElementById('new-pay').innerText = SYM + '0.00';
+      document.getElementById('extra-cost').innerText = '0.00';
+      return;
     }
+
+    var currentM = monthly(P, rCurrent, n);
+    var newM = monthly(P, rNew, n);
+
+    document.getElementById('curr-pay').innerText = SYM + currentM.toFixed(2);
+    document.getElementById('new-pay').innerText = SYM + newM.toFixed(2);
+    document.getElementById('extra-cost').innerText = (newM - currentM).toFixed(2);
   }
 
   ids.forEach(function (id) {
