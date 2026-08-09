@@ -83,12 +83,22 @@ VALUES (
                            'processing_mode', 'task',
                            'timeout_seconds', 120,
                            'steps', jsonb_build_object(
+                                   -- ⚠ output_field lives at STEP level, NOT inside config.
+                                   -- models.Step parses it from stepMap["output_field"]
+                                   -- (processor.go:434); a config-nested copy is INERT — the
+                                   -- coordinator stores an awaited response under the STEP
+                                   -- NAME plus step-level output_field only. The reaper's
+                                   -- own seed (028/114) carries the inert config-nested form,
+                                   -- which is how this file's first version inherited the
+                                   -- mistake (CORRECTED 2026-08-09 after the first live run
+                                   -- failed at reconcile: collected_data had dispatch_list
+                                   -- but no thunder_list).
                                    'dispatch_list', jsonb_build_object(
                                            'action', 'dispatch_thunder_list',
                                            'description', 'Ask thunder-adapter for Thunder''s own view of '
                                                || 'the account (GET /instances/list, awaited).',
+                                           'output_field', 'thunder_list',
                                            'config', jsonb_build_object(
-                                                   'output_field', 'thunder_list',
                                                    'timeout_seconds', 60
                                                      ),
                                            'next_step', 'reconcile'
@@ -98,8 +108,8 @@ VALUES (
                                            'description', 'Compare the vendor list against thunder_instances; '
                                                || 'file thunder_orphan work items for instances billing '
                                                || 'with no live row; report ghosts.',
+                                           'output_field', 'reconcile_result',
                                            'config', jsonb_build_object(
-                                                   'output_field', 'reconcile_result',
                                                    'list_field', 'thunder_list',
                                                    'grace_minutes', 30
                                                      ),
@@ -213,6 +223,18 @@ BEGIN
       AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
     IF def_start IS DISTINCT FROM 'dispatch_list' THEN
         RAISE EXCEPTION 'thunder-orphan-scan agent_definition wrong or missing (start_step=%)', def_start;
+    END IF;
+
+    -- output_field must be STEP-LEVEL (a config-nested copy is inert — the
+    -- 2026-08-09 correction above; this assert stops the inert form from
+    -- ever re-applying silently).
+    PERFORM 1 FROM agent_definitions
+    WHERE type = 'thunder-orphan-scan' AND is_active
+      AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL
+      AND default_config->'workflow'->'steps'->'dispatch_list'->>'output_field' = 'thunder_list'
+      AND default_config->'workflow'->'steps'->'reconcile'->>'output_field' = 'reconcile_result';
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'thunder-orphan-scan output_field is not step-level — the inert config-nested form is back';
     END IF;
 
     SELECT enabled AND interval_seconds = 21600

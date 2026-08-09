@@ -24517,3 +24517,34 @@ bug numbers 016/017/083/112/131/146. Resolve by slug, as ever.
 `ls docs/agent_docs/sql_for_agents/ | grep -E '^342'` BEFORE writing the file —
 one command, and I ran it only as part of the apply, after the Write. Numbering
 freshness expires in HOURS on this tree, exactly like every other freshness.
+
+---
+
+## 2026-08-09 — I "verified" a storage rule against a specimen structurally unable to falsify it, and shipped the wrong model into a council answer
+
+**Session:** finetuning_uk_service lane, FTW-042 first live run.
+
+**The claim** (written into the round-2 council rationale AND the seed):
+"the awaited response lands at `collected_data.<output_field>.response`, the
+shape verified against today's live reaper run." **False.** The coordinator
+stores an awaited response under the STEP NAME (plus step-level
+`output_field` when declared — and a config-nested `output_field`, which is
+what my seed and the reaper's own seed carry, is parsed by nothing). The
+first live scan failed at `reconcile` on exactly this; the council guardian
+seat had flagged the wiring as a low-severity objection and my round-2
+answer rebutted it with the wrong model stated confidently.
+
+**What caught it:** the first live run (both fire attempts FAILED at
+`reconcile`, `collected_data.thunder_list` missing while
+`dispatch_list.response` sat there full).
+
+**The cheap check that would have avoided it:** the reaper specimen could
+NEVER have discriminated — its step name (`dispatch_decommission`) and its
+output_field (`decommission_dispatch`) are word-reversals, so whatever model
+I believed, a key was there to "confirm" it. This is
+[a-comparative-claim-needs-a-case-where-the-two-differ] applied to
+verification: **a specimen where the two candidate explanations predict the
+same observation verifies neither.** Read the STORER
+(`applyResponseToState`, coordinator.go:2636) — one function, thirty
+seconds — or test with names that differ. Landmine filed (config-nested
+`output_field` is inert), verifier dispatched.

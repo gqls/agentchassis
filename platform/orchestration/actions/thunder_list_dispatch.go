@@ -10,10 +10,14 @@
 // same AwaitResponse contract. The request carries no parameters: the
 // adapter-side action is a read-only passthrough to GET /instances/list.
 //
-// The awaited response body lands in CollectedData under this step's
-// output_field as {"response": {"success": true, "count": N,
-// "instances": [...]}} — instances in Thunder's own field shapes
-// (camelCase, id as a JSON string, UPPERCASE statuses).
+// The awaited response body lands in CollectedData as
+// {"response": {"success": true, "count": N, "instances": [...]}} —
+// instances in Thunder's own field shapes (camelCase, id as a JSON string,
+// UPPERCASE statuses) — under the STEP NAME always, and under the step's
+// output_field only when output_field is declared at STEP level in the
+// workflow JSON (a config-nested output_field is inert: models.Step parses
+// stepMap["output_field"], processor.go:434 — see the LANDMINES entry of
+// 2026-08-09; the first live run failed on exactly this).
 
 package actions
 

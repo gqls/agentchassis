@@ -343,7 +343,7 @@ func ReconcileThunderInstancesAction(ctx context.Context, params ActionParams) (
 func extractThunderVendorList(collected map[string]interface{}, listField string) ([]thunderVendorInstance, error) {
 	stepOut, ok := collected[listField].(map[string]interface{})
 	if !ok {
-		return nil, fmt.Errorf("collected_data.%s missing or not an object — did the dispatch_thunder_list step run with output_field %q?", listField, listField)
+		return nil, fmt.Errorf("collected_data.%s missing or not an object — the dispatch step must declare output_field: %q at STEP level (a config-nested output_field is inert; the response then lands only under the step name)", listField, listField)
 	}
 	resp, ok := stepOut["response"].(map[string]interface{})
 	if !ok {
