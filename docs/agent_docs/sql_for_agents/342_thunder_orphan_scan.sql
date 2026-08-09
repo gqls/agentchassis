@@ -54,6 +54,12 @@
 -- Verification queries + the manual drill are at the bottom.
 -- ============================================================================
 
+-- Defensive: clear any sticky aborted transaction left by a previous
+-- half-run in the same psql session (harmless "no transaction" warning
+-- otherwise). Rollback sidecar for the seeded rows:
+-- 342_thunder_orphan_scan_ROLLBACK.sql (never applied by the runner).
+ROLLBACK;
+
 BEGIN;
 
 -- ── 1. thunder-orphan-scan agent_definition ──
@@ -217,6 +223,14 @@ DECLARE
     task_ok   boolean;
     note_ok   boolean;
 BEGIN
+    -- The filing path resolves its site by domain; without this row every
+    -- orphan filing silently degrades to log-and-report (council r2,
+    -- editquality). Refuse to seed a scan whose core deliverable cannot fire.
+    PERFORM 1 FROM sites WHERE domain = 'system.internal';
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'no sites row with domain=system.internal — thunder_orphan work items would have nowhere to go';
+    END IF;
+
     SELECT default_config->'workflow'->>'start_step' INTO def_start
     FROM agent_definitions
     WHERE type = 'thunder-orphan-scan' AND is_active

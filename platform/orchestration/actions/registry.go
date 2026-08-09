@@ -1555,13 +1555,13 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 	},
 	"dispatch_thunder_list": {
 		Handler:     DispatchThunderListAction,
-		Category:    "training",
+		Category:    "maintenance",
 		Description: "Publish a list_instances request to thunder-adapter and await Thunder's own view of the account (every instance the token can see). Step 1 of thunder-orphan-scan.",
 		IsLocal:     true,
 	},
 	"reconcile_thunder_instances": {
 		Handler:     ReconcileThunderInstancesAction,
-		Category:    "training",
+		Category:    "maintenance",
 		Description: "Compare Thunder's instance list (from dispatch_thunder_list) against thunder_instances and file a thunder_orphan work item for every instance billing at Thunder that our automation cannot see. Read-and-report only — no vendor calls, no remediation.",
 		IsLocal:     true,
 	},
