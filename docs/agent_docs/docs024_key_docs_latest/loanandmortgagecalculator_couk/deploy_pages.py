@@ -116,6 +116,9 @@ def main():
             "$sp$%s$sp$::jsonb, 90, 'page-rerender', 'triaged', "
             "'claude-session-lmc-voice-20260805', '%s', '%s') RETURNING id;"
             % (SITE_ID, spec, pid, item_key))
+        # psql -tA can print the INSERT command tag after the RETURNING row;
+        # keeping both lines poisoned the poll query's IN-list (2026-08-08).
+        wid = wid.splitlines()[0].strip()
         print("filed   %-40s %s" % (name, wid))
         filed.append((name, wid, page["url"], pred))
 

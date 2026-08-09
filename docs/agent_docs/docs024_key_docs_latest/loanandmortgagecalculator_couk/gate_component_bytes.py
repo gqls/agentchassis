@@ -106,7 +106,7 @@ ORDER BY p.url;
 if not rows:
     sys.exit(f"no pages for {DOMAIN} yet — has the adoption finished writing them?")
 
-match = mismatch = missing = locked = 0
+match = mismatch = missing = locked = assembled = 0
 repairs, problems = [], []
 
 for line in rows.splitlines():
@@ -118,6 +118,16 @@ for line in rows.splitlines():
     if not pc_id:
         missing += 1
         problems.append(f"NO COMPONENT   {url}  (page {name})")
+        continue
+    # Only a single verbatim row mirrors the whole repo file — the same predicate
+    # loadVerbatimPageHTML applies (rerender_single_page_action.go). A decomposed
+    # page's SECTION rows can never byte-match the assembled file, and a --repair
+    # that "fixed" them would overwrite each section with the entire document
+    # (nearly did, 2026-08-08, on consolidation's prose rows — bugfix 224 session).
+    if mode != "verbatim" or int(n_comp) != 1:
+        assembled += 1
+        problems.append(f"ASSEMBLED      {url}  components={n_comp} mode={mode or '-'} "
+                        f"slot={slot} — section rows do not mirror the repo file; skipped")
         continue
     if not os.path.isfile(disk):
         problems.append(f"NO REPO FILE   {url}  -> expected {rel}")
@@ -146,6 +156,7 @@ print(f"  components byte-exact against the repo   {match}")
 print(f"  components whose bytes DIFFER            {mismatch}")
 print(f"  pages with no component row              {missing}")
 print(f"  mismatches blocked by an active lock     {locked}")
+print(f"  assembled/decomposed rows skipped        {assembled}")
 print()
 for p in problems:
     print("  " + p)

@@ -201,6 +201,12 @@ git commit loanandmortgagecalculator.co.uk -m "..."     # explicit pathspec
 git push
 ```
 
+> **CORRECTED 2026-08-09 (bugfix 224 session): 120 is FIXED — this gotcha is
+> retired.** The live workflow diffs `github.event.before..github.sha` and its
+> own log line says "Tip is a merge commit — the range diff spans BOTH sides
+> (bugs_closed/120)". `git pull --rebase` remains good hygiene, not load-bearing.
+> The paragraph below is kept for history only.
+
 **GOTCHA — `git pull --rebase`, never a merge (`bugs_open/120`, still unfixed).**
 `.github/workflows/deploy-to-b2.yml` picks its domains with
 `git diff --name-only HEAD~1 HEAD`. On a merge commit `HEAD~1` is the **first

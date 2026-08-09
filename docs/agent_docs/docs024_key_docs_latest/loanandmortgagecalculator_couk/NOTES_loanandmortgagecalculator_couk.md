@@ -720,3 +720,86 @@ index, two consumers, silence wearing a finding's clothes. Landmine filed.
 `bugs_open/224` takes CLAUDE.md's stated escape hatch explicitly and says what
 was substituted; the determinism evidence needs no source reading at all, which
 is why the filing does not depend on the loop.
+
+### 2026-08-08 (night) — bugfix 224 session: the six private annuity copies are gone, fix candidate 1 executed
+
+Owner directed a session ("bugfix 224") at `bugs_open/224`. What shipped, in
+order, with the checks that were run before each irreversible step:
+
+- **Six verbatim `loans/*` pages** now load `/assets/js/calculators.js` and
+  call the shared engine — `calculateAmortization` (standard-calc,
+  compare-loans, stress-test), `calculateOverpayment` (overpayment-calculator),
+  and a NEW additive helper `calculateBalloonAmortization` (car-finance; PCP =
+  annuity on the balloon-discounted principal, so the 0% branch lives in
+  exactly one place). `settlement-calculator` is linear in the rate, so its fix
+  is `apr >= 0` + always-write, not a shared call. Every submit now writes the
+  DOM — answer or cleared state; the stale mode is dead as a class.
+  Display conventions preserved exactly at non-zero rates (standard-calc keeps
+  billed-rounded totals; at 0% it shows the exact figures — no £0.20 "interest"
+  on an interest-free loan).
+- **Pre-flight before deploy** (new `scratchpad/preflight_224.py` pattern —
+  local http.server + the vonc_pw venv's Playwright against the EDITED files):
+  0% vectors from the bug table asserted, plus each page's default vector
+  asserted against the OLD formula computed independently in Python. 24/25,
+  and the 25th was the harness: I formatted an expectation to 2 dp where the
+  page's `toLocaleString(minimumFractionDigits: 2)` prints up to 3
+  (`£448.024`). Live-vs-local on that vector: LIVE == LOCAL byte-for-byte, so
+  the page behaviour is unchanged; the 3-dp display is pre-existing and out of
+  224's scope.
+- **Second harness misstep, same shape**: my tool-1 test wrapper had no
+  `<meta charset>`, so the fragment's ✅ decoded as mojibake and a correct
+  verdict read as a failure. On this site the red result being the harness is
+  the PRIOR (handoff §5 said so); both misseps confirm it.
+- **`gate_component_bytes.py` would have destroyed the decomposition.** Its
+  --repair compares EVERY page_components row against the whole repo file;
+  consolidation's prose-0/prose-2 (writable) would have been overwritten with
+  the full 12,865-byte document. Fixed: rows are only comparable when
+  `mode='verbatim' AND components=1` (the same predicate as
+  `loadVerbatimPageHTML`); assembled rows are SKIPPED loudly. ADO-038's
+  "re-run --repair after any builder change" is only safe WITH this fix.
+- Gate → --repair (6 rows, UPDATE 1 × 6, none lock-suppressed) → gate green.
+  Sites repo `ea72609d6`, Actions run 31282369282, changed-domains line shows
+  only this domain.
+- **Consolidation tool-1 (locked row)**: both inline copies in `calcRisk`
+  replaced with shared calls via direct SQL (deliberate operator arithmetic
+  correction through the permanent lock; lock RETAINED; provenance under
+  `_provenance.bugfix_224`). Pre-flighted in a wrapper page first (8/8).
+  Assemble-only rerender filed via deploy_pages.py; served page byte-identical
+  to the substitution prediction; pipeline committed `Rerender:
+  loans/consolidation.html` (5b55a1ca4).
+- **deploy_pages.py had a latent crash**: psql -tA printed the INSERT command
+  tag after the RETURNING row, and the two-line "id" poisoned the poll's
+  IN-list. The item WAS filed; the script died polling. Fixed
+  (`wid.splitlines()[0]`).
+- **Oracle, live, same session**: the seven tools went 23 FAIL → **PASS 77
+  FAIL 0 CONV 6 N/A 0** (CONV = standard-calc's pre-existing billed-rounding,
+  matched by the comparator). Controls: `--selftest-parse` OK; `--mutate
+  expectation` CONTROL OK (16 FAIL, 0 passed under mutation); crosstool/parse
+  + full sweep recorded below when done.
+
+### 2026-08-09 (small hours) — 224 verification complete, all green, with the controls
+
+- Remaining controls: `--mutate crosstool` CONTROL OK (28 FAIL, 5 refused),
+  `--mutate parse` CONTROL OK (0 passed, 4 refused — the legitimate N/A the
+  handoff documented). Nothing passed under any mutation.
+- **Full sweep: PASS 166 / FAIL 4 / CONV 6.** All four FAILs are
+  `mortgages/stamp-duty.html` — `bugs_open/225`, untouched by this fix. The 11
+  calculators.js consumer pages: zero FAILs, so the appended helper regressed
+  nothing.
+- **Golden (GOLDEN_2026-08-05_prechange.json), self-test passed first**:
+  `consolidation` **MATCHES — arithmetic exact** (the decomposed page, the one
+  the comparator is FOR). The six verbatim pages each report a single
+  divergence on the `content` FIELD SHAPE — the comparator expects the
+  decomposed chrome's empty `#content` span, and a verbatim page's `#content`
+  is the full wrapper. Control: `loans/loan-vs-savings.html` (untouched
+  tonight) reports the IDENTICAL divergence and nothing else — comparator
+  scope, not regression. **No numeric element diverged on any page.**
+- `verify_site.py`: 3 FAILs, all pre-existing and none mine — `/` flagged dead
+  by object-store resolution while Cloudflare serves it at 200 (the known
+  directory-index class), and missing `og:url` on the two ASSEMBLED pages
+  (the 08-06 render already had zero og:url; my diff changed only the tool-1
+  span, proven by served == substitution-prediction byte identity).
+- Deploy proof at the artefact: live standard-calc == repo bytes; live
+  calculators.js contains `calculateBalloonAmortization` (positive) and the
+  served page greps 0 for `Math.pow` (negative); consolidation served ==
+  predicted, `Rerender: loans/consolidation.html` = `5b55a1ca4`.

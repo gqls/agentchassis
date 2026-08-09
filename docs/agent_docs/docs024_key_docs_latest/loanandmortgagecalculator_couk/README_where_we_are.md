@@ -396,3 +396,37 @@ arithmetic ones, because they are.
 
 **What I need from you:** a decision on the stamp duty numbers. Everything else
 I can get on with.
+
+---
+
+**2026-08-09 (bugfix 224 session).** The six loan calculators that got a 0%
+interest rate wrong are fixed and live. You asked a session to take this on by
+name, so I've treated that as the go-ahead the validation report was waiting
+for on this one.
+
+What was wrong, in plain terms: if someone typed 0% into any of the loan-side
+calculators — and 0% is a real thing in this market, car finance and balance
+transfers advertise it — three of them printed "£NaN", one of those three
+confidently recommended the WRONG loan, and three quietly left the previous
+answer on screen so it looked fresh. The mortgage-side tools were always fine,
+because they all share one well-written piece of code. The loan tools each had
+their own private copy of the maths, and every private copy was missing the
+same case.
+
+The fix is the one the report recommended: delete the private copies and make
+all the loan tools use the same shared code the mortgage tools use. There is
+now one place this arithmetic lives, so this class of bug can't come back by
+one page drifting. The tools also now always show an answer (or a clear blank)
+— never a leftover one. Nothing changed for normal interest rates: I checked
+every tool against its old answers before and after, to the penny.
+
+Proof it's right: the validation suite you commissioned went from 23 failures
+to zero on these tools, with all its self-checks passing, and the stamp-duty
+failures still showing (that's the separate decision still waiting on you —
+bug 225).
+
+Two of our own tools would have bitten us tonight and are now fixed: the
+repair script that keeps the database and the repo in step would have
+destroyed the decomposed consolidation page if run as documented, and the
+deploy script crashed halfway through its own bookkeeping. Both are mended
+and written up.

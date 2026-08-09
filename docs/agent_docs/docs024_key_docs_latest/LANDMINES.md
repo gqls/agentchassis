@@ -7205,3 +7205,12 @@ warn line fired and was unreachable before any grep could run).
 - **source:** found while writing `bugs_open/227`'s fix (345, experience-planner) — caught
   in review of my own SQL, before apply, not by a failure
 - **added:** 2026-08-08, loancalculator_couk lane
+
+### `golden_compare_post.py` reports every VERBATIM page as "diverged" — the content-shape assertion is a decomposition check, not a regression signal
+
+- **footprint:** `docs/agent_docs/docs024_key_docs_latest/loanandmortgagecalculator_couk/golden_compare_post.py` · `acceptance/GOLDEN_2026-08-05_prechange.json` · any post-change check of a `loans/*` or other adopted-verbatim page
+- **fires when:** you run the golden comparator against a page that was never decomposed — the natural move after changing one, since the RUNBOOK's step 5 says "the calculator must still compute"
+- **the tell:** `1 of 1 tool(s) diverged`, with every divergence line naming the `content` field and "expected the empty chrome span ('|inline')". On a verbatim page `#content` is the full page wrapper (`|block`, all the prose), not the decomposed chrome's empty span, so the assertion fails by DESIGN — and the message reads exactly like your change moved prose into a live wrapper. Numeric fields matching is the real verdict; the shape line is scope noise.
+- **the check:** before reading "diverged" as damage, run the identical compare on a verbatim page you did NOT touch — identical single content-shape divergence on the control means comparator scope; any NUMERIC element divergence is real. Proven 2026-08-09: six edited verbatim pages + untouched `loan-vs-savings` all report the same single shape line; `consolidation` (actually decomposed) reports `MATCHES (arithmetic exact)`.
+- **source:** bugfix 224 session, verifying the 0% fix — the control was run before believing either reading
+- **added:** 2026-08-09, bugfix 224 session

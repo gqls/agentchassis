@@ -1,5 +1,62 @@
 # 224 — seven private copies of the annuity formula on one site, and only the SHARED copy handles a 0% rate: six calculators print `£NaN` or a stale answer
 
+## STATE 2026-08-09 — FIXED, LIVE, VERIFIED BY THE FILING LANE'S OWN ORACLE. Fix candidate 1 executed: the private copies are GONE
+
+Owner directed a session at this bug ("bugfix 224", 2026-08-08 evening) —
+which is the owner seeing the finding, satisfying the arithmetic-validation
+handoff's §9 rule for changed consumer-credit figures. The file stays in
+`bugs_open/` per the owner ruling of 2026-08-06 (finished bugs stay put).
+
+**What shipped** (sites repo `ea72609d6` + `Rerender: loans/consolidation.html`
+`5b55a1ca4`; DB `page_components` synced by `gate_component_bytes.py --repair`,
+6 rows, none lock-suppressed):
+
+- The six verbatim `loans/*` pages now load `/assets/js/calculators.js` and
+  call the shared engine: `calculateAmortization` (standard-calc,
+  compare-loans, stress-test), `calculateOverpayment` (overpayment), and a NEW
+  additive `calculateBalloonAmortization` (car-finance — PCP is the annuity on
+  the balloon-discounted principal, so the 0% limit stays in exactly one
+  place). The inline formula copies are deleted, not patched.
+- `settlement-calculator` is not an annuity (linear 58-day estimate, correct
+  at 0 by its own formula): guard became `apr >= 0` + always-write.
+- `consolidation`'s locked `tool-1` row: both inline copies in `calcRisk`
+  replaced with shared calls by deliberate operator SQL through the permanent
+  lock (lock retained, provenance in `content_data._provenance.bugfix_224`);
+  assemble-only rerender deployed it, served bytes == prediction.
+- **Every submit now writes the DOM** (answer or cleared state) — mode 2, the
+  stale answer, is dead as a class, not per-page.
+- Non-zero-rate outputs preserved exactly: pre-flighted headless against the
+  old formulas before deploy; live-vs-local matched byte-for-byte on default
+  vectors; display conventions kept (standard-calc still bills-rounded — the
+  oracle's CONV entries — but at 0% shows exact £0 interest).
+
+**Verification (2026-08-09, live, controls in-session)** — the bug's own
+"How to verify" plus the full control set:
+
+```
+oracle.py --tools <the seven>   →  PASS 77  FAIL 0  CONV 6  N/A 0   (was 23 FAIL)
+--selftest-parse OK · --mutate expectation: 16 FAIL 0 passed ·
+--mutate crosstool: 28 FAIL 0 passed · --mutate parse: 0 passed, 4 refused
+full sweep: PASS 166 FAIL 4 — all four are mortgages/stamp-duty = bugs_open/225
+golden: consolidation MATCHES (arithmetic exact); the six verbatim pages show
+only the comparator's decomposed-shape content assertion, reproduced
+identically on an UNTOUCHED verbatim control page (loan-vs-savings)
+```
+
+Determinism (mode 2's sharpest statement) is asserted by the oracle's
+same-inputs-two-routes probes on the three formerly-stale tools — all pass.
+
+Incidental hardening in the same session, in the lane's tooling:
+`gate_component_bytes.py --repair` would have overwritten a decomposed page's
+SECTION rows with the whole repo file (caught before running it; now skips
+non-verbatim rows loudly), and `deploy_pages.py` died polling its own INSERT
+(the psql command tag rode along in the returned id; fixed). Both in the lane
+NOTES 2026-08-08/09 entries.
+
+Original handoff below, unchanged.
+
+---
+
 **Filed 2026-08-08 by the `loanandmortgagecalculator_couk` lane**, from the
 owner-requested arithmetic-validation work
 (`.../loanandmortgagecalculator_couk/HANDOFF_2026-08-08_arithmetic_validation.md`).
