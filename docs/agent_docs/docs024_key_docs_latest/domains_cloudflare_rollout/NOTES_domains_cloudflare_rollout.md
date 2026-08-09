@@ -315,3 +315,72 @@ walked into anyway, because the status codes looked like success.
 (edge IP from `dig @1.1.1.1`, never the system resolver, which is the one holding
 the stale entry), and **assert a body property — size, title, a known sha256 —
 never a status code alone.** Added to LANDMINES.md.
+
+## 2026-08-09 (evening) — www now WORKS on cookly.uk + dartsonline.com, and the reason it never did is in the shared worker
+
+Owner asked for `www.cookly.uk` and `www.dartsonline.com` to work. They did not,
+and the 08-04 decision "www = proxied CNAME to apex" is **not sufficient on its
+own** — this corrects that line rather than restating it.
+
+### Why the CNAME alone can never work
+
+`portfolio-sites-router` builds the bucket key from the RAW hostname:
+
+```js
+const objectKey = `${hostname}${path}`;      // worker.js:36
+```
+
+So `www.cookly.uk/` asks B2 for `www.cookly.uk/index.html`, which does not
+exist — the worker then serves the site's own 404 (`bugs_open/132`'s fix doing
+its job). Every site in the estate had this; `www.dartsonline.com` had been
+404ing on a live production domain for as long as the route existed.
+
+### What actually fixes it (per zone, no shared-code change)
+
+Three parts, and the THIRD is the one that is easy to miss:
+
+1. `CNAME www -> apex`, proxied. (cookly.uk had one; dartsonline.com did not —
+   added.)
+2. A Page Rule: `www.<domain>/*` → `https://<domain>/$1`, **301**, status active.
+   Created on both (`561eb9fda1…`, `a7d8a9d302…`). Both zones had **zero** page
+   rules before, so nothing was overwritten — check that first, free zones get 3.
+3. **DELETE the `*.<domain>/*` worker route.** With it in place the page rule
+   NEVER fires: the wildcard route matches `www` and the worker answers 404
+   first. This was measured, not assumed — with the route present, www returned
+   `HTTP/2 404` from the worker; with it gone, `HTTP/2 301 location:
+   https://<apex>/`. Safe on these zones because each has only two DNS names
+   (apex + www), so the wildcard route was reachable by nothing else; recreate
+   it in one POST if a real subdomain is ever added.
+
+`[MEASURED]` end state, following the redirect to the served page:
+`www.cookly.uk` → `https://cookly.uk/` 200, 29,393 B, *"Cookly – Home Cooking
+Made Easy…"*; `www.dartsonline.com` → `https://dartsonline.com/` 200, 37,873 B,
+*"Darts Online | Spec-First Darts Buying Guides & News"*.
+
+⚠ **Propagation is not instant and it is not uniform.** After the route delete,
+`www.cookly.uk` returned 301 immediately while `www.dartsonline.com` still
+returned 404 for two more rounds (~40s) before flipping. A single failing check
+straight after a route change is not evidence the change was wrong — re-test
+before diagnosing. Same lesson as the TLS-552-after-activation trap above.
+
+### Token scopes, corrected again
+
+`~/.config/cloudflare/token.expired-2026-08` (the misnamed live one) carries
+`#zone_settings:edit #zone:edit #dns_records:edit #worker:edit #worker:read
+#page_shield:edit #ssl:read` — read from `GET /zones/{id}` → `result.permissions`,
+which is the cheap way to settle a scope question and beats guessing from
+`/user/tokens/verify`. Note what is ABSENT: the **Rulesets** API
+(`/rulesets/phases/http_request_dynamic_redirect/entrypoint`) returns
+`10000 Authentication error` with this token, which is why the classic **Page
+Rules** API was used instead. If a future task needs Dynamic Redirects or
+Transform Rules, that scope has to be added first.
+
+### The remaining fleet question — NOT actioned here
+
+The other ~13 zones still have their `*.<domain>/*` route and no www page rule,
+so www 404s on all of them. Fixing that fleet-wide is either 13× this three-step
+change, or **one line in the shared worker** (`hostname.replace(/^www\./, '')`),
+which would make www work everywhere at once and delete the need for the page
+rules. The worker change is the better mechanism and the wider blast radius —
+one script backs every site — so it belongs to the rollout lane with a
+deliberate test, not to a session doing it in passing. Flagged, not taken.
