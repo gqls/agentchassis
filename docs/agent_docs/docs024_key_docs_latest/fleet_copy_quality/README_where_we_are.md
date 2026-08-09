@@ -179,3 +179,61 @@ hundred and forty-two sentences. Good argument, false premise.
 
 Nothing was changed. No agent edited, no copy touched, no test fired at the live site. The
 candidate block, the comparison and the measuring script are all in this directory.
+
+---
+
+**2026-08-09, evening — we ran the third arm for real, and the most useful things it told
+us were not the ones we were testing for.**
+
+You asked to try it on the loancash homepage. We can't, and the reason is worth knowing on
+its own. Every page of loancash — all eighteen — is a single block of imported HTML,
+flagged in the database as a verbatim port. The words are stored as finished web page, not
+as content the framework can rewrite. So there is nothing there for a writer to work on.
+That also solves a small mystery sitting in that site's queue: eighteen failed rebuild
+jobs, one per page, all saying a section had no stored content. They aren't broken jobs.
+They're the system correctly reporting that there's nothing to rebuild from.
+loanandmortgagecalculator is in exactly the same state.
+
+Cookly would have been the ideal site — it's the only live one with no voice of its own, so
+it's governed purely by the house voice we're changing — but another session was working on
+it at that moment, so I left it alone.
+
+So I ran it on the loancalculator homepage instead, with every section locked so nothing
+could be written. Afterwards all five sections are byte-for-byte identical to the backup I
+took first, the site serves all twenty-six pages, and the calculators still produce their
+exact expected numbers.
+
+Three things came out of it.
+
+**The first is a warning about ourselves.** Both versions tried to rewrite your personally
+approved opening paragraph. The system's own log records it plainly: the writer wanted to
+overwrite the locked section and was refused. Neither prompt said "leave the approved copy
+alone", and neither one worked it out. The lock is what saved it — not the instructions,
+not the care taken writing them. We'd suspected that; now it's on the record. If those
+sections had been unlocked, tonight would have destroyed your copy for the second time.
+
+**The second is that the improved version caught a real fault in the live page.** Our own
+house rule says start with the fact, never open by saying what something isn't. The
+homepage currently opens the amortisation explanation with "But that monthly payment isn't
+just the loan amount divided by the number of months" — which is exactly the thing the rule
+forbids, sitting live, having passed every review we've done. The improved version led with
+what the payment *is* and moved the contrast to the end. That's the mechanism working.
+Though it also quietly added two links to a paragraph that has none, which is the sort of
+"improvement" that widens the job without asking.
+
+**The third is the one I'd act on.** The Simplified Technical English version demands
+American spelling. It wrote "Amortisation" in one section of the page and "amortization" in
+another — and "installments" as well. Not carelessness: each section is written separately,
+so a rule about the whole page has nothing holding it together between them. That matters
+well beyond spelling. Any rule about staying consistent across a page — one name per thing,
+no drifting between synonyms — cannot be enforced by telling each section about it
+individually. It needs a check that looks at the finished page. That's a genuine argument
+about where a rule should live, and it lands right on the question you've got open about
+how the base-prompt change ships.
+
+One thing I got wrong and want recorded. I nearly wrote up "the improved version respected
+its sentence limit" as a success. It did — but so did the live copy already. The homepage
+is the most-rewritten page on the site and its longest sentence is twenty-seven words. The
+limit never had anything to push against, so the test proved nothing about it. The
+overlong sentences are all in the guides, and that's where that particular mechanism has to
+be tested. A rule that couldn't have failed isn't evidence that it works.

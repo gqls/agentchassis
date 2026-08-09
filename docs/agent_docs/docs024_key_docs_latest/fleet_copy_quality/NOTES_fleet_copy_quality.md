@@ -158,3 +158,63 @@ explicitly banned, live on a site today, with the rule sitting in the writer's p
 **negative control**. It cannot say the copy is good. It will say if a change makes the
 copy mechanically worse — which is worth having in place *before* anyone edits a prompt.
 ⚠ Do not cite it as evidence a copy change worked.
+
+---
+
+## 2026-08-09 — the three-arm live test (STE vs house voice), capture-only
+
+Ran arms 3 (raw ASD-STE100) and 4 (house voice + the four adopted mechanisms) through
+`page-content-writer` against loancalculator's homepage, with every component locked so
+nothing could be written. Full write-up: `RESULTS_2026-08-09_live_arm_test.md`.
+
+**Target had to move.** Owner asked for loancash.co.uk. Impossible: all 18 pages are one
+`Ported Page` component, `"generator":"adoption-locked/1"`, `"deploy_mode":"verbatim"`,
+prose in `rendered_html`, `content_data` = 248 bytes of port metadata, **0 framework
+components site-wide**. That is also the cause of the 18 `needs_page` items sitting
+`failed` with "a section had no stored content_data". Same for
+loanandmortgagecalculator.co.uk (42 ported / 0 framework). cookly.uk was the better target
+(only deployed site with no voice spec) but a concurrent session was actively on it.
+
+**Missteps and traps hit, in order:**
+
+1. Queried `llm_call_log` by the orchestration id the dispatch script prints → **0 rows**
+   while the run was visibly progressing. The writer is a CHILD orchestration; the log rows
+   carry the child's id. Join `orchestration_states.parent_orchestration_id`.
+2. Nearly reported "arm 4 respected its sentence ceiling" as a result. **The live homepage
+   already complied** (max 27 words, 0% over 30) — the ceiling never bound, so the run says
+   nothing about that mechanism. My site-wide 20.3%-over-25 figure comes from the guide
+   pages. A ceiling that cannot bind cannot be evidence. Retest on `guides/can-i-overpay`
+   (34- and 38-word sentences).
+3. Did NOT trust `locked_by`. Read the enforcement predicate from source
+   (`datahelpers/chrome_render_inputs.go:93`) and asserted `agent_writable=f` using that
+   exact expression against the live rows. Used `lock_type='timed'` with 24h expiry so a
+   dead session could not leave the page locked.
+4. Truncation: read `error_message ILIKE '%stop_reason=max_tokens%'`, never
+   `output_tokens >= max_tokens` (a cut call logs `output_tokens` NULL). None truncated.
+5. Proved "nothing was written" by diffing `content_data`, `rendered_html` AND `updated_at`
+   against the pre-run backup — not by counting `lock_blocked_change` items, which are
+   guaranteed non-zero by my own locking and carry no proposed content.
+
+**Findings that hold:**
+
+- **STE's American-spelling rule broke itself within one page**: arm 3 wrote
+  `Amortisation` in section 2 and `amortization` in section 4, plus `installments`.
+  Sections generate independently, so a page-global rule drifts between them. Generalises:
+  **a per-section prompt cannot enforce a page-level invariant** (terminology consistency
+  and synonym rotation are the same class).
+- **Both arms tried to overwrite `prose-0`, the owner's approved locked copy.** The
+  `lock_blocked_change` rows name it. Nothing in either prompt told them not to, and
+  neither inferred it. Confirms HANDOFF_2026-08-09b §2 — the lock is the control, the
+  wording is not.
+- **Arm 4 fixed a live house-voice violation**: the served copy opens the amortisation
+  paragraph on a negative ("But that monthly payment isn't just…") which "start with the
+  fact" forbids; arm 4 led with the fact and demoted the contrast to a trailing clause.
+  **But it also invented two internal links** in a component that has zero anchors —
+  scope creep that reads as an improvement.
+- Arm 3 lost a fact's point: "how much of a deal is interest rather than car" →
+  "the interest amount within a deal".
+
+Carriers (kept for provenance, status `cancelled`, nothing polls them):
+arm3 `cd06f032-51d8-4615-9b8d-6b6a151feb29`, arm4 `91c8b30b-43bc-4217-9362-d082057594da`.
+Backup: `page_components_bak_20260809_stearms`. Locks restored to exact pre-run state;
+site 26/26, toolgolden exact.
