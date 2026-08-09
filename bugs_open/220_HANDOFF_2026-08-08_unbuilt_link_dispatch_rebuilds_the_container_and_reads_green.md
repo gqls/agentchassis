@@ -299,3 +299,50 @@ re-mints, one unbuilt item must run end-to-end: writer writes the TARGET's
 sections, save_sections saves them to the TARGET (`sections_saved.page_name` =
 the target), deploy renders it, `pages.deployed_at` set, item completes
 `_verification.status='verified'` via disjunct (a), `curl -sI` the target → 200.
+
+## 2026-08-09 midday — the RESIDUE: the fix stops new false greens, it does not repair the old ones. One is still live on a production site.
+
+The verifier makes an item that leaves its target unbuilt fail loudly **from now
+on**. It is not retroactive, and nothing in this lane had asked what the items that
+completed *before* it existed are actually sitting on. Asked now, fleet-wide, by
+identity rather than by count (a count would have said "6 complete" and hidden the
+whole distinction):
+
+| item | site | completed | target | target deployed? | href still rendered? | reading today |
+|---|---|---|---|---|---|---|
+| `49f0e189` | mortgagecalculator.co.uk | 08-05 13:12 | `scorecard-simulator` (landing) | **NEVER** | **yes** | **genuine residue — would be `Resolved:false` if re-verified now** |
+| `4ba1d4dd` | vetcomparison.uk | 08-08 15:19 | `practice` (entity-page) | NEVER | **no** | legitimately resolved — link removed, which the item's own fix text accepts (disjunct b) |
+| `6d1cb353` | fundamentallyai.com | 08-05 13:13 | `platform-log-index` | 08-08 18:16 | — | false green at the time; target shipped 3 days later by other means |
+| `5686a320` | mortgagecalculator.co.uk | 08-05 13:17 | `tool-affordability` | 08-09 12:03 | — | false green at the time; target shipped 4 days later by other means |
+| `3f066b90` | vetcomparison.uk | 08-08 15:19 | `directory-index` | 08-08 17:02 | — | false green at the time; target shipped ~2h later by other means |
+| `338deb27` | dartsonline.com | 08-09 10:01 | `grip-styles` | NEVER | (was no, is yes again) | this morning's, `_verification=verified` via disjunct (b) — see the addendum above |
+
+**`49f0e189` is confirmed at the served artefact, not inferred from the DB:**
+`curl https://mortgagecalculator.co.uk/guides/first-time-buyer/index.html` → **200**,
+21,034 bytes, and it carries `href="/scorecard-simulator.html"` exactly once;
+`curl …/scorecard-simulator.html` → **404**. So a live page has been linking to a
+404 since at least 05 August while the work item created to fix it has read
+`complete`. That is this bug's damage, unmitigated, on a production site today.
+[MEASURED 2026-08-09]
+
+⚠ **The URL is not derivable from the page name and this bites twice in one lane.**
+`guide-first-time-buyer` serves at `/guides/first-time-buyer/index.html`; my first
+curl guessed `/guide-first-time-buyer.html`, got 404, and for a moment looked like
+evidence the container was gone. `beginners` serves at `/blog/beginners.html`, not
+`/beginners`. **Read `pages.url`; never build the URL from `pages.name`** — the
+wrong guess returns a 404 that is indistinguishable from the defect you are hunting.
+
+**Three of the six were false greens that got rescued by something else entirely**,
+days later — which is worth stating because it is how this bug stayed invisible:
+the target eventually appears, so a spot-check of any individual site tends to look
+fine, and only the join of "when did the item complete" against "when did the target
+deploy" shows the item was green while the page did not exist.
+
+**What to do about the residue — nothing bespoke.** A `complete` row is terminal for
+the dedup index, which *frees* the slot, so the next discovery pass over
+mortgagecalculator.co.uk re-mints the finding and it now converges honestly (or
+fails loudly) under the verifier. This is the same mechanism being proven on
+dartsonline today. No repair item, no backfill, no migration: **the residue is one
+discovery pass away from being self-correcting, and hand-cleaning it would prove
+less than letting the machinery clear it.** Whoever runs the next improvement loop
+on that site gets the second, independent end-to-end proof for free.
