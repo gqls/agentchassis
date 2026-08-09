@@ -1767,3 +1767,33 @@ final sweep, both fixed mechanically + render-only rerenders):**
 **Bookkeeping:** all caps items complete (resolution_path notes the withheld
 statement); one wasted duplicate faq build (stale envelope reuse — own goal,
 noted); final verify re-run pending box sync at write time.
+
+---
+
+## 2026-08-09 (5) — THE ACTUAL MECHANISM, read from the rendered prompt: the writer's "Verified Facts" section was EMPTY
+
+**Owner confirmed 2 rounds / 14 days.** Facts flipped to owner-attested,
+briefing regenerated (stale "awaiting" notes stripped), identity concretised —
+and the round STILL produced no numbers. **Then the decisive read: the actual
+`prompt_rendered` from `llm_call_log`** (faq writer call, corr `a42decb2…`):
+- "## Verified Facts (the ONLY numbers … you may assert)" is followed
+  IMMEDIATELY by the style prose — **the facts section renders from
+  `evidence_base.writer_block`, a hand-composed 2,191-char PROSE key from the
+  08-04 seed, NOT from `facts[]`.** "14"/"rounds"/"£1,200" were absent from
+  the entire 24.5KB prompt.
+- **So three rounds of "the writer withheld the numbers" was WRONG — the
+  writer never received them.** My `saw_fact=t` check grepped the child's
+  collected_data (where the SPEC sits), not the rendered prompt. A claim about
+  behaviour is not the behaviour; a spec present in memory is not a spec
+  present in the prompt. → WRONG_CALLS-class correction, recorded here.
+- Corollary: the mission/identity/strategy/briefing chain cleanup was still
+  necessary (it stopped the REGENERATION of uncapped copy — the bans stopped
+  firing after it) — but it could never DELIVER the numbers, because none of
+  those specs reach the writer prompt either.
+**Fix: appended the confirmed terms to `writer_block` itself** (the one text
+the writer demonstrably reads as its facts section), in its register, ending
+with the imperative. Round 7 dispatched for all four pages.
+**Standing lesson: `evidence_base.facts[]` is bookkeeping; `writer_block` is
+the wire. A fact not copied into writer_block does not exist for the writer —
+and nothing warns about the divergence.** (LANDMINE candidate once verified by
+round 7's output.)
