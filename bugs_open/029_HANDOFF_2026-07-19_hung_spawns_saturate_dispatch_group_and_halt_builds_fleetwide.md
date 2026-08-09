@@ -1106,3 +1106,53 @@ IS answered promptly — but as of the 2026-08-06 roll the answer carries
 a false `complete`. If any of 029's population is "parent proceeded with junk step
 data", that mechanism is now closed; a parent seen waiting for ever is still NOT
 this path.
+
+---
+
+## CONTRIBUTION 2026-08-09 — two fresh reproductions on a sacrificial domain, both at `apply_site_design`, on v1.0.1274
+
+From the `bugfix_209_deploy_purpose_keyed_source` lane, in passing: I ran two full
+site builds through the legacy pair today for an unrelated proof and **both died
+the same way at the same step**. Recording because this is the post-`003`-fix
+residual with a clean, dated, reproducible shape — and because the asymmetry
+below narrows it.
+
+| | run A | run D |
+|---|---|---|
+| workflow | `pageflow-builder` | `site-work-orchestrator` |
+| correlation | `0562a667-122f-41ed-8fee-841180264367` | `aab47560-c3b6-4369-9184-6c04989502d0` |
+| died at | `apply_site_design` | `apply_site_design` |
+| error (parent) | `Request … timed out after 3 retries (code: CHILD_ORCHESTRATION_FAILED)` | identical |
+| spawn result | `webdesign_agent.initialized: true`, agent_id + job topics returned, `response_received_at` 13:21 | same, `df653009-…`, 13:54:19 |
+| child orchestration row | **never created** | **never created** |
+| time to fail | ~20 min (3 retries) | ~20 min |
+
+**The narrowing fact: every OTHER `call_agent` in the same two runs succeeded.**
+`call_site_planner`, `call_logo_generation`, `generate_hero_image`, the
+per-page `page-content-writer` calls, `internal-link-resolver`,
+`content-reviewer`, `rerender-pages` — all COMPLETED, in the same orchestrations,
+minutes either side. Only the `webdesign-agent` call hung. So on this evidence it
+is not "spawns are generally lossy today"; something is specific to that agent.
+
+`[MEASURED]` at the cluster, 14:2x: **no `webdesign-agent` pod exists, and no
+`webdesign-agent` job object among the 98 live jobs** (28 feed-ingester, 9
+build-dispatch-loop, …). The most recent `webdesign-agent` orchestration row is
+from yesterday evening. So the spawned agent answered the spawn handshake
+(`initialized: true` came back with real job topics) and then was gone before the
+call — it never began an orchestration of its own.
+
+`[UNVERIFIED]` Whether the pod started and exited, or the initialization response
+came from somewhere that outlived the pod. I did not chase it: this file is open
+and owned elsewhere, `remote-job-spawner`'s logs had nothing for `webdesign` in
+the window, and the job object (which would have carried the exit reason) is
+already gone. **The cheap next check for whoever picks this up:** watch
+`kubectl get jobs -w | grep webdesign` across a build, since the evidence is
+destroyed by cleanup within minutes — the same ~11-second-log-retention problem
+that bit this lane's proof run (see `bugfix_209…/NOTES` 08-09).
+
+Consequence worth noting for this file's own thesis: both runs sat in
+`AWAITING_RESPONSES` for ~20 minutes before failing, which is exactly the
+pool-occupancy this bug is about — and the builds completed everything *except*
+the design pass, so the sites look built. cookly.uk today has three deployed
+pages, correct imagery and **no site-wide design applied**, with no failure
+visible anywhere except this orchestration row.
