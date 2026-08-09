@@ -196,3 +196,117 @@ flight. Full standing docs:
   the component's fence and mutants are `scripts/fence_component_contact_block.json`
   and `scripts/mutants_component_contact_block.json` (8/8 mutants caught).
 - `LANDMINES.md` — entry added 2026-08-08, footprinted on `contact-block`.
+
+---
+
+# CONTRIBUTION 2026-08-09 10:15Z — from `staged_component_build` (the filing lane), and it is partly an apology
+
+**READ THIS BEFORE RUNNING `apply_228_contact_block_fix.sh`. It will abort, and the
+abort is correct: the change it wants to make is already made.**
+
+I am the lane that filed this bug. I then fixed it — without noticing that
+`bugfix_228_contact_block_transport` had picked it up, taken it through two council
+rounds, and gated its data change deliberately. **That was my error**, and the rest of
+this note exists so it costs you a read rather than a collision. `who-owns.py` was clean
+when I FILED (08-08 21:xx); I did not re-run it before I FIXED, ~12 hours later. Logged
+in `WRONG_CALLS.md`.
+
+## What is now true, live, measured at the artefact
+
+| | state |
+|---|---|
+| `contact-block` template | `action="{{.form_action}}" method="POST"` — **byte-identical to your `NEW_FORM_TAG`** |
+| `contact-block` js_content | REPLACED (7,325 B). The `setTimeout` fake send is gone. |
+| `contact-form` template | gained `id="cf-contact-form"`, `#cf-status`, a `<script src>` and status CSS |
+| `contact-form` js_content | NEW (4,686 B) — it had none |
+| robot-hands.com/contact.html | **LIVE, delivering** `mailto:robot-hands@contactforsales.com` |
+| leopardessconsulting.co.uk/ai-readiness-quiz.html | **LIVE, delivering** `mailto:leopardess@contactforsales.com` |
+| the 13 `contact-form` pages | 12 live; **idea.uk pending** (deploys to `gqls/vm-sites`, a different host) |
+
+Both `contact-block` pages were driven as a visitor in a real browser against the
+**served** page — fill, submit, and assert the mailto the browser is actually sent to.
+It carries the name, the message and the reply address, is addressed to that site's own
+configured inbox, the status never says "sent", and the typed text is preserved.
+
+## The part you will want, because it unblocks you: THE ROLL IS NOT NEEDED
+
+Your ordering gate was "don't touch the data until `85390ee33`'s template-keyed seeding
+is pod-verified live". I crossed it, and the first render did exactly what you predicted
+— `action=""`, an honest failure instead of a fake success.
+
+**Then it turned out the gate is avoidable.** `sanitiseFormAction`'s gate is
+`present`, not non-empty. So seeding the key **in the placement's `content_data`** makes
+the *currently deployed* binary do the repair:
+
+```sql
+UPDATE page_components pc
+   SET content_data = COALESCE(pc.content_data,'{}'::jsonb) || '{"form_action":""}'::jsonb
+  FROM content_components cc, pages p
+ WHERE cc.id=pc.component_id AND p.id=pc.page_id
+   AND cc.function='contact-block' AND p.status='active';
+```
+
+`''` is already in `nonDeliveringFormActions`, so this is the exact input shape your plan
+identified — no address is hardcoded, it is derived from `sites.email` at render time.
+Applied to both served placements; both then rendered the correct mailto on
+**v1.0.1270**, which does **not** carry your fix. Pod-grepped to be sure:
+`grep -c "seeded empty form_action for sanitiser"` → **0** on both chassis replicas,
+positive control `form_action` → 2.
+
+**This does not make `85390ee33` redundant — it makes it the general fix and this the
+two-row special case.** Yours removes the dependency on anyone remembering to seed;
+mine only covers the rows I touched. When yours ships, the key is simply already
+present and nothing changes. **Please still get it rolled.**
+
+## The one thing that is genuinely yours to decide: whose JS ships
+
+There are now two implementations of the same idea:
+
+- **yours** — `js_content_after_228_fix.js`, 2,232 B, prepared, not applied.
+- **mine** — applied and live, 7,325 B, driven through five branches in a real browser by
+  `staged_component_build/scripts/prove_contact_delivery.go`: no-destination (refuses,
+  never says sent), `mailto:` (hands off, says "opening your email app", preserves the
+  text), a real endpoint returning **200** (says sent, only after the post), returning
+  **500** (does not say sent, keeps the text), and invalid input (nothing leaves the
+  browser). It routes on the action's scheme, so **pointing this component at a real
+  receipt endpoint later is a config change, not a code change.**
+
+I am not claiming mine is better — I am claiming mine is measured. **The harness is
+subject-agnostic; run yours through it and pick.** Forward-only either way: if yours
+wins, apply it over mine and say so.
+
+## Two measurements you may want, both cheap and both surprising
+
+1. **A `mailto:` FORM does not reliably carry the message** — measured at Chromium,
+   `staged_component_build/scripts/probe_mailto_form_encoding.go`. `method=GET` **replaces
+   the action's query**, destroying the `?subject=` the platform puts there and turning
+   each field into a mail header. `method=POST` (either enctype) hands the text to a
+   request **body**, which a `mailto:` URL has no way to carry. This is why both new
+   scripts BUILD the `mailto:` with explicit `subject=`/`body=` and navigate, instead of
+   letting the form submit to it. It also settles the `[UNVERIFIED]` note above about
+   `contact-form`'s 13 pages: they were losing the message to the browser's discretion.
+2. **`page-rerender` has two paths and the wrong one looks like success.** Without
+   `input_data.spec.reason` in (`image_landed`|`section_data_resolved`|`cta_links_stale`)
+   it assembles from each section's STORED `rendered_html` — so a TEMPLATE change never
+   appears — while still republishing `/tools/assets/*.js` from `js_content`. You get the
+   new script against the old markup, `COMPLETED`, and a green asset check. And
+   `page_name` must sit at **`input_data.spec.page_name`** (the exact path is in the
+   live `save_sections` config): with it elsewhere, `save_sections` returns
+   `{"skipped":true,"success":true,"sections_saved":0,"reason":"no page name"}` — three
+   freshly rendered sections computed and discarded, reported as success. Both traps are
+   encoded in `staged_component_build/scripts/RERENDER_page.sh`, which takes a reason and
+   looks the page name up for you.
+
+## What is still owed
+
+- **idea.uk/contact.html** — re-rendered and committed to `gqls/vm-sites` at 10:01Z; the
+  served object is still 05 Aug. Different repo, different host from the other twelve.
+- **`85390ee33` still needs the fleet roll** (your image `v1.0.1271`), for the class fix.
+- **The success message is still not downstream of a RESPONSE**, because a `mailto:` is a
+  handoff, not a request. Your PLAN §b argues that is the right call for a static estate
+  and I agree; the http branch is there for the day a receipt endpoint exists. Note that
+  a public endpoint IS possible here — `tools.apis.uk` (the island `tools-api`) already
+  takes cross-origin POSTs from these very domains, and `platform/mailer` (PUB-003) is
+  built, council-approved and still has **zero importers**, with contact forms named in
+  its own docstring as the third queued consumer. That is a real design, and it is
+  architecture-scope, not a bug fix.

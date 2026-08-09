@@ -684,3 +684,57 @@ we take the form off and leave the contact details, which are correct. I'd do th
 but where the enquiries should actually land is your call, not mine.
 
 Forty-nine page-pieces and two tools now have proven contracts.
+
+---
+
+**9 August 2026, late morning — the contact forms now actually work; and I duplicated
+someone else's work getting there**
+
+You asked me to enable the contact forms end to end. They are enabled, and I need to tell
+you two things: what works, and a mistake of mine that you should know about.
+
+**What works.** Both pages with the fake form — robot-hands' contact page and leopardess's
+quiz page — now genuinely deliver. Fill the form, press send, and your email app opens with
+the message already written, addressed to that site's own enquiry inbox. I tested this by
+driving the real live pages in a browser like a visitor would, and checking the actual
+address the browser was sent to: the right inbox, the visitor's name, their message, their
+reply address. The screen no longer says "your message has been sent" — it says it is
+opening your email app, which is the true statement — and it no longer wipes what you typed.
+
+I also fixed the *other* contact form, the one on thirteen pages across the estate. That one
+was never lying, but I measured what browsers actually do with the way it was set up and the
+answer was: they may quietly drop the message. Twelve of the thirteen are now live and
+correct. The thirteenth is idea.uk, which is hosted differently from the rest and hasn't
+picked up the change yet — that's a deploy path to chase, not a rewrite.
+
+**The honest limit.** This sends via the visitor's own email app. That is how this platform
+has always done contact forms, because the sites are static files with no server behind
+them. If you want the message to arrive without the visitor doing anything — a form that
+posts straight to us — that is buildable: we already run a public API the sites talk to, and
+there is a mail-sending component built and reviewed but never yet used, with contact forms
+written into its own notes as the next intended user. It needs an email password we don't
+currently hold anywhere and a deploy of that API, which is your call, not mine. The new code
+already handles that case, so switching later is a setting, not a rewrite.
+
+**Now the mistake.** Another session was already fixing this bug. It had a plan, had been
+through the review council twice, had committed a deeper fix to the framework itself, and
+had deliberately decided to wait before touching the live component. I checked whether
+anyone owned this bug when I *filed* it last night — nobody did — and I did not check again
+before I *fixed* it this morning. Twelve hours was enough for a whole workstream to spring
+up. We independently designed the same change, character for character in one place, which
+is reassuring about the design and wasteful about the effort.
+
+I found out only because I was reading the framework code to work out why something wasn't
+happening, and the comment I was reading quoted my own bug number. Someone else had written
+it, minutes earlier.
+
+I have written all of this into the bug file for them, including one useful discovery: their
+change needed a full fleet release before the live fix could happen, and it turns out there
+was a way round that — so the forms are working now rather than waiting. Their framework fix
+is still the better long-term one and still wants that release. And where we each wrote a
+different version of the same script, I have not declared mine the winner; I have left them
+the test harness so they can run theirs through the same five checks and choose.
+
+I've also written the lesson down where we keep these: an ownership check goes stale in
+hours on this system, and the moment that matters is when you're about to *write*, not when
+you pick something up.

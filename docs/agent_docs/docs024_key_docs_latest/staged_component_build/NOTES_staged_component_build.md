@@ -2286,3 +2286,91 @@ predecessor left, which is also what a visitor does. Recorded in the PLAN body s
 
 **Running D10 tally: 49 sections + 2 tools end-to-end.** Remaining: ~10 interactive
 sections, ~10 ready tools, 8+3 chrome-blocked, 7 lane-owned, ~35 unplaced + 4 drift rows.
+
+## 2026-08-09 (later) — the contact forms deliver; and I duplicated an owning lane, which is the more important entry
+
+**Owner instruction: "enable the contact forms end to end."** Done for `contact-block`
+(2 pages, the bug) and `contact-form` (13 pages, 12 live). Full state, and the coordination
+note that matters, are in `bugs_open/228` § "CONTRIBUTION 2026-08-09". Handoff:
+`HANDOFF_2026-08-09_continue_here.md`.
+
+### THE MISSTEP, first, because it is the transferable part
+
+`bugfix_228_contact_block_transport` owned this bug: standing five, PLAN diagnosing the
+cause **one level below my bug file** (the sanitiser's *presence gate*, not the missing
+action), council rounds 1–2, Go fix `85390ee33` committed at **09:39Z — seven minutes
+before my re-render**, image built and pushed, apply script prepared and **deliberately
+gated** on the roll. I ran `who-owns.py` before FILING (08-08) and not before FIXING
+(08-09). Their `NEW_FORM_TAG` and my template edit are byte-identical — two independent
+designs converged, which is the good news and the waste.
+
+I also broke their stated gate and produced exactly the `action=""` they predicted. What
+caught it: reading `RenderTemplateReportingMissing` to find out why the sanitiser had not
+fired, and finding a comment **citing my own bug number**, written by someone else minutes
+earlier. `WRONG_CALLS.md` has the entry. **The rule: an ownership answer ages in HOURS
+here; re-run it at the point of WRITE, and especially for a bug you filed yourself, because
+filing a good bug file is what causes someone to pick it up.**
+
+### The measurement that unblocked it without the roll
+
+`sanitiseFormAction`'s gate is `present`, **not non-empty**. So seeding
+`content_data.form_action = ''` on the placement makes the **currently deployed** binary do
+the repair — `''` is already in `nonDeliveringFormActions`. Applied to both served
+placements; both then rendered the correct mailto on **v1.0.1270**, which pod-grep confirms
+does NOT carry `85390ee33` (`"seeded empty form_action for sanitiser"` → 0 on both
+replicas, positive control `form_action` → 2). This does not make their fix redundant: it
+makes theirs the class fix and mine the two-row special case.
+
+### Measured, not reasoned: a `mailto:` FORM does not reliably carry the message
+
+`probe_mailto_form_encoding.go`, Chromium, 08-09. `method=GET` **replaces the action's
+query** — the platform's own `?subject=` is destroyed and every field becomes a mail
+header. `method=POST` (either enctype) hands the text to a request **body**, which a
+`mailto:` URL cannot carry. This settles the `[UNVERIFIED]` note I left in 228 about
+`contact-form`'s 13 pages: they were losing the message to the browser's discretion. Hence
+both new scripts BUILD the URL with explicit `subject=`/`body=` and navigate.
+
+### The fix, and why the success string is now unreachable by accident
+
+One attribute is load-bearing: `contact-block`'s form now carries
+`action="{{.form_action}}"`, because the sanitiser only engages when the **template
+mentions the field** — the mechanical reason the platform's per-site address repair had
+been fixing the sibling for a fortnight and never touched this one. Three destination
+shapes, three honest outcomes (http → report the server's status; `mailto:` → "opening your
+email app", never "sent"; nothing → refuse and say so). `prove_contact_delivery.go` drives
+all five branches in a real browser for both components; both PASS, and both live pages
+were then driven as a visitor against the **served** page.
+
+**Two harness bugs found en route, both worth more than the fix:** a `<script src>` placed
+before its own markup silently self-disables (the script hits `if (!form) return`, the
+browser does a native submit, and all five cases fail looking like a component defect); and
+`contact-form` has no `novalidate`, so the **browser** refuses an invalid submit first —
+asserting only our own status text scored a correct refusal as a defect.
+
+### Two silent platform traps, now encoded in `RERENDER_page.sh`
+
+1. **`page-rerender` has two paths.** Without `input_data.spec.reason` ∈
+   (`image_landed`|`section_data_resolved`|`cta_links_stale`) it assembles from STORED
+   `rendered_html`, so a TEMPLATE change never appears — **while still republishing
+   `/tools/assets/*.js`**. New script, old markup, `COMPLETED`, green asset check. Measured:
+   asset 2,100 → 7,345 bytes with the form tag untouched.
+2. **`page_name` must be at `input_data.spec.page_name`** (read out of the live
+   `save_sections` config, not guessed). Elsewhere → `{"skipped":true,"success":true,
+   "sections_saved":0,"reason":"no page name"}`: three sections re-rendered and discarded,
+   reported as success. `bugs_open/095`'s family.
+
+Also: **`kubectl run -i` inside a `while read` loop eats the loop's stdin** — the first
+rollout dispatched exactly one of ten pages and exited silently. Use an array or
+`< /dev/null`.
+
+### Blast radius, measured on a canary before the other twelve
+
+Whole-page diff on `leopardessconsulting.co.uk/contact.html`: **17 lines changed, every one
+of them the intended edit** (form id, status div, script ref, status CSS). Nothing else
+moved. Only then did the remaining pages go.
+
+**Owed:** `idea.uk/contact.html` — re-rendered and committed to `gqls/vm-sites` at 10:01Z,
+served object still 05 Aug; a different repo and host from the other twelve.
+**Also owed:** `contact-block`'s fence deliberately asserted the validation path only, so as
+not to ratify the fake success. That reason has now gone — the fence should gain a check
+that the success state is downstream of a destination.

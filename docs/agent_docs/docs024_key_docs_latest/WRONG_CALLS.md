@@ -24443,3 +24443,52 @@ reached for a name instead of a call graph. Second instance in three weeks — t
 **concept register**, which the next council round reads as ground truth. A wrong fact there does
 not sit still — it causes a claim and then vouches for it (`bugs_open/161`'s mechanism, arrived at
 from the other direction).
+
+---
+
+## 2026-08-09 — I ran `who-owns.py` before FILING a bug and not before FIXING it, and duplicated a lane that was two council rounds in
+
+**The claim, by action rather than in words.** I filed `bugs_open/228` at ~21:30 on 08-08,
+having checked ownership (`grep bugs_open/ bugs_closed/`, the fleet-wide form census) and
+found nothing. Twelve hours later, asked to enable the contact forms, I designed the fix,
+measured the browser behaviour, wrote and proved two scripts, and applied the change to
+the live component rows. Every step of that was careful. **The step I did not take was
+re-running `scripts/who-owns.py 228`.**
+
+**What was actually true.** `bugfix_228_contact_block_transport` had existed since the
+early hours: a full standing five, a `PLAN` that diagnosed the cause one level below my
+bug file (the sanitiser's *presence gate*, not the missing action), council rounds 1 and 2
+with two HIGH objections answered, a Go fix committed (`85390ee33`, 09:39Z — **seven
+minutes before my re-render**), an image built and pushed, and a prepared apply script.
+Their `NEW_FORM_TAG` and my template edit are **byte-identical**. Two lanes independently
+converged on the same design, which is the good news and also the waste.
+
+**And I broke their gate.** Their README says plainly: *"Nothing has touched the live
+contact-block component yet — that step is deliberately gated on seeing the new code
+actually running on the pods first, because doing it in the wrong order would make the
+page briefly worse than it is today."* I did that step, in that wrong order, and the first
+render produced exactly the `action=""` they predicted.
+
+**What caught it.** Not a check — the code itself. I read `RenderTemplateReportingMissing`
+to work out why the sanitiser had not fired, and the comment I was reading **cited my own
+bug number**. Someone else had written it. Had that comment not named `bugs_open/228`, I
+would have carried on and only found the collision when their apply script aborted.
+
+**The cheap check, and it is already a rule I follow — just not at the moment that
+mattered.** `scripts/who-owns.py <number>` costs ~0.3s and no cluster calls. CLAUDE.md
+says to run it "before routing work AT an existing bug". I read that as covering the
+moment you *pick a bug up*. **It is the moment you are about to WRITE.** On a tree this
+many sessions share, an ownership answer is only true when you asked it: mine was twelve
+hours stale, and twelve hours is long enough here for a lane to be created, plan, review
+twice, commit and build.
+
+**The transferable rule, narrower than "check ownership".** *An ownership check ages like
+any other measurement, and the half-life is hours.* Re-run it at the point of WRITE, not
+the point of READ — and for a bug you filed yourself, re-run it **especially**, because
+filing a good bug file is exactly what causes someone else to pick it up. The tool also
+reads COMMITS, so it is blind to a session mid-fix; when the answer matters, grep the
+workstream directories too (`ls docs/.../ | grep <number>` would have shown
+`bugfix_228_contact_block_transport` instantly, and did, the moment I finally looked).
+
+**Not logged here:** the fix itself, which is live, measured, and stands. The error is the
+duplication and the broken gate, not the code.
