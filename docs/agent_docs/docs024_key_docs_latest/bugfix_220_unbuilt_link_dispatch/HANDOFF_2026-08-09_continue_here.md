@@ -1,14 +1,30 @@
-# HANDOFF 2026-08-09 (updated 14:00 UTC) — bugfix 220 lane: continue here
+# HANDOFF 2026-08-09 — bugfix 220 lane: ⛔ CLOSED, NOTHING OWED. Do not action this file.
 
-Written for a fresh session with no context. Read this, then the bug file's two
-2026-08-09 sections; everything else is reference.
+> **CLOSED 2026-08-09 15:14 UTC. The convergence proof this handoff was written to
+> chase LANDED, and the whole run completed: 10/10 items `complete`, 10/10 via
+> disjunct (a), zero failures. Bug 220 is fixed, live and proven end to end.**
+>
+> **Nothing below is a live instruction.** STEP 0 is answered, the "if it has NOT
+> landed" branch is dead, and the watcher/re-fire advice is spent. It is kept only as
+> the record of how the proof was chased.
+>
+> **Two of this file's own statements are now known WRONG — do not act on them:**
+> 1. **The PASS table's `saved_page_id` = `deployed_page_id` leg used a jsonb path one
+>    level too shallow** (`response→deploy_result→rendered_page`; the real shape
+>    interposes another `response`). It returns empty on **every** row, so that leg
+>    could never pass. **The control this file tells you to validate against could not
+>    catch it**, because the column was *expected* empty there. Corrected query, and a
+>    control that reads NON-empty, are in `RUNBOOK_unbuilt_link_dispatch.md`.
+> 2. **"The four items that are EXPECTED to fail" is REFUTED.** All four converged via
+>    disjunct (a), on two distinct section-index pages built from zero components.
+>    **Candidate 4's demand signal is therefore absent, not merely weak.**
+>
+> **Where to go instead:** `SUMMARY_2026-08-09_unbuilt_link_dispatch.md` for the
+> read-out; the bug file's § "FINAL LEDGER 15:14Z" for the evidence and the candidate
+> 4 ruling; `NOTES` tail for the missteps. Still genuinely open (low priority, and
+> self-correcting): the mortgagecalculator.co.uk residue, item 1 under "Also open".
 
-**Status in one line:** the fix is complete, live and council-approved; the
-collateral damage is repaired and proven at the served page; **exactly one thing is
-still owed — the end-to-end convergence proof, and a run for it is IN FLIGHT right
-now.** Your first job is to find out whether it already landed.
-
-## STEP 0 — has the proof already landed? Run this before anything else.
+## ~~STEP 0 — has the proof already landed?~~ ANSWERED: yes, at 14:24–15:14Z. Historic only.
 
 A run was fired at 13:10 UTC on 2026-08-09 (corr
 `576f0ab9-5a17-4449-9bbc-ee1983576433`, `PUBLISH_OK` receipt) against dartsonline.com
