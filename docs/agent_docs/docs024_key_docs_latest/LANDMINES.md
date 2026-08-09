@@ -7784,3 +7784,59 @@ code change owed at the next roll, tracked in RFC_015 §5.
 
 - **source:** 2026-08-09, idea_uk_vm_site lane; RUNNING_NOTES §X.48-49; RFC_015 §5
 - **added:** 2026-08-09, ideauk-sec session
+
+---
+
+### An error census over `orchestration_states` measures the RETENTION WINDOW, not the frequency — failures are pruned at ~24h, so "has this stopped happening?" reads 0 before the fix and 0 after it
+
+- **footprint:** `orchestration_states.error`, `orchestration_states.status = 'FAILED'`,
+  `collected_data->'__step_error'`, and **any question of the form "does this
+  failure still occur / did my fix stop it / how often does this bite?"** asked
+  by counting rows in that table. Also any bug file whose "how to verify a fix"
+  step is an error census over it.
+
+- **the trap:** the table LOOKS long-lived. `SELECT min(created_at) FROM
+  orchestration_states` returns weeks of history (2026-07-13, against 4,935
+  rows, measured 2026-08-09) and `COMPLETED` spans days — so a census over it
+  reads as a census over history. It is not. Measured the same day:
+  `FAILED` rows span **2026-08-08 → 2026-08-09 only**, and
+  `SELECT count(*) FROM orchestration_states WHERE status='failed' AND
+  created_at < now() - interval '24 hours'` returns **0**. Failures are pruned
+  on a much shorter clock than the table's own age suggests. So for any event
+  whose period exceeds a day — emission variance, a race, a rare config path —
+  the census returns 0 **whatever the truth is**, and 0 is exactly what a
+  working fix would also produce. Nothing about the result looks partial.
+
+- **the check, before you use that table as evidence of absence:** bound the
+  window first and quote the bound next to the number —
+  `SELECT status, count(*), min(created_at), max(created_at) FROM
+  orchestration_states GROUP BY status;` If the oldest row of the status you
+  are counting is younger than the period of the thing you are asking about,
+  **the census cannot answer your question** and must not be written down as if
+  it did. Then induce a non-zero before trusting a zero (grep for a string you
+  KNOW is present in some row's error), and name what the disconfirming result
+  would have looked like — if you cannot, the measurement was never
+  disconfirmable. Where the event is rarer than the window, stop using the
+  census: put a counter on the code path's own result and a log line naming the
+  inputs, so the signal survives the row.
+
+- **caught it:** `bugs_open/215`'s own "how to verify a fix" section instructed
+  exactly this census, and the incident in its own header — 2026-08-08, corr
+  `1cb17b11` — was already outside the window by the time the fix was written.
+  The 0 was about to be recorded as proof the fix worked. Same family as
+  `a-count-you-kept-is-not-a-census` and the `[MEASURED]`-but-not-disconfirmable
+  rule in CLAUDE.md's working-docs section: the marker was available, the
+  disconfirming case was not.
+
+- **source:** 2026-08-09, brochure_component_library lane (fact-assignment front);
+  `bugs_open/215` §2026-08-09; commit `14b1cff28`
+- **added:** 2026-08-09
+
+### A parked domain answers 200 on EVERY path — so a status-code sweep "verifies" a cutover that has not happened, and your own resolver is the thing holding the stale answer
+
+- **footprint:** domain cutover / go-live, `curl https://<domain>`, Cloudflare zone activation, `PUT /zones/{id}/activation_check`, Nominet NS repoint, `dan.com`/`ns1.dan.com`/`ns2.dan.com`, `docs024_key_docs_latest/domains_cloudflare_rollout/`
+- **fires when:** you verify a newly repointed domain from the machine you are working on, any time between the NS change and your local resolver's cache expiring (the OLD A record's TTL governs — hours, not the delegation's). Also fires on any domain still parked, which most pre-launch domains are.
+- **the tell is that there is no tell in the status code.** A parking service (Dan.com, Bodis, Sedo) returns **200 on every path**, including `/assets/images/logo.png` and paths that never existed. A `for u in ...; do curl -o /dev/null -w '%{http_code}'; done` sweep prints a clean column of 200s for a domain that is still someone else's. Worse, the resolvers disagree while it propagates — `dig @1.1.1.1` can already show the Cloudflare edge while `getent`/`dig @8.8.8.8` still return the parking IPs, so two "verifications" minutes apart can both be honest and only one be true.
+- **the check:** pin the destination and assert a BODY property, never a status code — `curl -s --resolve '<domain>:443:<edge-ip>' https://<domain>/ -o /tmp/x; wc -c /tmp/x` and compare against the artefact you deployed (size, `<title>`, or a known sha256; for an image, `PIL` dimensions). Take `<edge-ip>` from `dig +short @1.1.1.1 <domain> A`, **not** from the system resolver, which is precisely the one holding the stale entry. Two adjacent traps in the same window: a `TLS alert handshake failure (552)` straight after zone activation is **Universal SSL still provisioning**, not a broken route (plain HTTP already serves — test that to separate them); and `PUT /activation_check` returning 200 is acceptance of the request, not activation.
+- **source:** 2026-08-09, cookly.uk go-live (bugfix_209 lane doing the domains_cloudflare_rollout lane's work) — I reported "all 200, verified" from the parking page, having relayed this exact warning to the owner an hour earlier; caught by fetching the body and finding 114 bytes of `window.location.href="/lander"` where a 29 KB page belonged. NOTES 2026-08-09 § MISSTEP
+- **added:** 2026-08-09, bugfix_209_deploy_purpose_keyed_source lane
