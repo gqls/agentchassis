@@ -1216,9 +1216,12 @@ func ExtractNestedField(data map[string]interface{}, fieldPath string) interface
 
 	for _, part := range parts {
 		// Array indexing: only when the current value is a slice and the
-		// segment is a bare, in-range, non-negative integer. Checked before
-		// the map assertion below solely because a slice can never satisfy
-		// that assertion — map access still wins wherever both could apply.
+		// segment is a bare, in-range, non-negative integer. The two branches
+		// are mutually exclusive BY TYPE — a slice can never satisfy the map
+		// assertion below — so this ordering is a readability choice, not a
+		// precedence rule, and saying otherwise overstates it. What actually
+		// keeps a map with a literal "0" key resolving by key is that such a
+		// map takes the branch below and never reaches this one.
 		if arr, isArr := current.([]interface{}); isArr {
 			idx, err := strconv.Atoi(part)
 			if err != nil || idx < 0 || idx >= len(arr) {

@@ -1340,3 +1340,41 @@ its sibling `ResponsesTopic` is copied — and it IS read (`coordinator.go:2197`
 inbound message path, which `RunAgentType` had no equivalent of. That is the whole difference
 between a defect and a non-event here, and it is one grep short of settled — so it is recorded as a
 candidate for its own round, not as a finding, and deliberately not bundled into this one.
+
+### The array-index round: APPROVED, and the guardian found a real hole in my census
+
+`c961b79e-59e7-45db-a9ad-abb61aaad935` — **APPROVED, 3 advisory objections, none high.** Two are
+worth writing down because they are about the *measurement*, which is the thing this lane keeps
+getting caught by.
+
+**`guardian` (MEDIUM), and it is right:** my census scanned live `agent_definitions` **config
+text**, so *"it cannot see a Go caller that BUILDS a path string at runtime (e.g. via `fmt.Sprintf`
+with a loop index)"*. That is a genuine blind spot of the measurement, not a quibble — the same
+shape as this file's other entries where the filter defined the conclusion. **Checked:** seven Go
+sites build a path at runtime, and every one concatenates a literal prefix with a **field name**,
+never an index — `render_css_from_spec_action.go:463,466` (`"design_spec.result."+subField`),
+`thunder_ssh_exec_dispatch.go:248,348`, `v3_site_actions.go:977`, `database_actions.go:50`
+(`"input_data."+pathStr`). A grep for `Sprintf` building a numeric segment returns nothing. Note
+the one residual route that keeps the config census load-bearing: `database_actions.go:50`'s
+`pathStr` comes **from config**, so config is still the surface that could introduce an index —
+which is exactly what the census covers.
+
+**`architecture` (MEDIUM):** are any of the ~10 sibling map-only walkers reachable by a numeric
+path today? **Already answered by the census as run, and this was luck rather than design:** it
+scanned *all* live config text for a numeric dotted segment, not just this function's consumers, so
+its single hit bounds every config-driven walker at once. Recorded because the next author should
+not re-run it narrower.
+
+**`guardian` (LOW), the error-string widening:** nothing pattern-matches the old text —
+`grep -rn "URL not found - check"` over the tree returns the source line itself and my own
+submission JSON, nothing else.
+
+**`editquality` (LOW) caught a real overclaim in my own comment**, and it is the kind worth fixing
+rather than waving through: I called the slice-before-map ordering *"load-bearing"*, when the two
+branches are mutually exclusive **by type** — a slice can never satisfy the map assertion, so the
+order is a readability choice. The map-with-a-literal-`"0"`-key guarantee holds because such a map
+takes the *other* branch, not because of ordering. Comment corrected in place; the seat was
+reviewing the reasoning, not the logic, and the reasoning was what was wrong.
+
+**Still owed on both approved rounds:** the pod-grep after the next chassis roll (`debug_historian`,
+MEDIUM — fair: the submission never named one). Both changes are inert until then.
