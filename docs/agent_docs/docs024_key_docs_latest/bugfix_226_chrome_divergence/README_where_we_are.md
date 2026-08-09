@@ -96,3 +96,29 @@ So: the safety net is live, approved, and has already saved real content
 twice without being asked. What remains is the rehearsal and watching the
 first big wave go through — both written up step by step for whoever sits
 down next.
+
+## 2026-08-09, mid-morning — the rehearsal happened, and it all rang true
+
+We ran the full fire-drill on the darts demo site. First, a stroke of luck:
+the big rebuild wave from the other fix had just visited that exact site
+twenty minutes earlier, which did half the setup for us (its chrome was
+freshly fingerprinted). We then hand-edited the footer the "wrong" way — a
+direct database poke, the very move that caused the original loss — and asked
+the platform to rebuild.
+
+Everything we promised happened, in order: the alarm rang (once, in the right
+place), the hand-edited version was copied to the archive before being
+replaced, a review ticket appeared naming exactly which edit was lost, and
+the fresh rebuild took its place properly fingerprinted. Then the control
+run: rebuild again with nothing touched — silence, no copies, no tickets,
+which is just as important (a smoke alarm that goes off every time you cook
+is one you unplug). Even the hand-edit itself left a tidy archive copy of
+what it replaced, which proves the net catches the sneaky direct-edit route
+too, not just the official ones. We cancelled our own test ticket afterwards
+with a note, so nobody wastes time reviewing a deliberate drill.
+
+The wave itself has now begun, by the way — three sites through so far, no
+errors, the fingerprint count creeping up as designed. That part just takes
+however long it takes; the checking queries are written down for whoever
+looks next. In substance, this one is done: built, reviewed, approved,
+rehearsed, and already earning its keep.

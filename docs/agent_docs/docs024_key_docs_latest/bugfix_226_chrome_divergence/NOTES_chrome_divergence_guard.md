@@ -165,3 +165,54 @@
 - Trailer: this session's final docs commit carries `Council-Reviewed:` —
   the verdict was READ first. The three code commits keep their
   `Council-Submitted:`; 098 resolves them at report time by design.
+
+## 2026-08-09 — session 3 (close criterion 2 run end-to-end; wave observed starting)
+
+- **Found on arrival: the 117 wave had started** — `needs_rerender` /
+  `render_inputs_drift` items complete for leopardessconsulting.co.uk
+  (08-08 17:21Z) and webdesign.co.uk (08-08 18:15Z), both PRE-roll (rebuilt
+  unstamped, correctly), then dartsonline.com at 08-09 09:08:30Z POST-roll —
+  3/3 slots stamped, all byte-identical, zero archive rows (the WHEN gate's
+  no-op path exercised by real traffic). **Timeline correction worth having:
+  the four 08-08 archive rows (webdesign.uk 22:29Z, leopardess 23:43Z) did
+  NOT come from those wave items** — the wave's two pre-roll sites predate
+  the trigger (~22:30Z, NOTES said "~23:30Z" which was a BST slip — the
+  webdesign.uk rows land seconds after application) and archived nothing;
+  the rows are other rebuild traffic. Nearly asserted the wave as their
+  cause; the item-vs-ledger timestamps refuted it before it reached a doc.
+- **Criterion 2 protocol, dartsonline.com** (wave had stamped it ⇒ step (a)
+  free). Pods 33m old (outside the 300s window); footer snapshotted byte-
+  exact first (psql `-At` adds ONE trailing newline; `octet_length` 2313 +
+  1 = file size — account for it before trusting a snapshot as recovery).
+  Log followers armed on BOTH main replicas BEFORE any dispatch (chassis
+  retention is seconds; a follower armed after the fact proves nothing),
+  filter proven against the literal WARN string first — ASCII fragment
+  `were overwritten and archived` deliberately avoids the em-dash.
+- **The psql patch itself is evidence**: appending the probe comment drew an
+  immediate `machine_made` ledger row, `application_name='psql'` — the
+  raw-psql writer class (the 268 incident class, the one no Go guard can
+  see) is provably visible to the trigger.
+- **Dispatch**: kcat with payload in the container COMMAND + `PUBLISH_OK`
+  receipt (the 07-26 stdin-EOF landmine pattern). Both publishes landed
+  first time and were consumed in ~5s — no queue backlog at 09:25Z (the
+  25-36 min figure is a concurrent-load ceiling, not a floor).
+- **Positive case, all signals by row identity**: WARN fired exactly once,
+  on the rendering pod (zhz2g), inside my orch `322b266e`; ledger row
+  `hand_patched` with archived md5 == patched md5 (`2ed6dd06…`), stamp-at-
+  archive == old machine digest (which IS the classification);
+  `application_name` carries zhz2g's pod IP (10.20.39.19 — matches the
+  WARN's pod); item key `…:footer:2ed6dd067c5f` (digest fragment as
+  designed); footer restored byte-identical to pre-patch, re-stamped,
+  probe string absent. Ordering: archive .907s → item .931s (archive atomic
+  with overwrite; item after RowsAffected>0, as source-pinned).
+- **Negative control by identity, not absence**: second forced rebuild
+  (orch `453b2eb6`) — `updated_at` bumped on all 3 slots (the writes
+  HAPPENED), md5s unchanged, zero new ledger rows, zero new items, no WARN.
+- **Cleanup**: probe item `05fda19d` cancelled with a note naming this run
+  (a deliberate probe is not a human's queue item). Both orchestrations
+  COMPLETED, no error; dedup held — 0 new `page_rerender` items from my two
+  dispatches (34 triaged wave items were the non-terminal blockers).
+- **Wave-watch runbook (criterion 3, for whoever checks next):**
+  - `SELECT count(*) FILTER (WHERE rendered_html_digest IS NOT NULL), count(*) FROM site_components;` — 3/57 at 09:30Z, should climb
+  - `SELECT count(*) FROM agent_error_log WHERE occurred_at > '2026-08-08 20:00Z' AND error_message ILIKE '%site_component_history%';` — 0 so far (column is `occurred_at`, not `created_at`)
+  - guardian ratio: hand_patched ledger rows vs `chrome_divergence_overwritten` items per site+slot — 1:1 (the probe's own pair)

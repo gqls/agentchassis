@@ -27,22 +27,23 @@ submitted ~09:XX UTC 08-09).
    advisories are carried in STY-054's open-review (d) and (e). The final
    docs commit carries `Council-Reviewed: cffbfec4-…` legitimately (verdict
    read before writing the trailer).
-2. **Run close criterion 2 (end-to-end protocol)** — the bug file's CLOSE
-   CRITERIA block has the corrected steps. The trap: all 57 rows were
-   unstamped at roll time, so it is a TWO-step: (a) rebuild a test site's
-   chrome once → the new code stamps `rendered_html_digest`; (b) hand-patch a
-   throwaway string into that slot's `rendered_html` via psql; (c) rebuild
-   again → require the WARN (`were overwritten and archived`), the
-   `chrome_divergence_overwritten` item (key carries the patched digest's
-   first 12 chars), and the `hand_patched` ledger row; (d) negative control:
-   rebuild once more untouched → byte-identical → no new archive row, no item.
-   Mind the ~300s no-dispatch window after any chassis pod restart.
-3. **Watch the 117 wave's first pass (close criterion 3).** `SELECT
-   count(*) FILTER (WHERE rendered_html_digest IS NOT NULL) FROM
-   site_components;` — 0/57 as of 08-09 morning means the wave has not fired.
-   After it fires: archive rows for every changed slot, zero trigger errors,
-   stamped count climbing. Also the guardian's watch item: item count per
-   site+slot vs distinct digests (runaway-loop accumulation check).
+2. ~~**Run close criterion 2 (end-to-end protocol)**~~ **DONE 2026-08-09
+   ~09:25Z on dartsonline.com — every required signal observed, by row
+   identity.** The wave itself had stamped dartsonline at 09:08:30Z (step (a)
+   free); psql patch drew a `machine_made`/`psql` ledger row; forced rebuild
+   (orch `322b266e`) fired the WARN once (captured live on pod zhz2g),
+   archived the patched bytes `hand_patched` (md5-identical), filed the
+   digest-keyed item; negative control (orch `453b2eb6`) rewrote all 3 slots
+   byte-identical with no row and no item. Probe item cancelled with a note.
+   Evidence + the corrected timeline in the bug file's CLOSE CRITERIA and
+   NOTES session 3.
+3. **Watch the 117 wave's first pass (close criterion 3) — IN PROGRESS, the
+   wave HAS started.** 3 sites done (leopardess + webdesign.co.uk pre-roll
+   unstamped; dartsonline post-roll 3/3 stamped, byte-identical, no archive
+   rows). 3/57 stamped, zero trigger errors, accumulation 1:1. Cadence is
+   discovery-paced (one site per ~1h-overnight). Re-check: stamped count
+   climbing, `agent_error_log` for `site_component_history` mentions (0 so
+   far), and the guardian ratio (items per site+slot vs distinct digests).
 4. **Then the bug is done in substance** — per the owner 08-06 ruling it
    STAYS in `bugs_open/` (do not move to bugs_closed); update its header and
    the MEMORY topic file `bugfix-226-chrome-divergence.md` + the

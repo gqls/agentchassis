@@ -121,8 +121,24 @@ None of the three makes an **undeclared** hand-patch loud. That is the gap.
 >    a stamped, untouched slot rebuilds with no item and no archive row when
 >    byte-identical. **Note the two-step**: all 57 rows are unstamped until
 >    their first post-roll render, so the protocol needs rebuild → (stamp) →
->    hand-patch → rebuild → (hand_patched + item). NOT yet run as of
->    2026-08-09.
+>    hand-patch → rebuild → (hand_patched + item).
+>    **DONE 2026-08-09 ~09:25Z on dartsonline.com** (the wave had already
+>    stamped its 3 slots at 09:08:30Z, so step (a) was free). Evidence, all
+>    by row identity not count: the psql patch itself drew a `machine_made` /
+>    `psql` ledger row (raw-psql writer class proven visible); the forced
+>    rebuild (orch `322b266e`, dispatched via kcat with PUBLISH_OK receipt,
+>    consumed in ~5s) fired the WARN once on pod zhz2g (log line captured
+>    live — chassis retention is seconds, followers were armed first),
+>    archived the patched bytes as `hand_patched` (archived md5 == patched
+>    md5 `2ed6dd06…`; `application_name` carries zhz2g's IP), filed
+>    `chrome_divergence_overwritten:site_component:footer:2ed6dd067c5f`
+>    (digest-fragment key as designed), and re-stamped (archive .907s →
+>    item .931s: archive atomic with overwrite, item after RowsAffected).
+>    Negative control (orch `453b2eb6`): all 3 slots demonstrably re-written
+>    (updated_at bumped) byte-identical — no WARN, no new ledger row, no new
+>    item. Probe item then CANCELLED with a note naming this protocol run
+>    (a deliberate probe is not a queue item for a human). Full trail:
+>    `bugfix_226_chrome_divergence/NOTES_chrome_divergence_guard.md`.
 > 3. **The 117 wave's first pass observed**: archive rows present, zero
 >    `trg_site_component_archive` errors in the wave's window. **Partial
 >    evidence 2026-08-09 (pre-wave): four production overwrites (webdesign.uk
@@ -130,6 +146,19 @@ None of the three makes an **undeclared** hand-patch loud. That is the gap.
 >    unprompted on 08-08 evening, all `unstamped` as expected pre-roll, zero
 >    trigger errors — the archive works on real traffic. The wave itself has
 >    not fired (0/57 digests stamped).**
+>    **IN PROGRESS 2026-08-09 ~09:30Z: the wave HAS started** — discovery
+>    (`needs_rerender`, reason `render_inputs_drift`) has completed 3 sites:
+>    leopardessconsulting.co.uk 08-08 17:21Z and webdesign.co.uk 08-08 18:15Z
+>    (both pre-roll ⇒ rebuilt unstamped, correctly), dartsonline.com 08-09
+>    09:08Z (post-roll ⇒ 3/3 stamped, byte-identical renders, zero archive
+>    rows — the WHEN gate's no-op path on real traffic). 3/57 stamped
+>    fleet-wide; zero trigger errors since the trigger went live; guardian
+>    accumulation check 1 item : 1 distinct patched digest (the probe's own).
+>    NOTE the 08-08 archive rows (webdesign.uk 22:29Z, leopardess 23:43Z)
+>    were OTHER rebuild traffic, not those wave items — the wave's two
+>    pre-roll sites predate the trigger and archived nothing. Remaining: the
+>    other 16 sites as discovery reaches them — same three queries, in the
+>    NOTES runbook section.
 
 1. **Divergence check at overwrite time** (closes the door): in
    `renderAndStoreSiteComponent`, before replacing `rendered_html`, re-render
