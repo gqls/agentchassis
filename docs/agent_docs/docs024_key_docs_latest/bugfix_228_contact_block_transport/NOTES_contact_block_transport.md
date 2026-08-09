@@ -146,3 +146,93 @@ up. Reported this to the user plainly (not guessed at) and asked for one more
 release run. **Do NOT apply the `content_components` row change for
 contact-block until this re-verifies positive** — that's the hard ordering
 constraint the plan names, and it isn't satisfied yet.
+
+**Council round 1 (correlation `46f87e4c-05fc-4a5c-bd6a-93a073b63253`): REVISE.**
+Gating objection from `editquality`, and it was correct: the submitted plan
+only included edit 1 (the Go seeding change), and its own risk section
+admitted contact-block's template doesn't reference `form_action` yet — so as
+submitted, the change was a no-op for the actual diagnosed bug, benefiting
+only `contact-form`. Resubmitted (`RESUBMIT_CORR`) with the DB-side edit
+included as edit 4, describing the pending `content_components` change and
+naming the ordering constraint explicitly.
+
+**First resubmission attempt failed client-side-passed-but-server-rejected**
+(`complete_invalid`, no verdict row — indistinguishable from "still queued"
+until checked): edit 4's `file` field was a descriptive string
+(`"content_components (function='contact-block', ...)"`, with spaces), and
+`diagnose_persist_fix_plan` requires a real repo-relative path with no
+whitespace. Not one of the 097 script's documented "three type traps" —
+logged as a new RUNBOOK gotcha. Fixed by pointing `file` at real repo paths
+already written to disk (`RUNBOOK_228_contact_block_transport.md` for the
+html_template edit, `js_content_after_228_fix.js` for the JS edit) instead of
+a label.
+
+**Council round 2: REVISE**, gating objection from `render_guardian`. This
+round's feedback was unusually substantive — 14 reviewers, several real
+catches:
+
+- `render_guardian` (**HIGH**): editing `content_components.html_template`/
+  `js_content` does not itself propagate to already-*rendered* pages —
+  assemble-mode rerender redeploys stored HTML unchanged. My plan named the
+  rerender dispatch only in RUNBOOK prose, never as a submission edit with its
+  own verification. Exactly the `bugs_open/024` false-green class: DB row
+  fixed, live page still serving the old markup, nothing in my own plan would
+  have caught it.
+- `debug_historian` (**HIGH**): the html_template/js_content mutation was
+  "surgical replace()" in prose only — no needle-occurrence guard, no backup,
+  no `RETURNING` postcondition, no separate rollback file. Named this the
+  **NEEDLE-GATE SQL SURGERY** shape: `replace()` silently no-ops on a missed
+  anchor while still reporting `UPDATE 1`.
+- `prior_art_librarian` (medium): my "confirmed not live" claim rested on a
+  2-replica `-l app=agent-chassis` grep — and there's a standing LANDMINES
+  entry saying that selector undercounts (41 pods run the same binary
+  fleet-wide, measured 2026-08-05: 7 pods on a new tag, 34 stale, invisible to
+  the label-scoped check). I had read `who-owns.py`'s landmine class earlier
+  in this same session and still walked into this one — the platform's own
+  documented traps are numerous enough that reading the index doesn't
+  guarantee recalling the specific one that applies.
+- `guardian` (medium): blast radius of the `form_action` seeding change
+  needed bounding without the `is_active` filter too, and the config_change
+  edits needed their owning pipeline named explicitly (which handler actually
+  turns the DB row into a live page).
+- `tooling_provenance` (medium): never checked `doc_notes`/`doc_plans` — the
+  platform's own travelling-docs mechanism — for prior context on this exact
+  chokepoint before planning.
+- `bug_historian` (medium, architectural, correctly not gating): the generic
+  `<no value>`-stripped-to-empty-string behaviour in
+  `RenderTemplateReportingMissing` is the same *shape* as the platform's
+  worst-documented recurring bug class (Go template `missingkey=zero`
+  rendering required-but-missing fields empty with no error) — this fix
+  extends that mechanism narrowly for one field rather than closing the
+  generic exposure. Correct observation; accepted as a named, deliberately
+  out-of-scope follow-on rather than folded in.
+
+**What I did in response, all verified before resubmitting, not just
+described:**
+- Re-enumerated chassis-binary pods by **image**, not label, per the
+  landmine's own remedy: 54 total (49 Job + 4 ReplicaSet on `v1.0.1270`, 1
+  stale Job on `v1.0.1269`, **zero** on `v1.0.1271`) — same conclusion as the
+  2-pod check, now actually evidenced against the documented undercount risk.
+- Re-ran the `form_action` consumer query **without** the `is_active` filter:
+  still exactly one row, `contact-form`.
+- Queried the full blast radius of `contact-block` itself directly against
+  `page_components`: exactly 3 rows, none `locked_at`-frozen (the 2 live pages
+  + the already-known `finetuning.uk` drift row).
+- Queried `content_data IS NULL` for the contact-block section on both target
+  pages (the `049b_deploy_single_page.sh` script's own documented escalation
+  gotcha) — both `false`, confirming the rerender stays in the light
+  `section_data_resolved` path, no LLM regeneration risk.
+- Queried `doc_plans` for `subject_key='contact-block'`: found the component's
+  own acceptance-fence PLAN row (authored by `staged_component_build`,
+  2026-08-08), which states it "deliberately does NOT assert the success
+  message" — confirms my planned JS change doesn't conflict with that
+  contract.
+- Wrote two real scripts (`apply_228_contact_block_fix.sh`,
+  `dispatch_228_rerenders.sh`) implementing the disciplined procedure instead
+  of prose: needle-count guard, fresh backup, auto-generated rollback file,
+  `RETURNING`-gated manual commit, and a dispatch+deployed-page-verification
+  step. Neither has been run.
+
+Resubmitted (round 3) with these two scripts as new edits (`add`, not
+`modify`) and the above evidence folded into `grounded_in`/`risks`. Verdict
+pending as of this note.

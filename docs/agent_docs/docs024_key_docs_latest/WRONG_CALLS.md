@@ -24372,3 +24372,32 @@ wrong one teaches every future reader the wrong lesson with the authority of a c
 family as `a-verified-symptom-lends-credibility-to-an-adjacent-explanation`; the 08-08 durable
 watch query also inherits this — `max_tokens IS NULL` is NOT an uncapped-call signal (custom
 actions log NULL while capped in code); only `= 2048` remains the Anthropic-fallback tell.
+
+## 2026-08-09 — bugfix-228 session: `-l app=agent-chassis` pod-grep, on a claim, with the landmine already in reach
+
+**The claim.** Asserted "the fix is not live" and "0/2 replicas carry it" from
+`kubectl get pods -l app=agent-chassis` (2 pods) + a `strings` grep on both,
+and used that as decisive evidence in a council submission.
+
+**What was actually true, and the catch.** The claim itself held (both
+council rounds confirmed 0/N pods on the fix) — but the EVIDENCE was
+under-scoped: `LANDMINES.md` already carried an entry, written before this
+session, saying that exact selector returns 2 pods while **41** run the same
+binary fleet-wide under other agent-type names (Jobs, other deployments), and
+that a roll can leave most of them stale while the 2 labelled ones look
+verified. `prior_art_librarian`'s council round-2 review caught the gap, not
+me. Re-enumerating by image (not label) across every pod found 54 total —
+same conclusion this time (0 on the new tag anywhere), but that was not
+guaranteed in advance and the first submission asserted it as settled fact.
+
+**What caught it.** A council reviewer, reading the same LANDMINES.md file
+this session had already read at start-of-session (it's in the SessionStart
+hook's dirty-file match) and had already used correctly once (the
+`who-owns.py` false-positive, logged separately above).
+
+**The cheap check.** Reading a landmines index once at session start does not
+mean its specific entries stay loaded against every later claim — grep the
+file for the SYMBOL/COMMAND you're about to cite as evidence (here:
+`app=agent-chassis`) immediately before writing the sentence that leans on
+it, not just once at the top of the session. The index is long; recall of a
+specific entry decays exactly like any other fact would.
