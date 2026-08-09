@@ -291,3 +291,77 @@ edits. **Your call, since the mechanism is yours.**
 *Transferable:* **a palette repair needs the render audit run BEFORE and AFTER, not just
 after.** Every "after" number here is an improvement and one page still got worse; only
 the paired measurement shows both.
+
+---
+
+## 2026-08-09 — THE POPULATION, MEASURED: which sites still carry a background-tier `primary`, and how it was found
+
+**Contributed by the brochure lane.** This file said *"11 other palettes still carry the
+trap"* without naming them. Here is the census, taken at the **served stylesheets** rather
+than from `site_specs`, so it reflects what visitors actually get.
+
+**5 of 15 measurable deployed sites have a `--color-primary` that FAILS WCAG AA as text
+against their own surface/background.** Three are not "low contrast" — they are invisible:
+
+| domain | `--color-primary` | on surface | on background |
+|---|---|---|---|
+| `ai-agent-orchestration.com` | `#0D1117` | **1.00:1** | 1.04:1 |
+| `dartsonline.com` | `#1A1F2E` | **1.06:1** | 1.14:1 |
+| `robot-hands.com` | `#1A1F2E` | **1.07:1** | 1.14:1 |
+| `mortgagecalculator.co.uk` | `#b59230` | 2.95:1 | 2.82:1 |
+| `vonc.com` | `#7c3cff` | 3.48:1 | 3.71:1 |
+
+`ai-agent-orchestration.com` is the extreme case: `--color-primary` is **byte-identical to
+`--color-surface`** (`#0D1117`), so primary-as-text there is not merely unreadable, it is
+mathematically the background.
+
+**10 sites pass** (`leopardessconsulting` 19.44:1 down to `vetcomparison` 5.17:1), which is
+the control that makes this discriminating rather than a broken measurement — including
+**`fundamentallyai.com` at 7.44:1**, i.e. the repair this file records did hold.
+**5 deployed sites were NOT measured** (`lendzy.co.uk`, `loanandmortgagecalculator.co.uk`,
+`loancalculator.co.uk`, `loancash.co.uk`, `webdesign.uk` serve nothing at
+`/assets/css/styles.css`). **Not measured is not "fine"** — that is 5 unknowns, not 5 passes.
+
+**The demand side, which decides whether this matters:** **53 live `content_components`
+style TEXT with `var(--color-primary)`** (`html_template ~ 'color:\s*var\(--color-primary\)'`).
+Any of those on any of the 5 sites above renders unreadable. **That is a population, not a
+defect count** — the real count is (those components × their placements on those 5 sites),
+which I have not enumerated.
+
+### How it was found, because the route is the point
+
+Not by reading code, and not by a detector. **TL-035's camera photographed a page that
+passed 100% of its acceptance checks, the contact sheet put it in front of a person, and
+the person saw that five headings were missing.** Then it was measured:
+
+```
+$ scripts/render_audit.py https://robot-hands.com/tools/gripper-safety-factor-calculator/index.html
+   1.07:1 need 4.5   rgb(26,31,46) on rgb(30,37,53)   .LEGEND  'Acceleration profile'
+   … 'Part fragility' / 'Grip orientation' / 'Surface condition' / 'Consequence of a dropped part'
+   1.14:1 need 4.5   .gsfc-btn  'Calculate safety factor'      1.14:1  'Reset'
+   → 7 contrast failure(s)
+```
+
+**Seven WCAG failures on a page whose acceptance run reported everything green.** The
+component's own CSS is `.gsfc-field legend { color: var(--color-primary) }` — textbook
+`features_open/026` **family 3** (a component putting an ink over a themed fill). Nothing
+is wrong with the component on a light-primary site; nothing is wrong with the palette for
+button fills (`#fff` on `#1A1F2E` is 16.41:1). The defect exists only in the pairing.
+
+**Method note / substitution declared (owner ruling 2026-07-31):** no `090` run was filed.
+The substitution was first-hand and quantitative — hand-computed WCAG ratios from the
+served stylesheets, **independently confirmed by `render_audit.py`, which reproduced 1.07
+and 1.14 exactly** and composites real on-screen ancestor pairs rather than reasoning from
+variables, plus a 20-site artefact census and a component-population count. Two
+independent measurements agreeing, with passing controls in both.
+
+**Relation to this bug:** *adjacent, not identical, and worth keeping separate.* 113 is a
+**merge** defect — slots the spec never supplies fall through to the layout's light
+literals. This is a slot that **is** supplied, with a value that is valid for fills and
+wrong for ink. Same symptom family (invisible text), different mechanism, and a fix for
+113's merge would not move any number in the table above. Recorded here because this file
+owns the open question *"which palettes still carry it"*.
+
+**Cheapest next step if anyone takes it:** run `render_audit.py --sitemap` against the
+three ≈1:1 sites. The gripper page alone produced 7 failures from one component; those
+sites will have more, and the tool already names the selector and the exact strings.
