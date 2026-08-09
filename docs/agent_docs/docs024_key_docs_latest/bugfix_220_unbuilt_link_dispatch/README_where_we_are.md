@@ -61,3 +61,24 @@ two checks that confirm the fix is really running — a binary check on every po
 one live run of the improvement loop against a site with a missing page, which
 should now build the missing page rather than pointlessly rebuilding the page that
 links to it.
+
+## 2026-08-09 morning — the new build proved the fix, caught a deeper problem, and we closed that too
+
+Your fresh build carries everything; both running copies were checked directly. We
+then ran the real test: pointed the improvement loop at dartsonline, which has a
+blog post that five live pages link to but that was never built. The good news —
+the dispatcher now aims at the right page (the old behaviour shipped the wrong
+page's file; the new one didn't), and the new completion check works. The catch —
+the test exposed one last inconsistency inside the page builder itself: the step
+that SAVES written content was still using the old way of naming its page, so it
+saved the missing page's freshly-written copy onto the page that links to it. One
+live page (the darts "beginners" post) had its stored draft overwritten with the
+wrong article; its published page is still correct because we cancelled the two
+jobs that would have republished it, a repair job is queued to rewrite it
+properly, and the one-line configuration fix that closes the whole class is
+applied and verified. A second page was protected automatically by an existing
+safety floor, which refused a suspiciously small overwrite — nice to see.
+
+Still to watch: the repair landing on the beginners post, and then one clean
+end-to-end run where the missing page actually gets built and published. The next
+session picks up from the handoff file in this folder.

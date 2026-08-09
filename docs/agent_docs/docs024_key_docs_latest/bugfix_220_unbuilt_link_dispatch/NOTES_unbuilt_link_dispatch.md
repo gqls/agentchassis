@@ -135,3 +135,40 @@ Credits refilled by the owner; the saved re-fire command ran unchanged (orch
 The platform commits carry `Council-Submitted: def4441c` and are auto-credited by
 098 now the verdict is approved. Lane's remaining owed items: post-roll pod-grep +
 behavioural acceptance (RUNBOOK), candidate 4 on its demand signal.
+
+## 2026-08-09 — fresh chassis roll: deploy PROVEN at the pod; behavioural acceptance in flight
+
+- Both replicas (`agent-chassis-5c8776654c-wml6w`/`-zhz2g`, ~5 min old), one exec
+  each: `authoritative_page_id` = **3**, `names no page row for site` (a string only
+  the NEWEST commit e55cbfa64 adds, so the build postdates all three commits) =
+  **1**, `unbuilt_internal_link verifier` = **5**, invented-string negative control
+  = **0**. No natural negative control exists (additive change; the LIKE string my
+  r2 removed also lives in the fragments verifier, so it cannot serve). [MEASURED]
+- Behavioural acceptance target chosen by census: **dartsonline.com / grip-styles**
+  (blog-post, 3 plan sections, 5 live linking pages, site unlocked, page-build-handler's
+  own family — a directory/tool target would exercise the DEFERRED candidate 4 and
+  loud-fail by design, wrong page for an acceptance PASS).
+- One-shot improvement loop fired at dartsonline with the safe kcat pattern
+  (payload in container COMMAND + PUBLISH_OK receipt — the 07-26 kcat landmine):
+  **PUBLISH_OK**, correlation `110acf5a-c0d5-48b6-8d2a-84e60f842171`.
+- ⚠ the shipped trigger script `060improvement_loop/076_improvement_loop_trigger.sh`
+  hardcodes SITE_ID/DOMAIN to robot-hands.com AFTER its own arg parsing — passing
+  args does NOT work; a payload built by hand was used instead. Left unfixed (not
+  this lane's file); noted here so the next user does not fire at the wrong site.
+
+## 2026-08-09 ~10:30 UTC — acceptance read-out, containment, mig 342; session parking
+
+- Full mechanism + evidence in the bug file's 2026-08-09 addendum (single source;
+  not restated here). Register WII-012 updated with the acceptance + a
+  contamination LANDMINE. WRONG_CALLS: the 342 numbering collision (I checked the
+  ledger for 340/341 and carried that freshness to 342 — the thunder lane's 342
+  already existed).
+- Council for 342: submitted, **REFUSED client-side by the scope filter** — a
+  config-only change carries no platform/ file and docs paths never spend credits
+  (owner ruling 2026-07-17). Not forced. The def4441c round reviewed the census
+  342 rides on; this refusal + reasoning recorded here is the review trail.
+- Items ledger for the acceptance run: 338deb27 complete/verified (disjunct b,
+  stored substrate); a8327624 failed (regression floor, loud, correct);
+  91c005ed/a3d21774/2330e479/af6ffa42 cancelled pre-dispatch (contamination
+  class); 47ba8f2c/3c10ab6c (beginners rerenders) cancelled (would publish
+  contamination); 3cb732b1 = the repair, triaged at priority 30.

@@ -247,3 +247,55 @@ already selects and exposes `wi.page_id` (`load_work_item_actions.go:646`, `:776
 Remaining owed on this bug: the post-roll proof (pod-grep + behavioural acceptance,
 lane RUNBOOK) — the fix is inert until the next fleet roll. Fixed-and-live is the
 close bar; per the owner's 08-06 ruling the file stays in `bugs_open/` either way.
+
+## 2026-08-09 — POST-ROLL ACCEPTANCE: routing + verifier PROVEN LIVE, and the run exposed (and closed) the fix's missing third leg
+
+Fresh chassis roll carrying all three commits, proven at both replicas
+(`authoritative_page_id` 3, the r2-only string 1, verifier strings 5, invented
+negative 0). One-shot improvement loop fired at dartsonline.com (corr `110acf5a`,
+PUBLISH_OK receipt); discovery minted 6 `unbuilt_internal_link` items (5 →
+grip-styles, 1 → brands-index) — the watcher line itself showed the split (spec
+page_name = containers, page_id column = targets).
+
+**What the first dispatch (item `338deb27`, container beginners → grip-styles) proved:**
+- **Routing FIXED**: `deploy_result.rendered_page.page_id` = the TARGET
+  (grip-styles), filename `blog/grip-styles.html` — under the old mapping this
+  deployed the container's file. The deploy honestly SKIPPED ("page has no
+  component rows yet") instead of shipping the wrong page.
+- **Verifier LIVE**: completion carries `_verification.status='verified'`, disjunct
+  (b) (link no longer rendered on the container) — honest on the stored substrate.
+- **THE MISSING THIRD LEG**: `sections_saved.page_name` = **beginners, the
+  CONTAINER**. `save_sections.page_name_field` was the ONE step config still
+  reading `input_data.spec.page_name` while load_spec_sections /
+  load_existing_content / call_content_writer / deploy_page all follow
+  `page_record`. So the writer wrote the TARGET's sections (grip-styles' plan) and
+  save_sections saved them ONTO THE CONTAINER: **beginners' `content_data` was
+  replaced with grip-styles' copy at 10:00:56Z** ("Your Grip Decides More Than
+  Your Barrel Does" in beginners' hero). Sibling `a8327624` (brand-comparison →
+  brands-index) was stopped only by the content-regression floor (2,520 chars of
+  index copy vs 11,914 existing) and sits `failed` — the loud outcome, correctly.
+
+**Containment + fix, same morning:**
+- Beginners' two queued rerenders (`47ba8f2c`, `3c10ab6c`) CANCELLED — either
+  would have published the contaminated copy (a rerender renders from
+  content_data; the served page is still the correct old render).
+- The 4 remaining triaged unbuilt items CANCELLED (each would have contaminated
+  its own container), error text points here. Discovery re-mints them; under the
+  full fix they converge.
+- **Mig `342_page_build_handler_save_sections_follows_page_record.sql` APPLIED +
+  recorded** (⚠ filename collides with the thunder lane's independent
+  `342_thunder_orphan_scan.sql` — number ambiguous forever, resolve by slug;
+  WRONG_CALLS 2026-08-09): `save_sections.page_name_field` → `page_record.name`,
+  giving the saga ONE page identity end-to-end. Blast radius: page_record.name ==
+  spec.page_name for every consistent dispatch (116-lane census); config-only,
+  live immediately, effective with the rolled binary.
+- **Repair minted**: `needs_content_page:beginners:repair-338deb27` (item
+  `3cb732b1`, priority 30, consistent identity) — rewrites beginners from its own
+  plan and deploys. Until it lands, beginners' stored content is wrong and its
+  rerenders must stay held.
+
+**Still owed (the convergence proof):** after the repair lands and discovery
+re-mints, one unbuilt item must run end-to-end: writer writes the TARGET's
+sections, save_sections saves them to the TARGET (`sections_saved.page_name` =
+the target), deploy renders it, `pages.deployed_at` set, item completes
+`_verification.status='verified'` via disjunct (a), `curl -sI` the target → 200.

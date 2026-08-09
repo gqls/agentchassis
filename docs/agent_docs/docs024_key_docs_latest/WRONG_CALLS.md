@@ -24492,3 +24492,28 @@ workstream directories too (`ls docs/.../ | grep <number>` would have shown
 
 **Not logged here:** the fix itself, which is live, measured, and stands. The error is the
 duplication and the broken gate, not the code.
+
+## 2026-08-09 (bugfix 220 lane) — I took migration number 342 while another lane's 342 sat in the same directory, one `ls` away
+
+**The claim I acted on:** "343 was next, because 340/341 were mine and I had
+checked those were free."
+
+**What was wrong with it:** the check was two numbers stale. I verified 340/341
+against the directory and the ledger on 08-08; by the time I filed 342 on 08-09,
+`342_thunder_orphan_scan.sql` (FTW-042 lane) existed. I re-checked NOTHING —
+carried yesterday's freshness forward. The council's round-1 objection on this
+very bug named the trap verbatim: "a migration number is not yours because you
+named a file — it is yours when the LEDGER says so."
+
+**What caught it:** the runner's own listing, AFTER apply+record — too late to
+rename, because the ledger keys on FILENAME and re-naming a recorded file
+creates drift worse than the collision.
+
+**The damage, honestly:** none functional (filename-keyed ledger; both files
+carry distinct names), but "342" is now ambiguous forever — the same disease as
+bug numbers 016/017/083/112/131/146. Resolve by slug, as ever.
+
+**The cheap check that would have caught it:**
+`ls docs/agent_docs/sql_for_agents/ | grep -E '^342'` BEFORE writing the file —
+one command, and I ran it only as part of the apply, after the Write. Numbering
+freshness expires in HOURS on this tree, exactly like every other freshness.
