@@ -25421,3 +25421,54 @@ the migration before submitting, so the seat read the post-apply schema. Structu
 unavoidable for an additive migration under this estate's DB-leads-commit ordering on a
 shared tree. **State the ordering in the rationale up front**; mine did not, and it cost a
 high-severity objection on a non-issue.
+
+---
+
+## 2026-08-09 — I read a colour's ROUTE off its VALUE, and the route was the whole question (113/122 contrast front)
+
+**The claim.** In `bugs_open/113`, from a served-stylesheet audit, I wrote that
+`ai-agent-orchestration.com` serves `--color-card-bg: #ffffff` because of **"the layout
+literal"** — i.e. 113's own mechanism, a palette that omits `card_bg` falling through to
+`{{palette "card_bg" "#ffffff"}}`. I put it in a table headed *"113 LIVE"*, in a commit
+message, and in a handoff, and I recommended a stylesheet re-render as the repair.
+
+**What was true.** The symptom was measured and is real: white cards on a `#080B10`
+background, 44 of that site's 124 failures. **The route was wrong.** The site resolves to
+the shared seed collection `professional-dark`, whose palette is fully specified and
+**LIGHT**, and whose own `card_bg` is `#ffffff`. `buildPaletteMap` lets a site's
+`design_spec` overlay only the 8 `corePaletteKeys`; `card_bg` is theme-owned, so the white
+card is the **theme's curated value**, never a layout fallback.
+
+**Why that matters rather than being a pedantic distinction.**
+`fillDarkSchemeSpecialisedSlots` — the fix 113 exists to celebrate — **skips any slot the
+merged palette already defines** (`palette_specialised_slots.go:144`). So my recommended
+repair does not work: a re-render ships `#ffffff` again. **I proposed a fix that the code
+structurally refuses to apply**, and I would have proposed it to a session that trusted the
+table.
+
+**What caught it.** Nothing external. The section I wrote had honestly marked the palette's
+origin `[UNMEASURED]`, and later in the same session I went and measured it — one join,
+`sites → style_collections → css_themes → palettes`. **The marker did its job: it was still
+sitting there labelled unchecked, which is why I went back to it.** That is the whole
+argument for the `[UNMEASURED]` rule, observed working on my own writing.
+
+**The cheap check that would have caught it immediately.** The one join above, before
+asserting the mechanism. I had already run the *harder* measurement (rendering 61 pages in
+headless Chromium) and skipped the easier one, because the render agreed with a mechanism I
+already believed. **The audit could not have disconfirmed the route — every route produces
+the same `#ffffff` in the output CSS**, which is a property this very bug file names in its
+own opening: *"a derived value and a curated one are indistinguishable in the output CSS"*.
+I quoted that sentence in my own contribution and then did exactly what it warns against.
+
+**The confirming control, for anyone repeating this.** Three deployed sites share
+`professional-dark`. All three serve `card_bg: #ffffff` (theme-owned, identical) while
+their `background` is `#080B10` / `#F5F3EF` / `#F4F1EB` (spec-owned, unrelated). A
+mechanism claim about a shared config should be checked against the *other* consumers —
+they are a free control group, and here they made the answer unambiguous in one query.
+
+**The shape, for the tally.** New, and distinct from the "grep proves absence only for its
+spelling" family: **I inferred a CAUSE from an EFFECT that several causes produce
+identically, in a file that had already documented that they are indistinguishable.** The
+tell to watch for in my own writing: naming a mechanism in the same sentence as a
+measurement, where the measurement only establishes the symptom. Marked figures were fine
+all day; the unmarked *causal* clause is what was wrong.

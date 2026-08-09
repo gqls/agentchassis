@@ -119,15 +119,35 @@ this. Verify at the rendered page, not at the CSS.
    page worse, which has happened on this exact bug family before (the cost-calculator
    mirror defect, 113, 2026-07-27).
 2. **`ai-agent-orchestration.com`** — the biggest single win left (124 failures, 73 of
-   them invisible) and the last of the three carrying 113 proper. **Do not just fire a
-   re-render at it.** It has **no `palettes` row at all** (`source_domain` → 0 rows) and
-   its `site_specs.design_intent.color_scheme` is a **light** scheme (`background:
-   #ffffff`) on a site whose own `avoid` list contains "Bright white backgrounds" and
-   whose `style_direction` is `professional-dark`. The served sheet is dark, so that spec
-   is not what rendered — **where its palette actually comes from is `[UNMEASURED]` and is
-   the first thing to establish**, or a re-render may pull the light scheme in and make it
-   worse. This is also 122's sub-shape B, whose cause that file deliberately routed to
-   `090` rather than guess. **Keep it there — file the `090`, do not guess.**
+   them invisible). **A RE-RENDER WILL NOT REPAIR IT. This was measured after §1 was
+   written and it corrects §1** — see the `CORRECTED 2026-08-09` block appended to
+   `bugs_open/113` and the `WRONG_CALLS.md` entry of the same date.
+
+   The site resolves through `sites.style_collection_id → style_collections.css_theme_id
+   → css_themes.palette_id` to the **shared seed collection `professional-dark`**, whose
+   palette is fully specified (21 slots) and **LIGHT** — `background #f8fafc`,
+   `card_bg #ffffff`. `buildPaletteMap` lets a site's `design_spec` overlay only the **8
+   `corePaletteKeys`**; `card_bg` is **theme-owned**. So the white card is the theme's own
+   curated value, **not** a layout fallback, and `fillDarkSchemeSpecialisedSlots` skips any
+   slot the merged palette already defines (`palette_specialised_slots.go:144`). **A
+   re-render ships `#ffffff` again.**
+
+   Two further facts from that trace, both load-bearing:
+   - **The 8 core slots are a per-run LLM guess**, not stored config
+     (`render_css_from_spec_action.go:129` says so). So a re-render also re-rolls the
+     site's identity colours — it is not idempotent, and that is why three sites sharing
+     one collection serve three unrelated backgrounds.
+   - **`professional-dark` is a LIGHT palette with a dark name, shared by three deployed
+     sites** (`ai-agent-orchestration.com`, `finetuning.uk`, `gaswholesalers.com`). All
+     three serve `card_bg: #ffffff`; the two light ones are fine, the dark one is the bug.
+     **Anyone "fixing" that palette moves all three.**
+
+   So the real question is a design one — let the derivation override a *theme* value when
+   the merged background is dark, or stop a dark spec selecting a light theme at all — and
+   it changes a shared authority boundary that `render_css_composition_helpers.go:38-40`
+   calls "a plan-level decision, not a routine code change". **Do not settle it from a bug
+   patch** (the 2026-07-28 platform-seams ruling is exactly about this). This is also 122's
+   sub-shape B, which that file routed to `090`. **Keep it there — file the `090`.**
 3. **The rest of the 442.** After the chip fix and aao, what remains is mostly 122's
    sub-shape A (`--color-primary` spent as both fill and ink), which is the renderer
    proposal at the end of 122 (`--color-primary-ink`) and a much larger piece of work.
@@ -158,7 +178,19 @@ this. Verify at the rendered page, not at the CSS.
    line-based, so this reads as "the rule is absent" on CSS that plainly contains it. I
    briefly concluded two sites lacked a rule they had. Use Python with `re.S`, or gate on
    a plain substring match first.
-4. **A shared component's blast radius is its consumer palettes, not its call count.**
+4. **A colour's VALUE does not tell you its ROUTE, and only the route says whether a fix
+   reaches it.** `#ffffff` in a served stylesheet is equally consistent with a layout
+   fallback, a theme-owned slot and a hand edit — 113's own opening says a derived value
+   and a curated one are *"indistinguishable in the output CSS"*. I quoted that sentence
+   and then read the route off the value anyway, and got it wrong. **Rendering 61 pages
+   could not have disconfirmed it; one join could.** Before naming a mechanism for any
+   served colour, run
+   `sites → style_collections → css_themes → palettes` and check the theme's own slots.
+   Full account in `WRONG_CALLS.md` 2026-08-09.
+5. **A shared config's OTHER consumers are a free control group.** Three sites share
+   `professional-dark`; comparing them made the theme-owned vs spec-owned split
+   unambiguous in one query, where reasoning about one site had produced a wrong answer.
+6. **A shared component's blast radius is its consumer palettes, not its call count.**
    The 07-29 prescription in 122 (`surface` fill + `text` ink) was half wrong, and only
    computing it against all eight served palettes showed which half: `surface` vs the
    section `background` is **1.04–1.22 everywhere**, so that chip stops being a chip.

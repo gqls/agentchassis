@@ -7665,3 +7665,25 @@ SELECT type FROM agent_definitions
 - **source:** 2026-08-09, mortgagecalculator.co.uk adoption lane, while designing the facts→tool-acceptance seam (`mortgagecalculator_couk_adoption/PLAN_2026-08-09_facts_into_tool_acceptance.md` §5.2). Not a live incident — found by reading the write paths before writing a new consumer, which is the only time this is cheap to find.
 - **verification:** settled first-hand by the filing session. Struct fields read directly at the cited lines; both write paths confirmed to marshal `map[string]interface{}` rather than the struct; the 115/104/39/26/23 census run against `clients_db` on 2026-08-09 and quoted above.
 - **added:** 2026-08-09, mortgagecalculator_couk_adoption lane
+
+### `professional-dark` is a LIGHT palette, and a site's `card_bg` comes from its THEME, not from its palette row or the layout
+
+- **footprint:** `palettes`, `css_themes`, `style_collections`, `sites.style_collection_id`, `buildPaletteMap`, `corePaletteKeys`, `fillDarkSchemeSpecialisedSlots`, `render_css_composition_helpers.go`, `professional-dark`
+- **fires when:** you explain, repair or re-render any site's colours — especially a white card, header or CTA on a dark site (`bugs_open/113`'s symptom)
+- **the tell:** none, and the name actively misleads. The seed collection **`professional-dark`** has `background #f8fafc`, `card_bg #ffffff`, `text #1e293b` — **a light palette**. It is shared by three deployed sites (`ai-agent-orchestration.com`, `finetuning.uk`, `gaswholesalers.com`), so "fixing" it moves all three
+- **the check:** two things, both one query.
+  1. **Resolve the site's real palette through the collection, not `palettes.source_domain`.** That column is unpopulated for seed-collection sites, so filtering on it returns 0 rows and reads as "this site has no palette":
+     ```sql
+     SELECT s.domain, sc.name AS collection, t.name AS theme, p.name AS palette,
+            p.colours->>'background' AS bg, p.colours->>'card_bg' AS card_bg
+       FROM sites s
+       LEFT JOIN style_collections sc ON sc.id = s.style_collection_id
+       LEFT JOIN css_themes  t ON t.id = sc.css_theme_id AND t.is_active
+       LEFT JOIN palettes    p ON p.id = t.palette_id    AND p.is_active
+      WHERE s.domain = '<domain>';
+     ```
+  2. **Know which half of the merge owns your slot.** `buildPaletteMap` starts from every theme slot and overlays **only the 8 `corePaletteKeys`** (`primary secondary accent background surface text text_muted border`) from the site's `design_spec`. Everything else — `card_bg`, `header_bg`, `cta_bg`, `heading`, … — is **theme-owned**. A dark site on a light theme therefore gets dark core slots around a white card, and **`fillDarkSchemeSpecialisedSlots` cannot repair it**: it skips any slot the merged palette already defines (`palette_specialised_slots.go:144`). **A re-render ships the same white card.**
+- **and the core slots are NOT stored config** — `design_spec.color_scheme` is a per-run LLM output (`render_css_from_spec_action.go:129`, "the spec's color_scheme is a per-run LLM guess"). A re-render re-rolls a site's identity colours; it is **not idempotent**. That is why the three sites above share one collection and serve three unrelated backgrounds
+- **the free control:** when claiming a mechanism for a shared config, read its **other consumers**. Identical values where the theme owns the slot and unrelated ones where the spec does is the merge made visible, and it settles in one query what reasoning about a single site gets wrong
+- **source:** `bugs_open/113` CORRECTED block 2026-08-09; `WRONG_CALLS.md` same date — a session (mine) read the route off the value and recommended a re-render the code structurally refuses to apply
+- **added:** 2026-08-09, brochure/113 contrast front

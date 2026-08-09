@@ -612,3 +612,76 @@ wants the mechanism itself audited rather than this attribution corrected.**
 attribute a served value to a fallback, check whether the supplier emits that exact value
 too.** If both do, the artefact cannot answer the question and only the input can. Ask
 `colours ? '<slot>'` before writing "the layout literal".
+
+### > **CORRECTED 2026-08-09 (same session, hours later): I named the wrong ROUTE for ai-agent-orchestration.com, and the correction says the shipped fix CANNOT repair it**
+
+The table above says its `#ffffff` is *"the layout literal"* and treats the repair as a
+re-render. **The symptom is right and measured; the route is wrong, and the route is what
+decides whether `fillDarkSchemeSpecialisedSlots` can help. It cannot.**
+
+What caught it: tracing where that site's palette actually comes from, which the section
+above correctly marked `[UNMEASURED]` and which I then went and measured.
+
+**The real resolution path** (`render_css_composition_loader.go:138-143`, then
+`render_css_from_spec_action.go:120-146`):
+
+```
+sites.style_collection_id → style_collections.css_theme_id → css_themes.palette_id → palettes
+                      then buildPaletteMap(theme palette, design_spec.color_scheme)
+```
+
+`buildPaletteMap` (`render_css_composition_helpers.go:72`) starts from **every** theme slot
+and overlays **only the 8 `corePaletteKeys`** from the spec. So a site's identity colours
+are the 8 core slots; **the other 9 — including `card_bg` — are owned by the THEME.**
+
+`ai-agent-orchestration.com` resolves to the shared seed collection **`professional-dark`**,
+whose palette is **fully specified (21 slots) and LIGHT**: `background #f8fafc`,
+`card_bg #ffffff`, `text #1e293b`, `primary #1e40af`. Its name is a trap.
+
+**So `card_bg: #ffffff` is the THEME's own curated value, not a layout fallback** — and
+`fillDarkSchemeSpecialisedSlots` skips any slot the merged palette already defines
+(`palette_specialised_slots.go:144`, `if existing, ok := palette[d.name]; ok && existing
+!= "" { continue }`). **A re-render therefore ships `#ffffff` again.** The fix this bug
+file celebrates is structurally unable to reach this site.
+
+**The control that proves the mechanism rather than merely fitting it.** Three deployed
+sites share `professional-dark` — `ai-agent-orchestration.com`, `finetuning.uk`,
+`gaswholesalers.com`. If the merge works as described, all three must serve the theme's
+specialised slots while their core slots diverge. Measured on the served stylesheets:
+
+| site | `--color-card-bg` (theme-owned) | `--color-background` (core, spec-owned) |
+|---|---|---|
+| ai-agent-orchestration.com | `#ffffff` | `#080B10` **(dark)** |
+| finetuning.uk | `#ffffff` | `#F5F3EF` (light) |
+| gaswholesalers.com | `#ffffff` | `#F4F1EB` (light) |
+
+**Identical where the theme owns the slot, unrelated where the spec does.** That is the
+merge, visible in three artefacts. It also explains why none of the three serves the
+theme's `background: #f8fafc`: **the 8 core slots are a per-run LLM guess**, not stored
+config — `render_css_from_spec_action.go:129` says so in terms, *"the spec's color_scheme
+is a per-run LLM guess"*. Two of the three guessed light and are fine; one guessed dark
+and gets a white card.
+
+**What this changes for anyone acting on this file:**
+
+1. **Do not re-render `ai-agent-orchestration.com` expecting a repair.** It would re-roll
+   the 8 core slots from a fresh LLM guess and keep `#ffffff` regardless.
+2. **The real defect class here is wider than this bug's title.** 113 is "the palette
+   omits a slot, so the LAYOUT's literal ships". This is "**the THEME supplies a light
+   specialised slot and a dark spec overlays around it**" — same symptom, and the
+   derivation's own `continue` is what makes it unreachable. Whether the fix is to let the
+   derivation override a *theme* value when the merged background is dark, or to stop a
+   dark spec selecting a light theme at all, is a real design question and **not one to
+   settle from here** — it changes a shared authority boundary that
+   `render_css_composition_helpers.go:38-40` explicitly calls "a plan-level decision, not a
+   routine code change".
+3. **`professional-dark` is a LIGHT palette with a dark name**, shared by three deployed
+   sites. Anyone "fixing" it fixes/breaks all three at once.
+
+*Transferable, and it is the second time today this exact shape has bitten:* **a value's
+IDENTITY does not tell you its ROUTE, and only the route predicts whether a fix reaches
+it.** `#ffffff` in the served CSS is consistent with the layout literal, a theme slot and
+a hand edit; I read the first from the symptom because this bug had taught me that route.
+The cheap check that settles it is one join from `sites` to `palettes` through
+`style_collections` — the same join nobody had run when the section above wrote
+`[UNMEASURED]`.
