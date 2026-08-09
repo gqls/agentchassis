@@ -24623,3 +24623,33 @@ directory's files are governed, open the tool that governs them —
 for the directory name (`grep sql_for_agents LANDMINES.md`), which is the
 standing instruction I skipped. An asserted absence about PRACTICE needs the
 same evidence bar as one about code.
+
+---
+
+## 2026-08-09 — a census whose one known-true row read false, written up anyway
+
+**The claim.** `bugfix_122` handoff §2b: "0 of the 12 affected sites carry the
+`design_intent.palette.reference_values` pin" — the number that sized the propagation
+blocker at 12 pre-dispatch pins and framed the owner's decision.
+
+**What was actually true.** 9 of 12 are pinned. The pin lives in `site_specs`
+(`aspect='design_intent'`, `is_current`), written by superseding the previous spec row; I
+measured `sites.content_data`, which no pin has ever written to.
+
+**What caught it.** The owner asking "check through this once again". On the re-read the
+contradiction was already sitting in my own output: **robot-hands showed `pinned = false`,
+and robot-hands being provenly pinned on 2026-07-17 was the entire basis for recommending
+the pin pattern.** I had the falsifier on screen and wrote the paragraph anyway.
+
+**The cheap check that would have.** Read the pattern file the memory cites before writing
+the measurement query — its first `UPDATE site_specs` names the store. More generally: **a
+census must contain at least one row whose answer you already know, and that row must come
+back right, or the query is wrong** — the same discipline as a positive control on a
+pod-grep, applied to SQL. Mine came back wrong and I read past it.
+
+**Why it is worth a row.** The error inflated the owner's decision fourfold (12 pins vs 3)
+in the direction that makes the safe option look expensive — precisely the kind of skew that
+gets option 3 ("leave it inert") chosen by default. And it is the second row this week where
+the falsifier was already in hand when the claim was written (see 08-08, `Pending (98)`).
+The pattern is not "didn't measure"; it is **measured, got a contradiction with a known
+fact, and did not treat the contradiction as the result.**

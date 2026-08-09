@@ -631,3 +631,30 @@ accent, text or heading, which is most of what this lane measures.
 then dispatch (recommended for this lane), build a non-LLM CSS render path (architecture
 scope, recommended as a separate item), or leave it inert. The churn risk lands on sites this
 lane does not own, so it wants an explicit yes rather than a session's judgement.
+
+## 2026-08-09 (re-check, owner-prompted) — one of the four blocker claims was measured at the wrong store
+
+Re-verified all four claims in the morning's BLOCKED write-up. Three survive, and are now
+*proven* rather than inferred: the LLM pass is unavoidable (read the conditionals' branch
+configs, not just `next_step` — every entry routes through `analyze_design`);
+`webdesign-agent` is the sole holder of `render_css_from_spec` (text-wide over live
+definitions, not step-shaped); `buildLegibleInkDefaults` has exactly one call site.
+
+> **MISSTEP 13 — "0 of 12 pinned" was FALSE; it is 9 of 12, and the falsifier was in the
+> memory's own citation.** I measured `sites.content_data->design_intent…` — the wrong
+> store. The proven pin (`robot_hands/SQL_2026-07-17_r1b_…`) writes a **`site_specs`** row,
+> `aspect='design_intent'`, superseding the previous one; `webdesign-agent`'s own
+> `read_site_specs` step is what consumes it. **The contradiction was visible in my own
+> output and I did not stop for it: robot-hands showed `pinned = false`, when the entire
+> reason I knew a pin pattern existed is that robot-hands was pinned, provenly, on
+> 2026-07-17.** A census whose one known-true row reads false is not a census — it is a
+> wrong query answering confidently. What caught it: the owner asking for a re-check; the
+> cheap check that would have: reading the cited pattern SQL before writing the measurement
+> query — the file names the table in its first UPDATE.
+
+Consequences, all pointing the same way: the blocker shrinks from "12 pins before anything
+moves" to **3** (`ai-agent-orchestration.com`, `finetuning.uk`, `gaswholesalers.com`), and
+the 9 pins were mostly written by `domain-research-classifier` in the normal pipeline, so a
+pin is the platform's default posture, not an intervention. Handoff §2b corrected in place,
+visibly. Recommendation unchanged in shape — pin the 3, then dispatch all 12 — but the cost
+argument I gave the owner overstated the work fourfold.

@@ -43,7 +43,7 @@ within a day**, one of them twice — that rate is the point, not the individual
 | chassis image | v1.0.1262 | **v1.0.1270** (re-proved; five rolls, none ours) | §1 — a new image is a new fact |
 | migration 338 | not written | **APPLIED + verified 22:12:55Z** | §2 |
 | `090` run 4 | still `diagnosing` | **`complete`, UNVERIFIABLE** | §5 |
-| what is left | the migrations | **propagation — and it is BLOCKED on an owner call** | §2b |
+| what is left | the migrations | **propagation — blocked on an owner yes; 3 pins then dispatch** | §2b |
 
 Nothing has touched `bugs_open/212`, `bugs_open/213` or this directory since the 08-07
 commits (`git log b938b54d8..HEAD -- …` is empty), so §3–§4 stand as written.
@@ -185,16 +185,22 @@ a LIGHT background onto a dark site. The prompt only renders the structured
 `design_intent.palette` block, so a site without it gets the "invent a palette" branch every
 time.
 
-**0 of the 12 affected sites carry that pin** [MEASURED 2026-08-09]:
+> **CORRECTED 2026-08-09 (same day, on a re-check):** this section first said **0 of 12
+> pinned**, measured at `sites.content_data` — the WRONG STORE. The proven pin pattern
+> (`robot_hands/SQL_2026-07-17_r1b_…`) writes a `site_specs` row, `aspect='design_intent'`,
+> and `webdesign-agent`'s own `read_site_specs` step is what consumes it. Measured there:
+
+**9 of the 12 affected sites ARE pinned** [MEASURED 2026-08-09, at `site_specs`]. Most pins
+were written by `domain-research-classifier` in normal operation (06-05 → 08-02), so a pin is
+the platform's normal state. **Unpinned: `ai-agent-orchestration.com`, `finetuning.uk`,
+`gaswholesalers.com`** — and gaswholesalers is the site with 6 of the 12 expected closures.
 
 ```sql
-SELECT domain, (content_data->'design_intent'->'palette'->'reference_values') IS NOT NULL AS pinned
-FROM sites WHERE domain IN (…the 12…);   -- pinned = false for all 12
+SELECT s.domain, bool_or(ss.aspect='design_intent' AND ss.is_current
+       AND ss.data->'palette'->'reference_values' IS NOT NULL) AS pinned
+FROM sites s LEFT JOIN site_specs ss ON ss.site_id=s.id
+WHERE s.domain IN (…the 12…) GROUP BY 1;
 ```
-
-Eight of the twelve do have `content_data ? 'color_scheme'`, which the check-side fix
-`3437f2212` accepts — that reduces *spurious dispatch*, it does not stop the LLM
-re-inventing on a real run.
 
 **The one guard that exists is live but narrow.** `enforceLayoutScheme` (`bugs_closed/022`)
 pod-greps 2 on v1.0.1270. It rejects a merged background that contradicts `layouts.scheme` —
@@ -203,11 +209,11 @@ accent, text or heading drift, which is most of what this lane measures.
 
 ### The options, costed. Do not pick one silently — this is wider than bug 122.
 
-1. **Pin `design_intent.palette.reference_values` on all 12 first, then dispatch.** The
-   proven pattern (`robot_hands/SQL_2026-07-17_r1b_design_intent_palette_pin.sql` — the next
-   run reproduced the pinned values exactly). Safest, and the pin is defence-in-depth worth
-   having anyway. Cost: 12 pins derived from each site's *current live* palette, which is 12
-   measurements before any of them is written.
+1. **Pin the 3 unpinned sites, then dispatch all 12.** The proven pattern
+   (`robot_hands/SQL_2026-07-17_r1b_design_intent_palette_pin.sql` — the next run reproduced
+   the pinned values exactly; supersede the current `design_intent` spec row, do not UPDATE
+   it). Cost: 3 pins derived from each site's *current live* palette — measure the served
+   stylesheet, not a DB copy. The 9 pinned sites can be dispatched as-is.
 2. **Give `render_css_from_spec` a caller that is not the design LLM** — a minimal
    render-and-deploy path. Cleanest long-term and it makes this class of propagation cheap
    for ever. But it is a **new shared mechanism, so architecture-scope** under the 2026-07-29
@@ -217,10 +223,10 @@ accent, text or heading drift, which is most of what this lane measures.
    state — but then 338 is a source change nobody sees, which is precisely the shape
    `bugs_open/213` is about.
 
-**My recommendation is 1 for this lane and 2 as a separate item**, because 1 unblocks 122
-without inventing anything, and 2 is the thing that stops the next lane hitting this wall.
-But the churn risk lands on 12 live sites that are not this lane's to repaint, so it wants
-an explicit yes.
+**My recommendation is 1 for this lane and 2 as a separate item** — and after the re-check,
+1 is much cheaper than first stated: 3 pins, not 12. The churn risk on the 9 pinned sites is
+the proven-contained case. It still wants an explicit yes, because a fleet-wide CSS
+re-dispatch is not this lane's surface alone.
 
 ## 3. `bugs_open/212` — reframed. Read its §8 before acting on §1–§7
 
