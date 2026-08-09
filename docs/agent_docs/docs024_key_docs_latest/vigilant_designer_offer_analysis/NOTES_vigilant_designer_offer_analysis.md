@@ -385,3 +385,19 @@ candidate 1 before any css-patch dispatch, then A2.
 - **OWED: schema_migrations ledger rows for 340 + 341** (classifier-blocked; commands with
   the owner). Until recorded, a blanket runner pass will hit 340's probe guard and error
   LOUDLY — that is the guard working, not a new bug.
+
+## 2026-08-09 (just past midnight) — ledger rows DISCHARGED by the owner; and 340/341 are now AMBIGUOUS numbers
+
+- Owner ran both record-only INSERTs by hand (first attempt at each broke on a paste
+  line-wrap — `-d` lost its argument and `clients_db` executed as a shell command; the
+  single-line retry succeeded). Both rows verified in `schema_migrations`. The 08-08 OWED
+  item is closed.
+- **Number collision, live in the tree AND the ledger:** the bugfix_220 lane took 340/341
+  the same evening (`340_unbuilt_link_dispatch_authoritative_page_id.sql`,
+  `341_unbuilt_link_claim_timeout_exclusion.sql`, committed a60a13cbb) — four applied,
+  recorded migrations sharing two number prefixes. The ledger keys on FILENAME so nothing
+  breaks mechanically, and all four are applied+recorded+committed, so renumbering would
+  falsify history — forward-only says leave them. **Resolve these migrations by SLUG, not
+  by number** (the bugs-directory rule, now true of sql_for_agents too). My apply-time
+  "take the next free number" check ran at ~17:5x and was already stale by commit time —
+  on this tree a number is reserved by the COMMIT, not by the ls.
