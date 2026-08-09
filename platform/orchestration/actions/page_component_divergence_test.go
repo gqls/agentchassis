@@ -70,6 +70,23 @@ func TestClassifyPageComponentsUsesWritablePredicate(t *testing.T) {
 	}
 }
 
+// Predicate PARITY (council round 1, bug_historian): the classifier and the
+// destructive DELETE it speaks for live in different files, which is exactly
+// the drift shape this platform has been bitten by. Both sides must use the
+// shared pageComponentAgentWritableSQL helper — this pins the DELETE's side;
+// TestClassifyPageComponentsUsesWritablePredicate pins the classifier's.
+func TestSavePageSectionsDeleteUsesSameWritablePredicate(t *testing.T) {
+	src, err := os.ReadFile("save_page_sections_action.go")
+	if err != nil {
+		t.Fatalf("cannot read save_page_sections_action.go: %v", err)
+	}
+	stmt := regexp.MustCompile(`(?s)DELETE FROM page_components WHERE page_id = \$1 AND ` + "`" + `\+pageComponentAgentWritableSQL\(""\)`)
+	if stmt.Find(src) == nil {
+		t.Error("save_page_sections' DELETE no longer uses pageComponentAgentWritableSQL — " +
+			"the classifier's scope (which uses the same helper) has silently drifted from what the DELETE removes")
+	}
+}
+
 func TestClassifyPageComponentArtefactsEmpty(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {

@@ -211,6 +211,13 @@ func CreateReportPageAction(ctx context.Context, params ActionParams) (interface
 	switch {
 	case lookupErr == nil:
 		var res sql.Result
+		// Classify before the overwrite (bugs_open/229, round-1 widening):
+		// advisory, the 357 trigger archives regardless.
+		divergent, classifyErr := classifyPageComponentArtefacts(ctx, params.DB, pageID)
+		if classifyErr != nil {
+			logger.Warn("create_report_page: divergence classification failed — overwrite proceeds, the 357 trigger still archives (bugs_open/229)",
+				zap.Error(classifyErr))
+		}
 		// Stamp same-statement (bugs_open/229): the dossier render is
 		// machine-made; the 357 trigger archives what it replaces.
 		res, err = params.DB.ExecContext(ctx, `
@@ -219,6 +226,17 @@ func CreateReportPageAction(ctx context.Context, params ActionParams) (interface
 			    build_status = 'approved', updated_at = NOW()
 			WHERE id = $3 AND `+pageComponentAgentWritableSQL(""),
 			sectionHTML, string(contentJSON), existingPC)
+		if err == nil && classifyErr == nil {
+			if n, raErr := res.RowsAffected(); raErr == nil && n > 0 {
+				var mine []pageComponentDivergence
+				for _, d := range divergent {
+					if d.ComponentID == existingPC {
+						mine = append(mine, d)
+					}
+				}
+				emitPageDivergenceItems(ctx, params.DB, pageID, pageName, mine, "create_report_page", logger)
+			}
+		}
 		if err == nil {
 			if n, raErr := res.RowsAffected(); raErr == nil && n == 0 {
 				// Human-locked instance row: the stored dossier stands and this

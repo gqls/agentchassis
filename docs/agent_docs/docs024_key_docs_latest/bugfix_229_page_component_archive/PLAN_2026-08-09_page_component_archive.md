@@ -92,16 +92,32 @@ HTML is the pipeline's own render of content:
 | colour-fix rewriters, admin handlers, raw psql | **NO** | artefact patchers; their content must FLAG at the next overwrite (the TRANSIENT class, as chrome's fixer loop shows) |
 
 Loud half (classify → WARN → `page_divergence_overwritten` item,
-needs_human_review, no handler — same closure design as chrome's): ONLY in the
-two rebuild paths that caused STY-025's recorded losses —
-`save_page_sections` (classify the rows its DELETE will remove, using the SAME
-`pageComponentAgentWritableSQL` predicate the DELETE uses, so locked-surviving
-rows are not counted as destroyed; emit after the DELETE reports rows gone)
-and `rebuild_blog_listing`'s UPDATE arm (emit after RowsAffected > 0, the
-pattern its lock-refusal emit already uses). The other stamped writers get
-provenance only this round — their overwrites still archive via the trigger;
-they are recoverable, just not loud. Contained by design; the council can
-push to widen.
+needs_human_review, no handler — same closure design as chrome's): in ALL
+FOUR stamped writers.
+
+> **REVISED after council round 1 (2026-08-09, corr `eee2888b`).** The
+> original scope was the two rebuild paths with recorded losses only, with
+> "the council can push to widen" written into the plan — and the
+> `bug_historian` seat did exactly that, naming it the documented "one call
+> site of a shared judgement gets the rigorous fix; the sibling stays
+> heuristic" pattern (bugs_open/093's shape). Widened: `apply_section_edit`
+> (classify before the persist switch, emit after success — the locked path
+> returns early so a refused write cannot emit) and `create_report_page`'s
+> UPDATE arm (emit after RowsAffected > 0) now emit too, each filtered to
+> the single component they touch. Still quiet BY DESIGN: `adopt_verbatim`
+> (operator-initiated port of an unstamped surface — nothing stamped can be
+> destroyed there until a stamped row is adopted over, which the trigger
+> still archives) and the non-Go writers (admin, raw psql — the trigger
+> archives; no Go seam exists to emit from). The same round's other code ask
+> — a test pinning predicate PARITY between the classifier and the DELETE it
+> speaks for (two files, drift risk) — is
+> `TestSavePageSectionsDeleteUsesSameWritablePredicate`.
+
+`save_page_sections` classifies the rows its DELETE will remove, using the
+SAME `pageComponentAgentWritableSQL` predicate the DELETE uses, so
+locked-surviving rows are not counted as destroyed, and emits after the
+DELETE reports rows gone; `rebuild_blog_listing`'s UPDATE arm emits after
+RowsAffected > 0, the pattern its lock-refusal emit already uses.
 
 item_key: `page_divergence_overwritten:page_component:<page-uuid-first-8>:<position>:<digest-first-12>`
 (site-scoped by `idx_swi_dedup`; digest fragment for within-page repeat
@@ -139,9 +155,25 @@ retention is seconds — arm followers before dispatching.
 
 ## Consumers told (owner ruling 2026-07-29 §3)
 
+> **WIDENED after council round 1** (guardian, medium: "it is not four named
+> consumers, it is every writer of that column, present and future"). The
+> fail-closed trigger's blast radius is the COMPLETE writer inventory of
+> `page_components.rendered_html` — the bug file's eight classes, restated
+> here so the told-set matches the affected-set: `save_page_sections` (full
+> save, DELETE+INSERT), `rebuild_blog_listing` (UPDATE + INSERT arms),
+> `section_editor` (content_edit + component_swap persists),
+> `create_report_page` (UPDATE + INSERT arms), `adopt_verbatim` (ported-page
+> replace), the colour-fix rewriters (`fix_harcoded_colours`,
+> `fix_forced_text_colours`), core-manager admin handlers, and raw psql. A
+> broken `page_component_history` halts ALL of them, loudly — that is the
+> deliberate fail-closed trade (measured write rate, one-statement rollback),
+> and it now says so here rather than only in the risks block. Any FUTURE
+> writer of the column inherits both the archive and the halt.
+
 - **STY-025's lane / interactive-tools owners**: rebuild-destroyed tools are
   now archived at the wipe (op='delete') and — where the wipe is
-  save_page_sections or the blog rebuild — flagged.
+  save_page_sections, the blog rebuild, a section edit, or a report
+  regeneration — flagged.
 - **colour-fix writers**: your rewrites now archive their predecessors and
   will be flagged as hand-patched at the next rebuild — same TRANSIENT
   bargain as chrome.

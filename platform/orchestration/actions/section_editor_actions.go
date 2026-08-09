@@ -413,6 +413,16 @@ func ApplySectionEditAction(ctx context.Context, params ActionParams) (interface
 		outcome.ContentData = normalized
 	}
 
+	// Classify before the persist (bugs_open/229, council round 1
+	// bug_historian: loudness must not stop at the two rebuild paths — that is
+	// the "one call site rigorous, sibling heuristic" pattern). Advisory; the
+	// 357 trigger archives the outgoing bytes whichever way this goes.
+	divergent, classifyErr := classifyPageComponentArtefacts(ctx, params.DB, pageID)
+	if classifyErr != nil {
+		logger.Warn("ApplySectionEditAction: divergence classification failed — edit proceeds, the 357 trigger still archives (bugs_open/229)",
+			zap.Error(classifyErr))
+	}
+
 	// --- Persist the page_components row ---
 	switch editType {
 	case "content_edit":
@@ -431,6 +441,19 @@ func ApplySectionEditAction(ctx context.Context, params ActionParams) (interface
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to persist section edit (%s): %w", editType, err)
+	}
+
+	// Emit only for THIS component and only after the persist succeeded (the
+	// after-RowsAffected rule; the locked path returned above, so a refused
+	// write cannot reach this).
+	if classifyErr == nil {
+		var mine []pageComponentDivergence
+		for _, d := range divergent {
+			if d.ComponentID == pcID {
+				mine = append(mine, d)
+			}
+		}
+		emitPageDivergenceItems(ctx, params.DB, pageID, pageName, mine, "apply_section_edit", logger)
 	}
 
 	logger.Info("ApplySectionEditAction: Updated page_component",
