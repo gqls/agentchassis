@@ -86,6 +86,14 @@ None of the three makes an **undeclared** hand-patch loud. That is the gap.
 > Still true and unchanged from the candidate: unstamped rows (46/57 at fix
 > time) cannot be classified and converge as the fleet re-renders.
 >
+> **COUNCIL APPROVED 2026-08-09 09:08Z — round 3 of trail `cffbfec4`** (r1
+> REVISE guardian, r2 REVISE bug_historian, r3 approved with 2 advisories,
+> none high). Standing advisories to carry: (a) the ledger read-back's
+> `ErrNoRows` = "nothing lost" holds only while the 344 trigger's WHEN gate
+> has no false negative — the same trust surface as the archive itself, filed
+> in STY-054's open-review; (b) the page-side exposure stands until the OWNER
+> CALL in `bugs_open/229` is taken.
+>
 > **CLOSE CRITERIA (this bug stays OPEN until all three, per the fixed-AND-live
 > bar; the DB half alone is not the fix):**
 > 1. **Pod-verified image** (the 153 discipline — a roll is not evidence).

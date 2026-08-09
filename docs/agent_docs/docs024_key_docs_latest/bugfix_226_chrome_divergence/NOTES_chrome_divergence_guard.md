@@ -147,3 +147,21 @@
   protocol **NOT RUN** — needs the two-step (first rebuild stamps, then
   hand-patch, then rebuild → item); (3) 117 wave **NOT FIRED** (0/57 stamped;
   the 4 archive rows are pre-wave partial evidence).
+
+## 2026-08-09 — session 2 (verdict: APPROVED)
+
+- **Round 3 APPROVED at 09:08:37Z** — "approved with 2 advisory objection(s),
+  none high-severity", 5 abstained. Verified at the artifact row
+  (orchestration `50924d69`), NOT from the watcher's echo: the stale round-2
+  watcher finally fired on this report and its output literally said
+  "ROUND2 VERDICT: approved" — the label was a hardcoded echo string; the
+  filter, blind to round 2, could only ever have matched round 3. A claim
+  about behaviour is not the behaviour, including your own tooling's labels.
+- Advisories carried forward: (a) ErrNoRows-in-read-back trusts the WHEN
+  gate's completeness (STY-054 open-review d — any WHEN edit must re-justify);
+  (b) page-side exposure = the 229 OWNER CALL (bug_historian, standing);
+  (c) guardian: watch per-slot item accumulation post-wave (open-review e);
+  (d) guardian: keep close criteria 2+3 marked NOT DONE — they are.
+- Trailer: this session's final docs commit carries `Council-Reviewed:` —
+  the verdict was READ first. The three code commits keep their
+  `Council-Submitted:`; 098 resolves them at report time by design.

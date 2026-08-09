@@ -82,3 +82,17 @@ Still to do: one full rehearsal of the whole thing on a test site (patch,
 rebuild, watch the alarm ring and the copy appear), and watching the big
 rebuild wave from the other fix when it fires. The checklist is in the bug
 file and the handoff note.
+
+## 2026-08-09, later — the reviewers approved it
+
+Third time through, the council approved the change — no serious objections
+left. The two notes they attached are both "keep an eye on this" rather than
+"change this": one is a reminder that our "nothing was lost" reading of an
+empty ledger depends on the trigger's own filter staying exactly as written,
+and the other is the same page-content question as before, which is yours to
+decide (bug 229 lays out both sides).
+
+So: the safety net is live, approved, and has already saved real content
+twice without being asked. What remains is the rehearsal and watching the
+first big wave go through — both written up step by step for whoever sits
+down next.

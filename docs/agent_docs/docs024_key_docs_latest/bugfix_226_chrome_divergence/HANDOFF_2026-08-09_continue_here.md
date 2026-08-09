@@ -20,17 +20,13 @@ submitted ~09:XX UTC 08-09).
 
 ## Do next, in order
 
-1. **Read the round-3 verdict.** Query WITHOUT a time filter (a BST-vs-UTC
-   filter blinded the round-2 watcher — WRONG_CALLS 2026-08-09):
-   `SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts WHERE
-   correlation_id='cffbfec4-3bec-4577-8844-d17c546ded3e' AND
-   kind='council_report' ORDER BY created_at;` — three rows exist (r1+r2
-   revise); the fourth is round 3. Body: same query with `body`, **the column
-   is `body` not `content`**. APPROVED → nothing to do (commits carry
-   `Council-Submitted:`, 098 credits automatically). REVISE on the page-side
-   scope again → do NOT expand the code; the seat split is recorded as an
-   OWNER CALL block in `bugs_open/229` — escalate to the owner, that is the
-   designed path. REVISE on anything else → judge it on its evidence.
+1. ~~**Read the round-3 verdict.**~~ **DONE 2026-08-09 09:08Z: APPROVED**,
+   round 3 of the trail — "approved with 2 advisory objection(s), none
+   high-severity", 5 abstained, every seat including bug_historian's verdict
+   recorded (its page-side advisory stands as the 229 OWNER CALL). The two
+   advisories are carried in STY-054's open-review (d) and (e). The final
+   docs commit carries `Council-Reviewed: cffbfec4-…` legitimately (verdict
+   read before writing the trailer).
 2. **Run close criterion 2 (end-to-end protocol)** — the bug file's CLOSE
    CRITERIA block has the corrected steps. The trap: all 57 rows were
    unstamped at roll time, so it is a TWO-step: (a) rebuild a test site's
