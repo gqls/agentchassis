@@ -1,5 +1,16 @@
 # HANDOFF 2026-08-09 — bugfix 229 page component archive: continue here
 
+> **LANE COMPLETE 2026-08-09 (late evening). Nothing is owed.** Steps 1-4 all
+> landed: council APPROVED round 4; the release arrived as v1.0.1276 and both
+> main replicas pod-verified (4/1/2 + chrome control 2); the e2e protocol ran
+> and passed on dartsonline "beginners" — WARN + exact-key item +
+> md5-identical hand_patched ledger row, negative control silent, delete-arm
+> archiving proven in production. Probe item cancelled with a note. Bug file
+> header says DONE IN SUBSTANCE (stays in bugs_open per the 08-06 ruling).
+> If you are picking this up cold: there is no task here — only the STY-056
+> open-review watches ((a) volume growth, (e) the unsurfaced-writer sweep,
+> whose driver is the 230 rotation once 083 drains).
+
 **Read PLAN (design + every measurement) and NOTES (evidence + the probe
 misstep) beside this; this file is only what to DO next.**
 

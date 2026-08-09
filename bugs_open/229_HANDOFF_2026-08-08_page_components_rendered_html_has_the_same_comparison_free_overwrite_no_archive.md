@@ -1,5 +1,22 @@
 # 229 — `page_components.rendered_html` has the same comparison-free overwrite as bug 226, and no archive: a section rebuild can still silently destroy artefact-only content
 
+> **STATUS: DONE IN SUBSTANCE 2026-08-09 — stays in `bugs_open/` per the owner
+> ruling of 2026-08-06.** Owner ruled candidate 1 (extend the 344 shape); built,
+> council-APPROVED (round 4 of trail `eee2888b`, 1 advisory = the
+> unsurfaced-writer sweep, STY-056 open-review e), released on v1.0.1276,
+> pod-verified both main replicas, and the e2e protocol RUN AND PASSED on
+> dartsonline "beginners" (~19:47Z): stamp via save → psql patch (drew its own
+> `machine_made/psql` archive row — the raw-psql writer class proven visible)
+> → rerender → WARN fired + item with the exact predicted key
+> (`…:5009f5c8:1:d267b8ea64b5`) + `delete/hand_patched` ledger row
+> md5-identical to the patch → negative control silent, delete-arm archiving
+> by design. Zero trigger errors throughout. Every destruction of a page
+> component's artefact now archives (every writer incl. raw psql; full-page
+> cascade deletes excepted, structurally); destructions of hand-patched
+> content flag from all four stamped writers. Trail:
+> `bugfix_229_page_component_archive/` · register STY-056 · sibling
+> `bugs_open/226` (chrome, same mechanism, done).
+
 **Filed 2026-08-08 by the `bugfix_226_chrome_divergence` lane**, at the council's
 direction in substance: the round-1 `bug_historian` seat (corr `cffbfec4`)
 objected that fixing `site_components` alone is "a mechanism-scoped fix, not a

@@ -182,3 +182,41 @@
   098 resolves them at report time.
 - **Remaining, blocked on the owner's fleet release (v1.0.1275)**: pod-grep
   (positive + temporal-negative), then the e2e protocol. Both in the handoff.
+
+## 2026-08-09 — session 1 (release landed, pod-verified, e2e RUN AND PASSED)
+
+- **The release landed as v1.0.1276** (not the 1275 I bumped — the release
+  machinery or another bump moved it on; the TAG identity mattered less than
+  the binary proof). Pod-verify by image + ownerReferences.kind: 4
+  ReplicaSet-backed pods at 1276 (both main agent-chassis replicas grepped
+  `classifyPageComponentArtefacts`=4, WARN string=1,
+  `page_divergence_overwritten`=2, chrome control=2); 18 Job-owned
+  stragglers at 1274 are pre-roll spawns, noted not claimed.
+- **E2E protocol run end-to-end on dartsonline "beginners" (~19:47Z), every
+  signal by row identity**:
+  - (a) page-rerender with `spec.reason='section_data_resolved'` (the mode
+    gate: only image_landed/section_data_resolved/cta_links_stale reach
+    `save_sections`; any other reason assembles stored HTML and stamps
+    NOTHING — worth knowing before waiting on stamps that cannot come).
+    Result: 3/3 sections stamped-and-matching; the trigger's DELETE arm
+    archived the 3 outgoing pre-fix rows (`op='delete'/unstamped`) — its
+    first production rows.
+  - (b) psql patch (append probe comment to hero) → the patch itself drew
+    `overwrite/machine_made/psql` archiving the pre-patch machine bytes
+    (87e7c66eee4f) — the raw-psql writer class proven visible page-side.
+  - (c) rerender → **the WARN fired** (page_component_divergence.go:154, on
+    the rendering pod, in my orch), item
+    `page_divergence_overwritten:page_component:5009f5c8:1:d267b8ea64b5`
+    (exact predicted key: page8/position/digest12), ledger row
+    `delete/hand_patched` with archived md5 == patched md5, component_id
+    NULL, identity via slot+position. All 3 rows re-stamped, probe gone.
+  - (d) negative control: untouched rerender → NO WARN, NO new item, 3 more
+    `delete/machine_made` rows (the by-design delete-arm archive, correctly
+    silent). DELETE recoverability is (c)'s own row — the hand_patched
+    delete row IS the byte-exact recovery copy.
+  - Census after all passes: 3 unstamped + 5 machine_made + 1 hand_patched
+    deletes, 1 machine_made overwrite, 1 item, 0 trigger errors, 3/3
+    orchestrations COMPLETED. Probe item `d89fcb4b` cancelled with a note.
+- **Bug 229 is DONE IN SUBSTANCE** — stays in `bugs_open/` per the owner
+  08-06 ruling. Remaining watches: STY-056 open-review (a) volume, (e)
+  unsurfaced-writer sweep (driver = 230 rotation once 083 drains).
