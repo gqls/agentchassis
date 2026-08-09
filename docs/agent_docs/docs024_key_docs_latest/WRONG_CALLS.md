@@ -24930,3 +24930,65 @@ name the data behind a failure, cite the line where the failing code READS it** 
 key you happened to have open. Two entries makes it a pattern worth automating: any bug
 file quoting `collected_data->'X'` as a cause should be greppable against the consuming
 action's extractor.
+
+## 2026-08-09 — I wrote "MUTATION PROOF: flip this field and the test fails", then ran the mutation and it PASSED (bugfix_136 lane, item D)
+
+**The claim.** On a new test opting `create_work_item` into unknown-config-key detection:
+`// MUTATION PROOF: set CheckConfig back to false and `checked` goes false here.` Written
+in the same commit as the change, in the voice of something verified.
+
+**What was wrong with it.** `checksConfig()` is
+`return s.CheckConfig || len(s.ConfigKeys) > 0` — the two opt-in signals are a guard in
+**series**. The same edit that set `CheckConfig: true` also filled `ConfigKeys` with twelve
+entries, so the OR was already satisfied and flipping `CheckConfig` changed nothing the test
+could observe. The test was fine; the *claim about what it proves* was false the moment it
+was typed, and it would have sat there vouching for a field that no test defended.
+
+**What caught it.** Running the mutation instead of asserting it. Nothing else would have:
+the test passed, the build passed, the field was set correctly, and the comment read as
+though someone had checked.
+
+**The cheap check that would have.** The check IS the mutation — it costs one `sed` and one
+`go test`. The generalisable rule is narrower and more useful than "run your mutations":
+**before claiming a mutation proof, ask what else could satisfy the condition you are
+mutating.** A field read behind an `||` is defended by whichever operand is true, not by
+the one you edited. Where two signals are ORed and you care about both, you need one test
+per operand — I now register a copy of the spec with the *other* operand removed, which is
+the only way to see the second one at all.
+
+Related, same session, same shape at a different altitude: I trusted the lane RUNBOOK's
+census query (`jsonb_each(default_config->'workflow'->'steps')`) and it undercounted the
+work by 32% — 13 carriers reported, 19 real, the six missing ones nested inside loop
+sub-workflows. It returned no error and no empty result, just a confident wrong number.
+What caught that was a **positive control on a second, cruder instrument** disagreeing with
+it, not suspicion of the query. `validation.WalkSteps` exists in this tree precisely to
+abolish that descent (`bugs_open/144`), and the audit adopted it on 2026-07-29 — the lane's
+RUNBOOK simply kept the version the platform had already fixed. **A query written before a
+platform fix does not learn about the fix.** Now a LANDMINE, footprinted on the table.
+
+## 2026-08-09 — bugfix_230_discovery_driver — "the 13:51 tick was missed", said out loud, on a BST-vs-UTC clock mix
+
+**The claim:** watching the new discovery rotation fire hourly (stamps at 09:50, 10:51,
+11:51, 12:51), I saw my watcher's latest line stamped `14:05` with no new stamp and told
+the owner the 13:51 tick "appears to have been missed", naming a fresh chassis roll as the
+likely cause — i.e. I proposed a mechanism for a non-event.
+
+**It was false.** `date +%H:%M:%S` in my watcher is **BST**; every timestamp in
+`clients_db` is **UTC**. `SELECT now()` returned `13:07 UTC` against my watcher's `14:05`.
+The last fire was **15 minutes** old on an hourly task. Nothing was missed, nothing was
+dropped, and the roll had done no harm.
+
+**What caught it:** running `SELECT now() AS db_now` alongside the task stamps, in the
+same query, before investigating the "cause". One line.
+
+**The cheap check that would have prevented it:** never compare a shell timestamp with a
+DB/kubectl one — **put `now()` in the same result set as the row you are judging**, or
+read the age the DB computes (`now() - last_triggered_at AS since_fire`, which was in the
+very same query and said `00:15:42`). Elapsed-time columns cannot be misread across zones;
+wall-clock pairs can.
+
+**Not a new lesson, which is the point.** `bugs_open/085`'s own dated correction says it
+in one line — *"UTC throughout: this machine is BST, and comparing BST `git log` against
+UTC `kubectl` makes live fixes look un-shipped"* — and I had read that file this session,
+in this lane, while researching which bug to take. Reading the warning is not the same as
+applying it; the durable defence is the habit (`since_fire`), not the memory.
