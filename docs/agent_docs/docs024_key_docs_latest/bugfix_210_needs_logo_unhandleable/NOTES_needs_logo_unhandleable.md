@@ -125,3 +125,102 @@ makes routing to a human the disposition consistent with the existing lifecycle 
 capitulation.
 
 Recorded so the owner decides D1 with this in front of them, not after.
+
+## 8. Postgres, not Go, is what proves the anchoring — and both arms are needed
+
+The Go test on `sameOriginPathPattern` is real evidence but not sufficient: `sqlmock` does not
+execute SQL (it returns the rows you hand it), so a mocked "cross-origin in, no item out" would
+assert the mock's own bookkeeping. The predicate was therefore run **by Postgres over live
+`rendered_html`**, comparing old and new side by side:
+
+| domain | old logo match | new logo match | old hero match | new hero match |
+|---|---|---|---|---|
+| fundamentallyai.com | **1** | **0** | 4 | 4 |
+| 16 other sites | 0 | 0 | 137 | 137 |
+
+The false positive goes 1 → 0; **all 141** legitimate same-origin matches survive. Both arms
+matter: a pattern that silenced everything would pass the first one alone, and silence is the
+failure mode that looks like success here, because these checks have a near-zero natural hit
+rate.
+
+## 9. The tests caught a real defect in my own plan, before the council did
+
+I had written `HandlerAgent: "human-review"`. `handler_coverage_test.go` failed with: *"routes
+work at handler agent 'human-review', which is not a known agent … Every item it files will be
+marked 'blocked' at claim time after occupying a dedup slot."*
+
+Checked rather than argued: `human-review` is **not an `agent_definitions.type`** at all. And
+the live convention is unambiguous — **433** rows at `needs_human_review` carry an **empty**
+handler, against **12** naming `human-review`. The empty string is the canonical no-agent
+spelling (migration 217; the test's own comment says so). Changed to `""` in both producers.
+
+Two council seats (`prior_art_librarian`, `guidelines`) raised exactly this independently, and
+both are dispositioned as **already fixed before the verdict was read** — the test found it
+first. Worth recording as the useful direction of that relationship: the council is not a
+substitute for running the package's own guards.
+
+## 10. Council verdict — APPROVED round 1, and the two objections that changed the work
+
+Corr `c40c9483-5afd-478b-91ca-7e4db505ed0d`. 12 seats; `editquality`, `reuse_agent`,
+`guardian`, `prior_art_librarian` objected (advisory); none high. All dispositioned:
+
+- **`editquality`, edit 4, medium — MY METHOD WAS WRONG AND THE ANSWER WAS RIGHT.** My "exactly
+  one call site" census used `jsonb_each(default_config->'workflow'->'steps')` — the
+  **top-level-only** shape LANDMINES warns about, which cannot see steps nested in
+  `sub_workflow`/loops. Re-run recursively with `default_config @? '$.** ? (@.action == "…")'`:
+  **still exactly one agent**. And the recursive form is proven to see further — the same
+  predicate finds **7 agents the top-level scan misses** for `call_agent` (41 vs 34), so the
+  re-measurement could have come out otherwise and didn't. This is the single most valuable
+  thing the council did: the claim was load-bearing for a fleet-wide refusal.
+- **`guardian`, edit 4, medium — characterise the 55 unrecorded rows.** Done, and it dissolves
+  the blind spot: **47 are derivations** (`derived-from-hero` 25 cards, `derived-from-logo` 11
+  og_card + 11 favicon) which never call `generate_image`, and the other **8 predate
+  2026-03-05**. Zero are recent generations.
+- **`editquality`, edit 8, medium** — "assert NO adapter request was published" is the vacuous
+  mock-expectation anti-pattern. Already resolved during implementation: the shipped test
+  asserts the **error return** and is **mutation-proven**; the non-publication assertion was
+  dropped rather than left to pass vacuously.
+- **`reuse_agent`, edit 5, medium** — `imagePromptFromPlan` as a second prompt-extraction path
+  beside `getImagePromptWithPriority`. Answered by layer: the latter is the **runtime tier
+  chain** inside the generator (step config → collected data → agent config → …); the former
+  reads **one key out of a plan document** at filing time, in a different package, with no tier
+  semantics. Merging them would couple a producer to the generator's runtime chain. Recorded
+  rather than dismissed.
+- **`reuse_agent` / `bug_historian`, edit 3, low** — the human-review disposition is written
+  twice (once per producer) with no shared helper, and the dedup slot is reused across two
+  dispositions. Both true. The two producers live in **different packages**
+  (`discovery_checks` vs `actions`) and a shared helper would be a new cross-package export —
+  the kind of small seam the platform-seams ruling asks you not to add casually. The slot reuse
+  is deliberate (one open question per site+purpose) but **nothing closes the parked row if a
+  prompt later appears** — that is a real gap, left open and named here rather than papered over.
+- **`tooling_provenance`, medium; `architecture`, low; `debug_historian`, medium** — record the
+  contract change and the deploy-verification step. Both discharged in the **IMG-069** register
+  entry, which states the guarantee change (always-an-image → may-refuse) and carries the
+  pod-grep marker: the **log literal**, not the identifier, since string literals survive the
+  build and identifiers may not.
+
+## 11. Misstep — I nearly popped another branch's stash into a shared tree
+
+To test whether a failing test was pre-existing I ran `git stash push -q <tracked> <untracked>`.
+It **failed** (untracked file in the pathspec) and therefore created **nothing** — then my
+`git stash pop -q` reached for `stash@{0}`, which was a five-branch-old WIP from
+`066_hitl_questionnaire…` carrying 51 lines of `platform/orchestration/coordinator.go`.
+
+It aborted **only because** another session's uncommitted edit to that same file collided.
+Verified no damage (stash count still 7, `platform/awaitedrequests/` absent). Full write-up in
+`WRONG_CALLS.md`; a LANDMINES entry now warns that the stash stack is a **third piece of shared
+mutable state** that none of the multi-session rules mention. The right move — which I took
+afterwards and should have taken first — is a `git archive` tree.
+
+## 12. Misstep — my "baseline" and my "changed" tree were different commits
+
+Both were built with `git archive HEAD`, minutes apart, and **HEAD moved in between** (another
+session committed a `registry_parity_test.go` fix). So the baseline passed, the other failed,
+and I spent time diagnosing *their already-fixed* failure as mine. Caught by the reported error
+line landing inside a comment block in the other tree. **Pin the sha once**
+(`SHA=$(git rev-parse HEAD)`) and use it for both arms. Also in `WRONG_CALLS.md`.
+
+Final state at pinned HEAD `65ab866ca`: `platform/orchestration/actions` **ok**;
+`discovery_checks` fails only `TestEveryCheckProducedItemTypeIsClassified`
+(`decision_regression`, another session's committed work, failing identically at HEAD without
+any change of mine).

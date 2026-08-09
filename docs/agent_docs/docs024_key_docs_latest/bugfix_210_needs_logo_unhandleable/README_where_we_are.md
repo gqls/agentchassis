@@ -75,3 +75,46 @@ Next: this goes to the review council, then I build it.
 ## 2026-08-09, later — council verdict and what shipped
 
 _(to be appended)_
+
+The council approved it first time round, which I did not take for granted, and two of its
+twelve reviewers earned their keep.
+
+One caught a flaw in **how I had measured**, not in what I proposed. My case for the big change
+rested on "only one part of the system does image generation, so making it stricter is safe" —
+and the way I counted only looked at the top level of each agent's configuration, missing
+anything nested deeper. That is a known trap here and I walked into it. I re-counted properly.
+The answer held: still exactly one. And I checked the new method could actually have told me
+otherwise — asked the same question about a different, common operation and it found seven
+things the old method missed. So the safety claim survived a real test rather than a
+sympathetic one.
+
+The other asked me to stop calling something a "stated residual risk" and go and look at it. I
+had said 344 of our images have a recorded prompt and none was made from the meaningless
+fallback, while 55 have no prompt recorded and I couldn't see them. Fair challenge. Looking:
+47 of those 55 were never *generated* at all — they are derived from another image (cards from
+a hero, favicons from a logo), so they never go near the code I changed. The remaining 8 are
+all from January to early March. There was no hole.
+
+Separately, and before the council came back, the codebase's own tests caught a mistake in my
+fix. I had routed the "needs a human" item to something called `human-review`, which sounded
+right. A test objected that no such agent exists, and it was correct — the platform's real
+convention is to leave the handler blank, which 433 live rows do and only 12 use the name I had
+picked. Fixed. Two council reviewers raised the same point independently, so three separate
+checks agreed; the tests just got there first.
+
+Two things I got wrong along the way are written up properly in the fleet-wide log, because
+both were near-misses rather than harmless. I nearly restored an unrelated piece of work from
+five branches ago into our shared working copy — a `git stash` command failed quietly and the
+next one grabbed somebody else's parked work instead of mine. It only stopped because of a
+lucky collision. And I spent a while convinced I had broken a test that another session had
+already fixed, because I compared "before" and "after" copies of the code taken a few minutes
+apart, and the code moved underneath me in between.
+
+**What is done, and what is not.** The code is committed and reviewed. It is **not live** —
+nothing changes until the next chassis image is built and rolled, and I have written down
+exactly how to prove it arrived (look inside the running program, not at the version tag).
+The open question is still yours: when a site needs a logo and nobody ever said what it should
+look like, who decides? I found something that bears on it — the system already refuses, on
+purpose, to invent styling for logos, and expects a person to approve one — so sending it to a
+person matches how the rest of the code thinks. But I have not decided it, and it should not be
+decided by whoever happens to be fixing the next bug.
