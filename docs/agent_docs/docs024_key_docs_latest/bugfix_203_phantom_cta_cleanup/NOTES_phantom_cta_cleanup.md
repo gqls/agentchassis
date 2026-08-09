@@ -585,3 +585,52 @@ orchestrations progressing normally in the same queue snapshot, a second confirm
 fleet is healthy). **Verdict not yet read as of this entry** — next session: query
 `diagnosis_artifacts` for `kind='council_report'` keyed on the submission correlation above,
 per the standing verdict-reading instructions in the HANDOFF.
+
+## 2026-08-09 (cold-start continuation) — verdict APPROVED, fix confirmed LIVE at the pod, and row 2 self-answered its own canary question (negatively, and structurally, not a fluke)
+
+**Verdict**: `diagnosis_artifacts` for correlation `258e4ed7-55a2-4280-a919-2713363c8b89` /
+`kind='council_report'` returned exactly one row — `decision='approved'`,
+`created_at=2026-08-09 15:08:09Z`. Per the standing rule, no `Council-Reviewed:` amend on
+`bd6e3320c`/`465e45531` — `098`'s coverage report resolves this automatically.
+
+**Live-verified at the pod, not the tag**: both `agent-chassis` replicas run
+`docker.io/aqls/agent-chassis:v1.0.1274` (already rolled by another session as part of a
+larger fleet release — 17 services' kustomizations were mid-edit in the working tree when
+this session picked the branch up). Positive-control grep, both replicas:
+`strings /app/agent-chassis | grep -c BestLabelMatch` → 2/2, and
+`grep -c loadExistingSectionContentData` → 6/6 (the pipeline-works control). **The fix is live.**
+
+**Row 2 (finetuning.uk `/about.html`, `content-block-about`, label "How We Work") got
+auto-repaired by the platform's own `cta_links_stale` remediation loop at 15:34:17Z — 26
+minutes after the verdict landed, and NOT dispatched by this session** (orchestration
+`7c02cb09-0524-40c4-a12f-066047a4af36`, `initial_request_data.input_data.spec.check =
+'misdirected_cta'`). Result: `cta_label` is still "How We Work" but `cta_url` is now
+`/tools/password-entropy.html` (`cta_target_title: "Password Strength Physics"`) — **not**
+this row's own verified target, `/how-we-work.html`.
+
+This is NOT a fluke or a matcher miss — it's structural, confirmed by reading the code rather
+than assumed: `chooseCTATargets`/`candidatesFromHubs` (`resolve_internal_links_action.go:139-149,
+338-356`) only ever offers two pools as label-match candidates — `loadInteractivePages`
+(`page_type='tool'`/game) and `loadContentHubs` (`page_type='section-index'`). Checked live:
+`how-we-work` is `page_type='content'` — in neither pool, so it was **never a reachable
+resolver output**, positional or label-matched, before or after this fix. `password-entropy`
+is `page_type='tool'`, i.e. a legitimate member of the candidate pool the old positional pick
+already drew from — this fix changed *which* tool got picked when a label exists, it did not
+(and structurally cannot, as built) reach a plain content page as a CTA target.
+
+**This confirms rather than contradicts the 08-08 conclusion** that row 2 has no safe
+automated repair path — it just got exercised live instead of staying hypothetical. It also
+means the HANDOFF's step-2 hope ("a full rebuild ... may now produce the right link directly")
+is **false for row 2 specifically**, and by the same reasoning **false for any row whose
+verified target is `page_type='content'`**. **Row 3 (robot-hands.com, "Run MatchMatrix" →
+`/tools/matchmatrix/index.html`) is different and still worth the canary**: checked live,
+that target is `page_type='tool'` (site's page is literally named `tool-matchmatrix`) — inside
+the candidate pool, so the label match has a real shot. Not yet dispatched or auto-repaired
+as of this entry (page `updated_at` still 08-04, pre-fix). **The 4 leopardessconsulting.co.uk
+"Get Started" heroes need the same page_type check on their own verified targets before
+assuming either outcome** — not done this entry, do it before dispatching any of them.
+
+**Not yet decided**: whether to manually dispatch a `cta_links_stale`-style rerender at row 3
+as the deliberate canary, or wait and see if the same automated loop reaches it on its own
+(as it just did, unprompted, for row 2). Left for the next step in this session or the next
+session — see HANDOFF for the decision point.
