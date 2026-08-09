@@ -215,3 +215,45 @@ line", because the biggest piece was already owed:
 So: recommendation changed from yesterday. **Into line, two phases (config
 migration, then the deletion), with the config phase doubling as the bug-231
 repair.** Awaiting your go-ahead.
+
+## 2026-08-09, midday — Phase 1 is applied and verified; Phase 2 is teed up
+
+You approved the into-line fix, Phase 1 first. It's done and live.
+
+What changed: the four deploy steps in the two older workflows no longer say
+"my image is the logo" and hope the system agrees — each now points directly at
+the exact image its own store step just saved: its category, its storage
+address, and its database identity, all read from that one place. The dead
+static settings and the old generator-pointer are gone.
+
+How it went in: as a guarded database migration. Before applying it I made the
+safety check fail on purpose against the un-migrated rows — a check that has
+never failed tells you nothing when it passes — then dry-ran it in a throwaway
+transaction, then applied it scoped so the other teams' pending migrations were
+untouched. Verified afterwards by reading the four steps back and confirming
+the neighbouring steps didn't move. One deliberate behaviour change worth
+knowing about: if a store step ever fails, the deploy now skips with a visible
+"nothing to deploy" instead of quietly deploying whatever the generator
+produced — the old route bypassed the asset record entirely, which is the exact
+family of fault this whole effort exists to remove.
+
+This one edit closes three things at once for those workflows: the
+February logo-as-hero bug, the random rummage that picked the wrong image's
+identity 86 times in 100, and their dependence on the category-keyed lookup.
+
+Also in: the diagnosis loop's verdict on the wider question ("how many other
+configs have a plain-word setting silently losing to a default?"). It
+independently confirmed the mechanism is real, but couldn't finish the
+fleet-wide count — interestingly, because of the same indexing blind spot
+another bug (223) already describes: the index that both the verifier and the
+diagnosis loop read cannot see plain variable declarations, so the loop
+couldn't fetch the very list of defaults it needed. Two consumers of one gap
+now; noted on that bug. The fleet-wide count remains open under bug 231.
+
+Still owed, in order: a real proof run — build a throwaway site through each
+old workflow and check the hero and logo files both arrive, different bytes
+(that also finally satisfies bug 209's own verification bar) — and then
+Phase 2, the ~90-line deletion of the category lookup from the deploy code,
+which goes through the council and must only roll after today's migration is
+confirmed in place (it is; re-check on pickup as rolls re-stamp the config
+timestamps without changing content).

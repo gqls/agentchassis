@@ -1,4 +1,9 @@
-# HANDOFF — 2026-08-09. 209 is VERIFIED LATENT; the fix is deliberately NOT taken. Read this first on a cold start.
+# HANDOFF — 2026-08-09. 209 is VERIFIED LATENT; the fix is deliberately NOT taken. ~~Read this first on a cold start.~~
+
+> **SUPERSEDED same day by `HANDOFF_2026-08-09b_phase1_live_phase2_next.md`** —
+> the owner approved the into-line fix and Phase 1 (migration 348) is applied
+> and live. Start there; this file remains as the record of the verification
+> stage and the divergence proposal it replaced.
 
 `NOTES_209_purpose_keyed_source.md` has the evidence and every misstep;
 `RUNBOOK_209_purpose_keyed_source.md` has the commands with their gotchas;

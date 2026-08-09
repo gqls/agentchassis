@@ -112,3 +112,51 @@ citing the change.
 - `bugs_closed/155` / `bugs_open/152` — the asset-source-identity thread this all serves.
 - LANDMINES 2026-08-09 entry (footprint `ExtractActionInputs`, `ActionInputSpec`,
   `Defaults`) — the prospective trap for config authors.
+
+---
+
+## STATUS 2026-08-09 (same day, later) — instance REPAIRED LIVE (migration 348); 090 verdict in, recorded honestly
+
+**Fix candidate 1 executed for the proven instance.** Migration
+`348_pageflow_swo_deploy_steps_resolve_by_identity.sql` (applied + recorded
+09:41:53, ROLLBACK sidecar alongside) replaced the four deploy steps' dead static
+keys with Strategy-0 dotted paths (`{p}_stored.purpose/s3_uri/asset_id`,
+`site_record.domain`) and added `input_fields` that **deliberately exclude
+`s3_uri`** so a store failure degrades to a safe skip instead of an aggressive
+search that can cross to the sibling asset. Discipline followed: post-verify is
+DO/RAISE and was **induced first** (run standalone against unmigrated rows — it
+raised, 0/4); dry-run in a doomed transaction; applied scoped via
+`MIGRATIONS_DIR` (the runner's `--apply` takes every pending file — others'
+342/345/346 were pending); verified at the rows by content, with the store steps
+as a negative control (untouched). Two pre-existing config keys surfaced by the
+full-row read — `domain_field` (now inert: Strategy-0 `domain` wins) and
+`output_mapping` on the hero steps — both preserved by the surgical merge.
+Harness extended to the **exact live shape** including the store-failure corner:
+8/8 tests pass (`TestMigration348Shape_StoreFailureResolvesNoURI_NeverTheSibling`
+is the door-stays-shut proof).
+
+**The 090 on the fleet class returned UNVERIFIABLE (scope-not-narrowing)** — run
+`e952039b`. Read precisely, it *strengthens* the mechanism claim and declines the
+instance: the loop **independently confirmed the helper-level mechanism** (its
+words: the Defaults-first + has-value-skip chain "is real and would silently drop
+a static non-dotted config literal for a defaulted field") but could not cite
+`DeployImageAssetInputSpec`'s `Defaults` because **its code lookup only surfaced
+the spec's two USE sites, never the `var` declaration — `bugs_open/223`'s
+`code_symbols` var-blindness biting the diagnosis loop's own lookup layer** (second
+consumer of that gap; noted in 223). Gap 2 — no runtime row of the bug firing —
+was already `[UNMEASURED]` here and stays so: the workflows do not run. The
+declaration gap is answered outside the loop by the committed test that
+**executes** the real spec (`TestLegacyLogoStep_StaticPurposeIsShadowedByDefault`
+— its header marks the config shape as pre-348 history while noting the resolver
+behaviour it pins is still current for any config authored that way).
+
+**What keeps this file OPEN:**
+- The **fleet-class census** (which other live configs carry a static value for a
+  spec-defaulted field) is still undone — the 090 stopped before enumerating.
+- Fix candidates 2 (make config-static beat Defaults in the helper) and 3
+  (CheckConfig flags shadowed statics) are unaddressed; 3 is cheap and catches
+  future authors.
+- The **behavioural proof** for the repaired instance is owed: one
+  sacrificial-domain run of each workflow, hero.* and logo.* both committed with
+  different bytes. The bar for closing is fixed AND live AND proven at the
+  artefact.

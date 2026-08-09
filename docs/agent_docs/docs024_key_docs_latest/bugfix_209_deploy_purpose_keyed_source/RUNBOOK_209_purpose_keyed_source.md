@@ -97,7 +97,37 @@ the ratio varies (344/400 hero-wins when first measured). It *would* be a real
 finding if the split ever collapsed to a single value: that means resolution
 became deterministic and the hazard changed.
 
-## 7. Ownership re-check (the `who-owns.py` false positive)
+## 7. Applying a definition-editing migration WITHOUT taking other threads' pending files
+
+`run-migrations.sh --apply` takes **every** pending file in `MIGRATIONS_DIR`
+(default `docs/agent_docs/sql_for_agents`) — there is no per-file apply flag, and
+the pending set usually contains other lanes' work. Scope with the env var:
+
+```bash
+SCRATCH=<scratchpad>/migNNN && mkdir -p $SCRATCH
+cp docs/agent_docs/sql_for_agents/NNN_my_migration.sql $SCRATCH/
+MIGRATIONS_DIR=$SCRATCH ./scripts/migration/run-migrations.sh            # dry-run (doomed txn)
+MIGRATIONS_DIR=$SCRATCH ./scripts/migration/run-migrations.sh --apply   # apply + record
+```
+
+⚠ Before the apply, **induce the post-verify**: run the migration's final DO
+block standalone against the *unmigrated* rows — it must RAISE (0/N). A verify
+that has never failed proves nothing (`SELECT`s cannot stop a COMMIT; only
+DO/RAISE can, and only if it CAN fire). 348's induction raised "0 of 4" — that
+zero is what made the later "4 of 4" evidence.
+
+## 8. Post-roll config re-verification (the deploy-time stamp lies)
+
+Every deploy re-stamps `updated_at` on ~all active `agent_definitions` (175 rows
+at 08:49:01 on 08-09) **without changing content** — measured control: migration
+341's `gate_next_item` step survived that stamp. So after any roll:
+
+- Never conclude "changed" or "unchanged" from `updated_at`.
+- Re-read the four deploy steps **by content** (§2 query) and diff against the
+  348 shape: dotted `{p}_stored.*` paths, `domain: site_record.domain`,
+  `input_fields: ["purpose","domain","asset_id"]`, **no `uri_field`**.
+
+## 9. Ownership re-check (the `who-owns.py` false positive)
 
 ```bash
 ./scripts/who-owns.py 209

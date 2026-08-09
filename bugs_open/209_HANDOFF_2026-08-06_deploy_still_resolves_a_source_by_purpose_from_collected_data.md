@@ -186,6 +186,37 @@ over the reason Priority 2 was kept.
   no-`input_fields` step whose spec field name occurs twice in `collected_data`?
   That is a shared-helper question wider than 209.
 
+### STATUS 2026-08-09 (later) — INTO-LINE APPROVED; PHASE 1 APPLIED AND ROW-VERIFIED
+
+The owner superseded the divergence direction after the cost question surfaced
+`bugs_open/231` (the pair's logo steps resolve purpose="hero" — repair and
+alignment turned out to be the same edit): **"carry on with the into-line fix …
+Phase 1 first."**
+
+**Phase 1 is LIVE**: migration `348_pageflow_swo_deploy_steps_resolve_by_identity.sql`
+(applied 09:41:53, ROLLBACK sidecar alongside, induced DO/RAISE verify, scoped
+apply, row-verified with the store steps as negative control). All four deploy
+steps now resolve purpose/s3_uri/asset_id/domain by Strategy-0 dotted paths from
+their own store step's output — deterministic (8/8 harness tests incl. the
+store-failure corner: `input_fields` deliberately excludes `s3_uri`, so a failed
+store degrades to a safe skip, never a sibling's bytes). This closes, for these
+workflows: the 231 shadow, the 86% recursive-`asset_id` hazard, AND their use of
+the purpose-keyed scratchpad route (`s3_uri` resolves before `findStorageURI`;
+its fallback would now be reached only on a store failure, where it finds the
+same per-purpose value the store didn't write — i.e. nothing).
+
+**Still owed on this bug:**
+1. **Behavioural proof** — one sacrificial-domain run of each workflow (hero.*
+   and logo.* committed, different bytes, `logo_url` serving). Satisfies this
+   file's own "verify on the workflow that really does it" bar.
+2. **Phase 2** — delete `findStorageURI` + call site (~90 lines, council).
+   **Ordering (statable): the image must not roll before 348 is verified at the
+   rows** — done above, so Phase 2 is unblocked, but re-verify on pickup (a roll
+   re-stamps `updated_at`; compare CONTENT — migration 341's `gate_next_item`
+   surviving the 08-09 08:49 stamp is the measured proof that content survives).
+3. Phase 3 (optional): retire the `{purpose}_uri` writers — blocked on
+   classifying 6-per-definition other references; NOT needed to close this bug.
+
 ### OWNER RULING 2026-08-09 — the legacy pair is ALIVE, FROZEN; fix by divergence
 
 *"pageflow-builder and site-work-orchestrator are not dead, but not being worked

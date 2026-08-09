@@ -295,6 +295,21 @@ bitten by before.)
 **Do not downgrade the 221 entry on this verdict.** It was re-checked by hand and
 is accurate.
 
+**2026-08-09 addendum — a SECOND consumer of the same var-blindness: the diagnosis
+loop.** A 090 run the same morning (`e952039b`, filed by the 209 lane on the
+Defaults-shadow mechanism, `bugs_open/231`) stopped at UNVERIFIABLE with this as
+its stated gap 1: *"the actual var declaration of DeployImageAssetInputSpec —
+specifically its Defaults map — is NOT in the bundle. The content search for the
+identifier only surfaced its two USE sites … never the literal spec definition."*
+`var DeployImageAssetInputSpec = …` is a package-level `var` — unrepresentable in
+`code_symbols` (no `var` kind), so the loop's `diagnose_code_lookup` can fetch
+every *use* of a spec but never its *declaration*. Consequence worth stating: the
+diagnosis loop is structurally unable to CONFIRM any hypothesis whose deciding
+evidence is the CONTENT of a package-level `var` (a spec's Defaults, a pattern
+table, a policy map) — it will stop at UNVERIFIABLE with a "still needed" naming
+exactly the declaration it cannot see. Whoever fixes this bug's lookup layer fixes
+both consumers at once.
+
 ---
 
 ## Recurrence 2026-08-09 — a third instance, self-refuting in the same way, from the `bugfix_201` lane

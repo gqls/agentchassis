@@ -190,11 +190,15 @@ func TestDeployImageAsset_LegacyShape_SourceRouteToday(t *testing.T) {
 // the fix, citing it.
 // ---------------------------------------------------------------------------
 
-// The live shape of pageflow-builder / site-work-orchestrator `deploy_logo_image`:
-// static purpose "logo" + uri_field, no input_fields. The step believes it is
-// deploying a logo; the action resolves purpose="hero" (the spec default), which
-// drives resize dimensions AND the deploy path (BuildAssetPaths: filename =
-// purpose + ext) — the logo's bytes would land at the HERO's path.
+// The PRE-migration-348 shape of pageflow-builder / site-work-orchestrator
+// `deploy_logo_image` (live until 2026-08-09; migration 348 replaced it with
+// Strategy-0 dotted paths — see TestStrategy0DottedPaths below for the live
+// shape): static purpose "logo" + uri_field, no input_fields. The step believes
+// it is deploying a logo; the action resolves purpose="hero" (the spec default),
+// which drives resize dimensions AND the deploy path (BuildAssetPaths:
+// filename = purpose + ext) — the logo's bytes would land at the HERO's path.
+// The RESOLVER behaviour pinned here is still current — any config authored in
+// this shape today gets the same shadow — which is why this test outlives 348.
 func TestLegacyLogoStep_StaticPurposeIsShadowedByDefault(t *testing.T) {
 	logger := zap.NewNop()
 	legacyConfig := map[string]interface{}{
@@ -255,11 +259,19 @@ func TestPurposeFieldBridge_DeadForDefaultedField(t *testing.T) {
 // both bugs_open/231 (the shadow) and the 86% asset_id instability above.
 func TestStrategy0DottedPaths_DefeatTheDefaultAndTheRecursiveSearch(t *testing.T) {
 	logger := zap.NewNop()
+	// EXACT live shape of deploy_logo_image after migration 348 (2026-08-09),
+	// including the pre-existing deprecated domain_field (inert: the Strategy-0
+	// "domain" resolves first, so the Strategy-3 bridge's has-value skip fires)
+	// and input_fields DELIBERATELY excluding s3_uri (see the migration header:
+	// on a store failure the URI must come from the asset row or not at all,
+	// never from an aggressive search that can cross assets).
 	intoLineConfig := map[string]interface{}{
-		"purpose":  "logo_stored.purpose",
-		"s3_uri":   "logo_stored.s3_uri",
-		"asset_id": "logo_stored.asset_id",
-		"domain":   "site_record.domain",
+		"purpose":      "logo_stored.purpose",
+		"s3_uri":       "logo_stored.s3_uri",
+		"asset_id":     "logo_stored.asset_id",
+		"domain":       "site_record.domain",
+		"domain_field": "site_record.domain",
+		"input_fields": []interface{}{"purpose", "domain", "asset_id"},
 	}
 	collected := map[string]interface{}{
 		"site_record": map[string]interface{}{"domain": "example.test"},
@@ -285,6 +297,51 @@ func TestStrategy0DottedPaths_DefeatTheDefaultAndTheRecursiveSearch(t *testing.T
 		if p, s, a := inputs.Get("purpose"), inputs.Get("s3_uri"), inputs.Get("asset_id"); p != "logo" ||
 			s != "s3://assets/logo.png" || a != "22222222-2222-2222-2222-222222222222" {
 			t.Fatalf("iteration %d: non-deterministic or wrong: purpose=%q s3_uri=%q asset_id=%q", i, p, s, a)
+		}
+		if d := inputs.Get("domain"); d != "example.test" {
+			t.Fatalf("iteration %d: domain=%q, want site_record.domain via Strategy 0", i, d)
+		}
+	}
+}
+
+// The migration-348 failure corner: the logo's store FAILED (logo_stored has no
+// s3_uri), while the hero's succeeded. Because input_fields excludes s3_uri, the
+// aggressive search must NOT go hunting for one — s3_uri resolves EMPTY, which
+// the action turns into asset_id → dead row → safe skip. If this test ever
+// reports the hero's URI, someone added s3_uri to input_fields and reopened the
+// cross-asset door.
+func TestMigration348Shape_StoreFailureResolvesNoURI_NeverTheSibling(t *testing.T) {
+	logger := zap.NewNop()
+	cfg := map[string]interface{}{
+		"purpose":      "logo_stored.purpose",
+		"s3_uri":       "logo_stored.s3_uri",
+		"asset_id":     "logo_stored.asset_id",
+		"domain":       "site_record.domain",
+		"domain_field": "site_record.domain",
+		"input_fields": []interface{}{"purpose", "domain", "asset_id"},
+	}
+	collected := map[string]interface{}{
+		"site_record": map[string]interface{}{"domain": "example.test"},
+		"hero_stored": map[string]interface{}{ // sibling succeeded — must never leak
+			"asset_id": "11111111-1111-1111-1111-111111111111",
+			"purpose":  "hero",
+			"s3_uri":   "s3://assets/hero.png",
+		},
+		"logo_stored": map[string]interface{}{ // insert-failure shape: asset_id, no s3_uri
+			"asset_id": "22222222-2222-2222-2222-222222222222",
+			"purpose":  "logo",
+		},
+	}
+	for i := 0; i < 100; i++ {
+		inputs, err := datahelpers.ExtractActionInputs(collected, cfg, DeployImageAssetInputSpec, logger)
+		if err != nil {
+			t.Fatalf("iteration %d: %v", i, err)
+		}
+		if s := inputs.Get("s3_uri"); s != "" {
+			t.Fatalf("iteration %d: s3_uri=%q — the store-failure corner resolved a URI it must not (sibling leak?)", i, s)
+		}
+		if a := inputs.Get("asset_id"); a != "22222222-2222-2222-2222-222222222222" {
+			t.Fatalf("iteration %d: asset_id=%q, want the logo's own (dead) id", i, a)
 		}
 	}
 }

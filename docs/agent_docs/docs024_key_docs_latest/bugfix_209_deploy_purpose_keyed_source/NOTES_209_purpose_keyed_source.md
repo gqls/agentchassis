@@ -338,3 +338,55 @@ deploy steps (measured via `jsonb_each_text` sweep) — so retiring the
 classified first (Phase 3, optional, not needed for 209). Also noted in passing:
 `generate_image_actions.go:999` writes `contentData[purpose+"_uri"]` into the
 in-memory site record — 155-adjacent, not chased here.
+
+## 2026-08-09, midday — PHASE 1 EXECUTED: migration 348 applied, row-verified, harness extended to the live shape
+
+Owner approved into-line, Phase 1 first. Executed this session:
+
+- **Pre-flight facts nailed before writing SQL:** StoreAssetAction is NOT
+  shadowed (reads `config["purpose"]` directly, `v3_site_actions.go:2603-2611` —
+  no ActionInputSpec), so the dotted paths carry true values. And the deploy-time
+  definition stamp (all 175 active rows at 08:49:01) **preserves content** — the
+  measured control is migration 341's `gate_next_item` surviving this morning's
+  stamp; without that control a DB-only config migration could not be trusted
+  across rolls.
+- **Design decision recorded in the migration header:** `input_fields`
+  deliberately EXCLUDES `s3_uri`. Strategy 0 still resolves it when present
+  (Strategy 0 iterates SPEC fields, not input_fields), but on a store failure an
+  input_fields entry would send Strategy 1's aggressive search hunting a URI and
+  it can land on the SIBLING asset's — the 209 class through a side door. Excluded,
+  the corner resolves s3_uri="" → asset_id (present even on insert-failure, row
+  absent) → "" → safe visible skip. This deliberately NARROWS behaviour vs the old
+  uri_field route (which would deploy the generator's URI, bypassing the asset
+  row — the 152/155 identity-bypass pattern).
+- **Discipline sequence:** post-verify DO/RAISE **induced first** (standalone vs
+  unmigrated rows → raised "0 of 4"); scoped dry-run (doomed txn, clean); scoped
+  apply via `MIGRATIONS_DIR` scratch dir (pending set held other lanes' 342/345/346
+  — untouched); row-verify by content, store steps as negative control (untouched);
+  `schema_migrations` row present (09:41:53, run-migrations.sh).
+- **Two config keys surfaced by the full-row read** that my earlier
+  two-column queries had hidden: `domain_field: site_record.domain` (pre-existing,
+  now inert — Strategy-0 `domain` wins, Strategy-3 bridge skips) and
+  `output_mapping` on the hero steps only. Both preserved by the surgical
+  `- 'uri_field' || {...}` merge. Lesson re-learned from my own 08-08 entry: a
+  column-selected read is a filtered read; verify against the FULL object.
+- **Harness now 8/8**, extended to the exact live shape (incl. `domain_field`)
+  plus the corner test `TestMigration348Shape_StoreFailureResolvesNoURI_NeverTheSibling`
+  (100 iterations, sibling never leaks). The pre-348 shadow test's header now
+  marks its config shape as history while noting the resolver behaviour it pins
+  is still current for any config authored that way.
+
+### The 090 verdict on the fleet class (run e952039b): UNVERIFIABLE, scope-not-narrowing — read precisely
+
+Not a refutation. The loop **independently confirmed the helper mechanism**
+("…is real and would silently drop a static non-dotted config literal for a
+defaulted field") — that is the cross-cutting core corroborated by a second
+reader. It declined the *instance* for two stated gaps: (1) it could not fetch
+`DeployImageAssetInputSpec`'s **declaration** — only its two use sites — because
+a package-level `var` is unrepresentable in `code_symbols`: **bug 223's
+var-blindness biting the diagnosis loop's own lookup layer** (second consumer;
+addendum added to my 223 block). My committed test answers this gap by
+*executing* the real spec. (2) No runtime row shows the bug firing — already
+`[UNMEASURED]` in 231, and expected: the workflows do not run. The fleet-class
+CENSUS remains undone; 231 stays OPEN for it, plus candidates 2/3 and the
+behavioural proof.
