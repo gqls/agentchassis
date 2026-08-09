@@ -4,7 +4,7 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
-7 concepts, consolidated from 2 raw extractions across units U12, plus 5 added post-freeze (RSH-003, 2026-07-28; RSH-004, 2026-08-02; RSH-005 and RSH-006, 2026-08-06; RSH-007, 2026-08-06).
+_Concept count retired 2026-08-09 — derived, not stored; run the drift pair in `000_concept_index.md`, or read `concept-register-drift-check`'s daily row (DOC-074). It said **7** and the file held **9**._ consolidated from 2 raw extractions across units U12, plus 5 added post-freeze (RSH-003, 2026-07-28; RSH-004, 2026-08-02; RSH-005 and RSH-006, 2026-08-06; RSH-007, 2026-08-06).
 
 ### RSH-001 — Dual-signal self-heal on missing spec dependency
 - **status:** deployed

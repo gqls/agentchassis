@@ -4,7 +4,7 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
-**5 concepts.** SCR-001 was the original extraction: 1 concept, consolidated from
+_Concept count retired 2026-08-09 — derived, not stored; run the drift pair in `000_concept_index.md`, or read `concept-register-drift-check`'s daily row (DOC-074). It said **5** and the file held **6**._ ** SCR-001 was the original extraction: 1 concept, consolidated from
 2 raw extractions (1 unique block, appearing twice due to exact whole-block
 duplication in the cluster input file) across unit U22. SCR-002..005 were added
 2026-07-28 by the `bugfix_100_101_scrape_provenance` lane and postdate the

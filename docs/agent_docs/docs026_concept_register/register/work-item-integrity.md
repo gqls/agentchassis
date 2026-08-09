@@ -4,7 +4,7 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
-10 concepts, consolidated from 9 raw extractions across units U05, U09 (WII-008 added 2026-07-31, WII-010 added 2026-08-03, WII-011 added 2026-08-08, post-freeze).
+_Concept count retired 2026-08-09 — derived, not stored; run the drift pair in `000_concept_index.md`, or read `concept-register-drift-check`'s daily row (DOC-074). It said **10** and the file held **12**._ consolidated from 9 raw extractions across units U05, U09 (WII-008 added 2026-07-31, WII-010 added 2026-08-03, WII-011 added 2026-08-08, post-freeze).
 
 ### WII-001 — Silent-completion failure family ("work reports success but doesn't happen")
 - **status:** partial

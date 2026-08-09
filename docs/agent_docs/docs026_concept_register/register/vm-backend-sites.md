@@ -4,7 +4,7 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
-15 concepts (VMB-015 added 2026-08-02, post-freeze), consolidated from 26 raw extractions of new:vm-backend-sites (13
+_Concept count retired 2026-08-09 — derived, not stored; run the drift pair in `000_concept_index.md`, or read `concept-register-drift-check`'s daily row (DOC-074)._ (VMB-015 added 2026-08-02, post-freeze), consolidated from 26 raw extractions of new:vm-backend-sites (13
 unique blocks, each duplicated once in the source cluster file, unit
 U11_traffic_probe), plus this file **absorbed new:backend-service-deployment**
 (10 raw / 5 unique, unit U04_idea_uk) **and new:persistent-service-deployment**

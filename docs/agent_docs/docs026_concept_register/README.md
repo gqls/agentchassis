@@ -6,9 +6,16 @@ swept from ~4,111 files under `docs/`. **Stage 2 complete 2026-07-14** (see
 `006_VERIFICATION_stage2.md`). Master index at `register/000_concept_index.md`;
 final taxonomy note at `005_TAXONOMY_final.md`.
 
-**Live count: 1,756 concepts across 109 category files** (measured 2026-08-04 —
-the commands are in the index's own header, and the index says plainly why you
-should re-run them rather than repeat this line). Everything above 1,627 was
+**The live count is not written down anywhere, deliberately** (owner ruling,
+2026-08-09). It is derived: run the drift pair in `register/000_concept_index.md`'s
+header, or read `concept-register-drift-check`'s daily row
+(`SELECT body FROM doc_notes WHERE subject_key='concept-register-drift' ORDER BY
+created_at DESC LIMIT 1`). Stored counts were retired from this file, from the
+index header, and from all 108 category files on the same day — **32 of the 109
+were already wrong when they were removed**, by a total of 90 concepts, and the
+index headline had been published wrong twice in four days by careful sessions
+taking the figure from the wrong one of four near-identical commands. See
+`SUMMARY_where_we_are_2026-08-09.md`. Everything above stage 1's 1,627 was
 added **incrementally by the workstreams that shipped the mechanism**, under
 CLAUDE.md's "when you BUILD a new reusable mechanism, register it" rule, not by
 another extraction pass. That is now the register's normal mode of growth:

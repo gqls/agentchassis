@@ -4,7 +4,7 @@
 > Everything else dates from the 2026-07-13 extraction freeze — absence
 > here is not evidence of absence in the platform. See `bugs_open/106`.
 
-53 concepts (50 from stage 1 consolidation + 3 added 2026-07-16 for the
+_Concept count retired 2026-08-09 — derived, not stored; run the drift pair in `000_concept_index.md`, or read `concept-register-drift-check`'s daily row (DOC-074). It said **53** and the file held **60**._ (50 from stage 1 consolidation + 3 added 2026-07-16 for the
 triage/escalation subsystem that shipped after extraction froze — FIX-051/052/053),
 consolidated from 123 raw extractions across units U08, U13, U14, U15, U16
 (note: U13's ~47 blocks and U16's autonomy-governance-tagged blocks appeared byte-identically

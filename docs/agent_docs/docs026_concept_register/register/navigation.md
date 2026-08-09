@@ -4,7 +4,7 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
-13 concepts (NAV-013 added 2026-07-31, post-freeze), consolidated from 28 raw extractions (14 unique blocks, each mechanically duplicated once in the cluster input file — see note in styling-render-pipeline.md) across units U01, U02, U17a, U18, U19, U21, U25.
+_Concept count retired 2026-08-09 — derived, not stored; run the drift pair in `000_concept_index.md`, or read `concept-register-drift-check`'s daily row (DOC-074)._ (NAV-013 added 2026-07-31, post-freeze), consolidated from 28 raw extractions (14 unique blocks, each mechanically duplicated once in the cluster input file — see note in styling-render-pipeline.md) across units U01, U02, U17a, U18, U19, U21, U25.
 
 ### NAV-001 — Nav agent family and the three-tier authority model
 - **status:** partial

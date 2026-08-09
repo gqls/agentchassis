@@ -4,7 +4,7 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
-1 concept, consolidated from 2 raw extractions (1 unique block, appearing twice
+_Concept count retired 2026-08-09 — derived, not stored; run the drift pair in `000_concept_index.md`, or read `concept-register-drift-check`'s daily row (DOC-074). It said **1** and the file held **4**._ consolidated from 2 raw extractions (1 unique block, appearing twice
 due to exact whole-block duplication in the cluster input file) across unit
 U01. **Plus 2 post-freeze additions (PUB-002, PUB-003) made 2026-07-29** for the
 two shared packages the consolidation programme built on 07-28 — both

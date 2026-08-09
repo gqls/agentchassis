@@ -4,7 +4,7 @@
 > Everything else dates from the 2026-07-13 extraction freeze — absence
 > here is not evidence of absence in the platform. See `bugs_open/106`.
 
-39 concepts (37 from stage 1 + 2 added 2026-07-17, MDL-038/039, found by the
+_Concept count retired 2026-08-09 — derived, not stored; run the drift pair in `000_concept_index.md`, or read `concept-register-drift-check`'s daily row (DOC-074). It said **39** and the file held **40**._ (37 from stage 1 + 2 added 2026-07-17, MDL-038/039, found by the
 fix-loop's own first real-case run), consolidated from 53 raw extractions
 across units U01, U02, U06,
 U09, U12, U15, U16, U17a, U18, U19, U20, U21, U22, U24a, U24b, U24f, U25. Heavy

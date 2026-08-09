@@ -4,7 +4,7 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
-5 concepts (4 consolidated from 12 raw extractions (6 unique blocks, each present
+_Concept count retired 2026-08-09 — derived, not stored; run the drift pair in `000_concept_index.md`, or read `concept-register-drift-check`'s daily row (DOC-074). It said **5** and the file held **0**._ (4 consolidated from 12 raw extractions (6 unique blocks, each present
 twice in the source cluster file due to mechanical duplication in the input)
 across units U01, U12, U17a, U19; BATCH-005 added 2026-08-03, post-freeze).
 

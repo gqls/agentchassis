@@ -4,7 +4,7 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
-17 concepts, consolidated from 39 raw extractions across units U03, U08, U13, U14,
+_Concept count retired 2026-08-09 — derived, not stored; run the drift pair in `000_concept_index.md`, or read `concept-register-drift-check`'s daily row (DOC-074)._ consolidated from 39 raw extractions across units U03, U08, U13, U14,
 U15, U17b, U23, U24f, U25. Only 2 raw blocks were natively tagged
 NEW:contextkit-toolchain at extraction time; the rest were reassigned here from
 the diagnosis-loop bucket because they describe the standalone `contextkit` Go

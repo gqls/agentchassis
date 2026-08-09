@@ -4,7 +4,7 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
-42 concepts, consolidated from 65 raw extractions across units U01, U02, U03, U04, U05,
+_Concept count retired 2026-08-09 — derived, not stored; run the drift pair in `000_concept_index.md`, or read `concept-register-drift-check`'s daily row (DOC-074). It said **42** and the file held **47**._ consolidated from 65 raw extractions across units U01, U02, U03, U04, U05,
 U09, U10, U12, U13, U14, U15, U17a, U18, U19, U20, U23, U24a, U24d, U25, U26.
 
 ### PLAN-001 — Plan as declarative artefact + reconciler (Kubernetes-style desired-vs-realised)

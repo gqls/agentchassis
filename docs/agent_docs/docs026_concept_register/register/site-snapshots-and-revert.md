@@ -4,7 +4,7 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
-4 concepts, consolidated from 12 raw extractions (6 unique blocks, each duplicated
+_Concept count retired 2026-08-09 — derived, not stored; run the drift pair in `000_concept_index.md`, or read `concept-register-drift-check`'s daily row (DOC-074)._ consolidated from 12 raw extractions (6 unique blocks, each duplicated
 once in the source cluster file) across units U01_docs024_numbered_core,
 U12_docs024_archives, U17a_docs019_archive_discussions_and_main,
 U19_sql_tables_components, U23_docs_root_vonc. The "dated-backup reversibility"

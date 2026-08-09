@@ -4,7 +4,7 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
-1 concept, consolidated from 1 raw extraction across unit U13.
+_Concept count retired 2026-08-09 — derived, not stored; run the drift pair in `000_concept_index.md`, or read `concept-register-drift-check`'s daily row (DOC-074)._ consolidated from 1 raw extraction across unit U13.
 
 ### GML-001 — Games quality lifecycle parity (new game_health / game-auditor / game-behavioral-tester / game-improver)
 - **status:** aspirational

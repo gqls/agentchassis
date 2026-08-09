@@ -4,7 +4,7 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
-5 concepts, consolidated from 5 raw extractions across units U01, U02, U17a,
+_Concept count retired 2026-08-09 — derived, not stored; run the drift pair in `000_concept_index.md`, or read `concept-register-drift-check`'s daily row (DOC-074)._ consolidated from 5 raw extractions across units U01, U02, U17a,
 U18, U24b. No exact duplicates within this category's raw material, though
 LQT-001 overlaps substantially with a model-infrastructure raw block ("Model
 quality assessment & per-agent model assignment", from the same underlying

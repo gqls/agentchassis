@@ -4,7 +4,7 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
-1 concept, consolidated from 1 raw extraction across unit U22. Note: despite the
+_Concept count retired 2026-08-09 — derived, not stored; run the drift pair in `000_concept_index.md`, or read `concept-register-drift-check`'s daily row (DOC-074)._ consolidated from 1 raw extraction across unit U22. Note: despite the
 name overlap with the site-building "build pipeline" concepts elsewhere in this
 cluster (register/build-pipeline.md, register/site-plan-and-reconciler.md), this
 is a different sense of "build" — it is about compiling the chassis's own Go code,

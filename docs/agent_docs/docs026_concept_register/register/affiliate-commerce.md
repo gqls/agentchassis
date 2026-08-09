@@ -6,7 +6,7 @@
 
 (absorbed affiliate-and-products — the two assigned categories describe the same real-world capability: the platform's affiliate/first-party-product commerce layer, viewed from the schema side and the resolver/gap-status side respectively. Merging them per the consolidation instructions' category-merge rule.)
 
-1 concept, consolidated from 4 raw extractions across units U19 (affiliate-and-products), U10 (affiliate-commerce). (The cluster input file contained each category's raw blocks twice, back-to-back and byte-identical — i.e. 2 raw blocks per category, 1 distinct concept per category — and the two categories' single distinct concepts describe the same commerce layer from two angles: U19 documents the schema, U10 documents the vision and the fact that the schema's resolver is unpopulated. Merged into one entry.)
+_Concept count retired 2026-08-09 — derived, not stored; run the drift pair in `000_concept_index.md`, or read `concept-register-drift-check`'s daily row (DOC-074)._ consolidated from 4 raw extractions across units U19 (affiliate-and-products), U10 (affiliate-commerce). (The cluster input file contained each category's raw blocks twice, back-to-back and byte-identical — i.e. 2 raw blocks per category, 1 distinct concept per category — and the two categories' single distinct concepts describe the same commerce layer from two angles: U19 documents the schema, U10 documents the vision and the fact that the schema's resolver is unpopulated. Merged into one entry.)
 
 ### AFFC-001 — Affiliate and first-party product commerce layer (schema built, resolver/programme gap)
 - **status:** partial

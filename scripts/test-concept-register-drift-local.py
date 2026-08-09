@@ -119,7 +119,7 @@ def main():
         total_now = sum(len(v) for v in now["findings"].values())
         print(f"[HEAD]    {sha3[:12]}: {now['entries']} entries, "
               f"{now['rows']} rows, {total_now} finding(s), "
-              f"headline_drift={now['headline_drift']}")
+              f"stored counts={len(now['findings'].get('stored_count_returned') or [])}")
 
         # 4. MUTATION — prove the comparison, not the plumbing. Delete one row
         #    from the index text and require the check to name that id. Without
@@ -140,8 +140,34 @@ def main():
             failures.append(
                 f"mutation: deleting {victim}'s row must report exactly [{victim}], "
                 f"got {mutated['findings']['entry_without_row']}")
-        if not mutated["headline_drift"]:
-            failures.append("mutation: removing a row must also trip headline_drift")
+
+        # 5. SECOND MUTATION — the retirement arm, which replaced the old
+        #    headline comparison on 2026-08-09. With stored counts gone, the old
+        #    check would simply find no headline and report nothing, which is
+        #    indistinguishable from passing. So the arm now looks for a count
+        #    that has COME BACK, and this proves it fires: re-add one.
+        texts2 = {p: check.fetch_raw(p, "HEAD") for p in files}
+        target = f"{check.REGISTER_DIR}/adapters.md"
+        texts2[target] = "**9,999 concepts** in this file.\n" + texts2[target]
+        mutated2 = check.analyse(files, texts2)
+        got = mutated2["findings"].get("stored_count_returned") or []
+        print(f"[mutation] re-added a stored count to adapters.md: "
+              f"stored_count_returned={[g[0] for g in got]}")
+        if [g[0] for g in got] != ["adapters.md"]:
+            failures.append(
+                f"mutation: a re-added stored count must be reported for exactly "
+                f"['adapters.md'], got {[g[0] for g in got]}")
+        elif got[0][1] != 9999:
+            failures.append(
+                f"mutation: the reported stated count should be 9999, got {got[0][1]}")
+
+        # 6. AND THE INVERSE, which is the whole reason the arm was inverted:
+        #    the CURRENT tree must report NO stored counts. If this passes while
+        #    (5) fails, the arm is dead rather than satisfied.
+        if now["findings"].get("stored_count_returned"):
+            failures.append(
+                f"HEAD still carries stored counts: "
+                f"{[g[0] for g in now['findings']['stored_count_returned']][:5]}")
 
         print()
         if failures:

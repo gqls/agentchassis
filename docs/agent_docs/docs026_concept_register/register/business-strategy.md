@@ -4,7 +4,7 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
-30 concepts, consolidated from 84 raw extractions across units U01, U02, U03, U04, U06, U13, U17a, U18, U19, U20, U21, U22, U24b, U24e, U24f, U25, U26. (The cluster input file contained this category's raw blocks twice, back-to-back and byte-identical, in addition to genuine cross-unit duplication — both kinds are merged below.)
+_Concept count retired 2026-08-09 — derived, not stored; run the drift pair in `000_concept_index.md`, or read `concept-register-drift-check`'s daily row (DOC-074)._ consolidated from 84 raw extractions across units U01, U02, U03, U04, U06, U13, U17a, U18, U19, U20, U21, U22, U24b, U24e, U24f, U25, U26. (The cluster input file contained this category's raw blocks twice, back-to-back and byte-identical, in addition to genuine cross-unit duplication — both kinds are merged below.)
 
 ### BIZ-001 — Platform mission: best possible site per domain via one unified pipeline
 - **status:** partial

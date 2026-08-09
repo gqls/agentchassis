@@ -4,7 +4,7 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
-6 concepts, consolidated from 6 raw extractions across units U22, U25. No
+_Concept count retired 2026-08-09 — derived, not stored; run the drift pair in `000_concept_index.md`, or read `concept-register-drift-check`'s daily row (DOC-074)._ consolidated from 6 raw extractions across units U22, U25. No
 duplicates found within this category's raw material (each raw block covered a
 distinct facet: the store, the two actions, the best-practices doctrine, the
 deferred owning-agent, and a deferred future consumer). Note for the

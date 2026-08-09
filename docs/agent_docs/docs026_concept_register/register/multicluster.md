@@ -4,7 +4,7 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
-15 concepts, consolidated from 42 raw extractions (21 unique blocks, each duplicated
+_Concept count retired 2026-08-09 — derived, not stored; run the drift pair in `000_concept_index.md`, or read `concept-register-drift-check`'s daily row (DOC-074)._ consolidated from 42 raw extractions (21 unique blocks, each duplicated
 once in the source cluster file) across units U13_docs024_small_dirs,
 U17a_docs019_archive_discussions_and_main, U21_legacy_docs_b, U22_recent_small_docs,
 U24c_docs_archive_traffic_probe. One concept (Cloudflare-in-front option) was

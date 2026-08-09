@@ -4,7 +4,7 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
-7 concepts (4 consolidated from 5 raw extractions across unit U13, one exact
+_Concept count retired 2026-08-09 — derived, not stored; run the drift pair in `000_concept_index.md`, or read `concept-register-drift-check`'s daily row (DOC-074)._ (4 consolidated from 5 raw extractions across unit U13, one exact
 duplicate pair collapsed; LCO-005/006/007 added post-freeze).
 
 ### LCO-001 — Temperature/max_tokens logging gap in llm_call_log

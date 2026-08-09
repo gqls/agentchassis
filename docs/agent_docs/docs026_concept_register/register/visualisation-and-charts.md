@@ -5,7 +5,7 @@
 > Everything else dates from the 2026-07-13 extraction freeze — absence
 > here is not evidence of absence in the platform. See `bugs_open/106`.
 
-11 concepts. **NOT from the 2026-07-13 extraction.** Two of these components
+_Concept count retired 2026-08-09 — derived, not stored; run the drift pair in `000_concept_index.md`, or read `concept-register-drift-check`'s daily row (DOC-074). It said **11** and the file held **14**._ **NOT from the 2026-07-13 extraction.** Two of these components
 shipped after the freeze and one shipped the day this entry was written, so none
 was ever in the register.
 

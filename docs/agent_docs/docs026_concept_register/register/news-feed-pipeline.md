@@ -4,7 +4,7 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
-19 concepts, consolidated from 44 raw extractions (22 unique blocks, each duplicated
+_Concept count retired 2026-08-09 — derived, not stored; run the drift pair in `000_concept_index.md`, or read `concept-register-drift-check`'s daily row (DOC-074)._ consolidated from 44 raw extractions (22 unique blocks, each duplicated
 once in the source cluster file) across units U01, U02, U10, U12, U13, U17a, U18,
 U19, U21, U23.
 

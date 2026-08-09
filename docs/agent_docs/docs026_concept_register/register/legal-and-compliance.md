@@ -6,7 +6,7 @@
 
 (absorbed legal-liability — the two assigned categories describe the same real-world concept: idea.uk's liability posture and the live legal pages it produced. Merging them per the consolidation instructions' category-merge rule.)
 
-1 concept, consolidated from 4 raw extractions across units U04 (legal-liability), U24e (legal-and-compliance). (The cluster input file contained each category's raw blocks twice, back-to-back and byte-identical — i.e. 2 raw blocks per category, 1 distinct concept per category — and the two categories' single distinct concepts describe the same underlying liability work from two angles: U04 gives the fuller risk-analysis/T&Cs framework, U24e gives the shipped-pages angle. Merged into one entry.)
+_Concept count retired 2026-08-09 — derived, not stored; run the drift pair in `000_concept_index.md`, or read `concept-register-drift-check`'s daily row (DOC-074)._ consolidated from 4 raw extractions across units U04 (legal-liability), U24e (legal-and-compliance). (The cluster input file contained each category's raw blocks twice, back-to-back and byte-identical — i.e. 2 raw blocks per category, 1 distinct concept per category — and the two categories' single distinct concepts describe the same underlying liability work from two angles: U04 gives the fuller risk-analysis/T&Cs framework, U24e gives the shipped-pages angle. Merged into one entry.)
 
 ### LGL-001 — Liability framework and live legal pages (risk-tiered mitigations, disclaimers, PII, T&Cs, terms/refund/privacy)
 - **status:** partial

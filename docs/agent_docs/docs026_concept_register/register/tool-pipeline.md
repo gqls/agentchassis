@@ -4,7 +4,7 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
-7 concepts, consolidated from 9 raw extractions across units U01, U02, U08, U10, U14, U15, U17a, U18.
+_Concept count retired 2026-08-09 — derived, not stored; run the drift pair in `000_concept_index.md`, or read `concept-register-drift-check`'s daily row (DOC-074)._ consolidated from 9 raw extractions across units U01, U02, U08, U10, U14, U15, U17a, U18.
 
 ### TP-001 — Tool pipeline end-to-end (suggest → route → generate/fork → cross-link → rewrite → improve → audit)
 - **status:** deployed

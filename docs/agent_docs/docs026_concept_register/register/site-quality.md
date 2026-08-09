@@ -4,7 +4,7 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
-2 concepts, consolidated from 4 raw extractions (2 unique blocks, each doubled by
+_Concept count retired 2026-08-09 — derived, not stored; run the drift pair in `000_concept_index.md`, or read `concept-register-drift-check`'s daily row (DOC-074)._ consolidated from 4 raw extractions (2 unique blocks, each doubled by
 an input-file duplication artifact) across unit U14.
 
 ### SQ-001 — Site Quality Programme — the three-way split and seven legs

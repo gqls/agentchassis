@@ -4,7 +4,7 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
-1 concept, consolidated from 2 raw extractions across unit U21. (The cluster input file contained this category's raw block twice, back-to-back and byte-identical; merged into one entry below.)
+_Concept count retired 2026-08-09 — derived, not stored; run the drift pair in `000_concept_index.md`, or read `concept-register-drift-check`'s daily row (DOC-074). It said **1** and the file held **2**._ consolidated from 2 raw extractions across unit U21. (The cluster input file contained this category's raw block twice, back-to-back and byte-identical; merged into one entry below.)
 
 ### SEO-001 — SEO content agent
 - **status:** aspirational

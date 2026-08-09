@@ -4,7 +4,7 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
-13 concepts (11 consolidated from 11 raw extractions across unit U07, + CLC-012 and CLC-013 added later — see their entries for dates). No duplicates found within this category — it arrived as a single tightly-scoped, already well-differentiated F1–F8 investigation saga (the vonc/spark shared-component clobber incident and its remediation), so all 11 raw blocks are carried through as distinct entries with only light formatting changes.
+_Concept count retired 2026-08-09 — derived, not stored; run the drift pair in `000_concept_index.md`, or read `concept-register-drift-check`'s daily row (DOC-074)._ (11 consolidated from 11 raw extractions across unit U07, + CLC-012 and CLC-013 added later — see their entries for dates). No duplicates found within this category — it arrived as a single tightly-scoped, already well-differentiated F1–F8 investigation saga (the vonc/spark shared-component clobber incident and its remediation), so all 11 raw blocks are carried through as distinct entries with only light formatting changes.
 
 ### CLC-001 — Shared content-component reuse model (one content_components row, N page_components instances)
 - **status:** deployed

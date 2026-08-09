@@ -4,7 +4,7 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
-6 concepts, consolidated from 12 raw extractions across unit U24f (each of the 6 distinct
+_Concept count retired 2026-08-09 — derived, not stored; run the drift pair in `000_concept_index.md`, or read `concept-register-drift-check`'s daily row (DOC-074)._ consolidated from 12 raw extractions across unit U24f (each of the 6 distinct
 blocks appeared byte-identically twice within the cluster input file — treated as duplicate
 copies of one extraction, not independent corroboration). All sourced from an archived
 earlier-draft working file predating the live docs019 "six contracts" design (see the

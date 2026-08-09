@@ -4,7 +4,7 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
-1 concept, consolidated from 1 raw extraction across unit U25.
+_Concept count retired 2026-08-09 — derived, not stored; run the drift pair in `000_concept_index.md`, or read `concept-register-drift-check`'s daily row (DOC-074)._ consolidated from 1 raw extraction across unit U25.
 
 > Note on source duplication: this block appeared twice, byte-identical, in the cluster input file (the same mechanical whole-file duplication documented in register/imagery.md's header) — collapsed to one raw extraction before consolidation.
 

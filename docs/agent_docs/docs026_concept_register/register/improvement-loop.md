@@ -4,7 +4,7 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
-50 concepts, consolidated from 62 raw extractions across units U01, U02, U03, U05, U07, U09, U10, U11, U12, U17a, U18, U19, U21, U22, U24a, U24b, U24d, U25.
+_Concept count retired 2026-08-09 — derived, not stored; run the drift pair in `000_concept_index.md`, or read `concept-register-drift-check`'s daily row (DOC-074). It said **50** and the file held **52**._ consolidated from 62 raw extractions across units U01, U02, U03, U05, U07, U09, U10, U11, U12, U17a, U18, U19, U21, U22, U24a, U24b, U24d, U25.
 
 ### IMP-001 — QA three-layer architecture + concrete audit agent hierarchy
 - **status:** deployed

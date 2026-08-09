@@ -4,7 +4,7 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
-13 concepts, consolidated from 26 raw extractions (13 unique blocks, each
+_Concept count retired 2026-08-09 — derived, not stored; run the drift pair in `000_concept_index.md`, or read `concept-register-drift-check`'s daily row (DOC-074)._ consolidated from 26 raw extractions (13 unique blocks, each
 appearing twice due to exact whole-block duplication in the cluster input file)
 across unit U25. No conceptual merges were needed within this category — each
 block covers a genuinely distinct design facet of the Spark/Forge product

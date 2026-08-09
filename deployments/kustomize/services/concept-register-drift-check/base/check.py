@@ -74,8 +74,29 @@ INDEX_NAME = "000_concept_index.md"
 ENTRY_RE = re.compile(r"^### ([A-Z]{2,4}-[0-9]{3})\b(.*)$", re.M)
 # `| ABC-001 | name | status | summary | file.md |` — the index table row.
 ROW_RE = re.compile(r"^\| ([A-Z]{2,4}-[0-9]{3}) \|(.*)$", re.M)
-# The bolded headline figure in the index header, e.g. `**1,756 index table rows**`.
+# STORED COUNTS WERE RETIRED ON 2026-08-09 (owner ruling), so check 4 inverted:
+# it used to compare a hand-maintained headline against the real row count, and it
+# now reports any stored count that has come BACK. The count is derived, never
+# written down — see the index header for why.
+#
+# The retirement is the fix; this is what stops it un-happening. A hand-maintained
+# figure was published wrong twice in four days by careful sessions, because four
+# near-identical commands count this file and all four answers are individually
+# correct (1,792 / 1,799 / 1,792 / 1,800 on 2026-08-08). The per-category files
+# were worse and unwatched: 109 carried a count, 32 were already wrong, 90
+# concepts of drift in total.
+#
+# Note what would have happened WITHOUT this inversion: with no headline in the
+# file, the old regex simply would not match, `headline` would be None, and the
+# check would report nothing — indistinguishable from a passing check. A retired
+# rule and a silently dead one look identical from the outside, which is the
+# failure this whole mechanism exists to make impossible.
 HEADLINE_RE = re.compile(r"\*\*([\d,]+) index table rows\*\*")
+# A stored count at the top of a category file: `18 concepts.`, `**5 concepts**`,
+# `1 concept, consolidated from …`. Anchored to the file head so an entry BODY
+# that happens to say "three concepts" is not a finding.
+STORED_COUNT_RE = re.compile(r"^\s*(?:\*\*)?([\d,]+)(?:\*\*)?\s+concepts?\b", re.M)
+STORED_COUNT_HEAD_BYTES = 4000
 
 GITHUB_TOKEN = ""
 
@@ -175,10 +196,32 @@ def analyse(files, texts):
         "duplicate_row": sorted(c for c, v in rows.items() if len(v) > 1),
     }
 
+    # Head-bounded, and that bound is load-bearing rather than an optimisation:
+    # the index's FROZEN MEASUREMENT LOG at the foot of the file quotes the old
+    # headlines verbatim ("**1,795 index table rows** — re-measured …"), because
+    # the record of the retired practice is the evidence for retiring it. A
+    # whole-file search would read that history as a live count and report a
+    # finding on every run, for ever — a watcher crying wolf about its own
+    # archive. Same window as the per-file rule below, for the same reason.
     headline = None
-    m = HEADLINE_RE.search(texts[index_path])
+    m = HEADLINE_RE.search(texts[index_path][:STORED_COUNT_HEAD_BYTES])
     if m:
         headline = int(m.group(1).replace(",", ""))
+
+    # Stored counts have been retired: any that reappears is the finding.
+    restored = []
+    if headline is not None:
+        restored.append((INDEX_NAME, headline, len(row_ids)))
+    for path in files:
+        base = os.path.basename(path)
+        if base == INDEX_NAME:
+            continue
+        sm = STORED_COUNT_RE.search(texts[path][:STORED_COUNT_HEAD_BYTES])
+        if sm:
+            stated = int(sm.group(1).replace(",", ""))
+            actual = len({c for c, _ in ENTRY_RE.findall(texts[path])})
+            restored.append((base, stated, actual))
+    findings["stored_count_returned"] = sorted(restored)
 
     return {
         "files": len(files),
@@ -202,24 +245,25 @@ def render_report(res, ref, sha):
         "",
     ]
 
-    if total == 0 and not res["headline_drift"]:
+    if total == 0:
         lines.append(
             "**Clean.** Every entry has an index row, every row has an entry, no id "
-            "is used twice, and the index headline matches the row count."
+            "is used twice, and no file has re-grown a stored concept count."
         )
         lines.append("")
         lines.append(
             "This is the state to hold: the register is what a session searches to "
             "find out whether a mechanism already exists, and an entry with no index "
-            "row reads as *does not exist*."
+            "row reads as *does not exist*. The counts above are this run's answer — "
+            "they are derived here and stored nowhere, which is the point."
         )
         return "\n".join(lines)
 
     lines.append(
-        f"**{total} drift finding(s)**"
-        + (" plus a headline mismatch." if res["headline_drift"] else ".")
-        + " Nothing here is a claim that an entry is WRONG — this check only asks "
-        "whether the register's two halves describe the same set of concepts."
+        f"**{total} finding(s).**"
+        " Nothing here is a claim that an entry is WRONG — this check only asks "
+        "whether the register's two halves describe the same set of concepts, and "
+        "whether a retired stored count has come back."
     )
     lines.append("")
 
@@ -267,14 +311,19 @@ def render_report(res, ref, sha):
             lines.append(f"- `{cid}`")
         lines.append("")
 
-    if res["headline_drift"]:
-        lines.append("### Index headline disagrees with the index itself")
+    sc = res["findings"].get("stored_count_returned") or []
+    if sc:
+        lines.append(f"### {len(sc)} stored concept count(s) have come back")
         lines.append(
-            f"The header says **{res['headline']:,} index table rows**; there are "
-            f"**{res['rows']:,}**. The headline is what threads quote when they do "
-            "not re-measure, so it goes stale outward — into commit messages and "
-            "handoffs — long after the file itself is fixed."
+            "Stored counts were **retired on 2026-08-09** (owner ruling): the count "
+            "is derived, never written down. A figure written into a file starts "
+            "going stale the moment the next thread adds an entry, and it is quoted "
+            "outward — into commit messages and handoffs — long after the file "
+            "itself is fixed. Delete it and let this row be the answer."
         )
+        for base, stated, actual in sc:
+            verdict = "already wrong" if stated != actual else "correct today"
+            lines.append(f"- `{base}` states **{stated:,}**, actual **{actual:,}** — {verdict}")
         lines.append("")
 
     lines.append(

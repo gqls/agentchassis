@@ -4,7 +4,7 @@
 > Everything else dates from the 2026-07-13 extraction freeze — absence
 > here is not evidence of absence in the platform. See `bugs_open/106`.
 
-18 concepts (CLM-001..018). **NOT from the 2026-07-13 extraction** — this whole subsystem shipped
+_Concept count retired 2026-08-09 — derived, not stored; run the drift pair in `000_concept_index.md`, or read `concept-register-drift-check`'s daily row (DOC-074). It said **18** and the file held **20**._ (CLM-001..018). **NOT from the 2026-07-13 extraction** — this whole subsystem shipped
 after extraction froze (its first plan is dated 2026-07-16), so none of it was
 ever in the register. Added 2026-07-27 from the oufe.com workstream, grounded in
 live code and DB reads made that day; every citation below was read first-hand,

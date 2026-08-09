@@ -4,7 +4,7 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
-2 concepts, consolidated from 4 raw extractions (2 unique blocks, each doubled by
+_Concept count retired 2026-08-09 — derived, not stored; run the drift pair in `000_concept_index.md`, or read `concept-register-drift-check`'s daily row (DOC-074). It said **2** and the file held **3**._ consolidated from 4 raw extractions (2 unique blocks, each doubled by
 an input-file duplication artifact) across unit U13.
 
 ### SQAM-001 — Three-way split quality-gap diagnostic method (stuck / poor / out-of-scope)

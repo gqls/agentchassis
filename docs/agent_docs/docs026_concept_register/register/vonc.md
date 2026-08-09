@@ -4,7 +4,7 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
-12 concepts (VONC-012 added 2026-08-05; VONC-011 added 2026-07-31 — both post-freeze). Ten were consolidated from 22 raw extractions (11 unique blocks, each
+_Concept count retired 2026-08-09 — derived, not stored; run the drift pair in `000_concept_index.md`, or read `concept-register-drift-check`'s daily row (DOC-074)._ (VONC-012 added 2026-08-05; VONC-011 added 2026-07-31 — both post-freeze). Ten were consolidated from 22 raw extractions (11 unique blocks, each
 appearing twice due to exact whole-block duplication in the cluster input file)
 across units U23, U25. VONC-011 was added post-freeze on 2026-07-31.
 

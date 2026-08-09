@@ -4,7 +4,7 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
-41 concepts, consolidated from 65 raw extractions across units U01, U02, U04,
+_Concept count retired 2026-08-09 — derived, not stored; run the drift pair in `000_concept_index.md`, or read `concept-register-drift-check`'s daily row (DOC-074). It said **41** and the file held **42**._ consolidated from 65 raw extractions across units U01, U02, U04,
 U06, U12, U17a, U18, U19, U22, U24a, U24b. Heavy duplication as expected: U06
 (the live docs024/finetuning tree) and U24b (its archived predecessor) cover
 almost identical ground, and the top-level "flywheel programme" framing was

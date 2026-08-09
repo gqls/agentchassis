@@ -4,7 +4,7 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
-41 concepts, consolidated from 130 raw extractions across units U03, U05, U06, U08,
+_Concept count retired 2026-08-09 — derived, not stored; run the drift pair in `000_concept_index.md`, or read `concept-register-drift-check`'s daily row (DOC-074)._ consolidated from 130 raw extractions across units U03, U05, U06, U08,
 U09, U12, U13, U14, U15, U16, U17b, U18, U19, U23, U24c, U24f, U25.
 
 ### DIAG-001 — Read-only, cite-or-abstain diagnosis loop (core concept)

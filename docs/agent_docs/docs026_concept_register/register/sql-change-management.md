@@ -4,7 +4,7 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
-1 concept, consolidated from 1 raw extraction across units U03.
+_Concept count retired 2026-08-09 — derived, not stored; run the drift pair in `000_concept_index.md`, or read `concept-register-drift-check`'s daily row (DOC-074)._ consolidated from 1 raw extraction across units U03.
 
 ### SQLC-001 — SQL needle-gate surgery pattern (guarded, idempotent, reversible DB edits)
 - **status:** convention

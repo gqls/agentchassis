@@ -4,7 +4,7 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
-21 concepts, consolidated from 58 raw extractions (29 unique blocks, each duplicated
+_Concept count retired 2026-08-09 — derived, not stored; run the drift pair in `000_concept_index.md`, or read `concept-register-drift-check`'s daily row (DOC-074)._ consolidated from 58 raw extractions (29 unique blocks, each duplicated
 once in the source cluster file) across units U05, U11, U18, U24c.
 
 ### TRF-001 — Traffic-probe mission/program (residual-traffic intent capture on parked domains)

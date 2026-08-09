@@ -4,7 +4,7 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
-14 concepts (13 consolidated from 18 raw extractions across units U01, U02, U09;
+_Concept count retired 2026-08-09 — derived, not stored; run the drift pair in `000_concept_index.md`, or read `concept-register-drift-check`'s daily row (DOC-074). It said **14** and the file held **15**._ (13 consolidated from 18 raw extractions across units U01, U02, U09;
 WDS-014 added 2026-07-31, post-freeze, from `bugs_open/154`).
 Absorbed categories: new:dispatch-pipeline, new:work-item-system (their raw material
 was largely re-derivations of the same dispatch-chain/state-machine/two-strike facts

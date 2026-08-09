@@ -4,7 +4,7 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
-31 concepts (CGV-031 added 2026-08-08; CGV-029 2026-08-02), consolidated from 68 raw extractions (34 unique blocks, each duplicated
+_Concept count retired 2026-08-09 — derived, not stored; run the drift pair in `000_concept_index.md`, or read `concept-register-drift-check`'s daily row (DOC-074)._ (CGV-031 added 2026-08-08; CGV-029 2026-08-02), consolidated from 68 raw extractions (34 unique blocks, each duplicated
 once in the source cluster file) across units U01, U02, U04, U07, U09, U14, U17a,
 U17b, U18, U19, U20, U21, U22, U24a, U24c, U25.
 

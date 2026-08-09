@@ -4,7 +4,7 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
-3 concepts, consolidated from 6 raw extractions across units U05, U06, U09, U24d,
+_Concept count retired 2026-08-09 — derived, not stored; run the drift pair in `000_concept_index.md`, or read `concept-register-drift-check`'s daily row (DOC-074)._ consolidated from 6 raw extractions across units U05, U06, U09, U24d,
 U24f. This category was thinly seeded at extraction time (only 1 raw block was
 natively tagged NEW:context-pack-tooling); the other raw blocks were reassigned
 here from the diagnosis-loop bucket as the closer-fitting home, since they

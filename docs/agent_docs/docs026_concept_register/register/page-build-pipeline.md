@@ -18,7 +18,7 @@
 > because ruling 2026-07-29 §3 requires a shared mechanism's consumers to be told, not
 > merely measured — object in RFC 003 if this is wrong for your pipeline.
 
-29 concepts: 24 consolidated from 29 raw extractions across units U03, U05, U23 at the freeze, plus post-freeze additions PBP-025..029 (counted 2026-08-04 by `grep -c '^### PBP-'`).
+_Concept count retired 2026-08-09 — derived, not stored; run the drift pair in `000_concept_index.md`, or read `concept-register-drift-check`'s daily row (DOC-074). It said **29** and the file held **38**._ : 24 consolidated from 29 raw extractions across units U03, U05, U23 at the freeze, plus post-freeze additions PBP-025..029 (counted 2026-08-04 by `grep -c '^### PBP-'`).
 
 ### PBP-001 — Rebuild vs rerender semantics and stale-render fossilisation
 - **status:** deployed

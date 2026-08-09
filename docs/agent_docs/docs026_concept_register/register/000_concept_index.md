@@ -1,169 +1,53 @@
 # Concept Index — master register
 
-**1,795 index table rows** — re-measured 2026-08-08 (~20:05 UTC) at commit time
-by the **WII-012** lane (actionable-page identity honoured end-to-end,
-`bugs_open/220` — row, entry and code in ONE commit, per the platform-seams
-ruling), with the documented headline command. WII-012 confirmed unclaimed by
-grep before landing; the command returned 1,792 immediately before my row and
-**1,795 now** — the other two are **FTW-042 and SQAM-003, which landed in the
-working tree from concurrent lanes between my edit and my commit** (their own
-narrations sit below and each accounts for the other; neither had seen my row).
-First draft of this paragraph said 1,793 and "nothing arrived concurrently" —
-true when typed, false by commit time, corrected here rather than left to the
-watcher. Previously **1,792** — re-measured 2026-08-08 (18:35 UTC) after adding
-the missing `SCH-024` row, and the pair is clean: **1,792 rows, 1,792 unique
-entry ids, 0 orphans either way.**
+> **THERE IS NO CONCEPT COUNT IN THIS HEADER ANY MORE. Do not re-add one.**
+> Retired 2026-08-09 at the owner's direction. The number is **derived, not
+> stored**: run the command below, or read the watcher's row.
 
-> **CORRECTED 2026-08-08, and the watcher found both halves of it.**
-> `concept-register-drift-check` (DOC-074) has reported a headline mismatch on
-> **three consecutive daily runs** (08-07, 08-08, and the manual run at 18:35):
-> the header claimed **1,791** then **1,796** while the documented command
-> returned **1,784** then **1,792**. Measured this minute, all four counts, so the
-> next thread can see why they disagree:
->
-> | command | count | what it counts |
-> |---|---|---|
-> | `grep -cE '^\| [A-Z]{2,4}-[0-9]{3} \|'` | **1,792** | **the headline. Only this one.** |
-> | `grep -c '^\| [A-Z][A-Z]*-[0-9]'` | 1,799 | loose — over-counts by 7 |
-> | unique `### ID` entry ids | 1,792 | the other half of the drift pair |
-> | raw `### ` headings | 1,800 | includes non-concept headings |
->
-> **The loose grep is quoted inside this very chain** (the RSH-007 line below
-> names it), which is how its number keeps arriving in the headline. It has now
-> done so twice in four days, by two different careful sessions. The lesson is not
-> "be careful": it is that **a hand-maintained count sitting beside three other
-> counts of the same file will drift, and no convention fixes that.**
->
-> The second half is worse and is the reason the watcher exists: **`SCH-024` had
-> an entry and no index row** — filed 2026-08-08 by the `bugs_open/205` lane
-> (`b6e70cd70`), four days after 34 such rows were backfilled. Row added here in
-> the same pass. The class recurs; it is not a one-off that was cleared.
+**Why a stored count could not be kept honest.** A hand-maintained figure sat at
+the top of this file for a month, with a documented command beside it and a
+convention that every thread re-measure after adding a row. Threads did. It still
+went wrong repeatedly, because **four different commands count this file and they
+all return different, individually-correct answers** — the documented row regex,
+a looser row regex quoted inside this header's own history, the unique-entry-id
+count, and the raw `###` heading count. Measured together on 2026-08-08 they gave
+1,792 / 1,799 / 1,792 / 1,800. Twice in four days a careful session took the
+number from the wrong line of this header and published it. That is not
+carelessness; it is what a stored figure beside three near-identical rivals will
+always produce.
 
-Re-grepped 2026-08-09 after **CQ-021** (`ScanDeployedClaims`, the claims audit shared by the discovery check and the review-queue revalidator; row, entry and code in ONE commit, per the platform-seams ruling), with the documented headline command `grep -cE '^\| [A-Z]{2,4}-[0-9]{3} \|'`: **1,801 rows, 1,801 unique row ids, 1,801 unique `### ID` entry ids** — a clean triple, so no duplicate and no orphan. CQ-021 added ONE and the count was 1,800 immediately before, which is ONE above the 1,799 recorded next, so a single concurrent lane landed a row in that window. Previously **1,799** — re-grepped 2026-08-08 (night) after **RSH-009** (`ExecutionContext.ResolvedAgentType`, the RFC_012 lane §1a — row, entry and code in ONE commit, per the platform-seams ruling), with the documented headline command `grep -cE '^\| [A-Z]{2,4}-[0-9]{3} \|'`: **1,799 rows, 1,799 unique `### ID` entry ids, 0 duplicate row ids.** RSH-009 added ONE and the count was 1,798 immediately before — three above the 1,795 recorded next, so THREE arrived from concurrent lanes between that measurement and this one, in a window of under three hours. That is the largest concurrent drift this chain has recorded, and it is the whole argument for re-grepping rather than carrying the number. Previously **1,795** — re-grepped 2026-08-08 (evening) after **FTW-042** (Thunder orphan scan, row + entry + code in ONE commit, per the platform-seams ruling), with the documented headline command `grep -cE '^\| [A-Z]{2,4}-[0-9]{3} \|'`: **1,795 rows, and the SQAM-003 link below also says 1,795 — that is NOT a discrepancy: my row was already in the working tree when that session re-measured**, so its count includes FTW-042 (the count without it was 1,794). Same-pass checks: 0 duplicate row ids, 0 duplicate `### ID` entry ids, FTW-042 present as both row and entry. Two lanes editing this header minutes apart is exactly the concurrent-arrival case the chain narrates — when your own row predates the neighbour's measurement, say so rather than inventing an arrival. Previously **1,795** — re-grepped 2026-08-08 after **SQAM-003** (independent-oracle arithmetic validation, `bugs_open/224`/`225` — row and entry in ONE commit), with the documented headline command `grep -cE '^\| [A-Z]{2,4}-[0-9]{3} \|'`. Clean pair: **1,795 rows, 1,795 unique `### ID` entry ids** across the register, so no duplicate and no orphan. **I first wrote 1,800/1,801 here from the LOOSE regex** — the one this header's own table marks as over-counting by 7 — and it read as four concurrent arrivals that had not happened. That is the drift this section exists to stop, walked into by the session adding a row to it: the loose count is the one that falls out of `grep -c` without thinking, so **state the command with the number and use the one the table nominates**. Previously **1,796** — re-grepped 2026-08-08 after **PBP-038** (deploy-stamp refusal + park, `bugs_open/210` — row, entry and code in ONE commit, per the platform-seams ruling). PBP-038 added ONE and the count was 1,795 immediately before, so nothing arrived concurrently in that window; uniqueness checked in the same pass (1,796 rows, 1,796 unique ids). The RSH-008 row that was uncommitted in this file when PBP-038's edit was drafted landed from its own lane (`f993554f6`) minutes before this commit, so no passenger travels here — re-checked at commit time, which is the practice this header narrates. Previously **1,795** — re-grepped 2026-08-08 after **CQ-020** (`ScanVoiceTells`, the voice audit shared by the discovery check and the review-queue revalidator; row, entry and code in ONE commit, per the platform-seams ruling). CQ-020 added ONE and the count was 1,794 immediately before, so nothing arrived concurrently in that window. Uniqueness checked in the same pass (1,795 rows, 1,795 unique ids). Previously **1,794** — re-grepped 2026-08-08 after **WII-011** (the RFC_017 fail-closed flip; row, entry and code in ONE commit, per the platform-seams ruling). WII-011 confirmed unclaimed by grep before landing, and it added ONE: the count was **1,793** immediately before, one row above the 1,792 recorded below, so a concurrent lane landed one in that window — which is exactly why you re-grep and never carry this number. Uniqueness checked in the same pass (1,794 rows, 1,794 unique ids). Previously **1,792** — re-grepped 2026-08-08 after **IMP-052** (chrome render-inputs fingerprint, `bugs_open/117` — row, entry and code in ONE commit; IMP-052 confirmed unclaimed by grep before landing). Previously **1,791** — re-grepped 2026-08-07 after **RSH-008 + WFA-011** (the RFC_012 lane, rows and entries in one commit); the pair added TWO and one more arrived from a concurrent lane since the 1,788 below, and the uniqueness check EARNED ITS PLACE — my WFA-007 collided with a live relay-gaps entry and was renumbered to WFA-011 before landing. Previously 1,788 — re-grepped 2026-08-06 after **VIZ-014** (legible-ink companions, row and entry in one commit); VIZ-014 added ONE and the count was 1,787 immediately before, so nothing arrived concurrently in that window. Previously 1,787 — re-grepped 2026-08-06 after **RSH-007** (`RetryDisposition` sender convergence, row and entry in one commit) with `grep -c "^| [A-Z][A-Z]*-[0-9]" 000_concept_index.md`; RSH-007 added ONE and two more arrived from concurrent lanes since the 1,784 below. Previously 1,784 — re-grepped 2026-08-06 after **DOC-075** (`prove-live-markers`, row and entry in one commit), and the pair was clean: 1,784 rows, **1,784 unique entry ids**, no duplicate and no orphan. Before that 1,783 — re-grepped 2026-08-06 after PBP-035; PBP-035 added ONE and one more arrived from a concurrent lane between this recount and the 1,781 above it, which is why you re-grep and never carry this number — 1,758 measured clean 2026-08-04 after DOC-074
-(`concept-register-drift-check`) landed, **+1 for LNK-030** (`ChromeLinkPolicy`,
-added the same day with its entry and its row in one commit, per the
-platform-seams ruling), **+1 for PBP-032** (the `content_data`
-transport-envelope guard, `bugs_open/190`, row and entry added together — but
-see the correction below: the code shipped one commit EARLIER, which the
-platform-seams ruling says it should not have), **and +1 for PBP-033** (the
-duplicate-section collapse, `bugs_open/156`, row and entry added together — and
-one commit late for the *same* reason as PBP-032, by a different lane, hours
-apart on the same day; both are logged in `WRONG_CALLS.md` and the pair is the
-argument for making condition (2) a pattern-check rather than a thing to
-remember), **and +1 for IMP-051** (`asset_reference_404`, `bugs_open/084` — row,
-entry and code in ONE commit, which is what the two above wish they had done).
-**and +1 for LNK-031** (fragment resolution / `dead_fragment_link`,
-`bugs_open/071` — row, entry and code in ONE commit, following IMP-051).
-**The drift pair was clean at 1,759 rows and 1,759 unique entry ids,
-0 rows without an entry and 0 entries without a row; re-run it after this commit
-rather than inheriting that pass.**
+Worse, the per-category files had the same disease and nobody was watching it at
+all: **all 109 carried a stated count, and 32 of them (29%) were wrong**, summing
+to 90 concepts of drift. Those are retired too — same reason, same date.
 
-> **HEADLINE-vs-GREP DISCREPANCY, recorded rather than papered over (2026-08-06,
-> LNK-031's commit).** `grep -cE '^\| [A-Z]{2,4}-[0-9]{3} \|' 000_concept_index.md`
-> returns **1,775 including LNK-031's row**, i.e. 1,774 before it — seven short of
-> the 1,781 headline written earlier the same day. One of the two counting methods
-> is wrong and I did not determine which, so I have added my +1 to the headline in
-> the established style and left the headline number itself alone rather than
-> overwriting a figure produced by a method I could not reproduce. Whoever next
-> recounts: state the COMMAND with the number. A bare count nobody can re-run is
-> the reason this paragraph keeps needing corrections — and the standing landmine
-> on this file is that a row count cannot detect a MISSING row at all, so neither
-> figure is evidence of completeness.
+**Where the count lives now.** `concept-register-drift-check` (DOC-074) reads
+this directory daily and writes its verdict to `doc_notes`. It reports the entry
+count, the row count, and any concept that has one but not the other:
 
-> **NOTE on that +1, 2026-08-04:** the local drift harness reads at **`HEAD`**,
-> not the working tree, so it cannot see an entry until it is committed and
-> **cannot be used to check your own uncommitted addition** — it will report the
-> pre-change state as clean and that pass says nothing about your edit. Bump this
-> headline in the same commit as the entry and the row, then re-run it after
-> committing to confirm.
+```sql
+SELECT created_at, body FROM doc_notes
+ WHERE subject_key = 'concept-register-drift'
+ ORDER BY created_at DESC LIMIT 1;
+```
 
-> **CORRECTED 2026-08-04, and this is what earned the watcher below.** The
-> paragraph that stood here said **1,764**, and its drift-pair claim was sound —
-> the pair genuinely was clean when it was run. The figure was not: it came from
-> the LOOSER `grep -c '^| [A-Z]*-[0-9]'` further down this file, not from the
-> documented headline command. **Three different numbers live in this header and
-> they are all correct answers to different questions** — measured the same
-> minute: documented row regex **1,758**, loose row regex **1,765**, raw `###`
-> heading count **1,766**. The loose regex over-counts (it matches prose lines
-> and ids of other shapes); the heading count includes non-concept headings. Only
-> the first is "index table rows". Nothing was wrong with the register itself —
-> this was a number picked up from the wrong line of its own header, by a careful
-> session, within seven hours of the last correction. That is precisely why the
-> fourth check in `concept-register-drift-check` compares this headline against
-> the actual count on a clock: **it caught this one on its first run.**
+It reports and never repairs — a missing row needs a summary written by someone
+who understands the concept. **It watches the PUSHED branch**, so it cannot see
+an entry you have not pushed; run the pair yourself when you edit the register.
 
-A
-same-day collision was caught here too: `PBP-021` was already
-`load_page_record lookup semantics`, so this entry took `PBP-030` — **grep the
-category file for the id you are about to claim; the highest `### ` heading in
-the file is not the highest id in the series.** Previously: **1,756 index table
-rows** across **109** category register files, re-measured
-2026-08-04 after a BACKFILL: 34 concepts had a register entry and no index row,
-and now have one. The index and the category files agree exactly for the first
-time in the series — 1,756 unique ids each way, **0 entries without a row and 0
-rows without an entry** (both `comm` lists empty; commands below). Before the
-backfill the headline was 1,722 and the entries numbered 1,756, so the master
-index — the file sessions and council seats consult to find out whether
-something exists — was silently 2% short. The missing ones were not obscure:
-`CLM-001`…`012` (the whole first half of the claims-verification layer),
-`IMG-067`, `LNK-029`, `DBI-025`, `PLAN-043`…`046`, `PUB-002`…`004`, `WII-009`.
-**Re-run the drift pair below, not just the row count** — the row count alone
-cannot see this failure, which is why it went unnoticed through ~20 recorded
-re-measurements.
-Previously: 1,722 re-measured
-2026-08-04 with the command below after ADP-018 (`check_silent_reply_drop`,
-bugs_open/158) landed; the count moved 1,721 → 1,722, exactly this row, and the
-1,721 baseline matched the headline — no concurrent arrival either side of it.
-Previously: 1,721 re-measured
-2026-08-04 after WFA-009 (`extract_fields` opt-in
-`required`, bugs_open/192) landed; the count moved 1,720 → 1,721, exactly that
-row, no concurrent arrival that time either. The entry before it, WFA-008
-(per-substep `continue_on_error`, bugs_open/173), moved 1,719 → 1,720. Note the
-baseline: the headline said **1,718** and the grep said **1,719** before that
-row was added, so one row from another thread had landed unrecorded — which is
-this line's own
-point, and the reason to re-run rather than trust it. Previously: 1,718
-re-measured 2026-08-04 after PBP-029 (lifecycle predicate +
-link-surface lockstep, bugs_open/098 debts 3+4) landed; the count moved
-1,717 → 1,718, exactly that row. Previously: 1,717 measured 2026-08-04 after
-PLAN-047 (`page_canonical_collision` discovery check, bugs_open/080) landed;
-the count moved 1,716 → 1,717, exactly that row — and the 1,716 baseline was
-itself taken between that thread's read and write (CGV-030 landed
-concurrently, header updated under it mid-edit), which is this
-line's own warning in action. Re-run rather than trust this number, per every
-line below it. Previously: 1,716 measured 2026-08-04 after CGV-030
-(`component-render-check`) landed; the count moved 1,715 → 1,716, exactly that
-row, no concurrent arrival that time.
-Previously: 1,715 measured 2026-08-03 after CQ-019 (`literal_markdown` discovery
-check, bugs_open/184) landed; the count moved 1,714 → 1,715, exactly that
-row, no concurrent arrival that time. Previously: 1,713 measured 2026-08-03 with the
-command below after DOC-073 (`pick-pod-marker`) landed; the
-count moved 1,711 → 1,713, i.e. one row besides mine arrived concurrently —
-re-run rather than trust this number, per every line below it. Previously:
-1,711 measured 2026-08-03 after PBP-028 (the content_rewrite edit-live
-channel) landed; the count moved 1,710 → 1,711, exactly that thread's own row,
-no concurrent arrival that time. Previously: 1,710 measured 2026-08-03 after CLM-019 (the
-count moved 1,708 → 1,710, i.e. one row besides mine arrived concurrently —
-the same concurrency the line below records, and the reason to re-run rather than
-trust any of these numbers. Previously: 1,708 measured 2026-08-03 after DGH-006.
-Previously: 1,706 measured 2026-08-02 late after STY-051 landed. **The prior headline of 1,711 (recorded the
-same day, after VMB-015) did NOT reproduce** — the documented grep returned 1,705
-before STY-051's row was added, so either five rows left the table between the two
-measurements or the 1,711 was itself mis-taken; recorded here per this file's own
-rule rather than diagnosed (earlier the same day: 1,704 at PBP-027, 1,701 at
-LNK-028 — several threads add rows concurrently, so re-run the command rather than
-trusting this line), with the command written into it as the previous thread
-asked:
+**What you still owe when you add a concept:** the entry, and its row in the
+table below, **in the same commit**. That has not changed and is the only rule
+here that ever mattered. What has changed is that you no longer update a number
+at the top, and no longer have three ways to get that number wrong.
 
 ```
-grep -cE '^\| [A-Z]{2,4}-[0-9]{3} \|' 000_concept_index.md      # 1,760  ← THIS is the headline number (re-taken 2026-08-04 after RSH-005; it read 1,721 when WFA-009 landed a few hours earlier, so ~38 rows arrived from OTHER lanes in between — re-grep, never carry this number forward)
-grep -c '^| [A-Z]*-[0-9]' 000_concept_index.md                    # 1,765  ⚠ THE LOOSE ONE — over-counts, and is NOT the headline. It was copied into the headline on 2026-08-04; do not repeat that. Kept here only because older lines below quote it
-cat *.md | grep -c '^### '                                       # 1,766  (raw headings; always higher — a few are not concept headings)
+grep -cE '^\| [A-Z]{2,4}-[0-9]{3} \|' 000_concept_index.md      # rows. THE count command — no number is recorded here on purpose (retired 2026-08-09)
+grep -c '^| [A-Z]*-[0-9]' 000_concept_index.md                    # ⚠ THE LOOSE ONE — over-counts, and is NOT the row count. Twice in four days its answer was published as the headline; that is why no number is stored here now
+cat *.md | grep -c '^### '                                       # raw headings; always higher — a few are not concept headings
 
 # ── THE DRIFT PAIR. Run BOTH and diff them; the row count alone is blind to
 # the failure this pair caught on 2026-08-04 (34 entries with no index row).
-cat *.md | grep -oE '^### [A-Z]{2,4}-[0-9]{3}' | sed 's/^### //' | sort -u > /tmp/h.txt   # 1,758 entry ids
-grep -oE '^\| [A-Z]{2,4}-[0-9]{3} ' 000_concept_index.md | tr -d '| ' | sort -u > /tmp/r.txt  # 1,758 indexed ids
+cat *.md | grep -oE '^### [A-Z]{2,4}-[0-9]{3}' | sed 's/^### //' | sort -u > /tmp/h.txt   # entry ids
+grep -oE '^\| [A-Z]{2,4}-[0-9]{3} ' 000_concept_index.md | tr -d '| ' | sort -u > /tmp/r.txt  # indexed ids
 comm -23 /tmp/h.txt /tmp/r.txt   # entries with NO index row — was 34, now EMPTY
 comm -13 /tmp/h.txt /tmp/r.txt   # index rows with NO entry — has always been empty
 # Why it drifts one way only: adding an entry is two edits in two files and only
@@ -181,254 +65,8 @@ comm -13 /tmp/h.txt /tmp/r.txt   # index rows with NO entry — has always been 
 # It REPORTS and never repairs: a backfilled row needs a summary written by
 # someone who understands the concept. Run the commands above yourself when you
 # edit the register — the watcher is the safety net, not the procedure.
-ls *.md | grep -vc 000_concept_index                             # 109    (files)
+ls *.md | grep -vc 000_concept_index                             # category files
 ```
-
-**Why the headline moved from "1,696 across 110" to a number that can be
-reproduced.** The 1,696 was inherited and unreproducible: the previous thread
-tried and said so plainly rather than incrementing a figure it could not derive.
-That was the right call, and leaving the line unreproducible for ever is not — so
-the count is now RE-BASED on the grep this file already documented, and the two
-other measures are kept beside it because they answer different questions. The
-gap between rows (1,701) and headings (1,739) is real and expected: a heading
-exists for entries that were never given an index row, so **a widening gap is
-itself the signal that entries are being written without being indexed.** The
-file count was 109, not 110, on every measurement anyone has recorded.
-
-Do not re-inherit a number. Run the first command. Previously:
-re-taken from the grep 2026-07-31
-after TL-038 landed; the line said 1,695 and the grep said 1,695 before this row was
-added, i.e. level — re-taken from the grep anyway, per this line's own rule, which is
-the only reason it has stayed level three times running.
-Earlier that day, re-taken after LNK-026 landed; the line said 1,694 and the grep said 1,694 before that row was
-added, i.e. level — re-taken from the grep anyway, per this line's own rule.
-Earlier that day, re-taken after IMG-066 landed; the line said 1,693 and the grep said 1,693 before that row was
-added, i.e. level again — re-taken anyway, per this line's own rule. Earlier that day,
-re-taken after CLC-013 landed; the line said 1,692 and the grep said 1,692 before that row was
-added, i.e. it was level for once — re-taken anyway, per this line's own rule.
-Earlier that day, re-taken after LNK-025 landed; the line said 1,689 and `grep -c "^| [A-Z]*-[0-9]"` said 1,691
-before this row was added, so it had drifted 2 behind from other sessions' rows —
-re-taken, not incremented. Earlier that day, re-taken after CTXA-025 landed** — the line said 1,686 and the grep said 1,687 before this row was
-added, i.e. it had drifted 1 behind AGAIN, from another session's row, exactly as the
-history below predicts; not incremented from what was sitting here, per this
-line's own rule; the
-headline had already drifted 1 behind again by that evening, before PBP-025 was
-added — and it moved again minutes later when TL-036 landed, and again when DOC-070
-landed that evening: its author watched this very line go 1,683 → 1,684 under them
-mid-edit, from another session's row, which is the same
-lesson three times in one evening: re-take it from the grep, never increment from the
-line you just read — so it is re-taken from the grep below rather than incremented, not
-accumulated: the running "+N more" chain below had drifted 13 behind the actual
-row count, so the headline is now taken from `grep -c "^| [A-Z]*-[0-9]" ` and the
-chain is kept only as a history of *why* entries postdate the freeze).
-1,627 consolidated from
-2,185 raw extraction blocks (32 extraction-unit files, ~4,111 source documents
-under `docs/`) as of 2026-07-13; 4 more (STY-049, FIX-051/052/053) added
-2026-07-16 for a subsystem (fixloop's triage/escalation layer, and the
-missingkey=zero structural defect it surfaced) that shipped after extraction
-froze; 2 more (MDL-038/039) added 2026-07-17 for two live platform bugs the
-fix-loop's own first real-case run found — see the addition notes further
-down; and 3 more (LCO-005/006, OPP-003) added 2026-07-28; and 1 more (OPP-004) added
-2026-07-28 closing `bugs_open/106` — the register's own coverage check, wired to the
-commit path so a new subsystem announces its own absence; and 2 more (TL-032/033) added
-2026-07-29 for the orphan element-reference gate and the acceptance-ladder eligibility
-defect that let 63 broken tools ship unwatched; and 1 more (ADP-017) added 2026-07-30
-for the shared reply-delivery policy `bugs_open/133` extracted from the one adapter
-path that had it; and 1 more (ADO-037) added 2026-07-30 for verbatim adoption —
-`fidelity=locked` plus the `deploy_mode` component key — which made doc 028's
-long-inert fidelity dial (ADO-011) read by something for the first time; and 1 more (STY-050) added 2026-07-30 for the per-site
-chrome-config seam that finally gave `bugs_open/018`'s schema-driven fill a real
-consumer; and 1 more (LNK-027) added 2026-08-02 from the
-`bugs_open/136` (section-editor slug) fix — the single-component form of the
-dead-link repair for writers that persist `rendered_html` outside
-`SavePageSectionsAction`, plus the pre-commit check that makes the next such
-writer announce itself, because one appeared between that bug being filed and
-fixed and nobody noticed. **Measured with a stated command, since this file asks
-for one:** `grep -c "^| [A-Z]*-[0-9]" 000_concept_index.md` = **1,701** with that
-row in (1,700 without it). That is the index-table row count, not the 1,696 in
-the headline, and it is offered as evidence rather than as a correction — the
-headline is left alone, per the note above.
-
-> **CORRECTED 2026-08-02 (LNK-028 thread) — that paragraph's `1,701` is NOT the
-> headline's `1,701`, and the collision is a coincidence of two different
-> commands measured on two different days.** The LNK-027 note used the LOOSE
-> regex `^| [A-Z]*-[0-9]`; the headline uses the STRICT one this file documents,
-> `^\| [A-Z]{2,4}-[0-9]{3} \|`. Measured together, on one tree, today:
-> strict **1,700 → 1,701** with LNK-028's row in; loose **1,706 → 1,707**. So the
-> loose command has read 6 higher than the headline all along — it also matches
-> rows whose id is not a register id — and the two numbers agreeing at 1,701 on
-> different dates means nothing. **State which command produced a figure, in the
-> same breath as the figure**; two counts of "the same thing" that answer to
-> different regexes are two measurements, not a corroboration.
-
-Then 1 more (LNK-028) added 2026-08-02 from the `bugs_open/097` fix — link
-resolution over the STORED `content_data`, the third copy of a page's links and
-the only one nothing resolved, nominating candidates by field NAME at any depth
-and judging them by VALUE so that nesting cannot hide a link and no exclusion
-list is needed. Strict-regex count re-measured with it in: **1,701**
-for capability that shipped this week — a structural fingerprint for LLM
-responses, the diagnosability layer on the island's tools-api, and the
-pre-commit detector that stops model text reaching a log; and 3 more
-(SCR-002/003/004) added 2026-07-28 from the `bugs_open/100`+`101` fix —
-fetch-recorded provenance, the declared config-key contract that makes an inert
-step-config key detectable, and its fleet-wide coverage report; and 1 more
-(WFA-002) added 2026-07-28 from the `bugs_open/124` fix — the `$ctx.`
-execution-context parameter namespace, which lets any queue-driven workflow's
-SQL record which run claimed a row; and 1 more (DMR-002) added 2026-07-28 —
-single-service deploy with a registry pre-flight, built while rolling the
-`bugs_open/131` fix because the all-or-nothing `deploy-agents` would have
-ImagePullBackOff'd twelve healthy services; and 1 more (LNK-024) added 2026-07-28
-from the `bugs_open/079` REOPENING — dead-link repair moved to the persistence
-point, because a transformation that lands only in `clean_html` is discarded by
-the structured save path and 4 of the 6 live persistence paths had no repair at
-all; and 1 more (FIX-054) added 2026-07-28 — the forward-fitness council seat
-extended to the FIX lane and the gate, on the owner's reversal of decision D9,
-because `bugs_closed/124` and `129` were each vetoed on scope and told to route
-their seam to an architecture review reachable from neither lane; and 5 more
-(TL-031, PLAN-043/044/045/046) added 2026-07-28 for the experience register — its
-substrate, its validating write path, its bind/verify consumer, its five-seat
-approval council, and the attribute assertion that closed its largest harness gap;
-and 1 more (IMG-065) added 2026-07-29 — the operator asset-amend path
-(staging BYTEA → ingest_staged_asset → S3 → in-place assets amend), built from
-the `bugs_open/131` og-card finding that the platform had NO path for a human
-to supply corrected image bytes; and 1 more (CLC-012) added 2026-07-29 — a second
-component implementing an ALREADY-REGISTERED experience pattern
-(`teaser-detail-deeplink`) rather than declaring a new shape, which is the property
-that makes a shape vocabulary worth keeping: two components that look nothing alike
-share one micro-journey; and 1 more (FIX-055) added 2026-07-29 — truncation-gate
-attribution on the council report, from `bugs_open/138`, because a reviewer that
-ran out of tokens was gating rounds under a label that named the SEAT, making an
-advisory seat blocking and a working seat look noisy enough to retire; and 1 more
-(WFA-003) added 2026-07-29 from the `bugs_open/144` fix — sub-workflow validation
-and the exported step traversal that comes with it, because the runtime validator
-and the offline config-key audit had each written their own top-level-only walk,
-were therefore blind in the same direction, and agreed with each other over 85
-live steps that nothing had ever checked; and 1 more (SCH-023) added 2026-07-29 —
-firing a DISABLED scheduled task once at a target you choose, built on owner
-instruction to run the `detected`→`triaged` promoter, whose own `pre_query`
-selects `ORDER BY updated_at ASC LIMIT 1` and therefore points AWAY from a fresh
-finding, because filing the work item is what bumps that column.
-That last group carries a note on method: the first of the five was added alone,
-and adding it was enough to make `102_CHECK_register_coverage.py` treat the whole
-workstream as covered while four callable mechanisms were still absent. The
-coverage check matches on workstream NAME, so ONE entry silences it for
-everything — which means dropping a ratchet line obliges you to register the
-mechanisms, not merely one of them. Status tags were
-documentary signals from the source material unless independently verified (see
-below).
-
-**2026-07-30 addition:** 1 more (**WFA-004**) added closing `bugs_open/148` —
-an offline detector, `config-key-audit --unregistered-actions`, that replays
-the exact "unregistered action, no topic" rule the runtime validator enforces
-against every live agent definition, reusing WFA-003's `WalkSteps` traversal
-rather than writing a fourth hand-rolled walk. Measured against the live fleet
-(178 agents): exactly the 3 findings the bug documents.
-
-**2026-08-02 addition:** 1 more (**WFA-007**) — the relay-envelope gap detector,
-closing the class behind `bugs_open/174`: a dispatcher's two hand-maintained
-allow-lists drifted from its handler's declared contract in lockstep, and nothing
-checked. The general form of the check was measured and REJECTED first (31
-findings, and blind to the motivating bug) — see the entry for why it is a
-declared registry over 3 relays instead.
-
-**2026-08-02 addition:** 1 more (**WFA-006**) — `SingleOwner`, the general form
-of the defect behind `bugs_closed/150`: an action whose effect is "take everything
-on the site in state X" can now DECLARE that a second live carrier is a defect,
-and `config-key-audit --single-owner-actions` reports any that has one. Registered
-in the same commit that ships the seam, per the 2026-07-28 ordering ruling. The
-declaration is runtime-inert; the whole mechanism is the offline check, because
-nothing inside a run can see whether a sibling agent carries the same step.
-Proven as a matched pair over the same fleet: 1 finding before RFC 006's
-migration, 0 after.
-
-**2026-07-31 addition:** 1 more (**PUB-004**) — round publication on the island's
-`tools-api`: two endpoints and two columns that let a completed gauntlet round
-become a public, linkable record, but **only because the visitor who argued it
-pressed share**. Registered in the same commit that ships the seam, per the
-2026-07-28 ordering ruling. It is tools-api's first public read surface, so the
-entry states the guarantee it adds rather than only the keys: one row class is
-now readable by anyone holding its unguessable slug, gated on `published_at IS
-NOT NULL` in the read query itself. Two things there deliberately for the next
-reader: the public projection is its **own type** so a new column cannot silently
-widen what is served, and the slug alphabet/validator live in **one** place after
-briefly living in two — a drift that fails silently and totally.
-
-And 2 more (**PUB-002, PUB-003**) added 2026-07-29 by the consolidation
-programme, for the two shared packages it built on 07-28 — `platform/httpguard`
-(one client key, one banded limiter, one intake gate) and `platform/mailer` (the
-first SMTP sender inside the built code). Both were council-approved on the day
-they were built and **neither was registered then**, which is exactly the gap
-`bugs_open/106`'s coverage check exists to catch. Registered late rather than not
-at all, and both carry the honest status: **built, approved, and called by
-nothing.** PUB-002 also records the seam added on 07-29 — `ClientIP` now requires
-the caller to name the proxy in front of it, because its previous hard-coded
-rules were nginx's and are false on the estate's other front-end.
-
-**Stage 2 (code/DB verification) ran 2026-07-14 and is COMPLETE** — see
-`006_VERIFICATION_stage2.md` for method and full findings. Every one of the
-original 1,627 concepts was checked against the live codebase at least once,
-across three batches: all 314 partial/unknown, all 871 deployed (a false-positive
-sweep added after batch 1 found the riskiest bucket wasn't the one originally
-planned), and all 174 superseded/abandoned. 124 corrections were confirmed
-total (each independently adversarially re-checked before acceptance) and
-applied below — a ~7.6% error rate. A 7th status, **convention**, was added
-for design doctrines/methodologies that were tagged `deployed` but are not
-code artifacts at all (see status vocabulary in `README.md`). One duplicate
-(PUB-001) was retired to a pointer entry rather than a status change. Status
-column below now reflects verified ground truth for the 124 corrected rows;
-all other rows held up under verification and keep their original signal.
-
-**2026-07-27 addition (third instance of the same gap — see `bugs_open/106`):**
-the entire **claims-verification** subsystem was absent. Its first plan is dated
-2026-07-16, three days after extraction froze, so V0–V5, the `evidence_base`
-register, the banned-claim scanner and the citation verifier were never
-extracted; `grep -rl evidence_base register/` returned nothing until today. Added
-as `claims-verification.md`, **18 concepts (CLM-001..018)**, grounded in code and
-DB read first-hand on 2026-07-27 rather than carried from other documents.
-
-Two of the twelve are recorded defects rather than descriptions — `CLM-009`
-(`EvidenceFact.Kind` declared and read nowhere) and `CLM-010` (the fleet-share
-deferral whose "until two sites" precondition lapsed at eight) — because both are
-dormant capability, which is exactly the class this register exists to make
-findable and the class code search cannot surface.
-
-**The pattern is now three-for-three and all three were found by coincidence**
-(fixloop 07-16, model-directory 07-17, claims-verification 07-27), each by a
-session that happened to be working beside the hole. Measured today: **51 of 76
-workstream directories postdate the freeze — 67%.** `bugs_open/106` proposes a
-coverage sensor on the model of `verifier_coverage_test.go`, and a
-`covers-through:` stamp per file so a reader can see where the register stopped
-looking.
-
-**2026-07-16 addition:** a coordination pass with the fixloop workstream (its
-tool went complete 2026-07-16, all 4 triage/escalation phases live) found a
-genuine gap — that whole subsystem shipped after extraction froze on 2026-07-13,
-so none of it was in the register. Added and independently verified 4 new
-concepts, cross-checked against live code (registry entries, exact file/line
-citations, and — for FIX-051/052/053 — an independent research pass that also
-confirmed every cited commit against `git log`): `FIX-051` (triage router,
-Phase 1), `FIX-052` (silent-check verifier, Phase 2), `FIX-053` (feedback
-close-out, Phase 3), and `STY-049` (the `missingkey=zero` structural defect the
-fixloop's real-case queue surfaced, root-caused via the image-landing/article-body
-incident). `FIX-034` (the pre-existing base digest) was updated in place to
-record the Phase 4 escalation-section enhancement built on top of it. This is
-targeted incremental extraction of genuinely new material, not a re-sweep of
-frozen stage-1 corpus.
-
-**2026-07-17 addition:** the fix-loop delivered its first real-case CONFIRMED
-diagnosis (correlation `e505f70f`) and, in the same session, an owner-directed
-model swap surfaced a second live bug — both genuinely new platform defects,
-not previously in the register. Added `MDL-038` (BUG A: `GenerateText` never
-decodes `stop_reason`, so max_tokens-truncated LLM responses silently look
-complete — CONFIRMED by the loop itself on 3 citations including live
-`llm_call_log` state evidence, independently re-confirmed here by direct code
-read) and `MDL-039` (BUG B: an agent's root-level `ai_service` config silently
-shadows its step-level config — proven by direct experiment on `diagnose-agent`,
-17-agent fleet blast radius, terminal state PARTIAL rather than CONFIRMED
-since the loop's own two-evidence-family guard correctly withheld CONFIRMED
-pending a state-tier citation). Also confirmed by direct re-read: `fix-proposer`
-(home of the bug-historian reviewer added 2026-07-16) has no root-level
-`ai_service` key, so it is NOT among the 17 affected agents.
 
 Sorted by register file, then by ID. Use your editor's search for a concept name,
 an ID prefix, or a status word.
@@ -2216,6 +1854,7 @@ an ID prefix, or a status word.
 | LNK-029 | `NonMarkupSpans` / `MarkupMatches`: one definition of "these bytes are not markup" | deployed, LIVE v1.0.1233, induced on the damaged page | Drop-in replacements for the regex calls that REWRITE HTML, respecting raw-text elements and comments taken whole; adopted by both markup writers. bugs_closed/180 | link-management.md |
 | LNK-030 | `ChromeLinkPolicy`: one answer to "which page may a piece of CHROME link to?" | deployed, LIVE v1.0.1251, induced on the wire | The header's nav and its CTA button were validated by two different predicates in one run, so chrome shipped a 404 button the nav beside it had already filtered out; the escapes were inline in applyNavVisibility and so unreachable. bugs_open/191 | link-management.md |
 | LNK-031 | Fragment resolution: `dead_fragment_link` arm + shared `DocumentIDs` id-presence test | deployed, LIVE v1.0.1259, induction-proven (4 cases + retraction) | Nothing anywhere resolved a `#fragment` against a page's ids — the gate and the audit both skip anchor scope by name; the arm rides an already-enabled check so it cannot land inert. bugs_open/071 | link-management.md |
+| LNK-032 | `sanitiseFormAction` / `deliverableFormAction` — dead-form-action repair, activation keyed to the TEMPLATE | deployed (repair since ~2026-07-17; widened 2026-08-08, bugs_open/228) | The chassis has no server-side form backend, so a form pointing at one is always dead; the repair used to run only when `form_action` was already present, and now seeds it whenever the TEMPLATE mentions it — so it no longer depends on content authoring remembering the field. RENUMBERED from LNK-031 (id collision, 2026-08-09) | link-management.md |
 | OPP-003 | `check_logged_model_output`: pre-commit detector for publishing model text | deployed (advisory) | Flags a log sink passed raw model output — the shape LCO-005's fingerprint exists to replace | operator-practice.md |
 | PLAN-043 | The experience register: reusable behaviour contracts, held once and forked per site | partial | A promise nobody wrote down cannot be checked: `experience_patterns` entries + per-site forks, stated specifically enough to be machine-checked | site-plan-and-reconciler.md |
 | PLAN-044 | `write_experience_pattern` + the criteria validator (three moments, ten rules) | deployed | The only way into the register; validates on the way in and stores its own accounting (`executable_checks`, `deferred_checks`) on the row | site-plan-and-reconciler.md |
@@ -2244,3 +1883,418 @@ an ID prefix, or a status word.
 | RSH-008 | `agenterrors`: the ONE `agent_error_log` writer, below the import cycle that forced 19 copies | deployed (LIVE v1.0.1262) — **provenance hardening LIVE on v1.0.1268, pod-proven both replicas 2026-08-08** | Writer moved to a LEAF package both sides of `orchestration -> actions` can import; 19 hand-copied INSERTs (8/9/10/11/13 cols, `orchestration_id` absent from nine) converted onto it. The merge is now TWO halves: the JOIN half is inherited, the PROVENANCE half never is unless the caller calls `LogActionEntryInheritingProvenance`. A forgotten `AgentType` lands as `agent_type='unattributed'` + `context.provenance_missing`, not as the running step's. | resilience-self-heal.md |
 | RSH-009 | `ExecutionContext.ResolvedAgentType` — one ladder for "which agent is running", shared by the two packages that each answered it | built (inert until the next chassis roll; NOT pod-proven) | `RunAgentType` then `Sender.AgentType`, hoisted onto the shared type so `coordinator.determineOwnerAgentType` and `actions.runningStepProvenance` stop disagreeing — a row filed under "the running step" recorded the dispatch sender (`generic`) while the orchestration row for the same run recorded the real agent. The pod's `AGENT_TYPE` and the `generic` filler deliberately do NOT move: each consumer's tail differs, and a `fallback` parameter would be the same drift in a shared-helper costume. ⚠ the commissioning handoff's sizing was STALE — 499 of the 555 `generic` rows predate `RunAgentType` itself, so the case is structural, not volume. | resilience-self-heal.md |
 | WFA-011 | Shared-`output_field` check — CLI **and** the standing `shared-output-fields-check` CronJob | deployed (CLI + CronJob LIVE, daily 07:10 UTC, first run proven clean 2026-08-08) | Flags two steps sharing an `output_field` that are transitively reachable over the FULL routing graph and are different actions. Ack-file ratchet reports NEW pairs and STALE acks, and travels IN the image. Reports to `doc_notes` on EVERY run incl. clean, so a missing row means the job did not run. LANDMINE: a hand-written walk into `sub_workflow` cannot see `substeps`, the half the executor PREFERS — use `validation.WalkSteps`. | workflow-authoring.md |
+
+
+---
+
+## Frozen measurement log (2026-07-13 → 2026-08-09)
+
+**Historical. Do not extend this — it is the record of the retired practice, kept
+because the way it failed is more useful than the numbers ever were.** Every
+"previously N" below was a real measurement by a real thread following the
+documented convention. The chain records concurrent arrivals, collisions caught
+by the uniqueness check, and at least two figures taken from the wrong command.
+It is the evidence for the retirement above.
+
+**1,795 index table rows** — re-measured 2026-08-08 (~20:05 UTC) at commit time
+by the **WII-012** lane (actionable-page identity honoured end-to-end,
+`bugs_open/220` — row, entry and code in ONE commit, per the platform-seams
+ruling), with the documented headline command. WII-012 confirmed unclaimed by
+grep before landing; the command returned 1,792 immediately before my row and
+**1,795 now** — the other two are **FTW-042 and SQAM-003, which landed in the
+working tree from concurrent lanes between my edit and my commit** (their own
+narrations sit below and each accounts for the other; neither had seen my row).
+First draft of this paragraph said 1,793 and "nothing arrived concurrently" —
+true when typed, false by commit time, corrected here rather than left to the
+watcher. Previously **1,792** — re-measured 2026-08-08 (18:35 UTC) after adding
+the missing `SCH-024` row, and the pair is clean: **1,792 rows, 1,792 unique
+entry ids, 0 orphans either way.**
+
+> **CORRECTED 2026-08-08, and the watcher found both halves of it.**
+> `concept-register-drift-check` (DOC-074) has reported a headline mismatch on
+> **three consecutive daily runs** (08-07, 08-08, and the manual run at 18:35):
+> the header claimed **1,791** then **1,796** while the documented command
+> returned **1,784** then **1,792**. Measured this minute, all four counts, so the
+> next thread can see why they disagree:
+>
+> | command | count | what it counts |
+> |---|---|---|
+> | `grep -cE '^\| [A-Z]{2,4}-[0-9]{3} \|'` | **1,792** | **the headline. Only this one.** |
+> | `grep -c '^\| [A-Z][A-Z]*-[0-9]'` | 1,799 | loose — over-counts by 7 |
+> | unique `### ID` entry ids | 1,792 | the other half of the drift pair |
+> | raw `### ` headings | 1,800 | includes non-concept headings |
+>
+> **The loose grep is quoted inside this very chain** (the RSH-007 line below
+> names it), which is how its number keeps arriving in the headline. It has now
+> done so twice in four days, by two different careful sessions. The lesson is not
+> "be careful": it is that **a hand-maintained count sitting beside three other
+> counts of the same file will drift, and no convention fixes that.**
+>
+> The second half is worse and is the reason the watcher exists: **`SCH-024` had
+> an entry and no index row** — filed 2026-08-08 by the `bugs_open/205` lane
+> (`b6e70cd70`), four days after 34 such rows were backfilled. Row added here in
+> the same pass. The class recurs; it is not a one-off that was cleared.
+
+Re-grepped 2026-08-09 after **CQ-021** (`ScanDeployedClaims`, the claims audit shared by the discovery check and the review-queue revalidator; row, entry and code in ONE commit, per the platform-seams ruling), with the documented headline command `grep -cE '^\| [A-Z]{2,4}-[0-9]{3} \|'`: **1,801 rows, 1,801 unique row ids, 1,801 unique `### ID` entry ids** — a clean triple, so no duplicate and no orphan. CQ-021 added ONE and the count was 1,800 immediately before, which is ONE above the 1,799 recorded next, so a single concurrent lane landed a row in that window. Previously **1,799** — re-grepped 2026-08-08 (night) after **RSH-009** (`ExecutionContext.ResolvedAgentType`, the RFC_012 lane §1a — row, entry and code in ONE commit, per the platform-seams ruling), with the documented headline command `grep -cE '^\| [A-Z]{2,4}-[0-9]{3} \|'`: **1,799 rows, 1,799 unique `### ID` entry ids, 0 duplicate row ids.** RSH-009 added ONE and the count was 1,798 immediately before — three above the 1,795 recorded next, so THREE arrived from concurrent lanes between that measurement and this one, in a window of under three hours. That is the largest concurrent drift this chain has recorded, and it is the whole argument for re-grepping rather than carrying the number. Previously **1,795** — re-grepped 2026-08-08 (evening) after **FTW-042** (Thunder orphan scan, row + entry + code in ONE commit, per the platform-seams ruling), with the documented headline command `grep -cE '^\| [A-Z]{2,4}-[0-9]{3} \|'`: **1,795 rows, and the SQAM-003 link below also says 1,795 — that is NOT a discrepancy: my row was already in the working tree when that session re-measured**, so its count includes FTW-042 (the count without it was 1,794). Same-pass checks: 0 duplicate row ids, 0 duplicate `### ID` entry ids, FTW-042 present as both row and entry. Two lanes editing this header minutes apart is exactly the concurrent-arrival case the chain narrates — when your own row predates the neighbour's measurement, say so rather than inventing an arrival. Previously **1,795** — re-grepped 2026-08-08 after **SQAM-003** (independent-oracle arithmetic validation, `bugs_open/224`/`225` — row and entry in ONE commit), with the documented headline command `grep -cE '^\| [A-Z]{2,4}-[0-9]{3} \|'`. Clean pair: **1,795 rows, 1,795 unique `### ID` entry ids** across the register, so no duplicate and no orphan. **I first wrote 1,800/1,801 here from the LOOSE regex** — the one this header's own table marks as over-counting by 7 — and it read as four concurrent arrivals that had not happened. That is the drift this section exists to stop, walked into by the session adding a row to it: the loose count is the one that falls out of `grep -c` without thinking, so **state the command with the number and use the one the table nominates**. Previously **1,796** — re-grepped 2026-08-08 after **PBP-038** (deploy-stamp refusal + park, `bugs_open/210` — row, entry and code in ONE commit, per the platform-seams ruling). PBP-038 added ONE and the count was 1,795 immediately before, so nothing arrived concurrently in that window; uniqueness checked in the same pass (1,796 rows, 1,796 unique ids). The RSH-008 row that was uncommitted in this file when PBP-038's edit was drafted landed from its own lane (`f993554f6`) minutes before this commit, so no passenger travels here — re-checked at commit time, which is the practice this header narrates. Previously **1,795** — re-grepped 2026-08-08 after **CQ-020** (`ScanVoiceTells`, the voice audit shared by the discovery check and the review-queue revalidator; row, entry and code in ONE commit, per the platform-seams ruling). CQ-020 added ONE and the count was 1,794 immediately before, so nothing arrived concurrently in that window. Uniqueness checked in the same pass (1,795 rows, 1,795 unique ids). Previously **1,794** — re-grepped 2026-08-08 after **WII-011** (the RFC_017 fail-closed flip; row, entry and code in ONE commit, per the platform-seams ruling). WII-011 confirmed unclaimed by grep before landing, and it added ONE: the count was **1,793** immediately before, one row above the 1,792 recorded below, so a concurrent lane landed one in that window — which is exactly why you re-grep and never carry this number. Uniqueness checked in the same pass (1,794 rows, 1,794 unique ids). Previously **1,792** — re-grepped 2026-08-08 after **IMP-052** (chrome render-inputs fingerprint, `bugs_open/117` — row, entry and code in ONE commit; IMP-052 confirmed unclaimed by grep before landing). Previously **1,791** — re-grepped 2026-08-07 after **RSH-008 + WFA-011** (the RFC_012 lane, rows and entries in one commit); the pair added TWO and one more arrived from a concurrent lane since the 1,788 below, and the uniqueness check EARNED ITS PLACE — my WFA-007 collided with a live relay-gaps entry and was renumbered to WFA-011 before landing. Previously 1,788 — re-grepped 2026-08-06 after **VIZ-014** (legible-ink companions, row and entry in one commit); VIZ-014 added ONE and the count was 1,787 immediately before, so nothing arrived concurrently in that window. Previously 1,787 — re-grepped 2026-08-06 after **RSH-007** (`RetryDisposition` sender convergence, row and entry in one commit) with `grep -c "^| [A-Z][A-Z]*-[0-9]" 000_concept_index.md`; RSH-007 added ONE and two more arrived from concurrent lanes since the 1,784 below. Previously 1,784 — re-grepped 2026-08-06 after **DOC-075** (`prove-live-markers`, row and entry in one commit), and the pair was clean: 1,784 rows, **1,784 unique entry ids**, no duplicate and no orphan. Before that 1,783 — re-grepped 2026-08-06 after PBP-035; PBP-035 added ONE and one more arrived from a concurrent lane between this recount and the 1,781 above it, which is why you re-grep and never carry this number — 1,758 measured clean 2026-08-04 after DOC-074
+(`concept-register-drift-check`) landed, **+1 for LNK-030** (`ChromeLinkPolicy`,
+added the same day with its entry and its row in one commit, per the
+platform-seams ruling), **+1 for PBP-032** (the `content_data`
+transport-envelope guard, `bugs_open/190`, row and entry added together — but
+see the correction below: the code shipped one commit EARLIER, which the
+platform-seams ruling says it should not have), **and +1 for PBP-033** (the
+duplicate-section collapse, `bugs_open/156`, row and entry added together — and
+one commit late for the *same* reason as PBP-032, by a different lane, hours
+apart on the same day; both are logged in `WRONG_CALLS.md` and the pair is the
+argument for making condition (2) a pattern-check rather than a thing to
+remember), **and +1 for IMP-051** (`asset_reference_404`, `bugs_open/084` — row,
+entry and code in ONE commit, which is what the two above wish they had done).
+**and +1 for LNK-031** (fragment resolution / `dead_fragment_link`,
+`bugs_open/071` — row, entry and code in ONE commit, following IMP-051).
+**The drift pair was clean at 1,759 rows and 1,759 unique entry ids,
+0 rows without an entry and 0 entries without a row; re-run it after this commit
+rather than inheriting that pass.**
+
+> **HEADLINE-vs-GREP DISCREPANCY, recorded rather than papered over (2026-08-06,
+> LNK-031's commit).** `grep -cE '^\| [A-Z]{2,4}-[0-9]{3} \|' 000_concept_index.md`
+> returns **1,775 including LNK-031's row**, i.e. 1,774 before it — seven short of
+> the 1,781 headline written earlier the same day. One of the two counting methods
+> is wrong and I did not determine which, so I have added my +1 to the headline in
+> the established style and left the headline number itself alone rather than
+> overwriting a figure produced by a method I could not reproduce. Whoever next
+> recounts: state the COMMAND with the number. A bare count nobody can re-run is
+> the reason this paragraph keeps needing corrections — and the standing landmine
+> on this file is that a row count cannot detect a MISSING row at all, so neither
+> figure is evidence of completeness.
+
+> **NOTE on that +1, 2026-08-04:** the local drift harness reads at **`HEAD`**,
+> not the working tree, so it cannot see an entry until it is committed and
+> **cannot be used to check your own uncommitted addition** — it will report the
+> pre-change state as clean and that pass says nothing about your edit. Bump this
+> headline in the same commit as the entry and the row, then re-run it after
+> committing to confirm.
+
+> **CORRECTED 2026-08-04, and this is what earned the watcher below.** The
+> paragraph that stood here said **1,764**, and its drift-pair claim was sound —
+> the pair genuinely was clean when it was run. The figure was not: it came from
+> the LOOSER `grep -c '^| [A-Z]*-[0-9]'` further down this file, not from the
+> documented headline command. **Three different numbers live in this header and
+> they are all correct answers to different questions** — measured the same
+> minute: documented row regex **1,758**, loose row regex **1,765**, raw `###`
+> heading count **1,766**. The loose regex over-counts (it matches prose lines
+> and ids of other shapes); the heading count includes non-concept headings. Only
+> the first is "index table rows". Nothing was wrong with the register itself —
+> this was a number picked up from the wrong line of its own header, by a careful
+> session, within seven hours of the last correction. That is precisely why the
+> fourth check in `concept-register-drift-check` compares this headline against
+> the actual count on a clock: **it caught this one on its first run.**
+
+A
+same-day collision was caught here too: `PBP-021` was already
+`load_page_record lookup semantics`, so this entry took `PBP-030` — **grep the
+category file for the id you are about to claim; the highest `### ` heading in
+the file is not the highest id in the series.** Previously: **1,756 index table
+rows** across **109** category register files, re-measured
+2026-08-04 after a BACKFILL: 34 concepts had a register entry and no index row,
+and now have one. The index and the category files agree exactly for the first
+time in the series — 1,756 unique ids each way, **0 entries without a row and 0
+rows without an entry** (both `comm` lists empty; commands below). Before the
+backfill the headline was 1,722 and the entries numbered 1,756, so the master
+index — the file sessions and council seats consult to find out whether
+something exists — was silently 2% short. The missing ones were not obscure:
+`CLM-001`…`012` (the whole first half of the claims-verification layer),
+`IMG-067`, `LNK-029`, `DBI-025`, `PLAN-043`…`046`, `PUB-002`…`004`, `WII-009`.
+**Re-run the drift pair below, not just the row count** — the row count alone
+cannot see this failure, which is why it went unnoticed through ~20 recorded
+re-measurements.
+Previously: 1,722 re-measured
+2026-08-04 with the command below after ADP-018 (`check_silent_reply_drop`,
+bugs_open/158) landed; the count moved 1,721 → 1,722, exactly this row, and the
+1,721 baseline matched the headline — no concurrent arrival either side of it.
+Previously: 1,721 re-measured
+2026-08-04 after WFA-009 (`extract_fields` opt-in
+`required`, bugs_open/192) landed; the count moved 1,720 → 1,721, exactly that
+row, no concurrent arrival that time either. The entry before it, WFA-008
+(per-substep `continue_on_error`, bugs_open/173), moved 1,719 → 1,720. Note the
+baseline: the headline said **1,718** and the grep said **1,719** before that
+row was added, so one row from another thread had landed unrecorded — which is
+this line's own
+point, and the reason to re-run rather than trust it. Previously: 1,718
+re-measured 2026-08-04 after PBP-029 (lifecycle predicate +
+link-surface lockstep, bugs_open/098 debts 3+4) landed; the count moved
+1,717 → 1,718, exactly that row. Previously: 1,717 measured 2026-08-04 after
+PLAN-047 (`page_canonical_collision` discovery check, bugs_open/080) landed;
+the count moved 1,716 → 1,717, exactly that row — and the 1,716 baseline was
+itself taken between that thread's read and write (CGV-030 landed
+concurrently, header updated under it mid-edit), which is this
+line's own warning in action. Re-run rather than trust this number, per every
+line below it. Previously: 1,716 measured 2026-08-04 after CGV-030
+(`component-render-check`) landed; the count moved 1,715 → 1,716, exactly that
+row, no concurrent arrival that time.
+Previously: 1,715 measured 2026-08-03 after CQ-019 (`literal_markdown` discovery
+check, bugs_open/184) landed; the count moved 1,714 → 1,715, exactly that
+row, no concurrent arrival that time. Previously: 1,713 measured 2026-08-03 with the
+command below after DOC-073 (`pick-pod-marker`) landed; the
+count moved 1,711 → 1,713, i.e. one row besides mine arrived concurrently —
+re-run rather than trust this number, per every line below it. Previously:
+1,711 measured 2026-08-03 after PBP-028 (the content_rewrite edit-live
+channel) landed; the count moved 1,710 → 1,711, exactly that thread's own row,
+no concurrent arrival that time. Previously: 1,710 measured 2026-08-03 after CLM-019 (the
+count moved 1,708 → 1,710, i.e. one row besides mine arrived concurrently —
+the same concurrency the line below records, and the reason to re-run rather than
+trust any of these numbers. Previously: 1,708 measured 2026-08-03 after DGH-006.
+Previously: 1,706 measured 2026-08-02 late after STY-051 landed. **The prior headline of 1,711 (recorded the
+same day, after VMB-015) did NOT reproduce** — the documented grep returned 1,705
+before STY-051's row was added, so either five rows left the table between the two
+measurements or the 1,711 was itself mis-taken; recorded here per this file's own
+rule rather than diagnosed (earlier the same day: 1,704 at PBP-027, 1,701 at
+LNK-028 — several threads add rows concurrently, so re-run the command rather than
+trusting this line), with the command written into it as the previous thread
+asked:
+
+
+**Why the headline moved from "1,696 across 110" to a number that can be
+reproduced.** The 1,696 was inherited and unreproducible: the previous thread
+tried and said so plainly rather than incrementing a figure it could not derive.
+That was the right call, and leaving the line unreproducible for ever is not — so
+the count is now RE-BASED on the grep this file already documented, and the two
+other measures are kept beside it because they answer different questions. The
+gap between rows (1,701) and headings (1,739) is real and expected: a heading
+exists for entries that were never given an index row, so **a widening gap is
+itself the signal that entries are being written without being indexed.** The
+file count was 109, not 110, on every measurement anyone has recorded.
+
+Do not re-inherit a number. Run the first command. Previously:
+re-taken from the grep 2026-07-31
+after TL-038 landed; the line said 1,695 and the grep said 1,695 before this row was
+added, i.e. level — re-taken from the grep anyway, per this line's own rule, which is
+the only reason it has stayed level three times running.
+Earlier that day, re-taken after LNK-026 landed; the line said 1,694 and the grep said 1,694 before that row was
+added, i.e. level — re-taken from the grep anyway, per this line's own rule.
+Earlier that day, re-taken after IMG-066 landed; the line said 1,693 and the grep said 1,693 before that row was
+added, i.e. level again — re-taken anyway, per this line's own rule. Earlier that day,
+re-taken after CLC-013 landed; the line said 1,692 and the grep said 1,692 before that row was
+added, i.e. it was level for once — re-taken anyway, per this line's own rule.
+Earlier that day, re-taken after LNK-025 landed; the line said 1,689 and `grep -c "^| [A-Z]*-[0-9]"` said 1,691
+before this row was added, so it had drifted 2 behind from other sessions' rows —
+re-taken, not incremented. Earlier that day, re-taken after CTXA-025 landed** — the line said 1,686 and the grep said 1,687 before this row was
+added, i.e. it had drifted 1 behind AGAIN, from another session's row, exactly as the
+history below predicts; not incremented from what was sitting here, per this
+line's own rule; the
+headline had already drifted 1 behind again by that evening, before PBP-025 was
+added — and it moved again minutes later when TL-036 landed, and again when DOC-070
+landed that evening: its author watched this very line go 1,683 → 1,684 under them
+mid-edit, from another session's row, which is the same
+lesson three times in one evening: re-take it from the grep, never increment from the
+line you just read — so it is re-taken from the grep below rather than incremented, not
+accumulated: the running "+N more" chain below had drifted 13 behind the actual
+row count, so the headline is now taken from `grep -c "^| [A-Z]*-[0-9]" ` and the
+chain is kept only as a history of *why* entries postdate the freeze).
+1,627 consolidated from
+2,185 raw extraction blocks (32 extraction-unit files, ~4,111 source documents
+under `docs/`) as of 2026-07-13; 4 more (STY-049, FIX-051/052/053) added
+2026-07-16 for a subsystem (fixloop's triage/escalation layer, and the
+missingkey=zero structural defect it surfaced) that shipped after extraction
+froze; 2 more (MDL-038/039) added 2026-07-17 for two live platform bugs the
+fix-loop's own first real-case run found — see the addition notes further
+down; and 3 more (LCO-005/006, OPP-003) added 2026-07-28; and 1 more (OPP-004) added
+2026-07-28 closing `bugs_open/106` — the register's own coverage check, wired to the
+commit path so a new subsystem announces its own absence; and 2 more (TL-032/033) added
+2026-07-29 for the orphan element-reference gate and the acceptance-ladder eligibility
+defect that let 63 broken tools ship unwatched; and 1 more (ADP-017) added 2026-07-30
+for the shared reply-delivery policy `bugs_open/133` extracted from the one adapter
+path that had it; and 1 more (ADO-037) added 2026-07-30 for verbatim adoption —
+`fidelity=locked` plus the `deploy_mode` component key — which made doc 028's
+long-inert fidelity dial (ADO-011) read by something for the first time; and 1 more (STY-050) added 2026-07-30 for the per-site
+chrome-config seam that finally gave `bugs_open/018`'s schema-driven fill a real
+consumer; and 1 more (LNK-027) added 2026-08-02 from the
+`bugs_open/136` (section-editor slug) fix — the single-component form of the
+dead-link repair for writers that persist `rendered_html` outside
+`SavePageSectionsAction`, plus the pre-commit check that makes the next such
+writer announce itself, because one appeared between that bug being filed and
+fixed and nobody noticed. **Measured with a stated command, since this file asks
+for one:** `grep -c "^| [A-Z]*-[0-9]" 000_concept_index.md` = **1,701** with that
+row in (1,700 without it). That is the index-table row count, not the 1,696 in
+the headline, and it is offered as evidence rather than as a correction — the
+headline is left alone, per the note above.
+
+> **CORRECTED 2026-08-02 (LNK-028 thread) — that paragraph's `1,701` is NOT the
+> headline's `1,701`, and the collision is a coincidence of two different
+> commands measured on two different days.** The LNK-027 note used the LOOSE
+> regex `^| [A-Z]*-[0-9]`; the headline uses the STRICT one this file documents,
+> `^\| [A-Z]{2,4}-[0-9]{3} \|`. Measured together, on one tree, today:
+> strict **1,700 → 1,701** with LNK-028's row in; loose **1,706 → 1,707**. So the
+> loose command has read 6 higher than the headline all along — it also matches
+> rows whose id is not a register id — and the two numbers agreeing at 1,701 on
+> different dates means nothing. **State which command produced a figure, in the
+> same breath as the figure**; two counts of "the same thing" that answer to
+> different regexes are two measurements, not a corroboration.
+
+Then 1 more (LNK-028) added 2026-08-02 from the `bugs_open/097` fix — link
+resolution over the STORED `content_data`, the third copy of a page's links and
+the only one nothing resolved, nominating candidates by field NAME at any depth
+and judging them by VALUE so that nesting cannot hide a link and no exclusion
+list is needed. Strict-regex count re-measured with it in: **1,701**
+for capability that shipped this week — a structural fingerprint for LLM
+responses, the diagnosability layer on the island's tools-api, and the
+pre-commit detector that stops model text reaching a log; and 3 more
+(SCR-002/003/004) added 2026-07-28 from the `bugs_open/100`+`101` fix —
+fetch-recorded provenance, the declared config-key contract that makes an inert
+step-config key detectable, and its fleet-wide coverage report; and 1 more
+(WFA-002) added 2026-07-28 from the `bugs_open/124` fix — the `$ctx.`
+execution-context parameter namespace, which lets any queue-driven workflow's
+SQL record which run claimed a row; and 1 more (DMR-002) added 2026-07-28 —
+single-service deploy with a registry pre-flight, built while rolling the
+`bugs_open/131` fix because the all-or-nothing `deploy-agents` would have
+ImagePullBackOff'd twelve healthy services; and 1 more (LNK-024) added 2026-07-28
+from the `bugs_open/079` REOPENING — dead-link repair moved to the persistence
+point, because a transformation that lands only in `clean_html` is discarded by
+the structured save path and 4 of the 6 live persistence paths had no repair at
+all; and 1 more (FIX-054) added 2026-07-28 — the forward-fitness council seat
+extended to the FIX lane and the gate, on the owner's reversal of decision D9,
+because `bugs_closed/124` and `129` were each vetoed on scope and told to route
+their seam to an architecture review reachable from neither lane; and 5 more
+(TL-031, PLAN-043/044/045/046) added 2026-07-28 for the experience register — its
+substrate, its validating write path, its bind/verify consumer, its five-seat
+approval council, and the attribute assertion that closed its largest harness gap;
+and 1 more (IMG-065) added 2026-07-29 — the operator asset-amend path
+(staging BYTEA → ingest_staged_asset → S3 → in-place assets amend), built from
+the `bugs_open/131` og-card finding that the platform had NO path for a human
+to supply corrected image bytes; and 1 more (CLC-012) added 2026-07-29 — a second
+component implementing an ALREADY-REGISTERED experience pattern
+(`teaser-detail-deeplink`) rather than declaring a new shape, which is the property
+that makes a shape vocabulary worth keeping: two components that look nothing alike
+share one micro-journey; and 1 more (FIX-055) added 2026-07-29 — truncation-gate
+attribution on the council report, from `bugs_open/138`, because a reviewer that
+ran out of tokens was gating rounds under a label that named the SEAT, making an
+advisory seat blocking and a working seat look noisy enough to retire; and 1 more
+(WFA-003) added 2026-07-29 from the `bugs_open/144` fix — sub-workflow validation
+and the exported step traversal that comes with it, because the runtime validator
+and the offline config-key audit had each written their own top-level-only walk,
+were therefore blind in the same direction, and agreed with each other over 85
+live steps that nothing had ever checked; and 1 more (SCH-023) added 2026-07-29 —
+firing a DISABLED scheduled task once at a target you choose, built on owner
+instruction to run the `detected`→`triaged` promoter, whose own `pre_query`
+selects `ORDER BY updated_at ASC LIMIT 1` and therefore points AWAY from a fresh
+finding, because filing the work item is what bumps that column.
+That last group carries a note on method: the first of the five was added alone,
+and adding it was enough to make `102_CHECK_register_coverage.py` treat the whole
+workstream as covered while four callable mechanisms were still absent. The
+coverage check matches on workstream NAME, so ONE entry silences it for
+everything — which means dropping a ratchet line obliges you to register the
+mechanisms, not merely one of them. Status tags were
+documentary signals from the source material unless independently verified (see
+below).
+
+**2026-07-30 addition:** 1 more (**WFA-004**) added closing `bugs_open/148` —
+an offline detector, `config-key-audit --unregistered-actions`, that replays
+the exact "unregistered action, no topic" rule the runtime validator enforces
+against every live agent definition, reusing WFA-003's `WalkSteps` traversal
+rather than writing a fourth hand-rolled walk. Measured against the live fleet
+(178 agents): exactly the 3 findings the bug documents.
+
+**2026-08-02 addition:** 1 more (**WFA-007**) — the relay-envelope gap detector,
+closing the class behind `bugs_open/174`: a dispatcher's two hand-maintained
+allow-lists drifted from its handler's declared contract in lockstep, and nothing
+checked. The general form of the check was measured and REJECTED first (31
+findings, and blind to the motivating bug) — see the entry for why it is a
+declared registry over 3 relays instead.
+
+**2026-08-02 addition:** 1 more (**WFA-006**) — `SingleOwner`, the general form
+of the defect behind `bugs_closed/150`: an action whose effect is "take everything
+on the site in state X" can now DECLARE that a second live carrier is a defect,
+and `config-key-audit --single-owner-actions` reports any that has one. Registered
+in the same commit that ships the seam, per the 2026-07-28 ordering ruling. The
+declaration is runtime-inert; the whole mechanism is the offline check, because
+nothing inside a run can see whether a sibling agent carries the same step.
+Proven as a matched pair over the same fleet: 1 finding before RFC 006's
+migration, 0 after.
+
+**2026-07-31 addition:** 1 more (**PUB-004**) — round publication on the island's
+`tools-api`: two endpoints and two columns that let a completed gauntlet round
+become a public, linkable record, but **only because the visitor who argued it
+pressed share**. Registered in the same commit that ships the seam, per the
+2026-07-28 ordering ruling. It is tools-api's first public read surface, so the
+entry states the guarantee it adds rather than only the keys: one row class is
+now readable by anyone holding its unguessable slug, gated on `published_at IS
+NOT NULL` in the read query itself. Two things there deliberately for the next
+reader: the public projection is its **own type** so a new column cannot silently
+widen what is served, and the slug alphabet/validator live in **one** place after
+briefly living in two — a drift that fails silently and totally.
+
+And 2 more (**PUB-002, PUB-003**) added 2026-07-29 by the consolidation
+programme, for the two shared packages it built on 07-28 — `platform/httpguard`
+(one client key, one banded limiter, one intake gate) and `platform/mailer` (the
+first SMTP sender inside the built code). Both were council-approved on the day
+they were built and **neither was registered then**, which is exactly the gap
+`bugs_open/106`'s coverage check exists to catch. Registered late rather than not
+at all, and both carry the honest status: **built, approved, and called by
+nothing.** PUB-002 also records the seam added on 07-29 — `ClientIP` now requires
+the caller to name the proxy in front of it, because its previous hard-coded
+rules were nginx's and are false on the estate's other front-end.
+
+**Stage 2 (code/DB verification) ran 2026-07-14 and is COMPLETE** — see
+`006_VERIFICATION_stage2.md` for method and full findings. Every one of the
+original 1,627 concepts was checked against the live codebase at least once,
+across three batches: all 314 partial/unknown, all 871 deployed (a false-positive
+sweep added after batch 1 found the riskiest bucket wasn't the one originally
+planned), and all 174 superseded/abandoned. 124 corrections were confirmed
+total (each independently adversarially re-checked before acceptance) and
+applied below — a ~7.6% error rate. A 7th status, **convention**, was added
+for design doctrines/methodologies that were tagged `deployed` but are not
+code artifacts at all (see status vocabulary in `README.md`). One duplicate
+(PUB-001) was retired to a pointer entry rather than a status change. Status
+column below now reflects verified ground truth for the 124 corrected rows;
+all other rows held up under verification and keep their original signal.
+
+**2026-07-27 addition (third instance of the same gap — see `bugs_open/106`):**
+the entire **claims-verification** subsystem was absent. Its first plan is dated
+2026-07-16, three days after extraction froze, so V0–V5, the `evidence_base`
+register, the banned-claim scanner and the citation verifier were never
+extracted; `grep -rl evidence_base register/` returned nothing until today. Added
+as `claims-verification.md`, **18 concepts (CLM-001..018)**, grounded in code and
+DB read first-hand on 2026-07-27 rather than carried from other documents.
+
+Two of the twelve are recorded defects rather than descriptions — `CLM-009`
+(`EvidenceFact.Kind` declared and read nowhere) and `CLM-010` (the fleet-share
+deferral whose "until two sites" precondition lapsed at eight) — because both are
+dormant capability, which is exactly the class this register exists to make
+findable and the class code search cannot surface.
+
+**The pattern is now three-for-three and all three were found by coincidence**
+(fixloop 07-16, model-directory 07-17, claims-verification 07-27), each by a
+session that happened to be working beside the hole. Measured today: **51 of 76
+workstream directories postdate the freeze — 67%.** `bugs_open/106` proposes a
+coverage sensor on the model of `verifier_coverage_test.go`, and a
+`covers-through:` stamp per file so a reader can see where the register stopped
+looking.
+
+**2026-07-16 addition:** a coordination pass with the fixloop workstream (its
+tool went complete 2026-07-16, all 4 triage/escalation phases live) found a
+genuine gap — that whole subsystem shipped after extraction froze on 2026-07-13,
+so none of it was in the register. Added and independently verified 4 new
+concepts, cross-checked against live code (registry entries, exact file/line
+citations, and — for FIX-051/052/053 — an independent research pass that also
+confirmed every cited commit against `git log`): `FIX-051` (triage router,
+Phase 1), `FIX-052` (silent-check verifier, Phase 2), `FIX-053` (feedback
+close-out, Phase 3), and `STY-049` (the `missingkey=zero` structural defect the
+fixloop's real-case queue surfaced, root-caused via the image-landing/article-body
+incident). `FIX-034` (the pre-existing base digest) was updated in place to
+record the Phase 4 escalation-section enhancement built on top of it. This is
+targeted incremental extraction of genuinely new material, not a re-sweep of
+frozen stage-1 corpus.
+
+**2026-07-17 addition:** the fix-loop delivered its first real-case CONFIRMED
+diagnosis (correlation `e505f70f`) and, in the same session, an owner-directed
+model swap surfaced a second live bug — both genuinely new platform defects,
+not previously in the register. Added `MDL-038` (BUG A: `GenerateText` never
+decodes `stop_reason`, so max_tokens-truncated LLM responses silently look
+complete — CONFIRMED by the loop itself on 3 citations including live
+`llm_call_log` state evidence, independently re-confirmed here by direct code
+read) and `MDL-039` (BUG B: an agent's root-level `ai_service` config silently
+shadows its step-level config — proven by direct experiment on `diagnose-agent`,
+17-agent fleet blast radius, terminal state PARTIAL rather than CONFIRMED
+since the loop's own two-evidence-family guard correctly withheld CONFIRMED
+pending a state-tier citation). Also confirmed by direct re-read: `fix-proposer`
+(home of the bug-historian reviewer added 2026-07-16) has no root-level
+`ai_service` key, so it is NOT among the 17 affected agents.
+
