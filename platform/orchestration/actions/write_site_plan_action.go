@@ -49,6 +49,8 @@
 //	  imagery_written: <int>,
 //	  imagery_locks_transferred: <int>,
 //	  role_corrections: <int>,
+//	  duplicate_pages_merged: <int>,   // pages that canonicalised onto a
+//	                                   // name already taken (bugs_open/215)
 //	}
 
 package actions
@@ -201,6 +203,133 @@ func nullableJSONB(b []byte) interface{} {
 	return b
 }
 
+// planPageRow is the in-memory shape of one site_plan_pages row, plus the
+// page's section list (written to site_plan_sections under the same name).
+//
+// RawName is the LLM's own spelling before canonicalisation. It is NOT
+// written to any column — it exists so that a merge log line can name the
+// two emitted entries that collided, which is the only thing that makes a
+// collision diagnosable after the fact (see dedupePlanPageRows).
+type planPageRow struct {
+	RawName         string
+	Name            string
+	Role            string
+	Slug            string
+	URL             string
+	ParentSection   string
+	Title           string
+	MetaDescription string
+	NavLabel        string
+	InHeader        bool
+	InFooter        bool
+	NavOrder        int
+	Sections        []sectionEntry // component names + fact assignments, declared order
+}
+
+// dedupePlanPageRows collapses rows that canonicalise to the same name,
+// returning the surviving rows in first-appearance order and the number of
+// merges performed.
+//
+// WHY THIS EXISTS (bugs_open/215). CanonicalisePage is deliberately
+// idempotent and collapsing: it maps several distinct LLM spellings onto one
+// identity. Three families do this today —
+//
+//	prefix collapse:  slug "llm-cost-calculator" and slug
+//	                  "tool-llm-cost-calculator", both role "tool", both
+//	                  become "tool-llm-cost-calculator" (same for guide-,
+//	                  game-)
+//	homepage collapse: role "index", and slug "home"/"index" under an
+//	                  empty/content/landing role, all become "index"
+//	section-index:    slug "guides" and slug "guides-index" under any
+//	                  section-index role both become "guides-index"
+//
+// so a planner that emits one page under two spellings in a single plan —
+// emission variance, not a prompt defect — produces two rows carrying one
+// name. Nothing deduped after canonicalisation, and BOTH destination tables
+// are uniquely indexed on that name: site_plan_pages on (plan_id, name) and
+// site_plan_sections on (plan_id, page_name, ordering). The insert therefore
+// aborted the whole transaction and the entire replan was lost, with an error
+// naming neither the canonicaliser nor the LLM (SQLSTATE 23505 on
+// idx_site_plan_pages_name, live incident 2026-08-08).
+//
+// Merge rule: the entry with MORE sections wins, because a composed page and
+// a zero-section stub is the observed shape and the stub carries nothing; on
+// a tie the first wins, so the rule is total and order-stable. Whenever the
+// LOSER had sections of its own the merge is logged at Warn with both lists,
+// because that is the only case where authored content is actually discarded
+// — but the log only reports that choice, it does not make it. Empty optional
+// metadata on the winner is backfilled from the loser: it can fill a blank,
+// never overwrite an authored value.
+//
+// This makes the collision unrepresentable at the only door that writes these
+// tables, whatever the LLM emits.
+func dedupePlanPageRows(rows []planPageRow, logger *zap.Logger) ([]planPageRow, int) {
+	out := make([]planPageRow, 0, len(rows))
+	at := make(map[string]int, len(rows)) // canonical name -> index in out
+	merges := 0
+
+	for _, r := range rows {
+		i, seen := at[r.Name]
+		if !seen {
+			at[r.Name] = len(out)
+			out = append(out, r)
+			continue
+		}
+		merges++
+
+		winner, loser := out[i], r
+		if len(r.Sections) > len(out[i].Sections) {
+			winner, loser = r, out[i]
+		}
+
+		// Both composed: a real section list is being dropped. Loud, and
+		// name both lists so the discarded content is recoverable from logs.
+		// This branch REPORTS the loss; it does not decide it — the
+		// section-count rule above already picked the entry that discards
+		// least, and overriding it here would drop the richer page.
+		if len(loser.Sections) > 0 {
+			logger.Warn("WriteSitePlanAction: two composed pages canonicalise to one name; keeping the richer, DISCARDING the other's sections",
+				zap.String("canonical_name", r.Name),
+				zap.String("kept_raw_name", winner.RawName),
+				zap.String("dropped_raw_name", loser.RawName),
+				zap.Strings("kept_sections", sectionNames(winner.Sections)),
+				zap.Strings("dropped_sections", sectionNames(loser.Sections)),
+			)
+		} else {
+			logger.Info("WriteSitePlanAction: duplicate page collapsed after canonicalisation",
+				zap.String("canonical_name", r.Name),
+				zap.String("kept_raw_name", winner.RawName),
+				zap.String("dropped_raw_name", loser.RawName),
+				zap.Int("kept_sections", len(winner.Sections)),
+				zap.Int("dropped_sections", len(loser.Sections)),
+			)
+		}
+
+		// Backfill only-blank optional metadata from the discarded entry.
+		if winner.Title == "" {
+			winner.Title = loser.Title
+		}
+		if winner.MetaDescription == "" {
+			winner.MetaDescription = loser.MetaDescription
+		}
+		if winner.NavLabel == "" {
+			winner.NavLabel = loser.NavLabel
+		}
+		out[i] = winner
+	}
+
+	return out, merges
+}
+
+// sectionNames projects section entries to their component names, for logging.
+func sectionNames(entries []sectionEntry) []string {
+	names := make([]string, 0, len(entries))
+	for _, e := range entries {
+		names = append(names, e.Name)
+	}
+	return names
+}
+
 // WriteSitePlanAction handler.
 func WriteSitePlanAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	logger := params.Logger.With(zap.String("action", "write_site_plan"))
@@ -257,20 +386,6 @@ func WriteSitePlanAction(ctx context.Context, params ActionParams) (interface{},
 		}
 	}
 
-	type planPageRow struct {
-		Name            string
-		Role            string
-		Slug            string
-		URL             string
-		ParentSection   string
-		Title           string
-		MetaDescription string
-		NavLabel        string
-		InHeader        bool
-		InFooter        bool
-		NavOrder        int
-		Sections        []sectionEntry // component names + fact assignments, declared order
-	}
 	planRows := make([]planPageRow, 0, len(validated))
 
 	for i, v := range validated {
@@ -299,6 +414,7 @@ func WriteSitePlanAction(ctx context.Context, params ActionParams) (interface{},
 
 		raw := rawPages[i]
 		planRows = append(planRows, planPageRow{
+			RawName:         v.Name,
 			Name:            canonicalName,
 			Role:            canonicalPageType, // canonicaliser's output is authoritative
 			Slug:            firstNonEmpty(v.Slug, v.Name),
@@ -316,6 +432,18 @@ func WriteSitePlanAction(ctx context.Context, params ActionParams) (interface{},
 
 	if len(planRows) == 0 {
 		return nil, fmt.Errorf("no pages survived validation/canonicalisation")
+	}
+
+	// ── 1b. Collapse post-canonicalisation duplicates (bugs_open/215) ──
+	//        Must run before ANY insert: both site_plan_pages and
+	//        site_plan_sections are uniquely indexed on this name, so a
+	//        survivor pair aborts the whole transactional plan write.
+	planRows, duplicatesMerged := dedupePlanPageRows(planRows, logger)
+	if duplicatesMerged > 0 {
+		logger.Warn("WriteSitePlanAction: plan contained pages that canonicalise to a shared name",
+			zap.Int("duplicates_merged", duplicatesMerged),
+			zap.Int("pages_after_merge", len(planRows)),
+		)
 	}
 
 	// ── 2. Flatten LLM design / content JSON to directive rows ─────────
@@ -499,6 +627,7 @@ func WriteSitePlanAction(ctx context.Context, params ActionParams) (interface{},
 		zap.Int("imagery_written", imageryWritten),
 		zap.Int("imagery_locks_transferred", imageryLocksTransferred),
 		zap.Int("role_corrections", corrections),
+		zap.Int("duplicate_pages_merged", duplicatesMerged),
 	)
 
 	return map[string]interface{}{
@@ -511,6 +640,7 @@ func WriteSitePlanAction(ctx context.Context, params ActionParams) (interface{},
 		"imagery_written":           imageryWritten,
 		"imagery_locks_transferred": imageryLocksTransferred,
 		"role_corrections":          corrections,
+		"duplicate_pages_merged":    duplicatesMerged,
 	}, nil
 }
 
