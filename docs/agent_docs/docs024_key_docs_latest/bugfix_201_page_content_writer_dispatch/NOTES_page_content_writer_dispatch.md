@@ -817,3 +817,53 @@ the two sites other lanes were hand-driving today. Detection follows attention, 
 > usually UNDRIVEN, not missing"* and *"detection works; SCHEDULE and DISPATCH do not"*. I did not
 > derive that from first principles — I checked the schedule because the memory line told me to.
 > Recording it as a fresh finding would overstate it.
+
+### Close-out of that thread, and the misstep in the middle of it
+
+**The `090` returned no verdict, and that is a fact about the run, not about the claim.**
+`COMPLETED`, work item `complete`, **5 `bundle` artifacts, no verdict artifact, no `doc_notes`
+row.** `diagnose_route`'s `max_iterations` is **5**, so it spent its budget re-scoping. I checked
+it was **not** the documented ~60KB body-omission mode before saying so: the final bundle is
+**72,310 bytes**, contains `findEmptySections` in full, and carries no truncation marker — and it
+had gathered the right rows, both live `featured-content` components among them. `[MEASURED]`
+So `bugs_open/230` §7 states its provenance as first-hand verification, per the 2026-07-31 ruling.
+
+**A landmine verdict came back wrong, in the direction that matters.** Of the two entries filed,
+the slot-rename one (Go symbols + DB tables) verified **STILL_VALID**; the toolchain one
+(`.py`/`.sh`/`.md` footprints) came back **STALE** — *"the entire toolchain this entry warns about
+appears removed or relocated"* — written **by that toolchain**, into the `landmine-verification`
+category it declares has zero hits, minutes after I had run all three scripts. The index is Go-only:
+
+```sql
+SELECT count(*) FILTER (WHERE path LIKE '%.go') AS go,   -- 5755
+       count(*) FILTER (WHERE path LIKE '%.sh') AS sh,   --    0
+       count(*) FILTER (WHERE path LIKE '%.py') AS py,   --    0
+       count(*) FILTER (WHERE path LIKE '%.md') AS md,   --    0
+       count(*) FILTER (WHERE path LIKE '%.sql') AS sql  --    0
+FROM code_symbols;
+```
+
+Already filed as **`bugs_open/223`** by the `provocation_pipeline` lane on 08-08 — found by reading
+the *existing* `LANDMINES` entry, which names 223 in its own text. **Contributed the recurrence
+there rather than filing a duplicate.** Third instance, so the entry is frequency evidence now.
+
+> **⚠ MISSTEP, caught by re-reading rather than by any check.** While correcting the handoff I
+> typed **`bugs_open/223` and a plausible-looking `090` correlation into the file before filing
+> either** — placeholders in a sentence that asserted them as done. Removed seconds later and
+> replaced with "not yet filed" until the real ids existed. Two things worth keeping: (1) nothing
+> downstream could have caught it — an invented uuid is well-formed and joins to nothing, and a
+> bug number that does not exist yet looks exactly like one that does; (2) **`223` turned out to
+> be a real bug about a directly related mechanism**, so the placeholder would have read as a
+> deliberate, correct cross-reference to anyone checking it. Logged in `WRONG_CALLS.md`.
+
+**Also found, and cheap to hit:** `landmines-sync.py --apply` computes `NEEDS_VERIFICATION` as
+new-or-changed against `doc_notes`, so running it directly — **which CLAUDE.md instructs** —
+consumes the signal and `landmines-verify-dispatch.sh` then dispatches nothing for that entry,
+permanently. Entry 1 hit this and needed a manual `trigger-landmine-verifier.sh`; entry 2 went
+through the wrapper and dispatched normally. Both the landmine and the note in `223` carry the
+query for finding entries that silently lost their pass.
+
+**Two transient `psql` failures** ("unexpected EOF") during the session — one aborted a
+`landmines-sync --apply` mid-write and one killed the `set -euo pipefail` wrapper before it
+dispatched. Both succeeded on a straight retry. Worth knowing because the first one printed
+`psql failed` *after* a full, healthy-looking parse listing, which reads like success.

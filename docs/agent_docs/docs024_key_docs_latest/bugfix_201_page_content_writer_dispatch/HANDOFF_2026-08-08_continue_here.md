@@ -111,10 +111,17 @@ not manufacture one on a live customer site without asking. Waiting is the corre
   > **site discovery has no recurring driver** — 0 of 5 `scheduled_tasks` rows targeting
   > `quality`/`completeness`/`design-discovery-agent` are enabled, all five are `oneshot-*`, and no
   > CronJob fires them. Detection follows whichever site a lane is hand-driving.
-  > **`090` FILED** — intake corr `c5778c3e-8cf9-41b3-b36f-6d1ad37b708a`, run corr
-  > **`2ccc7551-76d3-40d2-ac2a-01d8120ea0fb`** (the run corr is the artifact key). No `bugs_open/`
-  > file yet **by design**: the owner ruling of 2026-07-31 says a cross-cutting root cause is not
-  > "filed" until it has been through the loop, so the verdict comes first. Evidence in NOTES.
+  > **CLOSED OUT 2026-08-09.** Filed as **`bugs_open/230`**; transferable pattern in **016b §9**;
+  > the two finetuning lanes have been told in their shared cold-start
+  > (`finetuning/HANDOFF_2026-08-08_continue_here.md` §6) and **nothing was dispatched at their
+  > site** — owner's call.
+  > ⚠ **The `090` returned NO VERDICT** (intake `c5778c3e-…`, run
+  > **`2ccc7551-76d3-40d2-ac2a-01d8120ea0fb`**): `COMPLETED`, work item `complete`, **5 bundles and
+  > no verdict artifact**, no `doc_notes` row — `diagnose_route.max_iterations` is 5, so it
+  > exhausted its budget while still re-scoping. **NOT the known ~60KB body-omission mode**: the
+  > final bundle is 72,310 bytes, carries `findEmptySections` whole, no truncation marker. So `230`
+  > rests on first-hand verification and **says so in its §7**, per the owner ruling of 2026-07-31.
+  > A run that ends without a verdict is evidence for nothing — do not cite it either way.
 - **`bugfix_071` lane's landmine** — the success UPDATE never clears `site_work_items.error`, so a
   row refused then completed keeps the refusal text. Fail-closed makes it *commoner*, not caused by
   us. Plausibly a one-line fix (`error = NULL`) on the success path; **theirs, not ours.**
