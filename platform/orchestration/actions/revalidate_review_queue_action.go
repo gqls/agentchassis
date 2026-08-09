@@ -180,9 +180,10 @@ var reviewRevalidators = map[string]reviewRevalidator{
 	// the site's evidence_base register does not support. Re-runs the emit side's
 	// scanner (discovery_checks.ScanDeployedClaims) rather than restating the
 	// predicate, for the same reason voice_tells and needs_page do.
-	// Added 2026-08-09: 23 items across 7 sites, TWO producing checks, nothing
-	// had ever closed one — see revalidate_unverified_claims.go for the closer
-	// census that established that.
+	// Added 2026-08-09: 23 items across 7 sites, ONE producer, nothing had ever
+	// closed one — see revalidate_unverified_claims.go for the closer census that
+	// established that, and for the correction to this lane's earlier "two
+	// producers" claim.
 	"claims_unverified": revalidateUnverifiedClaims,
 }
 

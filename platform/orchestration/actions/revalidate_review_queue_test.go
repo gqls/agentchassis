@@ -188,12 +188,13 @@ func TestRevalidatorCoverageIsDeliberate(t *testing.T) {
 	// `fix` text forbids — see revalidate_voice_tells.go.
 	// claims_unverified added 2026-08-09, and it cleared the same bar: the CLOSER
 	// census (item_type='claims_unverified' AND status IN ('complete','verified'))
-	// returned ZERO rows, so nothing else drains the type. Unlike voice_tells it
-	// has TWO producing checks — check_unverified_claims.go and
-	// check_unverified_claims_stats.go — which converge on one item_type by
-	// design; both are named in the concept register entry, per the owner ruling
-	// of 2026-08-02 on converging producers. Retraction is not the auto-rewrite
-	// that check's `fix` text forbids — see revalidate_unverified_claims.go.
+	// returned ZERO rows, so nothing else drains the type, and the same census
+	// found 0 handler_agent and 0 distinct resolution_paths across every row of
+	// the type. ONE producer, UnverifiedClaimsCheck — this lane first recorded
+	// "two converging producers" and that was wrong; check_unverified_claims_stats.go
+	// registers no check and emits no work item, it is a helper called from inside
+	// the shared scan. Retraction is not the auto-rewrite that check's `fix` text
+	// forbids — see revalidate_unverified_claims.go for both.
 	want := []string{"unresolved_cta", "required_fields_missing", "needs_section_data", "needs_page", "voice_tells", "claims_unverified"}
 	for _, itemType := range want {
 		if _, ok := reviewRevalidators[itemType]; !ok {

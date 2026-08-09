@@ -17,12 +17,25 @@
 // COUNT THE CLOSERS, NOT JUST THE PRODUCERS. Measured 2026-08-08/09 on live
 // clients_db:
 //
-//   - Producer side: TWO checks converge on this one item_type —
-//     check_unverified_claims.go (the HTML banned-claim and unregistered-number
-//     scans) and check_unverified_claims_stats.go (the stored-stat scans, which
-//     reuse the type deliberately rather than minting a second one). Both file
-//     through the same emission block, under item_key `claims:<page_id>` for a
-//     page and the single grouped `claims:site_components` for site chrome.
+//   - Producer side: ONE producer, UnverifiedClaimsCheck in
+//     check_unverified_claims.go. item_key is `claims:<page_id>` for a page and
+//     the single grouped `claims:site_components` for site chrome.
+//
+//     > **CORRECTED 2026-08-09, and it was my error.** The first version of this
+//     > header (and the council submission built on it) said "TWO checks converge
+//     > on this one item_type", naming check_unverified_claims_stats.go as a
+//     > second producer, and invoked the owner's 2026-08-02 converging-producers
+//     > ruling to argue no RFC was needed. **There is no convergence, so that
+//     > ruling never applied.** check_unverified_claims_stats.go registers no
+//     > check, has no init(), and emits no WorkItemSpec — it is a HELPER FILE
+//     > whose scanStoredStatClaims() is called from inside ScanDeployedClaims
+//     > (check_unverified_claims.go:385 for pages, :427 for site chrome) and
+//     > nowhere else in production. Its own header line "reuses the existing
+//     > claims_unverified item type" describes reusing the type it contributes
+//     > findings to, not filing items itself. The council's editquality seat
+//     > raised this as a gating objection; its feared consequence — the
+//     > revalidator judging by the wrong producer's predicate — is refuted by
+//     > exactly that call graph: there is ONE scan, and both halves live in it.
 //   - Closer side: `SELECT status, count(*) ... WHERE item_type='claims_unverified'
 //     AND status IN ('complete','verified')` returns ZERO ROWS. Nothing has ever
 //     closed one — no revalidation block, no `deploy_result` payload, no handler,
