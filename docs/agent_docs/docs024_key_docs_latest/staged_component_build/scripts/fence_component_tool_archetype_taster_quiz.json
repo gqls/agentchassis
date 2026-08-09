@@ -1,0 +1,75 @@
+{
+  "profiles": [
+    "desktop",
+    "mobile"
+  ],
+  "container": "section.tool-archetype-taster-quiz-section[data-component=\"tool-archetype-taster-quiz\"]",
+  "checks": [
+    {
+      "id": "page-serves-200",
+      "type": "page_status_ok"
+    },
+    {
+      "id": "section-renders",
+      "type": "selector_exists",
+      "profiles": [
+        "desktop"
+      ],
+      "selector": "section.tool-archetype-taster-quiz-section[data-component=\"tool-archetype-taster-quiz\"]"
+    },
+    {
+      "id": "section-has-visible-area",
+      "type": "has_visible_area",
+      "selector": "section.tool-archetype-taster-quiz-section[data-component=\"tool-archetype-taster-quiz\"]"
+    },
+    {
+      "id": "next-starts-locked",
+      "type": "selector_exists",
+      "profiles": [
+        "desktop"
+      ],
+      "selector": "section.tool-archetype-taster-quiz-section[data-component=\"tool-archetype-taster-quiz\"] #quiz-next-btn[disabled]"
+    },
+    {
+      "id": "answering-selects-and-unlocks-next",
+      "type": "interaction",
+      "profiles": [
+        "desktop"
+      ],
+      "steps": [
+        {
+          "action": "click",
+          "selector": "section.tool-archetype-taster-quiz-section[data-component=\"tool-archetype-taster-quiz\"] .quiz-option-btn[data-question=\"1\"][data-value=\"a\"]"
+        }
+      ],
+      "expect": {
+        "selector": "section.tool-archetype-taster-quiz-section[data-component=\"tool-archetype-taster-quiz\"] #quiz-next-btn:not([disabled])"
+      }
+    },
+    {
+      "id": "next-advances-the-question",
+      "type": "interaction",
+      "profiles": [
+        "desktop"
+      ],
+      "steps": [
+        {
+          "action": "click",
+          "selector": "section.tool-archetype-taster-quiz-section[data-component=\"tool-archetype-taster-quiz\"] #quiz-next-btn"
+        }
+      ],
+      "expect": {
+        "selector": "section.tool-archetype-taster-quiz-section[data-component=\"tool-archetype-taster-quiz\"] #quiz-step-label",
+        "text_matches": "Question 2"
+      }
+    },
+    {
+      "id": "no-horizontal-overflow",
+      "type": "no_horizontal_overflow"
+    },
+    {
+      "id": "no-console-errors",
+      "type": "no_console_errors"
+    }
+  ]
+}

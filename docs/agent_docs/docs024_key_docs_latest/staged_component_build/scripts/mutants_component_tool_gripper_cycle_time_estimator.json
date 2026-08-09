@@ -1,0 +1,65 @@
+[
+  {
+    "name": "the page stops being served (404)",
+    "serve_status": 404,
+    "expect_fail": [
+      "page-serves-200"
+    ]
+  },
+  {
+    "name": "the section loses the identity acceptance resolves it by",
+    "from": "data-component=\"tool-gripper-cycle-time-estimator\"",
+    "to": "data-component=\"tool-gripper-cycle-time-estimator-renamed\"",
+    "expect_fail": [
+      "section-renders"
+    ]
+  },
+  {
+    "name": "the section collapses below visible size (10x10, overflow hidden)",
+    "from": "</body>",
+    "to": "<style>section.tool-gripper-cycle-time-estimator-section[data-component=\"tool-gripper-cycle-time-estimator\"]{width:10px!important;height:10px!important;overflow:hidden!important;padding:0!important}</style></body>",
+    "expect_fail": [
+      "section-has-visible-area"
+    ]
+  },
+  {
+    "name": "an input loses its shipped default, so the tool asks the visitor to guess",
+    "from": "<input type=\"number\" id=\"gcte-travel\" min=\"10\" max=\"5000\" value=\"300\" aria-label=\"Transfer Distance (mm)\" />",
+    "to": "<input type=\"number\" id=\"gcte-travel\" min=\"10\" max=\"5000\" aria-label=\"Transfer Distance (mm)\" />",
+    "expect_fail": [
+      "inputs-ship-usable-defaults"
+    ]
+  },
+  {
+    "name": "the component's own script never runs, so Calculate fills nothing",
+    "from": "<script src=\"/tools/assets/tool-gripper-cycle-time-estimator.js\"></script>",
+    "to": "<script>/* component script removed by mutant */</script>",
+    "expect_fail": [
+      "calculate-fills-the-result"
+    ]
+  },
+  {
+    "name": "the result slot loses the id the calculator writes into",
+    "from": "id=\"gcte-total-time\"",
+    "to": "id=\"gcte-total-time-renamed\"",
+    "expect_fail": [
+      "calculate-fills-the-result"
+    ]
+  },
+  {
+    "name": "a wide element pushes the page past the viewport",
+    "from": "</body>",
+    "to": "<div style=\"width:3000px;height:8px\"></div></body>",
+    "expect_fail": [
+      "no-horizontal-overflow"
+    ]
+  },
+  {
+    "name": "a script error reaches the console",
+    "from": "</body>",
+    "to": "<script>window.__deliberatelyUndefined.boom = 1;</script></body>",
+    "expect_fail": [
+      "no-console-errors"
+    ]
+  }
+]

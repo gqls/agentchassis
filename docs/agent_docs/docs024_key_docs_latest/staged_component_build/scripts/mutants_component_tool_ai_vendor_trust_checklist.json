@@ -1,0 +1,66 @@
+[
+  {
+    "name": "the page stops being served (404)",
+    "serve_status": 404,
+    "expect_fail": [
+      "page-serves-200"
+    ]
+  },
+  {
+    "name": "the section loses the identity acceptance resolves it by",
+    "from": "data-component=\"tool-ai-vendor-trust-checklist\"",
+    "to": "data-component=\"tool-ai-vendor-trust-checklist-renamed\"",
+    "expect_fail": [
+      "section-renders"
+    ]
+  },
+  {
+    "name": "the section collapses below visible size (10x10, overflow hidden)",
+    "from": "</body>",
+    "to": "<style>section.tool-ai-vendor-trust-checklist-section[data-component=\"tool-ai-vendor-trust-checklist\"]{width:10px!important;height:10px!important;overflow:hidden!important;padding:0!important}</style></body>",
+    "expect_fail": [
+      "section-has-visible-area"
+    ]
+  },
+  {
+    "name": "the first checkbox collapses to 0x0 (bugs_closed/157's own reproducer shape)",
+    "from": "</body>",
+    "to": "<style>#vtc-c1{width:0!important;height:0!important;min-width:0!important;min-height:0!important;padding:0!important;border:0!important;appearance:none!important;-webkit-appearance:none!important}</style></body>",
+    "expect_fail": [
+      "first-box-is-a-real-target"
+    ]
+  },
+  {
+    "name": "the component's own script never runs, so ticking recomputes nothing",
+    "from": "<script src=\"/tools/assets/tool-ai-vendor-trust-checklist.js\"></script>",
+    "to": "<script>/* component script removed by mutant */</script>",
+    "expect_fail": [
+      "ticking-a-box-moves-the-score",
+      "na-toggle-drops-the-denominator"
+    ]
+  },
+  {
+    "name": "the ticked box loses the data attribute the scorer reads, so the tick registers nothing",
+    "from": "<input type=\"checkbox\" id=\"vtc-c1\" data-vtc-item=\"1\">",
+    "to": "<input type=\"checkbox\" id=\"vtc-c1\" data-vtc-item-renamed=\"1\">",
+    "expect_fail": [
+      "ticking-a-box-moves-the-score"
+    ]
+  },
+  {
+    "name": "a wide element pushes the page past the viewport",
+    "from": "</body>",
+    "to": "<div style=\"width:3000px;height:8px\"></div></body>",
+    "expect_fail": [
+      "no-horizontal-overflow"
+    ]
+  },
+  {
+    "name": "a script error reaches the console",
+    "from": "</body>",
+    "to": "<script>window.__deliberatelyUndefined.boom = 1;</script></body>",
+    "expect_fail": [
+      "no-console-errors"
+    ]
+  }
+]

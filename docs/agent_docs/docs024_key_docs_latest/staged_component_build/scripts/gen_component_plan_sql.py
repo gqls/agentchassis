@@ -44,7 +44,7 @@ import sys
 DIR = os.path.dirname(os.path.abspath(__file__))
 SOURCE = "staged_component_build"
 CREATED_BY = "operator:staged_component_build"
-AUTHORED = "2026-08-08"
+AUTHORED = "2026-08-09"
 
 
 def body_for(s: dict) -> str:
@@ -58,7 +58,7 @@ def body_for(s: dict) -> str:
         f'# PLAN -- {s["function"]} (section component)',
         "",
         f'**Authored {AUTHORED} by lane `staged_component_build`** under D10 (exhaustive',
-        f'backlog clearance), production-line batch 6 -- the INTERACTIVE stock. Mutation',
+        f'backlog clearance), production-line batch 7 -- the INTERACTIVE stock. Mutation',
         f'proofs use `prove_fence_mutants_file.go` + `mutants_component_'
         f'{s["function"].replace("-", "_")}.json`.',
         "",

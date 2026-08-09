@@ -1,0 +1,78 @@
+{
+  "profiles": [
+    "desktop",
+    "mobile"
+  ],
+  "container": "section.tool-ai-vendor-trust-checklist-section[data-component=\"tool-ai-vendor-trust-checklist\"]",
+  "checks": [
+    {
+      "id": "page-serves-200",
+      "type": "page_status_ok"
+    },
+    {
+      "id": "section-renders",
+      "type": "selector_exists",
+      "profiles": [
+        "desktop"
+      ],
+      "selector": "section.tool-ai-vendor-trust-checklist-section[data-component=\"tool-ai-vendor-trust-checklist\"]"
+    },
+    {
+      "id": "section-has-visible-area",
+      "type": "has_visible_area",
+      "selector": "section.tool-ai-vendor-trust-checklist-section[data-component=\"tool-ai-vendor-trust-checklist\"]"
+    },
+    {
+      "id": "first-box-is-a-real-target",
+      "type": "has_visible_area",
+      "profiles": [
+        "desktop"
+      ],
+      "min_width": 20,
+      "min_height": 20,
+      "selector": "#vtc-c1"
+    },
+    {
+      "id": "ticking-a-box-moves-the-score",
+      "type": "interaction",
+      "profiles": [
+        "desktop"
+      ],
+      "steps": [
+        {
+          "action": "click",
+          "selector": "#vtc-c1"
+        }
+      ],
+      "expect": {
+        "selector": "#vtc-score-count",
+        "text_matches": "^1$"
+      }
+    },
+    {
+      "id": "na-toggle-drops-the-denominator",
+      "type": "interaction",
+      "profiles": [
+        "desktop"
+      ],
+      "steps": [
+        {
+          "action": "click",
+          "selector": "#vtc-na-sector"
+        }
+      ],
+      "expect": {
+        "selector": "#vtc-score-total",
+        "text_matches": "^11$"
+      }
+    },
+    {
+      "id": "no-horizontal-overflow",
+      "type": "no_horizontal_overflow"
+    },
+    {
+      "id": "no-console-errors",
+      "type": "no_console_errors"
+    }
+  ]
+}

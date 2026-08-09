@@ -103,12 +103,20 @@ first rollout attempt dispatched exactly one of ten. Use an array, or `< /dev/nu
 
 ## 3. D10 contract backlog — state
 
-**51 subjects proven end-to-end: 49 sections + 2 tools**, all S6-green in-cluster with the
+**56 subjects proven end-to-end: 54 sections + 2 tools**, all S6-green in-cluster with the
 negative control confirmed red.
 
 - Batch 6 (08-08 eve): `news-listing`, `latest-news`, `case-studies-grid`, `contact-block`,
   `blog-listing` — 8 checks each, 8/8 mutants, S6 12/12.
 - Batch 6b (08-09): `game-list` (7/7, S6 11/11), `ai-readiness-quiz` (9/9, S6 13/13).
+- Batch 7 (08-09 eve, plan-first — Fable planned read-only, Opus implemented):
+  `tool-ai-vendor-trust-checklist` (8/8, S6 12/12 — its `#vtc-c1` 20x20 check is
+  `bugs_closed/157`'s own reproducer, now a permanent regression check),
+  `tool-gripper-cycle-time-estimator` (8/8, S6 11/11), `tool-archetype-taster-quiz`
+  (8/8, S6 12/12), `report-request-form` (STATIC by design — its only JS observable
+  fires a real POST into `idea_uk_vm_site`'s operator funnel; PLAN forbids driving it),
+  `model-directory-listing` (STATIC by design — re-hydration is idempotent; serve_local
+  required even for the static fence). NOTES 2026-08-09 evening entry has the full table.
 
 **The rule the interactive pile forced, and the four worked shapes, are in
 `HANDOFF_2026-08-08_continue_here.md` §3. Read it before authoring another interactive
@@ -124,14 +132,21 @@ passed through (no action at all; `action=""`). 9 checks, 10/10 mutants, S6 `f3c
 
 ### Remaining work
 
-- **~10 interactive sections**, all single-placement: `tool-ai-vendor-trust-checklist`,
-  `tool-archetype-taster-quiz`, `adoption-tracker-listing`,
-  `tool-gripper-cycle-time-estimator`, `audience-check-form`, `model-directory-listing`,
-  `protocol-tracker-listing`, `report-request-form`, `tool-ai-agent-roi-estimator`.
-  ~30–45 min each. `gauntlet-interface` is **lane-owned — coordinate.**
-  **Check first whether the subject is interactive at all** — `length(js_content) > 0` was
-  WRONG for `game-list` (its script binds selectors absent from its own template, and no
-  page loads it).
+- **Interactive sections: 4 left, each gated, none plain.**
+  - `tool-ai-agent-roi-estimator` — fence+mutants COMMITTED (7/7 desktop), NOT persisted:
+    the trial found a REAL mobile overflow (`h3.roi-inputs-title` fixed 297.9px inside the
+    tool). Unblocks when the CSS is fixed; do NOT gate the check to desktop to dodge it.
+  - `audience-check-form` — deferred on two gates: the prover needs a POST-stub sibling of
+    serve_local, and the S6 run fires a real POST into idea.uk's free-taster funnel —
+    coordinate with `idea_uk_vm_site` FIRST.
+  - `adoption-tracker-listing` + `protocol-tracker-listing` — ALL FOUR tracker feeds 404
+    (measured; model-directory's serve fine). CONTRIB filed into `model_directory_pipeline/`;
+    fence after they publish or de-script the templates.
+  - `gauntlet-interface` — **lane-owned, coordinate.**
+  **Qualify before budgeting**: a subject is interactive only if the JS binds selectors in
+  its own template AND a served page loads the script AND the effect is observable and safe
+  to drive — `length(js_content)>0` fails three different ways (game-list, trackers,
+  model-directory).
 - **~10 ready tools** — re-run `CHECK_naming_contract.sh` + census first.
 - **8 chrome-blocked sections** — fences authored, baselines cannot go green until each
   site's `hero.jpg`/logo 404 is fixed. Still the highest-value small repair on the board.

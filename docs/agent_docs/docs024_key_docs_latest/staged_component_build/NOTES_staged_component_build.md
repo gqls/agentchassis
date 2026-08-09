@@ -2425,3 +2425,75 @@ deleting it.
 
 **Tally unchanged at 49 sections + 2 tools** — this was a contract strengthened, not a new
 subject.
+
+## 2026-08-09 (evening) — batch 7: five interactive subjects end-to-end, planned by a second model and implemented against its open questions
+
+**Process note:** this batch ran plan-first — a read-only planning pass (Fable) measured
+the candidate pool, qualified every subject at the artefact, and named 7 open questions
+each with its resolver; implementation (Opus) then worked the plan. The qualification
+discipline it added is worth keeping: **three sub-checks decide whether a subject is
+genuinely interactive** — the JS binds selectors that exist in its own template, a served
+page actually loads the script, AND the JS effect is observable and safe to drive.
+`length(js_content)>0` fails that test three different ways (game-list: dead bindings;
+adoption/protocol trackers: the fetch 404s; model-directory: the effect is idempotent).
+
+| subject | checks | prover | proof page | S6 CID |
+|---|---|---|---|---|
+| tool-ai-vendor-trust-checklist | 8 | 8/8 | leopardess /tools/ai-vendor-trust-checklist.html | `cea8166c` 12/12 |
+| tool-gripper-cycle-time-estimator | 7 | 8/8 | robot-hands /gripper-cycle-time-estimator.html | `c18e0310` 11/11 |
+| tool-archetype-taster-quiz | 8 | 8/8 | vonc /tools/archetype-taster-quiz/index.html | `79b50769` 12/12 |
+| report-request-form (STATIC by design) | 8 | 8/8 | idea.uk /report.html | `52f934bf` 12/12 |
+| model-directory-listing (STATIC by design) | 7 | 7/7 | aao /model-directory.html | `8a229231` 11/11 |
+
+All five `neg_control_confirmed_red`; zero `not implemented` skips across the batch
+(queried, not assumed). Persisted, read back byte-identical; the gcte fence re-run from
+the DB copy. **Running D10 tally: 54 sections + 2 tools.**
+
+**The vendor-trust fence closes a circle:** its `first-box-is-a-real-target` check is
+`#vtc-c1` at a 20x20 floor — `bugs_closed/157`'s own reproducer, the 24px checkbox that
+measured 0x0 under the integer-decode bug, now a permanent regression check in the
+component's own contract.
+
+### Two deliberately-static fences, for opposite reasons — both stated in their PLANs
+
+- `report-request-form`: the script's ONLY observable fires on a real POST into the
+  `idea_uk_vm_site` lane's operator funnel. Driving it from acceptance fabricates a lead
+  in another lane's money path on every run. The PLAN forbids "upgrading" the fence
+  without that lane's agreement and a POST-stubbing harness.
+- `model-directory-listing`: the re-hydration is IDEMPOTENT — measured side-by-side, the
+  server render already carries the feed's 27 cards, so no observable exists that a
+  static render cannot satisfy; asserting feed text would couple the contract to the
+  `model_directory_pipeline` lane's data.
+
+### One REAL find (a fence catching a defect at trial time), one deferral, one contrib
+
+1. **`tool-ai-agent-roi-estimator` genuinely overflows on mobile** — measured by its own
+   candidate fence's trial: `h3.roi-inputs-title` carries a fixed 297.9px width INSIDE
+   the tool, scrollWidth > clientWidth at 390px. NOT dodged by gating the check to
+   desktop (the fixing-the-checker-to-agree-with-a-broken-site landmine). Fence + mutants
+   authored and committed (7/7 desktop-proven), NOT persisted — joins the
+   authored-but-blocked pile until the CSS is fixed. Standing-defect list gains the line.
+2. **`audience-check-form` deferred** on two independent gates: the local prover cannot
+   POST-stub (its submit fetch goes cross-origin under the redirect harness), and the S6
+   run would fire a real POST per profile into idea.uk's free-taster funnel — the same
+   coordinate-before-write rule 228 taught. Batch 8, after a harness extension and a nod
+   from `idea_uk_vm_site`.
+3. **All four tracker feeds 404** (`adoption-tracker[-full].json`,
+   `protocol-tracker[-full].json`) while `model-directory[-full].json` serves — the
+   trackers' client refresh has never once succeeded in production, and every page load
+   logs a 404. Routed as `CONTRIB_2026-08-09_tracker_feeds_404…` into
+   `model_directory_pipeline/` (their SEEDs name the feeds; their publish trigger is the
+   likely one-dispatch fix), not filed as a bug over an owned mechanism.
+
+### Operational notes
+
+- **vonc.com origin served a transient 404 to ONE profile's navigation** mid-trial (the
+  other profile got 200 in the same run); clean on re-run and x3 curl probes. Recorded in
+  the archetype-taster PLAN: a single red S6 on that subject warrants a re-curl before
+  diagnosis. Same family as the batch-5 "lendzy origin flaky" note.
+- idea.uk's fleet-wide favicon 404 was MEASURED not to red `no_console_errors` (2-check
+  probe fence, clean pass) — a resource 404 is a network event, not a console error. The
+  open question that gated two subjects cost one probe to close.
+- The two tool-named subjects (vendor-trust, archetype-taster) each have a CURRENT
+  `subject_type='tool'` PLAN as well; the component PLANs are additive (different partial-
+  index slot) and cross-reference them so the contracts cannot drift unnoticed.

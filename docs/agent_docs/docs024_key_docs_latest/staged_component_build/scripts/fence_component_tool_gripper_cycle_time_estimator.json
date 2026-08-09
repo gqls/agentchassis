@@ -1,0 +1,59 @@
+{
+  "profiles": [
+    "desktop",
+    "mobile"
+  ],
+  "container": "section.tool-gripper-cycle-time-estimator-section[data-component=\"tool-gripper-cycle-time-estimator\"]",
+  "checks": [
+    {
+      "id": "page-serves-200",
+      "type": "page_status_ok"
+    },
+    {
+      "id": "section-renders",
+      "type": "selector_exists",
+      "profiles": [
+        "desktop"
+      ],
+      "selector": "section.tool-gripper-cycle-time-estimator-section[data-component=\"tool-gripper-cycle-time-estimator\"]"
+    },
+    {
+      "id": "section-has-visible-area",
+      "type": "has_visible_area",
+      "selector": "section.tool-gripper-cycle-time-estimator-section[data-component=\"tool-gripper-cycle-time-estimator\"]"
+    },
+    {
+      "id": "inputs-ship-usable-defaults",
+      "type": "selector_exists",
+      "profiles": [
+        "desktop"
+      ],
+      "selector": "section.tool-gripper-cycle-time-estimator-section[data-component=\"tool-gripper-cycle-time-estimator\"] input#gcte-travel[value]"
+    },
+    {
+      "id": "calculate-fills-the-result",
+      "type": "interaction",
+      "profiles": [
+        "desktop"
+      ],
+      "steps": [
+        {
+          "action": "click",
+          "selector": "#gcte-calculate-btn"
+        }
+      ],
+      "expect": {
+        "selector": "#gcte-total-time",
+        "text_matches": "[0-9]"
+      }
+    },
+    {
+      "id": "no-horizontal-overflow",
+      "type": "no_horizontal_overflow"
+    },
+    {
+      "id": "no-console-errors",
+      "type": "no_console_errors"
+    }
+  ]
+}

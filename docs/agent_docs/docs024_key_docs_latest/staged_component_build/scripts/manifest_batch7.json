@@ -1,0 +1,116 @@
+[
+  {
+    "function": "tool-ai-vendor-trust-checklist",
+    "aim": "The vendor-trust checklist tool: 12 tickable criteria, a live score with meter and verdict\ntier, and a sector-N/A toggle that drops the denominator. 1 active placement.",
+    "contract": [
+      "- Root `section.tool-ai-vendor-trust-checklist-section[data-component=\"tool-ai-vendor-trust-checklist\"]`.",
+      "- `#vtc-c1` must be a REAL target at >=20x20 — this exact checkbox, at this exact floor, is",
+      "  `bugs_closed/157`'s own reproducer (a 24px control that measured 0x0 under the integer-decode",
+      "  bug). Its floor is 20x20, not the 24x24 default, matching the tool PLAN's original fence.",
+      "- **The interactive half (new shape: a gesture recomputes a rendered figure).** Ticking",
+      "  `#vtc-c1` must move `#vtc-score-count` from the server-rendered `0` to exactly `1`; toggling",
+      "  `#vtc-na-sector` must drop `#vtc-score-total` from `12` to exactly `11`. Both figures are",
+      "  server-rendered as static text, so a dead script leaves them standing forever — and the",
+      "  second check deliberately CONTINUES from the first's state (check order is load-bearing;",
+      "  the evaluator drives one shared page in declaration order).",
+      "- **CROSS-REFERENCE, read before editing either contract:** a CURRENT `doc_plans` row exists",
+      "  at `subject_type='tool'`, same key (authored 2026-07-30 by this lane, the S0–S7 ladder",
+      "  build, fence included). This component-scope PLAN is ADDITIVE — the S6 component dispatch",
+      "  resolves `subject_type='component'` — and the two fences must not drift: this one's checks",
+      "  are a subset shaped for the component run, and the tool PLAN remains the fuller contract."
+    ],
+    "fence": "fence_component_tool_ai_vendor_trust_checklist.json",
+    "proof_url": "https://leopardessconsulting.co.uk/tools/ai-vendor-trust-checklist.html",
+    "proof_note": "Single-instance placement; page and assets serve 200; every mutant `from` verified to occur exactly once in the served page.",
+    "mutants": "8/8 caught, every check watched red, baseline green"
+  },
+  {
+    "function": "tool-gripper-cycle-time-estimator",
+    "aim": "The gripper cycle-time estimator: number inputs (all shipping usable defaults), a Calculate\nbutton, and a result panel with total time, breakdown and throughput. 1 active placement at\nthe section-level row.",
+    "contract": [
+      "- Root `section.tool-gripper-cycle-time-estimator-section[data-component=\"tool-gripper-cycle-time-estimator\"]`.",
+      "- `input#gcte-travel[value]` asserted — the inputs ship defaults, so the tool computes for a",
+      "  visitor who presses Calculate without typing anything.",
+      "- **The interactive half.** Click `#gcte-calculate-btn` -> `#gcte-total-time` must match",
+      "  `[0-9]`. The server renders a literal em-dash in that slot, so only the script can put a",
+      "  digit there.",
+      "- **Placement disambiguation, load-bearing for any future re-point:** this function ALSO has",
+      "  placements via an INACTIVE tool-level content_components row on",
+      "  `/tools/gripper-cycle-time-estimator/index.html` — that page is neither a valid proof page",
+      "  nor a valid negative control (the S6 join resolves by FUNCTION, not by cc row)."
+    ],
+    "fence": "fence_component_tool_gripper_cycle_time_estimator.json",
+    "proof_url": "https://robot-hands.com/gripper-cycle-time-estimator.html",
+    "proof_note": "Single-instance placement at the active section-level row; page and assets 200; mutant strings verified exactly-once.",
+    "mutants": "8/8 caught, every check watched red, baseline green"
+  },
+  {
+    "function": "tool-archetype-taster-quiz",
+    "aim": "The archetype taster quiz: five questions, option buttons that record an answer and unlock\nNext, a step label, and a result reveal. 1 active placement.",
+    "contract": [
+      "- Root `section.tool-archetype-taster-quiz-section[data-component=\"tool-archetype-taster-quiz\"]`.",
+      "- **The landing state is part of the contract:** `#quiz-next-btn[disabled]` must be true in",
+      "  the server render — a quiz shipping with Next unlocked lets an unanswered question be",
+      "  skipped, and no other check would notice.",
+      "- **The interactive half (two gestures, order load-bearing).** Clicking option",
+      "  `[data-question=\"1\"][data-value=\"a\"]` must unlock `#quiz-next-btn:not([disabled])`; then",
+      "  clicking Next must advance `#quiz-step-label` to text matching `Question 2`. The second",
+      "  check CONTINUES from the first's state — do not make it self-contained, it cannot be",
+      "  (the ai-readiness-quiz PLAN records the same rule and the 30s timeout that taught it).",
+      "- **CROSS-REFERENCE:** a CURRENT `doc_plans` row exists at `subject_type='tool'`, same key",
+      "  (human-authored 2026-07-14, fence included). This component-scope PLAN is additive; the",
+      "  two must not drift.",
+      "- **Origin note:** vonc.com returned a transient 404 to ONE profile's navigation during this",
+      "  fence's first live trial (the other profile got 200 in the same run); the re-run was clean.",
+      "  A single red S6 on this subject warrants a re-curl before any diagnosis."
+    ],
+    "fence": "fence_component_tool_archetype_taster_quiz.json",
+    "proof_url": "https://vonc.com/tools/archetype-taster-quiz/index.html",
+    "proof_note": "Single-instance placement; page and assets 200 (x3 probes after the transient); mutant strings verified exactly-once.",
+    "mutants": "8/8 caught, every check watched red, baseline green"
+  },
+  {
+    "function": "report-request-form",
+    "aim": "The idea.uk report-request form: a real POST form into the operator funnel, with an\nanti-spam elapsed-time stamp its 266-byte script writes on submit. 1 active placement.",
+    "contract": [
+      "- Root `section.rr-form-section[data-component=\"report-request-form\"]`.",
+      "- `form#rr-form[action=\"/request\"][method=\"POST\"]` — the LIVE route (GET /request is the",
+      "  idea.uk VM app's; the undeliverable-form census counts `/request` as a real destination).",
+      "- `input#rr-elapsed[name=\"_elapsed\"]` present — the slot the anti-spam stamp writes into.",
+      "- `script[src=\"/tools/assets/report-request-form.js\"]` delivered. NOTE the served tag carries",
+      "  `defer` — any string-match against it must include the attribute.",
+      "- **This fence is STATIC on purpose, and the reason is a boundary, not a gap:** the script's",
+      "  ONLY observable fires on a real submit of `action=\"/request\"` — which navigates away AND",
+      "  files a fabricated report request into the `idea_uk_vm_site` lane's operator funnel",
+      "  (confirm/approve/decline flow). Driving it from acceptance would fabricate a lead in",
+      "  another lane's money path on every run. DO NOT \"upgrade\" this fence to a driven one",
+      "  without that lane's agreement and a harness that stubs the POST."
+    ],
+    "fence": "fence_component_report_request_form.json",
+    "proof_url": "https://idea.uk/report.html",
+    "proof_note": "Single-instance placement; page 200. idea.uk 404s `/assets/images/favicon.png` fleet-wide and it was MEASURED not to red no_console_errors (a 2-check probe fence passed clean 2026-08-09) — a resource 404 is a network event, not a console error.",
+    "mutants": "8/8 caught, every check watched red, baseline green"
+  },
+  {
+    "function": "model-directory-listing",
+    "aim": "The full model directory: 27 server-rendered model cards, re-hydrated client-side from\n`/data/model-directory-full.json`. 1 active placement.",
+    "contract": [
+      "- Root `section.model-directory-listing-section[data-component=\"model-directory-listing\"]`.",
+      "- At least one `article.model-card` inside `#model-directory-full-container`.",
+      "- `script[src=\"/tools/assets/model-directory-listing.js\"]` delivered.",
+      "- **This fence is STATIC on purpose, for a different reason than report-request-form:** the",
+      "  client-side re-hydration is IDEMPOTENT today — measured side-by-side 2026-08-09, the server",
+      "  render already carries the same 27 cards the feed holds, so there is NO observable a static",
+      "  render cannot satisfy. Asserting feed-borne text would couple this contract to data the",
+      "  `model_directory_pipeline` lane changes on its own schedule.",
+      "- The container-rename mutant is clean because the script null-guards",
+      "  (`if (container && ...)`) — verified in the served asset before authoring; a script that",
+      "  threw on the missing id would have redded the console check as collateral."
+    ],
+    "fence": "fence_component_model_directory_listing.json",
+    "proof_url": "https://ai-agent-orchestration.com/model-directory.html",
+    "proof_note": "Single-instance placement; page 200; feed 200 at 20,633 B.",
+    "mutants": "7/7 caught, every check watched red, baseline green",
+    "accommodations": "serve_local `/data/model-directory-full.json` — required even for a static fence, because the page's own fetch goes cross-origin under the redirect harness and CORS reds no_console_errors on a page that is clean live"
+  }
+]

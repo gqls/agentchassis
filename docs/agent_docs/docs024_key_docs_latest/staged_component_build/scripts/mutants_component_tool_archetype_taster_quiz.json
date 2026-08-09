@@ -1,0 +1,66 @@
+[
+  {
+    "name": "the page stops being served (404)",
+    "serve_status": 404,
+    "expect_fail": [
+      "page-serves-200"
+    ]
+  },
+  {
+    "name": "the section loses the identity acceptance resolves it by",
+    "from": "data-component=\"tool-archetype-taster-quiz\"",
+    "to": "data-component=\"tool-archetype-taster-quiz-renamed\"",
+    "expect_fail": [
+      "section-renders"
+    ]
+  },
+  {
+    "name": "the section collapses below visible size (10x10, overflow hidden)",
+    "from": "</body>",
+    "to": "<style>section.tool-archetype-taster-quiz-section[data-component=\"tool-archetype-taster-quiz\"]{width:10px!important;height:10px!important;overflow:hidden!important;padding:0!important}</style></body>",
+    "expect_fail": [
+      "section-has-visible-area"
+    ]
+  },
+  {
+    "name": "the quiz ships with Next already unlocked, so an unanswered question can be skipped",
+    "from": "<button class=\"quiz-btn quiz-btn-primary\" id=\"quiz-next-btn\" type=\"button\" disabled>",
+    "to": "<button class=\"quiz-btn quiz-btn-primary\" id=\"quiz-next-btn\" type=\"button\">",
+    "expect_fail": [
+      "next-starts-locked"
+    ]
+  },
+  {
+    "name": "the component's own script never runs, so answering unlocks nothing and Next advances nothing",
+    "from": "<script src=\"/tools/assets/tool-archetype-taster-quiz.js\"></script>",
+    "to": "<script>/* component script removed by mutant */</script>",
+    "expect_fail": [
+      "answering-selects-and-unlocks-next",
+      "next-advances-the-question"
+    ]
+  },
+  {
+    "name": "the clicked option loses the value the scorer reads, so the answer registers nothing",
+    "from": "<button class=\"quiz-option-btn\" data-question=\"1\" data-value=\"a\" type=\"button\">",
+    "to": "<button class=\"quiz-option-btn\" data-question=\"1\" data-value-renamed=\"a\" type=\"button\">",
+    "expect_fail": [
+      "answering-selects-and-unlocks-next"
+    ]
+  },
+  {
+    "name": "a wide element pushes the page past the viewport",
+    "from": "</body>",
+    "to": "<div style=\"width:3000px;height:8px\"></div></body>",
+    "expect_fail": [
+      "no-horizontal-overflow"
+    ]
+  },
+  {
+    "name": "a script error reaches the console",
+    "from": "</body>",
+    "to": "<script>window.__deliberatelyUndefined.boom = 1;</script></body>",
+    "expect_fail": [
+      "no-console-errors"
+    ]
+  }
+]

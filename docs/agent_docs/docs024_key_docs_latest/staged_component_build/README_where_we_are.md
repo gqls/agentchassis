@@ -765,3 +765,38 @@ I've added the missing check: the form must have somewhere to send to. I proved 
 both of the broken states this bug actually went through, including the one I briefly caused
 myself this morning. So if anyone ever removes the destination again, the automated check
 fails instead of quietly passing.
+
+---
+
+**9 August 2026, evening — five more interactive contracts done, planned by one model and
+built by another; and the checking machinery caught a real layout bug on the way**
+
+You asked for a plan first this time, from the other model, with implementation after. That
+worked well and one part of its discipline is worth keeping: before budgeting time on an
+"interactive" piece, prove it actually is one. Of the nine candidates, it disqualified four
+for four different reasons — one whose script binds controls that don't exist, two whose
+data feeds have never once served (so their refresh has never worked in production), and one
+whose refresh redraws exactly what the server already drew.
+
+Five contracts landed end-to-end tonight: the vendor-trust checklist (whose tick-the-box
+scoring is now proven by really ticking a box and watching the score move — and whose
+checkbox size check is the very measurement that exposed July's measuring bug, now standing
+guard permanently), the gripper cycle-time estimator (press Calculate, a real number must
+appear), the archetype quiz (answer, Next unlocks, question two arrives), the report-request
+form, and the model directory. The last two are deliberately checked as static — one because
+the only way to exercise its script is to file a fake sales lead into the idea.uk funnel,
+which we will not do to ourselves on every test run; the other because its refresh is
+indistinguishable from the server's own render. Both contracts say so in writing, so nobody
+"improves" them into doing harm.
+
+The catch of the night: the ROI estimator's page genuinely scrolls sideways on a phone — a
+heading inside the tool has a hard-coded width. The new contract's own trial found it. We
+have not bent the check to look away; that contract sits ready and unpublished until the
+one-line style fix is made, and the defect is on your list.
+
+Also posted a note to the team that owns the two tracker pages: their data files have never
+been published, so the pages' self-refresh has silently never worked. Likely a one-command
+fix on their side.
+
+Fifty-six pieces now carry proven contracts. Interactive backlog: four left, each waiting on
+something specific rather than on effort.

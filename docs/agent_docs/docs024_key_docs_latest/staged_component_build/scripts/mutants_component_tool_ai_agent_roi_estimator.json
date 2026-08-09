@@ -1,0 +1,57 @@
+[
+  {
+    "name": "the page stops being served (404)",
+    "serve_status": 404,
+    "expect_fail": [
+      "page-serves-200"
+    ]
+  },
+  {
+    "name": "the section loses the identity acceptance resolves it by",
+    "from": "data-component=\"tool-ai-agent-roi-estimator\"",
+    "to": "data-component=\"tool-ai-agent-roi-estimator-renamed\"",
+    "expect_fail": [
+      "section-renders"
+    ]
+  },
+  {
+    "name": "the section collapses below visible size (10x10, overflow hidden)",
+    "from": "</body>",
+    "to": "<style>section.tool-ai-agent-roi-estimator-section[data-component=\"tool-ai-agent-roi-estimator\"]{width:10px!important;height:10px!important;overflow:hidden!important;padding:0!important}</style></body>",
+    "expect_fail": [
+      "section-has-visible-area"
+    ]
+  },
+  {
+    "name": "the component's own script never runs, so the server-rendered $0 stands forever",
+    "from": "<script src=\"/tools/assets/tool-ai-agent-roi-estimator.js\"></script>",
+    "to": "<script>/* component script removed by mutant */</script>",
+    "expect_fail": [
+      "loads-computing-a-real-figure"
+    ]
+  },
+  {
+    "name": "the savings slot loses the id the calculator writes into (calculate throws; the console reddens too, deliberately listed)",
+    "from": "id=\"roi-annual-savings\"",
+    "to": "id=\"roi-annual-savings-renamed\"",
+    "expect_fail": [
+      "loads-computing-a-real-figure"
+    ]
+  },
+  {
+    "name": "a wide element pushes the page past the viewport",
+    "from": "</body>",
+    "to": "<div style=\"width:3000px;height:8px\"></div></body>",
+    "expect_fail": [
+      "no-horizontal-overflow"
+    ]
+  },
+  {
+    "name": "a script error reaches the console",
+    "from": "</body>",
+    "to": "<script>window.__deliberatelyUndefined.boom = 1;</script></body>",
+    "expect_fail": [
+      "no-console-errors"
+    ]
+  }
+]

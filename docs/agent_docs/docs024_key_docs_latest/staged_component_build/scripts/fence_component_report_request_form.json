@@ -1,0 +1,58 @@
+{
+  "profiles": [
+    "desktop",
+    "mobile"
+  ],
+  "container": "section.rr-form-section[data-component=\"report-request-form\"]",
+  "checks": [
+    {
+      "id": "page-serves-200",
+      "type": "page_status_ok"
+    },
+    {
+      "id": "section-renders",
+      "type": "selector_exists",
+      "profiles": [
+        "desktop"
+      ],
+      "selector": "section.rr-form-section[data-component=\"report-request-form\"]"
+    },
+    {
+      "id": "section-has-visible-area",
+      "type": "has_visible_area",
+      "selector": "section.rr-form-section[data-component=\"report-request-form\"]"
+    },
+    {
+      "id": "form-posts-to-the-live-route",
+      "type": "selector_exists",
+      "profiles": [
+        "desktop"
+      ],
+      "selector": "section.rr-form-section[data-component=\"report-request-form\"] form#rr-form[action=\"/request\"][method=\"POST\"]"
+    },
+    {
+      "id": "anti-spam-timestamp-slot-present",
+      "type": "selector_exists",
+      "profiles": [
+        "desktop"
+      ],
+      "selector": "section.rr-form-section[data-component=\"report-request-form\"] input#rr-elapsed[name=\"_elapsed\"]"
+    },
+    {
+      "id": "script-is-delivered",
+      "type": "selector_exists",
+      "profiles": [
+        "desktop"
+      ],
+      "selector": "script[src=\"/tools/assets/report-request-form.js\"]"
+    },
+    {
+      "id": "no-horizontal-overflow",
+      "type": "no_horizontal_overflow"
+    },
+    {
+      "id": "no-console-errors",
+      "type": "no_console_errors"
+    }
+  ]
+}
