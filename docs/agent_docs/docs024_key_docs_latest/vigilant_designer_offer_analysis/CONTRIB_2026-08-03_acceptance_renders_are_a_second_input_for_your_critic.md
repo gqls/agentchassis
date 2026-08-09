@@ -8,6 +8,24 @@ yours, the Gemini-vs-Claude trial is yours, and MDL-040's first live call is you
 
 > ## ⚠⚠ 2026-08-08 — BEFORE ANYTHING ELSE: `execute_vision_prompt` CANNOT RUN IN A SPAWNED AGENT POD, AND THAT BLOCKS A2 ITSELF
 >
+> **CORRECTED 2026-08-09 — the headline generalisation is REFUTED; A2 is NOT blocked
+> on an architecture question.** Caught by the owner ("the s3 client can be used in a
+> spawned pod — several other pods use it this way"), then verified in code and by a
+> full census of running pods. Spawned pods get the complete S3 environment through a
+> GATE (`spawn_actions.go:2556`): `isStorageEnabledAgent(type)` — a hardcoded 12-type
+> list — OR `agent_definitions.category` ∈ {orchestrator, code-driven}. Census
+> 2026-08-09: 10/10 observed types match the gate, zero counterexamples; four types
+> carry full S3 today via the category clause alone. The pod below failed because
+> `tool-acceptance-agent` is category `tools` and not on the list — every observation
+> below is true OF THAT POD and false as a class statement. "Patching the
+> agent-chassis env changed nothing" is also wrong as stated: the spawner copies its
+> OWN env into gate-passing children, so that patch is load-bearing — it appeared
+> inert only because the gate excluded this type first. **Unblock: one Go line adding
+> the critic's type to `isStorageEnabledAgent` (next roll), or seed the agent with
+> category `code-driven` if honest (live immediately).** Full evidence:
+> `CONTRIB_2026-08-09_spawned_pod_storage_gate_A2_unblocked.md`. The paragraphs below
+> are retained as written; read them as a report about one pod, not about the fleet.
+>
 > **Do not seed `design-critique-agent` against this action until the architecture question
 > below is settled.** This is not about my image source — it is about the action you were
 > going to build A2 on, and I have now driven it in production three times.

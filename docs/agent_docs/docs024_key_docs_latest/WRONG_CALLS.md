@@ -25678,3 +25678,38 @@ disagreed. Nothing in the failing command looked wrong, and it exited 0.
 I printed the first few raw lines instead of only the count, "missing" on
 every line would have been unmissable. A zero from a pipeline is a claim about
 the pipeline before it is a claim about the data.
+
+## 2026-08-09 — "spawned agent pods have NO S3 credentials at all" — a class claim proven on exactly one pod, standing 24h as an architecture blocker
+
+**The claim.** Commit `86581e265` (08-08) and the ⚠⚠ warning it added to the
+vigilant_designer lane's CONTRIB: `execute_vision_prompt` cannot run in a spawned
+agent pod because spawned pods carry no S3 environment; the "obvious remedy is
+closed", so the action's *contract* must change — an architecture question that
+explicitly blocked seeding A2's critic. The evidence was real and rigorous ON ITS
+POD: env printed absent, the agent.go log line quoted, `llm_call_log` vision rows = 0,
+reproduced either side of a fleet roll. A follow-on session (this one, 08-08) repeated
+the claim in conversation with the same confidence — and then compounded it in the
+opposite direction: sampling live pods at a moment when the running population
+happened to be all orchestrator/code-driven types, seeing IMAGE_BUCKET on every one,
+and nearly concluding "every spawned pod has it".
+
+**What was actually true.** Storage env is injected per agent type by a GATE in the
+spawner (`spawn_actions.go:2556`): a hardcoded 12-type allow-list OR
+`agent_definitions.category` ∈ {orchestrator, code-driven}. The 08-08 pod's type
+(`tool-acceptance-agent`, category `tools`) fails the gate; four types run today with
+full S3 granted by the category clause alone. Census 2026-08-09: 10/10 observed types
+match the gate, zero counterexamples.
+
+**What caught it.** The owner, from operational memory: "the s3 client can be used in
+a spawned pod — several other pods use it this way." Neither session's evidence was
+wrong; both generalised from a sample the mechanism itself had shaped.
+
+**The cheap check.** Before writing "X cannot happen in pods of class Y", find ONE
+member of Y where X works and diff the two pods' specs — `kubectl get pod -o
+jsonpath='{.spec.containers[0].env}'` on a working and a failing pod names the gate in
+seconds, because the injected block's shape (literal creds + configMapKeyRef
+storage-config) fingerprints the code that built it. And when a conditional grant is
+even suspected, grep the spawner for the env var's name FIRST — `IMAGE_BUCKET` appears
+in exactly one `if` in `spawn_actions.go`, and reading that one line was the whole
+answer. A per-pod absence is a fact about the pod; the class statement needs the
+spawner's code or a two-pod diff, and both cost under a minute.
