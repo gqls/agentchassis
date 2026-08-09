@@ -358,3 +358,62 @@ five. A watcher is running; authority is the served URL.
 
 Full account and the cheap check that would have caught it:
 `WRONG_CALLS.md` 2026-08-09, and the lane NOTES correction of the same date.
+
+### 7.5 FINAL STATE 2026-08-09 ~16:10Z — images done, pages are the remaining half
+
+**The five images exist and serve.** All five `/assets/images/case-study-*.jpg`
+return **200 `image/jpeg`**, 52–94KB, distinct sizes; a made-up sixth filename
+404s, so the check discriminates. Work items all `complete`. The
+re-prioritisation to `priority = 1` was what unblocked it — claimed one at a
+time from 15:48Z, all five serving by 16:01Z.
+
+**But neither page showed them, and the reason differs per page.** Verifying at
+the asset URL alone would have reported task A complete while both surfaces were
+still wrong — and while the homepage was newly broken.
+
+**`/index.html` — REGRESSED TODAY, filed as `bugs_open/238`.** A `tone_shift`
+item (`page-build-handler`) regenerated the `case-studies-grid` section at
+15:17–15:18Z. The new content keeps every `card*_image_alt` and **drops every
+`card*_image_url`**, which the template requires — so the live homepage serves
+five `<img class="csg-card-image" src="">`. It also **rewrote which case studies
+the cards describe** (card 4 went from private-AI deployment to "coordinating
+agent processes"), so the five generated images no longer map 1:1 and **this is
+not repairable by pasting the old URLs back**. Read 238 before touching it.
+That run was dispatched by the improvement-loop firing made in §7.2 — the defect
+is the handler's, the timing is mine.
+
+**`/case-studies.html` — fixable with no content decisions, IN FLIGHT.** Its
+`case-studies-list` template **hardcodes** the five paths (unchanged since
+2026-03-09); only its `rendered_html` was stale (2026-04-23, predating the
+assets). Queued a `page_rerender` with **`spec.reason = "image_landed"`** at
+priority 1 — claimed 16:09:28Z by the live `build-dispatch-loop`.
+
+> **Why `image_landed` and not a bare rerender.** Three
+> `page_rerender_case-studies_…_assemble` items (no `spec.reason`) have already
+> **completed** on this page and left the images absent — that is the
+> assemble-only path, which re-staples STORED html and cannot pick up a template
+> change. `reason ∈ {image_landed, section_data_resolved}` routes through
+> `rerender_page_sections`: re-render from template + stored content_data,
+> **no LLM**. No-LLM is deliberate — a regenerating rerender is exactly what
+> caused `bugs_open/238`, and this page's images live in the template, so
+> nothing needs regenerating.
+
+**Verify (authority is the served page, not the item):**
+```
+curl -s https://finetuning.uk/case-studies.html | grep -o "case-study-[a-z-]*\.jpg" | sort -u | wc -l   # want 5
+curl -s https://finetuning.uk/index.html | grep -c 'csg-card-image" src=""'                              # want 0, is 5
+```
+
+**Next actions, revised:**
+1. Finish `/case-studies.html` (in flight) — verify at the served page.
+2. `bugs_open/238` — decide the homepage repair. It needs content carrying image
+   URLs for the *rewritten* case studies; a fix at the generator (candidate 1 in
+   238) is the durable answer.
+3. **Task B (visual-designer pass) is NOT ready.** Its whole premise is "fire it
+   once the images are real"; with five empty `src` on the homepage it would
+   spend its LLM call reporting the holes. Do 2 first.
+4. **⚠ Before firing the 294 trigger again, read the priority histogram** (§7.4)
+   **and know that the loop dispatches content-REGENERATING items**
+   (`tone_shift`, `content_rewrite`, `cta_improvement`) which, while 238 is open,
+   can drop image URLs on whatever page they touch. That is a live risk, not a
+   theoretical one — it already happened once today.
