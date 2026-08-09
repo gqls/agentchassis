@@ -658,3 +658,47 @@ the 9 pins were mostly written by `domain-research-classifier` in the normal pip
 pin is the platform's default posture, not an intervention. Handoff §2b corrected in place,
 visibly. Recommendation unchanged in shape — pin the 3, then dispatch all 12 — but the cost
 argument I gave the owner overstated the work fourfold.
+
+## 2026-08-09 (canary review, owner-prompted) — the canary WORKED and the forecast was WRONG
+
+Owner asked to look over the canary again before the batch. The review held on drift and
+delivery, and caught two things the completion statuses could not show.
+
+**What held.** Full-file diff of gamesdesign's stylesheet (not just colour slots): exactly
+the intended 12 lines — the `a{}` repoint and the `:root` ink block. Zero palette drift,
+typography untouched. Both re-rendered pages verified at their SERVED URLs: `index` carries
+1 accent-ink + 2 primary-ink references, and the surviving bare `.stat-suffix` form is 338's
+negative control, now visible in production. The advisory pin held on this run.
+
+> **MISSTEP 14 — the expected-close figure was wrong BEFORE any of this ran, and I only
+> found out by measuring the canary's "success".** The approved plan counted `.stats-eyebrow`
+> closures on gamesdesign and vonc. `buildLegibleInkDefaults` computes the ink companions
+> against `pageGrounds := {background, surface}` — and the eyebrow sits on the
+> component-painted PRIMARY fill. On gamesdesign accent is 12.46:1 on the page ground, so
+> `legibleInkFor` correctly returned it unchanged (`--color-accent-ink: #00e5ff` = accent),
+> and the served, re-rendered eyebrow measures **1.44:1 on its real ground — byte-identical
+> to the baseline failure**. The fix I shipped, reviewed and verified cannot close the
+> failure it was partly named for. Expected close: **10, not 12** (vonc same mechanism,
+> [PREDICTED] until its render lands). This is VIZ-014 inheriting `bugs_open/212` §8's
+> two-ground blindness — the instance is recorded there, and it is the second time this
+> lane has found "the renderer's answer is computed on a ground the element is not standing
+> on". The check that would have caught it at plan time: for every expected closure, name
+> the GROUND the failing element sits on and confirm the mechanism actually measures that
+> ground. Five council seats and four sessions did not ask it.
+
+**Two smaller catches, both cheap, both now in the recipes:**
+- My `page_rerender` spec set `filename: 'tools-index.html'`; the page is served at
+  `/tools/index.html`. Harmless — the handler resolves the deploy path from `pages.url` —
+  but I only know that because the 2,856-byte fetch smelled like a 404 stub and was one.
+  Verify at `pages.url`, never at a filename you constructed.
+- My batch guard blocked 7 of 10 sites by counting ANY dispatchable build item as a
+  collision. The collision surface is `styles.css`, so the guard belongs on
+  `handler_agent='webdesign-agent'` in imminent/in-flight states; parked (`unresolved`) and
+  untriaged (`detected`) rows act on nothing. dartsonline's 69 "collisions" were asset and
+  page items. Corrected and re-dispatched: **all 11 live sites queued** (canary complete;
+  lendzy.co.uk excluded — Cloudflare 522, origin down, no before-state to grade against).
+
+Verification protocol for the batch, already banked: before-state sha+accent for all 12 in
+`scratchpad/before_css/`; per site when its item completes — full diff (drift), the three
+ink slots present, then per-selector grading against `BASELINE_2026-08-06` for the 10
+reachable closures.

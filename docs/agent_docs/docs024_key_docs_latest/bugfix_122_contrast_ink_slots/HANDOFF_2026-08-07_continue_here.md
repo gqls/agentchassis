@@ -318,8 +318,21 @@ in `RUNBOOK_contrast_ink_slots.md` § "Reading a 090 verdict".
 
 `BASELINE_2026-08-06_render_audit.txt` — 15 sites, 109 failures, complete. Grade **per
 selector at the named ratio**, never by total; a falling count is content-dependent.
-Expected close from the §2 migrations: 12 failures, plus `.stats-eyebrow` on vonc.
-212's class is a **further ~24** and is not in that 12.
+
+> **CORRECTED 2026-08-09 (canary review): expected close is 10, NOT 12.** The two
+> `.stats-eyebrow` closures (gamesdesign, vonc) are **unreachable by the shipped engine**:
+> `buildLegibleInkDefaults` computes the ink companions against `{background, surface}`
+> only (`palette_specialised_slots.go` — `pageGrounds`), and the eyebrow sits on the
+> component-painted **primary section fill**. On gamesdesign, accent is 12.46:1 on the page
+> ground, so `legibleInkFor` correctly returned it unchanged — and the served post-fix
+> eyebrow measures **1.44:1 on its real ground, byte-identical to the baseline failure**
+> [MEASURED]. vonc is the same mechanism [PREDICTED — verify when its re-render lands].
+> This is the second concrete instance of `bugs_open/212` §8's open architecture question
+> (component-painted grounds are invisible to the renderer); recorded there.
+
+Expected close from the §2 migrations: **10** — dartsonline 1, robot-hands 2, finetuning 2,
+gaswholesalers 6 (minus 1 if any single audit row spans both halves — grade per selector).
+212's class is a **further ~24** and is not in that 10.
 
 **[UNMEASURED as of 2026-08-08] The baseline is two days old and other lanes ship to
 these same sites continuously** — the 08-07/08-08 log alone carries a voice rollout

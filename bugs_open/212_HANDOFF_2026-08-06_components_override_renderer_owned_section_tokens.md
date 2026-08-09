@@ -330,6 +330,16 @@ not run", and §8.4 answers it. Candidate 5's remaining cost is a rerender for t
   `b6ab22d6-e49c-4b55-a9d9-dd026532a595` (the renderer's grounds) and
   `84c3da66-06c0-41a5-94dc-21fbf71260f0` (the predicate mismatch). Verdicts in
   the lane's `NOTES_contrast_ink_slots.md`.
+- **SECOND MEASURED INSTANCE, 2026-08-09 — and it is in the NEW mechanism, not the old
+  one.** VIZ-014's ink companions inherit the same two-ground blindness:
+  `buildLegibleInkDefaults` computes `--color-accent-ink` against `{background, surface}`
+  (`pageGrounds`, `palette_specialised_slots.go`), so on gamesdesign it returned accent
+  unchanged (12.46:1 on the page) — and the repointed `.stats-eyebrow`, re-rendered and
+  served, still measures **1.44:1 on the primary section fill**, byte-identical to the
+  baseline failure. The approved 122 plan counted this closure twice (gamesdesign, vonc);
+  neither is reachable. So the question below is not hypothetical: the platform now has
+  TWO mechanisms that each answer "is this ink legible?" against grounds a component can
+  simply not be standing on.
 - **Still genuinely open, and still wanting a human:** §8.1 says the renderer's
   two-ground model cannot answer for a component that paints its own ground.
   Candidate 5 repairs the components one class at a time. Whether the renderer
