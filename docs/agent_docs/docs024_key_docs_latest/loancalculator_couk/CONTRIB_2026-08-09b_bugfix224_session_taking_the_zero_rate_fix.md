@@ -64,8 +64,17 @@ is architecture scope under CLAUDE.md and has no business riding inside a bug
 fix. So each tool gets the zero branch written properly in its own component,
 following your own 08-03 `tool-car-finance-pcp-hp` precedent
 (`else if (r === 0 && n > 0) { monthly = (principal - balloon) / n; }`).
-**The shared-engine version remains the better end state and is worth an RFC**;
-it is recorded here rather than done quietly.
+~~**The shared-engine version remains the better end state and is worth an RFC**;
+it is recorded here rather than done quietly.~~
+
+> **CORRECTED 2026-08-09, OWNER RULING: NO shared engine, and it is NOT worth an
+> RFC. The decision is CLOSED.** I proposed it above; the owner declined it on
+> the grounds that an architecture round costs more than the duplication does.
+> **Please do not log this as tech debt or reopen it as a "proper fix later".**
+> It was considered, costed and declined on the record. What keeps the six
+> copies honest is the eight `defect_vectors.py` 0%-rate cases added at the same
+> time — all scoring PROVEN under `--both`, so a copy that drifts back reads
+> differently and the case says so.
 
 Two rules I am holding to, both from your NOTES: derive expectations at full
 precision and round ONCE at the end (MISSTEP 1, 08-03), and pin a new
