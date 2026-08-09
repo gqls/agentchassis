@@ -209,8 +209,30 @@ script block, byte-identical in each (verified by assertion before editing):
 3. `~/projects/domains` repo `mortgagecalculator.co.uk/gemini/02/stamp-duty.html`
    — MORT_SRC, the input `build_site.py` regenerates the LMC page from;
    unfixed it would have resurrected the bug on the next build. Committed
-   locally (`c463764`); the codeberg push needs credentials this session lacks
-   — the local commit is what protects the build path.
+   locally (`c463764`) — that local commit is what protects the build path,
+   since `build_site.py` reads the working tree.
+
+   **That commit exposed a separate, pre-existing problem, now fixed** (owner
+   decisions, 2026-08-09; full trap in `LANDMINES.md`): the domains repo could
+   not push ANYWHERE. Its remote was codeberg, for which no credential exists
+   on this machine, and it had been **56 commits ahead** — silently unbacked-up
+   for a long time. Even with a credential the push would have been rejected:
+   **19 blobs in its history exceed GitHub's hard 100MB per-file limit**, all
+   of them `logs-*.json` agent debug dumps (6.6 GB across 369 files, 90% of
+   the repo). Remedy: `origin` repointed to `github.com/gqls/domains` (owner
+   made it private first; codeberg kept as a named remote), and a
+   **log-stripped mirror** pushed — `git filter-repo --path-glob
+   '*logs-*.json' --invert-paths`, 1.9 GB → 462 MB, **all 108 commits kept**,
+   every non-log file byte-identical. Verified by re-cloning from GitHub: the
+   stamp-duty source reads back at `28e04d99…`, matching the local file and
+   the live page. The rewrite was done in a MIRROR CLONE, never in place,
+   because the working tree carried another session's staged
+   `_first_lot_of_domains_/` files that filter-repo's closing `reset --hard`
+   would have destroyed. **Consequence to know:** the local repo's SHAs no
+   longer match GitHub's, so a plain `git push` from `~/projects/domains`
+   still tries to send the fat history and fails. Re-pointing the working tree
+   at the clean history is deliberate destructive work that needs the staged
+   WIP cleared first — left for the owner or a session that owns that tree.
 
 **The fix** (sites `9d1a17202`, domains `c463764`): the inline block is now a
 branch-for-branch JS port of the lane oracle's `oracles.py:sdlt()` — named,

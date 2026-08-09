@@ -22,13 +22,19 @@ concurrent 224 fix the full estate run is **`PASS 170 FAIL 0 CONVENTION 6`**.
    before decomposing stamp-duty** — the pin predates the fix, and
    `repo_file()` reads `git show <PINNED_REF>:…`, so decomposing today would
    re-freeze the expired-rule bytes into a permanently locked tool row.
-4. **The gemini/02 MORT_SRC copy is fixed too** (domains repo `c463764`,
-   local; codeberg push pending credentials), and `build_site.py`'s port of
-   stamp-duty was proven byte-identical to the fixed sites file — a future
-   build reproduces the fix exactly. NOTE: `build_site.py --check` currently
-   crashes on the LOANS side (`loancalculator.co.uk/tools/standard-calc.html`
-   no longer exists at LOAN_SRC) — pre-existing, unrelated to this fix, not
-   touched.
+4. **The gemini/02 MORT_SRC copy is fixed too** (domains repo `c463764`), and
+   `build_site.py`'s port of stamp-duty was proven byte-identical to the fixed
+   sites file — a future build reproduces the fix exactly. NOTE:
+   `build_site.py --check` currently crashes on the LOANS side
+   (`loancalculator.co.uk/tools/standard-calc.html` no longer exists at
+   LOAN_SRC) — pre-existing, unrelated to this fix, not touched; I ported
+   stamp-duty alone through `port()` to get the assertion.
+   **The domains repo now backs up to GitHub** (`gqls/domains`, private) after
+   a log-stripped mirror rewrite — it had been 56 commits ahead of a codeberg
+   remote nothing on this box can authenticate to, and 19 of its history blobs
+   exceeded GitHub's 100MB limit. Read the `LANDMINES.md` entry before your
+   next domains commit: **the local repo's SHAs no longer match the remote**,
+   so a plain `git push` from `~/projects/domains` still fails.
 5. **Your golden stays valid.** The three stamp-duty vectors sit outside both
    defect bands by design; the post-fix `golden_compare_post.py` output is
    byte-identical to the recorded pre-fix run (the 9 content-span lines on
