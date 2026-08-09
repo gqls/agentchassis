@@ -234,3 +234,46 @@ rule — migration numbers, censuses and item ids expire in hours):
 contains no single quote before firing, because the whole payload is single-quoted
 inside `sh -c`. The shipped `076_improvement_loop_trigger.sh` still hardcodes
 robot-hands.com after its arg parsing; still not this lane's file to fix.
+
+## 2026-08-09 ~13:20 UTC — the run's ledger so far, plus two incidental findings
+
+**Convergence run (corr `576f0ab9`) progress**, keyed on item ids, never a rolling
+window: discovery re-minted **10** `unbuilt_internal_link` items at 13:12:45 (up
+from 6 on the morning run — the repaired beginners page restored its link, and
+other containers were rerendered meanwhile), all `detected` → all `triaged` by
+13:19:36. Targets split exactly as the lane predicted:
+- **6 → `grip-styles`** (blog-post, `planned`, never deployed): `4151471c`
+  (barrel-weight), `1874c63f` (beginners), `1ad68d52` (flight-shapes), `d1398df9`
+  (shaft-length), `cc008ad4` (tool-setup-builder-guide), `e0289053`
+  (tungsten-guide). This is the acceptance family — page-build-handler's own type.
+- **4 → `section-index` directories** (`brands-index` ×3, `shop-index` ×1):
+  `69818add`, `0469f44f`, `6e1b562b`, `b4184d0f`. These are **deferred candidate
+  4's demand signal** and are expected to fail LOUDLY rather than converge; that is
+  the designed outcome, not a regression. Watch whether they land `failed`.
+
+**That `cancelled` re-minted at all is itself a checked fact**, not an assumption:
+the 08-09 morning items were cancelled, and a cancelled row would hold the dedup
+slot for ever if the Go list and the index disagreed. `cancelled` is in
+`workItemTerminalStatuses` (`work_items_common.go:47`, joined the closed set in
+migration 157) — so the slot frees and discovery re-mints. If a future run mints
+nothing, check that lockstep FIRST.
+
+**Incidental 1 — my LANDMINES.md entry was swept into another session's commit.**
+`190ee4568` ("landmine(205): …", 14:17:27 BST) carries my 26 lines and nothing
+else; my own commit `37f1a88ec` (14:18:25) therefore contains only the bug file,
+while its message describes the landmine too. Nothing is lost — both entries are at
+HEAD, verified with `git show HEAD:<path> | grep -c` — and forward-only forbids an
+amend, so this note IS the correction. Textbook instance of the hazard CLAUDE.md
+describes; recording it because a reader of `37f1a88ec` will otherwise look for a
+landmine that is not in it.
+
+**Incidental 2 — `scripts/trigger-landmine-verifier.sh:84` uses the UNSAFE kcat
+pattern** (`kubectl -n kafka run -i --rm … kcat -P` fed from a heredoc) and prints
+no receipt, which is the ~4-in-5 silent-drop trap already recorded fleet-wide. My
+dispatch (corr `ce13e13c`, for the new URL landmine) DID land — 2 orchestration
+rows, `EXECUTING_STEP` — so it got lucky, and "it worked for me" is exactly how
+this trap survives. **Not fixed: not this lane's file**, same call the previous
+session made about `076_improvement_loop_trigger.sh`. The fix is mechanical
+(payload into the container COMMAND, `&& echo PUBLISH_OK`) and
+`fire_improvement_loop_dartsonline.sh` in this session's scratchpad is a working
+template for whoever picks it up.
