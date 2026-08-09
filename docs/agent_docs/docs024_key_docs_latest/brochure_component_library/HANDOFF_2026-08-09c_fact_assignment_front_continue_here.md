@@ -152,6 +152,15 @@ name while pages use the canonical one — two name-spaces on one path).
 - **Don't leave a half-finished edit to `v3_site_actions.go` in the tree.** It is
   5,875 lines, bug-laden, and shared — uncommitted WIP here is what gets swept
   into another session's commit.
+- ⚠ **`v3_site_actions.go` HAS A LIVE EDITOR AS OF 2026-08-09 ~17:00.** It was
+  clean at this session's start and is now dirty with **7 added / 1 removed** at
+  **`:5772`** in `expectedItemFieldsFromComponentSchema` (a `bugs_open/240`
+  writer-mis-keys fix, not this front's). **That is NOT your work and must not
+  ride your commit** — name your paths on `commit`. It is well clear of Pass B2
+  (`:5418`) and the normalisation (`:3277`), so 1b's target region is currently
+  uncontended — but **re-check before you edit**, because a same-file passenger
+  is the one thing a pathspec commit cannot keep out, and this observation goes
+  stale within minutes.
 - Rollback for the prompt seeds: `agent_definitions_bak_329` / `_bak_333`.
 
 ## 6. Commit trail (this front)
