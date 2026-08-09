@@ -295,3 +295,139 @@ reads misleadingly. To be explicit:
   It is what candidate 2 should have said.
 - **Nothing in the later section changes what the next session owes** — §"Not done"
   stands unmodified.
+
+---
+
+# COUNCIL VERDICT READ 2026-08-09 — **REVISE**, and it caught a real evidence gap plus one overstatement of mine
+
+`1139cbbe-3173-4886-846b-c25daeeda93c`. Gated by **`editquality`** (high). 13 seats: 6
+approve, 5 abstain, and objections from `editquality`, `bug_historian`, `guardian`,
+`render_guardian`, `debug_historian`, `constitution`, `architecture`. **Every objection is
+answered below with a measurement, not an argument.** The code is unchanged by this round
+— what changed is what is *established*, plus a visible correction to a claim I made.
+
+## 1. THE GATING OBJECTION WAS RIGHT TO ASK, AND THE FIX SURVIVES IT
+
+> *"nothing in `grounded_in` establishes that this specific page is normally built via the
+> page_rerender route rather than via `assemble_page`. If the real build path for this page
+> is the other one, the whole edit is inert for the one page it targets."*
+
+A fair hit: I proved the *general* divergence and never proved *this page's* route.
+Three independent measurements, all [MEASURED 2026-08-09]:
+
+```sql
+-- (a) every work item EVER filed against this page — 3 of 3 route to page-rerender
+SELECT item_type, status, handler_agent FROM site_work_items
+ WHERE page_id='4629451e-e4f2-4fe2-b258-35107b5cb51e' ORDER BY created_at DESC;
+--  page_rerender | complete | page-rerender     (x3, 2026-08-03).  ZERO via any assemble_page agent.
+
+-- (b) who dispatches the action my fix is in (symmetric to the assemble_page census)
+SELECT type FROM agent_definitions WHERE is_active AND COALESCE(is_snapshot,false)=false
+  AND deleted_at IS NULL AND default_config::text ILIKE '%"action": "rerender_single_page"%';
+--  page-rerender · report-builder
+
+-- (c) the page's own policy
+SELECT page_type, rebuild_policy FROM pages WHERE id='4629451e-…';   --  tool | owned
+```
+
+**(c) is the decisive one, and it also refutes something I wrote.** See §2.
+
+## 2. ⚠ CORRECTION TO MY OWN §"THE FIX IS NARROWER THAN IT LOOKS" — I overstated it for this page
+
+That section says *"a rebuild through that path regenerates the page **without** the tag
+while `pages.noindex` still reads `true`"*, applied to this page. **For an `owned` page
+that is wrong.** `AssemblePageAction` carries `bugs_open/208`'s ownership guard
+(`multipage_actions.go:42-86`): a `rebuild_policy='owned'` page is **refused before
+assembly**, returning the skip shape that `git_commit` already honours. It does not strip
+the tag — it declines to touch the page at all.
+
+So, precisely:
+
+| page | what the other producer does | tag at risk? |
+|---|---|---|
+| `rebuild_policy='generic'`, `noindex=true` | assembles it, no injection | **YES — silently dropped.** The landmine stands |
+| `rebuild_policy='owned'` (this page) | **refuses** at the 208 guard | No — page untouched |
+| owned, but guard **fails open** | assembles anyway, logs `OWNED_PAGE_GUARD_UNCHECKED` (high) | Yes, but **countable** |
+
+The fail-open window is real and named in 208's own code (`if !checked`). It makes the
+residual exposure a **count rather than a hypothesis**:
+
+```sql
+SELECT count(*) FROM agent_error_log WHERE error_code='OWNED_PAGE_GUARD_UNCHECKED';
+```
+Non-zero ⇒ the window opened; re-read the served artefact.
+
+Corrected in place at all three sites that carried the overstatement: this file, the
+`LANDMINES.md` entry, and concept register SEO-003. **The landmine is still worth its
+place** — the `generic` case is untouched by this correction, and that is the case a
+future consumer of `pages.noindex` will hit first. Logged in `WRONG_CALLS.md`.
+
+## 3. `constitution` (high) is a FALSE POSITIVE, and the cause is my own action
+
+> *"the inspected schema already lists `pages.noindex boolean` as an existing column …
+> the migration will fail outright."*
+
+The column exists **because I applied migration 352 at ~14:2x, before submitting at
+14:30**. The seat read the live schema *after* my own apply. This is not a schema-first
+violation; it is the reverse — schema-first was followed, and the reviewer is seeing the
+post-apply state. **Nothing to fix in the migration.** Worth recording as a gate artefact:
+the DB-leads-commit ordering this estate requires on a shared tree makes any
+"column already exists" objection structurally unavoidable for an additive migration
+submitted after apply. A future submission should say so in the rationale up front — mine
+did not, and that cost a high-severity objection.
+
+## 4. `reuse_agent` and `guardian`'s missing checks — both now run, both clean
+
+**Was an indexing/robots control already available anywhere?** No — nothing was
+duplicated [MEASURED 2026-08-09], all six stores zero:
+```
+site_specs 0 · sites.settings 0 · sites.deploy_config 0 · content_components.html_template 0
+· site_components.rendered_html 0 · page_components.rendered_html 0
+```
+plus zero pre-existing `noindex`/`X-Robots` in Go outside this change.
+
+**Blast radius of the action I edited** (guardian asked for the symmetry I had only applied
+to the other path): `rerender_single_page` is dispatched by **`page-rerender` and
+`report-builder`** — two consumers, both of which gain the same default-off gate, and
+`report-builder`'s pages are not flagged.
+
+## 5. `debug_historian` (medium) — pod-grep, and it is a fair procedural hit
+
+The *submission* never committed to proving the deploy at the pod. The **bug file and
+RUNBOOK always did** (§"Not done" 1, RUNBOOK §8) — but a reviewer reads the submission, so
+that is on me. Restating it here as the binding condition: **this fix is not "live" until
+`strings /app/agent-chassis | grep -c injectRobotsNoindex` returns ≥1 on every replica**,
+with `injectCanonicalLink` grepped in the same exec as a pipeline positive control (nothing
+was removed, so no negative-string control exists).
+
+Its low-severity point — the DO guard asserts an aggregate count, not the specific row — is
+**correct and worth adopting next time**. Mitigated here: row *identity* was verified
+separately (`WHERE noindex` returned the one expected id), so the aggregate was not the only
+evidence. A `RETURNING`-based post-condition tied to the mutation would have been better.
+
+## 6. `architecture` (medium) — ACCEPTED, and acted on
+
+> *"This is the THIRD feature to land only in `assemblePage` … Worth an explicit tracking
+> item (not this bug)."*
+
+Agreed, and it is the one objection asking for work outside this fix. Recorded here as the
+lane's stated next action rather than silently noted: **the two-head-producer divergence
+should get its own `bugs_open/` file** (JSON-LD 07-28, canonical 08-02, noindex 08-09 —
+three authors, three landmines, no convergence). Not filed in this round because the
+correction in §2 changes its severity story materially, and a file asserting a structural
+root cause should go through `090` or declare a substitute — see the ruling of 2026-07-31.
+**Grep `bugs_open/`/`bugs_closed/` for it first: it may already exist.**
+
+Its low-severity point about crawler directive-combination behaviour is **fairly put and
+not yet answered**: I asserted "crawlers take the most restrictive of multiple robots
+directives" to license the coexistence branch. That is unit-tested for coexistence, not
+verified against real crawler behaviour. **It is not load-bearing today** — zero robots
+metas exist fleet-wide, so the coexistence branch is unreachable until someone adds one —
+but it should not be relied on later without a source.
+
+## 7. Not resubmitted as a new round
+
+The code is unchanged, so a resubmission would re-review an identical plan. What the
+verdict actually demanded was **evidence and a correction**, both of which are now on
+record here. If a later thread disagrees and wants the trail to accumulate, resubmit with
+`RESUBMIT_CORR=1139cbbe-3173-4886-846b-c25daeeda93c`.

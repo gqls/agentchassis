@@ -25372,3 +25372,52 @@ read one more function — the one you are about to blame.**
 for the question I could not answer — which is what should have happened before I said "confirmed",
 not after. Note the earlier `090` on this same symptom came back UNVERIFIABLE (`dce40cf4`) purely
 for want of evidence; the evidence, not the framing, is what changed today.
+
+---
+
+## 2026-08-09 — `bugs_open/232` lane. I landmined a risk correctly and then applied it to the one page it does not apply to
+
+**The claim.** Having found that two live code paths build a page's `<head>` and only one
+honours the new `pages.noindex` flag, I wrote — in the bug file, in `LANDMINES.md` and in
+concept register SEO-003 — that *"a rebuild through that path regenerates the page
+**without** the tag while `pages.noindex` still reads `true`"*, and I said it **about the
+page the fix was for**.
+
+**It is true in general and false for that page.** `AssemblePageAction` carries
+`bugs_open/208`'s ownership guard (`multipage_actions.go:42-86`): a page with
+`rebuild_policy='owned'` is **refused before assembly** and returns the skip shape. It does
+not strip the tag; it declines to touch the page. `/tools/gauntlet/round.html` is
+`rebuild_policy='owned'`. So the silent-drop case is **`generic` pages** — a real and
+unchanged risk, and the reason the landmine still earns its place — but not this one.
+
+**What caught it, and this is the interesting part: a question about something else.** The
+council gate's `editquality` seat gated the whole submission on a *different* gap — I had
+proved the general divergence but never proved which path actually builds *this* page, so
+if it were the other one my fix would be inert. Answering that question meant reading
+`pages.rebuild_policy` and the page's work-item history — and the answer that established
+my fix was on the right path (`owned`, 3/3 items via `page-rerender`) simultaneously
+**refuted the neighbouring claim I had already published in three places**. I was not
+looking for the overstatement and would not have found it that day.
+
+**The cheap check that would have caught it.** I greped the other producer for the four
+inject helpers, found none, and stopped — I established what that function *does not do*
+and never read what it *refuses to do*. **A guard is not visible in a grep for the thing it
+guards.** When you assert "path B would silently do the wrong thing", read path B's
+**entry conditions**, not just its body: `AssemblePageAction`'s first 45 lines are an
+ownership refusal, and they were above every line I looked at. One `sed -n '1,90p'` on the
+function I was making claims about.
+
+**The shape, for the tally.** Sibling of the "a filter from the question describes a small
+world" family, but the mechanism is different and worth naming separately: **I measured an
+ABSENCE (no injection call) and reported it as a BEHAVIOUR (it strips the tag).** An
+absence in the body of a function tells you nothing about whether control ever reaches the
+body. Distinct from the standing `a-grep-proves-absence-only-for-its-spelling` entry — my
+spelling was right and the absence was real; what I got wrong was what the absence
+*implied*.
+
+**Second, smaller, and a gate artefact worth knowing:** the `constitution` seat objected at
+**high** severity that the migration adds a column that *already exists* — because I applied
+the migration before submitting, so the seat read the post-apply schema. Structurally
+unavoidable for an additive migration under this estate's DB-leads-commit ordering on a
+shared tree. **State the ordering in the rationale up front**; mine did not, and it cost a
+high-severity objection on a non-issue.

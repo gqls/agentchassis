@@ -98,7 +98,13 @@ grep -n "injectPageJSONLD\|injectCanonicalLink\|injectRobotsNoindex\|spliceMetaD
 now noindex (08-09) have each landed on **one of two live head producers**. For noindex
 the consequence is worse than a missing SEO nicety — `pages.noindex` can read `true`
 while the served page has no tag, which is the wrong result looking exactly like the
-right one. Landmined + registered as SEO-003's open question; deliberately **not**
+right one.
+
+> **⚠ CORRECTED later the same day — see MISSTEP 4 at the foot of this file before
+> quoting the sentence above.** It holds for `rebuild_policy='generic'` pages and **not**
+> for this one: `AssemblePageAction` refuses an `owned` page before assembly (208's
+> guard), and this page is `owned`. I measured an absence in that function's body and
+> reported it as a behaviour, without reading its entry conditions. Landmined + registered as SEO-003's open question; deliberately **not**
 widened into this bug (architecture scope, pre-existing, and the guardian seat vetoes
 exactly that kind of ride-along).
 
@@ -179,3 +185,79 @@ Pre-commit hook flagged *"migration + platform code in one commit — needs a st
 rollout order"* as an architecture signal. Read and answered rather than ignored: the
 staged order **is** stated (migration first, and why it must be), and the scope
 argument is in the submission's `risks` for reviewers to reject if they disagree.
+
+---
+
+## 2026-08-09, later — council verdict REVISE, and the objection that was worth the round
+
+`1139cbbe-…`, gated by `editquality` (high). 13 seats: 6 approve, 5 abstain, 7 objections.
+Verdict read from `diagnosis_artifacts.body` keyed on **my** correlation, not from the
+newest `doc_note` — CLAUDE.md's documented recipe returns whichever lane's verdict is
+newest, which the 168 lane found the same day.
+
+**The gating objection is the one I should have anticipated.** I proved the *general*
+two-producer divergence, exhaustively, and never proved *which producer builds this page*.
+If it were the other one, my whole fix would be inert for the single page it targets — the
+same trap I was busy warning everyone else about, pointed at me. Answered with three
+measurements: 3/3 work items ever filed against the page are `page_rerender` →
+`page-rerender`; `rerender_single_page` is dispatched by `page-rerender` + `report-builder`;
+and the page is `rebuild_policy='owned'`.
+
+## MISSTEP 4 (real, and published in three places before I caught it)
+
+Reading `rebuild_policy='owned'` to answer that question **refuted a claim of my own**.
+`AssemblePageAction` **refuses** an owned page before assembly (208's guard,
+`multipage_actions.go:42-86`) — so for this page the other path does not silently drop the
+tag, it declines to touch the page. My landmine, my register entry and my bug-file section
+all said otherwise *about this page*.
+
+**Why I got it wrong:** I greped the other producer for the four inject helpers, found
+none, and stopped. **I established what that function does not DO and never read what it
+refuses to ENTER.** Its first 45 lines are an ownership guard, sitting above every line I
+looked at. One `sed -n '1,90p'` on the function I was making claims about would have shown
+it. Generalised: *an absence in a function's body says nothing about whether control
+reaches the body* — I measured an absence and reported it as a behaviour.
+
+Corrected in place, visibly, at all three sites, and the correction keeps the landmine
+because the `generic` case is untouched by it. Recorded in WRONG_CALLS. Note the shape of
+the catch: **the question that found it was about something else entirely**, which is the
+argument for the gate rather than for being more careful.
+
+The residual is now countable rather than hypothetical — 208's guard **fails open** when
+`rebuild_policy` cannot be read (`checked=false`, logs `OWNED_PAGE_GUARD_UNCHECKED` at
+high), so:
+```sql
+SELECT count(*) FROM agent_error_log WHERE error_code='OWNED_PAGE_GUARD_UNCHECKED';
+```
+
+## The false positive, and it is self-inflicted
+
+`constitution` objected at **high**: the migration adds a column that already exists. True
+of the schema it read — because I applied the migration ~8 minutes before submitting. Under
+this estate's DB-leads-commit ordering on a shared tree, that objection is **structurally
+unavoidable** for any additive migration submitted after apply. Same family as "your own
+action silences your own detector", arriving at a reviewer instead of a check. **Fix for
+next time: say so in the rationale.** Mine did not, and it bought a high-severity objection
+on a non-issue.
+
+## Checks the seats asked for, all run, all clean
+
+- **`reuse_agent`** — was any robots/indexing control already available? Six stores, all
+  **0** (`site_specs`, `sites.settings`, `sites.deploy_config`, `content_components`,
+  `site_components`, `page_components`), plus zero pre-existing `noindex`/`X-Robots` in Go.
+  Nothing duplicated.
+- **`guardian`** — the symmetric blast-radius census I had only run on the *other* path:
+  `rerender_single_page` has two consumers, `page-rerender` and `report-builder`.
+- **`debug_historian`** — fair procedural hit: the *submission* never committed to a
+  pod-grep, even though the bug file and RUNBOOK always did. A reviewer reads the
+  submission. Its second point is a genuine improvement to adopt: the DO guard asserts an
+  aggregate count, where a `RETURNING`-tied post-condition would bind to the specific row.
+  Mitigated here only because row identity was verified separately.
+- **`architecture`** — "third feature to land only in assemblePage; worth a tracking item
+  (not this bug)". Accepted; recorded as the lane's next action. Deliberately not filed in
+  this round because misstep 4 changes its severity story, and a structural root cause
+  needs `090` or a declared substitute.
+
+**Not resubmitted.** The code did not change; the verdict asked for evidence and a
+correction, and re-reviewing an identical plan would spend a round to be told the same
+thing. `RESUBMIT_CORR=1139cbbe-…` if a later thread disagrees.
