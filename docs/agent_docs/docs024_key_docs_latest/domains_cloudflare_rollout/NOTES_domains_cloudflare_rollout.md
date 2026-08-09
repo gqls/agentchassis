@@ -384,3 +384,43 @@ which would make www work everywhere at once and delete the need for the page
 rules. The worker change is the better mechanism and the wider blast radius —
 one script backs every site — so it belongs to the rollout lane with a
 deliberate test, not to a session doing it in passing. Flagged, not taken.
+
+## 2026-08-09 (evening, 2) — loanzy.uk: a DANGLING DELEGATION, which times out rather than failing honestly
+
+Owner asked why `loanzy.uk` "is not resolving". It **was** resolving — that is what
+made it confusing.
+
+`[MEASURED]` before the fix: the registry (`nsa.nic.uk`) delegated `loanzy.uk` to
+`alexis`/`leah.ns.cloudflare.com` — done by the `idea_uk_vm_site` lane, per this
+lane's own notes — and `dig @alexis.ns.cloudflare.com loanzy.uk A` answered
+**authoritatively** (`flags: qr aa`) with `199.59.243.228`, TTL 300. But
+`GET /zones?name=loanzy.uk` returned **no zone** in account `13044f17…` (37 zones
+visible, none of them this one). So the NS were delegated to Cloudflare while the
+zone lived nowhere the account could see it.
+
+The result is the worst-shaped failure available: `199.59.243.228` is the estate's
+**origin placeholder**, which only ever works because our records are PROXIED and
+the worker intercepts before the origin is contacted. Unproxied — or with no zone
+to attach a worker to — the request goes to the real IP, which accepts nothing:
+`curl` exits **28 (timeout)**, and a browser shows a generic "site can't be
+reached". Nothing anywhere says "this zone does not exist". Compare a genuinely
+undelegated domain, which returns NXDOMAIN and is diagnosed in seconds.
+
+Fix: the owner added the zone. Cloudflare assigned **the same NS pair the registry
+already pointed at**, so no registrar change was needed — the zone went `active`
+within a minute of `PUT /activation_check`. Its `A 199.59.243.228` came in already
+**proxied**, and both worker routes already existed.
+
+`[MEASURED]` after: `https://loanzy.uk/` → **HTTP/2 404, "Not found"** — it now
+responds instead of hanging. It 404s because **no site has ever been built for
+it**: 0 rows in `sites`, 0 work items, no `loanzy.uk/` directory in `gqls/sites`,
+nothing in the bucket. Per `REGISTER_positioning.md` L9 it is a **HOLD** domain
+(loan brandables, direction deliberately unassigned), so the absence is intended,
+not a fault. Added `www` CNAME + the www→apex page rule so it matches the estate
+template; www will 404 until (a) content exists and (b) the `*.loanzy.uk/*` route
+is deleted, per the www section above.
+
+**To make it serve, it needs a site built through the framework** — seed the row
+and specs, then `082_submit_domain_unified.sh` (owner ruling 2026-08-04: never
+hand-build). Not done: a HOLD domain with no assigned direction is not something
+to fill in unasked.
