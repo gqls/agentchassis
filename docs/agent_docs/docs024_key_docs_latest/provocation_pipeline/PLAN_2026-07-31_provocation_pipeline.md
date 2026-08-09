@@ -583,3 +583,67 @@ Criteria (b) and (c) remain unmeasurable until there are contestants (§5.4) —
 will now be judged by a model with no data behind it, so treat their verdicts as
 the weakest part of the gate and keep the confidence of that judgement out of the
 publish decision where it is separable from safety and form.
+
+---
+
+## 11. OWNER RULING 2026-08-09 — the audience, and a risk brief that reorders §5
+
+### 11.1 §7.3 is ANSWERED — everyday culture orthodoxies
+
+Open since 2026-07-31, recorded in §9.5 as *"answered, 9.3, pending owner
+confirmation"*. It is now confirmed, and **not in favour of §9.3's recommendation.**
+
+> **RULED: the live slot carries everyday culture orthodoxies** — food, music and
+> film canon, cities, generational habits.
+
+§9.3's recommendation (the r/changemyview–HN axis: work, technology, AI, attention,
+institutions) is **superseded as the target audience**, though its reasoning is kept
+above rather than deleted — it was right about the *calibration* value and it said
+so itself: *"this audience is small and sceptical, and 'hugely popular' is not where
+it leads on its own. It is a calibration audience … not the destination."*
+
+**What decided it,** because the mechanism is reusable: the owner read seven drafts
+written to §9.3 and called them boring. The diagnosis is not taste — **work topics
+are the weakest possible on identity investment.** The product asks someone to argue
+on a clock and be judged, which only appeals when having a take on the topic is part
+of who they are. Almost nobody's identity is "person with views on meetings", so
+there is nothing at stake in defending one. Everyday culture orthodoxies score high
+on identity *and* on appetite for the fight — which pets, the owner's own earlier
+example, does not: affection is high but nobody wants an AI ruling their dog opinion
+wrong.
+
+### 11.2 The risk brief — LOW APPETITE, KEEP THE VIRALITY
+
+Raised the same day:
+
+> *"someone can say something insulting about someone and then it gets validated by
+> the site and posted over the internet. I may be liable … I still want the viral
+> effect somehow but my risk appetite is low."*
+
+Routed to **`architecture_review/RFC_020`** (the publish path is the
+`gauntlet_dead_cta` lane's code) plus **`bugs_open/232`** for the one gap true
+today. **The finding that matters to THIS lane:** publishing is an amplifier, not a
+threshold — showing text about a named third party to one person is already
+publication — so the exposure does not start at the publish button.
+
+**Consequence for provocation selection, and it is now a standing constraint on
+this lane:** a provocation about a *category* invites category argument; one that
+implies a villain invites naming one. **This is a free lever and it is ours.** A
+drafted provocation ("Restaurant food has got worse") was pulled on exactly this
+ground before going live — it invites naming a specific business and asserting
+something factual about it, which is the actionable shape. Apply the test to every
+future provocation, human- or generator-written:
+
+> **Does answering this well require naming a real person or business, and saying
+> something checkable about them?** If yes, reframe it or drop it.
+
+This also belongs in the generator's gate criteria whenever that is next touched —
+it is a *safety* criterion (§4's column (a)), not a taste one, and it is currently
+absent from both the gate and this PLAN's §4 table.
+
+### 11.3 What this does NOT change
+
+§10 stands entire — no human approval of publishes, fail closed, gate errors count
+as rejections. §5's paired-mode analysis stands and gains force: §5.6 already said
+privacy stops being a preference and becomes a correctness property once real people
+are named, which is the same finding arriving from the other direction.

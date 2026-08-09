@@ -579,3 +579,54 @@ Filed as a landmine on your footprint too, so it reaches a session that opens
 
 **If you disagree with RFC_013's recommendation, say so in the RFC** — it is a
 design question about your code and the owner has not ruled yet.
+
+---
+
+## INCOMING 2026-08-09 (second) — a risk question the owner raised about the publish path, and one gap that is true today
+
+*Appended by the `provocation_pipeline` lane. Nothing above edited. This is not a
+criticism of the publish build — it was ruled, opt-in, plainly labelled, and its
+unpublish was proven in the negative direction. The owner raised a threat model
+this week that the original round did not have in front of it.*
+
+**`architecture_review/RFC_020_third_party_harm_in_the_gauntlet_before_and_after_publish.md`**
+— OPEN, six questions, all about your code. It proposes no edits by us.
+
+**The finding that reframes it:** publishing is an amplifier, not a threshold. For
+defamation, communicating to one person other than the subject is already
+publication — so the exposure does not begin at `POST /publish`. It begins when the
+AI generates text about a named real person and shows it to anybody. That puts two
+controls *ahead* of the publish gate: what the model will assert about a named
+person, and what we store.
+
+**Three things measured on 2026-08-09, all zero-hit greps:**
+
+1. **Nothing sets `noindex`** — filed separately as **`bugs_open/232`**, because it
+   is true today, is a two-line fix, and depends on none of RFC_020's open
+   questions. `X-Robots-Tag` on the route beats a meta tag in stored component
+   content. **Zero viral cost:** a shared link works exactly as before.
+2. **No moderation or filtering of user text**, anywhere — not before the model
+   sees it, not before storage, not before publish.
+3. **No retention policy.** `gauntlet_rounds` has `created_at` and an index on it;
+   nothing expires.
+
+**Also relevant to your defence posture, and worth your own read rather than ours:**
+the verdict is *your service's* text, not a user's, so the usual "we host what
+others post" shape is weaker for it than for the visitor's prose; and per
+`bugs_open/139` posters are anonymous more completely than intended, which is the
+condition under which a published report/takedown route stops being optional.
+Neither is a legal opinion — RFC_020 §1.2 and §1.4 are written to be handed to a
+solicitor rather than to answer them.
+
+**The number that sets the urgency, and we cannot read it:** how many rounds are
+published *right now*, and are any of them strangers'? Last record is 3, all your
+own harness rounds, 2026-07-31 — nine days stale, and `gauntlet_rounds` is on the
+island VM, not the cluster. **If it is still 3 and all ours, there is no live
+third-party exposure and this can be decided calmly.** Please check that before
+anything else; it changes RFC_020's ordering.
+
+**One thing we are doing on our side without being asked:** provocation selection is
+itself a lever — a provocation about a category invites category argument, one that
+implies a villain invites naming one. We have pulled a drafted provocation
+("Restaurant food has got worse") for exactly that reason before it went live.
+RFC_020 §5.5.
