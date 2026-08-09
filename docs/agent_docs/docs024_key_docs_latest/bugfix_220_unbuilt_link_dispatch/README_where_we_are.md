@@ -82,3 +82,25 @@ safety floor, which refused a suspiciously small overwrite — nice to see.
 Still to watch: the repair landing on the beginners post, and then one clean
 end-to-end run where the missing page actually gets built and published. The next
 session picks up from the handoff file in this folder.
+
+## 2026-08-09 midday — the beginners post is repaired, and it is repaired on the real website
+
+The repair job finished, and I checked it the way we say to check things: not by
+looking at the job saying "complete", but by looking at the page. The stored draft
+of the beginners post is beginners copy again, the site republished it just after
+midday, and fetching the live page returns the right article. So the damage from
+this morning is fully undone, and the two jobs we cancelled to prevent it spreading
+can stay cancelled — nothing is waiting to republish the wrong thing.
+
+One neat detail that tells us the test is still a fair test: the repaired beginners
+post links to the grip-styles guide, and that guide is still missing, so the link
+still leads nowhere. That is exactly the fault this whole piece of work is about,
+sitting there in the open, ready to be found again. Which means we can now run the
+one thing we have never actually watched happen from end to end: the system
+noticing the dead link, building the missing page, publishing it, and only then
+declaring the job done.
+
+I have started that run. What I am watching for is the missing grip-styles page
+going from "planned" to actually published, and the job that fixes it closing with
+its own verification saying the target page has shipped — rather than the weaker
+reason it gave this morning, which was really just a side effect of the damage.

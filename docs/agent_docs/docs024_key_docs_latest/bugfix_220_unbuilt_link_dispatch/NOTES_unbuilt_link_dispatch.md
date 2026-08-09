@@ -172,3 +172,65 @@ behavioural acceptance (RUNBOOK), candidate 4 on its demand signal.
   91c005ed/a3d21774/2330e479/af6ffa42 cancelled pre-dispatch (contamination
   class); 47ba8f2c/3c10ab6c (beginners rerenders) cancelled (would publish
   contamination); 3cb732b1 = the repair, triaged at priority 30.
+
+## 2026-08-09 ~13:15 UTC — repair PROVEN at the served artefact; convergence run re-fired
+
+**Priority 1 (the repair) is done and checked at the artefact, not at the status.**
+`3cb732b1` read `complete` at 10:14:32 — which on its own proves nothing (a
+`complete` work item is not a repaired artefact). The checks that do:
+
+- Beginners' three components (`hero`/`article-body`/`call-to-action`) all
+  rewritten 10:13:58 and hold BEGINNERS copy again — hero headline "Everything You
+  Need To Start Throwing", body opening "You've thrown a few house darts in the
+  pub…". The contaminating grip-styles hero ("Your Grip Decides More Than Your
+  Barrel Does") is gone. [MEASURED]
+- `pages.deployed_at` for beginners = 12:31:31Z, i.e. AFTER the repair — so the
+  rerender that published it published the repaired copy, not the contamination.
+  The two held rerenders stayed cancelled; this deploy came from the queue drain.
+  [MEASURED]
+- **Served**: `curl https://dartsonline.com/blog/beginners.html` → **200**, 29,183
+  bytes, carries both beginners signature phrases. Note the URL shape — the page
+  `name` is `beginners` but the url is `/blog/beginners.html`; curling `/beginners`
+  404s and would read as a broken page. [MEASURED]
+- The 12 "grip" hits on the served page are all legitimate (grip is one of the
+  three specs a beginners guide covers) and one of them is **the unbuilt link
+  itself**: `<a href="/blog/grip-styles.html">grip styles guide</a>`, still live,
+  still 404. So the defect condition is intact and re-detectable — which is what
+  the convergence proof needs.
+
+**Observation on disjunct (b), recorded because it reads oddly in the ledger.**
+`338deb27` verified at 10:01 via disjunct (b) — "href no longer rendered on the
+container". That was HONEST about the substrate it read and simultaneously an
+artefact of the damage: the contamination had replaced beginners' copy, taking the
+href with it. The repair restored beginners' copy and therefore restored the link,
+so that 'verified' is now stale and the finding is re-mintable. Not a defect in
+the verifier (the link genuinely was absent; and the item's own fix text accepts
+link-removal as a remedy), and mig 342 closes the route by which a handler can
+damage a container at all — but worth knowing that **disjunct (b) cannot
+distinguish a link legitimately removed from a container whose content was
+destroyed**, and the two differ in that the second one comes back.
+
+**Pre-flight for the re-fire, all re-checked at the moment of use** (the lane's own
+rule — migration numbers, censuses and item ids expire in hours):
+- All three config legs still live: dispatcher `"page_id?": "current_item.page_id"`
+  (note it sits under `call_handler.config.input_mapping`, one level deeper than
+  the step — my first query read the step and returned empty, which looks exactly
+  like a missing leg); `load_page_record.authoritative_page_id` =
+  `input_data.page_id`; `save_sections.page_name_field` = `page_record.name`.
+  [MEASURED]
+- Binary re-greped on the CURRENT pods (`agent-chassis-5c5bbf8548-khpl4`/`-mkdjp`,
+  created 12:23Z — a NEWER roll than the acceptance run, so the earlier pod-grep
+  had expired): `authoritative_page_id` = 3, `unbuilt_internal_link` = 7, invented
+  negative control = 0, both replicas. [MEASURED]
+- No discovery had run since 08:58; the 10:09→12:57 orchestration stream is the
+  dispatch loop draining that run's queue, not a new discovery.
+- `completeness-discovery-agent` is the agent carrying `phantom_internal_links`
+  (live config query), so the improvement loop is the trigger that re-mints.
+
+**Re-fired the one-shot improvement loop at dartsonline**, safe kcat pattern
+(payload in container COMMAND, `PUBLISH_OK` receipt): corr
+`576f0ab9-5a17-4449-9bbc-ee1983576433`. Script kept at
+`scratchpad/fire_improvement_loop_dartsonline.sh` — it asserts the payload
+contains no single quote before firing, because the whole payload is single-quoted
+inside `sh -c`. The shipped `076_improvement_loop_trigger.sh` still hardcodes
+robot-hands.com after its arg parsing; still not this lane's file to fix.
