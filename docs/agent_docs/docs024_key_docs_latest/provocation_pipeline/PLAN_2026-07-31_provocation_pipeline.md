@@ -647,3 +647,87 @@ absent from both the gate and this PLAN's §4 table.
 as rejections. §5's paired-mode analysis stands and gains force: §5.6 already said
 privacy stops being a preference and becomes a correctness property once real people
 are named, which is the same finding arriving from the other direction.
+
+---
+
+## 12. OWNER RULING 2026-08-09 (second, same day) — the safety layer moves OFF the judge
+
+### 12.1 The ruling
+
+Raised by the nine-round calibration on v1.0.1267
+(`HANDOFF_2026-08-08b_continue_here.md` §4): on round 3 of 9, `cal-bad-insult` —
+repetitive abuse, no argument — was **approved**. The judge ran, its own advisory note
+called it *"pure repeated insult with no actual argument or fact-checkable content"*, and
+it returned `safe: true` anyway. The entire safety decision is one arm,
+`provocation_gate_action.go:469` `if !j.Safe`, with nothing binding the boolean to the
+judge's own note. Four candidates were put up, ordered by what makes the bad state
+unrepresentable.
+
+> **RULED: candidate 1 — a DETERMINISTIC pre-judge abuse check**, in the shape of the
+> existing `tribal_political` form-layer rule (`judge_ran=false`, never varied across
+> nine rounds). Anything the form layer kills never reaches the judge's discretion.
+
+Rejected by implication, and worth recording so they are not re-proposed:
+best-of-N on the safety field (mitigates, never closes — and multiplies cost per
+candidate), and relying on human approval before publish, **which §10 has already ruled
+out** and which the owner did not reopen.
+
+### 12.2 Why this ruling is load-bearing rather than tidy
+
+§10 stands: **no human approval of publishes.** So after the generator and gate are
+wired, the gate is the *only* thing between an LLM-written provocation and a live page
+on a site that promises one daily. A 1-in-9 leak on the abuse criterion is not a quality
+issue in that configuration; it is the whole exposure. This is also why §4a's inherited
+"three green runs" bar was retired — six consecutive clean rounds followed the failure,
+so the bar it set would have certified this gate ~70% of the time.
+
+### 12.3 STANDING CONSTRAINT — §11.2's third-party test lands in the SAME change
+
+§11.2 ruled the named-third-party test a **safety** criterion and said it *"belongs in
+the generator's gate criteria whenever that is next touched"*. **This ruling is that
+moment** — the gate's safety layer is being opened now, and adding one safety criterion
+while leaving the other in prose would be the same omission twice.
+
+> Does answering this well require naming a real person or business, and saying
+> something checkable about them? If yes, reframe it or drop it.
+
+**Open sub-question for the implementing thread, and it is a real one:** that test is a
+*judgement*, not a keyword — so a purely deterministic form-layer rule cannot express
+it, and putting it on the judge gives it the same stochastic exposure this ruling exists
+to remove. The honest options are a deterministic proxy (proper nouns / brand-shaped
+tokens as a **flag**, not a verdict), a judge criterion accepted as best-effort with the
+weakness stated, or both in series. **Do not let it silently become judge-only** — write
+down which was chosen and why.
+
+### 12.4 What is NOT settled by this ruling
+
+- **Which way the deterministic check should err.** A false negative publishes abuse; a
+  false positive silently starves an already-exhausted pool. The gate is fail-closed by
+  §10 and a pool can be topped up, so the drafting recommendation is to err toward
+  rejection — but the cost is real and the starvation is **silent**, so it needs saying
+  out loud rather than assuming.
+- **The wording/severity of the pattern set itself**, which is where a form-layer rule
+  either earns its keep or generates false positives nobody notices.
+- **Sequencing against the six ungated drafts** (§12.5).
+
+### 12.5 State this ruling lands into, measured 2026-08-09
+
+The pool moved the same morning, under §11.1's audience ruling:
+
+| | state |
+|---|---|
+| approved | **9**, all `category='general'`, newest `publish_on` **2026-07-26** |
+| draft | **6**, all `source='llm'`, created 09:39:40, `publish_on` 08-09..08-14, **all ungated** |
+| the previous 7 drafts | **gone** — the §9.3-audience set the owner called boring |
+| wired and running | only `provocation-feed-refresh` → `provocation-feed-publisher`, every 6h |
+
+**So the stale site has a precise cause, and it is not a bug.** `selectForDate`
+(`provocation_feed_action.go:276`) takes every approved row with `publish_on <= today`
+and picks the latest; `loadProvocations` returns `status='approved'` only. Nothing has
+been gated into `approved` since 26 July, so 26 July is correctly the newest thing there
+is to serve. **The missing link is the gate, which is the unwired step** — generate (ran
+manually today) → **gate (not wired)** → approved → publish (wired, running).
+
+Which means the six drafts are what un-sticks the site, and gating them is precisely
+what should NOT happen until this ruling ships. That sequencing is a decision, not an
+implementation detail.
