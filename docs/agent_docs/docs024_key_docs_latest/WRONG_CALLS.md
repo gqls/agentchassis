@@ -25649,3 +25649,32 @@ act" catches a precondition that the action itself destroys.
 batch) with an in-transaction assertion that nothing claimable sits ahead of them —
 `priority = 1` rather than a middling value precisely because triage mints low numbers
 of its own and would outrank anything softer on the next run.
+
+## 2026-08-09 — bugfix-225 session: "0 blobs over 100MB in history" — from a `git cat-file --batch-check` format that silently reported EVERY object as missing
+
+**The claim.** Sizing the `domains` repo before pushing it to GitHub, I ran a
+scan and reported **"blobs >100MB in history: 0"** — which, taken at face
+value, says the push would succeed and no history surgery is needed. One
+command earlier, a differently-formatted scan of the SAME repo had listed
+blobs of 542 MB, 511 MB, 469 MB.
+
+**What was actually true.** 19 blobs exceed 100 MB and the push could never
+have succeeded. The zero came from the format string:
+`git rev-list --objects --all | git cat-file --batch-check='%(objecttype) %(objectsize)'`.
+`rev-list --objects` emits `<sha> <path>` per line, and **without `%(rest)` in
+the format, `cat-file` treats the WHOLE line — sha plus path — as the object
+name**, so every line resolves as missing, no `blob` line is ever printed, and
+any filter over the output returns zero. `2>/dev/null` on the `cat-file` hid
+the complaint. The working version had `%(rest)` in it; I dropped it when I
+rewrote the command to count instead of list.
+
+**What caught it.** Only that I had the earlier output on screen and the two
+disagreed. Nothing in the failing command looked wrong, and it exited 0.
+
+**The cheap check.** When feeding `rev-list --objects` into `cat-file
+--batch-check`, the format MUST contain `%(rest)`; and never suppress
+`cat-file`'s stderr while doing it. Generally, and this is the reusable part:
+**a filter that returns zero should be re-run with the filter removed** — had
+I printed the first few raw lines instead of only the count, "missing" on
+every line would have been unmissable. A zero from a pipeline is a claim about
+the pipeline before it is a claim about the data.
