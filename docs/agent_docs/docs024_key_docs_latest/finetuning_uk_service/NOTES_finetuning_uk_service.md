@@ -647,3 +647,27 @@ registry categories → `maintenance`, ledger checksum re-synced after the
 hardening. **Round 3 submitted** (~12:0xZ, same trail): reviews shipped+live
 state, carries the output_field correction openly. Result recorded below
 when the verdict lands.
+
+### Council round 3: REVISE (12:00Z) — all verification requests, answered by measurement in round 4
+
+Gating (editquality, high): fear that the seed's jsonb verify NULLs out on a
+missing key. The actual form is `PERFORM … IF NOT FOUND` (fails closed) —
+and rather than argue, **round 4 proves it by induction**: in a transaction
+I reproduced the regression on the LIVE row (`jsonb_set`/`#-` moved
+output_field back into config), ran the identical DO block, and it raised
+"ASSERT FIRED CORRECTLY"; rolled back, live config untouched. Other
+dispositions, all by direct read: live row carries step-level output_field
+on BOTH steps + nested key absent (debug_historian's "was it actually
+re-applied") · sites system.internal exists (guardian) · registry keys
+unique, `thunderAdapterTopic` declared once and reused (editquality +
+prior_art) · recurrenceExpected: the strike counter counts TERMINAL
+predecessors only, an open item is dedup not strike, the <3h suppress can't
+bite a 6h cadence, and the third-after-two-closes files as `unresolved`
+(visible + revalidatable) — nothing is swallowed (editquality medium) ·
+why not extend the reaper: a scheduler pre_query is SQL and cannot call the
+vendor API, which is the only place an orphan exists; different cadence and
+workflow shape; shared concurrency group is deliberate (reuse_agent) ·
+liveness claims a council tier can't see: human re-run commands supplied
+verbatim; the run's counts are durable in these NOTES against the 24h
+orchestration retention (prior_art). **Round 4 submitted ~12:15Z —
+evidence-only, no code or config changes** (`council_r4_submission_ftw042.json`).
