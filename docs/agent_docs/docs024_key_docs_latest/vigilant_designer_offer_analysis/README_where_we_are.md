@@ -275,3 +275,37 @@ would refuse loudly rather than double-apply).
 Next on this track when you want it: B3's two checks (the premise-gap finder can now safely
 file refresh jobs, because the gate exists) — or back to the designer track, whose next step
 is still the one witnessed CSS run and then the critic.
+
+---
+
+**2026-08-09, late evening (continuation session).** The offer checks are ON, watching
+only, and they told the truth on their first three outings.
+
+The full story of tonight: the review council came back on B3 asking for a rewrite of the
+submission — not the code. Its main worry was that the verifiers I described were never
+wired in. They are wired in; the wiring just lives inside the check's own file rather than
+in a central list, and the submission hadn't said where to look. I re-submitted with the
+exact line numbers and query results. The second round conceded that point but now gates
+on the one thing only you can do: those migration ledger rows. Four reviewer seats
+independently called an applied-but-unrecorded migration "a loaded gun" for whoever runs
+the migration tool next, and they are right — that is why the commands are waiting for
+you. There are now THREE (the two from before plus tonight's enablement change), listed
+at the end of my report. Until they land, re-submitting to the council would just draw the
+same objection again, so the trail is parked one round short of approval.
+
+Meanwhile the practical work is done. The fleet had already shipped B3's code in the
+normal course of things (I proved it by reading the running binaries, not by trusting
+version numbers). I turned both checks on in the observe-only mode we agreed: they look,
+they file notes, nothing acts on those notes yet. Then I pointed them at three sites
+deliberately: a real business site (expect nothing — anything found would be a false
+alarm), the darts site (a topic site sold as a business — a plausible catch), and the gas
+site (whose strategy predates the four questions — a certain catch). The real business
+site: silence, correct. The darts site: silence — and I checked by hand rather than
+assuming: it genuinely has a working contact page, form and all, linked from every page,
+so silence was the truthful answer. A pleasant surprise: the platform's discovery rotation
+(another team's work, switched on today) will now bring every site past these checks
+weekly without anyone pointing at targets.
+
+Also written tonight, because a reviewer was right to ask: proper undo files for all three
+of this programme's live config changes, each refusing to run if the world has moved under
+it, each stating plainly what running it would give up.

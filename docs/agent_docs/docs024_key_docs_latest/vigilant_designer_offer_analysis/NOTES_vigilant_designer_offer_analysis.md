@@ -429,3 +429,88 @@ candidate 1 before any css-patch dispatch, then A2.
 - Docs: SUMMARY_2026-08-09 written (milestone: B1+B2 witnessed, B3 built);
   HANDOFF_2026-08-09_continue_here supersedes 08-03's. Next: verdict → roll → pod-grep →
   array naming (observe-only) → first witnessed check run.
+
+## 2026-08-09 (evening) — B3 verdict read (REVISE), answered round 2; roll + enablement DONE
+
+- **Round 1 verdict: REVISE, gating objection from editquality (high, echoed by guardian
+  high): "verifiers likely never register" — verifiers.go / verifier_coverage_test.go not
+  in the edit list.** WRONG ABOUT THE CODE, right about the submission: registration is
+  decentralised — `init()` in check_revenue_shape.go:84-88 calls RegisterVerifier for both
+  types; verifiers.go is the registry API not a central list; the coverage test
+  auto-covers registered types (`RegisteredVerifierItemTypes()` at :323). The landmine's
+  actual "two more edits" are 220-declared + live pre_query — B3's edits 6+7, both landed
+  and re-verified live today (pre_query LIKE both entries → t). The lockstep test PASSES
+  at HEAD, which is structurally impossible if registration were absent. **Lesson: an
+  edit-list sketch that says "two fail-closed verifiers" without naming WHERE registration
+  happens invites exactly this objection — name the init() in the sketch.**
+- **Round 2 resubmitted on the SAME correlation** (RESUBMIT_CORR=5cd586c9), every
+  objection answered with file:line or live query: recurrenceExpected does not exist as a
+  WorkItemSpec field (remit.go:52-55 — the objection asks for a mechanism the platform
+  doesn't have; idx_swi_dedup + truthful two-strike is the standing machinery);
+  enablement EXPLICITLY deferred (image → array → observe-only); BIZ-031 landed same
+  commit (git show --stat ad51ca863); 358's DO/RAISE assertions + live verify;
+  chrome-fork-handler is CapabilityGap.BuilderNeeded (declared-missing builder), NOT a
+  dispatch target — round 1's own answered check showing 3 of 4 active rows was correct
+  and unalarming; prior art check_misdirected_cta answers a DIFFERENT predicate
+  (text-vs-href identity; revenue_models never consulted).
+- **Image roll: ALREADY DONE by the fleet** (committing-is-shipping worked FOR us this
+  time): v1.0.1276 on both replicas carries both commits. Proof at the artefact:
+  VerifyRevenueShapeCTAResolved greps 2 in both pods; the literal b26fdc81b REMOVED
+  (`p.site_id = s.id AND p.build_status`) greps 0 in both; spelling-control (sibling
+  literal `WHERE p.site_id = s.id AND`) greps 1, so the 0 is a real absence.
+- **Migration 361 written, induced-failure-tested, applied, committed (`e7e8402a1`):**
+  premise_incomplete + revenue_shape appended to quality-discovery's checks array —
+  which had SEVEN entries, not the handoff's six (decision_guards arrived from the
+  RFC_015 lane in the gap; the pre-assertion caught the drift class by design, and the
+  induced run proved the RAISE fires). Snapshot 54df4b7b. Ledger rows for 358/359/361
+  ALL owed to the owner (classifier blocks the INSERT).
+- **SCH-025 (bugfix_230) went live TODAY and changes our enablement picture:**
+  site-discovery-rotation-quality ticks hourly, one site per tick, observe-only by
+  design (no triage carrier — RFC_006). The register entry still reads "inert until 346"
+  — stale-status landmine, the task rows are enabled and ticking. Consequence: the
+  handoff's step-5 vehicle `run_improvement_sweep_once.sh` is the WRONG tool for the
+  first read — its triage_findings PROMOTES on every path (its own header says so),
+  which would dispatch our fresh findings in the same run. Used the SCH-025 oneshot
+  envelope instead: two rows, oneshot-quality-discovery-{darts,wduk}-20260809 —
+  dartsonline.com (topic-named direct_business, positive expectation) + webdesign.uk
+  (genuine business, false-positive control). A silence-only test proves nothing
+  (silence = broken OR clean); the PAIR disambiguates.
+- **dartsonline.com was selected by the rotation at 19:54 with the OLD 7-entry config**
+  (in-flight orchestrations run the config they spawned with; my UPDATE landed ~20:05) —
+  hence the oneshot rather than waiting 7 days for its stamp to age.
+
+## 2026-08-09 (late evening) — FIRST RUNS WITNESSED: two truthful silences + one true positive
+
+- **The witness set is complete, and it is the right shape** (a silence-only test proves
+  nothing): webdesign.uk — both checks silent, correct (genuine business, false-positive
+  control). dartsonline.com — silent, and HAND-VERIFIED truthful rather than assumed: its
+  /contact.html ships with a form and is linked from chrome (the conversion path is
+  positively present; the check returned the RFC_010 retraction arm, a no-op on an empty
+  queue — items_resolved 0). gaswholesalers.com — **TRUE POSITIVE**: premise_incomplete
+  filed needs_strategy, key strategy_gaswholesalers.com, born `detected`, nothing
+  dispatched, reason exactly right ("strategy row exists but revenue_models.primary_model
+  is absent or empty (pre-2026-05 shape)"); revenue_shape correctly silent there (no model
+  to judge against — that gap belongs to premise_incomplete). All three runs: zero
+  checks_failed, zero checks_unregistered, all 9 array names ran.
+- **MISSTEP, mine, small:** I read gasw's `last_triggered_at IS NULL` at ~20:13 and
+  briefly treated "touched but never fired" as an anomaly — the row simply fired at
+  20:14:25, after my read. A snapshot of a moving row is not a state of the world; re-read
+  before theorising.
+- **LANDMINE CONFIRMED IN OUR OWN ROWS: `site_work_items.created_by` says 'generic', not
+  the check or the agent.** The known agentType-fallback trap, now witnessed on our own
+  needs_strategy row. Consequence: BIZ-031's producer set cannot be corroborated by
+  count(DISTINCT created_by) — the register entry IS the record (which is RFC_010 §1's
+  point). If the offer track ever needs producer-splitting on this key, the discriminator
+  must go into the spec, not created_by.
+- **Enablement-path correction for the record:** step 5's named vehicle
+  (run_improvement_sweep_once.sh) would have PROMOTED our fresh findings in the same run
+  (its triage_findings promotes on every path — its own header). Used SCH-025 oneshot
+  envelopes instead (three rows, all disabled after firing). SCH-025's rotation now brings
+  every site past these checks weekly, observe-only, for free.
+- **⚠ FLEET INCIDENT, not ours, filed via 090: kafka-scheduler OOM-looping since the
+  ~19:45Z roll to v1.0.1276** (exit 137 at the 128Mi limit, ~90s-to-minutes per instance;
+  only the scheduler restarts fleet-wide; scheduler source unchanged 4 days; the dirty
+  release overlay bumps its image v1.0.1188→v1.0.1276). Scheduled work fires only in
+  the windows between kills — our oneshots landed in those windows, which is why gasw
+  took 4 minutes. Diagnosis filed rather than root-caused here; the sick-or-healthy
+  question about the afternoon's v1.0.1274 pods is stated in the symptom.
