@@ -86,6 +86,11 @@ rows were pulled from the DB and driven headless — 18/18
 for these tools, which is precisely why a green `toolgolden 11/11` coexisted
 with five broken pages.
 
+**The new cases are not quiet tests**: `defect_vectors.py --both` scores every
+one of the eight as **PROVEN** — it reads differently against the pre-fix
+component — and every control as **unmoved**. Nothing VACUOUS. That matters
+because the defect they cover survived a green `toolgolden 11/11` for months.
+
 ⏳ **NOT YET LIVE.** Six assemble-only `page_rerender` items
 (`source='bugfix224-zero-rate'`) are `triaged` behind ~73 older items in the
 fleet queue. They are waiting, not stuck — do not re-file. Live verification
