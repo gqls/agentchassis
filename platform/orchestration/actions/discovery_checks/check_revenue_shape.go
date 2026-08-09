@@ -185,7 +185,7 @@ func readConversionPath(ctx context.Context, db *sql.DB, siteID uuid.UUID) (*con
 	err := db.QueryRowContext(ctx, `
 		WITH contactish AS (
 			SELECT id, name, url FROM pages
-			 WHERE site_id = $1 AND build_status = 'deployed' AND `+contactishPageRe+`
+			 WHERE site_id = $1 AND `+datahelpers.PageHasShippedPredicateFor("")+` AND `+contactishPageRe+`
 			 ORDER BY (name ILIKE '%contact%') DESC, created_at ASC
 			 LIMIT 1
 		)
@@ -257,7 +257,7 @@ func (c *RevenueShapeCheck) runCTALexicon(dctx DiscoveryCheckContext, domain, pr
 		       COUNT(*) FILTER (WHERE pc.locked_at IS NOT NULL)
 		FROM pages p
 		LEFT JOIN page_components pc ON pc.page_id = p.id AND pc.locked_at IS NULL
-		WHERE p.site_id = $1 AND p.build_status = 'deployed'
+		WHERE p.site_id = $1 AND `+datahelpers.PageHasShippedPredicateFor("p")+`
 		GROUP BY p.id, p.name
 	`, dctx.SiteID)
 	if err != nil {

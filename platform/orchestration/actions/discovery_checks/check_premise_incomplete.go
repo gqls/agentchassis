@@ -20,8 +20,10 @@
 //     reading it at the top level produced a false "0/17 sites have it" claim,
 //     WRONG_CALLS 2026-08-08).
 //
-// DEPLOYED-ONLY, by the same predicate as domain-strategist's B2 gate
-// (count of pages at build_status='deployed', never sites.status — which reads
+// SHIPPED-ONLY, via datahelpers.PageHasShippedPredicateFor — never
+// `build_status = 'deployed'` bare (a needs_rebuild page HAS deployed and is
+// still serving, bugs_closed/037 — the commit-time pattern check caught this
+// file re-typing that predicate by hand), and never sites.status (which reads
 // 'active' on a site with 41 deployed pages, measured 2026-08-08): a greenfield
 // site mid-build gets its strategy from the build chain
 // (vertical-exemplar-researcher → needs_strategy → domain-strategist →
@@ -69,6 +71,8 @@ import (
 	"fmt"
 
 	"go.uber.org/zap"
+
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 )
 
 func init() { Register(&PremiseIncompleteCheck{}) }
@@ -92,7 +96,7 @@ func readPremiseState(dctx DiscoveryCheckContext) (*premiseState, error) {
 	err := dctx.DB.QueryRowContext(dctx.Ctx, `
 		SELECT s.domain,
 		       (SELECT COUNT(*) FROM pages p
-		         WHERE p.site_id = s.id AND p.build_status = 'deployed'),
+		         WHERE p.site_id = s.id AND `+datahelpers.PageHasShippedPredicateFor("p")+`),
 		       EXISTS (SELECT 1 FROM site_specs ss
 		         WHERE ss.site_id = s.id AND ss.aspect = 'strategy' AND ss.is_current = true),
 		       (SELECT ss.data->'revenue_models'->>'primary_model' FROM site_specs ss
