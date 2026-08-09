@@ -88,19 +88,40 @@ None of the three makes an **undeclared** hand-patch loud. That is the gap.
 >
 > **CLOSE CRITERIA (this bug stays OPEN until all three, per the fixed-AND-live
 > bar; the DB half alone is not the fix):**
-> 1. **Pod-verified image** (the 153 discipline — a roll is not evidence):
+> 1. **Pod-verified image** (the 153 discipline — a roll is not evidence).
+>    **CORRECTED 2026-08-09 (round-2 `debug_historian` objection, confirmed by
+>    measurement): "every replica" via the standard label selector is the
+>    documented one-image-many-labels trap — 65 pods ran this image at check
+>    time, most of them spawn pods.** The honest enumeration is by IMAGE at
+>    the deployment level, then binary-grep the deployment that actually runs
+>    `render_site_components` (the main `agent-chassis` deployment):
+>    `kubectl get pods -o jsonpath='…image…' | grep agent-chassis | sort | uniq -c`
+>    then, on each main-deployment pod:
 >    `strings /app/agent-chassis | grep -c classifySiteComponentArtefact`
->    (expect >0) AND a negative control grep for
->    `hand-patched bytes are being overwritten` — a round-1 log string the
->    round-2 revision REMOVED (expect 0; the live string ends `were
->    overwritten and archived`) — same exec, EVERY replica.
+>    (expect >0) AND the negative control
+>    `grep -c "hand-patched bytes are being overwritten"` — a round-1 log
+>    string round 2 REMOVED (expect 0; the live string ends `were overwritten
+>    and archived`).
+>    **DONE 2026-08-09 for v1.0.1270**: all three chassis deployments
+>    (agent-chassis 2/2, business-intel, vet-intel) at 1270; both main
+>    replicas grepped 2 / 0 / 1. Residual: ~60 spawn pods still at 1269
+>    (pre-roll spawns; they do not consume the render step and are reaped on
+>    completion) — noted, not claimed.
 > 2. **The verification protocol above run end-to-end**: hand-patch a test
 >    site's footer artefact, rebuild, require the WARN + the
 >    `chrome_divergence_overwritten` item + the ledger row; negative control:
 >    a stamped, untouched slot rebuilds with no item and no archive row when
->    byte-identical.
+>    byte-identical. **Note the two-step**: all 57 rows are unstamped until
+>    their first post-roll render, so the protocol needs rebuild → (stamp) →
+>    hand-patch → rebuild → (hand_patched + item). NOT yet run as of
+>    2026-08-09.
 > 3. **The 117 wave's first pass observed**: archive rows present, zero
->    `trg_site_component_archive` errors in the wave's window.
+>    `trg_site_component_archive` errors in the wave's window. **Partial
+>    evidence 2026-08-09 (pre-wave): four production overwrites (webdesign.uk
+>    + leopardessconsulting.co.uk, header+footer each) were archived
+>    unprompted on 08-08 evening, all `unstamped` as expected pre-roll, zero
+>    trigger errors — the archive works on real traffic. The wave itself has
+>    not fired (0/57 digests stamped).**
 
 1. **Divergence check at overwrite time** (closes the door): in
    `renderAndStoreSiteComponent`, before replacing `rendered_html`, re-render

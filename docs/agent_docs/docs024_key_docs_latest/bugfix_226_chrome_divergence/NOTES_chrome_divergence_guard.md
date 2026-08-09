@@ -110,3 +110,40 @@
     symbol + negative removed-string, every replica).
 - Round 2 submitted on the SAME trail: `RESUBMIT_CORR=cffbfec4…`, run
   envelope `b3587307`, orch `6905d256`. All tests green after revisions.
+
+## 2026-08-09 — session 2 (roll verified, round 2 read late, round 3 in)
+
+- **Misstep (WRONG_CALLS'd): the round-2 verdict watcher could never fire** —
+  its `created_at > 23:40 UTC` floor was my BST clock unconverted; the verdict
+  landed 22:49 UTC. Found by querying unfiltered. Round 2 = **REVISE**, gated
+  by `bug_historian` again (229 filed-not-fixed), 10 seats approve/3 abstain.
+- **v1.0.1270 rolled and VERIFIED** (the 153 discipline, with round 2's own
+  correction): 65 pods run the chassis image (the one-image-many-labels trap,
+  measured — enumerate by IMAGE, not label); all 3 chassis deployments at
+  1270; both main `agent-chassis` replicas grepped
+  `classifySiteComponentArtefact`=2, round-1-only string=0, round-2 string=1.
+  ~60 spawn pods still at 1269 (pre-roll spawns) — residual, noted.
+- **The archive worked in production before we asked it to**: 4 rows in
+  `site_component_history` from 08-08 evening — webdesign.uk and
+  leopardessconsulting.co.uk, header+footer each, all `unstamped` (correct:
+  pre-roll code, no stamps exist), zero trigger errors. Trigger re-verified
+  SOLE + enabled at the exact boundary the round-2 `debug_historian` asked
+  about (Go half now live).
+- **Round-2 dispositions**: classify-error silent path → FIXED
+  (`readBackDivergenceFromLedger`: the trigger's own DB-side verdict on the
+  archive row is the fallback; ErrNoRows = byte-identical = nothing lost;
+  both branches sqlmock-tested). item_key consumers → measured empty (0 rows
+  of the type have ever existed; 0/57 stamped makes hand_patched impossible
+  so far). Callers → exactly one call site (grep attached). Pods wording →
+  close criteria corrected + executed. Trigger-sole re-check → done 08-09.
+  Roles + dead-column queries attached verbatim for the prior_art seat.
+- **The gating scope question is NOT re-answered with code**: bug_historian
+  (fix page_components now) vs architecture (fine at two instances; a third
+  needs an RFC) now disagree on the record. Per the 07-28 scope-veto
+  guidance: the split is written into `bugs_open/229` as an OWNER CALL block,
+  and this lane holds 226 to chrome. Round 3 submitted on the trail:
+  run envelope `b7518808`, orch `50924d69`.
+- Close criteria state: (1) pod-verify **DONE** for 1270; (2) end-to-end
+  protocol **NOT RUN** — needs the two-step (first rebuild stamps, then
+  hand-patch, then rebuild → item); (3) 117 wave **NOT FIRED** (0/57 stamped;
+  the 4 archive rows are pre-wave partial evidence).

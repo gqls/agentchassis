@@ -99,6 +99,51 @@ func classifySiteComponentArtefact(ctx context.Context, db *sql.DB,
 // over non-terminal rows — per-site by the index, per-patch by this key).
 // Council round 1 (corr cffbfec4) objected to the slot-only key on exactly
 // this ground.
+// readBackDivergenceFromLedger recovers the verdict when the pre-store
+// classification failed. The 344 trigger computes the SAME judgement DB-side
+// and stores it on the archive row it just wrote, so the fallback source of
+// truth is the ledger entry the store caused. No row in the window means the
+// overwrite was byte-identical (the trigger's WHEN gate archives only
+// differing bytes) — nothing was lost, nothing to say. Without this, a hand
+// patch destroyed during a transient SELECT failure would file nothing
+// (council round 2, bug_historian: "functionally identical to the seven
+// documented instances where a rebuild path did not check what it was
+// discarding").
+func readBackDivergenceFromLedger(ctx context.Context, db *sql.DB,
+	siteID uuid.UUID, slot string) (*siteComponentArtefactVerdict, error) {
+
+	var div string
+	var stamped sql.NullString
+	var current string
+	var byteCount int
+	err := db.QueryRowContext(ctx, `
+		SELECT divergence, rendered_html_digest, md5(rendered_html), length(rendered_html)
+		FROM site_component_history
+		WHERE site_id = $1 AND slot_name = $2
+		  AND created_at >= now() - interval '15 seconds'
+		ORDER BY created_at DESC LIMIT 1
+	`, siteID, slot).Scan(&div, &stamped, &current, &byteCount)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	v := &siteComponentArtefactVerdict{CurrentDigest: current, Bytes: byteCount}
+	switch div {
+	case "hand_patched":
+		v.State = artefactHandPatched
+		v.StampedDigest = stamped.String
+	case "machine_made":
+		v.State = artefactMachineMade
+		v.StampedDigest = stamped.String
+	default:
+		v.State = artefactUnstamped
+	}
+	return v, nil
+}
+
 func chromeDivergenceItemKey(slot, currentDigest string) string {
 	if len(currentDigest) > 12 {
 		currentDigest = currentDigest[:12]

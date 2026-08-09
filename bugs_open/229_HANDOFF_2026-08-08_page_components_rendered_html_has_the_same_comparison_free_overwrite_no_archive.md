@@ -37,6 +37,23 @@ records the wrapper and loses the artefact. Measured for 226: **zero** rows of
 `page_components.content_hash` (1294 rows) and `pages.content_hash` (619) are
 populated — there is no live artefact-provenance mechanism page-side at all.
 
+## OWNER CALL NEEDED — two council seats disagree on the record about this file's existence (2026-08-09)
+
+In 226's round 2 (trail `cffbfec4`), the `bug_historian` seat **gated** on this
+bug being *filed* rather than *fixed*: "the exact shape already indexed under
+016b §9: one call site of a shared judgement gets the rigorous fix; the sibling
+stays heuristic" — and it is right that page content is arguably the
+higher-impact surface. In the SAME round, the `architecture` seat wrote the
+opposite condition: "Fine at two instances; a third table adopting the same
+shape without a shared abstraction would be the point this needs an RFC" — i.e.
+the page-side guard is a legitimately separate decision, and folding it into a
+bug patch is the very move the 2026-07-28 seams ruling exists to stop. The
+fixing lane held 226 to chrome (per the scope-veto guidance: record the
+disagreement, let a human break it). **Whoever takes this bug: the first
+decision is whether the archive shape generalises (shared abstraction, maybe an
+RFC) or page_components gets its own contained trigger — do not inherit 226's
+answer by copy-paste; the DELETE+INSERT family below is why it may not fit.**
+
 ## Why this was NOT folded into 226's fix (scope decision, stated)
 
 - `page_components` is orders of magnitude hotter than `site_components` (1294

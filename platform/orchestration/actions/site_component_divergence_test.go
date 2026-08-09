@@ -105,6 +105,38 @@ func TestChromeStoreStampsDigestInSameStatement(t *testing.T) {
 	}
 }
 
+func TestReadBackDivergenceFromLedger(t *testing.T) {
+	const d = "0123456789abcdef0123456789abcdef"
+	const other = "ffffffffffffffffffffffffffffffff"
+
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	rows := sqlmock.NewRows([]string{"divergence", "rendered_html_digest", "md5", "length"}).
+		AddRow("hand_patched", d, other, 2048)
+	mock.ExpectQuery("SELECT divergence, rendered_html_digest").WillReturnRows(rows)
+	v, rErr := readBackDivergenceFromLedger(context.Background(), db, uuid.New(), "footer")
+	if rErr != nil {
+		t.Fatalf("read-back: %v", rErr)
+	}
+	if v == nil || v.State != artefactHandPatched || v.StampedDigest != d || v.CurrentDigest != other {
+		t.Errorf("hand_patched ledger row must yield a hand_patched verdict carrying both digests, got %+v", v)
+	}
+
+	db2, mock2, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db2.Close()
+	mock2.ExpectQuery("SELECT divergence, rendered_html_digest").WillReturnError(sql.ErrNoRows)
+	v2, rErr2 := readBackDivergenceFromLedger(context.Background(), db2, uuid.New(), "footer")
+	if rErr2 != nil || v2 != nil {
+		t.Errorf("no ledger row in the window = byte-identical overwrite = nil verdict, no error; got %+v / %v", v2, rErr2)
+	}
+}
+
 // The item_key carries the patched digest so distinct hand patches on one
 // slot are distinct findings (idx_swi_dedup is UNIQUE on site_id + item_key
 // over non-terminal rows: per-site by the index, per-patch by this key), while

@@ -55,3 +55,30 @@ its own evidence).
 We resubmitted with the fixes and the measurements. The code is committed and
 will be in the next release; the bug stays open until we've seen it working on
 the running system, and the checklist for that is written into the bug file.
+
+## 2026-08-09 — it's running, and it already saved something
+
+The new release went out and we checked it properly, on the actual running
+machines, including a check that the OLD version's fingerprint is gone — so we
+know the right code is live, not just that a release happened.
+
+Better: overnight, before anyone tested anything, two sites had their headers
+and footers rebuilt in the normal course of business — and the safety net
+quietly kept copies of what was replaced, exactly as designed. That's the
+first real proof, unprompted.
+
+The reviewers came back a second time. One embarrassment on our side first: I
+had set up an overnight alarm to tell me when their answer arrived, and got
+the timezone wrong, so the alarm could never ring — that's written up in the
+mistakes log. Their answer: most reviewers now approve; one small code gap
+they found is fixed (if the "was this hand-edited?" check hiccups, we now ask
+the ledger itself, which always knows); and one genuine disagreement remains
+between two reviewers — should we fix the same problem for ordinary page
+content right now, or is that properly a separate, differently-shaped job? We
+wrote both positions into the new bug file (229) and flagged it as a decision
+for you — we did not expand the change on our own authority.
+
+Still to do: one full rehearsal of the whole thing on a test site (patch,
+rebuild, watch the alarm ring and the copy appear), and watching the big
+rebuild wave from the other fix when it fires. The checklist is in the bug
+file and the handoff note.

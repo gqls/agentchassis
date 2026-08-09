@@ -1000,6 +1000,19 @@ func renderAndStoreSiteComponent(
 	// Divergence gate, loud half (bugs_open/226): the store wrote (rows>0), so
 	// the trigger has archived the outgoing bytes — if they were hand-patched,
 	// say so where an operator will see it.
+	//
+	// If the pre-store classification failed, the trigger's own verdict is on
+	// the archive row it just wrote — read it back rather than letting a
+	// transient SELECT error be the one silent path (council round 2).
+	if divergence == nil {
+		lv, lErr := readBackDivergenceFromLedger(ctx, db, siteID, slot)
+		if lErr != nil {
+			logger.Error("site chrome: divergence verdict UNKNOWN for this overwrite — classification and ledger read-back both failed; the archive itself is intact (bugs_open/226)",
+				zap.String("slot", slot), zap.String("site_id", siteID.String()), zap.Error(lErr))
+		} else {
+			divergence = lv
+		}
+	}
 	if divergence != nil && divergence.State == artefactHandPatched {
 		logger.Warn("site chrome: artefact diverged from its render stamp — hand-patched bytes were overwritten and archived (bugs_open/226)",
 			zap.String("slot", slot),
