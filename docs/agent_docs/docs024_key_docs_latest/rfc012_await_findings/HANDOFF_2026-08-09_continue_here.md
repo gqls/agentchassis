@@ -157,11 +157,21 @@ group — and split at the date of the commit that could have changed it. Two la
 
 ## Other threads, both explicitly NOT this lane's (unchanged from 08-08)
 
-- **The hero/logo silent breaks.** 090 came back UNVERIFIABLE (`dce40cf4`) — the evidence would not
-  grow, *not* that the premise is false. `hero_deployed` appears in 0 of 1,667 retained
-  `orchestration_states` rows, so it cannot be observed after the fact. **The cheapest decisive
-  test is a CANARY**: run a page build on `pageflow-builder` or `site-work-orchestrator` and read
-  `collected_data->'hero_deployed'` while it is in flight. Detail in the 08-06 handoff §2.
+- ~~**The hero/logo silent breaks.**~~ **SUPERSEDED 2026-08-09 — the evidence arrived and the bug
+  is FILED: `bugs_open/236`.** No canary was needed in the end: `hero_deployed`/`logo_deployed`
+  now appear in live `orchestration_states` rows (2 of 4,757 at 14:35Z, against 0 of 1,667 on
+  08-06), and a **logo response that DID arrive** — so not a timeout story — merged to
+  `{response, response_status, response_received_at}` carrying **none** of the three keys
+  `DeployImageAssetAction` assigns onto its own result (`image_url`, `output_path`, `size_bytes`).
+  The three readers require `image_url`, are `ok`-guarded with no else branch, and `hero_url`/
+  `logo_url` are absent from the same row, so the page loses hero and logo in silence.
+  **The obvious theory is REFUTED by the code and the root cause is deliberately NOT asserted**:
+  `coordinator.go:2719-2748` preserves existing keys rather than replacing them, and
+  `storeActionResult` writes the result under `output_field` *before* the await — so on a straight
+  reading `image_url` should still be there. That gap went to the diagnosis loop
+  (`RUN_CORRELATION_ID=074beb8a-adb4-4074-905a-cb0f857e7f85`); the earlier UNVERIFIABLE verdict
+  (`dce40cf4`) was correct at the time and it is the *evidence*, not the framing, that changed.
+  Not fixed here: the real fix may land in the `(a)`/`(a′)` merge design, which is the owner's.
 - **`search_results.results.0.url` can never resolve** — `vet-practice-verifier`'s
   `fallback_url_field` uses an array index and `ExtractNestedField` does map access only. That
   fallback has never fired. Belongs to the vet lane.

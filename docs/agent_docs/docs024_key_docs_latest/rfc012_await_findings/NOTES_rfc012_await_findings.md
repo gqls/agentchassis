@@ -1311,3 +1311,32 @@ Two corrections carried while planning, both cheap and both the census's/handoff
 - the 08-06/08-09 handoffs say the dead HITL `output_format` templates sit in "4 agents" — it is
   **4 templates in ONE agent** (`simple-content-writer-with-approval`, one `process_approval`
   step; the fifth template in the same map references `generate_draft` and was not counted).
+
+### The §7 round came back APPROVED, and its two objections are dispositioned by fact
+
+`b0deddf7-510f-4e05-b446-555a18a06b16` — **APPROVED, round 1, 1 advisory objection, none
+high-severity**; dispatched 14:10Z, decided within the hour. (Second data point for the handoff's
+"the council can be much faster than the ~29 minutes CLAUDE.md budgets" note.) Both low-severity
+objections — `editquality` edit 2 and `guardian` edit 2 — are the same one, and it is answerable:
+
+- *"operation is 'modify' on owner_agent_type_ladder_test.go … but that is unverified. If the file
+  doesn't exist, 'modify' is the wrong operation."* **It exists.** `git log --diff-filter=A` on the
+  path returns `1bc08d1ce`, the RSH-009 commit, so `modify` was correct. The seats were right to
+  flag it — they cannot see the tree — and right that a submission which asserts a file's
+  pre-existence should carry the evidence. Next submission of this shape quotes the `--diff-filter=A`
+  line rather than asserting.
+- `guardian` edit 1 and `prior_art_librarian` both asked for confirmation **at HEAD** that no other
+  call site already backfills `RunAgentType`, the code index being stale. Checked:
+  `grep -rn "RunAgentType\s*=" --include=*.go platform/ internal/ | grep -v _test.go` returns
+  exactly **two** writers — `messaging/processor.go:1828` (the first-step path) and the new block.
+  No duplicate, no since-changed shape.
+
+**`bug_historian` asked the question worth keeping** — whether any OTHER `ExecutionContext` field is
+rebuilt from resumed-step headers and silently not backfilled, since this ladder pattern could
+recur. Answered as far as a grep honestly can, and the answer is *maybe one*: `RequestsTopic` has a
+durable source in `OrchestrationState` that `ensureFullExecutionContext` does **not** copy, while
+its sibling `ResponsesTopic` is copied — and it IS read (`coordinator.go:2197`, `ai_actions.go:149`).
+**`[UNVERIFIED]` whether it can ever arrive empty**, because `processor.go:147,194` set it on the
+inbound message path, which `RunAgentType` had no equivalent of. That is the whole difference
+between a defect and a non-event here, and it is one grep short of settled — so it is recorded as a
+candidate for its own round, not as a finding, and deliberately not bundled into this one.

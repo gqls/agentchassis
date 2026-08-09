@@ -440,3 +440,28 @@ fix may touch the pause-and-resume design you have not yet ruled on.
 One thing still cannot happen yet: the measurement proving the "generic" mislabelling is gone
 needs the next rebuild of the fleet to ship first, and that is your lever, not ours. The queries
 are written down and ready for whoever is around when it lands.
+
+**Later still, and this is the one to read.** The hero/logo question answered itself while we were
+setting up the experiment. Three days ago the relevant data appeared in none of the sixteen hundred
+records we could see, which is why nobody could settle it. Today it is there — and it says the
+image steps really are losing their result. A logo was built, sent to the git service, and came
+back successfully; what survived into the workflow's memory was the delivery receipt and not the
+address of the image. The three places that go looking for that address find nothing, and — this is
+the part that let it run for weeks — they are written so that finding nothing looks exactly like
+having nothing to do. No error, no warning, no record. The page just comes out without its hero
+image and without its logo.
+
+I want to be straight about the limit of that. I know what is missing and I know what it costs. I
+do **not** know what removes it, and I nearly told you I did: the obvious culprit is the
+merge-on-resume step this whole lane has been about, and when I went to read it, it turns out to
+add to the record rather than overwrite it. So the tidy story is wrong, and I have written the
+evidence up as a bug (236) with the wrong theory marked as refuted rather than quietly dropped, and
+handed the "where does it actually go?" question to the diagnosis loop — which failed on this same
+question three days ago purely because there was nothing to look at, and now there is.
+
+I have not fixed it, on purpose. One safe piece is obvious and cheap — make those three readers say
+something out loud when they come up empty, which would have turned five silent weeks into a log
+line on day one. But the real fix may sit inside the pause-and-resume design you have not ruled on
+yet, and I would rather bring you a decision than a fait accompli. Two sites are known affected in
+the window we can see; how often it happens overall, I genuinely cannot tell you, because the
+records expire in about a day and I am not going to dress two observations up as a rate.
