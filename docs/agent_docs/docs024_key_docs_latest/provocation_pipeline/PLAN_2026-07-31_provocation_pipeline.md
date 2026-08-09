@@ -731,3 +731,57 @@ manually today) → **gate (not wired)** → approved → publish (wired, runnin
 Which means the six drafts are what un-sticks the site, and gating them is precisely
 what should NOT happen until this ruling ships. That sequencing is a decision, not an
 implementation detail.
+
+---
+
+## 13. OWNER RULINGS 2026-08-09 (third round) — the nine open decisions, answered
+
+Put to the owner as an outline of everything still needing a decision after §12.
+Answers recorded verbatim in substance, with the reasoning where he gave it.
+
+| # | question | RULING |
+|---|---|---|
+| 1 | which way should the deterministic abuse check err? | **Err toward REJECTION** |
+| 2 | the §11.2 third-party test — deterministic proxy, judge-side, or both? | **Best-effort (judge-side) is OK for now** |
+| 3 | the six ungated drafts — gate now or hold? | **HOLD** until the abuse check ships |
+| 4 | pool runs dry — top up, and be told? | **Both: generate more AND notify me** |
+| 5 | cadence / buffer | **6 days is right — it keeps recency.** Shorten later as we learn, to get more current questions |
+| 6 | `group-chats-replaced-friendship` (empty body) | **RETIRE the row** |
+| 7 | `bugs_open/223` verifier fix | explanation requested before deciding |
+| 8 | `/blog/provocation.html` | **fix as you see fit** (delegated) |
+| 9 | RFC_013 category collision | **"fix category general now"** — AMBIGUOUS, see §13.3 |
+
+### 13.1 What ruling 1 commits us to, stated so it is not a surprise later
+
+Erring toward rejection on a fail-closed gate with **no human approval of publishes**
+(§10) means the failure mode we have chosen is **a silently starving pool**, not a
+published insult. That is the right trade and it has a cost: the pool is *already*
+exhausted at the approved tier (newest `publish_on` 2026-07-26), so the check must ship
+alongside ruling 4's dry-pool handling or the first thing it does is deepen an outage
+nobody is told about. **Rulings 1 and 4 are one change, not two.**
+
+### 13.2 Ruling 2 is explicitly PROVISIONAL, and the weakness must stay visible
+
+"Best effort for now" accepts that the named-third-party test sits on the judge and
+therefore inherits precisely the stochastic exposure §12 removed from the abuse
+criterion. That is a deliberate, informed trade — not an oversight — and the reason it
+is acceptable is ruling 1: a judge that is unsure now errs toward rejection. **It must
+be written into the gate's own comment block as provisional**, so the next thread does
+not read it as a settled design. Revisit when a deterministic proxy (proper-noun /
+brand-shaped token flagging) is cheap to add.
+
+### 13.3 Ruling 9 is AMBIGUOUS and has NOT been actioned — do not guess it
+
+*"fix category general now"* admits two readings that are materially different work:
+
+- **(A) engineering:** make `nextPublishDates` and RFC_013's per-category index
+  category-aware **now, while every row is still `general`** — i.e. while the collision
+  is dormant and therefore cheap and safe to fix. Nothing user-visible changes.
+- **(B) product:** stop using `general` — introduce real categories now (food, music,
+  film, cities, generational habits, per §11.1's audience ruling), which touches the
+  generator's prompt, the feed's per-category selection and the seed data.
+
+Asked rather than assumed. **Whichever is chosen, the standing constraint from §5/§7.4
+holds: both halves must become category-aware in the SAME change, or a category is
+silently never scheduled.** Reading (B) forces (A) as a prerequisite; reading (A) does
+not require (B).
