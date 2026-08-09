@@ -417,3 +417,61 @@ curl -s https://finetuning.uk/index.html | grep -c 'csg-card-image" src=""'     
    (`tone_shift`, `content_rewrite`, `cta_improvement`) which, while 238 is open,
    can drop image URLs on whatever page they touch. That is a live risk, not a
    theoretical one — it already happened once today.
+
+### 7.6 The `/case-studies.html` rerender ESCALATED — and the blocker is the contact-block, not the imagery
+
+The `image_landed` rerender completed at 16:09:57Z **without rendering**:
+`rerender_sections` returned `escalated: true, escalation: "raised"` and
+`check_escalated` overrode the next step straight to `complete`, skipping
+`save_sections` → `render_page` → `deploy`. It raised
+**`needs_page:case-studies`** ("Full rebuild of case-studies — a section had no
+stored content_data", `triaged`, priority 90, `page-build-handler`).
+
+**This is the guard working, not a failure.** `rerender_page_sections` refuses to
+re-render a section whose stored content is incomplete, because doing so would
+render an empty section and **overwrite good HTML with a blank shell** — the
+defect that once blanked live article bodies. It leaves the existing HTML intact
+and escalates to the writer.
+
+**The section responsible is `contact-block`, and it has nothing to do with the
+case studies or the images.** It is missing **7 of its required `source:"llm"`
+fields**:
+
+```
+form_heading · privacy_note · section_intro · form_subheading
+section_heading · response_time_note · message_placeholder
+```
+
+```sql
+SELECT pc.slot_name, f.key, (pc.content_data ? f.key) AS present
+FROM pages p JOIN page_components pc ON pc.page_id=p.id
+JOIN content_components cc ON cc.id=pc.component_id
+CROSS JOIN LATERAL jsonb_each(cc.input_schema->'fields') AS f(key,val)
+WHERE p.id='386683a5-eb6b-4256-bacb-420c44bf4c4a'
+  AND f.val->>'source'='llm' AND COALESCE((f.val->>'required')::bool,false)
+  AND NOT (pc.content_data ? f.key);
+-- control (must be non-zero): drop the last line -> 9 required llm fields on the page
+```
+
+> **⚠ THE `->'fields'` IS LOAD-BEARING.** `input_schema` nests everything under a
+> `fields` key. My first version iterated `jsonb_each(cc.input_schema)` and
+> returned **0 rows** — it was iterating the single key `"fields"`, which has no
+> `source`, so it would have printed "nothing missing" whichever way the truth
+> lay. Always run the no-filter control alongside it.
+
+**So the honest state of `/case-studies.html`:** the five images serve, its
+template hardcodes their paths, and the only thing standing between them and the
+page is a **full rebuild** — which is now queued as `needs_page:case-studies`.
+
+**Decide before letting that run** (deliberately NOT dispatched by me):
+- `needs_page` has a poor record on this site: **5 failed, 4 wont_fix, 2
+  rejected** against 20 complete.
+- A full rebuild regenerates content with an LLM, which is the exact operation
+  that caused `bugs_open/238` on the homepage two hours earlier. This page's
+  images are template-hardcoded so they should survive, but its *copy* would be
+  rewritten — including the case-study text.
+- The cheaper alternative is to fix `contact-block`'s 7 missing fields first,
+  then re-run the `image_landed` rerender, which needs no LLM and cannot rewrite
+  copy. **That is the recommended order** — it also serves the 25
+  `required_fields_missing` items already sitting in `needs_human_review`, and
+  `contact-block` is separately implicated in `bugs_open/228`.
