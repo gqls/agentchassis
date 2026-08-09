@@ -310,3 +310,51 @@ all COMPLETED, none in flight at 14:50Z. Two `needs_imagery` items appeared at
 `/case-studies/<slug>.html` pages that **do not exist**. Related to the cards but
 a separate, human-decision task — the images will render on cards whose links
 still 404.
+
+### 7.4 CORRECTION to 7.2 — the first dispatch COMPLETED and served none of them
+
+> **CORRECTED 2026-08-09 15:45Z.** §7.2 says task A is "QUEUED AND DISPATCHED,
+> verification pending". The dispatch completed and **did not touch these five
+> items.** Do not read §7.2 as "in progress, just wait".
+
+`ORCH 18b299ff` ran 48 minutes → `complete / COMPLETED`, no error, and left all
+five `triaged` / `attempt_count=0`. It dispatched a real batch of five — none of
+them these.
+
+**The mechanism, which is the transferable part:** `improvement-loop` runs
+`triage_findings` **before** its dispatch step, and that step promotes
+`detected → triaged` in bulk across the whole site. This run promoted ~95
+findings (20 at priority 35, 46 at priority 80). `load_work_items` is
+`ORDER BY priority ASC, created_at ASC LIMIT max_items(5)`. So five items that
+were *the only claimable rows on the site* when I queued them became
+*positions ~80–84 of a 95-item queue draining five per run* — **because of the
+run I fired to serve them.** At five per firing that is ~16 more loop runs.
+
+**So: firing the 294 trigger does not mean your item gets worked.** Before
+relying on queue position, read the priority histogram as the dispatcher will
+see it, *after* triage:
+
+```sql
+SELECT priority, item_type, status, count(*) FROM site_work_items
+WHERE site_id='1368e337-dd1d-4799-bbb3-8221a1b79bcc'
+  AND status IN ('triaged','approved') GROUP BY 1,2,3 ORDER BY priority ASC;
+```
+
+**Current state (15:45Z):** the five are re-prioritised to **`priority = 1`** —
+exactly one `max_items` batch, with an in-transaction assertion that zero
+claimable items sit ahead. `1` and not something softer because triage mints low
+numbers itself (the batch that displaced them carried a priority-5 item). A
+`build-dispatch-loop` is **live on the site now** (`0512f186`, claimed a
+`phantom_internal_link` at 15:39Z), so the next `load_items` should take these
+five. A watcher is running; authority is the served URL.
+
+**Two traps confirmed while diagnosing this, both costly if hit:**
+- **Do NOT hand-dispatch `build-dispatch-loop` with a bare `action=orchestrate`
+  to skip the expensive loop.** It reports COMPLETED and processes nothing
+  (`LANDMINES.md` 2026-08-08, webdesign_uk_build_service). The trigger's
+  spawn+call is the only supported invocation.
+- **Do NOT re-fire the 294 trigger while an item is `claimed`** — the pre-flight
+  refuses, correctly, and `FORCE=1` here would race a live dispatch loop.
+
+Full account and the cheap check that would have caught it:
+`WRONG_CALLS.md` 2026-08-09, and the lane NOTES correction of the same date.
