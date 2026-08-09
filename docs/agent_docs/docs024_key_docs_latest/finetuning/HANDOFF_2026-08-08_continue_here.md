@@ -159,3 +159,61 @@ dynamically — which per E is exactly the relojistas pattern.
 | imagery + designer sequencing | `../finetuning_uk_repair/PLAN_2026-08-04_imagery_then_visual_designer.md` |
 | VM hosting authority | `../webdesign_uk_build_service/` — their HANDOFF is the live state |
 | the per-site trigger | `../finetuning_uk_repair/294_TRIGGER_improvement_loop_v1.sh` (IMP-050) |
+
+---
+
+## 6. FROM THE `bugfix_201` LANE, 2026-08-09 — two of your pages are serving empty sections, and the record says they were fixed
+
+Left here rather than acted on: **it is your site, so nothing has been dispatched at it.**
+Everything below is read-only measurement against the live DB.
+
+**The pages.** `ai-guides` (`69a50d5d-3732-4efe-9a79-f887b072fa86`) and `insights`
+(`8867b4d5-12d1-4ecc-8956-109a80395a18`), slot **`featured-content`**, component
+`b3e0c2c0-a9c4-4ccb-ac04-fe79b92909a3`, **334 bytes each** — empty shells, live now.
+
+**Why your queue looks clean.** The `empty_section` items you have for these pages name the
+slot **`featured-article`**, not `featured-content`. A repair on 08-03 satisfied them by
+**replacing** the component rather than filling it, and the replacement came back under a new
+slot name. So:
+
+- grepping `item_key` for the slot you can see on the page returns **0** — it reads as
+  "never detected", and that is what my own handoff wrongly said before I checked;
+- the completion verifier went looking for the component the item named
+  (`a553f25f…` / `a390860e…`), found it deleted, and could not tell "fixed" from "removed".
+  Pre-`RFC_017` that errored **fail-OPEN**, so both items were stamped `complete`:
+
+```
+result->'_verification' = {"status":"error","item_type":"empty_section",
+  "error":"cannot verify: component … no longer exists
+           (genuinely fixed or silently deleted — indistinguishable here)"}
+```
+
+Both of your checks — the queue and the item status — therefore lie in the **same direction**.
+Your `NOTES` line 344 (service lane) traces these to the missing `article-grid`/`category-section`
+components, which was right for *those* slots; `featured-content` is a separate, still-open one.
+
+**Nothing has re-detected it because nothing has run.** Site discovery has no recurring
+driver at all — all five `scheduled_tasks` rows targeting the discovery agents are disabled
+one-offs, including `oneshot-completeness-discovery-fai-20260803`, your own 08-03 run, switched
+off after it fired. Filed fleet-wide as **`bugs_open/230`**. `findEmptySections`' predicate
+matches both pages *today*, so the detector is not blinded — it simply has not been asked.
+
+**What I'd suggest, and it is entirely your call:**
+
+- Fire detect-only discovery when it suits you — `bugfix_201…/TRIGGER_fire_quality_discovery.sh
+  finetuning.uk`. It **cannot** change a work item's status (that tail was deliberately removed
+  from the 075 original, which carried a hardcoded `UPDATE … domain='finetuning.uk'`), so it
+  raises items and triggers no rebuilds.
+- **Before you let a repair run at these two**, know the cost that is now armed: with
+  `RFC_017` fail-closed live on `v1.0.1268`, an `empty_section` whose target vanishes again
+  burns up to `max_attempts` (3) **full page rebuilds** before a human sees it. If the handler
+  replaces-rather-than-fills a second time, that is exactly what happens.
+- These two rows are, as far as the registry's history shows, the **only two occurrences** of
+  the absent-target case in its entire life — so if you do re-run this, it is also the most
+  likely route to the first live execution of the fail-closed branch, which has never fired.
+
+Evidence, queries and the slot-rename trap: `bugs_open/230`, `LANDMINES.md` (2026-08-08,
+"an `empty_section` item's `item_key` names the slot as it was WHEN FILED"), and
+`bugfix_201_page_content_writer_dispatch/NOTES` (2026-08-08 late).
+
+— `bugfix_201_page_content_writer_dispatch` lane
