@@ -153,6 +153,40 @@ diagnosis loop rather than into a fix. A `090` run on the earlier framing came b
 evidence would not grow"*. **The evidence now exists**, which is the one thing that changed and
 the reason a re-run is worth its credits rather than a repeat.
 
+## 5a. The 090 run: UNVERIFIABLE again, and this time it is the HARNESS, not the question
+
+`RUN_CORRELATION_ID=074beb8a-adb4-4074-905a-cb0f857e7f85`, filed with §5's framing (which names
+the refutation, so the loop was not asked to confirm a story). Verdict: **`UNVERIFIABLE`,
+`stopped: scope-not-narrowing`, `is_fix: false`** — *"Hand to a human with the full trail; do NOT
+auto-conclude."* **Read it correctly: it did not refute anything.** It says, in its own words, what
+it still needed, and both items are tooling failures rather than absent evidence:
+
+1. **It could not read the functions.** *"the actual bodies of `storeActionResult`,
+   `processAwaitResponse`, and `applyResponseToState` (now located at L2635-2764 via code_request,
+   but not yet read in full — only the single line `isAgentResponse := false` is visible)"*. The
+   symbol *"failed to load from coordinator.go in this checkout"*. So the loop was reasoning about
+   a merge it could not open — which is, with some irony, **the exact mistake this bug's own
+   `WRONG_CALLS` entry records me making by hand**.
+2. **Its SQL could not address the table.** *"The bundle's own data_request for this row failed
+   with `column "id" does not exist (SQLSTATE 42703)` — the `orchestration_states` table isn't in
+   the bundle's Schema section, so its real primary-key/id column is unknown and must be confirmed
+   by a human before requerying; guessing again would likely fail the same way."* It queried
+   `WHERE id = '3e46be5b-…'`; the column is **`orchestration_id`**, which the symptom text gave it.
+
+**Finding for whoever owns the diagnosis loop, and it is bigger than this bug.** The bundle's
+"Schema (live tables)" section exists precisely so *"the verdict writes a correct data_request
+instead of guessing a relation that does not exist"*
+(`diagnose_assemble_bundle_action.go:303-309`, fed from `runtime.schema`). **`orchestration_states`
+— the platform's central run-state table — is not in it**, so any hypothesis whose evidence lives
+there is unfalsifiable by the loop for a reason that has nothing to do with the hypothesis. That is
+a standing blind spot, not a one-off. `[UNVERIFIED]` where the table list is built: I did not
+establish what populates `runtime.schema`, and deliberately do not guess — the loop's own error
+message is the evidence here, not my reading.
+
+**Both 090 attempts on this symptom are now UNVERIFIABLE for different reasons** — the first
+(`dce40cf4`) because the evidence did not exist, this one because the harness could not reach
+evidence that does. Neither is a refutation, and nobody should quote the pair as one.
+
 ## 6. Why this bug is filed and not fixed
 
 The only fix that addresses the cause may land in the awaited-merge design — RFC_012's `(a)`/`(a′)`
