@@ -1,0 +1,392 @@
+{
+  "checks": [
+    {
+      "expect_values": {
+        "#curr-total-bal": "£2,000.00",
+        "#debt-list": "✕",
+        "#debt-manager": "1. Your Current Debts ✕ + Add Another Debt",
+        "#new-int": "£543.74",
+        "#new-monthly": "£42.40",
+        "#old-int": "£1,664,666.67",
+        "#verdict": "✅ Interest Saving: Consolidating will save you £1,664,122.92 in total interest."
+      },
+      "id": "computes-defaults",
+      "steps": [
+        {
+          "action": "click",
+          "selector": "#btn-add-debt"
+        },
+        {
+          "action": "click",
+          "selector": "#btn-add-debt"
+        },
+        {
+          "action": "fill",
+          "selector": "#d-name-1",
+          "value": "Probe"
+        },
+        {
+          "action": "fill",
+          "selector": "#d-bal-1",
+          "value": "1000"
+        },
+        {
+          "action": "fill",
+          "selector": "#d-rate-1",
+          "value": "1000"
+        },
+        {
+          "action": "fill",
+          "selector": "#d-months-1",
+          "value": "1000"
+        },
+        {
+          "action": "fill",
+          "selector": "#d-name-2",
+          "value": "Probe"
+        },
+        {
+          "action": "fill",
+          "selector": "#d-bal-2",
+          "value": "1000"
+        },
+        {
+          "action": "fill",
+          "selector": "#d-rate-2",
+          "value": "1000"
+        },
+        {
+          "action": "fill",
+          "selector": "#d-months-2",
+          "value": "1000"
+        },
+        {
+          "action": "fill",
+          "selector": "#d-name-3",
+          "value": "Probe"
+        },
+        {
+          "action": "fill",
+          "selector": "#d-bal-3",
+          "value": "1000"
+        },
+        {
+          "action": "fill",
+          "selector": "#d-rate-3",
+          "value": "1000"
+        },
+        {
+          "action": "fill",
+          "selector": "#d-months-3",
+          "value": "1000"
+        },
+        {
+          "action": "fill",
+          "selector": "#new-rate",
+          "value": "9.9"
+        },
+        {
+          "action": "fill",
+          "selector": "#new-term",
+          "value": "5"
+        },
+        {
+          "action": "click",
+          "selector": "#btn-remove-2"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#curr-total-bal": "£4,000.00",
+        "#debt-list": "✕",
+        "#debt-manager": "1. Your Current Debts ✕ + Add Another Debt",
+        "#new-int": "£5,212.71",
+        "#new-monthly": "£76.77",
+        "#old-int": "£NaN",
+        "#verdict": "✅ Interest Saving: Consolidating will save you £NaN in total interest."
+      },
+      "id": "computes-double",
+      "steps": [
+        {
+          "action": "click",
+          "selector": "#btn-add-debt"
+        },
+        {
+          "action": "click",
+          "selector": "#btn-add-debt"
+        },
+        {
+          "action": "fill",
+          "selector": "#d-name-1",
+          "value": "Probe"
+        },
+        {
+          "action": "fill",
+          "selector": "#d-bal-1",
+          "value": "2000"
+        },
+        {
+          "action": "fill",
+          "selector": "#d-rate-1",
+          "value": "2000"
+        },
+        {
+          "action": "fill",
+          "selector": "#d-months-1",
+          "value": "2000"
+        },
+        {
+          "action": "fill",
+          "selector": "#d-name-2",
+          "value": "Probe"
+        },
+        {
+          "action": "fill",
+          "selector": "#d-bal-2",
+          "value": "2000"
+        },
+        {
+          "action": "fill",
+          "selector": "#d-rate-2",
+          "value": "2000"
+        },
+        {
+          "action": "fill",
+          "selector": "#d-months-2",
+          "value": "2000"
+        },
+        {
+          "action": "fill",
+          "selector": "#d-name-3",
+          "value": "Probe"
+        },
+        {
+          "action": "fill",
+          "selector": "#d-bal-3",
+          "value": "2000"
+        },
+        {
+          "action": "fill",
+          "selector": "#d-rate-3",
+          "value": "2000"
+        },
+        {
+          "action": "fill",
+          "selector": "#d-months-3",
+          "value": "2000"
+        },
+        {
+          "action": "fill",
+          "selector": "#new-rate",
+          "value": "19.8"
+        },
+        {
+          "action": "fill",
+          "selector": "#new-term",
+          "value": "10"
+        },
+        {
+          "action": "click",
+          "selector": "#btn-remove-2"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#curr-total-bal": "£1,000.00",
+        "#debt-list": "✕",
+        "#debt-manager": "1. Your Current Debts ✕ + Add Another Debt",
+        "#new-int": "£65.21",
+        "#new-monthly": "£35.51",
+        "#old-int": "£207,333.33",
+        "#verdict": "✅ Interest Saving: Consolidating will save you £207,268.12 in total interest."
+      },
+      "id": "computes-half",
+      "steps": [
+        {
+          "action": "click",
+          "selector": "#btn-add-debt"
+        },
+        {
+          "action": "click",
+          "selector": "#btn-add-debt"
+        },
+        {
+          "action": "fill",
+          "selector": "#d-name-1",
+          "value": "Probe"
+        },
+        {
+          "action": "fill",
+          "selector": "#d-bal-1",
+          "value": "500"
+        },
+        {
+          "action": "fill",
+          "selector": "#d-rate-1",
+          "value": "500"
+        },
+        {
+          "action": "fill",
+          "selector": "#d-months-1",
+          "value": "500"
+        },
+        {
+          "action": "fill",
+          "selector": "#d-name-2",
+          "value": "Probe"
+        },
+        {
+          "action": "fill",
+          "selector": "#d-bal-2",
+          "value": "500"
+        },
+        {
+          "action": "fill",
+          "selector": "#d-rate-2",
+          "value": "500"
+        },
+        {
+          "action": "fill",
+          "selector": "#d-months-2",
+          "value": "500"
+        },
+        {
+          "action": "fill",
+          "selector": "#d-name-3",
+          "value": "Probe"
+        },
+        {
+          "action": "fill",
+          "selector": "#d-bal-3",
+          "value": "500"
+        },
+        {
+          "action": "fill",
+          "selector": "#d-rate-3",
+          "value": "500"
+        },
+        {
+          "action": "fill",
+          "selector": "#d-months-3",
+          "value": "500"
+        },
+        {
+          "action": "fill",
+          "selector": "#new-rate",
+          "value": "4.95"
+        },
+        {
+          "action": "fill",
+          "selector": "#new-term",
+          "value": "2.5"
+        },
+        {
+          "action": "click",
+          "selector": "#btn-remove-2"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#curr-total-bal": "£3,400.00",
+        "#debt-list": "✕",
+        "#debt-manager": "1. Your Current Debts ✕ + Add Another Debt",
+        "#new-int": "£3,653.10",
+        "#new-monthly": "£37.92",
+        "#old-int": "£NaN",
+        "#verdict": "✅ Interest Saving: Consolidating will save you £NaN in total interest."
+      },
+      "id": "computes-asym",
+      "steps": [
+        {
+          "action": "click",
+          "selector": "#btn-add-debt"
+        },
+        {
+          "action": "click",
+          "selector": "#btn-add-debt"
+        },
+        {
+          "action": "fill",
+          "selector": "#d-name-1",
+          "value": "Probe"
+        },
+        {
+          "action": "fill",
+          "selector": "#d-bal-1",
+          "value": "1700"
+        },
+        {
+          "action": "fill",
+          "selector": "#d-rate-1",
+          "value": "600"
+        },
+        {
+          "action": "fill",
+          "selector": "#d-months-1",
+          "value": "2300"
+        },
+        {
+          "action": "fill",
+          "selector": "#d-name-2",
+          "value": "Probe"
+        },
+        {
+          "action": "fill",
+          "selector": "#d-bal-2",
+          "value": "1100"
+        },
+        {
+          "action": "fill",
+          "selector": "#d-rate-2",
+          "value": "3100"
+        },
+        {
+          "action": "fill",
+          "selector": "#d-months-2",
+          "value": "450"
+        },
+        {
+          "action": "fill",
+          "selector": "#d-name-3",
+          "value": "Probe"
+        },
+        {
+          "action": "fill",
+          "selector": "#d-bal-3",
+          "value": "1700"
+        },
+        {
+          "action": "fill",
+          "selector": "#d-rate-3",
+          "value": "600"
+        },
+        {
+          "action": "fill",
+          "selector": "#d-months-3",
+          "value": "2300"
+        },
+        {
+          "action": "fill",
+          "selector": "#new-rate",
+          "value": "10.89"
+        },
+        {
+          "action": "fill",
+          "selector": "#new-term",
+          "value": "15.5"
+        },
+        {
+          "action": "click",
+          "selector": "#btn-remove-2"
+        }
+      ],
+      "type": "computed_values"
+    }
+  ]
+}

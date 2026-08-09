@@ -876,3 +876,78 @@ this behaviour is **pre-existing and unchanged by 224** — the old inline copie
 and the shared `calculateAmortization` both do `years * 12`. But a future,
 reasonable "round the term to whole months" improvement would now FAIL these
 criteria and read as a regression. Whoever makes that change must re-emit.
+
+### 2026-08-09 — button ids, re-emit 17/17, and the fences are INSTALLED and proven in-cluster
+
+**Button ids (owner-directed).** Nine mortgages action buttons got
+`id="btn-calculate"` (equity-release computes two tools on one page, so
+`btn-calculate` + `btn-project`); consolidation's debt-row inputs, its add
+button and its generated remove buttons got ids too. Markup only — no handler,
+no arithmetic, no displayed value moved. Sites `9bf26db81`; DB rows repaired
+(gate 39/39 PASSES); consolidation deployed through its tool-1 row + an
+assemble-only rerender, served == prediction.
+
+> **MISSTEP, caught by its own post-check.** My first edit script read each file
+> fresh per edit, so equity-release's TWO edits each computed from the original
+> and the second write would have silently discarded the first — one button left
+> with no id and the emission still refusing the tool with no sign why. Fixed by
+> accumulating edits per file, plus an on-disk assertion that every intended id
+> is present. **A per-file post-check is what caught it, not the diff.**
+
+> **MISSTEP 2 — my comment was the bug.** `addDebtRow` numbered new rows from
+> `children.length + 1`, and I wrote in the comment that ids "stay stable even
+> after a row in the middle is removed". The test disproved the comment in the
+> same minute: remove row 2, add a row, and you get **two elements with
+> `id="d-bal-3"`** — ambiguous selectors, which is the exact thing ids were being
+> added to fix. Now a counter that only ever increases.
+
+**Re-emit: 17 of 17, 0 skipped** (was 7 of 17). Every previously-refused tool
+came back the moment its button could be named — stamp-duty and consolidation
+included.
+
+**Pinned values re-verified: 72/72 agree with `oracles.py`**, now including
+stamp-duty's eight (the corrected FTB figures) and simple/repayment.
+> **MISSTEP 3, and it is the funniest one.** `verify_criteria.py` collected only
+> `fill` steps, so stamp-duty's `#buyerType` **select** was dropped and every FTB
+> vector was graded as a standard buyer. It reported a **£5,000 mismatch** — the
+> same £5,000 `bugs_open/225` was actually about — against a tool that was
+> correct. A checker bug wearing the defect's clothes. Fixed to collect
+> `select` too.
+
+**Installed: 17 `doc_plans` fences** (`subject_type='tool'`, `subject_key` =
+`pages.name`, e.g. `loans-standard-calc`), via new `install_fences.py`. It makes
+three deliberate changes to the emitted JSON, each recorded in its docstring:
+`profiles:["desktop"]` (the 120s deadline), DROP container selectors (pinning
+`#col-a`'s text would make every copy edit a failed calculator), and add
+`page_status_ok`.
+
+**Proven in-cluster, not merely installed** (the gate's owed step):
+`loans-standard-calc` 6 passed / 0 failed, `mortgages-stamp-duty` 6/0,
+`loans-consolidation` 6/0. Zero `not implemented` anywhere — the only skips are
+`@mobile`, which is the desktop gating working as intended.
+
+#### ⚠ TWO FINDINGS THAT OUTLIVE THIS TASK
+
+**1. The runner shares ONE page per (url, profile) across every check — emitted
+criteria assume a fresh page per vector.** Consolidation failed 3 of 4 vectors
+on `#d-name-2` while the identical steps drove the live page perfectly. Cause:
+each vector ends by removing a debt row, and with ids that are never reused the
+next vector's adds are rows 4 and 5, so the selectors captured from a fresh page
+no longer exist. Fix: `install_fences.py` prepends `{"action":"reload"}` to any
+check whose clicks come BEFORE its fills (structure-building), and to no others
+— a click after the fills is just the Calculate button, and a reload each would
+spend the 120s budget for nothing. Re-run: **6/0**.
+**I first blamed a race between the clicks and the inline script parse; driving
+the live page at `wait_until="commit"` REFUTED that** before I changed anything.
+
+**2. These fences will only ever run when fired BY HAND, and that is not
+obvious.** `tool_acceptance_due` selects on `cc.component_level='tool'` OR
+`p.page_type='tool'` (`discovery_checks/tool_eligibility.go:71-92`). Measured on
+this site: page_types are `content` (26), `guide` (13), `landing`, `section-index`
+— **no `tool`** — and every component is `ported-page`/`ported-prose` at
+`component_level='section'`. So **no unattended acceptance run will ever select
+these 17 tools.** The fences are correct, installed, and dormant until the site
+is decomposed into per-tool components (what the sibling lane did) or its pages
+are re-typed. Anyone reading "17 fences installed" without this paragraph would
+reasonably believe the calculators are now watched. They are not — they are
+*checkable*, in one command per tool.

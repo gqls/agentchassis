@@ -1,0 +1,116 @@
+{
+  "checks": [
+    {
+      "expect_values": {
+        "#monthlyResult": "£1,112"
+      },
+      "id": "computes-defaults",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#amt",
+          "value": "200000"
+        },
+        {
+          "action": "fill",
+          "selector": "#rate",
+          "value": "4.5"
+        },
+        {
+          "action": "fill",
+          "selector": "#years",
+          "value": "25"
+        },
+        {
+          "action": "click",
+          "selector": "#btn-calculate"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#monthlyResult": "£3,034"
+      },
+      "id": "computes-double",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#amt",
+          "value": "400000"
+        },
+        {
+          "action": "fill",
+          "selector": "#rate",
+          "value": "9"
+        },
+        {
+          "action": "fill",
+          "selector": "#years",
+          "value": "50"
+        },
+        {
+          "action": "click",
+          "selector": "#btn-calculate"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#monthlyResult": "£765"
+      },
+      "id": "computes-half",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#amt",
+          "value": "100000"
+        },
+        {
+          "action": "fill",
+          "selector": "#rate",
+          "value": "2.25"
+        },
+        {
+          "action": "fill",
+          "selector": "#years",
+          "value": "12.5"
+        },
+        {
+          "action": "click",
+          "selector": "#btn-calculate"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#monthlyResult": "£971"
+      },
+      "id": "computes-asym",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#amt",
+          "value": "340000"
+        },
+        {
+          "action": "fill",
+          "selector": "#rate",
+          "value": "2.7"
+        },
+        {
+          "action": "fill",
+          "selector": "#years",
+          "value": "57.5"
+        },
+        {
+          "action": "click",
+          "selector": "#btn-calculate"
+        }
+      ],
+      "type": "computed_values"
+    }
+  ]
+}

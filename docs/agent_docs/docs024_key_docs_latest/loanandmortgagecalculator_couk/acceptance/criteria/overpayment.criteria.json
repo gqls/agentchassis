@@ -1,0 +1,148 @@
+{
+  "checks": [
+    {
+      "expect_values": {
+        "#dispOpAmount": "£100",
+        "#dispYearsEarlier": "2",
+        "#saveInterest": "£12,949",
+        "#saveTime": "2 Years 3 Months"
+      },
+      "id": "computes-defaults",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#opBalance",
+          "value": "200000"
+        },
+        {
+          "action": "fill",
+          "selector": "#opRate",
+          "value": "4.5"
+        },
+        {
+          "action": "fill",
+          "selector": "#opYears",
+          "value": "20"
+        },
+        {
+          "action": "fill",
+          "selector": "#opAmount",
+          "value": "100"
+        },
+        {
+          "action": "click",
+          "selector": "#btn-calculate"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#dispOpAmount": "£200",
+        "#dispYearsEarlier": "12",
+        "#saveInterest": "£406,736",
+        "#saveTime": "12 Years 9 Months"
+      },
+      "id": "computes-double",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#opBalance",
+          "value": "400000"
+        },
+        {
+          "action": "fill",
+          "selector": "#opRate",
+          "value": "9"
+        },
+        {
+          "action": "fill",
+          "selector": "#opYears",
+          "value": "40"
+        },
+        {
+          "action": "fill",
+          "selector": "#opAmount",
+          "value": "200"
+        },
+        {
+          "action": "click",
+          "selector": "#btn-calculate"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#dispOpAmount": "£50",
+        "#dispYearsEarlier": "0",
+        "#saveInterest": "£685",
+        "#saveTime": "0 Years 6 Months"
+      },
+      "id": "computes-half",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#opBalance",
+          "value": "100000"
+        },
+        {
+          "action": "fill",
+          "selector": "#opRate",
+          "value": "2.25"
+        },
+        {
+          "action": "fill",
+          "selector": "#opYears",
+          "value": "10"
+        },
+        {
+          "action": "fill",
+          "selector": "#opAmount",
+          "value": "50"
+        },
+        {
+          "action": "click",
+          "selector": "#btn-calculate"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#dispOpAmount": "£110",
+        "#dispYearsEarlier": "7",
+        "#saveInterest": "£47,644",
+        "#saveTime": "7 Years 7 Months"
+      },
+      "id": "computes-asym",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#opBalance",
+          "value": "340000"
+        },
+        {
+          "action": "fill",
+          "selector": "#opRate",
+          "value": "2.7"
+        },
+        {
+          "action": "fill",
+          "selector": "#opYears",
+          "value": "46"
+        },
+        {
+          "action": "fill",
+          "selector": "#opAmount",
+          "value": "110"
+        },
+        {
+          "action": "click",
+          "selector": "#btn-calculate"
+        }
+      ],
+      "type": "computed_values"
+    }
+  ]
+}

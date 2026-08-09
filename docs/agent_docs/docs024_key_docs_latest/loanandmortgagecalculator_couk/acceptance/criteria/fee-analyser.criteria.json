@@ -1,0 +1,160 @@
+{
+  "checks": [
+    {
+      "expect_values": {
+        "#tcEffective": "4.44%",
+        "#tcTotal": "£26,841"
+      },
+      "id": "computes-defaults",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#tcAmount",
+          "value": "200000"
+        },
+        {
+          "action": "fill",
+          "selector": "#tcRate",
+          "value": "4.19"
+        },
+        {
+          "action": "fill",
+          "selector": "#tcDeal",
+          "value": "2"
+        },
+        {
+          "action": "fill",
+          "selector": "#tcFee",
+          "value": "999"
+        },
+        {
+          "action": "fill",
+          "selector": "#tcOther",
+          "value": "0"
+        },
+        {
+          "action": "click",
+          "selector": "#btn-calculate"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#tcEffective": "8.50%",
+        "#tcTotal": "£155,052"
+      },
+      "id": "computes-double",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#tcAmount",
+          "value": "400000"
+        },
+        {
+          "action": "fill",
+          "selector": "#tcRate",
+          "value": "8.38"
+        },
+        {
+          "action": "fill",
+          "selector": "#tcDeal",
+          "value": "4"
+        },
+        {
+          "action": "fill",
+          "selector": "#tcFee",
+          "value": "1998"
+        },
+        {
+          "action": "fill",
+          "selector": "#tcOther",
+          "value": "0"
+        },
+        {
+          "action": "click",
+          "selector": "#btn-calculate"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#tcEffective": "2.60%",
+        "#tcTotal": "£5,644"
+      },
+      "id": "computes-half",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#tcAmount",
+          "value": "100000"
+        },
+        {
+          "action": "fill",
+          "selector": "#tcRate",
+          "value": "2.1"
+        },
+        {
+          "action": "fill",
+          "selector": "#tcDeal",
+          "value": "1"
+        },
+        {
+          "action": "fill",
+          "selector": "#tcFee",
+          "value": "499.5"
+        },
+        {
+          "action": "fill",
+          "selector": "#tcOther",
+          "value": "0"
+        },
+        {
+          "action": "click",
+          "selector": "#btn-calculate"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#tcEffective": "2.58%",
+        "#tcTotal": "£85,390"
+      },
+      "id": "computes-asym",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#tcAmount",
+          "value": "340000"
+        },
+        {
+          "action": "fill",
+          "selector": "#tcRate",
+          "value": "2.51"
+        },
+        {
+          "action": "fill",
+          "selector": "#tcDeal",
+          "value": "4.6"
+        },
+        {
+          "action": "fill",
+          "selector": "#tcFee",
+          "value": "1098.9"
+        },
+        {
+          "action": "fill",
+          "selector": "#tcOther",
+          "value": "0"
+        },
+        {
+          "action": "click",
+          "selector": "#btn-calculate"
+        }
+      ],
+      "type": "computed_values"
+    }
+  ]
+}

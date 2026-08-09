@@ -1,0 +1,144 @@
+{
+  "checks": [
+    {
+      "expect_values": {
+        "#dispAge": "65",
+        "#erMaxCash": "£124,000",
+        "#limitResult": "Maximum Cash Release £124,000 Based on typical LTV for age 65"
+      },
+      "id": "computes-defaults",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#erValue",
+          "value": "400000"
+        },
+        {
+          "action": "fill",
+          "selector": "#erAge",
+          "value": "65"
+        },
+        {
+          "action": "fill",
+          "selector": "#erLoan",
+          "value": "100000"
+        },
+        {
+          "action": "fill",
+          "selector": "#erRate",
+          "value": "6.5"
+        },
+        {
+          "action": "click",
+          "selector": "#btn-calculate"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#dispAge": "130",
+        "#erMaxCash": "£416,000",
+        "#limitResult": "Maximum Cash Release £416,000 Based on typical LTV for age 130"
+      },
+      "id": "computes-double",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#erValue",
+          "value": "800000"
+        },
+        {
+          "action": "fill",
+          "selector": "#erAge",
+          "value": "130"
+        },
+        {
+          "action": "fill",
+          "selector": "#erLoan",
+          "value": "200000"
+        },
+        {
+          "action": "fill",
+          "selector": "#erRate",
+          "value": "13"
+        },
+        {
+          "action": "click",
+          "selector": "#btn-calculate"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#dispAge": "65",
+        "#erMaxCash": "£0",
+        "#limitResult": "Maximum Cash Release £0 Based on typical LTV for age 65"
+      },
+      "id": "computes-half",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#erValue",
+          "value": "200000"
+        },
+        {
+          "action": "fill",
+          "selector": "#erAge",
+          "value": "32.5"
+        },
+        {
+          "action": "fill",
+          "selector": "#erLoan",
+          "value": "50000"
+        },
+        {
+          "action": "fill",
+          "selector": "#erRate",
+          "value": "3.25"
+        },
+        {
+          "action": "click",
+          "selector": "#btn-calculate"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#dispAge": "65",
+        "#erMaxCash": "£0",
+        "#limitResult": "Maximum Cash Release £0 Based on typical LTV for age 65"
+      },
+      "id": "computes-asym",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#erValue",
+          "value": "680000"
+        },
+        {
+          "action": "fill",
+          "selector": "#erAge",
+          "value": "39"
+        },
+        {
+          "action": "fill",
+          "selector": "#erLoan",
+          "value": "230000"
+        },
+        {
+          "action": "fill",
+          "selector": "#erRate",
+          "value": "7.15"
+        },
+        {
+          "action": "click",
+          "selector": "#btn-calculate"
+        }
+      ],
+      "type": "computed_values"
+    }
+  ]
+}

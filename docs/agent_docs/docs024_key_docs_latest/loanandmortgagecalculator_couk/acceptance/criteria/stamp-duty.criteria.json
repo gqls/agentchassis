@@ -1,0 +1,100 @@
+{
+  "checks": [
+    {
+      "expect_values": {
+        "#breakdown": "First Time Buyer Relief Applied.",
+        "#sdltResult": "£2,500"
+      },
+      "id": "computes-defaults",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#price",
+          "value": "350000"
+        },
+        {
+          "action": "select",
+          "selector": "#buyerType",
+          "value": "ftb"
+        },
+        {
+          "action": "click",
+          "selector": "#btn-calculate"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#breakdown": "",
+        "#sdltResult": "£25,000"
+      },
+      "id": "computes-double",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#price",
+          "value": "700000"
+        },
+        {
+          "action": "select",
+          "selector": "#buyerType",
+          "value": "ftb"
+        },
+        {
+          "action": "click",
+          "selector": "#btn-calculate"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#breakdown": "First Time Buyer Relief Applied.",
+        "#sdltResult": "£0"
+      },
+      "id": "computes-half",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#price",
+          "value": "175000"
+        },
+        {
+          "action": "select",
+          "selector": "#buyerType",
+          "value": "ftb"
+        },
+        {
+          "action": "click",
+          "selector": "#btn-calculate"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#breakdown": "",
+        "#sdltResult": "£19,750"
+      },
+      "id": "computes-asym",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#price",
+          "value": "595000"
+        },
+        {
+          "action": "select",
+          "selector": "#buyerType",
+          "value": "ftb"
+        },
+        {
+          "action": "click",
+          "selector": "#btn-calculate"
+        }
+      ],
+      "type": "computed_values"
+    }
+  ]
+}

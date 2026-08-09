@@ -1,0 +1,120 @@
+{
+  "checks": [
+    {
+      "expect_values": {
+        "#resHigh": "£166,500",
+        "#resLow": "£148,000"
+      },
+      "id": "computes-defaults",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#income1",
+          "value": "40000"
+        },
+        {
+          "action": "fill",
+          "selector": "#income2",
+          "value": "0"
+        },
+        {
+          "action": "fill",
+          "selector": "#expenses",
+          "value": "250"
+        },
+        {
+          "action": "click",
+          "selector": "#btn-calculate"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#resHigh": "£333,000",
+        "#resLow": "£296,000"
+      },
+      "id": "computes-double",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#income1",
+          "value": "80000"
+        },
+        {
+          "action": "fill",
+          "selector": "#income2",
+          "value": "0"
+        },
+        {
+          "action": "fill",
+          "selector": "#expenses",
+          "value": "500"
+        },
+        {
+          "action": "click",
+          "selector": "#btn-calculate"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#resHigh": "£83,250",
+        "#resLow": "£74,000"
+      },
+      "id": "computes-half",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#income1",
+          "value": "20000"
+        },
+        {
+          "action": "fill",
+          "selector": "#income2",
+          "value": "0"
+        },
+        {
+          "action": "fill",
+          "selector": "#expenses",
+          "value": "125"
+        },
+        {
+          "action": "click",
+          "selector": "#btn-calculate"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#resHigh": "£274,950",
+        "#resLow": "£244,400"
+      },
+      "id": "computes-asym",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#income1",
+          "value": "68000"
+        },
+        {
+          "action": "fill",
+          "selector": "#income2",
+          "value": "0"
+        },
+        {
+          "action": "fill",
+          "selector": "#expenses",
+          "value": "575"
+        },
+        {
+          "action": "click",
+          "selector": "#btn-calculate"
+        }
+      ],
+      "type": "computed_values"
+    }
+  ]
+}

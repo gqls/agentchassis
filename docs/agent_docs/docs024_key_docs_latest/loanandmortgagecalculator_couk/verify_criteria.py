@@ -27,7 +27,13 @@ def num(s):
 
 
 def steps_map(check):
-    return {s["selector"]: s.get("value") for s in check["steps"] if s["action"] == "fill"}
+    # `select` counts as a driven input, not just `fill`. Collecting only fills
+    # silently dropped stamp-duty's #buyerType, so an FTB vector was graded as a
+    # standard buyer and reported a £5,000 "mismatch" against a correct tool —
+    # the same £5,000 that bugs_open/225 was actually about, which is exactly
+    # how a checker bug gets mistaken for the defect it was written to find.
+    return {s["selector"]: s.get("value") for s in check["steps"]
+            if s["action"] in ("fill", "select")}
 
 
 # Each entry returns {selector: expected_value} from the DRIVEN inputs alone.
@@ -91,13 +97,46 @@ def simple(v):
     return {"#monthly-payment": oracles.monthly_payment(P, apr, int(round(yrs * 12)))}
 
 
+def stamp_duty(v):
+    # The tool that carried an expired FTB cap for 16 months (bugs_open/225) —
+    # the one most worth recomputing from HMRC's bands rather than trusting.
+    price = num(v["#price"])
+    buyer = {"ftb": "ftb", "additional": "additional",
+             "standard": "standard"}.get(v.get("#buyerType", "standard"), "standard")
+    return {"#sdltResult": oracles.sdlt(price, buyer)}
+
+
+def simple(v):
+    P, apr, yrs = num(v["#amt"]), num(v["#rate"]), num(v["#years"])
+    return {"#monthlyResult": oracles.monthly_payment(P, apr, months_of(yrs))}
+
+
+def repayment(v):
+    P, apr, yrs = num(v["#loanAmount"]), num(v["#interestRate"]), num(v["#termYears"])
+    n = months_of(yrs)
+    m = oracles.monthly_payment(P, apr, n)
+    # This page rounds the DISPLAY to whole pounds; the totals it prints are
+    # computed from the exact payment, so compare against the exact figures and
+    # let the tolerance absorb the display rounding.
+    return {"#displayMonthly": m, "#displayTotalInterest": m * n - P,
+            "#displayTotalRepayable": m * n}
+
+
 MODELS = {
     "standard-calc": standard_calc,
     "compare-loans": compare_loans,
     "interest-rate-stress-test": stress_test,
     "settlement-calculator": settlement,
     "car-finance-calculator": car_finance,
+    "stamp-duty": stamp_duty,
+    "simple": simple,
+    "repayment": repayment,
 }
+
+# Whole-pound displays: these pages print £1,390 for £1,389.58, so a penny
+# tolerance would report a defect that is a formatting choice. Named per tool
+# rather than loosening TOL globally, which would blind the pence-accurate ones.
+ROUNDS_TO_POUND = {"simple", "repayment", "stamp-duty"}
 
 checked = agreed = mismatched = 0
 unmodelled = []
@@ -118,12 +157,13 @@ for fn in sorted(os.listdir(CRIT)):
         except Exception as e:
             print(f"MODEL-ERROR {slug}/{check['id']}: {e}")
             continue
+        tol = 0.50 if slug in ROUNDS_TO_POUND else TOL
         for sel, pinned in sorted(check["expect_values"].items()):
             if sel not in want:
                 continue
             checked += 1
             got, exp = num(pinned), want[sel]
-            if abs(got - exp) <= TOL:
+            if abs(got - exp) <= tol:
                 agreed += 1
             else:
                 mismatched += 1
