@@ -331,3 +331,17 @@ subject keeps the full recipe — no shortcuts licensed by volume; the per-subje
 prover moves from hand-written siblings to a DATA-DRIVEN mutant file per subject (same
 architecture, mutants explicit in JSON, validated by reproducing call-to-action's 6/6
 before first use) so the sibling-file boilerplate stops scaling with the backlog.
+
+**D11 — OWNER RULING 2026-08-09: the defects the contract work surfaces are ADDRESSED,
+from WITHIN the framework, and PREVENTED in initial builds.** The standing defect list
+stops being a report and becomes a work programme. Three binding clauses, in the owner's
+own framing: (1) fix the CHECKERS and HANDLERS — the repair goes through the framework's
+own detection→repair machinery, never a hand-edit to an artefact (the 2026-08-04
+every-site-through-the-framework ruling extends naturally to repairs); (2) where
+detection exists but repair never dispatches, the dispatch gap IS the defect to fix;
+(3) prevention lands in the initial build path, so the same classes cannot be born again
+— a build must not report success with schema-required content empty or brand assets
+that do not serve. Process unchanged: cross-cutting causes through the 090 loop before
+assertion, platform code through the council gate, `who-owns.py` before touching another
+lane's filed bug (155/168/201/149 all have prior claims). Routed work programme:
+`HANDOFF_2026-08-09_continue_here.md` §6 (appended the same day).

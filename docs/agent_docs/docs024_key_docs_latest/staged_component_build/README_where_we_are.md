@@ -800,3 +800,21 @@ fix on their side.
 
 Fifty-six pieces now carry proven contracts. Interactive backlog: four left, each waiting on
 something specific rather than on effort.
+
+---
+
+**9 August 2026 — your ruling recorded: the problems get FIXED, through the framework, and prevented at birth**
+
+Two sessions worked this lane in parallel yesterday and today — the other one took the
+interactive components (twelve more contracts, and the first real catch: contact forms
+whose "message sent" was a timer, not a delivery; that's now fixed and proven on all
+fifteen served contact pages). I've folded your instruction into the lane's papers as
+decision D11: every defect on the standing list is now routed to the framework mechanism
+that fixes it — the checkers that already detect the missing images get a repair path
+instead of a flag nobody acts on, the placement records that lie get their own checker,
+the broken tool pages go back through the content pipeline once its dispatch bug is
+fixed, and the build pipeline gains the gates that stop these classes being born at all.
+The updated handoff ends with a suggested order, cheapest unblock first: one line of CSS
+releases an already-proven contract today; one image-repair programme releases nine more
+plus three entries on the defect list. A fresh chat starts at
+`HANDOFF_2026-08-09_continue_here.md` and has everything.

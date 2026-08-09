@@ -197,3 +197,81 @@ passed through (no action at all; `action=""`). 9 checks, 10/10 mutants, S6 `f3c
 
 Nothing lives only in the scratchpad. It gets wiped between sessions; that is why the
 persist generator had to be rewritten five times before this one.
+
+---
+
+## 6. APPENDED 2026-08-09 (second session, at the owner's direction) — D11: §4's defect list is now a WORK PROGRAMME
+
+> Appended by the session that ran batches 1–5; the owner's words, given there: *"All
+> these problems need to be addressed — and from within the framework, so by fixing the
+> checkers and handlers, and also trying to avoid the problems in the initial builds."*
+> Recorded as **D11 in the PLAN**. Everything below is routed to a framework mechanism;
+> nothing here licenses a hand-edit to a served artefact.
+
+**Guardrails binding all of it:** cross-cutting root causes go through the 090 diagnosis
+loop BEFORE the fix (owner ruling 2026-07-31, or state the first-hand substitute);
+platform Go changes go through the council gate; run `who-owns.py` AND grep live
+transcripts before touching 155/168/201/149/228 — every one has a prior claim, and §0 of
+this very file shows what skipping that check costs.
+
+### 6-A. The asset-404 repair gap (unblocks 8 chrome-blocked fences + fce's S6 + defects 2/3/4)
+
+Detection has worked since 07-31 (`image_url_404`, bugs_closed/128) and repair has never
+once dispatched — the items are flag-only BY DESIGN, so this is a design decision to
+revisit plus a deploy path to make trustworthy, not a mystery. Order:
+1. **090 the one unmeasured mechanism**: why the files are absent at the served path
+   while `assets` rows sit active (deploy never ran? wrong source? bucket divergence?).
+   One symptom, pointed at `assets` + the deploy actions.
+2. The deploy path's filed bugs — `bugs_open/155` (resolves source by purpose, not
+   asset_id) and `bugs_open/168` (DeployedWebPath) — check owners, contribute the seven
+   sites' evidence. Landmine from 128's own close: brand-head purposes resolve via
+   `storage.BrandHeadAssetPaths`, never DeployedWebPath.
+3. Then wire repair: give `image_url_404` findings a handler (config-side
+   `handler_agent` if the machinery allows; otherwise a gated platform change) so the
+   NEXT such 404 is repaired, not just re-flagged.
+4. **Prevention (initial builds):** a post-deploy artefact check in the site build —
+   brand-head assets must HTTP-200 at their served paths before the build reports
+   success. Same bar the 082 pipeline applies to content, applied to assets.
+
+### 6-B. Placement drift (six rows and counting)
+
+No checker compares `page_components` rows against the served/stored artefact — that is
+how six drift rows accumulated unseen. Order: **090 FIRST** (which write path leaves
+rows behind is a structural claim nobody has measured); then a placement-vs-artefact
+discovery check — additive and opt-in, normal council gate per the 2026-07-29 ruling,
+registered in the concept register in the same commit, flag-only until the repair
+decision (delete rows vs rebuild pages) is taken on its evidence; then gate whatever
+write path 090 names so row and artefact cannot diverge silently again.
+
+### 6-C. Component CSS defects (article-body pre/code; roi-estimator fixed-width h3)
+
+Both are component-template fixes (DB content, live for new renders, no roll) followed
+by **reason-carrying scoped rerenders** — §2 of this file and `RERENDER_page.sh` encode
+the trap that makes a reason-less rerender a silent no-op for template changes. Measure
+which of article-body's 49 placements actually carry wide code before dispatching.
+The roi-estimator one-liner additionally releases an already-proven committed fence.
+**Prevention:** the component generator's authoring standards gain overflow containment
+for content-bearing containers (generator prompt/config), so newborn components carry
+the rule from birth. The checkers need NO change — this lane's fences caught both.
+
+### 6-D. The broken tool pages (gas-unit-converter, ab-test-calculator, equity-release)
+
+The queue already holds the items; the defect is what happened to them:
+`needs_content_page` items FAILED (mechanism plausibly `bugs_open/201` — page-content-
+writer dispatch no-ops; read it, check its owner, contribute the two concrete cases),
+`needs_page` closed `wont_fix`, the rest parked in `needs_human_review`. Surface the
+parked set for an explicit unpark decision — do not override a recorded `wont_fix`.
+Once the writer path works, re-dispatch through the framework (082 pipeline; the
+2026-08-04 no-hand-authoring ruling stands). equity-release is an active row with a 404
+URL — route with the drift work in 6-B.
+**Prevention:** a build must not COMPLETE with schema-required fields empty. Detection
+exists post-hoc (`required_fields_missing`); the gate belongs in the build workflow
+before deploy — which is `bugs_open/149` C1/C3's claims-gate class. 149 is filed and
+structured: contribute there, work its suggested order, do not fork a rival account.
+
+### 6-E. Sequencing suggestion (cheapest unblock first)
+
+roi-estimator CSS (releases a committed fence same day) → asset-404 programme 6-A
+(releases 9 subjects + closes defects 2/3/4 and the vetcomparison growth) → 6-D writer
+path (two broken tools stop serving) → 6-B drift checker → the remaining fence backlog
+(§3's interactive gates + ~10 tools) throughout, as capacity allows.
