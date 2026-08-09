@@ -1,0 +1,70 @@
+[
+  {
+    "function": "game-list",
+    "aim": "The games index: eyebrow, heading, intro, a grid of game cards each linking to its own\npage, and a closing CTA. 2 active placements on gamesdesign.co.uk at authoring time.",
+    "contract": [
+      "- Root `section.game-list-section[data-component=\"game-list\"]`.",
+      "- `.gl-heading` is unconditional -> must carry text.",
+      "- `{{range .items}}` -> at least one `article.gl-card` inside `.gl-grid`. The `{{else}}` arm",
+      "  renders `.gl-empty` instead, so a placement with no items fails this check by design.",
+      "- The `.gl-cta` link is conditional on `{{if .cta_url}}` and is NOT asserted.",
+      "- **This fence is STATIC on purpose, and that is a finding, not an omission.** The census",
+      "  counts this component as interactive because `js_content` is 963 bytes. It is dead twice",
+      "  over -- see Notes."
+    ],
+    "fence": "fence_component_game_list.json",
+    "proof_url": "https://gamesdesign.co.uk/index.html",
+    "proof_note": "Single-instance placement; 33 assets probed, all 200. The site's OTHER placement, /games/index.html, 404s `/assets/images/hero.jpg` (the bugs_closed/128 family) and so cannot hold a green baseline.",
+    "mutants": "7/7 caught, every check watched red, baseline green",
+    "notes": [
+      "**`game-list`'s JavaScript is dead twice over, measured 2026-08-08.**",
+      "",
+      "1. **It binds nothing that exists.** `js_content` queries `.gl-filter-btn` and",
+      "   `#gl-load-more-btn`. Neither string occurs in this component's own `html_template`",
+      "   (grep: 0) nor in either served page (grep: 0). There is no filter bar and no load-more",
+      "   button to bind to; both loops are no-ops.",
+      "2. **It is not delivered anyway.** Neither placement page emits a",
+      "   `<script src=\"/tools/assets/game-list.js\">` tag -- in fact neither references",
+      "   `tools/assets` at all -- while the asset itself IS deployed and serves 200 with the real",
+      "   code in it. The only script either page loads is `/assets/js/snippets.js` (334 bytes),",
+      "   which contains no `game-list` code.",
+      "",
+      "So there is no client-side behaviour to assert and this contract asserts none. Recorded",
+      "rather than filed as a bug: **visitor impact today is zero** -- the component renders",
+      "correctly as a static list, and the missing script would add nothing even if it loaded.",
+      "What it costs is a false signal in the backlog census (this reads as an interactive",
+      "subject needing 30-45 min of JS reading, when it is a 9-minute static one).",
+      "",
+      "**The delivery gap was then measured rather than assumed**: all 38 active placements of",
+      "JS-bearing section components were probed against their served pages, and exactly these",
+      "TWO (`game-list` on both gamesdesign pages) render the component without loading its",
+      "script. Every other placement loads it. So this is a two-page anomaly, not a class."
+    ]
+  },
+  {
+    "function": "ai-readiness-quiz",
+    "aim": "A five-question self-assessment: a start screen, five single-choice questions with a\nprogress bar, and a scored result tier. 2 active placements / 2 sites at authoring time.",
+    "contract": [
+      "- Root `section.ai-readiness-quiz-section[data-component=\"ai-readiness-quiz\"]`.",
+      "- `.quiz-headline` is unconditional -> must carry text.",
+      "- **The landing state is part of the contract.** `#quiz-step-start` must carry BOTH",
+      "  `.quiz-step` and `.active` in the server render -- a quiz that ships with no screen marked",
+      "  active shows a visitor an empty box, and every other check here would still pass.",
+      "- **The interactive half, as the visitor's real journey.** `/tools/assets/ai-readiness-quiz.js`",
+      "  binds `#quiz-start-btn` to `showStep(1)`, and delegated clicks on `.quiz-option` record the",
+      "  answer and enable that step's `[data-action=\"next\"]` button. The fence dispatches two REAL",
+      "  clicks: Start must make `#quiz-step-1` the active step, and then answering question 1 must",
+      "  enable Next.",
+      "- **Check order is load-bearing here and that is deliberate.** The evaluator drives all checks",
+      "  against ONE shared page in declaration order, so `answering-a-question-enables-next` does",
+      "  NOT re-click Start -- it continues from the state the previous check left, exactly as a",
+      "  visitor would. Authoring it with its own Start click FAILED on first trial: the start button",
+      "  is hidden once the quiz has advanced, and the click timed out at 30 s. Do not \"fix\" a later",
+      "  step by making it self-contained; it cannot be."
+    ],
+    "fence": "fence_component_ai_readiness_quiz.json",
+    "proof_url": "https://leopardessconsulting.co.uk/ai-readiness-quiz.html",
+    "proof_note": "Single-instance placement; 30 assets probed, all 200.",
+    "mutants": "9/9 caught, every check watched red, baseline green"
+  }
+]

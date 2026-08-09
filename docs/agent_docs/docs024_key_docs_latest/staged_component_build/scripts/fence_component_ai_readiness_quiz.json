@@ -1,0 +1,85 @@
+{
+  "profiles": [
+    "desktop",
+    "mobile"
+  ],
+  "container": "section.ai-readiness-quiz-section[data-component=\"ai-readiness-quiz\"]",
+  "checks": [
+    {
+      "id": "page-serves-200",
+      "type": "page_status_ok"
+    },
+    {
+      "id": "section-renders",
+      "type": "selector_exists",
+      "profiles": [
+        "desktop"
+      ],
+      "selector": "section.ai-readiness-quiz-section[data-component=\"ai-readiness-quiz\"]"
+    },
+    {
+      "id": "section-has-visible-area",
+      "type": "has_visible_area",
+      "selector": "section.ai-readiness-quiz-section[data-component=\"ai-readiness-quiz\"]"
+    },
+    {
+      "id": "headline-has-text",
+      "type": "interaction",
+      "profiles": [
+        "desktop"
+      ],
+      "expect": {
+        "selector": "section.ai-readiness-quiz-section[data-component=\"ai-readiness-quiz\"] .quiz-headline",
+        "text_matches": "\\S"
+      }
+    },
+    {
+      "id": "start-screen-is-the-one-showing",
+      "type": "selector_exists",
+      "profiles": [
+        "desktop"
+      ],
+      "selector": "section.ai-readiness-quiz-section[data-component=\"ai-readiness-quiz\"] #quiz-step-start.quiz-step.active"
+    },
+    {
+      "id": "real-click-starts-the-quiz",
+      "type": "interaction",
+      "profiles": [
+        "desktop"
+      ],
+      "steps": [
+        {
+          "action": "click",
+          "selector": "section.ai-readiness-quiz-section[data-component=\"ai-readiness-quiz\"] #quiz-start-btn"
+        }
+      ],
+      "expect": {
+        "selector": "section.ai-readiness-quiz-section[data-component=\"ai-readiness-quiz\"] #quiz-step-1.quiz-step.active"
+      }
+    },
+    {
+      "id": "answering-a-question-enables-next",
+      "type": "interaction",
+      "profiles": [
+        "desktop"
+      ],
+      "steps": [
+        {
+          "action": "click",
+          "selector": "section.ai-readiness-quiz-section[data-component=\"ai-readiness-quiz\"] #quiz-step-1 .quiz-option[data-value=\"1\"]"
+        }
+      ],
+      "expect": {
+        "selector": "section.ai-readiness-quiz-section[data-component=\"ai-readiness-quiz\"] #quiz-step-1 .quiz-btn[data-action=\"next\"]:not([disabled])"
+      }
+    },
+    {
+      "id": "no-horizontal-overflow",
+      "type": "no_horizontal_overflow"
+    },
+    {
+      "id": "no-console-errors",
+      "type": "no_console_errors"
+    }
+  ]
+}

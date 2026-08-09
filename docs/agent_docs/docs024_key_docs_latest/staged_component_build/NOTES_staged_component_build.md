@@ -2204,3 +2204,85 @@ re-run through the evaluator from the DB copy — writing the field is not readi
 **Running D10 tally: 47 sections + 2 tools end-to-end.** Remaining: ~12 interactive
 sections, ~10 ready tools, 8+3 chrome-blocked, 7 lane-owned (coordination), ~35 unplaced
 + 3 drift rows.
+
+## 2026-08-09 (same session, past midnight) — batch 6b: two more interactive subjects, one of which is not interactive at all
+
+Fleet rolled again mid-session: chassis + browser-runner **v1.0.1270** (chassis pods up
+08:49:38Z). Re-grepped before dispatching, not assumed: `request_component_browser_run`
+→ 6 with a negative control → 0; browser-runner's `"non-numeric w/h in result"`,
+`"no element matches"`, `"computed_values"` → 1 each. Dispatched at 13 min past the
+restart, clear of the ~300 s window.
+
+| subject | checks | prover | proof page | S6 CID |
+|---|---|---|---|---|
+| game-list | 7 | 7/7 | gamesdesign.co.uk/index.html | `67eba6b8` 11/11 |
+| ai-readiness-quiz | 9 | 9/9 | leopardessconsulting.co.uk/ai-readiness-quiz.html | `fa948522` 13/13 |
+
+Both landed `neg_control_confirmed_red`; every skip a profile gate.
+
+### `game-list` is a FALSE MEMBER of the interactive pile — its JS is dead twice over
+
+The census puts a component in the interactive pile when `length(js_content) > 0`. For
+`game-list` (963 bytes) that signal is wrong on both counts:
+
+1. **It binds nothing that exists.** The script queries `.gl-filter-btn` and
+   `#gl-load-more-btn`. Neither string occurs in the component's own `html_template`
+   (grep: **0**) nor in either served page (**0**). There is no filter bar and no
+   load-more button in this template at all; both handlers are no-ops.
+2. **It is not delivered anyway.** Neither placement page emits
+   `<script src="/tools/assets/game-list.js">` — neither references `tools/assets` at
+   ALL — while `curl https://gamesdesign.co.uk/tools/assets/game-list.js` returns **200
+   with the real code**. The only script either page loads is `/assets/js/snippets.js`,
+   334 bytes, containing no `game-list` code.
+
+So the fence is deliberately static, and the PLAN says so rather than leaving a reader to
+wonder why an "interactive" subject has no driven check.
+
+**The delivery gap was then MEASURED rather than generalised** — this is the part worth
+copying. My first pass sampled ONE page per JS-bearing component, and that sample
+disagreed with itself: `contact-block` came back script-not-loaded on finetuning.uk and
+loaded on robot-hands. So I probed **all 38 active placements** of JS-bearing section
+components against their served pages:
+
+- **2 placements render the component without loading its script** — `game-list` on both
+  gamesdesign pages, and nothing else. A two-page anomaly, not a class.
+- **2 placements are drift** (component absent from the served HTML entirely):
+  `blog-listing` on leopardess (already known) and — **new** —
+  `contact-block` on `finetuning.uk/case-studies.html`.
+- The other 34 load their script correctly.
+
+Not filed as a bug: visitor impact of the `game-list` case today is **zero** (the
+component renders correctly as a static list and the missing script would add nothing).
+What it costs is a false signal in the backlog — it read as a 30–45-minute interactive
+subject and was a 9-minute static one.
+
+### CORRECTION to `bugs_open/228`, made the same day, and it is my error not the system's
+
+228 first said **"three live pages"**. It is **two**. `finetuning.uk/case-studies.html`
+has the placement row and serves no `contact-block` markup at all. Corrected in place in
+the bug file with a struck-through row and a dated note; logged in `WRONG_CALLS.md`.
+
+The uncomfortable part, recorded because it is the transferable bit: **the rest of 228 was
+verified at the artefact on purpose** — I curled the page and the 2,100-byte script rather
+than trust `content_components`. Then for the blast radius, the one number a reader uses
+to judge urgency, I asked `page_components` and wrote down its answer, three paragraphs
+below my own explanation of why that table is not evidence. And this lane had already
+found four drift rows and written "re-verify the row AND the served markup" into its own
+handoff — I re-verified the row I was going to TEST on and trusted the rows I was only
+going to COUNT, which is exactly backwards: a row you test on announces its own absence,
+a row you count never does. **A placement-row join is an UPPER BOUND on live pages. Quote
+it as one or spend the curls.**
+
+### A fence-authoring rule the quiz forced: check order is load-bearing, and a later step cannot re-do an earlier one
+
+`answering-a-question-enables-next` was first authored self-contained — click Start, then
+click an option. **It failed on first trial**: the evaluator drives every check against
+ONE shared page in declaration order, so by the time that check ran, the earlier
+`real-click-starts-the-quiz` had already advanced past the start screen, the Start button
+was hidden, and the click sat there for the full 30 s timeout. The fix is not to make the
+check self-contained — it cannot be — but to let it continue from the state its
+predecessor left, which is also what a visitor does. Recorded in the PLAN body so nobody
+"fixes" it back.
+
+**Running D10 tally: 49 sections + 2 tools end-to-end.** Remaining: ~10 interactive
+sections, ~10 ready tools, 8+3 chrome-blocked, 7 lane-owned, ~35 unplaced + 4 drift rows.

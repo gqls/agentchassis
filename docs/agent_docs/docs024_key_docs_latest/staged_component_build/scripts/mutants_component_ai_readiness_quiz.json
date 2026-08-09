@@ -1,0 +1,74 @@
+[
+  {
+    "name": "the page stops being served (404)",
+    "serve_status": 404,
+    "expect_fail": [
+      "page-serves-200"
+    ]
+  },
+  {
+    "name": "the section loses the identity acceptance resolves it by",
+    "from": "data-component=\"ai-readiness-quiz\"",
+    "to": "data-component=\"ai-readiness-quiz-renamed\"",
+    "expect_fail": [
+      "section-renders"
+    ]
+  },
+  {
+    "name": "the section collapses below visible size (10x10, overflow hidden)",
+    "from": "</body>",
+    "to": "<style>section.ai-readiness-quiz-section[data-component=\"ai-readiness-quiz\"]{width:10px!important;height:10px!important;overflow:hidden!important;padding:0!important}</style></body>",
+    "expect_fail": [
+      "section-has-visible-area"
+    ]
+  },
+  {
+    "name": "the headline renders empty",
+    "from": "<h1 class=\"quiz-headline\">How Ready Is Your Business for AI in Production?</h1>",
+    "to": "<h1 class=\"quiz-headline\"></h1>",
+    "expect_fail": [
+      "headline-has-text"
+    ]
+  },
+  {
+    "name": "the quiz ships with no screen marked active, so a visitor lands on nothing",
+    "from": "<div class=\"quiz-step active\" id=\"quiz-step-start\"",
+    "to": "<div class=\"quiz-step\" id=\"quiz-step-start\"",
+    "expect_fail": [
+      "start-screen-is-the-one-showing"
+    ]
+  },
+  {
+    "name": "the component's own script never runs, so pressing Start advances nothing",
+    "from": "<script src=\"/tools/assets/ai-readiness-quiz.js\"></script>",
+    "to": "<script>/* component script removed by mutant */</script>",
+    "expect_fail": [
+      "real-click-starts-the-quiz",
+      "answering-a-question-enables-next"
+    ]
+  },
+  {
+    "name": "the first question's options lose the value the scorer reads, so answering registers nothing",
+    "from": "data-step=\"1\" data-value=\"1\"",
+    "to": "data-step=\"1\" data-value=\"1-renamed\"",
+    "expect_fail": [
+      "answering-a-question-enables-next"
+    ]
+  },
+  {
+    "name": "a wide element pushes the page past the viewport",
+    "from": "</body>",
+    "to": "<div style=\"width:3000px;height:8px\"></div></body>",
+    "expect_fail": [
+      "no-horizontal-overflow"
+    ]
+  },
+  {
+    "name": "a script error reaches the console",
+    "from": "</body>",
+    "to": "<script>window.__deliberatelyUndefined.boom = 1;</script></body>",
+    "expect_fail": [
+      "no-console-errors"
+    ]
+  }
+]

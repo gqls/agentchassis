@@ -7,7 +7,7 @@ family as `bugs_open/012` (a status of `complete` over a truncated artefact) and
 `a-complete-work-item-is-not-a-repaired-artefact`, but pointed at a *visitor* rather
 than at us.
 
-**Severity is about trust, not volume.** Three live pages on three client sites invite a
+**Severity is about trust, not volume.** Two live pages on two client sites invite a
 visitor to type their name, email and message, and then tell them it was sent. Nothing
 is sent, nowhere, ever. The enquiry is dropped and the visitor believes it was received,
 so they do not follow up — which is the worst possible failure mode for a contact form,
@@ -82,16 +82,28 @@ form-bearing component either names an action (`contact-form` 13 pages,
 (`audience-check-form`, which posts to `form.getAttribute('action')`), or is a
 calculator whose `<form>` is a layout wrapper that never claims to send anything.
 
-The three live pages:
+The live pages:
 
-| site | page | status |
-|---|---|---|
-| robot-hands.com | `/contact.html` | active |
-| finetuning.uk | `/case-studies.html` | active |
-| leopardessconsulting.co.uk | `/ai-readiness-quiz.html` | active |
+| site | page | placement row | component in the SERVED html |
+|---|---|---|---|
+| robot-hands.com | `/contact.html` | active | **yes** — form live |
+| leopardessconsulting.co.uk | `/ai-readiness-quiz.html` | active | **yes** — form live |
+| ~~finetuning.uk~~ | ~~`/case-studies.html`~~ | active | **no** — see correction |
 
 `robot-hands.com/contact.html` is the site's **contact page** — the one a buyer
 reaches from the nav.
+
+> **CORRECTED 2026-08-08, same day, before anyone acted on it: this bug first said
+> "three live pages". It is TWO.** The third placement row,
+> `finetuning.uk/case-studies.html`, is **drift**: the row exists, the page is active,
+> and the served HTML contains no `contact-block` markup at all (`grep -c
+> 'data-component="contact-block"'` → 0; that page serves `hero-case-studies`,
+> `case-studies-list`, `testimonials`). **What caught it:** a later sweep in the same
+> session probed all 38 active placements of JS-bearing section components against
+> their SERVED pages, and this row came back component-absent. The original figure came
+> from `page_components` alone — a placement row is a claim about a page, not a
+> measurement of one, and this lane has now found five such rows. The defect itself is
+> unchanged and still live on the two pages above, one of them a contact page.
 
 ## Fix candidates, ordered by what closes the door
 

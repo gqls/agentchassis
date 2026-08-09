@@ -16,13 +16,15 @@ interactive pile forced, and the traps that cost time.
 
 ## 2. State
 
-**49 subjects proven end-to-end: 47 sections + 2 tools.** All S6-green in-cluster with the
+**51 subjects proven end-to-end: 49 sections + 2 tools.** All S6-green in-cluster with the
 negative control confirmed red. Batch 6 (2026-08-08 evening) added the first five
 INTERACTIVE sections: `news-listing`, `latest-news`, `case-studies-grid`, `contact-block`,
-`blog-listing` — 8 checks each, 8/8 mutants caught, persisted and read back byte-identical,
-S6 12/12 with every skip a profile gate.
+`blog-listing` — 8 checks each, 8/8 mutants caught, S6 12/12. Batch 6b (2026-08-09, same
+session) added `game-list` (7 checks, 7/7, S6 11/11) and `ai-readiness-quiz` (9 checks,
+9/9, S6 13/13). All persisted and read back byte-identical; every skip a profile gate.
 
-Fleet at the time of writing: chassis + browser-runner **v1.0.1269**. Census: 112 active
+Fleet at the time of writing: chassis + browser-runner **v1.0.1270** (it rolled twice
+during the session — re-grep, do not carry a version forward). Census: 112 active
 sections / 43 with a PLAN; 60 active tools / 23 with. Re-run it; it moves.
 
 ## 3. THE LINE — one addition, and it is not optional for this pile
@@ -58,6 +60,13 @@ Prove it with an inert-script mutant: replace `<script src="…"></script>` with
    reds `no-console-errors` on a page that is clean live. With it the real feed is served
    verbatim in every run — so every driven mutant must attack the SCRIPT or the SLOT, never
    the data.
+3. **Check ORDER is load-bearing on a multi-step component, and a later check cannot re-do
+   an earlier one.** The evaluator drives every check against ONE shared page in
+   declaration order. `ai-readiness-quiz`'s second gesture check was first authored
+   self-contained (click Start, then click an option) and **failed on first trial**: Start
+   was already hidden, and the click burned the full 30 s timeout. Let a later check
+   continue from the state its predecessor left — which is also what a visitor does — and
+   say so in the PLAN so nobody "fixes" it back.
 
 **Persist with the committed generator now** — `scripts/gen_component_plan_sql.py
 <manifest.json>` (dry run) then `--apply`. Write the manifest beside it
@@ -66,13 +75,19 @@ scratchpad and lost it every time.
 
 ## 4. Remaining work, itemised
 
-- **~12 interactive sections left**, by placement count:
-  `game-list` (2/1), `ai-readiness-quiz` (2/2), then the singles —
+- **~10 interactive sections left** (`game-list` and `ai-readiness-quiz` are DONE), all
+  single-placement:
   `tool-ai-vendor-trust-checklist`, `tool-archetype-taster-quiz`, `adoption-tracker-listing`,
   `tool-gripper-cycle-time-estimator`, `audience-check-form`, `model-directory-listing`,
   `protocol-tracker-listing`, `report-request-form`, `tool-ai-agent-roi-estimator`.
   Budget ~30–45 min each; the four shapes in §3 cover most of them. `gauntlet-interface`
   (40 KB of JS) is **lane-owned — do not fence without coordination.**
+  **Check first whether the subject is interactive at all.** `length(js_content) > 0` is
+  what puts a component in this pile and it was WRONG for `game-list`: its script binds
+  `.gl-filter-btn` / `#gl-load-more-btn`, neither of which exists in its own template, and
+  no page even loads it. Two greps settle it before you budget 45 minutes —
+  `grep -c '<selector the JS binds>' <html_template>` and
+  `curl -s <page> | grep -c 'tools/assets/<fn>.js'`.
 - **~10 ready tools** — re-run `CHECK_naming_contract.sh` + census first, the list moves.
 - **8 chrome-blocked sections** (fences authored + committed, baseline cannot go green):
   archetype-grid, directory-listing, funding-fit, patent-check, game-master-explanation,
@@ -81,9 +96,11 @@ scratchpad and lost it every time.
 - **Lane-owned, coordinate first**: gauntlet-interface, gauntlet-cta, lobby-grid,
   gauntlet-round-record; provocation-card, provocations-archive-list, evidence-timeseries,
   swipeable-insight-carousel.
-- **Listings, not fences**: ~35 sections with zero active placements; the drift rows (now
-  five: ported-page's 58 on lmc/loancash, featured-content, pricing, and
-  `leopardessconsulting.co.uk/blog.html`).
+- **Listings, not fences**: ~35 sections with zero active placements; the drift rows —
+  placement rows whose SERVED page carries no such component — now **six**: ported-page's
+  58 on lmc/loancash, `featured-content`, `pricing`,
+  `leopardessconsulting.co.uk/blog.html`, and `contact-block` on
+  `finetuning.uk/case-studies.html`.
 
 ## 5. Standing defect list for the owner
 
@@ -91,7 +108,9 @@ Carried from `HANDOFF_2026-08-05b` §5, plus tonight's:
 
 1. **`bugs_open/228` (NEW, and the most serious this lane has found)** — `contact-block`
    prints "Your message has been sent" from a 1,200 ms timer and has **no transport at
-   all**. Three live pages including `robot-hands.com/contact.html`. Needs an owner call on
+   all**. **TWO** live pages (`robot-hands.com/contact.html`,
+   `leopardessconsulting.co.uk/ai-readiness-quiz.html`); the bug's first draft said three
+   and was corrected the same day — see `WRONG_CALLS.md`. Needs an owner call on
    fix candidate 1 (give it a real destination, reusing `contact-form`'s or
    `audience-check-form`'s mechanism) vs 2 (remove the form, keep the contact details).
 2. gaswholesalers.com: every page 404s `/assets/images/logo.png` (assets row exists).
