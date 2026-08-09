@@ -558,3 +558,30 @@ footprint), and a `repairSectionsBeforePersist` arm (alongside the existing
 `RepairContentDataLinks`, LNK-028) so the 2 real-tool-CTA pages and 4 parked "Get Started"
 heroes from this lane's own earlier cleanup pass could self-heal on their next ordinary save
 without a per-page dispatch.
+
+## 2026-08-09 — the submission never actually ran, and this lane did not cause it
+
+Checked the verdict the next session-day rather than assuming silence meant pending. It
+wasn't pending: `orchestration_states` for `258e4ed7-55a2-4280-a919-2713363c8b89`'s run showed
+`COMPLETED | complete_invalid`, 16+ hours old. **Read `__step_error`, not `error`** (the
+landmine already on file for this exact shape) — `review_editquality` got a real Anthropic API
+400: `"Your credit balance is too low to access the Anthropic API."` **Not a defect in this
+submission.** A different lane (`finetuning_uk_service`, commit `bc6c99cff`) independently hit
+and documented the same fleet-wide outage the same evening (first credit failure 18:25:48Z,
+zero successful anthropic `llm_call_log` rows after that until credits were topped up) — owner
+already notified by that lane; nothing new to escalate here.
+
+**Confirmed restored before resubmitting, not assumed**: `max(created_at) FROM llm_call_log
+WHERE provider='anthropic' AND success=true` = 2026-08-09 14:58Z, minutes before this entry,
+with a run of consecutive successes immediately before it — the fleet is genuinely processing
+LLM calls again, not just accepting a request that will fail downstream.
+
+**Resubmitted** on the SAME trail, per this repo's own resubmission pattern for exactly this
+case (proven by the finetuning lane the same evening): `RESUBMIT_CORR=258e4ed7-55a2-4280-a919-2713363c8b89`
+against the original, unedited submission JSON (still on disk in this session's scratch dir —
+not rebuilt, per the standing instruction not to reconstruct a submission from memory). New
+run orchestration `e1c497e0-2be0-4a1a-821c-446166404451`, dispatched cleanly (other real
+orchestrations progressing normally in the same queue snapshot, a second confirmation the
+fleet is healthy). **Verdict not yet read as of this entry** — next session: query
+`diagnosis_artifacts` for `kind='council_report'` keyed on the submission correlation above,
+per the standing verdict-reading instructions in the HANDOFF.
