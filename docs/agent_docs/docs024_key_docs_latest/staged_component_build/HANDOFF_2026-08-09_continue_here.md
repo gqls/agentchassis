@@ -45,13 +45,14 @@ addressed to that site's own configured inbox, the status never says "sent", and
 text is preserved. The `setTimeout` fake send is gone from both served assets (positive and
 negative controls both run).
 
-**`contact-form` — 13 pages. 12 live, 1 owed.**
+**`contact-form` — 13 pages. ALL 13 LIVE.**
 Gained `#cf-status`, a script ref and real delivery JS. Live and verified on
 ai-agent-orchestration, dartsonline, finetuning, fundamentallyai, gaswholesalers,
 leopardess, oufe, robot-hands, vetcomparison, vonc (+ leopardess/contact.html canary).
-**OWED: `idea.uk/contact.html`** — re-rendered and committed to `gqls/vm-sites` at 10:01Z,
-served object still dated 05 Aug. Different repo and host from the other twelve; that
-deploy path is the thing to chase, not the render.
+idea.uk lagged the other twelve by ~5 minutes because it deploys to `gqls/vm-sites` (a
+different repo and host); it landed at 10:06Z and is verified. **Nothing is owed here** —
+the earlier draft of this handoff said idea.uk was outstanding, which was true when written
+and stopped being true five minutes later. Re-check before quoting it.
 
 **Blast radius, measured not assumed:** on the canary, a whole-page diff before/after was
 **17 lines, every one of them the intended change** (form id, status div, script ref,
@@ -135,8 +136,9 @@ destination. Not done; it is the natural next edit to that PLAN.
 
 ## 4. Standing defect list for the owner
 
-1. **`bugs_open/228` — SUBSTANTIALLY FIXED** (see §1). Remaining: idea.uk's deploy, the
-   fleet roll for `85390ee33`, and the JS choice (§0).
+1. **`bugs_open/228` — FIXED and LIVE on all 15 served pages** (see §1). Remaining: the
+   fleet roll for `85390ee33` (the class fix), and the JS choice (§0). Neither blocks a
+   visitor today.
 2. gaswholesalers.com: every page 404s `/assets/images/logo.png`. **4+ days.**
 3. The `hero.jpg` 404 family (`bugs_closed/128`, measured 07-31, **still serving**) — ≥7
    sites, incl. vetcomparison.uk which 128's own list missed.

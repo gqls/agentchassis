@@ -221,7 +221,7 @@ in `WRONG_CALLS.md`.
 | `contact-form` js_content | NEW (4,686 B) — it had none |
 | robot-hands.com/contact.html | **LIVE, delivering** `mailto:robot-hands@contactforsales.com` |
 | leopardessconsulting.co.uk/ai-readiness-quiz.html | **LIVE, delivering** `mailto:leopardess@contactforsales.com` |
-| the 13 `contact-form` pages | 12 live; **idea.uk pending** (deploys to `gqls/vm-sites`, a different host) |
+| the 13 `contact-form` pages | **all 13 live and verified** (idea.uk lagged ~5 min — it deploys to `gqls/vm-sites`) |
 
 Both `contact-block` pages were driven as a visitor in a real browser against the
 **served** page — fill, submit, and assert the mailto the browser is actually sent to.
@@ -299,8 +299,6 @@ wins, apply it over mine and say so.
 
 ## What is still owed
 
-- **idea.uk/contact.html** — re-rendered and committed to `gqls/vm-sites` at 10:01Z; the
-  served object is still 05 Aug. Different repo, different host from the other twelve.
 - **`85390ee33` still needs the fleet roll** (your image `v1.0.1271`), for the class fix.
 - **The success message is still not downstream of a RESPONSE**, because a `mailto:` is a
   handoff, not a request. Your PLAN §b argues that is the right call for a static estate
