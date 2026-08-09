@@ -604,3 +604,46 @@ RESUBMIT_CORR=7ffecfa2-ff96-4d73-be0d-25eb9589c6df \
 ```
 Do NOT rebuild the submission from scratch; do NOT retry before credits
 exist (each attempt consumes a dispatch for nothing).
+
+## 2026-08-09 (midday) — FTW-042 LIVE: roll verified, first run failed then passed, two council rounds of corrections
+
+**Roll + credits.** Whole fleet on `v1.0.1273` (~11:25Z); pod-grep both
+chassis replicas + adapter: all positives non-zero, spelling-negative 0.
+Credits restored overnight (clean llm_call_log from 01:00Z).
+
+**Round 2 resubmitted** (saved JSON, RESUBMIT_CORR) → **REVISE**, gated by
+prior_art_librarian, and the seat was RIGHT: `run-migrations.sh`'s
+migrations home IS `sql_for_agents/` — my "no ledger exists" was a false
+asserted-absence (WRONG_CALLS entry; the runner's five-line header refutes
+it). 342 recorded via `--record-only`; a raw-psql apply otherwise leaves the
+file pending-forever (bugs_open/007's replay trap).
+
+**Seed applied → first run FAILED at `reconcile`, and this was the round's
+real discovery:** `output_field` nested inside a step's `config` is INERT —
+`models.Step` parses `stepMap["output_field"]` (processor.go:434); the
+coordinator stores an awaited response under the STEP NAME plus step-level
+output_field only. My seed copied the reaper's shape; **the reaper's own
+config-nested output_field has been silently inert since it shipped** (its
+step name and output_field are word-reversals, so its live specimen
+"confirms" whichever model you already hold — which is how I 'verified' the
+wrong one for the round-2 council answer). Guardian's round-1 low-severity
+wiring objection was pointing at exactly this. LANDMINES entry appended
+(verifier dispatched via trigger-landmine-verifier.sh — note the direct
+`--apply` first consumed the new-entry status, the c7d4af7cc trap, hence the
+manual trigger); WRONG_CALLS entry for the non-discriminating verification.
+
+**Fix + verified:** output_field to step level in 342 (DO/RAISE now asserts
+the step-level form), re-applied, re-kicked → **COMPLETED 11:42:06Z**,
+`reconcile_result` = vendor 0/0, db 23/0, matched 0, clean:true — truthful
+against the same-session manual `instances/list` (`{}`) and table read.
+The 0-findings run proved it LOOKED. One-off double-fire at the first kick
+(two runs 30s apart, stamp race, no recurrence in 6+ ticks) noted, absorbed
+by dedup, not chased.
+
+**Round-2 dispositions shipped** (`cfaa93126`): system.internal existence
+asserted in the seed's DO/RAISE (a missing row silently degraded filing to
+log-only), defensive ROLLBACK head + `342_..._ROLLBACK.sql` sidecar,
+registry categories → `maintenance`, ledger checksum re-synced after the
+hardening. **Round 3 submitted** (~12:0xZ, same trail): reviews shipped+live
+state, carries the output_field correction openly. Result recorded below
+when the verdict lands.

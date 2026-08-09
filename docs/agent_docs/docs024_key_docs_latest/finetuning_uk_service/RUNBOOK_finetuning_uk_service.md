@@ -167,21 +167,28 @@ UPDATE thunder_config SET is_paused = true, pause_reason = '<why>';
   `thunder_instance_id`. `thunder_decommission_dispatch.go:62-67` requires
   **either** `provisioning_id` **or** `thunder_identifier`; the query supplies
   `provisioning_id`, the form the source marks preferred. Checked 08-03.
-- **Orphans: the automated sweep is BUILT, NOT YET LIVE** (2026-08-08 evening,
-  FTW-042 in the concept register). `list_instances` adapter action +
-  `dispatch_thunder_list`/`reconcile_thunder_instances` chassis actions +
-  `sql_for_agents/342` (thunder-orphan-scan, every 6h). Inert until BOTH the
-  agent-chassis and thunder-adapter images roll, **then apply 342** (image
-  first, then seed — the file's header carries the verify commands). Orphans
-  found are filed as `thunder_orphan` work items on `system.internal`:
+- **Orphans: the automated sweep is LIVE AND VERIFIED** (2026-08-09, FTW-042).
+  Fleet `v1.0.1273` carries the code (pod-grepped both chassis replicas + the
+  adapter); `sql_for_agents/342` applied AND recorded in the
+  `schema_migrations` ledger (`--record-only` — that ledger DOES cover this
+  directory; the earlier "no ledger" note was wrong, WRONG_CALLS 08-09).
+  `thunder-orphan-scan` runs every 6h; first verified run COMPLETED
+  2026-08-09 11:42:06Z with counts truthful against a same-session manual
+  `instances/list` and table read. Orphans are filed as `thunder_orphan`
+  work items on `system.internal`:
   ```sql
   SELECT summary, status, created_at FROM site_work_items
   WHERE item_type = 'thunder_orphan' AND status NOT IN ('complete','cancelled','rejected');
+  -- run result of any scan:
+  SELECT status, collected_data->'reconcile_result' FROM orchestration_states
+  WHERE owner_agent_type='thunder-orphan-scan' ORDER BY created_at DESC LIMIT 1;
   ```
-  **Until 342 is applied and its first run verified, §1b above remains the only
-  net** — and even after, §1b is the independent cross-check for a 0-findings
-  scan (a green run must be proven to have LOOKED, same day, before it is
-  trusted).
+  §1b stays valuable as the independent cross-check: a 0-findings scan proves
+  it looked via `db_rows`/`vendor_billing`, but a same-day manual call is the
+  cross-check that doesn't share the scan's code. ⚠ The first live run FAILED
+  on a config-nested `output_field` (INERT — must be step-level; LANDMINES
+  08-09, the reaper's own seed models the wrong form). ⚠ The filing path has
+  never fired against a real orphan — first real orphan is its live proof.
 - **Prove it can reap before trusting it** (drill, after the token is live):
   insert one synthetic `running` row with an obviously bogus
   `thunder_instance_id` (e.g. `T-DRILL-1`, never a bare small integer — real

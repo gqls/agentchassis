@@ -1,5 +1,9 @@
 # HANDOFF 2026-08-08 — finetuning.uk service: Phase −1 complete, start Phase 0 from here
 
+> **SUPERSEDED 2026-08-09 → read `HANDOFF_2026-08-09_continue_here.md` FIRST.**
+> This file stays for the Phase −1 background it carries (token rotation
+> mechanics, pricing, model menu) — the 08-09 handoff points back here for it.
+
 **This is the COLD-START document for the lane.** Read this, then the RUNBOOK for
 commands. The PLAN (`PLAN_2026-07-31_finetuning_uk_service.md`) holds the full
 approved design; NOTES holds the evidence trail and every misstep; README is the

@@ -207,3 +207,23 @@ writing my own database entry instead of using the shared, safer routine;
 now fixed), and the second round died on the empty account before any
 reviewer saw it. Once you top up, the resubmission is one saved command —
 it's written in the technical notes next to this file.
+
+Saturday midday. The credits are topped up (thank you) and the new software
+release went out this morning, so the billing watchdog I wrote yesterday is
+now switched on for real — and it earned its keep in its first ten minutes,
+though not the way I expected. Its very first live run failed: I had written
+one wiring label in the wrong place in the configuration, copying the shape
+of an older, working component — and it turns out that older component has
+carried the same wrong label since it shipped, harmlessly, because nothing
+ever needed to read what it labels. Mine did need to. Fixed within the hour,
+re-run, and the watchdog now completes cleanly: it asked Thunder directly
+what we're being billed for (nothing), checked that against our books
+(twenty-three machines, all long since shut down, nothing live), and agreed.
+That trap is now written up so nobody copies it again. The review panel's
+second round also caught me flat-out wrong about one thing: I'd claimed our
+migration folder has no ledger tracking what's been applied — it does, I
+just hadn't read the tool's own header — so the watchdog's database change
+is now properly recorded there too. Third review round is running now on
+the finished, live state. The lane's next big items are unchanged: the paid
+rehearsal run (wants you present) and, further out, the page and payment
+link once the front-end thread is coordinated with.
