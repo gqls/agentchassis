@@ -40,3 +40,13 @@ on — stays with you, as bug 083 records; the findings this rota accumulates sh
 that call better-informed.
 
 Off to the council for review before anything is applied.
+
+## 2026-08-09 (later) — the question answered itself, and the plan holds
+
+While this was at the council, the thread that filed the bug recorded your ruling in the
+bug file: the missing driver is a defect, and there was never a cost decision standing
+behind the switched-off rows. Better still, the real reason for the original pause turned
+out to be on record all along — it was about sequencing (don't detect what nothing can
+fix yet), not budget. That's exactly the line this plan already walks: the rota only
+detects; the fixing side stays off pending your separate call on bug 083. So nothing in
+the plan changes, and the "start ON or OFF?" question above is settled — ON.
