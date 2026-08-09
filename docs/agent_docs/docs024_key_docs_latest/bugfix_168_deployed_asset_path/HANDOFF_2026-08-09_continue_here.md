@@ -1,4 +1,4 @@
-# HANDOFF — 2026-08-09 — `voice_tells` PROVEN LIVE by a real closure; `claims_unverified` adopted; two runs in flight
+# HANDOFF — 2026-08-09 — `voice_tells` PROVEN LIVE by a real closure; `claims_unverified` adopted and OWNER-GATED; council round 3 in flight
 
 **Read this file only.** It supersedes `HANDOFF_2026-08-08b_continue_here.md` for state. That file
 stays for its reasoning and traps, **and it now carries four dated corrections** — read those if
@@ -12,11 +12,13 @@ neither blocks you.
 
 ## 0. OPEN ITEMS — none of them is code
 
-### 0a. 🔴 Council **REVISE at r1** — answered and resubmitted; ONE HIGH objection is the OWNER'S, not yours
+### 0a. ⏳ Council — REVISE at r1 AND r2, both answered; **owner has ruled; ROUND 3 in flight**
 
-**Full read-out: `OBJECTIONS_2026-08-09_claims_unverified_council.md`.** 15 seats, 2 abstained,
-`gated_by_truncation: false`, gated by `editquality`. Round 2 resubmitted under the same trail
-(`RESUBMIT_CORR=b67eb26a-…`, run `6774ab51-…`). Corrections committed `6ab7ff594`.
+**Full read-out: `OBJECTIONS_2026-08-09_claims_unverified_council.md`.** r1 gated by `editquality`
+(the producer-count error), r2 gated by `compliance` (the HITL policy question). 15 seats,
+2 abstained, `gated_by_truncation: false` both rounds. Corrections `6ab7ff594`; owner's gate
+`9a9fef332`; **round 3 running under the same trail** (`RESUBMIT_CORR=b67eb26a-…`, run
+`0f8ce5a8-…`).
 
 > **The gating objection caught a REAL ERROR, and it narrows the change.** This lane claimed
 > **TWO converging producers** and invoked the owner ruling of 2026-08-02 §1 as the authority for
@@ -28,27 +30,46 @@ neither blocks you.
 > just the item_key shape? — is answered favourably by that same call graph: ONE scan, both halves
 > inside it.
 >
-> 🔴 **DO NOT RESUBMIT AROUND THE `compliance` OBJECTION (HIGH). It is an OWNER decision and it is
-> open.** Three seats reached it independently from different mandates — `compliance`,
-> `bug_historian`, `architecture` — and **all three routed it to a human rather than blocking.**
-> The argument: `claims_unverified` was made HITL-terminal *because* it is a factual-claims
-> surface, and **the evidence register proves provenance, not correctness** — so a sloppy register
-> entry can retract a live claims-integrity finding unattended. That is a policy narrowing, not a
-> bugfix, and it is materially different from the voice_tells precedent (style vs truth).
-> **Seats agreeing it needs a human IS the signal** — same shape as `bugs_closed/124`'s scope veto,
-> which resubmitting with better measurements does not answer. Options costed for the owner in
-> `README_where_we_are` (2026-08-09, later); **the recommendation there is (b): close only when
-> `page_components.updated_at > item.created_at`, ~4 lines, which converts the objection from a
-> policy argument into a mechanical guarantee.** Await the owner's call before building it.
+> ✅ **THE `compliance` OBJECTION IS RESOLVED — OWNER RULED 2026-08-09, and the answer is in code.**
+> It gated rounds 1 AND 2 (round 2: *"needs confirmed owner sign-off BEFORE the revalidator is
+> wired live, not concurrent notification"*), with `bug_historian` and `architecture` routing the
+> same question to a human independently. The owner was given four costed options and chose the
+> **copy-changed gate**: `resolved` now requires an EXAMINED component whose
+> `page_components.updated_at` is later than the item's `created_at`. **A register edit alone can
+> no longer retract a factual-claim finding.** Committed `9a9fef332`; round 3 submitted under the
+> same trail (run `0f8ce5a8-…`). Full reasoning: `OBJECTIONS_2026-08-09_claims_unverified_council.md`.
+>
+> ⚠ **Three things about that gate a future editor must not undo:**
+> 1. **The zero-`filedAt` arm is SEPARATE from the comparison.** `x.After(time.Time{})` is true for
+>    any real timestamp, so folding them makes an item with no filing date close on ANY component
+>    edit however old — the inverse of the gate. It was briefly present *behind a doc comment that
+>    already claimed the correct behaviour*; the property test caught it.
+> 2. **`NewestComponentUpdate` tracks EXAMINED components only.** A locked component's timestamp is
+>    a change to content the scan deliberately did not read.
+> 3. **It is NOT applied to `voice_tells`, deliberately** — identical hole, but live,
+>    council-approved, and a style surface rather than a truth one. Extending it is a separate
+>    argued change, not a tidy-up.
+>
+> **Honest cost:** the gate narrows what can close, so a page fixed by an edit that did not touch
+> `page_components.updated_at` now refuses instead of closing. Intended direction, real cost — the
+> type will drain more slowly than 23 rows suggests.
 
 Committed `4030cadb9` with `Council-Submitted:`, which asserts nothing and is credited
 automatically by `098` once approved — **no amend needed, and forward-only forbids one.**
 
 ```sql
+-- the decisions, one row per round, oldest first:
 SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
 WHERE correlation_id='b67eb26a-14ef-45d7-b755-3e489fd57ef0' AND kind='council_report' ORDER BY created_at;
--- human-readable:
-SELECT body FROM doc_notes WHERE categories ? 'council-gate' ORDER BY created_at DESC LIMIT 1;
+-- THE OBJECTIONS THEMSELVES live in `body`, NOT in `metadata` (which carries only
+-- decision/reviewers/abstained). Read the newest round for this correlation:
+SELECT body FROM diagnosis_artifacts
+WHERE correlation_id='b67eb26a-14ef-45d7-b755-3e489fd57ef0' AND kind='council_report'
+ORDER BY created_at DESC LIMIT 1;
+-- ⚠ NOT `SELECT body FROM doc_notes WHERE categories ? 'council-gate' ORDER BY created_at DESC
+-- LIMIT 1` (CLAUDE.md's documented command). On a tree this concurrent that returns whichever
+-- lane finished last — it handed me bugs_open/228's verdict, which read as plausible until it
+-- started discussing contact forms. Always query by YOUR correlation.
 -- still running? latency, NOT a dropped dispatch — do NOT resubmit:
 SELECT current_step, status FROM orchestration_states
 WHERE collected_data->'input_data'->>'fix_correlation_id' = 'b67eb26a-14ef-45d7-b755-3e489fd57ef0';

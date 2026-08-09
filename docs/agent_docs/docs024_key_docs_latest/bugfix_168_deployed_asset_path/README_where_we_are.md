@@ -739,3 +739,44 @@ objection from a policy argument into a mechanical guarantee.
 
 The code is committed either way — on this tree, committing *is* shipping, and I can't hold it
 back. But it does nothing until the next deploy, so there is time.
+
+**2026-08-09 (evening) — your call is in, and it's built**
+
+You picked (b), so that's what's there now: the sweep will only close one of these findings if the
+page's own text has actually been edited since the warning was raised. Someone adding an entry to
+the approved-facts register can no longer make a warning disappear on its own. It's about a dozen
+lines in the end, and it turns the reviewers' objection from something you have to trust us about
+into something the code simply won't do.
+
+Two things worth knowing about it.
+
+It cost us something real, and I'd rather say so than let you find it later: the gate is stricter
+than "did anyone fix this". If a page genuinely got corrected in a way that didn't leave a
+timestamp on the component, the sweep will now decline to close it and leave it for a person. That
+is the right way round — declining wastes a glance, closing wrongly hides a false claim on a
+customer's site — but it does mean this category will drain more slowly than the 23 open items
+suggest.
+
+And I made a mistake building it that I want on the record, because it's the exact mistake the
+change exists to prevent. I wrote the comment explaining the guard before I wrote the guard, and
+the comment said the code would refuse when it didn't know when a warning was raised. It didn't —
+it would have closed on any edit at all, however old, which is precisely backwards. A test I'd
+written for that case failed on the first run and found it. So: a confidently-worded comment
+describing behaviour that wasn't there, inside a change whose whole point is that comments aren't
+controls. Fixed, and the test now pins all four ways that gate can go wrong.
+
+I did **not** apply the same gate to the voice/tone category we shipped yesterday. It has the same
+hole in principle — someone loosening a site's tone settings would retract warnings without the
+copy changing — but it's already live and reviewed, and the reviewers' whole argument was that tone
+is a lower-stakes surface than truth. Changing it is a separate decision, so I've written it down
+rather than quietly doing it.
+
+Your "date the pages when last checked" idea is captured as `features_open/031`. It's a genuinely
+different question from the one I just solved, and a good one: my gate proves the *page* moved, but
+nothing anywhere records whether we ever *looked*. Right now an empty review queue means either
+"everything is fine" or "nobody checked" and we cannot tell which — which is the same ambiguity, one
+level up, that we spent this week killing inside individual page scans. I've written up why it
+matters, the open design questions, and what it is not (it's not a content-freshness feature — we
+have two of those already).
+
+The third review round is running now.

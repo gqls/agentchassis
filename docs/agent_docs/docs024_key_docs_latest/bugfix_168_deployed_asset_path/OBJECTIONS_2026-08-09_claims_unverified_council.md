@@ -166,3 +166,82 @@ Resubmitted with `RESUBMIT_CORR=b67eb26a-14ef-45d7-b755-3e489fd57ef0` so the tra
 The substantive delta is §1 (the producer-count correction, which *narrows* the change and drops a
 misapplied ruling) plus the four measurements in §3 folded into `grounded_in`. §2 is carried as a
 stated, deliberately-unactioned owner escalation rather than argued away.
+
+---
+
+# Round 2 — **REVISE** again, gated by `compliance` on the same point. Then the owner ruled.
+
+Verdict 10:13:50Z, 2 abstained, not truncated. The producer-count correction and the four
+measurements were accepted — `editquality` and `prior_art_librarian` dropped to approve. What
+remained was the policy question, sharpened:
+
+> **`compliance`, HIGH, edit 3:** *"…a human review queue for unsupported factual claims is being
+> drained by machine judgement on the same trust surface that produced the fabricated-price and
+> fabricated-claim incidents this seat exists because of. This needs **confirmed owner sign-off
+> BEFORE the revalidator is wired live**, not concurrent notification."*
+>
+> **`compliance`, HIGH, edit 4:** *"Wiring `claims_unverified` into `reviewRevalidators` is the
+> single line that actually activates auto-closure … it should not land until the HITL-bypass
+> objection above is resolved by the named owners."*
+>
+> **`guardian`, MEDIUM, edit 3:** *"…it is a policy change to a human-review guarantee on a
+> factual-claims surface — the plan itself escalates this to bug owners rather than resolving it,
+> which is the right call and **should be a hard gate on merge, not a note**."*
+
+Two seats, independently, said the same thing my round-1 read-out had already routed to the owner:
+**escalating was correct, and treating it as a note rather than a gate was not.**
+
+## The owner's ruling, 2026-08-09
+
+Presented with four costed options — (a) ship as is, (b) close only when the page's copy has
+changed since filing, (c) downgrade instead of closing, (d) abandon — **the owner chose (b)**, and
+signed off conditional on it.
+
+**Why (b) is the right answer to this specific objection.** `compliance`'s formulation is the one
+that matters: **the register proves provenance, not correctness.** The machine can confirm a number
+is registered; it cannot confirm the number is true. So the failure mode is precise — a careless
+`evidence_base` entry retracts a live claims-integrity finding, unattended. (b) makes that
+unrepresentable rather than unlikely: `resolved` now requires an EXAMINED component whose
+`page_components.updated_at` is later than the item's `created_at`. **A register edit alone can no
+longer close anything.**
+
+It is deliberately a *mechanical* control and not a documented caveat, per the owner ruling of
+2026-08-02 §2 — *a comment is not a control on a tree this many sessions share*. And it moves the
+decision to where a reviewer of the caller can see it, which is what that ruling asks for.
+
+### What the gate cost, and the defect it exposed on the way in
+
+The zero-`filedAt` case is a **separate arm**, not part of the comparison, because
+`x.After(time.Time{})` is true for any real timestamp — folding them together makes an item with no
+known filing date close on *any* component edit, however old. That is the exact inverse of the
+gate's purpose.
+
+**It was briefly present, and the header comment already claimed the correct behaviour while the
+code did not.** The property test's fourth case failed on first run and found it. Fixed in the code,
+not the test. This is the "a doc comment enforces nothing" shape, caught by the one thing that does.
+
+### What was deliberately NOT done
+
+**The gate is not applied to `voice_tells`.** It has the identical moving-standard hole (a site that
+loosens its `voice_gate` retracts items whose prose never changed). But it is live, council-approved,
+and its surface is **style, not truth** — which is exactly the distinction these seats drew when they
+escalated this type and not that one. Extending the gate there is a separate argued change, recorded
+rather than done quietly.
+
+### Honest cost of the gate
+
+It narrows what can close. A page genuinely fixed by an edit that did not touch
+`page_components.updated_at` will now refuse rather than close. That is the intended direction —
+a wrong `unknown` costs a human glance, a wrong `resolved` closes a live factual-claim finding —
+but the type will drain more slowly than its 23-row population suggests, and that is a real cost,
+not a rounding error.
+
+## Round 3
+
+Submitted under the same trail (`b67eb26a-…`, run `0f8ce5a8-…`), carrying the owner ruling as
+grounding, the two new edits, and the gate's property test. The `compliance` objection is answered
+by **a signed-off decision plus a mechanical control**, not by argument.
+
+**Follow-on captured, not built:** `features_open/031_FEATURE_pages_carry_a_last_checked_date.md`.
+The gate proves the page moved; it cannot show whether anyone ever *looked* — and an empty review
+queue still has two indistinguishable causes.

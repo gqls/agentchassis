@@ -2350,3 +2350,41 @@ not absent from `uncovered_types` — it is **listed at 50, while 46 further row
 sit invisible** in `detected`/`triaged`/`deferred`. So the report does not merely omit whole types
 (`image_url_404`); **it understates types it already lists**, by roughly half in this case. That is
 a harder thing to notice than a missing key and a better illustration of the mechanism.
+
+### The owner ruled, and the gate's own test caught the code disagreeing with its doc comment
+
+Round 2 came back REVISE, gated by `compliance` on the identical HIGH objection as round 1 — this
+time explicit that it needed *"confirmed owner sign-off BEFORE the revalidator is wired live, not
+concurrent notification"*, with `guardian` adding that escalating it was right but treating it as a
+note rather than **a hard gate on merge** was not.
+
+**Owner ruled (b): close only when the page's copy has changed since the finding was filed.**
+Committed `9a9fef332`, round 3 submitted. Reasoning in
+`OBJECTIONS_2026-08-09_claims_unverified_council.md`; the plain-prose version is in
+`README_where_we_are`.
+
+**The misstep, and it is a good one.** I wrote the ladder's doc comment first:
+
+> *"A zero `filedAt` makes that gate refuse, which is the safe direction."*
+
+The code did not do that. `x.After(time.Time{})` is true for any real timestamp, so an item with no
+known filing date would have closed on **any** component edit, however old — the exact inverse of
+the gate I was adding. The comment was correct, confidently worded, and describing behaviour that
+did not exist.
+
+The property test's fourth case (`filing date unknown, page edited long ago`) failed on first run
+and found it. **Fixed the code, not the test.** Textbook "a doc comment enforces nothing", walked
+into while writing a control whose entire purpose is to be mechanical rather than documented —
+which is the same lesson one level up, and the reason the owner ruling of 2026-08-02 §2 exists.
+
+⚠ **The cheap check:** when a doc comment states a guard's behaviour, write the test case for the
+sentence before writing the guard. The sentence is a specification; if it is worth writing down it
+is worth failing on.
+
+**Deliberately not extended to `voice_tells`** — same moving-standard hole, but live,
+council-approved, and style rather than truth. Recorded as a decision rather than done quietly.
+
+**Owner's follow-on captured:** `features_open/031_FEATURE_pages_carry_a_last_checked_date.md`.
+The gate proves the page moved; nothing records whether anyone ever *looked*. Today an empty review
+queue has two indistinguishable causes — everything is fine, or nothing was examined — which is the
+same ambiguity `ComponentsExamined` was added to kill inside a single page scan, one level up.
