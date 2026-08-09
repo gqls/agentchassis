@@ -157,3 +157,37 @@ was waiting for an event that was never going to arrive. If you want the
 remaining 17 sites fingerprinted sooner, that is a one-line job to dispatch and
 I can do it on your word — but it is a rebuild of every site's chrome, so it is
 your call rather than mine.
+
+## 2026-08-09, later afternoon — you said dispatch the rebuilds; done, and the alarm caught something real
+
+We built the small tool the platform turned out not to have — a "rebuild just
+the header, footer and head for one site, then stop" job. Everything that
+existed either rebuilt every page on the site as a side effect (hundreds of
+jobs into a queue we know isn't draining) or fiddled with the templates on its
+way through. The new job does one thing. It's registered and reusable; next
+time nobody has to wait for ambient traffic.
+
+Fired it at the fifteen sites that needed it. All fifteen ran clean, about
+eight seconds each, no errors anywhere. Eighteen of the twenty sites are now
+fingerprinted — every header, footer and head on them carries the "this is
+machine-made" stamp, so from here on a hand-edit that gets destroyed raises the
+alarm as well as leaving a copy. The two mortgage-calculator sites are the
+deliberate exception: their chrome was written by hand and padlocked, the
+rebuild respectfully refused to touch them, and they'll get their stamps if
+and when someone unlocks them. Ten slots' stored copies differed from what the
+templates produce today; the old versions are all archived if anything looks
+off.
+
+And here's the satisfying bit: while we were doing this, the alarm went off
+for real. The darts site's header keeps getting a small fix applied to it by
+one of the platform's own repair agents — and every rebuild keeps erasing that
+fix. Before this week, that tug-of-war was completely invisible; it may have
+been going on for ages. Now there's an open ticket saying exactly what got
+erased and where the copy is. The right fix is to move that repair into the
+template or config so rebuilds reproduce it instead of destroying it — that
+ticket is sitting in the review queue for whoever picks it up.
+
+One small oddity spotted in passing, parked for its own lane: the Spanish
+watch site's freshly-rendered head section is huge (a whole stylesheet inlined
+into it). Nothing served has changed, the old version is archived, but someone
+who owns that site should have a look.

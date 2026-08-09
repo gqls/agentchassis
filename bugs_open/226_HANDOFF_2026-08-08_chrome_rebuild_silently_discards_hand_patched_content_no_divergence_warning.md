@@ -178,6 +178,33 @@ None of the three makes an **undeclared** hand-patch loud. That is the gap.
 >    The reasoning error that produced the paragraph below — counting arrivals
 >    and calling it throughput — is logged in `WRONG_CALLS.md`.
 >
+>    **RESTAMP PASS EXECUTED 2026-08-09 13:52–13:54Z (owner instruction:
+>    "please dispatch the rebuilds") — the unstamped window is now CLOSED
+>    except where a human lock holds it open.** Mechanism: `rerender-chrome`
+>    (STY-055, mig 351) — a stamp-only two-step agent seeded for this pass
+>    because every existing chrome-rendering agent drags page fan-out or
+>    template mutation along (measured in the migration header). 15 sites
+>    dispatched (kcat receipts 15/15), 15 orchestrations COMPLETED, ~8s apart.
+>    Result: **54/60 slots stamped and matching**; the 6 unstamped are the two
+>    `permanent`-locked authored-chrome sites (loancalculator,
+>    loanandmortgagecalculator) whose lock refusal is the 069 prevent-leg
+>    working — they stamp when an owner lifts the locks. 10 slots' stored
+>    bytes differed from the fresh render and were archived
+>    (divergence `unstamped`, recoverable); 35 re-rendered byte-identical, no
+>    archive spam. Zero trigger errors.
+>    **The guard caught its first REAL production event during this window,
+>    twice over**: dartsonline's header is being re-patched (+390 bytes, then
+>    a 3486-byte variant) by `component-template-fixer` runs (13:38Z, 13:41Z
+>    writes; ledger `hand_patched` archives at 11:59Z and 13:41Z), and every
+>    rebuild wipes it — the 11:59Z `chrome_divergence_overwritten` item
+>    (key `…header:20b7c324b983`, needs_human_review, left OPEN deliberately)
+>    is the alarm saying exactly what the PLAN's consumers-told section
+>    predicted for TRANSIENT chrome patches. Dedup holds further items while
+>    it stays open. Side observation for its own lane: relojistas' fresh head
+>    renders at 61KB (the shared Document Head component's theme-injection
+>    slot inlines that site's 52KB theme CSS; store-only until pages
+>    reassemble; 9.4KB predecessor archived).
+>
 >    ~~IN PROGRESS 2026-08-09 ~09:30Z: the wave HAS started~~ — discovery
 >    (`needs_rerender`, reason `render_inputs_drift`) has completed 3 sites:
 >    leopardessconsulting.co.uk 08-08 17:21Z and webdesign.co.uk 08-08 18:15Z

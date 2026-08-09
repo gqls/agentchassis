@@ -263,3 +263,54 @@ question exposed a wrong model I had already committed to a SUMMARY.
   convergence *rate* belongs to 083/230, not to 226. 51 slots remain unstamped;
   on those, a hand-patch is still archived at its destruction, only the work
   item is missed.
+
+## 2026-08-09 — session 3 (later afternoon): the restamp pass, and the guard's first real catch
+
+Owner: "please dispatch the rebuilds." Executed 13:52-13:54Z.
+
+- **Route chosen: a new stamp-only agent, after measuring the existing six.**
+  rerender-pages/rerender-site file one work item PER PAGE (542 deployed/active
+  pages fleet-wide) into the 083-undrained queue; nav-link-fixer mutates nav
+  templates AND renders only 2 of 3 slots; nav-updater rewrites nav
+  content_data; the two build orchestrators are 34/38 steps. None is "render
+  three slots, stamp, stop" — so mig **351** seeds `rerender-chrome` (two
+  steps, existing actions, zero Go, zero LLM), registered **STY-055** same
+  commit (`23c818f89`). Applied single-file + DO/RAISE verify; row read back.
+- **Mid-pause drift caught before it bit**: the chassis ROLLED to a new
+  replicaset (5c5bbf8548, 12:23Z) while the session sat idle — the morning's
+  monitors were following DEAD pod names with stderr discarded, i.e. armed and
+  silent forever. Re-verified the binary on BOTH new pods (2/0/1 pattern) and
+  re-armed before dispatching. A monitor is a claim about a pod that existed
+  when you armed it.
+- **Dispatch**: 15 sites (20 now exist; cookly.uk was born stamped today by
+  the build pipeline; dartsonline + mortgagecalculator already stamped; the
+  two loan sites skipped — all 6 slots under `permanent` authored-chrome
+  locks, the 069 prevent-leg, not an obstacle). kcat receipts 15/15 first
+  time; all 15 orchestrations COMPLETED; monitors watched 45 slot renders
+  land, no WARNs (correct — unstamped slots cannot classify hand_patched).
+- **Result: 54/60 stamped-and-matching** (the 6 locked stay NULL until an
+  owner lifts the locks); 10 slots archived on overwrite (stored bytes
+  differed from fresh render — template/config drift since their last
+  render, all recoverable, listed in the ledger 13:52-13:54Z); 35
+  byte-identical, zero archive rows (WHEN gate); **zero trigger errors**.
+- **The guard caught a real event, unprompted, during this window.**
+  dartsonline header ledger, in order: 09:26:46Z machine bytes archived
+  (a patcher replaced them); 11:59:26Z the +390-byte patch (md5 20b7c324…)
+  archived `hand_patched` by nav-updater's rebuild → **the second
+  `chrome_divergence_overwritten` item, a REAL one** (needs_human_review,
+  LEFT OPEN — it is the queue working); 13:38:02Z machine bytes archived
+  again (patcher again); 13:41:25Z the 2954 patch archived again as a
+  `component-template-fixer` run (orch 08a6ebe9, completed 13:41:24Z) wrote a
+  3486-byte variant, which is the CURRENT stored header — honestly
+  mismatched against its stamp, awaiting its next wipe. This is the PLAN's
+  consumers-told paragraph happening verbatim: TRANSIENT chrome-fix patches
+  vs rebuilds, now visible instead of silent. Dedup (idx_swi_dedup) holds
+  duplicate items while the 11:59Z one is open — accumulation check stands.
+- **Side observation, not this lane's**: relojistas' fresh head is 61,359
+  bytes — the shared Document Head component (content_components 116c5f91)
+  has a theme-injection slot and relojistas' theme CSS is 52,360 bytes inline.
+  Other sites inject ~0-7KB through the same slot. Store-only until pages
+  reassemble; the 9,353-byte predecessor is archived. Belongs to whoever owns
+  relojistas/theme data.
+- Same-file passenger, named in `23c818f89`: 000_concept_index.md carried the
+  136 lane's SCR-006 status refresh.
