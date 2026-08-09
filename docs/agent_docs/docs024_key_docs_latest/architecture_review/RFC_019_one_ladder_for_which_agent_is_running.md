@@ -1,0 +1,274 @@
+# RFC_019 — One ladder for "which agent is running", and where its bottom rungs live
+
+**Status: DRAFT** (filed 2026-08-08 by the `rfc012_await_findings` lane, §1a)
+**Code: already shipped** — `1bc08d1ce`, alongside concept-register entry `RSH-009`.
+**Council gate: `Council-Submitted: 6186ab10-a006-4c34-b9ea-ecedfde8ea2d`** (round 1, verdict pending).
+
+> **This is a RETROSPECTIVE RFC, like `RFC_002`, and that is the design of the track, not a
+> corner cut.** OWNER RULING 2026-07-29 §2 retired the ordering-exemption condition that
+> assumed a thread could hold a change out of the fleet: on this tree HEAD is shared,
+> `make build-*` builds from committed HEAD, and any other session's roll ships your commit.
+> So review here is after the fact. What is required — and was done — is registration in the
+> same commit (condition 2) and submission to the gate before or alongside it.
+
+> **WHY IT IS HERE AT ALL, given I argue below that it is close to the line.** The handoff
+> that commissioned this work flagged the OWNER RULING 2026-07-29 §1 trigger and said: *"Read
+> that ruling and consider an RFC rather than the council gate."* I have, and my measurement
+> moves the answer — but the measurement is exactly what a reader six weeks from now will not
+> have. `PROCESS_architecture_review.md`: *"When in doubt, the cost of an RFC is one document
+> — write it."* The decision this paper wants is not "may I ship it" (it is shipped) but
+> **"is this the right forum for the next seam of this shape"**, because `RSH-008`'s round-1
+> `architecture` seat created a precedent last week and this change sits just outside it.
+
+---
+
+## 1. Problem + evidence
+
+One question — *"which agent's workflow is this context executing?"* — was answered by two
+ladders, in two packages, and they disagreed in production.
+
+`types/context.go:62` documents the field that answers it:
+
+> `RunAgentType` is the RESOLVED real agent type whose workflow is executing (from
+> `config.agent_type` / the loaded agent definition), **as opposed to the dispatch-path sender
+> which is often 'generic'**. Set by the processor before executing a workflow; consumed by the
+> coordinator's `determineOwnerAgentType` so `owner_agent_type` records the real agent, not
+> 'generic' (`bugs_open/060`).
+
+It is set at `messaging/processor.go:1828`. Until `1bc08d1ce`, `coordinator.determineOwnerAgentType`
+(`coordinator.go:3466`) was its **only** reader:
+
+```
+RunAgentType → Sender.AgentType → os.Getenv("AGENT_TYPE") → log Error → "generic"
+```
+
+`actions.runningStepProvenance` (`actions/log_action_error.go:118`) answers the same question
+for `agent_error_log.agent_type`/`step_name` — the provenance half of the `RSH-008` door — and
+implemented **only the second rung**:
+
+```go
+agentType, stepName = params.AgentType, params.CurrentStep
+if params.ExecutionContext.Sender.AgentType != "" {
+    agentType = params.ExecutionContext.Sender.AgentType   // ← the dispatch sender wins
+}
+```
+
+So a row filed under "the running step" recorded the dispatch-path sender — literally `generic`
+on the generic dispatch path — while the orchestration row for the *same run* recorded the real
+agent. The column it degrades is the one `idx_error_log_agent (agent_type, occurred_at DESC)`
+makes the entry point of every investigation.
+
+### The evidence, re-measured — and the sizing I was handed was wrong
+
+The commissioning handoff cited `generic` = **559 rows over 25 distinct `step_name`s**, and 25
+`REVIEW_SUPERSEDED_BY_PASSING_SAVE` rows all carrying `generic`, as the live damage. Measured at
+the rows on 2026-08-08, that framing does not survive:
+
+| measurement | result |
+|---|---|
+| `generic` rows before / after 2026-07-27 | **499 / 56** |
+| the boundary | `baf887a8e` (2026-07-26) — the commit that added `RunAgentType` **itself** |
+| dominant producer `call_agent`/`call_dispatch` | 394 rows, `max(occurred_at)` = **2026-07-25** |
+| all 25 `REVIEW_SUPERSEDED_BY_PASSING_SAVE` rows | **2026-07-23**, one day; none since |
+| residue reachable by THIS change (13 days) | **~36** — `diagnose_council_decide` 31, `retract_page_deployment` 4, `emit_tool_cross_link_items` 1 |
+| the other 20 residual rows | `orchestrate` / `process_message` / coordinator paths, untouched by this |
+
+**The coordinator's own ladder had already removed ~89% of the damage.** Anyone citing 559 is
+citing a table dominated by pre-fix history. That correction is the most useful thing in this
+paper, and it is why §3's do-less option is a serious one rather than a formality.
+
+## 2. Design
+
+Hoist the two **context** rungs onto the shared type; leave the two **process** rungs where they
+are.
+
+```go
+func (ec *ExecutionContext) ResolvedAgentType() string {
+    if ec == nil { return "" }
+    if ec.RunAgentType != "" { return ec.RunAgentType }
+    return ec.Sender.AgentType
+}
+```
+
+- `coordinator.determineOwnerAgentType` delegates, then keeps `os.Getenv("AGENT_TYPE")` and the
+  `"generic"` filler. **Its answer is identical for every input** — this consumer's behaviour
+  does not change. The drift closes by making the *other* consumer agree with this one.
+- `actions.runningStepProvenance` calls it, and keeps `params.AgentType` as its floor.
+
+Reachability was checked with the compiler, not asserted: `orchestration` imports `actions`
+(the cycle is real, so delegating coordinator-ward is impossible), and `types` is imported by
+both (`go list -f '{{range .Imports}}…'` → 1 and 1).
+
+### The load-bearing decision: the bottom rungs do NOT move
+
+This is the part worth an architecture reader's attention, because it is where the change could
+have re-created the drift while appearing to fix it.
+
+1. **`os.Getenv("AGENT_TYPE")` is a property of the PROCESS, not of the message.**
+   `ExecutionContext` is deserialised from Kafka headers and passed between packages as data. A
+   method whose answer changes with the pod it happens to be called on is invisible at the call
+   site and untestable without mutating the environment.
+2. **The two consumers legitimately DISAGREE about what follows the context, and the
+   disagreement is correct rather than drift.** The coordinator falls back to the pod and then
+   to a filler because `owner_agent_type` is NOT NULL and a row must be written. The actions
+   door falls back to `params.AgentType` — which *is* `state.OwnerAgentType` (`coordinator.go:1691`),
+   this ladder's own durable output, so strictly more specific than the pod — and must **not**
+   reach for a filler at all, because an unresolvable provenance there lands as `unattributed`
+   by `RSH-008`'s design (OWNER RULING 2026-08-02, RFC_010 §2). Folding both tails into one
+   method hands one consumer the other's answer.
+3. **`ResolvedAgentType(fallback string)` was the obvious alternative and is worse.** It looks
+   like one ladder while two callers pass different fallbacks — the same drift wearing a
+   shared-helper costume, and harder to see because it now has a shared name.
+
+`TestResolvedAgentType_IgnoresTheProcessEnvironment` pins the exclusion with `t.Setenv`, so a
+future author cannot "complete" the ladder without a red test. That test is the enforcement; the
+paragraphs above are only its explanation.
+
+## 3. Alternatives considered
+
+| option | why it was ruled out, with evidence |
+|---|---|
+| **Do nothing** — the residue is ~36 rows in 13 days | Genuinely arguable, and I nearly took it. Ruled out because the cost of the defect is not the row count: the two answers to one question sit in packages that cannot import each other, so nothing *structural* stops the gap widening, and the next reader of `RunAgentType`'s doc comment is told it has one consumer. `bugs_closed/098` debt-5b is the estate's precedent for converging duplicated answers rather than counting their current damage. |
+| **Fix `runningStepProvenance` in place** — add `RunAgentType` to its own ladder | Two ladders, both correct today, drifting again on the next rung. This is the shape the whole exercise exists to retire; it also leaves `determineOwnerAgentType` with no test, which is how the second consumer became invisible in the first place. |
+| **Move the WHOLE ladder, env rung included** | Rejected on §2's two grounds. It would also silently give the actions door the `"generic"` filler, which is the exact value `RSH-008` chose `unattributed` *to avoid colliding with* (`generic` has real traffic, so a detector keyed on it could never separate a mistake from noise). |
+| **`ResolvedAgentType(fallback string)`** | §2.3. |
+| **Backfill `RunAgentType` in `ensureFullExecutionContext` as well** | Would probably make the fix land on resumed steps too (§7), and is *not* taken here: it adds a rung sourced from durable state, which is a different claim needing its own evidence. Deliberately left as the named next round rather than bundled — this lane's round 2 was REJECTED for exactly that kind of bundling. |
+
+## 4. Blast radius, named
+
+- **Behaviour changes in:** `agent-chassis` (and every service built from it) — one column's
+  value on rows written through the six `RSH-008` doors, on the declared-inheritance path only.
+  Write-path only: the 499 historical `generic` rows are untouched.
+- **Merely relinks:** everything else importing `platform/orchestration/types` — the method is
+  additive and unread elsewhere.
+- **Consumers of the changed column, named rather than merely measured** (OWNER RULING
+  2026-07-29 §3). **No automated consumer branches on the VALUE of `agent_error_log.agent_type`:**
+  - `diagnose_load_runtime_action.go:265` — renders it into the diagnosis bundle (display);
+  - `reconcile_superseded_reviews_action.go:223` — filters `site_id` + `error_code` + `context->>'page_name'`;
+  - `page_build_failure_guard.go:131` — filters `error_code` + `context->>'page_id'`;
+  - live agent config: **0** steps filter on it. The only three whose SQL names the table
+    (`council-gate`, `feature-designer`, `fix-proposer`) are `load_schema_hint` steps reading
+    `information_schema.columns`;
+  - repo SQL: `sql_for_agents/214_build_dispatch_watchdog.sql:109` selects it for display.
+
+  **So the consumers are HUMANS and the diagnosis bundle**, through `idx_error_log_agent` — which
+  is who the change is for, and who a volume claim would have misled. `orchestration_states.owner_agent_type`
+  is unchanged: the coordinator's answer is identical for every input.
+- **No schema, no migration, no wire shape, no config vocabulary, no new reserved key.**
+
+## 5. Staged rollout
+
+One stage; there is nothing to sequence. The Go change is inert until the next chassis roll,
+which any session's build will carry. **Induced-fault testing, not happy-path greps** — six
+mutations, and the failure *identities* are the finding:
+
+| mutation | types | actions | orchestration |
+|---|---|---|---|
+| baseline | 0 | 0 | 0 |
+| drop rung 1 (`RunAgentType` ignored) | 3 | 3 | 2 |
+| drop rung 2 (`Sender` ignored) | 3 | **4 pre-existing** | 2 |
+| drop the nil guard | 1 | 0 | 0 |
+| **revert the actions door to its old one-rung read** | 0 | **exactly the 3 new** | 0 |
+| **revert the coordinator's delegation** | 0 | 0 | **exactly the new coordinator test** |
+
+Row 3 is the no-op half — the four *pre-existing* tests are what prove the old behaviour is
+preserved rather than assumed. Row 5 is the defect reproduced, and simultaneously the proof the
+old suite could not see it: every pre-existing test in the actions package passes
+`sqlmock.AnyArg()` for `agent_type`, so **a broken ladder was green on the whole package**. Row 6
+matters because `determineOwnerAgentType` had **no test at all** before this change — a claim of
+the form "one ladder, two consumers" is worth only as much as its least-pinned consumer.
+
+Row 4 is stated honestly: the nil guard is exercised by the `types` test only, because both
+consumers nil-check before calling. It is defence for future callers, not a live path.
+
+## 6. Rollback
+
+Image-only. No schema, no config, no migration; the previous binary tolerates every row this one
+writes, and reverting restores the previous column value for subsequent rows. Nothing to undo in
+the database.
+
+## 7. Acceptance evidence — and a declared way this could be a partial no-op
+
+**Do not mark this IMPLEMENTED on the binary check alone.**
+
+1. **In the binary**, after the next roll, one Running pod per **distinct image tag** (the fleet
+   is routinely mid-roll, and a label-picked pod answers for either): POS
+   `provenance from the dispatch sender rather than the resolved run agent` = 1 and
+   `whose workflow is this context executing` = 1; NEG a phrase in no version = 0.
+   ⚠ **never anchor the needle** — `grep -c "^ResolvedAgentType$"` reads 0 on a binary that
+   carries it, because the Go linker packs constants into contiguous blobs (landmine filed).
+2. **In production behaviour**, which is the claim that matters:
+   ```sql
+   SELECT count(*) FROM agent_error_log
+   WHERE agent_type = 'generic'
+     AND action IN ('diagnose_council_decide','retract_page_deployment','emit_tool_cross_link_items')
+     AND occurred_at > '<roll time>';           -- baseline: 36 in the 13 days before
+   SELECT count(*), count(DISTINCT agent_type) FROM agent_error_log
+   WHERE occurred_at > '<roll time>';           -- the positive control
+   ```
+   **A zero with no traffic is a dead path, not a fix.**
+
+### The declared limitation
+
+This may be a **partial no-op on RESUMED steps**, and it is stated here rather than left to be
+discovered. `RunAgentType` reaches the actions door on the first-step / same-message path
+(processor sets it → `ToHeaders` → `FromHeaders` → `buildActionParams` hands the same `execCtx`
+to the action; the round trip is pinned by a test). On a step resumed after an await, `execCtx`
+is rebuilt from the **response** message's headers, and `ensureFullExecutionContext`
+(`coordinator.go:1589`) backfills `Sender` from `state.OwnerAgentType` **only when `Sender` is
+empty** — it does not backfill `RunAgentType` at all.
+
+I could not settle this by measurement: `orchestration_states` retains ~24h and every
+actions-door `generic` row is older than that, so the join returns nothing to evaluate. The
+decisive check is therefore post-roll, above. If the residue does not fall, the contained remedy
+is one `if` in `ensureFullExecutionContext`, and it belongs in its own round.
+
+## 8. The question this paper actually wants ruled on
+
+Not "may this ship" — it has shipped, and under the 2026-07-29 §2 ruling it could not have been
+held. The question is **which forum the next seam of this shape belongs in**, because the
+precedent is one week old and this change sits just outside it.
+
+`RSH-008`'s round-1 `architecture` seat returned `ARCHITECTURE_SIGNAL: point_fix`, reasoning:
+*"stays inside `platform/orchestration/actions`, adds no schema column, no new reserved key on a
+shared action config, no wire-shape change."* Three of those four hold here. **The first does
+not** — this adds an exported method to a type that `orchestration`, `actions` and `messaging`
+all import.
+
+Applying OWNER RULING 2026-07-29 §1 (*"needs an RFC only when it changes what the shared
+mechanism GUARANTEES"*) as I read it, my own answer is **no, this was council-gate scope**:
+
+- it adds an opt-in capability reachable by nothing until a caller names it — the
+  additive-and-inert case the ruling explicitly narrowed *out* of architecture scope;
+- it grants no new authority; nothing can now refute, retract or re-type anything it could not
+  before (the RFC_002 trigger);
+- the guarantee readers actually rely on is *"`agent_type` names the agent this row belongs to"*,
+  and the change makes the value **more** faithful to it, not different in kind;
+- and the consumer census (§4) is the measurement the 2026-08-02 narrowing turns on: **no
+  automated consumer**, so there is no set of owners whose agreement is being presumed. The
+  humans who *are* the consumers are told by this paper and by `RSH-009`.
+
+**The counter-argument, kept visible because a seat may well prefer it:** "no automated consumer
+today" is a fact with a timestamp, and an exported method on a wire type is a standing invitation
+to a third consumer with a third tail. If the estate's answer is that *any* new method on
+`ExecutionContext` is architecture-scope regardless of what it does, that is a clean and
+defensible line — and it is a line the owner should draw, not me, because I am the interested
+party.
+
+**What would change my own answer:** a reader who can name an automated consumer of
+`agent_error_log.agent_type`'s *value* that my census missed. That census is a grep and a live
+query, both in `RSH-009`; falsify it and the paper's §4 collapses.
+
+## 9. Sources
+
+- Code: `1bc08d1ce`. `platform/orchestration/types/context.go` (+`resolved_agent_type_test.go`);
+  `platform/orchestration/coordinator.go` (+`owner_agent_type_ladder_test.go`);
+  `platform/orchestration/actions/log_action_error.go` (+`log_action_error_test.go`).
+- Register: `docs026_concept_register/register/resilience-self-heal.md` → **RSH-009**
+  (and **RSH-008**, the door this feeds).
+- Lane: `docs024_key_docs_latest/rfc012_await_findings/` — the standing five; the mutation
+  harness and the pod-grep recipe are in its `RUNBOOK`.
+- Submission: `rfc012_await_findings/SUBMISSION_2026-08-08_resolved_agent_type_ladder.json`,
+  corr `6186ab10-a006-4c34-b9ea-ecedfde8ea2d`.
+- **Not this**: `bugs_open/060` is a different bug (no durable agent-run record; `usage_count`
+  dead). It is where `RunAgentType` came from and must not be folded in.

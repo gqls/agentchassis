@@ -162,7 +162,48 @@ Sections, all required:
 > **So: `grep` this list before claiming a number, and add your line in the same commit as the
 > paper.** A ledger nobody appends to is not a ledger — it is a comment, and this is what a
 > comment enforces.
+>
+> **AND IT WENT UNMAINTAINED AGAIN IMMEDIATELY — eight more papers, `RFC_011` to `RFC_018`,
+> filed between 2026-08-02 and 2026-08-08 without one of them claiming its number here.**
+> Restored below on 2026-08-08 by the same method (`ls` the directory), by the session filing
+> `RFC_019`. That is now **sixteen of nineteen papers** self-numbered against a stale line
+> reading "the next free number is `RFC_011`" — which is worse than the first lapse, because
+> this time the restoration and the rule were both *already in the file*, three paragraphs
+> above the wrong number. **The lesson is not "try harder": a ledger that only tells the truth
+> when every author remembers to write to it will keep reading `RFC_011` for ever.** The one
+> thing that has actually worked, twice, is deriving it from the directory — so **derive it,
+> then write what you derived**, and treat the line below as a hint to be re-checked, never as
+> the answer:
+> ```bash
+> ls docs/agent_docs/docs024_key_docs_latest/architecture_review/RFC_*.md | sed 's/.*RFC_0*\([0-9]*\)_.*/\1/' | sort -n | uniq | tail -3
+> ```
+> The obvious fix is to make the check mechanical (a `pattern-check.py` rule, or a
+> `PROCESS`-vs-directory drift check in the same shape as `landmines-sync.py --check`).
+> Nobody has built it, and until somebody does, the collisions are the expected outcome, not
+> the surprise.
+
+- `RFC_011` — **AMBIGUOUS, two unrelated papers** (observed 2026-08-08, both filed 2026-08-02+
+  without claiming the number). Resolve by slug:
+  - `RFC_011_a_fleet_wide_execution_deadline_on_the_step_seam.md`
+  - `RFC_011_git_adapter_action_vocabulary_and_the_unpublish_verb.md`
+- `RFC_012_the_await_overwrite_destroys_action_findings.md` — the await overwrite destroys action
+  findings; three owner rulings, all delivered (lane: `rfc012_await_findings/`).
+- `RFC_013_per_category_provocations_and_a_contract_no_compiler_can_see.md`
+- `RFC_014_handleragent_is_a_stringly_typed_routing_contract.md`
+- `RFC_015_decision_records_allow_change_forbid_regression.md`
+- `RFC_016_section_entry_wire_shape_and_plan_time_fact_assignment.md`
+- `RFC_017_verifier_registry_fails_open_on_error.md`
+- `RFC_018_reaper_accounting_as_a_shared_mechanism.md`
+- `RFC_019_one_ladder_for_which_agent_is_running.md` — one ladder for "which agent is running"
+  (`ExecutionContext.ResolvedAgentType`), and where its bottom rungs live.
+  **RETROSPECTIVE**, like `RFC_002`: the code shipped in `1bc08d1ce` with register entry
+  `RSH-009`, per OWNER RULING 2026-07-29 §2 (review here is after the fact by design; a thread
+  cannot hold a change out of a shared HEAD). It asks the owner to draw a line the author is the
+  interested party in: whether an exported method on `types.ExecutionContext` is architecture-scope
+  as such, given `RSH-008`'s one-week-old `point_fix` precedent was licensed by "stays inside
+  `platform/orchestration/actions`" and this does not.
 
 Claim the next number by adding a line here in the same commit as the RFC —
 the same collision discipline as migrations, and this list is the ledger.
-**The next free number is `RFC_011`.**
+**The next free number is `RFC_020`** — derived from the directory on 2026-08-08, not carried
+forward. Re-derive it before you trust it; twice now this line has been wrong by eight.
