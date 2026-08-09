@@ -40,17 +40,17 @@ within a day**, one of them twice — that rate is the point, not the individual
 
 | what | was (08-07) | is (08-08) | so |
 |---|---|---|---|
-| chassis image | v1.0.1262 | **v1.0.1269** (re-proved; four rolls, none ours) | §1 — a new image is a new fact |
+| chassis image | v1.0.1262 | **v1.0.1270** (re-proved; five rolls, none ours) | §1 — a new image is a new fact |
 | migration 338 | not written | **APPLIED + verified 22:12:55Z** | §2 |
 | `090` run 4 | still `diagnosing` | **`complete`, UNVERIFIABLE** | §5 |
-| what is left | the migrations | **the propagation re-render** | §2b |
+| what is left | the migrations | **propagation — and it is BLOCKED on an owner call** | §2b |
 
 Nothing has touched `bugs_open/212`, `bugs_open/213` or this directory since the 08-07
 commits (`git log b938b54d8..HEAD -- …` is empty), so §3–§4 stand as written.
 
 ## 1. DONE — the engine is live, pod-proven [re-proved 2026-08-08]
 
-Both replicas of `agent-chassis`, image `docker.io/aqls/agent-chassis:v1.0.1269`:
+Both replicas of `agent-chassis`, image `docker.io/aqls/agent-chassis:v1.0.1270`:
 
 | symbol | count | role |
 |---|---|---|
@@ -60,7 +60,7 @@ Both replicas of `agent-chassis`, image `docker.io/aqls/agent-chassis:v1.0.1269`
 | `fillDarkSchemeSpecialisedSlots` | 4 | positive control |
 | `zzzInventedControlXyz` | 0 | negative control |
 
-Identical counts on v1.0.1262, 1264, 1266 and 1269 — four rolls, none of them ours. Nothing downstream of a
+Identical counts on v1.0.1262, 1264, 1266, 1269 and 1270 — five rolls, none of them ours. Nothing downstream of a
 build records which commit it came from, so the symbols are the only evidence — which is
 why both controls are in the table and why every replica was checked. **Do not re-derive
 this from the tag, and do not carry this table forward across another roll without
@@ -149,16 +149,78 @@ wrong guesses). 14 active themes carry the five changed layouts:
 | tool-portal-dark | 2 — gamesdesign.co.uk, robot-hands.com |
 | high-energy | 1 — boxing |
 
-> **[UNMEASURED] gaswholesalers.com is not in that list and it is the site with the most
-> expected closures (6 of the 12).** It presumably runs one of the generic themes (`default`,
-> `standard-brochure`, `professional-dark`), but I did not confirm which. **Confirm this
-> before concluding the layouts change reaches it** — if it does not, the expected-12 figure
-> in §6 is wrong and the layouts half needs re-scoping.
+> **RESOLVED 2026-08-09 — the layouts change DOES reach gaswholesalers.com.** Asked its
+> served stylesheet rather than the schema: it carries the multi-line needle
+> `a {\n  color: var(--color-accent);` exactly once, so it runs one of the four multi-line
+> layouts. `--color-accent-ink` appears **zero** times in that file, which is expected and is
+> the point — the served CSS predates both the engine and 338. §6's expected-12 stands.
 
-**Enqueue mechanism: NOT YET DETERMINED.** I ran out of budget on schema archaeology rather
-than on the decision. Start from the standing note that a single-page deploy can be fired
-directly when the queue is stalled, check whether a stylesheet re-render is a distinct
-action from a page re-render, and **prefer the framework's own path over hand-firing**.
+### BLOCKED — the only CSS re-render path runs an LLM design pass on an unpinned site
+
+**Determined 2026-08-09, and this is a decision for the owner, not a detail.**
+
+**A CSS re-render is unavoidable.** The components now say
+`var(--color-primary-ink, var(--color-primary))`. Those variables are *defined* only by the
+engine's step 12, which runs during a stylesheet render. Until a site's `styles.css` is
+regenerated, every new reference resolves to its fallback — i.e. renders exactly as today.
+**So without a CSS re-render the entire fix, component half included, is inert.** Confirmed
+at the artefact: gaswholesalers' served stylesheet carries the base-link needle once and
+`--color-accent-ink` **zero** times.
+
+**The only path to `render_css_from_spec` is `webdesign-agent`**, and its step graph forces
+the LLM through first:
+
+```
+check_site_context → … → load_decisions → analyze_design (execute_llm_prompt)
+                       → check_update_db → update_site → generate_css (render_css_from_spec)
+                       → deploy_css
+```
+
+There is no entry that reaches `generate_css` without `analyze_design`. It is the only
+active agent holding that action (checked across all live, non-snapshot definitions).
+
+**And `analyze_design` re-invents the palette per run.** That is the recorded fleet-wide
+mechanism from 2026-07-17 on robot-hands — four CSS rewrites in one day, one of which shipped
+a LIGHT background onto a dark site. The prompt only renders the structured
+`design_intent.palette` block, so a site without it gets the "invent a palette" branch every
+time.
+
+**0 of the 12 affected sites carry that pin** [MEASURED 2026-08-09]:
+
+```sql
+SELECT domain, (content_data->'design_intent'->'palette'->'reference_values') IS NOT NULL AS pinned
+FROM sites WHERE domain IN (…the 12…);   -- pinned = false for all 12
+```
+
+Eight of the twelve do have `content_data ? 'color_scheme'`, which the check-side fix
+`3437f2212` accepts — that reduces *spurious dispatch*, it does not stop the LLM
+re-inventing on a real run.
+
+**The one guard that exists is live but narrow.** `enforceLayoutScheme` (`bugs_closed/022`)
+pod-greps 2 on v1.0.1270. It rejects a merged background that contradicts `layouts.scheme` —
+so the worst case (light background onto a dark site) is caught. It does **not** constrain
+accent, text or heading drift, which is most of what this lane measures.
+
+### The options, costed. Do not pick one silently — this is wider than bug 122.
+
+1. **Pin `design_intent.palette.reference_values` on all 12 first, then dispatch.** The
+   proven pattern (`robot_hands/SQL_2026-07-17_r1b_design_intent_palette_pin.sql` — the next
+   run reproduced the pinned values exactly). Safest, and the pin is defence-in-depth worth
+   having anyway. Cost: 12 pins derived from each site's *current live* palette, which is 12
+   measurements before any of them is written.
+2. **Give `render_css_from_spec` a caller that is not the design LLM** — a minimal
+   render-and-deploy path. Cleanest long-term and it makes this class of propagation cheap
+   for ever. But it is a **new shared mechanism, so architecture-scope** under the 2026-07-29
+   ruling: register it in the same commit, and expect the guardian seat to want it on its own
+   merits rather than folded into a bug fix.
+3. **Do nothing and leave the fix inert.** Honest, reversible, and currently the de-facto
+   state — but then 338 is a source change nobody sees, which is precisely the shape
+   `bugs_open/213` is about.
+
+**My recommendation is 1 for this lane and 2 as a separate item**, because 1 unblocks 122
+without inventing anything, and 2 is the thing that stops the next lane hitting this wall.
+But the churn risk lands on 12 live sites that are not this lane's to repaint, so it wants
+an explicit yes.
 
 ## 3. `bugs_open/212` — reframed. Read its §8 before acting on §1–§7
 

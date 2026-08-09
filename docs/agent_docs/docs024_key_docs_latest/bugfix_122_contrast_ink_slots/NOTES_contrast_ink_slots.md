@@ -578,3 +578,56 @@ changed layouts. Two things I did NOT resolve and have marked as such: the enque
 (ran out of budget on schema archaeology, not on the decision), and **whether the layouts
 change even reaches gaswholesalers.com — the site with 6 of the 12 expected closures, and
 the one site absent from the theme join.** If it does not, §6's expected-12 is wrong.
+
+## 2026-08-09 — propagation is BLOCKED, and the blocker is bigger than this bug
+
+Chassis at **v1.0.1270** (fifth roll, none ours); VIZ-014 re-proved, controls holding.
+`enforceLayoutScheme` also greps 2, which matters below.
+
+**Resolved yesterday's [UNMEASURED] flag, positively.** The layouts half *does* reach
+gaswholesalers.com. I asked the served stylesheet instead of the schema — it carries
+`a {\n  color: var(--color-accent);` exactly once. Cheaper and more direct than the
+`css_themes.layout_id` join I had been grinding through, and it answers the question the
+schema only implies. `--color-accent-ink` appears zero times there, which is expected: the
+file predates both the engine and 338. §6's expected-12 stands.
+
+**Then the real finding, which stops the lane.**
+
+A CSS re-render is **unavoidable** — the new `--color-*-ink` / `--color-accent-text`
+variables are defined only by the engine's step 12, which runs during a stylesheet render.
+Until `styles.css` regenerates, every reference 338 added resolves to its fallback and
+renders exactly as today. So the component half is inert too, not just the layouts half.
+
+And the only live agent holding `render_css_from_spec` is `webdesign-agent`, whose step graph
+forces `analyze_design` (an `execute_llm_prompt`) before `generate_css`. There is no entry
+that skips it. Which runs straight into the recorded colour-churn landmine: `analyze_design`
+invents a fresh palette per run unless the site carries a structured
+`design_intent.palette.reference_values` block.
+
+**0 of the 12 affected sites carry that pin** [MEASURED]. Eight have
+`content_data ? 'color_scheme'`, which the check-side fix accepts — but that only suppresses
+*spurious dispatch*; it does nothing about the LLM re-inventing on a real run.
+`enforceLayoutScheme` is live and catches a background contradicting `layouts.scheme`, so the
+worst 2026-07-17 outcome (light bg onto a dark site) cannot recur — but it does not constrain
+accent, text or heading, which is most of what this lane measures.
+
+> **The thing worth carrying forward: a fix can be complete, verified, reviewed and applied,
+> and still have no delivery path.** 338 is correct — dry-run, induced guards, negative
+> controls, applied, verified at the rows. None of that was ever the hard part. The hard part
+> is that making a visitor see it requires running an LLM design pass across 12 live sites
+> that are not this lane's to repaint. **I checked the payload, the delivery command, and the
+> migration ledger, and never once asked "what actually re-renders a stylesheet?" until after
+> the change was live.** That question was answerable on day one and would have reordered the
+> whole lane — the pins should have been the *first* migration, not a discovery made after
+> the source was already changed.
+>
+> Generalised: **"how does this reach production?" is a question about the LAST mile, and I
+> keep answering it about the first.** Pod-proving the engine, gating the migration and
+> scoping the apply are all upstream checks. The delivery path had a live landmine filed
+> against it 23 days ago, in this repo, and I read that landmine only when I got to the step
+> that needed it.
+
+**Left explicitly undone rather than fired.** Three options are costed in handoff §2b — pin
+then dispatch (recommended for this lane), build a non-LLM CSS render path (architecture
+scope, recommended as a separate item), or leave it inert. The churn risk lands on sites this
+lane does not own, so it wants an explicit yes rather than a session's judgement.
