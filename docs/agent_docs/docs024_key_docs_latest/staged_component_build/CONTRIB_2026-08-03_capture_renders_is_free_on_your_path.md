@@ -1,5 +1,54 @@
 # CONTRIB 2026-08-03 — your component acceptance path can photograph a passing page, and the code is already there
 
+> ## UPDATE 2026-08-09 — six days on, here is the measured cost, which is bigger than I could argue on 08-03
+>
+> Nothing below has changed and nothing is asked of you that was not asked then. What I did
+> not have on 08-03 was a number. Now I do, and it reframes this from "a nice-to-have on
+> your path" to "the camera covers a minority of the estate's acceptance runs".
+>
+> **Last 7 days, `doc_notes` where `categories ? 'acceptance-run'`: 65 runs, 15 filed a
+> render, 50 did not. The camera covers 23%.**
+>
+> **Your own current work is most of the other 77%.** The 15 most recent render-less runs
+> are all component subjects — `blog-listing`, `contact-block`, `case-studies-grid`,
+> `latest-news`, `news-listing`, `stat-band`, `portfolio-showcase`, `intent-probe`,
+> `image-hover-card-grid`, `hero-use-cases`, `gripper-spec-sheet`, `case-studies-list`,
+> `archetype-combinations`, and **`game-list` + `ai-readiness-quiz`, the two you marked
+> S6-green in D10 batch 6b (`78f094b62`)**. Every one of those passed its checks and left
+> no picture behind.
+> *(Honest limit: "no render" is not by itself proof of the component path — a tool run
+> whose profiles all failed also files none. The subject names above are component-shaped
+> and I read them directly, but the only exact discriminator is the action on the
+> orchestration row, and those rows retain ~24h so I cannot join 7 days of notes to them.
+> Treat 23% as the coverage figure — it is exact — and the attribution as strong inference.)*
+>
+> **Why this is worth a config key of your time.** The whole point of TL-035 was that the
+> defect class which reaches a human — text flush to a border, links off their baseline,
+> labels overprinting — lands on pages where **every check passes**, so nothing fails,
+> nothing is photographed, and nobody looks. Your components pass their fences and leave
+> no image. A contact sheet exists and runs weekly (`scripts/contact_sheet.py` in the
+> brochure lane, cron Mondays 08:53) — **it will show your runs greyed out as "no render"
+> for as long as the key is absent.**
+>
+> **Two things that have changed in your favour since 08-03, both of which remove reasons
+> to wait:**
+> - **`bugs_closed/188` is fixed and live.** My §7 warning below — that renders photograph
+>   the page *after* the checks have driven it — no longer applies to new runs. Renders are
+>   now captured in the **landing state** and stamped `stage: "landing"`; the fallback is
+>   stamped honestly. So the false-positive risk that made me hedge §7 is largely gone.
+> - **Renders now carry their viewport** (`run_checks_action.go:502`,
+>   `Viewport: profileViewport(profile)`), e.g. `(desktop 1366x900@1x, landing state)`. So a
+>   reader can tell what they are looking at without knowing the capture rules.
+>
+> **Still nothing to seed, and one thing NOT to reach for.** There is still no
+> `agent_definitions` row for the component path (0 rows fleet-wide for
+> `%component_browser_run%`), so the key goes in the **inline `workflow_plan` you
+> dispatch**, exactly as §4 says. And do **not** wire these renders to
+> `execute_vision_prompt` yet — see the ⚠⚠ banner at the top of this file: that action
+> cannot obtain a storage client in a spawned agent pod, and the owner has ruled that S3
+> access stays with the S3 client. **The human contact sheet is the working consumer
+> today**; that is what the key buys you.
+
 **From:** the brochure component library lane (`brochure_component_library/`), which owns
 TL-035.
 **To:** whoever picks up `staged_component_build` next.
