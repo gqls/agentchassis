@@ -156,3 +156,36 @@ as the argument for a further piece of work we deferred. On this evidence the
 argument is weaker than we thought and possibly gone. Three of those four jobs are
 still working through the queue as I write; their results are the honest answer, and
 nobody should pick that deferred work up without looking at them first.
+
+## 2026-08-09 quarter past three — all ten finished, none failed, and the deferred job has lost its reason
+
+The queue worked through the rest of them. Ten jobs, ten successes, no failures, and
+every one closed for the strong reason — the target page has shipped and the link
+resolves. Three pages that did not exist this morning now exist and serve properly:
+the grip-styles guide, the brands listing and the shop listing.
+
+Two honest qualifications, because "ten out of ten" is a better headline than it is a
+fact.
+
+The ten jobs were only ever pointing at three missing pages. Once the first job built
+a page, the other jobs aimed at that same page found it already there. So the real
+evidence is three successes, not ten — three pages built from nothing, across two
+different kinds of page. That is still enough to settle this, but I would rather say
+three and be right than ten and be flattering ourselves. This lane has already been
+caught once this week by a count that looked like more evidence than it was.
+
+And the thing we had deferred — teaching the builder to route different kinds of page
+differently — has now lost its justification entirely. We had believed four of these
+jobs would fail because they pointed at listing pages rather than articles. All four
+succeeded, on two different listing pages, both built from scratch. The belief had
+four opportunities to prove itself and took none of them. If anyone wants that work
+done later they will need a fresh reason for it, because this one is gone.
+
+One thing I noticed and have written down elsewhere rather than here: the grip-styles
+page got rebuilt and republished six separate times in forty minutes, once for each
+page that linked to it, and each rebuild wrote the article again from scratch. It is
+not wrong — every job did the right thing — but it is six times the work needed, and
+it is a cost question for whoever looks after the dispatch queue rather than
+something belonging to this bug.
+
+That is this piece of work finished.

@@ -413,6 +413,10 @@ Darts Online | Spec-First Darts Guides"* with zero `All Brands` content.
 > (`6e1b562b`, `0469f44f` → brands-index; `b4184d0f` → shop-index) were still
 > dispatching when this was written — their outcomes are the real demand signal and
 > should be read before anyone re-opens candidate 4.
+>
+> **RESOLVED at 15:14Z — "may be absent" is now "is absent".** All four converged via
+> disjunct (a), across two distinct section-index pages both built from zero
+> components. See § "FINAL LEDGER 15:14Z" at the foot of this file for the ruling.
 
 ### ⚠ The acceptance query in the RUNBOOK was WRONG, and its control could not catch it
 
@@ -444,3 +448,50 @@ window — yet that item's own deploy payload lists exactly one file
 So the container was re-deployed by something outside this item, with its own
 content. **Recorded rather than explained** — it is not this bug's signature (no
 content damage) but a reader who greps `about`'s timestamps will trip over it.
+
+### FINAL LEDGER 15:14Z — all ten converged, zero failures, and candidate 4's demand signal is ABSENT
+
+The run completed at 15:14Z. Every one of the ten items:
+
+| status | count | via disjunct (a) | via disjunct (b) |
+|---|---|---|---|
+| `complete` | **10** | **10** | **0** |
+
+`sections_saved.page_name` = the target on **10/10**; `deploy_ok` = `true` on **10/10**;
+all three target pages `deployed`. **Nothing failed.**
+
+**Read this as THREE independent proofs, not ten.** The ten items share only three
+distinct targets, and only the *first* item against each target built a page that had
+never been built:
+
+| target | page_type | first item | built at | file |
+|---|---|---|---|---|
+| `brands-index` | section-index | `69818add` | 14:24Z | `/brands/index.html` |
+| `grip-styles` | blog-post | `4151471c` | 14:28Z | `/blog/grip-styles.html` |
+| `shop-index` | section-index | `b4184d0f` | 14:52Z | `/shop/index.html` |
+
+The other seven rebuilt and redeployed a target that was **already shipped** by the
+time they ran, so they demonstrate the weaker claim (correct routing + honest
+re-verification), not build-from-nothing. Three independent convergences across two
+page types is still decisive for this bug — but do not quote "10/10" as ten
+independent proofs.
+
+**Worth someone's attention, not this bug's:** grip-styles was rebuilt and redeployed
+**six times** between 14:28 and 15:10, once per item, because six separate containers
+each linked to it. Each rebuild is a full LLM section-generation + deploy. That is
+correct-but-wasteful — the second and later items could have short-circuited on
+"target already shipped" before generating anything. Not filed as a bug here because
+it is a *cost* property of the dispatch loop rather than a defect in 220's fix, and
+filing it against this bug would bury it. Whoever picks it up: the cheap check is
+`pages.build_status` at claim time.
+
+> **CANDIDATE 4'S DEMAND SIGNAL IS ABSENT.** All four `section-index`-targeting items
+> converged via disjunct (a) — on **two distinct** section-index pages
+> (`brands-index`, `shop-index`), both built from zero components and both now
+> serving 200 with their containers uncontaminated. The lane's recorded expectation
+> that these would "fail LOUDLY" is refuted on every instance that could have shown
+> it. **On this evidence candidate 4 (route unbuilt targets by `page_type` via
+> `availableBuilders`) has no demand signal at all** and should not be picked up on
+> the justification written in § "TAKEN 2026-08-08". If it is wanted, it needs a new
+> rationale and fresh measurement — ideally a target `page_type` that is genuinely
+> unhandled, which this run did not produce.

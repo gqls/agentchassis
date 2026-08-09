@@ -372,3 +372,34 @@ those are the honest demand signal.
   `69818add`** (that item's payload lists one file, `/brands/index.html`; no other
   work item touched `about` in the window). Content is uncontaminated, so it is not
   220's signature. Recorded in the bug file as unexplained rather than guessed at.
+
+## 2026-08-09 15:14 UTC — the run finished: 10/10 converged, 0 failures, and candidate 4 has no demand signal left
+
+Full ledger and the candidate 4 ruling are in the bug file (§ "FINAL LEDGER 15:14Z").
+Three things belong here rather than there.
+
+**"10/10" is an honest count of items and a dishonest count of proofs, and I nearly
+wrote it the dishonest way.** The ten items share **three** targets. Only the first
+item against each target built a page that had never existed; the other seven ran
+against a target that was already shipped, so their `verified`-via-(a) is the weak
+claim (routing + honest re-verification), not build-from-nothing. The strong evidence
+is **three** independent convergences — `brands-index` 14:24, `grip-styles` 14:28,
+`shop-index` 14:52 — across two `page_type`s. Same trap as the residue census this
+lane already recorded: *ask by identity, not count*. A tally of ten rows looks like
+ten experiments and is three.
+
+**Candidate 4's demand signal is not merely weaker than recorded — it is gone.** All
+four section-index items converged via disjunct (a), on two distinct section-index
+pages, both built from zero components. The prediction that they would "fail LOUDLY"
+had four chances to show itself and took none. Anything that re-opens candidate 4
+now needs a fresh rationale and a target `page_type` that is genuinely unhandled;
+this run did not produce one.
+
+**An efficiency finding, deliberately NOT filed against 220.** grip-styles was
+rebuilt and redeployed **six times** (14:28, 14:33, 14:38, 14:49, 14:57, 15:10) —
+once per linking container — each a full section-generation plus deploy. Correct but
+wasteful: items 2–6 could have short-circuited on `pages.build_status` at claim time,
+since their target was already shipped. Recorded in the bug file as "worth someone's
+attention, not this bug's". Filing it here would have buried a cost property of
+`build-dispatch-loop` inside a closed correctness bug — the routing question 220
+answers and the "should we generate at all" question are different lanes.

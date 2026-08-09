@@ -95,9 +95,27 @@ of work we had deferred; that argument is now weaker and possibly gone.
 
 ## Where we're going
 
-Three of the ten jobs from this run are still working through the queue. Their
-outcomes are the honest evidence about whether section listings build reliably, and
-nobody should pick up the deferred routing work without reading them.
+> **UPDATED 15:14Z, an hour after this was written — the run finished.** All ten jobs
+> completed, none failed, and every one closed with the strong reason. Two
+> refinements to what is said above, both making it more exact rather than less:
+>
+> **Ten jobs is three proofs, not ten.** The ten share only three target pages, and
+> only the first job against each built something that had never existed. The other
+> seven ran against a page that was already up, so they show correct routing rather
+> than building from nothing. Three independent successes across two kinds of page
+> is still decisive here — but "ten out of ten" would overstate it, and this lane has
+> already been caught once by a count that looked like more evidence than it was.
+>
+> **The deferred work now has no argument for it at all.** All four section-listing
+> jobs succeeded, on two different listing pages, both built from nothing. The
+> prediction that they would fail had four chances and took none.
+>
+> One thing we noticed and deliberately did not file here: the grip-styles page was
+> rebuilt and republished six times in forty minutes, once for each page that linked
+> to it, each rebuild a full content generation. That is correct but wasteful, and it
+> belongs to whoever owns the dispatch loop's costs, not to this bug.
+
+Nothing about this bug is outstanding.
 
 There is one piece of old damage left, on a different site: a job that closed green
 back on 5 August, before the verifier existed, leaving a live page linking to a
