@@ -11518,3 +11518,47 @@ search — check that the retrieval it performed was capable of returning a posi
 shape as `bugs_open/223` (a verifier that consults one index reports "does not exist" for
 every class the index never ingested) and the `landmine-verifier` NEEDS_HUMAN_REVIEW caused
 by index staleness rather than by anything about the entry.
+
+### A dispatched orchestration can report `COMPLETED` having run ZERO steps of the named agent — two innocuous `input_data` keys together silently swap in the `generic` no-op (`bugs_open/239`, 2026-08-09)
+
+**Symptom.** `{"action":"orchestrate","config":{"agent_type":"page-build-handler"},
+"input_data":{...}}`, sent exactly per the documented drive-loop recipe, reports
+`owner_agent_type='generic'`, `status='COMPLETED'`, `execution_path=[]` — not the requested
+agent, not a failure, not a hang. It looks like a fast, clean success.
+
+**Mechanism, isolated by bisection, not yet traced to a Go line.** Eleven dispatches, same
+site, same session, varying only which `input_data` keys were present: `site_id`,
+`work_item_id`, `item_type`, `spec` and `source` each ALONE (or in most pairs) correctly
+resolve `owner_agent_type` to the requested agent and execute its real workflow. **`source`
+and `spec` present TOGETHER** — regardless of `config.agent_type`, regardless of what either
+value actually is — silently substitutes the `generic` agent's trivial default config (one
+`complete_workflow` step, description *"No-op — scheduled task pre_query already did the
+work"*) for the requested agent's real one. `config.agent_type` IS read correctly this far
+(`processor.go:extractGroupInfo`) — the swap happens somewhere after that, keyed off
+`input_data`'s shape, not the caller's intent.
+
+**Why this is expensive to catch.** `source` and `spec` are both ordinary `site_work_items`
+columns, and the drive-loop envelope this repo's own HANDOFF docs teach **includes both
+together by design** — so the documented workaround for the starved build queue
+(CLAUDE.md "Dispatching work at the cluster") reproduces its own silent failure on the
+common case (any work item with a non-empty `spec`), and the existing verify step
+(`SELECT status, current_step FROM orchestration_states WHERE correlation_id=...`) cannot
+tell the difference: `COMPLETED` / `complete` is exactly what a real success also looks like.
+
+**What to do.**
+- **Verify a manual dispatch by `owner_agent_type`, not just `status`.** `owner_agent_type`
+  must equal the `config.agent_type` you sent; `execution_path` must be non-empty; treat a
+  1-hop `complete` with no prior real step as a no-op, not a fast success, regardless of the
+  `status` column.
+- **Workaround, confirmed:** omit `source` from `input_data` when hand-dispatching. If the
+  target step needs it, have it read `site_work_items.source` via `work_item_id` instead of
+  being handed it directly.
+- **Root cause not found.** This entry is the trap to recognise, not the fix — see
+  `bugs_open/239` for the full bisection table and what was and wasn't checked.
+
+**The general form:** a message envelope shaped like ordinary, unrelated metadata (two
+columns from the same source table, sent together because that's what the table row looks
+like) can trip a coordinator-level heuristic that has nothing to do with either field's
+content — and the failure mode it produces (a different, TRIVIAL workflow silently
+substituted, reporting real success) is specifically designed to look like nothing went
+wrong. A `COMPLETED` status is not evidence the NAMED agent ran; check who actually ran.

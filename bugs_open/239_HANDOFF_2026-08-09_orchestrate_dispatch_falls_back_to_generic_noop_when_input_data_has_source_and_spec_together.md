@@ -1,0 +1,138 @@
+# 239 — a top-level `action=orchestrate` message silently resolves to the `generic` no-op agent, ignoring `config.agent_type`, whenever `input_data` carries BOTH `source` and `spec` keys
+
+**Filed 2026-08-09** by the `webdesign_uk_build_service` lane, found while driving
+a `page-build-handler` dispatch by hand for Phase 5 (the queue is starved — see
+CLAUDE.md's "Dispatching work at the cluster" and this lane's own HANDOFF §1/§2
+"drive loop" recipe). **Status: OPEN, root cause NOT diagnosed at the Go source
+level — this file is empirical bisection, not a code fix.** Filed per the
+2026-07-31 owner ruling's escape hatch: this is a durable, cross-cutting,
+structural claim (it breaks the drive-loop pattern CLAUDE.md itself documents
+and that many `HANDOFF`/`RUNBOOK` docs across the repo rely on), but I
+substituted rigorous first-hand empirical verification — eleven isolated,
+reproducible test dispatches bisecting the exact trigger condition — for a
+`090` run, because the finding is precise enough to hand straight to whoever
+picks it up: the trigger is two specific JSON keys co-occurring, not a vague
+"it sometimes doesn't work."
+
+## The symptom, one sentence
+
+Send `{"action":"orchestrate","config":{"agent_type":"<X>"},"input_data":{...}}`
+via `kcat` to `system.agent.generic.requests` (the documented drive-loop
+envelope). If `input_data` contains **both** a `source` key and a `spec` key —
+**regardless of what `config.agent_type` says, regardless of what those two
+keys' values actually are** — the orchestration silently runs as
+`owner_agent_type='generic'`, using the `generic` agent's own trivial
+`default_config` (a single `complete_workflow` step whose description reads
+*"No-op — scheduled task pre_query already did the work"*), and reports
+`status='COMPLETED'` having done **nothing**: zero steps executed
+(`execution_path` is an empty array), no child orchestrations spawned, no DB
+writes. **The named agent's real workflow never runs at all.**
+
+This is worse than a hard failure: `status='COMPLETED'` reads as success. The
+only tell is `owner_agent_type != config.agent_type` and an empty
+`execution_path` — neither of which the documented drive-loop's own verify
+step (`SELECT status, current_step FROM orchestration_states WHERE
+correlation_id=...`) checks.
+
+## Evidence — eleven isolated dispatches, same site, same session, ~20 minutes apart
+
+All fired via the exact kcat envelope from this lane's own HANDOFF §1/§2 and
+`scripts/initial_messages/020_build_pipeline/076_trigger_build_pipeline.sh`
+(topic `system.agent.generic.requests`, headers `action=orchestrate
+from_agent_type=user from_agent_id=cli client_id=demo_client`, fresh UUIDs
+each time). Verified by `SELECT owner_agent_type, status, current_step FROM
+orchestration_states WHERE correlation_id='<corr>' AND
+parent_orchestration_id IS NULL` a few seconds after each send.
+
+| # | corr (short) | `config.agent_type` | `input_data` keys present | result `owner_agent_type` |
+|---|---|---|---|---|
+| control | `197ccd57` | `build-pipeline-trigger` | (none — `{}`) | `build-pipeline-trigger` ✅ |
+| 1 | `896f9ea0` | `page-build-handler` | (none — `{}`) | `page-build-handler` ✅ (FAILED at `ensure_site_record`, as expected with no site_id) |
+| 2 | `035c4fcf` | `page-build-handler` | `domain, site_id` | `page-build-handler` ✅ |
+| 3 | `fcb72425` | `page-build-handler` | `domain, site_id, work_item_id` | `page-build-handler` ✅ |
+| 4 | `67d64ee8` | `page-build-handler` | `domain, site_id, work_item_id, spec` | `page-build-handler` ✅ (reached `spawn_content_writer`) |
+| 5 | `39ef229b` | `page-build-handler` | `domain, site_id, work_item_id, item_type` | `page-build-handler` ✅ |
+| 6 | `b58f260d` | `page-build-handler` | `domain, site_id, work_item_id, item_type, source` | `page-build-handler` ✅ |
+| 7 | `2906a176` | `page-build-handler` | `domain, site_id, work_item_id, item_type, spec` | `page-build-handler` ✅ (reached `spawn_content_writer`) |
+| 8 | `25e84712` | `page-build-handler` | `domain, site_id, work_item_id, **source, spec**` | `generic` ❌ **NO-OP** |
+| 9 | `7dc50ad0` | `page-build-handler` | `domain, site_id, work_item_id, item_type, **source, spec**` | `generic` ❌ **NO-OP** |
+| 10 (original) | `96b33402` / `284a7f6e` | `page-build-handler` | `domain, site_id, work_item_id, item_type, **source, spec**, page_id, page_name` | `generic` ❌ **NO-OP** |
+| 11 (original) | `826b1098` | `page-rerender` | `domain, site_id, work_item_id, item_type, **source, spec**, current_page, page_id, page_name` | `generic` ❌ **NO-OP** |
+
+**The discriminator, isolated by bisection**: `source` alone (row 6) does not
+trigger it; `spec` alone (rows 4, 7) does not trigger it; `item_type` alone
+(row 5) or with `source` (row 6) does not trigger it. **`source` and `spec`
+present TOGETHER (rows 8, 9, 10, 11) triggers it every time**, independent of
+`item_type`, `page_id`/`page_name` being present, or which agent_type is
+named (reproduced with both `page-build-handler` and `page-rerender`).
+
+Raw correlation ids and full envelopes are in this session's scratchpad if
+anyone wants to re-run the exact bisection:
+`/home/ant/.claude-scratch/claude-1000/-home-ant-projects-agentchassis/*/scratchpad/test_isolate_corr*.txt`
+(session-local, may not survive — the table above is the durable record).
+
+## Why this matters beyond one dispatch
+
+`source` and `spec` are both genuine, common `site_work_items` columns, and
+**the drive-loop envelope this repo's own CLAUDE.md-adjacent HANDOFF docs
+teach explicitly includes both together**:
+
+```json
+{"action":"orchestrate","config":{"agent_type":"<handler_agent>"},
+ "input_data":{"domain":"...","site_id":"...","work_item_id":"<id>",
+   "item_type":"<item_type>","source":"<source>","spec":<spec>, ...}}
+```
+
+(verbatim from `webdesign_uk_build_service/HANDOFF_2026-08-09_continue_here.md`
+§2 and `HANDOFF_2026-08-09b_continue_here.md` §1 — both written and used
+**today**, both carrying this exact shape). Any session following that
+documented recipe with a work item whose `spec` is non-empty (i.e. almost
+every real one) hits this. **The queue-starvation workaround CLAUDE.md itself
+prescribes — "find the item → claim it → orchestrate its `handler_agent`
+directly"** — is silently broken for the common case, and reports success
+while doing nothing.
+
+## What is NOT diagnosed
+
+I did not find the Go source responsible. A quick look
+(`grep -rn '"orchestrate"' platform/messaging/processor.go`,
+`extractGroupInfo` at `processor.go:1067-1120`) confirms `config.agent_type`
+IS correctly extracted from the message body — so the short-circuit happens
+**after** that, somewhere between workflow selection and execution, and
+appears to special-case on `input_data`'s shape rather than `config`. The
+`generic` agent's own `default_config` (`agent_definitions.id
+6187d808-0d25-441b-b7b3-40af562878af`, `updated_at` **2026-08-09 12:22:37**,
+~1 minute before the chassis pods' last restart at 12:23) was edited today —
+`[UNVERIFIED]` whether that edit is related; worth checking `git log`/DB audit
+history on that row before assuming it is or isn't. The literal string *"No-op
+— scheduled task pre_query already did the work"* lives in that DB row, not in
+compiled Go, so grepping the binary won't find the mechanism either.
+
+## Workaround, confirmed working
+
+**Omit `source` from the dispatch envelope's `input_data`** (row 7 above shows
+`item_type, spec` together still resolve correctly). If the target workflow
+step needs the work item's `source` value, it can read it via
+`work_item_id` → `site_work_items.source` inside the orchestration instead of
+being handed it directly in `input_data`. This is what unblocked the
+webdesign.uk Phase 5 dispatch this bug was found while doing.
+
+## How to verify a fix
+
+Re-run row 8 or 9's exact envelope (`domain, site_id, work_item_id[, item_type],
+source, spec` — the smallest reproducing case, no `page_id`/`page_name`
+needed) and assert `owner_agent_type` equals the requested `config.agent_type`,
+`execution_path` is non-empty, and `current_step` is a real step name from
+that agent's own `default_config.workflow.steps` (not `complete` reached in
+one hop with no prior step). A regression test should assert the same at the
+Go level once the responsible code is found.
+
+## Related, not the same bug
+
+`bugs_open/201` — `page-content-writer` dispatched directly with no
+`section_plan` either hard-fails or silently no-ops **inside its own workflow
+logic** (the child orchestration DOES run, with the named agent's real
+workflow, but that workflow's own section-planning branch produces nothing
+useful). Distinct mechanism: 201's orchestrations show real
+`owner_agent_type` and real `execution_path`; this bug's orchestrations show
+neither — the named agent's workflow never starts.
