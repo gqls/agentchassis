@@ -202,8 +202,7 @@ SET default_config = '{
                                 "action": "update_page_status",
                                 "config": {
                                     "status": "deployed",
-                                    "page_id_field": "current_page.page_id",
-                                    "commit_from": "deploy_result.commit_sha"
+                                    "page_id_field": "current_page.page_id"
                                 },
                                 "description": "Update page status in database",
                                 "output_field": "status_updated",
@@ -298,8 +297,7 @@ SELECT
                                     "action": "update_page_status",
                                     "config": {
                                         "status": "deployed",
-                                        "page_id_field": "current_page.page_id",
-                                        "commit_from": "deploy_result.commit_sha"
+                                        "page_id_field": "current_page.page_id"
                                     },
                                     "description": "Update page status in database",
                                     "output_field": "status_updated",
@@ -404,8 +402,7 @@ SET default_config = '{
                                 "action": "update_page_status",
                                 "config": {
                                     "status": "deployed",
-                                    "page_id_field": "current_page.page_id",
-                                    "commit_from": "deploy_result.commit_sha"
+                                    "page_id_field": "current_page.page_id"
                                 },
                                 "description": "Update page status in database",
                                 "output_field": "status_updated",
@@ -501,8 +498,7 @@ SELECT
                                     "action": "update_page_status",
                                     "config": {
                                         "status": "deployed",
-                                        "page_id_field": "current_page.page_id",
-                                        "commit_from": "deploy_result.commit_sha"
+                                        "page_id_field": "current_page.page_id"
                                     },
                                     "description": "Update page status in database",
                                     "output_field": "status_updated",
@@ -611,8 +607,7 @@ SET default_config = '{
                                 "action": "update_page_status",
                                 "config": {
                                     "status": "deployed",
-                                    "page_id_field": "current_page.page_id",
-                                    "commit_from": "deploy_result.commit_sha"
+                                    "page_id_field": "current_page.page_id"
                                 },
                                 "description": "Update page status in database",
                                 "output_field": "status_updated",
@@ -707,8 +702,7 @@ SELECT
                                     "action": "update_page_status",
                                     "config": {
                                         "status": "deployed",
-                                        "page_id_field": "current_page.page_id",
-                                        "commit_from": "deploy_result.commit_sha"
+                                        "page_id_field": "current_page.page_id"
                                     },
                                     "description": "Update page status in database",
                                     "output_field": "status_updated",
@@ -824,8 +818,7 @@ SET default_config = '{
                                 "action": "update_page_status",
                                 "config": {
                                     "status": "deployed",
-                                    "page_id_field": "current_page.page_id",
-                                    "commit_from": "deploy_result.commit_sha"
+                                    "page_id_field": "current_page.page_id"
                                 },
                                 "description": "Update page status in database",
                                 "output_field": "status_updated",
@@ -927,8 +920,7 @@ SELECT
                                     "action": "update_page_status",
                                     "config": {
                                         "status": "deployed",
-                                        "page_id_field": "current_page.page_id",
-                                        "commit_from": "deploy_result.commit_sha"
+                                        "page_id_field": "current_page.page_id"
                                     },
                                     "description": "Update page status in database",
                                     "output_field": "status_updated",

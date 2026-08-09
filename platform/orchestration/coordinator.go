@@ -4298,7 +4298,6 @@ func prefixConfigStepReferences(config map[string]interface{}, loopName string, 
 		"input_from",
 		"result_from",
 		"content_field",           // Used by assemble_page, git_commit
-		"commit_from",             // Used by update_page_status
 		"page_component_id_field", // Used by update_page_status
 	}
 

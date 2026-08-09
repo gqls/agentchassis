@@ -526,6 +526,65 @@ func UpdateSiteDefaultsAction(ctx context.Context, params ActionParams) (interfa
 // ACTION: update_page_status
 // ============================================================================
 
+// UpdatePageStatusInputSpec declares this action's step-config contract and opts
+// it into unknown-config-key detection (bugs_open/101 machinery,
+// datahelpers.UnknownConfigKeys).
+//
+// There are no Required/Optional entries because this action never calls
+// ExtractActionInputs: it reads every value straight from params.StepConfig.Config
+// (:543) and resolves the *_field ones itself with ExtractNestedFieldString. So
+// the whole contract is ConfigKeys, and CheckConfig is what turns the check on.
+//
+// Derived by reading the handler body end to end, key by key — NOT by grepping
+// for `config["`. That grep is sound HERE (this action uses no
+// ResolveConfigSetting / GetStringField / GetIntField indirection at all, which
+// was verified rather than assumed), but it is the recorded mistake in
+// WRONG_CALLS.md 2026-08-08 and the reading is what establishes the list.
+//
+// The framework's own keys (input_fields, next_step, output_field, error_step,
+// timeout_seconds, the loop_* injections, …) are recognised centrally by
+// datahelpers.IsFrameworkStepConfigKey and must NOT be repeated here — listing
+// one would misstate whose contract it belongs to.
+var UpdatePageStatusInputSpec = datahelpers.ActionInputSpec{
+	ConfigKeys: []string{
+		"status",                  // :550 — required; the new pages.build_status
+		"page_id_field",           // :558 — path to the page id in collected data
+		"site_id_field",           // :584 — with page_name_field, the lookup route
+		"page_name_field",         // :585 — with site_id_field, the lookup route
+		"page_component_id_field", // :799 — mirrors the deploy mark onto one page_component
+	},
+
+	// KNOWN TRUE POSITIVES, left standing deliberately — this opt-in will REPORT
+	// them, and that report is the detector working, not a regression to silence.
+	//
+	//  1. `commit_from` on six live steps (pageflow-builder, page-rebuild,
+	//     page-rerender, report-builder, section-editor, site-work-orchestrator).
+	//     Never read here, by any spelling. Migration 353 removes it from live
+	//     config and from the seeds; until that is applied, six steps warn. The
+	//     key looked live for months because coordinator.go's dataRefKeys carried
+	//     a comment saying "Used by update_page_status", which was false — that
+	//     entry is deleted in the same commit.
+	//
+	//  2. `notes_field` and `validation_issues_field` on ONE live step,
+	//     content-reviewer.mark_page_needs_attention. Both are dead the same way
+	//     (neither string occurs anywhere in the tree outside an unrelated
+	//     action's `plan_notes_field`), but unlike commit_from they encode an
+	//     author's INTENT that this action has never had: recording WHY a page
+	//     was flagged. Deleting them would erase the only record of that intent,
+	//     and implementing them is a behaviour change (pages has no such column),
+	//     so they are left standing and reported rather than swept into a
+	//     removal migration. Same treatment create_work_item gave `spec`.
+	//
+	// Not StrictConfig: that turns both findings into hard validation errors on
+	// live definitions, which is the over-strict-detector failure the ConfigKeys
+	// doc comment warns about. Warn first.
+	CheckConfig: true,
+}
+
+func init() {
+	datahelpers.RegisterActionInputSpec("update_page_status", UpdatePageStatusInputSpec)
+}
+
 // UpdatePageStatusAction updates a single page's build_status
 // Config:
 //   - page_id_field: path to page_id OR

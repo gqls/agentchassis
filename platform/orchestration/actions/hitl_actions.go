@@ -91,6 +91,44 @@ func AwaitApprovalAction(ctx context.Context, params ActionParams) (interface{},
 	}, nil
 }
 
+// ProcessApprovalDecisionInputSpec declares this action's step-config contract and
+// opts it into unknown-config-key detection (datahelpers.UnknownConfigKeys).
+//
+// The contract is one key. Everything else this action works from arrives in
+// CollectedData via extractApprovalResponse, not from config — verified by
+// reading the body: the single params.StepConfig.Config reference in
+// ProcessApprovalDecisionAction is the stop_on_reject read at :140, and
+// extractApprovalResponse takes no config argument.
+//
+// KNOWN TRUE POSITIVE, left standing until migration 353 is applied: the one
+// live step using this action — simple-content-writer-with-approval's
+// `process_approval`, which spells the action by its deprecated alias
+// `process_data` — carries an `output_format` MAP of four
+// {{.await_human_approval.*}} templates. Nothing renders it. The action never
+// reads the key, and the only two readers of `output_format` anywhere in the
+// tree (ai_actions.go:1195, database_actions.go:26) both type-assert
+// `.(string)`, so a map value could not have been read by those either: the
+// config has been describing an output shape that has never once been produced.
+// The step's other key, input_fields, is a framework key recognised centrally by
+// datahelpers.IsFrameworkStepConfigKey.
+//
+// Registered under BOTH names below. UnknownConfigKeys looks the spec up by the
+// action string the STEP carries, and the only live consumer carries
+// `process_data` — registering the canonical name alone would have opted in
+// exactly zero live steps, which is the silent-no-op shape this check exists to
+// stop being possible.
+var ProcessApprovalDecisionInputSpec = datahelpers.ActionInputSpec{
+	ConfigKeys: []string{
+		"stop_on_reject", // :140 — on rejection, set stop_workflow on the result
+	},
+	CheckConfig: true,
+}
+
+func init() {
+	datahelpers.RegisterActionInputSpec("process_approval_decision", ProcessApprovalDecisionInputSpec)
+	datahelpers.RegisterActionInputSpec("process_data", ProcessApprovalDecisionInputSpec)
+}
+
 // ProcessApprovalDecisionAction processes the approval/rejection response from human
 func ProcessApprovalDecisionAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("ProcessApprovalDecisionAction: Starting",

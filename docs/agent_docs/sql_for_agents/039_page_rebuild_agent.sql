@@ -261,7 +261,6 @@ INSERT INTO agent_definitions (
                                     "action": "update_page_status",
                                     "config": {
                                         "status": "deployed",
-                                        "commit_from": "page_deployed.commit_sha",
                                         "page_id_field": "current_page.id"
                                     },
                                     "next_step": "complete_page",
@@ -652,7 +651,6 @@ INSERT INTO agent_definitions (
                                              "action": "update_page_status",
                                              "config": {
                                                  "status": "deployed",
-                                                 "commit_from": "page_deployed.commit_sha",
                                                  "page_id_field": "current_page.id"
                                              },
                                              "next_step": "complete_page",

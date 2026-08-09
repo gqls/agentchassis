@@ -407,7 +407,6 @@ INSERT INTO agent_definitions (
             "description": "Mark the report page deployed.",
             "config": {
               "status": "deployed",
-              "commit_from": "deploy_result.commit_sha",
               "page_id_field": "composed.page_id"
             },
             "next_step": "emit_ready"

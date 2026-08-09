@@ -151,8 +151,7 @@ INSERT INTO agent_definitions (
                                      'action', 'update_page_status',
                                      'config', jsonb_build_object(
                                              'status', 'deployed',
-                                             'page_id_field', 'edit_result.page_id',
-                                             'commit_from', 'git_result.commit_sha'
+                                             'page_id_field', 'edit_result.page_id'
                                                ),
                                      'next_step', 'trigger_deploy',
                                      'description', 'Update page build_status to deployed',
