@@ -21,13 +21,17 @@ REGION=uk001; date`. Council corr `eee2888b-20dc-46ba-9b1f-53e592374cba`
 
 ## Do next, in order
 
-1. **Read the council verdict** — find by payload, never retry on a missing
-   row: `SELECT current_step, status FROM orchestration_states WHERE
-   collected_data->'input_data'->>'fix_correlation_id' =
-   'eee2888b-20dc-46ba-9b1f-53e592374cba';` then the newest
-   `doc_notes WHERE categories ? 'council-gate'`. REVISE → answer on the same
-   trail (`RESUBMIT_CORR=eee2888b…`). Never write `Council-Reviewed:` on an
-   unread verdict.
+1. ~~**Read the council verdict**~~ **DONE 2026-08-09 ~22:15Z: APPROVED,
+   round 4 of the trail** — "approved with 1 advisory objection(s), none
+   high-severity", 3 abstained, verified at the report body. The advisory
+   (bug_historian: unenumerated writers archive but never surface) is STY-056
+   open-review (e), query written out, driver = the 230 rotation once 083
+   drains. Trail: r1 REVISE reuse_agent (the submission's own applied column
+   read as pre-existing — answered, approved r2) · r2 REVISE editquality
+   (edit list dropped a file my script split away) · r3 REVISE editquality
+   (risks field was round-1 prose) · r4 APPROVED. Two real catches executed
+   along the way: migrations 351+357 ledger-recorded; rollback drilled
+   (BEGIN…ROLLBACK, guard NOTICE, triggers intact after).
 2. **After the owner's release: pod-verify** (the 153 discipline) — main
    `agent-chassis` deployment pods only (65 pods run the image; enumerate by
    image+owner kind, not label):

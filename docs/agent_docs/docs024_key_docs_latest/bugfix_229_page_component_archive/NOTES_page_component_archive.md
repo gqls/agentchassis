@@ -156,3 +156,29 @@
   image+ownerKind enumeration with positive AND temporal-negative controls,
   then the e2e protocol. Already the bug file's close criterion.
 - Round 4 submitted on the trail. No code change since round 2.
+
+## 2026-08-09 — session 1 (round 4: APPROVED)
+
+- **Round 4 APPROVED** (~22:1xZ, orch `d99f987d`): "approved with 1 advisory
+  objection(s) — none high-severity", 3 abstained. Verified at the report
+  body in diagnosis_artifacts, not the step name or a watcher echo.
+- The one advisory is bug_historian's standing unenumerated-writer concern —
+  already filed as STY-056 open-review (e) with the sweep query and its
+  driver named; it carries forward as a watch item, same shape as the chrome
+  sibling's guardian advisory.
+- **Trail summary, 4 rounds**: r1 REVISE (reuse_agent read the submission's
+  own applied column as pre-existing — the after-the-fact-review artefact
+  class, answered with three proofs and approved in r2) · r2 REVISE
+  (editquality: my restructuring script dropped a file from the edit list —
+  the code shipped, the claim didn't) · r3 REVISE (editquality: the risks
+  field was round-1 prose carried through two rewrites — every field of a
+  submission is a claim) · r4 APPROVED. **The code was council-clean from
+  round 2; rounds 2-4 were the paperwork being made to tell the truth about
+  it.** Two real catches along the way that were not paperwork: the
+  unrecorded migrations (351+357, now ledgered) and the undrilled rollback
+  (now drilled).
+- This commit carries `Council-Reviewed:` legitimately — verdict read before
+  the trailer was written. The three code commits keep `Council-Submitted:`;
+  098 resolves them at report time.
+- **Remaining, blocked on the owner's fleet release (v1.0.1275)**: pod-grep
+  (positive + temporal-negative), then the e2e protocol. Both in the handoff.
