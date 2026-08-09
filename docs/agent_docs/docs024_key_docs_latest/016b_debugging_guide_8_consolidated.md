@@ -11420,3 +11420,47 @@ print** (`NON-TEST`: adjacent boundary vectors that genuinely expect the same fi
 prints) — **never by loosening the threshold**, which is how a control becomes a
 formality. Full worked case, including the four things the harness itself got wrong:
 `docs/agent_docs/docs024_key_docs_latest/loanandmortgagecalculator_couk/REPORT_2026-08-08_arithmetic_validation.md`.
+
+---
+
+### A detector that runs only when DISPATCHED inspects whichever site someone is already watching — so its silence is loudest exactly where nobody is looking (`bugs_open/230`, 2026-08-09)
+
+**Symptom.** A live page is visibly broken in a way one of our own discovery checks is
+built to catch, its predicate matches the row *today*, and there is no work item — and
+none was ever raised for that slot.
+
+**Mechanism.** Site discovery checks have **no recurring driver**. Every
+`scheduled_tasks` row targeting `quality-`/`completeness-`/`design-discovery-agent` is a
+hand-made `oneshot-*` entry with `enabled=false`, and no CronJob runs
+`run_discovery_checks`. A check therefore runs only when a session points a trigger at a
+named site. The measurable consequence: on 2026-08-08 the three discovery item types that
+filed anything at all filed against exactly the two domains other lanes were hand-driving
+that day, while `empty_section` — whose true positives sit on a site nobody was working
+on — had filed nothing fleet-wide for four days.
+
+**Why it is invisible, and why the obvious query says otherwise.** Filtering
+`scheduled_tasks` on `name ILIKE '%discovery%' OR target_agent_type ILIKE '%discovery%'`
+returns rows that ARE enabled — `adoption-tracker-discovery`, `model-directory-discovery`,
+`protocol-tracker-discovery` — which target the model-directory **research** agents, a
+different subsystem. The word "discovery" is shared by two unrelated families, so the
+reassuring answer arrives first. **Filter on `target_agent_type IN (…)`, never on the
+word.** And put the negative control in the same row:
+`count(*) FILTER (WHERE enabled)` against `count(*)`.
+
+**The transferable shape, which is the point of this entry.** *A detector's output
+measures where it was pointed, not what exists.* Any "we would have caught that" claim
+about a dispatch-driven check is a claim about **attention**, not about coverage — and
+attention is anti-correlated with where defects survive, because a watched site gets
+fixed by the watching. Before reading a check's quiet queue as health, establish that it
+**ran** against the population in question, and date the run. `[MEASURED]` beats
+`[INFERRED]` here by one query: `SELECT max(created_at) FROM site_work_items WHERE
+item_type='<type>'` fleet-wide, then per site.
+
+**A second failure hid behind the first, and they compound.** The same two pages *had*
+been detected, under a different slot name, and the items were stamped `complete` by the
+pre-`RFC_017` fail-open path after a repair replaced (not filled) the component so the
+verifier could not find its target. So the record said *fixed* and no re-detection ran to
+contradict it. **Two independent mechanisms produced one silence** — and the two checks a
+session would naturally run (is there an item? did it complete?) both lie in the same
+direction. When a stale "fixed" and an undriven detector line up, nothing in the system
+disagrees with anything else, which is what makes the state durable.
