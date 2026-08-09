@@ -1196,6 +1196,16 @@ func RenderPromptTemplate(templateStr string, data map[string]interface{}, logge
 // Paths like "site_plan.validated_plan.needs_logo" will:
 // 1. First try: data["site_plan"]["validated_plan"]["needs_logo"]
 // 2. If not found, try: data["site_plan"]["response"]["validated_plan"]["needs_logo"]
+//
+// A path segment that is a bare non-negative integer indexes an array when the
+// value at that point is a []interface{} — "search_results.results.0.url".
+// Map access is tried FIRST and is unchanged, so a map carrying a literal "0"
+// key resolves exactly as it always did; the array branch is only reachable
+// where the walk previously returned nil. Bracket notation ("results[0].url")
+// is NOT parsed here: the config-side convention in this fleet is the bare dot
+// segment. (Bracket paths do exist as an EMITTED convention elsewhere — see
+// walkContentDataLinks in content_data_links.go — but nothing feeds them back
+// into this resolver.)
 func ExtractNestedField(data map[string]interface{}, fieldPath string) interface{} {
 	if fieldPath == "" {
 		return nil
@@ -1205,6 +1215,19 @@ func ExtractNestedField(data map[string]interface{}, fieldPath string) interface
 	var current interface{} = data
 
 	for _, part := range parts {
+		// Array indexing: only when the current value is a slice and the
+		// segment is a bare, in-range, non-negative integer. Checked before
+		// the map assertion below solely because a slice can never satisfy
+		// that assertion — map access still wins wherever both could apply.
+		if arr, isArr := current.([]interface{}); isArr {
+			idx, err := strconv.Atoi(part)
+			if err != nil || idx < 0 || idx >= len(arr) {
+				return nil
+			}
+			current = arr[idx]
+			continue
+		}
+
 		currentMap, ok := current.(map[string]interface{})
 		if !ok {
 			return nil

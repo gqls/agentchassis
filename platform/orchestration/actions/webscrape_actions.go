@@ -239,6 +239,13 @@ func WebscrapeAction(ctx context.Context, params ActionParams) (interface{}, err
 					zap.String("fallback_url_field", fallbackField),
 					zap.String("url", url),
 				)
+			} else {
+				// The failure used to be doubly silent: only success was logged,
+				// and the terminal error below never named this key. A fallback
+				// that resolves to nothing now says so, with the path it walked.
+				params.Logger.Warn("fallback_url_field is configured but resolved to no URL",
+					zap.String("fallback_url_field", fallbackField),
+				)
 			}
 		}
 	}
@@ -266,7 +273,7 @@ func WebscrapeAction(ctx context.Context, params ActionParams) (interface{}, err
 	}
 
 	if url == "" {
-		return nil, fmt.Errorf("URL not found - check 'url_field', 'url' config, or input_data.target_url/url")
+		return nil, fmt.Errorf("URL not found - check 'url_field', 'fallback_url_field', 'url' config, or input_data.target_url/url")
 	}
 
 	// add_protocol: a fifth inert key, found by the audit this bug's fix added
