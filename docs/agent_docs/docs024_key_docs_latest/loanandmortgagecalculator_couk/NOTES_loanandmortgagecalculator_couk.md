@@ -1038,3 +1038,39 @@ fails the "exactly one" clause. It keeps its fence and stays manual-only
 (`tool_acceptance_run.sh … loans-consolidation`) until the page is properly
 decomposed with a tool-level component. Worth stating because "16 of 17" is the
 kind of gap that silently reads as 17.
+
+### 2026-08-09 (late) — the fence had a SECOND auto-rewrite path, and it was the one I added myself
+
+A blast-radius review after the change (not before — recorded honestly) found a
+route I had missed. `no_auto_fix: true` protects **Tier 4 only**. Tier 2
+(`check_tool_acceptance`) reads the SAME fence and has **no `no_auto_fix`
+support at all** — grep returns nothing. It was held off from these pages solely
+by `build_status != 'deployed'` (:189), which is a data condition any deploy
+clears, not a guard.
+
+**What made the fence able to fail in Tier 2 was my own `page_status_ok`.** Tier 2
+skips every `computed_values` check (:467, "not statically checkable (Tier 4)")
+and raises `improve_tool` only when something FAILED (:222). So a fence of pure
+computed_values is inert there — and the one convenience check I added for a
+clearer error message was the entire fuse.
+
+The blast radius on the other end is not this site: the improve_tool spec carries
+`component_id`, which here is the shared `ported-page` shell — **one component
+across ~154 pages on three sites** (webdesign 97, this site 39, loancash 18).
+`tool-improver` rewrote that shell once already (2026-08-04, off a Tier-2 failure
+on webdesign.co.uk); it was later flagged `component_template_corrupted` and the
+repair fanned `needs_rerender` across all three sites, which is why 39 of our 41
+pages sit `needs_rebuild`.
+
+**Fixed by removing `page_status_ok` from all 17 fences** (reinstalled; 0 of 17
+now carry it, 17 of 17 carry `no_auto_fix`). Tier 2 can now find nothing in these
+fences it is able to fail, so it can never raise `improve_tool` for these pages —
+a guard rather than a data condition. Nothing is lost: a page that does not serve
+fails its computed_values checks in Tier 4 anyway, and `verify_site.py` covers
+serving directly. Re-proved after the trim: `mortgages-stamp-duty` 4 passed / 0
+failed.
+
+Landmine filed. **The transferable shape: a fence is read by TWO tiers with
+different rules, and the safety flag only binds one of them.** Ask which check
+types the OTHER tier can evaluate before adding any, and ask what `component_id`
+the page would hand over if it failed.

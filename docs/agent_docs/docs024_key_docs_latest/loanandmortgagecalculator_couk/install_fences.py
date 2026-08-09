@@ -104,7 +104,31 @@ for fn in sorted(os.listdir(CRIT)):
         continue
 
     doc = json.load(open(os.path.join(CRIT, fn)))
-    checks = [{"id": "page-serves-200", "type": "page_status_ok"}]
+    # NO page_status_ok — REMOVED 2026-08-09, and the reason is not cosmetic.
+    #
+    # Tier 2 (`check_tool_acceptance`) reads the SAME fence and, unlike Tier 4,
+    # does NOT honour no_auto_fix. It skips every `computed_values` check
+    # ("not statically checkable (Tier 4)", check_tool_acceptance.go:467) and
+    # raises an improve_tool item only when something FAILED
+    # (`if len(ev.failed) == 0 { continue }`, :222). `page_status_ok` is the one
+    # check type in these fences that Tier 2 CAN evaluate — so it was the single
+    # way a fence of ours could hand a page to tool-improver.
+    #
+    # That matters because Tier 2's improve_tool carries `component_id`, which
+    # for these adopted pages is the shared `ported-page` shell used by ~154
+    # pages across THREE sites — and tool-improver rewrote that shell once
+    # already (webdesign.co.uk, 2026-08-04), after which it was flagged
+    # component_template_corrupted and the repair fanned needs_rerender across
+    # all three sites. Losing `{{.body}}` there empties 154 pages.
+    #
+    # With only computed_values in the fence, Tier 2 finds nothing it can fail,
+    # so it can never raise improve_tool for these pages. That is a GUARD; the
+    # thing holding it off otherwise was `build_status != 'deployed'`, which is
+    # a data condition that any deploy would clear.
+    # Nothing is lost: a page that does not serve fails its computed_values
+    # checks in Tier 4 anyway (missing selectors), and verify_site.py covers
+    # serving directly.
+    checks = []
     dropped = reloaded = 0
     for c in doc["checks"]:
         expect = strip_containers(c["expect_values"])
