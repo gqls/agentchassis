@@ -115,10 +115,12 @@ negative control confirmed red.
 fence.** In one line: *a fence must carry one check a static render cannot satisfy, or it
 certifies a dead panel.*
 
-⚠ **`contact-block`'s fence is now understated.** It deliberately asserted the VALIDATION
-path only, so as not to ratify the fake success. That reason has gone — the component now
-delivers. The right addition is a check that the success state is downstream of a
-destination. Not done; it is the natural next edit to that PLAN.
+✅ **`contact-block`'s fence has been strengthened (2026-08-09 afternoon) — DONE, not owed.**
+It had deliberately asserted the validation path only, so as not to ratify the fake success;
+that reason went when the component started delivering. It now carries
+`form-has-a-real-destination` (`form.cb-form[action]:not([action=""])`) — scheme-agnostic so
+it survives a future receipt endpoint, and mutation-proven against **both** states the bug
+passed through (no action at all; `action=""`). 9 checks, 10/10 mutants, S6 `f3cd89a2` 13/13.
 
 ### Remaining work
 
@@ -146,8 +148,9 @@ destination. Not done; it is the natural next edit to that PLAN.
    hand-seeded `content_data.form_action` special case was REMOVED from both placements and
    they still render the site's mailto — a check that would have produced `action=""` had
    the class fix not been reaching that path, which is exactly what happened on v1.0.1270.
-   No contact-block placement carries a hand-seeded key any more. Remaining: the JS choice
-   (§0), and the fence edit in §3. Neither blocks a visitor.
+   No contact-block placement carries a hand-seeded key any more, and the fence edit in §3
+   is done. **The only thing still open on 228 is the JS choice (§0), which is the owning
+   lane's call.** Nothing blocks a visitor.
 2. gaswholesalers.com: every page 404s `/assets/images/logo.png`. **4+ days.**
 3. The `hero.jpg` 404 family (`bugs_closed/128`, measured 07-31, **still serving**) — ≥7
    sites, incl. vetcomparison.uk which 128's own list missed.

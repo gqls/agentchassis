@@ -738,3 +738,30 @@ the test harness so they can run theirs through the same five checks and choose.
 I've also written the lesson down where we keep these: an ownership check goes stale in
 hours on this system, and the moment that matters is when you're about to *write*, not when
 you pick something up.
+
+---
+
+**9 August 2026, afternoon — the release went out, and I checked it by deleting my own workaround**
+
+Your fresh build carried the other session's framework fix. I checked it was really in the
+running code rather than trusting the version label — it is, on both machines, and it
+demonstrably wasn't there three hours earlier, so that's a real change and not a hopeful
+reading.
+
+Then I did the part that actually proves something. This morning, to get the contact forms
+working without waiting for a release, I'd hand-written a small setting onto each of the two
+pages. With the proper fix now live, that hand-written setting should be unnecessary — so I
+deleted it from both pages and rebuilt them. Both still produce the correct email address.
+That's the check worth having: if the framework fix weren't really doing the work, those
+pages would have come back broken, which is exactly what they did this morning before it
+shipped. There is now no hand-written special case left anywhere for someone to trip over
+later.
+
+I also closed the last thing I owed on this. The automated contract for that contact
+component had been written cautiously: it checked that the form rejects bad input, but
+deliberately did *not* check that the form works — because at the time, saying "this form
+works" would have been our own quality system certifying a lie. Now that it genuinely works,
+I've added the missing check: the form must have somewhere to send to. I proved it catches
+both of the broken states this bug actually went through, including the one I briefly caused
+myself this morning. So if anyone ever removes the destination again, the automated check
+fails instead of quietly passing.
