@@ -93,6 +93,17 @@ Then the live check: a fresh startup/spawn log line shows
 `access_key_present: true` / `CLIENTS_DB_PASSWORD_present: true` and no key
 material.
 
+## Council trail
+
+Submitted 2026-08-09, correlation `7490388d-c945-42c0-b3c4-c452741a10cd`
+(commit `43c1801d6` carries it as `Council-Submitted:`). Verdict:
+
+```sql
+SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
+WHERE correlation_id='7490388d-c945-42c0-b3c4-c452741a10cd'
+  AND kind='council_report' ORDER BY created_at;
+```
+
 ## Provenance
 
 Recorded as a trap in
