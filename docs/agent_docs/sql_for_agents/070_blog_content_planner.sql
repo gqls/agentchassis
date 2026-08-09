@@ -135,7 +135,7 @@ INSERT INTO agent_definitions (
                          "site_id":"site_record.site_id",
                          "item_type":"needs_rerender",
                          "handler_agent":"rerender-pages",
-                         "item_domain":"build",
+                         "item_pipeline":"build",
                          "source":"blog-content-planner",
                          "priority":60,
                          "severity":"medium",

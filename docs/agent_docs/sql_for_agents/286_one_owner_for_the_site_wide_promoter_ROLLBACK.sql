@@ -72,7 +72,7 @@ SET default_config =
           jsonb_set(
             jsonb_set(default_config,
               '{workflow,steps,triage}',
-              '{"action":"triage_detected_items","config":{"site_id":"site_record.site_id","target_domain":"build"},"next_step":"complete","output_field":"triage_result"}'::jsonb,
+              '{"action":"triage_detected_items","config":{"site_id":"site_record.site_id","target_pipeline":"build"},"next_step":"complete","output_field":"triage_result"}'::jsonb,
               true),
             '{workflow,steps,call_content_auditor,next_step}', '"triage"'::jsonb, false),
           '{workflow,steps,call_content_auditor,error_step}', '"triage"'::jsonb, false),
@@ -93,7 +93,7 @@ SET default_config =
         jsonb_set(
           jsonb_set(default_config,
             '{workflow,steps,triage}',
-            '{"action":"triage_detected_items","config":{"site_id":"site_record.site_id","target_domain":"build"},"next_step":"complete","output_field":"triage_result"}'::jsonb,
+            '{"action":"triage_detected_items","config":{"site_id":"site_record.site_id","target_pipeline":"build"},"next_step":"complete","output_field":"triage_result"}'::jsonb,
             true),
           '{workflow,steps,write_strategic_findings,next_step}', '"triage"'::jsonb, false),
         '{workflow,steps,complete,config,output_fields}',

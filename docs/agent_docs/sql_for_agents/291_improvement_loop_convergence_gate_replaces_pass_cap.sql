@@ -125,7 +125,7 @@ SET default_config = jsonb_set(
       "severity": "low",
       "status": "deferred",
       "item_type": "capability_gap",
-      "item_domain": "build",
+      "item_pipeline": "build",
       "handler_agent": "",
       "item_key_prefix": "capability_gap_audit_not_converging",
       "recurrence_expected": true

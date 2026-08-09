@@ -51,7 +51,7 @@ INSERT INTO agent_definitions (
                                              'action', 'run_discovery_checks',
                                              'config', jsonb_build_object(
                                                      'site_id', 'site_record.site_id',
-                                                     'check_domain', 'design',
+                                                     'check_pipeline', 'design',
                                                      'checks', jsonb_build_array(
                                                              'undeployed_assets', 'missing_css', 'duplicate_palette'
                                                                )
@@ -135,7 +135,7 @@ INSERT INTO agent_definitions (
                                              'action', 'run_discovery_checks',
                                              'config', jsonb_build_object(
                                                      'site_id', 'site_record.site_id',
-                                                     'check_domain', 'content',
+                                                     'check_pipeline', 'content',
                                                      'checks', jsonb_build_array('empty_sections')
                                                        ),
                                              'next_step', 'complete',

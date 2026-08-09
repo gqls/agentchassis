@@ -41,7 +41,7 @@ INSERT INTO agent_definitions (
                              "action": "run_discovery_checks",
                              "config": {
                                  "site_id": "site_record.site_id",
-                                 "check_domain": "build",
+                                 "check_pipeline": "build",
                                  "checks": ["broken_nav_links", "placeholder_contact", "generic_theme"]
                              },
                              "next_step": "complete",

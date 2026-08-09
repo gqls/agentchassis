@@ -81,7 +81,7 @@ VALUES (
             'page_id', 'input_data.page_id',
             'source', 'deduplicate-sections',
             'item_type', 'page_rerender',
-            'item_domain', 'build',
+            'item_pipeline', 'build',
             'handler_agent', 'page-rerender',
             'severity', 'medium',
             'priority', 10,

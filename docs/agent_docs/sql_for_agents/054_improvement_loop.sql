@@ -137,7 +137,7 @@ INSERT INTO agent_definitions (
                              "action": "triage_detected_items",
                              "config": {
                                  "site_id": "site_record.site_id",
-                                 "target_domain": "build"
+                                 "target_pipeline": "build"
                              },
                              "next_step": "check_has_findings",
                              "description": "Promote detected items to triaged with domain=build for dispatch",
@@ -159,7 +159,7 @@ INSERT INTO agent_definitions (
                              "config": {
                                  "site_id": "site_record.site_id",
                                  "source": "improvement-loop",
-                                 "item_domain": "build",
+                                 "item_pipeline": "build",
                                  "item_type": "needs_rerender",
                                  "severity": "medium",
                                  "summary": "Re-assemble and deploy pages after improvement fixes",

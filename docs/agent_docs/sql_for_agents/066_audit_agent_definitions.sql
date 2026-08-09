@@ -261,7 +261,7 @@ INSERT INTO agent_definitions (
                  },
                  "triage":{
                      "action":"triage_detected_items",
-                     "config":{"site_id":"site_record.site_id","target_domain":"build"},
+                     "config":{"site_id":"site_record.site_id","target_pipeline":"build"},
                      "next_step":"complete",
                      "output_field":"triage_result"
                  },
@@ -352,7 +352,7 @@ INSERT INTO agent_definitions (
                  },
                  "triage":{
                      "action":"triage_detected_items",
-                     "config":{"site_id":"site_record.site_id","target_domain":"build"},
+                     "config":{"site_id":"site_record.site_id","target_pipeline":"build"},
                      "next_step":"complete",
                      "output_field":"triage_result"
                  },

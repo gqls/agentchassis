@@ -69,7 +69,7 @@ VALUES (
                                                                    'action', 'create_work_item',
                                                                    'config', jsonb_build_object(
                                                                            'item_type',     'needs_component_regeneration',
-                                                                           'item_domain',   'build',
+                                                                           'item_pipeline',   'build',
                                                                            'handler_agent', 'component-creator',
                                                                            'source',        'component-quality-auditor',
                                                                            'severity',      'medium',

@@ -123,7 +123,7 @@ SET default_config = jsonb_set(
                 'priority',              50,
                 'severity',              'medium',
                 'item_type',             'section_edit',
-                'item_domain',           'build',
+                'item_pipeline',           'build',
                 'handler_agent',         'section-editor',
                 -- content_edit + empty field_updates = pure re-render from the
                 -- current (just-written) template. Literals, so they ride in the

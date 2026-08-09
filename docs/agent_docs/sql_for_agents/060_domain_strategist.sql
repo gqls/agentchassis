@@ -94,7 +94,7 @@ INSERT INTO agent_definitions (
                                  "site_id": "input_data.site_id",
                                  "item_type": "needs_briefing",
                                  "handler_agent": "build-briefing-agent",
-                                 "item_domain": "build",
+                                 "item_pipeline": "build",
                                  "severity": "high",
                                  "source": "domain-strategist",
                                  "summary": "Briefing needed after domain strategy complete",

@@ -30,7 +30,7 @@ SET default_config = '{
                 "action": "run_discovery_checks",
                 "config": {
                     "site_id": "site_record.site_id",
-                    "check_domain": "structural",
+                    "check_pipeline": "structural",
                     "checks": [
                         "missing_style_collection",
                         "deactivated_site_components",
@@ -46,7 +46,7 @@ SET default_config = '{
                 "action": "run_discovery_checks",
                 "config": {
                     "site_id": "site_record.site_id",
-                    "check_domain": "content",
+                    "check_pipeline": "content",
                     "checks": [
                         "empty_sections"
                     ]

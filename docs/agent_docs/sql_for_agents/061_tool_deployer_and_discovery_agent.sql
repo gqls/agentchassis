@@ -89,7 +89,7 @@ INSERT INTO agent_definitions (
                      "action": "load_work_items",
                      "config": {
                        "site_id": "input_data.site_id",
-                       "item_domain": "build",
+                       "item_pipeline": "build",
                        "handler_agent": "tool-deployer",
                        "max_items": 1
                      },

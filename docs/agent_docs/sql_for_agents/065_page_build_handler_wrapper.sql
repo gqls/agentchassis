@@ -362,7 +362,6 @@ SET default_config = jsonb_set(
                 "site_id": "site_record.site_id",
                 "sections": "page_record.sections",
                 "page_name": "page_record.name",
-                "domain": "site_record.domain",
                 "work_item_id": "input_data.work_item_id"
             },
             "next_step": "check_has_ready_sections",

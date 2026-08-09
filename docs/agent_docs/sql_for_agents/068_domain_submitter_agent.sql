@@ -45,7 +45,7 @@ INSERT INTO agent_definitions (
                          "site_id":"site_record.site_id",
                          "item_type":"needs_domain_research",
                          "handler_agent":"domain-research-classifier",
-                         "item_domain":"build",
+                         "item_pipeline":"build",
                          "source":"domain-submitter",
                          "priority":5,
                          "severity":"high",
