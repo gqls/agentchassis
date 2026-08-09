@@ -430,3 +430,37 @@ repair script that keeps the database and the repo in step would have
 destroyed the decomposed consolidation page if run as documented, and the
 deploy script crashed halfway through its own bookkeeping. Both are mended
 and written up.
+
+---
+
+**2026-08-09 (later).** Ran the emit-criteria step. This is the one that hands
+the checking over to the platform: instead of the calculators only being
+verified when someone remembers to run the harness, their correct answers get
+written into the acceptance record so the system re-checks them on its own
+schedule, unprompted.
+
+It half worked, and the half that didn't is worth your attention. Seven tools
+now have that automatic coverage. **Ten don't — and not because they're wrong.**
+On nine of the mortgage calculators, and on the debt consolidation tool, the
+button the user actually presses ("Calculate Tax", "Calculate Savings", and so
+on) has no identifier in the HTML. The automatic checker has to be able to say
+"press this button", and it can't name a button that has no name — so it
+refuses, rather than guessing and writing a check that drives the tool
+differently from how we tested it. That refusal is the right behaviour.
+
+The awkward part: **the stamp duty calculator is on the refused list.** The tool
+that was quietly wrong for sixteen months is the one we can't yet watch
+automatically. The fix is small — an identifier on each button — but it's a
+change to those pages, so I haven't done it as part of tonight's work.
+
+I also double-checked the numbers before letting them be written down as "the
+right answers", by recomputing every one of the 52 from the independent maths.
+Six came out wrong at first. They were my error, not the site's: the test drives
+some vectors with fractional terms like 6.9 years, and I'd rounded that to whole
+months where the calculators don't. Corrected, all 52 agree. I've kept the six
+failures on record, because a checker that has never failed isn't evidence of
+anything.
+
+**Nothing is switched on yet.** The checks are written and I've verified the
+system is capable of running them, but installing them is a separate step and a
+separate decision — partly because of the ten uncovered tools above.
