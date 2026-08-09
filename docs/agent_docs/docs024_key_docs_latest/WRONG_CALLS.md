@@ -24548,3 +24548,52 @@ same observation verifies neither.** Read the STORER
 (`applyResponseToState`, coordinator.go:2636) — one function, thirty
 seconds — or test with names that differ. Landmine filed (config-nested
 `output_field` is inert), verifier dispatched.
+
+## 2026-08-09 (rfc012 lane, §1a) — a lane sized a defect at "559 rows" from a table that keeps a month, and 89% of them predated the fix that had already retired them
+
+**The claim, and where it travelled.** The §1a handoff opened its evidence with
+`generic` = "**559 rows across 25 distinct `step_name`s** — the widest step spread
+of any `agent_type`", plus "all **25** live `REVIEW_SUPERSEDED_BY_PASSING_SAVE`
+rows carry `agent_type='generic'`, **0** carry anything else". Both figures were
+correctly measured, dated, and marked. Both were repeated into a code comment
+(`reconcile_superseded_reviews_action.go`), into the `RSH-008` register entry as
+part of its commit-time re-run, and into the file header of
+`log_action_error.go`. Three durable places, one unbucketed `count(*)`.
+
+**False as a statement about live damage.** Re-measured at the rows before
+building: **499 of the 555 predate 2026-07-26**, the day `RunAgentType` shipped
+(`baf887a8e`) — the coordinator's own ladder had already removed ~89% of them.
+The dominant producer (`call_agent`/`call_dispatch`, 394 rows) stops dead on
+2026-07-25. All 25 `REVIEW_SUPERSEDED` rows were written on **one day**,
+2026-07-23, and that action has not filed a row since. The honest residue
+reachable by the change was **~36 rows in 13 days**.
+
+**What caught it:** deciding whether the change needed an RFC. The trigger test
+turns on blast radius, so I went to look at *whose* rows they were — and the
+`GROUP BY` I ran to answer that carried `min`/`max(occurred_at)` because I wanted
+to know which producers were still alive. The dates fell out of a query asked for
+a different reason. **Nothing failed, no one contradicted me, and had I not been
+weighing the forum I would have shipped the 559 forward for a fourth time.**
+
+**The cheap check that would have avoided it:** one extra column.
+`SELECT …, min(occurred_at)::date first, max(occurred_at)::date last … GROUP BY`
+— a group whose `last` is weeks old is a producer that stopped, and it is
+invisible in a bare `count(*)`. Then `git log -S'<the symbol that would fix it>'`
+for the boundary date. **The general shape, and it is the reason this is worth a
+row: a retention-bounded table makes a FIXED defect and a RAGING one produce the
+identical number.** Marking a figure `[MEASURED]` does not help — this one was
+measured, and the marker rule is satisfied in full by a figure that could not
+have come out otherwise, which is
+[a-measured-figure-is-only-evidence-if-it-could-have-come-out-otherwise] arriving
+by a new route: not a filter that defines its own answer, but a *window* that
+does. Ask what the disconfirming result would have looked like; here it was "the
+rows are recent", and that was one column away the whole time. Landmine filed
+(both halves: the month-wide count, and the pruned-table join that also cannot
+see this). The correction is written into `RSH-009`, `RFC_019` §1, and visibly in
+place in the code comment that carried it.
+
+**Not a blame row.** The lane that wrote 559 measured it honestly and re-ran it
+at commit time when two council seats asked — which is the practice working, and
+it still did not catch this, because re-running the *same* query at a later date
+reproduces the same blindness ([re-running-a-query-is-not-re-measuring]). The
+defect is in the query's shape, not in anyone's diligence.
