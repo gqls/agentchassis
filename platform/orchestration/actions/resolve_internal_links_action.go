@@ -548,6 +548,44 @@ func sectionResolvedData(section map[string]interface{}) map[string]interface{} 
 	return map[string]interface{}{}
 }
 
+// THE BUILD-AXIS ARM ON THE THREE LOADERS BELOW (added 2026-08-09).
+//
+// All three used to carry only the LIFECYCLE arm — `status IN ('active',
+// 'deployed')`, or NOT IN ('deleted','archived') — which answers "does the
+// platform still want this page served?" and says nothing about whether it ever
+// WAS. A page row is `active` from the moment the planner creates it, so a
+// planned-but-never-built page was a valid CTA target and a valid member of the
+// resolver's page set. datahelpers' own doc says the two axes are separate on
+// purpose and that a caller must "pair this with whichever build-axis arm YOUR
+// question needs"; these three were missing theirs.
+//
+// Measured on fundamentallyai.com 2026-08-08: the cost-calculator guide served
+// `<a href="/platform-log/index.html">Platform Log</a>` for 18 days while that
+// page was `status='active'`, `build_status='planned'`, `deployed_at IS NULL` —
+// a live 404 emitted BY the resolver, because loadResolverPageSet counted it as
+// a real page. The same day's planning pass created three more rows in exactly
+// that state (/tools/tools/index.html and two duplicates), so the population is
+// not a one-off.
+//
+// The obligation is the one queryresolve's FetchablePageEligibilitySQL already
+// applies to every page LISTING — "a listing must never advertise a page that
+// would 404" (bugs_open/052). Link resolution had the identical obligation and
+// no predicate at all.
+//
+// WHY PageMayBeLinkedPredicateFor AND NOT PageHasShippedPredicateFor. The
+// stricter sibling was tried first and MEASURED against live HTTP fleet-wide
+// (2026-08-09): it would have dropped 39 pages from link candidacy, and **11 of
+// them serve HTTP 200** — nine mortgagecalculator.co.uk pages, idea.uk's
+// ab-test-calculator, webdesign.co.uk's llm-cost-calculator, nearly all
+// `build_status='needs_rebuild'`, i.e. built once, still serving, never stamped
+// with deployed_at. Delisting a working page is "worse than the bug"
+// (bugs_open/052 addendum), so the shipped-predicate is the wrong tool for this
+// question even though it is right for "may I mutate this".
+//
+// The narrower floor — never BUILT (`planned` + no deployed_at) — was measured
+// the same way: 22 pages fleet-wide, **all 22 return 404, none returns 200**.
+// That is the disconfirming test this change rests on, and it could have come
+// out the other way, because the broader predicate did.
 func loadContentHubs(ctx context.Context, params ActionParams, siteID uuid.UUID, logger *zap.Logger) ([]contentHub, error) {
 	return loadCTACandidatePages(ctx, params, siteID, logger, "loadContentHubs", `
 		SELECT name, COALESCE(title, name), url, COALESCE(nav_order, 100)
@@ -555,6 +593,7 @@ func loadContentHubs(ctx context.Context, params ActionParams, siteID uuid.UUID,
 		WHERE site_id = $1
 		  AND page_type = 'section-index'
 		  AND status IN ('active', 'deployed')
+		  AND `+datahelpers.PageMayBeLinkedPredicateFor("")+`
 	`)
 }
 
@@ -568,6 +607,7 @@ func loadInteractivePages(ctx context.Context, params ActionParams, siteID uuid.
 		WHERE site_id = $1
 		  AND page_type IN ('tool', 'game')
 		  AND status IN ('active', 'deployed')
+		  AND `+datahelpers.PageMayBeLinkedPredicateFor("")+`
 	`)
 }
 
@@ -609,6 +649,7 @@ func loadCTACandidatePages(ctx context.Context, params ActionParams, siteID uuid
 func loadResolverPageSet(ctx context.Context, params ActionParams, siteID uuid.UUID, logger *zap.Logger) datahelpers.PageURLSet {
 	rows, err := params.DB.QueryContext(ctx, `
 		SELECT url FROM pages WHERE site_id = $1 AND status NOT IN ('deleted', 'archived')
+		  AND `+datahelpers.PageMayBeLinkedPredicateFor("")+`
 	`, siteID)
 	if err != nil {
 		logger.Warn("resolve_internal_links: page set load failed", zap.Error(err))

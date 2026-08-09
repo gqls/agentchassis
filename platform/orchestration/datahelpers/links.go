@@ -294,6 +294,45 @@ func PageHasShippedPredicateFor(alias string) string {
 	return "NOT (" + NeverDeployedPagePredicateFor(alias) + ")"
 }
 
+// PageMayBeLinkedPredicateFor is the LINKABILITY floor: "if I emit an <a> at
+// this page, will a visitor get something?" It is deliberately WEAKER than
+// PageHasShippedPredicateFor, and the gap between them is measured, not assumed.
+//
+// WHY IT IS NOT PageHasShippedPredicateFor. That predicate excludes every page
+// with `deployed_at IS NULL AND build_status <> 'deployed'`. Applied to link
+// resolution and measured fleet-wide against live HTTP on 2026-08-09, it would
+// have removed 39 pages from link candidacy — and **11 of those 39 serve HTTP
+// 200**: idea.uk's ab-test-calculator, webdesign.co.uk's llm-cost-calculator,
+// and nine mortgagecalculator.co.uk pages, almost all `build_status =
+// 'needs_rebuild'`. `needs_rebuild` means the page WAS built and is still
+// serving its last artefact; its deployed_at simply was never stamped. Delisting
+// a working page is the failure this estate calls "worse than the bug"
+// (bugs_open/052's addendum), so the stricter predicate is the wrong tool here
+// even though it is the right tool for "may I mutate this".
+//
+// WHAT THIS EXCLUDES INSTEAD: only pages that were never built at all —
+// `build_status = 'planned'` with no deployed_at. Same measurement, same day:
+// 22 such pages fleet-wide, and **all 22 returned 404, none returned 200**. The
+// check was disconfirmable and could have come out the other way; the broader
+// predicate above did come out the other way, which is why this one exists.
+//
+// The motivating live case: fundamentallyai.com's cost-calculator guide served
+// `<a href="/platform-log/index.html">` for 18 days while that page sat
+// `active` + `planned` + never deployed, because link resolution asked only
+// whether the platform still WANTED the page (the lifecycle axis) and never
+// whether it had ever been BUILT.
+//
+// Pair with a lifecycle arm (PageWantedLivePredicateFor or an explicit status
+// filter) — this is the build axis only, per the family contract above.
+// Parenthesised, like its siblings, so it drops in beside other conjuncts.
+func PageMayBeLinkedPredicateFor(alias string) string {
+	q := ""
+	if alias != "" {
+		q = alias + "."
+	}
+	return fmt.Sprintf("NOT (%[1]sdeployed_at IS NULL AND COALESCE(%[1]sbuild_status, '') = 'planned')", q)
+}
+
 // PageWantedLivePredicateFor is the LIFECYCLE axis: "the platform still wants
 // this page served". It is deliberately a separate axis from the build/shipped
 // predicates above, because the two answer different questions and nothing
