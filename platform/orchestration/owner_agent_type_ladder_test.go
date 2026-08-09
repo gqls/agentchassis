@@ -73,3 +73,78 @@ func TestDetermineOwnerAgentType_Ladder(t *testing.T) {
 		})
 	}
 }
+
+// TestEnsureFullExecutionContext_BackfillsRunAgentType pins the resumed-step half
+// of the same ladder (RFC_019 §7, the declared limitation).
+//
+// Rung 1 reaches an action unaided only on the first-step / same-message path:
+// the processor sets RunAgentType, ToHeaders carries it, FromHeaders restores it.
+// A step resumed after an await rebuilds execCtx from the RESPONSE message's
+// headers, which never carry it — so without this backfill every consumer of the
+// ladder silently drops to rung 2 (the dispatch-path sender, often 'generic') for
+// the remainder of the run, and the fix reads as a partial no-op in production
+// while every existing test stays green.
+//
+// state.OwnerAgentType is determineOwnerAgentType's own durable output from run
+// start, which is why it is the source rather than the pod's environment.
+func TestEnsureFullExecutionContext_BackfillsRunAgentType(t *testing.T) {
+	cases := []struct {
+		name           string
+		execCtx        *types.ExecutionContext
+		state          *OrchestrationState
+		wantRunAgent   string
+		wantSenderType string
+		why            string
+	}{
+		{
+			name: "a resumed step gets the run's own resolved agent type back",
+			execCtx: &types.ExecutionContext{
+				Sender: types.AgentIdentity{AgentType: "generic"},
+			},
+			state:          &OrchestrationState{OwnerAgentType: "council-gate"},
+			wantRunAgent:   "council-gate",
+			wantSenderType: "generic",
+			why:            "this is the whole case: the response message carried a sender, so the Sender backfill below is a no-op and rung 1 stayed empty — the RFC_019 §7 gap, and the bugs_open/093 shape of one guarded call site with an unguarded sibling",
+		},
+		{
+			name: "a populated run agent type is never overwritten",
+			execCtx: &types.ExecutionContext{
+				RunAgentType: "page-build-handler",
+				Sender:       types.AgentIdentity{AgentType: "generic"},
+			},
+			state:          &OrchestrationState{OwnerAgentType: "council-gate"},
+			wantRunAgent:   "page-build-handler",
+			wantSenderType: "generic",
+			why:            "the message's own resolved answer is more specific than the run-start record; this function backfills what is MISSING and must not restate what is present",
+		},
+		{
+			name:           "nothing is invented when the state has no answer either",
+			execCtx:        &types.ExecutionContext{},
+			state:          &OrchestrationState{},
+			wantRunAgent:   "",
+			wantSenderType: "",
+			why:            "an empty RunAgentType falls through to the rungs below it; filling it with a placeholder here would hand the actions door the 'generic' filler that RSH-008 chose 'unattributed' to avoid colliding with",
+		},
+		{
+			name:           "the two siblings are backfilled together when both are empty",
+			execCtx:        &types.ExecutionContext{},
+			state:          &OrchestrationState{OwnerAgentType: "council-gate", OwnerAgentID: "agent-1"},
+			wantRunAgent:   "council-gate",
+			wantSenderType: "council-gate",
+			why:            "the pre-existing Sender backfill keeps working unchanged; this is the no-op half of the check, and it is what would catch the new block being written in place of the old one rather than beside it",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ensureFullExecutionContext(tc.execCtx, tc.state, "test-pod", zap.NewNop())
+
+			if got := tc.execCtx.RunAgentType; got != tc.wantRunAgent {
+				t.Errorf("RunAgentType = %q, want %q\n  case under test: %s", got, tc.wantRunAgent, tc.why)
+			}
+			if got := tc.execCtx.Sender.AgentType; got != tc.wantSenderType {
+				t.Errorf("Sender.AgentType = %q, want %q\n  case under test: %s", got, tc.wantSenderType, tc.why)
+			}
+		})
+	}
+}

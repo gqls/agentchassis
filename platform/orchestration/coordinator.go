@@ -1598,6 +1598,20 @@ func ensureFullExecutionContext(execCtx *types.ExecutionContext, state *Orchestr
 		updated = true
 	}
 
+	// RunAgentType — rung 1 of the RSH-009 ladder, and the sibling of the Sender
+	// backfill above. A step resumed after an await rebuilds execCtx from the
+	// RESPONSE message's headers, which never carry it, so every consumer of the
+	// ladder drops to rung 2 for the rest of the run. state.OwnerAgentType is
+	// determineOwnerAgentType's own durable output from run start, so it is
+	// strictly the right source (RFC_019 §7; bugs_open/093 shape: one call site
+	// was guarded, its sibling was not). Accepted edge: if resolution at run start
+	// bottomed out at the "generic" filler, this propagates that — the ladder's own
+	// durable answer, and no worse than the Sender-based read it replaces.
+	if execCtx.RunAgentType == "" && state.OwnerAgentType != "" {
+		execCtx.RunAgentType = state.OwnerAgentType
+		updated = true
+	}
+
 	// Basics
 	if execCtx.MessageType == "" {
 		execCtx.MessageType = "request"
