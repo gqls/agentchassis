@@ -24801,3 +24801,36 @@ times:
    through anything named. **A noun in a plan is not a mechanism** — grep
    `scheduled_tasks` for the thing you are waiting on before you project a rate
    for it.
+
+---
+
+## 2026-08-09 (second, same lane, same shape) — "two active rows means the loader's pick is roulette": I inferred a mechanism from a row count without opening the function that does the picking
+
+**The claim.** Written into the bugfix-205 NOTES and the commit message of `e6036f41f`, as a
+flagged side-finding: two agent types carry two active definition rows, therefore *"which row the
+loader uses is loader-defined, and a cap set on only one would be roulette"*.
+
+**What was true.** The loader (`platform/orchestration/actions/ai_actions.go:1313`) reads
+`WHERE type = $1 AND is_active = true ORDER BY version DESC LIMIT 1`. It is **deterministic**:
+newest version wins, and fleet-wide there is **not one version tie** among loader-visible rows. My
+caps happened to land on the loaded row (version 2 in both cases) — the outcome was right, the
+stated reason was invented. The genuinely interesting defect is one I had not looked for: the
+loader's predicate (`is_active` only) is **narrower than every census predicate in the estate**
+(`is_active AND NOT is_snapshot AND deleted_at IS NULL`), so an `is_active` snapshot or
+soft-deleted row would win silently. Measured: that population is empty (0 and 0 of 183), held
+shut only by `snapshot_agent()` writing `is_active = false` — an invariant nothing states or tests.
+
+**What caught it.** Deciding to verify, rather than assert, that the caps were on the row that
+loads — which meant grepping for the loader and reading its ORDER BY.
+
+**The cheap check that would have caught it: when you catch yourself writing "X is
+implementation-defined", that sentence IS the instruction to go read the implementation.** It is
+never a conclusion; it is an unopened file. This is the SECOND time in one day, in one lane, that
+I published a mechanism claim without checking the mechanism (see the entry above: `scrape_prices`
+attributed to a WARN whose population it was never in). Both were fixed in under a minute by
+opening the one function involved, and both had already been *published* by then — into a bug
+file, a commit message and a WRONG_CALLS entry respectively. The pattern is not carelessness about
+evidence (both entries carry measurements); it is that **a measurement of the SYMPTOM gets
+promoted to a claim about the CAUSE without the intervening read**, and the measurement's presence
+makes the claim feel checked. Marker discipline does not catch this: `[MEASURED]` on the row count
+is true and the sentence it licenses is still false.

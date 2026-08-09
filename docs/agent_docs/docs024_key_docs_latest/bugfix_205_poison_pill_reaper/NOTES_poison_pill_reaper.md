@@ -293,3 +293,65 @@
   loader-defined, and a cap set on only one would be roulette (347 therefore
   capped every uncapped row). RFC_006 SingleOwner territory; flagged here for
   whoever owns definition hygiene.
+
+## 2026-08-09 later — caps verified AT THE LOADER; yesterday's "roulette" claim corrected; three live truncations handed on
+
+- **The caps are on the rows that actually load — verified, not assumed.** The
+  loader is `ai_actions.go:1313` — `WHERE type = $1 AND is_active = true ORDER
+  BY version DESC LIMIT 1`. Enumerated every row it can see for the six types:
+  chief-strategist picks version 2 (my 16000; the pre-existing 8192 is version
+  1 and is **never loaded**), content-creator picks version 2 (both rows 16000
+  anyway), the other four are single-row. **0 calls at `max_tokens = 2048`
+  since the apply**, fleet uncapped census still 0.
+- > **CORRECTED 2026-08-09 — my own side-finding above was wrong.** I wrote
+  > that with two active rows "which row the loader uses is loader-defined, and
+  > a cap set on only one would be roulette". It is **not** roulette: the
+  > loader orders by `version DESC`, and fleet-wide there are **no version
+  > ties** among loader-visible rows (query below). Newest version wins,
+  > deterministically. What caught it: reading the loader instead of inferring
+  > from the duplicate count — the same "membership before mechanism" miss as
+  > the WRONG_CALLS 08-09 entry, twice in one day, both times fixed by opening
+  > the function. 347 capped every uncapped row regardless, so the outcome was
+  > right for a reason I had not established.
+- **The real latent defect is a PREDICATE GAP, and it is empty today.** The
+  loader filters `is_active = true` only; every census in this estate uses
+  `is_active AND NOT is_snapshot AND deleted_at IS NULL`. So a snapshot or a
+  soft-deleted row that ever carried `is_active = true` would silently win on
+  version. Measured 08-09: `active_snapshots = 0`, `active_but_deleted = 0`,
+  loader-visible = census-visible = **183**. `snapshot_agent()` writes
+  `is_active = false`, which is what keeps the gap shut — an invariant nothing
+  states or tests. Recorded as a risk, not filed as a bug: no live instance.
+  ```sql
+  SELECT count(*) FILTER (WHERE is_active AND COALESCE(is_snapshot,false)) AS active_snapshots,
+         count(*) FILTER (WHERE is_active AND deleted_at IS NOT NULL)      AS active_but_deleted,
+         count(*) FILTER (WHERE is_active) AS loader_visible FROM agent_definitions;
+  SELECT type, version, count(*) FROM agent_definitions WHERE is_active
+   GROUP BY 1,2 HAVING count(*) > 1;   -- ties = a genuinely non-deterministic pick
+  ```
+- **Duplicate active rows is 4 types, not 2** (my 08-09 note said two because I
+  only looked at the types I was capping): `chief-strategist`,
+  `content-creator`, `content-creator-contact`, `site-component-architect`.
+  **RFC_006's `single-owner-carriers-check` does NOT cover this** — it counts
+  how many distinct AGENTS carry a single-owner ACTION; this is one agent TYPE
+  with two definition rows. Different failure, no detector. Unowned; flagged
+  here for definition hygiene.
+- **Three configured-cap truncations since 08-08 — other lanes', handed on not
+  fixed** (all `error_message ILIKE '%stop_reason=max_tokens%'`, the only
+  reliable truncation signal):
+  - `page-content-writer/process_sections_loop_iter_0_generate_content`,
+    cap 8000, sonnet-5, 2026-08-09 00:00Z — **only 4,229 chars recovered from
+    an 8,000-token budget**, i.e. thinking consumed most of it. This is the
+    138 cap-120 lesson at production scale: on sonnet-5 a cap is a THINKING +
+    TEXT budget, so 8000 buys far less prose than it looks.
+  - `tool-auditor/llm_audit`, cap 4000, sonnet-4-6, 2026-08-08 23:25Z —
+    15,181 chars recovered, so it wants roughly 4× its cap.
+  - `council-gate/review_guardian`, cap 8000, 2026-08-08 15:24Z — TOLERATED
+    (step continued on the partial), the known bugs_open/138 shape.
+  The standing `fleet-step-token-pressure` detector is enabled and ran 10:10Z
+  today (6-hourly); I could not locate its finding notes in `doc_notes` by
+  subject or body search, which is worth someone confirming — a detector whose
+  output nobody can find is the 205 watch-item failure again, one level up.
+  **Consequence for our own choice:** the gate step's 8000 is verdict-shaped
+  (`review_mission` peaks at 308 output tokens) so it stands, but if
+  provocation-gate-calibration ever writes long-form it will meet the same
+  thinking tax.
