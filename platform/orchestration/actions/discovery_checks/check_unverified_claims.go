@@ -58,6 +58,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -246,6 +247,17 @@ type ClaimsPageScan struct {
 	// silently dropped so a page whose only claims sit in a locked component
 	// cannot be read as "the copy was fixed".
 	ComponentsSkippedLocked int
+	// NewestComponentUpdate is the latest page_components.updated_at across the
+	// components actually EXAMINED (locked rows are excluded, since their content
+	// was not read and cannot be what changed).
+	//
+	// It exists for one reason: the register this scan measures against is DATA,
+	// so a page can stop tripping the check because somebody edited the REGISTER
+	// rather than the PAGE. Findings alone cannot tell those apart. Comparing this
+	// against the work item's created_at can. Zero value means no examined
+	// component carried a timestamp, which the ladder must treat as "cannot show
+	// the copy moved" — never as "it did".
+	NewestComponentUpdate time.Time
 }
 
 // LoadEvidenceBase reads the site's current evidence_base spec.
@@ -337,7 +349,7 @@ func ScanDeployedClaims(
 		SELECT pc.page_id::text, p.name, COALESCE(pc.slot_name, ''),
 		       COALESCE(pc.rendered_html, ''), COALESCE(cc.name, ''),
 		       COALESCE(pc.content_data::text, ''), COALESCE(p.page_type, ''),
-		       pc.locked_at
+		       pc.locked_at, pc.updated_at
 		FROM page_components pc
 		JOIN pages p ON p.id = pc.page_id
 		LEFT JOIN content_components cc ON cc.id = pc.component_id
@@ -362,9 +374,9 @@ func ScanDeployedClaims(
 
 	for pageRows.Next() {
 		var pageID, pageName, slotName, html, component, contentJSON, pageType string
-		var lockedAt sql.NullTime
+		var lockedAt, updatedAt sql.NullTime
 		if err := pageRows.Scan(&pageID, &pageName, &slotName, &html, &component,
-			&contentJSON, &pageType, &lockedAt); err != nil {
+			&contentJSON, &pageType, &lockedAt, &updatedAt); err != nil {
 			logger.Warn("unverified_claims: page scan error", zap.Error(err))
 			continue
 		}
@@ -379,6 +391,12 @@ func ScanDeployedClaims(
 			continue
 		}
 		pf.ComponentsExamined++
+		// Tracked only for EXAMINED rows: a locked component's timestamp says
+		// something changed in content this scan deliberately did not read, which
+		// is not evidence about the copy the finding was raised against.
+		if updatedAt.Valid && updatedAt.Time.After(pf.NewestComponentUpdate) {
+			pf.NewestComponentUpdate = updatedAt.Time
+		}
 
 		findings := scanComponentClaims(html, slotName, eb,
 			datahelpers.ClaimSurface{PageType: pageType})

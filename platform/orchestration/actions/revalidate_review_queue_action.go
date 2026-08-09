@@ -133,6 +133,12 @@ type parkedReviewItem struct {
 	ItemType string
 	ItemKey  string
 	Spec     map[string]interface{}
+	// CreatedAt is when the finding was filed. Added 2026-08-09 for the
+	// claims_unverified copy-changed gate (OWNER RULING, below): a revalidator
+	// that must prove the PAGE moved — not merely that the standard moved —
+	// needs the date the claim was made to compare against. Other revalidators
+	// ignore it; it is one more column from a row this query already reads.
+	CreatedAt time.Time
 }
 
 // revalidationVerdict is one revalidator's answer about one parked item.
@@ -428,8 +434,11 @@ func loadParkedReviewItems(ctx context.Context, db *sql.DB, siteFilter, typeFilt
 	// growing in some unrelated type can no longer push this sweep's own work out
 	// of the batch. The uncovered rows are still reported, by reportUncoveredBacklog,
 	// which counts ALL of them rather than the subset that fell inside the cap.
+	// ⚠ THIS SELECT AND THE rows.Scan BELOW ARE ONE CONTRACT — add a column to one
+	// and you must add it to the other, in the same edit and the same position.
 	query := fmt.Sprintf(`
-		SELECT id::text, site_id, item_type, COALESCE(item_key, ''), COALESCE(spec, '{}'::jsonb)
+		SELECT id::text, site_id, item_type, COALESCE(item_key, ''), COALESCE(spec, '{}'::jsonb),
+		       created_at
 		FROM site_work_items
 		WHERE status IN (%s) AND item_type IN (%s)`,
 		sqlInList(workItemRevalidatableStatuses), sqlInList(coveredItemTypes()))
@@ -463,7 +472,7 @@ func loadParkedReviewItems(ctx context.Context, db *sql.DB, siteFilter, typeFilt
 	for rows.Next() {
 		var it parkedReviewItem
 		var specJSON []byte
-		if err := rows.Scan(&it.ID, &it.SiteID, &it.ItemType, &it.ItemKey, &specJSON); err != nil {
+		if err := rows.Scan(&it.ID, &it.SiteID, &it.ItemType, &it.ItemKey, &specJSON, &it.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scan parked review item: %w", err)
 		}
 		if len(specJSON) > 0 {

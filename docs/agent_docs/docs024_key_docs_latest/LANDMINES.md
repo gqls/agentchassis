@@ -7295,7 +7295,9 @@ WHERE w.item_type='claims_unverified' AND w.resolution_path='auto:revalidated'
 GROUP BY 1,2;
 ```
   `copy_actually_changed = false` means the register moved, not the page. Also check `site_specs.updated_at` for the `evidence_base` aspect around the close.
-- **source:** 2026-08-09, bugfix_168_deployed_asset_path — recorded with CQ-021 as the seam shipped, not after something looked wrong
+- **UPDATE 2026-08-09 (same day) — the hole is now CLOSED IN CODE for `claims_unverified`, by OWNER RULING.** `resolved` requires an EXAMINED component whose `page_components.updated_at` is later than the item's `created_at`, so a register edit alone can no longer retract a finding. **This entry still stands for two reasons:** (1) the sibling type `voice_tells` has the identical hole and is deliberately NOT gated — its standard is `voice_gate` thresholds and its surface is style, not truth; (2) a `resolved` on either type still never means a human agreed the new copy is TRUE. Read the check below as "which of these two types am I looking at, and was it gated?"
+- ⚠ **If you extend the gate, keep the zero-date arm SEPARATE from the comparison.** `x.After(time.Time{})` is true for any real timestamp, so folding them makes an item with no known filing date close on ANY component edit, however old — the exact inverse of the gate's purpose. It nearly shipped that way behind a doc comment that already claimed the right behaviour.
+- **source:** 2026-08-09, bugfix_168_deployed_asset_path — recorded with CQ-021 as the seam shipped, not after something looked wrong; gated the same day after the council's `compliance` seat objected in two rounds
 - **added:** 2026-08-09, bugfix_168_deployed_asset_path
 
 ### A `SEED_SCOPE` naming a package-level `var` or `const` can NEVER be read — the code index holds no such kind, and the 090 loop burns its iteration cap returning UNVERIFIABLE
@@ -7520,3 +7522,41 @@ SELECT type FROM agent_definitions
 - **also:** when you write a cap, `config.ai_service.max_tokens` is the honoured path and `config.max_tokens` reads NULL for every row (separate entry, same lane). And **a cap on a council seat must be written to `fix-proposer` and mirrored with `099_SYNC_gate_roster.py`** — hand-patching `council-gate` is the drift this estate has already been bitten by.
 - **source:** found while fixing production truncations off the back of `bugs_open/205`, 2026-08-09 — the corrected claim was my own, published three days running; WRONG_CALLS 2026-08-09
 - **added:** 2026-08-09, bugfix_205 lane
+
+### A rendered prompt always contains its own template, so a sentinel assertion on `prompt_rendered` can be TRUE for a reason that has nothing to do with the data you think you are testing
+
+- **footprint:** `llm_call_log`, `llm_call_log.prompt_rendered`, `prompt_template`, `bugs_open/227`, `sql_for_agents/345`, `experience-planner`, `load_brief`, any `query_database` step feeding a template via `input_fields`
+- **fires when:** you prove a data-loading step works by asserting that some marker text appears in `prompt_rendered` — a sentinel, a fallback string, a "(none on file)" placeholder, a field header. No symptom needed: the assertion passes, which is exactly the problem.
+- **the tell is that it passes on the first try and keeps passing.** `prompt_rendered` is *template + data*. If the phrase you assert also appears in the template — and a fallback phrase usually does, because the template must instruct the model what to do in the fallback case — your `LIKE` matches the template's copy and returns TRUE whether the loader returned real data, returned the fallback, or **was never wired into `input_fields` at all**, which renders empty and errors nothing. Measured on 2026-08-09: `prompt_rendered LIKE '%no brief on file%'` was TRUE for BOTH the site with no brief and the control site whose 7,908-byte brief had loaded correctly.
+- **the check:** grep the TEMPLATE for the needle before asserting it against the RENDER —
+  ```sql
+  SELECT (default_config #>> '{workflow,steps,<step>,config,prompt_template}') LIKE '%<needle>%'
+    FROM agent_definitions WHERE type='<agent>' AND is_active
+      AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;   -- TRUE ⇒ your assertion is inert
+  ```
+  If it is in the template, assert the **count** instead (`(SELECT count(*) FROM regexp_matches(prompt_rendered,'<needle>','g'))` — template-only vs template+data are different integers), or pick a substring only the data path can emit. Better still, read what the loader actually returned: `collected_data->'<output_field>'->>'text'` on the orchestration row shows the loaded value directly and needs no sentinel reasoning at all.
+- **why it is a landmine and not just a bad query:** the failing form is what a careful author writes. The sentinel exists *precisely* to make a miss visible, so asserting on it feels like the rigorous choice — and the positive control that should catch it reports the failure as "the fix is broken", pointing at the code instead of the check. Three documents carried this assertion (the migration's VERIFY block, the bug file, the lane handoff) and it was reviewed as sound each time.
+- **source:** 2026-08-09, loancalculator_couk lane, applying `sql_for_agents/345` for `bugs_open/227`; caught when the vonc positive control returned the opposite of its prediction. WRONG_CALLS 2026-08-09
+- **added:** 2026-08-09, loancalculator_couk lane
+
+### There are TWO page-`<head>` producers and only ONE gets every head fix — a page rebuilt through `assemble_page` silently loses the canonical, the JSON-LD and now the `noindex` its DB row still claims
+
+- **footprint:** `platform/orchestration/actions/multipage_actions.go`, `AssemblePageAction`, `assemble_page`, `platform/orchestration/actions/rerender_single_page_action.go`, `assemblePage`, `injectRobotsNoindex`, `injectCanonicalLink`, `injectPageJSONLD`, `spliceMetaDescription`, `pages.noindex`, `pages`, `site-work-orchestrator`, `pageflow-builder`, `page-rebuild`
+- **fires when:** you add anything to a page's `<head>` — a meta, a canonical, structured data, a robots directive — or you rely on one already being there. No symptom needed: your change works perfectly on the path you tested, and the page keeps serving without it on the other.
+- **the trap:** `assemblePage` (`rerender_single_page_action.go`, reached by the `page-rerender` agent) is the path everyone reads, because it is where every recent head fix landed. It is **not the only one.** `AssemblePageAction` (`multipage_actions.go`) is registered as the live action `assemble_page` and is used by **three active agent types** — `site-work-orchestrator`, `pageflow-builder`, `page-rebuild`. It has its own older head handling and calls **none** of `spliceMetaDescription` / `injectPageJSONLD` / `injectCanonicalLink` / `injectRobotsNoindex`. Three fixes have now landed on one path only: JSON-LD (2026-07-28), canonical (2026-08-02), `noindex` (2026-08-09).
+- **why the wrong result looks exactly like the right one:** for `noindex` specifically, `pages.noindex` stays `true` in the database whichever path last rebuilt the page. So the config says "this page is excluded from search", the code says "we honour that", and the served HTML has no tag — and the discrepancy is invisible from either the DB or the source. **Verify at the served artefact, never at the flag:** `curl -s "https://<domain>/<path>?cb=$(date +%s)" | grep -io '<meta name="robots"[^>]*>'`.
+- **the check, before you trust that a head fix is fleet-wide:**
+  ```bash
+  # does the OTHER producer call your new helper?
+  grep -n "injectPageJSONLD\|injectCanonicalLink\|injectRobotsNoindex\|spliceMetaDescription" \
+    platform/orchestration/actions/multipage_actions.go     # currently: no hits at all
+  ```
+  ```sql
+  -- who still dispatches the other path (do not assume it is dead)
+  SELECT type FROM agent_definitions
+   WHERE is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL
+     AND default_config::text ILIKE '%"action": "assemble_page"%';   -- 3 rows, 2026-08-09
+  ```
+- **and a stale comment will tell you the opposite.** `inject_canonical_link_test.go`'s header states *"assemblePage is the single live assembly path … no live agent uses assemble_page"*. That was **false when measured on 2026-08-09** — the query above returns three active agents. A source comment is not a census; run the query.
+- **source:** 2026-08-09, `bugs_open/232` lane, found while adding the third head injection and checking whether it would actually be fleet-wide. Concept register SEO-003 carries the same warning and the open convergence question.
+- **added:** 2026-08-09, bugs_open/232 lane

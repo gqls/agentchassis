@@ -36,6 +36,7 @@
 //     > raised this as a gating objection; its feared consequence — the
 //     > revalidator judging by the wrong producer's predicate — is refuted by
 //     > exactly that call graph: there is ONE scan, and both halves live in it.
+//
 //   - Closer side: `SELECT status, count(*) ... WHERE item_type='claims_unverified'
 //     AND status IN ('complete','verified')` returns ZERO ROWS. Nothing has ever
 //     closed one — no revalidation block, no `deploy_result` payload, no handler,
@@ -54,17 +55,33 @@
 //
 // ⚠ THE STANDARD IS EDITABLE, AND HERE THAT BITES HARDER THAN THE VOICE GATE.
 // A site's evidence_base register is data. Adding a fact row makes a previously
-// unregistered number verifiable, so an item retracts although the copy was
-// never touched. That is arguably correct — the claim is now substantiated —
-// but a `resolved` stamp on this type is NOT proof the copy was rewritten. To
-// tell the two apart, compare page_components.updated_at against the item's
-// created_at.
+// unregistered number verifiable, so an item would retract although the copy was
+// never touched.
+//
+// OWNER RULING 2026-08-09 — that hole is CLOSED IN CODE, not documented as a
+// caveat. The copy-changed gate at the foot of the ladder requires positive
+// evidence that the PAGE moved (an examined component with
+// page_components.updated_at later than the item's created_at) before anything
+// may close. A register edit alone can no longer retract a finding.
+//
+// The owner chose this over shipping as-is, over downgrading instead of closing,
+// and over abandoning the change, after the council's `compliance` seat gated on
+// it in TWO successive rounds. Its formulation is the one worth keeping: THE
+// REGISTER PROVES PROVENANCE, NOT CORRECTNESS. The machine can confirm a number
+// is registered; it cannot confirm the number is true. So a careless register
+// entry must not be able to close a human-review row about a factual claim —
+// and now it cannot.
+//
+// ⚠ A `resolved` stamp on this type therefore means "the copy changed AND the
+// page is now clean". It still does not mean a human agreed the new copy is
+// TRUE — that was never in scope, and the gate does not claim it.
 package actions
 
 import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -121,7 +138,7 @@ func revalidateUnverifiedClaims(ctx context.Context, db *sql.DB, item parkedRevi
 			break
 		}
 	}
-	return unverifiedClaimsVerdict(pageID, scan)
+	return unverifiedClaimsVerdict(pageID, item.CreatedAt, scan)
 }
 
 // unverifiedClaimsVerdict is the decision ladder, split from the database glue
@@ -132,7 +149,12 @@ func revalidateUnverifiedClaims(ctx context.Context, db *sql.DB, item parkedRevi
 // Order matters: "still carries claims" must be answered before "some
 // components were locked", or a page that still asserts an unsupported claim
 // would be reported as unreadable rather than as still holding.
-func unverifiedClaimsVerdict(pageID string, scan *checks.ClaimsPageScan) revalidationVerdict {
+//
+// filedAt is the work item's created_at, and it is what the copy-changed gate
+// below compares against. A zero filedAt makes that gate refuse, which is the
+// safe direction: an item whose filing date we cannot establish is one whose
+// "has the page moved since?" question has no answer.
+func unverifiedClaimsVerdict(pageID string, filedAt time.Time, scan *checks.ClaimsPageScan) revalidationVerdict {
 	if scan == nil {
 		// No row came back for this page: it was deleted, or it has no component
 		// carrying either rendered_html or content_data. Note this check has never
@@ -194,13 +216,74 @@ func unverifiedClaimsVerdict(pageID string, scan *checks.ClaimsPageScan) revalid
 		}
 	}
 
+	// THE COPY-CHANGED GATE — OWNER RULING 2026-08-09, and the last thing between
+	// a clean scan and a closed item.
+	//
+	// Everything above establishes that the page no longer trips the check. That is
+	// NOT the same as the page having been fixed, because the standard is editable
+	// data: adding a fact to the site's evidence_base makes a previously
+	// unregistered number verifiable, and the finding evaporates with the copy
+	// untouched. The council's `compliance` seat gated on exactly this (twice), and
+	// its formulation is the one to keep in mind — THE REGISTER PROVES PROVENANCE,
+	// NOT CORRECTNESS. A machine cannot tell a substantiated claim from a
+	// carelessly-registered one, so it must not be the thing that closes a
+	// human-review row on the strength of a register edit alone.
+	//
+	// So: require positive evidence that the PAGE moved. If no examined component
+	// has been touched since the finding was filed, something other than the page
+	// changed, and this refuses — non-terminally, leaving the item exactly where a
+	// human can still see it.
+	//
+	// The owner chose this over three alternatives (ship as-is; downgrade instead
+	// of closing; abandon the change) precisely because it converts a policy
+	// argument into a mechanical guarantee that a reviewer of the CALLER can see.
+	//
+	// The zero-filedAt arm is separate and deliberate. `x.After(time.Time{})` is
+	// true for any real timestamp, so folding this into the comparison below would
+	// make an item with NO known filing date close on ANY component edit, however
+	// old — the exact opposite of the gate's purpose, and it would have shipped
+	// silently behind a doc comment that claimed otherwise. (It nearly did: the
+	// comment above said "a zero filedAt makes that gate refuse" before the code
+	// did, and the test caught the difference.)
+	if filedAt.IsZero() {
+		return revalidationVerdict{
+			Verdict: revalidationUnknown,
+			Reason: fmt.Sprintf(
+				"page %s no longer trips the check, but this finding carries no filing date, so there is nothing to compare the page's last edit against and no way to tell a fixed page from a moved register",
+				scan.PageName),
+			Evidence: map[string]interface{}{
+				"page_id":                 pageID,
+				"page_name":               scan.PageName,
+				"components_examined":     scan.ComponentsExamined,
+				"newest_component_update": scan.NewestComponentUpdate,
+			},
+		}
+	}
+	if !scan.NewestComponentUpdate.After(filedAt) {
+		return revalidationVerdict{
+			Verdict: revalidationUnknown,
+			Reason: fmt.Sprintf(
+				"page %s no longer trips the check, but no component on it has changed since this finding was filed — so the site's evidence register moved, not the page; a register entry proves a claim was registered, never that it is true",
+				scan.PageName),
+			Evidence: map[string]interface{}{
+				"page_id":                 pageID,
+				"page_name":               scan.PageName,
+				"components_examined":     scan.ComponentsExamined,
+				"item_filed_at":           filedAt,
+				"newest_component_update": scan.NewestComponentUpdate,
+			},
+		}
+	}
+
 	return revalidationVerdict{
 		Verdict: revalidationResolved,
-		Reason:  fmt.Sprintf("re-scanned all %d component(s) on page %s against this site's current evidence base and found no unsupported claim; the copy this item flagged no longer asserts one", scan.ComponentsExamined, scan.PageName),
+		Reason:  fmt.Sprintf("re-scanned all %d component(s) on page %s against this site's current evidence base and found no unsupported claim; the copy this item flagged has been edited since it was filed and no longer asserts one", scan.ComponentsExamined, scan.PageName),
 		Evidence: map[string]interface{}{
-			"page_id":             pageID,
-			"page_name":           scan.PageName,
-			"components_examined": scan.ComponentsExamined,
+			"page_id":                 pageID,
+			"page_name":               scan.PageName,
+			"components_examined":     scan.ComponentsExamined,
+			"item_filed_at":           filedAt,
+			"newest_component_update": scan.NewestComponentUpdate,
 		},
 	}
 }
