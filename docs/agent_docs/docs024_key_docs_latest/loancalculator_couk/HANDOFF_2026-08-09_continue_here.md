@@ -1,5 +1,41 @@
 # HANDOFF — loancalculator.co.uk · **the `bugs_open/227` PLATFORM thread** · continue here (written 2026-08-08 late, for 08-09)
 
+> # ✅ DONE 2026-08-09 (afternoon) — §1 and §2 are COMPLETE. Do not re-run them.
+> **345 is APPLIED and PROVEN LIVE in both directions.** Applied clean at ~11:50Z (both
+> guards passed, `INSERT 0 1`, `UPDATE 1`, verify block silent, `COMMIT`); the five md5s
+> matched, so no other session had touched the prompts. Case-insensitive census over the
+> whole live row is **0**. Both behavioural runs COMPLETED and both councils returned
+> **approved** — including the loancalculator one, which answers finding 2's worry: the
+> de-contaminated seats no longer hunt for a feed and a timer.
+>
+> | run | corr | `no brief on file` hits | COALESCE fallback rendered | leaked | prompt |
+> |---|---|---|---|---|---|
+> | loancalculator `debt-difficulty-help` | `c3976aab` | 2 | TRUE | **FALSE** | 24,721 b |
+> | vonc `vonc-spark-game` (control) | `72f540d3` | 1 | FALSE | TRUE (correctly) | 70,427 b |
+>
+> The `debt-difficulty-help` plan of record is now **clean** — `body ~* 'provocation|
+> gauntlet|arena|vonc|spark'` → false, 11,442 b, names loan/debt subjects. First non-vonc
+> experience plan in this system's history that does not describe vonc's pages. vonc's
+> brief arrived verbatim through the new channel (`collected_data->'experience_brief'`,
+> 7,908 b, opens with its 2026-07-17 diagnosis).
+>
+> ## ⚠ AND THE ASSERTION §2 TELLS YOU TO RUN IS INERT — corrected below and in three files
+> `prompt_rendered LIKE '%no brief on file%'` **cannot come out false.** That phrase is
+> also in the static `compose` template 345 installs, so it is TRUE on every run of every
+> site — including one where `load_brief` was never wired, the exact silent failure it was
+> written to catch. It came out TRUE for the vonc control too, where §2 demands FALSE, and
+> **that reads as "the fix is broken" when it is the check that is broken.** Use the count
+> (2 = template + fallback, 1 = template only) or the substring only the `COALESCE` emits.
+> Corrected in `bugs_open/227`, in 345's own VERIFY header, and in `WRONG_CALLS.md`;
+> filed as a landmine on `llm_call_log.prompt_rendered`.
+>
+> **Still owed:** §3 (the persist-before-council defect — untouched, and the route choice
+> is still real) and the concept-register entry, which is written. **Also note:** running
+> the vonc control re-planned vonc as a side effect (§3's defect in action — the plan
+> persists before the verdict). Its plan of record has been **restored by hand** to
+> `b6fdbc09` (2026-07-25); the new approved plan `2ec02a7e` is kept, demoted, with the
+> reason in its `notes` column, should the vonc lane want to promote it deliberately.
+
 > ⚠ **SCOPE, added 2026-08-09 — this directory has two live handoffs dated 08-09.**
 > **This file is the `bugs_open/227` job** (experience-planner writes another site's plan):
 > the fix is written, dry-run proven and **NOT applied**. Everything below is still owed

@@ -25065,3 +25065,50 @@ same question asked of the *inference* rather than the *number*: **what else wou
 exact result?** Also worth noting: this census had been repeated by several sessions since 08-06
 without anyone re-reading its WHERE clause. **An inherited query is inherited evidence — it
 carries its author's blind spots into your conclusion under your name.**
+
+---
+
+## 2026-08-09 — `loancalculator_couk` / `bugs_open/227` — I asserted a sentinel that my own prompt template also contains, so the check could not come out false
+
+**The claim.** Migration 345 makes `experience-planner` read each site's brief from
+`doc_notes` instead of carrying one site's brief hardcoded. Its verification, written into
+three places before it was ever run — the file's own VERIFY header, the bug file's "how to
+verify", and the lane's handoff — was: on the `compose` step,
+`prompt_rendered LIKE '%no brief on file%'` must be **TRUE** for the site with no brief and
+**FALSE** for vonc, which has one. I ran the first half, got TRUE, and recorded the fix as
+behaving exactly as designed.
+
+**Why it was wrong.** The phrase "no brief on file" occurs **once in the static `compose`
+template that migration installs** — it is the instruction telling the model what to do when
+there is no brief. So `LIKE '%no brief on file%'` is TRUE on **every** run, for **every**
+site, whether `load_brief` returned a real brief, returned the fallback, or was never wired
+into `input_fields` at all — which is precisely the silent-failure mode the assertion existed
+to detect. `[MEASURED]` and dated, and it could not have come out otherwise.
+
+**What caught it.** The positive control disagreeing with its own prediction. vonc came back
+`got_sentinel = TRUE` where all three documents demanded FALSE, and the first reading of that
+is "the fix is broken" — the control had been written to catch a broken fix and instead
+caught a broken assertion. Distinguishing them took one query: grep the template for the
+phrase.
+
+**The cheap check that would have caught it.** **Grep the artefact you are about to assert on
+for the string you are about to assert.** The template was in my hand — I had just written
+it — and one `LIKE` against `prompt_template` (rather than `prompt_rendered`) would have
+shown the phrase was static. Generally: a sentinel is only evidence if it can be **absent**,
+so before trusting one, name the run in which it does not appear. The disconfirmable form was
+available and cheap — the **count** (2 = template + rendered fallback, 1 = template only), or
+the substring only the `COALESCE` emits.
+
+**With the corrected assertion the fix is proven in both directions** — same step, opposite
+outcomes, keyed only on `subject_key`: loancalculator `phrase_hits=2, fallback=TRUE,
+leaked=FALSE`; vonc `phrase_hits=1, fallback=FALSE, leaked=TRUE`. **The fix was right; the
+proof was not.** That is the uncomfortable part — a real defect in the verification survived
+three documents and one careful review because the check kept returning the answer everyone
+expected.
+
+**The shape, for the tally.** This is the sibling of the 08-03 pair already in this file: a
+measurement that "could not have come out otherwise". Those two were queries filtered on the
+column they existed to test. This one is a **string assertion whose needle is planted in the
+haystack by the very change under test** — and it is a standing hazard for anything asserted
+against `llm_call_log.prompt_rendered`, because a rendered prompt always contains its own
+template. Filed as a landmine on that footprint.

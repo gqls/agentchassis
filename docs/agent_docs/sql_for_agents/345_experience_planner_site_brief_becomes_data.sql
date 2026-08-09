@@ -129,6 +129,23 @@
 --          prompt_rendered ILIKE '%provocation%'            AS leaked,      -- expect false
 --          prompt_rendered ILIKE '%no brief on file%'       AS got_sentinel -- expect TRUE for this site
 --     FROM llm_call_log WHERE correlation_id='<CID>' AND step_name='compose';
+--
+-- ⚠ CORRECTED 2026-08-09 BY THE APPLYING SESSION — `got_sentinel` AS WRITTEN ABOVE
+-- CANNOT COME OUT FALSE, so it is not evidence. The phrase "no brief on file" occurs
+-- ONCE IN THE STATIC PROMPT TEMPLATE this file installs (the instruction telling the
+-- model what to do when there is no brief), so `LIKE '%no brief on file%'` is TRUE on
+-- every run of every site whether load_brief returned a brief, the fallback, or was
+-- never wired at all. Measured: it is TRUE for BOTH the loancalculator run and the
+-- vonc control. Use the COUNT, or the part of the sentinel only the COALESCE emits:
+--   SELECT (SELECT count(*) FROM regexp_matches(prompt_rendered,'no brief on file','g'))
+--            AS phrase_hits,          -- 2 = template + fallback (no brief); 1 = template only (brief loaded)
+--          prompt_rendered LIKE '%(no brief on file for this experience — there is no prior diagnosis%'
+--            AS coalesce_sentinel_rendered
+--     FROM llm_call_log WHERE correlation_id='<CID>' AND step_name='compose';
+-- PROVEN LIVE 2026-08-09 with exactly that pair, opposite in both directions:
+--   loancalculator/debt-difficulty-help  phrase_hits=2  fallback=t  leaked=f  24,721 b
+--   vonc/vonc-spark-game                 phrase_hits=1  fallback=f  leaked=t  70,427 b
+-- (corr c3976aab-39e3-45b6-9996-7a40f90259f4 and 72f540d3-bb8f-47f7-948d-67cc747a9fc1).
 --   SELECT body ILIKE '%provocation%' AS still_wrong        -- expect false
 --     FROM doc_plans WHERE subject_type='experience' AND subject_key='debt-difficulty-help'
 --    ORDER BY created_at DESC LIMIT 1;

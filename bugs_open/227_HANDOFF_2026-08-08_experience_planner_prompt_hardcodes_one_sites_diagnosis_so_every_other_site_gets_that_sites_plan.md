@@ -186,6 +186,32 @@ Candidate 1 is the real fix; 3 is independent and cheap.
   it must come out the **other way** (matches `provocation`, no sentinel), because vonc's
   brief legitimately contains the word. One direction alone cannot tell a working channel
   from a channel that silently loads nothing.
+
+  > **⚠ CORRECTED 2026-08-09 by the applying session — "MUST contain the no-brief
+  > sentinel" is a check that CANNOT FAIL, and I ran it before I noticed.** The phrase
+  > "no brief on file" also occurs **once in the static `compose` template** (the
+  > instruction covering the no-brief case), so `prompt_rendered LIKE '%no brief on
+  > file%'` is TRUE on every run of every site — including one where `load_brief` was
+  > never wired. It came out TRUE for the vonc control too, where this file demands
+  > FALSE, and **that looked like the fix failing when it was the assertion failing.**
+  > The disconfirmable form is the COUNT (2 = template + rendered fallback, 1 = template
+  > only) or the substring only the COALESCE emits, `'(no brief on file for this
+  > experience — there is no prior diagnosis'`. What caught it was the control
+  > disagreeing with the prediction; what would have caught it a step earlier is
+  > grepping the template I had just installed for the phrase I was about to assert on.
+
+- **PROVEN LIVE 2026-08-09**, applied then run in both directions with the corrected
+  assertion — same step, opposite outcomes, keyed only on `subject_key`:
+
+  | run | `no brief on file` hits | COALESCE fallback rendered | leaked | prompt |
+  |---|---|---|---|---|
+  | loancalculator / `debt-difficulty-help` (`c3976aab`) | 2 | TRUE | **FALSE** | 24,721 b |
+  | vonc / `vonc-spark-game` (`72f540d3`) | 1 | FALSE | TRUE (correctly) | 70,427 b |
+
+  The resulting `debt-difficulty-help` plan of record is clean —
+  `body ~* 'provocation|gauntlet|arena|vonc|spark'` → **false**, 11,442 b, names loan
+  and debt subjects — the first non-vonc experience plan in this system's history that
+  does not describe vonc's pages.
 - After a rejected round, `SELECT is_current FROM doc_plans …` → **false**.
 
 ## Filing basis

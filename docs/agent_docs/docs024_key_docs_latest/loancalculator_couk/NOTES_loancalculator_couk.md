@@ -4264,3 +4264,91 @@ fleet-wide prompt census, so this is the first query it will write and the first
 will be wrong. Filed as a landmine. **(2)** `page-content-writer` IS in scope for that
 change — the agent this lane has spent a week driving is one of the seven, which is an
 argument for the wide option the owner already chose, not against it.
+
+---
+
+## 2026-08-09 (afternoon) — `bugs_open/227`: 345 applied, proven both directions, and the prescribed proof turned out to be inert
+
+### Applying it
+
+Pre-checks first, because 345's drift guard pins five prompts by md5 and the row had been
+bulk-touched once already with no snapshot. All five matched
+(`8b05c372…`, `dfb8111e…`, `4a86a799…`, `fffda680…`, `ebe84e4f…`), `load_brief` absent,
+`load_schema_hint.next_step` still `compose` — so no session had touched the prompts since
+the file was composed at 22:45Z. Applied clean at ~11:50Z: `DO`, `DO`, `BEGIN`, snapshot
+NOTICE, `INSERT 0 1`, `UPDATE 1`, `DO`, `COMMIT` — exactly the sequence the header predicts.
+
+Structural verification straight after: case-insensitive census over the whole live row
+**0** (from 48 hits across five steps), chain `load_schema_hint → load_brief → compose →
+persist_plan`, `compose.config.input_fields` = `["experience_context","experience_brief",
+"input_data"]`, vonc's brief rehomed at 7,908 b under `categories ? 'experience-brief'`.
+
+### The verification I ran was inert, and the control is what showed it
+
+§2 of the handoff, the bug file, and 345's own VERIFY header all prescribe the same pair on
+`compose`: `prompt_rendered ~* 'provocation|gauntlet'` FALSE and
+`prompt_rendered LIKE '%no brief on file%'` TRUE. loancalculator returned `f` / `t`, and I
+recorded the fix as behaving exactly as designed.
+
+Then the vonc control returned `leaked=t` (expected) **and `got_sentinel=t`, where all three
+documents demand FALSE**. First reading: the fix is broken — the channel is handing vonc the
+fallback instead of its brief. It is not. **The phrase "no brief on file" occurs once in the
+static `compose` template 345 installs**, in the instruction covering the no-brief case. So
+the assertion is TRUE on every run of every site — including one where `load_brief` was never
+wired into `input_fields`, which is the precise silent failure the header calls "the single
+most likely way for this migration to look applied and do nothing". **The check could not
+come out false, and it had been reviewed as sound in three places.**
+
+The disconfirmable forms, both cheap: the **count** of the phrase (2 = template + rendered
+fallback, 1 = template only), or the substring only the `COALESCE` emits. With those:
+
+| run | corr | phrase hits | COALESCE fallback | leaked | prompt |
+|---|---|---|---|---|---|
+| loancalculator `debt-difficulty-help` | `c3976aab` | 2 | TRUE | **FALSE** | 24,721 b |
+| vonc `vonc-spark-game` | `72f540d3` | 1 | FALSE | TRUE (correctly) | 70,427 b |
+
+Same step, opposite outcomes, keyed only on `subject_key`. Better still — and the thing I
+should have reached for first, since it needs no sentinel reasoning at all —
+`collected_data->'experience_brief'->>'text'` shows the loaded value **directly**: vonc's
+opens `## The diagnosis you are fixing (three broken surfaces, artifact-verified
+2026-07-17)`, 7,908 b, verbatim; loancalculator's is the sentinel. Filed to `WRONG_CALLS.md`
+and as a landmine on `llm_call_log.prompt_rendered` (synced, 1,604 rows).
+
+**Both councils returned `approved`** (2 advisory objections each, none high-severity),
+which retires finding 2's worry: the de-contaminated seats did not object about a missing
+feed or timer. The `debt-difficulty-help` plan of record is now clean — 11,442 b, names loan
+and debt subjects, `body ~* 'provocation|gauntlet|arena|vonc|spark'` **false**. First
+non-vonc experience plan in this system's history that does not describe vonc's pages.
+
+### The 227 second defect bit this session's own verification
+
+Firing the vonc control re-planned vonc: `persist_plan` wrote the new plan `is_current=true`
+before the council voted, superseding `b6fdbc09`, vonc's plan of record since 2026-07-25.
+Nobody asked for vonc to be re-planned — it was a test. **Restored by hand** in one
+transaction (`idx_doc_plans_current` is UNIQUE where `is_current`, so demote before
+promote): `b6fdbc09` current again, `superseded_at` cleared, and the reason written into the
+`notes` column of all three rows. The new plan `2ec02a7e` was council-**approved**, so it is
+kept and demoted rather than deleted — the vonc lane can promote it deliberately.
+Worth stating plainly: **§3 is no longer only a hazard to a rejected plan. It fires on any
+verification run, and it silently changed another lane's plan of record.**
+
+### The bulk-writer the handoff asked about — bounded, not identified
+
+The handoff flagged that the row had been bulk-updated with 186 others and offered ten
+minutes of curiosity. What I can say from measurement: waves of **188 rows sharing one
+microsecond timestamp** (183 distinct types) do happen — so a single statement, not
+`UpdateUsageCount`, whose `WHERE type = $1` cannot span 183 types. One landed at 12:22:37Z,
+**after** my apply, and **`load_brief` survived it intact** (re-censused post-wave: 0, chain
+and `input_fields` unchanged). So whatever it writes, it is not replaying `default_config`
+from a seed — which was the live risk to this fix and the reason I chased it at all.
+
+Smaller waves at 13:22:15 (15 rows) and 14:00:07 (14 rows) **did** change `default_config`,
+and those are identifiable: `content-creator-*`, `visual-designer`, `content_researcher`,
+`fix-proposer`, then `council-gate` a minute later — other sessions' migrations 348/349/350
+plus a `099_SYNC_gate_roster.py --apply`. Ordinary concurrent traffic, not a mystery.
+**[UNIDENTIFIED]** the 188-row wave itself: no `schema_migrations` row at that timestamp.
+Bounded, not solved.
+
+**One trap for anyone re-reading this row's history: 345 does not set `updated_at`.** The
+row's timestamp is whatever last touched it, so it does **not** record the apply — I read
+12:22:37Z on a row I had changed at 11:50Z and briefly took the wave for a clobber.

@@ -1454,3 +1454,44 @@ One correction to the file above: Friday night's note ended "the site itself rem
 finished and untouched". Two sessions wrote handoffs fourteen minutes apart that night and
 neither knew what the other had found — one said the site was finished, the other recorded
 this outstanding line. The second was right. Both files now say so.
+
+---
+
+**Saturday afternoon, 9 August.** The planner fix is applied and it works. This is the one
+where our experience planner had another site's homework written into its prompt, so any
+plan it wrote for us came back describing that site's pages. The repair moves each site's
+briefing out of the shared prompt and into the database, where it belongs, so the planner
+reads *your* site's brief and nobody else's.
+
+It is live now, and we proved it twice over. Asked to plan the "struggling with repayments"
+experience for us, it produced a plan about loans and debt with no trace of the other site —
+the first time that has ever happened. Then we asked it to plan the other site's game, and it
+correctly produced that site's plan from that site's brief, which we had moved across word for
+word so nothing was lost. Both plans went to the review council and both were approved. That
+last part matters more than it sounds: three of the four reviewers had also been holding the
+other site's rules as their general standard, so we had expected them to complain about a
+missing feed and a missing timer that our site was never going to have. They didn't.
+
+**The thing worth telling you about is that our own test was broken, and it passed.** We had
+written down, in three separate places, how to prove the fix worked: check that the prompt
+contains the phrase "no brief on file". Ours did, so we ticked it off. But that phrase is also
+sitting in the instructions we send the model every single time — so the check would have said
+"passed" even if the whole mechanism had never been connected, which is exactly the failure it
+was written to catch. We only found out because the second test, on the other site, came back
+saying "no brief on file" for a site that definitely has one. For a minute that looked like the
+fix had failed. It hadn't; the test had. We've corrected it everywhere it was written down and
+logged it for the fleet, because it is a nasty shape: the reassuring answer, arriving on the
+first try, from a check nobody would look at twice.
+
+One side effect I want to flag, because it is someone else's site. Running that second test
+caused the other site's plan of record to be replaced with a freshly written one — the system
+saves a plan *before* the council has voted on it, which is a known second fault in this same
+bug and is still unfixed. I have put their original plan back the way I found it and left the
+new one on file, marked up, in case they want it. But it means this fault is worse than we had
+written down: we thought it could leave a *rejected* plan sitting there as official. In fact
+any test run at all quietly overwrites whatever was there.
+
+That second fault is the one thing still outstanding, and it needs a decision from you at some
+point, because the two ways to fix it are genuinely different — one is a small config change
+to this planner only, the other is a change to shared machinery that every plan-writing agent
+uses. I have not touched it. Everything else on this job is done and written up.
