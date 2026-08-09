@@ -132,8 +132,25 @@ for fn in sorted(os.listdir(CRIT)):
                        "profiles": ["desktop"], "steps": steps,
                        "expect_values": expect})
     n_assert = sum(len(c.get("expect_values", {})) for c in checks)
-    fence = json.dumps({"profiles": ["desktop", "mobile"], "checks": checks},
-                       indent=2, ensure_ascii=False)
+    # no_auto_fix is NOT optional on an arithmetic fence. A failing Tier-4 verdict
+    # normally raises an `improve_tool` item and hands the tool to tool-improver,
+    # which edits `content_components.html_template`. The only way an automated
+    # rewriter can turn a failing COMPUTED-VALUES fence green is to change the
+    # arithmetic — the exact thing the fence exists to protect, on pages quoting
+    # consumer credit and tax. With this flag the failure escalates as
+    # `acceptance_stuck` at `needs_human_review` and no improve_tool item is
+    # created (platform/orchestration/actions/tool_acceptance_actions.go:850-930).
+    fence = json.dumps({
+        "profiles": ["desktop", "mobile"],
+        "no_auto_fix": True,
+        "no_auto_fix_reason": (
+            "computed_values pinned to an independent oracle (oracles.py) on a "
+            "consumer-credit and tax site; a failure means the ARITHMETIC moved, "
+            "and the only way an automated rewriter could make it pass is by "
+            "changing the numbers. A human decides what may change. See "
+            "bugs_open/224 and bugs_open/225."),
+        "checks": checks,
+    }, indent=2, ensure_ascii=False)
 
     body = f"""# PLAN — {key}
 

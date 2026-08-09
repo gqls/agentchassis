@@ -987,3 +987,54 @@ took loancalculator.co.uk too. Full account in `bugs_open/224` and the new
 > textContent of `[id]` elements — the things a user actually sees.
 > **Four times this session the red result was my harness, not the site.** The
 > lane handoff said that prior was high; it is higher than I believed.
+
+### 2026-08-09 — UNATTENDED acceptance enabled (owner decision), by re-typing 16 pages rather than decomposing
+
+The route: `toolEligibilityWhere` accepts EITHER a tool-level component OR
+`page_type='tool'` + no tool component + **exactly one** active component. Sixteen
+of the seventeen calculators already had exactly one, so a single column change
+made them eligible — no decomposition, and the subject keys stay `pages.name`,
+which is what the fences are already installed under. `UPDATE 16`; the predicate
+now returns exactly those 16.
+
+**Blast radius measured BEFORE the update, not after.** Three things could have
+made this a live-site change, and each was checked:
+
+1. **Nav.** `page_type='tool'` IS in `neverPrimaryTypes`
+   (`populate_nav_tables_action.go:328`), so typing a page `tool` bars it from
+   primary nav — and `/loans/` and `/mortgages/` are **not** in the child-URL
+   prefix list, so these pages were primary-ELIGIBLE before. That looked like a
+   real nav change. It is not, and the reason is the flags: all 25 pages have
+   `in_header=false, in_footer=false`, and both branches end the same way —
+   never-primary with no flag is "omitted from nav", and primary-eligible with
+   `!InHeader && !InFooter` hits `continue` at :407. Same outcome either way.
+   (The site also serves baked-in chrome and has 1 `site_nav_items` row.)
+2. **Rendering.** `page_type` is not plumbed into rendering
+   (`rerender_single_page_action.go:642` says richer per-type markup "needs
+   page_type plumbed through PageInfo first"), and these pages take the verbatim
+   short-circuit anyway. Verified after the update: three served pages
+   byte-identical to the repo, and zero work items raised in the following 20
+   minutes.
+3. **⚠ THE AUTO-REWRITER, which is the one that mattered.** A failing Tier-4
+   verdict normally raises an `improve_tool` item and hands the tool to
+   `tool-improver`, which edits `html_template`. On a fence pinned to an
+   independent oracle, **the only way an automated rewriter can go green is to
+   change the arithmetic** — on pages quoting consumer credit and tax. So all 17
+   fences now carry top-level **`no_auto_fix: true`** plus a reason; a failure
+   escalates as `acceptance_stuck` at `needs_human_review` and creates NO
+   improve_tool item (`tool_acceptance_actions.go:850-930`). Verified 17 of 17.
+   The OTHER auto-fix route, `check_tool_health`, selects
+   `WHERE cc.component_level='tool'` and this site has none — so re-typing does
+   not expose the calculators to it.
+
+Cadence, so nobody is surprised by the bill: `check_tool_acceptance_due` requires
+a current PLAN with a criteria fence, skips any tool with a `tool-acceptance`
+doc_note in the last **7 days**, and skips any with an open `acceptance_run`. So
+each tool is looked at weekly at most. The three fired by hand today are in
+cooldown; the other 13 are due.
+
+**`loans-consolidation` is NOT included** — it has 2 active components, so it
+fails the "exactly one" clause. It keeps its fence and stays manual-only
+(`tool_acceptance_run.sh … loans-consolidation`) until the page is properly
+decomposed with a tool-level component. Worth stating because "16 of 17" is the
+kind of gap that silently reads as 17.
