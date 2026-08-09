@@ -453,9 +453,22 @@ func ScheduleProvocationsAction(ctx context.Context, params ActionParams) (inter
 
 	// Approved, undated, oldest first — so a provocation that has waited longest
 	// runs first and the queue cannot starve.
+	// `human_approved_at IS NOT NULL` added 2026-08-09 (migration 320), and it was
+	// added because I had already written the opposite into migration 321's comment
+	// — "only rows that are already approved AND human_approved_at IS NOT NULL" —
+	// which the query did not do. A doc comment is not an enforcement mechanism;
+	// the predicate is.
+	//
+	// Defence in depth rather than duplication: `loadProvocations` also requires the
+	// stamp, so an unstamped row could not have PUBLISHED either way. But dating one
+	// would have put a row a human never approved into the schedule, where it reads
+	// exactly like an approved one — and the next person to relax the feed's
+	// predicate (or to read the schedule as a to-do list) inherits that as a live
+	// defect rather than a latent one.
 	rows, err := params.DB.QueryContext(ctx, `
 		SELECT id::text, slug FROM provocations
 		 WHERE domain = $1 AND status = 'approved' AND publish_on IS NULL
+		   AND human_approved_at IS NOT NULL
 		 ORDER BY gated_at ASC NULLS LAST, created_at ASC
 		 LIMIT $2`, domain, maxAssign)
 	if err != nil {

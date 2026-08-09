@@ -25,6 +25,7 @@ package actions
 import (
 	"context"
 	"errors"
+	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -606,5 +607,52 @@ func TestAdvisoryScoresDoNotAffectTheDecision(t *testing.T) {
 	}
 	if v.Advisory.Interesting != 0 || v.Advisory.Current != 0 {
 		t.Errorf("advisory scores were not recorded: %+v", v.Advisory)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// The human-approval predicate (owner ruling 2026-08-09, migration 320)
+// ---------------------------------------------------------------------------
+
+// loadProvocations gained `AND human_approved_at IS NOT NULL`. That predicate is
+// the only thing standing between a gate-approved row and a live homepage now that
+// a human is back in the publish path, so it is asserted against the statement
+// text rather than trusted to review.
+//
+// A SQL predicate cannot be unit-tested without a database, and a doc comment
+// enforces nothing — but a test that reads the query CAN catch its removal, which
+// is the realistic failure (someone "simplifying" the WHERE clause, or a merge
+// dropping a line). Same technique as TestGeneratorInsertsDraftsOnly, which caught
+// its own mutation.
+func TestFeedRequiresHumanApproval(t *testing.T) {
+	src, err := os.ReadFile("provocation_feed_action.go")
+	if err != nil {
+		t.Fatalf("cannot read the feed action: %v", err)
+	}
+	s := string(src)
+
+	// Locate the selection query rather than scanning the whole file, so an
+	// unrelated mention of the column elsewhere cannot make this pass.
+	i := strings.Index(s, "func loadProvocations(")
+	if i < 0 {
+		t.Fatal("loadProvocations has been renamed or removed — this test is now blind; re-anchor it")
+	}
+	j := strings.Index(s[i:], "ORDER BY publish_on ASC")
+	if j < 0 {
+		t.Fatal("the selection query's shape changed — re-anchor this test before trusting it")
+	}
+	query := s[i : i+j]
+
+	for _, required := range []string{
+		"status = 'approved'",           // the gate's verdict
+		"publish_on IS NOT NULL",        // scheduled
+		"human_approved_at IS NOT NULL", // a PERSON said yes
+	} {
+		if !strings.Contains(query, required) {
+			t.Errorf("loadProvocations no longer requires %q.\n"+
+				"All three predicates are load-bearing: the gate's verdict, the schedule, "+
+				"and a human's approval. Dropping the last one re-automates the step the "+
+				"owner took back on 2026-08-09, and it would look like a tidy-up.", required)
+		}
 	}
 }

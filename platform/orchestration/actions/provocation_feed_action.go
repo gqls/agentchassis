@@ -229,9 +229,31 @@ func shortDate(t time.Time) string {
 // Selection
 // ---------------------------------------------------------------------------
 
-// loadProvocations returns every approved, dated provocation for a domain in
-// ascending publish order. Only 'approved' rows are ever returned, so a draft or
-// a gate-rejected provocation cannot reach the site by any path through here.
+// loadProvocations returns every approved, dated, HUMAN-APPROVED provocation for a
+// domain in ascending publish order. Only 'approved' rows are ever returned, so a
+// draft or a gate-rejected provocation cannot reach the site by any path through
+// here.
+//
+// THE THIRD PREDICATE IS NEW (owner ruling 2026-08-09, migration 320) AND IT IS THE
+// POINT OF THIS FUNCTION NOW.
+//
+// `status='approved'` is the automated GATE's verdict. It is not a person's. The
+// owner reversed PLAN §10 and put a human back in the publish path, and until this
+// column existed there was nowhere to record that — so the human's consent was being
+// carried implicitly by `publish_on`, which made the scheduler the last gate before
+// publication and therefore unschedulable.
+//
+// Requiring `human_approved_at IS NOT NULL` here is what lets dating go back to
+// being dating. It also fails in the safe direction: a row nobody stamped stops
+// publishing, rather than publishing unreviewed.
+//
+// THE NEAR-MISS THIS CLOSES, because the shape recurs: six model-written drafts
+// arrived PRE-DATED, one dated the same day. Flipping their status would have put a
+// model's prose on a live site within six hours, under the owner's name, with no
+// human in the loop — in the same hour he ruled otherwise. **A dated draft is a
+// publish waiting for one status change.** Three components own `status`,
+// `publish_on` and the stamp; no single one of them can publish alone, and that
+// separation is the safety property, not the gate.
 func loadProvocations(ctx context.Context, db *sql.DB, domain, category string) ([]provocation, error) {
 	rows, err := db.QueryContext(ctx, `
 		SELECT slug, publish_on,
@@ -243,6 +265,7 @@ func loadProvocations(ctx context.Context, db *sql.DB, domain, category string) 
 		  AND category = $2
 		  AND status = 'approved'
 		  AND publish_on IS NOT NULL
+		  AND human_approved_at IS NOT NULL
 		ORDER BY publish_on ASC`, domain, category)
 	if err != nil {
 		return nil, fmt.Errorf("query provocations: %w", err)
