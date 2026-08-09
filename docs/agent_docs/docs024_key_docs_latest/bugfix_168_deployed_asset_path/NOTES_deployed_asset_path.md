@@ -2310,3 +2310,43 @@ factual-claims HITL type is a policy change. Three seats, three mandates, all ro
 Options costed in `README_where_we_are`; recommendation is the ~4-line "only close if the copy
 changed since filing" gate, which converts the objection into a mechanical guarantee. **Not
 resubmitted around** — a policy veto is not answered with better measurements.
+
+### Diagnosis run 2 — UNVERIFIABLE again, same blocker, but it CONFIRMED the load-bearing half
+
+Run `a174b184-…`: `UNVERIFIABLE — stopped: scope-not-narrowing`. Function-scoping got it much
+further than run 1, and it settled the part that matters:
+
+> *"Both `loadParkedReviewItems` and `reportUncoveredBacklog` **demonstrably share this same
+> status-list filter (static fact, confirmed)**, which logically means any item_type whose rows sit
+> entirely outside that list is invisible to both — but I cannot confirm this is actually OCCURRING
+> without knowing which statuses the list contains."*
+
+So the **mechanism is confirmed**; only the **membership** is unread, and it is unread for the
+reason established above — `code_symbols` holds no `var` kind, so `workItemRevalidatableStatuses`
+cannot be fetched by any scoping. Two runs, same wall. The loop was right to refuse rather than
+infer, and said so explicitly (*"citing an inference as confirmation would be exactly the guess
+rule 3/8's caution forbids"*).
+
+**Position, stated rather than assumed** (owner ruling 2026-07-31 wants either the loop or a
+declared substitute): the mechanism half is loop-confirmed; the membership half is **first-hand
+verified** — `work_items_common.go:140-143` is literally `{"needs_human_review", "unresolved"}` —
+and the loop is *structurally* unable to corroborate it. That is the declared substitution, with a
+named reason, not a silent omission. **I am not filing a third run into the same wall.**
+
+> ⚠ **AND THE LOOP GOT A FIGURE WRONG — check its data, not just its reasoning.** It reported
+> `undeployed_asset` as *"17 detected + 17 triaged + 12 deferred rows, **zero rows in
+> needs_human_review/unresolved/failed**"*. The first three are right; the last is false:
+>
+> ```
+> complete 55 · unresolved 50 · detected 17 · triaged 17 · deferred 12 · cancelled 11
+> ```
+>
+> There are **50 `unresolved`** rows. Had I taken its summary at face value I would have "corrected"
+> a correct number of my own. A diagnosis trail's *reasoning* being careful does not make its
+> *data* right — re-run the counts it quotes.
+
+**And its mistake handed me a sharper example than the one I filed with.** `undeployed_asset` is
+not absent from `uncovered_types` — it is **listed at 50, while 46 further rows of the same type
+sit invisible** in `detected`/`triaged`/`deferred`. So the report does not merely omit whole types
+(`image_url_404`); **it understates types it already lists**, by roughly half in this case. That is
+a harder thing to notice than a missing key and a better illustration of the mechanism.

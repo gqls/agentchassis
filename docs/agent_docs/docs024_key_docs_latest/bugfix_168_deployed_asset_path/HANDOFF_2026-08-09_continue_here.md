@@ -68,12 +68,28 @@ yourself — `098` buckets an unread claim as MISMATCH, which is the report's di
 > **unknown, not proof**"*), and spent its cap trying. That is a broken lookup wearing the costume
 > of a hard bug.
 >
-> **RUN 2 (`a174b184-dac2-47a1-95ca-df2d192e183a`) is scoped at FUNCTIONS only** —
-> `reportUncoveredBacklog`, `loadParkedReviewItems`, `coveredItemTypes`, all three confirmed
-> present in `code_symbols` before filing — and the symptom is re-framed around the observable
-> (`uncovered_types` omits types that have open rows) so the hypothesis no longer depends on
-> fetching a symbol that cannot be fetched. In LANDMINES.md, because it will bite anyone filing
-> about a status list, registry map, threshold or allow-list.
+> **RUN 2 (`a174b184-…`) — also UNVERIFIABLE (`scope-not-narrowing`), BUT it confirmed the
+> load-bearing half and the wall is now understood.** Function-scoping got much further:
+>
+> > *"Both `loadParkedReviewItems` and `reportUncoveredBacklog` **demonstrably share this same
+> > status-list filter (static fact, confirmed)**, which logically means any item_type whose rows
+> > sit entirely outside that list is invisible to both — but I cannot confirm this is actually
+> > OCCURRING without knowing which statuses the list contains."*
+>
+> **Mechanism: loop-confirmed. Membership: unreadable by any scoping**, for the `code_symbols`
+> reason above, and **first-hand verified instead** — `work_items_common.go:140-143` is literally
+> `{"needs_human_review", "unresolved"}`. That is the declared substitution the owner ruling of
+> 2026-07-31 asks for, with a named reason. **Do not file a third run into the same wall.**
+>
+> ⚠ **The loop got a FIGURE wrong — check its data, not just its reasoning.** It reported
+> `undeployed_asset` as having *"zero rows in needs_human_review/unresolved/failed"*. It has **50
+> `unresolved`** (`complete 55 · unresolved 50 · detected 17 · triaged 17 · deferred 12 ·
+> cancelled 11`). Taking that at face value would have had me "correct" a correct number.
+>
+> **Its slip produced a sharper example than the one I filed with:** `undeployed_asset` is *not*
+> absent from `uncovered_types` — it is **listed at 50 while 46 more rows of the same type sit
+> invisible**. So the report does not only omit whole types (`image_url_404`), **it understates
+> types it already lists**, here by roughly half. Harder to notice than a missing key.
 
 Intake 1 `0c9b44d2-5c74-4322-aa78-7dd206f92689` (item now `complete`, verdict UNVERIFIABLE);
 intake 2 item_key `needs_diagnosis:uncovered-types-omits-open-item-types`.

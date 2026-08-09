@@ -24401,3 +24401,45 @@ file for the SYMBOL/COMMAND you're about to cite as evidence (here:
 `app=agent-chassis`) immediately before writing the sentence that leans on
 it, not just once at the top of the session. The index is long; recall of a
 specific entry decays exactly like any other fact would.
+
+---
+
+## 2026-08-09 — I called a helper file a "producer", then invoked an owner ruling that only applies to producers
+
+**The claim.** That `claims_unverified` has **two converging producers**
+(`check_unverified_claims.go` and `check_unverified_claims_stats.go`), written into a council
+submission, a code header, a registry comment, a coverage test **and the concept register entry
+CQ-021** — and used as the authority for shipping a shared-vocabulary change without an RFC, by
+citing the owner ruling of 2026-08-02 §1 (converging producers need no RFC provided both are named
+in the register entry).
+
+**What was actually true.** There is **one** producer. `check_unverified_claims_stats.go` registers
+no check, has no `init()`, and emits no `WorkItemSpec`; its `scanStoredStatClaims()` has exactly two
+production call sites, both **inside** the scan that the first check owns. So the ruling I invoked
+never applied to the change at all — I claimed cover from a rule that was not about my situation.
+
+**What caught it.** The council gate's `editquality` seat, as a **gating HIGH objection**, and it
+asked a better question than my error deserved: *is the SCAN LOGIC shared, or only the item_key
+shape?* (It is shared, structurally — which is why the feared consequence was refuted even though
+my premise was wrong.)
+
+**The cheap check.** Before calling something a producer, grep it for the **emission**, not for the
+type name:
+
+```bash
+grep -n "WorkItemSpec\|ItemKey\|ItemType\|func init\|Register(" <candidate.go>   # silence ⇒ not a producer
+grep -rn "<itsScanFunc>(" --include=*.go platform/ | grep -v "func <itsScanFunc>"  # where is it really called?
+```
+
+**Why I got it wrong, and the family it belongs to.** The stats file's own header says it *"reuses
+the existing `claims_unverified` item type"* — which describes contributing findings to a type, and
+which I read as filing items under it. This is the same shape as the `created_by` trap this lane
+logged on 08-08 (two `created_by` values that looked like two producers and were two agents running
+one check): **"two things mention the type" is not "two things file the type"**, and both times I
+reached for a name instead of a call graph. Second instance in three weeks — the recurring check is
+*answer producer questions from the CALL GRAPH, never from a name, a comment or a column*.
+
+**Aggravating factor worth its own line.** The false claim had already propagated into the
+**concept register**, which the next council round reads as ground truth. A wrong fact there does
+not sit still — it causes a claim and then vouches for it (`bugs_open/161`'s mechanism, arrived at
+from the other direction).
