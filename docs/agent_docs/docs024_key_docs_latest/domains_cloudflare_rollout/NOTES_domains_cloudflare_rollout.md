@@ -424,3 +424,49 @@ is deleted, per the www section above.
 and specs, then `082_submit_domain_unified.sh` (owner ruling 2026-08-04: never
 hand-build). Not done: a HOLD domain with no assigned direction is not something
 to fill in unasked.
+
+## 2026-08-09 (evening, 3) — lendzy.co.uk was DOWN (522), missing worker route; full 38-zone census run
+
+Owner asked "can you check lendzy.co.uk". It was serving **HTTP 522** on every
+path — Cloudflare could not reach the origin — for an unknown duration, with 33
+files of correct content in the bucket since 08-02 and every internal signal
+green. **Its zone had no worker routes at all**, so proxied traffic went to the
+placeholder origin `199.59.243.228`, which accepts nothing. One route
+(`lendzy.co.uk/*` → `portfolio-sites-router`) restored it: 200, 41,431 B,
+*"Lendzy — Know the Rules Before You Borrow"*, within ~30s (first retry still
+522 — propagation again, do not diagnose on one check).
+
+Filed as **`bugs_open/236`** — the real defect is that nothing on the platform
+ever asks whether a site SERVES. `endpoint-health-checker` pings AI endpoints
+only; of the whole `discovery_checks/` layer exactly one check makes an outbound
+request (`check_asset_reference_404.go`) and it probes subresources, i.e. only
+after a page has already been fetched.
+
+`[MEASURED]` Census of **all 38 active zones** for an apex worker route — four
+lacked one:
+
+| zone | verdict |
+|---|---|
+| `lendzy.co.uk` | **DOWN (522)** — fixed |
+| `idea.uk` | fine — VM-served (the Phase 3 cutover), 200 |
+| `relojistas.com` | fine — VM-served, 200 |
+| `webdesign.uk` | fine — deliberate 302 → webdesign.co.uk, 200 |
+
+⚠ **Three of the four flags were false positives, and the skip-list predicted all
+three** (`relojistas.com`, `finetuning.uk`, `webdesign.uk`, `idea.uk` — this
+lane's own PLAN, owner decision 08-04). "No worker route" is CORRECT for a
+VM-served or redirecting domain. Any future conformance check must treat the
+skip-list as first-class or it will cry wolf every run. I tested all four rather
+than reporting them, which is the only reason this reads "one outage" and not
+"four".
+
+Reusable one-liner (needs `$TOKEN`; prints zones with no apex route):
+
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" "https://api.cloudflare.com/client/v4/zones?per_page=100&status=active" \
+ | python3 -c "import sys,json;[print(z['id'],z['name']) for z in json.load(sys.stdin)['result']]" \
+ | while read zid zname; do n=$(curl -s -H "Authorization: Bearer $TOKEN" \
+     "https://api.cloudflare.com/client/v4/zones/$zid/workers/routes" \
+     | python3 -c "import sys,json;print(len(json.load(sys.stdin).get('result') or []))"); \
+   [ "$n" = "0" ] && echo "NO ROUTES: $zname"; done
+```
