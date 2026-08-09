@@ -30,13 +30,24 @@ import (
 	"time"
 )
 
-// ConversationState is the turn-cap bookkeeping for one visitor session.
+// StoredMessage is one turn of conversation history. Claude's Messages API is
+// stateless per call — without this, and something to feed it back in, every
+// reply would be generated with no memory of what the visitor already said.
+type StoredMessage struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
+// ConversationState is the turn-cap bookkeeping AND message history for one
+// visitor session. Messages is naturally bounded by the turn cap (chat.go
+// never appends to it more than maxTurns times), so no separate trim exists.
 type ConversationState struct {
-	ID           string    `json:"id"`
-	ClientIP     string    `json:"client_ip"`
-	TurnCount    int       `json:"turn_count"`
-	CreatedAt    time.Time `json:"created_at"`
-	LastActivity time.Time `json:"last_activity"`
+	ID           string          `json:"id"`
+	ClientIP     string          `json:"client_ip"`
+	TurnCount    int             `json:"turn_count"`
+	Messages     []StoredMessage `json:"messages"`
+	CreatedAt    time.Time       `json:"created_at"`
+	LastActivity time.Time       `json:"last_activity"`
 }
 
 type persistedState struct {
@@ -152,6 +163,21 @@ func (s *Store) IncrementTurn(id string) (int, error) {
 		return 0, err
 	}
 	return c.TurnCount, nil
+}
+
+// AppendMessages records the exchange for this turn so the NEXT call can send
+// it back as history. Called after a turn completes (chat.go decides whether
+// that's a real assistant reply or just the user's side of a failed call).
+func (s *Store) AppendMessages(id string, msgs ...StoredMessage) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	c, ok := s.state.Conversations[id]
+	if !ok {
+		return os.ErrNotExist
+	}
+	c.Messages = append(c.Messages, msgs...)
+	c.LastActivity = time.Now().UTC()
+	return s.saveLocked()
 }
 
 // TodaySpendUSD returns the running total for the current UTC date.

@@ -62,6 +62,11 @@ type chatServer struct {
 	contactLine     string // pre-built fail-closed message, checked non-empty at startup
 }
 
+// claudeCaller indirects the Anthropic call so tests can substitute a fake
+// and prove multi-turn history is actually threaded through — mirrors the
+// mutation-test rigor already applied to the turn cap / spend ceiling gates.
+var claudeCaller = callClaude
+
 func newChatID() string {
 	b := make([]byte, 16)
 	_, _ = rand.Read(b)
@@ -141,10 +146,18 @@ func (cs *chatServer) handleChat(w http.ResponseWriter, r *http.Request) {
 		log.Printf("transcript log error: %v", err)
 	}
 
+	// Build the wire history from what this conversation has said so far, then
+	// this turn's message — callClaude/the Messages API is stateless per call,
+	// so without this every reply would be generated with no memory of
+	// anything the visitor already said (caught before shipping Phase 5).
+	wireMessages := make([]claudeMessage, 0, len(conv.Messages)+1)
+	for _, m := range conv.Messages {
+		wireMessages = append(wireMessages, claudeMessage{Role: m.Role, Content: m.Content})
+	}
+	wireMessages = append(wireMessages, claudeMessage{Role: "user", Content: req.Message})
+
 	start := time.Now()
-	result, callErr := callClaude(systemPromptFacts, []claudeMessage{
-		{Role: "user", Content: req.Message},
-	})
+	result, callErr := claudeCaller(systemPromptFacts, wireMessages)
 	latency := time.Since(start)
 
 	logEntry := RequestLogEntry{
@@ -155,6 +168,14 @@ func (cs *chatServer) handleChat(w http.ResponseWriter, r *http.Request) {
 		logEntry.Error = callErr.Error()
 		if err := cs.store.LogRequest(logEntry); err != nil {
 			log.Printf("request log error: %v", err)
+		}
+		// Keep the user's side of this turn in history even though it failed —
+		// a later successful turn should still know what was asked. Do NOT
+		// record the canned contactLine as an "assistant" turn: it isn't
+		// something Claude said, and feeding it back would make the model
+		// think it already sent that exact line.
+		if err := cs.store.AppendMessages(convID, StoredMessage{Role: "user", Content: req.Message}); err != nil {
+			log.Printf("store error (append messages): %v", err)
 		}
 		log.Printf("claude call failed (conversation=%s turn=%d): %v", convID, turnCount, callErr)
 		writeChatJSON(w, convID, cs.contactLine)
@@ -177,6 +198,12 @@ func (cs *chatServer) handleChat(w http.ResponseWriter, r *http.Request) {
 		Role: "assistant", Content: result.Text,
 	}); err != nil {
 		log.Printf("transcript log error: %v", err)
+	}
+	if err := cs.store.AppendMessages(convID,
+		StoredMessage{Role: "user", Content: req.Message},
+		StoredMessage{Role: "assistant", Content: result.Text},
+	); err != nil {
+		log.Printf("store error (append messages): %v", err)
 	}
 
 	writeChatJSON(w, convID, result.Text)

@@ -9,6 +9,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -119,6 +120,56 @@ func TestSpendCeilingStopsNewCalls(t *testing.T) {
 	}
 	if resp.Reply != cs.contactLine {
 		t.Fatalf("reply = %q, want the fail-closed contact line", resp.Reply)
+	}
+}
+
+// TestConversationHistoryThreadsAcrossTurns catches the bug found before
+// Phase 5 shipped: handleChat used to call claudeCaller with ONLY the current
+// message, never the conversation's prior turns, even though callClaude's own
+// doc comment claims it sends "conversation history". A fake claudeCaller
+// records exactly what it was sent on each call, proving turn 2 carries turn
+// 1's exchange rather than starting fresh.
+func TestConversationHistoryThreadsAcrossTurns(t *testing.T) {
+	origCaller := claudeCaller
+	defer func() { claudeCaller = origCaller }()
+
+	var seenMessages [][]claudeMessage
+	claudeCaller = func(system string, messages []claudeMessage) (claudeResult, error) {
+		cp := append([]claudeMessage(nil), messages...)
+		seenMessages = append(seenMessages, cp)
+		return claudeResult{
+			Text:        fmt.Sprintf("reply %d", len(seenMessages)),
+			InputTokens: 1, OutputTokens: 1, StopReason: "end_turn",
+		}, nil
+	}
+
+	cs := newTestChatServer(t, 20, 1000.00)
+	convID := "conv-history-test"
+
+	postChat(t, cs, convID, "I run a bakery")
+	postChat(t, cs, convID, "what do you need from me")
+
+	if len(seenMessages) != 2 {
+		t.Fatalf("claudeCaller invoked %d times, want 2", len(seenMessages))
+	}
+	if len(seenMessages[0]) != 1 || seenMessages[0][0].Content != "I run a bakery" {
+		t.Fatalf("first call messages = %+v, want a single message 'I run a bakery'", seenMessages[0])
+	}
+
+	// The bug this test exists to catch: the second call must include turn
+	// 1's user message and assistant reply, not just turn 2's new message.
+	second := seenMessages[1]
+	if len(second) != 3 {
+		t.Fatalf("second call sent %d messages, want 3 (turn1 user, turn1 assistant, turn2 user) — history was not threaded through", len(second))
+	}
+	if second[0].Role != "user" || second[0].Content != "I run a bakery" {
+		t.Fatalf("second call message[0] = %+v, want turn 1's user message", second[0])
+	}
+	if second[1].Role != "assistant" || second[1].Content != "reply 1" {
+		t.Fatalf("second call message[1] = %+v, want turn 1's assistant reply", second[1])
+	}
+	if second[2].Role != "user" || second[2].Content != "what do you need from me" {
+		t.Fatalf("second call message[2] = %+v, want turn 2's user message", second[2])
 	}
 }
 
