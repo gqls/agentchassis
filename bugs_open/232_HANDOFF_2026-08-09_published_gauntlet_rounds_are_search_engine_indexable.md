@@ -267,3 +267,31 @@ curl -sI 'https://vonc.com/tools/gauntlet/round.html?r=<a real published slug>' 
 ```
 
 A 404 returns no header either, which reads identically to a fix that is not there.
+
+---
+
+## Reading order note — the section directly above DUPLICATES the fix report, it does not supersede it
+
+Two sessions worked this file within the same hour and appended in an order that
+reads misleadingly. To be explicit:
+
+- **"CONFIRMED at the artefact, and the fix candidates CORRECTED"** (immediately
+  above) was written by the **filing** lane and landed in `4190da8b0`, but says
+  nothing the **"Fix candidate 1 was NOT available"** section (§88) had not already
+  established. Both sessions independently measured the same thing — B2 objects
+  behind Cloudflare, so no `tools-api` header can reach the HTML page — and reached
+  the same conclusion. **That is corroboration, not a later correction.** Read §88;
+  the later section adds only the `pages.rendered_head` dead end.
+- **The one thing the later section contributes:** `pages.rendered_head` is NULL
+  here and is read *only* by two `discovery_checks`. Nothing writes it into served
+  HTML, so setting it would satisfy a check and change nothing a crawler sees. Worth
+  keeping because it is the obvious-looking non-fix.
+- **The filing lane's recommendation is SUPERSEDED and the shipped fix is better.**
+  That recommendation was an out-of-repo Cloudflare Transform Rule, on the reasoning
+  that a renderer change is fleet-wide and needs an RFC. The shipped fix
+  (`pages.noindex`, default `false`, gated at the call site) is the *correct* form of
+  that same idea: an opt-in field with the unsafe default OFF, per owner ruling
+  2026-08-02 §2 — in-repo, reviewable, rebuildable, and it needs no dashboard access.
+  It is what candidate 2 should have said.
+- **Nothing in the later section changes what the next session owes** — §"Not done"
+  stands unmodified.
