@@ -1,5 +1,17 @@
 # 226 — chrome rebuild silently discards hand-patched content; nothing warns, nothing records what was lost
 
+> **STATUS: DONE IN SUBSTANCE 2026-08-09 — stays in `bugs_open/` per the owner
+> ruling of 2026-08-06.** All three close criteria met (pod-verified v1.0.1270,
+> re-verified v1.0.1274 post-roll; e2e protocol passed on dartsonline; both
+> convergence routes observed, zero trigger errors ever). Fleet fingerprinted
+> 54/60 by the owner-ordered restamp pass (rerender-chrome, mig 351/STY-055);
+> the 6 unstamped slots are permanent-locked authored chrome, stamping on
+> unlock. The guard is in production and has already refereed a real event:
+> the fixer-vs-rebuild loop on dartsonline's header, OPEN item
+> `…header:20b7c324b983` (needs_human_review — re-declare via STY-050 or
+> dismiss; that decision is the queue's, not this lane's). Page-side sibling =
+> `bugs_open/229`, OWNER CALL. Full trail: `bugfix_226_chrome_divergence/`.
+
 **Filed 2026-08-08 by the oufe rerender-safety lane, at the council's direction**
 (trail `5c18ccaa`, round-2 gating objection from the `bug_historian` seat: the
 STY-052/053 fix "re-armours a symptom rather than closing the mechanism").

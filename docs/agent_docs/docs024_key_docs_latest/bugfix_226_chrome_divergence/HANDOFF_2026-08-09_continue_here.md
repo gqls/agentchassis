@@ -1,5 +1,15 @@
 # HANDOFF 2026-08-09 — bugfix 226 chrome divergence guard: continue here
 
+> **LANE COMPLETE 2026-08-09 (late afternoon). Nothing is owed.** Steps 1–4
+> below all landed; the "wave watch" in step 3 was later found to be watching
+> a wave that did not exist (see the bug file's corrected criterion 3 and
+> WRONG_CALLS) and was resolved instead by the owner-ordered restamp pass:
+> 54/60 stamped via `rerender-chrome` (mig 351, STY-055), remainder =
+> permanent-locked authored chrome. If you are picking this up cold: there is
+> no task here — only the OPEN dartsonline header item (`…20b7c324b983`,
+> queue-owned), `bugs_open/229` (OWNER CALL), and the standing STY-054
+> open-review notes.
+
 **For the next session picking up this lane. Read PLAN (design + blast radius)
 and NOTES (evidence trail) beside this; this file is only what to DO next.**
 
