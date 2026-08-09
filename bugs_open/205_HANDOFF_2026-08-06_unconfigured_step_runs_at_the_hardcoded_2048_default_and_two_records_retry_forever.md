@@ -52,6 +52,25 @@
 >   step still needs a deliberately chosen cap, which is the med-price lane's /
 >   owner's call. 6 uncapped steps remain unheard-from. Full account:
 >   WRONG_CALLS 2026-08-08 + lane NOTES.
+>   **RE-CORRECTED 2026-08-09 — the 08-08 correction was itself wrong about the
+>   mechanism.** `scrape_prices` never passes the WARN site: its action
+>   (`vet_med_price_scrape_action.go`, `llmExtractPriceVariants`) calls Ollama
+>   directly and hardcodes `num_predict: 500` — it is capped in CODE, the
+>   tightest in the estate (max output ever observed ≈150–200 tokens, ~3×
+>   headroom). The NULL `max_tokens` rows are that action's logging omission,
+>   not uncapped calls, and **the WARN has in fact never fired.** What was
+>   missed: this file's own census DEFINES the WARN's population, and
+>   `scrape_prices` was never in it. WRONG_CALLS 2026-08-09 has the lesson.
+>   **CLOSING THE CLASS, 2026-08-09 (owner decision):** the remaining 7
+>   uncapped step-rows (6 distinct steps, all Anthropic) got explicit caps via
+>   migration `sql_for_agents/347` — 32000 site-architect/design (design class
+>   measured max 20,189), 16000 chief-strategist/generate_build_plan +
+>   content-creator/create_content ×2, 8000 brand-designer/analyze_brand,
+>   domain-analyst/analyze, provocation-gate-calibration/gate (sonnet-5 thinks
+>   into output_tokens — never a small cap). Guards asserted the pre-existing
+>   chief-strategist 8192 untouched and the fleet census EMPTY. **No active
+>   LLM step can now fall to the 2048 fallback; the WARN's remaining job is
+>   announcing any FUTURE step added uncapped.**
 **Found by:** the first run of `fleet-step-token-pressure` (bugs_open/183 candidate 4).
 It was the top line of the check's first note — 64 truncations, the largest in the
 fleet — and nothing else was watching it. See

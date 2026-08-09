@@ -24336,3 +24336,39 @@ unfiltered query once and eyeball the newest row against your floor** — if the
 rows that plainly already answer the question, the filter is wrong, not the world. Same family as
 `pin-the-clock-to-before-the-failure`, inverted: I pinned the clock AFTER the event and made the
 detector blind by construction.
+
+---
+
+## 2026-08-09 — CORRECTION to the 2026-08-08 entry above ("the WARN fired 7×"): it never fired; I proved the trigger CONDITION and never checked population MEMBERSHIP (bugfix-205 lane)
+
+**The claim being corrected.** The 08-08 entry's factual base — "the WARN's trigger condition
+occurred seven times… the WARN fired into pod logs that expired" — is FALSE.
+`med-price-collector/scrape_prices` never passes the WARN site: it is a custom action
+(`vet_med_price_scrape_action.go`, `llmExtractPriceVariants`) that builds its own Ollama request
+and **hardcodes `num_predict: 500`** — the step was never uncapped at all. Its `llm_call_log` rows
+carry NULL `max_tokens` (and NULL `output_tokens`) because the action's bespoke logging omits
+them, not because no cap applied. Measured 08-09: max visible output ever is 607 chars ≈ 150–200
+tokens — the code cap has ~3× headroom and is the tightest, best-fitted cap in the estate.
+
+**What I actually verified on 08-08, and what I inferred past it.** Verified: the rows exist, the
+step's CONFIG paths carry no cap (true — irrelevant, this action doesn't read them). Inferred:
+"no cap in config + NULL in log ⇒ the WARN branch ran". The WARN lives in
+`ExecuteLLMPromptAction`; a step is only in its population if it routes through `ai_actions.go` —
+which is precisely what the bug file's own census tests (`s.value->'config' ? 'ai_service'`).
+**`scrape_prices` was never one of the census's 8 steps, and I had read that census.** I even
+wrote "presumably one of the 7" in my own reasoning and then published the conclusion without
+discharging the presumption.
+
+**What caught it.** Re-running the census while sizing caps for the owner: the uncapped list came
+back 7 Anthropic steps, no `scrape_prices` — one `grep -rln scrape_prices --include=*.go` later
+the hardcoded 500 was on screen.
+
+**The cheap check that would have caught it: membership before mechanism.** Before attributing an
+observation to a mechanism, check the subject is in that mechanism's population — here, one
+census re-run or one grep for the step's action. The 08-08 entry's structural lesson (a
+log-stdout watch-item cannot deliver on a fleet that restarts daily) still stands; its instance
+was wrong. Note the compounding shape: **a WRONG_CALLS entry is itself a durable claim**, and a
+wrong one teaches every future reader the wrong lesson with the authority of a confession. Same
+family as `a-verified-symptom-lends-credibility-to-an-adjacent-explanation`; the 08-08 durable
+watch query also inherits this — `max_tokens IS NULL` is NOT an uncapped-call signal (custom
+actions log NULL while capped in code); only `= 2048` remains the Anthropic-fallback tell.

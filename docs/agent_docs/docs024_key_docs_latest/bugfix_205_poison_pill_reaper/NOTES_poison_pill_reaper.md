@@ -250,3 +250,46 @@
   belong in a table; the WARN worked, the watch definition did not.
 - Since 08-08 00:00Z: zero uncapped calls on either shape. 6 uncapped steps
   remain unheard-from.
+
+## 2026-08-09 — caps decided and applied (mig 347); yesterday's "WARN fired" claim RE-CORRECTED
+
+- Owner asked for help deciding token caps. Measured rather than guessed, and
+  the measurement immediately falsified yesterday's entry: **the uncapped-step
+  census does not contain `scrape_prices`.** Its action calls Ollama directly
+  with a hardcoded `num_predict: 500` (`vet_med_price_scrape_action.go:1197`)
+  and never passes `ai_actions.go` — **the WARN has never fired**; the NULL
+  `max_tokens`/`output_tokens` rows are that action's logging omission. Its
+  outputs: p50 6 chars (usually `[]`), p95 222, max 607 ≈ 150–200 tokens —
+  the code cap has ~3× headroom, needs no change. Correction recorded in
+  WRONG_CALLS 2026-08-09 ("membership before mechanism"), the bug file and the
+  HANDOFF banner.
+- **Decision inputs** (all llm_call_log / agent_definitions, 08-09): all 7
+  uncapped step-rows have ZERO calls since 07-26 (dormant); design-class steps
+  measured p95 14,456–17,352, max 20,189 output tokens; fleet cap norms per
+  model pulled from live definitions (sonnet-5 mode = 8000 across 40 steps);
+  principle: a cap is an insurance ceiling, not a budget — ~2× biggest
+  plausible output, rounded to a fleet value. Sonnet-5 steps never get small
+  caps (thinking lands in output_tokens — the 138 cap-120 lesson).
+- **Owner chose the recommended set** (AskUserQuestion): 32000
+  site-architect/design · 16000 chief-strategist/generate_build_plan +
+  content-creator/create_content (both rows) · 8000 brand-designer/
+  analyze_brand, domain-analyst/analyze, provocation-gate-calibration/gate ·
+  scrape_prices stays at its code 500.
+- **Applied as `sql_for_agents/347`** (+ value-matched ROLLBACK), by hand +
+  `--record-only` in one motion (the 335 lesson). Every UPDATE scoped
+  `max_tokens IS NULL` at the path — the pre-existing chief-strategist 8192
+  (older of TWO active rows, 2025-11-15) survives, guard-asserted. UPDATE
+  counts exactly as measured (1,1,2,1,1,1); in-transaction guards + an
+  external re-run both put the fleet uncapped census at **0**. Write-path
+  mechanism (config.ai_service.max_tokens honoured) rests on the 08-08
+  behavioural proof (verifier ran at 8000, output 3135); all six steps are
+  dormant so no live-fire proof until one runs — the first run of each is the
+  remaining watch.
+- `snapshot_agent` captured ONE pre-image per type (its own selection rule);
+  the second content-creator row's pre-state is reconstructible only via the
+  value-matched ROLLBACK (original = key absent). Acceptable, noted.
+- **Side-finding, not this lane's:** `chief-strategist` AND `content-creator`
+  each have TWO active non-snapshot rows — which row the loader uses is
+  loader-defined, and a cap set on only one would be roulette (347 therefore
+  capped every uncapped row). RFC_006 SingleOwner territory; flagged here for
+  whoever owns definition hygiene.

@@ -92,3 +92,29 @@ Nothing is left on this workstream. The one thing still worth watching for is
 the new log warning: the platform will now say out loud when any of the seven
 remaining unsized steps runs, and the first time that happens someone should go
 and choose that step a limit.
+
+## 2026-08-09 — every step now has a chosen output limit; and a correction
+
+You asked for help choosing the output limits. We measured first, and the
+measuring corrected something from yesterday: the price-scraping step we said
+had triggered the new warning never could have — it talks to the local model
+down its own private path, with its own limit already fixed in the code at a
+sensible small number (its biggest-ever answer would fit three times over). The
+warning has in fact never fired for anyone. The wrong version of events is
+struck through where it was written, with the lesson recorded: before blaming a
+mechanism, check the thing you're looking at actually goes through it.
+
+The decision itself: the six remaining steps with no chosen limit now have
+one — generous where the work is genuinely big (the site-design step, whose
+kind of output we've measured at up to twenty thousand tokens, gets
+thirty-two thousand), moderate for the plan-writing and content-writing steps
+(sixteen thousand), and the standard eight thousand for the analysis and
+checking steps. These limits cost nothing unless a call actually runs that
+long — they are a ceiling against runaway, not a budget — and being too mean
+is what caused this whole bug, so we erred generous. Applied with a backup and
+an undo script, and the fleet-wide count of unsized steps now reads zero.
+
+One thing for the housekeeping list, not urgent: two of the agents
+(chief-strategist and content-creator) each have two live copies of their
+definition, which is one more than anything should have. We sized both copies
+so it can't bite here, but someone should own tidying that up.

@@ -15,7 +15,17 @@
 > lines expired before anyone looked — watch the DB instead:
 > `llm_call_log WHERE max_tokens = 2048 OR max_tokens IS NULL` (Anthropic
 > fallback logs 2048, Ollama logs NULL). Step still needs an owner-chosen cap;
-> 6 uncapped steps remain unheard-from. See WRONG_CALLS 2026-08-08.** One fresh trap paid for on re-verification:
+> 6 uncapped steps remain unheard-from. See WRONG_CALLS 2026-08-08.**
+> **RE-CORRECTED + RESOLVED 2026-08-09: the WARN has NEVER fired** —
+> `scrape_prices` is a custom action that never passes the WARN site and is
+> capped in code (`num_predict: 500`, ~3× its max observed output); its NULL
+> `max_tokens` rows are a logging omission (WRONG_CALLS 2026-08-09). And the
+> watch-item is now CLOSED: owner decision 2026-08-09 capped all remaining
+> uncapped steps (mig `sql_for_agents/347` — 32000 design, 16000 build-plan +
+> create_content, 8000 the rest); the fleet uncapped census reads 0. The WARN
+> now only announces a FUTURE step added uncapped. ⚠ `max_tokens IS NULL` in
+> llm_call_log is NOT an uncapped-call signal — custom actions (scrape_prices)
+> log NULL while capped in code; `= 2048` remains the Anthropic-fallback tell. One fresh trap paid for on re-verification:
 > **`reaper_policies` lives in schema `public`, NOT `business_intel`** — a
 > schema-qualified probe reads "relation does not exist" and looks like the
 > migration never applied; query it unqualified, as the LANDMINES check spells
