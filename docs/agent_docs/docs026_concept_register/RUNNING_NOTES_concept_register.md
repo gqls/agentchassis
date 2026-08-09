@@ -1444,3 +1444,94 @@ one fails in the worst way: it reports on a register nobody is editing, so every
 finding is unfalsifiable **and every "clean" run is meaningless**. Both manifests
 need bumping when the working branch moves; the check refuses on a ref that does
 not resolve, but cannot know that a resolving ref is no longer the one in use.
+
+---
+
+## 2026-08-09 — retiring the stored counts, and what the watcher's first four days measured
+
+Owner ruling: take option (1) of the two recorded on DOC-074 — **delete the
+hand-maintained headline** rather than keep watching it drift. Extended in the
+doing to every stored count in the register, because the same disease was in all
+109 category files and nothing had ever looked at them.
+
+### The evidence for the ruling, gathered before acting
+
+**Four commands count the index; all four answers are correct.** Measured the same
+minute on 08-08: documented row regex **1,792**, loose row regex **1,799** (and the
+loose one is quoted *inside the index's own header chain*, which is how it keeps
+being picked up), unique entry ids **1,792**, raw `###` headings **1,800**. Twice
+in four days a careful session published the wrong one.
+
+**The per-file counts were worse, and unwatched.** All 109 category files carried a
+stated count; **32 were already wrong**, 90 concepts of drift in total.
+`batch-processing.md` claimed 5 concepts and held **0**. `documentation-system.md`
+said 66 against 75. Nobody had ever compared them, because there was no reason to —
+they look like documentation, not like state.
+
+That measurement is the argument. A convention cannot fix a number that has three
+plausible rival answers sitting beside it; only removing the number can.
+
+### What was done
+
+Index headline deleted; the entire "previously N, re-grepped after X" chain moved
+**verbatim** to a frozen log at the foot of the file (the record of how it failed
+is worth more than the numbers were). 108 category counts replaced by a pointer.
+`README.md`'s live count likewise. The rule that actually mattered now stands alone
+and unqualified: **entry and index row, same commit.**
+
+### The inversion, which is the part worth copying
+
+With no headline in the file, check 4 would have found nothing and reported
+nothing — **indistinguishable from passing**. A retired rule and a silently dead
+one look identical from outside. So the arm was inverted rather than deleted: it
+now reports a stored count that has **come back**, in the index or any category
+file. Proven by a second mutation in the self-test (re-add `**9,999 concepts**` to
+`adapters.md`, require exactly that file to be named), plus the inverse assertion
+that the live tree reports none — so a dead arm cannot pass as a satisfied one.
+
+### Three things the tests caught before shipping
+
+1. **The frozen log quotes the old headlines verbatim**, so a whole-file search
+   would have reported a finding every run for ever — a watcher crying wolf about
+   its own archive. Both count searches are now head-bounded, with the reason in
+   the code rather than in a commit message.
+2. **The retained command block still carried stale numbers in its comments.**
+   Stripped: the commands stay, the figures do not. Leaving them would have
+   recreated the exact artefact being retired, three lines below the paragraph
+   retiring it.
+3. **`LNK-031` was claimed by two lanes hours apart on 08-08** — `af2667453`
+   (fragment resolution, holds the index row) and `85390ee33` (form-action repair,
+   no row). Found by the duplicate-id arm on live data, not by review. Renumbered
+   `LNK-032` with a visible note; the originating commit and `bugs_open/228` still
+   say LNK-031, which is why the note exists.
+
+### What the watcher's first four days actually measured — the real result
+
+Five runs (four unattended). Two findings, and the second is the important one:
+
+- a **headline mismatch reported on three consecutive days and corrected by
+  nobody** — the report was right and unread;
+- **`SCH-024` filed with an entry and no index row on 08-08**, four days after 34
+  such rows were backfilled.
+
+So the missing-row class recurs at roughly **one every few days**. 08-04 was not a
+backlog that got cleared. That is the single most useful thing these runs produced,
+and it is only knowable because something was counting.
+
+### Honest loose end, and why it is not tidied away
+
+`rebuild-cascade.md` still carries its stored count. Another session has had it
+dirty in the shared tree since 08-04, and a pathspec commit takes a same-file
+passenger — retiring one line would have swept five days of their uncommitted work
+into a commit about something else. **Owed, not done.** The live check does *not*
+special-case it and will name it daily, which is correct; only the local
+self-test's assertion tolerates it, via a named set with a comment saying not to
+grow it as a way of silencing findings.
+
+### The uncomfortable observation to carry forward
+
+The headline mismatch sat uncorrected for three days *while the watcher reported it
+every morning*. A mechanism that writes into a table nobody opens fails the same
+way the convention did. That is the argument for preferring **removal over
+observation** wherever it is available: today's fix deletes the drifting artefact,
+which needs no reader. The next intervention should try to do the same.

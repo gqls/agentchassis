@@ -525,3 +525,41 @@ It's built, tested and committed, but **not deployed** — you said you'd run th
 One thing worth knowing: this afternoon's `make release` won't have picked it up.
 That target deploys a fixed list of services and a new scheduled job isn't on it,
 so it needs its own one-line deploy.
+
+**Retiring the counts (2026-08-09).** You said retire the hand-maintained
+headlines, so they are gone — from the index, from all but one of the 109 category
+files, and from the README.
+
+Two numbers made the case. The index had **four** different commands that count it,
+all four giving different and individually-correct answers, sitting in adjacent
+lines of the same file: twice in four days a careful person took the wrong one and
+published it. And the per-file counts, which nobody had ever checked, were wrong in
+**32 of 109 files** — ninety concepts of drift in total, one file claiming five
+concepts while holding none. That is not carelessness; it is what a number written
+down beside its own near-identical rivals will always do.
+
+The count is now worked out on demand — by the daily job, or by one command — and
+written down nowhere. The old history of "previously it was N" is kept in full at
+the bottom of the index, because how it went wrong is worth more than the numbers
+ever were. The one rule that actually mattered is now the only one left: when you
+add a concept, add its index row in the same commit.
+
+The watcher's own check for this had to be turned around rather than deleted. With
+no number left to compare against, it would have found nothing and said nothing —
+which looks exactly like everything being fine. It now reports any count that comes
+*back*, and there is a test that puts one back to prove it still fires.
+
+Two things worth telling you from its first four days. It caught a wrong number
+three days running and **nobody acted on it** — the report was right and unread,
+which is a caution about reports in general. And the original problem came straight
+back: a concept was filed on the 8th with no index row, four days after we
+backfilled thirty-four of them. So this isn't a backlog that got cleared, it's a
+leak, and now we know roughly how fast it drips.
+
+One file was left alone deliberately: another session has had it half-edited in the
+shared tree since the 4th, and tidying my one line would have swept five days of
+their work into my commit. It's noted as owed, and the watcher will keep naming it
+until someone clears it.
+
+The job's script changed today, so it needs a re-deploy to pick up the new check —
+one command, same as before.
