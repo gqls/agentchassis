@@ -5048,3 +5048,53 @@ under either spelling, which lives in the reconciler — `WriteSitePlanAction`
 sees one emission and knows nothing of realised pages. Putting it here would be
 the "shared seam inside a bug patch" the 2026-07-28 ruling forbids. 20 phantom
 candidates fleet-wide today.
+
+**Council verdict on the 215 fix: APPROVED, round 1, 3 advisory objections, none
+high-severity** (`8ab18991`, 15:23:49Z — 7 minutes from submit to verdict, the
+fastest this front has seen). Full disposition of every objection, with the
+verdict JSON pinned because `diagnosis_artifacts.expires_at` is real:
+`REVIEW_2026-08-09_council_verdict_215_dedup.md`.
+
+**The merge-rule decision record** (the tooling_provenance seat's ask — it could
+not see the NOTES entry because it did not exist at submission time; stated here
+so the next fix on this file builds on it rather than re-deriving it):
+richer-wins because *keep-first* discards the composed page whenever the stub is
+emitted first, which is the live incident's own shape; tie keeps first so the
+rule is total and order-stable; backfill blank-only because *no backfill* loses a
+title the stub alone carried and *unconditional* overwrites authored text; log
+and proceed rather than fail the write, because failing restores the whole-replan
+loss this bug is about. Placed after canonicalisation and before the transaction
+rather than using `ON CONFLICT DO NOTHING`, which would pick a winner by insert
+order with no log and no counter.
+
+**The reuse seats asked a question I had not asked, and the answer is a real
+find.** I did not check for prior art on collision handling before submitting.
+`save_sections_dedup.go` (`dedupSectionsBeforePersist`, `bugs_open/156`) is the
+**same fix one layer down**, and its header states the insight almost word for
+word: *"Every one of them compares the incoming set against EXISTING rows, or
+against a floor. None of them compares the incoming set against ITSELF."* Same
+`([]T, int)` signature shape, same loud logging, same never-refuse posture —
+arrived at independently, which is either reassuring or an argument for the
+architecture seat's point, depending on how you feel about it. **Not reusable as
+a function**: 156 discriminates on *content identity* (its census proved a unique
+index would be wrong there — 11 of 12 duplicate slot-names are legitimate),
+whereas this discriminates on *canonical name*, where a duplicate is never
+legitimate. So reimplementing was right and citing it was owed. Its
+`writeSectionDedupLog` durable record is a better observability answer than my
+counter; logged as a follow-up. Independently, 156's header records the same
+~24h `collected_data` prune that made today's census trap — two lanes hitting
+the same retention wall a fortnight apart.
+
+**Verified rather than accepted — the guardian's low objection** (does the new
+call brush the fragile imagery/lock block?): it does not. The dedup call sits at
+`:437-450`, **outside the transaction entirely** (`BeginTx` follows it);
+`transferDirectiveLocks` is `:786` and `transferImageryLocks` `:1123`, separate
+functions, neither called from the insertion point nor edited. Checked by grep at
+HEAD, not by eye.
+
+**Left for the owner, and it is a genuine policy question, not a technicality:**
+when two *composed* pages collide, the fix keeps the richer and logs the other at
+Warn — silent partial data loss. The guardian seat's position is that "how much
+silent loss is acceptable" belongs to the owning pipeline, not a reviewer, and I
+agree. The branch needs a collision **and** both entries composed; the observed
+shape is composed-plus-stub, which loses nothing.

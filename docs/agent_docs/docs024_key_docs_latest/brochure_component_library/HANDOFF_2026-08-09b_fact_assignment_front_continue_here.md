@@ -32,8 +32,13 @@ Site id, needed everywhere: **`199733a8-ac9c-4c30-b2ce-65ecdac6f3bd`**.
 ## 2. What changed today: bug 215 crash mode is FIXED
 
 Commit **`14b1cff28`**, **`Council-Submitted: 8ab18991-ee83-4048-8965-4f7990baa188`**
-(round was EXECUTING_STEP at `review_guidelines` when this was written — **read
-the verdict**; on REVISE resubmit with `RESUBMIT_CORR=8ab18991-…`).
+— **verdict landed: APPROVED, round 1, 3 advisory objections, none
+high-severity** (15:23:49Z, 7 min end to end). Every objection dispositioned,
+with the verdict JSON pinned against `expires_at`, in
+**`REVIEW_2026-08-09_council_verdict_215_dedup.md`** — read that before
+touching this file again. Nothing is owed to the council; `098` credits the
+commit automatically. `Council-Reviewed:` is deliberately **not** on
+`14b1cff28` (it predates the verdict; forward-only forbids an amend).
 
 `dedupePlanPageRows` collapses pages that canonicalise to the same name, between
 canonicalisation and the transaction. Richer wins, tie keeps first, blank-only
@@ -85,8 +90,16 @@ match, logging misses durably. (i) makes (ii)'s match near-total.
 
 ## 4. Do these, in this order
 
-1. **Read the 215 verdict** (`8ab18991-…`). Act on REVISE/REJECTED — the code is
-   already on the shared branch, so a verdict is not optional.
+1. ~~**Read the 215 verdict**~~ — **DONE, APPROVED.** See §2 and the REVIEW file.
+   **One thing came out of it that is NOT mine to settle and is waiting on the
+   owner** (guardian seat, medium): when two *composed* pages collide, the fix
+   keeps the richer and logs the other at Warn — silent partial data loss. The
+   alternative is failing the plan write, i.e. today's whole-replan loss. The
+   seat's point is that "how much silent loss is acceptable" belongs to the
+   owning pipeline, not a reviewer. **Ask the owner; do not quietly re-decide
+   it.** Three smaller follow-ups (durable merge record on the `bugs_open/156`
+   model, `output_contract` parity for `duplicate_pages_merged`, and a candidate
+   identity-resolution RFC) are listed at the end of the REVIEW file.
 2. **Build candidate 1b.** Small, but the Go half touches a bug-laden merge —
    read Pass B/B2's header before editing, and mutation-test the name-match
    carry (a name-match that silently matches nothing looks identical to one that
