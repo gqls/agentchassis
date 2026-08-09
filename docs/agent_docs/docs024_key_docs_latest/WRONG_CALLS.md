@@ -24272,3 +24272,27 @@ fragment must carry `<meta charset="UTF-8">` before its first non-ASCII
 assertion. Generally: on this site the prior that a red result is the harness
 is HIGH (the lane's handoff §5 said so; five prior instances) — the live-vs-
 local A/B at one vector is one browser call and settles it either way.
+
+## 2026-08-09 — bugfix-225 session: a wire-deploy poll that could NEVER match, graded as "not deployed yet"
+
+**The claim.** My deploy-verification loop polled both live stamp-duty pages
+"until wire sha256 == the committed file's sha256" and ran to its 10-minute
+timeout without matching — reading, in the moment, as a slow or failed B2
+deploy.
+
+**What was actually true.** The deploy had landed minutes earlier. The loop
+captured the body with `a=$(curl -s …)` and hashed `printf '%s' "$a"` —
+**command substitution strips trailing newlines**, so the hash was computed
+over the file minus its final `\n` and could not equal `sha256sum <file>` for
+any file that ends in one. The check encoded an impossibility, then reported
+its failure as the system's.
+
+**What caught it.** Re-fetching with `curl -o file` and hashing the FILE:
+instant match, both URLs, first try.
+
+**The cheap check.** Hash through a pipe or a file (`curl -s url | sha256sum`
+or `curl -o f && sha256sum f`), never through `$(…)`. Same family as the
+index's shell-traps-that-fail-silently line: the shell "helpfully" rewrites
+your bytes at exit 0. A poll that has never once matched should be suspected
+of comparing incomparables before the system it grades is suspected — induce
+one positive match (hash the same URL both ways) before trusting any red.

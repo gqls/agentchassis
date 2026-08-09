@@ -4,6 +4,29 @@
 owner-requested arithmetic-validation work
 (`docs/agent_docs/docs024_key_docs_latest/loanandmortgagecalculator_couk/HANDOFF_2026-08-08_arithmetic_validation.md`).
 
+**Status: FIXED + LIVE (2026-08-09, both defects, both live sites — see "Fix
+landed" section at the bottom).** The owner approved the changed tax figures
+and chose to patch the byte-identical twin on mortgagecalculator.co.uk as well
+(plan approval, 2026-08-09 — satisfying this file's "What NOT to do" gate).
+Oracle: `PASS 17 FAIL 0` live, all three controls re-run green in the same
+session. **Kept in `bugs_open/` per owner direction (2026-08-06)** — do not
+move to `bugs_closed/`.
+
+## Diagnosis provenance (per the 2026-07-31 owner ruling)
+
+Not run through 090 — **stated substitution**, same ground as
+`bugs_open/224:128-172`: the lane DID file the sibling structural claim and the
+loop returned NO VERDICT because `code_symbols` indexes one repo
+(`gqls/agentchassis`) and one extension (`.go`) — zero rows match any artefact
+this bug names (`.html`/`.js` in the `sites` repo). The loop is structurally
+unable to look at this bug's evidence. Substituted verification, first-hand
+and disconfirmable: the defect was reproduced live at named band-edge vectors
+before the fix (`PASS 13 FAIL 4`, the 4 fails carrying the exact expired-rule
+DIAGNOSIS lines), the fix was proven locally before shipping and live after
+(`PASS 17 FAIL 0`), and the oracle's own controls (`--mutate expectation`,
+`--mutate crosstool`, `--selftest-parse`) were re-run green in the same
+session so the green could not be a dead checker.
+
 Live page: <https://loanandmortgagecalculator.co.uk/mortgages/stamp-duty.html>
 Source: `sites` repo, `loanandmortgagecalculator.co.uk/mortgages/stamp-duty.html`,
 inline `calcSDLT()`.
@@ -157,6 +180,79 @@ to publish a different tax number belongs to the owner.
 > Theirs was already at HEAD, so it keeps the number.
 
 - `bugs_open/224` — the zero-rate defect family on the same site. Different
-  mechanism (duplicated formula), same root discovery method.
+  mechanism (duplicated formula), same root discovery method. **Fixed
+  concurrently by another session (`71ba7bb76`, sites `ea72609d6`) — no file
+  overlap with this fix.**
 - Report with the full method, controls and refutations:
   `docs/agent_docs/docs024_key_docs_latest/loanandmortgagecalculator_couk/REPORT_2026-08-08_arithmetic_validation.md`
+
+---
+
+## Fix landed (2026-08-09, this section added by the fixing session)
+
+**The blast radius was three files, not one** — the same 2,775-byte inline
+script block, byte-identical in each (verified by assertion before editing):
+
+1. `sites` repo `loanandmortgagecalculator.co.uk/mortgages/stamp-duty.html` —
+   this bug's named target. DB-authoritative: the whole document also lives in
+   `page_components.rendered_html` (row `55682bc8-0113-4bf1-a10b-08aff6e8ea22`,
+   `deploy_mode='verbatim'`), and a reason-less `page_rerender` deploys the DB
+   bytes — so the DB row was repaired (repo→DB, via the lane's
+   `gate_component_bytes.py --repair`, sha256 re-stamped) BEFORE the sites
+   push, closing the revert window.
+2. `sites` repo `mortgagecalculator.co.uk/stamp-duty.html` — **a live,
+   nav-linked twin this file did not record.** Same defects, same bytes.
+   Repo-only (no `pages` row). The adoption lane had routed it to the owner as
+   a finding; the owner chose to patch it too (2026-08-09). Their
+   framework-built `/tools/stamp-duty/index.html` was already correct — the
+   generator never produced the expired rule; only hand-ported pages carried it.
+3. `~/projects/domains` repo `mortgagecalculator.co.uk/gemini/02/stamp-duty.html`
+   — MORT_SRC, the input `build_site.py` regenerates the LMC page from;
+   unfixed it would have resurrected the bug on the next build. Committed
+   locally (`c463764`); the codeberg push needs credentials this session lacks
+   — the local commit is what protects the build path.
+
+**The fix** (sites `9d1a17202`, domains `c463764`): the inline block is now a
+branch-for-branch JS port of the lane oracle's `oracles.py:sdlt()` — named,
+dated constants (`FTB_RELIEF_CAP = 500000` "from 2025-04-01",
+`SURCHARGE_FLOOR = 40000`, `SDLT_BANDS`, one `sdltBanded()` helper). The
+literal `625000` appears nowhere, comments included — the expired-rule state
+is unrepresentable, per fix candidate 1. Golden-pinned strings preserved
+(`"First Time Buyer Relief Applied."`; empty breakdown for ftb-over-cap).
+`formatGBP` and all element wiring untouched.
+
+**Evidence (all in one session, 2026-08-09):**
+
+| check | result |
+|---|---|
+| pre-fix live oracle (the checker can see the bug) | `PASS 13 FAIL 4`, all 4 with the expired-rule/floor DIAGNOSIS lines |
+| local behavioural proof before shipping (http.server) | `PASS 17 FAIL 0` |
+| `gate_component_bytes.py` report → `--repair` → re-run | exactly 1 BYTES DIFFER → `UPDATE 1: 1` → **GATE PASSES** |
+| DB stamp check | `content_data->>'sha256'` = recomputed = `817d80c7…` (new file hash) |
+| deploy (GitHub Actions run 31304143109) | success; wire poll landed |
+| live oracle | **`PASS 17 FAIL 0`** |
+| `--mutate expectation` | CONTROL OK — 0 passed, 17 FAIL |
+| `--mutate crosstool` | CONTROL OK — 0 passed, 13 FAIL, 4 named refusals |
+| `--selftest-parse` | PARSE CONTROL OK |
+| golden (3 vectors × 3 phases) | post-fix output **byte-identical** to the recorded pre-fix run |
+| golden `--self-test` | PASSED (comparator can still fail) |
+| three-way identity | repo = DB = wire `817d80c7…` (LMC); repo = wire `28e04d99…` (twin) |
+| negative control | `grep -c 625000` → **0** on both live pages |
+| full-estate oracle run | **`PASS 170 FAIL 0 CONVENTION 6`** — with 224's concurrent fix, the whole 176-check estate is green |
+
+**Council**: N/A — the gate refuses site-content submissions client-side
+(scope `platform/ internal/ pkg/`); the review of record is the owner gate
+this file itself demanded, satisfied by plan approval with the number changes
+stated. No platform code was touched; no new mechanism built (no
+concept-register entry).
+
+**For the lane** (also in `CONTRIB_2026-08-09_bug225_sdlt_fix.md`): the page's
+bytes moved (`c82013b8…` → `817d80c7…`), so
+`acceptance/BASELINE_2026-08-05_stored_md5_at_b318a8fad.txt` no longer
+describes this page — deliberately left untouched (it is a dated snapshot);
+`load_lmc.py`'s guard will now correctly REFUSE on stamp-duty until you
+re-baseline, and **`decompose_lmc.py`'s `PINNED_REF=b318a8fad` must move past
+sites `9d1a17202` before stamp-duty is decomposed**, or decomposition
+re-freezes the buggy bytes. The `--emit-criteria` step your PLAN gated on
+"224 and 225 both fixed" is now **unblocked** — both are live and the full
+estate is green.

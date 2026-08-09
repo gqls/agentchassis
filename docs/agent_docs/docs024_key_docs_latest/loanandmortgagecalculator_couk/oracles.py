@@ -173,7 +173,7 @@ SDLT_BANDS = [(125000, 0.00), (250000, 0.02), (925000, 0.05),
               (1500000, 0.10), (float("inf"), 0.12)]
 
 FTB_NIL_BAND = 300000          # 0% up to here
-FTB_RELIEF_CAP = 500000        # relief unavailable ABOVE this (from 2026-04-01)
+FTB_RELIEF_CAP = 500000        # relief unavailable ABOVE this (from 2025-04-01)
 FTB_RELIEF_CAP_SUPERSEDED = 625000   # the 2022-09-23 .. 2025-03-31 cap
 SURCHARGE_ADDITIONAL = 0.05
 SURCHARGE_FLOOR = 40000        # higher rates apply at £40,000 or more
