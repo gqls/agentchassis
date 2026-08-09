@@ -1,7 +1,51 @@
 # 233 — B2 application key pair and CLIENTS_DB_PASSWORD logged in plaintext at INFO
 
-**Status: FIXED IN TREE 2026-08-09 — inert until the next fleet roll** (Go change;
-the leak keeps firing on every running pod built before the fix ships).
+**Status: FIX IS LIVE on the v1.0.1274 fleet, verified at the pod 2026-08-09 —
+with ONE pod still leaking and a rotation-ordering consequence. Stays OPEN.**
+
+> **VERIFIED LIVE 2026-08-09, v1.0.1274.** Positive string the fix ADDED and
+> negative string it REMOVED, same exec, every replica:
+>
+> | pod | `access_key_present` | `B2_APPLICATION_KEY from env` |
+> |---|---|---|
+> | agent-chassis ×2 (both replicas) | 1 | 0 |
+> | thunder-adapter (the original sighting) | 1 | 0 |
+>
+> `CLIENTS_DB_PASSWORD_present` = 1 on both chassis replicas. A fourth check
+> (`strings … grep "^CLIENTS_DB_PASSWORD$"` = 0) is NOT cited as evidence: Go
+> merges string literals into one blob, so `strings` line boundaries are an
+> artefact, and that check would read 0 whether or not the literal survived.
+>
+> **STILL LEAKING: `render-audit-adapter`**, which runs
+> `browser-runner-adapter:v1.0.1194` — 80 tags behind, pinned since the pod was
+> created (`0143a693e`). Verified at the binary with `grep -a` (that image has
+> no `strings`): leak string = **1**, `access_key_present` = **0**, positive
+> control `NewS3Client` = 3 — so the grep mechanism works and the absence is
+> real. **The credential is in its retained log buffer right now**: 1 matching
+> line out of 35 total retained (counted, never printed). Root cause is a
+> release-coverage gap, filed separately as **`bugs_open/237`**.
+>
+> **Exposure now bounded to that one pod.** Ten `cmd/` targets link
+> `platform/storage`; of those, only `component-render-check` is also pinned
+> pre-fix (v1.0.1258), and it **never constructs a client** — no `NewS3Client`
+> call site in `cmd/component-render-check/`, and its last CronJob run logged
+> 0 leak lines out of 3 total (a non-empty log, so the zero is meaningful).
+> Every other storage-linking service is on v1.0.1274.
+>
+> **⚠ ORDERING CONSTRAINT FOR THE OWNER'S KEY ROTATION (this is the part that
+> bites).** `render-audit-adapter` reads the credential from its env at
+> **startup**. Leaving it as-is, it holds the OLD key and logs it — bad but
+> static. **Rotating the B2 keys while that pod is still on v1.0.1194 means the
+> NEXT restart writes the NEW key into its log in plaintext**, re-creating the
+> exposure the rotation was meant to end. So: **roll `render-audit-adapter` to
+> a ≥v1.0.1274 image BEFORE rotating**, and do not simply `kubectl delete pod`
+> it beforehand — its overlay pins the old tag, so it would come back on the
+> same leaking image and emit a FRESH credential line. `bugs_open/237` has the
+> one-line overlay fix.
+
+Original status line, kept for the trail: *FIXED IN TREE 2026-08-09 — inert
+until the next fleet roll* (Go change; the leak keeps firing on every running
+pod built before the fix ships).
 
 ## Mechanism
 
