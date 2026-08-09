@@ -86,6 +86,7 @@
 - **sources:** HANDOFF_2026-04-17_triage_and_component_linking.md#known-issues; HANDOFF_2026-04-20…(2).md#5
 - **relations:** dispatch chain fairness ORDER BY
 - **verify-later:** improvement-sweep pre_query
+- **2026-08-09 (bugfix_230_discovery_driver):** still live at HEAD, and a second exclusion measured: the live pre_query's `< 50` open-build-items cap excludes webdesign.co.uk (85) and dartsonline.com (79) — the fleet's two most-worked sites — so re-enabling the sweep as-is would examine everything *except* them. For DETECTION the starvation is answered by SCH-025's `site_discovery_rotation` (stamp-on-selection, no backlog cap); the sweep's own selection is deliberately unchanged.
 
 ### IMP-011 — Scheme-coherence audit guard (Q8) — abandoned proposal
 - **status:** abandoned
@@ -134,6 +135,7 @@
 - **sources:** FOCUS_internal_linking(1).md#operational-note; RUNBOOK_linking_phantom_fixes(7).md#7a,#7b; running_notes_17(21).md 2026-06-14; running_notes_17(16); content_quality_and_internal_linking/running_notes_17_internal_linking_phantom_fixes(16).md "Policy settled"/"§7"
 - **relations:** observe-only enablement; internal-link-resolver (prerequisite handler); dormant discovery-check machinery (IMP-020); Discovery-check wiring gaps (IMP-047)
 - **verify-later:** scheduled_tasks improvement-sweep enabled flag; first post-enable triage cycle
+- **2026-08-09 (bugfix_230_discovery_driver):** the DETECTION half of this pause is re-driven by SCH-025 (observe-only fair rotation per `bugs_open/230` — exactly the "check runs observe-only while the triager stays disabled" mode this entry describes). The triage/fix re-enable this entry sequences remains pending on `bugs_open/083`'s recorded owner decision, and the sweep row itself is untouched.
 
 ### IMP-017 — needs_section_data semantics and the abandoned standalone handler
 - **status:** superseded

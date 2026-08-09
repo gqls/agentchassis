@@ -1,0 +1,81 @@
+# deployments/kustomize/services/site-discovery-staleness-check/base/cronjob.yaml
+#
+# bugs_open/230: site discovery had no recurring driver, and — the part this job
+# answers — nothing anywhere SAID so. Migration 346 gives detection a clock (the
+# site-discovery-rotation-* scheduled tasks + stamp table); this watchdog makes the
+# clock's failure modes visible daily:
+#
+#   - a site falling out of examination (stamp missing/older than 2x period),
+#   - the driver itself dying quietly (tasks disabled — 230's original state),
+#   - selections that stop producing runs (stamps advance, zero orchestrations in
+#     the 24h retention window — the fire-and-forget landmine).
+#
+# WHY A CRONJOB AND NOT A DISCOVERY CHECK: a discovery check that reports
+# discovery-not-running can never run when discovery is not running. The watchdog
+# must be driven by something outside the mechanism it watches.
+#
+# Modelled on single-owner-carriers-check (same image, same secret, same doc_notes
+# reporting convention — one row per run, clean or not, so a missing row means the
+# job did not run; same direct-Postgres constraint — no pods/exec RBAC here).
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: site-discovery-staleness-check
+  labels:
+    app: site-discovery-staleness-check
+    component: pipeline-integrity
+spec:
+  # Daily. 06:35 UTC sits clear of database-backup (02:00), the weekly staleness
+  # sweep (06:00 Sun), single-owner-carriers (06:20) and component-fallback (06:40).
+  schedule: "35 6 * * *"
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      # The whole job is three queries over ~20 sites. Five minutes is generous;
+      # a hanging job should not sit in the schedule blocking the next one.
+      activeDeadlineSeconds: 300
+      template:
+        metadata:
+          labels:
+            app: site-discovery-staleness-check
+            component: pipeline-integrity
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: check
+              image: postgres:16-alpine
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  apk add --no-cache python3 >/dev/null
+                  python3 /scripts/check.py
+              env:
+                - name: PG_CLIENTS_HOST
+                  value: postgres-clients
+                - name: CLIENTS_DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: personae-platform-secrets
+                      key: CLIENTS_DB_PASSWORD
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 200m
+                  memory: 128Mi
+              volumeMounts:
+                - name: check-script
+                  mountPath: /scripts
+                  readOnly: true
+          volumes:
+            - name: check-script
+              configMap:
+                name: site-discovery-staleness-check-script
+                defaultMode: 365

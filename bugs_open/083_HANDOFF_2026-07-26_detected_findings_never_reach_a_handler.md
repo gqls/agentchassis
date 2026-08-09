@@ -547,3 +547,28 @@ is exactly what nothing was doing.
 Also recorded, so nobody re-derives it: the other 9 failures on that site were
 8 × `needs_content_image` (all one S3 download error) and 1 × `audit_tool`
 ("Claim timed out (attempts exhausted)"). Neither is about promotion.
+
+---
+
+## Consumer notice, 2026-08-09 (bugfix_230_discovery_driver) — the UPSTREAM half is getting a clock; this file's drain question is untouched and will get busier
+
+`bugs_open/230` (no recurring driver for the three discovery agents) is being fixed:
+migration `346` seeds a fair-rotation driver (`site_discovery_rotation` stamp table +
+three `site-discovery-rotation-*` scheduled tasks, one site per agent per hourly tick,
+7-day per-site period, observe-only), council corr `2281fc48`. **What changes about this
+file's world:** detection stops being attention-driven, so the `detected` pile this file
+is about will start accumulating *fresh, true* findings from unattended sites on a steady
+~9 runs/day — the honest version of the state this file documents, rather than silence.
+Nothing here promotes, drains, or adds a `triage_detected_items` carrier: the standing
+owner decision recorded above ("Decision pending — do not act…") remains the blocker it
+was, now with better data accruing for it.
+
+Two answers this file recorded as open, found in the concept register during that work:
+- The `[UNVERIFIED]` why of the 2026-05-02 disable: **on record as deliberate** —
+  IMP-016, *"intentionally paused during core build"*, with a gated re-enable sequencing
+  (check handlers exist, observe-only first, watch one clean cycle).
+- Fix candidate 1's warning ("read that reason before flipping it") gains a second,
+  measured reason: the sweep's live pre_query caps at <50 open build items and its
+  selection starves (IMP-010) — today that cap excludes webdesign.co.uk (85) and
+  dartsonline.com (79). **Re-enabling improvement-sweep as-is would examine everything
+  except the sites most worked on.** Landmine filed.

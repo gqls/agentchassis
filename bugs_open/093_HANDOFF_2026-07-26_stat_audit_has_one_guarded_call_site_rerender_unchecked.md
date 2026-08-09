@@ -372,3 +372,20 @@ self-contradiction it found in the dry harness (`index`: "Archetypes 8 / Tools L
 
 **[UNVERIFIED]** whether the assemble-only re-render branch documented above would change
 this: it would not — both branches are audited only post-deploy, by the same unscheduled check.
+
+---
+
+## Consumer notice, 2026-08-09 (bugfix_230_discovery_driver) — the missing runner is on its way
+
+The "Triage 2026-07-27" section above ends: *093 is not a code task any more. It is
+blocked on `bugs_open/083` candidate 1 or 2 (re-enable the sweep, or give
+triage/discovery its own cadence).* The second of those is now built: `bugs_open/230`'s
+fix (migration `346`, council corr `2281fc48`) gives the three discovery agents a
+recurring fair rotation — `quality-discovery-agent`, whose `unverified_claims` check
+carries this file's shipped-and-never-run stat audit, will reach every deployed site on
+a ≤7-day period. Once live, this file's own §"How to verify a fix" becomes satisfiable:
+the 21 register findings / 9 work items its dry harness predicted (including the
+vonc.com index-vs-about self-contradiction) should be raised by the first rotation pass
+over those sites, as `claims_unverified` items. Note they will land `needs_human_review`
+per that check's design — readable, not auto-fixed; the drain question is still
+`bugs_open/083`'s pending owner call.

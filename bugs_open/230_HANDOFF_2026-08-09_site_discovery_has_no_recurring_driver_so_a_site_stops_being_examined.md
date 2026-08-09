@@ -1,6 +1,23 @@
 # 230 — site discovery has NO recurring driver: every scheduled entry is a disabled one-off, so a site stops being examined the moment a human stops looking at it
 
-**Filed 2026-08-09 by the `bugfix_201_page_content_writer_dispatch` lane. OPEN, UNOWNED.**
+**Filed 2026-08-09 by the `bugfix_201_page_content_writer_dispatch` lane. OPEN.**
+
+> **TAKEN UP 2026-08-09 by the `bugfix_230_discovery_driver` thread** (standing five in
+> `docs024_key_docs_latest/bugfix_230_discovery_driver/`). Every §2 figure re-verified
+> live the same day — all hold; §6's worked case still undetected. Fix built on
+> candidate 1 made fair (a `site_discovery_rotation` stamp table + three rotation
+> tasks, observe-only, migration `346`) plus candidate 2 as a daily watchdog CronJob
+> (`site-discovery-staleness-check`). §4's cost question was measured rather than
+> deferred: one full discovery cycle = 2 LLM calls (~4.2k in / ~2.1k out tokens,
+> dartsonline 08-09), steady state ≈ 9 site-examinations/day. Two findings §3 could
+> not have seen: the designed driver was paused *on record* (register IMP-016,
+> "intentionally paused during core build" — answering §4's first bullet: deliberate,
+> but for a build phase that has moved on), and it could not simply be re-enabled
+> anyway — its live pre_query's <50-open-items cap excludes webdesign.co.uk (85) and
+> dartsonline.com (79), the two most-worked sites, and its `ORDER BY sites.updated_at`
+> starves (IMP-010). Council `Council-Submitted: 2281fc48-f0c5-4842-88c7-8391d0098944`.
+> The `bugs_open/083` drain question is deliberately untouched — this closes the
+> *detection* half only. Inert until migration 346 is applied (post-verdict).
 
 Found while chasing `bugs_open/201`'s handoff §4 — two live pages still serving empty
 sections with no work item raised. The empty pages turned out to be the *symptom*; this is
@@ -96,11 +113,31 @@ on — see `bugfix_201…/HANDOFF_2026-08-08` §3.) Full slot-rename trap is in 
 
 ## 4. What is NOT established
 
-- **Whether the absence of a driver is a defect or a deliberate cost decision.** Discovery
+- ~~**Whether the absence of a driver is a defect or a deliberate cost decision.** Discovery
   runs cost LLM calls per site; someone may have disabled these on purpose. Nothing in the
   rows records *why* — they are just `enabled=false`. **This bug asserts the gap, not the
   remedy.** Whether discovery *should* be scheduled fleet-wide is an architecture question
-  with real cost implications and it is not settled here.
+  with real cost implications and it is not settled here.~~
+
+  > **ANSWERED — OWNER RULING 2026-08-09:** *"The missing driver is probably a defect, I
+  > haven't made any costs decisions lately."* So it is **a defect**, and there is no live
+  > cost decision standing behind the disabled rows.
+  >
+  > **And the question was mis-framed by me, which matters more than the answer.** I posed it
+  > as *defect vs deliberate COST decision*. The recorded rationale was never about cost:
+  > `IMP-016` (found by the `bugfix_230_discovery_driver` thread) says the sweep was
+  > *"intentionally paused during core build"* under an explicit operational policy that **a
+  > discovery check should only be enabled once its handler agent actually exists — otherwise
+  > findings accumulate unconsumed rather than clearing.** That is a **sequencing** gate, not
+  > a budget one. So the pause was deliberate, for a reason that was never cost, taken for a
+  > build phase that has since moved on, and never revisited. Both readings I offered were
+  > wrong; the true one was in the register the whole time.
+  >
+  > **Consequence for the fix:** the real precondition is **handler-readiness**, not budget —
+  > which is exactly why the owning thread's *observe-only* rotation is the right shape
+  > (detection driven, triage still gated on `bugs_open/083`). Their cost measurement (2 LLM
+  > calls per cycle, ≈9 site-examinations/day) stands and is useful for sizing, but it is
+  > **not the gate** and nothing was ever waiting on it.
 - **Whether the `oneshot-*` rows were ever meant to be permanent.** The naming suggests not.
 - **How many other sites are in this state.** Only `finetuning.uk` was checked at the row
   level. The fleet-wide recency table above is suggestive, not a census.
@@ -109,9 +146,16 @@ on — see `bugfix_201…/HANDOFF_2026-08-08` §3.) Full slot-rename trap is in 
 
 1. **A recurring `scheduled_tasks` row per discovery agent, with a `pre_query` that selects
    deployed sites on a rotation.** Config-only, live immediately, no roll. Closes the door
-   properly: a site cannot fall out of examination by being un-interesting. Needs a cost
+   properly: a site cannot fall out of examination by being un-interesting. ~~Needs a cost
    decision first (how often, how many sites per tick) — which is the architecture question
-   in §4, so this is *not* a change to make unilaterally.
+   in §4, so this is *not* a change to make unilaterally.~~
+   > **CORRECTED 2026-08-09 (owner ruling, see §4): there was no cost decision to wait for,
+   > and I should not have written that there was.** The real precondition is
+   > **handler-readiness** (`IMP-016`): enable detection observe-only, keep triage gated. I
+   > invented a budget gate from the *plausibility* that discovery costs money, and stated it
+   > in the same voice as the measured facts in §2 — an `[ASSUMED]` wearing a finding's
+   > clothes, in the one section headed "what is NOT established". If it delayed the owning
+   > thread, that is the cost of it.
 2. **Make the gap visible rather than closing it** — a check that reports sites whose last
    discovery run is older than N days. Cheaper, decides nothing, and turns an invisible
    silence into a number someone can act on. Good first move if (1) is contentious.
