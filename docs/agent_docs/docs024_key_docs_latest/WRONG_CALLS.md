@@ -25472,3 +25472,40 @@ identically, in a file that had already documented that they are indistinguishab
 tell to watch for in my own writing: naming a mechanism in the same sentence as a
 measurement, where the measurement only establishes the symptom. Marked figures were fine
 all day; the unmarked *causal* clause is what was wrong.
+
+---
+
+## 2026-08-09 (later) — bugfix 224 session: two more, and both were the checker again
+
+**Claim A: "stamp-duty is under-quoting by £5,000."** `verify_criteria.py`
+recomputed the values about to be pinned into the acceptance record and reported
+a **£5,000 mismatch** on the first-time-buyer vectors — the exact figure
+`bugs_open/225` had just been fixed for. It read like a regression on a tool
+corrected hours earlier.
+
+*What was true:* my `steps_map()` collected only `fill` steps. `#buyerType` is a
+**`select`**, so it was dropped and every FTB vector was graded as a standard
+buyer. The tool was right; the £5,000 was the difference between FTB relief and
+standard rates, which is what the checker had accidentally asked for.
+
+*Caught by:* recomputing one case by hand — £350,000 FTB is £2,500 by the bands,
+which is what the tool said and not what my model said.
+
+**Claim B: "three tools still print NaN."** A probe asserted
+`"NaN" not in page.content()` and failed on three tools whose every displayed
+figure was correct.
+
+*What was true:* the **fix comments** in the source explain the NaN defect
+("`NaN < x` is false, so the verdict fell through…"). The detector matched its
+own explanation. Same shape as `prompt-text-poisons-its-own-detector`, in code
+comments rather than prompt text.
+
+*Caught by:* printing the actual element values, which were all correct, and
+then asking what else on the page contains the string.
+
+**The rule, and it is the fourth instance this session** (after the
+fractional-term convention and the charset-less wrapper): **a red result from a
+checker you wrote today is more likely to be the checker than the site.** Before
+believing it, print the INPUTS the check actually drove and the RAW value it
+compared. And when a check greps a page for the name of a defect, scope it to
+what a user can SEE — source text describing the bug is not the bug.
