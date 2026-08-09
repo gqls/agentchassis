@@ -2,6 +2,34 @@
 --
 -- bugs_open/122, propagation leg. PRECONDITION for re-rendering stylesheets.
 --
+-- ============================================================================
+-- CORRECTION, ADDED AFTER APPLYING (2026-08-09) — READ BEFORE RELYING ON THIS
+-- ============================================================================
+-- THIS FILE'S HEADER AND COMMIT MESSAGE OVERSTATE WHAT IT DOES. It says the pin
+-- means the CSS re-render "cannot repaint" these sites. That is FALSE.
+--
+-- `design_intent.palette.reference_values` is ADVISORY BY CONSTRUCTION. The live
+-- analyze_design prompt renders it as "Reference values (starting points, not
+-- exact targets)" beneath "You have creative freedom to interpret this intent.
+-- The reference values are starting points — you may adjust them." Confirmed
+-- against the live prompt_template on 2026-08-09; stated independently in
+-- brochure_component_library/RUNBOOK_… , which says in terms that the memory
+-- landmine calling it a "pin" is wrong.
+--
+-- WHAT THIS MIGRATION ACTUALLY BUYS: it moves these three sites OFF the
+-- "no design intent exists → invent a palette" branch and onto the
+-- "starting points + guidance" branch, and supplies strong KEEP guidance. That
+-- is a real and worthwhile reduction in drift. It is NOT a guarantee, and the
+-- robot-hands evidence for a guarantee was a single run against a stochastic
+-- model, which is consistent with advisory.
+--
+-- CONSEQUENCE: do NOT treat "all 12 pinned" as licence to dispatch the CSS
+-- re-render unattended. Either verify each site's SERVED stylesheet against its
+-- reference_values after every run, or use a route that skips the design pass.
+-- The migration is left applied — it is a net improvement and reverting it would
+-- put three sites back on the invent branch.
+-- ============================================================================
+--
 -- WHY THIS EXISTS. Migration 338 repointed component and layout inks at the
 -- renderer's new legible-ink slots. Those slots are DEFINED only by the engine's
 -- step 12, which runs during a stylesheet render — so until each site's
