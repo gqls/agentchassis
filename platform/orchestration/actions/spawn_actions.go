@@ -2731,7 +2731,8 @@ func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, 
 
 	logger.Info("DEBUGaa: In spawnAgentKubernetesJobFromDefinition in spawn_actions.go",
 		zap.String("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_USER", os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_USER")),
-		zap.String("CLIENTS_DB_PASSWORD", os.Getenv("CLIENTS_DB_PASSWORD")),
+		// Presence only — the value is a live DB password and this fires on every spawn (bugs_open/233)
+		zap.Bool("CLIENTS_DB_PASSWORD_present", os.Getenv("CLIENTS_DB_PASSWORD") != ""),
 		zap.String("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_HOST", os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_HOST")),
 		zap.String("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_PORT", os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_PORT")),
 		zap.String("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_DB_NAME", os.Getenv("SERVICE_INFRASTRUCTURE_CLIENTS_DATABASE_DB_NAME")),

@@ -132,6 +132,13 @@ dynamically — which per E is exactly the relojistas pattern.
 - **thunder-adapter logs B2 credentials in PLAINTEXT at INFO on every startup**
   (`storage/s3.go:32`, `DEBUGaa:` lines). Found incidentally 08-04, still
   unfixed, deliberately not bundled into this lane — worth its own small fix.
+  > **CORRECTED 2026-08-09: fixed in tree (`bugs_open/233`), inert until the
+  > next fleet roll.** Two things the trap line under-stated, per that file:
+  > the leaking constructor is shared by 8 call sites, so EVERY storage-touching
+  > service leaked, not just thunder-adapter; and the fix's own grep found a
+  > same-class second leak — `CLIENTS_DB_PASSWORD` at INFO on every dynamic-agent
+  > spawn (`spawn_actions.go`), fixed in the same commit. Rotation of the exposed
+  > credentials (live in logs since 2025-10-28) is an OWNER decision, not taken.
 - **A `page_rerender` without `spec.reason` re-staples STORED html** — it will
   complete, report success, and preserve the defect. Reason
   `section_data_resolved` regenerates. (Landmine + worked examples

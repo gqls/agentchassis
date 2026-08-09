@@ -28,15 +28,16 @@ func NewS3Client(ctx context.Context, cfg platform_config.ObjectStorageConfig, l
 	accessKey := os.Getenv(cfg.AccessKeyEnvVar)
 	secretKey := os.Getenv(cfg.SecretKeyEnvVar)
 
-	// Add debug logging
+	// Presence booleans only — this constructor runs in every service that
+	// touches object storage, so a credential VALUE logged here lands in every
+	// pod's logs (bugs_open/233).
 	logger.Info("NewS3Client",
-		zap.String("DEBUG: AccessKeyEnvVar=%s", cfg.AccessKeyEnvVar),
-		zap.String("DEBUG: cfg.SecretKeyEnvVar", cfg.AccessKeyEnvVar),
-		// zap.String("DEBUG: AccessKey", accessKey),
-		zap.String("DEBUGaa: B2_APPLICATION_KEY_ID from env", os.Getenv("B2_APPLICATION_KEY_ID")),
-		zap.String("DEBUGaa: B2_APPLICATION_KEY from env", os.Getenv("B2_APPLICATION_KEY")),
-		zap.String("DEBUG: Endpoint", cfg.Endpoint),
-		zap.String("DEBUG: Bucket", cfg.Bucket),
+		zap.String("access_key_env_var", cfg.AccessKeyEnvVar),
+		zap.String("secret_key_env_var", cfg.SecretKeyEnvVar),
+		zap.Bool("access_key_present", accessKey != ""),
+		zap.Bool("secret_key_present", secretKey != ""),
+		zap.String("endpoint", cfg.Endpoint),
+		zap.String("bucket", cfg.Bucket),
 	)
 
 	if accessKey == "" || secretKey == "" {
