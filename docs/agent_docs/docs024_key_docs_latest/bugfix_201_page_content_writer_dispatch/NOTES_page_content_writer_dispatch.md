@@ -867,3 +867,55 @@ query for finding entries that silently lost their pass.
 `landmines-sync --apply` mid-write and one killed the `set -euo pipefail` wrapper before it
 dispatched. Both succeeded on a straight retry. Worth knowing because the first one printed
 `psql failed` *after* a full, healthy-looking parse listing, which reads like success.
+
+---
+
+## 2026-08-09 — RFC_017's fail-closed branch fires in production, unprompted
+
+User reported a fresh chassis build deployed. Checked directly rather than trusting the report:
+both `agent-chassis` pods are on `docker.io/aqls/agent-chassis:v1.0.1276` (3-4 min old at check
+time), RFC_017 marker (`fails closed (RFC_017)`) still present, count 1, both replicas. `[MEASURED]`
+
+Re-ran §3's own proof query, unprompted by any deliberate test:
+
+```sql
+SELECT status, attempt_count, left(error,90) AS err, result->'_verification' AS verif, updated_at
+FROM site_work_items WHERE result->'_verification'->>'status'='error'
+ORDER BY updated_at DESC;
+```
+
+Three rows: the two known 08-03 pre-flip fail-OPEN `complete` rows, and a **new** one —
+`dartsonline.com`, item `empty_section:552bb99e-…:category-listing`, page `index`, item **created
+2026-07-14** (an old stuck item), `triaged_at=2026-08-09 09:02:52Z` (re-triaged by `bugs_open/230`'s
+new discovery rotation — a hand-fired cycle at dartsonline in the same window as the rotation's
+kickoff, per that lane's NOTES), `status='failed'`, `attempt_count=3`, `updated_at=11:56:22Z`:
+
+```
+error: "completion blocked: verification could not run, and this item type fails closed
+        (RFC_017): cannot verify: component 43906b1f-04ae-4653-92d0-81fe1e2c84ea no longer
+        exists (genuinely fixed or silently deleted — indistinguishable here)"
+_verification: {"fail_open": false, "status": "error", "item_type": "empty_section"}
+```
+
+Every element of §3's original proof requirement is met: `status` is `failed` not `complete`,
+`error` begins with the exact prescribed prose, `fail_open=false`. This is the ONE thing the whole
+201/RFC_017 story had left open since 08-08 — **now closed, with evidence, not with a wait.**
+
+**Also the first live instance of §4's named cost**: it burned all `max_attempts=3` rebuilds before
+landing `failed`. That is the mechanism working as RFC_017 intended (a human now sees this instead
+of a false `complete`) at exactly the cost the owner knowingly accepted rather than building option
+3 (`Indeterminate`/park). One data point, not yet a rate — worth watching if it recurs.
+
+**Ownership check before writing anything about this item**: `who-owns.py 083` — this bug number
+is ambiguous (two unrelated cases share it) and one of them (*"detected findings never reach a
+handler"*) is an active lane that has itself been updated by `bugfix_230_discovery_driver` today.
+This dartsonline item is **not** that bug's mechanism — 083 is about `detected` items that never
+reach a handler; this one reached `page-build-handler` three times and was correctly refused by
+the new gate. Noted, not acted on; the item is not mine to fix.
+
+**Updated**: this handoff's §3 (in place, struck through, dated), and the concept register's
+`WII-011` (status line + "what is still UNPROVEN" bullet, both struck through and corrected —
+that entry's own `verify-later` recipe is what fired).
+
+Closes out the last open thread in this lane's original scope. Nothing else from `bugs_open/201`
+remains unaddressed as of this entry.

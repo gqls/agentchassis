@@ -50,21 +50,39 @@ failing open  (removed spelling): 0   <- negative control
 ```
 
 The gate demonstrably **ran** post-roll: a `hardcoded_section_colors` item verified at 18:58:44Z, 63
-seconds after the pods came up. But it returned `Resolved:true`, so **the fail-closed branch has
-never executed in production.**
+seconds after the pods came up. But it returned `Resolved:true`, so at that point **the fail-closed
+branch had never executed in production.**
 
-**What proof requires:** an absent-target case must recur. Then the item must land `triaged`/`failed`
-(NOT `complete`) with `error` beginning *"completion blocked: verification could not run"* and
-`_verification.fail_open = false`:
+> **RESOLVED 2026-08-09 — it has now fired, for real, unprompted.** Chassis rolled fresh to
+> `v1.0.1276` (RFC_017 marker still present, pod-verified both replicas). The same day, an old
+> `empty_section` item — `dartsonline.com`, page `index`, slot `category-listing`, item created
+> **2026-07-14**, `site_id=552bb99e-17e2-4c31-a904-6dda2b7530bd` — got re-triaged at `09:02:52Z`
+> (site discovery's new rotation, `bugs_open/230`, examined `dartsonline.com` via a hand-fired
+> cycle in the same window), was retried against its absent target, and landed:
+> `status='failed'`, `attempt_count=3`, `error` = *"completion blocked: verification could not
+> run, and this item type fails closed (RFC_017): cannot verify: component 43906b1f-… no longer
+> exists (genuinely fixed or silently deleted — indistinguishable here)"*,
+> `_verification.fail_open=false`. Every element of §3's original proof requirement is met, on
+> the exact query it names:
+> ```sql
+> SELECT status, attempt_count, left(error,90) AS err, result->'_verification'
+> FROM site_work_items WHERE result->'_verification'->>'status'='error' ORDER BY updated_at DESC;
+> -- 3 rows total: the two 08-03 fail-OPEN 'complete' rows, plus this one fail-CLOSED 'failed' row
+> ```
+> **Also confirms §4's armed cost, first observation:** it burned all `max_attempts=3` rebuilds
+> before landing `failed` — a human now has to look at it, which is the mechanism working exactly
+> as designed, at the cost RFC_017 knowingly accepted. This item is **`bugs_open/083`'s territory
+> at the site level** (dartsonline.com) but not its *mechanism* — 083 is about `detected` items
+> that never reach a handler; this one reached page-build-handler three times and was correctly
+> refused. No action taken on the item itself; flagging only. Full census re-run, no other
+> fail-closed occurrence exists yet.
 
-```sql
-SELECT status, attempt_count, left(error,90) AS err, result->'_verification'
-FROM site_work_items WHERE result->'_verification'->>'status'='error'
-ORDER BY updated_at DESC;
-```
+**What proof required, pre-resolution — kept for the record:** an absent-target case had to recur,
+then land `triaged`/`failed` (NOT `complete`) with `error` beginning *"completion blocked:
+verification could not run"* and `_verification.fail_open = false`. It has now happened.
 
-⚠ **That case has fired TWICE in the registry's entire life.** Do not schedule a wait for it, and do
-not manufacture one on a live customer site without asking. Waiting is the correct posture.
+⚠ **Before 08-09 that case had fired only TWICE in the registry's entire life** (both pre-roll,
+fail-OPEN). Historical note, not current guidance — the wait is over.
 
 ### Four traps, each of which yields a confident wrong answer
 
