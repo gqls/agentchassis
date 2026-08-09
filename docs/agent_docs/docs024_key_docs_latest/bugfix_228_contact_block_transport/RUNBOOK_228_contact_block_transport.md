@@ -67,56 +67,58 @@ the gate ([[imperative-kubectl-scale-is-undone-by-the-next-deploy]] and
 `bugs_open/153` both apply here: a same-tag rebuild, or a build kicked off
 before your commit landed, ships a stale binary with a green rollout).
 
-## The pending DB change (DO NOT RUN until the pod-verify above passes)
+## The pending DB change (DO NOT RUN until the pod-verify above passes, FLEET-WIDE)
 
-Save the current row first — it is live config with no git history, and this
-is the only rollback:
-```
-kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -c "
-\copy (SELECT html_template, js_content FROM content_components WHERE function='contact-block') TO 'contact_block_before_228_fix.tsv'
-"
-```
-(or a plain `SELECT` piped to a file if `\copy` isn't available from this
-exec form — check `\d content_components` and confirm the column names first.)
+**Superseded 2026-08-09 after council round 2** (correlation
+`46f87e4c-05fc-4a5c-bd6a-93a073b63253`) — the inline SQL that used to be here
+was exactly the NEEDLE-GATE SQL SURGERY shape `debug_historian` correctly
+objected to (prose-described replace(), no needle-count guard, no backup, no
+RETURNING, no separate rollback file). Use the scripts instead — they generate
+a fresh backup + auto-derived rollback file every run, guard on an exact
+needle count before writing, and require reading a `RETURNING` postcondition
+before you `COMMIT`:
 
-Template: surgical `replace()`, not a full re-send of the 400+-line template
-(safer, smaller diff, no transcription risk):
-```sql
-UPDATE content_components
-SET html_template = replace(
-  html_template,
-  '<form class="cb-form" id="cb-contact-form" novalidate aria-label="{{.form_heading}}">',
-  '<form class="cb-form" id="cb-contact-form" action="{{.form_action}}" method="POST" novalidate aria-label="{{.form_heading}}">'
-)
-WHERE function = 'contact-block';
 ```
-Verify the replace actually matched (PostgreSQL's `replace()` is a silent
-no-op on zero matches — check the row changed):
-```sql
-SELECT html_template LIKE '%action="{{.form_action}}"%' FROM content_components WHERE function='contact-block';
--- must be true after the UPDATE
+./apply_228_contact_block_fix.sh
 ```
 
-JS: full replacement (see `js_content_after_228_fix.js` in this directory for
-the exact text) via dollar-quoting to avoid escaping the single quotes in the
-JS itself:
-```sql
-UPDATE content_components
-SET js_content = $CB228$
-<paste the new js_content_after_228_fix.js content here verbatim>
-$CB228$
-WHERE function = 'contact-block';
+It writes `BACKUP_<ts>_contact_block_before_fix.sql.{html_template,js_content}.txt`,
+`ROLLBACK_<ts>_contact_block.sql` (generated FROM that backup, not hand-typed),
+and `APPLIED_<ts>_contact_block.sql` (the actual UPDATE, with a `RETURNING`
+clause proving all four target properties before you commit) — review the
+`RETURNING` row, then `COMMIT;` or `ROLLBACK;` by hand in a follow-up
+`psql -c`.
+
+Pod-verify precondition is now fleet-wide, not 2-pod (see the landmine
+`` `-l app=agent-chassis` returns 2 pods; 41 run that binary `` —
+`prior_art_librarian`'s round-2 objection): enumerate by IMAGE across every
+pod, Job and Deployment alike:
 ```
+kubectl -n ai-persona-system get pods -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.metadata.ownerReferences[0].kind}{"\t"}{.spec.containers[0].image}{"\n"}{end}' | grep agent-chassis
+```
+Every row must be on the pod-verified-positive tag before running the script above.
 
 ## Deploying the content_components change to the 2 live pages
 
-Dispatch a page-rerender (same handler `check_contact_form_undeliverable.go`'s
-own auto-remediation uses, reason `section_data_resolved`) for:
-- `robot-hands.com` / `/contact.html`
-- `leopardessconsulting.co.uk` / `/ai-readiness-quiz.html`
+**Superseded 2026-08-09** — a DB row change does NOT propagate to
+already-rendered pages on its own (`render_guardian`'s round-2 HIGH
+objection: "this closes the DB row but can leave the live pages serving the
+old fabricated-success markup — the bugs_open/024 false-green class"). Run
+the dispatch script, which also prints the deployed-page verification curls:
+```
+./dispatch_228_rerenders.sh
+```
+It fires `page-rerender` with `reason=section_data_resolved` directly at the
+two live pages (`robot-hands.com/contact`, `leopardessconsulting.co.uk/ai-readiness-quiz`)
+— confirmed both have non-NULL `content_data` on their contact-block section
+(2026-08-09 query), so this stays in the light re-render path and does NOT
+escalate to full LLM content regeneration.
 
-**Do NOT rerender `finetuning.uk/case-studies.html`** — placement-drift row,
-component absent from the served page; a rerender could materialise it there.
+**Full blast radius, measured 2026-08-09 — exactly 3 `page_components` rows
+use `contact-block`, none locked:** the two above, plus the already-documented
+`finetuning.uk/case-studies` drift row. **Do NOT dispatch that third one** —
+placement-drift, component absent from the served page; a rerender could
+materialise it there, a behaviour change outside this fix's scope.
 
 Respect the ~300s no-dispatch window after any chassis pod restart
 (CLAUDE.md).
@@ -136,3 +138,18 @@ curl -s https://robot-hands.com/tools/assets/contact-block.js \
 
 Re-run the bug file's own census query and confirm `contact-block` now
 reports `form_has_action = true` with no other row changed.
+
+## Council submission gotcha: a DB/config edit's `file` field must be a real repo path
+
+The server-side validator (`diagnose_persist_fix_plan`) rejects any edit whose
+`file` is not "repo-relative with no traversal or whitespace" — this is
+**not** one of the 097 script's own documented "three type traps" and is not
+caught by the client-side `jq` checks, so a descriptive non-path string (e.g.
+`"content_components (function='contact-block', columns ...)"`) passes local
+validation and then fails server-side as `complete_invalid` with no verdict
+row, indistinguishable from "still queued" until you check
+`agent_error_log WHERE orchestration_id=...`. For a DB/config-only edit that
+has no corresponding source file, point `file` at a real repo file that
+documents/carries the change instead (this RUNBOOK, or a saved copy of the
+literal new content like `js_content_after_228_fix.js`) — never at a
+descriptive label.
