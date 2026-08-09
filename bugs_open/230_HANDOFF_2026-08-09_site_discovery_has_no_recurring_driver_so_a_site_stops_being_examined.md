@@ -21,8 +21,12 @@
 >
 > **FIXED, LIVE AND VERIFIED BY THIS FILE'S OWN §6 CRITERION — 2026-08-09.** Council
 > **APPROVED round 1** (4 advisory, none high; `Council-Reviewed: 2281fc48-f0c5-4842-88c7-8391d0098944`).
-> Migration `346` applied 10:47Z + ledger-recorded; watchdog CronJob deployed and its
-> first run clean at the pod. **The canary landed at 13:52:04Z, unprompted**: both
+> Migration `346` applied ~~10:47Z~~ **09:49:52Z** + ledger-recorded (`schema_migrations.applied_at`;
+> the `~10:47Z` above is stale — read as a BST wall-clock reading mislabeled `Z`, and it
+> contradicts this same paragraph's own "first ticks 09:49:51Z" a few lines down. Corrected
+> 2026-08-09 on request, checked against the ledger directly); watchdog CronJob deployed and its
+> first run clean at the pod (`doc_notes`, `categories ? 'site-discovery-staleness'`, 09:51:44Z —
+> 20 sites, 3/3 rotation tasks enabled, no findings). **The canary landed at 13:52:04Z, unprompted**: both
 > `featured-content` items filed on both pages by
 > `completeness-discovery-agent-orchestrate-0809-1352` (COMPLETED), reached by the
 > rotation in its normal order (robot-hands → loancalculator → cookly → idea →
