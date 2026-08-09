@@ -25509,3 +25509,89 @@ checker you wrote today is more likely to be the checker than the site.** Before
 believing it, print the INPUTS the check actually drove and the RAW value it
 compared. And when a check greps a page for the name of a defect, scope it to
 what a user can SEE — source text describing the bug is not the bug.
+
+---
+
+## 2026-08-09 — three missteps in one lane (bugfix 210, needs_logo slug), all caught by disagreement rather than by care
+
+### 1. An SQL operator-precedence error returned a plausible wrong table, silently
+
+Measuring cross-origin vs same-origin fallback references fleet-wide, I wrote:
+
+```sql
+WHERE pc.build_status='deployed' AND pc.locked_at IS NULL
+  AND pc.rendered_html LIKE '%logo.png%' OR pc.rendered_html LIKE '%hero.jpg%'   -- WRONG
+```
+
+`AND` binds tighter than `OR`, so this is `(A AND B AND C) OR D` — every `hero.jpg` match in
+the database, including **undeployed and locked** components. No error, no warning, and a
+result table that looked entirely reasonable: 15 domains with sensible-looking counts.
+
+**What caught it.** Not review — **arithmetic disagreement with a measurement I had already
+made.** Minutes earlier a single-site query had found exactly ONE matching component on
+fundamentallyai; the fleet query reported four for the same site. Two of my own numbers
+disagreed, so one of them was wrong.
+
+**The cheap check.** *A fleet aggregate that disagrees with a verified point measurement is
+wrong until proven otherwise.* I nearly reconciled it the other way — assuming the fleet query
+had simply "found more" — which would have carried the locked/undeployed rows into the blast
+radius claim and inflated it.
+
+**The shape, for the tally.** Distinct from the jsonb/`LIKE` spelling family: the predicate was
+spelled correctly and **parsed** into a different question. Precedence bugs cannot be caught by
+reading the predicate for meaning, only by disagreement or parentheses. So: **parenthesise every
+`OR` inside a `WHERE` that also has an `AND`, unconditionally** — it costs two characters and
+removes a whole class that has no tell.
+
+### 2. `git stash push <pathspec>` silently did nothing, and the bare `git stash pop` then targeted ANOTHER BRANCH'S stash
+
+To check whether a failing test was pre-existing, I tried to park my own changes:
+
+```bash
+git stash push -q <tracked.go> <untracked_test.go>   # FAILED: "pathspec did not match any file(s) known to git"
+... test ...
+git stash pop -q                                     # popped stash@{0} — SOMEONE ELSE'S, from another branch
+```
+
+The push **failed** because the pathspec named an untracked file (the new test file I had not
+`git add`ed). Because it failed, **no stash was created** — so the unqualified `pop` reached for
+the top of the existing stack, which was a five-branch-old WIP from
+`066_hitl_questionnaire_not_massive_sites_not_images` touching `platform/orchestration/coordinator.go`.
+
+**It aborted only by luck**: another session's uncommitted edit to `coordinator.go` collided,
+so git refused and kept the entry. Verified afterwards that nothing applied — stash count still
+7, `platform/awaitedrequests/` absent.
+
+**The cheap check.** Never `git stash pop` on this tree, ever. The stack is **shared across
+sessions and branches** and its top entry is almost certainly not yours. If you must park work,
+`git add` first so the push can succeed, and pop **by name** (`git stash pop stash@{N}`) after
+reading `git stash list`. Better still: don't stash — copy the file aside, or test in a
+`git archive` tree (which is what I did in the end, and should have done first).
+
+**The shape.** *A command that no-ops on failure, followed by a command that defaults to
+someone else's state.* The first failure was visible; its consequence for the second command
+was not. Same family as the `git mv` + pathspec landmine — the danger is in the pairing.
+
+### 3. I compared two `git archive HEAD` trees taken minutes apart and called one "the baseline"
+
+To decide whether two test failures were mine, I built a "HEAD + my changes" tree and, later, a
+"HEAD alone" baseline — both with `git archive HEAD`. The baseline passed; the other failed;
+I concluded I had broken it and started diagnosing my own change.
+
+**I had not. HEAD moved between the two `git archive` calls** — another session committed a fix
+to `registry_parity_test.go` (adding the `test_only_` skip) in the interval. My "before" tree
+was archived from the *older* commit, so the comparison attributed their pre-existing, already-fixed
+failure to me.
+
+**What caught it.** `diff`ing the same file between the two trees when the reported error line
+number (46) landed inside a comment block in the other tree. The trees were supposed to be
+identical in that file and were not.
+
+**The cheap check.** **Pin the sha once and use it for both arms**: `SHA=$(git rev-parse HEAD)`,
+then `git archive "$SHA"` everywhere. On a tree with ~1,500 commits/week, `HEAD` is not a
+constant within a single investigation — it is a moving reference that two commands minutes
+apart will resolve differently. This is the `a-baseline-that-reads-head-expires-when-you-commit`
+lesson with the twist that **I did not have to commit anything for it to bite — someone else did.**
+
+**The shape, for the tally.** Third entry in the "your comparison's two arms were not comparable"
+family, and the first where the difference was introduced by **another session mid-measurement**.
