@@ -7687,3 +7687,48 @@ SELECT type FROM agent_definitions
 - **the free control:** when claiming a mechanism for a shared config, read its **other consumers**. Identical values where the theme owns the slot and unrelated ones where the spec does is the merge made visible, and it settles in one query what reasoning about a single site gets wrong
 - **source:** `bugs_open/113` CORRECTED block 2026-08-09; `WRONG_CALLS.md` same date — a session (mine) read the route off the value and recommended a re-render the code structurally refuses to apply
 - **added:** 2026-08-09, brochure/113 contrast front
+
+### `render-audit-adapter` runs the browser-runner binary 80 tags behind, so proving a browser-runner fix live at the browser-runner pod says nothing about the audit path
+
+- **footprint:** `render-audit-adapter`, `browser-runner-adapter`,
+  `internal/adapters/browserrunner/`, `deployments/kustomize/services/render-audit-adapter/`,
+  `makefile` (`update-kustomization-images`), `IMAGE_TAG`
+- **fires when:** you ship any change to the browser-runner binary and verify it the
+  correct way — pod-grep the running `browser-runner-adapter` pod, added string 1,
+  removed string 0. That proof is sound **and does not cover `render-audit-adapter`,
+  which is the same binary under a different topic and consumer group.**
+- **the tell — and why the obvious check LIES:** `render-audit-adapter` has **no
+  image of its own** (its overlay comment says so). It is deliberately the
+  browser-runner image with different env. So `kubectl get pods | grep browser-runner`
+  finds the *other* pod, the fleet tag looks uniform, and nothing in a normal
+  verification names this service. Measured 2026-08-09: fleet on **v1.0.1274**,
+  render-audit on **v1.0.1194** — 80 tags, frozen since the pod was created
+  (`0143a693e`). Every browser-runner fix since then has reached one of the two pods.
+- **the cause:** `grep -n "render-audit" makefile` → **zero hits**. Both tag-update
+  mechanisms are hardcoded enumerations — the per-service `sed` lines
+  (`makefile:952+`) and the `for agent in …` loop in `update-kustomization-images`
+  (`makefile:918`, 11 names) — and this service is in neither, so `make release`
+  never bumps it. Its own overlay comment asserts the opposite: *"Keep exactly one
+  tag-pin line — the release tooling seds it."* **The comment is wrong and reads as
+  reassurance.**
+- **the check:** after proving a browser-runner change live, ask which OTHER pods run
+  that image, by image rather than by name —
+  `kubectl get pods -n ai-persona-system -o custom-columns=N:.metadata.name,I:.spec.containers[0].image | grep browser-runner`
+  (returns `browser-runner-adapter` **and** `render-audit-adapter`). That image has no
+  `strings`; use `grep -ac "<str>" /app/browser-runner-adapter`, with a string you know
+  is present as the positive control.
+- **the wider class, which is the transferable part:** a service that **shares another
+  service's image** has no build target, and a release path built from a hand-list has
+  no way to notice it. Before trusting "the fleet is on tag X", read every overlay's
+  pin rather than the ones you can name:
+  `for d in deployments/kustomize/services/*/overlays/production/uk_001/kustomization.yaml; do grep -H newTag "$d"; done`
+  — on 2026-08-09 that found `render-audit-adapter` v1.0.1194,
+  `github-actions-runner` **v1.0.948**, `github-actions-runner-vmsites` v1.0.1126.
+  **And give that census a row whose value you already know**: my first attempt used
+  `grep -A1 images:` and printed "no tag" for all 30 services, including one I had
+  just read as v1.0.1194 — the `newTag` line is two below `images:`. A census that
+  cannot come out false is not a measurement.
+- **source:** `bugs_open/237`, filed 2026-08-09 while verifying `bugs_open/233`'s
+  credential fix — render-audit was the one pod still logging B2 credentials in
+  plaintext, and it is the reason that bug carries a rotation-ordering constraint
+- **added:** 2026-08-09, finetuning/credential-fix lane
