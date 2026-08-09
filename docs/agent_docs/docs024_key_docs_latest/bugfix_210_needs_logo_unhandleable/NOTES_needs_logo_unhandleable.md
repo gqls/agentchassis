@@ -224,3 +224,14 @@ Final state at pinned HEAD `65ab866ca`: `platform/orchestration/actions` **ok**;
 `discovery_checks` fails only `TestEveryCheckProducedItemTypeIsClassified`
 (`decision_regression`, another session's committed work, failing identically at HEAD without
 any change of mine).
+
+## 13. A small one against myself: I deleted two lines from an append-only file
+
+Removing the spent `_(to be appended)_` placeholder from `README_where_we_are.md` tripped the
+`readme-not-appended` pattern check (2 lines removed from the owner's log). The lines were
+**mine**, written earlier the same session, not the owner's — so the spirit of the rule was not
+broken. But the rule as written is "never rewrite or reorder; add a dated correction below",
+and a check that only fires when the owner's words go would be a check that cannot protect
+them, because nothing in the file marks whose a line is. Recorded rather than argued away:
+forward-only, the commit stands, and the honest lesson is **don't write a placeholder into an
+append-only file in the first place** — write the section when you have it.
