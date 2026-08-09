@@ -24242,3 +24242,33 @@ you test on announce their own absence and the ones you count on never do.
 **The transferable rule, and it is narrower than "verify things".** *A placement row is a claim
 about a page, not a measurement of one.* Any figure of the form "N live pages are affected" that
 comes from a join over `page_components` is an UPPER BOUND. Quote it as one, or spend the N curls.
+
+---
+
+## 2026-08-09 — bugfix 224 session: two red pre-flight readings that were BOTH the harness, and both were format traps in the CHECK, not the code
+
+**The claims.** Verifying my own 0% fix locally before deploy, I asserted (1)
+the overpayment tool shows "£448.02" at its default vector; (2) the fixed
+consolidation fragment's verdict starts with "✅". Both checks printed FAIL,
+and both FAILs pointed straight at freshly-edited code.
+
+**What was actually true.** (1) The page's own display call —
+`toLocaleString('en-GB', {minimumFractionDigits: 2})` with NO maximum — prints
+up to THREE decimals, and the live pre-change page shows the same `£448.024`.
+My expectation, formatted with Python's `:,.2f`, was asserting my rounding
+convention against the page's. (2) My test wrapper page had no
+`<meta charset>`, so the fragment's UTF-8 ✅ decoded as `âœ…` — the verdict
+logic and amount were exactly right, and only document-sourced bytes were
+mangled (the JS-computed £ strings decoded fine, which was the tell).
+
+**What caught them.** (1) Driving the LIVE page and the LOCAL edited copy at
+the same vector — byte-identical outputs, so the divergence had to be in my
+expectation. (2) Printing the raw repr of the "wrong" text instead of trusting
+the boolean.
+
+**The cheap checks.** Before asserting a display string, reproduce it with the
+PAGE'S formatting call, not your own habit; and any harness page that wraps a
+fragment must carry `<meta charset="UTF-8">` before its first non-ASCII
+assertion. Generally: on this site the prior that a red result is the harness
+is HIGH (the lane's handoff §5 said so; five prior instances) — the live-vs-
+local A/B at one vector is one browser call and settles it either way.
