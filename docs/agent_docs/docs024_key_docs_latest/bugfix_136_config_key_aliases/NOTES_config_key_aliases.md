@@ -242,3 +242,140 @@ steps (claims-auditor, site-work-orchestrator). `spec_fields` 1 carrier, `domain
 before convicting). Next free migration number: **347**. Note `created_by`, not `source`,
 is the discriminator for the mislabelled rows — `source='discovery'` matches the legitimate
 design agent's rows too.
+
+## 2026-08-09 (afternoon) — items A/B/C shipped, item D shipped, and the lane's own census query was wrong
+
+Owner instruction was "we can fix those deferred items now". A, B and C are live
+(migration **349**, applied by hand and recorded); D's data half is live (**350**) and its
+code half is committed and submitted to the council. Item E is deliberately skipped, with
+a reason that is not the one the handoff assumed. Migration numbering: the handoff said
+"next free 347" and by the time I got there 347 and 348 were taken by other threads — I
+used 349/350. Re-derive that number, never carry it forward from a doc.
+
+**Acceptance, banked.** `./scripts/audit-config-keys.sh` before: `UNKNOWN KEYS:
+plan_sections: domain` and three DEPRECATED families. After: **`UNKNOWN KEYS: none`**,
+**`DEPRECATED KEYS: none`**, exit 0. That is the whole lane's headline number reached.
+
+### The misstep that matters: the RUNBOOK census I trusted was blind, and it looked complete
+
+The handoff's item C table said **13 live carriers** of the three old key names. It was
+built from the RUNBOOK's census SQL, which walks `->'workflow'->'steps'`. The real number
+is **19**. Six live inside a loop step's `sub_workflow.steps`:
+
+```
+component-quality-auditor  create_regen_items > sub_workflow > steps > create_work_item
+internal-linker            create_items_loop  > sub_workflow > steps > create_rewrite_item
+tool-auditor               create_items_loop  > sub_workflow > steps > create_improve_item
+tool-auditor               create_items_loop  > sub_workflow > steps > create_review_item
+tool-suggester             create_items_loop  > sub_workflow > steps > create_library_item
+tool-suggester             create_items_loop  > sub_workflow > steps > create_novel_item
+```
+
+A 32% undercount, with no error and no empty result to hint at it. What caught it was not
+suspicion of the query — it was carrying a **positive control** into a text-level scan for
+an unrelated reason:
+
+```sql
+SELECT count(*) FILTER (WHERE default_config::text ~ 'item_domain')   AS old,   -- 12 defs
+       count(*) FILTER (WHERE default_config::text ~ 'item_pipeline') AS newsp  -- 2 defs
+FROM agent_definitions WHERE deleted_at IS NULL AND COALESCE(is_snapshot,false)=false AND is_active;
+```
+
+12 definitions carried `item_domain`; the step-level census had found 8 agents. **Two
+instruments disagreeing is what made the blindness visible**, and only one of them could
+be right about a count of definitions.
+
+The sharp part: this exact failure is already named in the tree. `validation.WalkSteps`
+exists *because of it* — its doc comment says the question "which (action, key) pairs are
+live?" *"used to be answered by a hand-written `->'workflow'->'steps'` query, which sees
+only the top level — the offline audit and the runtime validator were therefore blind in
+the same direction and agreeing with each other (bugs_open/144)"*. The audit was fixed on
+2026-07-29 and prints its own coverage line saying so (`68 pairs inside loop
+sub-workflows, 25 of which exist ONLY there`). **This lane's RUNBOOK kept the bug that the
+platform had already fixed**, and I read the audit's coverage banner in my own baseline
+output before I ran the blind query. RUNBOOK corrected in place, with the recursive and
+text-scan versions and a third gotcha.
+
+Consequence for the migration: 349's rename is driven by a **depth-recursive walk**, not by
+a hand-written list, so it cannot inherit the blindness. Guard asserts 19; verify re-walks
+from scratch and asserts 0 remain.
+
+### The near-miss: renaming a seed can break a LATER migration that deletes the same key
+
+I renamed `item_domain` → `item_pipeline` across 22 seed files by grep. Six of those lines
+were in `051_build_dispatch_loop.sql`, which seeds `build-dispatch-loop` with an
+`item_domain` filter on `load_next_item` and `check_remaining`. **`052_build_pipeline_trigger.sql`
+deletes exactly those keys by name** (`(config) - 'item_domain'`, guarded by
+`... ? 'item_domain'`) because the filter was a defect — it meant design/content items were
+never dispatched. Renaming the seed would have left 052 matching nothing on a replay, and a
+`item_pipeline: "build"` filter would have survived into a rebuilt definition, silently
+restoring the bug 052 fixed. **Reverted those six lines; 051 is untouched.** The general
+shape: a seed is not a standalone description of intent, it is one frame of a chain, and
+the next frame may be keyed on the exact spelling you are "tidying".
+
+### Adjudicating the create_work_item keys (item D), and a fourth dead key nobody had listed
+
+`domain` on claims-auditor is the key the bug file warns not to convict by grep, because the
+action really does call `inputs.Get("domain")` at `:163`. Read `ExtractActionInputs` end to
+end instead: Strategies 0, 2, 4 and the nested-object pass all iterate
+`spec.Required ∪ spec.Optional`; Strategy 1 iterates `config["input_fields"]`; Strategy 3
+iterates `spec.Deprecated`. **A key in none of those three sets is resolved by nothing.**
+`domain` is in none, and the step sets no `input_fields`. Dead. Also never exercised:
+`item_key LIKE 'claims_llm%'` → 0 rows, against **4861** rows carrying an underscore
+item_key as the positive control.
+
+Worth recording because it changes the fix: the author's intent (an item_key named for the
+domain) is **already reachable** — `item_key_suffix_field` is read straight from config and
+resolved with `ExtractNestedFieldString`, no spec involvement at all. And the alternative
+"just declare `domain` in the spec" is not a declaration but a fleet-wide behaviour change:
+the nested-object pass at `:544-568` would then resolve `site_record.domain` for **every**
+`create_work_item` step, re-shaping `item_key` from `<prefix>_<siteid8>` to
+`<prefix>_<domain>` everywhere and breaking dedup continuity against existing rows on
+`idx_swi_dedup`.
+
+**The no-op check found a key the handoff did not know about.** Before setting
+`CheckConfig: true` I enumerated every live `create_work_item` step's config keys, at all
+depths, minus the proposed recognised set. Three keys came back: `domain`, `spec_fields`,
+and **`spec`** — the last on 3 steps across improvement-loop and deduplicate-sections, and
+read by nothing (the action builds its spec from `spec_data`/`spec_paths`/`spec_literal`).
+Unlike the other two it has a live consequence: `051_build_dispatch_loop.sql:823` maps
+`pending.first_item.spec.refresh_site_components` and `033_rerender_pages_action.sql:1107`
+gates on `input_data.spec.refresh_site_components == true`, so improvement-loop's
+`{"spec": {"refresh_site_components": true}}` never reaches either. **16 of 16
+`improvement_rerender_*` rows carry `spec = {}`**, the most recent filed today; positive
+control, 4972 rows fleet-wide DO carry a non-empty spec. `bugs_closed/024` established
+`spec_literal`/`spec_paths` as the correct spelling (migration 180) and these three steps
+never migrated.
+
+Deliberately NOT swept into 350: two of the three have never filed a row and are safe to
+translate, but `improvement-loop.insert_rerender_item` files ~2/day and turning its flag
+back on would start triggering full site-component reassembly — which interacts with
+`bugs_open/226` (chrome rebuild silently discards hand-patched content). That is an owner
+call, not a tidy-up. Filed to the diagnosis loop instead:
+**090 run `be967639-d195-444a-b9c3-ef1445ff7ae1`**. The opt-in therefore ships knowing it
+will REPORT one key on three steps, and that report is the detector working — the
+alternative, declaring `spec` in `ConfigKeys` to keep the number at zero, is precisely the
+`bugs_closed/101` failure this bug's §5.4 forbids.
+
+### My own false claim, caught by running the mutation instead of asserting it
+
+I wrote on the new behaviour test: *"MUTATION PROOF: set CheckConfig back to false and
+`checked` goes false here."* I then ran that mutation and **it passed**. `checksConfig()` is
+`s.CheckConfig || len(s.ConfigKeys) > 0` — a guard in **series**, so a non-empty
+`ConfigKeys` already carries the opt-in and `CheckConfig` is redundant today. The claim was
+false the moment I typed it, and nothing but running it would have said so. Corrected in
+place, and a fourth test now isolates the second signal by registering a copy of the spec
+with `ConfigKeys` emptied under a probe name (with the both-signals-off control, so it
+cannot pass against a `checksConfig()` that returned true unconditionally). Logged in
+`WRONG_CALLS.md`.
+
+### Item E: skipped, and not for the reason the handoff gave
+
+The handoff calls it "a small code change with no behavioural exposure" that could ride D's
+council round. Zero live carriers re-verified today (`group_type` 0, `group_type_field` 0;
+positive control, `agent_type_field` 5). But it is **not** a one-liner: `spawn_agent` has no
+`ActionInputSpec` at all, so converging means creating one; `agent_type` is a **framework**
+key (`frameworkStepConfigKeys`), so declaring it in an action spec would misstate ownership;
+and `group_type` (literal) and `group_type_field` (path-valued) would land in *different*
+alias fields — `DeprecatedConfigKeys` and `Deprecated` respectively — which is the very
+distinction this bug's landmine is about. Recorded as still-open with that correction.

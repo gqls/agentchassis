@@ -15,15 +15,51 @@ are wired; it is a migration list, not a defect list. Do not write CI that treat
 
 ## Which live steps carry a key, and which carry the one the code reads
 
+> **CORRECTED 2026-08-09 — the query that used to be here UNDERCOUNTED BY 32%, and
+> read as complete while doing it.** It walked `->'workflow'->'steps'` and nothing else,
+> so it could not see a step nested in a loop's `sub_workflow.steps`. It reported 13
+> carriers of the three old key names; there were **19**. The six it missed
+> (component-quality-auditor, internal-linker, tool-auditor ×2, tool-suggester ×2) are
+> exactly the shape `validation.WalkSteps` was extracted to abolish — `bugs_open/144`:
+> two hand-written traversals blind in the same direction, agreeing with each other.
+> **The lane's own handoff table was built from the blind version and is wrong.** The
+> AUDIT was never blind (`cmd/config-key-audit` walks `WalkSteps` at every call site),
+> which is why the acceptance number stayed trustworthy while the census did not.
+
+**Ask at ALL depths.** A text-level scan cannot be fooled by nesting, and it is the
+cheapest honest census — carry a positive control so a zero is readable:
+
 ```sql
-SELECT ck.key, count(*) AS live_steps, string_agg(DISTINCT ad.type, ', ') AS agents
-FROM agent_definitions ad, jsonb_each(ad.default_config->'workflow'->'steps') AS e(k,v),
-     jsonb_object_keys(e.v->'config') AS ck(key)
-WHERE ad.deleted_at IS NULL AND COALESCE(ad.is_snapshot,false)=false AND ad.is_active
-  AND jsonb_typeof(e.v->'config')='object'
-  AND ck.key IN ('check_pipeline','check_domain','target_pipeline','target_domain',
-                 'item_pipeline','item_domain')
-GROUP BY 1 ORDER BY 1;
+SELECT
+  count(*) FILTER (WHERE default_config::text ~ '(item|check|target)_domain')   AS old_spelling,
+  count(*) FILTER (WHERE default_config::text ~ '(item|check|target)_pipeline') AS new_spelling,  -- positive control
+  count(*) FILTER (WHERE default_config::text ~ 'zzz_invented_control')         AS neg_control
+FROM agent_definitions
+WHERE deleted_at IS NULL AND COALESCE(is_snapshot,false)=false AND is_active;
+```
+
+For the exact paths (which is what you need to WRITE a fix), recurse — one recursive
+term only, Postgres refuses two references to the CTE:
+
+```sql
+WITH RECURSIVE walk(agent_type, path, node) AS (
+  SELECT ad.type, ARRAY[]::text[], ad.default_config
+    FROM agent_definitions ad
+   WHERE ad.deleted_at IS NULL AND COALESCE(ad.is_snapshot,false)=false AND ad.is_active
+     AND ad.default_config::text ~ '(item|check|target)_domain'
+  UNION ALL
+  SELECT w.agent_type, w.path || e.k, e.v
+    FROM walk w CROSS JOIN LATERAL jsonb_each(
+      CASE jsonb_typeof(w.node)
+        WHEN 'object' THEN w.node
+        WHEN 'array'  THEN COALESCE((SELECT jsonb_object_agg((i-1)::text, v)
+                                       FROM jsonb_array_elements(w.node) WITH ORDINALITY a(v,i)), '{}'::jsonb)
+        ELSE '{}'::jsonb END) AS e(k,v)
+)
+SELECT agent_type, array_to_string(path,' > ') AS json_path, node #>> '{}' AS value
+FROM walk
+WHERE path[array_length(path,1)] IN ('item_domain','check_domain','target_domain')
+ORDER BY 1,2;
 ```
 
 **Gotcha, and it is the tell for this whole bug class:** a key with **zero** live steps
@@ -34,6 +70,12 @@ empty result that reads like "nothing to see".
 **Gotcha 2:** all three of `deleted_at IS NULL`, `COALESCE(is_snapshot,false)=false` and
 `is_active` are load-bearing. Snapshots carry old configs and will give you counts that
 describe history.
+
+**Gotcha 3 (the 08-09 one):** `jsonb_each(default_config->'workflow'->'steps')` is a
+**top-level-only** descent, and there is no error, no warning and no empty result to tell
+you so — it returns a confident, plausible, incomplete number. Any census of live step
+config must either recurse or scan the text. If you are writing Go rather than SQL, call
+`validation.WalkSteps` and inherit the fix instead of re-deriving the bug.
 
 ## Does an action actually read a key? (the check I got wrong)
 

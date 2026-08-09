@@ -215,3 +215,50 @@ pulled in", which remains honest.
 - The 090 coverage check: before dispatching anything at these agents, check open
   `site_work_items` on the target — and none of these items needs a 090 run (mechanisms all
   diagnosed in this bug already; the work is repair, rename, declare).
+
+---
+
+## STATUS 2026-08-09 (afternoon) — THIS HANDOFF IS DISCHARGED. Do not start from it.
+
+Everything asked for above is done or explicitly declined with a reason. A handoff outlives
+the work it asked for and the next reader cannot tell it shipped unless the asking file says
+so — so it says so here.
+
+| item | outcome |
+|---|---|
+| A — repair the mislabelled rows | **DONE**, migration 349, verified by id |
+| B — `plan_sections.domain` | **DONE**, 349 (def + seed 065). `UNKNOWN KEYS` 1 → **none** |
+| C — drain the deprecated spellings | **DONE**, 349 — but **19 carriers, not 13** (see below) |
+| D — `create_work_item` opt-in | **DONE**, data 350 + code `ee07e3d86`, council `98d0ef43` |
+| E — `resolveAgentTypeForSpawn` | **SKIPPED**; the reason below supersedes this file's |
+
+Acceptance banked: `./scripts/audit-config-keys.sh` → `UNKNOWN KEYS: none`,
+`DEPRECATED KEYS: none`, exit 0.
+
+**Three corrections to the file above, so nobody re-derives them:**
+
+1. **§C's table is wrong: there are 19 live carriers, not 13.** Six live inside a loop
+   step's `sub_workflow.steps` (component-quality-auditor, internal-linker, tool-auditor ×2,
+   tool-suggester ×2). The RUNBOOK census this table was built from walks
+   `->'workflow'->'steps'` and cannot see them — a 32% undercount that reads as complete.
+   RUNBOOK is corrected; use its recursive query or the text scan, or call
+   `validation.WalkSteps` from Go.
+
+2. **§Bookkeeping's "next free number 347" was stale by the time work started** — 347 and
+   348 were taken by other threads. Used 349 and 350. Re-derive it; never carry it forward.
+
+3. **§E's premise is wrong.** It is not "a small code change with no behavioural exposure":
+   `spawn_agent` has **no `ActionInputSpec` at all**, `agent_type` is a framework key, and
+   the literal (`group_type`) and path-valued (`group_type_field`) halves belong in
+   *different* alias fields. Zero live carriers re-verified, so nothing is at risk from
+   leaving it.
+
+**What is now open, and it is NEW rather than left over:** `create_work_item` steps carrying
+a config key named `spec` — read by nothing, three live steps, and in improvement-loop's
+case it means `refresh_site_components` never reaches the rerender gate (16/16 rows with an
+empty spec). Fixing it is a behaviour change that interacts with `bugs_open/226`, so it is an
+owner call, not a tidy-up. Under diagnosis: **090 `be967639-d195-444a-b9c3-ef1445ff7ae1`**.
+Full account in `bugs_open/136` §12 and the lane NOTES.
+
+**Cold start for whoever picks this lane up next:** `bugs_open/136` §12 first, then the lane
+NOTES tail. Not this file.

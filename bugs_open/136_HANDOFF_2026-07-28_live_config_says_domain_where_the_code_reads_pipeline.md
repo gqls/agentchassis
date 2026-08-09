@@ -742,3 +742,110 @@ now a LANDMINES entry ("chassis pod retrievable log holds less than a second").
 (`plan_sections.domain`), 4 (`create_work_item` full opt-in), 5 (convergence candidates) —
 all deliberately deferred, none blocking. The fix itself is now proven at every layer this
 estate can observe: binary, declarations, runtime.
+
+### 12. 2026-08-09 — the deferred residue is CLEARED (owner: "we can fix those deferred items now")
+
+**Headline: `./scripts/audit-config-keys.sh` now reports `UNKNOWN KEYS: none` and
+`DEPRECATED KEYS: none`, exit 0.** Before this session: one unknown key
+(`plan_sections: domain`) and three deprecated families in use. That is the acceptance
+instrument for the whole lane, and it is green.
+
+| item | what it was | state |
+|---|---|---|
+| A | 3 mislabelled `site_work_items` rows | **DONE** — migration 349, verified by id |
+| B | `plan_sections.domain`, the last UNKNOWN key | **DONE** — 349, def + seed 065 |
+| C | `*_domain` → `*_pipeline` in live definitions | **DONE** — 349, **19** steps (not 13) |
+| D | `create_work_item` contract + opt-in | **DONE** — data 350 + code `ee07e3d86`, council `98d0ef43` |
+| E | `resolveAgentTypeForSpawn` convergence | **SKIPPED**, reason corrected below |
+
+Migrations **349** and **350**, both applied by hand and `--record-only` recorded, both
+with `DO`/`RAISE` guards and verify blocks. Every verify block was proven **disconfirmable**
+by mutating the file to skip its own change and watching it raise — three mutations for
+349, one for 350.
+
+#### C was 19, not 13 — and §2/§5's counts came from an instrument with a known defect
+
+The lane's RUNBOOK census walks `->'workflow'->'steps'`. **Six carriers live inside a loop
+step's `sub_workflow.steps`** (component-quality-auditor, internal-linker, tool-auditor ×2,
+tool-suggester ×2) and are invisible to it — a 32% undercount that returns a confident
+number with no error. This is the exact shape `validation.WalkSteps` was extracted to
+abolish; its doc comment names `bugs_open/144` — *"two hand-written traversals blind in the
+same direction, agreeing with each other"*. **The audit was never blind** (it walks
+`WalkSteps` at every call site and prints a coverage banner saying so), which is why the
+acceptance number held while the census did not. RUNBOOK corrected in place with a
+recursive query and a text-scan; 349's rename is driven by the recursive walk, so it cannot
+inherit the blindness.
+
+What caught it was carrying a **positive control** on an unrelated text scan: 12 definitions
+matched `item_domain` where the step census had found 8 agents. Two instruments disagreeing,
+not suspicion.
+
+#### D: the three blockers are adjudicated, and a FOURTH dead key was found by the no-op check
+
+`summary_template` (§10, owner decision), `spec_fields` and `domain` are all gone from live
+config. `domain` is the one §6's landmine warns against convicting by grep — the action
+really does call `inputs.Get("domain")` at `:163`. It is dead for a stronger reason, read
+rather than grepped: **every** strategy in `ExtractActionInputs` iterates
+`spec.Required ∪ spec.Optional` (0, 2, 4 and the nested-object pass), or
+`config["input_fields"]` (1), or `spec.Deprecated` (3). `domain` is in none of the three and
+the step sets no `input_fields`. It has also never executed —
+`item_key LIKE 'claims_llm%'` → **0**, against **4861** underscore item_keys as the positive
+control, so §3's `[UNEXERCISED]` marker still holds a year of live traffic later.
+
+Two things worth carrying forward from that adjudication:
+- **The author's intent is already reachable, spelled differently.** `item_key_suffix_field`
+  is read straight from config and resolved with `ExtractNestedFieldString`, no spec
+  involvement. If a domain-scoped `item_key` is wanted, that is the working mechanism.
+- **"Just declare `domain` in the spec" is a fleet-wide behaviour change wearing a
+  declaration.** The nested-object pass (`:544-568`) would then resolve `site_record.domain`
+  for *every* `create_work_item` step, re-shaping `item_key` from `<prefix>_<siteid8>` to
+  `<prefix>_<domain>` everywhere and breaking dedup continuity on `idx_swi_dedup`.
+
+**The fourth key: `spec`, on 3 live steps, read by nothing — and it costs something.**
+Found by enumerating every live `create_work_item` step's keys at all depths against the
+proposed contract *before* writing the code. The action builds its spec from
+`spec_data`/`spec_paths`/`spec_literal` (`:208-236`); a key called `spec` is resolved by
+nothing. Unlike the other three this one has a live consequence:
+
+- `improvement-loop.insert_rerender_item` sets `{"spec": {"refresh_site_components": true}}`;
+- `051_build_dispatch_loop.sql:823` maps `pending.first_item.spec.refresh_site_components`;
+- `033_rerender_pages_action.sql:1107` gates on `input_data.spec.refresh_site_components == true`.
+
+So the flag never reaches the gate. **16 of 16 `improvement_rerender_*` rows carry
+`spec = {}`**, the most recent filed the same day; positive control, 4972 rows fleet-wide DO
+carry a non-empty spec. `bugs_closed/024` established `spec_literal`/`spec_paths` as the
+correct spelling (migration 180) and these three steps never migrated.
+
+**Deliberately not fixed here.** Two of the three steps have never filed a row and could be
+translated safely, but `insert_rerender_item` files ~2/day and restoring its flag would
+start triggering full site-component reassembly — which interacts with `bugs_open/226`
+(chrome rebuild silently discards hand-patched content, no divergence warning). That is an
+owner call, not a tidy-up. Filed to the diagnosis loop: **090 run
+`be967639-d195-444a-b9c3-ef1445ff7ae1`**.
+
+Consequence, stated plainly so nobody reads it as a regression: **the opt-in REPORTS
+`create_work_item: spec` on three steps, so `UNKNOWN KEYS` will read 1 (not 0) once the
+image rolls.** That is the detector working on a real defect. Declaring `spec` in
+`ConfigKeys` to keep the number at zero is exactly the `bugs_closed/101` failure that §5.4
+of this file forbids.
+
+#### E: skipped, and the handoff's reason for it being easy was wrong
+
+Still zero live carriers (`group_type` 0, `group_type_field` 0; positive control,
+`agent_type_field` 5). But it is **not** the one-liner §7.3 and the handoff imply:
+`spawn_agent` has **no `ActionInputSpec` at all**, so converging means creating one;
+`agent_type` is a **framework** key, so declaring it in an action spec would misstate
+ownership; and `group_type` (literal) vs `group_type_field` (path-valued) would land in
+`DeprecatedConfigKeys` and `Deprecated` respectively — the exact distinction §6's landmine
+is about. Remains recorded, not pulled in, now with the real cost attached.
+
+#### A note on my own error, because §6 set the precedent
+
+I wrote `MUTATION PROOF: set CheckConfig back to false and checked goes false` on a new
+test, then ran that mutation and **it passed**. `checksConfig()` is
+`CheckConfig || len(ConfigKeys) > 0` — a guard in **series**, so the non-empty `ConfigKeys`
+was carrying the opt-in on its own. The proof claim was false when written and only running
+it said so. Corrected in place; a fourth test isolates the second signal. `WRONG_CALLS.md`.
+
+**Still owed on this file: nothing from §5.** Items 1–5 are done or explicitly skipped with
+reasons. What is open is NEW and separate: the `spec` key above, under diagnosis.
