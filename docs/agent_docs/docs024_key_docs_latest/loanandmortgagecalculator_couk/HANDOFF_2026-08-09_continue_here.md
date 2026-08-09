@@ -171,3 +171,21 @@ verdict.
 **Council**: nothing here was submittable — the gate's scope is
 `platform/ internal/ pkg/` and every change was site content, DB rows or lane
 tooling. No Go changed, so **nothing here rides a chassis build**.
+
+---
+
+## 7. OWNER DECISIONS ON §3, taken 2026-08-09
+
+1. **Unattended fences: YES.** Being implemented — see the NOTES entry for the
+   route chosen and its blast-radius check.
+2. **A shared engine for loancalculator.co.uk: NO, and not worth an RFC.**
+   Decision closed. Its six tools keep their own zero branch, following that
+   lane's 08-03 precedent. **Do not reopen this as "tech debt"** — it was
+   considered, costed (the only shared plumbing is the fleet-wide `js_snippets`
+   table, so it is an architecture-scope change) and declined on the grounds
+   that the RFC costs more than the duplication does. The eight
+   `defect_vectors.py` cases are what stop the copies drifting.
+3. **Re-baseline: DONE.** `GOLDEN_2026-08-09_postfix.json` (22 tools, 4 vectors)
+   and `BASELINE_2026-08-09_stored_md5_at_b26fdc81b.txt`, both NEW files with
+   the 08-05 pair kept. 17 of 41 pages moved and every one was accounted for
+   before regenerating.
