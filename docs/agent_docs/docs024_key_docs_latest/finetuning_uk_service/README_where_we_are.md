@@ -227,3 +227,40 @@ is now properly recorded there too. Third review round is running now on
 the finished, live state. The lane's next big items are unchanged: the paid
 rehearsal run (wants you present) and, further out, the page and payment
 link once the front-end thread is coordinated with.
+
+Saturday, early afternoon. The review panel approved the billing watchdog —
+fourth round, and that closes it. Two reviewers still raised a point each,
+neither serious enough to block, and I checked both rather than let them
+sit, because each was one command.
+
+The first was a fair worry that turned out fine: the watchdog writes a note
+into our documentation table using direct database code rather than going
+through the usual software route, and I had only checked that the database
+would accept it, not that the software agrees the category is a real one.
+It does — "pipeline" is on the approved list. No problem, but I hadn't
+actually looked, and the reviewer was right to say so.
+
+The second one caught me properly, and it's the more useful of the two. I
+had written that the watchdog was "live, both copies checked" — which was
+true, and was the wrong thing to have checked. Our main program runs under
+about thirty-four different job names on the cluster, not two, so looking at
+the two obvious ones can pass while most of the fleet is running older
+software. When I counted properly this morning, the fleet had in fact moved
+on to a newer release than the one I tested on — another session shipped it
+while I was writing yesterday's notes. So I re-checked against what is
+actually running now: all four long-running services carrying the program
+have my code, including two I would never have thought to look at because
+they're named after completely different things. The nine remaining older
+ones are short-lived job pods that finish and disappear, and they carry the
+code too, because it first shipped on the release they're pinned to. So
+nothing was wrong — but the sentence I'd written couldn't have told me that,
+and that's the part worth fixing. It's logged with the other wrong calls.
+
+Worth noting the review credit sorted itself out: because I tagged the
+commits as "submitted for review" rather than waiting to claim approval, all
+four got credited automatically the moment the verdict landed, with no
+rewriting of history. That mechanism did what it promised.
+
+So the watchdog is finished and I'm treating it as closed. Next is the paid
+rehearsal — the real end-to-end run on a rented GPU, a pound or two, and the
+one that wants you around when it happens.

@@ -1,4 +1,10 @@
-# HANDOFF 2026-08-09 — finetuning.uk service: 186 closed, orphan sweep LIVE, Phase 0 is next
+# HANDOFF 2026-08-09 — finetuning.uk service: 186 closed, orphan sweep LIVE + COUNCIL-APPROVED, Phase 0 is next
+
+> **UPDATED 2026-08-09 afternoon.** The r4 verdict is in: **APPROVED** (12:16:10Z).
+> FTW-042 is done — nothing owed on it. **Step 1 below is complete**; the lane's
+> next action is **Phase 0** (step 2). See "Council round 4" at the end of NOTES
+> for the verdict, both advisory objections dispositioned by measurement, and the
+> corrected live-state claim.
 
 **This is the COLD-START document for the lane** (supersedes
 `HANDOFF_2026-08-08_continue_here.md`, which carries the fuller Phase −1
@@ -45,8 +51,17 @@ shared `insertWorkItem` — dedup + two-strike); ghosts are reported, not
 filed. 30-min grace absorbs the provision INSERT-after-up window; unknown
 `createdAt` cannot hide. **No remediation authority, by design.**
 
-- **Live state:** fleet `v1.0.1273` (pod-grepped, both chassis replicas +
-  adapter, positive + spelling-negative controls). `sql_for_agents/342`
+- **Live state:** **live on `v1.0.1274` as at 2026-08-09**, verified on all
+  4 Deployment-backed pods running the chassis binary (`agent-chassis` ×2 +
+  `business-intel` + `vet-intel`), positive + spelling-negative controls;
+  the 9 remaining `Job`-owned pods sit on `v1.0.1273` and carry the code too
+  (it first shipped there), and cannot reach the action in any case.
+  > **CORRECTED 2026-08-09:** this bullet previously read "fleet `v1.0.1273`
+  > (pod-grepped, both chassis replicas + adapter)". True, and the wrong
+  > scope — **34 pods run that binary, the label sees 2** (LANDMINES.md:5696),
+  > and the fleet had already rolled to `v1.0.1274` by the time this handoff
+  > was read. Caught by the council's `debug_historian` seat; WRONG_CALLS 08-09.
+  `sql_for_agents/342`
   applied AND **recorded in the schema_migrations ledger** (`--record-only`
   — the ledger DOES cover `sql_for_agents/`; run-migrations.sh header line
   5). First verified run COMPLETED 11:42:06Z: `vendor_billing:0` (= manual
@@ -60,17 +75,16 @@ filed. 30-min grace absorbs the provision INSERT-after-up window; unknown
   r3 REVISE 12:00Z (all verification requests — dispositioned by
   measurement, including proving the seed's DO/RAISE fail-closed by
   INDUCING the config-nested regression on the live row, rolled back) ·
-  **r4 submitted ~12:15Z 08-09, EVIDENCE-ONLY (no code/config changes) —
-  READ THE VERDICT**: `SELECT created_at, metadata->>'decision' FROM
-  diagnosis_artifacts WHERE correlation_id='7ffecfa2-…' AND
-  kind='council_report' ORDER BY created_at;` (4th row = r4). If APPROVED:
-  the `Council-Submitted:` trailers on `81484df8a`/`ecbb0f362`/`cfaa93126`
-  are credited automatically by 098 — nothing to amend. If REVISE again:
-  iterate on `council_r4_submission_ftw042.json` in this directory; note
-  the trail is now 4 rounds on ONE coherent task — if the round is again
-  only verification-requests a council tier cannot itself satisfy, consider
-  the RUNBOOK_council_gate guidance about when to stop iterating and let
-  the 098 report + a human carry it.
+  **r4 APPROVED 12:16:10Z** ("approved with 2 advisory objection(s) — none
+  high-severity", `gated_by_truncation:false`, 7 abstained). The two
+  advisory mediums were answered rather than accepted: `pipeline` IS in the
+  Go-side `validDocSubjectTypes` (`doc_subjects_common.go:63`), so the raw
+  SQL `doc_notes` write is consistent with the validated path; and
+  `debug_historian` was RIGHT about the pod-count claim — corrected above
+  and in WRONG_CALLS. `processing_mode=task`, matching `thunder-reaper`.
+  **098 credits `81484df8a`/`ecbb0f362`/`95a455d35`/`cfaa93126`
+  automatically** ("by correlation, via submitted") — verified, nothing to
+  amend. **Nothing further owed on FTW-042.**
 - **Commits:** `81484df8a` (build) · `2ef4ab581` (gofmt) · `ecbb0f362`
   (r1 revision: shared door) · `95a455d35` (output_field correction, LIVE
   proof) · `cfaa93126` (r2 revisions) · plus NOTES/WRONG_CALLS/LANDMINES
@@ -94,9 +108,9 @@ filed. 30-min grace absorbs the provision INSERT-after-up window; unknown
 
 ## Next steps, in order
 
-1. **Read the r3 council verdict** (query above). APPROVED → record in
-   NOTES, done. REVISE → objections come back with checks answered;
-   iterate on the saved r3 JSON, resubmit with `RESUBMIT_CORR`.
+1. ~~**Read the r4 council verdict.**~~ **DONE 2026-08-09** — APPROVED,
+   recorded in NOTES, both advisory objections dispositioned by measurement,
+   coverage credited automatically. FTW-042 is closed in substance.
 2. **Phase 0 — the measured rehearsal (~$1–2, NEEDS OWNER-ISH SUPERVISION).**
    Unchanged from the 08-08 handoff, which has the full checklist: correct
    `thunder_config` rates just before (RUNBOOK §1 step 5); re-tar + upload
@@ -124,7 +138,8 @@ filed. 30-min grace absorbs the provision INSERT-after-up window; unknown
   ssh, data URLs, list_instances) · `platform/orchestration/actions/
   thunder_*.go` (dispatches + reconcile) · `docs/agent_docs/sql_for_agents/
   342*` (scan seed + rollback sidecar).
-- **Tasks in the harness:** #2 (orphan sweep) — completed once the r3
-  verdict is read and recorded.
+- **Tasks in the harness:** none outstanding (the list is empty as at
+  2026-08-09 afternoon; harness tasks do not survive a session, so treat
+  this file + NOTES as the record, not the task list).
 - **MEMORY:** workstream line + `finetuning-uk-service-workstream.md`
   updated 08-09.

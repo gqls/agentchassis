@@ -24674,3 +24674,63 @@ fact, and did not treat the contradiction as the result.**
   absence — enumerate them (`SELECT ... count(*) FILTER (WHERE col='')` per column,
   as above) and match the COALESCE order the consuming code actually uses. A single
   `length(body)=0` is a fact about a column, never about the content.
+
+---
+
+## 2026-08-09 — "fleet `v1.0.1273`, both chassis replicas pod-grepped": a deploy claim that was TRUE, sampled 2 of 34 pods, and had a landmine already written for it
+
+**The claim.** `finetuning_uk_service/HANDOFF_2026-08-09_continue_here.md`, FTW-042
+live-state bullet: "**Live state:** fleet `v1.0.1273` (pod-grepped, both chassis
+replicas + adapter, positive + spelling-negative controls)." Written as the lane's
+proof that the orphan sweep had shipped.
+
+**What was actually true.** Every word of it, and it was still not the claim needed.
+**34 pods run the chassis binary; the label-scoped check sees 2.** Counted by IMAGE
+rather than by label the next morning: **25 on `v1.0.1274`, 9 on `v1.0.1273`** — the
+fleet had rolled past the tag I proved on, on another session's release, in the hours
+between writing the handoff and reading it. The word "fleet" in my own sentence was
+doing work the measurement never supported.
+
+Re-done properly, the answer is still clean, which is the uncomfortable part: all 4
+Deployment-backed pods on `v1.0.1274` carry `reconcile_thunder_instances`
+(spelling-negative 0), and those 4 include **`business-intel` and `vet-intel`** —
+services I had no reason to look at and whose names contain nothing about the chassis.
+The 9 stale pods are `Job`-owned (pinned at spawn, ageing out) and carry the code
+anyway, since `v1.0.1273` is where it first shipped. Reachability confirmed with a
+positive control: `thunder-orphan-scan` → `t`, the three stale agent types → `f`.
+
+**What caught it.** The council gate's `debug_historian` seat, as a **medium,
+non-gating objection inside an APPROVED verdict** — i.e. the round I could most easily
+have skimmed. It quoted the landmine at me almost verbatim: *"a two-replica check can
+pass while most of the fleet running the old binary is never sampled … show the actual
+pod count queried, not just 'both replicas'."*
+
+**The cheap check that would have.** `LANDMINES.md:5696`, which already exists, is
+titled with the answer (**"`-l app=agent-chassis` returns 2 pods; 41 run that
+binary"**), carries the exact `jsonpath` enumeration and the `ownerReferences.kind`
+discriminator, and was minted 2026-08-05 — four days before I wrote the sentence. I
+did not grep it, because I had no symptom: my check had passed.
+
+**Why it is worth a row.** Three things, none of which is "didn't measure":
+1. **The failure mode is a TRUE claim at the wrong scope.** Nothing in a passing
+   check tells you the sample was 2 of 34; a positive control proves the grep works,
+   never that the population was right. Both my controls fired correctly.
+2. **The landmine was already written and I still walked into it**, which is evidence
+   about *retrieval*, not about the corpus — LANDMINES' SessionStart hook only matches
+   entries against files already DIRTY in the tree, and a claim about POD COUNTS has
+   no path to match on. The standing memory line says to grep it for symbols and
+   commands yourself; the cost of not doing so is this row.
+3. **A deploy proof decays on a shared tree.** Mine was accurate when written and
+   stale within ~18 hours because a fleet release is another session's routine act.
+   So a tag-bearing claim needs its date attached or it silently becomes false:
+   **"live on `<tag>` as at `<date>`, on N of N pods running the binary"**, never a
+   bare "fleet `<tag>`".
+
+**The check, stated so it can be copied:** never verify a chassis deploy by label.
+Enumerate by image + owner kind
+(`kubectl -n ai-persona-system get pods -o jsonpath='{range .items[*]}{.metadata.name}
+{"\t"}{.metadata.ownerReferences[0].kind}{"\t"}{.spec.containers[0].image}{"\n"}{end}'
+| grep agent-chassis`), grep **every Deployment-backed pod** with a positive and a
+spelling-negative control, and treat `Job`-owned stragglers as a reachability question
+(`default_config::text LIKE '%<your action>%'`, with a row whose answer you know).
+Then write the tag and the date into the claim.

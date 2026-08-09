@@ -671,3 +671,73 @@ liveness claims a council tier can't see: human re-run commands supplied
 verbatim; the run's counts are durable in these NOTES against the 24h
 orchestration retention (prior_art). **Round 4 submitted ~12:15Z —
 evidence-only, no code or config changes** (`council_r4_submission_ftw042.json`).
+
+### Council round 4: APPROVED (2026-08-09 12:16:10Z) — the trail closes at four rounds
+
+`decided_by`: "approved with 2 advisory objection(s) — none high-severity";
+`gated_by_truncation: false`; 7 abstained. Seats: editquality approve ·
+reuse_agent approve (low: precedent-checking rigour, not the reasoning) ·
+guidelines approve (open question, not an objection) · guardian approve
+(two low, both "shared file, additive, re-check next time") ·
+**tooling_provenance OBJECT (medium)** · **debug_historian OBJECT (medium)**.
+
+Approval does not make the two mediums go away, and both were answerable by
+one command each, so they were answered rather than filed as accepted risk.
+
+**1. tooling_provenance — RESOLVES CLEAN.** The objection: the seed's
+`doc_notes` write uses `subject_type='pipeline'` in raw SQL, and I had
+verified only the Postgres CHECK — never the Go-side gate, which the
+landmine says is the second enforcement point `\d` cannot show. Checked
+now: `validDocSubjectTypes` (`platform/orchestration/actions/
+doc_subjects_common.go:63`) = `{tool, pipeline, experience, action,
+experience-pattern, component, landmine}`. **`pipeline` is a member**, so
+the raw-SQL row is consistent with the validated writer path and downstream
+doc tooling reading through the Go gate will see it. The seat was right that
+I had not checked; it happens the answer is favourable. [MEASURED 08-09]
+
+**2. debug_historian — THE SEAT WAS RIGHT AND MY CLAIM WAS TOO NARROW.**
+I wrote "fleet `v1.0.1273` (pod-grepped, both chassis replicas + adapter)".
+True, and not the claim needed — the exact shape LANDMINES.md:5696 warns
+about. Census run properly, by IMAGE not by label:
+**34 pods run the chassis binary, 25 on `v1.0.1274`, 9 on `v1.0.1273`** —
+i.e. the fleet had already rolled PAST the tag I proved on, by another
+session's release, between the handoff being written and being read.
+Applying the landmine's own two-part check:
+- *Deployment-backed, current tag:* all 4 ReplicaSet-owned pods on
+  `v1.0.1274` carry `reconcile_thunder_instances` (3) and `thunder_orphan`
+  (4); spelling-negative `reconcile_thunder_orphans` = 0 on every one. Those
+  4 are `agent-chassis` ×2 **plus `business-intel` and `vet-intel`** — which
+  is precisely the landmine's point that the binary runs under other names,
+  and which a label-scoped check would never have shown me.
+- *The 9 stale ones:* all `Job`-owned (per-work-item pods pinned at spawn,
+  ageing out on their own — the benign case), and they carry the action too,
+  because `v1.0.1273` is the tag the code first shipped on. Reachability
+  checked anyway with a positive control: `thunder-orphan-scan` → `t`;
+  `nav-updater`, `section-editor`, `deployer-agent` → `f`.
+  **So: zero stale-code exposure, on both halves.** [MEASURED 08-09]
+- The honest form of the claim, which is what should have been written:
+  **live on `v1.0.1274` as at 2026-08-09, on all 4 Deployment-backed pods
+  running the chassis binary, with the 9 Job-pinned pods on `v1.0.1273` also
+  carrying it.** Logged in WRONG_CALLS 08-09.
+
+**3. guidelines' open question, also settled** (it flagged a fact, not a
+fault): `thunder-orphan-scan` has `processing_mode = task`, **identical to
+`thunder-reaper`** — so it runs inline, is NOT a WRAPPER-ORCHESTRATOR, and
+does mirror its sibling as the seat guessed. Note the seat named
+`thunder-decommission-dispatch` as the comparator; there is no agent of that
+name — `dispatch_thunder_list` is an *action* (`registry.go:1556`). The real
+sibling agent is `thunder-reaper`, and that is what was compared.
+
+**Coverage credited automatically, nothing to amend.** 098 over 3 days lists
+`81484df8a` · `ecbb0f362` · `95a455d35` · `cfaa93126` all as
+`[7ffecfa2, by correlation, via submitted]` under APPROVED — the
+`Council-Submitted:` trailer resolving at report time worked exactly as
+CLAUDE.md describes, with no amend (forward-only preserved). Only
+`2ef4ab581` (pure gofmt of the test file) sits in UNREVIEWED, which is
+correct: it carries no substance.
+
+**FTW-042 is DONE.** Live, verified on the current tag, council-approved,
+registered. The two disclosed caveats stand unchanged and are not blockers:
+the filing path has still never fired against a real orphan (the first real
+one is its live proof), and the one-off double-fire at the hand-kicked first
+tick was absorbed by dedup and not chased. Next lane item is Phase 0.
