@@ -108,3 +108,6 @@ observations proposed above was the route —
 The proven/unproven table above should now read: runtime = **WITNESSED**. Remaining items
 are §5-as-amended-by-§10 only (all deliberately deferred; the highest-value one,
 `summary_template`, was resolved by owner decision A+D in §10).
+
+**SUPERSEDED 2026-08-09 — the deferred items are now the task (owner instruction). Cold
+start from `HANDOFF_2026-08-09_deferred_items.md` in this directory, not from this file.**

@@ -228,3 +228,17 @@ commit `745ed93d8` says "New LANDMINES entry" while carrying zero LANDMINES diff
 is live at HEAD and synced to doc_notes; only the attribution is odd. This is the
 `a-pathspec-commit-still-takes-a-same-file-passenger` mechanism running in the direction
 that costs nothing.
+
+## 2026-08-09 — owner: "we can fix those deferred items now" — handoff written, facts re-measured
+
+`HANDOFF_2026-08-09_deferred_items.md` is the cold start. Re-measurement while writing it:
+the four mislabelled rows are now **THREE** — the 2026-08-03 `capability_gap` (`detected`)
+no longer exists in `site_work_items` at all (not repaired; gone; cause not investigated —
+the handoff says re-derive, not trust). Post-roll mislabels from
+`completeness-discovery-agent`: **0** (fix holding). Deprecated-key carriers unchanged
+(item_domain 9 / check_domain 3 / target_domain 1); `item_pipeline` already carried by 2
+steps (claims-auditor, site-work-orchestrator). `spec_fields` 1 carrier, `domain`-on-
+`create_work_item` 1 carrier (claims-auditor — the Strategy-1 landmine applies, adjudicate
+before convicting). Next free migration number: **347**. Note `created_by`, not `source`,
+is the discriminator for the mislabelled rows — `source='discovery'` matches the legitimate
+design agent's rows too.
