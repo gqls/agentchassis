@@ -74,8 +74,6 @@ Next: this goes to the review council, then I build it.
 
 ## 2026-08-09, later — council verdict and what shipped
 
-_(to be appended)_
-
 The council approved it first time round, which I did not take for granted, and two of its
 twelve reviewers earned their keep.
 
