@@ -354,3 +354,61 @@ correct when everyone remembers to update it will keep being wrong.
 
 Nothing is in flight. The change is committed and submitted for review, and like everything in Go
 here it does nothing at all until the next fleet rebuild.
+
+---
+
+**2026-08-09 (later) — asked to lay out the problems plainly, so: four of them, and only one needs
+a decision from you.**
+
+**One — a genuine conflict between two of our own rules, which is yours to break.** The system
+needs to answer "which agent is running right now?" and it asks in two places: once when recording
+who owns a whole job, once when stamping a name on each error record. Two separate bits of code
+were answering it, and they disagreed — the job record named the real agent, the error record
+usually said `generic`, which is a placeholder meaning "somebody". I fixed it by writing the answer
+once, somewhere both halves can see.
+
+The review board's safety reviewer vetoed that, and it is doing its job properly: the place I put
+the shared answer is visible to three parts of the system, and being conservative about anything
+shared is precisely its remit. Its alternative is to copy the two lines into the second place
+instead. **But copying the two lines is exactly the duplication that caused the bug** — and two
+other reviewers said so in the same session, unprompted. The architecture reviewer wrote that the
+contained fix *"would have re-created the drift risk the author is trying to close"* and that *"a
+third site would have been next"*.
+
+So: one rule says don't add shared things casually, another says don't write the same logic twice,
+and here they point opposite ways with neither being wrong. Our own standing rule is that a human
+breaks that tie — and the vetoing reviewer says so itself: *"that decision belongs to RFC_019, not
+to this gate."* Small now (~36 mis-stamped records over 13 days), larger later. **I'd keep the
+shared version, but I'm the interested party**, which is why both sides are written out in the
+paper rather than just mine.
+
+**Two — I can't prove the fix works until after the next rebuild.** There's one case, a job that
+pauses waiting on something else and then resumes, where the resolved name may not survive. I
+couldn't test it: checking needs records from a table that keeps about a day, and every affected
+record is weeks old. So there is nothing to look at. Roll it, then count — the query and the number
+it has to beat are written down, and if it doesn't move the follow-on is one line and I've said
+where.
+
+**Three — the one I'd most want noticed: our evidence rots invisibly and our safeguards can't see
+it.** The brief said this bug cost us 559 records. Real count, honestly taken, re-checked once when
+challenged. Still wrong — 499 of them were written before we fixed the other half of the problem
+three weeks ago. Our rule about marking figures as measured was followed *perfectly* and did not
+help, because the table keeps a month, so a raging bug and one fixed a fortnight ago produce the
+identical number. There is no tell. And re-checking didn't help either, because re-running the same
+question later reproduces the same blind spot — the blind spot is in the shape of the question.
+**We have a discipline for "did you measure it?" and none for "could your measurement have come out
+differently?"** That is a real hole and it will recur on any table that expires old rows.
+
+**Four — paperwork that is only correct when everyone remembers.** Our list of architecture-paper
+numbers said "next free number is 11" when we were on 19; eight papers in a row were filed without
+updating it, and this is the second time. Separately, the written rule for when a change needs
+architecture review says it fires when you *change or remove* a shared piece of code — this one
+*adds* one, and two reviewers applied it anyway. I think they're right about the intent, but the
+written words and the applied words differ and the next person will read the written ones. I
+flagged it and deliberately did not edit it: amending the rule I was just caught by isn't mine to
+do. Both cases want an automatic check; nobody has built one.
+
+**What is fine:** the code. It was proved by deliberately re-introducing the fault six different
+ways and checking that exactly the right tests failed each time — a normal green test run would
+have proved nothing here, since that was the original bug. Ten of the twelve reviewers approved.
+Nothing is broken, and none of it does anything until the next rebuild.
