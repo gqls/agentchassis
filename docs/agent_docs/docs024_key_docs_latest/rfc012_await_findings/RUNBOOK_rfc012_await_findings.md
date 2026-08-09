@@ -194,6 +194,93 @@ empty fleet). Verify them on the IMAGE, not just with `go test`: `docker run --r
 <image> < live_agents.json` exercises the CMD, the embedded ack path and the arg order in
 one go. That is how I confirmed `/app/shared_output_fields_ack.txt` was actually readable.
 
+## Sizing a defect from `agent_error_log` — the two queries that stop you quoting history
+
+⚠ **Never quote a bucket from this table without bucketing it by DATE.** The table keeps ~30 days,
+so a fix that shipped three weeks ago is invisible in a `count(*)` and the number reads as live
+damage. This cost this lane a headline figure that had already travelled into three durable
+documents (`WRONG_CALLS` 2026-08-09; landmine filed).
+
+```sql
+-- 1. per-producer, WITH the dates. A group whose `last` is weeks old is a producer that STOPPED.
+SELECT action, step_name, error_code, count(*),
+       min(occurred_at)::date AS first, max(occurred_at)::date AS last
+FROM agent_error_log WHERE agent_type = '<value>' GROUP BY 1,2,3 ORDER BY 4 DESC;
+
+-- 2. split at the date of the commit that could have changed it, which you get from:
+--    git log -S'<the symbol that would fix it>' --format='%h %ad %s' --date=short
+SELECT count(*) FILTER (WHERE occurred_at <  '<boundary>') AS before,
+       count(*) FILTER (WHERE occurred_at >= '<boundary>') AS after
+FROM agent_error_log WHERE agent_type = '<value>';
+```
+Worked case 2026-08-08: `generic` → **499 before / 56 after** the 2026-07-26 `RunAgentType` roll
+(`baf887a8e`), and the dominant producer `call_agent`/`call_dispatch` (394 rows) has
+`last = 2026-07-25`. The **rate since the last relevant commit** is the actionable number; the
+total is the one that gets quoted.
+
+⚠ **And do not reach for the join to check it.** `agent_error_log` LEFT JOIN `orchestration_states`
+puts ~97% of rows in the `NULL` bucket — that is RETENTION (log ~30 days / 20,022 rows; states
+~24h / 1,667 rows), not a finding about missing runs. The inner join answers about **yesterday**
+in the voice of the month. Measure both spans in the same pass so the reader cannot miss which one
+bounds the answer:
+```sql
+SELECT 'agent_error_log' t, min(occurred_at)::date lo, max(occurred_at)::date hi, count(*) FROM agent_error_log
+UNION ALL SELECT 'orchestration_states', min(created_at)::date, max(created_at)::date, count(*) FROM orchestration_states;
+```
+
+## The `ResolvedAgentType` ladder — mutation harness and the post-roll proof
+
+The RSH-008 mutation rule applies with full force and one addition: the ladder now has **three**
+consumers' tests (`types`, `actions`, `orchestration`), and the failure IDENTITIES are what you
+check. A mutation that fails everything means the harness is miswired; one that PASSES may have
+hit a guard in series.
+
+```bash
+SP=<scratch>
+cp platform/orchestration/types/context.go        "$SP/context.go.GOOD"
+cp platform/orchestration/actions/log_action_error.go "$SP/log_action_error.go.GOOD"
+cp platform/orchestration/coordinator.go          "$SP/coordinator.go.GOOD"
+# mutate ONE anchor, run all three packages, restore:
+go test ./platform/orchestration/types/ ./platform/orchestration/actions/ ./platform/orchestration/ \
+  -run 'TestResolvedAgentType|TestLogAction|TestRunningStepProvenance|TestDetermineOwnerAgentType' -count=1
+```
+| mutation | types / actions / orchestration |
+|---|---|
+| baseline | 0 / 0 / 0 |
+| `if ec.RunAgentType != ""` block deleted | 3 / 3 / 2 |
+| `return ec.Sender.AgentType` → `return ""` | 3 / **4 pre-existing** / 2 |
+| `if ec == nil` guard deleted | 1 / 0 / 0 |
+| actions door back to `params.ExecutionContext.Sender.AgentType` | 0 / **exactly the 3 new** / 0 |
+| coordinator back to `execCtx.Sender.AgentType` | 0 / 0 / **1** |
+
+Gotcha — **the actions package has ONE unrelated failing test at committed HEAD**
+(`TestValidDocSubjectTypes_LockstepWithMigrationCheck`, another lane's `decision` doc subject
+type). Confirm it is not yours the only way that settles it, rather than assuming:
+```bash
+SP=<scratch>; rm -rf $SP/headtree && mkdir -p $SP/headtree && git archive HEAD | tar -x -C $SP/headtree
+(cd $SP/headtree && go test ./platform/orchestration/actions/ -run '<the failing test NAME>' -count=1)
+```
+⚠ and **`-run` takes the test's real name** — I first ran `-run 'TestDocSubject'` against the HEAD
+tree, got `ok`, and briefly believed the failure was mine. The regex matched nothing.
+
+**Post-roll acceptance** (the claim that matters; the pod-grep only proves presence):
+```sql
+SELECT count(*) FROM agent_error_log
+WHERE agent_type='generic'
+  AND action IN ('diagnose_council_decide','retract_page_deployment','emit_tool_cross_link_items')
+  AND occurred_at > '<roll time>';                       -- baseline 36 in the 13 days before
+SELECT count(*), count(DISTINCT agent_type) FROM agent_error_log WHERE occurred_at > '<roll time>';
+```
+The second is the positive control. **A zero with no traffic is a dead path, not a fix.**
+
+## Council submission — two schema traps the trigger catches AFTER you think you are done
+
+Both refusals are clean and client-side (no credits spent), but each costs a round trip:
+- `.plan.edits[].operation` must be **`modify|add|remove|config_change`** — a new file is **`add`**,
+  not `create`.
+- `.plan.risks` must be a **STRING**, not an array — join them into one prose block.
+  (`.plan.grounded_in` **is** an array. The two sit next to each other and take opposite shapes.)
+
 ## Not-yet-built (see the handoff)
 
 **NOTHING** — all three owner rulings are delivered as of 2026-08-08. The CronJob is live
