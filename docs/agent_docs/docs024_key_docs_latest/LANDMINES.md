@@ -7260,3 +7260,40 @@ SELECT prop.step_name, length(prop.proposed) AS proposed_len,
 - **the check:** before treating the sweep as a coverage mechanism, run the cap query against today's fleet: `SELECT s.domain, count(*) FROM site_work_items wi JOIN sites s ON s.id=wi.site_id WHERE wi.status IN ('triaged','detected') AND wi.pipeline='build' GROUP BY 1 HAVING count(*) >= 50;` — every row returned is a site the sweep will NEVER examine. For detection coverage use SCH-025's `site-discovery-rotation-*` tasks (no backlog cap, stamp-on-selection fairness) instead; the sweep's remit is the triage/fix loop, whose re-enable is `bugs_open/083`'s pending owner decision.
 - **source:** 2026-08-09, bugfix_230_discovery_driver — found while establishing why `bugs_open/230`'s candidate "re-enable the designed driver" was not viable as-is
 - **added:** 2026-08-09, bugfix_230_discovery_driver
+
+### A retraction sweep's `uncovered_backlog` total can stay FLAT while the type you just adopted leaves it entirely
+
+- **footprint:** `orchestration_states.collected_data->'revalidation_result'` (`uncovered_backlog`, `uncovered_types`), `revalidate_review_queue_action.go` (`reportUncoveredBacklog`), and any handoff step that says "confirm the adoption by watching `uncovered_backlog` fall"
+- **fires when:** you register a new `item_type` in `reviewRevalidators`, roll the chassis, and check the next scheduled sweep to confirm it took effect
+- **the tell: none, and that is the trap** — the total is a *sum across ~40 types*, and every other type is growing underneath you while yours leaves. Measured 2026-08-09 on the `voice_tells` adoption: `uncovered_backlog` was **625 before the roll and 625 after**, which reads as "the change did nothing". It did: `voice_tells` went **25 → absent** from `uncovered_types`, and nine other types grew by **exactly 25** in the same window (`claims_unverified` +5, `content_rewrite` +5, `lock_blocked_change` +5, `save_refused_incomplete` +4, `empty_internal_href` +2, and five more at +1). The coincidence is not the point — any inflow at all makes the total uninformative about a single type.
+- **the check:** confirm at the **per-type map**, never the total. Your type must be ABSENT from `uncovered_types` (not merely smaller), and `scanned` must rise by its live row count — decompose `scanned` by type to prove it rather than trusting the delta:
+```sql
+-- the type must have LEFT the map
+SELECT collected_data #>> '{revalidation_result,uncovered_types}' AS uncovered_types,
+       collected_data #>> '{revalidation_result,scanned}'         AS scanned,
+       collected_data #>> '{revalidation_result,cap_binding}'     AS cap_binding
+FROM orchestration_states WHERE orchestration_name ILIKE '%reval%' ORDER BY created_at DESC LIMIT 1;
+-- and scanned, decomposed — these must sum to `scanned`, with your type at its full live count
+SELECT item_type, count(*) FROM site_work_items
+WHERE result #>> '{revalidation,at}' >= CURRENT_DATE GROUP BY 1 ORDER BY 2 DESC;
+-- ⚠ the stamp key is `at`, NOT `checked_at` — a wrong key returns 0 rows and reads as "nothing was scanned"
+```
+- **source:** 2026-08-09, bugfix_168_deployed_asset_path — `HANDOFF_2026-08-08b` §0b instructed the next session to confirm by watching `uncovered_backlog` fall by ~32. It did not move. The adoption had worked perfectly (all 32 rows scanned, one item closed unattended), and the number the handoff nominated was the one number that could not show it
+- **added:** 2026-08-09, bugfix_168_deployed_asset_path
+
+### `evidence_base` is DATA, so a `claims_unverified` retraction can fire with the copy untouched
+
+- **footprint:** `site_specs` (`aspect='evidence_base'`), `site_work_items` (`item_type='claims_unverified'`, `resolution_path='auto:revalidated'`), `revalidate_unverified_claims.go`, `check_unverified_claims.go`
+- **fires when:** you read a `resolved` stamp on a `claims_unverified` item as evidence someone fixed the page's copy
+- **the tell: none** — the verdict reason says the page was re-scanned and no unsupported claim was found, which is true. But the register the scan compares against is an editable `site_specs` row: **adding a fact makes a previously unregistered number verifiable, so the item retracts although nothing on the page changed.** Arguably correct (the claim is now substantiated) and still not what "the copy was fixed" means. Same class as the `voice_gate` moving standard (CQ-020) but sharper, because a register row is edited far more casually than a gate threshold.
+- **the check:** compare the page's components against the item's filing date before believing the copy moved:
+```sql
+SELECT w.item_key, w.created_at AS filed, max(pc.updated_at) AS newest_component,
+       max(pc.updated_at) > w.created_at AS copy_actually_changed
+FROM site_work_items w JOIN page_components pc ON pc.page_id = (w.spec->>'page_id')::uuid
+WHERE w.item_type='claims_unverified' AND w.resolution_path='auto:revalidated'
+GROUP BY 1,2;
+```
+  `copy_actually_changed = false` means the register moved, not the page. Also check `site_specs.updated_at` for the `evidence_base` aspect around the close.
+- **source:** 2026-08-09, bugfix_168_deployed_asset_path — recorded with CQ-021 as the seam shipped, not after something looked wrong
+- **added:** 2026-08-09, bugfix_168_deployed_asset_path

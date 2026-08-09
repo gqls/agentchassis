@@ -176,6 +176,14 @@ var reviewRevalidators = map[string]reviewRevalidator{
 	// Added 2026-08-08: 25 items, nothing had ever closed one — see
 	// revalidate_voice_tells.go for the closer census that established that.
 	"voice_tells": revalidateVoiceTells,
+	// spec.page_id: "2c106994-…" — asks whether the page still asserts something
+	// the site's evidence_base register does not support. Re-runs the emit side's
+	// scanner (discovery_checks.ScanDeployedClaims) rather than restating the
+	// predicate, for the same reason voice_tells and needs_page do.
+	// Added 2026-08-09: 23 items across 7 sites, TWO producing checks, nothing
+	// had ever closed one — see revalidate_unverified_claims.go for the closer
+	// census that established that.
+	"claims_unverified": revalidateUnverifiedClaims,
 }
 
 // coveredItemTypes is the selection's source of truth, derived from

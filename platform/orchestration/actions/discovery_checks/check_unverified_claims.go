@@ -53,6 +53,7 @@
 package discovery_checks
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -71,7 +72,7 @@ type UnverifiedClaimsCheck struct{}
 func (c *UnverifiedClaimsCheck) Name() string { return "unverified_claims" }
 
 func (c *UnverifiedClaimsCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, error) {
-	eb, rowExists, err := loadEvidenceBaseForCheck(dctx)
+	eb, rowExists, err := LoadEvidenceBase(dctx.Ctx, dctx.DB, dctx.SiteID)
 	if err != nil {
 		return nil, err
 	}
@@ -81,17 +82,28 @@ func (c *UnverifiedClaimsCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, e
 	// compares a component against itself and runs fleet-wide — the same scope
 	// it has in the build gate. Returning here would have kept the sites with
 	// no register unaudited on BOTH paths, which is the gap this bug is about.
-	pageFindings, siteFindings, err := scanDeployedClaims(dctx, eb, rowExists)
+	scans, siteFindings, err := ScanDeployedClaims(
+		dctx.Ctx, dctx.DB, dctx.SiteID, "", eb, rowExists, dctx.Logger)
 	if err != nil {
 		return nil, err
 	}
+
+	// ScanDeployedClaims reports every page it examined, including the clean ones,
+	// so the revalidator can tell "examined and clean" from "examined nothing".
+	// Only the pages that actually carry findings become work items — filtering
+	// here keeps this check's emitted output exactly what it was before the scan
+	// was shared.
+	pageFindings := make([]*ClaimsPageScan, 0, len(scans))
+	total := 0
+	for _, pf := range scans {
+		if len(pf.Findings) == 0 {
+			continue
+		}
+		pageFindings = append(pageFindings, pf)
+		total += len(pf.Findings)
+	}
 	if len(pageFindings) == 0 && len(siteFindings) == 0 {
 		return &CheckResult{}, nil
-	}
-
-	total := 0
-	for _, pf := range pageFindings {
-		total += len(pf.Findings)
 	}
 	total += len(siteFindings)
 
@@ -205,14 +217,43 @@ type unverifiedClaimFinding struct {
 	Source      string `json:"source"` // rendered_html | content_data
 }
 
-// pageClaimFindings groups findings for one page (one work item per page).
-type pageClaimFindings struct {
+// ClaimFinding is the exported name for a single claims finding, so the
+// review-queue revalidator in `actions` can name the type it iterates. Alias
+// rather than rename: the unexported spelling is used at ~20 sites including
+// this package's tests, and churning them buys nothing.
+type ClaimFinding = unverifiedClaimFinding
+
+// ClaimsPageScan is one page's claims audit. It carries the findings AND the two
+// counts that say how the scan reached them, because the review-queue
+// revalidator has to distinguish three states a bare `len(Findings) == 0`
+// collapses into one:
+//
+//   - examined some components, found no claims     -> the copy was fixed
+//   - examined NOTHING (page gone, unbuilt, empty)  -> we cannot answer
+//   - the only components are human-LOCKED          -> we cannot answer
+//
+// Only the first licenses closing a live work item. The other two look
+// identical from the findings list alone, which is exactly the no-op case that
+// reads like a success. Same shape and same reasoning as VoicePageScan.
+type ClaimsPageScan struct {
 	PageID   string
 	PageName string
 	Findings []unverifiedClaimFinding
+	// ComponentsExamined counts components actually passed to the scans.
+	ComponentsExamined int
+	// ComponentsSkippedLocked counts human-pinned components, which the emit
+	// side has always skipped and this scan still does — counted rather than
+	// silently dropped so a page whose only claims sit in a locked component
+	// cannot be read as "the copy was fixed".
+	ComponentsSkippedLocked int
 }
 
-// loadEvidenceBaseForCheck reads the site's current evidence_base spec.
+// LoadEvidenceBase reads the site's current evidence_base spec.
+//
+// Exported for the review-queue revalidator (mirrors LoadVoiceGate): whether a
+// site is opted in has to be answerable from the `actions` package, because a
+// site with no register cannot have its parked claims items re-judged on the
+// half of the audit that needs one.
 //
 // The second return is whether the ROW EXISTS, which is NOT the same question
 // as whether eb is non-nil, and the difference is load-bearing (bugs_open/093,
@@ -227,12 +268,12 @@ type pageClaimFindings struct {
 // against without one — but the BANNED-CLAIM scan runs on every site, register
 // or not, because the fleet-wide set is not per-site data. So eb == nil now
 // means "no site-specific patterns and no facts", not "skip the HTML scans".
-func loadEvidenceBaseForCheck(dctx DiscoveryCheckContext) (*datahelpers.EvidenceBase, bool, error) {
+func LoadEvidenceBase(ctx context.Context, db *sql.DB, siteID uuid.UUID) (*datahelpers.EvidenceBase, bool, error) {
 	var data []byte
-	err := dctx.DB.QueryRowContext(dctx.Ctx, `
+	err := db.QueryRowContext(ctx, `
 		SELECT data FROM site_specs
 		WHERE site_id = $1 AND aspect = 'evidence_base' AND is_current = true
-	`, dctx.SiteID).Scan(&data)
+	`, siteID).Scan(&data)
 	if err == sql.ErrNoRows {
 		return nil, false, nil
 	}
@@ -248,62 +289,101 @@ func loadEvidenceBaseForCheck(dctx DiscoveryCheckContext) (*datahelpers.Evidence
 	return eb, true, nil
 }
 
-// scanDeployedClaims runs the scans over deployed page and site components,
-// skipping locked components (human-pinned content is never flagged).
+// ScanDeployedClaims runs the scans over deployed page and site components,
+// skipping locked components (human-pinned content is never flagged) and
+// returning one ClaimsPageScan per page examined, INCLUDING pages with no
+// findings.
+//
+// It is shared by the emit side (UnverifiedClaimsCheck.Run, pageIDFilter "")
+// and the review-queue revalidator (one page). That sharing is the point: the
+// two ends of a claims_unverified item's life must not be able to answer "does
+// this page still assert something the register does not support?" differently.
+// Same precedent as ScanVoiceTells and needs_page.
+//
+// ⚠ NO PAGE-STATUS FILTER, and that is deliberate — it differs from
+// ScanVoiceTells, which restricts to p.status IN ('active','deployed'). This
+// check has never filtered on page status, and the revalidator must judge by
+// exactly the predicate the emit side uses or the two ends disagree. Widening
+// or narrowing it here would silently change what the CHECK reports.
 //
 // TWO SURFACES PER COMPONENT, and each scan is gated on the one it reads:
 // the HTML scans on rendered_html, the stat scans on content_data
 // (bugs_open/093). The row predicate is therefore an OR — a component with
 // stored content_data but no rendered_html has never been published, but it is
 // exactly what the next re-render WILL publish, unchecked.
-func scanDeployedClaims(dctx DiscoveryCheckContext, eb *datahelpers.EvidenceBase, rowExists bool) ([]pageClaimFindings, []unverifiedClaimFinding, error) {
+//
+// LOCKED COMPONENTS MOVED FROM SQL TO GO (2026-08-09). The page query used to
+// carry `AND pc.locked_at IS NULL`, which dropped pinned rows before anything
+// could count them — so a page whose only claims sit in a locked component was
+// indistinguishable from a page that was cleaned up. The rows now come back and
+// are skipped in the loop, which emits exactly what it emitted before and
+// additionally reports what it did not read.
+func ScanDeployedClaims(
+	ctx context.Context,
+	db *sql.DB,
+	siteID uuid.UUID,
+	pageIDFilter string,
+	eb *datahelpers.EvidenceBase,
+	rowExists bool,
+	logger *zap.Logger,
+) ([]*ClaimsPageScan, []unverifiedClaimFinding, error) {
 	// page_components — body sections.
 	//
 	// p.page_type joins the select for bugs_open/102: it gates the prose number
 	// heuristic, which cannot tell a guide's worked example from a sales claim.
 	// The column was always in the row this query already reads — the layer
 	// simply never asked for it.
-	pageRows, err := dctx.DB.QueryContext(dctx.Ctx, `
+	pageQuery := `
 		SELECT pc.page_id::text, p.name, COALESCE(pc.slot_name, ''),
 		       COALESCE(pc.rendered_html, ''), COALESCE(cc.name, ''),
-		       COALESCE(pc.content_data::text, ''), COALESCE(p.page_type, '')
+		       COALESCE(pc.content_data::text, ''), COALESCE(p.page_type, ''),
+		       pc.locked_at
 		FROM page_components pc
 		JOIN pages p ON p.id = pc.page_id
 		LEFT JOIN content_components cc ON cc.id = pc.component_id
 		WHERE p.site_id = $1
-		  AND pc.locked_at IS NULL
 		  AND ( (pc.rendered_html IS NOT NULL AND pc.rendered_html <> '')
-		     OR (pc.content_data IS NOT NULL AND pc.content_data::text <> '{}') )
-		ORDER BY p.name, pc.position
-	`, dctx.SiteID)
+		     OR (pc.content_data IS NOT NULL AND pc.content_data::text <> '{}') )`
+	pageArgs := []interface{}{siteID}
+	if strings.TrimSpace(pageIDFilter) != "" {
+		pageQuery += ` AND pc.page_id = $2::uuid`
+		pageArgs = append(pageArgs, strings.TrimSpace(pageIDFilter))
+	}
+	pageQuery += ` ORDER BY p.name, pc.position`
+
+	pageRows, err := db.QueryContext(ctx, pageQuery, pageArgs...)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unverified_claims page query failed: %w", err)
 	}
 	defer pageRows.Close()
 
-	byPage := map[string]*pageClaimFindings{}
-	var pageOrder []string
+	byPage := map[string]*ClaimsPageScan{}
+	var pageOrder []*ClaimsPageScan
 
 	for pageRows.Next() {
 		var pageID, pageName, slotName, html, component, contentJSON, pageType string
+		var lockedAt sql.NullTime
 		if err := pageRows.Scan(&pageID, &pageName, &slotName, &html, &component,
-			&contentJSON, &pageType); err != nil {
-			dctx.Logger.Warn("unverified_claims: page scan error", zap.Error(err))
-			continue
-		}
-		findings := scanComponentClaims(html, slotName, eb,
-			datahelpers.ClaimSurface{PageType: pageType})
-		findings = append(findings, scanStoredStatClaims(
-			component, slotName, decodeContentData(contentJSON, dctx.Logger), eb, rowExists)...)
-		if len(findings) == 0 {
+			&contentJSON, &pageType, &lockedAt); err != nil {
+			logger.Warn("unverified_claims: page scan error", zap.Error(err))
 			continue
 		}
 		pf, ok := byPage[pageID]
 		if !ok {
-			pf = &pageClaimFindings{PageID: pageID, PageName: pageName}
+			pf = &ClaimsPageScan{PageID: pageID, PageName: pageName}
 			byPage[pageID] = pf
-			pageOrder = append(pageOrder, pageID)
+			pageOrder = append(pageOrder, pf)
 		}
+		if lockedAt.Valid {
+			pf.ComponentsSkippedLocked++
+			continue
+		}
+		pf.ComponentsExamined++
+
+		findings := scanComponentClaims(html, slotName, eb,
+			datahelpers.ClaimSurface{PageType: pageType})
+		findings = append(findings, scanStoredStatClaims(
+			component, slotName, decodeContentData(contentJSON, logger), eb, rowExists)...)
 		pf.Findings = append(pf.Findings, findings...)
 	}
 	if err := pageRows.Err(); err != nil {
@@ -316,7 +396,7 @@ func scanDeployedClaims(dctx DiscoveryCheckContext, eb *datahelpers.EvidenceBase
 	// one-guarded-call-site shape bugs_open/093 is about. It carries zero stat
 	// fields fleet-wide today (measured 2026-07-26), so this costs nothing now
 	// and forecloses the gap if a stat component is ever slotted into chrome.
-	siteRows, err := dctx.DB.QueryContext(dctx.Ctx, `
+	siteRows, err := db.QueryContext(ctx, `
 		SELECT COALESCE(sc.slot_name, ''), COALESCE(sc.rendered_html, ''),
 		       COALESCE(cc.name, ''), COALESCE(sc.content_data::text, '')
 		FROM site_components sc
@@ -325,7 +405,7 @@ func scanDeployedClaims(dctx DiscoveryCheckContext, eb *datahelpers.EvidenceBase
 		  AND sc.locked_at IS NULL
 		  AND ( (sc.rendered_html IS NOT NULL AND sc.rendered_html <> '')
 		     OR (sc.content_data IS NOT NULL AND sc.content_data::text <> '{}') )
-	`, dctx.SiteID)
+	`, siteID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unverified_claims site query failed: %w", err)
 	}
@@ -335,7 +415,7 @@ func scanDeployedClaims(dctx DiscoveryCheckContext, eb *datahelpers.EvidenceBase
 	for siteRows.Next() {
 		var slotName, html, component, contentJSON string
 		if err := siteRows.Scan(&slotName, &html, &component, &contentJSON); err != nil {
-			dctx.Logger.Warn("unverified_claims: site scan error", zap.Error(err))
+			logger.Warn("unverified_claims: site scan error", zap.Error(err))
 			continue
 		}
 		// Site chrome belongs to no page, so its surface is the zero value —
@@ -345,17 +425,13 @@ func scanDeployedClaims(dctx DiscoveryCheckContext, eb *datahelpers.EvidenceBase
 		siteFindings = append(siteFindings, scanComponentClaims(html, slotName, eb,
 			datahelpers.ClaimSurface{})...)
 		siteFindings = append(siteFindings, scanStoredStatClaims(
-			component, slotName, decodeContentData(contentJSON, dctx.Logger), eb, rowExists)...)
+			component, slotName, decodeContentData(contentJSON, logger), eb, rowExists)...)
 	}
 	if err := siteRows.Err(); err != nil {
 		return nil, nil, fmt.Errorf("unverified_claims site iteration failed: %w", err)
 	}
 
-	ordered := make([]pageClaimFindings, 0, len(pageOrder))
-	for _, id := range pageOrder {
-		ordered = append(ordered, *byPage[id])
-	}
-	return ordered, siteFindings, nil
+	return pageOrder, siteFindings, nil
 }
 
 // decodeContentData turns the JSONB text into a map. A row that will not decode
