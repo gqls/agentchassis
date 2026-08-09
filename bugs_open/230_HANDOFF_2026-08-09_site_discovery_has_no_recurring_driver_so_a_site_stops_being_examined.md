@@ -17,7 +17,18 @@
 > dartsonline.com (79), the two most-worked sites, and its `ORDER BY sites.updated_at`
 > starves (IMP-010). Council `Council-Submitted: 2281fc48-f0c5-4842-88c7-8391d0098944`.
 > The `bugs_open/083` drain question is deliberately untouched — this closes the
-> *detection* half only. Inert until migration 346 is applied (post-verdict).
+> *detection* half only.
+>
+> **FIXED, LIVE AND VERIFIED BY THIS FILE'S OWN §6 CRITERION — 2026-08-09.** Council
+> **APPROVED round 1** (4 advisory, none high; `Council-Reviewed: 2281fc48-f0c5-4842-88c7-8391d0098944`).
+> Migration `346` applied 10:47Z + ledger-recorded; watchdog CronJob deployed and its
+> first run clean at the pod. **The canary landed at 13:52:04Z, unprompted**: both
+> `featured-content` items filed on both pages by
+> `completeness-discovery-agent-orchestrate-0809-1352` (COMPLETED), reached by the
+> rotation in its normal order (robot-hands → loancalculator → cookly → idea →
+> **finetuning**, one site per hourly tick). Nobody dispatched it — which is exactly
+> what §6 asks for. **Kept in `bugs_open/` per the owner ruling of 2026-08-06.**
+> Full disposition of all 10 objections: `bugfix_230_discovery_driver/NOTES` tail.
 
 Found while chasing `bugs_open/201`'s handoff §4 — two live pages still serving empty
 sections with no work item raised. The empty pages turned out to be the *symptom*; this is
@@ -177,6 +188,25 @@ WHERE item_type='empty_section'
                   '8867b4d5-12d1-4ecc-8956-109a80395a18')
 ORDER BY created_at DESC;   -- today: nothing under 'featured-content'
 ```
+
+> **SATISFIED 2026-08-09 13:52:04Z.** The query above now returns, newest first:
+>
+> ```
+> empty_section:69a50d5d-…:featured-content | detected | 2026-08-09 13:52:04.325131+00
+> empty_section:8867b4d5-…:featured-content | detected | 2026-08-09 13:52:04.325131+00
+> ```
+>
+> Filed by `completeness-discovery-agent-orchestrate-0809-1352` (COMPLETED), the
+> rotation's own run — the site was reached by `last_selected_at ASC NULLS FIRST`
+> ordering four ticks after install, with **no dispatch by any session**. The same
+> unattended run filed 58 items on this site in total (23 `page_rerender`, 6
+> `undeployed_asset`, 5 `needs_content_image`, 5 `required_fields_missing`, 3
+> `phantom_internal_link`, …), all `detected` — observe-only, as designed.
+>
+> ⚠ **Do not read `created_by` on these rows as the detector.** It says `generic`,
+> because that column carries the SENDER (`discovery_checks.go:132`), and for a
+> scheduled run the sender is not the discovery agent. Landmine filed; use
+> `orchestration_states.owner_agent_type` or `site_discovery_rotation` instead.
 
 ## 7. Provenance of this filing — read before quoting it
 

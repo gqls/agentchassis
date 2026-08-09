@@ -72,3 +72,31 @@ finetuning.uk should be found by the rota on its own, with nobody pointing at th
 that's due within a few hours as the rota works through the site list, and I'm watching
 for it. When that lands, the bug is closed in substance: a broken page on a site nobody
 is looking at can no longer stay invisible.
+
+## 2026-08-09 (late afternoon) — it found the pages on its own. Done.
+
+The proof arrived at ten to three. The rota worked its way down the site list — robot
+hands, loan calculator, cookly, idea — and on its fourth hourly turn it reached
+finetuning.uk, examined it, and filed the two empty pages nobody had been looking at.
+Fifty-eight findings on that one site in a single unattended pass. Nobody asked it to;
+that was the whole point, and it is the exact test the bug report set when it was written
+yesterday.
+
+It also came through a fleet rebuild mid-afternoon without missing a beat, which is worth
+knowing: the rota is config, not code, so a new build doesn't disturb it.
+
+Two things I got wrong or found along the way, both written down. I told you a scheduled
+run had been missed — it hadn't; I'd compared our clock to the database's, which runs an
+hour behind ours, and a fifteen-minute-old run looked an hour late. Embarrassing, cheap to
+catch, now logged with the check that prevents it. And while confirming the findings were
+real I noticed the "who found this" column records whoever *triggered* the run rather than
+the inspector that did the work — so anything the rota finds is filed under a generic name.
+Nothing is broken by it, but anyone counting up who-found-what would have quietly missed
+every scheduled result, so that's written down too.
+
+What this changes, in one line: a broken page on a site nobody is working on can no longer
+stay invisible. What it deliberately does *not* change: nothing gets fixed automatically —
+the findings pile up in a list, and turning the repair side back on is still your call,
+recorded as bug 083. The rota will make that decision better-informed, because for the
+first time the list reflects the whole estate rather than whichever site someone happened
+to open.

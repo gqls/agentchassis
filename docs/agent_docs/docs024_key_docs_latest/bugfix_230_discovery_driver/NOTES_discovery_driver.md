@@ -153,3 +153,59 @@ deliberately-parked fix). Watchdog applied with `kubectl apply -k`.
 (site_id order: robot-hands 00ff…, loancalculator 0162…, finetuning 1368… — ETA a few
 hourly ticks). Until it lands, 230 stays OPEN; the fix is live but the bug's own
 verification criterion is the arrival of that item.
+
+## 2026-08-09 (afternoon) — the canary landed unprompted; bug 230's own criterion is satisfied
+
+**§6 SATISFIED at 13:52:04Z.** The completeness rotation reached `finetuning.uk` on its
+fourth tick (site_id order: robot-hands 00ff… 09:50 → loancalculator 0162… 10:51 → cookly
+11:51 → idea 12:51 → **finetuning 1368… 13:52**) and filed both `featured-content`
+`empty_section` items — the outstanding true positives this bug was filed over — with **no
+session dispatching anything**. Orchestration `b5cf2140` /
+`completeness-discovery-agent-orchestrate-0809-1352`, COMPLETED. 58 items on that site in
+one unattended pass. All three links (schedule → run → finding) now demonstrated, which is
+the thing [[detection-works-schedule-and-dispatch-do-not]] measured broken at link 2.
+
+**Survived a fleet roll mid-verification**: chassis + kafka-scheduler went v1.0.1273 →
+**v1.0.1274** around 12:25Z, between the 3rd and 4th rotation ticks. The rotation missed
+nothing — 12:51 and 13:52 both fired and both produced COMPLETED runs. Worth recording
+because a roll is the obvious thing to blame for a gap, and here there was no gap.
+
+### Misstep this session, logged in WRONG_CALLS.md
+
+I told the owner a tick "appears to have been missed" and offered the roll as the cause.
+**False, from a BST-vs-UTC clock mix**: my watcher printed local time, the DB prints UTC,
+so a 15-minute-old fire on an hourly task looked an hour overdue. `SELECT now()` in the
+same result set killed it in one query — and the same query already contained
+`now() - last_triggered_at AS since_fire`, which cannot be misread across zones. The
+durable defence is reading the DB's own elapsed-time column, never pairing two wall clocks.
+`bugs_open/085` records this exact trap and I had read that file **this session**; reading a
+warning is not applying it.
+
+### A second landmine found by verifying, not by suspecting
+
+`site_work_items.created_by` carries the **SENDER**
+(`platform/orchestration/actions/discovery_checks.go:132` —
+`params.ExecutionContext.Sender.AgentType`), not the agent that ran the check. A
+spawn-fired discovery run stamps the real agent type; a **scheduler**-fired one stamps
+`generic`. Measured today: 177 items across the 5 rotated sites under `generic`, versus 33
++ 25 from one hand-fired cycle under the real names. **Any coverage census grouped by
+`created_by` will therefore omit every scheduled run** — precisely the population this fix
+created. Filed to LANDMINES with the join to use instead
+(`orchestration_states.owner_agent_type`, or `site_discovery_rotation`). The `generic`
+spelling itself is `[UNEXPLAINED]` — the scheduler sends `from_agent_type: kafka-scheduler`
+— flagged rather than smoothed over.
+
+### Bookkeeping honesty
+
+My `WRONG_CALLS.md` commit (`5873985b0`) took a **same-file passenger**: the `bugfix_136`
+lane appended its own entry between my read and my commit, so their text is in my commit
+and their own commit (`7978889e2`, message mentions wrong_calls) carries only LANDMINES.
+Nothing lost, attribution in the log is crossed. This is the documented pathspec limitation,
+not a mistake to fix by rewriting history (forward-only).
+
+### State at close of session
+
+- Rotation: **live and self-driving**, 5 sites × 3 agents examined so far, ~1 site/agent/hour.
+- Watchdog: deployed, daily 06:35Z, first manual run clean, doc_notes row written.
+- 230: **fixed, live, verified**; stays in `bugs_open/` (owner ruling 2026-08-06).
+- Untouched on purpose: `bugs_open/083`'s drain decision, and the `improvement-sweep` row.
