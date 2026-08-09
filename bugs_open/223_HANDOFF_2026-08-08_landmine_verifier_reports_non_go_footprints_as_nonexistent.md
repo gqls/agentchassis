@@ -294,3 +294,69 @@ bitten by before.)
 
 **Do not downgrade the 221 entry on this verdict.** It was re-checked by hand and
 is accurate.
+
+---
+
+## Recurrence 2026-08-09 — a third instance, self-refuting in the same way, from the `bugfix_201` lane
+
+Not a new mechanism; recorded here as **frequency evidence**, because this bug is
+still OPEN and UNOWNED and the rate at which it fires is the argument for fixing it.
+
+A `LANDMINES.md` entry filed 2026-08-08 by the `201` lane — footprint
+`scripts/landmines-sync.py`, `scripts/landmines-verify-dispatch.sh`,
+`scripts/trigger-landmine-verifier.sh`, `LANDMINES.md`, `doc_notes`,
+`landmine-verification` — came back:
+
+> **last verified (landmine-verifier): STALE.** All four footprint scripts/files
+> (landmines-sync.py, landmines-verify-dispatch.sh, trigger-landmine-verifier.sh,
+> LANDMINES.md) are absent from the code_symbols index, and the
+> `landmine-verification` category string has zero hits across 5755 indexed
+> symbols — **the entire toolchain this entry warns about appears removed or
+> relocated.**
+
+**All three scripts had been executed successfully in the minutes before that
+verdict was written** — and the verdict itself was delivered *by that toolchain*,
+into the `landmine-verification` category it declares has zero hits. Same
+self-refutation as this bug's opening case, independently reproduced.
+
+**The index composition, measured rather than inferred** `[MEASURED]` — worth
+pinning here because the bug's headline says "holds only Go" and this is the query
+that proves it, with every alternative in the same row so a future divergence
+cannot hide:
+
+```sql
+SELECT count(*) FILTER (WHERE path LIKE '%.go')  AS go,    -- 5755
+       count(*) FILTER (WHERE path LIKE '%.sh')  AS sh,    --    0
+       count(*) FILTER (WHERE path LIKE '%.py')  AS py,    --    0
+       count(*) FILTER (WHERE path LIKE '%.md')  AS md,    --    0
+       count(*) FILTER (WHERE path LIKE '%.sql') AS sql,   --    0
+       count(*)                                  AS total  -- 5755
+FROM code_symbols;
+```
+
+Not a single non-Go row exists, so **no `.sh`/`.py`/`.md`/`.sql` footprint can ever
+verify** — the STALE is structurally guaranteed and carries no information about the
+entry. It is the `UNVERIFIABLE` case this bug's closing section already argues for.
+
+**A second, separate trap found in the same session, worth knowing for whoever fixes
+this:** `landmines-sync.py --apply` computes its `NEEDS_VERIFICATION` list as
+new-or-changed *relative to rows already in `doc_notes`*. Running it directly —
+which **CLAUDE.md instructs** — writes the rows and so consumes the signal;
+`landmines-verify-dispatch.sh` afterwards prints *"Nothing needs verification"* and
+dispatches nothing, permanently, for that entry. So the population of entries with
+**no verdict at all** is larger than the population that got a wrong one, and both
+are invisible. Find them with:
+
+```sql
+SELECT DISTINCT n.source FROM doc_notes n WHERE n.categories ? 'landmine'
+  AND NOT EXISTS (SELECT 1 FROM doc_notes v
+                  WHERE v.categories ? 'landmine-verification' AND v.subject_key = n.source);
+```
+
+Full entry (with the manual recovery path) is in `LANDMINES.md`, 2026-08-08,
+*"`landmines-sync.py --apply` CONSUMES the NEEDS_VERIFICATION signal"*.
+
+**Do not downgrade the `201` lane's other entry on this bug's account** — the
+slot-rename entry, whose footprint is Go symbols and DB tables, verified
+**STILL_VALID** in the same batch. The verifier is right when the index can see the
+footprint, which is what makes the wrong verdicts hard to spot.
