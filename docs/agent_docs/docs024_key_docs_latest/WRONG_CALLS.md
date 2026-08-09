@@ -25023,3 +25023,45 @@ reading where the failing code says so itself.
 
 **Cost.** One wasted dispatch, one wrong mechanism named in a handoff draft
 (caught before commit), ~20 minutes.
+
+---
+
+## 2026-08-09 (third, same lane, same day) — "the fleet uncapped census is 0" was true of my QUERY and false of the fleet: the filter defined the population, and eleven steps were never in it
+
+**The claim.** Published 2026-08-09 in `bugs_open/205`, the lane NOTES, the owner's log and the
+commit message of `e6036f41f`: *"No active LLM step can now fall to the 2048 fallback."* Backed by
+a census I ran twice, in-transaction and again externally, both returning 0.
+
+**What was true.** Eleven active steps could still fall to 2048, because the census — inherited
+verbatim from the bug file, where it had been quoted for three days as "8 of 126" — carries
+`AND s.value->'config' ? 'ai_service'`. A step with `action: execute_llm_prompt` and **no
+ai_service block at all** is uncapped *by definition*, and that predicate removes exactly those
+from the population. A second blind spot in the same query: `->'workflow'->'steps'` walks only
+top-level steps, so an LLM step nested inside a loop's `sub_workflow` is invisible — and that is
+where `page-content-writer`'s real content generator lives, the one that truncated in production
+on 08-09 while my census called the fleet clean. Depth-aware and block-agnostic:
+**134 LLM nodes, 11 uncapped**, against 126 and 0.
+
+**What caught it.** Being asked to fix the truncations. Chasing `page-content-writer`'s cap meant
+finding where that step actually is — nested — which immediately implied the census had never
+looked there, and re-running it depth-aware found the other ten.
+
+**The cheap check that would have caught it: a census that returns 0 has two explanations, and
+"nothing is wrong" is the less likely one.** The estate already holds this in three forms —
+`a-silent-gate-either-did-not-look-or-approved`, `narrow-filter-defines-the-conclusion`,
+`check-answers-the-question-you-encoded`. The specific defeater is mechanical: **the predicate
+that makes a census tractable is usually the predicate that makes it wrong** — `? 'ai_service'`
+was there to find rows with caps to compare, and it silently became the definition of "is an LLM
+step". Before reporting a 0, ask what the query would have to have missed to return 0 anyway, and
+construct one row of that kind.
+
+**Why this one is worth the space beyond the specific query.** It is the THIRD entry today from
+one lane, and the three share a shape: [1] a step attributed to a mechanism whose population it
+was never in; [2] "implementation-defined" written without opening the implementation; [3] a
+population defined by an inherited filter nobody re-read. **In all three the measurement was real
+and the sentence built on it was false** — so the marker discipline (`[MEASURED]`, evidence
+inline) passed cleanly every time and protected nothing. What would have caught all three is the
+same question asked of the *inference* rather than the *number*: **what else would produce this
+exact result?** Also worth noting: this census had been repeated by several sessions since 08-06
+without anyone re-reading its WHERE clause. **An inherited query is inherited evidence — it
+carries its author's blind spots into your conclusion under your name.**

@@ -723,3 +723,34 @@ MISMATCH.
 > one lane within four hours. Once is a slip; twice is my sequencing, so the check
 > belongs where the commit is composed: **name the register file in the pathspec
 > before writing the message**, not after the commit succeeds.
+
+## NOTICE 2026-08-09 (from the bugfix_205 lane) — six seat caps raised 8000 → 16000, via the mirror
+
+Not your lane's work; telling you because it changed **your** agents' config and you should not
+discover it from a diff.
+
+**What changed.** `review_guardian`, `review_render_guardian`, `review_llm_reliability`,
+`review_bug_historian`, `review_tooling_provenance`, `review_improvement_guardian` — all six went
+from `max_tokens` 8000 to 16000. Written to `fix-proposer`, then carried into `council-gate` by
+`099_SYNC_gate_roster.py --apply`, per CLAUDE.md's "do not hand-patch the gate". Migration
+`sql_for_agents/348` (+ value-matched ROLLBACK, which **also requires re-running the mirror** or
+the two rosters drift).
+
+**Why.** Each of the six has truncated in production at 8000 — counted from
+`error_message ILIKE '%stop_reason=max_tokens%'`, the only reliable signal, since a truncated row
+has `output_tokens` NULL. `review_guardian` twice, most recently 2026-08-08; the others once each
+between 07-30 and 08-03. The four siblings that truncated earlier (`review_editquality`,
+`review_guidelines`, `review_prior_art`, `review_architecture`) were **already** raised to 16000 by
+someone in this lane — so this levels the roster on a precedent you set, rather than inventing a
+number. A cap is a ceiling, not a budget: nothing costs more unless a seat actually generates more.
+
+**What I checked before touching it.** Mirror drift was `(none)` beforehand and exactly those six
+steps afterwards, so nothing else rode along. Zero councils were in flight (⚠ `status` is
+UPPERCASE — `NOT IN ('completed',…)` in lower case silently counts finished runs as in-flight; I
+made that mistake and nearly waited for four runs that had already completed).
+
+**What this does NOT do.** `feature-designer` carries the same seat names and was left alone — its
+only truncations were at `review_editquality`, already raised. And raising a cap does not address
+`bugs_closed/138`'s substance: a truncated advisory review is now TOLERATED and labelled, which is
+why the 08-08 `review_guardian` truncation degraded gracefully instead of blocking. This just makes
+the truncation itself rarer.

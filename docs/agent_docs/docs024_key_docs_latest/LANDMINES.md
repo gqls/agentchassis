@@ -7498,3 +7498,25 @@ SELECT type FROM agent_definitions
 - **the check:** before trusting or editing the branch, compare the store step's `purpose` against what the item spec carries: `SELECT spec->>'purpose', spec->>'asset_key' FROM site_work_items WHERE item_type='needs_imagery' AND spec->>'brand_update'='true'` — the spec says `logo`; the config says `hero`; whichever you are about to rely on, the other one wins at the artefact. The fix shape is its sibling `store_imagery_asset`'s: `purpose_field: "input_data.spec.purpose"`. Full chain + census of the 11 damaged sites: `bugs_open/235`.
 - **source:** 2026-08-09, bugfix_209_deploy_purpose_keyed_source lane — found answering `bugs_open/231`'s producer question; a 090 (run `fd7ef7a9`) stalled UNVERIFIABLE on the config it needed, one live-row query answered it
 - **added:** 2026-08-09, bugfix_209_deploy_purpose_keyed_source lane
+
+### The fleet "uncapped LLM step" census misses two whole populations — it reads 0 while steps are still falling to the hardcoded 2048
+
+- **footprint:** `agent_definitions`, `bugs_open/205`, `sql_for_agents/347`, `sql_for_agents/348`, any query containing `? 'ai_service'` or `default_config->'workflow'->'steps'`, `execute_llm_prompt`, `fleet-step-token-pressure`
+- **fires when:** you count uncapped LLM steps, size caps fleet-wide, or claim "no step can fall to the transport default" — including when you are checking someone else's such claim
+- **the tell:** none, and it reads as the reassuring answer. The census returns a small tidy number (126 steps, 8 uncapped, later 0) and every row it returns is correct. What it cannot show you is what it never selected.
+- **the check:** two blind spots, both closed by one query.
+  1. **`s.value->'config' ? 'ai_service'` excludes steps that have NO ai_service block** — which are *uncapped by definition*, not exempt. Eleven such steps were live on 2026-08-09 (the whole `content-creator-*` family, `visual-designer`, `content_researcher`, `simple-content-writer-with-approval`), invisible to the 205 census that had been quoted for three days as "8 of 126, now 0".
+  2. **`->'workflow'->'steps'` only walks TOP-LEVEL steps.** An LLM step nested in a loop's `sub_workflow` is missed entirely — `page-content-writer`'s real content generator lives at `{workflow,steps,process_sections_loop,config,sub_workflow,steps,generate_content,config,ai_service,max_tokens}` and truncated in production while the top-level census reported the fleet clean. Depth-aware totals: **134 LLM nodes, not 126.**
+  ```sql
+  SELECT count(*) FILTER (WHERE node->'config'->'ai_service'->>'max_tokens' IS NULL
+                            AND node->'config'->>'max_tokens' IS NULL AND root_cap IS NULL) AS uncapped,
+         count(*) AS llm_nodes_all_depths
+  FROM (SELECT jsonb_path_query(default_config,'$.** ? (@.action == "execute_llm_prompt")') AS node,
+               default_config#>>'{ai_service,max_tokens}' AS root_cap
+          FROM agent_definitions
+         WHERE is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL) q;
+  ```
+  `jsonb_path_query`'s `$.**` walks every depth and keys on the ACTION, so neither blind spot survives it. Before trusting any figure of this shape, ask which population the filter *defined* — and note the two censuses disagree by 8 nodes and 11 findings, so "which one did you run" is a real question about any number you inherit.
+- **also:** when you write a cap, `config.ai_service.max_tokens` is the honoured path and `config.max_tokens` reads NULL for every row (separate entry, same lane). And **a cap on a council seat must be written to `fix-proposer` and mirrored with `099_SYNC_gate_roster.py`** — hand-patching `council-gate` is the drift this estate has already been bitten by.
+- **source:** found while fixing production truncations off the back of `bugs_open/205`, 2026-08-09 — the corrected claim was my own, published three days running; WRONG_CALLS 2026-08-09
+- **added:** 2026-08-09, bugfix_205 lane

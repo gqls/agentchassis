@@ -355,3 +355,59 @@
   (`review_mission` peaks at 308 output tokens) so it stands, but if
   provocation-gate-calibration ever writes long-form it will meet the same
   thinking tax.
+
+## 2026-08-09 evening — the truncations fixed (mig 348), and the census I shipped this morning was blind twice over
+
+- Owner asked me to fix the truncations and tell the other threads. Both done;
+  the measuring found a bigger problem than the truncations.
+- **My 08-09 claim "no active LLM step can fall to 2048" was FALSE when I wrote
+  it — 11 could.** The census I inherited from the bug file (quoted as "8 of
+  126" for three days by several sessions) is blind two ways:
+  `s.value->'config' ? 'ai_service'` **excludes steps with no ai_service block
+  at all**, which are uncapped by definition; and `->'workflow'->'steps'` walks
+  **top-level steps only**, missing anything nested in a loop's `sub_workflow`.
+  Depth-aware and block-agnostic via `jsonb_path_query($.** ? (@.action ==
+  "execute_llm_prompt"))`: **134 nodes, 11 uncapped**. WRONG_CALLS 08-09 (third
+  entry today, same shape as the other two) + a LANDMINES entry.
+- **What caught it:** chasing where `page-content-writer`'s truncating step
+  actually lives. It is NESTED —
+  `{workflow,steps,process_sections_loop,config,sub_workflow,steps,generate_content,…}`
+  — so the census had never looked there, which implied it had never looked at
+  a whole shape, which found the other ten.
+- **Migration 348 applied + recorded, 19 row-updates, all guards green.**
+  - GROUP A, real truncations: `tool-auditor/llm_audit` 4000→16000 (9
+    truncations 07-21→08-08; the last was still producing text at 15,181 chars
+    when cut); `page-content-writer` nested `generate_content` 8000→16000
+    (recovered only 4,229 chars of an 8,000 budget — the sonnet-5 thinking tax,
+    and its healthy runs already peak 5,713–6,453).
+  - GROUP B, six council seats 8000→16000, levelling them with four siblings
+    this lane had already raised. **Written to `fix-proposer`, then
+    `099_SYNC_gate_roster.py --apply`** — never hand-patch the gate. Drift was
+    `(none)` before and exactly those six after.
+  - GROUP C, the 11 uncapped → 8000 (fleet mode). All dormant (zero calls in a
+    log reaching to 2026-03-25) — i.e. precisely the state 205 was in on 08-04.
+- **Post-apply, independently re-run: 134 LLM nodes, 0 uncapped at any depth**;
+  the six seats read 16000 in `council-gate` (the mirror target), not just in
+  `fix-proposer`.
+- **Two traps paid for.**
+  - `text[] || 'literal'` in plpgsql fails with *"malformed array literal"* —
+    Postgres parses the literal as an ARRAY, not an element. Cast it:
+    `path || 'ai_service'::text`. Cost one rolled-back apply (atomic, no
+    residue — the snapshots rolled back with it).
+  - **`orchestration_states.status` is UPPERCASE.** `status NOT IN
+    ('completed','failed',…)` in lower case returned "4 councils in flight"
+    when the true answer was 0 — it was counting COMPLETED runs. I nearly held
+    off a config change for four runs that had already finished. The live
+    vocabulary is `AWAITING_RESPONSES | COMPLETED | EXECUTING_STEP | FAILED`;
+    use `upper(status)`.
+- **Threads told, in their own docs, dated, without touching their words:**
+  the council lane (`fixloop_eg_dartsonline/NOTES_running_council_gate.md` —
+  what changed, why, that the mirror was used, and that a rollback must re-run
+  the mirror) and the page-pipeline lane
+  (`content_quality_and_internal_linking/HANDOFF_page_pipeline.md` — the
+  sonnet-5 thinking tax and the nested-step blindness). `tool-auditor` has no
+  active owning lane (mentions are all in archived dirs), so its change is
+  recorded here and in 348's header.
+- **Not done, deliberately:** `feature-designer` carries the same seat names but
+  has not truncated at them — no evidence, no change. Council gate not
+  submitted: its scope is `platform/`, `internal/`, `pkg/`, and this is config.

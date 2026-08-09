@@ -118,3 +118,37 @@ One thing for the housekeeping list, not urgent: two of the agents
 (chief-strategist and content-creator) each have two live copies of their
 definition, which is one more than anything should have. We sized both copies
 so it can't bite here, but someone should own tidying that up.
+
+## 2026-08-09 evening — the truncations are fixed, and I found the check I gave you this morning was half-blind
+
+You asked me to fix the truncations and let the other teams know. Both done — but the useful part
+is what turned up on the way.
+
+This morning I told you every step now has a chosen output limit, and that the fleet count of
+unsized steps read zero. That was wrong, and wrong in a way worth understanding: the count I ran
+only looked at steps that already had a settings block to read a limit *from*. A step with no
+settings block at all — no limit anywhere, which is the very thing we were hunting — was never
+counted. There were eleven of them. The same query also only looked at the top level of each
+agent's workflow, so anything running inside a loop was invisible, and that is exactly where the
+page-writing step that truncated yesterday lives.
+
+So the honest version is: this morning's zero meant "none of the steps I looked at", and the query
+had been quoted by several people for three days without anyone re-reading it. All eleven are now
+capped, the count is genuinely zero on a check that walks every depth, and I've written the trap
+down where the next person will hit it.
+
+The truncations themselves: the tool-auditing step was cut off nine times and is raised from four
+to sixteen thousand; the page-content writer is raised from eight to sixteen thousand; and six of
+the review panel's seats go from eight to sixteen thousand, matching four of their siblings that
+someone had already raised for the same reason. That last change went through the review panel's
+own copying tool rather than by hand, because editing its roster directly is how the two copies
+drift apart.
+
+One detail behind the page-writer fix worth knowing, because it will bite again: on the current
+models the limit covers the model's private thinking as well as the words it writes. That step had
+eight thousand to spend and produced only about four thousand characters before being cut — most
+of the budget went on thinking nobody sees. Any limit set on these models needs to be roughly
+double what the visible output needs.
+
+I've told the two teams whose agents I changed, in their own working notes, dated, without editing
+anything they'd written.

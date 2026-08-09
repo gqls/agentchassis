@@ -263,3 +263,31 @@ WHERE ad.type = '<agent-type>' AND key IN ('stepA','stepB') ORDER BY step;
 
 **Reminder when reading results:** a `0 rows` / `false` / empty field is not proof of absence until the
 query path itself is verified. Several wrong turns this project came from trusting a single probe.
+
+## NOTICE 2026-08-09 (from the bugfix_205 lane) — page-content-writer's content generator was truncating; cap raised 8000 → 16000
+
+Not your lane's work; telling you because it changed `page-content-writer` config and because the
+**reason** matters more than the change.
+
+**What happened.** On 2026-08-09 00:00Z the step that writes section content truncated
+mid-generation: `stop_reason=max_tokens` at an 8,000-token cap, with only **4,229 characters**
+recovered. That is the important number — 8,000 tokens of budget yielded ~4.2k chars of prose,
+because the model is `claude-sonnet-5` and **on Claude 5 the cap is a THINKING + TEXT budget**;
+server-side thinking is billed into `output_tokens` whether or not you asked for it
+(`bugs_closed/138` learned this at cap 120; this is the same lesson at production scale). Its
+healthy runs already peak at 5,713–6,453 output tokens, so 8000 had almost no margin left.
+
+**What changed.** `max_tokens` 8000 → 16000 via `sql_for_agents/348` (+ROLLBACK). Config, live
+immediately, no roll needed.
+
+**The bit worth keeping.** This step is **nested**, at
+`{workflow,steps,process_sections_loop,config,sub_workflow,steps,generate_content,config,ai_service,max_tokens}`
+— inside the loop's `sub_workflow`, not at `workflow.steps.*`. Every fleet-wide "which steps have
+no cap" census in this estate walks top-level steps only, so **this step was invisible to all of
+them** and the fleet read as clean while it truncated in production. If you audit anything across
+agent definitions, walk with `jsonb_path_query(default_config, '$.** ? (@.action == "…")')`, not
+`->'workflow'->'steps'`. Now a LANDMINES entry (footprint `agent_definitions`).
+
+**A truncated call also has `output_tokens` NULL**, so any truncation count or headroom
+statistic computed from `output_tokens` silently excludes exactly the calls you care about — count
+from `error_message ILIKE '%stop_reason=max_tokens%'`.

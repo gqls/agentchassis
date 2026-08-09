@@ -68,9 +68,38 @@
 >   content-creator/create_content ×2, 8000 brand-designer/analyze_brand,
 >   domain-analyst/analyze, provocation-gate-calibration/gate (sonnet-5 thinks
 >   into output_tokens — never a small cap). Guards asserted the pre-existing
->   chief-strategist 8192 untouched and the fleet census EMPTY. **No active
+>   chief-strategist 8192 untouched and the fleet census EMPTY. ~~**No active
 >   LLM step can now fall to the 2048 fallback; the WARN's remaining job is
->   announcing any FUTURE step added uncapped.**
+>   announcing any FUTURE step added uncapped.**~~
+>   **FALSE WHEN WRITTEN — ELEVEN steps still could.** This file's own census
+>   requires the step to already carry an `ai_service` block
+>   (`s.value->'config' ? 'ai_service'`), so a step with
+>   `action: execute_llm_prompt` and **no ai_service block at all** — equally
+>   uncapped, equally falling to 2048 — was never in the population. The
+>   block-agnostic, depth-aware census finds **134 LLM nodes and 11 uncapped**
+>   where the old shape said 126 and 0. All 11 were dormant (zero calls in a
+>   log reaching back to 2026-03-25) — exactly the state this bug was in on
+>   08-04. **Fixed 2026-08-09 by `sql_for_agents/348`; the depth-aware census
+>   now genuinely reads 0**, and it is the version to use from here:
+>   ```sql
+>   SELECT count(*) FROM (
+>     SELECT jsonb_path_query(default_config,'$.** ? (@.action == "execute_llm_prompt")') AS node,
+>            default_config#>>'{ai_service,max_tokens}' AS root_cap
+>       FROM agent_definitions
+>      WHERE is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL) q
+>    WHERE node->'config'->'ai_service'->>'max_tokens' IS NULL
+>      AND node->'config'->>'max_tokens' IS NULL AND root_cap IS NULL;
+>   ```
+> - **348 also fixed the standing TRUNCATIONS — a different class from this
+>   bug: a cap chosen too SMALL, not one absent.** `tool-auditor/llm_audit`
+>   4000→16000 (9 truncations to 08-08, one still producing text at 15,181
+>   chars when cut); `page-content-writer`'s **nested** `generate_content`
+>   8000→16000 (truncated 08-09 recovering only 4,229 chars — on sonnet-5 a cap
+>   is a THINKING+TEXT budget); six council seats 8000→16000, levelling them
+>   with four siblings already raised (written to `fix-proposer` and mirrored
+>   into `council-gate` by `099_SYNC_gate_roster.py` — hand-patching the gate is
+>   forbidden; mirror drift was exactly those six seats, verified before and
+>   after).
 **Found by:** the first run of `fleet-step-token-pressure` (bugs_open/183 candidate 4).
 It was the top line of the check's first note — 64 truncations, the largest in the
 fleet — and nothing else was watching it. See
