@@ -99,6 +99,7 @@ var knownHandlerAgents = map[string]bool{
 	"content-feed-orchestrator": true,
 	"content-gap-planner":       true,
 	"deduplicate-sections":      true, // seeded 2026-07-31 by 269_*.sql; verified live BEFORE this line
+	"domain-strategist":         true, // check_premise_incomplete (B3, 2026-08-09); live since 019_chief_strategist era, pod-verified via 5 llm_call_log runs + its B2 refresh gate witnessed 2026-08-08
 
 	"image-build-handler":     true,
 	"internal-linker":         true,
