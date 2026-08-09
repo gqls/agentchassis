@@ -634,3 +634,59 @@ assuming either outcome** — not done this entry, do it before dispatching any 
 as the deliberate canary, or wait and see if the same automated loop reaches it on its own
 (as it just did, unprompted, for row 2). Left for the next step in this session or the next
 session — see HANDOFF for the decision point.
+
+## 2026-08-09 (same session, later) — row 3 canary DISPATCHED, mixed result: the primary CTA is fixed, and it EXPOSED a real scoring-priority bug in the matcher itself
+
+This session asked the user to choose between dispatching now, waiting for the automatic
+loop, or stopping; the user chose to dispatch now. Mechanism: the existing detector-created
+`page_rerender`/`misdirected_cta` item for this exact page already existed
+(`fab86424-0078-469b-b355-76c6a625b67e`, `status='detected'`, `approval_mode='auto'`), and its
+own `suggested_target` already named `/tools/matchmatrix/index.html` — so no new item was
+authored, just promoted: `UPDATE site_work_items SET status='triaged' WHERE id=...`, satisfying
+`load_work_item_actions.go:650-652`'s dispatch predicate. Fired `build-dispatch-loop` at
+robot-hands.com's site (RUNBOOK's kcat worked example) — claimed in <15s, orchestration
+`107418a7-4412-456d-885c-f5534ec75866` → child `33c23067-6f31-4c45-ab4d-46201d3d79db`,
+COMPLETED in ~15s total.
+
+**The good part, and it's real**: `hero`'s "Run MatchMatrix" now resolves to
+`/tools/matchmatrix/index.html` with `cta_target_title: "Run MatchMatrix | Gripper Selection
+Tool | Robot-Hands.com"` — exactly row 3's verified target. **This is the first live,
+end-to-end proof that the shipped fix does what it was built to do**, on the actual repair
+path (`applyCTARecompute`), not just the calibration harness.
+
+**The bad part, found by checking every field the same rerender touched, not just the one
+being tested** — `call-to-action`'s `secondary_cta` ("Browse the Gripper Catalog") resolved to
+`secondary_cta_url: /tools/gripper-cycle-time-estimator/index.html`, **not** a catalog page.
+robot-hands.com has a real, valid candidate for this label:
+`gripper-catalog-index`, `page_type='section-index'`, url `/gripper-catalog/index.html` — a
+2-token overlap ("gripper", "catalog") against the label's tokens. The estimator page it
+actually got is a 1-token overlap ("gripper" only). **This is not a fluke — it's the matcher's
+own documented tie-break rule, read literally**: `datahelpers.BestLabelMatch`
+(`platform/orchestration/datahelpers/label_match.go:133-136`) checks
+`c.Interactive && !bestPtr.Interactive` **before** comparing overlap counts, so ANY
+`page_type='tool'` candidate with just 1 overlapping token beats ANY hub candidate regardless
+of how much better the hub's overlap is. The doc comment even states the intent plainly —
+"interactive (tool/game) candidates beat non-interactive ones, **then** higher token
+overlap" — but "then" here means *only among candidates of the same category*, which silently
+demotes overlap-quality to a tie-break that can never fire across categories. **Calibration
+likely saw this and mis-filed it**: the 08-08 entry's spot-check of the 162 override cases
+noted "a handful of plausible-but-looser token matches" as acceptable noise — this is probably
+that class, just not diagnosed as a category-priority bug at the time.
+
+**Not yet fixed. Not yet reverted on this page either** — this session stopped to write it up
+rather than patch the shipped, council-approved matcher unilaterally. Two shapes of fix, for
+whoever picks this up: (a) compare overlap count first, fall back to interactive-preference
+only on a genuine tie (matches the doc comment's stated intent); (b) same as (a) but weight
+interactive candidates rather than hard-gate them. **This should go back through the council
+gate as its own small round** (it's the same shared mechanism, same guarantee-affecting class
+as the original 203 follow-on) — not silently patched into the last commit, and not bundled
+into whatever ships row 3's remaining slots.
+
+**Consequence for the rollout plan (HANDOFF step 2, "test on ONE page before assuming for all
+six")**: the canary answered its own question two ways at once — yes, the matcher can produce
+the correct primary-CTA fix live; and no, it is not yet safe to assume every field a rebuild
+touches comes out right, because the priority bug above can silently downgrade an
+already-correct or better-candidate secondary/tertiary CTA on ANY page with both a tool and a
+hub candidate in play — which is most of this fleet. **Recommend holding the remaining
+five pages (2 leftover + 4 leopardess heroes) until the priority-order fix ships and is
+verified**, rather than treating this canary as a clean pass.
