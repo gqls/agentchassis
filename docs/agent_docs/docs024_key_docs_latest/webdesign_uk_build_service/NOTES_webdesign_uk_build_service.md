@@ -1665,3 +1665,45 @@ surface contradictions, don't proceed on a wrong premise):
   until they accept it" — the OWNER's own text; not edited. If it stays, a
   future full resubmission would regenerate uncapped copy; flagged to owner for
   re-wording.
+
+---
+
+## 2026-08-09 (2) — the caps could not be enforced at the gate: the OFFER lives in the SPEC CHAIN, and every derived spec re-imports it
+
+**What the first caps attempt taught (facts + bans + page re-drives): bans can
+FORBID a spelling; nothing REQUIRES the caps be stated — and the writers'
+instructions carry the uncapped offer.** Sequence of discoveries, each measured:
+- The 4-page re-drive produced "walk away for a full refund **any time** before
+  you accept" — a spelling my ban missed (ban said "at any point"; **a ban
+  proves absence only for the spellings it bans** — broadened to
+  `at any ?(point|time)|any time before|…`).
+- how-it-works blocked TWICE on "right up until you accept" — the writer kept
+  producing it because its INSTRUCTIONS say to: the offer narrative lives in
+  the intermediate specs.
+- Replan under the fixed roadmap: reconciler said `pages_emitted: 0,
+  pages_restamped: 5` — pages already built ⇒ no rebuild items; and
+  `pages.sections` is a bare TYPE LIST (49 B), NOT the writer's instructions.
+  `load_page_sections_from_spec` reads `site_specs.site_plan` (authoritative)
+  — **which does not exist for this site (no row, ever)** — falling back to
+  per-build section planning from the intermediate specs.
+- Swept ALL 13 current specs for the uncapped shapes: **briefing (both shapes),
+  strategy, identity (about_summary + a USP), mission_brief, submission** —
+  i.e. the classifier, strategist and briefing agent each faithfully
+  re-derived the mission's own sentence. **The mission IS the root**; no
+  gate-level fix can hold against a spec chain that instructs the promise.
+- **Fix at the root, versioned:** mission_brief + identity superseded
+  (INSERT-new + flip-old; `source='owner-caps-amendment-2026-08-09'`; the
+  owner's ORIGINAL text preserved in history; flip-before-insert because
+  `idx_site_specs_current` is partial-unique). Identity's USP line also
+  patched. All three source specs now read "review window" / "included
+  revision rounds", numbers in the evidence base. Then regenerate the chain:
+  strategy → briefing → the four offer pages (corrs in chain_state.txt +
+  monitors).
+- The submission spec (verbatim record of what was submitted) still carries
+  the old sentence — left as the historical record it is.
+
+**Standing lesson for the register/016b when this settles: on this platform the
+copy's commercial claims are only as capped as the SPEC CHAIN that instructs
+them — mission → identity/strategy/briefing → section plans → writer. A ban
+list bounds spellings; it cannot bound an offer. Change offers at the mission
+and regenerate the chain.**
