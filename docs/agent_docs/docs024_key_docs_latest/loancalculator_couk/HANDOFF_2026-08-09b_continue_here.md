@@ -84,7 +84,22 @@ Two traps inside that method, both of which will read as success:
 
 ## 4. What is actually next for THIS thread
 
-### 4a. The fleet-wide base-prompt change — chosen by the owner 08-05, still not started
+### 4a. The fleet-wide base-prompt change — **DECIDED 2026-08-09: H IS THE DEFAULT**
+
+> **OWNER DECISION 2026-08-09: "we can go with H as the default for now."** Voice H moves
+> from the finance pool's spec into the writer's base prompt — every vertical, every future
+> site. Provisional, with two named review triggers. Full write-up, including what is
+> **entailed** (the opening rule changes from prescription to prohibition; the shared
+> negative-twist ban stays) and what is **still open** (how it ships; what happens to the
+> exemplars):
+> `docs/agent_docs/docs024_key_docs_latest/fleet_copy_quality/SUMMARY_2026-08-09_h_becomes_the_default.md`
+>
+> **[MEASURED 08-09] Blast radius is small and mostly future.** The house voice only governs
+> sites with no voice spec of their own: of 21 deployed sites, 20 have one — only
+> **`cookly.uk`** does not. But all **17 pool sites** have none, and neither will anything
+> built from here. Do not size this change by the live estate.
+
+The remaining detail below still stands and is what the submission needs.
 
 This is the real remaining work. The owner chose the **wide** option. The week's evidence
 has changed its shape — see `fleet_copy_quality/SUMMARY_2026-08-08…`.

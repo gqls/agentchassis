@@ -79,3 +79,40 @@ or a service talking to a stranger with a job to do? What should decide whether 
 an offer strongly or just hint at it? And is there a page anywhere on the estate you'd
 point at and say that one's close — because a real example beats any amount of
 describing, and that's how we got the style prompt right last time.
+
+---
+
+## 2026-08-09 — you've made H the default, and here's exactly what that turns on
+
+You said: go with H as the default for now. Written up in full as
+`SUMMARY_2026-08-09_h_becomes_the_default.md`; this is the short version.
+
+What it decides: H stops being the finance pool's voice and becomes the house voice in the
+writer's base prompt — every vertical, every future site. That finishes the "wide rather
+than contained" choice you made on the 5th, which had been sitting undone.
+
+The one place the old default and H actually contradict each other is the opening sentence.
+The current default says "start with the fact". H says don't open cold with a bare
+assertion, and vary how sections open. H wins that. Both of them already ban opening on a
+negative twist, so that half changes nothing.
+
+Worth knowing how little this disturbs what's live: the house voice only applies where a
+site hasn't got a voice of its own, and twenty of your twenty-one deployed sites have one.
+Only **cookly.uk** has none at all. But all seventeen sites waiting in the pool have no
+voice spec, and neither will anything we build from now on — so this is a decision about
+future copy almost entirely, which is why it's cheap to make and worth making now.
+
+Two things I've deliberately not decided, because they're real choices rather than details.
+How it physically ships: the "base prompt" turns out to be seven separate prompts that have
+already drifted apart from each other, so it's either seven edits that will drift again, or
+one shared copy they all read. That goes to the review council with both options written
+out. And what happens to the worked examples — which on this week's evidence is probably the
+part that decides whether the change does anything at all, because we proved that a writer
+follows the examples and treats the rule as commentary.
+
+One thing I want on the record rather than buried, since it points the other way: when we
+tested the homepage opening two ways, the plain default produced the *softer* claim and H
+did not. The over-claim you objected to survived H and was removed by the default. That's
+one comparison on one page and it was about claim strength, not openings — but it's the
+reason I've written this up as "for now" and given it two specific triggers for revisiting,
+rather than filing it as settled.
