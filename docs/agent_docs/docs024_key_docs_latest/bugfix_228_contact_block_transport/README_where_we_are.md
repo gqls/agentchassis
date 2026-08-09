@@ -54,3 +54,28 @@ step is deliberately gated on seeing the new code actually running on the
 pods first, because doing it in the wrong order would make the page briefly
 *worse* than it is today (an honest-looking failure instead of today's
 fake-success one, but still a failure).
+
+**2026-08-09, later.** Good news with a twist: the bug is fixed and live, but
+someone else finished it while I was still going back and forth with the
+review process. The team that originally found this bug came back to fix it
+themselves, without checking whether anyone else was already on it — they
+hit the exact problem I'd been so careful to avoid (applying the database
+change before the code fix had actually rolled out, which briefly made the
+form honestly-broken instead of dishonestly-broken), then found a cleverer
+way around it that didn't need my code change to be live at all for those
+two specific pages.
+
+Their version of the fix is better than the one I'd prepared — they actually
+tested what a real browser does when you try to email a form submission,
+which settled a question I'd flagged but not answered, and their
+implementation handles more cases properly (a real server endpoint, a mailto
+handoff, and an honest refusal when nothing's configured, each with its own
+correct message). So I'm deferring to their version rather than swapping in
+mine for the sake of it.
+
+The one piece that's still genuinely mine is the underlying platform fix —
+the reason this class of bug could happen at all — and that's now confirmed
+running live across the fleet. Both sides of this ended up in a good place:
+the immediate bug is fixed with better code than either of us would have
+shipped alone, and the general mechanism behind it is fixed too, so the next
+component built the same way won't hit this. Nothing left to do here.

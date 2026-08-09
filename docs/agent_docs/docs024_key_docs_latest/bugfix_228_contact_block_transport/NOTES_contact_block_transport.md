@@ -305,3 +305,65 @@ ReplicaSet, down from 54 as completed Jobs age out), **all still on
 v1.0.1270**, zero on `v1.0.1271`. The redeploy is the sole remaining blocker
 for the entire fix — the plan is now fully designed, tested, mutation-checked,
 and council-approved end to end; nothing left to build.
+
+**Resolution: the bug is fixed, live, and better than my own staged version —
+by a different session, mid-flight, while I was in the council loop.**
+
+While I was working through council rounds 3-4 (the deploy-window
+verification fix), the `staged_component_build` lane (the bug's original
+filer) independently re-attempted the fix, without re-running `who-owns.py`
+before starting work (they logged this themselves in `WRONG_CALLS.md`, "I ran
+who-owns.py before FILING a bug and not before FIXING it"). Their
+`html_template` edit is **byte-identical** to mine — good convergent
+validation of the design. They hit my exact predicted regression first
+(`action=""` on the old binary, from applying the template edit before my Go
+fix was live) — then found a smarter unblock: seeding
+`page_components.content_data['form_action'] = ''` directly for the two
+live placements satisfies the ORIGINAL (07-24) `sanitiseFormAction`'s
+presence-only gate without needing my widened seeding fix at all, since a
+per-row content_data key is a different, older, already-live mechanism from
+my per-render seeding. They were explicit that this is a **two-row special
+case, not a substitute** for the class fix (`85390ee33`) and asked that it
+still get rolled — which it since has, confirmed independently (see below).
+
+**Their JS implementation ships, not mine.** They built
+`prove_contact_delivery.go` (drives 5 branches through a real browser:
+no-destination, mailto, endpoint-200, endpoint-500, invalid input) and
+`probe_mailto_form_encoding.go` (measures actual Chromium behaviour for a
+`mailto:` FORM submission — settling my own `[UNVERIFIED]` note in the
+original bug file: a GET form destroys `?subject=`, a POST form hands the
+text to a body a `mailto:` URL cannot carry, so BOTH `contact-form`'s
+existing native-submit approach AND my own planned `js_content_after_228_fix.js`
+were subtly unreliable in ways theirs isn't). Theirs builds the `mailto:`
+explicitly in JS with `subject=`/`body=` params and navigates via
+`window.location.href`, handles a real `http(s)` endpoint with an honest
+2xx/error split, and refuses honestly when no destination is configured —
+strictly more robust than my three-branch-collapsed-to-one design. Confirmed
+independently (own curl checks, 2026-08-09 ~11:25 UTC): both live pages serve
+the correct mailto action; the served JS asset (7,345 B) contains the new
+5-branch logic and zero functional `setTimeout` (one match, a comment).
+**Deferring to theirs — no further action on my `js_content_after_228_fix.js`
+or `apply_228_contact_block_fix.sh`.**
+
+**My apply script's needle-count guard worked exactly as designed.** Running
+it after their fix landed produced a clean abort ("occurrences of the exact
+old form tag: 0") rather than a silent no-op or a corrupting write — the
+whole point of building it that disciplined, per council round 2's HIGH
+objection, paid off the first time it mattered.
+
+**What is still genuinely mine and still standing:** the Go framework fix
+(`85390ee33`, `component_library.go`, tests, `LNK-031`) — explicitly
+confirmed by the other lane as "the general fix" that their content_data
+patch does not replace. It is now pod-verified live fleet-wide
+(`v1.0.1273`, checked across all 5 currently-running Deployment-managed
+chassis-binary pods, positive+negative controls both correct). All 4 council
+rounds' worth of scripts (`apply_228_contact_block_fix.sh`,
+`dispatch_228_rerenders.sh`, `verify_228_deployed_page.sh`) remain in the repo,
+unexecuted and no longer needed for THIS bug, but written generically enough
+to be genuine reusable references for the next component that needs the same
+needle-guard/backup/rollback or deploy-window-aware verification discipline —
+which is exactly the "prefer the framework" instruction this whole task
+started from.
+
+**Workstream closed.** No DB write, no dispatch, from this session — both
+would have been redundant against already-live, better-tested code.
