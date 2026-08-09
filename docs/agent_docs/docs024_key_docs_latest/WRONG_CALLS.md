@@ -24296,3 +24296,43 @@ index's shell-traps-that-fail-silently line: the shell "helpfully" rewrites
 your bytes at exit 0. A poll that has never once matched should be suspected
 of comparing incomparables before the system it grades is suspected — induce
 one positive match (hash the same URL both ways) before trusting any red.
+
+## 2026-08-09 — bugfix-228 session: `Council-Submitted: pending` as a placeholder trailer
+
+**The claim (implicit).** Drafted the first commit for the `form_action`
+seeding fix with the trailer `Council-Submitted: pending`, intending to
+submit to the council gate and fill in the real correlation before anyone
+read it — treating the trailer as a to-do marker rather than a value that
+gets read.
+
+**What was actually true.** The repo's `commit-msg` hook validates the
+trailer as a JOIN KEY (098's commit↔verdict resolution needs a real UUID or
+an 8+-char hex prefix of one) and rejected the commit outright: `"pending"`
+resolves to nothing, and forward-only forbids fixing a bad trailer with an
+amend, so a merged placeholder would have stayed wrong forever.
+
+**What caught it.** The hook itself, before the commit was created — zero
+actual damage, no partial state to clean up. Re-ran the council submission
+first (`097_TRIGGER_council_review_v1.sh`), got the real correlation
+(`46f87e4c-05fc-4a5c-bd6a-93a073b63253`), recommitted with that value, and it
+went through clean.
+
+**The cheap check.** Submit BEFORE drafting the commit message, not after —
+the correlation only exists once the submission has actually run, so there is
+no such thing as a "fill in later" value for this trailer. If the plan is to
+commit before the verdict lands (the documented, legitimate path), the
+sequence is still submit-then-commit, never commit-with-placeholder-then-fix.
+
+## 2026-08-09 — bugfix_226 lane: the verdict watcher I armed could never fire
+
+**Armed a background poller for the council round-2 verdict filtered on `created_at >
+'2026-08-08 23:40:00+00'` — the verdict had landed at 22:49 UTC, 51 minutes BEFORE the filter's
+floor.** I set the floor from my local clock (BST) without converting: "I submitted around 23:40"
+was true in local time and false in the UTC the column stores. The watcher polled a condition that
+was already permanently false, ran its 60 minutes, and reported nothing; I told the user the
+verdict was pending when it was already readable. Caught the next session by querying WITHOUT the
+time filter first. **The cheap check: before arming any watcher on a timestamp column, run the
+unfiltered query once and eyeball the newest row against your floor** — if the floor is later than
+rows that plainly already answer the question, the filter is wrong, not the world. Same family as
+`pin-the-clock-to-before-the-failure`, inverted: I pinned the clock AFTER the event and made the
+detector blind by construction.
