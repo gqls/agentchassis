@@ -256,8 +256,16 @@ compliance observation. Draft submission (evidence current to this morning):
    against the live artefact.
 2. **Approve the Slice A / Slice B order in §3**, including the pilot-cohort and
    the human read of the v4 prompt before Slice B. **DECIDED: APPROVED (owner,
-   2026-08-08).** The v4 plaintext read remains an open ACTION (owner or
-   delegate) gating seed 330's apply — approval of the process is not the read.
+   2026-08-08).** ~~The v4 plaintext read remains an open ACTION (owner or
+   delegate) gating seed 330's apply — approval of the process is not the read.~~
+   **The read is now DONE: the owner approved the v4 plaintext on 2026-08-09**
+   ("that prompt looks good to me"), closing the compliance seat's round-1 ask
+   and the last human gate on seed 330. The remaining gates on 330 are
+   machine-side and unchanged: Slice B's council verdict, and 328 applied
+   first. The approval attaches to the committed text
+   (`brochure_component_library/sql/page_content_writer_prompt_v4_2026-08-06.txt`)
+   as of that date — **any later edit to it voids the approval and needs a
+   fresh read.**
 3. **§3a's follow-on: DECIDED for option (a)** (owner, 2026-08-08) — strengthen
    rule 17 so the planner must state fact ownership for EVERY page, with the
    recommended safeguard: one more observed replan before the consuming half

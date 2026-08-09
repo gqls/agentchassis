@@ -1875,3 +1875,15 @@ not optional polish, it is the whole remaining job. Nothing you decided changes.
 
 The one thing still only you can do is read the writer's new instructions (the
 v4 file) before we switch the second half on.
+
+2026-08-09, later. You read the writer's new instructions and approved them
+("that prompt looks good to me"). That was the last thing waiting on a human,
+so it is recorded in the RFC and in the handoff as done, with one caveat noted
+there: the approval is for the text as it stands today, so if anyone edits that
+file later it needs your eyes again rather than inheriting this yes.
+
+What that unblocks: nothing switches on yet, and that is deliberate. The
+remaining steps are all machine-side and already agreed — the review round on
+the second half, then applying the two config changes in order. The genuine
+blocker is still the duplicate-page bug and the small addition that lets fact
+assignments survive onto pages that are already built.

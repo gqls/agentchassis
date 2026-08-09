@@ -68,9 +68,15 @@ carries whatever coincides.
    `COUNCIL_DRAFT_slice_b_2026-08-08.json` with a HOLD note inside — **do not
    submit as-is**; add 1b's edits and a fresh compliance observation
    (post-215-fix replan: facts must SURVIVE onto restored sections).
-4. **Owner's read of the v4 writer prompt** —
-   `sql/page_content_writer_prompt_v4_2026-08-06.txt`. Gates seed 330 only.
-   Still owed; it is the one step no session can do.
+4. ~~**Owner's read of the v4 writer prompt**~~ — **DONE. APPROVED by the owner
+   2026-08-09** ("that prompt looks good to me"), on
+   `sql/page_content_writer_prompt_v4_2026-08-06.txt`. This was the compliance
+   seat's round-1 ask and the last human gate on seed 330; **it is cleared —
+   do not re-ask.** Note what it does and does not license: the owner approved
+   the v4 TEXT. Seed 330 still applies only after the Slice B council verdict,
+   and only after 328 (a v4 prompt without the wiring key sees no
+   `facts_scoped` and behaves as v3). **If the text changes for any reason
+   after this date, the approval does not travel with it — re-ask.**
 5. **Then**: un-`_HOLD` 328/330 → apply 328 then 330 → rebuild flagged pages →
    census: overlap pairs fall on fundamentallyai, the five fact-blind sites
    must not move (the disconfirming half).
