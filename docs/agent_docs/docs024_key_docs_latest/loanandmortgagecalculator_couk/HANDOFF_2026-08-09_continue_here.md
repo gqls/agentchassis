@@ -6,11 +6,17 @@ reference.
 
 ---
 
-## 1. THE ONE THING NOT FINISHED
+## 1. NOTHING IS OUTSTANDING — the last item landed before the session ended
 
-**Six `page_rerender` work items are queued for loancalculator.co.uk and had not
-been dispatched when this session ended.** Everything else below is done, live
-and verified.
+**All six loancalculator.co.uk rerenders completed and are verified live**
+(sweep 0 of 5 affected, `defect_vectors --live` 16/16, serving guard 26/26).
+Both sites are fixed, live and proven; the 17 fences are installed and three are
+proven in-cluster. The open items are the three DECISIONS in §3, not tasks.
+
+The queue text below is kept because the pattern recurs: six items sat `triaged`
+behind ~73 older ones for roughly an hour, which is waiting, not stuck.
+
+### (historical) how the queued rerenders were tracked
 
 ```sql
 SELECT spec->>'filename' AS file, status, created_at
