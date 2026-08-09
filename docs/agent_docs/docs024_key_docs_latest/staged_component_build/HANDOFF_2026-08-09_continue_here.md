@@ -66,6 +66,10 @@ mail client is in the loop** — we hand off and say so ("Opening your email app
 claim receipt. That is this estate's decided mechanism (owner, 2026-07-17; `contact-form`'s
 13 pages) and it needs no new infrastructure.
 
+**Update 13:15Z — the class fix (`85390ee33`) is live on v1.0.1274 and proven operating;
+the hand-seeded special case has been removed and both pages still deliver. See the bug
+file's UPDATE section.**
+
 **A true server-side receipt is possible and is NOT built.** `tools.apis.uk` (the island
 `tools-api`) already accepts cross-origin POSTs from these domains, and `platform/mailer`
 (register PUB-003) is built, council-approved and has **zero importers**, with contact forms
@@ -136,9 +140,14 @@ destination. Not done; it is the natural next edit to that PLAN.
 
 ## 4. Standing defect list for the owner
 
-1. **`bugs_open/228` — FIXED and LIVE on all 15 served pages** (see §1). Remaining: the
-   fleet roll for `85390ee33` (the class fix), and the JS choice (§0). Neither blocks a
-   visitor today.
+1. **`bugs_open/228` — FIXED, LIVE on all 15 served pages, and the CLASS FIX IS PROVEN.**
+   `85390ee33` rolled on **v1.0.1274** (13:xx Z); pod-grepped on both replicas with controls
+   (new marker 0 → 1 across the roll). Proven to be *operating*, not merely present: the
+   hand-seeded `content_data.form_action` special case was REMOVED from both placements and
+   they still render the site's mailto — a check that would have produced `action=""` had
+   the class fix not been reaching that path, which is exactly what happened on v1.0.1270.
+   No contact-block placement carries a hand-seeded key any more. Remaining: the JS choice
+   (§0), and the fence edit in §3. Neither blocks a visitor.
 2. gaswholesalers.com: every page 404s `/assets/images/logo.png`. **4+ days.**
 3. The `hero.jpg` 404 family (`bugs_closed/128`, measured 07-31, **still serving**) — ≥7
    sites, incl. vetcomparison.uk which 128's own list missed.

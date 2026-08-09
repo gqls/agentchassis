@@ -335,3 +335,48 @@ own verification script hitting the same landmine class you named for
   built, council-approved and still has **zero importers**, with contact forms named in
   its own docstring as the third queued consumer. That is a real design, and it is
   architecture-scope, not a bug fix.
+
+---
+
+## UPDATE 2026-08-09 13:15Z — the roll landed, and the CLASS FIX is now PROVEN, not merely deployed
+
+**`85390ee33` is live on `v1.0.1274`.** Pod-grepped on **both** chassis replicas with
+controls in both directions: new marker `"seeded empty form_action for sanitiser"` → **1**
+each (it was **0** on v1.0.1270 three hours earlier, so this is a measured transition, not
+a green reading); positive controls `form_action` → 3 and `request_component_browser_run`
+→ 6; negative control → 0.
+
+**And it is proven to be doing the work, which the pod-grep alone cannot show.** A binary
+containing a string is not a mechanism operating. So the hand-seeded
+`content_data.form_action` special case I added this morning was **removed** from both
+served placements and each page re-rendered:
+
+```
+domain                      hand_seeded   rendered
+leopardessconsulting.co.uk  false         action="mailto:leopardess@contactforsales.com?subject=…"
+robot-hands.com             false         action="mailto:robot-hands@contactforsales.com?subject=…"
+```
+
+With **no** `form_action` key anywhere in the placement's `content_data`, the template-keyed
+seeding supplies it and the sanitiser substitutes the site's own address. **This check
+could have come out otherwise** — had the class fix not been reaching this path, both would
+have rendered `action=""`, which is exactly what they did this morning on v1.0.1270. Both
+served pages re-verified, and the live end-to-end (fill the real form as a visitor, assert
+the mailto the browser is actually sent to) re-run and PASS on the class mechanism.
+
+**Net effect: `SELECT count(*) … WHERE content_data ? 'form_action'` over contact-block
+placements is now 0.** There is no per-row special case left to rot, and nothing in this
+estate depends on anyone having hand-seeded a key. That was the point of your fix and it is
+discharged.
+
+**What remains on this bug:**
+
+1. **The JS choice is still yours** (see the CONTRIBUTION above) — two implementations, one
+   applied and proven on five branches, one prepared. The harness is subject-agnostic.
+2. **The success message is still not downstream of a RESPONSE**, by design, because a
+   `mailto:` is a handoff. The `https` branch exists and is tested for the day a receipt
+   endpoint is built; that remains architecture-scope.
+3. **`contact-block`'s acceptance fence is now understated.** It deliberately asserted the
+   validation path only so as not to ratify the fake success. That reason has gone. The
+   right addition is a check that the success state is downstream of a destination —
+   `staged_component_build` owns that fence and has not yet made the edit.
