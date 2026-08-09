@@ -257,3 +257,58 @@ Phase 2, the ~90-line deletion of the category lookup from the deploy code,
 which goes through the council and must only roll after today's migration is
 confirmed in place (it is; re-check on pickup as rolls re-stamp the config
 timestamps without changing content).
+
+---
+
+**2026-08-09, afternoon.** The proof run happened, and it turned up something we
+did not go looking for.
+
+First the good news. I built a throwaway site at cookly.uk through the old
+pageflow-builder workflow, start to finish — planner, logo, hero, three pages,
+design, deploy. Both images arrived in the repo, each from its own source: the
+hero step downloaded the hero's own file from storage and stamped the hero's own
+database row, with the logo's file sitting right there in the same run untouched.
+That is exactly what this morning's migration was supposed to guarantee, and it is
+the first time we have watched it happen rather than reasoned about it.
+
+Two things I want to flag about the evidence itself, because both are the sort of
+thing that quietly turns into folklore.
+
+One: the test everyone had written down as the bar — "check the two files have
+different bytes" — is not actually a test. The system re-encodes the hero as a JPEG
+and the logo as a PNG, so the two files are guaranteed to differ no matter which
+source each one came from. It would have passed even if the bug were fully present.
+The real evidence is which file each step fetched, which I have from the logs.
+
+Two: a caution for anyone doing this next. The per-agent pods keep about ELEVEN
+SECONDS of logs. I fetched twenty minutes' worth about a minute after the fact and
+got eleven seconds. Start the log capture before you dispatch, or you will be
+reconstructing from the database.
+
+Now the thing we did not expect. While checking that our new logo looked right, I
+listed every logo this system has ever committed across all the sites. Four are
+400×400 PNGs, which is correct. **Eleven are JPEGs at the wrong size** — 1408×768
+or 900×900 — and every single one of them was committed by a step that announced
+itself as "Deploy **hero** image". The commit message is generated from the same
+setting that controls the resizing and the filename, so those messages are not a
+labelling quirk: those logos were genuinely processed as though they were hero
+photographs. Because JPEG cannot store transparency, every one of those sites is
+serving a logo with a solid background baked in, at up to three times the intended
+size. The affected list includes idea.uk, robot-hands, dartsonline, fundamentallyai,
+webdesign.uk and webdesign.co.uk.
+
+That is bug 231 — the one filed this morning saying a setting written one way in
+the config is silently ignored. Its file honestly says "we don't know whether this
+ever actually happened". It did, eleven times, and it is on live sites now.
+
+The sting is that **this morning's migration did not fix it.** The migration
+repaired the two old workflows, which are the ones nobody runs. The damage came in
+through a different door — the evidence points at the shared asset-deployer being
+called without the setting it needed, and I can see four database rows whose
+filenames are literally an unresolved config path, which is the same failure wearing
+a different hat. I have not proved which caller did it, and I am deliberately not
+guessing: that question is going to the diagnosis loop, which is what it is for.
+
+So: the fix we shipped this morning is real and now proven, and it is narrower than
+the problem. Next is the diagnosis run on the historic cause, the same proof through
+the second old workflow, and then the code deletion that was already queued.

@@ -160,3 +160,78 @@ behaviour it pins is still current for any config authored that way).
   sacrificial-domain run of each workflow, hero.* and logo.* both committed with
   different bytes. The bar for closing is fixed AND live AND proven at the
   artefact.
+
+---
+
+## CONTRIBUTION 2026-08-09 (afternoon), `bugfix_209_deploy_purpose_keyed_source` lane — this fired LIVE on 11 sites, and 348 did not fix that
+
+Two of this file's own statements are corrected below. Full evidence, method and
+missteps: `docs024_key_docs_latest/bugfix_209_deploy_purpose_keyed_source/NOTES_209…`
+(2026-08-09 afternoon section).
+
+### 1. `[MEASURED]` The behavioural proof for the repaired instance: DONE, and it passes
+
+Sacrificial domain `cookly.uk`, full `pageflow-builder` build (correlation
+`0562a667-…`, orchestration `22fb157a-…`). Both assets committed —
+`cookly.uk/assets/images/hero.jpg` and `…/logo.png` — and the logo is a **400×400
+PNG**, the first correct one this system has produced since 2026-03-02. The hero
+deploy step (the only one running with BOTH assets in `collected_data`) resolved
+every field through Strategy-0 dotted paths, downloaded the hero's OWN storage
+object and stamped the hero's OWN asset row, while the aggressive search ran in the
+same step and had its result discarded.
+
+> **The verification bar written in this file is not disconfirmable — do not rely on
+> it.** "hero.* and logo.* committed with different bytes" cannot fail: the deploy
+> re-encodes per purpose (hero→jpg, logo→png), so the outputs differ in bytes even
+> when the wrong source is fetched. Use the **downloaded object key** and the
+> **asset row stamped** instead; both are in the NOTES with timestamps.
+
+### 2. `[MEASURED]` "Whether this ever fired live" — IT DID. 11 sites are serving it now
+
+This file records that as `[UNMEASURED]`. Census of every logo committed to
+`gqls/sites`, joined to its producing commit subject:
+
+- **Correct — `logo.png`, 400×400 PNG, subject "Deploy _logo_ image":** 4
+  (ai-agent-orchestration 02-22, finetuning 03-02, leopardess 07-10 hand-made,
+  cookly 08-09 = the post-348 run above).
+- **Wrong — `logo.jpg`, JPEG at 1408×768 / 900×900 / 646×275, subject "Deploy
+  _hero_ image":** 11 — gamesdesign 06-06, idea.uk 06-21, vonc 06-23, dartsonline
+  07-06, robot-hands 07-10, vetcomparison 07-17, fundamentallyai 07-21, oufe and
+  webdesign.co.uk 07-25, relojistas 07-29 (since hand-replaced), lendzy 08-02,
+  webdesign.uk 08-04.
+
+`purpose == "hero"` at those deploys is established three independent ways:
+`deploy_image_asset_action.go:579` builds the subject from the resolved `purpose`;
+`DeployedAssetPath` takes the extension from `purpose` and the filename from
+`asset_key` (`url_helpers.go:317-330`) and `ImagePurposes["logo"]` is
+`{400,400,90,"png"}` (`:364`), so `.jpg` is unreachable with purpose "logo"; and
+`DownloadOptimizeAndPrepare` resizes by `purpose` — none of the 11 is 400×400.
+
+**Impact is not cosmetic:** JPEG has no alpha channel, so each of those logos is
+served with an opaque background at up to 1408×768 instead of 400×400.
+
+### 3. The predicted failure SHAPE was wrong, and that matters for who still owns the exposure
+
+This file predicts the logo's bytes committing to **the hero's path**, clobbering the
+hero — reasoning from "no `asset_key` is supplied". The artefacts say otherwise: the
+files are named `logo.jpg`, so an `asset_key` of "logo" **was** supplied. The historic
+producer is therefore **not** the legacy-pair shape this file modelled, and:
+
+> **Migration 348 did not fix the fleet's logo problem.** It repaired the two
+> workflows that nobody dispatches. The exposure that actually shipped came through
+> another door.
+
+`[UNVERIFIED]` Which caller. `assets` points at **`asset-deployer`**: four rows are
+named literally `input-data.asset-key.jpg` — an unresolved `input_data.asset_key`
+config path leaked in as the asset key, with hero's extension again, which is this
+file's mechanism wearing a different hat (`asset-deployer` reads
+`purpose: input_data.purpose`; a caller that omits it gets the `"hero"` Default and
+nothing says so). Filing a 090 rather than asserting it — the cause is not where the
+symptom is, which is exactly that loop's case.
+
+### 4. What this changes about closing
+
+The instance repair (348) is proven; **this file must not close on it.** The live
+damage is 11 shipped artefacts plus whatever keeps producing them, and neither is
+addressed. Candidate 3 (CheckConfig flags a static value for a defaulted field)
+would have caught the producer at authoring time and is still the cheap win.

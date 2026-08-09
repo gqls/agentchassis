@@ -390,3 +390,116 @@ addendum added to my 223 block). My committed test answers this gap by
 `[UNMEASURED]` in 231, and expected: the workflows do not run. The fleet-class
 CENSUS remains undone; 231 stays OPEN for it, plus candidates 2/3 and the
 behavioural proof.
+
+---
+
+## 2026-08-09 (afternoon) — the behavioural proof ran, and it found live 231 damage across the fleet
+
+### Setup
+
+Sacrificial domain `cookly.uk` (owner-named), seeded as a `sites` row with an
+object-shaped brief (no `github_repo` → `resolveGitRepoNameDB` defaults to `sites`).
+Dispatched with `071b_new_build`'s "trigger just pageflow-builder" message, published
+with the payload in the container COMMAND plus a `PUBLISH_OK` marker (the
+`kubectl run -i | kcat -P` silent-drop trap). Correlation
+`0562a667-122f-41ed-8fee-841180264367`, orchestration
+`22fb157a-322b-4c56-bc00-51e549db3060`. Scripts in RUNBOOK §10.
+
+### `[MEASURED]` Migration 348 works end-to-end, and `findStorageURI` is NOT on the live path
+
+The **hero** deploy step is the only one that runs with BOTH assets present in
+`collected_data` (order: logo-generate → logo-store → logo-deploy → hero-generate →
+hero-store → hero-deploy), so it is the step where the 86% wrong-asset hazard could
+bite. Its log:
+
+```
+13:11:39.238 Strategy 0: Resolved config path  field=domain   path=site_record.domain
+13:11:39.238 Strategy 0: Resolved config path  field=s3_uri   path=hero_stored.s3_uri
+13:11:39.238 Strategy 0: Resolved config path  field=purpose  path=hero_stored.purpose
+13:11:39.238 Strategy 0: Resolved config path  field=asset_id path=hero_stored.asset_id
+13:11:39.239 Downloading image from S3  purpose=hero key=images/…/fa752a71-…png
+13:11:41.649 deploy_image_asset: recorded local url on asset  asset_id=f015cd0c-… url=/assets/images/hero.jpg
+```
+
+`fa752a71` is **hero_stored's own** object; the logo's is `bd7308a5`. The asset row
+stamped is the hero's own. The same log ALSO shows `Found via aggressive search` for
+`purpose` and `asset_id` — the randomised mechanism ran and its result was
+**discarded**, because Strategy 0 had already populated those fields
+(`action_inputs.go:499`, skip-if-already-resolved). The hazard firing and being
+overridden in the same step is the strongest single line of evidence here.
+
+**Consequence for Phase 2:** `inputs.Get("s3_uri")` was non-empty, so
+`findStorageURI` was never reached. Deleting it cannot change this workflow.
+
+> **CORRECTION to `HANDOFF_2026-08-09b`'s own wording.** It says 348 "deliberately
+> excluded s3_uri". True of `input_fields` ONLY — `s3_uri` is in
+> `DeployImageAssetInputSpec.Optional`, so **Strategy 0 resolves the config dotted
+> path regardless of `input_fields`**. The exclusion suppresses the *aggressive
+> search* (Strategy 1), not the explicit path. The shorthand reads as if the field
+> were unresolved, which would invert the Phase 2 risk assessment.
+
+### `[MEASURED]` The byte comparison both bug files specify is NOT disconfirmable — do not cite it alone
+
+`hero.jpg` sha `b2a8368…` (140,534 B) vs `logo.png` sha `4e9a947…` (239,735 B):
+distinct. **But that test could not have come out otherwise.** The deploy re-encodes
+per purpose (hero→jpg, logo→png), so the two outputs differ in bytes *even when the
+wrong source is fetched*. The disconfirmable measurements are the **downloaded
+object key** and the **asset row stamped**, both above. Recorded because 209 §"How
+to verify a fix" and 231 both name the byte comparison as the bar.
+
+### `[MEASURED]` 231 DID fire live — 11 sites serve a logo that was processed as a HERO
+
+231 records `[UNMEASURED] Whether this ever fired live`. It did. Census of every
+committed logo in `gqls/sites`, with its producing commit subject:
+
+- **`logo.png` × 4** — ai-agent-orchestration 02-22, finetuning 03-02, leopardess
+  07-10 (hand-made brand commit), **cookly 08-09 (this run)**. All **400×400 PNG**,
+  subject "Deploy **logo** image".
+- **`logo.jpg` × 11** — gamesdesign 06-06, idea.uk 06-21, vonc 06-23, dartsonline
+  07-06, robot-hands 07-10, vetcomparison 07-17, fundamentallyai 07-21, oufe and
+  webdesign.co.uk 07-25, relojistas 07-29 (later hand-replaced), lendzy 08-02,
+  webdesign.uk 08-04. All **JPEG at 1408×768 / 900×900 / 646×275**, subject
+  "Deploy **hero** image".
+
+Three independent signals agree `purpose == "hero"` at those deploys:
+
+1. `deploy_image_asset_action.go:579` builds the message as
+   `fmt.Sprintf("Deploy %s image for %s", purpose, domain)` — the subject *is* the
+   resolved purpose.
+2. `DeployedAssetPath` takes the **extension from purpose** and the **filename from
+   asset_key** (`url_helpers.go:317-330`); `ImagePurposes["logo"]` is
+   `{400,400,90,"png"}` (`:364`), so a `.jpg` is unreachable with purpose "logo".
+3. `DownloadOptimizeAndPrepare(…, purpose, …)` drives the resize — and not one of
+   the 11 is 400×400; they keep their generation dimensions.
+
+**Worse than a naming slip:** JPEG carries no alpha channel, so each of those logos
+is served with an opaque background, at up to 1408×768 instead of 400×400.
+
+`[UNVERIFIED] — this is the 090's question:` **which caller/config produced each
+one.** 231's "proven instance" (the legacy pair's static `purpose: "logo"`) predicts
+the logo landing on **the hero's own path** (`hero.jpg`), because it assumed no
+`asset_key`. The artefacts show `logo.jpg`, so an `asset_key` of "logo" WAS supplied
+— the historic producer is **not** the shape 231 modelled. `assets` points at
+`asset-deployer`: four rows are literally named `input-data.asset-key.jpg`, an
+unresolved `input_data.asset_key` config path leaked in as the asset key, again with
+hero's extension. Do not assert the producer without the 090.
+
+**So migration 348 did not fix the fleet's logo problem.** It fixed the pair that was
+not running. The exposure that actually shipped runs through whatever calls
+`asset-deployer`, and it is still open.
+
+### Traps paid for this session
+
+- **The per-agent pods keep ~11 SECONDS of logs.** `kubectl logs --since=20m` on
+  `agent-pageflow-builder` returned its earliest line at 13:11:38 for a fetch at
+  ~13:12 — the logo deploy at 13:11:27 was already gone. Attach `logs -f` BEFORE
+  dispatching, or accept that only the final step is evidenced.
+- **Only `agent-chassis` is a Deployment**; the per-agent pods
+  (`agent-pageflow-builder-…`) are spawned per run, so you cannot pre-tail one by
+  name — poll for the pod and attach the moment it appears.
+- The fleet rolled to **v1.0.1274 at 12:23 UTC**, *between* this session's config
+  check and its dispatch. Re-verified the four 348 steps by CONTENT afterwards:
+  intact, `updated_at` re-stamped to 12:22:37 — RUNBOOK §8's exact pattern.
+- `sites` has **no `site_id` column** (it is `id`), and `content_data` is an
+  **array** on some sites and an object on others, so `jsonb_object_keys` errors on
+  the former. Both cost a query.

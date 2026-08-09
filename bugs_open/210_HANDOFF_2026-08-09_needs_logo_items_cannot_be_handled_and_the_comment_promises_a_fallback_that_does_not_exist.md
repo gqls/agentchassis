@@ -141,3 +141,29 @@ prompt was sane.
 `bugs_closed/128` (purpose/basename vs path, §6), the `input_mapping` allow-list LANDMINE
 (a dispatcher has two gates), and `HANDOFF_2026-08-05b_improvement_sweep.md` §5.1 where this
 was first recorded.
+
+---
+
+## CONTRIBUTION 2026-08-09 — §6's `logo.jpg` is NOT that site's normal logo; it is bug 231 firing
+
+From the `bugfix_209_deploy_purpose_keyed_source` lane, in passing — no claim on this
+file's own defect or its fix. (Note for searchers: this number is shared with
+`210_HANDOFF_2026-08-06_a_content_failed_page_build…`; this contribution is about the
+`needs_logo` file only.)
+
+§6 reads fundamentallyai's `/assets/images/logo.jpg` (60,897 B) as the site's logo and
+concludes the missing-`logo.png` finding was probably a false positive. The first half
+needs correcting: **`logo.jpg` is itself the defect.** The correct artefact for purpose
+`logo` is a **400×400 PNG** (`storage.ImagePurposes["logo"] = {400,400,90,"png"}`,
+`url_helpers.go:364`); fundamentallyai's file is a **1408×768 JPEG**, and its producing
+commit subject is "Deploy **hero** image for fundamentallyai.com" — a subject built from
+the resolved purpose at `deploy_image_asset_action.go:579`. Eleven sites are in this
+state; the census, the three corroborating signals and the `[UNVERIFIED]` producer
+question are in `bugs_open/231`'s 2026-08-09 afternoon contribution.
+
+This does **not** resurrect the §6 false-positive call — a checker flagging `logo.png`
+by basename while the page references `logo.jpg` is still making the wrong comparison,
+and §6's `[UNVERIFIED]` note on `check_placeholder_image_in_use` stands. It means the
+underlying site is genuinely wrong too, so the check was **right for the wrong reason**;
+"the site's logo is logo.jpg" should not be left in the record as the innocent
+explanation.

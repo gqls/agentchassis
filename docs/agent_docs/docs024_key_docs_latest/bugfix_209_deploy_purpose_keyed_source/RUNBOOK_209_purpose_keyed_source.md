@@ -144,3 +144,42 @@ ls -t ~/.claude/projects/-home-ant-projects-agentchassis/*.jsonl | head -16 | wh
 Then check each hit's *last* entries for what it is actually doing — most hits
 are incidental (a `git status` listing the filename, or a neighbouring lane
 reading the same package).
+
+## 10. Running the behavioural proof (a real build on a sacrificial domain)
+
+`fire_209_proof.sh pageflow|swo` and `verify_209_proof.sh`, both in this directory.
+
+```bash
+# 0. Seed the sacrificial site row FIRST (the workflow needs a brief to plan from).
+#    sites has NO site_id column — the PK is `id`. content_data is an object here;
+#    on some older sites it is an ARRAY, so jsonb_object_keys() errors on those.
+#    Leave github_repo NULL: resolveGitRepoNameDB then defaults to 'sites'.
+
+# 1. Attach the log capture BEFORE dispatching. The per-agent pod keeps ~11 SECONDS.
+#    Only agent-chassis is a Deployment; agent-pageflow-builder-* is spawned per run,
+#    so poll for it rather than naming it:
+until p=$(kubectl -n ai-persona-system get pods --no-headers -o name 2>/dev/null \
+          | grep -m1 agent-pageflow-builder); [ -n "$p" ]; do sleep 1; done
+kubectl -n ai-persona-system logs -f "$p" --tail=0 > pfb.log &
+
+# 2. Dispatch. No PUBLISH_OK in the output => nothing was published; re-fire.
+./fire_209_proof.sh pageflow
+
+# 3. Follow it. Sub-agents share the correlation, so one query shows the whole tree:
+#    SELECT owner_agent_type, current_step, status FROM orchestration_states
+#    WHERE correlation_id='<CORR>' ORDER BY created_at;
+```
+
+⚠ **Assert the right thing.** "hero.* and logo.* differ in bytes" is NOT
+disconfirmable — the deploy re-encodes per purpose (hero→jpg, logo→png), so they
+differ even when the wrong source is fetched. Assert instead:
+
+- the **downloaded object key** matches that step's own `{p}_stored.s3_uri`
+  (`grep 'Downloading image from S3' pfb.log`), and
+- the **asset row stamped** is that step's own `asset_id`
+  (`grep 'recorded local url on asset' pfb.log`), and
+- for the logo specifically, the artefact is a **400×400 PNG** — a `.jpg`, or any
+  other size, means purpose resolved to "hero" (bugs_open/231).
+
+⚠ The **hero** step is the one worth reading: it is the only deploy that runs with
+both assets in `collected_data`. The logo deploys before the hero exists.
