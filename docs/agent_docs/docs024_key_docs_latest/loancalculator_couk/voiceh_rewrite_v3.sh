@@ -24,8 +24,18 @@ set -euo pipefail
 
 SITE_ID='0162cde4-633e-45e9-8ca6-87a6b2fe1d26'
 DOMAIN='loancalculator.co.uk'
-CANARY_ITEM='6d52beaf-9555-4178-a274-4d70d5019af5'   # guidance v3: varied openings + preserve <style> blocks byte-for-byte
+# Which pinned work item holds the prompt. Overridable so a ONE-OFF piece of
+# guidance (a single section, a reorder) can reuse this dispatch path instead of
+# spawning a fourth near-identical copy of this script. Default is unchanged, so
+# `voiceh_rewrite_v3.sh <page>` behaves exactly as before.
+#   SRC_ITEM=<uuid> KEY_PREFIX=<slug> ./voiceh_rewrite_v3.sh <page>
+CANARY_ITEM="${SRC_ITEM:-6d52beaf-9555-4178-a274-4d70d5019af5}"   # guidance v3: varied openings + preserve <style> blocks byte-for-byte
+ITEM_KEY_PREFIX="${KEY_PREFIX:-voiceh-v3}"
 PAGE_NAME="$1"
+# A one-off's summary is what another session reads in the work queue. Left as
+# "Voice H rewrite - <page>" a targeted strap-line fix reads as a whole-page
+# rewrite, which is the confusion HANDOFF §5 is about.
+ITEM_SUMMARY="${SUMMARY:-Voice H rewrite - $PAGE_NAME}"
 
 PSQL() { kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db "$@"; }
 
@@ -42,11 +52,11 @@ INSERT INTO site_work_items
   (site_id, source, item_type, severity, summary, spec, page_id, status, created_by,
    handler_agent, item_key, priority)
 SELECT '$SITE_ID', 'voiceh-rollout', 'content_rewrite', 'medium',
-       'Voice H rewrite - $PAGE_NAME',
+       '$ITEM_SUMMARY',
        (swi.spec
          || jsonb_build_object('page','$PAGE_NAME','page_name','$PAGE_NAME','page_id','$PAGE_ID')),
        '$PAGE_ID', 'detected', 'voiceh-rollout',
-       'page-build-handler', 'voiceh-v3:$PAGE_NAME', 50
+       'page-build-handler', '$ITEM_KEY_PREFIX:$PAGE_NAME', 50
 FROM site_work_items swi WHERE swi.id='$CANARY_ITEM'
 RETURNING id)
 SELECT id FROM ins;")

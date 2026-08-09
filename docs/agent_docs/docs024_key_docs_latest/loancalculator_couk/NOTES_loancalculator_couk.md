@@ -4097,3 +4097,141 @@ Two paren errors were caught by that dry run and nothing else would have caught 
   **[UNIDENTIFIED]** — I looked in `sql_for_agents`, `scripts/`, and the Go writers and
   did not find it. It did not change the contamination counts. This is why 345 carries an
   md5 drift guard on all five prompts rather than trusting the row to sit still.
+
+## 2026-08-09 (morning) — the one thing owed is closed, and the lock is what closed it
+
+Picked up from `HANDOFF_2026-08-08b` §2: `index`/`prose-2` still read *"Calculate your
+exact monthly repayments and see the true total cost of borrowing."* — unlocked
+`ported-prose`, put back by the previous session's restore, carrying the register the
+owner struck one line above it.
+
+**Now live:** *"Enter your loan amount, rate and term below to see how the monthly figure
+and the total cost move together."* Written by the framework (`content_rewrite` through
+`page-build-handler`, corr `26648f55-7086-4a8e-b004-d688b615f3f4`), not by hand.
+
+### State reconciliation first — two handoffs disagreed
+
+`HANDOFF_2026-08-08b` (f0305cc50, 23:33) and `HANDOFF_2026-08-09` (a5c8bea7e, 23:47) both
+say they supersede `HANDOFF_2026-08-08`, written 14 minutes apart by concurrent sessions.
+08-09 states *"the site is DONE. Nothing is owed on the SITE"*; 08-08b's §2 records
+exactly one thing owed. **08-08b was right** — the 227 session did not know about the
+prose-2 residue. Both files now carry a correction block pointing at the other.
+
+[MEASURED 2026-08-09] Fleet is on **chassis v1.0.1270**, not v1.0.1269 as both handoffs
+record (`kubectl get pods -l app=agent-chassis`, pods started 08:49Z). Irrelevant to this
+config/content change; noted so the next reader does not repeat a stale figure.
+
+### Was it really only one line? — census before assuming
+
+Before firing I swept all 26 active pages for the struck claim family, eight spellings
+(`mathematically rigorous|true cost of credit|true total cost|true cost of borrowing|exact
+monthly|exactly what you|precisely what|pinpoint accur`). **Three hits, one real:**
+`index`/`prose-2` (two hits) and `guide-car-finance-explained`/`prose-0`'s *"understanding
+exactly what you're signing"* — which is about the reader's contract, not a claim about
+our arithmetic, and is fine. So §2's "small and precisely located" is corroborated by an
+independent measurement rather than taken on trust. ⚠ This is an absence proven only for
+those eight spellings.
+
+### Method: lock the siblings, fire at the one writable row
+
+§3's remedy (write the instruction conditionally, per-section) was applied **and it was
+not enough on its own.** The mechanism that actually held was the lock:
+
+1. Backed up the page → `page_components_bak_20260809_index_prose2` (5 rows).
+2. Locked `prose-0` (durable, owner-approved copy), `prose-1` and `prose-4` (temporary op
+   lock), leaving **`prose-2` as the only agent-writable row on the page**.
+3. Fired the rewrite with a section-scoped conditional prompt.
+4. Verified, then released the two temporary locks.
+
+**`locked_at` is the load-bearing column, not `locked_by`** —
+`AgentWritableSQLFor` is `locked_at IS NULL OR (lock_type='timed' AND lock_expires_at <
+NOW())`. A row with `locked_by` set and `locked_at` NULL is still fully writable. Checked
+`page_components` for triggers first (there are none), so a lock write does not bump
+`updated_at` and the pre-run timestamps survive as a baseline.
+
+### The result, measured both directions
+
+`save_page_sections` DELETEs every agent-writable row and re-inserts, so `prose-2` is a
+**new row id** by design. The four locked/untouched rows must be identical in id,
+`updated_at` **and** content hash — and were:
+
+```
+slot      id                  updated_at                       content_md5
+prose-0   9e7cbaa2 unchanged  2026-08-08 22:25:00.540115 same  dcadc7ce unchanged
+prose-1   2c363ac0 unchanged  2026-08-08 22:28:49.980291 same  7d69f637 unchanged
+prose-2   7bd47f4a -> 6bf6ff7d  2026-08-09 09:15:05.173243     3a8068a3 -> dc8714f7
+tool-3    993eda99 unchanged  2026-08-03 10:31:44.772743 same  56786308 unchanged
+prose-4   f082c7d2 unchanged  2026-08-08 22:25:00.566302 same  8d553e76 unchanged
+```
+
+Live: struck register **0** across four spellings, owner's opening appears **exactly
+once**, new strap line **exactly once**, 26/26 serving (200 + ≥2000 B + DOCTYPE guard),
+**toolgolden 11/11 exact** against `GOLDEN_2026-08-08_voice_h_complete.json`.
+
+### ⚠ THE FINDING: the conditional framing leaked anyway — §3's remedy is necessary, NOT sufficient
+
+I compared what the writer **proposed** for every section against what was stored before
+the run (`llm_call_log.response_text` vs the backup table). This is the check that
+matters, and it says:
+
+```
+slot      proposed  stored   byte-identical
+prose-0     1102     1102     TRUE   <- obeyed "leave your section alone"
+prose-1      400      133     FALSE  <- LEAKED: kept its <h1>, APPENDED a strap line
+prose-2      143      117     FALSE  <- the intended change
+prose-4     2813     2813     TRUE   <- obeyed
+```
+
+`prose-1` is the `<h1>Standard Loan Calculator</h1>` section. It returned its heading plus
+*"Enter your loan amount, rate and term below to see how the repayments break down over
+the life of the loan…"* — **the exact job I had assigned to `prose-2`.** Unlocked, the page
+would now carry that strap line twice, and this session would have repeated the previous
+one's failure with a better-worded prompt.
+
+**Why it leaked, precisely.** My condition read *"IF THIS SECTION IS the one-sentence
+introduction sitting directly under the 'Standard Loan Calculator' heading"*. `prose-1`
+**is** that heading — so it read the condition as "I should have an introduction under my
+heading" and supplied one. **A conditional whose condition names a neighbouring landmark
+is ambiguous to the neighbour.** The condition has to be decidable from the section's own
+bytes alone. Quoting the sentence to be replaced (which I also did) was the part that
+worked for the two distant sections; the landmark reference is what gave the adjacent one
+a way in.
+
+This is the **fifth** instance of the lane's one shape, and the first where the prescribed
+remedy was followed and still failed. §3 should now read: write it conditionally **and**
+lock every sibling you are not targeting.
+
+> **MISSTEP, caught before it reached a claim.** Three `lock_blocked_change` items appeared
+> (`index:prose-0`, `prose-1`, `prose-4`) and my first reading was "the guidance leaked and
+> the locks caught it". **That inference is unfounded.** `emitLockBlockedChangeItem` fires
+> whenever an incoming section matches a locked slot — it records `slot_name`, `locked_by`,
+> `blocked_action`, and **no proposed content at all** — so it fires identically whether the
+> writer rewrote the section or returned it byte-for-byte. The composer emits all five
+> sections every run, so those three items were guaranteed before the writer wrote a word.
+> The leak is real, but the evidence for it is `llm_call_log.response_text` compared against
+> the backup table, which is a different query answering a different question. Filed as a
+> landmine — the item *looks* exactly like a content-diff detector and is not one.
+
+### Housekeeping
+
+- `index-prose2-source` (`e5bf5c46`) left at `needs_human_review`, matching the lane's
+  convention for pinned prompt sources (`6d52beaf`, `7933edd4`, `50c8ba5c`). The prompt
+  text is also in git at `voiceh_index_prose2_source.sql`, but **the DB row is what drives**
+  (§5).
+- Fired item `e1bfffe1` and the three `lock_blocked_change` notices closed to `complete`
+  with `resolution_path` set — a `detected` leftover blocks any future re-fire on
+  `idx_swi_dedup` (§5).
+- Locked rows on the site are now **17**: 12 tool + 4 CSS carrier + 1 owner-approved
+  (`index`/`prose-0`, `loancalculator_owner_approved_20260809`).
+- `voiceh_rewrite_v3.sh` gained `SRC_ITEM` / `KEY_PREFIX` / `SUMMARY` env overrides,
+  defaults unchanged, so a one-off reuses the dispatch path instead of becoming a v4 copy.
+- New: `check_site_serving.sh` — the 26-page check with the B2-blob guard baked in
+  (200 **and** ≥2000 B **and** starts `<!DOCTYPE`), so it cannot be run the unguarded way.
+- Landmine appended and `landmines-sync.py --apply` run (1504 owned `doc_notes` rows).
+  **I did NOT run `landmines-verify-dispatch.sh`** — it fires a `landmine-verifier` per
+  new/changed entry, and the sync reported two pending, the other belonging to another
+  session. My entry substitutes first-hand verification, stated per the 2026-07-31 ruling:
+  the code is cited (`lock_helpers.go:203-219` — the spec has no content field;
+  `save_page_sections_action.go:769` — the guard matches on slot name alone) and the
+  behaviour was measured on a real run with both arms (2 obeyed, 1 leaked). A verifier
+  pass is still owed if anyone wants it independently confirmed.

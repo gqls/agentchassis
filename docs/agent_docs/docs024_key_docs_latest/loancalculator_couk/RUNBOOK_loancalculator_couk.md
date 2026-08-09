@@ -1018,3 +1018,117 @@ flag change needs its own verification, not a bulk UPDATE.
 `in_header = true OR in_header IS NULL` as included, while `classifyPagesForNav`
 reads NULL as excluded. This site's pages are explicitly `false`, so they are
 excluded by both — do not "tidy" them to NULL.
+
+## Targeted single-section rewrite: lock the siblings (2026-08-09)
+
+**Use this whenever you want ONE section changed on a finished page.** The writer sees one
+section at a time and never its siblings, so a prompt aimed at one section is read by all
+of them. Conditional phrasing helps and is **not sufficient** — it was followed on
+2026-08-09 and the adjacent heading section still wrote its own copy of the target's strap
+line (`HANDOFF_2026-08-08b` §3 correction). The lock is the part that actually holds.
+
+**The shape: leave exactly ONE agent-writable row on the page, then fire.**
+
+```bash
+SITE=0162cde4-633e-45e9-8ca6-87a6b2fe1d26
+PSQL() { kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db "$@"; }
+```
+
+### 1. Back up, and record a baseline you can actually compare against
+
+```sql
+CREATE TABLE page_components_bak_20260809_index_prose2 AS
+SELECT pc.* FROM page_components pc JOIN pages p ON p.id=pc.page_id
+ WHERE p.site_id='<SITE>' AND p.name='<page>' AND p.status='active';
+
+SELECT pc.slot_name, pc.id, pc.updated_at, md5(pc.content_data::text)
+  FROM page_components pc JOIN pages p ON p.id=pc.page_id
+ WHERE p.site_id='<SITE>' AND p.name='<page>' AND p.status='active' ORDER BY pc.position;
+```
+
+⚠ **Record `id` AND `md5`, not just `updated_at`.** `save_page_sections` DELETEs every
+agent-writable row and re-inserts, so the target legitimately comes back with a **new
+row id** — "unchanged" for the siblings means all three fields identical, and a
+timestamp-only check cannot tell a preserved row from a rewritten one.
+
+### 2. Lock every sibling — `locked_at` is what counts
+
+```sql
+UPDATE page_components pc SET locked_by='<tag>', locked_at=now(),
+       lock_type='permanent', lock_expires_at=NULL
+  FROM pages p WHERE p.id=pc.page_id
+   AND p.site_id='<SITE>' AND p.name='<page>' AND p.status='active'
+   AND pc.slot_name <> '<the one slot you are changing>';
+```
+
+⚠ **`locked_by` alone does NOTHING.** The predicate is
+`AgentWritableSQLFor` = `locked_at IS NULL OR (lock_type='timed' AND lock_expires_at IS NOT NULL AND lock_expires_at < NOW())`
+(`platform/orchestration/datahelpers/chrome_render_inputs.go:91`). A row with a `locked_by`
+string and a NULL `locked_at` is fully writable and looks locked in every listing.
+
+Confirm before firing — this is the whole safety property:
+
+```sql
+SELECT pc.slot_name, (pc.locked_at IS NULL OR (pc.lock_type='timed'
+        AND pc.lock_expires_at IS NOT NULL AND pc.lock_expires_at < NOW())) AS agent_writable
+  FROM page_components pc JOIN pages p ON p.id=pc.page_id
+ WHERE p.site_id='<SITE>' AND p.name='<page>' AND p.status='active' ORDER BY pc.position;
+```
+
+Exactly one `t`. `page_components` has **no triggers**, so these lock writes do not bump
+`updated_at` and the baseline survives.
+
+### 3. Write the guidance — two rules, both learned the hard way
+
+- **Make the condition decidable from the section's OWN bytes.** Quote the text to be
+  replaced. **Do NOT identify it by a neighbouring landmark** ("the intro under the X
+  heading") — the section that *contains* X reads that as an instruction to itself. That is
+  exactly how 08-09 leaked.
+- **Ship NO verbatim replacement copy.** A block of approved copy is portable — any section
+  can paste it, and on 08-08 three of them did. Constraints are not portable the same way.
+  State the job, the prohibitions and the reason, and let the framework write the words
+  (owner ruling 2026-08-04).
+
+### 4. Fire through the existing dispatch path
+
+Pin the prompt in a source work item, then reuse `voiceh_rewrite_v3.sh` (it takes env
+overrides, so a one-off does not need a v4 copy):
+
+```bash
+SRC_ITEM=<source-item-uuid> KEY_PREFIX=<slug> SUMMARY='<what this really is>' \
+  ./voiceh_rewrite_v3.sh <page>
+```
+
+⚠ `kcat -P` exits 0 having sent nothing. Proof of dispatch is the **orchestration row**:
+`SELECT orchestration_id, current_step, status FROM orchestration_states WHERE correlation_id='<CORR>';`
+(the table's PK is `orchestration_id` — there is no `id` column).
+⚠ And assert the fired item carries **your** prompt, not the default fallback — a mistyped
+`SRC_ITEM` silently gives you a whole-page voice rewrite:
+`SELECT (spec->>'suggestion') LIKE '<your opening words>%' FROM site_work_items WHERE id='<ITEM>';`
+
+### 5. Verify — and check the writer's PROPOSAL, not just the result
+
+```sql
+-- What the writer PROPOSED per section vs what was stored before. This is the only
+-- query that tells you whether the guidance leaked.
+WITH prop AS (
+  SELECT step_name, (response_text::jsonb)->>'content' AS proposed
+    FROM llm_call_log WHERE correlation_id='<CORR>')
+SELECT step_name, length(proposed) FROM prop ORDER BY step_name;
+```
+
+⚠ **A `lock_blocked_change` work item is NOT evidence that anything was rewritten.** It is
+filed whenever an incoming section matches a locked slot and records **no proposed
+content** (`lock_helpers.go:203`) — the composer emits every section every run, so those
+items appear even when the writer hands each sibling back byte-for-byte. Read them as
+"the lock was exercised", never as "the copy differed".
+
+Then the wire, guarded: `./check_site_serving.sh` (200 **and** ≥2000 B **and** `<!DOCTYPE`
+— a deploy-window fetch returns a B2 error blob at HTTP 200 and every grep against it
+reads clean), plus `toolgolden.py --compare acceptance/GOLDEN_2026-08-08_voice_h_complete.json …`.
+
+### 6. Close up
+
+Release the temporary locks, close the fired item **and** the `lock_blocked_change`
+notices to `complete` with `resolution_path`. A `detected` leftover blocks any future
+re-fire on `idx_swi_dedup` (`HANDOFF_2026-08-08b` §5).

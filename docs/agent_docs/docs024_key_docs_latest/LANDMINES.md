@@ -7223,3 +7223,31 @@ warn line fired and was unreachable before any grep could run).
 - **the check:** never trust the printed VERDICT line alone. Read the "likely OWNING workstream(s)" section specifically — `(none identified)` there, regardless of what the VERDICT line says, means no directory actually discusses the bug. Corroborate with a fresh `git log --since="<window>" --all` grep for the bug's slug (not its bare number) and, if a candidate workstream directory exists, check whether it was created/touched in the last few minutes (mid-flight session) versus hours/days ago (stale, safe to read past).
 - **source:** bugfix_228 session triage — caught by reading the "(none identified)" sections rather than the verdict line, before routing work at a falsely-claimed bug; not a wrong call, but the near-miss that would have produced one
 - **added:** 2026-08-09, bugfix_228_contact_block_transport lane
+
+### A STATIC step-config value for a spec-DEFAULTED field is DEAD — the default wins silently, and the action's own `if empty` fallback can never fire
+
+- **footprint:** `ExtractActionInputs`, `ActionInputSpec`, `platform/orchestration/datahelpers/action_inputs.go`, `Defaults`, `agent_definitions` step config authoring
+- **fires when:** you write (or trust) a step config that sets a plain static value — `"purpose": "logo"`, `"severity": "warning"`, any non-dotted string — for a field whose `ActionInputSpec` carries a `Defaults` entry. The config LOOKS authoritative and is silently ignored: Defaults are copied into `Values` first (`action_inputs.go:457-460`), Strategies 1/2/3 each skip a field that already holds a value (`:499`, `:511`, `:523`), and Strategy 0 only reads **dotted** config paths (`strings.Contains(pathStr, ".")`, `:478`). A static value has no strategy that can carry it. Any in-action fallback shaped `if inputs.Get(f) == "" { read config }` is unreachable — the default guarantees non-empty. The deprecated `*_field` bridges are equally inert for defaulted fields (Strategy 3's has-value skip).
+- **the measured case:** `pageflow-builder` / `site-work-orchestrator` `deploy_logo_image` carries static `"purpose": "logo"`; effective purpose is **"hero"** (spec default, since `34d2315ce` 2026-02-20). Consequence if run: hero resize class, and the logo's bytes committed to the HERO's deploy path (`BuildAssetPaths`: filename = purpose + ext). `bugs_open/231`; pinned in `deploy_image_asset_purpose_source_test.go` (`TestLegacyLogoStep_StaticPurposeIsShadowedByDefault`).
+- **the check:** before trusting any static config value, open the action's `ActionInputSpec` — if the field appears in `Defaults`, the static value is dead. The only config shape that defeats a default is a Strategy-0 **dotted path** to real data (`"purpose": "logo_stored.purpose"` — proven deterministic in the same test file). To find whether your value is being read at all, run the resolution: `datahelpers.ExtractActionInputs(collected, cfg, TheSpec, zap.NewNop())` in a scratch test and print the field — thirty seconds, and it answers for your exact shapes. Same family as bugfix_136's `Deprecated`-alias landmine; the general rule is **against a defaulted field, only a dotted path can win.**
+- **added:** 2026-08-09, `bugfix_209_deploy_purpose_keyed_source` lane; fleet-class census handed to 090 run `e952039b`
+
+### A `lock_blocked_change` item does NOT mean the copy differed — it fires on ANY incoming section matching a locked slot, and records no proposed content
+
+- **footprint:** `site_work_items.item_type='lock_blocked_change'` · `platform/orchestration/actions/lock_helpers.go` (`emitLockBlockedChangeItem`, `emitLockBlockedChange`) · `platform/orchestration/actions/save_page_sections_action.go` (`matchLockedRow`, the locked-slot guard ~line 769) · any locked `page_components` row on a page being rebuilt
+- **fires when:** you lock some sections of a page, run a rewrite aimed at the unlocked one, and then read the resulting `lock_blocked_change` items as evidence of what the writer tried to do — i.e. as a leak detector. It is the obvious reading: the summary literally says *"save_page_sections wanted to overwrite locked section X"*.
+- **the tell:** there isn't one, and that is the trap — the item looks identical whether the writer rewrote the section or handed it back byte-for-byte. The composer emits **every** section on every run, and the guard fires on a `matchLockedRow` **slot-name** match alone. `emitLockBlockedChange`'s spec carries `surface`, `slot_name`, `locked_by`, `lock_type`, `blocked_action`, `source`, `fix` — **and no content, proposed or stored.** So the item count equals "locked slots on the page", a number you already knew before dispatching, and it is guaranteed non-zero by your own locking.
+- **the check:** to learn whether the guidance actually leaked, compare what the writer **proposed** against what was stored *before* the run — a different table answering a different question:
+```sql
+WITH prop AS (
+  SELECT step_name, (response_text::jsonb)->>'content' AS proposed
+    FROM llm_call_log WHERE correlation_id='<CORR>')
+SELECT prop.step_name, length(prop.proposed) AS proposed_len,
+       length(bak.stored) AS stored_len, (prop.proposed = bak.stored) AS byte_identical
+  FROM prop JOIN (SELECT slot_name, content_data->>'content' AS stored
+                    FROM <your_pre_run_backup_table>) bak
+    ON bak.slot_name = <slot for that iteration>;
+```
+  This requires a **pre-run backup table** — `page_components` itself is no use afterwards, because `save_page_sections` DELETEs and re-inserts every agent-writable row, and the locked rows it preserved are by definition the ones whose proposals were discarded. Proven 2026-08-09 on loancalculator.co.uk `index`: three `lock_blocked_change` items were raised, and the comparison showed **two of the three sections were byte-identical** (obeyed) while one had genuinely rewritten itself — a distinction the items could not make and which changed the lane's conclusion about whether conditional prompt phrasing works.
+- **source:** loancalculator_couk lane, closing `HANDOFF_2026-08-08b` §2 — caught while writing up "the locks caught the leak", before the claim was recorded; the leak was real but these items were not the evidence for it
+- **added:** 2026-08-09, loancalculator_couk lane

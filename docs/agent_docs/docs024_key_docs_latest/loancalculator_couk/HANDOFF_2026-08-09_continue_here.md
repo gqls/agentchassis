@@ -6,11 +6,24 @@ notes), which are unchanged and still worth reading. It is **incomplete** in one
 it was written before the last two things this lane did, and its "NOTHING IS OWED"
 banner is now wrong.
 
+> **CORRECTED 2026-08-09 (morning) — "Nothing is owed on the SITE" was WRONG when written.**
+> This file (`a5c8bea7e`, 23:47) and `HANDOFF_2026-08-08b_continue_here.md` (`f0305cc50`,
+> 23:33) were committed **14 minutes apart by concurrent sessions**, and both claim to
+> supersede `HANDOFF_2026-08-08`. 08-08b's §2 recorded one outstanding item — `index`/
+> `prose-2` still carrying the register the owner struck — which this file's author had no
+> way to see. **08-08b was right.** That item is now closed (corr `26648f55`); the banner
+> below is accurate again, and everything this file says about **227 is unaffected**.
+>
+> Two things to carry forward: the chassis line below is stale (fleet is on **v1.0.1270**,
+> pods rolled 08:49Z 08-09), and 08-08b §3's per-section remedy now has a **correction** —
+> the conditional phrasing was followed on 08-09 and leaked anyway; locking the untargeted
+> siblings is what held. Read 08-08b §3 before writing any rewrite guidance.
+
 ```
 site         loancalculator.co.uk   0162cde4-633e-45e9-8ca6-87a6b2fe1d26
-chassis      v1.0.1269 (releases are whole-fleet; the owner runs make release)
+chassis      v1.0.1270 (releases are whole-fleet; the owner runs make release)
 voice H      26 of 26 active pages · 26/26 HTTP 200 · toolgolden 11/11 exact
-the site     DONE. Nothing is owed on the SITE.
+the site     DONE as of 2026-08-09 morning (see correction above — it was not, on 08-08)
 the job      bugs_open/227 — a platform bug this lane found and owns
 ```
 

@@ -1402,3 +1402,55 @@ them changes shared machinery and should go through review.
 
 Everything is in `HANDOFF_2026-08-09_continue_here.md`. The site itself remains finished
 and untouched by any of this.
+
+---
+
+**2026-08-09, morning.** The last line owed on the homepage is done, and it turned up
+something worth knowing.
+
+The line was the one under "Standard Loan Calculator": *"Calculate your exact monthly
+repayments and see the true total cost of borrowing."* You had already objected to
+exactly that language in the paragraph above it — too strong, positioning us as the
+accuracy authority when nobody was asking. The paragraph got fixed on Thursday; this
+line one row below it did not, because it was put back by a restore after that session's
+rewrite went wrong. It now reads: *"Enter your loan amount, rate and term below to see
+how the monthly figure and the total cost move together."* The framework wrote it, not me.
+
+Before touching it I checked whether it really was the only line left in that register
+anywhere on the site. It was. There is one other page that says "understanding exactly
+what you're signing", which is about the reader's own contract rather than a boast about
+our sums, so I left it alone.
+
+**The thing worth knowing.** Thursday's session worked out why its rewrite went wrong:
+the writer only ever sees one section at a time and never its neighbours, so a page-level
+instruction gets applied by every section that thinks it might qualify. Its advice was to
+phrase instructions conditionally — "if this section is the one I mean, do this,
+otherwise leave yourself alone". I did that. **It still leaked.** The heading section
+immediately above the target read "the introduction under the Standard Loan Calculator
+heading", concluded that meant it, and wrote its own version of the new sentence. If I
+had relied on the wording alone, the page would now say much the same thing twice and I
+would have repeated Thursday's mistake with a better-written prompt.
+
+What saved it was that I had locked every section on the page except the one I wanted
+changed, so there was physically nowhere else for the writing to land. Two of the three
+locked sections came back untouched; the third came back rewritten and was refused. So
+the honest version of Thursday's lesson is: word it carefully **and** lock the neighbours.
+Wording alone is not a control.
+
+I also nearly got the diagnosis wrong in a way worth recording. The system files a notice
+every time a locked section blocks a change, and three of those appeared. My first thought
+was "there's the proof it leaked". It isn't — that notice fires whether the writer changed
+the section or handed it back identical, so it would have appeared regardless. The actual
+proof needed a different check, comparing what the writer proposed against what was there
+before. I've flagged that one for the fleet, because the notice looks exactly like a
+detector for this and is not one.
+
+Everything else checks out: all 26 pages serving, all 11 calculators still producing
+identical numbers to the saved reference, and the opening paragraph you approved is
+untouched and appears once. I've left that paragraph permanently locked, since it is your
+copy and the site has already destroyed it once.
+
+One correction to the file above: Friday night's note ended "the site itself remains
+finished and untouched". Two sessions wrote handoffs fourteen minutes apart that night and
+neither knew what the other had found — one said the site was finished, the other recorded
+this outstanding line. The second was right. Both files now say so.

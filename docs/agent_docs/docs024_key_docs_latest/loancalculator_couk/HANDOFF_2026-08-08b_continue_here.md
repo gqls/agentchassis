@@ -26,7 +26,20 @@ live      26/26 HTTP 200 · toolgolden 11/11 exact · 16 locked rows (12 tool + 
 - Copy still judged good by him: `hidden-loan-fees`. Judged clunky and now fixed:
   `consolidation` ("appeal"), `legal` (the "if" tic).
 
-## 2. ⚠ THE ONE THING OWED, and it is small and precisely located
+> **CLOSED 2026-08-09 (morning).** §2 is **done** — `index`/`prose-2` now reads *"Enter
+> your loan amount, rate and term below to see how the monthly figure and the total cost
+> move together."*, written through the framework (corr `26648f55`). Struck register 0 on
+> the wire across four spellings, owner's opening still appears exactly once, siblings
+> byte-identical, 26/26 serving, toolgolden 11/11 exact.
+>
+> **§3's remedy was followed and it LEAKED anyway** — see the correction inside §3 below.
+> Conditional phrasing is necessary but not sufficient; the locks are what held.
+>
+> Note also: a **`HANDOFF_2026-08-09_continue_here.md`** was committed 14 minutes after
+> this file by a concurrent session (the `bugs_open/227` thread). It says the site is
+> finished and nothing is owed — it did not know about §2. This file was right. Read both.
+
+## 2. ⚠ THE ONE THING OWED, and it is small and precisely located — **NOW CLOSED, see above**
 
 `index` `prose-2` still reads:
 
@@ -58,6 +71,27 @@ open with…"* — page-level language in a per-section prompt.
 This is the FOURTH instance of one shape this week: a rule, an exemplar, a pinned
 guidance, and now a page-level instruction have each been applied uniformly, because
 uniform application is all a section-scoped prompt can do.
+
+> **CORRECTED 2026-08-09 — the prescribed wording was used and it LEAKED, so this remedy
+> is NECESSARY BUT NOT SUFFICIENT.** Closing §2 I wrote exactly the recommended shape:
+> *"IF THIS SECTION IS the one-sentence introduction sitting directly under the 'Standard
+> Loan Calculator' heading … OTHERWISE leave your section's subject, structure and wording
+> exactly as they are."* Comparing every section the writer PROPOSED against what was
+> stored (`llm_call_log.response_text` vs the backup table): `prose-0` byte-identical,
+> `prose-4` byte-identical, **`prose-1` 133 → 400 bytes** — it kept its `<h1>` and appended
+> its own version of the very strap line I had assigned to `prose-2`.
+>
+> **Why:** `prose-1` **IS** the "Standard Loan Calculator" heading, so my condition named
+> *its own* landmark and it read the instruction as "you should have an introduction under
+> your heading". **A conditional whose CONDITION references a neighbouring landmark is
+> ambiguous to that neighbour.** Make the condition decidable from the section's own bytes
+> — quoting the sentence to be replaced is what worked on the two distant sections.
+>
+> **So the actual rule is: phrase it conditionally AND LOCK EVERY SIBLING you are not
+> targeting**, leaving exactly one agent-writable row. That is what made this run safe, and
+> unlocked, `prose-1` would have shipped the duplicate. Fifth instance of the shape; first
+> where the documented remedy was followed and still failed. Method in `RUNBOOK` →
+> "Targeted single-section rewrite".
 
 ## 4. The CSS trap is now PREVENTED, and it is two mechanisms not one
 
