@@ -24992,3 +24992,34 @@ in one line — *"UTC throughout: this machine is BST, and comparing BST `git lo
 UTC `kubectl` makes live fixes look un-shipped"* — and I had read that file this session,
 in this lane, while researching which bug to take. Reading the warning is not the same as
 applying it; the durable defence is the habit (`since_fire`), not the memory.
+
+## 2026-08-09 — attributed a dispatch failure to the FAMOUS failure instead of reading the error column (bugfix_209 lane)
+
+**The claim.** A site-work-orchestrator dispatch failed at `call_orchestrator`
+(spawn COMPLETED, call FAILED) and I called it "the documented spawn→call
+handshake race, which memory says fails about half the time fleet-wide" — then
+"fixed" it by adding `agent_type` to the call config and re-fired.
+
+**What was true.** `orchestration_states.error` had named the cause all along:
+`input_mapping failed: source path 'input_data.reviewed_brief' not found` — MY
+message mapped a field from a path my own `input_data` never carried. The re-fire
+failed identically; the third attempt (mapping removed) failed on the agent's
+CONTRACT (`missing required fields: [input_data reviewed_brief]`), which also
+told me the real fix — mirror the working pageflow message: load the site row in
+the OUTER workflow, map `reviewed_brief: site_record.content_data`.
+
+**What caught it.** The second failure being byte-identical to the first — a
+race does not reproduce deterministically. Only then did I select the `error`
+column.
+
+**The cheap check that would have.** `SELECT status, error FROM
+orchestration_states WHERE correlation_id='…'` BEFORE naming a cause — the
+column is `error`, it is populated on FAILED rows, and it is one query. A
+memorised failure mode with a matching *signature* is a hypothesis, not a
+diagnosis: the handshake race and a dangling input_mapping path produce the same
+row shape (spawn ok, call failed) and only the error text separates them. Same
+family as the 08-08/08-09 entries: name the data behind a failure only after
+reading where the failing code says so itself.
+
+**Cost.** One wasted dispatch, one wrong mechanism named in a handoff draft
+(caught before commit), ~20 minutes.

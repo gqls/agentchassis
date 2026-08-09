@@ -235,3 +235,41 @@ The instance repair (348) is proven; **this file must not close on it.** The liv
 damage is 11 shipped artefacts plus whatever keeps producing them, and neither is
 addressed. Candidate 3 (CheckConfig flags a static value for a defaulted field)
 would have caught the producer at authoring time and is still the cheap win.
+
+---
+
+## CONTRIBUTION 2026-08-09 (later) — the producer question is ANSWERED, and it is NOT this file's mechanism: see `bugs_open/235`
+
+Same lane, closing the `[UNVERIFIED]` left in the previous contribution. The 090
+(run `fd7ef7a9-93fb-4e20-9956-f8913bd4ab89`) returned UNVERIFIABLE
+(scope-not-narrowing) — it could not fetch `asset-deployer`'s live step config
+(it read the empty `task_workflow`/`orchestrator_workflow` columns, not
+`default_config`) nor the `ImagePurposes` var declaration (`bugs_open/223`'s
+var-blindness, **third consumer**). Its named gaps were answered first-hand; the
+full chain is filed as **`bugs_open/235`** with every link quoted.
+
+The short version: `image-build-handler.store_imagery_brand_asset` carries a
+**static `purpose: "hero"`** on the brand-update branch, whose own description
+says it handles *"logo or canonical index hero"*. A `needs_imagery` item with
+`brand_update:true, asset_key:"logo", purpose:"logo"` (the spec says exactly what
+it is) stores the logo as purpose "hero"; `call_asset_deployer` forwards
+`asset_stored.purpose`; the deploy derives `logo.jpg` + hero processing.
+`[MEASURED]` by work-item ↔ commit date join for lendzy (08-02) and webdesign.uk
+(08-04); `[INFERRED]` for the older nine.
+
+**What this corrects in THIS file's frame:** the wrong logos are NOT an instance
+of the Defaults-shadow — the static resolves fine; it is simply the wrong value
+for one of the branch's two arms. So candidate 3 here (CheckConfig flags a
+shadowed static) would NOT have caught the producer, and closing this bug must
+not be read as closing the logo damage. The two doors are neighbours in the same
+wall (`ExtractActionInputs` config statics), but they are different doors.
+
+Also for the record, both proof arms are now done: the site-work-orchestrator run
+(correlation `aab47560-…`, 13:50–13:56) re-made both cookly.uk assets from its own
+store outputs — fresh commits `b56599fe0` ("Deploy **logo** image", 400×400 PNG,
+sha `e38781c2…`) and `d47cf0315` ("Deploy **hero** image", sha `be35ba8d…`), both
+byte-different from the pageflow run's artefacts. On this arm the pod-level
+object-key log line was NOT captured (the capture was pinned to a dead pod and
+these pods keep ~11s of logs) — the assertion rides on the artefact properties,
+the asset-row stamps, and the mechanism being the identical config shape on the
+same binary as the pageflow arm, where the log-level proof exists.

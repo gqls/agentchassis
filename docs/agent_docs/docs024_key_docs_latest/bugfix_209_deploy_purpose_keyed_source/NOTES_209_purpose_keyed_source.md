@@ -503,3 +503,58 @@ not running. The exposure that actually shipped runs through whatever calls
 - `sites` has **no `site_id` column** (it is `id`), and `content_data` is an
   **array** on some sites and an object on others, so `jsonb_object_keys` errors on
   the former. Both cost a query.
+
+---
+
+## 2026-08-09 (late afternoon) — SWO arm done after 3 self-inflicted failures; the 090 stalled and the producer was found by hand; filed 235
+
+### The SWO dispatch took four attempts, and the first wrong call was mine
+
+Attempts 1+2 failed on MY dangling `input_data.reviewed_brief` mapping; attempt 3
+on the agent CONTRACT (`missing required fields: [input_data reviewed_brief]`);
+attempt 4 mirrors the working pageflow shape (outer `load_site`,
+`reviewed_brief: site_record.content_data`) and ran clean. I attributed attempt 1
+to the spawn→call handshake race WITHOUT reading `orchestration_states.error` —
+logged in `WRONG_CALLS.md` 2026-08-09. The error column named the cause all
+along.
+
+### `[MEASURED]` SWO arm (correlation `aab47560-…`, 13:50–13:56)
+
+Both assets re-made from the run's OWN store outputs: `logo_stored.s3_uri` →
+`af67d2c4-…png`, `hero_stored.s3_uri` → `e623ad6e-…png` (fresh objects, not run
+A's `bd7308a5`/`fa752a71`); commits `b56599fe0` "Deploy **logo** image"
+(400×400 PNG, sha `e38781c2…`, 163,792 B) and `d47cf0315` "Deploy **hero**
+image" (sha `be35ba8d…`, 145,376 B) — both byte-different from run A's
+artefacts, per-purpose properties correct, correct subjects, deploys stamped the
+same asset rows the stores wrote. **Caveat, stated:** the pod-level
+Strategy-0/object-key log lines were NOT captured on this arm — my capture loop
+was pinned to attempt 1's dead pod name, and these pods keep ~11s of logs. The
+arm is corroboration on artefact + row evidence; the log-level proof lives on
+the pageflow arm.
+
+### The 090 on the producer: UNVERIFIABLE again, and the answer was one query away
+
+Run `fd7ef7a9-…`: scope-not-narrowing. It read the EMPTY
+`task_workflow`/`orchestrator_workflow` columns instead of `default_config`, and
+could not fetch the `ImagePurposes` var declaration — bug 223's var-blindness,
+third consumer. Its "still needed" list was satisfiable first-hand in two
+queries, and the result **refuted my own filed hypothesis in its mechanism
+detail**: purpose does NOT fall to the spec Default — it resolves fine, to a
+static `"hero"` on `image-build-handler.store_imagery_brand_asset`, a branch
+whose own description says it handles *"logo or canonical index hero"*. One
+static for two purposes; the item's `spec.purpose` says `logo` and is unread.
+Work-item ↔ commit date join pins lendzy (08-02) and webdesign.uk (08-04).
+Filed as **`bugs_open/235`** (with the `[INFERRED]` marker on the older nine,
+and the `input-data.asset-key.jpg` literal-path shard); LANDMINES entry added +
+synced; 231 carries the cross-reference.
+
+### Also observed, not chased
+
+- Run A eventually FAILED at `apply_site_design`: `CHILD_ORCHESTRATION_FAILED`,
+  3 retries, no design-agent child row ever appeared. Asset proof unaffected.
+- Run D's `fix_items_loop` spawned `image-build-handler` three times; all ended
+  `complete_error` (items unknown — the loop moved on). On a sacrificial domain,
+  so left alone; whoever owns 210's needs_logo file may care.
+- The cookly.uk go-live (Cloudflare zone + Nominet NS) was requested by the
+  owner mid-session and delegated to a sub-agent; its report goes in
+  `domains_cloudflare_rollout/NOTES` (that lane's first real zone-create).
