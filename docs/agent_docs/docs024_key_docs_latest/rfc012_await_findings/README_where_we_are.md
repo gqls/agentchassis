@@ -294,3 +294,63 @@ non-English characters before I finish with it.
 The change is committed and submitted for review. It doesn't take effect on the live system
 until the next fleet rebuild, and the warning note about the old trap says so rather than
 claiming it's fixed — because on every machine running right now, it isn't yet.
+
+---
+
+**2026-08-09 — the last job on this lane is done, and the interesting part is that the reason for
+doing it turned out to be wrong.**
+
+The job was the one I wrote down last night as the only thing left: our system asks "which agent
+is actually running right now?" in two different places, and the two places had different answers.
+One of them — the part that records which agent owns a whole job — asked properly. The other —
+the part that stamps a name on every error we file — asked a shorter, lazier version of the
+question and often got back the word "generic", which is a placeholder, not an agent. So errors
+were being filed under a name that means "somebody". That matters because "which agent" is the
+first thing anyone types when they start investigating anything.
+
+The fix is small and, I think, the right shape: there is now **one** way to ask the question, it
+lives on the thing being asked about, and both places call it. Nobody has to remember to keep two
+copies in step, because there are no longer two copies.
+
+**But before building it I went to check the size of the problem, and the numbers we had been
+quoting were stale in a way nobody could have seen.** The handoff said this was costing us 559
+bad records. That was a real count, honestly taken, and it had already been double-checked once
+when reviewers asked. It was still misleading: the table it comes from keeps about a month of
+history, and **499 of those 559 records were written before we fixed the other half of the same
+problem, three weeks ago.** So most of the "damage" was a photograph of a wound that had already
+healed. The live cost is more like 36 records over 13 days.
+
+I want to be plain that this is not somebody being sloppy. The count was correct. It was
+*re-run* when challenged, which is exactly what we ask people to do — and re-running the same
+question at a later date reproduces the same blind spot, because the blind spot is in the shape
+of the question, not in the care taken. **A table that only keeps a month cannot tell you whether
+a problem is raging or was fixed a fortnight ago: both look like the same number.** The cure is
+one extra column — show me the newest and oldest record in each group — and it would have taken
+seconds. It is now written down in three places so the next person gets it for free.
+
+So the case for the change got weaker and truer at the same time. It is no longer "this is
+costing us hundreds of records"; it is "one question should have one answer, and two copies in
+packages that cannot see each other will drift again". I have said so explicitly in the paper, and
+listed "do nothing" as a serious option rather than a formality, because I would rather the owner
+weighed the real number than the impressive one.
+
+**Two other things worth knowing.**
+
+First, I could not fully prove the fix will work, and I have said so rather than implying
+otherwise. It definitely works for the first thing a job does. For a step that resumes after
+waiting on somebody else, the resolved name may not have survived the round trip — and I cannot
+test that from records, because the table I would need to compare against only keeps a day, while
+every affected record is weeks old. So the honest position is: build it, roll it, and count. The
+exact count to run, and the number it has to beat, are written into the register entry. If it
+doesn't move, the next fix is one line and I have named where it goes.
+
+Second, while checking the other half of this I discovered our internal numbering list for
+architecture papers had gone stale *again* — eight papers filed in a row, none of them claiming a
+number, against a note still saying "the next free number is 11" when we are on 19. That has now
+happened twice, and both times it was fixed by the same trick: stop trying to remember, and read
+the directory. I have written the one-line command to do that into the file itself, and said
+plainly that the real answer is an automatic check nobody has built yet. A list that is only
+correct when everyone remembers to update it will keep being wrong.
+
+Nothing is in flight. The change is committed and submitted for review, and like everything in Go
+here it does nothing at all until the next fleet rebuild.
