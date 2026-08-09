@@ -24597,3 +24597,29 @@ at commit time when two council seats asked — which is the practice working, a
 it still did not catch this, because re-running the *same* query at a later date
 reproduces the same blindness ([re-running-a-query-is-not-re-measuring]). The
 defect is in the query's shape, not in anyone's diligence.
+
+---
+
+## 2026-08-09 — "no ledger exists for sql_for_agents": an asserted absence refuted by the runner's own header, five lines long
+
+**Session:** finetuning_uk_service lane, FTW-042 council round 2.
+
+**The claim** (round-2 rationale + the seed's numbering note): "sql_for_agents
+is not schema_migrations-ledgered; the check is the directory listing + git
+log." **False.** `scripts/migration/run-migrations.sh` line 5: "Migrations
+home: docs/agent_docs/sql_for_agents/". The ledger is `schema_migrations`,
+`--record-only` exists precisely for hand-applied files, and my raw-psql
+apply had left 342 pending-forever — the exact replay trap `bugs_open/007`
+cost ~3 days to, twice. The auto-loaded MEMORY index even carries a
+"Migration runner practice" line I had read that session.
+
+**What caught it:** council round 2 (prior_art_librarian, gating), matching
+my assertion against the recorded landmine "a migration number is not yours
+because you named a file — it is yours when the LEDGER says so."
+
+**The cheap check that would have avoided it:** before asserting how a
+directory's files are governed, open the tool that governs them —
+`head -20 scripts/migration/run-migrations.sh` — or grep the landmine corpus
+for the directory name (`grep sql_for_agents LANDMINES.md`), which is the
+standing instruction I skipped. An asserted absence about PRACTICE needs the
+same evidence bar as one about code.
