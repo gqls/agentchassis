@@ -949,3 +949,29 @@ Small print: the little browser-tab icon is still missing (the tool that makes
 it hit a platform fault — reported), and the email address on the contact page
 is disguised by Cloudflare against spam harvesters, which looks odd to our
 checking tools but works normally for a person in a browser.
+
+---
+
+**2026-08-09, midday. The numbers are on the pages. The site is ready for your eye again.**
+
+You confirmed two rounds and fourteen days, and both are now stated plainly
+wherever the pages talk about changes and refunds: the home page's summary row
+reads "14 days refund window, 2 rounds revisions included"; How It Works
+explains that acceptance or the end of the fourteen days closes the refund
+right, whichever comes first; the FAQ answers it in full; What You Get states
+the two rounds and points at the detail. The words are the machine's, written
+under your rules, and the last "not a template" line the gate couldn't see was
+caught by our own sweep and rewritten.
+
+Finding the right lever took longer than it should have, and the reason is
+written up for the platform people: the machinery keeps its facts ledger and
+its writer's brief as two separate things, and a fact added to the ledger never
+reaches the writer unless it's also copied into the brief. Nothing warns about
+this. Once the terms went into the brief itself, every page stated them first
+time.
+
+The full check has just run against the live preview: every page serving, every
+picture showing including all five heroes, zero rule violations anywhere, clean
+titles. The one cosmetic gap is still the browser-tab icon, waiting on a
+platform fault we've reported. The preview is at preview.webdesign.uk, ready
+when you are.
