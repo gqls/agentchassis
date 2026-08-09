@@ -207,3 +207,47 @@ The transferable point for this lane: **a landmine footprint should name a `func
 check it.** A footprint naming a package-level `var`, a table or a command is
 unverifiable by construction today, and the verifier will not say so — it will
 suggest a rename instead.
+
+---
+
+## 2026-08-09 morning — session 2: post-roll re-verification, and one claim sharpened
+
+Chassis rolled to **v1.0.1270** (both replicas started 08:49Z; Makefile already
+bumped to 1271 by the 228 lane for its next build). Nothing of this lane's is in
+the binary — the commit was test+docs only — so there is no pod-grep to do for 209.
+What the roll *did* do is re-apply seeds: all four relevant `agent_definitions`
+rows show `updated_at = 08:49:01`, the pod start minute.
+
+**[MEASURED] A bumped `updated_at` cannot tell "re-seeded identical" from
+"changed", so the four deciding facts were re-read by content, not timestamp:**
+legacy pair store/deploy purposes + `uri_field`s; `image-build-handler`'s two
+branch conditions; its `call_asset_deployer` `input_mapping`; `asset-deployer`'s
+deploy `input_fields`. **All byte-identical to the 08-08 census.** The LATENT
+verdict stands on v1.0.1270.
+
+Also re-run at new HEAD: the four characterisation tests pass; the instability
+split this run was 348/400 (it moves run to run — randomised iteration — the
+hazard is the plurality of values, not any particular ratio). `git log
+ae990ee82..HEAD` over every 209-relevant file: empty. The package's one failing
+test is still the pre-existing `TestValidDocSubjectTypes_LockstepWithMigrationCheck`.
+
+### SHARPENED (not retracted): where fix candidate 1's 86% actually bites
+
+My 08-08 write-up says deleting the purpose-keyed lookups "swaps a correct lookup
+for an 86%-wrong one". Re-reading the resolution order, that sentence deserves
+precision:
+
+- The legacy steps' **primary** route is the `uri_field` bridge → `s3_uri`
+  (`hero_result.image_uri` / `logo_result.image_uri`), which is per-purpose and
+  correct, and which candidate 1 does not touch.
+- The purpose-keyed `findStorageURI` lookups are those steps' **fallback** — they
+  run only when the `*_result` map is absent or carries no `image_uri`.
+- Candidate 1 therefore converts a **correct fallback** (purpose-keyed) into a
+  **wrong-bytes fallback** (`asset_id` by recursive search, 86% the wrong sibling
+  when both stores have run) — it does not break the happy path.
+
+The ranking conclusion is unchanged — a fallback that deploys the wrong asset's
+bytes on the day the primary route hiccups is strictly worse than one that stays
+correct, and "the primary failed" is precisely the regime a fallback exists for.
+But the exposure is **conditional**, and the earlier phrasing let it read as
+unconditional. Recorded here and as a dated addendum in the bug file.

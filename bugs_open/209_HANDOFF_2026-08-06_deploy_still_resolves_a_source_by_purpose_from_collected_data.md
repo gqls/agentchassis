@@ -185,3 +185,20 @@ over the reason Priority 2 was kept.
 - Does the recursive-`asset_id` instability bite other actions with a
   no-`input_fields` step whose spec field name occurs twice in `collected_data`?
   That is a shared-helper question wider than 209.
+
+### ADDENDUM 2026-08-09 — re-verified post-roll; finding 2's exposure stated precisely
+
+Chassis v1.0.1270 re-applied seeds at 08:49Z (`updated_at` bumped on all four
+relevant definitions); the deciding config facts were re-read **by content** and
+are byte-identical to the 08-08 census, and no 209-relevant file changed at HEAD.
+**The LATENT verdict and all three findings stand on v1.0.1270.**
+
+Precision on finding 2, so it is not read stronger than measured: the 86%-wrong
+`asset_id` resolution is the legacy steps' behaviour **when asked** — and today
+they are never asked, because their primary route (the `uri_field` bridge →
+`s3_uri`) resolves first, and their fallback (the purpose-keyed lookups) resolves
+correctly when the primary fails. Candidate 1 leaves the primary intact and
+replaces the **fallback**: correct-by-purpose becomes 86%-wrong-by-recursive-search.
+Conditional exposure — it fires on the day a `*_result` map goes missing — but a
+fallback that deploys the wrong asset's bytes exactly when the primary hiccups is
+the defect class this whole family (152/155/209) exists to remove. Ranking unchanged.

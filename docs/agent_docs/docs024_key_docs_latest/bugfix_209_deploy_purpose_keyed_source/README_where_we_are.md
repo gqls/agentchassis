@@ -68,3 +68,25 @@ workflows are actually dead. Nothing schedules them any more as far as I can see
 If they're genuinely retired we can delete them, and then the clean fix for this
 bug becomes available with no awkward legacy constraint. While they're merely
 dormant, we have to keep supporting them.
+
+## 2026-08-09, morning — checked everything again after the new build, still holds
+
+A fresh build went out this morning. Nothing of ours is in it — we shipped tests
+and documents, not product code — but the deployment also re-applies the workflow
+configurations, and our whole "this can't currently happen" conclusion rests on
+those. So I re-read them, comparing content rather than trusting timestamps
+(the timestamps all changed, because re-applying identical config still stamps
+it). Every fact the conclusion depends on is unchanged, character for character.
+The tests still pass. Nobody touched the relevant code overnight. The conclusion
+stands on the new build.
+
+One sentence from yesterday deserved tightening, and I've tightened it in all the
+records. I said removing the category lookup "swaps a correct lookup for a
+mostly-wrong one" — true, but it's the *backup* route that gets swapped, not the
+main one. The older workflows normally find their image through a direct pointer
+that the proposed fix wouldn't touch; the category lookup is what catches them
+when that pointer is missing. So the danger is conditional: the bad fix only
+misfires on the day something else has already gone slightly wrong. That doesn't
+change the advice — a safety net that grabs the wrong thing exactly when you fall
+is worse than useless — but the record should say precisely where the danger
+lives, and now it does.
