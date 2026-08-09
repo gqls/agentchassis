@@ -1797,3 +1797,95 @@ with the imperative. Round 7 dispatched for all four pages.
 the wire. A fact not copied into writer_block does not exist for the writer —
 and nothing warns about the divergence.** (LANDMINE candidate once verified by
 round 7's output.)
+
+---
+
+## 2026-08-09 (6) — Phase 4 chat service: BUILT, DEPLOYED, PROVEN LIVE end to end
+
+**Scoped Anthropic key created by the owner** (Console → Workspace
+`webdesign-uk-chat` → API key, separate from the platform's own key — the box
+never dials in / never holds a cluster credential ruling, kept). Landed on the
+box as `/etc/webdesign-chat.env`, 600 root:root, verified without ever reading
+its value (`grep -c '^ANTHROPIC_API_KEY=sk-ant-'`).
+
+**Service written**: `box/chat-service/` — 7 Go files, stdlib-only (no SDK dep,
+matching "stdlib-first like site-engine"), adapted from
+`idea.uk/golang_files/` (engine.go's Anthropic call shape, audience_check.go's
+rate limiter, store.go's JSON-file persistence pattern — all proven code, not
+reinvented). All §5.1 controls present:
+1. **Per-IP limit** on `CF-Connecting-IP` — NOT idea.uk's X-Real-IP pattern
+   (idea.uk isn't behind Cloudflare; this box is, via tunnel). `clientip.go`'s
+   own doc comment explains why the two boxes need different logic.
+2. **Turn cap** (`MAX_TURNS_PER_CONVERSATION`, default 20) — persisted per
+   conversation in `state.json`, survives a restart.
+3. **Daily spend ceiling** (`DAILY_SPEND_CEILING_USD`, default $10) — checked
+   against the ALREADY-SPENT total (never an estimate; output tokens aren't
+   known pre-call), persisted, survives a restart. **Fails closed to
+   `CONTACT_EMAIL`/`CONTACT_PHONE`** — and the service refuses to even START
+   without at least one configured (proven live: 3 boot failures on the box
+   before the env file had them, `journalctl` transcript in RUNBOOK).
+4. **Request log** (`requests.jsonl`) — tokens, cost, latency, stop_reason,
+   one line per call.
+5. **Transcripts** (`transcripts.jsonl`) — one line per message, the demand
+   signal P1 exists to collect.
+
+**Bug caught before it shipped**: first draft of `today()` in store.go used
+`time.Now().UTC().Format("2026-01-02")` — Go's reference date is `2006-01-02`;
+the literal current year is not a valid format string and would have silently
+produced garbage date keys, breaking the daily ceiling's date bucketing from
+day one. Caught on read-through immediately after writing, before any test
+ran. Fixed; the mistake and catch are recorded here per the standing rule
+(missteps are the point).
+
+**Both hard gates MUTATION-PROVEN**, not just observed passing (memory: "a
+mutation that PASSES usually hit a guard in series" — each gate isolated and
+confirmed to be the thing stopping the call): neutralized the turn-cap
+condition → `TestTurnCapStopsAtLimit` correctly failed (`TurnCount=2 want 1`,
+turn=2 fired) → reverted → passes again. Same for the spend ceiling
+condition → `TestSpendCeilingStopsNewCalls` correctly failed → reverted.
+9/9 tests pass on the clean tree; `go vet` clean; `gofmt -l` clean.
+
+**Deployed and proven live end to end**, not just unit-tested:
+- Cross-compiled (`GOOS=linux GOARCH=amd64 CGO_ENABLED=0`, static 9.3MB
+  binary — box confirmed to have no Go toolchain, per HANDOFF §3).
+- systemd unit (`webdesign-chat.service`, runs as `www-data` matching
+  `sitesync.service`'s own user, sandboxed: `ProtectSystem=strict`,
+  `NoNewPrivileges`, `RestrictAddressFamilies`, etc.) + nginx wired
+  (`/api/chat`, `/health` → 127.0.0.1:8081; `/stripe/webhook` deliberately
+  NOT wired yet — later phase).
+- **nginx landmine avoided, not hit**: idea.uk's own `proxy_tool.conf` sets
+  `X-Real-IP $remote_addr` — copying that verbatim onto THIS box would have
+  injected cloudflared's own loopback address as if it were the visitor's.
+  Left CF-Connecting-IP untouched (nginx forwards it by default) instead. Same
+  care applied to the nginx-level `limit_req` belt-and-braces layer: keyed
+  on `$http_cf_connecting_ip`, NOT `$binary_remote_addr` — the latter would
+  have been `bugs_open/139`'s exact bug, this time in nginx config rather
+  than application code.
+- **`/health` verified through nginx AND direct** (both `{"status":"ok"}`) —
+  a real disk round-trip + API key presence check, not a static 200 (the
+  nginx stub's own contract, honoured).
+- **`/api/chat` fired for real through the live tunnel**
+  (`https://preview.webdesign.uk/api/chat`) — genuine Haiku 4.5 reply: "Hello.
+  What business do you run?" (on-brief: the system prompt's one instruction).
+  Logged: 372 input + 11 output tokens, **cost $0.000427** — arithmetic checks
+  exactly against Haiku's $1/$5 per-MTok pricing.
+- **CF-Connecting-IP proven genuine, not a stray constant**: the logged
+  `client_ip` (`2a02:c7c:f61f:ac00:f819:c606:416b:1535`) matches my own
+  independently-confirmed external IPv6 (`curl -6 api64.ipify.org`) exactly.
+  **Full two-network proof (`bugs_open/139` shape) still OWED** — one network
+  available this session; RUNBOOK has the two-curl recipe for whoever has a
+  second connection handy next.
+
+**System prompt** (`chat.go`'s `systemPromptFacts`) seeded from the SAME
+attested facts the site copy uses (£1,200 no VAT, 3-4 days, 14-day window, 2
+revision rounds, contact details) — deliberately, to not repeat the exact
+facts[]/writer_block divergence bug found and fixed earlier this session. But
+**there is no code link between this Go string constant and the DB
+evidence_base row** — the comment in chat.go says so explicitly: whoever next
+changes evidence_base owns checking this file too. This is a real coupling,
+not a landmine yet (too new to have bitten anyone) — worth a LANDMINES entry
+if it ever does.
+
+**Not done**: Phase 5 (the input-box page section) — deliberately, per PLAN
+"never ship it before the service exists." The service exists now; Phase 5 is
+next, and resolves the 9 parked `unresolved_cta` items.

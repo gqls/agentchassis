@@ -1,0 +1,44 @@
+# /etc/systemd/system/webdesign-chat.service
+#
+# The Phase 4 chat service. Runs as www-data (matching sitesync.service and
+# the nginx worker's own user — no new UID needed) on 127.0.0.1:8081 only;
+# ufw default-deny + nginx's loopback-only bind are what actually keep this
+# unreachable from outside, this unit's own sandboxing is defence in depth
+# on TOP of that, not instead of it.
+#
+# EnvironmentFile carries ANTHROPIC_API_KEY + CONTACT_EMAIL/CONTACT_PHONE +
+# the two engineering-default overrides (MAX_TURNS_PER_CONVERSATION,
+# DAILY_SPEND_CEILING_USD) — see RUNBOOK "the chat service env file".
+
+[Unit]
+Description=webdesign.uk chat intake service (Phase 4)
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+EnvironmentFile=/etc/webdesign-chat.env
+Environment=PORT=8081
+Environment=DATA_DIR=/var/lib/webdesign-chat
+ExecStart=/usr/local/bin/webdesign-chat
+Restart=on-failure
+RestartSec=5
+
+# Sandboxing — this process holds an API key and writes transcripts; it gets
+# no more of the filesystem or the kernel than it needs.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/webdesign-chat
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+
+[Install]
+WantedBy=multi-user.target

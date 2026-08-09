@@ -1,0 +1,87 @@
+package main
+
+// main.go — entrypoint. Fails loudly at startup rather than starting broken:
+// no API key, no contact details to fail closed WITH, or a store that can't
+// initialize all stop the process before it binds a port. A silently-broken
+// intake bot is worse than one that never started (idea.uk/main.go's own
+// pattern: log.Fatal on config problems, never limp along).
+
+import (
+	"log"
+	"net/http"
+	"os"
+	"strconv"
+)
+
+func env(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
+}
+
+func main() {
+	port := env("PORT", "8081")
+
+	if os.Getenv("ANTHROPIC_API_KEY") == "" {
+		log.Fatal("ANTHROPIC_API_KEY not set — refusing to start")
+	}
+
+	contactEmail := env("CONTACT_EMAIL", "")
+	contactPhone := env("CONTACT_PHONE", "")
+	if contactEmail == "" && contactPhone == "" {
+		log.Fatal("neither CONTACT_EMAIL nor CONTACT_PHONE set — the daily spend " +
+			"ceiling and turn cap fail closed TO the contact details, so without " +
+			"them there is nothing safe to fail closed to; refusing to start")
+	}
+	contactLine := "Thanks for your patience. Please reach us directly:"
+	if contactEmail != "" {
+		contactLine += " " + contactEmail
+	}
+	if contactPhone != "" {
+		contactLine += " or " + contactPhone
+	}
+
+	// Engineering defaults, NOT owner-confirmed business figures — unlike the
+	// £1,200/14-day/2-rounds facts above, these two are safety valves and can
+	// be tuned without a copy-style sign-off. Still worth a second look before
+	// go-live: see RUNBOOK "sizing the daily ceiling".
+	maxTurns, err := strconv.Atoi(env("MAX_TURNS_PER_CONVERSATION", "20"))
+	if err != nil || maxTurns < 1 {
+		log.Fatalf("MAX_TURNS_PER_CONVERSATION invalid: %v", env("MAX_TURNS_PER_CONVERSATION", "20"))
+	}
+	dailyCeiling, err := strconv.ParseFloat(env("DAILY_SPEND_CEILING_USD", "10.00"), 64)
+	if err != nil || dailyCeiling <= 0 {
+		log.Fatalf("DAILY_SPEND_CEILING_USD invalid: %v", env("DAILY_SPEND_CEILING_USD", "10.00"))
+	}
+
+	dataDir := env("DATA_DIR", "/var/lib/webdesign-chat")
+	if err := os.MkdirAll(dataDir, 0o700); err != nil {
+		log.Fatalf("cannot create DATA_DIR %s: %v", dataDir, err)
+	}
+	store, err := NewStore(
+		dataDir+"/state.json",
+		dataDir+"/requests.jsonl",
+		dataDir+"/transcripts.jsonl",
+	)
+	if err != nil {
+		log.Fatalf("store init failed: %v", err)
+	}
+
+	cs := &chatServer{
+		store:           store,
+		ipLimiter:       newChatIPLimiter(),
+		maxTurns:        maxTurns,
+		dailyCeilingUSD: dailyCeiling,
+		contactLine:     contactLine,
+	}
+	hs := &healthServer{store: store}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/chat", cs.handleChat)
+	mux.HandleFunc("/health", hs.handleHealth)
+
+	addr := ":" + port
+	log.Printf("webdesign-chat on %s (max_turns=%d, daily_ceiling=$%.2f)", addr, maxTurns, dailyCeiling)
+	log.Fatal(http.ListenAndServe(addr, mux))
+}

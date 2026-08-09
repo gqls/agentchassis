@@ -5,12 +5,28 @@
 # up). Binding 127.0.0.1 means even a firewall mistake exposes nothing.
 # The tunnel's config will point at http://127.0.0.1:8080.
 #
-# The chat service (Phase 4) will be proxied here as /api/chat, /stripe/ and
-# /health → 127.0.0.1:8081, copying idea.uk's proxy_tool.conf / proxy_stripe.conf
-# split (the Stripe location deliberately carries NO rate limit — Stripe retries
-# in bursts and a 503 reads as an outage). DO NOT add a static /health before the
-# service exists: check_backend_unreachable's contract is that /health exercises
-# nginx AND the engine behind it, and a static 200 would be a lie-shaped pass.
+# Phase 4 chat service is live: /api/chat and /health proxy to 127.0.0.1:8081,
+# copying idea.uk's proxy_tool.conf pattern (idea_uk_vm_site/box/proxy_tool.conf)
+# — a rate limit as belt-and-braces on top of the app's own per-IP limiter.
+# /stripe/webhook is NOT wired yet (Stripe is a later phase per PLAN §4) — when
+# it lands, copy proxy_stripe.conf's shape exactly: NO rate limit on that one
+# location (Stripe retries webhooks in bursts; a 503 there reads as an outage
+# and delays/loses payment confirmation), and never let anything rewrite that
+# body — Stripe verifies a signature over the RAW bytes.
+#
+# ⚠️ THIS BOX IS BEHIND A CLOUDFLARE TUNNEL, UNLIKE idea.uk. Do NOT copy
+# idea.uk's `proxy_set_header X-Real-IP $remote_addr;` — on this box
+# $remote_addr is cloudflared's own local connection, not the visitor, and
+# setting it would inject a false value that could shadow the real one
+# downstream. The visitor's real address arrives as CF-Connecting-IP, already
+# on the request when it reaches nginx (Cloudflare's edge sets it and
+# overwrites anything the client tried to send) — leave it untouched and let
+# proxy_pass forward it as-is. The SAME care applies to the rate-limit zone
+# below: keying it on $binary_remote_addr would be ONE GLOBAL BUCKET for every
+# visitor (bugs_open/139's exact class, this time in nginx config rather than
+# app code) — key on $http_cf_connecting_ip instead.
+
+limit_req_zone $http_cf_connecting_ip zone=chat_rl:10m rate=10r/m;
 
 server {
     listen 127.0.0.1:8080;
@@ -22,6 +38,31 @@ server {
     # Framework-built static pages.
     location / {
         try_files $uri $uri/ =404;
+    }
+
+    # Chat intake (Phase 4). The Go service does its own per-IP + turn-cap +
+    # daily-spend gating (webdesign-chat, PLAN §5.1) — this limit_req is a
+    # second, coarser layer against a raw connection flood, not the real
+    # control.
+    location /api/chat {
+        limit_req zone=chat_rl burst=5 nodelay;
+        proxy_pass              http://127.0.0.1:8081;
+        proxy_http_version      1.1;
+        proxy_set_header Host   $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout      30s;
+        proxy_send_timeout      30s;
+    }
+
+    # check_backend_unreachable's contract: this must exercise nginx AND the
+    # engine behind it. A static `return 200` here would be a lie-shaped pass
+    # — the engine's own /health handler (health.go) does a real disk
+    # round-trip and confirms its API key is configured.
+    location /health {
+        proxy_pass              http://127.0.0.1:8081;
+        proxy_http_version      1.1;
+        proxy_set_header Host   $host;
+        proxy_read_timeout      10s;
     }
 
     # security headers, matching the estate's baseline

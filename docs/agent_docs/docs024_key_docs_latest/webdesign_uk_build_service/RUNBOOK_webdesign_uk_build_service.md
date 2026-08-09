@@ -511,3 +511,118 @@ future notification goes over an HTTPS email API, not port 25. Nothing in the
 web path, the tunnel, GitHub pulls, Anthropic or Stripe calls ever consults the
 PTR. If Mythic's form offers reverse DNS, set it to match the hostname —
 tidiness, zero cost — and move on.
+
+## Phase 4 — the chat service: build, deploy, verify
+
+Source lives in `box/chat-service/` (this lane's own directory in the repo).
+Adapted from `idea.uk/golang_files/` (the proven reference: raw stdlib
+`net/http` calling Anthropic directly, no SDK dependency — the box has no Go
+toolchain, so this is cross-compiled and shipped as a static binary).
+
+### Build and deploy sequence
+
+```bash
+cd docs/agent_docs/docs024_key_docs_latest/webdesign_uk_build_service/box/chat-service
+GOPROXY=off GOTOOLCHAIN=local GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o webdesign-chat .
+
+cd ..  # box/
+scp -i ~/.ssh/webdesign_box_ed25519 chat-service/webdesign-chat webdesign-chat.service webdesign.uk.nginx \
+  root@webdesign.vs.mythic-beasts.com:/root/
+
+ssh -i ~/.ssh/webdesign_box_ed25519 root@webdesign.vs.mythic-beasts.com <<'REMOTE'
+install -m 755 /root/webdesign-chat /usr/local/bin/webdesign-chat
+mkdir -p /var/lib/webdesign-chat && chown www-data:www-data /var/lib/webdesign-chat
+install -m 644 /root/webdesign-chat.service /etc/systemd/system/webdesign-chat.service
+install -m 644 /root/webdesign.uk.nginx /etc/nginx/sites-available/webdesign.uk
+nginx -t && systemctl daemon-reload && systemctl reload nginx
+systemctl enable --now webdesign-chat.service
+REMOTE
+```
+
+**Re-deploying a new binary** (after a code change): same `scp` + `install` +
+`systemctl restart webdesign-chat.service` — no need to re-touch nginx or the
+systemd unit unless those files changed.
+
+### The chat service env file
+
+`/etc/webdesign-chat.env` (600, root:root) — created once by hand (never
+committed; see HANDOFF_2026-08-09 §3 for the key-creation walkthrough), holds:
+
+```
+ANTHROPIC_API_KEY=sk-ant-...          # scoped Workspace key, workspace "webdesign-uk-chat"
+CONTACT_EMAIL=webdesign@contactforsales.com
+CONTACT_PHONE=+44 (0) 7934 524 911
+```
+
+Both `CONTACT_EMAIL`/`CONTACT_PHONE` are load-bearing, not decorative: `main.go`
+refuses to start without at least one — the fail-closed message (turn cap and
+daily ceiling both route to it) needs somewhere real to point. **Proven live
+2026-08-09**: the service correctly refused to boot 3 times in a row
+(`journalctl -u webdesign-chat`) until the contact lines were added — the
+startup guard is not theoretical.
+
+Optional overrides (defaults are engineering judgement, not owner-confirmed
+figures — see "sizing the daily ceiling" below):
+```
+MAX_TURNS_PER_CONVERSATION=20   # default in code
+DAILY_SPEND_CEILING_USD=10.00   # default in code
+```
+
+### Sizing the daily ceiling
+
+Haiku 4.5: $1.00/$5.00 per MTok (input/output). Measured live on the first real
+call through the tunnel (2026-08-09): 372 input + 11 output tokens = **$0.000427**
+for one turn. A full conversation of several turns is comfortably under a cent.
+The code default of **$10.00/day** is a wide engineering margin (≈2,000+ turns)
+— tighten it once real traffic volume is known; it's an env var, no redeploy of
+code needed, only a `systemctl restart`.
+
+### Two-network CF-Connecting-IP proof
+
+**Partial proof done 2026-08-09; full two-network proof still owed.** Fired one
+real message through `https://preview.webdesign.uk/api/chat` and read back
+`client_ip` from `transcripts.jsonl` on the box:
+`2a02:c7c:f61f:ac00:f819:c606:416b:1535`. Independently confirmed via
+`curl -6 https://api64.ipify.org` from the SAME machine: **identical value.**
+This proves the header is carrying a genuine externally-observed address, not
+a stuck constant, not the tunnel's own loopback, not cloudflared's address —
+any of those failure modes would have produced a mismatch here, and none did.
+
+**What's still owed**: a SECOND request from a genuinely different network
+(e.g. a phone on mobile data) must log a DIFFERENT `client_ip` — this is the
+`bugs_open/139`-shaped check (`count(DISTINCT ip) > 1`), and one network alone
+cannot rule out every failure mode (e.g. if `clientIP()` somehow always echoed
+the FIRST caller's own address back for every visitor, one tester would still
+see a match). Two curls from two networks, five minutes, next time someone
+has a second connection handy:
+```bash
+# from network A
+curl -s -X POST https://preview.webdesign.uk/api/chat -H "Content-Type: application/json" -d '{"message":"a"}'
+# from network B (phone on mobile data, different wifi, anything else)
+curl -s -X POST https://preview.webdesign.uk/api/chat -H "Content-Type: application/json" -d '{"message":"b"}'
+# then on the box:
+grep -o '"client_ip":"[^"]*"' /var/lib/webdesign-chat/transcripts.jsonl | sort -u
+# must show TWO distinct values, not one
+```
+
+### Verify after any deploy
+
+```bash
+curl -s https://preview.webdesign.uk/health   # {"status":"ok"}
+curl -s -X POST https://preview.webdesign.uk/api/chat -H "Content-Type: application/json" -d '{"message":"hello"}'
+ssh -i ~/.ssh/webdesign_box_ed25519 root@webdesign.vs.mythic-beasts.com \
+  'tail -3 /var/lib/webdesign-chat/requests.jsonl /var/lib/webdesign-chat/transcripts.jsonl'
+```
+
+### Running the test suite (including the mutation proofs)
+
+```bash
+cd box/chat-service && go build ./... && go vet ./... && gofmt -l . && go test ./... -v
+```
+
+`chat_test.go` proves the turn cap and spend ceiling gates by MUTATING them
+(neutralizing the condition, confirming the test fails, reverting) — not just
+by observing the tests pass. See the file's own comments for why a passing
+test alone isn't proof (memory: "a mutation that PASSES usually hit a guard in
+series" — these two gates were checked in isolation, each proven to be the
+thing that stops the call, not a downstream guard catching it anyway).
