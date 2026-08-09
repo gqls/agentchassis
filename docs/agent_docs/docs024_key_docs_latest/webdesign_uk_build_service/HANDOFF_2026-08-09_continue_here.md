@@ -1,5 +1,10 @@
 # HANDOFF 2026-08-09 — webdesign.uk: the SITE IS BUILT, REVIEWED AND PARKED; next is the CHAT SERVICE (Phase 4)
 
+> **SUPERSEDED same day by `HANDOFF_2026-08-09b_continue_here.md`** — Phase 4
+> went from "blocked on the owner's key" to built, deployed and proven live
+> through the tunnel within this session. Start from the `b` handoff; this one
+> is history.
+
 **Start here cold. Supersedes `HANDOFF_2026-08-08_continue_here.md`** (whose §1
 drive-loop recipe is reproduced below because you will need it on the first
 task). Read with: `PLAN_2026-08-04_webdesign_uk_vm_hosting.md` **§4 Phase 4 +
