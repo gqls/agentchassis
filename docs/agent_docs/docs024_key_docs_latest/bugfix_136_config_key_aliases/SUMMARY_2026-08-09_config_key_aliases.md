@@ -43,9 +43,16 @@ old spelling now uses the one the code reads. The last action that had never opt
 and pinned by tests. Two database migrations, both applied and recorded; one code change,
 reviewed by the council and approved first time.
 
-The acceptance report — the thing that tells us whether any of this is real — now returns
-completely clean on both of its counts, where it previously named one bad setting and three
-families of out-of-date ones.
+The acceptance report — the thing that tells us whether any of this is real — went
+completely clean on both of its counts once the data work was done, where it previously
+named one bad setting and three families of out-of-date ones.
+
+It does **not** read clean right now, and that is on purpose rather than a step backwards.
+Switching on the new check is what makes the report able to see the fourth problem described
+below, so it now names that one instead. Everything this bug was actually about is gone; the
+one remaining line is the newly-found defect, waiting on your decision. Worth knowing if
+anything of ours is wired to this report's pass/fail: it currently reports failure, and will
+until that decision is made.
 
 Two things went differently from the plan, and both are worth knowing.
 

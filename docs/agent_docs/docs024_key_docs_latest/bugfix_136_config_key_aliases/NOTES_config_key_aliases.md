@@ -379,3 +379,28 @@ key (`frameworkStepConfigKeys`), so declaring it in an action spec would misstat
 and `group_type` (literal) and `group_type_field` (path-valued) would land in *different*
 alias fields — `DeprecatedConfigKeys` and `Deprecated` respectively — which is the very
 distinction this bug's landmine is about. Recorded as still-open with that correction.
+
+### CORRECTION, same session — I banked a clean audit and then quoted it after changing the code
+
+I recorded `UNKNOWN KEYS: none / DEPRECATED KEYS: none / exit 0` as the lane's headline, and
+wrote in three documents that the `spec` key "will be reported once the image rolls". **The
+timing is wrong and the headline is stale.** `audit-config-keys.sh` runs
+`go run ./cmd/config-key-audit`: it reads the **source at HEAD** and joins it against **live
+DB config**. Committing item D therefore changed the report immediately — no roll:
+
+```
+UNKNOWN KEYS: create_work_item: spec      DEPRECATED KEYS: none      exit 1
+```
+
+Only the RUNTIME validator's warnings wait for the image. I conflated the offline audit with
+the deployed binary, which is the same category error as reading a deploy from git — the one
+this estate warns about constantly, committed here in the direction nobody watches for
+(claiming a *better* state than is true, from a run that really did happen).
+
+**What caught it:** re-running the audit one final time after committing, rather than citing
+the run banked ninety minutes earlier. **A banked pass is evidence about the moment it was
+taken.** The three figures in the middle row of §12's table are the honest lane-attributable
+result; the bottom row is today's truth.
+
+Practical consequence worth flagging to anyone wiring this up: **the script exits 1 today**,
+correctly (`1 = unknown keys found`), and will until `bugs_open/234` is decided.

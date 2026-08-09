@@ -260,3 +260,16 @@ the test passed — my claim was simply wrong, because two safety switches were 
 that meant either one alone was enough. I have corrected the claim and added a further test
 that does what I said the first one did. The only reason I know is that I ran it instead of
 trusting it.
+
+**Correction, an hour later, to what I said above.** I told you the report "now comes back
+completely clean". That was true when I measured it — after the data fixes and before the
+code change — and it stopped being true the moment I committed the code, which I should have
+re-checked before writing it down rather than quoting the earlier run. The report reads the
+code as it is now, not the code that is deployed, so switching on the new check took effect
+in the report immediately.
+
+So the accurate position: everything this bug was about is gone from the report. What it
+names now is the one new problem I found — the discarded "rebuild the header and footer"
+instruction — and it will keep naming it, and reporting failure, until you decide what to do
+about it. That is the check doing exactly what we built it for. If anything of ours is wired
+to that report passing, it is currently failing, and that is the reason.

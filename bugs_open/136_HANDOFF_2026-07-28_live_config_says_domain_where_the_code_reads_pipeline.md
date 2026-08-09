@@ -745,10 +745,32 @@ estate can observe: binary, declarations, runtime.
 
 ### 12. 2026-08-09 — the deferred residue is CLEARED (owner: "we can fix those deferred items now")
 
-**Headline: `./scripts/audit-config-keys.sh` now reports `UNKNOWN KEYS: none` and
-`DEPRECATED KEYS: none`, exit 0.** Before this session: one unknown key
-(`plan_sections: domain`) and three deprecated families in use. That is the acceptance
-instrument for the whole lane, and it is green.
+**Headline, in two states — and the second one matters, so read both.**
+
+| when | UNKNOWN KEYS | DEPRECATED KEYS | exit |
+|---|---|---|---|
+| before this session | `plan_sections: domain` | 3 families in use | 1 |
+| after migrations 349 + 350 (data only) | **none** | **none** | **0** |
+| after item D's code reached HEAD | `create_work_item: spec` | none | **1** |
+
+> **CORRECTION, made the same session, hours after §12 was first written.** The paragraph
+> here originally said the audit "now reports `UNKNOWN KEYS: none` … exit 0" full stop, and
+> further down §12 said the `spec` key would be reported "once the image rolls". **Both are
+> wrong about WHEN.** `audit-config-keys.sh` runs `go run ./cmd/config-key-audit` — it reads
+> the **source at HEAD** and joins it against **live DB config**. So the opt-in changed the
+> report the moment it was committed, with no roll involved, and the audit **exits 1** today.
+> Only the RUNTIME validator's warnings wait for the image. I conflated the two instruments,
+> which is the same category error as reading a deploy from git.
+> **What caught it:** re-running the audit one last time after committing, instead of citing
+> the run I had banked before the code change. A banked pass is evidence about the moment it
+> was taken — see `a-pass-from-a-blind-check-outlives-the-blindness`.
+
+**The `exit 1` is correct and expected, not a regression.** The script's contract is
+`1 = unknown keys found`, and there is a real unknown key: `create_work_item: spec`, the
+live defect spun out as `bugs_open/234`. Anything treating this script's exit code as a gate
+will now fail until 234 is decided — that is the detector doing its job, and silencing it by
+declaring `spec` is the `bugs_closed/101` mistake this file's §5.4 forbids. **The
+lane-attributable number is the middle row: every key this bug was about is gone.**
 
 | item | what it was | state |
 |---|---|---|
@@ -824,10 +846,12 @@ owner call, not a tidy-up. Filed to the diagnosis loop: **090 run
 `be967639-d195-444a-b9c3-ef1445ff7ae1`**.
 
 Consequence, stated plainly so nobody reads it as a regression: **the opt-in REPORTS
-`create_work_item: spec` on three steps, so `UNKNOWN KEYS` will read 1 (not 0) once the
-image rolls.** That is the detector working on a real defect. Declaring `spec` in
-`ConfigKeys` to keep the number at zero is exactly the `bugs_closed/101` failure that §5.4
-of this file forbids.
+`create_work_item: spec`, so `UNKNOWN KEYS` reads 1 and the script exits 1.** ~~once the
+image rolls~~ — **CORRECTED: immediately, at HEAD, no roll needed**, because the audit
+compiles the source and joins it against live config; only the runtime validator's warnings
+wait for the image. See the correction under the headline table above. That is the detector
+working on a real defect. Declaring `spec` in `ConfigKeys` to keep the number at zero is
+exactly the `bugs_closed/101` failure that §5.4 of this file forbids.
 
 #### E: skipped, and the handoff's reason for it being easy was wrong
 
