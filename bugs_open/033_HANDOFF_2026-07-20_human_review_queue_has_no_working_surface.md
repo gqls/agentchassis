@@ -16,7 +16,29 @@
 
 
 
+> **CONSUMER NOTICE 2026-08-09 — `claims_unverified` is no longer parked-for-ever either, and this
+> is a FACTUAL-claims surface, so read this one even if you skimmed the last.**
+> The review-queue sweep gained a `claims_unverified` revalidator (`4030cadb9`, CQ-021, council
+> `b67eb26a-14ef-45d7-b755-3e489fd57ef0`, inert until the next chassis roll).
+> **What changed about your guarantee:** an item of this type can now be CLOSED without a human,
+> when a re-scan of the page against the site's *current* `evidence_base` register finds no
+> unsupported claim. It is not the auto-rewrite the content-governance rule forbids — retraction
+> never edits copy and never dispatches a rewrite — but it IS a machine closing a human-review row
+> about a **truth** claim, which is a heavier call than voice_tells' style findings. The CLOSER
+> census run first returned ZERO rows (nothing had ever closed one), and no row carries a
+> `deploy_result` block, so no fix pipeline owned it either.
+> **Live population when this was written: 23 items across 7 sites**, all `needs_human_review`, all
+> page-level. Two name a page that no longer exists and one sits on a site with no `evidence_base`
+> row — those three refuse (`unknown`) rather than close.
+> ⚠ **The register is a MOVING STANDARD and it is DATA.** Adding a fact row makes a previously
+> unregistered number verifiable, so an item can retract **with the copy untouched**. A `resolved`
+> stamp is not proof the page was corrected — compare `page_components.updated_at` against the
+> item's `created_at`.
+>
 > **CONSUMER NOTICE 2026-08-08 — `voice_tells` is no longer parked-for-ever, and this file's tally of it will move.**
+> **UPDATE 2026-08-09: this is now LIVE and has closed its first item** — `voice:ecfd0bfd-…`, page
+> `ai-readiness-quiz`, retracted unattended by the 08:38:53Z scheduled sweep. All 32 rows are being
+> scanned each run, so this file's tally of the type moves from here on.
 > The review-queue sweep (`revalidate_review_queue`) gained a `voice_tells` revalidator
 > (`ef80216be`, council `4d430ca8-7e34-479a-95f3-71fdc12fdef6`, inert until the next chassis roll).
 > **What changed about your guarantee:** an item of this type can now be CLOSED without a human,

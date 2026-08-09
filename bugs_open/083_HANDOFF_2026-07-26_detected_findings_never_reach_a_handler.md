@@ -1,6 +1,27 @@
 # 083 — discovery findings written as `status='detected'` never reach a handler: the promoter runs only inside a task disabled since May
 
+> **CONSUMER NOTICE 2026-08-09 — `claims_unverified` is no longer parked-for-ever either, and this
+> is a FACTUAL-claims surface, so read this one even if you skimmed the last.**
+> The review-queue sweep gained a `claims_unverified` revalidator (`4030cadb9`, CQ-021, council
+> `b67eb26a-14ef-45d7-b755-3e489fd57ef0`, inert until the next chassis roll).
+> **What changed about your guarantee:** an item of this type can now be CLOSED without a human,
+> when a re-scan of the page against the site's *current* `evidence_base` register finds no
+> unsupported claim. Retraction never edits copy and never dispatches a rewrite, but it IS a
+> machine closing a human-review row about a **truth** claim. The CLOSER census run first returned
+> ZERO rows, and no row carries a `deploy_result` block — so neither a handler nor a fix pipeline
+> owned this type, which is the condition this file is about.
+> **Live population when this was written: 23 items across 7 sites**, all `needs_human_review`.
+> ⚠ **The register is a MOVING STANDARD and it is DATA** — adding a fact row retracts an item with
+> the copy untouched. A `resolved` stamp is not proof the page was corrected.
+> ⚠ **AND A CEILING THIS FILE SHOULD KNOW ABOUT:** the sweep only ever selects
+> `needs_human_review` and `unresolved`. Findings parked in `blocked`, `detected`, `triaged` or
+> `deferred` — **467 rows across 6 statuses, measured 2026-08-08** — are reached by neither the
+> sweep nor its coverage report. `image_url_404` (26 rows, 0 ever closed, no handler) is the worked
+> example. Under diagnosis as `a174b184-dac2-47a1-95ca-df2d192e183a`; do not treat it as settled.
+>
 > **CONSUMER NOTICE 2026-08-08 — `voice_tells` is no longer parked-for-ever, and this file's tally of it will move.**
+> **UPDATE 2026-08-09: this is now LIVE and has closed its first item** — `voice:ecfd0bfd-…`, page
+> `ai-readiness-quiz`, retracted unattended by the 08:38:53Z scheduled sweep.
 > The review-queue sweep (`revalidate_review_queue`) gained a `voice_tells` revalidator
 > (`ef80216be`, council `4d430ca8-7e34-479a-95f3-71fdc12fdef6`, inert until the next chassis roll).
 > **What changed about your guarantee:** an item of this type can now be CLOSED without a human,

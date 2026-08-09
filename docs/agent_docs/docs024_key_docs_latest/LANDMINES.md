@@ -7297,3 +7297,19 @@ GROUP BY 1,2;
   `copy_actually_changed = false` means the register moved, not the page. Also check `site_specs.updated_at` for the `evidence_base` aspect around the close.
 - **source:** 2026-08-09, bugfix_168_deployed_asset_path — recorded with CQ-021 as the seam shipped, not after something looked wrong
 - **added:** 2026-08-09, bugfix_168_deployed_asset_path
+
+### A `SEED_SCOPE` naming a package-level `var` or `const` can NEVER be read — the code index holds no such kind, and the 090 loop burns its iteration cap returning UNVERIFIABLE
+
+- **footprint:** `090_TRIGGER_needs_diagnosis_v1.sh` (`SEED_SCOPE`), `code_symbols`, and any symptom about a status list, registry map, regex, threshold or allow-list — `workItemRevalidatableStatuses`, `workItemTerminalStatuses`, `reviewRevalidators`, `itemTypesWithoutVerifiers`, `RUNTIME_FILL_ALLOWED` and every sibling
+- **fires when:** you file a 090 whose hypothesis turns on the MEMBERSHIP of a Go package-level `var`/`const`, and name it in `SEED_SCOPE` as `path.go:theSymbol` — the natural spelling, and the one the trigger's own usage examples suggest
+- **the tell: none, and the failure looks like a hard bug rather than a broken lookup.** The run completes, the trail is rich and well-reasoned, and the verdict is `UNVERIFIABLE — stopped: iteration-cap`. Read carefully it says so itself ("symbol/content searches for the literal declaration returned 0 rows — per the index-staleness caveat this is **unknown, not proof**"), but the headline reads as "we could not confirm your theory", which is easy to take as evidence against it. **It is evidence about the index, not about your premise.**
+- **why:** `code_symbols.kind` takes only **`func` (3,592), `method` (1,114), `struct` (973), `alias` (40), `interface` (36)** — measured 2026-08-09 across the whole index. **There is no `var` or `const` kind at all**, so a package-level declaration is not merely stale, it was never indexed. `platform/orchestration/actions/work_items_common.go` indexes 4 funcs and none of its vars.
+- **the check, BEFORE you spend a run — confirm every seed symbol actually exists in the index:**
+```sql
+SELECT symbol, kind, line_start FROM code_symbols
+WHERE path = '<your/file.go>' AND symbol = '<YourSymbol>';
+-- 0 rows ⇒ the loop cannot read it, no matter how the symptom is worded
+```
+  Zero rows ⇒ **name the enclosing FUNCTION instead** (function bodies are read in full, and the `var` is usually referenced inside one), or state the membership as a fact in the symptom text so the hypothesis does not depend on fetching it. Re-frame the question around what IS readable: a function body plus a `DataRequest` the loop can run beats a symbol it cannot open.
+- **source:** 2026-08-09, bugfix_168_deployed_asset_path — run `f3d18013-0b78-472f-b2cb-5bf5e4e893b8` came back UNVERIFIABLE on exactly this, having named `work_items_common.go:workItemRevalidatableStatuses`. Re-filed function-scoped as `a174b184-dac2-47a1-95ca-df2d192e183a`. The premise was independently true and first-hand verified; the loop simply never got to see the list
+- **added:** 2026-08-09, bugfix_168_deployed_asset_path

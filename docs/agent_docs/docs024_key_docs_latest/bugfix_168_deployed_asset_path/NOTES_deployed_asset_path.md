@@ -2208,3 +2208,42 @@ new files. Client-side refusal, no credits spent. `add` is the spelling for a ne
 `git archive HEAD` extraction with none of my edits, so they predate this change — they belong to
 `e1628f7df` (RFC_015 decision records, another lane). The second wants `decision_regression`
 registered with a verifier or acknowledged as a gap.
+
+### The 090 came back UNVERIFIABLE — on TOOLING, and the reason is worth more than the run
+
+Run `f3d18013-…`: **`UNVERIFIABLE — stopped: iteration-cap`.** Its own words:
+
+> *"Two repeated symbol/content searches for the literal declaration
+> (`workItemRevalidatableStatuses = []string{...}`) returned 0 rows — per the index-staleness
+> caveat this is **unknown, not proof** that the list omits those statuses."*
+
+It never saw the list. I checked why, and it is structural rather than staleness:
+
+```sql
+SELECT kind, count(*) FROM code_symbols GROUP BY 1 ORDER BY 2 DESC;
+-- func 3592 | method 1114 | struct 973 | alias 40 | interface 36   -- and NOTHING else
+SELECT symbol, kind FROM code_symbols WHERE path='platform/orchestration/actions/work_items_common.go';
+-- sqlInList, countDispatchableWorkItems, workItemKey, resolveWorkItems  -- 4 funcs, 0 vars
+```
+
+**The code index has no `var` or `const` kind at all.** So `workItemRevalidatableStatuses`,
+`workItemTerminalStatuses`, `reviewRevalidators`, `itemTypesWithoutVerifiers` — every registry,
+status list, threshold and allow-list this codebase argues about — is unreachable via `SEED_SCOPE`.
+I named one and paid a full run for it.
+
+⚠ **`UNVERIFIABLE` is not `REFUTED`.** It says the loop could not answer, not that the premise is
+false. The premise is independently first-hand verified: `work_items_common.go:140-143` is literally
+`{"needs_human_review", "unresolved"}`, and `image_url_404` has 26 open rows and appears nowhere in
+the live `uncovered_types` map. What was missing was an *independent* read, which is the whole point
+of filing — so I re-filed rather than declaring myself right.
+
+Re-filed **once**, function-scoped, every seed symbol confirmed present in `code_symbols` first:
+run **`a174b184-dac2-47a1-95ca-df2d192e183a`**, seeds `reportUncoveredBacklog` /
+`loadParkedReviewItems` / `coveredItemTypes`, and the symptom re-framed around the observable
+(`uncovered_types` omits types that have open rows) so it no longer depends on fetching an
+unfetchable symbol. Landmine added with the pre-flight check.
+
+**Also done:** dated CONSUMER NOTICEs for `claims_unverified` into `bugs_open/033` and
+`bugs_open/083`, and the `voice_tells` notices in both updated to say it is now LIVE with a first
+closure. `083` additionally gets the status-ceiling warning, since "findings never reach a handler"
+is precisely the file whose subject those 467 invisible rows are.

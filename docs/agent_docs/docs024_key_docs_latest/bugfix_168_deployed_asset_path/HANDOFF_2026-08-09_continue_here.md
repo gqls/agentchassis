@@ -32,10 +32,25 @@ WHERE collected_data->'input_data'->>'fix_correlation_id' = 'b67eb26a-14ef-45d7-
 formality.** Do not write `Council-Reviewed:` anywhere unless you have read an APPROVED verdict
 yourself — `098` buckets an unread claim as MISMATCH, which is the report's dishonesty surface.
 
-### 0b. ⏳ Diagnosis on the sweep's STATUS CEILING — run `f3d18013-0b78-472f-b2cb-5bf5e4e893b8`
+### 0b. ⏳ Diagnosis on the sweep's STATUS CEILING — first run UNVERIFIABLE on TOOLING, re-filed as `a174b184-dac2-47a1-95ca-df2d192e183a`
 
-Filed 09:29Z, `diagnosing`. Intake `0c9b44d2-5c74-4322-aa78-7dd206f92689`, item_key
-`needs_diagnosis:uncovered-backlog-status-ceiling`.
+> **RUN 1 (`f3d18013-…`) came back `UNVERIFIABLE — stopped: iteration-cap`, and it is NOT evidence
+> against the premise.** I scoped it at `work_items_common.go:workItemRevalidatableStatuses`, and
+> **the code index contains no package-level vars or consts at all** — `code_symbols.kind` takes
+> only `func` (3,592), `method` (1,114), `struct` (973), `alias` (40), `interface` (36). The loop
+> could never open the list, said so honestly (*"0 rows — per the index-staleness caveat this is
+> **unknown, not proof**"*), and spent its cap trying. That is a broken lookup wearing the costume
+> of a hard bug.
+>
+> **RUN 2 (`a174b184-dac2-47a1-95ca-df2d192e183a`) is scoped at FUNCTIONS only** —
+> `reportUncoveredBacklog`, `loadParkedReviewItems`, `coveredItemTypes`, all three confirmed
+> present in `code_symbols` before filing — and the symptom is re-framed around the observable
+> (`uncovered_types` omits types that have open rows) so the hypothesis no longer depends on
+> fetching a symbol that cannot be fetched. In LANDMINES.md, because it will bite anyone filing
+> about a status list, registry map, threshold or allow-list.
+
+Intake 1 `0c9b44d2-5c74-4322-aa78-7dd206f92689` (item now `complete`, verdict UNVERIFIABLE);
+intake 2 item_key `needs_diagnosis:uncovered-types-omits-open-item-types`.
 
 **The claim under test, which I did NOT assert:** `reportUncoveredBacklog` counts parked rows with
 the same `workItemRevalidatableStatuses` list that scopes the selection, so a type whose rows sit
@@ -47,6 +62,12 @@ lane steers by understates the parked population by roughly 43%.
 building anything on this. Widening the list is architecture-scope regardless: it is interpolated
 in three places, and per its own comment widening the selection alone selects rows the write-time
 CAS guards then silently refuse to update.
+
+⚠ **`UNVERIFIABLE` is neither confirm nor refute — do not read run 1 as a refutation.** The premise
+is first-hand verified independently of the loop: `work_items_common.go:140-143` is literally
+`{"needs_human_review", "unresolved"}`, and `image_url_404` has 26 open rows yet appears nowhere in
+the live `uncovered_types` map. What is still owed is an *independent* read, which is what run 2 is
+for.
 
 ### 0c. 👀 Confirm `claims_unverified` by EFFECT after the next chassis roll — **and not the way §0b told you last time**
 
