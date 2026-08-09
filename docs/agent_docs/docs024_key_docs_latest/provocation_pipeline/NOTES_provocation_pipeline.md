@@ -1711,3 +1711,69 @@ to re-check against the trigger test".
 > **Standing from my entry:** deploy provenance with the real removed-string control,
 > the 8/9 content result (which their nine rounds confirm every round), the empty-body
 > pool defect, and the `gateVersion` bump.
+
+**2026-08-09 — five owner rulings, acted on; and a consequence of ruling 1 that
+nobody had stated: THE SCHEDULER IS NOW THE HUMAN-APPROVAL GATE.**
+
+Rulings: (1) a human CAN approve — **this reverses PLAN §10's no-human-approval
+ruling of 31 July**; (2) ask the model **different ways, several times** (the other
+thread's option 3, sharpened — varying the framing, not repeating one prompt);
+(3) retire the empty row and regenerate; (4) take the 6 LLM drafts through the gate;
+(5) schedule 6 days ahead.
+
+(1) and (2) are the other thread's to implement — delivered to the top of their
+`HANDOFF_2026-08-08b`, their sections untouched. (3), (4), (5) done or set up here.
+
+### The near-miss, and it is the most useful thing in this entry
+
+**"Nothing is wired to publish" was FALSE, and I had repeated it for four days.** It
+is true of the gate, generator and scheduler. It is **not** true of
+`provocation-feed-refresh`, which has been **enabled on a 6-hour tick throughout**
+and selects `status='approved' AND publish_on IS NOT NULL`.
+
+The 6 drafts arrived **pre-dated**, one of them **2026-08-09 — today**. Gating them
+as instructed would have set that row to `approved` while it already carried today's
+date, and the publisher would have put a model-written provocation on vonc.com
+**within six hours, under the owner's name, with no human in the loop** — in the same
+hour he ruled that a human should approve first.
+
+Caught by asking what `status='approved'` would *mean* for a row that already has a
+date, before running the thing that sets it. Their dates are now NULL (backed up in
+`bak_provocation_dates_20260809`), restoring the generator→gate→scheduler separation.
+
+> **A DATED DRAFT IS A PUBLISH WAITING FOR ONE STATUS CHANGE.** The separation that
+> makes this pipeline safe is not the gate; it is that three different components own
+> `status`, `publish_on` and the commit, and no single one of them can publish. A
+> draft created with a date collapses two of those into one, and the collapse is
+> invisible until something flips the status.
+
+### The consequence: do NOT put `schedule_provocations` on a cron
+
+The publisher needs **approved AND dated**. The gate supplies the status; the
+scheduler supplies the date. With a human now in the loop and no second approval
+column, **the date IS the human's approval** — it is the last gate before publication.
+
+So `schedule_provocations` must stay **operator-invoked**. Wiring it to a schedule
+would re-automate the exact step ruling 1 just handed to a human, and it would look
+like plumbing while doing it. This is now the sharpest question for the wiring
+council round: *which of the three components may be scheduled, and which must be
+invoked?* On today's ruling: gate yes, generator yes, **scheduler no**.
+
+An alternative worth costing rather than assuming: a separate `human_approved_at`
+column would make the two approvals distinguishable and let the scheduler be
+automated again. Not built — it is a schema change on a shared table and belongs in
+the wiring submission, not in a session's judgement.
+
+### What was done
+
+- **Retired** `group-chats-replaced-friendship` (zero prose in all five columns).
+  Asserted in the same transaction that today's provocation did not change and that
+  no prose-less approved row remains. 9 approved → 8.
+- **Gated the 6 drafts against the real pool** by dispatching the calibration agent
+  with `input_data.domain='vonc.com'` — a one-off dispatch, not a wiring: no
+  `agent_definitions` row and no `scheduled_tasks` row was created. **All 6 approved,
+  no fatal rules, advisory interest 6-7.** They read as genuine provocations:
+  contestable, one-sided as ruling 1 of 2026-08-06 prefers, no party politics, no
+  invented figures.
+- **All 6 remain undated**, so 0 are publishable. They are waiting on the owner's
+  read — which is what ruling 1 means in practice.

@@ -1,5 +1,41 @@
 # HANDOFF (2026-08-08b) — the fix is live and the content half is calibrated; the SAFETY half leaks 1 in 9 and that is now the blocking question
 
+> # ⚖ OWNER RULINGS 2026-08-09 — §4 IS DECIDED. Appended by another session; §§1-7 below are untouched.
+>
+> Put to the owner with your four options quoted as you wrote them. His answers:
+>
+> **1. A human CAN approve them.** This **reverses the 31 July no-human-approval
+> ruling** (PLAN §10), which was the load-bearing premise of that whole section —
+> "the gate stops being a filter and becomes the only control" no longer holds.
+> The gate is now backstopped. Your option 4 is therefore live rather than
+> excluded, *and* he chose to harden anyway:
+>
+> **2. "we can ask a model different ways, several times."** That is your option 3,
+> with a sharpening worth keeping: **different ways**, not merely repeated. Asking
+> the same prompt k times samples one bias k times; varying the framing is the
+> estate's own perspective-diverse-verify pattern and is strictly stronger against
+> a confidently-wrong `safe:true`. Note it does **not** rule out your option 1 —
+> a deterministic pre-judge layer remains the only candidate that removes the
+> stochasticity rather than sampling it, and it composes with this.
+>
+> **Not asked and still yours to judge:** whether to do 1 *and* 2. The ruling picks
+> the sampling approach; it does not forbid the cheap deterministic floor in front
+> of it.
+>
+> Three further rulings, acted on already so you are not surprised by the pool
+> having moved — all recorded in `NOTES` under 2026-08-09:
+> - **The empty-bodied row is RETIRED** and a generated one replaces it
+>   (`group-chats-replaced-friendship`; it had zero prose in all five columns).
+>   Today's provocation was asserted unchanged across the change.
+> - **The 6 LLM drafts go through the gate.** ⚠ **They were DATED, and the publisher
+>   is live on a 6h tick** — approving a draft dated today would have published it
+>   inside six hours, under the owner's name, with no human in the loop. Their
+>   `publish_on` is now **NULL** (backed up in `bak_provocation_dates_20260809`),
+>   restoring the generator→gate→scheduler separation. **A dated draft is a publish
+>   waiting for one status change; treat "nothing is wired" as false while the
+>   publisher is enabled.**
+> - **Schedule buffer: 6 days ahead.**
+
 **Cold start? Read this file only.** It supersedes
 `HANDOFF_2026-08-08_continue_here.md` (whose one owed item — build + roll + re-run — is
 **done**). Predecessors, oldest first: `HANDOFF_2026-08-02` (publisher half),
