@@ -412,3 +412,31 @@ do. Both cases want an automatic check; nobody has built one.
 ways and checking that exactly the right tests failed each time — a normal green test run would
 have proved nothing here, since that was the original bug. Ten of the twelve reviewers approved.
 Nothing is broken, and none of it does anything until the next rebuild.
+
+---
+
+**2026-08-09, later.** You ruled: shared code wins. So the disagreement between the two reviewers
+is settled your way — the shared version stays, the "just copy the two lines locally" alternative
+is declined, and the paper that asked the question now records the answer (RFC_019 §11).
+
+You also said to fix all the other problems, so those went out today, each as its own small job
+with its own review: the follow-up gap the paper itself declared (steps resumed after a pause
+still lose the "which agent is this" answer — a one-line fix we had deliberately parked); the
+broken test everyone at HEAD has been stepping around since last night (another team added a new
+document type in the database but not in the code that checks it); the vet-comparison lookup that
+has never once worked because our path-reader cannot step into a list (now it can — and it says
+something out loud when the fallback fails, instead of nothing); and the leftover configuration
+keys that do nothing but get copied from agent to agent (removed, and the two actions involved now
+declare what keys they actually read, so the next dead key gets flagged automatically). One
+correction from the digging: those dead approval templates are in one agent, not four — the
+earlier note overstated it.
+
+The hero/logo question — do image steps quietly lose their result when the workflow pauses to
+wait for the git service — could not be answered by reading code, so we are running the live
+experiment you approved the shape of earlier: one page rebuild on the darts site, watching the
+data as it flows. No fix will be made off the back of it without coming back to you, because the
+fix may touch the pause-and-resume design you have not yet ruled on.
+
+One thing still cannot happen yet: the measurement proving the "generic" mislabelling is gone
+needs the next rebuild of the fleet to ship first, and that is your lever, not ours. The queries
+are written down and ready for whoever is around when it lands.

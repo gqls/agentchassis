@@ -20,14 +20,22 @@ Then: `RUNBOOK_rfc012_await_findings.md` (every command with its gotcha; the
 | (d) detector, offline + the CronJob | `abf5e8266`, `867037f5a`, `22ed9aa04` | **LIVE AND PROVEN** |
 | (a)/(a′) reader census | `40992cbce` | **DELIVERED** |
 | Provenance hardening (merge split + step_name symmetry) | `f993554f6`, `0dc2d71a2` | **LIVE on v1.0.1268** |
-| **§1a — the `ResolvedAgentType` ladder** | `1bc08d1ce` | **BUILT, NOT ROLLED. Council REJECTED on scope.** |
-| RFC_019 + numbering-ledger restoration | `44f950522` | **FILED, awaiting the owner** |
+| **§1a — the `ResolvedAgentType` ladder** | `1bc08d1ce` | **BUILT, NOT ROLLED. Council REJECTED on scope. OWNER RULED 2026-08-09: it ships (RFC_019 §11).** |
+| RFC_019 + numbering-ledger restoration | `44f950522` | **DECIDED 2026-08-09 — see Open Item 1 below** |
 
 **Nothing is in flight. Nothing is broken. Do not start coding — read the two open items first.**
 
 ---
 
-## OPEN ITEM 1 — an OWNER DECISION, and it is not answerable with more evidence
+## OPEN ITEM 1 — an OWNER DECISION ~~, and it is not answerable with more evidence~~
+
+> **DECIDED 2026-08-09 — the owner ruled for the SHARED LADDER** (*"I think shared code
+> wins this one"*), and directed the residual problems fixed in the same message. The full
+> ruling and its four consequences: `RFC_019` **§11**. In short: `1bc08d1ce` stands; the §7
+> resumed-step backfill is commissioned as its own council round immediately rather than
+> waiting on the post-roll measurement; the `PROCESS` trigger wording is amended to "adds,
+> changes or removes"; the post-roll measurement (Open Item 2) is unchanged and still due
+> after the next roll. The text below is kept as the decision record it was.
 
 §1a shipped `(*types.ExecutionContext).ResolvedAgentType()` — one ladder for "which agent is
 running", called by both `coordinator.determineOwnerAgentType` and `actions.runningStepProvenance`,

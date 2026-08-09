@@ -1,6 +1,6 @@
 # RFC_019 — One ladder for "which agent is running", and where its bottom rungs live
 
-**Status: DRAFT** (filed 2026-08-08 by the `rfc012_await_findings` lane, §1a)
+**Status: DECIDED 2026-08-09 — the shared ladder ships (owner ruling, §11)** (filed 2026-08-08 by the `rfc012_await_findings` lane, §1a)
 **Code: already shipped** — `1bc08d1ce`, alongside concept-register entry `RSH-009`.
 **Council gate: `Council-Submitted: 6186ab10-a006-4c34-b9ea-ecedfde8ea2d`** — round 1 **REJECTED**, hard veto from `guardian`; the `architecture` seat returned **`ARCHITECTURE_SIGNAL: needs_rfc`**. Read §10 before anything else: it answers §8's question, and it answers it against me.
 
@@ -369,6 +369,34 @@ seats independently praised the mutation discipline and the declared limitation,
 rejected anyway, on the shape of one exported symbol.** If there is a transferable lesson it is
 that on this estate *evidence answers "is the fix right"; it does not answer "may this seam
 exist"* — and only the second question was ever open here.
+
+## 11. OWNER RULING, 2026-08-09 — "shared code wins this one"
+
+The owner read §10's question — which of the two designs ships, given the safest-contained
+rule and the reuse-before-recreate rule point in opposite directions on the same edit — and
+ruled for the shared ladder. Verbatim: *"I think shared code wins this one."*
+
+What follows from it, all executed the same day:
+
+1. **`1bc08d1ce` stands as shipped.** No revert, no resubmission (unchanged from §10 — the
+   ruling confirms the design rather than reopening the round). The guardian's contained
+   alternative — duplicate the two-line read locally — is DECLINED: it is the second ladder
+   this paper exists to retire, as the `architecture`, `reuse_agent` and `constitution` seats
+   said in the round itself.
+2. **The declared resumed-step gap (§7) is commissioned as its own round, immediately** —
+   the owner's same message directed the residual problems fixed ("please go ahead and fix
+   all those other problems"). The one-`if` backfill in `ensureFullExecutionContext` goes
+   through the council gate as the separate round §3's last row promised, with its own
+   submission and `Council-Submitted:` trailer.
+3. **The `PROCESS_architecture_review.md` trigger wording is amended** to *"adds, changes
+   or removes"* — the one-line fix §10 raised and deliberately withheld as not this paper's
+   author's to make. Read as sanctioned by the owner's blanket direction above; if the owner
+   meant the narrower reading, it is one line to revert.
+4. **The post-roll measurement (§7) remains the acceptance evidence** and still cannot be
+   taken before the next chassis roll. Baseline unchanged: ~36 reachable rows in the 13 days
+   before. With the §7 backfill also shipping, the residue is now expected to fall on BOTH
+   the first-step and resumed paths; if it does not, the remaining suspects are the
+   `orchestrate`/`process_message` coordinator-path rows §1's table already scoped out.
 
 ## 9. Sources
 

@@ -248,11 +248,22 @@ is **dead**. So the loop-derived surface adds **no** break.
 
 `vet-practice-verifier` configures `fallback_url_field: search_results.results.0.url`, read
 via `ExtractNestedFieldString`. That function splits on `.` and does **map access only** —
-at the `results` segment `current` is a JSON **array**, the
-`current.(map[string]interface{})` assertion fails, and the function returns `nil`. The
-fallback has therefore **never** produced a URL, and it fails silently by design ("primary
+~~at the `results` segment `current` is a JSON **array**, the
+`current.(map[string]interface{})` assertion fails, and the function returns `nil`~~
+> **CORRECTED 2026-08-09 (owner-directed fix thread):** off by one segment — `results`
+> RESOLVES, via the function's `["response"]` auto-unwrap (the websearch adapter nests its
+> payload under `response`), and yields the array; it is the **`0`** segment where the
+> `current.(map[string]interface{})` assertion fails and the function returns `nil`. Same
+> conclusion, and the distinction matters to the fix: array-index support is needed at the
+> segment AFTER the unwrap, not instead of it. Caught by reading the walk against the
+> adapter's actual reply shape (`internal/adapters/websearch/adapter.go:532`).
+
+The fallback has therefore **never** produced a URL, and it fails silently by design ("primary
 was empty, try fallback, still empty"). Not caused by (a); found while tracing (a)'s
-resolvers. Worth a bug file by whoever owns the vet lane.
+resolvers. ~~Worth a bug file by whoever owns the vet lane.~~ **Being fixed 2026-08-09 at the
+owner's direction** (array-index support in `ExtractNestedField` + failure-path logging at the
+`scrape_web` caller), so no separate bug file — the fix thread's trail is in
+`rfc012_await_findings/` (PLAN 2026-08-09 later section).
 
 ### 6.2 Dead config keys survive indefinitely because nothing looks for them
 

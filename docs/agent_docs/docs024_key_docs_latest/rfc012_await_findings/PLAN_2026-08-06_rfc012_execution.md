@@ -83,3 +83,35 @@ guardian itself routes the call to `RFC_019`. **The open item is an owner decisi
 steps (`ensureFullExecutionContext` never backfills `RunAgentType`). Undecidable before the roll —
 `orchestration_states` keeps ~24h and every affected row is weeks old. The post-roll query and its
 36-row baseline are in `RSH-009`'s `verify-later`.
+
+---
+
+## 2026-08-09 (later) — OWNER RULING on Decision 2, and the residuals commissioned
+
+**The owner ruled: the shared ladder ships** (*"I think shared code wins this one"*) — recorded in
+full at `RFC_019` §11, with the handoff's Open Item 1 marked decided. The same message directed
+*"please go ahead and fix all those other problems"*, which this lane reads as the residual
+problems its handoffs recorded. Five pieces, dispatched 2026-08-09 (planning in this session,
+implementation delegated per problem):
+
+1. **The §7 resumed-step backfill** — no longer waiting on the post-roll measurement; one `if` in
+   `ensureFullExecutionContext` backfilling `RunAgentType` from `state.OwnerAgentType`, its own
+   council round as promised in RFC_019 §3's last row. The post-roll measurement stays as the
+   acceptance evidence for the pair.
+2. **`validDocSubjectTypes` lockstep** — HEAD's failing test (migration 340 added `decision` to
+   the doc_notes CHECK without moving the Go slice; RFC_015 lane, `e1628f7df`). Add `decision`.
+3. **`ExtractNestedField` array-index support** — makes vet-practice-verifier's
+   `fallback_url_field: search_results.results.0.url` resolvable at last (census §6.1), plus the
+   fallback's silent-failure logging. Additive, opt-in, council-gate scope per OWNER RULING
+   2026-07-29 §1. NOTE the census wording is off by one segment: the walk dies at `0` (array), not
+   at `results` (which resolves via the `.response` unwrap).
+4. **Dead config keys retired** — `commit_from` (6 agents) and the HITL `output_format` map
+   (4 templates in ONE agent, `simple-content-writer-with-approval` — the handoff's "4 agents" was
+   wrong); plus `ActionInputSpec` opt-ins for `update_page_status` and `process_approval_decision`
+   so the class is detected next time (the bugfix-136 mechanism, 67 actions already in). Migration
+   352.
+5. **The hero/logo canary** — measurement only, one dispatch, exactly as the 08-06 handoff §2
+   prescribed. Any fix routes back through a decision because it may land in (a)/(a') territory.
+
+Also executed under the same ruling: `PROCESS_architecture_review.md`'s trigger now reads "adds,
+changes or removes" (§10's withheld one-liner, owner-sanctioned).

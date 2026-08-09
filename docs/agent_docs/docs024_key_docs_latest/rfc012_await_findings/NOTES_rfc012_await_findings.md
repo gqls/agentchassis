@@ -1292,3 +1292,22 @@ Five seats praised the mutation discipline, the consumer census and the declared
 it was rejected anyway, on the shape of one exported symbol. **Evidence answers "is the fix
 right". It does not answer "may this seam exist".** Only the second question was ever open here,
 and no amount of §1 measurement was going to touch it.
+
+## 2026-08-09 (later) — the ruling landed, and the residuals went out
+
+The owner read the handoff and ruled Open Item 1 in one line: *"I think shared code wins this
+one"* — the shared ladder ships, the guardian's contained duplicate declined. Recorded as RFC_019
+§11 (status DECIDED), Open Item 1 marked in the handoff, PROCESS trigger amended to "adds, changes
+or removes" under the same sanction. The same message commissioned the residual fixes; the plan of
+five is in PLAN (2026-08-09 later section). Implementation was delegated one problem per thread:
+the §7 backfill, the `decision` lockstep, the array-index fallback, the dead keys + spec opt-ins,
+and the hero/logo canary (measurement only). Each code fix carries its own council submission and
+`Council-Submitted:` trailer; outcomes get appended here when they land.
+
+Two corrections carried while planning, both cheap and both the census's/handoff's own class:
+- the census §6.1 says the `search_results.results.0.url` walk aborts *at `results`* — it aborts
+  at **`0`**; `results` resolves via the `.response` unwrap and yields the array. Same conclusion,
+  off by one segment. To be corrected visibly in the census.
+- the 08-06/08-09 handoffs say the dead HITL `output_format` templates sit in "4 agents" — it is
+  **4 templates in ONE agent** (`simple-content-writer-with-approval`, one `process_approval`
+  step; the fifth template in the same map references `generate_draft` and was not counted).

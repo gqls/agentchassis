@@ -16,8 +16,10 @@ exercised. A change needs an RFC when ANY of these hold:
 
 - it changes a **shared contract**: a dedupe key, a delivery guarantee, a
   state machine consumed by more than one package, a wire/message shape;
-- it changes or removes an **exported symbol** other packages depend on
-  (signature changes count);
+- it adds, changes or removes an **exported symbol** other packages depend on
+  (signature changes count; "adds" added 2026-08-09, owner-sanctioned — RFC_019's
+  round applied the clause to an addition, two seats reading it that way, and
+  RFC_019 §10/§11 records why the words now match the applied rule);
 - it lands coordinated edits across **many packages at once** (rule of thumb:
   three or more of `platform/*`'s top-level packages);
 - it needs a **staged or reversible rollout** to be safe (the change and its
