@@ -1729,3 +1729,41 @@ window from the evidence base; never open-endedly. The writing_rules are
 demonstrably obeyed (the served copy follows the other ten). Final coordinated
 4-page round dispatched after the in-flight what-you-get retry (pre-rule)
 lands.
+
+---
+
+## 2026-08-09 (4) — caps round CLOSED at the honest boundary; two rebuild regressions caught and fixed; where each complaint ended
+
+**The caps outcome, stated precisely:** every uncapped promise is gone from
+specs AND pages (5 writer rounds; the bans caught "right up until you accept"
+×3, "before you see it", "any time" — each a different spelling, each a
+different page). The pages do NOT yet affirmatively state "2 rounds / 14 days"
+— **deliberately**: the writer child measurably received the imperative rule +
+licensed facts (`saw_new_rule=t, saw_fact=t` on orch `870ef314…`) and still
+withheld them, and on reflection that is the RIGHT resting state — both
+numbers are marked "session proposal AWAITING OWNER CONFIRMATION" in
+evidence_base, and unconfirmed commercial terms do not belong on a page. When
+the owner confirms (or changes) 2 and 14: flip the two facts' sources to
+owner-attested, and one page round states them (the rule + writer_lines are
+already in place).
+
+**Rebuild-regression class, twice in one morning (both caught by the widened
+final sweep, both fixed mechanically + render-only rerenders):**
+- **A page REBUILD regenerates the TITLE** → the index em dash returned. Second
+  recurrence of the 08-05 head hole. pages.title re-fixed; a durable fix is a
+  title/head check in the validator — PLATFORM item now, not a lane note.
+- **A page REBUILD resets the hero binding** → three content pages' hero
+  sections came back referencing generic `/assets/images/hero.jpg` (404); the
+  imagery flow's per-page binding (`hero-faq.jpg` etc.) is applied at
+  image-deploy time and a rebuild loses it. Restored the three
+  `page_components.content_data.background_image` values (machine-set values
+  restored, not authored) + rerendered. **The visitor check MUST extract
+  `url(...)` from style attributes — href/src greps cannot see hero
+  backgrounds** (this is how the owner saw a missing hero before I did).
+- Also observed: Cloudflare email-obfuscation rewrites the contact email into
+  `/cdn-cgi/l/email-protection` links that 404 under curl but decode in a
+  browser — a curl artefact, not a defect; don't chase it in future sweeps.
+
+**Bookkeeping:** all caps items complete (resolution_path notes the withheld
+statement); one wasted duplicate faq build (stale envelope reuse — own goal,
+noted); final verify re-run pending box sync at write time.
