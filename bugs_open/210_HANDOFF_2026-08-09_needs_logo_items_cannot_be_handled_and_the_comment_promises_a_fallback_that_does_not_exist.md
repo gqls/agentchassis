@@ -1,8 +1,11 @@
 # 210 — `needs_logo` items are unhandleable, and the producer's comment promises a fallback that does not exist
 
 **Filed 2026-08-09** from the fundamentallyai improvement-sweep front. **OPEN.**
-Status: diagnosed first-hand, **not fixed** — the obvious one-line fix is a trap (§4) and
-the real fix is a design choice that should not be made unilaterally (§5).
+~~Status: diagnosed first-hand, **not fixed**~~ — **FIX BUILT + COMMITTED 2026-08-09, council
+APPROVED round 1; stays OPEN until it is live on the fleet and pod-verified. See the section
+at the foot of this file, which also CORRECTS §6's mechanism (cross-origin, not basename) and
+§2's producer count (three, not one).** The one-line fix is a trap (§4) and is not taken; §5's
+design choice is still open and unmade, now with new evidence against option 2 for logos.
 
 **Diagnosis norm (CLAUDE.md):** this is a cross-cutting claim about a shared handler, so it
 would normally go through `090_TRIGGER_needs_diagnosis_v1.sh` before being asserted. It has
@@ -167,3 +170,127 @@ and §6's `[UNVERIFIED]` note on `check_placeholder_image_in_use` stands. It mea
 underlying site is genuinely wrong too, so the check was **right for the wrong reason**;
 "the site's logo is logo.jpg" should not be left in the record as the innocent
 explanation.
+
+---
+
+## FIX BUILT + COMMITTED 2026-08-09 — by the `bugfix_210_needs_logo_unhandleable` lane
+
+**Go only, no config half. Council `c40c9483-5afd-478b-91ca-7e4db505ed0d` — APPROVED, round 1**
+(12 seats, 4 advisory objections, none high; verdict read in full and every objection
+dispositioned in the lane NOTES). **STAYS OPEN** until the fix is live on the fleet and
+pod-verified — the code is inert until the next chassis image, and a roll is not evidence
+(`bugs_open/153`). Lane docs:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_210_needs_logo_unhandleable/`.
+Registered as **IMG-069**; two LANDMINES entries added and the `bugs_closed/128` pair entry
+corrected.
+
+### Two corrections to this file, both load-bearing
+
+**§6 reached the right verdict by the wrong mechanism, and the mechanism matters.** It guessed
+"a basename appears to have been attributed to a local missing path" and marked it
+`[UNVERIFIED]`. There is no basename matching in this check — it compares the full path. The
+real defect is that `isPathReferencedInPages` used an **unanchored substring**
+(`rendered_html LIKE '%' || $2 || '%'`), and a **cross-origin** URL contains that substring
+byte-for-byte. fundamentallyai's only match, and the only `/assets/images/logo.png` match
+**anywhere in the fleet**, is:
+
+```
+<div class="portfolio-logo"><img src="https://leopardessconsulting.co.uk/assets/images/logo.png"
+```
+
+A partner logo, served from the partner's own domain. Had the mechanism been trusted rather
+than the conclusion re-checked, a correct finding would have been "refuted". Now fixed and
+**verified in Postgres over live rows, both arms**: the false positive goes 1 → 0 while **all
+141** legitimate same-origin `hero.jpg` matches across 17 sites survive untouched — a pattern
+that silenced everything would have passed the first arm alone.
+
+**§2's "blast radius" understates the producer count by two.** Three producers file these
+items and **none** guarantees the key: this check; `WriteBuildItemsAction`
+(`load_work_item_actions.go:348-364`), which is the **primary build path** and writes
+`spec.image_prompts = planData["image_prompts"]` verbatim while `needs_logo` is an independent
+boolean (`:196`) and `image_prompts` is defaulted to `{}` by a separate branch
+(`v3_site_actions.go:3107`); and `check_unfulfilled_image_prompt`, which is safe only because
+it never runs without a prompt. The second has not fired **by luck**, not by design.
+
+### A fourth defect, and the magnitude nobody had measured
+
+- **The check is blind to the surface a logo lives on.** It scanned `page_components` only; a
+  logo is rendered by the site **chrome** (`site_components`). `bugs_closed/128` found this
+  exact blindness and fixed it in the **flag-only** sibling (`check_image_url_404.go:471-482`)
+  while leaving the check that **routes a regeneration** blind. Now fixed on the sibling's
+  contract. **Impact at the time of fixing: nil** — four sites reference the path in chrome and
+  all four have an active `logo` asset, so the second precondition skipped them regardless.
+  A hole waiting, not a hole leaking.
+- **The recovery branch is unavailable on 87% of the fleet** `[MEASURED]`: **33 of 39** sites
+  have no current `site_plan` spec row at all, 1 has a row with no `image_prompts`, **5** have
+  the object. The promptless branch is the NORMAL case. The only reason 2 items failed rather
+  than 34 is that the *other* precondition (no active asset) is currently rare — and **13 of
+  the 16 sites that do have an asset carry no planned prompt**, so each is one asset deletion
+  away from this failure.
+- **mortgagecalculator.co.uk is a TRUE positive** — 6 same-origin CSS `url('/assets/images/hero.jpg')`
+  references, no active hero asset, item failed identically. Without it this would read as a
+  pure false-positive story. The class really bites.
+
+### What shipped, ordered by what closes the door
+
+1. **`generate_image` REFUSES the generic fallback** — the framework fix, and §4's trap
+   disarmed permanently. Every image the platform generates passes through this one function,
+   so a meaningless prompt can no longer become a stored brand asset **regardless of which
+   producer dropped it, or which producer is written next**. Mutation-proven (guard disabled in
+   place, so the package still compiles; the test then fails by running on to the publish path).
+2. **Both Go producers stop filing an item they know is unconsumable** — a `needs_human_review`
+   item naming the gap instead. `HandlerAgent` is the **empty string**, not `"human-review"`:
+   the empty handler is the canonical no-agent spelling (migration 217) and what the fleet
+   actually does — **433** live rows at that status carry no handler against **12** naming
+   `human-review`, which is **not an `agent_definitions` type at all**. Caught by
+   `handler_coverage_test.go`, and independently objected to by two council seats.
+3. **Same-origin anchoring** (above) and **the chrome surface** (above).
+4. **The lying comment is deleted**, replaced with what is actually true.
+
+### The two council objections that were worth real money
+
+- **`editquality` was right about my method.** My "exactly one call site" claim used the
+  `->'workflow'->'steps'` census shape the LANDMINES corpus warns is **top-level only**.
+  Re-run recursively (`default_config @? '$.** ? (@.action == "…")'`) the claim **survives** —
+  still exactly one agent — and the recursive predicate is **proven capable of finding more**:
+  the same form finds **7 agents the top-level scan misses** for `call_agent` (41 vs 34).
+- **`guardian` asked me to characterise the 55 assets with no recorded `origin_prompt`** rather
+  than leave them as stated residual risk under a fleet-wide refusal. Done: **47 are
+  DERIVATIONS** (`derived-from-hero` cards, `derived-from-logo` og_card/favicon) that never call
+  `generate_image` at all, and the remaining **8 all predate 2026-03-05**. The blind spot in the
+  0-of-344 safety measurement is not a hole.
+
+### §5's design choice is still OPEN, and there is new evidence for the owner
+
+**Option 2 (the producer synthesises a brand prompt) cannot be adopted for LOGOS as a small
+change**, because it contradicts a deliberate, documented exclusion this file did not know
+about: `imagery_style_guide.go:24-25` — *"photographic kinds get medium+mood+palette; icons get
+palette only; **logos get nothing** — the 2026-05-20 contamination lesson"* — and
+`generate_image_actions.go:430-433` — *"Logos stay excluded — generated once, human-approved,
+then locked."* So routing an unplanned logo to a human is **the lifecycle the code already
+implements**, not a capitulation, which is why item 2 above is defensible as an interim.
+**It does not answer the owner's question** ("who decides what the logo looks like?") — a prompt
+built from brand *identity* is a different proposition from one built from imagery *direction*.
+That decision stays open and unmade.
+
+### Also NOT done, deliberately (architecture-scope)
+
+`image-build-handler` carries **two prompt-key conventions** — flat `spec.prompt` on the
+Phase-2E branches, nested `spec.image_prompts.<key>` on the legacy two — and
+`check_unfulfilled_image_prompt.go:101-105` says the flat key was the intended end state before
+the migration stopped. Converging them would make this class **unrepresentable** for future
+producers, but it changes what the shared handler guarantees its producers (owner ruling
+2026-07-29). Registered as IMG-069's open question. **All three producers now write both key
+shapes, so the convergence is config-only whenever someone takes it up.**
+
+### How to verify when it rolls (do not verify at git or the tag)
+
+```bash
+kubectl exec -n ai-persona-system <chassis-pod> -- sh -c \
+  'strings /app/agent-chassis | grep -c "generate_image REFUSED: no prompt supplied by any caller"'
+```
+≥1 on **every** replica, plus a negative control (a string the change did not add → 0) and a
+positive control proving the pipeline. Then the behavioural signal: any `needs_logo`/
+`needs_hero_image` failing with `generate_image refused` **names its own producer's bug**, and
+that count is the first real measurement of how often an unprompted request is filed — a number
+nobody has ever had.
