@@ -803,3 +803,76 @@ order, with the checks that were run before each irreversible step:
   calculators.js contains `calculateBalloonAmortization` (positive) and the
   served page greps 0 for `Math.pow` (negative); consolidation served ==
   predicted, `Rerender: loans/consolidation.html` = `5b55a1ca4`.
+
+### 2026-08-09 — `--emit-criteria` RUN. 7 tools covered, 10 REFUSED, and the refusal is the finding
+
+Owner asked for the emission the PLAN had gated on "224 and 225 both fixed".
+Pre-condition re-measured in-session rather than carried forward from the 225
+lane's run: full estate **PASS 170 FAIL 0 CONVENTION 6**.
+
+**Scope, deliberately narrow.** Emitted for the 17 tools the oracle certifies,
+on THIS site only. Excluded, with reasons:
+- `mortgages/investor.html` — toolgolden structurally cannot certify a ratio
+  tool (uniform scaling leaves a yield invariant; the existing LANDMINE). It
+  would have tripped the INERT gate and aborted the whole emission, so leaving
+  it in would have produced nothing at all.
+- **loancalculator.co.uk — NOT emitted, and must not be.** The 08-09 addition to
+  `bugs_open/224` records 5 of its 8 pages carrying the live 0% defect. Pinning
+  a tool's current answers is exactly what the emit-criteria landmine forbids
+  while it is unfixed. (Their lane already has its own criteria dir from
+  07-31; those vectors never reach 0%, so they pin correct non-zero answers —
+  blind to the defect, not asserting it. Left alone.)
+
+**Result: 7 emitted, 10 skipped.**
+
+```
+emitted: standard-calc, compare-loans, interest-rate-stress-test,
+         overpayment-calculator, car-finance-calculator,
+         settlement-calculator, loan-vs-savings   (52 pinned assertions)
+skipped: simple, repayment, overpayment, rate-forecaster, stamp-duty,
+         affordability, fee-analyser, bridging-loan, equity-release
+             — "pressed button 'Calculate …' has no id"
+         consolidation — debt-row inputs are class-selected, no ids
+```
+
+⚠ **The refusals are the substantive finding, not noise.** Nine mortgage tools
+and consolidation cannot be given platform coverage because the button the user
+presses has no `id`, so a criteria step cannot name it — and toolgolden refuses
+rather than emitting steps that drive the tool differently from the capture.
+**`mortgages/stamp-duty` is on that list**: the tool that was wrong for 16
+months is precisely the one that cannot yet be watched unprompted, and the
+remedy is one `id` attribute per button. A skipped tool looks identical to a
+covered one in the acceptance record — which is why this is written down here
+and not left in a terminal.
+
+**Install gate: PASS.** `INSTALL_GATE.sh` (sibling lane's, reused) —
+`computed_values: 1`, control `no_horizontal_overflow: 1` in the same exec, pod
+`browser-runner-adapter-5479844658-hwvvr`. So a fence would EXECUTE, not skip.
+**Not installed** — that is a separate decision, and the gate's step 2 is still
+owed per fence (one in-cluster run each, skip list free of "not implemented",
+inside the 120s deadline).
+
+#### The pinned values were re-derived from the definitions, and the first attempt was MINE that was wrong
+
+`--emit-criteria` pins whatever the tool currently shows, at toolgolden's
+x1/x2/x0.5 vectors — which are **not** the oracle's boundary vectors. "The
+oracle is green" therefore does not by itself certify the numbers going into the
+acceptance record. New `verify_criteria.py` (lane) recomputes every pinned value
+from `oracles.py`.
+
+First run: **6 MISMATCH** of 52, all on the `asym` vector, all on
+fractional-term inputs. **The tools were right and my recomputation was wrong** —
+same shape as the lane's earlier `rate-forecaster` refutation. toolgolden's
+asym vector drives 6.9 / 11.5 / 1.8 / 4.4 YEARS, and these pages compute
+`months = years * 12` unrounded, so a 6.9-year term is **82.8 payments**. I had
+rounded to whole months. Corrected to the pages' convention: **52 of 52 agree
+(±£0.02)**. The six failures are retained above as the evidence that the
+verifier can fail — it is not a checker written to agree.
+
+⚠ **Recorded as an OPEN CONVENTION QUESTION, because the fence now pins it.**
+Whether 6.9 years should mean 82.8 payments (a smooth interpolation) or 83 (a
+real schedule with a smaller final payment) is not settled by the oracle, and
+this behaviour is **pre-existing and unchanged by 224** — the old inline copies
+and the shared `calculateAmortization` both do `years * 12`. But a future,
+reasonable "round the term to whole months" improvement would now FAIL these
+criteria and read as a regression. Whoever makes that change must re-emit.

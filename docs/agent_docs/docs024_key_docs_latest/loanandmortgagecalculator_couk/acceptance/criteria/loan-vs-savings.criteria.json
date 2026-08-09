@@ -1,0 +1,132 @@
+{
+  "checks": [
+    {
+      "expect_values": {
+        "#loan-benefit": "£75.00",
+        "#loan-panel": "Pay Off Loan You \"earn\" a guaranteed £75.00 in interest saved per year.",
+        "#save-benefit": "£30.00",
+        "#save-panel": "Put in Savings You earn a net £30.00 in interest income per year."
+      },
+      "id": "computes-defaults",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#loan-rate",
+          "value": "7.5"
+        },
+        {
+          "action": "fill",
+          "selector": "#save-rate",
+          "value": "5"
+        },
+        {
+          "action": "fill",
+          "selector": "#spare-cash",
+          "value": "1000"
+        },
+        {
+          "action": "select",
+          "selector": "#tax-bracket",
+          "value": "0.4"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#loan-benefit": "£300.00",
+        "#loan-panel": "Pay Off Loan You \"earn\" a guaranteed £300.00 in interest saved per year.",
+        "#save-benefit": "£120.00",
+        "#save-panel": "Put in Savings You earn a net £120.00 in interest income per year."
+      },
+      "id": "computes-double",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#loan-rate",
+          "value": "15"
+        },
+        {
+          "action": "fill",
+          "selector": "#save-rate",
+          "value": "10"
+        },
+        {
+          "action": "fill",
+          "selector": "#spare-cash",
+          "value": "2000"
+        },
+        {
+          "action": "select",
+          "selector": "#tax-bracket",
+          "value": "0.4"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#loan-benefit": "£18.75",
+        "#loan-panel": "Pay Off Loan You \"earn\" a guaranteed £18.75 in interest saved per year.",
+        "#save-benefit": "£7.50",
+        "#save-panel": "Put in Savings You earn a net £7.50 in interest income per year."
+      },
+      "id": "computes-half",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#loan-rate",
+          "value": "3.75"
+        },
+        {
+          "action": "fill",
+          "selector": "#save-rate",
+          "value": "2.5"
+        },
+        {
+          "action": "fill",
+          "selector": "#spare-cash",
+          "value": "500"
+        },
+        {
+          "action": "select",
+          "selector": "#tax-bracket",
+          "value": "0.4"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#loan-benefit": "£293.25",
+        "#loan-panel": "Pay Off Loan You \"earn\" a guaranteed £293.25 in interest saved per year.",
+        "#save-benefit": "£41.40",
+        "#save-panel": "Put in Savings You earn a net £41.40 in interest income per year."
+      },
+      "id": "computes-asym",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#loan-rate",
+          "value": "12.75"
+        },
+        {
+          "action": "fill",
+          "selector": "#save-rate",
+          "value": "3"
+        },
+        {
+          "action": "fill",
+          "selector": "#spare-cash",
+          "value": "2300"
+        },
+        {
+          "action": "select",
+          "selector": "#tax-bracket",
+          "value": "0.4"
+        }
+      ],
+      "type": "computed_values"
+    }
+  ]
+}

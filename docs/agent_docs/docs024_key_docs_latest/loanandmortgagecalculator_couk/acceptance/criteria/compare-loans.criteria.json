@@ -1,0 +1,188 @@
+{
+  "checks": [
+    {
+      "expect_values": {
+        "#col-a": "Option A Amount (£) APR (%) Term (Years) Monthly Payment £202.29 Total Interest £2137.14",
+        "#col-b": "Option B Amount (£) APR (%) Term (Years) Monthly Payment £253.15 Total Interest £2151.00",
+        "#res-i-a": "£2137.14",
+        "#res-i-b": "£2151.00",
+        "#res-m-a": "£202.29",
+        "#res-m-b": "£253.15",
+        "#verdict": "Option A is Cheaper",
+        "#verdict-detail": "You save £13.86 in total interest with Option A."
+      },
+      "id": "computes-defaults",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#amt-a",
+          "value": "10000"
+        },
+        {
+          "action": "fill",
+          "selector": "#apr-a",
+          "value": "7.9"
+        },
+        {
+          "action": "fill",
+          "selector": "#term-a",
+          "value": "5"
+        },
+        {
+          "action": "fill",
+          "selector": "#amt-b",
+          "value": "10000"
+        },
+        {
+          "action": "fill",
+          "selector": "#apr-b",
+          "value": "9.9"
+        },
+        {
+          "action": "fill",
+          "selector": "#term-b",
+          "value": "4"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#col-a": "Option A Amount (£) APR (%) Term (Years) Monthly Payment £332.54 Total Interest £19904.53",
+        "#col-b": "Option B Amount (£) APR (%) Term (Years) Monthly Payment £416.57 Total Interest £19991.01",
+        "#res-i-a": "£19904.53",
+        "#res-i-b": "£19991.01",
+        "#res-m-a": "£332.54",
+        "#res-m-b": "£416.57",
+        "#verdict": "Option A is Cheaper",
+        "#verdict-detail": "You save £86.48 in total interest with Option A."
+      },
+      "id": "computes-double",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#amt-a",
+          "value": "20000"
+        },
+        {
+          "action": "fill",
+          "selector": "#apr-a",
+          "value": "15.8"
+        },
+        {
+          "action": "fill",
+          "selector": "#term-a",
+          "value": "10"
+        },
+        {
+          "action": "fill",
+          "selector": "#amt-b",
+          "value": "20000"
+        },
+        {
+          "action": "fill",
+          "selector": "#apr-b",
+          "value": "19.8"
+        },
+        {
+          "action": "fill",
+          "selector": "#term-b",
+          "value": "8"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#col-a": "Option A Amount (£) APR (%) Term (Years) Monthly Payment £175.31 Total Interest £259.16",
+        "#col-b": "Option B Amount (£) APR (%) Term (Years) Monthly Payment £219.25 Total Interest £261.88",
+        "#res-i-a": "£259.16",
+        "#res-i-b": "£261.88",
+        "#res-m-a": "£175.31",
+        "#res-m-b": "£219.25",
+        "#verdict": "Option A is Cheaper",
+        "#verdict-detail": "You save £2.72 in total interest with Option A."
+      },
+      "id": "computes-half",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#amt-a",
+          "value": "5000"
+        },
+        {
+          "action": "fill",
+          "selector": "#apr-a",
+          "value": "3.95"
+        },
+        {
+          "action": "fill",
+          "selector": "#term-a",
+          "value": "2.5"
+        },
+        {
+          "action": "fill",
+          "selector": "#amt-b",
+          "value": "5000"
+        },
+        {
+          "action": "fill",
+          "selector": "#apr-b",
+          "value": "4.95"
+        },
+        {
+          "action": "fill",
+          "selector": "#term-b",
+          "value": "2"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#col-a": "Option A Amount (£) APR (%) Term (Years) Monthly Payment £160.04 Total Interest £5084.96",
+        "#col-b": "Option B Amount (£) APR (%) Term (Years) Monthly Payment £669.13 Total Interest £3453.24",
+        "#res-i-a": "£5084.96",
+        "#res-i-b": "£3453.24",
+        "#res-m-a": "£160.04",
+        "#res-m-b": "£669.13",
+        "#verdict": "Option B is Cheaper",
+        "#verdict-detail": "You save £1631.72 in total interest with Option B."
+      },
+      "id": "computes-asym",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#amt-a",
+          "value": "17000"
+        },
+        {
+          "action": "fill",
+          "selector": "#apr-a",
+          "value": "4.74"
+        },
+        {
+          "action": "fill",
+          "selector": "#term-a",
+          "value": "11.5"
+        },
+        {
+          "action": "fill",
+          "selector": "#amt-b",
+          "value": "11000"
+        },
+        {
+          "action": "fill",
+          "selector": "#apr-b",
+          "value": "30.69"
+        },
+        {
+          "action": "fill",
+          "selector": "#term-b",
+          "value": "1.8"
+        }
+      ],
+      "type": "computed_values"
+    }
+  ]
+}

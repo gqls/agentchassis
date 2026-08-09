@@ -24834,3 +24834,69 @@ evidence (both entries carry measurements); it is that **a measurement of the SY
 promoted to a claim about the CAUSE without the intervening read**, and the measurement's presence
 makes the claim feel checked. Marker discipline does not catch this: `[MEASURED]` on the row count
 is true and the sentence it licenses is still false.
+
+---
+
+## 2026-08-09 — a 0 from `orchestration_states` that could not have been anything else (bugfix_210 lane)
+
+**The claim I nearly recorded.** Answering "has bug 210's guard branch ever fired historically",
+I ran `count(*) FILTER (WHERE collected_data->'assembled_page'->>'skipped' = 'true')` over all
+4,457 `orchestration_states` rows (2026-07-13 → 2026-08-09) and got **0** — with 809 rows
+mentioning `assembled_page` in text, which made the zero look like a real, well-populated
+absence. The sentence forming in my head was "assembly skips are vanishingly rare in production",
+which would have gone into a bug file as a frequency claim and quietly contradicted the file's
+own (correct) statement that no query today can measure this.
+
+**Why it was worthless.** `page-rebuild` runs its per-page work inside a `loop` sub-workflow, and
+the parent row retains **only pre-loop steps**: `jsonb_object_keys` over its `collected_data`
+returns `get_pages_to_rebuild`, `load_rebuild_context`, `select_style_collection`, `site_record`,
+`pages_to_build` — and no per-iteration state at all. There is no `assembled_page` key to be true
+or false, so **the filter returns 0 whatever happened in production**. The 809 text hits are
+mostly `page-rerender` rows (804) matching the *word* in stored config, not the data shape. A
+recursive `$.**.assembled_page` walk finds the key in `pageflow-builder` rows only (9).
+
+**What caught it.** The row count itself — 1 row of 4,457 carrying a key that every page build
+should write. "Suspiciously low" was the whole signal, and it only registered because the estate's
+own rule says to name the disconfirming result first: I could not say what a non-zero would have
+looked like, because there was no shape in which one could occur.
+
+**The cheap check that would have caught it first:** on any jsonb filter, **count the rows where
+the KEY EXISTS before counting the rows where its value matches** — `count(*) FILTER (WHERE
+collected_data ? 'assembled_page')` was in the very same query I ran, returned **1**, and I read
+past it to the number I was looking for. A denominator of 1 invalidates the numerator of 0; it was
+already on screen. This is the existing "a jsonb PATH read cannot see the shape change underneath
+it — enumerate keys" landmine, met from the other direction: not a shape that CHANGED, but a shape
+that was never there, in a table whose name promises it holds the run.
+
+---
+
+## 2026-08-09 — bugfix 224 session: I reported 6 pinned calculator values as MISMATCHED; the tools were right and my recomputation was wrong
+
+**The claim.** Verifying the values `--emit-criteria` was about to pin into the
+platform's acceptance record, I recomputed each from the independent oracle and
+printed `6 MISMATCH` across three tools — deltas from £0.49 to £9.14, every one
+of them on freshly-fixed code, which is exactly where a real regression would
+be.
+
+**What was actually true.** All six were on toolgolden's `asym` vector, which
+drives **fractional years** (6.9, 11.5, 1.8, 4.4). These pages compute
+`months = years * 12` without rounding, so 6.9 years is 82.8 payments; I had
+rounded to 83 in my recomputation. Same arithmetic, different TERM CONVENTION,
+and the convention was mine, not theirs. Corrected: 52 of 52 agree. The
+behaviour is pre-existing and identical before and after the 224 fix.
+
+**What caught it.** Printing the vector's actual driven inputs instead of only
+the deltas. The fractional `6.9` in the steps was visible immediately; the
+delta column alone had looked like a rounding bug in new code.
+
+**The cheap check, and the trap it sits next to.** Before treating a
+recomputation gap as a defect, print the INPUTS the check drove and ask whether
+your model and the page agree on what they MEAN — units, term basis, rounding
+point — because a convention gap and an arithmetic error look identical in a
+delta column. And note what I then did: **I changed my checker until it agreed
+with the site**, which is the precise shape of
+`fixing-a-checker-to-agree-with-a-broken-site`. That is only legitimate because
+what changed was the term convention and never the formula, the 46 integer-term
+values agreed with no adjustment at all, and the six original failures are kept
+in the notes as proof the checker can still fail. **If you make that move, say
+which of the two you changed** — a reader cannot tell from a green run.

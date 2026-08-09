@@ -1,0 +1,124 @@
+{
+  "checks": [
+    {
+      "expect_values": {
+        "#save-display": "£448.024",
+        "#time-display": "10"
+      },
+      "id": "computes-defaults",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#bal",
+          "value": "15000"
+        },
+        {
+          "action": "fill",
+          "selector": "#rate",
+          "value": "6.5"
+        },
+        {
+          "action": "fill",
+          "selector": "#term",
+          "value": "5"
+        },
+        {
+          "action": "fill",
+          "selector": "#over",
+          "value": "50"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#save-display": "£8,020.903",
+        "#time-display": "36"
+      },
+      "id": "computes-double",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#bal",
+          "value": "30000"
+        },
+        {
+          "action": "fill",
+          "selector": "#rate",
+          "value": "13"
+        },
+        {
+          "action": "fill",
+          "selector": "#term",
+          "value": "10"
+        },
+        {
+          "action": "fill",
+          "selector": "#over",
+          "value": "100"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#save-display": "£28.315",
+        "#time-display": "2"
+      },
+      "id": "computes-half",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#bal",
+          "value": "7500"
+        },
+        {
+          "action": "fill",
+          "selector": "#rate",
+          "value": "3.25"
+        },
+        {
+          "action": "fill",
+          "selector": "#term",
+          "value": "2.5"
+        },
+        {
+          "action": "fill",
+          "selector": "#over",
+          "value": "25"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#save-display": "£1,496.677",
+        "#time-display": "31"
+      },
+      "id": "computes-asym",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#bal",
+          "value": "25500"
+        },
+        {
+          "action": "fill",
+          "selector": "#rate",
+          "value": "3.9"
+        },
+        {
+          "action": "fill",
+          "selector": "#term",
+          "value": "11.5"
+        },
+        {
+          "action": "fill",
+          "selector": "#over",
+          "value": "55"
+        }
+      ],
+      "type": "computed_values"
+    }
+  ]
+}

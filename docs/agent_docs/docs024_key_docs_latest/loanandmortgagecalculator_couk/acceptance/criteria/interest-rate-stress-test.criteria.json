@@ -1,0 +1,108 @@
+{
+  "checks": [
+    {
+      "expect_values": {
+        "#curr-pay": "£315.68",
+        "#extra-cost": "9.35",
+        "#new-pay": "£325.02"
+      },
+      "id": "computes-defaults",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#stress-bal",
+          "value": "10000"
+        },
+        {
+          "action": "fill",
+          "selector": "#stress-apr",
+          "value": "8.5"
+        },
+        {
+          "action": "fill",
+          "selector": "#stress-term",
+          "value": "3"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#curr-pay": "£444.92",
+        "#extra-cost": "22.61",
+        "#new-pay": "£467.53"
+      },
+      "id": "computes-double",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#stress-bal",
+          "value": "20000"
+        },
+        {
+          "action": "fill",
+          "selector": "#stress-apr",
+          "value": "17"
+        },
+        {
+          "action": "fill",
+          "selector": "#stress-term",
+          "value": "6"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#curr-pay": "£287.22",
+        "#extra-cost": "4.51",
+        "#new-pay": "£291.72"
+      },
+      "id": "computes-half",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#stress-bal",
+          "value": "5000"
+        },
+        {
+          "action": "fill",
+          "selector": "#stress-apr",
+          "value": "4.25"
+        },
+        {
+          "action": "fill",
+          "selector": "#stress-term",
+          "value": "1.5"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#curr-pay": "£243.98",
+        "#extra-cost": "16.31",
+        "#new-pay": "£260.29"
+      },
+      "id": "computes-asym",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#stress-bal",
+          "value": "17000"
+        },
+        {
+          "action": "fill",
+          "selector": "#stress-apr",
+          "value": "5.1"
+        },
+        {
+          "action": "fill",
+          "selector": "#stress-term",
+          "value": "6.9"
+        }
+      ],
+      "type": "computed_values"
+    }
+  ]
+}

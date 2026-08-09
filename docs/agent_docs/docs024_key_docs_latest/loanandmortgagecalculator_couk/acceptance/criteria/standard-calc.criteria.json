@@ -1,0 +1,108 @@
+{
+  "checks": [
+    {
+      "expect_values": {
+        "#monthly-display": "£202.29",
+        "#total-cost": "£12,137.40",
+        "#total-interest": "£2,137.40"
+      },
+      "id": "computes-defaults",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#amount",
+          "value": "10000"
+        },
+        {
+          "action": "fill",
+          "selector": "#interest",
+          "value": "7.9"
+        },
+        {
+          "action": "fill",
+          "selector": "#years",
+          "value": "5"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#monthly-display": "£332.54",
+        "#total-cost": "£39,904.80",
+        "#total-interest": "£19,904.80"
+      },
+      "id": "computes-double",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#amount",
+          "value": "20000"
+        },
+        {
+          "action": "fill",
+          "selector": "#interest",
+          "value": "15.8"
+        },
+        {
+          "action": "fill",
+          "selector": "#years",
+          "value": "10"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#monthly-display": "£175.31",
+        "#total-cost": "£5,259.30",
+        "#total-interest": "£259.30"
+      },
+      "id": "computes-half",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#amount",
+          "value": "5000"
+        },
+        {
+          "action": "fill",
+          "selector": "#interest",
+          "value": "3.95"
+        },
+        {
+          "action": "fill",
+          "selector": "#years",
+          "value": "2.5"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#monthly-display": "£160.04",
+        "#total-cost": "£22,085.52",
+        "#total-interest": "£5,085.52"
+      },
+      "id": "computes-asym",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#amount",
+          "value": "17000"
+        },
+        {
+          "action": "fill",
+          "selector": "#interest",
+          "value": "4.74"
+        },
+        {
+          "action": "fill",
+          "selector": "#years",
+          "value": "11.5"
+        }
+      ],
+      "type": "computed_values"
+    }
+  ]
+}
