@@ -50,3 +50,25 @@ out to be on record all along — it was about sequencing (don't detect what not
 fix yet), not budget. That's exactly the line this plan already walks: the rota only
 detects; the fixing side stays off pending your separate call on bug 083. So nothing in
 the plan changes, and the "start ON or OFF?" question above is settled — ON.
+
+## 2026-08-09 (afternoon) — approved, switched on, and working
+
+The council approved it first time round, with four pieces of advice and no serious
+objection. Two of them were genuinely useful and got built in before anything went live:
+the installer now refuses to run if the three inspector names don't match real, active
+inspectors (a typo would have made a rota that silently never ran — exactly the kind of
+failure this whole job is about), and the new machinery now has its own note in the
+system's records so the next person to touch it finds one authoritative description
+rather than a trail of bug files.
+
+Then it went live, and the first cycle worked exactly as drawn: within two minutes the
+three inspectors had each taken the first site on the rota (robot-hands.com), examined
+it, and filed real findings — seventeen assets that were never deployed, some stray
+markdown, and more. The daily watchdog ran too, reported everything healthy, and wrote
+its report where a missing report is itself detectable.
+
+One proof remains, and it's the one the bug itself asked for: those two empty pages on
+finetuning.uk should be found by the rota on its own, with nobody pointing at them —
+that's due within a few hours as the rota works through the site list, and I'm watching
+for it. When that lands, the bug is closed in substance: a broken page on a site nobody
+is looking at can no longer stay invisible.
