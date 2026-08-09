@@ -186,6 +186,16 @@ over the reason Priority 2 was kept.
   no-`input_fields` step whose spec field name occurs twice in `collected_data`?
   That is a shared-helper question wider than 209.
 
+### OWNER RULING 2026-08-09 — the legacy pair is ALIVE, FROZEN; fix by divergence
+
+*"pageflow-builder and site-work-orchestrator are not dead, but not being worked
+on. If we need to diverge from them then we can use new actions and workflows as
+necessary."* This retires the "still open" question below and constrains every fix
+candidate: the legacy pair's behaviour must survive untouched, and new behaviour
+arrives as an opt-in (field or new action), not as a change to what existing
+callers get. Proposed shapes + the pending decision: the lane's
+`PLAN_2026-08-08_209_purpose_keyed_source.md` §"DECISION PENDING".
+
 ### ADDENDUM 2026-08-09 — re-verified post-roll; finding 2's exposure stated precisely
 
 Chassis v1.0.1270 re-applied seeds at 08:49Z (`updated_at` bumped on all four

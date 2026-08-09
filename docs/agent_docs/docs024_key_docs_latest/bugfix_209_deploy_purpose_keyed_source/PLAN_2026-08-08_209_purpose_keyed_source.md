@@ -96,11 +96,37 @@ run") stays last: it is a guard against a state the code can still express.
 
 ## Open questions for whoever takes the fix
 
-- `[UNVERIFIED]` Are `pageflow-builder` / `site-work-orchestrator` reachable at all?
-  No live definition spawns or calls either, and neither ran today — but
-  `orchestration_states` only retains completed runs ~24h, and the longer-retention
-  check was blind (see NOTES). **Dormant, not proven dead.** If they are genuinely
-  dead, retiring them removes the whole legacy constraint and makes fix 1 clean.
+- ~~`[UNVERIFIED]` Are `pageflow-builder` / `site-work-orchestrator` reachable at all?~~
+  **ANSWERED — OWNER RULING 2026-08-09:** *"pageflow-builder and site-work-orchestrator
+  are not dead, but not being worked on. If we need to diverge from them then we can
+  use new actions and workflows as necessary."* So: alive, frozen, must keep working
+  untouched. The fix is divergence, not surgery on the legacy pair.
 - Does the recursive-`asset_id` instability bite any *other* action with a
   no-`input_fields` step whose spec field name occurs twice in `collected_data`?
   That is a shared-helper question, wider than 209.
+
+## DECISION PENDING (2026-08-09) — fix shape under the owner ruling, awaiting go-ahead
+
+The ruling makes the recommended ranking concrete. Two divergence shapes were put
+to the owner (plain-prose version in `README_where_we_are.md`, same date):
+
+1. **(Recommended) Opt-in field on `deploy_image_asset`, unsafe default OFF.**
+   e.g. `resolve_by_identity: true` in step config. OFF = today's behaviour bit
+   for bit (legacy pair never sets it). ON = resolve by explicit `s3_uri` input or
+   `asset_id`/`asset_key` only — **no purpose-keyed fallback, no recursive
+   search** — and fail loudly (skip-with-reason) rather than guess. Modern callers
+   (`asset-deployer`; `image-build-handler`'s `call_asset_deployer` mapping) opt
+   in; they already pass identity. Follows the 2026-08-02 owner ruling ("new
+   authority on a shared seam ships as an OPT-IN FIELD, not a documented
+   contract"). The characterisation tests shipped 08-08 are the proof harness for
+   the OFF position.
+2. **New action, old one untouched.** Zero edit-risk to the frozen pair; costs a
+   duplicated download-optimise-commit path and a second maintenance surface.
+   Only if the owner prefers the legacy code literally unedited.
+
+Either shape still wants the additive writer half — `asset_uris.<asset_key>`
+recorded alongside `{purpose}_uri` — which is the platform seam: concept-register
+entry in the same commit, council submission alongside, consumers told.
+
+**No code yet.** The owner asked for the problem explained clearly before moving
+further; building starts on their pick of shape 1 vs shape 2.

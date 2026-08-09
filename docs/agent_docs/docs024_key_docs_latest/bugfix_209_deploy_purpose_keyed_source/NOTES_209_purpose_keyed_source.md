@@ -251,3 +251,35 @@ bytes on the day the primary route hiccups is strictly worse than one that stays
 correct, and "the primary failed" is precisely the regime a fallback exists for.
 But the exposure is **conditional**, and the earlier phrasing let it read as
 unconditional. Recorded here and as a dated addendum in the bug file.
+
+## 2026-08-09, mid-morning — owner ruling received; and the 064-recurrence traced on request
+
+**Owner ruling (verbatim in README/PLAN/bug file):** the legacy pair is *"not
+dead, but not being worked on"*; divergence via new actions/workflows is licensed;
+explain the problem clearly before moving further. PLAN now carries the two
+divergence shapes (opt-in field, recommended, per the 2026-08-02 opt-in-field
+ruling; vs a new action) as **DECISION PENDING** — no code until the owner picks.
+
+**The 064 question, answered.** Asked: which thread is working `bugs_open/064`.
+Findings, evidence inline:
+
+- 064 is **closed** (`bugs_closed/064`, 2026-07-24, fixed `c9cc95a5a`). The red
+  test is a **recurrence of its shape** — the second (`7290433f2`, 07-31, was the
+  first, missing `landmine`).
+- Introduced by `e1628f7df` (08-08 20:21), RFC_015 decision records: migration
+  340 adds `decision` to `doc_notes`' accepted types; `validDocSubjectTypes`
+  (`doc_subjects_common.go:63`) not updated. The commit's non-platform files land
+  in `idea_uk_vm_site/` — **that lane owns it.**
+- **Nobody is fixing it**: `git log e1628f7df..HEAD -- …doc_subjects_common.go`
+  is empty; the idea_uk_vm_site docs never mention the test (grep empty); the two
+  lanes that hit it (this one; `bugfix_226` at 08-08 22:25, seen in its live
+  transcript) both recorded it as pre-existing and stepped around.
+- Lane told: `idea_uk_vm_site/CONTRIB_2026-08-09_rfc015_broke_the_doc_subject_lockstep_test.md`,
+  pointing at the one-word fix and 064's own checklist (which has an ordering
+  catch: the migration is already live, so the catch-up order matters).
+
+`who-owns.py 064` names `experience_register` and `staged_component_build` as
+likely owners — **both false positives for the current break**: they own the
+*mechanism's history* (064's original fix and the `component` addition), not the
+08-08 recurrence. Same lesson as the 209/223 hits: `who-owns` measures who has
+*touched the subject*, and recency of citation is not authorship of the defect.
