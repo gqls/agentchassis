@@ -1617,3 +1617,51 @@ HANDOFF §1). Sequence + outcomes:
   silently sent nothing while echoing DISPATCHED), and `kubectl run -i` inside
   `while read` eating the id list (1 of 5 dispatched). Both in WRONG_CALLS
   territory but already-tallied classes; noted here, not re-filed.
+
+---
+
+## 2026-08-09 morning — owner review round 2: three complaints, each verified at the artefact before acting
+
+**Owner's read of the preview: "looks hand-built, not framework-built; hero
+missing on the home page; the copy promises uncapped free changes plus an
+open-ended rejection right."** Verification before any rebuild (CLAUDE.md:
+surface contradictions, don't proceed on a wrong premise):
+
+1. **Provenance: the site IS framework-built, and the trail proves it** — every
+   vm-sites commit is the pipeline's own (Rerender:/Deploy/Update stylesheet
+   messages, gqls author), every page has its orchestration (classifier
+   `18c96d16`, planner `6ae2548f` → plan `efe61bcc`, per-page builds by corr in
+   NOTES 08-08), and the claims gate BLOCKED a save mid-build — a hand-built
+   page cannot be blocked by a validator. What made it LOOK hand-built is
+   complaint 2:
+2. **Home hero: TRUE, and it is the stranded-asset class AGAIN.** The hero is a
+   CSS `background-image: url('/assets/images/hero-home.jpg')` — the FILE went
+   to gqls/sites on 08-04 (pre-flip), tonight's reconciler skipped regenerating
+   because the ASSET ROW exists, and the 404 is silent (no broken-image icon;
+   just a dark gradient = "unstyled" to any reviewer). **My 08-08 "every
+   href/src resolves" check missed it because style-attribute URLs are neither
+   href nor src — a grep proves absence only for the spelling it searches.**
+   The visitor-grade check must include `url(...)` extraction from now on.
+3. **Copy: the served text never says "unlimited free changes", but the OFFER
+   as written implies it** — "ask for changes" uncapped + full refund "right up
+   until you accept" unbounded in time. Owner directive: reasonable caps.
+
+**Fixes, all through the framework:**
+- Hero: asset-deployer (the re-deploy path) FAILED on **"storage client not
+  available"** — BOTH modes (deploy_asset AND derive_head_assets), so the
+  favicon derivation is down too. Relojistas' brand-head deploys worked 07-28,
+  so this smells like a chassis-side regression or env gap — PLATFORM item, not
+  chased here. Fallback: cloned the 08-04 `hero_home` needs_imagery item (its
+  prompt is clean — it literally encodes the anti-stock-photo rules) and drove
+  the PROVEN image-build-handler path (corr `7dfd6426…`).
+- Caps: evidence_base now **9 facts / 18 bans** — facts `revision_rounds_included`
+  (2 rounds) + `review_window_days` (14 days), sources marked honestly as
+  session proposals under the owner's caps directive, NUMBERS AWAITING OWNER
+  CONFIRMATION; bans added for uncapped shapes ("unlimited/no limit", "until
+  you accept", "at any point/no time limit"). Four offer-carrying pages
+  (index, how-it-works, what-you-get, faq) re-driven through page-build-handler
+  (corrs in scratchpad caps_corrs.txt + this entry's monitor).
+- The mission_brief still says "walk away with a full refund at any point up
+  until they accept it" — the OWNER's own text; not edited. If it stays, a
+  future full resubmission would regenerate uncapped copy; flagged to owner for
+  re-wording.
