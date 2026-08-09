@@ -696,3 +696,61 @@ whoever files the `090`, both measured, neither a diagnosis:
 
 Where its served palette comes from is the open question, and it is the same question
 sub-shape B is stuck on.
+
+### The `.news-list-tag` fix, measured on all 8 consumers and PREPARED but NOT APPLIED
+
+Written as `docs/agent_docs/sql_for_agents/353_news_list_tag_ink_fix.sql` (+ `_ROLLBACK`).
+**Not applied: the production write was refused by this session's permission
+classifier.** Everything below is measured; only the execution is outstanding.
+
+**The 07-29 note's prescription was half right, and the measurement says which half.**
+It proposed *"a tag chip wants `surface` as its fill and `text` as its ink, and both are
+already derived."* The **ink** half is correct. The **fill** half is wrong, and the same
+render audit that found the bug is what refutes it: `surface` against the section's own
+`background` is **1.04–1.22 on all eight sites**, so a surface-filled chip stops reading
+as a chip. Keeping `border` as the fill preserves the pill's existing distinctness
+(1.11–1.62, unchanged) and makes it a one-declaration change to a shared fleet component
+instead of two.
+
+Both candidates clear AA on 8/8; the ink-only change is the smaller one, so that is what
+353 does — `color: var(--color-text-muted, #64748b)` → `color: var(--color-text, #475569)`.
+
+| site | today | after | scheme |
+|---|---|---|---|
+| idea.uk | **2.25** | 9.67 | light |
+| robot-hands.com | **3.47** | 9.38 | dark |
+| relojistas.com | **3.84** | 12.55 | light |
+| dartsonline.com | **3.94** | 10.94 | dark |
+| webdesign.co.uk | **4.13** | 11.99 | light |
+| fundamentallyai.com | **4.30** | 11.47 | dark |
+| gaswholesalers.com | **4.32** | 11.01 | light |
+| ai-agent-orchestration.com | 4.95 | 12.88 | dark |
+
+**7 of 8 fail today, not 2** — the two I audited by sitemap are simply where the volume
+is. **8 of 8 pass after, minimum 9.38.** The no-theme fallback improves as well:
+`#64748b` on `#e2e8f0` = 3.86 (fails) → `#475569` on `#e2e8f0` = 6.15. Light and dark
+sites both pass, so this is scheme-independent — unlike `fillDarkSchemeSpecialisedSlots`,
+which by design cannot reach sub-shape C at all.
+
+**Scope, checked rather than assumed:** the template uses `--color-text-muted` five
+times; 353 changes **one**. The other four are muted text on the section `background` —
+the slot's designed pairing — and **none of them appears anywhere in the render audit's
+failure list**, which is the evidence for leaving them alone. The two-line anchor
+(colour line + the `background:` line under it) occurs exactly once in the template;
+that was verified in the DB before the file was written, and 353 re-checks it in a
+`DO`/`RAISE` guard that aborts if another session has edited the template since.
+
+**The repair path, which is NOT what `bugs_closed/072` would lead you to expect.** The
+rule ships **twice**: inline in every page's `<style>` (from this template) and again in
+`styles.css` (frozen). Measured on `robot-hands.com/news/index.html`, the inline copy is
+at byte **38425** and the `<link>` to `styles.css` at byte **8412** — the inline copy is
+later, so at equal specificity **it wins**. Therefore **a page re-render repairs the page
+and no stylesheet rebuild is needed**, which is the cheap path and the opposite of 113's
+situation. Six of the eight sites also carry the stale rule in `styles.css`
+(`fundamentallyai.com` and `ai-agent-orchestration.com` do not); it is overridden and
+harmless, but it will keep reading as the old value to anyone grepping the stylesheet.
+
+**Owed after it is applied:** re-render one news page (robot-hands `/news/` has 105 chips
+on it) and re-run `render_audit.py --sitemap` on robot-hands and dartsonline. Expect
+−128 and −53. **Run the audit BEFORE as well as after** — 113's own transferable lesson,
+and the reason the mirror defect on the cost calculator was caught at all.

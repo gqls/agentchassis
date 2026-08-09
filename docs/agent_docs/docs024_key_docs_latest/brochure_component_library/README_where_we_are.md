@@ -1887,3 +1887,44 @@ remaining steps are all machine-side and already agreed — the review round on
 the second half, then applying the two config changes in order. The genuine
 blocker is still the duplicate-page bug and the small addition that lets fact
 assignments survive onto pages that are already built.
+
+2026-08-09, later still — the colour front, and one line that fixes 41% of it.
+
+Yesterday's contact-sheet look found a calculator page with five invisible
+headings, and we traced it to the site's "primary" colour being nearly identical
+to its own background. Today I went and measured the three worst sites properly,
+across every page rather than just their front pages.
+
+The number is much worse than we thought: 442 unreadable pieces of text across 61
+pages on those three sites. The reason we did not know is instructive and I have
+written it down as a trap — every previous run of the measuring tool had only ever
+been pointed at each site's home page. On dartsonline the home page shows one
+problem and the rest of the site shows a hundred and twenty-five.
+
+Two genuinely good pieces of news came out of it. First, the fix we shipped for
+this in July demonstrably works: dartsonline's colour set does not define a card
+colour, yet the page serves a correct one derived from its own palette, and nobody
+touched that site by hand. That is the cleanest proof we have that the repair
+holds. Second, of the three sites, only ai-agent-orchestration.com still has the
+original fault, so the remaining work is one site rather than a fleet.
+
+Then the useful part. A single shared component — the little topic tags on news
+pages — accounts for 181 of the 442, more than any other single cause. It uses two
+colours together that were each designed for something else. I checked it against
+all eight sites that use it: seven of the eight fail today, and one small change to
+one line makes all eight pass comfortably. There was an existing suggestion in the
+bug file for how to fix it, and measuring showed it was half right — following it
+exactly would have made the tags readable but flattened them so they stopped
+looking like tags at all. So I have done the readable half and left the shape alone.
+
+I could not apply it. The change is a write to the live database and my permissions
+refused it, which I think is the system working rather than a fault. So it is
+written up as a numbered SQL file with a backup already taken and a rollback beside
+it, ready for you or the next session to run — it is the first item in the new
+handoff. Everything else is committed.
+
+One caution I want on the record: the obvious next target, ai-agent-orchestration,
+should not simply be re-rendered. Its stored design brief asks for a white
+background on a site whose own rules forbid white backgrounds, and that is not what
+it currently serves — so a re-render might pull the wrong colours in and make it
+worse. That needs looking at before anyone pushes the button.
