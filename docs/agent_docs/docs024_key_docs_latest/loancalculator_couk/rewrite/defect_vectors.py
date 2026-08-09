@@ -228,6 +228,7 @@ CASES = [
         # carries it is the HOMEPAGE (/tools/standard-calc.html was retired by
         # owner ruling and 404s, though its DB rows remain).
         "slug": "standard-calc",
+        "live_page": "index.html",   # standard-calc is retired and 404s; this ships on the homepage
         "why": (
             "Guarded `r > 0` with no else, so a 0% APR returned without touching "
             "the DOM: the same inputs showed two different answers depending on "
@@ -241,6 +242,7 @@ CASES = [
     {
         "name": "loan-repayment is UNCHANGED at a non-zero rate",
         "slug": "standard-calc",
+        "live_page": "index.html",
         "why": "The control for the case above: the r>0 path must still compute.",
         "set": [("amount", "10000"), ("interest", "7.9"), ("years", "5")],
         "expect": {"monthly-display": "£202.29", "total-interest": "£2,137.40",
@@ -513,8 +515,18 @@ def run_side(ref, keep, live=False):
     print("\n== %s ==" % label)
     results = []
     for case in CASES:
-        url = ("%s/%s" % (VR.LIVE, pages[case["slug"]]) if live
-               else "http://127.0.0.1:%d/%s" % (port, pages[case["slug"]]))
+        # `live_page` exists because a component's staging page and its LIVE page
+        # are not always the same file. `tool-loan-repayment` is staged as
+        # standard-calc (the slug verify_rewrite's SPECS knows) but that page was
+        # retired by owner ruling and now 404s, while the component itself ships
+        # on the HOMEPAGE. Without the override, --live drove the dead URL and
+        # reported MISSING on every element — the defect case AND its control
+        # failing identically, which is the tell for a harness pointed at the
+        # wrong page rather than a broken tool.
+        page_path = case.get("live_page", pages[case["slug"]]) if live \
+            else pages[case["slug"]]
+        url = ("%s/%s" % (VR.LIVE, page_path) if live
+               else "http://127.0.0.1:%d/%s" % (port, page_path))
         reads = sorted(set(list(case.get("expect", {}))
                            + list(case.get("expect_contains", {}))
                            + list(case.get("prefix_expect_instead", {}))

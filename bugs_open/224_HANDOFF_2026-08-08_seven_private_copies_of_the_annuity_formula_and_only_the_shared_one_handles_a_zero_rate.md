@@ -91,11 +91,27 @@ one of the eight as **PROVEN** — it reads differently against the pre-fix
 component — and every control as **unmoved**. Nothing VACUOUS. That matters
 because the defect they cover survived a green `toolgolden 11/11` for months.
 
-⏳ **NOT YET LIVE.** Six assemble-only `page_rerender` items
-(`source='bugfix224-zero-rate'`) are `triaged` behind ~73 older items in the
-fleet queue. They are waiting, not stuck — do not re-file. Live verification
-when they land is in
-`loanandmortgagecalculator_couk/HANDOFF_2026-08-09_continue_here.md` §1.
+✅ **LIVE AND VERIFIED 2026-08-09.** All six assemble-only rerenders completed
+and committed (`895e3bcff`, `1aaf7d1c4`, `94b4aa266`, `15a9ed066`, `ecc65cc1e`,
+`07144b905`). On the SERVED pages:
+
+| check | result |
+|---|---|
+| `zero_rate_sweep.py` live, the 5 detectable pages | **0 of 5 affected** (was 5 of 8) — 0 NaN, 0 history-dependent |
+| `defect_vectors.py --live` | **all 16 pass against the served pages** |
+| `check_site_serving.sh` | 26/26 (200 + ≥2000 B + DOCTYPE, so no B2 error blob was graded) |
+| `--both` scoring | all 8 new cases **PROVEN**, controls unmoved, none VACUOUS |
+
+Consolidation is covered by the `defect_vectors` cases, not by the sweep, which
+is structurally blind to its deterministic zero — a clean sweep line for that
+page would have meant *unmeasured*.
+
+> **One harness fix on the way through, and the tell is worth keeping.** The two
+> `tool-loan-repayment` cases failed `--live` with every element MISSING — the
+> defect case AND its control failing identically, which is the signature of a
+> harness pointed at the wrong page rather than a broken tool.
+> `/tools/standard-calc.html` is retired and 404s, while the component ships on
+> the HOMEPAGE. `defect_vectors.py` now takes a per-case `live_page` override.
 
 ## 2026-08-09 — THE SAME DEFECT IS LIVE ON loancalculator.co.uk (5 pages). NOT FIXED
 
