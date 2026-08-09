@@ -1,5 +1,10 @@
 # HANDOFF 2026-08-08 — webdesign.uk: REBUILD IN FLIGHT, clean classification PROVEN; the pipeline must be HAND-DRIVEN item by item
 
+> **SUPERSEDED 2026-08-09 by `HANDOFF_2026-08-09_continue_here.md`** — the build
+> completed, the owner reviewed it twice, and the lane has moved to Phase 4 (the
+> chat service). §1's drive loop is reproduced there; everything else here is
+> history.
+
 **Start here cold. Supersedes `HANDOFF_2026-08-06_continue_here.md`** (kept; its
 §1 state table is still right for box/tunnel/preview/token — not repeated here).
 Read with: `NOTES` 08-06 evening → 08-08 (the asset-path discharge, the firecrawl
