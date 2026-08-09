@@ -2374,3 +2374,54 @@ served object still 05 Aug; a different repo and host from the other twelve.
 **Also owed:** `contact-block`'s fence deliberately asserted the validation path only, so as
 not to ratify the fake success. That reason has now gone — the fence should gain a check
 that the success state is downstream of a destination.
+
+## 2026-08-09 (afternoon) — the roll landed; the class fix is PROVEN OPERATING, and contact-block's fence now carries the check whose absence let 228 ship
+
+**`85390ee33` live on v1.0.1274** (chassis + browser-runner, pods up 12:23Z). Pod-grepped
+both replicas with controls in both directions: `"seeded empty form_action for sanitiser"`
+→ **1** each, against **0** on v1.0.1270 three hours earlier — a measured transition, not a
+green reading. Positive controls `form_action` → 3 and `request_component_browser_run` → 6;
+negative control → 0.
+
+**Then the part a pod-grep cannot do.** A binary containing a string is not a mechanism
+operating. So I DELETED my own morning workaround — the hand-seeded
+`content_data.form_action = ''` on both served placements — and re-rendered each page:
+
+| | hand_seeded | rendered |
+|---|---|---|
+| leopardessconsulting.co.uk | false | `action="mailto:leopardess@contactforsales.com?subject=…"` |
+| robot-hands.com | false | `action="mailto:robot-hands@contactforsales.com?subject=…"` |
+
+**The check could have come out otherwise, which is the whole point** — without the class
+fix reaching that path both would have rendered `action=""`, which is exactly what they did
+on v1.0.1270 this morning. `count(*) WHERE content_data ? 'form_action'` over contact-block
+placements is now **0**: no per-row special case left to rot. Live end-to-end re-run on the
+class mechanism, still PASS.
+
+### The fence edit I owed, and why it is the one check that matters here
+
+`contact-block`'s fence deliberately asserted the validation path only, so this lane's own
+contract would not vouch for a claim that was false to the visitor (`bugs_open/161`'s class,
+applied before the fact). **That reason has gone**, and leaving the fence as it was would
+have meant the component's contract still could not tell a delivering form from a dead one.
+
+Added `form-has-a-real-destination`: `form.cb-form[action]:not([action=""])`. Deliberately
+scheme-agnostic, so it stays true when this is pointed at a real receipt endpoint, and
+deliberately not asserting the VALUE — that is derived per site from `sites.email` by
+`sanitiseFormAction`, and pinning it would make the contract site-specific and duplicate a
+rule that lives in one place.
+
+**It is mutation-proven against BOTH states this bug actually passed through**, which is
+what makes it a regression test rather than a decoration:
+
+- *the form loses its destination entirely* (the original 228 defect) → caught
+- *the form keeps the attribute but it is empty* (the v1.0.1270 intermediate state) → caught
+
+Fence now 9 checks; **10/10 mutants caught, 9/9 watched red, baseline green**. Persisted,
+read back byte-identical, S6 re-dispatched: `f3cd89a2` **13/13 passed**, landed
+`neg_control_confirmed_red`, every skip a profile gate. PLAN body carries a visible
+SUPERSEDED note over the old "deliberately does not assert" paragraph rather than quietly
+deleting it.
+
+**Tally unchanged at 49 sections + 2 tools** — this was a contract strengthened, not a new
+subject.

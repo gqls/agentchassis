@@ -39,6 +39,22 @@
     ]
   },
   {
+    "name": "the form loses its destination entirely (the original 228 defect)",
+    "from": "<form class=\"cb-form\" id=\"cb-contact-form\" action=\"mailto:robot-hands@contactforsales.com?subject=robot-hands.com enquiry\" method=\"POST\" novalidate",
+    "to": "<form class=\"cb-form\" id=\"cb-contact-form\" novalidate",
+    "expect_fail": [
+      "form-has-a-real-destination"
+    ]
+  },
+  {
+    "name": "the form keeps the attribute but it is empty (the pre-class-fix state)",
+    "from": "<form class=\"cb-form\" id=\"cb-contact-form\" action=\"mailto:robot-hands@contactforsales.com?subject=robot-hands.com enquiry\" method=\"POST\" novalidate",
+    "to": "<form class=\"cb-form\" id=\"cb-contact-form\" action=\"\" method=\"POST\" novalidate",
+    "expect_fail": [
+      "form-has-a-real-destination"
+    ]
+  },
+  {
     "name": "the component's own script never runs, so an invalid submission gets no reason back",
     "from": "<script src=\"/tools/assets/contact-block.js\"></script>",
     "to": "<script>/* component script removed by mutant */</script>",

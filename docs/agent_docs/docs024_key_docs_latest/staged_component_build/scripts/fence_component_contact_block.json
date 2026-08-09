@@ -42,6 +42,14 @@
       "selector": "section.contact-block-section[data-component=\"contact-block\"] form.cb-form"
     },
     {
+      "id": "form-has-a-real-destination",
+      "type": "selector_exists",
+      "profiles": [
+        "desktop"
+      ],
+      "selector": "section.contact-block-section[data-component=\"contact-block\"] form.cb-form[action]:not([action=\"\"])"
+    },
+    {
       "id": "empty-submission-is-rejected-with-a-reason",
       "type": "interaction",
       "profiles": [
