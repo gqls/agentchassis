@@ -365,3 +365,110 @@ owns the open question *"which palettes still carry it"*.
 **Cheapest next step if anyone takes it:** run `render_audit.py --sitemap` against the
 three ≈1:1 sites. The gripper page alone produced 7 failures from one component; those
 sites will have more, and the tool already names the selector and the exact strings.
+
+---
+
+## 2026-08-09 (later) — THE THREE-SITE SITEMAP AUDIT, RUN. 442 failures, and 113's own mechanism survives on ONE of the three
+
+The section above closes with *"cheapest next step: run `render_audit.py --sitemap`
+against the three ≈1:1 sites"*. Done. **It was worth running: the three sites carry
+442 solid-background AA failures across 61 pages**, against the 7 that one component
+on one page produced.
+
+**More usefully, the run DISCRIMINATES between this bug and the adjacent one**, which
+palette arithmetic could not: of the three sites, only one still carries 113's own
+fall-through, and the other two show the derivation working on a live artefact.
+
+```
+$ scripts/render_audit.py --sitemap https://<domain>/index.html      # 2026-08-09
+```
+
+| site | pages | raw | over-image (discounted) | **solid** | on a `#ffffff` card | fg == `--color-primary` | ≤1.1:1 (invisible) |
+|---|---|---|---|---|---|---|---|
+| ai-agent-orchestration.com | 24 | 136 | 12 | **124** | **44** | 47 | **73** |
+| robot-hands.com | 19 | 217 | 24 | **193** | 8 | 31 | 32 |
+| dartsonline.com | 18 | 130 | 5 | **125** | **0** | 67 | 19 |
+| | **61** | 483 | 41 | **442** | | | |
+
+**The 41 discounted are a probe artefact, not a defect, and quoting the 483 would be
+wrong.** `render_audit.py:111-114` pushes a mid-grey `rgb(128,128,128)` under any text
+whose backdrop is a background *image or gradient*, because that colour is unknowable,
+and flags it `overImage` — its own comment says so, "so a reader can discount it rather
+than trusting a number the page cannot actually justify". Every
+`rgb(255,255,255) on rgb(128,128,128) = 3.95:1` row is one of those. Both CTA gradients
+here (`--color-cta-bg: linear-gradient(...)`) generate them. **Use 442.**
+
+### The discriminator: read the SERVED `--color-card-bg`, not the palette row
+
+| site | served `--color-card-bg` | served `--color-surface` | verdict |
+|---|---|---|---|
+| ai-agent-orchestration.com | **`#ffffff`** | `#0D1117` | **113 LIVE — the layout literal, on a `#080B10` background** |
+| robot-hands.com | `#1E2535` | `#1E2535` | derived — 113 repaired here |
+| dartsonline.com | `#1E2436` | `#1E2436` | derived — 113 repaired here |
+
+**dartsonline is the positive control that makes this discriminating.** Its `palettes`
+row defines **no `card_bg`** (`colours ? 'card_bg'` = false) and yet the served sheet
+carries one, equal to its `surface` to the byte. That is `fillDarkSchemeSpecialisedSlots`'
+signature and it can have come from nothing else — so the fix is not merely live in the
+binary, it is **proven on a served artefact of a site nobody repaired by hand**. Its 44→0
+white-card failures are the difference.
+
+**So this bug's remaining live instance, of these three, is
+`ai-agent-orchestration.com` alone** — 44 of its 124 failures are ink on the `#ffffff`
+literal (20 `.H3` and 6 `.info-card-grid__card-body` at 3.08:1, `text_muted` `#8B949E`
+on white), and it is the site 122 already flags as worst on the fleet. Per this file's
+own standing instruction I have **not repainted it**: the repair is a deliberate
+stylesheet re-render, which per `bugs_closed/072` will not happen on its own.
+
+> **Its `design_intent.color_scheme` is a LIGHT scheme** — `background #ffffff`,
+> `surface #f8f9fa`, `text #333333` — on a site whose `style_direction` is
+> `professional-dark`, whose `colour_mood` asks for "slate-900 to slate-950", and whose
+> own `avoid` list contains **"Bright white backgrounds"**. The served sheet is dark, so
+> that spec is *not* what rendered. **Where the served palette does come from is
+> `[UNMEASURED]`** — there is no `palettes` row for this domain at all
+> (`source_domain='ai-agent-orchestration.com'` → 0 rows). Anyone re-rendering it should
+> establish that first, or the re-render may pull the light scheme in and make it worse.
+> **This is a caution, not a diagnosis, and it has not been through `090`.**
+
+### The demand-side count this file said it had not enumerated
+
+The 08-09 section states *"the real count is (those components × their placements on
+those 5 sites), which I have not enumerated"*. Enumerated now:
+
+| site | ink placements | distinct components | deployed pages hit |
+|---|---|---|---|
+| vonc.com | 13 | 5 | 11 |
+| robot-hands.com | 8 | 6 | 8 |
+| ai-agent-orchestration.com | 5 | 5 | 5 |
+| dartsonline.com | 3 | 3 | 3 |
+| mortgagecalculator.co.uk | 2 | 2 | 2 |
+| **total** | **31** | | **29** |
+
+**31 is a FLOOR, not a total.** It counts only `page_components` rows on pages with
+`deployed_at IS NOT NULL`; chrome (header/footer/nav) does not live in that table, so
+every chrome component using primary as an ink is invisible to this count. `[UNMEASURED]`.
+
+**The `53` figure in the section above is sound** — I checked it because it looked
+fragile and it was not. Its regex `color:\s*var\(--color-primary\)` **also matches
+`background-color: var(--color-primary)`**, which would inflate an ink count with fills.
+Split apart, today: **54** match the filed regex, **51** are genuinely ink
+(`(^|[^-a-zA-Z])color:`), **1** is `background-color`, **26** are `border-color`. So the
+overcount is 3 components, not a category error. Recorded because the check was cheap and
+the failure would have been invisible: *a "colour" regex cannot tell an ink from a fill,
+which is the exact confusion this whole bug family is about.*
+
+### What this run found that is NOT this bug — routed, not forked
+
+**`.news-list-tag` is 181 of the 442 (41%), the single largest contributor**, and it is
+already owned by **`bugs_open/122`**, which diagnosed the mechanism correctly on
+2026-07-29 (`text_muted` ink on a `border` fill) and rated it *"the least urgent thing in
+this file"* at 28 instances on one page. **That rating is now wrong by an order of
+magnitude** — 128 on robot-hands, 53 on dartsonline. The measurement is contributed
+there, not here; **113's merge fix would not move it**, exactly as the 08-09 section
+predicted for the primary-as-ink class.
+
+*Transferable, and it applies to every fleet figure in both files:* **a homepage is not a
+sample of a site.** 122's 2026-08-06 fleet run measured 15 **homepages** and found 109
+firm failures across 12 sites, robot-hands contributing 3 and dartsonline 1. Full
+sitemaps of those same two sites, three days later, give **193 and 125**. The defect
+concentrates on tool, guide and news pages — the ones a homepage run never opens.

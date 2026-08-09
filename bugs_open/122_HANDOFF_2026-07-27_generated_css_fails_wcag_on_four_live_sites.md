@@ -614,3 +614,85 @@ scheme-independent, so a dark-only derivation cannot reach sub-shape C at all.
 unsound methods this file's own 07-28 correction records. Induce the no-op case too:
 a site whose `primary` already clears AA must get the slot holding `primary`'s own
 value and render byte-unchanged.
+
+---
+
+## Contribution 2026-08-09 — the 08-06 fleet figure is a HOMEPAGE figure, and `.news-list-tag` is not the least urgent thing here, it is the largest
+
+**Contributed from the `bugs_open/113` lane, whose 08-09 census named the three worst
+`--color-primary` sites and whose stated next step was to audit them in full.** Adding
+the measurement here because this file owns the class; 113 owns only the merge half.
+
+### 1. Homepage sampling understated this bug by ~2 orders of magnitude
+
+The 08-06 section measures **15 homepages** → 109 firm failures, with
+`robot-hands.com` at **3** and `dartsonline.com` at **1**. Same tool, same probe,
+`--sitemap` instead, 2026-08-09:
+
+| site | 08-06, homepage only | 08-09, full sitemap | pages |
+|---|---|---|---|
+| robot-hands.com | 3 | **193** | 19 |
+| dartsonline.com | 1 | **125** | 18 |
+| ai-agent-orchestration.com | 30 | **124** | 24 |
+| | | **442 solid, 61 pages** | |
+
+**Nothing regressed and nothing was mismeasured — the 08-06 run simply never opened
+these pages.** The failures concentrate on tool, guide and news pages. `dartsonline`
+going 1 → 125 is the sharpest case: on its homepage this bug is a rounding error, and
+across its site it is 125 failures.
+
+**41 further raw failures were discounted, not counted**, all `overImage` mid-grey
+approximations under the two gradient CTAs (`render_audit.py:111-114`). The 08-06
+table's "over-image approximations only" rows are the same artefact.
+
+*The check:* **`--sitemap` is not a nicety on this bug, it is the measurement.** A
+per-site number taken from `index.html` is a claim about one page.
+
+### 2. `.news-list-tag` — the 07-29 rating needs inverting
+
+That section reads: *"the least urgent thing in this file"*, marginal at 3.94:1, 28
+instances on one new page. The mechanism it names is exactly right —
+`.news-list-tag { color: var(--color-text-muted); background: var(--color-border) }`
+in the active, unforked `news-listing` component, `border` spent as a fill with `muted`
+as its ink. Only the **size** was wrong:
+
+| site | instances | ratio |
+|---|---|---|
+| robot-hands.com | **128** | 3.47:1 (`rgb(122,143,166)` on `rgb(45,58,74)`) |
+| dartsonline.com | **53** | 3.94:1 (`rgb(138,146,168)` on `rgb(44,52,80)`) |
+| | **181 of 442 = 41%** | |
+
+**It is the single largest contributor to this bug across the three sites measured**,
+larger than sub-shapes A and B combined on those sites. It stayed "least urgent"
+because it was only ever seen on the one page that happened to be new that day.
+
+It also does not fit A, B or C cleanly: A is `primary` double-duty, C is a component
+hard-coding a *literal* ink over a themed fill. This is **two themed slots paired with
+each other**, neither authored for the pairing and neither reviewable as a text pair —
+`border` is checked as a line colour, `text_muted` as an ink on `surface`. Whether that
+is a fourth sub-shape or a widening of A is the owning lane's call.
+
+The 07-29 note already names the repair — *"a tag chip wants `surface` as its fill and
+`text` as its ink, and both are already derived"* — and it is **one component template**,
+not 18 layouts. Against the proposed `--color-primary-ink` work it is far cheaper and
+retires 41% of the measured failures, so it is worth doing **first and separately**,
+whatever happens to the renderer proposal. Not done from here: `news-listing` is a
+shared fleet component and this is not my lane.
+
+### 3. Sub-shape B, on the site that has it worst
+
+The 08-06 section records `--color-heading` collapsing onto its own background on
+`ai-agent-orchestration.com` (six `.H3` at 1.00:1 on the homepage), cause `[UNMEASURED]`,
+deliberately routed to `090` rather than guessed. **Unchanged and not diagnosed here.**
+Across its full sitemap it is **25 `.H3` at exactly 1:1** plus 17 `.H2`, and **73 of its
+124 failures are ≤1.1:1**, i.e. invisible rather than faint. Two facts that may help
+whoever files the `090`, both measured, neither a diagnosis:
+
+- its served `--color-primary`, `--color-surface` and `--color-heading` all resolve to
+  **`#0D1117`**, while `--color-background` is `#080B10`;
+- **there is no `palettes` row for the domain at all** (`source_domain` → 0 rows), and its
+  `site_specs.design_intent.color_scheme` is a **light** scheme (`background #ffffff`)
+  that plainly did not render, on a site whose `avoid` list forbids white backgrounds.
+
+Where its served palette comes from is the open question, and it is the same question
+sub-shape B is stuck on.
