@@ -37,6 +37,20 @@ records the wrapper and loses the artefact. Measured for 226: **zero** rows of
 `page_components.content_hash` (1294 rows) and `pages.content_hash` (619) are
 populated — there is no live artefact-provenance mechanism page-side at all.
 
+> **OWNER CALL TAKEN 2026-08-09 (evening): candidate 1 — extend the 344 shape.**
+> The owner ruled for the page-side guard built as an extension of
+> `site_component_history`'s shape: `page_component_history` gains a nullable
+> `rendered_html` arm, `page_components` gets an archive trigger covering
+> UPDATE-of-rendered_html AND DELETE, and the render/save paths stamp
+> `rendered_html_digest` same-statement. Per the file's own instruction, the
+> fail-closed question and the volume/pruning design are being decided on
+> page-side measurements, not inherited from chrome. Note the architecture
+> seat's recorded condition is NOT tripped: page_components is the SECOND
+> table adopting the shape ("fine at two instances"); a third would need the
+> shared-abstraction RFC. **TAKEN UP by the `bugfix_226_chrome_divergence`
+> session continuing as `bugfix_229_page_component_archive`** (standing five
+> in `docs024_key_docs_latest/bugfix_229_page_component_archive/`).
+
 ## OWNER CALL NEEDED — two council seats disagree on the record about this file's existence (2026-08-09)
 
 In 226's round 2 (trail `cffbfec4`), the `bug_historian` seat **gated** on this
