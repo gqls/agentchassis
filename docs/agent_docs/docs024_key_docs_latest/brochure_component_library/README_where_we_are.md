@@ -1840,3 +1840,38 @@ rather than a quick tidy.
 when three are published. It now says three. Worth flagging that this number is hand-written
 rather than counted, so it will drift again next time a guide ships — unlike the capabilities
 chart, which looks its figures up. If that matters, the fix is to make it a counted fact too.
+
+---
+
+2026-08-09. Nothing new was dispatched today — I went back and re-checked that
+everything this thread believes is still true, because 341 commits from other
+threads have landed since Friday. Almost all of it held: the code half is still
+in the running system after it was rebuilt, the planner still carries the new
+instructions, and the second half is still safely switched off.
+
+Three things worth telling you. First, the honest one: the re-plan I ran on
+Thursday quietly created three duplicate pages that could never work — each one
+a second name for a page that already existed and was serving fine. Another
+thread working on the same site found them the next day and tidied them away,
+and also had to cancel four jobs that were pointing at them. No harm reached
+anyone reading the site, but it was our mess and it cost someone else an
+afternoon. It is the same underlying flaw as the bug that stopped Friday's run
+(the planner giving one page two names); I have added the evidence to that bug,
+which makes fixing it more clearly the first job rather than a footnote.
+
+Second, I corrected one of my own claims in that bug: I had named which two
+pages collided by reading the wrong internal record — one the failing code
+never consults. The failure itself and its cause are still proven; the specific
+pair was a guess dressed as a measurement, and the evidence has since expired,
+so it stays marked unproven. That is twice in two days I have described data
+from the wrong stage of a pipeline, so I have written the general rule down
+rather than just the incident.
+
+Third, the thing that decides the remaining work: every single live page on
+fundamentallyai is now a built page, and built pages are deliberately protected
+from being redesigned by a re-plan — which is exactly the protection that also
+discards the fact assignments. So the modest addition I described yesterday is
+not optional polish, it is the whole remaining job. Nothing you decided changes.
+
+The one thing still only you can do is read the writer's new instructions (the
+v4 file) before we switch the second half on.

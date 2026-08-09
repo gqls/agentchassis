@@ -90,3 +90,72 @@ Found while executing `bugs_open/151` candidate 1 Slice B (RFC_016 §3a option
 `bugs_open/204`/`214` (the same wire's other positional/naming traps);
 `datahelpers.CanonicalisePage` (the canonicaliser itself is correct — the gap
 is the absent post-canonicalisation dedup).
+
+---
+
+## CORRECTED + STRENGTHENED 2026-08-09 — the collision is proven, the PAIRING was read from the wrong key, and the same defect has a second, quieter damage mode
+
+**What stands, re-verified at HEAD today:**
+
+- The error is a quoted fact: `insert site_plan_pages for "tool-llm-cost-calculator":
+  duplicate key ... idx_site_plan_pages_name`. The insert names `r.Name`, so **two
+  rows in `planRows` carried that canonical name** — that much is certain.
+- **There is no dedup anywhere on the path**, re-read at HEAD 2026-08-09:
+  the canonicalise loop appends unconditionally
+  (`write_site_plan_action.go:274-315`) and the insert loop executes one statement
+  per row (`:355-381`). `idx_site_plan_pages_name` is `UNIQUE(plan_id, name)`.
+  So a post-canonicalisation duplicate ALWAYS aborts the write.
+
+> **CORRECTED: the claim that the colliding pair was the emitted
+> `llm-cost-calculator` + a `tool-llm-cost-calculator` stub is an INFERENCE, not a
+> measurement — and it was read from the wrong stage.** I took it from
+> `llm_plan.result` / `validate_plan`, but `WriteSitePlanAction` reads neither: it
+> calls `extractPagesFromPlan`, which reads **`page_plan` then `site_plan`**
+> (`site_db_actions.go:749-782`). I never inspected `site_plan` for that run, and
+> the row has since expired (~24h; verified gone 2026-08-09), so **which two
+> entries collided is now permanently [UNVERIFIABLE]** for this incident. This is
+> the same error class as `WRONG_CALLS` 2026-08-08, committed one day after
+> writing that entry — see the 08-09 entry there.
+> **A reproduction must read `site_plan`, not `validate_plan`.**
+
+**Second damage mode, measured today — the same dual-identity problem that does
+NOT crash, and it reached production.** The 2026-08-07 replan of fundamentallyai
+(plan `8ee5807b`) wrote page rows for canonical/stem twins of pages that were
+already live under the other spelling. Three rows, all created 08-07 08:24:22,
+all `planned` + `deployed_at IS NULL` + zero components — i.e. permanent 404s:
+
+| phantom row (archived 08-08) | live twin, serving 200 |
+|---|---|
+| `tool-llm-cost-calculator` → `/tools/llm-cost-calculator/index.html` | `llm-cost-calculator` → `/tools/llm-cost-calculator.html` |
+| `tool-tools` → `/tools/tools/index.html` | `tools` → `/tools.html` |
+| `ai-readiness-checker-guide` → `/blog/ai-readiness-checker-guide.html` | `tool-ai-readiness-checker-guide` → `/guides/…` |
+
+Note the direction flips (phantom is the canonical form twice, the stem form
+once) — the invariant is **two identities for one page**, not a fixed prefix.
+
+They were found and hand-archived by the fundamentallyai sweep front on
+2026-08-08 (`HANDOFF_2026-08-09_sweep_front_continue_here.md` §2b), which also
+had to cancel four `needs_human_review` work items pointing at them. Worse,
+while they existed they were valid internal-link targets — a `pages` row is
+`active` from creation — which is the ammunition behind that front's own
+linkability fix (`1c2e25c8f`): a served page linked to
+`/platform-log/index.html` for 18 days while it 404'd.
+
+**So the severity is higher than filed, and the cost is already paid twice:**
+one lost replan (crash mode) and three phantom 404s plus four dangling work
+items (quiet mode), from two consecutive replans of one site.
+
+**Fix candidate 1 covers both modes and needs one addition:** dedup by canonical
+name inside `WriteSitePlanAction` closes the crash; the quiet mode also needs the
+plan's page identities reconciled against **realised pages under either
+spelling** (a plan row whose canonical name differs from a live page's name but
+resolves to the same page must not create a second identity). Verify the quiet
+mode with the census:
+
+```sql
+SELECT s.domain, p.name, p.url, p.created_at
+FROM pages p JOIN sites s ON s.id=p.site_id
+WHERE p.status NOT IN ('deleted','archived')
+  AND p.deployed_at IS NULL AND COALESCE(p.build_status,'')='planned'
+ORDER BY 1,2;   -- fleet-wide phantom candidates; HTTP-test before acting
+```

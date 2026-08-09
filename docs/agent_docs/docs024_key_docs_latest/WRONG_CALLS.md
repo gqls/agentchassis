@@ -24900,3 +24900,33 @@ what changed was the term convention and never the formula, the 46 integer-term
 values agreed with no adjustment at all, and the six original failures are kept
 in the notes as proof the checker can still fail. **If you make that move, say
 which of the two you changed** — a reader cannot tell from a green run.
+
+## 2026-08-09 — I named the colliding pages from a key the writer does not read — the SAME error I had recorded here the day before (brochure lane, bugs_open/215)
+
+**The claim.** `bugs_open/215`, filed 2026-08-08: the plan write died because the LLM
+emitted `llm-cost-calculator` AND a `tool-llm-cost-calculator` stub, which canonicalise
+to one name. Stated as mechanism, with a query in the file telling the next reader to
+confirm it in `llm_plan.result`.
+
+**What was wrong with it.** `WriteSitePlanAction` reads neither `llm_plan` nor
+`validate_plan`. It calls `extractPagesFromPlan`, which reads **`page_plan` then
+`site_plan`** (`site_db_actions.go:749-782`). I identified the colliding pair from two
+keys the writer never consults, in a file whose whole subject is that writer. The
+*collision* is still proven (the error names the duplicate `r.Name`, and there is
+genuinely no dedup on the path — both re-verified at HEAD). The *pairing* is an
+inference, and the failed run's row expired ~24h later, so it is now permanently
+unverifiable.
+
+**What caught it.** Re-checking my own lane's basis a day later and noticing the 08-07
+replan SUCCEEDED with what I had described as a fatal shape. That contradiction only
+surfaces if you go back and ask why the counter-example didn't fire.
+
+**The cheap check that would have.** Read the consuming function's own extractor before
+naming the data it consumed — one grep (`func extractPagesFromPlan`). Note this is the
+**second** instance in two days of "read the stage's output, attribute it to the wrong
+stage" (see the 2026-08-08 entry, whose §9 pattern I wrote and then did not apply to the
+very next filing). The general form is now cheap enough to state as a rule: **when you
+name the data behind a failure, cite the line where the failing code READS it** — not the
+key you happened to have open. Two entries makes it a pattern worth automating: any bug
+file quoting `collected_data->'X'` as a cause should be greppable against the consuming
+action's extractor.

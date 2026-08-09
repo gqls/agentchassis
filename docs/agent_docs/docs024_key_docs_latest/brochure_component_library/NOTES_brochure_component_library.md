@@ -4935,3 +4935,49 @@ resolve), so the correction persists in `content_data`, but a future content-wri
 regenerate it. **Not durable**; the durable form is a register-sourced fact, as the chart uses.
 Note assemble mode could not have shipped this — a `content_data` edit needs
 `section_data_resolved`, which is the mirror image of the chrome rule above.
+
+## 2026-08-09 (fact-assignment front) — basis re-checked against 341 commits; my 08-07 replan's phantom pages found by the sibling front; 215 corrected
+
+Re-verification pass, no new dispatches. **Everything this front asserted still
+holds, with two corrections and one strengthening:**
+
+- Chassis rolled 1262 → **v1.0.1274**; my Go half survives (3 markers present,
+  negative control `extractSectionNames` = 0). Slice A live (327/329/333),
+  Slice B still held (both live configs clean, both seeds `_HOLD` at HEAD).
+- **All 25 active pages on fundamentallyai are `deployed`** (4 archived). So
+  Pass B2 discards assignments for *every* live page — candidate 1b's premise
+  is stronger than yesterday's "nearly the whole site".
+- HEAD is **RED at clean HEAD** (`TestValidDocSubjectTypes_LockstepWithMigrationCheck`,
+  another lane's `decision` subject-type work) — reproduced here, so a fresh
+  session does not misattribute it. `go build` is fine.
+- `v3_site_actions.go` was edited by the 210 lane (`2c3efc9f5`): hunks are in
+  `UpdatePageStatusAction` only — **Pass B2 untouched**, 1b's target intact.
+
+**The finding of the day, and it is mine to own: my 2026-08-07 replan created
+three phantom 404 page rows**, which the *fundamentallyai sweep front* (a
+separate live thread in this same directory) found and hand-archived on 08-08,
+cancelling four work items that pointed at them. Each was a canonical/stem twin
+of an already-live page (`tool-llm-cost-calculator` vs `llm-cost-calculator`,
+`tool-tools` vs `tools`, `ai-readiness-checker-guide` vs
+`tool-ai-readiness-checker-guide`); verified today — all created 08-07 08:24:22,
+`planned`, `deployed_at IS NULL`, now `archived`. While they existed they were
+valid internal-link targets, which is part of what their linkability fix
+(`1c2e25c8f`) exists to stop. **This is bug 215's second damage mode**: the same
+dual-identity defect, quiet instead of fatal. Recorded there. Practical
+consequence for this front: **a replan of this site costs another thread
+cleanup**, so co-ordinate and expect to sweep phantoms until 215 is fixed.
+
+**Misstep, mine, and it is a REPEAT (WRONG_CALLS 08-09):** 215 named the
+colliding pair from `llm_plan`/`validate_plan`, but `WriteSitePlanAction` reads
+`page_plan`/`site_plan` (`extractPagesFromPlan`, `site_db_actions.go:749-782`).
+The collision and the absent dedup are proven (re-read at HEAD); the *pairing*
+is inference, and the failed run's row expired ~24h later, so it is now
+permanently [UNVERIFIABLE]. This is the same error class I wrote up on 08-08 —
+one day later, in the very next filing. What caught it: asking why the 08-07
+replan SURVIVED a shape I had described as fatal. The rule that generalises:
+**cite the line where the failing code READS the data**, never the key you
+happened to have open.
+
+Cold-start for this front is now
+`HANDOFF_2026-08-09_fact_assignment_front_continue_here.md` (renamed by FRONT,
+because two live threads share this directory and one site).
