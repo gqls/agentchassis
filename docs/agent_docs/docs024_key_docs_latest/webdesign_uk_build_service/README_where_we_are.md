@@ -920,3 +920,32 @@ Two things wait on you, same as before: the chat box phase (needs your
 Anthropic key), and your review of the preview — the site's five "get started"
 buttons currently have nowhere final to point, because the thing they should
 point at is the chat box. That's the next build, not a defect in this one.
+
+---
+
+**2026-08-09, late morning. Your three complaints, answered — and one number needs your say-so.**
+
+First, the "built by hand" worry: it wasn't. Every page and picture on the
+preview arrived through the machinery, and the paper trail proves it — the
+checking system even blocked some of the machinery's own drafts along the way,
+which no hand-made page could experience. What made it look hand-made was your
+second complaint: the home page's big picture was silently missing (its file
+had been filed to the wrong shelf back on the 4th, and a missing background
+picture leaves no broken-image icon, just a bare dark block). That picture is
+now regenerated and showing, along with the smaller versions of the same
+problem we found on the way.
+
+The wording about changes and refunds took the most work, because the promise
+wasn't one sentence — it had soaked into every layer of the machine's notes
+about the site, and each rewrite faithfully brought it back. All of those
+layers are now corrected: no page anywhere promises unlimited changes or an
+open-ended walk-away right. What the pages don't yet do is state the new caps
+in numbers, and that's deliberate: the numbers we've pencilled in — two rounds
+of revisions included, fourteen days to review — are proposals waiting on you.
+Say yes (or give different numbers) and the pages will state them within the
+hour. The machinery is loaded to do it.
+
+Small print: the little browser-tab icon is still missing (the tool that makes
+it hit a platform fault — reported), and the email address on the contact page
+is disguised by Cloudflare against spam harvesters, which looks odd to our
+checking tools but works normally for a person in a browser.
