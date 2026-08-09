@@ -465,3 +465,21 @@ line on day one. But the real fix may sit inside the pause-and-resume design you
 yet, and I would rather bring you a decision than a fait accompli. Two sites are known affected in
 the window we can see; how often it happens overall, I genuinely cannot tell you, because the
 records expire in about a day and I am not going to dress two observations up as a rate.
+
+**Where it all ended up.** Everything you asked for is done and on the branch. The shared-code
+decision is written down where the argument was; the follow-up gap that decision left open is
+closed; the broken test everyone was stepping around is fixed, and so is a second broken test I
+found on the way that had been failing in the most confusing way a test can — fine when you ran it
+by name, broken when you ran the file it lives in. The vet lookup works. The dead configuration
+keys are stripped in a database change that is written, checked, and deliberately **not run** —
+somebody else applies those, and I would rather it be a decision than a side effect.
+
+**What I would want you to take from today, if only one thing.** Four separate times, the thing we
+had written down was wrong in a way that looked completely fine. The count of affected agents was
+right only because someone had counted carefully the first time — the obvious way of counting gives
+half the answer and looks just as confident. The approval step turned out to be spelled differently
+in the live system than in our own documentation, so a fix that named the documented spelling would
+have shipped, passed, and protected nothing. And my own "confirmed" about the image bug was built
+out of four true things and one I had not checked. None of these were caught by being careful in
+general; each was caught by opening one more specific thing. That is the only method I trust after
+today, and it is slower than it sounds like it should be.

@@ -115,3 +115,52 @@ implementation delegated per problem):
 
 Also executed under the same ruling: `PROCESS_architecture_review.md`'s trigger now reads "adds,
 changes or removes" (§10's withheld one-liner, owner-sanctioned).
+
+### Outcome, same day — all five delivered, and four corrections came back with them
+
+1. **§7 backfill** — `58aefe282`, council `b0deddf7` **APPROVED** round 1. 2. **`decision` lockstep**
+— `5019bf2b7`, `c88c0a84` **APPROVED**. 3. **Array-index + fallback logging** — `f7111f4d8`
+(+`6cb41ae06`), `c961b79e` **APPROVED**; registered as **WFA-012**. 4. **Dead config keys** —
+`96f8075fb`, `501ef561` pending; **migration 356, NOT APPLIED**. 5. **Hero/logo** — no canary
+needed, see below.
+
+**A sixth, unplanned:** `TestEveryActionInputSpecHasARegistryEntry` had been red at HEAD since the
+bugfix-136 probes landed — and red in a *particularly* misleading way, passing under `-run` on its
+own name while failing whenever the package ran, because the spec registry is process-global with
+no removal path. Fixed at the assumption (`a6c0498f2`): a registered spec is not necessarily an
+action. **All four packages are now green at a clean `git archive HEAD` tree.**
+
+**The corrections are the valuable part, and every one of them contradicted this lane's own brief:**
+
+- **The dead-key census was WRONG in three ways, all found by looking rather than by trusting.**
+  Three of the six `commit_from` steps are nested inside a loop `sub_workflow`, so the obvious
+  top-level census sees **3, not 6** — this file's own earlier figure came from the depth-aware
+  walk and survived; a naive re-check would have "corrected" it downwards. There were **two more
+  dead keys nobody had named** (`content-reviewer`'s `notes_field`, `validation_issues_field`),
+  left standing as declared true positives per the `create_work_item`/`spec` precedent. And a
+  **seventh seed file** (`034_page_rerender_agent.sql`) seeds one of the six live agents, while
+  `033` — the one the brief named — seeds a *different* agent whose live row has already drifted
+  clean.
+- **The live HITL step spells its action `process_data`, not `process_approval_decision`.**
+  Registering only the canonical name would have opted in **zero** live steps. The deprecated
+  alias registration is load-bearing, not tidiness — the kind of thing that would have shipped
+  looking exactly like a working fix.
+- **Migration numbering raced four times in one afternoon.** 352 was taken before the work
+  started; 353, 354 and 355 were claimed by other sessions *during* it. Landed at **356**.
+- **The census correction the lane already knew about bit again in a new place:** the array-index
+  blast-radius query reads live config *text*, and the `guardian` seat pointed out it cannot see a
+  path Go builds at runtime. Checked: seven such sites, all appending a field name rather than an
+  index. Filed as a landmine, because the clean answer is exactly what hides the blind spot.
+
+**Hero/logo (§5) was overtaken by evidence and is now `bugs_open/236`.** The keys appear in live
+rows at last, a *successful* logo response merged without `image_url`, and the three readers are
+silent by construction. **The obvious mechanism is REFUTED by the merge code** (it preserves rather
+than replaces), so the root cause is deliberately not asserted; a `090` re-run came back
+UNVERIFIABLE on **harness** grounds and surfaced a standing blind spot worth more than the bug —
+`orchestration_states` is absent from the diagnosis bundle's schema section, so the loop cannot
+address the platform's central state table. My own premature "confirmed end to end" is logged in
+`WRONG_CALLS.md`.
+
+**Still owed, and neither is this lane's to take:** the post-roll measurement (both ladder halves
+inert until a chassis roll), and migration 356's application. 236's real fix may land in the
+`(a)`/`(a′)` merge design, which remains the owner's decision.
