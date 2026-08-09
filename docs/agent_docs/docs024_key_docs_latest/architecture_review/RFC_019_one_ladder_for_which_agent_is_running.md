@@ -2,7 +2,7 @@
 
 **Status: DRAFT** (filed 2026-08-08 by the `rfc012_await_findings` lane, §1a)
 **Code: already shipped** — `1bc08d1ce`, alongside concept-register entry `RSH-009`.
-**Council gate: `Council-Submitted: 6186ab10-a006-4c34-b9ea-ecedfde8ea2d`** (round 1, verdict pending).
+**Council gate: `Council-Submitted: 6186ab10-a006-4c34-b9ea-ecedfde8ea2d`** — round 1 **REJECTED**, hard veto from `guardian`; the `architecture` seat returned **`ARCHITECTURE_SIGNAL: needs_rfc`**. Read §10 before anything else: it answers §8's question, and it answers it against me.
 
 > **This is a RETROSPECTIVE RFC, like `RFC_002`, and that is the design of the track, not a
 > corner cut.** OWNER RULING 2026-07-29 §2 retired the ordering-exemption condition that
@@ -258,6 +258,117 @@ party.
 **What would change my own answer:** a reader who can name an automated consumer of
 `agent_error_log.agent_type`'s *value* that my census missed. That census is a grep and a live
 query, both in `RSH-009`; falsify it and the paper's §4 collapses.
+
+## 10. VERDICT, 2026-08-09 — the gate answered §8, and my own answer was wrong
+
+Round 1, corr `6186ab10-a006-4c34-b9ea-ecedfde8ea2d`: **REJECTED**, `decided_by: hard veto from
+guardian`. Ten seats approved, one objected, one vetoed.
+
+### §8 is CORRECTED, visibly rather than quietly
+
+§8 argued, at length, that this was council-gate scope. **The `architecture` seat disagrees and
+returned `ARCHITECTURE_SIGNAL: needs_rfc`, severity MEDIUM**, and I was wrong. Its ground is not
+the consumer census I offered to be falsified on — it is the trigger test's *other* clause:
+
+> "Trigger test: fires on 'exported symbol multiple packages depend on.' The author names this
+> themselves and routes it to `RFC_019` in the same commit — that is exactly the discipline this
+> seat wants to see, and **it does not relocate the scope, it just means the right conversation is
+> already scheduled.**"
+
+So §8's framing — "what would change my answer is an automated consumer I missed" — **named the
+wrong disconfirmer**. The trigger fires on the shape of the symbol, independent of blast radius,
+and I had already conceded the shape in the same paragraph while arguing past it. Recorded here
+rather than edited away, because a paper that argued itself into the wrong forum and was corrected
+by the forum is exactly the kind of thing this track exists to keep.
+
+> **One ambiguity in `PROCESS_architecture_review.md` this exposed, offered as a question and not
+> a defence.** The trigger clause reads *"it **changes or removes** an exported symbol other
+> packages depend on (signature changes count)"*. This change **adds** one; it changes and removes
+> nothing. Two seats read the clause as firing on an addition anyway, and given they are the seats
+> that hold the rule, **their reading is the operative one and this paper accepts it.** But the
+> written clause and the applied clause differ, and the next author will read the written one. If
+> the owner agrees with the seats, the words should say *"adds, changes or removes"*. That is a
+> one-line fix to `PROCESS` that I have deliberately NOT made — amending the trigger test I was
+> just caught by, on my own authority, is not mine to do.
+
+### The seats disagree with each other about the fix, and that is the decision
+
+`guardian`'s veto (two HIGH objections on edits 1 and 2, one MEDIUM on edit 3) names a contained
+alternative, faithfully quoted:
+
+> "duplicate the 2-line `RunAgentType`/`Sender.AgentType` read locally inside
+> `actions/log_action_error.go` (both fields are already reachable via `params.ExecutionContext`,
+> which `actions` already imports), and leave `coordinator.go` and `types.ExecutionContext`
+> untouched entirely."
+
+**That alternative is precisely the thing this RFC exists to retire** — it closes the row-level
+symptom by writing the ladder a second time, in the package that cannot see the first. And the
+`architecture` seat says so, in the same round, unprompted:
+
+> "A contained non-hoist fix (just correcting the actions-door rung locally) **would have
+> re-created the drift risk the author is trying to close**, so the shared-method direction is
+> defensible even though the volume argument is weak. … agent-identity resolution was already
+> duplicated and drifting across two packages, and **a THIRD site would have been next**. …
+> **I'd rather see this land than not.**"
+
+`reuse_agent` and `constitution` reach the same place independently — *"not a fresh SQL pair
+reinvented, but an existing duplication found and collapsed to one implementation … one way is
+being restored"*; *"REUSE BEFORE RECREATE done right, collapsing duplication rather than adding
+it"*.
+
+So the round produced a genuine, load-bearing disagreement between seats: **the guardian's safest
+contained fix is the reuse seat's founding violation.** Per CLAUDE.md's 2026-07-28 ruling — *"A
+veto on SCOPE is not answered by resubmitting with better measurements … especially when seats
+disagree with each other"* — **this is not being resubmitted, and it is not being reverted.** The
+guardian itself routes the decision here:
+
+> "If council disagrees and wants the shared-ladder design, **that decision belongs to `RFC_019`,
+> not to this gate**."
+
+and flags as `missing` whether this paper had resolved first, noting *"if it hasn't, this gate
+should not pre-empt it"*. It had not. **That is the ruling this RFC now asks for**, and it is a
+narrower question than §8's: not "was the forum right" — the seats have settled that — but
+**"which of the two designs ships"**, given the safest-contained rule and the
+reuse-before-recreate rule point in opposite directions on the same edit.
+
+⚠ **`Council-Reviewed:` is NOT written and may not be**, on this or any future commit citing this
+correlation. `1bc08d1ce` carries `Council-Submitted:`, which asserts nothing; a rejected
+correlation simply never gets credited by `098`, which is the correct outcome.
+
+### The objections that were NOT about scope, each with what was done
+
+- **`prior_art_librarian` (MEDIUM, edit 3), the only substantive technical challenge.** It could
+  not read `doc_notes` from the seat, and asked whether the `LogActionEntry` merge landmine means
+  *"the same merge could silently overwrite the newly-resolved `agentType` downstream of
+  `runningStepProvenance` without any test catching it"*. **Answered from the code, and the answer
+  is no.** `resolveProvenance` is the only consumer of `runningStepProvenance`'s output, and it
+  assigns `entry.AgentType = runningAgentType` **only** when `inheritProvenance` is true *and*
+  `entry.AgentType == ""`; the strict branch returns without touching it, and the unattributed
+  branch overwrites with the sentinel by design. There is no path that reads the resolved value
+  and then discards it. More importantly the concern is structurally answered by *how* the tests
+  assert: they pin argument **5 of `agenterrors.Write`'s INSERT via `sqlmock`**, i.e. the value
+  that reaches the database — not the helper's return — so an overwrite anywhere downstream fails
+  the test. That is why the pins were written at the SQL boundary rather than as unit assertions
+  on the helper, and the seat was right to ask.
+- **`debug_historian` (LOW, edit 5):** the plan never named a pod-grep of the shipped binary. Fair
+  — it was in `RSH-009`'s `verify-later` but not in the submission, and the submission is what a
+  seat reads. §7 above carries it, needle and anti-anchor warning included.
+- **`editquality` (LOW, edit 4):** the comment-only correction "is not an edit" and should not
+  count toward the fix. Accepted; it was labelled as documentation hygiene precisely so it could be
+  discounted, and discounting it is correct.
+- **`bug_historian` (no objection, flagged for the record):** the declared resumed-step gap is
+  structurally the shape of **`bugs_open/093`** (*one guarded call site, sibling path unchecked*)
+  and closed case 077 (*detector wider than handler*). Recorded in `RSH-009`; the seat's own note
+  is that disclosing and deferring it *"is the correct response to this pattern, not a violation
+  of it"*, and that it is non-regressive — resumed steps behave exactly as before.
+
+### What a reader should take from this round
+
+The measurement work in §1 and §4 was not what decided it and would not have changed it. **Five
+seats independently praised the mutation discipline and the declared limitation, and the paper was
+rejected anyway, on the shape of one exported symbol.** If there is a transferable lesson it is
+that on this estate *evidence answers "is the fix right"; it does not answer "may this seam
+exist"* — and only the second question was ever open here.
 
 ## 9. Sources
 
