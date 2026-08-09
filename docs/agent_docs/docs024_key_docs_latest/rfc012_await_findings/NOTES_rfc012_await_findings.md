@@ -1218,3 +1218,77 @@ live path, and the register says so rather than counting it as coverage.
 `validDocSubjectTypes`. Verified pre-existing by running it inside a clean
 `git archive HEAD` tree, named in the council submission so no seat reads it as mine, and
 deliberately **not** fixed here.
+
+### The verdict came back in SEVEN minutes, and it is REJECTED on scope
+
+Round 1, corr `6186ab10-a006-4c34-b9ea-ecedfde8ea2d`: dispatched 22:45Z, decided **22:52Z**.
+Seven minutes, against the ~29-minute figure CLAUDE.md tells you to budget for — worth recording
+because that number is a measurement from 2026-07-20 under load, not a constant, and I nearly
+went to bed on it.
+
+**REJECTED, `decided_by: hard veto from guardian`.** Ten seats approved, `architecture` objected
+with **`ARCHITECTURE_SIGNAL: needs_rfc`** (MEDIUM), `guardian` vetoed (two HIGH, one MEDIUM).
+
+### Misstep 16 — I offered to be falsified on the wrong thing, and said so at length
+
+`RFC_019` §8 argued this was gate scope and closed with: *"What would change my own answer: a
+reader who can name an automated consumer of `agent_error_log.agent_type`'s value that my census
+missed."* Nobody challenged the census. The trigger fired on the clause I had already conceded two
+sentences earlier and then argued past — *"an exported symbol other packages depend on"* — which
+is blast-radius-independent by construction.
+
+**Naming a disconfirmer is not the same as naming the RIGHT disconfirmer**, and a wrong one is
+worse than none: it reads as rigour, and it invites everyone to check the thing that was never in
+doubt. The tell was available to me — I wrote "three of those four hold here; the first does not"
+about the RSH-008 precedent, which *is* the trigger, and then spent five paragraphs on the fourth.
+Corrected visibly in §10.
+
+One genuine ambiguity fell out of it, offered to the owner rather than fixed by me: `PROCESS`
+words the clause *"changes or removes an exported symbol"*, and this **adds** one. Two seats
+applied it to an addition anyway. Their reading governs — but the written text and the applied
+text differ, and **amending the trigger test I was just caught by, on my own authority, is not
+something I should do.**
+
+### The interesting part: the seats contradict each other on the fix
+
+`guardian`'s contained alternative, quoted exactly: *"duplicate the 2-line
+`RunAgentType`/`Sender.AgentType` read locally inside `actions/log_action_error.go` … and leave
+`coordinator.go` and `types.ExecutionContext` untouched entirely."*
+
+That is **the second ladder**. And the `architecture` seat, in the same round, unprompted:
+*"A contained non-hoist fix … would have re-created the drift risk the author is trying to close
+… a THIRD site would have been next … I'd rather see this land than not."* `reuse_agent` calls the
+change *"the mirror image of the founding incident — one way is being restored"*; `constitution`
+calls it *"REUSE BEFORE RECREATE done right"*.
+
+So the guardian's safest fix is the reuse seat's founding violation — the `bugs_closed/124` shape
+exactly, which CLAUDE.md already names as the case where a human breaks the tie. **Not
+resubmitted, not reverted.** The guardian itself routes it: *"that decision belongs to `RFC_019`,
+not to this gate"*, and flags as `missing` that the gate *"should not pre-empt it"*.
+
+### The one technical objection, and why the tests were already written to answer it
+
+`prior_art_librarian` (MEDIUM) asked, honestly declaring it could not read `doc_notes` from its
+seat, whether the `LogActionEntry` merge landmine means the merge could *"silently overwrite the
+newly-resolved `agentType` downstream of `runningStepProvenance` without any test catching it"*.
+
+Answer: no, and the structural reason is better than the code walk. `resolveProvenance` is the
+only consumer of that function's output and assigns `entry.AgentType` only when inheritance is
+declared AND the field is empty. But more to the point — **the pins assert argument 5 of
+`agenterrors.Write`'s INSERT through `sqlmock`**, i.e. the value that reaches the database, not
+the helper's return. An overwrite anywhere downstream fails them. Asserting at the SQL boundary
+rather than on the helper is what makes the proof survive a question about a stage I did not think
+to consider, and it was luck as much as design that I wrote them that way — the *reason* I did was
+that RSH-008's tests were already shaped like that.
+
+`debug_historian` (LOW) is right that the submission never named the pod-grep — it was in
+`RSH-009`'s `verify-later`, and a seat reads the submission. `editquality` (LOW) is right that a
+comment-only edit is not an edit. `bug_historian` points out the resumed-step gap has a precedent
+title: **`bugs_open/093`**, one guarded call site with the sibling path unchecked.
+
+### The lesson I would want the next author on this lane to have
+
+Five seats praised the mutation discipline, the consumer census and the declared limitation — and
+it was rejected anyway, on the shape of one exported symbol. **Evidence answers "is the fix
+right". It does not answer "may this seam exist".** Only the second question was ever open here,
+and no amount of §1 measurement was going to touch it.
