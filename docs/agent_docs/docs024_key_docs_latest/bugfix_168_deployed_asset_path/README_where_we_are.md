@@ -638,3 +638,52 @@ Still blocked, and getting slowly worse: the duplicate-rows cleanup. 55 clashing
 against 53 this morning and 48 five days ago. It drifts up about two a day and still needs a
 judgement call from you — which copy to keep, and whether throwing the others away loses anything
 real.
+
+---
+
+**2026-08-09 — the retraction sweep closed its first item on its own, and one of my own
+instructions nearly hid it**
+
+The thing we built on Friday works. At 08:38 this morning the sweep ran on its schedule, with
+nobody watching, and it retracted a finding on the leopardess site — a page called
+`ai-readiness-quiz` that had been flagged in July as reading machine-written. The copy has since
+been rewritten, the sweep re-read it against the site's own standard, found nothing wrong any
+more, and closed the item. That is the first time anything has ever closed one of those; there
+were 32 of them and they had been sitting there since July with no route out. All 32 got looked at
+this morning. One was clean enough to close, the rest stay open, which is exactly right.
+
+Here is the awkward part, and I want it on the record because it is the more useful half. The
+handoff I left on Friday told this morning's session how to check whether it had worked: watch a
+number called the "uncovered backlog" fall by about 32. I checked. It had not moved — 625 before,
+625 after. If I had trusted my own instruction I would have written down "the change did nothing"
+on the morning it worked perfectly. The number is a total across about forty different categories
+of parked work, and while our 32 dropped out of it, other categories grew by exactly 32 in the
+same few hours. The total was never capable of answering the question. The right check is to look
+at the per-category breakdown and confirm ours has vanished from it entirely, which it has. I have
+written that down as a trap so the next person adopting a category cannot inherit the bad recipe.
+
+Second correction, and this one is about pressure I put on you. I have been telling you the
+duplicate-rows problem is getting steadily worse — "about two more clashes a day, so it gets more
+expensive the longer it waits". I re-measured it properly this morning and it had gone **down**,
+from 55 clashes to 47. Looking at all four measurements together they bounce around rather than
+climb. The measurement was right each time; the *trend* I drew through them was not, and it was
+doing real work in how I described the urgency to you. The decision still needs you — which of
+each duplicate pair to keep, and whether throwing the others away loses a real finding — but it is
+not a clock running down.
+
+Today's actual work: I taught the sweep a fifth category, the one that flags factual claims a page
+makes that the site's evidence register does not support. Twenty-three of those across seven
+sites, and, same as before, nothing had ever closed a single one. Before writing any code I
+checked the thing that would have killed the idea — whether any of those pages had actually
+changed since being flagged, because if none had, the sweep would just run and find the same
+problems for ever. Sixteen of the twenty-three had changed. It has gone to the review council and
+is committed; it will start working at the next deploy.
+
+One thing I found and deliberately did **not** act on. There is a whole class of parked work the
+sweep structurally cannot see — 467 items sitting in statuses it never looks at — and, more
+awkwardly, the report we use to measure "how much work is left uncovered" is filtered the same
+way, so it cannot see them either. It has been telling us 625 when the real number is closer to
+1,100. That is a claim about how a shared piece of machinery is built rather than about one bug,
+and our own rules say I should not assert something like that on my own reading. So I have put it
+through the diagnosis loop and will act on what comes back. It may well come back saying the
+scoping is deliberate and correct — that would be a good outcome, not a wasted run.

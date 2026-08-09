@@ -2054,3 +2054,157 @@ sake — the scoping I would have used does not exist:
 
 The precedent is this file's own: the 08-05 session declined for the same reason, and the 08-06
 dispatch happened **because the owner asked for one**. That is the bar; I have not been asked.
+
+---
+
+## 2026-08-09 — §0b CONFIRMED, but the number the handoff nominated could never have shown it
+
+**The voice_tells revalidator works, proven behaviourally and unattended.** First post-roll
+scheduled sweep, `2026-08-09 08:38:53Z`, nobody watching:
+
+| field | pre-roll (08-08 08:38Z) | post-roll (08-09 08:38Z) |
+|---|---|---|
+| `scanned` | 151 | **186** (+35) |
+| `cap_binding` | false | **false** ✓ |
+| `resolved` | 3 | 2 |
+| `uncovered_backlog` | 625 | **625 — UNCHANGED** |
+
+`scanned` decomposes exactly: `required_fields_missing` 63 + `needs_section_data` 42 +
+`unresolved_cta` 34 + **`voice_tells` 32** + `needs_page` 15 = 186. **All 32 live `voice_tells`
+rows were scanned**, up from zero — the type was invisible to the sweep the day before.
+
+And one closed: `voice:ecfd0bfd-bc5c-4ed4-9c45-7ba9143e72c8`, page `ai-readiness-quiz`,
+`resolution_path='auto:revalidated'`, carrying this code's own resolved-arm reason string
+("re-scanned all 3 rendered component(s) … against this site's current voice gate"). That is
+behavioural proof, not a strings grep.
+
+> **⚠ CORRECTED — `HANDOFF_2026-08-08b` §0b told the next session to confirm by watching
+> `uncovered_backlog` FALL by ~32. It did not move, and it never could have been the right check.**
+> The total is a sum over ~40 types. `voice_tells` left `uncovered_types` **entirely** (25 →
+> absent), and nine other types grew by **exactly 25** in the same window (`claims_unverified` +5,
+> `content_rewrite` +5, `lock_blocked_change` +5, `save_refused_incomplete` +4,
+> `empty_internal_href` +2, and five more at +1). The coincidence is incidental; **any** inflow
+> makes the total uninformative about one type.
+>
+> Had I trusted the nominated check I would have recorded "the adoption did nothing" on the day it
+> worked perfectly. **Confirm at the per-type map (`uncovered_types['<type>']` must be ABSENT, not
+> smaller) and at `scanned` decomposed by type.** In LANDMINES.md, and in CQ-020/CQ-021's
+> verify-later so the next adopter cannot inherit the bad recipe.
+>
+> Second trap inside the fix: the per-row stamp key is **`result->'revalidation'->>'at'`**, not
+> `checked_at`. I guessed `checked_at` first and got **0 rows**, which reads exactly like "nothing
+> was scanned". Enumerate the keys before believing a zero.
+
+### The pods rolled twice more while I worked — 1268 → 1269 → 1270
+
+The handoff records `v1.0.1268`. At 22:20Z the pods were on **1269** (started 22:02Z, not my
+build); by 09:36Z they were on **1270**. I re-greped the voice needles at 1269 rather than
+assuming the change rode along: **1/1/1 on both replicas, positive control 2.** A roll is not
+evidence your fix shipped, and that cuts both ways — it is also not evidence it *survived*.
+
+### Dedup: 47 pairs / 168 rows, and the upward-drift claim does not hold
+
+Re-measured against the PROPOSED predicate, with the exclusion list READ from
+`pg_get_indexdef(oid) WHERE relname='idx_swi_dedup'` rather than reconstructed:
+
+```sql
+WITH cand AS (
+  SELECT site_id, item_key FROM site_work_items
+  WHERE item_key IS NOT NULL
+    AND status <> ALL (ARRAY['complete','verified','rejected','wont_fix','failed','cancelled'])
+), dup AS (SELECT site_id, item_key, count(*) n FROM cand GROUP BY 1,2 HAVING count(*)>1)
+SELECT count(*) AS colliding_pairs, sum(n) AS rows_involved FROM dup;
+-- 2026-08-09 00:2xZ: 47 | 168
+```
+
+> **⚠ CORRECTED — the handoff (§3.1) and `README_where_we_are` both say it "drifts upward roughly
+> two pairs a day, so this gets more expensive with every day it waits."** Four points —
+> 48/135 (08-03), 53/180, 55/184 (08-08), **47/168 (08-09)** — are noisy, not monotonic. It **fell
+> 8 pairs in ~14 hours.** The point measurement stands; **the trend, and the urgency argument
+> resting on it, does not.** §3.1 stays blocked on the owner's which-copy-do-I-keep judgement
+> either way — that was always the real blocker, and dressing it up as a worsening problem was
+> pressure the evidence did not support.
+
+### `image_url_404` looked like the next adoption and is UNREACHABLE — the sweep has a status ceiling
+
+It has the exact shape the census rewards: 26 open, **0 closed ever**, 0 `revalidation` blocks, 0
+`deploy_result` blocks, flag-only, and its question ("does an active asset deploy to this path?")
+is answerable from the DB with no HTTP via the same `storage.DeployedWebPath` the check uses.
+
+It cannot be adopted. Its rows are `blocked` (23) and `detected` (3), and
+`workItemRevalidatableStatuses` (`work_items_common.go:140`) is **`['needs_human_review',
+'unresolved']`** — so the sweep never selects them. Worse, `reportUncoveredBacklog` counts with
+**the same list**, so the type is not reported as uncovered either; it is simply **absent** from
+`uncovered_types`.
+
+That generalises. Parked rows outside the two revalidatable statuses, measured 2026-08-08:
+
+| status | rows | types |
+|---|---|---|
+| `triaged` | 249 | 12 |
+| `detected` | 114 | 20 |
+| `deferred` | 66 | 10 |
+| `blocked` | 34 | 3 |
+| `claimed` | 3 | 3 |
+| `awaiting_experience_plan` | 1 | 1 |
+| **total invisible** | **467** | |
+
+So the 625 this lane steers by is scoped by the same list that scopes the selection — **the
+coverage-gap report cannot see the gap it exists to name.** `workItemRevalidatableStatuses`'
+comment argues carefully for the two statuses it has and is silent on the six it excludes:
+unargued, not deliberately argued.
+
+**I did not act on this and did not assert it.** A cross-cutting structural claim about a shared
+reporting mechanism is exactly what CLAUDE.md says goes through the loop first. Diagnosis queue
+checked (empty, no duplicate), filed:
+
+- intake `0c9b44d2-5c74-4322-aa78-7dd206f92689` · **run `f3d18013-0b78-472f-b2cb-5bf5e4e893b8`**
+- item_key `needs_diagnosis:uncovered-backlog-status-ceiling`
+- ⚠ the trigger warned that it reads `origin/087_towards_multiple_domains`, and local HEAD is
+  ahead. I checked the diff for the two files the symptom names: `work_items_common.go` is
+  identical and `revalidate_review_queue_action.go` differs by exactly the 7-line `voice_tells`
+  registration, which does not touch the mechanism. The diagnosis sees the code I described.
+
+**A REFUTED verdict here is a success.** Widening that list would be architecture-scope anyway —
+it is interpolated in three places, and per its own comment widening the selection alone selects
+rows the write-time CAS guards then silently refuse to update.
+
+### Adopted `claims_unverified` instead — CQ-021, commit `4030cadb9`
+
+Re-ran the CLOSER census over every uncovered type with selectable rows. Zero-closer types:
+`claims_unverified` 23 · `lock_blocked_change` 23 · `image_source_unsatisfiable` 18 ·
+`needs_sprite_css` 10 · `dead_control` 8 · `stale_evidence` 5.
+
+Picked `claims_unverified`: widest site spread (7), `spec.page_id` on all 23 rows, HITL-terminal,
+0 closed ever, 0 `deploy_result`, locked-components skipped by the emit side, and an opt-in
+register that gives it the same "site opted out" arm the voice gate has.
+
+Two things differ from the voice_tells case and both are written into CQ-021 rather than
+discovered later:
+
+1. **TWO producing checks converge on one `item_type`** (`check_unverified_claims.go` and
+   `check_unverified_claims_stats.go`). That is the owner's 2026-08-02 §1 case — no RFC needed
+   *provided* the producer set and shared `item_key` shape are stated in the register entry. They
+   are.
+2. **`ScanDeployedClaims` has no page-status filter** where `ScanVoiceTells` restricts to
+   `active`/`deployed`. Preserved deliberately: the revalidator must judge by the emit side's exact
+   predicate. Consequence stated in the landmine — an item can resolve on an archived page.
+
+Disconfirming check run **before** writing code: **16 of 23** pages have a component updated since
+filing. A 0 would have killed the change. Arm reachability measured in the same pass —
+`page_missing 2` and `site_has_no_evidence_base 1`, so those two refusal arms are **exercised** on
+today's data (voice_tells had none exercised); `has_locked_components 0`, so the two locked arms
+are reasoned and unit-tested, marked [UNEXERCISED] rather than dressed up.
+
+Council `b67eb26a-14ef-45d7-b755-3e489fd57ef0` submitted alongside; committed with
+`Council-Submitted:`, no `Council-Reviewed:` until I have read a verdict.
+
+**Misstep worth recording:** the 097 trigger rejected my first submission —
+`.plan.edits[].operation` takes `modify|add|remove|config_change`, and I wrote `create` for the two
+new files. Client-side refusal, no credits spent. `add` is the spelling for a new file.
+
+**Not mine, flagged:** `TestValidDocSubjectTypes_LockstepWithMigrationCheck` and
+`TestEveryCheckProducedItemTypeIsClassified` fail in this package at HEAD. Reproduced on a clean
+`git archive HEAD` extraction with none of my edits, so they predate this change — they belong to
+`e1628f7df` (RFC_015 decision records, another lane). The second wants `decision_regression`
+registered with a verifier or acknowledged as a gap.

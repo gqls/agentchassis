@@ -56,10 +56,26 @@ no amend. **So a REVISE or REJECTED is real work, not a formality.** Do not writ
 > **`0 / 0 / 0 / 2`** on `v1.0.1267`. That is the whole proof for an additive change.
 > **The build was not mine** — the change rode along at HEAD, which is normal here.
 >
-> **STILL TO DO, and it is just a look:** confirm by EFFECT after the ~08:37Z scheduled sweep.
+> ~~**STILL TO DO, and it is just a look:** confirm by EFFECT after the ~08:37Z scheduled sweep.
 > `scanned` should rise by roughly the live `voice_tells` count and `uncovered_backlog` fall by the
-> same; **`cap_binding` must stay `false`**. Any closures appear as `resolution_path='auto:revalidated'`,
+> same; **`cap_binding` must stay `false`**.~~ **DONE 2026-08-09 — CONFIRMED, and half this
+> instruction was wrong.** Any closures appear as `resolution_path='auto:revalidated'`,
 > which outlives the ~24h orchestration retention — so if you miss the run, the closures still tell you.
+>
+> > **✅ CONFIRMED 2026-08-09 at the 08:38:53Z unattended run.** `scanned` 151 → **186**, which
+> > decomposes as 63+42+34+**32**+15 by type — **all 32 live `voice_tells` rows scanned**, up from
+> > zero. `cap_binding` **false**. And one item CLOSED: `voice:ecfd0bfd-bc5c-4ed4-9c45-7ba9143e72c8`,
+> > page `ai-readiness-quiz`, carrying this code's own resolved-arm reason string. Behavioural proof.
+> >
+> > **⚠ CORRECTED 2026-08-09 — `uncovered_backlog` was the WRONG number to confirm this with, and
+> > it could never have worked.** It was **625 before and 625 after**. The total sums ~40 types:
+> > `voice_tells` left `uncovered_types` entirely (25 → absent) while nine other types grew by
+> > exactly 25. Following this instruction literally would have recorded "the adoption did nothing"
+> > on the day it worked. **Confirm at `uncovered_types['<type>']` being ABSENT, and at `scanned`
+> > decomposed by type — never at the total.** Now in LANDMINES.md and both register entries.
+> >
+> > Second trap: the per-row stamp key is `result->'revalidation'->>'at'`, **not `checked_at`** —
+> > a wrong key returns 0 rows and reads exactly like "nothing was scanned".
 >
 > ⚠ **Do NOT hand-dispatch to force it.** See §3.5 — a dispatch cannot be scoped, so it would run
 > fleet-wide over five types and stamp ~150 rows. The scheduled run does the same thing unattended,
@@ -122,6 +138,13 @@ is being left behind and the starvation this lane fixed is back.
 ---
 
 ## 1. State — verified 2026-08-08, chassis `v1.0.1267`, both replicas
+
+> **⚠ SUPERSEDED IN PART, 2026-08-09.** The chassis has rolled twice more since this table was
+> written — `1268 → 1269 → 1270` — none of them my builds. The `voice_tells` needles were
+> re-greped at **1269** rather than assumed: **1/1/1 both replicas, positive control 2**. A roll is
+> not evidence your fix shipped, and it is not evidence it survived either. Rows corrected below:
+> `voice_tells` is now **LIVE AND BEHAVIOURALLY PROVEN** (§0b), the `voice_tells` population is
+> **32** and closed **1**, and Decision 2's dedup half is **47/168, not drifting upward** (§3.1).
 
 | thing | state |
 |---|---|
@@ -195,8 +218,16 @@ Owner ruled `unresolved` is OPEN, so it must leave `idx_swi_dedup`'s exclusion l
 **2026-08-08 against the PROPOSED predicate**: **55 colliding `(site_id, item_key)` pairs across 184
 rows**, up from 53/180 this morning and 48/135 on 08-03. `undeployed_asset` 48, `improve_tool` 30,
 `needs_internal_links` 29. `CREATE UNIQUE INDEX` fails against this population; the cleanup needs a
-*"which copy do I keep, and does discarding the rest lose a true finding?"* judgement. **It drifts
-upward roughly two pairs a day, so this gets more expensive with every day it waits.**
+*"which copy do I keep, and does discarding the rest lose a true finding?"* judgement. ~~**It drifts
+upward roughly two pairs a day, so this gets more expensive with every day it waits.**~~
+
+> **⚠ CORRECTED 2026-08-09 — re-measured at 47 pairs / 168 rows, and the drift claim does not hold.**
+> Four points — 48/135 (08-03), 53/180, 55/184 (08-08), **47/168 (08-09)** — are noisy, not
+> monotonic; it **fell 8 pairs in ~14 hours**. Same predicate, exclusion list READ from
+> `pg_get_indexdef`, not reconstructed. The point measurement stands; the **trend, and the urgency
+> argument resting on it, does not** — and that argument was doing real work in this file and in
+> `README_where_we_are`. This stays blocked on the owner's which-copy-do-I-keep judgement, which
+> was always the actual blocker.
 
 ⚠ **READ THE INDEX, DO NOT RECONSTRUCT IT** — `SELECT pg_get_indexdef(oid) FROM pg_class WHERE
 relname='idx_swi_dedup'` is the only authority. Writing the exclusion list from memory of the phrase
@@ -219,8 +250,35 @@ the retraction seam there is the commit that must change it to `break`.
 |---|---|
 | `content_rewrite` (~34) | **REJECTED** — 51 `complete` rows carrying `deploy_result` payloads. A real fix pipeline already drains it |
 | `needs_sprite_css` (10) | **DEFERRED** — zero closed, but all 10 are `unresolved` and its source comment says *asset-deployer's sprite_css mode re-runs*. Needs its own producer/closer pass |
-| `voice_tells` (25) | **ADOPTED today** |
+| `voice_tells` (25) | **ADOPTED today** — and PROVEN LIVE 2026-08-09, one item closed unattended |
+| `claims_unverified` (23) | **ADOPTED 2026-08-09** — CQ-021, commit `4030cadb9`, council `b67eb26a-…` |
 | `cta_names_unknown_destination` (~123) | **DO NOT TOUCH** — owned by `bugs_open/023`, and a test asserts it stays out of the registry |
+
+> **⚠ ADDED 2026-08-09 — THE CANDIDATE LIST HAS A CEILING NOBODY HAD NOTICED, and it silently
+> disqualifies whole types.** `image_url_404` passes every test in the census above — 26 open,
+> **0 closed ever**, 0 `revalidation` blocks, 0 `deploy_result`, flag-only, and its question is
+> answerable from the DB with no HTTP. **It cannot be adopted.** Its rows are `blocked` (23) and
+> `detected` (3), and `workItemRevalidatableStatuses` (`work_items_common.go:140`) is only
+> `['needs_human_review','unresolved']` — so the sweep never selects them, and because
+> `reportUncoveredBacklog` counts with **the same list**, the type is not even reported as
+> uncovered. It is simply **absent** from `uncovered_types`.
+>
+> **So `uncovered_backlog` understates the parked population.** Rows outside the two revalidatable
+> statuses, measured 2026-08-08: `triaged` 249 · `detected` 114 · `deferred` 66 · `blocked` 34 ·
+> `claimed` 3 · `awaiting_experience_plan` 1 = **467 invisible rows across 6 statuses**. The
+> coverage-gap report cannot see the gap it exists to name.
+>
+> **NOT asserted, and not acted on** — filed to the loop instead (queue checked, no duplicate):
+> run correlation **`f3d18013-0b78-472f-b2cb-5bf5e4e893b8`**, item_key
+> `needs_diagnosis:uncovered-backlog-status-ceiling`. **Read the verdict before building anything
+> on this**; a REFUTED verdict is a success. Widening that list is architecture-scope regardless —
+> it is interpolated in three places, and per its own comment widening the selection alone selects
+> rows the write-time CAS guards then silently refuse to update.
+>
+> **Practical effect on this table: re-run the census with `status IN ('needs_human_review',
+> 'unresolved')` in it**, or you will keep nominating candidates the sweep structurally cannot see.
+> Zero-closer types that ARE selectable, measured 2026-08-09: `lock_blocked_change` 23 ·
+> `image_source_unsatisfiable` 18 · `needs_sprite_css` 10 · `dead_control` 8 · `stale_evidence` 5.
 
 ```sql
 -- run this BEFORE writing any code, every time
