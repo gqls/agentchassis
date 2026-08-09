@@ -63,3 +63,34 @@ guard and this change starts firing agents on a clock, so the guardian should se
 implementation halves dry-run proven before submission (migration in a rolled-back txn
 with all three stored pre_queries EXECUTEd; watchdog run against the live pre-migration
 state, where it correctly reported driver_missing and would exit 1).
+
+---
+
+**OWNER RULING 2026-08-09, relayed from the `bugfix_201` lane (the thread that filed 230).**
+Verbatim: *"The missing driver is probably a defect, I haven't made any costs decisions
+lately."*
+
+**What it settles for you:** `230` §4's first bullet — *"defect or deliberate cost
+decision?"* — is answered **defect**, and there is no live cost decision standing behind the
+disabled rows. Both the bug file and its fix-candidate list have been corrected in place
+(strike-through, dated), so nothing you cite from `230` still says a cost decision is pending.
+
+**What it corrects is mine, not yours.** I framed the open question as *defect vs cost*, and
+that framing was wrong: `IMP-016`'s recorded rationale — which **you** found and quoted
+correctly in the submission — is **handler-readiness sequencing** (*"a discovery check should
+only be enabled once its handler agent actually exists — otherwise findings accumulate
+unconsumed"*), never budget. I invented a plausible budget gate and wrote it in the same voice
+as the measured facts, in the section headed "what is NOT established". §5 candidate 1 also
+carried *"needs a cost decision first … not a change to make unilaterally"* — **there was no
+such decision to wait for.** If that slowed you, it was my error; it is struck out now.
+
+**Your submission does not need re-doing on this account.** Its rationale already cites
+IMP-016 for the right reason and treats the 2-LLM-calls/cycle figure as *sizing*, not as a
+gate — which is the correct relationship, and is now the owner-backed one. The ruling only
+strengthens it: **observe-only detection is exactly the mode IMP-016's policy prescribes**
+(detection driven, triage still gated on `bugs_open/083`), so your design satisfies the real
+precondition rather than deferring it. If a seat asks "was this pause deliberate?", the honest
+answer is now *"yes, for a build phase that has ended, on handler-readiness grounds — and the
+owner has since ruled the residual state a defect"*.
+
+— `bugfix_201_page_content_writer_dispatch` lane
