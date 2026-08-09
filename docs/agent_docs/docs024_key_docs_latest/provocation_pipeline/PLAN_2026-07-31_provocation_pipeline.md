@@ -785,3 +785,82 @@ Asked rather than assumed. **Whichever is chosen, the standing constraint from �
 holds: both halves must become category-aware in the SAME change, or a category is
 silently never scheduled.** Reading (B) forces (A) as a prerequisite; reading (A) does
 not require (B).
+
+---
+
+## 14. CORRECTION 2026-08-09 — §10's premise was REVERSED by the owner while §§12-13 were being written, and my reasoning cited it
+
+**§§12.2, 13.1 and §11.3 all rest on "§10 stands: no human approval of publishes."**
+A concurrent session put the same §4 finding to the owner in parallel and recorded his
+answer in `HANDOFF_2026-08-08b_continue_here.md`'s banner:
+
+> **"A human CAN approve them."** This **reverses the 31 July no-human-approval ruling
+> (PLAN §10)**, which was the load-bearing premise of that whole section.
+
+So the sentence I leaned on twice — *"the gate is the only thing between an LLM-written
+provocation and a live page"* — **is no longer the policy.** Recorded here rather than
+edited away at the point of use, because how the reasoning was built matters.
+
+**What actually changes, and what does not:**
+
+- **Ruling 1 (err toward rejection) STANDS.** The owner ruled it directly. Its
+  *justification* softens — a human backstop makes a leak less catastrophic — but the
+  trade he chose is unaffected, and §13.1's real point (rulings 1 and 4 are one change,
+  because a silently starving pool is the failure mode we chose) is untouched.
+- **My option 4 was NOT excluded after all.** I told the owner human approval was "off
+  the table by §10". That was true when I wrote it and false within the hour. The
+  correction matters because a live option was presented as dead.
+
+### 14.1 ⚠ THE REVERSAL IS POLICY, NOT CODE — and today the difference is load-bearing
+
+**There is no human-approval step implemented anywhere in the publish path.**
+`provocation-feed-publisher`'s workflow is one action, `render_provocation_feed`, and
+`loadProvocations` selects on `status='approved'` alone. Nothing consults a human, and
+no column records that anyone read the text.
+
+So **"a human CAN approve" is currently a statement about intent, not about behaviour.**
+Until an approval step exists, the code still behaves exactly as §10 described, and any
+reasoning that treats the human backstop as *in place* is wrong in the direction that
+matters. **Whoever implements the reversal should add the step before quoting it as a
+control** — this is the estate's standing `a-doc-comment-is-not-an-enforcement-mechanism`
+shape, arriving as a policy/implementation gap rather than a comment.
+
+### 14.2 The divergence the owner should see, because two sessions were answered differently
+
+On the SAME §4 finding, within hours:
+
+| put by | answer received |
+|---|---|
+| this session | **candidate 1 — a deterministic pre-judge abuse check** (§12) |
+| the concurrent session | **"we can ask a model different ways, several times"** — candidate 3, sharpened to *varied framings*, not repetition |
+| this session | the six drafts: **HOLD** until the abuse check ships (§13, ruling 3) |
+| the concurrent session | the six drafts **go through the gate** — done; they are now approved and dated |
+
+**The two safety answers COMPOSE and are not in conflict** — the concurrent session said
+so itself, and it is right: a deterministic floor removes stochasticity, varied-framing
+sampling reduces what survives it, and they sit in series. The sensible reading of both
+rulings together is **build candidate 1 AND candidate 3's varied-framing sampler**, which
+is strictly what each ruling asked for.
+
+**The drafts answer IS a genuine conflict** and it resolved itself in practice: they were
+gated and approved before this session acted on "hold". Not re-litigated here — see §14.3
+for the only part that is time-sensitive.
+
+### 14.3 What "hold" was protecting against is now scheduled
+
+Measured 2026-08-09 16:5x: the six LLM provocations are `approved` with `publish_on`
+**2026-08-10 … 2026-08-15**. `selectForDate` picks the latest approved row with
+`publish_on <= today`, and `provocation-feed-refresh` is **enabled on a 6-hour tick**
+(last completed 16:31:45).
+
+- **today** the feed still serves `nobody-wants-personalised-internet` (2026-07-26)
+- **tomorrow** it serves `you-love-being-from-your-city` — the first LLM-written
+  provocation ever published on this site — **automatically, at the first tick after
+  midnight**, with no abuse check built and no approval step in code.
+
+The six were read this session and are on-brief for §11.1's audience; none names a real
+person or business, so §11.2's test passes on inspection. **The exposure is procedural,
+not textual**: the first automatic LLM publish happens before either safety ruling ships,
+and it was never explicitly decided — it is the arithmetic of a date column and a cron.
+Flagged to the owner rather than acted on unilaterally, because the dates are another
+session's deliberate work and the gating had his sanction.
