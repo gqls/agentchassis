@@ -7789,11 +7789,16 @@ code change owed at the next roll, tracked in RFC_015 §5.
 
 ### An error census over `orchestration_states` measures the RETENTION WINDOW, not the frequency — failures are pruned at ~24h, so "has this stopped happening?" reads 0 before the fix and 0 after it
 
-- **footprint:** `orchestration_states.error`, `orchestration_states.status = 'FAILED'`,
-  `collected_data->'__step_error'`, and **any question of the form "does this
-  failure still occur / did my fix stop it / how often does this bite?"** asked
-  by counting rows in that table. Also any bug file whose "how to verify a fix"
-  step is an error census over it.
+- **footprint:** `orchestration_states.error`, `orchestration_states.status`,
+  `collected_data->'__step_error'`, `090_TRIGGER_needs_diagnosis_v1.sh`
+
+  *(Footprint kept to bare identifiers on purpose — `landmines-sync.py` splits
+  this line on commas into one `doc_notes` row per item, so a prose clause here
+  becomes a row with a sentence for a `subject_key`. Mine did, for about ten
+  minutes on 2026-08-09; corrected in place. Scope in words instead:* **any
+  question of the form "does this failure still occur / did my fix stop it /
+  how often does this bite?" answered by counting rows in that table** *— and
+  any bug file whose "how to verify a fix" step is an error census over it.)*
 
 - **the trap:** the table LOOKS long-lived. `SELECT min(created_at) FROM
   orchestration_states` returns weeks of history (2026-07-13, against 4,935
