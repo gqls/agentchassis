@@ -5098,3 +5098,76 @@ Warn — silent partial data loss. The guardian seat's position is that "how muc
 silent loss is acceptable" belongs to the owning pipeline, not a reviewer, and I
 agree. The branch needs a collision **and** both entries composed; the observed
 shape is composed-plus-stub, which loses nothing.
+
+---
+
+## 2026-08-09 (evening) — 215 live-verified, and the groundwork that de-risks candidate 1b
+
+**215 crash mode is LIVE on chassis v1.0.1276**, both replicas, verified at the
+artefact with a negative control (`"collapsed after canonicalization"`, US
+spelling → 0, same exec, same binary; four positives → 1). Recorded in the bug
+file. **No plan write has been through the new path yet**, so
+`duplicate_pages_merged` has never been non-zero in the wild — the fix is proven
+by tests, mutation and pod-grep, *not* by a live merge, and the absence of a
+merge log is not yet evidence of anything.
+
+### Candidate 1b: three findings, and the third changes the design
+
+**1. The handoff's line numbers were stale before the day was out.** It cited
+Pass B2 at `v3_site_actions.go:3031` with the header at `:5118`. At HEAD today:
+`reconcilePlanWithRealised` is declared at **`:5278`**, Pass B2 is at
+**`:5418-5447`**, the header block runs **`:5240-5277`**, and the call site is
+**`:3101`**. The file is 5,875 lines. **Cite by symbol, re-grep the line.**
+
+**2. The loss mechanism, read rather than inferred.** Realised sections are a
+JSON array of **plain strings** — measured on live rows, not assumed:
+`jsonb_typeof(sections->0) = string` for every composed page on fundamentallyai
+(`hero-about`, `hero-services`, `hero`, …). The LLM's sections under seed 333
+are **objects carrying `facts`**. Pass B2's restore is
+`lm["sections"] = rs` (`:5435`) — a wholesale replacement of the richer shape by
+the poorer one. So the assignments are not dropped by some subtle misalignment;
+they are overwritten by a list of strings that has no room for them.
+
+**3. The finding that matters — the shape widening I feared is already an
+accepted intermediate, and it is OUR OWN code.** I started measuring the blast
+radius of emitting object-form sections and found 15+ non-test readers of
+`["sections"]`, which looked like a serious widening problem. It is not.
+`ValidateSitePlanAction` **already** normalises object-form sections at
+**`:3277-3317`**: objects → `sections` (strings) + a page-level `section_facts`
+array aligned by index, `sawObject`-gated so a page with no object entries is
+left byte-identical. That block is this front's own Slice A work, and its
+comment states the placement rationale exactly — *"the split happens HERE, after
+the last transformation that can remove an entry … the assignment travels INSIDE
+the entry, never as a positionally-keyed sibling."*
+
+**The order is decisive and I verified it rather than assuming it:** reconcile is
+called at **`:3101`**, normalisation runs at **`:3277`** — 176 lines later, in
+the same function. So:
+
+> **Pass B2 can carry facts onto the restored realised sections in OBJECT form,
+> and the existing normalisation will split them exactly as it does the LLM's own
+> emission. Nothing downstream ever sees object form. The 15+ `["sections"]`
+> consumers are not in the blast radius at all.**
+
+That turns 1b (ii) from "a shape-widening change across 15 consumers" into a
+contained edit inside a function that already accepts and normalises this shape.
+It also explains why (ii) alone carries only what coincides: the carry is a
+component-name match against the realised list, and a realised name the LLM did
+not assign to simply gets no facts.
+
+**What is NOT yet established, and must be before building:** whether Pass B's
+own restore (`:5402-5416`, `snapped["sections"] = ls`) needs the same treatment —
+it carries the *LLM's* sections onto a renamed realised identity, so it may
+already preserve facts, or may lose them via `normaliseRealisedToPlanPage`. Read
+that function before editing either pass. Also unestablished: whether
+`sameSectionList` (`:5667`, compares with `fmt.Sprintf("%v", …)`) starts
+reporting "changed" once entries are objects — it would only affect logging and
+the `snappedSections` counter, but it will make the counter mean something
+different, and a counter that silently changes meaning is how a later
+measurement goes wrong.
+
+**Deliberately not started:** the Go edit itself. A half-finished edit to a
+5,875-line bug-laden merge, left uncommitted in a tree this many sessions share,
+is exactly the WIP that gets swept into someone else's commit (CLAUDE.md's own
+worked example). Better to hand off the groundwork committed than the edit
+dangling.

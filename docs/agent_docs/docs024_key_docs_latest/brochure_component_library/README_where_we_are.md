@@ -1982,3 +1982,47 @@ problem, where a plan and a live site end up holding two identities for one page
 and you get pages that exist but 404. That needs fixing somewhere else in the
 system, and doing it here would have smuggled a much bigger change in under
 cover of a bug fix. It stays open, and it is written down.
+
+---
+
+**2026-08-09, evening — the fix is live, and the next job turned out to be smaller than we thought**
+
+The new chassis went out and the replan fix is in it. I checked that properly
+rather than trusting the version number: I searched the running program on both
+machines for wording my change introduced, and also for a near-identical phrase
+that differs by a single letter, which came back with nothing. That second search
+is the one that makes the first mean anything — otherwise you are only proving
+that searching works.
+
+One honest caveat. Nothing has actually replanned a site since the roll, so the
+fix has not yet had to do its job in anger. It is proven by tests and by being
+present in the running binary, not by a real collision. If nobody sees the new
+log line this week, that is not evidence either way.
+
+Then I moved on to the next piece — making fact assignments survive on pages that
+are already built — and found something that saves us a good deal of work.
+
+I had assumed this would be an awkward change, because the thing we would need to
+pass along is a richer kind of data than the rest of the system expects, and I
+counted fifteen places that read it. That looked like a change with a long tail of
+risk. It is not. We already wrote code, in the earlier phase of this same
+workstream, that converts the richer form back into the plain form before anything
+downstream sees it — and, crucially, it runs *after* the step that is currently
+throwing our data away. I checked the order rather than assuming it. So the change
+is confined to one function that already understands both shapes, and those
+fifteen readers never see the difference.
+
+That is the sort of thing worth writing down, because the expensive part was
+establishing it, not the code that will follow.
+
+I have deliberately stopped short of making the edit. The file in question is
+nearly six thousand lines, it has a long history of bugs, and this tree is shared
+with several other sessions — a half-finished change sitting in it is exactly what
+gets accidentally swept into somebody else's commit. Better to hand over the
+findings committed than the work dangling.
+
+One thing still needs a decision from you, carried over from the review: when two
+fully-written versions of the same page collide, my fix keeps the fuller one and
+records the loss in the log rather than stopping. That is a judgement about how
+much silent loss is acceptable, and the reviewers were right that it is yours to
+make rather than mine.

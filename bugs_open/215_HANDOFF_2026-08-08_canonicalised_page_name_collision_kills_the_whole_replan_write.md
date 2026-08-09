@@ -237,3 +237,37 @@ candidates fleet-wide today.
 `scope_ref` keys off the **raw** LLM page name, not the canonical one
 (`flattenImageryBlock`), so the two name-spaces coexist on this path. That is
 `bugs_open/214`'s territory; this fix neither improves nor worsens it.
+
+---
+
+## 2026-08-09 (evening) — CRASH MODE IS NOW LIVE-VERIFIED on chassis **v1.0.1276**
+
+The fix rode a fleet roll. Verified at the artefact on **both replicas**
+(`agent-chassis-767d7f5674-5sxdc`, `-sfct5`), not at git and not at the tag:
+
+```
+POSITIVE  "duplicate page collapsed after canonicalisation"          -> 1  (both pods)
+POSITIVE  "two composed pages canonicalise to one name"              -> 1
+POSITIVE  "plan contained pages that canonicalise to a shared name"  -> 1
+POSITIVE  "duplicate_pages_merged"                                   -> 1
+NEGATIVE  "collapsed after canonicalization"  (US spelling)          -> 0  (both pods)
+```
+
+The negative control is the load-bearing half: the same grep, same exec, same
+binary, differing only in one letter, returns 0 — so a positive proves the
+spelling, not merely that the pipeline can find *something*. (This change
+removed no strings, so a removed-string control was not available; a
+plausible-but-absent spelling is the substitute.)
+
+**Status: the CRASH mode is fixed and live. The QUIET mode is not, and this bug
+stays OPEN for it** — a plan row and a live page still hold two identities for
+one page. So a replan of an affected site still generates phantom 404s and still
+costs another front cleanup; it just no longer loses the whole plan.
+
+**Not yet observed in production, and worth saying plainly:** no plan write has
+been through the new path since the roll, so `duplicate_pages_merged` has never
+been non-zero in the wild. The fix is proven by unit tests, mutation evidence
+and a pod-grep — *not* by a live merge. The first real signal will be that
+counter or the merge log lines; do not read their absence as either success or
+failure until a replan has actually run (and per the 2026-08-09 landmine, do
+not reach for an error census over `orchestration_states` to decide it).
