@@ -317,9 +317,21 @@ func RebuildBlogListingAction(ctx context.Context, params ActionParams) (interfa
 		// locked it (bugs_open/058): the lock predicate on the WHERE makes the
 		// refusal race-free, and the blocked refresh is surfaced as a work
 		// item rather than silently skipped.
+		// Classify before the overwrite (bugs_open/229): if the stored bytes
+		// no longer match their stamp, a non-render writer changed them and
+		// this refresh is about to destroy that content. Advisory; the 357
+		// trigger archives the outgoing bytes regardless.
+		divergent, classifyErr := classifyPageComponentArtefacts(ctx, params.DB, blogPageID)
+		if classifyErr != nil {
+			logger.Warn("RebuildBlogListingAction: divergence classification failed — refresh proceeds, the 357 trigger still archives (bugs_open/229)",
+				zap.Error(classifyErr))
+		}
+
+		// rendered_html_digest stamped in the SAME statement as the bytes
+		// (bugs_open/229): this is the render path for the listing component.
 		res, updErr := params.DB.ExecContext(ctx, `
 			UPDATE page_components
-			SET rendered_html = $1, content_data = $2::jsonb, updated_at = NOW()
+			SET rendered_html = $1, rendered_html_digest = md5($1), content_data = $2::jsonb, updated_at = NOW()
 			WHERE id = $3 AND `+pageComponentAgentWritableSQL("")+`
 		`, rendered, string(contentDataJSON), existingComponentID)
 		if updErr != nil {
@@ -351,11 +363,26 @@ func RebuildBlogListingAction(ctx context.Context, params ActionParams) (interfa
 			zap.String("component_id", componentID.String()),
 			zap.String("slot_name", slotName),
 		)
+
+		// Emit only for THIS component (classify covered the whole page) and
+		// only after the UPDATE reported a row written — the same
+		// after-RowsAffected rule as the chrome emitter. No ledger read-back
+		// here: a single-row UPDATE whose classify failed loses at most one
+		// mislabelled log line, and the archive row still exists.
+		if classifyErr == nil {
+			var mine []pageComponentDivergence
+			for _, d := range divergent {
+				if d.ComponentID == existingComponentID {
+					mine = append(mine, d)
+				}
+			}
+			emitPageDivergenceItems(ctx, params.DB, blogPageID, blogPageName, mine, "rebuild_blog_listing", logger)
+		}
 	} else {
 		// No existing component found — insert into the discovered slot
 		err = params.DB.QueryRowContext(ctx, `
-			INSERT INTO page_components (page_id, slot_name, position, rendered_html, content_data, build_status)
-			VALUES ($1, $2, 3, $3, $4::jsonb, 'deployed')
+			INSERT INTO page_components (page_id, slot_name, position, rendered_html, rendered_html_digest, content_data, build_status)
+			VALUES ($1, $2, 3, $3, md5($3), $4::jsonb, 'deployed')
 			RETURNING id
 		`, blogPageID, slotName, rendered, string(contentDataJSON)).Scan(&componentID)
 		if err != nil {

@@ -211,9 +211,11 @@ func CreateReportPageAction(ctx context.Context, params ActionParams) (interface
 	switch {
 	case lookupErr == nil:
 		var res sql.Result
+		// Stamp same-statement (bugs_open/229): the dossier render is
+		// machine-made; the 357 trigger archives what it replaces.
 		res, err = params.DB.ExecContext(ctx, `
 			UPDATE page_components
-			SET rendered_html = $1, content_data = $2::jsonb,
+			SET rendered_html = $1, rendered_html_digest = md5($1), content_data = $2::jsonb,
 			    build_status = 'approved', updated_at = NOW()
 			WHERE id = $3 AND `+pageComponentAgentWritableSQL(""),
 			sectionHTML, string(contentJSON), existingPC)
@@ -245,8 +247,8 @@ func CreateReportPageAction(ctx context.Context, params ActionParams) (interface
 		_, err = params.DB.ExecContext(ctx, `
 			INSERT INTO page_components
 			    (page_id, component_id, position, slot_name,
-			     rendered_html, content_data, build_status)
-			VALUES ($1, $2, 0, $3, $4, $5::jsonb, 'approved')`,
+			     rendered_html, rendered_html_digest, content_data, build_status)
+			VALUES ($1, $2, 0, $3, $4, md5($4), $5::jsonb, 'approved')`,
 			pageID, componentID, reportComponentFunction, sectionHTML, string(contentJSON))
 	}
 	if err != nil {

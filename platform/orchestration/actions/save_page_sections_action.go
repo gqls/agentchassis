@@ -736,11 +736,24 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 		)
 	}
 
+	// Classify what the DELETE below is about to destroy, BEFORE destroying it
+	// (bugs_open/229): rows whose bytes no longer match their render stamp hold
+	// content only the artefact has. Advisory — the save proceeds regardless;
+	// recovery is the 357 trigger's, which archives every deleted artefact
+	// atomically with the DELETE. The predicate inside classify matches the
+	// DELETE's exactly, so locked rows that survive are not counted.
+	divergent, classifyErr := classifyPageComponentArtefacts(ctx, params.DB, pageID)
+	if classifyErr != nil {
+		params.Logger.Warn("SavePageSectionsAction: divergence classification failed — save proceeds, the 357 trigger still archives (bugs_open/229)",
+			zap.Error(classifyErr),
+		)
+	}
+
 	// Clear existing components for this page — except actively-locked rows.
 	// lockedRows was loaded above (see the preservation note there), and the
 	// completeness floor has already established that this run saw enough of the
 	// page to be replacing it.
-	_, err = params.DB.ExecContext(ctx, `
+	delRes, err := params.DB.ExecContext(ctx, `
 		DELETE FROM page_components WHERE page_id = $1 AND `+pageComponentAgentWritableSQL(""),
 		pageID)
 	if err != nil {
@@ -748,6 +761,26 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 			zap.Error(err),
 		)
 		// Continue anyway
+	}
+
+	// Emit only after the DELETE actually removed rows (mirror of the chrome
+	// emit-after-RowsAffected rule): a failed or empty DELETE destroyed
+	// nothing. When the pre-classify failed, fall back to the verdicts the 357
+	// trigger just wrote to the ledger — same judgement, DB-side.
+	if err == nil {
+		if n, raErr := delRes.RowsAffected(); raErr == nil && n > 0 {
+			if classifyErr != nil {
+				if fromLedger, lbErr := readBackPageDivergenceFromLedger(ctx, params.DB, pageID); lbErr == nil {
+					divergent = fromLedger
+				} else {
+					params.Logger.Warn("SavePageSectionsAction: ledger read-back also failed — divergence signal lost for this save, archive rows remain (bugs_open/229)",
+						zap.Error(lbErr),
+					)
+					divergent = nil
+				}
+			}
+			emitPageDivergenceItems(ctx, params.DB, pageID, pageName, divergent, "save_page_sections", params.Logger)
+		}
 	}
 
 	// Insert each section
@@ -864,9 +897,13 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 			}
 		}
 
+		// rendered_html_digest = md5($3) in the SAME statement as the bytes
+		// (bugs_open/229; the IMP-052 same-statement principle): the stamp
+		// means "reproducible from content_data", and only the render/save
+		// path may write it.
 		_, err := params.DB.ExecContext(ctx, `
-			INSERT INTO page_components (page_id, position, rendered_html, slot_name, component_id, content_data, content_brief, build_status)
-			VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, 'deployed')
+			INSERT INTO page_components (page_id, position, rendered_html, rendered_html_digest, slot_name, component_id, content_data, content_brief, build_status)
+			VALUES ($1, $2, $3, md5($3), $4, $5, $6::jsonb, $7::jsonb, 'deployed')
 		`, pageID, i+1, section.HTML, section.ComponentName, componentIDPtr, contentDataJSON, contentBriefJSON)
 
 		if err != nil {

@@ -1117,10 +1117,15 @@ func updatePageComponentAfterEdit(ctx context.Context, db *sql.DB, pcID uuid.UUI
 		}
 	}
 
+	// rendered_html_digest = md5($2) same-statement (bugs_open/229): the
+	// section editor renders the edited content, so its output is
+	// machine-made. The 357 trigger archives whatever these statements
+	// replace.
 	if contentDataJSON != nil {
 		res, err = db.ExecContext(ctx, `
 			UPDATE page_components
 			SET rendered_html = $2,
+			    rendered_html_digest = md5($2),
 			    content_data = $3::jsonb,
 			    build_status = 'approved',
 			    updated_at = NOW()
@@ -1130,6 +1135,7 @@ func updatePageComponentAfterEdit(ctx context.Context, db *sql.DB, pcID uuid.UUI
 		res, err = db.ExecContext(ctx, `
 			UPDATE page_components
 			SET rendered_html = $2,
+			    rendered_html_digest = md5($2),
 			    build_status = 'approved',
 			    updated_at = NOW()
 			WHERE id = $1 AND `+pageComponentAgentWritableSQL("")+`
