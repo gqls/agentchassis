@@ -312,3 +312,45 @@ guessing: that question is going to the diagnosis loop, which is what it is for.
 So: the fix we shipped this morning is real and now proven, and it is narrower than
 the problem. Next is the diagnosis run on the historic cause, the same proof through
 the second old workflow, and then the code deletion that was already queued.
+
+---
+
+**2026-08-09, evening.** The lane's original job is finished, and it is live.
+
+The code deletion shipped on the new chassis build. I checked it the only way
+that actually proves a deletion: I looked inside the running binary on both
+replicas for the text of the line we removed, and it is gone — with two other
+lines we kept still present, so I know the search itself works. The council
+approved the change, with one minor comment that two of my six edits were
+comments rather than code, which is fair and harmless.
+
+Then the logo bug. This morning we knew eleven sites were serving a logo that had
+been processed as though it were a photograph, but not why. Today we found out:
+one setting, written once, on a piece of the pipeline that handles two different
+jobs — logos and page-top photographs. It said "photograph" permanently, so every
+logo that went through it came out as a photograph: wrong shape, wrong file type,
+and no transparency. The work item passing through it had been saying "this is a
+logo" all along; nobody was reading it.
+
+The fix is that it now reads the item. One line of configuration, live
+immediately, no rebuild needed. Before changing it I checked the obvious risk —
+that the photograph side of the branch might depend on the old hardcoded value —
+and it doesn't: every item of both kinds carries its own label. I also proved the
+safety check could actually fail before trusting it to pass.
+
+**What that fix does not do is repair the eleven sites already out there.** It
+stops new ones. Re-making the existing logos is the next job and it needs care in
+a specific order, because the old wrongly-named file doesn't get deleted by a
+re-deploy and some pages still point at it. Doing that in the wrong order would
+leave a site with a broken image where it currently has an ugly one.
+
+Along the way, three domains turned out to have problems worth knowing about.
+cookly.uk is live and serving. www now works on cookly and dartsonline — it never
+had, on any of our sites, for a reason nobody had noticed. loanzy.uk had been
+pointed at Cloudflare years ago but never actually set up there, which produces a
+uniquely unhelpful failure: it looks configured and simply hangs. And lendzy.co.uk
+was completely down — every visitor got an error page — with every internal
+status green. That last one bothers me most, so I've written it up: we have no
+check anywhere that asks whether a finished site can actually be loaded.
+
+Everything is committed and there is a fresh handoff for continuing.
