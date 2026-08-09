@@ -7433,3 +7433,49 @@ SELECT type FROM agent_definitions
 - **source:** 2026-08-09, bugfix_210 lane — found while establishing which paths can reach the guard at all, after the behavioural canary was stood down; NOTES § "A scope boundary nobody had written down"
 - **verification:** landmine-verifier (corr `d65dbd74`) returned **NEEDS_HUMAN_REVIEW** — not a contradiction: it resolved every symbol and found nothing against the entry, but could not do a line-level pass because the code index was ~2 days stale and it failed to resolve `rerender_single_page_action.go` (its own path-prefix issue — the file is present, 41KB). **Human pass done the same hour, first-hand at the tree:** guard read `owned_page_guard.go:309`; skip emitter `rerender_single_page_action.go:200`; the grep above. Not re-dispatched, because the blocker was index staleness rather than anything about the entry.
 - **added:** 2026-08-09, bugfix_210_content_failed_build_stamped_deployed lane
+
+### A census of live step config written as `->'workflow'->'steps'` is TOP-LEVEL ONLY, and it returns a confident wrong number rather than an error
+
+- **footprint:** `agent_definitions`, `default_config`, `jsonb_each(default_config->'workflow'->'steps')`, `sub_workflow`, `substeps`, `validation.WalkSteps`, `platform/validation/subworkflow.go`, `cmd/config-key-audit`, `bugs_open/144`, `bugs_open/136`
+- **fires when:** you ask "which live agents carry config key X?", "which steps use action Y?", or "how many places do I have to change?" — and you write, copy or inherit the obvious SQL. Nearly every runbook in this estate contains a version of it, because it is the natural way to write the query and it is right about most definitions.
+- **the tell:** **there is none.** A step nested in a loop's `sub_workflow.steps` (or `substeps`, which WINS at execution when both are present) is simply not in the result set. No error, no NULL, no empty result — a plausible number, arrived at early, that you then plan the work against. Measured 2026-08-09 on `bugs_open/136`'s own key census: the query reported **13** carriers of three deprecated config keys; there were **19**. Six lived one level down, in `component-quality-auditor`, `internal-linker`, `tool-auditor` (×2) and `tool-suggester` (×2). A 32% undercount, in a runbook whose entire subject is finding every carrier of a key.
+- **why it survives:** the Go side was FIXED — `validation.WalkSteps` was extracted precisely to abolish this descent (`bugs_open/144`: "two hand-written traversals blind in the same direction, agreeing with each other"), and `cmd/config-key-audit` adopted it on 2026-07-29 and now prints its own coverage banner (`68 pairs inside loop sub-workflows, 25 of which exist ONLY there`). **The SQL in the runbooks did not learn about that fix.** A query written before a platform fix keeps the bug for ever, and it is read as authoritative because it is written down.
+- **the check:** never trust a single-depth descent for a count you will act on. Cheapest honest census is a text scan **carrying a positive control**, so a zero is readable and a disagreement is visible:
+  ```sql
+  SELECT count(*) FILTER (WHERE default_config::text ~ '<the key>')      AS hits,
+         count(*) FILTER (WHERE default_config::text ~ '<a key you KNOW is present>') AS pos_control,
+         count(*) FILTER (WHERE default_config::text ~ 'zzz_invented')   AS neg_control
+  FROM agent_definitions
+  WHERE deleted_at IS NULL AND COALESCE(is_snapshot,false)=false AND is_active;
+  ```
+  If the text count of *definitions* exceeds the step query's count of *agents*, you have found nested carriers — that discrepancy is what caught this one. For the exact paths (which you need in order to write a `jsonb_set`), recurse; note Postgres refuses two references to the CTE, so objects and arrays must be folded into ONE recursive term:
+  ```sql
+  WITH RECURSIVE walk(agent_type, path, node) AS (
+    SELECT ad.type, ARRAY[]::text[], ad.default_config FROM agent_definitions ad
+     WHERE ad.deleted_at IS NULL AND COALESCE(ad.is_snapshot,false)=false AND ad.is_active
+    UNION ALL
+    SELECT w.agent_type, w.path || e.k, e.v FROM walk w CROSS JOIN LATERAL jsonb_each(
+      CASE jsonb_typeof(w.node) WHEN 'object' THEN w.node
+        WHEN 'array' THEN COALESCE((SELECT jsonb_object_agg((i-1)::text, v)
+            FROM jsonb_array_elements(w.node) WITH ORDINALITY a(v,i)), '{}'::jsonb)
+        ELSE '{}'::jsonb END) AS e(k,v))
+  SELECT agent_type, array_to_string(path,' > '), node #>> '{}' FROM walk
+  WHERE path[array_length(path,1)] = '<the key>' ORDER BY 1,2;
+  ```
+  From Go, call `validation.WalkSteps` and inherit the fix instead of re-deriving the bug. And if a migration must touch every carrier, **drive it from the recursive walk rather than a hand-typed list** — a list is a snapshot of whatever your census could see.
+- **source:** 2026-08-09, bugfix_136_config_key_aliases lane — `bugs_open/136` §12 and the lane NOTES; the corrected query now lives in `RUNBOOK_config_key_aliases.md`
+- **added:** 2026-08-09, bugfix_136_config_key_aliases lane
+
+### Renaming a key in a SEED can break a LATER migration that deletes that same key by name — and the replay silently restores the defect the later migration removed
+
+- **footprint:** `docs/agent_docs/sql_for_agents/`, `051_build_dispatch_loop.sql`, `052_build_pipeline_trigger.sql`, `#- 'key'`, `? 'key'`, seed replay, `bugs_open/134`, `bugs_open/136`
+- **fires when:** you follow the (correct, standing) rule "fix the live row AND the seed in the same commit, so a replay cannot reintroduce the dead key" (`bugs_open/134`), and you do it with a grep-driven rename across the seed directory. The rule is right; applying it file-by-file without reading forward is what bites.
+- **the tell:** none at the time — the rename is a 1:1 line edit, `git diff --numstat` shows added == deleted, the SQL still parses, and the live DB is untouched by seed files. The damage only appears on a full replay, months later, in a definition nobody was thinking about.
+- **the case:** `051` seeds `build-dispatch-loop` with `"item_domain": "build"` on `load_next_item` and `check_remaining`. `052` **deletes exactly those keys by name** — `(config) - 'item_domain'`, guarded by `... ? 'item_domain'` — because the filter was a defect: it meant work items on any pipeline other than `build` were never dispatched. Renaming `051`'s spelling to `item_pipeline` leaves `052` matching nothing, so a replayed chain keeps a live pipeline filter that `052` exists to remove. Caught before commit by asking "does anything downstream key on this exact spelling?"; six lines reverted, `051` left untouched.
+- **the check:** before renaming a key in any seed, grep the WHOLE seed directory for that key as a **predicate**, not just as data — the two spellings look nothing alike:
+  ```bash
+  grep -rn "'<key>'" docs/agent_docs/sql_for_agents/*.sql | grep -E "\?|#-|\- '|jsonb_set|delete"
+  ```
+  A hit on a HIGHER-numbered file means the chain is keyed on the old spelling and your rename breaks it. The general rule: **a seed is one frame of a chain, not a standalone statement of intent** — the next frame may be keyed on the exact string you are tidying. When in doubt, leave the historical pair internally consistent and fix only the live row.
+- **source:** 2026-08-09, bugfix_136_config_key_aliases lane — lane NOTES § "The near-miss"; migration `349`'s header records why `051` is deliberately excluded
+- **added:** 2026-08-09, bugfix_136_config_key_aliases lane
