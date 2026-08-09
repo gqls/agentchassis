@@ -7582,3 +7582,31 @@ SELECT type FROM agent_definitions
   `rendered_len` is the leg that separates a real deploy from an honest skip: a **skipped** deploy still emits a `rendered_page` object carrying the correct target `page_id`, with `html` of length 0. Matching page ids prove routing, never shipping.
 - **source:** 2026-08-09, bugfix 220 lane, caught when a genuine convergence (`69818add`, `/brands/index.html` → 200) printed a blank deploy column through the lane's own documented query. Written up in `WRONG_CALLS.md` and `bugfix_220_unbuilt_link_dispatch/RUNBOOK_unbuilt_link_dispatch.md`.
 - **added:** 2026-08-09, bugfix 220 lane
+
+### `palettes.source_domain` is stamped only on a per-site FORK — ask it about a site on a shared seed palette and you get 0 rows, which reads as "this site has no palette"
+
+- **footprint:** `palettes`, `palettes.source_domain`, `palettes.source_site_id`, `style_collections`, `style_collections.color_palette`, `css_themes`, `sites.style_collection_id`, `platform/orchestration/actions/render_css_composition_loader.go`, `resolveThemeIDFromSiteContext`, `corePaletteKeys`, `buildPaletteMap`
+- **fires when:** you want to know which palette a given site renders from — auditing colours, explaining a served stylesheet, deciding whether a re-render will change anything. No symptom needed; the obvious query runs clean and returns a definite-looking answer.
+- **the trap:** `SELECT … FROM palettes WHERE source_domain='<domain>'` returns **0 rows for every site that uses a library palette**, because `source_domain`/`source_site_id` are written only when a palette is *forked* for one site. The real path is a four-table chain that never mentions the domain: `sites.style_collection_id → style_collections.css_theme_id → css_themes.palette_id → palettes.colours` (`render_css_composition_loader.go:298-306`). Measured 2026-08-09: `ai-agent-orchestration.com` returns 0 rows on `source_domain` and resolves through the chain to the seed palette `professional-dark`, shared with `finetuning.uk` and `gaswholesalers.com`.
+- **why the wrong result looks exactly like the right one:** 0 rows is a *meaningful* answer here — plenty of sites genuinely have no forked palette — so an empty result reads as a finding ("this site has no palette row, so its colours must come from somewhere else") rather than as a wrong-key query. It then licenses a *further* wrong inference, because the next-most-obvious column is also a decoy: **`style_collections.color_palette` is a jsonb that the render path never reads**, and on at least one live collection it still holds the column DEFAULT verbatim (a light palette, on a collection named `professional-dark`). Two plausible sources, both wrong, neither erroring.
+- **and a second trap rides on the first:** the value you are chasing may be **over-determined**. A layout's `{{palette "card_bg" "#ffffff"}}` fallback and a palette's own `"card_bg": "#ffffff"` emit identical bytes, so the served stylesheet **cannot** tell you which fired. Only `colours ? '<slot>'` can. Do not write "the layout literal" off a served value.
+- **the check, before you conclude anything about a site's colours:**
+  ```sql
+  -- the real chain: never ask palettes by domain
+  SELECT s.domain, t.name AS theme, p.name AS palette, p.origin,
+         l.name AS layout, l.scheme AS layout_scheme,
+         p.colours ? 'card_bg' AS palette_supplies_card_bg,
+         p.colours->>'card_bg'  AS card_bg
+  FROM sites s
+  JOIN style_collections sc ON sc.id = s.style_collection_id
+  JOIN css_themes  t ON t.id = sc.css_theme_id
+  LEFT JOIN palettes p ON p.id = t.palette_id AND p.is_active
+  LEFT JOIN layouts  l ON l.id = t.layout_id  AND l.is_active
+  WHERE s.domain = '<domain>';
+
+  -- who else rides this collection (an edit here is never one site's)
+  SELECT domain FROM sites WHERE style_collection_id = '<the id above>' ORDER BY domain;
+  ```
+  A palette's NAME is not its scheme: `professional-dark` is a fully light palette (`background #f8fafc`, `card_bg #ffffff`, `text #1e293b`). Read `colours`, never the name. And only **8** slots (`corePaletteKeys`, `render_css_composition_helpers.go:41-50`) can be overridden by a site's spec — the other ~13 belong to the shared palette, so a site whose spec is dark and whose palette is light ships a mixture that no single input reveals.
+- **source:** 2026-08-09, brochure lane / `bugs_open/113`. A three-site audit concluded a site was a live instance of 113 on the strength of `source_domain` returning 0 rows; the site in fact renders from a shared seed palette that supplies the disputed value explicitly. Written up in `WRONG_CALLS.md` and in 113's third-pass section.
+- **added:** 2026-08-09, brochure lane

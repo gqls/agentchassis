@@ -472,3 +472,143 @@ sample of a site.** 122's 2026-08-06 fleet run measured 15 **homepages** and fou
 firm failures across 12 sites, robot-hands contributing 3 and dartsonline 1. Full
 sitemaps of those same two sites, three days later, give **193 and 125**. The defect
 concentrates on tool, guide and news pages — the ones a homepage run never opens.
+
+---
+
+## 2026-08-09 (third pass) — **CORRECTED: `ai-agent-orchestration.com` is NOT a live instance of 113.** Its `#ffffff` is CURATED, and a re-render will not change it
+
+> **This corrects the section immediately above, which is my own lane's work from
+> earlier today.** It concluded *"this bug's remaining live instance, of these three, is
+> `ai-agent-orchestration.com` alone"*, on the evidence that the served
+> `--color-card-bg` is `#ffffff` while the served `--color-surface` is `#0D1117`.
+> **The attribution is wrong.** The `#ffffff` is the theme palette's own curated value,
+> winning as a specialised slot. 113's fall-through is **never reached on this site**.
+
+### The served sheet, accounted for slot by slot
+
+Fetched first-hand (`curl https://ai-agent-orchestration.com/assets/css/styles.css`,
+HTTP 200, 13,520 bytes, 2026-08-09). Every one of the seventeen emitted slots traces to a
+named input, and **not one falls through to a layout literal**:
+
+| served slot | value | supplied by |
+|---|---|---|
+| `primary` `secondary` `accent` `background` `surface` `text` `text_muted` `border` | `#0D1117` `#161B22` `#F0A500` `#080B10` `#0D1117` `#E6EDF3` `#8B949E` `#21262D` | **the spec's 8 core slots** — byte-identical to `design_intent.palette.reference_values` |
+| `card_bg` | `#ffffff` | **palette `professional-dark`** |
+| `header_bg` `header_text` `footer_bg` `footer_text` `cta_bg` `cta_text` `primary_text` `primary_hover` | `#0f172a` `#f1f5f9` `#0f172a` `#cbd5e1` `linear-gradient(135deg, #1e40af…)` `#ffffff` `#ffffff` `#1e3a8a` | **palette `professional-dark`**, all eight verbatim |
+
+### Why the discriminator could not have worked, whatever care was taken
+
+**The served value is over-determined.** The layout declares
+`{{palette "card_bg"        "#ffffff"}}` and the palette supplies `"card_bg": "#ffffff"`.
+Both candidate sources emit the same seven characters, so **no reading of the served
+stylesheet can separate them.** The discriminator had to be run against the *input* — which
+is exactly what makes the dartsonline half of that table sound (`colours ? 'card_bg'` =
+false, so its served `card_bg` can only have been derived) and the
+ai-agent-orchestration half unsound: the positive was asserted without the matching check.
+
+This is the file's own opening insight, arriving a second time and catching its author:
+*"a derived value and a curated one are indistinguishable in the output CSS."*
+
+**Why the input check was skipped.** The section above records
+*"there is no `palettes` row for this domain at all (`source_domain='ai-agent-orchestration.com'`
+→ 0 rows)"*. That query is **true and irrelevant**: `source_domain` is stamped only on a
+per-site *fork*. This site renders from a **shared seed palette**, reached by a chain that
+never mentions the domain (`render_css_composition_loader.go:298-306`):
+
+```
+sites.style_collection_id → style_collections.css_theme_id → css_themes.palette_id → palettes.colours
+```
+
+```sql
+SELECT t.name AS theme, p.name AS palette, p.origin, l.name AS layout
+FROM sites s JOIN style_collections sc ON sc.id=s.style_collection_id
+JOIN css_themes t ON t.id=sc.css_theme_id
+LEFT JOIN palettes p ON p.id=t.palette_id AND p.is_active
+LEFT JOIN layouts  l ON l.id=t.layout_id  AND l.is_active
+WHERE s.domain='ai-agent-orchestration.com';
+--  professional-dark | professional-dark | seed | brochure-formal
+```
+
+### The mechanism that IS live here — a third one, and it is not 113
+
+**The seed palette `professional-dark` is, despite its name, a fully LIGHT palette**:
+`background #f8fafc`, `card_bg #ffffff`, `text #1e293b`, `heading #0f172a`. It defines
+**21 slots — more than the 17 the layout declares**, so it starves 113's fall-through of
+anything to fall through.
+
+The damage comes from the **authority boundary**, not from a missing slot:
+
+1. `corePaletteKeys` is exactly 8 names (`render_css_composition_helpers.go:41-50`), and
+   `buildPaletteMap` overlays **only** those from the spec (`:83-90`). The site's pinned
+   dark scheme can therefore reach 8 slots and no others.
+2. `card_bg` is not among them, so the theme wins it — and the theme is light.
+3. `fillDarkSchemeSpecialisedSlots` **declines to touch it, by design**:
+   `if existing, ok := palette[d.name]; ok && existing != "" { continue }`
+   (`palette_specialised_slots.go:144`). Verified in the code, not from its doc comment.
+
+So: a dark site's 8 core slots, plus a light palette's 13 specialised ones. **113's fix is
+working exactly as specified and cannot repair this site** — the very rule that keeps the
+15 curated library palettes safe is what preserves the white card here.
+
+**Control, which makes this discriminating rather than a story:** the other two sites on
+this palette — `finetuning.uk` and `gaswholesalers.com` — are **light** sites
+(`--color-background: #F5F3EF` / `#F4F1EB`, dark text) and serve the same
+`--color-card-bg: #ffffff` **correctly**. The palette is right for two of its three
+consumers. The mismatch belongs to the one site whose core slots were pinned dark.
+
+### Operational consequence — this changes what the queued re-render will achieve
+
+There is an **open work item** on this site: `e97fb5c5` `needs_design_review`, `triaged`,
+updated 2026-08-09 14:28 — *"Re-render styles.css so the VIZ-014 legible-ink slots reach the
+served stylesheet (bugs_open/122, migrations 338+350)."* Found by the queue check, not the
+pod check.
+
+**That re-render will not move the 44 white-card failures.** Nothing in its path changes
+`card_bg`: the palette row still defines `#ffffff`, the spec still cannot override a
+specialised slot, and the derivation still skips a defined slot. This is deterministic — it
+does not depend on what any LLM produces on the run. **Contributed to the 122 lane rather
+than acted on here**, per this file's standing "do not repaint" instruction.
+
+The repair, whenever someone takes it, is at the **inputs** and there are two honest
+options: fork the palette for this site with dark specialised slots, or move the site to a
+genuinely dark collection. Editing the shared seed row would break the two light siblings
+above.
+
+### The caution in the section above is ALSO refuted
+
+That section warns: *"Its `design_intent.color_scheme` is a LIGHT scheme … anyone
+re-rendering it should establish that first, or the re-render may pull the light scheme in
+and make it worse."*
+
+`design_intent.color_scheme` **is** light (`background #ffffff`, `surface #f8f9fa`,
+`text #333333`) and has been unchanged since 2026-03-07. **But it is not the key that
+drives the render.** The renderer reads the *run's* `design_spec.result.color_scheme`
+(`render_css_from_spec_action.go:474`), described at `:129` as *"a per-run LLM guess"*, and
+that guess is steered by **`design_intent.palette.reference_values`** — which is DARK, was
+pinned at 13:15 today, matches all 8 served core slots byte-for-byte, and carries the
+instruction *"Observed scheme is DARK and must not change."* The pin is live, not
+decorative: consumed by `resolve_composition_pallette_action.go:238` and by three active
+agents including `webdesign-agent`.
+
+So the light `color_scheme` is a **stale, unread key**, and a re-render will not pull it in.
+
+> `[UNMEASURED]` — and worth separating from the deterministic part above. The pin steers an
+> LLM; it does not *guarantee* the 8 core slots. The `card_bg` finding needs no such
+> caveat, because the palette row is read directly. **What I have NOT established is what
+> the ORIGINAL render used** — the pin was written today by reading the already-served
+> sheet, so it records that sheet rather than explaining it. This section is about what a
+> *future* re-render will do.
+
+**Method note / substitution declared (owner ruling 2026-07-31):** no `090` run. The claim
+is a *refutation* of an attribution, and it was settled by direct reading rather than
+inference: the served artefact fetched first-hand, the four-table resolution chain queried,
+the three deciding code paths opened and quoted at line level (not their comments), and two
+controls that could have come out otherwise — dartsonline, whose palette defines no
+`card_bg` and whose served sheet therefore proves derivation, and the two light siblings,
+who serve the same `#ffffff` correctly. **A `090` run remains the right next step if anyone
+wants the mechanism itself audited rather than this attribution corrected.**
+
+*Transferable, and it is the same shape as the file's own founding insight:* **when you
+attribute a served value to a fallback, check whether the supplier emits that exact value
+too.** If both do, the artefact cannot answer the question and only the input can. Ask
+`colours ? '<slot>'` before writing "the layout literal".
