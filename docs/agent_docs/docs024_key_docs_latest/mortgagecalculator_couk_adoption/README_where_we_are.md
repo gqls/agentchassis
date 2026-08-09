@@ -698,3 +698,61 @@ queued behind one mechanical check about how new guide pages get created.
 The remaining gap, being designed properly rather than rushed: connecting the
 registered facts to the calculators themselves, so a tool that encodes an
 out-of-date threshold fails its acceptance check automatically.
+
+---
+
+**2026-08-09 (afternoon) — the five jobs built, and the facts-to-calculators
+design is written up.**
+
+First, the good news you don't have to wait for: all five of this morning's
+jobs finished by quarter past eleven. The bridging page, the rate forecaster
+and the fee analyser have been rebuilt on the models we agreed, and the two
+new companion pages — the compound-interest bridging calculator and the rate
+scenario comparison — exist. I have not yet re-driven them against the
+originals to confirm the numbers now match; that is the next practical job and
+it is what will tell us whether the rebuilds actually landed the models or
+merely claim to.
+
+Second, the design you asked for: connecting the registered facts to the
+calculators. I spent this session measuring what the platform already does
+rather than sketching, and the picture is sharper than expected — and slightly
+worse in one place, better in another.
+
+Worse: our own twelve rebuilt calculators are, right now, invisible to the
+platform's tool-checking machinery altogether. Not failing it — not in it. The
+checks are attached to a per-tool planning document, and the rebuilt tools
+never got one, so they have never had a single automated check run against
+them in their lives. The two brand-new companion pages built this morning
+*do* have one, because they came through a different route. So before any of
+the fact-checking work can bite here, those twelve need their documents
+created. That is a small job and it turns on the existing checks too, which is
+a straight win regardless.
+
+Better: the most valuable single change turns out to need no code at all. The
+agent that rebuilds a calculator is already handed the site's registered facts
+— it has been all along — and simply is not shown them in its instructions. So
+it invents its constants, or copies whatever a human typed into the job spec,
+while the correct, source-cited numbers sit unused in its own context. Telling
+it to read them is a configuration change, live the moment it is applied. That
+does not *guarantee* a correct calculator — a model shown a fact can still
+ignore it — so it does not replace the checking work, but it is the cheapest
+improvement available and it makes every later fix a rebuild rather than a patch.
+
+The rest of the design is four pieces in order: show the builder the facts;
+let each tool declare which facts it encodes; make a fact that changes reach
+the tools that encode it; and finally compute the expected answers from the
+register itself, so a calculator running a superseded threshold fails
+automatically. That last piece is the one that genuinely closes the door, and
+it is the one that needs a proper architecture review — because it changes
+what a passing check *means*, from "this calculator still does what it did"
+to "this calculator agrees with the published rules". Those are different
+promises and the platform currently only makes the first.
+
+One caution I want on the record. All of this rests on the registered facts
+being right. The daily check proves that GOV.UK still says what we quoted —
+that is provenance, not correctness. It cannot tell a correct threshold from a
+confidently wrong one. So before we let the register start overruling the
+arithmetic in the calculators, those stamp duty facts deserve a human read.
+
+Full design, with the measurements and the traps:
+`PLAN_2026-08-09_facts_into_tool_acceptance.md`.

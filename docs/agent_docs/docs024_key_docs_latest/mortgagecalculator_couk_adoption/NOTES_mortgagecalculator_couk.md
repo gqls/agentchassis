@@ -1326,3 +1326,88 @@ right vehicle is a framework-built guide page whose numbers come from
 writer_lines; BLOCKED on confirming the page-row creation path for a new guide
 page on this site before filing (add_tool creates tool pages; guides arrived
 with the adoption).
+
+## 2026-08-09 (afternoon) — measuring the facts→tools seam before designing it
+
+Design written up as `PLAN_2026-08-09_facts_into_tool_acceptance.md`. **No code
+this session.** What follows is the evidence it rests on; each item names the
+check, and where a check could not have come out otherwise I say so.
+
+**The five improvement-loop items are all `complete`** — built 11:08–11:19Z,
+verified by row id (`c9f810a3`, `df5c5935`, `ba68c674`, `0dc7a786`, `0c529013`).
+The site now has 14 tool pages. **OWED: re-run the replay comparator** — the
+08-08c handoff's follow-up, now unblocked. Nothing yet confirms the rebuilds
+landed the agreed models rather than merely reporting success (016b: `complete`
+is not proof the work happened).
+
+**The register's first sweep has NOT run over our facts.** `scheduled_tasks`
+`evidence-freshness`: enabled, 86400s, `last_completed_at = 2026-08-09
+08:58:22Z` — i.e. **before** the ~12:30 seed. Zero `stale_evidence`/`citation`
+items for this site. Due ~08:58Z 08-10. `[MEASURED]` The RUNBOOK §11 check is
+still owed and the day-one gotcha still applies.
+
+**Fact shape, enumerated rather than read off a seed** (there is no `.sql` in
+the repo for these facts — they were seeded direct against the live row, so a
+repo grep would have found nothing and told me nothing):
+`{id, kind, unit, claim, value, source.citation{url,quote,publisher,title,
+accessed,published}, verified_at, writer_line, staleness_days}`; top level
+`{facts, governing_rule, writer_block_managed}`. `[MEASURED via
+jsonb_object_keys]` — a path read would not have seen a shape change underneath
+it, which is why the keys were enumerated.
+
+**The tool agents are blind to the register.** `page-content-writer` and
+`build-site-planner` reference `evidence_base`; `tool-generator`,
+`tool-deployer`, `tool-recreation-handler`, `tool-improver`, `tool-suggester`
+and `tool-acceptance-agent` do not. `[MEASURED]` — **disconfirmable: the same
+query returned true for two of the eight**, so a blanket false was not baked in.
+
+**…and yet `tool-recreation-handler` already loads them.** Its `load_site_specs`
+step calls `read_site_spec` **with no `aspect` in config**, and that mode
+returns *all* current aspects keyed by aspect name
+(`site_spec_actions.go:457-490`). So `{{.site_specs.specs.evidence_base.facts}}`
+— `build-site-planner`'s own template path — already resolves in its context.
+The facts arrive and are never shown. This is PBP-037's exact finding recurring
+on the tool path, and it makes the highest-value first move a **prompt seed with
+no Go and no image roll**.
+
+**Structural: this site's twelve recreated tools have no `doc_plans` PLAN**, so
+no criteria, so no Tier 2 and no Tier 4 — and **zero `acceptance_run` /
+`improve_tool` / `audit_tool` / `acceptance_stuck` items have ever existed for
+this site.** `[MEASURED]` The two companions built this morning DO have PLANs
+(created by `tool-generator` 11:17/11:19Z). This is `TL-032` biting as written.
+
+**`doc_plans` has no `site_id` column** — `UNIQUE (subject_type, subject_key)
+WHERE is_current`, fleet-global. `[MEASURED: \d doc_plans]` So a fact id (which
+is per-site) cannot be resolved against the PLAN; it must be resolved against
+the site of the page being driven. Today `mortgages-stamp-duty`
+(loanandmortgage) and our `tool-stamp-duty` are the same calculator under two
+keys and do not collide — **that is luck, not design**, and 0 collisions
+fleet-wide today does not license depending on it.
+
+**LANDMINE (not yet filed to LANDMINES.md — see below): never round-trip
+`evidence_base` through the typed struct.** `EvidenceBase`/`EvidenceFact` in
+`datahelpers/claims.go` do not model `citation`, `writer_line`, `unit`,
+`staleness_days` or `writer_block`. Both live write paths
+(`refresh_evidence_base_action.go:683`, `evidence_citations.go:350`) marshal
+`map[string]interface{}` — which is *why* those keys survive. A new consumer
+that parses typed and writes back would silently delete every citation on the
+site, and the sweep would then report the facts as unsourced rather than as
+damaged.
+
+**Concurrent-lane state, re-measured rather than read from the commit.**
+loanandmortgagecalculator's `5dbd47653` (14:25Z) says its fences were "NOT
+installed". `doc_plans` says 9 `mortgages-*` PLANs carrying `computed_values`,
+`created_by = operator:bugfix224-session`, written **14:33–14:40Z** — after the
+commit. Both are true statements about different moments; the commit is not the
+current state. Fleet: 19 of 59 current tool PLANs carry `computed_values`.
+This is the "a record goes stale faster than its reader can tell" case with a
+half-life of fifteen minutes.
+
+**The design's load-bearing borrowing:** PBP-037's settled semantics — *the
+assignment pins WHICH facts, never their values*. Anything that pins a value
+into an artefact re-creates the golden trap that `run_checks_action.go:775-781`
+already names in the code that does it.
+
+**Owed follow-ups from this session:** (1) re-run the replay comparator;
+(2) check the 08-10 sweep; (3) file the typed-struct landmine to `LANDMINES.md`
++ `--apply` the sync; (4) the twelve missing tool PLANs.

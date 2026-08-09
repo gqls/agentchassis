@@ -1,5 +1,21 @@
 # HANDOFF — mortgagecalculator.co.uk — cold start, read this first (2026-08-08c)
 
+> **UPDATE 2026-08-09 afternoon, read before acting on §2.**
+> - **All five items in §2.1 are `complete`** (built 11:08–11:19Z, verified by row
+>   id). **The comparator re-run they were waiting on is now OWED** — nothing yet
+>   confirms the rebuilds landed the agreed models rather than reporting success.
+> - **§2.1b(b) — tools-vs-facts acceptance — is now DESIGNED, not built:**
+>   `PLAN_2026-08-09_facts_into_tool_acceptance.md`. Four pieces, phased; the
+>   first needs no Go at all. Read its §5 landmines before writing any consumer
+>   of `evidence_base`.
+> - **The first `evidence-freshness` sweep over our facts has NOT run** — the
+>   task last completed 08:58Z, *before* the ~12:30 seed. Due ~08:58Z 08-10.
+>   §2.1b's 24h check is still owed and the day-one gotcha still applies.
+> - **New structural finding:** this site's twelve recreated tools have no
+>   `doc_plans` PLAN, so no criteria, so no Tier 2 and no Tier 4 — zero
+>   acceptance runs have ever happened here. That is a prerequisite for §2.6
+>   (fences) and for the plan's Phase B.
+
 **Written 2026-08-08 late night. Supersedes `HANDOFF_2026-08-08b_continue_here.md`**
 (read it second — its §0 owner rulings, §1 comparator post-mortem and §4
 landmines all stand; its §3 steps 1–3 are DONE and the results are below).
