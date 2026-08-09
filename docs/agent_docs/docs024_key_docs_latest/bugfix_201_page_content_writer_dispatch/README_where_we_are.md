@@ -267,3 +267,23 @@ has that deliberately cannot change a job's status. That would raise a proper jo
 sections and put them in front of someone. It would also, if the repair again replaces rather than
 fills, be the first time your new fail-closed rule actually fires in production, which is the one
 thing we still haven't seen. But it writes into another lane's site, so I haven't done it.
+
+---
+
+**Later still — the new build arrived, and it answered the one question this whole thread had
+left open.** You deployed a fresh chassis build today. I checked it landed at both pods rather
+than trusting the report, then re-ran the exact query the 08-08 handoff said would prove
+whether the new "fail closed on error" rule had ever actually stopped a job in production. It
+had not, as of yesterday. Today it has: an old, stuck job on dartsonline.com — from mid-July —
+got picked up again by the new site-checking rotation, tried three times, and was correctly
+refused instead of being marked done by mistake. That is the system working exactly as you
+ruled it should, at exactly the cost you accepted when you ruled it. I've recorded it in the
+lane notes and in the platform-wide register entry, which used to say "not yet proven" and now
+says it is.
+
+That closes the last thing this lane was waiting on. Between this and the two things that spun
+out of it — the missing site-checking schedule (now fixed, by another thread, and proven at the
+actual pages that had been sitting broken) and the landmine checker's blind spot on non-code
+files (still open, not mine, but well recorded now) — I don't think there's anything left
+queued up here. I've written a fresh handoff file in case a new session picks this up, since
+this one has covered a lot of ground and is a natural place to stop.
