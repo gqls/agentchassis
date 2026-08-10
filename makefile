@@ -917,16 +917,18 @@ destroy-core-manager: ## Destroy core-manager using Terraform
 .PHONY: update-kustomization-images
 update-kustomization-images: ## Update image tags in kustomization.yaml files
 	@echo "$(YELLOW)Updating kustomization.yaml files with image tag $(IMAGE_TAG)...$(NC)"
-	@for agent in agent-chassis reasoning-agent web-search-adapter web-scrape-adapter git-adapter image-generator-adapter content-creator-agent remote-job-spawner kafka-scheduler vet-intel business-intel; do \
+	@for agent in agent-chassis reasoning-agent web-search-adapter web-scrape-adapter git-adapter image-generator-adapter content-creator-agent remote-job-spawner kafka-scheduler vet-intel business-intel render-audit-adapter; do \
 		kust_file="$(KUSTOMIZE_DIR)/services/$$agent/overlays/$(OVERLAY_PATH)/kustomization.yaml"; \
 		if [ -f "$$kust_file" ]; then \
 			echo "Updating $$agent kustomization.yaml..."; \
 			if grep -q "images:" "$$kust_file"; then \
 				sed -i.bak '/images:/,/^[^ ]/{/newTag:/s/newTag:.*/newTag: $(IMAGE_TAG)/}' "$$kust_file"; \
 			else \
+				img="docker.io/aqls/$$agent"; \
+				case "$$agent" in render-audit-adapter) img="docker.io/aqls/browser-runner-adapter";; esac; \
 				echo "" >> "$$kust_file"; \
 				echo "images:" >> "$$kust_file"; \
-				echo "  - name: docker.io/aqls/$$agent" >> "$$kust_file"; \
+				echo "  - name: $$img" >> "$$kust_file"; \
 				echo "    newTag: $(IMAGE_TAG)" >> "$$kust_file"; \
 			fi; \
 		fi; \
@@ -1010,6 +1012,28 @@ deploy-agents: ## Deploy all agent services with dynamic image tag
 	@sed -i.bak 's/newTag:.*/newTag: $(IMAGE_TAG)/' $(KUSTOMIZE_DIR)/services/browser-runner-adapter/overlays/$(OVERLAY_PATH)/kustomization.yaml 2>/dev/null || true
 	@if [ -d "$(KUSTOMIZE_DIR)/services/browser-runner-adapter/overlays/$(OVERLAY_PATH)" ]; then \
 		KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/browser-runner-adapter/overlays/$(OVERLAY_PATH); \
+	fi
+
+	# Update render-audit-adapter kustomization.yaml.
+	#
+	# It has NO IMAGE OF ITS OWN: it runs the BROWSER-RUNNER binary under a
+	# different topic and consumer group, so its overlay pins the image name
+	# docker.io/aqls/browser-runner-adapter. That is why there is no build-* and
+	# no push-* step for it, and why none should be added — but it DOES need its
+	# tag bumped and its overlay applied, exactly like a service that owns an
+	# image. Kept next to browser-runner-adapter because the two must move
+	# together: the tag applied here must be one browser-runner was built at.
+	#
+	# It was in NEITHER tag-update mechanism until 2026-08-10, so nothing ever
+	# bumped it and it sat on v1.0.1194 while the fleet ran v1.0.1274 — 80 tags,
+	# frozen since the pod was created. Every browser-runner fix in between
+	# reached the browser-runner pod and not this one, which is invisible to the
+	# normal proof (pod-grep the browser-runner pod and it reads live).
+	# bugs_open/237.
+	@echo "Updating render-audit-adapter to $(IMAGE_TAG)..."
+	@sed -i.bak 's/newTag:.*/newTag: $(IMAGE_TAG)/' $(KUSTOMIZE_DIR)/services/render-audit-adapter/overlays/$(OVERLAY_PATH)/kustomization.yaml 2>/dev/null || true
+	@if [ -d "$(KUSTOMIZE_DIR)/services/render-audit-adapter/overlays/$(OVERLAY_PATH)" ]; then \
+		KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/render-audit-adapter/overlays/$(OVERLAY_PATH); \
 	fi
 
 	# Update content-creator-agent kustomization.yaml
@@ -1108,6 +1132,30 @@ deploy-%: ## Deploy ONE service at $(IMAGE_TAG): make deploy-browser-runner-adap
 	@echo "$(YELLOW)Verify against the running POD, not the tag — a retag is not a rebuild:$(NC)"
 	@echo "  kubectl -n ai-persona-system get pods -l app=$* -o custom-columns=NAME:.metadata.name,START:.status.startTime,IMAGE:.spec.containers[0].image"
 
+# render-audit-adapter needs its own rule, and an EXPLICIT target beats the
+# pattern rule above. The pattern rule's registry pre-flight asks for
+# $(REGISTRY)/<service>:$(IMAGE_TAG) — correct for every service that owns an
+# image, and wrong here: this one runs the BROWSER-RUNNER image, so
+# docker.io/aqls/render-audit-adapter has never existed and the pre-flight would
+# refuse a perfectly valid deploy. Check the image it actually pulls instead.
+.PHONY: deploy-render-audit-adapter
+deploy-render-audit-adapter: ## Deploy render-audit-adapter (runs the browser-runner image) at $(IMAGE_TAG)
+	@OVERLAY="$(KUSTOMIZE_DIR)/services/render-audit-adapter/overlays/$(OVERLAY_PATH)"; \
+	test -f "$$OVERLAY/kustomization.yaml" || { \
+		echo "$(RED)No kustomization.yaml in $$OVERLAY$(NC)"; exit 1; }; \
+	if ! docker manifest inspect $(REGISTRY)/browser-runner-adapter:$(IMAGE_TAG) >/dev/null 2>&1; then \
+		echo "$(RED)$(REGISTRY)/browser-runner-adapter:$(IMAGE_TAG) is not in the registry.$(NC)"; \
+		echo "$(YELLOW)  render-audit-adapter runs that image — build and push it first:$(NC)"; \
+		echo "    make build-browser-runner-adapter && docker push $(REGISTRY)/browser-runner-adapter:$(IMAGE_TAG)"; \
+		exit 1; \
+	fi; \
+	echo "$(GREEN)Deploying render-audit-adapter at $(IMAGE_TAG) (browser-runner image).$(NC)"; \
+	sed -i.bak 's|newTag:.*|newTag: $(IMAGE_TAG)|' "$$OVERLAY/kustomization.yaml"; \
+	rm -f "$$OVERLAY/kustomization.yaml.bak"; \
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k "$$OVERLAY"
+	@echo "$(YELLOW)Verify against the running POD — and note this pod is NOT browser-runner-adapter:$(NC)"
+	@echo "  kubectl -n ai-persona-system get pods -l app=render-audit-adapter -o custom-columns=NAME:.metadata.name,START:.status.startTime,IMAGE:.spec.containers[0].image"
+
 .PHONY: redeploy-agents
 redeploy-agents:  ## Forces a rolling restart of all agent deployments
 	@echo "$(YELLOW)Forcing rollout restart of agent deployments...$(NC)"
@@ -1126,6 +1174,10 @@ redeploy-agents:  ## Forces a rolling restart of all agent deployments
 	kubectl rollout restart deployment thunder-adapter -n ai-persona-system 2>/dev/null || true
 	kubectl rollout restart deployment analyser-adapter -n ai-persona-system 2>/dev/null || true
 	kubectl rollout restart deployment browser-runner-adapter -n ai-persona-system 2>/dev/null || true
+	# Shares the browser-runner IMAGE, so a restart here picks up whatever tag its
+	# own overlay pins — restart both or the audit path keeps serving the old
+	# binary while the browser-runner pod proves the fix live (bugs_open/237).
+	kubectl rollout restart deployment render-audit-adapter -n ai-persona-system 2>/dev/null || true
 
 .PHONY: deploy-frontends
 deploy-frontends: ## Deploy all frontend applications

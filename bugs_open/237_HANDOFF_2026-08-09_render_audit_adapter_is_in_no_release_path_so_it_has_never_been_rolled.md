@@ -1,7 +1,8 @@
 # 237 — `render-audit-adapter` is in no release path, so it has never been rolled
 
-**Status: OPEN. One-line fix known (below); not applied — releases are
-whole-fleet and the owner runs them.**
+**Status: FIXED IN THE MAKEFILE 2026-08-10 (owner asked for it directly).
+STILL OPEN until a release actually rolls the pod off v1.0.1194** — the repo
+change cannot move a running pod, and releases are whole-fleet and owner-run.
 
 Found 2026-08-09 while verifying `bugs_open/233`'s fix at the pod: every
 storage-touching service had picked up the fix on v1.0.1274 except this one,
@@ -127,3 +128,66 @@ positive control.
 - `bugs_open/233` — the credential leak this was found by; carries the
   **rotation-ordering constraint** that makes this bug time-sensitive: roll
   render-audit BEFORE rotating B2 keys, or the new key is logged in plaintext.
+
+---
+
+## FIX APPLIED 2026-08-10 — `render-audit-adapter` is now in the release path
+
+Owner asked for it explicitly: add the service to `release`, `redeploy-agents`
+and the steps in between. Fix candidate **2** (add the missing wiring), with the
+guessing bug from candidate 1's territory closed where it actually lives.
+
+**Four edits, all in `makefile`:**
+
+1. **`deploy-agents`** — a re-tag-and-apply block, placed immediately after
+   `browser-runner-adapter` because the two must move together: the tag applied
+   here has to be one the browser-runner was actually built at.
+2. **`redeploy-agents`** — a `rollout restart` line, same placement, same reason.
+3. **`update-kustomization-images`** — added to the `for agent in …` list, the
+   second of the two hand-maintained enumerations this bug is about.
+4. **`deploy-render-audit-adapter`** — a NEW explicit target. This one is not
+   bookkeeping: the `deploy-%` pattern rule pre-flights
+   `docker manifest inspect $(REGISTRY)/<service>:$(IMAGE_TAG)`, which for this
+   service asks for `docker.io/aqls/render-audit-adapter` — **an image that has
+   never existed** — so the single-service deploy would have refused a perfectly
+   valid deploy with "not in the registry". An explicit rule beats a pattern rule
+   in GNU Make, and this one checks `browser-runner-adapter` instead.
+
+**Deliberately NOT added to `build-backend` or `push-backend.`** The service has
+no binary of its own; adding a build would create a second, divergent image for
+one binary. The `deploy-agents` comment says so at the site, so the next reader
+does not "complete" the wiring by adding one.
+
+**A guess was removed, not just a name added.** `update-kustomization-images`'s
+fallback branch appended `docker.io/aqls/$$agent` when an overlay had no
+`images:` block — correct for every service that owns its image and silently
+wrong for this one, which would have written a nonexistent image name and
+produced an `ImagePullBackOff`. That branch now resolves the image name through
+a `case`, so the list and the fallback cannot disagree. Adding the service name
+while leaving the fallback guessing would have swapped a frozen tag for a
+broken pull, and a comment would not have been a control on a tree this many
+sessions share.
+
+**Verified, with a negative control** (all `make -n`, no cluster calls):
+
+| check | result |
+|---|---|
+| makefile parses | OK |
+| `make -n release` reaches the render-audit overlay | **3** actions (sed, dir test, apply) |
+| `make -n deploy-agents` applies its overlay | 3 |
+| `make -n redeploy-agents` restarts it | 1 |
+| `make -n update-kustomization-images` includes it | yes |
+| explicit rule beats the pattern rule | `make -n deploy-render-audit-adapter` inspects **`browser-runner-adapter:v1.0.1278`**, not `render-audit-adapter:…` |
+| **negative control** — `make -n build-backend` mentions it | **0** (correctly still has no build step) |
+
+**What is still true, and why this stays open.** The pod is still on
+`browser-runner-adapter:v1.0.1194`. The makefile change means the *next* release
+re-tags and rolls it; it does not roll it now. Until that happens:
+
+- the plaintext-credential leak in `bugs_open/233` is still live on that pod, and
+- the **rotation-ordering constraint stands**: roll this pod to ≥ the fixed tag
+  **before** rotating the B2 keys, or its next restart writes the *new* key into
+  the logs in plaintext.
+
+Close this only against a pod check, not against the makefile diff:
+`kubectl get pod -n ai-persona-system -l app=render-audit-adapter -o jsonpath='{.items[*].spec.containers[*].image}'`
