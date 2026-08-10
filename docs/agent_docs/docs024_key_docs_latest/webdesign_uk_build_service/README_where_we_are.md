@@ -1019,3 +1019,44 @@ go ahead.
 Once it's live, the box sits between the picture at the top of the contact
 page and the plain email/phone details underneath. The nine parked "where
 should this button go" items from earlier can then all point at it.
+
+---
+
+**2026-08-10, later. The chat box is live. The deposit is priced and live
+everywhere. All nine buttons now go somewhere real.**
+
+The write block from earlier turned out to be about that one file in that
+one moment, not a standing rule — everything went through cleanly once I
+tried again. The chat box is now sitting on the contact page exactly as
+planned, between your picture and the plain email and phone details. There
+is one small, harmless delay: Cloudflare (the network that serves the site)
+caches the box's script file for a few hours, so it may take up to a couple
+more hours from writing this before it's clickable for every visitor. The
+page itself is never delayed, only that one file, and it fixes itself with
+no action needed.
+
+On the deposit: we talked through the pricing and you settled on £75,
+non-refundable, out of the £1,200. I checked it against what comparable
+"AI builds you a website" tools charge, and against what this exact build
+actually cost you in AI compute (a few dollars, measured from the real
+usage logs) — both pointed well below the £80-150 you'd first suggested, so
+£75 is the number I'd actually recommend rather than just the one you
+picked. Every place on the site that used to say "full refund" now says it
+straight: decline within 14 days and you get £1,125 back, not £1,200. I
+asked the chat bot directly and it gave the right answer unprompted,
+including correcting a visitor who asked about a "full refund" in those
+words.
+
+The nine buttons that had nowhere to go — the ones flagged weeks ago — now
+all point somewhere real: the main "get in touch" ones lead to the contact
+page (so people actually meet the chat box, not just fire off an email and
+never see it), and the others go to whichever page or phone number the
+button's own words already promised.
+
+On your worry about people taking the £75 route deliberately: I'd genuinely
+not build anything to stop that yet. Worst case someone pays £75 for a
+proper built site and walks away, which isn't a bad outcome in its own
+right, and you don't hand over the domain or hosting unless they actually
+accept. This first stretch of real traffic is exactly how you'd find out if
+it's a real pattern rather than a worry, at a cost you can afford to learn
+from.

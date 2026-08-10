@@ -362,3 +362,43 @@ this plan (everything Cloudflare-side here is dashboard or on-box `cloudflared`)
 - No attempt to make the framework generate the backend. That is DYN-001 tier 2;
   if this product sells, that tier is the natural next investment, and this box
   becomes its reference case. Filed as direction, not scope.
+
+## 7. Pricing decision (owner, 2026-08-10) — deposit, traffic, and a future tier
+
+**£75 non-refundable deposit, live.** Researched comparable AI website-builder
+pricing (Lovable: subscription, $25-50/mo; Durable: $12-25/mo — neither is a
+direct match since both are self-serve, not done-for-you) and measured this
+site's own actual build cost from `llm_call_log` (roughly $1.50 in text
+generation against confirmed Anthropic rates, likely $5-10 total with
+imagery) before recommending a number. Both anchors pointed well below the
+owner's hoped-for £80-150 range; landed on £75 as a meaningful commitment
+(6% of £1,200) that still reads as "competitive and a bit cheaper" than a
+comparable tool, not a cost-recovery calculation. Implemented 2026-08-10:
+`evidence_base` (facts + writer_block), the three live pages that stated
+"full refund", and the chat bot's `systemPromptFacts` all updated in
+lockstep and verified live.
+
+**Owner's stated goal for this phase: enough traffic to find customer-handling
+bugs, not to get flooded.** Raised whether a technical traffic limiter is
+needed. **It isn't, yet** — there is no live self-serve payment flow (Stripe
+is still test-mode per §4's ledger), so the actual bottleneck today is the
+owner personally building each site by hand. The natural limiter already
+exists. Revisit once Stripe goes live and orders can land unattended without
+a human in the loop.
+
+**Owner also raised the "pay £75, copy the site, refund the rest" risk**
+explicitly, and asked to be talked out of the worst case rather than have it
+engineered around pre-emptively. Discussed rather than built: the worst case
+(customer pays £75, gets a real 5-page build, declines) is not actually bad
+revenue — it's in the range of what a comparable AI tool charges for a month
+of the customer's own effort, and it costs the customer real work to re-host
+static HTML they don't own the domain for. No anti-abuse mechanism was added;
+this low-volume phase is how the owner finds out whether the fear is real
+before building anything against it (see CLAUDE.md's "survey the premise
+before building" practice — the same logic applies to a fear as to a feature).
+
+**Future direction, not current scope**: a **£19 all-in tier** — a full
+website including static hosting, presumably closer to genuinely self-serve
+— was raised by the owner as a later product, once the £1,200 done-for-you
+tier has real customer-handling data behind it. Not designed, not scheduled;
+recorded here so it isn't lost.
