@@ -107,11 +107,17 @@ func NewLabelMatchCandidate(id, name, title, url string, interactive bool, token
 }
 
 // BestLabelMatch returns the candidate whose tokens best overlap label's, and
-// whether one was found at all. Ranking: interactive (tool/game) candidates
-// beat non-interactive ones, then higher token overlap, then name
-// (deterministic tie-break). Requires >= 1 overlapping token — a label with
-// no distinctive tokens, or one that matches no candidate, reports !ok rather
-// than guessing.
+// whether one was found at all. Ranking: higher token overlap wins outright;
+// interactive (tool/game) candidates beat non-interactive ones only when
+// overlap is tied (this is the "equal-strength" case TestBestLabelMatch's own
+// comment describes — overlap must be compared FIRST, or a barely-related
+// tool page with 1 overlapping token beats a clearly-on-topic hub page with 2,
+// which is exactly what shipped in bugs_open/203's follow-on and was caught
+// live on robot-hands.com: "Browse the Gripper Catalog" [gripper,catalog]
+// losing to a cycle-time-estimator tool page over the gripper-catalog-index
+// hub, on "gripper" alone). Name is the final deterministic tie-break.
+// Requires >= 1 overlapping token — a label with no distinctive tokens, or
+// one that matches no candidate, reports !ok rather than guessing.
 func BestLabelMatch(label string, candidates []LabelMatchCandidate) (best LabelMatchCandidate, ok bool) {
 	tokens := LabelTokens(label)
 	if len(tokens) == 0 {
@@ -131,9 +137,9 @@ func BestLabelMatch(label string, candidates []LabelMatchCandidate) (best LabelM
 			continue
 		}
 		if bestPtr == nil ||
-			(c.Interactive && !bestPtr.Interactive) ||
-			(c.Interactive == bestPtr.Interactive && overlap > bestOverlap) ||
-			(c.Interactive == bestPtr.Interactive && overlap == bestOverlap && c.Name < bestPtr.Name) {
+			overlap > bestOverlap ||
+			(overlap == bestOverlap && c.Interactive && !bestPtr.Interactive) ||
+			(overlap == bestOverlap && c.Interactive == bestPtr.Interactive && c.Name < bestPtr.Name) {
 			bestPtr = c
 			bestOverlap = overlap
 		}
