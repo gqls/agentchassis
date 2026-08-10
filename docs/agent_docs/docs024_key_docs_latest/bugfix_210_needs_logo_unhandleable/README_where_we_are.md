@@ -116,3 +116,55 @@ look like, who decides? I found something that bears on it — the system alread
 purpose, to invent styling for logos, and expects a person to approve one — so sending it to a
 person matches how the rest of the code thinks. But I have not decided it, and it should not be
 decided by whoever happens to be fixing the next bug.
+
+## 2026-08-09, evening — your ruling, and what it changed
+
+You've decided the open question, and it reverses what I shipped this afternoon — which is
+fine, and better than what I had.
+
+I had it filing a "needs a human" note and stopping. Your point is the one I couldn't weigh from
+where I was sitting: with two thousand domains to populate, a queue that waits for you is a queue
+that never moves. So the default now writes its own prompt — from the site's name, its domain,
+what sector it's in, who it's for and how it's meant to sound — and gets on with it. You can
+still step in on any individual site by planning a proper prompt or locking the logo once you're
+happy with it; that's an override now rather than a gate.
+
+Here's what one actually looks like, for the mortgage site:
+
+> A simple, distinctive logo mark for Mortgage Calculator UK (mortgagecalculator.co.uk). Sector:
+> Financial Services / Mortgage Finance (UK). Positioning: The UK's Authority on Mortgage
+> Finance. Brand character: Direct, authoritative, and no-nonsense... Flat vector mark, minimal
+> and geometric, a single clear silhouette that stays legible at favicon size, centred on a plain
+> background, no lettering or words, no photographic texture, no drop shadows.
+
+And for a site we know nothing about yet, which will be most of the two thousand early on:
+
+> A simple, distinctive logo mark for robot hands (robot-hands.com). Flat vector mark, minimal
+> and geometric...
+
+That second one matters more than it looks. Most new domains will reach this stage with nothing
+but a domain name — only 21 of our 39 existing sites have any brand description recorded at all —
+so the thing had to still say something sensible with nothing to go on. It never comes back
+empty, and that's the property I tested hardest, because an empty prompt would drop straight
+into yesterday's refusal.
+
+One thing I was careful about. The system already refuses, deliberately, to give logos any of a
+site's *photographic* styling — there's a note from May about generated logos getting a photo
+composited behind them when it does. What I've added reads a completely different thing: who the
+site is, not what its pictures look like. Those are separate, and I've pinned it with a test so
+nobody merges them back together later.
+
+**Where it stands.** Yesterday's safety guard — the one that stops a meaningless prompt ever
+becoming a logo — is **live**, and I confirmed that by looking inside the running program rather
+than trusting the version number. The new default is **committed but not live**; it needs the
+next build. Until then a site with no prompt fails loudly instead of painting something wrong,
+which is the right way round to be caught in between.
+
+**Two honest gaps.** Nobody has yet looked at a logo this default actually produced — that
+sentence now decides two thousand logos and no test can tell you it reads well, so the first few
+want your eye on them, and the wording is trivial to tune. And there's no *screen* listing the
+logos that were defaulted rather than chosen; they're findable with a query, which isn't the same
+thing. If you want a list you can skim, say so and I'll build it — I haven't, and I don't want it
+mistaken for done.
+
+I've written a full handoff (`HANDOFF_2026-08-09_continue_here.md`) so this can be picked up cold.
