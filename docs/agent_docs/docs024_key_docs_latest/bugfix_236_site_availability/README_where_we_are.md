@@ -55,3 +55,38 @@ your call to make, and nothing else in the platform can work around it.**
 
 So the honest status: the fix is done and safely inert, the review is owed, and
 the review cannot happen until the API limit is lifted.
+
+## 2026-08-10, late evening — it is live and running
+
+The new build went out, and the availability check is in it. I checked that
+properly rather than trusting the deploy: I searched the actual running program
+on both servers for the new code, and searched for a deliberately misspelled
+version at the same time — the real one was found, the misspelled one was not,
+which is what makes the first result mean something.
+
+The configuration that switches it on is now applied, and the first real check
+has already run: it looked at robot-hands.com, found the site serving normally,
+and correctly raised nothing. That first run answered a question I had flagged as
+an assumption at the start — whether the servers inside our cluster can actually
+reach our own websites from the outside. They can, and the way we know is neat:
+if they could not, the check would have wrongly reported the site as down. Silence
+was only possible because the request genuinely succeeded.
+
+Every live site will be checked once over the next hour and three quarters, and
+from then on each one gets checked every four hours, for ever, without anyone
+remembering to.
+
+**What is honestly not finished.** The check has never yet raised a real alarm,
+because nothing is currently broken. Proving that half means deliberately breaking
+something — briefly taking one site's routing away and confirming the alarm fires
+and then clears itself when it is restored. I have written up two ways to do that,
+one safer and slower, one faster and more visible, with the risks of each, and left
+the choice rather than taking it unilaterally on live sites late at night. Until
+that is done, the fair summary is: the alarm system is installed and wired, and we
+have tested the wiring but not yet the bell.
+
+**Still blocked on you.** The review council could not look at this work, because
+the Anthropic account hit its spend limit at about a quarter to four this
+afternoon and every AI step across the whole platform has failed since. That is
+now written up as its own bug by another thread. My submission is saved and can be
+re-sent unchanged the moment the limit lifts.

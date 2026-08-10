@@ -13,6 +13,25 @@ green.
 scheduled task, discovery check, or open work item; all 21 deployed sites probed
 — 21/21 serve 200 today, so the class is live and currently quiet.
 
+> ### STATUS 2026-08-10 22:15Z — candidate 1 is **LIVE AND RUNNING**; the drill is what remains
+>
+> **Superseding the banner below**, which was written before the roll.
+> `check_site_unreachable` is in chassis **v1.0.1283** (both replicas pod-grepped
+> with an invented negative control at 0), **migration 372 is APPLIED**, and the
+> 4-hourly rotation completed its first live probe at 22:03:49Z on
+> `robot-hands.com` — `checks_run:[site_unreachable]`, no failures, 0 items,
+> correct for a serving site. That run also settled the lane's one open
+> assumption in a disconfirmable way: blocked pod egress would have FILED an
+> item, so silence proves the probe really reached the internet.
+>
+> **STILL OPEN, and this is the whole reason:** the FILING path has never fired
+> in production — the check has never seen a real 522. `0 findings` is also what
+> a blinded check reports. **The break-it-on-purpose drill in "How to verify a
+> fix" below is owed**, and two costed ways to run it (a pool-site induction and
+> the cookly route deletion) are written up in
+> `bugfix_236_site_availability/HANDOFF_2026-08-10_continue_here.md`. Also owed:
+> a fresh council round once `bugs_open/243` (the Anthropic cap) clears.
+>
 > ### STATUS 2026-08-10 (evening) — candidate 1 BUILT AND COMMITTED, not yet live
 >
 > **Committed `4a5d77004`:** `check_site_unreachable` (discovery check, probes
