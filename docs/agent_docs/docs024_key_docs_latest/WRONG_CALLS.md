@@ -26077,3 +26077,48 @@ and never decorate them.**
 message cannot be amended. Recorded so the *tally* of this trap grows — that tally is the
 argument for a pre-commit check that rejects an unescaped backtick in a commit message, which
 does not exist today.
+
+---
+
+## 2026-08-10 — I read a `diff` backwards and nearly filed a live site as broken
+
+Surveying noted.co.uk before its framework rebuild, I compared the live `index.html` against
+three local generations and wrote down: *"the live site is `02`, not `03`"*, and that the live
+page was **missing** its share button. In `diff live "02 - voice notes"`, a `<` line is present
+in the **first** file — live — and absent from the second. The share button is a `<` line.
+**Live has it.** I had the direction exactly inverted.
+
+**What made it dangerous was the next step, not the misread.** Live `app.js` binds a listener to
+`#btn-share` inside `setupEventListeners()`, which runs inside `init()`'s `try`. So I reasoned:
+element missing → `addEventListener` on `null` → throw → every listener after it abandoned,
+**including the backup button** — on a site whose users were about to be told to back up. That
+is a coherent, high-severity, entirely fictional bug, and I was one step from writing it into
+`bugs_open/`.
+
+**What caught it:** running the actual page. A Playwright probe of `https://noted.co.uk/`
+returned **0 uncaught errors, 0 console messages**, a rendered note list, a working `+ New`,
+and a real download from the backup button. Then `sha256sum` closed it off — the bytes I had
+downloaded from B2 were **identical** to the bytes the browser receives, so the file was never
+the question. My reading of it was.
+
+**The cheap check that would have caught it before the theory:** `grep -c btn-share` on the
+downloaded file. One command, no interpretation, and it tests the claim *directly* instead of
+re-reading the diff that produced it. I re-read the diff twice and got the same wrong answer
+both times, because re-reading a source of error is not a check — it is the same measurement
+again. **When a conclusion rests on the DIRECTION of a diff, assert the thing itself.**
+
+**The part worth generalising.** My confidence tracked the *size* of the conclusion rather than
+the strength of the evidence: "the live site is silently broken" felt more certain than "the
+live site is fine", because it was the more interesting story and it explained the odd fact I
+had just noticed. A finding that arrives feeling like a discovery deserves *more* scepticism
+than a boring one, not less — the interestingness is doing persuasive work that the evidence has
+not earned.
+
+**Not a wasted detour, though.** The same browser probe, pointed at a real question instead of
+an invented one, established the finding that actually mattered: the backup button exports the
+`notes` store **alone**. A note carrying a 4,096-byte audio blob and an 8,192-byte image blob
+produced a **334-byte** backup containing only `['content','createdAt','id','title','updatedAt']`.
+Recordings, photos and version history were being silently dropped — so the wind-down notice the
+owner asked for would have sent users to a button that loses exactly the data they cannot retype.
+**The real bug was one function below the fictional one, and only the behavioural check found
+either.**
