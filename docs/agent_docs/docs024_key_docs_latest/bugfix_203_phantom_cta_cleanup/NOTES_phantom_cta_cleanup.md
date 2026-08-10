@@ -743,3 +743,34 @@ the cycle-time estimator as of this entry) gets a follow-up rerender once the fi
 live — it will not self-correct; the priority bug lives in the matcher, not in this one
 page's stored data, but a fix landing does not retroactively touch pages that already
 rendered under the old code.
+
+## 2026-08-10 (later) — verdict APPROVED (07:49:20Z), but shipping it hit the whole-fleet-release constraint, not a build failure
+
+Verdict confirmed approved. Went to build+roll per the HANDOFF's own step 2 and stopped
+before touching anything live: `agent-chassis`'s pods are ALREADY running
+`v1.0.1277` (`startTime` 2026-08-09 21:34-35Z), which **predates commit `3bc0486d7`**
+(2026-08-10 07:43:58+01:00, i.e. 06:43:58Z) by ~10 hours — so that image does not, and
+cannot, carry this fix.
+
+**Checked before building anything, and this is the load-bearing finding**: the
+working tree has an UNCOMMITTED bump of `makefile`'s `IMAGE_TAG` (committed value
+`v1.0.1275` → working tree `v1.0.1277`) plus all 17 services' kustomization overlays
+bumped to matching tags, uncommitted — and the live pods already match that
+uncommitted `v1.0.1277`. That is the signature of an in-flight or just-finished
+whole-fleet release, not this workstream's own doing. Per this estate's own established
+correction (2026-08-03, memory `releases-are-whole-fleet-make-release`): a solo
+`build-agent-chassis` + single-overlay deploy at its own tag **fragments the fleet** —
+every other service's overlay would then point at a tag agent-chassis alone was never
+built at. **Did not bump `IMAGE_TAG` or touch any kustomization file.** Building and
+pushing an image at a NEW tag would itself be harmless (an orphaned pushed-but-
+undeployed tag costs nothing), but doing so right now, mid someone else's uncommitted
+release-in-progress, risks exactly the collision this rule exists to prevent — so this
+session stopped and surfaced it to the user rather than guessing.
+
+**Consequence**: step 2 of the HANDOFF ("build+roll agent-chassis yourself") was written
+before this constraint was rechecked and should be read as superseded — the correct
+next action is coordinating with the owner/an active release, not a solo build. Left
+open for whoever continues this: once a fleet release lands AFTER this commit
+(`3bc0486d7`, or later), verify at the pod exactly as planned (positive-control the
+live behaviour via the robot-hands.com re-test in step 3, since this specific fix has
+no new symbol to `strings`-grep — it only reorders an existing comparator).
