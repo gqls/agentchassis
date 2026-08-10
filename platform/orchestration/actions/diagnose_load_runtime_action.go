@@ -41,7 +41,8 @@ var DiagnoseLoadRuntimeInputSpec = datahelpers.ActionInputSpec{
 		"error_limit", "work_item_limit", "data_requests_field",
 		"code_requests_field", "max_code_checks", "code_row_cap", "code_excerpt_chars",
 		"code_requests_dropped_field", "data_requests_dropped_field",
-		"schema_exclude_patterns", "schema_include_patterns", "schema_full", "schema_table_cap",
+		"schema_exclude_patterns", "schema_include_patterns", "schema_always_tables",
+		"schema_full", "schema_table_cap",
 		"explain_max_rows", "explain_max_cost", "row_cap", "cell_chars",
 	},
 	Defaults: map[string]interface{}{
@@ -79,8 +80,18 @@ var DiagnoseLoadRuntimeInputSpec = datahelpers.ActionInputSpec{
 		// include (used unless schema_full) keeps it to the build/content domain.
 		"schema_exclude_patterns": []interface{}{"%backup%", "%bak%", "%archive%", "%supersede%"},
 		"schema_include_patterns": []interface{}{"site%", "page%", "content%", "flow%"},
-		"schema_full":             false,
-		"schema_table_cap":        120,
+		// Listed whatever the include matches: the tables this action renders rows
+		// from. Declared here so the action's contract carries it (the sibling
+		// *_dropped_field keys were Optional-but-undefaulted and the contract did
+		// not carry them until a test caught it).
+		//
+		// DERIVED from schemaAlwaysTables, not retyped: a spec default and a Go var
+		// holding the same list is two hand-maintained copies of one fact, which is
+		// the drift class this estate keeps filing. Go initialises the var first
+		// because this one depends on it.
+		"schema_always_tables": stringsAsIface(schemaAlwaysTables),
+		"schema_full":          false,
+		"schema_table_cap":     120,
 		// data_request size guards (EXPLAIN-estimate caps + rendered-output caps).
 		"explain_max_rows": 50000,
 		"explain_max_cost": 0,
@@ -419,9 +430,15 @@ func DiagnoseLoadRuntimeAction(ctx context.Context, params ActionParams) (interf
 	// renders it as a "## Schema" section.
 	schemaExclude := configStringSlice(config, "schema_exclude_patterns", defaultSchemaExclude)
 	schemaInclude := configStringSlice(config, "schema_include_patterns", defaultSchemaInclude)
+	// The tables this action draws evidence from are listed whatever the include
+	// says (schemaAlwaysTables). Config-overridable like every other knob here, so
+	// a future evidence section can be covered without a rebuild — but the DEFAULT
+	// is the derived list, not an empty one, so forgetting the key cannot silently
+	// restore the 074beb8a blindness.
+	schemaAlways := configStringSlice(config, "schema_always_tables", schemaAlwaysTables)
 	schemaFull, _ := config["schema_full"].(bool)
 	schemaTableCap := datahelpers.GetIntField(config, "schema_table_cap", 120)
-	schemaText, schErr := gatherSchema(ctx, params.DB, schemaExclude, schemaInclude, schemaFull, schemaTableCap)
+	schemaText, schErr := gatherSchema(ctx, params.DB, schemaExclude, schemaInclude, schemaAlways, schemaFull, schemaTableCap)
 	if schErr != nil {
 		// Non-fatal: a missing schema section must not abort the diagnosis. Surface
 		// it in-band so the trail shows the section was attempted.
@@ -731,6 +748,76 @@ func dashIfEmpty(s string) string {
 var defaultSchemaExclude = []string{"%backup%", "%bak%", "%archive%", "%supersede%"}
 var defaultSchemaInclude = []string{"site%", "page%", "content%", "flow%"}
 
+// schemaAlwaysTables are the tables THIS ACTION RENDERS ROWS FROM. Their columns
+// must be in the Schema section whatever the relevance include says, because the
+// bundle showing a row from a table it has not described is the exact shape that
+// broke run 074beb8a: the verdict was handed orchestration_states rows, could not
+// see the table in the Schema section, guessed `WHERE id = …` (the column is
+// `orchestration_id`), got SQLSTATE 42703, and stopped at UNVERIFIABLE —
+// "the orchestration_states table isn't in the bundle's Schema section, so its
+// real primary-key/id column is unknown and must be confirmed by a human". Two
+// separate 090 runs on bugs_open/236 died that way.
+//
+// Measured 2026-08-10 against the live DB: the default include (site%|page%|
+// content%|flow%) selected 26 of 433 public tables, and FIVE of the six tables
+// below fell outside it — only site_work_items matched. Verified on the most
+// recent stored bundle: orchestration_states, agent_error_log, llm_call_log,
+// agent_definitions and code_symbols each rendered rows or were queried while
+// absent from its 8,819-char Schema section.
+//
+// This list is the DERIVATION the commission asked for rather than a second
+// hand-maintained literal: every entry is a table queried by a SELECT in this
+// file (agent_error_log, site_work_items, orchestration_states :132 and the
+// three gather helpers). TestSchemaAlwaysTablesCoverTablesThisActionQueries
+// re-derives it from the source and fails when a new query adds a table nobody
+// added here — which is what stops this going stale the way the include did.
+var schemaAlwaysTables = []string{
+	"agent_definitions",
+	"agent_error_log",
+	"code_symbols",
+	"llm_call_log",
+	"orchestration_states",
+	"site_work_items",
+}
+
+// schemaFilterNotice states that the listing is FILTERED and how to get past it.
+//
+// Without this the section is headed "Schema (live tables)" and simply stops —
+// so a table that was filtered out and a table that does not exist render
+// IDENTICALLY, and the verdict prompt's cite-or-abstain acts on absence. That is
+// the same empty-vs-absent trap the code tier already guards (codeEvidenceLine,
+// bodyCoverageNote) and the reason 074beb8a asked for a human instead of
+// requerying. Confirmed absent from the live bundle: the only match for
+// "relevance" in that section was a COLUMN NAME (relevance_score float8), and
+// there was no match at all for "filter", "not exhaustive" or "truncated".
+//
+// The last sentence is the load-bearing one: it tells the verdicter it can still
+// reach an unlisted table through the data_request channel it already has, which
+// turns a dead end into one more read-only query.
+func schemaFilterNotice(shown, total int, full bool) string {
+	if full || total <= shown || shown == 0 {
+		return ""
+	}
+	return fmt.Sprintf(
+		"> This listing is FILTERED, not the whole database: %d of %d public tables are shown "+
+			"(a relevance include, plus the tables this bundle draws evidence from, which are always listed). "+
+			"A table's absence here is NOT evidence it does not exist. To read one that is not listed, "+
+			"issue a data_request against information_schema.columns for its column names — you do not need a human to confirm it.\n\n",
+		shown, total)
+}
+
+// stringsAsIface widens a []string to the []interface{} an InputSpec default
+// holds (config arrives as JSON, so that is the shape the rest of the spec uses).
+// Exists so a list can be declared ONCE in Go and reused as the spec default
+// rather than retyped beside it.
+func stringsAsIface(in []string) []interface{} {
+	out := make([]interface{}, len(in))
+	for i, s := range in {
+		out[i] = s
+	}
+	return out
+}
+
 // configStringSlice reads a []string from config[key] (a JSON array of strings in
 // the step config), returning def if absent/empty/wrong-typed.
 func configStringSlice(config map[string]interface{}, key string, def []string) []string {
@@ -760,15 +847,25 @@ func configStringSlice(config map[string]interface{}, key string, def []string) 
 // bound as parameters — injection-safe), so newly-added tables appear without
 // editing a list. When !full an `include` relevance filter (ILIKE ANY) keeps the
 // listing focused. Capped at tableCap tables.
-func gatherSchema(ctx context.Context, db *sql.DB, exclude, include []string, full bool, tableCap int) (string, error) {
-	conds := []string{"table_schema = 'public'"}
+//
+// `always` names tables that appear UNCONDITIONALLY — neither filter can remove
+// them, and they sort FIRST so tableCap truncation cannot reach them either. That
+// is not a convenience: it is the invariant that a table this action RENDERS ROWS
+// FROM always has its columns in the bundle (see schemaAlwaysTables). The
+// evidence sections and the schema section are driven off one list, so the two
+// cannot drift.
+func gatherSchema(ctx context.Context, db *sql.DB, exclude, include, always []string, full bool, tableCap int) (string, error) {
 	args := []interface{}{}
 	n := 1
+
+	// The relevance/denylist half. Built as ONE bracketed condition so the
+	// always-list can be OR'd around it rather than AND'ed into it.
+	filtered := []string{}
 	for _, p := range exclude {
 		if strings.TrimSpace(p) == "" {
 			continue
 		}
-		conds = append(conds, fmt.Sprintf("table_name NOT ILIKE $%d", n))
+		filtered = append(filtered, fmt.Sprintf("table_name NOT ILIKE $%d", n))
 		args = append(args, p)
 		n++
 	}
@@ -783,11 +880,33 @@ func gatherSchema(ctx context.Context, db *sql.DB, exclude, include []string, fu
 			n++
 		}
 		if len(ors) > 0 {
-			conds = append(conds, "("+strings.Join(ors, " OR ")+")")
+			filtered = append(filtered, "("+strings.Join(ors, " OR ")+")")
 		}
 	}
-	query := "SELECT table_name, column_name, data_type FROM information_schema.columns WHERE " +
-		strings.Join(conds, " AND ") + " ORDER BY table_name, ordinal_position"
+	filterCond := "TRUE"
+	if len(filtered) > 0 {
+		filterCond = "(" + strings.Join(filtered, " AND ") + ")"
+	}
+
+	// Always-list: an exact-name match, bound as a text[] parameter (never
+	// interpolated). An empty slice binds '{}', so `= ANY` matches nothing —
+	// degrading to "no always-tables", never to "every table".
+	alwaysArg := "{}"
+	if len(always) > 0 {
+		alwaysArg = toPGTextArrayLiteral(always)
+	}
+	alwaysCond := fmt.Sprintf("table_name = ANY($%d::text[])", n)
+	alwaysParam := n
+	args = append(args, alwaysArg)
+
+	// Backtick literal, deliberately: TestSchemaAlwaysTablesCoverTablesThisActionQueries
+	// derives the always-list by scanning this file's raw string literals, and SQL
+	// written in double quotes is invisible to it — a guard that passes while blind.
+	// The test enforces this, and caught this very query written the other way.
+	query := fmt.Sprintf(`SELECT table_name, column_name, data_type FROM information_schema.columns
+		WHERE table_schema = 'public' AND (%s OR %s)
+		ORDER BY (table_name = ANY($%d::text[])) DESC, table_name, ordinal_position`,
+		filterCond, alwaysCond, alwaysParam)
 
 	rows, err := db.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -830,7 +949,18 @@ func gatherSchema(ctx context.Context, db *sql.DB, exclude, include []string, fu
 	if tables == 0 {
 		return "(no tables matched the schema filter)\n", nil
 	}
-	return sb.String(), nil
+
+	// How many tables EXIST, so the notice can state the listing's coverage rather
+	// than assert it. Non-fatal: a failed count degrades to no notice (total=0
+	// suppresses it), never to a wrong one — a fabricated denominator here would be
+	// worse than silence, since the whole point is telling the verdicter what it
+	// cannot see.
+	var total int
+	if err := db.QueryRowContext(ctx,
+		`SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public'`).Scan(&total); err != nil {
+		total = 0
+	}
+	return schemaFilterNotice(tables, total, full) + sb.String(), nil
 }
 
 // compactType shortens the verbose information_schema data_type names.
