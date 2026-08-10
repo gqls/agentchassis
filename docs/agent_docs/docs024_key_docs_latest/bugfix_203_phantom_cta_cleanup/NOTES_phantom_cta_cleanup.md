@@ -690,3 +690,56 @@ already-correct or better-candidate secondary/tertiary CTA on ANY page with both
 hub candidate in play — which is most of this fleet. **Recommend holding the remaining
 five pages (2 leftover + 4 leopardess heroes) until the priority-order fix ships and is
 verified**, rather than treating this canary as a clean pass.
+
+## 2026-08-10 — the priority-order fix is written, tested, mutation-proven, committed, and submitted to council
+
+User chose "fix + resubmit to council" over the other two options offered (hold-only, or
+just revert the one bad field). Shipped as shape (a) from the entry above: overlap count
+compared first, interactive-vs-non-interactive only breaks a genuine tie — this is also
+exactly what `TestBestLabelMatch`'s own pre-existing comment already said was intended
+("Interactive pages beat content pages on **equal-strength** matches"), so the fix aligns
+implementation to already-documented intent rather than introducing a new policy.
+
+**Commit**: `3bc0486d7` — `platform/orchestration/datahelpers/label_match.go` +
+`label_match_test.go` only (clean commit-scope block, nothing else swept in). Two new
+tests: `TestBestLabelMatchOverlapBeatsCategory` (reproduces the live robot-hands.com case
+directly, generalised) and `TestBestLabelMatchInteractiveTiesBreakToInteractive` (guards
+the genuine-tie case so the fix doesn't overcorrect into always preferring hubs).
+**Mutation-proven**: `git stash push` the fix, re-ran the new tests against the pre-fix
+comparator — `TestBestLabelMatchOverlapBeatsCategory` FAILED as expected (returned the
+tool page, not the hub), `TestBestLabelMatchInteractiveTiesBreakToInteractive` passed both
+ways (it's guarding tie-break behaviour both versions already got right, not the bug
+itself). Full package tests, `go vet`, `gofmt` all clean. Also re-ran the CTA-adjacent
+tests in `platform/orchestration/actions` and `discovery_checks` (the detector and the two
+write-time call sites) — all pass unchanged, including the one existing test whose name
+sounds like it could conflict (`interactive_page_preferred_as_suggested_target` — checked
+it: both its candidates have equal overlap count, so it was never exercising the buggy
+cross-category comparison and needed no change).
+
+**Submitted to the council gate**: `SUBMISSION_CORR=6cb8c72b-0abc-4eb6-b4d2-4cbf01eed515`,
+run orchestration `76b19b7e-3127-41a6-a1ad-b32efcad5f9c`. Verdict not yet read as of this
+entry — check per the standing pattern:
+```sql
+SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
+WHERE correlation_id='6cb8c72b-0abc-4eb6-b4d2-4cbf01eed515' AND kind='council_report'
+ORDER BY created_at;
+```
+
+**Process slip, logged in full at `WRONG_CALLS.md` 2026-08-10**: commit `3bc0486d7` was
+made BEFORE the submission existed, so it carries **no `Council-Submitted:` trailer at
+all** — not even the honest-but-unverified one. `098`'s report resolves purely by
+scanning each commit's own message; there is no path-based or cross-commit fallback, and
+forward-only forbids amending the message now. **So this commit will read as UNREVIEWED
+in `098` forever, even once the verdict lands approved** — this NOTES entry (and the
+SUBMISSION_CORR above) is the only durable link between the two. If the verdict comes
+back APPROVED: do not try to retrofit `Council-Reviewed:` onto `3bc0486d7` — there is
+nothing to amend it with. Just record the approval here and treat the fix as reviewed in
+substance, unreviewed in `098`'s bookkeeping.
+
+**Still held**: the remaining five pages (2 leftover real-tool-CTA + 4 leopardess
+heroes) stay undispatched until this verdict lands and, separately, until someone
+decides whether the already-wrong robot-hands.com `secondary_cta_url` (still pointing at
+the cycle-time estimator as of this entry) gets a follow-up rerender once the fix is
+live — it will not self-correct; the priority bug lives in the matcher, not in this one
+page's stored data, but a fix landing does not retroactively touch pages that already
+rendered under the old code.

@@ -25713,3 +25713,31 @@ even suspected, grep the spawner for the env var's name FIRST — `IMAGE_BUCKET`
 in exactly one `if` in `spawn_actions.go`, and reading that one line was the whole
 answer. A per-pod absence is a fact about the pod; the class statement needs the
 spawner's code or a two-pod diff, and both cost under a minute.
+
+## 2026-08-10 — committed the BestLabelMatch priority fix before submitting it, so it ships with no `Council-Submitted:` trailer and forward-only can't repair it
+
+Fixing the scoring-priority bug found live during bugfix 203's own row-3 canary
+(`datahelpers.BestLabelMatch`, `label_match.go`), I ran the normal sequence out of
+order: `go test` → `git commit platform/orchestration/datahelpers/label_match{,_test}.go`
+→ *then* built the council submission JSON and ran `097_TRIGGER`. CLAUDE.md's own
+worked pattern for the ORIGINAL 203 fix has both commits carrying `Council-Submitted:`
+from the start — I knew the convention, I just wrote the commit before the correlation
+existed to put in it. `commit 3bc0486d7` now has no trailer at all, and
+`098_REPORT_unreviewed_commits_v1.sh` resolves purely by scanning each commit's own
+message (`098_REPORT...sh:167`, `git log --pretty=... -- SCOPE_PATHS`) — there is no
+cross-commit or file-path fallback. Forward-only forbids amending the message to add
+one after the fact.
+
+**What caught it.** Re-reading CLAUDE.md's council section while writing the
+submission JSON, specifically the line "Committing before the verdict? Use
+`Council-Submitted:`" — phrased as something you do AT commit time, not after.
+
+**The cheap check.** Before running `git commit` on any `platform/`/`internal/`/`pkg/`
+change, ask "is this going through the gate?" — if yes, submit FIRST (or in the same
+breath), because the trailer only has one legitimate home: the commit that ships the
+change. There is no repair commit for a missed one; `098` will bucket `3bc0486d7` as
+UNREVIEWED permanently, cross-referenced only by a NOTES entry
+(`bugfix_203_phantom_cta_cleanup/NOTES_phantom_cta_cleanup.md`, 2026-08-10) that a
+human has to know to go look for. The fix itself is still correctly submitted
+(`SUBMISSION_CORR=6cb8c72b-0abc-4eb6-b4d2-4cbf01eed515`) and will get a real verdict —
+only the automatic commit↔verdict join is what's lost.
