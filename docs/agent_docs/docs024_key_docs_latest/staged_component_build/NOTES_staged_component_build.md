@@ -2980,3 +2980,103 @@ exists in any cluster secret.
 - **Cut a fresh cold-start**: `HANDOFF_2026-08-10b_continue_here.md` (supersedes the
   morning file) — the two open proofs first, then batch 8's two remaining clean subjects
   (both robot-hands `owned` pages: coordinate before S6).
+
+## 2026-08-10 (third session, parallel to the second) — batch 8's two robot-hands tools done end-to-end; and `computed_values` does not prove what this lane thought it proved
+
+**I was handed the same handoff as the session already working it.** `HANDOFF_2026-08-10_continue_here.md`
+was given to two chats. The other (session A, transcript `a107ab07`) had picked it up ~2h earlier,
+taken `tool-setup-builder` end-to-end and filed `bugs_open/243`, and had since been diverted by the
+owner onto the storage-client investigation. I found this by checking file mtimes on two untracked
+fence files, then grepping the live `.jsonl` transcripts — `who-owns.py` cannot see a session
+mid-task, and neither can `git log` until it commits.
+
+**What I did about it, before touching anything:** wrote the split into the handoff as a new §4b and
+committed it (`b2ab89609`). `ListAgents` shows 33 peers but their refs do not map to session ids, so
+`SendMessage` had no addressable target — the lane's written-claim convention was the only
+coordination channel that works here. Recording that as a fact about this tree, not a complaint.
+
+### The third qualification axis, which neither §2a nor its correction box had
+
+Both earlier passes qualified the pool on *serves 200* and *resolves under the Tier-4 lookup*. There
+is a third: **`pages.rebuild_policy`**. A failing acceptance verdict inserts an `improve_tool` item
+aimed at `tool-improver` (`tool_acceptance_actions.go:1001`), so firing at an `owned` page can point
+a rewriter at another lane's protected markup — which is exactly why session A chose the `generic`
+subject first and left robot-hands' two alone.
+
+**Measured across all 33 resolvable placements, and it could have come out otherwise: `owned` is NOT
+a disqualifier.** 8 of the 25 tools that already carry a PLAN sit on `owned` pages
+(`tool-arena-interface`, `tool-fuel-cost-estimator`, `tool-drop-rate-tuner`, `tool-loot-table-balancer`,
+`tool-xp-curve-designer`, `tool-recovery-waterfall`, `tool-relevant-alternative`, `loans-consolidation`).
+Had it been blocking, that count would have been 0. The designed control is the fence's own top-level
+**`no_auto_fix` / `no_auto_fix_reason`**, which escalates a failing verdict to human review and raises
+no `improve_tool` (`tool_acceptance_no_auto_fix_test.go`). Both new fences carry it. Proved present in
+the running binary by long marker, both replicas, positive and negative controls — and **re-proved
+after the fresh build rolled mid-session** (`could only pass by weakening the protected markup` → 1,
+control → 2, negative → 0 on `agent-chassis-696d88b4c7-{95mgb,wnbs8}`).
+
+### The finding: `computed_values` pins the ARITHMETIC and says NOTHING about visibility
+
+Authoring the grip-force mutants I assumed — and this lane had written down the same morning, in
+NOTES and in `manifest_batch8.json`'s setup-builder contract — that `Text()` being `InnerText()`
+means a `display:none` element reads `""`, so the value check already proves the reveal.
+
+**It is false.** The prover refuted it: with `resultsPanel.classList.add('visible')` broken, all five
+computed values still matched. An isolating probe that changed **only** the CSS rule
+(`.results-panel.visible { display: block }` → `display: none`), touching no JS, passed too. `innerText`
+falls back to `textContent` for an element that is not being rendered.
+
+**What this does and does not invalidate.** Both fences are sound — each carries a separate
+visibility check that goes red on its own mutant. Session A's setup-builder fence is also sound, and
+for a genuine reason: its `.db-value` spans ship EMPTY in the served HTML, so the check discriminates
+static from driven regardless of visibility. **The stated reason is what was wrong, not the fence.**
+Filed to `LANDMINES.md` (with the `text-transform` sibling trap) and `WRONG_CALLS.md`.
+
+### And the instrument that could not have caught it either
+
+`prove_fence_mutants_file.go`'s closing line — *"checks watched red: N of N"*, the line this lane's
+production line treats as the coverage proof — was built from each mutant's `expect_fail`, i.e. **the
+author's own claims**, never from what went red. A check named by every mutant and failing under none
+still printed `watched red`. It only diverges on a failing run, which is why it survived; the tell was
+one mutant printing `MISSED` and `watched red` for the same check in the same output (session A saw
+that contradiction on 08-10 and moved past it). Fixed in `b861cdbeb` — accumulated from the observed
+`failed` set, collateral included, header now reads OBSERVED. **A coverage number derived from the
+input it audits is not coverage.**
+
+### The two subjects, end to end
+
+| | `tool-grip-force-friction-calculator` | `tool-matchmatrix` |
+|---|---|---|
+| page (Tier-4 resolve) | `tool-grip-force-friction-calculator` ✅ | `tool-matchmatrix` ✅ |
+| forks | none (canonical only) | none (canonical only) |
+| `rebuild_policy` | `owned` → `no_auto_fix` set | `owned` → `no_auto_fix` set |
+| `try_fence` live | 16 passed / 0 failed / 0 unimplemented | 16 passed / 0 failed / 0 unimplemented |
+| mutants | **13/13 caught, 13/13 OBSERVED red** | **13/13 caught, 13/13 OBSERVED red** |
+| PLAN | 8,238 B, readback byte-identical, fence re-run from DB copy green | 8,987 B, readback byte-identical |
+| S6 acceptance | 16 passed / 0 failed, 10 skips all my own profile gates, **0 unimplemented** | same |
+| re-run after the fresh build | ✅ 16/0 (`f6494433`) | ✅ 16/0 (`932f7487`) |
+
+Goldens for both were **derived first and corroborated second**: grip-force by hand from the inline
+JS (weight+inertia → ÷μ → ×SF → ÷fingers, with the mN/N/kN display bands), matchmatrix by a Python
+port of its `assess()` + sort over the 10-gripper index. Both then matched the live tool. MatchMatrix
+had exactly one divergence, and it was the useful kind: the verdict badge reads `MATCH`, not `Match`,
+because `computed_values` compares **rendered** text and the badge carries `text-transform: uppercase`.
+
+**Tier-2 exposure, checked because `LANDMINES` says to and my fences both carry `page_status_ok`.**
+Writing a tool PLAN switches Tier 2 on, Tier 2 ignores `no_auto_fix`, and it can fail a page for three
+built-ins outside the fence. Measured on both served pages: tool-doc header 0, `<no value>` 0, no-op
+anchors 0 in every spelling (so `DeadControlAnchorsOutsideRuntimeFill` returns empty whatever its
+per-anchor exemption does). And the blast radius if one ever did fail is **1 page each** — both
+components are single-placement and unshared, unlike the `ported-page`/`hero` rows that made that
+landmine worth writing. No `improve_tool` item was created by any run today (checked).
+
+**Naming-contract check after both PLANs: PASS**, 54 canonical / 28 testable / 10 authoring backlog /
+**0 BROKEN**.
+
+### Missteps this session
+
+1. **I overwrote session A's committed `manifest_batch8.json`** with my own content. Git had it
+   (`40c0f17f2`); restored exactly, my entries moved to `manifest_batch8b.json`. The tell was the tool
+   saying "updated" where a new file says "created". Full entry in `WRONG_CALLS.md`.
+2. **I nearly superseded their live PLAN row** by running the generator over the merged manifest — it
+   supersedes every entry it is given. Scope the manifest you APPLY to what you own.
+3. The false `InnerText` premise above, refuted by my own mutation run.
