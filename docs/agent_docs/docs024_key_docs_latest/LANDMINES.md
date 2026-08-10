@@ -2011,6 +2011,7 @@ source document and the entry points at it.
 - **and measure the blast radius with the RIGHT NEEDLE:** the phrase is **`usage limit`**, not `spending limit`. Grepping `ILIKE '%spending limit%'` returns **0 rows** during a live outage and reads as "it's just me" — the mistake was made and caught within one query on 2026-07-31. `ILIKE '%usage limit%'` over `orchestration_states` in the last few hours tells you whether the fleet is down or your run is unlucky.
 - **⚠ RECURRED 2026-08-10, and the stated reset is now THREE WEEKS out — do not read this entry as history.** Same signature, same seat (`review_editquality`), new cap: *"regain access on **2026-09-01** at 00:00 UTC"*. Fleet-wide from **14:51:45Z** (the last successful `llm_call_log` row) — after it, 5 calls, 5 failures, 0 successes, across `council-gate`, `experience-planner` and `tool-recreation-handler`. **The consequence nobody had to face in July, because that reset was six hours away and this one is not: every lane's "submit to the council before or alongside committing" obligation is currently unsatisfiable.** A `Council-Submitted:` trailer written now names a run that will never reach a verdict, so 098 can never credit it — write the trailer anyway (it asserts nothing) but record in your lane docs that a FRESH submission is owed, or the commit reads as reviewed for ever. Independently diagnosed the same afternoon from a standalone service outside the cluster (`6a4fbab21`, webdesign.uk chat lane), which is what establishes it as ACCOUNT-level rather than a chassis credential fault.
 - **the low-volume trap in measuring it:** on a quiet fleet the outage is only ~5 error rows, which reads like noise next to a normal day's hundreds. Do not size it by the error COUNT — size it by the **absence of any success**: `SELECT date_trunc('hour',created_at), success, count(*) FROM llm_call_log WHERE created_at > now() - interval '8 hours' GROUP BY 1,2`. A zero in the `t` column is the finding; the `f` rows only tell you the fleet was awake enough to try.
+- **`complete_invalid` is the council's generic "I COULD NOT RUN" state, and this outage is only its commonest cause** (folded in 2026-08-10 from a duplicate entry this lane withdrew — see the deletion note at the foot of this file). The name reads as a verdict about your *submission*, and it is not one: it is what the workflow lands on whenever a seat's step errors, for any reason. Two consequences worth carrying past this outage. (1) **Nothing pushes it at you** — `status` is `COMPLETED` and the top-level `error` column is NULL, so a dead run is only distinguishable from a queued one by asking `__step_error`, knowing to. (2) **Your submission looks accepted, because it WAS** — the trigger prints a correlation and the `fix_plan` artifact persists normally, since validation runs before the first LLM call. So "the artifact is there" is not evidence the review happened.
 - **source:** 2026-07-31 18:58:41 UTC, first hit fleet-wide, killing a `bugs_open/149` A6 council round at `review_tooling_provenance` and another session's round at `review_editquality` a minute later; stated reset 2026-08-01 00:00 UTC. Recurrence 2026-08-10 (bugfix_236_site_availability lane, corr `7177fb02`), reset 2026-09-01. Distinct from — and a counter-example to — the transient-fault guidance at `RUNBOOK_council_gate.md`'s `complete_invalid` note, which should be read together with this entry
 - **added:** 2026-07-31, bugfix_149_nav_membership lane; recurrence appended 2026-08-10, bugfix_236_site_availability lane
 
@@ -8294,13 +8295,18 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **source:** `bugs_open/243` §3 (the census and the correction, both dated); found while measuring the Anthropic usage-limit outage from the `bugfix_153_build_provenance` lane.
 - **added:** 2026-08-10, bugfix_153_build_provenance lane
 
-### A dead council run is INDISTINGUISHABLE from the ~30-minute queue latency CLAUDE.md tells you to expect — and the standing advice says do not retry on that evidence
-
-- **footprint:** `orchestration_states` `current_step='complete_invalid'` · `collected_data->'__step_error'` · `097_TRIGGER_council_review_v1.sh` · CLAUDE.md § "Council review of platform changes"
-- **fires when:** you submit to the council gate and the verdict does not arrive. CLAUDE.md correctly says to budget ~30 minutes, that publish→run-start was measured at 29 minutes under load, and that *"a missing orchestration row is almost always latency, not a dropped dispatch — do not retry on that evidence"*. All true in general. When the provider is refusing calls, that same advice makes you wait indefinitely for a run that is already over.
-- **the tell:** the submission itself looks perfect — the trigger prints a correlation, and the `fix_plan` artifact persists normally, because validation happens BEFORE any LLM call. So every signal a submitter naturally checks says "accepted, in progress". The run is `status='COMPLETED'`, which reads as success, with `current_step='complete_invalid'`, and **`error` is NULL** (the general `__step_error` trap, already in this file). Measured 2026-08-10: three submissions died this way over two hours while the fleet's LLM provider returned 400s.
-- **the check:** one query, before you wait and before you resubmit —
-  `SELECT current_step, status, collected_data->'__step_error'->>'message' FROM orchestration_states WHERE collected_data->'input_data'->>'fix_correlation_id' = '<YOUR_CORR>';`
-  A `complete_invalid` with a step error is a DEAD run, not a slow one: resubmitting re-buys the same failure. If the message mentions usage limits or an AI endpoint, it is not your submission — check `SELECT max(created_at) FROM llm_call_log WHERE success;` for the fleet's liveness and see `bugs_open/243`. **Generalises past this outage: `complete_invalid` is the council's "I could not run" state, and nothing pushes it at you.**
-- **source:** `bugs_open/243` §4 (the three dead correlations, dated); `bugfix_153_build_provenance` lane, whose own submission `44fa6a98` was the third.
-- **added:** 2026-08-10, bugfix_153_build_provenance lane
+> **WITHDRAWN BEFORE IT WAS EVER SYNCED, 2026-08-10, by the lane that wrote it
+> (`bugfix_153_build_provenance`).** An entry stood here titled *"A dead council run is
+> indistinguishable from the ~30-minute queue latency CLAUDE.md tells you to expect"*. It was
+> a **duplicate**: the entry above — *"An API USAGE-LIMIT death looks exactly like a transient
+> seat fault…"*, filed 2026-07-31 and already updated with today's recurrence by the
+> `bugfix_236_site_availability` lane — covers the same trap, with a better check (three cases
+> distinguished by message body, not step name) and a longer evidence trail. I wrote mine
+> because I had not grepped this file for the mechanism first, which is the one thing
+> CLAUDE.md tells you to do before filing.
+>
+> Deleting rather than keeping both is the point: a corpus with two entries for one trap makes
+> the reader arbitrate, and the weaker one wins whenever it is read first. The single thing
+> mine had that the survivor lacks — that `complete_invalid` is the council's generic
+> "I could not run" state and generalises past any one outage — has been folded into that
+> entry instead. Logged in `WRONG_CALLS.md` (2026-08-10).

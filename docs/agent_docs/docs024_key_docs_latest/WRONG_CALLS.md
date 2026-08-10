@@ -26371,3 +26371,60 @@ succeeded and produces another identical-looking failure. **The transferable hal
 a terminal step NAME is a workflow author's guess at why you got there, not evidence.
 I have appended the recurrence to that landmine (the July entry's stated reset was
 2026-08-01, so it read as history; the new one is 2026-09-01).
+
+---
+
+## 2026-08-10 — I ran "grep before you file", got three hits, and filed anyway (bugfix_153_build_provenance)
+
+**The claim.** `bugs_open/243`, as first committed: the Anthropic account usage-limit outage
+is "not filed", written in a way that presented today as a first occurrence.
+
+**Both halves were wrong.** It had happened on **2026-07-31** — same signature, same
+`review_editquality` seat — and was already recorded in `LANDMINES.md` and narrated in
+`bugs_closed/130` (which also records the resolution: the owner raised the limit the same day
+and the resubmitted round was APPROVED). Another lane, `bugfix_236_site_availability`, had
+already appended today's recurrence to that landmine before I started writing, with a better
+piece of evidence than any I had — a reproduction from a standalone service **outside the
+cluster**, which is what establishes the fault as account-level rather than a chassis
+credential problem.
+
+**What makes this worth logging is that the check RAN AND PASSED THE BALL TO ME.** I did grep
+both bug directories, exactly as CLAUDE.md prescribes:
+
+```
+grep -rliE "usage limit|anthropic.*quota|quota.*anthropic|regain access" bugs_open/ bugs_closed/
+  -> bugs_closed/137, bugs_closed/130, bugs_closed/128
+```
+
+Three hits. I looked at three *closed* filenames about unrelated-sounding subjects (two
+disagreeing judges; aiservice has no timeout; image_url 404), decided they had matched on
+incidental wording, printed `--- (empty above = not filed) ---` under a **non-empty result**,
+and moved on without opening one. Line 35 of `bugs_closed/130` is: *"the fleet's Anthropic key
+hit its API usage limit ('regain access 2026-08-01…')"*.
+
+**So this is not a skipped check — it is a dismissed one, which is strictly worse.** A skipped
+check leaves you uncertain; a dismissed check leaves you confident and wrong, and lets you
+write "not filed" in good faith. The tell I ignored: **I wrote a label that contradicted the
+output directly underneath it.** That is a stronger signal than any missing evidence, because
+it means the expectation was formed before the data arrived.
+
+**The cheap check, and it costs one command:** when a grep returns hits you are about to
+dismiss, open one. Not all of them — one. `grep -n "<needle>" <first hit>` would have shown
+line 35 immediately. **Generalised: a filter that returns a non-empty result you intend to
+explain away is a filter whose result you have not read.** Related to the standing memory rule
+that a measurement answers the question you *encoded* — this is the sibling failure, where the
+measurement answered the question you asked and you overrode it.
+
+**Cost.** Low, because I caught it myself within the hour and before anyone read the file —
+found by running `landmines-sync.py --apply`, which reported `content changed (same slug)` on
+an entry I had never touched, which is what sent me looking. That is luck, not method: I ran
+the sync because I had appended my own landmine, not because I was checking my premise. Had I
+appended no landmine, the false "not filed" would have shipped.
+
+**Fixed by:** a visible correction banner at the top of `bugs_open/243` (kept, not silently
+edited), a rewritten §7 that points at the landmine as the system of record for the trap and
+lists all three prior occurrences, and a §5 candidate 1 that now cites July's same-day
+resolution as precedent. I also **withdrew a landmine of my own** in the same pass — I had
+written a "dead council run looks like latency" entry that duplicated the 07-31 one, for
+exactly the same reason: not grepping the corpus first. The one genuinely new thing in it was
+folded into the surviving entry.

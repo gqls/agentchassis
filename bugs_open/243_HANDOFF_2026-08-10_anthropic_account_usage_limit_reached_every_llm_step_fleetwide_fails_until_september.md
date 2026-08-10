@@ -13,6 +13,42 @@ debugging task — see §5.
 > upstream service, there is no mechanism to diagnose. What IS open is a decision (§5), which
 > is the owner's.
 
+> ## ⚠ CORRECTED BY THE FILER, within the hour, before anyone read it — THIS IS A RECURRENCE, AND I FILED IT AS IF IT WERE NEW
+>
+> The original text of this file said the outage was "not filed" and implied a first
+> occurrence. **Both readings are wrong in the way that matters.**
+>
+> - **It has happened before, on 2026-07-31**, same signature, same `review_editquality`
+>   seat, stated reset `2026-08-01`. It is recorded in `LANDMINES.md` under *"An API
+>   USAGE-LIMIT death looks exactly like a transient seat fault…"* and narrated inside
+>   `bugs_closed/130` (which records the resolution: **the owner raised the limit the same
+>   day, ~14:50 BST**, and the resubmitted council round was APPROVED). `bugs_closed/128`
+>   and `bugs_closed/137` also record being hit by it.
+> - **Another lane got here first today.** `bugfix_236_site_availability` had already
+>   appended today's recurrence to that landmine — including a detail I did not have and
+>   which is the strongest evidence in the case: they reproduced the refusal **from a
+>   standalone service outside the cluster** (`6a4fbab21`, the webdesign.uk chat lane), which
+>   is what makes it ACCOUNT-level rather than a chassis credential fault.
+>
+> **How I got it wrong, because the mechanism is the reusable part:** I did grep both bug
+> directories, exactly as CLAUDE.md says to. The grep **returned all three closed files**. I
+> read three closed-bug hits as coincidental matches and never opened one. So the check ran,
+> produced the right answer, and I discarded it — which is worse than not running it, because
+> it let me write "not filed" with a clean conscience. Logged in `WRONG_CALLS.md`.
+>
+> **What survives, and why this file still exists rather than being deleted:** there is
+> genuinely no *bug file* for this class — it lives only in a landmine and in other bugs'
+> narratives — and `bugs_open/202` sets the precedent that a provider outage blocking the
+> fleet gets one. What this file adds over the landmine is the measured cutover (§2), the
+> blast-radius census (§3), and the fix candidates (§5). **What it must not do is compete:**
+> the landmine is the system of record for the *trap*; this file is the record of the
+> *outage*. Contribute to whichever you are actually adding to.
+>
+> **And the recurrence is the finding.** Twice in eleven days, plus `bugs_open/202`'s Gemini
+> 429 five days ago, is not bad luck — it is a single-provider, single-key estate meeting its
+> own cap. That is the argument for candidate 2 in §5, and it is much stronger than the
+> version I originally wrote, which had one data point.
+
 ## 1. The error, verbatim
 
 ```
@@ -125,6 +161,12 @@ artifact will have persisted normally, which is why the submission itself looks 
    Anthropic-side suspension, so it is very likely a console setting the owner can change in
    minutes. **This is the whole fix and everything below is contingency.** It needs the
    owner: no thread has console access.
+   **PRECEDENT, and it is exact:** on 2026-07-31 this same condition was resolved this same
+   way — `bugs_closed/130` records the owner raising the limit ~14:50 BST, the council round
+   resubmitted on the same correlation, and an APPROVED verdict at 14:34 UTC. So this is a
+   known-good, same-day fix that has already worked once. **The only thing different today is
+   the horizon:** July's stated reset was six hours out, so waiting was a real option; this
+   one is three weeks out, so it is not.
 2. **Add a second provider as a fallback and let the fleet fail over.** The platform already
    supports multiple providers (`bugs_closed/`'s gemini work, and `platform/aiservice` has
    per-provider clients), and `bugs_open/202` records the mirror-image situation with Gemini.
@@ -157,11 +199,30 @@ this bug will appear to fix itself in three weeks whether or not anyone acts. If
 that way, candidate 1 was never done and the same cap will be hit again — record which of the
 two actually happened.
 
-## 7. Related
+## 7. Related — read these BEFORE adding to this file
 
-- `bugs_open/202` — the Gemini 429 equivalent, filed 2026-08-05, same shape one provider
-  along: a quota state blocking page builds fleet-wide, with the decision belonging to the
-  owner. Read together, the two make the case for candidate 2 far better than either alone:
-  **we have now had a single-provider outage twice in five days.**
-- CLAUDE.md § "Council review of platform changes" — the ~30-minute latency guidance whose
-  interaction with this outage is described in §4.
+**The system of record for the TRAP is the landmine, not this file.**
+`LANDMINES.md` → *"An API USAGE-LIMIT death looks exactly like a transient seat fault, and
+the runbook's advice for the transient case — 'resubmit unchanged' — is actively wrong for
+it"* (filed 2026-07-31, recurrence appended 2026-08-10 by `bugfix_236_site_availability`). It
+carries the three-way message triage, the `usage limit` vs `spending limit` needle trap, and
+the low-volume measurement trap. If you are adding a *check*, add it there.
+
+Prior occurrences of the same condition:
+- **2026-07-31** — first fleet-wide hit; killed a `bugs_open/149` A6 council round at
+  `review_tooling_provenance` and another session's at `review_editquality`. Reset was
+  2026-08-01, six hours out. **`bugs_closed/130` records the resolution: owner raised the
+  limit the same day, resubmit APPROVED.** Also narrated in `bugs_closed/128` and
+  `bugs_closed/137`, both of which were merely *interrupted* by it.
+- **2026-08-10 (this one)** — reset 2026-09-01, three weeks out.
+
+Sibling provider outage:
+- `bugs_open/202` — the Gemini 429 equivalent, filed 2026-08-05: a quota state blocking page
+  builds fleet-wide, decision belonging to the owner. **Three single-provider outages in
+  eleven days (07-31 Anthropic, 08-05 Gemini, 08-10 Anthropic) is the case for candidate 2**,
+  and it is a rate, not an anecdote.
+
+Standing docs whose advice interacts badly with this state:
+- CLAUDE.md § "Council review of platform changes" — the ~30-minute latency guidance (§4).
+- `RUNBOOK_council_gate.md`'s `complete_invalid` note — written for the transient case, and
+  its "resubmit unchanged" is wrong here; the landmine above is the counter-example.
