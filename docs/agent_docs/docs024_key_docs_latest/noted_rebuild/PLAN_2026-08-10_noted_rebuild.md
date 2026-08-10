@@ -282,9 +282,18 @@ because the failure mode is silent and the fix looks like a tidy-up.
 - Framework seeded: `sites` row, `evidence_base` (7 bans, 0 facts, pinned),
   `imagery_style_guide` (pinned).
 
-**Phase 1 — decide and prepare the box.** Owner picks the VM. Add Postgres,
-schema for accounts + notes + media, backup and restore, TLS/tunnel. Nothing
-user-visible.
+**Phase 1 — decide and prepare the box. LARGELY DONE 2026-08-10.**
+- Box decided (§3a) and **Postgres 16.14 installed** on
+  `webdesign.vs.mythic-beasts.com`: bound `127.0.0.1:5432` and verified
+  unreachable off-box, role + database `noted`, credentials in
+  `/etc/noted/noted.env` (600 root), cross-database `CONNECT` revoked.
+- **Nightly backups live and proven by an actual restore**, not merely scheduled.
+- Shopfront verified byte-identical before and after.
+- **STILL OWED before any real user note lands: an off-box backup copy.** Needs a
+  write-only B2 key scoped to one prefix — owner's call, see §6.4.
+- Schema for accounts/notes/media is **not** here; it ships with the server in
+  phase 2, because the schema is the server's contract and splitting them invites
+  drift.
 
 **Phase 2 — write the notes engine.** Hand-written Go, stdlib-leaning, in the
 family of `site-engine` and `webdesign-chat`. Accounts, sessions, note CRUD,
@@ -354,8 +363,15 @@ their findings will sit where nobody looks.
    can technically read them; we don't" — end-to-end encryption would let us say
    more but is a real build and is currently banned as a claim precisely because
    it is not built.
-3. **Whether existing users' notes are migrated automatically or by hand.** There
+4. **The off-box backup key (NEW, and time-boxed).** Dumps currently sit on the
+   same disk as the database, which covers a bad migration but not the loss of
+   the box. Fixing it needs a B2 application key scoped **write-only to a single
+   backup prefix**; it dials out, so this box's no-inbound posture survives. This
+   is the one open item with a hard deadline: it must be resolved **before the
+   first real user note is stored**, not before launch generally.
+
+5. **Whether existing users' notes are migrated automatically or by hand.** There
    is no server-side copy of anyone's notes and no way to reach their browsers,
    so the only migration path is a person exporting and importing. Phase 0's
    format was designed for it, but it needs a person to act.
-4. **How long the legacy app stays up after cutover.**
+6. **How long the legacy app stays up after cutover.**
