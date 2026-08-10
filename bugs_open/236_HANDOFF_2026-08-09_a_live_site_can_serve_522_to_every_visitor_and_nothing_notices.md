@@ -31,7 +31,10 @@ scheduled task, discovery check, or open work item; all 21 deployed sites probed
 >
 > **NOT reviewed.** Submission `7177fb02-51c5-4c2a-bb02-10aa27ae85ca` selected its
 > panel and then died at the first seat on an upstream Anthropic 400 (account
-> spend cap, "regain access 2026-09-01"; fleet-wide since 14:51:45Z, diagnosed by
+> spend cap, "regain access 2026-09-01"; fleet-wide since ~14:51Z — now filed as
+> **`bugs_open/243_…_anthropic_account_usage_limit_…`** (note the ambiguous number:
+> the OTHER 243 is the tool-acceptance storage client), and independently
+> diagnosed the same afternoon from a standalone service outside the cluster by
 > the webdesign.uk chat lane in `6a4fbab21`). The run is terminal at
 > `complete_invalid` — **which is NOT a rejection of the submission**; treat the
 > `Council-Submitted:` trailer on `4a5d77004` as "submitted, never reviewed". A
