@@ -3,11 +3,13 @@
 > ## ⚠ STATUS FIRST, BECAUSE READERS TRUNCATE — updated 2026-08-10
 >
 > **OWNED** by the `bugfix_223_index_answerability` lane (was UNOWNED — the line below is
-> the original filing and is left as written). **PHASE 1 IS FIXED AND COMMITTED**
-> (`1058b5366`, council `495df717-4010-491f-aec0-92c13aaf3809`) and **seed 365 is APPLIED
-> and live**. **Still OPEN**: the Go half is inert until the next chassis roll, so the
-> defect remains reproducible on `v1.0.1277` — a verdict written today is still subject to
-> everything below. Full account, the acceptance steps, and two failure modes this file
+> the original filing and is left as written). **PHASE 1 IS LIVE AND BEHAVIOURALLY PROVEN
+> on `v1.0.1279`, 2026-08-10 14:41Z** (`1058b5366` + `362c7c091`, council APPROVED
+> `495df717-4010-491f-aec0-92c13aaf3809`; seed 365 applied and recorded). **The entry that
+> drew the flat false `STALE` on 08-08 was re-fired and now returns `NEEDS_HUMAN_REVIEW`
+> with three checks rendered `NOT ANSWERABLE BY THIS INDEX`** — see the ACCEPTANCE section
+> at the foot of this file for the verbatim before/after. **Kept OPEN** because phase 2 (the
+> `var`/`const` blind spot itself, and `bugs_open/231`'s class) is not done. Full account, the acceptance steps, and two failure modes this file
 > did not originally contain: **the PHASE 1 section at the foot of this file**, and
 > `docs/agent_docs/docs024_key_docs_latest/bugfix_223_index_answerability/`.
 >
@@ -526,3 +528,84 @@ status, but it is your mechanism.
 `evidence_gate` recorded `{"condition_met": false, "next_step_override": "verify"}`, the run
 COMPLETED, the verdict was unchanged and no suffix was written. Three ways to fail, none
 taken.
+
+
+---
+
+# ACCEPTANCE — PHASE 1 PROVEN LIVE, 2026-08-10 14:41Z, chassis `v1.0.1279`
+
+**Artefact first, not the tag.** Both replicas grepped, with the negative control this lane
+banked *before* writing any code:
+
+```
+NOT ANSWERABLE BY THIS INDEX   → 1   (was 0 on v1.0.1277 — this is the change)
+every match above comes from   → 1     not a directory listing      → 1
+UNREPRESENTABLE here           → 1     code-lookup evidence         → 2
+resolved EMPTY                 → 1   (append_doc_note's suffix)
+this answer is CAPPED          → 1   POSITIVE control (181) — proves the grep works
+NOT ANSWERABLE BY THAT INDEX   → 0   NEGATIVE control — a string never added
+```
+
+## The motivating entry, before and after
+
+**BEFORE (2026-08-08, v1.0.1267)** — flatly `STALE`:
+
+> None of the three scripts … exist anywhere in the indexed codebase; **the entire described
+> workflow has no footprint.**
+
+**AFTER (2026-08-10 14:41Z, v1.0.1279)** — same entry, same index, `NEEDS_HUMAN_REVIEW`:
+
+```
+[code_check 1] kind=ls query="scripts/landmines-sync.py"
+  NOT ANSWERABLE BY THIS INDEX: the corpus holds NO .py file at all — the indexed corpus
+  holds only: .go (5837 rows). The query was executed and returned 0 rows, and it COULD NOT
+  have returned a row whatever the state of the repository. This is UNKNOWN. It is NOT
+  evidence that the target is absent, removed, renamed or inlined, and it must not
+  contribute to a verdict of STALE …
+[code-lookup evidence: 7 check(s) ran; 1 matched indexed code; 3 NOT ANSWERABLE by this
+ index; 3 ran and matched nothing in scope. Scope: 5837 symbols … kinds with NO rows:
+ const, type, var.]
+```
+
+and the persisted verdict now states the fact instead of guessing it: *"The entire footprint
+(Python and shell scripts) falls outside the Go-only code_symbols index."*
+
+**Four entries re-fired; all four persisted rows carry the `[code-lookup evidence: …]`
+suffix.** The fix did NOT buy abstention by checking less — the provocation entry's Go half
+was still confirmed by name (*"Core Go footprint items (`loadGateCandidates`,
+`gate_provocation`, `provocations` table references) confirmed present in
+`provocation_gate_action.go` at commit b2371b4b"*) while its non-Go half was named as
+unverifiable in the same verdict.
+
+## The third false-positive mode, caught live — and it is COMMON, not rare
+
+The `toolgolden.py` entry (footprint: three `.py` files) produced check
+`content: VECTORS`, meant to confirm a **Python constant**. It matched **8 Go rows** —
+`vectorSearchCodeSymbols`, `pgvectorString`, `RAGIndexAction`, … — because an ILIKE
+substring match on `VECTORS` hits `vectorSearch` and `pgvector`. Pre-fix, that is a
+confident confirmation of something that was never checked. Post-fix the new caveat fired,
+and the verdict used it:
+
+> The single code_check that returned indexed rows (check 2, searching for 'VECTORS')
+> **matched only .go symbols related to vector search in the platform orchestration layer,
+> which are unrelated to the VECTORS constant described in the entry.**
+
+## ⚠ A MEASURED LIMITATION OF THIS FIX — the gate's TRUE branch has never fired
+
+`no_code_evidence` is `checks_with_rows == 0`, and across **4 of 4** acceptance runs today
+`checks_with_rows` was 1, 3, 1, 1 — **never 0**, so every round routed to `verify` and
+`verify_unverifiable` has not executed in production. Reason, measured rather than guessed:
+**one accidental substring match is enough**, and `derive_checks` reliably emits at least one
+bare-identifier `content` query that hits some Go symbol (`VECTORS`, `doc_notes`, …).
+
+So, honestly: **the branch is a backstop that has not yet been reached, and the evidence
+layer is doing all the protective work** — the per-check `NOT ANSWERABLE` lines, the
+"shares a name" caveat, and the mechanical suffix on every persisted row. That ordering was
+this lane's ranking (candidate 1 above candidate 2) and the acceptance data supports it.
+
+The gate is *correct* — its resolution is proven at build time by a lockstep test, and its
+FALSE branch is proven live — but a reader should not credit it with work it has not done.
+**Follow-up worth its own round, in `architecture_review`'s mechanism rather than here:**
+`derive_checks` should not emit a bare `content` query for a footprint item it can already
+see is a non-Go file, which would both cut wasted checks and make `no_code_evidence`
+reachable when the footprint really is entirely unverifiable.
