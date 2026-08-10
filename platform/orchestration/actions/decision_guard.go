@@ -1,8 +1,8 @@
 // FILE: platform/orchestration/actions/decision_guard.go
 //
 // Decision records (RFC_015): a decision row in doc_notes (categories ?
-// 'decision') may carry a fenced ```covers block naming the pages/slots it
-// protects. CheckDecisionCoverage answers "is this write touching a
+// 'decision-record') may carry a fenced ```covers block naming the pages/slots
+// it protects. CheckDecisionCoverage answers "is this write touching a
 // decision-covered slot, and which decisions cover it?" — the citation gate
 // at the write seams refuses a covered write unless the work item NAMES one
 // of the covering decisions (acknowledges_decision / supersedes_decision).
@@ -26,6 +26,22 @@
 //
 // pages/slots match exactly; "*" matches anything; an absent/empty slots
 // list means every slot on the named pages.
+//
+// WHY 'decision-record' AND NOT 'decision' (tightened 2026-08-10, before the
+// filter ever ran in anger). `categories ? 'decision'` was ALREADY in use by
+// three rows from other lanes meaning "a note ABOUT a decision" — prose, not an
+// enforceable record. They were inert here only because they carry no site_id
+// and no fences, and this reader requires both: luck, not design. Four council
+// seats (editquality, debug_historian, architecture, constitution) objected in
+// one round that deferring this tightening to "the next roll" bought nothing,
+// since the code cannot run until a roll either way, and they were right — the
+// safer filter was available in the same change. So the enforceable vocabulary
+// is now its own tag. **Both categories are set on the four real rows**, so the
+// steer-side readers keyed on 'decision' keep working.
+//
+// The trap this leaves behind, for whoever adds the next reader: a row tagged
+// only 'decision' is now INVISIBLE to enforcement while still looking like a
+// decision in every listing. Tag both, or tag 'decision-record'.
 
 package actions
 
@@ -83,7 +99,7 @@ func CheckDecisionCoverage(ctx context.Context, db *sql.DB, siteID uuid.UUID, pa
 		SELECT id::text, subject_key, body
 		FROM doc_notes
 		WHERE site_id = $1
-		  AND categories ? 'decision'
+		  AND categories ? 'decision-record'
 	`, siteID)
 	if err != nil {
 		return nil, err

@@ -154,6 +154,19 @@ var itemTypesWithoutVerifiers = map[string]verificationGap{
 	// detector's broader predicate.
 	"undeployed_asset":             {catNoTarget, "site-scoped asset sweep; no per-item target id. Unblocked by VerifyTarget.SiteID — next in line; read the handler's remit first"},
 	"contrast_failure":             {catMechanical, "minted by write_render_audit_findings (actions pkg, outside this sensor's glob); verification needs a browser — the dedup key contrast_failure:<page>#<selector> plus the NEXT render audit is the verifier, and the two-strike rule catches a persistent pairing"},
+	// dark_section_audit: minted by write_audit_findings (actions pkg, outside this
+	// sensor's glob) — bugs_open/213 split it OUT of hardcoded_section_colors, whose
+	// verifier grades a different predicate entirely (the discovery check's site
+	// aggregate, not a named section's defect). Classified on the way IN rather than
+	// waiting for the ratchet refresh, the mistyped_deployed_page precedent: the
+	// sensor cannot see a type minted outside this package, so a new one is invisible
+	// until someone remembers, which is the failure mode this file exists to stop.
+	// Its pass condition is spec.acceptance_test — free text over computed styles —
+	// so verification needs a browser. Same posture as contrast_failure above: the
+	// NEXT design audit plus the dedup key is the re-detection and two-strike catches
+	// a persistent pairing. Candidate verifier: criteria_check (RFC_002) over
+	// acceptance_test, which nothing on the completion path reads today.
+	"dark_section_audit":           {catMechanical, "minted by write_audit_findings (actions pkg, outside this sensor's glob); verification needs a browser — pass condition is spec.acceptance_test free text over computed styles; the NEXT design audit plus the dedup key is the re-detection and two-strike escalates a persistent pairing (contrast_failure's posture); candidate verifier is criteria_check (RFC_002) over acceptance_test"},
 	"needs_rerender":               {catMechanical, "43 of 142 carry component_id; predicate is the section-drift check"},
 	"needs_component_regeneration": {catMechanical, "12 of 57 carry component_id"},
 	"phantom_internal_link":        {catMechanical, "all 65 carry page_id; predicate is check_phantom_internal_links"},
@@ -259,7 +272,14 @@ var itemTypesWithoutVerifiers = map[string]verificationGap{
 	"broken_nav_links":                 {catMechanical, "[INFERRED] check_broken_nav_links; never observed live"},
 	"backend_unreachable":              {catMechanical, "[INFERRED] check_backend_unreachable, which already SELF-CLEARS on a live health probe — a verifier may be redundant here; check before writing one"},
 	"site_unreachable":                 {catMechanical, "check_site_unreachable (bugs_open/236, 522 half) SELF-CLEARS via Resolved{AllOfType} on a serving probe — the same posture as backend_unreachable, decided at birth rather than inferred later; a completion verifier would re-run the identical probe the check already re-runs every rotation pass"},
-	"decision_regression":              {catMechanical, "check_decision_guards (RFC_015, e1628f7df) — NOT this classifier's lane: shipped 2026-08-08 without a classification, which left this sensor RED at HEAD for two days; classified in passing by the 236 lane so the package test can run at all. The guard predicate (pattern containment against the assembled page) is re-runnable, so a verifier is buildable — that decision stays with the RFC_015 lane"},
+	// decision_regression: GAP CLOSED 2026-08-10 by the RFC_015 lane, whose debt
+	// this was. VerifyDecisionRegressionResolved re-runs the guard predicate over
+	// the same stored assembly (both extracted into decisionGuardViolated /
+	// storedPageAssemblySQL so check and verifier cannot drift), fail-closed on
+	// anything it cannot evaluate. Removed from this map because the test rightly
+	// refuses to let a type be both verified and listed as an acknowledged gap.
+	// The 236 lane's classification note — which named the debt and left the
+	// decision here — is what made it findable; thank you.
 
 	// Produced OUTSIDE this package, by applyNewPage in apply_gap_plan_action.go
 	// (bugs_open/081, 2026-07-31), so neither half of this guard can see it yet:
@@ -600,6 +620,11 @@ var liveItemTypes = []string{
 	"capability_gap", "claims_unverified", "component_quality_scan",
 	"contact_form_undeliverable",
 	"content_rewrite", "cta_improvement", "cta_names_unknown_destination",
+	// dark_section_audit is listed from the moment it is minted (bugs_open/213), not
+	// at the next hand-refresh: the union rule means the ratchet protects it from
+	// day one, and a type that only appears here after someone remembers is the very
+	// gap the CORRECTED note in this file's header is about.
+	"dark_section_audit",
 	"dead_control", "deactivated_component", "directory_citation_unverified",
 	"empty_internal_href",
 	"empty_section", "evaluate_tools", "generic_theme",
