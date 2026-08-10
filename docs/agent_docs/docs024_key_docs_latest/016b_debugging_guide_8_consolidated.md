@@ -11637,3 +11637,41 @@ like) can trip a coordinator-level heuristic that has nothing to do with either 
 content — and the failure mode it produces (a different, TRIVIAL workflow silently
 substituted, reporting real success) is specifically designed to look like nothing went
 wrong. A `COMPLETED` status is not evidence the NAMED agent ran; check who actually ran.
+
+### Two caps in series on one pipeline, one of which records its own bite and one of which does not — so the SAME truncation is auditable at step B and invisible at step A (`bugs_open/242`, 2026-08-10)
+
+- **Shape:** a measurement step caps its input (`max_pages`), a downstream step caps its
+  output (`max_items`). Both fire on a real run. The downstream cap writes
+  `findings_capped: true` and `findings_dropped: 111` into `collected_data`, where any
+  reader sees them. The upstream cap computes `truncated` correctly, **logs** it at `Warn`,
+  returns it in the action's `Metadata` — and it is nowhere in `collected_data`, whose
+  stored value for that step is the response envelope only (`response`, `response_status`,
+  `response_received_at`).
+- **Why it survives review:** the upstream author *did* handle it. The source carries an
+  explicit comment ("when the cap bites the action says so in its result rather than
+  silently truncating — a truncated sweep that reports clean is a false green"), the
+  variable exists, the warning fires. **The intent is in the code and the evidence is not
+  in the artefact**, so a reader auditing the source concludes it is handled and a reader
+  auditing the run cannot tell it happened.
+- **The tell, and there isn't one:** `status: COMPLETED`, `error: NULL`, a summary saying
+  `pages: 25` with **no total to compare it to**. Both runs of a newly-scheduled rotation
+  were truncated (31→25 and 27→25 deployed pages) and neither said so.
+- **The check:** never read a cap's *result* count without asking what it was capped
+  against. Enumerate the keys of the stored step value rather than path-reading the ones
+  you expect — `SELECT jsonb_object_keys(collected_data->'<step>')` — because a path read
+  returns NULL identically for "false" and "the key was never stored". Then compare the
+  measured population to the real one (`count(*) … WHERE build_status='deployed'`).
+- **The reporting trap that rides along:** a count that survived a cap and a dedup is not a
+  measurement of the system. This bug's own filing session wrote "filed 34 findings" in
+  three documents when the sweep had found **171 firm**; `findings_capped` and
+  `findings_dropped` were siblings in the very JSON object already fetched, one key away
+  from `inserted`. **Read the siblings of any key you quote.**
+
+**The general form:** when a pipeline caps in more than one place, the caps are only as
+auditable as their *least* communicative link, and a cap that reports into logs rather than
+into the run record is functionally silent — pod logs age out in minutes to hours, the run
+record is what anyone reads a week later. Before trusting any "clean" or "complete" result
+from a capped pipeline, establish that the cap did not bite **from the stored artefact
+alone**; if you cannot, the result means "clean among what was examined", which is a
+different claim. A neighbouring step that reports its own truncation correctly is not
+reassurance — it is the proof that the parity is cheap and was simply not applied.
