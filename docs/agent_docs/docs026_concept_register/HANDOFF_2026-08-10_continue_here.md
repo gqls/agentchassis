@@ -1,5 +1,10 @@
 # HANDOFF — concept register — 2026-08-10
 
+> **SUPERSEDED 2026-08-10 evening by `HANDOFF_2026-08-10b_continue_here.md` — read that instead.**
+> Items 1 and 3 below are both DONE (the authoring gate OPP-006, and the staleness survey +
+> its worklist settled by BLD-019's build provenance). Item 2 is still owed. This file is kept
+> for its rate table and the reasoning that led to the gate.
+
 > **UPDATED 2026-08-10, later the same day — ITEM 1 IS DONE, and one figure below
 > is wrong.** The pre-commit gate is built, measured, registered (**OPP-006**) and
 > live in `.githooks/pre-commit`: commits `7db343ee7` (gate + entry + row),
