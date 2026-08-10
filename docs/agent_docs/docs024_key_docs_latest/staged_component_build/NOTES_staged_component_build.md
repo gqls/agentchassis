@@ -2497,3 +2497,36 @@ component's own contract.
 - The two tool-named subjects (vendor-trust, archetype-taster) each have a CURRENT
   `subject_type='tool'` PLAN as well; the component PLANs are additive (different partial-
   index slot) and cross-reference them so the contracts cannot drift unnoticed.
+
+## 2026-08-10 — batch 8 qualified, not started: the tools pool measured, the loancalculator design decision named, and a handoff cut on token load
+
+**State re-established:** fleet on **v1.0.1277** (rolled 21:35Z 08-09). None of batch 7's
+four gates moved overnight — ROI CSS unfixed, all four tracker feeds still 404, no CONTRIB
+reply, no 228 JS decision. Naming-contract check PASS (54 canonical / 25 testable / 13
+backlog / 0 BROKEN).
+
+**Batch 8 pool measured and probed** (17 active tool placements, no `subject_type='tool'`
+PLAN): **5 clean singles** (bayesian-ranking, grip-force-friction, llm-cost-calculator,
+matchmatrix, setup-builder — all 200, zero bad assets), **9 loancalculator.co.uk tools**,
+**2 gaswholesalers pages blocked** (logo 404, now 6+ days), and gas-unit-converter skipped
+as the known-broken tool.
+
+**The design decision worth recording before anyone authors blind:** the
+`loancalculator_couk` lane already maintains a golden-values harness over exactly the nine
+pages batch 8 would fence (`toolgolden.py --compare` vs
+`GOLDEN_2026-08-03b_after_orphan_retired.json`). Fences for those tools should take their
+`computed_values` FROM those goldens — one source of truth — and the lane should be asked
+in their dir before anything persists. Their B2-error-blob landmine (HTTP 200, no DOCTYPE)
+applies to every served fetch on that site.
+
+**A console-error asymmetry pinned down, because it decides which pages can hold a green
+baseline:** a 404'd `<img>` DOES log `Failed to load resource` as a console error (seen
+live on the vonc transient), while a favicon 404 does NOT (measured 08-09 with the 2-check
+probe). So gaswholesalers' missing logo blocks its tools' baselines; idea.uk's missing
+favicon blocks nothing.
+
+**Cut here on token load** — implementation of batch 8 goes to a fresh chat via
+`HANDOFF_2026-08-10_continue_here.md`, which carries the qualified table, the tool-specific
+instrument differences (subject_type extension to the generator; `tool_acceptance_run.sh`
+not the component dispatch; `computed_values` not regex for calculators), and the
+session-start checklist.
