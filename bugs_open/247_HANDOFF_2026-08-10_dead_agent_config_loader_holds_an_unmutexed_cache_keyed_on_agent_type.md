@@ -52,3 +52,24 @@ grep -rn "AgentConfigLoader\|processRequest\|configLoader" --include=*.go .
 ```
 Confirm the callers are still zero (this is a shared tree; another session may have wired
 it up since 2026-08-10) before removing anything.
+
+---
+
+## Appended 2026-08-10 — a second dead twin in the same class, found by the pre-commit pattern check
+
+`platform/messaging/processor.go` also carries **`selectWorkflowOLD`** (:1325) and
+**`processRequest`**, both with **zero callers**, and `selectWorkflowOLD` carries the
+*exact defect* `bugs_open/239` just fixed in its live sibling: the same
+parse-failure-skips-everything structure falling through to the consuming agent's own
+`DefaultConfig["workflow"]`.
+
+This is why the class is worth a bug rather than a shrug. The pattern check flagged
+`selectWorkflow` changed but `selectWorkflowOLD` not — correctly, and by the reasoning in
+016b §9 #26: *"if the change is a fix, the twin probably has the same defect"*. It does.
+The twin was left unfixed **deliberately**, because fixing dead code preserves the thing
+that makes it dangerous: a second, plausible-looking answer to "how does this chassis pick
+a workflow?", now with the fix applied so it looks *more* current, not less.
+
+**The remedy for all three (`AgentConfigLoader`, `processRequest`, `selectWorkflowOLD`) is
+the same: delete them**, with the caller-count grep re-run first on this shared tree.
+Whoever takes this should treat them as one task.
