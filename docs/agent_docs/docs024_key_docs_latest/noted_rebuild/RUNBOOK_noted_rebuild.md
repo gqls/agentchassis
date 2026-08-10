@@ -246,3 +246,37 @@ sudo -u postgres dropdb noted_restore_probe
 > backup prefix (it dials OUT, so it fits this box's no-inbound posture), and
 > issuing one is the owner's call. Do not let the first real user sign up before
 > this is resolved.
+
+### The restore drill
+
+```bash
+docs/agent_docs/docs024_key_docs_latest/noted_rebuild/box/restore-drill.sh [identity-path]
+```
+
+Quarterly, and after any change to the backup scripts. Seven steps: identity
+present and mode 600 → newest object (listed with `--versions` so a hide is
+visible) → download with an **admin** key → assert the `age-encryption.org`
+header → decrypt → assert a valid pg archive → restore and count rows.
+
+> **It deliberately does NOT fall back to the box's postgres.** The scenario
+> being rehearsed is *"the box is gone"*, so borrowing its database would
+> rehearse the one case that cannot happen. With no local postgres client it
+> spins up a throwaway `postgres:16` container instead; with neither, it FAILS
+> loudly rather than passing on weaker evidence.
+
+**Last run 2026-08-10 — DRILL PASSED**, entirely off the box: 4191 bytes down,
+age header confirmed, decrypted to 3991, `PostgreSQL custom database dump
+- v1.15-0`, restored in a container, 1 table / 1 row read back.
+
+> **NEGATIVE CONTROL, run the same day:** the drill with a freshly generated
+> decoy identity **fails at step 5** — `age: error: no identity matched any of
+> the recipients`. Step 5 is therefore a real check and not a formality. Re-run
+> this whenever the drill is changed: a decrypt step that has never refused a
+> wrong key has not been shown to be able to.
+
+> **⚠ The drill has NOT yet been run from the owner's stored copy of the
+> identity.** It currently reads `~/noted-backup-age-identity.txt` on the
+> operator workstation, which is the *only* copy in existence. The thing a drill
+> is for is the recovery path as it will really exist, and the step that fails in
+> a real recovery is always the key nobody could find. Re-run it against the
+> password-manager copy once that exists, then delete the workstation file.
