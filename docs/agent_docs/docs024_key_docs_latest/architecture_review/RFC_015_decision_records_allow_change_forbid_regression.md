@@ -206,12 +206,29 @@ and `220`'s declared list — but the submission's edit list omitted them, so a
 reviewer reading only the plan correctly concluded the obligation was half-done.
 **A reviewer can only object to what the submission shows.**
 
-**Still owed, and named by five seats independently:** a cited-edit control whose
-value DIFFERS from the stored one. The 08-09 control wrote a value equal to the
-existing one, so its empty commit cannot distinguish "the gate allowed the write"
-from "the gate ate the field updates". The `architecture` seat's condition is the
-right one: *run it before any second site is given decision rows.* Queued
-2026-08-10 as `rfc015-gate-control-differing-20260810`.
+**RESOLVED 2026-08-10, and it was the last piece of evidence owed:** the
+cited-edit control whose value DIFFERS from the stored one. Five seats named this
+independently, and the `architecture` seat set the right condition — run it before
+any second site is given decision rows.
+
+`rfc015-gate-control-differing-20260810` set `brief-explanation.eyebrow` from
+"How it works" to "How this works", citing D-001. Result, checked at each layer
+rather than at the item status:
+
+| layer | evidence |
+|---|---|
+| the gate | `success:true`, **no `skipped`**, **no `decision_gated`** — the citation was accepted |
+| the store | `content_data->>'eyebrow'` = "How this works" |
+| the artefact | vm-sites commit `bc1676204`, **1 addition / 1 deletion** — non-empty, unlike the 08-09 control — and the diff is exactly the eyebrow `<span>` |
+
+So a cited write **does** reach the artefact, and the earlier ambiguity (a dropped
+`field_updates` looks identical to a value-already-equal) is resolved in the right
+direction: the gate passes the inputs through untouched. `rfc015-gate-control-restore-20260810`
+then restored the original wording, also cited, exercising the path a second time.
+
+**Both directions of the citation gate are now proven at the artefact:** an
+uncited edit is refused with the decision named and terminates cleanly
+(`rfc015-gate-proof-2`, `skipped:true`), and a cited edit lands bytes.
 
 ## 6. Known limits, stated
 
