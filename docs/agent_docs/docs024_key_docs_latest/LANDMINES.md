@@ -8645,3 +8645,43 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **what makes it damage rather than untidiness:** all six sat at `build_status='needs_rebuild'` — precisely what `get_pages_to_build` selects on, whose only ownership filter is `COALESCE(rebuild_policy,'generic') <> 'owned'` — as a single verbatim `ported-page` row with the calculator inline, each with an open `page_rerender` item. The generic rebuild path had **already run at these pages**: on 2026-08-09 `needs_page:loans-compare-loans` and 19 siblings reached step `save_sections` and died there with *"page … is rebuild_policy=owned … Refusing to overwrite"*. That refusal is why the calculators still existed; 367 removed it for six of them. Fixed by `377_relock_six_verbatim_tool_pages_missed_by_367.sql`.
 - **source:** migration 377, 2026-08-10, loanandmortgagecalculator lane (`NOTES` 2026-08-10 evening; `HANDOFF_2026-08-10c_continue_here.md` §2b). Sibling reading: `MEMORY.md` "two checks blind the SAME way AGREE".
 - **added:** 2026-08-10, loanandmortgagecalculator_couk lane
+
+---
+
+## Editing a live agent's config CANNOT reach an in-flight orchestration — it carries its own snapshot
+
+- **footprint:** `agent_definitions.default_config` · `orchestration_states.workflow_plan` ·
+  any migration under `docs/agent_docs/sql_for_agents/` that edits a live agent's
+  workflow, prompt_template or step config
+- **fires when:** you are about to change a live agent's config and stop to ask
+  "is it safe while a run is in flight?" — or, the mirror image, when you edit a
+  prompt *because* a run is going wrong and expect it to take effect
+- **the tell:** **there is no tell in either direction, and the two errors are
+  opposite.** Guessing "unsafe" costs you a quiet window that on a tree this
+  many sessions share may never arrive — I nearly held a migration indefinitely
+  behind two concurrently-running councils. Guessing "safe to hot-fix" is worse:
+  the run finishes on the OLD text and the verdict looks like your fix did
+  nothing, so you go hunting for a second bug that does not exist
+- **the check:** ask the running orchestration what it is holding —
+  ```sql
+  SELECT orchestration_id,
+         (workflow_plan->'steps'-><step>->'config' ? 'prompt_template') AS carries_own_copy,
+         length(workflow_plan->'steps'-><step>->'config'->>'prompt_template')
+  FROM orchestration_states WHERE status NOT IN ('COMPLETED','FAILED','CANCELLED');
+  ```
+  Measured 2026-08-10 on two live council runs: both carried a full copy of every
+  seat template (4,530 chars for `review_mission`, matching the then-current row
+  exactly). **An orchestration executes from that captured plan.** So: config
+  edits are safe to apply at any time, AND they only affect orchestrations
+  created afterwards. Confirm empirically after the edit — calls logged *after*
+  migration 377 landed still began with the OLD prompt ordering, which is the
+  positive confirmation, not an anomaly
+- **the corollary that bites hardest:** "I fixed the prompt, why is it still
+  behaving the old way" during an active incident. It is not a caching problem
+  and not a stale pod — that run was committed to the old text the moment it
+  started. Cancel and re-dispatch, or wait it out
+- **source:** hit directly, `council_gate_cost` lane 2026-08-10 while applying
+  migration 377 (17 council seat templates) with two councils mid-chain. The
+  migration's original banner said "do not apply while a run is in flight"; that
+  was a guess, it was wrong, and the corrected banner now carries the query
+- **added:** 2026-08-10, council_gate_cost lane
