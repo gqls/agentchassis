@@ -103,10 +103,15 @@ was in the same window.** Fleet traffic is not demand. This is the trap that ate
 > `agent_definitions_backup` rows written by the two-arg `snapshot_agent`. Ledger row recorded via
 > `--record-only` with those checks in the note — a hand-applied file that is not recorded gets
 > replayed by the next session's `--apply`.
-> **Expected steady state now:** the live detector (running since `v1.0.1279`) warns on **one** step,
-> `content-reviewer.mark_page_needs_attention` (`notes_field`, `validation_issues_field`) — confirmed
-> still present. **That warning is the detector working, not a regression: do not silence it.** It is
-> the `create_work_item`/`spec` precedent, and those two keys encode an intent the action never had.
+> **Expected steady state now:** the live detector (running since `v1.0.1279`, still present on
+> `v1.0.1283`) warns on **one** step, `content-reviewer.mark_page_needs_attention` (`notes_field`,
+> `validation_issues_field`) — confirmed still present in config. **That warning is the detector
+> working, not a regression: do not silence it.** It is the `create_work_item`/`spec` precedent, and
+> those two keys encode an intent the action never had.
+> ⚠ **That "one warning" is a PREDICTION, not an observation, and it cannot currently be observed:**
+> `content-reviewer` has **0 runs** in the retained `orchestration_states` window, so the step has
+> not executed and the warning has had no opportunity to fire. Check demand before reading anything
+> into its absence — a silent log here means the agent did not run.
 > The section below is kept as the record of what the file does and why.
 
 ## JOB 2 — migration 356 ~~is written, verified, and DELIBERATELY NOT APPLIED~~ **APPLIED 2026-08-10**
