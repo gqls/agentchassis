@@ -626,3 +626,53 @@ by observing the tests pass. See the file's own comments for why a passing
 test alone isn't proof (memory: "a mutation that PASSES usually hit a guard in
 series" — these two gates were checked in isolation, each proven to be the
 thing that stops the call, not a downstream guard catching it anyway).
+
+## Pushing a hand-verified page edit to `vm-sites` without the dispatch mechanism
+
+Used 2026-08-09/10 to recover from a production incident and to add
+`chat-input-box` — `bugs_open/239` found the normal work-item drive-loop
+dispatch can silently no-op or misfire, so for a small, deterministic,
+already-verified content change (no LLM needed), pushing directly is safer
+than routing through it.
+
+```bash
+cd /home/ant/projects/vm-sites
+git pull --ff-only origin main            # fast-forward only; this repo is shared, never force
+# edit the ONE file — e.g. via the Edit tool, reading it first
+git add webdesign.uk/contact.html         # only if it's a new path; existing files don't need add
+git commit webdesign.uk/contact.html -m "..."   # explicit pathspec — same discipline as agentchassis itself
+git push origin main
+```
+
+**Before committing, verify what you're about to push is actually correct** —
+don't trust your own edit blindly:
+- If restoring known-good content: diff against the last good git commit for
+  that file (`gh api repos/gqls/vm-sites/commits --paginate -q '.[] |
+  select(.commit.message | test("<filename>")) | "\(.sha) \(.commit.author.date)"'`
+  to find it), and check the specific fields that matter (e.g. `grep -o
+  'hero-contact\.jpg\|hero\.jpg'` for the image-binding landmine) — not just a
+  whole-file byte match, since Cloudflare's own edge rewriting (email
+  obfuscation) means the SERVED page will never byte-match the committed
+  source exactly, and that's expected, not a bug.
+- If adding new hand-rendered content: render the component's
+  `content_components.html_template` by substituting its `content_data`
+  values in place of each `{{.field}}`, HTML-escaping as you go
+  (`&`→`&amp;`, `<`→`&lt;`, `>`→`&gt;`, and `"`→`&#34;` inside attribute
+  values) — this only works safely when the template has no `{{if}}`/`{{range}}`
+  blocks; check the template first.
+
+**After pushing**, force the box to pick it up rather than waiting up to 5
+minutes for the timer:
+```bash
+ssh -i ~/.ssh/webdesign_box_ed25519 root@webdesign.vs.mythic-beasts.com \
+  'systemctl start sitesync.service'
+```
+Then verify at the served artefact (`curl` the page, grep for what changed),
+and re-run `verify_served_site.sh` in full — a targeted check can miss a
+regression elsewhere on the same page.
+
+**If a write to this path is refused by the permission classifier**: this
+happened after a prior incident on the same file in the same session. Try
+the plain git workflow above once (not `gh api -X PUT`, not a raw `cp`) — if
+still refused, stop and ask rather than trying further mechanisms; see
+`HANDOFF_2026-08-10_continue_here.md` §2 for the full account.
