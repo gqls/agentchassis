@@ -1473,3 +1473,28 @@ header correction now records the intent better than six dead keys did — and t
 the correction visibly, plus the one-arg-snapshot fragility. A reader of `deploy_commit` should
 know NULL there means "never implemented", not "never deployed"; wiring it or dropping it is an
 owner call.
+
+### 356 APPLIED, same evening, after the owner said go ahead
+
+By hand and scoped to the one file — never `--apply`, which takes every pending file and would have
+swept the two other pending migrations sitting beside it (`259`, `260`, plus 356's own ROLLBACK
+sidecar, which the dry run listed). `UPDATE 7`, verify block passed, `COMMIT`, exit 0.
+
+**Verified at the artefacts rather than at the exit code**, because a migration reporting success is
+the same shape as one that silently no-opped: `commit_from` = **0** across all four workflow columns
+in any row state (the assertion the per-target loop cannot make); HITL `output_format` templates =
+**0**; all seven step configs still `object` with **0** sibling keys lost, each printed in full and
+read — that is the check that would catch a whole-config clobber, which removes the dead key too and
+would pass a removal-only test while destroying the step. **7** `agent_definitions_backup` rows,
+confirming the two-arg `snapshot_agent` behaved as read from `pg_proc` and did not create
+`is_snapshot` rows inside `agent_definitions` (which would have carried `commit_from` and aborted
+the file's own fleet-wide VERIFY — the deadlock the re-check identified).
+
+Recorded with `--record-only` and the checks in the note. **Recording is part of applying**: this
+file is fully guarded, so it probes as innocently pending for ever after a hand-apply, one scoped
+`--apply` away from a silent replay.
+
+**Steady state to expect:** the detector, live since `v1.0.1279`, now warns on exactly **one** step —
+`content-reviewer.mark_page_needs_attention`, confirmed still carrying `notes_field` and
+`validation_issues_field`. That warning is the mechanism working. Anyone who silences it by
+declaring the keys has broken the only thing this whole exercise bought.

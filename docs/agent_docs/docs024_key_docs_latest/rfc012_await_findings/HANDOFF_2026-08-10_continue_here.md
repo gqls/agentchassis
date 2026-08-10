@@ -94,7 +94,22 @@ The mutation matrix in the RUNBOOK shows which doors are reachable; `bugs_open/2
 ⚠ **Before quoting any count from `agent_error_log` again, ask what the DEMAND on that exact path
 was in the same window.** Fleet traffic is not demand. This is the trap that ate this measurement.
 
-## JOB 2 — migration 356 is written, verified, and DELIBERATELY NOT APPLIED
+> **JOB 2 IS DONE (2026-08-10, evening) — 356 is APPLIED and RECORDED.** The owner said go ahead.
+> Applied by hand, scoped to the one file (never `--apply`, which takes every pending file):
+> `UPDATE 7`, the `DO`/`RAISE` verify block passed, `COMMIT`, exit 0. **Verified at the artefacts,
+> not at the exit code:** `commit_from` = **0** rows fleet-wide across all four workflow columns in
+> any row state; the HITL `output_format` templates = **0**; all seven step configs still resolve to
+> objects with **0 sibling keys lost** (each one printed and eyeballed); **7**
+> `agent_definitions_backup` rows written by the two-arg `snapshot_agent`. Ledger row recorded via
+> `--record-only` with those checks in the note — a hand-applied file that is not recorded gets
+> replayed by the next session's `--apply`.
+> **Expected steady state now:** the live detector (running since `v1.0.1279`) warns on **one** step,
+> `content-reviewer.mark_page_needs_attention` (`notes_field`, `validation_issues_field`) — confirmed
+> still present. **That warning is the detector working, not a regression: do not silence it.** It is
+> the `create_work_item`/`spec` precedent, and those two keys encode an intent the action never had.
+> The section below is kept as the record of what the file does and why.
+
+## JOB 2 — migration 356 ~~is written, verified, and DELIBERATELY NOT APPLIED~~ **APPLIED 2026-08-10**
 
 `docs/agent_docs/sql_for_agents/356_retire_dead_config_keys_commit_from_and_hitl_output_format.sql`
 (+ `_ROLLBACK`). Strips `commit_from` from the 6 live agents that carry it and the dead

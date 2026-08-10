@@ -535,3 +535,27 @@ a green test read as "we fixed a live problem", because that is the third time o
 that our headline number has turned out to describe the past rather than the present. If there is
 one durable lesson from the whole thing, it is that one: **we are good at measuring, and we keep
 measuring a world that has already moved.**
+
+**2026-08-10, evening — the database change is applied, and that closes the lane.** You said go
+ahead, so I ran it by hand rather than letting the bulk tool loose (that tool takes every pending
+change, including two belonging to other people, which is why nobody should use it casually).
+Seven configuration entries removed, and I checked the result rather than trusting the "success"
+message: the keys are gone everywhere, all seven steps are still intact with none of their real
+settings disturbed, and seven backup copies were taken first. It is written into the ledger so
+nobody re-runs it.
+
+One thing you will now see and should **not** treat as a fault: the new detector will keep flagging
+a single step on the content-reviewer agent. Those two settings are dead too, but unlike the ones I
+removed they record something somebody once wanted the system to do — note *why* a page was flagged
+for attention — which it has never done and has nowhere to store. Deleting them would erase the only
+trace of that intention; implementing them is a change of behaviour, not a tidy-up. So they stay,
+and the warning is the alarm doing its job. If a future session "fixes" that warning by declaring
+the keys, they will have thrown away the one thing this whole exercise bought.
+
+There is a related loose end I turned up while re-checking, worth a minute of your time some day:
+the database has a column called `deploy_commit` on page components, meant to record which git
+commit deployed a page. Nothing has ever written to it — all 1,329 rows are empty. The dead setting
+I just removed was the other half of that same unbuilt feature. So if anyone ever looks at that
+column and concludes pages were never deployed, they will be wrong: it means the feature was never
+finished. Wiring it up or dropping the column is your call, and it is noted where the work would
+start.
