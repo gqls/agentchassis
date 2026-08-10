@@ -150,3 +150,28 @@ an `agent-tool-acceptance-agent-*` pod, `complete` not `complete_no_look`, and t
 first-ever `llm_call_log` rows from the vision step). A manual run cannot prove it — it
 exercises the inline path this fix deliberately does not touch. Candidates 2 (manual
 path) and 3 (make the loss visible) remain undecided.
+
+## UPDATE 2026-08-10 (later) — council verdict: APPROVED, round 1, and both advisory objections answered by query
+
+`5eb4ad58` returned **APPROVED** ("2 advisory objection(s) — none high-severity"; 11 seats
+reviewed, 6 abstained, no truncation gating). The commit already carries
+`Council-Submitted:`, which 098 resolves to this approval at report time — no further
+trailer action (forward-only forbids the amend anyway).
+
+Both objections asked for the same discipline — scope claims confirmed by query, not
+prose — and both were run immediately (2026-08-10 evening):
+
+1. **prior_art_librarian (medium): the two-active-rows trap** — could `category='tools'`
+   have been read from a stale lower version? **No**: `agent_definitions` holds exactly
+   ONE row for `tool-acceptance-agent` (version 1, category `tools`, active, not
+   snapshot, not deleted, config references `execute_vision_prompt`).
+2. **guardian (medium): the only-consumer claim** — re-measured with NO liveness filter:
+   across all rows in any state (deleted/snapshot included), `tool-acceptance-agent` is
+   the only type whose `default_config` mentions `execute_vision_prompt`. The fix
+   under-covers nothing.
+
+The guardian also put on record (low) that this is another touch to `spawn_actions.go`
+under the stability preference — noted, and the reason the edit stayed a pure allow-list
+append.
+
+**Still OPEN**: awaiting the next chassis roll, then the SPAWNED-run proof (§ above).
