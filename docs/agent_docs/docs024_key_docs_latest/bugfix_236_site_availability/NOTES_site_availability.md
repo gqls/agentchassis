@@ -149,3 +149,20 @@
 - **The Anthropic cap (`bugs_open/243`) does not touch this lane.** The
   availability agent has no LLM steps — it is currently one of the few discovery
   paths in the fleet that still functions. The council round is still owed.
+
+## 2026-08-10 22:15Z — cadence CONFIRMED, and a near-miss on my own measurement
+
+- **Three ticks observed, one site each: 22:03:46, ~22:09:4x, 22:14:46.** Exactly
+  the designed `LIMIT 1` per 300s, so the ~105-minute cold-start drain for 21
+  sites is measured now, not predicted. The read-only form of the pre_query's
+  `due` set returns the expected queue (loancalculator.co.uk, cookly.uk, idea.uk,
+  … — unstamped sites sort first). 0 `site_unreachable` items so far, correct.
+- **NEAR-MISS, caught before it reached any file: I nearly recorded "the rotation
+  has stalled — 1 site in 17 minutes".** It had not. I read `date -u` once at
+  22:01Z, then estimated the later wall-clock from how much work I had done in
+  between, and was eight minutes out; the DB's own `now()` said 22:09, i.e. the
+  second tick was not yet due. **The cheap check is to put `now()` in the same
+  SELECT as the timestamps you are judging** — which is what the query above does
+  and what settled it. An elapsed-time claim assembled from memory is an
+  `[UNMEASURED]` figure wearing a measured one's clothes, and it would have sent
+  the next session hunting a scheduler bug that does not exist.
