@@ -27336,3 +27336,67 @@ exactly this reader: *"An empty cohort has nothing to lose … a new class appea
 first time must never be able to refuse a prune."* The real exposure is the reverse case (an
 **old** binary against a DB that already holds the new rows). I had marked it `[UNMEASURED]`,
 which is why it cost nothing — the marker worked where the re-labelling in step 2 did not.
+
+---
+
+## 2026-08-10 (later) — `bugfix_214`: I chose a "safe" site for a live test and queued 41 items of paid work behind it
+
+**The claim I acted on.** To exercise a write-path fix in production I needed a real plan
+write. I deliberately avoided replanning a customer site and dispatched
+`build-site-planner` at two **pool** sites instead (`status='pool'`, nothing serves them,
+0 pages, 0 plans). I reasoned — correctly, as far as it went — that nothing is served, so
+nothing can be damaged.
+
+**What I missed: the plan write is the FRONT of a pipeline, not the end of one.** Each run
+queued the site's whole build backlog:
+
+```
+pool-ai-agents.internal        19 open items (10 needs_imagery, 4 needs_page, ...)
+pool-energy-utilities.internal 22 open items (14 needs_imagery, 5 needs_page, ...)
+```
+
+**24 `needs_imagery` items, each of which triggers a paid image generation**, plus page
+builds — on two sites nobody will ever look at. By the time I checked, a dispatch loop had
+already `claimed` one `needs_page`.
+
+**What caught it.** Not a review — a suspicion about a *different* thing. I went to check
+whether my induction had corrupted the R1 census I had just told everyone to use (pool
+sites have no `pages` rows, so their imagery refs should have read as "invisible"). The
+census was clean, but the query I wrote to explain *why* listed the sites' row counts, and
+the work-item column was sitting next to it. **I found the 41 items while checking that I
+had not broken a measurement, not while checking that I had not spent money.**
+
+**The cheap check, and it costs one query:** after ANY induced dispatch, before walking
+away —
+
+```sql
+SELECT item_type, status, count(*) FROM site_work_items
+ WHERE site_id = '<the site you poked>'
+   AND status NOT IN ('complete','cancelled','rejected') GROUP BY 1,2;
+```
+
+**Generalised: "nothing serves this site" is not the same as "nothing happens".** Safety at
+the *artefact* (no visitor sees it) says nothing about cost at the *queue*. When you induce
+a run to observe one step, you have started every step downstream of it — and on this
+platform the downstream steps spend real money. The blast radius of a test is the pipeline
+it entered, not the row it wrote.
+
+**Cost.** Low in the event, because nothing had generated yet — but the exposure was 24
+image generations, and one build was already claimed. Had I written up the result and moved
+on, both pool sites would have been fully built overnight.
+
+**Fixed by:** cancelling all 41 in one transaction with a `DO`/`RAISE` guard asserting 0
+remaining (`UPDATE 41`, notice fired), then re-checking the census rather than assuming the
+cleanup had not moved it (still 1). Plans and undeployed pages left deliberately: they are
+inert, and the planner's own `sync_pages` step created matching `pages` rows, so their refs
+resolve and they do not pollute the census. Recorded in the lane's NOTES and HANDOFF.
+
+**Second, in the same session — I nearly recorded a non-discriminating run as proof.** Both
+induced runs returned `imagery_refs_canonicalised: 0`, and my first instinct was to write
+"live, no orphans". But the planner had emitted only `content`-role pages, which
+`CanonicalisePage` does not rename — **so the fix had nothing to do, and that zero would
+have been zero on the old binary too.** It is evidence of no regression and of the code
+path executing; it is not evidence the rewrite works. Caught by asking the standing
+question — *what result would have disconfirmed this?* — before writing the claim rather
+than after. The lane's docs now say plainly that the rewrite arm is unobserved in
+production and name the condition that would close it.
