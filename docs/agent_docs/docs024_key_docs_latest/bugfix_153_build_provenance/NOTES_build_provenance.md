@@ -185,3 +185,66 @@ four: **0** without the flag.
    the blocking item and it is not mine to take.
 2. **The whole-fleet release**, then pod verification and the induced-fault test (RUNBOOK R4–R6).
 3. Whatever the decision implies — a revert-and-re-land, an architecture RFC, or nothing.
+
+## 2026-08-10 (night) — LIVE on v1.0.1283. 14/14. And the probe fooled me twice.
+
+**The roll landed and the close condition is met.** Every backend service carries
+`d3c09cc746e563b6339831cfb69576eb52135c43`. That sha resolves to a real commit whose tree
+holds `pkg/buildinfo` + 14/14 stamped dockerfiles + 14/14 importing mains, and it contains the
+editquality fix. Before this roll: **0 on every service, for the platform's entire life.**
+
+Controls on `agent-chassis` (both replicas): real sha **3**, fabricated **0**, **a real but
+different commit (current HEAD) 0**, positive control `orchestration` **8562**. That third row
+is the load-bearing one — it proves the stamp is *specific*, not merely "a sha is present".
+The startup log agrees independently:
+`{"msg":"build provenance","git_commit":"d3c09cc746e5…"}`.
+
+### The mechanism paid for itself the same evening, in another lane
+
+Commit `ebaac39c0` (concept-register staleness survey) used the stamp to settle **19
+roll-blocked register entries** — `git merge-base --is-ancestor <entry's commit> d3c09cc74`
+answers exactly what previously needed a hand-picked marker hunt per entry. All 19 came back
+IN. Their own caveat is the right one: **the stamp only settles an entry that NAMES a commit**,
+and 13 of 29 surveyed entries name none.
+
+### MISSTEP 3 — I nearly published my broken probe as the mechanism's first catch
+
+13 services stamped, `browser-runner-adapter` apparently not. The satisfying conclusion —
+*"it caught a stale binary on day one"* — was wrong. That service is the fleet's only
+**debian-slim** image (Chromium needs glibc); debian-slim ships **no binutils**, so `strings`
+is command-not-found, and the `2>/dev/null` every published pod-grep recipe carries turned that
+into a clean `0`.
+
+**What caught it was a contradiction, not diligence:** the pod's `imageID` digest *matched* the
+local image's `RepoDigest`, so the image could not be stale. Extracting the binary from that
+image showed the stamp present.
+
+**And the fix for it was wrong in the same direction.** Replacing `strings` with
+`grep -aoE "[0-9a-f]{40}"` to *discover* the sha also discards `strings`' line boundaries, so
+`^`/`$` stop meaning anything and the match lands in Go's internal digit table — every service
+returned `0001020304050607…`, identically, no error. Caught only because I tested the fix
+against a known-good service instead of trusting it.
+
+**Settled form:** `grep -aq "<expected-sha>" /proc/1/exe` — no binutils, any image base, any
+binary path (which also retires the `/app/x` vs `/root/x` vs `/x` guessing, and `ls` on
+`git-adapter` fails on *permissions*, a second false "not there"). **Verify a known value;
+never discover one.** In `LANDMINES.md` and `WRONG_CALLS.md`.
+
+> **Three confidently-wrong readings in one day, all the same shape**: the jsonb `provider`
+> path (0 rows, wrong path), the dismissed grep hits (non-empty result read as empty), and this
+> (`strings` absent). Each was an instrument answering a different question than the one asked,
+> in the believable direction. The common defence is the one I applied to `agent-chassis` and
+> then dropped as the list got long: **a control in the same breath as the measurement.**
+
+### Council + owner
+
+Round 1 REJECTED — guardian veto on **scope**, not soundness (`bug_historian` and `reuse_agent`
+both approved). Put to the owner per the 2026-07-28 ruling; **owner chose option 1: the code
+stands as committed.** Same call as `bugs_closed/124`, eleven days apart. **Live and proven ≠
+approved** — no `Council-Reviewed:` trailer exists or may be added.
+
+### Owed
+
+1. **Induced-fault test (RUNBOOK R6)** — the only proof that covers a *dishonest* roll.
+2. Two CronJob images labelled but unstamped by design.
+3. Candidates 2/3 unbuilt on purpose — this detects, it does not refuse.
