@@ -20,29 +20,69 @@ loader — is sitting at origin, ready. This is not a new defect; it's the
 same gap flagged in `b` §1's second row, except now confirmed to actually
 break the visible experience rather than being a hedge in a state table.
 
-## 1. What to do next
+> **RESOLVED + SUPERSEDED IN PART, same day — read §1a.** The cache issue
+> below is CONFIRMED (with better evidence than was available when this was
+> written) and has since CLEARED on its own. A second, unrelated blocker was
+> found underneath it and is now the only thing standing in the way.
 
-1. **Check the cache age before anything else**:
-   `curl -sI https://preview.webdesign.uk/assets/js/snippets.js -H "Host: preview.webdesign.uk" | grep -i "cf-cache\|age:"`
-   If `age` ≥ 14400 or `cf-cache-status` is no longer `HIT`, the cache has
-   cleared — go straight to step 2. As of this handoff (check made
-   2026-08-10, late session) `age: 5621`, so roughly **146 minutes**
-   remaining from that check, less whatever's elapsed since.
-2. **Confirm the chat box actually works for a real visitor** — not a
-   cache-busted curl, an actual browser load of
-   `https://preview.webdesign.uk/contact.html` with no cache-busting query
-   param, submit a real message, confirm a reply streams in. This is the
-   check that was skipped before telling the owner it worked — don't skip
-   it again.
-3. **If the owner wants it fixed sooner than the wait**: the only lever
-   this session found is a manual Cloudflare dashboard cache purge for
-   `webdesign.uk` — the API token available here (`~/.config/cloudflare/token`)
-   does not carry Cache Purge permission (confirmed twice now, don't
-   re-check it, just tell the owner). This was surfaced to the owner in
-   `README_where_we_are.md`'s latest entry — read that before saying
-   anything that contradicts it.
-4. Once 2 passes clean, resume `b` §2's original next steps: owner review
-   of the whole thing, then Phase 6 cutover.
+## 1a. CURRENT STATE (2026-08-10, late) — one blocker, and it is the owner's
+
+**The cache half is done.** Proven, then self-resolved:
+- Proof it was the cause: nginx on the box logged exactly **two** POSTs to
+  `/api/chat` all day (12:54, 16:18 — both this session's tests). The
+  owner's ~14:08 attempt is **absent entirely** — the submit never left the
+  browser. (The app's own `requests.jsonl` could NOT have proven this; its
+  silence is equally consistent with "never arrived" and "arrived, wasn't
+  logged". Check the layer in front.)
+- Proof it cleared: `etag` `"6a77af00-188c"` → `"6a79c880-226a"`,
+  `cf-cache-status: EXPIRED`, and the loader now greps out of the
+  **un-cache-busted** URL. All six selectors present in served
+  `contact.html`; `<script src="/assets/js/snippets.js">` referenced.
+  Client half fully proven — **do not re-litigate it.**
+
+**The remaining blocker is an Anthropic account spend cap.** A real POST
+returns 200 with the fail-closed `contactLine` body. Cause, verbatim from
+`journalctl -u webdesign-chat`:
+
+    anthropic 400: "You have reached your specified API usage limits.
+    You will regain access on 2026-09-01 at 00:00 UTC."
+
+Ruled out by measurement, so don't re-diagnose these: our own daily ceiling
+(`$10.00` vs measured spend `$0.000922` today — 4 orders of magnitude
+clear); the turn cap (failing call was turn 1 of a fresh conversation, cap
+is 20); the service being down (`active`, `/health` ok, and an identical
+call **succeeded at 12:54 the same day**). Total lifetime spend by this
+service is **under one third of a US cent across 5 requests** — whatever
+consumed the account allowance, it was not this. [UNMEASURED] what did —
+no visibility into the Anthropic account from here.
+
+**Owner action, and nothing else will do**: raise/remove the usage limit in
+the Anthropic Console. It is an account setting, not a value on the box or
+in any config file here — no redeploy, rebuild or restart is needed once
+it's raised. Surfaced to the owner in `README_where_we_are.md`.
+
+**Do not "fix" the fallback in code.** It firing is the Phase-4 safety
+control working correctly, for the first time for a real upstream reason.
+One open copy question flagged for the owner (not changed unilaterally):
+the fallback opens "Thanks for your patience", which undersells a
+potentially three-week outage.
+
+## 1. What to do next — ORIGINAL text, kept for the record; steps 1–3 are DONE
+
+1. ~~**Check the cache age before anything else**~~ — DONE, cleared, see §1a.
+2. ~~**Confirm the chat box actually works for a real visitor**~~ — the
+   client half is proven (§1a). The end-to-end reply still cannot be
+   demonstrated until the Anthropic limit is lifted; **that** is now the
+   thing to re-check after the owner acts, and it is a one-command check:
+   `curl -s -X POST https://preview.webdesign.uk/api/chat -H 'Content-Type: application/json' -d '{"conversation_id":"","message":"how much does a website cost?"}'`
+   — a real answer means done; the "Please reach us directly" line means the
+   limit is still in force.
+3. ~~**If the owner wants it fixed sooner**~~ — moot, the cache expired
+   naturally. (The CF token still has no Cache Purge permission; that
+   remains true and is worth knowing for the next `.js` change.)
+4. Once the Anthropic limit is lifted and step 2 passes, resume `b` §2's
+   original next steps: owner review of the whole thing, then Phase 6
+   cutover.
 
 ## 2. Everything else — unchanged from `b`
 

@@ -1072,3 +1072,47 @@ want it fixed right now rather than waiting, you (or whoever has
 Cloudflare dashboard access) can manually purge the cache for
 `webdesign.uk` — the API token I have doesn't carry that permission, so I
 can't do it from here.
+
+Follow-up on that, and it turns out there were two separate things wrong,
+not one.
+
+The cache thing was right, and I can now prove it rather than just assert
+it. The web server on the box keeps its own log of every request that
+reaches it, and for the whole of today there are exactly two chat
+submissions in it — both mine, at 12:54 and 16:18. Yours, at around ten
+past two, isn't there at all. Not as a failure, not as an error — it
+simply never arrived. That's the signature of exactly what I described:
+your browser had the old file, so the "send" button had nothing attached
+to it and quietly did nothing. That cache has now expired on its own and
+the correct file is being served, so that particular problem is gone.
+
+But underneath it there was a second, completely unrelated problem, and
+I'd have missed it if I'd taken the cache clearing as the end of the
+story. I sent a real message through myself just now and got back the
+"please contact us directly" message rather than a proper reply. The
+reason is in the box's logs: **the Anthropic account the chat runs on has
+hit a spending limit**, and the error says access comes back on the 1st of
+September.
+
+Two things worth saying about that. First, it isn't the chat box's doing —
+this thing has cost well under a penny in its entire life, five messages
+total, and our own safety ceiling is set at ten dollars a day, so it's
+nowhere near anything I control. Whatever used up the account's allowance,
+it wasn't this. Second, the fact that it answered with your phone number
+and email instead of an error or a hang is the safety net working as
+designed. That was the whole point of building it that way — if the AI
+isn't available for any reason, the visitor still gets a real way to reach
+you rather than a broken page.
+
+**This one needs you**: it's a limit set on the Anthropic account itself,
+which I can't change from here. If you raise or remove the usage limit in
+the Anthropic console, the chat box will start working properly
+immediately — nothing else needs redeploying or rebuilding. Until then
+it's live and politely handing everyone your email and phone number.
+
+One small thing I've deliberately not changed on my own: while the limit
+is in force, that fallback message opens with "Thanks for your patience",
+which hints at a short wait. If the limit really does run to September,
+that's three weeks and the wording slightly oversells it. It's
+customer-facing copy so I'd rather you decide, same as we did with the
+deposit wording.

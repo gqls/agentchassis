@@ -2132,3 +2132,82 @@ Purge permission on the CF token (confirmed last session), so there is no
 faster path than waiting, short of asking the owner to purge it manually
 from the Cloudflare dashboard (untried — worth suggesting to the owner as
 the one lever this session doesn't have).
+
+## 2026-08-10 (later) — cache CONFIRMED then CLEARED; and a second, unrelated blocker found underneath it
+
+**The cache diagnosis is now proven, not inferred.** The decisive evidence
+is an ABSENCE measured at the right layer: nginx's own access log on the box
+records exactly **two** POSTs to `/api/chat` for the whole of today —
+`12:54:08` and `16:18:21`, both from this session's own tests. The owner
+tested at ~14:08 (screenshot timestamp). There is **no request at that time
+at all** — not a failed one, not a 4xx, nothing. The submit never left the
+browser, because the cached bundle carried no loader to bind to the form.
+Checking the app's own request log would NOT have been sufficient here (it
+only sees what the app was reached by); nginx is the layer that can prove
+the request never arrived.
+
+> **A note on the check that mattered:** the first instinct was to look at
+> the chat service's `requests.jsonl`. That file's silence is ambiguous — it
+> is equally consistent with "no request arrived" and "the app never logged
+> it". Only the layer *in front* (nginx) distinguishes those. Same class as
+> the standing lesson about proving an absence: pick the layer that would
+> have recorded the thing you claim did not happen.
+
+**Cache is now clear**, verified at the artefact: `etag` moved
+`"6a77af00-188c"` → `"6a79c880-226a"`, `cf-cache-status: EXPIRED` (i.e.
+revalidated against origin), and `grep -c chat-input-box-loader` against the
+**un-cache-busted** URL now returns 1. All six selectors the loader needs
+(`data-component="chat-input-box"`, `data-chat-form`, `data-chat-transcript`,
+`data-chat-status`, `input[name=message]`, `button[type=submit]`) are
+present in the served `contact.html`, and `<script src="/assets/js/snippets.js">`
+is referenced. The client half of the chain is fully proven.
+
+**But a second, unrelated blocker was sitting underneath it, and would have
+been missed if the cache clearing had been treated as "done".** A real POST
+now returns HTTP 200 with the **fail-closed** body:
+
+    Thanks for your patience. Please reach us directly:
+    webdesign@contactforsales.com or +44 (0) 7934 524 911
+
+That is `contactLine` — the designed graceful degradation. `journalctl -u
+webdesign-chat` gives the cause verbatim:
+
+    anthropic 400: {"type":"error","error":{"type":"invalid_request_error",
+    "message":"You have reached your specified API usage limits.
+    You will regain access on 2026-09-01 at 00:00 UTC."}}
+
+**This is an Anthropic ACCOUNT-side spend cap, not our own ceiling, and not
+a code defect.** Ruled out by measurement, not assumption:
+- Our own ledger: `daily_spend_usd` = `{"2026-08-09": 0.001646,
+  "2026-08-10": 0.000922}` against a `$10.00` ceiling — three orders of
+  magnitude below it. Our gate cannot be what fired.
+- Turn cap ruled out structurally: the failing call was turn 1 of a brand-new
+  conversation (`conversation_id:""`), and the cap is `>= 20`.
+- The service is `active`, `/health` returns `{"status":"ok"}`, and an
+  identical call at **12:54 today succeeded** (103 output tokens, real reply
+  about the £75 deposit). So the limit was hit somewhere between 12:54 and
+  16:18 today.
+- **Total spend by this service across its entire life is under one third of
+  one US cent** (5 requests ever). Whatever consumed the account's limit, it
+  was not the chat service. [UNMEASURED] what did consume it — I have no
+  visibility into the Anthropic account/workspace from here, and did not
+  guess.
+
+**The fail-closed behaviour is working exactly as designed** — this is the
+control that Phase 4 mutation-tested, doing its job: an unavailable model
+degrades to real human contact details rather than an error or a hang. Worth
+recording as the first time it has fired for a *real* upstream reason rather
+than in a test.
+
+**Owner action required, and it is the only thing now standing between the
+chat box and working end-to-end**: raise or remove the usage limit on the
+Anthropic key/workspace this box uses (Anthropic Console → Usage limits).
+Nothing on this side can be done about it — it is an account setting, not a
+config value on the box. Until then the box is live and answers everyone
+with the contact-details fallback.
+
+⚠ **Wording worth a second look while the limit is in force**: the fallback
+opens "Thanks for your patience", which implies a wait that will end shortly.
+If the limit genuinely runs to 2026-09-01 that is three weeks, and the line
+slightly oversells. Not changed unilaterally — it is customer-facing copy and
+the deposit-copy precedent this week says these get owner sign-off.
