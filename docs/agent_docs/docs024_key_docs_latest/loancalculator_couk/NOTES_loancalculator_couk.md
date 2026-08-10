@@ -4697,3 +4697,55 @@ Misstep logged: my page_canonical.go edit sat briefly on the shared tree referen
 undefined helper (plan-mode interruption mid-edit) — the tree did not compile for that
 package until this session resumed. The check that would have caught it sooner: go build
 the package in the same turn as ANY code edit, before yielding.
+
+## 2026-08-10 evening — the cap lifted, and the escalated arm closed on the first run
+
+Two things had changed since the afternoon: the Anthropic cap was gone (successes resume at
+**18:00Z**; the outage ran 14:51:45 → ~17:0xZ, ~5 failures in it, which is why the sizing rule
+is *absence of success*, not error count), and the fleet had rolled to **v1.0.1283**.
+
+**Re-verified before firing anything, because a roll is not evidence either way:** 345's
+chain (`load_schema_hint → load_brief`), 363's rewire (`compose → review_journeys`,
+`check_approved.then → persist_plan → complete`), 370's strings (0 stale claims) and
+`max_rounds = 5` — all intact at the new tag. Third confirmation now that a config-only fix
+survives a rebuild.
+
+### The run — corr `c4127fe7-b6b0-4c44-9e26-fd869a09a873`
+
+Pre-flight: 0 planner runs in flight, pods 19 minutes old (past the ~300s spawn window), brief
+still seeded, baseline **1** row (`6ebe06f5`, 7,661 b, `is_current`). Capped `max_rounds` 5 → 1,
+armed the 25-minute restore, fired the same key.
+
+| time (UTC) | step | rows | is_current |
+|---|---|---|---|
+| 22:06:37 | `compose` **succeeds, 10,498 b** | 1 | 6ebe06f5 |
+| 22:07:04 | `EXECUTING_STEP @ review_journeys` | 1 | 6ebe06f5 |
+| 22:07–22:09 | all five seats, all successful | 1 | 6ebe06f5 |
+| 22:09:26 | council: `rejected` / `veto from feasibility` / `should_reframe=false` / round 1 | 1 | 6ebe06f5 |
+| 22:09:54 | **`COMPLETED @ complete_escalated`** | **1** | **6ebe06f5** |
+
+`updated_at` on that surviving row is still **14:45:54** — it was not superseded, not touched.
+No `__step_error`. `collected_data->'proposal'->>'result'` still held **10,498 b** at the end.
+
+**Why this one discriminates where the 14:51 attempt did not: a write was POSSIBLE.** The
+plan existed, in the field persist reads, at the moment the run took the escalation branch —
+and no row appeared. Under the old graph that 10,498 b vetoed plan is persisted at ~22:07,
+supersedes `6ebe06f5`, and the run ends escalated with a council-vetoed document as the plan
+of record. That is the defect, and it is gone.
+
+The `10,498 b` is the load-bearing figure, not the `rows=1`. I wrote the row count into the
+poll loop this morning and it was inert twice; here it only means something *because* the
+composed plan is non-empty. **The negative control has to be inside the observation, not in a
+sentence next to it.**
+
+Restored `max_rounds` to 5 and read it back from the live row; stopped the safety net.
+
+### Cleanup
+
+- Probe brief `5730bcf3` **deleted** — its job is done and the fixture SQL is committed, so it
+  is reproducible without leaving a fabricated brief in `doc_notes` for a future reader to find.
+- Probe plan `6ebe06f5` **demoted, not deleted** (`is_current=false`, reason in `notes`): it is
+  the evidence for the veto arm — its 7,661 b is what proved persist reads the *latest*
+  composition. `live-lender-approval-race` now has 0 current plans.
+- Intake row cancelled again (the trigger re-inserts one per fire; the previous cancel does not
+  block a new row, so this needs doing after every probe).

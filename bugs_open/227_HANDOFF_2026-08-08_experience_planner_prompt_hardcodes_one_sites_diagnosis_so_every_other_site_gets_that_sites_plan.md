@@ -159,7 +159,13 @@ it. **That is a one-off cleanup, not a fix.**
 > the point where the old graph had already persisted), still 0 across the veto and the whole
 > reframe round, and reached 1 only after `check_approved` routed to persist on round 2. Under
 > the old graph that same run writes TWO rows, the first of them the vetoed one, `is_current`.
-> **Still not observed:** a run that ENDS non-approved leaving no row — see "How to verify".
+>
+> **AND THE OTHER ARM TOO, 22:09Z, corr `c4127fe7-b6b0-4c44-9e26-fd869a09a873`:** a healthy run
+> whose `compose` produced a real 10,498 b plan was vetoed by feasibility and ended
+> `complete_escalated` — and `doc_plans` for the subject kept exactly one row, the earlier
+> approved one, `updated_at` unchanged. A plan existed, a write was possible, no write
+> happened. **Both arms observed; see "How to verify a fix" for the method and for the
+> attempt that looked like a pass and was not one.**
 
 ## Fix candidates, ordered by what closes the door
 
@@ -252,23 +258,55 @@ Candidate 1 is the real fix; 3 is independent and cheap.
   assumption on compose+recompose only; had `reframe` written its own field, moving the write
   later would have persisted the **vetoed** draft on approval.
 
-- **ARM 2 — a run that ENDS non-approved leaves NO row. STILL OWED, and harder than it looks.**
+- **ARM 2 — a run that ENDS non-approved leaves NO row. OBSERVED 2026-08-10 22:09Z**, corr
+  `c4127fe7-b6b0-4c44-9e26-fd869a09a873`, chassis v1.0.1283. Method below (cap the council to
+  one round). The run was **healthy end to end** — six successful LLM calls, no
+  `__step_error` — and `compose` produced a real **10,498 b** plan, which
+  `collected_data->'proposal'->>'result'` still held at the moment it ended. The council
+  returned `rejected` / `veto from feasibility`, `should_reframe: false`, and the run ended
+  **`complete_escalated`**. `doc_plans` for that subject: **still exactly one row**, the
+  earlier approved one, `created_at` AND `updated_at` both unchanged at 14:45:54 — not
+  superseded, not touched.
+
+  **That is the whole claim, and the negative control is inside it:** a plan existed, a write
+  was possible, and no write happened. Under the old graph the 10,498 b vetoed plan is
+  persisted at ~22:07 as `is_current`, superseding the previous plan of record, and the run
+  then ends escalated with a council-vetoed document as the plan of record — the defect
+  reported at the top of this section, verbatim.
+
+  ⚠ **Both non-approved verdicts land here, so the check covers the whole branch:** at
+  `max_rounds=1`, `rejected` routes `check_reframe → complete_escalated` (should_reframe
+  false) and `revise` becomes `exhausted` and routes `check_revise → complete_escalated`.
+
+- **~~STILL OWED~~ — HOW THIS ARM WAS FORCED, because it will not happen on its own.**
   A veto is **not terminal by design**: `reframe`'s prompt tells it to demote the vetoed
   feature to a coming-soon label — "that is an acceptable honest MVP" — and
   `applyCouncilCaps` (`diagnose_council_decide_action.go:663`) only escalates on a **second**
   rejection. So "wait for a natural veto" cannot deliver this arm. What can: set
   `council_decide.config.max_rounds` to 1 (any non-approved round-1 verdict then routes
   straight to `complete_escalated`), fire an unbuildable experience, assert no new row, and
-  **restore `max_rounds` to 5**. Attempted 2026-08-10 14:51Z; the run died at `compose` on a
-  fleet-wide Anthropic usage cap before it reached the council, so the arm is still open.
-  ⚠ **That failed run reads as a pass and is not one** — `complete_refused`, no new row, plan
-  of record unchanged. But `compose` never returned, so the old graph writes nothing either.
-  Read `collected_data->'__step_error'`: a failed step still shows `COMPLETED` with `error`
-  NULL.
-  **[INFERRED, not observed]** meanwhile: no non-approved terminal can reach a write, because
-  `check_approved.config.then_step` is the only step-target reference to `persist_plan` in the
-  live row (scan the target fields, not `default_config::text` — migration 370 put the words
-  into two descriptions, so the raw literal count is 3 and means nothing).
+  **restore `max_rounds` to 5** — reading it back from the live row, not assuming the UPDATE
+  landed. It is a shared row: arm the restore before you fire and keep the window to one run.
+  Full recipe: `docs024_key_docs_latest/loancalculator_couk/RUNBOOK_loancalculator_couk.md`
+  §"Observing a COUNCIL-VETOED experience-planner run".
+
+  ⚠ **A FIRST ATTEMPT AT THIS ARM READ AS A PASS AND WAS NOT ONE** (14:51Z, killed by the
+  fleet-wide Anthropic usage cap): `complete_refused`, no new row, plan of record unchanged —
+  and worthless, because `compose` never returned, so the old graph writes nothing on that run
+  either. **Any experience-planner run finishing in well under ~7 minutes did not run.** Read
+  `collected_data->'__step_error'`; a failed step still shows `COMPLETED` with `error` NULL.
+  The pass that counts is the one where `compose` SUCCEEDED and
+  `collected_data->'proposal'->>'result'` is non-empty at the end — i.e. where a write was
+  possible. That is why the 22:09Z evidence above leads with the 10,498 b.
+
+  Structural backstop, consistent with both arms: `check_approved.config.then_step` is the
+  only step-target reference to `persist_plan` in the live row. Scan the target fields, not
+  `default_config::text` — migration 370 put the words into two descriptions, so the raw
+  literal count is 3 and means nothing.
+
+- **BOTH ARMS ARE NOW OBSERVED. `bugs_open/227` is fixed, live and verified end to end**
+  (345 for defect 1, 363 for defect 2, 370 for the descriptions 363 left stale). It stays in
+  `bugs_open/` per the owner's 2026-08-06 direction.
 
 ## Filing basis
 

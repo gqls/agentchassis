@@ -138,18 +138,36 @@
 -- been measured, and it is the branch where being wrong would have persisted the
 -- VETOED draft on approval.
 --
--- WHAT IS STILL OWED, narrowed: a run that ENDS non-approved leaving no row.
--- Note the reason it stayed open, because "wait for a natural veto" is not a
--- plan: A VETO IS NOT TERMINAL BY DESIGN. reframe's prompt tells it to demote the
--- vetoed feature to a coming-soon label ("that is an acceptable honest MVP"), and
--- applyCouncilCaps (diagnose_council_decide_action.go:663) escalates only on a
--- SECOND rejection. The way to force it: set council_decide.config.max_rounds to
--- 1 — then any non-approved round-1 verdict routes straight to complete_escalated
--- — fire an unbuildable experience, assert no new row, and RESTORE max_rounds to
--- 5. Attempted 14:51Z; the run died at compose on a fleet-wide Anthropic usage cap
--- before reaching the council. ⚠ That failed run READS AS A PASS AND IS NOT ONE
--- (complete_refused, no new row, plan of record unchanged — but compose never
--- returned, so the old graph writes nothing either).
+-- ✅ AND THE ESCALATED ARM IS OBSERVED TOO — 2026-08-10 22:09Z, corr
+-- c4127fe7-b6b0-4c44-9e26-fd869a09a873, chassis v1.0.1283. THIS FILE IS NOW
+-- PROVEN ON BOTH ARMS. The run was healthy end to end (six successful LLM calls,
+-- no __step_error) and compose produced a real 10,498 b plan, still sitting in
+-- collected_data->'proposal'->>'result' when it finished. Council: rejected,
+-- "veto from feasibility", should_reframe false. Ended complete_escalated.
+-- doc_plans for the subject: still exactly ONE row, the earlier approved one,
+-- created_at AND updated_at both unchanged — not superseded, not touched. A plan
+-- existed, a write was possible, no write happened. Under the old graph that
+-- 10,498 b VETOED plan is persisted as is_current at ~22:07 and the run then ends
+-- escalated with a council-vetoed document as the plan of record.
+--
+-- HOW IT WAS FORCED, because it will not happen on its own: A VETO IS NOT
+-- TERMINAL BY DESIGN. reframe's prompt tells it to demote the vetoed feature to a
+-- coming-soon label ("that is an acceptable honest MVP"), and applyCouncilCaps
+-- (diagnose_council_decide_action.go:663) escalates only on a SECOND rejection —
+-- so "wait for a natural veto" waits for something the design avoids. Set
+-- council_decide.config.max_rounds to 1: at round 1 `round < maxRounds` is false,
+-- so BOTH non-approved verdicts land on complete_escalated (rejected via
+-- check_reframe, revise via 'exhausted' and check_revise). Fire an unbuildable
+-- experience, assert no new row, RESTORE max_rounds to 5 and read it back.
+--
+-- ⚠ THE ATTEMPT THAT READ AS A PASS AND WAS NOT ONE — 14:51Z the same day, killed
+-- by a fleet-wide Anthropic usage cap: complete_refused, no new row, plan of
+-- record unchanged, and worthless, because compose never returned so the old
+-- graph writes nothing on that run either. THE PASS ONLY COUNTS WHEN compose
+-- SUCCEEDED and proposal.result is non-empty at the end — i.e. when a write was
+-- possible. Any experience-planner run finishing in well under ~7 minutes did not
+-- run; read collected_data->'__step_error' (a failed step shows COMPLETED with
+-- error NULL).
 --
 -- ROLLBACK: 363_..._ROLLBACK.sql restores from agent_definitions_backup, picking
 -- by snapshot_taken_at DESC with snapshot_reason LIKE 'pre-update: 227 persist%'.

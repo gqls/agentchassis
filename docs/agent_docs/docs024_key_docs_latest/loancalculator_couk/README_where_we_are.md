@@ -1598,3 +1598,34 @@ the address fix as the first job. The two wrong claims (the footer's "shows its 
 arithmetic" and the guide's "month-by-month breakdown") are still live; they die with
 the rebuild, and if the rebuild drags we should just correct the two lines in the
 meantime — your call.
+
+**Monday evening, 10 August.** The spending cap was lifted some time around six o'clock — the
+system started working again on its own, and I've checked rather than assumed: everything was
+running normally from 18:00 onwards. A new build also went out while I was away. I re-checked
+all three of our fixes against it before touching anything, and all three are still in place.
+That's now the third time a database-only fix has survived a rebuild, which I think we can
+stop treating as a question.
+
+**And the last gap is closed.** This morning I could show that a plan the council *vetoes*
+never gets saved. What I couldn't show was the other half: a run that gets vetoed and then
+gives up entirely, leaving nothing behind. I explained why that's hard — the system is built to
+have a second go rather than give up — so I forced it by telling the council it only had one
+round to decide in, then put the setting back straight afterwards.
+
+It went exactly as it should. The system drafted a full plan — ten and a half thousand
+characters of it — the review panel vetoed it on the grounds that it needs a server we don't
+have, and the run stopped there. **Nothing was written.** The site's existing plan was left
+untouched, down to its last-modified timestamp.
+
+The detail that makes this proof rather than a coincidence is that **a real plan existed at the
+moment it gave up**. That was the flaw in this afternoon's attempt, which looked like a pass:
+that run had died before writing anything at all, so of course nothing was saved. This one had
+a finished plan sitting in hand, ready to save, in the exact place the saving step reads from —
+and it still didn't save it. Under the old behaviour that vetoed plan would have become the
+site's official plan, and the run would then have ended in failure with a rejected document as
+the record.
+
+So **the whole of this fault is now fixed and proved on both halves**. I've tidied up after
+myself: the imaginary experience I invented to bait the veto is deleted, and the one plan it
+produced is marked as a test artefact and is no longer official — I kept it rather than
+deleting it because it happens to be the evidence for the first half of the proof.
