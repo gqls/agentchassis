@@ -147,6 +147,62 @@ var tribalPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)\b(israel|palestine|gaza|ukraine war|putin|trump|biden|starmer|farage)\b`),
 }
 
+// Abuse exclusion — DETERMINISTIC AND PRE-JUDGE (owner ruling 2026-08-09, PLAN §12).
+//
+// WHY THIS EXISTS, because a keyword list is otherwise the obvious thing to
+// object to. The nine-round calibration on v1.0.1267 found the safety verdict
+// resting on ONE stochastic boolean: `applyJudgement` rejects only on `!j.Safe`,
+// and on round 3 of 9 the judge described a candidate as "pure repeated insult
+// with no actual argument" in its own note and returned `safe:true` anyway. The
+// note is free text and nothing cross-checks it against the boolean.
+// (`HANDOFF_2026-08-08b_continue_here.md` §4.)
+//
+// A pattern list is crude and cannot be the whole control — layer C still judges
+// this. What this layer buys is the one thing layer C cannot: anything it kills
+// NEVER REACHES the judge's discretion, so no amount of stochasticity can approve
+// it. That is the whole point of the ruling — remove the randomness rather than
+// sample it.
+//
+// A SECOND, COMPOSING RULING EXISTS AND IS NOT IMPLEMENTED HERE. The owner
+// separately told a concurrent session "we can ask a model different ways,
+// several times" — varied-framing sampling of the judge (PLAN §14.2). The two
+// rulings compose and neither supersedes the other: this layer is the
+// deterministic floor, that one reduces what survives above it. It is deliberately
+// NOT referenced by name in this comment, because the function does not exist yet
+// and a comment citing an unwritten symbol reads exactly like a comment citing a
+// real one.
+//
+// IT ERRS TOWARD REJECTION, BY RULING, AND THAT HAS A KNOWN COST.
+// Owner ruling 2026-08-09 (PLAN §13, ruling 1): a false negative publishes abuse
+// under his name; a false positive silently starves the pool. He chose the pool.
+// So:
+//
+//   - This list is NEGATION-BLIND, deliberately. A provocation ARGUING ABOUT
+//     online abuse ("calling strangers idiots is the price of the internet") will
+//     be rejected by its own subject matter. That is the same shape as
+//     `bugs_open/222` — a proximity detector convicting the denial — and it is
+//     accepted here rather than fixed, because the alternative is a negation
+//     parser deciding whether an insult is being used or mentioned, which is
+//     exactly the model judgement this layer exists to not depend on.
+//   - The recorded rejection therefore names the matched text, so a human reading
+//     the verdict can see instantly that it was a mention rather than a use, and
+//     release it. The reversed §10 (a human CAN approve — PLAN §14) is what makes
+//     that cheap; before that reversal this list would have been too blunt.
+//
+// SCOPE: pejoratives aimed at PEOPLE, and incitement. Not profanity — "this is
+// shit" is rude, not abusive, and the corpus is allowed to be rude.
+var abusivePatterns = []*regexp.Regexp{
+	// Pejoratives aimed at a person or group. The corpus argues with positions;
+	// it does not name-call, and a provocation never NEEDS one of these.
+	regexp.MustCompile(`(?i)\b(idiots?|morons?|imbeciles?|cretins?|half-?wits?|dim-?wits?|numpties|numpty)\b`),
+	regexp.MustCompile(`(?i)\b(brain-?dead|mouth-?breathers?|knuckle-?draggers?|sub-?human|vermin|scum)\b`),
+	regexp.MustCompile(`(?i)\b(stupid|thick|pathetic|worthless|deluded|braindead)\s+(people|men|women|users?|fans?|lot|bunch)\b`),
+	regexp.MustCompile(`(?i)\banyone who\b[^.!?]{0,60}\bis (an? )?(idiot|moron|fool|imbecile|cretin)\b`),
+	// Incitement and dehumanisation. Fatal irrespective of target.
+	regexp.MustCompile(`(?i)\b(should be (shot|hanged|killed|beaten)|deserve to (die|suffer)|hope (they|he|she) dies?)\b`),
+	regexp.MustCompile(`(?i)\b(kill yourself|kys)\b`),
+}
+
 // ---------------------------------------------------------------------------
 // The verdict
 // ---------------------------------------------------------------------------
@@ -285,6 +341,25 @@ func checkForm(c provocationCandidate, v *gateVerdict) {
 		if m := re.FindString(whole); m != "" {
 			v.reject("form", "tribal_political",
 				fmt.Sprintf("mentions %q; the corpus deliberately avoids party politics and the culture-war set", m))
+			break
+		}
+	}
+
+	// Abuse runs over the WHOLE artefact for the same reason tribal_political
+	// does, and it is FATAL on first match. Layer, deliberately, is "form" and not
+	// a new "safety" value: the layer vocabulary is read by the calibration scorer
+	// and stored in every historical verdict, and widening it would be a shared-
+	// vocabulary change for a rule the `rule` field already names precisely.
+	//
+	// The matched text is quoted into the detail because this rule is negation-
+	// blind by design (see `abusivePatterns`): the quote is what lets a human tell
+	// a USE from a MENTION in one glance and release a false positive.
+	for _, re := range abusivePatterns {
+		if m := re.FindString(whole); m != "" {
+			v.reject("form", "abusive_language",
+				fmt.Sprintf("contains %q; the corpus argues with positions, never with people "+
+					"(owner ruling 2026-08-09 — this check errs toward rejection, so a provocation "+
+					"that merely MENTIONS abuse is caught too and needs a human release)", m))
 			break
 		}
 	}

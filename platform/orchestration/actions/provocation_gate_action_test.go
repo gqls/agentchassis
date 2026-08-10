@@ -130,14 +130,25 @@ var badProvocations = []struct {
 	judgeSays *judgement
 }{
 	{
+		// STRENGTHENED 2026-08-09 (owner ruling, PLAN §12). This case used to stub a
+		// judge returning safe:false and require rule "unsafe" — i.e. it asserted the
+		// JUDGE caught the insult. The nine-round live calibration then found the judge
+		// approving this exact shape on round 3 of 9 (it called the text "pure repeated
+		// insult" in its own note and returned safe:true anyway), so "the judge catches
+		// it" was never a property worth pinning: the stub was asserting the behaviour
+		// of a stub.
+		//
+		// It now requires the DETERMINISTIC layer to kill it, and `judgeSays` is
+		// deliberately nil so the harness installs the judge that FAILS THE TEST IF
+		// CALLED. That is strictly stronger: it pins both the verdict and the fact
+		// that no discretion was involved in reaching it.
 		name: "a bare insult",
 		c: provocationCandidate{
 			Slug: "bad-insult", Title: "People who use tabs are idiots",
 			Teaser: "They are stupid and everyone knows it, no argument needed.",
 			Body:   strings.Repeat("They are simply morons and anyone defending them is also a moron. ", 6),
 		},
-		judgeSays: &judgement{Safe: false, TwoSided: false, Contestable: true, OrdinaryExp: true, Note: "abusive"},
-		wantRule:  "unsafe",
+		wantRule: "abusive_language",
 	},
 	{
 		name: "a factual claim dressed as opinion",
@@ -654,5 +665,150 @@ func TestFeedRequiresHumanApproval(t *testing.T) {
 				"and a human's approval. Dropping the last one re-automates the step the "+
 				"owner took back on 2026-08-09, and it would look like a tidy-up.", required)
 		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Layer A2 — the deterministic abuse check (owner ruling 2026-08-09, PLAN §12)
+// ---------------------------------------------------------------------------
+
+// TestAbuseCheck_KillsTheCandidateThatLeakedInCalibration pins the motivating
+// case. The nine-round calibration on v1.0.1267 approved `cal-bad-insult` on
+// round 3 of 9: the judge ran, called it "pure repeated insult with no actual
+// argument" in its own note, and returned safe:true anyway.
+//
+// The assertion that matters is not "rejected" — it is rejected BY THE FORM
+// LAYER, with judge_ran false. A rejection from layer C would prove nothing here,
+// because layer C is exactly what was unreliable.
+func TestAbuseCheck_KillsTheCandidateThatLeakedInCalibration(t *testing.T) {
+	c := aGoodCandidate(t)
+	c.Body = "Anyone who indents with tabs is an idiot. Tab users are idiots, " +
+		"every one of them, and the sooner they admit it the better. " +
+		strings.Repeat("They are morons and they know it. ", 6)
+
+	var v gateVerdict
+	checkForm(c, &v)
+
+	if !v.fatal() {
+		t.Fatalf("pure abuse was not fatally rejected by the deterministic layer; reasons=%+v", v.Reasons)
+	}
+	var got *gateReason
+	for i := range v.Reasons {
+		if v.Reasons[i].Rule == "abusive_language" {
+			got = &v.Reasons[i]
+		}
+	}
+	if got == nil {
+		t.Fatalf("rejected, but NOT for abuse — the test would pass on an unrelated rule; reasons=%+v", v.Reasons)
+	}
+	if !got.Fatal {
+		t.Errorf("abusive_language recorded but not fatal; ruling 1 is err-toward-rejection")
+	}
+	if got.Layer != "form" {
+		t.Errorf("layer = %q, want %q — it must be decided BEFORE the judge", got.Layer, "form")
+	}
+	// The quote is load-bearing: it is what lets a human tell a use from a mention.
+	if !strings.Contains(got.Detail, "idiot") {
+		t.Errorf("detail does not quote the matched text, so a human cannot triage it: %q", got.Detail)
+	}
+}
+
+// TestAbuseCheck_RunsBeforeTheJudgeIsEverConsulted is the property the whole
+// ruling rests on: the stochastic judge must not get a vote on abuse. A judge
+// that would have APPROVED (safe:true, everything green) must not rescue it.
+func TestAbuseCheck_RunsBeforeTheJudgeIsEverConsulted(t *testing.T) {
+	c := aGoodCandidate(t)
+	c.Body = c.Body + " People who disagree are mouth-breathers."
+
+	judgeCalled := false
+	judge := func(ctx context.Context, prompt string) (string, error) {
+		judgeCalled = true
+		b, _ := marshalJudgement(judgement{
+			Safe: true, TwoSided: true, Contestable: true, OrdinaryExp: true,
+			Interesting: 9, Current: 9, Note: "looks fine to me",
+		})
+		return b, nil
+	}
+
+	v := gateCandidate(context.Background(), c, judge, "test-model")
+
+	if v.Approved {
+		t.Fatalf("an approving judge rescued an abusive candidate — the floor is not a floor")
+	}
+	if judgeCalled {
+		t.Errorf("the judge was consulted for a candidate the deterministic layer had already killed; " +
+			"that is a paid call on a decided verdict, and it re-opens the discretion the ruling closed")
+	}
+}
+
+// TestAbuseCheck_IsActuallyLoadBearing is a MUTATION test. Every assertion above
+// would still pass if `abusivePatterns` were empty and some OTHER form rule
+// happened to reject the fixture — a guard in series is the classic way a green
+// suite hides a dead rule. So: prove the fixture clears every other form rule,
+// and only then that abuse is what kills it.
+func TestAbuseCheck_IsActuallyLoadBearing(t *testing.T) {
+	c := aGoodCandidate(t)
+	clean := c
+
+	var base gateVerdict
+	checkForm(clean, &base)
+	if base.fatal() {
+		t.Fatalf("the control fixture is already rejected by another form rule (%+v) — "+
+			"the abuse assertions below would be vacuous", base.Reasons)
+	}
+
+	for _, probe := range []string{
+		"Anyone who disagrees is an idiot.",
+		"They are vermin.",
+		"Stupid people love it.",
+		"They should be shot.",
+		"kill yourself",
+	} {
+		t.Run(probe, func(t *testing.T) {
+			dirty := clean
+			dirty.Body = clean.Body + " " + probe
+
+			var v gateVerdict
+			checkForm(dirty, &v)
+
+			hit := false
+			for _, r := range v.Reasons {
+				if r.Rule == "abusive_language" && r.Fatal {
+					hit = true
+				}
+			}
+			if !hit {
+				t.Errorf("adding %q to a clean body did NOT trigger abusive_language; "+
+					"reasons=%+v", probe, v.Reasons)
+			}
+		})
+	}
+}
+
+// TestAbuseCheck_NegationBlindnessIsDELIBERATE documents the accepted cost rather
+// than asserting the tool is clever. Owner ruling 1 is err-toward-rejection, so a
+// provocation that MENTIONS abuse in order to argue about it is rejected too.
+//
+// This test exists so that a later session "fixing the false positive" has to
+// delete a test that says, in writing, that the behaviour was chosen — and has to
+// go and get the ruling changed rather than quietly relaxing the floor.
+func TestAbuseCheck_NegationBlindnessIsDELIBERATE(t *testing.T) {
+	c := aGoodCandidate(t)
+	c.Body = "The internet did not make people cruel. Calling a stranger an idiot " +
+		"was always available; the only new thing is the audience."
+
+	var v gateVerdict
+	checkForm(c, &v)
+
+	hit := false
+	for _, r := range v.Reasons {
+		if r.Rule == "abusive_language" {
+			hit = true
+		}
+	}
+	if !hit {
+		t.Fatalf("EXPECTED false positive did not fire. If this is now negation-aware, the " +
+			"err-toward-rejection ruling (PLAN §13 ruling 1) has been changed in code without " +
+			"being changed on paper — get the ruling updated, then rewrite this test.")
 	}
 }
