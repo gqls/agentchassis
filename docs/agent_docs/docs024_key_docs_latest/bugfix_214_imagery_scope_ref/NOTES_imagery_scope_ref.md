@@ -237,3 +237,70 @@ written `Council-Reviewed:` on a verdict I never read.
 **Resubmitting now is pointless** (three-week window). The submission JSON is committed
 and ready: `COUNCIL_SUBMISSION_2026-08-10.json`, resubmit with
 `RESUBMIT_CORR=46a50b4c-f00d-4492-b7fd-ce5dc2023480` so the trail accumulates.
+
+## 2026-08-10 (evening) — LIVE on v1.0.1283, backfill applied, repair proven at the consumer join
+
+### 1. The roll, verified at the artefact rather than at the tag
+
+Both replicas on `v1.0.1283` (started 21:43Z; my fix commit was 17:10Z, so the image
+post-dates it — but that is circumstantial, so the binary was grepped):
+
+| grep | 95mgb | wnbs8 |
+|---|---|---|
+| POSITIVE `imagery scope_ref canonicalised` | 1 | 1 |
+| POSITIVE `IMAGERY_SCOPE_REF_UNRESOLVED` | 1 | 1 |
+| POSITIVE `IMAGERY_SCOPE_REF_ORDINAL_ANOMALY` | 1 | 1 |
+| POSITIVE `collapsed onto one identity after canonicalisation` | 1 | 1 |
+| CONTROL (pre-existing) `flattenImageryBlock: rows flattened` | 1 | 1 |
+| **NEGATIVE** `imagery scope_ref pineapple` (fabricated) | **0** | **0** |
+
+The negative control is the half that matters: a positive-only grep proves the pipeline,
+never your spelling.
+
+### 2. Backfill `sql_for_agents/373` APPLIED
+
+Pre-census re-run first and unchanged at **10** (same rows). Result:
+
+```
+UPDATE 5   (page scope:   news->news-index, about->about-index x2, contact->contact-index x2)
+UPDATE 4   (section scope: about:2 -> about-index:2, four icons)
+NOTICE: bugfix 214 backfill: OK — 1 unresolvable row remains, as expected.
+COMMIT
+```
+
+The `DO`/`RAISE` guard fired its success notice, i.e. it *checked* rather than assuming.
+Post-census: **1** (mortgagecalculator `tools-index`, deliberately left).
+
+### 3. Proven at the CONSUMER's own join, not at the row
+
+Running `plan_sections_action.go`'s joins verbatim:
+
+- page hero (`:287-300`, exact match): `gamesdesign about-index -> hero_about (active)`,
+  `gamesdesign contact-index -> hero_contact (active)`,
+  `fundamentallyai news-index -> hero_news (active)`. All three returned **nothing**
+  before the backfill.
+- section imagery (`:368-380`, `LIKE 'about-index:%'`): all **four** gamesdesign icons
+  return with active assets.
+
+### 4. What is NOT proven, stated plainly
+
+- **mortgagecalculator's refs are repaired but its assets do not exist** (`asset_exists=f`
+  for all 7). The reference is now correct; nothing is visible until imagery is generated.
+  Do not quote those as "working".
+- **The WRITE path had not executed in production** at this point: zero site plans written
+  since the roll, and zero `IMAGERY_SCOPE_REF_*` rows. Live in the binary ≠ exercised.
+
+### 5. The credit outage has LIFTED — both blocked items unblocked
+
+Zero usage-limit deaths since the roll; 20 orchestrations COMPLETED. So:
+
+- **Council resubmitted** on the same trail correlation
+  `RESUBMIT_CORR=46a50b4c-f00d-4492-b7fd-ce5dc2023480`, new run `adba954d-599a-4913-98dc-c65fee1bb095`
+  (orch `8a54fbc4-c376-4638-a60c-527df468daf7`). The trailer on `c21af5eda` can now resolve.
+- **Induced a real plan write** on a POOL site — `pool-ai-agents.internal`
+  (`29e0ffc4-2823-48ac-8edf-e9a50793f372`, 0 plans / 0 pages / status='pool', so nothing
+  serves it). A customer replan was deliberately NOT used: it would rewrite a live site's
+  plan, which is not this lane's to do. Orchestration `823d4e22-6786-4106-8d90-2ee48275e4b5`,
+  dispatched 22:08:49Z — 25 min after pod start, clear of the ~300s post-restart drop window.
+  kcat's exit status was ignored (it exits 0 having sent nothing); the orchestration ROW is
+  the evidence it landed.
