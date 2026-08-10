@@ -336,3 +336,57 @@ resolves a `Council-Submitted:` correlation at REPORT time and credits the commi
 automatically once the verdict turns approved. The trailer already on `1058b5366` is correct
 and needs nothing; the follow-up commit carries `Council-Reviewed:` because by then the
 verdict had been read.
+
+## 2026-08-10 14:41Z — ACCEPTANCE on v1.0.1279: it works, and the gate does not fire
+
+Roll landed. Verified at the artefact, both replicas, against the negative control banked
+this morning: `NOT ANSWERABLE BY THIS INDEX` **0 → 1**, plus a positive control
+(`this answer is CAPPED` → 1) proving the grep, plus a never-added string → 0 proving the
+grep is not matching everything.
+
+Four entries re-fired. Results, and each is a criterion from the plan:
+
+| criterion | result |
+|---|---|
+| no STALE attributable to an unverifiable footprint | **met** — the 08-08 flat-`STALE` entry now returns `NEEDS_HUMAN_REVIEW` with 3 checks `NOT ANSWERABLE` |
+| the genuinely-checkable Go facts still confirmed | **met** — the provocation entry confirmed `loadGateCandidates`, `gate_provocation`, `provocations` **by name** while naming its non-Go half unverifiable, in one verdict |
+| every persisted row carries the mechanical suffix | **met** — 4 of 4 |
+| the verdict states the fact rather than guessing it | **met** — *"falls outside the Go-only code_symbols index"*, where the morning's run had said *"either not present at the current ref or not indexed"* |
+| the gate's TRUE branch is reachable | **NOT SHOWN — see below** |
+
+### The finding: the branch has never fired, and one substring match is why
+
+`no_code_evidence` is `checks_with_rows == 0`. Across **4 of 4** runs the count was
+**1, 3, 1, 1** — never 0. Every round routed to `verify`; `verify_unverifiable` has not
+executed in production.
+
+The `toolgolden.py` entry shows the mechanism exactly. Its footprint is three `.py` files;
+three of its four checks classified `NOT ANSWERABLE`. The fourth, `content: VECTORS`, was
+aimed at a **Python constant** and matched **8 Go rows** — `vectorSearchCodeSymbols`,
+`pgvectorString`, `RAGIndexAction` — because `content` is an ILIKE **substring** match and
+`VECTORS` is inside `vectorSearch` and `pgvector`. That single accidental hit set
+`checks_with_rows = 1` and suppressed the gate.
+
+**Two things follow, and I would rather write both down than the flattering one.**
+
+1. **The third false-positive mode is COMMON, not a curiosity.** The council's `editquality`
+   seat was right to press on it, and it is the reason it is worth pressing: it is the
+   default outcome for a bare-identifier check, not an edge case. The new caveat fired and
+   the verdict used it verbatim — *"matched only .go symbols related to vector search …
+   which are unrelated to the VECTORS constant described in the entry"*. Pre-fix that is a
+   confident confirmation of something never checked.
+2. **My own gate is weaker than the submission implied.** I described it as making STALE
+   unreachable for a round that confirmed nothing; measured, a round that confirmed nothing
+   *of value* still counts one spurious substring match as evidence and takes the other
+   branch. The gate is correct — resolution proven by the lockstep test, FALSE branch proven
+   live — and **unexercised**. The protective work is being done by the evidence layer: the
+   per-check `NOT ANSWERABLE` lines, the shares-a-name caveat, and the mechanical suffix.
+   That is the order this lane ranked the candidates in (suffix above branch), so the data
+   supports the ranking — but the branch must not be credited with work it has not done, and
+   the bug file, the register and this file all now say so.
+
+**The follow-up is NOT mine to make here:** `derive_checks` should not emit a bare `content`
+query for a footprint item it can already see is a non-Go file. That is RFC_005's mechanism
+(`architecture_review`), it would cut wasted checks, and it is what would make
+`no_code_evidence` reachable when a footprint really is entirely unverifiable. Recorded in
+the bug file as a follow-up round rather than smuggled into this lane.
