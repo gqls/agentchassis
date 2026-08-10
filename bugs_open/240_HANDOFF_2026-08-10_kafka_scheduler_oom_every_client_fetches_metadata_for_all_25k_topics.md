@@ -273,3 +273,52 @@ profile at t=45s.
   pins the transport to kafka-go's defaults **including the blank
   `MetadataTopics`**. Fix candidate 1 must update that test deliberately — it is
   designed to stop exactly this field being changed by accident.
+
+---
+
+## OUTCOME 2026-08-10 12:02Z — incident ENDED, root cause CONFIRMED causally, bug stays OPEN
+
+Fix candidate 3 run with owner authorisation
+(`scripts/kafka-orphan-topic-sweep.sh --apply`): **23,781 topics deleted, 0 batch
+failures.**
+
+`[MEASURED, reliable method — three consecutive in-pod reads, identical]`
+
+| | before | after |
+|---|---|---|
+| topics, total | 25,042 | **1,265** |
+| `job.*` | 24,131 | **354** |
+
+354 remaining = the 350 protected by the liveness test + a handful created since.
+
+**The causal chain is now confirmed by dose–response, not just by reading code.**
+Scheduler memory tracked the topic count down in three steps, with nothing else
+changed — no deploy, no config edit, no restart of anything but the scheduler's
+own crashloop:
+
+| topic count | scheduler memory | behaviour |
+|---|---|---|
+| 24,131 | 121Mi peak | OOMKilled every ~50–75 s, 143 restarts |
+| mid-sweep | 58Mi | survived 11 minutes |
+| **354** | **15Mi** | **no OOM; restart count frozen at 143** |
+
+Last OOM `2026-08-10T11:45:56Z`. `[MEASURED]` fleet orchestration volume recovered
+17 → 37 → 43/hour while the sweep ran, and every short-interval scheduled task
+returned to **≤1.0 intervals overdue** (they were at 4–10.5 during the incident).
+
+This is the strongest form of confirmation available here and it is worth naming:
+the original diagnosis was read out of the library's source and documentation,
+and the prediction it made — *reduce the topic count and the memory falls with
+it* — then held across three points without anything else being touched.
+
+### Why this bug stays OPEN
+
+**Nothing yet stops it recurring.** The sweep is a one-off. `MetadataTopics` is
+still blank, the per-step topics still have no reliable reaper, and accumulation
+restarts immediately. Fix candidates 1, 2 and 4 are all still owed; only 3 is
+done. Re-measure the topic count in a week — if it is back in five figures, the
+door is still open and this file will tell you why.
+
+⚠ **Do not close this on the strength of "the scheduler is up".** That is exactly
+the observation that would have been true for 60 seconds at a time all through
+the incident.
