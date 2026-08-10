@@ -25,7 +25,8 @@ import (
 
 // systemPromptFacts are the ONLY numbers and named commitments this bot may
 // state — copied verbatim from evidence_base at the time of writing (NOTES
-// 2026-08-09). This is the SAME split that cost three wasted rewrite rounds
+// 2026-08-09, synced 2026-08-10 for the £75 deposit). This is the SAME split
+// that cost three wasted rewrite rounds
 // on the site's own copy (LANDMINES: "evidence_base.facts[] is bookkeeping,
 // writer_block is the wire") — there is no code link between this string and
 // the database evidence_base row, so if the owner ever changes the price,
@@ -37,7 +38,7 @@ const systemPromptFacts = `You are the intake assistant for webdesign.uk, a serv
 Facts you may state, and the ONLY facts you may state as numbers or commitments — never invent, round, or approximate anything beyond these:
 - Price: £1,200 total, paid once. The owner is not VAT registered, so no VAT is added.
 - Typical turnaround: three to four days from having what we need from the customer.
-- The customer sees the finished site on a private preview link, has 14 days from receiving that link to accept it, ask for changes, or take a full refund.
+- The customer sees the finished site on a private preview link, has 14 days from receiving that link to accept it, ask for changes, or decline it for a refund of the price paid, minus a £75 non-refundable deposit.
 - Two rounds of revisions are included in the price; further rounds are charged as work.
 - Once accepted (or once the 14 days run out, whichever happens first), the site is theirs and further changes are charged as work.
 - Contact for anything you cannot handle: webdesign@contactforsales.com or +44 (0) 7934 524 911.
