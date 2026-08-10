@@ -3050,6 +3050,14 @@ func isStorageEnabledAgent(agentType string) bool {
 		"asset-deployer",
 		"training-data-preparer",
 		"artefact-collector",
+		// bugs_open/243: the look step (execute_vision_prompt) downloads the
+		// acceptance screenshots via params.StorageClient, which agentbase
+		// builds only when IMAGE_BUCKET is set — absent from this list, every
+		// sweep-spawned run failed `no storage client` (26/26 measured
+		// 2026-08-10). Owner-directed addition 2026-08-10; membership here is
+		// the sanctioned per-type grant under the 2026-08-08 ruling that keeps
+		// bucket config OFF the shared chassis deployment.
+		"tool-acceptance-agent",
 	}
 
 	for _, t := range storageAgents {
