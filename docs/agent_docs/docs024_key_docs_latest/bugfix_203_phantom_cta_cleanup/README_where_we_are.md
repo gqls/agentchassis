@@ -154,3 +154,45 @@ whoever fixes the resolver can finish them in minutes.
 
 One small thing I should own: the hero's second button text, "Speak to Us About Data Privacy",
 was emptied during the edit. No prose was lost, but that phrase is gone.
+
+## 2026-08-10 — the review council said yes, the fix is live, and testing it on one real page found a second bug I've now also fixed
+
+Picked this back up cold. First thing: the review council's verdict on the resolver fix
+came back approved, and I checked the actual software running in production, not just
+the record — both copies of it have the fix in them. Good news, and also a small
+surprise along the way: one of the two buttons we'd been holding back because it
+seemed too risky to touch got repaired automatically by the site's own maintenance
+routine, on its own, half an hour after the fix went live. It didn't fix it correctly —
+it pointed the button at an unrelated tool — but I worked out why, and it's not
+something either version of the fix could ever have got right: the correct destination
+for that particular button is an ordinary page, not a tool or an index page, and the
+fix only ever looks at tools and index pages. That's a real limit, not a bug, and I've
+written it down so nobody spends time trying to make it work.
+
+The other held-back button was different — its correct destination genuinely is a
+tool, so I tested it for real: promoted the button's existing repair ticket and let the
+system run it. **The main result is good news** — the button now points at the right
+tool, live, the first time this fix has actually proven itself on a real customer page
+rather than just in test data. But watching the same page rebuild, I noticed a second
+button on it went wrong in a new way: it should have pointed at a "browse our catalog"
+page, and instead it pointed at an unrelated calculator tool, even though the catalog
+page was a much better match by any reasonable reading of the button's own words.
+
+I dug into why, and it's a real defect in the matching logic itself, not a one-off
+fluke: the code was written to always prefer sending people to an interactive tool over
+a plain page, and it applies that preference too bluntly — it doesn't check whether the
+plain page is actually a much better match first. So a weak, barely-related tool match
+can beat a strong, obviously-correct page match. I found the exact line responsible,
+fixed it so it compares match quality first and only falls back to "prefer the tool" as
+a tie-breaker, added tests that prove the fix actually changes the outcome (not just
+tests that would pass either way), and submitted that fix to the same review council
+for its own check before it goes live. I've held off dispatching the four remaining
+buttons on the other site until that verdict comes back, since the same defect could
+quietly make any of them worse rather than better.
+
+One thing I should flag plainly: I wrote the fix and committed it before I'd finished
+preparing the submission to the review council, which means that commit is missing the
+little marker that normally links a commit to its review automatically. It's not a
+real problem — the review is still happening, and I've written down where to find it —
+but the automatic bookkeeping that's supposed to show "this was reviewed" won't show it
+for this one commit. I've made a note of that too, so it doesn't get missed.
