@@ -1,0 +1,120 @@
+{
+  "no_auto_fix": true,
+  "no_auto_fix_reason": "robot-hands.com page is rebuild_policy='owned'; an automated rewrite aimed at this markup would be editing another lane's protected page, and every red here is an arithmetic claim a rewriter cannot legitimately satisfy by editing the DOM",
+  "profiles": ["desktop", "mobile"],
+  "container": "div.tool-container",
+  "checks": [
+    {
+      "id": "page-serves-200",
+      "type": "page_status_ok"
+    },
+    {
+      "id": "tool-renders",
+      "type": "selector_exists",
+      "profiles": ["desktop"],
+      "selector": "div.tool-container #gripForm"
+    },
+    {
+      "id": "tool-has-visible-area",
+      "type": "has_visible_area",
+      "profiles": ["desktop"],
+      "selector": "div.tool-container"
+    },
+    {
+      "id": "heading-names-the-tool",
+      "type": "interaction",
+      "profiles": ["desktop"],
+      "expect": {
+        "selector": "div.tool-container h2",
+        "text_matches": "^Grip Force & Friction Coefficient Calculator$"
+      }
+    },
+    {
+      "id": "results-start-hidden",
+      "type": "interaction",
+      "profiles": ["desktop"],
+      "expect": {
+        "selector": "#resultsPanel:not(.visible)"
+      }
+    },
+    {
+      "id": "computes-the-default-vector",
+      "type": "computed_values",
+      "profiles": ["desktop"],
+      "steps": [
+        { "action": "fill", "selector": "#partWeight", "value": "2.5" },
+        { "action": "fill", "selector": "#customAccel", "value": "5" },
+        { "action": "click", "selector": "#calcBtn" }
+      ],
+      "expect_values": {
+        "#res-perFinger": "46.3 N",
+        "#res-total": "92.6 N",
+        "#res-loadForce": "37.0 N",
+        "#res-mu": "0.80 (dimensionless)",
+        "#res-perFingerSub": "per contact point (2 total)"
+      }
+    },
+    {
+      "id": "submitting-reveals-the-results",
+      "type": "interaction",
+      "profiles": ["desktop"],
+      "expect": {
+        "selector": "#resultsPanel.visible"
+      }
+    },
+    {
+      "id": "breakdown-shows-all-seven-steps",
+      "type": "interaction",
+      "profiles": ["desktop"],
+      "expect": {
+        "selector": "#formulaSteps li:nth-child(7) strong",
+        "text_matches": "^Per contact point"
+      }
+    },
+    {
+      "id": "safe-inputs-raise-no-warning",
+      "type": "interaction",
+      "profiles": ["desktop"],
+      "expect": {
+        "selector": "#warningBox:not(.visible)"
+      }
+    },
+    {
+      "id": "recomputes-for-pounds-ptfe-four-fingers",
+      "type": "computed_values",
+      "profiles": ["desktop"],
+      "steps": [
+        { "action": "select", "selector": "#weightUnit", "value": "lb" },
+        { "action": "fill", "selector": "#partWeight", "value": "10" },
+        { "action": "select", "selector": "#materialPair", "value": "0.1" },
+        { "action": "fill", "selector": "#customAccel", "value": "20" },
+        { "action": "select", "selector": "#numFingers", "value": "4" },
+        { "action": "select", "selector": "#safetyFactor", "value": "1.5" },
+        { "action": "click", "selector": "#calcBtn" }
+      ],
+      "expect_values": {
+        "#res-perFinger": "507.1 N",
+        "#res-total": "2.03 kN",
+        "#res-loadForce": "135.2 N",
+        "#res-mu": "0.10 (dimensionless)",
+        "#res-perFingerSub": "per contact point (4 total)"
+      }
+    },
+    {
+      "id": "risky-inputs-raise-the-warning",
+      "type": "interaction",
+      "profiles": ["desktop"],
+      "expect": {
+        "selector": "#warningBox.visible"
+      }
+    },
+    {
+      "id": "no-horizontal-overflow",
+      "type": "no_horizontal_overflow"
+    },
+    {
+      "id": "no-console-errors",
+      "type": "no_console_errors"
+    }
+  ]
+}

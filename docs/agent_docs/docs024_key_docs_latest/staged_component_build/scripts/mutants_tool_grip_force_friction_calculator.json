@@ -1,0 +1,80 @@
+[
+  {
+    "name": "the page stops being served (404)",
+    "serve_status": 404,
+    "expect_fail": ["page-serves-200"]
+  },
+  {
+    "name": "the tool wrapper loses its class — the fence's anchor selector goes",
+    "from": "class=\"tool-container\"",
+    "to": "class=\"tool-kontainer\"",
+    "expect_fail": ["tool-renders", "tool-has-visible-area", "heading-names-the-tool"]
+  },
+  {
+    "name": "the heading is renamed (the anchor survives, only the TEXT moves)",
+    "from": "<h2>Grip Force &amp; Friction Coefficient Calculator</h2>",
+    "to": "<h2>Grip Force Calculator</h2>",
+    "expect_fail": ["heading-names-the-tool"]
+  },
+  {
+    "name": "the results panel ships already open — the pre-gesture state is wrong",
+    "from": "<div class=\"results-panel\" id=\"resultsPanel\" aria-live=\"polite\">",
+    "to": "<div class=\"results-panel visible\" id=\"resultsPanel\" aria-live=\"polite\">",
+    "expect_fail": ["results-start-hidden"]
+  },
+  {
+    "name": "gravity is rewritten — the shared arithmetic moves under BOTH vectors",
+    "from": "const g = 9.81;",
+    "to": "const g = 9.83;",
+    "expect_fail": ["computes-the-default-vector", "recomputes-for-pounds-ptfe-four-fingers"]
+  },
+  {
+    "name": "the pounds-to-kg factor is rewritten — only the SECOND vector converts units",
+    "from": "case 'lb': return value * 0.453592;",
+    "to": "case 'lb': return value * 0.45;",
+    "expect_fail": ["recomputes-for-pounds-ptfe-four-fingers"]
+  },
+  {
+    "name": "the default material pair's mu is rewritten — only the FIRST vector uses it",
+    "from": "<option value=\"0.8\">",
+    "to": "<option value=\"0.75\">",
+    "expect_fail": ["computes-the-default-vector"]
+  },
+  {
+    "name": "submitting no longer reveals the results — the gesture stops paying out",
+    "from": "resultsPanel.classList.add('visible');",
+    "to": "resultsPanel.classList.add('visible-never');",
+    "_measured": "expect_fail names ONLY the visibility check, deliberately. This mutant was first written expecting the two computed_values checks and the breakdown check to fail with it, on the reasoning that InnerText of a display:none subtree reads empty. THAT IS FALSE and was measured here: with the panel left hidden, all three still passed. Confirmed by an isolating probe that hid the panel from CSS alone, changing no JS — computed_values passed there too. computed_values asserts the ARITHMETIC, never that a visitor could SEE it, so a reveal-style tool needs the separate visibility check below it.",
+    "expect_fail": ["submitting-reveals-the-results"]
+  },
+  {
+    "name": "the breakdown drops its last step — 7 becomes 6",
+    "from": "stepData.forEach(function (s) {",
+    "to": "stepData.slice(0, 6).forEach(function (s) {",
+    "expect_fail": ["breakdown-shows-all-seven-steps"]
+  },
+  {
+    "name": "the low-friction threshold is widened — a SAFE vector now raises a warning",
+    "from": "if (mu <= 0.15) {",
+    "to": "if (mu <= 0.95) {",
+    "expect_fail": ["safe-inputs-raise-no-warning"]
+  },
+  {
+    "name": "the warning box is never revealed — the RISKY vector stops being told",
+    "from": "warningBox.classList.add('visible');",
+    "to": "warningBox.classList.add('visible-never');",
+    "expect_fail": ["risky-inputs-raise-the-warning"]
+  },
+  {
+    "name": "a throwing script is injected ahead of the tool",
+    "from": "<div class=\"tool-container\">",
+    "to": "<script>window.__deliberate_mutant_probe.boom();</script><div class=\"tool-container\">",
+    "expect_fail": ["no-console-errors"]
+  },
+  {
+    "name": "the tool is forced wider than any viewport",
+    "from": "<div class=\"tool-container\">",
+    "to": "<div class=\"tool-container\" style=\"width:3000px;max-width:3000px\">",
+    "expect_fail": ["no-horizontal-overflow"]
+  }
+]
