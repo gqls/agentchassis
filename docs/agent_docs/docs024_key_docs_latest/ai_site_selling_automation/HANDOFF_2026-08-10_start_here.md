@@ -223,6 +223,18 @@ API**: core-manager already serves `POST /clients`, `GET /clients`,
 `internal/core-manager/admin/`). A "Customers" tab is FE-only work against
 endpoints that already exist.
 
+> **CORRECTED 2026-08-10 (ai_site_selling lane, first working session):** the
+> "FE-only work against endpoints that already exist" claim was wrong. Those
+> `/clients` endpoints read a **different store** — `clients_info`, a side
+> table the handler lazily creates on first call (absent live,
+> `to_regclass` NULL on 2026-08-10), part of the per-client-schema TENANT
+> machinery — not the `clients → networks → sites` chain of §3.6. Caught by
+> reading the handler (`client_handlers.go:194-253`) before wiring the FE.
+> Resolution shipped same day: owner ruled identity lives on `clients`
+> (BIZ-014); migration 375 added the customer columns §3.6 lists as missing;
+> new parallel `/api/v1/admin/customers` endpoints + FE tab ship as ADM-011
+> (`fe6b99d05`, `a84d544d1`). Landmine recorded in LANDMINES.md.
+
 ### 3.6 The client DB — the skeleton is real, the flesh is absent
 
 `clients → networks → sites` FK chain confirmed live (both FKs `ON DELETE

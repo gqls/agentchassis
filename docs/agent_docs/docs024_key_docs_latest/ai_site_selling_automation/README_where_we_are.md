@@ -38,3 +38,20 @@ Next from here: build the Customers tab in the admin dashboard, and write up
 how chat transcripts get from the isolated chat machine into the database
 without breaking the isolation rule (the database reaches out and collects;
 the chat machine never gets to push in).
+
+**10 Aug 2026, later the same evening.** First real work landed, and one
+assumption from the research didn't survive contact with the code. The
+research said the admin screen for customers would be pure front-end work
+because "the client endpoints already exist" — it turns out those endpoints
+talk to a completely different, empty bookkeeping table left over from the
+platform's multi-tenant era, not to the table that actually owns the
+websites. So we built the missing piece properly: the customer database
+columns you approved are now live in the database, there's a new set of
+admin endpoints that read and write the real customer records, and the admin
+dashboard has a working Customers tab — list, create, edit, and each
+customer's sites. The two code halves sit ready and switch on with the next
+routine redeploys; nothing needed doing tonight for that. We also wrote up,
+in the plan, exactly how chat conversations will get pulled from the chat
+machine into the database without breaking the isolation rule — that's the
+next build item. The trap we found is written up so no future session wires
+the customer screen to the wrong table.

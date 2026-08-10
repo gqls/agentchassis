@@ -43,39 +43,66 @@ P0–P7 sequencing.
 
 ## 2. Design
 
-### 2.1 Client DB — extend `clients` [PROPOSED, DDL to be written after schema read]
+### 2.1 Client DB — extend `clients` [DONE 2026-08-10: migration 375 LIVE]
 
-Columns to add (all nullable, no default-behaviour change for the two
-placeholder rows): contact email + phone, `tier` (text; 'done_for_you' now),
-`customer_status` (distinct name — `sites.status` is load-bearing for CORS,
-`subscription.status` already means "a row exists"; do not overload a third
-`status`), and Stripe linkage **via the existing `external_id`** (documented
-natural key) — no new stripe column unless a second id is genuinely needed.
-Trap owned: the base DDL for clients/networks/sites lives only in
-`docs/_archive/…/sql_for_tables/002_…`, NOT in `platform/database/migrations/`
-— so the ALTER migration must be self-contained (IF NOT EXISTS guards) and
-must not assume a prior migration created the table. Migration-runner practice
-applies (dry-run this session, scope the dir).
-Council: `platform/database/migrations/` is council scope. The gate is DOWN
-fleet-wide as of 14:51Z today (Anthropic account cap — see NOTES); submission
-happens when it can survive, and the commit that ships the migration says so.
+Shipped first session: `email`, `phone`, `tier`, `customer_status`, `notes` —
+all nullable; Stripe linkage stays on the existing `external_id`.
+`customer_status` is deliberately NOT `status` (`sites.status` is load-bearing
+for tools-api CORS; `subscription.status` already means "a row exists").
+Blast radius measured before applying: zero Go readers of `FROM clients`,
+zero positional INSERTs. Applied out-of-band + `--record-only` (older pending
+files from other threads have pre-state mismatches and block the runner's
+`--apply`). Commit `fe6b99d05`. Council submission owed — gate down
+fleet-wide at ship time (Anthropic account cap, see NOTES).
 
-### 2.2 Admin "Customers" tab [BUILDABLE NOW]
+### 2.2 Admin "Customers" surface [DONE 2026-08-10, inert until rolls]
 
-FE-only, against the live `/api/v1/admin` client endpoints
-(`POST /clients`, `GET /clients`, `GET /clients/:client_id/usage`). Mount as
-one more `view ===` branch per the `PipelinesPage.tsx` precedent. Out of
-council scope (`frontends/`). First cut shows what the API already returns;
-new columns from 2.1 flow in later.
+**The handoff's "FE-only work" premise was false** — the existing `/clients`
+endpoints read the `clients_info` TENANT store, not the ruled chain (see the
+dated correction in the handoff §3.5, and LANDMINES.md). Shipped instead:
+new `/api/v1/admin/customers` CRUD in core-manager backed by
+`clients → networks → sites` (list + site counts, detail + sites, create,
+partial PATCH), registered as **ADM-011**, plus the FE Customers tab on the
+`PipelinesPage` bolt-on precedent (`fe6b99d05`, `a84d544d1`; vite build
+verified in a container). Go half inert until the next core-manager roll; FE
+half until the next admin-dashboard image build. The old `/clients` endpoints
+are untouched — different population, do not merge without an owner ruling.
 
-### 2.3 Chat transcripts → `site_chat_turns` [DESIGN NOW, BUILD NEXT]
+### 2.3 Chat transcripts → `site_chat_turns` [DESIGNED 2026-08-10, BUILD NEXT]
 
-Finish the `046_site_chat_turns.sql` design, not invent one. Shape is ruled by
-SAAS-001: **core pulls from the box**, one-directional, egress-from-core-only;
-"the chat service POSTs into the cluster" is a non-conforming shape and will
-not be built. Turns the JSONL dead-end into queryable demand data and is the
-rehearsal for the trigger seam. Detail lands here after this session's scout
-report (producer format vs table DDL vs available pull mechanism).
+Finish the `046_site_chat_turns.sql` design, not invent one. Shape ruled by
+SAAS-001: **core pulls from a sink**, one-directional, egress-from-core-only;
+"the chat service POSTs into the cluster" will not be built. Design, from
+this session's code-level scout of producer vs table vs precedents:
+
+- **Sink = B2.** The box already has an outbound-only posture and the VM plan
+  already commits to nightly dump→encrypt→push of exactly these files to the
+  backups bucket (`PLAN_2026-08-04…:177`). Add a transcripts export push
+  (box-side, sibling lane's turf — an ask, not our edit). Core never dials
+  the box; today it structurally cannot (scout: no code path, tunnel-only).
+- **Puller = a spawn-free k8s CronJob**, one stateless binary: read new B2
+  objects → pair turns → upsert. NOT a scheduled_tasks→Kafka→chassis action:
+  `bugs_open/239` makes dispatch untrustworthy and `bugs_open/240` punishes
+  per-job topics — the same reasons IMP-053 was built spawn-free. Precedent:
+  the eight existing check CronJobs under `deployments/kustomize/services/`.
+  The isolated-chat plan's own words: "No Kafka, no chassis."
+- **Pairing/idempotency.** Producer writes one JSONL line per *message*
+  (`TranscriptEntry`: timestamp, conversation_id, raw client_ip, role,
+  content); the table is one row per *turn* with an edge-supplied uuid PK.
+  Until the producer supplies a turn uuid, derive one: UUIDv5 over
+  (conversation_id, user-line timestamp) — deterministic, so re-ingest stays
+  idempotent via `ON CONFLICT (id) DO NOTHING`.
+- **Gaps to handle at ingest:** producer stores RAW IPs → hash with salt at
+  ingest, never store raw (table comment is explicit, GDPR); no site_id or
+  domain in the feed → puller config maps feed→`sites` row (single-tenant
+  feed today); Claude-failure turns have a user line but no assistant line →
+  insert with empty answer + `error_message` correlated from
+  `requests.jsonl`; turn-cap/spend-cap rejections log NOTHING box-side today.
+- **Box-side asks for the sibling lane** (contribute into their NOTES; do not
+  edit their service): per-turn uuid, a domain field, log cap rejections
+  (maps to `capped`), optionally hash the IP at source.
+- **Ships with:** the 046 DDL as the next free migration (FK to `sites`,
+  clients_db) in the same commit as the puller + a CHAT-001 register update.
 
 ### 2.4 Trigger seam (P4) [DESIGN ONLY until cutover reviewed + 239 fixed]
 
@@ -96,10 +123,10 @@ existing autonomous half. Not designed in this pass.
 
 | step | gated on | state |
 |---|---|---|
-| standing five + rulings recorded | — | this commit |
-| admin Customers tab (2.2) | — | next |
-| clients columns migration (2.1) | council reachable (advisory) | DDL drafted, ship when gate can run |
-| transcripts ingestion (2.3) | design ready | design this session |
+| standing five + rulings recorded | — | DONE 08-10 (`409c40a8d`) |
+| clients columns migration (2.1) | — | DONE 08-10, LIVE (`fe6b99d05`; gate submission owed) |
+| admin Customers API + tab (2.2) | image rolls | BUILT 08-10 (`fe6b99d05`, `a84d544d1`) |
+| transcripts ingestion (2.3) | build next | DESIGNED 08-10 (see §2.3) |
 | trigger seam (2.4) | Phase 6 cutover reviewed AND 239 fixed | design only |
 | seeding (2.5) | trigger seam | not started |
 | payment gating | §7.2/§7.7 owner decisions (deferred) | not started |

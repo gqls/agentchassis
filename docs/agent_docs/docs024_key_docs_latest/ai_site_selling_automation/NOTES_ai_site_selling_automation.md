@@ -40,3 +40,53 @@ Spawned two read-only scouts: (a) admin FE + `/api/v1/admin` client endpoints
 (for the Customers tab); (b) `046_site_chat_turns.sql` + chat-service JSONL
 format + core-side pull precedents (for the ingestion design). Results to be
 recorded below when they land.
+
+## 2026-08-10 ~19:00 — first build session: mig 375 live, /admin/customers built, FE tab built, ingestion designed
+
+**The handoff's cheapest-first premise failed on contact with the code.** Scout
+read of `client_handlers.go` showed the "existing client CRUD endpoints" serve
+`clients_info` — a side table the handler lazily CREATEs on first call
+(`to_regclass('public.clients_info')` → NULL live, i.e. never yet called) —
+part of the per-client-schema tenant machinery, not the ruled
+`clients→networks→sites` chain. GET /clients names its columns and discards
+`settings` into a dead variable; new columns would not have flowed through
+anyway. Corrected in the handoff §3.5 in place; landmine appended to
+LANDMINES.md + synced to doc_notes (`--check` clean; the verify dispatch will
+sit starved until the LLM cap lifts, expected).
+
+**Shipped, in order:**
+- Migration `375_clients_customer_identity_columns.sql` — email/phone/tier/
+  customer_status/notes on `clients`, all nullable. Blast radius measured
+  first: zero Go readers of `FROM clients`, zero positional INSERTs.
+  Applied out-of-band (`psql -f` via kubectl) because the runner's `--apply`
+  is blocked by four older pending files with pre-state mismatches
+  (353/358/359/361 — other threads') and two LIKELY-ALREADY-APPLIED
+  (363/370); a failed file stops the run before reaching 375. Ledger-recorded
+  via `--record-only` with that reason. Verified: information_schema lists
+  all 5 columns.
+- `internal/core-manager/admin/customer_handlers.go` + routes —
+  GET/POST `/api/v1/admin/customers`, GET/PATCH `/customers/:customer_id`.
+  `go build` + `go vet` clean; **HEAD verified from a clean `git archive`
+  build after committing** (HEAD-BUILD-OK). Registered as ADM-011 with index
+  row, same commit. Commit `fe6b99d05`.
+- FE `CustomersPage.tsx` + three-line App.tsx wiring (nav key `customers`,
+  PipelinesPage precedent). Verified in a throwaway node:20 container on a
+  scratchpad COPY (tree kept clean): `vite build` ✓; `tsc --noEmit` reports
+  15 errors, ALL pre-existing in App.tsx, zero in the new page — this repo
+  has no typecheck script and has never typechecked; do not "fix" that as
+  part of an FE change. Commit `a84d544d1`.
+- Ingestion design written into PLAN §2.3 (B2 sink, spawn-free CronJob
+  puller, UUIDv5 pairing, hash-at-ingest, box-side asks for the sibling
+  lane). Not built.
+
+**Council obligation open:** `fe6b99d05` touches `internal/` with no
+Council-Submitted trailer because the gate cannot currently run a seat (fleet
+LLM cap; the sibling NOTES show a submission dying at its first review seat).
+OWED: submit the mig-375 + customer-endpoints change as one coherent
+submission when `llm_call_log` shows successes again — the RUNBOOK curl is
+the cheap tell. [ASSUMED] the gate will accept a post-commit submission
+normally; the Council-Submitted mechanism explicitly supports commit-first.
+
+**Still true / unchanged tonight:** Anthropic account cap in force (chat box
+fail-closed; owner action only); `bugs_open/239` owned by its own live
+session, untouched by this lane.
