@@ -1,8 +1,67 @@
 # BUG 153 — an IMAGE_TAG bump does not imply a rebuild: nothing ties a tag to the code it was built from
 
+> ## STATUS 2026-08-10 — **OWNED, FIX BUILT AND COMMITTED, NOT YET LIVE.** Candidates 1+4 done; 2+3 deferred on purpose
+>
+> Lane: `docs/agent_docs/docs024_key_docs_latest/bugfix_153_build_provenance/` (standing five).
+> Register: **BLD-019** in `docs026_concept_register/register/build-pipeline.md`.
+> Commits: `e743e6cfc` (pkg), `e5f31dcdb` (14 mains), `1054ec36c` (14 dockerfiles + makefile).
+>
+> **The defect was re-verified before anything was written**, on live pods
+> `agent-chassis-8496665bb8-{f6svp,sskxd}` at `v1.0.1279` — version-string grep **0**, 40-hex
+> sha grep **0**, `grep -c ldflags` over the makefile and every backend dockerfile **0**.
+> Unchanged 12 days after filing and 77 tag versions on. `[MEASURED]`
+>
+> **What is now built** (candidate 1 exactly as this file recommended, plus candidate 4):
+> `ref_build`/`tree_build` pass the sha they already computed as `--build-arg GIT_COMMIT` and
+> as OCI `image.revision`/`image.created` labels; all 14 backend dockerfiles stamp it through
+> `-ldflags` into a new `pkg/buildinfo.GitCommit`; all 14 mains log it at startup;
+> `verify-agent-images` gained three read-only stanzas that print the image label and the sha
+> actually baked into the running pod's binary. **Full 40-hex, not `--short`** — this file's
+> own positive control asks for `git rev-parse HEAD` exactly, and 40-hex is a measured-zero
+> pattern in the binary so extraction is unambiguous.
+>
+> **Mechanism proven before commit, with a negative control**, against a clean
+> `git archive HEAD` + the new files: WITH the ldflags clause the injected sha appears **3**
+> times in `cmd/agent-chassis`; the same source WITHOUT it gives **0** for that sha and **1**
+> for the literal `unknown`. Repeated on the two bare-`main.go` file-builds (`git-adapter`,
+> `remote-job-spawner`) and `cmd/scheduler`: 3 each. `[MEASURED]`
+>
+> **STILL OPEN, and these are the honest reasons — none of them is bookkeeping:**
+> 1. **Nothing is live.** No roll has happened. Releases here are whole-fleet and owner-run
+>    (`make release redeploy-agents`), so a single-service roll is not this lane's to do —
+>    see RUNBOOK R4. Until then the defect remains fully reproducible, which is the
+>    `/bugs_closed/` bar.
+> 2. **The council round DIED UNJUDGED.** Submission `44fa6a98-acaa-46b5-9ada-f0c34ca5475d`
+>    hit `complete_invalid` because the fleet's LLM provider is refusing every call
+>    (`bugs_open/243`, filed by this lane). The commits carry `Council-Submitted:`, which
+>    asserts nothing and is correct — but **a fresh submission is genuinely owed**, not merely
+>    pending, and `098` can never credit a correlation that has no verdict. RUNBOOK R7 has the
+>    resubmit command.
+> 3. **13 of 14 services are inert.** Their dockerfile+main.go edits are committed but their
+>    binaries are unstamped until each is next rebuilt. Expect a MIXED fleet, and do not read
+>    an unstamped adapter as a failed fix. Checklist below.
+> 4. **The induced-fault test is unrun** (RUNBOOK R6) — bump the tag, push+deploy *without*
+>    build, confirm the pod reports the OLD sha under the NEW tag. R5 alone proves the
+>    mechanism works on an *honest* roll; only R6 proves it catches a dishonest one, which is
+>    the actual bug. **A green R5 is not a close condition.**
+>
+> **Candidates 2 and 3 are deliberately NOT built**, and this is a decision, not an omission:
+> both change the push/deploy contract fleet-wide and want explicit owner sign-off. Candidate
+> 1 is their prerequisite — the label a refusal would compare against did not exist until now.
+> So what is shipped **detects** a retag; it does not refuse one. Say so when reporting this
+> fixed.
+>
+> **Per-service liveness checklist** — tick when that service's *binary* greps its build sha:
+> `agent-chassis` ☐ (pilot) · `auth-service` ☐ · `core-manager` ☐ · `reasoning-agent` ☐ ·
+> `web-search-adapter` ☐ · `web-scrape-adapter` ☐ · `git-adapter` ☐ ·
+> `image-generator-adapter` ☐ · `thunder-adapter` ☐ · `analyser-adapter` ☐ ·
+> `browser-runner-adapter` ☐ · `content-creator-agent` ☐ · `remote-job-spawner` ☐ ·
+> `kafka-scheduler` ☐
+
 **Filed:** 2026-07-29 18:30 BST · found incidentally while auditing the auto-memory
 index (a banner claimed `v1.0.1192`; checking it against the live pods opened this).
-**Status:** OPEN, unowned. **Not a code defect in the chassis** — a defect in the
+**Status:** ~~OPEN, unowned~~ → **OPEN, owned by `bugfix_153_build_provenance` (2026-08-10)**;
+see the status block above. **Not a code defect in the chassis** — a defect in the
 build/deploy contract, so it bites every service and every session.
 
 > ## ⚠ CORRECTED 2026-07-30 BY THE FILER — the original SYMPTOM is WITHDRAWN; the ROOT CAUSE stands

@@ -30,3 +30,48 @@ everyone and deserve a proper sign-off rather than one session deciding unilater
 Next: build it, get it reviewed by the automated council (our advisory review process for
 platform-code changes), commit it, and prove it works on one service (`agent-chassis`) end to
 end before leaving the other 13 services' matching changes for their next normal rebuild.
+
+## 2026-08-10, later — it's built and committed, but not yet switched on
+
+The change is written and committed. Every backend service will now stamp the exact version of
+the source code it was built from into the program itself, and into the container image, so
+anyone can ask a running service "what code are you actually running?" and get a precise
+answer instead of a version label that can lie.
+
+I proved it works before committing, and — this is the part that matters — I proved it the
+sceptical way: I built the program *with* the change and confirmed the stamp appeared, then
+built it *without* and confirmed it didn't. A test that can only come out one way isn't a test.
+
+**Two things it needs from you.**
+
+First, **a release**. It's built but it isn't running anywhere yet. Releases here are
+whole-fleet and yours to run, so when you're ready:
+
+```
+! date; make release redeploy-agents ENVIRONMENT=production REGION=uk001; date
+```
+
+Afterwards I'll verify it on both live pods. Then there's one more test worth doing
+deliberately: bump the version tag and deploy *without* rebuilding — the exact mistake this
+bug is about. The service should come up wearing the new label while honestly reporting the
+old code. That's the bug becoming visible for the first time.
+
+Second, and unrelated but more urgent: **our Anthropic account has hit its usage limit.** It
+stopped at 14:51 today and the API says access returns on 1 September. Everything that uses AI
+is down — page builds, content, the review council, all of it. I've filed it as
+`bugs_open/243`. The message says *"your specified API usage limits"*, which suggests a cap we
+set ourselves rather than something imposed on us, so it's probably a setting you can change
+in the console. This has happened before, on 31 July, and you fixed it the same way that day.
+Worth noting it's the third single-provider outage in eleven days (this one, this one in July,
+and a Gemini one on the 5th) — everything we run points at one provider with one key, so there
+is nothing to fall back to. That's a decision worth making at some point, not today.
+
+One honest caveat on the fix: because the council review system is itself down, my change
+hasn't been reviewed. The commits say "submitted" rather than "reviewed", which is accurate,
+and I'll resubmit properly once the AI service is back.
+
+Also worth saying plainly: I made two mistakes today and caught both. I filed the outage bug as
+if it were new when it had happened before and was already written down — I'd actually run the
+check that would have told me, looked at the results, and talked myself out of them. And I
+wrote a warning note that duplicated an existing one, for the same reason. Both are corrected,
+and both are logged in the file we keep for exactly this.

@@ -67,3 +67,60 @@ via the makefile's two `define`s so it's generic across all 14 services, not a o
 candidate 4 (widen `verify-agent-images`); candidates 2 (tag-implies-build) and 3
 (push-gating) deliberately deferred — both change the push/deploy contract fleet-wide and
 warrant explicit owner sign-off rather than one session's unilateral call.
+
+## 2026-08-10 (later) — built, committed, and the two things that went wrong
+
+**Built and committed in four commits**, each with an explicit pathspec: `e743e6cfc`
+(`pkg/buildinfo`), `e5f31dcdb` (14 mains), `1054ec36c` (14 dockerfiles + makefile),
+`041aae02b` (lane docs). Register entry **BLD-019** in `4451b2a0a`.
+
+**The mechanism was proven before commit, with a negative control** — see RUNBOOK R2. The
+positive alone would have been worthless: it proves the string exists, not that my flag put
+it there. WITH ldflags → 3 occurrences; WITHOUT → 0 for that sha and 1 for `unknown`.
+
+**Two same-file passengers, both declared in their commit messages.** Another session's
+uncommitted `IMAGE_TAG` bump (`v1.0.1278`→`v1.0.1280`, and it moved from 1279 to 1280 *while
+I was working*) rode along in `1054ec36c`; their uncommitted `BLD-018` rode along in the
+register commit. A pathspec cannot exclude a same-file edit — the rule protects you from
+other sessions' *other files*, not their edits to yours. Saying so in the message is the only
+available remedy.
+
+**A working-tree `go build` was failing for reasons that were not mine.**
+`platform/orchestration/datahelpers/page_canonical.go:185: undefined: nestedOrFlatURL` —
+another lane's half-written `BLD-018` work. Building from `git archive HEAD` + my own files
+isolated my change and showed it clean. Worth internalising: on this tree, *a build failure is
+not evidence about your change until you have isolated it*.
+
+### MISSTEP 1 — I dismissed my own grep hits and filed a duplicate-ish bug
+
+Filing `bugs_open/243` (the Anthropic usage-limit outage that killed my council round), I ran
+the prescribed "grep both bug dirs before filing", **got three hits**, decided from the
+filenames alone that they were coincidental, printed `--- (empty above = not filed) ---` under
+a non-empty result, and filed as though it were a first occurrence. It is a **recurrence** —
+2026-07-31, same signature, already in `LANDMINES.md`, with the resolution recorded in
+`bugs_closed/130` (owner raised the cap the same day). Another lane had already logged today's
+recurrence, with better evidence than mine.
+
+Corrected in place with a visible banner, logged in `WRONG_CALLS.md`. **The transferable half:
+a dismissed check is worse than a skipped one** — it leaves you confident. The tell was
+sitting in my own terminal: a label that contradicted the output directly beneath it.
+
+### MISSTEP 2 — I filed a landmine that duplicated one from 2026-07-31, for the same reason
+
+I wrote *"a dead council run is indistinguishable from queue latency"* without grepping
+`LANDMINES.md` first. An entry filed 07-31 already covered it, better. **Withdrawn** (with the
+reason left in place so the deletion is legible), and its one novel point — that
+`complete_invalid` is the council's generic "I could not run" state and generalises past any
+one outage — folded into the surviving entry. Caught only because `landmines-sync.py --apply`
+reported `content changed (same slug)` on an entry I had never touched. That is luck: I ran
+the sync because I had appended a landmine, not because I was checking my premise.
+
+### What is genuinely owed, in order
+
+1. **The owner's whole-fleet release** (RUNBOOK R4). Not this lane's to run — a single-service
+   roll fragments the fleet.
+2. **Pod verification on every replica** (R5), then the **induced-fault test** (R6), which is
+   the only one that proves the mechanism catches a *dishonest* roll. A green R5 is not a
+   close condition.
+3. **A fresh council submission** once the provider outage lifts (R7). The current correlation
+   has no verdict and never will; `Council-Submitted:` is honest but uncredited.
