@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/orchestration/agenterrors"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"github.com/gqls/agentchassis/platform/storage"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -3397,18 +3398,21 @@ func recordFactAssignmentAbsent(ctx context.Context, params ActionParams, misses
 		return
 	}
 	siteID := datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.site_id")
+	findings := make([]agenterrors.Finding, 0, len(misses))
 	for _, m := range misses {
-		LogActionError(ctx, params, siteID, "", "validate_plan",
-			"FACT_ASSIGNMENT_ABSENT", "warning",
-			fmt.Sprintf("page %q: %d object-form section entrie(s) carry no usable `facts` value — seed 333 makes the key mandatory, so this is planner disobedience, not a factless page",
+		findings = append(findings, agenterrors.Finding{
+			ErrorCode: "FACT_ASSIGNMENT_ABSENT",
+			Severity:  "warning",
+			Message: fmt.Sprintf("page %q: %d object-form section entrie(s) carry no usable `facts` value — seed 333 makes the key mandatory, so this is planner disobedience, not a factless page",
 				m.Page, len(m.Sections)),
-			map[string]interface{}{
+			Context: map[string]interface{}{
 				"page":            m.Page,
 				"absent_sections": m.Sections,
 				"remedy":          "the planner emitted an object-form section entry without a `facts` array; [] is the correct emission for a section with no assigned facts. Check the planner prompt's fact-assignment rules (RFC_016, seed 333)",
 			},
-			params.Logger)
+		})
 	}
+	LogActionFindings(ctx, params, siteID, "", "validate_plan", findings, params.Logger)
 }
 
 // recomposeOutcome classifies what actually happened to a page the caller
@@ -3487,6 +3491,7 @@ func recordRecomposeOutcomes(ctx context.Context, params ActionParams, outcomes 
 		return
 	}
 	siteID := datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.site_id")
+	findings := make([]agenterrors.Finding, 0, len(outcomes))
 	for _, o := range outcomes {
 		msg := fmt.Sprintf("page %q was released for redesign via recompose_pages but the plan proposes its realised composition unchanged — the redesign silently no-opped", o.Page)
 		remedy := "the planner re-emits realised sections (seed 362) and is not told which pages are on recompose_pages; state the redesign in the briefing the planner sees, or wait for the field-based fix (features_open/012)"
@@ -3494,16 +3499,19 @@ func recordRecomposeOutcomes(ctx context.Context, params ActionParams, outcomes 
 			msg = fmt.Sprintf("page %q was released for redesign via recompose_pages and is absent from the reconciled plan — dropped (or renamed) rather than recomposed", o.Page)
 			remedy = "a released page the planner omits is dropped by design; if a drop was not intended, re-plan with the page named in the briefing"
 		}
-		LogActionError(ctx, params, siteID, "", "validate_plan",
-			"RECOMPOSE_INTENT_NOT_REALISED", "warning", msg,
-			map[string]interface{}{
+		findings = append(findings, agenterrors.Finding{
+			ErrorCode: "RECOMPOSE_INTENT_NOT_REALISED",
+			Severity:  "warning",
+			Message:   msg,
+			Context: map[string]interface{}{
 				"page":              o.Page,
 				"outcome":           o.Outcome,
 				"realised_sections": o.RealisedSections,
 				"remedy":            remedy,
 			},
-			params.Logger)
+		})
 	}
+	LogActionFindings(ctx, params, siteID, "", "validate_plan", findings, params.Logger)
 }
 
 // sectionEntryName reads the component name from a planned-section entry in
@@ -4363,7 +4371,7 @@ func enrichSectionComponentsWithBriefs(
 		FROM page_components
 		WHERE page_id = $1
 		  AND content_brief IS NOT NULL
-		  AND build_status != 'removed'
+		  AND build_status IS DISTINCT FROM 'removed'
 	`, pageID)
 	if briefErr != nil {
 		logger.Warn("enrichSectionComponentsWithBriefs: query failed",

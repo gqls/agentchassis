@@ -812,10 +812,35 @@ func getPageSections(ctx context.Context, db *sql.DB, pageID uuid.UUID, logger *
 		_ = json.Unmarshal(sectionsJSON, &diag.PlannedSections)
 	}
 
+	// build_status='removed' EXCLUDED — the assemble path's half of the same
+	// defect fixed in rerender_page_sections_action.go's loadStoredSections.
+	//
+	// Until 2026-08-10 this query relied on an INCIDENTAL protection: a removed
+	// section only stayed out of the assembled page because the removal recipe
+	// also emptied rendered_html, and the `html == ""` branch below skips empty
+	// rows. Two things were wrong with that. A row marked removed WITHOUT the
+	// tombstone — the natural thing for a future remover to do, since 'removed'
+	// is the status that means removed — is re-assembled and re-deployed. And a
+	// tombstoned row that IS skipped gets recorded in diag.UnrenderedSlots as
+	// "never rendered" (the bugs_open/095 shape), which mislabels a deliberate
+	// removal as a rendering failure and points the next investigation at the
+	// wrong defect.
+	//
+	// Raised as the GATING objection by the council's render_guardian seat
+	// (corr 2bc2a6d5): the first version of the fix changed only the light
+	// rerender path and concluded the sibling readers were already correct, which
+	// left the incident reproducible through the plain page-rerender — the more
+	// commonly fired path. The seat was right, and the landmine entry it cited
+	// was this lane's own, naming this very function.
+	//
+	// IS DISTINCT FROM, not !=: build_status is nullable (default 'pending', no
+	// NOT NULL constraint), so != would drop every NULL-status row from every
+	// assembled page the moment one appeared.
 	rows, err := db.QueryContext(ctx, `
 		SELECT COALESCE(rendered_html, ''), COALESCE(slot_name, '')
 		FROM page_components
 		WHERE page_id = $1
+		  AND build_status IS DISTINCT FROM 'removed'
 		ORDER BY position ASC
 	`, pageID)
 	if err != nil {

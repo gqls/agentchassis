@@ -56,7 +56,7 @@ func (h *PageAdminHandlers) HandleListPages(c *gin.Context) {
 		FROM pages p
 		LEFT JOIN page_components pc ON pc.page_id = p.id
 		    AND COALESCE(pc.slot_name, '') NOT IN ('header', 'footer', 'head')
-		    AND pc.build_status != 'removed'
+		    AND pc.build_status IS DISTINCT FROM 'removed'
 		WHERE p.site_id = $1
 		  AND p.status IN ('active', 'deployed')
 		GROUP BY p.id
@@ -161,7 +161,7 @@ func (h *PageAdminHandlers) HandleListComponents(c *gin.Context) {
 		FROM page_components pc
 		WHERE pc.page_id = $1
 		  AND COALESCE(pc.slot_name, '') NOT IN ('header', 'footer', 'head')
-		  AND pc.build_status != 'removed'
+		  AND pc.build_status IS DISTINCT FROM 'removed'
 		ORDER BY pc.position
 	`, pageID)
 	if err != nil {
@@ -857,7 +857,7 @@ func (h *PageAdminHandlers) HandleRegeneratePage(c *gin.Context) {
 	rows, err := h.db.QueryContext(ctx, `
 		SELECT id, slot_name FROM page_components
 		WHERE page_id = $1
-		  AND build_status != 'removed'
+		  AND build_status IS DISTINCT FROM 'removed'
 		  AND COALESCE(slot_name, '') NOT IN ('header', 'footer', 'head')
 		  AND (locked_at IS NULL OR locked_by NOT IN ('admin', 'admin-removed', 'checkpoint'))
 		ORDER BY position

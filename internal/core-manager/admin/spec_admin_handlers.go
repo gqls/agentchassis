@@ -252,7 +252,7 @@ func (h *SpecAdminHandlers) HandlePropagateSpec(c *gin.Context) {
 			SELECT COUNT(*),
 			       COUNT(*) FILTER (WHERE locked_at IS NOT NULL AND locked_by IN ('admin', 'admin-removed', 'checkpoint'))
 			FROM page_components
-			WHERE page_id = $1 AND build_status != 'removed'
+			WHERE page_id = $1 AND build_status IS DISTINCT FROM 'removed'
 			  AND COALESCE(slot_name, '') NOT IN ('header', 'footer', 'head')
 		`, pageID).Scan(&totalCount, &lockedCount)
 
