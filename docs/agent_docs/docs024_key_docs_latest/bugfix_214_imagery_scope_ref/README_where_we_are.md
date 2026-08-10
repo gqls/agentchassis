@@ -175,3 +175,51 @@ Two honest consequences for this piece of work:
    un-reviewed until somebody resubmits it. The submission is written and committed and
    ready to go; it just needs firing again when there are credits. I have written that
    into the bug file so it is not lost.
+
+## 2026-08-10 (evening) — it's live, the ten broken pictures are nine-tenths repaired, and one thing I want to be careful not to overclaim
+
+The new chassis went out as `v1.0.1283`. I checked the fix was genuinely in it rather than
+trusting the version number — I searched the running program on **both** copies for text my
+change added, and also for a phrase I invented that should not be there. The invented one
+came back zero, which is the half that actually proves anything.
+
+Then I ran the repair script on the ten broken pictures. **Nine are fixed.** More
+importantly I checked them the way the platform itself checks them — by running the exact
+database lookup the page builder uses — and gamesdesign's about and contact heroes,
+fundamentallyai's news hero, and all four of gamesdesign's little icons now come back with
+their images attached. Every one of those returned nothing at all this morning.
+
+The tenth is mortgagecalculator's tools page: its label points at a page that does not
+exist under any spelling, so there is nothing to correct it *to*. That one needs a person
+to say what it was meant to be. I have left it rather than guess.
+
+**One honest caveat, and I want it on the record rather than buried.** I also wanted to
+prove the fix works on *new* site plans, not just that it repaired the old damage. So I ran
+the planner twice against two throwaway internal sites. Both wrote plans successfully and
+nothing broke — but in both cases the planner happened to produce only simple page types
+that the platform never renames, **so the fix had nothing to do.** The result came back as
+"zero corrections made", which is exactly what the old broken code would also have
+reported. It is good evidence that nothing regressed, and it proves the new code is running,
+but it is **not** proof that the correction itself works in the wild. I have written that
+distinction into the notes rather than let a zero read as a success. The real confirmation
+will come free the next time any of gamesdesign, dartsonline or robot-hands is replanned —
+those sites do have the page types that get renamed. I deliberately did not force it by
+replanning a customer's site just to harvest a number.
+
+**And a mistake worth telling you about, because it cost real money in potential.** I picked
+those two throwaway sites precisely because nothing is served from them, so I thought a test
+there was free. It isn't. Writing a site plan is the *start* of the build pipeline, and
+behind those two plans the system quietly queued **41 jobs — twenty-four of them image
+generations**, each of which costs money, on two sites nobody will ever look at. One page
+build had already been picked up by the time I noticed. I cancelled all forty-one and
+confirmed none were left.
+
+What is uncomfortable is *how* I found it: I was checking whether my test had corrupted one
+of my own measurements, and the job count happened to be sitting in the results next to what
+I was looking at. I was not checking whether I had spent money. That is luck, not method, so
+I have written the check down — after any test that pokes the live system, look at what it
+queued before walking away.
+
+The review council is finally running (it was dead earlier today because the whole fleet was
+out of API credit until this evening). No verdict yet, and I have not marked anything as
+reviewed.
