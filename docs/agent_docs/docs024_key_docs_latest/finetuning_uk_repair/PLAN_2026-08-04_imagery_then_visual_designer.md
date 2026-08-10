@@ -179,3 +179,61 @@ Stated so it is checkable rather than persuasive:
 - If `generic_theme` has failed twice for a structural reason (not transient), then
   re-firing the loop will fail a third time and Phase 2 needs a diagnosis run
   (`090`) rather than another attempt.
+
+---
+
+## CORRECTION 2026-08-10 — Phase 1 item 3's resolved table is WRONG, and it changes what Phase 1 achieves
+
+> **CORRECTED.** Phase 1 item 3 states, marked **RESOLVED 2026-08-04, before
+> queueing**:
+>
+> | page | component | paths in `html_template` | paths in `content_data` |
+> |---|---|---|---|
+> | `/case-studies.html` | `case-studies-list` | **yes** | no |
+>
+> **The `html_template` column is false.** `case-studies-list`
+> (`content_components` `e7fc34f7-ef74-4665-830d-2c130c689002`, unedited since
+> 2026-03-09, so it was false when written) contains **no `<img>` tag, no
+> `.jpg`, and no `/assets/images/` at all**. It renders `{{.title}}`,
+> `{{.client}}`, `{{.summary}}`, `{{.results}}` and nothing more.
+>
+> The check that produced "yes" was almost certainly
+> `html_template LIKE '%case-study-%'`, which matches the **CSS class names**
+> `case-study-item` / `case-study-client` / `case-study-results`. I repeated the
+> error on 2026-08-09 with the same pattern. Full account: `WRONG_CALLS.md`
+> 2026-08-10.
+
+**What this changes.** The plan's convenient conclusion — *"One set of five
+assets fixes **both** pages, and no repointing is needed on either"* — does not
+hold. `/case-studies.html` was never a consumer. Phase 1 therefore fixes **one**
+surface, not two, and only if that surface's content names the files.
+
+**Who actually references `/assets/images/case-study-*.jpg` (measured 2026-08-10,
+precise prefix, with a positive control):**
+
+```sql
+SELECT 'template', cc.name FROM content_components cc
+WHERE cc.html_template LIKE '%/assets/images/case-study-%'
+UNION ALL SELECT 'page content_data', p.url
+FROM pages p JOIN page_components pc ON pc.page_id=p.id
+WHERE pc.content_data::text LIKE '%/assets/images/case-study-%';
+-- control: the same shape finds 19 rows for '/assets/images/content-hero-%'
+```
+
+**Exactly one row: a `case-studies-grid` on `/enterprise-reference-deployment.html`
+— and that page 404s.** `/index.html`'s `case-studies-grid` *did* reference them
+and lost the keys to a content regeneration (`bugs_open/238`).
+
+**So, as of 2026-08-10: the five images exist and serve, and no live page shows
+them.** That is the honest state of Phase 1 — the assets half is done and
+verified, the referencing half is not, and the remaining work is content, not
+imagery:
+
+1. `bugs_open/238` — restore image URLs to `/index.html`'s grid, for the
+   *rewritten* case studies (the same run changed which case studies the cards
+   describe, so the old URL set is not a paste-back).
+2. Decide what `/enterprise-reference-deployment.html` is: a page that should be
+   built and deployed, or a stale row to retire.
+
+**Phase 3 (the visual-designer pass) is still gated** and now on a firmer
+reason than "the images 404": the homepage renders five `<img src="">`.
