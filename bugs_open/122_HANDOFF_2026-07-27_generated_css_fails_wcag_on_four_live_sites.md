@@ -783,3 +783,48 @@ where `#ffffff` is correct.
 *Also relevant to this file's own before/after discipline:* when the audit is re-run here,
 `ai-agent-orchestration.com`'s total will drop by the chip count and **not** by 44. That is
 the expected result, not a shortfall.
+
+### 2026-08-10 — 353 APPLIED and verified in the template; plus two corrections to the section above
+
+**Applied 2026-08-10 11:41:22 UTC** by the owner. The guard passed and all three
+post-conditions asserted: chip rule written once, **4** remaining `--color-text-muted`
+uses, **4456** bytes. Read back from `content_components`, the stored rule is now
+`color: var(--color-text, #475569); background: var(--color-border, #e2e8f0);`.
+
+**No artefact carries it yet, and that is expected.** Every one of the 9 placements had
+last rendered *before* 11:41, so at 11:43 `robot-hands.com/news/` still served the old
+declaration. Propagation is per page re-render (§ the cascade note above — no stylesheet
+rebuild is needed).
+
+**Measured re-render cadence, which decides whether this self-heals:** 7 of the 9
+placements re-rendered on 2026-08-10 between **02:24 and 08:45**. So those pages pick the
+fix up on their own within about a day. **Two will not:** `webdesign.co.uk` (last
+2026-08-08) and `idea.uk` (last **2026-07-14**, four weeks).
+
+**832 chips are rendered fleet-wide** across the 8 pages that have any — robot-hands 105
+(×2 pages), gaswholesalers 120, relojistas 109, ai-agent-orchestration 107, dartsonline
+100, fundamentallyai 95, webdesign.co.uk 91, **idea.uk 0**.
+
+> **CORRECTION 1 — "7 of 8 sites fail today" mixed an observation with an arithmetic
+> prediction, and one of them is unobservable.** Only `robot-hands` and `dartsonline` were
+> render-measured. The other six numbers were computed from their served palettes: they say
+> *"a chip on this site would fail"*, which is the right basis for a fleet fix but is not a
+> count of anything seen. **`idea.uk`, which I called the worst at 2.25:1, renders no chips
+> at all** — its news page serves the `{{else}}` placeholder. Its true contribution to this
+> bug today is **zero**. The fix is still right for it (the moment a chip renders there it
+> would have been unreadable) but it repairs nothing visible on that site now.
+> *The shape, again:* this file's own 2026-07-28 correction says a stylesheet cannot answer
+> a rendered-contrast question. I used palette values to extend a render measurement to six
+> unrendered sites and wrote the two kinds of number in one column.
+
+> **CORRECTION 2 — "181 instances" is 181 DISTINCT failing labels, not 181 chips.**
+> `render_audit.py:141` dedupes on `class|colour|first-40-chars-of-text`, so a tag text
+> repeated across articles is counted once per page. The rendered chip counts on the two
+> measured sites are **210** (robot-hands, two pages) and **100** (dartsonline) against
+> **128** and **53** distinct failures. The **41% share is unaffected** — all 442 failures
+> are deduped the same way — but "instances" overstated what a visitor sees per page and
+> understated the total.
+
+**Still owed:** re-run `render_audit.py --sitemap` on robot-hands and dartsonline once
+their pages have re-rendered, and record the paired before/after. Before = robot-hands
+**193**, dartsonline **125** (2026-08-09, full sitemap). Expect −128 and −53.

@@ -252,3 +252,46 @@ scope) rather than resubmitted; none was a mechanism-correctness defect. Full tr
 **Spawned follow-ups (still open):** `bugs_open/054` (the other five list templates' empty-
 state — since largely fixed by migration 185); `bugs_open/026` Defect B part 2 (the
 schema-shape fail-open, root-caused by another thread). Neither blocks this close.
+
+---
+
+## 2026-08-10 — ONE SITE STILL REPRODUCES THIS: `idea.uk`. Found incidentally, from the contrast front
+
+**Contributed by the `bugs_open/113`/`122` contrast lane.** Not a re-open request — a
+measurement, so whoever owns this decides what it means.
+
+This file's own reproduction, run today against the site that led me here plus two
+controls:
+
+```
+$ curl -s "$u" | grep -ciE '<article'
+  https://idea.uk/news/index.html                articles=0     <-- reproduces
+  https://relojistas.com/noticias/index.html     articles=20
+  https://robot-hands.com/news/index.html        articles=20
+```
+
+**`idea.uk/news/` serves the `news-listing-loading` placeholder and zero server-rendered
+articles**, exactly as this bug describes; the other two sites named in the original
+reproduction now serve 20 each, so the fix that closed this is real and holding
+**everywhere except here**. (Use the `<article` count, not the placeholder count: the
+string `news-listing-loading` also appears in the component's own CSS rule, so it returns
+1–3 on healthy pages too.)
+
+**How stale:** the `page_components` row for that placement last rendered **2026-07-14
+18:59:58** — four weeks, against a fleet where the other eight placements re-rendered
+within the last day (seven of them between 02:24 and 08:45 on 2026-08-10). So the likely
+reading is a **straggler that never re-rendered after the fix**, rather than a regression
+of the fix itself. **`[INFERRED]` — I have not read the code path or established why that
+page stopped re-rendering, and "it is merely stale" is exactly the comfortable answer, so
+it deserves a check rather than assent.**
+
+**Second, smaller defect on the same page:** the placeholder text itself fails WCAG AA —
+`.news-listing-loading`, `rgb(131,124,114)` on `rgb(239,231,214)` = **3.35:1**, needs 4.5.
+So the one thing that page does show a visitor is also hard to read.
+
+**Why this matters beyond one page:** `idea.uk` is one of the 8 consumers of the shared
+`news-listing` component whose chip colours were repaired on 2026-08-10
+(`sql_for_agents/353`, recorded in `bugs_open/122`). It was the worst site by palette
+arithmetic (2.25:1) and contributes **zero** actual failures, because it renders no chips
+to fail. A fleet fix sized from palette values would have counted this site's repair as a
+win; rendering the page is what showed there was nothing there.

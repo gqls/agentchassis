@@ -14,6 +14,28 @@ always a *pairing* of two individually-valid colours, and the only thing that se
 
 ---
 
+> **UPDATE 2026-08-10 11:41:22 UTC — §0 IS DONE. 353 was applied by the owner**, guard
+> passed, all three post-conditions asserted (4456 bytes, 4 muted uses left, chip rule
+> written once), and the new rule is verified in the stored template.
+>
+> **What is now owed instead is the paired after-measurement.** No artefact carried the fix
+> at the time of writing — propagation is per page re-render, and 7 of the 9 placements
+> re-render on their own within about a day (observed 02:24–08:45 on 2026-08-10). So:
+> **re-run `render_audit.py --sitemap` on robot-hands and dartsonline once their news pages
+> have re-rendered.** Before = **193** and **125** (2026-08-09, full sitemap); expect
+> **−128** and **−53**.
+>
+> Two stragglers will NOT self-heal: `webdesign.co.uk` (last rendered 2026-08-08) and
+> `idea.uk` (**2026-07-14**). And two corrections to what §0/§1 claimed are recorded in
+> `bugs_open/122` under 2026-08-10 — read them before quoting any figure from this file:
+> **"7 of 8 sites fail today" mixed observation with palette arithmetic** (only two sites
+> were render-measured, and `idea.uk` renders **no chips at all**), and **"181 instances"
+> is 181 *distinct* labels, not 181 chips** (the audit dedupes on class|colour|text).
+>
+> Also found on the way: **`idea.uk/news/` still reproduces `bugs_closed/027`** — zero
+> server-rendered articles where its two original co-reproducers now serve 20 each.
+> Contributed into that file; not re-opened from here.
+
 ## 0. THE ONE THING OWED — a two-file SQL change, written and measured, NOT APPLIED
 
 ```
