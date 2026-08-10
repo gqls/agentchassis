@@ -1777,3 +1777,88 @@ the wiring submission, not in a session's judgement.
   invented figures.
 - **All 6 remain undated**, so 0 are publishable. They are waiting on the owner's
   read — which is what ruling 1 means in practice.
+
+---
+
+## 2026-08-10 — the first LLM provocation is LIVE, and the safety floor is built
+
+### The site is no longer stale, and it was verified at the artefact
+
+```
+$ curl -s https://vonc.com/data/provocations.json | jq .today
+  slug     : you-love-being-from-your-city
+  date     : 10 Aug
+  headline : You don't love your city, you love <em>being from</em> it.
+```
+
+**First LLM-written provocation vonc.com has ever served.** Fifteen days of 26 July
+ended at the 04:41 publisher tick. Verified by fetching the served JSON — not the DB row,
+not the scheduled-task status, both of which said "fine" throughout the stall.
+
+The stall's cause, for the record, was never a bug: `selectForDate`
+(`provocation_feed_action.go:276`) picks the latest **approved** row with
+`publish_on <= today`, and nothing had been gated into `approved` since 26 July.
+generate → **gate (unwired)** → approved → publish (wired, 6h). The gate was the missing
+link, and the concurrent session gating the six drafts is what un-stuck it.
+
+### Built today
+
+**1. The deterministic pre-judge abuse check** (`abusive_language`, commit `421157275`,
+council `f1fd297f`). Six RE2 patterns over the whole artefact, fatal on first match,
+inside `checkForm` so `gateCandidate`'s existing `if v.fatal() { return v }` means the
+judge is never even paid. Errs toward rejection per ruling.
+
+Evidence rather than assertion, in both directions:
+- **Mutation-tested.** Emptying `abusivePatterns` fails all four new tests; restoring
+  passes. A green suite over a guard in series proves nothing, so this was the check that
+  mattered.
+- **False-positive scan on the LIVE corpus.** Patterns extracted *programmatically from
+  the source* (so the scan cannot drift from the code) and run over all 15 vonc.com rows
+  — 9 human, 6 llm — **zero flagged**. Then positive-controlled against three known-bad
+  texts: all three flagged. The zero is disconfirmable, which is the only kind worth
+  recording.
+
+The existing suite caught the change working: `TestGateRejectsTheDeliberatelyBadSet/a_bare_insult`
+failed because the insult was now killed by `form/abusive_language` instead of
+`judgement/unsafe`. That fixture stubbed a judge returning `safe:false` and asserted the
+judge caught it — **it was pinning the behaviour of a stub**, for a judge the live
+calibration then caught approving this exact shape. Strengthened, not deleted: `judgeSays`
+is now nil, so the harness installs the judge that *fails the test if called*.
+
+**2. Category-aware scheduling** (commit `b5e67bca5`, council `ac0182ec`). RFC_013's index
+half had already shipped — `idx_provocations_one_per_category_day` is UNIQUE on
+`(domain, category, publish_on)` — but the scheduler still read `max(publish_on)` across
+every category and dated a mixed batch consecutively. A new category would inherit the
+busiest one's high-water mark and be scheduled months out, silently. Landed **while every
+live row is still `general`**, so it is a provable no-op on today's data, with a test
+pinning exactly that.
+
+### Missteps
+
+**I put the wrong council correlation on a commit.** `b5e67bca5` carries `f1fd297f`, which
+covers the *abuse check*, not the scheduler. The trailer gate validates UUID shape, not
+that the submission covers your files — so it would have **manufactured coverage**: 098
+credits at report time, and an unreviewed change would have reported as reviewed with a
+perfect join. Submitted the scheduler separately (`ac0182ec`); forward-only means the
+correction lives in `WRONG_CALLS.md` and here, not in an amend. The one-command check I
+should have run: `jq -r '.plan.edits[].file' <submission>` against my own pathspec.
+
+**I cited a symbol that does not exist.** The abuse-check comment first pointed at
+`judgeSafetyRepeatedly` — the varied-framing sampler from the *other* owner ruling, which
+nobody has written. Caught before commit. A comment citing an unwritten symbol reads
+exactly like one citing a real symbol, so the reference was replaced with a description of
+the composing ruling and an explicit note saying why it is not named.
+
+**A premise I reasoned from was reversed under me.** PLAN §§12-13 lean on §10's "no human
+approval of publishes"; the owner reversed that with a concurrent session while I was
+writing them. Recorded as PLAN §14 rather than edited away — and the load-bearing half is
+that **the reversal is policy, not code**: no approval step exists anywhere in the publish
+path, so the system still behaves exactly as §10 described.
+
+### Owed
+
+Both council verdicts (`f1fd297f`, `ac0182ec`) are unread — still `EXECUTING_STEP` at the
+time of writing, and **the code is already on the shared branch**, so a REVISE must be
+acted on rather than noted. Then: dry-pool top-up + notification (PLAN §13 ruling 4, not
+started), and `/blog/provocation.html` (ruling 8, delegated, not started). Neither safety
+ruling's *second* half — varied-framing sampling — is implemented by anyone yet.
