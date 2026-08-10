@@ -1535,3 +1535,33 @@ every morning*. A mechanism that writes into a table nobody opens fails the same
 way the convention did. That is the argument for preferring **removal over
 observation** wherever it is available: today's fix deletes the drifting artefact,
 which needs no reader. The next intervention should try to do the same.
+
+---
+
+## 2026-08-10 — the prediction held, the leak has a rate, and a roll that proves nothing
+
+**The 06:50 run matched the prediction exactly.** Before it fired I recorded what it
+would say (1,803 entries / 1,803 rows, one finding, `rebuild-cascade.md`). It said
+that. Predicted first, verified after — not reconstructed from the answer, which is
+the only version of this that is worth anything.
+
+**The leak now has a measured rate, and it is the reason to build the gate.**
+`BIZ-031` and `WFA-012` both landed with an entry and no index row overnight; with
+`SCH-024` on 08-08 that is three in three days, from three different lanes, none of
+them careless. The 08-09 summary said we would learn the rate by measuring instead
+of guessing. We have: **roughly one per day and a half.** That is enough to justify
+the pre-commit rule, and it is the first item in the handoff.
+
+**A fresh chassis rolled today, and it is a good example of a roll proving nothing.**
+`WFA-012`'s entry says "inert until the next chassis image", so the tempting move
+was to mark it live. Its change is **control flow with no new string literal** —
+`ExtractNestedField` gained array indexing, and the symbol itself predates the
+change and greps 8 times in the binary either way. That is a positive control that
+cannot fail, exactly `DOC-073`'s case. **No pod-grep can confirm this one.** Its
+row records the built/approved state and says the roll is not grep-verifiable,
+leaving the live proof to the lane that owns it and knows how to induce it.
+
+**Handoff written** (`HANDOFF_2026-08-10_continue_here.md`) because the originating
+chat grew long. It carries the rate table, the three landmines specific to this
+lane, and the ordered next steps — gate first, then the owed stored count, then
+staleness.
