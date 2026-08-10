@@ -565,3 +565,108 @@ have raised a false positive on a deliberate redirect. A checker that cannot tel
 intent from fault needs the intent recorded somewhere it can read, which is an
 argument for `site_specs`/`deploy_config` carrying expected-redirect
 declarations before that check is ever seated fleet-wide.
+
+---
+
+## 2026-08-10 — the engine is built, tested and running; public exposure is BLOCKED on DNS
+
+### What is live on the box
+
+`[MEASURED]` `noted-engine` — a single cross-compiled Go binary (10 MB, static),
+shipped to `/usr/local/bin/noted-engine`, `systemd` unit `noted-engine.service`,
+running as an unprivileged `noted` user with `ProtectSystem=strict`, an empty
+`ReadWritePaths=` (all state is in Postgres, nothing on disk) and a
+`@system-service` syscall filter.
+
+- `curl 127.0.0.1:8090/api/health` → `{"status":"ok"}` — and that endpoint pings
+  the database, so it reports the thing that matters rather than "the process is
+  up".
+- **Bound `127.0.0.1:8090` ONLY**, verified, and verified *not* reachable from
+  off-box. This is the deliberate non-repetition of `webdesign-chat`'s `*:8081`.
+- Schema created by the binary itself at startup (`accounts`, `sessions`,
+  `notes`, `media`), so code and schema cannot drift.
+- nginx site added on `127.0.0.1:8082` proxying `/api/` → 8090, with a tighter
+  rate limit on `login`/`register` than on the rest.
+- **The shopfront is byte-identical throughout** — box-local origin still
+  `200 / 28419 B` after the nginx reload.
+
+### The tests, and the mutation that proves they work
+
+Seven tests, all executed against a real Postgres (they **skip loudly** without
+one — a suite that silently tests nothing is worse than one that fails):
+
+```
+TestOneAccountCannotSeeAnothersNotes      PASS
+TestMediaIsAccountScoped                  PASS
+TestUnauthenticatedIsRefused              PASS
+TestQuotaIsEnforced                       PASS
+TestImportOfTheRealBackupFormat           PASS
+TestLoginDoesNotRevealWhetherAnAccountExists PASS
+TestPasswordHashingRoundTrips             PASS
+```
+
+`[MEASURED]` **Mutation test, because a green suite proves nothing until it has
+been shown able to go red.** Changing `ListNotes`'s
+`WHERE account_id=$1` to `WHERE (account_id=$1 OR TRUE)` — the exact defect the
+suite exists for — produced:
+
+```
+--- FAIL: TestOneAccountCannotSeeAnothersNotes
+    LEAK: bob's note list contains alice's note: {"notes":[{"id":1,"title":"Alice private","content":"her diary"...
+```
+
+Reverted; green again. The isolation guarantee is therefore tested, not asserted.
+
+### A design decision that REVISES the earlier plan — media is in Postgres
+
+`PLAN_2026-08-10_noted_rebuild.md` §3a-i said media would go to B2 so noted's
+unbounded growth could not fill the box's 50 GB disk and take the shopfront down.
+**The concern was right; the remedy is now different**, and the reasoning is in
+`schema.sql`'s header:
+
+- the coupling is closed by a **hard per-account quota enforced in the same
+  transaction as the insert** (with `SELECT … FOR UPDATE`, so two concurrent
+  uploads cannot both see room). A quota *bounds* growth; a different storage
+  backend only *relocates* it.
+- media in Postgres is media inside the nightly encrypted dump. Media in B2 needs
+  its own backup story, its own credential on the box, and a restore that
+  reunites two stores at one point in time — at launch volumes that is more ways
+  to lose a recording, not fewer.
+
+Migration path left open deliberately: a `storage_key` column beside `bytes`,
+filled for new rows, `bytes` drained in the background. Revisit past a few GB.
+
+### ⚠ BLOCKED, and I made a mess on the way
+
+`cloudflared tunnel route dns <tunnel> app.noted.co.uk` **created
+`app.noted.co.uk.webdesign.uk`**, not `app.noted.co.uk`. The tunnel's
+`cert.pem` is authorised for the **webdesign.uk zone only**, so cloudflared
+treated the hostname as relative to it and silently appended the zone. It
+reported success:
+
+```
+INF Added CNAME app.noted.co.uk.webdesign.uk which will route to this tunnel
+```
+
+`[MEASURED]` The stray record is real and proxied —
+`app.noted.co.uk.webdesign.uk. 284 IN A 104.21.54.51 / 172.67.223.216` — and
+`app.noted.co.uk` does **not** exist. It is harmless (no ingress rule matches it,
+so it falls to the tunnel's `http_status:404`) but it is clutter in someone
+else's zone and **I cannot remove it**: there is no `route dns` delete, and no
+Cloudflare API token is available here.
+
+**The lesson, and it is the same one as the `--bucket` scoping earlier today:** a
+tool that silently reinterprets your argument against its own authorised scope
+will report success for the thing it did instead. `route dns` never errors on a
+cross-zone hostname; it just makes a different record. **Check what a DNS command
+created, never that it exited 0.**
+
+**Two things the owner must do**, neither of which I can:
+1. Delete the stray `app.noted.co.uk.webdesign.uk` CNAME.
+2. Authorise routing for the `noted.co.uk` zone — either
+   `cloudflared tunnel login` selecting that zone (browser), or a CF API token
+   with DNS edit on it, after which the CNAME can be created properly.
+
+Until then the engine is running and correct but reachable only from the box.
+**noted.co.uk itself is deliberately untouched** and still serving the legacy app
+with its wind-down notice — `200 / 4229 B`, re-checked after all of the above.

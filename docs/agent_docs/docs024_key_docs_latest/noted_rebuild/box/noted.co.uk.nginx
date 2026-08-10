@@ -1,0 +1,52 @@
+# noted.co.uk — nginx site on webdesign.vs.mythic-beasts.com.
+#
+# LISTENS ON LOOPBACK ONLY, ON PURPOSE. cloudflared is the only ingress and it
+# dials OUT; ufw denies everything inbound but port 22. Binding 127.0.0.1 means
+# even a firewall mistake exposes nothing. (webdesign-chat on this same box
+# binds *:8081 and therefore has ufw as its ONLY control — do not copy that.)
+limit_req_zone $http_cf_connecting_ip zone=noted_api:10m rate=120r/m;
+limit_req_zone $http_cf_connecting_ip zone=noted_auth:10m rate=10r/m;
+
+server {
+    listen 127.0.0.1:8082;
+    server_name noted.co.uk www.noted.co.uk app.noted.co.uk;
+
+    # The framework populates this via sitesync from gqls/vm-sites. Empty until
+    # the site is built and deployed — deliberately, so nothing hand-written
+    # ends up being the thing people see.
+    root /var/www/noted.co.uk;
+    index index.html;
+
+    client_max_body_size 30m;   # must exceed the engine's NOTED_MAX_UPLOAD_MB
+
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-Frame-Options DENY always;
+    add_header Referrer-Policy strict-origin-when-cross-origin always;
+
+    # Sign-in and registration get a tighter limit than the rest of the API:
+    # these are the endpoints worth guessing against.
+    location ~ ^/api/(login|register)$ {
+        limit_req zone=noted_auth burst=5 nodelay;
+        proxy_pass http://127.0.0.1:8090;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+    }
+
+    location /api/ {
+        limit_req zone=noted_api burst=30 nodelay;
+        proxy_pass http://127.0.0.1:8090;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        # An import can be hundreds of megabytes of someone's recordings on a
+        # slow connection. Cutting it off loses exactly what they came to save.
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+        proxy_request_buffering off;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

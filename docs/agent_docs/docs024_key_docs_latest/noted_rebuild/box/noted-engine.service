@@ -1,0 +1,37 @@
+[Unit]
+Description=noted.co.uk engine
+Documentation=file:/usr/local/sbin/noted-engine
+After=network-online.target postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=simple
+# NOTED_DATABASE_URL and NOTED_LISTEN_ADDR live here, mode 600 root.
+EnvironmentFile=/etc/noted/noted.env
+ExecStart=/usr/local/bin/noted-engine
+Restart=on-failure
+RestartSec=5
+
+# Runs as its own unprivileged user. It holds other people's private writing,
+# so a bug in it should not be a bug in the whole box.
+User=noted
+Group=noted
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+# No writable paths at all: state lives in Postgres, not on disk.
+ReadWritePaths=
+
+[Install]
+WantedBy=multi-user.target
