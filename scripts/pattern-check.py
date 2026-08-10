@@ -1229,6 +1229,181 @@ def check_register_coverage(files, ref, findings):
         ))
 
 
+# ── a concept entry that ships without its index row ────────────────────────
+# The register is two halves in two files: the ENTRY (`### ABC-001 — name` in a
+# category file) and the INDEX ROW (`| ABC-001 | … |` in 000_concept_index.md).
+# The index is what a session searches, so an entry with no row reads as **does
+# not exist** — and the whole point of the register is to be the thing you
+# consult before concluding a capability does not exist.
+#
+# WHY A GATE AND NOT (ONLY) THE DAILY WATCHER. `concept-register-drift-check`
+# (DOC-074) has reported this class every morning since 2026-08-05 and it keeps
+# recurring: SCH-024 (08-08), BIZ-031 + WFA-012 (08-10), DIAG-042 (08-10) — four
+# concepts in three days, from four different lanes, none of them careless. The
+# 08-04 backfill of 34 rows was not a backlog being cleared; it was the first
+# reading of a leak. A report can only ask somebody to fix it afterwards, and
+# this lane already measured what that is worth: a headline mismatch sat
+# uncorrected for three consecutive days *while the watcher named it every
+# morning*. This fires in front of the one person who can close it in ten
+# seconds, at the moment they are writing the entry — the same argument
+# check_register_coverage makes one level up.
+#
+# IT DRIFTS ONE WAY ONLY, which is why the reverse (a row with no entry) is not
+# checked here: adding a concept is two edits in two files and only the first is
+# load-bearing for the author, so the row is the half that gets skipped. The
+# comm pair in the index header has never once found a row without an entry.
+#
+# IT READS THE COMMIT, NOT THE WORKTREE. On this tree the house rule is
+# `git commit <pathspec>`, which takes the named paths and ignores the index —
+# so an author who edited both files but named only the category file in the
+# pathspec ships the entry alone. That is the same half-a-move failure the
+# LANDMINES file records for `git mv`, and reading the worktree would call it
+# clean. `git show :<path>` reads the temporary index git builds for the commit.
+REGISTER_ROOT = "docs/agent_docs/docs026_concept_register/register/"
+CHECK_PY_REL = "deployments/kustomize/services/concept-register-drift-check/base/check.py"
+# The same shape as the watcher's ENTRY_RE, for `git grep`, which cannot be handed
+# a compiled Python pattern. Every MATCH is re-parsed with the watcher's own
+# ENTRY_RE below, so this string only ever narrows what is read — it can miss a
+# heading, it can never define one.
+ENTRY_HEADING = "^### [A-Z]{2,4}-[0-9]{3}"
+
+
+def committed_content(path, ref=None):
+    """The file as this COMMIT will contain it — never the worktree. See above."""
+    if ref:
+        return sh("git", "show", f"{ref[1]}:{path}")
+    r = subprocess.run(["git", "show", f":{path}"], capture_output=True, text=True)
+    return r.stdout if r.returncode == 0 else file_content(path)
+
+
+def check_register_entry_without_row(files, ref, findings):
+    """A commit adding `### ABC-001` to a register file without its index row.
+
+    IMPORTS THE WATCHER'S OWN PARSER rather than re-deriving the two regexes.
+    Two hand-maintained copies of one matching rule is the drift class this
+    platform keeps filing bugs about (idx_swi_dedup / workItemTerminalStatuses),
+    and it would bite here in a specific way: if this gate's idea of an entry
+    heading ever diverged from the watcher's, a commit could pass the gate and
+    then be reported by the CronJob for ever, with nothing to tell the author
+    which of the two was wrong.
+
+    MEASURED BEFORE INCLUSION, per this file's bar — 390 register-touching
+    commits over the 14 days to 2026-08-10. See the fire rate in
+    docs026_concept_register/RUNNING_NOTES_concept_register.md (2026-08-10).
+    """
+    touched = [f for f in files
+               if f.startswith(REGISTER_ROOT)
+               and f.endswith(".md")
+               and "/" not in f[len(REGISTER_ROOT):]]      # direct children only
+    if not touched:
+        return
+
+    import importlib.util
+    repo = sh("git", "rev-parse", "--show-toplevel").strip()
+    check_path = os.path.join(repo, CHECK_PY_REL)
+    if not os.path.exists(check_path):
+        return                      # watcher moved or removed — stay silent, never break a commit
+    spec = importlib.util.spec_from_file_location("register_drift_check", check_path)
+    watcher = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(watcher)                       # import-time side effects: none
+
+    index_rel = REGISTER_ROOT + watcher.INDEX_NAME
+
+    # Concept ids this commit ADDS as entry headings. A `-` line is ignored on
+    # purpose: an entry MOVED between category files shows as one add and one
+    # delete, and its row already exists, so it must not fire.
+    added = []
+    for path in touched:
+        if path == index_rel:
+            continue
+        for line in raw_diff(path, ref).splitlines():
+            if not line.startswith("+") or line.startswith("+++"):
+                continue
+            m = watcher.ENTRY_RE.match(line[1:])
+            if m:
+                added.append((m.group(1), path, m.group(2).strip(" —-")))
+    if not added:
+        return
+
+    # ── arm 2: the id is already taken ──────────────────────────────────────
+    # This is arm 1's OWN BLIND SPOT, not a separate nice-to-have. Two lanes
+    # claimed `LNK-031` three hours apart on 2026-08-08; the second added no row,
+    # and arm 1 stays silent on it — because a row for that id already exists,
+    # written by the FIRST claimant. So the one shape arm 1 cannot see is the one
+    # where the entry is not merely invisible but wrong, and the daily watcher
+    # only caught it after both had landed. Renumbering afterwards is permanent
+    # damage of a small kind: the originating commit and bugs_open/228 still say
+    # LNK-031, so the register carries a note explaining the discrepancy for ever.
+    # Ten seconds before the commit, it is a different three digits.
+    #
+    # Counted over the COMMITTED corpus, not the diff, so an entry MOVED between
+    # category files (one add, one delete, still exactly one occurrence) does not
+    # fire — the case that would have made this noisy.
+    #
+    # ⚠ THE ARGUMENT ORDER IS LOAD-BEARING AND FAILS SILENTLY IF YOU GET IT
+    # WRONG. `git grep <pattern> --cached` is not a synonym for
+    # `git grep --cached <pattern>`: git reads the trailing word as a REVISION
+    # and dies with "unable to resolve revision: --cached". sh() captures stdout
+    # only, so that fatal arrives here as an empty string — an empty corpus, no
+    # collisions, no findings, no error. The first version of this arm was
+    # written that way: it passed every --commit audit (where the sha legally
+    # follows the pattern) and was INERT in the staged mode the hook actually
+    # runs. What caught it was a positive control that staged a known-duplicate
+    # id and required a finding; nothing else could have.
+    if ref:
+        heads = sh("git", "grep", "-E", ENTRY_HEADING, ref[1], "--", REGISTER_ROOT)
+    else:
+        heads = sh("git", "grep", "--cached", "-E", ENTRY_HEADING, "--", REGISTER_ROOT)
+    where = {}
+    for line in heads.splitlines():
+        rest = line.split(":", 1)[1] if ref else line        # audit output is sha:path:text
+        path_hit, _, text = rest.partition(":")
+        if os.path.basename(path_hit) == watcher.INDEX_NAME:
+            continue
+        m = watcher.ENTRY_RE.match(text)
+        if m:
+            where.setdefault(m.group(1), []).append(os.path.basename(path_hit))
+
+    # The corpus must contain the very headings this commit adds — they are in it
+    # by construction. If it does not, the read above is broken rather than the
+    # register empty, and arm 2's silence would be a lie rather than a verdict.
+    # Say so and drop the arm; never let a broken read pass as "no collisions".
+    if any(cid not in where for cid, _, _ in added):
+        print(f"{DIM}pattern-check: register id-collision arm skipped — the corpus read "
+              f"did not contain headings this commit adds, so it cannot be trusted{RESET}",
+              file=sys.stderr)
+        where = None
+
+    rows = watcher.parse_rows(committed_content(index_rel, ref))
+    for cid, path, name in added:
+        holders = where.get(cid, []) if where is not None else []
+        if len(holders) > 1:
+            elsewhere = sorted(set(holders) - {os.path.basename(path)})
+            others = ("also in " + ", ".join(elsewhere)) if elsewhere else "twice in this same file"
+            findings.append((
+                "register-id-collision", path,
+                f"{BOLD}{cid}{RESET} is already used — it appears {len(holders)} times, {others}",
+                "Two lanes claimed LNK-031 three hours apart on 2026-08-08 and the collision was "
+                "only found the next morning, by which time renumbering left a permanent note in "
+                "the register explaining why the originating commit names the wrong id. Pick the "
+                "next free number in that prefix now: "
+                f"`grep -hoE '^### {cid.split('-')[0]}-[0-9]{{3}}' {REGISTER_ROOT}*.md | sort -u | tail -1`. "
+                "Advisory.",
+            ))
+            continue        # one finding per id: the row it needs depends on which id it ends up with
+        if cid in rows:
+            continue                # row already present, whenever it landed — not a defect
+        findings.append((
+            "register-entry-without-row", path,
+            f"{BOLD}{cid}{RESET} gets an entry but no row in 000_concept_index.md — {name[:70]}",
+            "The index table is what a session searches, so an entry with no row reads as "
+            "DOES NOT EXIST and the next lane builds a second one (bugs_open/106). Add "
+            f"`| {cid} | name | status | one-line summary | {os.path.basename(path)} |` to the "
+            "table in the SAME commit — the register's one rule that ever mattered. If you "
+            "commit by pathspec, name the index file too. Advisory.",
+        ))
+
+
 def check_logged_model_output(files, ref, findings):
     """bugs_open/083 + council corr e004fd81 — logging an LLM response verbatim.
 
@@ -1477,6 +1652,7 @@ def main():
                   check_unguarded_migration_insert, check_append_only_docs,
                   check_truncation_without_reader, check_logged_model_output,
                   check_new_capability_surface, check_register_coverage,
+                  check_register_entry_without_row,
                   check_runtime_fill_marker, check_unrepaired_component_write,
                   check_partial_page_upsert, check_silent_reply_drop,
                   check_handrolled_shipped_predicate, check_flexless_hamburger):
