@@ -59,7 +59,37 @@ import (
 
 func init() {
 	Register(&HardcodedSectionColorsCheck{})
-	RegisterVerifier("hardcoded_section_colors", VerifyHardcodedSectionColorsResolved)
+	// Registered WITH a scope test, the first opt-in to it (bugs_open/213). This
+	// verifier grades one very specific thing — the site aggregate this check files
+	// — and for three days it also silently graded, and passed, every design-audit
+	// finding that happened to be routed to the same item_type.
+	RegisterVerifierWithPolicy("hardcoded_section_colors",
+		VerifyHardcodedSectionColorsResolved,
+		VerifierPolicy{Grades: gradesHardcodedColourAggregate})
+}
+
+// gradesHardcodedColourAggregate is this verifier's remit test (bugs_open/213).
+//
+// A POSITIVE shape match on the item this check files, not a blocklist of
+// producers: spec.check is written by HardcodedSectionColorsCheck on every item it
+// has ever raised, and by nothing else. Any producer filing that documented
+// aggregate shape is graded correctly, including one that does not exist yet —
+// which is the property a producer list cannot have, because live agent config can
+// mint a producer with no code change.
+//
+// [MEASURED 2026-08-10] The partition is clean and could have come out otherwise:
+// of the 21 rows ever filed under this item_type, all 10 from this check carry
+// spec.check and all 11 from the design audit do not. `git show 62a79c8ac` confirms
+// the key has been written since the check's first commit, so no historical row of
+// this check's is disclaimed by it.
+func gradesHardcodedColourAggregate(target VerifyTarget) (bool, string) {
+	if c, _ := target.Spec["check"].(string); c == "hardcoded_section_colors" {
+		return true, ""
+	}
+	return false, "this verifier re-runs the discovery check's site-wide aggregate predicate " +
+		"(\"the colour fixer's transform is at a fixed point\") and grades only the item that " +
+		"check files, identified by spec.check; this item describes a specific defect and needs " +
+		"a verifier for its own pass condition"
 }
 
 type HardcodedSectionColorsCheck struct{}

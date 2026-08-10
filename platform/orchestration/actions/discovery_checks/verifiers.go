@@ -88,7 +88,50 @@ type VerifierPolicy struct {
 	// Set it only when completing-without-verification is genuinely the lesser
 	// harm for THIS item type, and say why at the registration site.
 	FailOpenOnError bool
+
+	// Grades, when non-nil, is asked whether this verifier's predicate actually
+	// speaks for the item in front of it, BEFORE the verifier runs. An item it
+	// disclaims is neither completed nor graded: it routes into the same attempt
+	// machinery as a persisting defect, carrying _verification.status
+	// "out_of_scope".
+	//
+	// OPT-IN, per the owner's 2026-08-02 shared-seam ruling — nil keeps exactly
+	// today's behaviour, so this field cannot change any type that has not asked
+	// for it.
+	//
+	// Deliberately NOT overridden by FailOpenOnError. "This is not my question" is
+	// a stronger claim than "my check errored": a verifier that disclaims an item
+	// has told us its verdict would be meaningless, and completing on that basis
+	// is precisely bugs_open/213. Letting an unrelated flag re-open that hole
+	// would put the two ideas behind one switch.
+	Grades GradesFunc
 }
+
+// GradesFunc reports whether a verifier's predicate speaks for a given item, and
+// if not, why not — the reason is surfaced to the operator, so write it for
+// somebody reading a blocked item with no other context.
+//
+// WHY THIS EXISTS (bugs_open/213). item_type is the registry's whole key, which
+// silently assumes one item_type means one predicate. When a second producer files
+// under a verified type, the registered verifier grades that producer's items
+// against a predicate describing a different defect, answers its own question
+// correctly, and returns Resolved:true — so the item closes 'complete', untouched.
+// Measured on the one route where this happened: 11 of 11 second-producer items
+// closed complete and not one has ever failed to close, while every item that ever
+// did fail to close belonged to the producer who wrote the verifier.
+//
+// IT KEYS ON THE ROW, NEVER ON A PRODUCER LIST, and that is the whole design.
+// A code-side enumeration of producers is refuted (bugs_open/213 §5.3, measured by
+// the bugs_open/071 lane): any agent definition can file any item_type from DB
+// config with no code change, so such a list is authoritative-looking and
+// permanently behind live config. Asking "is this the item my predicate re-runs?"
+// is answerable from target.Spec alone, is always current, and grades a
+// well-shaped item from an UNKNOWN producer correctly — which a producer list
+// cannot do in either direction.
+//
+// Write it as a POSITIVE shape match on what your predicate does grade, not as a
+// blocklist of producers you have heard of.
+type GradesFunc func(target VerifyTarget) (speaks bool, why string)
 
 var (
 	verifiers = map[string]ItemVerifier{}

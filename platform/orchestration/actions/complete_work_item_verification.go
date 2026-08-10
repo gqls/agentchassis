@@ -92,6 +92,30 @@ func verifyBeforeComplete(ctx context.Context, db *sql.DB, itemID uuid.UUID, log
 		target.PageID = &pageID.UUID
 	}
 
+	// Scope gate (bugs_open/213): ask the verifier whether its predicate speaks for
+	// THIS item before letting it grade one. A verifier registered for an item_type
+	// grades every row carrying that name, including rows filed by a producer who
+	// meant something else by it entirely — and because the verifier answers its own
+	// question correctly, the mismatch reads as a clean pass. Opt-in: Grades is nil
+	// for every type that has not asked for this, which is today's behaviour exactly.
+	//
+	// Placed BEFORE the verifier call, not after, because running a predicate over
+	// the wrong item is not merely uninformative — its Resolved:true is the thing
+	// that closed 11 defects untouched.
+	if policy.Grades != nil {
+		if speaks, why := policy.Grades(target); !speaks {
+			logger.Warn("verifyBeforeComplete: verifier disclaims this item — blocking completion (out of scope)",
+				zap.String("item_id", itemID.String()),
+				zap.String("item_type", itemType),
+				zap.String("why", why))
+			return map[string]interface{}{
+				"status":    "out_of_scope",
+				"item_type": itemType,
+				"detail":    why,
+			}, false
+		}
+	}
+
 	result, err := verifier(ctx, db, target, logger)
 	return verificationOutcome(itemType, result, err, policy, itemID, logger)
 }
@@ -175,6 +199,17 @@ func blockedCompletionReason(v map[string]interface{}) (string, string) {
 		text, _ := v["error"].(string)
 		return "completion blocked: verification could not run, and this item type fails closed (RFC_017): " + text,
 			"verification_unavailable"
+	}
+	// Third cause, and it is a distinct claim from the other two: the verifier did
+	// not fail and did not find a defect — it declined to grade this item at all,
+	// because its predicate is not the one the item describes (bugs_open/213). An
+	// operator reading "found the defect still present" here would go looking for a
+	// defect nobody looked for. What is actually owed is a verifier for this item's
+	// own shape, or a route to a handler that has one.
+	if status, _ := v["status"].(string); status == "out_of_scope" {
+		detail, _ := v["detail"].(string)
+		return "completion blocked: the verifier registered for this item_type does not grade this item, so nothing checked it (bugs_open/213): " + detail,
+			"verifier_scope_mismatch"
 	}
 	detail, _ := v["detail"].(string)
 	return "completion blocked: post-fix verification found the defect still present: " + detail,

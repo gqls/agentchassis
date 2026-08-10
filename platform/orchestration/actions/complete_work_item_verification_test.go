@@ -258,3 +258,33 @@ func TestBlockedCompletionReason(t *testing.T) {
 		t.Errorf("message must carry the detail, got %q", msg)
 	}
 }
+
+// TestBlockedCompletionReasonOutOfScope covers the third blocking cause
+// (bugs_open/213). It is a distinct claim from the other two and must not borrow
+// either one's sentence: the verifier did not fail, and it did not find a defect —
+// it declined to grade this item at all, because its predicate is not the one the
+// item describes.
+//
+// The wording matters more here than for the other two. An operator who reads
+// "found the defect still present" on one of these goes looking for a defect that
+// nobody looked for; an operator who reads "verification could not run" goes
+// looking for an outage. What is actually owed is a verifier for this item's own
+// shape.
+func TestBlockedCompletionReasonOutOfScope(t *testing.T) {
+	msg, reason := blockedCompletionReason(map[string]interface{}{
+		"status": "out_of_scope",
+		"detail": "this verifier re-runs the discovery check's site-wide aggregate predicate",
+	})
+	if reason != "verifier_scope_mismatch" {
+		t.Errorf("reason = %q, want verifier_scope_mismatch", reason)
+	}
+	if strings.Contains(msg, "still present") {
+		t.Errorf("an ungraded item must not claim the defect was found present: %q", msg)
+	}
+	if strings.Contains(msg, "could not run") {
+		t.Errorf("an out-of-scope disclaimer is not an error — it must not read as one: %q", msg)
+	}
+	if !strings.Contains(msg, "site-wide aggregate predicate") {
+		t.Errorf("message must carry the verifier's own reason, got %q", msg)
+	}
+}

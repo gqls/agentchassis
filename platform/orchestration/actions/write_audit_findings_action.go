@@ -114,8 +114,22 @@ var designItemTypes = map[string]string{
 	"spacing":       "spacing_fix",
 	"typography":    "needs_design_review",
 	"header_footer": "header_footer_fix",
-	"dark_section":  "hardcoded_section_colors",
-	"responsive":    "responsive_fix",
+	// dark_section gets its OWN item_type (bugs_open/213). It used to file under
+	// hardcoded_section_colors, whose registered verifier belongs to the DISCOVERY
+	// check of that name and re-runs that check's predicate — "the
+	// color-variable-fixer's transform has nothing left to do on this site", a
+	// site-level aggregate. A design-audit finding is not an aggregate: it names one
+	// section's defect and carries its own spec.acceptance_test. The verifier
+	// answered its own question correctly and returned Resolved:true, so every
+	// design-audit item on this route closed 'complete' untouched — 11 of 11, none
+	// of which has ever failed to close, while every item that ever DID fail to
+	// close was the discovery check's.
+	//
+	// An item_type is the join between who filed an item and what predicate regrades
+	// it before it closes. Two producers under one name is two predicates behind one
+	// join, and the registry cannot see the difference.
+	"dark_section": "dark_section_audit",
+	"responsive":   "responsive_fix",
 }
 
 // ============================================================================
