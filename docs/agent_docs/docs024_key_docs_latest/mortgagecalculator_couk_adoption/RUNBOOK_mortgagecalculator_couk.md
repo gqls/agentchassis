@@ -574,3 +574,160 @@ phrase fails loudly.
 know is wrong — `Up to £126,000 Zero` — and confirm it reports `NOTFOUND` and
 exits non-zero in the same run as the real one. Thirteen FOUNDs prove nothing
 until one NOTFOUND proves the check can fail.
+
+## §14 Writing tool PLANs (the acceptance fences) — added 2026-08-10
+
+Three scripts, in this order. All live in `acceptance/`.
+
+```bash
+# 1. EMIT — drive the live rebuilt page, record what it answers.
+#    One tool per invocation: every page here is .../index.html, so the emitter
+#    would write index.criteria.json each time and silently overwrite.
+cd docs/agent_docs/docs024_key_docs_latest/loancalculator_couk
+for slug in simple repayment stamp-duty overpayment bridging-loan \
+            equity-release fee-analyser rate-forecaster portfolio; do
+  python3 toolgolden.py --emit-criteria /tmp/crit/tmp \
+      https://mortgagecalculator.co.uk/tools/$slug/index.html
+  mv /tmp/crit/tmp/index.criteria.json ../mortgagecalculator_couk_adoption/acceptance/criteria/$slug.criteria.json
+done
+
+# 2. RE-DERIVE — nothing is pinned until something other than the page agrees.
+cd ../mortgagecalculator_couk_adoption/acceptance
+python3 verify_criteria.py                                   # must be 0 MISMATCH
+python3 verify_criteria.py --mutate sdlt-ftb-relief-cap=625000 stamp-duty
+                                                             # must EXIT 1
+
+# 3. INSTALL — supersede + insert one doc_plans row per tool.
+python3 install_fences.py            # dry run first, always
+python3 install_fences.py --apply
+```
+
+**THE SUBJECT KEY IS NOT THE PAGE NAME, and getting it wrong fails silently for
+ever.** Both tiers derive it (`discovery_checks/tool_eligibility.go`):
+`cc.function` when the component is `component_level='tool'`, otherwise
+`regexp_replace(p.name,'^tool-','')`. Our recreated pages carry a SECTION
+component, so `tool-stamp-duty` is keyed **`stamp-duty`**. A PLAN under the wrong
+key produces no error — Tier 2 goes on writing `needs_criteria`, Tier 4 goes on
+emitting nothing, and the site looks exactly as it did before you started.
+`install_fences.py` reads the key out of the eligibility query rather than
+building it in python, so it cannot drift from the Go. To check by hand:
+
+```sql
+SELECT CASE WHEN cc.component_level='tool' THEN cc.function
+            ELSE regexp_replace(p.name,'^tool-','') END AS ladder_subject_key,
+       p.name, p.page_type, cc.component_level, cc.function
+FROM pages p JOIN sites s ON s.id=p.site_id
+JOIN page_components pc ON pc.page_id=p.id
+JOIN content_components cc ON cc.id=pc.component_id
+WHERE s.domain='mortgagecalculator.co.uk' AND p.page_type='tool' ORDER BY p.name;
+```
+
+**Confirm it against the platform's own opinion before installing** — the
+`needs_criteria` notes name the key the sweep is actually looking for:
+
+```sql
+SELECT subject_key, created_at FROM doc_notes
+WHERE subject_type='tool' AND categories ? 'needs_criteria' ORDER BY created_at DESC;
+```
+
+**Only three of the twelve recreated tools are ineligible, and it is structural**
+— `tool-affordability` has two components (the eligibility rule wants a SOLE
+component on a `page_type='tool'` page), `game-fact-finder` is `page_type='game'`,
+`investor-index` is `page_type='section-index'`. A PLAN for any of them is a row
+nothing loads.
+
+### The check that must run BEFORE `--apply`, every time
+
+Installing a PLAN switches Tier 2 on for that tool, and Tier 2 appends **three
+built-in shell failures independent of your fence**
+(`check_tool_acceptance.go:478-500`): `shell-doc-header`,
+`shell-template-residue`, `shell-dead-controls`. A failure raises `improve_tool`
+carrying `spec.component_id` — for these pages the **shared `hero` component,
+252 pages across 18 sites**. `no_auto_fix` does NOT cover this path; it governs
+Tier 4 only.
+
+Run the three checks with the platform's own functions, never a re-implementation
+(`DeadControlAnchorsOutsideRuntimeFill` carries a per-anchor runtime-fill
+exemption, `bugs_open/137`, that a rewrite will get wrong). The scratch module is
+the §13 pattern — a `go.mod` with
+`replace github.com/gqls/agentchassis => /home/ant/projects/agentchassis`, kept
+OUT of the repo tree so no session can sweep it into a commit:
+
+```go
+strings.Contains(html, content.ToolDocOpen)              // shell-doc-header
+strings.Contains(html, "<no value>")                     // shell-template-residue
+datahelpers.DeadControlAnchorsOutsideRuntimeFill(html)   // shell-dead-controls
+```
+
+**Induce the red in the same run**: a fixture carrying `<no value>`,
+`<a href="#">…</a>` and `/* === tool-doc ===` must report all three. Twelve
+passes from a checker that has never failed are not evidence of anything.
+
+### Why an emitted value is not yet an expected value
+
+`--emit-criteria` records what the tool prints today. Pinning that is F3
+(`PLAN_2026-08-09` §0) and `run_checks_action.go:775-781` says so in the code
+that does it. `verify_criteria.py` recomputes every value from a source that is
+not the page's script, at three labelled strengths (DEFINITION / REGISTER /
+CONVENTION), and `install_fences.py` **pins only what was re-derived** — which
+drops containers, prose and echoed inputs without needing a heuristic.
+
+Two traps that cost time here:
+
+- **A sign can sit OUTSIDE the currency symbol.** `<U+2212>£961.61`. A
+  `re.search(r"-?\d…")` needs the sign adjacent to the first digit, so it matches
+  at the `9` and returns a POSITIVE number. Use `re.sub(r"[^0-9.\-]","",s)` and
+  map U+2212/U+2013 to ASCII first. A parser used on both sides of a comparison
+  agrees with itself and writes the error into the record.
+- **A one-month disagreement on a duration is usually a CONVENTION, not a bug.**
+  The pages stop amortising at `remaining > 0.005`; `oracles.amortise` stops at
+  `1e-9`. Do not pin a duration until that threshold is stated somewhere.
+
+### The scheduler will not sweep most of these
+
+`check_tool_acceptance_due.go` gates on `PageHasShippedPredicateFor` =
+`NOT (deployed_at IS NULL AND build_status <> 'deployed')`. Seven of this site's
+eight fenced tools have `deployed_at IS NULL` and `build_status='needs_rebuild'`
+**while serving HTTP 200** (`links.go:304-308` records the same nine pages).
+Check before assuming a fence is live:
+
+```sql
+SELECT name, build_status, deployed_at,
+       (deployed_at IS NULL AND build_status <> 'deployed') AS invisible_to_due_sweep
+FROM pages p JOIN sites s ON s.id=p.site_id
+WHERE s.domain='mortgagecalculator.co.uk' AND page_type='tool' ORDER BY name;
+```
+
+Until that is resolved, fire a run by hand — the due sweep's own item shape:
+
+```sql
+INSERT INTO site_work_items
+  (site_id, source, item_type, severity, summary, spec, page_id, priority,
+   handler_agent, status, created_by, item_key, approval_mode, pipeline, triaged_at)
+VALUES ('62b5978e-4271-4589-8e00-4baebfc0447c', 'discovery', 'acceptance_run', 'low',
+        'Tier-4 acceptance run: <key>',
+        $json${"function":"<ladder subject key>","component_id":"<cc.id>",
+               "page_id":"<pages.id>","page_name":"<pages.name>",
+               "check":"tool_acceptance_due"}$json$::jsonb,
+        '<pages.id>', 90, 'tool-acceptance-agent', 'triaged',
+        '<lane>: <task>', 'acceptance_run:<key>:62b5978e-4271-4589-8e00-4baebfc0447c',
+        'auto', 'build', NOW())
+RETURNING id;
+```
+
+Claimed ~3 minutes after insert; the neighbouring lane's runs took **~30 minutes**
+created→complete. The verdict is a `doc_notes` row, NOT the work item:
+
+```sql
+SELECT categories, left(body,400) FROM doc_notes
+WHERE subject_type='tool' AND subject_key='<key>' ORDER BY created_at DESC LIMIT 1;
+```
+
+### Verify the fence at the artefact, not at the status
+
+`position('```criteria' in body)` and a `LIKE '%computed_values%'` prove the row
+is non-empty, nothing more. Read each fence back OUT of the database, parse it,
+and compare to the source file — 68 of our 80 assertions carry non-ASCII (the
+U+2212 minus, currency symbols) and a quoting or encoding fault would land
+exactly there. `computed_values` compares the EXACT text; whitespace is the only
+latitude.

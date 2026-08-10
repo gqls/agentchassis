@@ -869,3 +869,105 @@ Still open, unchanged: twelve calculators have no checking document, so none has
 ever had an automated check run; and the big piece — computing the expected
 answers from the registered facts themselves — still needs its architecture
 review before it's built.
+
+---
+
+**2026-08-10, later that evening — the calculators now have checking documents,
+and finding out what a checking document actually is took most of the work.**
+
+The open item at the end of the last entry was "twelve calculators have no
+checking document, so none has ever had an automated check run". Eight of them
+have one now. The other four turn out not to be eligible for the checking
+system at all, or not to have anything honest to put in one — I'll come to
+those, because they're the more interesting half.
+
+The job sounds mechanical: drive each calculator, write down what it answers,
+save that as the document the platform checks against in future. It is not
+mechanical, and the reason is the thing this whole lane exists to fix. **What a
+calculator currently prints is not the same as what it ought to print.** If you
+record today's answers and call them the expected answers, then the day the
+calculator is rewritten wrongly, the check goes green — and worse, the day
+someone notices it was always wrong, the checking document is sitting there
+vouching for it. That is precisely how the original stamp duty calculator ran an
+expired tax rule for sixteen months with every check we owned passing it.
+
+So nothing went into a checking document until it had been **recomputed from
+somewhere that is not the calculator's own code**. Eighty numbers, three
+different kinds of "somewhere else", and I've kept them labelled separately
+rather than blurring them into one word like "verified":
+
+- Fifty-six come from the published formula — the standard mortgage repayment
+  identity, compound interest, running an amortisation schedule month by month.
+- Four come from **our own evidence register**: the stamp duty bands are built
+  out of the thirteen facts we registered this morning, each one quoting its
+  sentence from GOV.UK and re-checked every day. Not from a second copy of the
+  tax table typed into a script.
+- Twenty come from the calculator's own design decisions — how long the fixed
+  period is before the rate changes, what it counts as "total cost". These are
+  weaker and I've said so in the file. They'll catch someone breaking the sum;
+  they can't catch a design decision that was wrong from the start.
+
+All eighty agree. But eighty agreements prove nothing on their own, so there's a
+control: I changed the register's first-time-buyer cap back to the **old,
+expired** £625,000 figure and re-ran. The expected answer for a £595,000
+purchase immediately became **£14,750 — the original site's wrong number, to the
+pound.** That is the run that shows the register is genuinely driving these
+expectations rather than sitting decoratively beside them. Put the expired law
+back in and the expired answer comes back out.
+
+**Four things I'd been told, or had assumed, were wrong — all in the direction
+of making the job look easier than it was.**
+
+The first would have been invisible. The platform doesn't look up a checking
+document by the page's name; it strips a prefix and looks up a shortened name.
+Had I filed these under the obvious name, the system would have gone on
+reporting "this calculator has no checking document" for ever, with no error
+anywhere, and it would have looked exactly like not having done the work.
+I found the rule in the code first — and then found the platform's own notes
+confirming it, filed days ago under the very names I'd chosen.
+
+The second: three of the twelve can't be checked by this system at all, for
+structural reasons (one page has two content blocks instead of one, two aren't
+classed as tool pages). Writing documents for them would have produced rows that
+look like coverage and are never read.
+
+The third is the one I'd want you to know about even though nothing went wrong.
+Switching a calculator's checking document on also switches on a second, older
+check — and that one can fail a page for reasons the document says nothing
+about, then hand the page to an automated rewriter. The block it would hand over
+is shared by **252 pages across 18 other sites**. Our neighbouring lane had
+written down a reason why this can't happen; I checked it against the code and
+the reason is incomplete. So before installing anything I ran those checks
+against all twelve live pages using the platform's own code, and all twelve
+pass — then deliberately fed it a broken page to confirm the check can actually
+fail, because twelve passes from a test that has never failed aren't worth much.
+Nothing is at risk today. But what's holding it off is that the pages happen to
+be clean, not a guard, and I've written that down where it will be read.
+
+The fourth: one calculator, the portfolio one, got no document. The capture tool
+fills each field by scaling the page's own default value, and that form has no
+defaults, so it typed a mortgage term of a thousand years into every test. The
+calculator quite correctly refused. Every "answer" it recorded was the error
+message. A checking document built from that would spend the next year proving
+our error message still works.
+
+**And one thing I got wrong myself, worth telling you because of how it looked.**
+My checker reported one calculator wrong by £1,923. It was not; my own number
+parser was. The page writes a negative amount with the minus sign *outside* the
+pound sign, and my code was looking for a minus attached to a digit, so it read
+a fall of £961 as a rise of £961. It only came to light because the independent
+formula disagreed. Had I used the same faulty parser on both sides, it would
+have agreed with itself and quietly written a sign error into the permanent
+record.
+
+**Where this leaves us.** Eight calculators now have checking documents, and I
+filed a real check run against the stamp duty one to prove the documents actually
+execute rather than just existing. But there's a catch I want to flag rather than
+paper over: **seven of the eight are invisible to the scheduler.** They serve
+perfectly well — I fetched every one — but their database rows never got stamped
+with a deploy time, and the scheduler skips anything unstamped. It's a known
+condition; the platform's own source notes it and names nine pages on this site
+as the example. I have not gone in and stamped them, because that would be
+recording a deploy event I didn't witness, on rows sitting in a queue that may
+belong to another lane. It's a small decision but it's yours: either we stamp
+them, or every check on this site has to be filed by hand.

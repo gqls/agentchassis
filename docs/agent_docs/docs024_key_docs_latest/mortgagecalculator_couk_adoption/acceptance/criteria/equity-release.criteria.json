@@ -1,0 +1,152 @@
+{
+  "checks": [
+    {
+      "expect_values": {
+        "#debt10": "£168,942",
+        "#debt20": "£317,128",
+        "#debt30": "£595,293",
+        "#dispAge": "65",
+        "#erMaxCash": "£90,000"
+      },
+      "id": "computes-defaults",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#erAge",
+          "value": "65"
+        },
+        {
+          "action": "fill",
+          "selector": "#erValue",
+          "value": "300000"
+        },
+        {
+          "action": "fill",
+          "selector": "#erLoan",
+          "value": "90000"
+        },
+        {
+          "action": "fill",
+          "selector": "#erRate",
+          "value": "6.5"
+        },
+        {
+          "action": "click",
+          "selector": "#erCalcBtn"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#debt10": "£611,022",
+        "#debt20": "£2,074,156",
+        "#debt30": "£7,040,862",
+        "#dispAge": "95",
+        "#erMaxCash": "£330,000"
+      },
+      "id": "computes-double",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#erAge",
+          "value": "95"
+        },
+        {
+          "action": "fill",
+          "selector": "#erValue",
+          "value": "600000"
+        },
+        {
+          "action": "fill",
+          "selector": "#erLoan",
+          "value": "180000"
+        },
+        {
+          "action": "fill",
+          "selector": "#erRate",
+          "value": "13"
+        },
+        {
+          "action": "click",
+          "selector": "#erCalcBtn"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#debt10": "£61,960",
+        "#debt20": "£85,313",
+        "#debt30": "£117,467",
+        "#dispAge": "55",
+        "#erMaxCash": "£30,000"
+      },
+      "id": "computes-half",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#erAge",
+          "value": "55"
+        },
+        {
+          "action": "fill",
+          "selector": "#erValue",
+          "value": "150000"
+        },
+        {
+          "action": "fill",
+          "selector": "#erLoan",
+          "value": "45000"
+        },
+        {
+          "action": "fill",
+          "selector": "#erRate",
+          "value": "3.25"
+        },
+        {
+          "action": "click",
+          "selector": "#erCalcBtn"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#debt10": "£412,945",
+        "#debt20": "£823,785",
+        "#debt30": "£1,643,371",
+        "#dispAge": "95",
+        "#erMaxCash": "£99,000"
+      },
+      "id": "computes-asym",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#erAge",
+          "value": "95"
+        },
+        {
+          "action": "fill",
+          "selector": "#erValue",
+          "value": "180000"
+        },
+        {
+          "action": "fill",
+          "selector": "#erLoan",
+          "value": "207000"
+        },
+        {
+          "action": "fill",
+          "selector": "#erRate",
+          "value": "7.15"
+        },
+        {
+          "action": "click",
+          "selector": "#erCalcBtn"
+        }
+      ],
+      "type": "computed_values"
+    }
+  ]
+}

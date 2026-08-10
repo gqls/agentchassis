@@ -1,0 +1,252 @@
+{
+  "checks": [
+    {
+      "expect_values": {
+        "#formError": "Please enter a remaining term between 1 and 40 years.",
+        "#termWrap": "Remaining term (years)"
+      },
+      "id": "computes-defaults",
+      "steps": [
+        {
+          "action": "click",
+          "selector": "#submitBtn"
+        },
+        {
+          "action": "click",
+          "selector": "#submitBtn"
+        },
+        {
+          "action": "fill",
+          "selector": "#propName",
+          "value": "Probe"
+        },
+        {
+          "action": "fill",
+          "selector": "#purchasePrice",
+          "value": "1000"
+        },
+        {
+          "action": "fill",
+          "selector": "#mortgageBalance",
+          "value": "1000"
+        },
+        {
+          "action": "fill",
+          "selector": "#monthlyRent",
+          "value": "1000"
+        },
+        {
+          "action": "fill",
+          "selector": "#mortgageRate",
+          "value": "1000"
+        },
+        {
+          "action": "fill",
+          "selector": "#monthlyCosts",
+          "value": "1000"
+        },
+        {
+          "action": "select",
+          "selector": "#mortgageType",
+          "value": "repayment"
+        },
+        {
+          "action": "fill",
+          "selector": "#mortgageTerm",
+          "value": "1000"
+        },
+        {
+          "action": "click",
+          "selector": "#submitBtn"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#formError": "Please enter a remaining term between 1 and 40 years.",
+        "#termWrap": "Remaining term (years)"
+      },
+      "id": "computes-double",
+      "steps": [
+        {
+          "action": "click",
+          "selector": "#submitBtn"
+        },
+        {
+          "action": "click",
+          "selector": "#submitBtn"
+        },
+        {
+          "action": "fill",
+          "selector": "#propName",
+          "value": "Probe"
+        },
+        {
+          "action": "fill",
+          "selector": "#purchasePrice",
+          "value": "2000"
+        },
+        {
+          "action": "fill",
+          "selector": "#mortgageBalance",
+          "value": "2000"
+        },
+        {
+          "action": "fill",
+          "selector": "#monthlyRent",
+          "value": "2000"
+        },
+        {
+          "action": "fill",
+          "selector": "#mortgageRate",
+          "value": "2000"
+        },
+        {
+          "action": "fill",
+          "selector": "#monthlyCosts",
+          "value": "2000"
+        },
+        {
+          "action": "select",
+          "selector": "#mortgageType",
+          "value": "repayment"
+        },
+        {
+          "action": "fill",
+          "selector": "#mortgageTerm",
+          "value": "2000"
+        },
+        {
+          "action": "click",
+          "selector": "#submitBtn"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#formError": "Please enter a remaining term between 1 and 40 years.",
+        "#termWrap": "Remaining term (years)"
+      },
+      "id": "computes-half",
+      "steps": [
+        {
+          "action": "click",
+          "selector": "#submitBtn"
+        },
+        {
+          "action": "click",
+          "selector": "#submitBtn"
+        },
+        {
+          "action": "fill",
+          "selector": "#propName",
+          "value": "Probe"
+        },
+        {
+          "action": "fill",
+          "selector": "#purchasePrice",
+          "value": "500"
+        },
+        {
+          "action": "fill",
+          "selector": "#mortgageBalance",
+          "value": "500"
+        },
+        {
+          "action": "fill",
+          "selector": "#monthlyRent",
+          "value": "500"
+        },
+        {
+          "action": "fill",
+          "selector": "#mortgageRate",
+          "value": "500"
+        },
+        {
+          "action": "fill",
+          "selector": "#monthlyCosts",
+          "value": "500"
+        },
+        {
+          "action": "select",
+          "selector": "#mortgageType",
+          "value": "repayment"
+        },
+        {
+          "action": "fill",
+          "selector": "#mortgageTerm",
+          "value": "500"
+        },
+        {
+          "action": "click",
+          "selector": "#submitBtn"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#formError": "Please enter a remaining term between 1 and 40 years.",
+        "#termWrap": "Remaining term (years)"
+      },
+      "id": "computes-asym",
+      "steps": [
+        {
+          "action": "click",
+          "selector": "#submitBtn"
+        },
+        {
+          "action": "click",
+          "selector": "#submitBtn"
+        },
+        {
+          "action": "fill",
+          "selector": "#propName",
+          "value": "Probe"
+        },
+        {
+          "action": "fill",
+          "selector": "#purchasePrice",
+          "value": "1700"
+        },
+        {
+          "action": "fill",
+          "selector": "#mortgageBalance",
+          "value": "600"
+        },
+        {
+          "action": "fill",
+          "selector": "#monthlyRent",
+          "value": "2300"
+        },
+        {
+          "action": "fill",
+          "selector": "#mortgageRate",
+          "value": "1100"
+        },
+        {
+          "action": "fill",
+          "selector": "#monthlyCosts",
+          "value": "3100"
+        },
+        {
+          "action": "select",
+          "selector": "#mortgageType",
+          "value": "repayment"
+        },
+        {
+          "action": "fill",
+          "selector": "#mortgageTerm",
+          "value": "450"
+        },
+        {
+          "action": "click",
+          "selector": "#submitBtn"
+        }
+      ],
+      "type": "computed_values"
+    }
+  ]
+}

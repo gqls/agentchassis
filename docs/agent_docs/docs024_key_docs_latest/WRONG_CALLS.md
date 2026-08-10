@@ -26938,3 +26938,51 @@ observation arrives while a known-unknown is open, the pull to make them the sam
 enormous and feels like insight. **Two unexplained things are not evidence for each other.**
 Before writing "X is the cause of Y", name what you would expect to see if X and Y were
 unrelated — here, exactly what I saw.
+
+---
+
+## 2026-08-10 — my own number parser reported a correct calculator wrong by £1,923.22, and it wore the costume of the defect it was written to find
+
+**The claim, and it lasted about ninety seconds:** `rate-forecaster` diverges — the
+independent oracle expects a **fall** of £961.61 in the monthly payment, the page
+prints something £1,923.22 away from it. A number that size, on a lane whose whole
+premise is that these rebuilt calculators may encode wrong rules, reads as a real
+arithmetic fault.
+
+The page was right. `verify_criteria.py`'s `num()` was wrong, in a way I had
+already half-anticipated and still walked into.
+
+The page renders a fall as `<U+2212 MINUS SIGN>£961.61`. I knew about U+2212 —
+I had written a comment about it and a `.replace()` for it, in the same function.
+What I missed is that **the sign sits OUTSIDE the currency symbol**, and my parser
+was `re.search(r"-?\d[\d,]*\.?\d*")`, which requires the sign to be *adjacent to
+the first digit*. Against `-£961.61` the regex simply starts matching at the `9`
+and returns **+961.61**. A fall became a rise, and the delta was twice the value.
+
+**What caught it: the independent model disagreed.** Nothing else would have. And
+that is the part worth keeping — had I used the same `num()` on both sides of the
+comparison, as a consistency-only checker does, it would have **agreed with
+itself perfectly** and written a sign error into eighty pinned acceptance values,
+where it would have been defended by every future run.
+
+**The cheap check I skipped:** parse one adversarial string before trusting the
+parser on eighty. `num("<U+2212>£961.61") == -961.61` is a one-line assertion. I
+tested the *characters* (I checked the code points in the emitted JSON and in my
+own source, and both were correct) and never tested the *parse* — a check aimed
+one layer away from where the fault was, which is why it came back clean.
+
+**The general form, and it is not the U+2212:** *a sign is not always adjacent to
+its digits.* Currency, percent signs and unit prefixes all sit between them. Any
+"find the number in this string" regex that permits a leading sign is asserting an
+adjacency that display formatting routinely breaks. **Strip the noise, do not scan
+past it** — `re.sub(r"[^0-9.\-]", "", s)`, which is exactly what the neighbouring
+lane's `num()` had been doing all along and which I had read that morning.
+
+**And the second-order lesson, which is why this is here and not just in NOTES:**
+this is the third time on this lane that a checker bug has presented as a defect
+in the thing being checked (the neighbouring lane's `steps_map` dropping
+`#buyerType` and reporting a correct stamp-duty tool £5,000 wrong; its first
+`reprice_schedule` reporting 4 FAILs against a correct page; now this). **When a
+newly-written checker reports a large, clean, suspiciously well-formed
+discrepancy, suspect the checker first.** The defect it was written to find is the
+most available explanation, and availability is doing the work, not evidence.

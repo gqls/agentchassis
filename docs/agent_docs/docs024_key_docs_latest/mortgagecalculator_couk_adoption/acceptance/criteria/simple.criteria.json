@@ -1,0 +1,120 @@
+{
+  "checks": [
+    {
+      "expect_values": {
+        "#monthlyResult": "£1,111.66",
+        "#resultDetail": "Total repaid over 25 years: £333,499.49Total interest: £133,499.49"
+      },
+      "id": "computes-defaults",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#amt",
+          "value": "200000"
+        },
+        {
+          "action": "fill",
+          "selector": "#rate",
+          "value": "4.5"
+        },
+        {
+          "action": "fill",
+          "selector": "#years",
+          "value": "25"
+        },
+        {
+          "action": "click",
+          "selector": "#calcBtn"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#monthlyResult": "£3,034.28",
+        "#resultDetail": "Total repaid over 50 years: £1,820,567.14Total interest: £1,420,567.14"
+      },
+      "id": "computes-double",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#amt",
+          "value": "400000"
+        },
+        {
+          "action": "fill",
+          "selector": "#rate",
+          "value": "9"
+        },
+        {
+          "action": "fill",
+          "selector": "#years",
+          "value": "50"
+        },
+        {
+          "action": "click",
+          "selector": "#calcBtn"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#monthlyResult": "£739.94",
+        "#resultDetail": "Total repaid over 13 years: £115,430.01Total interest: £15,430.01"
+      },
+      "id": "computes-half",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#amt",
+          "value": "100000"
+        },
+        {
+          "action": "fill",
+          "selector": "#rate",
+          "value": "2.25"
+        },
+        {
+          "action": "fill",
+          "selector": "#years",
+          "value": "13"
+        },
+        {
+          "action": "click",
+          "selector": "#calcBtn"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#monthlyResult": "£974.48",
+        "#resultDetail": "Total repaid over 57 years: £666,545.14Total interest: £326,545.14"
+      },
+      "id": "computes-asym",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#amt",
+          "value": "340000"
+        },
+        {
+          "action": "fill",
+          "selector": "#rate",
+          "value": "2.7"
+        },
+        {
+          "action": "fill",
+          "selector": "#years",
+          "value": "57"
+        },
+        {
+          "action": "click",
+          "selector": "#calcBtn"
+        }
+      ],
+      "type": "computed_values"
+    }
+  ]
+}

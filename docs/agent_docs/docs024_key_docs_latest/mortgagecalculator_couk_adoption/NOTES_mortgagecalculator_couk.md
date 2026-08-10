@@ -1607,3 +1607,217 @@ my direct `--apply` **consumed the signal**, and the dispatcher exited 0 saying
 "nothing needs verification", which reads exactly like "all fine". Run the
 consumer, not the producer. The two new entries are synced to `doc_notes` but
 have not been through the landmine-verifier.
+
+---
+
+## 2026-08-10, third session — A4: the twelve tool PLANs, and the four things the plan had wrong about them
+
+Picked up `HANDOFF_2026-08-10b` §3 action 1: "create tool PLANs for the twelve
+recreated tools … the single biggest blocker". It is done for eight of them, and
+**four of the assumptions I inherited were wrong.** Each was wrong in the same
+direction — the work looked smaller and safer than it was — so they are recorded
+before the result.
+
+### 1. The subject key is NOT the page name, and a PLAN under the wrong key fails SILENTLY and for ever
+
+Both tiers derive the key themselves
+(`discovery_checks/tool_eligibility.go`, `toolSubjectKeyExpr`):
+
+```
+CASE WHEN cc.component_level='tool' THEN cc.function
+     ELSE regexp_replace(p.name,'^tool-','') END
+```
+
+Our recreated pages carry a **section** component, so `tool-stamp-duty` is keyed
+**`stamp-duty`** — not `tool-stamp-duty`. Had I written the PLANs under the page
+name, Tier 2 would have gone on recording `needs_criteria` and Tier 4 would have
+gone on emitting nothing: **indistinguishable from having written no PLAN at
+all.** No error, no log line, no row anywhere saying "there is a plan but I
+cannot see it".
+
+**This is not inference — the platform had already written the answer down.**
+`doc_notes` for this site carries `needs_criteria` notes under subject keys
+`simple` and `stamp-duty` ("tool_acceptance sweep found no current PLAN criteria
+fence (has_plan=false)"). The sweep was looking for exactly the keys I ended up
+using, and had been for days. I found this after choosing the key from the Go
+source, which is the only reason I know the source and the live system agree.
+
+### 2. Three of the "twelve" are not ladder-eligible at all
+
+`toolEligibilityWhere` admits a component only if it is `component_level='tool'`,
+OR it is the **sole** component on a `page_type='tool'` page. Measured:
+
+| tool | why it is out |
+|---|---|
+| `tool-affordability` | **two** components (hero + generic-text-block) — fails the sole-component clause |
+| `game-fact-finder` | `page_type='game'` |
+| `investor-index` | `page_type='section-index'` |
+
+So the population is **nine**, not twelve. A PLAN for the other three would be a
+row that reads like coverage and is never loaded. The query that establishes this
+could have come out otherwise: it returned rows for the nine and nothing for the
+three, in one pass.
+
+### 3. Installing a PLAN turns Tier 2 ON — and Tier 2 can fail a page the fence says nothing about
+
+The neighbouring lane's `install_fences.py` states the guard I was about to
+inherit: *"With only computed_values in the fence, Tier 2 finds nothing it can
+fail, so it can never raise improve_tool for these pages."* **That is incomplete,
+and the gap matters here more than it did there.**
+
+`check_tool_acceptance.go:478-500` appends **three built-in shell failures**
+outside the criteria loop entirely — `shell-doc-header`,
+`shell-template-residue`, `shell-dead-controls`. They run on any tool with a
+parseable fence, whatever the fence contains. Any one of them creates an
+`improve_tool` item carrying `spec.component_id`, and for these pages that id is
+the **shared `hero` component: 252 pages across 18 sites** (measured) — wider
+than the ~154-page ported-page shell that lane was protecting.
+
+So before installing anything I ran the three checks against all twelve live
+pages **using the platform's own functions** — a scratch Go module that
+`replace`s the repo and calls `content.ToolDocOpen` and
+`datahelpers.DeadControlAnchorsOutsideRuntimeFill` directly. Re-implementing
+`DeadControlAnchorsOutsideRuntimeFill` in python would have been a claim about
+its behaviour, and it carries a per-anchor runtime-fill exemption
+(`bugs_open/137`) that a re-implementation would very likely get wrong.
+
+**Twelve PASS, and then the red was induced** — a fixture carrying all three
+defects fires all three in the same run as a real page passing. Twelve greens
+from a checker that has never gone red are not evidence.
+
+`[MEASURED 2026-08-10 — and it is a fact about TODAY, not a guarantee. A future
+copy edit that leaves a dead anchor on one of these pages hands the fleet's
+shared hero to an automated rewriter. The thing actually holding that off is
+`no_auto_fix: true` on the Tier-4 side plus these twelve passes on the Tier-2
+side; there is no structural guard.]`
+
+### 4. "Zero acceptance runs have ever happened on this site" is now false
+
+Two `acceptance_run` items completed on 2026-08-09 20:56–21:04 for the two
+generator-built companions, both PASSED at Tier 4. True when the PLAN wrote it
+on 08-09; overtaken the same evening. Re-measured rather than carried forward,
+per this file's own rule — including from this handoff.
+
+### What was actually built
+
+`acceptance/verify_criteria.py` (new), `acceptance/install_fences.py` (new),
+`acceptance/criteria/*.criteria.json` (nine emitted).
+
+**Emit → re-derive → install**, and the middle step is the one that matters. An
+emitted value is only "expected" because the tool prints it; pinning one that
+nothing else reproduces is F3 from the PLAN's own table, which
+`run_checks_action.go:775-781` states in the code that does it. So every value is
+recomputed from a source that is not this page's script, at one of three
+strengths, reported separately and never flattened:
+
+- **DEFINITION** (56 assertions) — the published formula, via the neighbouring
+  lane's `oracles.py`. Reused, not re-written: it was authored from the
+  definitions, and a second copy is a second thing to keep right.
+- **REGISTER** (4) — stamp-duty, and this is the lane's whole point: the bands
+  are built from **this site's 13 registered SDLT facts**, each a scalar with its
+  own verbatim GOV.UK quote, re-verified daily. Not from `oracles.py`'s
+  hard-coded band table, which would be a second hand-typed copy of the law.
+- **CONVENTION** (20) — the tool's own design choice (rate-forecaster's 24/36
+  phase split, read from its script; fee-analyser's definition of "total cost").
+  Weaker, and labelled so: it catches a rewrite that moves the arithmetic, not a
+  convention that was wrong to begin with.
+
+**80 of 80 agree.** Anything not re-derived was **dropped, not pinned** — that
+rule replaces the neighbouring lane's substring container heuristic and does the
+same job better: containers, prose breakdowns and echoed inputs all fall out of
+it automatically. 41 assertions dropped across the eight tools.
+
+**The register mutation is the control, and it is the best evidence here.**
+`verify_criteria.py --mutate sdlt-ftb-relief-cap=625000` — the SUPERSEDED
+pre-April-2025 cap — makes the £595k FTB vector expect **£14,750**: the original
+tool's wrong figure, the £5,000 under-quote, reproduced exactly by putting the
+expired rule back into the register. That single run establishes what 80
+agreements cannot: the register is genuinely the source of the expectation, not
+decoration beside it. A second control (`sdlt-standard-rate-250k-925k=6`) fires
+on two vectors.
+
+### Two tools install nothing, and that is the correct outcome
+
+- **`portfolio`** — toolgolden derives its vectors by scaling the page's own
+  defaults, and this form has none, so it drove `#mortgageTerm` to 1000 / 2000 /
+  500 / 450 years. The tool refused all four. **Every emitted assertion is the
+  validation message** "Please enter a remaining term between 1 and 40 years."
+  A fence built from that would certify an error message and call it a
+  calculator — F3 wearing a different hat. It falls out of the "only re-derived
+  assertions" rule rather than needing a special case.
+- **`fact-finder`** — not ladder-eligible (§2).
+
+### A misstep of my own, and it wore the costume of the defect it was written to find
+
+`verify_criteria.py`'s first run reported rate-forecaster's `#diff2` wrong by
+**£1,923.22** — a number large enough to look like a real arithmetic fault. It
+was my parser. The page renders a fall as `<U+2212 MINUS SIGN>£961.61`: the sign
+sits **outside** the currency symbol, so a `re.search(r"-?\d…")` — which requires
+the sign to be adjacent to the first digit — matches at the `9` and returns
+**+961.61**. I had even written a comment about the U+2212 trap while walking
+straight into the adjacency one beside it.
+
+Caught only because the oracle disagreed. Had the same parser read both sides it
+would have agreed silently and pinned a sign error into the acceptance record.
+**Strip the noise; do not scan past it** — `re.sub(r"[^0-9.\-]", "", s)`, which
+is what the neighbouring lane's `num()` did all along. Logged to `WRONG_CALLS.md`.
+
+### One assertion was modelled, disagreed, and was then DROPPED rather than argued into agreement
+
+`#saveTime` ("3 years 6 months"). My model disagreed with the page by **exactly
+one month on three of four vectors, always one month more.** That pattern is not
+an arithmetic fault: both sides run the same textbook amortisation and part
+company only on **when a balance counts as cleared** — the page stops at
+`remaining > 0.005` (half a penny), `oracles.amortise` at `1e-9`. A residual
+between those thresholds ends the schedule a month earlier on one side.
+
+Nothing published settles a sub-penny residual, so asserting either number would
+pin **my** convention as the tool's law. That is exactly the move
+`PLAN_2026-08-09` §5.4 forbids and that the neighbouring lane logged to
+`WRONG_CALLS` on 08-09 (six "mismatches" that were its own rounding convention).
+The arithmetic is defended by `#saveInterest`, which agrees to the penny. The
+reasoning is written into the file where the assertion would have gone, so the
+next person can settle the threshold and pin it honestly rather than rediscover
+the ambiguity.
+
+### Installed, and verified at the artefact rather than at the status
+
+Eight rows in `doc_plans`, keys `bridging-loan`, `equity-release`, `fee-analyser`,
+`overpayment`, `rate-forecaster`, `repayment`, `simple`, `stamp-duty`.
+80 assertions, all `computed_values`, `profiles: ["desktop"]`,
+`no_auto_fix: true`.
+
+`fence_pos > 0` and a `LIKE '%computed_values%'` prove nothing about content, so
+every fence was **read back out of the database, parsed, and compared to its
+source file**: 80 of 80 byte-identical, including the 68 assertions carrying
+non-ASCII and specifically the U+2212 in `rate-forecaster/computes-asym/#diff2`
+(confirmed by code point, not by eye).
+
+### The blocker this uncovered: 7 of the 8 can never be swept
+
+`check_tool_acceptance_due.go` gates on `PageHasShippedPredicateFor` =
+`NOT (deployed_at IS NULL AND build_status <> 'deployed')`. Measured:
+
+| page | build_status | deployed_at | sweepable |
+|---|---|---|---|
+| tool-simple | deployed | 2026-08-09 | **yes** |
+| the other seven | needs_rebuild | **NULL** | **no** |
+
+All seven serve HTTP 200 — I fetched every one of them. They were built and
+deployed; `deployed_at` was simply never stamped. This is not a new discovery:
+`datahelpers/links.go:304-308` records the same measurement from 08-09 and names
+**"nine mortgagecalculator.co.uk pages, almost all `build_status =
+'needs_rebuild'`"** as its worked example. Our seven are inside that nine.
+
+So installing the fences turns the ladder on for **one** tool automatically. I
+have NOT stamped `deployed_at` or flipped `build_status` to make the others
+sweepable: both would assert a deploy event I did not observe, on rows parked in
+a queue (`needs_rebuild`) that MEMORY records as dead and that another lane may
+own. That is a decision to take deliberately, not a side effect of finishing A4.
+Recorded in the handoff as the top open item.
+
+### Proving a fence actually executes
+
+A PLAN with no run is a claim, not a result — the correction the previous handoff
+earned. So one `acceptance_run` was filed by hand for **stamp-duty** (the
+register-driven one), following the due sweep's own item shape.

@@ -8547,3 +8547,59 @@ code change owed at the next roll, tracked in RFC_015 §5.
   payload bytes); the same kcat mangling was root-caused once before and lost —
   `WRONG_CALLS.md` 2026-07-26 (bug 015 era), `FOCUS_finetuning_flywheel_and_service(13).md:434`
 - **added:** 2026-08-10, bugfix 239 dispatch lane
+
+---
+
+## A tool PLAN filed under the PAGE NAME is never read — both acceptance tiers derive the subject key by stripping `tool-`, and the failure is indistinguishable from having written no PLAN at all
+
+- **footprint:** `doc_plans` `subject_type='tool'` (`subject_key`) · `platform/orchestration/actions/discovery_checks/tool_eligibility.go` (`toolSubjectKeyExpr`, `toolEligibilityWhere`) · `check_tool_acceptance.go` (`loadCurrentCriteria`) · `check_tool_acceptance_due.go` · `tool_acceptance_actions.go` (`pages.name IN ($2, 'tool-'||$2)`) · any script that writes a tool PLAN or a ```criteria fence
+- **the trap:** it is natural to key a tool PLAN by the page it lives on — `tool-stamp-duty`. Both tiers compute the key themselves instead: `cc.function` when the component is `component_level='tool'`, otherwise `regexp_replace(p.name,'^tool-','')`. A **ported or recreated** tool page carries a SECTION component, so its key is `stamp-duty`. File under `tool-stamp-duty` and `loadCurrentCriteria` finds nothing: Tier 2 goes on writing `needs_criteria` notes, Tier 4 emits no run, **no error is logged anywhere**, and the site looks byte-identical to one where nobody ever wrote a PLAN. There is no row, note or metric that says "a plan exists but I cannot see it". The resolution is one-way only — `request_browser_run` widens from key to page (`name IN (function, 'tool-'||function)`), which is why the ladder can drive the page once it is running, and why nothing upstream ever compensates for the key being wrong.
+- **also a population trap in the same predicate:** eligibility needs `component_level='tool'` OR **the SOLE component** on a `page_type='tool'` page. A tool page with two components (a hero plus a text block), a `page_type='game'` or `'section-index'` page holding a calculator — none is eligible, and a PLAN for it is a row nothing loads. Three of one site's twelve "recreated tools" were in this class.
+- **the check, before you write a single PLAN — ask the platform what it is already calling them:**
+  ```sql
+  -- 1. the key the ladder derives, and who is eligible at all
+  SELECT CASE WHEN cc.component_level='tool' THEN cc.function
+              ELSE regexp_replace(p.name,'^tool-','') END AS ladder_subject_key,
+         p.name, p.page_type, cc.component_level,
+         (SELECT count(*) FROM page_components pc2 WHERE pc2.page_id=p.id) AS n_components
+  FROM pages p JOIN sites s ON s.id=p.site_id
+  JOIN page_components pc ON pc.page_id=p.id
+  JOIN content_components cc ON cc.id=pc.component_id
+  WHERE s.domain='<domain>' ORDER BY p.name;
+
+  -- 2. corroboration that costs nothing: the sweep has ALREADY written the key
+  --    it is looking for, every time it failed to find your plan
+  SELECT subject_key, created_at FROM doc_notes
+  WHERE subject_type='tool' AND categories ? 'needs_criteria'
+  ORDER BY created_at DESC;
+  ```
+  Query 2 is the one to trust: it is the live system's own opinion, not a reading of the SQL. If your intended key is absent from it, you are about to write a row nobody reads.
+- **source:** `mortgagecalculator_couk_adoption` A4, 2026-08-10 (NOTES §1 of the third 08-10 session; RUNBOOK §14). The Go rule was read first and the `needs_criteria` notes found afterwards — they agreed, under `simple` and `stamp-duty`, days old.
+- **added:** 2026-08-10, mortgagecalculator adoption lane
+
+---
+
+## Installing a tool PLAN switches Tier 2 ON, and Tier 2 can fail a page for THREE reasons your fence says nothing about — aiming an automated rewriter at whatever component the page happens to share
+
+- **footprint:** `platform/orchestration/actions/discovery_checks/check_tool_acceptance.go` (`evaluateStaticCriteria` built-ins: `shell-doc-header`, `shell-template-residue`, `shell-dead-controls`) · `doc_plans` `subject_type='tool'` · `site_work_items` `item_type='improve_tool'` (`spec.component_id`) · `content_components` shared rows (`hero`, `generic-text-block`, `ported-page`) · `platform/content/tool_doc_header.go` (`ToolDocOpen`) · `platform/orchestration/datahelpers/runtime_fill.go` (`DeadControlAnchorsOutsideRuntimeFill`)
+- **the trap:** a tool with no PLAN is inert at both tiers — Tier 2 writes a `needs_criteria` note and stops. **Writing the PLAN is what turns the checking on**, and Tier 2 then appends three failures *outside the criteria loop entirely*: the tool-doc header leaking to the public page, `<no value>` template residue, and dead controls. They fire whatever the fence contains, so **a fence carrying only `computed_values` does NOT make Tier 2 unable to fail** — a guard stated in `loanandmortgagecalculator_couk/install_fences.py` and verified incomplete here. `no_auto_fix` does not cover this either: that flag is read on the **Tier 4** path (`tool_acceptance_actions.go`), while Tier 2 creates its `improve_tool` unconditionally.
+- **why the blast radius is not the page:** the item carries `spec.component_id = cc.id`, and for ported/recreated pages that is a **shared** row. Measured 2026-08-10: the `hero` component is placed on **252 pages across 18 sites**; `generic-text-block` on 107 across 15. `tool-improver` edits the component's template. The same class already fired once — webdesign.co.uk 2026-08-04, `ported-page` (~154 pages, 3 sites), flagged `component_template_corrupted` afterwards with a `needs_rerender` fan-out across all three.
+- **the check, and it must use the platform's own functions:** re-implementing `DeadControlAnchorsOutsideRuntimeFill` will get it wrong — it carries a **per-anchor** runtime-fill exemption (`bugs_open/137`) that replaced a page-wide skip, so a naive "does the page contain `href="#"`" both over- and under-reports. Build a scratch Go module outside the repo tree with `replace github.com/gqls/agentchassis => <repo>` and call them directly:
+  ```go
+  strings.Contains(html, content.ToolDocOpen)              // shell-doc-header
+  strings.Contains(html, "<no value>")                     // shell-template-residue
+  datahelpers.DeadControlAnchorsOutsideRuntimeFill(html)   // shell-dead-controls
+  ```
+  against every page you are about to fence, **and induce the red in the same run** with a fixture carrying all three — a checker that has never failed cannot certify a page.
+  Then confirm what you would be handing over, before you need to know:
+  ```sql
+  SELECT cc.id, cc.function, count(DISTINCT pc.page_id) AS pages,
+         count(DISTINCT p.site_id) AS sites
+  FROM content_components cc JOIN page_components pc ON pc.component_id=cc.id
+  JOIN pages p ON p.id=pc.page_id
+  WHERE cc.id IN (SELECT component_id FROM page_components WHERE page_id='<your page>')
+  GROUP BY 1,2;
+  ```
+- **what actually holds it off, so nobody mistakes it for a guard:** on the site that found this, all twelve pages pass all three checks *today*. That is a fact about today. A copy edit that leaves one no-op anchor on one tool page is enough to hand the fleet's shared hero to a rewriter, and nothing structural prevents it.
+- **source:** `mortgagecalculator_couk_adoption` A4, 2026-08-10 (NOTES §3; RUNBOOK §14).
+- **added:** 2026-08-10, mortgagecalculator adoption lane

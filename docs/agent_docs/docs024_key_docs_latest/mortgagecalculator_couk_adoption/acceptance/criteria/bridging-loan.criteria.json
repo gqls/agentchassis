@@ -1,0 +1,148 @@
+{
+  "checks": [
+    {
+      "expect_values": {
+        "#dispNet": "£200,000.00",
+        "#resFee": "£4,545.45",
+        "#resGross": "£227,272.73",
+        "#resInterest": "£22,727.27"
+      },
+      "id": "computes-defaults",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#brLoan",
+          "value": "200000"
+        },
+        {
+          "action": "fill",
+          "selector": "#brRate",
+          "value": "1"
+        },
+        {
+          "action": "fill",
+          "selector": "#brTerm",
+          "value": "10"
+        },
+        {
+          "action": "fill",
+          "selector": "#brFee",
+          "value": "2"
+        },
+        {
+          "action": "click",
+          "selector": "#brCalcBtn"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#dispNet": "£400,000.00",
+        "#resFee": "£28,571.43",
+        "#resGross": "£714,285.71",
+        "#resInterest": "£285,714.29"
+      },
+      "id": "computes-double",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#brLoan",
+          "value": "400000"
+        },
+        {
+          "action": "fill",
+          "selector": "#brRate",
+          "value": "2"
+        },
+        {
+          "action": "fill",
+          "selector": "#brTerm",
+          "value": "20"
+        },
+        {
+          "action": "fill",
+          "selector": "#brFee",
+          "value": "4"
+        },
+        {
+          "action": "click",
+          "selector": "#brCalcBtn"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#dispNet": "£100,000.00",
+        "#resFee": "£1,036.27",
+        "#resGross": "£103,626.94",
+        "#resInterest": "£2,590.67"
+      },
+      "id": "computes-half",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#brLoan",
+          "value": "100000"
+        },
+        {
+          "action": "fill",
+          "selector": "#brRate",
+          "value": "0.5"
+        },
+        {
+          "action": "fill",
+          "selector": "#brTerm",
+          "value": "5"
+        },
+        {
+          "action": "fill",
+          "selector": "#brFee",
+          "value": "1"
+        },
+        {
+          "action": "click",
+          "selector": "#brCalcBtn"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#dispNet": "£340,000.00",
+        "#resFee": "£8,904.76",
+        "#resGross": "£404,761.90",
+        "#resInterest": "£55,857.14"
+      },
+      "id": "computes-asym",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#brLoan",
+          "value": "340000"
+        },
+        {
+          "action": "fill",
+          "selector": "#brRate",
+          "value": "0.6"
+        },
+        {
+          "action": "fill",
+          "selector": "#brTerm",
+          "value": "23"
+        },
+        {
+          "action": "fill",
+          "selector": "#brFee",
+          "value": "2.2"
+        },
+        {
+          "action": "click",
+          "selector": "#brCalcBtn"
+        }
+      ],
+      "type": "computed_values"
+    }
+  ]
+}

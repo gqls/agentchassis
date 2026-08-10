@@ -1,0 +1,172 @@
+{
+  "checks": [
+    {
+      "expect_values": {
+        "#diff2": "+£136.20",
+        "#diff2Note": "change vs first period: +£136.20",
+        "#pay1": "1,389.58",
+        "#pay2": "1,525.78",
+        "#pay3": "1,286.39"
+      },
+      "id": "computes-defaults",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#fcAmount",
+          "value": "250000"
+        },
+        {
+          "action": "fill",
+          "selector": "#fcTerm",
+          "value": "25"
+        },
+        {
+          "action": "fill",
+          "selector": "#rate1",
+          "value": "4.5"
+        },
+        {
+          "action": "fill",
+          "selector": "#rate2",
+          "value": "5.5"
+        },
+        {
+          "action": "fill",
+          "selector": "#rate3",
+          "value": "3.5"
+        },
+        {
+          "action": "click",
+          "selector": "#calcBtn"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#diff2": "+£773.08",
+        "#diff2Note": "change vs first period: +£773.08",
+        "#pay1": "3,856.81",
+        "#pay2": "4,629.89",
+        "#pay3": "3,156.85"
+      },
+      "id": "computes-double",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#fcAmount",
+          "value": "500000"
+        },
+        {
+          "action": "fill",
+          "selector": "#fcTerm",
+          "value": "40"
+        },
+        {
+          "action": "fill",
+          "selector": "#rate1",
+          "value": "9"
+        },
+        {
+          "action": "fill",
+          "selector": "#rate2",
+          "value": "11"
+        },
+        {
+          "action": "fill",
+          "selector": "#rate3",
+          "value": "7"
+        },
+        {
+          "action": "click",
+          "selector": "#calcBtn"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#diff2": "+£24.74",
+        "#diff2Note": "change vs first period: +£24.74",
+        "#pay1": "924.92",
+        "#pay2": "949.66",
+        "#pay3": "913.20"
+      },
+      "id": "computes-half",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#fcAmount",
+          "value": "125000"
+        },
+        {
+          "action": "fill",
+          "selector": "#fcTerm",
+          "value": "13"
+        },
+        {
+          "action": "fill",
+          "selector": "#rate1",
+          "value": "2.25"
+        },
+        {
+          "action": "fill",
+          "selector": "#rate2",
+          "value": "2.75"
+        },
+        {
+          "action": "fill",
+          "selector": "#rate3",
+          "value": "1.75"
+        },
+        {
+          "action": "click",
+          "selector": "#calcBtn"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#diff2": "−£961.61",
+        "#diff2Note": "change vs first period: −£961.61",
+        "#pay1": "4,658.50",
+        "#pay2": "3,696.89",
+        "#pay3": "4,548.44"
+      },
+      "id": "computes-asym",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#fcAmount",
+          "value": "425000"
+        },
+        {
+          "action": "fill",
+          "selector": "#fcTerm",
+          "value": "15"
+        },
+        {
+          "action": "fill",
+          "selector": "#rate1",
+          "value": "10.35"
+        },
+        {
+          "action": "fill",
+          "selector": "#rate2",
+          "value": "6.05"
+        },
+        {
+          "action": "fill",
+          "selector": "#rate3",
+          "value": "10.85"
+        },
+        {
+          "action": "click",
+          "selector": "#calcBtn"
+        }
+      ],
+      "type": "computed_values"
+    }
+  ]
+}

@@ -1,0 +1,97 @@
+{
+  "checks": [
+    {
+      "expect_values": {
+        "#sdltResult": "£2,500"
+      },
+      "id": "computes-defaults",
+      "steps": [
+        {
+          "action": "select",
+          "selector": "#buyerType",
+          "value": "ftb"
+        },
+        {
+          "action": "fill",
+          "selector": "#price",
+          "value": "350000"
+        },
+        {
+          "action": "click",
+          "selector": "#calcBtn"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#sdltResult": "£25,000"
+      },
+      "id": "computes-double",
+      "steps": [
+        {
+          "action": "select",
+          "selector": "#buyerType",
+          "value": "ftb"
+        },
+        {
+          "action": "fill",
+          "selector": "#price",
+          "value": "700000"
+        },
+        {
+          "action": "click",
+          "selector": "#calcBtn"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#breakdown": "No stamp duty is due on this purchase.First-time buyer relief applied: 0% up to £300,000, then 5% up to £500,000.",
+        "#sdltResult": "£0"
+      },
+      "id": "computes-half",
+      "steps": [
+        {
+          "action": "select",
+          "selector": "#buyerType",
+          "value": "ftb"
+        },
+        {
+          "action": "fill",
+          "selector": "#price",
+          "value": "175000"
+        },
+        {
+          "action": "click",
+          "selector": "#calcBtn"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#sdltResult": "£19,750"
+      },
+      "id": "computes-asym",
+      "steps": [
+        {
+          "action": "select",
+          "selector": "#buyerType",
+          "value": "ftb"
+        },
+        {
+          "action": "fill",
+          "selector": "#price",
+          "value": "595000"
+        },
+        {
+          "action": "click",
+          "selector": "#calcBtn"
+        }
+      ],
+      "type": "computed_values"
+    }
+  ]
+}

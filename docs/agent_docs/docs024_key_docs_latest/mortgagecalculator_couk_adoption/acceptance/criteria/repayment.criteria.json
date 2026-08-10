@@ -1,0 +1,128 @@
+{
+  "checks": [
+    {
+      "expect_values": {
+        "#displayMonthly": "£1,169.18",
+        "#displayTotalInterest": "£150,754.02",
+        "#displayTotalRepayable": "£350,754.02",
+        "#resultsArea": "Monthly Repayment £1,169.18 Total Interest £150,754.02 Total Repayable £350,754.02"
+      },
+      "id": "computes-defaults",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#loanAmount",
+          "value": "200000"
+        },
+        {
+          "action": "fill",
+          "selector": "#interestRate",
+          "value": "5"
+        },
+        {
+          "action": "fill",
+          "selector": "#termYears",
+          "value": "25"
+        },
+        {
+          "action": "click",
+          "selector": "#calculateBtn"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#displayMonthly": "£3,356.42",
+        "#displayTotalInterest": "£1,613,853.30",
+        "#displayTotalRepayable": "£2,013,853.30",
+        "#resultsArea": "Monthly Repayment £3,356.42 Total Interest £1,613,853.30 Total Repayable £2,013,853.30"
+      },
+      "id": "computes-double",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#loanAmount",
+          "value": "400000"
+        },
+        {
+          "action": "fill",
+          "selector": "#interestRate",
+          "value": "10"
+        },
+        {
+          "action": "fill",
+          "selector": "#termYears",
+          "value": "50"
+        },
+        {
+          "action": "click",
+          "selector": "#calculateBtn"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#displayMonthly": "£751.49",
+        "#displayTotalInterest": "£17,231.88",
+        "#displayTotalRepayable": "£117,231.88",
+        "#resultsArea": "Monthly Repayment £751.49 Total Interest £17,231.88 Total Repayable £117,231.88"
+      },
+      "id": "computes-half",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#loanAmount",
+          "value": "100000"
+        },
+        {
+          "action": "fill",
+          "selector": "#interestRate",
+          "value": "2.5"
+        },
+        {
+          "action": "fill",
+          "selector": "#termYears",
+          "value": "13"
+        },
+        {
+          "action": "click",
+          "selector": "#calculateBtn"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#displayMonthly": "£1,038.17",
+        "#displayTotalInterest": "£370,108.75",
+        "#displayTotalRepayable": "£710,108.75",
+        "#resultsArea": "Monthly Repayment £1,038.17 Total Interest £370,108.75 Total Repayable £710,108.75"
+      },
+      "id": "computes-asym",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#loanAmount",
+          "value": "340000"
+        },
+        {
+          "action": "fill",
+          "selector": "#interestRate",
+          "value": "3"
+        },
+        {
+          "action": "fill",
+          "selector": "#termYears",
+          "value": "57"
+        },
+        {
+          "action": "click",
+          "selector": "#calculateBtn"
+        }
+      ],
+      "type": "computed_values"
+    }
+  ]
+}

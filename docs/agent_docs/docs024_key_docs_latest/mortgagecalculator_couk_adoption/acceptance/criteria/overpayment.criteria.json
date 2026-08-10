@@ -1,0 +1,151 @@
+{
+  "checks": [
+    {
+      "expect_values": {
+        "#dispOpAmount": "£100",
+        "#dispYearsEarlier": "3 years 6 months",
+        "#resultsPanel": "Monthly Overpayment £100 Interest Saved £24,505 Time Saved 3 years 6 months Mortgage-Free Earlier By 3 years 6 months",
+        "#saveInterest": "£24,505",
+        "#saveTime": "3 years 6 months"
+      },
+      "id": "computes-defaults",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#opAmount",
+          "value": "100"
+        },
+        {
+          "action": "fill",
+          "selector": "#opBalance",
+          "value": "200000"
+        },
+        {
+          "action": "fill",
+          "selector": "#opRate",
+          "value": "5"
+        },
+        {
+          "action": "fill",
+          "selector": "#opYears",
+          "value": "25"
+        },
+        {
+          "action": "click",
+          "selector": "#calcBtn"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#dispOpAmount": "£200",
+        "#dispYearsEarlier": "22 years 2 months",
+        "#resultsPanel": "Monthly Overpayment £200 Interest Saved £827,231 Time Saved 22 years 2 months Mortgage-Free Earlier By 22 years 2 months",
+        "#saveInterest": "£827,231",
+        "#saveTime": "22 years 2 months"
+      },
+      "id": "computes-double",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#opAmount",
+          "value": "200"
+        },
+        {
+          "action": "fill",
+          "selector": "#opBalance",
+          "value": "400000"
+        },
+        {
+          "action": "fill",
+          "selector": "#opRate",
+          "value": "10"
+        },
+        {
+          "action": "fill",
+          "selector": "#opYears",
+          "value": "50"
+        },
+        {
+          "action": "click",
+          "selector": "#calcBtn"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#dispOpAmount": "£50",
+        "#dispYearsEarlier": "11 months",
+        "#resultsPanel": "Monthly Overpayment £50 Interest Saved £1,306 Time Saved 11 months Mortgage-Free Earlier By 11 months",
+        "#saveInterest": "£1,306",
+        "#saveTime": "11 months"
+      },
+      "id": "computes-half",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#opAmount",
+          "value": "50"
+        },
+        {
+          "action": "fill",
+          "selector": "#opBalance",
+          "value": "100000"
+        },
+        {
+          "action": "fill",
+          "selector": "#opRate",
+          "value": "2.5"
+        },
+        {
+          "action": "fill",
+          "selector": "#opYears",
+          "value": "13"
+        },
+        {
+          "action": "click",
+          "selector": "#calcBtn"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#dispOpAmount": "£170",
+        "#dispYearsEarlier": "11 years 11 months",
+        "#saveInterest": "£139,540",
+        "#saveTime": "11 years 11 months"
+      },
+      "id": "computes-asym",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#opAmount",
+          "value": "170"
+        },
+        {
+          "action": "fill",
+          "selector": "#opBalance",
+          "value": "120000"
+        },
+        {
+          "action": "fill",
+          "selector": "#opRate",
+          "value": "11.5"
+        },
+        {
+          "action": "fill",
+          "selector": "#opYears",
+          "value": "28"
+        },
+        {
+          "action": "click",
+          "selector": "#calcBtn"
+        }
+      ],
+      "type": "computed_values"
+    }
+  ]
+}

@@ -1,0 +1,188 @@
+{
+  "checks": [
+    {
+      "expect_values": {
+        "#tcEffective": "4.35%",
+        "#tcMonthly": "£1,076.77",
+        "#tcOutlay": "£26,841.44",
+        "#tcTotal": "£17,384.79"
+      },
+      "id": "computes-defaults",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#tcAmount",
+          "value": "200000"
+        },
+        {
+          "action": "fill",
+          "selector": "#tcRate",
+          "value": "4.19"
+        },
+        {
+          "action": "fill",
+          "selector": "#tcTerm",
+          "value": "25"
+        },
+        {
+          "action": "fill",
+          "selector": "#tcDeal",
+          "value": "2"
+        },
+        {
+          "action": "fill",
+          "selector": "#tcFee",
+          "value": "999"
+        },
+        {
+          "action": "fill",
+          "selector": "#tcOther",
+          "value": "0"
+        },
+        {
+          "action": "click",
+          "selector": "#tcCalcBtn"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#tcEffective": "8.48%",
+        "#tcMonthly": "£2,836.93",
+        "#tcOutlay": "£138,170.77",
+        "#tcTotal": "£135,694.71"
+      },
+      "id": "computes-double",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#tcAmount",
+          "value": "400000"
+        },
+        {
+          "action": "fill",
+          "selector": "#tcRate",
+          "value": "8.38"
+        },
+        {
+          "action": "fill",
+          "selector": "#tcTerm",
+          "value": "50"
+        },
+        {
+          "action": "fill",
+          "selector": "#tcDeal",
+          "value": "4"
+        },
+        {
+          "action": "fill",
+          "selector": "#tcFee",
+          "value": "1998"
+        },
+        {
+          "action": "fill",
+          "selector": "#tcOther",
+          "value": "0"
+        },
+        {
+          "action": "click",
+          "selector": "#tcCalcBtn"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#tcEffective": "2.54%",
+        "#tcMonthly": "£733.06",
+        "#tcOutlay": "£9,296.71",
+        "#tcTotal": "£2,535.17"
+      },
+      "id": "computes-half",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#tcAmount",
+          "value": "100000"
+        },
+        {
+          "action": "fill",
+          "selector": "#tcRate",
+          "value": "2.1"
+        },
+        {
+          "action": "fill",
+          "selector": "#tcTerm",
+          "value": "13"
+        },
+        {
+          "action": "fill",
+          "selector": "#tcDeal",
+          "value": "1"
+        },
+        {
+          "action": "fill",
+          "selector": "#tcFee",
+          "value": "500"
+        },
+        {
+          "action": "fill",
+          "selector": "#tcOther",
+          "value": "0"
+        },
+        {
+          "action": "click",
+          "selector": "#tcCalcBtn"
+        }
+      ],
+      "type": "computed_values"
+    },
+    {
+      "expect_values": {
+        "#tcEffective": "2.87%",
+        "#tcMonthly": "£935.13",
+        "#tcOutlay": "£27,410.36",
+        "#tcTotal": "£21,432.51"
+      },
+      "id": "computes-asym",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#tcAmount",
+          "value": "340000"
+        },
+        {
+          "action": "fill",
+          "selector": "#tcRate",
+          "value": "2.51"
+        },
+        {
+          "action": "fill",
+          "selector": "#tcTerm",
+          "value": "57"
+        },
+        {
+          "action": "fill",
+          "selector": "#tcDeal",
+          "value": "2.2"
+        },
+        {
+          "action": "fill",
+          "selector": "#tcFee",
+          "value": "3097"
+        },
+        {
+          "action": "fill",
+          "selector": "#tcOther",
+          "value": "0"
+        },
+        {
+          "action": "click",
+          "selector": "#tcCalcBtn"
+        }
+      ],
+      "type": "computed_values"
+    }
+  ]
+}
