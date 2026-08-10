@@ -158,3 +158,34 @@ Recorded as a trap in
 §4 (found incidentally 2026-08-04 by the finetuning lane, deliberately left
 unbundled). Fixed by this lane 2026-08-09; the handoff carries a dated
 correction pointing here.
+
+---
+
+## CLOSED IN SUBSTANCE 2026-08-10 — the last leaking pod is gone; ROTATION IS UNBLOCKED
+
+`render-audit-adapter`, the sole remaining leaker, rolled to
+`browser-runner-adapter:v1.0.1280` at 15:45Z (its first roll ever — see
+`bugs_open/237`, whose makefile fix put it in the release path). Verified at that
+pod, the checks this file specified:
+
+| check | want | got |
+|---|---|---|
+| `access_key_present` in the binary | ≥1 | **1** |
+| `B2_APPLICATION_KEY from env` in the binary | 0 | **0** |
+| positive control `NewS3Client` | >0 | **3** |
+| credential lines in the live log buffer | 0 | **0** |
+| total log lines (control — proves the zero is meaningful) | >0 | 11 |
+
+`grep -a` rather than `strings`: that image has no `strings` binary.
+
+**The rotation-ordering constraint recorded above is now SATISFIED and no longer
+applies.** No pod in the fleet runs a binary that logs these values, so rotating
+the B2 application key pair and `CLIENTS_DB_PASSWORD` can happen whenever the
+owner chooses, with no restart hazard.
+
+**What is NOT closed by this:** the credentials were exposed in pod logs from
+2025-10-28 to 2026-08-10 and should still be presumed disclosed to anyone with
+`kubectl logs` access in that window. Rotation remains an owner decision; this
+entry only removes the timing constraint on it.
+
+Kept in `bugs_open/` per the owner ruling of 2026-08-06 (a finished bug stays).
