@@ -174,6 +174,29 @@ tooling. No Go changed, so **nothing here rides a chassis build**.
 
 ---
 
+## 6b. FIRST NIGHT OF UNATTENDED RUNNING — it found a defect, and the safety held
+
+The sweep selected this site at **03:20 on 2026-08-10** and ran the 14 due tools
+(16 eligible minus 2 in cooldown). **13 passed, 1 failed — a REAL defect**, not a
+harness artefact: `mortgages/equity-release.html` left the previous answer on
+screen for an ineligible age (`if(age < 55) { alert(); return; }`). Enter 65,
+read £124,000; change the age to 32, still read £124,000 "for age 65".
+
+**`no_auto_fix` was asked a real question and answered it**: 0 `improve_tool`
+items, and the run's own note reads *"NOT auto-fixed — this fence declares
+no_auto_fix"*. Yesterday it was an assertion; now it is behaviour.
+
+I then grepped the SHAPE rather than waiting a week, and found **three more**
+(bridging-loan's unviable-deal guard, investor's LTV and yield). **Ten
+instances in total, and only six were rate-guarded** — the class is *a guard
+that leaves a handler without writing the DOM*, which is now a LANDMINES entry.
+All fixed and live.
+
+Also fixed: the equity-release fence had pinned the page's **initial markup** as
+an expected answer, because the tool wrote nothing for those vectors.
+`--emit-criteria` refuses a wholly inert tool but has no gate for a tool inert on
+ONE vector. Re-emitted; it now passes 4/0.
+
 ## 7. OWNER DECISIONS ON §3, taken 2026-08-09
 
 1. **Unattended fences: YES — DONE, 16 of 17.** `page_type='tool'` on the 16
