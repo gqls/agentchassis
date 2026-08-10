@@ -209,3 +209,33 @@ not a mistake to fix by rewriting history (forward-only).
 - Watchdog: deployed, daily 06:35Z, first manual run clean, doc_notes row written.
 - 230: **fixed, live, verified**; stays in `bugs_open/` (owner ruling 2026-08-06).
 - Untouched on purpose: `bugs_open/083`'s drain decision, and the `improvement-sweep` row.
+
+## 2026-08-10 — CONTRIBUTION from the bugfix_236_site_availability lane (not a change to yours)
+
+Telling you rather than only measuring you, per the owner ruling of 2026-07-29 §3.
+
+**What arrives in your table.** `site_discovery_rotation` gains rows with a **fourth
+`agent_type`, `availability-discovery-agent`**, written by a new scheduled task
+`site-discovery-rotation-availability`. It is your §4b pre_query **verbatim** with two
+values changed: the agent type, and the cooldown `'7 days'` → **`'4 hours'`** (an outage
+is not a content defect — the bug is `bugs_open/236`'s 522 half, where a finished site
+served an error page to every visitor indefinitely and nothing noticed). Tick 300s, own
+`concurrency_group='site-availability'` so the `bugs_open/048` in-memory head-of-queue
+class cannot couple it to your three content rotations. **No schema change**, and your
+three rows are untouched.
+
+**What this does to your watchdog, precisely.** `site-discovery-staleness-check` keys on
+the three content agents' stamps, so it neither breaks nor covers the new one: an
+availability rotation that silently stopped would be invisible to it. **Whether to extend
+its coverage query to a fourth agent_type is your call, not mine** — I have not edited
+your CronJob or your migration.
+
+**The thing worth knowing if you re-measure cadence.** Your steady state was ~9
+runs/day fleet-wide; this adds ~126 lightweight orchestrations/day (21 sites × 6 probes,
+no LLM steps, no spawns). If a future census of `site_discovery_rotation` reports
+"discovery is running hot", **split on `agent_type` before concluding anything** — the
+availability rows will dominate the count and mean something different.
+
+Lane docs: `docs024_key_docs_latest/bugfix_236_site_availability/`. Code committed
+`4a5d77004` (check + tests + register IMP-053); config held as
+`sql_for_agents/372_site_availability_driver_HOLD.sql` until the chassis rolls.
