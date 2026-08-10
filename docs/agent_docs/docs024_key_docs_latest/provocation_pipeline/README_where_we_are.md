@@ -837,3 +837,53 @@ today to stop the next person misreading those columns had the two columns the w
 way round. An automated checker read the actual code and caught it within the hour.
 My own check had passed — but it was a check that could not have failed, because I only
 tested it on the rows where both readings give the same answer.
+
+---
+
+**2026-08-10.** Your site is publishing again, and the safety work you asked for is built.
+
+**vonc.com served a new provocation this morning** — "You don't love your city, you love
+being from it" — at about twenty to five. It is the first one the system has written and
+published entirely on its own. The page had been showing the 26 July piece for fifteen
+days. I checked it by fetching the actual file the site serves rather than asking the
+database, because the database and the scheduler both reported everything was fine
+throughout those fifteen days.
+
+Worth knowing what the stall actually was, because it was not a fault. Nothing was broken:
+the publisher runs every six hours and had been running correctly the whole time. It can
+only choose from provocations that have been *approved*, and nothing had been approved
+since 26 July, because the approving step was the one part never connected up. So it kept
+correctly serving the newest thing it had. The six new ones going through the gate is what
+released it.
+
+**The abuse check is built.** It runs before the model is consulted at all, so a piece it
+catches never reaches the judgement that let one through. It errs toward rejection, as you
+asked. Two things I did to make sure it is real rather than merely present: I deleted the
+rules and confirmed the tests then failed — a test suite that passes when the rule is gone
+is worth nothing — and I ran the patterns across all fifteen provocations you currently
+have, human-written and machine-written, to check it rejects none of them. It rejects
+none. I then deliberately ran it against three abusive samples to confirm it *can* say no,
+because a check that finds nothing is only reassuring if it was capable of finding
+something.
+
+One consequence you should know about, because it is a choice and not an accident: a
+provocation *about* abuse — one arguing that insulting strangers online is the price of
+the internet — will be rejected by its own subject matter. That follows directly from
+erring toward rejection. The rejection quotes the offending words, so it is obvious at a
+glance that it was a mention rather than an insult, and it can be released by hand.
+
+**The category fix is done** — the engineering one you chose, with nothing user-visible.
+It is a no-op today and stops a category being silently ignored the day you add real ones.
+
+**Three things I got wrong today**, all corrected. I attached the wrong review reference to
+one commit, which would have quietly recorded an unreviewed change as reviewed — the
+review system credits these automatically, so a wrong reference does not fail, it flatters.
+I wrote a code comment pointing at a function nobody has written yet. And I built an
+argument on your "no human approval" rule at the same time you were reversing it with
+another session — worth flagging that the reversal is currently a decision rather than a
+working feature: there is no approve button anywhere in the system yet, so today it still
+behaves as though the old rule stood.
+
+**Still to do:** the two reviews are running and I have not read them yet; the pool
+top-up-and-tell-me work has not been started; and the small blog page tidy-up has not
+either.
