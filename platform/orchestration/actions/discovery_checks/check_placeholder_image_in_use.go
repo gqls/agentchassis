@@ -107,48 +107,36 @@ func (c *PlaceholderImageInUseCheck) Run(dctx DiscoveryCheckContext) (*CheckResu
 			"prompt_known": prompt != "",
 		})
 
+		promptSource := BrandPromptSourcePlanned
 		if prompt == "" {
-			// No prompt, and no automated author for one. A logo's appearance
-			// is a human decision on this platform by design, not by omission:
-			// imagery_style_guide.go excludes logos from style-guide direction
-			// entirely ("logos get nothing — the 2026-05-20 contamination
-			// lesson") and generate_image_actions.go states the intended
-			// lifecycle as "generated once, human-approved, then locked".
+			// OWNER RULING 2026-08-09: this goes to human review for guidance —
+			// but that review DEFAULTS to "create a logo that suits the mission,
+			// target market and the domain character", and proceeds on its own.
 			//
-			// So file the finding for a human rather than a generation request
-			// that is guaranteed to fail. Same ItemKey as the generation item
-			// deliberately: one open question per (site, purpose), never both.
-			spec["reason"] = "no planned prompt for this purpose; generation cannot be requested"
-			specJSON, _ := json.Marshal(spec)
-
-			result.WorkItems = append(result.WorkItems, WorkItemSpec{
-				SiteID:   dctx.SiteID,
-				Source:   "discovery",
-				Pipeline: dctx.Pipeline,
-				ItemType: mapping.itemType,
-				Severity: "high",
-				Summary: fmt.Sprintf(
-					"Pages reference fallback %s, no asset exists, and no %s prompt was ever planned — needs a human ruling on the brand direction",
-					mapping.path, mapping.purpose),
-				SpecJSON: string(specJSON),
-				Priority: mapping.priority,
-				// The EMPTY handler is the canonical spelling of a deliberate
-				// no-agent route for a needs_human_review item (migration 217;
-				// handler_coverage_test.go:53-57), and it is what the fleet
-				// actually does — 433 rows at this status carry no handler
-				// against 12 naming "human-review", which is not an
-				// agent_definitions type at all. Status is what keeps the row
-				// out of dispatch (load_work_item_actions.go:951), so it never
-				// reaches claim and is never marked 'blocked'.
-				HandlerAgent: "",
-				Status:       "needs_human_review",
-				CreatedBy:    dctx.AgentType,
-				ItemKey:      fmt.Sprintf("placeholder_image_in_use:%s", mapping.purpose),
-				BatchID:      dctx.BatchID,
-			})
-			continue
+			// The constraint is scale, and it decides the shape: ~2,000 domains
+			// to populate, and the owner cannot author or approve that many
+			// logos. A disposition that BLOCKS on a human is therefore not a
+			// safe default here — it is a queue that will never drain. The human
+			// path stays available as an OVERRIDE (plan a real prompt, or lock
+			// the asset), not as a gate.
+			//
+			// This is NOT the excluded imagery path. DefaultBrandImagePrompt
+			// reads BRAND IDENTITY — who the site is, who it serves, how it
+			// sounds — and never design_intent.imagery_direction or the style
+			// guide, which stay excluded for logos per the 2026-05-20
+			// contamination lesson. See that helper's header on why the two axes
+			// are different.
+			prompt = DefaultBrandImagePrompt(dctx.Ctx, dctx.DB, dctx.SiteID, mapping.purpose, dctx.Logger)
+			promptSource = BrandPromptSourceDefault
+			dctx.Logger.Info("placeholder_image_in_use: no planned prompt, using the brand-identity default",
+				zap.String("purpose", mapping.purpose),
+				zap.String("prompt_preview", trimClause(prompt)))
 		}
 
+		// Recorded so the population no person ever chose is findable later:
+		// `spec->>'prompt_source' = 'default_from_brand_identity'` is the query
+		// an operator wants when there is finally time to review these.
+		spec["prompt_source"] = promptSource
 		spec["image_prompts"] = map[string]interface{}{promptKey: prompt}
 		// The flat key too, matching check_unfulfilled_image_prompt's dual
 		// format (:101-105). The two Phase-2E branches read spec.prompt; the

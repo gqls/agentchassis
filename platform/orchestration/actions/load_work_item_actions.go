@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	checks "github.com/gqls/agentchassis/platform/orchestration/actions/discovery_checks"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
@@ -360,7 +361,7 @@ func WriteBuildItemsAction(ctx context.Context, params ActionParams) (interface{
 	// Do not file a generation request we already know is unconsumable.
 	if needsLogo {
 		insertImageBuildItem(ctx, tx, imageBuildItemArgs{
-			siteID: siteID, batchID: batchID, planData: planData,
+			db: params.DB, siteID: siteID, batchID: batchID, planData: planData,
 			purpose: "logo", promptKey: "logo",
 			itemType: "needs_logo", itemKey: "needs_logo",
 			summary: "Generate site logo", severity: "high",
@@ -368,7 +369,7 @@ func WriteBuildItemsAction(ctx context.Context, params ActionParams) (interface{
 	}
 	if needsImages {
 		insertImageBuildItem(ctx, tx, imageBuildItemArgs{
-			siteID: siteID, batchID: batchID, planData: planData,
+			db: params.DB, siteID: siteID, batchID: batchID, planData: planData,
 			purpose: "hero", promptKey: "hero_home",
 			itemType: "needs_hero_image", itemKey: "needs_hero:home",
 			summary: "Generate hero image", severity: "medium",
@@ -1532,6 +1533,12 @@ func normalizePageType(pt string) string {
 // ---------------------------------------------------------------------------
 
 type imageBuildItemArgs struct {
+	// db is the READ handle for the brand-identity default; tx is the insert
+	// path. They are deliberately separate: the default's queries must not
+	// join the work-item transaction, whose rollback would otherwise discard
+	// nothing useful but would widen its lock window for a read that cannot
+	// affect it.
+	db        *sql.DB
 	siteID    uuid.UUID
 	batchID   uuid.UUID
 	planData  map[string]interface{}
@@ -1556,15 +1563,14 @@ func imagePromptFromPlan(planData map[string]interface{}, promptKey string) stri
 	return s
 }
 
-// insertImageBuildItem files a generation request when the plan carries the
-// prompt its handler requires, and a human-review item when it does not.
+// insertImageBuildItem files a generation request, supplying the prompt the
+// handler requires — from the plan when it has one, and from the site's brand
+// identity when it does not.
 //
-// The disposition matches check_placeholder_image_in_use: an unplanned brand
-// image has no automated author on this platform by design (logos are excluded
-// from style-guide direction — "the 2026-05-20 contamination lesson" — and the
-// stated lifecycle is "generated once, human-approved, then locked"), so the
-// honest item is a human ruling, not a generation request that must fail at
-// input extraction.
+// It can no longer file an item without a prompt, which is the defect
+// bugs_open/210 records: image-build-handler's logo/hero branches map "prompt"
+// as a REQUIRED field, so a promptless item dies at input extraction. The
+// default comes from the owner's 2026-08-09 ruling — see the branch below.
 func insertImageBuildItem(ctx context.Context, tx *sql.Tx, a imageBuildItemArgs, inserted *int, logger *zap.Logger) {
 	prompt := imagePromptFromPlan(a.planData, a.promptKey)
 
@@ -1581,35 +1587,39 @@ func insertImageBuildItem(ctx context.Context, tx *sql.Tx, a imageBuildItemArgs,
 		"image_prompts": a.planData["image_prompts"],
 	}
 
+	promptSource := checks.BrandPromptSourcePlanned
 	if prompt == "" {
-		logger.Warn("WriteBuildItemsAction: plan asks for an image but carries no prompt for it — "+
-			"filing for human review instead of an unhandleable generation item",
+		// OWNER RULING 2026-08-09 (bugs_open/210): default rather than block.
+		// ~2,000 domains to populate and no capacity to approve that many
+		// logos, so the human path is an OVERRIDE, not a gate. Same helper and
+		// same reasoning as check_placeholder_image_in_use — brand identity,
+		// never the imagery direction that logos are excluded from.
+		prompt = checks.DefaultBrandImagePrompt(ctx, a.db, a.siteID, a.purpose, logger)
+		promptSource = checks.BrandPromptSourceDefault
+		logger.Info("WriteBuildItemsAction: plan asks for an image but carries no prompt — "+
+			"using the brand-identity default",
 			zap.String("site_id", a.siteID.String()),
 			zap.String("purpose", a.purpose),
 			zap.String("prompt_key", a.promptKey))
-
-		spec["reason"] = "no planned prompt for this purpose; generation cannot be requested"
-		specJSON, _ := json.Marshal(spec)
-		item.spec = string(specJSON)
-		item.summary = fmt.Sprintf("%s — but the plan carries no %s prompt, so the brand direction needs a human ruling",
-			a.summary, a.promptKey)
-		// Empty handler + needs_human_review status is the platform's canonical
-		// HITL disposition (migration 217): the STATUS is what keeps the row out
-		// of the dispatch selector, so it is never claimed and never marked
-		// 'blocked'. 433 live rows do it this way.
-		item.handlerAgent = ""
-		item.status = "needs_human_review"
-	} else {
-		// Both key shapes, matching check_unfulfilled_image_prompt's dual
-		// format: the two legacy handler branches read the nested
-		// image_prompts.<key>, the two Phase-2E branches read the flat
-		// spec.prompt. Writing both keeps this producer correct under either.
-		spec["prompt"] = prompt
-		specJSON, _ := json.Marshal(spec)
-		item.spec = string(specJSON)
-		item.summary = a.summary
-		item.handlerAgent = "image-build-handler"
 	}
+
+	// Both key shapes, matching check_unfulfilled_image_prompt's dual format:
+	// the two legacy handler branches read the nested image_prompts.<key>, the
+	// two Phase-2E branches read the flat spec.prompt. Writing both keeps this
+	// producer correct under either, and makes the deferred convergence
+	// (IMG-069's open question) a config-only change.
+	spec["prompt"] = prompt
+	spec["prompt_source"] = promptSource
+	if _, ok := spec["image_prompts"].(map[string]interface{}); !ok {
+		spec["image_prompts"] = map[string]interface{}{}
+	}
+	if m, ok := spec["image_prompts"].(map[string]interface{}); ok {
+		m[a.promptKey] = prompt
+	}
+	specJSON, _ := json.Marshal(spec)
+	item.spec = string(specJSON)
+	item.summary = a.summary
+	item.handlerAgent = "image-build-handler"
 
 	ok, err := insertWorkItem(ctx, tx, item, logger)
 	if err != nil {
