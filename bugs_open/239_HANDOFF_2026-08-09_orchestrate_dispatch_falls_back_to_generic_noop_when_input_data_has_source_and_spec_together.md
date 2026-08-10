@@ -410,13 +410,54 @@ reproduction), `platform/discovery/find_by_type_guards_test.go`,
 **CLOSING CONDITION: steps 1–5 pass on a rolled image.** Until then this stays OPEN —
 the defect is still reproducible in production.
 
-## Council
+## Council — REJECTED on SCOPE, and the code stays
 
-Submitted to the fix-loop council gate alongside the commit — see the commit's
-`Council-Submitted:` trailer for the correlation, or, if the Anthropic account cap
-(`bugs_open/243-anthropic-cap`) was still live at commit time, the commit body says so and
-the submission is owed once capacity returns. No `Council-Reviewed:` trailer is claimed on
-an unread verdict.
+Round `fca1071b-80ac-40cd-8c6d-d30a735de89b`, 2026-08-10, 11 reviewers, 6 abstained:
+**7 approve, 1 VETO, 3 object. Decided by a hard veto from `guardian` — on how the change
+reached production, not on whether it is right.** `editquality` said in the same round
+*"Not a veto: the core fix is on-target"*; `reuse_agent` — the seat whose remit is
+architectural fit — reported *"No architecture-level reuse concern identified"*;
+`constitution` and `mission` both approved on the grounds that the root cause was fixed at
+the mechanism rather than patched at the trigger. The `architecture` seat objected with
+`needs_rfc` and said *"the design direction (fail closed, one parse, typed disposition) is
+correct… Route it through architecture_review"*.
+
+**Per CLAUDE.md, a scope veto is not answered by resubmitting with better measurements**,
+and the seats disagreeing with each other is the stated condition for putting it in front
+of a human. So: **the verdict, the guardian's contained alternative verbatim, and the three
+substantive objections — checked, not argued — are recorded in
+`architecture_review/RFC_023_a_silent_success_becoming_a_loud_failure_is_a_delivery_guarantee_change.md`.**
+Two of the three dissolved on inspection; one was real (see below). The commit stays: it is
+at HEAD, forward-only forbids the rewrite that would split it, and reverting would restore
+a defect that has already caused one production incident.
+
+**The one objection that was real** (`prior_art_librarian`, seconded by `debug_historian`
+and `constitution`): `LANDMINES.md:5788` keys on the exact symbols this change edits and
+was not cited. Reconciled: that landmine is the NESTED-envelope case — a `call_agent` child
+whose `config.agent_type` sits under `body`, invisible to `extractGroupInfo`. **This change
+does not fix it.** Such a message still reaches the own-default branch; what changes is
+that it now logs `DISPATCH_OWN_DEFAULT` instead of being silent. 7 messages of that shape
+in the 8-day census. So the honest statement is: *this fix makes that landmine's failure
+mode detectable and leaves it unfixed.*
+
+**And one measurement worth carrying forward**, because it answers the veto's
+highest-severity objection ("the FindByType guards change which row EVERY consumer resolves
+to, fleet-wide") with a number rather than an argument — measured 2026-08-10, and it could
+have come out otherwise:
+
+| check | result |
+|---|---|
+| active snapshots / active-but-deleted, of 203 definition rows | **0 / 0** |
+| agent types whose resolved row CHANGES under the new predicate | **0 of 182** |
+| agent types that now resolve to NOTHING | **0** |
+
+The guards are **inert today and prospective** — they close a door that is currently
+unlocked and unused, held shut only by `snapshot_agent()` writing `is_active=false`, an
+invariant the landmine notes nothing states or tests.
+
+No `Council-Reviewed:` trailer is claimed: the commit carries `Council-Submitted:`, which
+asserts nothing, and 098 will resolve this correlation to REJECTED at report time. That is
+correct and deliberate — the trailer should show what actually happened.
 
 ## Two defects found en route, NOT fixed here (separate filings)
 
