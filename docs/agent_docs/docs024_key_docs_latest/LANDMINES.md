@@ -8622,3 +8622,26 @@ code change owed at the next roll, tracked in RFC_015 §5.
   and never use `docs/leopardessconsulting/scripts/deploy_brand_asset.sh`: it passes `deploy_path`, removed 2026-08-04 (`bugs_open/179` A), which now draws a refusal. Use `staged_component_build/scripts/DEPLOY_asset.sh`, which refuses brand-head purposes and a non-`s3://` uri, and makes you pass `asset_key` explicitly.
 - **source:** `bugs_open/248` (090 CONFIRMED, correlation `b78e9a04-9a91-4261-af86-fb79f9316a4e`); sibling `bugs_open/245`, `231`, `235`.
 - **added:** 2026-08-10, staged_component_build
+
+---
+
+## A negative control built from the same expression as its filter agrees with the filter by construction — and `onclick=|addEventListener` cannot see a calculator
+
+- **footprint:** `pages.rebuild_policy` · `page_components.rendered_html` · `docs/agent_docs/sql_for_agents/367_unlock_prose_pages_loanandmortgage_and_loancash.sql` · `platform/orchestration/actions/get_pages_to_build_actions.go` (`ownedPageExclusionSQL`) · `platform/orchestration/actions/owned_page_guard.go` · any migration classifying pages as "prose" vs "tool"
+- **the trap:** migration 367 unlocked the "no calculator" pages on two live consumer-finance sites and deliberately refused the ones with calculators, classifying with `bool_or(rendered_html ~ 'onclick=|addEventListener')`. **Six calculator pages classified as prose and were unlocked.** They bind their handlers as `oninput=` / `onsubmit=` / `onchange=`, and two of them load `/assets/js/calculators.js`, where the `addEventListener` calls live **in the external file, not in the stored HTML the detector reads**. A page can be a fully working calculator with neither string anywhere in `rendered_html`.
+- **why the migration's own negative control did not catch it, which is the transferable half:** the control asserted "17 + 3 tool pages are still `owned`" **using the same `onclick=|addEventListener` expression as the filter**. It was written deliberately, it was induced, it fired on the induction — and it was blind to exactly the pages the filter was blind to. **A control that shares its subject's classifier cannot disconfirm that classifier.** The induction proves the RAISE fires; it says nothing about whether the population was right.
+- **the check:** classify with **independent spellings OR'd together**, and confirm they agree before you trust any of them — (a) handler attributes / `addEventListener` / an external calculator script tag; (b) form controls `<input |<select |<textarea |<form `; (c) DOM addressing `getElementById|querySelector`. Then check the resulting set against a source that never read your SQL. Here that was `decompose_lmc.py`'s hand-authored `CALCULATOR_URLS`, written five days earlier; the six matched all three spellings and the other 32 pages matched none.
+  ```sql
+  -- run this BEFORE any policy flip on a ported site; expect 0 rows
+  SELECT s.domain, p.url FROM pages p JOIN sites s ON s.id=p.site_id
+    JOIN page_components pc ON pc.page_id=p.id
+   WHERE COALESCE(p.rebuild_policy,'generic')='generic'
+     AND p.sections::text = '["ported-page"]'
+     AND (pc.rendered_html ~ 'onclick=|addEventListener|oninput=|onsubmit=|onchange=|onkeyup=|onblur=|onkeydown=|calculators\.js'
+       OR pc.rendered_html ~ '<input |<select |<textarea |<form '
+       OR pc.rendered_html ~ 'getElementById|querySelector');
+  ```
+- **`pages.url` is NOT unique across sites, so a url-only set assertion is not exact.** Both of these sites have `/guides/jargon-buster.html` and `/legal.html`. Inducing an over-lock of "one" page stamped **two** rows and the assertion reported neither as unexpected. Key set comparisons on `domain || '|' || url`. Found by induction, not by review.
+- **what makes it damage rather than untidiness:** all six sat at `build_status='needs_rebuild'` — precisely what `get_pages_to_build` selects on, whose only ownership filter is `COALESCE(rebuild_policy,'generic') <> 'owned'` — as a single verbatim `ported-page` row with the calculator inline, each with an open `page_rerender` item. The generic rebuild path had **already run at these pages**: on 2026-08-09 `needs_page:loans-compare-loans` and 19 siblings reached step `save_sections` and died there with *"page … is rebuild_policy=owned … Refusing to overwrite"*. That refusal is why the calculators still existed; 367 removed it for six of them. Fixed by `377_relock_six_verbatim_tool_pages_missed_by_367.sql`.
+- **source:** migration 377, 2026-08-10, loanandmortgagecalculator lane (`NOTES` 2026-08-10 evening; `HANDOFF_2026-08-10c_continue_here.md` §2b). Sibling reading: `MEMORY.md` "two checks blind the SAME way AGREE".
+- **added:** 2026-08-10, loanandmortgagecalculator_couk lane

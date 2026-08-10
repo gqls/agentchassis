@@ -15,6 +15,22 @@ framework."*
 Everything in §1 was measured by this session against the live DB and the running
 pods. Nothing here is carried forward from a doc unchecked.
 
+> **⚠ CORRECTED 2026-08-10 (~19:40Z), and it moves work between the tracks —
+> migration 377.** Six of the pages 367 unlocked **carry calculators**, and were
+> sitting `generic` + `needs_rebuild` + verbatim with an open `page_rerender` item
+> when this file was written. They are back to `owned`. So the counts below are
+> wrong as printed: **Track A is 17 pages, not 23**, and **Track B is 22, not 16**.
+> The six are `/loans/compare-loans.html`, `/loans/interest-rate-stress-test.html`,
+> `/loans/loan-vs-savings.html`, `/loans/settlement-calculator.html`,
+> `/loans/damage-checker.html`, `/mortgages/fact-finder.html` — all Track B now.
+> **What caught it:** cross-checking the unlocked set against `decompose_lmc.py`'s
+> hand-authored `CALCULATOR_URLS` instead of trusting 367's classifier. 367 read
+> `onclick=|addEventListener` only; these six bind `oninput=`/`onsubmit=`/
+> `onchange=` and two load the shared `calculators.js`, whose listeners are in the
+> external file, not in the stored HTML. **367's negative control used the same
+> expression as its filter**, so it agreed with it by construction. Full working:
+> §2b below and `LANDMINES.md`.
+
 ---
 
 ## 0. The task in one paragraph
@@ -47,16 +63,18 @@ WHERE p.site_id IN ('ed633ada-f8af-424b-b4d4-8af79160dbcd',
 GROUP BY 1,2,3 ORDER BY 1,2,3;
 ```
 
-| domain | policy | shape | count |
-|---|---|---|---|
-| loanandmortgagecalculator.co.uk | generic | verbatim | **23** |
-| loanandmortgagecalculator.co.uk | generic | decomposed | 1 |
-| loanandmortgagecalculator.co.uk | owned | verbatim | **16** |
-| loanandmortgagecalculator.co.uk | owned | decomposed | 1 |
-| loancash.co.uk | generic | verbatim | **15** |
-| loancash.co.uk | owned | verbatim | **3** |
+| domain | policy | shape | as printed 18:00 | after mig 377 (19:40) |
+|---|---|---|---|---|
+| loanandmortgagecalculator.co.uk | generic | verbatim | ~~23~~ | **17** |
+| loanandmortgagecalculator.co.uk | generic | decomposed | 1 | 1 |
+| loanandmortgagecalculator.co.uk | owned | verbatim | ~~16~~ | **22** |
+| loanandmortgagecalculator.co.uk | owned | decomposed | 1 | 1 |
+| loancash.co.uk | generic | verbatim | **15** | 15 |
+| loancash.co.uk | owned | verbatim | **3** | 3 |
 
-**57 to decompose: 38 prose + 19 tool.** The two already done:
+**Still 57 to decompose — but the split moved: 32 prose + 25 tool** (was stated as
+38 + 19). The total is unchanged because 377 changed no page's shape, only which
+side of the safe/unsafe line six of them are counted on. The two already done:
 
 - `loans-consolidation` — `["prose-0", "tool-1", "prose-2"]`, `owned`, tool row
   `lock_type='permanent'`. **The target shape for a tool page.**
@@ -130,6 +148,70 @@ check at the top of your session — they are three commands and they are in §5
 
 ---
 
+## 2b. ⛔ SIX LIVE CALCULATORS WERE UNPROTECTED FOR ~7 HOURS — migration 377
+
+Found 2026-08-10 ~19:30Z by the session that picked this file up, in the first ten
+minutes, by cross-checking 367's "prose" set against `decompose_lmc.py`'s
+`CALCULATOR_URLS`. Six of the 24 pages 367 unlocked are calculators.
+
+**Why 367 missed them.** It classified with
+`bool_or(rendered_html ~ 'onclick=|addEventListener')`. These six bind handlers as
+`oninput=` / `onsubmit=` / `onchange=`, and `compare-loans` +
+`interest-rate-stress-test` also load `/assets/js/calculators.js` — the
+`addEventListener` calls are in the **external file**, not in the stored HTML the
+detector read. A working calculator can carry neither string in `rendered_html`.
+
+**Why its negative control did not catch it — the transferable half.** 367's control
+asserted "17 LMC + 3 loancash tool pages are still `owned`" **using the same
+expression as its filter**. It was deliberate, it was induced, and it fired on the
+induction. It was still blind to exactly what the filter was blind to. A control
+that shares its subject's classifier cannot disconfirm that classifier; inducing it
+proves the `RAISE` works, not that the population was right.
+
+**Why this was live damage waiting, not untidiness.** At the moment of the finding,
+all six were simultaneously:
+
+| condition | value | why it matters |
+|---|---|---|
+| `rebuild_policy` | `generic` | `get_pages_to_build`'s only ownership filter is `COALESCE(rebuild_policy,'generic') <> 'owned'` |
+| `build_status` | `needs_rebuild` | that is what the selector selects on |
+| `sections` | `["ported-page"]` | one verbatim row, calculator `<script>` inline — the shape 367 refused |
+| open work item | `page_rerender:detected` | live demand touching the page |
+
+and the generic full-rebuild path **had already run at these pages**: on 2026-08-09,
+`needs_page:loans-compare-loans` and 19 siblings reached step `save_sections` and
+died there with *"page loans-compare-loans is rebuild_policy=owned (tool/widget-owned):
+a generic section save would clobber it … Refusing to overwrite."* That refusal is the
+only reason those calculators still exist, and 367 removed it for six of them at
+12:22Z. `attempt_count=1, max_attempts=3` on those items.
+
+**One inherited claim did NOT survive checking, and it matters for Track B.** Both
+earlier handoffs and RUNBOOK §14 say the composition loop *"commits LLM-written HTML
+to the sites repo one step BEFORE the DB guard refuses"*. On this path it did not:
+`git log` over the sites repo for 2026-08-08 20:00 → 2026-08-09 03:00 shows only the
+`bugs_open/224` fix and a consolidation rerender — **no clobbering commit**, though
+20 runs reached `save_sections`. So on the `page-build-handler` path the DB guard
+fired before anything reached the repo. `[MEASURED for this path and this window
+only.]` Do **not** relax anything on the strength of it: the guard is what saved the
+pages, the ordering claim may still hold on the other two composition loops, and it
+was never the plan to find out on a live calculator.
+
+**Fixed by** `docs/agent_docs/sql_for_agents/377_relock_six_verbatim_tool_pages_missed_by_367.sql`
+(applied by hand + `--record-only`; `_mig377_relocked_tool_pages` stamps the six so
+the rollback is exact). Its detector ORs three independent spellings — handler
+attributes/listeners/`calculators.js`, form controls, `getElementById|querySelector`
+— and over all 38 generic verbatim pages on the two sites **the six match all three
+and the other 32 match none**. Assertion 1 checks the stamped set against
+`CALCULATOR_URLS`, a source that has never read the SQL. Both controls were induced
+before applying: the expected-set check aborted on a claimed seventh page, and the
+over-locking control aborted at 16/14 when two prose pages were swept in.
+
+**The induction also found a flaw in the new check itself:** `pages.url` is not
+unique across these two sites (both have `/guides/jargon-buster.html` and
+`/legal.html`), so a url-only set assertion is not exact — a deliberate over-lock of
+"one" page stamped **two** rows and the assertion called neither unexpected. It now
+keys on `domain || '|' || url`. Review did not catch that; running the induction did.
+
 ## 3. What decomposition does and does not buy
 
 State this plainly to the owner, because the previous pass had to correct a similar
@@ -155,7 +237,7 @@ overstatement:
 The ordering is deliberate: it puts the tooling through its paces on pages with no
 calculator before it goes near one.
 
-### Track A — LMC prose, 23 pages · LOW RISK · do this first
+### Track A — LMC prose, 17 pages · LOW RISK · do this first
 
 Already `generic`, no calculator, and `decompose_lmc.py` already handles all 41 LMC
 pages (it was written for this site and its assertion suite was refuted and repaired
@@ -168,7 +250,13 @@ diff against the prediction. RUNBOOK §12 is the command sequence.
 decomposed and generic, so use it to prove the rerender/edit loop end to end before
 converting anything. It is the only page on the estate where a mistake costs nothing.
 
-### Track B — LMC tool pages, 16 pages · HIGH RISK · one at a time, check between
+### Track B — LMC tool pages, 22 pages · HIGH RISK · one at a time, check between
+
+The six that migration 377 moved here from Track A are the *easiest* of the 22 in one
+respect — `compare-loans`, `interest-rate-stress-test`, `loan-vs-savings` and
+`settlement-calculator` are class A/B tools already covered by `oracle.py`, so the
+per-page arithmetic check after decomposition is a single command. `damage-checker`
+and `fact-finder` are class C (no external right answer) and want `invariants.py`.
 
 `loans-consolidation` is the worked example of the finished shape. For each page:
 

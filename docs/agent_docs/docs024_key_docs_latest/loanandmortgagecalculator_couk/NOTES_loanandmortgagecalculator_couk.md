@@ -1321,3 +1321,105 @@ form and returned 0 rows — which reads as "no such page", not as a typo.
 **Not touched, still owed:** loancash has no arithmetic oracle and two of its three
 tools carry undated FCA cap literals (0.8%/day, £15, 100%) — same shape as the SDLT
 bug. Independent of decomposition and arguably higher value.
+
+---
+
+## 2026-08-10, evening (~19:20–19:50Z) — migration 377: six live calculators had been unlocked, and 367's own negative control could not have seen them
+
+Picked the lane up from `HANDOFF_2026-08-10c_continue_here.md` with the owner's
+"yes, decomposition was what I wanted". Ran 10c §5's three session-start checks
+first: `stored_slot_name` / `load page slot identities` / `slot_name repeats with
+different component_ids` = **1 / 1 / 1 on BOTH replicas** (`m9fbr`, `swzhc`) with
+the `zzz_cannot_exist` negative control at **0**, chassis **v1.0.1280**, and
+`page-content-writer`'s `default_config::text LIKE '%slot_name_from%'` = **t**. So
+§2's lifted-prohibition claim re-verified at the current binary rather than
+inherited. `[MEASURED 2026-08-10 19:20Z]`
+
+**Then the inventory query disagreed with the handoff, and the handoff was wrong.**
+Listing all 41 LMC pages by policy and shape, six of the 24 pages migration 367 had
+unlocked are in `decompose_lmc.py`'s hand-authored `CALCULATOR_URLS`:
+`loans/compare-loans`, `loans/interest-rate-stress-test`, `loans/loan-vs-savings`,
+`loans/settlement-calculator`, `loans/damage-checker`, `mortgages/fact-finder`.
+367's whole design was to refuse calculator pages. It refused 20 and missed these six.
+
+**Mechanism.** 367 classified with `bool_or(rendered_html ~ 'onclick=|addEventListener')`.
+Measured per page: all six are `f` on that expression and `t` on
+`oninput=|onsubmit=|onchange=|onkeyup=`; `compare-loans` and
+`interest-rate-stress-test` are also `t` on `calculators.js`, the shared external
+script — which is where their `addEventListener` calls live, i.e. **outside** the
+column the detector read.
+
+**The part worth carrying off this lane** (now in `LANDMINES.md`): 367's negative
+control asserted "17 + 3 tool pages still `owned`" **using the same expression as
+its filter**. It was written deliberately and it *was* induced — the NOTES entry for
+12:22Z records it firing on the induction. It was nevertheless blind to precisely the
+population the filter was blind to. Inducing a control proves the `RAISE` fires; it
+says nothing about whether the classifier was right. A control has to disagree with
+its subject *somewhere* to be a control.
+
+**Why it was live damage waiting rather than an untidy flag.** All six were, at once:
+`rebuild_policy='generic'`; `build_status='needs_rebuild'` (what `get_pages_to_build`
+selects on — its only ownership filter is `ownedPageExclusionSQL`,
+`COALESCE(rebuild_policy,'generic') <> 'owned'`); still a single verbatim
+`["ported-page"]` row with the calculator inline; and each carrying an open
+`page_rerender:detected` item. And the generic rebuild path has **already run at
+these pages**: `needs_page:loans-compare-loans`, created by `page-rerender`
+2026-08-08 22:24Z, `attempt_count=1 max_attempts=3`, `error` =
+
+> step save_sections failed: … page loans-compare-loans is rebuild_policy=owned
+> (tool/widget-owned): a generic section save would clobber it … Refusing to overwrite.
+
+19 siblings the same. That refusal is the only reason those six calculators still
+exist, and 367 removed it for them at 12:22Z. Automated page-level runs against
+these exact pages are frequent (`orchestration_states`: `loans-compare-loans`
+03:46Z, `loans-interest-rate-stress-test` 03:47Z, `loans-settlement-calculator`
+03:50Z today), so this was not a theoretical window.
+
+**One thing that lowered the urgency and one that did not.** `claim_work_item_action.go`
+claims only `status IN ('triaged','approved')`, so the 57 `failed` `needs_page` rows
+are not themselves re-claimable — the exposure was a *fresh* item or a build run, not
+a retry of those. That is a mitigation, not a guard.
+
+**An inherited claim that did NOT survive, recorded because Track B leans on it.**
+Both earlier handoffs and RUNBOOK §14 state the loop *"commits LLM-written HTML to
+the sites repo one step BEFORE the DB guard refuses"*. Checked the sites repo for the
+window in which 20 runs reached `save_sections` — `git log --since '2026-08-08 20:00'
+--until '2026-08-09 03:00' -- loanandmortgagecalculator.co.uk/` returns exactly two
+commits, the 224 APR fix (23:43) and `Rerender: loans/consolidation.html` (02:34).
+**No clobbering commit.** So on the `page-build-handler` path the DB guard fired
+before `deploy_page` wrote anything. `[MEASURED for that path and that window only]`
+— the other two composition loops are unmeasured, the guard is still what saved the
+pages, and nothing should be relaxed on this.
+
+**Fix: `377_relock_six_verbatim_tool_pages_missed_by_367.sql`** (+ ROLLBACK), applied
+by hand with `ON_ERROR_STOP=1`, then `--record-only` with the note. Detector ORs
+three independent spellings (handlers/listeners/`calculators.js`; form controls;
+`getElementById|querySelector`); over all 38 generic verbatim pages on the two sites
+**the six match all three and the other 32 match none**, and assertion 1 compares the
+stamped set to `CALCULATOR_URLS`, which never read this SQL.
+
+Both controls induced *before* applying:
+
+```
+induce 1: expected set claims a 7th page      -> ERROR "stamped set disagrees with
+                                                 decompose_lmc.py's CALCULATOR_URLS
+                                                 … missing from stamp=[…jargon-buster]"
+induce 2: sweep 2 prose pages in AND name them
+          in `expected` so only the over-lock
+          control can catch it                 -> ERROR "OVER-LOCKING CONTROL FAILED
+                                                 … should be 17/15, got 16/14"
+state after 3 aborted runs: stamp table absent, 24/15 generic unchanged (no leak)
+after apply: the six = owned/needs_rebuild/["ported-page"]; LMC 18 generic / 23 owned,
+             loancash 15 / 3 unchanged
+```
+
+**My own misstep, caught by the induction and not by re-reading the file.** The first
+version of assertion 1 compared **`url` alone**. `pages.url` is not unique across
+these two sites — both have `/guides/jargon-buster.html` and `/legal.html` — so
+inducing an over-lock of "one" page stamped **two** rows, and the assertion reported
+`missing=[-] unexpected=[-]`: it passed on a set it had never actually matched. Now
+keyed on `domain || '|' || url`. This is the second time on this lane that the
+induction, not the review, found the defect in the checker.
+
+**Net effect on the plan:** Track A is **17** pages, not 23; Track B is **22**, not
+16. The six moved tracks, not shapes — nothing was decomposed or undecomposed by this.

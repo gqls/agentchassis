@@ -656,3 +656,63 @@ bash scripts/migration/run-migrations.sh --record-only docs/agent_docs/sql_for_a
 - **Stamp what you changed.** 367 writes every changed page into
   `_mig367_unlocked_prose_pages`, so its ROLLBACK re-locks exactly those rows.
   A domain-wide re-lock would silently undo a concurrent thread's legitimate flip.
+
+### ⛔ CORRECTED 2026-08-10 (late evening) — the state query above CANNOT see a calculator, and 367 unlocked six because of it
+
+The `has_tool` expression in §14's state query and in migration 367 —
+`bool_or(pc.rendered_html ~ 'onclick=|addEventListener')` — **misclassified six live
+calculator pages as prose**, and they were unlocked for ~7 hours until migration 377
+put them back. Do not reuse it. Details in `HANDOFF_2026-08-10c_continue_here.md` §2b.
+
+**Use this instead — three independent spellings, OR'd, so no single blind spot
+decides.** Expect **0 rows**; any row is a verbatim page carrying tool machinery that
+the generic pipeline is currently allowed to rebuild.
+
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -F$'\t' -A -c "
+SELECT s.domain, p.url, p.build_status,
+       (pc.rendered_html ~ 'onclick=|addEventListener|oninput=|onsubmit=|onchange=|onkeyup=|onblur=|onkeydown=|calculators\.js') AS handlers,
+       (pc.rendered_html ~ '<input |<select |<textarea |<form ') AS form_controls,
+       (pc.rendered_html ~ 'getElementById|querySelector') AS dom_addressing
+FROM pages p JOIN sites s ON s.id=p.site_id JOIN page_components pc ON pc.page_id=p.id
+WHERE s.domain IN ('loanandmortgagecalculator.co.uk','loancash.co.uk')
+  AND p.sections::text = '[\"ported-page\"]'
+  AND COALESCE(p.rebuild_policy,'generic') = 'generic'
+  AND (pc.rendered_html ~ 'onclick=|addEventListener|oninput=|onsubmit=|onchange=|onkeyup=|onblur=|onkeydown=|calculators\.js'
+    OR pc.rendered_html ~ '<input |<select |<textarea |<form '
+    OR pc.rendered_html ~ 'getElementById|querySelector')
+ORDER BY s.domain, p.url;"
+```
+
+Why three: two of the six keep their `addEventListener` calls in the shared
+`/assets/js/calculators.js`, so **the give-away string is not in the page at all**. A
+calculator can be fully working with neither `onclick` nor `addEventListener` in
+`rendered_html`. Over all 38 generic verbatim pages on the two sites the six match all
+three axes and the other 32 match none — there is no borderline case, so a
+disagreement between the axes is a signal to stop, not to average.
+
+### Three further corrections to §14 above, each measured
+
+- **A negative control must not be built from the same expression as its filter.**
+  The bullet above ("Induce the verify block before trusting it") is right and
+  insufficient. 367's control asserted "tool pages must still be `owned`" using its
+  filter's own `onclick=|addEventListener`, was induced, fired on the induction — and
+  was blind to exactly the six pages the filter was blind to. **Cross-check the
+  resulting population against a source that never read your SQL.** Here that is
+  `decompose_lmc.py`'s hand-authored `CALCULATOR_URLS` (2026-08-05), and migration 377
+  asserts against it directly.
+- **Key set assertions on `domain || '|' || url`, never `url` alone.** `pages.url` is
+  not unique across these two sites — both have `/guides/jargon-buster.html` and
+  `/legal.html`. A url-only assertion in 377's first draft passed a deliberately
+  over-locking induction, reporting nothing missing and nothing unexpected while
+  having stamped two rows it never matched. Caught by the induction, not by reading it.
+- **"`deploy_page` commits before the DB guard refuses" is NOT what happened on the
+  `page-build-handler` path.** §14 and both 08-10 handoffs state the loop commits
+  LLM-written HTML to the sites repo one step before the refusal. On 2026-08-09,
+  20 `needs_page` runs on this site reached step `save_sections` and died there — and
+  `git log --since '2026-08-08 20:00' --until '2026-08-09 03:00' --
+  loanandmortgagecalculator.co.uk/` in the sites repo shows **only** the 224 APR fix
+  and one consolidation rerender. No clobbering commit. `[MEASURED for that path and
+  that window only]` — the other two composition loops are unmeasured, and this
+  changes nothing about the rule: the guard is what saved the pages, so keep a
+  verbatim tool page `owned` until it is decomposed.

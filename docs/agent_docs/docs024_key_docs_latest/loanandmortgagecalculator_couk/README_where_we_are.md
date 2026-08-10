@@ -625,3 +625,69 @@ one:** loancash.co.uk's tools hardcode the FCA payday caps with nothing checking
 them against the regulator, which is exactly the shape of the stamp duty error that
 was sixteen months out of date. It's independent of all the above. Say the word and
 I'll point the same method at it.
+
+---
+
+**2026-08-10, evening — before starting the decomposition I found six calculators
+that had been left unguarded, and I've put the guard back.**
+
+You said yes to decomposition, so I picked the lane up and re-ran the safety checks
+at the top of the handoff before touching anything. They all passed. Then I listed
+the pages to see what I'd be working through, and the list didn't match what the
+handoff said.
+
+Here's the background in one paragraph. Every page on these two sites carries a flag
+saying whether the automated pipeline is allowed to rebuild it from scratch. For the
+guide pages that's fine — a rebuild just rewrites prose. For a calculator page it is
+not, because those pages are still one indivisible block of HTML with the calculator's
+code inside them, so "rebuild the page" means "write new prose and throw the
+calculator away". The flag is the only thing stopping that. This morning's migration
+deliberately lifted the flag on the pages with no calculator and deliberately left it
+on the twenty that have one.
+
+**It missed six.** It decided which pages had calculators by searching the stored HTML
+for two particular spellings — `onclick` and `addEventListener`. Six of these pages
+don't use either. Four of them wire up their buttons a different way (`oninput`,
+`onsubmit`, `onchange`), and two of them keep their code in a shared JavaScript file
+that the page merely links to, so the give-away words aren't in the page at all. They
+are: compare-loans, interest-rate-stress-test, loan-vs-savings, settlement-calculator,
+damage-checker and fact-finder.
+
+**This was not theoretical, and that's the part I want you to see.** Those six pages
+were all flagged "needs rebuild", all still one indivisible block, and each had a
+pending job queued against it. And the rebuild has already been attempted on them:
+back on the 9th, twenty of these pages went through the full rebuild and were stopped
+at the last moment by exactly the guard we're talking about — the error message is
+still in the database, and it says in plain terms "a generic section save would clobber
+it, refusing to overwrite". That refusal is why those calculators still exist. This
+morning's change took it away for six of them, for about seven hours.
+
+I've put it back — a new migration, applied and recorded, with a note saying what it
+did and why. Nothing else changed. I checked afterwards, from the database rather than
+from the migration's own say-so, that exactly those six moved and that none of the
+genuine guide pages were caught by mistake.
+
+**The uncomfortable detail worth knowing.** This morning's migration *did* have a
+safety check designed to catch precisely this mistake — "make sure no calculator page
+got unlocked" — and it was tested by deliberately breaking it to watch it complain.
+It still didn't catch this, because the check looked for calculators the same way the
+original decision did. Two things that are blind in the same way will always agree
+with each other. I've written that up as a standing warning for other sessions, since
+it isn't specific to this site.
+
+I also managed the same class of mistake myself, half an hour later: my own check
+compared pages by their web address, and it turns out both sites have a page at
+`/guides/jargon-buster.html`, so it couldn't actually tell them apart. I found that
+by deliberately breaking my own check rather than by reading it — which is the whole
+argument for doing that step.
+
+**What this does to the plan.** Nothing was decomposed or undone; six pages simply
+moved from the easy pile to the careful pile. The easy pile (prose only, no
+calculator) is 17 pages rather than 23. The careful pile is 22 rather than 16. The
+route for the careful pile is unchanged and is the one you approved: break the page
+into parts, lock the calculator part so a rewrite can't touch it, then allow rebuilds
+— one page at a time with the arithmetic re-checked between each.
+
+Next, unless you'd rather I did something else: start the 17-page pile, beginning with
+the one page that is already in the finished shape, so the first thing I prove is the
+loop itself rather than a conversion.
