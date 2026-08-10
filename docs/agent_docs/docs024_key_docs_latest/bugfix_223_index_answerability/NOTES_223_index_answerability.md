@@ -390,3 +390,53 @@ query for a footprint item it can already see is a non-Go file. That is RFC_005'
 (`architecture_review`), it would cut wasted checks, and it is what would make
 `no_code_evidence` reachable when a footprint really is entirely unverifiable. Recorded in
 the bug file as a follow-up round rather than smuggled into this lane.
+
+## 2026-08-10 — PHASE 2 built: the write path emits var and const
+
+New build `v1.0.1283` deployed; phase 1 re-verified in it (marker 1, negative control 0)
+before starting anything new — a fresh image is not evidence a fix survived it.
+
+**The defect was one arm of one switch.** `analyse.go` took `*ast.FuncDecl` and
+`d.Tok == token.TYPE`; `token.VAR` and `token.CONST` fell through. Three edits: a
+`ValueDef` carrier in `types.go`, the missing arm plus `valueDefs()` in `analyse.go`, one
+loop in `code_symbols_actions.go`. Kinds needed no schema change — both were already in the
+CHECK constraint and in `codeKindList`.
+
+**Two corrections to my own figures, and the method is the lesson.**
+
+| source | figure | why it was wrong |
+|---|---|---|
+| my grep, 08-10 morning | 930 | `grep -rhE "^(var\|const) "` counts declaration OPENERS — blind to every member of a grouped block |
+| the design pass's awk | 1,173 | counted block members, but by text shape |
+| **running the new analyser over the tree** | **1,371** (var 795, const 576) | the parser that will actually emit the rows |
+
+A count of declaration *text* is a proxy. I had a proxy twice and wrote the second one into
+phase 1's paperwork. **Build the thing and ask it.**
+
+**[MEASURED] the prune interlock, and it is the opposite of what the design pass assumed.**
+`prune_floor.go`'s `ratio()` says in as many words: *"An empty cohort has nothing to lose,
+so it reads as fully confirmed rather than as 0/0 — a new class appearing for the first time
+must never be able to refuse a prune."* So the FIRST run with var rows is safe by
+construction. The exposure is the reverse: an **old** binary indexing against a DB that
+already holds var rows sees `kind=var` at 0% confirmed, is below the floor, and refuses the
+**whole** prune. Safe direction, self-healing, visible. That closes the `[UNMEASURED]` note I
+left this morning — and note that I closed it by reading the code, having earlier written
+down the risk in the wrong direction on someone else's authority.
+
+**A design decision worth its own line: the LINE SPAN, not the name, is the point.** For a
+value the body *is* the evidence (a spec's `Defaults`, a pattern table). Spec-level spans
+inside a parenthesised block — the decl span covers every member, so slicing it per member
+would repeat the whole block once per name — and decl-level for a lone declaration, so the
+keyword and doc comment land inside the slice. Both halves pinned by tests.
+
+**And a data-loss guard with no symptom:** the blank identifier is skipped. Identity is
+`(repo, path, symbol)`, so every `var _ Iface = (*T)(nil)` in one file would UPSERT over the
+last and all but one would vanish — silently, with every count still balancing.
+
+**Verified in a clean tree.** Another session has a half-finished `gatherSchema` signature
+change in `platform/orchestration/actions`, so the working tree does not build. Mine does:
+`git archive HEAD` into a temp dir, copy only my four files over, `go build ./...` clean and
+`go test ./internal/analysis/` green. Their WIP is theirs; I did not touch it.
+
+Submitted as its own round (`3af67677-601e-4181-ad09-17c7a789f995`) because the blast radius
+is the CORPUS — retrieval search space, embeddings, prune cohorts — not the rendering.
