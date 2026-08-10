@@ -7721,6 +7721,21 @@ SELECT type FROM agent_definitions
   never bumps it. Its own overlay comment asserts the opposite: *"Keep exactly one
   tag-pin line — the release tooling seds it."* **The comment is wrong and reads as
   reassurance.**
+  > **CORRECTED 2026-08-10 — the WIRING is fixed; the TRAP is not yet gone.** At the
+  > owner's direction the service was added to `deploy-agents`, `redeploy-agents`,
+  > `update-kustomization-images` and a new explicit `deploy-render-audit-adapter`
+  > target (`ee1929dc8`), so `grep -c "render-audit" makefile` is now **16**, not 0,
+  > and `make -n release` reaches its overlay. **Two reasons this entry stays:**
+  > (1) the running pod is STILL on v1.0.1194 — a makefile cannot move a pod, and
+  > only a real release will; until then every check below reads exactly as before.
+  > (2) **The class is untouched.** Both mechanisms are still hand-maintained lists,
+  > so the *next* service that shares another's image repeats this in full. Fix
+  > candidate 1 in `bugs_open/237` (enumerate the filesystem, not a hand-list) is
+  > what would retire the entry.
+  > Also note the trap the fix itself exposed: `deploy-%`'s registry pre-flight asks
+  > for `$(REGISTRY)/<service>:$(IMAGE_TAG)`, so for an image-sharing service it
+  > refuses a VALID deploy because the image it names has never existed — that is
+  > why the explicit target exists.
 - **the check:** after proving a browser-runner change live, ask which OTHER pods run
   that image, by image rather than by name —
   `kubectl get pods -n ai-persona-system -o custom-columns=N:.metadata.name,I:.spec.containers[0].image | grep browser-runner`
