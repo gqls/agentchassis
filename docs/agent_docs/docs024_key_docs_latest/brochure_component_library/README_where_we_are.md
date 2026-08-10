@@ -2172,3 +2172,15 @@ sites and fifty components. If contrast work continues, it should continue there
 I've also deliberately *not* re-run the big page audits for "after" numbers yet, because
 those two families would dominate the totals and it would look like this fix did less than
 it did — anyone running it should count per component, not per site.
+
+**2026-08-10, night.** The reviewers approved the round — ten in favour, three raising only
+advisory points, none serious. The best of the advisory points was simply right: I'd written three
+small bespoke record-keeping functions when the platform already had one for exactly that job, so
+I've switched them over. With your four decisions executed and the approval read, I applied the
+three configuration changes in their enforced order, and each one's built-in refusal checks passed
+and were double-checked against the live rows afterwards. The planner now sees what every built
+page is made of, the build pipeline hands each section its assigned facts, and the writer's new
+instructions are live. What remains is the payoff measurement: rebuild the flagged pages and check
+the facts land where they were assigned — I've deliberately left that for the next session, because
+it has to be coordinated with the other thread working this site, and the new alarms should be in
+the running system first so any disobedience is visible when we measure.

@@ -77,6 +77,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/orchestration/agenterrors"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
@@ -375,12 +376,17 @@ type lossyPageMerge struct {
 // bugs_open/215's merge rule is conditional on. Best-effort: a failed write
 // must not fail the plan write it describes.
 func recordLossyPageMerges(ctx context.Context, params ActionParams, siteID string, merges []lossyPageMerge) {
+	if len(merges) == 0 {
+		return
+	}
+	findings := make([]agenterrors.Finding, 0, len(merges))
 	for _, m := range merges {
-		LogActionError(ctx, params, siteID, "", "write_site_plan",
-			"PLAN_PAGE_MERGE_LOSSY", "warning",
-			fmt.Sprintf("pages %q and %q canonicalise to %q; kept the richer, discarded %d authored section(s)",
+		findings = append(findings, agenterrors.Finding{
+			ErrorCode: "PLAN_PAGE_MERGE_LOSSY",
+			Severity:  "warning",
+			Message: fmt.Sprintf("pages %q and %q canonicalise to %q; kept the richer, discarded %d authored section(s)",
 				m.KeptRawName, m.DroppedRawName, m.CanonicalName, len(m.DroppedSections)),
-			map[string]interface{}{
+			Context: map[string]interface{}{
 				"canonical_name":   m.CanonicalName,
 				"kept_raw_name":    m.KeptRawName,
 				"dropped_raw_name": m.DroppedRawName,
@@ -388,8 +394,9 @@ func recordLossyPageMerges(ctx context.Context, params ActionParams, siteID stri
 				"dropped_sections": m.DroppedSections,
 				"remedy":           "the discarded composition is recoverable from this row; if both variants were wanted as separate pages, re-plan with distinct roles/slugs that do not canonicalise together (bugs_open/215)",
 			},
-			params.Logger)
+		})
 	}
+	LogActionFindings(ctx, params, siteID, "", "write_site_plan", findings, params.Logger)
 }
 
 // sectionNames projects section entries to their component names, for logging.

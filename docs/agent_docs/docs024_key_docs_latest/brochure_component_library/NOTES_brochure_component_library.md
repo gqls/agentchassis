@@ -5371,3 +5371,40 @@ live unapplied DB: both RAISE with their apply-order message.
 `Council-Submitted:`. Budget ~30 min for the round to run. Owner countersigned the compliance read
 in session ("the prompt is fine go ahead") — recorded in the COMPLIANCE_READ file; 330's human-read
 precondition is discharged.
+
+## 2026-08-10 (night) — APPROVED, advisory objections closed, ALL THREE SEEDS APPLIED
+
+**Verdict on the resubmission: `approved` — "approved with 3 advisory objection(s) — none
+high-severity"** (10 approve / 3 object / 4 abstained, no truncation gating). Pinned:
+`COUNCIL_VERDICT_slice_b_2026-08-10b_approved.json`. The round ran in ~25 min from submission —
+dispatch was already EXECUTING 2 min after publish, nothing like the 29-min queue budget.
+
+**Advisory objections, dispositioned same evening:**
+- `reuse_agent` (medium, CORRECT): `LogActionFindings` already existed for exactly the
+  loop-over-misses shape — my three recorders were bespoke duplicates. Refactored all three onto
+  it (`agenterrors.Finding` slices); package green.
+- `guardian` (missing check): fleet grep for consumers of `snapped_sections`/`snapped_rename`/
+  `unioned_in` outside the owning file — **zero across Go/SQL/Python/shell in the repo**. Boundary
+  stated: out-of-repo dashboards ungreppable from here, but a log-derived consumer cannot outlive
+  sub-second rotation anyway.
+- `debug_historian` (low): "confirm the guards were actually executed standalone" — they were,
+  earlier this session, both RAISE outputs in the previous NOTES entry.
+- `bug_historian` (missing): features_open/012 target date — owner's to schedule; the council asks
+  it be tracked so the deferral is not indefinite.
+
+**Applies, in order, all guards passing live:** 362 (planner prompt 18,738 → 19,685 B;
+`| sections: ` + re-emit instruction verified on the row; `bak_362` = 1) → 328 (guard passed
+post-362; `section_facts=spec_sections.section_facts` on the live row; own pod check pre-apply:
+Go-half literal =1, control =2, both replicas) → 330 (ordering + drift + em-dash guards all
+passed; `facts_scoped` branch + factless arm + preserved fallback verified on the nested path;
+`bak_330` = 1). All three `--record-only`'d under their new names. **The `_HOLD` chapter of this
+front is closed.**
+
+**LANDMINES:** recompose-no-op entry added (the trap went live with 362) + synced to doc_notes.
+NOTE the entry's own caveat: the durable tell (`RECOMPOSE_INTENT_NOT_REALISED`) rides the NEXT
+fleet roll — between now and then the trap has NO tell.
+
+**Remaining on this front:** replan + rebuild fundamentallyai flagged pages + the overlap census
+(handoff §5 step 4's tail) — NOT dispatched tonight; it must be coordinated with the sweep front
+first, and the new detections' image should ideally be live before the replan so disobedience is
+measurable. Next session: read the sweep handoff, then dispatch.
