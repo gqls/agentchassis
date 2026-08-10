@@ -1,5 +1,38 @@
 # 243 — the Anthropic account hit its usage limit at 14:51:47Z today; EVERY LLM step fleet-wide now fails, and the API says access returns 2026-09-01
 
+> ## ✅ RESOLVED SAME DAY, 2026-08-10 ~18:12Z — the owner added credit. Candidate 1, exactly as in §5. NOT the calendar.
+>
+> **This matters because §6 said to record which of the two ways it ended.** It did **not**
+> auto-restore on 2026-09-01; **the owner acted**, and the fleet came back **21 days early**.
+>
+> **The recovery boundary `[MEASURED]`:**
+>
+> | | time (UTC) | agent |
+> |---|---|---|
+> | last failure | `2026-08-10 17:02:12.066` | council-gate |
+> | first success after | `2026-08-10 18:12:11.065` | council-gate |
+>
+> **Outage duration: 14:51:47Z → 18:12:11Z ≈ 3h 20m.** Since the cutover: 7 failures across 4
+> agent types, then **43 successes across 3** — so the recovery is confirmed by sustained
+> traffic, not by a single lucky call. The fleet's own liveness query from §6
+> (`SELECT max(created_at) FROM llm_call_log WHERE success`) has moved and keeps moving.
+>
+> **What this does and does not close.**
+> - **The outage is over.** Councils are running; this lane resubmitted on corr
+>   `44fa6a98-acaa-46b5-9ada-f0c34ca5475d` immediately after and it dispatched normally.
+> - **The bug stays OPEN**, and not as bookkeeping: candidate 1 restores service, it does not
+>   prevent recurrence. **This is the second Anthropic exhaustion in eleven days** (07-31,
+>   08-10) and the third single-provider outage counting `bugs_open/202`'s Gemini 429 on 08-05.
+>   Adding credit is the right emergency action and a poor control.
+> - **The actionable prevention now exists and is not mine:** `bugs_open/244` measured that
+>   `council-gate` is **87.8% of the fleet's August spend** (165.2M tokens), at **790,551 input
+>   tokens per round**, because it sends 11–15 near-identical ~106k prompts with no caching and
+>   in an order that defeats caching anyway — with a costed **~76% reduction** available. **Fix
+>   that and this bug's trigger largely goes away.** Candidate 2 here (a second provider) is
+>   still worth a decision, but 244 is cheaper and closer.
+>
+> Everything below is the record of the outage as it happened, and is left unedited.
+
 > **NUMBER COLLISION (2026-08-10, same day):** another thread filed a different `243`
 > (`tool_acceptance_look_step_has_no_storage_client_on_either_execution_path`). Numbers are
 > never reassigned — **resolve by slug**. Cite this case as **243-anthropic-cap**.
