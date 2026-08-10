@@ -220,3 +220,22 @@
 - **Bug 229 is DONE IN SUBSTANCE** — stays in `bugs_open/` per the owner
   08-06 ruling. Remaining watches: STY-056 open-review (a) volume, (e)
   unsurfaced-writer sweep (driver = 230 rotation once 083 drains).
+
+## 2026-08-10 — first standing-watch reading (both clean)
+
+- **Watch (a) volume**: `page_component_history` total 30MB (was 29MB at
+  design time — growth consistent with the ~0.9MB/day worst-case projection,
+  no pruning urgency). Trigger-arm rows: 08-09 (partial day from mig apply)
+  109; 08-10 so far 63 (38 unstamped-delete + 21 machine_made-delete +
+  4 unstamped-overwrite). Save-path snapshot rows continue at their historic
+  rate (59 today vs 100–550/day over the prior fortnight). Note the stamped
+  share of delete-arm rows is already overtaking unstamped on 08-10 (21 vs 38,
+  was 11 vs 91 on 08-09) — the restamp-through-natural-churn curve doing what
+  the plan predicted.
+- **Watch (e) unsurfaced-writer sweep** (query verbatim from STY-056 open
+  review (e)): **0 unsurfaced**. The zero is meaningful: precheck counted 1
+  `hand_patched` trigger row fleet-wide (the 08-09 E2E row) and the sweep
+  excluded it, so the NOT-EXISTS join is proven to MATCH at least once
+  (item_key digest join exercised, not vacuously empty). Driver for wiring
+  the sweep remains the 230 rotation once 083 drains — nothing wired today,
+  by design (a sweep with no driver is a helper with no callers).
