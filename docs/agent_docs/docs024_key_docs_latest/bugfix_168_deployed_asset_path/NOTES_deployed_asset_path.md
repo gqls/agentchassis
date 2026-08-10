@@ -2472,3 +2472,55 @@ Also worth carrying forward:
 - **`guardian` (LOW): nothing pins the newly-exported `ScanDeployedClaims` to its two intended
   callers.** A future caller could reuse it against a different predicate and drift from the emit
   side — the exact property the extraction exists to preserve.
+
+### 2026-08-10 afternoon — fresh build `v1.0.1279`, and round 4 answers the gating objection by FILING the edit
+
+**Re-greped on `v1.0.1279`** (rolled 13:42Z, not my build), both replicas:
+`claims=1 ownergate=1 voice=1 control=2`. Everything survived. No sweep since 08:44Z, so the
+gate's exercise count is unchanged at **0 refusals** — still [UNEXERCISED].
+
+**Round 4 submitted** (`a7b35edc-…`), answering round 3:
+
+- **The gating objection is answered by FILING THE MISSING EDIT, not by argument.** `editquality`
+  was right that the plan described the `parkedReviewItem.CreatedAt` wiring only inside another
+  edit's rationale, and right about what would follow if it were truly absent: `filedAt` arrives
+  zero, the `IsZero()` arm sends everything to `unknown` for ever, and the owner's gate never
+  reaches `resolved`. The code has carried it since `9a9fef332`; **the plan was the defect.**
+- ⚠ **The gate caps a plan at 8 edits** (*"wider than 8 files is architecture-shaped — take it to a
+  human, not this gate"*). Adding the missing edit made 9. I **merged** the two
+  `check_unverified_claims.go` edits — the extraction and the emit-side rewiring, which are one
+  refactor on one file — rather than dropping anything. Say so in the merged rationale; a silently
+  vanished edit is the thing this cap exists to surface.
+
+### `compliance` could not see the owner ruling — it can, and a neighbour had already reached its conclusion
+
+Its round-3 MEDIUM: *"this seat has no independent record of that ruling in the schema available to
+it."* **It does.** `scripts/landmines-sync.py` synced my entry into `doc_notes` under
+`categories ? 'landmine'`, footprinted on `site_work_items (item_type='claims_unverified',
+resolution_path='auto:revalidated')`, `revalidate_unverified_claims.go` and `site_specs`:
+
+```sql
+SELECT body FROM doc_notes WHERE categories ? 'landmine' AND subject_key LIKE '%claims_unverified%';
+```
+
+That is a record independent of the submission's self-report, in a corpus the seat already reads.
+**Worth remembering generally: an owner ruling recorded ONLY in markdown is invisible to the
+council. The landmine corpus is the delivery path that exists today.**
+
+> **And an independent lane reached `compliance`'s conclusion on 2026-07-31, with a live case.**
+> `doc_notes` landmine, footprint `site_specs aspect='evidence_base'` /
+> `datahelpers/claims.go numberSupported`:
+>
+> *"A registered fact makes a GREEN claims gate meaningless as evidence of truth — the register is
+> the authority, so it disarms every gate at once … the register is also the **writer whitelist**
+> (`writer_block`, injected into the page-content-writer prompt), so a false fact is
+> **SELF-RATIFYING**: the platform instructs the writer to state it, then vouches for it.
+> `bugs_open/161` is the live case."*
+>
+> This is `compliance`'s "provenance, not correctness" argument, recorded months earlier by someone
+> else, with an example — gamesdesign.co.uk asserting "10,000 Monte Carlo trials per query" against
+> tool JavaScript containing no randomness at all, passing every gate correctly. **It does not
+> weaken the change; it is the strongest available argument that the owner's gate was the right
+> call**, and it raises the stakes of the limitation still outstanding (component-granular, not
+> claim-granular). Read it before touching this area:
+> `SELECT body FROM doc_notes WHERE categories ? 'landmine' AND subject_key LIKE '%evidence_base%';`
