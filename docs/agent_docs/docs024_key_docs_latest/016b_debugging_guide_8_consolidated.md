@@ -5509,6 +5509,7 @@ See `/bugs_closed/README.md`.
 | 211 | ai-agent-orchestration.com serves a stylesheet **missing the renderer's step-11 compatibility-alias block** — 4 of 4 other sampled sites have it, and the file ends exactly at step 10's output. So `--hero-ink` is undefined → `--section-heading: var(--hero-ink)` is **guaranteed-invalid** → `h1..h6 { color: var(--section-heading, var(--color-primary)) }` falls back to `--color-primary`, which is **byte-identical to `--color-surface`**. Six `.H3` at **1.00:1**, painted in their own ground; 30 failures, the worst on the fleet | **OPEN, filed 2026-08-06** (`bugfix_122_contrast_ink_slots` lane). Mechanism MEASURED; **cause UNMEASURED and marked so** — why the block is absent is not established (staleness ruled out: `buildTokenAliases` landed 2026-07-06, pages deployed 2026-08-06). Two `090` runs (`5853ee07`, `750e162e`) both **UNVERIFIABLE / iteration-cap**; the first was unanswerable because the symptom named `--color-heading`, which the site defines **zero** times |
 | 212 | **47 of 173** active unforked `content_components` redefine the `--section-*` tokens the renderer emits under its own contract *"Themes MUST NOT declare --section-* defaults; the renderer owns this"* — **32 with a raw rgb/rgba literal**. The component's scoped selector beats the renderer's `body` block, so the contrast-checked value loses to a constant. ~24 of the fleet's 109 contrast failures (gamesdesign 8 at 1.72:1, idea.uk 14, vonc 2) | **OPEN, filed 2026-08-06**. Deliberately NOT folded into 122's approved fix — an unenforced contract, not a missing variable. **Carries a decision that wants a human:** of four candidates the only class fix (raise the renderer block's specificity) is also the only one that can repaint a component that was RIGHT to override. No `090` run yet |
 | 218 | `checkPlaceholderPatterns` substring-matches prose placeholder patterns against the WHOLE artefact HTML — `<script>` included — so `[name` convicts `input[name=`, `fields[name]`, `([name, val])`; every hit a blocker. 3 convictions / 2 domains on 2026-08-05; on mortgagecalculator both killed tool recreations whose items read `complete` with 0 components (defect B: `validate_tool`'s live `error_step` sits inside `config` where `processor.go:433` never reads it, so the failure path discards the paid-for recreation) | **Defect A FIXED, committed `201350e23` (council `a9ffed15`), INERT until a post-`201350e23` roll.** Defect B open — needs a decision (restore seed's step-level routing vs make discard-runs unable to complete). §9 pattern: "a validator that scans the whole artefact for prose convicts the code in it" |
+| 248 | A CTA recompute **destroys an authored `/contact.html` link**: `applyCTARecompute`'s keep-it guard refuses every `areasExcludedFromCTA` destination (`{about,contact,privacy,terms,legal}`), and genuine contact copy ("Get in Touch" → `[touch]`) matches no candidate, so both branches decline and the positional pick overwrites. A fabricated and an authored `/contact.html` are **byte-identical** in `content_data` — no recogniser built on the value can separate them | **OPEN, filed 2026-08-10.** Reproduced mechanically (A/B against the package's own generic-label test, one variable changed). **24 CTAs fleet-wide in the vulnerable state.** Dormant only because the discovery/improvement schedulers are disabled — re-arms when they return. **Do NOT bulk-promote the `misdirected_cta` queue** (192 detected; `TriageDetectedItemsAction` promotes every row for a site with no type filter). Prior art: `bugs_closed/023:405-410` recorded the benign direction and closed without building the escape hatch it named |
 
 > **Index gap (noted 2026-07-19; partly closed 2026-07-20; re-measured 2026-07-26;
 > RE-MEASURED 2026-08-03).** This table is **materially behind** and a miss here is a
@@ -11732,3 +11733,43 @@ deliberate "nothing to look at" branch. Three transferable rules:
    build it, gated on what" — not "what broke".
 
 Fix candidates and the manual-path owner decision: `bugs_open/243`.
+
+### A "repair" that cannot tell a fabricated value from an authored one destroys the authored ones — and the two are byte-identical, so no amount of care at the call site helps (`bugs_open/248`, 2026-08-10)
+
+`applyCTARecompute`'s keep-it guard preserves an existing CTA link only if it is
+`!ctaExcludedDestination(current)` — and `areasExcludedFromCTA` is
+`{about, contact, privacy, terms, legal}`. That exclusion is correct and deliberate:
+bug 203's defect was `/contact.html` being a *fabricated* fallback that needed
+recomputing away. But an authored `/contact.html` on a genuine "Get in Touch" button is
+**the same six bytes in `content_data`** as the fabricated one. The repair therefore
+cannot target the bad population without destroying the good one, and it fails silently:
+the work item completes green, the page re-renders, nothing is logged. 24 components
+fleet-wide sit in that vulnerable state.
+
+Transferable rules:
+
+1. **Before driving a repair in bulk, ask what the repair uses to RECOGNISE its target —
+   and whether a legitimate value could present identically.** Here the recogniser was
+   "the destination is in an excluded area", which is a property of the *value*, not of
+   its *provenance*. A recogniser built on a value cannot distinguish two rows that share
+   that value, however different their histories. If the answer is "it can't tell", the
+   repair is not safe to automate at any scale, and the fix is to give the field
+   provenance — not to refine the recogniser.
+2. **A guard phrased as a whitelist of "sensible destinations" is doing two jobs, and
+   they have opposite risk profiles.** "Never newly SEND a generated CTA to contact" is a
+   sound default. "Never TRUST an existing link to contact" is a much stronger claim that
+   happens to reuse the same set. When one set serves both a *generative* and a
+   *validating* decision, splitting it is usually the cheap fix — and the conflation is
+   invisible because the set's name describes neither job.
+3. **A closed bug that recorded the benign direction of a mechanism has not retired it.**
+   `bugs_closed/023` documented this exact exclusion making some correct pairings
+   *unreachable* — a missing link, cost bounded — named the right fix ("an authored-intent
+   escape hatch"), and closed. The destructive direction of the same mechanism, where an
+   existing correct link is *destroyed*, went unnoticed for three weeks. When you read a
+   closed bug that says "X is wrong as an absolute" and the fix was never built, ask what
+   X does in the other direction before assuming the closure covered it.
+4. **The thing protecting you may be an outage, not a control.** This defect is largely
+   dormant only because the discovery and improvement schedulers happen to be disabled.
+   Nothing in the code or the queue knows that. A defect whose blast radius is gated by a
+   switch someone else can flip is not contained — and "we haven't seen damage" is
+   evidence about the switch, not about the defect.
