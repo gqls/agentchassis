@@ -25787,3 +25787,54 @@ wrongly.* A UUID that validates, resolves and joins is indistinguishable from on
 belongs there. Sibling of `a-submission-is-not-a-review` (already in the memory index) —
 that entry covers the trailer asserting too MUCH; this one covers it asserting about the
 WRONG THING.
+
+---
+
+## 2026-08-10 — the acceptance test I inherited could never have failed, and I had already written the correction for that exact mistake
+
+**The lane:** `rfc012_await_findings`, taking RFC_019 §7's post-roll measurement after the chassis
+rolled to `v1.0.1277`.
+
+**What happened.** The measurement returned **0 `generic` rows** for the three residual actions, and
+§7's own control passed — 288 rows across 20 distinct `agent_type`s post-roll, so the table is
+plainly alive. Read as specified, that is the fix confirmed. It is not. I added a third query
+§7 never asked for — *rows from those three actions post-roll, **any** `agent_type`* — and it
+returned **0**. There was no demand on the path under test, so nothing existed for the fix to
+relabel and the zero was guaranteed regardless of the code.
+
+**Worse on inspection.** Bucketed by day, those three producers stopped filing on **2026-08-05** —
+four days *before* the roll — and `diagnose_council_decide`, which wrote 42 of their 47 lifetime
+`generic` rows, last filed on **2026-08-02**, a week before the fix shipped. `agent_error_log`
+retains from 07-11, so this is dormancy and not a retention edge. **The test became incapable of
+returning non-zero before the code it tests existed.**
+
+**Why this one stings.** This lane's single most-quoted finding — written by me, four sections up in
+the same paper — is that a `count(*)` over a table with history *prices a fixed defect exactly like
+a raging one, and there is no tell*. §7 then specified the follow-up measurement with **the identical
+property**, and I ran it, and the first result looked like success. **Being burned by a class of
+error, writing the correction up, and citing it approvingly is no protection against designing the
+same error into the next artefact.** The generalisation I would offer: a rule learned as *"beware
+stale `count(*)`s"* does not fire when the shape recurs as *"a post-fix count with a specified
+control"*, because it no longer looks like the thing you were warned about.
+
+**The second defect in the same recipe, found first.** §7's pod-grep names two needles that are **Go
+comments**, not string literals — so run as written it reports 0 on a binary carrying the fix
+perfectly, and the natural reading is "the roll missed it". Neither `ResolvedAgentType` nor the §7
+backfill contributes any string of its own (one is pure control flow, the other is a single `if`),
+which is the underlying reason nobody noticed: the needle had to be *invented*, and inventing it
+from the doc comment is the obvious wrong move. **A change that adds no string literal cannot be
+pod-grepped for directly** — date the binary with a neighbouring literal from a descendant commit
+and prove ancestry, which is what was done here.
+
+**The cheap checks that would have caught both, and they are one question each.**
+- Before trusting a post-fix zero: **"what is the DEMAND on this exact path in the same window?"**
+  Not fleet traffic — demand. If it is zero, you have measured nothing. `min/max(occurred_at)` per
+  producer, bucketed by day, before you quote any total.
+- Before writing a pod-grep into an acceptance section: **`grep -n "<needle>" --include=*.go`** and
+  confirm the hit is a **string literal, not a comment**. If your change adds no literal at all, say
+  so in the section and name the dating commit instead of inventing a phrase.
+
+**Cost:** none this time, because the third query got asked. Had it not been, RFC_019 and RSH-009
+would now both read "verified live, residue fell to zero" — a false claim, dated, marked
+`[MEASURED]`, with a passing control beside it, in the two documents most likely to be quoted
+forward. That is the expensive shape, and it was one query away.
