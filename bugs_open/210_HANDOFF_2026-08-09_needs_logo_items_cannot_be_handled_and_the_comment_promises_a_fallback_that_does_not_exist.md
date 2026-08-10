@@ -294,3 +294,74 @@ positive control proving the pipeline. Then the behavioural signal: any `needs_l
 `needs_hero_image` failing with `generate_image refused` **names its own producer's bug**, and
 that count is the first real measurement of how often an unprompted request is filed — a number
 nobody has ever had.
+
+---
+
+## OWNER RULING 2026-08-09 (evening) — §5's design choice is DECIDED, and it reverses the disposition shipped that afternoon
+
+> *"When a site needs a logo it should go to human review for guidance/supply of the logo, but
+> for now that human review can default to saying create a logo that suits the mission, target
+> market and the domain character. This is because there are 2000 odd domains to populate and I
+> won't have time to do or approve that many logos."*
+
+**So: default, do not block.** The human path stays available as an **override** (plan a real
+prompt, or lock the asset); it is not a gate. The afternoon's disposition — file a
+`needs_human_review` item and stop — is **removed from both producers**, because across ~2,000
+domains a blocking queue is one that never drains. That objection was foreseen in the previous
+round's own risk 3 ("loses automation") and the owner has now ruled on it.
+
+**Implemented (`ebaf72729`), Go only, inert until the NEXT roll.** New shared helper
+`DefaultBrandImagePrompt` (`discovery_checks/default_brand_prompt.go`), called by **both**
+producers — which also discharges the previous council round's `reuse_agent` objection that the
+two had duplicated the disposition with no shared helper. It composes from site name, domain,
+sector, positioning, audience and tone, plus logo craft constraints. Sample output:
+
+```
+A simple, distinctive logo mark for Mortgage Calculator UK (mortgagecalculator.co.uk).
+Sector: Financial Services / Mortgage Finance (UK). Positioning: The UK's Authority on
+Mortgage Finance. Brand character: Direct, authoritative, and no-nonsense... Flat vector
+mark, minimal and geometric, a single clear silhouette that stays legible at favicon size,
+centred on a plain background, no lettering or words, no photographic texture, no drop shadows.
+```
+
+**This does NOT reopen the contamination lesson, and that distinction is what makes it safe to
+automate.** The builder reads **brand identity**; it never reads `design_intent.imagery_direction`,
+the imagery style guide, or `directionForKind`. Logos stay excluded from the **imagery** axis
+exactly as before — a test pins that the logo branch asks for a flat vector mark and does *not*
+pick up the hero branch's photographic clause. §5's option 2 was refused for logos on the
+imagery axis and is now adopted on the identity axis; those are different things, and the
+earlier note in this file that "a prompt built from brand identity is a different proposition"
+is the one the owner has taken up.
+
+**The property that keeps IMG-069's refusal unreachable: the default never returns empty for a
+site that exists.** The domain alone yields a usable prompt (`robot-hands.com` → "a simple,
+distinctive logo mark for robot hands"). That matters because at 2,000 domains a site with
+nothing but a domain row is the **common** case — only **21 of 39** current sites carry an
+`identity` spec at all. A builder that could return `""` would route straight back into the
+refusal, so it is the hardest-tested property.
+
+`spec.prompt_source` now records `default_from_brand_identity` vs `site_plan`:
+
+```sql
+SELECT s.domain, w.item_type, w.status, w.spec->>'prompt_source'
+  FROM site_work_items w JOIN sites s ON s.id=w.site_id
+ WHERE w.spec->>'prompt_source' = 'default_from_brand_identity' ORDER BY 1;
+```
+
+### IMG-069's refusal is POD-VERIFIED LIVE (2026-08-09, fresh build)
+
+`agent-chassis-6dc54d77cd-lftkt`: refusal literal **1**, fabricated negative control **0**,
+pre-existing positive control **1**. So the floor is live; **the default is not** — it needs the
+next roll. Until then a promptless item fails loudly rather than painting, which is the correct
+intermediate state.
+
+### What is still open
+
+- **Nobody has looked at a defaulted logo yet.** That prompt text now decides ~2,000 logos and
+  no test can tell you it reads well. **Eyeball the first few** and tune the wording — it is a
+  string in one function, cheap to change.
+- **There is no review SURFACE for defaulted assets.** They are queryable (above), not rendered
+  anywhere. If the owner wants a list to skim rather than a query, that is a follow-on and it
+  does not exist today. Said plainly so it is not mistaken for delivered.
+- Second council round `Council-Submitted: 661557c5-7ae4-43fe-a36d-c0600b54a29c` — submitted
+  fresh, not as a resubmission, because it **reverses** a disposition the first round approved.
