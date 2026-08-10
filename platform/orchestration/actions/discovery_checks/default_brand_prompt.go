@@ -117,12 +117,35 @@ func loadSiteBrandFacts(ctx context.Context, db *sql.DB, siteID uuid.UUID, logge
 	f.Tagline = tagline.String
 
 	var raw []byte
-	if err := db.QueryRowContext(ctx, `
+	err = db.QueryRowContext(ctx, `
 		SELECT data FROM site_specs
 		WHERE site_id = $1 AND aspect = 'identity' AND is_current = true LIMIT 1
-	`, siteID).Scan(&raw); err == nil && len(raw) > 0 {
+	`, siteID).Scan(&raw)
+	switch {
+	case err == sql.ErrNoRows:
+		// Expected on most sites — 18 of 39 carry no identity spec — so this is
+		// Info, not Warn. It still has to be SAID: the prompt that results is
+		// thinner, and a reader looking at a bare-domain logo needs to be able
+		// to tell "this site had no identity recorded" from "the read broke".
+		logger.Info("DefaultBrandImagePrompt: no identity spec for this site; "+
+			"prompt will be built from the domain alone",
+			zap.String("site_id", siteID.String()))
+	case err != nil:
+		// A DB blip must NOT read as "this site has no brand". Across a
+		// 2,000-domain rollout an unlogged failure here produces silently
+		// degraded logos fleet-wide with no signal at all, indistinguishable
+		// from working — the council's bug_historian seat named this shape and
+		// it is the platform's most recurrent one.
+		logger.Warn("DefaultBrandImagePrompt: identity spec read FAILED — "+
+			"the prompt is degraded, and this is a fault, not an absent spec",
+			zap.String("site_id", siteID.String()), zap.Error(err))
+	case len(raw) > 0:
 		var d map[string]interface{}
-		if json.Unmarshal(raw, &d) == nil {
+		if uerr := json.Unmarshal(raw, &d); uerr != nil {
+			logger.Warn("DefaultBrandImagePrompt: identity spec is not parseable JSON — "+
+				"the prompt is degraded",
+				zap.String("site_id", siteID.String()), zap.Error(uerr))
+		} else {
 			f.Industry = stringField(d, "industry")
 			f.Tone = stringField(d, "tone")
 			f.Audience = stringField(d, "target_audience")
@@ -132,7 +155,32 @@ func loadSiteBrandFacts(ctx context.Context, db *sql.DB, siteID uuid.UUID, logge
 		}
 	}
 
+	// One line per built prompt saying how much signal it actually had. This is
+	// what makes a fleet-wide degradation visible as a pattern rather than as
+	// 2,000 individually-plausible logos: `clauses:1` everywhere means the
+	// identity reads are failing, not that the estate has no brands.
+	logger.Info("DefaultBrandImagePrompt: composed",
+		zap.String("site_id", siteID.String()),
+		zap.Int("clauses", f.signalCount()),
+		zap.Bool("has_name", f.Name != ""),
+		zap.Bool("has_industry", f.Industry != ""))
+
 	return f
+}
+
+// signalCount is how many identity clauses the prompt will carry. A site with
+// only a domain scores 1 legitimately; the whole FLEET scoring 1 is a fault.
+func (f siteBrandFacts) signalCount() int {
+	n := 0
+	for _, v := range []string{f.Name, f.Industry, f.Tagline, f.Audience, f.Tone} {
+		if v != "" {
+			n++
+		}
+	}
+	if f.Domain != "" {
+		n++
+	}
+	return n
 }
 
 // composeBrandImagePrompt is the pure half — no DB, so it is directly testable
