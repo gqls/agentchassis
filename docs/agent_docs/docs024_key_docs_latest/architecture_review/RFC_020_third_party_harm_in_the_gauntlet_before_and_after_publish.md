@@ -216,4 +216,40 @@ for a solicitor, and §1.2/§1.4 are written to be handed to one.
 
 ## 7. OWNER RULING
 
-*Not yet given — filed 2026-08-09.*
+**2026-08-10 — "go ahead as you suggest", covering §5.2, §5.3 and §5.4.**
+Recorded by the lane that received it; see
+`provocation_pipeline/HANDOFF_2026-08-10_continue_here.md` §3.2.
+
+**2026-08-10, later the same day, on §5.4 specifically:** *"make it explicit on
+the card and page that the AI rates how well you argued, not whether you're
+right"* — which is §5.4 restated in the owner's own words, and confirms the
+scope note is wanted on **both** surfaces rather than in terms alone.
+
+### Build status
+
+| item | state | evidence |
+|---|---|---|
+| §5.1 `noindex` | shipped by another session as an opt-in `pages.noindex` field | `bugs_open/232`, mig 352 |
+| §5.2 refuse to publish a naming round | **committed, NOT live** — ships from the island VM, not the chassis | `3ec99efb1`, council `73dc4e78` APPROVED |
+| §5.3 report/takedown route | **NOT BUILT** | — |
+| §5.4 scope of the verdict | **LIVE on both surfaces 2026-08-10** | see below |
+
+**§5.4 as built.** The wording differs by surface, deliberately, because the
+voice differs: the card is written from the arguer's side ("I ANSWERED") and is
+read by strangers, while the record page is read *about* somebody else's round.
+
+- **Share card** (`gauntlet-interface` `js_content`, md5 `4fe8d698`):
+  *"The judge rates how well the case was argued — not whether it is true."*
+  Drawn under the ruling line. Verified at the served asset, and rendered from
+  the shipped renderer by `p4_sources/verify_card_2026-08-10.py`.
+- **Round record page** (`gauntlet-round-record`, md5 `aaac7950`):
+  *"The judge rates how well the case was argued — not whether either side is
+  factually right. No claim on this page has been checked for accuracy."*
+  Static markup inside `.gr-ruling`, between the verdict and the reasons, so a
+  reader who stops after the ruling line has still read it. Verified on the
+  served page at 4.93:1 contrast.
+
+**What §5.4 does NOT do**, restating §5.4's own caveat now that it is built: this
+is a supporting control. It makes the artefact honest about what it is; it does
+not stop a round naming somebody. That is §5.2, which is built and still not
+live, and §5.3, which is not built. **Neither is discharged by this.**

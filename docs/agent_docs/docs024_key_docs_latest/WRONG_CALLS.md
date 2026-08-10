@@ -25999,3 +25999,46 @@ check it holds. Before writing a trigger condition into a bug title, ask whether
 input was ever sent twice. If not, the table is a set of observations, not yet a rule —
 and when the system under test can cause side effects, treat every additional untested
 theory as a live action with a blast radius, not a free experiment.
+
+---
+
+## 2026-08-10 — I justified a layout change with a mechanism I had not read, and only my own control caught it
+
+**The claim.** Adding RFC_020 §5.4's scope line to the Gauntlet share card needed
+vertical space, so I grew the card's `FOOT` reserve from 130 to 172. I wrote in the
+code comment — and would have written into the handoff — that the reserve is what
+stops a full-length round overlapping its own ruling line, and that moving the four
+footer baselines up required moving the reserve by the same amount.
+
+**What was actually true.** `FOOT` does not prevent overlap on any round the app can
+produce. The renderer auto-fits the prose (`while (size > 12 && heightAt(size) >
+USABLE) size--;`), so it absorbs whatever reserve it is given by shrinking the type.
+What `FOOT` buys is **type size**, not collision safety. It only becomes load-bearing
+past the loop's own floor of 12px — and on realistic input (the challenge is
+AI-generated at ~305 chars; the defence is capped at 2000) that floor is never
+reached. The change was still correct. The stated reason for it was not.
+
+**What caught it.** The positive control I wrote for my own check: put `FOOT` back to
+130, render the long round, expect a collision. It did not collide — at either value,
+with identical ink in identical rows. I had written the control to prove the check
+could fail, and instead it proved my model of the mechanism was wrong.
+
+**The cheap check that would have caught it first:** read the fit loop. It is two
+lines, twenty lines above the constant I was editing, in the function I was already
+editing. I had read the *comment* above `FOOT` — which describes what the reserve is
+for — and treated that as knowing what it does. **A comment describing an intent is
+not the code implementing it**, and this file's comments are unusually good, which is
+precisely what made quoting one feel like verification.
+
+**The general form:** when you change a constant to make room, the thing you must
+read is not the constant's documentation but the code that CONSUMES it. If a consumer
+adapts to the constant — a fit loop, a clamp, a retry budget, a timeout with backoff —
+then the constant is not enforcing the property you think it enforces, and any control
+that assumes it does will pass or fail for reasons unrelated to your change. Ask what
+*else* reads this value before writing down why it matters.
+
+**Cost:** none shipped — the control fired before delivery, and the corrected control
+(a round that overflows at the 12px floor) does fire. But the wrong reason was already
+written into a code comment that would have outlived me, and the honest version of the
+justification is now measured: 26px → 24px on the real round, which is the whole of
+what the reserve actually cost.

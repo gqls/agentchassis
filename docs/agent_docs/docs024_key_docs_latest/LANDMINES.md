@@ -8048,3 +8048,41 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **source:** 2026-08-10, `bugfix_209` lane while diagnosing `bugs_open/240`. Cost: a retracted "correction" in that bug file, a withdrawn partition figure, and one aborted mass-deletion run that refused because its two counts disagreed — the guard that saved it was added only because the disagreement was visible.
 - **verification:** both traps reproduced deliberately — the piped/in-pod count discrepancy (445 vs 24,131) and the zero-byte-exit-0 write on a full `/tmp`, then the file-first method confirmed stable at 25,042 total / 24,131 `job.*` across three consecutive reads after freeing space.
 - **added:** 2026-08-10, bugfix_209 lane
+
+## A colour token's documented contrast ratio was measured on ONE background, and it does not travel into a tinted container
+
+- **footprint:** `docs/agent_docs/docs024_key_docs_latest/gauntlet_dead_cta/round_record/round_record_component.html`, `--gr-accent-text`, `--gr-muted`, `--gr-surface`, `.gr-ruling`, `.gr-label`, `drive_round_record.py`, any component whose CSS header records a measured contrast figure per token
+- **fires when:** you reuse an existing colour variable in a NEW place inside the same component — the most obviously safe thing you can do, and the reason no symptom precedes it. The token is documented, the figure is real, the component header even says the values were measured in a browser rather than read off source.
+- **the trap:** the figure was measured against the background the token's EXISTING users sit on. `--gr-accent-text` (`#ffc9d6`) is documented at 4.9:1 and measures **4.93:1** — on the *bare* section background `#6d28d9`, where `.gr-label` sits. Put the same token inside `.gr-ruling`, which paints `--gr-surface` (`rgba(255,255,255,0.06)`) over that background, and the composited background becomes `rgb(118,53,219)` and the same token measures **4.42:1** — under the 4.5 floor, on the one line whose whole job is to be read. Both figures measured in the browser, including the counterfactual.
+- **why the wrong result looks exactly like the right one:** a semi-transparent surface LIGHTENS a dark background, so light text on it gets *less* contrast while looking, to the eye, slightly more crisp. Nothing in the CSS names a background — `.gr-ruling` sets `background: var(--gr-surface)` and the element inherits nothing — so reading the rule for your new element tells you nothing about what it will be painted on. And a token named `*-accent-text` reads as "the approved colour for text".
+- **the check:** before reusing a token, ask what your element's nearest PAINTED ancestor is, and measure there rather than quoting the header:
+  ```javascript
+  // walk to the nearest ancestor with a non-transparent background, composite,
+  // then apply the WCAG formula — this is what drive_round_record.py does
+  let bg = sectionBg, n = el;
+  while (n && n !== document.body) {
+    const c = parse(getComputedStyle(n).backgroundColor);
+    if ((c.length < 4 || c[3] > 0)) { bg = over(c, sectionBg); break; }
+    n = n.parentElement;
+  }
+  ```
+  And **add your new element to that harness's selector list** — it enumerates elements by hand, so a new one is silently unmeasured, which reads identically to a new one that passed.
+- **the general form:** a recorded measurement is only evidence for the conditions it was taken under, and a design token is exactly the shape that hides those conditions — it travels by name while its ratio stays behind.
+- **source:** 2026-08-10, `provocation_pipeline` lane, adding RFC_020 §5.4's verdict-scope line. Caught before shipping because the counterfactual was measured rather than assumed; `#ffd9e2` measures 4.93:1 in the tinted box and shipped instead.
+- **added:** 2026-08-10, provocation_pipeline lane
+
+## `<script>.*?</script>` on a component whose CSS comments DISCUSS `<script>` deletes the whole file, silently
+
+- **footprint:** `docs/agent_docs/docs024_key_docs_latest/gauntlet_dead_cta/round_record/round_record_component.html` (line 13), any `content_components.html_template` that documents its own inline-script decision, offline render harnesses that strip scripts to render a component without its API
+- **fires when:** you write a throwaway harness to render a DB-backed component locally — stripping the `<script>` so it does not call a live API is the standard first move, and there is no symptom because you have not rendered anything yet.
+- **the trap:** `round_record_component.html` opens with a CSS comment explaining its own design, and that comment contains the literal text `<script>`: *"Inline `<script>` means no /tools/assets/*.js publication step"*. An unanchored `re.sub(r"<script>.*?</script>", "", html, flags=re.S)` matches from **line 13, inside the stylesheet**, to the real `</script>` on line 471 — deleting the rest of the CSS, the entire markup, and the script. Non-greedy does not save you: the first opening tag wins, and the nearest closing tag is 458 lines later.
+- **why the wrong result looks exactly like the right one:** the browser renders `<body></body>`. No JS error, no parse error, no exception from the regex — it did exactly what it was told. The visible symptom is "my probe printed nothing", which reads as a broken probe, and the natural next move is to debug the probe. The dumped DOM ends `</script></style></head><body></body>`, and that `</style>` is the only tell.
+- **the check:** anchor on column 0 and assert something survived:
+  ```python
+  html = re.sub(r"^<script>.*?^</script>", "", html, flags=re.S | re.M)
+  assert "</style>" in html and "data-gr-scope" in html, "stripper ate the component"
+  ```
+  The assert is the load-bearing half — anchoring is a fix for the case you thought of, the assert catches the one you did not.
+- **the general form:** any regex over source that keys on a language's own delimiters will match the delimiter written in PROSE about the language. Documentation that quotes syntax is the norm in this estate's components, not the exception, so treat a comment as executable text for matching purposes. Same family as "a source-scanning test makes your COMMENTS load-bearing — first occurrence wins".
+- **source:** 2026-08-10, `provocation_pipeline` lane, building an offline contrast harness for RFC_020 §5.4. Cost ~15 minutes of debugging a probe that was correct.
+- **added:** 2026-08-10, provocation_pipeline lane

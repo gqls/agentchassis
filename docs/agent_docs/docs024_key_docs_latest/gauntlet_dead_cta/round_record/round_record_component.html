@@ -137,6 +137,25 @@
     margin: 0 0 0.7rem;
   }
 
+  /* RFC_020 §5.4 — the scope of the ruling, stated where the ruling is read.
+     The judge scores argument quality; it does not decide whether a claim is
+     true. Saying so next to the verdict is the difference between a service
+     that rates reasoning and one that appears to certify an accusation.
+
+     NOT --gr-accent-text (#ffc9d6), which the labels use. That token was
+     measured at 4.9:1 on the BARE purple, and the labels sit on bare purple —
+     but this line sits inside .gr-ruling, which paints --gr-surface
+     (rgba(255,255,255,0.06)) on top, lifting the background to rgb(118,53,219)
+     and dropping #ffc9d6 to 4.42:1 — under the floor. #ffd9e2 is the same hue
+     two steps lighter and computes 4.93:1 against that composited background.
+     A token's measured ratio does not travel with it into a tinted box.
+     drive_round_record.py measures this element in the browser as 'scope'. */
+  .gauntlet-record-section .gr-ruling-scope {
+    font: 600 0.87rem/1.55 system-ui, sans-serif;
+    color: #ffd9e2;
+    margin: 0 0 0.9rem;
+  }
+
   .gauntlet-record-section .gr-ruling-why {
     font: 400 0.98rem/1.6 Georgia, serif;
     color: var(--gr-muted);
@@ -235,8 +254,16 @@
         <p class="gr-text" data-gr-defence></p>
       </div>
 
+      <!-- The scope line is STATIC text, not a field, and it sits between the
+           verdict and the reasons on purpose: a reader who stops after the big
+           ruling line has still read it. Being static, it cannot be absent on a
+           round whose payload is missing a field — the qualification travels
+           with the artefact, not with the data. -->
       <div class="gr-ruling">
         <p class="gr-ruling-line" data-gr-verdict></p>
+        <p class="gr-ruling-scope" data-gr-scope>The judge rates how well the case was
+          argued &mdash; not whether either side is factually right. No claim on this
+          page has been checked for accuracy.</p>
         <p class="gr-ruling-why" data-gr-reasons></p>
       </div>
 

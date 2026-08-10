@@ -102,6 +102,17 @@ def main():
               repr(txt("[data-gr-verdict]")))
         check("dates line populated", len(txt("[data-gr-dates]")) > 8, repr(txt("[data-gr-dates]")))
 
+        # RFC_020 §5.4. This is a static string, so locally it could only ever
+        # pass — but the harness reads the LIVE page, so what it actually tests
+        # is that the component carrying it was delivered. It fails against any
+        # deploy that predates the change, which is the whole question.
+        scope = txt("[data-gr-scope]")
+        check("scope line present on the served page",
+              "not whether either side is factually right" in scope, repr(scope[:80]))
+        check("scope line sits inside the ruling block",
+              page.eval_on_selector("[data-gr-scope]",
+                                    "e => !!e.closest('.gr-ruling')"))
+
         # The rail: nothing on this page may be a number the page did not
         # compute. provocation.stats is an array of exactly such numbers.
         body_text = page.text_content("body") or ""
@@ -134,7 +145,7 @@ def main():
               ['prose', '[data-gr-position]'], ['defence', '[data-gr-defence]'],
               ['provocation', '[data-gr-provocation]'], ['ruling', '[data-gr-verdict]'],
               ['reasons', '[data-gr-reasons]'], ['label', '.gr-label'],
-              ['headline', '[data-gr-headline]']]) {
+              ['headline', '[data-gr-headline]'], ['scope', '[data-gr-scope]']]) {
             const el = document.querySelector(sel);
             if (!el) continue;
             let bg = secBg, n = el;

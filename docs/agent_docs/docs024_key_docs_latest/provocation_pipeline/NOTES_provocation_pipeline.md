@@ -1926,3 +1926,101 @@ negation has to argue with the reasoning first.
 **Left open:** `architecture` recorded that no real-traffic corpus exists to validate
 the false-positive rate — correct, and it is measurable from `logPublishRefusal`'s
 signals once there is traffic, not before.
+
+---
+
+## 2026-08-10 — RFC_020 §5.4 built and live on both surfaces
+
+The owner restated §5.4 in his own words — *"make it explicit on the card and page
+that the AI rates how well you argued, not whether you're right"* — so this is the
+one that got built. Recorded in RFC_020 §7 along with the build status of the other
+three items (§5.2 is committed and still not live; §5.3 is still not built; **§5.4
+does not discharge either of them**).
+
+**What shipped.** Two artefacts, different wording on purpose. The card is written
+from the arguer's side ("I ANSWERED") and is read by strangers; the record page is
+read *about* somebody else's round. Second person would be wrong on both, and one
+sentence cannot serve both voices.
+
+| surface | component | md5 after | wording |
+|---|---|---|---|
+| share card | `5da50747` `js_content` | `4fe8d698` | "The judge rates how well the case was argued — not whether it is true." |
+| record page | `71a54cc2` both columns | `aaac7950` | "…— not whether either side is factually right. No claim on this page has been checked for accuracy." |
+
+Delivery used the lane's own tooling: `deliver_record_component.py` for the page
+(three-way baseline, `updated_at` guard, `DO`/`RAISE` assertions), and a **fork** of
+`build_deliver_sql.py` for the card — `build_deliver_sql_scope.py`, because the
+original is pinned to the 07-31 change's source file, guard and markers, and
+re-running it would have shipped the OLD file over this one. The fork reads its
+`updated_at` guard live instead of carrying a hardcoded one.
+
+### Missteps, in the order they happened
+
+**1. My contrast sampler measured an antialiased edge and I nearly believed it.**
+First run reported the scope line at **3.83:1** and failed its own check. The colour
+is `#fde68a`, which is 5.71:1. The sampler took the *first* pixel on the row over a
+threshold — always a leading edge, which is by definition a blend of ink and
+background, so it can only ever understate. Sampling the pixel *furthest* from the
+background gives `[253,230,138]` — the exact drawn colour — and **5.70:1**, matching
+the arithmetic to two decimals. **An edge pixel is not the ink.**
+
+**2. My positive control failed, and it was right to.** I wrote a control that put
+`FOOT` back to 130 and expected a long round to collide with the ruling line. It did
+not collide, at either value. The reason is the thing I had not read: the auto-fit
+loop **absorbs any reserve by shrinking the type**, so `FOOT` does not prevent
+collision on an ordinary round at all — it buys *type size*. It only becomes
+load-bearing past the loop's own floor of 12px. My stated justification for the whole
+geometry change was therefore wrong, while the change itself was still correct.
+**The control failing is the only reason I know this.** Rewritten to use a round that
+overflows at the 12px floor, which does fire.
+
+**3. `<script>.*?</script>` ate the component.** My offline page harness stripped the
+component's `<script>` block to render it without the island API. Line 13 of
+`round_record_component.html` contains the literal text `<script>` **inside a CSS
+comment** ("Inline `<script>` means no /tools/assets/*.js publication step"), so an
+unanchored regex matched from *there* to the real `</script>` on line 471 and deleted
+the stylesheet, the markup and everything between. Failure mode: `<body></body>`, no
+JS error, no output. Anchor on column 0 (`^<script>` … `^</script>`, MULTILINE) and
+assert a known string survived. Filed to LANDMINES.
+
+**4. A colour token's measured ratio does not travel into a tinted box.** I reached
+for `--gr-accent-text` (`#ffc9d6`), which the component header documents at 4.9:1 —
+true, but measured on the **bare** purple, where the labels sit. The scope line sits
+inside `.gr-ruling`, which paints `--gr-surface` (6% white) over the background,
+lifting it to `rgb(118,53,219)` and dropping that token to **4.42:1**, under the
+floor. Both figures measured in the browser, the counterfactual included, not
+asserted from arithmetic alone. `#ffd9e2` measures **4.93:1** in the box. Filed to
+LANDMINES.
+
+### One bound worth writing down, and it is NOT a regression
+
+The max-length round overflows the card footer — and **did so identically before this
+change**, same ink in the same rows at `FOOT=130` and `FOOT=172`. It is the 12px
+floor, not the reserve. Sized properly before calling it a defect:
+
+| defence chars (the user field, cap 2000) | fitted type | footer gutter |
+|---|---|---|
+| 294 (the real measured round) | 24px | clean |
+| 1000 | 17px | clean |
+| 2000 (the cap) | 13px | clean |
+
+The challenge is **AI-generated, not user input**, and runs ~305 chars. Overflow
+needs *both* fields near 2000, so on input the app can actually produce, the card is
+clean at every length. **Not filed as a bug.** What is real is the legibility tail:
+a 2000-character defence renders at 13px, which in a downscaled timeline is
+decoration. That is pre-existing and unchanged by §5.4.
+
+**The cost of the reserve, measured:** the real round fits at **26px before, 24px
+after**. `verify_card_2026-08-10.py` asserts ≥20px so the next thing added to that
+footer has to argue with a number.
+
+### Verification, both surfaces, with the controls
+
+- **Card:** served asset md5 `4fe8d698` = delivered md5, polled through the change
+  (three reads at the old md5, then the new one — the transition was watched, not
+  assumed). Positive markers present in the served bytes, the two negative markers
+  (`FOOT = 130` line, old rule-bar `fillRect`) at **0**, and the `—` escape
+  intact through base64 → psql → publish → CDN.
+- **Page:** same URL, same grep, **0 before delivery and 1 after** — a real demand
+  control rather than a bare post-hoc positive. Then the *served* page rendered in a
+  browser: element found, inside `.gr-ruling`, visible, **4.93:1**.

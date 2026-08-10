@@ -928,3 +928,61 @@ that rates reasoning and one that looks like it certifies accusations.
 
 **The thing with a deadline: content runs out on 15 August.** Six days. Either the
 automatic generator gets its first real test, or someone writes more.
+
+---
+
+**2026-08-10, later — the scope line is live on both surfaces.**
+
+You said to make it explicit on the card and the page that the AI rates how well you
+argued, not whether you're right. That is done and it is live now, on both.
+
+The two say slightly different things, and that was deliberate rather than sloppy.
+The card is written from the arguer's point of view — the blocks on it say "VONC
+ASKED" and "I ANSWERED" — but it gets shared, so strangers read it. The record page
+is the opposite: a stranger reading about somebody else's argument. So the card says
+*"The judge rates how well the case was argued — not whether it is true"*, and the
+page, which has room, says *"…not whether either side is factually right. No claim on
+this page has been checked for accuracy."* That last sentence is the one I think does
+the most work. It says plainly that nothing here has been checked, which is true, and
+it is the sentence that stops the page reading like a certificate.
+
+On the card it sits directly under the big "The judge ruled:" line, so anyone who
+reads only the headline has still read it. On the page it sits between the verdict
+and the reasoning, for the same reason.
+
+Two things went wrong on the way, both worth telling you because they are the kind of
+thing that would otherwise have shipped quietly.
+
+The first is that I had the wrong idea about how the card lays itself out. To fit a
+new line in I made room for it, and I wrote a test to prove that room was needed — the
+test being to take the room away again and watch the card break. It did not break.
+The card resizes its own text to fit whatever space is left, so the room I "made" was
+not preventing anything; it was just making the argument text slightly smaller. The
+change is still right, but my reason for it was wrong, and the only thing that caught
+that was the test failing. Reading the code afterwards confirmed it. Your text on a
+typical round went from 26px to 24px, which is the actual price, and I have pinned a
+check so that if anyone adds a third line to that footer they have to justify it
+against a number rather than a feeling.
+
+The second is a colour. There is a documented "safe" colour on that page which is
+readable against the purple. I used it, and it was not readable — because the box the
+verdict sits in has a faint white wash over the purple, which lightens the background
+just enough to push that colour under the legibility threshold. It measured 4.42
+where 4.5 is the floor. Nobody would have noticed by eye; it only showed up because I
+measured it in the browser rather than trusting the note. I used a slightly lighter
+shade that measures 4.93. Small thing, but the disclaimer being the least readable
+text on the page would have been a poor joke.
+
+I also checked the worst case: someone writing the maximum-length answer the box
+allows. The card copes — the text gets small, but nothing overlaps. It only breaks if
+both halves of the exchange are enormous, and one of those halves is written by the
+AI and never is. That behaviour is unchanged from before, so it is not something this
+work introduced.
+
+**Still on paper: the report-and-takedown route.** That is the other half of what you
+approved, and it is the one whose absence is hardest to explain after the fact. The
+allegation check is still written-but-not-live because it ships from the island
+machine, and the reviewers asked that the lane owning that machine schedules it
+rather than us firing it opportunistically.
+
+**And the deadline has not moved: content runs out on 15 August.** Five days now.
