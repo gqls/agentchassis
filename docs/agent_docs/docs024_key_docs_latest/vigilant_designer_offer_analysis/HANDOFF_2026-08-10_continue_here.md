@@ -59,16 +59,47 @@ retraction-collateral point answered — with his suggested alternative refused 
 since "scope retraction to this check's own rows" cannot work while `created_by` reads
 `generic`.
 
-**Next session: read the verdict first.**
-`SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts WHERE
-correlation_id='5cd586c9-c787-417a-a102-27fbddc48687' AND kind='council_report' ORDER BY
-created_at;` (two `revise` rows are rounds 1 and 2 — the third row is this one.) If APPROVED,
-the trailer is `Council-Reviewed: 5cd586c9-c787-417a-a102-27fbddc48687`; **never write that
-trailer on a verdict you have not read** — 098 buckets it as MISMATCH. If it ends
-`complete_invalid` instead, read `collected_data->'__step_error'->>'failed_step'` before
-touching the JSON: a genuine schema death names `persist_submission` and fires no reviewers,
-whereas a sick endpoint kills a round that had seats already running, and that one is
-resubmitted UNCHANGED.
+### Round 3 verdict: REVISE — and the gating objection is UNWINNABLE BY CONSTRUCTION
+
+**Do not fire round 4 to argue it. Read this first.** 6 approve / 6 object / 3 abstained,
+`decided_by` "gating objection from editquality", which reads:
+
+> "schema_migrations is not in my queryable schema, so the claimed checksums/timestamps
+> cannot be independently checked this round."
+
+**Every seat's DB view is a hardcoded 11-table allowlist** built by `council-gate`'s
+`load_schema_hint` step — `pages, sites, site_plans, site_plan_pages, site_work_items,
+content_components, page_components, agent_definitions, diagnosis_artifacts,
+agent_error_log, doc_notes`. `schema_migrations` is not in it; nor is `scheduled_tasks`,
+**which is what the same seat said it could not check in round 2.** So round 2 demanded the
+ledger gap be closed, it was closed, and round 3 gated on being unable to see the closure in
+a table it will never see. Full write-up + the live query to read the allowlist is now in
+the shared council runbook (`fixloop_eg_dartsonline/RUNBOOK_council_gate.md`, § "A seat can
+gate on evidence that lives OUTSIDE its schema hint").
+
+**The cheap remedy is already applied:** the ledger evidence now lives in `doc_notes`
+(subject_key `vigilant-designer-offer-track-b3`, note `87397992`), which IS on the allowlist
+— checksums, the artifact verification, the single-row proof for both UPDATE targets, and
+the verifier-lockstep footprint. **A round 4, if the owner wants one, should point the
+rationale at that note rather than restating the claim.** Do NOT widen the allowlist to win
+this round: it is a shared-mechanism config change made mid-dispute with that mechanism.
+
+**Objections worth acting on regardless of any further round:**
+- **bug_historian [medium], the real one:** `revenue_shape`'s `default:` arm silently
+  swallows unmodelled revenue models, and `sponsored_listings` (vetcomparison.uk) hits it
+  today. Either the arm files something, or the model set is closed with an explicit refusal.
+- **guardian [medium]:** edit 5 (359) writes `agent_definitions.default_config` and should
+  be `config_change`, not `add`, with the owning pipeline a field rather than prose.
+- **constitution [low], conceded:** the round-3 rationale was saturated with ALL-CAPS
+  headers and self-vindicating framing. Substance did not need the persuasion styling.
+- **prior_art [HIGH] — CHECKED AND REFUTED**, don't re-answer it wholesale: the landmine it
+  quotes names its two obliged edits in its own footprint as `220` + the live `pre_query`,
+  which are edits 3 and 4; `verifier_coverage_test.go` enumerates the registry at runtime,
+  and the package tests pass. Round 4 should quote the footprint rather than argue.
+- **debug_historian [medium] — CHECKED CLEAN:** both UPDATE targets are single-row
+  (`domain-strategist` v1, `quality-discovery-agent` v1), so neither migration hit a second
+  active definition. The shape objection stands though: we were saved by a row-count
+  assertion, not a version-ordering predicate.
 
 ## Next session, in order
 
