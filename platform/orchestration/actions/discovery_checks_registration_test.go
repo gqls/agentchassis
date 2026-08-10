@@ -70,6 +70,13 @@ var liveConfiguredChecks = []string{
 	// asserting a roster that no longer exists.
 	"asset_reference_404",
 
+	// availability-discovery-agent (bugs_open/236 522-half, migration 372,
+	// applied 2026-08-10). A FOURTH agent now calls run_discovery_checks, so the
+	// header's "three live agents" is one out of date from this line down. It
+	// carries exactly one check and no LLM steps, which is why it is the only
+	// discovery agent that still functions during the Anthropic cap (bugs_open/243).
+	"site_unreachable",
+
 	// quality-discovery-agent
 	"broken_nav_links", "placeholder_contact", "generic_theme", "unverified_claims",
 	"voice_tells",
