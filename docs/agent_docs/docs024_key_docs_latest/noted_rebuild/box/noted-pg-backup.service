@@ -7,6 +7,10 @@ Requires=postgresql.service
 [Service]
 Type=oneshot
 ExecStart=/usr/local/sbin/noted-pg-backup.sh
+# Sequential: the offsite push uploads the dump the line above just produced.
+# A oneshot runs its ExecStart lines in order and stops at the first failure, so
+# a failed dump can never be followed by an upload of yesterday's file.
+ExecStart=/usr/local/sbin/noted-offsite-backup.sh
 # The dump is I/O heavy and shares a box with a live commercial shopfront.
 Nice=10
 IOSchedulingClass=idle

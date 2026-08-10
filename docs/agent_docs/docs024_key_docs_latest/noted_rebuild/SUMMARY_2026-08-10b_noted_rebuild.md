@@ -88,11 +88,9 @@ notes, read your text, or listen to your recordings", which is true only because
 there is no server at all. The moment you can sign in from another browser, it
 stops being true. We've blocked the old wording at the framework level so it
 can't be copied forward by an agent that mistakes it for house style — but what
-replaces it is a decision about the product. The honest, cheap position is "your
-notes are on our server so you can reach them anywhere; we could technically read
-them; we don't". Anything stronger means actually building end-to-end
-encryption, which is real work and is currently blocked as a claim precisely
-because we haven't done it.
+replaces it is a decision about the product, and it is the owner's to write.
+Anything strong means actually building end-to-end encryption, which is real work
+and is currently blocked as a claim precisely because we haven't done it.
 
 **And migration needs a person to act.** We hold no copy of anyone's notes and
 can't reach into their browsers. The only path across is someone exporting from

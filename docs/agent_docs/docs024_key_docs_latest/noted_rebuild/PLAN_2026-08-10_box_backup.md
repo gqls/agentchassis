@@ -17,13 +17,20 @@ covers the three they cannot:
 | Someone gets root on the box and destroys the backups | a key that cannot delete + Object Lock |
 | Someone gets root and wants to **read everyone's notes** | encryption *before* upload |
 
-The third is the one most easily forgotten and the most damaging here. This
-product's entire remaining privacy position, once sign-in ships, is "your notes
-are on our server; we could read them; we don't". Shipping nightly unencrypted
-dumps of every user's private writing to a third-party bucket would make that
-sentence materially worse — and it would be true whether or not anyone ever
-looked. **So the dumps are encrypted on the box, to a key the box does not
-hold.**
+The third is the one most easily forgotten and the most damaging here. Whatever
+this product ends up saying about privacy, nightly unencrypted dumps of every
+user's private writing sitting in a third-party bucket would undercut it — and
+that would be true whether or not anyone ever looked. **So the dumps are
+encrypted on the box, to a key the box does not hold.**
+
+> **COPY NOTE (owner, 2026-08-10):** an earlier draft of this file proposed a
+> specific form of words for the privacy position. **The owner has rejected that
+> wording and it must not be used anywhere** — not in site copy, not as a
+> placeholder, not quoted in planning docs as "the position we'd take". Removed
+> here and from `README_where_we_are.md` and
+> `SUMMARY_2026-08-10b_noted_rebuild.md`. What replaces it is still open (main
+> PLAN §6.2) and is the owner's to write. The technical requirement below stands
+> on its own and does not depend on any particular phrasing.
 
 ## 2. Design
 
@@ -186,15 +193,61 @@ box access leaves.
    with the same "lost box, lost data" exposure. Not this workstream's, but the
    machinery would be the same and it is cheap to extend.
 
-## 9. Status
+## 9. Status — BUILT AND PROVEN 2026-08-10
 
 | Piece | State |
 |---|---|
-| Bucket `personae-noted-backups` | **created**, allPrivate, Object Lock on, governance 30d |
-| Capability set | **probed and verified**; probe key and test file deleted |
-| `age` on the box | not installed |
-| Age identity | **not generated — owner action, blocking** |
-| Production key | **not created — awaiting approval** |
-| Upload step in the backup script | not written |
-| Off-box weekly monitor | not written |
-| Restore drill | not run |
+| Bucket `personae-noted-backups` | **live** — allPrivate, Object Lock on, governance 30d |
+| Capability set | **probed, then deployed** |
+| `age` on the box | **installed** (1.1.1) |
+| Age identity | **generated**, private half OFF the box, public half on it |
+| Production key | **created and deployed** — `…000d noted-box-backup-deployed` |
+| B2 CLI on the box | **installed, pinned to v4.7.0** (not "latest") |
+| Encrypt + upload step | **live**, chained after the nightly dump |
+| webdesign-chat data | **included** (owner request) — `/var/lib/webdesign-chat` |
+| Off-box monitor | **written and exercised**, incl. an induced hide |
+| Full round trip | **PROVEN** — see below |
+| Lifecycle rules | still not set, deliberately (§4) |
+
+### The round trip, end to end, with a planted marker
+
+Not "the file exists" but "the notes come back":
+
+```
+plant row  -> pg_dump -> age encrypt -> b2 upload
+           -> b2 download (admin key) -> age decrypt (OFF-box identity)
+           -> pg_restore -> SELECT
+   => "made it to B2 and back"
+```
+
+Checked along the way: the uploaded object's first bytes are
+`age-encryption.org/v1` (**not** plaintext SQL), and the decrypted artefact is a
+`PostgreSQL custom database dump - v1.15-0` containing the planted table.
+
+### The monitor was made to fail on purpose
+
+A deny-check that has never returned "allowed" has not been shown to work. So the
+hide arm was induced: hiding the only dump made `b2 ls` return **nothing at all**,
+and the monitor caught it and printed the exact recovery command
+(`b2 file unhide b2://…`). Unhidden; the object was intact.
+
+### ⚠ TWO KEYS NOW EXIST — one is orphaned
+
+| id | name | state |
+|---|---|---|
+| `…000c` | `noted-box-backup` | **owner-created, UNUSED** — its secret is only shown at creation and was never supplied, so nothing can use it |
+| `…000d` | `noted-box-backup-deployed` | **in use**, written straight to `/etc/noted/b2.env` without passing through a terminal or a transcript |
+
+`…000c` is a live credential with write access to the backup bucket that no
+system holds. **It should be revoked** (`b2 key delete 0052322485eed97000000000c`).
+Not done unilaterally — it is the owner's key and he may hold the secret.
+
+### ⚠ THE ONE THING THAT MUST NOT BE LOST
+
+The age identity is at `~/noted-backup-age-identity.txt` on the operator
+workstation, mode 600. **Its public half is on the box; its private half exists
+in exactly ONE place.** Until it is in the owner's password manager plus one
+offline copy, this scheme is one disk failure away from every off-box backup
+being permanently unreadable — and that failure is silent until the day it
+matters. Move it, then delete the workstation copy, then re-run the drill in §6
+from the stored copy.

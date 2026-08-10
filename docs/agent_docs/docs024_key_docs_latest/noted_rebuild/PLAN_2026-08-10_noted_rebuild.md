@@ -358,11 +358,14 @@ their findings will sit where nobody looks.
 2. **What the privacy promise becomes.** The current site's entire pitch is that
    there is no server. That inverts. The `evidence_base` bans the old sentences
    so they cannot be copied forward, but *what replaces them* is a product
-   decision, not a copy decision. The strongest honest position available
-   cheaply is "your notes are on our server so you can reach them anywhere; we
-   can technically read them; we don't" — end-to-end encryption would let us say
-   more but is a real build and is currently banned as a claim precisely because
-   it is not built.
+   decision, not a copy decision, **and it is the owner's to write.** A specific
+   form of words proposed here on 2026-08-10 was rejected by the owner and has
+   been removed from this file, `README_where_we_are.md`,
+   `SUMMARY_2026-08-10b_noted_rebuild.md` and `PLAN_2026-08-10_box_backup.md`;
+   **do not reintroduce it, including as a placeholder or as an example of "the
+   sort of thing we would say".** End-to-end encryption would license a stronger
+   statement but is a real build, and is currently banned as a claim precisely
+   because it is not built.
 4. **The off-box backup key (NEW, and time-boxed).** Dumps currently sit on the
    same disk as the database, which covers a bad migration but not the loss of
    the box. Fixing it needs a B2 application key scoped **write-only to a single

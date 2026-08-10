@@ -138,9 +138,8 @@ project and should be decided as one, not smuggled in under a site rebuild.
    moment you can sign in from another browser, that sentence is false. I've
    already blocked the old wording at the framework level so it can't get copied
    forward by an agent that thinks it's brand voice. But what *replaces* it is a
-   product decision. The honest cheap position is "your notes are on our server
-   so you can reach them anywhere; we could technically read them; we don't".
-   Anything stronger means actually building end-to-end encryption.
+   product decision, and it's yours to write. Anything strong means actually
+   building end-to-end encryption.
 
 3. **Migration.** There's no server-side copy of anyone's notes and no way to
    reach into their browsers. The only path is a person exporting and importing.
@@ -209,12 +208,10 @@ Written up in `PLAN_2026-08-10_box_backup.md`. Two things in it are worth your
 attention before anything else.
 
 **The dumps get encrypted before they leave the box, and the box can't decrypt
-them.** This isn't belt-and-braces. Once people can sign in, the strongest thing
-we can honestly say about privacy is "your notes are on our server; we could read
-them; we don't". Shipping a nightly unencrypted copy of everyone's private
-writing to a third-party bucket would quietly make that worse, whether or not
-anyone ever looked. So the box gets only a public key — it can encrypt and cannot
-read anything back.
+them.** This isn't belt-and-braces. Whatever we end up saying about privacy, a
+nightly unencrypted copy of everyone's private writing sitting in a third-party
+bucket would undercut it, whether or not anyone ever looked. So the box gets only
+a public key — it can encrypt and cannot read anything back.
 
 **The cost of that is one thing you must not lose.** If the private key goes
 missing, every off-box backup is permanently unreadable, and no support call
