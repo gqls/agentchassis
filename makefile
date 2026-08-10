@@ -2122,9 +2122,15 @@ verify-agent-images: ## Verify all agent images are consistent
 		--format 'agent-chassis:$(IMAGE_TAG)  revision={{index .Config.Labels "org.opencontainers.image.revision"}}  created={{.Created}}' \
 		2>/dev/null || echo "agent-chassis:$(IMAGE_TAG) not present locally — label check skipped"
 	@echo "$(CYAN)Pod binary provenance (agent-chassis):$(NC)"
+	@# The `[ -n "$$S" ] && echo` tail is load-bearing, NOT a tidy-up: a pipeline's exit
+	@# status is its LAST command's, so `... | grep | head -1` exits 0 even when grep
+	@# matched nothing, and the `|| echo` below would never fire for the one case this
+	@# check exists to catch — an UNSTAMPED binary would print a silent blank line.
+	@# Council `editquality` caught this (corr 44fa6a98, round 1, medium). Capturing to a
+	@# variable first makes the test the last command, so absence exits non-zero honestly.
 	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) exec deploy/agent-chassis -- \
-		sh -c 'strings /app/agent-chassis | grep -E "^[0-9a-f]{40}$$|-tree$$" | head -1' 2>/dev/null \
-		|| echo "no provenance stamp in pod binary (image predates the 153 fix)"
+		sh -c 'S=$$(strings /app/agent-chassis | grep -E "^[0-9a-f]{40}$$|-tree$$" | head -1); [ -n "$$S" ] && echo "$$S"' 2>/dev/null \
+		|| echo "no provenance stamp in pod binary (image predates the 153 fix, or the exec failed)"
 	@echo "$(CYAN)Pod imageID + startTime:$(NC)"
 	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) get pods -l app=agent-chassis \
 		-o custom-columns=NAME:.metadata.name,IMAGE:.spec.containers[0].image,IMAGEID:.status.containerStatuses[0].imageID,STARTED:.status.startTime 2>/dev/null || true
