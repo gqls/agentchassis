@@ -12,6 +12,32 @@ log, newest at the bottom) and `README_where_we_are.md` (owner prose, append-onl
 
 ---
 
+## ⚠ READ FIRST — the gate's first live test, and it did not pass
+
+**OPP-006 fired and was ignored, within three hours of shipping.** The gate went
+into the tree at **19:08**; commit `5c7b115c5` at **20:31** added `DES-082` and
+`DES-083` with no index rows, and `./scripts/pattern-check.py --commit 5c7b115c5`
+confirms it names both. Rows have been backfilled (`95429cbe8`).
+
+This is exactly the alternative outcome OPP-006's own **verify-later** names: *if
+the watcher's missing-row count does not fall to zero, the gate is being ignored
+rather than working, and that is a different problem with a different fix.*
+
+**Do not over-read it, and do not act on it yet.** n = 1 commit, one session,
+three hours in — a data point, not a rate. This lane was already caught once
+today quoting a rate off an instrument too small to carry it. **Watch the daily
+row for a week** before anyone argues for teeth. What it does establish: the
+advisory posture has a ceiling — the check cannot make anyone read it, which is
+the same ceiling the daily report has, moved earlier in time. The counter-argument
+is in `pattern-check.py`'s own docstring and is strong: a check that blocks on a
+bad day gets disabled permanently, and a false positive that blocks is a
+fleet-wide outage on a shared tree.
+
+**The honest question to answer first is which of these it was** — the session
+never saw the output, or saw it and judged the row could wait. Those have opposite
+fixes (delivery vs. enforcement), and nothing recorded so far distinguishes them.
+
+
 ## State in one paragraph
 
 The register is **complete, self-consistent, self-monitoring, and now gated at
