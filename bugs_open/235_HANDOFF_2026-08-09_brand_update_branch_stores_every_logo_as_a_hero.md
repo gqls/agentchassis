@@ -318,3 +318,39 @@ scratch SQL; the site-level `needs_rerender` is the right entry point because
 `get_pages_for_rerender` is configured `include_statuses = [deployed, active]`
 and so **cannot** disturb the 26 `needs_rebuild` / 17 `planned` pages that
 predate this work.
+
+### 2026-08-10 16:33Z — re-render drain COMPLETE; the 8 sites are DONE end to end; deletion step re-scoped
+
+`[MEASURED]` all **255** fanned-out `page_rerender` items complete, **0 failed**
+(survived the v1.0.1279 fleet roll mid-drain). Verified at the served HTML, not
+the item status: gamesdesign, vonc, dartsonline, vetcomparison, fundamentallyai,
+oufe, lendzy all reference `/assets/images/logo.png`; webdesign.co.uk references
+no logo on its homepage (as before — its row is fixed, impact was always
+unclear). **For these 8 sites the defect is fully remediated for visitors.**
+
+#### ⚠ The stale-file deletion step is WRONG as written in this file — re-scoped
+
+This file's candidate 2 ordering ("… then delete the stale file") assumed a
+`logo.jpg`'s readers are its own site's pages. **Measured otherwise:**
+`fundamentallyai.com`'s served portfolio hot-links OTHER domains' logos directly —
+`https://idea.uk/assets/images/logo.jpg` and
+`https://relojistas.com/assets/images/logo.jpg`. So `idea.uk`'s `logo.jpg`,
+which the 08-10 handoff called "stale, unreferenced" (true on idea.uk itself),
+**has a reader on another domain**, and deleting it breaks fundamentallyai's
+page.
+
+Deletion therefore needs an **estate-wide** served-HTML reference audit (every
+live domain, absolute + relative URL forms), not a per-site one — and only URLs
+with zero references anywhere may go. The files cost nothing meanwhile; this
+step is optional and LAST. Do not delete on the strength of this file's earlier
+wording.
+
+#### B1 feasibility note (robot-hands)
+
+Its locked asset's `storage_path` is a plain public HTTPS URL, **no query
+string** (not presigned): `…backblazeb2.com/personae-prod-uk001-images/images/
+demo_client/20260509/d321c4f2-….png` → converts mechanically to
+`s3://personae-prod-uk001-images/images/demo_client/20260509/d321c4f2-….png`.
+So the re-deploy-existing-source repair is feasible via `deploy_image_asset`
+with explicit `spec.s3_uri`. Unknown: whether the deploy's stamping step also
+refuses on the lock — run and read, do not assume.
