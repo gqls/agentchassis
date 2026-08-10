@@ -2832,7 +2832,26 @@ stage-2 template as well, or the exposure returns silently on the next rebuild.
 - **footprint:** `code_symbols` (`updated_at`, `body`), `docs024_key_docs_latest/fixloop_eg_dartsonline/090_TRIGGER_needs_diagnosis_v1.sh`, `diagnosis_artifacts` (`kind='bundle'`), `diagnose-agent`, and any workflow where you fix the bug and file the diagnosis in the same session
 - **fires when:** you follow the standing rule the sensible way round — write the fix, then file a `090` so the structural claim in your `bugs_open/` file has been through the loop (CLAUDE.md, and the owner ruling of 2026-07-31). The loop reads the **indexed** snapshot of the tree, so it diagnoses the code as it was at the last index refresh, not as you left it.
 - **the tell: there is none in the verdict.** The bundle renders the function *whole and correctly* — no truncation marker, no gap note, nothing labelled stale — it is simply an older body. Measured 2026-08-10: `SELECT max(updated_at) FROM code_symbols` → **08:35 UTC**, 5,837 symbols; the fix under discussion was committed **18:16 UTC**; and bundle iterations at 18:16/18:23/18:28/18:35/18:42 all rendered the PRE-FIX query. Ten hours of drift, invisible in the artefact.
-- **why it matters:** a `CONFIRMED` verdict on a mechanism you have already closed is indistinguishable from a confirmation that it is still live. Quote it into a `bugs_open/` file or a handoff and you have published "confirmed by the diagnosis loop" about code that no longer exists — the loop agreeing with your *diagnosis* gets read as the loop agreeing with your *current tree*. The verdict is still worth having: it independently confirms or refutes the MECHANISM, which is what you filed it for. It just cannot speak about `HEAD`.
+- **why it matters:** a `CONFIRMED` verdict on a mechanism you have already closed is indistinguishable from a confirmation that it is still live. Quote it into a `bugs_open/` file or a handoff and you have published "confirmed by the diagnosis loop" about code that no longer exists — the loop agreeing with your *diagnosis* gets read as the loop agreeing with your *current tree*. Such a verdict is still worth having: it independently confirms or refutes the MECHANISM, which is what you filed it for. It just cannot speak about `HEAD`.
+- > **CORRECTED 2026-08-10, hours after this entry was written, by the run that
+  > prompted it.** The staleness is MEASURED and stands (index `max(updated_at)`
+  > 08:35 UTC; fix committed 18:16 UTC; all five bundle iterations rendered the
+  > pre-fix query). **The CONSEQUENCE above was [INFERRED] and this run never
+  > demonstrated it:** no verdict was produced at all. The run ended
+  > `orchestration_states.status='COMPLETED'` with 5 bundles and the work item
+  > `failed` — *"Request … timed out after 3 retries (code:
+  > CHILD_ORCHESTRATION_FAILED)"* — i.e. it failed HONESTLY, which is the
+  > opposite of the silent-wrong-answer this entry warns about. So treat "a
+  > stale-index verdict reads as a live bug" as a REAL RISK OF THE MECHANISM,
+  > not as something observed: the ingredients are all present and measured, the
+  > outcome is not. Writing the consequence in the same voice as the measurement
+  > is precisely the error `WRONG_CALLS.md` exists for, and it happened here in
+  > the entry meant to protect others.
+  > **Also note the third failure mode this reveals:** five iterations, ~45
+  > minutes, then a timeout — so "several bundles and no verdict" has at least
+  > THREE causes (body over the cap; a genuine timeout; a run still working) and
+  > the artefact alone does not separate them. Read the WORK ITEM's `error`
+  > column, which is where this one said so plainly.
 - **the check:** before quoting a verdict, ask the index what it read —
   `SELECT max(updated_at) FROM code_symbols;` and compare against
   `git log -1 --format=%ad <the file you fixed>`. If the commit is newer, say so
@@ -8483,3 +8502,48 @@ code change owed at the next roll, tracked in RFC_015 §5.
   `to_regclass('public.clients_info')` was NULL on 2026-08-10, i.e. never yet used).
 - **source:** `ai_site_selling_automation/NOTES_ai_site_selling_automation.md` 2026-08-10; code read at `client_handlers.go:194-253` vs `customer_handlers.go`; live `to_regclass` check
 - **added:** 2026-08-10, ai_site_selling lane
+
+## `kcat -P` publishes ONE MESSAGE PER LINE — a multi-line dispatch envelope arrives as N invalid-JSON fragments wearing the same headers, and the chassis used to run each one as the `generic` no-op and report COMPLETED
+
+- **footprint:** `kcat` · `system.agent.generic.requests` · `system.agent.scheduled.requests` · `scripts/initial_messages/` · `platform/messaging/processor.go` (`selectWorkflow`) · `chassis_intake_events`
+- **the trap:** every hand-dispatch recipe in this repo pipes JSON into `kcat -P`. If the
+  JSON reaches stdin on more than one LINE — a pretty-printed heredoc, an editor-wrapped
+  paste, a `jq` output — kcat sends each line as a SEPARATE Kafka message, and applies the
+  full `-H` header set (including `action=orchestrate`) to every one. Each fragment is
+  invalid JSON, so `config.agent_type` is unreadable, and before the bugs_open/239 fix the
+  chassis fell through to the CONSUMING pod's own workflow: on the shared chassis that is
+  `generic`'s single no-op step. Result: `owner_agent_type='generic'`, `execution_path=[]`,
+  `status=COMPLETED`. **It reads as a fast success.** Same envelope on ONE line works
+  perfectly, which is what makes it look non-deterministic — the payload is "identical"
+  in every sense except the one that matters.
+- **the tell:** none in `orchestration_states` — that is the whole problem. The bug's own
+  filing lane ran ELEVEN bisections and a production incident against this and concluded
+  the trigger was two `input_data` keys co-occurring, then self-refuted that when
+  "byte-identical" payloads diverged. They were not byte-identical on the wire.
+- **the check, and it is ONE query — count the MESSAGES, before theorising about their content:**
+  ```sql
+  SELECT left(correlation_id::text,8), count(*) AS msgs, min(octet_length(payload)) AS min_len
+  FROM chassis_intake_events WHERE kind='request' AND correlation_id::text LIKE '<corr>%'
+  GROUP BY 1;
+  ```
+  `msgs > 1` for one dispatch ⇒ you sent fragments, not a message. Read the bytes to be
+  sure: `SELECT kafka_offset, convert_from(payload,'UTF8') FROM chassis_intake_events
+  WHERE correlation_id::text LIKE '<corr>%' ORDER BY kafka_offset;` — they come back one
+  JSON line per row. Measured 2026-08-10 over the bug's 13 recorded correlations: **8 of 8
+  single-message sends resolved to the requested agent; 10 of 10 fragmented sends resolved
+  to `generic`.** No exceptions either way.
+- **the fix, both halves:** SEND with a single-line here-string —
+  `kcat ... <<<'{"action":"orchestrate",...}'` — never a multi-line `<<JSON` heredoc; and
+  `jq -c` anything you generate. The CHASSIS half is bugs_open/239: an orchestration
+  action whose body will not parse, or which names an agent that cannot be resolved, now
+  fails closed (`DISPATCH_FAIL_CLOSED`, a FAILED orchestration row owned by the REQUESTED
+  type, and the intake event marked `failed`) instead of silently running the no-op.
+  **Until that ships in a rolled image, the old silent behaviour is still live** — check
+  the binary: `strings /app/agent-chassis | grep -c DISPATCH_FAIL_CLOSED`.
+- **also:** a direct `orchestrate` publish to this topic bypasses `sites.locked_at`
+  entirely (separate entry below/above), so a "harmless test dispatch" carrying a real
+  `work_item_id` can and did rewrite a live page. Test against a scratch target.
+- **source:** `bugs_open/239` (root cause found 2026-08-10 from `chassis_intake_events`
+  payload bytes); the same kcat mangling was root-caused once before and lost —
+  `WRONG_CALLS.md` 2026-07-26 (bug 015 era), `FOCUS_finetuning_flywheel_and_service(13).md:434`
+- **added:** 2026-08-10, bugfix 239 dispatch lane

@@ -26795,3 +26795,109 @@ from bug 203's fabricated one. Filed as a LANDMINE the same day. Had the owner n
 corrected the premise, that trap would have stayed armed for whoever next reached for the
 queue — and my "do nothing" advice would have accidentally been the safe option, for
 entirely the wrong reason.
+
+---
+
+## 2026-08-10 — bug 239's trigger was characterised twice, wrongly, from payloads as WRITTEN; the deciding evidence was the payloads as RECEIVED, one query away, never opened
+
+**The claims.** `bugs_open/239` said a top-level `orchestrate` dispatch silently ran the
+`generic` no-op "whenever `input_data` carries BOTH `source` and `spec`" — from eleven
+isolated bisecting dispatches, a clean 4-of-4 / 7-of-7 split, stated in the title. Hours
+later the same lane retracted it: byte-identical payloads had diverged ~15 minutes apart,
+so the trigger was "time-dependent, state-dependent or concurrency-dependent — not a pure
+function of the message's own shape". **Both are wrong, and the second is the more
+interesting error, because it was a careful, honest correction that moved AWAY from the
+answer.**
+
+**What was actually true.** `kcat -P` publishes **one message per line of stdin**, applying
+the same `-H` headers to every one. A multi-line heredoc envelope arrives as four to six
+separate Kafka messages, each an invalid-JSON fragment carrying `action=orchestrate`; the
+chassis could not read `config.agent_type` from a fragment and fell through to the
+consuming pod's own workflow — on the shared chassis, `generic`'s no-op. Longer envelopes
+wrap onto more lines, so "`source`+`spec` together" was a proxy for *length*, and
+"byte-identical" was true of the payload as composed and false of the payload as sent.
+
+**What caught it.** `chassis_intake_events` — the intake table that stores every ingested
+message **with its payload bytes**, eight days' retention, so the bug's own dispatches were
+still there. Counting rows per correlation: 8 of 8 single-message sends resolved to the
+requested agent; 10 of 10 multi-message sends resolved to `generic`. No exceptions. Reading
+the bytes showed one JSON line per message.
+
+**Why it wasn't caught.** Every test in the bisection reasoned about the JSON *as the author
+wrote it*. The investigation had a variable it never controlled and never measured — the
+wire format — and because that variable correlated with payload length, it produced a clean
+and completely spurious result that looked like careful science. When the correlation broke,
+the conclusion drawn was "the system is non-deterministic" rather than "my measurement is
+missing a variable". **A refutation is not automatically a step forward: retracting a claim
+without finding what actually varied leaves the same blind spot, now with a licence to stop
+looking.** The cost was eleven dispatches, a re-test round, and a real production incident
+(two "isolated tests" carrying a live `work_item_id` regenerated a live page's hero binding;
+recovered same session).
+
+**The cheap check, and it is one query that counts ROWS, not content:**
+```sql
+SELECT left(correlation_id::text,8), count(*) AS msgs
+FROM chassis_intake_events WHERE kind='request' AND correlation_id::text LIKE '<corr>%'
+GROUP BY 1;
+```
+`msgs > 1` for one dispatch ⇒ you sent fragments, not a message. **Ask how many messages
+arrived before theorising about what was in them.** More generally: when a bug looks
+non-deterministic on "identical" input, ask what identical was measured AT, and find the
+layer that records what actually arrived. Reasoning about what you meant to send is not
+evidence about what was received.
+
+**Not the first time, which is the real indictment.** The same kcat line-splitting was
+root-caused in this estate on 2026-07-26 (bug 015 era, recorded further up this file:
+*"The chassis did not fail visibly. It created an `orchestration_states` row … with
+`input_data: null`, a fallback no-op `agent_config` … and marked it `COMPLETED`"*) and again
+in `FOCUS_finetuning_flywheel_and_service(13).md:434` with the fix stated —
+*"use shell here-string `<<<'…'` with flat single-quoted JSON"*. It was in neither
+`LANDMINES.md` nor 016b §9, so it was unfindable by anyone who didn't already know. **It is
+now a landmine entry** — which is the actual lesson: a root cause that lives only in one
+lane's narrative doc will be paid for again, in full, by the next lane.
+
+**Also logged, separately from the above:** I nearly shipped the fix without checking what
+a "fail closed" refusal would do to the 711 legitimate orchestrate messages that name no
+agent type at all (call_agent/spawn envelopes carrying an inline workflow) and the 9,433
+scheduler ticks. The census took one query over the same table and showed both populations
+are untouched by the change. **Measure the blast radius before submitting, not in the
+risks block** — CLAUDE.md's own ruling from `bugs_closed/124`, and the query was already
+open in front of me.
+
+---
+
+## 2026-08-10 — I wrote a LANDMINE whose consequence clause I had not observed (ideauk sec)
+
+**The claim.** A new fleet landmine, written and committed this evening: *"A `090`
+verdict describes the code the INDEX holds, NOT `HEAD` — so a fix you committed
+after filing is invisible, and CONFIRMED reads exactly like a live bug."*
+
+**What was actually true.** The measurements were sound and stand: the code index's
+`max(updated_at)` was 08:35 UTC, the fix was committed 18:16 UTC, and all five
+bundle iterations rendered the pre-fix query. But the *consequence* — a confirmed
+verdict about superseded code, mistaken for a live bug — **never happened in the run
+I cited for it.** That run produced **no verdict at all**: `orchestration_states`
+`COMPLETED`, five bundles, and the work item `failed` with *"timed out after 3
+retries (CHILD_ORCHESTRATION_FAILED)"*. It failed honestly, which is the opposite of
+the silent-wrong-answer the entry warns about.
+
+**The shape, and why this one stings.** LANDMINES is the file whose entire purpose
+is *"the wrong result looks exactly like the right one"* — and I wrote the risk in
+the same voice as the evidence, in the entry meant to protect other sessions, having
+just spent the day correcting exactly that pattern elsewhere. It is also synced into
+`doc_notes`, so agents read it. Corrected in place with a dated note separating the
+[MEASURED] staleness from the [INFERRED] consequence, and re-synced.
+
+**The cheap check.** **Before writing a landmine, ask which clause you SAW.** An
+entry has two halves — the mechanism (measurable now) and the damage (usually
+historical). If the damage half comes from reasoning rather than from an incident,
+mark it, or find the incident. Here I had the mechanism at 18:45 and assumed the
+damage; the run's own `error` column contradicted me fifteen minutes later.
+
+**One thing genuinely learned, and it is the useful residue.** "Several bundles and
+no verdict" has at least **three** causes — a body over the render cap, a real
+timeout, and a run still working — and the artefacts alone cannot separate them.
+The discriminator is the work item's `error` column, which said so in one line. I
+had reached for the documented cap explanation first, checked it (no omitted-body
+marker, function body present), correctly ruled it out — and then invented a third
+story instead of reading the error.
