@@ -1862,3 +1862,67 @@ time of writing, and **the code is already on the shared branch**, so a REVISE m
 acted on rather than noted. Then: dry-pool top-up + notification (PLAN §13 ruling 4, not
 started), and `/blog/provocation.html` (ruling 8, delegated, not started). Neither safety
 ruling's *second* half — varied-framing sampling — is implemented by anyone yet.
+
+### Council `73dc4e78` — APPROVED r1, and the `reuse_agent` objection found a REAL BUG
+
+11 seats, 8 abstained. Approved with 2 advisory objections. Four were checkable and
+were checked:
+
+1. **`editquality`, medium — "publish.go is asserted to be the ONLY place a round
+   becomes public but the plan provides no evidence".** Fair: I asserted it.
+   **Measured: it IS the only path.** `store.PublishRound` has exactly one caller
+   (`publish.go:100`), and `published_at`/`public_slug` are written in exactly one
+   statement (`rounds.go:226-227`), inside it. The gate is a genuine choke point —
+   now measured rather than claimed.
+2. **`guardian`, low — "the `siteID` guard depends on `siteID` being reliably
+   available".** It is set once, in middleware (`middleware/cors.go:32`, from
+   `site.ID`), and `PublishHandler` already trusted that same value for
+   `PublishRound`. My check introduces no new assumption.
+3. **`guardian`, medium — "confirm the gauntlet lane isn't mid-edit".** Checked
+   before editing (clean) and again after: `internal/tools-api/clientip/clientip.go`
+   IS being edited by another session right now — a **different file** from the three
+   I touched. No overlap. **And the island deploy has NOT been fired by me**, which
+   is the other half of that objection.
+4. **`reuse_agent`, medium + `constitution`, low — REUSE BEFORE RECREATE:
+   `datahelpers` already has claim-detection machinery and I searched for none of
+   it.** ⚠ **THE SEAT WAS RIGHT AND IT FOUND A REAL DEFECT.** Not the one it named,
+   which makes it more useful. `ScanBannedClaims` genuinely does not fit — it is a
+   method on `*EvidenceBase`, answering "does this text claim something this site's
+   registered evidence base bans", which needs `site_specs` that tools-api cannot
+   reach. **But `datahelpers.NegationGuard` fits exactly, and I had NO negation
+   handling at all**, so `"Nolan did not steal the script"` was refused — a
+   **DEFENCE** of the named person, which is the precise opposite of the point.
+
+**What I did about (4).** Implemented the guard, on the doctrine the existing one
+states in its own comment: *"Two vocabularies, one algorithm"* (`bugs_open/222`),
+with `check_tool_fabrication_action.go` as the existing precedent for a second
+domain building its own cues. **Why the type is not imported, measured not
+asserted:** `datahelpers` drags goquery, cascadia and five tdewolff minify packages
+into a service that parses no HTML — 12+ heavy transitive deps for a three-field
+struct, in a binary shipped to one small VM by scp.
+
+⚠ **That leaves the ALGORITHM duplicated and I am not pretending otherwise.** The
+clean fix is extracting `NegationGuard` into a leaf package both sides import;
+recorded as an RFC_020 follow-up rather than done here, because moving a symbol out
+of `datahelpers` is a platform change with its own review. **A third copy should be
+the extraction, not another paste.**
+
+**Three more vocabulary gaps fell out of writing the negation tests**, each of which
+would have let a real allegation through: the list had `stole/stolen/steals` but not
+**`steal`**; `plagiarised/plagiarized` but not **`plagiarise`/`plagiarize`**;
+`embezzled` but not **`embezzle`**. Found only because a negation test needed a term
+that matched and did not get one — a test failing for the "wrong" reason exposed a
+detection hole.
+
+**One decision recorded AGAINST a test I had written.** Negation scans backwards
+only, so a rebuttal that FOLLOWS ("the accusation that X laundered money is
+baseless") is still refused. Forward-looking negation was considered and **rejected**:
+it cannot distinguish "X stole it — that is baseless" from "X stole it and the
+studio's denial is baseless", and that fails in the direction that matters. Pinned as
+`TestTrailingRebuttalsAreAKnownResidual`, the same shape as datahelpers'
+`TestBareNoIsAKnownResidualOfTheSharedGuard`, so anyone implementing forward
+negation has to argue with the reasoning first.
+
+**Left open:** `architecture` recorded that no real-traffic corpus exists to validate
+the false-positive rate — correct, and it is measurable from `logPublishRefusal`'s
+signals once there is traffic, not before.

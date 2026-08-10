@@ -107,11 +107,11 @@ func opensSentence(text string, i int) bool {
 // because a site built for argument must permit them.
 var allegationTerms = []string{
 	"fraud", "fraudulent", "scam", "scammer", "con artist", "conman",
-	"stole", "stolen", "steals", "stealing", "theft", "plagiarised", "plagiarized", "plagiarist",
+	"steal", "stole", "stolen", "steals", "stealing", "theft", "plagiarise", "plagiarize", "plagiarised", "plagiarized", "plagiarising", "plagiarist",
 	"lied", "lying", "liar", "dishonest", "deceived",
 	"corrupt", "corruption", "bribe", "bribed", "kickback",
 	"criminal", "crook", "convicted", "arrested", "prosecuted", "guilty",
-	"embezzled", "embezzlement", "laundering", "laundered", "launders",
+	"embezzle", "embezzled", "embezzlement", "laundering", "laundered", "launders",
 	"defrauded", "defraud", "defrauding", "tax evasion", "evaded tax",
 	"abuser", "abusive", "assaulted", "assault", "harassed", "harassment",
 	"groomed", "grooming", "paedophile", "pedophile", "predator",
@@ -132,6 +132,73 @@ var standaloneTerms = []string{
 	"rapist", "raped",
 }
 
+// ---------------------------------------------------------------------------
+// Negation — added 2026-08-10 after the council's `reuse_agent` seat objected
+// ---------------------------------------------------------------------------
+//
+// The seat was RIGHT and it found a real defect, not a process complaint: without
+// this, "Nolan did not steal the script" was flagged as an allegation. That is a
+// DEFENCE of the named person, and refusing to publish it is the opposite of what
+// this package is for.
+//
+// THE ALGORITHM IS DELIBERATELY THE ONE ALREADY IN THIS ESTATE —
+// `platform/orchestration/datahelpers.NegationGuard`, factored out under
+// `bugs_open/222` with the explicit doctrine: "Two vocabularies, one algorithm."
+// A bounded backwards window, trimmed to the current clause, tested against a cue
+// regex. `check_tool_fabrication_action.go` already builds its own guard with its
+// own cues on that sanctioned pattern, and this is the second.
+//
+// WHY THE TYPE IS NOT IMPORTED, measured rather than asserted: `datahelpers`
+// drags goquery, cascadia and five tdewolff minify packages into a service that
+// parses no HTML — 12+ heavy transitive dependencies for a struct of three
+// fields, in a binary that ships to a single small VM by scp.
+//
+// ⚠ THAT LEAVES THE ALGORITHM DUPLICATED, and this comment is not a licence for
+// it. The clean fix is extracting `NegationGuard` into a leaf package both sides
+// can import; it is recorded as a follow-up in RFC_020 rather than done here,
+// because moving a symbol out of `datahelpers` is a platform change with its own
+// review. If you are reading this because you are about to write a THIRD copy:
+// do the extraction instead.
+var (
+	// Allegation-appropriate cues. Deliberately NOT datahelpers' vocabulary,
+	// which excludes bare "no"/"without" because in marketing prose those are
+	// intensifiers. Here they are genuine negators — "no evidence Nolan stole
+	// it" must not read as an allegation.
+	negationCueRe = regexp.MustCompile(
+		`(?i)\b(?:not|never|nor|cannot|no|without|denies|denied|deny|unfounded|baseless|` +
+			`false(?:ly)?|untrue|disproven|debunked|acquitted|cleared|exonerated|` +
+			`unable to|fails? to|failed to|refuses? to)\b` +
+			`|[a-z]n['’‘]t\b` +
+			`|\b(?:cant|dont|doesnt|didnt|isnt|arent|wasnt|werent|hasnt|havent|hadnt|wont|couldnt|shouldnt|wouldnt)\b`)
+
+	// A cue must be in the SAME CLAUSE as the term, or "Nolan stole it, and no
+	// one minds" would read as negated.
+	negationBoundary = ".!?;:,<>\n\r\t\u2013\u2014"
+)
+
+// negationWindowBytes bounds the backwards scan. Wider than datahelpers' 64
+// because an allegation cue can sit further from its negator ("there is no
+// credible evidence that he ever plagiarised").
+const negationWindowBytes = 96
+
+// negated reports whether the term at byte offset pos is negated by a cue in the
+// same clause. Multibyte-safe: the window is trimmed to a rune boundary, which is
+// the bug datahelpers' comment records having cost real effort to get right.
+func negated(text string, pos int) bool {
+	start := pos - negationWindowBytes
+	if start < 0 {
+		start = 0
+	}
+	for start < pos && !utf8.RuneStart(text[start]) {
+		start++
+	}
+	window := text[start:pos]
+	if i := strings.LastIndexAny(window, negationBoundary); i >= 0 {
+		window = window[i+1:]
+	}
+	return negationCueRe.MatchString(window)
+}
+
 // Scan reports why text must not be published, or nil if nothing was found.
 //
 // Nil means "this layer found nothing", NEVER "this text is safe" — see the
@@ -145,7 +212,7 @@ func Scan(text string) []Finding {
 
 	// 1. Standalone terms, regardless of any name.
 	for _, t := range standaloneTerms {
-		if strings.Contains(lower, t) {
+		if i := strings.Index(lower, t); i >= 0 && !negated(text, i) {
 			out = append(out, Finding{Kind: "standalone-allegation", Match: t, Term: t})
 		}
 	}
@@ -163,6 +230,9 @@ func Scan(text string) []Finding {
 	// tokens are only ever examined in the neighbourhood of an allegation, so the
 	// ordinary naming that IS the product is never inspected.
 	for _, occ := range allegationOccurrences(lower) {
+		if negated(text, occ.start) {
+			continue
+		}
 		if name, ok := nameNear(text, occ, proximityWords); ok {
 			out = append(out, Finding{Kind: "named-allegation", Match: name, Term: occ.term})
 		}

@@ -148,3 +148,82 @@ func TestTheProximityTestsWouldCatchTheWindowBeingRemoved(t *testing.T) {
 			"proximity tests cannot detect it being removed", withWindow)
 	}
 }
+
+// Negation. Added after the council's reuse_agent seat objected that this package
+// reimplemented existing claim machinery — the objection found a REAL DEFECT:
+// before this, "Nolan did not steal the script" was refused. That is a DEFENCE of
+// the named person, and refusing to publish it is the opposite of the point.
+func TestDefendingSomeoneIsNotAnAllegation(t *testing.T) {
+	for _, s := range []string{
+		"Nolan did not steal the script and the claim was always nonsense.",
+		"There is no evidence Christopher Nolan plagiarised anything.",
+		"Dr Palmer never falsified the trial data.",
+		"He wasn't arrested, and people should stop repeating it.",
+		"Sandra Whitcombe was cleared of embezzlement years ago.",
+	} {
+		if f := Scan(s); f != nil {
+			t.Errorf("REFUSED a DEFENCE of a named person:\n  %q\n  %+v", s, f)
+		}
+	}
+}
+
+// The guard must not swallow the thing it guards: a cue in a DIFFERENT clause
+// leaves the allegation standing. Without this, "Nolan stole it, and no one
+// minds" would read as negated and publish.
+func TestNegationMustBeInTheSAMEClause(t *testing.T) {
+	if f := Scan("Nolan stole it, and no one seems to mind."); f == nil {
+		t.Error("a cue in a later clause negated an allegation in an earlier one")
+	}
+	if f := Scan("Nobody disputes the facts. Nolan plagiarised it."); f == nil {
+		t.Error("a cue in a previous SENTENCE negated the allegation")
+	}
+}
+
+// Mutation control for the guard. If negation were dropped — the plausible
+// regression, since it is pure subtraction — the defence cases would flip to
+// refused. Asserts the two behaviours genuinely differ.
+func TestTheNegationTestsWouldCatchTheGuardBeingRemoved(t *testing.T) {
+	defence := "Nolan did not steal the script."
+
+	withGuard := Scan(defence) != nil // expected false
+
+	// The weakened variant: same detection, no negation check.
+	withoutGuard := false
+	for _, o := range allegationOccurrences(strings.ToLower(defence)) {
+		if _, ok := nameNear(defence, o, proximityWords); ok {
+			withoutGuard = true
+			break
+		}
+	}
+
+	if withGuard == withoutGuard {
+		t.Fatalf("negation makes no difference on a defence (both %v), so these "+
+			"tests cannot detect the guard being removed", withGuard)
+	}
+}
+
+// A KNOWN RESIDUAL, pinned deliberately — the same shape as datahelpers'
+// TestBareNoIsAKnownResidualOfTheSharedGuard.
+//
+// The negation guard scans BACKWARDS only, so a rebuttal that FOLLOWS the
+// allegation does not negate it: "the accusation that X laundered money is
+// baseless" is refused. That is a false positive and it is the CHOSEN behaviour,
+// not an oversight.
+//
+// Forward-looking negation was considered and rejected on the asymmetry this
+// package is built around: a false positive costs one visitor a share button, a
+// false negative is the incident. A forward cue cannot tell "X stole it — that is
+// baseless" from "X stole it and the studio's denial is baseless", and getting
+// that wrong fails in the direction that matters.
+//
+// This test exists so the behaviour is a recorded decision rather than a
+// surprise, and so that anyone who DOES implement forward negation has to come
+// here and argue with the reasoning first.
+func TestTrailingRebuttalsAreAKnownResidual(t *testing.T) {
+	s := "The accusation that Aldridge Holdings laundered money is baseless."
+	if f := Scan(s); f == nil {
+		t.Fatal("a trailing rebuttal now negates the allegation — that is a CHANGE " +
+			"in behaviour, and the reasoning in this test's comment must be " +
+			"revisited before accepting it")
+	}
+}
