@@ -304,3 +304,61 @@ Zero usage-limit deaths since the roll; 20 orchestrations COMPLETED. So:
   dispatched 22:08:49Z — 25 min after pod start, clear of the ~300s post-restart drop window.
   kcat's exit status was ignored (it exits 0 having sent nothing); the orchestration ROW is
   the evidence it landed.
+
+## 2026-08-10 (late) — the induced runs were NOT DISCRIMINATING, and my own test queued 41 work items
+
+### Both pool-site runs returned `imagery_refs_canonicalised: 0` — and that is not evidence
+
+| run | site | pages emitted | canonicalised | unresolved | merged |
+|---|---|---|---|---|---|
+| `823d4e22` | pool-ai-agents.internal | about, contact, index, services, use-cases — **all `content`** | 0 | 0 | 0 |
+| `6d0e6a59` | pool-energy-utilities.internal | about, contact, faq, index, services — **all `content`** | 0 | 0 | 0 |
+
+`CanonicalisePage` renames nothing under the `content` role, so **no rename occurred and
+the fix had nothing to do.** That zero would have been zero on the old binary. Recording
+it as "verified live" would be exactly the failure the standing rule names: *a `[MEASURED]`
+figure is only evidence if the measurement could have come out otherwise.*
+
+**What the runs DO establish**, and it is worth having:
+
+1. **The new code path executes in production.** `collected_data->'plan_written'` carries
+   `imagery_refs_canonicalised`, `imagery_refs_unresolved`, `imagery_duplicates_merged` —
+   keys that cannot exist without this change.
+2. **No regression.** 10 imagery rows written on the first plan, 0 unresolved, and every
+   ref resolves to a page the plan contains.
+
+**To actually close it:** the first replan of a site that HAS `-index` pages
+(`gamesdesign.co.uk`, `dartsonline.com`, `robot-hands.com`). Then
+`imagery_refs_canonicalised` must be **> 0**. Deliberately not forced — replanning a
+customer site to harvest a number rewrites a live site's plan, which is not this lane's to
+do.
+
+### MISSTEP 4: my "safe" test queued 41 work items, 24 of them paid image generations
+
+I chose pool sites specifically because nothing serves them. I did not think about what the
+pipeline does **behind** a plan write. Each run queued a full build backlog:
+
+```
+pool-ai-agents.internal        19 open items (10 needs_imagery, 4 needs_page, ...)
+pool-energy-utilities.internal 22 open items (14 needs_imagery, 5 needs_page, ...)
+```
+
+**24 `needs_imagery` items, each of which would have triggered a paid image generation on a
+throwaway site**, plus page builds — and one `needs_page` had already been `claimed` by a
+dispatch loop before I noticed.
+
+All 41 cancelled in one transaction with a `DO`/`RAISE` guard asserting 0 remaining
+(`UPDATE 41`, notice fired). Plans and undeployed pages left: they are inert, and they do
+**not** pollute the R1 census, because the planner's own `sync_pages` step created matching
+`pages` rows so their refs resolve — checked rather than assumed, census still **1**.
+
+**The check, and it generalises past this lane:** *"nothing serves this site" is not the
+same as "nothing happens".* After ANY induced dispatch, query `site_work_items` for that
+site before walking away. A test that is safe at the artefact can still be expensive at the
+queue.
+
+### Council round 2 is genuinely running
+
+`gate_tooling_provenance` / `EXECUTING_STEP` on orch `8a54fbc4-...`, trail correlation
+`46a50b4c-...` — i.e. a real run this time, not the `complete_invalid` death of round 1.
+Verdict not yet written; nothing in this lane claims one.
