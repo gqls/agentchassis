@@ -25915,3 +25915,51 @@ assertion that returns the expected answer for a reason unrelated to what is bei
 and in both cases the reassuring answer arrived on the first try, from a check that had been
 reviewed as sound and written into three documents. The tally is the point: for this class,
 "did it pass?" is the wrong question and "could it have failed, here, today?" is the right one.
+
+---
+
+## 2026-08-10 — my whole test suite passed while the fix was UNWIRED, and it was the half of the bug I had discovered myself (`bugfix_223_index_answerability`)
+
+**The claim, and it was implicit rather than written down — which is why it nearly escaped.**
+Fixing `bugs_open/223` (the code index's blind spots narrated as absence), I built the
+guards, wrote twelve unit tests covering every new function, watched them pass, and was
+one step from calling them proof. The estate's own rule says mutate the code to prove a
+guard, so I did: seven mutations, one per guard.
+
+**Six died. One passed.** Replacing the `ls` arm's `b.WriteString(scope.lsReachNote())` with
+`b.WriteString("")` — deleting the fix entirely at its call site — kept the whole suite
+green.
+
+**Why it survived.** Every test exercised the rendering **helpers**: `lsReachNote()` returns
+the right sentence, given a scope. Nothing asserted that anything ever *calls* it. The
+helper and its tests were a closed loop, and the loop was satisfiable with the product
+disconnected from the pipeline.
+
+**Why this one stings more than an ordinary gap.** That rendering is the fix for the
+FALSE-POSITIVE half of the bug — the half the bug file does not record, which I found by
+measurement (`ls scripts/` returns 110 indexed Go paths while every `.py` and `.sh` under it
+is invisible, so a generous listing reads as confirmation). The finding I was most confident
+of was the one guarded by nothing. **Discovering a failure mode does not protect you from it
+in your own work**; if anything the pride in the finding is what stops you checking whether
+it is wired.
+
+**The cheap check that would have caught it, and it costs one line of thought per guard:**
+for each guard, ask **"which test fails if I delete the CALL, not the function?"** A test that
+names the helper cannot answer that; only a test that goes through the seam can. Concretely
+here: `answerCodeCheck` + `sqlmock` + a scope fixture with a populated census, asserting the
+sentence lands in the builder. Three such tests were added and the mutation now dies.
+
+**The generalisation, which is the transferable part:** `go vet` and the compiler catch an
+*unused* function, so an unwired helper feels like it would be caught — but a helper called
+from a live code path that has been *neutered in place* (`WriteString("")`, an `if false`, a
+dropped return value) is still "used", still compiles, still vets clean. **The type system
+protects you from the unwired function and not from the unwired effect.** This is the same
+shape as the estate's standing entries on `a-helper-with-no-callers-is-not-a-refactor` and
+`writes-the-field-is-not-reads-the-field`, arriving through the test suite rather than
+through the code — so the tally now covers both ends: a fix can be absent from the pipeline
+*and* fully covered by tests, simultaneously, with nothing red.
+
+**Corollary for anyone reviewing this class of change:** a diff that adds a rendering
+helper plus tests for that helper is not evidence the rendering happens. Ask for the
+mutation at the call site. It is the difference between "this function is correct" and
+"this program does it".
