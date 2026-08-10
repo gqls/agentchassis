@@ -562,3 +562,73 @@ candidate 1 before any css-patch dispatch, then A2.
   kafka-scheduler rolled to v1.0.1280 ~15:40Z, single pod, no scheduler source change
   committed (the bump is the fleet roll); 128Mi limit unchanged; 090 diagnosis row reads
   complete. Remaining four fire only after loancash proves the path.
+
+## 2026-08-10 (late afternoon) — the estate sweep completes; and a CORRECTION to the entry above
+
+> **CORRECTED 2026-08-10, same session, ~1h after writing it.** The entry above calls
+> stamp-before-dispatch "the rotation's stamp-before-dispatch gap" as though newly found.
+> **It is documented and deliberate**: SCH-025's register entry
+> (`register/scheduler-and-tasks.md:223`) states "the stamp records **selection, not
+> completion**, so a site whose run fails cannot pin the rotation head (the
+> SCH-008/`bugs_open/048` starvation shape)", and its landmine already says "the rotation
+> stamps and the task rows' `last_triggered_at` are BOTH fire-and-forget — neither proves
+> an examination ran." I wrote the characterisation before reading the owning lane's
+> register entry. **What caught it:** grepping SCH-025 while looking up who owns the
+> mechanism — i.e. the CLAUDE.md "check who owns it" step, done one step too late.
+> **The cheap check:** read the owning register entry BEFORE describing another lane's
+> mechanism as defective. Logged in WRONG_CALLS. What IS new is narrower and stands —
+> the failure path below, and the watchdog's blindness to it.
+
+**The narrower finding, verified first-hand (no 090 run — substitute verification stated
+per the 2026-07-31 ruling: source ordering read, empirical pairing measured, watchdog's
+own output row read):**
+
+- **Source ordering, `cmd/scheduler/main.go`:** `runPreQuery` (:427, which COMMITS the
+  rotation stamp inside its data-modifying CTE) → `fireTrigger` (:278) → `stampCompleted`
+  (:287, advancing the task's own `last_triggered_at`). **The rotation stamp is committed
+  before the dispatch can fail.** Both failure paths lose the site: a `fireTrigger` error
+  `continue`s without stamping the task (:281 — correct, it retries next tick), and a
+  crash does the same; either way the task re-fires and its pre_query picks the NEXT
+  site, so the skipped one waits a full 7-day period having never been examined.
+- **Measured, per-site join of `site_discovery_rotation` against `orchestration_states`
+  (32-min window, generous):** 12 quality stamps since 08-09 18:00Z, **5 with no run** —
+  webdesign.co.uk 22:00:22, lendzy.co.uk 23:01:22, oufe.com 00:04:45, relojistas.com
+  01:07:07, loancash.co.uk 02:11:16. The pairing is the tell: each lost stamp is followed
+  ~30s later by a second stamp that DID run — one scheduler restart, two pre_query
+  executions. loancash has no pair because it was last: the estate was then fully stamped,
+  so the rotation went idle with that site unexamined.
+- **The watchdog reported CLEAN the next morning** (`doc_notes` subject_key
+  `site-discovery-staleness`, 2026-08-10 06:35:09Z): "stamps advanced last 24h: quality
+  21 / discovery orchestrations last 24h: quality 24 … findings: 0 … selections are
+  producing runs." It compares **fleet totals**, so 5 lost dispatches hid behind an
+  aggregate inequality — and our own three oneshot runs inflated the numerator that
+  cleared it. The register is honest that the detectable shape is *zero* orchestrations;
+  the doc_notes prose "selections are producing runs" reads as a per-site guarantee and
+  is what would mislead a reader. **Contributed to bugfix_230's lane, not filed here** —
+  their mechanism, their call.
+
+**Estate sweep now COMPLETE — all 21 active/deployed sites examined by both offer checks.**
+Fired oneshots for the five lost sites (loancash first as the dispatch health-probe: it is
+a predicted positive, so a completed run + the predicted item proves scheduler AND detector
+in one shot). All five COMPLETED, all rows disabled after firing.
+
+**Day-one offer population, and every silence hand-verified:**
+
+| site | model | offer-check outcome | verified how |
+|---|---|---|---|
+| loancash.co.uk | (none) | `needs_strategy` filed | deployed, 18 shipped pages, 0 current strategy rows |
+| loanandmortgagecalculator.co.uk | (none) | `needs_strategy` filed | deployed, 0 current strategy rows |
+| gaswholesalers.com | (none) | `needs_strategy` filed 08-09 | old shape, no `revenue_models` |
+| mortgagecalculator.co.uk | lead_generation | `missing_conversion_path` filed | `contact-index` is `planned` (never shipped); shipped contactish fallback is `index` (landing), no form in any component; the only `<form>`s are calculator inputs |
+| oufe.com | direct_business | silent | TRUTHFUL — `contact` is deployed, carries a form, and is linked from chrome (retraction arm) |
+| webdesign.co.uk, gamesdesign.co.uk, robot-hands.com | saas_tools | silent | TRUTHFUL — word-bounded grep of all 12 lexicon phrases over every shipped component of all three returns ONE hit, and it is PROSE ("If you start a project on your laptop…", learn-operations-browser-storage). **First live vindication of the anchor/button-text-only decision**: a whole-HTML matcher false-positives here |
+| lendzy.co.uk, relojistas.com | display_advertising | silent | TRUTHFUL — zero lexicon hits across all shipped components |
+| vetcomparison.uk | sponsored_listings | silent | **BY DESIGN, not by cleanliness** — the model switch's `default` arm states no rule for it (check_revenue_shape.go:242-245). Worth stating out loud: this silence carries no information about that site |
+| loancalculator.co.uk | affiliate | capability_gap (08-09) | affiliate machinery does not exist on this platform |
+| remaining 9 direct_business | direct_business | silent | not individually re-verified this session [UNVERIFIED] — the conversion-path arm ran on each |
+
+- **noted.co.uk is NOT a miss**: created 16:10Z today by another lane, 0 shipped pages, so
+  the rotation has not reached it and premise_incomplete's shipped-only predicate would
+  correctly stay silent anyway (the greenfield exclusion working as designed).
+- **Ledger rows 358/359/361 STILL OWED** — re-checked 15:45Z, `schema_migrations` returns
+  0 rows. Council round 3 remains blocked on them.

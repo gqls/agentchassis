@@ -26122,3 +26122,42 @@ Recordings, photos and version history were being silently dropped — so the wi
 owner asked for would have sent users to a button that loses exactly the data they cannot retype.
 **The real bug was one function below the fictional one, and only the behavioural check found
 either.**
+
+---
+
+## 2026-08-10 — I called another lane's deliberate design a "gap" because I read the live system but not their register entry
+
+**The claim, written into committed NOTES** (`vigilant_designer_offer_analysis`, commit
+`ecd0431b9`): "⚠ FOUND: five sites STAMPED BUT NEVER CHECKED — the rotation's
+stamp-before-dispatch gap." Framed as a discovery about SCH-025's site-discovery rotation.
+
+**Why it was wrong.** Stamp-before-dispatch is documented and deliberate. SCH-025's register
+entry (`register/scheduler-and-tasks.md:223`) says the stamp records "**selection, not
+completion**, so a site whose run fails cannot pin the rotation head" — the `bugs_open/048`
+starvation shape, traded away on purpose — and its landmine line already reads: "the rotation
+stamps and the task rows' `last_triggered_at` are BOTH fire-and-forget — neither proves an
+examination ran."
+
+**What caught it.** Grepping `SCH-025` to find out who owned the mechanism, so I could
+contribute rather than compete — CLAUDE.md's "check who owns it" step, performed one step too
+late. I had already written the characterisation.
+
+**The cheap check: read the owning register entry BEFORE describing another lane's mechanism
+as defective, not before routing work at it.** I had done the live-system half thoroughly —
+read the `pre_query`, joined stamps against orchestrations, measured 5 losses in 12 stamps —
+and that rigour is exactly what made the framing feel earned. Measuring a mechanism tells you
+what it does; it cannot tell you whether someone already decided it should do that.
+
+**The part worth generalising.** *Empirical evidence about a mechanism is not evidence about
+the intent behind it, and my confidence did not distinguish the two.* Everything I measured
+stayed true after the correction — five stamps really did produce no run. What collapsed was
+the word "gap", which is a claim about someone's *intent*, and no query can return it. When a
+finding concerns a mechanism another lane built, the prior art lives in their register entry
+and their docs, not in the database.
+
+**What survived, and it is the better finding.** The narrower claim held up and was worth
+contributing: their daily staleness watchdog compares *fleet totals* (21 stamps vs 24
+orchestrations → clean), so a **partial** dispatch loss of any size is invisible to it, and
+unrelated oneshot runs — including my own three — inflate the very numerator that clears the
+check. Filed as evidence into their lane
+(`bugfix_230_discovery_driver/CONTRIB_2026-08-10_…`), not as a bug in mine.

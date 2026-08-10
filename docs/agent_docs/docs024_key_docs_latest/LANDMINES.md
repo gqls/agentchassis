@@ -8224,3 +8224,40 @@ code change owed at the next roll, tracked in RFC_015 §5.
   settled it in one command, and the second blocker was only found by reading the
   body of a 200
 - **added:** 2026-08-10, webdesign_uk_build_service lane
+
+---
+
+## The site-discovery staleness watchdog's "clean" row cannot see a PARTIAL dispatch loss — and your own oneshot runs pad the count that clears it
+
+- **footprint:** `doc_notes` rows with `subject_key = 'site-discovery-staleness'`,
+  `site_discovery_rotation`, `deployments/kustomize/services/site-discovery-staleness-check/`,
+  the `site-discovery-rotation-{quality,design,completeness}` `scheduled_tasks` rows,
+  `cmd/scheduler/main.go` (`runPreQuery` → `fireTrigger` → `stampCompleted`)
+- **fires when:** you ask "has every site actually been examined?" and read the watchdog's
+  daily row. It answers with **fleet totals** — "stamps advanced last 24h: quality 21 /
+  discovery orchestrations last 24h: quality 24 … findings: 0 … selections are producing
+  runs" — which is a count comparison, not a per-site join. On 2026-08-10 06:35Z that exact
+  row read clean while **five specific sites** had been stamped hours earlier and never
+  examined. No symptom precedes this: the sites look checked-and-clean, and the difference
+  between "examined, nothing found" and "never examined" is invisible in every stamp column
+- **why the loss happens at all** (deliberate, not a defect — SCH-025 trades it for
+  `bugs_open/048`'s starvation shape): the rotation stamp COMMITS inside the pre_query,
+  before the dispatch can fail. Any `fireTrigger` failure or crash then leaves the task due,
+  and its retry's pre_query picks the NEXT site — so the skipped one waits a full 7-day
+  period. Measured 2026-08-09/10 during the kafka-scheduler OOM incident: 5 of 12 quality
+  stamps produced no orchestration, each loss followed ~30s later by a stamp that did run
+- **the second trap, and it is the nastier one:** the check gets **less** sensitive exactly
+  when someone is working those agents. Any hand-fired oneshot counts toward
+  "discovery orchestrations last 24h" — three of that morning's 24 were a lane's own
+  targeted re-fires — so your remediation inflates the numerator that clears the check on
+  the loss you are remediating
+- **the check:** join per site, never compare totals —
+  `site_discovery_rotation` stamps LEFT JOIN `orchestration_states`
+  (`owner_agent_type = '<agent>-discovery-agent'`, domain match, `created_at` BETWEEN
+  stamp − 2 min AND stamp + 30 min); any stamp with no run is a site that was consumed and
+  never examined. Do not "verify" the rotation by reading stamps, `last_triggered_at`, or a
+  clean watchdog row — SCH-025's own landmine says the first two are fire-and-forget; this
+  entry adds that the third is a total-silence detector, not a per-site one
+- **source:** `bugfix_230_discovery_driver/CONTRIB_2026-08-10_five_stamps_produced_no_run_and_the_watchdog_read_clean.md`
+  (evidence, source ordering, the 12-stamp table); the mechanism belongs to bugfix_230/SCH-025
+- **added:** 2026-08-10, vigilant_designer_offer_analysis lane
