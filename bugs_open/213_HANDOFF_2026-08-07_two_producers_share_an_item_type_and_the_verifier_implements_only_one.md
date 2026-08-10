@@ -1,5 +1,34 @@
 # 213 — two producers file under one `item_type`; the completion verifier implements only one of their predicates, so the other's items close `complete` untouched
 
+> ## STATUS 2026-08-10 — OWNED, FIX COMMITTED, NOT YET LIVE
+>
+> Lane: `docs024_key_docs_latest/bugfix_213_verifier_producer_join/`. Fix committed
+> `2d151c41f`; council **submitted, verdict not read**, corr
+> `c9c7c83f-d706-48b0-b433-55de51d88f9f`. **Go is inert until the next chassis roll —
+> it is NOT in `v1.0.1283`**, so the defect below is still reproducible today and this
+> file stays OPEN.
+>
+> **§4's table is out of date and understates it.** Re-measured 2026-08-10: producer-B
+> `complete` is **11**, not 7 — four more closed clean while this file sat open — and
+> the asymmetry it identifies is now 11-vs-0 (no producer-B item has EVER reached
+> `unresolved` or `detected`) against 8 producer-A failures. §4's own warning stands
+> and is reinforced: that is not a count of 11 false completes.
+>
+> **What shipped**, in two halves. (A) `dark_section` gets its own item_type,
+> `dark_section_audit` — this file's candidate 1, vacating the only two-producer
+> verified type in the fleet. (B) the general closure: `VerifierPolicy.Grades`, an
+> opt-in scope test at the completion gate. **It keys on the ROW (`target.Spec`), never
+> on a producer list** — §5.3's refutation of candidate 3 is exactly right and this
+> design answers it rather than working around it: asking *"is this the item my
+> predicate re-runs?"* needs no enumeration, cannot go stale against live config, and
+> grades a well-shaped item from a producer that does not exist yet.
+>
+> **Still owed:** read the verdict; migration `374` after the roll; and the
+> remediation this file is right to insist on — grade each of the 11 against its own
+> `acceptance_test`, not as a block. Full record + the mutation matrix (the test
+> asserts "at least one half holds", not both — stated because it matters) in the
+> lane's NOTES.
+
 **Filed** 2026-08-07 by the `bugfix_122_contrast_ink_slots` lane, found while
 diagnosing `bugs_open/212`. **Not a colour bug** — 212 is the worked instance, but
 the defect is in the work-item completion contract and will mis-close any item
