@@ -26428,3 +26428,69 @@ resolution as precedent. I also **withdrew a landmine of my own** in the same pa
 written a "dead council run looks like latency" entry that duplicated the 07-31 one, for
 exactly the same reason: not grepping the corpus first. The one genuinely new thing in it was
 folded into the surviving entry.
+
+---
+
+## 2026-08-10 — `bugfix_214_imagery_scope_ref`: I measured a bug's damage against the table the WRITER uses, and over-counted it by 2.2×
+
+**The claim I wrote down.** Opening `bugs_open/214`, I re-measured the damage myself rather
+than trusting the filing's census — correctly, since the filing's census turned out to measure
+the harmless half. My replacement query asked: *how many `site_plan_imagery` rows have a
+`scope_ref` whose page part matches no page in their own plan?* Answer: **22 rows** on current
+plans, and I wrote that into the working notes as the honest figure the bug file had missed.
+
+**It was wrong. The real figure is 10.** Twelve of my twenty-two resolve perfectly well and
+nothing is wrong with them.
+
+**What caught it.** Not a re-run — a re-read. Before designing the fix I ran a follow-up query
+asking whether the canonical target *existed*, and included a column
+`ref_in_pages` almost as an afterthought. Eleven rows came back `t`: the ref matched a row in
+`pages` while matching nothing in `site_plan_pages`. That column was not in my census, and it
+is the only one that decides the question.
+
+**The mechanism of the error.** `site_plan_imagery.scope_ref` is WRITTEN alongside
+`site_plan_pages`, in the same function, in the same transaction. So when I asked "does this
+ref resolve?", the plan table is the one that was in front of me. But **not one of the ten
+consumers joins against `site_plan_pages`** — every one of them joins `scope_ref` against
+`pages.name`, the deployed page table. `pages.name` is normally upserted from the canonical
+plan name, but not always, and where the two disagree the consumer's answer is the only one
+that means anything. I measured breakage in the writer's vocabulary and reported it as
+breakage in the reader's.
+
+**The cheap check, and it costs one command:** before choosing the table you measure a
+reference against, **grep one consumer's WHERE clause.**
+`grep -n "scope_ref" platform/orchestration/actions/plan_sections_action.go` returns
+`AND spi.scope_ref LIKE $2 || ':%'`, and two lines of context show `$2` is `pages.name`. That
+is the whole check. **Generalised: a reference is broken when the thing that READS it cannot
+resolve it — so the census predicate belongs to the reader, never to the writer, however
+obvious the writer's table looks from where you are standing.** This is the standing "your
+measurement answers the question you ENCODED" rule with a specific and repeatable shape: when
+two tables both plausibly define an identity, the consumer's choice is not a detail, it *is*
+the definition.
+
+**Cost.** Low, and only because it was caught before anything was built on it — the fix, the
+backfill's predicates and the council submission all use the 10. Had I not caught it, the
+damage would have been real and specific: the backfill would have "repaired" twelve working
+rows on leopardessconsulting.co.uk and relojistas.com by repointing them at plan names that
+`pages` does not carry, **breaking heroes that serve correctly today** — the exact inversion of
+the bug I was fixing. The over-count also flatters the fix, which is the direction of error
+nobody audits.
+
+**Fixed by:** re-measuring against `pages.name`; the backfill predicate is now explicitly
+two-sided (repair only rows that resolve to *nothing* today AND whose canonical variant *does*
+resolve, so a working row is structurally untouchable); a `⚠ LANDMINE` in the IMG-070 register
+entry and a LANDMINES entry, both stating which table the consumers actually use; and the
+correction is written into `bugs_open/214` and the lane PLAN as a numbered correction rather
+than a silent edit.
+
+**Second, smaller, same session — a test suite that could not see its own fix removed.** I
+wrote fifteen unit tests for the resolution helpers, ran them green, and wrote in the test
+file's header that they guarded the wiring. They did not: I then **mutated the action to delete
+the entire resolution block, and all fifteen still passed**, because every one of them calls
+the helpers directly. This is the same class this file logged from another lane the day before
+("twelve passing tests, and the fix could be unwired without one turning red") — I had read
+that entry and wrote the identical claim anyway. **The check: mutate, don't assert.** A test
+file that claims to guard a call site must be proven by deleting the call, not by passing. Fixed
+by a separate sqlmock suite that drives the real `WriteSitePlanAction` and asserts the value
+reaching the INSERT bind; re-run against the same mutation, it fails. The false header claim was
+corrected in place rather than deleted.

@@ -130,3 +130,151 @@ rejected this keying scheme) · `bugs_open/114` (generated-imagery-never-
 referenced — the gamesdesign four are that symptom via this cause) ·
 `bugs_open/204` (positional slot NAMES unresolvable in pages.sections — sibling
 positional-keying defect, different table, different consumer).
+
+---
+
+# 2026-08-10 — TAKEN, FIXED AT THE WRITE PATH (committed, inert until the roll), and this file is corrected in three places
+
+Lane: `docs024_key_docs_latest/bugfix_214_imagery_scope_ref/` (PLAN / NOTES / RUNBOOK /
+README_where_we_are / COUNCIL_SUBMISSION). Taken because the filing lane (`151`) had
+explicitly left it — *"same wire, different field, its fix does not gate"* — and a grep
+of all 39 live session transcripts found nobody on it.
+
+**Re-verified valid before acting:** the census below still returns **5**, and the rows
+are the *same five* (identity, not just count) — fundamentallyai `about:4` created
+08-07, gamesdesign `about:2` ×4 created 06-05. Nothing drifted, nothing re-minted.
+
+## CORRECTION 1 — the cause is CANONICALISATION DRIFT, not "LLM-minted free text"
+
+§"The mechanism" reads flavour 2 as the LLM keying *"a page-name variant"*. It did not.
+It keyed the name it was handed, and **the platform renamed the page underneath it**:
+
+```
+write_site_plan_action.go:392  CanonicalisePage(...)              -> canonical name
+                        :503  INSERT site_plan_pages    name = r.Name      <- CANONICAL
+                        :533  INSERT site_plan_sections page_name = r.Name <- CANONICAL
+                        :455  flattenImageryBlock(...)                     <- RAW LLM KEY
+```
+
+`CanonicalisePage`'s section-index family (`page_canonical.go:159-173`) maps `about` →
+`about-index`, `contact` → `contact-index`, `news` → `news-index`. Same function, ~60
+lines apart, two of three tables canonicalised.
+
+**This changes the right fix.** Candidate 1 as written ("degrade the row to page scope
+or skip") would have **discarded four correctly-planned icons**: gamesdesign's
+`about-index` has exactly three sections, so `about:2` → `about-index:2` has a *valid*
+ordinal. The ordinal was right all along; only the page name moved. The fix is to
+**resolve** the reference, not to reject it.
+
+## CORRECTION 2 — this file's census measures the HARMLESS half, and is blind to the harmful one
+
+The census filters on **ordinal range**. But §"Who consumes scope_ref" already says, in
+this same file, that the page-level join `LIKE <page> || ':%'` *"tolerates a wrong
+ordinal"* and that `flag_page_image_rebuild` parses the ref *"only to find the page"*.
+Both are true: **no consumer parses the ordinal.** An out-of-range ordinal on a correct
+page part is **behaviourally inert**. The census and the analysis contradict each other
+and nothing in the file joins them up.
+
+What is fatal is a wrong **page part** — and the census cannot see it, because it never
+checks that the page resolves, and it excludes `scope='page'` entirely.
+
+> ⚠ **And the census predicate must resolve against `pages.name`, NOT
+> `site_plan_pages.name`.** All ten consumers join the deployed `pages` table.
+> **I got this wrong first and it is logged in `WRONG_CALLS.md`:** measured against the
+> plan table I got **22** unresolvable rows; against `pages` it is **10**, and all 12 of
+> the difference resolve perfectly well. A repair built on the 22 would have repointed
+> twelve *working* heroes on leopardessconsulting.co.uk and relojistas.com at names the
+> live sites do not carry — breaking exactly what it was fixing.
+
+**The honest damage, 2026-08-10, current plans: 10 of 176 rows, and 8 of the 10 already
+have an `assets` row at `status='active'`** — planned, generated, deployed, paid for,
+referenced by nothing:
+
+| domain | scope | scope_ref | key | plan candidate | asset paid for |
+|---|---|---|---|---|---|
+| fundamentallyai.com | page | `news` | hero_news | `news-index` | yes |
+| gamesdesign.co.uk | page | `about` | hero_about | `about-index` | yes |
+| gamesdesign.co.uk | section | `about:2` ×4 | icon_* | `about-index` | yes |
+| gamesdesign.co.uk | page | `contact` | hero_contact | `contact-index` | yes |
+| mortgagecalculator.co.uk | page | `about` | hero_about | `about-index` | no |
+| mortgagecalculator.co.uk | page | `contact` | hero_contact | `contact-index` | no |
+| mortgagecalculator.co.uk | page | `tools-index` | hero_tools | **none** | no |
+
+## CORRECTION 3 — the imagery lock-transfer key in §"Who consumes scope_ref" is wrong
+
+The file states imagery locks carry forward on `(scope, scope_ref, category, subject,
+ordering)`. **That key belongs to `transferDirectiveLocks` on `site_plan_directives`**
+(`write_site_plan_action.go:786`), a different table. `transferImageryLocks` (`:1123`)
+matches **`(plan_id, scope, scope_ref, key)`**.
+
+Consequence, and it is not cosmetic: `scope_ref` **is** in the imagery key, so any
+rewrite silently drops human-approved locks for one plan generation. That is why the
+fix includes a canonical fallback in `transferImageryLocks`. A fix or test aimed by the
+key as filed would hit the wrong function.
+
+(Also stale: the cited line numbers. At HEAD the functions are `flattenImageryBlock`
+~`:976`, `buildImageryRow` ~`:1044`.)
+
+## What was built — commit `c21af5eda` (+ gofmt `c90212df6`)
+
+`platform/orchestration/actions/write_site_plan_imagery_scope.go`, register **IMG-070**.
+
+**The guarantee:** a page/section `scope_ref` written by this action either names a page
+the plan contains, or is preserved **byte-for-byte** and leaves a durable
+`agent_error_log` row. Nothing is ever silently dropped, so no row can regress.
+
+- `buildCanonicalPageNameMap` — built from `planRows`, already canonicalised **and**
+  deduped at that point. Identity pass first (an already-correct ref maps to itself and
+  takes the no-op branch, which is what makes "working rows are untouched" true by
+  construction). An alias two pages would claim is **refused, not guessed**.
+- `canonicaliseImageryScopeRefs` — splits on the **first** colon, the split every
+  consumer uses, and reattaches the remainder *with* its colon, so
+  `chk_scope_ref_consistency` holds by construction rather than by special case.
+- **The ordinal is validated and recorded, NEVER rewritten** —
+  `IMAGERY_SCOPE_REF_ORDINAL_ANOMALY`. Three reasons: no consumer parses it; a rewrite
+  risks 23505 on `idx_site_plan_imagery_unique` and breaks the lock key for a further
+  generation; and the correct value is **unknowable at this seam** — ordinal shift
+  happens in `ValidateSitePlanAction`, a different action, and the pre-drop array is
+  gone by here. Fix-candidate 2 (imagery inside the section entry, RFC_016 §1) remains
+  the only real answer and is **architecture-scope, not taken**.
+- `dedupeImageryRows` — guards `idx_site_plan_imagery_unique` against the collapse the
+  resolution itself makes possible (`bugs_open/215` verbatim on the sibling table).
+  **Zero collisions live today**; prophylactic, and says so.
+- `transferImageryLocks` canonical fallback — runs only after the exact match finds
+  nothing, so it cannot alter a transfer that works today; retires itself after one
+  replan.
+
+**Fix-candidate disposition:** candidate 1 = done, but as *resolution* not degradation
+(see Correction 1); candidate 2 = architecture-scope, not taken; candidate 3 (repair the
+rows) = `sql_for_agents/373` + ROLLBACK, **written, committed, NOT APPLIED**.
+
+**Wiring is mutation-proven, and the first attempt was not.** Fifteen unit tests passed
+with the entire resolution block deleted from `WriteSitePlanAction` — measured, not
+assumed — because every one called the helpers directly. The guard is now a separate
+sqlmock suite driving the real action and asserting the INSERT bind; it fails on that
+same mutation, on both arms. Logged in `WRONG_CALLS.md`.
+
+**Not done, deliberately:** exporting `datahelpers.NormaliseSlug`, which was the clean
+route. `page_canonical.go` currently carries **another session's uncommitted work**, and
+a pathspec commit cannot exclude a same-file passenger — committing it would have shipped
+their untested code to the fleet. Routed through the exported `CanonicalisePage` instead,
+with the coupling pinned by a test.
+
+## STATUS: OPEN. Owed before this can close
+
+1. **The roll.** Go only — inert until the next chassis image. Pod-grep both replicas for
+   `imagery scope_ref canonicalised` **plus a negative control** (RUNBOOK R5).
+2. **Apply `sql_for_agents/373`** *after* the roll — before it, the repair buys one plan
+   generation. Census must go **10 → exactly 1**; 0 would mean it overreached.
+3. **Artefact-level proof:** replan gamesdesign.co.uk (5 of the 10 rows) and confirm no
+   row's page part is a raw alias of a page that plan contains (RUNBOOK R3), and that
+   every surviving unresolved ref has a same-day log row (R4).
+4. **`mortgagecalculator.co.uk` `tools-index` needs a human** — it names a page that
+   exists under no spelling. Left rather than guessed.
+5. **3 open `needs_imagery` items** sit on affected refs (`imageryplan.ItemKey` embeds
+   `scope_ref`). Left alone: the asset is stored under `asset_key`, which the rewrite
+   never touches, so a landed asset is reachable through the repaired row. Worth
+   re-checking they complete cleanly.
+
+Council: `Council-Submitted: 46a50b4c-f00d-4492-b7fd-ce5dc2023480` (verdict pending;
+098 credits the commit automatically on approval).
