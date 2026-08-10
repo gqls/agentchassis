@@ -90,3 +90,33 @@ normally; the Council-Submitted mechanism explicitly supports commit-first.
 **Still true / unchanged tonight:** Anthropic account cap in force (chat box
 fail-closed; owner action only); `bugs_open/239` owned by its own live
 session, untouched by this lane.
+
+## 2026-08-10 ~20:30 — fleet roll v1.0.1283: Customers surface LIVE end-to-end; cap LIFTED; council submission fired
+
+- **Roll verified at the artefact, not the tag.** core-manager AND
+  admin-dashboard both at `v1.0.1283` (2 replicas each, ~28 min old at check).
+  Pod-grep, same exec, every replica: `strings /app/core-manager` →
+  `"Failed to list customers"` = 1 (my string) AND `"Failed to list clients"`
+  = 1 (pre-existing positive control) on BOTH core-manager replicas; dashboard
+  bundle `index-DP86XXhq.js` contains `"No customers yet"` (mine) AND
+  `"Data Pipelines"` (control) on BOTH replicas. Route probe from inside the
+  cluster: `GET /api/v1/admin/customers` → **401** (auth wall), not 404.
+  The whole surface — columns (375) → API → FE tab — is live.
+- **The Anthropic account cap has LIFTED.** The RUNBOOK curl returns a real
+  answer ("£1,200, paid once…" — correct pricing, correct follow-up), not the
+  contact-line fallback. [INFERRED] the owner raised the limit; not verified
+  in the Console, but the observable (fleet LLM works) is what matters here.
+- **Council submission DISCHARGED for `fe6b99d05`:**
+  `SUBMISSION_CORR = 371f8b7d-0835-4879-b48f-ad0176bf2058`. Budget ~30 min
+  (dispatch queues behind the fleet, and the fleet is digesting a post-outage
+  backlog — do NOT re-fire on a missing orchestration row). Find the run by
+  payload: `SELECT current_step, status FROM orchestration_states WHERE
+  collected_data->'input_data'->>'fix_correlation_id' =
+  '371f8b7d-0835-4879-b48f-ad0176bf2058';` Verdict:
+  `SELECT body FROM doc_notes WHERE categories ? 'council-gate' ORDER BY
+  created_at DESC LIMIT 1;`
+  **Known 098 gap, accepted:** `fe6b99d05` predates the submission and
+  forward-only forbids amending a trailer in, so it will list un-reviewed in
+  098 forever; this NOTES entry + the verdict note are the audit trail. Do
+  NOT stick the corr as a trailer on an unrelated docs commit — the trailer
+  binds to the commit it is on.

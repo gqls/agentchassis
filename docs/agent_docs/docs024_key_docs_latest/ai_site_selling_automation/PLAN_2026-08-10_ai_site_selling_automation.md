@@ -125,7 +125,7 @@ existing autonomous half. Not designed in this pass.
 |---|---|---|
 | standing five + rulings recorded | — | DONE 08-10 (`409c40a8d`) |
 | clients columns migration (2.1) | — | DONE 08-10, LIVE (`fe6b99d05`; gate submission owed) |
-| admin Customers API + tab (2.2) | image rolls | BUILT 08-10 (`fe6b99d05`, `a84d544d1`) |
+| admin Customers API + tab (2.2) | — | **LIVE 08-10, roll v1.0.1283 pod-verified**; council corr `371f8b7d` pending verdict |
 | transcripts ingestion (2.3) | build next | DESIGNED 08-10 (see §2.3) |
 | trigger seam (2.4) | Phase 6 cutover reviewed AND 239 fixed | design only |
 | seeding (2.5) | trigger seam | not started |

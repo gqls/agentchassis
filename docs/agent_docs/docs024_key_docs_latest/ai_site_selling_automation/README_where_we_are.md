@@ -55,3 +55,18 @@ in the plan, exactly how chat conversations will get pulled from the chat
 machine into the database without breaking the isolation rule — that's the
 next build item. The trap we found is written up so no future session wires
 the customer screen to the wrong table.
+
+**10 Aug 2026, night.** The routine redeploy went out and everything from this
+evening is now switched on and checked: the Customers tab is live in the admin
+dashboard, talking to the new endpoints, talking to the new database columns —
+verified on the running services themselves, not just the version number. The
+AI spending limit has been lifted (the chat box on webdesign.uk answers
+properly again, quoting the right price), and with the review machinery back
+up, the platform-code change went through for its advisory review — the
+verdict will arrive in about half an hour and is recorded either way. What's
+left on this stage is the next build item (pulling chat conversations into
+the database) and then the trigger work, which stays on paper until the
+domain switch-over gets your review and the dispatch bug is fixed. The
+decisions still needing you are listed at the end of tonight's handoff:
+which payment plumbing to grow, whether manual-only refunds stay acceptable,
+where the chat service lives long-term, and who registers customers' domains.
