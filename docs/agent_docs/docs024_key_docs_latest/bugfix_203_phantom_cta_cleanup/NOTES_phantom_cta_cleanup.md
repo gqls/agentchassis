@@ -774,3 +774,38 @@ open for whoever continues this: once a fleet release lands AFTER this commit
 (`3bc0486d7`, or later), verify at the pod exactly as planned (positive-control the
 live behaviour via the robot-hands.com re-test in step 3, since this specific fix has
 no new symbol to `strings`-grep — it only reorders an existing comparator).
+
+## 2026-08-10 (evening) — PROVEN LIVE: the priority fix produces the correct hub match on the exact page that exposed the bug
+
+Owner ran a fresh fleet build; `agent-chassis` pods came up on **`v1.0.1280`**,
+`startTime` 2026-08-10 15:44:46Z / 15:45:06Z — **after** commit `3bc0486d7`
+(2026-08-10 06:43:58Z), so the image can carry the fix. Tag+timing is not proof, and
+this fix adds no new symbol to `strings`-grep (it only reorders an existing
+comparator), so the verification is **behavioural**, at the artefact:
+
+**Re-dispatched the same page** (`robot-hands.com/how-to-specify-a-gripper`) by cloning
+its own `misdirected_cta` work item under a fresh `item_key` (`..._retest_160006`,
+id `043f2f0b-721d-43d4-9740-b47f56dcfe20`) — canonical row shape copied from the
+existing row via `INSERT ... SELECT`, so no hand-authored spec — then fired
+`build-dispatch-loop` at the site. Completed in ~5 min.
+
+**Result, `page_components` at 2026-08-10 16:01:08Z — the defect is GONE:**
+
+| slot | label | resolved url | verdict |
+|---|---|---|---|
+| `call-to-action` | Browse the Gripper Catalog | **`/gripper-catalog/index.html`** | ✅ was `/tools/gripper-cycle-time-estimator/index.html` |
+| `call-to-action` | Run MatchMatrix | `/tools/matchmatrix/index.html` | ✅ held (control — the already-correct value did not regress) |
+| `hero` | Browse Gripper Catalog | **`/gripper-catalog/index.html`** | ✅ a SECOND instance, not previously examined |
+| `hero` | Run MatchMatrix | `/tools/matchmatrix/index.html` | ✅ held |
+
+**Both halves matter**: the 2-token hub match now beats the 1-token tool match (the
+fix), AND the two already-correct tool matches were not flipped to hubs by it (the
+overcorrection guard `TestBestLabelMatchInteractiveTiesBreakToInteractive` asserts in
+unit form — here it is confirmed on live data). The `hero` slot's own
+`secondary_cta` is a bonus finding: it had the same defect and was never in any
+worklist, which is direct evidence the bug's blast radius was wider than the one field
+this lane happened to look at — see the census question below.
+
+**Now genuinely closed**: bugfix 203's worklist row 3 (both its CTAs), and the
+priority-order defect the canary exposed. `3bc0486d7` is approved
+(`SUBMISSION_CORR=6cb8c72b-0abc-4eb6-b4d2-4cbf01eed515`), live, and proven.
