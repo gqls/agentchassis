@@ -354,3 +354,22 @@ demo_client/20260509/d321c4f2-….png` → converts mechanically to
 So the re-deploy-existing-source repair is feasible via `deploy_image_asset`
 with explicit `spec.s3_uri`. Unknown: whether the deploy's stamping step also
 refuses on the lock — run and read, do not assume.
+
+### 2026-08-10 ~16:45Z — owner decisions taken; robot-hands lock OVERRIDDEN on owner instruction
+
+Owner answered the four open decisions in-session:
+
+1. **robot-hands.com: REGENERATE, overriding the `user-b6-approval` lock** —
+   owner chose this over re-deploying the existing source, accepting that the
+   approved artwork is replaced. Lock state before override, for the record:
+   `locked_at=2026-07-11 16:38:11.647284+00, locked_by=user-b6-approval,
+   lock_type=permanent`, asset id `75164b4c-a417-430b-81d2-4d1e85578a33`.
+   **The approved artwork itself is NOT destroyed** — its S3 object remains at
+   `images/demo_client/20260509/d321c4f2-edc5-4770-833a-3a2563b420ba.png`
+   (an asset-row update never deletes the object). Restorable from there.
+2. **webdesign.uk: malformed `claimed` row `8793da9a` RESET to `triaged`** —
+   done; the site can dispatch again.
+3. **240: owner chose C2 (MetadataTopics fix) + C3 (GOMEMLIMIT/headroom) + C4
+   (scheduled sweep stopgap); C1 (per-topic reaper) deliberately NOT taken.**
+4. **relojistas.com: attempt in this session**, including verifying the
+   `vm-sites` deploy path first.
