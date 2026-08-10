@@ -512,3 +512,56 @@ would have *caught* this: a site whose public hostname 302s to a different domai
 is exactly what an availability check exists to find, and none is currently seated
 (`site_unreachable` is code-committed but config-HELD in
 `sql_for_agents/368_site_availability_driver_HOLD.sql`).
+
+---
+
+## 2026-08-10 — CORRECTION: the webdesign.uk 302 is INTENTIONAL
+
+> **CORRECTED (owner, 2026-08-10): *"the 302 for webdesign.uk is intentional"*.**
+> The entry above characterises `webdesign.uk` → `webdesign.co.uk` as the
+> shopfront's breakage, locates its cause at the Cloudflare zone, and speculates
+> that it supersedes the stale-`snippets.js` diagnosis. **The redirect is
+> deliberate configuration. It is not a fault, it has no cause to find, and it
+> does not supersede anything.** Everything I wrote downstream of "the box is
+> healthy but its public hostnames are redirected away" was reasoning from a
+> defect that does not exist.
+
+**What I actually measured stands; what I concluded from it does not.** The
+measurements were right — `webdesign.uk` and `www.` 302 to `webdesign.co.uk`,
+`preview.webdesign.uk` serves the box at 200, `POST /api/chat` on the apex 302s
+too. What was wrong was the inference that a redirect I did not expect must be
+the breakage the owner had mentioned.
+
+**The error is a specific and repeatable one: I had an unexplained observation
+and an unlocated fault, and I joined them.** The owner said "the shopfront was
+already broken"; I found something surprising; I made the surprising thing the
+broken thing. Nothing in the evidence connected them — a deliberate redirect and
+a real defect look identical from outside, because *intent is not observable from
+a response code*. The check I never ran was the cheap one: **ask.**
+
+This is the same failure as the backwards diff and the four false negatives
+logged in `WRONG_CALLS.md`, arriving from a new direction: not a
+mis-read instrument this time, but **an unexplained observation promoted to an
+explanation because a vacancy existed for one.** Filed there too.
+
+**Consequences to unpick:**
+- The chat is **not** unreachable-by-defect. It is reachable at
+  `preview.webdesign.uk` (verified: a live 429 from the rate limiter), and the
+  apex redirect is by design.
+- `HANDOFF_2026-08-10c`'s stale-`snippets.js` diagnosis is **not** superseded by
+  anything I found. I should not have cast doubt on another lane's finding on the
+  strength of an inference I had not checked.
+- **The actual shopfront breakage remains UNCHARACTERISED.** I have not
+  established what it is, and this file should not be read as though I have. The
+  owner's instruction to follow it through in this thread still stands; the next
+  step is to ask him what the symptom is, not to go hunting for another surprising
+  observation to promote.
+
+**Retained and still true:** no availability check is seated fleet-wide
+(`site_unreachable` is code-committed, config HELD in
+`sql_for_agents/368_site_availability_driver_HOLD.sql`). That remains worth doing
+on its own merits — but note it would **not** have caught this, and would in fact
+have raised a false positive on a deliberate redirect. A checker that cannot tell
+intent from fault needs the intent recorded somewhere it can read, which is an
+argument for `site_specs`/`deploy_config` carrying expected-redirect
+declarations before that check is ever seated fleet-wide.

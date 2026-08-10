@@ -26901,3 +26901,40 @@ The discriminator is the work item's `error` column, which said so in one line. 
 had reached for the documented cap explanation first, checked it (no omitted-body
 marker, function body present), correctly ruled it out — and then invented a third
 story instead of reading the error.
+
+---
+
+## 2026-08-10 (later still) — I promoted an unexplained observation to an explanation because a vacancy existed
+
+The owner said, in passing, "the shopfront was already broken so we will need to fix it later".
+Separately, while taking a baseline before installing Postgres, I noticed `webdesign.uk` and
+`www.webdesign.uk` return **302 to webdesign.co.uk** while `preview.webdesign.uk` serves the box
+at 200. I joined the two: wrote it up as *the* breakage, located its cause at the Cloudflare
+zone, flagged that the chat was "unreachable at its own domain", and suggested it might supersede
+another lane's stale-`snippets.js` diagnosis.
+
+**The owner's reply: "the 302 for webdesign.uk is intentional."**
+
+Every measurement was correct. The inference on top of them was invented. **A deliberate
+redirect and a broken one are byte-identical from outside — intent is not observable from a
+response code.** Nothing in what I gathered connected that redirect to the owner's remark; the
+only thing connecting them was that I had an unexplained observation and an unlocated fault at
+the same time, and a spare explanation is very hard to leave spare.
+
+**What makes this worth its own entry rather than folding into the four false negatives above:**
+those were my *instrument* misreporting. This one had a perfect instrument. The measurement was
+right, repeatable, and would survive any re-check — and the conclusion was still wrong, because
+the error was in the *joining*, not the observing. Re-running the curl a hundred times would
+have confirmed the 302 every time and told me nothing about whether it was a fault.
+
+**The cheap check I skipped: ask.** One sentence — "is this redirect deliberate?" — and it costs
+nothing. I had already flagged the finding to the owner in prose; I could as easily have flagged
+it as a question. Instead I flagged it as a diagnosis, which is the form that gets believed and
+propagated. It also led me to cast doubt on another lane's finding on no evidence, which is the
+part I'd most want back.
+
+**The general form, and it is the sharp end of "confidence is not a signal":** when a surprising
+observation arrives while a known-unknown is open, the pull to make them the same thing is
+enormous and feels like insight. **Two unexplained things are not evidence for each other.**
+Before writing "X is the cause of Y", name what you would expect to see if X and Y were
+unrelated — here, exactly what I saw.
