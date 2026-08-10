@@ -118,3 +118,48 @@ for you, not sent it back to the council, because arguing with a scope judgement
 more measurements is precisely what our rule says not to do.
 
 Still waiting on the release when you're ready.
+
+## 2026-08-10, night — it works, and it's running everywhere
+
+The release went out and **it works**. Every one of our fourteen backend services now carries,
+inside the program itself, the exact version of the source code it was built from. You can ask
+any running service "what code are you actually running?" and get an exact answer. Before
+tonight that number was zero — not "unreliable", zero, for the entire life of the platform.
+
+The one-line version: all fourteen services report commit `d3c09cc74…`, and that commit is a
+real, checkable point in our history.
+
+I checked it the sceptical way rather than the flattering one. It's easy to grep for something
+and find it; the question is whether you'd have found it anyway. So alongside "is the right
+code version there?" I also asked "is a made-up version there?" (no), and — the one that
+actually matters — "is a *different real* version there?" (also no). That last one is what
+proves the stamp is specific rather than just "some numbers are present".
+
+**It's already earning its keep.** Another session used it the same evening to settle nineteen
+register entries that were stuck on "we can't tell if this shipped without hunting for a marker
+string". That hunt is the thing this fix abolishes — it's now a one-line query, and all
+nineteen came back "yes, shipped".
+
+**A confession, because it's the most useful thing in this note.** Two services first looked
+*unstamped*, and I had a very satisfying story ready: the new mechanism catching a stale binary
+on its first night. It was nonsense. My *check* was broken — one of our services runs on a
+different base image that doesn't include the tool I was using, and the way these commands
+suppress errors, "I couldn't look" came back looking exactly like "it isn't there". Then my fix
+for that was wrong in the same direction and confidently returned the same wrong answer for
+every service.
+
+I caught both, and only because something didn't add up rather than because I was careful. What
+makes it worth telling you: **that's the third time today** I got a confident wrong answer from
+a check that couldn't have told me anything else — and it's precisely the disease this whole
+bug is about. A check that reads clean when it should be shouting. I've written all three up
+in the file we keep for that, and the two traps are now warnings other sessions will see before
+they touch this.
+
+**One thing still owed**, and it's worth doing when you have a spare release cycle: the real
+test. Bump the version tag and deploy *without* rebuilding — the exact mistake this bug
+describes. The service should come up wearing the new label while honestly reporting the old
+code. Everything I've proved so far shows it works when we do things properly; that test shows
+it catches us when we don't, which is the whole point.
+
+**On the review:** it was rejected on scope, you overruled it, and that's recorded honestly.
+The commits say "submitted", not "reviewed", and I haven't dressed it up as approved.
