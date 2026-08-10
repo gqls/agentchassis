@@ -2,7 +2,8 @@
 
 Written 2026-08-10 ~15:00Z, **updated ~17:00Z**. **Phase 1 is done, live and proven on
 `v1.0.1279`/`v1.0.1283`. PHASE 2 IS NOW BUILT, TESTED AND COMMITTED** (`027bf28a0`,
-council `3af67677-601e-4181-ad09-17c7a789f995`) — inert until the next roll, and §4 below
+council `3af67677-601e-4181-ad09-17c7a789f995` **APPROVED, all reviewers, four low
+objections — two acted on in `c7c9dd87f`**) — inert until the next roll, and §4 below
 is therefore a record of what was done rather than a task list. **What remains is the
 acceptance run after that roll** (§4a).
 Read this file, then `PLAN_2026-08-10_223_index_answerability.md` §5 (phasing) and §7
@@ -61,7 +62,9 @@ up. **Which test fails if I delete the CALL, not the function?**
 Verified in a clean tree from HEAD because another session had the actions package
 temporarily broken.
 
-**§4a — WHAT REMAINS, after the next roll:** run the indexer, then
+**§4a — WHAT REMAINS, after the next roll. ⚠ READ THIS FIRST: phase 2 adds NO NEW STRING
+LITERAL** (`var`/`const` were already in the binary via `codeKindList`), so **it cannot be
+pod-grepped** — the standing trap. The deploy proof is the row census, not a `strings` grep. run the indexer, then
 `SELECT kind, count(*) FROM code_symbols GROUP BY 1` — `var`+`const` should appear near
 1,371 and **every pre-existing kind's count must be unchanged** (a drop means an identity
 collision, and the kind census is the detector). Then re-fire the landmine-verifier on the
