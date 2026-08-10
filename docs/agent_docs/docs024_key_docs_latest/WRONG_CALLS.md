@@ -26261,3 +26261,113 @@ pointed at a migration belonging to someone else. Corrected in a follow-up commi
 first-come-first-served name — migration number, register id, item_key, task name — is a
 claim you do not hold until it is committed, and the gap between choosing and committing
 is where the collision lives.
+
+---
+
+## 2026-08-10 — a `jsonb_path_query` absence nearly had me report a live fix as reverted (loanandmortgagecalculator lane)
+
+**The claim I was one step from writing.** That `bugs_open/189`'s config half had been
+undone, and therefore that the owner's decomposition request was blocked on a
+regression. Checking whether `page-content-writer` still carries `slot_name_from`, I
+ran `jsonb_path_query_array(default_config, '$.workflow.steps.*.config.slot_name_from')`
+and got `[]`. An empty array reads exactly like "the key is gone".
+
+**What caught it.** Not believing an absence from a path read. I re-asked the same row
+the dumbest possible way — `default_config::text LIKE '%slot_name_from%'` — and got `t`.
+Same row, seconds apart. The key was present the whole time; my path simply did not
+describe where it lives.
+
+**The cheap check.** For a jsonb *absence*, text-match or enumerate keys before
+concluding anything. A path read can only answer for the shape you guessed, and it
+reports a wrong guess and a genuine absence with the identical `[]`. Better still,
+**induce a positive first**: run the same path expression against a key you know is
+there, and if that also returns `[]` the instrument is what's broken. (This is the
+already-recorded "a jsonb PATH read cannot see the shape change underneath it" trap —
+logging it again because it fired on a *fix-still-live* check, where the failure mode
+is inventing a blocker rather than missing a bug.)
+
+**Cost.** None — caught inside a minute. Had it landed it would have been expensive in
+an unusual direction: not a broken artefact, but a fabricated blocker that would have
+stopped a task the owner had just asked for, with a plausible pod-verified-sounding
+story attached.
+
+**Second wrong call in the same session, not mine but worth the row.** The 13:24
+handoff of the same day named `bugs_open/204` as the blocker to read before seeding a
+plan — *"a decomposed page can never be rebuilt"*. 204 and `bugs_open/189` had both
+been fixed, rolled and behaviourally verified on **2026-08-06**, four days earlier.
+**What caught it:** reading the bug file's tail instead of inferring status from its
+directory. Since the owner direction of 2026-08-06 to leave found bugs in
+`bugs_open/`, **the directory carries no status information at all** — and every doc
+that says "read `bugs_open/NNN` before doing X" now reads as "this is still broken"
+when it may mean the opposite. The cheap check is `tail -40` on the bug file, or
+`git log --oneline -- <the bug file path>`, before repeating any blocker claim sourced
+from a directory name.
+
+## 2026-08-10 — the THIRD inert check in three days on one bug, and this one I caught 60 seconds before writing it (loancalculator_couk / bugs_open/227)
+
+**Logged as a near miss, not a false claim** — nothing was written into a handoff. It earns a
+row because the file's value is the **tally**, and three of the same shape on one bug in three
+days is the argument for automating the habit rather than resolving to be careful.
+
+**What I was proving.** Migration 363 makes an experience plan persist only after the council
+approves. The arm still owed was: a run that ENDS non-approved leaves no row. I capped the
+council at one round to force a terminal escalation, fired an unbuildable experience, and got
+back `COMPLETED @ complete_refused | rows=1 | current=6ebe06f5` — a non-approved terminal state
+with the plan of record unchanged. **Exactly the sentence I came to write.**
+
+**Why it proves nothing.** `compose` never returned — the run died on a fleet-wide API usage
+cap 30 seconds in. No plan existed to persist, so the OLD graph writes nothing on that run
+either. The reading is true, matches the prediction, and cannot distinguish the fixed system
+from the broken one.
+
+**What caught it.** The run took 30 seconds instead of ~8 minutes, so I read
+`collected_data->'__step_error'` instead of the status — which says `COMPLETED` with `error`
+NULL even though the step failed.
+
+**The cheap check that would have.** Before reading any result: **state what the FAILING
+version of this specific run would have looked like.** If the answer is "the same", the check
+is inert for this run whatever it returns. All three had the same root — the check was designed
+against the run I hoped for, not the run I got:
+- 08-09: `prompt_rendered LIKE '%no brief on file%'` — the phrase is also in the static template.
+- 08-10 am: "an approved run must write exactly ONE row" — true of a single-round run under both graphs.
+- 08-10 pm: "a non-approved run wrote no row" — from a run where nothing got as far as being writable.
+
+**Cost.** None beyond the run itself. The arm remains owed and is recorded as owed.
+
+## 2026-08-10 — I read `complete_invalid` as "my submission was invalid", and the landmine that says otherwise had been written ten days earlier
+
+**The claim.** My council submission (`7177fb02`) came back `COMPLETED /
+complete_invalid`, and my first reading was that the gate had rejected the JSON as
+malformed. I went back through my own submission looking for the schema error — the
+`risks` field had genuinely been wrong on the first attempt (array, must be a string),
+so the story was plausible and I had a precedent for it in the same session.
+
+**Why it was false.** There was no schema error. The panel had been selected (10 seats
+matched), the `fix_plan` had persisted, and the run died at `review_editquality` on an
+upstream Anthropic **400 `invalid_request_error`: "You have reached your specified API
+usage limits."** `complete_invalid` is where the workflow lands when a review step
+fails; it says nothing about the submission.
+
+**What caught it.** Reading `collected_data->'__step_error'` — which named the failed
+step and quoted the provider's message verbatim — instead of reasoning about what the
+step NAME implied.
+
+**The cheap check I skipped, and it is the galling part: the answer was already written
+down.** `LANDMINES.md` has carried an entry since **2026-07-31** titled *"an API usage
+limit death looks exactly like a transient seat fault"*, whose footprint literally
+includes `orchestration_states.current_step = 'complete_invalid'` and
+`097_TRIGGER_council_review_v1.sh`, and whose check is the exact query I eventually ran.
+I did not grep for it. **The SessionStart hook only surfaces landmines whose footprint
+matches a file already DIRTY in the tree** — mine matched six file-shaped entries and
+could not possibly have matched a footprint that is a column value and a shell script.
+This is the standing memory rule (`grep LANDMINES for the SYMBOL you are about to
+trust`) and I broke it at the one moment it was written for: reading an unfamiliar
+terminal state.
+
+**Cost.** A few minutes, and nearly a resubmission — which the landmine specifically
+warns is the expensive wrong remedy, because each retry re-runs the seats that already
+succeeded and produces another identical-looking failure. **The transferable half:**
+`__step_error` on a `COMPLETED` orchestration is the first thing to read, not the last;
+a terminal step NAME is a workflow author's guess at why you got there, not evidence.
+I have appended the recurrence to that landmine (the July entry's stated reset was
+2026-08-01, so it read as history; the new one is 2026-09-01).
