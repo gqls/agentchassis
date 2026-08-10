@@ -2554,29 +2554,39 @@ func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, 
 
 	// Add storage configuration for storage-enabled agents
 	if isStorageEnabledAgent(agentDef.Type) || agentDef.Category == "orchestrator" || agentDef.Category == "code-driven" {
-		// Get storage credentials from orchestrator's environment
-		awsKeyId := os.Getenv("AWS_ACCESS_KEY_ID")
-		awsSecretKey := os.Getenv("AWS_SECRET_ACCESS_KEY")
-		b2KeyId := os.Getenv("B2_APPLICATION_KEY_ID")
-		b2Key := os.Getenv("B2_APPLICATION_KEY")
+		// Storage credentials by secretKeyRef — NOT a passthrough from the
+		// spawner's env (bugs_open/245). The old form read os.Getenv on the
+		// chassis and baked the VALUES into every spawned pod spec, which (a)
+		// forced the standing chassis to carry credentials it cannot itself
+		// use, (b) exposed the strings to anything that can read a pod spec,
+		// and (c) failed SILENTLY when the chassis env was missing — empty
+		// values were skipped without error and the spawned pod broke at first
+		// storage use, not at spawn. References fail loud instead: a missing
+		// secret key is a visible CreateContainerConfigError on the spawned
+		// pod. Same pattern as GITHUB_READ_TOKEN above; all four keys verified
+		// present in personae-storage-secrets 2026-08-10.
+		storageSecret := os.Getenv("AGENT_STORAGE_SECRET")
+		if storageSecret == "" {
+			storageSecret = "personae-storage-secrets"
+		}
 
-		logger.Info("Injecting storage credentials",
+		logger.Info("Injecting storage credentials (secretKeyRef)",
 			zap.String("agent_type", agentDef.Type),
-			zap.Bool("has_aws", awsKeyId != ""),
-			zap.Bool("has_b2", b2KeyId != ""))
+			zap.String("secret", storageSecret))
 
-		// Add storage credentials as direct values
-		if awsKeyId != "" {
-			envList = append(envList, corev1.EnvVar{Name: "AWS_ACCESS_KEY_ID", Value: awsKeyId})
-		}
-		if awsSecretKey != "" {
-			envList = append(envList, corev1.EnvVar{Name: "AWS_SECRET_ACCESS_KEY", Value: awsSecretKey})
-		}
-		if b2KeyId != "" {
-			envList = append(envList, corev1.EnvVar{Name: "B2_APPLICATION_KEY_ID", Value: b2KeyId})
-		}
-		if b2Key != "" {
-			envList = append(envList, corev1.EnvVar{Name: "B2_APPLICATION_KEY", Value: b2Key})
+		for _, key := range []string{
+			"AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY",
+			"B2_APPLICATION_KEY_ID", "B2_APPLICATION_KEY",
+		} {
+			envList = append(envList, corev1.EnvVar{
+				Name: key,
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{Name: storageSecret},
+						Key:                  key,
+					},
+				},
+			})
 		}
 
 		// Storage configuration from ConfigMap
