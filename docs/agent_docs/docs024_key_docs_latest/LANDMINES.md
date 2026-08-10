@@ -8696,3 +8696,25 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **the sibling trap, same run:** `computed_values` compares **rendered** text, so a golden copied from the JS source string is wrong for any element carrying `text-transform`. MatchMatrix builds `'Match'` / `'No match'` and the badge carries `text-transform: uppercase`, so the fence must assert `MATCH` / `NO MATCH`. This is the right way round — it pins what the visitor sees — but it costs one red trial if you derive the golden from the source alone. Derive from the JS, then **corroborate against the live tool** before persisting.
 - **source:** 2026-08-10, staged_component_build lane, batch 8 (`tool-grip-force-friction-calculator`, `tool-matchmatrix`). The false premise was written down the same day in this lane's own NOTES and in `manifest_batch8.json`'s `tool-setup-builder` contract ("`InnerText()`, which reads `""` on a hidden element") — that PLAN's fence is sound anyway, because its `.db-value` spans ship EMPTY in the served HTML, so the check discriminates static from driven for a different and genuine reason. The stated reason is what is wrong, not the fence.
 - **added:** 2026-08-10, staged_component_build lane (batch 8)
+
+### On this estate the AGENT UNDER TEST usually has not run — four verifications in one lane, three unobservable for want of demand
+
+- **footprint:** `orchestration_states`, `owner_agent_type`, `agent_error_log`, `verify-later`, acceptance evidence, `vet-practice-verifier`, `content-reviewer`, `diagnose_council_decide`, post-roll verification
+- **fires when:** you write a `verify-later`, an acceptance section, or a "did the fix work?" query for anything that runs on a schedule, a trigger, or a lane nobody is currently driving. No symptom needed — the check runs clean and returns a number.
+- **the trap:** the fleet is large and busy, so "the platform is clearly alive" feels like it licenses reading a zero as success. It does not, because **traffic is fleet-wide and demand is per-path**, and most individual agents are idle most of the time. Measured over one lane's four verifications on 2026-08-09/10: the three residual `agent_error_log` producers filed **0** rows post-roll *and had stopped four days before the roll*; `vet-practice-verifier` had **0** runs in the retained window, so the only step configured to exercise a new resolver never executed; `content-reviewer` had **0** runs, so a predicted config-key warning had no opportunity to fire. **Three of four verifications were unobservable, and every one of them returned a clean, quotable number.**
+- **why the wrong result looks exactly like the right one:** the expected outcome of a successful fix *is* a low or zero number, so the result you get is the result you wanted. The fleet-wide control that is supposed to protect you (`count(*)` over the window, `count(DISTINCT agent_type)`) **passes honestly** — it proves the pipeline, and the pipeline is genuinely fine. Nothing in either output mentions the agent you actually changed.
+- **the check, before writing OR reading any verify-later:**
+  ```sql
+  -- did the thing under test run at all, in the window you are about to quote?
+  SELECT count(*) FROM orchestration_states WHERE owner_agent_type = '<the agent>';
+  SELECT count(*) FROM agent_error_log     WHERE action = '<the producer>' AND occurred_at > '<boundary>';
+  -- and for a baseline, read its TAIL rather than its total: a producer that went
+  -- quiet BEFORE your change shipped makes the comparison unfalsifiable
+  SELECT occurred_at::date, count(*) FROM agent_error_log
+  WHERE action IN (<producers>) AND occurred_at > now() - interval '14 days' GROUP BY 1 ORDER BY 1;
+  ```
+  Zero demand ⇒ the honest verdict is **UNOBSERVABLE**, never *passing*. ⚠ `orchestration_states` retains ~24h, so "0 runs" there means "not in the last day" — a longer-lived question needs a different witness.
+- **what to do instead, since waiting is usually not a plan:** **induce the condition**, and say in the `verify-later` that you did. The worked example is `platform/orchestration/resumed_step_provenance_test.go` — the live case it covers had not occurred fleet-wide since 2026-07-26, so it was reproduced in a harness that builds the state the way production builds it (round-tripping real headers) rather than hand-assembling a convenient version. A `verify-later` that can only be discharged by an event nobody controls is a `verify-never`; write it as an induced check from the start.
+- **source:** 2026-08-09/10, `rfc012_await_findings` lane, chassis `v1.0.1277`→`v1.0.1283`. `RFC_019` §12, `WRONG_CALLS.md` 2026-08-10, `WFA-012`'s and `RSH-009`'s verify-later lines (both now carry the demand caveat inline).
+- **verification:** settled first-hand — every count above was run against the live DB on 2026-08-10 and is quoted in the cited entries.
+- **added:** 2026-08-10, rfc012_await_findings lane
