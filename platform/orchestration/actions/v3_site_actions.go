@@ -554,31 +554,49 @@ var UpdatePageStatusInputSpec = datahelpers.ActionInputSpec{
 		"page_component_id_field", // :799 — mirrors the deploy mark onto one page_component
 	},
 
-	// KNOWN TRUE POSITIVES, left standing deliberately — this opt-in will REPORT
-	// them, and that report is the detector working, not a regression to silence.
+	// `commit_from` was the standing true positive here: six live steps
+	// (pageflow-builder, page-rebuild, page-rerender, report-builder,
+	// section-editor, site-work-orchestrator) carrying a key this action has
+	// never read, by any spelling. It looked live for months because
+	// coordinator.go's dataRefKeys carried a comment saying "Used by
+	// update_page_status", which was false — deleted in migration 356's commit.
 	//
-	//  1. `commit_from` on six live steps (pageflow-builder, page-rebuild,
-	//     page-rerender, report-builder, section-editor, site-work-orchestrator).
-	//     Never read here, by any spelling. Migration 353 removes it from live
-	//     config and from the seeds; until that is applied, six steps warn. The
-	//     key looked live for months because coordinator.go's dataRefKeys carried
-	//     a comment saying "Used by update_page_status", which was false — that
-	//     entry is deleted in the same commit.
+	// DO NOT WRITE A CENSUS COUNT IN THIS COMMENT. An earlier version of this
+	// block stated a carrier count as of a date; ~30 sessions share this tree
+	// and it was false within the hour (356's data half was applied by its own
+	// lane meanwhile). A number here cannot be re-checked by the reader and
+	// gets quoted as authority — the concept-register stale-status landmine,
+	// wearing a code comment. Ask the fleet instead:
+	//   scripts/audit-config-keys.sh   (or the removed-config-keys-check CronJob)
 	//
-	//  2. `notes_field` and `validation_issues_field` on ONE live step,
-	//     content-reviewer.mark_page_needs_attention. Both are dead the same way
-	//     (neither string occurs anywhere in the tree outside an unrelated
-	//     action's `plan_notes_field`), but unlike commit_from they encode an
-	//     author's INTENT that this action has never had: recording WHY a page
-	//     was flagged. Deleting them would erase the only record of that intent,
-	//     and implementing them is a behaviour change (pages has no such column),
-	//     so they are left standing and reported rather than swept into a
-	//     removal migration. Same treatment create_work_item gave `spec`.
-	//
-	// Not StrictConfig: that turns both findings into hard validation errors on
-	// live definitions, which is the over-strict-detector failure the ConfigKeys
-	// doc comment warns about. Warn first.
+	// `commit_from` is a RemovedConfigKeys candidate and is NOT declared here:
+	// it belongs to the bugfix_136 config-key lane, which was actively working
+	// it the same day, and adopting another lane's key mid-flight is what
+	// scripts/who-owns.py exists to prevent. Noted in that lane's
+	// deferred-items file instead.
 	CheckConfig: true,
+
+	// `notes_field` and `validation_issues_field` are RETIRED (RFC_021 Q3
+	// owner ruling, 2026-08-10; migration 370 removed the one live carrier,
+	// content-reviewer.mark_page_needs_attention, census-verified 0 at all
+	// depths before this declaration was committed). They were dead the same
+	// way `commit_from` is — read by nothing — but encoded an author's INTENT
+	// this action has never had: recording WHY a page was flagged. That intent
+	// is preserved in migrations 356/370's headers and in the messages below;
+	// the keys themselves must not quietly return and resolve to nowhere.
+	RemovedConfigKeys: map[string]string{
+		"notes_field": "never read by any version of this action; the intent (recording why " +
+			"the page was flagged) is unimplemented — pages has no such column. See migration " +
+			"370's header; implement it as a feature if wanted, do not re-add the key",
+		"validation_issues_field": "never read by any version of this action; the intent " +
+			"(recording the validation issues that flagged the page) is unimplemented — see " +
+			"migration 370's header; implement it as a feature if wanted, do not re-add the key",
+	},
+
+	// Not StrictConfig yet: that is a separate adoption needing its own clean
+	// census under the RFC_021 Q1 protocol (run scripts/audit-config-keys.sh —
+	// do not infer it from anything written here), and `commit_from` above is
+	// another lane's to declare first.
 }
 
 func init() {

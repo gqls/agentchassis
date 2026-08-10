@@ -278,3 +278,19 @@ never had, and pages has no column for it). They are the next **`RemovedConfigKe
 candidates**: whoever adjudicates implement-vs-delete should either implement them or
 declare them removed — the mechanism now exists, one line each. **Blocked on RFC_021's
 question 1** (the adoption protocol for live hard-fail on the shared validator).
+
+**UPDATE 2026-08-10 (bugfix_234 lane, second note): `commit_from` is now a
+RemovedConfigKeys candidate, and it is YOURS, not mine.** Measured today: **0 carriers**
+of `commit_from` anywhere in `agent_definitions` (text search, any state, any depth) — so
+356's data half is applied, though `schema_migrations` has no row for it (record it with
+`run-migrations.sh --record-only` when convenient; a pending-looking row that is actually
+applied is how the next session wastes a dry-run). With the census clean, declaring
+`commit_from` in `UpdatePageStatusInputSpec.RemovedConfigKeys` is one line and satisfies
+the RFC_021 Q1 protocol — a future author who writes the key again gets a hard validation
+error naming the fix, instead of the silent no-op that hid it for months.
+
+**I did not declare it**: this lane was committing on 356 the same day, and adopting
+another lane's key mid-flight is exactly what `who-owns.py` exists to prevent. The
+mechanism, the adoption protocol and a worked example are all in place —
+`v3_site_actions.go` already declares the `notes_field`/`validation_issues_field` pair the
+same way (migration 370).

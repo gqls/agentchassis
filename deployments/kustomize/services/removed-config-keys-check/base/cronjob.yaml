@@ -1,0 +1,85 @@
+# deployments/kustomize/services/removed-config-keys-check/base/cronjob.yaml
+#
+# The RFC_021 Q1 owner ruling (2026-08-10): a live hard-fail adoption on the
+# config-key seam (`ActionInputSpec.RemovedConfigKeys`, `StrictConfig`) is
+# licensed by a census at adoption PLUS this automated check — not by
+# per-adoption producer inventories. The council guardian's veto on
+# corr 3eb0d1f1 named the window this closes: a definition seeded or edited
+# after the adoption census fails at validation as an agent outage; this job
+# turns that into a report line before (or at worst shortly after) it bites.
+#
+# WHY A CRONJOB AND NOT A GIT HOOK: same two reasons as
+# single-owner-carriers-check (RFC 006), on which this is modelled line for
+# line — at commit time a migration is unapplied so live definitions still look
+# correct, and live config is routinely changed in the DB with no commit at
+# all. Same image, same secret, same doc_notes convention, same
+# "connect to Postgres directly" constraint (no pods/exec RBAC here).
+#
+# WHY NOT RUN THE GO BINARY: it would need a git clone (262M) + module download
+# + compile in a job with uncertain egress; a gate that fails for
+# infrastructure reasons gets ignored. The two drift risks the Python mirror
+# creates are pinned by cmd/config-key-audit/removed_keys_cron_parity_test.go.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: removed-config-keys-check
+  labels:
+    app: removed-config-keys-check
+    component: config-integrity
+spec:
+  # Daily. Live agent config changes many times a day, and a carrier of a
+  # removed key is one roll away from being a dead agent. 06:25 UTC sits in the
+  # config-integrity window between single-owner-carriers-check (06:20) and
+  # site-discovery-staleness-check (06:35).
+  schedule: "25 6 * * *"
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      # One query plus a walk over ~180 definitions; hanging past 5 minutes
+      # means something is wrong and it should not block the schedule.
+      activeDeadlineSeconds: 300
+      template:
+        metadata:
+          labels:
+            app: removed-config-keys-check
+            component: config-integrity
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: check
+              image: postgres:16-alpine
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  apk add --no-cache python3 >/dev/null
+                  python3 /scripts/check.py
+              env:
+                - name: PG_CLIENTS_HOST
+                  value: postgres-clients
+                - name: CLIENTS_DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: personae-platform-secrets
+                      key: CLIENTS_DB_PASSWORD
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 200m
+                  memory: 128Mi
+              volumeMounts:
+                - name: check-script
+                  mountPath: /scripts
+                  readOnly: true
+          volumes:
+            - name: check-script
+              configMap:
+                name: removed-config-keys-check-script
+                defaultMode: 365

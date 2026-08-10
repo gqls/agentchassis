@@ -342,6 +342,12 @@ WHERE type = 'content-reviewer';
 
 -- ============================================================
 -- 9. Add mark_page_needs_attention step
+--
+-- notes_field / validation_issues_field were RETIRED here (migration 370):
+-- update_page_status has never read either, and both are now declared in its
+-- RemovedConfigKeys — re-adding one makes the whole workflow fail validation.
+-- The intent they encoded (recording WHY a page was flagged) is preserved in
+-- migrations 356/370's headers; implement it as a feature if wanted.
 -- ============================================================
 UPDATE agent_definitions
 SET default_config = jsonb_set(
@@ -351,9 +357,7 @@ SET default_config = jsonb_set(
             "action": "update_page_status",
             "config": {
                 "status": "needs_attention",
-                "page_id_field": "input_data.current_page.id",
-                "notes_field": "processed_response.rejection_reason",
-                "validation_issues_field": "validation_result.issues"
+                "page_id_field": "input_data.current_page.id"
             },
             "description": "Mark page for maintenance workflow to handle",
             "next_step": "complete_rejected",

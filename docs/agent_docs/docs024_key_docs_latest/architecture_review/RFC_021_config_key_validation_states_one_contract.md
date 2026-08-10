@@ -75,6 +75,29 @@ survive on this one action, one of them costing months of silently-lost behaviou
    Tracked in `bugfix_136_config_key_aliases/HANDOFF_2026-08-09_deferred_items.md` as
    RemovedConfigKeys candidates. Adopting them is increment #5 and waits on Q1.
 
+## OWNER RULING 2026-08-10 — all three questions answered
+
+1. **Q1 = OPTION C.** A live hard-fail adoption (a `StrictConfig` flip or a
+   `RemovedConfigKeys` declaration) requires: (a) a fresh all-depths census at adoption
+   showing zero offending keys, recorded in the adopting commit; AND (b) the offline
+   audit running **automatically** — not by per-adoption ceremony and not by
+   per-adoption producer inventories. The audit automation is the RFC_006 shape (a
+   scheduled check, because a pre-commit hook cannot gate live config). Built by the
+   234 lane in response to this ruling; see the register entry for where it runs.
+2. **Q2 = KEEP.** The fleet had already rolled (v1.0.1279) by ruling time; the
+   enforcement stays. Both halves were then proven at the artefact: pod-grep on both
+   replicas (positive strings present, negative control clean) and the live strict
+   canary (`witness_234_fire.sh` — outcome recorded in the lane NOTES).
+3. **Q3 = PROCEED as proposed.** The `mark_page_needs_attention` siblings are
+   adjudicated as *intent recorded, keys retired*: the never-implemented intent (record
+   WHY a page was flagged) is preserved in migration 356's header, the 136 lane's
+   deferred-items file, and the removal messages themselves; the keys leave the live
+   definition by migration (data first), then gain `RemovedConfigKeys` declarations —
+   increment #5, executed under the Q1 protocol.
+
+The standing constraint ("no new adoptions until Q1 is ruled") is **lifted**, replaced
+by the Q1 protocol.
+
 ## 4. Disposition of the round's other objections (all answered, for the record)
 
 - `editquality` (M): census cited rather than fresh → re-run at commit-gate AND again

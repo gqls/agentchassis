@@ -168,6 +168,10 @@ func main() {
 		emitSingleOwnerViolations()
 		return
 	}
+	if len(os.Args) > 1 && os.Args[1] == "--removed-keys-in-use" {
+		emitRemovedKeyCarriers()
+		return
+	}
 	if len(os.Args) > 1 && os.Args[1] == "--suspicious-keys" {
 		emitSuspiciousKeys()
 		return
