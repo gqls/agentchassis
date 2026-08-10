@@ -118,8 +118,22 @@ jobs/pods at every sample, a mix of genuinely `Running` and `Succeeded`-but-unre
 that idleness is not the common case. The 24,087 surviving topics are the
 long-run evidence.)
 
-**A live platform is never simultaneously idle, so the branch that deletes topics
-is, in practice, dead** — and it needs to win twice in a row.
+**A live platform is rarely simultaneously idle, so the branch that deletes
+topics almost never fires** — and it must win twice in a row to delete anything.
+
+> **CORRECTED 2026-08-10, same session, before this claim was acted on.** I first
+> wrote that the branch is "in practice dead". It is not *dead* — it fires
+> occasionally. `[MEASURED]` the `job.*` count fell from **24,087 (10:44Z) to
+> 23,966 (10:54Z)**, so the reaper cleared ~121 topics when it caught an idle
+> window. What caught it: re-running the count ten minutes later as part of
+> testing the sweep script, and noticing the total had moved.
+>
+> The correction does not weaken the case, it sharpens it: **the reaper is not
+> broken, it is outpaced.** At ~121 per 10-minute tick *when it fires at all*,
+> against a standing backlog of ~24,000 that has accrued while it has been
+> running every 10 minutes for ~15 days, it cannot converge. The standing
+> backlog is the evidence, not the tick rate — and "it sometimes works" is
+> exactly the property that would let a reader dismiss this as already handled.
 
 That guard is the fix for `bugs_closed/071`, where the *opposite* failure was
 biting: the guard never matched a pod, so the cronjob deleted every `job.*` topic
