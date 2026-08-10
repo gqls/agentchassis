@@ -27183,3 +27183,60 @@ the author's claims — not from what went red. So the same wrong file that mis-
 radius also *certified itself* as full coverage. It only diverges on a failing run, which is why it
 survived this long. Fixed in `b861cdbeb`; the table now reads OBSERVED and is accumulated from the
 actual failures. **A coverage number derived from the input it is meant to audit is not coverage.**
+
+---
+
+## 2026-08-10 (brochure lane, `bugs_open/113`) — I cited a stuck work item as proof my fix was needed, without checking its `item_type`. It was a different type, and my fix does not touch it. The council's read-only query caught it in one round
+
+**The claim.** I built `allow_reinstall` on `install_site_composition` and, in the commit
+message, the test-file header, two concept-register entries and a council submission, wrote
+that work item `47ce091c` — *"shares its style collection with 3 other site(s) — needs its
+own collection"* — **"has sat `unresolved after 2 attempts` since 2026-08-06 because the
+detector is correct and NO handler can satisfy it"**, and that my second edit (making
+discovery emit `triaged`) was what would make it satisfiable.
+
+**Three things wrong, all in one sentence I repeated five times.**
+
+1. **`47ce091c` is `item_type = needs_design_review`**, `item_key
+   = shared_style_ai-agent-orchestration.com`. My edit fixed the status of
+   `needs_composition` / `needs_design`. **Different item types — the edit does not
+   unblock it and never could.**
+2. **It was created 2026-04-24, not 2026-08-06.** I read `updated_at` as the creation date.
+   The item is ~3.5 months stuck, not 4 days. Directionally my point survived; the figure I
+   stated as fact did not.
+3. **ai-agent-orchestration.com is not among the sites the `triaged` fix unblocks at all.**
+   The stranded pairs are `noted.co.uk`, `loanandmortgagecalculator.co.uk`,
+   `loancalculator.co.uk` — three sites, six rows. I had said "four rows", counted from a
+   different query on a different day, and never re-ran it against the final claim.
+
+**What caught it.** The council gate's `bug_historian` seat, round 1, gating objection —
+and specifically the **read-only verification queries the seats ask for and answer
+themselves**. One of them was literally *"Confirms whether the cited stuck work item's
+item_type matches needs_composition/needs_design … or is a different type
+(needs_design_review), which would mean edit 5 does not unblock it."* It printed the row.
+That is the gate doing exactly what it exists for, on the first round, in about four
+minutes.
+
+**The cheap check, and it is embarrassing how cheap.** I had the item id in my hand the
+whole time — I had *selected* it earlier in the same session, in a result set whose columns
+included `item_type`, and I read the summary text instead of the type column:
+
+```sql
+SELECT id, item_type, item_key, status, created_at, updated_at
+  FROM site_work_items WHERE left(id::text,8) = '<id>';
+```
+
+**The generalisable failure, and it is not "check the type".** A work item's `summary` is
+prose written for a human and it described my problem *perfectly* — "shares its style
+collection with 3 other site(s) — needs its own collection" is the exact defect I was
+fixing. **A summary that matches your narrative is the strongest possible pull toward
+skipping the structured fields, and the structured fields are the only ones the machinery
+actually keys on.** I did not misread the type; I never looked at it, because the prose had
+already told me what I wanted to hear.
+
+**Second-order, and the reason this is a row rather than a shrug:** the false claim is
+already committed in five places (`5c7b115c5`'s message, `install_site_composition_reinstall_test.go`'s
+header, register entries DES-082 and DES-083, and the submission JSON). Forward-only means
+none of those can be amended. Corrections are appended where they can be, but **the commit
+message is uncorrectable and will read as true to anyone doing archaeology on this seam.**
+That is the real cost of citing evidence you have not typed a query against.
