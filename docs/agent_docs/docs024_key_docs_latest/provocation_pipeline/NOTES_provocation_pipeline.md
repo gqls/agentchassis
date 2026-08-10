@@ -2127,3 +2127,58 @@ and restoring the literal makes it fail naming file and line.
 **State:** committed `36b2dc54e`, council `65d153f0`. **Inert until the next chassis
 roll** — the owner runs the whole-fleet release. Migration 372's `8000` is deliberately
 left in place: correct, currently unread, and live the moment the roll lands.
+
+### Council `65d153f0` — REVISE, and two of its objections were answerable in a minute
+
+Gating objection from `editquality`; 7 of 10 seats abstained, 2 approved
+(`diagnosis_guardian`, `mission`), 7 objected. **The core fix — edits 1–3, the options
+map bypass — was approved outright by the gating seat itself** ("approve that portion
+outright"). What follows is what the round found that I had not.
+
+**1. `[MEASURED]` — my "mirrors ExecuteAIStepAction" claim was FALSE.** `llm_reliability`
+objected that the precedence was *asserted, not verified*. It was. `ai_actions.go`'s
+outer key is `agentConfig` = `CollectedData["agent_config"]` → `agentDef.DefaultConfig`
+(`:180`, `:219`) — the **agent's** whole config, not the step's. So its rule is
+*agent-level beats ai_service*; mine is *step-level beats ai_service*. **Different
+levels.** I read the shape of the code and inferred what the variable held. The
+ai_service arm — the one that actually carries live config — is identical in both, so
+nothing is broken; the claim was wrong, not the code. Corrected in place in
+`llm_options.go` rather than quietly edited, because "mirrors X" is exactly the kind of
+sentence a later reader relies on without re-deriving. Logged in `WRONG_CALLS.md`.
+
+**2. `[MEASURED]` — `guardian`'s blast-radius question, answered.** It asked whether
+`generate_provocations` is wired into more than one site's workflow, since the new
+hard-refuse-on-empty-exemplars would convert "always ran at 2048" into "never runs" for
+any other domain. Census of every active, non-snapshot agent:
+
+```
+provocation-generator-manual | generate   (generate_provocations)
+provocation-generator-manual | gate       (gate_provocation)
+provocation-gate-calibration | gate       (gate_provocation)
+```
+
+**Two agents, both this lane's, both vonc.com.** `loadExemplars` is only reachable from
+`generate_provocations`, seated exactly once. The blast radius is one domain. The gate
+change reaches the calibration harness too, and is behaviour-neutral there: that seat
+configures no `max_tokens`, so the map stays empty and the call is byte-identical.
+
+**3. NOT yet answered — the objection four seats made independently.** `reuse_agent`,
+`constitution`, `prior_art_librarian` and `architecture` all say the same thing:
+`llmOptionsFromConfig` is a second hand-maintained copy of logic `ExecuteAIStepAction`
+already owns, and the fix should EXTRACT that logic so both paths share one
+implementation. I decided against it deliberately (127 live steps across 55 agents, under
+a live outage) and said so in the file header — but "I thought about it" is not the same
+as "the seats were wrong", and four of them arriving there independently is a signal.
+`architecture` adds the sharper version: the options-map contract has exactly one
+enforced entry point and using it is **optional**, so any future action reaching for
+`client.GenerateText` reproduces this defect by construction — twice so far
+(`bugs_open/205`, then this). It explicitly does not block the fix and asks for either a
+census of direct call sites or moving budget resolution into the client itself.
+**Owed, not done.**
+
+**4. `editquality`'s scope objection is procedurally right.** The naming test (edit 4)
+appears in no `grounded_in` entry — it comes from PLAN §11.2 and RFC_020, both real and
+both owner-authorised, and I simply did not cite them. That is a submission defect, not
+a code defect, and the answer is the citation rather than removing the clause.
+`debug_historian` is also right that no pod-verification step was stated; it cannot be,
+until the fleet rolls.

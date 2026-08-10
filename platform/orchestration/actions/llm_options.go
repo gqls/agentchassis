@@ -43,10 +43,27 @@ import (
 
 // llmOptionsFromConfig builds the options map the provider clients actually read.
 //
-// Precedence mirrors `ExecuteAIStepAction`: the step's own config wins over the
-// `ai_service` block, so a step can raise its budget without editing a shared
-// service definition. Values arrive from jsonb as float64; int is accepted too
-// so a Go caller constructing config by hand behaves the same way.
+// > **CORRECTED 2026-08-10, same day, by the council's `llm_reliability` seat —
+// > this comment and the submission that shipped it BOTH claimed the precedence
+// > "mirrors ExecuteAIStepAction", and it does not.**
+// > That function's outer key is `agentConfig`, which is
+// > `CollectedData["agent_config"]` falling back to `agentDef.DefaultConfig`
+// > (`ai_actions.go:180,219`) — the AGENT's whole default config, not the step's.
+// > So its rule is *agent-level beats ai_service*; this one is *step-level beats
+// > ai_service*. Different levels, and I asserted the equivalence from the shape
+// > of the code rather than from reading what the variable held. The seat
+// > objected on exactly that ("asserted, not verified") and was right.
+// >
+// > The behaviour here is still the one this call site wants, and the ai_service
+// > fallback — the arm that actually carries the live config — is identical in
+// > both. What was wrong was the claim, not the code. Recorded rather than
+// > quietly edited, because "mirrors X" is the kind of sentence a later reader
+// > relies on without re-deriving.
+//
+// Precedence: the step's own config wins over the `ai_service` block, so a step
+// can raise its budget without editing a shared service definition. Values arrive
+// from jsonb as float64; int is accepted too so a Go caller constructing config by
+// hand behaves the same way.
 //
 // `where` names the call site in the warning, because the failure this guards
 // against is diagnosed from logs by someone who does not yet know which step is
