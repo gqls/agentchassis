@@ -17,13 +17,17 @@ DECLARE
   snap jsonb;
   live_ver int;
 BEGIN
+  -- The snapshot is whatever snapshot_agent() wrote for this type most recently.
+  -- Matching on a description string was the first draft and was wrong: there is
+  -- no `name` column on this table, and snapshot_agent owns the labelling.
   SELECT default_config INTO snap FROM agent_definitions
    WHERE type = 'landmine-verifier' AND COALESCE(is_snapshot, false) = true
-     AND name LIKE '%pre-365 snapshot%' AND deleted_at IS NULL
+     AND default_config #> '{workflow,steps,gate_evidence}' IS NULL
+     AND deleted_at IS NULL
    ORDER BY created_at DESC LIMIT 1;
 
   IF snap IS NULL THEN
-    RAISE EXCEPTION 'no pre-365 snapshot row found — refusing to guess the previous prompt text. Recover from git (docs/agent_docs/sql_for_agents/276_landmine_verifier.sql is history, NOT the live row) or hand-write the revert.';
+    RAISE EXCEPTION 'no pre-365 snapshot row found (a snapshot WITHOUT gate_evidence) — refusing to guess the previous prompt text. Recover from git (docs/agent_docs/sql_for_agents/276_landmine_verifier.sql is history, NOT the live row) or hand-write the revert.';
   END IF;
 
   SELECT version INTO live_ver FROM agent_definitions
