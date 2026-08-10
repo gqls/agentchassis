@@ -184,3 +184,16 @@ with a measurement or recorded as owed — none required a code change:
    `kubectl exec <chassis-pod> -- sh -c 'strings /app/agent-chassis | grep -c resolveCommitMessage'`
    (expect ≥1, every replica) before trusting the commit_msg leg; the config half is
    already live and falls back cleanly meanwhile.
+
+## 2026-08-10 — chassis v1.0.1277 rolled: candidate 3 is now LIVE at the pod
+
+The owed pod-grep (debug_historian's objection) is done: both running chassis replicas
+(`agent-chassis-6dc54d77cd-lftkt` / `-v2b59`, image `v1.0.1277`, started 2026-08-09
+21:35Z) — `grep -ac resolveCommitMessage /app/agent-chassis` = **2** on each, negative
+control (`zz_no_such_symbol_198`) = **0** on each, same exec. Spawned pods run their
+spawner's image (bugs_open/066 fix), so css-patch-agent's next dispatch inherits the
+binary. Config half re-probed same day: `commit_message_field=css_saved.commit_msg`,
+`params[1]=css_fix.result.css_added` — intact. **Both fix candidates are now fully
+live. The ONLY thing keeping this file open is the witnessed end-to-end run** (next
+real contrast finding → promote → append → next audit stops re-filing), which is the
+vigilant_designer lane's to dispatch. DGH-007's register status updated to deployed.
