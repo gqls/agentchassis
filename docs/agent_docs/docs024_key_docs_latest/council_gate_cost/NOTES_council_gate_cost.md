@@ -270,3 +270,71 @@ single-service roll at its own tag fragments the fleet. `IMAGE_TAG` is bumped to
 roll is mine and is written up in the RUNBOOK — the one that matters is a
 **non-zero `cache_read_input_tokens` on the 2nd+ seat of a run**, because a zero
 there is the failure mode and looks exactly like success.
+
+## 2026-08-10 (22:0x UTC) — PROVEN IN PRODUCTION, and the predicted number was wrong
+
+Chassis **v1.0.1283** rolled by the owner. Verified at the artefact before
+trusting anything: pod-grepped **both** replicas for the marker and both new
+cache columns, with `anthropic-version` as a pipeline positive control and a
+never-existed string returning 0 as the negative control. A roll is not
+evidence a fix shipped; the image could have been built from a HEAD predating
+the commit, and the tag number (1283, not the 1282 I bumped to) would not have
+told me either way.
+
+Then triggered one real council run. **It works:**
+
+```
+step_name           | uncached_in | cache_WRITE | cache_READ | true_prompt
+review_editquality  |       1,782 |     102,088 |          0 |     103,870   <- seat 1 writes
+review_constitution |       1,808 |           0 |    102,088 |     103,896   <- reads
+review_mission      |       1,789 |           0 |    102,088 |     103,877   <- reads
+```
+
+`input_tokens` collapsed **~100,000 → ~1,800** per seat. That the remainder is
+~1,800 is the arithmetic signature of the split landing exactly on the
+shared/varying boundary: 1,800 tokens is about the size of a seat persona.
+`input + creation + read` stays at ~103,870 throughout, confirming the prompt
+did not shrink — only the billing changed.
+
+### The measured saving is 68%, not the ~80% I predicted, and the gap is the useful part
+
+Over 46 seats (38 reading cache): **4,900,476** true prompt tokens billed as
+**1,566,555** equivalent → **68%**.
+
+The model assumed **one cache write per run**. In production several council
+submissions overlap, and each carries its own `plan_json`, so **each pays its
+own write**. The saving is therefore per-run and **dilutes with concurrency**.
+
+> **Quote 68% (measured), not 80% (modelled).** The modelled figure was not
+> wrong arithmetic — it was arithmetic for a fleet with one council running at
+> a time, which is not this fleet. This is the same class as the earlier
+> unparenthesised-`OR` misstep: a number that is internally correct while
+> answering a question nobody asked.
+
+At Sonnet 5 introductory input pricing this takes council-gate's ~11.6M
+input tokens/day from ~$23 to ~$7.4 — **saving ~$16/day now, ~$24/day** once
+introductory pricing ends 2026-08-31.
+
+### Model decision: STAY ON SONNET (owner, 2026-08-10)
+
+Asked whether Haiku would make the council significantly worse. Measured 30
+days of verdicts first, per-seat objection rates:
+
+- heavy discriminators: `guardian` 73% of rounds (1,207 objections),
+  `bug_historian` 84% (663), `editquality` 56% (907), `prior_art_librarian` 45%
+- near-silent: `mission` objected **once in 494 rounds**, `diagnosis_guardian`
+  twice in 270, `constitution` 20 in 494
+
+**And the economics killed my own earlier suggestion.** Caches are
+model-scoped, so a mixed roster pays a SECOND full-price cache write (~125k
+tokens) to save 50% on a handful of 10k-token reads. Modelled per run:
+all-Sonnet-cached $0.43, **mixed 5/5 $0.49 — worse**, all-Haiku $0.21. A mixed
+roster is actively counterproductive; the real choice is all-or-nothing, and
+after caching the remaining model saving (~$4/day) is small against the
+quality risk. Owner ruled: **stay on Sonnet.**
+
+⚠ The honest limit of the objection-rate data, stated because it would be easy
+to over-read: a low rate has two causes with opposite implications — a seat
+that rubber-stamps, or a seat guarding something that rarely goes wrong and
+matters enormously when it does. Counts alone cannot separate them, and
+`mission` at 1-in-494 could be either.
