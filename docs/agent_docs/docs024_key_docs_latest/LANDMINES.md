@@ -8151,3 +8151,76 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **source:** 2026-08-10, `noted_rebuild` lane. noted.co.uk had been serving from `portfolio-sites` since 2026-01-27 with **no `sites` row, no entry in `gqls/sites`, and zero mentions in the repo** (`grep -rl "noted\.co\.uk"` over `*.md`/`*.sql`/`*.go`/`*.sh` returned nothing). Every signal available from inside the platform said greenfield.
 - **verification:** the live/absent contradiction was measured directly — `SELECT ... FROM sites` returned 39 rows with no `noted.co.uk`, while `b2 ls --recursive b2://portfolio-sites/noted.co.uk/` returned 12 objects and a browser loaded the working application. The deletion itself was **not** induced (it would have destroyed the live app); the mechanism is read from the Action's own `b2 sync --delete` line and `resolveGitRepoNameDB`'s documented fallback to `"sites"`.
 - **added:** 2026-08-10, noted_rebuild lane
+
+### A `pages.sections` placement census returns 0 rows for a component the page visibly renders — it is an array of PLAIN STRINGS, not objects
+
+- **footprint:** `pages.sections` read-side, `jsonb_array_elements(p.sections)`,
+  `sec->>'component_name'`, `sec->>'name'`, `sec->>'component_type'`, any
+  "how many sites use component X?" query before a component-wide change
+- **fires when:** you size the blast radius of a `content_components.html_template`
+  edit by counting placements — the correct and expected thing to do before
+  changing a shared component, and the one measurement that licenses the edit
+- **the tell:** **there is no tell.** `jsonb_array_elements` + `->>'component_name'`
+  is valid SQL against a valid jsonb array; it returns `(0 rows)` with no error, no
+  warning and no type complaint, because `->>` on a scalar string simply matches
+  nothing. A zero-placement result reads as "no site uses this component", which is
+  the *most* dangerous wrong answer here: it licenses an unreviewed edit, or (as
+  happened) argues against a fix that was in fact needed on 14 sites. I hit this
+  measuring `info-card-grid` on 2026-08-10 while looking at a served page that was
+  rendering it in front of me
+- **the check:** ask the column its shape before you query into it —
+  `SELECT jsonb_typeof(sections), left(sections::text, 300) FROM pages WHERE …;`
+  It is `["hero", "product-grid", "info-card-grid", …]`. The correct census is
+  **`jsonb_array_elements_text`** compared as a scalar:
+  `SELECT s.domain, p.name, count(*) FROM pages p JOIN sites s ON p.site_id=s.id,
+   jsonb_array_elements_text(p.sections) sec WHERE sec = '<component-name>'
+   GROUP BY 1,2 ORDER BY 1,2;`
+  More generally: **a zero-row answer that contradicts something you can see is not
+  a finding, it is a shape error** — one `jsonb_typeof` settles it. Do not accept a
+  0 from a jsonb path read until you have induced a non-zero from the same query on
+  a case you know to be true
+- **related:** the write-side entry above (`pages.sections` is a materialised CACHE
+  — the build reads `site_plan_sections`) is a *different* trap on the same column;
+  that one is about editing it, this one is about counting it
+- **source:** hit directly, `bugfix_122_contrast_ink_slots` 2026-08-10 (MISSTEP 15 in
+  that lane's NOTES); the corrected query is what produced the 27-placement /
+  14-site figure migration 368 was sized on
+- **added:** 2026-08-10, bugfix_122_contrast_ink_slots lane
+
+---
+
+## An app's own request log cannot prove a request never ARRIVED — only the layer in front can
+
+- **footprint:** `/var/lib/webdesign-chat/requests.jsonl` · any app-level request/
+  transcript log used as evidence of absence · `docs/agent_docs/docs024_key_docs_latest/webdesign_uk_build_service/box/chat-service/` ·
+  generally: any "did the user's action reach us?" question
+- **fires when:** a user reports "I did X and nothing happened", and you reach for
+  the service's own log to find out whether their request arrived. Reading it is the
+  obvious, correct-looking first move
+- **the tell:** **there is no tell — the file is simply quiet, and quiet has two
+  incompatible causes with opposite fixes.** "The request never arrived" (a
+  client-side problem: stale cached JS, a listener never bound, a CORS block, a
+  form that never fired) and "the request arrived and the app failed to log it" (a
+  server-side problem) produce a byte-identical absence. Picking either one off the
+  app log alone is a coin flip dressed as evidence, and the client-side branch is
+  invisible from the server by construction
+- **the check:** ask the layer **in front** of the app, which sees arrivals
+  independently of whether the app handled or recorded them — for this box,
+  nginx: `grep "POST /api/chat" /var/log/nginx/access.log | awk '{print $4, $1}'`.
+  Two entries all day, both mine, none at the time the owner tested ⇒ the request
+  provably never left their browser. Then **induce a positive control in the same
+  command**: fire one request yourself and confirm it appears, or a broken/rotated
+  log path reads exactly like the silence you are trying to interpret
+  (`grep -c` on a missing file is `0`, not an error). Generalises past HTTP: for a
+  queue read the broker, not the consumer; for a cron read the scheduler, not the job
+- **the second trap, same incident:** clearing the first cause is not the same as
+  the thing working. The cache *was* the cause and did clear — and underneath it sat
+  an unrelated hard blocker (an Anthropic account spend cap returning HTTP 400) that
+  the service's designed fail-closed path converted into a **200 with a polite
+  fallback body**. A status-code check would have said "fine". Assert on the
+  RESPONSE BODY, not the status, whenever a service has a graceful-degradation path
+- **source:** hit directly, webdesign.uk chat box, 2026-08-10. Owner reported
+  "I submitted a request and nothing happened"; the app log was ambiguous, nginx
+  settled it in one command, and the second blocker was only found by reading the
+  body of a 200
+- **added:** 2026-08-10, webdesign_uk_build_service lane

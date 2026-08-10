@@ -1,0 +1,120 @@
+ok   https://fundamentallyai.com/                             contrast=0    broken-img=0    (2 slow-loading image(s) re-checked OK)
+FAIL https://oufe.com/                                        contrast=1    broken-img=0    (1 slow-loading image(s) re-checked OK)
+        3.95:1 need 4.5  rgb(255, 255, 255)     on rgb(128,128,128)   .btn btn-secondary  (over an image — ratio approximate)
+               'How this site works'
+FAIL https://gamesdesign.co.uk/                               contrast=16   broken-img=0    (1 slow-loading image(s) re-checked OK)
+        1.44:1 need 4.5  rgb(0, 229, 255)       on rgb(13,191,214)    .stats-eyebrow
+               'By the Numbers'
+        1.72:1 need 4.5  rgba(255, 255, 255, 0.7) on rgb(13,191,214)    .stat-label
+               'Interactive Tools'
+        1.72:1 need 4.5  rgba(255, 255, 255, 0.7) on rgb(13,191,214)    .stat-description
+               'Client-side calculators and simulators running directly in your browse'
+        1.72:1 need 4.5  rgba(255, 255, 255, 0.7) on rgb(13,191,214)    .stat-label
+               'Maximum Attempts'
+        1.72:1 need 4.5  rgba(255, 255, 255, 0.7) on rgb(13,191,214)    .stat-description
+               'The query limit for modeled sequences in our drop-rate tools.'
+        1.72:1 need 4.5  rgba(255, 255, 255, 0.7) on rgb(13,191,214)    .stat-label
+               'Configurable Inputs'
+        1.72:1 need 4.5  rgba(255, 255, 255, 0.7) on rgb(13,191,214)    .stat-description
+               'The variables tracked in the drop-rate tuner: drop chance, kills per h'
+        1.72:1 need 4.5  rgba(255, 255, 255, 0.7) on rgb(13,191,214)    .stat-label
+               'Design Guides'
+FAIL https://webdesign.co.uk/                                 contrast=1    broken-img=0   
+        3.95:1 need 4.5  rgb(255, 255, 255)     on rgb(128,128,128)   .hero-subheadline  (over an image — ratio approximate)
+               'Check colour contrast, generate a CSS grid, decode a JWT, strip an SVG'
+FAIL https://finetuning.uk/                                   contrast=5    broken-img=0    (6 slow-loading image(s) re-checked OK)
+        4.14:1 need 4.5  rgb(200, 135, 58)      on rgb(51,51,68)      .csg-card-tag
+               'Automation'
+        4.14:1 need 4.5  rgb(200, 135, 58)      on rgb(51,51,68)      .csg-card-tag
+               'Data & Search'
+        4.14:1 need 4.5  rgb(200, 135, 58)      on rgb(51,51,68)      .csg-card-tag
+               'Financial Data'
+        4.14:1 need 4.5  rgb(200, 135, 58)      on rgb(51,51,68)      .csg-card-tag
+               'Agent Systems'
+        4.14:1 need 4.5  rgb(200, 135, 58)      on rgb(51,51,68)      .csg-card-tag
+               'Private Deployment'
+FAIL https://idea.uk/                                         contrast=21   broken-img=0    (1 slow-loading image(s) re-checked OK)
+        3.11:1 need 4.5  rgb(131, 124, 114)     on rgb(232,223,204)   .brief-explanation__stat-label
+               'Report price'
+        3.11:1 need 4.5  rgb(131, 124, 114)     on rgb(232,223,204)   .brief-explanation__stat-label
+               'Tools that stay private'
+        3.11:1 need 4.5  rgb(131, 124, 114)     on rgb(232,223,204)   .brief-explanation__stat-label
+               'Turnaround'
+        3.35:1 need 4.5  rgb(131, 124, 114)     on rgb(239,231,214)   .brief-explanation__description
+               'idea.uk gives you the tools and structured analysis to think an idea t'
+        3.35:1 need 4.5  rgb(131, 124, 114)     on rgb(239,231,214)   .brief-explanation__step-sentence
+               "Tell us what you're working on — a product, a service, a creative proj"
+        3.35:1 need 4.5  rgb(131, 124, 114)     on rgb(239,231,214)   .brief-explanation__step-sentence
+               'A free two-minute check of who your idea is really for — no sign-up ne'
+        3.35:1 need 4.5  rgb(131, 124, 114)     on rgb(239,231,214)   .brief-explanation__step-sentence
+               "Request a verified idea report — a structured analysis of your idea's "
+        3.35:1 need 4.5  rgb(131, 124, 114)     on rgb(239,231,214)   .tl-intro
+               'A set of focused tools for pressure-testing an idea before you commit '
+FAIL https://leopardessconsulting.co.uk/                      contrast=1    broken-img=0    (1 slow-loading image(s) re-checked OK)
+        3.95:1 need 4.5  rgb(255, 255, 255)     on rgb(128,128,128)   .btn btn-secondary  (over an image — ratio approximate)
+               'See how a job moves from conversation to production'
+FAIL https://ai-agent-orchestration.com/                      contrast=33   broken-img=0    (5 slow-loading image(s) re-checked OK)
+        1.00:1 need 4.5  rgb(13, 17, 23)        on rgb(13,17,23)      .H3
+               'Deployed on Kubernetes, Kafka, and Postgres'
+        1.00:1 need 4.5  rgb(13, 17, 23)        on rgb(13,17,23)      .H3
+               'Production in days, not months'
+        1.00:1 need 4.5  rgb(13, 17, 23)        on rgb(13,17,23)      .H3
+               'Failure isolation by design'
+        1.00:1 need 4.5  rgb(13, 17, 23)        on rgb(13,17,23)      .H3
+               'Hierarchical agent topologies'
+        1.00:1 need 4.5  rgb(13, 17, 23)        on rgb(13,17,23)      .H3
+               'Observability built in'
+        1.00:1 need 4.5  rgb(13, 17, 23)        on rgb(13,17,23)      .H3
+               'No lock-in'
+        1.04:1 need 3.0  rgb(13, 17, 23)        on rgb(8,11,16)       .H2
+               'What makes this different in production'
+        1.12:1 need 3.0  rgb(230, 237, 243)     on rgb(248,249,250)   .H2
+               'Eight departments. One production registry.'
+FAIL https://gaswholesalers.com/                              contrast=0    broken-img=1   
+       BROKEN IMAGE  /assets/images/logo.png  -> HTTP 404   (alt: Gas Wholesalers)
+FAIL https://webdesign.uk/                                    contrast=1    broken-img=0   
+        3.95:1 need 4.5  rgb(255, 255, 255)     on rgb(128,128,128)   .hero-subheadline  (over an image — ratio approximate)
+               'Check colour contrast, generate a CSS grid, decode a JWT, strip an SVG'
+FAIL https://dartsonline.com/                                 contrast=6    broken-img=0    (8 slow-loading image(s) re-checked OK)
+        1.06:1 need 4.5  rgb(26, 31, 46)        on rgb(30,36,54)      .info-card-grid__card-link
+               'Start here'
+        1.06:1 need 4.5  rgb(26, 31, 46)        on rgb(30,36,54)      .info-card-grid__card-link
+               'Compare your options'
+        1.06:1 need 4.5  rgb(26, 31, 46)        on rgb(30,36,54)      .info-card-grid__card-link
+               'Read the tungsten guide'
+        1.06:1 need 4.5  rgb(26, 31, 46)        on rgb(30,36,54)      .info-card-grid__card-link
+               'Compare dart weights'
+        1.06:1 need 4.5  rgb(26, 31, 46)        on rgb(30,36,54)      .info-card-grid__card-link
+               'Catch up on darts news'
+        1.14:1 need 4.5  rgb(26, 31, 46)        on rgb(15,18,25)      .info-card-grid__eyebrow
+               'Where To Start'
+FAIL https://robot-hands.com/                                 contrast=1    broken-img=0    (3 slow-loading image(s) re-checked OK)
+        3.95:1 need 4.5  rgb(255, 255, 255)     on rgb(128,128,128)   .H2  (over an image — ratio approximate)
+               'Generate a gripper shortlist across 6 actuation technologies.'
+FAIL https://vonc.com/                                        contrast=23   broken-img=0    (2 slow-loading image(s) re-checked OK)
+        1.63:1 need 4.5  rgb(252, 92, 125)      on rgb(131,70,255)    .gauntlet-eyebrow
+               'The Gauntlet'
+        1.63:1 need 4.5  rgb(252, 92, 125)      on rgb(131,70,255)    .stats-eyebrow
+               'By the Numbers'
+        1.76:1 need 4.5  rgb(124, 60, 255)      on rgb(252,92,125)    .gauntlet-btn-primary
+               'Enter the Gauntlet'
+        1.76:1 need 4.5  rgb(124, 60, 255)      on rgb(252,92,125)    .stats-cta
+               'View full report'
+        3.19:1 need 4.5  rgba(255, 255, 255, 0.7) on rgb(131,70,255)    .gauntlet-panel-body
+               'You click in. The Provocation is already up. You read it, you feel som'
+        3.19:1 need 4.5  rgba(255, 255, 255, 0.7) on rgb(131,70,255)    .gauntlet-micro
+               'No credit card required. Cancel anytime.'
+        3.19:1 need 4.5  rgba(255, 255, 255, 0.7) on rgb(131,70,255)    .stat-label
+               'Archetypes'
+        3.19:1 need 4.5  rgba(255, 255, 255, 0.7) on rgb(131,70,255)    .stat-description
+               'Every player fits one: Catalyst, Judge, Maker, Mentor, Oracle, Scout, '
+ok   https://relojistas.com/                                  contrast=0    broken-img=0    (1 slow-loading image(s) re-checked OK)
+FAIL https://vetcomparison.uk/                                contrast=3    broken-img=0    (1 slow-loading image(s) re-checked OK)
+        4.10:1 need 4.5  rgb(107, 124, 133)     on rgb(247,249,250)   .LABEL
+               'Filter by region:'
+        4.14:1 need 4.5  rgb(107, 124, 133)     on rgb(248,250,252)   .tool-description
+               'Search over 2,100 UK veterinary practices by name, town, or postcode. '
+        4.14:1 need 4.5  rgb(107, 124, 133)     on rgb(248,250,252)   .disclaimer
+               "Practice details are collected from practices' own websites and verifi"
+
+15 page(s): 112 contrast failure(s), 1 broken image(s)

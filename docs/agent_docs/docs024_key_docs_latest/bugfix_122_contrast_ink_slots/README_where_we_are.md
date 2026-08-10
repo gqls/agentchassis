@@ -215,3 +215,40 @@ third time in a row for this workstream. Worth saying that it wasn't useless: be
 ran out of road it had independently worked out the same thing I had. But three
 inconclusive runs in a row is starting to look like something about the tool rather than
 something about our questions.
+
+---
+
+**2026-08-10 (afternoon).** The good day this workstream has been building towards. The
+twelve page republishes all completed this morning, and I checked every one against the
+live site rather than trusting the "complete" statuses — after the false-tick problem we
+found last week, that check is not optional. All twelve genuinely changed.
+
+Then I measured everything again: all fifteen sites, same tool, same method as the
+baseline we banked four days ago. **Every single one of the ten failures we said this fix
+would close is gone.** The orange-on-white links on the gas site, the invisible eyebrow
+and links on the robotics site, the two washed-out buttons on the fine-tuning site, and
+the near-invisible label on the darts site. That last one went the odd way — the darts
+team had already deleted the offending section — but deleted is gone all the same.
+
+Two things worth telling straight. First, the darts site promptly reintroduced the same
+class of problem in the section that replaced the deleted one: six new invisible-text
+failures, same cause — the brand colour used as a text colour on a dark page. The
+difference from last week is that the machinery to fix this now exists and is proven, so
+I applied the same one-line-per-rule fix to the new section, checked it against every
+other site that uses it (it changes nothing where the colours are already legible), and
+queued the darts homepage to republish. Found in the morning, fixed by mid-afternoon.
+
+Second, the weekly automatic check is now switched on — the missing half of the approved
+plan. Every site now gets its pages measured once a week, the way I've been doing by hand,
+and any real failures get filed automatically to the repair queue. It ran its first sweep
+within a minute of being turned on. The darts recurrence is exactly why this matters:
+without it, this class of bug only gets caught when someone happens to look.
+
+What remains, honestly stated: the two "By the Numbers" eyebrow labels (games site and
+the pitch site) are still failing and this fix structurally cannot reach them — a
+component that paints its own background is invisible to the renderer's colour logic.
+That, plus about two dozen similar failures, is the design question we've put to a human
+rather than answered ourselves. And the repair queue those automatic findings feed into
+still has the ticket-closing bug I wrote up last week — tickets from the audit can be
+marked done without the work happening — so the loop is armed but its far end is not yet
+trustworthy.

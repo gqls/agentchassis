@@ -702,3 +702,114 @@ Verification protocol for the batch, already banked: before-state sha+accent for
 `scratchpad/before_css/`; per site when its item completes — full diff (drift), the three
 ink slots present, then per-selector grading against `BASELINE_2026-08-06` for the 10
 reachable closures.
+
+## 2026-08-10 (afternoon) — pages verified, re-audit graded 10/10, a same-day recurrence fixed, edit 8 live
+
+**All 12 page items completed** (10:53–11:23Z, faster than the morning's hours-not-minutes
+forecast) and **all 12 verified at the served artefact**: every page carries the new ink
+tokens (`--color-accent-ink` / `--color-primary-ink` / `--color-accent-text`), fetched at
+`pages.url` with a browser UA. Three pages (aao index, finetuning index + tools) have
+Last-Modified stamps from 08-09, BEFORE our items ran — they already carried the tokens
+because other lanes re-rendered them after mig 338 applied (08-08 22:12Z), so our rerender
+was byte-identical and the upload was skipped. Not a false complete; a no-op re-proof.
+vonc index was re-rendered AGAIN at 13:54Z by another lane after our 10:54Z run — tokens
+still present.
+
+**Re-audit run and banked**: `AFTER_2026-08-10_render_audit.txt`, 15 pages, 112 total vs
+baseline 109 — but graded per selector as required, and the totals mislead exactly as
+predicted. **All 10 expected closures delivered**:
+
+| site | expected | result |
+|---|---|---|
+| gaswholesalers | 6 (.A orange-on-white) | **all 6 gone**, contrast=0 |
+| robot-hands | 2 (.tl-card-link 1.07, .tl-eyebrow 1.14) | **both gone** (only the over-image approximate .H2 remains, discounted per runbook) |
+| finetuning | 2 (.csg-filter-btn active, .csg-cta-btn 3.01) | **both gone** — plus `.cta-btn cta-btn-primary` 1.00 white-on-white closed (unattributed bonus; likely a layout accent-ink or another lane) and all 5 broken case-study images fixed (another lane) |
+| dartsonline | 1 (.image-hover-card-grid__eyebrow 1.04) | **gone by removal** — but see the recurrence below |
+
+**§6's [PREDICTED] for vonc is now [MEASURED]: confirmed.** `.stats-eyebrow` 1.63:1 and the
+whole gauntlet/stats band byte-identical to baseline after TWO same-day re-renders — the
+component-painted ground is unreachable by the shipped engine, exactly as the 08-09
+correction said. gamesdesign's eyebrow likewise still 1.44:1. Both remain open under
+`bugs_open/212` §8.
+
+**The three drifted advisory-pin slots introduced no new failures** (idea.uk's growth is
+more instances of its standing muted-on-cream class, incl. the new `.tl-intro`; dartsonline's
+eyebrow ground now measures the drifted #0F1219 and the ratio moved 1.04→1.14 — still
+hopeless, closed by 368 below). New failures NOT ours, for whoever owns those lanes:
+aao `.H2` 1.12:1 light-on-light on a new 'Eight departments' section (aao total 30→33);
+vetcomparison 0→3 (grey #6B7C85 at 4.10–4.14, marginal); idea.uk 14→21 same class.
+
+**RECURRENCE, found and closed same-day: dartsonline swapped `image-hover-card-grid` for
+`info-card-grid` and reintroduced sub-shape A ×6** — `.info-card-grid__card-link` 1.06:1 ×5
+on card-bg, `.info-card-grid__eyebrow` 1.14:1 on background. Classified at the template:
+info-card-grid hardcodes NOTHING — it inks `color: var(--color-primary)` on the PAGE grounds
+(`--color-background` / `--color-card-bg, --color-surface`), so this is engine-reachable
+(NOT 212's class), literally 338 §4 tool-list's shape (eyebrow + card-link). dartsonline's
+served CSS already carries `--color-primary-ink: #F0F2F7`; predicted 1.14→16.73:1 and
+1.06→13.78:1 (the current values reproduce the audit's failing ratios exactly — independent
+corroboration). **Migration 368 written, dry-run rolled back, both RAISE guards induced,
+applied + recorded 14:47Z**: 2 foreground uses wrapped, 4 non-targets asserted intact.
+27 placements / 14 sites measured first: no-op where primary is legible (ink ≡ primary),
+var() fallback where slots are absent. Re-render enqueued for dartsonline index
+(`page_rerender_index_dartsonline_com_viz014icg_20260810`, 14:50Z, page_id set in spec AND
+column per the LANDMINES entry). **brands NOT enqueued: its only page_component has NULL
+`content_data` — fails the batch's own pre-check; left for its owning lane.**
+
+> **MISSTEP 15 — my first placements query returned 0 rows for a component the served page
+> demonstrably renders.** I encoded `sec->>'component_name'` / `sec->>'name'` — an OBJECT
+> shape; `pages.sections` is an array of PLAIN STRINGS. The a-jsonb-path-read-cannot-see-
+> the-shape landmine, hit while measuring. Caught because a zero against a visible
+> counter-example cannot stand; `jsonb_typeof` + a 300-char peek settled it in one query.
+> The 27-placement figure above is from the corrected query.
+
+**Edit 8 DONE and LIVE-PROVEN: migration 369** (`site-render-audit-rotation`). Clones the
+site-discovery-rotation mechanism: hourly tick, 7-day due window = weekly per site, one due
+site per fire, skip mid-build sites, stamped no-op when none due; own concurrency group
+`render-audit` cap 1, timeout 1800s < interval. Dry-run clean, both guards induced,
+pre_query tested in a rolled-back txn (picked robot-hands). Applied + recorded ~14:53Z —
+and **the scheduler fired it within a minute**: rotation stamped robot-hands.com 14:54:23Z,
+orchestration `b30943e4` at step `audit` 14:54:24Z. That is the artefact-level proof, not
+"enabled + a fresh tick" (the thunder-reaper trap). The dartsonline recurrence above is the
+standing demonstration of why this row exists: the defect class returned within 2 days of a
+component swap, and only a hand-run audit caught it.
+
+Commits: mig 368 `0d9e555ec`, mig 369 `4b924895f`, both pathspec-scoped, both carrying the
+lane's standing `Council-Reviewed: c4d9c841`.
+
+Still open at session end: dartsonline item queued (verify at served URL + targeted re-audit
+when it lands — inside the deploy window use the poll-with-cache-buster check from
+LANDMINES, assert an added AND a removed string plus a control); robot-hands weekly audit
+orchestration in flight (its write_findings will file any firm findings as `contrast_failure`
+items — note `bugs_open/213`'s false-complete risk sits on THAT repair route, unfixed).
+
+**Addendum, ~15:00Z: the first weekly sweep COMPLETED (~3 min) and filed 34 firm
+`contrast_failure` items on robot-hands' INTERIOR pages** — the homepage-only baseline
+never looked there. Among them: `info-card-grid__card-link` + `__eyebrow` on
+`/selection-guide.html` (mig 368 closes these when that page next re-renders — a live
+cross-check of both of today's changes), plus `A.cta-btn` on 10 pages, tool-page
+buttons/legends/H2s, and eyebrow variants. All born `detected`, deduped on
+`contrast_failure:<page>#<selector>`, routed to css-patch-agent — where `bugs_open/213`'s
+false-complete defect is now load-bearing at scale: 34 real findings are about to flow
+through a verifier that has stamped work complete without doing it. 213's priority just
+went up.
+
+**Addendum, 15:12Z: dartsonline re-rendered (complete 15:09:36Z, deployed 15:09:34Z) and
+VERIFIED — the page measures CLEAN.** `python3 scripts/render_audit.py
+https://dartsonline.com/` → `contrast=0 broken-img=0`. All six 368-target failures closed
+(card-link 1.06 ×5, eyebrow 1.14). Served-page checks, cache-busted, per the LANDMINES
+protocol: **added** `var(--color-primary-ink, var(--color-primary))` ×2; **removed** bare
+`color: var(--color-primary);` inside the info-card-grid block → 0; **controls** the
+`.info-card-grid__card-link:focus-visible` outline intact, and 3 bare
+`color: var(--color-primary);` still present elsewhere on the page
+(`.pricing-tier__price`, `.stat-highlight__number`, +1) — proof the edit was surgical and
+not a global replace.
+
+> Note on control B: I asserted "≥2 outline rules intact" and got 1, which read like a
+> miss for a minute. The second is `.info-card-grid__arrow:focus-visible`, inside a
+> carousel block that does not render on this page (`grep -c info-card-grid__arrow` on the
+> served HTML = 0). **A template-level count is not a served-page count** — the non-target
+> assertions belong where I actually put them (in the migration, against the row), and a
+> served-page control has to be chosen from what the page actually renders.
+
+**This is the inflection §8 was waiting for: the first page measuring clean.** SUMMARY
+written (`SUMMARY_2026-08-10_contrast_ink_slots.md`).

@@ -5,7 +5,60 @@ on oufe.com as "dark blue on the black background and not easily readable".
 **Severity** high — user-visible, on live public sites, and an accessibility
 failure rather than a cosmetic one. On three of the four, links are effectively
 invisible.
-**Status** OPEN. oufe.com fixed and browser-verified; the generator unchanged.
+**Status** ~~OPEN. oufe.com fixed and browser-verified; the generator unchanged.~~
+**FIXED IN SUBSTANCE 2026-08-10 — engine live, config applied, propagation verified,
+closures measured. Stays in `bugs_open/` per the owner's 2026-08-06 ruling. Read the
+status block immediately below before anything else in this file.**
+
+> ## STATUS 2026-08-10 — what shipped, what it closed, and what it provably cannot
+>
+> **The generator is no longer unchanged: it now answers the question this bug is
+> about.** `buildLegibleInkDefaults` (VIZ-014) emits `--color-<x>-ink` — the palette
+> colour *made legible as an ink on the page* — checked against **every** ground the
+> text may sit on. Live since chassis v1.0.1266, pod-proven on both replicas.
+> Components and layouts opted in via migrations **`338`** (4 components, 5 layouts) and
+> **`368`** (`info-card-grid`). 11 sites' stylesheets and 13 pages re-rendered and
+> verified at the served artefact.
+>
+> **Measured result, graded per selector against `BASELINE_2026-08-06_render_audit.txt`
+> (banked as `AFTER_2026-08-10_render_audit.txt`): all 10 predicted closures delivered.**
+> gaswholesalers 6, robot-hands 2, finetuning 2, dartsonline 1 — and **dartsonline's
+> homepage now measures `contrast=0`**, the first fully clean page in this workstream.
+>
+> **⚠ Do NOT grade this bug by the fleet total.** It rose 109 → 112 while every targeted
+> failure closed: other lanes ship to these same sites continuously and a page
+> re-rendered for any reason carries every change since it last rendered. Grade per
+> selector at the named ratio, against a banked before-state, or you will conclude the
+> opposite of the truth.
+>
+> **The defect class RECURS, and did so inside the fix window.** Two days after 338
+> closed dartsonline's `image-hover-card-grid` failure, that lane swapped in
+> `info-card-grid` and reintroduced the identical fault six times over. Found by a hand
+> re-audit; fixed by 368 the same afternoon. **This is why the standing control matters
+> more than the repair:** migration **`369`** now runs the render audit **weekly per
+> site** automatically (VIZ-015), filing firm failures as `contrast_failure` work items.
+> It fired within 70s of apply and found **34 real failures on robot-hands' INTERIOR
+> pages** — which the 15-page homepage baseline had never looked at. Expect that scale
+> per site.
+>
+> **What this fix provably CANNOT reach, and the proof:** the ink companions are computed
+> against `pageGrounds = {background, surface}` only. An element sitting on a
+> **component-painted** ground is out of reach — `legibleInkFor` correctly returns the
+> source unchanged while the element stays illegible. Not inferred: gamesdesign's
+> `.stats-eyebrow` measured **1.44:1 after the fix shipped, byte-identical to its
+> pre-fix failure**; vonc's the same at 1.63:1 after two re-renders. That is ~24 further
+> failures and it is **`bugs_open/212` §8's open architecture question** — an owner
+> decision, not a bug patch. Repointing components one at a time (338, 368) works and is
+> the sanctioned route meanwhile.
+>
+> **One live dependency:** the 34 findings above route to `css-patch-agent`, where
+> **`bugs_open/213`**'s false-complete defect is unfixed. Detection is now strong; the
+> repair half is known-defective. **Grade repairs at the next audit, never at the item
+> status.**
+>
+> Full account: `docs/agent_docs/docs024_key_docs_latest/bugfix_122_contrast_ink_slots/`
+> — `HANDOFF_2026-08-10_continue_here.md` (state), `SUMMARY_2026-08-10_contrast_ink_slots.md`
+> (plain prose), `NOTES_contrast_ink_slots.md` (evidence + 15 recorded missteps).
 
 > **CORRECTED 2026-07-28 — the measurement below was UNSOUND and the mechanism
 > named in it was WRONG. Read this before using any figure in this file.**
