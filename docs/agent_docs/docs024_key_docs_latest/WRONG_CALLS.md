@@ -26615,3 +26615,108 @@ vocabulary. All three returned a **confident, plausible, wrong** answer rather
 than an error, and each was caught only by a control or a known-positive.
 **A check that cannot come out false is not evidence, and it does not feel
 different from one that can.**
+
+---
+
+## 2026-08-10 — I reported an allow-path as PROVEN when the write it made was a no-op (ideauk sec)
+
+**The claim.** RFC_015's citation gate has two directions to prove: an uncited
+edit to a decision-covered slot must be refused, and a *cited* edit must be
+allowed through. I fired one work item for each, and reported both as proven —
+"the cited control proceeds, proving a named change is allowed through".
+
+**What was actually true.** The cited item did complete, unskipped, and reached
+the git step. But the field value it wrote — `eyebrow: "How it works"` — was
+**already the value on the page**. The blob at the commit's parent says so. So the
+render produced byte-identical HTML and the commit was **EMPTY**: GitHub reports
+`additions: 0, deletions: 0, files: []`. The live page shows "How it works"
+either way, which is exactly why the check felt conclusive.
+
+**What the control does and does not establish.** It does prove the gate did not
+refuse a named write, and that the workflow proceeded past the gate into the
+edit and deploy path — that is real, and it is the property I most needed. It
+does **not** prove a cited edit reaches the artefact, because a dropped
+`field_updates` and a value-already-equal produce **identical** evidence: empty
+commit, success:true, page unchanged. I could not distinguish my own gate
+silently eating the inputs from a benign no-op, on the evidence I had chosen.
+
+**The cheap check.** **Choose a control value that DIFFERS from the current one,
+and confirm it differs before firing.** One `SELECT content_data->>'<field>'`
+beforehand. And when a write reports success, look at the commit's stat, not the
+page: an empty commit is the platform's known success-shaped failure here (it is
+already a LANDMINE entry from this same lane, five days older — I wrote that
+entry and still did not apply it to my own test design).
+
+**The shape, for the tally.** This is the no-op case going unchecked — the same
+family as "you check what could BREAK, never what would be a NO-OP", now with a
+worked instance where the no-op was **the thing I was testing**. A test whose
+pass and whose most likely failure produce the same observation is not a test.
+Second instance in one session: the sqlmock test I wrote for the fix in the same
+hour expected only `FROM page_components`, matched with the predicate deleted,
+and was caught only by mutating the source.
+
+## 2026-08-10 — a council submission of mine carried a census that was plainly false (ideauk sec)
+
+**The claim.** In the RFC_015 submission's `grounded_in`: *"SELECT count(*) FROM
+doc_notes WHERE categories ? 'decision' → 4 rows, all site_id=1244516d (idea.uk);
+zero rows elsewhere ⇒ zero behaviour change fleet-wide."*
+
+**What was actually true.** Seven rows. Four are the RFC's; **three belong to
+other lanes** and predate it, meaning "a note about a decision" rather than an
+enforceable record. The conclusion (no fleet behaviour change) survives, but for
+a reason the claim did not state: those three have `site_id IS NULL` and no
+fences, and both readers require a site match *and* a fence. So the right answer
+was reached by luck rather than by the measurement offered as evidence for it.
+
+**What caught it.** Re-measuring before resubmitting, because the round had been
+dropped and had to be re-fired. Had the first submission run, the false line
+would have gone to the council as evidence, and its conclusion happened to be
+right — so no reviewer objection would have exposed it.
+
+**The cheap check.** **GROUP BY the discriminating column instead of asserting a
+filtered count.** `SELECT coalesce(site_id::text,'NULL'), count(*) ... GROUP BY 1`
+is the same keystrokes and would have shown the NULL-site row group immediately.
+A bare `count(*)` behind a `WHERE` cannot show you the rows you did not expect to
+exist — and "all of them are X" is a claim about the rows you did not see.
+
+---
+
+## 2026-08-10 (later) — four false negatives in one session, all from MY instrument, not the thing under test
+
+Same session as the backwards-diff entry above. Four more times, a check reported
+"broken/absent/denied" about something that was perfectly fine:
+
+1. **`pg_restore -l` said a fresh backup was an unreadable archive.** It wasn't — I ran it as
+   the `postgres` user against a `600 root:root` dump. `pg_restore` reports "cannot read the
+   file" identically to "this archive is corrupt". As root it exits 0 on a valid 6-entry
+   archive. I was one keystroke from recording "the backup script produces corrupt dumps".
+2. **A bucket check printed `fileLockEnabled: None`**, implying my `--file-lock-enabled` flag
+   had silently not taken. It had: the field is top-level **`isFileLockEnabled`**, not nested
+   under `fileLockConfiguration.value`. My JSON path was wrong; the infrastructure was right.
+3. **A permission test "passed" because the command does not exist.** `b2 file delete` is not a
+   subcommand in b2 CLI v4.7 (`b2 rm` is). My grep for `denied|unauthorized` found nothing, so
+   the deny-test looked like a pass — while the real question, *can this key delete?*, had never
+   been asked. Reading the full output showed `invalid choice: 'delete'`.
+4. **A grep for expected error strings turned two untested operations into apparent passes** —
+   the same run as (3). Absence of my expected error text is not evidence of success; it is
+   evidence about my regex.
+
+**The through-line, and it is one habit not four:** I grep for the error I expect, and **a
+check that fails for its own reasons is indistinguishable from the thing under test failing.**
+Worse, in all four the wrong answer was the *alarming* one, which is the direction that gets
+written into a handoff and believed.
+
+**The cheap checks, in the order they actually cost nothing:**
+- **Print the whole output before grepping it.** Three of the four die here. A grep is a
+  claim about spelling, and `exit=0` next to no output should itch.
+- **Verify by a second, differently-shaped route.** `pg_restore -l` as root; the raw JSON rather
+  than my path into it; the actual file still being there afterwards.
+- **Make the negative control fail on purpose once.** A deny-test that has never returned
+  "allowed" has not been shown to be able to.
+
+Related and already in this file: the backwards-diff entry above, same day, same shape —
+confidence tracked the *interestingness* of the conclusion rather than the strength of the
+evidence. Four instances in one session says this is a standing habit to design against, not
+four unlucky commands. It is the same failure the memory index already names from the other
+direction — *"a grep proves absence only for the SPELLING it searches"* — reaching me here as
+**a grep proves DENIAL only for the spelling of the refusal**.
