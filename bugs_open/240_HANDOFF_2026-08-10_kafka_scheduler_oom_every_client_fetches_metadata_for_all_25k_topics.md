@@ -322,3 +322,23 @@ door is still open and this file will tell you why.
 ⚠ **Do not close this on the strength of "the scheduler is up".** That is exactly
 the observation that would have been true for 60 seconds at a time all through
 the incident.
+
+### `[MEASURED]` the accumulation restarted immediately — a rate, not a guess
+
+Two in-pod counts, same session, after the sweep:
+
+| time | `job.*` topics |
+|---|---|
+| 12:02Z (sweep complete) | **354** |
+| 12:39Z | **458** |
+
+**+104 in 37 minutes ≈ 170/hour**, under the load of one lane re-rendering eight
+sites. That is not a steady-state figure — it is what this platform produces when
+something real is running, which is the condition that matters.
+
+At that rate the cluster is back to five figures inside a week, which is exactly
+the interval over which it got there the first time. **This is the concrete
+argument for fix candidates 1 and 2**: the sweep bought roughly a week, and
+nothing about the mechanism has changed. Anyone tempted to close this because the
+scheduler looks healthy should re-run the count first — the number is the answer,
+and it takes one command.
