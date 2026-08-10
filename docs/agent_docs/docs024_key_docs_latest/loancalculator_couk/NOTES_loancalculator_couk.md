@@ -4652,3 +4652,23 @@ only. Dry-run first (guards + in-transaction verify passed, rolled back, stale t
 still live), then applied. Its verify block sweeps the WHOLE row for each retired claim rather
 than checking the three paths it set — a `jsonb_set` on a wrong path silently adds a key, so
 "my new string is there" is not "the old one is gone". Post-apply: 0 retired claims remain.
+
+### Correction to my own commit message, minutes after writing it
+
+Commit `3333b3299` says the `bugfix_236` lane's LANDMINES recurrence and the
+`loanandmortgagecalculator` lane's WRONG_CALLS entry "ride here as a same-file passenger".
+**They do not — it happened the other way round.** Between my `git diff` (which showed both
+files dirty with their work and mine) and my `git commit`, that lane committed
+`9fb7eee9c`, which swept **my** two entries into **their** commit. So my pathspec named two
+files that were already clean, contributed nothing, and the commit landed with 9 files, not 11.
+
+Nothing is lost — both entries are at HEAD and intact — and forward-only means the message
+stands as written. Recording it here because the message is now the only thing that would
+mislead someone doing archaeology: **looking for my landmine entry in my own commit finds
+nothing.** It is exactly the hazard CLAUDE.md describes ("committing per task stops you
+sweeping up others' WIP; it cannot stop a session that still runs git add -A from sweeping up
+yours"), and the interval was about four minutes.
+
+The cheap check I skipped: **re-run `git diff --numstat` on shared append-only files
+immediately before the commit, not before writing the message.** I ran it, wrote a paragraph
+about passengers off that reading, and by the time the commit executed the reading was stale.
