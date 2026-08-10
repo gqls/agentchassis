@@ -2771,3 +2771,23 @@ Recorded on the defect list for an owner call on whether to file it.
 **What it does NOT undermine:** the check results are produced by `request_run` and land in
 `browser_run.response` before `look` is reached, so 15/0/9 stands. What is lost is the
 screenshot/vision pass — the half that would catch what a selector cannot see.
+
+### Misstep, same session: I hit the documented backtick landmine while writing about landmines
+
+Commit `40c0f17f2`'s message was passed to `git commit -m "…"` with the word *look* wrapped
+in backticks. Inside a **double-quoted** shell string those are command substitution, so
+bash ran `look`, printed `look: bad usage`, and substituted **empty string** — the committed
+message reads *"the agent's  step failed on 26 of 26"*, with the subject of the sentence
+missing. Nothing else was lost (that was the message's only backtick pair) and no file
+content was affected.
+
+This trap is already in the memory index (`shell-tool-traps-committing.md`) and I hit it
+anyway, ninety minutes after writing a landmine about silent discards. **The remedy that
+actually works is not "remember": it is to stop putting prose in `-m` at all** — write the
+message to a file and use `git commit -F <file>`, or single-quote it. Forward-only forbids
+an amend, so the message stays holed; this note is the repair.
+
+**The check that would have caught it, and it is free:** `git log -1 --format=%B` after
+committing. The failure is visible in one line of output and invisible everywhere else —
+`git commit` reported success, because from git's point of view the commit was exactly what
+it was handed.
