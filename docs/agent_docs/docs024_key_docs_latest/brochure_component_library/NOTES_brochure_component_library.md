@@ -5408,3 +5408,13 @@ fleet roll — between now and then the trap has NO tell.
 (handoff §5 step 4's tail) — NOT dispatched tonight; it must be coordinated with the sweep front
 first, and the new detections' image should ideally be live before the replan so disobedience is
 measurable. Next session: read the sweep handoff, then dispatch.
+
+**Same-file passenger, outbound this time (2026-08-10 19:44):** another session's commit
+`fba05b83a` (removed-section fix, corr 2bc2a6d5 lane) landed on `v3_site_actions.go` between my
+LogActionFindings refactor edits and my closing commit — so MY refactor of
+`recordFactAssignmentAbsent`/`recordRecomposeOutcomes` rode into THEIR commit as an undeclared
+passenger, and my own pathspec commit had nothing left to take for that file. Nothing lost
+(HEAD carries both changes, package tests green on the merged state); recorded here because their
+commit message cannot declare a passenger its author never saw, so this note is the only place the
+provenance is written down. The write_site_plan_action.go half of the refactor is in `177454a87`
+as intended.
