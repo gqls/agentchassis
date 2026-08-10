@@ -1,7 +1,27 @@
 # HANDOFF — concept register — 2026-08-10
 
+> **UPDATED 2026-08-10, later the same day — ITEM 1 IS DONE, and one figure below
+> is wrong.** The pre-commit gate is built, measured, registered (**OPP-006**) and
+> live in `.githooks/pre-commit`: commits `7db343ee7` (gate + entry + row),
+> `a332522df` (the two owed rows), `728d7d891` (the landmine it produced).
+> **Read `SUMMARY_where_we_are_2026-08-10.md` as the current milestone**, and the
+> 2026-08-10 (later) section of `RUNNING_NOTES` for the evidence.
+> Three corrections to what is written below:
+> 1. **"roughly one every day and a half" is too low — it is ~1.2/day.** The rate
+>    table below is built from what the watcher reported, and **the watcher can only
+>    see entries still missing at 06:50**, so anything backfilled the same afternoon
+>    never enters its count (`VIZ-015` at 0.0h, `WII-010` at 0.8h). A commit-level
+>    sweep sees the whole population; a daily report cannot.
+> 2. **The register is now 1,817 entries / 1,817 rows.** `DIAG-042` and `BLD-018`
+>    (both landed after this doc was written) have rows.
+> 3. **Item 2 re-checked and still blocked** — `rebuild-cascade.md` was last written
+>    **2026-08-08 20:41**, so that edit is active work, not abandoned. Left owed.
+>    The "ConfigMap is stale" note elsewhere in this lane is **settled**: the live
+>    ConfigMap is byte-identical to the repo's `check.py`.
+> **Next up is item 3, staleness** — now the only open flank, and unchanged below.
+
 **Cold-start doc for the register lane.** Read this, then
-`SUMMARY_where_we_are_2026-08-09.md` (the read-aloud milestone),
+`SUMMARY_where_we_are_2026-08-10.md` (the read-aloud milestone),
 `README_where_we_are.md` (owner-facing prose, append-only) and
 `RUNNING_NOTES_concept_register.md` (technical log, newest at the bottom).
 Written because the originating chat grew long, not because the work stalled.
@@ -85,7 +105,15 @@ the same way the convention it replaced did.*
 
 ## Next, in the order I would do it
 
-1. **Build the pre-commit gate for the missing-row class.** The evidence is now in:
+1. ~~**Build the pre-commit gate for the missing-row class.**~~ **DONE 2026-08-10** —
+   `check_register_entry_without_row`, OPP-006. Measured over 398 register-touching
+   commits: 84% of entry-adding commits already do it correctly and stay silent, 16%
+   leak, 0 false positives, and **the median leaked entry waited 93 hours for its
+   row**. A second arm catches an id already claimed — which is arm 1's own blind
+   spot, since the `LNK-031` collision had a row already. ⚠ **That arm shipped INERT
+   and passed every audit-mode test**; see `LANDMINES.md` 2026-08-10. The estimate
+   below is what motivated it and is left for the record:
+1. ~~Build the pre-commit gate for the missing-row class.~~ The evidence is now in:
    ~1 per 1.5 days, four separate lanes, none of them careless. A `pattern-check.py`
    rule that fires when a commit adds a `### <ID> —` heading without adding its
    `| <ID> |` index row in the same commit. Same shape as OPP-003/OPP-004; the

@@ -563,3 +563,70 @@ until someone clears it.
 
 The job's script changed today, so it needs a re-deploy to pick up the new check —
 one command, same as before.
+
+---
+
+**2026-08-10, later in the day.** The leak is now stopped where it starts.
+
+Yesterday's note ended by saying the register had become self-monitoring but was
+still dripping: concepts arriving with an entry and no row in the index, roughly
+one every day and a half, each one invisible to anybody searching for it. The
+question left open was whether to build something at the moment of writing, or
+carry on watching. That's now decided and built: when a commit adds a concept and
+forgets its index row, the commit says so, in front of the person making it, before
+it lands. It also catches the other half of the same problem — claiming an ID
+number another lane has already used, which happened three hours apart between two
+sessions on the 8th and cost us a permanent explanatory note in the register.
+
+Before wiring it in I checked it against the last fortnight, one commit at a time,
+because a check nobody trusts gets switched off. Of the commits that added a
+concept in those two weeks, **84% did it correctly and the check stays completely
+silent on them**. The 16% that didn't produced 34 findings and, on inspection, not
+one false alarm.
+
+**But the number that actually settles it isn't the hit rate — it's how long each
+one sat there.** A hit rate can't tell you whether people were fixing these
+themselves five minutes later, in which case the check is just nagging. So I
+measured the wait: **the median concept sat for 93 hours — nearly four days —
+before its row appeared**, and twenty-one of them were eventually swept up in one
+go by a different session doing a clean-up, not by the person who wrote them. That
+is the difference between an untidy habit and a cost somebody else pays.
+
+**One correction to what I told you yesterday.** I said the leak was about one
+every day and a half. It's about one a day. Not because anything was measured
+carelessly — because the daily watcher can only report what is still missing at
+ten to seven in the morning, so anything fixed the same afternoon never appears in
+its report at all. Two of them in the last week were exactly that. The instrument
+was quietly showing us a fraction of the problem, and nothing in the report said
+so. It's the same lesson as the stored counts, in a different costume: a number is
+only as honest as the thing that could have made it come out differently.
+
+**And one mistake of my own, which is the more useful story.** The second half of
+the check — the one that spots a reused ID — was dead when I first wrote it. Not
+broken in a way that errors; dead in the way that looks exactly like working. One
+of the git commands had its arguments in the wrong order, git refused it, and
+because the tool only listens to a command's output and not its complaints, the
+refusal arrived as "nothing found". No matches, no findings, no error — which is
+also precisely what a clean register looks like. It passed every test I ran across
+four hundred commits of real history, because those tests happened to exercise the
+one mode where the argument order is legal, and not the mode that actually runs
+when you commit. What caught it was deliberately staging a case that HAD to
+produce a finding and refusing to accept silence. I've written it up as a trap for
+everyone, since seven of our twenty-two little maintenance scripts listen to
+output and ignore complaints in exactly the same way.
+
+Two loose ends from yesterday, both now checked rather than assumed. The re-deploy
+I said was owed has in fact already happened — the job running in the cluster is
+byte-for-byte the current script, so it has been doing the full set of checks all
+along. And the one file still carrying a stored count is still somebody else's
+half-finished work in the shared tree; they last touched it on the 8th, so it's
+live work rather than something abandoned, and tidying my one line out of it would
+sweep their changes into my commit. Left alone again, deliberately, for the third
+time.
+
+Where that leaves us: the register's two halves now agree exactly — 1,817 concepts,
+1,817 index rows — and the thing that kept pulling them apart is caught at the
+moment of writing rather than reported the next morning. What still isn't answered,
+and is now the only real question left, is whether the 1,817 entries are still
+**true**. Nothing checks that. It's the next piece of work and it deserves its own
+session.

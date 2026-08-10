@@ -263,6 +263,74 @@ Every command here was hard to get right at least once; the gotcha is attached.
   099, then 100_CHECK. Model standard: claude-sonnet-5 @ 8000, temp 0.0,
   advisory-only (`approve|object`).
 
+## B3. The two guards on the register itself (added 2026-08-10)
+
+Same rule as B2 — every command here was hard to get right at least once, and the
+gotcha is attached rather than left in somebody's scrollback.
+
+- **Does the register agree with itself, right now?**
+  `./scripts/test-concept-register-drift-local.py [ref]` — the LIVE check's own
+  functions with `git` swapped in for GitHub, so it is not a copy that can drift.
+  `--self-test` adds the historical positive control (`8f998e86b^`, where it must
+  find exactly 34) and two mutations.
+  ⚠ **It reads a REF, never your worktree.** Rows you have written but not
+  committed are invisible to it, and it will keep naming them — that is correct,
+  not a bug. Commit, then re-run.
+  ⚠ **The CronJob reads the PUSHED branch**, which is a second gap on top of that
+  one. On 2026-08-10 the two named concepts were committed and the branch was
+  **65 commits behind the remote**, so the next daily run would still have reported
+  them. Check with `git ls-remote origin refs/heads/<branch>` — never a bare
+  `git fetch`, which sets `FETCH_HEAD` to whatever branch it wrote last and will
+  answer confidently about the wrong one.
+
+- **Will my commit ship an entry without its index row?**
+  It tells you by itself — `check_register_entry_without_row` runs in
+  `.githooks/pre-commit` (OPP-006). To ask it directly:
+  `./scripts/pattern-check.py` (staged) · `--commit <sha>` (audit one) ·
+  `--ref <base>` (a range).
+
+- **Testing a pre-commit check WITHOUT touching the shared index.** This is the one
+  that matters, because the shared index belongs to every session on this tree.
+  Stage into a temporary index — which is exactly what `git commit <pathspec>`
+  builds, so it reproduces production rather than approximating it:
+  ```bash
+  export GIT_INDEX_FILE=$(mktemp -u)      # NOT the shared index
+  git read-tree HEAD
+  git add <the files your case needs>
+  ./scripts/pattern-check.py              # sees exactly what the commit would contain
+  unset GIT_INDEX_FILE                    # and the real index never moved
+  ```
+  For a case that needs to modify files too, use an isolated worktree instead:
+  `git worktree add --detach <scratch>/wt HEAD`, then `git worktree remove --force`.
+
+- **⚠ `git grep <pattern> --cached` DIES, and a helper that reads only stdout turns
+  that into "nothing found".** git parses the trailing word as a revision:
+  `fatal: unable to resolve revision: --cached`. Options go BEFORE the pattern; a
+  revision goes AFTER it. This shipped inert once and passed a 398-commit sweep
+  (audit mode puts a legal sha in that position), so:
+  ```bash
+  git grep --cached -E '^### [A-Z]{2,4}-[0-9]{3}' -- <dir>   # staged  — flag FIRST
+  git grep -E '^### [A-Z]{2,4}-[0-9]{3}' <sha> -- <dir>      # a ref   — rev AFTER
+  ```
+  Full trap in `LANDMINES.md` (2026-08-10) — 7 of 22 `scripts/` helpers discard
+  `returncode` the same way.
+
+- **Deploy / trigger / read the watcher:**
+  `make deploy-concept-register-drift-check ENVIRONMENT=production REGION=uk001`,
+  then `make concept-register-drift-check-now` and `…-logs`.
+  ⚠ `make release` does **not** cover CronJobs — its service list is hardcoded, so
+  a fleet release leaves this untouched.
+  ⚠ **Two ConfigMaps exist** (kustomize does not prune). Only the mounted one is
+  live, and it is the only one worth diffing against the repo:
+  ```bash
+  CM=$(kubectl get cronjob concept-register-drift-check -n ai-persona-system \
+        -o jsonpath='{.spec.jobTemplate.spec.template.spec.volumes[0].configMap.name}')
+  diff <(kubectl get cm "$CM" -n ai-persona-system -o jsonpath='{.data.check\.py}') \
+       deployments/kustomize/services/concept-register-drift-check/base/check.py
+  ```
+  That diff is how the "redeploy owed" note from 08-09 was found to be already
+  settled — assumed stale for a day, byte-identical in fact.
+
 ## C. What you should expect the agent to do (so you don't have to)
 - All verification, corrections, and register edits — grep/find/read against
   the live repo, never assuming a doc claim without checking.

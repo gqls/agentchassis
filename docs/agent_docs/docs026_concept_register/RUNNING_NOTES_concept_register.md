@@ -1565,3 +1565,119 @@ leaving the live proof to the lane that owns it and knows how to induce it.
 chat grew long. It carries the rate table, the three landmines specific to this
 lane, and the ordered next steps — gate first, then the owed stored count, then
 staleness.
+
+---
+
+## 2026-08-10 (later) — the gate is built, and the rate we had been quoting was too low
+
+Handoff item 1, done: `check_register_entry_without_row` in `scripts/pattern-check.py`,
+run by `.githooks/pre-commit`, registered as **OPP-006** (entry + index row in the
+same commit — its own rule, applied to itself). Commit `7db343ee7`.
+
+### What it does, in one line each
+
+- **Arm 1** — a commit ADDS `### ABC-001` to a register category file and the id has
+  no `| ABC-001 |` row in the index *as this commit will contain it*.
+- **Arm 2** — the id is already taken somewhere in the register.
+
+Both advisory, like everything in that file. 0.12–0.16s when the register is
+touched, 0.05s otherwise (early return before any git call).
+
+### The measurement, and the correction it forces
+
+Swept the 14 days to 2026-08-10, in audit mode, one commit at a time:
+
+| | |
+|---|---|
+| commits touching the register | 398 |
+| of those, commits ADDING ≥1 concept entry | 159 |
+| did it correctly → silent | **133 (84%)** |
+| shipped an entry with no row → fires | **26 (16%)**, 34 findings |
+| false positives on inspection | **0** |
+| against the whole commit stream | 26 / 3,324 = **0.8%** |
+| arm 2 | **1 finding in 398 commits** — the known `LNK-031` collision |
+
+**The fire rate is not the argument, and this is the part worth carrying forward.**
+A count of firings cannot distinguish a real leak from a two-commit workflow the
+gate would merely nag. The GAP can. Of the 34 findings, 32 eventually got a row and
+**the median entry waited 93.1 hours** for it; 23 of 32 took ≥24h; only 3 closed
+inside an hour. **21 of them were closed in a single sweep by another session's
+08-04 backfill** (`8f998e86b`) rather than by their authors. That is the shape of a
+leak somebody else pays for.
+
+> **CORRECTED 2026-08-10 — the leak rate in the handoff and in yesterday's summary
+> is too low, and the reason is structural rather than arithmetic.** Both say
+> ~1 per 1.5 days, taken from what the watcher reported. The commit-level sweep says
+> **~1.2/day** since the 08-04 backfill. **The watcher undercounts BY CONSTRUCTION:
+> it can only name entries still missing at 06:50**, so a row backfilled the same
+> afternoon never appears in any daily row — `VIZ-015` (gap 0.0h) and `WII-010`
+> (0.8h) are both invisible to it and both real instances of the class. A report's
+> count is bounded by its sampling interval; a commit sweep is not. Nothing was
+> measured wrongly; the instrument could not see the whole population, and neither
+> the handoff nor the summary said so.
+
+### The misstep, which is the most transferable thing here
+
+**Arm 2 shipped inert and passed every test I had.** `git grep <pattern> --cached`
+is not a synonym for `git grep --cached <pattern>`: git reads the trailing word as
+a REVISION and dies `fatal: unable to resolve revision: --cached`. `pattern-check.py`'s
+`sh()` captures stdout only, so that fatal arrived as an **empty string** — empty
+corpus, no collisions, no findings, **no error**, which is exactly what a healthy
+tree also produces.
+
+It passed the full 398-commit audit sweep, because in `--commit` mode the argument
+after the pattern IS a sha, which is legal. **Only staged mode was dead — and staged
+mode is the only mode the hook runs.** A green sweep over real history told me
+nothing about the code path that actually executes.
+
+What caught it: a positive control that staged a known-duplicate id into a temporary
+index and REQUIRED a finding. Nothing else could have — every other test I had was
+consistent with the arm being dead.
+
+Two fixes, both kept: the invocation, and an assertion that the corpus it read
+contains the very headings the commit adds (true by construction), printing an
+audible skip when it does not. So a broken read can never again pass as "no
+collisions". Filed fleet-wide in `LANDMINES.md` (`728d7d891`) — measured while
+filing: **7 of the 22 helpers under `scripts/` that use `capture_output=True` never
+test `returncode` and never pass `check=True`**; `pattern-check.py` was the 7th.
+
+### The five controls, all in an isolated `git worktree` so the shared tree and index were never touched
+
+1. entry staged, no row → **fires** (arm 1)
+2. row added in the WORKTREE but not staged → **still fires** — the pathspec hole; a
+   worktree read would call this clean
+3. row staged too → **silent**
+4. duplicate id staged → **fires** (arm 2) — the control that caught the inert arm
+5. mutate the grep back to the broken form → **audible skip**, not silence
+
+Plus the honest one: staged without its own index row, the gate named **OPP-006**.
+
+### Two live facts checked while here, both correcting the record
+
+- **The CronJob redeploy owed since 08-09 HAS happened.** The 08-09 summary and the
+  owner log both end saying the ConfigMap is stale until `make
+  deploy-concept-register-drift-check` is re-run. It is not: the live ConfigMap
+  (`concept-register-drift-check-script-bg959m9c7f`, the one the CronJob actually
+  mounts) is **byte-identical to the repo's `check.py`** — 16,496 bytes, `diff`
+  clean, and it carries the inverted stored-count arm. So the daily run is doing
+  all four current checks, not the old four.
+- **`REGISTER_REF` is pinned to `087_towards_multiple_domains`**, which is the live
+  working branch — the stale-ref landmine is not biting today. But **65 commits sit
+  unpushed** on that branch (`git ls-remote origin refs/heads/087_towards_multiple_domains`
+  → `5a68d6caf6d9`, local HEAD well ahead), so tomorrow's 06:50 run will still name
+  `BLD-018` and `DIAG-042` even though both rows are committed. That is the watcher
+  reading the PUSHED branch, working as designed — not a regression, and not
+  something this lane should push on other sessions' behalf.
+
+### State at the end of the session
+
+- **1,817 entries / 1,817 index rows.** The missing-row class is closed at HEAD:
+  `BLD-018` and `DIAG-042` rows written from their entries (`a332522df`), neither
+  claiming more than its entry does (BLD-018 inert, no caller; DIAG-042's TRUE
+  branch has never fired).
+- The drift check's **only** remaining finding is `rebuild-cascade.md`'s stored count.
+- **Handoff item 2 is still correctly blocked, re-checked today.** The file is still
+  dirty in the shared tree, and `ls -l` puts its last write at **2026-08-08 20:41** —
+  two days ago, so that edit is active work, not an abandonment. Committing my one
+  line would take their REB-003 rewrite as a same-file passenger. Left owed, again,
+  and the reason is now dated rather than inherited.
