@@ -887,3 +887,44 @@ behaves as though the old rule stood.
 **Still to do:** the two reviews are running and I have not read them yet; the pool
 top-up-and-tell-me work has not been started; and the small blog page tidy-up has not
 either.
+
+---
+
+**2026-08-10 — the site is telling the truth, and the fresh build made two things real.**
+
+Since about a quarter to six this morning vonc.com has been serving a provocation
+dated today. That ends thirteen days of a heading that said "Today's Provocation"
+over something from 26 July. You approved the six yesterday and re-ordered them
+yourself, which is exactly how it was meant to work — I wrote them as drafts
+precisely so the ordering and the approving stayed yours.
+
+Two things I want to flag, because both looked wrong and neither was. The dates in
+the database are a day later than the ones I set, because you moved them; nobody
+should "fix" that back. And the archive shows eight past provocations rather than
+nine, because the very oldest one — the group-chats one, the only one with no full
+case written — has been retired. As today moved forward, the 26 July entry dropped
+into the archive and the retired one dropped out, so the count happened to stay the
+same. Worth knowing that if you retire another one on a quiet day, the safety check
+will refuse to publish, because from its point of view content is disappearing. That
+is the check doing its job, not a fault.
+
+Your fresh build also switched on two things that had been sitting inert. The
+categories work is live and doing nothing, which is correct — it changes nothing until
+somebody adds a second category. And the fix stopping search engines indexing a
+published round is live too, though that page still needs re-rendering before it takes
+effect on the real page.
+
+On the legal question, the allegation check is written, reviewed and approved. The
+reviewers caught something genuinely useful: it had no handling for the word "not", so
+it would have refused someone *defending* a named person — blocking "Nolan did not
+steal the script" as though it were an accusation. That is fixed, and I've pinned a
+test so it stays fixed.
+
+Two of the four safety measures are still only on paper. The one I'd do next is making
+it explicit, on the card and the page, that the AI is judging how well you argued and
+not whether what you said is true. That is your own decision from a couple of days ago
+— own the verdict rather than disclaim it — and it is the difference between a service
+that rates reasoning and one that looks like it certifies accusations.
+
+**The thing with a deadline: content runs out on 15 August.** Six days. Either the
+automatic generator gets its first real test, or someone writes more.
