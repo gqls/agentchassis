@@ -451,3 +451,42 @@ weaker than this table suggests — it guarantees the ref matches the PLAN, not 
 
 `bugs_open/213` (yours) and this file share `write_site_plan`'s neighbourhood but not a
 mechanism; no coordination needed beyond this note.
+
+---
+
+## 2026-08-10 (evening) — LIVE on v1.0.1283, backfill APPLIED, 9 of 10 rows repaired and proven at the consumer join
+
+**Roll verified at the artefact, both replicas:** four literals this change added grep 1/1,
+a pre-existing control 1/1, and a **fabricated negative control 0/0**.
+
+**Backfill `sql_for_agents/373` applied** — 5 page-scope + 4 section-scope repaired, the
+`DO`/`RAISE` guard fired its success notice, census **10 → 1**.
+
+**Proven at `plan_sections`' own joins, run verbatim** (not at the row):
+`gamesdesign about-index → hero_about`, `contact-index → hero_contact`,
+`fundamentallyai news-index → hero_news`, and all four gamesdesign icons through the
+`LIKE 'about-index:%'` join. **Every one returned nothing before the backfill.**
+
+**NOT proven, and the file should not be read as claiming it:**
+
+1. **The rewrite arm has not been observed firing in production.** Two induced pool-site
+   planner runs both returned `imagery_refs_canonicalised: 0` — the planner emitted only
+   `content`-role pages, which `CanonicalisePage` does not rename, so **the fix had nothing
+   to do and that zero would have been zero on the old binary.** The runs do establish that
+   the new code path executes (the return carries three counters that cannot exist without
+   this change) and that nothing regressed. Closing condition: the first replan of a site
+   with `-index` pages (gamesdesign / dartsonline / robot-hands) should show
+   `imagery_refs_canonicalised > 0`. Not forced, because replanning a customer site to
+   harvest a number rewrites a live site's plan.
+2. **`mortgagecalculator.co.uk`'s repaired refs are not "working"** — its assets do not
+   exist yet (`asset_exists = f` on all 7). The reference is right; nothing is visible
+   until imagery is generated.
+3. **`tools-index` on that site still needs a human** — no page exists under any spelling.
+
+**Council:** round 1 died on the fleet credit outage (`complete_invalid`, zero report
+artifacts — not a verdict). **Resubmitted** on the same trail correlation
+`46a50b4c-f00d-4492-b7fd-ce5dc2023480`; running at time of writing. Still no
+`Council-Reviewed:` anywhere, because no verdict has been read.
+
+**Cold start for a fresh session:**
+`docs024_key_docs_latest/bugfix_214_imagery_scope_ref/HANDOFF_2026-08-10_continue_here.md`
