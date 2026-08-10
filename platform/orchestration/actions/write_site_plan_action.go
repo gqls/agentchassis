@@ -51,7 +51,21 @@
 //	  role_corrections: <int>,
 //	  duplicate_pages_merged: <int>,   // pages that canonicalised onto a
 //	                                   // name already taken (bugs_open/215)
+//	  imagery_refs_canonicalised: <int>, // imagery scope_refs rewritten onto
+//	                                     // the page name the plan actually
+//	                                     // holds (bugs_open/214)
+//	  imagery_refs_unresolved: <int>,    // scope_refs naming no page in this
+//	                                     // plan — written verbatim, each with
+//	                                     // an IMAGERY_SCOPE_REF_UNRESOLVED row
+//	  imagery_duplicates_merged: <int>,  // imagery rows that collapsed onto one
+//	                                     // identity after canonicalisation
 //	}
+//
+// Imagery scope_ref resolution (bugs_open/214) lives in
+// write_site_plan_imagery_scope.go. In short: the planner keys imagery by page
+// name, this action renames pages via CanonicalisePage, and until 2026-08-10
+// nothing carried the reference across — so an imagery row could name a page
+// its own plan did not contain, and no build would ever reference it.
 
 package actions
 
@@ -169,8 +183,14 @@ type directiveRow struct {
 // when absent). Caller passes them via the nullableJSONB helper below
 // to coerce empty/nil to a SQL NULL.
 type imageryRow struct {
-	Scope       string
-	ScopeRef    *string // nil for site scope
+	Scope    string
+	ScopeRef *string // nil for site scope
+	// RawScopeRef is the planner's own spelling, before canonicalisation.
+	// It is NOT written to any column — it exists so a collapse log can name
+	// both entries that collided, and so the dedupe guard can prefer the entry
+	// that was already aimed at the plan's real page name. Mirrors
+	// planPageRow.RawName and its reasoning (bugs_open/214).
+	RawScopeRef string
 	Key         string
 	Kind        string
 	Prompt      string
@@ -454,6 +474,22 @@ func WriteSitePlanAction(ctx context.Context, params ActionParams) (interface{},
 	//        is dormant in step 2.
 	imageryRows := flattenImageryBlock(params.CollectedData, logger)
 
+	// ── 2c. Resolve imagery scope_refs onto the page names this plan
+	//        actually contains (bugs_open/214). The planner keys imagery by
+	//        page name; canonicalisation above may have renamed that page
+	//        (about -> about-index), and nothing carried the reference
+	//        across — so the row named a page its own plan did not have and
+	//        no build ever picked it up. planRows is already canonicalised
+	//        AND deduped here, so it is the authority. Unresolvable refs are
+	//        kept verbatim (today's exact behaviour) and recorded after
+	//        commit; the dedupe guard protects idx_site_plan_imagery_unique
+	//        from the collapse this resolution makes possible (bugs_open/215
+	//        on the neighbouring table).
+	canonByRaw := buildCanonicalPageNameMap(planRows, logger)
+	imageryRows, imageryMisses, imageryRefsCanonicalised :=
+		canonicaliseImageryScopeRefs(imageryRows, canonByRaw, sectionCountByPage(planRows), logger)
+	imageryRows, imageryDuplicatesMerged := dedupeImageryRows(imageryRows, logger)
+
 	// ── 3. Single transaction: supersede prior plan, write new plan ────
 	tx, err := params.DB.BeginTx(ctx, nil)
 	if err != nil {
@@ -601,7 +637,7 @@ func WriteSitePlanAction(ctx context.Context, params ActionParams) (interface{},
 	//     Nil (first plan for site).
 	imageryLocksTransferred := 0
 	if prevPlanID != uuid.Nil {
-		imageryLocksTransferred, err = transferImageryLocks(ctx, tx, prevPlanID, planID, logger)
+		imageryLocksTransferred, err = transferImageryLocks(ctx, tx, prevPlanID, planID, canonByRaw, logger)
 		if err != nil {
 			return nil, fmt.Errorf("imagery lock transfer: %w", err)
 		}
@@ -610,6 +646,11 @@ func WriteSitePlanAction(ctx context.Context, params ActionParams) (interface{},
 	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("commit: %w", err)
 	}
+
+	// Record anomalous imagery refs AFTER the commit: agenterrors writes on
+	// *sql.DB and cannot join the tx anyway, and a rolled-back plan write must
+	// not leave error rows describing imagery that was never persisted.
+	recordImageryRefMisses(ctx, params, siteID, planID, imageryMisses, logger)
 
 	prevPlanIDStr := ""
 	if prevPlanID != uuid.Nil {
@@ -628,19 +669,25 @@ func WriteSitePlanAction(ctx context.Context, params ActionParams) (interface{},
 		zap.Int("imagery_locks_transferred", imageryLocksTransferred),
 		zap.Int("role_corrections", corrections),
 		zap.Int("duplicate_pages_merged", duplicatesMerged),
+		zap.Int("imagery_refs_canonicalised", imageryRefsCanonicalised),
+		zap.Int("imagery_refs_unresolved", countMissReason(imageryMisses, "page_not_in_plan")),
+		zap.Int("imagery_duplicates_merged", imageryDuplicatesMerged),
 	)
 
 	return map[string]interface{}{
-		"plan_id":                   planID.String(),
-		"superseded_plan_id":        prevPlanIDStr,
-		"pages_written":             len(planRows),
-		"sections_written":          sectionsWritten,
-		"directives_written":        len(directives),
-		"locks_transferred":         locksTransferred,
-		"imagery_written":           imageryWritten,
-		"imagery_locks_transferred": imageryLocksTransferred,
-		"role_corrections":          corrections,
-		"duplicate_pages_merged":    duplicatesMerged,
+		"plan_id":                    planID.String(),
+		"superseded_plan_id":         prevPlanIDStr,
+		"pages_written":              len(planRows),
+		"sections_written":           sectionsWritten,
+		"directives_written":         len(directives),
+		"locks_transferred":          locksTransferred,
+		"imagery_written":            imageryWritten,
+		"imagery_locks_transferred":  imageryLocksTransferred,
+		"role_corrections":           corrections,
+		"duplicate_pages_merged":     duplicatesMerged,
+		"imagery_refs_canonicalised": imageryRefsCanonicalised,
+		"imagery_refs_unresolved":    countMissReason(imageryMisses, "page_not_in_plan"),
+		"imagery_duplicates_merged":  imageryDuplicatesMerged,
 	}, nil
 }
 
@@ -991,10 +1038,14 @@ func flattenImageryBlock(data map[string]interface{}, logger *zap.Logger) []imag
 		}
 	}
 
-	// Page scope
+	// Page scope. Keys are walked in sorted order, not map order: the
+	// canonicalisation pass downstream can collapse two spellings onto one
+	// identity, and its dedupe guard resolves that by first appearance. Go
+	// randomises map iteration per run, so without this the survivor of a
+	// collision would vary between two runs over identical input.
 	if pageMap, ok := imagery["pages"].(map[string]interface{}); ok {
-		for pageName, raw := range pageMap {
-			entries, ok := raw.([]interface{})
+		for _, pageName := range sortedAnyKeys(pageMap) {
+			entries, ok := pageMap[pageName].([]interface{})
 			if !ok {
 				logger.Info("flattenImageryBlock: page entry not an array, skipping",
 					zap.String("page", pageName))
@@ -1011,8 +1062,8 @@ func flattenImageryBlock(data map[string]interface{}, logger *zap.Logger) []imag
 
 	// Section scope — scope_ref is "page_name:ordering"
 	if sectionMap, ok := imagery["sections"].(map[string]interface{}); ok {
-		for sectionRef, raw := range sectionMap {
-			entries, ok := raw.([]interface{})
+		for _, sectionRef := range sortedAnyKeys(sectionMap) {
+			entries, ok := sectionMap[sectionRef].([]interface{})
 			if !ok {
 				logger.Info("flattenImageryBlock: section entry not an array, skipping",
 					zap.String("section_ref", sectionRef))
@@ -1094,9 +1145,15 @@ func buildImageryRow(scope string, scopeRef *string, raw interface{}, ordering i
 		}
 	}
 
+	rawScopeRef := ""
+	if scopeRef != nil {
+		rawScopeRef = *scopeRef
+	}
+
 	return imageryRow{
 		Scope:       scope,
 		ScopeRef:    scopeRef,
+		RawScopeRef: rawScopeRef,
 		Key:         key,
 		Kind:        kind,
 		Prompt:      prompt,
@@ -1119,8 +1176,17 @@ func buildImageryRow(scope string, scopeRef *string, raw interface{}, ordering i
 // previous-plan rows persist with is_current=false on their site_plans
 // row, so audit retrieval is possible.
 //
+// TRANSITION (bugs_open/214). Since imagery scope_refs are now canonicalised at
+// write time, the first plan written after that change has a new-plan row
+// spelt "about-index:2" where the previous plan's locked row still says
+// "about:2". The exact match then affects zero rows and a human-approved lock
+// is silently dropped. canonByRaw supplies the same resolution the new rows
+// received, and is consulted ONLY after the exact match has already found
+// nothing — so it cannot alter any transfer that succeeds today. It retires
+// itself: from the second post-change replan both sides are canonical.
+//
 // Returns the number of locks successfully transferred.
-func transferImageryLocks(ctx context.Context, tx *sql.Tx, prevPlanID, newPlanID uuid.UUID, logger *zap.Logger) (int, error) {
+func transferImageryLocks(ctx context.Context, tx *sql.Tx, prevPlanID, newPlanID uuid.UUID, canonByRaw map[string]string, logger *zap.Logger) (int, error) {
 	rows, err := tx.QueryContext(ctx, `
 		SELECT scope, scope_ref, key, prompt, locked_at, locked_by
 		FROM site_plan_imagery
@@ -1173,6 +1239,37 @@ func transferImageryLocks(ctx context.Context, tx *sql.Tx, prevPlanID, newPlanID
 			return transferred, fmt.Errorf("apply lock to new imagery row: %w", err)
 		}
 		n, _ := result.RowsAffected()
+
+		// Transition fallback: the previous plan may hold a pre-canonicalisation
+		// ref. Only reached when the exact match found nothing, so no working
+		// transfer can be changed by it.
+		if n == 0 && scopeRef.Valid && canonByRaw != nil {
+			pagePart, rest := splitScopeRef(scopeRef.String)
+			if canonical, ok := canonByRaw[normalisePageKey(pagePart)]; ok && canonical != pagePart {
+				canonicalRef := canonical + rest
+				result, err = tx.ExecContext(ctx, `
+					UPDATE site_plan_imagery
+					   SET locked_at = $1,
+					       locked_by = $2,
+					       prompt    = $3
+					 WHERE plan_id   = $4
+					   AND scope     = $5
+					   AND scope_ref = $6
+					   AND key       = $7
+				`, lockedAt, lockedBy, prevPrompt, newPlanID, scope, canonicalRef, key)
+				if err != nil {
+					return transferred, fmt.Errorf("apply lock to new imagery row (canonical fallback): %w", err)
+				}
+				n, _ = result.RowsAffected()
+				if n > 0 {
+					logger.Info("WriteSitePlanAction: imagery lock matched on the canonicalised scope_ref",
+						zap.String("previous_scope_ref", scopeRef.String),
+						zap.String("canonical_scope_ref", canonicalRef),
+						zap.String("key", key))
+				}
+			}
+		}
+
 		if n > 0 {
 			transferred++
 		} else {
