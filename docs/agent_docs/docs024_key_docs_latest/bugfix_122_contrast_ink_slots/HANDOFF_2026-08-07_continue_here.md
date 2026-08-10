@@ -139,6 +139,20 @@ removed it since 08-08. If the failing element is gone, the baseline row closes 
 only the re-audit can say. **A placement table is a snapshot — re-run it before acting on
 it**, this one lost a row in two days.
 
+### Wait-state at handoff [2026-08-10 ~11:00Z]
+
+The 12 page items were enqueued 10:44Z and were **0/12 claimed at 11:00Z**. That is queue
+depth, not a stall: `build-pipeline-trigger` is alive (fired 10:53, completed 10:54), and
+the dispatcher works oldest-waiting-site-first — dartsonline alone carried ~60 triaged
+build items yesterday, so expect hours, not minutes. The 08-09 CSS batch behaved the same
+way (enqueued ~14:20, last completion 17:02). **Do not re-enqueue; the item_keys are
+`page_rerender_<page>_<domain-with-underscores>_viz014_20260810`.**
+
+Also seen and deliberately left alone: webdesign.uk has a `needs_page` item **claimed since
+18:00 the previous day**. The `claimed-item-timeout` reaper may exclude `needs_page` (the
+exclusion list has grown via migrations 305/322/331/341). Standing rule: never cancel a
+claimed row pre-diagnosis. It is not blocking our items — different site.
+
 ### NEXT, in order
 
 1. **Confirm the 12 page items completed AND verify at served URLs** — `pages.url`, never a
