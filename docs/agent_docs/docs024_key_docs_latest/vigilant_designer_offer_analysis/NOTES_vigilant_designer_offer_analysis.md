@@ -680,3 +680,65 @@ in one shot). All five COMPLETED, all rows disabled after firing.
   {modify,add,remove,config_change}, `grounded_in` a string array, ≤8 edits, and — the
   non-obvious one — grepped every sketch for the `noOpEditReason` blocklist ("add a comment",
   "comment-only", …), which rejects a whole plan on a literal substring match.
+
+## 2026-08-10 (late evening) — round 3: REVISE again, and the gating objection is now UNWINNABLE BY CONSTRUCTION
+
+**Verdict: REVISE, `decided_by` "gating objection from editquality" — the third round running.**
+6 approve (reuse_agent, guidelines, diagnosis_guardian, improvement_guardian, render_guardian,
+mission, architecture), 6 object, 3 abstained. **The ledger objection that gated round 2 was
+answered in full — and editquality gated on it again, for a different reason:**
+
+> "schema_migrations is not in my queryable schema, so the claimed checksums/timestamps
+> cannot be independently checked this round — the claim is accepted only on the author's
+> own report."
+
+**That is structurally true, and no evidence I can supply will ever change it.** Read the
+gate's own config: `council-gate`'s `load_schema_hint` step builds every seat's schema view
+from a **hardcoded 11-table allowlist** —
+`pages, sites, site_plans, site_plan_pages, site_work_items, content_components,
+page_components, agent_definitions, diagnosis_artifacts, agent_error_log, doc_notes`.
+`schema_migrations` is not in it. Neither is `scheduled_tasks` — **which is what the SAME
+seat said it could not check in round 2**. So the sequence was: round 2 demanded the ledger
+gap be closed; the gap was closed; round 3 gated on being unable to see the closure, in a
+table it will never be able to see. **A seat can gate on evidence that lives outside its
+schema hint, and the round is then unwinnable by construction — not by disagreement.**
+Recorded in the council runbook, since it is the gate's business, not this lane's.
+
+**Do NOT fire round 4 to argue this.** The gate is advisory, the code is live, and the
+substantive concern (an applied migration with no ledger row) is genuinely fixed. The one
+real remedy — adding `schema_migrations` + `scheduled_tasks` to that allowlist — is a config
+change to a SHARED mechanism, and widening the gate's eyes mid-dispute *with that gate*, to
+win my own round, is exactly the move a lane should not make unilaterally. Owner's call.
+
+**The objections that ARE worth acting on, and one that I checked and refuted:**
+
+- **prior_art_librarian [HIGH] — REFUTED, and I checked before dismissing.** It quoted the
+  landmine "Registering an `ItemVerifier` obliges TWO more edits" against my claim that
+  registration is decentralised. **The landmine's own footprint names what those two edits
+  are**: `220_claimed_item_timeout_generic_evidence.sql` (the DECLARED list) and
+  `scheduled_tasks.pre_query` (the LIVE column) — i.e. **edits 3 and 4 of this very plan**,
+  both present. `verifier_coverage_test.go` appears in the footprint as the *catch that
+  names the obligation*, not as an edit target: it enumerates
+  `RegisteredVerifierItemTypes()` at runtime, so a registered type is auto-covered. Ran the
+  package tests — they pass. My claim stands, but it was phrased to invite the misreading
+  ("no central list") and round 4, if it ever happens, should quote the footprint instead.
+- **bug_historian [medium] — FAIR, and it is the thing I already put in `risks`.** The
+  `default:` arm of the `primary_model` switch swallows unmodelled models silently, and
+  vetcomparison.uk (`sponsored_listings`) hits it today. The index has a transferable pattern
+  for exactly this shape. Worth a real fix: the arm should file something, or the model set
+  should be closed with an explicit refusal.
+- **debug_historian [medium] — worth checking, cheap.** 359/361 UPDATE `agent_definitions`
+  filtered on `is_active`/`is_snapshot`/`deleted_at` with no version-ordering guard, and a
+  landmine records four agent types carrying TWO active rows where only the higher version
+  loads. The seat notes our `count = 1` post-assertion would catch that — so we are safe by
+  accident rather than by design. **CHECKED 2026-08-10: both target types are single-row**
+  (`domain-strategist` 1 row v1, `quality-discovery-agent` 1 row v1), so neither migration
+  hit the wrong row. The objection is still right about the *shape* — the guard that saved
+  us was a row-count assertion, not a version-ordering predicate.
+- **guardian [medium] — FAIR and trivially right.** Edit 5 (359) is labelled `add` (the
+  migration file) when what it does is write `agent_definitions.default_config` — that is a
+  `config_change`, and the owning pipeline should be a field, not prose.
+- **constitution [low] — FAIR, and it is about my writing.** The rationale was "saturated
+  with ALL-CAPS declarative headers and self-vindicating rhetoric". It is: I wrote
+  "HISTORICAL RECORD, NOT FORWARD EDITS", "THE ROUND-2 GATING GAP, NOW CLOSED", "ROUND 1'S
+  ACTUAL VERDICT". Persuasion styling, on a plan whose substance did not need it.

@@ -286,6 +286,54 @@ genuinely unanimous 8-seat approval that reads as "every seat abstained".
 - The trailer is self-declared. MISMATCH (trailer without a green report) is
   bucketed separately by 098 precisely so a false claim of review is visible.
 
+### A seat can gate on evidence that lives OUTSIDE its schema hint — and that round is unwinnable by construction (contributed 2026-08-10, vigilant_designer_offer_analysis)
+
+**Every seat's database view is a hardcoded 11-table allowlist**, built by
+`council-gate`'s own `load_schema_hint` step:
+`pages, sites, site_plans, site_plan_pages, site_work_items, content_components,
+page_components, agent_definitions, diagnosis_artifacts, agent_error_log, doc_notes`
+(read it live — `SELECT default_config #>> '{workflow,steps,load_schema_hint,config,query}'
+FROM agent_definitions WHERE type='council-gate' AND is_active AND
+COALESCE(is_snapshot,false)=false AND deleted_at IS NULL`).
+
+**Notably absent: `schema_migrations` and `scheduled_tasks`** — two tables that platform
+changes routinely turn on.
+
+The failure this produces is not disagreement, it is a loop. Worked case, correlation
+`5cd586c9`, three rounds:
+
+- **Round 2** gated (editquality, HIGH, echoed by three more seats) on migrations applied
+  with no `schema_migrations` ledger row. A fair and correct objection.
+- The gap was **closed** — rows recorded via `run-migrations.sh --record-only`, checksums
+  matching the committed files, each migration's own post-state assertion re-run live first.
+- **Round 3 gated again**, same seat: *"schema_migrations is not in my queryable schema, so
+  the claimed checksums/timestamps cannot be independently checked this round — the claim is
+  accepted only on the author's own report."* The same seat had said the same of
+  `scheduled_tasks` in round 2.
+
+So a seat demanded a fix, got the fix, and then gated on being unable to see it — in a table
+it will never be able to see. **No amount of evidence in the submission can clear that**,
+because the objection is about the seat's read access, not about the plan.
+
+**What to do about it, in order:**
+
+1. **Recognise the shape before spending a round.** If your evidence lives outside those 11
+   tables, expect "cannot be independently checked" and price it in. It reads exactly like a
+   substantive objection and is not one.
+2. **Put the evidence where a seat CAN see it.** `doc_notes` is on the allowlist. A dated
+   note carrying the query output (checksums, row counts, the assertion you re-ran) is
+   inspectable by every seat; a claim in the rationale is not. This is the cheap fix and it
+   needs no platform change.
+3. **Do NOT widen the allowlist to win your own round.** It is a config change to a shared
+   mechanism that every future submission is judged by, and doing it mid-dispute *with that
+   gate* is self-serving. Raise it as a change to the gate on its own merits.
+
+**The general lesson, which outlives this case:** a review tier's *blindness* is not a
+neutral absence — it converts into an objection with the same wording and severity as a real
+defect, and it survives the fix. When a seat says it cannot check something, read that as a
+fact about the harness, and go and check whether it CAN ever check it, before assuming your
+next round will land better.
+
 ## The live roster (re-verify before assuming — it changes often)
 
 As of 2026-07-18, 9 seats. Always-on: **edit-quality**, **guardian** (hard
