@@ -1993,3 +1993,37 @@ wrong about the code. The one round-two complaint that looked damaging — that 
 had only half-finished the verifier work — was actually a fault in my *submission*:
 I did the work but did not list it, so the reviewers judged what they could see.
 Fair, and mine to fix.
+
+**Done — the rebuild door is guarded, and gently as you asked.**
+
+A rebuild that would overwrite a section one of your decisions protects, without
+naming that decision, now leaves the section alone and files a note saying so.
+The rebuild itself still succeeds. Nothing is blocked, nothing fails; the worst
+that happens is that one section keeps the content it had and somebody is told.
+
+It turned out to be a small change for a good reason: the old lock system already
+behaved exactly this way in the very same piece of code, so I followed the groove
+rather than cutting a new one. That was why I recommended this option.
+
+The part that needed care was not the feature at all. To let a protected section
+survive, the rebuild's delete step had to be taught to skip it — and there is a
+nasty property of the database language where, if the "skip these" list arrives
+empty in the wrong way, the delete matches *nothing* instead of everything. That
+would mean every rebuild on every site quietly stopping clearing out old sections,
+while still reporting success. And the empty case is the normal one, because
+thirteen of our fourteen sites have no decisions recorded yet. So the empty list
+is built to be genuinely empty rather than absent, and there is a test that fails
+if anyone changes that — I broke it deliberately to check the test actually
+notices.
+
+Two other things landed while I was in there. I confirmed at the running system —
+not from our records, which have been wrong about this before — that this
+morning's two fixes are genuinely live on both machines, so the section that came
+back cannot come back that way again. And I found a gap that is not ours: another
+kind of "blocked change" notice has thirty-seven live records and sits outside the
+safety net that is supposed to check such things were really resolved. I have
+written it down beside my own entry for whoever owns it, rather than quietly
+adopting someone else's problem.
+
+The reviewers have the whole thing again, and this time with an answer to their
+objection rather than a promise.

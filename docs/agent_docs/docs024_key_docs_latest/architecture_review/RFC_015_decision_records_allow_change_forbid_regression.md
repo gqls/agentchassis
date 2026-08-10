@@ -130,7 +130,29 @@ field with the unsafe default OFF, not as a documented convention.
   owner-sourced item — mirrors the existing owner_approval pattern on
   capability_gap items.)
 
-## 5b. OWNER DECISION NEEDED — the second seam, gated twice by one seat while another approved
+## 5b. OWNER DECIDED 2026-08-10 — option 1, and the second seam is BUILT
+
+**RULING: "please guard the rebuild door now, gentler version."** Implemented the
+same evening in `save_sections_decision_gate.go` + the three wiring points in
+`SavePageSectionsAction` (commit `00fc34f7e`), registered as CGV-031's second seam
+in that same commit. The gate preserves a covered-and-uncited slot's stored row
+through the rebuild, discards the fresh copy, repositions, and files
+`decision_blocked_change` — and never fails the rebuild. **The council's twice-
+gating objection is now answered with code rather than with a deferral.**
+
+Two things worth carrying forward from building it. The seam reuses the lock
+gate's own pattern in the same function, which is why it was small. And the
+dangerous part was not the feature: adding `AND NOT (id = ANY($2::uuid[]))` to
+that DELETE puts the fleet one NULL away from every rebuild silently ceasing to
+clear old rows, because `id = ANY(NULL)` is NULL — so the empty case (which is
+almost every save, 13 of 14 sites having no decision rows) is the one under test.
+
+The original decision request follows, kept because the options and their costs
+are the record of how the choice was made.
+
+### The question as it was put
+
+
 
 **Two council rounds on corr `cb547e0a` (2026-08-10) both returned REVISE, both
 decided by the same `bug_historian` objection, at HIGH severity:** the
