@@ -187,8 +187,8 @@ func (c *DecisionGuardsCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, err
 			// mode. Raised by the council's editquality seat on the first
 			// RFC_015 round (2026-08-09), whose verdict this lane did not read
 			// at the time because the round looked dropped.
-			ItemKey:      fmt.Sprintf("decision_regression:%s:%s:%s", dctx.SiteID, p.key, p.guard.Page),
-			BatchID:      dctx.BatchID,
+			ItemKey: fmt.Sprintf("decision_regression:%s:%s:%s", dctx.SiteID, p.key, p.guard.Page),
+			BatchID: dctx.BatchID,
 		})
 	}
 	return result, nil

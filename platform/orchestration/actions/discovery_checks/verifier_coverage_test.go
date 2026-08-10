@@ -152,8 +152,8 @@ var itemTypesWithoutVerifiers = map[string]verificationGap{
 	// the widened contract and the pattern to copy for the entry below: the
 	// verdict is "the HANDLER's transform is at a fixed point", never the
 	// detector's broader predicate.
-	"undeployed_asset":             {catNoTarget, "site-scoped asset sweep; no per-item target id. Unblocked by VerifyTarget.SiteID — next in line; read the handler's remit first"},
-	"contrast_failure":             {catMechanical, "minted by write_render_audit_findings (actions pkg, outside this sensor's glob); verification needs a browser — the dedup key contrast_failure:<page>#<selector> plus the NEXT render audit is the verifier, and the two-strike rule catches a persistent pairing"},
+	"undeployed_asset": {catNoTarget, "site-scoped asset sweep; no per-item target id. Unblocked by VerifyTarget.SiteID — next in line; read the handler's remit first"},
+	"contrast_failure": {catMechanical, "minted by write_render_audit_findings (actions pkg, outside this sensor's glob); verification needs a browser — the dedup key contrast_failure:<page>#<selector> plus the NEXT render audit is the verifier, and the two-strike rule catches a persistent pairing"},
 	// dark_section_audit: minted by write_audit_findings (actions pkg, outside this
 	// sensor's glob) — bugs_open/213 split it OUT of hardcoded_section_colors, whose
 	// verifier grades a different predicate entirely (the discovery check's site
