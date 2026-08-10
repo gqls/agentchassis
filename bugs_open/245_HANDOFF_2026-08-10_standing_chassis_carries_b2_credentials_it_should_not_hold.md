@@ -93,3 +93,50 @@ spawner copies from itself. Two consequences:
   after candidate 1 the keys live only in the secret and the pods that need them.
 - Overlay comment's own caveat (lines ~123–127) and `WRONG_CALLS.md` 2026-08-08: this
   file exists because that comment asked for the question to be handled deliberately.
+
+---
+
+## CONTRIBUTION 2026-08-10 (evening), same lane — the operational half, measured by accident
+
+The "credentials without bucket config" reading above is right, and it has a **visible
+operational cost** that this file does not yet record: with `IMAGE_BUCKET` unset, the
+standing chassis is not merely *holding keys it cannot use* — it is the consumer of
+`system.agent.generic.requests`, so **any orchestration dispatched at that topic which
+runs `deploy_image_asset` fails outright.**
+
+Measured tonight, twice, on separate correlations
+(`71335ce7-042e-448e-9cf9-9227404c1c14`, `d893fcf4-b364-4a39-a2d3-d2e6bd45451c`):
+
+```
+FAILED | deploy_asset | step deploy_asset failed: failed to execute action
+                        deploy_image_asset: storage client not available
+```
+
+Both replicas confirmed bare, same exec, with a positive control in the same command:
+
+```
+IMAGE_BUCKET=[] S3_ENDPOINT=[] B2_KEY_ID_SET=[yes]     # x2 replicas
+```
+
+And the pods that DO have the bucket, enumerated across all running pods:
+`agent-build-dispatch-loop` (×2) and `image-generator-adapter` (×2) —
+`personae-prod-uk001-images`; plus `business-intel` on a different bucket.
+
+**Why this matters for candidate 1's sequencing.** The file already says naive removal
+breaks spawned storage agents. The converse is worth stating too: **the chassis's missing
+`IMAGE_BUCKET` is not harmless today** — it is why the only documented operator route for
+deploying an asset (`docs/leopardessconsulting/scripts/deploy_brand_asset.sh`, which
+publishes to exactly that topic) cannot work at all, independently of that script's other
+staleness. A reader of this file could reasonably conclude "no capability" means "no
+consequence". It means the deploy path has one working route (the work item, via
+`build-dispatch-loop`) and one that always fails, with nothing naming which is which.
+
+Not a new fix candidate — candidate 1 still stands and is still correctly ordered. This is
+evidence for its *urgency* and a caution for whoever verifies it: **after the change, prove
+a spawned storage agent's deploy at the ARTEFACT, not at the spawn.** A pod that starts is
+this bug's failure mode, not its refutation.
+
+Full context of how this was found, and the two deploy defects it sits behind:
+`bugs_open/248`.
+
+— `staged_component_build`, 2026-08-10

@@ -8603,3 +8603,22 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **what actually holds it off, so nobody mistakes it for a guard:** on the site that found this, all twelve pages pass all three checks *today*. That is a fact about today. A copy edit that leaves one no-op anchor on one tool page is enough to hand the fleet's shared hero to a rewriter, and nothing structural prevents it.
 - **source:** `mortgagecalculator_couk_adoption` A4, 2026-08-10 (NOTES §3; RUNBOOK §14).
 - **added:** 2026-08-10, mortgagecalculator adoption lane
+
+---
+
+## `assets.url` holding a placeholder is NOT the outage, and `deploy_image_asset` dispatched at the CHASSIS can never succeed
+
+- **footprint:** `assets.url` / `assets.filename` · `platform/orchestration/actions/deploy_image_asset_action.go` (`DeployImageAssetAction` asset_key ladder) · `platform/storage/url_helpers.go` (`AssetKeyFilename`, `DeployedAssetPath`, `DeployedWebPath`) · `agent_definitions` `type='asset-deployer'` and `type='build-dispatch-loop'` (`call_handler.input_mapping`) · `site_work_items` `item_type='undeployed_asset'` · `docs/leopardessconsulting/scripts/deploy_brand_asset.sh`
+- **the trap, two halves that look like each other:**
+  1. **118 asset rows across 10 sites** carry `url='/assets/images/input-data.asset-key.jpg'` — a slugified unresolved config path. It is tempting to read that as a 10-site outage. **It is not.** Of the five sites whose *logo* row carries it, **four serve `/assets/images/logo.png` = 200** and only gaswholesalers.com 404s. `assets.url` is not the served path; the served path is derived by `DeployedWebPath(asset_key, purpose)`. **Measure the ARTEFACT per site before sizing anything from this column** — the row count is the size of the corruption, never the size of the damage.
+  2. **A direct kcat publish of an `asset-deployer` orchestration to `system.agent.generic.requests` ALWAYS fails** with `storage client not available`. The standing chassis has `IMAGE_BUCKET`/`S3_ENDPOINT` unset, so `agentbase/agent.go:316` never builds a storage client — while still holding the B2 keys (`bugs_open/245`). Only `agent-build-dispatch-loop` and `image-generator-adapter` pods carry the bucket. **The route is the work item, not the topic.** Two failed dispatches look exactly like a bad payload; they are a consumer that structurally cannot do it.
+- **the tell that it is THIS and not a missing file:** the repair reports `complete` with `success:true` and a real git commit, and the page still 404s. Read `result.response.deploy_result…data.file_path` and the `commit_message`: `logo.jpg` + "Deploy **hero** image" for a `logo` purpose is the bug. A logo must produce `logo.png` and "Deploy logo image".
+- **why it never self-corrects:** `check_undeployed_assets.go:113-119` emits a spec with no `asset_key`, and the dispatcher's `input_mapping` passes no `purpose` — so the `hero` default wins (extension `.jpg`) and the `asset_key` ladder's rung 2 uses its own config PATH as a literal filename. The detector then re-fires next sweep, for ever. Four raisings for one gaswholesalers logo since 2026-04-10, two of them `complete`.
+- **the check, before you trust any asset deploy:**
+  ```bash
+  curl -s -o /tmp/a -w '%{http_code}\n' "https://<domain>$(: DeployedWebPath)"/assets/images/<asset_key>.<ext>
+  file /tmp/a     # and LOOK at it — the right bytes under the wrong name is the common state
+  ```
+  and never use `docs/leopardessconsulting/scripts/deploy_brand_asset.sh`: it passes `deploy_path`, removed 2026-08-04 (`bugs_open/179` A), which now draws a refusal. Use `staged_component_build/scripts/DEPLOY_asset.sh`, which refuses brand-head purposes and a non-`s3://` uri, and makes you pass `asset_key` explicitly.
+- **source:** `bugs_open/248` (090 CONFIRMED, correlation `b78e9a04-9a91-4261-af86-fb79f9316a4e`); sibling `bugs_open/245`, `231`, `235`.
+- **added:** 2026-08-10, staged_component_build
