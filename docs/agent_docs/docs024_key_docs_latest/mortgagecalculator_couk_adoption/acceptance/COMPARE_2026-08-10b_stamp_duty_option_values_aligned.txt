@@ -1,0 +1,17 @@
+
+DIVERGED  stamp-duty       identical inputs, different numbers:
+      vector asym:
+         sdltResult                 golden  '£14,750|block'
+                                    rebuilt '£19,750|block'
+      note: 3 truncated id(s) (200-char fingerprint slice) not machine-judged — eyeball:
+      vector asym:
+         breakdown                  golden  'First Time Buyer Relief Applied.|block'
+                                    rebuilt 'BandRateTaxable portionSDLT£0 – £125,0000%£125,000£0£125,000 – £250,0002%£125,000£2,500£250,000 – £925,0005%£345,000£17,250Total on £595,000£19,750Effective tax rate: 3.32% of the purchase price.Price|block'
+      vector defaults:
+         breakdown                  golden  'First Time Buyer Relief Applied.|block'
+                                    rebuilt 'BandRateTaxable portionSDLT£0 – £300,0000%£300,000£0£300,000 – £500,0005%£50,000£2,500Total on £350,000£2,500Effective tax rate: 0.71% of the purchase price.First-time buyer relief applied: no SDLT up|block'
+
+== summary ==
+   stamp-duty       DIVERGED
+
+1 tool(s) not verified: stamp-duty

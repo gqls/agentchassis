@@ -460,9 +460,12 @@ And re-check "did my batch actually DEPLOY" at the pages table, never at the wor
 ## §11 Checking the legislation watch (evidence-freshness) on this site
 
 Seeded 2026-08-09: `site_specs` aspect `evidence_base` (pinned), 4 SDLT facts
-citing GOV.UK. The daily `evidence-freshness` scheduled task re-fetches each
-citation URL and requires the stored verbatim quote to still appear
-(normalised: case/whitespace/curly-punctuation/thousands).
+citing GOV.UK. **UPDATED 2026-08-10: now 13 facts** — one per band edge and per
+rate (A1), so an oracle can read a band table off the register instead of
+parsing prose; see §13 for how the quotes are lifted. The daily
+`evidence-freshness` scheduled task re-fetches each citation URL and requires
+the stored verbatim quote to still appear (normalised:
+case/whitespace/curly-punctuation/thousands).
 
 ```sql
 -- Did the sweep run, and what did it think of our facts?
@@ -484,3 +487,90 @@ vs the Go extractor) — fix the quote, do not read it as legislation moving.
 The sweep task row's `last_completed_at` covers the WHOLE fleet, not this
 site — proof this site was swept is `verified_at` moving on OUR facts (or an
 item naming us), never the task timestamp.
+
+## §12 Filing a tool-recreation item by hand (added 2026-08-10)
+
+Three sessions have now filed these and none of them wrote the SQL down. It is
+here, with the two things that cost time.
+
+```sql
+INSERT INTO site_work_items
+  (site_id, source, item_type, severity, summary, spec, page_id, priority,
+   handler_agent, status, created_by, item_key, approval_mode, pipeline, triaged_at)
+VALUES ('62b5978e-4271-4589-8e00-4baebfc0447c', 'adoption', 'needs_tool_recreation',
+        'medium', '<what and why>',
+        $json${ "mode":"recreate", "source":"adoption", "page_name":"tool-stamp-duty",
+                "page_type":"tool", "interactive_features":[ … ] }$json$::jsonb,
+        '<pages.id for that page>', 8, 'tool-recreation-handler', 'triaged',
+        '<lane>: <task>', 'needs_page:tool-stamp-duty', 'auto', 'build', NOW())
+RETURNING id, status, created_at;
+```
+
+- **`$json$…$json$` dollar-quoting, not apostrophe-doubling.** The spec text
+  contains apostrophes and `"` (an id contract quoting option values needs
+  both); dollar-quoting takes them literally. Parse the JSON with python before
+  running the file — a malformed spec inserts happily and fails at the agent.
+- **`item_key` reuse is allowed once the previous row is terminal** (the dedup
+  index only covers non-terminal rows), so re-filing the same page is a plain
+  INSERT — no need to invent a new key.
+- **`status='triaged'` + `triaged_at` is what makes it dispatch.** `detected`
+  rows sit for ever; the site's ~40 of them are why an unlocked site is not
+  already churning. Pickup is `build-pipeline-trigger` (120s), claimed by
+  `build-dispatch-loop`. A whole recreation — analyse, rebuild, validate,
+  fabrication-check, save, deploy — took **~5 minutes** end to end on 08-10.
+
+**GOTCHA — `complete` on the work item is NOT success, and a fast `complete` is
+the tell.** On 08-10 an item read `complete` **52 seconds** after filing. Its
+orchestration had ended at `complete_error`, and `result.response` held the
+*site record* (the output of an early step) rather than a tool. Read the
+orchestration, not the item:
+
+```sql
+SELECT orchestration_id, current_step, status,
+       jsonb_pretty(collected_data->'__step_error') AS step_error
+FROM orchestration_states
+WHERE collected_data::text LIKE '%<work item uuid>%' ORDER BY created_at DESC;
+```
+
+That day's `__step_error` was `AI endpoint unavailable … status 400 … "You have
+reached your specified API usage limits."` — a fleet-wide Anthropic budget
+window (failures 14:51–17:02Z, healthy again by 18:12). It is worth knowing what
+this looks like, because **it presents as a work item that completed**. The
+artefact is the arbiter: the failed run left `page_components` untouched
+(same row id, same `updated_at`), which is how it was ruled a clean no-op.
+
+```sql
+-- did a NEW component actually land?
+SELECT id, build_status, length(rendered_html), updated_at
+FROM page_components WHERE page_id='<pages.id>';
+```
+
+## §13 Lifting citation quotes with the REAL extractor (added 2026-08-10)
+
+A quote is only evidence if the daily sweep can still find it, and the sweep
+uses Go (`datahelpers.VisibleTextFromHTML` + `QuoteFoundInText`). Extracting
+with python and hoping the two agree is the day-one `citation_lost` trap in
+§11. Remove the class instead: run the Go functions.
+
+A ~60-line `main.go` in a scratch module with
+
+```
+replace github.com/gqls/agentchassis => /home/ant/projects/agentchassis
+```
+
+imports `platform/orchestration/datahelpers` directly, fetches with the same
+User-Agent and Accept headers as `fetchCitationDocument`, and offers `dump`
+(print the visible text) and `check <quote>…` (verify). Keeping it OUT of the
+repo tree matters on a tree this many sessions share — nobody can sweep it into
+a commit.
+
+Then **lift the quotes out of the dumped text with a regex, never retype them**,
+and use `.` where the source has a currency symbol or a curly apostrophe so no
+non-ASCII is typed at all (this channel rewrites some characters on emission).
+Require exactly one match per quote, so a page edit that duplicates or drops a
+phrase fails loudly.
+
+**Induce the red before trusting the green.** Ask the checker for a quote you
+know is wrong — `Up to £126,000 Zero` — and confirm it reports `NOTFOUND` and
+exits non-zero in the same run as the real one. Thirteen FOUNDs prove nothing
+until one NOTFOUND proves the check can fail.
