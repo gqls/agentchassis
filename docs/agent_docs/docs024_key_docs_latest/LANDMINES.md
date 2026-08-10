@@ -6706,6 +6706,15 @@ you declared it: the behaviour is unchanged and the detector has gone quiet abou
   the tell for which field the key belongs in generally: `ConfigKeys` and
   `DeprecatedConfigKeys` are the settings pair, `Required`/`Optional` and `Deprecated` are
   the reference pair.
+- **ADDED 2026-08-10 (bugs_open/234): the key is RETIRED — nothing should read it, old
+  name or new → `RemovedConfigKeys`** (SCR-007). Both alias fields make a key WORK; a key
+  that must NOT work (never read, author's intent already translated or rejected) put in
+  either of them would be resolved or recognised, which is the opposite of what you want.
+  `RemovedConfigKeys: {"old": "message naming the replacement"}` hard-fails validation
+  with the message printed. ⚠ its own landmine: the error fires on EVERY message for any
+  live definition carrying the key once a declaring binary rolls — migrate the data
+  FIRST (on this tree committing is shipping), and run `scripts/audit-config-keys.sh`
+  (REMOVED KEYS IN USE, exit 1) before any roll.
 
 ```bash
 # does the action read this key straight from config, or through the extractor?

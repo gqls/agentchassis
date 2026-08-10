@@ -73,3 +73,81 @@ owner approved it in plan mode.
   is proven at a filed row — Phase 5.)
 - Recorded via `run-migrations.sh --record-only` with note. Seeds corrected: 054 (:166),
   291 (:117), 269 (:97 — with a comment on why spec_paths, not spec_literal).
+
+## 2026-08-10 — Phase 2+3+4 DONE: SCR-007 built and mutation-proven, council submitted, v1.0.1278 built+pushed
+
+**Code (commit `d278d7b25`, 10 files):** `ActionInputSpec.RemovedConfigKeys` (retired key →
+hard validation error naming the replacement; checked BEFORE strict/unknown; independent of
+the `checksConfig()` opt-in; excluded from UNKNOWN so no double-report under the softer
+label) + `create_work_item` adopts it for `spec` AND flips `StrictConfig: true` + audit
+surfaces (`REMOVED KEYS IN USE`, exit 1; `--specs` emits `removed_config_keys`) + register
+SCR-007 same commit. Nine new tests across three files.
+
+**Every guard proven by mutation, each reverted green:**
+- `StrictConfig` → false ⇒ `TestCreateWorkItemIsStrict` FAILS.
+- `spec` dropped from `RemovedConfigKeys` ⇒ `TestCreateWorkItemSpecKeyIsRemoved` FAILS
+  naming it.
+- validator branch disabled (`false &&`) ⇒ `TestRemovedConfigKeyFailsValidation` FAILS.
+- audit classifier: induced synthetic hit (`LIVE='create_work_item\tspec\ttop'`) ⇒
+  classified `removed_keys_in_use` (not unknown), **exit 1**. Against the real fleet:
+  `none`, exit 0 — correct, 364 removed the carriers first.
+
+**Ordering held:** migration applied → carriers re-checked 0 at all depths → THEN the code
+committed. `git archive HEAD` build + tests green (the committed state is what any
+session's roll ships). Live audit run post-change: `UNKNOWN KEYS` has no create_work_item
+entry (the two listed actions, `process_data`/`update_page_status`, are the 356 lane's
+adjudicated leftovers — the next RemovedConfigKeys candidates, named in SCR-007).
+
+**Council:** corr `3eb0d1f1-6929-4131-bbef-c636256aa667`, submitted before the commit,
+`Council-Submitted:` trailer on `d278d7b25`. Run found EXECUTING at `review_architecture`.
+
+**Image:** IMAGE_TAG → v1.0.1278 (commit `0631d6996`; subsumed another session's
+uncommitted 1275→1277 bump — same-file passenger, monotonic, noted in the message).
+`make build-agent-chassis` from committed HEAD; image strings-verified BEFORE push:
+`bugs_open/234` = 1, `carries REMOVED config key` = 1, nonsense control = 0. Pushed.
+**Not deployed** — releases are whole-fleet; the roll is the owner's.
+
+**A 17th empty-spec row** appeared pre-migration (`improvement_rerender_finetuning.uk`,
+08-09 14:56Z, spec={}) — consistent with the bug, filed before the fix; the damage count
+is 17/17, not 16/16, at fix time.
+
+**PENDING (the two proofs that close this lane):**
+1. **Filed-row proof (data half):** first `improvement_rerender_*` row created AFTER
+   2026-08-10 ~00:30Z must carry `{"refresh_site_components": true}`. RUNBOOK query.
+   ~1.8 rows/day natural rate — check within a day.
+2. **Post-roll proof (code half):** pod-grep both replicas (`bugs_open/234` ≥1, nonsense
+   control 0) + the strict canary (RUNBOOK) once the fleet rolls to ≥1278.
+
+## 2026-08-10 — council round 1: REJECTED (guardian scope veto); RFC_021 filed
+
+Verdict on `3eb0d1f1-6929-4131-bbef-c636256aa667`: **REJECTED, hard veto from
+`guardian`** — 7 approve, 3 object (editquality, bug_historian, architecture), 5 abstain.
+The veto is about SCOPE, not correctness: live hard-fail on the shared validator
+(`ActionInputSpec` field + `checkStepConfigKeys` branch + strict flip on the busiest
+work-item action) "dressed as a single-bug fix". Its contained alternative: ship the
+offline audit only. `architecture` disagreed with the veto in the same round —
+objected-but-approved, asking for a short RFC consolidating the four-state precedence
+machine before increment #5. Seats in conflict = the RFC_002/124 shape; per the owner
+ruling 2026-07-28 **the code stays, the precedent gets fixed, a human breaks it**.
+
+Actions taken, same session:
+- **RFC_021 filed** (`architecture_review/RFC_021_config_key_validation_states_one_contract.md`):
+  the written four-state contract (architecture's "missing"), the guardian's veto stated
+  fairly, and the two owner questions — adoption protocol for live hard-fail, and
+  keep-vs-split for v1.0.1278's enforcement.
+- **editquality M answered**: census re-run FRESH at 2026-08-10 11:15Z (post-commit):
+  0 `spec` carriers, 0 unrecognised keys on any live create_work_item step, all depths.
+  (It had also been re-run at the commit gate — the objection was right that the PLAN
+  only cited the older run.)
+- **bug_historian M answered**: the mark_page_needs_attention sibling keys are now
+  TRACKED in `bugfix_136_config_key_aliases/HANDOFF_2026-08-09_deferred_items.md` as
+  RemovedConfigKeys candidates, blocked on RFC_021 Q1.
+- **prior_art M answered**: the "no config[\"spec\"] read" claim is grounded in a full
+  body read (:247-296 composes from the three real spellings only) and pinned both
+  directions by the contract test.
+- Verdict recorded on SCR-007 and the case file. **No resubmission** — a scope veto is
+  not answered by measurements. Commit `d278d7b25` keeps its `Council-Submitted:`
+  trailer; 098 will bucket it against the rejection, which is honest.
+
+**Standing constraint until RFC_021 Q1 is ruled: no new RemovedConfigKeys adoptions, no
+new StrictConfig flips.**

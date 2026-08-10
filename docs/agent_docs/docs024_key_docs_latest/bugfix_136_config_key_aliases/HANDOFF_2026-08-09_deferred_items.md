@@ -262,3 +262,19 @@ Full account in `bugs_open/136` §12 and the lane NOTES.
 
 **Cold start for whoever picks this lane up next:** `bugs_open/136` §12 first, then the lane
 NOTES tail. Not this file.
+
+---
+
+**UPDATE 2026-08-10 (bugfix_234 lane):** the open item above is **CLOSED** — owner call
+taken (RESTORE the flag), migration 364 translated all three `spec` carriers, and the
+class fix landed as `ActionInputSpec.RemovedConfigKeys` (SCR-007) + `StrictConfig: true`
+on `create_work_item` (commit `d278d7b25`, rides v1.0.1278). Case file `bugs_open/234`.
+
+**And one NEW tracked item lands in its place, so it does not become folklore
+(council round `3eb0d1f1`, bug_historian objection):**
+`mark_page_needs_attention.notes_field` and `.validation_issues_field` — adjudicated dead
+by migration 356 (left standing deliberately: they encode an author's intent the action
+never had, and pages has no column for it). They are the next **`RemovedConfigKeys`
+candidates**: whoever adjudicates implement-vs-delete should either implement them or
+declare them removed — the mechanism now exists, one line each. **Blocked on RFC_021's
+question 1** (the adoption protocol for live hard-fail on the shared validator).

@@ -32,12 +32,12 @@ with an error that names the replacement, and works on actions not yet ready for
 
 | phase | what | state |
 |---|---|---|
-| 0 | this directory + dated corrections into the case file | in progress |
-| 1 | data migration (next free number; was 363 when checked 2026-08-10 — RE-CHECK, numbers go stale in minutes per 356's note) translating the three carriers; seeds 054/269(/291) in the same commit; DO/RAISE guards proven disconfirmable by mutation; applied by hand + `--record-only` | pending |
-| 2 | Go: `RemovedConfigKeys` field + helper (datahelpers), removed-key hard error in `checkStepConfigKeys` (fires BEFORE the strict/unknown branch), `create_work_item` declares `spec` removed + flips strict, tests, audit surfaces (`cmd/config-key-audit`, `scripts/audit-config-keys.sh`), concept-register entry SAME commit | pending |
-| 3 | council submission (before/alongside the code commit; `Council-Submitted:` trailer if verdict pending) | pending |
-| 4 | IMAGE_TAG bump + `make build-agent-chassis`; rides the next fleet roll | pending |
-| 5 | verification: data half at a FILED ROW (post-migration `improvement_rerender_*` row carries the flag); code half post-roll (pod-grep the removed-key message, both replicas, + live canary for the strict flip); close-out bookkeeping | pending |
+| 0 | this directory + dated corrections into the case file | **DONE** (`90f7e8b3b`) |
+| 1 | data migration translating the three carriers; seeds 054/269/291 same commit; DO/RAISE guards proven disconfirmable by mutation; applied by hand + `--record-only` | **DONE** — landed as **364** (363 was taken between check and write), applied + verified 0 carriers at all depths (`b0d6f6ce0`) |
+| 2 | Go: `RemovedConfigKeys` field + helper, removed-key hard error in `checkStepConfigKeys` (BEFORE strict/unknown), `create_work_item` declares `spec` removed + flips strict, 9 tests, audit surfaces, register SCR-007 same commit | **DONE** (`d278d7b25`), every guard mutation-proven |
+| 3 | council submission before the code commit; `Council-Submitted:` trailer | **DONE** — corr `3eb0d1f1-6929-4131-bbef-c636256aa667`, verdict pending at close of session |
+| 4 | IMAGE_TAG bump + `make build-agent-chassis`; rides the next fleet roll | **DONE** — v1.0.1278 built from HEAD, strings-verified, pushed (`0631d6996`); NOT deployed (whole-fleet releases are the owner's) |
+| 5 | verification: data half at a FILED ROW; code half post-roll (pod-grep + strict canary); close-out bookkeeping | **bookkeeping DONE; two proofs PENDING** — see NOTES 08-10 final entry |
 
 ## Ordering constraint (load-bearing)
 

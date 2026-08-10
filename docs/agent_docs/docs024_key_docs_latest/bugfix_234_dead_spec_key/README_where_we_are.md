@@ -30,3 +30,44 @@ loudly instead of being silently ignored.
 The order matters: fix the data first (that's instant), then ship the stricter code (that
 waits for the next release). Doing it the other way round would break the very agents
 we're fixing. Council review happens before the code lands, as usual.
+
+## 2026-08-10, later — both halves done; two proofs still owed
+
+The data fix is applied and live. Before running it for real I deliberately broke it three
+ways and watched its own safety checks catch each one — that's the standard now: a check
+you've never seen fail proves nothing. All three steps now spell their instruction the way
+the system actually reads, and the lost "refresh the header and footer" request is switched
+back on.
+
+The stricter code is written, reviewed by machine tests (including deliberately breaking
+each new guard to watch the right test fail), submitted to the council, committed, and
+baked into image v1.0.1278, which is pushed and waiting for the next fleet release. I did
+not deploy it myself — releases go out whole-fleet, and that's your button.
+
+Two things remain, both waiting on the world rather than on work: the improvement loop
+files one of these rerender requests roughly twice a day, and the first one filed since the
+fix must be seen actually carrying the flag (that's the proof that matters — the config
+merely *looking* right is exactly what this bug was); and once the fleet rolls onto the new
+image, a quick check that the new rejection actually rejects. Both checks are written down
+in the runbook with the exact commands. The council's verdict was still being deliberated
+at the time of writing; the commit carries the pending-review marker so the coverage report
+credits it automatically when the verdict lands.
+
+## 2026-08-10, midday — the council said no to how, not to what
+
+The review came back split in an interesting way. Nobody disputed the bug, the data fix,
+or the evidence. What drew a veto from the safety seat is that the new "reject a retired
+config key loudly" behaviour lives in machinery every agent's messages pass through, and
+it arrived packaged inside a bug fix rather than as its own reviewed change. The
+architecture seat, in the same round, looked at the same facts and said the opposite —
+fine to proceed, but write down the accumulated design before anyone adds to it again.
+
+House rules for exactly this situation (it has happened before): the shipped code stays,
+the disagreement goes to you with the design written down. So I've filed RFC 021 with the
+two questions that are genuinely yours: how much ceremony should a hard-failing check on
+shared machinery require before it goes live, and should the stricter behaviour ride the
+next release as built, or be softened to warning-only until you've answered the first
+question. Every concrete complaint the objecting reviewers raised — a measurement they
+wanted re-run, a loose end they wanted tracked, a claim they wanted proven from the code
+rather than prose — has been answered and recorded. Nothing further ships on this
+mechanism until you rule.

@@ -3,9 +3,29 @@
 **Filed 2026-08-09** from the `bugfix_136_config_key_aliases` lane, found by the no-op check
 before opting `create_work_item` into unknown-config-key detection (`bugs_open/136` §12).
 
-**Status: OPEN — IN PROGRESS (bugfix_234_dead_spec_key lane, opened 2026-08-10). The owner
-decision below is TAKEN: restore the flag. Fix underway per
-`docs/agent_docs/docs024_key_docs_latest/bugfix_234_dead_spec_key/PLAN_2026-08-10_dead_spec_key.md`.**
+**Status: FIXED IN SUBSTANCE 2026-08-10 — stays in `bugs_open/` per the owner ruling of
+2026-08-06; two proofs pending.** Migration **364** (applied + recorded, guards
+mutation-proven) renamed `spec` → `spec_literal`/`spec_paths` on all three carriers with
+values copied in place; seeds 054/291/269 corrected same commit. The flag is RESTORED
+(owner decision below). Class closed both ways: **`ActionInputSpec.RemovedConfigKeys`**
+(SCR-007 — a retired key hard-fails validation with the replacement named; audit gains
+REMOVED KEYS IN USE, exit 1) and **`StrictConfig: true` on `create_work_item`** — commit
+`d278d7b25`, council corr `3eb0d1f1-6929-4131-bbef-c636256aa667`, rides **v1.0.1278**
+(built, strings-verified, pushed; inert until the fleet rolls). **PENDING:** (1) the
+filed-row proof — first `improvement_rerender_*` row created after the 2026-08-10
+migration must carry the flag (§How to verify; ~1.8 rows/day); (2) post-roll pod-grep +
+strict canary. Lane docs: `docs/agent_docs/docs024_key_docs_latest/bugfix_234_dead_spec_key/`.
+
+**COUNCIL, round 1 (2026-08-10): REJECTED — hard veto from `guardian`, on SCOPE** (the
+live hard-fail enforcement shipped inside a bug fix; contained alternative: offline audit
+only). `architecture` objected-but-approved; 7 approved; every evidence objection is
+answered on the record. Per the 124 precedent the code stays and the seam is routed to
+**`architecture_review/RFC_021`**, where the owner decides: (a) 1278's enforcement rides
+the roll as committed, or (b) revert hard-fail+strict to warn-only pending the adoption
+protocol. **Do not resubmit against the scope veto; do not adopt `RemovedConfigKeys` on
+another action until RFC_021 Q1 is answered.**
+Note: a **17th** empty-spec row (`improvement_rerender_finetuning.uk`, 08-09 14:56Z)
+was filed between this file's measurement and the fix — 17/17 at fix time.
 
 > **CORRECTED 2026-08-10 (bugfix_234 lane):** two premises of the owner-decision framing
 > below went stale within a day of filing, and both moved the decision.
