@@ -186,8 +186,15 @@ func valueDefs(fset *token.FileSet, d *ast.GenDecl, vs *ast.ValueSpec) []ValueDe
 	}
 	// Doc sits on the SPEC inside a block and on the DECL for a lone declaration —
 	// the same split typeDef already makes, for the same reason.
+	//
+	// THE FALLBACK IS GATED ON !Lparen, and that is not tidiness (council 3af67677,
+	// bug_historian). A parenthesised block often carries ONE doc comment above the
+	// `var (` describing the GROUP; inheriting it per member would give every row a
+	// doc line claiming to describe that member specifically, and a reader — human
+	// or model — would take N confident, subtly wrong descriptions. An empty doc is
+	// honest; a borrowed one is not.
 	doc := firstDocLine(vs.Doc)
-	if doc == "" {
+	if doc == "" && !d.Lparen.IsValid() {
 		doc = firstDocLine(d.Doc)
 	}
 	declared := ""

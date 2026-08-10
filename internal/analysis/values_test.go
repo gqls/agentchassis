@@ -161,3 +161,31 @@ func TestValueDefsDoesNotInferAType(t *testing.T) {
 		t.Errorf("an inferred type must be empty, got %q", v.Type)
 	}
 }
+
+// council 3af67677 (bug_historian, low): a parenthesised block with ONE doc comment
+// above the `var (` describes the GROUP. Inheriting it per member would hand a
+// reader N rows each claiming that sentence describes them specifically — N
+// confident, subtly wrong descriptions. An empty doc is honest; a borrowed one is
+// not, and this is a diagnosis corpus.
+func TestValueDefsDoesNotBorrowABlockLevelDoc(t *testing.T) {
+	vals := parseValues(t, `package p
+
+// These are the retry budgets for the whole subsystem.
+const (
+	Fast = 1
+
+	// Slow is documented individually.
+	Slow = 30
+)
+`)
+	if d := find(t, vals, "Fast").Doc; d != "" {
+		t.Errorf("a block-level doc must NOT be inherited by a member, got %q", d)
+	}
+	if d := find(t, vals, "Slow").Doc; d != "Slow is documented individually." {
+		t.Errorf("a member's OWN doc must survive, got %q", d)
+	}
+	// The lone-declaration fallback must still work — that is what it is for.
+	if d := find(t, parseValues(t, "package p\n\n// Solo explains itself.\nvar Solo = 1\n"), "Solo").Doc; d != "Solo explains itself." {
+		t.Errorf("a lone declaration must still take its decl doc, got %q", d)
+	}
+}
