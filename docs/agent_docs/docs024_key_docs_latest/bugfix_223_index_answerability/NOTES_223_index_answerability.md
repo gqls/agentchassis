@@ -220,7 +220,7 @@ notes, both worth having in the log:
 
 - my `grep -rhE "^(var|const) "` figure of **930** is a lower bound — a grouped
   `var ( … )` block counts once however many specs it holds. Counting specs gives
-  **1,173**, so phase 2 is ~+20% of the corpus. *A grep over declaration openers cannot
+  **1,173**, so phase 2 is ~+20% of the corpus. > **CORRECTED later the same day: 1,371 (var 795, const 576), by running the analyser. 1,173 was a better proxy, still a proxy.** *A grep over declaration openers cannot
   see a block's members.*
 - `conditional_branch` exists with string conditions and dotted paths, and
   `compareValues` handles a bool robustly — so `no_code_evidence` is a **bool**, not a

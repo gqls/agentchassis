@@ -27294,3 +27294,45 @@ believable direction.
 `grep -aq "<sha>" /proc/1/exe` (no binutils, any image base, any binary path), proven both
 directions on both bases; `LANDMINES.md` entry covering both traps; and the `bugs_open/153`
 verification record states 14/14 with the probe that was actually used.
+
+---
+
+## 2026-08-10 — I published a sizing figure twice and both were proxies for the thing I could have run (`bugfix_223_index_answerability`)
+
+**The claim, published.** Phase 1's council submission, the bug file and the lane's handoff
+all state that indexing Go `var`/`const` means **1,173** new entries, "measured". It is
+wrong. The real figure is **1,371** (var 795, const 576).
+
+**How it got there, in two steps, each of which felt like an improvement.**
+
+1. My own first estimate was `grep -rhE "^(var|const) " --include=*.go … | wc -l` → **930**.
+   That counts declaration **openers**, so a grouped `var ( … )` block counts once however
+   many specs it holds. I marked it honestly as "a lower bound".
+2. A design pass corrected it to **1,173** with an `awk` that also counted members inside
+   blocks. Better, and I adopted it — as **"measured"**, dropping the lower-bound marker,
+   because someone else's more careful count *felt* like a measurement.
+
+Both are counts of declaration **text**. The thing that actually decides the number is the
+**parser that will emit the rows** — which handles multi-name specs (`var a, b = f()` is
+two), skips the blank identifier, and applies the same file walk the indexer will. Building
+it and asking it took one temporary `main.go` and about two minutes: var=795, const=576.
+
+**The cheap check that would have caught it: when the number will be produced by code you
+are about to write, WRITE THE CODE AND ASK IT.** Every text-shaped proxy for a parser's
+output is wrong in a direction you cannot predict — mine was 32% low, the improved one 14%
+low, and neither error was visible from inside the method that produced it.
+
+**The part I want to remember is not the arithmetic.** Step 2 is where the discipline
+failed: an upgrade from "my rough grep" to "a careful awk by a second opinion" reads like an
+upgrade from estimate to measurement, and I re-labelled it accordingly. **A better proxy is
+still a proxy.** The `[UNMEASURED]`/`[MEASURED]` markers this estate already mandates only
+work if the label tracks the METHOD rather than the effort — and "someone more careful did
+it" is effort.
+
+**Second, smaller, same day and same lane:** I also wrote down a prune-floor risk in the
+**wrong direction** on that same design pass's authority — that a brand-new kind cohort
+would refuse the first prune. `prune_floor.go` says the opposite in a comment written for
+exactly this reader: *"An empty cohort has nothing to lose … a new class appearing for the
+first time must never be able to refuse a prune."* The real exposure is the reverse case (an
+**old** binary against a DB that already holds the new rows). I had marked it `[UNMEASURED]`,
+which is why it cost nothing — the marker worked where the re-labelling in step 2 did not.

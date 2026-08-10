@@ -102,7 +102,15 @@ qualifier is precisely the condition the key exists to make visible.
 > This lane's first NOTES entry sized phase 2 from `grep -rhE "^(var|const) "` → **930**
 > declaration lines. That undercounts: a grouped `var ( … )` block counts once however many
 > specs it holds. Counting specs inside blocks gives **1,173**, so phase 2 is ~+20% of the
-> corpus rather than the "15–25% of doubt" the brief carried. The lesson is the one already
+> corpus rather than the "15–25% of doubt" the brief carried.
+>
+> **CORRECTED AGAIN 2026-08-10 (phase 2 build) — 1,173 IS ALSO WRONG. The figure is 1,371**
+> (var 795, const 576), from building the analyser and running it over the tree. Both
+> earlier numbers are counts of declaration TEXT; only the parser knows about multi-name
+> specs and the skipped blank identifier. **The lesson is not the arithmetic:** I upgraded
+> a rough grep to a careful `awk` and re-labelled the result "measured", because a more
+> careful count by a second opinion *felt* like a measurement. A better proxy is still a
+> proxy. `WRONG_CALLS.md`, 2026-08-10. The lesson is the one already
 > in `WRONG_CALLS.md`'s neighbourhood: a grep bounds what it can *see*, and a grep over
 > declaration *openers* cannot see a block's members.
 

@@ -1,6 +1,10 @@
 # HANDOFF — `bugs_open/223`, cold start for a fresh chat
 
-Written 2026-08-10 ~15:00Z. **Phase 1 is done, live and proven. Phase 2 is not started.**
+Written 2026-08-10 ~15:00Z, **updated ~17:00Z**. **Phase 1 is done, live and proven on
+`v1.0.1279`/`v1.0.1283`. PHASE 2 IS NOW BUILT, TESTED AND COMMITTED** (`027bf28a0`,
+council `3af67677-601e-4181-ad09-17c7a789f995`) — inert until the next roll, and §4 below
+is therefore a record of what was done rather than a task list. **What remains is the
+acceptance run after that roll** (§4a).
 Read this file, then `PLAN_2026-08-10_223_index_answerability.md` §5 (phasing) and §7
 (mutations). Everything below is verified unless marked `[UNMEASURED]`.
 
@@ -49,9 +53,26 @@ lane precisely that way (`WRONG_CALLS.md`, 2026-08-10): silencing
 And the *test written to close a council objection about wiring* had the same hole one level
 up. **Which test fails if I delete the CALL, not the function?**
 
-## 4. Phase 2 — the actual next task
+## 4. Phase 2 — BUILT 2026-08-10, awaiting a roll
 
-**Index Go `var` and `const`.** This is what remains of the bug, and it is what unblocks
+**Index Go `var` and `const`.** Committed in `027bf28a0`: `ValueDef` + `FileInfo.Values`
+(`internal/analysis/types.go`), the `token.VAR`/`token.CONST` arm and `valueDefs()`
+(`analyse.go`), one loop in `code_symbols_actions.go`, and `internal/analysis/values_test.go`.
+Verified in a clean tree from HEAD because another session had the actions package
+temporarily broken.
+
+**§4a — WHAT REMAINS, after the next roll:** run the indexer, then
+`SELECT kind, count(*) FROM code_symbols GROUP BY 1` — `var`+`const` should appear near
+1,371 and **every pre-existing kind's count must be unchanged** (a drop means an identity
+collision, and the kind census is the detector). Then re-fire the landmine-verifier on the
+`221` entry: `metaCommentaryPatterns` must now resolve **with its body**, not
+"possibly inlined or renamed". Then `bugs_open/231`'s reproduction: a check for
+`DeployImageAssetInputSpec` must return the DECLARATION with its `Defaults` map, not only
+its two use sites. Finally, `TestMissingKindNoteDisappears` predicts that phase 1's
+var/const warning **retires itself** — confirm the live `emptyAnswer("symbol")` stops
+naming them.
+
+Original notes on the work, kept: This is what remains of the bug, and it is what unblocks
 `bugs_open/231`'s class: the diagnosis loop can find every *use* of a package-level `var`
 and never the declaration, so it stops at `UNVERIFIABLE` naming exactly what it cannot see.
 
@@ -63,12 +84,15 @@ and never the declaration, so it stops at `UNVERIFIABLE` naming exactly what it 
   `code_symbols_actions.go` (~line 594–615) builds rows from `Functions` and `Types` only.
   Use **spec-level line spans** so the body slice captures the literal — the declaration
   *content* is the evidence 231 needs, not just the name.
-- **Size, measured:** 1,173 package-level specs (~+20% corpus). Not 930 — that was a grep
-  over declaration *openers* and cannot see a block's members.
+- **Size:** **1,371 entries (var 795, const 576)**, ~+23% of the analyser's output.
+  > **CORRECTED 2026-08-10:** earlier drafts said 930 (a grep over declaration *openers*,
+  > blind to block members) and then 1,173 (an `awk` over block members). Both are counts of
+  > declaration TEXT. The figure above comes from building the analyser and running it, which
+  > is what actually decides the number. `WRONG_CALLS.md`, same day.
 - **Blast radius to measure before submitting, not argue:** the per-kind prune cohorts
   (`prune_floor.go` — a brand-new kind arrives 0%-confirmed and an old binary indexing
   against a DB that already has `var` rows will **refuse the whole prune**; safe direction,
-  self-healing, visible in `doc_notes`), one-off embedding cost (~1,173 calls, non-fatal),
+  self-healing, visible in `doc_notes`), one-off embedding cost (~1,371 calls, non-fatal),
   and every diagnosis run's retrieval search space.
 - **Pre-registered proof it lands:** `TestMissingKindNoteDisappears` already asserts the
   var/const warning **retires itself** when the census shows those kinds. It should start
