@@ -1,5 +1,21 @@
 # 223 — the landmine-verifier reports every NON-Go footprint as non-existent, because the code index holds only Go — and 284 of 288 entries have one
 
+> ## ⚠ STATUS FIRST, BECAUSE READERS TRUNCATE — updated 2026-08-10
+>
+> **OWNED** by the `bugfix_223_index_answerability` lane (was UNOWNED — the line below is
+> the original filing and is left as written). **PHASE 1 IS FIXED AND COMMITTED**
+> (`1058b5366`, council `495df717-4010-491f-aec0-92c13aaf3809`) and **seed 365 is APPLIED
+> and live**. **Still OPEN**: the Go half is inert until the next chassis roll, so the
+> defect remains reproducible on `v1.0.1277` — a verdict written today is still subject to
+> everything below. Full account, the acceptance steps, and two failure modes this file
+> did not originally contain: **the PHASE 1 section at the foot of this file**, and
+> `docs/agent_docs/docs024_key_docs_latest/bugfix_223_index_answerability/`.
+>
+> **If you are here to read a verdict rather than to fix this:** every landmine verdict
+> stored up to 2026-08-09 must be read under this file's own caveat — for a non-Go
+> footprint, `STILL_VALID` is **not** evidence for the entry any more than `STALE` was
+> evidence against it. Only the verdict's prose reasoning carries signal.
+
 **Filed 2026-08-08. OPEN, UNOWNED.** Found by the `provocation_pipeline` lane doing the
 routine thing: appending two `LANDMINES.md` entries and letting RFC_005 §3.2's verifier
 check them. Both verdicts were wrong in the same direction, and **one of them is
