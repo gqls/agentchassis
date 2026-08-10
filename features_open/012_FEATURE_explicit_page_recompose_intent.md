@@ -162,3 +162,34 @@ recompose drop) is the one genuinely worth doing next.
 - `/bugs_closed/050` — why "empty the sections" is not a viable redesign route for a deployed page.
 - Spec-flow map (2026-07-22): dispatch-loop `call_handler` → `input_data.spec`; `ExtractNestedField`
   supports the dotted path `input_data.spec.recompose_pages`.
+
+## 2026-08-10 — a new gap once seed 362 applies, and the owner's disposition (fact-assignment front)
+
+Seed `362` (bugs_open/151 candidate 1b (i), `_HOLD` at the time of writing) instructs
+`build-site-planner` to re-emit every built page's realised section list verbatim, with a prose
+escape: "Only when the briefing explicitly asks for a page to be redesigned…". That interacts with
+this feature:
+
+- **The gap.** The release happens in validate (`v3_site_actions.go:3105` filters `existingPages`
+  before convergence), but 362 instructs the *planner*, whose prompt still lists the recompose
+  page's realised sections. A planner obeying 362 re-emits them verbatim; validate then releases a
+  page whose "proposed" composition is identical to its realised one; the redesign **silently
+  no-ops** — no error, page unchanged. Seed 362's own header concedes the cause: "the planner is
+  not told which pages those are, so the escape has to live in the instruction." Before 362 the
+  planner recomposed freely, so the release sufficed. Dropping the escape would be worse: this
+  feature would become entirely dead (released, never deviated from).
+- **Owner ruling (2026-08-10):** 362 ships with the prose escape; a **detection line** is added in
+  validate — when a page named in `recompose_pages` returns a composition identical to its realised
+  one, record it durably (this **merges with the council's medium follow-up above**, "loud-signal
+  on a recompose drop": same site, same signal class — one durable record for both the drop and the
+  verbatim no-op); and the **permanent fix is this follow-up, registered here**: surface
+  `recompose_pages` to the planner as a prompt-visible field, the RFC_010 §2 shape (new authority
+  on a shared seam ships as an opt-in field, not prose — "a comment is not a control on a tree this
+  many sessions share"). The spec already travels at `input_data.spec.recompose_pages`, so exposure
+  may be config-only; it needs its own round and is deliberately not carried by the Slice B round.
+- **Operator note until the field exists:** a `recompose_pages` request must ALSO state the
+  redesign intent in the briefing the planner sees, or (post-362) it will no-op. Goes to
+  `LANDMINES.md` when 362 applies — the trap is not live before then.
+
+Recorded by the fact-assignment front; rulings and evidence:
+`docs/agent_docs/docs024_key_docs_latest/brochure_component_library/DECISIONS_2026-08-10_owner_rulings_after_relook.md`.

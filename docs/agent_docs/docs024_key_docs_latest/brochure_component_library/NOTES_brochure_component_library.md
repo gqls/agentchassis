@@ -5303,3 +5303,33 @@ becomes the safety net, not the mechanism.
   Confirmed by running it on a pure HEAD archive with none of my files present.
   Note the 08-09c handoff's "HEAD tests clean" is therefore expired for that
   package, though `platform/orchestration/actions` itself is green.
+
+## 2026-08-10 (evening) — the re-look, the four §6 rulings, the delegated compliance read
+
+The owner asked for a fresh-eyes pass over the §6 decision advice before ruling. The pass
+corrected the advice in three places — recorded because the next reader must not inherit the
+first versions:
+
+- **My proposed 215 condition was already met.** `14b1cff28`'s Warn arm already logs both raw
+  names and both section lists. The actual defect: a chassis Warn retains <1 s (bugs_open/136 §11
+  measurement), so the lossy branch is unobservable. Condition became: durable `agent_error_log`
+  record.
+- **My "no new damage" claim for 362's prose escape was wrong.** `recompose_pages` releases in
+  validate (`v3_site_actions.go:3105`, `recomposePagesFromSpec :5844`) while 362 instructs the
+  planner, which still sees and re-emits the realised sections — a released page re-emitted
+  verbatim silently no-ops the redesign. New failure mode, conceded by 362's own header.
+- **My "Branch B is aspirational" claim was overstated.** Branch B renders only once scoping is
+  live; the residual falseness is exactly the §3.5 hole, and its error direction is omission,
+  never fabrication — which is what let the compliance read certify now instead of waiting.
+
+Rulings (owner, in session): 362 ships with escape + detection line + field follow-up registered
+on `features_open/012`; compliance read delegated to this session acting as lawyer — done,
+`COMPLIANCE_READ_2026-08-10_writer_prompt_v4.md`, three-way branch certified, countersign line
+pending; no apply-order tooling, `DO`/`RAISE` self-guards in 328/330 authored after §3.4; 215
+richer-wins ratified with the durable-record condition. Full record:
+`DECISIONS_2026-08-10_owner_rulings_after_relook.md`.
+
+Attribution fact that scoped the compliance read: seed 330's header states v4 was built from the
+LIVE template dumped 08-06 with ONE edit (the three-way branch) — so Edit Mode, house voice and
+the NEVER-PROMISE-ACCURACY rule are already live, and the branch is the entirety of 330's delta.
+[RELIED ON the seed header's derivation; not independently re-dumped this session.]

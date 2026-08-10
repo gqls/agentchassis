@@ -2081,3 +2081,24 @@ before we switch it on; and there is a design question about whether a rule I
 wrote into the planner's instructions ought to be a proper setting instead, which
 is the sort of thing this estate has already ruled on once and I would rather not
 decide unilaterally.
+
+**2026-08-10, evening.** Before you ruled on the four open decisions I went back over my own
+advice, and two pieces of it didn't survive the second look. The condition I wanted to attach to
+the page-collision fix turned out to be something the shipped code already does; the real problem
+is that the warning it writes lives in a log that keeps less than a second of history, so if the
+bad case ever happens nobody would know. And I had told you the planner instruction's "redesign
+escape" couldn't make anything worse — reading the actual mechanism showed it can: an explicit
+redesign request can now quietly do nothing unless the briefing text also mentions it. I'd rather
+correct myself here than have either version believed as first written.
+
+You then ruled on all four: the planner instruction ships as drafted, with a new alarm so the
+quiet-failure case shows up, and the proper fix (make the redesign signal something the planner is
+actually shown, not a sentence it must interpret) is registered as follow-up work. The collision
+fix stands, with its warning upgraded to a record that actually persists. No new tooling for the
+apply order — the seed files will refuse to run out of sequence instead. And you asked me to do
+the legal read of the writer's new instructions myself. I did, as a lawyer would: the new part is
+sound — it never tells the writer to boast about accuracy, and a rule already live on the site
+bans exactly that kind of boasting outright. I found a few older, smaller gaps (nothing this
+change makes worse) and wrote them up as future work. The read is written up with the key passages
+quoted, and there's a line for you to initial, because the reviewers asked for a person to have
+read it — my read plus your sign-off is what makes that true.
