@@ -124,3 +124,64 @@ the sync because I had appended a landmine, not because I was checking my premis
    close condition.
 3. **A fresh council submission** once the provider outage lifts (R7). The current correlation
    has no verdict and never will; `Council-Submitted:` is honest but uncredited.
+
+## 2026-08-10 (evening) — the outage lifted, the round ran, and it came back REJECTED on scope
+
+**The owner added credit; the fleet recovered at 18:12:11Z** (last failure 17:02:12Z), ~3h20m
+after the 14:51:47Z cutover — 21 days before the API's stated auto-restore, i.e. by ACTION not
+by calendar, which is precisely what `bugs_open/243` §6 said to record. Confirmed by sustained
+traffic (43 successes across 3 agent types), not one lucky call.
+
+**Resubmitted on the same correlation** (`RESUBMIT_CORR=44fa6a98…`) so the trail accumulates,
+and watched it through eleven seats. **Verdict: REJECTED, hard veto from `guardian`.**
+
+### The verdict is on SCOPE, and the seats disagreed
+
+`bug_historian` **approve**, `reuse_agent` **approve**, `editquality` object (one real bug),
+`guardian` **veto (high)**, 8 abstained. The guardian's own words: *"The mechanism itself…
+is sound and well-evidenced — that part I'd approve on a single-service pilot. My veto is
+about scope, not soundness."* Its objection: one round bundled the shared `ref_build`/
+`tree_build` macro change with all 14 Dockerfile edits and all 14 main.go edits — the
+"MANY packages at once" trigger.
+
+**I did NOT resubmit, and that is deliberate.** CLAUDE.md's owner ruling of 2026-07-28 says a
+scope veto *"is not answered by resubmitting with better measurements… record it where the
+change lives, route the seam to architecture review on its own merits, and let a human break
+it — especially when seats disagree with each other."* Recorded in the bug file's status block
+(three costed options), the register entry, and the index row — all three now say NOT RATIFIED,
+so no later session or seat reads BLD-019 as blessed.
+
+### `editquality` found a real bug and it was this lane's own disease
+
+My new pod-provenance stanza ended `... | grep -E ... | head -1` with a `|| echo "no provenance
+stamp"` fallback. **A pipeline's exit status is its LAST command's**, so `head` returns 0 even
+when grep matched nothing — the fallback **could never fire for an unstamped binary**, which
+is the one case the check exists to catch. It printed a silent blank instead.
+
+That is the same shape as bug 153 itself: *a check that reads clean in exactly the condition it
+was built to report.* I wrote it while fixing that class. Fixed in `8d270c68a` by capturing to
+a variable so the test is the last command, and **proven in all four directions** rather than
+assumed — old form + no match → exit 0 (bug reproduced); new + no match → exit 1; new + sha →
+0 and prints; new + `-tree` → 0 and prints.
+
+### The guardian's factual claim, answered by measurement (published, not fired back)
+
+*"Correctness of 13 of the 14 edits is unverified by this submission."* True as stated. Built
+**all 14** from committed HEAD with an injected sha: **14/14 stamped, 3 occurrences each**,
+including the three structurally-unlike cases (`git-adapter` and `remote-job-spawner` build a
+bare `main.go` by filename; `kafka-scheduler` builds `./cmd/scheduler`). Negative control on
+four: **0** without the flag.
+
+> **A detail from that negative control worth keeping.** The `unknown` default is **not** a
+> standalone `strings` line in most binaries — present in `agent-chassis`, absent in
+> `auth-service`, `git-adapter`, `kafka-scheduler`. So **"unstamped" must be tested as the
+> ABSENCE OF A SHA, never as the PRESENCE OF `unknown`**. The shipped check does the former.
+> Had I built the check the other way — which is the more natural way to write it — it would
+> have reported three services as stamped when they were not.
+
+### Still owed
+
+1. **The owner's decision** on the scope veto (the three options are in the bug file). This is
+   the blocking item and it is not mine to take.
+2. **The whole-fleet release**, then pod verification and the induced-fault test (RUNBOOK R4–R6).
+3. Whatever the decision implies — a revert-and-re-land, an architecture RFC, or nothing.

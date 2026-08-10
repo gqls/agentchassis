@@ -75,3 +75,46 @@ if it were new when it had happened before and was already written down — I'd 
 check that would have told me, looked at the results, and talked myself out of them. And I
 wrote a warning note that duplicated an existing one, for the same reason. Both are corrected,
 and both are logged in the file we keep for exactly this.
+
+## 2026-08-10, evening — the review came back and it said no, but not for the reason you'd expect
+
+Thank you for the credit — the fleet came back to life at about 19:12 our time, roughly three
+and a half hours after it stopped. Worth noting for the record that it recovered because *you
+acted*, not because the block expired; the API said access would return on 1 September, so
+that's three weeks bought back.
+
+I resubmitted the change to the review council straight away. **It was rejected** — but read
+what by, because it isn't what it sounds like.
+
+Four of the reviewers looked at it properly. Two approved outright. One found a genuine bug in
+my work (more on that below). And the "guardian" seat vetoed it — while saying plainly that the
+mechanism itself *"is sound and well-evidenced — that part I'd approve on a single-service
+pilot."*
+
+**Its objection is about size, not correctness.** I changed fourteen services in one go, and it
+thinks a change that touches the shared build machinery *plus* all fourteen services at once is
+too much to review as a single unit, however mechanical the edits are. That's a fair position,
+and reasonable people can disagree — which is exactly what happened, since two other reviewers
+looked at the same change and approved it.
+
+Our own written rule covers this case: when the veto is about *scope* rather than *soundness*,
+the answer is **not** for me to resubmit with better arguments. It's to record it and put it in
+front of a person. So that's what I've done, and **there's a decision I need from you** — I've
+written the three options up in the bug file with the costs of each, but in short: let it stand
+as is; pull it back to just one service and re-land the other thirteen one at a time; or send
+the underlying question to architecture review.
+
+**The bug the reviewer found is worth telling you about, because it's funny and slightly
+humbling.** The whole point of this work is that our checks can quietly pass when they should
+be raising the alarm. I wrote a new check to confirm a service is stamped — and got it wrong in
+exactly that way. Because of how shell pipelines report success, my check would print a blank
+line instead of "no stamp found" for an unstamped service. It could not report the one thing it
+existed to report. It's fixed, and this time I tested it failing as well as succeeding.
+
+I also answered the guardian's one factual complaint — that thirteen of the fourteen services
+were unverified. They're verified now: I built all fourteen and confirmed every one carries the
+stamp, including the three that are built in unusual ways. But I've published that as evidence
+for you, not sent it back to the council, because arguing with a scope judgement by producing
+more measurements is precisely what our rule says not to do.
+
+Still waiting on the release when you're ready.
