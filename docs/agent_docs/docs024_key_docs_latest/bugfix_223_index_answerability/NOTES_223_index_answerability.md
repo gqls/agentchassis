@@ -268,3 +268,71 @@ not my reading of `compareValues`.
 Council submitted first: correlation `495df717-4010-491f-aec0-92c13aaf3809`, committed as
 `1058b5366` with a `Council-Submitted:` trailer, because HEAD is shared and any session's
 roll ships the code regardless.
+
+## 2026-08-10 — council APPROVED, and five of six objections were real enough to act on
+
+Round 1, correlation `495df717-4010-491f-aec0-92c13aaf3809`: **APPROVED**, 6 advisory
+objections, none high-severity, 14 reviewers, 3 abstained. Verbatim seat notes are in
+`doc_notes` (`categories ? 'council-gate'`) and the full report in `diagnosis_artifacts`.
+Recording what each cost, because an approved round whose objections are ignored is the
+dishonesty surface the coverage report exists to catch.
+
+**`editquality` MEDIUM — a real gap, fixed in code.** My own diagnosis named THREE
+false-positive modes and I had guarded two. The third — a `content` check aimed at a non-Go
+file answered by a **same-named Go symbol** (the `slugify` case: six confident hits on
+`slugifyPathSegments`/`slugifyForCompositionName`) — was named in the submission and left
+unaddressed. Now `contentMatchReachNote()` rides on **non-empty** content answers: *"every
+match above comes from a .go file … a .go symbol that merely SHARES A NAME with what you
+asked about does not confirm it."* Mutation-proven at the call site.
+
+**`bug_historian` MEDIUM — the strongest objection in the round, and it was right.** The gate
+"depends on runtime resolution of `lookup.no_code_evidence` across a step boundary … the fix
+could ship, look wired, and **never actually gate a single verdict**, with no error surfaced
+anywhere." My live proof covered the FALSE branch only; a resolution miss would look
+identical. Closed at build time: `codeEvidenceGateField` is now a Go constant, and
+`TestSeedConditionResolvesAgainstTheActionsReturnShape` asserts seed 365's condition string
+equals `"lookup." + codeEvidenceGateField + " == true"`, so a rename fails a test instead of
+silently unwiring production. **Its first version did NOT close it** — it built its own literal
+map and so tested only that the *evaluator* resolves a dotted path; renaming the key in the
+action left it green. That is the *same* helper-versus-wiring hole that let a mutation survive
+earlier today, one level up, in the test I wrote to close an objection about wiring. Caught by
+re-mutating. The half that cannot be bought at build time — that the TRUE branch is reachable
+live — stays a named acceptance step.
+
+**`debug_historian` MEDIUM — needle gate missing, added and PROVEN.** The seed mutates a live
+jsonb workflow blob, and I shipped only its verify/rollback half: no pre-write occurrence
+count, no idempotency guard keyed on pre-state. Added, and **induced against the
+already-applied state** rather than asserted: `needle gate: run_checks.next_step is
+gate_evidence, expected the pre-365 value 'verify'`. Also recorded 365 in
+`schema_migrations` via `--record-only` (the 270/273 precedent) — without that the runner
+would have counted it pending.
+
+**Cheap enumerations, all four done:** `answerCodeCheck` callers swept repo-wide (2, both
+updated); `append_doc_note`'s 8 live consumers listed, 0 naming the new key; the "no compose
+action exists" claim swept rather than resting on `transform_data` alone (only
+`format_research_content`/`format_crawl_for_analysis`, both web-domain formatters); and this
+council's own precedent on the seam checked — 4 prior reports, newest 2026-08-06, all
+approved, none touching answerability, so no verdict is being repeated or contradicted.
+
+**`guardian` process objection ACCEPTED, unremedied and recorded:** the workflow-JSON edit
+should have been filed `operation: "config_change"` naming the owning pipeline, not `"add"`
+on a new `.sql` file. A submitted plan cannot be amended and forward-only forbids rewriting
+the round, so: **next submission in this lane uses `config_change` for a workflow edit.**
+
+**`architecture` MEDIUM, `ARCHITECTURE_SIGNAL: needs_rfc` — routed, not argued.** The seat
+holds that a new reserved key on a widely-shared action is architecture-scope by its trigger
+test "regardless of the author's declaration", *while acknowledging in the same note* that
+opt-in/default-OFF is "the sanctioned pattern from the 2026-08-02 owner ruling". So the
+remedy the owner mandated for shipping new authority is itself the trigger. That is a
+governance question, not a measurement one — and the 2026-07-28 ruling says a scope objection
+is not answered by resubmitting with better numbers. Filed as
+`architecture_review/RFC_022_an_opt_in_default_off_field_is_the_owners_own_remedy_and_the_seats_own_trigger.md`
+with three costed options, and this lane's recommendation (trigger on the accumulated
+optional-key COUNT, not on any single addition).
+
+**Misstep worth its own line:** I nearly wrote `Council-Reviewed:` retrospectively by
+amending the commit. Forward-only forbids the amend, and CLAUDE.md is explicit that `098`
+resolves a `Council-Submitted:` correlation at REPORT time and credits the commit
+automatically once the verdict turns approved. The trailer already on `1058b5366` is correct
+and needs nothing; the follow-up commit carries `Council-Reviewed:` because by then the
+verdict had been read.

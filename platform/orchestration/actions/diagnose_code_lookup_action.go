@@ -457,6 +457,27 @@ func (s codeIndexScope) contentReachNote() string {
 		"For those classes this 0 is UNKNOWN, not absent.\n", s.extSummary())
 }
 
+// contentMatchReachNote says where a NON-EMPTY `content` answer's matches came
+// from, so a same-named Go symbol cannot pass for the non-Go thing that was asked
+// about. See the call site for the measured case (`slugify`).
+//
+// Same single-extension gate as its two siblings: once the corpus spans several
+// languages this sentence stops being the explanation, and a note that always
+// prints stops being read.
+func (s codeIndexScope) contentMatchReachNote() string {
+	if !s.censusKnown() || len(s.exts) != 1 {
+		return ""
+	}
+	var only string
+	for e := range s.exts {
+		only = e
+	}
+	return fmt.Sprintf("  note: every match above comes from a %s file — %s. A %s symbol that merely SHARES A NAME "+
+		"with what you asked about does not confirm it: a function in a script, a column, a table, a category or a "+
+		"config value of that name is UNSEARCHABLE here, and a match above is not evidence about one.\n",
+		only, s.extSummary(), only)
+}
+
 // lsReachNote says what a NON-EMPTY `ls` listing is a listing of. See the call
 // site for the measurement that motivates it: a prefix that holds indexed Go files
 // in its subdirectories answers generously while the non-Go files the reviewer
@@ -656,7 +677,7 @@ func DiagnoseCodeLookupAction(ctx context.Context, params ActionParams) (interfa
 			// evidence, which is not a distinction the branch is entitled to.
 			"checks_with_rows":    0,
 			"checks_unanswerable": 0,
-			"no_code_evidence":    true,
+			codeEvidenceGateField: true,
 			"evidence_line":       "[code-lookup evidence: no code_checks were asked this round, so nothing about the code was verified either way.]",
 		}, nil
 	}
@@ -727,7 +748,7 @@ func DiagnoseCodeLookupAction(ctx context.Context, params ActionParams) (interfa
 		// field to use. Branch on no_code_evidence.
 		"checks_with_rows":    withRows,
 		"checks_unanswerable": unanswerable,
-		"no_code_evidence":    withRows == 0,
+		codeEvidenceGateField: withRows == 0,
 		"evidence_line":       evidence,
 	}, nil
 }
@@ -848,6 +869,26 @@ func docTag(kind string) string {
 // isCode reports whether a row belongs in the code block rather than the prose
 // block. Same allow-list, same reason.
 func isCode(kind string) bool { return codeKinds[kind] }
+
+// codeEvidenceGateField is the return key a consumer's workflow branches on, named
+// as a constant because SEED 365 SPELLS IT IN A STRING and nothing else joins the
+// two ends.
+//
+// Council 495df717, bug_historian at MEDIUM, named the exact failure: the gate
+// "depends on runtime resolution of `lookup.no_code_evidence` across a step
+// boundary … the fix could ship, look wired, and never actually gate a single
+// verdict, with no error surfaced anywhere" — because a resolution miss degrades
+// silently to the else branch, which is today's behaviour. The objection was right
+// and this constant is half its answer:
+// TestSeedConditionResolvesAgainstTheActionsReturnShape asserts the seed's
+// condition string is exactly "lookup." + this constant + " == true", so renaming
+// the key here fails a test instead of quietly unwiring production. Same lockstep
+// idiom as idx_swi_dedup ↔ workItemTerminalStatuses.
+//
+// The other half cannot be bought at build time: only a live run whose round
+// confirms nothing proves the TRUE branch is reachable. That is a named acceptance
+// step, not a claim.
+const codeEvidenceGateField = "no_code_evidence"
 
 // checkOutcome is what ONE check established, for a consumer that must branch on
 // evidence rather than read prose (bugs_open/223).
@@ -1041,6 +1082,25 @@ func answerCodeCheck(ctx context.Context, db *sql.DB, c codeCheck, repoFilter st
 		}
 		// n == 0 and capped are mutually exclusive, so these two branches cannot
 		// both fire: an empty answer stays exactly the empty answer it was.
+		if n > 0 {
+			// THE THIRD FALSE-POSITIVE MODE (council 495df717, editquality MEDIUM:
+			// the two other modes were guarded and this one was named in the
+			// diagnosis and left unaddressed).
+			//
+			// Measured 2026-08-10: `content: slugify`, whose stated purpose was
+			// "confirms the slugify function exists in landmines_lib.py", returned
+			// SIX confident Go rows — slugifyPathSegments in adopt_verbatim.go,
+			// slugifyForCompositionName in resolve_composition_helpers.go — and not
+			// one of them was the Python function asked about. A false positive WITH
+			// CITATIONS, which is the hardest kind to disbelieve.
+			//
+			// The query is free text, so nothing here can know what file the
+			// reviewer meant. What IS mechanically knowable is where every match
+			// came FROM, and saying that is enough: a reader who wanted a script,
+			// a table or a config value can see at once that a Go symbol of the
+			// same name does not answer them.
+			b.WriteString(scope.contentMatchReachNote())
+		}
 		if n == 0 {
 			// A content query is free text, so the census can only speak about it
 			// when the reviewer wrote a path-shaped one. When it can, it must:

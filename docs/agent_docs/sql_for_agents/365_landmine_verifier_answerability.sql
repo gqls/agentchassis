@@ -35,14 +35,65 @@
 
 BEGIN;
 
--- Snapshot first: the roster rule of this estate is that a live agent_definitions
--- row is the fact and the seed file is only history, so the pre-change row must be
--- recoverable independently of this file.
-INSERT INTO agent_definitions (type, name, description, default_config, version, is_active, is_snapshot, created_at)
-SELECT type, name || ' (pre-365 snapshot)', 'Snapshot before bugs_open/223 answerability gate', default_config,
-       version, false, true, now()
-  FROM agent_definitions
- WHERE type = 'landmine-verifier' AND is_active AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
+-- ── NEEDLE GATE, and it must come BEFORE the UPDATE ─────────────────────────
+-- Council 495df717, debug_historian at MEDIUM: this seed mutates a live jsonb
+-- workflow blob, which is the NEEDLE-GATE SQL SURGERY class, and the first draft
+-- showed only its verify/rollback half — no mechanically-derived occurrence count
+-- of the exact keys it is about to touch, and no idempotency gate keyed on a
+-- pre-state marker. This house has been burned by seed replays before.
+--
+-- So: assert the pre-state, in the same transaction, and RAISE (never SELECT —
+-- ON_ERROR_STOP ignores a non-empty result, so a SELECT-only gate cannot stop the
+-- COMMIT). Exactly one live row, its run_checks pointing where we expect, and
+-- NONE of the three keys we add already present. A re-run therefore aborts with a
+-- named reason instead of appending EVIDENCE RULES a second time.
+--
+-- ⚠ RECORD OF FIRST APPLICATION (2026-08-10, honest rather than tidy): the seed
+-- was applied to production BEFORE this gate existed. What stood in for it was
+-- the post-write DO block below plus the snapshot, and the pre-state was confirmed
+-- by hand from the live row. This gate is here for any replay, rollback-and-reapply,
+-- or restore-to-another-environment — and because the objection is correct in
+-- general even though the first application was verified another way.
+DO $$
+DECLARE
+  n_live int;
+  cfg jsonb;
+BEGIN
+  SELECT count(*) INTO n_live FROM agent_definitions
+   WHERE type = 'landmine-verifier' AND is_active AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
+  IF n_live <> 1 THEN
+    RAISE EXCEPTION 'needle gate: expected exactly ONE live landmine-verifier row, found % — resolve the duplicate before any surgery (four agent types have carried two active rows before, and only the higher version loads)', n_live;
+  END IF;
+
+  SELECT default_config INTO cfg FROM agent_definitions
+   WHERE type = 'landmine-verifier' AND is_active AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
+
+  IF cfg #>> '{workflow,steps,run_checks,next_step}' IS DISTINCT FROM 'verify' THEN
+    RAISE EXCEPTION 'needle gate: run_checks.next_step is % , expected the pre-365 value ''verify'' — either this seed has already run, or another lane has re-routed the step', COALESCE(cfg #>> '{workflow,steps,run_checks,next_step}', 'NULL');
+  END IF;
+  IF cfg #> '{workflow,steps,gate_evidence}' IS NOT NULL
+     OR cfg #> '{workflow,steps,verify_unverifiable}' IS NOT NULL
+     OR cfg #>> '{workflow,steps,persist_verdict,config,note_body_suffix_field}' IS NOT NULL THEN
+    RAISE EXCEPTION 'needle gate: at least one of the three keys this seed ADDS is already present — this is a replay. Use the ROLLBACK first if you mean to re-apply.';
+  END IF;
+  IF cfg #>> '{workflow,steps,verify,config,prompt_template}' LIKE '%EVIDENCE RULES%' THEN
+    RAISE EXCEPTION 'needle gate: the verify prompt already carries EVIDENCE RULES — appending again would duplicate it.';
+  END IF;
+
+  RAISE NOTICE 'needle gate passed: 1 live row, run_checks -> verify, none of the 3 added keys present, prompt un-amended';
+END $$;
+
+-- Snapshot first, through the ESTABLISHED function and not a hand-rolled INSERT.
+-- The live agent_definitions row is the fact and this file is only history, so the
+-- pre-change config must be recoverable independently of it.
+--
+-- The first draft of this seed hand-wrote the INSERT and was wrong twice, both
+-- caught by reading `\d agent_definitions` before running it: there is no `name`
+-- column (it is `display_name`), and `agent_definitions_type_version_key` is
+-- UNIQUE on (type, version), so a copy at the same version cannot be inserted at
+-- all. snapshot_agent() already handles both and points previous_version_id back
+-- at the active row, which the hand-rolled version did not.
+SELECT snapshot_agent('landmine-verifier', 'pre-365: before bugs_open/223 answerability gate') AS snapshot_id;
 
 UPDATE agent_definitions SET default_config = jsonb_set(
   jsonb_set(

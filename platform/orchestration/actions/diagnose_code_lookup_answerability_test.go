@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
+	"go.uber.org/zap"
 )
 
 // bugs_open/223 — the code index holds ONE language and 5 of the 8 kinds its own
@@ -430,5 +431,132 @@ func TestContentArmDoesNotCountDocRowsAsEvidence(t *testing.T) {
 	}
 	if outcome.codeRows != 0 {
 		t.Errorf("a [doc] content match must not count as code evidence, got codeRows=%d", outcome.codeRows)
+	}
+}
+
+// ── objections raised by council 495df717, closed here ───────────────────────
+
+// editquality (MEDIUM, edit 2): the diagnosis names THREE false-positive modes and
+// the first version guarded two. The third is a `content` check aimed at a non-Go
+// file being answered by a same-named GO symbol — measured: `content: slugify`,
+// stated purpose "confirms the slugify function exists in landmines_lib.py",
+// returned six confident hits on slugifyPathSegments/slugifyForCompositionName. A
+// false positive WITH CITATIONS. The query is free text so nothing can know which
+// file was meant; what is knowable is where every match came FROM.
+func TestContentArmSaysWhereItsMatchesCameFrom(t *testing.T) {
+	db, mock := newCodeLookupDB(t)
+	defer db.Close()
+
+	mock.ExpectQuery("body ILIKE").
+		WithArgs("slugify", "", 41).
+		WillReturnRows(contentRowsFor("slugify",
+			[2]string{"platform/orchestration/actions/adopt_verbatim.go", "func"},
+			[2]string{"platform/orchestration/actions/resolve_composition_helpers.go", "func"}))
+
+	var b strings.Builder
+	outcome, err := answerCodeCheck(context.Background(), db,
+		codeCheck{Kind: "content", Query: "slugify", Why: "confirms the slugify function exists in landmines_lib.py"},
+		"", 40, 400, liveShapedScope(), &b)
+	if err != nil {
+		t.Fatalf("answerCodeCheck: %v", err)
+	}
+	got := b.String()
+	if !strings.Contains(got, "adopt_verbatim.go") {
+		t.Fatalf("the matches themselves must survive; got:\n%s", got)
+	}
+	for _, want := range []string{"every match above comes from a .go file", "SHARES A NAME", "UNSEARCHABLE here"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("a non-empty content answer must say where its matches came from — missing %q; got:\n%s", want, got)
+		}
+	}
+	// It is still evidence OF SOMETHING (two real Go rows), so the count must not
+	// be suppressed: this note qualifies a match, it does not retract it.
+	if outcome.codeRows != 2 {
+		t.Errorf("the caveat must not reduce the evidence count, got %d", outcome.codeRows)
+	}
+	// Multi-language corpus: the sentence stops being the explanation.
+	if strings.Contains(widenedScope().contentMatchReachNote(), "every match above comes from") {
+		t.Error("a multi-extension corpus must not claim every match is one file type")
+	}
+}
+
+// bug_historian (MEDIUM, edit 6): "gate_evidence depends on runtime resolution of
+// `lookup.no_code_evidence` across a step boundary — the fix could ship, look
+// wired, and never actually gate a single verdict, with no error surfaced
+// anywhere." That is the strongest objection in the round and it is right: a
+// resolution failure degrades to else_step, which is today's behaviour, silently
+// and for ever.
+//
+// It is also closable BEFORE the roll, because the condition evaluator lives in
+// this package. This test runs the seed's EXACT condition string against the
+// EXACT shape DiagnoseCodeLookupAction returns — verified against a live run's
+// stored state, which nests the action's map directly under the step's
+// output_field with no "result" wrapper (unlike execute_llm_prompt, whose results
+// ARE wrapped, which is why the sibling steps read `verdict.result.body`).
+//
+// If someone renames the key, or the evaluator stops resolving a two-segment
+// dotted path, or a future action wraps its return, this fails here rather than
+// silently never gating in production.
+func TestSeedConditionResolvesAgainstTheActionsReturnShape(t *testing.T) {
+	const seedCondition = "lookup.no_code_evidence == true" // byte-identical to seed 365
+
+	// LOCKSTEP, and this line is why the test can be trusted. A first version built
+	// its own literal map and therefore proved only that the EVALUATOR resolves a
+	// dotted path — renaming the key in the action left it green, which is the same
+	// helper-versus-wiring hole that let a mutation survive earlier in this lane.
+	// Pinning the seed's string to the action's own constant closes it: rename the
+	// key and this fails here, instead of the gate silently never firing in
+	// production.
+	if want := "lookup." + codeEvidenceGateField + " == true"; seedCondition != want {
+		t.Fatalf("seed 365's condition %q no longer matches the action's key %q — the config and the code have drifted, and the symptom would be a gate that never fires",
+			seedCondition, want)
+	}
+
+	// The action's own return map, keys spelled as the action spells them.
+	lookupReturn := func(noCodeEvidence bool) map[string]interface{} {
+		return map[string]interface{}{
+			"lookup": map[string]interface{}{
+				"results_text":        "…",
+				"checks_run":          8,
+				"checks_dropped":      0,
+				"checks_with_rows":    0,
+				"checks_unanswerable": 5,
+				codeEvidenceGateField: noCodeEvidence,
+				"evidence_line":       "[code-lookup evidence: …]",
+			},
+		}
+	}
+
+	met, err := evaluateStringCondition(seedCondition, lookupReturn(true), zap.NewNop())
+	if err != nil {
+		t.Fatalf("the seed's condition must evaluate without error: %v", err)
+	}
+	if !met {
+		t.Fatal("no_code_evidence=true must take the then_step (verify_unverifiable) — otherwise the gate ships wired and never fires")
+	}
+
+	met, err = evaluateStringCondition(seedCondition, lookupReturn(false), zap.NewNop())
+	if err != nil {
+		t.Fatalf("unexpected error on the false branch: %v", err)
+	}
+	if met {
+		t.Fatal("no_code_evidence=false must take the else_step (verify) — a gate that always fires is as broken as one that never does")
+	}
+
+	// The pre-roll degradation, asserted rather than assumed: on a binary that does
+	// not yet return the key, the condition must resolve to false with NO error, so
+	// the pipeline behaves exactly as it does today. This is the property that made
+	// applying the seed ahead of the roll safe, and it was observed live
+	// (evidence_gate recorded {"condition_met": false, "next_step_override":
+	// "verify"} on v1.0.1277) — this test is what keeps it true.
+	old := map[string]interface{}{"lookup": map[string]interface{}{
+		"results_text": "…", "checks_run": 8, "checks_dropped": 0,
+	}}
+	met, err = evaluateStringCondition(seedCondition, old, zap.NewNop())
+	if err != nil {
+		t.Fatalf("an absent field must not error — a hard failure here would break every verification on an older binary: %v", err)
+	}
+	if met {
+		t.Fatal("an absent field must resolve FALSE, so an old binary keeps today's route")
 	}
 }
