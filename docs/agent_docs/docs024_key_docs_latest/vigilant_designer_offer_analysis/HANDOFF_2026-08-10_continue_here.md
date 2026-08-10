@@ -35,20 +35,40 @@ observe-only.**
   Not a miss: the rotation had not reached it, and the shipped-only predicate would keep
   `premise_incomplete` silent anyway. Expect its first stamp on the next rotation tick.
 
-## OWED, and it is the only thing blocking the council: three owner commands
+## ~~OWED: three owner commands~~ — DISCHARGED 2026-08-10, and round 3 is in flight
 
-**Re-checked 2026-08-10 15:45Z — `schema_migrations` still returns 0 rows for
-`^(358|359|361)`.** Council round 2 gates on exactly this; resubmitting before it lands
-draws the same objection. The three single-line commands are verbatim in
-`HANDOFF_2026-08-09b_continue_here.md` § "OWED" (paste-wrap trap applies — one line each).
+**The ledger gap is CLOSED.** The owner ran the three recordings at 18:45–18:46Z on
+2026-08-10, via the sanctioned vehicle (`scripts/migration/run-migrations.sh --record-only`)
+rather than a hand-written INSERT, so the runner computed the checksums itself:
+358 → `b039945bc18b6f1232c1046b066f60b0`, 359 → `773ee943f75ff02c74f3d92b48d7bcc9`,
+361 → `713b28c2d19838064ef485723107c3c6` — each matching `md5sum` of the committed file.
+**Each migration's own post-state assertion was re-run live before recording**, and the note
+fields record that check rather than the bare claim of application (a `--record-only` on an
+un-applied file would look identical in the ledger). The runner's dry run now lists none of
+the three as pending.
 
-Once they land, **round 3 on the SAME correlation** (`RESUBMIT_CORR=5cd586c9-c787-417a-a102-27fbddc48687`),
-per the round-3 checklist in 09b: quote round 1's verdict verbatim (prior_art asked);
-attach code_checks for the file:line claims; mark shipped edits as HISTORICAL RECORD, not
-forward edits; cite CLAUDE.md's "OWNER RULING 2026-07-29" by path for review-after-the-fact;
-answer guardian's retraction-collateral point (retraction on premise-COMPLETE is correct for
-both `needs_strategy` producers — BIZ-031 records the shared-key convergence, RFC_010 §1
-working as designed); note the rollback files now exist.
+**COUNCIL ROUND 3 SUBMITTED 18:53:29Z** on the same correlation
+(`RESUBMIT_CORR=5cd586c9-c787-417a-a102-27fbddc48687`) — dispatched immediately, no queue.
+Submission kept at `scratchpad/b3_round3_submission.json`. It discharges the whole round-3
+checklist: the ledger rows with their verification; **every edit marked HISTORICAL RECORD**
+(editquality's audit/edit distinction); round 1's verdict quoted verbatim (prior_art asked);
+the 2026-07-29 owner ruling cited by path after a seat called it unverifiable;
+`RegisterVerifier` proven pre-existing by call-site count (11 files, this the 10th consumer);
+359 described and listed (tooling_provenance was right it was missing); and guardian's
+retraction-collateral point answered — with his suggested alternative refused for cause,
+since "scope retraction to this check's own rows" cannot work while `created_by` reads
+`generic`.
+
+**Next session: read the verdict first.**
+`SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts WHERE
+correlation_id='5cd586c9-c787-417a-a102-27fbddc48687' AND kind='council_report' ORDER BY
+created_at;` (two `revise` rows are rounds 1 and 2 — the third row is this one.) If APPROVED,
+the trailer is `Council-Reviewed: 5cd586c9-c787-417a-a102-27fbddc48687`; **never write that
+trailer on a verdict you have not read** — 098 buckets it as MISMATCH. If it ends
+`complete_invalid` instead, read `collected_data->'__step_error'->>'failed_step'` before
+touching the JSON: a genuine schema death names `persist_submission` and fires no reviewers,
+whereas a sick endpoint kills a round that had seats already running, and that one is
+resubmitted UNCHANGED.
 
 ## Next session, in order
 

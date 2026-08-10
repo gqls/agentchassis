@@ -632,3 +632,51 @@ in one shot). All five COMPLETED, all rows disabled after firing.
   correctly stay silent anyway (the greenfield exclusion working as designed).
 - **Ledger rows 358/359/361 STILL OWED** — re-checked 15:45Z, `schema_migrations` returns
   0 rows. Council round 3 remains blocked on them.
+
+## 2026-08-10 (evening) — the ledger gap is CLOSED, and round 3 is in flight
+
+- **The owner ran the three ledger recordings** (asked directly; the session classifier had
+  blocked the raw INSERT since 08-09). **Recorded via the sanctioned vehicle**,
+  `scripts/migration/run-migrations.sh --record-only`, NOT a hand-written INSERT — so the
+  runner computed the checksums itself and there is no chance of a hand-typed mismatch:
+  - `358_…` → `b039945bc18b6f1232c1046b066f60b0`, 18:45:50Z
+  - `359_…` → `773ee943f75ff02c74f3d92b48d7bcc9`, 18:46:09Z
+  - `361_…` → `713b28c2d19838064ef485723107c3c6`, 18:46:24Z
+  `md5sum` of the three committed files returns exactly those three, same order.
+- **Artifacts were re-verified live BEFORE recording, not just the fact of application** —
+  the runner's own header says recording stays a human act ("verify artifacts, then
+  `--record-only`"), so each note field records the check rather than the claim. Re-ran each
+  migration's own post-state assertion: 358 → `claimed-item-timeout` pre_query carries both
+  exclusions (1 row); 359 → domain-strategist's `check_site_deployed.query` carries the
+  shipped predicate (1 row); 361 → checks array length 9 and `@> '["premise_incomplete",
+  "revenue_shape"]'` is true. **This is the difference between recording a fact and recording
+  a hope**: a `--record-only` on an un-applied file would look identical in the ledger.
+- **The runner's own dry run now agrees**: 358/359/361 no longer appear in its pending or
+  probe-inconclusive lists — only their `_ROLLBACK` siblings do, which is correct (a rollback
+  is never applied). The dry run takes >2 min; run it in the background.
+- **COUNCIL ROUND 3 SUBMITTED** on the same correlation
+  (`RESUBMIT_CORR=5cd586c9-c787-417a-a102-27fbddc48687`), 18:53:29Z, and it dispatched
+  IMMEDIATELY — at `review_editquality` within seconds, no 29-minute queue. Submission JSON
+  kept at `scratchpad/b3_round3_submission.json` (29,095 bytes of the 32KB cap).
+- **What round 3 carries** (the round-2 checklist, all discharged):
+  - the ledger rows, with checksums + the artifact verification — this WAS the gating
+    objection, raised at HIGH by four seats (editquality, tooling_provenance,
+    debug_historian, prior_art_librarian);
+  - **every edit explicitly marked HISTORICAL RECORD**, answering editquality's audit/edit
+    distinction — nothing in the plan is a forward edit, and the rationale says so first;
+  - round 1's verdict **quoted verbatim** (prior_art asked for the actual text, not a
+    paraphrase) — including that its gating objection was factually wrong about the code;
+  - the 2026-07-29 owner ruling **cited by path** after a seat called it unverifiable;
+  - `RegisterVerifier` proven a pre-existing pattern by call-site count (11 files, this is
+    the 10th consumer) — both reuse_agent and prior_art had flagged it unverified;
+  - 359 **described and listed** (tooling_provenance was right that round 2 referenced it
+    without listing it);
+  - guardian's retraction-collateral point answered semantically, and **his suggested
+    containable alternative refused with a reason**: "scope retraction to this check's own
+    rows" is not available, because `created_by` reads `generic` on our rows — the honest
+    version is a discriminator in the spec.
+- **Schema pre-check paid off** (the runbook's warning that an invalid plan writes NO
+  artifacts and polls for ever): validated `risks` is a STRING not an array, operations ⊆
+  {modify,add,remove,config_change}, `grounded_in` a string array, ≤8 edits, and — the
+  non-obvious one — grepped every sketch for the `noOpEditReason` blocklist ("add a comment",
+  "comment-only", …), which rejects a whole plan on a literal substring match.
