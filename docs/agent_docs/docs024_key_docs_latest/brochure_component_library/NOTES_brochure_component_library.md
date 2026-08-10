@@ -5418,3 +5418,15 @@ passenger, and my own pathspec commit had nothing left to take for that file. No
 commit message cannot declare a passenger its author never saw, so this note is the only place the
 provenance is written down. The write_site_plan_action.go half of the refactor is in `177454a87`
 as intended.
+
+## 2026-08-10 (post-roll) — v1.0.1283 artefact-verified: the three detections are LIVE
+
+Owner rolled a fresh chassis build. Proven at the artefact, both replicas
+(`agent-chassis-696d88b4c7-95mgb`/`-wnbs8`, started 21:43Z, image `v1.0.1283`), one exec each:
+POS `FACT_ASSIGNMENT_ABSENT`=1, `RECOMPOSE_INTENT_NOT_REALISED`=1, `PLAN_PAGE_MERGE_LOSSY`=1;
+NEG `RECOMPOSE_INTENT_UNREALISED` (plausible-but-absent spelling)=0; CTRL
+`FACT_CARRY_UNMATCHED_SECTION` (pre-existing)=1. **The recompose no-op landmine's durable tell is
+now live** — the LANDMINES entry's "no tell until the next roll" caveat is closed. Everything this
+front built is now both configured (seeds 362/328/330) and running (v1.0.1283). What remains is
+measurement only: replan + rebuild + census — handed off to a fresh session, see
+`HANDOFF_2026-08-10b_fact_assignment_front_continue_here.md`.
