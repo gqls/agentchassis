@@ -309,3 +309,62 @@ weekly without anyone pointing at targets.
 Also written tonight, because a reviewer was right to ask: proper undo files for all three
 of this programme's live config changes, each refusing to run if the world has moved under
 it, each stating plainly what running it would give up.
+
+---
+
+## 2026-08-10, afternoon — the whole estate has now been through the offer checks, and every answer holds up
+
+A different session picked this lane up today (the one that had it is off doing other
+things), so I started by re-reading everything and re-checking the live system rather than
+trusting the notes. Then I read what the checks had found overnight.
+
+**The short version: twenty-one sites examined, four things found, and every single one is
+true.** I went and verified them by hand instead of taking the checks' word for it.
+
+The four findings. Three sites have no recorded premise at all — loancash.co.uk,
+loanandmortgagecalculator.co.uk and gaswholesalers.com — which means we cannot judge
+whether they serve anyone or earn anything, because there is nothing on record saying what
+they are for. And mortgagecalculator.co.uk, which we have written down as a
+lead-generation site, has no way for a visitor to make an enquiry: it has a contact page
+that was planned and never actually built, so the only pages that ever shipped are guides
+and calculators. Thirty pages, no way to get in touch. For a site whose whole recorded
+purpose is generating enquiries, that is the offer failing at the last step.
+
+**The silences are the part I am most pleased about, because a check that never speaks is
+worthless and a check that speaks wrongly is worse.** So I tested them rather than
+assuming. The three tool sites stayed quiet, and when I searched every page of all three
+for the twelve "sell me a service" phrases the check hunts for, there was exactly one hit
+in the whole lot — and it is ordinary prose in an article ("if you start a project on your
+laptop, it will not magically appear on your phone"), not a button. The check ignored it
+because it only ever reads button and link text. That design decision, which cost an
+argument to settle, just earned its keep on the first real run. oufe.com stayed quiet too,
+and it deserved to: it has a real contact page with a real form, linked from every page.
+
+One honest caveat worth knowing. vetcomparison.uk is silent for a completely different
+reason: we have never written down what "good" looks like for a sponsored-listings site,
+so the check has no rule to apply and says nothing. That is deliberate and it is in the
+code, but silence-because-no-rule looks identical to silence-because-fine, and I would
+rather you knew which one you were looking at.
+
+**The thing I got wrong today, and what it cost.** While reading how sites get scheduled
+for examination, I found five that had been marked as "done" without ever actually being
+looked at — the scheduler had crashed mid-job. That part is real, and I re-ran all five
+(one of them, loancash, turned out to be one of the three missing-premise findings above,
+so it had been sitting invisible behind a tick in a box). But I wrote it up as though I had
+discovered a flaw in another team's design, and I had not: they had considered exactly this
+and chosen it deliberately, for a good reason, and written that down. I found that out by
+reading their notes — one step after I had already written mine. I have corrected it in
+place and logged the mistake, because the useful lesson is not "I was wrong" but "measuring
+what a thing does can never tell you whether someone meant it to".
+
+What did survive is smaller and I have passed it to the team who own it: their daily
+health check adds up the whole fleet — twenty-one sites marked done, twenty-four
+examinations run, looks healthy — and that arithmetic cannot see five specific sites
+falling through, especially since my own re-runs were three of the twenty-four propping the
+number up.
+
+**Still waiting on you, and it is the only thing blocking progress:** the three
+one-line commands that record our applied database changes in the ledger. They are at the
+end of my 09b report. The council review is parked one round short of approval until those
+land — not because the reviewers are being difficult, but because an applied-and-unrecorded
+change is genuinely dangerous for whoever runs the migration tool next.
