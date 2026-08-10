@@ -13,7 +13,10 @@ RUN go mod download
 COPY . .
 
 # Build the binary
-RUN go build -o git-adapter cmd/git-adapter/main.go
+ARG GIT_COMMIT=unknown
+RUN go build \
+    -ldflags "-X github.com/gqls/agentchassis/pkg/buildinfo.GitCommit=${GIT_COMMIT}" \
+    -o git-adapter cmd/git-adapter/main.go
 
 # Final stage
 FROM alpine:latest

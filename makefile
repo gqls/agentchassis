@@ -14,7 +14,7 @@ REGION ?= uk001
 REGION_PATH ?= uk_001
 REGISTRY ?= docker.io/aqls
 #IMAGE_TAG ?= latest
-IMAGE_TAG ?= v1.0.1278
+IMAGE_TAG ?= v1.0.1280
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
@@ -125,8 +125,12 @@ if [ "$$UNSHIPPED" -gt 0 ] && [ "$(REF)" = "HEAD" ]; then \
 fi
 @CTX=$$(mktemp -d /tmp/ref-ctx-$(1).XXXXXX) && \
 trap 'rm -rf "$$CTX"' EXIT && \
+GIT_COMMIT=$$(git rev-parse '$(REF)^{commit}') && \
 git archive $(REF) | tar -x -C "$$CTX" && \
 docker build -t $(REGISTRY)/$(1):$(IMAGE_TAG) \
+	--build-arg GIT_COMMIT=$$GIT_COMMIT \
+	--label org.opencontainers.image.revision=$$GIT_COMMIT \
+	--label org.opencontainers.image.created=$$(date -u +%Y-%m-%dT%H:%M:%SZ) \
 	-f "$$CTX/build/docker/backend/$(1).dockerfile" "$$CTX"
 endef
 
@@ -139,7 +143,11 @@ if [ "$$DIRTY" -gt 0 ]; then git status --porcelain | head -25; \
 	if [ "$$DIRTY" -gt 25 ]; then echo "  ... ($$DIRTY total)"; fi; \
 	echo "$(RED)  ^ all of the above will be in the image. For a committed image instead: make build-$(1)$(NC)"; \
 fi
+GIT_COMMIT="$$(git rev-parse --short HEAD 2>/dev/null || echo unknown)-tree" && \
 docker build -t $(REGISTRY)/$(1):$(IMAGE_TAG) \
+	--build-arg GIT_COMMIT=$$GIT_COMMIT \
+	--label org.opencontainers.image.revision=$$GIT_COMMIT \
+	--label org.opencontainers.image.created=$$(date -u +%Y-%m-%dT%H:%M:%SZ) \
 	-f build/docker/backend/$(1).dockerfile .
 endef
 
@@ -2109,6 +2117,17 @@ verify-agent-images: ## Verify all agent images are consistent
 	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) get pods -l app=dynamic-agent -o custom-columns=NAME:.metadata.name,IMAGE:.spec.containers[0].image 2>/dev/null || echo "No dynamic agents running"
 	@echo "$(CYAN)Agent chassis deployment:$(NC)"
 	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) get deployment agent-chassis -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null && echo || echo "No agent-chassis deployment"
+	@echo "$(CYAN)Local image provenance (docker labels, bugs_open/153):$(NC)"
+	@docker image inspect $(REGISTRY)/agent-chassis:$(IMAGE_TAG) \
+		--format 'agent-chassis:$(IMAGE_TAG)  revision={{index .Config.Labels "org.opencontainers.image.revision"}}  created={{.Created}}' \
+		2>/dev/null || echo "agent-chassis:$(IMAGE_TAG) not present locally — label check skipped"
+	@echo "$(CYAN)Pod binary provenance (agent-chassis):$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) exec deploy/agent-chassis -- \
+		sh -c 'strings /app/agent-chassis | grep -E "^[0-9a-f]{40}$$|-tree$$" | head -1' 2>/dev/null \
+		|| echo "no provenance stamp in pod binary (image predates the 153 fix)"
+	@echo "$(CYAN)Pod imageID + startTime:$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) get pods -l app=agent-chassis \
+		-o custom-columns=NAME:.metadata.name,IMAGE:.spec.containers[0].image,IMAGEID:.status.containerStatuses[0].imageID,STARTED:.status.startTime 2>/dev/null || true
 
 .PHONY: quick-agent-update
 quick-agent-update: ## Build, push and deploy agent-chassis + image-generator-adapter with current IMAGE_TAG

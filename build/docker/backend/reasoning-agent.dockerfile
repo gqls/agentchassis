@@ -4,7 +4,10 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -v -o reasoning-agent ./cmd/reasoning-agent
+ARG GIT_COMMIT=unknown
+RUN CGO_ENABLED=0 GOOS=linux go build -v \
+    -ldflags "-X github.com/gqls/agentchassis/pkg/buildinfo.GitCommit=${GIT_COMMIT}" \
+    -o reasoning-agent ./cmd/reasoning-agent
 
 # --- Final Stage ---
 FROM alpine:latest

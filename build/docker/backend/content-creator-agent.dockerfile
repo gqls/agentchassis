@@ -14,7 +14,10 @@ RUN go mod download
 COPY . .
 
 # Build the specific service binary
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o /app/content-creator-agent ./cmd/content-creator-agent
+ARG GIT_COMMIT=unknown
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo \
+    -ldflags "-X github.com/gqls/agentchassis/pkg/buildinfo.GitCommit=${GIT_COMMIT}" \
+    -o /app/content-creator-agent ./cmd/content-creator-agent
 
 # Stage 2: Create the final small image
 FROM alpine:latest

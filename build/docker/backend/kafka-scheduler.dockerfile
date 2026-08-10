@@ -10,7 +10,10 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o kafka-scheduler ./cmd/scheduler
+ARG GIT_COMMIT=unknown
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo \
+    -ldflags "-X github.com/gqls/agentchassis/pkg/buildinfo.GitCommit=${GIT_COMMIT}" \
+    -o kafka-scheduler ./cmd/scheduler
 
 FROM alpine:latest
 RUN apk --no-cache add ca-certificates

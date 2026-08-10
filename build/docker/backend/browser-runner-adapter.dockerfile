@@ -20,7 +20,10 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o browser-runner-adapter ./cmd/browser-runner-adapter
+ARG GIT_COMMIT=unknown
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo \
+    -ldflags "-X github.com/gqls/agentchassis/pkg/buildinfo.GitCommit=${GIT_COMMIT}" \
+    -o browser-runner-adapter ./cmd/browser-runner-adapter
 # The playwright CLI (same module version as the library) installs the driver
 # + Chromium in the runtime stage. Import path is the module's DECLARED path —
 # v0.6100.0's go.mod still says mxschmitt (upstream release accident); this

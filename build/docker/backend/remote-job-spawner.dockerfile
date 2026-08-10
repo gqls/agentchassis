@@ -8,7 +8,10 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -o /remote-job-spawner ./cmd/remote-job-spawner/main.go
+ARG GIT_COMMIT=unknown
+RUN CGO_ENABLED=0 GOOS=linux go build \
+    -ldflags "-X github.com/gqls/agentchassis/pkg/buildinfo.GitCommit=${GIT_COMMIT}" \
+    -o /remote-job-spawner ./cmd/remote-job-spawner/main.go
 
 FROM alpine:latest
 RUN apk add --no-cache ca-certificates
