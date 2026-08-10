@@ -211,3 +211,60 @@ symbols), the named symbol is absent, and the corpus contains no `var`/`const` r
 — so "absent from the index because this kind is unrepresentable" is distinguishable from
 "absent from the code", without guessing. That is the discriminator the verifier needed
 when it invented *"possibly inlined or renamed"*.
+
+## 2026-08-10 — built, and the one mutation that survived
+
+Design pass run through `fable`; its ranking and my departures are in
+`PLAN_2026-08-10_223_index_answerability.md` §2–3. Two things it corrected in my own
+notes, both worth having in the log:
+
+- my `grep -rhE "^(var|const) "` figure of **930** is a lower bound — a grouped
+  `var ( … )` block counts once however many specs it holds. Counting specs gives
+  **1,173**, so phase 2 is ~+20% of the corpus. *A grep over declaration openers cannot
+  see a block's members.*
+- `conditional_branch` exists with string conditions and dotted paths, and
+  `compareValues` handles a bool robustly — so `no_code_evidence` is a **bool**, not a
+  count.
+
+**Seven mutations, six died, one passed.** Replacing the `ls` arm's
+`b.WriteString(scope.lsReachNote())` with `b.WriteString("")` — deleting the fix at its
+call site — kept twelve green tests green, because every test exercised the rendering
+*helpers* and nothing asserted that anything calls them. The half left unguarded was the
+FALSE-POSITIVE half, the one this lane discovered itself. Full account in `WRONG_CALLS.md`,
+2026-08-10; the transferable check is **"which test fails if I delete the CALL, not the
+function?"** Three `sqlmock` wiring tests through `answerCodeCheck` now kill it.
+
+**The `\d` habit paid twice in one file.** The first draft of seed 365 hand-wrote its
+snapshot INSERT and was wrong in two ways at once — `agent_definitions` has no `name`
+column (it is `display_name`), and `agent_definitions_type_version_key` is UNIQUE on
+`(type, version)` so a same-version copy cannot be inserted at all. Both were caught by
+reading the schema before running anything, and the fix was to use the estate's existing
+`snapshot_agent(type, reason)` function, which also sets `previous_version_id` — something
+the hand-rolled version did not.
+
+## 2026-08-10 — the pre-roll safety claim, PROVEN behaviourally rather than read
+
+The seed changes live config immediately; the Go half is inert until a roll. I claimed
+that window is safe from reading two functions. Then I tested it, because a claim about
+behaviour is not the behaviour.
+
+Applied seed 365 (snapshot captured, in-transaction `DO`/`RAISE` verification passed), then
+fired the verifier at the same entry on the **unchanged** binary `v1.0.1277`:
+
+```
+evidence_gate → {"condition_met": false, "next_step_override": "verify"}
+status        → COMPLETED, verdict NEEDS_HUMAN_REVIEW (unchanged from the pre-seed run)
+persisted note → has_suffix = f
+```
+
+All three as predicted: the absent field resolved to nil, compared false, and the gate took
+`else_step`; `verify_unverifiable` did not run although it exists in config; and
+`note_body_suffix_field` was ignored rather than breaking the note. **It could have failed
+in three ways and did not** — the gate could have errored on an unresolvable field, it could
+have routed to the new branch, or the unknown config key could have failed the persist. A
+run that COMPLETED with `condition_met: false` recorded in its own state is the artefact,
+not my reading of `compareValues`.
+
+Council submitted first: correlation `495df717-4010-491f-aec0-92c13aaf3809`, committed as
+`1058b5366` with a `Council-Submitted:` trailer, because HEAD is shared and any session's
+roll ships the code regardless.
