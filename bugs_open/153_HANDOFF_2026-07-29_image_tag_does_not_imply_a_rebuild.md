@@ -31,12 +31,10 @@
 >    (`make release redeploy-agents`), so a single-service roll is not this lane's to do —
 >    see RUNBOOK R4. Until then the defect remains fully reproducible, which is the
 >    `/bugs_closed/` bar.
-> 2. **The council round DIED UNJUDGED.** Submission `44fa6a98-acaa-46b5-9ada-f0c34ca5475d`
->    hit `complete_invalid` because the fleet's LLM provider is refusing every call
->    (`bugs_open/243`, filed by this lane). The commits carry `Council-Submitted:`, which
->    asserts nothing and is correct — but **a fresh submission is genuinely owed**, not merely
->    pending, and `098` can never credit a correlation that has no verdict. RUNBOOK R7 has the
->    resubmit command.
+> 2. ~~**The council round DIED UNJUDGED.**~~ **SUPERSEDED — the owner added credit at
+>    ~18:12Z and the round was resubmitted and JUDGED. Verdict: REJECTED, hard veto from
+>    `guardian`, on SCOPE. See the dedicated section below — it is an owner decision, not a
+>    resubmit.**
 > 3. **13 of 14 services are inert.** Their dockerfile+main.go edits are committed but their
 >    binaries are unstamped until each is next rebuilt. Expect a MIXED fleet, and do not read
 >    an unstamped adapter as a failed fix. Checklist below.
@@ -50,6 +48,77 @@
 > 1 is their prerequisite — the label a refusal would compare against did not exist until now.
 > So what is shipped **detects** a retag; it does not refuse one. Say so when reporting this
 > fixed.
+>
+> ---
+>
+> ### COUNCIL VERDICT, round 1 on corr `44fa6a98-acaa-46b5-9ada-f0c34ca5475d`: **REJECTED — hard veto from `guardian`, on SCOPE not soundness**
+>
+> **The seats disagreed, which is the part that decides what happens next.**
+>
+> | seat | verdict | substance |
+> |---|---|---|
+> | `bug_historian` | **approve** | "does not touch any rebuild/rerender/regeneration/template-render code path… additive tooling, inert until read, consistent with the owner ruling cited" |
+> | `reuse_agent` | **approve** | "a genuinely novel gap per the diagnosis's own evidence… edit 6 correctly extends the existing `verify-agent-images` target rather than creating a parallel mechanism — good reuse discipline" |
+> | `editquality` | object (medium) | **a real bug, now fixed — see below** |
+> | `guardian` | **VETO (high)** | scope: "this round bundles the shared makefile macro change with edits to all 14 Dockerfiles and all 14 mains in one plan, which is precisely the 'MANY packages at once' trigger" |
+> | 8 others | abstained | (relevance-gated) |
+>
+> **The guardian was explicit that the mechanism is sound:** *"The mechanism itself (stamp git
+> sha via ldflags + OCI label, prove with pos/neg control) is sound and well-evidenced — that
+> part I'd approve on a single-service pilot. My veto is about scope, not soundness."* Its
+> **contained alternative**: land `pkg/buildinfo` + the macro change + agent-chassis only, and
+> track the remaining 13 Dockerfile+main edits as a named per-service follow-up.
+>
+> **`editquality`'s objection was correct and is FIXED (`8d270c68a`).** It is worth reading
+> because it is this bug's own disease: my new pod-provenance check ended in
+> `... | grep | head -1`, and a pipeline's exit status is its *last* command's — so `head`
+> returned 0 even when grep matched nothing, and the `|| echo "no provenance stamp"` fallback
+> **could never fire for an unstamped binary**, printing a silent blank instead. A check that
+> reads clean in exactly the case it exists to catch. Fixed by capturing to a variable so the
+> test is the last command, and **proven in all four directions** (old form + no match → exit
+> 0, reproducing the bug; new form + no match → exit 1; new form + sha → 0 and prints; new
+> form + `-tree` → 0 and prints).
+>
+> **The guardian's factual claim was "correctness of 13 of the 14 edits is unverified by this
+> submission". That was true, and it is now measured.** Built all 14 services from committed
+> HEAD with an injected sha: **14 of 14 carry the stamp, 3 occurrences each** — including the
+> two bare-`main.go` file-builds (`git-adapter`, `remote-job-spawner`) and `cmd/scheduler`,
+> the three structurally-unlike cases. Negative control on a sample of four: **sha count 0**
+> without the flag. `[MEASURED]` 2026-08-10.
+>
+> > **Honest detail from that negative control:** the `unknown` default is *not* a standalone
+> > `strings` line in most binaries (it is in `agent-chassis`, not in `auth-service`,
+> > `git-adapter`, `kafka-scheduler`). So **"unstamped" must be tested as *absence of a sha*,
+> > never as *presence of `unknown`*.** The shipped check does the former. Do not "improve" it
+> > into the latter.
+>
+> **WHAT HAPPENS NEXT IS AN OWNER DECISION, AND DELIBERATELY NOT A RESUBMISSION.** CLAUDE.md's
+> owner ruling of 2026-07-28 is directly on point: *"A veto on SCOPE is not answered by
+> resubmitting with better measurements. It is a judgement about how a capability reached
+> production. Record it where the change lives, route the seam to architecture review on its
+> own merits, and let a human break it — especially when seats disagree with each other."*
+> They did disagree, twice over. So this section **is** that record, and the measurements
+> above are published as evidence for the human, **not** fired back at the gate.
+>
+> The three options, costed, for whoever takes the decision:
+> 1. **Let it stand as committed** (14 services, one round). Cheapest; the guardian's specific
+>    risk — "a missed import silently no-ops per-service" — is now measured away for all 14,
+>    and every edit is inert until each service is next rebuilt. Accepts a scope precedent the
+>    guardian objected to.
+> 2. **Honour the contained alternative retroactively**: forward-commit a revert of the 13
+>    non-pilot Dockerfile+main edits, roll agent-chassis alone, then re-land the 13 as a named
+>    follow-up. Most faithful to the verdict; costs a revert plus 13 services' worth of
+>    re-review for edits already proven correct.
+> 3. **Route to architecture review** (`architecture_review/`) as a seam question — *"may a
+>    mechanical, inert, N-service edit ride one round when the shared macro rides with it?"* —
+>    which is the generalisable version and the one the 124 precedent points at.
+>
+> **Precedent worth knowing:** `bugs_closed/124` shipped a platform seam inside a bug patch
+> and drew a REJECTED verdict on exactly this ground. The owner's ruling then was *"the code
+> stays and the precedent gets fixed."* That is a reason to expect option 1 or 3, not a reason
+> to assume it.
+>
+> ---
 >
 > **Per-service liveness checklist** — tick when that service's *binary* greps its build sha:
 > `agent-chassis` ☐ (pilot) · `auth-service` ☐ · `core-manager` ☐ · `reasoning-agent` ☐ ·
