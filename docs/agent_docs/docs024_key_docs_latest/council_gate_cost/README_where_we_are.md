@@ -94,3 +94,54 @@ good answers, just at full price.
 If you'd rather have a cheaper, cruder saving in the meantime, the other lever
 is still available and takes minutes: move the more mechanical reviewers onto a
 cheaper model. It's config-only and reversible. Say the word.
+
+## 2026-08-10 (late) — it's live, and it works
+
+Your fresh chassis build went out and I've verified it properly rather than
+taking the deploy's word for it. I checked both running copies of the service
+actually contain the change — a deploy going green tells you a deploy happened,
+not that it shipped what you think — and then triggered a real council review to
+watch it work.
+
+It works. The first reviewer sends the shared material once and pays for it. Every
+reviewer after that reads the same material back at a tenth of the price. The
+"new" material each reviewer needs dropped from about 100,000 words' worth to
+about 1,800 — which is just its own job description, exactly as intended.
+
+**The measured saving is 72%**, which is lower than the ~80% I quoted you, and I
+want to be straight about why. My estimate assumed one council review running at
+a time. In reality several run at once, each reviewing a different change, and
+each one has to pay for its own first copy. So the saving is real but it dilutes
+when the system is busy. The number will move around between roughly 68% and 80%
+depending on how many reviews overlap.
+
+In money: council reviewing was costing around $23 a day and should now sit
+around $7. That's roughly **$16/day saved now, and about $24/day** once
+Anthropic's introductory pricing on this model ends on 31 August.
+
+## On Haiku — and a correction to my own advice
+
+You asked whether moving to Haiku would make reviews significantly worse, and
+looking into it properly turned up something that overturns what I suggested
+earlier.
+
+**The mixed approach I proposed — cheap model for the "mechanical" reviewers,
+Sonnet for the rest — would actually have cost you more, not less.** The cache
+only works within one model. Using two models means paying for two separate first
+copies, and that second copy costs more than the discount on the cheaper
+reviewers. Modelled per review: everything on Sonnet with caching ~$0.43, mixed
+~$0.49, everything on Haiku ~$0.21. My suggestion was the worst of the three. I'd
+made it before working out how the cache and the model interact.
+
+On quality: I pulled 30 days of reviews to see which reviewers actually do the
+work. It's very uneven — the "guardian" reviewer raises concerns in 73% of
+reviews and the "bug historian" in 84%, while the "mission" reviewer has raised a
+concern **once in 494 reviews**. So there genuinely are quiet seats. But the
+reviewer that caught both real bugs in my own work today was one of the busy ones,
+and one of those bugs would have taken the whole review system offline.
+
+I can't tell you from the numbers alone whether a quiet reviewer is asleep or
+just guarding something that rarely goes wrong — those look identical in a count,
+and they have opposite implications. Given the caching already does the heavy
+lifting, staying on Sonnet costs about $4/day more than the alternative and
+avoids that question entirely. You've said stay on Sonnet, which I think is right.
