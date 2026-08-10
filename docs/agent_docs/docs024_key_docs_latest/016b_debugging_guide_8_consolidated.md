@@ -462,6 +462,81 @@ the SAME way AGREE"*.
 > opened 163 re-verified as STILL_VALID with every footprint symbol "confirmed present at
 > their cited locations" — same entry, same indexed commit, only the binary changed.
 
+### The CORPUS, not the predicate, can be what emptied an answer — and a prefix listing will CONFIRM a footprint it cannot see
+
+**Sibling of the entry above, and read it first.** That one is about a lookup whose
+*predicate* was unsatisfiable (`bugs_closed/163`: a path-bearing query AND-ed against a
+column that never holds a path). This one is about a lookup whose predicate is **perfectly
+correct** and whose *corpus* cannot contain the answer — same 0 rows, same confident
+narration, different cause, and the repaired predicate does nothing for it
+(`bugs_open/223`).
+
+**Symptom.** A checker reports a thing absent, removed, renamed or non-existent, and cites
+a real query that really ran. On 223 the verdicts included *"the entire described workflow
+has no footprint"* about three scripts in this repo — written **by** those scripts, into
+the database category it declared empty — and, for a live package-level `var`, *"no longer
+resolves as a standalone symbol (possibly inlined or renamed)"*. Nothing had been renamed.
+
+**Diagnose — one query, and it is a census of the CORPUS, not of your target.**
+
+1. **Ask what the store can hold, not whether your row is in it.** `SELECT count(*) FILTER
+   (WHERE path LIKE '%.go'), count(*) FILTER (WHERE path NOT LIKE '%.go'), count(*) FROM
+   code_symbols` → 5837 / 0 / 5837. `SELECT kind, count(*) … GROUP BY 1` → five kinds, and
+   **no `var`, `const` or `type`** although the table's own CHECK constraint permits all
+   three. Every alternative in one row, so a future divergence cannot hide.
+2. **Compare what the store CAN hold with what it was ASKED.** 1,116 of 1,371 landmine
+   footprint rows (81%) named a script, a table, a migration, a command or a config value.
+   The corpus is Go symbols. The mismatch is the whole bug, and it is arithmetic.
+3. **Then read the wording that turned the gap into a verdict.** It is usually a *previous
+   fix*. Here: *"The query was RUN; this is not an unanswered question"* — added because
+   empty answers were reading as silence (`bugs_closed/108` defect B), correct for every
+   query the action executes, and the mechanism of the opposite error for a query that
+   could not match. **A guard can be wrong by being too confident.**
+
+**The false POSITIVE, which is the half nobody looks for.** A path-*prefix* listing over a
+single-language index presents as a directory listing. `ls scripts/` returns **110** indexed
+paths — Go programs in subdirectories — while every `.py` and `.sh` directly under
+`scripts/` is invisible. So the check comes back generous and reads as **confirmation that
+the footprint resolves**. That is worse than a false accusation: a wrong "it's gone" invites
+checking, and a flattering partial confirmation reads as diligence. Same shape in the text
+search: a `content` check for `slugify`, aimed at a Python function, was answered by six
+confident Go hits on `slugifyPathSegments`/`slugifyForCompositionName` — **a false positive
+with citations**.
+
+**And the CAREFUL runs cost you too.** The failure is stochastic: on identical 0-row input,
+three of four verdicts hedged correctly and one asserted non-existence. The careful ones are
+not free — one spent two LLM calls and eight queries to reach *"either not present at the
+current ref or not indexed"*, a disjunction the census collapses in one line, then **guessed
+the census correctly** and hung everything on the guess. So "it usually abstains" is not a
+reason to leave it: you are paying full price for an answer that carries no information.
+
+**The transferable rule.** Wherever a model-authored conclusion sits over a mechanical
+lookup, the lookup must state **what it cannot see**, computed from the store rather than
+written down, and the conclusion must be **structurally unable** to rest on it. Three parts,
+in this order of value: (1) attach the census to the persisted artefact by machinery the
+model cannot omit — the verdict is read months later, long after the run's inputs are gone;
+(2) make the wrong conclusion *unreachable* (a branch on a mechanical field, not a sentence
+in a prompt); (3) fix the wording — necessary, and worthless alone.
+
+**Two traps in fixing it, both paid for on 223.**
+- **A false "not answerable" suppresses a real absence** — the mirror of the bug. Classify
+  narrowly (223's classifier speaks only about a file extension the census says is absent;
+  a directory prefix, a bare identifier or an unknown census all keep the old wording), and
+  keep a test that fails if abstention is ever bought by checking less.
+- **Never hardcode the coverage.** ".go only" in a string goes on printing after it stops
+  being true — the stale-status class. Compute every sentence from the census and assert its
+  own retirement in a test, so the corpus widening cannot leave stale prose behind.
+
+**Cross-references.** `bugs_open/223` (the case, with a verbatim before-artefact);
+`bugs_closed/163` and `bugs_closed/108` A/B (the two prior fixes in the same function, whose
+wording this one qualifies); `bugs_open/181` (the same function's row caps — absences
+indistinguishable from findings, third time in one family); `bugs_open/231` (the diagnosis
+loop's half: it can find every USE of a package-level `var` and never the declaration, so it
+stops at UNVERIFIABLE naming exactly what it cannot see); register DIAG-036/DIAG-042;
+`WRONG_CALLS.md` 2026-08-10 (a full test suite that passed while the fix was unwired);
+the *"a grep proves absence only for the SPELLING it searches"* family — this is that rule
+one level up, where the spelling is right and the **haystack** is the wrong shape.
+
 ### Data-driven component shells render empty — inline `<script>` never extracted to `js_content`
 
 **Symptom.** A component with built-in interactivity (and, for data-driven ones, a
