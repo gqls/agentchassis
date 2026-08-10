@@ -27076,3 +27076,51 @@ after setting 8000, the failure still reported `output_tokens=2048`. I read that
 "still too small" instead of "that number never moved". A value the error echoes back
 unchanged after you have changed it is the signature of a config key nothing reads, and
 no further config change can help.
+
+---
+
+## 2026-08-10 — I read `source='discovery'` as proof the discovery checks had RUN. It is a free-text label, and another lane's acceptance runs were wearing it.
+
+Checking whether a post-fix zero was real or merely undemanded (`bugs_open/210`, needs_logo
+slug), I ran a demand control: *"has any discovery run happened since the roll?"*
+
+```sql
+SELECT s.domain, count(*), max(w.created_at) FROM site_work_items w JOIN sites s ON s.id=w.site_id
+ WHERE w.source='discovery' AND w.created_at > '<roll time>' GROUP BY 1;
+```
+
+It returned **8 items for the very site I cared about**, newest two hours ago. I read that as
+"the discovery checks have run and did not file the item, so something is wrong with my fix",
+and started diagnosing a defect that does not exist.
+
+**The 8 rows were `acceptance_run` items filed by another session**, `created_by` =
+*"mortgagecalculator-lane: A4 exercise the installed fences"*. `source` is a **free-text column
+any producer sets**; it names an intended provenance, not an executed one. The discovery checks
+had not run for that site at all — so the zero was **undemanded**, which is the innocent
+explanation I had just talked myself out of.
+
+**What caught it.** Looking at the rows instead of the count. The aggregate said "8 discovery
+items"; the rows said `acceptance_run`, `acceptance_run`, `acceptance_run`… One `SELECT` of the
+actual `item_type` and `created_by` ended it.
+
+**The cheap check.** A demand control must key on something only the mechanism itself can
+produce — here, `item_type` values that only these checks emit, or the check's own log line —
+**never on a column that merely describes provenance**. `source`, `created_by` and `pipeline` are
+all labels; on a fleet where several sessions write work items by hand, they are closer to
+comments than to facts.
+
+**The shape, for the tally.** This is the `a-count-you-kept-is-not-a-census` family with a twist
+that earns its own row: **the filter was not too narrow, it was too TRUSTING.** Every row it
+returned genuinely had `source='discovery'`. The predicate did exactly what it said; the column
+did not mean what its name implied. A count aggregated over a self-declared label cannot
+distinguish "the mechanism ran" from "somebody typed the mechanism's name".
+
+**And the near-miss it caused.** On the strength of that false demand signal I went looking for a
+suppression bug, and formed a specific hypothesis: that cancelling two stale rows had armed the
+two-strike rule (2 terminal predecessors → `unresolved`) against the very item I wanted re-filed.
+Reading `insertWorkItem` settled it — the strike query is
+`status IN ('complete','failed')`, so **`cancelled` is excluded and cannot be a strike**. The
+hypothesis was wrong, and worth recording as a *fact* rather than a scare: **cancelling is the
+safe way to clear a stale row** precisely because it stays terminal for dedup while not counting
+as a failed attempt. One of the rows I cancelled had been `failed`, so the cleanup **removed** a
+strike rather than adding one.

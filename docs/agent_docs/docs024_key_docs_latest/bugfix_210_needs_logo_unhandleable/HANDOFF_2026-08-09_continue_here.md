@@ -232,3 +232,65 @@ a defect here.
 memory index, and it silently ate two identifiers out of a commit message explaining a code
 change. The trailer survived only because it was on its own undecorated line. **Write commit
 messages to a file and use `-F`**, or single-quote identifiers. Logged in `WRONG_CALLS.md`.
+
+---
+
+# UPDATE 2026-08-10 (evening) — ALL THREE CHANGES LIVE. The lane is DONE bar one observation it cannot force.
+
+**Pod-verified on both replicas** (`agent-chassis-696d88b4c7`), fabricated negative control **0**:
+
+| marker | count |
+|---|---|
+| `generate_image REFUSED: no prompt supplied by any caller` (IMG-069) | 1 |
+| `no planned prompt, using the brand-identity default` (owner's ruling) | 1 |
+| `DefaultBrandImagePrompt: composed` (silent-degrade fix) | 1 |
+| `identity spec read FAILED` (silent-degrade fix) | 1 |
+
+Council rounds 1 and 2 both APPROVED, both verdicts read, trailers committed. **Nothing is
+outstanding in code, config, tests or docs.**
+
+## The one thing left, and why it cannot be forced from here
+
+**Nobody has yet seen a logo or hero the default actually produced.** Measured this evening:
+
+- work items with `spec->>'prompt_source' = 'default_from_brand_identity'`: **0**
+- items whose error mentions `generate_image refused`: **0**
+
+**Both zeros are UNDEMANDED, not evidence of anything.** `check_placeholder_image_in_use` has
+not run for a qualifying site since the roll. The demand exists and is unchanged —
+mortgagecalculator.co.uk still has **6** anchored same-origin `hero.jpg` references and **no**
+active hero asset — so the check will file a defaulted item the next time discovery reaches that
+site.
+
+**Do NOT force it by dispatching at mortgagecalculator.** The owner has ruled that site is the
+`mortgagecalculator_couk_adoption` lane's while it finishes its current plan (three sessions were
+live on it on 08-10). Wait for the rotation, or find another site that meets the precondition —
+there is none today.
+
+**⚠ A demand control on this must not use `source='discovery'`.** I did, and it lied: the 8
+"discovery" rows for that site on 08-10 were `acceptance_run` items another session filed with
+that label. `source`/`created_by`/`pipeline` are free-text. Key a demand control on `item_type`
+values only these checks emit, or on the check's own log line. (WRONG_CALLS, 08-10.)
+
+**And a fact worth having, since it looks like a trap and is not:** the two cancelled
+`placeholder_image_in_use:hero` rows do **not** arm the two-strike rule.
+`insertWorkItem`'s strike query is `status IN ('complete','failed')`, so `cancelled` is excluded —
+terminal for dedup, not a failed attempt. One of the rows I cancelled had been `failed`, so the
+cleanup **removed** a strike. The re-file will arrive as a clean `detected`.
+
+## When it does fire, this is the whole check
+
+```sql
+SELECT s.domain, w.status, w.spec->>'prompt_source', left(w.spec->>'prompt',180), w.error
+  FROM site_work_items w JOIN sites s ON s.id=w.site_id
+ WHERE w.item_type IN ('needs_logo','needs_hero_image') ORDER BY w.updated_at DESC LIMIT 5;
+
+-- then the ARTEFACT, which is the only thing that settles it:
+SELECT purpose, left(origin_prompt,180), origin_model, url, created_at
+  FROM assets WHERE site_id=(SELECT id FROM sites WHERE domain='mortgagecalculator.co.uk')
+   AND purpose='hero' ORDER BY created_at DESC LIMIT 3;
+```
+
+**Then look at the image.** If the wording needs tuning it is one string in
+`composeBrandImagePrompt` — cheap, and it decides ~2,000 logos. That judgement is the owner's,
+and it is the last open item on this lane.
