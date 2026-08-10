@@ -72,9 +72,9 @@
     },
     {
       "expect_values": {
-        "#dispAge": "65",
+        "#dispAge": "32.5",
         "#erMaxCash": "£0",
-        "#limitResult": "Maximum Cash Release £0 Based on typical LTV for age 65"
+        "#limitResult": "Maximum Cash Release £0 Based on typical LTV for age 32.5"
       },
       "id": "computes-half",
       "steps": [
@@ -107,9 +107,9 @@
     },
     {
       "expect_values": {
-        "#dispAge": "65",
+        "#dispAge": "39",
         "#erMaxCash": "£0",
-        "#limitResult": "Maximum Cash Release £0 Based on typical LTV for age 65"
+        "#limitResult": "Maximum Cash Release £0 Based on typical LTV for age 39"
       },
       "id": "computes-asym",
       "steps": [

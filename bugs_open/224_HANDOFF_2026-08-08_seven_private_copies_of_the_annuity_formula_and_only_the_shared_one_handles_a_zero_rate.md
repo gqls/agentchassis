@@ -1,5 +1,43 @@
 # 224 — seven private copies of the annuity formula on one site, and only the SHARED copy handles a 0% rate: six calculators print `£NaN` or a stale answer
 
+## STATE 2026-08-10 — A SEVENTH INSTANCE, found by the unattended monitoring on its FIRST run. Mode 2 was NOT dead as a class
+
+The 2026-08-09 block below says the stale-answer mode is "dead as a class". That
+is true of the six tools converted to the shared engine and **false as a
+statement about the site**, which is how it reads. Correcting it here rather
+than editing it away.
+
+**`mortgages/equity-release.html` had the same defect all along.**
+`calcEquityRelease` ran `if(age < 55) { alert(...); return; }` — a bare return
+that never touches the DOM. Measured live before any change:
+
+```
+age 65 (valid)                dispAge=65   erMaxCash=£124,000
+age 32.5 after a valid calc   dispAge=65   erMaxCash=£124,000   <- STALE
+```
+
+Enter an eligible age, read £124,000; change the age to 32, still read £124,000
+"for age 65". **The 0% sweep never found it because this guard is on AGE, not on
+rate** — the detector and the fix pass were both scoped to rate guards, and this
+is the same mechanism wearing a different trigger. Any `return` inside a
+calculator's handler that does not write the DOM is a candidate; that is the
+grep worth running, not `r > 0`.
+
+FIXED and LIVE (sites `34239c7e4`): validates, then always writes — £0 against
+the age actually entered, bands 55/65/75/85 re-verified unchanged.
+
+**It was found by the unattended acceptance sweep the same night it was switched
+on**, and the run's own note records that no automated rewriter was dispatched:
+*"NOT auto-fixed — this fence declares no_auto_fix"*. 0 `improve_tool` items.
+
+Second finding from the same failure: **the fence had pinned the page's INITIAL
+MARKUP as an expected answer.** `--emit-criteria` records what the tool
+displays, and for the two ineligible-age vectors the tool displayed nothing, so
+the capture stored the untouched DOM. Re-emitted against the fixed tool; the
+expectations are now real answers. **A captured expectation from a tool that did
+not write is not an expectation** — the emitter gates on a wholly inert tool but
+has no gate for a tool inert on ONE vector.
+
 ## STATE 2026-08-09 — FIXED, LIVE, VERIFIED BY THE FILING LANE'S OWN ORACLE. Fix candidate 1 executed: the private copies are GONE
 
 Owner directed a session at this bug ("bugfix 224", 2026-08-08 evening) —
