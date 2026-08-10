@@ -151,3 +151,48 @@ Actions taken, same session:
 
 **Standing constraint until RFC_021 Q1 is ruled: no new RemovedConfigKeys adoptions, no
 new StrictConfig flips.**
+
+## 2026-08-10 — RFC_021 RULED; all three executed; the code half is LIVE and pod-proven
+
+**Owner ruling** (recorded in RFC_021 §"OWNER RULING"): Q1 = **option C** (census at
+adoption + an AUTOMATED check, not per-adoption producer inventories); Q2 = **KEEP** the
+enforcement; Q3 = **proceed** with increment #5.
+
+**Q2 proof — the code half is LIVE.** The fleet rolled past this lane's image: pods now run
+**v1.0.1280**, and both replicas carry `carries REMOVED config key` and `bugs_open/234`
+(negative control 0). So `RemovedConfigKeys` + `create_work_item` StrictConfig are in
+production, not merely built.
+
+**Q1 delivered:** `removed-config-keys-check` CronJob (06:25 UTC), `kubectl apply -k`'d and
+**proven by a manual run before being trusted**: 181 definitions walked, 0 carriers,
+`doc_notes` row written *on the clean result* (a missing row means the job did not run —
+that must never look like "nothing is wrong"). Go gains `--removed-keys-in-use`; the Python
+mirror's two drift risks are pinned by `removed_keys_cron_parity_test.go`, the declared-list
+pin **mutation-proven** (drop the `update_page_status` entry → FAIL).
+
+**Q3 delivered:** migration **370** applied + recorded (verify mutation-proven), seed 025
+corrected, `UpdatePageStatusInputSpec` declares `notes_field`/`validation_issues_field`
+retired with the unimplemented intent preserved in the messages. Data before code, per the
+protocol. Rides **v1.0.1281** (built from HEAD, strings-verified incl. negative control,
+pushed; **not** deployed — rolls are the owner's).
+
+**Canary status: NOT PROVEN, and the reason is external.** Three firings produced no
+validation event. The first poller *reported* a rejection but its evidence had been lost to
+a pod-deletion race between capture and grep — a marker with no evidence, so it was
+discarded and the poller rewritten (v2 greps the same capture it just took). Rounds 2 and 3
+produced nothing because **the in-cluster fleet is stopped on an account-level Anthropic
+cap** (another lane's finding, commit `5fb7c6ebe`; last orchestration 16:56Z). Nothing was
+dispatched, so nothing could be rejected. The canary definition has been
+**deactivated** so it cannot pollute the census that the Q1 protocol depends on — re-running
+needs the row deleting first (the fire script refuses if the type exists in any state).
+The strict flip remains pinned by unit test + the live pod-grep above; the canary would add
+a behavioural witness and is owed when the fleet resumes.
+
+**Two wrong calls this session, both caught before the commit that carried them, both in
+WRONG_CALLS.md:** a fleet census written INTO a Go comment (false within the hour — 356's
+data half landed under me), and a filtered count leaking into its own denominator
+(`steps: 0` for the fleet's busiest work-item action; the true figure is 17).
+
+**`commit_from` is now 0 carriers fleet-wide** and is a RemovedConfigKeys candidate —
+deliberately NOT declared here: it belongs to the bugfix_136 lane, which was committing on
+it the same day. Noted in that lane's deferred-items file with the protocol it now needs.

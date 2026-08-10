@@ -71,3 +71,30 @@ question. Every concrete complaint the objecting reviewers raised — a measurem
 wanted re-run, a loose end they wanted tracked, a claim they wanted proven from the code
 rather than prose — has been answered and recorded. Nothing further ships on this
 mechanism until you rule.
+
+## 2026-08-10, evening — your three rulings are done, and the stricter code is live
+
+All three decisions are executed. The daily automatic check exists and I proved it works by
+running it once by hand before trusting it: it walked 181 agent definitions, found nothing
+carrying a retired key, and — importantly — wrote its "all clear" down. That last bit is
+deliberate: if the job ever silently stops running, the absence of a note is the signal.
+Silence and "nothing wrong" must not look the same.
+
+The stricter behaviour is now genuinely live, not just built: the fleet rolled onto a new
+image and I confirmed the new code is inside the running containers, on both of them.
+
+The third decision — retiring the two dead keys on the page-status action — is done at the
+data layer and the code for it is built and pushed, waiting for your next roll.
+
+Two things I got wrong today, both caught before they shipped and both written up. The
+instructive one: I wrote a live measurement into a code comment, and it was out of date
+within the hour because another session changed the thing I'd measured. The comment now
+tells the reader how to ask the system rather than what it said once. That is the general
+lesson on a tree this many people share.
+
+One thing is still owed and it is not in our hands: the live "canary" test — deliberately
+mis-configuring a throwaway agent to watch the new rejection fire — could not complete,
+because the whole in-cluster fleet is currently stopped on an account-level API cap. Nothing
+is being dispatched, so nothing can be rejected. The evidence we do have is solid (the code
+is provably in the running binary, and the behaviour is pinned by tests that I broke on
+purpose to confirm they catch it). I'll run the canary when the fleet is working again.
