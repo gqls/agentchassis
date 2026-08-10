@@ -170,3 +170,33 @@ Owner: *"Please go ahead with 245."* Executed in the bug's own stated order:
 spawned-pod proof (env sourced by secretKeyRef + a real storage operation, e.g. a
 `deploy_image_asset` succeeding at the artefact); (d) the overlay edit; (e) re-run both
 greps (`os.Getenv` and `AccessKeyEnvVar`) at removal time.
+
+## UPDATE 2026-08-10 (later) — council APPROVED round 1 (`c45c6412`), and the guardian's medium objection answered with a measurement
+
+Verdict: **APPROVED**, 1 medium + 2 low advisory objections, none high. The commit
+already carries `Council-Submitted:`; 098 credits it automatically.
+
+**The medium objection is correct and now quantified.** The touched conditional gates on
+`isStorageEnabledAgent(type) || category ∈ {orchestrator, code-driven}` — so the
+fail-loud change reaches more than the 13-name storage list. Measured (live
+`agent_definitions`, 2026-08-10): **21 orchestrator types + 12 code-driven types** also
+pass that gate. Two things bound the risk:
+
+1. **The population receiving credential env is UNCHANGED** — the same broader gate
+   applied to the old value-copies; every one of those 33 types' spawned pods was
+   already being handed the four values whenever the chassis env had them. What changed
+   is only the failure mode when a key goes missing from `personae-storage-secrets`:
+   silent-empty-env (break at first storage use) → `CreateContainerConfigError` (break
+   visibly at spawn), now for all 33+13 types.
+2. **The trigger condition is a secret-key rename/removal** — all four keys verified
+   present 2026-08-10, and the overlay's own chassis env references the same keys, so a
+   rename would already have broken the chassis deployment itself. But the guardian's
+   scenario is real: rotate the secret with a renamed key and every orchestrator spawn
+   fails at start until it is fixed. That is the fail-loud design doing its job at a
+   wider blast radius than the plan's prose stated; whoever rotates that secret should
+   know spawns gate on those exact four key names.
+
+**Low objection (empty-string `AGENT_STORAGE_SECRET`)**: already the safe semantics —
+the code tests `== ""`, so set-to-empty and unset both fall back to
+`personae-storage-secrets`. **Low objection (stability tracking on spawn_actions.go)**:
+noted for the record; both of today's touches were single-block, pattern-mirroring edits.
