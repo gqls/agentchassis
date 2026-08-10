@@ -1,5 +1,15 @@
 # HANDOFF — mortgagecalculator.co.uk — cold start, read this first (2026-08-10b)
 
+> **SUPERSEDED the same evening by `HANDOFF_2026-08-10c_continue_here.md` — start
+> there.** §3 action 1 (the twelve tool PLANs) is **DONE for the eight tools that
+> can have one**, and all eight have since passed a real Tier-4 run. Four things
+> in §3's framing of that action were wrong — see 10c §2. The two that would have
+> cost the most: **the ladder's subject key strips `tool-`** (a PLAN filed under
+> the page name is never read, with no error anywhere), and **three of the
+> "twelve" are not ladder-eligible at all**. §3 action 1's parenthetical "zero
+> acceptance runs have ever happened on this site" was already false when written
+> — two completed 08-09 evening.
+
 **Supersedes `HANDOFF_2026-08-10_continue_here.md`** (read it second: its §0 owner
 rulings stand, its §1 verdict table stands except stamp-duty, and its §4 actions 1
 and 4 are **DONE**). Site: UNLOCKED. The design this lane executes:
