@@ -354,3 +354,60 @@ status green. That last one bothers me most, so I've written it up: we have no
 check anywhere that asks whether a finished site can actually be loaded.
 
 Everything is committed and there is a fresh handoff for continuing.
+
+---
+
+**2026-08-10 (late morning).** The logo fix works — proven properly this time, not
+just believed. I sent one logo rebuild through the repaired path on cookly.uk and
+it came back as a PNG at logo size, through the exact branch that used to get it
+wrong. The run recorded its own routing decision, so there is no ambiguity about
+which path it took. That is bug 235's fix demonstrated end to end.
+
+Two things about the plan we had written down turned out to be wrong, and both
+would have wasted someone's time.
+
+The acceptance test we'd recorded says the logo should come out "400×400". It
+doesn't, and shouldn't — logos are fitted into a 400-pixel box keeping their
+shape, so a wide wordmark comes out 400×218. Anyone testing for a literal square
+would have failed a perfectly good result. What actually distinguishes right from
+wrong is that it's a PNG rather than a photograph-shaped JPEG, and that the
+database row says "logo" rather than "hero".
+
+And the list of eleven sites needing repair was wrong in two places. idea.uk is
+fine — it serves the correct logo and its pages point at it; it just has an old
+unused file lying around. Meanwhile relojistas.com has exactly the problem and
+wasn't on the list at all. So it's nine sites with damage a visitor would see,
+plus two where the database is wrong but the impact isn't clear.
+
+Then the day changed shape. The rebuild I'd queued sat there for twenty minutes
+when it should have been picked up in two, so I went looking. **The service that
+runs every timer on the platform had been dying and restarting 132 times in
+thirteen hours** — alive about one minute in six. Nothing was down, so nothing
+alarmed; work was simply arriving at a tenth of the normal rate.
+
+The cause is a blank setting in shared plumbing. Every service here asks Kafka
+for information about *every* topic in the cluster, every few seconds, in the
+background. That was harmless when there were a few hundred topics. There are now
+over twenty-five thousand, because each job step creates a disposable one and
+nothing clears them up. You authorised me to clear them, and it worked: the
+scheduler has now been up for eleven minutes instead of seventy seconds, using
+half the memory it was, and the backlog of overdue timers has drained.
+
+That's a one-off clean-up, not a fix — the setting is still blank and the topics
+will start piling up again. I've written up what needs doing, in order, and the
+one that actually closes the door needs a review round because it touches
+plumbing every service depends on.
+
+I should also own three mistakes, because two of them nearly mattered. I wrote a
+number into the bug file before the thing measuring it had finished — the answer
+held, but I'd invented a stronger version of it. Worse, the command I was using to
+count topics **silently returns a short answer** when there are this many, with no
+error at all, and I read a trend into that noise and wrote it up as a correction
+before catching it. And I filled up a small disk on the Kafka machine with my own
+debugging files, then spent a while diagnosing the resulting nonsense as a
+different problem entirely. All three are written down where the next person will
+hit them. The near-miss worth naming: my first attempt to delete topics was scoped
+by one of those short lists, and it stopped only because of a safety check I'd
+added for an unrelated reason. That was luck. It's now a deliberate check.
+
+The logo work itself is unblocked and is the next thing.

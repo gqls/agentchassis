@@ -558,3 +558,111 @@ synced; 231 carries the cross-reference.
 - The cookly.uk go-live (Cloudflare zone + Nominet NS) was requested by the
   owner mid-session and delegated to a sub-agent; its report goes in
   `domains_cloudflare_rollout/NOTES` (that lane's first real zone-create).
+
+---
+
+## 2026-08-10 (morning) — 235's fix is PROVEN LIVE, the site list was wrong, and the queue was dead for a reason outside this lane
+
+### Cold start: all four checks pass
+
+Ground unmoved (`git log b8509054a..HEAD` on the lane's paths: empty). All 7 lane
+tests pass. Migration 360 still in force, re-read BY CONTENT: `store_imagery_brand_asset`
+carries **no** static `purpose` and `purpose_field = input_data.spec.purpose`,
+while `store_hero_asset`/`store_logo_asset` correctly keep their statics on all
+three definitions that own them.
+
+### 235 fix candidate 1 — BEHAVIOURALLY PROVEN on cookly.uk
+
+Fired one `needs_imagery` item at cookly.uk: `brand_update:true, asset_key:"logo",
+purpose:"logo"`, item `3c1c7c65-f8ae-4dc1-bd44-0a56fee1adb7`.
+
+**The routing is the part that makes this disconfirmable**, and it is recorded in
+the run's own `collected_data`:
+
+```
+check_imagery_brand_update = {"condition_met": true,
+                              "next_step_override": "store_imagery_brand_asset"}
+asset_stored              = {"purpose": "logo", "logo_url": "/assets/images/logo.png",
+                             "asset_id": "5c351ebc-…", "stored": true}
+```
+
+Pre-360 that same input stored the logo with `purpose:"hero"`. Served artefact is
+a **PNG** (`logo.png`, 400×218, sha `3fb6ad54…`, 189,044 B), replacing the
+previous 400×400 `e38781c2…`; **no `logo.jpg` was created** (404, as before).
+
+> **Two corrections to the handoff's stated acceptance bar.**
+> 1. **"400×400 PNG" is wrong as a literal test.** Logo processing fits within a
+>    400px box preserving aspect — this wordmark came out **400×218**, and
+>    idea.uk's known-good logo is 400×218 too. The disconfirmable properties are
+>    **PNG (not JPEG), ≤400px (not 900×900 or 1408×768), and `purpose='logo'` on
+>    the stamped row**. Anyone asserting literal 400×400 will fail a correct run.
+> 2. **No new asset row is created.** `store_asset` UPDATED the existing row
+>    `5c351ebc` in place (its `storage_path` moved to today's date). So "assert
+>    the NEW row" does not work either — assert the row's `purpose` and its
+>    `storage_path` date.
+
+Note cookly's *pre-existing* correct logo came from the LEGACY `needs_logo` item
+type (`store_logo_asset`, static purpose, always correct) — a different step. So
+this run is the **first time the brand branch has ever produced a correct logo**,
+which is exactly why it was worth firing rather than reasoning about.
+
+### The site list in the handoff is wrong in two places `[MEASURED]`
+
+DB signature (`assets` where `asset_key='logo'`) cross-checked against what each
+domain actually serves and what its homepage HTML references:
+
+| site | row purpose | serves | homepage references | verdict |
+|---|---|---|---|---|
+| gamesdesign, vonc, dartsonline | hero | JPEG 900×900 | `logo.jpg` | affected |
+| robot-hands, vetcomparison, fundamentallyai, oufe, lendzy | hero | JPEG 1408×768 | `logo.jpg` | affected |
+| **relojistas.com** | hero | JPEG 646×275 | `logo.jpg` | **affected — MISSING from the handoff's list** |
+| webdesign.co.uk | hero | JPEG 1408×768 | *(no logo ref on homepage)* | row bad, impact unclear |
+| webdesign.uk | hero | 302 on both | — | row bad, unverifiable by HTTP |
+| **idea.uk** | **logo** | **PNG 400×218** | **`logo.png`** | **NOT affected — wrongly listed** |
+| cookly.uk | logo | PNG 400×218 | *(no logo ref)* | correct (proof site) |
+
+So: **9 sites with confirmed visitor-visible damage**, plus 2 with a bad row and
+unclear/unverifiable impact. `idea.uk` has only a stale unreferenced `logo.jpg`.
+
+### The queue was dead, and it was NOT this lane's bug
+
+The cookly item sat `triaged` for 20 minutes. `kafka-scheduler` was in
+`CrashLoopBackOff`, **OOMKilled 132× in 13h**, taking the whole scheduled layer
+to a ~14% duty cycle. Cause is `platform/kafka`'s shared transport leaving
+`MetadataTopics` blank — kafka-go then refetches metadata for **all 25,042
+topics** every ~3s, and 24,131 of those are orphaned `job.*` topics nothing
+deletes. Full case: **`bugs_open/240`**; owner read-out in
+`bugfix_240_kafka_metadata_storm/SUMMARY_2026-08-10_…`.
+
+Confirmed causally, not just correlationally: after the orphan sweep took the
+topic count down, the scheduler ran **11 minutes** (previously never past ~75 s)
+at **58Mi** against the 121Mi peak that had been killing it, and the fleet's
+short-interval tasks returned to ≤1.0 intervals overdue.
+
+### Missteps this session — all mine, all caught before they did damage
+
+- **Wrote a sample count into `bugs_open/240` before the probe finished.** Said
+  "40 of 40 BUSY"; the probe had produced 18. Logged in `WRONG_CALLS.md`. The
+  direction is the tell: I invented the *stronger* number.
+- **Read a trend out of a truncating command.** `kafka-topics.sh --list` piped
+  through `kubectl exec` returns a short list with **exit 0** (21,409 / 23,017 /
+  5,809 on three reads; truth 24,131). I had already written a "correction" into
+  240 based on the apparent decline. Retracted in place.
+- **Filled the broker's 5 MB `/tmp`** with my own dumps, then diagnosed the
+  resulting zero-byte reads as the tool truncating. It was ENOSPC I caused.
+  Cleaned up; `--describe`'s behaviour is now recorded as *unknown*, not
+  *truncating*, because every observation I have of it was taken against a full
+  disk. Both traps are now a LANDMINE entry.
+- **Nearly ran a 23k-topic deletion scoped by a truncated list.** It refused only
+  because of a two-count-agreement guard I had added for an unrelated reason.
+  That is luck, not process, so the guard is now explicit and the script verifies
+  the transferred list line-for-line against an in-pod count.
+
+### Also observed, not chased
+
+- `webdesign.uk` holds a work item (`8793da9a`) inserted directly as
+  `status='claimed'` with NULL `claimed_at`/`claimed_by`. The dispatch selector
+  skips any site with a claimed item, so **webdesign.uk is permanently blocked
+  from the build pipeline** regardless of the scheduler. It is one of the sites
+  needing a logo re-drive. Not this lane's to clear — but whoever re-drives
+  webdesign.uk must clear it first or the item will never dispatch.
