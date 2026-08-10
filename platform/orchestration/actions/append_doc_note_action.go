@@ -35,6 +35,13 @@ var AppendDocNoteInputSpec = datahelpers.ActionInputSpec{
 		"subject_type", "subject_key", "subject_key_field",
 		"note_body_field", "note_categories", "note_categories_field",
 		"note_site_id_field", "note_source", "source_item_id_field", "created_by",
+		// note_body_suffix_field appends a MECHANICALLY-COMPOSED qualifier to the
+		// body — a field written by an action, never by a model (bugs_open/223).
+		// OPT-IN with the unsafe default OFF, per the owner ruling of 2026-08-02:
+		// absent from a step's config, this action behaves byte-identically, so no
+		// existing consumer changes and adoption is visible at each call site
+		// rather than asserted in a comment.
+		"note_body_suffix_field",
 	},
 	Defaults: map[string]interface{}{
 		"note_body_field":       "doc_note_body",
@@ -47,6 +54,32 @@ var AppendDocNoteInputSpec = datahelpers.ActionInputSpec{
 
 func init() {
 	datahelpers.RegisterActionInputSpec("append_doc_note", AppendDocNoteInputSpec)
+}
+
+// applyBodySuffix appends a mechanically-composed qualifier to a note body.
+//
+// WHY THIS IS A FUNCTION AND NOT A PROMPT INSTRUCTION (bugs_open/223). The
+// landmine-verifier's product is a doc_notes row of prose, read months later by
+// sessions and by council seats, and its status is not parsed by anything. When a
+// verdict rests on checks the code index could not answer, the ONLY way a future
+// reader can tell is if the row says so — and a model asked to include that
+// caveat will include it most of the time, which is exactly the property that
+// makes the failures expensive: 3 of 4 runs on identical 0-row input already
+// abstained correctly, and the entry was degraded by the fourth. A suffix composed
+// in Go cannot be softened, contradicted or dropped by the model whose verdict it
+// qualifies.
+//
+// An EMPTY resolution is stated in the row rather than skipped: the qualifier's
+// absence is the very thing the key exists to make visible, so a misconfigured
+// field must be loud in the artefact and not merely in a log nobody reads.
+func applyBodySuffix(body, suffix, fieldName string) string {
+	if fieldName == "" {
+		return body
+	}
+	if suffix == "" {
+		return body + "\n\n(note suffix field '" + fieldName + "' resolved EMPTY — the mechanical qualifier is MISSING, not withheld: treat this note as unqualified.)"
+	}
+	return body + "\n\n" + suffix
 }
 
 func AppendDocNoteAction(ctx context.Context, params ActionParams) (interface{}, error) {
@@ -66,6 +99,10 @@ func AppendDocNoteAction(ctx context.Context, params ActionParams) (interface{},
 	if body == "" {
 		return nil, fmt.Errorf("append_doc_note: empty note body at %q", bodyField)
 	}
+	// The suffix is applied AFTER the empty-body refusal above, so a configured
+	// suffix can never make an empty verdict look like a written one.
+	suffixField := datahelpers.GetStringField(config, "note_body_suffix_field", "")
+	body = applyBodySuffix(body, datahelpers.ExtractNestedFieldString(params.CollectedData, suffixField), suffixField)
 
 	categoriesJSON := docCategoriesJSON(config, params.CollectedData)
 

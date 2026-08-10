@@ -87,7 +87,7 @@ func TestContentArmReportsCap(t *testing.T) {
 			[2]string{"c/three.go", "func"}))
 
 	var b strings.Builder
-	if err := answerCodeCheck(context.Background(), db,
+	if _, err := answerCodeCheck(context.Background(), db,
 		codeCheck{Kind: "content", Query: "needle"}, "", 2, 400, testCodeScope, &b); err != nil {
 		t.Fatalf("answerCodeCheck: %v", err)
 	}
@@ -126,7 +126,7 @@ func TestContentArmExactlyAtCapIsSilent(t *testing.T) {
 				[2]string{"a/one.go", "func"},
 				[2]string{"b/two.go", "func"}))
 		var b strings.Builder
-		if err := answerCodeCheck(context.Background(), db,
+		if _, err := answerCodeCheck(context.Background(), db,
 			codeCheck{Kind: "content", Query: "needle"}, "", rowCap, 400, testCodeScope, &b); err != nil {
 			t.Fatalf("answerCodeCheck(rowCap=%d): %v", rowCap, err)
 		}
@@ -161,7 +161,7 @@ func TestLsArmReportsCap(t *testing.T) {
 		WillReturnRows(rows)
 
 	var b strings.Builder
-	if err := answerCodeCheck(context.Background(), db,
+	if _, err := answerCodeCheck(context.Background(), db,
 		codeCheck{Kind: "ls", Query: "platform/"}, "", 2, 400, testCodeScope, &b); err != nil {
 		t.Fatalf("answerCodeCheck: %v", err)
 	}
@@ -194,7 +194,7 @@ func TestLsArmExactlyAtCapIsSilent(t *testing.T) {
 			WithArgs("platform/", "", wantLimit, codeKindsCSV).
 			WillReturnRows(rows)
 		var b strings.Builder
-		if err := answerCodeCheck(context.Background(), db,
+		if _, err := answerCodeCheck(context.Background(), db,
 			codeCheck{Kind: "ls", Query: "platform/"}, "", rowCap, 400, testCodeScope, &b); err != nil {
 			t.Fatalf("answerCodeCheck(rowCap=%d): %v", rowCap, err)
 		}
@@ -224,7 +224,7 @@ func TestSymbolArmReportsCap(t *testing.T) {
 			[2]string{"c/three.go", "func"}))
 
 	var b strings.Builder
-	if err := answerCodeCheck(context.Background(), db,
+	if _, err := answerCodeCheck(context.Background(), db,
 		codeCheck{Kind: "symbol", Query: "Foo"}, "", 2, 400, testCodeScope, &b); err != nil {
 		t.Fatalf("answerCodeCheck: %v", err)
 	}
@@ -256,7 +256,7 @@ func TestSymbolArmExactlyAtCapIsSilent(t *testing.T) {
 				[2]string{"a/one.go", "func"},
 				[2]string{"b/two.go", "func"}))
 		var b strings.Builder
-		if err := answerCodeCheck(context.Background(), db,
+		if _, err := answerCodeCheck(context.Background(), db,
 			codeCheck{Kind: "symbol", Query: "Foo"}, "", rowCap, 400, testCodeScope, &b); err != nil {
 			t.Fatalf("answerCodeCheck(rowCap=%d): %v", rowCap, err)
 		}
@@ -293,7 +293,7 @@ func TestSymbolArmElsewhereBranchReportsCap(t *testing.T) {
 			[2]string{"c/three.go", "func"}))
 
 	var b strings.Builder
-	if err := answerCodeCheck(context.Background(), db,
+	if _, err := answerCodeCheck(context.Background(), db,
 		codeCheck{Kind: "symbol", Query: "internal/x.go:Foo"}, "", 2, 400, testCodeScope, &b); err != nil {
 		t.Fatalf("answerCodeCheck: %v", err)
 	}
@@ -343,7 +343,7 @@ func TestCapNoticeLandsBeforeTheDocBlock(t *testing.T) {
 			[2]string{"z/three.go", "func"}))
 
 	var b strings.Builder
-	if err := answerCodeCheck(context.Background(), db,
+	if _, err := answerCodeCheck(context.Background(), db,
 		codeCheck{Kind: "content", Query: "needle"}, "", 2, 400, testCodeScope, &b); err != nil {
 		t.Fatalf("answerCodeCheck: %v", err)
 	}

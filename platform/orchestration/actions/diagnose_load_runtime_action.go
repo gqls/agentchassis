@@ -478,13 +478,23 @@ func DiagnoseLoadRuntimeAction(ctx context.Context, params ActionParams) (interf
 		// prune them (bugs_open/135), "the index is at commit X" stops being the
 		// whole truth and the verdicter has to be told. Silent when it is one commit.
 		cb.WriteString(codeScope.mixedCommitNote())
+		codeRun, codeWithRows, codeUnanswerable := 0, 0, 0
 		for i, c := range codeChecks {
 			fmt.Fprintf(&cb, "\n[code_request %d] kind=%s query=%q — %s\n", i+1, c.Kind, c.Query, c.Why)
-			if err := answerCodeCheck(ctx, params.DB, c, "", codeRowCap, codeExcerpt, codeScope, &cb); err != nil {
+			outcome, err := answerCodeCheck(ctx, params.DB, c, "", codeRowCap, codeExcerpt, codeScope, &cb)
+			if err != nil {
 				// Never fatal: a failed lookup is one unanswered question, not a
 				// failed gather. Surfaced in-band so the verdicter sees it was
 				// attempted rather than silently reading absence as evidence.
 				fmt.Fprintf(&cb, "  (lookup failed: %v)\n", err)
+				continue
+			}
+			codeRun++
+			if outcome.codeRows > 0 {
+				codeWithRows++
+			}
+			if outcome.unanswerable {
+				codeUnanswerable++
 			}
 		}
 		if codeDropped > 0 {
@@ -497,6 +507,13 @@ func DiagnoseLoadRuntimeAction(ctx context.Context, params ActionParams) (interf
 		// answered, though the spin guard has already credited it as progress.
 		codeDropField := datahelpers.GetStringField(config, "code_requests_dropped_field", routeOutputPrefix+codeRequestsDroppedKey)
 		cb.WriteString(upstreamDropNotice("code_request", datahelpers.GetIntField(params.CollectedData, codeDropField, 0)))
+		// Same census statement the council tier gets (bugs_open/223), same helper.
+		// This lane needs it at least as much: its verdict prompt's cite-or-abstain
+		// acts on absence, and bugs_open/231 is the recorded case — a 090 run stopped
+		// at UNVERIFIABLE naming "the actual var declaration … is NOT in the bundle",
+		// which is true, unfixable by re-running, and was never stated to it as a
+		// property of the corpus rather than of the code.
+		fmt.Fprintf(&cb, "\n%s\n", codeEvidenceLine(codeRun, codeWithRows, codeUnanswerable, codeScope))
 		codeEvidence = cb.String()
 		logger.Info("diagnose_load_runtime: answered code requests",
 			zap.Int("code_requests", len(codeChecks)),

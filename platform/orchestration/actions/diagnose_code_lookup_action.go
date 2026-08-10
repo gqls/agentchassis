@@ -66,6 +66,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -205,19 +206,142 @@ type codeIndexScope struct {
 	withBody int   // of those, rows whose source body is indexed
 	commits  int   // distinct commit_sha values across those rows (NULL counts as one)
 	err      error // the scope read itself failed — then we know nothing
+
+	// exts and kinds are what the corpus CAN REPRESENT, counted the same way and
+	// for the same reason as total/withBody above — one census per run, rendered
+	// into the answers (bugs_open/223).
+	//
+	// The two facts this census adds are the two the action had never stated. It
+	// said WHEN the index was built (freshness) and WHETHER bodies were
+	// searchable (bodyCoverageNote), and a reader could still not tell whether
+	// their question was ANSWERABLE: on 2026-08-10 five of one run's eight checks
+	// named Python scripts, a config-value string and a workflow step name, every
+	// one of them absent from a corpus that holds 5,837 Go symbols and nothing
+	// else, and all five rendered as "The query was RUN; this is not an
+	// unanswered question."
+	//
+	// MEASURED, never assumed: both maps are read from the live table, so if the
+	// corpus widens (D12's doc rows, or the var/const kinds the CHECK constraint
+	// already permits) every sentence derived from them changes itself. A
+	// hardcoded ".go only" would go on being printed after it stopped being true,
+	// which is the stale-status failure this file already carries scars from.
+	exts  map[string]int // ".go" → 5837; a path with no extension keys as "(none)"
+	kinds map[string]int // "func" → 3653; a kind never written has NO entry
 }
 
-// loadCodeIndexScope counts the searchable corpus. One query per action run.
+// loadCodeIndexScope counts the searchable corpus. Two queries per action run.
 // Deliberately NOT folded into codeIndexFreshness: that function's pure half
 // (freshnessBanner) is unit-tested against the stale/empty/error branches, and
 // widening its signature to carry counts would be a change to a tested seam for
 // the sake of saving one cheap COUNT.
+//
+// The representability census is a SECOND statement rather than more columns on
+// the first: it is a GROUP BY over (kind, extension), and folding a grouped read
+// into a single-row read would either lose the grouping or need a lateral join
+// for no gain. A failure in it is non-fatal and deliberately does NOT set s.err —
+// s.err means "we know nothing about scope", which would suppress the row counts
+// the older guards depend on. Empty maps degrade to "representability unknown",
+// which the classifier treats as "do not claim unanswerable" (fail open: the
+// pre-223 wording, never a false NOT ANSWERABLE).
 func loadCodeIndexScope(ctx context.Context, db *sql.DB, repoFilter string) codeIndexScope {
 	var s codeIndexScope
 	s.err = db.QueryRowContext(ctx, `
 		SELECT count(*), count(body), count(DISTINCT COALESCE(commit_sha,'')) FROM code_symbols
 		WHERE ($1 = '' OR repo = $1)`, repoFilter).Scan(&s.total, &s.withBody, &s.commits)
+	if s.err != nil {
+		return s
+	}
+	s.exts, s.kinds = make(map[string]int), make(map[string]int)
+	rows, err := db.QueryContext(ctx, `
+		SELECT kind,
+		       lower(COALESCE(NULLIF(substring(path from '\.([^./]+)$'), ''), '(none)')) AS ext,
+		       count(*)
+		FROM code_symbols
+		WHERE ($1 = '' OR repo = $1)
+		GROUP BY 1, 2`, repoFilter)
+	if err != nil {
+		return s
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var kind, ext string
+		var n int
+		if err := rows.Scan(&kind, &ext, &n); err != nil {
+			return s
+		}
+		s.kinds[kind] += n
+		s.exts["."+ext] += n
+	}
+	if err := rows.Err(); err != nil {
+		// Partial maps are worse than none: a half-read census would report an
+		// extension as absent because iteration stopped, and that is the exact
+		// false "does not exist" this whole change exists to remove.
+		s.exts, s.kinds = nil, nil
+	}
 	return s
+}
+
+// censusKnown reports whether the representability census was read at all. Every
+// claim about what the index CANNOT hold is gated on it, so a failed census
+// costs the new sentences and changes nothing else.
+func (s codeIndexScope) censusKnown() bool { return len(s.exts) > 0 }
+
+// representsExt reports whether the corpus in scope holds ANY row whose path
+// carries this extension. False is only meaningful when censusKnown() is true.
+func (s codeIndexScope) representsExt(ext string) bool {
+	if !s.censusKnown() {
+		return true // unknown ⇒ never claim unanswerable
+	}
+	return s.exts[strings.ToLower(ext)] > 0
+}
+
+// extSummary renders the extensions actually present, largest first, for the
+// sentence that has to say what the reader's query was searched against.
+func (s codeIndexScope) extSummary() string {
+	if !s.censusKnown() {
+		return "index composition unknown"
+	}
+	type pair struct {
+		ext string
+		n   int
+	}
+	pairs := make([]pair, 0, len(s.exts))
+	for e, n := range s.exts {
+		pairs = append(pairs, pair{e, n})
+	}
+	sort.Slice(pairs, func(i, j int) bool {
+		if pairs[i].n != pairs[j].n {
+			return pairs[i].n > pairs[j].n
+		}
+		return pairs[i].ext < pairs[j].ext
+	})
+	parts := make([]string, 0, len(pairs))
+	for _, p := range pairs {
+		parts = append(parts, fmt.Sprintf("%s (%d rows)", p.ext, p.n))
+	}
+	return "the indexed corpus holds only: " + strings.Join(parts, ", ")
+}
+
+// missingCodeKinds names the members of codeKindList that the corpus holds NO
+// row of — the fact the verifier needed on 2026-08-08 and invented a rename
+// hypothesis without. Sorted for a stable sentence; empty when the census is
+// unknown, so silence never implies completeness.
+//
+// It reads codeKindList rather than a second list, so the set it can complain
+// about is exactly the set this file calls code (016b §9: two hand-maintained
+// copies of one list is the drift class the council reviews for).
+func (s codeIndexScope) missingCodeKinds() []string {
+	if !s.censusKnown() {
+		return nil
+	}
+	var missing []string
+	for _, k := range codeKindList {
+		if s.kinds[k] == 0 {
+			missing = append(missing, k)
+		}
+	}
+	sort.Strings(missing)
+	return missing
 }
 
 // bodyCoverageNote is the one-line statement of whether bodies are searchable at
@@ -273,6 +397,21 @@ func (s codeIndexScope) mixedCommitNote() string {
 }
 
 // emptyAnswer renders a zero-row result as an ANSWER rather than as silence.
+//
+// bugs_open/223 CHANGED WHAT "AN ANSWER" MEANS HERE, and the distinction is the
+// whole fix. Until now every in-scope branch below closed with a sentence
+// asserting the strongest available reading — "the query was RUN; this is not an
+// unanswered question" — which is TRUE of every query this action executes and
+// MISLEADING whenever the corpus could not have held the answer. Those words were
+// written for bugs_closed/108 defect B, where empty answers were being read as
+// silence, and they fixed it; they then became the mechanism of the opposite
+// error. A guard can be wrong by being too confident.
+//
+// So the sentence is now earned, not assumed: `notAnswerableAnswer` replaces it
+// outright when the census says the target class is unrepresentable, and the
+// census-derived caveats below qualify it when the class is merely unlikely to be
+// found. Every one of those caveats disappears on its own the day the corpus
+// widens, because each is computed from the live census rather than written down.
 func (s codeIndexScope) emptyAnswer(kind string) string {
 	if s.err != nil {
 		return fmt.Sprintf("  NOT ANSWERED: the index scope could not be read (%v) — this is UNKNOWN, not absent.\n", s.err)
@@ -287,15 +426,150 @@ func (s codeIndexScope) emptyAnswer(kind string) string {
 				"so a string inside a function could not have matched. Treat as UNKNOWN, not absent.\n", s.total)
 		}
 		return fmt.Sprintf("  answered: 0 rows — searched the bodies and declarations of %d indexed symbols "+
-			"(%d with bodies). The query was RUN and found nothing; this is not an unanswered question.\n",
-			s.total, s.withBody)
+			"(%d with bodies). The query was RUN and found nothing; this is not an unanswered question.\n%s",
+			s.total, s.withBody, s.contentReachNote())
 	case "ls":
 		return fmt.Sprintf("  answered: 0 rows — no indexed path has that prefix, out of %d indexed symbols. "+
 			"The query was RUN; this is not an unanswered question.\n", s.total)
 	default:
 		return fmt.Sprintf("  answered: 0 rows — searched the names of %d indexed symbols. "+
-			"The query was RUN and matched none; this is not an unanswered question.\n", s.total)
+			"The query was RUN and matched none; this is not an unanswered question.\n%s",
+			s.total, s.missingKindNote())
 	}
+}
+
+// contentReachNote qualifies a 0-row `content` answer with what the search could
+// have reached. A content check is the kind most often aimed at something that is
+// not Go at all — the landmine-verifier's own derive_checks prompt DEFINES it as
+// "a table name, a distinctive string, a command name" — and on 2026-08-10 three
+// of one run's content checks named a `doc_notes` category, an agent type and a
+// workflow step name, none of which can exist in a corpus of Go symbols.
+//
+// Empty when the corpus spans more than one language: at that point "only Go was
+// searched" stops being the explanation and the reader is better served by the
+// count alone. A note that always prints stops being read.
+func (s codeIndexScope) contentReachNote() string {
+	if !s.censusKnown() || len(s.exts) != 1 {
+		return ""
+	}
+	return fmt.Sprintf("  note: %s — a footprint that lives in a script, a SQL file, a migration, "+
+		"a database table, a config value or an agent definition CANNOT match here whatever its state. "+
+		"For those classes this 0 is UNKNOWN, not absent.\n", s.extSummary())
+}
+
+// lsReachNote says what a NON-EMPTY `ls` listing is a listing of. See the call
+// site for the measurement that motivates it: a prefix that holds indexed Go files
+// in its subdirectories answers generously while the non-Go files the reviewer
+// asked about are structurally absent from the result.
+//
+// Gated on a single-extension corpus for the same reason as contentReachNote —
+// once the index spans several languages this sentence stops being the
+// explanation, and a note that always prints stops being read.
+func (s codeIndexScope) lsReachNote() string {
+	if !s.censusKnown() || len(s.exts) != 1 {
+		return ""
+	}
+	return fmt.Sprintf("  note: this lists INDEXED paths only — %s. A file of any other type under this "+
+		"prefix is NOT listed, so its absence from the listing above is UNKNOWN, not evidence it is gone. "+
+		"This is not a directory listing.\n", s.extSummary())
+}
+
+// missingKindNote states which kinds of declaration the corpus cannot hold, for a
+// symbol answer that found nothing.
+//
+// This is the sentence bugs_open/223's third failure mode was filed for. Asked
+// about `metaCommentaryPatterns` — a live `var` at validate_page_content.go:1229
+// — the verifier reported it "no longer resolves as a standalone symbol (possibly
+// inlined or renamed)". Nothing was renamed: code_symbols holds no `var` row at
+// all, so the answer was structurally guaranteed and the hypothesis was
+// manufactured. The remedy is not to ask the model to be careful; it is to hand
+// it the census, so the absent kind is a stated fact instead of a gap it explains.
+func (s codeIndexScope) missingKindNote() string {
+	missing := s.missingCodeKinds()
+	if len(missing) == 0 {
+		return ""
+	}
+	return fmt.Sprintf("  note: the corpus in scope holds NO declarations of kind %s (kinds present: %s). "+
+		"A package-level declaration of a missing kind is UNREPRESENTABLE here, so this 0-row answer supports "+
+		"NEITHER removal NOR a rename-or-inline hypothesis — do not assert one without a row showing the new location.\n",
+		strings.Join(missing, ", "), s.kindSummary())
+}
+
+// kindSummary lists the kinds the corpus does hold, so missingKindNote's claim
+// can be read against its own evidence in the same sentence.
+func (s codeIndexScope) kindSummary() string {
+	if !s.censusKnown() {
+		return "unknown"
+	}
+	present := make([]string, 0, len(s.kinds))
+	for k := range s.kinds {
+		present = append(present, k)
+	}
+	sort.Strings(present)
+	return strings.Join(present, ", ")
+}
+
+// pathExt returns the lower-cased extension of the last segment of p, or "" when
+// it has none. Deliberately conservative in the same direction as looksLikePath:
+// a dot in a directory name ("docs/v1.2/notes") must not be read as a file
+// extension, so only the final segment is considered.
+func pathExt(p string) string {
+	if p == "" {
+		return ""
+	}
+	if i := strings.LastIndex(p, "/"); i >= 0 {
+		p = p[i+1:]
+	}
+	i := strings.LastIndex(p, ".")
+	if i <= 0 || i == len(p)-1 {
+		return ""
+	}
+	return strings.ToLower(p[i:])
+}
+
+// unanswerableReason returns one clause naming why this check could NOT have
+// matched, or "" when it could in principle have matched.
+//
+// It is the structural half of bugs_open/223: the blind spot is deterministic and
+// knowable BEFORE the answer is read, so the answer must carry it rather than
+// leaving a model to infer it. On 2026-08-10 a verifier run inferred it correctly
+// — "the index covers Go symbols heavily but may not cover Python scripts" — and
+// that is the problem, not the reassurance: the same 0 rows had already produced a
+// flat "the entire described workflow has no footprint" three times, and nothing
+// distinguishes the runs.
+//
+// Conservative by construction, in the same direction as looksLikePath: it speaks
+// only about a FILE EXTENSION the census says is absent. A directory prefix, a
+// bare identifier or an unknown census yields "" and the pre-223 wording — this
+// must never invent an unanswerable, because a false NOT ANSWERABLE would suppress
+// a real absence, which is the mirror of the bug being fixed.
+func unanswerableReason(kind string, sq symbolQuery, query string, s codeIndexScope) string {
+	if s.err != nil || !s.censusKnown() {
+		return ""
+	}
+	target := query
+	if kind == "symbol" {
+		target = sq.path
+	}
+	ext := pathExt(target)
+	if ext == "" || s.representsExt(ext) {
+		return ""
+	}
+	return fmt.Sprintf("the corpus holds NO %s file at all — %s", ext, s.extSummary())
+}
+
+// notAnswerableAnswer renders the verdict that replaces a 0-row answer whose
+// query could not have matched.
+//
+// The wording is the load-bearing part and is written for a MODEL reader, which
+// is why it is explicit to the point of bluntness about all three readings it
+// must block: removal, rename, and "does not exist". The bug this comes from
+// records a verdict that chose each of those in turn from identical evidence.
+func notAnswerableAnswer(reason string) string {
+	return fmt.Sprintf("  NOT ANSWERABLE BY THIS INDEX: %s. The query was executed and returned 0 rows, "+
+		"and it COULD NOT have returned a row whatever the state of the repository. This is UNKNOWN. It is "+
+		"NOT evidence that the target is absent, removed, renamed or inlined, and it must not contribute to "+
+		"a verdict of STALE — check it outside this index or record it as unverifiable.\n", reason)
 }
 
 // formatAge renders a duration at banner altitude: days for old, hours/minutes
@@ -375,6 +649,15 @@ func DiagnoseCodeLookupAction(ctx context.Context, params ActionParams) (interfa
 			"results_text":   "(reviewers asked no code_checks this round)",
 			"checks_run":     0,
 			"checks_dropped": 0,
+			// A round that asked nothing has no code evidence either, and a
+			// consumer branching on evidence must see the same answer here as it
+			// would for a round whose every check was unanswerable. Omitting the
+			// keys on this path would make the branch depend on WHY there was no
+			// evidence, which is not a distinction the branch is entitled to.
+			"checks_with_rows":    0,
+			"checks_unanswerable": 0,
+			"no_code_evidence":    true,
+			"evidence_line":       "[code-lookup evidence: no code_checks were asked this round, so nothing about the code was verified either way.]",
 		}, nil
 	}
 
@@ -397,29 +680,89 @@ func DiagnoseCodeLookupAction(ctx context.Context, params ActionParams) (interfa
 	// indexed commit, which is not the whole story once a prune has been refused
 	// or skipped and part of the corpus is older (bugs_open/135). Silent when it is.
 	b.WriteString(scope.mixedCommitNote())
-	run := 0
+	run, withRows, unanswerable := 0, 0, 0
 	for i, c := range checks {
 		fmt.Fprintf(&b, "\n[code_check %d] kind=%s query=%q — %s\n", i+1, c.Kind, c.Query, c.Why)
-		if err := answerCodeCheck(ctx, params.DB, c, repoFilter, rowCap, excerptChars, scope, &b); err != nil {
+		outcome, err := answerCodeCheck(ctx, params.DB, c, repoFilter, rowCap, excerptChars, scope, &b)
+		if err != nil {
 			fmt.Fprintf(&b, "  (lookup failed: %v)\n", err)
 			continue
 		}
 		run++
+		if outcome.codeRows > 0 {
+			withRows++
+		}
+		if outcome.unanswerable {
+			unanswerable++
+		}
 	}
 	if dropped > 0 {
 		fmt.Fprintf(&b, "\n> %d further code_check(s) dropped (max_checks=%d) — coverage was capped, not complete.\n", dropped, maxChecks)
 	}
+	// The evidence line goes in the RENDERED text as well as the return map. The
+	// map is for a workflow to branch on; the text is for the model that is about
+	// to draw a conclusion, and it reads the text.
+	evidence := codeEvidenceLine(run, withRows, unanswerable, scope)
+	fmt.Fprintf(&b, "\n%s\n", evidence)
 
 	logger.Info("diagnose_code_lookup: answered reviewer code checks",
 		zap.Int("checks_run", run),
 		zap.Int("checks_dropped", dropped),
+		zap.Int("checks_with_rows", withRows),
+		zap.Int("checks_unanswerable", unanswerable),
 		zap.String("orchestration_id", orchIDForLog(params)))
 
 	return map[string]interface{}{
 		"results_text":   b.String(),
 		"checks_run":     run,
 		"checks_dropped": dropped,
+		// ADDITIVE, and `checks_run` deliberately keeps its old meaning — checks
+		// that EXECUTED without error, unanswerable ones included. Measured before
+		// adding these: 0 live agent definitions reference checks_run, and 0
+		// reference any of the four new keys, so nothing downstream changes
+		// meaning and nothing collides (query in the lane's RUNBOOK).
+		//
+		// LANDMINE for the next reader: `checks_run > 0` does NOT mean anything was
+		// verified. It never did; before bugs_open/223 there was simply no other
+		// field to use. Branch on no_code_evidence.
+		"checks_with_rows":    withRows,
+		"checks_unanswerable": unanswerable,
+		"no_code_evidence":    withRows == 0,
+		"evidence_line":       evidence,
 	}, nil
+}
+
+// codeEvidenceLine is the one-line mechanical census of what a round of checks
+// actually established, composed HERE so that no model writes it, softens it or
+// omits it (bugs_open/223).
+//
+// It exists because the persisted product of the landmine-verifier is PROSE in
+// doc_notes, read months later by sessions and by council seats, and a verdict
+// that rests on unanswerable checks is indistinguishable from one that rests on
+// evidence once the run's inputs are gone. A consumer can append this to the row
+// it persists (append_doc_note's note_body_suffix_field), and then the qualifier
+// cannot be argued away by the same model that wrote the verdict.
+func codeEvidenceLine(run, withRows, unanswerable int, scope codeIndexScope) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "[code-lookup evidence: %d check(s) ran; %d matched indexed code; %d NOT ANSWERABLE by this index; %d ran and matched nothing in scope.",
+		run, withRows, unanswerable, run-withRows-unanswerable)
+	if withRows == 0 && run > 0 {
+		b.WriteString(" NOTHING in this round was confirmed against indexed code, so absence claims here carry no weight in EITHER direction.")
+	}
+	switch {
+	case scope.err != nil:
+		b.WriteString(" Scope: UNKNOWN (the census could not be read).")
+	case !scope.censusKnown():
+		fmt.Fprintf(&b, " Scope: %d symbols; composition unknown.", scope.total)
+	default:
+		fmt.Fprintf(&b, " Scope: %d symbols, %s", scope.total, scope.extSummary())
+		if missing := scope.missingCodeKinds(); len(missing) > 0 {
+			fmt.Fprintf(&b, "; kinds with NO rows: %s", strings.Join(missing, ", "))
+		}
+		b.WriteString(".")
+	}
+	b.WriteString("]")
+	return b.String()
 }
 
 // codeChecksFromCollected extracts code_checks entries from a collected-data
@@ -506,6 +849,23 @@ func docTag(kind string) string {
 // block. Same allow-list, same reason.
 func isCode(kind string) bool { return codeKinds[kind] }
 
+// checkOutcome is what ONE check established, for a consumer that must branch on
+// evidence rather than read prose (bugs_open/223).
+//
+// codeRows counts CODE-tier rows only. A `[doc]` row is deliberately not evidence:
+// the D12 guard exists precisely because a document SAYS a mechanism exists where
+// only code SHOWS it, and a field named "did this check find evidence" must honour
+// the same distinction or it launders prose into proof one layer up.
+//
+// unanswerable and codeRows>0 are not exhaustive: a check can be answerable, run,
+// and find nothing (the honest absence this action has always been able to report).
+// Keeping the third state visible is the point — collapsing it into a boolean is
+// how "no rows" became "does not exist" in the first place.
+type checkOutcome struct {
+	codeRows     int
+	unanswerable bool
+}
+
 // docBlockHeader introduces the prose rows inside ONE check's answer. It is
 // deliberately wordy: the reader is a model, and the bundle's own comment records
 // why the words are the guard — "the model reads the heading and not this comment".
@@ -533,7 +893,14 @@ const docBlockHeader = "    ── documentation matches: PROSE from this reposi
 // count. An arm that binds rowCap directly cannot tell a complete answer from a
 // truncated one, and that indistinguishability is the whole defect: a 40-of-305
 // answer rendered identically to a complete one.
-func answerCodeCheck(ctx context.Context, db *sql.DB, c codeCheck, repoFilter string, rowCap, excerptChars int, scope codeIndexScope, b *strings.Builder) error {
+// RETURNS WHAT IT ESTABLISHED (bugs_open/223), not only prose. Both call sites
+// need the outcome mechanically: the action aggregates it into the additive
+// return keys a workflow can branch on, and the runtime lane folds it into the
+// diagnosis bundle's evidence line. Every arm must set it — an arm that renders
+// rows and forgets the outcome reports "no evidence found" on a successful check,
+// which is a lie in the safe-looking direction.
+func answerCodeCheck(ctx context.Context, db *sql.DB, c codeCheck, repoFilter string, rowCap, excerptChars int, scope codeIndexScope, b *strings.Builder) (checkOutcome, error) {
+	var outcome checkOutcome
 	// Prose rows for THIS check, emitted after its code rows. Nil-safe: with no
 	// doc rows in the index (the state on the day this ships) it stays empty and
 	// nothing is written, so the rendered answer is unchanged byte-for-byte.
@@ -562,12 +929,13 @@ func answerCodeCheck(ctx context.Context, db *sql.DB, c codeCheck, repoFilter st
 			fmt.Fprintf(b, "  note: %q names a LINE, not a symbol — answered as a path check over that file.\n", sq.raw)
 		}
 		clause, args, searched := symbolClauseFor(sq, repoFilter)
-		_, total, err := renderSymbolRows(ctx, db, clause, args, rowCap, b, &docs)
+		codeRows, total, err := renderSymbolRows(ctx, db, clause, args, rowCap, b, &docs)
 		if err != nil {
-			return err
+			return outcome, err
 		}
 		if total > 0 {
-			return nil
+			outcome.codeRows = codeRows
+			return outcome, nil
 		}
 		// A PATH-QUALIFIED query that found nothing is the exact shape that
 		// produced 163's false verdict: the symbol existed and was reported
@@ -579,18 +947,28 @@ func answerCodeCheck(ctx context.Context, db *sql.DB, c codeCheck, repoFilter st
 			altClause, altArgs, _ := symbolClauseFor(symbolQuery{name: sq.name, raw: sq.raw}, repoFilter)
 			altCode, _, err := renderSymbolRows(ctx, db, altClause, altArgs, rowCap, &elsewhere, &docs)
 			if err != nil {
-				return err
+				return outcome, err
 			}
 			if altCode > 0 {
 				fmt.Fprintf(b, "  answered: 0 rows AT THAT PATH — searched %s\n", searched)
 				fmt.Fprintf(b, "  the NAME alone matches %d indexed symbol(s) ELSEWHERE, so the symbol EXISTS and the path is what did not match:\n", altCode)
 				b.WriteString(elsewhere.String())
-				return nil
+				outcome.codeRows = altCode
+				return outcome, nil
 			}
+		}
+		// The census verdict comes BEFORE the honest-absence wording, because for
+		// an unrepresentable target the honest-absence wording is the error: it
+		// says the question was answered when the question could not be asked.
+		if reason := unanswerableReason("symbol", sq, c.Query, scope); reason != "" {
+			b.WriteString(notAnswerableAnswer(reason))
+			fmt.Fprintf(b, "  -- searched: %s\n", searched)
+			outcome.unanswerable = true
+			return outcome, nil
 		}
 		b.WriteString(scope.emptyAnswer("symbol"))
 		fmt.Fprintf(b, "  -- searched: %s\n", searched)
-		return nil
+		return outcome, nil
 
 	case "content":
 		// body OR content. body is the symbol's source text (added 2026-07-27);
@@ -624,7 +1002,7 @@ func answerCodeCheck(ctx context.Context, db *sql.DB, c codeCheck, repoFilter st
 			ORDER BY path, symbol
 			LIMIT $3`, c.Query, repoFilter, probeLimit(rowCap))
 		if err != nil {
-			return err
+			return outcome, err
 		}
 		defer rows.Close()
 		n := 0
@@ -638,7 +1016,7 @@ func answerCodeCheck(ctx context.Context, db *sql.DB, c codeCheck, repoFilter st
 			var path, symbol, body, content, sha, kind string
 			var hasBody bool
 			if err := rows.Scan(&path, &symbol, &body, &content, &sha, &hasBody, &kind); err != nil {
-				return err
+				return outcome, err
 			}
 			// Say WHICH text matched. "[body]" is a fact about the source;
 			// "[decl]" is a fact about a signature, doc comment or path, and a
@@ -651,21 +1029,32 @@ func answerCodeCheck(ctx context.Context, db *sql.DB, c codeCheck, repoFilter st
 			out := b
 			if !isCode(kind) {
 				out = &docs
+			} else {
+				outcome.codeRows++
 			}
 			fmt.Fprintf(out, "  - %s : %s%s  (commit %s)\n    [%s] %s\n",
 				path, symbol, docTag(kind), shortSHA(sha), where, matchingExcerpt(text, c.Query, excerptChars))
 			n++
 		}
 		if err := rows.Err(); err != nil {
-			return err
+			return outcome, err
 		}
 		// n == 0 and capped are mutually exclusive, so these two branches cannot
 		// both fire: an empty answer stays exactly the empty answer it was.
 		if n == 0 {
-			b.WriteString(scope.emptyAnswer("content"))
+			// A content query is free text, so the census can only speak about it
+			// when the reviewer wrote a path-shaped one. When it can, it must:
+			// "content: scripts/x.py" is the same unanswerable question as
+			// "ls: scripts/x.py" and deserves the same verdict.
+			if reason := unanswerableReason("content", symbolQuery{}, c.Query, scope); reason != "" {
+				b.WriteString(notAnswerableAnswer(reason))
+				outcome.unanswerable = true
+			} else {
+				b.WriteString(scope.emptyAnswer("content"))
+			}
 		}
 		b.WriteString(rowCapNotice(capped, rowCap))
-		return nil
+		return outcome, nil
 
 	case "ls":
 		// GROUP BY, not SELECT DISTINCT ... kind. `ls` lists one row per PATH, and
@@ -682,7 +1071,7 @@ func answerCodeCheck(ctx context.Context, db *sql.DB, c codeCheck, repoFilter st
 			ORDER BY path
 			LIMIT $3`, c.Query, repoFilter, probeLimit(rowCap), codeKindsCSV)
 		if err != nil {
-			return err
+			return outcome, err
 		}
 		defer rows.Close()
 		n := 0
@@ -699,25 +1088,47 @@ func answerCodeCheck(ctx context.Context, db *sql.DB, c codeCheck, repoFilter st
 			var path, sha string
 			var hasCode bool
 			if err := rows.Scan(&path, &sha, &hasCode); err != nil {
-				return err
+				return outcome, err
 			}
 			out, tag := b, ""
 			if !hasCode {
 				out, tag = &docs, " [doc]"
+			} else {
+				outcome.codeRows++
 			}
 			fmt.Fprintf(out, "  - %s%s  (commit %s)\n", path, tag, shortSHA(sha))
 			n++
 		}
 		if err := rows.Err(); err != nil {
-			return err
+			return outcome, err
 		}
 		if n == 0 {
-			b.WriteString(scope.emptyAnswer("ls"))
+			if reason := unanswerableReason("ls", symbolQuery{}, c.Query, scope); reason != "" {
+				b.WriteString(notAnswerableAnswer(reason))
+				outcome.unanswerable = true
+			} else {
+				b.WriteString(scope.emptyAnswer("ls"))
+			}
+		} else {
+			// THE ONE PLACE A CAVEAT RIDES ON A NON-EMPTY ANSWER, and it is the
+			// nastier half of bugs_open/223 — a false POSITIVE, which the bug file
+			// does not record because it was found while fixing it.
+			//
+			// `ls` is a path-PREFIX listing over an index of Go symbols, and it
+			// presents as a directory listing. Measured 2026-08-10: `scripts/`
+			// returns 110 indexed paths (Go programs under scripts/documentation_project/,
+			// scripts/goscripts/, …) while every .py and .sh directly under scripts/
+			// — including the three the entry actually named — is invisible. A
+			// generous listing therefore reads as CONFIRMATION that a footprint
+			// resolves, which is worse than a false STALE: a wrong accusation
+			// invites checking, and a flattering partial confirmation reads as
+			// diligence. So an `ls` answer says what it is a listing OF.
+			b.WriteString(scope.lsReachNote())
 		}
 		b.WriteString(rowCapNotice(capped, rowCap))
-		return nil
+		return outcome, nil
 	}
-	return fmt.Errorf("unrecognised kind %q", c.Kind)
+	return outcome, fmt.Errorf("unrecognised kind %q", c.Kind)
 }
 
 // matchingExcerpt returns a capped window AROUND the match — enough to see it in
