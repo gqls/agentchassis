@@ -140,3 +140,33 @@ Full context of how this was found, and the two deploy defects it sits behind:
 `bugs_open/248`.
 
 — `staged_component_build`, 2026-08-10
+
+---
+
+## UPDATE 2026-08-10 (night) — candidate 1's CODE HALF is implemented, submitted, committed; the overlay half deliberately waits
+
+Owner: *"Please go ahead with 245."* Executed in the bug's own stated order:
+
+- **Code**: the four `os.Getenv` value-copies in the spawn storage block are replaced
+  with `secretKeyRef` env entries against `personae-storage-secrets` (name overridable
+  via `AGENT_STORAGE_SECRET`, mirroring `AGENT_STORAGE_CONFIGMAP`). References are
+  REQUIRED, not optional — a missing key now fails the spawned pod visibly
+  (`CreateContainerConfigError`) instead of this bug's silent first-use failure. All
+  four key names verified present in the secret before authoring. Commit `e7e3b4e3c`,
+  trailer `Council-Submitted: c45c6412-20aa-45ab-b5ae-38fcc2bd7887`. Built against
+  clean git-archive HEAD (the working tree carried another session's unrelated compile
+  break in `save_page_sections_action.go` + untracked `save_sections_decision_gate.go`
+  — not touched).
+- **Re-measured at edit time**: the four names' direct `os.Getenv` readers are now ZERO
+  (the four spawn lines were the only ones, and they are gone).
+- **The overlay's credential lines (77–98) are NOT removed yet.** They stay until this
+  binary rolls AND a spawned storage pod's storage OPERATION is proven at the artefact
+  (the same-lane CONTRIBUTION above sharpened that bar). Under the old binary the
+  spawner still copies from its env; under the new one the chassis lines become inert,
+  and only then is the removal safe. **Whoever does the removal: candidate 3's
+  verification list above, unchanged.**
+
+**Remains OPEN**: (a) council verdict on `c45c6412` to be read; (b) the roll; (c) the
+spawned-pod proof (env sourced by secretKeyRef + a real storage operation, e.g. a
+`deploy_image_asset` succeeding at the artefact); (d) the overlay edit; (e) re-run both
+greps (`os.Getenv` and `AccessKeyEnvVar`) at removal time.

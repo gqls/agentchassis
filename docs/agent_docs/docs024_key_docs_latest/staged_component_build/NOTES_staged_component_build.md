@@ -2955,3 +2955,28 @@ guarantee applies **only** to the implicit-TLS port 465 branch, and EMAIL-002 sa
 estate can only use 587 — where the code is a bare `smtp.SendMail` that ignores `ctx`; and
 `deliver` has **no test at all** (all 8 tests cover the pure half). No SMTP credential
 exists in any cluster secret.
+
+## 2026-08-10 (third session block, night) — 245's code half lands; 243 waits on its behavioural proof
+
+- **Fresh roll observed: v1.0.1283** (pods 21:43Z). Built after 243's fix commit — and
+  **unprovable by pod-grep**: the change added no unique literal (the string exists from
+  other call sites, rodata dedupes) and the binary has no VCS stamp (checked
+  `vcs.revision`: absent — git-archive builds carry none). The 8 spawned acceptance runs
+  at 19:05–19:16Z pre-date the roll and correctly still fail. **Proof = first post-roll
+  SPAWNED run**, query in the bug file and HANDOFF b §2a.
+- **245 code half**: spawn credential injection converted to `secretKeyRef` (required,
+  fail-loud) against `personae-storage-secrets`; all four keys verified in the secret
+  first. Commit `e7e3b4e3c`, `Council-Submitted: c45c6412`. Post-edit re-grep: the four
+  names now have ZERO direct `os.Getenv` readers. Overlay lines 77–98 deliberately left
+  in place — removal gates on the next roll + a spawned pod's storage OPERATION proven
+  at the artefact (the parallel session's CONTRIBUTION bar, bugs_open/248 context).
+- **The working tree would not compile at edit time** — another session's WIP
+  (`save_page_sections_action.go` M + `save_sections_decision_gate.go` untracked,
+  `undefined: pq` + a []string mismatch). My builds ran against `git archive HEAD` with
+  my file overlaid; both commits verified to build at HEAD after landing. The
+  `&&`-after-pipeline trap nearly ate the first failure: `go build | head` exits with
+  head's 0, so `&& echo OK` printed OK under a broken build — caught by reading the
+  error lines above the OK. Check `PIPESTATUS`, or don't pipe the build.
+- **Cut a fresh cold-start**: `HANDOFF_2026-08-10b_continue_here.md` (supersedes the
+  morning file) — the two open proofs first, then batch 8's two remaining clean subjects
+  (both robot-hands `owned` pages: coordinate before S6).

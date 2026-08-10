@@ -175,3 +175,25 @@ under the stability preference — noted, and the reason the edit stayed a pure 
 append.
 
 **Still OPEN**: awaiting the next chassis roll, then the SPAWNED-run proof (§ above).
+
+## UPDATE 2026-08-10 (night) — v1.0.1283 rolled; the spawned-run proof is still OWED
+
+Fleet rolled to **v1.0.1283** (chassis pods up 21:43Z), built after the fix commit
+(18:16Z) — but this change added **no unique string literal** (`"tool-acceptance-agent"`
+already existed in the binary from other call sites, and Go dedupes rodata), and the
+binary carries no VCS stamp, **so a pod-grep cannot prove this fix shipped.** The proof
+is behavioural and has not happened yet: no `tool-acceptance-agent` orchestration has
+been created since the roll. The 8 spawned runs at 19:05–19:16Z all pre-date it (old
+image) and correctly still read `complete_no_look`.
+
+**Next session: check the overnight sweep's runs** —
+```sql
+SELECT correlation_id, processing_node, current_step,
+       collected_data->'__step_error'->>'message'
+  FROM orchestration_states
+ WHERE owner_agent_type='tool-acceptance-agent' AND created_at > '2026-08-10 21:43+00'
+ ORDER BY created_at;
+```
+PASS = a run on an `agent-tool-acceptance-agent-*` node reaching `complete` with no step
+error, plus the first-ever vision `llm_call_log` rows. `complete_no_look` on a POST-roll
+spawned run = the fix did not ship or did not work — re-open loudly.

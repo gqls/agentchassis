@@ -1022,3 +1022,27 @@ I also checked a claim in our own notes that a public endpoint "already accepts"
 from these sites. It does not — I tested it, and it refuses them exactly as it refuses a
 made-up address. The design is sound, the word "already" was wrong, and it is one database
 row per site to change that, not a code change.
+
+## 2026-08-10, late night — 245 is done at the code level, and both fixes now wait on the same kind of proof
+
+You asked me to go ahead with the credentials work, and the code half is in and under
+review. The spawner no longer copies storage credentials out of its own environment into
+the containers it creates — it now hands each container a reference to the secret, the
+same way we already handle the GitHub token, and a container missing its key now fails
+visibly at start instead of quietly at first use. I checked all four keys exist in the
+secret before writing a line.
+
+What I have deliberately NOT done yet is take the credentials off the chassis itself.
+That's the half you actually asked about, and it must wait: the new spawner code has to
+reach production first, and then I want to see a spawned container actually complete a
+real storage operation — not just start up — before the old supply line is cut. A
+colleague's note on the bug file made that bar sharper with live evidence, and they're
+right. Once that proof lands, the removal is a small config edit with a checklist already
+written.
+
+The screenshot fix from earlier is in the same position: the new build you deployed was
+made after my change went in, but this particular change leaves no fingerprint I can
+check in the binary, so the only honest proof is watching tonight's sweep produce a test
+that keeps its seeing half. The query to run is written down; first thing next session.
+
+Everything a fresh chat needs is in one file: HANDOFF_2026-08-10b_continue_here.md.
