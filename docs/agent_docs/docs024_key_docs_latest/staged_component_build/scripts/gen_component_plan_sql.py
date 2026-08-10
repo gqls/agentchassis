@@ -19,9 +19,29 @@ set, so a verify block made of SELECTs cannot stop the COMMIT (LANDMINES,
 RFC_006). A single `%` in a RAISE format string is a format directive — write
 `%%` if you ever need a literal one.
 
+SUBJECT_TYPE IS PER-ENTRY AND IT DECIDES WHETHER THE PLAN IS EVER READ.
+The two consumers look under different types, and a PLAN filed under the wrong
+one is not an error anywhere -- it is silently invisible:
+  * components -> `component`, read by the component S6 dispatch;
+  * TOOLS      -> `tool`, read by `tool-acceptance-agent`'s `load_docs`, whose
+    live config is {"subject_type":"tool","subject_key_field":
+    "input_data.spec.function"} (read out of `agent_definitions` 2026-08-10).
+    A tool PLAN written as `component` makes `request_browser_run` skip with
+    reason=needs_criteria -- "no fake pass", so it reads as a clean run that
+    asserted NOTHING (tool_acceptance_run.sh's own trap #1).
+The value is validated against the running binary's own vocabulary
+(`validDocSubjectTypes`, doc_subjects_common.go:71) because it is interpolated
+into SQL as a literal; so is `function`, hence the same treatment.
+
 MANIFEST (JSON array, one object per subject):
   {
-    "function":   "news-listing",
+    "function":     "news-listing",
+    "subject_type": "component",   (OPTIONAL, default "component"; use "tool"
+                                    for anything component_level='tool')
+    "kind":         "section component",  (OPTIONAL prose label for the title;
+                                    defaults to "section component", or
+                                    "tool" when subject_type is "tool")
+    "batch":        "batch 7 -- the INTERACTIVE stock",   (OPTIONAL prose)
     "aim":        "one or two sentences",
     "contract":   ["- bullet", "- bullet"],
     "fence":      "fence_component_news_listing.json",   (relative to this dir)
@@ -39,12 +59,46 @@ Pipe the output to psql; never let the shell see the body.
 """
 import json
 import os
+import re
 import sys
 
 DIR = os.path.dirname(os.path.abspath(__file__))
 SOURCE = "staged_component_build"
 CREATED_BY = "operator:staged_component_build"
-AUTHORED = "2026-08-09"
+AUTHORED = "2026-08-10"
+
+# Mirrors validDocSubjectTypes (doc_subjects_common.go:71) as read at HEAD on
+# 2026-08-10. Kept as a literal rather than derived: this is a belt-and-braces
+# check on a value that becomes a SQL literal, and a drifting Go list should
+# make this generator refuse, not quietly widen.
+VALID_SUBJECT_TYPES = {
+    "tool", "pipeline", "experience", "action",
+    "experience-pattern", "component", "landmine", "decision",
+}
+# Both values below are interpolated into single-quoted SQL literals, so the
+# only safe policy is a strict allow-list of shapes that cannot carry a quote.
+SUBJECT_KEY_RE = re.compile(r"\A[a-z0-9][a-z0-9-]*\Z")
+
+
+def subject_type_for(s: dict) -> str:
+    st = s.get("subject_type", "component")
+    if st not in VALID_SUBJECT_TYPES:
+        raise SystemExit(
+            f'subject_type {st!r} for {s.get("function")!r} is not one of '
+            f'{sorted(VALID_SUBJECT_TYPES)} -- the Go gate (docResolveSubject) '
+            f"would reject it and the DB CHECK would too"
+        )
+    return st
+
+
+def subject_key_for(s: dict) -> str:
+    key = s["function"]
+    if not SUBJECT_KEY_RE.match(key):
+        raise SystemExit(
+            f"function {key!r} is not a bare kebab-case key; it is interpolated "
+            f"into a SQL literal, so it is refused rather than escaped"
+        )
+    return key
 
 
 def body_for(s: dict) -> str:
@@ -54,11 +108,15 @@ def body_for(s: dict) -> str:
     # Re-serialise so the stored fence is exactly what the evaluator parsed.
     fence = json.dumps(json.loads(fence), indent=2)
 
+    st = subject_type_for(s)
+    kind = s.get("kind") or ("tool" if st == "tool" else "section component")
+    batch = s.get("batch", "batch 7 -- the INTERACTIVE stock")
+
     parts = [
-        f'# PLAN -- {s["function"]} (section component)',
+        f'# PLAN -- {s["function"]} ({kind})',
         "",
         f'**Authored {AUTHORED} by lane `staged_component_build`** under D10 (exhaustive',
-        f'backlog clearance), production-line batch 7 -- the INTERACTIVE stock. Mutation',
+        f'backlog clearance), production-line {batch}. Mutation',
         f'proofs use `prove_fence_mutants_file.go` + `mutants_component_'
         f'{s["function"].replace("-", "_")}.json`.',
         "",
@@ -111,29 +169,30 @@ def main() -> int:
         if "$planbody$" in body:
             sys.stderr.write("dollar-quote tag collides with body text\n")
             return 2
-        key = s["function"]
+        key = subject_key_for(s)
+        st = subject_type_for(s)
         out.append("")
-        out.append(f"-- ---------- {key} ----------")
+        out.append(f"-- ---------- {st}/{key} ----------")
         out.append(
             "UPDATE doc_plans SET is_current=false, superseded_at=now(), updated_at=now()\n"
-            f" WHERE subject_type='component' AND subject_key='{key}' AND is_current;"
+            f" WHERE subject_type='{st}' AND subject_key='{key}' AND is_current;"
         )
         out.append(
             "INSERT INTO doc_plans (subject_type, subject_key, body, source, created_by)\n"
-            f"VALUES ('component','{key}', $planbody${body}$planbody$,"
+            f"VALUES ('{st}','{key}', $planbody${body}$planbody$,"
             f" '{SOURCE}', '{CREATED_BY}');"
         )
         out.append(
             "DO $$\nDECLARE n int; c int;\nBEGIN\n"
             f"  SELECT length(body), count(*) OVER () INTO n, c FROM doc_plans\n"
-            f"   WHERE subject_type='component' AND subject_key='{key}' AND is_current;\n"
+            f"   WHERE subject_type='{st}' AND subject_key='{key}' AND is_current;\n"
             f"  IF n IS DISTINCT FROM {len(body)} THEN\n"
-            f"    RAISE EXCEPTION 'body length for {key} is %, expected {len(body)}', n;\n"
+            f"    RAISE EXCEPTION 'body length for {st}/{key} is %, expected {len(body)}', n;\n"
             "  END IF;\n"
             f"  IF c IS DISTINCT FROM 1 THEN\n"
-            f"    RAISE EXCEPTION 'expected exactly 1 current row for {key}, found %', c;\n"
+            f"    RAISE EXCEPTION 'expected exactly 1 current row for {st}/{key}, found %', c;\n"
             "  END IF;\n"
-            f"  RAISE NOTICE 'OK {key}: % bytes, 1 current row', n;\n"
+            f"  RAISE NOTICE 'OK {st}/{key}: % bytes, 1 current row', n;\n"
             "END $$;"
         )
     out.append("")
