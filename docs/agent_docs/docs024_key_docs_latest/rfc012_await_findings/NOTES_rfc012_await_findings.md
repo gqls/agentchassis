@@ -1378,3 +1378,42 @@ reviewing the reasoning, not the logic, and the reasoning was what was wrong.
 
 **Still owed on both approved rounds:** the pod-grep after the next chassis roll (`debug_historian`,
 MEDIUM — fair: the submission never named one). Both changes are inert until then.
+
+## 2026-08-10 — the roll landed, the code is live, and the acceptance test turned out to be unfalsifiable
+
+**Misstep 17 and misstep 18, and they are both in a recipe I wrote.**
+
+`v1.0.1277`, both replicas, started 08-09 21:35Z. **Misstep 17:** RFC_019 §7's pod-grep names two
+phrases that are **Go comments**, so run as written it reports 0 on a binary that carries the fix.
+The root cause is worth stating because it will recur: **neither change contributes a string
+literal** — `ResolvedAgentType` is pure control flow and the backfill is one `if` — so the needle had
+to be *invented*, and inventing it from the nearest doc comment is the obvious wrong move. The
+working method: date the binary with a neighbouring literal from a **descendant** commit and prove
+ancestry (`f7111f4d8`'s two `fallback_url_field` strings; `git merge-base --is-ancestor` for both
+targets). POS 1/1, NEG 0, every Running replica of the one live tag.
+
+**Misstep 18 is the bad one.** The behavioural query returned **0** with §7's own control passing
+(288 rows / 20 distinct `agent_type`s) — which reads as the fix confirmed. It is not. A third query
+§7 never specified — *rows from those three actions, **any** `agent_type`* — returns **0**: no demand
+on the path, so nothing existed to relabel. Bucketed by day, their `generic` rows stop on
+**2026-08-05**, four days *before* the roll; `diagnose_council_decide` (42 of their 47 lifetime
+`generic` rows) last filed **08-02**; the table retains from 07-11, so it is dormancy, not retention.
+**The test became incapable of returning non-zero before the code it tests existed.**
+
+**And this lane already knew.** §1's correction — the one thing from this work everybody quotes — is
+that a `count(*)` over a table with history prices a fixed defect exactly like a raging one, *and
+there is no tell*. §7 then specified the follow-up with the identical property, and I ran it, and
+the first result looked like success. Writing the correction, citing it approvingly, and being
+proud of it bought no protection at all, because the shape recurred as "a post-fix count with a
+specified control" and no longer looked like the thing I had been warned about. Full entry in
+`WRONG_CALLS.md` 2026-08-10.
+
+One control did survive and is genuinely useful: **3 `generic` rows were written post-roll**, by
+`process_message` and `orchestrate` — the coordinator paths §1 scoped *out*. So the write path is
+alive and the silence is specific to the actions-door producers, which is what stops the headline 0
+being read as a dead pipeline.
+
+**Status is therefore: present in the binary, behaviourally unproven**, and the next step is to
+INDUCE a failure on a step resumed after an await rather than to wait for dormant producers.
+Everything else the owner commissioned is delivered; the standing handoff is now
+`HANDOFF_2026-08-10_continue_here.md`.

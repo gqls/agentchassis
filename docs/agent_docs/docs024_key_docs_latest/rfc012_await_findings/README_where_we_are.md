@@ -483,3 +483,32 @@ have shipped, passed, and protected nothing. And my own "confirmed" about the im
 out of four true things and one I had not checked. None of these were caught by being careful in
 general; each was caught by opening one more specific thing. That is the only method I trust after
 today, and it is slower than it sounds like it should be.
+
+---
+
+**2026-08-10 — the new build went out, and the test we had been waiting for turned out to be
+worthless.** The good news first: the fix is genuinely in the running system, on both machines, and
+I can show you why I believe that rather than just asserting it.
+
+Then the part I did not expect. The whole reason we were waiting for a rebuild was to run one
+measurement: are the mislabelled error records gone? It came back **zero**, with the safety check we
+had specified alongside it passing cleanly. That is what success looks like, and I nearly wrote it
+down as success. It is not. The three things that used to produce those bad records have produced
+**nothing at all** since the rebuild — and, when I looked properly, they had gone quiet four days
+*before* it. So the answer was going to be zero whatever the code did. We were never testing the fix.
+
+What makes this worth telling you rather than just fixing quietly: **this is the exact mistake this
+piece of work is famous internally for catching.** Three days ago I found that a headline number
+everyone was quoting counted a problem we had already fixed, and I wrote that up as the lesson of
+the project. Then I designed the follow-up check with the identical flaw and ran it without noticing.
+Knowing about a trap, having written the warning myself, and being rather pleased about it, bought
+no protection at all — because the second time it did not look like the same trap. I have written it
+down where the first one is written down.
+
+So the honest status is: the code is live and correct as far as we can prove on paper, and its effect
+on real records is still unproven. The way to settle it is to deliberately cause the failure rather
+than wait for one, and that is the first job written into the handoff for whoever picks this up.
+
+Everything else you asked for is finished. The one loose end that needs a human hand is a database
+change that is written, checked and deliberately not run — applying those is somebody's decision,
+not a side effect of my finishing.
