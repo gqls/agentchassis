@@ -1574,3 +1574,27 @@ error. **The message says access returns on 1 September**, which I assume is not
 so it will need the cap raising on the billing side. Nothing is broken and nothing is lost;
 everything queued will simply fail until it's lifted. It also means the last small piece of
 this job can't be finished today.
+
+---
+
+**2026-08-10 — the rebuild is decided, and the first framework fault is already fixed
+(in code, not yet live).**
+
+You asked for the site to be rebuilt entirely through the framework so we can see what
+the framework itself gets wrong. Before touching anything I checked what a rebuild would
+actually do, and found the first fault without running it: the framework cannot express
+this site's addresses. Its planner insists every tool lives at /tools/name/index.html,
+while this site serves /tools/name.html — and rather than refusing, it would quietly
+move twenty-four of the twenty-six pages to new addresses and leave the old ones stale.
+That's now written up as bug 241, and the code half of the fix is committed: the
+framework can now be told "this site uses flat addresses", switched off by default so no
+other site changes behaviour. It's gone to the review council; the verdict wasn't back
+when this session ended.
+
+Nothing on the live site has been touched. The rebuild itself — backups, releasing the
+locks as you decided, re-submitting the site through the pipeline, and then the audit of
+what comes out — is laid out step by step in the 2026-08-10 handoff, with the wiring of
+the address fix as the first job. The two wrong claims (the footer's "shows its own
+arithmetic" and the guide's "month-by-month breakdown") are still live; they die with
+the rebuild, and if the rebuild drags we should just correct the two lines in the
+meantime — your call.

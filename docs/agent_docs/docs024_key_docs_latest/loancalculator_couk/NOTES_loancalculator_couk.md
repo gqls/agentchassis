@@ -4672,3 +4672,28 @@ yours"), and the interval was about four minutes.
 The cheap check I skipped: **re-run `git diff --numstat` on shared append-only files
 immediately before the commit, not before writing the message.** I ran it, wrote a paragraph
 about passengers off that reading, and by the time the commit executed the reading was stale.
+
+---
+
+## 2026-08-10 — framework-rebuild thread: URL defect found and half-fixed; rebuild NOT started
+
+Owner directed a full framework rebuild of this site (to audit the framework, not the
+CLI's hand-writing), after two false live claims were traced: footer "shows its own
+arithmetic" (hand-authored chrome, locked, outside every claims control) and the
+how-loans-are-calculated guide's "month-by-month breakdown" (framework-written, passed
+the claims gate — the gate has no check for claims about our own software's behaviour).
+
+Pre-flight exploration found the blocker BEFORE any planner run: CanonicalisePage has no
+flat URL form for tool/guide/game, so a plan sync would move 24/26 live URLs in place
+(bugs_open/241). Owner: fix the framework first, rebuild in place, release all locks.
+
+DONE: FlatURLs opt-in field + tests, commit 57a7fcbb4, council corr
+6fdb9ce6-9ee2-4550-86ac-893ca0b44c3f (verdict UNREAD), register BLD-018 (rode to HEAD in
+another session's 4451b2a0a as a same-file passenger — content intact).
+NOT done: plumbing, seeding, backups, lock release, submission — the full ordered list
+with every measured ground fact is in HANDOFF_2026-08-10_framework_rebuild_continue_here.md.
+
+Misstep logged: my page_canonical.go edit sat briefly on the shared tree referencing an
+undefined helper (plan-mode interruption mid-edit) — the tree did not compile for that
+package until this session resumed. The check that would have caught it sooner: go build
+the package in the same turn as ANY code edit, before yielding.
