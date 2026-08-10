@@ -25,6 +25,33 @@ type MessageContext struct {
 	OrchestrationID   string
 	OrchestrationName string
 	IsStateless       bool
+
+	// Memoised body parse — see Body().
+	parsedBody   map[string]interface{}
+	bodyParseErr error
+	bodyParsed   bool
+}
+
+// Body returns the message body parsed as a JSON object, EXACTLY ONCE per
+// message, along with the parse error if the bytes are not a JSON object.
+//
+// bugs_open/239: selectWorkflow and executeWorkflow each ran their own
+// json.Unmarshal over the same bytes and each fell back to the pod's own agent
+// type on failure, so the workflow that ran and the owner_agent_type recorded
+// against it were two independent decisions that could disagree. One parse, one
+// answer — and a caller that needs to distinguish "not JSON" from "no agent
+// type named" now can, because the error is returned rather than swallowed.
+func (mc *MessageContext) Body() (map[string]interface{}, error) {
+	if !mc.bodyParsed {
+		mc.bodyParsed = true
+		var body map[string]interface{}
+		if err := json.Unmarshal(mc.Message.Value, &body); err != nil {
+			mc.bodyParseErr = err
+		} else {
+			mc.parsedBody = body
+		}
+	}
+	return mc.parsedBody, mc.bodyParseErr
 }
 
 // IsChildOrchestration checks if this is a child orchestration

@@ -68,9 +68,18 @@ var ValidationErrorNeedles = []string{"is required", "validation", "invalid", "m
 // Retryable false, so every genuinely transient internal fault would start
 // being dropped fleet-wide. A code earns its place here only when retrying it
 // can never succeed because the input is statically wrong.
+//
+// ErrDispatchUnresolvable earns its place on exactly that test (bugs_open/239):
+// a request body that is not JSON, or one naming an agent type with no active
+// definition, is statically wrong — the same bytes against a healthy fleet fail
+// identically for ever. Its transient twin, ErrDispatchLookupUnavailable, is
+// deliberately NOT here and is not on the transient list either: it is built
+// AsRetryable at the refusal site, and the author's-intent early return in
+// MatchedPermanentFailure answers before any list is consulted.
 var NonRetryablePermanentCodes = []ErrorCode{
 	ErrWorkflowInvalid,
 	ErrValidation,
+	ErrDispatchUnresolvable,
 }
 
 // MatchedPermanentFailure classifies err as a permanent failure and returns an

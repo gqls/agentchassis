@@ -7,10 +7,24 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
 
 	"go.uber.org/zap"
 )
+
+// ErrAgentDefinitionNotFound marks a DEFINITIVE miss: the query ran and the
+// fleet has no active definition of that type. It exists because the caller's
+// two failure modes need opposite handling and used to be indistinguishable —
+// FindByType returned a plain fmt.Errorf for a missing row and another for a
+// database fault, so platform/messaging treated a transient connection error
+// exactly like an unknown agent (bugs_open/239). Callers must use IsNotFound,
+// never string matching.
+var ErrAgentDefinitionNotFound = stderrors.New("no active agent definition")
+
+// IsNotFound reports whether err is a definitive "no such active agent
+// definition" rather than a lookup fault worth retrying.
+func IsNotFound(err error) bool { return stderrors.Is(err, ErrAgentDefinitionNotFound) }
 
 // Requirements defines what capabilities and constraints an agent must meet
 type Requirements struct {
@@ -86,11 +100,22 @@ func (d *AgentDefinitionDiscovery) FindByType(ctx context.Context, agentType str
 	var query string
 	var args []interface{}
 
+	// Filter (matches MessageProcessor.loadAgentDefinition verbatim — the two
+	// are read against each other constantly and drifted until bugs_open/239):
+	//   is_active = true               → pick the live row, not a deactivated one
+	//   deleted_at IS NULL             → respect soft-deletes
+	//   is_snapshot guard              → snapshots are stored with version+1000 (021_model_swap_and_rollback.sql)
+	//                                    which would otherwise sort ahead of the active row
+	//   ORDER BY version DESC LIMIT 1  → defensive against transient multi-active during deploys
+	//
+	// This function had only the first and the last, so an active snapshot
+	// outranked the live definition and a soft-deleted row could still be
+	// dispatched to — the same predicate every sibling loader already carried.
 	if minVersion > 0 {
 		query = `
-			SELECT 
+			SELECT
 				id::text, type, display_name, COALESCE(description, ''), COALESCE(category, ''),
-				default_config, 
+				default_config,
 				default_config->'workflow' as workflow,
 				COALESCE(capabilities, '[]'::jsonb) as capabilities,
 				briefing_questionnaire,
@@ -101,13 +126,15 @@ func (d *AgentDefinitionDiscovery) FindByType(ctx context.Context, agentType str
 			WHERE type = $1
 			AND version >= $2
 			AND is_active = true
+			AND deleted_at IS NULL
+			AND (is_snapshot IS NULL OR is_snapshot = false)
 			ORDER BY version DESC
 			LIMIT 1
 		`
 		args = []interface{}{agentType, minVersion}
 	} else {
 		query = `
-			SELECT 
+			SELECT
 				id::text, type, display_name, COALESCE(description, ''), COALESCE(category, ''),
 				default_config,
 				default_config->'workflow' as workflow,
@@ -119,11 +146,22 @@ func (d *AgentDefinitionDiscovery) FindByType(ctx context.Context, agentType str
 			FROM agent_definitions
 			WHERE type = $1
 			AND is_active = true
+			AND deleted_at IS NULL
+			AND (is_snapshot IS NULL OR is_snapshot = false)
 			ORDER BY version DESC
 			LIMIT 1
 		`
 		args = []interface{}{agentType}
 	}
+
+	// workflowJSON is scanned as a plain []byte, NOT straight into
+	// result.Workflow. `default_config->'workflow'` is SQL NULL for any
+	// definition that does not carry that key, and database/sql refuses to scan
+	// NULL into a *json.RawMessage ("unsupported Scan, storing driver.Value type
+	// <nil>"). That turned "this definition has no workflow" — a permanent,
+	// fixable config fault — into a lookup ERROR indistinguishable from a dead
+	// connection. A nil []byte says the same thing without lying about why.
+	var workflowJSON []byte
 
 	err := d.db.QueryRowContext(ctx, query, args...).Scan(
 		&result.ID,
@@ -132,7 +170,7 @@ func (d *AgentDefinitionDiscovery) FindByType(ctx context.Context, agentType str
 		&result.Description,
 		&result.Category,
 		&defaultConfigJSON,
-		&result.Workflow,
+		&workflowJSON,
 		&capabilitiesJSON,
 		&briefingQuestionnaireJSON,
 		&result.UsageCount,
@@ -141,13 +179,18 @@ func (d *AgentDefinitionDiscovery) FindByType(ctx context.Context, agentType str
 	)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("no agent definition found for type: %s", agentType)
+		if stderrors.Is(err, sql.ErrNoRows) {
+			// Wrapped, so the caller can tell "this type does not exist" from
+			// "the lookup faulted" with errors.Is instead of guessing.
+			return nil, fmt.Errorf("%w for type: %s", ErrAgentDefinitionNotFound, agentType)
 		}
 		return nil, fmt.Errorf("failed to find agent definition: %w", err)
 	}
 
 	result.DefaultConfig = defaultConfigJSON
+	if workflowJSON != nil {
+		result.Workflow = json.RawMessage(workflowJSON)
+	}
 
 	if briefingQuestionnaireJSON.Valid {
 		result.BriefingQuestionnaire = json.RawMessage(briefingQuestionnaireJSON.String)

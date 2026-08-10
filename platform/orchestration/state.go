@@ -339,6 +339,38 @@ func (r *StateRepository) MarkMessageComplete(ctx context.Context, correlationID
 	return nil
 }
 
+// ReleaseMessageClaim abandons a processing claim WITHOUT completing it, so a
+// re-attempt of the same message can claim it afresh.
+//
+// bugs_open/239: the intake pool re-runs a message whose dispatch resolution
+// faulted transiently, but MarkMessageComplete's 'complete' row would make that
+// re-run lose the dedupe check against its own earlier attempt (DEDUPE_CLAIM_LOST)
+// and the message would be dropped for good. This is the only sanctioned way to
+// give a claim back, and it is deliberately narrow: it matches the claiming
+// generation (retry_version) and only status='processing', so it can never
+// delete a completed record or another worker's claim.
+func (r *StateRepository) ReleaseMessageClaim(ctx context.Context, correlationID, requestID, agentID string, retryVersion int) error {
+	if requestID == "" {
+		return nil // nothing was recorded
+	}
+
+	query := `
+        DELETE FROM processed_messages
+        WHERE correlation_id = $1
+          AND request_id = $2
+          AND agent_id = $3
+          AND retry_version = $4
+          AND status = 'processing'
+    `
+
+	_, err := r.db.ExecContext(ctx, query, correlationID, requestID, agentID, retryVersion)
+	if err != nil {
+		return fmt.Errorf("failed to release message claim: %w", err)
+	}
+
+	return nil
+}
+
 // CreateState creates a new orchestration state
 func (r *StateRepository) CreateState(ctx context.Context, state *OrchestrationState) error {
 	r.logger.Info("CreateState called",

@@ -244,6 +244,13 @@ func (r *IntakeRepository) MarkEventDone(ctx context.Context, id int64) error {
 // MarkEventFailed is for infrastructure-level inability to run the event at
 // all (attempts exhausted after repeated holder deaths) — never for handler
 // errors, which are the parent's to retry.
+//
+// And, since bugs_open/239, for a TERMINAL dispatch-resolution refusal: a
+// request whose body is not JSON, or which names a workflow the fleet cannot
+// resolve, never ran anything at all, so 'done' would assert work that did not
+// happen — which is precisely the falsehood that bug was made of. The
+// distinction holds: a handler error means the agent ran and failed; a dispatch
+// refusal means no agent was ever chosen.
 func (r *IntakeRepository) MarkEventFailed(ctx context.Context, id int64, reason string) error {
 	query := `UPDATE chassis_intake_events SET status = 'failed', finished_at = NOW(), last_error = $2 WHERE id = $1`
 	_, err := r.db.ExecContext(ctx, query, id, reason)

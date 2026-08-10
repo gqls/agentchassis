@@ -36,6 +36,22 @@ const (
 	// External service errors
 	ErrExternalService ErrorCode = "EXTERNAL_SERVICE_ERROR"
 	ErrAIServiceError  ErrorCode = "AI_SERVICE_ERROR"
+
+	// Dispatch-resolution errors (bugs_open/239). An orchestration-action
+	// request whose target workflow cannot be resolved must fail CLOSED. Before
+	// these existed, every such failure fell through to the CONSUMING pod's own
+	// default workflow — on the shared chassis that is the `generic` agent's
+	// single no-op step — and the run was stamped COMPLETED with an empty
+	// execution_path, so a dispatch that did nothing at all read as a fast
+	// success.
+	//
+	// The pair is the point: the two failures need OPPOSITE dispositions.
+	// ErrDispatchUnresolvable is terminal (an unparseable body or an unknown
+	// agent type cannot heal by being retried); ErrDispatchLookupUnavailable is
+	// transient (the same message against a healthy database resolves fine), so
+	// it is built AsRetryable and left for the intake pool's re-attempt.
+	ErrDispatchUnresolvable      ErrorCode = "DISPATCH_UNRESOLVABLE"
+	ErrDispatchLookupUnavailable ErrorCode = "DISPATCH_LOOKUP_UNAVAILABLE"
 )
 
 // DomainError represents a standardized error in the platform
@@ -86,6 +102,25 @@ func CodeOf(err error) ErrorCode {
 		return de.Code
 	}
 	return ""
+}
+
+// IsDispatchUnresolvable reports whether err is a TERMINAL bugs_open/239
+// dispatch-resolution refusal: the request named a workflow the fleet cannot
+// resolve, so nothing ran and nothing will.
+//
+// Keyed on the code, not the message, for the reason CodeOf documents: the
+// intake pool switches an event to `failed` on this, and a classification that
+// can be defeated by rewording would put a message back on the retry path that
+// can never succeed.
+func IsDispatchUnresolvable(err error) bool {
+	return CodeOf(err) == ErrDispatchUnresolvable
+}
+
+// IsDispatchLookupUnavailable reports whether err is a TRANSIENT bugs_open/239
+// dispatch-resolution failure — the agent-definition lookup itself faulted, so
+// the same message is worth re-attempting.
+func IsDispatchLookupUnavailable(err error) bool {
+	return CodeOf(err) == ErrDispatchLookupUnavailable
 }
 
 // HTTPStatus returns the appropriate HTTP status code for the error

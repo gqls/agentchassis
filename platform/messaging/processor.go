@@ -231,11 +231,27 @@ func (p *MessageProcessor) process(ctx context.Context, msgCtx *MessageContext) 
 	)
 
 	// Select the appropriate workflow based on context
-	workflow, err := p.selectWorkflow(ctx, agentDef, msgCtx)
+	selection, err := p.selectWorkflow(ctx, agentDef, msgCtx)
 	if err != nil {
 		msgCtx.Logger.Error("Failed to select workflow", zap.Error(err))
+		if errors.IsDispatchUnresolvable(err) {
+			// bugs_open/239: fail closed, and leave the two traces the silent
+			// fallback never left — a FAILED row owned by the type that was
+			// ASKED for, and a failure response to whoever sent it.
+			p.recordDispatchFailureState(ctx, msgCtx, err)
+			if sendErr := p.sendErrorResponse(ctx, msgCtx, err); sendErr != nil {
+				msgCtx.Logger.Error("DISPATCH_FAIL_CLOSED: failure response could not be sent", zap.Error(sendErr))
+			}
+		}
 		return err
 	}
+
+	// The run type is resolved once, here, and carried to the coordinator so
+	// owner_agent_type names the agent whose workflow actually ran.
+	if msgCtx.ExecutionContext != nil {
+		msgCtx.ExecutionContext.RunAgentType = selection.RunAgentType
+	}
+	workflow := selection.Plan
 
 	msgCtx.Logger.Info("Message value in msgCtx",
 		zap.ByteString("msgCtx.Message.Value", msgCtx.Message.Value))
@@ -580,6 +596,73 @@ func (p *MessageProcessor) sendWorkflowFailureResponse(ctx context.Context, msgC
 		Message:     err.Error(),
 		Recoverable: recoverable,
 	})
+}
+
+// recordDispatchFailureState leaves the queryable trace a silently-substituted
+// no-op never left (bugs_open/239): a FAILED orchestration_states row whose
+// owner_agent_type is the type that was REQUESTED, not the pod's own, with the
+// refusal reason in `error` and the offending body kept for the reader.
+//
+// The owner column is the point. It is the field an operator checks to tell a
+// real run from a substituted one, and on every failure of this class it used
+// to say `generic` — the answer that hid the bug. Concept register SYS-014
+// named exactly this shape as the fix.
+//
+// Best-effort throughout: CreateState is ON CONFLICT DO NOTHING, so the second
+// and later fragments of one mangled send write nothing, and a failure to
+// record must never mask the refusal itself.
+func (p *MessageProcessor) recordDispatchFailureState(ctx context.Context, msgCtx *MessageContext, derr error) {
+	if p.sqlDB == nil || msgCtx.ExecutionContext == nil || msgCtx.ExecutionContext.OrchestrationID == "" {
+		return
+	}
+	execCtx := msgCtx.ExecutionContext
+
+	ownerType := p.agentType
+	if de, ok := errors.AsDomainError(derr); ok {
+		if requested, _ := de.Details["requested_agent_type"].(string); requested != "" {
+			ownerType = requested
+		}
+	}
+
+	name := execCtx.OrchestrationName
+	if name == "" {
+		name = fmt.Sprintf("%s-dispatch-failed-%s", ownerType, time.Now().UTC().Format("0102-1504"))
+	}
+
+	// Keep the body that caused this — for a fragmented send it is the only
+	// place the original bytes survive once the intake row ages out. Bounded,
+	// NUL-stripped and forced to valid UTF-8 because jsonb rejects both.
+	rawBody := string(msgCtx.Message.Value)
+	if len(rawBody) > 4000 {
+		rawBody = rawBody[:4000] + "...(truncated)"
+	}
+	rawBody = strings.ToValidUTF8(strings.ReplaceAll(rawBody, "\x00", ""), "")
+
+	repo := orchestration.NewStateRepository(p.sqlDB, msgCtx.Logger)
+	state := &orchestration.OrchestrationState{
+		OrchestrationID:   execCtx.OrchestrationID,
+		OrchestrationName: name,
+		CorrelationID:     execCtx.CorrelationID,
+		OwnerAgentID:      p.agentID,
+		OwnerAgentType:    ownerType,
+		ClientID:          execCtx.ClientID,
+		Status:            orchestration.StatusFailed,
+		Error:             derr.Error(),
+		LastActivity:      time.Now(),
+		ProcessingNode:    p.podName,
+		CollectedData: map[string]interface{}{
+			"dispatch_failure": map[string]interface{}{
+				"topic":    msgCtx.Message.Topic,
+				"action":   execCtx.Action,
+				"raw_body": rawBody,
+			},
+		},
+	}
+	if err := repo.CreateState(ctx, state); err != nil {
+		msgCtx.Logger.Error("DISPATCH_FAIL_CLOSED: could not record FAILED orchestration state",
+			zap.String("orchestration_id", execCtx.OrchestrationID),
+			zap.Error(err))
+	}
 }
 
 func (p *MessageProcessor) handleError(ctx context.Context, msgCtx *MessageContext, err error, errorType string) error {
@@ -954,109 +1037,212 @@ func (p *MessageProcessor) getAgentTypeAndIDFromHeaders(headers map[string]strin
 	return agentType, agentID
 }
 
-func (p *MessageProcessor) selectWorkflow(ctx context.Context, agentDef *actions.AgentDefinition, msgCtx *MessageContext) (models.WorkflowPlan, error) {
-	p.logger.Info("DEBUGaa: selectWorkflow entry",
-		zap.Any("default_config_keys", agentDef.DefaultConfig),
-		zap.Any("workflow_exists", agentDef.DefaultConfig["workflow"] != nil),
-		zap.Any("orchestration_workflow_exists", agentDef.DefaultConfig["orchestration_workflow"] != nil),
-		zap.Any("task_workflow_exists", agentDef.DefaultConfig["task_workflow"] != nil),
-		//zap.Any("DEBUGaa: msgbody look for config.workflow from message - look for headers.action or another time, msgCtx.message.value.config.workflow", msgCtx),
-		//zap.Any("DEBUGaa: agentDef, looking to remove default calculator and replace with current workflow", agentDef),
-	)
+// workflowSelection is selectWorkflow's answer: the plan AND the agent type it
+// belongs to, resolved together from one parse of the body. Source names which
+// priority produced it, so a log or a test can tell a real resolution from a
+// fallback without inferring it from the plan's shape.
+type workflowSelection struct {
+	Plan         models.WorkflowPlan
+	RunAgentType string
+	Source       string // "inline_config" | "agent_definition" | "own_default" | "builtin_default"
+}
 
-	// Parse message body
-	var msgBody map[string]interface{}
-	if err := json.Unmarshal(msgCtx.Message.Value, &msgBody); err == nil {
-		p.logger.Info("DEBUGaa: trying to find inline workflow override from message") //zap.Any("workflow_override from unmarshalled msgCtx.message.value", msgBody),
+// Refusal reasons carried in the DISPATCH_UNRESOLVABLE error and its log line.
+// Fixed literals: they are what a query over chassis_intake_events.last_error
+// and orchestration_states.error groups by.
+const (
+	dispatchReasonParseFailure    = "parse_failure"
+	dispatchReasonTypeUnresolved  = "agent_type_unresolved"
+	dispatchReasonWorkflowMissing = "workflow_missing"
+)
 
-		// Priority 1: Inline workflow override (for testing)
+// dispatchUnresolvable builds the TERMINAL refusal (bugs_open/239). Retrying
+// cannot help: the body is not JSON, or it names an agent the fleet does not
+// have, or that agent's definition carries no workflow to run.
+func (p *MessageProcessor) dispatchUnresolvable(reason, requestedType, action string, cause error) error {
+	b := errors.New(errors.ErrDispatchUnresolvable,
+		fmt.Sprintf("DISPATCH_FAIL_CLOSED %s: orchestration action %q refused (requested_agent_type=%q)",
+			reason, action, requestedType)).
+		WithDetail("reason", reason).
+		WithDetail("requested_agent_type", requestedType)
+	if cause != nil {
+		b = b.WithCause(cause)
+	}
+	return b.Build()
+}
+
+// dispatchLookupUnavailable builds the TRANSIENT refusal: the lookup itself
+// faulted, so the same message against a healthy database would resolve. Built
+// AsRetryable so MatchedPermanentFailure's author's-intent branch answers
+// before any code list is consulted.
+func (p *MessageProcessor) dispatchLookupUnavailable(requestedType string, cause error) error {
+	return errors.New(errors.ErrDispatchLookupUnavailable,
+		fmt.Sprintf("DISPATCH_LOOKUP_RETRYABLE: agent definition lookup failed transiently for %q", requestedType)).
+		WithDetail("requested_agent_type", requestedType).
+		WithCause(cause).
+		AsRetryable(nil).
+		Build()
+}
+
+// selectWorkflow decides WHICH workflow runs and WHOSE it is.
+//
+// bugs_open/239: every failure below used to fall through to Priority 3 — the
+// CONSUMING pod's own default workflow. On the shared chassis that is the
+// `generic` agent's single no-op step, so a dispatch naming a real agent ran
+// nothing, recorded owner_agent_type='generic' with an empty execution_path,
+// and was stamped COMPLETED. Three of the four fall-throughs logged nothing at
+// all. An orchestration action now FAILS CLOSED instead: nothing runs, the
+// refusal is typed, and the reason is in the error.
+func (p *MessageProcessor) selectWorkflow(ctx context.Context, agentDef *actions.AgentDefinition, msgCtx *MessageContext) (workflowSelection, error) {
+	action := msgCtx.Headers["action"]
+	if action == "" && msgCtx.ExecutionContext != nil {
+		action = msgCtx.ExecutionContext.Action
+	}
+
+	msgBody, parseErr := msgCtx.Body()
+
+	// Priority 1: Inline workflow override (used by call_agent/spawn envelopes
+	// and by tests). Unchanged, and deliberately still reachable for any action.
+	if parseErr == nil {
 		if config, ok := msgBody["config"].(map[string]interface{}); ok {
 			if workflow, ok := config["workflow"].(map[string]interface{}); ok {
+				runType := p.agentType
+				if named, _ := p.extractGroupInfo(msgBody); named != "" {
+					runType = named
+				}
 				p.logger.Info("Using inline workflow override from message")
-				return p.convertToWorkflowPlan(workflow), nil
-			}
-		}
-
-		// Priority 2: Group-based workflow
-		action := msgCtx.Headers["action"]
-		if action == "" && msgCtx.ExecutionContext != nil {
-			action = msgCtx.ExecutionContext.Action
-		}
-
-		if isOrchestrationAction(action) {
-			groupOrAgentType, version := p.extractGroupInfo(msgBody)
-
-			if groupOrAgentType != "" {
-				p.logger.Info("Looking for agent group",
-					zap.String("group_type", groupOrAgentType),
-					zap.String("version", version),
-					zap.Any("action is:", msgCtx.Headers["action"]),
-					zap.Any("or action might be:", msgCtx.ExecutionContext.Action),
-				)
-
-				// Use the updated GroupDiscovery with sql.DB
-				db := p.db
-				if db == nil {
-					db = p.sqlDB
-				}
-
-				if db != nil {
-
-					p.logger.Info("DEBUGaa: Database connection available: ",
-						zap.Bool("using_db", db != nil),
-						zap.Bool("using_sqlDB", p.sqlDB != nil))
-
-					discovered := discovery.NewAgentDefinitionDiscovery(db)
-					group, err := discovered.FindBestGroup(ctx, groupOrAgentType, version, *p.logger)
-					if err == nil && group != nil {
-						var workflowConfig map[string]interface{}
-						if err := json.Unmarshal(group.Workflow, &workflowConfig); err == nil {
-							p.logger.Info("Using group-based workflow",
-								zap.String("group_or_agent_type", groupOrAgentType),
-								zap.String("group_id", group.ID),
-								zap.String("group_name", group.Name),
-								zap.String("version", group.Version))
-
-							// Store group info for downstream actions
-							if msgCtx.CollectedData == nil {
-								msgCtx.CollectedData = make(map[string]interface{})
-							}
-							// Store both agent type and group type for compatibility (deprecated agent_group_definitions)
-							agentInfo := map[string]interface{}{
-								"id":           group.ID,
-								"type":         group.GroupType,
-								"name":         group.Name,
-								"display_name": group.Name,
-								"version":      group.Version,
-							}
-							msgCtx.CollectedData["agent_group"] = agentInfo // legacy from agent_group_definitions
-							msgCtx.CollectedData["agent_definition"] = agentInfo
-
-							return p.convertToWorkflowPlan(workflowConfig), nil
-						}
-					} else {
-						p.logger.Info("DEBUGaa: Discovery and Group after finding FindBestGroup or Agent - didnt find it basically",
-							zap.Any("discovery", discovered),
-							zap.Any("group:", group),
-							zap.String("group_or_agent_type", groupOrAgentType),
-							zap.String("version", version),
-							zap.Error(err),
-						)
-					}
-				} else {
-					p.logger.Error("No database connection available for group lookup. In selectWorkflow in processor.go")
-				}
+				return workflowSelection{
+					Plan:         p.convertToWorkflowPlan(workflow),
+					RunAgentType: runType,
+					Source:       "inline_config",
+				}, nil
 			}
 		}
 	}
 
-	// Priority 3: Agent's default workflow from DB
+	// Priority 2: the agent named in the message.
+	if isOrchestrationAction(action) {
+		if parseErr != nil {
+			// The commonest real-world entry: kcat publishes one message per
+			// line of stdin, so a multi-line envelope arrives as N fragments,
+			// each invalid JSON, each carrying the full header set.
+			p.logger.Error("DISPATCH_FAIL_CLOSED: orchestration request body is not a JSON object — refusing to run any workflow",
+				zap.Error(parseErr),
+				zap.String("action", action),
+				zap.Int("body_bytes", len(msgCtx.Message.Value)))
+			return workflowSelection{}, p.dispatchUnresolvable(dispatchReasonParseFailure, "", action, parseErr)
+		}
+
+		groupOrAgentType, version := p.extractGroupInfo(msgBody)
+
+		if groupOrAgentType != "" {
+			p.logger.Info("Looking for agent group",
+				zap.String("group_type", groupOrAgentType),
+				zap.String("version", version),
+				zap.String("action", action),
+			)
+
+			db := p.db
+			if db == nil {
+				db = p.sqlDB
+			}
+			if db == nil {
+				p.logger.Error("DISPATCH_LOOKUP_RETRYABLE: no database connection for agent-type lookup",
+					zap.String("requested_agent_type", groupOrAgentType))
+				return workflowSelection{}, p.dispatchLookupUnavailable(groupOrAgentType,
+					fmt.Errorf("no database connection available for group lookup"))
+			}
+
+			discovered := discovery.NewAgentDefinitionDiscovery(db)
+			group, err := discovered.FindBestGroup(ctx, groupOrAgentType, version, *p.logger)
+			if err != nil {
+				if discovery.IsNotFound(err) {
+					p.logger.Error("DISPATCH_FAIL_CLOSED: requested agent type has no active definition",
+						zap.String("requested_agent_type", groupOrAgentType),
+						zap.String("version", version),
+						zap.Error(err))
+					return workflowSelection{}, p.dispatchUnresolvable(dispatchReasonTypeUnresolved, groupOrAgentType, action, err)
+				}
+				// A pool exhaustion, a dial timeout, a recycled connection: the
+				// same message is worth another attempt, and used to be answered
+				// with the generic no-op at Info level.
+				p.logger.Error("DISPATCH_LOOKUP_RETRYABLE: agent definition lookup failed — message will be re-attempted",
+					zap.String("requested_agent_type", groupOrAgentType),
+					zap.Error(err))
+				return workflowSelection{}, p.dispatchLookupUnavailable(groupOrAgentType, err)
+			}
+			if group == nil {
+				p.logger.Error("DISPATCH_FAIL_CLOSED: requested agent type resolved to no definition",
+					zap.String("requested_agent_type", groupOrAgentType))
+				return workflowSelection{}, p.dispatchUnresolvable(dispatchReasonTypeUnresolved, groupOrAgentType, action, nil)
+			}
+
+			var workflowConfig map[string]interface{}
+			if len(group.Workflow) == 0 || json.Unmarshal(group.Workflow, &workflowConfig) != nil || len(workflowConfig) == 0 {
+				// default_config->'workflow' was SQL NULL or unusable — the
+				// definition exists but has nothing to run. This was the
+				// quietest fall-through of the four: no log at all.
+				p.logger.Error("DISPATCH_FAIL_CLOSED: agent definition found but carries no usable workflow",
+					zap.String("requested_agent_type", groupOrAgentType),
+					zap.String("definition_id", group.ID))
+				return workflowSelection{}, p.dispatchUnresolvable(dispatchReasonWorkflowMissing, groupOrAgentType, action, nil)
+			}
+
+			p.logger.Info("Using group-based workflow",
+				zap.String("group_or_agent_type", groupOrAgentType),
+				zap.String("group_id", group.ID),
+				zap.String("group_name", group.Name),
+				zap.String("version", group.Version))
+
+			// Store group info for downstream actions
+			if msgCtx.CollectedData == nil {
+				msgCtx.CollectedData = make(map[string]interface{})
+			}
+			// Store both agent type and group type for compatibility (deprecated agent_group_definitions)
+			agentInfo := map[string]interface{}{
+				"id":           group.ID,
+				"type":         group.GroupType,
+				"name":         group.Name,
+				"display_name": group.Name,
+				"version":      group.Version,
+			}
+			msgCtx.CollectedData["agent_group"] = agentInfo // legacy from agent_group_definitions
+			msgCtx.CollectedData["agent_definition"] = agentInfo
+
+			return workflowSelection{
+				Plan:         p.convertToWorkflowPlan(workflowConfig),
+				RunAgentType: group.GroupType,
+				Source:       "agent_definition",
+			}, nil
+		}
+
+		// Nothing named and no inline workflow. Legitimate on a dedicated or
+		// spawned pod, whose own type IS the target; on the shared chassis it
+		// means an envelope nested its config somewhere extractGroupInfo cannot
+		// see. Loud enough to be counted per pod, but not a refusal — the
+		// census found no shared-chassis traffic in this shape beyond one stray.
+		p.logger.Warn("DISPATCH_OWN_DEFAULT: orchestration action named no agent type — running this pod's own workflow",
+			zap.String("pod_agent_type", p.agentType),
+			zap.String("action", action))
+	}
+
+	// Priority 3: this pod's own default workflow. Reached by non-orchestration
+	// actions and by the nothing-named case above — never by a FAILED
+	// resolution.
 	if wf, ok := agentDef.DefaultConfig["workflow"].(map[string]interface{}); ok {
-		return p.convertToWorkflowPlan(wf), nil
+		return workflowSelection{
+			Plan:         p.convertToWorkflowPlan(wf),
+			RunAgentType: p.agentType,
+			Source:       "own_default",
+		}, nil
 	}
 
 	// Fallback: Default orchestration workflow
-	return p.getDefaultOrchestrationWorkflow(), nil
+	return workflowSelection{
+		Plan:         p.getDefaultOrchestrationWorkflow(),
+		RunAgentType: p.agentType,
+		Source:       "builtin_default",
+	}, nil
 }
 
 func isOrchestrationAction(action string) bool {
@@ -1319,7 +1505,11 @@ func extractAction(msgValue []byte) string {
 	return payload.Action
 }
 
-func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message) error {
+// ProcessMessage is the chassis's single message entry point.
+//
+// The named return is load-bearing (bugs_open/239): the dedupe-claim defer reads
+// it to decide whether to COMPLETE the claim or RELEASE it for a re-attempt.
+func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message) (retErr error) {
 	var callstack []string
 	if p.tracer != nil {
 		callstack = p.tracer.GetCallStack(12)
@@ -1413,6 +1603,17 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 			defer func() {
 				cctx, ccancel := context.WithTimeout(context.Background(), 10*time.Second)
 				defer ccancel()
+				// bugs_open/239: a transient dispatch-lookup failure means the
+				// intake pool will re-run this exact message. A 'complete' claim
+				// would make the re-run lose the dedupe race against itself
+				// (DEDUPE_CLAIM_LOST) and the message would be dropped for good,
+				// so release the claim instead of completing it.
+				if errors.IsDispatchLookupUnavailable(retErr) {
+					if rErr := repo.ReleaseMessageClaim(cctx, execCtx.CorrelationID, execCtx.RequestID, completeAgentID, execCtx.RetryVersion); rErr != nil {
+						contextLogger.Warn("DISPATCH_RETRY_CLAIM_RELEASE_FAILED (lease will expire naturally)", zap.Error(rErr))
+					}
+					return
+				}
 				if mErr := repo.MarkMessageComplete(cctx, execCtx.CorrelationID, execCtx.RequestID, completeAgentID, execCtx.RetryVersion); mErr != nil {
 					contextLogger.Warn("MARK_COMPLETE_FAILED (lease will expire naturally)", zap.Error(mErr))
 				}
@@ -1462,9 +1663,12 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 			Observe(time.Since(startTime).Seconds())
 	}()
 
-	// initialise response
-	var requestData map[string]interface{}
-	json.Unmarshal(msg.Value, &requestData)
+	// initialise response — one parse per message, memoised on the context
+	// (bugs_open/239). A body that is not JSON leaves requestData nil, exactly
+	// as the discarded Unmarshal here used to; the difference is that the error
+	// is now available to the code that must refuse rather than being thrown
+	// away three times over.
+	requestData, _ := msgCtx.Body()
 
 	p.logger.Info("processor.go 1146 ProcessMessage",
 		zap.String("Action from ExecutionContext", msgCtx.ExecutionContext.Action),
@@ -1654,6 +1858,16 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 
 	// Process the message
 	if err := p.process(ctx, msgCtx); err != nil {
+		// bugs_open/239: a dispatch refusal has already sent its response and
+		// written its FAILED row at the refusal site. Propagate the TYPED error
+		// so the intake pool can mark the event failed (terminal) or leave it
+		// for a re-attempt (transient) — handleError would answer nil on the
+		// permanent arm and double-send on top of it.
+		if errors.IsDispatchUnresolvable(err) || errors.IsDispatchLookupUnavailable(err) {
+			contextLogger.Error("Dispatch resolution refused the message", zap.Error(err))
+			observability.AgentTasksProcessed.WithLabelValues(p.agentType, msgCtx.ExecutionContext.Action, "dispatch_refused").Inc()
+			return err
+		}
 		contextLogger.Error("Processing failed", zap.Error(err))
 		return p.handleError(ctx, msgCtx, err, "processing_failed")
 	}
@@ -1809,23 +2023,20 @@ func (p *MessageProcessor) executeWorkflow(ctx context.Context, msgCtx *MessageC
 		msgCtx.ExecutionContext.FromAgentType = p.agentType
 	}
 
-	// Resolve the REAL agent type whose workflow is about to run. On the generic
-	// dispatch path (scheduled tasks, manual triggers) p.agentType is 'generic'
-	// but the message names the target in config.agent_type — the same value
-	// selectWorkflow used to load this workflow. On a dedicated pod there is no
-	// config.agent_type and p.agentType IS the real type. (bugs_open/060)
-	resolvedAgentType := p.agentType
-	if len(msgCtx.Message.Value) > 0 {
-		var msgBody map[string]interface{}
-		if err := json.Unmarshal(msgCtx.Message.Value, &msgBody); err == nil {
-			if gt, _ := p.extractGroupInfo(msgBody); gt != "" {
-				resolvedAgentType = gt
-			}
-		}
+	// The REAL agent type whose workflow is about to run. On the generic dispatch
+	// path (scheduled tasks, manual triggers) p.agentType is 'generic' but the
+	// message names the target in config.agent_type; on a dedicated pod there is
+	// no config.agent_type and p.agentType IS the real type. (bugs_open/060)
+	//
+	// bugs_open/239: this used to re-parse the body and re-extract the type on
+	// its own, independently of selectWorkflow — two answers to one question,
+	// which could and did disagree. selectWorkflow now resolves it once and
+	// carries it here on the ExecutionContext; the fallback below covers only
+	// the legacy entry paths that never call selectWorkflow.
+	if msgCtx.ExecutionContext.RunAgentType == "" {
+		msgCtx.ExecutionContext.RunAgentType = p.agentType
 	}
-	// Carry it to the coordinator so owner_agent_type records the real agent, not
-	// the dispatch-path 'generic'.
-	msgCtx.ExecutionContext.RunAgentType = resolvedAgentType
+	resolvedAgentType := msgCtx.ExecutionContext.RunAgentType
 
 	// Durable run record (bugs_open/060): best-effort, fire-and-forget on a
 	// detached context so it never blocks or fails the request. A start means work

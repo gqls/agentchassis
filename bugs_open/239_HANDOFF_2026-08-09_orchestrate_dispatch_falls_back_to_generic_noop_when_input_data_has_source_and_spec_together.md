@@ -1,5 +1,17 @@
 # 239 — a top-level `action=orchestrate` message silently resolves to the `generic` no-op agent, ignoring `config.agent_type`, whenever `input_data` carries BOTH `source` and `spec` keys
 
+> ⚠⚠ **THE TITLE IS WRONG, AND SO IS THE CORRECTION BELOW IT. ROOT CAUSE FOUND
+> 2026-08-10 — SKIP TO "ROOT CAUSE FOUND" AT THE FOOT OF THIS FILE.**
+> The trigger is not `source`+`spec`, and it is not non-deterministic either:
+> **`kcat -P` sends one message per LINE of stdin**, so a multi-line envelope
+> arrived as several invalid-JSON fragments and the chassis silently ran each one
+> as the `generic` no-op. Proven from `chassis_intake_events` payload bytes —
+> 8 of 8 single-message sends resolved correctly, 10 of 10 fragmented sends did
+> not. The framework defect (a request that cannot be resolved is silently
+> converted into a COMPLETED no-op) is **fixed in code, awaiting a roll**.
+> Everything between here and that section is preserved as filed, including its
+> wrong turns, which are the record of how this was got wrong twice.
+
 > ⚠ **CORRECTED 2026-08-10 — the title's trigger condition is NOT reliable; read
 > "CORRECTION 2026-08-10" below before acting on the bisection table.** The
 > same "safe" payload was later shown to fail non-deterministically, and a
@@ -7,6 +19,8 @@
 > production data caused a real incident (recovered same session) — **do not
 > bisect this bug against a live site again**; see the correction for the safe
 > path forward.
+> **(This correction is itself superseded — see the banner above. "Non-deterministic"
+> was an artefact of never looking at the bytes on the wire.)**
 
 **Filed 2026-08-09** by the `webdesign_uk_build_service` lane, found while driving
 a `page-build-handler` dispatch by hand for Phase 5 (the queue is starved — see
@@ -237,3 +251,179 @@ workflow, but that workflow's own section-planning branch produces nothing
 useful). Distinct mechanism: 201's orchestrations show real
 `owner_agent_type` and real `execution_path`; this bug's orchestrations show
 neither — the named agent's workflow never starts.
+
+---
+
+# ROOT CAUSE FOUND — 2026-08-10, and it was on the wire, not in the payload's shape
+
+**Status: FIXED IN CODE, committed, NOT YET LIVE.** The fix is inert until an image is
+rebuilt and the fleet rolls. Closing condition is at the foot of this section.
+
+## What actually happened
+
+`chassis_intake_events` records every message the chassis ingested, **with its payload
+bytes**, and it retains eight days — so the bug's own dispatches were still there. One
+query settles it:
+
+```sql
+SELECT left(correlation_id::text,8), count(*) AS request_msgs,
+       (SELECT string_agg(DISTINCT o.owner_agent_type,',') FROM orchestration_states o
+        WHERE o.correlation_id::text LIKE left(e.correlation_id::text,8)||'%'
+          AND o.parent_orchestration_id IS NULL) AS owner
+FROM chassis_intake_events e
+WHERE kind='request' AND topic='system.agent.generic.requests'
+GROUP BY 1, e.correlation_id;
+```
+
+| dispatches | Kafka messages received | resulting `owner_agent_type` |
+|---|---|---|
+| the 8 that "worked" (rows control, 1–7 of the table above) | **1** | the requested agent ✅ |
+| the 5 that "failed" (rows 8–11 + the re-tests) | **4–6** | `generic` ❌ |
+
+And the payload bytes say why. Failing dispatch `25e84712`, four messages, offsets
+107892–107895:
+
+```
+{"action":"orchestrate","config":{"agent_type":"page-build-handler"},
+ "input_data":{"domain":"webdesign.uk","site_id":"1fcfa4f3-...",
+   "work_item_id":"8793da9a-...","source":"phase5-chat-input-pin-2026-08-09",
+   "spec":{"mode":"edit_live",...}}}
+```
+
+**One message per LINE of the heredoc.** `kcat -P` treats each line of stdin as a separate
+message and applies the same `-H` headers to all of them — so four invalid-JSON fragments
+arrived, each carrying `action=orchestrate`, and the chassis processed the first one.
+
+**So `source`+`spec` was never the trigger.** It was a proxy for payload length: the
+envelopes long enough to be written across multiple lines were the ones that failed. That
+also explains, exactly, the correction above — "byte-identical payloads diverged" is true
+of the *logical* payload and false of the *wire* payload, and `zzz_nonsense_key`
+triggered it for the same reason (one more line, or one line longer).
+
+> **CORRECTION TO THE CORRECTION (2026-08-10).** The 08-10 correction concluded the
+> trigger was "time-dependent, state-dependent or concurrency-dependent — not a pure
+> function of the message's own shape". It IS a pure function of the message — of the
+> message as SENT, which nobody had looked at. Both the original claim and its retraction
+> reasoned about payloads as the author wrote them, never as Kafka received them. The
+> deciding evidence was one column (`chassis_intake_events.payload`) in a table this
+> investigation never opened, and the deciding query counts ROWS, not content.
+
+## The framework defect — which is the part worth fixing
+
+kcat line-splitting is only the trigger. The durable bug is what the chassis did with it:
+**an orchestration request it cannot resolve was silently converted into a COMPLETED
+no-op run of the consuming pod's own workflow.** Four ways in, all in
+`platform/messaging/processor.go` `selectWorkflow`, all pre-fix:
+
+| entry | line | logged? |
+|---|---|---|
+| body is not JSON → skips Priority 1 AND 2 entirely | :969 | **nothing at all** |
+| `FindBestGroup` returns ANY error — no such agent OR a transient DB fault, indistinguishable | :1010/:1037 | Info, `"…didnt find it basically"` |
+| definition found but `default_config->'workflow'` is SQL NULL | :1013 | **nothing at all** |
+| no DB handle | :999/:1046 | Error |
+
+…each falling to Priority 3 (:1053) = `agentDef.DefaultConfig["workflow"]`, where
+`agentDef` is the POD's own definition — `generic`, whose entire workflow is one no-op
+`complete` step. Meanwhile `executeWorkflow` (:1815-1828) ran a **second, independent**
+parse of the same bytes to decide `owner_agent_type`, so workflow selection and
+attribution were two answers to one question that could disagree.
+
+Also found in the same seam and fixed with it: `platform/discovery/agent_discovery.go`
+`FindByType` filtered only `type` + `is_active` — missing the `deleted_at IS NULL` and
+`is_snapshot` guards that **every** sibling loader carries. Snapshots are stored at
+version+1000, so an active snapshot **outranked the live definition** under
+`ORDER BY version DESC`.
+
+## Blast radius, measured before changing anything
+
+Eight days of `chassis_intake_events`, 10,851 request messages:
+
+- **48 unparseable bodies — all of them this bug's own kcat fragments** (`from_agent_type=user`).
+  No legitimate producer sends an unparseable body. Failing closed catches all 48 and
+  breaks nothing.
+- **711 orchestrate messages carry NO agent type** — every one of them carries an inline
+  `config.workflow` instead (call_agent/spawn envelopes). Priority 1, untouched.
+- **9,433 scheduler messages all name `agent_type` explicitly**, including the ticks that
+  name `generic` (whose real workflow IS the no-op, because a `pre_query` did the work).
+  Those resolve through the lookup, so they are resolutions, not fallbacks — unaffected.
+
+## The fix (committed 2026-08-10)
+
+Fail closed, resolve once, and keep the two failure kinds apart:
+
+- **`platform/errors`** — two typed codes: `DISPATCH_UNRESOLVABLE` (terminal;
+  on `NonRetryablePermanentCodes`) and `DISPATCH_LOOKUP_UNAVAILABLE` (transient, built
+  `AsRetryable`), with `IsDispatchUnresolvable` / `IsDispatchLookupUnavailable`.
+- **`platform/messaging/context.go`** — `MessageContext.Body()`, parsed ONCE per message
+  and memoised, error returned rather than discarded. Killed the duplicate parse.
+- **`platform/messaging/processor.go`** — `selectWorkflow` returns
+  `(workflowSelection{Plan, RunAgentType, Source}, error)`. An orchestration action that
+  cannot resolve now REFUSES with a reason: `parse_failure` | `agent_type_unresolved` |
+  `workflow_missing`; a transient lookup fault is retryable and distinct. `process()`
+  writes a **FAILED `orchestration_states` row whose `owner_agent_type` is the type that
+  was ASKED FOR** (concept register SYS-014's own suggested fix shape) plus the bug-196
+  failure envelope. `executeWorkflow` reads the resolved type instead of re-deriving it.
+- **`platform/discovery/agent_discovery.go`** — the two missing guards; a typed
+  `ErrAgentDefinitionNotFound` sentinel so a miss is distinguishable from a fault; and the
+  `workflow` column now scans through a `[]byte` (SQL NULL was raising a Scan ERROR, which
+  made "this agent has no workflow" — permanent — look transient).
+- **`platform/agentbase`** — `processMessage` returns its verdict; the intake worker marks
+  a terminally-refused event `failed` (with `DISPATCH_FAIL_CLOSED …` in `last_error`)
+  instead of `done`, and leaves a transiently-refused one for the existing attempts<3
+  re-pop. Both claim-holders release rather than complete the dedupe claim on the
+  transient arm, so a re-attempt cannot lose the race against its own earlier try
+  (`StateRepository.ReleaseMessageClaim`).
+
+**Priority 3 survives only for non-orchestration actions and for an orchestration action
+that names nothing** (a dedicated/spawned pod, whose own type IS the target — that path
+now logs `DISPATCH_OWN_DEFAULT`). No fallback survives a FAILED resolution.
+
+Tests: `platform/messaging/processor_dispatch_resolution_test.go` (10 cases, incl. the
+reproduction), `platform/discovery/find_by_type_guards_test.go`,
+`platform/agentbase/intake_dispatch_disposition_test.go`. The reproduction was
+**mutation-verified**: reverting the parse-failure refusal makes it fail with
+`resolved to "generic" (source "own_default")` — the bug, exactly.
+
+## How to verify once it is LIVE (it is not yet)
+
+1. **At the artefact, both directions, every replica** — the new literal must appear and
+   the old one must vanish:
+   ```
+   kubectl exec -n ai-persona-system <pod> -- sh -c \
+     'strings /app/agent-chassis | grep -c DISPATCH_FAIL_CLOSED; strings /app/agent-chassis | grep -c "didnt find it basically"'
+   ```
+   Expect `>0` then `0`. Measured on v1.0.1280 (2026-08-10, pre-fix) it is `0` then `1`,
+   so this control can come out either way.
+2. **Scratch target only** — per this file's own §3, never production data. Five
+   byte-identical SINGLE-LINE dispatches: `owner_agent_type` must equal the requested type
+   every time and `execution_path` must be non-empty.
+3. **One deliberately fragmented (multi-line heredoc) dispatch**: no workflow runs;
+   `SELECT status, last_error FROM chassis_intake_events WHERE correlation_id=…` shows
+   `failed` / `DISPATCH_FAIL_CLOSED … parse_failure` on the first fragment; one FAILED
+   orchestration row.
+4. **One dispatch naming `no-such-agent-239`**: FAILED row with
+   `owner_agent_type='no-such-agent-239'` and reason `agent_type_unresolved`.
+5. **Health**: scheduler ticks still green (generic no-ops still created via the explicit
+   path), and `chassis_intake_events` `failed` count over the hour ≈ the deliberate tests
+   only.
+
+**CLOSING CONDITION: steps 1–5 pass on a rolled image.** Until then this stays OPEN —
+the defect is still reproducible in production.
+
+## Council
+
+Submitted to the fix-loop council gate alongside the commit — see the commit's
+`Council-Submitted:` trailer for the correlation, or, if the Anthropic account cap
+(`bugs_open/243-anthropic-cap`) was still live at commit time, the commit body says so and
+the submission is owed once capacity returns. No `Council-Reviewed:` trailer is claimed on
+an unread verdict.
+
+## Two defects found en route, NOT fixed here (separate filings)
+
+- `platform/messaging/processor.go:66-72` unconditionally re-applies
+  `SetMaxOpenConns(4)`/`SetMaxIdleConns(1)`/`ConnMaxLifetime(10m)` to the SAME
+  `*sql.DB` that `agentbase` has already sized from `CHASSIS_DB_MAX_OPEN_CONNS` (12 in
+  production) — silently undoing the CS-2 pool increase.
+- `platform/config/agent_config_loader.go` holds an unmutexed `map[string]*AgentConfig`
+  cache keyed only on agent type, reached from the dead `processRequest` (no callers).
+  Harmless today, a map race the day someone calls it.

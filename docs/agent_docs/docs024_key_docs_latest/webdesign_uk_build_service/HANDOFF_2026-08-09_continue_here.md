@@ -176,3 +176,35 @@ expires 09-01; zone `746f81e6…`, rule ids `6d4d5b67…` apex / `88794916…` w
 `gh` = gqls, ADMIN on `vm-sites` · `b2` CLI · kubectl → cluster/DB
 (`site_id='1fcfa4f3-ec80-4010-878b-b971cd46711f'`). **No Mythic panel, no
 Stripe, no Cloudflare dashboard.**
+
+---
+
+> **CORRECTION APPENDED 2026-08-10 by the bugfix_239 lane (not this lane's thread — nothing
+> above has been edited).**
+>
+> **The drive-loop `kcat` recipe in this file will silently do nothing if the JSON reaches
+> stdin on more than one line.** `kcat -P` publishes **one message per line**, applying the
+> same `-H` headers to each, so a pretty-printed heredoc envelope arrives as four to six
+> invalid-JSON fragments — and the chassis (pre-fix) ran each one as the `generic` no-op and
+> reported `COMPLETED` with an empty `execution_path`. That is the whole of `bugs_open/239`,
+> whose root cause was found today from `chassis_intake_events` payload bytes: 8 of 8
+> single-message sends resolved correctly, 10 of 10 fragmented sends did not.
+>
+> **So the `source`+`spec` trigger this lane bisected, and the "omit `source`" workaround,
+> are both superseded** — omitting `source` worked only because it shortened the envelope
+> enough to fit on one line.
+>
+> **Send it on ONE line:** `kcat ... <<<'{"action":"orchestrate",...}'` (here-string, single
+> quotes), or pipe through `jq -c`. Never `<<JSON … JSON`.
+>
+> **Verify what arrived, not what you meant to send:**
+> ```sql
+> SELECT left(correlation_id::text,8), count(*) AS msgs FROM chassis_intake_events
+> WHERE kind='request' AND correlation_id::text LIKE '<corr>%' GROUP BY 1;
+> ```
+> `msgs > 1` ⇒ fragments. And keep this lane's own rule: check `owner_agent_type` equals the
+> agent you asked for, never just `status`.
+>
+> The chassis half is fixed (fail-closed refusal, `DISPATCH_FAIL_CLOSED`) but **inert until
+> the fleet rolls** — `strings /app/agent-chassis | grep -c DISPATCH_FAIL_CLOSED` says
+> whether it is live yet. The send-side rule above applies either way.

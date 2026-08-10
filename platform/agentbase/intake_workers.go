@@ -30,6 +30,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	perrors "github.com/gqls/agentchassis/platform/errors"
 	"github.com/gqls/agentchassis/platform/kafka"
 	"github.com/gqls/agentchassis/platform/orchestration"
 	"go.uber.org/zap"
@@ -239,7 +240,11 @@ func (p *intakeWorkerPool) drainKey(key, workerID string) {
 			continue
 		}
 
-		p.runEvent(ev, workerID)
+		if !p.runEvent(ev, workerID) {
+			// The event is being left for a re-attempt (bugs_open/239) — stop
+			// draining this key so the retry keeps its place in the ordering.
+			break
+		}
 	}
 
 	hbCancel()
@@ -254,8 +259,11 @@ func (p *intakeWorkerPool) drainKey(key, workerID string) {
 // runEvent reconstructs the original Kafka message and hands it to the SAME
 // processMessage the inline path uses — validation, bug-034 rejection
 // recording, dedupe and error routing all unchanged. Done is unconditional on
-// the in-process outcome, mirroring commitConsumed (bugs_open/003 F3).
-func (p *intakeWorkerPool) runEvent(ev *orchestration.IntakeEvent, workerID string) {
+// the in-process outcome, mirroring commitConsumed (bugs_open/003 F3) — with
+// the two bugs_open/239 dispatch dispositions as the sole exceptions.
+//
+// Returns whether the worker should keep draining this serialisation key.
+func (p *intakeWorkerPool) runEvent(ev *orchestration.IntakeEvent, workerID string) bool {
 	msg := kafka.Message{
 		Topic:     ev.Topic,
 		Partition: ev.Partition,
@@ -292,21 +300,82 @@ func (p *intakeWorkerPool) runEvent(ev *orchestration.IntakeEvent, workerID stri
 		}
 	}()
 
-	p.agent.processMessage(msg, ev.Kind)
+	procErr := p.agent.processMessage(msg, ev.Kind)
 
 	pulseCancel()
+
+	switch intakeEventDisposition(procErr) {
+	case intakeDispositionFailed:
+		// bugs_open/239: dispatch resolution refused this message BEFORE any
+		// workflow ran, and no retry can change that — the body is not JSON, or
+		// it names an agent the fleet does not have. 'done' would say the work
+		// happened, which is the lie this whole bug was made of.
+		reason := "DISPATCH_FAIL_CLOSED: " + procErr.Error()
+		if err := p.repo.MarkEventFailed(context.Background(), ev.ID, reason); err != nil {
+			p.logger.Error("INTAKE_MARK_FAILED_FAILED: row stays running until takeover",
+				zap.Int64("event_id", ev.ID), zap.Error(err))
+			return false
+		}
+		p.logger.Error("INTAKE_EVENT_DISPATCH_FAILED: orchestrate dispatch refused, event marked failed",
+			zap.Int64("event_id", ev.ID),
+			zap.String("serialisation_key", ev.SerialisationKey),
+			zap.String("reason", reason))
+		return true
+
+	case intakeDispositionRetry:
+		// Transient, and pre-workflow: leave the row 'running'. Releasing the
+		// key makes it a candidate again, and the next winner's takeover reset
+		// re-pends it with attempts+1 — capped by the exhaustion arm in
+		// drainKey, which marks it failed durably rather than looping.
+		p.logger.Warn("INTAKE_EVENT_DISPATCH_RETRY: transient lookup failure — event left for re-attempt",
+			zap.Int64("event_id", ev.ID),
+			zap.String("serialisation_key", ev.SerialisationKey),
+			zap.Int("attempt", ev.Attempts),
+			zap.Error(procErr))
+		return false
+	}
+
 	if err := p.repo.MarkEventDone(context.Background(), ev.ID); err != nil {
 		// The event RAN; only the bookkeeping failed. Leaving it 'running'
 		// means a future takeover re-runs it, and dedupe suppresses the side
 		// effects — prefer that to inventing a second status write path.
 		p.logger.Error("INTAKE_MARK_DONE_FAILED: event ran, row stays running until takeover",
 			zap.Int64("event_id", ev.ID), zap.Error(err))
-		return
+		return true
 	}
 	p.logger.Info("INTAKE_EVENT_DONE",
 		zap.Int64("event_id", ev.ID),
 		zap.String("serialisation_key", ev.SerialisationKey),
 		zap.Duration("took", time.Since(start)))
+	return true
+}
+
+// Intake event dispositions (bugs_open/239).
+const (
+	intakeDispositionDone   = "done"
+	intakeDispositionFailed = "failed"
+	intakeDispositionRetry  = "retry"
+)
+
+// intakeEventDisposition maps a processMessage verdict to what should happen to
+// the intake row. Split out so the mapping is testable without a pool, a
+// database or a Kafka message: it is the whole of the new behaviour, and the
+// wrong answer here either loses a message for ever (retry → done) or replays a
+// refusal until it exhausts its attempts (failed → retry).
+//
+// Everything that is not a typed dispatch refusal is `done`, exactly as before:
+// a handled error, a validation drop and a success are all "dealt with".
+func intakeEventDisposition(procErr error) string {
+	switch {
+	case procErr == nil:
+		return intakeDispositionDone
+	case perrors.IsDispatchUnresolvable(procErr):
+		return intakeDispositionFailed
+	case perrors.IsDispatchLookupUnavailable(procErr):
+		return intakeDispositionRetry
+	default:
+		return intakeDispositionDone
+	}
 }
 
 func (p *intakeWorkerPool) runPurger() {

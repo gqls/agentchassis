@@ -829,7 +829,15 @@ func (a *Agent) commitConsumed(c *kafka.Consumer, msg kafka.Message, loop string
 }
 
 // processMessage handles a single message (request or response)
-func (a *Agent) processMessage(msg kafka.Message, messageType string) {
+// processMessage handles one inbound message.
+//
+// The error return exists for ONE reader: the intake worker pool, which must
+// know whether a dispatch was refused terminally (mark the event failed), was
+// refused transiently (leave it for a re-attempt), or ran (mark it done) —
+// bugs_open/239. Every other disposition returns nil, exactly as before: a
+// handled error, a validation drop and a successful run are all "this message
+// has been dealt with", and the Kafka consume loops ignore the value.
+func (a *Agent) processMessage(msg kafka.Message, messageType string) error {
 
 	envRequestsTopic := os.Getenv("REQUESTS_TOPIC")
 	envResponsesTopic := os.Getenv("RESPONSES_TOPIC")
@@ -849,7 +857,7 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 		a.logger.Debug("Ignoring empty message in processMessage",
 			zap.String("messageType", messageType),
 			zap.String("topic", msg.Topic))
-		return
+		return nil
 	}
 
 	startTime := time.Now()
@@ -926,7 +934,7 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 						zap.String("error_chain", headers["error_chain"]))
 				}
 			}
-			return
+			return nil
 		}
 	}
 
@@ -967,7 +975,7 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 		}
 		a.recordRejectedIncomingMessage(headers, messageType, "INCOMING_MESSAGE_REJECTED", missingHeaders)
 
-		return
+		return nil
 	}
 
 	// Check for empty headers as additional validation
@@ -1101,7 +1109,7 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 		// counter: if it ever does fire, the counter cannot name the message and
 		// nobody will be watching a metric for a branch believed unreachable.
 		a.recordRejectedIncomingMessage(headers, messageType, "MISSING_ORCHESTRATION_ID", []string{"orchestration_id"})
-		return
+		return nil
 	}
 
 	// Add agent context
@@ -1128,6 +1136,11 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 		zap.String("parent_orch_id", execCtx.ParentOrchestrationID),
 		zap.Int("payload_size", len(msg.Value)))
 
+	// The processor's verdict on this message. Declared here because the claim
+	// defer below is registered BEFORE processing runs and has to read it
+	// (bugs_open/239).
+	var procErr error
+
 	// Check for duplicates if stateless — two-phase claim (bugs_open/003 F3):
 	// RecordMessageProcessing claims the row as 'processing' with a lease;
 	// the defer below marks it 'complete' when processing finishes. A crash
@@ -1142,7 +1155,7 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 			contextLogger.Info("Duplicate message ignored",
 				zap.Int("retry_version", execCtx.RetryVersion))
 			observability.MessagesDropped.WithLabelValues(a.AgentType, "duplicate").Inc()
-			return
+			return nil
 		}
 
 		// Record processing (atomic claim)
@@ -1156,7 +1169,7 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 				zap.String("request_id", execCtx.RequestID),
 				zap.Int("retry_version", execCtx.RetryVersion))
 			observability.MessagesDropped.WithLabelValues(a.AgentType, "duplicate").Inc()
-			return
+			return nil
 		} else {
 			// Completion half of the claim. A defer, so it runs on EVERY
 			// in-process disposition (success, handled error, validation
@@ -1165,6 +1178,17 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 			defer func() {
 				cctx, ccancel := context.WithTimeout(context.Background(), 10*time.Second)
 				defer ccancel()
+				// bugs_open/239: a transiently-refused dispatch will be re-run
+				// by the intake pool, so its claim must be given back rather
+				// than completed — a 'complete' row would make the re-run drop
+				// itself as a duplicate. Same rule as the processor layer's
+				// claim; the two must not disagree.
+				if perrors.IsDispatchLookupUnavailable(procErr) {
+					if rErr := a.stateRepo.ReleaseMessageClaim(cctx, execCtx.CorrelationID, execCtx.RequestID, a.AgentID, execCtx.RetryVersion); rErr != nil {
+						contextLogger.Warn("DISPATCH_RETRY_CLAIM_RELEASE_FAILED (lease will expire naturally)", zap.Error(rErr))
+					}
+					return
+				}
 				if mErr := a.stateRepo.MarkMessageComplete(cctx, execCtx.CorrelationID, execCtx.RequestID, a.AgentID, execCtx.RetryVersion); mErr != nil {
 					contextLogger.Warn("MARK_COMPLETE_FAILED (lease will expire naturally)", zap.Error(mErr))
 				}
@@ -1178,10 +1202,23 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 	}
 
 	// Process through message processor
-	if err := a.processor.ProcessMessage(a.ctx, msg); err != nil {
+	procErr = a.processor.ProcessMessage(a.ctx, msg)
+	if err := procErr; err != nil {
 		contextLogger.Error("Failed to process message (agent.go)",
 			zap.Error(err),
 			zap.Duration("duration", time.Since(startTime)))
+
+		// bugs_open/239: a dispatch refusal has already produced its response
+		// and (for the terminal arm) its FAILED orchestration row at the refusal
+		// site. Hand the TYPED error to the caller so the intake pool can pick
+		// the right event disposition, and take neither of the branches below —
+		// the permanent one would classify it as a validation drop and the other
+		// would send a second failure response on top of the first.
+		if perrors.IsDispatchUnresolvable(err) || perrors.IsDispatchLookupUnavailable(err) {
+			observability.MessagesFailed.WithLabelValues(a.AgentType, messageType).Inc()
+			a.recordFailedProcessing(execCtx, messageType, err)
+			return err
+		}
 
 		// Check if this is a validation error. Needles are shared with the
 		// messaging layer (bugs_open/034: the two lists had drifted, so the same
@@ -1210,7 +1247,7 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 
 			// Just return - don't call handleProcessingError
 			// This prevents the error from being propagated and causing a retry
-			return
+			return nil
 		}
 
 		// For non-validation errors, handle normally
@@ -1228,6 +1265,10 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 		observability.MessagesProcessed.WithLabelValues(a.AgentType, messageType).Inc()
 		observability.MessageProcessingDuration.WithLabelValues(a.AgentType, messageType).Observe(time.Since(startTime).Seconds())
 	}
+
+	// Handled, either way: the failure paths above have already recorded and
+	// answered. Only a dispatch refusal returns non-nil, above.
+	return nil
 }
 
 // requiredIncomingHeaders mirrors validation.Validator.ValidateIncomingMessage.
