@@ -27124,3 +27124,62 @@ hypothesis was wrong, and worth recording as a *fact* rather than a scare: **can
 safe way to clear a stale row** precisely because it stays terminal for dedup while not counting
 as a failed attempt. One of the rows I cancelled had been `failed`, so the cleanup **removed** a
 strike rather than adding one.
+
+---
+
+## 2026-08-10 — staged_component_build (batch 8): I overwrote another live session's committed manifest, and git is the only reason it cost nothing
+
+**The claim that was false:** implicit, and that is what makes it worth a row — I wrote
+`manifest_batch8.json` as if it were a file I was creating. It was not. A concurrent session had
+committed it forty minutes earlier (`40c0f17f2`), carrying its `tool-setup-builder` entry. My
+`Write` replaced the whole file.
+
+**What caught it:** the tool's own reply said "has been **updated** successfully" where a new file
+says "created". That one word was the entire signal. Nothing else flagged it — `git status` before
+the write would have, and I had run one earlier in the session and treated it as still current.
+
+**The cheap check that would have prevented it:** `git log --oneline -3 -- <path>` (or `ls`) before
+writing ANY file whose name follows a series someone else might also be extending. `manifest_batch6/6b/6c/7`
+existed; `batch8` was the obvious next name for me **and for the session working the same handoff**.
+Predictable names collide — that is what makes them predictable.
+
+**Cost: nothing, and only because the file was tracked.** `git show 40c0f17f2:<path>` restored it
+exactly; I then put my own entries in `manifest_batch8b.json` and reverted `batch8` to HEAD. This is
+precisely the case CLAUDE.md's memory-directory rule describes ("the same mistake in this repo would
+have cost nothing, because git had a copy") — recorded here because the *repo* version of that story
+had not actually happened to anyone yet, and now it has.
+
+**The second-order trap I nearly walked into afterwards, which is the more useful half.** Having
+merged both entries into one manifest, the natural next step was to run the PLAN generator over it.
+That would have **superseded the other session's live `doc_plans` row** for `tool-setup-builder` —
+a proven, S6-green contract — and re-inserted an identical body under a new `created_at`, silently
+invalidating the evidence they had just recorded. The generator supersedes every entry in the
+manifest it is given. **Scope the manifest you APPLY to the subjects you actually own**, even when
+the batch record sensibly lists more.
+
+---
+
+## 2026-08-10 — staged_component_build (batch 8): "hidden elements read empty" — a mechanism I asserted from a function name, and the mutation prover refuted it
+
+**The claim:** that because `chromiumPage.Text` is `InnerText()`, a `display:none` results panel
+reads `""`, so a `computed_values` check on a reveal-style tool *already* proves the reveal. I wrote
+a mutants file on that basis, listing three value/breakdown checks in the `expect_fail` of the
+mutant that removes the reveal.
+
+**What caught it:** the prover. All three checks passed under that mutant, and it reported the
+mutant MISSED. I then ran an isolating probe that changed **only** the CSS — no JS — and
+`computed_values` passed there too. `innerText` falls back to `textContent` for an element that is
+not being rendered, so it reads the whole hidden subtree.
+
+**The cheap check that would have prevented it:** reading `Text()`'s two-line body tells you it is
+`InnerText()` and nothing more; the behaviour I needed is in the HTML spec, not the call site. A
+one-mutant probe costs ~60 seconds and answers it directly. **The general form: a function name plus
+a plausible mechanism is not a measurement**, and it is especially seductive when the conclusion is
+convenient (it made a check I had already written look like it proved more than it did).
+
+**Not caught here, and worth its own line: the prover's coverage table could not have caught it
+either.** "checks watched red: 13 of 13" was built from the mutants file's own `expect_fail` lists —
+the author's claims — not from what went red. So the same wrong file that mis-stated the blast
+radius also *certified itself* as full coverage. It only diverges on a failing run, which is why it
+survived this long. Fixed in `b861cdbeb`; the table now reads OBSERVED and is accumulated from the
+actual failures. **A coverage number derived from the input it is meant to audit is not coverage.**
