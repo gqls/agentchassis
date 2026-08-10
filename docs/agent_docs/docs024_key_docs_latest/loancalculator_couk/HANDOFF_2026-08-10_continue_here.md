@@ -113,19 +113,28 @@ route (b). Rejected alternative: persisting under a derived `subject_key` like
 **363's whole purpose is the REJECTED arm, and that arm has not been observed.** Both 08-09
 runs were approved, and a veto cannot be induced on demand.
 
-- **In flight when this was written:** run **`9150dd54-6129-464b-8600-771e0a84408a`**, fired
-  2026-08-10 10:44:47Z, plan-row baseline for `debt-difficulty-help` was **5**. It tests the
-  approved arm only, via a signal that could not have come out the same before the fix: an
-  approved run that takes N compose rounds used to write **N** plan rows (the 08-09 run wrote
-  **three** for one approval — 11,631 / 10,857 / 11,442 b) and must now write **exactly one**.
-  ```sql
-  SELECT count(*), count(*) FILTER (WHERE is_current) AS current
-    FROM doc_plans WHERE subject_type='experience' AND subject_key='debt-difficulty-help';
-  -- expect 6 and 1 (baseline was 5); and the run's verdict:
-  SELECT collected_data->'council'->>'decision' FROM orchestration_states
-   WHERE correlation_id='9150dd54-6129-464b-8600-771e0a84408a' AND collected_data ? 'council';
-  ```
-  If it came back **not** approved, that is even better evidence — assert **0** new rows.
+- **DONE for the approved arm, but NOT by the check I predicted.** Run
+  **`9150dd54-6129-464b-8600-771e0a84408a`** (fired 10:44:47Z) came back **COMPLETED /
+  approved**, plan rows **5 → 6, one current**, new plan `051af223` 10,075 b and clean
+  (`leaked=false`, so 345 is still holding too).
+  > **⚠ CORRECTED same day — the row-count signal I wrote here and into 363's header is
+  > NON-DISCRIMINATING for that run, and I nearly reported it as the proof.** It only
+  > discriminates if the run takes **two or more** compose rounds: an approved run that
+  > used to write N rows for N rounds now writes one. **This run was approved on round 1**
+  > (compose ×1, no recompose, no reframe), and a single-round run writes exactly one row
+  > under the OLD graph too. Same answer either way. **Check the round count before reading
+  > the row count:**
+  > ```sql
+  > SELECT step_name, count(*) FROM llm_call_log WHERE correlation_id='<CID>'
+  >   AND step_name IN ('compose','recompose','reframe') GROUP BY 1;
+  > ```
+  >
+  > **What actually proved it — the ORDERING, which discriminates on any run.** The old edge
+  > was `compose → persist_plan → review_journeys`, so under the old graph a row exists by
+  > the time the run reaches any review step. Sampled mid-flight, the run was
+  > `EXECUTING_STEP|review_journeys` with the count **still at the pre-run baseline of 5** —
+  > it had passed the point where it used to persist and had written nothing. That is the
+  > observation to repeat; it needs no multi-round run and no veto.
 - **Still owed:** the rejected/escalated arm. Either wait for a natural veto, or seed a
   deliberately unbuildable experience and assert **no new `doc_plans` row** for it while the
   run ends `complete_refused` / `complete_escalated`.

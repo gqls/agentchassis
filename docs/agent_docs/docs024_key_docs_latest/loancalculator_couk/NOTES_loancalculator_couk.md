@@ -4441,3 +4441,36 @@ for the vetoed one — either wait for a natural veto or seed a deliberately unb
 experience and assert no new row. Writing this down explicitly because this lane has already
 produced one check that could not fail, on this same bug, two days ago. **An approved run is
 not evidence about the rejected path**, however green it comes back.
+
+### Same-day correction — my 363 verification signal was non-discriminating, and it passed
+
+Run `9150dd54-6129-464b-8600-771e0a84408a` came back **COMPLETED / approved**, plan rows
+**5 → 6, one current**, new plan `051af223` 10,075 b, `leaked=false`. Exactly the number I
+predicted, and I was about to report it as proof of the rewire.
+
+> **CORRECTED 2026-08-10 — "an approved run must now write exactly ONE row" only
+> discriminates when the run takes TWO OR MORE compose rounds.** This run was approved on
+> **round 1** — `compose` ×1, no `recompose`, no `reframe`. Under the OLD graph a
+> single-round run also writes exactly one row, so "1 row" is the same answer before and
+> after the fix. **The check I wrote into 363's header, the handoff and my own report could
+> not have come out otherwise on the run I actually got.** The 08-09 run wrote three rows
+> only because it took three rounds; I generalised from that without noticing the round
+> count was doing the work.
+
+**What actually proves it, and it discriminates on any run: the ORDERING.** The old edge was
+`compose → persist_plan → review_journeys`, so under the old graph a plan row EXISTS by the
+time the run is executing any review step. Sampled mid-flight at 10:4xZ, the run was
+`EXECUTING_STEP|review_journeys` with the row count **still at the pre-run baseline of 5** —
+past the point where it used to persist, having written nothing. I took that reading almost
+by accident, while checking progress. **It is the only observation in this session that could
+have come out the other way, and it is now the recorded proof for the approved arm.**
+
+Two things to carry:
+1. **A count-based check inherits its discriminating power from a property of the RUN
+   (how many rounds), not from the fix.** Before trusting one, ask which property of this
+   particular run made the number differ — and if the answer is "nothing", the check is
+   inert for it. Same shape as the sentinel two days ago: an assertion that returns the
+   expected answer for a reason unrelated to what is being tested. **Twice in three days,
+   same lane, both on this bug.**
+2. **The rejected arm is still unobserved** and is still what 363 exists for. Nothing above
+   changes that.

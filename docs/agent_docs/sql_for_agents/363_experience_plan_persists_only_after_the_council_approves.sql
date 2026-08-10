@@ -86,6 +86,30 @@
 --   SELECT count(*), count(*) FILTER (WHERE is_current) AS current
 --     FROM doc_plans WHERE subject_type='experience' AND subject_key='debt-difficulty-help'
 --      AND created_at > '<run start>';           -- expect 1, 1
+--
+-- ⚠ CORRECTED 2026-08-10, SAME DAY, BY THE APPLYING SESSION — THE ROW-COUNT CHECK
+-- ABOVE ONLY DISCRIMINATES IF THE RUN TAKES TWO OR MORE COMPOSE ROUNDS. A run
+-- approved on round 1 writes exactly ONE row under the OLD graph too, so "1 row"
+-- is the same answer either way and proves nothing. The first verification run
+-- (corr 9150dd54-6129-464b-8600-771e0a84408a, 2026-08-10) was approved on round 1
+-- — compose ×1, no recompose, no reframe — so its clean "baseline 5 -> 6, one
+-- current" result is NOT evidence for this fix. Check the round count before
+-- reading the row count:
+--   SELECT step_name, count(*) FROM llm_call_log WHERE correlation_id='<CID>'
+--     AND step_name IN ('compose','recompose','reframe') GROUP BY 1;
+--
+-- THE CHECK THAT DISCRIMINATES ON ANY RUN, INCLUDING A SINGLE-ROUND ONE, IS THE
+-- ORDERING — and it is what actually proved this fix live. The OLD edge was
+-- `compose -> persist_plan -> review_journeys`, so under the old graph a row
+-- EXISTS by the time the run is executing any review step. Sample the count while
+-- the run is mid-flight:
+--   SELECT (SELECT current_step FROM orchestration_states WHERE correlation_id='<CID>'
+--             AND status='EXECUTING_STEP'),
+--          (SELECT count(*) FROM doc_plans WHERE subject_type='experience'
+--             AND subject_key='<key>');
+-- Observed 2026-08-10 on 9150dd54: `review_journeys` with the count still at the
+-- pre-run baseline of 5 — i.e. the run had passed the point where it used to
+-- persist and had written nothing. That is the disconfirmable observation.
 -- STILL OWED after that, and it is the arm this migration exists for: a REJECTED
 -- round must leave NO new row. It cannot be induced on demand — both 08-09 runs
 -- were approved — so the honest verification is either to wait for a natural veto
