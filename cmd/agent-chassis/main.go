@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/gqls/agentchassis/pkg/buildinfo"
 	"github.com/gqls/agentchassis/platform/agentbase"
 	"github.com/gqls/agentchassis/platform/config"
 	"github.com/gqls/agentchassis/platform/health"
@@ -49,6 +50,7 @@ func main() {
 		log.Fatalf("Failed to initialize logger: %v", err)
 	}
 	defer appLogger.Sync()
+	appLogger.Info("build provenance", zap.String("git_commit", buildinfo.GitCommit))
 
 	// Get environment variables
 	agentType := os.Getenv("AGENT_TYPE")

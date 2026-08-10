@@ -45,6 +45,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gqls/agentchassis/pkg/buildinfo"
 	"github.com/gqls/agentchassis/platform/agentenv"
 	kafkaplatform "github.com/gqls/agentchassis/platform/kafka"
 	"github.com/segmentio/kafka-go"
@@ -126,6 +127,7 @@ func main() {
 	// Setup logger
 	logger, _ := zap.NewProduction()
 	defer logger.Sync()
+	logger.Info("build provenance", zap.String("git_commit", buildinfo.GitCommit))
 
 	// Configuration from environment
 	kafkaBrokers := getEnvOrDefault("KAFKA_BROKERS",

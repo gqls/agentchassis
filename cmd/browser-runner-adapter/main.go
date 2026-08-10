@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/gqls/agentchassis/internal/adapters/browserrunner"
+	"github.com/gqls/agentchassis/pkg/buildinfo"
 	"github.com/gqls/agentchassis/platform/config"
 	"github.com/gqls/agentchassis/platform/logger"
 	"go.uber.org/zap"
@@ -37,6 +38,7 @@ func main() {
 		log.Fatalf("Failed to initialize logger: %v", err)
 	}
 	defer appLogger.Sync()
+	appLogger.Info("build provenance", zap.String("git_commit", buildinfo.GitCommit))
 
 	appLogger.Info("Starting browser-runner adapter",
 		zap.String("service", cfg.ServiceInfo.Name),

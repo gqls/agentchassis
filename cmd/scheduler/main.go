@@ -35,6 +35,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/gqls/agentchassis/pkg/buildinfo"
 	"github.com/gqls/agentchassis/platform/kafka"
 )
 
@@ -59,6 +60,7 @@ func main() {
 	logger := buildLogger()
 	defer logger.Sync()
 
+	logger.Info("build provenance", zap.String("git_commit", buildinfo.GitCommit))
 	logger.Info("kafka-scheduler starting")
 
 	// --- Postgres ---

@@ -40,6 +40,7 @@ import (
 	"github.com/gqls/agentchassis/internal/auth-service/project"
 	"github.com/gqls/agentchassis/internal/auth-service/subscription"
 	"github.com/gqls/agentchassis/internal/auth-service/user"
+	"github.com/gqls/agentchassis/pkg/buildinfo"
 	"github.com/gqls/agentchassis/platform/config"
 	"github.com/gqls/agentchassis/platform/database"
 	"github.com/gqls/agentchassis/platform/logger"
@@ -67,6 +68,7 @@ func main() {
 		log.Fatalf("CRITICAL: Failed to initialize logger: %v", err)
 	}
 	defer appLogger.Sync()
+	appLogger.Info("build provenance", zap.String("git_commit", buildinfo.GitCommit))
 
 	appLogger.Info("Auth Service starting",
 		zap.String("service_name", cfg.ServiceInfo.Name),
