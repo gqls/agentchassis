@@ -640,6 +640,18 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 	// incoming section that matches it.
 	lockedRows := loadActiveLockedRows(ctx, params.DB, pageID, params.Logger)
 
+	// --- Decision citation gate, the rebuild door (RFC_015 §5b) ---
+	// Owner ruling 2026-08-10, option 1 ("gentler version"): a slot covered by a
+	// decision this save did not CITE keeps its stored row instead of being
+	// overwritten, and the blocked overwrite is filed. The rebuild is NOT failed.
+	// Loaded here for the same reason as the locked rows above — ahead of the
+	// completeness floor, whose numerator is what this save will actually insert,
+	// and a protected slot discards the incoming section that matches it.
+	// See save_sections_decision_gate.go for why there is no bypass field.
+	decisionCitation := readDecisionCitation(params.CollectedData, config)
+	decisionProtected := loadDecisionProtectedRows(ctx, params.DB, siteID, pageID,
+		pageName, decisionCitation, lockedRows, params.Logger)
+
 	// --- Completeness floor (bugs_open/165 site A; rule from bugs_closed/135) ---
 	// LAST of this action's refusal guards, because it is the only one that needs
 	// the FINAL section set: the interactive-tool preservation above re-appends
@@ -749,13 +761,22 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 		)
 	}
 
-	// Clear existing components for this page — except actively-locked rows.
-	// lockedRows was loaded above (see the preservation note there), and the
-	// completeness floor has already established that this run saw enough of the
-	// page to be replacing it.
+	// Clear existing components for this page — except actively-locked rows and
+	// decision-protected ones. lockedRows and decisionProtected were both loaded
+	// above (see the preservation notes there), and the completeness floor has
+	// already established that this run saw enough of the page to be replacing it.
+	//
+	// The decision exclusion is a SEPARATE clause, not a change to
+	// pageComponentAgentWritableSQL: that fragment is the fleet's single source of
+	// truth for "may automation write this row?" and is shared with writers and a
+	// discovery check that must all agree about LOCKS. Decision protection is a
+	// per-save question (it depends on this envelope's citation), so it cannot
+	// live in a static predicate — and folding it in would silently change what
+	// every other caller of that fragment means.
 	delRes, err := params.DB.ExecContext(ctx, `
-		DELETE FROM page_components WHERE page_id = $1 AND `+pageComponentAgentWritableSQL(""),
-		pageID)
+		DELETE FROM page_components WHERE page_id = $1 AND `+pageComponentAgentWritableSQL("")+`
+		  AND NOT (id = ANY($2::uuid[]))`,
+		pageID, decisionProtectedIDArrayLiteral(decisionProtected))
 	if err != nil {
 		params.Logger.Warn("SavePageSectionsAction: Failed to clear existing components",
 			zap.Error(err),
@@ -792,6 +813,7 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 	savedWithContentData := 0
 	var skippedStubs []string
 	var lockedSlotsPreserved []string
+	var decisionSlotsPreserved []string
 	for i, section := range sections {
 		// ── Locked-slot guard (bugs_open/058) ────────────────────────────────
 		// The new composition produced fresh copy for a slot a human has
@@ -816,6 +838,32 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 			lrID := lr.id
 			emitLockBlockedChangeItem(ctx, params.DB, siteID, &pageID, &lrID,
 				pageName, lr.slot, lr.lockedBy, lr.lockType,
+				"overwrite", "save_page_sections", params.Logger)
+			continue
+		}
+
+		// ── Decision citation gate, same shape as the lock guard above ────────
+		// The slot is covered by a decision this save did not name: the stored
+		// row stands, the fresh copy is discarded, only the position moves, and
+		// the blocked overwrite is filed. The rebuild continues — that is the
+		// "gentler version" of the owner ruling of 2026-08-10 (RFC_015 §5b).
+		if dr := matchDecisionProtectedRow(decisionProtected, section.ComponentName); dr != nil {
+			dr.consumed = true
+			if _, posErr := params.DB.ExecContext(ctx, `
+				UPDATE page_components SET position = $2 WHERE id = $1
+			`, dr.id, i+1); posErr != nil {
+				params.Logger.Warn("SavePageSectionsAction: failed to reposition decision-protected section",
+					zap.String("slot_name", dr.slot), zap.Error(posErr))
+			}
+			params.Logger.Warn("SavePageSectionsAction: preserving decision-protected section over rebuilt copy (RFC_015)",
+				zap.String("page_name", pageName),
+				zap.String("slot_name", dr.slot),
+				zap.Strings("decisions", dr.decisions),
+			)
+			decisionSlotsPreserved = append(decisionSlotsPreserved, dr.slot)
+			drID := dr.id
+			emitDecisionBlockedChangeItem(ctx, params.DB, siteID, &pageID, &drID,
+				pageName, dr.slot, dr.decisions,
 				"overwrite", "save_page_sections", params.Logger)
 			continue
 		}
@@ -949,6 +997,35 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 			"remove", "save_page_sections", params.Logger)
 	}
 
+	// Decision-protected rows the new composition no longer includes. Same
+	// treatment as the locked leftovers above, and it is the case that matters
+	// most in practice: a rebuild DROPPING a protected slot is how the 2026-08-10
+	// regression would have been reported had the gate existed, and equally how a
+	// deliberately REMOVED section keeps its removal — preserving the stored row
+	// preserves whatever state it holds, including build_status='removed'.
+	for _, dr := range decisionProtected {
+		if dr.consumed {
+			continue
+		}
+		if _, posErr := params.DB.ExecContext(ctx, `
+			UPDATE page_components SET position = $2 WHERE id = $1
+		`, dr.id, nextPos); posErr != nil {
+			params.Logger.Warn("SavePageSectionsAction: failed to reposition retained decision-protected section",
+				zap.String("slot_name", dr.slot), zap.Error(posErr))
+		}
+		nextPos++
+		params.Logger.Warn("SavePageSectionsAction: retaining decision-protected section the new composition dropped (RFC_015)",
+			zap.String("page_name", pageName),
+			zap.String("slot_name", dr.slot),
+			zap.Strings("decisions", dr.decisions),
+		)
+		decisionSlotsPreserved = append(decisionSlotsPreserved, dr.slot)
+		drID := dr.id
+		emitDecisionBlockedChangeItem(ctx, params.DB, siteID, &pageID, &drID,
+			pageName, dr.slot, dr.decisions,
+			"remove", "save_page_sections", params.Logger)
+	}
+
 	params.Logger.Info("SavePageSectionsAction: Complete",
 		zap.String("page_name", pageName),
 		zap.String("page_id", pageID.String()),
@@ -956,6 +1033,7 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 		zap.Int("sections_saved", savedCount),
 		zap.Int("skipped_stub_sections", len(skippedStubs)),
 		zap.Int("locked_sections_preserved", len(lockedSlotsPreserved)),
+		zap.Int("decision_protected_sections_preserved", len(decisionSlotsPreserved)),
 	)
 
 	result := map[string]interface{}{
@@ -966,6 +1044,12 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 		"sections_saved":            savedCount,
 		"skipped_stub_sections":     skippedStubs,
 		"locked_sections_preserved": lockedSlotsPreserved,
+		// RFC_015 §5b: slots this rebuild would have overwritten but a decision
+		// protects and the envelope did not cite. Surfaced on every save, not
+		// only a gated one, so an acceptance run can assert the branch rather
+		// than infer it from an absence — the same reasoning as sections_source
+		// below, and the reason the 08-09 citation-gate proof was ambiguous.
+		"decision_protected_sections_preserved": decisionSlotsPreserved,
 		// Which representation was persisted, and how that was decided
 		// (bugs_open/194). Reported on every save, not only a losing one, so an
 		// acceptance run can assert the BRANCH rather than infer it from a

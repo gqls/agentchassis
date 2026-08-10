@@ -149,11 +149,22 @@ func CitationSatisfies(citation string, covered []DecisionCoverage) bool {
 	return false
 }
 
-// CoveredKeys renders the covering decision keys for refusal messages.
-func CoveredKeys(covered []DecisionCoverage) string {
+// CoveredKeySlice returns the covering decision keys.
+//
+// The slice form is the single definition; CoveredKeys below is the rendering of
+// it for prose. Kept that way because the rebuild-door gate needs the keys as
+// data (a JSON array in the work item spec, and zap.Strings in the log) while
+// the refusal messages need them as a sentence, and two independent loops over
+// DecisionCoverage would be two places to disagree about what "the keys" are.
+func CoveredKeySlice(covered []DecisionCoverage) []string {
 	keys := make([]string, len(covered))
 	for i, c := range covered {
 		keys[i] = c.Key
 	}
-	return strings.Join(keys, ", ")
+	return keys
+}
+
+// CoveredKeys renders the covering decision keys for refusal messages.
+func CoveredKeys(covered []DecisionCoverage) string {
+	return strings.Join(CoveredKeySlice(covered), ", ")
 }

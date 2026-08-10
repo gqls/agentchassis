@@ -272,6 +272,32 @@ var itemTypesWithoutVerifiers = map[string]verificationGap{
 	"broken_nav_links":                 {catMechanical, "[INFERRED] check_broken_nav_links; never observed live"},
 	"backend_unreachable":              {catMechanical, "[INFERRED] check_backend_unreachable, which already SELF-CLEARS on a live health probe — a verifier may be redundant here; check before writing one"},
 	"site_unreachable":                 {catMechanical, "check_site_unreachable (bugs_open/236, 522 half) SELF-CLEARS via Resolved{AllOfType} on a serving probe — the same posture as backend_unreachable, decided at birth rather than inferred later; a completion verifier would re-run the identical probe the check already re-runs every rotation pass"},
+	// decision_blocked_change (RFC_015 §5b, save_sections_decision_gate.go): a
+	// rebuild tried to overwrite a decision-protected slot without citing the
+	// decision; the stored content was kept and this records it. Classified on the
+	// way IN, before the first row exists, per this file's own 07-20 correction.
+	//
+	// catJudgement rather than catMechanical, and the distinction is real: the item
+	// does not describe a DEFECT that could be re-checked. It records an EVENT that
+	// already happened and was already handled correctly — the page is intact.
+	// "Resolved" would have to mean "a human decided whether the blocked change
+	// should now be made by citing the decision", which is a judgement, not a
+	// predicate. Contrast decision_regression, which IS mechanical and now has a
+	// verifier: there, the assertion can be re-run against the page.
+	"decision_blocked_change": {catJudgement, "save_sections_decision_gate.go (RFC_015 §5b, owner ruling 2026-08-10) — records a PREVENTED overwrite, not a live defect: the stored content stands and the page is intact, so there is no predicate to re-run. Resolution is a human deciding whether to re-dispatch WITH a citation. Same shape as lock_blocked_change"},
+
+	// ⚠ CONTRIBUTED FINDING, 2026-08-10, not this lane's to fix: **lock_blocked_change
+	// is in NEITHER half of this guard and has 37 live rows.** It is produced by
+	// lock_helpers.go in package `actions`, so the SENSOR (which scans only
+	// discovery_checks source) cannot see it, and it is absent from liveItemTypes
+	// below — so it is neither verified nor an acknowledged gap, and its
+	// completions are taken on the handler's word with nothing recording that
+	// choice. It is the direct sibling of the entry above and would classify the
+	// same way. Left for whoever refreshes the ratchet rather than silently
+	// adopted here, because the union rule means adding a type is a commitment
+	// about someone else's producer. Measured: SELECT item_type, count(*) FROM
+	// site_work_items WHERE item_type='lock_blocked_change' → 37.
+
 	// decision_regression: GAP CLOSED 2026-08-10 by the RFC_015 lane, whose debt
 	// this was. VerifyDecisionRegressionResolved re-runs the guard predicate over
 	// the same stored assembly (both extracted into decisionGuardViolated /
@@ -625,6 +651,11 @@ var liveItemTypes = []string{
 	// day one, and a type that only appears here after someone remembers is the very
 	// gap the CORRECTED note in this file's header is about.
 	"dark_section_audit",
+	// decision_blocked_change is listed from the moment it is minted, same rule and
+	// same reason as dark_section_audit above (RFC_015 §5b, 2026-08-10): the union
+	// rule means the ratchet protects it from day one, and a type that only appears
+	// here once someone remembers is exactly the gap this file's header corrects.
+	"decision_blocked_change",
 	"dead_control", "deactivated_component", "directory_citation_unverified",
 	"empty_internal_href",
 	"empty_section", "evaluate_tools", "generic_theme",
