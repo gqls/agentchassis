@@ -1074,3 +1074,52 @@ Landmine filed. **The transferable shape: a fence is read by TWO tiers with
 different rules, and the safety flag only binds one of them.** Ask which check
 types the OTHER tier can evaluate before adding any, and ask what `component_id`
 the page would hand over if it failed.
+
+### 2026-08-10 — the unattended sweep fired overnight and FOUND A NEW DEFECT on its first run
+
+The sweep selected this site at **03:20:59** and raised **14** `acceptance_run`
+items — the 16 eligible tools minus the 2 still in cooldown from yesterday's
+manual runs. All 14 completed.
+
+**13 passed. 1 failed: `mortgages-equity-release`** — and the failure was real.
+
+**The safety held, behaviourally, not just on paper.** `improve_tool` items
+raised against this site: **0**. The doc_note says it in terms: *"NOT auto-fixed
+— this fence declares no_auto_fix"*. Yesterday that flag was an assertion; now it
+has been asked a question and answered it correctly.
+
+**The defect.** `calcEquityRelease` had `if(age < 55) { alert(...); return; }` —
+a bare return that never touches the DOM. Measured live before changing
+anything:
+
+```
+fresh page, untouched         dispAge=65   erMaxCash=£0        <- INITIAL MARKUP
+age 65 (valid)                dispAge=65   erMaxCash=£124,000
+age 32.5 after a valid calc   dispAge=65   erMaxCash=£124,000  <- STALE
+age 32.5 on a FRESH page      dispAge=65   erMaxCash=£0        <- markup again
+```
+
+That is `bugs_open/224`'s mode 2 exactly — an ineligible input silently leaving
+the previous answer on screen — in a tool the 0% work never touched, **because
+this guard is on AGE, not on rate**. My 224 note said the stale mode was "dead as
+a class"; that was true of the six tools I converted and **false as a general
+claim about the site**. Corrected here.
+
+**Two things the failure exposed at once**, which is why it is worth reading
+twice:
+
+1. The tool is wrong (fixed: validates, then always writes — £0 against the age
+   actually entered; bands 55/65/75/85 re-checked unchanged).
+2. **The fence had pinned the page's INITIAL MARKUP as if it were an answer.**
+   `--emit-criteria` records whatever the tool displays, and for the half/asym
+   vectors (ages 32.5 and 39) the tool displayed nothing — so the capture stored
+   `dispAge 65 / £0`, which is the untouched DOM. On a fresh page per vector that
+   looked self-consistent; under the runner's shared page it collided with the
+   previous vector's real answer and the check failed. **A captured expectation
+   from a tool that did not write is not an expectation.** Re-emit for this tool
+   once the fix is live, or the fence keeps asserting markup.
+
+⚠ **The transferable check: when emitting criteria, ask whether the tool actually
+RESPONDED to each vector.** `--emit-criteria` already refuses a wholly inert tool
+(react/vary gates); it has no equivalent gate for a tool that is inert on ONE
+vector, and that is what happened here.
