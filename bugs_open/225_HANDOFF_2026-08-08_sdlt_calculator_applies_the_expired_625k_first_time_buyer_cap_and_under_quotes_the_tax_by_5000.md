@@ -228,11 +228,20 @@ script block, byte-identical in each (verified by assertion before editing):
    the live page. The rewrite was done in a MIRROR CLONE, never in place,
    because the working tree carried another session's staged
    `_first_lot_of_domains_/` files that filter-repo's closing `reset --hard`
-   would have destroyed. **Consequence to know:** the local repo's SHAs no
-   longer match GitHub's, so a plain `git push` from `~/projects/domains`
-   still tries to send the fat history and fails. Re-pointing the working tree
-   at the clean history is deliberate destructive work that needs the staged
-   WIP cleared first — left for the owner or a session that owns that tree.
+   would have destroyed.
+
+   **Completed 2026-08-10 (owner instruction): the working repo now tracks the
+   clean history and pushes normally.** Done with a **mixed** `git reset
+   origin/main`, not `--hard` — mixed moves the branch and rewrites the index
+   but never touches the working tree, so all 30,736 files stayed on disk
+   byte-identical (verified by hashing every at-risk file either side of the
+   switch) while `--hard` would have deleted 87 staged new files and 6.6 GB of
+   logs. Safety check before switching: `git diff --name-status c463764
+   origin/main` listed exactly 369 deletions, every one a `logs-*.json`, and
+   nothing else. The logs remain on disk, now untracked and ignored;
+   `.gitignore` (which had existed since March but was never committed, so its
+   rules were purely local) is now tracked with a `logs-*.json` glob, closing
+   the class. Push proven end-to-end from the working tree (`d219462`).
 
 **The fix** (sites `9d1a17202`, domains `c463764`): the inline block is now a
 branch-for-branch JS port of the lane oracle's `oracles.py:sdlt()` — named,
