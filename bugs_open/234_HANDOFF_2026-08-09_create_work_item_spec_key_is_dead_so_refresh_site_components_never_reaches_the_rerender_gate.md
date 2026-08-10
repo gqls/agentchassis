@@ -19,11 +19,27 @@ strict canary. Lane docs: `docs/agent_docs/docs024_key_docs_latest/bugfix_234_de
 **COUNCIL, round 1 (2026-08-10): REJECTED — hard veto from `guardian`, on SCOPE** (the
 live hard-fail enforcement shipped inside a bug fix; contained alternative: offline audit
 only). `architecture` objected-but-approved; 7 approved; every evidence objection is
-answered on the record. Per the 124 precedent the code stays and the seam is routed to
-**`architecture_review/RFC_021`**, where the owner decides: (a) 1278's enforcement rides
-the roll as committed, or (b) revert hard-fail+strict to warn-only pending the adoption
-protocol. **Do not resubmit against the scope veto; do not adopt `RemovedConfigKeys` on
-another action until RFC_021 Q1 is answered.**
+answered on the record. Per the 124 precedent the code stayed and the seam was routed to
+**`architecture_review/RFC_021`**. **Do not resubmit against the scope veto.**
+
+**OWNER RULING (RFC_021, 2026-08-10) — RESOLVED, and the code half is LIVE.**
+Q1: adoption protocol = census-at-adoption **+ an automated check** (not per-adoption
+producer inventories) → `removed-config-keys-check` CronJob deployed, 06:25 UTC, proven by
+a manual run (181 definitions, 0 carriers, `doc_notes` row written on the clean result).
+Q2: **KEEP** — the fleet rolled to **v1.0.1280** and both replicas carry the enforcement
+(`carries REMOVED config key`, `bugs_open/234`; negative control 0). Q3: increment #5 done
+— migration **370** retired `update_page_status`'s `notes_field`/`validation_issues_field`,
+declaration rides **v1.0.1281** (built + pushed, not deployed).
+
+**STILL OWED — one behavioural proof each, both blocked on the fleet, neither on work:**
+1. **Filed-row proof:** the first `improvement_rerender_*` row created after 2026-08-10
+   10:49Z must carry `{"refresh_site_components": true}` (§How to verify).
+2. **Strict canary:** `bugfix_234_dead_spec_key/witness_234_fire.sh` + `_poll.sh`. Three
+   firings produced no event because **the in-cluster fleet is stopped on an account-level
+   Anthropic cap** (commit `5fb7c6ebe`; last orchestration 16:56Z) — nothing dispatched, so
+   nothing could be rejected. The canary definition is deactivated so it cannot pollute the
+   Q1 census; **delete the row before re-firing** (the script refuses if the type exists in
+   any state). Run both when the fleet resumes.
 Note: a **17th** empty-spec row (`improvement_rerender_finetuning.uk`, 08-09 14:56Z)
 was filed between this file's measurement and the fix — 17/17 at fix time.
 

@@ -57,3 +57,40 @@ Per migration-runner practice: dry-run the runner first, this session, and scope
 `--apply` — it takes EVERY pending file otherwise. This lane applied by hand + `--record-only`.
 Re-check the next free number immediately before writing the file: three numbers were claimed
 by other sessions while 356 was being written.
+
+## The strict canary (code-half behavioural proof) — and its two traps
+
+```bash
+./witness_234_fire.sh     # seeds a throwaway agent with a bogus create_work_item key, dispatches once
+./witness_234_poll.sh     # v2: greps the SAME capture it just took (see trap 1)
+# expect: pod log "Invalid workflow configuration" naming zzz_strict_witness_234,
+#         and NO row (item_type='strict_witness_234')
+```
+
+- **TRAP 1 — a marker without its evidence.** Poller v1 wrote pod logs to files and grepped
+  the FILES in a later statement; pod deletion raced the two, so it recorded
+  "REJECTION SEEN" while the matching lines were gone. That log line is worthless as proof
+  and was discarded. v2 greps the capture in the same iteration and copies it to
+  `witness_234_evidence.log`.
+- **TRAP 2 — row absence is NOT the proof.** The spawn→call handshake drops roughly half of
+  all dispatches fleet-wide, so "no row" is equally consistent with "never ran". The pod log
+  line is the positive signal.
+- **Re-firing:** the fire script refuses if `strict-witness-234` exists in ANY state
+  (including deactivated), so `DELETE FROM agent_definitions WHERE type='strict-witness-234';`
+  first.
+- **Always deactivate/delete it afterwards** — while active it carries a bogus
+  `create_work_item` key and pollutes the all-depths census that the RFC_021 Q1 adoption
+  protocol depends on.
+- **Precondition:** the fleet must actually be processing. On 2026-08-10 three firings
+  produced nothing because the whole in-cluster fleet was stopped on an account-level
+  Anthropic cap. Check `SELECT max(created_at) FROM orchestration_states;` is recent before
+  blaming the canary.
+
+## The automated check (RFC_021 Q1)
+
+```bash
+kubectl -n ai-persona-system create job rck-manual-$(date +%s) --from=cronjob/removed-config-keys-check
+kubectl -n ai-persona-system logs job/<name>
+# clean run still writes a doc_notes row: a MISSING row means the job did not run
+SELECT body FROM doc_notes WHERE subject_key='removed-config-keys' ORDER BY created_at DESC LIMIT 1;
+```
