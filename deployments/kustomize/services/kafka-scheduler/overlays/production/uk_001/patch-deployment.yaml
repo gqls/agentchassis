@@ -31,6 +31,25 @@ spec:
             - name: LOG_LEVEL
               value: "info"
 
+            # bugs_open/240 mitigation (C3). The shared kafka-go transport
+            # refetches metadata for EVERY topic in the cluster (~3s mean), so
+            # this process's heap scales with cluster topic count. At ~25k
+            # topics the old 128Mi limit OOM-killed it every ~60s for 14h.
+            # GOMEMLIMIT makes Go GC harder as it nears the cap instead of
+            # letting the 2x-live-heap target blow through it — the process
+            # degrades (more GC) rather than dies. Mitigation only: the real
+            # fixes are the MetadataTopics change and the topic reaper.
+            - name: GOMEMLIMIT
+              value: "192MiB"
+
+          resources:
+            requests:
+              cpu: "25m"
+              memory: "96Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
+
           livenessProbe:
             httpGet:
               path: /health
