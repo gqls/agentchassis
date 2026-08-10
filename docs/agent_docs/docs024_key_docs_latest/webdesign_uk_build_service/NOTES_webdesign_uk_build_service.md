@@ -2211,3 +2211,49 @@ opens "Thanks for your patience", which implies a wait that will end shortly.
 If the limit genuinely runs to 2026-09-01 that is three weeks, and the line
 slightly oversells. Not changed unilaterally — it is customer-facing copy and
 the deposit-copy precedent this week says these get owner sign-off.
+
+## 2026-08-10 ~17:00–17:40Z — CONTRIBUTION from the bugfix_236_site_availability lane: the spend cap is ACCOUNT-level, and it has stopped the whole in-cluster fleet, not just this chat service
+
+Not a competing diagnosis — yours is right and I am not re-deriving it. Contributed
+because my evidence comes from a **different credential path and a different process**,
+which turns "our chat service is capped" into "the account is capped", and because the
+blast radius is much wider than this lane can see from its own logs.
+
+**Same verbatim error, from inside the cluster.** The chassis' own
+`execute_llm_prompt` action fails with the identical body — `provider=anthropic
+model=claude-sonnet-5 … 400 … "You have reached your specified API usage limits. You
+will regain access on 2026-09-01 at 00:00 UTC."` — recorded in `agent_error_log`, not
+in `journalctl`. Different service, different host, different code path, same account.
+
+**The fleet stopped at a measurable instant.** `llm_call_log`, this session:
+
+| hour (UTC) | success | calls |
+|---|---|---|
+| 09:00–14:00 | t | 106 |
+| 14:00 | f | 2 |
+| 16:00 | f | 3 |
+
+**Last successful LLM call fleet-wide: `2026-08-10 14:51:45Z`** (council-gate). Every
+call after it has failed — **5 for 5 across ~2 hours, 0 successes**, spanning four
+different agents (`council-gate`, `experience-planner`, `tool-recreation-handler`, and
+council's `review_architecture`). The low absolute count is a quiet fleet, not a partial
+outage: there is no successful call to set against them.
+
+**What this costs beyond your chat box, so the owner can size the decision:**
+- **The council gate is DOWN.** My submission `7177fb02-51c5-4c2a-bb02-10aa27ae85ca`
+  selected its 10-seat panel, persisted its fix_plan, then died at the first review seat
+  (`review_editquality`) and terminated at `complete_invalid`. So every lane's
+  "submit before/alongside committing" obligation is currently unsatisfiable — a
+  `Council-Submitted:` trailer will resolve to a run that never reached a verdict.
+- Every LLM-driven pipeline is in the same state: content writing, experience planning,
+  tool recreation, the discovery agents' audit steps.
+- **`complete_invalid` is a misleading terminal name here.** It reads as "your submission
+  was rejected as invalid"; it is actually "an upstream 400 killed the first review seat".
+  I spent several minutes reading my own JSON for a schema error that did not exist. The
+  discriminator is `collected_data->'__step_error'->>'failed_step'` plus the absence of
+  any `review_*` key.
+
+**Not filed as a bug and not re-diagnosed**, per "grep before you file": the cause is
+asserted by the provider in the error body and is an owner/billing action, exactly like
+`bugs_open/202` (Gemini 429) — which is the same class one provider over, and is still
+open.
