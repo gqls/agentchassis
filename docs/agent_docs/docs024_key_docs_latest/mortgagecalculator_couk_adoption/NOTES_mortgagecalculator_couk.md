@@ -1482,3 +1482,128 @@ re-file one recreation and read the generated JS for £500,000 rather than
 asks for beside each registered constant is a **trace for a human reader**; it
 must never become the machine declaration of Piece 2, because a comment enforces
 nothing and a source-scanning consumer would make every comment load-bearing.
+
+### 2026-08-10 evening — 366 PROVEN on a real rebuild, A1 done, and the register turns out to cut both ways
+
+**The handoff's proposed proof was not disconfirmable, and I nearly ran it anyway.**
+Next action 1 read: *re-file one recreation and read the generated JS for
+£500,000 rather than £625,000.* I dumped the **existing** component first
+(`page_components` `9bf28c5e`, built 08-08, i.e. BEFORE 366) and it already
+contained `const FTB_RELIEF_LIMIT = 500000;` and the correct band table. So that
+test returns £500,000 whether or not 366 exists — it measures the model's memory
+of SDLT, not the register. `[MEASURED — the pre-366 artefact, read in full]`
+
+**What discriminates is ATTRIBUTION, not the number.** 366's prompt asks for the
+fact's wording *beside the constant, in a code comment*. That is a thing the
+register can cause and the model's own knowledge cannot. So the test became: do
+the register's composed `writer_line`s appear in the artefact? With the pre-366
+build as the control, since it is the same tool, same agent, and a spec
+identical but for one id-contract clause.
+
+| register writer_line | pre-366 | post-366 |
+|---|---|---|
+| Standard residential SDLT is banded: nothing up to £125,000, … | 0 | 1 |
+| First-time buyers pay no SDLT up to £300,000, then 5% … | 0 | 1 |
+| Above £500,000 first-time buyer relief disappears entirely … | 0 | 1 |
+| An additional residential property usually costs 5 percentage points … | 0 | 1 |
+| *positive control* `Stamp Duty` | 7 | 3 |
+
+**The first run of that table said 0 and 0, and it was my measurement that was
+broken, not the change.** The generator wraps a long `writer_line` across two
+`//` lines, so a verbatim search finds neither side. Strip comment markers per
+line, then collapse whitespace, and it resolves. **A verbatim match against
+generated source is a claim about the generator's line width** — worth
+remembering before reading a 0 as an absence. The positive control is what
+stopped me publishing the first table: `Stamp Duty` matching in both files
+proved the search could fire on either.
+
+**Item mechanics, and one that will bite the next person.** Filed
+`49bbd08b` at `triaged`; it read **`complete` 52 seconds later**. It was not.
+The orchestration ended at `complete_error`, `__step_error.failed_step =
+analyze_tool`, message *"You have reached your specified API usage limits. You
+will regain access on 2026-09-01"* — the fleet-wide Anthropic cap, failing
+14:51–17:02Z. `result.response` held the **site record**, an early step's
+output, which is what a truncated run looks like from the item. `page_components`
+was untouched, so it was a clean no-op. **Recovery measured, not assumed: last
+failure 17:02:12Z, then 70 successful calls in the 18:00 hour across 3 agent
+types** — the stated 2026-09-01 reset did NOT hold, and the fleet-wide LANDMINES
+entry has been corrected accordingly (it currently tells every lane its council
+obligation is unsatisfiable for three weeks; it is not).
+
+Attempt 2 (`e0a64199`, 18:19) ran properly: claimed in ~70s, component saved in
+~4 min, deployed, item complete in 5m05s.
+
+**Two results from that build.**
+
+1. **Option VALUES landed exactly** — `next` / `ftb` / `additional`, in the
+   original's order, `next` selected on load. That clears handoff action 4:
+   stamp-duty is no longer **REPLAY-FAIL**. The comparator now judges it and
+   returns **DIVERGED with the ORIGINAL wrong**: at £595k FTB golden `£14,750`
+   vs rebuilt `£19,750`, and the defaults vector (£350k FTB) agrees at `£2,500`.
+   Report: `acceptance/COMPARE_2026-08-10b_stamp_duty_option_values_aligned.txt`.
+2. **The rebuild DROPPED the £40,000 additional-property surcharge floor.**
+   `SURCHARGE_FLOOR = 40000` appears twice in the pre-366 build and **zero**
+   times after. That is true law, correctly implemented before. It went because
+   366's own section says *"Do NOT state a rule that is not in the register"* and
+   the register held four SDLT facts, none of them the floor. **Nothing failed.
+   The tool simply became wrong below £40,000, silently.**
+
+> **This is the finding of the day and it is not the one I went looking for:
+> the register is load-bearing in BOTH directions. What it omits can be deleted
+> from a rebuilt tool.** A partial register is not a neutral one — and every
+> register is partial. Filed fleet-wide to `LANDMINES.md` with the prospective
+> check (enumerate the constants the current tool encodes, ask which the register
+> carries, register the gaps BEFORE filing the rebuild).
+
+**A1 DONE — 4 facts → 13, one per band edge and per rate.**
+`evidence/SEED_2026-08-10_sdlt_facts_per_threshold.sql` (+ its generators, now in
+the repo — the PLAN recorded their absence as a gap). Standard bands: 125k/2%,
+250k/5%, 925k/10%, 1.5m/12% as separate scalar facts; FTB nil band, FTB 5% rate,
+relief cap; surcharge rate; **and the £40,000 floor, cited to the higher-rates
+guidance page** — registered precisely because the rebuild had just shown what
+omitting it costs. Retired `sdlt-standard-bands` (bands in prose) and
+`sdlt-ftb-nil-rate` (two rules in one claim); checked first that neither id is
+referenced by `doc_plans`, `site_work_items` or `page_components` — only this
+lane's own docs. `pinned` carried forward (CLM-001: a replacement row defaults
+to false and silently loses human-owned status).
+
+**Quotes were lifted by the REAL Go extractor, not by python.** `evidence/quotecheck`
+is a scratch module that `replace`s the repo and calls
+`datahelpers.VisibleTextFromHTML` + `QuoteFoundInText` directly, so the day-one
+`citation_lost` class (my extraction vs the sweep's) cannot arise. Quotes come
+out of the dumped text **by regex, never retyped**, with `.` standing in for the
+currency symbol and the curly apostrophe so nothing non-ASCII is typed at all.
+All 13 verified against the live GOV.UK pages. **And the check was induced red
+first**: asking for `Up to £126,000 Zero` returns `NOTFOUND` and exit 2 in the
+same run as the real ones. Thirteen FOUNDs mean nothing until one NOTFOUND shows
+the check can fail.
+
+**Then the induced proof, run forward.** Re-filed the recreation a third time
+(`f7016d32`) with a spec **byte-identical to attempt 2** — diffed as parsed JSON
+before firing — so the register was the only changed input. The result:
+
+- `const ADDITIONAL_THRESHOLD = 40000;` is **back**, carrying the register's new
+  writer_line as its comment, and **read at the branch** (`if (price >=
+  ADDITIONAL_THRESHOLD)`), not merely declared. A declared-but-unread constant
+  would have been the other way to fail this test.
+- **All ten** granular writer_lines now appear as comments beside their
+  constants, including the five band lines that did not exist in the register
+  four hours earlier. The generator even titles the block *"Rate bands (verified
+  fact register; wording beside each constant)"*.
+- Arithmetic unchanged and correct: £19,750 at £595k FTB, £2,500 at £350k FTB.
+  Live on the wire at `/tools/stamp-duty/index.html` (25,741 B, 200).
+  `acceptance/COMPARE_2026-08-10c_stamp_duty_register_driven.txt`.
+
+So the chain **register → prompt → generated JavaScript** is now demonstrated end
+to end, in the direction that matters (change the register, the tool changes),
+without lying to the register to do it. `[MEASURED — but n=1 on a
+non-deterministic generator: this evidences the mechanism, it does not prove it.
+The honest claim is that the register was the only changed input.]`
+
+**Misstep, minor, logged to `WRONG_CALLS.md`:** I ran `landmines-sync.py --apply`
+and then `landmines-verify-dispatch.sh`. The dispatcher runs the sync itself and
+computes "new or changed" by diffing against the rows the sync already wrote — so
+my direct `--apply` **consumed the signal**, and the dispatcher exited 0 saying
+"nothing needs verification", which reads exactly like "all fine". Run the
+consumer, not the producer. The two new entries are synced to `doc_notes` but
+have not been through the landmine-verifier.

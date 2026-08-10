@@ -1,5 +1,11 @@
 # HANDOFF — mortgagecalculator.co.uk — cold start, read this first (2026-08-10)
 
+> **SUPERSEDED the same evening by `HANDOFF_2026-08-10b_continue_here.md` — start
+> there.** §4 actions 1 and 4 are DONE, and §4 action 1's stated test ("read the
+> generated JS for £500,000 rather than £625,000") **could not have failed**: the
+> pre-366 build already encoded £500,000. See 10b §1(a) for what was measured
+> instead, and §1(b) for what the rebuild deleted.
+
 **Supersedes `HANDOFF_2026-08-08c_continue_here.md`** (read it second: its §0 owner
 rulings and §3 landmines all stand; its §1 verdict table is superseded by §2 below,
 and its §2 items 1 and 1b are DONE).

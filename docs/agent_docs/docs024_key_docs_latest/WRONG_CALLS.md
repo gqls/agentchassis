@@ -26720,3 +26720,33 @@ evidence. Four instances in one session says this is a standing habit to design 
 four unlucky commands. It is the same failure the memory index already names from the other
 direction — *"a grep proves absence only for the SPELLING it searches"* — reaching me here as
 **a grep proves DENIAL only for the spelling of the refusal**.
+
+---
+
+## 2026-08-10 — I ran the sync directly, and it ate the signal the verifier dispatch reads
+
+*mortgagecalculator.co.uk adoption lane. Small, self-caught within a minute, and worth a row
+because the shape is one this file already names from other directions.*
+
+I appended two entries to `LANDMINES.md` and ran `./scripts/landmines-sync.py --apply`, which
+is what CLAUDE.md tells you to do. It printed `2 entries need verification:` and two
+`NEEDS_VERIFICATION:` lines. I then ran `./scripts/landmines-verify-dispatch.sh` to act on
+them. It reported **"Nothing needs verification (no new or changed entries this run)"** — and
+that is correct behaviour, not a bug: the dispatcher's first act is to run the sync itself,
+and the sync computes new/changed by **diffing against the `doc_notes` rows it already
+wrote**. My earlier `--apply` had written them. The signal is consumed by reading it.
+
+The script's own header says it plainly — *"Run this instead of `landmines-sync.py --apply`
+directly when you want new/changed entries verified"* — so this cost nothing but a minute and
+two unverified entries. **What makes it worth recording is that the failure is silent and
+reassuring**: the dispatcher exits 0 with a sentence that reads like "everything is already
+fine", which is indistinguishable from the state where verification genuinely was not needed.
+
+**The check:** when a tool reports work to be done and a second tool consumes that report,
+**run the consumer, not the producer.** And when a wrapper's docs say "run this instead of X",
+the reason is usually that X is not idempotent with respect to the wrapper's input.
+
+Same family as the memory index's *"your own action moves you to the back of the selector"*
+and *"declaring a key silences your own detector"*: **the act of recording changed the thing
+that decides whether recording was needed.** Here it was benign. It is the same mechanism that
+makes a detector go quiet on the case it was written for.

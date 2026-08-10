@@ -808,3 +808,64 @@ pinning before it can be checked automatically; twelve of our calculators have
 no checking document at all, which is why none of them has ever had an automated
 check run against it; and the big piece — computing expected answers from the
 registered facts themselves — still needs its architecture review.
+
+---
+
+**2026-08-10, evening.** The proof I promised in the last entry is done, but not
+the test I said I'd run — because when I looked properly, that test couldn't
+have failed.
+
+The plan was: rebuild the stamp duty calculator and check it uses £500,000
+rather than the old £625,000. So I read the calculator we already had, built
+two days ago, before any of this. It already used £500,000. The model simply
+knows the stamp duty rules. So the test would have come back green whether or
+not our registered facts had reached it — it would have measured the model's
+memory, not our register. A check that can only come out one way isn't a check.
+
+What can only come from our register is our own *wording*. So that became the
+test: does the calculator's code quote the sentences we wrote when we registered
+each fact? The old version: not once, anywhere. The new one: every one of them,
+sitting as a comment beside the number it licenses. That is the register
+reaching the calculator, and nothing else explains it.
+
+Then the rebuild taught me something I didn't ask it to. It **dropped a rule**.
+The old calculator knew that the additional-property surcharge only applies to
+purchases of £40,000 or more; the new one applied the surcharge at any price.
+Nothing failed, nothing was flagged, and the tool was quietly wrong at the
+bottom end. The cause is the instruction we ourselves added: *don't state a rule
+that isn't in the register*. The £40,000 rule was real law that we had never got
+round to registering — we'd registered four stamp duty facts, and that wasn't
+one of them.
+
+**So the register cuts both ways: what it leaves out can be taken away.** Every
+register is incomplete, so this matters beyond one number. I've written it up
+where any session touching a register will read it before, not after.
+
+The fix was the obvious one, and it doubles as the strongest evidence yet that
+any of this works. I re-registered the stamp duty rules properly — four facts
+became thirteen, one for each band edge and each rate, each quoting the exact
+sentence from GOV.UK, including the £40,000 rule — and then rebuilt the same
+calculator from a specification I did not change by a single character. The
+£40,000 rule came back, with our sentence beside it, and the code actually uses
+it rather than just declaring it. Change the register, and the calculator
+changes. That is the thing we've been trying to build.
+
+Two smaller results. The dropdown values are pinned now, so the automated
+comparison can finally drive the stamp duty calculator: it reports that on a
+£595,000 first-time purchase the original site says £14,750 and ours says
+£19,750 — ours is right, and the original under-quotes by £5,000. That finding
+is still waiting on you. And on the mechanics: quotes from GOV.UK are now
+lifted out of the fetched page by machine and checked with the same code the
+daily watch uses, rather than typed by me and hoped over.
+
+One outage worth knowing about, since it wasn't ours and it cleared: for about
+two hours this afternoon every AI call across the whole fleet failed on an
+account usage limit whose message said access returns on 1 September. It came
+back at ten past seven. It had already been written down elsewhere as a
+three-week outage, and I've corrected that, because other people are reading it
+and planning around it.
+
+Still open, unchanged: twelve calculators have no checking document, so none has
+ever had an automated check run; and the big piece — computing the expected
+answers from the registered facts themselves — still needs its architecture
+review before it's built.
