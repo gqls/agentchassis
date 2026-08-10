@@ -931,3 +931,27 @@ failing step's name looks like a deliberate "nothing to look at" branch, and tha
 part that let this go unnoticed.
 
 Say the word on the one-liner and I'll put it through the review gate.
+
+## 2026-08-10, night — the one-liner is in and under review, and the credentials question is written up
+
+Done as asked. The one-line fix is committed and submitted to the review council — the
+tool-test container type is now on the list that gets storage access at spawn time, so
+once the next release rolls out, the overnight sweep's tests will have their seeing half
+for the first time. The proof will have to come from a sweep-spawned run, not a hand-fired
+one, and I've written down exactly what that proof looks like.
+
+One wrinkle handled on the way: the concept register had recorded your 8 August ruling in
+its strictest form — effectively "nobody may give these containers storage credentials at
+all" — which would have made this fix look like a violation. Your instruction today makes
+the intended line clear: no broad spreading of credentials, but the per-type list is the
+proper mechanism. I corrected the register entry visibly and said why in the review
+submission, so the reviewers judge the real question rather than the stale one.
+
+And the B2 credentials point is filed as bug 245 rather than done immediately, for a good
+reason: the spawner currently copies those credentials from its OWN environment into the
+containers it creates. Strip them from the chassis first and every storage-using
+container starts up fine and then fails at its first real operation — quietly. The
+write-up puts the safe order on record: change the spawner to hand containers a reference
+to the secret instead of a copied value (we already do exactly this for the GitHub
+token), roll that, prove it on a real spawn, and only then take the credentials off the
+chassis. Say the word when you want that executed.

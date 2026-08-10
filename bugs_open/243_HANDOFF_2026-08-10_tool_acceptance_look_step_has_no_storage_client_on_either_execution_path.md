@@ -123,3 +123,30 @@ which candidate 1 does not fix; to test the fix you need a SPAWNED run). Expect
 `current_step='complete'`, no `__step_error`, and the vision verdict populated. The spawn
 env can be checked directly on the pod while it lives:
 `kubectl exec <agent-tool-acceptance-agent-…> -- env | grep -E "IMAGE_BUCKET|S3_ENDPOINT"`.
+
+---
+
+## UPDATE 2026-08-10 (same day, evening) — candidate 1 IMPLEMENTED, SUBMITTED, COMMITTED; still OPEN pending roll + spawned-run proof
+
+Owner directed candidate 1 ("please implement fix candidate 1 and put it through the
+council gate"). Done:
+
+- **Code**: `tool-acceptance-agent` added to `storageAgents` (`spawn_actions.go`), with
+  the why-comment citing this bug. Commit `543206039`, trailer
+  `Council-Submitted: 5eb4ad58-b873-4d6a-b61e-9cef1cbe4372`. HEAD verified to build from
+  a clean `git archive` after the commit.
+- **Council**: submitted pre-commit, correlation `5eb4ad58-b873-4d6a-b61e-9cef1cbe4372`.
+  The submission names the tension with the MDL-040 register entry's strict reading of
+  the 2026-08-08 ruling and the 2026-08-10 owner direction that resolves it; verdict to
+  be read and acted on (~30 min budget, find the run by payload not printout).
+- **Sibling filed**: `bugs_open/245` — the owner's companion directive (standing chassis
+  should not carry B2 credentials). Its candidate 1 (secretKeyRef conversion) must land
+  BEFORE any credential removal, or this fix's injection path breaks for every storage
+  agent — sequencing recorded in both files and in the submission's risks.
+
+**Remains OPEN because the bar is fixed AND live**: the change is inert until the next
+chassis image roll, and the proof must come from a SPAWNED run (`processing_node` naming
+an `agent-tool-acceptance-agent-*` pod, `complete` not `complete_no_look`, and the
+first-ever `llm_call_log` rows from the vision step). A manual run cannot prove it — it
+exercises the inline path this fix deliberately does not touch. Candidates 2 (manual
+path) and 3 (make the loss visible) remain undecided.

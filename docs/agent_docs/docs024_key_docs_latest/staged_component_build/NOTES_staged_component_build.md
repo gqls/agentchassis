@@ -2826,3 +2826,30 @@ unattended path. The manual path is an owner decision (three options in the bug 
 candidate 3 is to make the loss VISIBLE either way, because `complete_no_look` +
 COMPLETED let 26 consecutive losses pass unremarked. Filed: `bugs_open/243`. Not
 committed as a fix; awaiting the owner's word on candidate 1 + the council gate.
+
+## 2026-08-10 (second session, night) — 243 candidate 1 implemented + through the gate; 245 filed for the chassis's B2 credentials
+
+- **The edit**: `tool-acceptance-agent` added to `storageAgents` (`spawn_actions.go`),
+  why-comment citing 243. Package builds; **HEAD re-verified from `git archive` after the
+  commit** (shared-tree rule). Commit `543206039` with trailer
+  `Council-Submitted: 5eb4ad58-b873-4d6a-b61e-9cef1cbe4372`.
+- **The submission** names the conflict a reviewer would otherwise trip on: the MDL-040
+  register entry read the 08-08 ruling as closing ALL credential injection for this
+  agent's pods ("do not seed a consumer"), and the owner's 08-10 direction resolves it —
+  the ruling forbids the broad remedies, not the per-type list grant. Register entry
+  corrected visibly (strike-through + dated resolution), per the stale-status landmine.
+- **`bugs_open/245`** (244 was taken by another session mid-day — numbering moved under
+  me, checked at HEAD not just disk): the standing chassis carries AWS/B2 credentials via
+  secretKeyRef while having no bucket config — no capability, full secret surface. The
+  landmine in the removal: **the spawn block launders credentials through the
+  orchestrator's own env** (`os.Getenv` → plain `Value` in the spawned pod spec,
+  spawn_actions.go:2558-2580), and skips empty values without error — so naive removal
+  breaks every storage agent's spawn at first use, silently. Fix candidate 1 there:
+  convert the injection to `secretKeyRef` (the `GITHUB_READ_TOKEN` block in the same
+  function is the worked pattern, :2541-2547), THEN remove the overlay lines. Measured:
+  the four names' only literal `os.Getenv` readers are those four spawn lines.
+- **243 stays OPEN** — the bar is fixed AND live: needs the next chassis roll plus a
+  SPAWNED run proof (`processing_node` = `agent-tool-acceptance-agent-*`, `complete` not
+  `complete_no_look`, first-ever vision `llm_call_log` rows). A manual run proves the
+  path the fix does not touch. Verdict on `5eb4ad58` to be read next session if not
+  landed tonight (budget ~30 min, find by payload).
