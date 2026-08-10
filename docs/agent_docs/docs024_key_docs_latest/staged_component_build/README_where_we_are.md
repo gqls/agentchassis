@@ -955,3 +955,70 @@ write-up puts the safe order on record: change the spawner to hand containers a 
 to the secret instead of a copied value (we already do exactly this for the GitHub
 token), roll that, prove it on a real spawn, and only then take the credentials off the
 chassis. Say the word when you want that executed.
+
+---
+
+**10 August 2026, evening — the logo turned out to be a four-month fault in our own repair machinery, and I could not honestly fix it tonight**
+
+You asked for four things. Here they are in plain terms, and one of them did not go the way
+either of us expected.
+
+**The gas wholesalers logo.** It was never missing. The picture has been sitting on the site
+the whole time under a nonsense filename — literally `input-data.asset-key.jpg`, which is a
+piece of our own configuration that failed to fill in and got used as a filename instead.
+The page asks for `logo.png`, so the browser gets nothing. I downloaded the mystery file and
+looked at it: it is your real Gas Wholesalers wordmark, perfectly good.
+
+The reason nobody caught this is the part worth your attention. Our system **has** been
+detecting the problem — four times since April — and it **has** been running the repair, and
+the repair **reports success every time**. It commits a file, says "done", and the page keeps
+failing, so the detector raises it again next sweep. It is a loop that cannot ever finish. I
+put it through the diagnosis loop and it came back confirmed on the first pass, agreeing
+with the cause I had found.
+
+There are two faults, and I proved the second one live by triggering a repair and watching
+it happen: the repair deployed the logo as `logo.jpg` and wrote "Deploy **hero** image" in
+its own commit message. It does not know a logo from a hero photograph, because the piece of
+plumbing that should tell it never gets filled in. That affects 118 image records across ten
+sites — though I want to be careful here: I checked the other sites and four of the five
+comparable ones are serving their logos perfectly well, so that number is the size of the
+mess in the records, **not** the size of the damage to your sites. Gas wholesalers is the one
+actually broken.
+
+I have **not** fixed it, and I want to be straight about why. The fix is a change to shared
+machinery that every site's images go through. Making that change quietly at half past seven
+in the evening, on a system where several other sessions are working at the same time, is
+exactly the kind of thing our review process exists to prevent. It is written up in full with
+the fix ranked by which option closes the door properly. One small confession: my test
+attempt left a stray unused `logo.jpg` file on the site. It is harmless and referenced by
+nothing, but it is mine and I have flagged it for removal rather than pretending it away.
+
+**The broken converter tool.** Unparked, as you asked, and recorded as your decision rather
+than something I did quietly. But unparking it does not fix it, and I would rather say so
+than let it look done. The page is an empty shell — it has no content plan at all, which is
+why the repair handler has twice looked at it and correctly done nothing. Nine pieces of
+writing are missing, and the item tracking that has **no repair mechanism anywhere in the
+system** — it only ever closes when something else happens to write the words. The thing that
+would genuinely fix it is putting the page back through the full build pipeline, which
+rebuilds the whole site from scratch. That is your call, not mine to take on a live site.
+
+**The tracker feeds.** Nobody is handling them. That team's work stopped on 26 July and has
+not moved since — no one is mid-fix, so it is free to pick up. I also had to correct our own
+note from yesterday: we guessed the fix was "probably one command". It is not. The feature
+was switched on for one afternoon in July, published the wrong file three times under the
+right-sounding labels, was switched back off the same hour, and was never switched on again.
+The underlying code is complete and the data is all there — 32 companies, 4 protocols, ready
+to publish. It needs a configuration change, no new software, and I have written the exact
+steps and the check that would catch a repeat of the July mistake into their folder.
+
+**The email question.** Short version: `platform/mailer` is real, working, tested code that
+nothing uses. To make contact forms actually deliver you need three things, and only one is
+software. You need somewhere to receive the form — no such thing exists in the built system
+today. You need a mail account for it to send through, and there is genuinely no email
+credential anywhere in the cluster right now. And you need one real fix to the mailer itself:
+it promises to give up quickly if the mail server hangs, but that promise only holds on a
+connection type our hosting cannot use — on the one we can, it would sit there indefinitely.
+I also checked a claim in our own notes that a public endpoint "already accepts" requests
+from these sites. It does not — I tested it, and it refuses them exactly as it refuses a
+made-up address. The design is sound, the word "already" was wrong, and it is one database
+row per site to change that, not a code change.

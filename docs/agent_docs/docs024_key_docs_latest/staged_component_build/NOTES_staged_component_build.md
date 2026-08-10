@@ -2853,3 +2853,105 @@ committed as a fix; awaiting the owner's word on candidate 1 + the council gate.
   `complete_no_look`, first-ever vision `llm_call_log` rows). A manual run proves the
   path the fix does not touch. Verdict on `5eb4ad58` to be read next session if not
   landed tonight (budget ~30 min, find by payload).
+
+## 2026-08-10 (third session, evening) — the owner's four asks; the logo is NOT fixed and the reason is a confirmed platform defect
+
+Owner: *"unpark the broken tool so it can be fixed. fix the logo. which thread is handling
+the tracker-feed 404s. how would the platform mailer work?"* Fleet at **v1.0.1280** (chassis
++ browser-runner, pods up 15:45Z) — newer than the 08-10 morning handoff's v1.0.1277;
+nothing this lane waits on was gated on a roll.
+
+### 1. The logo — four months, not six days, and the repair path is the cause
+
+The file was **never missing**. It serves at `/assets/images/input-data.asset-key.jpg`
+(200, 37,221 B — I downloaded it and LOOKED: the real wordmark). The page asks for
+`/assets/images/logo.png`, which is what `DeployedWebPath("logo","logo")` returns — its own
+doc comment says so. Writer and reader disagree, and **the writer is wrong.**
+
+Filed **`bugs_open/248`**; `090` **CONFIRMED first iteration** (intake
+`b78e9a04-9a91-4261-af86-fb79f9316a4e`, run `8cb3778d-c3e6-4dd8-9e80-09c0d1b0e594`),
+independently re-reading the same functions and citing the same 20 rows. Two defects:
+
+- **(a)** `asset_key`'s ladder rung 2 takes `config["asset_key"]` — the dotted path
+  `input_data.asset_key` — as a **literal filename**. `AssetKeyFilename` maps `_`→`-`.
+- **(b)** `purpose` can never resolve on the work-item path: the `build-dispatch-loop`'s
+  `call_handler.input_mapping` has **no `purpose` key** (nor `asset_key`), and because
+  `purpose` carries `Defaults{"hero"}` the default short-circuits before any fallback
+  search. `asset_key` resolves *only* because it has **no** default. **A field with a
+  default is harder to supply than one without** — the `bugs_open/231` mechanism.
+
+**Fleet: 118 rows / 10 sites** carry the placeholder. **But the disconfirming measurement
+matters more:** of the five sites whose *logo* row carries it, **four serve `logo.png` =
+200**. Only gaswholesalers 404s. `assets.url` is not the served path — the row count is
+the size of the corruption, never of the outage. I did not census which of the other 113
+are page-referenced; that is undone.
+
+**What I tried, in order, and what each taught:**
+
+| attempt | result | lesson |
+|---|---|---|
+| direct kcat → `system.agent.generic.requests`, ×2 | **FAILED** `storage client not available` | chassis has `IMAGE_BUCKET` unset on both replicas; only `build-dispatch-loop` + `image-generator-adapter` carry the bucket. **The route is the work item, not the topic.** Contributed to `bugs_open/245` |
+| corrected `undeployed_asset` item with `asset_key` in spec | claimed in 4 min, **`complete`**, and deployed **`/assets/images/logo.jpg`**, commit message *"Deploy **hero** image"* | (a) fixed by my spec — proving the remedy — and **(b) caught in the act** |
+
+The item sat at `detected` and would not dispatch: the triage sweep is backlogged
+(**636 `detected` items, oldest 2026-07-24**). Hand-promoted `detected`→`triaged` (the
+same transition `triage_detect_items` performs), recorded in the item's `result`. The
+loader's predicate is `status IN ('triaged','approved')` and the loop carries **no
+pipeline filter**, so pipeline was irrelevant — a thing I checked rather than assumed.
+
+**⚠ Litter I left:** a stray `/assets/images/logo.jpg` in `gqls/sites` for
+gaswholesalers.com. Unreferenced (markup asks `.png`), inert, and mine. Not removed —
+deleting from a site repo is a write path I would not improvise at the end of a session.
+Recorded in 248.
+
+**Not fixed, deliberately.** Both remedies (delete rung 2; add `purpose`/`asset_key` to the
+dispatcher's mapping) are shared-agent/platform-scope. Slipping either in unreviewed at
+19:30 on a tree this many sessions share is exactly what the council gate exists for.
+
+### 2. The broken tool — unparked, and the unpark cannot fix it
+
+Three items on `tool-gas-unit-converter`, all now visible, all annotated with the owner's
+decision (`result.unpark` / `result.unpark_context`):
+
+- `e4844153` `needs_page` — lifted **`wont_fix` → `needs_human_review`**. It was swept to
+  `wont_fix` on 08-04 by `bugs_closed/187` as *"unsatisfiable at birth"*, and **that sweep
+  was correct**: the page carries `sections=[]` and no plan rows, so `page-build-handler`
+  no-ops. Reopening it to `detected` would have re-fired a known no-op and fought 187's
+  shipped guard — so I did not.
+- `261631b2` `empty_section` — note only. Its spec says `original_pipeline: content`; it
+  was rerouted to `build`, where the handler cannot do a content write.
+- `483fb749` `required_fields_missing` — 9 fields with `source: llm` that `content_data`
+  never received. **This type has no repair handler fleet-wide**: 68 open / 37 complete,
+  and every completion is a `revalidation` verdict — it closes when something *else* writes
+  the content. Never by being handled.
+
+So the park is lifted and the tool is still broken, honestly. The satisfiable ask is a page
+**plan + content**, which today means the 082 pipeline — a whole-site rebuild from domain
+research on a live deployed site. Not fired: that is a scope decision, not a repair.
+
+### 3. Tracker feeds — nobody owns them, and our own 08-09 guess was wrong
+
+Lane dormant since **2026-07-26** (`758a90f43`); transcript sweep found no thread on it.
+The publisher was extended to 7 steps on 07-26, **produced the model register three times
+under tracker commit messages**, and was reverted to the model-only chain the same hour.
+Never re-extended. Full evidence + the corrected fix (config `UPDATE` + the force-trigger
+idiom, no roll) written into that lane:
+`model_directory_pipeline/FINDING_2026-08-10_the_tracker_publisher_was_reverted_and_never_re_extended.md`,
+which corrects our CONTRIB's *"probably one dispatch"* in place.
+
+### 4. Mailer — and a REFUTED claim in `bugs_open/228`
+
+`bugs_open/228` states `tools.apis.uk` *"already takes cross-origin POSTs from these very
+domains."* **Refuted, measured today** with controls both ways: `Origin: https://vonc.com`
+→ **204** + `access-control-allow-origin` (positive control, so the requests reached the
+origin); `robot-hands.com` and `leopardessconsulting.co.uk` → **403 `origin not allowed`**,
+identical to a nonsense origin. CORS reads the **island's own** `sites` table, not the
+platform's. The design claim is sound; only the word "already" is false — it is one
+`INSERT` per domain, no code change. Detail in the session report.
+
+`platform/mailer` still has **zero importers** (grep verified, with `platform/httpguard` →
+1 hit as the positive control). Two things the register does not record: its bounded-timeout
+guarantee applies **only** to the implicit-TLS port 465 branch, and EMAIL-002 says this
+estate can only use 587 — where the code is a bare `smtp.SendMail` that ignores `ctx`; and
+`deliver` has **no test at all** (all 8 tests cover the pure half). No SMTP credential
+exists in any cluster secret.
