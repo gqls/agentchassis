@@ -27240,3 +27240,57 @@ header, register entries DES-082 and DES-083, and the submission JSON). Forward-
 none of those can be amended. Corrections are appended where they can be, but **the commit
 message is uncorrectable and will read as true to anyone doing archaeology on this seam.**
 That is the real cost of citing evidence you have not typed a query against.
+
+---
+
+## 2026-08-10 (evening) — I nearly reported my own broken probe as the new mechanism's first success (bugfix_153_build_provenance)
+
+**The claim I came within one query of publishing.** Verifying BLD-019 on the fresh
+`v1.0.1283` roll, 13 of 14 services showed the expected commit sha in their binary and
+`browser-runner-adapter` showed none. The story wrote itself: *the provenance mechanism has
+caught a service whose binary does not match its tag, on its first run — exactly the defect
+`bugs_open/153` was filed for.* It is a satisfying, on-narrative, completely wrong conclusion.
+
+**What was actually true.** `browser-runner-adapter` is the fleet's only **debian-slim**
+service (Chromium needs glibc). `strings` comes from binutils, which debian-slim does not
+ship. My probe was `strings /proc/1/exe 2>/dev/null | grep -cE ...` — the `2>/dev/null`
+swallowed *command not found*, the empty pipe reached `grep -c`, and I got a clean `0`. The
+service was correctly stamped all along; the log line proved it
+(`"msg":"build provenance","git_commit":"d3c09cc74…"`) and so did `grep -a` on the raw binary,
+3 occurrences, with a fabricated-sha control at 0.
+
+**What caught it, and it was not diligence about the probe.** I compared the pod's `imageID`
+digest against the local image's `RepoDigest` — `sha256:e677cea5…` on both — so the pod could
+not be running a stale image, which contradicted my own conclusion. Then I extracted the
+binary *from that image* and found the stamp present. **The contradiction did the work.** Had
+the digests been merely plausible rather than identical, I would have shipped the false
+positive.
+
+**The cheap check I skipped: a positive control in the same exec.** This estate's own rule —
+already in `LANDMINES.md`, already in memory, already quoted in `bugs_open/153` itself, which
+I had read that morning — is that *a zero from a marker grep is ambiguous without a positive
+control*. I applied that rule rigorously to `agent-chassis` (real sha 3, fabricated 0, a real
+but *different* commit 0, `orchestration` 8562) and then, moving down a list of thirteen more
+services, quietly stopped applying it. **The discipline decayed exactly where the list got
+boring**, which is where it was load-bearing.
+
+**Then the fix for it was wrong too, in the same direction.** I replaced `strings` with
+`grep -aoE "[0-9a-f]{40}"` to *discover* the sha — which also discards `strings`' line
+boundaries, so `^`/`$` stop meaning anything and the match lands inside Go's internal digit
+table. Every service returned `0001020304050607080910111213141516171819`, identically, with no
+error. Caught only because I tested the fix against a known-good service instead of trusting
+it. **A discovery grep over an unanchored byte stream cannot be trusted; only a verification
+grep for a value you already know can.** Ask *"does this pod carry sha X"*, never *"what sha
+does this pod carry"*.
+
+**Cost.** ~15 minutes and no published claim, because both errors were caught before writing.
+The real cost is what it says about the failure mode: **this is the third time today** I have
+produced a confidently wrong reading from a check that could not have returned anything else
+(the jsonb `provider` path, the dismissed grep hits, now this). All three share one shape — an
+instrument that answers a different question than the one asked, and answers it in the
+believable direction.
+
+**Fixed by:** `makefile` `verify-agent-images` now verifies a known sha via
+`grep -aq "<sha>" /proc/1/exe` (no binutils, any image base, any binary path), proven both
+directions on both bases; `LANDMINES.md` entry covering both traps; and the `bugs_open/153`
+verification record states 14/14 with the probe that was actually used.
