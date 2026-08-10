@@ -13,7 +13,7 @@ selector delivered **all 10 predicted closures**; a same-day regression on darts
 was found, fixed (migration `368`), re-rendered and re-measured — **that page now returns
 `contrast=0`, the first clean page in this lane**. The missing half of the approved plan
 is also done: migration `369` puts the render audit on a **weekly per-site cadence**, and
-it fired within 70s of apply and filed **34 real findings** on robot-hands' interior pages.
+it fired within 70s of apply and found **171 firm findings** on robot-hands' interior pages, filing 34 of them (see §4a — the sweep and the drain BOTH capped).
 What remains is not fixable by this lane's design: ~24 failures on component-painted
 grounds (`bugs_open/212` §8, an owner decision), and the repair route those 34 new findings
 flow into carries `bugs_open/213`'s false-complete defect.
@@ -97,12 +97,12 @@ Clones the proven `site-discovery-rotation-*` mechanism rather than inventing on
 
 **Proven at the artefacts, not at `enabled` + a fresh tick:** rotation stamped
 robot-hands.com 14:54:23Z → orchestration `b30943e4-440c-4f7c-8221-48ded2c6a562` step
-`audit` → `COMPLETED` 14:57:29Z → **34 `contrast_failure` items filed**, born `detected`,
-deduped `contrast_failure:<page-path>#<selector>`.
+`audit` → `COMPLETED` 14:57:29Z → **171 firm findings, 34 `contrast_failure` items filed**,
+born `detected`, deduped `contrast_failure:<page-path>#<selector>`. See §4a for the other 137.
 
 **Two consequences you must not miss:**
 
-1. **The homepage-only baseline was hiding most of the problem.** Those 34 are on
+1. **The homepage-only baseline was hiding most of the problem.** Those findings are on
    *interior* pages — tool pages, guides, `/about`, `/selection-guide` — which the
    15-page survey never fetched. Expect that scale per site as the rotation works round.
    Among them: `info-card-grid__card-link` + `__eyebrow` on `/selection-guide.html`,
@@ -112,6 +112,33 @@ deduped `contrast_failure:<page-path>#<selector>`.
    213 shows can stamp `complete` with nothing written. The detection half is now
    excellent and the repair half is known-defective. **Grade repairs at the NEXT audit,
    never at the item status** — and treat 213 as this area's highest-value open bug.
+
+### 4a. TWO caps bite on a real site, and only one of them admits it — `bugs_open/242`
+
+Found while verifying the cadence's second fire, so the sample is **2 of 2 rotation runs**:
+
+| | robot-hands (fire 1) | loancalculator (fire 2) |
+|---|---|---|
+| deployed pages | **31** | **27** |
+| pages actually swept | 25 (`max_pages`) | 25 |
+| **never rendered** | **6** | **2** |
+| firm findings on what WAS swept | 171 | 2 (both in locked components — correctly not filed) |
+| items filed | 34 | 0 |
+| dropped by the drain's `max_items` | **111**, and it SAYS so | 0 |
+
+**The drain's cap records its own bite** (`findings_capped: true`, `findings_dropped: 111`
+in `collected_data->'findings_written'`). **The sweep's cap does not** — `truncated` is
+computed at `request_render_audit_action.go:157`, logged at `:160`, returned in `Metadata`
+at `:251-259`, and is **absent from `collected_data->'render_audit'`**, whose only keys are
+`response`, `response_status`, `response_received_at`. So a partial sweep is
+indistinguishable from a complete one in the stored artefact, and the missed pages are the
+*same* ones every week — the tail never rotates into view.
+
+**Do not read "the audit runs weekly" as "the backlog is being worked off."** robot-hands
+alone carries ≥171 firm findings against a ≤60/site/week ceiling, and re-finds them each
+cycle until they are actually repaired — which `bugs_open/213` says may not be happening.
+Filed as **`bugs_open/242`** with the fix candidates ordered; the cheapest closes the door
+by putting `pages_total` in the summary, which is only parity with the drain one step down.
 
 ## 5. What is left, honestly scoped
 

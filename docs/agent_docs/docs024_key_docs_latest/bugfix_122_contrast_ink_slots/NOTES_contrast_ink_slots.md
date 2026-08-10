@@ -852,3 +852,44 @@ The handoff's standing advice to "re-check the free migration number" is necessa
 and 368 was genuinely free at that moment. The collision arrived in the window between
 the check and the write. On this tree the number is not reservable; only the filename is
 unique, which is the property the runner actually relies on.
+
+## 2026-08-10 (post-handoff) — the cadence's own second run found a defect in the cadence
+
+Checked the second rotation fire before closing out, because "0 findings" has more than one
+cause. It picked loancalculator.co.uk, `COMPLETED`, `error` NULL, **0 items filed** — and
+the reason turned out to be a *third* cause I had not listed: `skipped_locked: 2`, both firm
+findings sitting in locked components, which VIZ-013 deliberately declines to file. **Zero
+was correct on that run.**
+
+But the same check surfaced a real one. The site has **27 deployed pages and the sweep
+measured 25** — and nothing in the stored run says so. `truncated` is computed
+(`request_render_audit_action.go:157`), warned (`:160`) and returned in `Metadata`
+(`:251-259`), yet `collected_data->'render_audit'` holds exactly three keys —
+`response`, `response_status`, `response_received_at` — enumerated with
+`jsonb_object_keys`, **not** probed by path, precisely because a path read cannot see a
+shape change underneath it.
+
+Re-checked fire 1 rather than leaving it for the next reader (the bug file's own §6 told
+that reader to do it; doing it myself was one query): **robot-hands.com is 31 pages, also
+swept 25 — 6 never rendered.** So **both rotation runs in existence were truncated and
+neither said so.**
+
+**The instructive contrast, and the reason the bug is filed the way it is:** the drain one
+step downstream hit *its* cap on the same run and was honest about it —
+`findings_capped: true`, `findings_dropped: 111` of 171 firm. Same class of decision, same
+run, opposite outcome. The fix candidate is not "invent a mechanism", it is "give the sweep
+the parity the drain already has".
+
+> **MISSTEP 17 — I wrote "filed 34 real findings" in the handoff, the register index row
+> and this file, and the denominator was 171.** Every instance was literally true and all
+> three read as "the sweep found 34 things". A filed count is a count that survived two
+> caps and a dedup; it is not a measurement of the site. Corrected in all three places, and
+> the bug file carries the correction too. The check that would have caught it at the time:
+> **I read `inserted` and stopped, without reading the sibling keys in the same object** —
+> `findings_capped` and `findings_dropped` were sitting right there in the JSON I had
+> already fetched.
+
+Filed as **`bugs_open/242`**. It asserts only what I measured; the mechanism (why
+`Metadata` does not reach `collected_data`) is marked `[UNVERIFIED]` with the three checks
+that would settle it, and §6 states plainly that I did not run `090` and why the trigger
+does not fire for an observation-only file.
