@@ -784,3 +784,95 @@ move the site to a dark collection; editing the shared seed row would break
    `.news-list-tag` and primary-as-ink families still dominate their totals, so a fresh
    sitemap run measures `bugs_open/122` and `features_open/026` far more than it measures
    this bug. Whoever runs it should attribute per selector, not per site total.
+
+---
+
+## 2026-08-10 (evening) — REPAIRING `ai-agent-orchestration.com`, on the owner's instruction: "use the easiest palette — dark or light"
+
+**Owner decision (2026-08-10):** repair the site, whichever scheme is easier.
+**Chosen: DARK**, and it is not a close call — the site's pinned
+`design_intent.palette.reference_values` says *"Observed scheme is DARK and must not
+change"*, its `style_direction` is `professional-dark`, its `colour_mood` asks for
+"slate-900 to slate-950", and its own `avoid` list contains **"Bright white backgrounds"**.
+Going light would contradict all four and require re-rendering every page; going dark
+requires only that the site stop borrowing another scheme's specialised slots.
+
+### The blocker from the third-pass section is RESOLVED — by reading the resolver
+
+That section warned a re-render might pull in the stale light `design_intent.color_scheme`
+and make things worse, and marked it `[UNMEASURED]`. Measured now:
+`extractPaletteSignal` (`resolve_composition_pallette_action.go:225-296`) tries, in order:
+
+1. `mission.preferred_palette` — **this site has no `mission` aspect**, so it cannot fire;
+2. **`design_intent.palette.reference_values`** — present, DARK, 10 slots → **this wins**;
+3. `design_reference` fingerprint; 4. layout library inherit; 5. default library palette.
+
+**`design_intent.color_scheme` is not in the resolution order at all.** The stale light
+scheme is unreadable by this path, so it cannot be pulled in. The caution was sound to
+raise and is now discharged.
+
+### The mechanism chosen — the framework's own path, not hand-written SQL
+
+Queued a `needs_design` work item (**`f7ceba19`**, handler `webdesign-agent`, priority 8,
+source `manual-113-palette-repair-2026-08-10`). Per the workstream RUNBOOK, `needs_design`
+"routes to `webdesign-agent`, which regenerates `styles.css` and therefore **re-rolls the
+palette**" — i.e. `resolve_composition_palette` → `createPalette` inserts a **site-specific
+`palettes` row** built from the dark pin, and the site stops sharing `professional-dark`.
+
+This is deliberately the *least* hand-authored option available:
+
+- It reuses existing machinery rather than adding any (platform convention), and it is the
+  same route the 2026-07-27 repair of `fundamentallyai.com` took.
+- The generated palette will hold **only the core slots**, so
+  `fillDarkSchemeSpecialisedSlots` derives `card_bg`, `header_bg`, `cta_bg`, `footer_bg`
+  and the AA-checked inks — making this site behave exactly like the four already-repaired
+  dark sites, and self-maintaining if the derivation ever improves.
+- **It does not touch the shared seed row**, so `finetuning.uk` and `gaswholesalers.com`
+  are untouched — they ride `professional-dark` correctly as light sites.
+- It also answers the site's own long-standing work item `47ce091c`
+  (*"shares its style collection with 3 other site(s) — needs its own collection"*).
+
+**Dispatch note, worth keeping:** the item had to be promoted `detected` → `triaged` by
+hand. `claim_work_item_action.go:102` claims only `status IN ('triaged','approved')`, and
+**nothing is promoting `needs_design` rows out of `detected`** — three were stranded there
+when I looked, one since 2026-08-09 10:50 (`loancalculator.co.uk`, ~33h).
+That is a separate defect and is **not** filed; it matches the standing
+"detection works; schedule and dispatch do not" pattern.
+
+### BEFORE measurement, paired and same-session
+
+113's own transferable lesson is that a palette repair needs the audit run **before** as
+well as after, so this is a fresh baseline rather than yesterday's carried forward:
+
+```
+$ scripts/render_audit.py --quiet https://ai-agent-orchestration.com/{index,about,contact}.html
+   index.html    contrast=33
+   about.html    contrast=21
+   contact.html  contrast=4
+   → 58 contrast failures across 3 pages
+```
+
+Attributed by the background the text actually lands on — **this is the part that makes the
+after-number interpretable**:
+
+| failures | background | what it is | should this repair fix it? |
+|---|---|---|---|
+| **38** | `rgb(255,255,255)` | the `#ffffff` card — **this defect** | **yes** |
+| **4** | `rgb(248,249,250)` | a second light literal | **yes** |
+| 7 | `rgb(8,11,16)` = `#080B10` | ink on the page ground | no — `features_open/026` |
+| 7 | `rgb(13,17,23)` = `#0D1117` | ink on the surface | no — `features_open/026` |
+| 1 | `rgb(128,128,128)` | over-image probe | discounted, not a defect |
+| 1 | `rgb(239,239,239)` | — | probably |
+
+**Predicted after: ~42 fewer, ~15 remaining.** Recorded *before* the result is known, so it
+can come out wrong. If the total drops to ~15 the repair did its job; **if it drops to near
+zero, something else changed too and the number should not be credited to this fix.**
+
+> The ~15 that should REMAIN are the primary-as-ink family — `--color-primary` is `#0D1117`,
+> byte-identical to `--color-surface` on this site. That is `bugs_open/122` /
+> `features_open/026` territory and is being addressed by the derived
+> `--color-primary-ink` slot (migration 338), **not** by this repair. The pin's own
+> guidance explicitly forbids "improving" the fill colour for contrast, so it was left
+> exactly as its owning lane set it.
+
+**Result: pending** — appended below when the run lands.
