@@ -14,6 +14,36 @@ always a *pairing* of two individually-valid colours, and the only thing that se
 
 ---
 
+> # ⚠ READ THIS FIRST — 2026-08-10 EVENING. THIS FRONT IS ESSENTIALLY DONE, AND 122 HAS A NEW OWNER.
+>
+> **1. `bugs_open/122` was restructured by another lane while this front ran.** It now opens
+> with a `STATUS 2026-08-10` block declaring it **fixed in substance**, and its work lives in
+> `docs/agent_docs/docs024_key_docs_latest/bugfix_122_contrast_ink_slots/`
+> (`HANDOFF_2026-08-10_continue_here.md`). **That lane owns 122. Do not fork it** — contribute
+> into the bug file, as this front did. Their `buildLegibleInkDefaults` (VIZ-014, chassis
+> v1.0.1266) and migrations 338/368/369 are a different and larger fix than 353.
+>
+> **2. §0's SQL was applied and has now PROPAGATED and been graded.** robot-hands full
+> sitemap: **193 → 43 solid failures, `.news-list-tag` 128 → 0**, over-image rows identical
+> at 24 (the internal control). **Only −128 of the −150 is ours**: `faq-item__answer` (−20)
+> and `tl-eyebrow`/`tl-card-link` (−2) are other lanes' work delivered by the same
+> re-render. Full table in `bugs_open/122`, 2026-08-10 (evening).
+>
+> **3. §3.4 IS RETIRED — the dispatcher exists.** `site-render-audit-rotation` is enabled and
+> firing **hourly** (their migration 369 / VIZ-015). Pod-grepped at **v1.0.1280**: the Go
+> render_audit port is live in `browser-runner-adapter` (`render_audit` 8, `overImage` 6,
+> invented control **0**) and `write_render_audit_findings` is in the chassis (11). **The
+> constraint has moved to the REPAIR half:** `contrast_failure` items went 34 → 68 in one
+> session, all `detected`, all routed to `css-patch-agent`, 0 draining — `bugs_open/213`.
+>
+> **4. Only ONE thing is still owed from this front:** the same paired grade for
+> **`dartsonline.com`** once its news page re-renders (before = **125** solid, **53** chips).
+> Everything else here is measured and recorded.
+>
+> **Corrections to the update below:** `webdesign.co.uk` **self-healed** at 15:33 — I called
+> it a straggler and was wrong. `idea.uk` is the only placement still not carrying the fix,
+> and it renders no chips at all (`bugs_closed/027`).
+
 > **UPDATE 2026-08-10 11:41:22 UTC — §0 IS DONE. 353 was applied by the owner**, guard
 > passed, all three post-conditions asserted (4456 bytes, 4 muted uses left, chip rule
 > written once), and the new rule is verified in the stored template.

@@ -881,3 +881,73 @@ fix up on their own within about a day. **Two will not:** `webdesign.co.uk` (las
 **Still owed:** re-run `render_audit.py --sitemap` on robot-hands and dartsonline once
 their pages have re-rendered, and record the paired before/after. Before = robot-hands
 **193**, dartsonline **125** (2026-08-09, full sitemap). Expect −128 and −53.
+
+### 2026-08-10 (evening) — 353 PROPAGATED and graded per selector: robot-hands 193 → 43 solid, chips 128 → 0
+
+**From the `bugs_open/113` contrast front, contributed into this file** — the ink-slots lane
+above owns 122 now (`bugfix_122_contrast_ink_slots/`); this is the paired before/after for
+the `news-list-tag` change (`sql_for_agents/353`), which that lane's account does not cover.
+
+**Propagation verified with a discriminating control before measuring anything.** At 15:12
+`robot-hands.com/news/` re-rendered and its served chip rule became
+`color: var(--color-text, #475569)` with **0** `--color-text-muted` inside the rule;
+`dartsonline.com/news/`, which had not re-rendered, still served the old ink. Same page
+type, opposite results — so the change reaches artefacts by page re-render, as predicted.
+
+**Full sitemap, same tool, same 19 pages, graded per selector** (this file's own rule —
+never grade by the fleet total):
+
+| | pages | raw | over-image | **solid** | `.news-list-tag` |
+|---|---|---|---|---|---|
+| before (08-09) | 19 | 217 | 24 | **193** | **128** |
+| after (08-10) | 19 | 67 | 24 | **43** | **0** |
+| delta | 0 | −150 | **0** | **−150** | **−128** |
+
+**`over-image` is identical at 24 — that is the internal control.** Those rows are the
+probe's own mid-grey placeholder and no CSS change can move them; had they shifted, the two
+runs would not have been comparable.
+
+**−150, not −128, and the extra 22 are NOT mine.** Attribution by selector:
+
+| selector | before | after | whose |
+|---|---|---|---|
+| `news-list-tag` | 128 | 0 | **353, this front** |
+| `faq-item__answer` | 20 | 0 | another lane |
+| `tl-eyebrow` / `tl-card-link` | 1 / 1 | 0 / 0 | the ink-slots lane (338 — both are named in its own 08-06 sub-shape A list) |
+
+That is the *"a page re-rendered for any reason carries every change since it last
+rendered"* warning in the status block at the top of this file, observed from the other
+side: **a re-render triggered for my change delivered three lanes' work at once.** Anyone
+sizing a fix by a whole-site total will over-credit themselves; the per-selector grade is
+the only honest one.
+
+**Corrections to my own 08-10 entry above:**
+- **`webdesign.co.uk` self-healed** at 15:33 — I listed it as a straggler that would not.
+  **`idea.uk` (2026-07-14) is now the only placement not carrying the fix**, and it renders
+  no chips anyway (see the entry above, and `bugs_closed/027`).
+- Remaining on robot-hands: **43 solid**, dominated by `LEGEND` 8, `cta-btn` 8, `H3` 7,
+  `H2` 5 — i.e. sub-shape A/C, untouched by 353 and unchanged by it.
+
+**Still owed:** the same paired grade for `dartsonline.com` once its news page re-renders
+(before = **125** solid, **53** chips).
+
+### Fleet state at chassis v1.0.1280, pod-grepped 2026-08-10
+
+The audit engine and its cadence are both live — recording the controls because the status
+block's claims are now independently confirmed from outside that lane:
+
+| binary | symbol | count |
+|---|---|---|
+| `browser-runner-adapter` (`render-audit-adapter` pod) | `render_audit` / `RenderAudit` / `overImage` | 8 / 4 / 6 |
+| `agent-chassis` | `write_render_audit_findings` / `contrast_failure` / `fillDarkSchemeSpecialisedSlots` | 11 / 2 / 4 |
+| both | `ZZZ_invented_control_symbol` | **0** |
+
+`site-render-audit-rotation` is **enabled, hourly**, last fired 15:54:33. **This retires
+the "nothing dispatches it" finding in the 08-06 section** — that gap was closed by
+migration 369.
+
+**The queue is filling and not draining.** `contrast_failure` items went **34 → 68 within
+this session**, every one `detected`, every one routed to `css-patch-agent`, against **4**
+`complete` (all the 08-04 hand-run). Consistent with `bugs_open/213`'s false-complete
+defect being unfixed. **Detection is now strong and the repair half is the constraint** —
+which is what the status block says, measured here from the item table rather than asserted.
