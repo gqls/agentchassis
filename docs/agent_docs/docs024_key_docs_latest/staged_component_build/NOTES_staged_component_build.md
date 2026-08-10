@@ -2530,3 +2530,144 @@ favicon blocks nothing.
 instrument differences (subject_type extension to the generator; `tool_acceptance_run.sh`
 not the component dispatch; `computed_values` not regex for calculators), and the
 session-start checklist.
+
+## 2026-08-10 (second session) — batch 8's pool was qualified on the wrong axis: 9 of 17 tools cannot be acceptance-tested at all
+
+Picked up `HANDOFF_2026-08-10_continue_here.md` and ran its §5 checklist. Two of its four
+items produced a different answer from the one it recorded, and the second one **reshapes
+the batch**.
+
+### Session-start deltas (the figures moved, as the handoff warned they would)
+
+- **Fleet is v1.0.1279, not v1.0.1277.** Pods up 74m at session start, so the 300 s spawn
+  window is long clear. Chassis pod-grep `request_component_browser_run` **6** on both
+  replicas, negative control **0**. browser-runner `"non-numeric w/h in result"` /
+  `"no element matches"` / `"computed_values"` = **1/1/1**, negative control **0**.
+  (`strings` does not exist in the browser-runner image — `grep -ac` the binary directly,
+  RUNBOOK §4.)
+- Naming-contract check: still **PASS**, 54 canonical / 25 testable / 13 authoring backlog
+  / **0 BROKEN**.
+- The pool is **18 placements / 17 distinct functions**, not 17 placements. The extra rows:
+  **`tool-return-damage-checker`** (loancalculator, missed by the 08-10 morning probe) and a
+  **second `tool-loan-repayment` placement** on the ARCHIVED page `tool-standard-calc`.
+
+### The finding: HTTP 200 is not the qualification that matters
+
+The morning probe qualified the pool on *"page serves 200, zero bad assets"*. That is
+necessary and it is not the binding constraint. The binding constraint is the Tier-4 page
+lookup, and **9 of the 17 fail it**.
+
+`tool_acceptance_run.sh` passes only `site_id`/`domain`/`function`; the live
+`tool-acceptance-agent` config has **no `url_field`** (read out of `agent_definitions`
+today), so `request_browser_run` always resolves through the pages table:
+
+```sql
+SELECT COALESCE(url,'') FROM pages
+ WHERE site_id=$1::uuid AND status='active'
+   AND name IN ($2::text, 'tool-' || $2::text)
+ ORDER BY (name=$2::text) DESC LIMIT 1        -- tool_acceptance_actions.go:174-179
+```
+
+Run against every pool member, that predicate returns **NULL for 9 of 17**:
+
+| function | site | page it actually has | resolves? |
+|---|---|---|---|
+| tool-grip-force-friction-calculator | robot-hands | `tool-grip-force-friction-calculator` | ✅ |
+| tool-matchmatrix | robot-hands | `tool-matchmatrix` | ✅ |
+| tool-setup-builder | dartsonline | `tool-setup-builder` | ✅ |
+| tool-llm-cost-calculator | ai-agent-orchestration | `tool-llm-cost-calculator` | ✅ |
+| tool-application-tracker | loancalculator | `tool-application-tracker` | ✅ |
+| tool-credit-health-check | loancalculator | `tool-credit-health-check` | ✅ |
+| tool-fuel-budget-forecaster | gaswholesalers | matches, but logo-404 blocked | (blocked) |
+| tool-gas-unit-converter | gaswholesalers | matches, but known-broken tool | (skip) |
+| **tool-bayesian-ranking** | gamesdesign | `bayesian-ranking` | ❌ |
+| **tool-car-finance-pcp-hp** | loancalculator | `tool-car-finance-calculator` | ❌ |
+| **tool-compare-loan-offers** | loancalculator | `tool-compare-loans` | ❌ |
+| **tool-consolidation-risk** | loancalculator | `tool-consolidation` | ❌ |
+| **tool-early-settlement** | loancalculator | `tool-settlement-calculator` | ❌ |
+| **tool-loan-repayment** | loancalculator | `index` + archived `tool-standard-calc` | ❌ |
+| **tool-overpayment-impact** | loancalculator | `tool-overpayment-calculator` | ❌ |
+| **tool-rate-stress-test** | loancalculator | `tool-interest-rate-stress-test` | ❌ |
+| **tool-return-damage-checker** | loancalculator | `tool-damage-checker` | ❌ |
+
+**Measured, not inferred, and it could have come out otherwise:** a correctly-named page
+exists in **NO** state on either site (the query over all 10 target names returned **0
+rows**), so this is a rename question, not an activation one; and **no target name
+collides** with an existing page on either site (all 61 pages on the two sites listed).
+
+### Why this was worth catching before authoring rather than after
+
+Had batch 8 been authored as the handoff scoped it, every one of those nine PLANs would
+have landed in `CHECK_naming_contract.sh`'s **BROKEN A** class — *fence exists, page
+unresolvable, hard-errors* — taking the lane's own contract check from **0 BROKEN** to
+**9**. The failure is loud (`no deployed page URL`) rather than silent, which is the good
+case; but it is nine fences' authoring effort spent on subjects that cannot be asserted.
+
+**The reason the existing check did not already say so** is worth writing down, because it
+looks like a gap in the check and is not one: `CHECK_naming_contract.sh` only reports BROKEN
+when a **PLAN already exists**. Pre-PLAN subjects sit in its *"neither: no PLAN and no
+resolvable page"* bucket — 16 of them — which is honest (nothing claims they were testable)
+but is not a warning either. **The census query the batch was scoped from joined
+`doc_plans`, so it answered "who lacks a PLAN"; it never asked "who could run one".** Two
+different questions, and only the second predicts whether authoring is worth anything.
+
+### The two shapes of unresolvable, which have different owners and different remedies
+
+1. **gamesdesign `tool-bayesian-ranking` — the prefix-strip case, our own known pattern.**
+   Page `bayesian-ranking`; function `tool-bayesian-ranking`; the resolver wants
+   `tool-bayesian-ranking` or `tool-tool-bayesian-ranking`. This is exactly the
+   `tool-review-council-simulator` case of 07-31, and the same argument applies —
+   gamesdesign names **15 other tool pages** with the `tool-` prefix, so the rename
+   *restores the site's own convention* rather than working around a checker. Remedy is
+   RUNBOOK §11 (**TWO rows** — `pages` AND `site_plan_pages`, or the page silently leaves
+   `check_sectionless_pages`'s population).
+2. **The eight loancalculator ones — NOT prefix-strip, and NOT ours to rename.** The page
+   slugs are genuinely *different words* from the component functions
+   (`tool-car-finance-pcp-hp` vs `tool-car-finance-calculator`). Renaming would change that
+   site's page names to match component functions across eight pages — an owner-visible
+   change on another lane's site. This is a much more concrete reason to coordinate with
+   `loancalculator_couk` than the "reuse their goldens" one the handoff gave: **their tools
+   cannot be acceptance-tested at all until someone decides which name is canonical.**
+
+### And a second qualification the "clean singles" framing hides: forks share the PLAN
+
+`content_components` has **no `site_id`** — it is a shared library, and
+`idx_cc_tool_function_unique` makes `function` unique only among
+`is_active AND forked_from IS NULL`. **Forks keep the function**, and `doc_plans` is keyed
+`(subject_type, subject_key)` — so **one PLAN serves every fork of a tool**.
+
+`tool-llm-cost-calculator` is the live example: canonical row (35,290 B, ai-agent-
+orchestration) plus **four forks** at 35,347 / 35,333 / 33,834 / 31,946 B, placed on
+fundamentallyai, webdesign.co.uk, finetuning and leopardess. The templates differ by up to
+3.3 KB. Today only the canonical site resolves (the other four pages are named
+`llm-cost-calculator`, so they miss the same lookup) — **so the blast radius is latent, not
+live** — but a fence authored against the canonical template alone would red on a fork the
+moment anybody renames one of those pages to convention. The other three singles are true
+singles: one canonical row, one placement, no forks.
+
+**So batch 8's genuinely clean, unblocked, fork-free set is THREE**, not five:
+`tool-grip-force-friction-calculator`, `tool-matchmatrix`, `tool-setup-builder` — all three
+probed today at 200 with a DOCTYPE and 24–48 KB of body. `tool-llm-cost-calculator` is
+authorable but must be authored fork-aware and said so in its PLAN.
+
+**One more property of this pile, measured:** all four candidates have
+`length(js_content) = 0`. Tools inline their JS in `html_template` rather than shipping a
+`/tools/assets/*.js` sidecar the way sections do. The batch-7 interactive rule still binds
+(*a fence must carry one check a static render cannot satisfy*), but **the inert-script
+mutant technique does not transfer** — there is no `<script src>` to blank. A tool's driven
+check has to be mutated at the inline script or at the element it writes into.
+
+### Instrument work done first, as the handoff asked
+
+`gen_component_plan_sql.py` now takes an optional per-entry **`subject_type`** (default
+`component`), committed as `8fa701849`. It hardcoded `'component'` in all three SQL sites,
+and the live `tool-acceptance-agent` `load_docs` reads `subject_type='tool'` with
+`subject_key_field=input_data.spec.function` — so a tool PLAN written by the old generator
+would have been **invisible** to the agent that needs it, producing `skipped:
+needs_criteria`, which is that script's own documented trap #1: an honest non-failure that
+reads as a clean run asserting nothing. Also validated `subject_type` against the running
+binary's `validDocSubjectTypes` and `function` against kebab-case (both become SQL
+literals), added optional `kind`/`batch` prose so a tool PLAN does not title itself
+"(section component)", and **`chmod +x`** — it was committed `100644`, so the RUNBOOK's own
+`./gen_component_plan_sql.py` invocation died with *Permission denied*. All four arms
+tested: default still emits `component`, `tool` emits `tool`, and both refusal arms exit 1.

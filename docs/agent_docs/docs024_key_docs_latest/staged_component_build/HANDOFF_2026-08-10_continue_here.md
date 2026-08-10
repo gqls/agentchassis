@@ -19,6 +19,33 @@ interactive-fence line) remain binding and are not repeated. Read them.
 
 ## 2. Batch 8 — the ready tools, QUALIFIED (probed 2026-08-10)
 
+> **CORRECTED 2026-08-10 (second session) — THIS SECTION QUALIFIED THE POOL ON THE WRONG
+> AXIS. Read this box before acting on the tables below.** They were probed for *"serves
+> 200, zero bad assets"*, which is necessary and is not the binding constraint. The binding
+> constraint is the Tier-4 page lookup — `pages.name IN (function, 'tool-'||function)`,
+> `status='active'`, `tool_acceptance_actions.go:174-179` — and the live agent config has
+> **no `url_field`**, so there is no way round it. Measured against every pool member:
+> **9 of the 17 do not resolve and cannot be acceptance-tested at all.**
+>
+> - **§2a's five is really THREE.** `tool-bayesian-ranking` ❌ (page is `bayesian-ranking`
+>   — the 07-31 prefix-strip case again). `tool-llm-cost-calculator` resolves but is **not
+>   a single**: it has **four forks** sharing the one `doc_plans` key, templates differing
+>   by up to 3.3 KB. Clean and fork-free: **grip-force-friction-calculator, matchmatrix,
+>   setup-builder**.
+> - **§2b's nine is really TWO.** Only `tool-application-tracker` and
+>   `tool-credit-health-check` resolve; the other seven — plus `tool-return-damage-checker`,
+>   an **18th placement this section missed** — have page slugs that are *different words*
+>   from their functions. So the coordination with `loancalculator_couk` is not mainly about
+>   reusing goldens: **their tools are not acceptance-testable until someone rules on which
+>   name is canonical.**
+> - The pool is **18 placements / 17 functions**, not 17 — the extra is a second
+>   `tool-loan-repayment` placement on the ARCHIVED page `tool-standard-calc`.
+>
+> Why the lane's own check did not catch it: `CHECK_naming_contract.sh` reports BROKEN only
+> once a PLAN exists, so these sit silently in its *"no PLAN and no resolvable page"*
+> bucket. Authoring the nine would have taken the check from 0 BROKEN to 9. Full evidence,
+> both remedies and the fork trap: NOTES, `## 2026-08-10 (second session)`.
+
 17 active tool placements have no `subject_type='tool'` PLAN. They split three ways:
 
 ### 2a. Five clean singles — fence these first, same line as batch 7
