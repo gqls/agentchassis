@@ -249,3 +249,69 @@ open deliberately, and it is a genuine open question for whoever wants the other
 4. **The paired AFTER measurement**: BEFORE is 58 failures on 3 pages (38 white-card, 4 second
    light literal, 14 primary-as-ink, 1 over-image). **Prediction, pre-registered: ~42 fewer,
    ~15 left.** A drop to near zero means something else changed too.
+
+---
+
+## ADDENDUM 3 (late) — LIVE, but REVISE. Start a fresh session HERE
+
+**Status in one line:** `allow_reinstall` is **in the running binary and proven so**, the
+council said **REVISE**, both objections hold, and **the site is still unrepaired** — now
+blocked on a small code revision rather than on an owner decision.
+
+### Proven live (do not re-do this)
+
+Chassis `696d88b4c7`, both replicas: `allow_reinstall` 4, `previous_collection_id` 1,
+`re-resolve not requested` 1, and **`re-resolve not supported` = 0** — the string the change
+*deleted*. That is a removal-based negative control, so it proves *this* build, not any build.
+
+### THE ONE THING TO FIX FIRST — the flag cannot be used on one site
+
+`allow_reinstall` is read from `StepConfig.Config`. `site-design-planner`'s install step
+config holds only path references, so the only way to set it is to edit the **agent
+definition** — which turns re-install on for **every** composition install fleet-wide, the
+exact unsafe-default-ON state the flag exists to prevent.
+
+**The revision (small, and it is the whole remaining blocker):** make the flag per-request —
+read it from the work item spec / `input_data` **as well as** step config, keeping default
+false and the `GetBoolFieldLoud` loud-fallback. Then a single `needs_composition` item can
+carry `spec.allow_reinstall = true` and nobody else's behaviour changes.
+
+Then resubmit with `RESUBMIT_CORR=b8e341b9-4709-49ad-8b7b-f4c8894ba551` so the trail
+accumulates, and answer the second objection in the resubmission (see below).
+
+### What I got wrong, so you do not repeat it in the resubmission
+
+`47ce091c` is **`needs_design_review`**, created **2026-04-24** — NOT the
+`needs_composition`/`needs_design` pair, NOT 2026-08-06 (that is `updated_at`), and the
+`triaged` edit **does not unblock it**. The sites that edit unblocks are `noted.co.uk`,
+`loanandmortgagecalculator.co.uk`, `loancalculator.co.uk` — six rows, none of them
+ai-agent-orchestration.com. The `triaged` change is still right on its own merits (two
+producers of one `item_key` disagreed about status); only my evidence was wrong.
+`WRONG_CALLS.md` 2026-08-10 has the full account and the one-line query that would have
+caught it.
+
+**Also correct the scale claim:** the status/dispatch mismatch is not build-only. The
+council's own query shows `undeployed_asset` 86 (design), `phantom_internal_link` 18
+(content), `unbuilt_internal_link` 17 (content), `image_url_404` 16 (design) on top of the
+448 build rows. "Do not enable a fleet-wide sweep" is unchanged and stronger.
+
+### The repair, once the revision is live
+
+1. Queue `needs_composition` for `ai-agent-orchestration.com`, `status='triaged'`,
+   handler `site-design-planner`, with `spec.allow_reinstall = true`.
+2. **Rollback value: `3196d966-24ef-4415-9dc8-1afbc02166ca`** (its current shared collection).
+3. Verify at the **artefact**, never the status — `complete` already lied once on this site
+   (`f7ceba19`, 2 minutes, changed nothing): check a site-specific `palettes` row exists,
+   `sites.style_collection_id` changed, `styles.css` `last-modified` moved, and served
+   `--color-card-bg` is no longer `#ffffff`.
+4. **AFTER measurement against the pre-registered prediction** — BEFORE was 58 failures on
+   3 pages (38 white-card, 4 second light literal, 14 primary-as-ink, 1 over-image);
+   **expect ~42 fewer, ~15 left.** A drop to near zero means something else changed too and
+   this fix should not be credited.
+
+### Commits this session (all on `087_towards_multiple_domains`)
+
+`4bd0fb519` 113 correction + LANDMINE · `cfb05757a` 122 pointer · `4b28bc1cf` roll + census ·
+`dca8b8084` repair queued + baseline · `0cd8404b0` no-op result + platform gap ·
+`5c7b115c5` **the code change** (Council-Submitted: b8e341b9) · `2c24ed5f0` addendum 2 ·
+`e1b8863e0` WRONG_CALLS · `a78640045` corrections to 113 + DES-082/083.
