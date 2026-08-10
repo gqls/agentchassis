@@ -2116,3 +2116,59 @@ now refuse to run out of order, and I tested that refusal against the real datab
 went back in before I committed anything, in the right order this time, and your sign-off on the
 writer's instructions is recorded. Next natural stop: the verdict, then applying the three config
 changes in order and re-checking the site.
+
+---
+
+**2026-08-10 — the white-card bug is finished, and I was wrong about the last site**
+
+Short version: the colour bug we filed on 27 July, where cards came out white on dark
+sites and the text on them vanished, is now fixed everywhere it applied. I checked it the
+honest way — by downloading the actual stylesheets the sites are serving, not by reading
+the code and assuming. Four dark sites show the fix's fingerprint clearly, and three of
+those nobody had touched by hand, so they were repaired quietly by the machinery working
+as intended.
+
+The old scary numbers in that file — "eleven more palettes still carry this", "twelve sites
+guaranteed to have invisible text" — are gone. They were counted the wrong way round: over
+every colour scheme in the library, including a lot that no live site actually uses. Counted
+properly, over what each site really renders from, the answer today is **none**.
+
+The part I need to own: yesterday I said one site, ai-agent-orchestration.com, was the last
+one still broken by this bug. That was wrong, and it's worth explaining why because it's a
+nice trap. The site does serve white cards on a near-black page — that bit is true. But the
+white isn't the bug leaking through; it's a colour somebody deliberately chose, sitting in a
+shared colour scheme that three sites use. The catch is that the "leaked" white and the
+"chosen" white are the *same white*. Looking at the finished page, there is genuinely no way
+to tell them apart. You have to go and look at the ingredients. I looked at the wrong
+ingredient list — I searched for a colour scheme stamped with that site's name, found none,
+and concluded it didn't have one. In fact it shares one, and shared things don't carry your
+name. I've written that up as a trap for the next person, and logged the wrong call.
+
+So the site is still wrong, but for a different reason than I said, and — this matters —
+**the fix we shipped cannot repair it**, because the very rule that keeps it safe ("never
+overwrite a colour someone deliberately chose") is what preserves the bad one here.
+
+**What I need from you.** The main decision is what to do about that one site. The clean
+option is to give it its own colour scheme with proper dark values, the way most sites
+already work — contained, reversible, about as small as a change gets. What we must *not*
+do is edit the shared scheme, because two other sites use it happily as a light scheme and
+we'd break them to fix this one. There's a snag to clear first, though: that site's stored
+design brief says "light scheme" while the pin that actually drives its colours says "dark",
+and I don't yet know which is the mistake. Re-rendering before sorting that out could make
+it worse rather than better, so I've left it alone.
+
+Two smaller calls. Should the new problem get its own bug file? I think yes — it's a
+different fault with a different fix, and leaving it inside the old file makes that file's
+status impossible to read. And do you want the structural version: something that simply
+refuses to put a light colour scheme on a dark site, so this can't happen again to a site
+nobody is looking at? That's a proper code change with a review round attached, so it's your
+call whether it's worth it.
+
+Last thing, and it's the one I'd push hardest. What's left of this particular bug is now
+small. The genuinely big contrast problems are elsewhere: one component alone
+(`.news-list-tag`) accounted for 181 of the 442 failures we found across three sites, and
+there's a separate family where a colour meant for buttons gets used as text on about five
+sites and fifty components. If contrast work continues, it should continue there, not here.
+I've also deliberately *not* re-run the big page audits for "after" numbers yet, because
+those two families would dominate the totals and it would look like this fix did less than
+it did — anyone running it should count per component, not per site.
