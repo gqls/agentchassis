@@ -13,6 +13,48 @@ green.
 scheduled task, discovery check, or open work item; all 21 deployed sites probed
 — 21/21 serve 200 today, so the class is live and currently quiet.
 
+> ### STATUS 2026-08-10 (evening) — candidate 1 BUILT AND COMMITTED, not yet live
+>
+> **Committed `4a5d77004`:** `check_site_unreachable` (discovery check, probes
+> `https://<domain>/` per site, confirms before filing, one alert-only
+> `site_unreachable` item per site via `item_key site_unreachable:<site_id>`,
+> self-clears through `Resolved{AllOfType}` when the site serves), its tests
+> (8 guards each proven load-bearing by mutation with a NAMED failing test), and
+> register entry **IMP-053**.
+>
+> **NOT live.** The Go half rides the next chassis roll. The driver config —
+> `availability-discovery-agent` + `site-discovery-rotation-availability`, a
+> 4-hourly fair rotation reusing the 230 lane's `site_discovery_rotation` table —
+> is HELD as `sql_for_agents/372_site_availability_driver_HOLD.sql` until a
+> pod-grep proves `site_unreachable` is in the running binary, because
+> `run_discovery_checks` hard-fails on an unregistered check name (149 B4).
+>
+> **NOT reviewed.** Submission `7177fb02-51c5-4c2a-bb02-10aa27ae85ca` selected its
+> panel and then died at the first seat on an upstream Anthropic 400 (account
+> spend cap, "regain access 2026-09-01"; fleet-wide since 14:51:45Z, diagnosed by
+> the webdesign.uk chat lane in `6a4fbab21`). The run is terminal at
+> `complete_invalid` — **which is NOT a rejection of the submission**; treat the
+> `Council-Submitted:` trailer on `4a5d77004` as "submitted, never reviewed". A
+> fresh submission is owed when LLM access returns.
+>
+> **Two deliberate non-filings, measured on all 21 live sites, so a later reader
+> does not read them as gaps:** an off-domain redirect (`webdesign.uk` → 302 →
+> `webdesign.co.uk`) and an on-host 2xx whose body lacks the stored index title
+> (`mortgagecalculator.co.uk` serves a divergent render — a staleness defect with
+> its own machinery) are named FINDINGS, not work items. Filing on the second was
+> 1-in-21 false-positive on day one. **Consequence: a registrar-parked domain
+> answering 200 files nothing** — the LANDMINES trap this file's candidate 1
+> warned about is only half-closed, deliberately, and is recorded in IMP-053.
+>
+> **Candidate 2 (zone/route conformance) is NOT this lane's** — left with
+> `domains_cloudflare_rollout`, as this file suggests. **Candidate 3 is not taken.**
+> **This file stays OPEN** until the check is live and the break-it-on-purpose
+> drill in the "How to verify a fix" section below has actually been run: a
+> checker that has never fired on a real 522 is not evidence.
+>
+> Lane docs: `docs024_key_docs_latest/bugfix_236_site_availability/`
+> (PLAN / NOTES / RUNBOOK / README_where_we_are / COUNCIL_SUBMISSION).
+
 ## What happened
 
 `lendzy.co.uk` returned **HTTP 522** (Cloudflare: connection timed out to origin)
