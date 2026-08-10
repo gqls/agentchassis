@@ -569,3 +569,59 @@ in a page nobody checks. I'd want to point the same method at it next.
 
 Everything is written up in a handoff so this can continue in a fresh
 conversation without losing the thread.
+
+---
+
+## 2026-08-10, evening — you asked for decomposition, and the job is bigger and easier than the last note implied
+
+You asked for the components on both sites to be decomposed so the framework can
+fully control them, and for the handoff updated so a fresh chat can pick it up.
+The handoff is written (`HANDOFF_2026-08-10c_continue_here.md`). Two things came
+out of checking the ground first, and they pull in opposite directions.
+
+**The job is bigger than it looked.** Unlocking those 39 pages this morning gave the
+framework *permission* to rebuild them. It did not give it anything to work with.
+Fifty-seven of the fifty-nine pages across the two sites are still one solid block
+each — the whole page, text and calculator together, as a single item in the
+database. The framework can't control a part it can't see, so decomposition is the
+actual work, and it applies to the pages we unlocked this morning just as much as to
+the calculator ones we didn't. Only two pages on the estate are in the finished
+shape today. Both are useful: one is a calculator page done properly, one is a plain
+page done properly, so we have a worked example of each rather than guessing.
+
+**The job is also easier than this morning's note said.** That note flagged a known
+platform bug as the thing standing in the way — the short version being that once a
+page is split up, the framework loses track of the pieces and can't rebuild it. If
+that were still true, decomposition would be a one-way door and I'd have come back
+to you before starting. It isn't true. That bug and its twin were both fixed and
+shipped on the 6th of August, four days before the note that called them blockers.
+They're still sitting in the "open bugs" folder because you asked us to leave found
+bugs there rather than filing them away — which is fine, but it means the folder a
+bug sits in tells you nothing about whether it's fixed. I checked the running system
+directly rather than taking the paperwork's word for it, and both fixes are live.
+
+**One near-miss worth telling you about**, because it's the kind of thing that
+quietly derails a day. My first check on one of those fixes came back "not there" —
+which would have meant the fix had been undone and the whole task was blocked. It
+was my query that was wrong, not the system; a second check on the same row a moment
+later showed the fix present. I'd have reported a blocker that didn't exist. I've
+written down what the reliable check is so the next session doesn't repeat it.
+
+**How I'd sequence it.** Plain pages on the main site first — no calculator to
+break, and the tooling for them already exists and has been tested here. Then the
+calculator pages, one at a time with the arithmetic re-checked between each, because
+that failure is silent and the thing that breaks is a live loan calculator. The
+second site last, since it has no tooling of its own and we'll know much better what
+that tooling needs after doing the first.
+
+**One thing I want to flag rather than bury.** Decomposition gets you fine-grained
+editing — change one paragraph without touching the calculator. It does not by
+itself get you "press a button and the framework rebuilds the page", because neither
+site has a site plan for it to rebuild *from*. That's a separate decision with its
+own risks, and I've kept it out of this task rather than quietly bundling it in.
+
+**And the thing I still think is the highest-value item on the estate isn't this
+one:** loancash.co.uk's tools hardcode the FCA payday caps with nothing checking
+them against the regulator, which is exactly the shape of the stamp duty error that
+was sixteen months out of date. It's independent of all the above. Say the word and
+I'll point the same method at it.

@@ -1253,3 +1253,71 @@ another session's text where mine should have been. **Never chain a write behind
 to absolute paths — and verify each append by grepping for its own distinctive
 string, not by reading the tail** (on an append-only doc a concurrent session's
 entry sits exactly where yours would).
+
+---
+
+## 2026-08-10 (evening) — orientation for the decomposition task, and a four-day-stale blocker
+
+Owner asked for both sites' components to be decomposed so the framework controls
+them, and for the handoff to be updated for a fresh thread. Wrote
+`HANDOFF_2026-08-10c_continue_here.md` as the single entry point; banners on both
+earlier 08-10 handoffs.
+
+**The measurement that defines the job.** 57 of the 59 pages across the two sites
+are still `pages.sections = ["ported-page"]` — a single verbatim blob. Only two are
+decomposed: `loans-consolidation` (owned, `prose-0/tool-1/prose-2`, one permanent
+lock) and `guide-how-loans-affect-mortgage-affordability` (generic, `["prose-0"]`).
+So migration 367's 39 "unlocked" pages are unlocked **and still verbatim** —
+permission and structure are different things, and the 13:24 handoff did not
+separate them. Split: 38 prose + 19 tool pages to convert. `site_plans` still 0.
+
+**⛔ `bugs_open/204` and `bugs_open/189` are FIXED AND LIVE — and were already fixed
+four days before the 13:24 handoff cited 204 as the blocker to read before seeding.**
+Both were fixed, rolled and behaviourally verified 2026-08-06 (204 at v1.0.1257,
+189 proven at v1.0.1259 by 204's own canary). They sit in `bugs_open/` only because
+of the owner direction of 2026-08-06 to leave found bugs there. **A file's directory
+is not its status.** Re-verified by me at the *current* binary rather than inherited
+from the record — chassis **v1.0.1280**, both replicas, started 2026-08-10T15:45:06Z:
+
+```
+stored_slot_name                                  1 / 1     (189)
+load page slot identities                         1 / 1     (204)
+slot_name repeats with different component_ids    1 / 1     (204)
+zzz_cannot_exist  (negative control)              0         instrument proven
+page-content-writer default_config LIKE '%slot_name_from%'  t   (189 config half)
+```
+
+Consequences, both of which change the plan: a decomposed page **can** now be
+rebuilt from a plan (build path resolves by `page_components.component_id` first),
+and 189's prohibition — *"never fire a build-path run on a page holding locked
+rows"* — is lifted, which matters because prose-rows-plus-a-locked-tool-row is
+exactly the shape this work creates.
+
+**A jsonb path read said the config key was absent when it is present.**
+`jsonb_path_query_array(default_config, '$.workflow.steps.*.config.slot_name_from')`
+returned `[]`; `default_config::text LIKE '%slot_name_from%'` returned `t`. Same
+row, same moment. This is the "a jsonb PATH read cannot see the shape change
+underneath it" trap — had I stopped at the `[]` I would have reported the 189 config
+half as reverted and blocked the whole task on a phantom. **Enumerate or text-match
+before believing a path read's absence.**
+
+**The re-slot precondition is narrower than recorded.** RUNBOOK §14 and the 13:24
+handoff both say a positional `tool-1` never matches `matchLockedRow` and the
+calculator is silently moved to the page bottom. Reading the function
+(`save_page_sections_action.go:1043`, not the recorded `:855` — the line numbers
+have drifted; reposition is `:928`, lock-aware DELETE `:757`): it matches the
+incoming section name exactly first, then kebab-normalised, and consolidation's live
+`pages.sections` **already contains `tool-1`**. So it matches. The trap fires when
+the incoming composition *omits* the tool slot — i.e. a seeded plan with semantic
+section names. Precondition restated as *"the composition must name the tool slot"*.
+`[INFERRED from code + the live row; UNMEASURED end to end]` — flagged in 10c §6
+with the disconfirming result named (locked row at `len(sections)+1` plus a
+`lock_blocked` item).
+
+**Smaller correction:** `pages.name` is hyphenated (`loans-consolidation`), not
+slashed as the 13:24 handoff's §3 table lists it. My first query used the slashed
+form and returned 0 rows — which reads as "no such page", not as a typo.
+
+**Not touched, still owed:** loancash has no arithmetic oracle and two of its three
+tools carry undated FCA cap literals (0.8%/day, £15, 100%) — same shape as the SDLT
+bug. Independent of decomposition and arguably higher value.

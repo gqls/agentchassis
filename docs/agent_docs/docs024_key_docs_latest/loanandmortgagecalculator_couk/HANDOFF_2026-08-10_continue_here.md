@@ -1,4 +1,11 @@
-# HANDOFF — bugfix 224 and everything it grew into. START HERE in a new chat.
+# HANDOFF — bugfix 224 and everything it grew into.
+
+> **⚠ SUPERSEDED 2026-08-10 (evening) — START AT
+> `HANDOFF_2026-08-10c_continue_here.md` INSTEAD.** This file is still accurate
+> about bugfix 224/225 and the acceptance fences, and it is worth reading for that
+> history. But it describes *finished* work and says "no task is owed", which is no
+> longer true: the owner has since asked for both sites' pages to be decomposed so
+> the framework controls their components. 10c is the live task list.
 
 **Written 2026-08-10 by the bugfix-224 session**, superseding
 `HANDOFF_2026-08-09_continue_here.md` (kept for history). Covers two live sites

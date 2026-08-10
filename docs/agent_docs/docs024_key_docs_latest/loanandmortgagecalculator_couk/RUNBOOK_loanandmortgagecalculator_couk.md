@@ -617,6 +617,18 @@ bash scripts/migration/run-migrations.sh --record-only docs/agent_docs/sql_for_a
   positional `tool-1` never matches and `save_page_sections_action.go:855` moves
   the unmatched locked row to `len(sections)+1` — the calculator lands at the
   BOTTOM of the page with only a `lock_blocked` item raised. Silent.
+  > **CORRECTED 2026-08-10 (evening): the mechanism is real, the trigger condition
+  > above is wrong, and the line numbers have drifted.** `matchLockedRow` is now
+  > `save_page_sections_action.go:1043` and the reposition is `:928`; the lock-aware
+  > DELETE is `:757`, not `:708`. It matches exact `slot_name` first, then
+  > kebab-normalised — and `loans-consolidation`'s live `pages.sections` is already
+  > `["prose-0","tool-1","prose-2"]`, so an incoming composition carrying `tool-1`
+  > **does** match on the first branch. The trap fires when the composition **omits**
+  > the tool slot, which is what a seeded site plan would do if it names sections
+  > semantically. So the precondition is *"the composition must name the tool slot"*,
+  > not *"positional never matches"*. `[INFERRED from the code + the live row;
+  > UNMEASURED end to end.]` Caught by reading `matchLockedRow` rather than
+  > repeating the claim. Full working: `HANDOFF_2026-08-10c` §6.
 - **"Locked" never meant uneditable.** Migration 164: re-assembly of existing
   `page_components` is deliberately un-gated, *"it is how owned pages deploy"* —
   `page-rerender` and `section-editor` work on owned pages. `owned` blocks the
@@ -626,6 +638,16 @@ bash scripts/migration/run-migrations.sh --record-only docs/agent_docs/sql_for_a
   `site_plan_sections` are what it builds FROM. Both these sites had **zero** plan
   rows, so unlocking made 39 pages eligible and undriven. Read `bugs_open/204`
   before seeding a plan for a decomposed page.
+  > **CORRECTED 2026-08-10 (evening): 204 is FIXED AND LIVE, and so is `bugs_open/189`**
+  > — both since 2026-08-06, re-verified at chassis v1.0.1280 by pod-grep on both
+  > replicas with a negative control (`stored_slot_name`, `load page slot
+  > identities`, `slot_name repeats with different component_ids` = 1/1/1; nonsense
+  > string = 0) plus the live config half (`slot_name_from` in
+  > `page-content-writer`). A decomposed page **can** now be rebuilt from a plan, and
+  > 189's *"never fire a build-path run on a page holding locked rows"* is lifted.
+  > **They are still in `bugs_open/` per the owner direction of 2026-08-06 — a file's
+  > directory is not its status; read its tail.** The `site_plans`-is-zero point
+  > above still stands and is still the real gap.
 - **Induce the verify block before trusting it.** A verify block made of `SELECT`s
   cannot stop the `COMMIT` — `ON_ERROR_STOP` ignores a non-empty result set. Use
   `DO`/`RAISE`, and run it once with a deliberately wrong expectation to watch it

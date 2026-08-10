@@ -1,5 +1,23 @@
 # HANDOFF — unlocking loanandmortgagecalculator.co.uk + loancash.co.uk for full framework editing
 
+> **⚠ SUPERSEDED 2026-08-10 (evening) — START AT
+> `HANDOFF_2026-08-10c_continue_here.md`.** §1–§3 (what the lock is, what migration
+> 367 did, why the 20 tool pages were refused) remain accurate and are still the
+> reference for the lock mechanism. **§4 IS WRONG — see the correction below.**
+>
+> **CORRECTED 2026-08-10 (evening): §4's blocker no longer exists, and did not exist
+> when this file was written.** §4 says `bugs_open/204` means *"a decomposed page can
+> never be rebuilt"* and to read it before seeding a plan. **204 and its sibling
+> `bugs_open/189` were both fixed, rolled and behaviourally verified on 2026-08-06**
+> — four days before this file. They remain in `bugs_open/` only because of the
+> owner direction of 2026-08-06 to leave found bugs there, which overrides
+> CLAUDE.md's bar. Re-verified at chassis v1.0.1280 on both replicas by pod-grep with
+> a negative control, plus the live config half. **What caught it:** checking the
+> tail of the bug file instead of inferring its status from its directory.
+> The build path now resolves sections by `page_components.component_id` first, so
+> positional slot names resolve — and 189's *"never fire a build-path run on a page
+> holding locked rows"* is lifted too. Full working: `HANDOFF_2026-08-10c` §2.
+
 **Owner request, 2026-08-10:** *"unlock them both and make their components and
 tools fully editable and upgradable … do it all through the framework."*
 
