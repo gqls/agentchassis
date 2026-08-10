@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import PipelinesPage from "./pages/PipelinesPage";
+import CustomersPage from "./pages/CustomersPage";
 
 const API_BASE = "/api/v1/admin";
 
@@ -2367,6 +2368,7 @@ export default function App() {
                             { key: "sites", label: "Sites" },
                             { key: "all-items", label: "All Items" },
                             { key: "pipelines", label: "Pipelines" },
+                            { key: "customers", label: "Customers" },
                         ].map(({ key, label }) => (
                             <button key={key} onClick={() => { setView(key); setSelectedSite(null); }} style={{
                                 background: view === key || (["items", "pages", "specs", "media"].includes(view) && key === "sites") ? "#1e293b" : "transparent",
@@ -2456,6 +2458,13 @@ export default function App() {
 
                 {view === "pipelines" && (
                     <PipelinesPage
+                        token={token}
+                        onLogout={handleLogout}
+                    />
+                )}
+
+                {view === "customers" && (
+                    <CustomersPage
                         token={token}
                         onLogout={handleLogout}
                     />
