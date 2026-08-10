@@ -227,3 +227,75 @@ runner first — this is a `draft`-status pattern and the notes are dated.
 
 </content>
 </invoke>
+
+---
+
+## 2026-08-10, later — box selection, measured on the box
+
+Owner ruling: Mythic Beasts preferred over Hetzner where the choice is easy;
+**apis.uk carries the API and nothing else**. Estate is 4 boxes — idea.uk
+(Hetzner CX, money-live), relojistas.com (Hetzner CPX22), tools-api island
+(Mythic Beasts `vds:toolsapisuk`), webdesign.uk (Mythic Beasts `vds:webdesign`).
+The ruling excludes the island outright and deprioritises both Hetzner boxes, so
+exactly one candidate remains and there is no judgement left to exercise.
+
+`[MEASURED 2026-08-10]` on `webdesign.vs.mythic-beasts.com` (176.126.243.62,
+Cambridge), via `ssh -i ~/.ssh/webdesign_box_ed25519 root@…`:
+
+```
+nproc      -> 2
+free -h    -> 7.8Gi total   506Mi used   6.2Gi free   7.3Gi available
+df -h /    -> 50G total     2.4G used    47G free (5%)
+ss -tln    -> *:8081  127.0.0.1:8080  0.0.0.0:22  127.0.0.1:20241
+which psql postgres -> none
+running    -> cloudflared, nginx, ssh, unattended-upgrades (+ base system)
+```
+
+**Worth recording because it contradicts the paperwork in a useful direction.**
+`HANDOFF_2026-08-03_P1_shopfront.md:112` and `HANDOFF_2026-08-04_continue_here.md:188`
+both specify **4 GB** ("the one number not to trim"). The provisioned machine has
+**7.8 GB**. A requirements table is a statement of what to buy, not of what was
+bought — read the box.
+
+`[CORRECTED]` My earlier entry in this file said the island "has the database and
+the backup habit already" and put the webdesign box at 8 GB. Both were
+directionally right and imprecise: the island is 1 core / 2 GB / **20 GB** SSD,
+£16.20/mo (`RUNBOOK_island.md:4-5`), and the webdesign box is 7.8 GB / 50 GB. The
+island's disk in particular I had never checked and should not have implied.
+
+### Incidental security finding — webdesign lane's, not this one's
+
+`[MEASURED]` `webdesign-chat` (pid 105145) listens on **`*:8081`**, all
+interfaces. Mitigation measured too, so this is a gap and not an exposure:
+
+```
+ufw status verbose -> Status: active
+                      Default: deny (incoming), allow (outgoing)
+                      22/tcp (OpenSSH) ALLOW IN  Anywhere      <- the only rule
+```
+
+and an actual outside TCP connect to `176.126.243.62:8081` **does not reach it**
+(tested from this host; the disconfirming result — a successful connect — would
+have made this an incident rather than a note).
+
+Why it still matters: `webdesign.uk.nginx:32-34` states the box's posture
+explicitly — *"LISTENS ON LOOPBACK ONLY, ON PURPOSE… Binding 127.0.0.1 means even
+a firewall mistake exposes nothing."* `webdesign-chat` does not honour that, so
+ufw is its sole control rather than its second one. `ufw allow 8081` or a
+`--force reset` would publish a service that spends money against the Anthropic
+API. **Not fixed here** — another lane's service, outside this task's scope, and
+changing it would restart a live commercial service on somebody else's behalf.
+
+**The transferable form:** a loopback-binding *convention* enforced by nothing is
+not a control ([[a-doc-comment-is-not-an-enforcement-mechanism]]). The next
+service on this box — which will be noted's — must bind `127.0.0.1` explicitly,
+and that is now written into PLAN §3a-i rather than left to whoever writes it.
+
+### Consequence for noted's design
+
+Media (voice recordings, photos) goes to **B2**, not the box disk. Two reasons,
+and the second is the load-bearing one: it is better architecture anyway, and it
+removes the only shared resource on which noted could take the webdesign.uk
+shopfront down. noted's storage growth is unbounded (audio and images per note,
+per user, forever); the shopfront's is not. Postgres on the box then holds text,
+metadata and object keys, which stays small indefinitely.

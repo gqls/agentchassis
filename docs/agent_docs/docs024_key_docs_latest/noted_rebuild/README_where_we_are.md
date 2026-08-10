@@ -147,3 +147,54 @@ project and should be decided as one, not smuggled in under a site rebuild.
    I've designed today's backup format to be exactly what the new server will
    accept, so the path exists — but it needs the person to act, which is the
    other reason the notice matters.
+
+---
+
+## 2026-08-10, later — the machine is chosen
+
+You ruled: Mythic Beasts over Hetzner where it's an easy choice, and nothing on
+the apis.uk machine except the API.
+
+That made it easy. Four machines: two Hetzner (idea.uk payments, relojistas), and
+two Mythic Beasts (apis.uk, webdesign.uk). Your ruling deprioritises the Hetzner
+pair and takes apis.uk off the table, which leaves exactly one — **the
+webdesign.uk box in Cambridge**. It was already what I'd recommended, so there
+was nothing left to weigh.
+
+I logged into it rather than trusting its paperwork, which was worth doing: its
+own planning docs specify 4 GB of memory and the machine actually has **7.8 GB,
+with 6.2 free**, two cores, and **47 of its 50 GB disk unused**. It's nearly
+idle. Postgres isn't on it yet — that's the main thing to add.
+
+**One thing I found while I was in there, which isn't mine to fix.** The
+webdesign chat service is listening on every network interface rather than just
+the machine's own loopback. Nothing is exposed: the firewall is on, denies
+everything inbound except SSH, and I checked from outside that the port genuinely
+can't be reached. But that box's own nginx config says, in as many words, that
+things bind to loopback so that *even a firewall mistake exposes nothing* — and
+the chat service doesn't. So the firewall isn't a backstop for it, it's the only
+thing there, and one wrong firewall rule would put a service that spends money on
+the Anthropic API on the open internet. Worth whoever owns that lane knowing.
+
+**The one real objection to using that box**, and I want to be straight about it:
+it already serves the webdesign.uk shopfront, which is a live commercial front
+door, and putting a consumer app with user data next to it couples the two. Our
+own track record argues against exactly this — we've twice bought a separate
+machine to avoid product coupling, once over a saving of about three euros a
+month.
+
+Your ruling points the other way and it stands. But I've answered the coupling
+rather than shrugging at it: **the voice recordings and photos won't live on that
+machine's disk.** They go to the object storage we already run, and the database
+on the box holds text and bookkeeping only. That's better design anyway, and it
+removes the only coupling that could actually hurt — noted's storage grows
+without limit and the shopfront's doesn't, so a shared 50 GB disk was the real
+risk. With media held elsewhere the box runs a small text database that'll stay
+small for years.
+
+Written up as a summary in `SUMMARY_2026-08-10b_noted_rebuild.md`.
+
+The two things still waiting on you are unchanged: what the privacy wording
+becomes once people can sign in, and the fact that migrating anyone's existing
+notes needs them to press export and then import — we hold no copy and can't
+reach their browsers.

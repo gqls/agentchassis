@@ -143,7 +143,87 @@ platform programme rather than a site rebuild, and should be decided as one.
 
 ## 3. Hosting
 
-### 3a. Where it goes
+### 3a. DECIDED 2026-08-10 (owner) — the webdesign.uk box
+
+> **OWNER RULING, 2026-08-10:**
+> *"I want to move to mythic beasts in preference to hertzner servers so if it
+> is an easy choice then mythic beasts otherwise use hertzner. I don't want
+> anything on the api server apis.uk except the api."*
+
+Applied to the estate, this collapses to one box with no judgement left in it:
+
+| Box | Provider | Status under the ruling |
+|---|---|---|
+| tools-api island (`vds:toolsapisuk`) | Mythic Beasts | **Excluded by the ruling** — apis.uk carries the API and nothing else |
+| **webdesign.uk (`vds:webdesign`)** | **Mythic Beasts** | **CHOSEN** |
+| relojistas.com (CPX22) | Hetzner | Deprioritised by the ruling |
+| idea.uk (CX) | Hetzner | Deprioritised, and money-live — never a candidate |
+
+So: **noted.co.uk's engine goes on `webdesign.vs.mythic-beasts.com`**
+(176.126.243.62, Cambridge). It was already the recommendation on capacity
+grounds, and the ruling removes the only competitor, so this is settled rather
+than a close call.
+
+**Capacity MEASURED on the box 2026-08-10, not read off a requirements table**
+(`ssh -i ~/.ssh/webdesign_box_ed25519 root@webdesign.vs.mythic-beasts.com`):
+
+```
+nproc            2
+free -h          7.8Gi total, 506Mi used, 7.3Gi available
+df -h /          50G total, 2.4G used, 47G free (5%)
+psql/postgres    none installed
+listening        *:8081 (webdesign-chat), 127.0.0.1:8080 (nginx), :22, cloudflared
+```
+
+Worth stating because the planning docs for that box specify **4 GB**; the
+provisioned machine actually has **7.8 GB**, and is close to idle. There is
+ample room. (The island, for contrast, is 1 core / 2 GB / **20 GB** — the
+earlier note in this file saying the island had the database and the webdesign
+box had 8 GB was right about the direction and imprecise about the island's
+disk; corrected here from `RUNBOOK_island.md:4`.)
+
+### 3a-i. The one real objection, and how it is answered
+
+This box serves the **webdesign.uk shopfront**, which is a live commercial
+front door. Putting a consumer app that holds user data on the same machine
+couples them, and this estate has twice chosen a dedicated box **specifically to
+avoid that** — the register records idea.uk taking its own box rather than
+reusing the shared proxy for "blast-radius isolation", and relojistas declining
+to reuse the idea.uk box over "product coupling", for a saving of ~€3.49/mo.
+
+That precedent is real and it argues for a fifth box. The owner's ruling points
+the other way, and the ruling wins — but the coupling is answered rather than
+ignored:
+
+- **Media does NOT go on the box disk.** Voice recordings and photos go to
+  Backblaze B2 (object storage we already run); Postgres holds text, metadata
+  and object keys. This is better architecture regardless, and it removes the
+  coupling that actually matters: noted's storage growth is unbounded and the
+  shopfront's is not, so a shared 50 GB disk is the one resource where noted
+  could take the shopfront down. With media in B2 the box holds a text database
+  that will stay small for years.
+- **Bind to loopback.** See the finding below — the notes service must bind
+  `127.0.0.1` and be reached through nginx, not repeat `*:8081`.
+- **Separate systemd unit, separate Postgres role and database**, so neither
+  service can read the other's data and either can be restarted alone.
+
+### 3a-ii. Incidental finding on that box — belongs to the webdesign lane
+
+`webdesign-chat` listens on **`*:8081`** — all interfaces — not loopback.
+Measured, along with the mitigation: `ufw` is active with `default deny
+(incoming)` and only 22 open, and an actual TCP connect to `176.126.243.62:8081`
+from outside **does not reach it**. So nothing is exposed today.
+
+It is still a gap worth passing on, because it contradicts that box's own stated
+posture. `webdesign.uk.nginx:32-34` says of nginx's loopback binding: *"LISTENS
+ON LOOPBACK ONLY, ON PURPOSE… Binding 127.0.0.1 means even a firewall mistake
+exposes nothing."* The chat service does not do this, so for it ufw is not
+defence in depth — it is the **only** defence, and one `ufw allow 8081` or a
+`ufw --force reset` puts a service that spends money on the Anthropic API onto
+the public internet. Not fixed here: it is another lane's service and outside
+this task. Raised in `README_where_we_are.md` and in this session's report.
+
+### 3b. Where it goes (superseded background — kept for the reasoning)
 
 Four VMs exist. The relevant two:
 
@@ -263,7 +343,9 @@ their findings will sit where nobody looks.
 
 ## 6. Open decisions for the owner
 
-1. **Which VM.** Recommendation above (webdesign.uk box), not yet acted on.
+1. ~~**Which VM.**~~ **DECIDED 2026-08-10 — the webdesign.uk Mythic Beasts box.**
+   See §3a. Owner ruled Mythic Beasts over Hetzner, and apis.uk carries the API
+   and nothing else, which left exactly one candidate.
 2. **What the privacy promise becomes.** The current site's entire pitch is that
    there is no server. That inverts. The `evidence_base` bans the old sentences
    so they cannot be copied forward, but *what replaces them* is a product
