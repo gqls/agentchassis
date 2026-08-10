@@ -82,3 +82,86 @@ actually indexing the missing Go declarations gets its own round, because it wid
 every diagnosis run searches and that deserves to be reviewed on its own merits.
 
 Next entry will record what the design pass recommended and what the council said.
+
+## 2026-08-10, afternoon — built, committed, and one uncomfortable moment
+
+The fix is in and the config half is already live. Here is what happened, including the bit
+I got wrong.
+
+**The design.** I had a design pass run by a second model before writing anything, and it
+agreed with the shape I had gone in with, which was reassuring rather than surprising. It
+also caught a number of mine: I had sized the follow-on work using a quick text search that
+counted 930 declarations, and the real figure is 1,173, because a grouped declaration block
+counts as one line however many things it declares. Worth recording because it is the same
+class of error as the bug itself — a search tells you what it can see, not what is there.
+
+**What we actually changed.** Three things, in order of how much they matter.
+
+The smallest and most important: every verdict the robot writes now carries a line, composed
+by the machinery rather than by the robot, saying how many of its checks could not be
+answered by the index at all. That matters because the verdict is read months later by
+people and by other machines, long after the run that produced it is gone. A caveat the robot
+is merely *asked* to include arrives most of the time — and "most of the time" is exactly the
+problem we are fixing.
+
+The second: the robot can no longer *reach* the "this note is stale" verdict when nothing in
+its round was actually confirmed against real code. Not discouraged from it — unable to get
+there. The route through the workflow now forks on a plain true/false fact, and the branch
+for "we confirmed nothing" offers only two answers, neither of which is "stale". I put this
+second because a determined model could still type the word into free text; the line above is
+what protects the reader either way.
+
+The third, and the one that helps most widely: the lookup itself now says what it cannot
+see. It reads its own contents — which file types, which kinds of declaration — and when you
+ask it about something it structurally cannot hold, it says so instead of saying "we ran your
+query and found nothing". Crucially, all of that wording is *computed* from what the index
+actually contains, so when we widen the index later the warnings retire themselves. Hardcoding
+"we only hold Go" would have been quicker and would have quietly become a lie.
+
+That third change benefits four different consumers, not just the landmine robot — including
+the diagnosis loop, whose own source comments had already asked for exactly this and never
+got it.
+
+**Two things we found that the original bug report did not know.**
+
+The blind spot does not only make things look absent — it can make them look *present*. If a
+note points at a folder, and that folder happens to contain some Go files in its
+subdirectories, the check comes back with a generous list and reads as confirmation, while
+every file the note actually named is invisible. That is worse than a wrong accusation: a
+wrong accusation makes you go and look. A flattering half-answer looks like diligence.
+
+And the careful runs are not free either. I fired the robot at a fresh note on purpose this
+morning, before changing anything, to bank the "before" picture. It drew the careful branch
+— and still spent two model calls and eight queries to arrive at "either these files don't
+exist or they aren't indexed, I can't tell", which one census query answers outright. It then
+guessed the answer correctly and hung its whole verdict on the guess.
+
+**The uncomfortable moment.** I wrote twelve tests, watched them all pass, and then did what
+this project's rules require: broke each guard deliberately to check a test would notice.
+Six of seven noticed. The seventh did not — I deleted the folder-listing fix entirely, at the
+point where it is used, and every test stayed green, because they all tested the *function*
+and none tested that anything *calls* it. And that was the guard for the false-confirmation
+problem I had discovered myself an hour earlier. Finding a failure mode does not protect you
+from it. Three more tests now go through the real path and the deliberate break is caught.
+It is written up in the shared log of wrong calls, because the useful part is the question:
+which test fails if I delete the *call*, not the function?
+
+**Where we are.** Committed. The database half is applied and I proved it is safe to have
+applied it early rather than assuming: I fired the robot again afterwards, on the unchanged
+program, and watched the new fork evaluate to "no" and take the old route, complete
+normally, and produce the same verdict as before. It could have failed three ways and did
+not.
+
+The code itself does nothing until the next build of the service goes out — that is normal
+here, and I have left a marker so anyone can check in one command whether the running program
+contains this change or not. It is currently absent, which is the useful thing about having
+banked that check before making it.
+
+**What is still owed.** The review council's verdict, which is running now and which I will
+read and act on. Then, after the next build: re-run the robot on the two notes that started
+this and compare against the banked "before" — including that the checks which *did* work
+must still work, because a fix that buys quiet by checking less would look like success.
+
+And then the larger piece, deliberately kept separate: actually teaching the index about the
+~1,170 declarations it currently cannot see. That widens what every diagnosis in the system
+searches, so it deserves its own review rather than riding in on this one's coat-tails.
