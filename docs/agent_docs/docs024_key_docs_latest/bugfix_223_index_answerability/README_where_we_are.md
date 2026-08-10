@@ -165,3 +165,53 @@ must still work, because a fix that buys quiet by checking less would look like 
 And then the larger piece, deliberately kept separate: actually teaching the index about the
 ~1,170 declarations it currently cannot see. That widens what every diagnosis in the system
 searches, so it deserves its own review rather than riding in on this one's coat-tails.
+
+## 2026-08-10, after the build went out — it works, and one honest deduction
+
+The new build is running and the change is in it. I checked that at the program itself
+rather than trusting the version number: the phrase the fix adds was absent before and is
+present now, on both copies of the service, alongside a phrase I never added (still absent,
+proving the check isn't just matching everything) and one from an older fix (present,
+proving the check works at all).
+
+Then I re-ran the robot on the note that started all this — the one it had declared
+non-existent, in a message delivered by the very scripts it said did not exist. It now says:
+
+> The entire footprint (Python and shell scripts) falls outside the Go-only index; existence
+> and behaviour of these three scripts could not be checked.
+
+That is the whole point. Same index, same absence of evidence, and it now reports the
+absence of *evidence* instead of the absence of the *thing*. Four notes re-checked, and all
+four stored verdicts carry the machine-written line saying how much of the round was
+actually checkable. Importantly, the fix did not buy that quiet by checking less: on a note
+with a mixed footprint, the parts that live in Go were still confirmed by name in the same
+verdict that flagged the rest as unverifiable.
+
+**The honest deduction, which I would rather write down than leave you to find.** One of the
+two protections I built has never actually fired, and now I know why. The idea was that if a
+round confirms nothing at all, the robot cannot even be offered the word "stale". But
+"confirms nothing" turns out to be almost impossible to reach, because the text search
+matches on fragments: a check looking for a Python constant called `VECTORS` came back with
+eight results, all of them unrelated Go code that merely contains the letters "vector". One
+accidental match like that is enough to count as "we confirmed something", so the guard
+stands down.
+
+Two things follow. The first is that the problem I found this morning — a search answering
+a question about one file with a confident result from a completely different one — is not a
+curiosity, it is the normal case. The new caveat caught it, and the robot's own verdict
+repeated it back correctly: those matches "are unrelated to the VECTORS constant described
+in the entry". The second is that the protection actually doing the work is the plainer one:
+every answer now says what it could not see, and every stored verdict carries that summary.
+I ranked those two that way when I built them, and the evidence agrees — but the guard that
+has not fired should not get the credit, so I have said so in the bug file, in the register,
+and here.
+
+There is a clean follow-up, and it belongs to whoever owns the checking robot rather than to
+this piece of work: it should not ask a text-search question about a file it can already see
+is not Go. That would remove the wasted checks and let the standing-down guard actually stand
+up when a note really is unverifiable.
+
+**Where that leaves us.** The reporting half is done, live, and proven on the case that
+motivated it. The remaining half — teaching the index about the ~1,170 declarations it still
+cannot see — is written up as the next task, with its risks measured rather than guessed. A
+fresh session can pick it up from the handoff without re-reading any of this.
