@@ -140,7 +140,8 @@ func analyseFile(path, rel string) FileInfo {
 		case *ast.FuncDecl:
 			fi.Functions = append(fi.Functions, funcDef(fset, d))
 		case *ast.GenDecl:
-			if d.Tok == token.TYPE {
+			switch d.Tok {
+			case token.TYPE:
 				for _, spec := range d.Specs {
 					ts, ok := spec.(*ast.TypeSpec)
 					if !ok {
@@ -148,10 +149,77 @@ func analyseFile(path, rel string) FileInfo {
 					}
 					fi.Types = append(fi.Types, typeDef(fset, d, ts))
 				}
+			case token.VAR, token.CONST:
+				// bugs_open/223 phase 2. These two lines are the whole of what was
+				// missing: the walk took FuncDecl and TYPE and silently dropped
+				// every package-level value, so the index could show a reader every
+				// USE of a spec, a pattern table or a policy map and never its
+				// declaration.
+				for _, spec := range d.Specs {
+					vs, ok := spec.(*ast.ValueSpec)
+					if !ok {
+						continue
+					}
+					fi.Values = append(fi.Values, valueDefs(fset, d, vs)...)
+				}
 			}
 		}
 	}
 	return fi
+}
+
+// valueDefs turns ONE var/const spec into one ValueDef per declared name.
+//
+// THE LINE SPAN IS THE POINT, not the name. code_symbols slices `body` from this
+// span, and for a value the body IS the evidence — a spec's Defaults map, a
+// pattern table, a policy list. A span that captured only the identifier would
+// index the name and lose exactly what bugs_open/231 needed.
+//
+// Which span: the SPEC's, except for a lone unparenthesised declaration, where the
+// DECL's is used so the `var`/`const` keyword and its doc comment are inside the
+// slice. In a parenthesised block the decl span covers every member, so slicing it
+// per member would repeat the whole block once per name — hence the split.
+func valueDefs(fset *token.FileSet, d *ast.GenDecl, vs *ast.ValueSpec) []ValueDef {
+	start, end := vs.Pos(), vs.End()
+	if !d.Lparen.IsValid() {
+		start, end = d.Pos(), d.End()
+	}
+	// Doc sits on the SPEC inside a block and on the DECL for a lone declaration —
+	// the same split typeDef already makes, for the same reason.
+	doc := firstDocLine(vs.Doc)
+	if doc == "" {
+		doc = firstDocLine(d.Doc)
+	}
+	declared := ""
+	if vs.Type != nil {
+		declared = exprString(fset, vs.Type)
+	}
+	kind := "var"
+	if d.Tok == token.CONST {
+		kind = "const"
+	}
+
+	out := make([]ValueDef, 0, len(vs.Names))
+	for _, n := range vs.Names {
+		// The blank identifier is not an addressable symbol, and indexing it would
+		// be actively harmful: `var _ Iface = (*T)(nil)` appears several times in
+		// one file, and code_symbols' identity is (repo, path, symbol) — so every
+		// `_` in a file collides on UPSERT and all but one silently vanish. A row
+		// nobody can look up, overwriting a row nobody can look up.
+		if n.Name == "_" {
+			continue
+		}
+		out = append(out, ValueDef{
+			Name:      n.Name,
+			Kind:      kind,
+			Exported:  n.IsExported(),
+			Doc:       doc,
+			Type:      declared,
+			StartLine: fset.Position(start).Line,
+			EndLine:   fset.Position(end).Line,
+		})
+	}
+	return out
 }
 
 func funcDef(fset *token.FileSet, d *ast.FuncDecl) FuncDef {

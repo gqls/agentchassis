@@ -605,6 +605,26 @@ func flattenSymbols(out analysis.Output, logger *zap.Logger) []symbolRow {
 				body: slice(fn.StartLine, fn.EndLine),
 			})
 		}
+		// bugs_open/223 phase 2: package-level values. Kinds "var" and "const" were
+		// ALREADY in the code_symbols CHECK constraint and ALREADY in
+		// diagnose_code_lookup's codeKindList — the reader and the schema were
+		// built expecting them and only the writer was behind. The signature slot
+		// carries the DECLARED type when the source states one, which is what makes
+		// a row like `var DeployImageAssetInputSpec ActionInputSpec` legible in a
+		// listing without opening the body.
+		for _, vd := range f.Values {
+			sig := vd.Type
+			if sig != "" {
+				sig = vd.Kind + " " + vd.Name + " " + sig
+			}
+			content := composeSymbolContent(vd.Kind, vd.Name, sig, vd.Doc, f.Path)
+			rows = append(rows, symbolRow{
+				path: f.Path, symbol: vd.Name, kind: vd.Kind,
+				signature: sig, doc: vd.Doc, content: content,
+				hash: sha256hex(content), lineStart: vd.StartLine, lineEnd: vd.EndLine,
+				body: slice(vd.StartLine, vd.EndLine),
+			})
+		}
 		for _, td := range f.Types {
 			kind := td.Kind // struct | interface | alias — all in the CHECK set
 			if kind == "" {
