@@ -212,3 +212,118 @@ func TestGeneratorInsertsDraftsOnly(t *testing.T) {
 			"approved row is publishable")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Category-aware scheduling (owner ruling 2026-08-09, PLAN §13 ruling 9)
+// ---------------------------------------------------------------------------
+
+// TestGroupPendingByCategory_IsANoOpWhileEveryRowIsGeneral is the claim the
+// ruling was taken on: fix it NOW, while every live row is still `general`, so
+// the change cannot bite the day a second category appears. If this fails, the
+// fix was not safe to land early and the ruling's premise was wrong.
+func TestGroupPendingByCategory_IsANoOpWhileEveryRowIsGeneral(t *testing.T) {
+	in := []pendingProvocation{
+		{id: "1", slug: "oldest", category: "general"},
+		{id: "2", slug: "middle", category: "general"},
+		{id: "3", slug: "newest", category: "general"},
+	}
+	order, by := groupPendingByCategory(in)
+
+	if len(order) != 1 || order[0] != "general" {
+		t.Fatalf("order = %v, want exactly [general] — one category in, one group out", order)
+	}
+	got := by["general"]
+	if len(got) != len(in) {
+		t.Fatalf("group holds %d rows, want %d — rows were dropped by grouping", len(got), len(in))
+	}
+	for i := range in {
+		if got[i].slug != in[i].slug {
+			t.Errorf("position %d = %q, want %q — the oldest-first order did not survive grouping, "+
+				"which is the anti-starvation property", i, got[i].slug, in[i].slug)
+		}
+	}
+}
+
+// TestGroupPendingByCategory_SeparatesCategoriesAndKeepsEachInOrder is the
+// behaviour the fix exists for. Before it, a mixed batch was handed consecutive
+// dates from a whole-domain high-water mark, so a new category inherited the
+// busiest one's future and was silently never scheduled near-term.
+func TestGroupPendingByCategory_SeparatesCategoriesAndKeepsEachInOrder(t *testing.T) {
+	// Interleaved on purpose: the query returns oldest-first ACROSS categories.
+	in := []pendingProvocation{
+		{id: "1", slug: "music-old", category: "music"},
+		{id: "2", slug: "food-old", category: "food"},
+		{id: "3", slug: "music-new", category: "music"},
+		{id: "4", slug: "film-only", category: "film"},
+		{id: "5", slug: "food-new", category: "food"},
+	}
+	order, by := groupPendingByCategory(in)
+
+	// First-appearance order, NOT map order: the category holding the
+	// longest-waiting row must be scheduled first.
+	want := []string{"music", "food", "film"}
+	if len(order) != len(want) {
+		t.Fatalf("order = %v, want %v", order, want)
+	}
+	for i := range want {
+		if order[i] != want[i] {
+			t.Fatalf("order = %v, want %v — first-appearance order is what makes this "+
+				"deterministic between runs on an over-subscribed pool", order, want)
+		}
+	}
+	for cat, wantSlugs := range map[string][]string{
+		"music": {"music-old", "music-new"},
+		"food":  {"food-old", "food-new"},
+		"film":  {"film-only"},
+	} {
+		got := by[cat]
+		if len(got) != len(wantSlugs) {
+			t.Errorf("%s: %d rows, want %d", cat, len(got), len(wantSlugs))
+			continue
+		}
+		for i := range wantSlugs {
+			if got[i].slug != wantSlugs[i] {
+				t.Errorf("%s[%d] = %q, want %q", cat, i, got[i].slug, wantSlugs[i])
+			}
+		}
+	}
+
+	// Every input row must appear exactly once: a grouping that loses a row
+	// silently un-schedules a provocation, which is this bug in a new costume.
+	total := 0
+	for _, g := range by {
+		total += len(g)
+	}
+	if total != len(in) {
+		t.Errorf("grouped %d rows, want %d — grouping lost or duplicated work", total, len(in))
+	}
+}
+
+// TestNextPublishDates_StartsTomorrowForACategoryWithNoHistory pins the arithmetic
+// half of the fix at the seam the SQL feeds. A brand-new category reads
+// max(publish_on) = NULL WITHIN ITS OWN CATEGORY, so it must start tomorrow — not
+// after whatever the busiest category has already queued.
+func TestNextPublishDates_StartsTomorrowForACategoryWithNoHistory(t *testing.T) {
+	today := time.Date(2026, 8, 10, 12, 0, 0, 0, time.UTC)
+
+	fresh := nextPublishDates(nil, today, 2)
+	if len(fresh) != 2 {
+		t.Fatalf("got %d dates, want 2", len(fresh))
+	}
+	if want := today.AddDate(0, 0, 1); !fresh[0].Equal(time.Date(want.Year(), want.Month(), want.Day(), 0, 0, 0, 0, time.UTC)) {
+		t.Errorf("a category with no history starts %v, want tomorrow (%v)", fresh[0], want)
+	}
+
+	// The contrast that makes the point: the OLD whole-domain behaviour would have
+	// passed this busy category's high-water mark for the fresh one above.
+	busy := time.Date(2026, 11, 30, 0, 0, 0, 0, time.UTC)
+	crowded := nextPublishDates(&busy, today, 1)
+	if crowded[0].Before(busy) {
+		t.Errorf("a category with history must continue after it, got %v", crowded[0])
+	}
+	if !fresh[0].Before(crowded[0]) {
+		t.Errorf("the fresh category (%v) must schedule BEFORE the crowded one (%v) — "+
+			"if these are equal, the high-water mark is being read across categories again",
+			fresh[0], crowded[0])
+	}
+}

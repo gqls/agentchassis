@@ -422,6 +422,38 @@ func nextPublishDates(latestInPool *time.Time, today time.Time, n int) []time.Ti
 	return out
 }
 
+// pendingProvocation is one approved-but-undated row awaiting a date.
+type pendingProvocation struct{ id, slug, category string }
+
+// groupPendingByCategory splits the batch by category, PRESERVING two orders that
+// the scheduler's correctness depends on:
+//
+//   - the returned category order is FIRST-APPEARANCE order, which (because the
+//     query is `ORDER BY gated_at ASC NULLS LAST, created_at ASC`) means the
+//     category holding the longest-waiting row is scheduled first;
+//   - within a category, the original oldest-first order is untouched.
+//
+// Both matter because the query applies `LIMIT max_assign` BEFORE this grouping.
+// A map-iteration order here would make which category gets dated non-
+// deterministic between runs on an over-subscribed pool — the same batch would
+// schedule different rows each time, which is indistinguishable from a scheduler
+// that is simply losing work.
+//
+// Pure and total so the ordering property can be tested without a database; the
+// per-category high-water mark, which is the other half of the fix, is a SQL
+// predicate and is exercised live.
+func groupPendingByCategory(pending []pendingProvocation) ([]string, map[string][]pendingProvocation) {
+	order := make([]string, 0, 4)
+	byCategory := make(map[string][]pendingProvocation, 4)
+	for _, r := range pending {
+		if _, seen := byCategory[r.category]; !seen {
+			order = append(order, r.category)
+		}
+		byCategory[r.category] = append(byCategory[r.category], r)
+	}
+	return order, byCategory
+}
+
 // ScheduleProvocationsAction dates approved-but-undated provocations.
 func ScheduleProvocationsAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("ScheduleProvocations: starting")
@@ -465,8 +497,29 @@ func ScheduleProvocationsAction(ctx context.Context, params ActionParams) (inter
 	// exactly like an approved one — and the next person to relax the feed's
 	// predicate (or to read the schedule as a to-do list) inherits that as a live
 	// defect rather than a latent one.
+	// CATEGORY-AWARE SINCE 2026-08-09 (owner ruling, PLAN §13 ruling 9), and this
+	// is the half of RFC_013 that was still missing.
+	//
+	// The index half already shipped: `idx_provocations_one_per_category_day` is
+	// UNIQUE on (domain, category, publish_on), so one provocation PER CATEGORY per
+	// day is the representable state. This scheduler was still whole-domain: it took
+	// `max(publish_on)` across every category and handed a mixed batch consecutive
+	// dates. Two consequences, both silent:
+	//
+	//  1. A NEW CATEGORY IS NEVER SCHEDULED NEAR-TERM. It inherits the busiest
+	//     category's high-water mark, so its first provocation is dated after
+	//     everything already queued — months out, with nothing reporting it. This is
+	//     the failure the handoff carried as "a category is silently never
+	//     scheduled", and it is a scheduling bug, not a feed bug.
+	//  2. The per-category day slots are wasted: two categories that could each
+	//     publish tomorrow are instead spread across two days.
+	//
+	// Fixed now, deliberately, WHILE EVERY LIVE ROW IS STILL `general` — so the
+	// change is a no-op on today's data (one category in, one group out, identical
+	// dates) and cannot bite the day a second category is introduced. Doing it later
+	// means doing it under a live defect.
 	rows, err := params.DB.QueryContext(ctx, `
-		SELECT id::text, slug FROM provocations
+		SELECT id::text, slug, category FROM provocations
 		 WHERE domain = $1 AND status = 'approved' AND publish_on IS NULL
 		   AND human_approved_at IS NOT NULL
 		 ORDER BY gated_at ASC NULLS LAST, created_at ASC
@@ -474,11 +527,10 @@ func ScheduleProvocationsAction(ctx context.Context, params ActionParams) (inter
 	if err != nil {
 		return nil, fmt.Errorf("load undated approved provocations: %w", err)
 	}
-	type row struct{ id, slug string }
-	var pending []row
+	var pending []pendingProvocation
 	for rows.Next() {
-		var r row
-		if err := rows.Scan(&r.id, &r.slug); err != nil {
+		var r pendingProvocation
+		if err := rows.Scan(&r.id, &r.slug, &r.category); err != nil {
 			rows.Close()
 			return nil, err
 		}
@@ -493,42 +545,62 @@ func ScheduleProvocationsAction(ctx context.Context, params ActionParams) (inter
 		return map[string]interface{}{"status": "complete", "scheduled": 0}, nil
 	}
 
-	var latest *time.Time
-	var lt sql.NullTime
-	if err := params.DB.QueryRowContext(ctx,
-		`SELECT max(publish_on) FROM provocations WHERE domain = $1 AND status = 'approved'`,
-		domain).Scan(&lt); err != nil {
-		return nil, fmt.Errorf("read latest publish_on: %w", err)
-	}
-	if lt.Valid {
-		latest = &lt.Time
-	}
+	order, byCategory := groupPendingByCategory(pending)
 
-	dates := nextPublishDates(latest, time.Now().UTC(), len(pending))
 	scheduled := 0
-	for i, r := range pending {
-		// The partial unique index on (domain, publish_on) makes two approved
-		// provocations on one date unrepresentable. A conflict here means another
-		// session scheduled concurrently; skip that date rather than failing the
-		// batch, and the next run picks the row up.
-		res, err := params.DB.ExecContext(ctx, `
-			UPDATE provocations SET publish_on = $2
-			 WHERE id = $1::uuid AND publish_on IS NULL`, r.id, dates[i])
-		if err != nil {
-			params.Logger.Warn("ScheduleProvocations: could not date a provocation",
-				zap.String("slug", r.slug), zap.Error(err))
-			continue
+	firstDate := ""
+	perCategory := make(map[string]int, len(order))
+	now := time.Now().UTC()
+
+	for _, category := range order {
+		group := byCategory[category]
+
+		// The high-water mark is read WITHIN the category. This single predicate is
+		// the fix: a category with no approved rows yet correctly starts tomorrow.
+		var latest *time.Time
+		var lt sql.NullTime
+		if err := params.DB.QueryRowContext(ctx,
+			`SELECT max(publish_on) FROM provocations
+			  WHERE domain = $1 AND category = $2 AND status = 'approved'`,
+			domain, category).Scan(&lt); err != nil {
+			return nil, fmt.Errorf("read latest publish_on for category %q: %w", category, err)
 		}
-		if n, _ := res.RowsAffected(); n > 0 {
-			scheduled++
-			params.Logger.Info("ScheduleProvocations: dated",
-				zap.String("slug", r.slug), zap.String("publish_on", dates[i].Format("2006-01-02")))
+		if lt.Valid {
+			latest = &lt.Time
+		}
+
+		dates := nextPublishDates(latest, now, len(group))
+		for i, r := range group {
+			// The partial unique index on (domain, category, publish_on) makes two
+			// approved provocations in one category on one date unrepresentable. A
+			// conflict here means another session scheduled concurrently; skip that
+			// date rather than failing the batch, and the next run picks the row up.
+			res, err := params.DB.ExecContext(ctx, `
+				UPDATE provocations SET publish_on = $2
+				 WHERE id = $1::uuid AND publish_on IS NULL`, r.id, dates[i])
+			if err != nil {
+				params.Logger.Warn("ScheduleProvocations: could not date a provocation",
+					zap.String("slug", r.slug), zap.String("category", category), zap.Error(err))
+				continue
+			}
+			if n, _ := res.RowsAffected(); n > 0 {
+				scheduled++
+				perCategory[category]++
+				if firstDate == "" || dates[i].Format("2006-01-02") < firstDate {
+					firstDate = dates[i].Format("2006-01-02")
+				}
+				params.Logger.Info("ScheduleProvocations: dated",
+					zap.String("slug", r.slug), zap.String("category", category),
+					zap.String("publish_on", dates[i].Format("2006-01-02")))
+			}
 		}
 	}
 
 	return map[string]interface{}{
 		"status": "complete", "scheduled": scheduled,
-		"first": dates[0].Format("2006-01-02"),
-		"note":  "one per day, forward only; the gap behind today is deliberately not backfilled (§10.5)",
+		"first":        firstDate,
+		"per_category": perCategory,
+		"categories":   order,
+		"note":         "one per day PER CATEGORY, forward only; the gap behind today is deliberately not backfilled (§10.5)",
 	}, nil
 }
