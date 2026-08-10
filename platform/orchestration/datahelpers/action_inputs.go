@@ -163,6 +163,40 @@ type ActionInputSpec struct {
 	// consulted" shape recorded in WRONG_CALLS.md 2026-07-28, and the same
 	// argument already written on SingleOwner above.
 	DeprecatedConfigKeys map[string]string
+
+	// RemovedConfigKeys maps a RETIRED config key to a message naming what
+	// replaced it. A step carrying one is a HARD validation error — the whole
+	// workflow is rejected, on every message — with an error that tells the
+	// author the correct spelling instead of silently ignoring the key.
+	//
+	// This is the third and last state the detector needed. `Deprecated` /
+	// `DeprecatedConfigKeys` mean "old name, still WORKS"; ConfigKeys means
+	// "recognised"; unknown means "nothing is known". A key that was RETIRED —
+	// an author wrote it, it reads as wired, and no code path has ever resolved
+	// it — fitted none of those: declaring it recognised silences the detector
+	// while the behaviour stays broken (bugs_closed/101), declaring it
+	// deprecated makes the runtime resolve its value as a data path and take
+	// the default while reading as wired (the LANDMINES `Deprecated`-alias
+	// trap), and leaving it unknown produces a once-per-pod Warn that nobody
+	// reads while the intended behaviour is silently dropped — which is how
+	// improvement-loop's refresh_site_components flag was lost for months
+	// (bugs_open/234, the case this field ships with).
+	//
+	// The map VALUE is prose for a human: name the replacement spelling and,
+	// where useful, the bug that retired the key. It is printed verbatim in the
+	// validation error.
+	//
+	// ORDERING IS ON THE DECLARER. The error fires the moment a binary carrying
+	// the declaration validates a definition carrying the key — so migrate
+	// every live carrier BEFORE committing the declaration (on this tree,
+	// committing is shipping). The offline audit reports removed-keys-in-use
+	// so the drift is visible before a roll.
+	//
+	// Opt-in with the unsafe default OFF (empty map — the owner ruling of
+	// 2026-08-02 #2), and deliberately independent of checksConfig(), for the
+	// same reason as DeprecatedConfigKeys above: a retired key must hard-fail
+	// even on an action that has not adopted unknown-key detection.
+	RemovedConfigKeys map[string]string
 }
 
 // frameworkStepConfigKeys are step-config keys the orchestrator itself reads or
@@ -240,10 +274,62 @@ func UnknownConfigKeys(actionName string, config map[string]interface{}) (unknow
 		if recognised[k] || IsFrameworkStepConfigKey(k) {
 			continue
 		}
+		// Removed keys are NOT unknown — they are known-dead, a distinct third
+		// state with its own (harder) consequence: RemovedConfigKeysInUse
+		// reports them and the validator rejects them outright. Listing one
+		// here as well would double-report it under the softer label, and the
+		// softer label is the one that gets read.
+		if _, isRemoved := spec.RemovedConfigKeys[k]; isRemoved {
+			continue
+		}
 		unknown = append(unknown, k)
 	}
 	sort.Strings(unknown)
 	return unknown, true
+}
+
+// RemovedConfigKeysInUse returns the RETIRED keys present in this step's
+// config, mapped to the replacement message each declares. Any entry is a
+// definition error — the validator rejects the workflow — so this is the one
+// key category where a non-empty result means "stop", not "note".
+//
+// `declared` draws the same load-bearing distinction as UnknownConfigKeys and
+// DeprecatedConfigKeysInUse: "declares removed keys, none present" versus
+// "declares none, nothing examined". Deliberately independent of
+// checksConfig(), like DeprecatedConfigKeysInUse and for the same reason: a
+// retired key must hard-fail even on an action that has not adopted
+// unknown-key detection.
+func RemovedConfigKeysInUse(actionName string, config map[string]interface{}) (inUse map[string]string, declared bool) {
+	spec, ok := GetActionInputSpec(actionName)
+	if !ok || len(spec.RemovedConfigKeys) == 0 {
+		return nil, false
+	}
+
+	inUse = make(map[string]string)
+	for removed, message := range spec.RemovedConfigKeys {
+		if _, set := config[removed]; set {
+			inUse[removed] = message
+		}
+	}
+	return inUse, true
+}
+
+// ListRemovedConfigKeys returns every declared retired key, by action.
+// Consumed by cmd/config-key-audit so the offline report can find a removed
+// key in live definitions BEFORE a binary that rejects it rolls out.
+func ListRemovedConfigKeys() map[string]map[string]string {
+	out := make(map[string]map[string]string)
+	for name, spec := range actionInputSpecs {
+		if len(spec.RemovedConfigKeys) == 0 {
+			continue
+		}
+		removed := make(map[string]string, len(spec.RemovedConfigKeys))
+		for k, msg := range spec.RemovedConfigKeys {
+			removed[k] = msg
+		}
+		out[name] = removed
+	}
+	return out
 }
 
 // ConditionalConfigKeys returns the conditionally-honoured keys PRESENT in this

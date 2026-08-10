@@ -3,6 +3,7 @@ package validation
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 
@@ -157,6 +158,29 @@ func (v *WorkflowValidator) validateStep(name string, step models.Step, allSteps
 func (v *WorkflowValidator) checkStepConfigKeys(where string, step models.Step) error {
 	if len(step.Config) == 0 {
 		return nil
+	}
+	// Removed keys FIRST, before the unknown/strict branch, and independently
+	// of the unknown-key opt-in: a RETIRED key is not unknown — it is known to
+	// be dead, the author demonstrably intended behaviour, and the replacement
+	// spelling is on record. Warn-only is what let improvement-loop's
+	// refresh_site_components flag stay silently dropped for months
+	// (bugs_open/234), so this one is a hard error with the fix in the message.
+	// Checking it first also means the specific message wins over StrictConfig's
+	// generic one when both would fire.
+	if removed, declared := datahelpers.RemovedConfigKeysInUse(step.Action, step.Config); declared && len(removed) > 0 {
+		keys := make([]string, 0, len(removed))
+		for k := range removed {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		parts := make([]string, 0, len(keys))
+		for _, k := range keys {
+			parts = append(parts, fmt.Sprintf("%q (%s)", k, removed[k]))
+		}
+		return fmt.Errorf("step '%s' (action '%s') carries REMOVED config key(s): %s — "+
+			"a removed key is a definition error: the action never reads it, so the "+
+			"behaviour it describes silently does not happen", where, step.Action,
+			strings.Join(parts, "; "))
 	}
 	unknown, checked := datahelpers.UnknownConfigKeys(step.Action, step.Config)
 	if !checked || len(unknown) == 0 {

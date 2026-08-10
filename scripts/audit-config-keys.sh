@@ -25,8 +25,15 @@
 #                       opt-in, which is why it is a third thing and not a
 #                       subset of the second: the action in bug 134 had declared
 #                       nothing, so the UNKNOWN KEY section could not see it.
+#   REMOVED KEY IN USE — the action declares this key RETIRED
+#                       (ActionInputSpec.RemovedConfigKeys, bugs_open/234), and
+#                       a live step still carries it. The runtime validator
+#                       REJECTS such a definition outright once a binary with
+#                       the declaration rolls, so this is the report's most
+#                       urgent section: it is the only place a carrier is
+#                       visible BEFORE the roll turns it into a dead agent.
 #
-# A count of zero in the second and third sections is meaningful. A count of
+# A count of zero in every section but the first is meaningful. A count of
 # zero in the first would mean full adoption, which is not the case today and is
 # the number this report exists to drive down.
 #
@@ -129,6 +136,12 @@ conditional = _dump.get("conditional", {})
 # nine live steps and has never declared ConfigKeys, so gating would hide the
 # mechanism's largest real user.
 deprecated_cfg = _dump.get("deprecated", {})
+# Retired keys: key -> replacement message, per action (bugs_open/234). A live
+# hit here is the report's most urgent finding: the runtime validator REJECTS a
+# workflow carrying one, on every message, from the moment a binary with the
+# declaration rolls — this offline join is the only place a carrier can be seen
+# BEFORE that happens. Not gated on opt-in, same as `deprecated`.
+removed_cfg = _dump.get("removed", {})
 # Already computed by the binary, which walked the same definitions with the same
 # traversal — passed in as JSON rather than re-derived here, so there is one
 # implementation of "what counts as suspicious" and it is the tested one.
@@ -147,6 +160,7 @@ unknown_by_action = defaultdict(list)
 undeclared_by_action = defaultdict(list)
 conditional_by_action = defaultdict(list)
 deprecated_by_action = defaultdict(list)   # (old_key, canonical_key) pairs actually carried
+removed_by_action = defaultdict(list)      # (key, replacement_message) pairs actually carried
 
 # Where each pair was found. A pair carried ONLY by a step inside a loop
 # sub-workflow was invisible to this report until 2026-07-29 (bugs_open/144), so the
@@ -172,8 +186,16 @@ for line in os.environ["LIVE"].splitlines():
 for action, key in sorted(seen_top | seen_nested):
     if key in framework:
         continue
-    # Deprecated aliases are classified FIRST, before the declared/undeclared
-    # split. Both other buckets would give the wrong answer: on an opted-in
+    # Removed keys are classified before everything else, mirroring the runtime
+    # validator's order: this is the one category where a hit means the
+    # definition will be REJECTED, so it must not vanish into "declared, clean"
+    # (the binary excludes removed keys from the recognised set, but this
+    # report should not depend on remembering that) or soften into UNKNOWN.
+    if key in removed_cfg.get(action, {}):
+        removed_by_action[action].append((key, removed_cfg[action][key]))
+        continue
+    # Deprecated aliases are classified FIRST among the surviving keys, before
+    # the declared/undeclared split. Both other buckets would give the wrong answer: on an opted-in
     # action the key is recognised, so it would vanish into "declared, clean";
     # on a non-opted-in action it would land in UNDECLARED among keys nothing is
     # known about. Neither says the true thing, which is "the code reads this,
@@ -201,6 +223,8 @@ if os.environ["JSON_OUT"] == "1":
         "conditional_keys": {k: sorted(v) for k, v in conditional_by_action.items()},
         "deprecated_keys": {k: {old: new for old, new in sorted(v)}
                             for k, v in deprecated_by_action.items()},
+        "removed_keys_in_use": {k: {key: msg for key, msg in sorted(v)}
+                                for k, v in removed_by_action.items()},
         "undeclared_actions": {k: sorted(v) for k, v in undeclared_by_action.items()},
         "suspicious_keys": suspicious,
         "declared_action_count": len(declared),
@@ -219,6 +243,20 @@ else:
     print("  nested-only pairs were invisible to it AND to the runtime validator —")
     print("  both blind in the same direction, agreeing with each other")
     print("  (bugs_open/144). Both now walk the definition with the same Go function.")
+    print()
+    print("=== REMOVED KEYS IN USE (RETIRED — the validator will REJECT these definitions) ===")
+    if removed_by_action:
+        for action in sorted(removed_by_action):
+            for key, msg in sorted(set(removed_by_action[action])):
+                print(f"  {action}.{key}: {msg}")
+        print()
+        print("  A removed key is a hard validation error from the moment a binary")
+        print("  carrying its declaration rolls: the whole workflow is rejected on every")
+        print("  message and the agent stops working. Migrate the definition NOW —")
+        print("  the replacement spelling is in the message above (bugs_open/234).")
+    else:
+        print("  none")
+
     print()
     print("=== UNKNOWN KEYS (action declared its contract; these are not in it) ===")
     if unknown_by_action:
@@ -295,9 +333,11 @@ else:
         print(f"    … and {len(undeclared_by_action) - 20} more actions "
               f"(use --json for the full list — this cap is a display limit, not a filter)")
 
-# Both classes fail the run. A suspicious key is the more certain of the two —
-# an unknown key MIGHT be a stale declaration, whereas a key nothing can read is
-# inert by construction — so exiting 0 over one because the other section is
-# empty would be the report vouching for a definition it just flagged.
-sys.exit(1 if (unknown_by_action or suspicious) else 0)
+# All three classes fail the run. A removed key in use is the most certain and
+# most urgent — the validator will reject that definition outright once the
+# declaring binary rolls; a suspicious key is inert by construction; an unknown
+# key MIGHT be a stale declaration. Exiting 0 over any one because the other
+# sections are empty would be the report vouching for a definition it just
+# flagged.
+sys.exit(1 if (unknown_by_action or suspicious or removed_by_action) else 0)
 PY

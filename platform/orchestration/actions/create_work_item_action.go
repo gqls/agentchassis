@@ -117,23 +117,32 @@ var CreateWorkItemInputSpec = datahelpers.ActionInputSpec{
 	// reading every strategy in ExtractActionInputs rather than by grep: each
 	// one iterates Required ∪ Optional, or config["input_fields"], or
 	// spec.Deprecated, so a key in none of the three is resolved by nothing).
-	//
-	// KNOWN TRUE POSITIVE, left standing deliberately: three live steps
-	// (improvement-loop ×2, deduplicate-sections ×1) carry a config key named
-	// `spec`, which this action has never read — it builds the item spec from
-	// spec_data / spec_paths / spec_literal (:208-236). It is dead the same way
-	// the others were, but unlike them it has a live consequence
-	// (improvement-loop's `refresh_site_components` flag never reaches the
-	// rerender gate, and every such row's spec is empty), and the fix is a
-	// behaviour change rather than a removal. It is under diagnosis separately.
-	// So this opt-in will REPORT one unknown key on three steps, and that
-	// report is the detector working, not a regression to silence.
-	//
-	// Not StrictConfig: that turns the same finding into a hard validation
-	// error on live definitions, which is the over-strict-detector failure the
-	// ConfigKeys doc comment warns about. Warn first, and only consider strict
-	// once the recognised set has been checked against every live step.
 	CheckConfig: true,
+
+	// `spec` is RETIRED, not unknown (bugs_open/234). Three live steps carried
+	// it for months; this action has never read a key by that name — it builds
+	// the item spec from spec_data / spec_paths / spec_literal (below) — so
+	// every item they filed carried spec = '{}', and improvement-loop's
+	// `refresh_site_components` flag never reached the rerender gate (16/16
+	// rows empty, measured 2026-08-09). Migration 364 translated all three
+	// carriers onto the real spellings; this declaration is what stops a
+	// fourth appearing: a step carrying `spec` now fails validation with the
+	// replacement named, instead of filing empty specs that read as success.
+	RemovedConfigKeys: map[string]string{
+		"spec": "never read by any version of this action; use spec_data (a path to a map), " +
+			"spec_paths ({key: path}), or spec_literal ({key: constant}) — bugs_open/234",
+	},
+
+	// Strict as of bugs_open/234 (owner decision 2026-08-10). The ConfigKeys
+	// doc comment's own precondition is met: the recognised set was checked
+	// against EVERY live step — a recursive all-depths walk over every live
+	// definition, not the top-level-only census that undercounted 356's
+	// carriers — and after migration 364 the unknown-key count is zero. From
+	// here an unrecognised key on this action is a definition error caught at
+	// seed time, not a silently-empty spec found by archaeology months later:
+	// `spec`, `spec_fields`, `domain` and `summary_template` were all exactly
+	// that, and warn-only surfaced none of them.
+	StrictConfig: true,
 }
 
 func init() {

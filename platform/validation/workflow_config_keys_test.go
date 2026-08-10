@@ -127,6 +127,102 @@ func TestStrictConfigActionFailsValidation(t *testing.T) {
 	})
 }
 
+// TestRemovedConfigKeyFailsValidation (bugs_open/234): a RETIRED key is a hard
+// error with the replacement in the message — on any action that declares it,
+// strict or not, opted into unknown-key detection or not. Warn-only is what let
+// improvement-loop's refresh_site_components flag stay silently dropped for
+// months, so the one thing this test must never tolerate is the removed key
+// downgrading to a warning.
+func TestRemovedConfigKeyFailsValidation(t *testing.T) {
+	// Deliberately NO ConfigKeys and NO CheckConfig: the removed-key check must
+	// fire independently of the unknown-key opt-in, or a declaration on a
+	// not-yet-opted-in action is silently inert — the "declared but never
+	// consulted" shape.
+	datahelpers.RegisterActionInputSpec("test_validator_removed_only", datahelpers.ActionInputSpec{
+		RemovedConfigKeys: map[string]string{
+			"spec": "never read; use spec_literal — bugs_open/234",
+		},
+	})
+
+	v := NewWorkflowValidator(zap.NewNop())
+
+	t.Run("removed key is refused with the replacement named", func(t *testing.T) {
+		err := v.ValidateWorkflow(planWithStep("test_validator_removed_only", map[string]interface{}{
+			"spec": map[string]interface{}{"refresh_site_components": true},
+		}))
+		if err == nil {
+			t.Fatal("a declared-removed key validated clean — the key is dead and the " +
+				"behaviour it describes silently does not happen, which is bugs_open/234 restated")
+		}
+		if !strings.Contains(err.Error(), `"spec"`) {
+			t.Errorf("error must name the offending key, got: %v", err)
+		}
+		if !strings.Contains(err.Error(), "spec_literal") {
+			t.Errorf("error must carry the replacement message, got: %v", err)
+		}
+	})
+
+	t.Run("clean config passes", func(t *testing.T) {
+		// Positive control: a validator rejecting everything would pass the
+		// subtest above for the wrong reason.
+		if err := v.ValidateWorkflow(planWithStep("test_validator_removed_only", map[string]interface{}{
+			"spec_literal": map[string]interface{}{"refresh_site_components": true},
+		})); err != nil {
+			t.Errorf("clean config rejected: %v", err)
+		}
+	})
+}
+
+// TestRemovedKeySpecificErrorBeatsStrictGenericOne: when a step carries BOTH a
+// removed key and a novel unknown key on a strict action, the removed-key error
+// (which names the fix) must be the one returned — checking it first is what the
+// validator promises, and this is the input where the ordering is observable.
+func TestRemovedKeySpecificErrorBeatsStrictGenericOne(t *testing.T) {
+	datahelpers.RegisterActionInputSpec("test_validator_removed_strict", datahelpers.ActionInputSpec{
+		ConfigKeys:   []string{"url_field"},
+		StrictConfig: true,
+		RemovedConfigKeys: map[string]string{
+			"old_key": "retired; use url_field",
+		},
+	})
+
+	v := NewWorkflowValidator(zap.NewNop())
+	err := v.ValidateWorkflow(planWithStep("test_validator_removed_strict", map[string]interface{}{
+		"old_key":     "x",
+		"novel_bogus": 1,
+	}))
+	if err == nil {
+		t.Fatal("strict action with a removed key validated clean")
+	}
+	if !strings.Contains(err.Error(), "REMOVED") || !strings.Contains(err.Error(), "retired; use url_field") {
+		t.Errorf("the removed-key message (with its replacement) must win over the generic strict one, got: %v", err)
+	}
+}
+
+// TestRemovedKeyIsNotAlsoUnknown: the removed key must not double-report under
+// the softer UNKNOWN label — it is its own category with its own consequence.
+// (The datahelpers half of this pin lives in unknown_config_keys_test.go; this
+// one proves the two checks compose in the validator without the removed key
+// leaking into the strict error's key list.)
+func TestRemovedKeyIsNotAlsoUnknown(t *testing.T) {
+	datahelpers.RegisterActionInputSpec("test_validator_removed_unknown_split", datahelpers.ActionInputSpec{
+		ConfigKeys: []string{"url_field"},
+		RemovedConfigKeys: map[string]string{
+			"old_key": "retired; use url_field",
+		},
+	})
+
+	unknown, checked := datahelpers.UnknownConfigKeys("test_validator_removed_unknown_split",
+		map[string]interface{}{"old_key": "x", "genuinely_unknown": 1})
+	if !checked {
+		t.Fatal("action with ConfigKeys should be checked")
+	}
+	if len(unknown) != 1 || unknown[0] != "genuinely_unknown" {
+		t.Errorf("unknown = %v, want exactly [genuinely_unknown] — a removed key is "+
+			"known-dead, not unknown", unknown)
+	}
+}
+
 // TestUndeclaredActionIsUntouched: the opt-in guarantee. 208 live actions have not
 // declared anything; none of them may gain a warning or an error from this change.
 func TestUndeclaredActionIsUntouched(t *testing.T) {

@@ -142,7 +142,13 @@ type specDump struct {
 	// answering "who is one line away" honestly: an action carrying an alias has
 	// already stated part of its contract (bugs_open/136).
 	DeprecatedConfigKeys map[string]string `json:"deprecated_config_keys,omitempty"`
-	OptedIn              bool              `json:"opted_in"`
+	// RemovedConfigKeys maps a RETIRED key to the message naming its
+	// replacement. A live step carrying one fails validation outright once the
+	// declaring binary rolls — which is why the offline report must see these
+	// (bugs_open/234): the join against live definitions is the only thing that
+	// can catch a carrier BEFORE the roll turns it into a dead agent.
+	RemovedConfigKeys map[string]string `json:"removed_config_keys,omitempty"`
+	OptedIn           bool              `json:"opted_in"`
 }
 
 func main() {
@@ -197,10 +203,15 @@ func main() {
 	// `deprecated` is deliberately NOT gated on opt-in: create_work_item carries
 	// an alias on nine live steps and has never declared ConfigKeys, so gating
 	// would hide the largest real user of the mechanism.
+	// `removed` is the fourth bucket, and the only one whose live hit means
+	// "stop": a retired key still present in a definition will hard-fail
+	// validation when a binary carrying the declaration rolls (bugs_open/234).
+	// Not gated on opt-in, same as `deprecated` and for the same reason.
 	out := map[string]interface{}{
 		"declared":    declared,
 		"conditional": conditional,
 		"deprecated":  datahelpers.ListDeprecatedConfigKeys(),
+		"removed":     datahelpers.ListRemovedConfigKeys(),
 	}
 
 	enc := json.NewEncoder(os.Stdout)
@@ -253,6 +264,13 @@ func emitSpecs() {
 				depConfig[old] = canonical
 			}
 		}
+		var removed map[string]string
+		if len(spec.RemovedConfigKeys) > 0 {
+			removed = make(map[string]string, len(spec.RemovedConfigKeys))
+			for k, msg := range spec.RemovedConfigKeys {
+				removed[k] = msg
+			}
+		}
 		_, isOptedIn := optedIn[name]
 		out[name] = specDump{
 			Required:             nonNil(spec.Required),
@@ -260,6 +278,7 @@ func emitSpecs() {
 			ConfigKeys:           nonNil(spec.ConfigKeys),
 			Deprecated:           dep,
 			DeprecatedConfigKeys: depConfig,
+			RemovedConfigKeys:    removed,
 			OptedIn:              isOptedIn,
 		}
 	}

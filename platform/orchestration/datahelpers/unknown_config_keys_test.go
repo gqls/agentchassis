@@ -302,3 +302,103 @@ func TestListDeclaredConfigKeysIncludesCheckConfig(t *testing.T) {
 		t.Errorf("expected [only_key], got %v", keys)
 	}
 }
+
+// TestRemovedConfigKeysInUse pins the three-way distinction the removed-key
+// helper draws (bugs_open/234): present (report with the replacement message),
+// declared-but-absent (empty, declared=true), and undeclared (declared=false —
+// nothing was examined, which is NOT a clean bill).
+func TestRemovedConfigKeysInUse(t *testing.T) {
+	RegisterActionInputSpec("test_action_removed_keys", ActionInputSpec{
+		Optional: []string{"spec_data"},
+		RemovedConfigKeys: map[string]string{
+			"spec": "never read; use spec_literal — bugs_open/234",
+		},
+	})
+
+	t.Run("present is reported with its message", func(t *testing.T) {
+		inUse, declared := RemovedConfigKeysInUse("test_action_removed_keys",
+			map[string]interface{}{"spec": map[string]interface{}{"k": true}})
+		if !declared {
+			t.Fatal("declared=false for an action that declares RemovedConfigKeys")
+		}
+		if msg, ok := inUse["spec"]; !ok || msg != "never read; use spec_literal — bugs_open/234" {
+			t.Errorf("inUse = %v, want the spec entry with its verbatim message", inUse)
+		}
+	})
+
+	t.Run("absent is empty but examined", func(t *testing.T) {
+		inUse, declared := RemovedConfigKeysInUse("test_action_removed_keys",
+			map[string]interface{}{"spec_data": "some.path"})
+		if !declared {
+			t.Fatal("declared must stay true when the key is merely absent")
+		}
+		if len(inUse) != 0 {
+			t.Errorf("inUse = %v, want empty", inUse)
+		}
+	})
+
+	t.Run("undeclared means unexamined", func(t *testing.T) {
+		if _, declared := RemovedConfigKeysInUse("test_action_no_config_keys",
+			map[string]interface{}{"spec": 1}); declared {
+			t.Error("an action with no RemovedConfigKeys must report declared=false, never a verdict")
+		}
+	})
+
+	t.Run("independent of the unknown-key opt-in", func(t *testing.T) {
+		// test_action_removed_keys has no ConfigKeys and no CheckConfig, so the
+		// unknown-key detector does not examine it. The removed-key check must
+		// fire anyway — coupling the two would make a declaration silently
+		// inert for every action that has not adopted an unrelated mechanism.
+		if _, checked := UnknownConfigKeys("test_action_removed_keys",
+			map[string]interface{}{"spec": 1}); checked {
+			t.Fatal("fixture broken: this action must NOT be opted into unknown-key detection")
+		}
+		inUse, declared := RemovedConfigKeysInUse("test_action_removed_keys",
+			map[string]interface{}{"spec": 1})
+		if !declared || len(inUse) != 1 {
+			t.Errorf("removed-key detection must work without the opt-in, got inUse=%v declared=%v",
+				inUse, declared)
+		}
+	})
+}
+
+// TestRemovedKeysExcludedFromUnknown: a removed key is known-dead, its own
+// category with a hard consequence — reporting it as UNKNOWN as well would
+// double-report it under the softer label, and the softer label is the one
+// that gets read.
+func TestRemovedKeysExcludedFromUnknown(t *testing.T) {
+	RegisterActionInputSpec("test_action_removed_vs_unknown", ActionInputSpec{
+		CheckConfig: true,
+		Optional:    []string{"fine_key"},
+		RemovedConfigKeys: map[string]string{
+			"dead_key": "retired",
+		},
+	})
+
+	unknown, checked := UnknownConfigKeys("test_action_removed_vs_unknown",
+		map[string]interface{}{"fine_key": 1, "dead_key": 2, "mystery_key": 3})
+	if !checked {
+		t.Fatal("expected checked=true")
+	}
+	if !reflect.DeepEqual(unknown, []string{"mystery_key"}) {
+		t.Errorf("unknown = %v, want exactly [mystery_key] — dead_key is removed, not unknown", unknown)
+	}
+}
+
+// TestListRemovedConfigKeys pins the offline-audit feed: a declared removed key
+// must be listable, or the report cannot see a live carrier before the roll
+// that turns it into a dead agent.
+func TestListRemovedConfigKeys(t *testing.T) {
+	RegisterActionInputSpec("test_action_removed_listing", ActionInputSpec{
+		RemovedConfigKeys: map[string]string{"gone": "use something_else"},
+	})
+
+	removed := ListRemovedConfigKeys()
+	entry, present := removed["test_action_removed_listing"]
+	if !present {
+		t.Fatal("a RemovedConfigKeys action must appear in ListRemovedConfigKeys")
+	}
+	if entry["gone"] != "use something_else" {
+		t.Errorf("entry = %v, want the verbatim message", entry)
+	}
+}

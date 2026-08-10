@@ -13,6 +13,7 @@
 package actions
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
@@ -174,5 +175,67 @@ func TestCreateWorkItemCheckConfigCarriesTheOptInAlone(t *testing.T) {
 		map[string]interface{}{"zzz_dead_key": "x"}); checkedControl {
 		t.Error("a spec with neither ConfigKeys nor CheckConfig reported as checked — " +
 			"this test cannot distinguish opted-in from not")
+	}
+}
+
+// TestCreateWorkItemSpecKeyIsRemoved (bugs_open/234): `spec` is RETIRED, not
+// unknown and NOT recognised. Three live steps carried it for months while the
+// action read spec_data/spec_paths/spec_literal, so every item they filed had
+// an empty spec and improvement-loop's refresh_site_components flag never
+// reached the rerender gate. Migration 364 translated the carriers; this pin is
+// what stops the declaration quietly disappearing and the key coming back.
+//
+// MUTATION PROOF: delete the "spec" entry from RemovedConfigKeys and the first
+// subtest fails; move `spec` into ConfigKeys instead (the bugs_closed/101
+// mistake — declaring a dead key to silence the detector) and the second fails.
+func TestCreateWorkItemSpecKeyIsRemoved(t *testing.T) {
+	t.Run("spec is declared removed, with the replacement named", func(t *testing.T) {
+		inUse, declared := datahelpers.RemovedConfigKeysInUse("create_work_item",
+			map[string]interface{}{"spec": map[string]interface{}{"refresh_site_components": true}})
+		if !declared {
+			t.Fatal("create_work_item declares no RemovedConfigKeys — the retired `spec` " +
+				"key can be written again and will silently file empty specs (bugs_open/234)")
+		}
+		msg, ok := inUse["spec"]
+		if !ok {
+			t.Fatal("`spec` is not in create_work_item's RemovedConfigKeys")
+		}
+		for _, replacement := range []string{"spec_data", "spec_paths", "spec_literal"} {
+			if !strings.Contains(msg, replacement) {
+				t.Errorf("the removal message must name %s so the error tells the author "+
+					"the fix, got: %q", replacement, msg)
+			}
+		}
+	})
+
+	t.Run("spec is not recognised", func(t *testing.T) {
+		for _, k := range CreateWorkItemInputSpec.ConfigKeys {
+			if k == "spec" {
+				t.Error("`spec` found in ConfigKeys — declaring a dead key recognised " +
+					"silences the detector while the behaviour stays broken (bugs_closed/101)")
+			}
+		}
+		for _, k := range append(append([]string{}, CreateWorkItemInputSpec.Required...),
+			CreateWorkItemInputSpec.Optional...) {
+			if k == "spec" {
+				t.Error("`spec` found in Required/Optional — same failure, different list")
+			}
+		}
+	})
+}
+
+// TestCreateWorkItemIsStrict (bugs_open/234, owner decision 2026-08-10): the
+// recognised set was verified complete against every live step at all depths
+// after migration 364, which is the precondition the ConfigKeys doc comment
+// sets for strict. From here an unrecognised key on this action is a definition
+// error at seed time, not an empty spec found by archaeology months later.
+//
+// Asserted through IsStrictConfigAction rather than the struct field, because
+// the field alone is not the behaviour: strict only fires for an action that
+// also checksConfig(), and that composition is what the validator consults.
+func TestCreateWorkItemIsStrict(t *testing.T) {
+	if !datahelpers.IsStrictConfigAction("create_work_item") {
+		t.Error("create_work_item is not strict — an unrecognised config key is back " +
+			"to a once-per-pod warning nobody reads (bugs_open/234)")
 	}
 }
