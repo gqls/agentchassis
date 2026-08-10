@@ -25741,3 +25741,49 @@ UNREVIEWED permanently, cross-referenced only by a NOTES entry
 human has to know to go look for. The fix itself is still correctly submitted
 (`SUBMISSION_CORR=6cb8c72b-0abc-4eb6-b4d2-4cbf01eed515`) and will get a real verdict —
 only the automatic commit↔verdict join is what's lost.
+
+---
+
+## 2026-08-10 — I put a council correlation on a commit the submission did not cover, which would have credited an unreviewed change as reviewed
+
+**The claim.** Commit `b5e67bca5` (the category-aware scheduler) carries
+`Council-Submitted: f1fd297f-1d01-409b-89aa-fd253ea54e37`.
+
+**What was true.** That correlation is the submission for the **deterministic abuse
+check** — a different change, in different files. Its `plan.edits` names only
+`provocation_gate_action.go` and `provocation_gate_action_test.go`. The scheduler work
+lives in `provocation_generator_action.go` and had not been submitted to anything when I
+wrote that trailer. I reused the id from the previous commit in the same sitting without
+re-reading what it covered.
+
+**Why it matters more than a tidy-up.** `Council-Submitted:` is not decorative — 098
+resolves it at REPORT time and credits the commit automatically once the correlation is
+approved. So a wrong id does not fail loudly; it **manufactures coverage**. When the
+abuse-check submission is approved, the coverage report would have marked a scheduler
+change nobody reviewed as reviewed, and the join would look perfect. That is the exact
+dishonesty surface the trailer rules exist to protect, arriving through the honest-looking
+door rather than through a false `Council-Reviewed:`.
+
+**What caught it.** Re-reading my own commit before moving on, because the two changes
+went in minutes apart and only one submission had been made. Nothing mechanical would
+have: the trailer gate validates that the value is UUID-SHAPED, not that the submission
+covers these files, and it cannot — the gate sees a commit, the correlation sees a plan,
+and no check joins the two.
+
+**The cheap check that would have caught it:** before writing a `Council-Submitted:`,
+`jq -r '.plan.edits[].file' <the submission file you actually sent>` and confirm every
+path in your `git commit` pathspec appears. One command, and it is the only thing that
+verifies the trailer means what it says.
+
+**The fix, forward-only.** The scheduler was submitted on its own correlation,
+`ac0182ec-7abe-4aca-ace1-1ce97adbfee8`, immediately after this was noticed. Amending
+`b5e67bca5` is forbidden, so this entry plus the lane's NOTES **is** the correction: the
+scheduler's real review trail is `ac0182ec`, and any coverage credit `b5e67bca5` receives
+from `f1fd297f` is spurious and should be read against this note.
+
+**Transferable shape:** *an identifier copied between two commits is a claim about
+CONTENT, and identifiers are the easiest thing in the world to copy correctly and mean
+wrongly.* A UUID that validates, resolves and joins is indistinguishable from one that
+belongs there. Sibling of `a-submission-is-not-a-review` (already in the memory index) —
+that entry covers the trailer asserting too MUCH; this one covers it asserting about the
+WRONG THING.
