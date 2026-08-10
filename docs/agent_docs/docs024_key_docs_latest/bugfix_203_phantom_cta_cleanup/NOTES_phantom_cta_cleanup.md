@@ -809,3 +809,78 @@ this lane happened to look at — see the census question below.
 **Now genuinely closed**: bugfix 203's worklist row 3 (both its CTAs), and the
 priority-order defect the canary exposed. `3bc0486d7` is approved
 (`SUBMISSION_CORR=6cb8c72b-0abc-4eb6-b4d2-4cbf01eed515`), live, and proven.
+
+## 2026-08-10 (evening, later) — CORRECTION: "the pages heal for free" was WRONG, and the manual alternative turns out to be actively dangerous
+
+> **CORRECTED 2026-08-10.** Earlier this same day I recommended, in this file's D2
+> framing and to the owner directly, *"do nothing — each of those pages fixes itself the
+> next time it's rebuilt for any reason."* I cited as evidence that 3 of the original 13
+> pages self-healed. **The evidence was real and the inference was wrong.** Those three
+> healed while the discovery/improvement schedulers were RUNNING. **The owner caught it:
+> "the improvement loop is switched off."** I had never checked — the whole recommendation
+> rested on a mechanism I assumed was live because I had watched its output weeks earlier.
+> This is the `zero-adoption-means-read-the-mechanism` / "a silent mechanism is usually
+> UNDRIVEN" lesson, and I walked straight into it while writing a recommendation.
+
+**Measured `scheduled_tasks`, 2026-08-10 ~18:47Z** — the healing chain is broken at two
+of its three stages:
+
+| stage | task | agent | `enabled` |
+|---|---|---|---|
+| 1. detect | `site-discovery-rotation-completeness` (hosts `misdirected_cta`) | completeness-discovery-agent | **f** |
+| 1. detect | `site-discovery-rotation-quality` / `-design` | quality-/design-discovery-agent | **f** |
+| 2. triage (`detected`→`triaged`) | `improvement-sweep` | improvement-loop | **f** (last completed 2026-08-09 15:03Z) |
+| 3. dispatch | `build-pipeline-trigger` | build-pipeline-trigger | **t**, 120s |
+
+`TriageDetectedItemsAction`'s own header confirms the topology: discovery writes
+`status='detected'`, the dispatch loop only selects `status IN ('triaged','approved')`,
+and the improvement loop is what bridges them. With stages 1–2 off, **nothing files new
+findings and nothing promotes the 192 existing `detected` ones** — so a page's wrong CTA
+persists indefinitely unless a human drives it. Note stage 3 being ON is what let this
+lane's own two manual dispatches work: promoting one row by hand was sufficient, which is
+exactly why the loop being off was invisible to me.
+
+**But the obvious remedy — promote the queue and let it heal — is the dangerous one, and
+this is the more important finding.** Read `applyCTARecompute`'s keep-it guard
+(`rerender_page_sections_action.go:686-691`) against `areasExcludedFromCTA`
+(`resolve_internal_links_action.go:72-74` = `{about, contact, privacy, terms, legal}`):
+
+```go
+if hasCurrent && current != "" &&
+    validPages.Contains(current) &&
+    !ctaExcludedDestination(current) &&            // <-- /contact.html fails HERE
+    NormalizePagePath(current) != NormalizePagePath(pageURL) {
+    return // authored link to a real, sensible destination — keep it
+}
+```
+
+A CTA already pointing at `/contact.html` **can never take the keep branch**. If its
+label also matches no candidate — the normal case for genuine contact-button copy, since
+`get`/`in`/`us`/`to` are all stopwords, so "Get in Touch" and "Talk to Us" reduce to
+`[touch]` / `[talk]` and match nothing — it falls through to the positional pick, and a
+**correct contact link is replaced by the site's top-ranked tool or hub.**
+
+**This is not a defect in the code; it is the code doing bug 203's original job.** The
+whole point of 203 was that `/contact.html` was a *fabricated* fallback that needed
+recomputing. The problem is that a fabricated `/contact.html` and an authored one are
+**byte-identical in `content_data`** — nothing distinguishes them — so the repair cannot
+target one without hitting the other. That is the real reason the `misdirected_cta` queue
+cannot be drained blindly, and it is a sharper statement of this lane's 2026-08-07
+finding (which blamed the detector's *suggestions*; the damage actually comes from the
+*recompute's fallback*, which fires regardless of what the suggestion said).
+
+**Blast radius, measured 2026-08-10** (not estimated — the query is in the LANDMINES
+entry added today): **24 CTAs fleet-wide currently point at an excluded area**, 7 of them
+written during the 08-09→08-10 window when the priority bug was live. Those 24 are what a
+bulk promotion would put at risk. Recorded as a LANDMINE (footprint
+`applyCTARecompute` / `misdirected_cta` / `areasExcludedFromCTA`) and synced to
+`doc_notes`, because it fires on a *future* session that reaches for the queue with no
+symptom in front of it — which is precisely what I was about to do.
+
+**Consequence for D2**: "let them heal for free" is not available, and "run the checkers
+manually" is only safe with a per-page look at the label. Safe manual healing is
+therefore: re-run **detection** (completeness-discovery-agent — it only files findings,
+it changes no page), then repair **selectively**, excluding any component whose current
+url is in an excluded area unless a human has confirmed the label is not genuine contact
+copy. Do NOT run `TriageDetectedItemsAction` over a site to achieve this: it promotes
+every `detected` row for that site with no type filter (its own header says so).

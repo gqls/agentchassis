@@ -26750,3 +26750,48 @@ Same family as the memory index's *"your own action moves you to the back of the
 and *"declaring a key silences your own detector"*: **the act of recording changed the thing
 that decides whether recording was needed.** Here it was benign. It is the same mechanism that
 makes a detector go quiet on the case it was written for.
+
+## 2026-08-10 — "the pages heal for free on their next rebuild" — a recommendation resting on a scheduler I never checked, which had been off for a day
+
+**The claim.** Closing out bugfix 203's lane I sized the remaining exposure (66 CTA
+components written while a matcher bug was live) and recommended to the owner, in the
+HANDOFF, the README and in conversation: *do nothing — now the code is correct, each of
+those pages fixes itself the next time it is rebuilt for any reason.* I supported it with
+a real observation: 3 of the original 13 defective pages had self-healed during the lane's
+own run.
+
+**What was actually true.** The self-healing I had watched was driven by schedulers that
+are now **disabled**: `improvement-sweep` (the improvement-loop, which is the ONLY thing
+promoting discovery findings from `detected` to the `triaged` status the dispatch loop
+consumes) and all three `site-discovery-rotation-*` tasks including the one hosting the
+`misdirected_cta` check. Detection and triage are both off; only dispatch still runs. So
+nothing would ever have healed, and my "free" option was to leave the defects in place
+indefinitely.
+
+**What caught it.** The owner, immediately: *"the improvement loop is switched off. so if
+we are relying on that then we should run the checkers manually."* One sentence, and the
+recommendation was void.
+
+**Why I didn't catch it.** I had watched three pages heal with my own eyes, days earlier,
+and never asked what drove it. An observed effect became an assumed live mechanism. The
+lane's own memory index carries this exact lesson twice — *"a silent mechanism is usually
+UNDRIVEN, not missing"* and *"detection works; SCHEDULE and DISPATCH do not"* — and both
+are about the schedule being the thing that quietly isn't running.
+
+**The cheap check.** Before any recommendation whose payoff is "the system will do it
+automatically", read the row that would do it:
+`SELECT name, enabled, last_completed_at FROM scheduled_tasks WHERE target_agent_type = '<the agent>';`
+One query, and `enabled=f` ends the argument. More generally: **"it heals itself" is a
+claim about a running mechanism, so it needs the mechanism's liveness as evidence, not a
+past instance of the effect.** An effect you observed proves the mechanism ran *then* —
+never that it runs *now*.
+
+**Postscript — the correction was worth more than the original claim.** Chasing the
+manual alternative the owner asked for surfaced that the obvious remedy (promote the
+`misdirected_cta` queue and let it repair) would *overwrite 24 working contact buttons*
+fleet-wide, because `applyCTARecompute`'s keep-it guard deliberately refuses to preserve
+any link into `areasExcludedFromCTA` and cannot distinguish an authored `/contact.html`
+from bug 203's fabricated one. Filed as a LANDMINE the same day. Had the owner not
+corrected the premise, that trap would have stayed armed for whoever next reached for the
+queue — and my "do nothing" advice would have accidentally been the safe option, for
+entirely the wrong reason.

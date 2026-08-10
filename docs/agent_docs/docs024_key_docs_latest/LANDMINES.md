@@ -8426,3 +8426,37 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **the check, before dispatching:** put the redesign intent in BOTH places — the `recompose_pages` list AND the briefing text the planner sees. Afterwards, query the error code above rather than eyeballing the page. The permanent fix (surface `recompose_pages` to the planner as a field, RFC_010 §2 shape) is registered on `features_open/012` — owner ruling 2026-08-10 deliberately deferred it out of the Slice B round.
 - **source:** `brochure_component_library/DECISIONS_2026-08-10_owner_rulings_after_relook.md` · `features_open/012` (2026-08-10 append) · council round `a06ff850` (bug_historian's medium objection, second round)
 - **added:** 2026-08-10, fact-assignment front (bugs_open/151 / RFC_016)
+
+## A `cta_links_stale` repair CANNOT tell a genuine "Get in Touch" from bug 203's fabricated `/contact.html` fallback — driving it in bulk overwrites working contact buttons
+
+- **footprint:** `platform/orchestration/actions/rerender_page_sections_action.go (applyCTARecompute)` · `site_work_items` rows with `item_key LIKE 'misdirected_cta:%'` · `areasExcludedFromCTA`
+- **fires when:** you promote `misdirected_cta` findings to `triaged` in bulk (or run `TriageDetectedItemsAction` over a site, which promotes **every** `detected` row for that site — no type filter) and let the dispatch loop repair them. Tempting right now precisely because it looks like the cheap way to "let pages heal".
+- **the mechanism:** `applyCTARecompute`'s keep-it guard is
+  `hasCurrent && validPages.Contains(current) && !ctaExcludedDestination(current) && …`
+  (`:686-691`). `ctaExcludedDestination` is true for the whole of
+  `areasExcludedFromCTA = {about, contact, privacy, terms, legal}`
+  (`resolve_internal_links_action.go:72-74`). So a CTA already pointing at
+  `/contact.html` **can never take the keep branch**. If its label also matches no
+  candidate — which is the normal case for exactly the copy that belongs on a contact
+  button ("Get in Touch", "Talk to Us": `get`/`in`/`us` are all stopwords) — it falls
+  through to the positional pick and the correct contact link is replaced by the site's
+  top-ranked tool or hub. **This is deliberate for bug 203's fabricated fallback and
+  wrong for an authored contact CTA, and the code cannot distinguish them** — the two
+  are byte-identical in `content_data`.
+- **the tell:** none at dispatch time; the work item completes green and the page
+  re-renders successfully. You only see it by diffing the CTA url before/after.
+- **the check, BEFORE promoting anything:** count what you are about to put at risk —
+  ```sql
+  SELECT count(*) FROM page_components pc
+  WHERE COALESCE(pc.content_data->>'cta_url', pc.content_data->>'primary_cta_url',
+                 pc.content_data->>'secondary_cta_url')
+        ~ '^/(contact|about|privacy|terms|legal)(\.html|/|$)';
+  ```
+  Measured 2026-08-10: **24 fleet-wide** (7 of them written in the 08-09/08-10 window
+  when the label-match priority bug was live). Repair those only with a per-page look at
+  the label, never in bulk. Note this also means the `misdirected_cta` queue (192
+  `detected` / 95 `unresolved` / 63 `failed`, 2026-08-10) **must not be drained
+  blindly** — the 2026-08-07 finding that it is substantially false positives is still
+  live, and this is the mechanism by which those false positives do damage.
+- **source:** `bugfix_203_phantom_cta_cleanup/NOTES_phantom_cta_cleanup.md` (2026-08-10 evening) · code read at `applyCTARecompute` + `areasExcludedFromCTA`, measured against live `page_components`
+- **added:** 2026-08-10, bugfix 203 phantom-CTA lane
