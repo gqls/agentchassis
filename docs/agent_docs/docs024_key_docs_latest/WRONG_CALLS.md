@@ -58,6 +58,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **verify an embedded/quoted artifact is COMPLETE before asserting it — a fixed `[:N]` slice is an unmarked truncation; an author's own ellipsis in evidence is the same defect by hand** | **3** |
 | **re-read the row AFTER a render, not after your own write** | **2** |
 | **check the column actually means what you are measuring** | **3** |
+| **repeat a payload before generalising a trigger condition — one success does not rule out a state/time-dependent cause, and re-testing to find out can itself cause damage** | **1** |
 | read the rule before inferring its purpose | 1 |
 | **re-ground a figure before repeating it — one copied from a sibling doc inherits ITS measurement date, one copied out of a since-corrected tool keeps the old tool's answer, and one handed to you by a sub-agent sweep carries no measurement date at all; never let any of them land in a commit message, council submission or code comment unmeasured** | **5** |
 | **a duplication audit identifies SHAPE, never INTERCHANGEABILITY — before calling two things duplicates, open BOTH and query live USAGE. A header states intent, not adoption; three of one sweep's "clear duplicates" failed this check (8 "byte-identical" health servers were 8 distinct bodies; two "duplicate" exporters shared a purpose and 0 of 16 functions; the "generic" Firecrawl action had no callers at all while the "bespoke" one was live)** | **1** |
@@ -25963,3 +25964,38 @@ through the code — so the tally now covers both ends: a fix can be absent from
 helper plus tests for that helper is not evidence the rendering happens. Ask for the
 mutation at the call site. It is the difference between "this function is correct" and
 "this program does it".
+
+## 2026-08-10 — one clean bisection table convinced me a trigger condition was a fact, and re-testing it to be sure caused a real production incident
+
+Filed `bugs_open/239`: a manual `action=orchestrate` dispatch was silently resolving to
+the `generic` no-op agent instead of the named `config.agent_type`. Eleven isolated kcat
+sends, varying which `input_data` keys were present, produced a clean-looking table:
+`source`+`spec` together triggered it, nothing else did. I wrote that up as the bug's
+title and headline claim.
+
+**It was wrong, and the check that would have caught it is one repeat.** Re-sending the
+exact "safe" shape later — byte-identical input, same site, same work item — failed where
+it had succeeded minutes before. A throwaway key with no relation to anything (`zzz_nonsense_key`)
+alongside `spec` also triggered it. The real condition is state- or time-dependent, not a
+function of the message's own shape, and no amount of additional distinct payloads would
+have revealed that — only running the SAME payload twice would have.
+
+**The cost was not just a wrong bug report.** Believing the trigger was a clean function
+of input shape made re-testing feel safe — "this exact combination is known bad, this one
+is known good" — so I kept sending live dispatches against a real site's real work item to
+narrow it down. Two of those dispatches were not the inert probes I believed them to be;
+they ran a real content-writer + rerender cycle against a live customer-facing page and
+silently reset its hero image to a broken placeholder, twice, before I caught it by
+checking the actual stored content against a pre-test snapshot rather than trusting any
+status field. Recovered the same session, byte-verified against the last known-good git
+commit — no lasting damage, but it consumed the session's remaining budget and very nearly
+went unnoticed, because `status='COMPLETED'` looked identical whether the dispatch had
+truly no-op'd or had silently rewritten the page.
+
+**The general form:** a bisection table built from N distinct payloads, each tried once,
+can only ever describe a function of payload shape — it structurally cannot detect a cause
+that varies with time or hidden state, because nothing in the design repeats a point to
+check it holds. Before writing a trigger condition into a bug title, ask whether the same
+input was ever sent twice. If not, the table is a set of observations, not yet a rule —
+and when the system under test can cause side effects, treat every additional untested
+theory as a live action with a blast radius, not a free experiment.

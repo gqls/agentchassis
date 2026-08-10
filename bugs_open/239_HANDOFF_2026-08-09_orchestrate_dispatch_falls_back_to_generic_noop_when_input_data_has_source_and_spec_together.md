@@ -1,5 +1,13 @@
 # 239 — a top-level `action=orchestrate` message silently resolves to the `generic` no-op agent, ignoring `config.agent_type`, whenever `input_data` carries BOTH `source` and `spec` keys
 
+> ⚠ **CORRECTED 2026-08-10 — the title's trigger condition is NOT reliable; read
+> "CORRECTION 2026-08-10" below before acting on the bisection table.** The
+> same "safe" payload was later shown to fail non-deterministically, and a
+> completely unrelated key also triggers the fallback. Re-testing this against
+> production data caused a real incident (recovered same session) — **do not
+> bisect this bug against a live site again**; see the correction for the safe
+> path forward.
+
 **Filed 2026-08-09** by the `webdesign_uk_build_service` lane, found while driving
 a `page-build-handler` dispatch by hand for Phase 5 (the queue is starved — see
 CLAUDE.md's "Dispatching work at the cluster" and this lane's own HANDOFF §1/§2
@@ -126,6 +134,99 @@ needed) and assert `owner_agent_type` equals the requested `config.agent_type`,
 that agent's own `default_config.workflow.steps` (not `complete` reached in
 one hop with no prior step). A regression test should assert the same at the
 Go level once the responsible code is found.
+
+## CORRECTION 2026-08-10 — the trigger is NOT reliably "source+spec"; it is non-deterministic, and re-testing it caused real production damage
+
+**The bisection table above is real and reproducible for the eleven dispatches it
+records, but the headline characterization ("source+spec together") does not
+hold as a general rule, and stating it that plainly was wrong.** Discovered by
+the same lane, same day, continuing this file's own investigation:
+
+- Re-sending the EXACT "safe" shape from row 7 (`domain, site_id, work_item_id,
+  item_type, spec` — no `source`) at a later time **failed** (resolved to
+  `generic`) with **byte-identical input** to the earlier run that had
+  succeeded. Same payload, different outcome, ~15 minutes apart.
+- A completely unrelated, meaningless key (`zzz_nonsense_key`) alongside `spec`
+  ALSO triggers the fallback — so it is not specific field NAMES (`source`,
+  `page_id`) that matter either.
+- This means the trigger is either **time-dependent, state-dependent
+  (something about the work_item_id, the site, or a prior dispatch's
+  aftermath), or concurrency-dependent** — not a pure function of the
+  message's own shape, as the original table implies. The original table's
+  individual rows are still accurate reports of what happened at that moment;
+  the inference drawn from them (a clean, restatable trigger condition) is
+  not.
+
+**This is exactly the class of error `docs024_key_docs_latest/WRONG_CALLS.md`
+exists to catch, and it is recorded there too.** The marker discipline that
+file asks for — mark an inference `[INFERRED]`, not stated as fact — was not
+followed in this file's original text, and should have been.
+
+**Consequence, recorded so the cost is visible, not just the correction:**
+re-testing this bisection against a REAL site's REAL work item (there was no
+throwaway target available at the time) caused two of the "isolated test"
+dispatches to actually run for real, silently regenerating a live page's hero
+image binding via the exact landmine this same estate had already documented
+(`webdesign_uk_build_service` lane, `NOTES_webdesign_uk_build_service.md`
+2026-08-09/10 entry). Caught and reverted the same session, byte-verified
+against the last known-good git commit; no lasting damage. But it is the
+reason this file now says explicitly: **do not bisect this bug against
+production data again.**
+
+## Plan for whoever picks this up — root cause + a SAFE verification path
+
+**1. Do not continue black-box bisection against a real site.** It already
+cost one production incident and, given the finding above, further black-box
+probing is unlikely to converge — the trigger isn't a clean function of the
+message shape, so no amount of additional test payloads will pin it down.
+The next step has to be reading code, or running the `090` diagnosis loop
+(this durable, cross-cutting, non-obvious-cause claim now clearly qualifies
+under CLAUDE.md's "always file" criteria a second time — the first filing
+substituted empirical bisection per the 07-31 ruling's escape hatch, but that
+substitution has now been shown insufficient, which is itself a reason to
+use the loop instead this time).
+
+**2. Where to look, if reading code directly**: `platform/messaging/processor.go`'s
+`extractGroupInfo` (confirmed correct — reads `config.agent_type` faithfully)
+is NOT the culprit. The swap happens somewhere in workflow *selection*
+(`selectWorkflow` and whatever it calls before falling through to the `generic`
+agent's own `DefaultConfig`) or in whatever caches/memoizes a resolved
+workflow plan. Candidates worth checking first, because they are the only
+things that plausibly vary between two calls with byte-identical input a few
+minutes apart: (a) a workflow-plan cache keyed on something coarser than the
+full message (e.g. just `agent_type`, or a hash that collides), (b) a
+per-work-item or per-site in-flight/cooldown guard that isn't visible in
+`site_work_items` itself (state living in Redis, an in-memory map, or a
+short-lived DB table this investigation didn't check), (c) a concurrency race
+in whichever goroutine resolves `agentDef` before the workflow starts. Rule
+these in or out by instrumentation/logging around workflow selection, not by
+more kcat sends.
+
+**3. A safe verification harness, once a fix candidate exists**: dispatch
+against a **scratch site with no real pages/content** (create one if none
+exists) or, if a real site must be used, a **work item whose handler's worst
+case is a no-op you don't mind repeating** (e.g. `page-rerender` against a
+page that only holds placeholder content, or a fresh `content_components` row
+nothing links to yet). Confirm the fix by: (a) repeating the exact byte-identical
+payload 5-10 times in a tight loop and asserting `owner_agent_type` matches
+`config.agent_type` EVERY time, not just once (the whole point of this
+correction is that a single success proves nothing); (b) trying the same with
+a `zzz_nonsense_key` present, since that's the widest-net reproduction found
+so far.
+
+**4. Specifically for webdesign.uk's chat-input-box** (the task that surfaced
+this bug — see `webdesign_uk_build_service/PLAN_2026-08-04_webdesign_uk_vm_hosting.md`
+Phase 5): **the dispatch mechanism is not actually needed to finish that task.**
+The lane worked around it entirely — the component's fields are all static
+(no LLM content), so its `page_components` row and the page's rendered HTML
+were hand-constructed deterministically and verified byte-for-byte, the same
+technique used to recover from the incident above. That work is done and
+sitting ready (DB row `fc70ab85-4bb8-4122-a74c-cc5dcaef8684`, spliced page
+file in that lane's session scratchpad) — it only needs a `git commit`+push
+to `gqls/vm-sites` that a permission classifier blocked mid-session (see that
+lane's own NOTES/HANDOFF for the exact state). **Fixing this bug is not on
+that task's critical path**; it matters for every OTHER lane relying on the
+documented drive-loop pattern while the build queue stays starved.
 
 ## Related, not the same bug
 

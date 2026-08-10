@@ -975,3 +975,47 @@ picture showing including all five heroes, zero rule violations anywhere, clean
 titles. The one cosmetic gap is still the browser-tab icon, waiting on a
 platform fault we've reported. The preview is at preview.webdesign.uk, ready
 when you are.
+
+---
+
+**2026-08-09/10. A real bug in the chat box fixed and proven; a serious fault
+in the building machinery found, reported, and worked around; one accidental
+slip on the live contact page, caught and put right the same session; the
+chat box on the page itself built but not yet switched on.**
+
+First, a genuine problem in the chat service found before it caused trouble:
+it was only ever hearing the visitor's LATEST message, with no memory of
+anything said earlier in the same conversation. Fixed, tested, and proven
+with a real two-message exchange through the live box — it now correctly
+remembers what a visitor told it a moment before.
+
+Then, trying to get the input box actually placed on the contact page, I hit
+a real fault in the platform's own machinery for hand-driving work when its
+normal queue is stalled (which it still is). Sending the platform a
+perfectly correctly-worded instruction sometimes silently does nothing at
+all while reporting success — and, worse, the same instruction can work once
+and then fail the next time. I've written this up in detail for the platform
+side to fix; it isn't specific to this site.
+
+While tracking that fault down, two of what I believed were harmless test
+instructions actually ran for real against your live contact page and
+changed its picture back to a generic placeholder — the exact kind of slip
+this project's own notes had already warned about. I caught it within
+minutes by checking the actual page content rather than trusting a "success"
+message, found the last good version in the site's own history, and put it
+back byte-for-byte. I then ran the full site check again: all five pages
+serving cleanly, right pictures, no rule violations, nothing else disturbed.
+The contact page is back exactly as you last saw it.
+
+The chat box itself is built and sitting ready — plain, honest copy ("Talk to
+us", explains up front that it's an automated first step, points at the email
+and phone below for anything else), all wired to the real chat service. It is
+recorded correctly in the system's own records but I was blocked, by the
+tool's own safety check, from pushing the very last step — putting the file
+live — after the earlier slip. That's a sensible caution rather than a
+problem to solve around, so I've left it for a fresh start or for you to say
+go ahead.
+
+Once it's live, the box sits between the picture at the top of the contact
+page and the plain email/phone details underneath. The nine parked "where
+should this button go" items from earlier can then all point at it.
