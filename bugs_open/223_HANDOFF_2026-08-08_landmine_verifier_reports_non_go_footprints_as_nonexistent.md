@@ -375,3 +375,138 @@ Full entry (with the manual recovery path) is in `LANDMINES.md`, 2026-08-08,
 slot-rename entry, whose footprint is Go symbols and DB tables, verified
 **STILL_VALID** in the same batch. The verifier is right when the index can see the
 footprint, which is what makes the wrong verdicts hard to spot.
+
+---
+
+# PHASE 1 FIXED AND COMMITTED 2026-08-10 — `1058b5366`, council `495df717-4010-491f-aec0-92c13aaf3809`
+
+**STATUS: the Go half is committed and INERT until the next chassis roll; seed 365 is
+APPLIED and live. This bug stays OPEN until the roll, because the defect is still
+reproducible on `v1.0.1277`.** Owned and worked by the
+`bugfix_223_index_answerability` lane —
+`docs/agent_docs/docs024_key_docs_latest/bugfix_223_index_answerability/` (PLAN, NOTES,
+RUNBOOK, README_where_we_are, and a verbatim BEFORE artefact).
+
+## The cause stands, re-measured, and one clause of it was too narrow
+
+Re-ran this file's own census today. Unchanged in composition, grown in size: **5,837 rows,
+100% `.go`, 682 paths, no `var`/`const`/`type` row.** A fact this file does not record and
+which changes how the fix should be read: **`code_symbols`' own CHECK constraint already
+permits `var`, `const` and `type`**, and the reader's `codeKindList` already treats them as
+code. The missing kinds are an **unfinished write path**, not a design gap — which is why
+indexing them is not architecture-scope, and is phase 2 of this lane rather than a deferral.
+
+## Two failure modes this file does not contain, both found while fixing it
+
+1. **THE BLIND SPOT ALSO PRODUCES FALSE POSITIVES.** `ls` is a path-*prefix* listing over an
+   index of Go symbols and it presents as a directory listing. Measured: `scripts/` returns
+   **110 indexed paths** (Go programs under `scripts/documentation_project/`,
+   `scripts/goscripts/`, …) while every `.py` and `.sh` **directly** under `scripts/` — the
+   three files the motivating entry actually named — is invisible. So a check written at
+   directory altitude comes back with a generous listing that reads as **confirmation that
+   the footprint resolves**. That is worse than a false `STALE`: a wrong accusation invites
+   checking, while a flattering partial confirmation reads as diligence. This is the shape
+   §"Measured scope" warns about for mixed entries, arriving through the `ls` kind instead.
+2. **A `content` check aimed at a non-Go file can be ANSWERED BY A SAME-NAMED GO SYMBOL.**
+   In a run captured today, `content: slugify` — stated purpose *"confirms the slugify
+   function exists in landmines_lib.py"* — returned **six** confident Go hits
+   (`slugifyPathSegments` in `adopt_verbatim.go`, `slugifyForCompositionName` in
+   `resolve_composition_helpers.go`). A false positive **with citations**. The verdict caught
+   it, by reading them; nothing made it.
+
+## And the CAREFUL branch is also a total loss, which strengthens this file's argument
+
+This file's correction says the failure mode is that you cannot tell which run you got. A
+run dispatched on purpose today (v1.0.1277, banked verbatim as
+`EVIDENCE_2026-08-10_prefix_run_verbatim.md`) drew the good branch and it is still a wasted
+round. Five of its eight derived checks were unanswerable by construction; the verdict
+reached:
+
+> …returned 0 rows …, meaning they are **either not present at the current ref or not
+> indexed** (the index covers Go symbols heavily but **may not** cover Python scripts) …
+> there is no way to confirm or deny …
+
+Two LLM calls and eight index queries to produce a disjunction that **one census collapses
+to a fact** — and it then *guessed* the census correctly ("appears Go-centric") and hedged
+everything on the guess. So the cost is not only the wrong verdicts: every careful verdict
+is paying for the same missing sentence.
+
+## What phase 1 changed
+
+- **The shared lookup action states what the corpus CAN represent**, from a live per-extension
+  and per-kind census (one `GROUP BY` per run). A 0-row answer whose target class the corpus
+  cannot hold renders **`NOT ANSWERABLE BY THIS INDEX … It is NOT evidence that the target is
+  absent, removed, renamed or inlined, and it must not contribute to a verdict of STALE`**,
+  replacing *"The query was RUN; this is not an unanswered question."* A symbol miss names the
+  kinds with **zero** rows — which is what removes the invented *"possibly inlined or
+  renamed"*. A non-empty `ls` answer says what it is a listing **of**. **Every sentence is
+  computed**, so all of them retire themselves when the corpus widens; a test asserts that in
+  advance.
+- **Four additive return keys** — `checks_with_rows`, `checks_unanswerable`,
+  `no_code_evidence`, `evidence_line`. Measured before adding: 0 live definitions referenced
+  any of them, or `checks_run`. **LANDMINE: `checks_run > 0` does not mean anything was
+  verified** — it counts checks that executed, unanswerable ones included, and always did.
+- **Seed 365 is the structural bar this file asked for.** `run_checks → gate_evidence`
+  (`conditional_branch` on `no_code_evidence`) `→ {verify_unverifiable | verify}`. A round
+  that confirmed nothing against indexed code **cannot reach** the STALE-bearing prompt;
+  the new branch's vocabulary is `UNVERIFIABLE | NEEDS_HUMAN_REVIEW` — and per this file's own
+  correction, `STILL_VALID` is absent from it too, because with no checkable evidence both
+  directions are uninformative. The evidence branch keeps its full vocabulary plus rules
+  bounding what a `STALE` may rest on (the mixed case).
+- **Every verdict row now carries the action's own census**, appended by an opt-in
+  `append_doc_note` key (`note_body_suffix_field`) — mechanical, so the model whose verdict
+  it qualifies cannot soften or omit it. This is the half that protects the *reader*, and it
+  is why candidate 1 was ranked above the branch rather than below it.
+
+## What phase 1 does NOT fix — stated so nobody reads coverage into it
+
+**The `var`/`const` blind spot itself is untouched.** The 2026-08-09 addendum's class — a
+hypothesis whose deciding evidence is the CONTENT of a package-level `var` — still stops at
+`UNVERIFIABLE`. It now stops **honestly**, naming the index as the limit instead of inventing
+a rename. Phase 2 indexes those kinds (measured **1,173** package-level specs, ~+20% corpus)
+and is its own commit and its own council round, because its blast radius is the corpus —
+embeddings, prune cohorts, and every diagnosis run's search space — not the rendering.
+
+Non-Go ingestion stays **excluded** as architecture-scope, per this file's candidate 3 and
+the 2026-07-29 ruling. Evidence it is a separate intent rather than an oversight: the
+reader-side D12 guard (`kindDoc`, `docBlockHeader`) is built and inert, and the CHECK
+constraint does **not** admit `'doc'` — so ingestion needs a schema change and is its own
+lane by construction.
+
+## To the other consumers of this seam — you are being told, not merely measured
+
+The change is in `answerCodeCheck`/`emptyAnswer`, so it reaches four consumers:
+**`fix-proposer`** (and through the 099 roster mirror, every council seat's `code_lookup`
+step), **`feature-designer`**, **`landmine-verifier`**, and **the diagnosis loop's runtime
+lane**, which calls `answerCodeCheck` directly at `diagnose_load_runtime_action.go:479` and
+is invisible to any `agent_definitions` query.
+
+**What changed about your guarantee:** a 0-row answer whose class this index cannot hold no
+longer renders as an answered question, and each round now ends with a one-line census of
+what it established. For an in-corpus query nothing changes. Your `cite-or-abstain` gets the
+fact it was missing. Nothing parses the answer text mechanically (measured), so no consumer
+needs a config change. **If you branch on evidence, use `no_code_evidence`, never
+`checks_run`.**
+
+`architecture_review` owns RFC_005 §3.2: the verifier's verdict **vocabulary** changed on the
+no-evidence branch (`UNVERIFIABLE` appears; `STALE` and `STILL_VALID` cannot). Nothing parses
+status, but it is your mechanism.
+
+## How to close this
+
+1. **Roll.** Then pod-grep with the negative control this lane banked: `NOT ANSWERABLE BY
+   THIS INDEX` is **0** on `v1.0.1277` and must be ≥1 in every replica, beside a positive
+   control (`this answer is CAPPED` → 1) that proves the grep works.
+2. **Re-fire the two motivating entries** and require: no `STALE` attributable to an
+   unverifiable footprint; the genuinely-checkable Go facts **still confirmed** (the fix must
+   not buy abstention by checking less — the paired before-artefact pins `doc_notes` and
+   `subject_key` at ~24 rows each); the verdict an explicit unverifiable-by-index abstention;
+   and the persisted row ending `[code-lookup evidence: …]`.
+3. **Then a MIXED-footprint entry**, which is the case a partial confirmation flatters: it
+   must route to `verify`, confirm what it confirmed, and name what it could not check in the
+   same verdict.
+
+**Already proven, on the unchanged binary:** seed 365 is safe ahead of the roll —
+`evidence_gate` recorded `{"condition_met": false, "next_step_override": "verify"}`, the run
+COMPLETED, the verdict was unchanged and no suffix was written. Three ways to fail, none
+taken.
