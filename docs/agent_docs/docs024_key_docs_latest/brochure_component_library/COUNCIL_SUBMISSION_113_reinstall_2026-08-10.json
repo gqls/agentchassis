@@ -1,0 +1,66 @@
+{
+  "rationale": "ai-agent-orchestration.com serves #ffffff cards on a #080B10 page: 38 of 58 measured WCAG failures across three pages are ink on that white card. It renders from the SHARED seed palette professional-dark, which is a fully LIGHT palette (background #f8fafc, card_bg #ffffff) and which two other LIVE sites (finetuning.uk, gaswholesalers.com) ride correctly as light sites. Editing the shared row is therefore not available. The site's own spec is dark and pinned. The repair is to give this one site its own composition. The platform cannot do that: install_site_composition loud-fails on any site that already has a style_collection_id, and its own log line tells an operator to null sites.style_collection_id BY HAND. That manual route is genuinely unsafe -- between the clear and the re-resolve the site is uncomposed, and anything that renders in that window hits the composition loader's emergency fallback (render_css_composition_loader.go:144-158) and can deploy a standard-brochure stylesheet over a live site. This is not hypothetical scope-creep: the site's own work item 47ce091c ('shares its style collection with 3 other site(s) -- needs its own collection') has sat 'unresolved after 2 attempts' since 2026-08-06 because the detector is correct and NO handler can satisfy it. Change 1 adds allow_reinstall (default FALSE) so the swap happens inside the action's existing transaction and the window never opens. Change 2 is separate and smaller: the discovery producer of needs_composition/needs_design emitted status='detected' while the BUILD producer of the same two item_keys emits 'triaged', and the dispatch loop claims only triaged/approved -- so a discovery-emitted pair could never be dispatched at all. Four rows were stranded, the oldest ~33h. I deliberately did NOT fix that by enabling a fleet-wide triage sweep: TriageDetectedItemsAction promotes every detected row for a site with no type filter, and 448 detected build-pipeline rows exist fleet-wide (193 page_rerender, 79 contrast_failure), so a sweep is a dispatch surge nobody asked for. Both changes are additive and default-preserving; the reinstall branch is reachable by nothing until a workflow step names the flag.",
+  "submitter": "brochure_component_library / contrast front (bugs_open/113)",
+  "plan": {
+    "summary": "ai-agent-orchestration.com serves #ffffff cards on a #080B10 page (38 of 58 measured WCAG failures on three pages) because it rides a SHARED seed palette that is fully light and that two other live sites use correctly. The only repair is its own composition, and the platform cannot give it one: install_site_composition loud-fails on any site that already has a style_collection_id and tells an operator to null the column by hand -- which leaves the site uncomposed in a window where the loader's emergency fallback can deploy standard-brochure over it. This adds allow_reinstall (default FALSE) so the swap happens inside the existing transaction, keeps the concurrent-install race guard working in both modes, and returns the displaced id as the rollback value. Separately it fixes the discovery producer of the needs_composition/needs_design pair to emit 'triaged' like the build producer of the same two item_keys already does -- without which a discovery-emitted pair can never be dispatched at all.",
+    "edits": [
+      {
+        "file": "platform/orchestration/actions/install_site_composition_action.go",
+        "operation": "modify",
+        "rationale": "Add allow_reinstall as an opt-in step-config literal, default FALSE, per the owner ruling of 2026-08-02 (RFC_010): new authority on a shared seam ships as an opt-in field with the unsafe default OFF, not as a documented contract. Read via GetBoolFieldLoud so a malformed declaration (string \"true\") warns and falls back to the SAFE branch rather than enabling the permissive one. Deliberately NOT added to the ActionInputSpec: ExtractActionInputs resolves config strings as PATH REFERENCES into collected_data, which is right for data inputs and wrong for an author's literal switch.",
+        "sketch": "allowReinstall := datahelpers.GetBoolFieldLoud(params.StepConfig.Config, \"allow_reinstall\", false, logger, ...)\nif existingCollectionID.Valid && existingCollectionID.String != \"\" {\n    if !allowReinstall {\n        // unchanged loud-fail, now naming the flag in its recommendation\n        return nil, fmt.Errorf(\"site %s already has style_collection_id=%s; re-resolve not requested (set allow_reinstall=true)\", siteID, existingCollectionID.String)\n    }\n    logger.Warn(\"REPLACING an existing composition (allow_reinstall=true)\", ..., zap.String(\"rollback\", \"UPDATE sites SET style_collection_id='...'\"))\n}",
+        "symbol": "InstallSiteCompositionAction"
+      },
+      {
+        "file": "platform/orchestration/actions/install_site_composition_action.go",
+        "operation": "modify",
+        "rationale": "Keep the concurrent-install race guard working in BOTH modes. The link UPDATE was guarded by 'AND style_collection_id IS NULL', which is exactly the condition the reinstall path violates. Dropping the guard would silently clobber a concurrent install; the reinstall path needs the race check MORE than the first-install path, not less. IS NOT DISTINCT FROM matches NULL to NULL on a first install and the observed id to itself on a reinstall.",
+        "sketch": "-  AND style_collection_id IS NULL\n+  AND style_collection_id IS NOT DISTINCT FROM $3::uuid\n`, collectionID, siteID, existingCollectionID)",
+        "symbol": "InstallSiteCompositionAction"
+      },
+      {
+        "file": "platform/orchestration/actions/install_site_composition_action.go",
+        "operation": "modify",
+        "rationale": "Return the displaced collection id. The UPDATE overwrites the column in place, so after the transaction this value exists nowhere else -- without it an operator cannot roll back a re-compose that went wrong.",
+        "sketch": "\"previous_collection_id\": existingCollectionID.String,   // \"\" on a first install\n\"replaced_existing\":      allowReinstall && existingCollectionID.Valid && existingCollectionID.String != \"\",",
+        "symbol": "InstallSiteCompositionAction"
+      },
+      {
+        "file": "platform/orchestration/actions/install_site_composition_reinstall_test.go",
+        "operation": "add",
+        "rationale": "Three tests, PROVEN load-bearing by mutation rather than asserted to be. A: an existing collection is refused when nothing asked for a reinstall (this is the test that keeps the unsafe direction off, and it is the important one). B: the flag gets execution past the guard. C: a non-bool declaration must NOT enable the permissive branch. Mutations were RUN before commit: 'if !allowReinstall' -> 'if false' fails A and C; hardcoding allowReinstall=false fails B. Tests stop at the guard rather than mocking the whole install, and the file says so -- claiming more than the mock can support is how a test becomes decoration.",
+        "sketch": "func TestInstallSiteComposition_RefusesExistingCollectionByDefault(t *testing.T)\nfunc TestInstallSiteComposition_AllowReinstallPassesTheGuard(t *testing.T)\nfunc TestInstallSiteComposition_MalformedFlagDoesNotEnableReinstall(t *testing.T)",
+        "symbol": "TestInstallSiteComposition_RefusesExistingCollectionByDefault"
+      },
+      {
+        "file": "platform/orchestration/actions/discovery_checks/check_integrity.go",
+        "operation": "modify",
+        "rationale": "MissingStyleCollectionCheck emits the composition pair as 'triaged' instead of 'detected', matching emit_design_items_action.go:126,171 -- which emits the SAME two item_keys, and which this check's own comment already claims parity with. Scoped to these two types on purpose: the defect is the disagreement between two producers of one item_key, so the repair belongs at the producer, NOT at a fleet-wide triage sweep that would promote all 448 detected build rows in one motion.",
+        "sketch": "-  Status:       \"detected\",\n+  // `triaged`, NOT `detected` -- see the note above this pair.\n+  Status:    \"triaged\",\n(twice: needs_composition and needs_design)",
+        "symbol": "MissingStyleCollectionCheck.Run"
+      },
+      {
+        "file": "docs/agent_docs/docs026_concept_register/register/design-composition.md",
+        "operation": "modify",
+        "rationale": "Register both seams in the SAME commit that ships them (owner ruling 2026-07-28, condition 2 -- the surviving half of the ordering exemption). DES-082 and DES-083 each carry status, the landmine, the open review question, and the other consumers to tell. Both are recorded as BUILT, NOT exercised -- no pod-grep exists because the binary carrying them has not been built.",
+        "sketch": "### DES-082 -- allow_reinstall: the opt-in that lets a site's composition be REPLACED\n### DES-083 -- Discovery's composition pair now emits `triaged`",
+        "symbol": "DES-082/DES-083"
+      }
+    ],
+    "grounded_in": [
+      "install_site_composition_action.go:150-154 (pre-change): logger.Error(\"site already has style_collection_id -- re-resolve is not supported\", ..., zap.String(\"recommendation\", \"clear sites.style_collection_id manually to force re-install\"))",
+      "render_css_composition_loader.go:150-154: logger.Error(\"loadThemeComposition: no theme resolution path succeeded -- using emergency fallback\") -- this is what a render hits while the column is NULL",
+      "fork_theme_from_site_action.go:11-19: \"The site's own style_collection_id is NOT modified\" and \"Composition installation is owned exclusively by site-design-planner via the install_site_composition action\"",
+      "claim_work_item_action.go:102: AND status IN ('triaged', 'approved')",
+      "emit_design_items_action.go:126,171: status: \"triaged\" -- for the SAME needs_composition/needs_design item_keys the discovery check emitted as 'detected'",
+      "check_integrity.go:70-74 (pre-change): 'item_keys are \"needs_composition\"/\"needs_design\" -- identical to emit_design_items' -- the parity claim the status disagreed with",
+      "check_missing_css.go:41-43: 'Routing composition here would fail the install guard (install_site_composition refuses when style_collection_id is set)' -- a second consumer shaped by the constraint being lifted",
+      "MEASURED 2026-08-10, live DB: 448 rows WHERE status='detected' AND pipeline='build' fleet-wide (193 page_rerender, 79 contrast_failure, 23 audit_tool) -- the reason a fleet-wide triage sweep was rejected as the fix",
+      "MEASURED 2026-08-10, live DB: site_work_items 47ce091c, item_type needs_design_review, status 'unresolved after 2 attempts', created 2026-08-06, summary 'Site ai-agent-orchestration.com shares its style collection with 3 other site(s) -- needs its own collection'",
+      "MEASURED 2026-08-10, served artefact: https://ai-agent-orchestration.com/assets/css/styles.css carries --color-card-bg: #ffffff with --color-background: #080B10; render_audit.py over 3 pages = 58 failures, 38 of them on rgb(255,255,255)",
+      "MEASURED 2026-08-10, live DB: palettes 'professional-dark' colours->>'card_bg' = '#ffffff', background '#f8fafc'; sites sharing collection 3196d966 = ai-agent-orchestration.com, finetuning.uk, gaswholesalers.com -- the latter two serve #ffffff correctly as LIGHT sites",
+      "MUTATION-TESTED 2026-08-10 before commit: 'if !allowReinstall' -> 'if false' => tests A and C FAIL, B passes; 'allowReinstall := false' hardcoded => test B FAILS, A and C pass"
+    ],
+    "risks": "(1) THE FLAG'S PERMISSIVE BRANCH RE-POINTS A LIVE SITE'S WHOLE STYLESHEET. Default is false and a malformed declaration falls back to false (GetBoolFieldLoud), so it is reachable by nothing until a workflow step names it -- no live workflow does yet. Check that the default really is off and that no seeded step sets it. (2) The link UPDATE guard changed from 'IS NULL' to 'IS NOT DISTINCT FROM $3::uuid'. Check this still refuses a concurrent install in BOTH modes -- weakening it to an unguarded UPDATE would silently clobber a racing install, and the reinstall path needs that check more, not less. (3) The re-compose leaves the OLD css_theme and style_collection rows orphaned rather than deleting them; that is deliberate (they may be shared -- professional-dark is), but nothing reaps them and I have not measured whether orphans accumulate. (4) UNANSWERED, and I want a view: should a re-compose require HITL approval rather than a caller-set boolean? The original code called re-resolution 'a deliberate future feature behind HITL'; this ships the mechanism without the HITL half, on the ground that the caller is a workflow author under review. (5) The 'triaged' change makes four currently-stranded rows dispatchable on the next discovery run (cookly.uk, noted.co.uk, loanandmortgagecalculator.co.uk, loancalculator.co.uk) -- all sites with NO collection, i.e. the path that already worked from the build side. Check that is the intended set and that nothing else keys on 'detected' for these two item_types. (6) I did NOT enable a fleet-wide triage sweep, because 448 detected build rows exist and that would dispatch all of them. The general promoter remains undriven -- that is left open, not fixed."
+  }
+}

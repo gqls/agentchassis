@@ -21,16 +21,29 @@
 //   4. Supersede any existing resolved_composition spec row
 //   5. INSERT INTO site_specs for the new resolved_composition
 //
-// Idempotency:
+// Idempotency, and the one flag that changes it:
 //   If sites.style_collection_id is already set, this action errors out
-//   rather than overwriting. Re-resolution (changing a site's composition
-//   after first install) is a deliberate future feature behind HITL.
+//   rather than overwriting — UNCHANGED default behaviour.
+//   `allow_reinstall: true` on the step opts into replacing it, in the same
+//   transaction, so the site is never left uncomposed. Off by default because
+//   the permissive branch re-points a LIVE site's stylesheet (owner ruling
+//   2026-08-02, RFC_010: new authority on a shared seam ships as an opt-in
+//   field with the unsafe default OFF, not as a documented contract).
+//
+//   Before the flag, the only repair was an operator nulling the column by
+//   hand — which opens a window where the composition loader's emergency
+//   fallback can deploy `standard-brochure` over a live site
+//   (render_css_composition_loader.go:144-158). See bugs_open/113.
 //
 // Inputs:
 //   - site_id                          (required)
 //   - selected_palette_id              (required) — from resolve_composition_palette
 //   - selected_layout_id               (required) — from resolve_composition_layout
 //   - selected_typography_set_id       (required) — from resolve_composition_typography
+//   - allow_reinstall                  (optional, default false) — replace an
+//     existing composition instead of erroring. The displaced id comes back as
+//     `previous_collection_id`; that is the rollback value and the only record
+//     of it, since the UPDATE overwrites the column in place.
 //
 // The resolver outputs carried in collected_data also contribute to the
 // resolved_composition spec's lineage block. Read by path:
@@ -49,6 +62,8 @@
 //     "collection_name":      "collection-<slug>",
 //     "spec_id":              "uuid-string",       // resolved_composition row
 //     "installed":            true,
+//     "previous_collection_id": "uuid-string|\"\"", // rollback value; "" on first install
+//     "replaced_existing":      false,              // true only on an allow_reinstall swap
 //   }
 //
 // Registration (add to registry.go):
@@ -81,6 +96,10 @@ var InstallSiteCompositionInputSpec = datahelpers.ActionInputSpec{
 		"selected_layout_id",
 		"selected_typography_set_id",
 	},
+	// allow_reinstall is NOT here on purpose. ExtractActionInputs resolves
+	// config strings as PATH REFERENCES into collected_data, which is right for
+	// data inputs and wrong for an author's literal switch. It is read straight
+	// off StepConfig.Config by GetBoolFieldLoud below.
 	Optional:   []string{},
 	Defaults:   map[string]interface{}{},
 	Deprecated: map[string]string{},
@@ -144,18 +163,50 @@ func InstallSiteCompositionAction(ctx context.Context, params ActionParams) (int
 		return nil, fmt.Errorf("load site record: %w", err)
 	}
 
-	// Idempotency guard: re-resolution is a future feature. If a site
-	// already has a collection, loud-fail rather than silently duplicate.
+	// Declared-bool read: a malformed declaration (a string "true", say) does
+	// NOT switch the unsafe direction on — it warns and falls back to false.
+	// For a flag whose permissive branch replaces a live site's stylesheet,
+	// "we could not parse it" must mean "do not do it".
+	allowReinstall := datahelpers.GetBoolFieldLoud(
+		params.StepConfig.Config, "allow_reinstall", false, logger,
+		zap.String("action", "install_site_composition"),
+		zap.String("site_id", siteID.String()),
+	)
+
+	// Idempotency guard. A site that already has a collection is only
+	// re-composed when the CALLER has explicitly asked for it.
+	//
+	// Why this is a flag and not a doc comment (owner ruling 2026-08-02,
+	// RFC_010): the permissive branch re-points a live site's stylesheet, and
+	// "callers must know what they are doing" is not a control on a tree this
+	// many sessions share. Default OFF keeps the historical behaviour exactly.
+	//
+	// Before this flag existed the only repair was an operator nulling
+	// sites.style_collection_id by hand, which opens a window where the
+	// composition loader's emergency fallback can deploy a `standard-brochure`
+	// stylesheet over a live site (render_css_composition_loader.go:144-158).
+	// That is the hazard this closes: with allow_reinstall the swap happens
+	// inside one transaction and the site is never left uncomposed.
 	if existingCollectionID.Valid && existingCollectionID.String != "" {
-		logger.Error("InstallSiteCompositionAction: site already has style_collection_id — re-resolve is not supported",
+		if !allowReinstall {
+			logger.Error("InstallSiteCompositionAction: site already has style_collection_id — re-resolve not requested",
+				zap.String("site_id", siteID.String()),
+				zap.String("domain", domain),
+				zap.String("existing_collection_id", existingCollectionID.String),
+				zap.String("recommendation", "set allow_reinstall=true on this step to replace the existing composition"),
+			)
+			return nil, fmt.Errorf(
+				"site %s already has style_collection_id=%s; re-resolve not requested (set allow_reinstall=true)",
+				siteID, existingCollectionID.String,
+			)
+		}
+		// Loud on the way through: this is a live site changing its whole
+		// look, and it must be greppable in the logs after the fact.
+		logger.Warn("InstallSiteCompositionAction: REPLACING an existing composition (allow_reinstall=true)",
 			zap.String("site_id", siteID.String()),
 			zap.String("domain", domain),
-			zap.String("existing_collection_id", existingCollectionID.String),
-			zap.String("recommendation", "clear sites.style_collection_id manually to force re-install"),
-		)
-		return nil, fmt.Errorf(
-			"site %s already has style_collection_id=%s; re-resolve not supported",
-			siteID, existingCollectionID.String,
+			zap.String("previous_collection_id", existingCollectionID.String),
+			zap.String("rollback", "UPDATE sites SET style_collection_id='"+existingCollectionID.String+"' WHERE id='"+siteID.String()+"'"),
 		)
 	}
 
@@ -289,16 +340,23 @@ func InstallSiteCompositionAction(ctx context.Context, params ActionParams) (int
 	}
 
 	// ── 3. Link to site ──
-	// Guarded UPDATE — only writes if still NULL. Defensive against a race
-	// where another path (e.g. legacy install_theme in webdesign-agent)
-	// linked a collection between our idempotency check and now.
+	// Guarded UPDATE — only writes if the column still holds exactly what we
+	// read during the idempotency check above. Defensive against a race where
+	// another path (e.g. legacy install_theme in webdesign-agent) linked or
+	// re-linked a collection between that check and now.
+	//
+	// `IS NOT DISTINCT FROM` rather than `IS NULL` so the guard keeps working
+	// in BOTH modes: NULL matches NULL on a first install, and the observed id
+	// matches itself on an allow_reinstall. Weakening this to an unguarded
+	// UPDATE would silently clobber a concurrent install — the reinstall path
+	// needs the race check MORE than the first-install path, not less.
 	result, err := tx.ExecContext(ctx, `
 		UPDATE sites
 		SET style_collection_id = $1,
 		    updated_at = NOW()
 		WHERE id = $2
-		  AND style_collection_id IS NULL
-	`, collectionID, siteID)
+		  AND style_collection_id IS NOT DISTINCT FROM $3::uuid
+	`, collectionID, siteID, existingCollectionID)
 	if err != nil {
 		return nil, fmt.Errorf("update sites.style_collection_id: %w", err)
 	}
@@ -409,6 +467,11 @@ func InstallSiteCompositionAction(ctx context.Context, params ActionParams) (int
 		"collection_name":     collectionName,
 		"spec_id":             specID.String(),
 		"installed":           true,
+		// Empty string on a first install; the replaced id on a reinstall.
+		// This is the rollback value — the ONLY record of what was displaced,
+		// since the UPDATE overwrites it in place.
+		"previous_collection_id": existingCollectionID.String,
+		"replaced_existing":      allowReinstall && existingCollectionID.Valid && existingCollectionID.String != "",
 	}, nil
 }
 

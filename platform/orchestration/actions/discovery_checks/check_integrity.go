@@ -72,6 +72,26 @@ func (c *MissingStyleCollectionCheck) Name() string { return "missing_style_coll
 // (one open row per site/item_key). Priority 7 < 8 orders composition ahead of
 // design; the discovery WorkItemSpec path has no depends_on field, so ordering
 // relies on priority + one-dispatch-loop-per-site.
+//
+// STATUS IS `triaged`, AND THE "identical to emit_design_items" ABOVE IS WHY
+// (corrected 2026-08-10, bugs_open/113). This pair used to emit `detected`,
+// while emit_design_items_action.go:126,171 emits the SAME two item types as
+// `triaged`. That is not a harmless difference: the dispatch loop claims only
+// `status IN ('triaged','approved')` (claim_work_item_action.go:102), and the
+// only thing that promotes `detected` → `triaged` is TriageDetectedItemsAction,
+// whose three callers (improvement-loop, design-audit-agent, site-review-agent)
+// have NO enabled scheduled task between them — `improvement-sweep` is
+// `enabled=false`. So a composition pair emitted by DISCOVERY could never be
+// dispatched, while the identical pair emitted by the BUILD path always was.
+// Measured 2026-08-10: four such rows stranded, the oldest
+// (loancalculator.co.uk) for ~33 hours.
+//
+// Scoped deliberately to these two types rather than fixed by enabling a
+// fleet-wide triage sweep: 448 `detected` build-pipeline rows exist fleet-wide
+// (193 page_rerender, 79 contrast_failure, …), and promoting them in one motion
+// is a dispatch surge nobody asked for. The defect here is the disagreement
+// between two producers of the SAME item_key, so the repair belongs at the
+// producer.
 func (c *MissingStyleCollectionCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, error) {
 	result := &CheckResult{}
 
@@ -107,19 +127,21 @@ func (c *MissingStyleCollectionCheck) Run(dctx DiscoveryCheckContext) (*CheckRes
 		"stage":        "composition",
 	})
 	result.WorkItems = append(result.WorkItems, WorkItemSpec{
-		SiteID:       dctx.SiteID,
-		Source:       "discovery",
-		Pipeline:     "build",
-		ItemType:     "needs_composition",
-		Severity:     "high",
-		Summary:      fmt.Sprintf("Site %s has no composition — resolve palette/layout/typography", domain),
-		SpecJSON:     string(compSpec),
-		Priority:     7,
+		SiteID:   dctx.SiteID,
+		Source:   "discovery",
+		Pipeline: "build",
+		ItemType: "needs_composition",
+		Severity: "high",
+		Summary:  fmt.Sprintf("Site %s has no composition — resolve palette/layout/typography", domain),
+		SpecJSON: string(compSpec),
+		Priority: 7,
+		// site-design-planner installs the composition.
 		HandlerAgent: "site-design-planner",
-		Status:       "detected",
-		CreatedBy:    dctx.AgentType,
-		ItemKey:      "needs_composition",
-		BatchID:      dctx.BatchID,
+		// `triaged`, NOT `detected` — see the note above this pair.
+		Status:    "triaged",
+		CreatedBy: dctx.AgentType,
+		ItemKey:   "needs_composition",
+		BatchID:   dctx.BatchID,
 	})
 
 	// needs_design → webdesign-agent (renders styles.css), after composition.
@@ -129,19 +151,21 @@ func (c *MissingStyleCollectionCheck) Run(dctx DiscoveryCheckContext) (*CheckRes
 		"stage":  "design",
 	})
 	result.WorkItems = append(result.WorkItems, WorkItemSpec{
-		SiteID:       dctx.SiteID,
-		Source:       "discovery",
-		Pipeline:     "build",
-		ItemType:     "needs_design",
-		Severity:     "high",
-		Summary:      fmt.Sprintf("Site %s needs stylesheet generated (after composition)", domain),
-		SpecJSON:     string(designSpec),
-		Priority:     8,
+		SiteID:   dctx.SiteID,
+		Source:   "discovery",
+		Pipeline: "build",
+		ItemType: "needs_design",
+		Severity: "high",
+		Summary:  fmt.Sprintf("Site %s needs stylesheet generated (after composition)", domain),
+		SpecJSON: string(designSpec),
+		Priority: 8,
+		// webdesign-agent renders styles.css.
 		HandlerAgent: "webdesign-agent",
-		Status:       "detected",
-		CreatedBy:    dctx.AgentType,
-		ItemKey:      "needs_design",
-		BatchID:      dctx.BatchID,
+		// `triaged`, NOT `detected` — see the note above this pair.
+		Status:    "triaged",
+		CreatedBy: dctx.AgentType,
+		ItemKey:   "needs_design",
+		BatchID:   dctx.BatchID,
 	})
 
 	result.Findings = append(result.Findings, map[string]interface{}{
