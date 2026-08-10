@@ -4189,3 +4189,28 @@ already have in memory and hit anyway. Forward-only, so the message stays
 degraded; the phrases were "the heuristic `!= 'removed'`" and "Zero
 `!= 'removed'` remain". Use single quotes or a heredoc for messages containing
 code.
+
+### 5. The allow-direction control, done properly (2026-08-10, late)
+
+Five council seats independently named the gap I had already confessed in the
+round-2 submission, so it got fixed rather than carried:
+
+| item | change | gate | store | artefact |
+|---|---|---|---|---|
+| `rfc015-gate-control-differing-20260810` | eyebrow "How it works" → "How this works", citing D-001 | `success:true`, no `skipped`, no `decision_gated` | `content_data->>'eyebrow'` = "How this works" | `bc1676204`, **+1/−1**, diff is exactly the eyebrow span |
+| `rfc015-gate-control-restore-20260810` | back to "How it works", also cited | same | restored | `b224f0feb`, **+1/−1**, exact inverse diff |
+
+Served page then confirmed: eyebrow "How it works", **D-002 violations 0**, D-001
+free-check links 2, 51,151 bytes.
+
+**Why this was worth a second run rather than an argument.** A dropped
+`field_updates` and a value-already-equal produce **identical** evidence — empty
+commit, `success:true`, page unchanged. So the 08-09 control could not distinguish
+"the gate allowed the write" from "the gate ate the inputs", and the difference is
+exactly the one that matters on a shared action. Both directions of the gate are
+now proven at the artefact.
+
+**Both control items were run through the framework** (work items at `triaged`,
+picked up by the section-editor handler), not by editing content directly — the
+standing owner constraint, and the reason the proof means anything: it exercised
+the real dispatch path.
