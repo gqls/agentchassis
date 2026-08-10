@@ -26,6 +26,26 @@ grep worth running, not `r > 0`.
 FIXED and LIVE (sites `34239c7e4`): validates, then always writes — £0 against
 the age actually entered, bands 55/65/75/85 re-verified unchanged.
 
+**Then I swept the site for the shape rather than waiting for the weekly run to
+surface them one at a time, and found THREE MORE** (sites `19543d40f`):
+
+- `mortgages/bridging-loan.html` `calcBridge` — an unviable deal (interest +
+  fees ≥ 100% of the loan) alerted and returned, leaving the previous
+  **viable-looking gross loan** on screen. The user reads a facility size for a
+  deal the tool has just decided cannot be done.
+- `mortgages/investor.html` `calcLTV` and `calcYield` — clearing a field left
+  the previous ratio standing beside inputs that no longer produced it.
+
+All three now write on every path. Pre-flighted headless 6/6 on the transitions
+that ARE the defect (viable → unviable, computed → cleared), with LTV 75.0% and
+yield 5.76% unchanged. `investor`'s two buttons also got ids — the last unnamed
+action buttons on the site.
+
+**So the count is ten, not six**: six rate-guarded (the original), one
+age-guarded, one viability-guarded, two blank-input-guarded. The common shape is
+not "0%" and not "a rate" — it is **a guard that leaves a handler without
+writing the DOM**. That is the grep.
+
 **It was found by the unattended acceptance sweep the same night it was switched
 on**, and the run's own note records that no automated rewriter was dispatched:
 *"NOT auto-fixed — this fence declares no_auto_fix"*. 0 `improve_tool` items.
