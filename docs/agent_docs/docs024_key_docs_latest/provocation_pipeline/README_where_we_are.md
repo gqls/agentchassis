@@ -986,3 +986,72 @@ machine, and the reviewers asked that the lane owning that machine schedules it
 rather than us firing it opportunistically.
 
 **And the deadline has not moved: content runs out on 15 August.** Five days now.
+
+---
+
+## 2026-08-10, evening — the generator ran for the first time, and we found why it never could have worked
+
+You asked this thread to take on the other one's responsibilities as well, so both are
+run from here now. I have not touched anything the other thread wrote; this is added
+underneath it.
+
+The first thing I found is that the generator — the thing whose entire job is to refill
+the shelf so the site never goes quiet again — **had no way of being switched on.** The
+code was written, tested, reviewed and shipped to the cluster. But nothing in the
+database described it as an agent, and an agent that isn't described can't be asked to
+do anything. So your instruction that the framework should write the content, not us,
+was impossible to follow: there was no framework to ask. That is why both batches of
+provocations so far were written by an assistant and approved by you. The records say
+so honestly, at least — each of those rows carries a note saying it was drafted by a
+session and never went through the generator or the gate.
+
+It has a switch now. It generates and then judges in one go, and it is deliberately a
+handle you pull rather than something on a timer, because a model call that has never
+once been made should not make its debut unattended.
+
+Then I pulled it, four times, and it failed four times.
+
+The first failure was the API budget, which you fixed within minutes. That one was
+actually good news dressed as bad: to fail *at* the API, everything before the API had
+to work. So the switch, the wiring, the settings and the queue were all fine.
+
+The other three were the same failure, and the cause is embarrassing in an instructive
+way. There is a setting that controls how much the model is allowed to write. I set it.
+It didn't work. So I set something else. That didn't work either. Only then did I read
+the code, and found that **the setting isn't connected to anything** — this particular
+piece of code talks to the model directly and skips the part of the platform that reads
+that setting. So the model has always been capped at the smallest allowance in the
+estate, and everything I typed into the config went into a field nobody reads.
+
+I want to be plain about the mistake, because it is the reusable part: after the first
+fix failed, the error message still reported the *old* number. That was the answer,
+sitting in front of me, and I read it as "still not big enough" rather than "that number
+never changed". A quarter of an hour of reading the code first would have saved two
+changes to live configuration.
+
+It is fixed, committed and sent for review. Two other things came out of reading that
+code, both worth having:
+
+**The generator was being told the wrong rules.** It still instructed the model that a
+provocation must argue both sides, and that a one-sided one would be rejected. You ruled
+four days ago that one-sided is better, and the judge was changed to match — but nobody
+changed the instructions given to the writer. So the very first thing it would have
+produced is the shape you told us you didn't want.
+
+**And it was being shown my writing as the example to copy.** The instructions contained
+a paragraph I had written describing what a provocation's body looks like — and my
+description was wrong about our own site. It now reads three real, published,
+you-approved provocations out of the database and shows the model those instead. If
+there are none to show, it refuses to write anything rather than inventing its own idea
+of what we publish.
+
+**One thing I need from you, and one thing to be aware of.**
+
+The fix is committed but not running. Code changes only take effect when the fleet is
+rebuilt, and you run those. When you next do a release, the generator becomes able to
+produce content; until then it cannot. The shelf still ends on 15 August.
+
+And the report-and-takedown route — the other half of what you approved — needs a
+decision I can't make for you: which address should receive complaints, and what we
+commit to when one arrives. I can write the process and put the route on the page, but
+not invent the address or promise a response time in your name.

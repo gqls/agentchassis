@@ -1,5 +1,45 @@
 # HANDOFF — provocation pipeline, 2026-08-10
 
+> ## ⇄ LANE MERGED, 2026-08-10 evening — owner instruction
+>
+> The owner asked the `provocation_pipeline` generator/gate thread to **take on this
+> lane's responsibilities as well**. Both run from one thread now. **Everything below
+> this banner is the original author's and is unedited** — read it as written; it is
+> still the best account of the publish side.
+>
+> **What changed since it was written** (evening of the same day, details in
+> `NOTES_provocation_pipeline.md` under *2026-08-10 (evening)*):
+>
+> - **§3.1's first route is now the live one.** The generator was seated (mig **371**,
+>   operator-invoked, no `scheduled_tasks` row) and run against a real model for the
+>   first time. It failed four times and the cause was a **platform defect, not the
+>   model**: `generate_provocations` and `gate_provocation` call `GenerateText` with an
+>   empty options map, so `ai_service.max_tokens` never reaches the API and both have
+>   always run at anthropic's hardcoded 2048. Fixed in `36b2dc54e`
+>   (`llm_options.go`), council `65d153f0`. **Inert until the next fleet roll** — the
+>   owner runs the release.
+> - **The generator's prompt contradicted the 2026-08-06 owner ruling** (it demanded a
+>   counter-case the gate stopped requiring) and showed the model a session's own prose
+>   as the body exemplar. Both corrected; exemplars now load from the live pool,
+>   filtered on `human_approved_at`.
+> - **§3.1's second route — "by hand" — is closed by the owner's standing constraint**
+>   ("the framework writes the content, not you", 2026-08-06). It was reasonable when
+>   this file was written, because the generator had no seat and therefore could not be
+>   invoked at all. It has one now.
+> - **PLAN §11.2's naming test moved upstream** into the generator prompt, so a subject
+>   that can only be argued by naming somebody is less likely to be proposed at all.
+>   A nudge, not a control — `namecheck` (§5.2) remains the control.
+> - **§3.2's open item, RFC_020 §5.3, is BLOCKED on one owner input**: which address
+>   receives reports, and what response commitment we publish. Everything else about it
+>   is buildable and nothing else is in the way.
+> - **§3.3 and §3.4 are unchanged and still not ours.** The island deploy stays with
+>   its owning lane at the guardian seat's request; RFC_013 §2.2/2.3/2.4 stay unruled.
+> - **§4's owed follow-ups are inherited unchanged and none are done.**
+>
+> ⚠ The API cap that killed the first run (`bugs_open/243-anthropic-cap`) was raised by
+> the owner the same evening. `bugs_open/244` has the mechanism that spent it and is
+> the thing that stops it recurring — **that is still open and is not this lane's**.
+
 **Supersedes `HANDOFF_2026-08-05_continue_here.md`** for "what to do next". Its traps
 list still applies and is not repeated in full here.
 

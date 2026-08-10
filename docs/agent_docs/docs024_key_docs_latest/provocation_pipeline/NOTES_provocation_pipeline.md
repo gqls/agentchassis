@@ -2024,3 +2024,106 @@ footer has to argue with a number.
 - **Page:** same URL, same grep, **0 before delivery and 1 after** — a real demand
   control rather than a bare post-hoc positive. Then the *served* page rendered in a
   browser: element found, inside `.gr-ruling`, visible, **4.93:1**.
+
+---
+
+## 2026-08-10 (evening) — the generator ran for the first time, and could not have worked
+
+**Lane takeover.** The owner asked this thread to pick up the responsibilities of the
+`vonc provocations not daily` thread (which wrote `HANDOFF_2026-08-10_continue_here.md`
+at 13:06 and has been idle since ~15:56). Both threads' work now runs from here.
+Nothing in their handoff is edited; this is an append underneath it.
+
+### The generator had no seat, so the standing constraint was unsatisfiable
+
+`generate_provocations` has been registered, tested, council-approved (`bbbc9fca8`) and
+live since v1.0.1280 — with **no `agent_definitions` row**. There was no way to invoke
+it. So "the framework writes the content, not a session" (owner, 2026-08-06) could not
+be complied with, and both content batches to date were written by sessions and marked
+honestly in `source_ref`: *"drafted by assistant session at owner request … not
+generator-produced, not gate-judged"*.
+
+Migration **371** seats `provocation-generator-manual`: generate → gate in one
+dispatch, `count: 8`, `claude-sonnet-5` on both steps. Operator-invoked, **no
+`scheduled_tasks` row**, asserted with a `RAISE` at apply time (same pattern as 321).
+The apply-time guard also asserts the gate step's model **equals the calibration
+seat's**, because a calibration measured on a different model is not evidence about
+what runs. `builder/run_generation_round.sh` re-asserts both at dispatch time — an
+applied migration cannot notice a schedule added later.
+
+### Four dispatches, four failures, and only the first was environmental
+
+| # | orchestration | died on |
+|---|---|---|
+| 1 | `a3d4fc89` 18:05Z | Anthropic account cap — `bugs_open/243-anthropic-cap` |
+| 2 | `c49adc3f` 18:18Z | `stop_reason=max_tokens` |
+| 3 | `f6a2ab74` 18:21Z | `stop_reason=max_tokens`, **after** mig 372 set `max_tokens=8000` |
+| 4 | `9c9d52db` 18:23Z | `stop_reason=max_tokens (output_tokens=2048 … 84 chars recovered)`, at `count=4` |
+
+**Run 1 is worth recording as evidence rather than noise.** It reached the API and was
+refused there — which means the seat, the workflow graph, the config resolution, the
+client construction and the Kafka dispatch all work. The only missing thing was money.
+The owner raised the cap within minutes and run 2 got a real completion.
+
+### The cause: a config key that nothing reads
+
+`ai_service.max_tokens` is honoured **only** when it is passed in the options map to
+`GenerateText` (`anthropic.go:147`). `ExecuteAIStepAction` is what normally builds that
+map (`ai_actions.go:358-364`). Both provocation actions call `GenerateText` directly
+with `map[string]interface{}{}` — so they bypass the builder entirely and have always
+run at `anthropic.go:109`'s hardcoded **2048**.
+
+> **MISSTEP, and it is the expensive kind: I changed the config twice against a value
+> that could not reach the API.** Migration 372 set `max_tokens=8000` and I re-ran.
+> Migration 373 dropped `count` to 4 and I re-ran. Both were reasonable-looking, both
+> were applied to live config, and **neither could ever have changed the outcome** —
+> the number was being discarded three layers down. What I should have done after run
+> 2 is read the call site before editing the config, because "the config says 8000"
+> and "the request sent 8000" are independent facts and only the second is the
+> request. `[MEASURED]` the wrong thing twice: run 3's error still said
+> `output_tokens=2048`, which was the disconfirmation sitting in plain sight after the
+> first fix, and I read it as "still too small" rather than "the number never moved".
+> This is `bugs_open/205`'s class from the other end: there the budget was never
+> configured; here it was configured and dropped, which is harder to see precisely
+> because the config looks right when you read it.
+
+`platform/orchestration/actions/llm_options.go` now builds the map, and both actions
+use it. **Knowingly the second copy** of `ai_actions.go`'s logic — that path serves 127
+live steps across 55 agents and rewriting it to fix two actions is the wrong trade; a
+third caller should be the extraction. Said so in the file header.
+
+### `[UNRESOLVED]` — 2048 output tokens produced 84 characters
+
+The recovered partial from run 4 was **84 chars**, not the ~8,000 characters 2048
+tokens of JSON would be. Something consumed the budget without emitting text, and the
+obvious candidate is extended thinking — but this code path never passes
+`budget_tokens`, which is the only way the Anthropic client enables it
+(`anthropic.go:118-137`). **I did not establish what consumed it.** The chassis logs
+had already rotated (<1s retention) and no `llm_call_log` row exists, because these
+actions bypass `ExecuteAIStepAction`, which is what writes that table. The fix is the
+same either way — a real budget has to reach the API — so this is recorded as open
+rather than guessed at. Whoever runs the first successful generation should check
+`__usage_output_tokens` against the visible reply length before assuming it is solved.
+
+### Two corrections the code reading forced out
+
+- **The prompt misdescribed the gate for four days.** It said *"The body MUST put the
+  counter-case. A one-sided piece is rejected."* Untrue since 2026-08-06:
+  `applyJudgement` records `one_sided` as a **note** and rejects on
+  `not_contestable` instead. The first thing the generator would have produced is the
+  shape the owner said he did not want.
+- **The prompt's body exemplar was my own prose**, and it described the corpus wrongly
+  (5 of 9 entries put a counter-case, 4 do not). `loadExemplars` now reads real
+  published entries, filtered on `human_approved_at IS NOT NULL` — an exemplar is the
+  strongest instruction in a prompt, so it must never be text the gate approved and
+  nobody read. The action **refuses** to generate when that query is empty rather than
+  generating with no specification behind it.
+
+`TestNoProvocationActionCallsAModelWithAnEmptyOptionsMap` binds the call sites. The
+three helper tests are vacuous alone — they would all still pass if both actions went
+back to an empty map, which *is* the bug. Mutation-proven: deleting the `opts :=` line
+and restoring the literal makes it fail naming file and line.
+
+**State:** committed `36b2dc54e`, council `65d153f0`. **Inert until the next chassis
+roll** — the owner runs the whole-fleet release. Migration 372's `8000` is deliberately
+left in place: correct, currently unread, and live the moment the roll lands.
