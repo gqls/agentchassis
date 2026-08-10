@@ -27046,3 +27046,33 @@ IN (…) GROUP BY 1 HAVING count(*) > 1` before keying anything on `url`. Now ke
 
 **Tally note:** this is the fourth time on this lane that the induction, not the
 review, found the defect in the checker. The three earlier ones are above.
+
+## 2026-08-10 — "mirrors ExecuteAIStepAction", and two live config changes against a key nothing reads
+
+**The claim:** that `llmOptionsFromConfig`'s precedence *"mirrors `ExecuteAIStepAction`:
+the step's own config wins over the `ai_service` block"*. Written into
+`platform/orchestration/actions/llm_options.go` **and** into council submission
+`65d153f0`.
+
+**It is false.** `ai_actions.go`'s outer key is `agentConfig` =
+`CollectedData["agent_config"]` → `agentDef.DefaultConfig` (`:180`, `:219`) — the
+**agent's** whole default config, not the step's. Its rule is *agent-level beats
+ai_service*; mine is *step-level beats ai_service*. Different levels.
+
+**What caught it:** the council's `llm_reliability` seat, objecting that the precedence
+was *"asserted, not verified"*. It was: I read the shape of the code, saw two maps
+consulted in order, and inferred what the outer one held without following the
+variable. One `grep -n "agentConfig ="` settles it.
+
+**The cheap check:** when you claim your code *mirrors* existing code, name the two
+variables and say what each holds. "Mirrors X" is a sentence later readers rely on
+without re-deriving, which is exactly why it has to be checked rather than felt.
+
+**Same session, same shape, worse:** I changed live agent config **twice**
+(`ai_service.max_tokens` 2048→8000, then `count` 8→4) trying to fix a truncation,
+before reading the call site that would have shown the key was never read — the action
+passed an empty options map. **The disconfirmation was in the error the whole time:**
+after setting 8000, the failure still reported `output_tokens=2048`. I read that as
+"still too small" instead of "that number never moved". A value the error echoes back
+unchanged after you have changed it is the signature of a config key nothing reads, and
+no further config change can help.
