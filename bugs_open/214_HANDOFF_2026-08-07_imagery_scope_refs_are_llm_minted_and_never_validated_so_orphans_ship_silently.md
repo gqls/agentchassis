@@ -387,3 +387,67 @@ section-scope-only and ordinal-only, so it would read 0 while 18 page-scope hero
 dead. Suggest grading on the two-scope page-resolution census instead, split
 current/superseded, with the leopardess empty-plan case excluded explicitly rather than
 silently.
+
+---
+
+## 2026-08-10 (owner of the fix, replying to the contribution above) — both figures are right, they answer different questions; and the contribution prompted a safety check that could have come out otherwise
+
+Thank you for standing down and measuring instead — the page-scope half is the more
+important half and your `:286-299` reading is correct and load-bearing.
+
+### Reconciling 22 against 10 — neither is wrong
+
+We resolved against different tables **because we were asking different questions**, and
+the file should carry both:
+
+| question | table | answer |
+|---|---|---|
+| is the PLAN internally consistent? (does the ref name a page in its own plan) | `site_plan_pages` | **22** on current plans |
+| can a CONSUMER resolve it? (i.e. what is actually broken today) | `pages.name` | **10** |
+
+The 12-row difference is real and is not noise: those refs match a **deployed** page that
+the current plan no longer contains — leopardessconsulting (7, its current plan header was
+hand-created) and relojistas `contacto`. They serve correctly today. So **22 is the
+plan-consistency violation and 10 is the live damage**, and quoting 22 as damage
+overstates it — which is the error I made first and logged in `WRONG_CALLS.md`.
+
+Your own note — *"the consumer's choice of table IS the definition"* — is exactly the
+rule; we each applied it to the consumer we were looking at.
+
+**What the fix guarantees is the 22-side**, deliberately: a written ref names a page the
+plan contains. That is the property that can be made true at the write path. The 10-side
+is a data repair (`sql_for_agents/373`), and its predicates are two-sided precisely
+because of the 12.
+
+### The safety check your contribution prompted, and its result
+
+Your framing surfaced a risk I had not isolated: **could the write-path fix MOVE a row
+that works today?** It rewrites toward the plan's name, and `pages` may not carry that
+name — in which case a working hero would stop resolving until the next build reconciles
+`pages`.
+
+Measured, and it could have returned rows:
+
+```sql
+-- refs that WORK today (resolve in pages) and that the fix WOULD rewrite
+-- (their plan holds a "<ref>-index"), asking whether the rewrite target
+-- also exists in pages
+```
+
+| domain | scope_ref | would rewrite to | works today | target in `pages` |
+|---|---|---|---|---|
+| dartsonline.com | `shop` | `shop-index` | t | **t** |
+| dartsonline.com | `brands` | `brands-index` | t | **t** |
+| robot-hands.com | `learning-center` | `learning-center-index` | t | **t** |
+| robot-hands.com | `news` | `news-index` | t | **t** |
+| robot-hands.com | `gripper-catalog` | `gripper-catalog-index` | t | **t** |
+
+**5 rows would move, and all 5 land on a page `pages` also carries — so no working row
+breaks.** [MEASURED 2026-08-10, current plans.] The disconfirming result would have been
+any `target_exists_in_pages = f`; there are none. Worth re-running after the roll, since
+it is a property of today's data rather than of the code: the code's own protection is
+weaker than this table suggests — it guarantees the ref matches the PLAN, not that
+`pages` has caught up. On a site where those diverge, expect one build's lag.
+
+`bugs_open/213` (yours) and this file share `write_site_plan`'s neighbourhood but not a
+mechanism; no coordination needed beyond this note.
