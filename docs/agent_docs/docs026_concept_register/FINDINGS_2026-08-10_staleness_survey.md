@@ -203,3 +203,64 @@ asked whether it agrees with **the platform**, and the survey took an afternoon.
 The cheapest first move is not a checker at all. It is to make the **version lag**
 computable and visible — 129 entries already carry the number, and the fleet's
 current version is one `kubectl` call.
+
+---
+
+## ADDENDUM, same evening — the worklist is settled, and by a mechanism that did not exist when the survey was written
+
+**A fresh chassis rolled: `v1.0.1283`. `BLD-019`'s build provenance shipped with
+it, and it changes how this whole class is verified.**
+
+The running binary now carries the commit it was built from. Read back from
+**both** replicas:
+
+```
+strings /app/agent-chassis | grep -oE '^[0-9a-f]{40}(-tree)?$'
+  -> d3c09cc746e563b6339831cfb69576eb52135c43     (identical on both; no -tree suffix, so a clean committed build)
+```
+
+That retires the per-entry pod-grep this document called for four hours ago. The
+question "is this entry's code live?" is now one exact command:
+
+```bash
+git merge-base --is-ancestor <the entry's own commit> d3c09cc746e563b6339831cfb69576eb52135c43
+```
+
+**Controlled before use, because an ancestry test that always says yes says
+nothing.** Positive: `FIX-055`'s `3a59b5012` → IN, agreeing with the pod-grep that
+proved it independently this afternoon. Negative: `3ac87646a`, an off-branch merge
+commit → NOT IN. The test can return false.
+
+**Result: every commit cited by a worklist entry is IN the image.** The build was
+made from *exactly current HEAD*, so the roll-conditional half of §1 is settled
+wholesale rather than one entry at a time. **19 entries annotated in place** with a
+dated correction that states precisely what is proven — the Go code is in the
+running binary — and explicitly declines to claim the feature is *exercised*,
+which is a separate condition on a separate clock (`CQ-019` awaits migration 303,
+`PLAN-047` seed 306, `PBP-025` a `run_checks` array, `TL-038`/`TL-040` a live fence).
+
+### The new finding, and it is an authoring rule
+
+**13 of the 29 entries examined cite NO commit sha at all.** For those, provenance
+can only infer inclusion from the entry's date — sound, but not verifiable, and it
+degrades to exactly the guesswork the stamp exists to remove. Their annotation says
+so rather than hiding it.
+
+> **So: an entry whose status is conditional on a roll must NAME ITS COMMIT.**
+> It costs nine characters at authoring time and converts an unfalsifiable status
+> into a one-command check for ever after. This is the cheapest thing in this
+> document and probably the most valuable — it is a candidate for the authoring
+> gate (OPP-006) rather than for a watcher, on the same argument: put the check
+> where the error is made.
+
+### What this does NOT settle
+
+`WFA-012` remains unsettleable by pod-grep (control flow, no new string literal)
+— but it cites two commits, both IN, so **provenance settles what grepping could
+not.** That is the clearest single demonstration of why `BLD-019` matters:
+`DOC-073`'s positive-control-that-cannot-fail is a dead end for marker hunting and
+a non-problem for provenance.
+
+The other three signals — version lag (80 entries 50+ behind), unresolvable
+citations (96), moved bug references (156) — are **untouched by this roll** and
+remain the open work.
