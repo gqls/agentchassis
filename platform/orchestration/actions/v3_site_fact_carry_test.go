@@ -433,9 +433,9 @@ func TestPassB2_AbsentFactsEntryIsRecordedDistinctly(t *testing.T) {
 	}
 	llm := []interface{}{
 		llmPageEntries("about", "/about.html",
-			map[string]interface{}{"name": "hero-about"},                       // facts key ABSENT
-			map[string]interface{}{"name": "info-card-grid", "facts": "F2"},    // facts MALFORMED (string)
-			objSection("generic-text-block", "F9-not-on-this-page"),            // well-formed but unmatched
+			map[string]interface{}{"name": "hero-about"},                    // facts key ABSENT
+			map[string]interface{}{"name": "info-card-grid", "facts": "F2"}, // facts MALFORMED (string)
+			objSection("generic-text-block", "F9-not-on-this-page"),         // well-formed but unmatched
 		),
 	}
 
