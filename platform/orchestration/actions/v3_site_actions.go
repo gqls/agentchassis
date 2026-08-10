@@ -3096,16 +3096,18 @@ func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface
 	params.Logger.Info("ValidateSitePlanAction: existing pages loaded for convergence",
 		zap.Int("existing_pages", len(existingPages)),
 		zap.String("existing_pages_field", existingField))
-	var unionedIn, droppedCollision, snappedRename, snappedSections int
-	pages, unionedIn, droppedCollision, snappedRename, snappedSections =
-		reconcilePlanWithRealised(pages, existingPages, params.Logger)
+	var counts reconcileCounts
+	pages, counts = reconcilePlanWithRealised(pages, existingPages, params.Logger)
 	plan["pages"] = pages
 	params.Logger.Info("ValidateSitePlanAction: reconciled with realised pages",
-		zap.Int("unioned_in", unionedIn),
-		zap.Int("dropped_collision", droppedCollision),
-		zap.Int("snapped_rename", snappedRename),
-		zap.Int("snapped_sections", snappedSections),
+		zap.Int("unioned_in", counts.Unioned),
+		zap.Int("dropped_collision", counts.DroppedCollision),
+		zap.Int("snapped_rename", counts.SnappedRename),
+		zap.Int("snapped_sections", counts.SnappedSections),
+		zap.Int("section_facts_carried", counts.SectionFactsCarried),
+		zap.Int("fact_carry_miss_pages", len(counts.FactCarryMisses)),
 		zap.Int("pages_after", len(pages)))
+	recordFactCarryMisses(ctx, params, counts.FactCarryMisses)
 
 	// ── Truncate, preserving first-plan AND built pages ─────────────────────
 	maxPages := 20
@@ -3318,6 +3320,42 @@ func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface
 
 	params.Logger.Info("ValidateSitePlanAction: Complete", zap.Int("pages", len(pages)))
 	return plan, nil
+}
+
+// recordFactCarryMisses persists one durable row per page whose plan-time fact
+// assignments could not be carried onto its realised composition.
+//
+// Durable, not a log line, and the distinction is the whole point: a name match
+// that matches nothing produces exactly the plan a working carry produces, so
+// pod output is the only thing that could ever tell them apart — and it does not
+// survive long enough to ask afterwards (chassis logs rotate fast; the
+// orchestration row that holds collected_data is pruned at ~24h). agent_error_log
+// is the channel plan_sections already uses for FACT_SCOPING_EMPTY_COMPOSITION,
+// the sibling anomaly one step later in this same feature; querying both by
+// error_code is how "did assignment reach the writer?" gets an answer.
+//
+// Best-effort by construction: a failed write must not change the plan the
+// validator has already decided on.
+func recordFactCarryMisses(ctx context.Context, params ActionParams, misses []factCarryMiss) {
+	if len(misses) == 0 {
+		return
+	}
+	// Best-effort identity: the row is worth writing without it (orchestration_id
+	// is filled from the running step either way), so a missing site_id lands as
+	// NULL rather than suppressing the record.
+	siteID := datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.site_id")
+	for _, m := range misses {
+		LogActionError(ctx, params, siteID, "", "validate_plan",
+			"FACT_CARRY_UNMATCHED_SECTION", "warning",
+			fmt.Sprintf("page %q: %d plan-time fact assignment(s) named a section the realised composition does not contain — discarded",
+				m.Page, len(m.Sections)),
+			map[string]interface{}{
+				"page":               m.Page,
+				"unmatched_sections": m.Sections,
+				"remedy":             "the planner scoped facts to section names this built page does not have, usually because it re-composed the page instead of re-emitting the realised section list; check the planner prompt's realised-sections block for this page (RFC_016 candidate 1b)",
+			},
+			params.Logger)
+	}
 }
 
 // sectionEntryName reads the component name from a planned-section entry in
@@ -5185,6 +5223,168 @@ func normaliseRealisedToPlanPage(rm map[string]interface{}) map[string]interface
 	}
 }
 
+// factCarryMiss records plan-time fact assignments that could NOT be carried
+// onto a restored realised composition: the planner assigned facts to section
+// names the built page does not contain, so those assignments are gone.
+//
+// It exists because the failure is invisible otherwise — a name match that
+// matches nothing produces exactly the same plan as a carry that worked. The
+// caller turns each of these into a durable row (see recordFactCarryMisses).
+type factCarryMiss struct {
+	// Page is the identity the page KEEPS in the plan (for Pass B that is the
+	// realised name, not the one the planner proposed).
+	Page string
+	// Sections holds one entry per dropped assignment, in the planner's own
+	// emission order; a name appears twice if it was assigned twice and the
+	// realised composition has only one such section.
+	Sections []string
+}
+
+// carrySectionFactsOntoRealised carries the planner's per-section fact
+// assignments (RFC_016's object-form entries) off the LLM's proposed section
+// list and onto the realised list that Pass B/B2 restores over it.
+//
+// WHY (RFC_016 §3b, bugs_open/151 candidate 1b): an assignment travels INSIDE
+// its section entry, so restoring the realised composition wholesale discarded
+// every assignment on a deployed page — candidate 1 could reach only pages
+// built AFTER their plan first carried assignments, i.e. never the pages that
+// motivated it. Re-attachment is by component NAME because that is the only
+// identity the two lists share: the realised list is plain strings, ordering
+// and length differ, and position is not an address that survives (§1a).
+//
+// The result is in the planner's OWN object form, so nothing new has to
+// understand it. ValidateSitePlanAction's normalise pass splits object entries
+// into plain strings plus an aligned per-page section_facts array, and it runs
+// LATER IN THE SAME FUNCTION BODY than the reconcile call that gets here —
+// order verified by reading the caller, not assumed. So no reader of
+// pages["sections"] downstream of validate_plan ever sees object form, and the
+// 15+ consumers of that key are not in this change's blast radius.
+//
+// Returns the merged list, how many entries received an assignment, and the
+// assignments that matched nothing. When nothing carries, the realised slice is
+// returned UNCHANGED — so a plan with no object entries (every plan before seed
+// 333, and every page the planner emits as bare strings) is byte-identical to
+// what this function produced before candidate 1b.
+func carrySectionFactsOntoRealised(realised []interface{}, proposed interface{}) ([]interface{}, int, []string) {
+	pl, _ := proposed.([]interface{})
+	if len(pl) == 0 || len(realised) == 0 {
+		return realised, 0, nil
+	}
+
+	// Assignments in emission order, plus a name index into them. A page may
+	// legitimately hold two entries of the same component (two text blocks), so
+	// a name maps to a QUEUE: the Nth realised entry of a name takes the Nth
+	// assignment made for it. Entries the planner left as bare strings carry no
+	// assignment and never enter this list — they must not blank an assignment
+	// an object entry of the same name made.
+	type pendingAssignment struct {
+		name  string
+		facts []interface{}
+		used  bool
+	}
+	var pending []pendingAssignment
+	byName := make(map[string][]int)
+	for _, entry := range pl {
+		obj, ok := entry.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		name, ok := sectionEntryName(obj)
+		if !ok {
+			continue
+		}
+		// Absent key == unscoped, [] == deliberately factless. Only the second
+		// is an assignment worth carrying, and the tri-state must survive the
+		// carry intact (bugs_open/151's null-vs-empty distinction).
+		facts, ok := obj["facts"].([]interface{})
+		if !ok {
+			continue
+		}
+		byName[name] = append(byName[name], len(pending))
+		pending = append(pending, pendingAssignment{name: name, facts: facts})
+	}
+	if len(pending) == 0 {
+		return realised, 0, nil
+	}
+
+	merged := make([]interface{}, len(realised))
+	carried := 0
+	for i, entry := range realised {
+		merged[i] = entry
+		name, ok := sectionEntryName(entry)
+		if !ok {
+			continue
+		}
+		idx := -1
+		for _, candidate := range byName[name] {
+			if !pending[candidate].used {
+				idx = candidate
+				break
+			}
+		}
+		if idx < 0 {
+			continue
+		}
+		pending[idx].used = true
+		// Clone rather than replace: a realised entry is a plain string today,
+		// but if one ever arrives as an object its other keys are not this
+		// function's to discard.
+		if src, isObj := entry.(map[string]interface{}); isObj {
+			clone := make(map[string]interface{}, len(src)+1)
+			for k, v := range src {
+				clone[k] = v
+			}
+			clone["facts"] = pending[idx].facts
+			merged[i] = clone
+		} else {
+			merged[i] = map[string]interface{}{"name": name, "facts": pending[idx].facts}
+		}
+		carried++
+	}
+
+	var unmatched []string
+	for _, p := range pending {
+		if !p.used {
+			unmatched = append(unmatched, p.name)
+		}
+	}
+	if carried == 0 {
+		return realised, 0, unmatched
+	}
+	return merged, carried, unmatched
+}
+
+// reconcileCounts is what reconcilePlanWithRealised observed, for the caller's
+// log and its durable record.
+//
+// Named fields rather than the five positional ints this used to return: the
+// fact carry adds two more, and a counter whose meaning silently changes is
+// exactly how a later measurement goes wrong — the hazard documented on
+// sameSectionList, which was live and unnoticed the moment seed 333 shipped.
+type reconcileCounts struct {
+	// Unioned: preserved realised pages the LLM omitted, added back (Pass A).
+	Unioned int
+	// DroppedCollision: LLM pages dropped by Pass C / C2.
+	DroppedCollision int
+	// SnappedRename: pages snapped back to a realised identity (Pass B).
+	SnappedRename int
+	// SnappedSections: pages whose proposed COMPOSITION was overridden by the
+	// realised one, or forced back to empty (Pass B2). Composition changes
+	// only — a page whose proposed entries name the same components in the same
+	// order is not counted however differently it was shaped.
+	SnappedSections int
+	// SectionFactsCarried: section entries that received a plan-time fact
+	// assignment carried off a discarded LLM entry. An assignment that survived
+	// because the planner's names already matched the realised ones is NOT
+	// counted — nothing had to carry it, so this is a count of RESCUES, not of
+	// scoped sections. Read site_plan_sections.assigned_fact_ids for the latter.
+	SectionFactsCarried int
+	// FactCarryMisses: per page, the assignments that matched no restored
+	// section name. Non-empty means the planner scoped facts to a section the
+	// built page does not have and they were discarded.
+	FactCarryMisses []factCarryMiss
+}
+
 // reconcilePlanWithRealised enforces preservation of and convergence on the
 // realised pages a re-plan must not silently redesign or drop.
 //
@@ -5279,7 +5479,8 @@ func reconcilePlanWithRealised(
 	llmPages []interface{},
 	existingPages []interface{},
 	logger *zap.Logger,
-) ([]interface{}, int, int, int, int) {
+) ([]interface{}, reconcileCounts) {
+	var counts reconcileCounts
 	// Force-preserve first-plan (no-current-plan) OR built pages (see header).
 	var preserved []interface{}
 	var noCurrentPlanPages []interface{}
@@ -5299,7 +5500,7 @@ func reconcilePlanWithRealised(
 	if len(preserved) == 0 {
 		// Nothing realised worth converging on: a genuinely from-scratch build.
 		// Leave the LLM plan untouched.
-		return llmPages, 0, 0, 0, 0
+		return llmPages, counts
 	}
 	existingPages = preserved
 
@@ -5359,7 +5560,6 @@ func reconcilePlanWithRealised(
 	// Pass C (collision) + Pass B (rename) + Pass B2 (composition) over the
 	// LLM pages.
 	var kept []interface{}
-	droppedCollision, snappedRename, snappedSections := 0, 0, 0
 	for _, lp := range llmPages {
 		lm, ok := lp.(map[string]interface{})
 		if !ok {
@@ -5376,7 +5576,7 @@ func reconcilePlanWithRealised(
 			!isSectionIndexType(ltype) && lname != idxName {
 			logger.Info("validate: dropped flat page colliding with realised section index",
 				zap.String("dropped", lname), zap.String("kept_index", idxName))
-			droppedCollision++
+			counts.DroppedCollision++
 			continue
 		}
 
@@ -5389,7 +5589,7 @@ func reconcilePlanWithRealised(
 			logger.Info("validate: dropped page duplicating an adopted item topic",
 				zap.String("dropped", lname),
 				zap.String("stem", itemStemOf(lname)))
-			droppedCollision++
+			counts.DroppedCollision++
 			continue
 		}
 
@@ -5402,15 +5602,32 @@ func reconcilePlanWithRealised(
 		if rp, ok := realisedByURL[lurl]; ok {
 			if rname, _ := rp["name"].(string); rname != "" && rname != lname {
 				snapped := normaliseRealisedToPlanPage(rp)
+				carried := 0
 				if !realisedPageHasShipped(rp) && len(realisedSectionsOf(rp)) == 0 {
 					if ls, ok := lm["sections"].([]interface{}); ok && len(ls) > 0 {
+						// The LLM's own entries are kept whole here, so any fact
+						// assignments on them ride along untouched.
 						snapped["sections"] = ls
+					}
+				} else if rs, ok := snapped["sections"].([]interface{}); ok && len(rs) > 0 {
+					// The realised composition wins, so the LLM's entries — and
+					// the fact assignments inside them — are about to be
+					// discarded. Same loss as Pass B2, one pass earlier; carry
+					// the assignments onto the names that survive.
+					restored, n, unmatched := carrySectionFactsOntoRealised(rs, lm["sections"])
+					snapped["sections"] = restored
+					carried = n
+					counts.SectionFactsCarried += n
+					if len(unmatched) > 0 {
+						counts.FactCarryMisses = append(counts.FactCarryMisses,
+							factCarryMiss{Page: rname, Sections: unmatched})
 					}
 				}
 				logger.Info("validate: snapped renamed page back to realised identity",
-					zap.String("llm_name", lname), zap.String("realised_name", rname))
+					zap.String("llm_name", lname), zap.String("realised_name", rname),
+					zap.Int("section_facts_carried", carried))
 				kept = append(kept, snapped)
-				snappedRename++
+				counts.SnappedRename++
 				continue
 			}
 		}
@@ -5428,20 +5645,52 @@ func reconcilePlanWithRealised(
 		//     a catalogued page is finally composed.
 		if rp, ok := realisedByName[lname]; ok {
 			if rs := realisedSectionsOf(rp); len(rs) > 0 {
+				// Same names in the same order: the composition is unchanged, so
+				// there is nothing to restore and the LLM's entries stay as they
+				// are — which is how a fact assignment survives on a built page
+				// for free once the planner re-emits the realised list (candidate
+				// 1b (i)). Only a genuine composition change gets here.
 				if !sameSectionList(lm["sections"], rs) {
+					restored, carried, unmatched := carrySectionFactsOntoRealised(rs, lm["sections"])
 					logger.Info("validate: snapped built page composition back to realised sections",
 						zap.String("page", lname),
-						zap.Int("realised_sections", len(rs)))
-					lm["sections"] = rs
-					snappedSections++
+						zap.Int("realised_sections", len(rs)),
+						zap.Int("section_facts_carried", carried))
+					lm["sections"] = restored
+					counts.SnappedSections++
+					counts.SectionFactsCarried += carried
+					if len(unmatched) > 0 {
+						counts.FactCarryMisses = append(counts.FactCarryMisses,
+							factCarryMiss{Page: lname, Sections: unmatched})
+					}
 				}
 			} else if realisedPageHasShipped(rp) {
 				if ls, ok := lm["sections"].([]interface{}); ok && len(ls) > 0 {
+					// Deployed and sectionless is authoritative: the page renders
+					// through another subsystem. There is no section to scope a
+					// fact to, so any assignment here is discarded WITH its
+					// entry — recorded, because a planner scoping facts to a page
+					// that has no sections is a prompt fault worth seeing.
+					var dropped []string
+					for _, e := range ls {
+						if obj, isObj := e.(map[string]interface{}); isObj {
+							if _, hasFacts := obj["facts"].([]interface{}); hasFacts {
+								if n, ok := sectionEntryName(obj); ok {
+									dropped = append(dropped, n)
+								}
+							}
+						}
+					}
 					logger.Info("validate: forced deployed sectionless page back to empty",
 						zap.String("page", lname),
-						zap.Int("llm_sections", len(ls)))
+						zap.Int("llm_sections", len(ls)),
+						zap.Int("section_facts_dropped", len(dropped)))
 					lm["sections"] = []interface{}{}
-					snappedSections++
+					counts.SnappedSections++
+					if len(dropped) > 0 {
+						counts.FactCarryMisses = append(counts.FactCarryMisses,
+							factCarryMiss{Page: lname, Sections: dropped})
+					}
 				}
 			}
 		}
@@ -5457,7 +5706,6 @@ func reconcilePlanWithRealised(
 			}
 		}
 	}
-	unioned := 0
 	for _, rp := range existingPages {
 		rm, ok := rp.(map[string]interface{})
 		if !ok {
@@ -5469,10 +5717,10 @@ func reconcilePlanWithRealised(
 		}
 		kept = append(kept, normaliseRealisedToPlanPage(rm))
 		presentName[name] = true
-		unioned++
+		counts.Unioned++
 	}
 
-	return kept, unioned, droppedCollision, snappedRename, snappedSections
+	return kept, counts
 }
 
 // realisedPageHasShipped reports whether a realised pages-table row (as
@@ -5661,16 +5909,32 @@ func realisedSectionsOf(rm map[string]interface{}) []interface{} {
 	return nil
 }
 
-// sameSectionList reports whether an LLM-proposed sections value already equals
-// the realised one, so Pass B2 only logs and counts a snap-back that actually
-// changed something.
+// sameSectionList reports whether an LLM-proposed sections value already names
+// the same components, in the same order, as the realised one — so Pass B2 only
+// logs and counts a snap-back that actually changed the COMPOSITION.
+//
+// Compares by section NAME, not by rendered value, and that is a correction
+// rather than a refinement. This used to compare fmt.Sprintf("%v", …) of whole
+// entries. Under RFC_016's object form the planner's entries are maps carrying
+// facts while the realised list is plain strings, so from the moment seed 333
+// went live every composed page compared "changed": snappedSections silently
+// stopped counting composition changes and started counting shape differences,
+// and each one forced a pointless restore over an identical list. A name is the
+// identity the two shapes share.
+//
+// A proposed entry of neither shape (a number, nil) yields no name and so reads
+// as "changed", which sends the page to the restore branch and keeps the built
+// composition. That is the safe direction, and it is the direction the previous
+// implementation took too.
 func sameSectionList(proposed interface{}, realised []interface{}) bool {
 	pl, ok := proposed.([]interface{})
 	if !ok || len(pl) != len(realised) {
 		return false
 	}
 	for i := range pl {
-		if fmt.Sprintf("%v", pl[i]) != fmt.Sprintf("%v", realised[i]) {
+		pn, pok := sectionEntryName(pl[i])
+		rn, rok := sectionEntryName(realised[i])
+		if !pok || !rok || pn != rn {
 			return false
 		}
 	}
@@ -5769,7 +6033,13 @@ func normaliseKeyForMatch(s string) string {
 // outside the writer loop, or on a non-array component).
 func expectedItemFieldsFromComponentSchema(inputSchema map[string]interface{}) map[string][]string {
 	out := map[string][]string{}
-	fields, ok := inputSchema["fields"].(map[string]interface{})
+	// Read through datahelpers.SchemaContentFields rather than inputSchema["fields"]
+	// directly, so a legacy JSON-Schema component is reconciled too. Reading the
+	// key directly made this a silent no-op on exactly the dialect whose items the
+	// writer mis-keys (bugs_open/240) — expected came back empty, reconcile
+	// returned at its len(expected)==0 guard, and the "unrecoverable" ERROR that
+	// exists to make a missing item field visible never fired.
+	fields, ok, _ := datahelpers.SchemaContentFields(inputSchema)
 	if !ok {
 		return out
 	}

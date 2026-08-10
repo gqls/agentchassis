@@ -7942,3 +7942,27 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **source:** 2026-08-09/10, `rfc012_await_findings` lane, chassis `v1.0.1277`. `RFC_019` §12 (both defects, with the working substitutes), `WRONG_CALLS.md` 2026-08-10, `RSH-009`'s status line.
 - **verification:** settled first-hand — every query and grep above was run on 2026-08-10 against the live DB and both Running chassis replicas, and their outputs are quoted verbatim in `RFC_019` §12.
 - **added:** 2026-08-10, rfc012_await_findings lane
+
+### A counter can change meaning with NO code change — a live PROMPT edit reshaped what `snapped_sections` counts
+
+- **footprint:** `platform/orchestration/actions/v3_site_actions.go` (`sameSectionList`, `reconcilePlanWithRealised`, Pass B2), `snapped_sections` / `snapped_rename` / `unioned_in` in `ValidateSitePlanAction`'s "reconciled with realised pages" log line, `site_plan_sections.assigned_fact_ids`, seed `333` / `build-site-planner`, `bugs_open/151`, `RFC_016`
+- **fires when:** you read, chart or compare any `snapped_sections` figure for a re-plan, or reason about how often the preservation guard "re-composed a built page". No symptom needed — the number is present, plausible, and has been continuously emitted for weeks either side of the change.
+- **the trap.** `sameSectionList` decided whether Pass B2 had actually changed a built page's composition by comparing whole entries with `fmt.Sprintf("%v", …)`. Seed `333` then made the planner emit sections as OBJECTS (`{"name": …, "facts": […]}`) while the realised list is, and stays, plain strings. `%v` of a map never equals `%v` of a string, so from the moment that seed went live **every composed page compared "changed"**: the counter silently stopped counting composition changes and started counting shape differences, and each one triggered a restore of a list that was already identical. **Nothing in Go changed. The meaning of a Go counter was altered by a row in `agent_definitions`.**
+- **why the wrong result looks exactly like the right one:** the figure stays in range, keeps a sane relationship to page count, and rises for a reason that reads as signal ("re-plans are churning more compositions") when it is pure artefact. There is no error, no warning, and the code that computes it is untouched by `git log`.
+- **the check, before trusting or comparing any such figure:**
+  ```bash
+  # 1. Does the counter's predicate read a SHAPE the live prompt controls?
+  grep -n "func sameSectionList" -A 20 platform/orchestration/actions/v3_site_actions.go
+  # 2. When did the prompt last change the emitted shape? Config is live instantly; Go is not.
+  #    (agent_definitions.updated_at for the emitting agent, vs the binary's build)
+  ```
+  ```sql
+  SELECT type, updated_at FROM agent_definitions
+  WHERE type = 'build-site-planner' AND is_active AND COALESCE(is_snapshot,false) = false
+    AND deleted_at IS NULL;
+  ```
+  **A figure spanning that timestamp is two different measurements with one name.** Corrected 2026-08-10: the comparison is by section NAME, which is the identity both shapes share.
+- **the general form, which is the reason this is a landmine and not a bug report:** on this platform Go is inert until an image rolls and DB config is live immediately, so **a prompt edit can redefine a Go metric between two reads of it**. Any counter whose predicate compares LLM output structurally — rather than by a field the contract pins — is exposed to the same silent redefinition. Ask what shape the predicate assumes, then ask who can change that shape without a build.
+- **source:** 2026-08-10, `brochure_component_library` lane (bug 151 candidate 1b / `RFC_016` §3b). Register entry `PBP-037` carries the same warning inline.
+- **verification:** settled first-hand — the behaviour was reproduced as a unit test against both shapes, and the old `%v` comparison was re-introduced as a mutation: `TestPassB2_SameNamesInObjectFormIsNotACompositionChange` fails under it and passes with the name comparison (`v3_site_fact_carry_test.go`, run 2026-08-10 against a clean `git archive HEAD` overlay).
+- **added:** 2026-08-10, brochure_component_library lane
