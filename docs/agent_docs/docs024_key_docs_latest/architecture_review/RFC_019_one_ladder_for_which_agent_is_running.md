@@ -370,6 +370,76 @@ rejected anyway, on the shape of one exported symbol.** If there is a transferab
 that on this estate *evidence answers "is the fix right"; it does not answer "may this seam
 exist"* — and only the second question was ever open here.
 
+## 12. POST-ROLL, 2026-08-10 — the code is LIVE; the acceptance test was BROKEN TWICE and proves nothing
+
+Chassis `v1.0.1277` (both replicas, started 2026-08-09 21:35Z). **Both ladder halves are present in
+the shipped binary.** But §7's acceptance evidence — this paper's own recipe — failed in two
+independent ways, and neither would have announced itself.
+
+### (1) The prescribed pod-grep needles are Go COMMENTS, so the check returns 0 on a correct binary
+
+§7 says to grep the binary for `provenance from the dispatch sender rather than the resolved run
+agent` and `whose workflow is this context executing`. **Neither string exists in the source at
+all.** They are (approximate, and misquoted) renderings of the *doc comment* at
+`types/context.go:734` — `// ResolvedAgentType answers "which agent's workflow is this context
+executing?"`. Comments do not ship in a binary. **Run as written, the check reports 0/0 on a binary
+that carries the fix perfectly**, and the obvious reading of that is "the roll did not include it".
+This is worse than the anchoring trap §7 already warns about: an anchored needle is a real string
+matched wrongly; this one was never a string.
+
+**Neither change contributes a usable needle of its own** — `ResolvedAgentType` is pure control flow
+and the §7 backfill is one `if`. So the binary must be dated by a *neighbouring* literal from a
+commit that is a descendant. Done, and it is a sound argument rather than a lucky grep:
+
+```
+POS "fallback_url_field is configured but resolved to no URL"   → 1  (both replicas)
+POS "check 'url_field', 'fallback_url_field'"                   → 1  (both replicas)
+NEG "zzz_this_phrase_is_in_no_version_of_the_binary"            → 0  (both replicas)
+```
+Both literals arrived in `f7111f4d8` (08-09 15:29). `git merge-base --is-ancestor` confirms
+`1bc08d1ce` and `58aefe282` (15:24) are both its ancestors, so a build containing them contains the
+ladder and the backfill. **One image tag fleet-wide, checked on every Running replica.**
+
+### (2) The behavioural test could not have come out otherwise — the producers went dormant BEFORE the roll
+
+| query | result |
+|---|---|
+| **the claim** — `generic` rows, the 3 residual actions, post-roll | **0** |
+| **§7's control** — all rows post-roll / distinct `agent_type` | 288 rows / 20 types ✅ *passes* |
+| **the control §7 did NOT specify** — rows from those 3 actions post-roll, **any** `agent_type` | **0** |
+| baseline, same 3 actions, `generic`, 13 days pre-roll | 33 |
+
+**The third row is the finding.** Those three actions produced *no rows of any kind* after the roll,
+so there was nothing for the fix to relabel, and the headline 0 is guaranteed by absent demand
+rather than by working code. §7's specified control — fleet-wide traffic — **passes cleanly while
+being blind to this**, because fleet traffic is not demand on the path under test.
+
+Bucketed by day, the baseline is worse than merely thin: the three producers' `generic` rows stop on
+**2026-08-05**, four days before the roll (`08-01: 1, 08-02: 1, 08-04: 2, 08-05: 2`, then nothing).
+`diagnose_council_decide`, which contributes 42 of the 47 `generic` rows these actions have ever
+written, last filed on **2026-08-02** — a week before the fix shipped. The table retains from
+07-11, so this is dormancy, not retention. **The acceptance test was already incapable of returning
+a non-zero the moment those producers went quiet, which was before the code it tests existed.**
+
+**This is the SAME defect this paper's own §1 correction identified, one level up.** §1 caught a
+`count(*)` that priced a fixed defect like a raging one. §7 then specified a follow-up measurement
+with exactly the same property — dated, marked, controlled, and unfalsifiable. Being burned by it
+once did not prevent designing it in again.
+
+**A genuine positive control does exist, and it is worth keeping:** three `generic` rows *were*
+written post-roll, from `process_message` (2) and `orchestrate` (1). Those are precisely the
+coordinator-path producers §1's table scoped **out** of this change, so their survival is expected —
+and it proves the `generic` value can still be written at all, which is what stops the headline 0
+being read as a dead write path.
+
+### What would actually settle it
+
+Waiting is not a plan: the producers are dormant and may stay so indefinitely. The decisive test is
+to **induce** one — deliberately fail a step that has been resumed after an await, through one of the
+six RSH-008 doors, and read the `agent_type` on the row it writes. That is the only check whose
+result depends on the code rather than on whether anything happened to break this week. Until it is
+run, the honest status is: **present in the binary, behaviourally unproven.**
+
 ## 11. OWNER RULING, 2026-08-09 — "shared code wins this one"
 
 The owner read §10's question — which of the two designs ships, given the safest-contained
