@@ -184,3 +184,81 @@ real run.
 - Not done, offered and not taken up: downgrading mechanical seats to Haiku 4.5.
   Worth revisiting once caching is proven, since the two compose (caches are
   model-scoped, so a mixed roster just means separate cache entries per model).
+
+## 2026-08-10 (evening) — council APPROVED, and the two objections that were real
+
+Verdict on `b54f173e-ebd4-45c4-954a-dfc70005e62c`: **approved, 5 advisory
+objections, none high-severity**. Two were real defects and were fixed before
+the code shipped. Both were invisible to the tests as first written, which is
+the part worth inheriting.
+
+1. **`ttl:"1h"` needed a beta header this client does not send** (edit-quality,
+   medium). The first caller to opt in would have got a **400, not a cache
+   hit** — and because council-gate reviews every platform change, that 400
+   removes the review path for the whole estate, not just the saving. Removed
+   the `ttl` field entirely; the 5-minute default needs no header on any model.
+   **The asymmetry is the argument**: a too-short TTL is a worse saving, visible
+   instantly in `cache_read_input_tokens`; an unsupported `ttl` is an outage.
+2. **A marker at position 0 leaked the literal marker text to the model**
+   (edit-quality, low) — a real bug I introduced. **My test passed the whole
+   time**, because it asserted the *type* of the content (still a string, true)
+   and never its *content*. A type-only assertion sails straight through this
+   entire class of defect. Now stripped, asserted, and mutation-proven against
+   the exact bug the seat described.
+
+Also answered `bug_historian`'s objection by measuring instead of deferring:
+only two `scheduled_tasks` pre_queries reference `llm_call_log`, and **both read
+`output_tokens` only** — so the `input_tokens` meaning-change affects zero live
+automated consumers. (`total_tokens` would be affected, per migration 246, and
+nothing reads it.) That audit is the sort of thing CLAUDE.md says to do *before*
+submitting rather than leave for a reviewer; the council was right to ask.
+
+### Applying 377 mid-flight was safe, and the check that proved it generalises
+
+The migration originally carried a "do not apply while a council run is in
+flight" banner. **That was a guess, and it was wrong.** One query settled it:
+
+```sql
+SELECT orchestration_id,
+       (workflow_plan->'steps'->'review_mission'->'config' ? 'prompt_template'),
+       length(workflow_plan->'steps'->'review_mission'->'config'->>'prompt_template')
+FROM orchestration_states WHERE status NOT IN ('COMPLETED','FAILED','CANCELLED');
+```
+
+Both live runs carried their **own copy** of every seat template inside
+`orchestration_states.workflow_plan`. An orchestration executes from that
+captured plan, so an `agent_definitions` edit cannot reach a run already under
+way. Confirmed empirically afterwards: council calls at 19:33–19:38, after 377
+landed, still start with `# Council reviewer: …` (the OLD ordering) and carry no
+marker.
+
+On a tree this many sessions share, that is the difference between "config edits
+are safe" and "wait for a quiet window that may never come". **What it does not
+license:** editing a prompt and expecting an in-flight run to pick it up — it
+will not.
+
+### The intermediate state, stated precisely (I was sloppy about this once)
+
+I wrote in a commit message that on the current binary the marker is
+"stripped-or-ignored". **That is not accurate.** Until the image rolls, a council
+run started *after* migration 377 will snapshot the new templates and the old
+binary will send `<!--CACHE_BREAKPOINT-->` to the model as **literal text**. It
+is an HTML comment sitting between the plan and the seat persona, so it is
+semantically inert and no reviewer has commented on one — but it is genuinely
+present, not removed. Once v1.0.1282 is live it becomes a boundary and never
+reaches the model.
+
+`cache_creation_input_tokens` / `cache_read_input_tokens` read **NULL** on every
+call until the roll, which is the designed signal for "this binary predates
+cache support" — already useful for reading fleet state, and the reason those
+columns were deliberately not defaulted to 0.
+
+### Where this stops being mine
+
+Deploys here are **whole-fleet, one tag, run by the owner**
+(`make release redeploy-agents ENVIRONMENT=production REGION=uk001`). A
+single-service roll at its own tag fragments the fleet. `IMAGE_TAG` is bumped to
+**v1.0.1282** and committed; production runs v1.0.1280. Verification after the
+roll is mine and is written up in the RUNBOOK — the one that matters is a
+**non-zero `cache_read_input_tokens` on the 2nd+ seat of a run**, because a zero
+there is the failure mode and looks exactly like success.
