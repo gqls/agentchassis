@@ -7911,3 +7911,34 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **the check:** grep the SHAPE, not the trigger — `grep -n "return;" <page>` and read the three lines above each hit: if the handler exits without an `innerText`/`textContent` write, it can go stale. `alert(...); return;` is the highest-yield spelling. Then drive it as a TRANSITION — compute a valid answer, then feed the guarded input on the SAME page, and require the display to change. A per-vector fresh page passes a broken tool.
 - **source:** 2026-08-10, bugfix-224 session. The first of the four was found by the unattended acceptance sweep on the night it was enabled; the other three by grepping the shape instead of waiting for the weekly run.
 - **added:** 2026-08-10, bugfix-224 session
+
+### A change that adds NO STRING LITERAL cannot be pod-grepped for — and a post-fix count of zero needs a DEMAND control, not a traffic control
+
+- **footprint:** `agent_error_log`, `strings /app/agent-chassis`, pod-grep, acceptance evidence, `verify-later`, RFC `§7`/`§12`, `RSH-009`, `ResolvedAgentType`, `ensureFullExecutionContext`, `git merge-base --is-ancestor`
+- **fires when:** you write, or run, the acceptance section of any platform change — "prove it shipped, then prove it did something". No symptom needed; both halves fail by returning a clean, confident, wrong answer.
+- **trap one — the needle you need may not exist.** The estate's rule is "prove a deploy at the artefact, grep a string your change ADDED". **Some changes add no string at all**: a new method that is pure control flow, a one-line guard, a reordered condition. When the author reaches for a needle anyway, the nearest quotable text is the **doc comment** — and comments are not compiled, so the grep returns 0 **on a binary carrying the fix perfectly**, which reads as "the roll missed it". Live case: `RFC_019` §7 prescribed `whose workflow is this context executing`; that phrase is a (misquoted) rendering of the comment at `types/context.go:734` and has never existed as a literal anywhere in the tree.
+- **the check, when your change contributes no literal:** do not invent a phrase — **date the binary with a neighbouring literal from a DESCENDANT commit, and prove the ancestry** rather than assuming it:
+  ```bash
+  grep -rn "<candidate needle>" --include=*.go platform/    # must resolve to a STRING LITERAL, not a comment
+  git merge-base --is-ancestor <your-commit> <literal-commit> && echo "a build with the literal contains your change"
+  kubectl exec -n ai-persona-system <pod> -- sh -c \
+    'strings /app/agent-chassis | grep -c "<long distinctive phrase>"'   # POS, per Running pod per distinct image tag
+  ```
+  Say so in the acceptance section itself — "this change adds no literal; it is dated by X" — or the next author repeats the invention. (Distinct from the ANCHORED-needle entry above: that is a real string matched wrongly; this one was never a string.)
+- **trap two — "did the residue fall?" is unanswerable without demand, and the obvious control does not supply it.** The standard control — *total rows in the window, and a distinct-value count, so a zero cannot be a dead pipeline* — **passes cleanly while being blind to whether the specific path under test ran at all**. Live case: post-roll `generic` rows for three actions = **0**, control = 288 rows / 20 distinct `agent_type`s ✅ — and rows from those three actions under **any** `agent_type` = **0**. Nothing had happened for the fix to relabel. Bucketed by day the producers had gone quiet **four days before the roll**, so the test could not have returned non-zero from before the code existed.
+- **why the wrong result looks exactly like the right one:** a fix is *supposed* to drive the number to zero, so zero is the result you are hoping for; the control is *supposed* to catch a dead pipeline, and it does, honestly, which makes the pair feel airtight. Nothing in either output mentions the path you actually changed. **Fleet traffic is not demand.**
+- **the check, before quoting any post-fix count:**
+  ```sql
+  -- DEMAND on the exact path, same window, ignoring the value you are testing
+  SELECT count(*) FROM agent_error_log
+  WHERE action IN (<the producers>) AND occurred_at > '<roll time>';   -- 0 here ⇒ you measured nothing
+  -- and whether the baseline was already dead before the fix shipped
+  SELECT occurred_at::date, count(*) FROM agent_error_log
+  WHERE action IN (<the producers>) AND occurred_at > now() - interval '14 days'
+  GROUP BY 1 ORDER BY 1;                                              -- read the TAIL, not the total
+  ```
+  If demand is zero, the honest verdict is **INCONCLUSIVE, and waiting will not fix it** — *induce* the condition instead. Keep any genuine positive control you do find: here, 3 `generic` rows written post-roll by the paths the change deliberately did **not** touch proved the value could still be written.
+- **the part that makes this a landmine and not an anecdote:** the lane that hit this had **already published the correction for this exact class** — a month-wide `count(*)` prices a fixed defect like a raging one, and there is no tell — four sections earlier in the same paper, and cited it approvingly while specifying the follow-up measurement with the identical property. **A rule learned as "beware stale counts" does not fire when the shape recurs as "a post-fix count with a control beside it".**
+- **source:** 2026-08-09/10, `rfc012_await_findings` lane, chassis `v1.0.1277`. `RFC_019` §12 (both defects, with the working substitutes), `WRONG_CALLS.md` 2026-08-10, `RSH-009`'s status line.
+- **verification:** settled first-hand — every query and grep above was run on 2026-08-10 against the live DB and both Running chassis replicas, and their outputs are quoted verbatim in `RFC_019` §12.
+- **added:** 2026-08-10, rfc012_await_findings lane
