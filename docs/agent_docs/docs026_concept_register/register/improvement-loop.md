@@ -136,6 +136,35 @@ _Concept count retired 2026-08-09 — derived, not stored; run the drift pair in
 - **relations:** observe-only enablement; internal-link-resolver (prerequisite handler); dormant discovery-check machinery (IMP-020); Discovery-check wiring gaps (IMP-047)
 - **verify-later:** scheduled_tasks improvement-sweep enabled flag; first post-enable triage cycle
 - **2026-08-09 (bugfix_230_discovery_driver):** the DETECTION half of this pause is re-driven by SCH-025 (observe-only fair rotation per `bugs_open/230` — exactly the "check runs observe-only while the triager stays disabled" mode this entry describes). The triage/fix re-enable this entry sequences remains pending on `bugs_open/083`'s recorded owner decision, and the sweep row itself is untouched.
+- **⚠ 2026-08-10 (OWNER INSTRUCTION — detection half now PAUSED TOO):** all three
+  `site-discovery-rotation-{completeness,design,quality}` rows set `enabled=false`
+  on the owner's explicit instruction ("switch off the improvement loop for now as
+  it is eating my credits"). **This pauses the SCH-025 rotation the line above
+  describes, one day after that lane enabled it** — `bugfix_230_discovery_driver`
+  should read this before concluding its rotation regressed. Nothing was deleted:
+  three `enabled` booleans, reversible with one UPDATE, `pre_query`/cadence/
+  concurrency-group all untouched. `improvement-sweep` was ALREADY `f` (since
+  2026-05-02) and was not touched. `site-render-audit-rotation` deliberately LEFT
+  ON — it is a different lane's cadence, landed the same day (mig 369), and
+  measured zero LLM spend.
+  **The cost premise turned out to be wrong, and that is the useful part:** measured
+  over the 24h before the switch-off, the improvement loop was **already inert and
+  nearly free** — `content-quality-auditor`/`visual-design-auditor` last called an
+  LLM at 2026-08-09 14:55 (>24h), the discovery agents made **zero** LLM calls, and
+  **zero** work items fleet-wide sat in `triaged`/`approved`, which is the only
+  status the dispatcher claims — so 544 `detected` discovery findings were
+  accumulating with nothing able to consume them. The actual spend was
+  **`council-gate`: 119 calls / 11.6M input tokens on Sonnet 5 in 24h (~85% of all
+  fleet LLM spend)**, session-driven in bursts, not scheduled — i.e. the mandated
+  platform-review gate, not this loop. **Do not cite "we disabled the improvement
+  loop" as a cost saving; it saved approximately nothing.** Left as an open question
+  for the owner rather than acted on, because the gate is CLAUDE.md-mandated and
+  shared with every concurrent session.
+  ⚠ **Measurement trap hit while producing those figures, worth inheriting:** the
+  first pass wrote `WHERE created_at > now() - interval '24 hours' AND a LIKE 'x'
+  OR a LIKE 'y'` — unparenthesised `OR` drops the time filter off the second branch,
+  and it returned 7,167 + 4,056 all-time calls looking exactly like a 24h figure.
+  Parenthesise, and run the same query without the filter as a positive control.
 
 ### IMP-017 — needs_section_data semantics and the abandoned standalone handler
 - **status:** superseded
