@@ -1778,3 +1778,34 @@ false-positive that destroyed fixture 4's first attempt) is **CLOSED as of 2026-
 Filed and closed entirely within the previous session's own window; nothing left to chase
 there. See `bugs_closed/160…md` for the full fix record (closed-vocabulary qualifier rule,
 three rounds of correction against the classifier's own false starts).
+
+---
+
+## 2026-08-10 — Anthropic key issued for the route group; verified live, not just present
+
+Owner created a fresh spend-capped key and reported its path:
+`/home/ant/.config/anthropic/gripper-dossier-api-key`. Checked rather than trusted, per this
+file's own standing habit — a file existing is not a file working.
+
+**Permissions**: `664` (group+world readable) on a live secret. Tightened to `600`. Owner-only
+was never an option that cost anything, so no reason it should have been open.
+
+**Format, discovered not assumed**: the file is a dotenv-style line
+(`GRIPPER_ANTHROPIC_API_KEY=<value>`), not a bare key — 136 bytes total, 2 lines. First attempt
+to verify used the raw file content as the header value and got `401 invalid x-api-key`
+(correctly — I'd sent the variable name as part of the credential). Diagnosed the shape without
+ever printing the secret: byte/line counts, and the first 13 characters, which only ever
+disclosed the public `GRIPPER_ANTHR…` label prefix, never the key itself. Re-extracted with
+`cut -d= -f2-`, got a 108-byte value (the expected shape for a real key), retried.
+
+**Verified live**: `POST /v1/messages/count_tokens` with the extracted value →
+`{"input_tokens":8}`. That endpoint is free — the check cost nothing and proves the key
+authenticates, which "the file exists" does not.
+
+**Not yet done, flagged in the proposal (§8) for whoever builds the route group**: this is a
+local dev-box credential, not a deploy artefact. It needs to become a new key on the
+`tools-api-secret` k8s Secret (alongside the running `ANTHROPIC_API_KEY`/`DATABASE_URL`) when
+the image actually needs it — never committed to the repo.
+
+**SMTP is still the open half.** Owner confirmed the source is cPanel webmail (08-09) but the
+actual `GRIPPER_SMTP_HOST`/`_PORT`/`_USER`/`_PASS` values haven't been supplied yet.

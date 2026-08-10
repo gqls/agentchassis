@@ -198,14 +198,23 @@ round 2).
 
 ## 8. What only the owner can supply
 
-- A spend-capped Anthropic key scoped to this route group (one was issued
-  07-27 for the pre-correction island shape — needs an owner call on
-  whether to re-scope it or issue fresh).
+- ~~A spend-capped Anthropic key scoped to this route group~~ **DONE 08-10.**
+  A fresh key was issued specifically for this route group (superseding the
+  07-27 one, which was scoped to the pre-correction island shape). Stored
+  locally at `/home/ant/.config/anthropic/gripper-dossier-api-key` as a
+  dotenv-style line — `GRIPPER_ANTHROPIC_API_KEY=<value>`, not a bare key —
+  permissions tightened `664`→`600` (was group/world-readable), and
+  **verified live** via the free `count_tokens` endpoint (`{"input_tokens":8}`,
+  no billing incurred). **Whoever builds the route group**: this is a local
+  dev-box file, not a deploy artefact — when the image actually needs it,
+  add it as a new key on the `tools-api-secret` k8s Secret (alongside the
+  existing `ANTHROPIC_API_KEY`/`DATABASE_URL`), never commit it to the repo.
 - SMTP credentials for `GRIPPER_SMTP_HOST`/`_USER`/`_PASS` (the `_FROM`
   address is already decided: `robot-hands@contactforsales.com`, owner
-  ruling 07-24).
+  ruling 07-24). **Sourced from cPanel webmail** (owner confirmed 08-09) —
+  not yet supplied as values.
 
-Neither blocks starting the Go work; both block the first real send.
+One down, one still blocks the first real send.
 
 ## 9. Suggested sequencing
 

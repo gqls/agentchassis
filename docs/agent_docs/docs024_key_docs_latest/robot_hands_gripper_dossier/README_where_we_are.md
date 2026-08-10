@@ -626,3 +626,18 @@ scoring engine and page-builder, proven and ready for whenever the public half i
 only two things still open are the ones from before — the shared email sender waiting for a
 customer, and which order you want the visitor-identity fix relative to the other team's work,
 which I gather is already settled since they took it and it's live.
+
+---
+
+**2026-08-10, out-of-order note.** Two entries dated 2026-08-04 and 2026-08-05 appear earlier
+in this file, above this one — I added them after an older paragraph instead of at the true
+end, so they read as if they came before this 07-31 entry when they actually came after it.
+Nothing in them is wrong, just misplaced; I'm noting it here rather than moving anything,
+since this file doesn't get rewritten. Read them out of position: 08-04 (the email-sender
+correction) and 08-05 (the proposal for the other team) both belong chronologically after
+everything above this note.
+
+You've since created the spend-capped key for this tool — I checked it actually works (a free
+check, no cost), and tightened its file permissions on the way past since it was readable by
+more than just you on this machine. The email side is still waiting on the actual server
+details from your hosting panel.
