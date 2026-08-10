@@ -160,3 +160,75 @@ so the human path becomes an **override**, not a gate. `DefaultBrandImagePrompt`
 `d78d0b788` register IMG-069 · `eb0341315` bug file corrections · `6a927239a` notes + README ·
 `ebaf72729` **the owner's ruling — default rather than block** · plus the register/bug-file updates
 and the `Council-Submitted:` trailer commit.
+
+---
+
+# UPDATE 2026-08-10 — STEP 0 IS NOW ANSWERED: BOTH HALVES ARE LIVE
+
+Everything above stands except the "not live yet" notes. **Do not re-run the deploy checks as
+if they were open** — they were run on `agent-chassis-8496665bb8` (both replicas):
+refusal literal **1**, default marker **1**, second producer's marker **2**, fabricated negative
+control **0**.
+
+**Council round 2 `661557c5-7ae4-43fe-a36d-c0600b54a29c` — APPROVED**, verdict read, trailer
+committed. Two objections were answered with code/measurement (the silent-degrade fix; the
+producer census: exactly three code producers, no fourth). **The lane's substance is complete.**
+
+## The one thing left that matters
+
+**Nobody has yet seen a logo or hero that the default actually produced.** That is the
+outstanding behavioural proof and it is the highest-value thing a successor can do.
+
+The case to watch is **mortgagecalculator.co.uk's hero** — a confirmed true positive (6
+same-origin `url('/assets/images/hero.jpg')` references, no active hero asset). Its stale
+pre-roll rows were cancelled on 2026-08-10 so that discovery can re-file it *with* the default
+prompt. Discovery is demonstrably running (fundamentallyai drew an item at 12:33 that day).
+
+```sql
+-- 1. has it been re-filed, and does it carry a defaulted prompt?
+SELECT s.domain, w.status, w.spec->>'prompt_source', left(w.spec->>'prompt',180), w.error
+  FROM site_work_items w JOIN sites s ON s.id=w.site_id
+ WHERE w.item_type IN ('needs_logo','needs_hero_image')
+ ORDER BY w.updated_at DESC LIMIT 5;
+
+-- 2. TRUST THE ARTEFACT, NOT THE STATUS — did an asset actually land, from what prompt?
+SELECT purpose, left(origin_prompt,180), origin_model, created_at
+  FROM assets WHERE site_id=(SELECT id FROM sites WHERE domain='mortgagecalculator.co.uk')
+   AND purpose='hero' ORDER BY created_at DESC LIMIT 3;
+```
+
+Then **look at the image**. If the wording needs tuning it is one string in
+`composeBrandImagePrompt` — cheap, and it decides ~2,000 logos.
+
+If it has NOT been re-filed after a day or so, the question is whether the discovery rotation
+covers that site, not whether the fix works — check `bugs_open/230`'s rotation before assuming
+a defect here.
+
+## What today added that was not in the plan
+
+- **A gap the fix does not close, found by reading the live queue:** it repairs **filing**, not
+  rows already filed. A pre-roll row has no `image_prompts` in its spec and no producer-side
+  correctness repairs it. Four such rows were cancelled with evidence in `result` (identity
+  verified, not counted). **Fleet census afterwards: 0 open rows** of any prompt-requiring type
+  lacking a usable prompt. If you file a new producer, remember its old rows are not retrofitted.
+- **A real defect the council caught in my own fix:** the default degraded *silently* — one
+  `err == nil` made a query failure and an absent spec identical. Fixed, and it now emits a
+  per-prompt `clauses` count so a fleet-wide degradation shows as a pattern.
+- **Proof the afternoon disposition ran in production** before being overruled
+  (mortgagecalculator's row filed at `needs_human_review`, 2026-08-09 20:56).
+
+## Known-open, deliberately
+
+1. **`spec.prompt_source` has no consumer** — four council seats flagged it. A per-item review
+   queue is the wrong answer (it is what the owner ruled against); a **count in an existing
+   report** is the right one. Unbuilt. Do not build a queue.
+2. **The prompt-key convergence** — still architecture-scope, still registered as IMG-069's open
+   question, all three producers already write both key shapes so it is config-only.
+3. **No human eye on the prompt text yet.**
+
+## One more trap, added today
+
+**Backticks in `git commit -m` EXECUTE.** I hit this despite it being in LANDMINES *and* my own
+memory index, and it silently ate two identifiers out of a commit message explaining a code
+change. The trailer survived only because it was on its own undecorated line. **Write commit
+messages to a file and use `-F`**, or single-quote identifiers. Logged in `WRONG_CALLS.md`.
