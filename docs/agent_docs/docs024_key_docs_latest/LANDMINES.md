@@ -2827,6 +2827,23 @@ stage-2 template as well, or the exposure returns silently on the next rebuild.
 - **source:** 2026-08-01, `bugs_open/170` (`docs024_key_docs_latest/bugfix_170_chrome_pin_eligibility/`), run `ce9bcd92-7be7-4819-bdf8-f8a57622128f`, `WRONG_CALLS.md` same date
 - **added:** 2026-08-01, bugfix_170_chrome_pin_eligibility lane
 
+### A `090` verdict describes the code the INDEX holds, NOT `HEAD` — so a fix you committed after filing is invisible, and CONFIRMED reads exactly like a live bug
+
+- **footprint:** `code_symbols` (`updated_at`, `body`), `docs024_key_docs_latest/fixloop_eg_dartsonline/090_TRIGGER_needs_diagnosis_v1.sh`, `diagnosis_artifacts` (`kind='bundle'`), `diagnose-agent`, and any workflow where you fix the bug and file the diagnosis in the same session
+- **fires when:** you follow the standing rule the sensible way round — write the fix, then file a `090` so the structural claim in your `bugs_open/` file has been through the loop (CLAUDE.md, and the owner ruling of 2026-07-31). The loop reads the **indexed** snapshot of the tree, so it diagnoses the code as it was at the last index refresh, not as you left it.
+- **the tell: there is none in the verdict.** The bundle renders the function *whole and correctly* — no truncation marker, no gap note, nothing labelled stale — it is simply an older body. Measured 2026-08-10: `SELECT max(updated_at) FROM code_symbols` → **08:35 UTC**, 5,837 symbols; the fix under discussion was committed **18:16 UTC**; and bundle iterations at 18:16/18:23/18:28/18:35/18:42 all rendered the PRE-FIX query. Ten hours of drift, invisible in the artefact.
+- **why it matters:** a `CONFIRMED` verdict on a mechanism you have already closed is indistinguishable from a confirmation that it is still live. Quote it into a `bugs_open/` file or a handoff and you have published "confirmed by the diagnosis loop" about code that no longer exists — the loop agreeing with your *diagnosis* gets read as the loop agreeing with your *current tree*. The verdict is still worth having: it independently confirms or refutes the MECHANISM, which is what you filed it for. It just cannot speak about `HEAD`.
+- **the check:** before quoting a verdict, ask the index what it read —
+  `SELECT max(updated_at) FROM code_symbols;` and compare against
+  `git log -1 --format=%ad <the file you fixed>`. If the commit is newer, say so
+  where you cite the verdict: *"CONFIRMED against the tree as indexed at
+  <time>, which predates the fix in <sha>."* And do NOT re-file after a refresh
+  hoping for a REFUTED — a loop that confirms a mechanism you then fixed has
+  done its job; there is nothing left for it to disagree with.
+- **distinct from the >60KB entry above**, which is a run producing bundles and NO verdict. This one produces a perfectly good verdict about the wrong revision. The discriminator between them is the bundle body: grep it for `body omitted` / `is INCOMPLETE` (the size case) versus grepping the rendered function for the predicate you added (this case).
+- **source:** 2026-08-10, `idea_uk_vm_site` lane, run correlation `383aafe5-0eeb-4475-b2a8-782196563da5` filed 18:09 UTC against a fix committed 18:16 UTC; RUNNING_NOTES §X.51
+- **added:** 2026-08-10, ideauk-sec session
+
 ### A `style_collections` chrome PIN is not a per-site assignment, and the predicate that guards it must NOT be the one that guards the pool
 
 - **footprint:** `style_collections` (`header_component_id`, `footer_component_id`, `header_home_component_id`), `platform/orchestration/actions/component_library.go` (`chromePinEligibleSQL`, `chromeEligibleSQL`, `GetChromePinComponent`, `RenderHeader`, `RenderFooter`), `platform/orchestration/actions/link_site_components_action.go`, `platform/orchestration/actions/fork_theme_from_site_action.go`, `platform/orchestration/actions/discovery_checks/check_integrity.go` (`DeactivatedSiteComponentsCheck`)
