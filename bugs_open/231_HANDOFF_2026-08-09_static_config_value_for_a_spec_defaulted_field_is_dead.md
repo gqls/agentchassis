@@ -273,3 +273,41 @@ object-key log line was NOT captured (the capture was pinned to a dead pod and
 these pods keep ~11s of logs) — the assertion rides on the artefact properties,
 the asset-row stamps, and the mechanism being the identical config shape on the
 same binary as the pageflow arm, where the log-level proof exists.
+
+---
+
+## 2026-08-10 17:05Z — a LIVE specimen, caught in the wild: `deploy_image_asset`'s `Defaults{purpose:"hero"}` beats a correct value in BOTH the spec and the asset row
+
+While completing 235's relojistas repair, the census's quarry fired twice in one
+hour, reproducibly:
+
+- The `undeployed_asset` dispatch path (build-dispatch-loop → asset-deployer)
+  delivers item spec fields at `input_data.spec.*`. The asset-deployer
+  definition's `deploy_asset` step binds `"purpose": "input_data.purpose"` — a
+  dotted path that resolves NOTHING on that dispatch shape.
+- `DeployImageAssetInputSpec` (`deploy_image_asset_action.go:36-38`) carries
+  `Defaults: {"purpose": "hero"}`. The unresolvable dotted path falls to the
+  Default **before anything finds `input_data.spec.purpose`**.
+- `[MEASURED]` two deploys for relojistas.com, 17:01 and 17:03: item spec
+  `purpose='logo'`, and (round 2) the asset ROW also corrected to
+  `purpose='logo'` first — **both runs derived and committed as "Deploy hero
+  image"**. The only value that ever won was the Default.
+
+So the class this census hunts has a second face: not just "a static config
+value shadowed by a Default", but **"a dotted path that resolves nothing on one
+dispatch shape falls to the Default, shadowing the correct value sitting one
+level down"**. The step config LOOKS explicitly wired (`input_data.purpose`
+reads like a real binding) and works on the image-build-handler path (which
+maps purpose to the top level) — it is only this dispatch shape that dies, and
+it dies silently into a plausible wrong artefact (a JPEG hero-derivation of the
+right source image).
+
+Candidate fix (needs its own round, it edits a shared definition): the
+asset-deployer `deploy_asset` step should bind
+`"purpose_field": "input_data.spec.purpose"` alongside — the spec's Deprecated
+bridge maps `purpose_field`→`purpose` — or the dispatch loop should map purpose
+to the top level for `undeployed_asset` items. Either way, **231 candidate 3
+(CheckConfig flagging a shadowed static) would NOT catch this**: nothing here is
+a static; it is an unresolvable dotted path. The census query needs a third arm:
+config dotted paths that cannot resolve against their dispatch shape, on
+actions whose spec carries a Default for the same field.
