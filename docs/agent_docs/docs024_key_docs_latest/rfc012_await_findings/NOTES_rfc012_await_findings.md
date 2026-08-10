@@ -1448,3 +1448,28 @@ evidence it may not — in which case the fix is insurance rather than a repair,
 was sized against was already gone before it shipped. That is three separate ways this lane's
 headline number has now turned out to be about the past rather than the present, which is probably
 the most transferable thing in the whole workstream.
+
+## 2026-08-10 (evening) — the owner asked for a from-scratch re-check of 356, and it survived with one correction
+
+Re-derived rather than re-read, every claim: the handler's five literal keys (read end to end, no
+dynamic access, no indirection, results never echo config); the HITL handler's single
+`stop_on_reject` read and the dual-name spec registration; the seven `cfg_path`s against the live
+rows (all `object`, all carrying their dead key); the any-state census (exactly 6, no snapshots, no
+duplicate active rows per type); both `snapshot_agent` overloads read from `pg_proc` — the two-arg
+form the file uses writes `agent_definitions_backup`, and the ONE-arg form would have deadlocked
+the migration against its own fleet-wide VERIFY; seeds clean at HEAD; and the binary — `v1.0.1279`
+rolled mid-check (13:42Z), `commit_from` greps **0** with the positive control at 2 on both
+replicas, so the detector opt-in is LIVE and the seven steps are drawing the deduped warning until
+356 lands.
+
+**The one thing the re-check overturned is a rationale, not an outcome.**
+`page_components.deploy_commit` exists (declared "Git commit reference when deployed";
+`pages.deploy_commit` was dropped as "belongs in page_components"), has no Go writer, and is NULL
+in all 1,329 rows. So `commit_from` was never copy-paste cruft — it is the CONFIG half of an
+unbuilt "record the deploying commit" feature whose COLUMN half is still in the schema, equally
+dead. The 356 header's distinction between `commit_from` (cruft, delete) and `notes_field`
+(intent, preserve) does not survive: both are intent-fossils. The deletion still stands — the
+header correction now records the intent better than six dead keys did — and the header carries
+the correction visibly, plus the one-arg-snapshot fragility. A reader of `deploy_commit` should
+know NULL there means "never implemented", not "never deployed"; wiring it or dropping it is an
+owner call.

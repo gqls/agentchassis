@@ -96,6 +96,34 @@
 -- directions: this file makes six steps stop warning that the un-rolled binary
 -- is not warning about anyway, and the un-rolled binary ignores the key exactly
 -- as the rolled one does.
+--
+-- ---------------------------------------------------------------------------
+-- CORRECTED 2026-08-10 (owner-requested from-scratch re-check; behaviour
+-- unchanged, rationale wrong in one place). The header above says commit_from's
+-- value "is never written to any column" and treats the key as copy-paste cruft,
+-- DISTINCT from notes_field's "author intent with no column". That distinction
+-- does not survive re-derivation: `page_components.deploy_commit` EXISTS
+-- (declared in sql_for_components/004, "Git commit reference when deployed";
+-- pages.deploy_commit was dropped by sql_for_tables/003 as "belongs in
+-- page_components"), has NO Go writer, and is NULL in all 1,329 rows. So
+-- commit_from was the CONFIG HALF of an unbuilt "record the deploying commit"
+-- feature whose COLUMN half is still in the schema, equally dead — the same
+-- intent-fossil class as notes_field, not a lesser one. The deletion stands:
+-- six unread copies are still six unread copies, and this note now records the
+-- intent better than the dead key did. But whoever ever implements
+-- "stamp the deploying commit" should know the column is already there, that
+-- NULL in it today means "never implemented", NOT "never deployed" — and that
+-- deciding whether to wire it or drop it is an owner call, not a bug fix.
+--
+-- Also verified in the same pass, against the live DB: the two-arg
+-- snapshot_agent really does write agent_definitions_backup rows (function
+-- source read, both overloads) — the ONE-arg form would have deadlocked this
+-- file, inserting is_snapshot=true copies that still carry commit_from for the
+-- final fleet-wide VERIFY to find. Corollary: if any session runs one-arg
+-- snapshot_agent on one of the six agents BEFORE this file is applied, the
+-- VERIFY will abort on that snapshot row with a message that reads like a
+-- failed delete. That abort is fail-closed and correct; the remedy is to
+-- delete or re-type the offending snapshot row, not to weaken the VERIFY.
 -- ============================================================================
 
 BEGIN;
