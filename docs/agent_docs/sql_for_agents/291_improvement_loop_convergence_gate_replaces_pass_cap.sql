@@ -114,7 +114,7 @@ SET default_config = jsonb_set(
   "record_not_converging": {
     "action": "create_work_item",
     "config": {
-      "spec": {
+      "spec_literal": {
         "reason": "three audit passes at an unchanged site fingerprint with findings still open — fixes are not landing; human attention needed",
         "capability": "audit_not_converging"
       },

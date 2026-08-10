@@ -53,3 +53,23 @@ hard-fail. Both lanes' leftovers become RemovedConfigKeys candidates once the fi
 **Fable note:** the owner asked for fable to prepare the plan; the fable Plan agent died on
 the session usage limit (reset 19:40). Plan prepared by the main (Opus) session instead,
 owner approved it in plan mode.
+
+## 2026-08-10 — Phase 1 DONE: migration 364 APPLIED + recorded; seeds corrected
+
+- Numbering: 363 was free when planned, TAKEN by another session by write time (the 356
+  lesson firing in real time). Landed as **364**.
+- The migration RENAMES the key in place — `spec_literal`/`spec_paths` take their value
+  from the live `spec` key (`jsonb_set(cfg #- old, new, cfg#>old)`), never retyped — so
+  the prose value (em-dash included) cannot be drifted by transcription. The pre-guard
+  asserts exact expected values (prose asserted by stable ends + key count) and RAISEs on
+  drift or partial application.
+- **Verify blocks proven disconfirmable BEFORE applying**: three mutated copies, each with
+  one UPDATE removed, run against the live DB — each RAISEd `364 VERIFY: a spec key
+  survived` naming exactly the skipped step (il/nc/qr flags), transaction aborted, live
+  rows confirmed untouched after (3 carriers still present). Then the real apply:
+  `BEGIN / DO / UPDATE 1 ×3 / DO / COMMIT`.
+- Post-apply: recursive all-depths census = **0 `spec` carriers**; the three new spellings
+  read back with exact values. (Definition-level checks only prove the rename; the BUG fix
+  is proven at a filed row — Phase 5.)
+- Recorded via `run-migrations.sh --record-only` with note. Seeds corrected: 054 (:166),
+  291 (:117), 269 (:97 — with a comment on why spec_paths, not spec_literal).

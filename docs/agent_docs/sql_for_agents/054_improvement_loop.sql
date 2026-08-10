@@ -163,7 +163,7 @@ INSERT INTO agent_definitions (
                                  "item_type": "needs_rerender",
                                  "severity": "medium",
                                  "summary": "Re-assemble and deploy pages after improvement fixes",
-                                 "spec": {"refresh_site_components": true},
+                                 "spec_literal": {"refresh_site_components": true},
                                  "priority": 99,
                                  "handler_agent": "rerender-pages",
                                  "item_key_prefix": "improvement_rerender"

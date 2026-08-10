@@ -94,7 +94,10 @@ VALUES (
             -- construction, so it must name the page. Unresolved is a hard error
             -- there by design — it will not fall back to the colliding key.
             'item_key_suffix_field', 'input_data.page_id',
-            'spec', jsonb_build_object('page_id', 'input_data.page_id')
+            -- spec_paths, not spec (bugs_open/234: `spec` was never read by
+            -- this action) and not spec_literal (the value is a PATH; a
+            -- literal would stamp the string 'input_data.page_id' verbatim).
+            'spec_paths', jsonb_build_object('page_id', 'input_data.page_id')
           ),
           'output_field', 'rerender_item',
           'next_step', 'complete'
