@@ -1764,3 +1764,56 @@ this survey exists to measure.
 **The finding underneath all of it:** every mechanism this lane has built —
 coverage, drift, and today's authoring gate — asks whether the register agrees
 **with itself**. Nothing has ever asked whether it agrees with **the platform**.
+
+---
+
+## 2026-08-10 (evening) — the worklist died four hours after it was written, and the mechanism that killed it is the interesting part
+
+A fresh chassis rolled: **`v1.0.1283`**, carrying `BLD-019`'s build provenance.
+
+**The stamp reads back.** `strings /app/agent-chassis | grep -oE '^[0-9a-f]{40}(-tree)?$'`
+returns `d3c09cc746e563b6339831cfb69576eb52135c43` on **both** replicas, no `-tree`
+suffix (a clean committed build, as designed), `buildinfo.GitCommit` present 4×.
+`BLD-019`'s own entry corrected from "INERT until the fleet rolls" → **LIVE**.
+
+**What it replaces.** The survey's §1 worklist said each of ~20 entries needed a
+pod-grep against a symbol its own lane chose. That is now one command:
+
+```bash
+git merge-base --is-ancestor <the entry's own commit> d3c09cc746e563b6339831cfb69576eb52135c43
+```
+
+**Controlled before use** — an ancestry test that always answers yes answers
+nothing. Positive: `FIX-055`'s `3a59b5012` → IN, **agreeing with the independent
+pod-grep that proved the same entry hours earlier**, which is the best kind of
+corroboration because the two methods share no machinery. Negative: `3ac87646a`,
+an off-branch merge → NOT IN. The test can return false.
+
+**Result.** The build was made from *exactly current HEAD* (`rev-list --count
+stamp..HEAD` = 0), so every commit on this branch is in the image and the
+roll-conditional class settled wholesale. **19 entries annotated in place.** The
+annotation states only what is proven — the Go code is in the running binary — and
+**explicitly declines** to say the feature is exercised, because for several it is
+not: `CQ-019` awaits migration 303, `PLAN-047` seed 306, `PBP-025` a `run_checks`
+array naming it, `TL-038`/`TL-040` a live fence. Conflating those two is the exact
+error `SCR-002` was corrected for this afternoon.
+
+**The new finding, and it is an authoring rule, not a checker.** **13 of the 29
+entries examined cite NO commit sha.** Provenance can then only infer inclusion
+from the entry's date — sound, unverifiable, and a slide straight back into the
+guesswork the stamp exists to remove. Those 19 annotations come in two variants
+for that reason, and the no-sha variant says so on its face.
+
+> **An entry whose status is conditional on a roll must NAME ITS COMMIT.** Nine
+> characters at authoring time; a one-command check for ever after. Candidate for
+> the authoring gate (OPP-006), not for a watcher — same argument as the missing
+> row: put the check where the error is made.
+
+**`WFA-012` is the clean demonstration of why `BLD-019` earns its place.** It is
+unsettleable by pod-grep — control flow, no new string literal, `ExtractNestedField`
+greps 8 times either way, `DOC-073`'s positive-control-that-cannot-fail. It cites
+two commits. Both IN. **Provenance settled in one command what marker-hunting
+structurally could not settle at all.**
+
+Untouched by this roll, and still the open work: version lag (80 entries 50+
+versions behind), unresolvable citations (96), moved bug references (156).

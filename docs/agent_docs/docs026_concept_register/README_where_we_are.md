@@ -688,3 +688,39 @@ above.
 
 Full detail, including the twenty-entry worklist for whoever picks this up, is in
 `FINDINGS_2026-08-10_staleness_survey.md`.
+
+---
+
+**2026-08-10, later — the new build landed, and it settled this afternoon's list.**
+
+The chassis that just rolled is the first one that **says which version of the code
+it is**. That was BLD-019, built this morning and sitting in the register marked
+"not live yet"; it is live now, and I read the answer straight out of both running
+containers to be sure.
+
+It matters more than it sounds. This afternoon I gave you a list of about twenty
+register entries claiming "not live yet" about things that had almost certainly
+shipped, and said each one needed somebody to go and look inside the running
+system for a specific piece of code. That whole exercise is now a single command:
+the container tells you which commit it was built from, and you ask git whether the
+entry's own commit came before it. I checked the command could actually say "no"
+before trusting it to say "yes" — it can.
+
+Every one came back shipped. So nineteen entries are corrected, and I was careful
+about what the correction claims: it says **the code is in the running system**, and
+it deliberately does *not* say the feature is working. For several of them it isn't
+— they are waiting on a database change or a configuration switch, which is a
+different thing on a different clock, and blurring the two is exactly the mistake I
+found in another entry this afternoon.
+
+One new thing worth knowing, because it is cheap to fix going forward: **thirteen of
+the entries I looked at never wrote down which commit they came from**, so even the
+new stamp can only guess at them from a date. That is nine characters at the time of
+writing that turn an unanswerable question into a one-line check. I'd suggest it
+becomes part of the same commit-time check we added this morning rather than another
+daily report — same reasoning: catch it where it is written.
+
+What is still open is the other three-quarters of the staleness picture, none of
+which a new build touches: eighty entries citing a platform version fifty or more
+rebuilds old, ninety-six citations pointing at deleted files, and a hundred and
+fifty-six pointing at bugs that have moved.
