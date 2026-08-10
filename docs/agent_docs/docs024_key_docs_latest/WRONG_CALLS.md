@@ -26188,3 +26188,76 @@ property of the session.
 lane's NOTES), but the register's count-chain header — which several lanes maintain
 precisely to track concurrent arrivals — now carries one commit message that misreports
 one.
+
+---
+
+## 2026-08-10 — I wrote a live-fleet census INTO A GO COMMENT, and it was false within the hour (bugfix_234 lane)
+
+**The claim.** Editing `UpdatePageStatusInputSpec`'s doc comment
+(`platform/orchestration/actions/v3_site_actions.go`) while adopting `RemovedConfigKeys`,
+I wrote: *"Migration 356 … as of 2026-08-10 that migration is WRITTEN BUT NOT APPLIED: an
+all-depths census found all six carriers still live. Until it is applied, six steps warn."*
+
+**Why it was false.** It was true when measured (I ran the census; six carriers). Roughly
+an hour later the same census returned **0** — the bugfix_136 lane had applied 356's data
+half by hand in the interim (and not recorded it in `schema_migrations`, which is why the
+migration table still showed it pending and did not contradict me). Six became zero while
+the comment sat in my editor.
+
+**What caught it.** Re-running the census before the chassis roll, as the RFC_021 Q1
+protocol now requires — and noticing the number had moved, rather than trusting the figure
+I had just written down.
+
+**The cheap check that would have.** There isn't one, and that is the lesson: **do not put
+a fleet census in a code comment at all.** A number in source cannot be re-checked by the
+reader, has no timestamp they will trust more than the code around it, and gets quoted as
+authority by the next author — this estate already has a landmine for exactly this shape
+("a concept-register STATUS line is a snapshot that outlives its truth"), and I reproduced
+it one layer down. The comment now says *how to ask the fleet*
+(`scripts/audit-config-keys.sh`) instead of *what the fleet said once*. Same rule as the
+register's "read the live number, not this line", applied to Go.
+
+**Second, smaller call in the same minute:** my first re-census printed
+`create_work_item steps: 0`, because the `WHERE k NOT IN (…)` filter that selects
+unrecognised keys also filtered the rows being counted — a denominator computed through
+the numerator's filter (the "a filtered count can ship inside a DENOMINATOR" trap, which
+is already in my own memory index). Caught immediately because "0 steps" was obviously
+absurd for the fleet's busiest work-item action; the corrected query reports 17. **A
+filtered count is only safe when the filter is in its NAME** — had the true answer been a
+plausible number instead of an absurd one, I would have recorded it.
+
+**Cost.** None shipped: both were caught before the commit that carries them. The comment
+correction and this entry are in the same commit as the code.
+
+## 2026-08-10 — a migration number that is free when you check is not RESERVED, and I learned it twice in one session
+
+**The claim.** Twice, I wrote a migration file, its ROLLBACK, and every doc, register
+entry and council-submission reference to it, against a number I had just verified free
+with `ls docs/agent_docs/sql_for_agents/`.
+
+**Why it was false, twice.** `368` was taken ~7 minutes later by another session
+(`0d9e555ec`, mig 368 info-card-grid) which also took 369. I renumbered to **371**; while
+I was dispatching the council submission, a third lane wrote `371_provocation_generator_
+operator_handle.sql` into the tree. Renumbered again to 372. Also visible in the same
+tree at the same moment: **`370` claimed TWICE by two different uncommitted lanes.**
+
+**What caught it.** Re-running `ls sql_for_agents/` at commit time rather than trusting
+the number chosen minutes earlier — both times. The second catch was luckier than the
+first: the collision landed between the submission and the commit, a window of about
+four minutes.
+
+**The cheap check.** Re-verify the number **at commit time, not at authoring time**, and
+grep the whole tree — `ls` shows uncommitted claims that `git ls-tree HEAD` cannot, and on
+this tree the uncommitted ones are the majority of the risk. The corollary that cost the
+real time: **a migration number is embedded in prose** (PLAN, RUNBOOK, register entry,
+index row, council JSON, the SQL's own header and its ROLLBACK's), so a renumber is a
+seven-file `sed`, not a `git mv`. Choose the number as late as possible, or write the
+filename once and reference it indirectly.
+
+**Cost.** No wrong artefact shipped — but the index row reached HEAD carrying `mig 368`
+inside another lane's passenger commit before I could correct it, so the register briefly
+pointed at a migration belonging to someone else. Corrected in a follow-up commit.
+**The generalisation worth keeping is not about migrations:** on this tree, *any*
+first-come-first-served name — migration number, register id, item_key, task name — is a
+claim you do not hold until it is committed, and the gap between choosing and committing
+is where the collision lives.
