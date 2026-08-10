@@ -824,3 +824,24 @@ plus three entries on the defect list. A fresh chat starts at
 > sessions, the full production-line rules, and the D11 work programme) so a new
 > conversation no longer has to chain through three handoffs. Content unchanged,
 > just gathered.
+
+---
+
+**10 August 2026, morning — the tool backlog is measured and handed to a fresh session**
+
+Checked your new build first (right version on all machines, rolled last night), then
+checked whether anything we're waiting on had moved overnight: the ROI style fix, the
+tracker data files, the contact-form decision. None had — no surprise on a Sunday night.
+
+Rather than start the tool contracts at the tail of a very long session, I've done the
+measuring half properly and cut a clean handoff. The seventeen tools without contracts
+split neatly: five are ready to fence immediately (both robot-hands calculators, the
+games-design ranking tool, the darts setup builder, and the LLM cost calculator); nine
+belong to loancalculator.co.uk, where the team already keeps a set of verified correct
+answers for every tool — so their contracts should be built FROM those answers rather than
+invented, and I've said so in writing before anyone does it the wrong way round; and three
+are blocked — two behind the gas wholesalers' missing logo (six days now, and I've
+confirmed it genuinely prevents testing, unlike the harmless missing favicon elsewhere),
+one being the broken unlabelled converter that's on your list already.
+
+The next session starts from one file, with the checklist at the bottom.
