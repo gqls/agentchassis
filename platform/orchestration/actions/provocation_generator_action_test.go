@@ -14,6 +14,7 @@
 package actions
 
 import (
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -325,5 +326,164 @@ func TestNextPublishDates_StartsTomorrowForACategoryWithNoHistory(t *testing.T) 
 		t.Errorf("the fresh category (%v) must schedule BEFORE the crowded one (%v) — "+
 			"if these are equal, the high-water mark is being read across categories again",
 			fresh[0], crowded[0])
+	}
+}
+
+// ---------------------------------------------------------------------------
+// The options map — the config key that looked live and was not (2026-08-10)
+// ---------------------------------------------------------------------------
+
+// TestConfiguredTokenBudgetReachesTheOptionsMap is the test whose absence cost
+// three config migrations.
+//
+// `ai_service.max_tokens` was set to 8000 on the generate step and the next run
+// still died at output_tokens=2048, because the action handed `GenerateText` an
+// empty options map and the provider client reads the budget from nowhere else.
+// The config was right, the request was wrong, and nothing in between said so.
+//
+// This asserts the ONE property that distinguishes those two states: the number
+// in the config comes out in the map that is actually passed to the client.
+func TestConfiguredTokenBudgetReachesTheOptionsMap(t *testing.T) {
+	// jsonb decodes numbers as float64 — the shape a live config really has.
+	aiCfg := map[string]interface{}{"model": "claude-sonnet-5", "max_tokens": float64(8000)}
+
+	opts := llmOptionsFromConfig(nil, aiCfg, nil, "test")
+
+	got, ok := opts["max_tokens"]
+	if !ok {
+		t.Fatal("max_tokens is configured on ai_service but absent from the options map — " +
+			"the provider client will silently use its hardcoded 2048 (anthropic.go:109)")
+	}
+	if got != 8000 {
+		t.Fatalf("max_tokens reached the options map as %v, want 8000", got)
+	}
+}
+
+// The step's own config wins, so a step can raise its budget without editing a
+// shared ai_service block. Same precedence as ExecuteAIStepAction.
+func TestStepConfigOutranksTheServiceBlockForTheTokenBudget(t *testing.T) {
+	stepCfg := map[string]interface{}{"max_tokens": float64(16000)}
+	aiCfg := map[string]interface{}{"max_tokens": float64(8000)}
+
+	if got := llmOptionsFromConfig(stepCfg, aiCfg, nil, "test")["max_tokens"]; got != 16000 {
+		t.Fatalf("step config max_tokens=16000 lost to ai_service; got %v", got)
+	}
+}
+
+// Thinking must be opt-in. The client enables extended thinking on the PRESENCE
+// of budget_tokens, so forwarding a zero would turn it on for every call.
+func TestThinkingIsNotRequestedUnlessBudgeted(t *testing.T) {
+	for _, cfg := range []map[string]interface{}{
+		nil,
+		{"budget_tokens": float64(0)},
+	} {
+		if _, present := llmOptionsFromConfig(nil, cfg, nil, "test")["budget_tokens"]; present {
+			t.Fatalf("budget_tokens forwarded for config %v — the client would enable thinking", cfg)
+		}
+	}
+	if got := llmOptionsFromConfig(nil, map[string]interface{}{"budget_tokens": float64(4000)}, nil, "test")["budget_tokens"]; got != 4000 {
+		t.Fatalf("an explicit budget_tokens was dropped; got %v", got)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// The prompt must not misdescribe the gate (owner ruling 2026-08-06)
+// ---------------------------------------------------------------------------
+
+// TestGeneratorPromptDoesNotDemandTheCounterCase.
+//
+// The prompt told the model "The body MUST put the counter-case. A one-sided
+// piece is rejected." for four days after the gate stopped rejecting one-sided
+// pieces and the owner said he preferred them. A prompt that misstates the gate
+// spends the model's effort on a rule nobody enforces and produces the shape the
+// owner rejected.
+//
+// This test fails if that instruction comes back, which is the point: the
+// sentence reads as an obviously sensible rule, so it will look like an
+// improvement to whoever re-adds it.
+func TestGeneratorPromptDoesNotDemandTheCounterCase(t *testing.T) {
+	p := buildGeneratorPrompt(4, []exemplar{{Title: "T", Teaser: "Te", Body: "B"}}, nil, nil)
+
+	for _, banned := range []string{
+		"A one-sided piece is rejected",
+		"MUST put the counter-case",
+	} {
+		if strings.Contains(p, banned) {
+			t.Fatalf("the generator prompt still contains %q — the gate has recorded rather than "+
+				"enforced two-sidedness since 2026-08-06 (applyJudgement: one_sided is a note), "+
+				"and the owner ruled one-sided is preferred", banned)
+		}
+	}
+
+	// The criterion that REPLACED it must be stated, or the prompt now describes
+	// no fatal judgement criterion at all.
+	if !strings.Contains(p, "CONTESTABLE") {
+		t.Fatal("the prompt does not ask for a contestable claim — that is the fatal judgement " +
+			"criterion (not_contestable) that took two-sidedness's place")
+	}
+}
+
+// The exemplars are the specification (PLAN §4). If they do not reach the
+// prompt verbatim, the model is imitating whatever prose is hardcoded here
+// instead of what the site actually publishes — which is what the old prompt
+// did, and it described the corpus wrongly.
+func TestGeneratorPromptCarriesTheExemplarsVerbatim(t *testing.T) {
+	ex := []exemplar{{
+		Title:  "Group chats replaced friendship maintenance",
+		Teaser: "Presence without effort. The bar has never been lower.",
+		Body:   "A distinctive body that exists only in this test fixture.",
+	}}
+
+	p := buildGeneratorPrompt(4, ex, nil, nil)
+
+	for _, want := range []string{ex[0].Title, ex[0].Teaser, ex[0].Body} {
+		if !strings.Contains(p, want) {
+			t.Fatalf("the prompt does not carry the exemplar %q — the corpus is the specification, "+
+				"and a prompt that drops it specifies nothing", want)
+		}
+	}
+}
+
+// TestNoProvocationActionCallsAModelWithAnEmptyOptionsMap binds the CALL SITES.
+//
+// Without this, the three tests above are vacuous in the way that matters: they
+// prove `llmOptionsFromConfig` computes the right map, and would all still pass
+// if both actions went back to handing `GenerateText` an empty one — which is
+// exactly the bug. The helper being correct and the helper being USED are
+// independent facts, and only the second one sends a token budget to the API.
+//
+// A source scan is a blunt instrument and this estate has been bitten by making
+// comments load-bearing, so it is deliberately narrow: only lines that actually
+// call GenerateText, only in the two provocation actions, matching the literal
+// empty map. Prose about empty options maps lives on its own lines and in
+// llm_options.go, neither of which is scanned.
+func TestNoProvocationActionCallsAModelWithAnEmptyOptionsMap(t *testing.T) {
+	for _, file := range []string{
+		"provocation_generator_action.go",
+		"provocation_gate_action.go",
+	} {
+		src, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatalf("read %s: %v", file, err)
+		}
+		var sawCall bool
+		for i, line := range strings.Split(string(src), "\n") {
+			if !strings.Contains(line, "GenerateText(") {
+				continue
+			}
+			sawCall = true
+			if strings.Contains(line, "map[string]interface{}{}") {
+				t.Errorf("%s:%d calls GenerateText with an empty options map:\n\t%s\n"+
+					"That pins the call to the provider's hardcoded 2048 output tokens "+
+					"(anthropic.go:109) whatever ai_service.max_tokens says. Pass "+
+					"llmOptionsFromConfig(...) instead.", file, i+1, strings.TrimSpace(line))
+			}
+		}
+		// A scan that finds nothing to check passes for the wrong reason — if the
+		// call moves or is renamed, this test must stop claiming to guard it.
+		if !sawCall {
+			t.Fatalf("%s contains no GenerateText call — this test is no longer "+
+				"watching anything; find where the model is called and repoint it", file)
+		}
 	}
 }

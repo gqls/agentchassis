@@ -1,0 +1,97 @@
+// FILE: platform/orchestration/actions/llm_options.go
+//
+// The options map an action must build if it calls an AI client DIRECTLY.
+//
+// WHY THIS EXISTS
+// `ai_service` config looks like it configures the call. For most steps it does,
+// because `ExecuteAIStepAction` reads it and builds the options map that the
+// provider clients actually consult (`ai_actions.go:351-372`). An action that
+// bypasses that path and calls `client.GenerateText(ctx, prompt, nil)` — or,
+// worse, `map[string]interface{}{}`, which looks deliberate — silently gets the
+// provider's hardcoded fallback instead, whatever the config says.
+//
+// For Anthropic that fallback is **2048 output tokens**
+// (`platform/aiservice/anthropic.go:109`), the smallest number in the estate.
+//
+// MEASURED, 2026-08-10, and this is why the file exists rather than a comment:
+// `generate_provocations` passed an empty options map. Its step config was given
+// `max_tokens: 8000` (migration 372) and the very next run still died at
+// `output_tokens=2048`. Two more config changes were applied against a value that
+// could not reach the API, because "the config says 8000" and "the request sent
+// 8000" are independent facts and only the second one is the request. A config
+// key that nothing reads looks exactly like a config key that works.
+//
+// This is the same class `bugs_open/205` counted from the other end — 8 of 126
+// active LLM steps with no configured budget, 64 truncations before anything
+// said so. There the budget was never set; here it was set and then dropped on
+// the floor, which is harder to see, because the config is right there.
+//
+// SCOPE, DELIBERATELY SMALL
+// `ai_actions.go:358-372` still holds its own copy of this logic and is NOT
+// changed here. That path serves 127 live steps across 55 agents, and rewriting
+// a shared hot path to fix two actions is the wrong trade under a live outage.
+// This is therefore the SECOND copy of the rule, knowingly. Per this estate's
+// own doctrine (LANDMINES, "two vocabularies, one algorithm"): **a THIRD caller
+// should be the extraction, not another paste** — at that point make
+// `ExecuteAIStepAction` call this and delete its inline block.
+
+package actions
+
+import (
+	"go.uber.org/zap"
+)
+
+// llmOptionsFromConfig builds the options map the provider clients actually read.
+//
+// Precedence mirrors `ExecuteAIStepAction`: the step's own config wins over the
+// `ai_service` block, so a step can raise its budget without editing a shared
+// service definition. Values arrive from jsonb as float64; int is accepted too
+// so a Go caller constructing config by hand behaves the same way.
+//
+// `where` names the call site in the warning, because the failure this guards
+// against is diagnosed from logs by someone who does not yet know which step is
+// truncating.
+func llmOptionsFromConfig(stepCfg, aiCfg map[string]interface{}, logger *zap.Logger, where string) map[string]interface{} {
+	opts := make(map[string]interface{})
+
+	if mt, ok := intFromConfig(stepCfg, aiCfg, "max_tokens"); ok {
+		opts["max_tokens"] = mt
+	} else if logger != nil {
+		// Not an error: the call will work, at 2048. Worth saying out loud
+		// because the first oversized reply meets a cliff with no other warning,
+		// and the step config will look correct when someone reads it.
+		logger.Warn("no max_tokens configured at step or ai_service level; "+
+			"the provider's hardcoded fallback applies (anthropic: 2048)",
+			zap.String("call_site", where))
+	}
+
+	// Extended thinking. Only forwarded when present — the client enables
+	// thinking on the presence of this key, so a zero or absent value must not
+	// become an explicit request for it.
+	if bt, ok := intFromConfig(stepCfg, aiCfg, "budget_tokens"); ok && bt > 0 {
+		opts["budget_tokens"] = bt
+	}
+
+	return opts
+}
+
+// intFromConfig reads a numeric key from the step config, falling back to the
+// ai_service block. Returns false when neither holds a usable positive number.
+func intFromConfig(stepCfg, aiCfg map[string]interface{}, key string) (int, bool) {
+	for _, m := range []map[string]interface{}{stepCfg, aiCfg} {
+		if m == nil {
+			continue
+		}
+		switch v := m[key].(type) {
+		case float64:
+			if v > 0 {
+				return int(v), true
+			}
+		case int:
+			if v > 0 {
+				return v, true
+			}
+		}
+	}
+	return 0, false
+}

@@ -80,43 +80,84 @@ type generatedProvocation struct {
 
 var slugRe = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 
+// exemplar is one real published provocation, shown to the generator as the
+// specification of the shape.
+type exemplar struct {
+	Title  string
+	Teaser string
+	Body   string
+}
+
 // buildGeneratorPrompt asks for candidates in the corpus's shape.
 //
-// The examples are REAL entries from the pool, not invented ones. The corpus is
-// the specification (PLAN §4) and a model shown paraphrases would learn my idea
-// of a provocation rather than the owner's — the same reason the calibration
-// tests quote the nine verbatim.
-func buildGeneratorPrompt(n int, recentTitles []string, currency []string) string {
+// THE EXEMPLARS ARE LOADED FROM THE LIVE POOL, NOT WRITTEN HERE — CORRECTED
+// 2026-08-10, AND THE OLD DOC COMMENT ON THIS FUNCTION WAS HALF FALSE.
+// It read "the examples are REAL entries from the pool, not invented ones". The
+// two titles and teasers were real; the *body* was a line of my own prose
+// describing the shape I thought a body had ("makes the case … THEN genuinely
+// puts the counter-case"). So the one field the model has to actually write was
+// specified by a paraphrase, and the paraphrase turned out to be wrong about the
+// corpus — see the two-sidedness note below. The owner's standing constraint is
+// that the framework writes the content, not a session; a hardcoded example
+// paragraph is a session writing content into the generator's instructions,
+// which is the same thing one level up. Exemplars now come from `loadExemplars`.
+//
+// THE RULES BELOW MUST MATCH `gate_provocation`, AND THEY DID NOT.
+// Until this correction the prompt told the model "The body MUST put the
+// counter-case. A one-sided piece is rejected." That stopped being true on
+// 2026-08-06, when the owner ruled that one-sided provocations are preferred
+// here and the gate demoted two-sidedness to an advisory `one_sided` note,
+// adding `not_contestable` as the fatal criterion in its place. A prompt that
+// misdescribes the gate is worse than one that says nothing: it spends the
+// model's effort satisfying a rule nobody enforces, and it produces the shape
+// the owner said he did not want. Keep this list and `applyJudgement` in step.
+func buildGeneratorPrompt(n int, exemplars []exemplar, recentTitles []string, currency []string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, `Write %d candidate "provocations" for a daily debate site.
 
 A provocation is a deliberately contestable claim, stated flatly as fact, that an
 ordinary person can disagree with from their own experience. It is published for
 people to argue against.
+`, n)
 
-REQUIRED SHAPE, taken from entries the site has already published:
+	b.WriteString("\nTHE SHAPE, from entries this site has actually published:\n\n")
+	for _, e := range exemplars {
+		b.WriteString("  title:  " + e.Title + "\n")
+		b.WriteString("  teaser: " + e.Teaser + "\n")
+		if e.Body != "" {
+			b.WriteString("  body:   " + e.Body + "\n")
+		}
+		b.WriteString("\n")
+	}
 
-  title:  "The four-day week is a productivity myth"
-  teaser: "The pilots that prove it were self-selected true believers."
-  body:   makes the case in a short paragraph, THEN genuinely puts the
-          counter-case ("The counter is that...", "Against that:...").
-
-  title:  "Group chats replaced friendship maintenance"
-  teaser: "Presence without effort. The bar has never been lower."
-
-RULES, all of which are enforced by a gate that will reject you:
+	b.WriteString(`RULES. A gate judges every candidate against these and rejects on any of them:
+  - The claim must be CONTESTABLE: a reasonable, informed person must be able to
+    take the opposite view and argue it seriously. This is the one that catches
+    filler. "Privacy is already over" is contestable; "AI is changing
+    everything" is not a provocation at all, because nobody disputes it.
   - State the claim FLATLY. No hedging ("might", "perhaps", "arguably").
   - The title must NOT be a question.
-  - The body MUST put the counter-case. A one-sided piece is rejected.
   - NO party politics and no culture-war topics. Not a single named politician,
     party, election, war, or identity-politics subject. This is a hard rule.
   - Arguable from ordinary life. No specialist knowledge needed to disagree.
   - Do NOT invent statistics, studies, named sources or quantities. The thesis
     is opinion and is allowed to be contestable; the supporting prose is
     fact-checked and an invented figure gets the whole candidate rejected.
+    Asserting without citing is fine — inventing a source is not.
   - Body between 250 and 900 characters.
   - slug: lowercase words separated by single hyphens, derived from the title.
-`, n)
+
+ONE-SIDED IS WELCOME. You do NOT have to put the counter-case. Roughly half the
+published entries make their case and stop, and that is the house preference. If
+a counter-case genuinely strengthens the piece, include it; do not bolt one on.
+
+CHOOSE A SUBJECT NOBODY HAS TO BE NAMED TO ARGUE ABOUT. Readers reply to these in
+public. Before proposing a claim, ask: could this be answered well without naming
+a real person or company and saying something checkable about them? If answering
+it properly means making allegations about somebody identifiable, pick a
+different subject. "Restaurant food has got worse" fails this test; "Childhood
+food was not better" passes.
+`)
 
 	if len(recentTitles) > 0 {
 		b.WriteString("\nDo NOT repeat or closely rephrase any of these, which the site has already used:\n")
@@ -261,6 +302,49 @@ func loadRecentTitles(ctx context.Context, db *sql.DB, domain string, limit int)
 	return out, rows.Err()
 }
 
+// loadExemplars returns real published provocations to show the generator as the
+// specification of the shape.
+//
+// WHY IT IS A QUERY AND NOT A CONSTANT: PLAN §4 makes the corpus the
+// specification, and the corpus moves. A constant in this file was already
+// wrong once — it described every body as two-sided when four of nine are not —
+// and a constant cannot notice when the owner's taste shifts. Reading the pool
+// means the generator is always imitating what the site actually publishes.
+//
+// THE FILTER IS THE POINT, so read it before changing it:
+//   - `human_approved_at IS NOT NULL` — a person signed off on this text. An
+//     exemplar is the strongest instruction in the whole prompt, so it must never
+//     be something the gate approved and nobody read.
+//   - the body is resolved the way the feed resolves it (body, then detail_body),
+//     because the served text is the text worth imitating.
+//   - length-bounded to the range the rules ask for, so the examples cannot
+//     contradict the stated limits.
+//   - newest first: the most recent approvals are the best evidence of taste.
+func loadExemplars(ctx context.Context, db *sql.DB, domain string, limit int) ([]exemplar, error) {
+	rows, err := db.QueryContext(ctx, `
+		SELECT title, teaser, COALESCE(NULLIF(body, ''), COALESCE(detail_body, '')) AS resolved
+		  FROM provocations
+		 WHERE domain = $1
+		   AND status = 'approved'
+		   AND human_approved_at IS NOT NULL
+		   AND length(COALESCE(NULLIF(body, ''), COALESCE(detail_body, ''))) BETWEEN 250 AND 900
+		 ORDER BY publish_on DESC NULLS LAST
+		 LIMIT $2`, domain, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []exemplar
+	for rows.Next() {
+		var e exemplar
+		if err := rows.Scan(&e.Title, &e.Teaser, &e.Body); err != nil {
+			return nil, err
+		}
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}
+
 // loadCurrency returns recent ingested headlines for a site, or nothing.
 //
 // Returning nothing is a normal, expected outcome — see the file header:
@@ -338,6 +422,22 @@ func GenerateProvocationsAction(ctx context.Context, params ActionParams) (inter
 	if err != nil {
 		return nil, fmt.Errorf("load recent titles: %w", err)
 	}
+	// FAIL RATHER THAN GENERATE WITHOUT THE SPECIFICATION.
+	// The exemplars are not decoration — they are the only description of the
+	// shape that is not somebody's paraphrase. A batch generated with none would
+	// be the model's own idea of a provocation, and it would arrive looking
+	// exactly like a normal batch: gate-judged, drafted, waiting for approval,
+	// and off-corpus in a way only a careful reader would catch. Refusing is the
+	// cheaper failure, and it is loud.
+	exemplars, err := loadExemplars(ctx, params.DB, domain, 3)
+	if err != nil {
+		return nil, fmt.Errorf("load exemplars: %w", err)
+	}
+	if len(exemplars) == 0 {
+		return nil, fmt.Errorf("no usable exemplars for %q: the corpus is the specification "+
+			"(PLAN §4), so generating without one would produce the model's idea of a "+
+			"provocation rather than this site's — refusing", domain)
+	}
 	currency, cerr := loadCurrency(ctx, params.DB, siteID, 15)
 	if cerr != nil {
 		// Currency is optional; losing it must not lose the batch.
@@ -350,7 +450,12 @@ func GenerateProvocationsAction(ctx context.Context, params ActionParams) (inter
 			"(no content_feed_items); generating from the corpus's own thematic space")
 	}
 
-	raw, err := client.GenerateText(ctx, buildGeneratorPrompt(count, recent, currency), map[string]interface{}{})
+	// The options map is what the provider client actually reads — an empty one
+	// silently pins this call to anthropic's hardcoded 2048 output tokens no
+	// matter what `ai_service.max_tokens` says. See llm_options.go for the
+	// measurement that cost three config changes to notice.
+	opts := llmOptionsFromConfig(config, aiCfg, params.Logger, "generate_provocations")
+	raw, err := client.GenerateText(ctx, buildGeneratorPrompt(count, exemplars, recent, currency), opts)
 	if err != nil {
 		return nil, fmt.Errorf("generator call failed: %w", err)
 	}

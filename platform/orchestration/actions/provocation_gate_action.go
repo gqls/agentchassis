@@ -826,8 +826,16 @@ func GateProvocationAction(ctx context.Context, params ActionParams) (interface{
 			model = m
 		}
 		if client, cerr := createAIClient(ctx, aiCfg); cerr == nil {
+			// Options, not an empty map: without this the call is pinned to the
+			// provider's hardcoded 2048 output tokens regardless of config
+			// (llm_options.go). A verdict is small so this gate has never hit
+			// that ceiling — but §10.2 turns a truncated reply into a REJECTION,
+			// so if a judgement ever did grow past it, the failure would arrive
+			// as provocations being refused rather than as an error, and the
+			// pool would starve while the gate reported itself working.
+			opts := llmOptionsFromConfig(config, aiCfg, params.Logger, "gate_provocation")
 			judge = func(c context.Context, prompt string) (string, error) {
-				return client.GenerateText(c, prompt, map[string]interface{}{})
+				return client.GenerateText(c, prompt, opts)
 			}
 		} else {
 			params.Logger.Warn("GateProvocation: AI client unavailable; every candidate will be rejected",

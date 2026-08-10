@@ -1,0 +1,61 @@
+{
+  "rationale": "vonc.com's provocation shelf runs out on 2026-08-15 and the generator that refills it has never once produced a candidate. Four dispatches today failed: one on the fleet-wide Anthropic usage cap, then three on truncation. The truncation cause is a config key that nothing reads. `generate_provocations` and `gate_provocation` both call `client.GenerateText(ctx, prompt, map[string]interface{}{})` directly, bypassing `ExecuteAIStepAction`, which is the only place that builds the options map from `ai_service.max_tokens` (ai_actions.go:351-372). The provider client reads the budget from that options map and nowhere else, so both actions have always run at anthropic.go:109's hardcoded 2048 output tokens. I proved this the expensive way: migration 372 set max_tokens=8000 on the generate step and the very next run still reported output_tokens=2048. This is bugs_open/205's class seen from the other end - there the budget was never configured; here it is configured and dropped, which is harder to see because the config looks right. Two further corrections ride along, both from reading the code the config forced me into: the generator's prompt still told the model 'The body MUST put the counter-case. A one-sided piece is rejected', which stopped being true on 2026-08-06 when the owner ruled one-sided provocations are preferred and the gate demoted two-sidedness to an advisory note; and the prompt's body exemplar was a paragraph of a session's own prose describing a shape the corpus does not actually have (four of nine entries are one-sided), which is the owner's standing 'the framework writes the content, not you' constraint violated one level up.",
+  "submitter": "provocation_pipeline lane (inherited from the vonc-provocations-not-daily thread)",
+  "plan": {
+    "summary": "Make `ai_service.max_tokens` actually reach the API for the two provocation actions that call an AI client directly, via a new `llmOptionsFromConfig` helper; correct the generator prompt so it describes the gate that exists rather than the one that existed before the 2026-08-06 owner ruling; and load the prompt's exemplars from the live pool instead of hardcoding a session's paraphrase of them.",
+    "edits": [
+      {
+        "file": "platform/orchestration/actions/llm_options.go",
+        "symbol": "llmOptionsFromConfig",
+        "operation": "add",
+        "rationale": "The options map is the only channel the provider clients read a token budget from. An action calling GenerateText directly must build it. Precedence mirrors ExecuteAIStepAction (step config wins over ai_service) so behaviour is uniform across both paths. budget_tokens is forwarded only when positive, because the Anthropic client enables extended thinking on the PRESENCE of that key - forwarding a zero would silently turn thinking on for every call.",
+        "sketch": "func llmOptionsFromConfig(stepCfg, aiCfg map[string]interface{}, logger *zap.Logger, where string) map[string]interface{} {\n\topts := make(map[string]interface{})\n\tif mt, ok := intFromConfig(stepCfg, aiCfg, \"max_tokens\"); ok {\n\t\topts[\"max_tokens\"] = mt\n\t} else if logger != nil {\n\t\tlogger.Warn(\"no max_tokens configured at step or ai_service level; the provider's hardcoded fallback applies (anthropic: 2048)\", zap.String(\"call_site\", where))\n\t}\n\tif bt, ok := intFromConfig(stepCfg, aiCfg, \"budget_tokens\"); ok && bt > 0 {\n\t\topts[\"budget_tokens\"] = bt\n\t}\n\treturn opts\n}"
+      },
+      {
+        "file": "platform/orchestration/actions/provocation_generator_action.go",
+        "symbol": "GenerateProvocationsAction",
+        "operation": "modify",
+        "rationale": "The call site that could not honour its own configuration. This is the edit that unblocks the content deadline.",
+        "sketch": "-\traw, err := client.GenerateText(ctx, buildGeneratorPrompt(count, recent, currency), map[string]interface{}{})\n+\topts := llmOptionsFromConfig(config, aiCfg, params.Logger, \"generate_provocations\")\n+\traw, err := client.GenerateText(ctx, buildGeneratorPrompt(count, exemplars, recent, currency), opts)"
+      },
+      {
+        "file": "platform/orchestration/actions/provocation_gate_action.go",
+        "symbol": "GateProvocationAction",
+        "operation": "modify",
+        "rationale": "Same defect, and worse consequences if it ever bites: a verdict is small so this gate has never hit 2048, but PLAN 10.2 turns a truncated judge reply into a REJECTION. If a judgement ever did grow past the ceiling, the failure would present as provocations being refused rather than as an error, and the pool would starve while the gate reported itself working.",
+        "sketch": "-\t\t\tjudge = func(c context.Context, prompt string) (string, error) {\n-\t\t\t\treturn client.GenerateText(c, prompt, map[string]interface{}{})\n-\t\t\t}\n+\t\t\topts := llmOptionsFromConfig(config, aiCfg, params.Logger, \"gate_provocation\")\n+\t\t\tjudge = func(c context.Context, prompt string) (string, error) {\n+\t\t\t\treturn client.GenerateText(c, prompt, opts)\n+\t\t\t}"
+      },
+      {
+        "file": "platform/orchestration/actions/provocation_generator_action.go",
+        "symbol": "buildGeneratorPrompt",
+        "operation": "modify",
+        "rationale": "The prompt misdescribed the gate for four days. It demanded a counter-case the gate stopped requiring on 2026-08-06 (applyJudgement records `one_sided` as a note) and never mentioned contestability, which is the criterion that replaced it as fatal (`not_contestable`). A prompt that misstates the gate spends the model's effort on an unenforced rule and produces the shape the owner said he did not want. Also adds RFC_020/PLAN 11.2's naming test upstream: a subject whose good answer requires naming a real person is a third-party-harm risk in every round it generates. Stated honestly in the code as a nudge, not a control - the enforcement for naming lives in namecheck at publish time.",
+        "sketch": "-  - The body MUST put the counter-case. A one-sided piece is rejected.\n+  - The claim must be CONTESTABLE: a reasonable, informed person must be able to\n+    take the opposite view and argue it seriously.\n+\n+ONE-SIDED IS WELCOME. You do NOT have to put the counter-case. Roughly half the\n+published entries make their case and stop, and that is the house preference.\n+\n+CHOOSE A SUBJECT NOBODY HAS TO BE NAMED TO ARGUE ABOUT. [...] 'Restaurant food\n+has got worse' fails this test; 'Childhood food was not better' passes."
+      },
+      {
+        "file": "platform/orchestration/actions/provocation_generator_action.go",
+        "symbol": "loadExemplars",
+        "operation": "add",
+        "rationale": "PLAN 4 makes the corpus the specification, but the prompt's body exemplar was a hardcoded line of a session's own prose - and it described the corpus wrongly (it said bodies put the counter-case; four of nine do not). Reading real published entries means the generator imitates what the site publishes. The filter is the load-bearing part: human_approved_at IS NOT NULL, because an exemplar is the strongest instruction in the prompt and must never be text the gate approved and nobody read; body resolved the way the feed resolves it, so the imitated text is the served text; length-bounded so the examples cannot contradict the stated limits. The action REFUSES to generate when the query returns nothing, rather than generating without a specification - a batch produced from no exemplars would arrive looking exactly like a normal batch and be off-corpus in a way only a careful reader catches.",
+        "sketch": "SELECT title, teaser, COALESCE(NULLIF(body,''), COALESCE(detail_body,'')) AS resolved\n  FROM provocations\n WHERE domain=$1 AND status='approved' AND human_approved_at IS NOT NULL\n   AND length(COALESCE(NULLIF(body,''), COALESCE(detail_body,''))) BETWEEN 250 AND 900\n ORDER BY publish_on DESC NULLS LAST LIMIT $2\n\n// caller:\nif len(exemplars) == 0 { return nil, fmt.Errorf(\"no usable exemplars for %q: the corpus is the specification (PLAN 4) ... refusing\", domain) }"
+      },
+      {
+        "file": "platform/orchestration/actions/provocation_generator_action_test.go",
+        "symbol": "TestNoProvocationActionCallsAModelWithAnEmptyOptionsMap",
+        "operation": "add",
+        "rationale": "The three helper tests are vacuous on their own: they prove llmOptionsFromConfig computes the right map and would all still pass if both actions went back to an empty one, which IS the bug. The helper being correct and the helper being USED are independent facts. Mutation-proven: deleting the `opts :=` line and restoring the empty literal makes it fail naming file and line. The scan is deliberately narrow (only lines calling GenerateText, only the two action files) because this estate has been bitten by source-scanning tests making comments load-bearing, and it fails loudly if it finds no GenerateText call at all, so it cannot pass by watching nothing.",
+        "sketch": "for _, file := range []string{\"provocation_generator_action.go\", \"provocation_gate_action.go\"} {\n\t... for each line containing \"GenerateText(\": if strings.Contains(line, \"map[string]interface{}{}\") { t.Errorf(...) }\n\tif !sawCall { t.Fatalf(\"%s contains no GenerateText call - this test is no longer watching anything\") }\n}"
+      }
+    ],
+    "grounded_in": [
+      "orchestration f6a2ab74-db4f-4e1b-b5a2-0197509ce5e1, 2026-08-10 18:18Z: 'generator call failed: response truncated: stop_reason=max_tokens' AFTER migration 372 set ai_service.max_tokens=8000 on that step",
+      "orchestration 9c9d52db-faa2-4016-a7c3-4572b34f7a5d, 2026-08-10 18:23Z, full error: 'response truncated: stop_reason=max_tokens (output_tokens=2048 reached the configured cap, 84 chars recovered); raise max_tokens or shorten the prompt' - 2048 is anthropic.go:109's hardcoded default, not the configured 8000",
+      "platform/aiservice/anthropic.go:109 `\"max_tokens\": 2048,` and :147 `if maxTokens, ok := options[\"max_tokens\"]; ok { requestBody[\"max_tokens\"] = maxTokens }` - the options map is the only channel",
+      "platform/orchestration/actions/ai_actions.go:358-364 - ExecuteAIStepAction reads agentConfig then aiServiceConfig for max_tokens; the two provocation actions do not go through it",
+      "provocation_gate_action.go applyJudgement: `if !j.TwoSided { v.note(\"judgement\", \"one_sided\", ...) }` - a note, not a rejection, since 2026-08-06",
+      "owner ruling 2026-08-06, recorded in that function's comment: 'the one sided provocation is better, we can continue that way for now at least'",
+      "measured across the live pool 2026-08-05: five of nine entries carry an explicit counter-case, four do not, one has a zero-length body - the prompt's claim that bodies put the counter-case was false of the corpus it claimed to describe"
+    ],
+    "risks": "The gate's judge now receives a token budget where it previously always ran at 2048. Its ai_service block sets no max_tokens today, so llmOptionsFromConfig logs a warning and the call is byte-identical to before - no behaviour change until someone configures one. The generator now REFUSES when loadExemplars returns nothing; on vonc.com that query returns 3 rows today, but a domain with no human-approved provocations in the 250-900 character band cannot generate at all. That is intended (generating without a specification is the worse failure) but it is a new hard dependency on pool state and a reviewer should say if it should be a warning instead. loadExemplars embeds real published text in the prompt; that text is already public on the site. The source-scanning test is the weakest edit - it guards a call shape rather than a behaviour, and would not catch an action that passed a NON-empty map missing max_tokens."
+  }
+}
