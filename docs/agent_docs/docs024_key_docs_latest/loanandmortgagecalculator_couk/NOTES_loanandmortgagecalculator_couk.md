@@ -1170,3 +1170,86 @@ self-containment warning, and that warning is wrong for this tool.
 **The chassis build deployed today changes nothing here**: every change this
 session was site content, DB rows or lane tooling — no Go — so nothing was
 waiting on a build.
+
+### 2026-08-10 — OWNER: unlock both sites. 39 prose pages DONE; the 20 tool pages REFUSED, with the reason measured
+
+Owner: *"unlock them both and make their components and tools fully editable and
+upgradable … all through the framework."* Full account + the remaining recipe:
+`HANDOFF_2026-08-10_unlock_and_upgrade.md`. RUNBOOK §14.
+
+**The lock is `pages.rebuild_policy`** ('generic'|'owned', migration 164 CHECK),
+enforced in four places (build-queue exclusion, reconcile → `owned_page_review`,
+`save_page_sections` refusal, `owned_page_guard` on `assemble_page`). Both sites
+were 100% `owned`: 41 pages (lmc) + 18 (loancash). Only ONE component lock existed
+site-wide (`consolidation`'s `tool-1`, `lock_type='permanent'`).
+
+⚠ **CORRECTION to how this gets described.** "Locked" did NOT mean uneditable.
+Migration 164 states that re-assembly of existing `page_components` is
+deliberately NOT gated — *"it is how owned pages deploy"* — so `page-rerender` and
+`section-editor` already worked. `owned` blocks the GENERIC pipeline rebuilding a
+page wholesale. I nearly wrote "the content was locked and is now editable", which
+would have been false in both halves.
+
+**Migration 367 applied by hand** (not `--apply`: other threads had pending
+files), then `--record-only` with the verification note. 39 prose pages
+`owned → generic` (24 lmc / 15 loancash). Stamps every changed row into
+`_mig367_unlocked_prose_pages` so the ROLLBACK re-locks exactly those, not
+"everything on these domains" — a concurrent thread may flip a page after 367.
+
+**Both verify assertions were INDUCED before applying**, because a verify block of
+`SELECT`s cannot stop a COMMIT (`ON_ERROR_STOP` ignores a non-empty result):
+
+```
+39 -> 40 population assertion        -> ERROR, aborted
+tool pages allowed into the target   -> ERROR "NEGATIVE CONTROL FAILED — a
+                                        calculator page has been unlocked and
+                                        would be clobbered by the next generic build"
+after both inductions: stamp table ABSENT, 59 still owned   <- nothing leaked
+```
+
+**Why the 20 tool pages were NOT flipped, and this is the load-bearing part.**
+19 of 20 are single-component verbatim (`slot_name='ported-page'`) — ONE row
+holding the whole page, calculator `<script>` included. The three composition
+loops run `assemble_page → deploy_page(git_commit) → save_sections`, so freshly
+LLM-written HTML is **committed to the sites repo the site deploys from, one step
+BEFORE** the DB guard refuses (`owned_page_guard.go` header documents this
+ordering). `rebuild_policy='owned'` is therefore the ONLY thing between those
+pages and a generic rebuild that replaces the calculator with prose — the vonc
+arena clobber (TL-001) that migration 164 exists to prevent. Two of them are the
+calculators `bugs_open/224`/`225` were just fixed on.
+
+The route is decomposition, not unlocking: prose components + a tool row at
+`lock_type='permanent'`, **re-slotted before the flip** (`matchLockedRow` matches
+`slot_name`; positional `tool-1` never matches, and `:855` moves an unmatched
+locked row to `len(sections)+1` — the calculator lands at the page BOTTOM,
+silently). One page at a time with a check between.
+
+**A second precondition nobody had recorded: NEITHER SITE HAS A SITE PLAN.**
+`site_plans`/`site_plan_pages`/`site_plan_sections` = 0 rows for both. So 367
+removed the refusal and created no demand — the 39 pages are eligible and
+undriven. `bugs_open/204` is the trap to read before seeding one.
+
+**Checks re-run after the unlock** (it changes no rendering, but measured rather
+than assumed): `oracle.py` full sweep **PASS 170 / FAIL 0 / CONV 6**; controls in
+the same session all green; `zero_rate_sweep` 0 of 6 on this site and **0 of 3 on
+loancash.co.uk** — the first time loancash's tools have been checked by anything.
+
+**NEW GAP, highest-value next: loancash.co.uk has NO arithmetic oracle**, and two
+of its three tools are REGULATORY — `price-cap-checker` and
+`true-cost-calculator` both carry the FCA cap literals (`0.8`/day, `£15` default
+fee, `100%` total cost) with no external check. That is the exact shape of
+`bugs_open/225`: a dated regulatory number in a page nothing verifies. Verify
+against CONC 5A, not the page.
+
+⚠ **MISSTEP, this session, worth the line because the output lied.** I appended
+this entry with `cd <lane> && cat >> NOTES <<EOF …` in a block whose next command
+was a second heredoc for the RUNBOOK. The `cd` failed (I was already in the lane
+dir, so the relative path did not resolve), `&&` short-circuited, **the NOTES
+write silently never happened — and the RUNBOOK one did**, because it was a
+separate command. The block ended `echo done`, which printed. So: one of two
+appends landed, exit 0, "done" on screen, and the only tell was that `tail` showed
+another session's text where mine should have been. **Never chain a write behind
+`cd &&` in a multi-write block; `cd` to an absolute path on its own line, or write
+to absolute paths — and verify each append by grepping for its own distinctive
+string, not by reading the tail** (on an append-only doc a concurrent session's
+entry sits exactly where yours would).

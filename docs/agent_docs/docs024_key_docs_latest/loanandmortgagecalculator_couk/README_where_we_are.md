@@ -502,3 +502,70 @@ if you want to pick this up in a new conversation. The only thing I'd flag as a
 choice rather than a task: the same class of fault has never been looked for on
 mortgagecalculator.co.uk or loancash.co.uk, which come from the same family of
 pages.
+
+---
+
+## 2026-08-10 — the two sites are unlocked, except for the twenty pages where unlocking would have destroyed the calculator
+
+You asked me to unlock loanandmortgagecalculator.co.uk and loancash.co.uk and make
+everything on them fully editable and upgradable. I've done most of it, and
+stopped short of one part on purpose. Here's the honest picture.
+
+**First, a correction to how this was described to you.** "Locked" didn't mean the
+content couldn't be edited. It could — the framework's page-rerender and
+section-editor paths were never blocked, and that's how we've been changing these
+pages all week. What the flag blocked is the framework rebuilding a page *from
+scratch*. So the before-state was "the pipeline may not rewrite this page", not
+"nobody can touch it". Worth being clear about, because "we unlocked the content"
+would have overstated both halves.
+
+**What's now unlocked: 39 pages.** All the guides, the index pages, the legal
+pages — 24 on loanandmortgagecalculator, 15 on loancash. Those are fully in the
+framework's hands now and can be rebuilt and upgraded like any other page. Done
+as a proper migration, with a check that refuses to run if the numbers don't match
+what I measured, and I deliberately broke that check first to prove it actually
+stops things rather than just printing a reassuring line.
+
+**What I did not unlock: the 20 pages that hold a calculator.** This is the part I
+want to explain, because it's the opposite of what it looks like.
+
+On those pages the entire page — text, layout and the calculator's code — lives as
+a single block in the database. And the way the framework rebuilds a page is:
+write new content, **commit it to the repository the website is published from**,
+and only *then* check whether it was allowed to. The check comes after the
+publish. So flipping that flag on a calculator page doesn't produce a warning; it
+produces a page where the calculator has been replaced by prose, already live.
+
+The flag I'd have been removing is the only thing preventing that. It exists
+because exactly this happened on another site once. And two of those twenty are
+the stamp duty and loan calculators we've just spent three days proving correct.
+
+**The right way to do it, which is real work rather than a flag.** Split each of
+those pages into its text parts plus a separate, protected calculator part — then
+the text is fully editable by the framework and the calculator survives being
+upgraded. One of the 20 (`loans/consolidation`) is already in that shape, so we
+have a working example. There's one specific trap to handle first: unless the
+calculator's slot is renamed to something the framework expects, it survives the
+rebuild but gets silently moved to the bottom of the page, underneath all the new
+text. I've written that up rather than discovering it on a live page.
+
+**Something else I found that you should know about.** Neither site has a "site
+plan" — the framework's description of what the site should contain. Unlocking a
+page says the framework *may* rebuild it; the plan is what it rebuilds *from*.
+With no plan, those 39 pages are now permitted and still idle. Seeding one is the
+next step, and there's a known bug to read first.
+
+**I ran the checks again afterwards.** All 170 arithmetic checks on the 18
+calculators still pass, with the controls re-run in the same session so a green
+result means something. I also checked loancash.co.uk's three tools for the same
+0% bug — clean, and that's the first time anything has ever checked them.
+
+**And that turned up the next thing worth doing.** loancash.co.uk has no
+arithmetic checking at all, and two of its three tools are the dangerous kind:
+they hardcode the FCA payday-lending caps — 0.8% a day, £15 default fee, 100%
+total cost — with nothing verifying those numbers against the regulator. That is
+precisely the shape of the stamp duty problem: a rule with a date on it, sitting
+in a page nobody checks. I'd want to point the same method at it next.
+
+Everything is written up in a handoff so this can continue in a fresh
+conversation without losing the thread.

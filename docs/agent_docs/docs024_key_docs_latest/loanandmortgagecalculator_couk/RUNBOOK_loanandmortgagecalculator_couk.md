@@ -582,3 +582,55 @@ IS the property the control tests.
   including an intermediate state created halfway through typing the new one.
   Drive the same final vector from two different priming vectors and compare;
   the readings must agree whatever the tool computes.
+
+## 14. Unlocking a site for full framework editing (2026-08-10)
+
+**The lock is `pages.rebuild_policy`** — `'generic'` | `'owned'` (migration 164's
+CHECK allows only those). Unlock = `owned → generic`. Do it as a migration with a
+`DO`/`RAISE` verify block, applied by hand, then `--record-only`.
+
+```bash
+# state, both axes at once — policy AND whether the page carries a calculator
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -c "
+SELECT s.domain, COALESCE(p.rebuild_policy,'generic') policy, tl.has_tool, count(*)
+FROM sites s JOIN pages p ON p.site_id=s.id
+JOIN (SELECT pc.page_id, bool_or(pc.rendered_html ~ 'onclick=|addEventListener') has_tool
+      FROM page_components pc GROUP BY 1) tl ON tl.page_id=p.id
+WHERE s.domain = '<domain>' GROUP BY 1,2,3 ORDER BY 1,2,3;"
+
+# apply BY HAND (never --apply: it takes every pending file, including other threads')
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db \
+  -v ON_ERROR_STOP=1 < docs/agent_docs/sql_for_agents/367_*.sql
+bash scripts/migration/run-migrations.sh --record-only docs/agent_docs/sql_for_agents/367_*.sql --note "..."
+```
+
+### The gotchas, each one measured
+
+- ⛔ **NEVER flip a page whose calculator lives in a single verbatim component.**
+  `assemble_page → deploy_page(git_commit) → save_sections` commits LLM-written
+  HTML to the sites repo **before** the DB guard refuses, so the calculator is
+  replaced by prose and shipped. `rebuild_policy='owned'` is the only thing
+  preventing it (TL-001 / migration 164). Check
+  `slot_name='ported-page'` + a `onclick=|addEventListener` match first.
+- **Decompose, lock the tool row, RE-SLOT it, THEN flip — in that order.**
+  `matchLockedRow` matches `slot_name` against the incoming section name; a
+  positional `tool-1` never matches and `save_page_sections_action.go:855` moves
+  the unmatched locked row to `len(sections)+1` — the calculator lands at the
+  BOTTOM of the page with only a `lock_blocked` item raised. Silent.
+- **"Locked" never meant uneditable.** Migration 164: re-assembly of existing
+  `page_components` is deliberately un-gated, *"it is how owned pages deploy"* —
+  `page-rerender` and `section-editor` work on owned pages. `owned` blocks the
+  GENERIC pipeline's wholesale rebuild. Do not report an unlock as "now editable".
+- **Unlocking is not sufficiency: check `site_plans` too.** `rebuild_policy` says
+  whether the pipeline MAY rebuild; `site_plans`/`site_plan_pages`/
+  `site_plan_sections` are what it builds FROM. Both these sites had **zero** plan
+  rows, so unlocking made 39 pages eligible and undriven. Read `bugs_open/204`
+  before seeding a plan for a decomposed page.
+- **Induce the verify block before trusting it.** A verify block made of `SELECT`s
+  cannot stop the `COMMIT` — `ON_ERROR_STOP` ignores a non-empty result set. Use
+  `DO`/`RAISE`, and run it once with a deliberately wrong expectation to watch it
+  abort. 367's negative control (tool pages must still be `owned`) was induced by
+  removing the tool filter, and it named the clobber.
+- **Stamp what you changed.** 367 writes every changed page into
+  `_mig367_unlocked_prose_pages`, so its ROLLBACK re-locks exactly those rows.
+  A domain-wide re-lock would silently undo a concurrent thread's legitimate flip.
