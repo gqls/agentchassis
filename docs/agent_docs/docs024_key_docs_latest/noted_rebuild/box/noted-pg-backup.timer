@@ -1,0 +1,12 @@
+[Unit]
+Description=Nightly pg_dump of the noted database
+
+[Timer]
+OnCalendar=*-*-* 03:20:00
+# The shopfront's sitesync runs every 5 min; jitter keeps the dump off its heels
+# and off every other box's 03:20.
+RandomizedDelaySec=900
+Persistent=true
+
+[Install]
+WantedBy=timers.target

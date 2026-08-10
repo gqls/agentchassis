@@ -146,3 +146,103 @@ first 2026-03-14), and every row has `-` for user-agent because Cloudflare is
 the client. Human traffic is **not measurable from here**; most of what is
 logged is scanner noise (`wp-signup.php`, `secrets.json`). Do not report a user
 count from this source, and do not read the absence as "no users".
+
+---
+
+## The box: `webdesign.vs.mythic-beasts.com` (176.126.243.62)
+
+```bash
+ssh -i ~/.ssh/webdesign_box_ed25519 root@webdesign.vs.mythic-beasts.com
+```
+
+Ubuntu 24.04.4, 2 cores, 7.8 GB RAM, 50 GB disk. Shared with the **live
+webdesign.uk shopfront** — nginx on `127.0.0.1:8080`, `webdesign-chat` on
+`*:8081`, `cloudflared` tunnel out. Postgres 16.14 added 2026-08-10 for noted.
+
+> **ALWAYS take a before/after control when you touch this box.** It serves a
+> live commercial front door that is not this workstream's. The cheap pair:
+> ```bash
+> curl -sL -o /tmp/wd_before.html https://webdesign.uk/ && sha256sum /tmp/wd_before.html
+> ssh … 'curl -s -o /dev/null -w "%{http_code} %{size_download}\n" -H "Host: webdesign.uk" http://127.0.0.1:8080/'
+> ```
+> The **box-local** one is the real control — `https://webdesign.uk/` currently
+> 302s to `webdesign.co.uk` (a different site, served from the bucket), so an
+> external check can pass while the box is broken. Baseline as of 2026-08-10:
+> external `200 / 25970 B / sha 26293b6d…`; box-local `200 / 28419 B`.
+
+### Postgres on this box
+
+Cluster `16/main`, **`listen_addresses=localhost`**, bound `127.0.0.1:5432`,
+verified unreachable from outside. Database `noted` owned by role `noted`;
+credentials in `/etc/noted/noted.env` (mode 600, root) as `NOTED_DATABASE_URL`.
+The password was generated on the box and has never left it.
+
+```bash
+psql "$(grep NOTED_DATABASE_URL /etc/noted/noted.env | cut -d= -f2-)"
+```
+
+> **GOTCHA — Postgres grants `CONNECT` to `PUBLIC` on every database by
+> default**, so a freshly created service role can open *any* database on the
+> cluster and read its catalogue. This box is now shared, so that was closed:
+> `REVOKE CONNECT ON DATABASE postgres, template1 FROM PUBLIC`. **Do the same for
+> every database added here**, and verify with a negative control — the `noted`
+> role must be *refused* on `postgres`:
+> ```bash
+> PGPASSWORD=… psql -h 127.0.0.1 -U noted -d postgres -c 'SELECT 1'
+> # expect: FATAL: permission denied for database "postgres"
+> ```
+> This failed the first time it was checked; the fix is only trustworthy because
+> the check was re-run and *changed answer*.
+
+### Backups
+
+`/usr/local/sbin/noted-pg-backup.sh`, run by `noted-pg-backup.timer` daily at
+03:20 UTC + up to 15 min jitter. `pg_dump -Fc` to `/var/backups/noted/`
+(700 root), 14-day retention, pruning only after a size-checked good dump.
+
+```bash
+systemctl start noted-pg-backup.service   # run now
+journalctl -u noted-pg-backup.service -n 5 --no-pager
+systemctl list-timers noted-pg-backup.timer --no-pager
+```
+
+> **GOTCHA 1 — `pg_dump -f <file>` FAILS here, at 03:20, silently, nightly.**
+> The dump directory is `700 root:root` (a dump contains every note), but
+> `pg_dump` runs as the `postgres` user via `sudo`, so *it* cannot open the
+> output file: `could not open output file … Permission denied`. Write to
+> **stdout** and let this script's own root shell do the redirect:
+> `sudo -u postgres pg_dump -Fc -d noted > "$OUT.partial"`.
+> Caught only because the service was **run immediately** rather than left to the
+> timer. Enabling a timer is not evidence it works.
+>
+> **GOTCHA 2 — the same permission wall inverts on restore, and it fakes a
+> CORRUPT BACKUP.** `sudo -u postgres pg_restore -l /var/backups/noted/*.dump`
+> fails — not because the dump is bad, but because `postgres` cannot read a
+> root-only file. It reports as though the archive were unreadable. Verify as
+> **root** (`pg_restore -l "$D"`), and restore by redirecting on **stdin**:
+> ```bash
+> sudo -u postgres pg_restore -d <target> < /var/backups/noted/<file>.dump
+> ```
+> `pg_restore -U postgres -h /var/run/postgresql` as root does NOT work either —
+> peer authentication maps to root, not postgres.
+
+**Proven restore, 2026-08-10** — do this again after any change to the script:
+
+```bash
+psql "$URL" -c "CREATE TABLE probe(id int primary key, v text);
+                INSERT INTO probe VALUES (1,'survives a restore');"
+/usr/local/sbin/noted-pg-backup.sh
+sudo -u postgres createdb noted_restore_probe
+sudo -u postgres pg_restore -d noted_restore_probe < $(ls -t /var/backups/noted/*.dump | head -1)
+sudo -u postgres psql -d noted_restore_probe -tAc "SELECT v FROM probe WHERE id=1;"
+# -> survives a restore
+sudo -u postgres dropdb noted_restore_probe
+```
+
+> **THE BACKUPS ARE ON THE SAME DISK AS THE DATABASE — this is NOT disaster
+> recovery.** It covers a bad migration or a `DELETE` without a `WHERE`. If the
+> box is lost, the dumps go with it. An off-box copy is **required before real
+> user notes land here**; it needs a B2 application key scoped write-only to one
+> backup prefix (it dials OUT, so it fits this box's no-inbound posture), and
+> issuing one is the owner's call. Do not let the first real user sign up before
+> this is resolved.

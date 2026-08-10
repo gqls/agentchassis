@@ -1,0 +1,12 @@
+[Unit]
+Description=Nightly pg_dump of the noted database
+Documentation=file:/usr/local/sbin/noted-pg-backup.sh
+After=postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/noted-pg-backup.sh
+# The dump is I/O heavy and shares a box with a live commercial shopfront.
+Nice=10
+IOSchedulingClass=idle

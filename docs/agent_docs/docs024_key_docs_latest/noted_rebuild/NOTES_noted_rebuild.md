@@ -299,3 +299,116 @@ removes the only shared resource on which noted could take the webdesign.uk
 shopfront down. noted's storage growth is unbounded (audio and images per note,
 per user, forever); the shopfront's is not. Postgres on the box then holds text,
 metadata and object keys, which stays small indefinitely.
+
+---
+
+## 2026-08-10, later still — Postgres installed on the box (phase 1 begun)
+
+Owner: *"please carry on and install postgres there"*. Done on
+`webdesign.vs.mythic-beasts.com`. Everything below is `[MEASURED]` on the box.
+
+### Before/after control, because this box is not ours alone
+
+Baseline taken first, and re-taken after:
+
+| | before | after |
+|---|---|---|
+| external `https://webdesign.uk/` | 200, 25970 B, sha `26293b6d…` | **byte-identical** |
+| box-local `Host: webdesign.uk → :8080` | 200, 28419 B | 200, 28419 B |
+| chat `:8081/health` | 200 | 200 |
+| services | nginx, cloudflared, webdesign-chat active | + postgresql, all active |
+| memory | 506 Mi used | 542 Mi used (postgres RSS 89 MB) |
+| disk | 2.4 G used, 47 G free | 2.7 G used, 47 G free |
+
+**The box-local check is the one that matters.** External `webdesign.uk` 302s to
+`webdesign.co.uk`, a *different* site served from the bucket — so the external
+check would have passed even if I had broken nginx on the box. Noted in the
+RUNBOOK; anyone testing this box from outside is testing the wrong thing.
+
+### What was installed
+
+PostgreSQL **16.14** (Ubuntu 24.04.4), cluster `16/main`, `listen_addresses =
+localhost`, bound `127.0.0.1:5432`. Verified **not reachable** from off-box by an
+actual TCP connect to `176.126.243.62:5432` (the disconfirming result — a
+successful connect — would have made this an incident). ufw untouched: still
+default-deny inbound, port 22 the only rule.
+
+Role `noted`, database `noted` owned by it, password generated **on the box**
+with `openssl rand` and never echoed to my terminal; written to
+`/etc/noted/noted.env`, mode 600 root:root, following idea.uk's
+`/etc/idea/idea.env` pattern.
+
+### Three traps, all of which produce a silent nightly failure
+
+**1. `CONNECT` is granted to `PUBLIC` on every database by default.** My negative
+control — "can the `noted` role open the `postgres` database?" — **FAILED on
+first run**: it returned `1`. That is stock Postgres behaviour, not a
+misconfiguration, but this box is now a *shared cluster* (webdesign + noted +
+whatever comes next), so it matters. Closed with `REVOKE CONNECT ON DATABASE
+postgres, template1 FROM PUBLIC`. Re-ran the control and it **changed answer** to
+`FATAL: permission denied for database "postgres"`, with the positive control
+(own database still reachable) still passing. A check that never changed answer
+would have proved nothing.
+
+**2. `pg_dump -f <file>` cannot write into a root-only backup directory.** The
+dump dir is `700 root:root` — correct, since a dump contains every note — but
+`pg_dump` runs as the `postgres` user under `sudo`, so *it* opens the output file
+and gets `Permission denied`. Fix: dump to **stdout** and let the script's own
+root shell do the redirect.
+
+**This one is the reason to never trust `systemctl enable`.** I enabled the timer
+*and then ran the service immediately* rather than waiting for 03:20. It failed
+instantly. Had I only enabled it, the first evidence would have been an empty
+`/var/backups/noted/` discovered at some point after real user notes existed —
+and the timer would have reported nothing, because a failed oneshot leaves no
+trace anyone is watching. **Enabling a timer is not evidence that the job works.**
+
+**3. The same permission wall inverts on restore, and it counterfeits a corrupt
+backup.** My first validity check ran `sudo -u postgres pg_restore -l <dump>` and
+printed **INVALID** — which I nearly recorded as "the backup is bad". It wasn't:
+`postgres` cannot *read* a 600 root-owned file, and `pg_restore` reports that as
+an unreadable archive. As root, `pg_restore -l` exits 0 and lists a valid archive
+(6 TOC entries, gzip, dump version 1.15-0).
+
+The general form, and it is the same shape as this morning's diff error: **a
+check that fails for its own reasons is indistinguishable from the thing it was
+checking failing.** Both times the wrong answer was the alarming one, and both
+times the fix was to test the claim by a different route rather than re-run the
+same instrument.
+
+### The restore is PROVEN, not assumed
+
+A dump that has never been restored is a file, not a backup. Round trip:
+
+```
+psql "$URL" -c "CREATE TABLE probe(...); INSERT INTO probe VALUES (1,'survives a restore');"
+/usr/local/sbin/noted-pg-backup.sh          -> wrote …170314Z.dump (3811 bytes)
+sudo -u postgres createdb noted_restore_probe
+sudo -u postgres pg_restore -d noted_restore_probe < <dump>
+sudo -u postgres psql -d noted_restore_probe -tAc "SELECT v FROM probe WHERE id=1;"
+  -> survives a restore
+```
+
+Note `pg_restore -U postgres -h /var/run/postgresql` as root does **not** work —
+peer auth maps to root, not postgres. Redirect on stdin instead.
+
+Timer: `noted-pg-backup.timer`, daily 03:20 UTC + up to 15 min jitter,
+`Persistent=true`. `Nice=10` and `IOSchedulingClass=idle` because a live
+shopfront shares the disk. Next run confirmed scheduled.
+
+### The gap that is NOT closed, and must be before launch
+
+`[STATED, NOT FIXED]` **The backups are on the same disk as the database.** That
+covers a bad migration or a `DELETE` without a `WHERE` — the failures that
+actually happen — and nothing else. If the box is lost the dumps go with it.
+
+Deliberately not fixed here: an off-box copy needs a credential **on** the box,
+and this box's whole posture is that it holds none and dials nothing in. A B2
+application key scoped write-only to a single backup prefix is the right answer
+(it dials OUT, like cloudflared, so the posture survives), but issuing one is the
+owner's call. **This must be resolved before the first real user note lands.**
+Written into the script's own header, not only here, because the script is what
+the next session opens.
+
+Also still absent: nothing on this box backs up `webdesign-chat`'s own
+`state.json` / `transcripts.jsonl`. Not mine, but nobody has it.
