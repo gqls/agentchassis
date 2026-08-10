@@ -198,3 +198,80 @@ The two things still waiting on you are unchanged: what the privacy wording
 becomes once people can sign in, and the fact that migrating anyone's existing
 notes needs them to press export and then import — we hold no copy and can't
 reach their browsers.
+
+---
+
+## 2026-08-10, evening — backup plan ready, and the shopfront is on the list
+
+### The backup plan
+
+Written up in `PLAN_2026-08-10_box_backup.md`. Two things in it are worth your
+attention before anything else.
+
+**The dumps get encrypted before they leave the box, and the box can't decrypt
+them.** This isn't belt-and-braces. Once people can sign in, the strongest thing
+we can honestly say about privacy is "your notes are on our server; we could read
+them; we don't". Shipping a nightly unencrypted copy of everyone's private
+writing to a third-party bucket would quietly make that worse, whether or not
+anyone ever looked. So the box gets only a public key — it can encrypt and cannot
+read anything back.
+
+**The cost of that is one thing you must not lose.** If the private key goes
+missing, every off-box backup is permanently unreadable, and no support call
+fixes it. It needs to live in two places you control, and we should do one real
+restore *from your stored copy* before we rely on any of this.
+
+**What I need from you: generate that key.** That's the blocking step; everything
+else is built around it.
+
+### I tested the B2 key rather than trusting the documentation, and it found two things
+
+I created a throwaway key, tried every operation against it, then deleted it and
+the test file.
+
+**The b2 tool refuses to start without `listBuckets`** — even though the job only
+ever uploads. Reasoning it out gives the wrong answer, and the failure would have
+turned up at 3:20am with nobody watching.
+
+**And a write-only key can still *hide* files.** After hiding my test file, a
+normal listing showed nothing at all — the backup looked deleted. The data was
+still there and one command brought it back, but it means I can't honestly tell
+you "a stolen key can't touch the backups". What I can tell you is: it can't read
+them, it can't delete them, and it can hide them in a way that's recoverable but
+looks exactly like deletion. That changes how we monitor — a check that asks "is
+today's backup there?" can't tell hidden from missing, so it has to ask
+differently.
+
+The good news: the object-lock protection is real. When I tried to delete a
+protected file with my *full admin* key, B2 refused. It only worked when I added
+an explicit override flag.
+
+### The shopfront — you're right, and here's exactly what's wrong
+
+I've measured it so it's a concrete item rather than a vague one:
+
+- `webdesign.uk` and `www.webdesign.uk` both **redirect to webdesign.co.uk** — a
+  different site entirely, served from the bucket rather than the box.
+- `preview.webdesign.uk` **works fine** and reaches the box.
+- The chat's API endpoint redirects away too, so **the chat is unreachable at its
+  own domain.**
+
+So the box itself is healthy — nginx, the chat service and the tunnel are all
+serving correctly. The redirect is happening at Cloudflare, in front of the
+tunnel, on the zone. That's why `preview` gets through and the other two don't.
+
+One thing worth passing to whoever picks it up: there's an existing note
+attributing your "I tested the chat and nothing happened" to a stale cached
+JavaScript file. That may be right about the caching, but it wouldn't explain
+this — the API endpoint is being redirected before it ever reaches the box, and no
+amount of cache clearing fixes that. I haven't worked out which problem came
+first, so I'm not saying the earlier diagnosis was wrong, only that this one is
+also true today.
+
+**Agreed on the approach**: rather than hand-fix it, put it through the
+framework's own checks. That's the better outcome, because this is precisely what
+an availability check exists to catch — a site whose public address sends
+visitors to someone else's domain — and right now no such check is switched on
+anywhere in the fleet. The code exists; its configuration is deliberately held.
+Fixing it that way turns one broken shopfront into a check that watches all of
+them. I'll follow it through in this thread.

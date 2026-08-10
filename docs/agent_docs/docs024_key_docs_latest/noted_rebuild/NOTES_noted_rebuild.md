@@ -412,3 +412,103 @@ the next session opens.
 
 Also still absent: nothing on this box backs up `webdesign-chat`'s own
 `state.json` / `transcripts.jsonl`. Not mine, but nobody has it.
+
+---
+
+## 2026-08-10 — B2 backup key probed against real B2, and the shopfront characterised
+
+### The key capability set is TESTED, not reasoned
+
+Created a temporary bucket-scoped key, ran every operation against it, deleted
+the key and the test object. Results, all `[MEASURED]`:
+
+| operation | `listBuckets,writeFiles` | verdict |
+|---|---|---|
+| `b2 account authorize` with `writeFiles` ALONE | **refused** | `listBuckets` is mandatory for the CLI |
+| upload | works | the only thing the job needs |
+| download | `unauthorized` | a stolen key cannot read anyone's notes |
+| `b2 ls` | `unauthorized` | cannot enumerate backups |
+| `b2 rm` | `unauthorized for application key with capabilities 'writeFiles,listBuckets'` | cannot delete |
+| `b2 ls` on another bucket | `Application key is restricted to buckets: ['personae-noted-backups']` | scoping holds |
+| **`b2 file hide`** | **SUCCEEDS** | see below |
+
+**Two of these would have cost a silent nightly failure or a false security
+claim.**
+
+**`listBuckets` is required by the CLI itself** — `b2 account authorize` refuses
+outright with *"application key has no listBuckets capability, which is required
+for the b2 command-line tool"*. Reasoning from "the job only needs to write" gives
+the wrong answer, and the failure would have arrived at 03:20 with nobody
+watching.
+
+**`writeFiles` includes HIDE.** After hiding the probe, `b2 ls --recursive`
+returned **nothing at all** — the backup looked deleted. `--versions` showed the
+truth: a 0-byte hide marker over the real 43-byte object. `b2 file unhide` then
+recovered it with content intact. So the defensible claim is *"cannot delete or
+read, but CAN hide"*, and a monitor that asks "is today's dump there?" cannot tell
+a hidden backup from a missing one.
+
+### Three false negatives from my own checks in one session — the pattern is now the finding
+
+1. `pg_restore -l` as the postgres user reported a valid dump as unreadable
+   (it could not read a 600 root file).
+2. My bucket-inspection one-liner printed `fileLockEnabled: None` because the
+   field is **top-level `isFileLockEnabled`**, not nested under
+   `fileLockConfiguration.value` — the flag had worked perfectly.
+3. `b2 file delete` "passed" the deny test by being **an invalid CLI subcommand**
+   in v4.7 (`b2 rm` is the real one). A syntax error looked exactly like a
+   permission denial, and only reading the full output instead of grepping for
+   `denied|unauthorized` exposed it.
+
+All three said "the thing is broken/absent" when the thing was fine and the
+*instrument* was wrong. Combined with this morning's backwards diff, that is four.
+**The through-line: I grep for the error I expect, and a check that fails for its
+own reasons is indistinguishable from the thing under test failing.** The habit
+that caught every one was the same — print the whole output, and verify by a
+second, differently-shaped route. Worth a WRONG_CALLS entry on the pattern rather
+than four on the instances.
+
+### Object Lock verified working, including against myself
+
+`b2 rm` on a retained file was **denied to the full admin key** (which holds
+`bypassGovernance` and `deleteFiles`) and succeeded only with an explicit
+`--bypass-governance`. Governance retention is real, and the escape hatch is
+opt-in per command rather than implied by the capability.
+
+### The shopfront is broken — characterised, not fixed
+
+`[MEASURED 2026-08-10]` Owner: *"The shopfront was already broken so we will need
+to fix it later as part of this thread."* Concretely:
+
+| hostname | result |
+|---|---|
+| `https://webdesign.uk/` | **302 → `https://webdesign.co.uk/`** |
+| `https://www.webdesign.uk/` | **302 → `https://webdesign.co.uk/`** |
+| `https://preview.webdesign.uk/` | **200, 28785 B — reaches the box** |
+| `POST https://webdesign.uk/api/chat` | **302 → webdesign.co.uk** |
+
+So the box is **healthy and serving correctly**; both public hostnames are
+redirected away to a different site (webdesign.co.uk, served from the bucket, not
+the box). The redirect happens **in front of the tunnel** — cloudflared's ingress
+maps `webdesign.uk`, `www.` and `preview.` all to `127.0.0.1:8080`, and only
+`preview.` arrives. That places the cause at the Cloudflare layer (a redirect
+rule / page rule on the zone), not on the box.
+
+Consequence worth flagging to that lane: **the chat service is unreachable at its
+own domain** — `POST /api/chat` never reaches the box. `HANDOFF_2026-08-10c`
+attributes the owner's "nothing happened" chat test to a stale cached
+`snippets.js` (`cf-cache-status: HIT`, `age: 5621`). That diagnosis may be
+incomplete or superseded: a 302 on the API endpoint would produce the same
+symptom and is not a caching problem. I have **not** established which came first
+and am not claiming the earlier diagnosis was wrong — only that today the
+endpoint 302s, and a cache fix would not address that.
+
+**Not fixed here** (another lane's live commercial service, and a zone-level
+change). Tracked in `README_where_we_are.md` as an explicit follow-through, per
+the owner's instruction that we see it through in this thread. The intended route
+is the framework's own checkers — `check_site_unreachable` / the experience-loop
+tool checks — which is a better outcome than a one-off manual fix, because it
+would have *caught* this: a site whose public hostname 302s to a different domain
+is exactly what an availability check exists to find, and none is currently seated
+(`site_unreachable` is code-committed but config-HELD in
+`sql_for_agents/368_site_availability_driver_HOLD.sql`).
