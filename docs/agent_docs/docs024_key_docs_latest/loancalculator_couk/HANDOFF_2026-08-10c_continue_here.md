@@ -77,9 +77,15 @@ is filed as a landmine.
 - Intake work item cancelled. Note the trigger inserts a fresh one per fire, so a previous
   cancel does not cover a later probe.
 - `max_rounds` back at **5**, read back from the live row.
-- `LANDMINES.md` entry synced to `doc_notes`; it was flagged `NEEDS_VERIFICATION` by
-  `landmines-sync.py`, so a `landmine-verifier` pass is still owed — the cap that blocked it has
-  lifted, so `landmines-verify-dispatch.sh` can run now.
+- `LANDMINES.md` entry synced to `doc_notes` **and verified** — `landmine-verifier` run
+  `8d0d8f20`, verdict **STILL_VALID**, having independently re-read `applyCouncilCaps`
+  L663-671 and confirmed the `shouldReframe` guard the entry quotes. (Fired per-entry with
+  `scripts/trigger-landmine-verifier.sh '<source slug>'` rather than
+  `landmines-verify-dispatch.sh`, because the wrapper re-syncs the whole file and would have
+  spent a run on another lane's in-progress entries. Its own caveat, worth knowing: the code
+  index is **.go-only**, so agent-definition rows, shell scripts and config keys came back
+  "not answerable" — 4 of its 10 checks. It cannot verify the half of a landmine that lives
+  in the database.)
 - `WRONG_CALLS.md` carries the near misses; `NOTES` has the full record including the missteps.
 
 ## What was deliberately NOT done, and who owns it
