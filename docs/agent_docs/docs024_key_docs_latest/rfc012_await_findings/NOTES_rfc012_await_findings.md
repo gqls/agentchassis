@@ -1417,3 +1417,34 @@ being read as a dead pipeline.
 INDUCE a failure on a step resumed after an await rather than to wait for dormant producers.
 Everything else the owner commissioned is delivered; the standing handoff is now
 `HANDOFF_2026-08-10_continue_here.md`.
+
+### Later the same day — the induced test, and the census that made it necessary
+
+Before building anything I checked whether live traffic could still settle it, and the answer is
+**no, and more sharply than "dormant"**. One query over the inheriting doors:
+`diagnose_persist_fix_plan` wrote **17 `generic` rows up to 2026-07-26**, then `feature-designer`
+(07-31) and `council-gate` (08-09); `reconcile_superseded_reviews` wrote **25 `generic`, last
+07-23**. **No inheriting door has filed a `generic` row fleet-wide since 2026-07-26** — the day
+`RunAgentType` shipped (`baf887a8e`) and fixed the *dispatch-sender* half. So the condition the §7
+backfill catches is not waiting to happen; it has not happened in over two weeks.
+
+⚠ **And the tempting misreading has to be stated, because I nearly made it:** those later rows
+carrying real agent types are **not** evidence for this change. They predate the roll. They are
+explained entirely by the sender already being correct on those paths — exactly the "measurement
+that could not have come out otherwise" shape, wearing the opposite sign this time (a *positive*
+that proves nothing rather than a zero that proves nothing).
+
+So it was induced: `resumed_step_provenance_test.go` (`4fa9d1dec`). The design choice worth keeping
+is that it **builds the resumed context the way a resume builds it** —
+`ToResponseHeaders`→`FromResponseHeaders` — instead of hand-assembling the struct the way my earlier
+unit test did. The earlier one assumes the premise (that a resumed context arrives without
+`RunAgentType`); this one exercises it, and pins it **structurally**: `ResponseHeaders` has no
+`run_agent_type` field at all, so rung 1 *cannot* survive an await. Mutating the backfill away
+reproduces the production symptom verbatim: `ResolvedAgentType() = "generic", want "council-gate"`.
+
+**The honest closing position, which is not the triumphant one:** the mechanism is proven on the
+real resume path, in a harness. Whether the condition recurs live is not forceable, and on this
+evidence it may not — in which case the fix is insurance rather than a repair, and the residue it
+was sized against was already gone before it shipped. That is three separate ways this lane's
+headline number has now turned out to be about the past rather than the present, which is probably
+the most transferable thing in the whole workstream.

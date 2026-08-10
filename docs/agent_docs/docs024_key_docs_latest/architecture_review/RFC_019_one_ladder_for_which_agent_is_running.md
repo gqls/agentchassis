@@ -432,13 +432,48 @@ coordinator-path producers §1's table scoped **out** of this change, so their s
 and it proves the `generic` value can still be written at all, which is what stops the headline 0
 being read as a dead write path.
 
-### What would actually settle it
+### What would actually settle it — DONE 2026-08-10, and the answer required giving up on live traffic
 
-Waiting is not a plan: the producers are dormant and may stay so indefinitely. The decisive test is
-to **induce** one — deliberately fail a step that has been resumed after an await, through one of the
-six RSH-008 doors, and read the `agent_type` on the row it writes. That is the only check whose
-result depends on the code rather than on whether anything happened to break this week. Until it is
-run, the honest status is: **present in the binary, behaviourally unproven.**
+Waiting was not a plan: the producers are dormant and may stay so. **And the discriminating case is
+worse than dormant — it is effectively extinct.** The census that settles this is one query against
+the inheriting doors:
+
+| action (an inheriting door) | `agent_type` | rows | last |
+|---|---|---|---|
+| `diagnose_persist_fix_plan` | **`generic`** | 17 | **2026-07-26** |
+| `diagnose_persist_fix_plan` | `feature-designer` | 6 | 2026-07-31 |
+| `diagnose_persist_fix_plan` | `council-gate` | 7 | 2026-08-09 |
+| `reconcile_superseded_reviews` | **`generic`** | 25 | **2026-07-23** |
+
+**No inheriting door has filed a `generic` row anywhere in the fleet since 2026-07-26** — the day
+`RunAgentType` itself shipped (`baf887a8e`), which is what fixed the *dispatch-sender* half. So the
+condition this backfill exists to catch has not naturally occurred in over two weeks, and no amount
+of waiting or fleet traffic will produce one. ⚠ **Note what this also means: the later rows carrying
+real agent types are NOT evidence for this change** — they predate the roll and are explained by the
+sender already being correct on those paths.
+
+**So it was induced instead**, in `platform/orchestration/resumed_step_provenance_test.go`
+(`4fa9d1dec`). It differs from the unit test beside it in the way that matters: it **builds the
+resumed context the way a resume builds it** — `ToResponseHeaders` → `FromResponseHeaders` — rather
+than hand-assembling the struct, so the premise is exercised rather than assumed. Three things it
+pins:
+
+1. **The premise, structurally.** `ResponseHeaders` carries no `run_agent_type` field *at all*, so
+   rung 1 **cannot** survive an await — this is not "happens not to", it is "cannot". If someone
+   later adds the field, the test fails and tells its author the backfill may be redundant.
+2. **The discriminating condition, induced.** The response's sender is set to `generic` explicitly,
+   because `ensureFullExecutionContext` backfills `Sender` only when it is *empty*, so a populated
+   `generic` sender survives untouched — which is exactly why the old code had nothing better to
+   reach for.
+3. **The defect, reproduced.** With the backfill mutated away the test reports
+   `ResolvedAgentType() = "generic", want "council-gate"` — the production symptom verbatim, on the
+   real round-trip path. With it restored, the package is green.
+
+**Status: present in the binary, and the mechanism is now proven on the real resume path — but
+proven in a harness, not in production, and that distinction should not be quietly dropped.** What
+remains unproven is only whether the condition ever arises again in live traffic; on the evidence
+above it may simply not, in which case this fix is insurance rather than a repair, and the residue
+it was sized against was already gone before it shipped.
 
 ## 11. OWNER RULING, 2026-08-09 — "shared code wins this one"
 

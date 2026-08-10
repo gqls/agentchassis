@@ -27,6 +27,19 @@ Then: `RUNBOOK_rfc012_await_findings.md` · `NOTES_rfc012_await_findings.md` (th
 
 ---
 
+> **JOB 1 IS DONE (2026-08-10, later).** The induced test exists — `4fa9d1dec`,
+> `platform/orchestration/resumed_step_provenance_test.go` — and it reproduces the production
+> symptom verbatim under mutation (`ResolvedAgentType() = "generic", want "council-gate"`) on the
+> real `ToResponseHeaders`→`FromResponseHeaders` resume path. **It had to be induced because the
+> live case is EXTINCT, not merely dormant:** no inheriting door has filed a `generic` row anywhere
+> in the fleet since **2026-07-26**, the day `RunAgentType` shipped and fixed the dispatch-sender
+> half. See `RFC_019` §12's census table. **Read the rest of this section anyway** — the two traps
+> in it (comment-needles, demand-vs-traffic) are why the job existed, and both will recur.
+> **What is left of Job 1: nothing actionable.** The mechanism is proven on the resume path in a
+> harness; whether the condition ever arises again in live traffic is not something a thread can
+> force, and on the evidence it may simply not — in which case this fix is insurance, and the
+> residue it was sized against was gone before it shipped. Do not open a new round for it.
+
 ## JOB 1 — the §7 acceptance evidence is STILL OWED, because the test as written cannot fail
 
 **Do not read RFC_019 §7's recipe and run it. Read §12 first — it explains why §7 is wrong.**

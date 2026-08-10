@@ -512,3 +512,26 @@ than wait for one, and that is the first job written into the handoff for whoeve
 Everything else you asked for is finished. The one loose end that needs a human hand is a database
 change that is written, checked and deliberately not run — applying those is somebody's decision,
 not a side effect of my finishing.
+
+**2026-08-10, later — you asked me to force the failure, and forcing it turned out to be the only
+option left.** Before building anything I checked whether the live system could still answer the
+question on its own. It cannot, and the reason is sharper than "we've been unlucky": the exact
+situation this fix guards against **has not occurred anywhere in the fleet since 26 July**. That was
+the day an earlier fix landed which repaired the other half of the same problem. So we have not been
+waiting for a rare event — we have been waiting for one that stopped happening two weeks before we
+shipped the code to catch it.
+
+So I induced it in a test harness instead, and it behaves exactly as designed: with the fix in, the
+error record names the right agent; with the fix removed, it names `generic` — the original symptom,
+word for word. The test builds the situation the way the real system builds it, rather than
+hand-assembling a convenient version of it, which is the difference between checking the wiring and
+checking your own assumption about the wiring.
+
+**The honest conclusion, which is not the flattering one.** The fix is correct and it is live, and
+we now have proof of the mechanism. But the problem it was sized against — the "36 mislabelled
+records" that justified the work — was already gone before the code shipped. On this evidence the
+change is insurance rather than a repair. I would rather tell you that than let three approvals and
+a green test read as "we fixed a live problem", because that is the third time on this piece of work
+that our headline number has turned out to describe the past rather than the present. If there is
+one durable lesson from the whole thing, it is that one: **we are good at measuring, and we keep
+measuring a world that has already moved.**
