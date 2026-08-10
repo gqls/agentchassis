@@ -4,6 +4,14 @@
 Opus to implement. Every figure below was measured against the live system in
 this session and carries its check; inferences are marked.
 
+> **EXECUTION STATUS — do not read the phase list below as untouched.**
+> `HANDOFF_2026-08-10_continue_here.md` carries live state and supersedes §4 here.
+> As of 2026-08-10: **A2 done** (first sweep ran and re-verified all four facts),
+> **A5 done** (comparator re-run; all three supply-both rebuilds landed),
+> **A3 part done** — migration `366` applied, so Piece 1 is live for
+> `tool-recreation-handler` and its effect on a real rebuild is still unproven.
+> A1 and A4 remain as written.
+
 The one-line problem: **the evidence register guards copy, not code.** A fact
 constrains what a page may *say*; nothing connects a fact to the constants
 inside a calculator's JavaScript. mortgagecalculator.co.uk's original stamp-duty

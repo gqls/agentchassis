@@ -1411,3 +1411,74 @@ already names in the code that does it.
 **Owed follow-ups from this session:** (1) re-run the replay comparator;
 (2) check the 08-10 sweep; (3) file the typed-struct landmine to `LANDMINES.md`
 + `--apply` the sync; (4) the twelve missing tool PLANs.
+
+## 2026-08-10 — the sweep proved itself, the rebuilds landed, and Piece 1 is live
+
+Cold start for this lane is now `HANDOFF_2026-08-10_continue_here.md`.
+
+**A2 DONE — the legislation watch is PROVEN, not merely armed.** Sweep ran
+09:02:33Z. All four SDLT facts: `verified_at` AND `source.citation.accessed`
+both moved `2026-08-09` → `2026-08-10`; zero `stale_evidence`/`citation` items.
+`[MEASURED]` — and this is the check that could have come out otherwise: four
+`citation_lost` items was the predicted day-one failure. **It also closes
+08-09's `[UNVERIFIED]`:** my python quote extraction and Go's
+`VisibleTextFromHTML` agree on all four quotes. Per RUNBOOK §11 the proof is
+`verified_at` moving on OUR facts, never the task's own `last_completed_at`,
+which covers the fleet. **The day-one gotcha is now spent — the next
+`citation_lost` here is a real signal.**
+
+**A5 DONE — comparator re-run:
+`acceptance/COMPARE_2026-08-10_after_supply_both_builds.txt`.** Verdicts in the
+handoff §1(b). The three supply-both rebuilds landed:
+- bridging-loan **VERIFIED** outright (16 rounding-equal).
+- rate-forecaster: defaults drive to **1,389.58 / 1,525.78 / 1,286.39** — the
+  spec's worked check to the penny, so the 3-phase model landed. Its lone
+  DOMAIN-DIFF is the `double` vector, which is a **50-year term**; driven
+  directly, the rebuild answers *"Please enter a term of 40 years or less."* and
+  computes correctly at 40. A stated cap, same class as repayment's fractional-
+  term refusal. `[MEASURED — drove the live page at 25y, 50y and 40y]`
+- fee-analyser: `tcTotal` **£17,384.79** (= the spec's worked check exactly) and
+  `tcOutlay` **£26,841.44** (= the original to the penny). `[MEASURED — drove the
+  live page at the golden's defaults via CDP]`
+
+**MISSTEP AVOIDED, and it is a new trap: I nearly read fee-analyser's DIVERGED as
+a defect.** `compare_rebuilt.py` judges only ids present on BOTH sides. A rebuild
+specified to ADD an output is therefore **structurally guaranteed** to read
+DIVERGED: the id that agrees with the original (`tcOutlay`) is new and invisible
+to the comparison, and the id that gets judged (`tcTotal`) is the one we
+deliberately changed. The verdict is a property of the comparator's design, not
+evidence about the tool. **Drive the new ids directly before believing DIVERGED
+on any tool whose spec added outputs.** Also filed to the handoff §5.
+
+**A3 PART DONE — migration `366` applied**: `tool-recreation-handler`'s
+`recreate_tool` prompt now carries a "Verified facts — these OVERRIDE the
+original tool AND the specification" section injecting
+`{{.site_specs.specs.evidence_base.writer_block}}`. Snapshot `8701375f`,
+`UPDATE 1`, guard passed, recorded in the ledger.
+
+Three things worth carrying forward from doing it:
+
+1. **`--apply` takes EVERY pending file — 11 others were pending**, one of which
+   (`324`) refuses by design because on an older binary it deploys the wrong
+   asset bytes. Scoped with `MIGRATIONS_DIR=<dir with only my file>`, md5 checked
+   against the repo file first so the ledger's checksum is the real one.
+2. **My own guard refused my own file** — I asserted the `writer_block` reference
+   appeared once; it appears twice (`{{if}}` + interpolation). The guard was
+   right and the EXPECTATION was wrong. Fixed to `= 2`, not loosened to `>= 1`,
+   because the exact count is the double-application check.
+3. **The no-op case was the one that could have broken six sites.** A malformed
+   template, or a chained access through a missing map key, would break tool
+   recreation fleet-wide. So the LIVE prompt was pulled from the DB and parsed +
+   executed through the same engine and funcMap as
+   `datahelpers.RenderPromptTemplate` across four shapes: register+block →
+   renders; register without block → else; **no `evidence_base` aspect at all →
+   else, no error, no `<no value>`**; empty specs → else (its lone `<no value>`
+   is the pre-existing `identity.industry` line, not this section).
+
+**366's effect on a real rebuild is UNPROVEN and must not be written up as a
+win.** A prompt change with no observed output is a claim. The proof is to
+re-file one recreation and read the generated JS for £500,000 rather than
+£625,000 — next action 1 in the handoff. Note also that the code comment 366
+asks for beside each registered constant is a **trace for a human reader**; it
+must never become the machine declaration of Piece 2, because a comment enforces
+nothing and a source-scanning consumer would make every comment load-bearing.

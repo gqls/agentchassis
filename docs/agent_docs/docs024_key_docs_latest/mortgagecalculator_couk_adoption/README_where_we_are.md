@@ -756,3 +756,55 @@ arithmetic in the calculators, those stamp duty facts deserve a human read.
 
 Full design, with the measurements and the traps:
 `PLAN_2026-08-09_facts_into_tool_acceptance.md`.
+
+---
+
+**2026-08-10 — the daily legislation check has now actually run, and the three
+rebuilt calculators are right.**
+
+Three good pieces of news and one honest caveat.
+
+First, the legislation watch is no longer just switched on — it has run and
+worked. At two minutes past ten this morning the platform re-fetched the GOV.UK
+stamp duty page, found all four of our quoted sentences still there word for
+word, and stamped each fact as re-verified. That matters more than it sounds:
+the risk on day one was never that the law had changed overnight, it was that
+our own quotes wouldn't survive the platform's way of reading the page, and
+we'd get four false alarms. We got none. So from here, an alarm means something.
+
+Second, the three calculators we agreed to rebuild have landed, and I checked
+them against the originals rather than taking the pipeline's word for it. The
+bridging loan calculator now matches the original exactly. The rate forecaster
+reproduces the original's cleverer over-time model to the penny. The fee
+analyser does what you asked for — both cost figures on one page — and I drove
+the live page to read them: the new figure agrees with the original's £26,841.44
+to the penny, and the second, stricter figure comes out at £17,384.79 exactly as
+specified. Nothing regressed.
+
+One of those checks nearly went wrong in an instructive way. My comparison tool
+only compares numbers that appear on *both* the old and new pages. The fee
+analyser was deliberately built to show an *extra* number — so the tool marked
+it as a disagreement, because the figure that agrees with the original is the
+new one it can't see. Any calculator we improve by adding an output will look
+broken to that comparison. I've written the warning down where the next person
+will hit it.
+
+Third, the cheapest piece of the facts-into-calculators work is now live. The
+agent that rebuilds a calculator is told, in its instructions, that a registered
+fact overrides both the original code and the specification — and it is handed
+the current stamp duty rules to work from. Before applying it I checked the
+thing that could have gone badly wrong: six of our sites have no registered
+facts at all, and a clumsy change here would have broken calculator rebuilds on
+all of them. I tested that case explicitly and it behaves exactly as before.
+
+The caveat: that last change is applied but not yet *proven*. Telling a model to
+prefer a fact is not the same as watching it do so. The next job is to rebuild
+one calculator and read the code it produces, checking it uses £500,000 rather
+than the old £625,000. Until that's done it's a reasonable expectation, not a
+result, and I'd rather say so than let it read as finished.
+
+Still open and unchanged: the stamp duty calculator's dropdown values need
+pinning before it can be checked automatically; twelve of our calculators have
+no checking document at all, which is why none of them has ever had an automated
+check run against it; and the big piece — computing expected answers from the
+registered facts themselves — still needs its architecture review.
