@@ -780,3 +780,46 @@ matters, the open design questions, and what it is not (it's not a content-fresh
 have two of those already).
 
 The third review round is running now.
+
+**2026-08-10 — the new build carries everything, and the honest score so far**
+
+The fresh chassis went out this afternoon and I checked it rather than assuming: both machines are
+running the new code, all four of the markers I look for are present, and the control marker that
+proves the check itself works is there too. Nothing was lost in the roll.
+
+Where we actually are. Both new categories are live and closing real work — this morning's run
+looked at 243 findings and closed 37, eight of them in the factual-claims category you ruled on.
+Every one of those eight was a page whose text had genuinely been edited since the warning was
+raised, spread across ten days and several sites, so these are real fixes rather than one rebuild
+clearing the board.
+
+But I want to be straight about your gate: **it has held every time and it has never once stopped
+anything.** Zero refusals so far. On the pages we've seen, every one that scanned clean had also
+been edited, so the gate hasn't yet had to do its job. It's proven to be there and proven correct
+where it applied — it is not yet proven to bite. I've written it up that way rather than letting it
+read as though it saved us from something.
+
+Two reviewers pushed on a real weakness in it, and they're right. The date we compare is for the
+whole section of a page, not for the specific sentence that was flagged. So an unrelated tweak to
+the same section technically satisfies the gate. I checked the obvious way that could have gone
+wrong — everything closing at once because of a bulk rebuild — and that isn't what happened here.
+The weakness stands though, and tightening it so we compare the actual flagged sentence is the best
+next job. The finding already records what it objected to; nothing currently reads that back.
+
+One thing I found today that's worth telling you, because it makes the case for your ruling much
+stronger than I could. Another team wrote down, back on 31 July, exactly the concern the reviewers
+raised — and with a live example. Their note says a registered fact makes the whole claims check
+meaningless as evidence of truth, because **the register is also the list we hand the writer**. So a
+false entry is self-ratifying: the platform tells the writer to state it, then vouches for it. Their
+example is gamesdesign, which claims "10,000 Monte Carlo trials per query" about a tool whose code
+contains no randomness whatsoever — and every check passes it, correctly. That's precisely the hole
+your gate closes, described independently before we got here.
+
+The review board has now said revise four times. Each time it was right, and I'd rather report that
+plainly than round it up: once it caught a factual error of mine, once it insisted the decision was
+yours, and twice it caught me describing my own work less carefully than I'd done it. The latest was
+that I'd folded one change into another one's description, so a reviewer reading only my summary
+correctly concluded the whole thing couldn't work. The code was fine; my paperwork wasn't. Round
+four is running now with that filed properly.
+
+Everything is written down for a fresh start: `HANDOFF_2026-08-10_continue_here.md`.
