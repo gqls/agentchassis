@@ -125,3 +125,38 @@ in production yet.
 > `logged-model-output` at `diagnose_load_runtime_action.go:669`. That line is
 > from commit `68933d0c9` and writes SQL result rows, not model output; my edit
 > only shifted its line number under the checker.
+
+### Later, same session — closing the caveat I had flagged but not resolved
+
+The RUNBOOK warns that the `jsonb_each` over `default_config #> '{workflow,steps}'`
+walks **top-level steps only** and is blind to a step nested in a loop's
+`sub_workflow` (the commission records that shape returning 3 of 6 elsewhere). I
+had used exactly that shape to claim "no live config overrides the Go defaults"
+— and then put that claim in the council submission. Flagging a caveat is not
+closing it, so I re-ran it a second way that **can** see nested steps:
+
+```sql
+SELECT type,
+       (default_config::text LIKE '%schema_include_patterns%'),
+       (default_config::text LIKE '%schema_exclude_patterns%'),
+       (default_config::text LIKE '%schema_full%'),
+       (default_config::text LIKE '%diagnose_load_runtime%')
+FROM agent_definitions
+WHERE deleted_at IS NULL AND COALESCE(is_snapshot,false)=false
+  AND default_config::text LIKE '%diagnose_load_runtime%';
+-- 4 rows; f|f|f|t on every one
+```
+
+Same four agents, none of the three keys anywhere in the JSON at any depth. The
+two methods are blind in **different** ways and agree, which is the version of
+agreement that means something.
+
+**A misstep inside the check itself.** My intended positive control was
+`schema_table_cap` — "does this LIKE match a key I know exists?" It returned
+**0**, because that key is not configured anywhere either. So the control proved
+nothing about the LIKE; a zero from a broken query and a zero from an honest
+absence look identical, which is the whole reason to run a control. The control
+that actually works was already in the result: the `diagnose_load_runtime` column
+returns `t` on all four rows, so the text scan demonstrably matches when there is
+something to match. **Pick a control you have independently confirmed is present
+— not one you assume is.**
