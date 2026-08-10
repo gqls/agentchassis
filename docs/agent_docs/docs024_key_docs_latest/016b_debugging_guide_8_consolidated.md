@@ -11675,3 +11675,34 @@ from a capped pipeline, establish that the cap did not bite **from the stored ar
 alone**; if you cannot, the result means "clean among what was examined", which is a
 different claim. A neighbouring step that reports its own truncation correctly is not
 reassurance — it is the proof that the parity is cheap and was simply not applied.
+
+### One nil, two environments — a step can fail identically on EVERY run while each execution path lacks the dependency for a different reason, and the terminal step's name makes the loss read as a designed branch (`bugs_open/243`, 2026-08-10)
+
+`tool-acceptance-agent`'s `look` step failed on 26 of 26 retained runs with one message
+(`execute_vision_prompt: no storage client`), and the runs still read as successes:
+`status=COMPLETED`, `current_step='complete_no_look'` — a name that looks like a
+deliberate "nothing to look at" branch. Three transferable rules:
+
+1. **Group by `__step_error`, not by terminal step.** `complete_no_look` has two honest
+   readings (designed skip vs uniform failure) and the count alone cannot pick one. 26
+   rows sharing one error message can. The general test for "is this branch designed or
+   broken": a designed skip has *varying* absence reasons; a broken dependency has one.
+2. **`orchestration_states.processing_node` names the pod that ran the work — read it
+   before reasoning about ANY environment-dependent failure.** The same agent type ran in
+   two different environments in one day (20 runs on spawned per-run pods, 6 inline on
+   the standing chassis), and each lacked `IMAGE_BUCKET` for a different reason: the
+   spawned path because the type is not in `spawn_actions.go`'s `storageAgents` list
+   (category `tools` matches no injection branch); the standing chassis because the env
+   is deliberately absent there (owner ruling 2026-08-08, recorded in the overlay).
+   A shared `owner_agent_id` across many agent types tells you a run was inline on a
+   standing pod — but generalising one run's node to the population was exactly the
+   mid-investigation wrong turn here.
+3. **A capability gated on an env var degrades to nil, and the nil surfaces far from the
+   gate.** `agentbase/agent.go:316` skips building the storage client when `IMAGE_BUCKET`
+   is unset, logs one Info line at startup, and every later action inherits the nil. The
+   startup log is the only place the cause is named, and chassis log retention is
+   effectively zero — so by the time a step fails, the evidence has rotated away.
+   When an action errors on a nil client, the first question is "who was supposed to
+   build it, gated on what" — not "what broke".
+
+Fix candidates and the manual-path owner decision: `bugs_open/243`.

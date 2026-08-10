@@ -2791,3 +2791,38 @@ an amend, so the message stays holed; this note is the repair.
 committing. The failure is visible in one line of output and invisible everywhere else —
 `git commit` reported success, because from git's point of view the commit was exactly what
 it was handed.
+
+## 2026-08-10 (second session, evening) — the missing storage client is DIAGNOSED and filed as `bugs_open/243`
+
+Owner asked for the investigation and named the mechanism ("storage is injected at spawn
+time if the container type is listed in the spawn action code"). Confirmed, with one
+addition the hint could not have known: **there are TWO execution paths and both lack the
+client, for different reasons.**
+
+- `execute_vision_prompt_action.go:87` errors on `params.StorageClient == nil`; the client
+  is built at agent startup ONLY if `IMAGE_BUCKET` is set (`agentbase/agent.go:316`).
+- The overnight sweep's 20 runs execute on spawned `agent-tool-acceptance-agent-*` pods:
+  storage env is injected only for `isStorageEnabledAgent(type) || category ∈
+  {orchestrator, code-driven}` (`spawn_actions.go:2556`); `tool-acceptance-agent` is not
+  in the 12-name list and its live category is `tools`. Nothing injected → nil client.
+- The 6 manual runs (incl. both of this lane's S6 runs) ran INLINE on standing
+  `agent-chassis-*` pods, which deliberately carry no `IMAGE_BUCKET`/`S3_ENDPOINT` —
+  owner ruling 2026-08-08, written into the uk_001 overlay itself (~line 100), reverting
+  `820a033c0`.
+- The screenshots exist (`s3://personae-prod-uk001-images/acceptance-evidence/…`, both
+  profiles, uploaded by the adapter's own client) — the download is the only missing half.
+- Blast radius: `tool-acceptance-agent` is the ONLY live agent whose workflow uses
+  `execute_vision_prompt` (live `agent_definitions` scan).
+
+**A wrong turn, corrected mid-investigation and worth its line:** my run's
+`owner_agent_id` was shared across 7 agent types, and I concluded "the runs execute
+inline on the standing chassis — the spawn list never comes into play". True for MY run;
+false for 20 of 26. What caught it: the overlay comment's own instruction to read
+`orchestration_states.processing_node` before concluding which env matters. The general
+rule went to 016b §9 with the bug.
+
+Fix candidate 1 (one line: add the type to `storageAgents`) fixes the sweep — the
+unattended path. The manual path is an owner decision (three options in the bug file);
+candidate 3 is to make the loss VISIBLE either way, because `complete_no_look` +
+COMPLETED let 26 consecutive losses pass unremarked. Filed: `bugs_open/243`. Not
+committed as a fix; awaiting the owner's word on candidate 1 + the council gate.

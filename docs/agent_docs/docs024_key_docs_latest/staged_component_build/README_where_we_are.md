@@ -903,3 +903,31 @@ I've deliberately NOT guessed why the storage isn't reachable. That's shared inf
 and the rule here is to have it properly diagnosed rather than assert a cause; it isn't in
 the diagnosis queue and nobody's filed it. **Do you want me to file it and put it through the
 diagnosis loop?** It affects every tool acceptance run we do, so I think it's worth it.
+
+## 2026-08-10, evening — the missing screenshot-viewer is explained, and it's two gaps wearing one error
+
+You asked me to investigate, with the pointer that storage gets loaded into spawned
+containers if the container type is on the list in the spawn code. That's exactly right,
+and it's half the story.
+
+The tool tests run in two different places. The overnight sweep spins up a fresh little
+container per test — and the spawn code only hands storage access to container types on
+its list, which this one isn't on (twenty of the twenty-six failures). But the manual runs
+we fire by hand — including both of mine — don't spawn a container at all; they run inside
+the standing service, which deliberately has no storage configured: you ruled on 8 August
+that bucket access shouldn't be spread across that shared deployment, and the note in the
+config file records it. So every route to a tool test arrives at the same error for one of
+two different reasons. Meanwhile the screenshots themselves are fine — they're taken and
+stored correctly every run; it's only the reading-them-back half that's missing.
+
+I've written it all up as bug 243, with the evidence for each link. The clean fix for the
+part that matters most — the unattended overnight sweep — is one line: put this container
+type on the spawn list, which is precisely the mechanism your 8 August ruling intended for
+granting storage to a specific type. That still leaves the manual runs without the
+screenshot half, and there I need your steer rather than a workaround: accept it, make
+manual runs spawn like the sweep does, or revisit the ruling. I'd also like to make the
+loss VISIBLE either way — twenty-six consecutive failures read as successes because the
+failing step's name looks like a deliberate "nothing to look at" branch, and that's the
+part that let this go unnoticed.
+
+Say the word on the one-liner and I'll put it through the review gate.

@@ -136,10 +136,15 @@ identical error, plus 1 `complete_error` (an unrelated `request_run` timeout). G
 `__step_error` is what separates "uniformly broken" from "a designed branch" — the raw
 count of 26 could not. **Check results are unaffected** (they land in `browser_run.response`
 before `look`), so this lane's S6 greens stand; what is lost is the screenshot pass, i.e.
-exactly the half that catches what a selector cannot see. **No root cause asserted** — a
-structural claim about shared infra, so it wants the 090 loop. Not in the `needs_diagnosis`
-queue and not in `bugs_open/` (136 mentions the action only as a config-audit false
-positive). **Owner call: file it, or route it to whoever owns the vision path.**
+exactly the half that catches what a selector cannot see.
+**UPDATE (same day, evening): DIAGNOSED at the owner's direction and filed as
+`bugs_open/243`** — two execution paths, both without the client: the sweep's spawned pods
+because `tool-acceptance-agent` is not in `spawn_actions.go`'s `storageAgents` list
+(category `tools` matches no injection branch), the manual/inline path because the
+standing chassis deliberately carries no `IMAGE_BUCKET` (owner ruling 2026-08-08, in the
+overlay). Screenshots exist in the bucket; only the download half is missing. Fix
+candidate 1 is one line (add the type to the list — fixes the unattended path); the
+manual path and the visibility of the loss are owner decisions, laid out in the bug.
 
 **10. NEW — batch 8's naming gate.** Nine tool components cannot be acceptance-tested at
 all because no page resolves under `name IN (function,'tool-'||function)`: eight on
