@@ -342,3 +342,58 @@ argument for fix candidates 1 and 2**: the sweep bought roughly a week, and
 nothing about the mechanism has changed. Anyone tempted to close this because the
 scheduler looks healthy should re-run the count first — the number is the answer,
 and it takes one command.
+
+---
+
+## 2026-08-10 ~17:10Z — fix candidate 1 (MetadataTopics) VERIFIED AND REFUTED in its naive form. Read this before writing that patch.
+
+The owner chose the MetadataTopics fix (with GOMEMLIMIT and a scheduled sweep;
+the per-topic reaper deliberately not taken). The prerequisite verification —
+"does kafka-go fetch metadata on demand for topics outside a static list?" — is
+now done, **from the library source, both arms**, and the answer forbids the
+obvious patch:
+
+**Setting `MetadataTopics` on the SHARED transport would break every `job.*`
+producer — i.e. the whole orchestration fabric.**
+
+The deciding arms, kafka-go v0.4.47:
+
+1. **Metadata requests are served from the transport's cache, not the broker.**
+   `transport.go:351-378` (`connPool.roundTrip`): a `meta.Request` is answered by
+   `filterMetadataResponse(m, state.metadata)`; a topic absent from the cached
+   state gets `UnknownTopicOrPartition` **without any broker round trip**, unless
+   `AllowAutoTopicCreation` is set on the request.
+2. **Our writers do not set auto-create.** `grep AllowAutoTopicCreation
+   platform/kafka/*.go` → no hits, so it is false. `Writer.partitions`
+   (`writer.go:744-768`) resolves every produce's topic through exactly this
+   path. With a static list, **every produce to a topic outside it fails
+   immediately**, and no request ever leaves the process.
+3. **Auto-create would not save it either.** On that arm the broker IS asked, but
+   the follow-up `refreshMetadata(ctx, topics)` (`transport.go:450-492`) waits
+   for the topic to appear in `state.layout` — and state is fed by `discover()`,
+   whose request is built **once** with the static `TopicNames`
+   (`transport.go:600-603`). The dynamic topic can never appear, so the wait
+   backs off exponentially until the produce context dies. Failure mode: every
+   produce to a new topic burns its full deadline.
+
+**What survives of the fix:**
+
+- **A scoped transport is safe only for a service whose produce-topic set is
+  closed.** `kafka-scheduler` qualifies (its topics = `scheduled_tasks.
+  target_topic` values, readable at boot; guard the runtime-added-row case by
+  recreating the producer on an UnknownTopicOrPartition). The chassis and every
+  spawned agent do NOT qualify — they produce to per-step `job.*` topics.
+- **The fleet-wide lever is therefore the TOPIC COUNT, not the fetch scope** —
+  kafka-go v0.4.47 cannot scope dynamically. The reaper/sweep is not a stopgap
+  for the shared transport; it is the only fleet-wide control available at this
+  library version. (An upgrade may change this — unverified.)
+
+**Corollary `[INFERRED, not proven]`:** blank list + 6s TTL + no auto-create
+means a produce to a **just-created** topic fails with `UnknownTopicOrPartition`
+until the next `discover` tick (mean ~3 s). That is a clean mechanism for the
+known "spawn→call handshake fails ~half the time" intermittent
+(`bugs_open/029`/`040` family) — the spawn creates the topics via a different
+connection, and the caller's first produce races the discover tick. Flagged for
+those lanes; not asserted here, and this file's fix must not silently change
+that timing without them knowing (raising the shared `MetadataTTL` would WIDEN
+that race window — do not "optimise" it as part of this fix).
