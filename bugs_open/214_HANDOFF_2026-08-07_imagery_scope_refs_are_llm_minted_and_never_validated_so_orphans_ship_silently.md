@@ -299,3 +299,91 @@ Council: `Council-Submitted: 46a50b4c-f00d-4492-b7fd-ce5dc2023480` (verdict pend
 > `RESUBMIT_CORR=46a50b4c-f00d-4492-b7fd-ce5dc2023480` once credits return, and record
 > the new correlation here. Do **not** write `Council-Reviewed:` — nobody has read a
 > verdict on this.
+
+---
+
+## Contribution 2026-08-10 from a passing thread — the census is SECTION-SCOPE ONLY, and page scope is both bigger and strictly worse
+
+**Not the owning thread.** I picked this file up believing it unowned (every ownership
+check I ran reads commits; the fix was in the working tree — logged in `WRONG_CALLS.md`).
+On finding `write_site_plan_action.go` dirty with `canonicaliseImageryScopeRefs` and
+`write_site_plan_imagery_scope.go` untracked, I stood down. **I have written no code and
+touched nothing this file's owner is holding.** What follows is measurement only, offered
+because it widens the blast radius and the owner may want it in the verify step.
+
+### The census in §Evidence measures `scope='section'`. Page scope has the same defect
+
+The filed census filters `WHERE spi.scope='section'` and resolves the ordinal. Dropping
+to the question underneath it — *does the page segment resolve to a page in this plan?* —
+and asking it of **both** scopes:
+
+```sql
+SELECT spi.scope, count(*) AS total,
+       count(*) FILTER (WHERE NOT EXISTS (
+         SELECT 1 FROM site_plan_pages spp
+         WHERE spp.plan_id = spi.plan_id
+           AND spp.name = split_part(spi.scope_ref, ':', 1))) AS page_not_in_plan
+FROM site_plan_imagery spi WHERE spi.scope IN ('page','section') GROUP BY 1;
+```
+
+[MEASURED 2026-08-10] `page` → **162 total, 28 unresolvable**. `section` → 131 total,
+**4** unresolvable. Restricted to **current** plans: **22 rows**, of which **19 have an
+`assets` row at `status='active'`**.
+
+> Note the table matters and I got it wrong first: resolving against
+> `site_plan_sections` gives 27/4, because a page with no sections looks like a missing
+> page. `site_plan_pages` is the right table. Same family as this file's own
+> §"Who consumes scope_ref" — the consumer's choice of table *is* the definition.
+
+### Page scope is worse than section scope, because its join is exact
+
+This file's §"Who consumes scope_ref" reads the section join
+(`plan_sections_action.go`, now `:362-405`) and correctly calls it tolerant —
+`scope_ref LIKE $2 || ':%'`, no ordinal filter. **The page-scope hero join twenty lines
+above it (`:286-299`) is `AND spi.scope_ref = $2` — an exact string match.** So the
+tolerance profile the file establishes for flavour 1/3 does not carry: at page scope
+there is no wrong-ordinal-but-right-page degradation, only hit or nothing.
+
+### The dominant mechanism is not a bad ordinal — it is a name-space mismatch
+
+Of the 22, only one is this file's flavour 1 (fundamentallyai `about:4`, ordinal past the
+section count). The rest are flavour 2, and it is systematic rather than an LLM slip:
+the planner keys imagery by the page's **slug** (`about`, `shop`, `news`, `contacto`),
+while `write_site_plan` persists the page under its **canonicalised name**
+(`about-index`, …) via `datahelpers.CanonicalisePage`. gamesdesign's plan holds
+`about-index` (slug `about`); its imagery holds `about`. Both sides are written by the
+same function in the same transaction, in two different name-spaces. This is what the
+owner's in-flight `canonicaliseImageryScopeRefs` addresses, and the measurement says it
+is the right target.
+
+### Proven at the artefact, and the visible symptom is a 404, not a fallback
+
+I expected "the page silently falls back to the site brand hero". It is worse:
+
+| URL | result |
+|---|---|
+| `https://gamesdesign.co.uk/assets/images/hero-about.jpg` | **200, 202,259 B** — the commissioned hero IS deployed |
+| `https://gamesdesign.co.uk/assets/images/hero.jpg` | **404** — and `/about/index.html` carries **two** `<img src>` to it |
+| `https://gamesdesign.co.uk/assets/images/icon-no-ads.jpg` | 200, 37,018 B — the four orphaned section icons are deployed too |
+
+Spot-checked three more orphaned heroes, all deployed and serving: gamesdesign
+`hero-contact.jpg` 118,061 B · robot-hands `hero-news.jpg` 178,404 B · dartsonline
+`hero-shop.jpg` 195,171 B. So the fleet is paying for, generating and deploying these
+images, and then serving a broken reference instead of them.
+
+### One row in the 22 is a different pathology — do not let it inflate the count
+
+`leopardessconsulting.co.uk`'s current plan (`5d197b77…`) has **0 pages, 0 sections and
+7 imagery rows**. Its seven "unresolvable" refs are unresolvable because the plan has no
+pages at all, not because of any keying defect. Excluding them leaves **15** rows across
+6 sites attributable to this file's mechanism. A plan that wrote imagery but no pages is
+worth its own look — `WriteSitePlanAction` returns an error on `len(planRows)==0`, so
+that row did not come from this path as it stands today.
+
+### Suggested addition to §"How to verify a fix"
+
+The stated re-run (`orphaned_ordinal` must read 0) cannot see any of the above: it is
+section-scope-only and ordinal-only, so it would read 0 while 18 page-scope heroes stay
+dead. Suggest grading on the two-scope page-resolution census instead, split
+current/superseded, with the leopardess empty-plan case excluded explicitly rather than
+silently.

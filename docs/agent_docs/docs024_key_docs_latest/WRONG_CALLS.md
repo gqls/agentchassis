@@ -26494,3 +26494,59 @@ file that claims to guard a call site must be proven by deleting the call, not b
 by a separate sqlmock suite that drives the real `WriteSitePlanAction` and asserts the value
 reaching the INSERT bind; re-run against the same mutation, it fails. The false header claim was
 corrected in place rather than deleted.
+
+---
+
+## 2026-08-10 — I spent an hour investigating a bug that another session was actively fixing, because every ownership check I ran reads COMMITS
+
+**The claim I acted on:** "`bugs_open/214` is unowned — take it on."
+
+**What I actually checked, and why each was blind.** I ran `scripts/who-owns.py 214`,
+which returned one filing commit from 2026-08-07 and no fixing commits. I ran
+`git log --since="2026-08-07"` over the bug's four cited code paths — nothing about
+imagery. I searched `docs/agent_docs` for a `214` workstream directory — none existed.
+I checked my session-start `git status` snapshot for the bug's files — clean. Four
+independent-looking checks, all agreeing, **all reading the same lagging surface: what
+has been committed.** The owning session's work was entirely in the working tree.
+
+**What caught it:** not a check — an accident. Deep into reading
+`write_site_plan_action.go` I hit a comment at line 192 that cited `bugs_open/214` by
+number and described a canonicalisation transition dated "2026-08-10". That is *today*,
+and the file had no commit from today. Only then did I re-run `git status` on that one
+path and find it `M`, with 116 added lines, plus three untracked new files
+(`write_site_plan_imagery_scope.go` and two test files). The other session had converged
+on materially the same fix I was designing, including the lock-transfer transition I had
+not yet thought about.
+
+**The cheap check that would have caught it, before any investigation:**
+`git status --short <the bug's cited code paths>` — one command, run *first*, against
+the paths the bug file names in its own §Cause. My session-start snapshot was ~1h stale
+by then and CLAUDE.md says so in as many words ("it goes stale within minutes"); I read
+that line, and still treated the snapshot as current because `who-owns.py` had already
+told me what I wanted to hear. **Agreement between four checks that share one blindness
+is not corroboration** — it is the same check run four times, and this file already
+carries that lesson under another name ("two blind checks agree with each other"). I had
+read it. The memory index carries it too, as
+`who-owns-is-blind-to-uncommitted-sessions.md`, whose gloss is literally *"EVERY
+ownership check is LAGGING — grep live `.jsonl` transcripts"*. I did not.
+
+**Cost.** ~1 hour of investigation, ~15 DB queries, one Explore subagent, and four live
+HTTP probes — all wasted as *work*, though not as knowledge (see below). Zero damage: I
+wrote nothing, so there was no collision, no clobbered file, and no competing commit.
+The owning session never knew.
+
+**The one thing worth keeping from it, recorded so the hour is not a total loss.** My
+census went wider than the bug file's and found the defect is **substantially larger than
+filed**. Bug 214 measures section-scope only: 5 orphans, 4 with assets. Measuring page
+scope too — which the file never did — gives **22 rows on CURRENT plans** whose
+`scope_ref` page segment resolves to no page in their own plan, **19 of them with active
+generated assets**, and **18 of them page-scope**, where the consumer join is
+`scope_ref = $pageName` *exactly* (`plan_sections_action.go:295`) rather than the
+section join's tolerant `LIKE`. Proven at the artefact on gamesdesign.co.uk: the about
+page carries two `<img src="/assets/images/hero.jpg">` references that **404**, while the
+commissioned `hero-about.jpg` sits deployed and serving at 202KB. I have passed this to
+the owning session's file rather than opening a rival account of it.
+
+**Fixed by:** standing down from 214 entirely and re-selecting a bug with a
+working-tree check as the *first* filter, not the last (landed on `bugs_open/213`, whose
+paths I verified clean before reading a line of it).
