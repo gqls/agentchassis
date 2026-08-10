@@ -670,3 +670,32 @@ created, never that it exited 0.**
 Until then the engine is running and correct but reachable only from the box.
 **noted.co.uk itself is deliberately untouched** and still serving the legacy app
 with its wind-down notice — `200 / 4229 B`, re-checked after all of the above.
+
+### Full-stack smoke test — the promise, demonstrated
+
+`[MEASURED]` Run on the box through nginx (`box/smoke-test.sh`):
+
+```
+1. register            : session issued
+   cookie flags        : HttpOnly Secure SameSite=Lax
+2. save a note         : {"id":1,"title":"Shopping",...}
+3. import a backup     : {"notes":1,"photos":0,"recordings":1,"skipped":0}
+4. sign in AGAIN (as a different browser would) — are the notes there?
+     - From my phone | recordings: 1
+     - Shopping | recordings: 0
+5. another account sees NOTHING of theirs:
+     notes visible to the other account: 0
+```
+
+Step 4 is the whole reason for the rebuild — a note and its recording, reached
+from a *second, independent session*, which the old app could never do. Step 5 is
+the isolation guarantee holding against a live second account, not just in tests.
+
+**A first attempt at this failed and the failure was the security control
+working.** Over plain HTTP the follow-up calls returned `not signed in`, because
+the session cookie is `Secure` and curl correctly refuses to send it over
+`http://`. Real traffic is HTTPS via Cloudflare, so this only ever affects a
+box-local test. The fix was to send the header explicitly — **not** to unset
+`Secure`, which is exactly the shape of "fix the checker to agree with the
+system" that this estate has been bitten by before. Recorded because the
+tempting move was one flag away.
