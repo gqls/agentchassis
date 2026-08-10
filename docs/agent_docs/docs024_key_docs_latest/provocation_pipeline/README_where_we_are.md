@@ -1055,3 +1055,46 @@ And the report-and-takedown route — the other half of what you approved — ne
 decision I can't make for you: which address should receive complaints, and what we
 commit to when one arrives. I can write the process and put the route on the page, but
 not invent the address or promise a response time in your name.
+
+---
+
+## 2026-08-10, late evening — it wrote its own, and the judge threw one out
+
+The fleet was rebuilt and the fix is running on both machines. I checked it the strong
+way: not just that the new code is there, but that two sentences the change *deleted*
+are gone from the running binary. Something being present can be a coincidence of
+timing; something being absent cannot.
+
+Then I ran the generator twice. **It wrote eight provocations and the judge approved
+seven.**
+
+The one it threw out is the interesting one. It was a piece arguing that your dog loves
+your fridge rather than you, and the judge refused it for this sentence: *"Swap in a
+stranger who reliably feeds and walks the same dog, and the tail wags just as hard
+within a week."* That is a made-up experiment stated as a finding — exactly the thing
+the fact-check is for, and exactly the distinction we spent two days getting right in
+August: an opinion may be as contestable as it likes, but an invented result is not an
+opinion. The judge has never been tested on real generated writing before, only on
+deliberately-bad samples we wrote ourselves. It found a real one, first time out.
+
+Here are the seven waiting for you. Nothing publishes until you say so — they have no
+date and no approval stamp, and the site requires both.
+
+- **You don't hate your job, you hate your commute** — *Strip out the drive and most of the resentment goes missing with it.*
+- **Decluttering makes you poorer, not happier** — *You threw it out in April and bought it back in June, at full price.*
+- **Small talk is not superficial — it's the only kind that scales** — *It isn't empty. It's how strangers decide if depth is worth the risk.*
+- **Your holiday photos replaced your memories** — *You didn't preserve the moment. You substituted a picture for it.*
+- **Cooking from scratch every night isn't worth it** — *The extra hour you spend chopping is not making you happier, just tireder.*
+- **Gift-giving is guilt management, not generosity** — *You bought that present to stop feeling something, not to make anyone happy.*
+- **Sleeping in on weekends makes Mondays worse** — *You didn't catch up on rest. You gave yourself jet lag for free.*
+
+Say which ones you want and I will stamp them as yours and put them in the diary. If
+you want more first, I can run it again — it takes a couple of minutes and it will not
+repeat itself, because it reads what is already there before it writes.
+
+The report route you approved is live on the round record page. It goes to
+`vonc@contactforsales.com`, it does not promise a response time, and there is now a
+written procedure for what happens when somebody uses it. Its default is to take the
+page down first and work it out afterwards, because a round is one anonymous person's
+argument on a debate toy and it is worth almost nothing to us next to what it might
+cost the person named in it.
