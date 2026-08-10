@@ -289,6 +289,11 @@ func main() {
 	var verdicts []verdict
 	allCaught := true
 
+	// OBSERVED reds, accumulated across every mutant run. This must be built from
+	// what actually went red, NEVER from the mutants file's expect_fail — see the
+	// coverage block below for why that distinction is the whole point of the table.
+	watched := map[string]bool{}
+
 	for i, m := range mutants {
 		fmt.Printf("--- mutant %d/%d: %s ---\n", i+1, len(mutants), m.Name)
 
@@ -341,6 +346,12 @@ func main() {
 			continue
 		}
 
+		// Every id that genuinely went red on THIS mutant, named or not: collateral
+		// counts as a real observation of that check failing.
+		for id := range failed {
+			watched[id] = true
+		}
+
 		var missed []string
 		for _, want := range m.ExpectFail {
 			if d, ok := failed[want]; ok {
@@ -376,13 +387,18 @@ func main() {
 		fmt.Println()
 	}
 
-	watched := map[string]bool{}
-	for _, m := range mutants {
-		for _, id := range m.ExpectFail {
-			watched[id] = true
-		}
-	}
-	fmt.Println("--- coverage: which checks have been WATCHED to fail ---")
+	// CORRECTED 2026-08-10: this table used to be built from the mutants file's
+	// expect_fail lists — i.e. from what the AUTHOR claimed each mutant would
+	// break, never from what went red. A check named by every mutant and failing
+	// under none of them still printed "watched red", so the closing
+	// "checks watched red: N of N" restated the author's own file back at them.
+	// It read as an independent confirmation and could not come out false.
+	//
+	// It only ever misled on a FAILING run (when every mutant is caught the two
+	// definitions coincide), which is exactly when a reader is looking hardest —
+	// and it is why one grip-force mutant showed "MISSED" and "watched red" for
+	// the same check in the same output. Now accumulated from `failed`, above.
+	fmt.Println("--- coverage: which checks were OBSERVED to go red ---")
 	var unwatched []string
 	for _, c := range checks {
 		cm, _ := c.(map[string]interface{})
