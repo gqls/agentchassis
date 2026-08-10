@@ -1123,3 +1123,50 @@ twice:
 RESPONDED to each vector.** `--emit-criteria` already refuses a wholly inert tool
 (react/vary gates); it has no equivalent gate for a tool that is inert on ONE
 vector, and that is what happened here.
+
+### 2026-08-10 (later) — consolidation joined the sweep: 17 of 17. Done by giving it a TOOL-LEVEL component, not by restructuring the page
+
+`loans-consolidation` could never satisfy eligibility branch (b) — that clause
+needs **exactly one** active component and this page has two prose rows plus the
+tool row. Branch (a) is the one it can satisfy: `cc.component_level='tool'`.
+
+**The choice that made it cheap:** the new component's `function` is
+**`loans-consolidation`, identical to `pages.name`.** `toolSubjectKeyExpr`
+returns `cc.function` for a tool-level component, so the subject key is unchanged
+— the fence installed yesterday still applies, and the acceptance agent's page
+lookup (`name IN ($key, 'tool-'||$key)`) still resolves. Had I named the function
+anything else (the sibling site uses `tool-consolidation-risk`) I would have
+orphaned the fence and broken page resolution in one step.
+
+What was done, in one transaction: created the component
+(`Debt Consolidation Risk Checker (loanandmortgagecalculator.co.uk)`,
+`component_level='tool'`, template = the tool's own markup **plus a tool-doc
+header**), pointed the `tool-1` row at it, set `page_type='tool'`.
+
+Verified: eligibility returns **17 rows**; subject key is `loans-consolidation`
+and a fence exists under it; the `tool-1` row is **still `lock_type='permanent'`
+with its 5,720 bytes untouched**; the served page is byte-identical to the repo;
+a fired run reads **4 passed / 0 failed**; and **0** `improve_tool` /
+`needs_tool_recreation` items exist for this site.
+
+⚠ **A tool-level component is a NEW exposure, and `no_auto_fix` does not cover
+it.** `check_tool_health` selects `WHERE cc.component_level='tool'` — which is
+precisely why the other 16 are invisible to it — so this page is now the one that
+IS audited, and that check raises `improve_tool` for `tool-improver`, which
+rewrites `html_template`. `no_auto_fix` is a *fence* flag read by the acceptance
+tiers; it has nothing to do with this path. Three things make it safe here, and
+they should be re-checked rather than assumed:
+1. the component is this page's OWN — blast radius one page, not the 154-page
+   shared `ported-page` shell;
+2. the page is `rebuild_policy='owned'`, and `save_page_sections` hard-refuses an
+   owned page, so a rewritten template cannot reach it;
+3. the `tool-1` row is `lock_type='permanent'`, so a rerender's computed output
+   is discarded in favour of the stored bytes.
+The doc header states all of this inline, including that the external
+`<script src="/assets/js/calculators.js">` is DELIBERATE and must not be
+"fixed" by inlining the annuity back — `check_tool_health` flags it as a
+self-containment warning, and that warning is wrong for this tool.
+
+**The chassis build deployed today changes nothing here**: every change this
+session was site content, DB rows or lane tooling — no Go — so nothing was
+waiting on a build.

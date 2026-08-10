@@ -41,6 +41,13 @@ that ARE the defect (viable → unviable, computed → cleared), with LTV 75.0% 
 yield 5.76% unchanged. `investor`'s two buttons also got ids — the last unnamed
 action buttons on the site.
 
+**Monitoring is now 17 of 17** (2026-08-10): `loans-consolidation` joined the
+unattended sweep via a tool-level component whose `function` equals `pages.name`,
+so the fence installed for it still applies. Its row stays permanently locked and
+the page stays `rebuild_policy='owned'`, which is what keeps an automated
+rewriter off it — `check_tool_health` audits tool-level components and does NOT
+read `no_auto_fix`. Run after the change: 4 passed / 0 failed.
+
 **So the count is ten, not six**: six rate-guarded (the original), one
 age-guarded, one viability-guarded, two blank-input-guarded. The common shape is
 not "0%" and not "a rate" — it is **a guard that leaves a handler without
