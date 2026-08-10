@@ -8460,3 +8460,26 @@ code change owed at the next roll, tracked in RFC_015 §5.
   live, and this is the mechanism by which those false positives do damage.
 - **source:** `bugfix_203_phantom_cta_cleanup/NOTES_phantom_cta_cleanup.md` (2026-08-10 evening) · code read at `applyCTARecompute` + `areasExcludedFromCTA`, measured against live `page_components`
 - **added:** 2026-08-10, bugfix 203 phantom-CTA lane
+
+## The admin API has TWO client stores — `/admin/clients` reads `clients_info` (tenant machinery), never the `clients` table that owns networks and sites
+
+- **footprint:** `internal/core-manager/admin/client_handlers.go` · `internal/core-manager/admin/customer_handlers.go` · `clients_info` · `clients` · `/api/v1/admin/clients` · `/api/v1/admin/customers`
+- **the trap:** `GET /api/v1/admin/clients` looks like the way to list customers — the
+  handoff for the ai_site_selling lane even said "client CRUD endpoints already exist,
+  only the front end lacks them". It reads a DIFFERENT store: `clients_info`, a side
+  table the handler lazily `CREATE TABLE IF NOT EXISTS`es on first call, part of the
+  per-client-schema TENANT machinery (`create_client_schema()`), with zero rows and no
+  FK to anything. The `clients` table — the one that owns `networks → sites` and
+  carries the customer identity columns (migration 375, owner ruling 2026-08-10) — is
+  served by the SEPARATE `/api/v1/admin/customers` endpoints (ADM-011). Wiring
+  customer UI or scripts to `/clients` "works" and shows an empty list, and its own
+  first call CREATES the empty side table, making the wrong store look established.
+- **the tell:** none — 200, `{"clients": [], "count": 0}` is a valid answer from both
+  stores when empty.
+- **the check:** before consuming either endpoint, say which POPULATION you mean:
+  website customers → `/admin/customers` (backed by `clients`; live rows exist —
+  "Default Client", "System Scheduler" placeholders as of 2026-08-10). Chassis tenants
+  with their own `client_<id>` schemas → `/admin/clients` (backed by `clients_info`;
+  `to_regclass('public.clients_info')` was NULL on 2026-08-10, i.e. never yet used).
+- **source:** `ai_site_selling_automation/NOTES_ai_site_selling_automation.md` 2026-08-10; code read at `client_handlers.go:194-253` vs `customer_handlers.go`; live `to_regclass` check
+- **added:** 2026-08-10, ai_site_selling lane

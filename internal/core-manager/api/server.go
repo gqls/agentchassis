@@ -83,6 +83,7 @@ func (s *Server) setupRoutes(authConfig *middleware.AuthMiddlewareConfig) {
 	// Initialize admin handlers
 	personaRepoImpl := s.personaRepo.(*database.PersonaRepository)
 	clientHandlers := admin.NewClientHandlers(personaRepoImpl.ClientsDB(), s.logger)
+	customerHandlers := admin.NewCustomerHandlers(personaRepoImpl.ClientsDB(), s.logger)
 	systemHandlers := admin.NewSystemHandlers(personaRepoImpl.ClientsDB(), personaRepoImpl.TemplatesDB(), s.kafkaProducer, s.logger)
 	agentAdminHandlers := admin.NewAgentHandlers(personaRepoImpl.ClientsDB(), personaRepoImpl.TemplatesDB(), s.kafkaProducer, s.logger, s.personaRepo)
 	siteAdminHandlers := admin.NewSiteAdminHandlers(personaRepoImpl.ClientsDB(), s.logger)
@@ -138,6 +139,14 @@ func (s *Server) setupRoutes(authConfig *middleware.AuthMiddlewareConfig) {
 			adminGroup.POST("/clients", clientHandlers.HandleCreateClient)
 			adminGroup.GET("/clients", clientHandlers.HandleListClients)
 			adminGroup.GET("/clients/:client_id/usage", clientHandlers.HandleGetClientUsage)
+
+			// Customer Management (website customers on the clients->networks->sites
+			// chain, migration 375 — a different population from /clients above,
+			// which serves the per-client-schema tenant machinery)
+			adminGroup.POST("/customers", customerHandlers.HandleCreateCustomer)
+			adminGroup.GET("/customers", customerHandlers.HandleListCustomers)
+			adminGroup.GET("/customers/:customer_id", customerHandlers.HandleGetCustomer)
+			adminGroup.PATCH("/customers/:customer_id", customerHandlers.HandleUpdateCustomer)
 
 			// System & Workflow Management
 			adminGroup.GET("/system/status", systemHandlers.HandleGetSystemStatus)

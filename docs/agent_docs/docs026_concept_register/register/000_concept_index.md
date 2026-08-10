@@ -1749,6 +1749,7 @@ an ID prefix, or a status word.
 | DBG-037 | Two failure envelopes: COMPLETED parent ≠ child succeeded | deployed | sendWorkflowResponse hides failure in body; notifyParentOfFailure is the other shape | debugging.md |
 | STY-047 | http2 deprecation fix at the nginx conf generator | deployed | setup.sh now emits version-neutral listen directives | styling-render-pipeline.md |
 | ADM-009 | React admin dashboard for build review | deployed | site-admin-dashboard.jsx: Dashboard/Review Queue/Review Detail views on mock data | admin-dashboard-and-api.md |
+| ADM-011 | Customer admin endpoints on clients→networks→sites chain | built | GET/POST/PATCH /api/v1/admin/customers backed by clients table (mig 375); parallel to tenant-store /clients, which never lists customers | admin-dashboard-and-api.md |
 | DES-006 | site-design-planner scope: "Choice B" (composition-only) and its declared spec aspects | deployed | site-design-planner was scoped to write exactly one spec aspect, `resolved_composition`... | design-composition.md |
 | STG-007 | JSON store scaling evolution (whole-file → daily JSONL) | deployed | site-engine's store evolved from write-cliff whole-file to bounded daily JSONL | storage-architecture.md |
 | CTS-023 | Image fields optional-with-gate contract | deployed | site_assets.* fields must be required:false + skip_field + template-gated | contracts-and-standards.md |

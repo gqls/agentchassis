@@ -89,3 +89,12 @@ across units U01, U09, U12, U24a, U26.
 - **sources:** docs/api/reference.html (tags: Authentication, Users, Projects, Subscriptions, Templates, Instances, System, WebSocket; paths /api/v1/auth/*, /api/v1/projects, /api/v1/subscription/*, /api/v1/personas/instances)
 - **relations:** three-database architecture (auth DB backs these endpoints); superseded by current admin-dashboard-and-api (ADM-001)
 - **verify-later:** which endpoints survive in core-manager/api-gateway code
+
+### ADM-011 — Customer admin endpoints on the clients→networks→sites chain
+- **status:** built (in HEAD, not yet in any rolled image — inert until the next core-manager roll; FE consumer in the same lane)
+- **status-evidence:** internal/core-manager/admin/customer_handlers.go + routes in api/server.go (`/api/v1/admin/customers`, 2026-08-10); columns migration 375 applied to live clients_db and ledger-recorded the same day; `go build ./internal/core-manager/...` clean.
+- **what:** Admin CRUD for website customers backed by the FK chain the owner ruled canonical for customer identity (2026-08-10, ai_site_selling lane): `GET/POST /admin/customers`, `GET/PATCH /admin/customers/:customer_id` — list with owned-site counts, detail with sites joined via networks, partial update of contact/tier/customer_status/notes. Deliberately parallel to `/admin/clients`, which serves the per-client-schema TENANT machinery via the lazily-created `clients_info` side table (absent live as of 2026-08-10) — two different populations; do not merge without an owner ruling.
+- **landmine:** `GET /admin/clients` does NOT list customers and never will — it reads `clients_info` (tenant store), not `clients`; its own first call silently creates the empty side table, so wiring customer UI/scripts to it "works" and shows nothing.
+- **sources:** ai_site_selling_automation/PLAN_2026-08-10_ai_site_selling_automation.md §1–2; ai_site_selling_automation/HANDOFF_2026-08-10_start_here.md §3.5–3.6 (its "FE-only work against endpoints that already exist" claim is corrected in place)
+- **relations:** resolves ADM-008's question by owner ruling (chain reused; junction stays abandoned); ADM-002 (admin API surface); BIZ-014 (entitlement seams reuse the same chain); migration 375
+- **open-review:** council gate was down fleet-wide at ship time (Anthropic account spend cap, 2026-08-10) — gate submission owed when it can run; tracked in the lane NOTES.
