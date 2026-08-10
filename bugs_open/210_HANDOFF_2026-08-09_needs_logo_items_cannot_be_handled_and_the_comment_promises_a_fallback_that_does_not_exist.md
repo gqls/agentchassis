@@ -365,3 +365,79 @@ intermediate state.
   does not exist today. Said plainly so it is not mistaken for delivered.
 - Second council round `Council-Submitted: 661557c5-7ae4-43fe-a36d-c0600b54a29c` — submitted
   fresh, not as a resubmission, because it **reverses** a disposition the first round approved.
+
+---
+
+## 2026-08-10 — THE DEFAULT IS LIVE AND POD-VERIFIED; council round 2 APPROVED; queue cleared
+
+**Both halves are now live on `agent-chassis-8496665bb8`** (both replicas; fabricated negative
+control **0**): IMG-069's refusal literal **1**, and the owner's default marker **1** (its second
+producer's marker **2**). Council round 2 `661557c5-7ae4-43fe-a36d-c0600b54a29c` — **APPROVED**,
+3 advisory objections, none high, verdict read in full.
+
+### Objections answered with work, not argument
+
+- **`bug_historian`: the default degraded SILENTLY.** Correct, and it was a real defect —
+  `loadSiteBrandFacts` used a single `err == nil` test, so a query **failure** and an **absent
+  spec** were indistinguishable and neither said anything. Across a 2,000-domain rollout a DB
+  blip would have produced silently thinner logos fleet-wide with zero signal. Now three
+  outcomes: `ErrNoRows` → Info (legitimate; 18 of 39 sites have no identity spec), a real error →
+  Warn stating plainly that it is a **fault**, unparseable JSON → Warn. Plus one line per
+  composed prompt carrying a `clauses` count, which is what makes a fleet-wide degradation
+  visible as a **pattern** rather than as 2,000 individually-plausible logos.
+- **`guardian`: is there a third producer?** Measured both ways. **Code:** exactly three —
+  `check_placeholder_image_in_use` (`placeholderPathMapping`), `check_unfulfilled_image_prompt`
+  (`classifyPromptKey`, the safe one), `WriteBuildItemsAction`. `check_image_url_404` names the
+  types only in comments; its routing branch was deleted by `bugs_closed/128`. **DB:** five
+  distinct `created_by` across three sources — `discovery` (the two checks), `planner`
+  (WriteBuildItemsAction), `admin` (two manual operator inserts, not a code producer). No fourth.
+- **NOT fixed — four seats independently flagged that `spec.prompt_source` is written and
+  nothing reads it.** They are right that this is the "recorded decision with no consumption
+  point" shape. It is left open **deliberately**, because the obvious fix — a review queue — is
+  precisely what the owner ruled against: at 2,000 domains a per-item queue is one that never
+  drains. What would actually help is a **count in an existing report**, not a queue. Named here
+  rather than quietly closed. See "Still open" below.
+
+### The afternoon disposition DID run in production, which is how we know the path works
+
+`mortgagecalculator.co.uk`'s `needs_hero_image` row `74fe54a7` was filed at
+**2026-08-09 20:56 at status `needs_human_review`** — my afternoon code, firing on real traffic
+through the real pipeline. It is behavioural proof that the producer change reached production
+and took the intended branch. That disposition is now superseded by the owner's ruling, and the
+row has been cancelled (below) — but the evidence stands.
+
+### A GAP THE FIX DOES NOT CLOSE, found by looking at the live queue
+
+**The fix repairs FILING, not rows already in the queue.** An item filed before the roll carries
+a spec with no `image_prompts`, and no amount of producer-side correctness repairs it — it will
+fail at input extraction for ever. Four such rows existed and have been **cancelled with
+evidence in `result`** (row identity verified, not counts):
+
+| row | site | disposition |
+|---|---|---|
+| `163dc640`, `2271a390` | fundamentallyai.com | **FALSE POSITIVE** — re-measured 2026-08-10 with the live anchored predicate: **0** logo matches; the site now has an active logo asset too. Will not be re-filed. |
+| `e53b77e9`, `74fe54a7` | mortgagecalculator.co.uk | **TRUE POSITIVE with an unusable spec** — cancelled so discovery re-files it *with* the default prompt. Condition unchanged: **6** same-origin `url('/assets/images/hero.jpg')` refs, **no** active hero asset. |
+
+`cancelled` is terminal, so the dedup slot is released and the check can re-file. Discovery is
+demonstrably running (fundamentallyai drew a discovery item at 2026-08-10 12:33).
+
+**Fleet census after the clear-out: 0 open rows** of any prompt-requiring type
+(`needs_logo`, `needs_hero_image`, `unfulfilled_hero_variant`, `needs_imagery`) whose spec lacks
+a usable prompt. The queue is clean.
+
+### Still open
+
+1. **Nobody has yet seen a logo the default actually produced.** mortgagecalculator's hero is the
+   next one due — when discovery re-files it, it should carry
+   `spec.prompt_source='default_from_brand_identity'` and generate end to end. **That is the
+   lane's outstanding behavioural proof.** Watch:
+   ```sql
+   SELECT s.domain, w.status, w.spec->>'prompt_source', left(w.spec->>'prompt',160)
+     FROM site_work_items w JOIN sites s ON s.id=w.site_id
+    WHERE w.item_type IN ('needs_logo','needs_hero_image') ORDER BY w.updated_at DESC LIMIT 5;
+   ```
+   Then look at the **artefact**, not the status.
+2. **`spec.prompt_source` has no consumer** (four council seats). A queue is the wrong answer
+   here; a count in an existing report is the right one. Unbuilt.
+3. **The prompt text itself has had no human eye on it.** It decides ~2,000 logos and is one
+   string in one function.
