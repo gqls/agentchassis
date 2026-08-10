@@ -153,6 +153,45 @@ component functions) and `tool-bayesian-ranking` on gamesdesign.co.uk (the ordin
 prefix-strip rename, RUNBOOK §11, **two rows**). Evidence and both remedies: §2's
 correction box.
 
+## 4b. IN FLIGHT — who holds what, as of 2026-08-10 ~17:10Z
+
+**TWO sessions were handed this same handoff today.** Both ran §5 and reached §2's tables
+independently. Recording the split here because a claim nobody can see is not a claim, and
+this file is the one document both cold-starts read.
+
+| subject | state | held by |
+|---|---|---|
+| `tool-setup-builder` | **DONE** — fence proven 11/11 mutants, PLAN persisted (7,964 B), S6 green 15/0 | session A (commits `40c0f17f2`, `b66273063`) |
+| `bugs_open/243` (the `look` storage client) | **DIAGNOSED + FILED** | session A (commit `c8360da47`) |
+| `tool-matchmatrix` | **CLAIMED 17:10Z, in progress** | session B (this claim) |
+| `tool-grip-force-friction-calculator` | **CLAIMED 17:10Z, in progress** | session B (this claim) |
+| `tool-llm-cost-calculator` | unclaimed — authorable but MUST be authored fork-aware (4 forks share the PLAN) | — |
+| `tool-bayesian-ranking` | unclaimed — needs the RUNBOOK §11 rename first (two rows) | — |
+
+**If you are a third session: take nothing from the CLAIMED rows without checking `git log`
+for this file first** — a claim written at 17:10Z is evidence about 17:10Z and nothing later.
+
+### The qualification axis BOTH tables above still miss: `rebuild_policy`
+
+§2a and the correction box qualify on *serves 200* and *resolves under the Tier-4 lookup*.
+There is a third axis, and it is the one RUNBOOK §11's closing paragraph is about: **a
+failing verdict inserts an `improve_tool` work item aimed at an automated fixer**
+(`tool_acceptance_actions.go:1001`), so firing acceptance at an `owned` page can point a
+rewriter at another lane's protected markup.
+
+**Measured across all 33 resolvable tool placements today — and it could have come out
+otherwise, which is why it is worth stating:** `owned` is **NOT** a disqualifier. **8 of the
+25 tools that already carry a PLAN sit on `owned` pages** (`tool-arena-interface`,
+`tool-fuel-cost-estimator`, `tool-drop-rate-tuner`, `tool-loot-table-balancer`,
+`tool-xp-curve-designer`, `tool-recovery-waterfall`, `tool-relevant-alternative`,
+`loans-consolidation`). Had `owned` been blocking, that number would have been 0.
+
+Both robot-hands subjects claimed above are `owned`. The designed control is the fence's own
+top-level **`no_auto_fix` / `no_auto_fix_reason`** pair, which routes a failing verdict to
+human review (`acceptance_stuck`) and raises **no** `improve_tool` item
+(`tool_acceptance_no_auto_fix_test.go`). Prove it is in the running binary before relying on
+it — RUNBOOK §4, long marker.
+
 ## 5. Session-start checklist (do these before any dispatch)
 
 1. `git log --oneline -10` and re-read this file FROM DISK (co-edited tree).
