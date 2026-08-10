@@ -191,3 +191,37 @@ re-tags and rolls it; it does not roll it now. Until that happens:
 
 Close this only against a pod check, not against the makefile diff:
 `kubectl get pod -n ai-persona-system -l app=render-audit-adapter -o jsonpath='{.items[*].spec.containers[*].image}'`
+
+---
+
+## CLOSING CONDITION MET 2026-08-10 — the pod rolled, on the first release after the fix
+
+The condition this file set ("close only against a pod check, not the makefile
+diff") is satisfied:
+
+```
+kubectl get pod -n ai-persona-system -l app=render-audit-adapter \
+  -o jsonpath='{.items[*].spec.containers[*].image}'
+→ docker.io/aqls/browser-runner-adapter:v1.0.1280      (was v1.0.1194)
+```
+
+Started 15:45:16Z, in the same wave as `browser-runner-adapter:v1.0.1280` — the
+two now move together, which was the point. The overlay's pin was rewritten from
+`v1.0.1194` to `v1.0.1280` by the release, so the `deploy-agents` sed fired: the
+fix is proven by the tooling doing the work, not merely by the diff existing.
+
+**86 tags of drift closed in one roll** (1194 → 1280). Every browser-runner
+change since 2026-07-28 reached this pod for the first time.
+
+`bugs_open/233`'s credential leak is closed at this pod as a direct consequence —
+`access_key_present` 1, `B2_APPLICATION_KEY from env` 0, control `NewS3Client` 3,
+and 0 credential lines in its live log buffer against 11 total.
+
+**The CLASS remains open, which is why this file stays in `bugs_open/`.** Both
+tag-update mechanisms are still hand-maintained enumerations. The next service
+that shares another service's image will repeat this exactly, and it will again
+be invisible to the normal proof (pod-grep the image's *owner* and it reads
+live). Fix candidate **1** — enumerate the filesystem rather than a hand-list —
+is what would retire it. Also still unaddressed and found by the same census:
+`github-actions-runner` on **v1.0.948**, `github-actions-runner-vmsites` on
+v1.0.1126.
