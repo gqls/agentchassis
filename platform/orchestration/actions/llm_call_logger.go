@@ -36,6 +36,7 @@ func LogLLMCall(db *sql.DB, logger *zap.Logger, params LLMCallLogParams) {
 	// mutate that map once LogLLMCall returns, and this function is explicitly
 	// fire-and-forget, so anything read asynchronously is a data race.
 	wireMax, thinkReserve, thinkTokens, totalTokens := thinkingTelemetry(params.Options)
+	cacheCreation, cacheRead := cacheTelemetry(params.Options)
 
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -57,7 +58,8 @@ func LogLLMCall(db *sql.DB, logger *zap.Logger, params LLMCallLogParams) {
 				work_item_id, vertical, prompt_variant, rag_context_used,
 				temperature, max_tokens,
 				wire_max_output_tokens, thinking_reserve_tokens,
-				thinking_tokens, total_tokens
+				thinking_tokens, total_tokens,
+				cache_creation_input_tokens, cache_read_input_tokens
 			) VALUES (
 				$1, $2, $3, $4, $5,
 				$6, $7, $8,
@@ -67,7 +69,8 @@ func LogLLMCall(db *sql.DB, logger *zap.Logger, params LLMCallLogParams) {
 				$17, $18, $19, $20,
 				$21, $22,
 				$23, $24,
-				$25, $26
+				$25, $26,
+				$27, $28
 			)`,
 			params.AgentType, nullIfEmpty(params.AgentID),
 			nullIfEmpty(params.StepName), nullIfEmpty(params.OrchestrationID),
@@ -88,6 +91,12 @@ func LogLLMCall(db *sql.DB, logger *zap.Logger, params LLMCallLogParams) {
 			// reported" — the empty-vs-absent confusion bugs_open/110 is itself
 			// about. See migration 245.
 			wireMax, thinkReserve, thinkTokens, totalTokens,
+			// Same reasoning as the line above, one step further: passed as-is
+			// so 0 ("no cache used on this call") stays distinct from NULL
+			// ("this binary predates cache support"). During a staged roll
+			// those two are the only way to tell a pod that CANNOT cache from
+			// one that simply did not.
+			cacheCreation, cacheRead,
 		)
 
 		if err != nil {
@@ -169,6 +178,33 @@ func thinkingTelemetry(options map[string]interface{}) (wire, reserve, thinking,
 		get("__sent_thinking_reserve_tokens"),
 		get("__usage_thinking_tokens"),
 		get("__usage_total_tokens")
+}
+
+// cacheTelemetry pulls the Anthropic prompt-cache counters out of the same
+// options map, mirroring thinkingTelemetry so there is one shape to learn.
+//
+// Returns nil (→ SQL NULL) when the key is absent, and that distinction is the
+// whole point: NULL means "the binary that made this call predates cache
+// support", 0 means "this call genuinely used no cache". Collapsing them would
+// make it impossible to tell a fleet that is not caching from a fleet that is
+// only half-rolled — which is exactly the question during a staged rollout.
+//
+// ⚠ Reading input_tokens alone is now WRONG for any cached call: the API
+// reports it as the uncached remainder. True prompt size is
+// input_tokens + cache_creation + cache_read (migration 376's comment says so
+// on the columns themselves, for whoever writes the next cost query).
+func cacheTelemetry(options map[string]interface{}) (creation, read interface{}) {
+	get := func(key string) interface{} {
+		if options == nil {
+			return nil
+		}
+		if v, ok := options[key].(int); ok {
+			return v
+		}
+		return nil
+	}
+	return get("__usage_cache_creation_input_tokens"),
+		get("__usage_cache_read_input_tokens")
 }
 
 // nullIfZero returns nil for zero token counts (when provider doesn't report them)

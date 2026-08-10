@@ -100,6 +100,39 @@ func (c *AnthropicClient) GenerateWithImages(ctx context.Context, prompt string,
 	return c.generate(ctx, content, options)
 }
 
+// CacheBreakpointMarker splits a rendered prompt into a cacheable shared
+// prefix and a per-call suffix. A prompt containing it is sent as two text
+// blocks with cache_control on the FIRST; a prompt without it is sent exactly
+// as before, byte for byte.
+//
+// OPT-IN BY CONSTRUCTION, and deliberately so (owner ruling 2026-08-02,
+// RFC_010): this client is the single seam every agent in the fleet calls, so
+// the unsafe default is OFF. A caller that has never heard of caching cannot
+// be affected by it — absence of the marker is not "caching disabled", it is
+// the identical code path that ran yesterday.
+//
+// WHY A MARKER AND NOT A SEPARATE PARAMETER: the prompt is rendered to a flat
+// string by execute_llm_prompt from a DB-held template long before it reaches
+// this client, and nothing in between knows which half is shared. Putting the
+// boundary IN the template keeps the decision where the shared/varying split
+// is actually authored and visible to a reviewer, instead of requiring a
+// parallel parameter that could drift out of step with the text it describes.
+//
+// ⚠ Anthropic caching is a PREFIX match: everything before the marker must be
+// byte-identical across calls or nothing is ever read from cache. Putting a
+// timestamp, a UUID or a per-seat name above the marker silently costs the
+// write premium and returns zero reads — see the concept-register entry.
+const CacheBreakpointMarker = "<!--CACHE_BREAKPOINT-->"
+
+// cacheTTL is 1 hour rather than the 5-minute default. The motivating caller
+// (council-gate) runs 17 sequential LLM steps over 2–5 minutes, which sits
+// right on the 5-minute boundary — a chain that stalls on one slow seat would
+// start missing partway through, and a partial miss is the hardest kind to
+// notice because it still "works". 1h costs 2× on the single write instead of
+// 1.25×; against 16 reads at 0.1× that is 3.6× total versus 17× uncached, so
+// the extra write premium is noise next to the risk it removes.
+const cacheTTL = "1h"
+
 func (c *AnthropicClient) generate(ctx context.Context, content interface{}, options map[string]interface{}) (string, error) {
 	// Build request. content is either a plain string (GenerateText) or a
 	// block array (GenerateWithImages) — the Messages API accepts both shapes
@@ -113,6 +146,45 @@ func (c *AnthropicClient) generate(ctx context.Context, content interface{}, opt
 				"content": content,
 			},
 		},
+	}
+
+	// Split a marked prompt into [cacheable shared prefix][per-call suffix].
+	// Only a plain string is eligible: the image path builds its own block
+	// array and its caching story is different (an image block is cacheable
+	// too, but nothing asks for that yet, and guessing would put a breakpoint
+	// somewhere no caller chose).
+	if promptStr, ok := content.(string); ok {
+		if idx := strings.Index(promptStr, CacheBreakpointMarker); idx >= 0 {
+			shared := promptStr[:idx]
+			rest := promptStr[idx+len(CacheBreakpointMarker):]
+			// A marker at position 0 leaves nothing to cache. Sending an empty
+			// text block is a 400, and a cache_control on nothing is a silent
+			// write of zero tokens — so treat it as "no marker" rather than
+			// inventing a breakpoint the caller did not ask for.
+			if strings.TrimSpace(shared) != "" {
+				blocks := []map[string]interface{}{
+					{
+						"type": "text",
+						"text": shared,
+						"cache_control": map[string]interface{}{
+							"type": "ephemeral",
+							"ttl":  cacheTTL,
+						},
+					},
+				}
+				// A marker at the very END is legitimate: it means "cache all
+				// of it". Appending an empty second block would 400, so omit it.
+				if rest != "" {
+					blocks = append(blocks, map[string]interface{}{
+						"type": "text",
+						"text": rest,
+					})
+				}
+				requestBody["messages"] = []map[string]interface{}{
+					{"role": "user", "content": blocks},
+				}
+			}
+		}
 	}
 
 	// Check if extended thinking is requested
@@ -200,8 +272,16 @@ func (c *AnthropicClient) generate(ctx context.Context, content interface{}, opt
 		} `json:"content"`
 		StopReason string `json:"stop_reason"`
 		Usage      struct {
-			InputTokens  int `json:"input_tokens"`
-			OutputTokens int `json:"output_tokens"`
+			InputTokens int `json:"input_tokens"`
+			// ⚠ input_tokens is the UNCACHED REMAINDER only, not the prompt
+			// size. Once a caller uses CacheBreakpointMarker, the true prompt
+			// is input + cache_creation + cache_read, and reading
+			// input_tokens alone makes a cached call look ~95% smaller than
+			// it is. Every one of these three must reach llm_call_log or the
+			// fleet's own cost measurements quietly start understating.
+			CacheCreationInputTokens int `json:"cache_creation_input_tokens"`
+			CacheReadInputTokens     int `json:"cache_read_input_tokens"`
+			OutputTokens             int `json:"output_tokens"`
 		} `json:"usage"`
 	}
 
@@ -213,6 +293,12 @@ func (c *AnthropicClient) generate(ctx context.Context, content interface{}, opt
 	if options != nil {
 		options["__usage_input_tokens"] = response.Usage.InputTokens
 		options["__usage_output_tokens"] = response.Usage.OutputTokens
+		// Always written, including the zeros an uncached call returns. A key
+		// that appears only on cache hits cannot distinguish "this call did
+		// not use the cache" from "this build predates cache support" — which
+		// is exactly the question anyone reading the numbers will have.
+		options["__usage_cache_creation_input_tokens"] = response.Usage.CacheCreationInputTokens
+		options["__usage_cache_read_input_tokens"] = response.Usage.CacheReadInputTokens
 	}
 
 	// Extract the text BEFORE deciding whether this was a truncation, so a cut
