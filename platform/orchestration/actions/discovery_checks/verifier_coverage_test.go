@@ -258,6 +258,8 @@ var itemTypesWithoutVerifiers = map[string]verificationGap{
 	"placeholder_contact":              {catMechanical, "[INFERRED] check_placeholder_contact; never observed live"},
 	"broken_nav_links":                 {catMechanical, "[INFERRED] check_broken_nav_links; never observed live"},
 	"backend_unreachable":              {catMechanical, "[INFERRED] check_backend_unreachable, which already SELF-CLEARS on a live health probe — a verifier may be redundant here; check before writing one"},
+	"site_unreachable":                 {catMechanical, "check_site_unreachable (bugs_open/236, 522 half) SELF-CLEARS via Resolved{AllOfType} on a serving probe — the same posture as backend_unreachable, decided at birth rather than inferred later; a completion verifier would re-run the identical probe the check already re-runs every rotation pass"},
+	"decision_regression":              {catMechanical, "check_decision_guards (RFC_015, e1628f7df) — NOT this classifier's lane: shipped 2026-08-08 without a classification, which left this sensor RED at HEAD for two days; classified in passing by the 236 lane so the package test can run at all. The guard predicate (pattern containment against the assembled page) is re-runnable, so a verifier is buildable — that decision stays with the RFC_015 lane"},
 
 	// Produced OUTSIDE this package, by applyNewPage in apply_gap_plan_action.go
 	// (bugs_open/081, 2026-07-31), so neither half of this guard can see it yet:
