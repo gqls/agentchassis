@@ -196,3 +196,48 @@ little marker that normally links a commit to its review automatically. It's not
 real problem — the review is still happening, and I've written down where to find it —
 but the automatic bookkeeping that's supposed to show "this was reviewed" won't show it
 for this one commit. I've made a note of that too, so it doesn't get missed.
+
+## 2026-08-10, evening — it works. Proven on the real page, and the code side of this job is finished.
+
+The council approved the second fix, and your fresh build carried it. I proved it
+properly rather than trusting the version number: I re-ran the same robot-hands.com
+page through the system and looked at what actually came out.
+
+**The button that was wrong is now right.** "Browse the Gripper Catalog" points at the
+gripper catalog, where before it pointed at an unrelated cycle-time calculator. Just as
+importantly, the two buttons that were already correct stayed correct — that was the
+real risk with this kind of fix, that in stopping it over-preferring tools I'd make it
+over-prefer the other thing instead. It didn't.
+
+I also found a bonus: the same page's top section had a second copy of the same wrong
+button, which had never appeared on any of our worklists. It's fixed too. That's worth
+knowing because it means the problem was slightly wider than the pages we'd been
+tracking — which brings me to what I need from you.
+
+**The code work is done. What's left is three judgement calls, none of which I should
+make alone:**
+
+First, the four remaining "Get Started" buttons on the leopardess site. Neither fix can
+help these, and that's deliberate rather than a gap: "Get Started" is on our list of
+words that name nothing, so the system correctly refuses to guess a destination from
+it. They currently point at the contact page, which is a reasonable place for a generic
+button to go — they're vague rather than actively misleading. We can leave them, or we
+can get the content pipeline to give them real names first so the matching has
+something to work with.
+
+Second, how hard to look for other pages affected. Between the first fix going live and
+the second one shipping, 66 page sections had their buttons recomputed, so that's the
+most that could possibly be affected — but the real number is much lower, because the
+bug only bites when a better-matching non-tool page exists and loses. The honest answer
+is I don't know without checking them one by one. The cheap option is to do nothing:
+now the code is correct, each of those pages fixes itself the next time it's rebuilt
+for any reason. That's how three of our original thirteen pages fixed themselves while
+we were working on this.
+
+Third, two pieces of work we deliberately left out of this round, both still untouched
+and both wanting their own review: telling the content writer where a button is going
+to point (so it can write copy that matches), and making pages repair themselves when
+they're saved rather than needing to be told to.
+
+I'd suggest doing nothing on the second one and letting the pages heal naturally, but
+it's your call.

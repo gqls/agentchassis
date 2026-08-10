@@ -6,23 +6,60 @@ open question ("read the verdict, then test row 3 as a canary") is answered in f
 both happened, and the canary surfaced a second, un-shipped bug that is now itself
 mid-review. Read this file, not 08-09 — its "Next, in order" is stale.
 
+> **UPDATED 2026-08-10 evening — the code work of this lane is DONE. Both fixes are
+> approved, live and behaviourally proven.** Everything below the "State" section that
+> reads as pending (verdict-watching, build-and-roll, the row-3 re-test) is COMPLETE —
+> kept for the trail, not as instructions. **What remains is three OWNER DECISIONS,
+> listed in "Open decisions" immediately below. No code is in flight.**
+
 ## State in one line
 
-**The original 203-follow-on resolver fix (`bd6e3320c`) is APPROVED, live, and
-verified working on a real page.** That same live exercise found a second bug — a
-scoring-priority defect in the matcher it ships — which is fixed (`3bc0486d7`) and
-**awaiting its own council verdict**. **Start here:**
+**Both fixes are APPROVED, LIVE on `v1.0.1280`, and PROVEN on real pages.** The
+original resolver fix (`bd6e3320c`, corr `258e4ed7-…`) and the scoring-priority fix its
+own canary exposed (`3bc0486d7`, corr `6cb8c72b-0abc-4eb6-b4d2-4cbf01eed515`, approved
+2026-08-10 07:49:20Z) both verified at the artefact — see NOTES 2026-08-10 (evening)
+for the before/after table. **Nothing is awaiting a verdict; nothing needs building.**
 
-```sql
-SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
-WHERE correlation_id='6cb8c72b-0abc-4eb6-b4d2-4cbf01eed515' AND kind='council_report'
-ORDER BY created_at;
-```
+## Open decisions (this is what the lane is actually blocked on)
 
-If empty, it's still running — check `orchestration_states` for orchestration
-`76b19b7e-3127-41a6-a1ad-b32efcad5f9c`. Give it ~30 minutes before assuming anything is
-wrong (see CLAUDE.md's council-gate timing note); a missing row is latency, not a
-dropped dispatch.
+**D1 — the four `leopardessconsulting.co.uk` "Get Started" blog heroes.** The last
+worklist rows never repaired. **Neither fix can help them and that is by design**:
+"Get Started" is in `LabelStopwords`, so it reduces to zero distinctive tokens and
+matches nothing — a rebuild falls back to the positional pick, which is what made them
+wrong. Their current `/contact.html` destination is plausible-but-arbitrary, so they
+are generic rather than actively lying. Options: (a) leave them; (b) change the button
+LABELS to something that names a real page, then rebuild — but per the owner ruling of
+2026-08-06 the FRAMEWORK writes content, so that is a content-pipeline task, not a
+hand-edit; (c) accept a positional pick as good enough for a generic CTA. **Needs a
+human call — no measurement resolves it.**
+
+**D2 — how wide to sweep for other pages carrying the priority bug's output.**
+Measured 2026-08-10: **66** `page_components` rows carrying any CTA url field were
+written in the buggy window (2026-08-09 12:00Z → 2026-08-10 15:44Z, i.e. between the
+first fix going live and the second fix's build). That 66 is an **upper bound on
+exposure, NOT a defect count** — a row only resolved wrongly if a hub candidate
+out-matched the tool it got, which most labels never trigger. The proven case
+(robot-hands.com) also showed the defect can sit in a slot no worklist tracked, so
+per-page inspection is the only sound method. Separately, the fleet has **192
+`detected` / 95 `unresolved` / 63 `failed`** open `misdirected_cta` items — but this
+lane's own 08-07 finding is that **that detector's queue is substantially false
+positives** (it flags correct "Get in Touch"→/contact.html buttons), so it CANNOT be
+drained blindly and its counts are not a defect estimate either. Options: (a) do
+nothing — the next ordinary rerender of any page fixes it for free, now the code is
+right; (b) census the 66 and re-dispatch only genuine mismatches; (c) full detector
+accuracy work first (that is really D3-adjacent, and bigger than this lane).
+**Recommendation: (a) or (b). Not (c) inside this lane.**
+
+**D3 — the two named follow-ons, still not started** (unchanged, both deliberately
+scoped out, each wants its own council round): writer-prompt coordination
+(`cta_target_title` never reaches the content-writer's LLM prompt) and the persist-time
+self-healing arm (`repairSectionsBeforePersist` alongside `RepairContentDataLinks`,
+LNK-028).
+
+---
+
+*Historical from here down — the verdict-watch and build-and-roll steps below are DONE.
+Retained for the evidence trail.*
 
 ## What shipped since the 08-09 handoff (commits, in order)
 
