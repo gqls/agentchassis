@@ -109,124 +109,50 @@ of 338.
 > **Always `env VAR=x cmd` on one line, and always read the runner's `Pending (N)` line
 > before `--apply` — on a scoped run it must say 1.**
 
-## 2b. NEXT — PROPAGATION. Nothing a visitor sees has changed yet
+## 2b. PROPAGATION — CSS half DONE all 11 live sites; page half enqueued [2026-08-10]
 
-**This is now the whole remaining job.** The migration changed the SOURCE; every live page
-still carries its old `rendered_html` and every site still serves its old stylesheet. This
-is the council's still-open `editquality` MEDIUM objection, and §4 is why "the queue says
-complete" will not be evidence it happened.
+**Stylesheets: delivered and verified per site against the banked before-state.** All 11
+live sites re-rendered via `webdesign-agent` (canary gamesdesign 08-09, batch overnight),
+all verified at the SERVED file: changed, ink slots present, palette diffed slot-by-slot.
+**lendzy.co.uk excluded** — origin down (Cloudflare 522), no before-state to grade against.
 
-**Component placements — 16 across 8 sites [MEASURED 2026-08-08]:**
+**The advisory-pin drift materialised, small: 3 of 11 runs adjusted exactly one core slot**
+[MEASURED 2026-08-10]:
 
-| site | component | placements |
+| site | slot | before → after |
 |---|---|---|
-| ai-agent-orchestration.com | case-studies-grid 2, system-stats 2, tool-list 1 | 5 |
-| gamesdesign.co.uk | system-stats 1, tool-list 2 | 3 |
-| idea.uk | tool-list 2 | 2 |
-| robot-hands.com | system-stats 1, tool-list 1 | 2 |
-| dartsonline.com | image-hover-card-grid 1 | 1 |
-| finetuning.uk | case-studies-grid 1 | 1 |
-| leopardessconsulting.co.uk | case-studies-grid 1 | 1 |
-| vonc.com | system-stats 1 | 1 |
+| idea.uk | border | #C8BFA8 → #1A1816 (light→dark — visible; keep an eye) |
+| dartsonline.com | background | #111520 → #0F1219 (imperceptible) |
+| mortgagecalculator.co.uk | secondary | #334155 → #1e3a5f (moderate) |
 
-```sql
-SELECT s.domain, cc.name, count(*) FROM page_components pc
-  JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
-  JOIN content_components cc ON cc.id=pc.component_id
- WHERE cc.name IN ('case-studies-grid','system-stats','image-hover-card-grid','tool-list')
- GROUP BY 1,2 ORDER BY 1,2;
-```
+No scheme flips. 8 of 11 held byte-identical on all nine core slots. This is the accepted
+risk, quantified — and the measured drift rate for anyone weighing a future dispatch.
 
-**The layouts half is WIDER and is a stylesheet re-render, not a page one.** The site↔layout
-join runs through `css_themes.layout_id` (there is no `sites.layout_id` — that cost several
-wrong guesses). 14 active themes carry the five changed layouts:
+**Pages: 12 `page_rerender` items enqueued 2026-08-10** (`…_viz014_20260810`, reason
+`section_data_resolved`, all pages pre-checked zero NULL `content_data`) across aao,
+finetuning, idea.uk, leopardess, robot-hands, vonc. Gamesdesign's two were done with the
+canary and verified at the served URLs.
 
-| layout | themes |
-|---|---|
-| brochure-formal | 5 — default, standard-brochure, professional-dark, fundamentallyai.com, leopardessconsulting.co.uk |
-| tool-portal-light | 4 — idea.uk, lendzy.co.uk, mortgagecalculator.co.uk, webdesign.co.uk |
-| technical-precise | 2 — modern-engineering-clean, premium-elegant |
-| tool-portal-dark | 2 — gamesdesign.co.uk, robot-hands.com |
-| high-energy | 1 — boxing |
+**dartsonline needs NO page re-render and its expected closure may already be moot:**
+`image-hover-card-grid` now has **zero placements fleet-wide** — the dartsonline lane
+removed it since 08-08. If the failing element is gone, the baseline row closes by removal;
+only the re-audit can say. **A placement table is a snapshot — re-run it before acting on
+it**, this one lost a row in two days.
 
-> **RESOLVED 2026-08-09 — the layouts change DOES reach gaswholesalers.com.** Asked its
-> served stylesheet rather than the schema: it carries the multi-line needle
-> `a {\n  color: var(--color-accent);` exactly once, so it runs one of the four multi-line
-> layouts. `--color-accent-ink` appears **zero** times in that file, which is expected and is
-> the point — the served CSS predates both the engine and 338. §6's expected-12 stands.
+### NEXT, in order
 
-### BLOCKED — the only CSS re-render path runs an LLM design pass on an unpinned site
-
-**Determined 2026-08-09, and this is a decision for the owner, not a detail.**
-
-**A CSS re-render is unavoidable.** The components now say
-`var(--color-primary-ink, var(--color-primary))`. Those variables are *defined* only by the
-engine's step 12, which runs during a stylesheet render. Until a site's `styles.css` is
-regenerated, every new reference resolves to its fallback — i.e. renders exactly as today.
-**So without a CSS re-render the entire fix, component half included, is inert.** Confirmed
-at the artefact: gaswholesalers' served stylesheet carries the base-link needle once and
-`--color-accent-ink` **zero** times.
-
-**The only path to `render_css_from_spec` is `webdesign-agent`**, and its step graph forces
-the LLM through first:
-
-```
-check_site_context → … → load_decisions → analyze_design (execute_llm_prompt)
-                       → check_update_db → update_site → generate_css (render_css_from_spec)
-                       → deploy_css
-```
-
-There is no entry that reaches `generate_css` without `analyze_design`. It is the only
-active agent holding that action (checked across all live, non-snapshot definitions).
-
-**And `analyze_design` re-invents the palette per run.** That is the recorded fleet-wide
-mechanism from 2026-07-17 on robot-hands — four CSS rewrites in one day, one of which shipped
-a LIGHT background onto a dark site. The prompt only renders the structured
-`design_intent.palette` block, so a site without it gets the "invent a palette" branch every
-time.
-
-> **CORRECTED 2026-08-09 (same day, on a re-check):** this section first said **0 of 12
-> pinned**, measured at `sites.content_data` — the WRONG STORE. The proven pin pattern
-> (`robot_hands/SQL_2026-07-17_r1b_…`) writes a `site_specs` row, `aspect='design_intent'`,
-> and `webdesign-agent`'s own `read_site_specs` step is what consumes it. Measured there:
-
-**9 of the 12 affected sites ARE pinned** [MEASURED 2026-08-09, at `site_specs`]. Most pins
-were written by `domain-research-classifier` in normal operation (06-05 → 08-02), so a pin is
-the platform's normal state. **Unpinned: `ai-agent-orchestration.com`, `finetuning.uk`,
-`gaswholesalers.com`** — and gaswholesalers is the site with 6 of the 12 expected closures.
-
-```sql
-SELECT s.domain, bool_or(ss.aspect='design_intent' AND ss.is_current
-       AND ss.data->'palette'->'reference_values' IS NOT NULL) AS pinned
-FROM sites s LEFT JOIN site_specs ss ON ss.site_id=s.id
-WHERE s.domain IN (…the 12…) GROUP BY 1;
-```
-
-**The one guard that exists is live but narrow.** `enforceLayoutScheme` (`bugs_closed/022`)
-pod-greps 2 on v1.0.1270. It rejects a merged background that contradicts `layouts.scheme` —
-so the worst case (light background onto a dark site) is caught. It does **not** constrain
-accent, text or heading drift, which is most of what this lane measures.
-
-### The options, costed. Do not pick one silently — this is wider than bug 122.
-
-1. **Pin the 3 unpinned sites, then dispatch all 12.** The proven pattern
-   (`robot_hands/SQL_2026-07-17_r1b_design_intent_palette_pin.sql` — the next run reproduced
-   the pinned values exactly; supersede the current `design_intent` spec row, do not UPDATE
-   it). Cost: 3 pins derived from each site's *current live* palette — measure the served
-   stylesheet, not a DB copy. The 9 pinned sites can be dispatched as-is.
-2. **Give `render_css_from_spec` a caller that is not the design LLM** — a minimal
-   render-and-deploy path. Cleanest long-term and it makes this class of propagation cheap
-   for ever. But it is a **new shared mechanism, so architecture-scope** under the 2026-07-29
-   ruling: register it in the same commit, and expect the guardian seat to want it on its own
-   merits rather than folded into a bug fix.
-3. **Do nothing and leave the fix inert.** Honest, reversible, and currently the de-facto
-   state — but then 338 is a source change nobody sees, which is precisely the shape
-   `bugs_open/213` is about.
-
-**My recommendation is 1 for this lane and 2 as a separate item** — and after the re-check,
-1 is much cheaper than first stated: 3 pins, not 12. The churn risk on the 9 pinned sites is
-the proven-contained case. It still wants an explicit yes, because a fleet-wide CSS
-re-dispatch is not this lane's surface alone.
+1. **Confirm the 12 page items completed AND verify at served URLs** — `pages.url`, never a
+   constructed filename (tools-index taught that: served at `/tools/index.html`).
+2. **Re-audit and grade per selector**: `python3 scripts/render_audit.py <the baseline's 15
+   urls> > after_$(date +%F).txt`, diff against `BASELINE_2026-08-06_render_audit.txt`
+   selector-by-selector. Expected: the reachable closures gone (robot-hands 2, finetuning 2,
+   gaswholesalers 6), dartsonline 1 gone-or-removed, **both `.stats-eyebrow` rows still
+   failing** (§6 correction — unreachable by the shipped engine), 212's ~24 unchanged, and
+   the three drifted slots checked for NEW failures they might have introduced.
+3. **Write the render-audit cadence migration** (edit 8, the second half of the approved
+   plan — still unwritten; `\d scheduled_tasks` first, weekly not daily).
+4. Then 122 is closable to the extent the engine allows, and what remains is 212's
+   architecture question (two mechanisms now measured blind to component-painted grounds).
 
 ## 3. `bugs_open/212` — reframed. Read its §8 before acting on §1–§7
 
