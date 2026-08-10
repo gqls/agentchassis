@@ -172,6 +172,27 @@ that MEMORY records as dead and that another lane may own. The options:
    RFC proposes — lane-side, so it changes nothing about what a green fence
    claims today.
 
+## 5b. Fleet weather at close of session (2026-08-10 ~22:00Z)
+
+- **Chassis rolled to `v1.0.1283`, pods started 21:43Z.** No commit in the last
+  day touched the acceptance path (`tool_eligibility.go`,
+  `check_tool_acceptance*.go`, `tool_acceptance_actions.go`,
+  `run_checks_action.go` — checked by `git log` on those paths). Everything this
+  lane shipped is **config** (`doc_plans` rows, `site_specs` facts, migration 366
+  prompt text), so the roll neither delivers nor breaks any of it; all eight
+  acceptance runs completed 19:05–19:16Z, before the roll.
+- **A batch-8 landmine (staged_component_build lane, commit `68b7d78da`) narrows
+  what our fences CLAIM: `computed_values` reads a `display:none` subtree, so it
+  pins arithmetic and says nothing about visibility.** Measured against our eight
+  the same evening: **none has a reveal pattern** — every results container is
+  visible from load and updates in place; the only `display:none` rules on all
+  eight pages are chrome (`.header-cta` under a mobile media query) and the one
+  `hidden` attribute is fee-analyser's error `<p>`. So the gap is EMPTY here
+  today. It stops being empty the day a rebuild introduces a
+  hidden-until-submit panel — if that happens, carry the reveal in its **own**
+  `interaction` check with `expect.selector` naming the revealed state, per the
+  landmine, and prove it with a reveal-only mutant.
+
 ## 6. Landmines live on this work
 
 - **All of 08-08b §4, 08-08c §3, 08-10 §5 and 10b §4** still stand.

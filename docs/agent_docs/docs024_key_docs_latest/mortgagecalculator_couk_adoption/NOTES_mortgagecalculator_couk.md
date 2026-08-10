@@ -1918,3 +1918,28 @@ is the exact `computed value(s) diverge` arm. So "can this fence ever go red?" i
 answered by fleet evidence rather than by deliberately corrupting one of our own
 live PLANs — which would have cost an `acceptance_stuck` item and proved
 something already demonstrated this morning.
+
+### Post-roll check (chassis v1.0.1283, pods 21:43Z) and the batch-8 visibility landmine measured against our fences
+
+The fresh build changes nothing for this lane — everything shipped today is
+config, and `git log` on the five acceptance-path files shows no commit in the
+last day. All eight runs completed before the roll.
+
+The staged_component_build lane's finding (`68b7d78da`) that **`computed_values`
+reads a `display:none` subtree** — `InnerText` falls back to `textContent` on an
+unrendered element, so a tool that computes correctly and never shows the visitor
+anything passes a values-only fence — was measured against our eight tools
+directly rather than assumed either way:
+
+- results containers on all eight pages are **visible from load and update in
+  place**; no reveal-class JS (`classList.add('visible')` etc.) on any of them;
+- the only `display:none` rules are chrome (`.header-cta` in the mobile media
+  query, same two rules on every page);
+- the single `hidden` attribute in the population is `#tcError` on fee-analyser —
+  the error line, not a result.
+
+So the visibility gap is **empty on this site today**: there is no reveal step
+for a mutant to break. `[MEASURED 2026-08-10 late — and it is a property of the
+CURRENT builds. A future recreation that introduces a hidden-until-submit panel
+re-acquires the gap silently, because the fence stays green either way; the
+handoff carries the check to add when that happens.]`
