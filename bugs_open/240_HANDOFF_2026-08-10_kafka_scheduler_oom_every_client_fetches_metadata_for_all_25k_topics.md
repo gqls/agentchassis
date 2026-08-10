@@ -1,4 +1,4 @@
-# BUG 240 — kafka-scheduler OOMs every ~60s: every kafka-go client refetches metadata for ALL 24,998 topics every ~3s, and 24,087 of those topics are orphans nothing deletes
+# BUG 240 — kafka-scheduler OOMs every ~60s: every kafka-go client refetches metadata for ALL 25,042 topics every ~3s, and 24,131 of those topics are orphans nothing deletes
 
 **Filed:** 2026-08-10 · found from the `bugfix_209_deploy_purpose_keyed_source` lane
 (a work item filed correctly at `triaged` sat 20 minutes undispatched) ·
@@ -59,24 +59,32 @@ produces a single message. **The mean interval is ~3 s, not the 6 s the
 draw. Anyone reasoning about refresh cost from the constant alone will be out by
 2×.
 
-### 3. The cluster holds 24,998 topics / 50,100 partitions, 24,087 of them orphans
+### 3. The cluster holds 25,042 topics, 24,131 of them orphaned `job.*`
 
-`[MEASURED 2026-08-10]` via `kafka-topics.sh --list` / `--describe` on
-`personae-kafka-cluster-combined-pool-prod-0`:
+`[MEASURED 2026-08-10]` via `kafka-topics.sh --list` on
+`personae-kafka-cluster-combined-pool-prod-0`, **listed to a file inside the pod
+and read back** — three consecutive reads returned identical counts. Do NOT pipe
+`--list` down a `kubectl exec` stream; it truncates silently (§4 retraction):
 
 | what | count |
 |---|---|
-| topics, total | **24,998** |
-| partitions, total | **50,100** |
-| `job.*` (ephemeral per-step topics) | **24,087** |
+| topics, total | **25,042** |
+| `job.*` (ephemeral per-step topics) | **24,131** |
 | `system.*` | 861 |
+
+`[UNMEASURED]` **total partition count.** I originally recorded 50,100 here. That
+figure came from `--describe`, whose output truncates (see the retraction in §4),
+so I have withdrawn it rather than replace it with a second unreliable number.
+Sampling shows `job.*` topics are single-partition, so topic count is the right
+order-of-magnitude driver — but if you need the partition total, get it from the
+broker's own metrics, not from `kafka-topics.sh` output.
 
 `job.*` topics are created per orchestration step
 (`platform/kafka/topic_manager.go:79`, `job.<corr>.<orch>.<agent>.<step>`). They
 are ephemeral by design and **nothing deletes them** (see §4).
 
-So every kafka-go process in the fleet fetches and unmarshals metadata for 50,100
-partitions roughly every 3 seconds, in the background, forever. In a 128Mi
+So every kafka-go process in the fleet fetches and unmarshals metadata for all
+25,042 topics roughly every 3 seconds, in the background, forever. In a 128Mi
 container with no `GOMEMLIMIT` and default `GOGC=100`, the heap target is twice
 the live set — and the live set is now large enough that the target exceeds the
 limit before a GC completes.
@@ -115,25 +123,30 @@ and then only the topics that were *already* orphaned on the previous tick
 across 2026-08-10 10:48:15–10:50:27Z: **18 of 18 samples BUSY**, 4–6 matching
 jobs/pods at every sample, a mix of genuinely `Running` and `Succeeded`-but-unreaped.
 (A 2-minute window cannot prove the fleet is *never* idle; what it establishes is
-that idleness is not the common case. The 24,087 surviving topics are the
+that idleness is not the common case. The 24,131 surviving topics are the
 long-run evidence.)
 
 **A live platform is rarely simultaneously idle, so the branch that deletes
 topics almost never fires** — and it must win twice in a row to delete anything.
 
-> **CORRECTED 2026-08-10, same session, before this claim was acted on.** I first
-> wrote that the branch is "in practice dead". It is not *dead* — it fires
-> occasionally. `[MEASURED]` the `job.*` count fell from **24,087 (10:44Z) to
-> 23,966 (10:54Z)**, so the reaper cleared ~121 topics when it caught an idle
-> window. What caught it: re-running the count ten minutes later as part of
-> testing the sweep script, and noticing the total had moved.
+> **RETRACTED 2026-08-10, same session — and the retraction is the more useful
+> finding.** I briefly corrected this line to say the reaper "fires
+> occasionally", citing a fall from 24,087 (10:44Z) to 23,966 (10:54Z) and then
+> 22,300. **Every one of those numbers was an artefact.** Piping
+> `kafka-topics.sh --list` down a `kubectl exec` stream **truncates silently** at
+> this topic count — no error, no non-zero exit, just a short list. Three reads
+> 18 seconds apart returned **21,409 / 23,017 / 5,809**.
 >
-> The correction does not weaken the case, it sharpens it: **the reaper is not
-> broken, it is outpaced.** At ~121 per 10-minute tick *when it fires at all*,
-> against a standing backlog of ~24,000 that has accrued while it has been
-> running every 10 minutes for ~15 days, it cannot converge. The standing
-> backlog is the evidence, not the tick rate — and "it sometimes works" is
-> exactly the property that would let a reader dismiss this as already handled.
+> `[MEASURED, reliable method]` listing to a file *inside* the pod and reading it
+> back gives the same answer every time: **25,042 topics total, 24,131 `job.*`,
+> 861 `system.*`** — identical across three consecutive reads.
+>
+> So the original claim stands, and my "correction" of it was noise. What I can
+> say from reliable measurement is the standing backlog, not a rate: **~24,131
+> `job.*` topics survive after the reaper has been running every 10 minutes for
+> ~15 days.** Whether it ever fires is *unresolved* and now cheaply measurable —
+> take two in-pod counts either side of a tick. Do not repeat my mistake of
+> reading a trend out of the piped form.
 
 That guard is the fix for `bugs_closed/071`, where the *opposite* failure was
 biting: the guard never matched a pod, so the cronjob deleted every `job.*` topic
@@ -143,7 +156,7 @@ live topic kills a visible run, whereas an undeleted dead topic costs nothing
 until 24,000 of them do.
 
 `[INFERRED, not measured]` accumulation therefore starts at 071's fix
-(2026-07-26). 24,087 topics over ~15 days ≈ 1,600/day ≈ 67/hour, which is the
+(2026-07-26). 24,131 topics over ~15 days ≈ 1,600/day ≈ 67/hour, which is the
 right order for this platform's step volume — but I did not date the topics, and
 Kafka does not record topic creation time, so treat the start date as consistent
 rather than established.
@@ -175,7 +188,7 @@ are. The scheduler is just the canary with a 128Mi limit.
    accumulation door without reintroducing 071 (which was caused by deleting
    topics of *running* agents; age/terminality is a per-topic test, not a
    fleet-wide one).
-3. **Delete the existing 24,087 orphans once**, to end the live incident.
+3. **Delete the existing ~24,000 orphans once**, to end the live incident.
    One-off; without (1) or (2) it recurs. ⚠ Must not delete topics of live runs —
    use the same per-topic test as (2), not a bulk wipe.
 4. **`GOMEMLIMIT` + a bigger limit on `kafka-scheduler`.** Mitigation only, and

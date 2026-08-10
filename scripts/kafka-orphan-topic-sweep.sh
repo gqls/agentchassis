@@ -74,12 +74,32 @@ echo "=== kafka orphan topic sweep $(date -u +%Y-%m-%dT%H:%M:%SZ) ==="
 echo "protect window: $PROTECT_WINDOW   mode: $([ $APPLY -eq 1 ] && echo APPLY || echo DRY-RUN)"
 
 # --- 1. every topic -----------------------------------------------------------
-kubectl -n "$NS_KAFKA" exec "$KAFKA_POD" -- \
-  bin/kafka-topics.sh --bootstrap-server localhost:9092 --list 2>/dev/null \
-  | grep '^job\.' | sort -u > "$WORK/job_topics.txt"
+# ⚠ LIST INSIDE THE POD, THEN CAT THE FILE. Piping `--list` straight down the
+# `kubectl exec` stream TRUNCATES silently at this topic count: three reads 18s
+# apart returned 21,409 / 23,017 / 5,809 while the true count was a rock-steady
+# 24,131. There is no error and no non-zero exit — you just get a short list.
+# Writing to a file in the pod first and reading it back is stable to the row.
+# A truncated list here is not merely inaccurate, it silently under-deletes and
+# makes both refusal guards below meaningless.
+fetch_topics() {
+  kubectl -n "$NS_KAFKA" exec "$KAFKA_POD" -- bash -c \
+    'bin/kafka-topics.sh --bootstrap-server localhost:9092 --list > /tmp/sweep_topics.txt 2>/dev/null; cat /tmp/sweep_topics.txt' \
+    2>/dev/null
+}
+fetch_topics | grep '^job\.' | sort -u > "$WORK/job_topics.txt"
 TOTAL=$(wc -l < "$WORK/job_topics.txt")
-echo "job.* topics found: $TOTAL"
+
+# Stability check: read twice and require agreement, so a truncated read cannot
+# quietly set the scope of a mass deletion.
+fetch_topics | grep -c '^job\.' > "$WORK/recount.txt"
+RECOUNT=$(cat "$WORK/recount.txt")
+echo "job.* topics found: $TOTAL (recount: $RECOUNT)"
 if [ "$TOTAL" -eq 0 ]; then echo "nothing to do"; exit 0; fi
+if [ "$TOTAL" -ne "$RECOUNT" ]; then
+  echo "REFUSING: two consecutive listings disagree ($TOTAL vs $RECOUNT)."
+  echo "The topic listing is truncating; deleting from a short list is unsafe."
+  exit 1
+fi
 
 # --- 2. protected correlations ------------------------------------------------
 kubectl -n "$NS_APP" exec -i "$PG_POD" -- \
@@ -132,26 +152,31 @@ if [ $APPLY -eq 0 ]; then
   exit 0
 fi
 
-# --- 5. delete ----------------------------------------------------------------
-# One --delete call per topic; kafka-topics.sh accepts a list but a single bad
-# name fails the batch, and a partial sweep is fine (the next run finishes it).
-OK=0; FAIL=0
-while read -r TOPIC; do
-  [ -z "$TOPIC" ] && continue
+# --- 5. delete, in batches --------------------------------------------------
+# kafka-topics.sh takes a Java regex for --topic, so one JVM can delete many
+# topics. That matters: one invocation per topic is ~1.5s of JVM startup, which
+# is ~10 HOURS for a backlog this size. Batching makes it minutes.
+#
+# Every name is ESCAPED (only `.` is a regex metacharacter in these names) and
+# the alternation is ANCHORED with ^(...)$ so a pattern can never widen to
+# something it was not built from. Never pass an unanchored pattern here — a
+# stray `job.*` would take the live topics too, which is bugs_closed/071 exactly.
+BATCH="${BATCH:-200}"
+OK=0; FAIL=0; DONE=0
+split -l "$BATCH" "$WORK/delete.txt" "$WORK/batch_"
+for BF in "$WORK"/batch_*; do
+  PAT=$(sed 's/\./\\./g' "$BF" | paste -sd'|' -)
+  N=$(wc -l < "$BF")
   if kubectl -n "$NS_KAFKA" exec "$KAFKA_POD" -- \
        bin/kafka-topics.sh --bootstrap-server localhost:9092 \
-       --delete --topic "$TOPIC" >/dev/null 2>&1; then
-    OK=$((OK+1))
+       --delete --topic "^($PAT)\$" >/dev/null 2>&1; then
+    OK=$((OK+N))
   else
-    FAIL=$((FAIL+1))
+    FAIL=$((FAIL+N))
   fi
-  if [ $(( (OK+FAIL) % 250 )) -eq 0 ]; then
-    echo "  ... $((OK+FAIL))/$DEL_N (ok=$OK fail=$FAIL)"
-  fi
-done < "$WORK/delete.txt"
+  DONE=$((DONE+N))
+  echo "  ... $DONE/$DEL_N (ok=$OK fail=$FAIL)"
+done
 
-echo "deleted: $OK   failed: $FAIL"
-echo "remaining job.* topics:"
-kubectl -n "$NS_KAFKA" exec "$KAFKA_POD" -- \
-  bin/kafka-topics.sh --bootstrap-server localhost:9092 --list 2>/dev/null \
-  | grep -c '^job\.'
+echo "requested: $OK   failed-batch: $FAIL"
+echo "remaining job.* topics: $(fetch_topics | grep -c '^job\.')"
