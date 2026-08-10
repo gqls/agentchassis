@@ -163,8 +163,8 @@ this file is the one document both cold-starts read.
 |---|---|---|
 | `tool-setup-builder` | **DONE** — fence proven 11/11 mutants, PLAN persisted (7,964 B), S6 green 15/0 | session A (commits `40c0f17f2`, `b66273063`) |
 | `bugs_open/243` (the `look` storage client) | **DIAGNOSED + FILED** | session A (commit `c8360da47`) |
-| `tool-matchmatrix` | **CLAIMED 17:10Z, in progress** | session B (this claim) |
-| `tool-grip-force-friction-calculator` | **CLAIMED 17:10Z, in progress** | session B (this claim) |
+| `tool-matchmatrix` | **DONE 18:5xZ** — fence 13/13 mutants, PLAN 8,987 B, S6 green 16/0, re-run on the new build | session B |
+| `tool-grip-force-friction-calculator` | **DONE 18:5xZ** — fence 13/13 mutants, PLAN 8,238 B, S6 green 16/0, re-run on the new build | session B |
 | `tool-llm-cost-calculator` | unclaimed — authorable but MUST be authored fork-aware (4 forks share the PLAN) | — |
 | `tool-bayesian-ranking` | unclaimed — needs the RUNBOOK §11 rename first (two rows) | — |
 
@@ -201,3 +201,94 @@ it — RUNBOOK §4, long marker.
 3. Re-run the census and the naming-contract check; the figures above WILL have moved.
 4. `who-owns.py` + workstream-dir grep for every subject you are about to WRITE —
    ownership answers age in hours (08-09 lesson, twice over).
+
+---
+
+# ADDENDUM 2026-08-10 evening (session B) — READ THIS BEFORE §2's tables
+
+**59 subjects proven: 54 sections + 5 tools.** Batch 8 has three done
+(`tool-setup-builder` by session A; `tool-grip-force-friction-calculator` and
+`tool-matchmatrix` by session B). Fleet rolled to a **fresh chassis + browser-runner build
+mid-session** — pods `agent-chassis-696d88b4c7-{95mgb,wnbs8}`, `browser-runner-adapter-68cd66dcb9-4pg87`.
+**Re-grep at session start; do not carry that pod name or any version forward.**
+
+## A. Three things that change how you author the NEXT fence
+
+1. **`computed_values` does NOT prove the visitor could see the value.** It reads the text of a
+   `display:none` subtree perfectly well — `innerText` falls back to `textContent` for an element
+   that is not being rendered. Measured twice (a JS mutant and a CSS-only probe). So every
+   reveal-style tool needs a SEPARATE `interaction` check naming the revealed state, proven by its
+   own mutant. Do **not** list the value checks in that mutant's `expect_fail` — they will not fail.
+   `LANDMINES.md`, entry added 2026-08-10.
+   > This corrects a claim written into this lane's NOTES and into `manifest_batch8.json`'s
+   > setup-builder contract earlier the same day. **That fence is still sound** — its `.db-value`
+   > spans ship empty in the served HTML, so it discriminates for a different, genuine reason. Only
+   > the stated reason was wrong.
+2. **`computed_values` compares RENDERED text.** A golden copied from the JS source string is wrong
+   for any element carrying `text-transform` (MatchMatrix's badge builds `Match`, renders `MATCH`).
+   Derive from the JS, then corroborate against the live tool before persisting.
+3. **`prove_fence_mutants_file.go`'s coverage line was claim-derived and is now observation-derived**
+   (`b861cdbeb`). If you are reading an older run's *"checks watched red: N of N"*, it counted what
+   the mutants file CLAIMED, not what went red. Re-run rather than trusting it.
+
+## B. The `rebuild_policy` axis, and how to fence an `owned` page
+
+§2's tables qualify on *serves 200* and *resolves*. The third axis is `pages.rebuild_policy`,
+because a failing verdict dispatches `tool-improver` at the page. **`owned` is not a
+disqualifier — measured, 8 of the 25 tools that already have a PLAN sit on `owned` pages.** The
+control is the fence's own top-level `no_auto_fix` + `no_auto_fix_reason` (escalates to human
+review, raises no `improve_tool`). Pod-proved present, both replicas, on the new build.
+
+**But `no_auto_fix` covers the Tier 4 path ONLY.** Writing a tool PLAN also switches **Tier 2** on,
+and Tier 2 ignores the flag and can fail a page for three built-ins outside your fence (tool-doc
+header, `<no value>` residue, dead-control anchors) — see the two `LANDMINES` entries. Before
+fencing any tool, measure both halves:
+
+```bash
+# the three Tier-2 built-ins, against the SERVED page
+grep -c '/\* === tool-doc ===' page.html ; grep -c '<no value>' page.html
+grep -oE 'href="(#|javascript:void[^"]*)"' page.html | wc -l    # 0 ⇒ dead-controls cannot fire
+```
+```sql
+-- and what an improve_tool item would hand over: if this count is fleet-sized, STOP
+SELECT cc.function, cc.id, count(*) OVER (PARTITION BY cc.id) AS pages_sharing
+  FROM page_components pc JOIN content_components cc ON cc.id=pc.component_id
+ WHERE cc.function = '<function>';
+```
+Both robot-hands tools measured clean on all three built-ins, with a blast radius of **1 page each**
+(single-placement, unshared components — unlike the `ported-page`/`hero` rows the landmine is about).
+
+## C. Coordination, because this handoff was issued to two chats at once
+
+`who-owns.py` and `git log` are both **lagging** — they cannot see a session mid-task. What worked:
+compare file mtimes in the lane's `scripts/` dir against `git log` for the same paths, then grep the
+live transcripts, `grep -l "<fence-name>" ~/.claude/projects/-home-ant-projects-agentchassis/*.jsonl`.
+`ListAgents` lists 33 peers but their refs do not map to session ids, so `SendMessage` had no
+addressable target — **the written claim in this file is the coordination channel.** Update §4b when
+you take something.
+
+**Two traps this produced, both in `WRONG_CALLS.md`:** I overwrote session A's committed
+`manifest_batch8.json` (git restored it; my entries live in `manifest_batch8b.json`), and I nearly
+ran the generator over the merged manifest — **it supersedes every entry it is given**, which would
+have replaced their live, proven `doc_plans` row with a fresh copy and destroyed their evidence
+trail. **Scope the manifest you `--apply` to the subjects you own.**
+
+## D. What is next, in order
+
+1. **`tool-llm-cost-calculator`** — the last of §2a's set that is authorable. **Must be authored
+   fork-aware**: 4 forks share the one `doc_plans` key (templates differ by up to 3.3 KB), so a
+   fence written against the canonical template alone reds on a fork the moment anyone renames one
+   of those pages to convention. Say so in its PLAN.
+2. **`tool-bayesian-ranking`** — needs the RUNBOOK §11 rename first (**two rows**: `pages` AND
+   `site_plan_pages`). gamesdesign names 15 other tool pages with the `tool-` prefix, so this
+   restores the site's own convention. Unclaimed as of this writing.
+3. **The eight loancalculator tools** — still blocked on a naming decision that is not this lane's
+   to make (their page slugs are different WORDS from the component functions). Unchanged.
+4. **`bugs_open/243`** (the `look` step's missing storage client) is session A's, filed and
+   diagnosed. Every acceptance run still ends `complete_no_look`; **check results are unaffected**,
+   the screenshot pass is what is lost.
+
+## E. Current figures (re-measure; they move)
+
+Naming-contract check: **PASS** — 54 canonical / **28 testable** / **10 authoring backlog** /
+**0 BROKEN**. No `improve_tool` work item was raised by any run today.
