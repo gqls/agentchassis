@@ -80,7 +80,7 @@ registrar-parked domain answering 200 (LANDMINES 2026-08-09) lands in the
 `reason: title_absent` so tightening later is a one-line policy change, and the
 census measured 0 parked domains today.
 
-### 2. Lightweight driver at outage-appropriate cadence (config only, migration 368)
+### 2. Lightweight driver at outage-appropriate cadence (config only, migration 372)
 
 The 230 lane's rotation drivers are the right pattern but the wrong clock (7-day
 cooldown; an outage is not a content defect). Same migration shape as their 346:
@@ -110,7 +110,7 @@ The runner **hard-fails on a check name the binary does not register** (unless
 `allow_unregistered_checks`, which stays untouched — it tolerates gaps silently,
 which is the failure mode this estate documents). So: code commits now and rides
 the next chassis build; the migration ships as
-`368_site_availability_driver_HOLD.sql` — the migration-runner practice for
+`372_site_availability_driver_HOLD.sql` — the migration-runner practice for
 ordering-critical files (a banner cannot hold a file; the `_HOLD` suffix can) —
 and is renamed+applied only after a pod-grep proves the check string is in the
 running binary. Per the 2026-07-29 owner ruling: no ordering constraint is
@@ -148,7 +148,7 @@ config, so another session's roll shipping it early is harmless).
 2. Post-roll: pod-grep the binary for `site_unreachable` (positive) and for a
    string the change removed (negative control — n/a here, new file; use the
    check name in `checks.Names()` via a live run instead).
-3. Apply migration 368 (rename from `_HOLD`), watch one rotation tick dispatch,
+3. Apply migration 372 (rename from `_HOLD`), watch one rotation tick dispatch,
    confirm a `COMPLETED` availability orchestration and a `Resolved`-clean run on
    a healthy site.
 4. **Break it on purpose** (the bug file's own protocol): delete `cookly.uk/*`'s

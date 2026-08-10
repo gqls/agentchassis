@@ -61,7 +61,7 @@ UPDATE site_discovery_rotation
 
 ## Migration (held until the image rolls)
 
-`docs/agent_docs/sql_for_agents/368_site_availability_driver_HOLD.sql` — rename
+`docs/agent_docs/sql_for_agents/372_site_availability_driver_HOLD.sql` — rename
 to drop `_HOLD`, then apply via the migration runner, ONLY after:
 
 ```bash
