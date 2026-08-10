@@ -464,3 +464,41 @@ anything.
 **Nothing is switched on yet.** The checks are written and I've verified the
 system is capable of running them, but installing them is a separate step and a
 separate decision — partly because of the ten uncovered tools above.
+
+---
+
+**2026-08-10.** All seventeen calculators are now watched automatically, and the
+watching has already paid for itself.
+
+The system picked this site up on its own at twenty past three this morning, ran
+the fourteen calculators that were due, and **found one genuinely broken**. The
+equity release tool: put in an eligible age, it shows you a figure; change the age
+to one that doesn't qualify, and it left the old figure sitting there as though it
+still applied. Same fault as the loan calculators we fixed yesterday, but hidden
+behind an age check rather than an interest-rate check, which is why the earlier
+sweep walked straight past it.
+
+That prompted me to stop trusting my own summary. I'd written that this kind of
+fault was dealt with; it wasn't. So I searched for the *shape* of the mistake
+rather than the version of it I already knew, and found three more — the bridging
+loan tool showing a cost for a deal it had just declared impossible, and the
+investor tool keeping an old percentage on screen after you clear a box. All four
+are fixed. **Ten in total across the two sites, and only six were the interest-rate
+version.**
+
+The other thing worth telling you: the safety catch worked. When that tool failed
+this morning, the system's normal reaction would have been to send an automated
+writer in to change the calculator until the check passed — on arithmetic about
+consumer credit. I'd blocked that yesterday, and the record shows it refusing and
+asking for a human instead. It has now been tested by a real failure rather than
+just asserted.
+
+Last piece: the debt consolidation page was the one tool that couldn't join the
+automated checks, because of how it's put together. It can now, and it passes.
+Seventeen of seventeen.
+
+Nothing is outstanding. There's a full handoff (`HANDOFF_2026-08-10_continue_here.md`)
+if you want to pick this up in a new conversation. The only thing I'd flag as a
+choice rather than a task: the same class of fault has never been looked for on
+mortgagecalculator.co.uk or loancash.co.uk, which come from the same family of
+pages.
