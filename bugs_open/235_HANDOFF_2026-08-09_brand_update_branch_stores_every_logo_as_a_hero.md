@@ -158,3 +158,93 @@ the stale `logo.jpg` is not removed by re-running anything, and **pages currentl
 reference it** (robot-hands' HTML points at `/assets/images/logo.jpg`) — so the
 order is re-deploy the correct `logo.png`, re-render the pages that reference the
 old name, then delete the stale file.
+
+---
+
+## 2026-08-10 — fix candidate 1 PROVEN LIVE, candidate 2 IN FLIGHT, and the site list was wrong
+
+### Candidate 1 (migration 360) is behaviourally proven, not merely applied
+
+One `needs_imagery` item at cookly.uk (`brand_update:true, asset_key:"logo",
+purpose:"logo"`, item `3c1c7c65-…`). **The routing is the disconfirmable part**,
+and the run recorded it in its own `collected_data`:
+
+```
+check_imagery_brand_update = {"condition_met": true,
+                              "next_step_override": "store_imagery_brand_asset"}
+asset_stored               = {"purpose": "logo",
+                              "logo_url": "/assets/images/logo.png", …}
+```
+
+Pre-360 that identical input stored the logo with `purpose:"hero"`. Served
+artefact: `logo.png`, PNG, 400×218, 189,044 B, sha `3fb6ad54…` (replacing
+`e38781c2…`); **no `logo.jpg` created**. This is the **first time the brand
+branch has ever produced a correct logo** — cookly's previous, correct logo came
+from the LEGACY `needs_logo` path (`store_logo_asset`), a different step, which
+is exactly why this had to be fired rather than reasoned about.
+
+> **⚠ TWO CORRECTIONS TO THIS FILE'S OWN "How to verify a fix" SECTION.** Both
+> would fail a CORRECT run, so fix them before anyone else tests against them.
+>
+> 1. **Not "400×400 PNG".** Logo processing fits the image inside a 400px box
+>    preserving aspect ratio, so a wide wordmark comes out **400×218** — as does
+>    idea.uk's known-good logo. The disconfirmable properties are **PNG not
+>    JPEG**, **≤400px not 900×900 / 1408×768**, and **`purpose='logo'` on the
+>    stamped row**.
+> 2. **No new `assets` row is created.** `store_asset` UPDATED row `5c351ebc`
+>    in place (its `storage_path` moved to a `20260810/` key). "Assert the row
+>    the deploy stamped" is right; "assert the NEW row" finds nothing.
+
+### The affected-site list was wrong in two places `[MEASURED]`
+
+Cross-checked three ways — `assets.purpose` for `asset_key='logo'`, what each
+domain actually serves, and what its homepage HTML references:
+
+- **`idea.uk` is NOT affected** and must come off the list: row `purpose='logo'`,
+  serves `logo.png` 400×218, homepage references the PNG. It has only a stale,
+  **unreferenced** `logo.jpg`.
+- **`relojistas.com` IS affected and was missing**: row `purpose='hero'`, serves
+  `logo.jpg` (JPEG 646×275), homepage references it.
+
+Corrected picture: **9 sites with visitor-visible damage** (gamesdesign.co.uk,
+vonc.com, dartsonline.com, robot-hands.com, vetcomparison.uk,
+fundamentallyai.com, oufe.com, lendzy.co.uk, relojistas.com), plus
+**webdesign.co.uk** (bad row, serves the JPEG, but its homepage references no
+logo at all) and **webdesign.uk** (bad row, 302s so unverifiable over HTTP).
+
+Two dimension families among the damaged: 900×900 and 1408×768 — worth a glance
+if anyone wants to date when the deploy's hero processing changed.
+
+### Candidate 2 — 9 items filed 2026-08-10 12:00Z, dispatching now
+
+`created_by='bugfix-235-logo-repair'`, one per standard-deploy affected site,
+each spec built **from that site's own current `site_plan_imagery` logo row**
+(the framework authored those prompts — I did not write nine new ones), mirroring
+`imageryplan.BuildSpec`. Filed at `status='triaged'` because
+`build-pipeline-trigger`'s pre_query requires exactly that plus `pipeline='build'`
+— **filing at the discovery default `detected` goes nowhere**, which is worth
+knowing before anyone files these by hand again.
+
+**TWO SITES DELIBERATELY NOT FIRED**, both needing a decision rather than a retry:
+
+1. **`relojistas.com` and `webdesign.uk` are `github_repo='vm-sites'`** — a
+   different deploy path from the bucket-served sites. Re-driving the logo would
+   regenerate and store the asset correctly, but I have not verified the deploy
+   half reaches a VM-served site, and firing at an unverified deploy path is how
+   you get a green work item and an unchanged page. Route via whoever owns the
+   VM-sites lane. (`idea.uk` is also `vm-sites`, and is fine, so being VM-served
+   is not itself the defect.)
+2. **`webdesign.uk` is additionally BLOCKED from all dispatch.** It holds work
+   item `8793da9a` inserted directly as `status='claimed'` with NULL
+   `claimed_at`/`claimed_by`. The selector skips any site with a claimed item, so
+   **nothing on webdesign.uk can ever dispatch until that row is resolved.** Not
+   this lane's row to clear — but it must be cleared first, and it is silently
+   starving that site of every kind of build work, not just this one.
+
+### Still owed after the artefacts are re-made
+
+The order in this file's original candidate 2 still holds and is not yet done:
+re-deploy the correct `logo.png` → **re-render the pages that reference
+`logo.jpg`** (9 homepages do) → only then delete the stale file. A deploy writes
+the derived path only; nothing removes the old object, and the pages keep
+pointing at it until they are re-rendered.
