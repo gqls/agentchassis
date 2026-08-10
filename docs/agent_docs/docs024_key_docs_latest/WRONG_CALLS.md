@@ -26161,3 +26161,30 @@ orchestrations → clean), so a **partial** dispatch loss of any size is invisib
 unrelated oneshot runs — including my own three — inflate the very numerator that clears the
 check. Filed as evidence into their lane
 (`bugfix_230_discovery_driver/CONTRIB_2026-08-10_…`), not as a bug in mine.
+
+## 2026-08-10 — "nothing arrived concurrently in that window", counted from the working tree
+
+**The claim.** Commit `01d64d564` (concept index, bugfix_122 lane) asserted: *"1,811
+immediately before, 1,812 after — VIZ-015 added ONE and nothing arrived concurrently in
+that window."*
+
+**Why it was false.** The count came from the **working tree**, which already contained
+another lane's uncommitted IMP-053 row. So IMP-053 *had* arrived — it was inside my
+"before" figure — and it then shipped as a same-file passenger in my own commit. The
+arithmetic was correct and the inference was not.
+
+**What caught it.** Reading my own commit's deletions afterwards (`git show <sha> -- <file>
+| grep '^-'`) and finding a third deleted line I had not written.
+
+**The cheap check that would have.** Count against `HEAD`, not the tree:
+`git show HEAD:<file> | grep -cE '<row regex>'`. A working-tree count cannot distinguish
+"committed" from "another session's WIP", so it can never support a claim about what
+arrived concurrently. Corollary, more general than the count: **I ran the same-file
+passenger check on my first docs commit of the session, found it clean, and did not repeat
+it on the second.** A per-file trap needs a per-commit check; one clean result is not a
+property of the session.
+
+**Cost.** Nothing lost (forward-only; the passenger is committed and attributed in the
+lane's NOTES), but the register's count-chain header — which several lanes maintain
+precisely to track concurrent arrivals — now carries one commit message that misreports
+one.
