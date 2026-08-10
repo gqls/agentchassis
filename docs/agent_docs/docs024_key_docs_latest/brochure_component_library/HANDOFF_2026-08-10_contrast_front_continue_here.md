@@ -200,3 +200,52 @@ means something else changed and this fix should not be credited.
 `claim_work_item_action.go:102` claims only `triaged`/`approved` and nothing promotes them;
 I had to promote mine by hand. Three were stuck, one (`loancalculator.co.uk`) for ~33h.
 Matches the standing "detection works; schedule and dispatch do not" pattern. Not filed.
+
+---
+
+## ADDENDUM 2 (late evening) — OPTION 2 CHOSEN AND BUILT. D1a is closed; the site repair is now unblocked but NOT done
+
+Owner chose **option 2 — fix the mechanism, not the instance**. Committed `5c7b115c5`.
+
+**What shipped (inert until the next roll):**
+- `install_site_composition` takes **`allow_reinstall`** (step-config literal, **default false**,
+  read via `GetBoolFieldLoud` so a malformed declaration falls back to the SAFE branch). The
+  swap happens **inside the action's existing transaction**, so the "site briefly uncomposed"
+  window that made the manual route dangerous never opens.
+- The link UPDATE's race guard moved `IS NULL` → `IS NOT DISTINCT FROM $3::uuid` rather than
+  being dropped — it still refuses to clobber a concurrent install, in both modes.
+- `previous_collection_id` is returned: the rollback value, and the **only** record of it.
+- Discovery's composition pair (`check_integrity.go`) now emits **`triaged`**, matching
+  `emit_design_items` which emits the same two `item_key`s.
+- Registered as **DES-082 / DES-083** in the same commit. Council: **`Council-Submitted:
+  b8e341b9-4709-49ad-8b7b-f4c8894ba551`** — **verdict NOT yet read. Owed.**
+
+**Three tests, proven by mutation run before commit** (results as observed, not expected):
+`if !allowReinstall` → `if false` fails A and C; hardcoding the refusal fails B.
+
+### The scheduler question, answered — and the answer is "do NOT enable a sweep"
+
+The promoter exists (`TriageDetectedItemsAction`) and is **undriven**: its three callers
+(`improvement-loop`, `design-audit-agent`, `site-review-agent`) have **no enabled scheduled
+task between them** — `improvement-sweep` is `enabled=false`.
+
+**But enabling one is the wrong fix.** That action promotes **every** `detected` row for a
+site with **no type filter**, and there are **448** `detected` build-pipeline rows fleet-wide
+(193 `page_rerender`, 79 `contrast_failure`, 23 `audit_tool`, …). Turning it on dispatches all
+of them at once. The real defect was narrower and is now fixed at source: **two producers of
+the same `item_key` disagreed about status.** The general promoter remains undriven — left
+open deliberately, and it is a genuine open question for whoever wants the other 448.
+
+### What is still owed on this front
+
+1. **Read the council verdict** (`b8e341b9`) and act on REVISE/REJECTED — the code is already
+   on the shared branch, so this is not optional.
+2. **The site is still unrepaired.** Nothing sets `allow_reinstall` yet. After the roll, the
+   repair is: queue `needs_composition` for `ai-agent-orchestration.com` with the
+   `site-design-planner` step carrying `allow_reinstall: true`. **Rollback value:
+   `3196d966-24ef-4415-9dc8-1afbc02166ca`.**
+3. **Pod-grep after the roll** — `allow_reinstall` / `previous_collection_id`, with a negative
+   control. Nothing has been proven live; DES-082/083 say BUILT, not deployed.
+4. **The paired AFTER measurement**: BEFORE is 58 failures on 3 pages (38 white-card, 4 second
+   light literal, 14 primary-as-ink, 1 over-image). **Prediction, pre-registered: ~42 fewer,
+   ~15 left.** A drop to near zero means something else changed too.
