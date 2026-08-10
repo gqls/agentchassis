@@ -41,7 +41,10 @@ fixes (delivery vs. enforcement), and nothing recorded so far distinguishes them
 ## State in one paragraph
 
 The register is **complete, self-consistent, self-monitoring, and now gated at
-authoring time**. 1,818 entries / 1,818 index rows. A daily CronJob
+authoring time (advisorily — see the banner above)**. Entries and index rows agree
+exactly; **the count is deliberately not written here** — it is derived, per the
+owner ruling of 2026-08-09, and a figure in a handoff is exactly the artefact that
+retirement removed. Run the drift check. A daily CronJob
 (`concept-register-drift-check`, DOC-074) reports drift; a pre-commit check
 (`check_register_entry_without_row`, **OPP-006**, added today) stops the commonest
 drift being written at all. Staleness — "are the entries still TRUE?" — has now
