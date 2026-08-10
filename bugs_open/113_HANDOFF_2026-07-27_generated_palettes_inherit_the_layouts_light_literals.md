@@ -939,3 +939,62 @@ repair cannot be completed by queueing work.
 **Owner decision needed** — see the handoff's D1a. The repair is two statements and a
 short unsafe window, or it waits for someone to give `install_site_composition` a
 supported re-resolve path.
+
+---
+
+## 2026-08-10 (late) — the fix is LIVE, the council said REVISE, and it was right twice
+
+**The roll carries it.** Chassis `696d88b4c7`, both replicas, with a **removal-based**
+negative control rather than a misspelling:
+
+| symbol | count | what it proves |
+|---|---|---|
+| `allow_reinstall` | 4 | the flag is in the binary |
+| `previous_collection_id` | 1 | the rollback value is returned |
+| `re-resolve not requested` | 1 | the NEW error string |
+| `re-resolve not supported` | **0** | the string the change **deleted** — so this is *this* build, not any build |
+
+**Council verdict: REVISE** (correlation `b8e341b9-…`, round 1, gating objection from
+`bug_historian`). Both objections are correct and neither is cosmetic.
+
+### 1. The capability is not merely inert — it is unusable for the case it was built for
+
+`editquality` (medium): *"allow_reinstall is added but … no edit sets it true or wires any
+handler to it. The capability is safe but inert."* Checked, and it is worse than that. The
+flag is read from `StepConfig.Config`, and `site-design-planner`'s install step carries only
+path references:
+
+```json
+{"action":"install_site_composition",
+ "config":{"site_id":"site_record.site_id","selected_layout_id":"composition_layout.layout_id", …}}
+```
+
+So the only way to switch it on is to edit the **agent definition**, which turns re-install
+on for **every composition install fleet-wide** — precisely the unsafe-default-ON state the
+flag was designed to avoid. **There is no way to re-compose ONE site today.**
+
+**Revision required before this repairs anything:** read `allow_reinstall` per-request (from
+the work item spec / `input_data`) as well as from step config, keeping the default false
+and the loud-fallback behaviour. That is what makes a single `needs_composition` item able
+to opt in without changing anyone else's behaviour.
+
+### 2. I cited the wrong work item, five times
+
+`47ce091c` is **`item_type = needs_design_review`** (`item_key
+shared_style_ai-agent-orchestration.com`), created **2026-04-24**. I called it a
+`needs_composition`/`needs_design` blockage created 2026-08-06 — wrong type, wrong date
+(I read `updated_at`), and **the `triaged` fix does not touch it**. The sites that fix
+actually unblocks are `noted.co.uk`, `loanandmortgagecalculator.co.uk` and
+`loancalculator.co.uk` — six rows, **none of them this site**.
+
+The council seat caught it with a read-only query it asked for and answered itself, in
+round 1. Logged in `WRONG_CALLS.md`; register entries DES-082/083 carry a correction block.
+**The `triaged` change is still correct on its own merits** — two producers of one
+`item_key` disagreed about status — only my evidence for it was wrong.
+
+### Where that leaves the site
+
+`ai-agent-orchestration.com` is **still unrepaired**, and is now blocked on a code revision
+rather than on an owner decision. The BEFORE baseline and the pre-registered prediction
+(58 failures on 3 pages → expect ~15 remaining) stand unused and still valid.
+**Rollback value if anyone does proceed: `3196d966-24ef-4415-9dc8-1afbc02166ca`.**

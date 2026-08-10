@@ -698,3 +698,35 @@ deduplication begins; the "raw extractions" count above and the per-concept
 - **the open review question:** the general case is untouched — every other discovery check still emits `detected`, and the promoter is still undriven. Whether the other types should be promoted, and by what, is unanswered; this change deliberately fixes only the pair whose two producers contradicted each other.
 - **sources:** `platform/orchestration/actions/discovery_checks/check_integrity.go` (MissingStyleCollectionCheck); `emit_design_items_action.go`; `triage_detect_items_action.go`; `bugs_open/113`
 - **relations:** DES-082 (same lane, same commit); dedup index ↔ Go list lockstep (`idx_swi_dedup`, one open row per site/item_key)
+
+> **CORRECTION 2026-08-10 (later), to DES-082 and DES-083 above — read this before citing either.**
+>
+> **(a) DES-082 is LIVE but NOT SAFELY USABLE, which is worse than "built, not exercised".**
+> Pod-grepped on chassis `696d88b4c7`, both replicas: `allow_reinstall` ×4,
+> `previous_collection_id` ×1, `re-resolve not requested` ×1, and the string the change
+> REMOVED (`re-resolve not supported`) ×0 — a true removal-based negative control, so the
+> binary genuinely carries it. **But the flag is read from `StepConfig.Config` only**, and
+> `site-design-planner`'s install step config holds nothing but path references. So the only
+> way to set it is to edit the agent definition — which turns re-install **ON for every
+> composition install fleet-wide**, i.e. exactly the unsafe-default-ON state the flag exists
+> to prevent. The council's `editquality` seat called the capability "safe but inert"
+> (medium); it is in fact *unusable for a single site*, which is the case it was built for.
+> **Revision needed: read the flag per-request (work-item spec / `input_data`) as well as
+> from step config.** Until then DES-082 delivers no repair path.
+>
+> **(b) DES-083's justification cited the wrong work item, and the claim is withdrawn.**
+> `47ce091c` is `item_type = needs_design_review` (item_key `shared_style_…`), created
+> **2026-04-24**, not the `needs_composition`/`needs_design` pair and not 2026-08-06 — I read
+> `updated_at` as the creation date. **The `triaged` change does not unblock it and never
+> could.** What DES-083 actually unblocks is three sites' composition pairs
+> (`noted.co.uk`, `loanandmortgagecalculator.co.uk`, `loancalculator.co.uk`) — six rows,
+> none of them `ai-agent-orchestration.com`. The change itself is still correct (two
+> producers of one `item_key` disagreed about status); only the evidence I attached to it
+> was wrong. Caught by the council gate, round 1. Full account: `WRONG_CALLS.md`, 2026-08-10.
+>
+> **(c) The mismatch pattern is bigger than DES-083's landmine says.** That entry sized it at
+> 448 `detected` **build**-pipeline rows. The council's own query shows the same
+> status/dispatch mismatch across other pipelines too — `undeployed_asset` 86 (design),
+> `phantom_internal_link` 18 (content), `unbuilt_internal_link` 17 (content),
+> `image_url_404` 16 (design). The "do not enable a fleet-wide sweep" conclusion is
+> unchanged and, if anything, stronger.
