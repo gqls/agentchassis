@@ -514,3 +514,51 @@ candidate 1 before any css-patch dispatch, then A2.
   the windows between kills — our oneshots landed in those windows, which is why gasw
   took 4 minutes. Diagnosis filed rather than root-caused here; the sick-or-healthy
   question about the afternoon's v1.0.1274 pods is stated in the symptom.
+
+## 2026-08-10 (afternoon) — lane adopted by a new session; first rotation harvest read, and a dropped-dispatch gap found
+
+- **Lane adopted into the 198-fix session at the owner's request** (the prior session
+  `137460cc…` is no longer the operating thread). Cold-started from
+  HANDOFF_2026-08-09b + this file's tail.
+- **Ledger rows for 358/359/361: STILL ABSENT** (`schema_migrations` returns 0 rows for
+  `^(358|359|361)` at 2026-08-10 ~15:45Z). The three owner commands in
+  HANDOFF_2026-08-09b remain owed; council round 3 stays blocked on them by round 2's
+  own gating objection. Re-surfaced to the owner this session.
+- **The rotation's first unattended harvest is in, and both new findings HAND-VERIFY
+  TRUTHFUL:**
+  - `missing_conversion_path:62b5978e…` (mortgagecalculator.co.uk, 08-09 20:55) — the
+    conversion-path arm's FIRST true positive. Verified against live rows: site's
+    recorded model is lead_generation; its `contact-index` page is `planned` (never
+    shipped) so the shipped contactish candidate was `index` (landing), which has no
+    form in any component; the only `<form>`s on the site are calculator inputs on tool
+    pages. 30 pages, no shipped enquiry path — the finding is exactly right.
+    Lexicon-tuning note: when a planned-but-unshipped contact page exists, the message
+    could usefully name it ("contact-index exists but never shipped") rather than
+    reporting the landing-page fallback; argument quality, not correctness.
+  - `needs_strategy` strategy_loanandmortgagecalculator.co.uk (08-10 01:07) — verified:
+    deployed site, 0 current strategy rows. premise_incomplete right again.
+- **CTA-arm silence on gamesdesign.co.uk (08-10 00:05, new config): TRUTHFUL.** Word-
+  bounded grep of all 12 lexicon phrases over all shipped components of all three
+  saas_tools sites returns ONE hit — and it is PROSE on webdesign.co.uk
+  (learn-operations-browser-storage: "If you start a project on your laptop, it will
+  not magically appear on your phone"). The anchor/button-text-only design decision has
+  its first live vindication: a whole-HTML matcher would have false-positived here.
+- **⚠ FOUND: five sites STAMPED BUT NEVER CHECKED — the rotation's stamp-before-dispatch
+  gap, exposed by the scheduler OOM incident.** Since the checks went live, rotation
+  stamps arrive in pairs 30s apart, and the FIRST of each pair has NO orchestration row:
+  webdesign.co.uk 22:00:22 / vetcomparison 22:00:52; lendzy.co.uk 23:01:22 / vonc
+  23:01:52; oufe.com 00:04:45 / gamesdesign 00:05:15; relojistas.com 01:07:07 /
+  loanandmortgagecalculator 01:07:37; loancash.co.uk 02:11:16 / (none — estate fully
+  stamped, rotation idle until stamps age past 7 days). The pre_query stamps BEFORE the
+  dispatch fires, so a dropped dispatch is indistinguishable from a clean silent run in
+  `site_discovery_rotation` — you must join against `orchestration_states` to see it.
+  loancash.co.uk is a KNOWN would-be positive (deployed, 18 shipped pages, 0 strategy
+  rows) sitting invisible behind its stamp. The mechanism belongs to SCH-025
+  (bugfix_230's lane) — contributed there rather than re-plumbed here (see below).
+- **Remediation via the lane's own vehicle:** oneshot envelopes for the five missed
+  sites. Fired loancash.co.uk FIRST as the dispatch-path health probe (it is a predicted
+  positive, so completion + a filed needs_strategy proves scheduler AND detector in one
+  run) — `oneshot-quality-discovery-loancash-20260810`, armed ~15:50Z. Scheduler note:
+  kafka-scheduler rolled to v1.0.1280 ~15:40Z, single pod, no scheduler source change
+  committed (the bump is the fleet roll); 128Mi limit unchanged; 090 diagnosis row reads
+  complete. Remaining four fire only after loancash proves the path.
