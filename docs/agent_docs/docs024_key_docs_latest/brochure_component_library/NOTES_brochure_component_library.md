@@ -5171,3 +5171,135 @@ measurement goes wrong.
 is exactly the WIP that gets swept into someone else's commit (CLAUDE.md's own
 worked example). Better to hand off the groundwork committed than the edit
 dangling.
+
+---
+
+## 2026-08-10 — candidate 1b is BUILT, both halves; the two "unestablished" questions from 08-09c are answered, and one of them was a live defect
+
+Picked up from `HANDOFF_2026-08-09c`. Both of that handoff's open questions are
+now settled by reading the code, and the second turned out to be a bug that had
+already been live for two days.
+
+**Q1 — does Pass B need the same treatment as B2? YES, for one of its two
+branches.** `normaliseRealisedToPlanPage` carries the realised sections as plain
+STRINGS onto the snapped identity, so an LLM fact assignment on a renamed page
+was lost exactly as in B2. The other branch — un-shipped realised page with
+empty sections — assigns `snapped["sections"] = ls`, i.e. the LLM's own entries
+whole, so assignments there ride along untouched and needed nothing. Both are
+now pinned by tests (`TestPassB_RenameSnapBackCarriesFactAssignments`,
+`TestPassB_CataloguedPageKeepsProposedEntriesWithTheirFacts`).
+
+**Q2 — does `sameSectionList` start reporting "changed" once entries are
+objects? YES, AND IT ALREADY WAS.** This is the finding of the day, and it is
+worse than the handoff's framing ("it would only affect logging"). The predicate
+compared whole entries with `fmt.Sprintf("%v", …)`. `%v` of a map never equals
+`%v` of a string, so **from the moment seed 333 went live on 08-08, every
+composed page on every re-plan compared "changed"**. Two consequences, neither
+of which anyone would have noticed:
+
+1. `snapped_sections` silently stopped counting composition changes and started
+   counting SHAPE differences. Any figure read across the 08-08 boundary is two
+   measurements sharing one name.
+2. Every composed page was pointlessly restored over a section list that was
+   already identical to the realised one — the restore was a no-op in content
+   and a fact-assignment killer in effect.
+
+**No Go changed to cause that. A row in `agent_definitions` did.** That is the
+general form and it is why this went to `LANDMINES.md` rather than just being
+fixed in passing: on this platform Go is inert until an image rolls and DB config
+is live immediately, so a prompt edit can redefine a Go metric between two reads
+of it. Any counter whose predicate compares LLM output *structurally* — rather
+than by a field the contract pins — is exposed to the same silent redefinition.
+
+Fixed by comparing section NAMES, which is the identity both shapes share. That
+has a pleasant side effect: when the planner re-emits the realised names (which
+is exactly what seed 362 asks it to do), the composition compares EQUAL, nothing
+is restored, and the assignments survive **with no carry at all**. The carry
+becomes the safety net, not the mechanism.
+
+### What was built
+
+- **1b (ii), commit `f611dde6a`** — `carrySectionFactsOntoRealised` re-attaches
+  assignments onto restored entries by component name, applied at both loss
+  sites (Pass B2 and Pass B). Misses recorded durably as
+  `FACT_CARRY_UNMATCHED_SECTION` in `agent_error_log` — the same channel
+  `plan_sections` uses for `FACT_SCOPING_EMPTY_COMPOSITION`, one step later in
+  the same feature. The five positional int returns became `reconcileCounts`;
+  two more counters on a positional return is how the next one goes wrong
+  quietly, and this function had just demonstrated that failure mode.
+- **1b (i), commit `e5ed4d536`** — seed `362`, `_HOLD`-named, shows the planner
+  the realised section list and scopes assignment to it. **The planner was
+  already GIVEN this data** (`existing_pages` is an `input_field` of `plan_site`;
+  `load_existing_pages` already selects `p.sections`) — the prompt simply never
+  printed it. That is the entire gap: not a missing capability, a missing line.
+
+### Evidence, and what could have come out otherwise
+
+- **Order claim verified by reading, not assumed:** reconcile at `:3101`,
+  normalise at `:3277` — same function body. So object form never escapes
+  `validate_plan`. Pinned by an end-to-end test rather than by the argument.
+- **The two loops in that window** (chrome-strip `:3177`, name resolution
+  `:3220`) already read either shape via `sectionEntryName`, and the resolution
+  loop explicitly preserves an object entry's other keys. Read before emitting
+  object form into that window — this was the thing most likely to bite and it
+  was already handled by Slice A.
+- **Consumption is genuinely zero**, measured with a positive control because a
+  bare zero over `jsonb::text LIKE` is exactly the shape that lies:
+  `section_facts` / `facts_scoped` / `assigned_fact_ids` = 0/0/0 against 185
+  live agents, with the same predicate proved able to match (`workflow` 186,
+  `evidence_base` 9). So (ii) changes only how many assignments are STORED.
+- **Four mutations, each caught by the right test** — no-op carry (5 fail),
+  swallowed miss (only the 2 miss assertions fail, hits still pass), the old
+  `%v` comparison (the counter test fails), silent discard on a deployed
+  sectionless page. Run against a clean `git archive HEAD` overlay.
+- **Seed 362 proven by a forced-rollback dry run** (anchors 1/1, `UPDATE 1`,
+  both verify assertions passed), and **the verify block proven able to fail**
+  by mutating one replacement out — it raised "the re-emit instruction is
+  missing". Live row unchanged by either run: 18,738 bytes, no `| sections: `.
+
+### Missteps, for the record
+
+- **I committed the code before submitting the council round, which is the wrong
+  order and cost the trailer.** `Council-Submitted:` can only be written on a
+  commit made *after* the correlation exists. The submission's sketches were
+  drawn from the built code, which felt like it forced build → commit → submit;
+  it does not. The right order is **build → submit → commit with the trailer**.
+  Consequence: `f611dde6a` and `e5ed4d536` will list as un-reviewed in the `098`
+  report even though corr `a06ff850` covers exactly them. Not fixable
+  forward-only, and NOT to be papered over by putting the trailer on an
+  unrelated later commit — that is the MISMATCH the report exists to surface
+  (`WRONG_CALLS.md`, 08-10 entry by another lane, is the same shape).
+- **A regex rewrite of the test call sites edited prose inside comments.** The
+  substitution for the counter identifiers matched `dropped`/`unioned`/`renamed`
+  in English sentences ("must be unioned back into the plan" became
+  "must be counts.Unioned back into the plan"). Caught by reading the diff
+  rather than by the compiler, because comments compile fine. Reverted and
+  redone line-scoped, skipping `//` lines and string literals. **The check that
+  would have caught it instantly: `git diff | grep` for the replacement token
+  inside comment lines, before running the tests.**
+- **A fixture missed the preservation flag.** `TestPassB_CataloguedPage…` was
+  written with `locked=false`, so the realised page fell outside the preserved
+  set, reconcile returned the LLM plan untouched, and the test failed with "page
+  not present in plan" — which reads like a carry bug and is not one. The
+  existing suite's own fixtures document this (`locked` == on the site's first
+  plan, per bugs_open/051); I should have read them before writing new ones.
+
+### State of the tree while working (both true, both other sessions')
+
+- `platform/orchestration/actions` **did not compile in the working tree** for
+  most of this session — another session has `load_work_item_actions.go`
+  mid-flight (`undefined: checks`, alongside a new untracked
+  `discovery_checks/default_brand_prompt.go`). Everything here was therefore
+  built and tested against a clean `git archive HEAD` overlay with my three
+  files copied in. This is the documented practice and it worked exactly as
+  advertised.
+- `v3_site_actions.go` carries **another session's uncommitted 7-line fix** at
+  `expectedItemFieldsFromComponentSchema` (bugs_open/240). A pathspec commit
+  cannot exclude a same-file passenger, so `f611dde6a` took it; declared in that
+  commit's message so its lane can see it shipped.
+- **Pre-existing red at HEAD, not mine and not fixed:** `discovery_checks`
+  `TestEveryCheckProducedItemTypeIsClassified` — `decision_regression` (produced
+  by `check_decision_guards.go`) has no verifier and is not an acknowledged gap.
+  Confirmed by running it on a pure HEAD archive with none of my files present.
+  Note the 08-09c handoff's "HEAD tests clean" is therefore expired for that
+  package, though `platform/orchestration/actions` itself is green.

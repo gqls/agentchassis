@@ -2026,3 +2026,58 @@ fully-written versions of the same page collide, my fix keeps the fuller one and
 records the loss in the log rather than stopping. That is a judgement about how
 much silent loss is acceptable, and the reviewers were right that it is yours to
 make rather than mine.
+
+
+## 10 August — the edit is made, it is live, and the reviewers caught something I got wrong
+
+Picking up from the note above: I made the edit. Both halves of it.
+
+The problem, in plain terms. We taught the planner to decide which verified facts
+each part of a page should state. It does that well. But when the planner re-plans
+a site, anything it says about a page that is *already built* gets thrown away and
+replaced with what the page is actually made of — that is a safety rule we added
+months ago, and it is a good one. The trouble is that the fact decisions were
+riding *inside* the thing being thrown away. So on every page that already exists,
+the planner made its decisions and we binned them, silently. That meant the whole
+feature could only ever work on pages built *after* it, and never on the pages we
+built it for.
+
+The fix keeps the page exactly as it is but carries the fact decisions across onto
+it. It is live now on both servers — I checked the running program itself rather
+than trusting the deployment, and the new code is genuinely in there.
+
+**The thing I did not expect.** While doing it I found that a number we have been
+logging for weeks quietly stopped meaning what it says. Nothing in the program
+changed to cause it. On the 8th we edited the planner's *instructions*, and that
+alone was enough to change what the counter counts — it went from "how often did a
+re-plan try to redesign a built page" to "how often did the planner phrase things
+differently", which is not interesting at all. It was also causing us to redo work
+that did not need doing. I have fixed it and written it up as a trap, because the
+general shape will happen again: on this system, instructions take effect instantly
+while program changes wait for a deployment, so an instruction edit can change what
+a program's measurements mean between two readings of them.
+
+**The review came back "revise", and I think that is the right answer.** Fourteen
+reviewers, six raised objections. The one that matters: I told them seed 330
+changes the writer's prompt in a particular place, and they pointed out that this
+agent keeps that prompt somewhere unusual — buried inside a loop — so my change
+would land where nothing reads it and still report success. I checked. **The seed
+itself is correct; my description of it to the reviewers was not.** That is a
+better outcome than the reverse, but it is still my error: I carried two of the
+edits over from the older draft without opening them and describing them properly.
+
+A second objection turned out to be a real problem. The submission claimed that
+exactly one agent is affected by the wiring change. That was wrong twice over:
+there are **two** agents that run the step in question, and **neither** of them is
+wired up the way the claim assumed. So the safety argument for that part of the
+round does not hold as written, and it needs re-measuring before the wiring is
+applied. Nothing is broken — nothing has been applied — but the round cannot go
+forward on the evidence I gave it.
+
+**What I need from you** is at the end of the handoff, but briefly: the decision
+about acceptable silent loss is still outstanding from last time; there is a
+compliance read of the writer's new instructions that has to be done by a person
+before we switch it on; and there is a design question about whether a rule I
+wrote into the planner's instructions ought to be a proper setting instead, which
+is the sort of thing this estate has already ruled on once and I would rather not
+decide unilaterally.
