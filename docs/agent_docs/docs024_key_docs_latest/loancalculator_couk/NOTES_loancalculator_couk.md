@@ -4352,3 +4352,46 @@ Bounded, not solved.
 **One trap for anyone re-reading this row's history: 345 does not set `updated_at`.** The
 row's timestamp is whatever last touched it, so it does **not** record the apply — I read
 12:22:37Z on a row I had changed at 11:50Z and briefly took the wave for a clobber.
+
+## 2026-08-10 — post-roll verification, and the bulk-writer is IDENTIFIED (correcting yesterday)
+
+**345 survived a full rebuild and roll.** Fleet is on **v1.0.1277** (chassis pods started
+2026-08-09 21:34:53Z / 21:35:18Z). Re-verified this morning against the live row:
+`load_brief` present, case-insensitive census **0**, chain `load_schema_hint → load_brief`,
+`compose.config.input_fields` still carries `experience_brief`, vonc's 7,908 b brief note
+intact, and both plans of record unchanged (`debt-difficulty-help` 4bfcb286 clean;
+`vonc-spark-game` b6fdbc09 — **my hand-restore held across the roll**).
+
+> **CORRECTED 2026-08-10 — yesterday I wrote `[UNIDENTIFIED]` against the 188-row wave and
+> said it was "bounded, not solved". It is now solved, and it is not a mystery at all: the
+> wave is the DEPLOY stamping `agent_definitions.image_tag`.**
+>
+> Measured across the roll with a fleet-wide column-by-column fingerprint diff (200 rows,
+> yesterday 14:0xZ vs today):
+>
+> | column | rows changed |
+> |---|---|
+> | `image_tag` | **189** |
+> | `updated_at` | **189** |
+> | `default_config` | **4** |
+> | `usage_count` / `idle_timeout_seconds` / `status` / `is_active` | **0** |
+>
+> 190 rows now read `v1.0.1277`. The wave is `scripts/deploy/update-agent-images.sh`, the
+> deploy-time hygiene sync described in `platform/orchestration/actions/agent_image.go:21-24`
+> and owned by `bugs_open/066` — a spawned agent pod takes its image from its
+> `agent_definitions` row, so the deploy syncs those rows to the new tag. It leaves no
+> `schema_migrations` row because **it is not a migration**, which is exactly why it read as
+> trail-less. `usage_count` unchanged at 0 confirms the previous session's correct
+> elimination of `UpdateUsageCount`.
+>
+> The four `default_config` changes are attributable and none are mine —
+> `domain-strategist`, `image-build-handler`, `quality-discovery-agent`, `section-editor`,
+> i.e. other lanes' migrations landing in the same window. **`now()` is transaction start
+> time, so rows sharing one microsecond mean one TRANSACTION, not necessarily one
+> statement** — which is what let me mistake a deploy sync plus concurrent migrations for a
+> single 188-row rewrite.
+>
+> **The conclusion that matters for every config-only fix on this estate: a roll does NOT
+> replay seeds over `default_config`.** DB config survives a rebuild. I chased this because
+> if it had been a seed replay, 345 would have been erased by the next deploy — and the
+> disconfirming result was available all along (a seed replay changes ~190 configs, not 4).

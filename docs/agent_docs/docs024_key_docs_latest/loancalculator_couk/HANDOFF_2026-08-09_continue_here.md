@@ -29,6 +29,17 @@
 > Corrected in `bugs_open/227`, in 345's own VERIFY header, and in `WRONG_CALLS.md`;
 > filed as a landmine on `llm_call_log.prompt_rendered`.
 >
+> **RE-VERIFIED 2026-08-10 AFTER A FULL REBUILD AND ROLL (v1.0.1277, pods 21:34Z 08-09).**
+> `load_brief` present, census 0, `input_fields` intact, brief note intact, both plans of
+> record unchanged including the vonc hand-restore. **And the "something mass-rewrites agent
+> definitions and leaves no trail" question in §1 is ANSWERED: it is the deploy stamping
+> `image_tag`** (`scripts/deploy/update-agent-images.sh`, `agent_image.go:21-24`,
+> `bugs_open/066`). Column-by-column across the roll: `image_tag` 189 changed, `updated_at`
+> 189, `default_config` **4** (all other lanes'), `usage_count` **0**. So **a roll does not
+> replay seeds over `default_config`** — config-only fixes survive a rebuild, which is the
+> fact worth carrying out of this lane. Do not read a one-microsecond fleet-wide wave as a
+> clobber; `now()` is transaction start time, so it marks one TRANSACTION, not one statement.
+>
 > **Still owed:** §3 (the persist-before-council defect — untouched, and the route choice
 > is still real) and the concept-register entry, which is written. **Also note:** running
 > the vonc control re-planned vonc as a side effect (§3's defect in action — the plan
