@@ -1,0 +1,124 @@
+{
+  "no_auto_fix": true,
+  "no_auto_fix_reason": "robot-hands.com page is rebuild_policy='owned'; every red here is a claim about published manufacturer specifications and the ranking derived from them, which an automated rewriter can only 'fix' by editing the index or weakening the assertion",
+  "profiles": ["desktop", "mobile"],
+  "container": "div.tool-container",
+  "checks": [
+    {
+      "id": "page-serves-200",
+      "type": "page_status_ok"
+    },
+    {
+      "id": "tool-renders",
+      "type": "selector_exists",
+      "profiles": ["desktop"],
+      "selector": "div.tool-container #mmForm"
+    },
+    {
+      "id": "tool-has-visible-area",
+      "type": "has_visible_area",
+      "profiles": ["desktop"],
+      "selector": "div.tool-container"
+    },
+    {
+      "id": "heading-names-the-tool",
+      "type": "interaction",
+      "profiles": ["desktop"],
+      "expect": {
+        "selector": "div.tool-container h2",
+        "text_matches": "^MatchMatrix"
+      }
+    },
+    {
+      "id": "requirement-starts-hidden",
+      "type": "interaction",
+      "profiles": ["desktop"],
+      "expect": {
+        "selector": "#mmRequirement:not(.visible)"
+      }
+    },
+    {
+      "id": "results-start-hidden",
+      "type": "interaction",
+      "profiles": ["desktop"],
+      "expect": {
+        "selector": "#mmResults:not(.visible)"
+      }
+    },
+    {
+      "id": "computes-the-default-vector",
+      "type": "computed_values",
+      "profiles": ["desktop"],
+      "steps": [
+        { "action": "fill", "selector": "#mmMass", "value": "2.5" },
+        { "action": "fill", "selector": "#mmTravel", "value": "40" },
+        { "action": "click", "selector": "#mmForm .btn-run" }
+      ],
+      "expect_values": {
+        "#mmRequirement .requirement-formula strong:nth-of-type(1)": "163.5 N",
+        "#mmRequirement .requirement-formula strong:nth-of-type(2)": "49.1 N",
+        "#mmRequirement .requirement-formula strong:nth-of-type(3)": "5.00 kg",
+        "#mmResults > div:first-child": "4 of 10 indexed grippers meet the requirement.",
+        "#mmResults .match-card:nth-child(2) .match-name": "Schmalz SGM-HP 50",
+        "#mmResults .match-card:nth-child(2) .verdict-badge": "MATCH",
+        "#mmResults .match-card:nth-child(4) .match-name": "Robotiq 2F-85"
+      }
+    },
+    {
+      "id": "running-reveals-the-results",
+      "type": "interaction",
+      "profiles": ["desktop"],
+      "expect": {
+        "selector": "#mmResults.visible"
+      }
+    },
+    {
+      "id": "ranks-every-indexed-gripper",
+      "type": "interaction",
+      "profiles": ["desktop"],
+      "expect": {
+        "selector": "#mmResults .match-card:nth-child(11)"
+      }
+    },
+    {
+      "id": "recomputes-for-glass-three-jaw-ip67",
+      "type": "computed_values",
+      "profiles": ["desktop"],
+      "steps": [
+        { "action": "fill", "selector": "#mmMass", "value": "8" },
+        { "action": "fill", "selector": "#mmTravel", "value": "80" },
+        { "action": "select", "selector": "#mmSurface", "value": "0.10" },
+        { "action": "select", "selector": "#mmSurfaces", "value": "3" },
+        { "action": "select", "selector": "#mmIp", "value": "67" },
+        { "action": "click", "selector": "#mmForm .btn-run" }
+      ],
+      "expect_values": {
+        "#mmRequirement .requirement-formula strong:nth-of-type(1)": "523.2 N",
+        "#mmRequirement .requirement-formula strong:nth-of-type(2)": "157.0 N",
+        "#mmRequirement .requirement-formula strong:nth-of-type(3)": "16.00 kg",
+        "#mmResults > div:first-child": "No gripper in this index meets the requirement. The closest are shown first.",
+        "#mmResults .match-card:nth-child(2) .match-name": "Zimmer Group GEP5010IO-00-A",
+        "#mmResults .match-card:nth-child(2) .verdict-badge": "NO MATCH"
+      }
+    },
+    {
+      "id": "reset-clears-the-results",
+      "type": "interaction",
+      "profiles": ["desktop"],
+      "steps": [
+        { "action": "click", "selector": "#mmReset" }
+      ],
+      "expect": {
+        "selector": "#mmResults:not(.visible)"
+      }
+    },
+    {
+      "id": "no-horizontal-overflow",
+      "type": "no_horizontal_overflow"
+    },
+    {
+      "id": "no-console-errors",
+      "type": "no_console_errors"
+    }
+  ]
+}

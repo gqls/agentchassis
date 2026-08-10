@@ -1,0 +1,80 @@
+[
+  {
+    "name": "the page stops being served (404)",
+    "serve_status": 404,
+    "expect_fail": ["page-serves-200"]
+  },
+  {
+    "name": "the tool wrapper loses its class — the fence's anchor selector goes",
+    "from": "class=\"tool-container\"",
+    "to": "class=\"tool-kontainer\"",
+    "expect_fail": ["tool-renders", "tool-has-visible-area", "heading-names-the-tool"]
+  },
+  {
+    "name": "the heading is renamed (the anchor survives, only the TEXT moves)",
+    "from": "<h2>MatchMatrix &mdash; Gripper Selection Matrix</h2>",
+    "to": "<h2>Gripper Selection Matrix</h2>",
+    "expect_fail": ["heading-names-the-tool"]
+  },
+  {
+    "name": "the requirement panel ships already open — the pre-gesture state is wrong",
+    "from": "<div class=\"requirement-panel\" id=\"mmRequirement\"",
+    "to": "<div class=\"requirement-panel visible\" id=\"mmRequirement\"",
+    "expect_fail": ["requirement-starts-hidden"]
+  },
+  {
+    "name": "the results list ships already open — the pre-gesture state is wrong",
+    "from": "<div class=\"results-list\" id=\"mmResults\"></div>",
+    "to": "<div class=\"results-list visible\" id=\"mmResults\"></div>",
+    "expect_fail": ["results-start-hidden"]
+  },
+  {
+    "name": "the dynamics term is rewritten — every requirement figure moves, under BOTH vectors",
+    "from": "var dyn = v.mass * v.accel * v.safety;",
+    "to": "var dyn = v.mass * v.accel * v.safety * 1.01;",
+    "expect_fail": ["computes-the-default-vector", "recomputes-for-glass-three-jaw-ip67"]
+  },
+  {
+    "name": "a published jaw force is rewritten so that gripper drops out — only the FIRST vector ranks it",
+    "from": "force: { n: 235, text: '20 to 235 N' },",
+    "to": "force: { n: 150, text: '20 to 235 N' },",
+    "expect_fail": ["computes-the-default-vector"]
+  },
+  {
+    "name": "the strongest published force is cut so the ranking reorders — only the SECOND vector's leader changes",
+    "from": "force: { n: 1520, text: '1520 N' },",
+    "to": "force: { n: 1000, text: '1520 N' },",
+    "expect_fail": ["recomputes-for-glass-three-jaw-ip67"]
+  },
+  {
+    "name": "running no longer reveals the results — the gesture stops paying out",
+    "from": "results.classList.add('visible');",
+    "to": "results.classList.add('visible-never');",
+    "_measured": "expect_fail names ONLY the visibility check. computed_values reads the text of a display:none subtree perfectly well (measured on the grip-force calculator, twice, including a CSS-only isolating probe), so both computed_values checks still pass under this mutant. That is exactly why a reveal-style tool needs this separate check.",
+    "expect_fail": ["running-reveals-the-results"]
+  },
+  {
+    "name": "one gripper silently leaves the index — 10 cards become 9",
+    "from": "var assessed = GRIPPERS.map(function (g) { return assess(g, v, req); });",
+    "to": "var assessed = GRIPPERS.slice(1).map(function (g) { return assess(g, v, req); });",
+    "expect_fail": ["ranks-every-indexed-gripper"]
+  },
+  {
+    "name": "the reset button stops being wired — the results never clear",
+    "from": "document.getElementById('mmReset').addEventListener('click', function () {",
+    "to": "document.getElementById('mmReset').addEventListener('clickety', function () {",
+    "expect_fail": ["reset-clears-the-results"]
+  },
+  {
+    "name": "a throwing script is injected ahead of the tool",
+    "from": "<div class=\"tool-container\">",
+    "to": "<script>window.__deliberate_mutant_probe.boom();</script><div class=\"tool-container\">",
+    "expect_fail": ["no-console-errors"]
+  },
+  {
+    "name": "the tool is forced wider than any viewport",
+    "from": "<div class=\"tool-container\">",
+    "to": "<div class=\"tool-container\" style=\"width:3000px;max-width:3000px\">",
+    "expect_fail": ["no-horizontal-overflow"]
+  }
+]
