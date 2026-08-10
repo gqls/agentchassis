@@ -62,21 +62,28 @@ The only item with a deadline. Two routes:
   yes, reframe or drop. One draft ("Restaurant food has got worse") was pulled on
   exactly this ground.
 
-### 3.2 RFC_020 §5.3 and §5.4 — NOT BUILT, both cheap, owner has authorised both
+### 3.2 RFC_020 §5.3 and §5.4 — owner has authorised both
 
 He said "go ahead as you suggest" on 2026-08-10 covering all of §5.2/§5.3/§5.4. Only
 §5.2 got built before this handoff.
 
-- **§5.4 (do this first — it is the more important):** make the verdict's scope
-  explicit *in the artefact* — the AI rules on **argument quality**, not on whether a
-  claim is true. On the share card and the round record page, not only in terms. This
-  is the difference between a service that rates reasoning and one that appears to
-  certify accusations, and it is the owner's own settled judgement (he ruled to *own*
-  the verdict rather than disclaim it). Touches the gauntlet lane's page component and
-  card JS.
-- **§5.3:** a published report/takedown route plus a written process. This is what
-  preserves the operator position given that posters are anonymous (`bugs_open/139`).
-  Mostly not code — a contact surface and a documented procedure.
+> **§5.4 IS DONE AND LIVE — 2026-08-10, commit `438b18d65`.** Both surfaces, verified
+> at the artefact. Card (`5da50747` `js_content`, md5 `dec3a0b8`): *"The judge rates
+> how well the case was argued — not whether it is true."* Record page (`71a54cc2`,
+> md5 `aaac7950`): the same plus *"No claim on this page has been checked for
+> accuracy."* Build status for all four items is now in **RFC_020 §7**, which is the
+> file to read rather than this one. Details and the two traps it paid for are in
+> `NOTES_provocation_pipeline.md` under 2026-08-10.
+>
+> ⚠ **It does not discharge §5.2 or §5.3.** §5.4 is a supporting control by the RFC's
+> own words: it makes the artefact honest about what it is, it does not stop a round
+> naming somebody.
+
+- **§5.3 — this is now the open one, and the more important of what remains:** a
+  published report/takedown route plus a written process. This is what preserves the
+  operator position given that posters are anonymous (`bugs_open/139`). Mostly not
+  code — a contact surface and a documented procedure. It is the item whose absence
+  is hardest to explain after the fact.
 
 ### 3.3 The island deploy for §5.2 — NOT OURS TO FIRE
 
