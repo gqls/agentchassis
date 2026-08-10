@@ -416,3 +416,113 @@ func TestValidateSitePlan_CarriedFactsLeaveAsStringsPlusSectionFacts(t *testing.
 		t.Errorf("info-card-grid was never assigned anything; want nil (unscoped), got %#v", facts[1])
 	}
 }
+
+// ── The absent-facts hole (council round a06ff850, objection §3.5) ──────────
+
+// An object entry whose `facts` key is absent or malformed used to be skipped
+// before `pending`, so it never reached `unmatched` and never produced a
+// durable row — indistinguishable from a page correctly assigned no facts,
+// which is exactly the disobedience seed 333's measurement depends on
+// catching. It must land in FactAssignmentAbsent, and NOT in FactCarryMisses:
+// the two report different planner faults and the buckets must not blur (this
+// test contains one of each, so a transposed return would fail it).
+func TestPassB2_AbsentFactsEntryIsRecordedDistinctly(t *testing.T) {
+	existing := []interface{}{
+		realised("about", "/about.html", "deployed",
+			`["hero-about","info-card-grid"]`, false),
+	}
+	llm := []interface{}{
+		llmPageEntries("about", "/about.html",
+			map[string]interface{}{"name": "hero-about"},                       // facts key ABSENT
+			map[string]interface{}{"name": "info-card-grid", "facts": "F2"},    // facts MALFORMED (string)
+			objSection("generic-text-block", "F9-not-on-this-page"),            // well-formed but unmatched
+		),
+	}
+
+	got, counts := reconcilePlanWithRealised(llm, existing, zap.NewNop())
+
+	entries := planSectionsOf(t, got, "about")
+	if names := sectionNamesOf(t, entries); !equalStrings(names,
+		[]string{"hero-about", "info-card-grid"}) {
+		t.Fatalf("realised composition was not preserved: %v", names)
+	}
+	if counts.SectionFactsCarried != 0 {
+		t.Errorf("section_facts_carried = %d, want 0 — no usable assignment existed", counts.SectionFactsCarried)
+	}
+
+	if len(counts.FactAssignmentAbsent) != 1 {
+		t.Fatalf("expected 1 page with absent-facts entries, got %#v", counts.FactAssignmentAbsent)
+	}
+	absent := counts.FactAssignmentAbsent[0]
+	if absent.Page != "about" || !equalStrings(absent.Sections, []string{"hero-about", "info-card-grid"}) {
+		t.Errorf("absent = %+v, want about/[hero-about info-card-grid] — an entry with no usable facts value must be NAMED, not skipped", absent)
+	}
+
+	if len(counts.FactCarryMisses) != 1 {
+		t.Fatalf("expected 1 page with unmatched assignments, got %#v", counts.FactCarryMisses)
+	}
+	if miss := counts.FactCarryMisses[0]; miss.Page != "about" ||
+		!equalStrings(miss.Sections, []string{"generic-text-block"}) {
+		t.Errorf("miss = %+v, want about/[generic-text-block] — absent and unmatched must not blur into one bucket", miss)
+	}
+}
+
+// Bare strings carry no facts key and must NOT read as disobedience: they are
+// the pre-scoping emission and the no-op guarantee covers them.
+func TestPassB2_BareStringRecompositionProducesNoAbsentRecords(t *testing.T) {
+	existing := []interface{}{
+		realised("about", "/about.html", "deployed",
+			`["hero-about","info-card-grid"]`, false),
+	}
+	llm := []interface{}{
+		llmPageEntries("about", "/about.html", "hero-about", "generic-text-block"),
+	}
+
+	_, counts := reconcilePlanWithRealised(llm, existing, zap.NewNop())
+
+	if len(counts.FactAssignmentAbsent) != 0 {
+		t.Errorf("bare-string entries must not be counted absent, got %#v", counts.FactAssignmentAbsent)
+	}
+	if len(counts.FactCarryMisses) != 0 {
+		t.Errorf("bare-string entries carry no assignments to miss, got %#v", counts.FactCarryMisses)
+	}
+}
+
+// ── recompose_pages outcome classification (owner ruling 2026-08-10, D3) ────
+
+// Only the two silent shapes come back: a released page proposed verbatim (the
+// seed-362 no-op gap) and a released page absent from the plan (the sanctioned
+// drop that must be loud). A genuinely recomposed page produces no outcome.
+func TestRecomposeOutcomes_SilentShapesReturned_RecomposedIsNot(t *testing.T) {
+	recomposeRealised := map[string][]interface{}{
+		"index":   {"hero", "features"},
+		"about":   {"hero-about"},
+		"contact": {"contact-form"},
+	}
+	pages := []interface{}{
+		map[string]interface{}{"name": "index",
+			"sections": []interface{}{"hero", "features"}}, // verbatim -> no-op
+		map[string]interface{}{"name": "about",
+			"sections": []interface{}{"hero-about", "team-grid"}}, // recomposed -> silent
+		// contact absent -> dropped
+	}
+
+	got := recomposeOutcomes(pages, recomposeRealised)
+
+	byPage := map[string]recomposeOutcome{}
+	for _, o := range got {
+		byPage[o.Page] = o
+	}
+	if len(got) != 2 {
+		t.Fatalf("want exactly 2 outcomes (verbatim + absent), got %#v", got)
+	}
+	if o := byPage["index"]; o.Outcome != "proposed_verbatim" || o.RealisedSections != 2 {
+		t.Errorf("index = %+v, want proposed_verbatim with 2 realised sections", o)
+	}
+	if o := byPage["contact"]; o.Outcome != "absent_from_plan" || o.RealisedSections != 1 {
+		t.Errorf("contact = %+v, want absent_from_plan with 1 realised section", o)
+	}
+	if _, present := byPage["about"]; present {
+		t.Errorf("a genuinely recomposed page must produce NO outcome, got %+v", byPage["about"])
+	}
+}

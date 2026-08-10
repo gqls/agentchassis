@@ -283,10 +283,18 @@ type planPageRow struct {
 //
 // This makes the collision unrepresentable at the only door that writes these
 // tables, whatever the LLM emits.
-func dedupePlanPageRows(rows []planPageRow, logger *zap.Logger) ([]planPageRow, int) {
+//
+// The third return lists every merge where the LOSER was itself composed —
+// authored content actually discarded. The Warn below reports the same event
+// but chassis logs rotate sub-second, so the caller must persist these
+// durably; the lossy branch is otherwise unobservable after the fact (owner
+// ruling 2026-08-10 on bugs_open/215: richer-wins stands, on condition the
+// loss is recorded somewhere that survives).
+func dedupePlanPageRows(rows []planPageRow, logger *zap.Logger) ([]planPageRow, int, []lossyPageMerge) {
 	out := make([]planPageRow, 0, len(rows))
 	at := make(map[string]int, len(rows)) // canonical name -> index in out
 	merges := 0
+	var lossy []lossyPageMerge
 
 	for _, r := range rows {
 		i, seen := at[r.Name]
@@ -315,6 +323,13 @@ func dedupePlanPageRows(rows []planPageRow, logger *zap.Logger) ([]planPageRow, 
 				zap.Strings("kept_sections", sectionNames(winner.Sections)),
 				zap.Strings("dropped_sections", sectionNames(loser.Sections)),
 			)
+			lossy = append(lossy, lossyPageMerge{
+				CanonicalName:   r.Name,
+				KeptRawName:     winner.RawName,
+				DroppedRawName:  loser.RawName,
+				KeptSections:    sectionNames(winner.Sections),
+				DroppedSections: sectionNames(loser.Sections),
+			})
 		} else {
 			logger.Info("WriteSitePlanAction: duplicate page collapsed after canonicalisation",
 				zap.String("canonical_name", r.Name),
@@ -338,7 +353,43 @@ func dedupePlanPageRows(rows []planPageRow, logger *zap.Logger) ([]planPageRow, 
 		out[i] = winner
 	}
 
-	return out, merges
+	return out, merges, lossy
+}
+
+// lossyPageMerge is one merge that discarded a composed page's section list —
+// the shape dedupePlanPageRows's Warn reports, carried out of the pure helper
+// so the caller can persist it where a sub-second log rotation cannot eat it.
+type lossyPageMerge struct {
+	CanonicalName   string
+	KeptRawName     string
+	DroppedRawName  string
+	KeptSections    []string
+	DroppedSections []string
+}
+
+// recordLossyPageMerges persists one durable row per merge in which authored
+// sections were discarded. agent_error_log for the standing reason: the plan
+// this write produces is identical whether or not content was lost here, so
+// the row is the only artefact that can answer "did richer-wins ever actually
+// drop anything" — the measurement the 2026-08-10 ratification of
+// bugs_open/215's merge rule is conditional on. Best-effort: a failed write
+// must not fail the plan write it describes.
+func recordLossyPageMerges(ctx context.Context, params ActionParams, siteID string, merges []lossyPageMerge) {
+	for _, m := range merges {
+		LogActionError(ctx, params, siteID, "", "write_site_plan",
+			"PLAN_PAGE_MERGE_LOSSY", "warning",
+			fmt.Sprintf("pages %q and %q canonicalise to %q; kept the richer, discarded %d authored section(s)",
+				m.KeptRawName, m.DroppedRawName, m.CanonicalName, len(m.DroppedSections)),
+			map[string]interface{}{
+				"canonical_name":   m.CanonicalName,
+				"kept_raw_name":    m.KeptRawName,
+				"dropped_raw_name": m.DroppedRawName,
+				"kept_sections":    m.KeptSections,
+				"dropped_sections": m.DroppedSections,
+				"remedy":           "the discarded composition is recoverable from this row; if both variants were wanted as separate pages, re-plan with distinct roles/slugs that do not canonicalise together (bugs_open/215)",
+			},
+			params.Logger)
+	}
 }
 
 // sectionNames projects section entries to their component names, for logging.
@@ -458,13 +509,14 @@ func WriteSitePlanAction(ctx context.Context, params ActionParams) (interface{},
 	//        Must run before ANY insert: both site_plan_pages and
 	//        site_plan_sections are uniquely indexed on this name, so a
 	//        survivor pair aborts the whole transactional plan write.
-	planRows, duplicatesMerged := dedupePlanPageRows(planRows, logger)
+	planRows, duplicatesMerged, lossyMerges := dedupePlanPageRows(planRows, logger)
 	if duplicatesMerged > 0 {
 		logger.Warn("WriteSitePlanAction: plan contained pages that canonicalise to a shared name",
 			zap.Int("duplicates_merged", duplicatesMerged),
 			zap.Int("pages_after_merge", len(planRows)),
 		)
 	}
+	recordLossyPageMerges(ctx, params, siteIDStr, lossyMerges)
 
 	// ── 2. Flatten LLM design / content JSON to directive rows ─────────
 	directives := flattenSiteScopeDirectives(params.CollectedData, logger)

@@ -2102,3 +2102,17 @@ bans exactly that kind of boasting outright. I found a few older, smaller gaps (
 change makes worse) and wrote them up as future work. The read is written up with the key passages
 quoted, and there's a line for you to initial, because the reviewers asked for a person to have
 read it — my read plus your sign-off is what makes that true.
+
+**2026-08-10, late evening.** Your four decisions are executed and the review round is resubmitted.
+The question that gated everything — which of the two agents actually feeds the writer — is
+settled with three independent kinds of evidence: the wiring, a day of live traffic (30 runs out
+of 30 go the way we assumed), and a read of the code the sections travel through. The wiring
+change we proposed targets the right agent. The reviewer's objection that we couldn't prove it was
+fair, and now it's proven. I built the three alarms that came out of your rulings: one for a
+planner that omits its facts homework, one for a redesign request that quietly does nothing, and
+one for the page-collision fix's worst case actually discarding content. Each is recorded somewhere
+that survives, because this cluster's logs evaporate in under a second. The two held config files
+now refuse to run out of order, and I tested that refusal against the real database. The review
+went back in before I committed anything, in the right order this time, and your sign-off on the
+writer's instructions is recorded. Next natural stop: the verdict, then applying the three config
+changes in order and re-checking the site.

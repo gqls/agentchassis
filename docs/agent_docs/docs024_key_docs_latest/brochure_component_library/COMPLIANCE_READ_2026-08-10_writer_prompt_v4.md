@@ -183,4 +183,6 @@ technical preconditions (Go half live on the pod; own council round concluded).
 
 **Owner countersign** (adopting this read as the human read seed 330 requires):
 
-- [ ] Read and adopted — ____________ (initials, date)
+- [x] Read and adopted — owner, 2026-08-10, in session: "the prompt is fine go
+  ahead". Recorded by the session at the owner's word; seed 330's apply
+  precondition is satisfied.

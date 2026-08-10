@@ -15,8 +15,23 @@
 -- when its authoritative tier (site_plan_sections) served the list; plan_sections
 -- consumes it ONLY when this config key names it — the feature is opt-in at the
 -- step config, per the owner ruling of 2026-08-02 (new behaviour on a shared seam
--- ships as an opt-in field). Exactly ONE live agent wires spec_sections into
--- plan_sections (measured 2026-08-06), so this file touches one row, one step.
+-- ships as an opt-in field).
+--
+-- > CORRECTED 2026-08-10 (council round a06ff850, debug_historian): this file
+-- > used to claim "exactly ONE live agent wires spec_sections into
+-- > plan_sections (measured 2026-08-06)". Re-measured by ACTION, not step
+-- > name: TWO agents run plan_sections (page-build-handler, page-content-
+-- > writer) and NEITHER wires spec_sections. page-build-handler is still the
+-- > right and only target, on different grounds, verified 2026-08-10:
+-- > call_content_writer's input_mapping passes its section_plan to the
+-- > writer, whose check_section_plan keeps a caller-supplied plan VERBATIM
+-- > ("Build the section plan the caller did not supply", bugs_open/087) —
+-- > and 30/30 writer runs in the retained orchestration window carried a
+-- > caller-supplied plan, so the writer's own plan_sections is a fallback
+-- > that does not fire on the build path. Transit preserves the stamped
+-- > fields: resolve_internal_links mutates section maps IN PLACE and returns
+-- > the same slice (resolve_internal_links_action.go), and select_sections'
+-- > extract_fields copies whole entries.
 --
 -- *** DO NOT APPLY until a chassis image containing the Go half is LIVE ***
 -- Pod check (both strings in ONE exec; the control is a pre-existing literal
@@ -33,6 +48,23 @@
 SELECT snapshot_agent('page-build-handler', '328_page_build_handler_wires_section_facts.sql: pre-update');
 
 BEGIN;
+
+-- Ordering guard (owner ruling 2026-08-10, decision 4): the slice applies
+-- 362 -> 328 -> 330, enforced here rather than by a filename or a handoff. A
+-- bare SELECT cannot stop a COMMIT, hence DO/RAISE. Without 362 the planner
+-- still re-composes built pages freely, and wiring consumption first would
+-- measure a mechanism whose input is still being destroyed upstream.
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM agent_definitions
+        WHERE type = 'build-site-planner' AND is_active
+          AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL
+          AND default_config::text LIKE '%Only when the briefing explicitly asks for a page to be redesigned%'
+    ) THEN
+        RAISE EXCEPTION '328: ordering precondition failed -- seed 362 (build-site-planner realised-sections prompt) is not applied; apply 362 -> 328 -> 330';
+    END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS agent_definitions_bak_328 AS
 SELECT id, type, default_config, now() AS backed_up_at

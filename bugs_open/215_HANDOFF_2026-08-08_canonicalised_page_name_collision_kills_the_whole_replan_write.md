@@ -271,3 +271,24 @@ and a pod-grep — *not* by a live merge. The first real signal will be that
 counter or the merge log lines; do not read their absence as either success or
 failure until a replan has actually run (and per the 2026-08-09 landmine, do
 not reach for an error census over `orchestration_states` to decide it).
+
+## 2026-08-10 — OWNER RULING: richer-wins RATIFIED, conditional on durable observability (now shipped)
+
+The outstanding policy question ("how much silent loss is acceptable when two COMPOSED pages
+collide") was ruled 2026-08-10: **richer-wins stands** — it discards strictly less than keep-first
+in every case, the observed collision shape (composed + stub) takes the lossless branch, and
+failing the write would restore the very whole-replan loss this bug is about. **Condition:** the
+lossy branch must be durably observable. Its only trace was a chassis Warn, and an active chassis
+pod retains **under one second** of log (bugs_open/136 §11), so "has richer-wins ever actually
+dropped authored content" was unanswerable.
+
+Shipped with the Slice B resubmission (corr `a06ff850`, same commit as this note):
+`dedupePlanPageRows` now returns the lossy merges alongside its existing results, and
+`WriteSitePlanAction` persists each as **`PLAN_PAGE_MERGE_LOSSY`** on `agent_error_log`, carrying
+both raw names and both FULL section lists — the discarded composition is reconstructable from the
+row. Mutation-tested (suppressing the detail fails `TestDedupePlanPageRows_LossyMergeDetailReturned`).
+
+**Ratification terms: richer-wins, durably recorded, revisit if `SELECT count(*) FROM
+agent_error_log WHERE error_code='PLAN_PAGE_MERGE_LOSSY'` is ever non-zero.** Ruling context and
+the re-look that reframed the condition:
+`docs/agent_docs/docs024_key_docs_latest/brochure_component_library/DECISIONS_2026-08-10_owner_rulings_after_relook.md`.

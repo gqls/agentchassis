@@ -90,7 +90,7 @@ func TestDedupePlanPageRows_StubLosesToComposedPage(t *testing.T) {
 			Sections: sec("hero", "calculator", "faq")},
 	}
 
-	out, merges := dedupePlanPageRows(rows, zap.NewNop())
+	out, merges, _ := dedupePlanPageRows(rows, zap.NewNop())
 
 	if len(out) != 1 {
 		t.Fatalf("expected 1 surviving row, got %d", len(out))
@@ -118,7 +118,7 @@ func TestDedupePlanPageRows_PreservesOrderAndDistinctPages(t *testing.T) {
 		{Name: "contact", Sections: sec("form")},
 	}
 
-	out, merges := dedupePlanPageRows(rows, zap.NewNop())
+	out, merges, _ := dedupePlanPageRows(rows, zap.NewNop())
 
 	if merges != 0 {
 		t.Fatalf("no collisions present, expected 0 merges, got %d", merges)
@@ -142,7 +142,7 @@ func TestDedupePlanPageRows_TwoComposedTieKeepsFirst(t *testing.T) {
 		{RawName: "tool-tools", Name: "tools", Sections: sec("hero", "list")},
 	}
 
-	out, merges := dedupePlanPageRows(rows, zap.NewNop())
+	out, merges, _ := dedupePlanPageRows(rows, zap.NewNop())
 
 	if len(out) != 1 || merges != 1 {
 		t.Fatalf("expected 1 row and 1 merge, got %d rows, %d merges", len(out), merges)
@@ -165,7 +165,7 @@ func TestDedupePlanPageRows_RicherComposedWinsEvenWhenSecond(t *testing.T) {
 		{RawName: "tool-tools", Name: "tools", Sections: sec("hero", "list", "cta")},
 	}
 
-	out, _ := dedupePlanPageRows(rows, zap.NewNop())
+	out, _, _ := dedupePlanPageRows(rows, zap.NewNop())
 
 	if len(out) != 1 {
 		t.Fatalf("expected 1 row, got %d", len(out))
@@ -188,7 +188,7 @@ func TestDedupePlanPageRows_BackfillsOnlyBlankMetadata(t *testing.T) {
 			Sections: sec("hero")},
 	}
 
-	out, _ := dedupePlanPageRows(rows, zap.NewNop())
+	out, _, _ := dedupePlanPageRows(rows, zap.NewNop())
 
 	if len(out) != 1 {
 		t.Fatalf("expected 1 row, got %d", len(out))
@@ -217,7 +217,7 @@ func TestDedupePlanPageRows_ThreeWayAndMultipleCollisions(t *testing.T) {
 		{RawName: "contact", Name: "contact", Sections: sec("form")},
 	}
 
-	out, merges := dedupePlanPageRows(rows, zap.NewNop())
+	out, merges, _ := dedupePlanPageRows(rows, zap.NewNop())
 
 	if merges != 3 {
 		t.Fatalf("expected 3 merges (2 onto index, 1 onto guides-index), got %d", merges)
@@ -254,7 +254,7 @@ func TestDedupePlanPageRows_NoDuplicateNamesSurvive(t *testing.T) {
 		{Name: "contact"},
 	}
 
-	out, _ := dedupePlanPageRows(rows, zap.NewNop())
+	out, _, _ := dedupePlanPageRows(rows, zap.NewNop())
 
 	seen := map[string]bool{}
 	for _, r := range out {
@@ -272,4 +272,47 @@ func namesOf(rows []planPageRow) []string {
 		out = append(out, r.Name)
 	}
 	return out
+}
+
+// A merge that discards a composed page's sections must come back as a lossy
+// detail for the caller to persist (owner ruling 2026-08-10 on bugs_open/215:
+// richer-wins is ratified on condition the loss is durably recorded — a
+// chassis Warn rotates away in under a second). A stub merge is not lossy and
+// must not be reported as one.
+func TestDedupePlanPageRows_LossyMergeDetailReturned(t *testing.T) {
+	rows := []planPageRow{
+		{RawName: "tools", Name: "tools-index", Role: "section_index",
+			Sections: sec("hero", "tool-grid")},
+		{RawName: "tools-index", Name: "tools-index", Role: "section_index",
+			Sections: sec("hero", "tool-grid", "faq")},
+	}
+	out, merges, lossy := dedupePlanPageRows(rows, zap.NewNop())
+	if len(out) != 1 || merges != 1 {
+		t.Fatalf("out=%d merges=%d, want 1/1", len(out), merges)
+	}
+	if len(lossy) != 1 {
+		t.Fatalf("a composed-vs-composed merge must return a lossy detail, got %#v", lossy)
+	}
+	l := lossy[0]
+	if l.CanonicalName != "tools-index" || l.KeptRawName != "tools-index" || l.DroppedRawName != "tools" {
+		t.Errorf("lossy identity = %+v, want kept=tools-index dropped=tools under tools-index", l)
+	}
+	if len(l.KeptSections) != 3 || len(l.DroppedSections) != 2 {
+		t.Errorf("lossy sections = kept %v / dropped %v, want the FULL lists so the loss is reconstructable", l.KeptSections, l.DroppedSections)
+	}
+}
+
+func TestDedupePlanPageRows_StubMergeIsNotLossy(t *testing.T) {
+	rows := []planPageRow{
+		{RawName: "llm-cost-calculator", Name: "tool-llm-cost-calculator", Role: "tool",
+			Sections: sec("hero", "calculator")},
+		{RawName: "tool-llm-cost-calculator", Name: "tool-llm-cost-calculator", Role: "tool"},
+	}
+	_, merges, lossy := dedupePlanPageRows(rows, zap.NewNop())
+	if merges != 1 {
+		t.Fatalf("merges=%d, want 1", merges)
+	}
+	if len(lossy) != 0 {
+		t.Errorf("a stub merge discards nothing and must not be reported lossy, got %#v", lossy)
+	}
 }

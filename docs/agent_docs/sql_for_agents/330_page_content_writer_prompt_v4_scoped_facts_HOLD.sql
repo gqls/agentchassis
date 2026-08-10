@@ -37,6 +37,21 @@ SELECT snapshot_agent('page-content-writer', '330_page_content_writer_prompt_v4_
 
 BEGIN;
 
+-- Ordering guard (owner ruling 2026-08-10, decision 4): the slice applies
+-- 362 -> 328 -> 330, enforced here rather than by a filename or a handoff.
+-- Without 328 nothing stamps facts_scoped onto section entries, so the v4
+-- branch would be dead config — inert, but the point of the guard is that a
+-- session that has read nothing cannot apply the slice out of order.
+DO $$
+BEGIN
+    IF (SELECT default_config->'workflow'->'steps'->'plan_sections'->'config'->>'section_facts'
+        FROM agent_definitions
+        WHERE type = 'page-build-handler' AND is_active
+          AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL) IS NULL THEN
+        RAISE EXCEPTION '330: ordering precondition failed -- seed 328 (page-build-handler section_facts wiring) is not applied; apply 362 -> 328 -> 330';
+    END IF;
+END $$;
+
 CREATE TABLE IF NOT EXISTS agent_definitions_bak_330 AS
 SELECT id, type, default_config, now() AS backed_up_at
 FROM agent_definitions

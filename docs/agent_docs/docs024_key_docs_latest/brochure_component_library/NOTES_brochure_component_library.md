@@ -5333,3 +5333,41 @@ Attribution fact that scoped the compliance read: seed 330's header states v4 wa
 LIVE template dumped 08-06 with ONE edit (the three-way branch) — so Edit Mode, house voice and
 the NEVER-PROMISE-ACCURACY rule are already live, and the branch is the entirety of 330's delta.
 [RELIED ON the seed header's derivation; not independently re-dumped this session.]
+
+## 2026-08-10 (late evening) — the REVISE answered: census settled, three detections built, resubmitted on a06ff850
+
+**§3.4 settled — seed 328 targets the RIGHT agent (page-build-handler), three ways:** (a) config:
+`call_content_writer.input_mapping` passes `"section_plan": "section_plan"`; the writer's
+`check_section_plan` keeps a caller-supplied plan VERBATIM (its own `plan_sections` is the
+bugs_open/087 no-caller fallback); (b) live: 30/30 `page-content-writer` orchestrations in the
+retained window (oldest 08-09T18:06Z) carried `input_data.section_plan`, 0 planned locally;
+(c) transit: `resolve_internal_links` mutates section maps IN PLACE and returns the same slice, so
+the stamped fact keys survive the resolver, and `select_sections`/loop copy whole entries.
+Schema note against myself: first census attempt guessed `agent_type` on `orchestration_states`
+without `\d` — the column is `owner_agent_type`. Schema-first exists for a reason.
+
+**Built + tested (HEAD-archive overlay green; mutations M1/M2/M3 each fail exactly their named
+test):** FACT_ASSIGNMENT_ABSENT (§3.5 fix — absent/malformed `facts` on a restored page now lands
+in `counts.FactAssignmentAbsent` + durable row; one fixture holds absent AND unmatched so the
+buckets cannot transpose) · RECOMPOSE_INTENT_NOT_REALISED (D3 — released page back verbatim, or
+absent; pure classifier `recomposeOutcomes`; drop-vs-rename indistinguishability stated in the
+row) · PLAN_PAGE_MERGE_LOSSY (D1 condition — `dedupePlanPageRows` returns lossy details, caller
+persists both full section lists). **M2's first attempt printed `[build failed]`** (removing the
+case orphaned `pm`) — discarded and redone as `case false && …`, which then failed the intended
+test. The mutants-compiled discipline caught its own violation in the same session that cited it.
+
+**Seeds:** 328's refuted "exactly ONE live agent" header claim corrected visibly; DO/RAISE
+ordering guards added to 328 (requires 362's literal, positively controlled — present exactly once
+in 362's payload) and 330 (requires 328's `section_facts` key). Both guards INDUCED against the
+live unapplied DB: both RAISE with their apply-order message.
+
+**Pods rolled again since the afternoon** (now `agent-chassis-6fdf4c6454-*`): re-verified POS
+`assigned_writer_block`=1, `FACT_CARRY_UNMATCHED_SECTION`=1, NEG `FACT_ASSIGNMENT_ABSENT`=0
+(this round's not-yet-built literal), both replicas, same exec.
+
+**Resubmitted** with `RESUBMIT_CORR=a06ff850-aff6-4ed0-8e0a-93d57b0cbc45` — submission JSON:
+`COUNCIL_SUBMISSION_slice_b_2026-08-10b_resubmit.json` (8 edits, seed 333 dropped to grounded_in,
+24 grounded_in entries). **Submitted BEFORE committing this time**; the commit carries
+`Council-Submitted:`. Budget ~30 min for the round to run. Owner countersigned the compliance read
+in session ("the prompt is fine go ahead") — recorded in the COMPLIANCE_READ file; 330's human-read
+precondition is discharged.

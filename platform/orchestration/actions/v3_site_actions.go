@@ -3106,7 +3106,12 @@ func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface
 	// and the truncation must-keep read `existingPages`, makes a recompose page
 	// uniformly from-scratch. Ordinary re-plans carry no such field and are
 	// unaffected.
+	var recomposeRealised map[string][]interface{}
 	if recompose := recomposePagesFromSpec(params.CollectedData, params.Logger); len(recompose) > 0 {
+		// Captured before the filter: afterwards the realised composition of a
+		// released page exists nowhere else, and it is the baseline the
+		// verbatim-no-op check below compares against.
+		recomposeRealised = realisedSectionsByName(existingPages, recompose)
 		existingPages = filterOutRecomposePages(existingPages, recompose, params.Logger)
 	}
 
@@ -3124,8 +3129,11 @@ func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface
 		zap.Int("snapped_sections", counts.SnappedSections),
 		zap.Int("section_facts_carried", counts.SectionFactsCarried),
 		zap.Int("fact_carry_miss_pages", len(counts.FactCarryMisses)),
+		zap.Int("fact_assignment_absent_pages", len(counts.FactAssignmentAbsent)),
 		zap.Int("pages_after", len(pages)))
 	recordFactCarryMisses(ctx, params, counts.FactCarryMisses)
+	recordFactAssignmentAbsent(ctx, params, counts.FactAssignmentAbsent)
+	recordRecomposeOutcomes(ctx, params, recomposeOutcomes(pages, recomposeRealised))
 
 	// ── Truncate, preserving first-plan AND built pages ─────────────────────
 	maxPages := 20
@@ -3371,6 +3379,128 @@ func recordFactCarryMisses(ctx context.Context, params ActionParams, misses []fa
 				"page":               m.Page,
 				"unmatched_sections": m.Sections,
 				"remedy":             "the planner scoped facts to section names this built page does not have, usually because it re-composed the page instead of re-emitting the realised section list; check the planner prompt's realised-sections block for this page (RFC_016 candidate 1b)",
+			},
+			params.Logger)
+	}
+}
+
+// recordFactAssignmentAbsent persists one durable row per page whose proposed
+// object-form section entries resolved a name but carried no usable `facts`
+// value. Distinct code from FACT_CARRY_UNMATCHED_SECTION on the same channel:
+// unmatched means the planner scoped facts to a section the page does not
+// have; absent means it emitted a section with no facts key at all, which
+// seed 333 forbids — and which, unrecorded, reads exactly like a page
+// correctly assigned no facts (council round a06ff850, objection §3.5).
+// Best-effort for the same reason as recordFactCarryMisses.
+func recordFactAssignmentAbsent(ctx context.Context, params ActionParams, misses []factCarryMiss) {
+	if len(misses) == 0 {
+		return
+	}
+	siteID := datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.site_id")
+	for _, m := range misses {
+		LogActionError(ctx, params, siteID, "", "validate_plan",
+			"FACT_ASSIGNMENT_ABSENT", "warning",
+			fmt.Sprintf("page %q: %d object-form section entrie(s) carry no usable `facts` value — seed 333 makes the key mandatory, so this is planner disobedience, not a factless page",
+				m.Page, len(m.Sections)),
+			map[string]interface{}{
+				"page":            m.Page,
+				"absent_sections": m.Sections,
+				"remedy":          "the planner emitted an object-form section entry without a `facts` array; [] is the correct emission for a section with no assigned facts. Check the planner prompt's fact-assignment rules (RFC_016, seed 333)",
+			},
+			params.Logger)
+	}
+}
+
+// recomposeOutcome classifies what actually happened to a page the caller
+// explicitly asked to redesign via recompose_pages (features_open/012).
+type recomposeOutcome struct {
+	Page string
+	// Outcome: "proposed_verbatim" — the planner re-emitted the realised
+	// composition unchanged, so releasing the page from the preserve guard
+	// redesigned nothing (the seed-362 gap: the planner is instructed to
+	// re-emit realised sections and is not told which pages are on the
+	// recompose list). "absent_from_plan" — the planner omitted the page (or
+	// renamed it, which this classifier cannot distinguish); the release
+	// makes that a sanctioned drop, but it must be visible, not silent.
+	Outcome          string
+	RealisedSections int
+}
+
+// recomposeOutcomes compares each recompose-requested page's realised
+// composition (captured BEFORE filterOutRecomposePages removed it from the
+// convergence input) against the reconciled plan. A page that was genuinely
+// recomposed produces no outcome — only the two silent shapes are returned.
+// Pure so it is unit-testable without a database; the caller records each
+// outcome durably.
+func recomposeOutcomes(pages []interface{}, recomposeRealised map[string][]interface{}) []recomposeOutcome {
+	if len(recomposeRealised) == 0 {
+		return nil
+	}
+	byName := make(map[string]map[string]interface{}, len(pages))
+	for _, p := range pages {
+		if pm, ok := p.(map[string]interface{}); ok {
+			if n, _ := pm["name"].(string); n != "" {
+				byName[n] = pm
+			}
+		}
+	}
+	var out []recomposeOutcome
+	for name, rs := range recomposeRealised {
+		pm, present := byName[name]
+		switch {
+		case !present:
+			out = append(out, recomposeOutcome{Page: name, Outcome: "absent_from_plan", RealisedSections: len(rs)})
+		case sameSectionList(pm["sections"], rs):
+			out = append(out, recomposeOutcome{Page: name, Outcome: "proposed_verbatim", RealisedSections: len(rs)})
+		}
+	}
+	return out
+}
+
+// realisedSectionsByName captures the realised composition of the named pages,
+// for comparison after the recompose filter has removed them from the
+// convergence input (there is nowhere else to read it from afterwards).
+func realisedSectionsByName(existingPages []interface{}, names map[string]bool) map[string][]interface{} {
+	out := make(map[string][]interface{}, len(names))
+	for _, rp := range existingPages {
+		rm, ok := rp.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		name, _ := rm["name"].(string)
+		if name == "" || !names[name] {
+			continue
+		}
+		out[name] = realisedSectionsOf(rm)
+	}
+	return out
+}
+
+// recordRecomposeOutcomes persists one durable row per recompose-requested
+// page whose explicit redesign intent did not visibly happen. Durable rather
+// than a log line for the standing reason (chassis logs rotate sub-second);
+// warning severity because both shapes are legal outcomes of the mechanism —
+// what they must not be is invisible (owner ruling 2026-08-10, decision 3;
+// features_open/012's "loud-signal on a recompose drop" follow-up).
+func recordRecomposeOutcomes(ctx context.Context, params ActionParams, outcomes []recomposeOutcome) {
+	if len(outcomes) == 0 {
+		return
+	}
+	siteID := datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.site_id")
+	for _, o := range outcomes {
+		msg := fmt.Sprintf("page %q was released for redesign via recompose_pages but the plan proposes its realised composition unchanged — the redesign silently no-opped", o.Page)
+		remedy := "the planner re-emits realised sections (seed 362) and is not told which pages are on recompose_pages; state the redesign in the briefing the planner sees, or wait for the field-based fix (features_open/012)"
+		if o.Outcome == "absent_from_plan" {
+			msg = fmt.Sprintf("page %q was released for redesign via recompose_pages and is absent from the reconciled plan — dropped (or renamed) rather than recomposed", o.Page)
+			remedy = "a released page the planner omits is dropped by design; if a drop was not intended, re-plan with the page named in the briefing"
+		}
+		LogActionError(ctx, params, siteID, "", "validate_plan",
+			"RECOMPOSE_INTENT_NOT_REALISED", "warning", msg,
+			map[string]interface{}{
+				"page":              o.Page,
+				"outcome":           o.Outcome,
+				"realised_sections": o.RealisedSections,
+				"remedy":            remedy,
 			},
 			params.Logger)
 	}
@@ -5278,15 +5408,22 @@ type factCarryMiss struct {
 // pages["sections"] downstream of validate_plan ever sees object form, and the
 // 15+ consumers of that key are not in this change's blast radius.
 //
-// Returns the merged list, how many entries received an assignment, and the
-// assignments that matched nothing. When nothing carries, the realised slice is
-// returned UNCHANGED — so a plan with no object entries (every plan before seed
-// 333, and every page the planner emits as bare strings) is byte-identical to
-// what this function produced before candidate 1b.
-func carrySectionFactsOntoRealised(realised []interface{}, proposed interface{}) ([]interface{}, int, []string) {
+// Returns the merged list, how many entries received an assignment, the
+// assignments that matched nothing, and the object entries that resolved a name
+// but carried NO usable `facts` value (key absent, null, or not an array).
+// Seed 333 makes the key mandatory on every section the planner emits, so the
+// fourth return is planner disobedience — kept separate from unmatched because
+// without it the omission is invisible: the entry skips both `pending` and the
+// unmatched sweep, indistinguishable from a page correctly assigned no facts
+// (council round a06ff850, objection §3.5). When nothing carries, the realised
+// slice is returned UNCHANGED — so a plan with no object entries (every plan
+// before seed 333, and every page the planner emits as bare strings) is
+// byte-identical to what this function produced before candidate 1b, and
+// produces no absent entries either.
+func carrySectionFactsOntoRealised(realised []interface{}, proposed interface{}) ([]interface{}, int, []string, []string) {
 	pl, _ := proposed.([]interface{})
 	if len(pl) == 0 || len(realised) == 0 {
-		return realised, 0, nil
+		return realised, 0, nil, nil
 	}
 
 	// Assignments in emission order, plus a name index into them. A page may
@@ -5301,6 +5438,7 @@ func carrySectionFactsOntoRealised(realised []interface{}, proposed interface{})
 		used  bool
 	}
 	var pending []pendingAssignment
+	var absent []string
 	byName := make(map[string][]int)
 	for _, entry := range pl {
 		obj, ok := entry.(map[string]interface{})
@@ -5311,18 +5449,22 @@ func carrySectionFactsOntoRealised(realised []interface{}, proposed interface{})
 		if !ok {
 			continue
 		}
-		// Absent key == unscoped, [] == deliberately factless. Only the second
-		// is an assignment worth carrying, and the tri-state must survive the
-		// carry intact (bugs_open/151's null-vs-empty distinction).
+		// [] == deliberately factless and carries; an object entry with the key
+		// absent, null, or non-array carries nothing — but under seed 333 the
+		// key is mandatory, so that shape is disobedience, not a pre-scoping
+		// plan (those emit bare strings, which never reach this cast). Record
+		// it rather than skipping silently: skipped, it is indistinguishable
+		// from a page correctly assigned no facts.
 		facts, ok := obj["facts"].([]interface{})
 		if !ok {
+			absent = append(absent, name)
 			continue
 		}
 		byName[name] = append(byName[name], len(pending))
 		pending = append(pending, pendingAssignment{name: name, facts: facts})
 	}
 	if len(pending) == 0 {
-		return realised, 0, nil
+		return realised, 0, nil, absent
 	}
 
 	merged := make([]interface{}, len(realised))
@@ -5367,9 +5509,9 @@ func carrySectionFactsOntoRealised(realised []interface{}, proposed interface{})
 		}
 	}
 	if carried == 0 {
-		return realised, 0, unmatched
+		return realised, 0, unmatched, absent
 	}
-	return merged, carried, unmatched
+	return merged, carried, unmatched, absent
 }
 
 // reconcileCounts is what reconcilePlanWithRealised observed, for the caller's
@@ -5401,6 +5543,13 @@ type reconcileCounts struct {
 	// section name. Non-empty means the planner scoped facts to a section the
 	// built page does not have and they were discarded.
 	FactCarryMisses []factCarryMiss
+	// FactAssignmentAbsent: per page, object-form section entries that resolved
+	// a name but carried no usable `facts` value (key absent, null, or not an
+	// array). Seed 333 makes the key mandatory on every emitted section, so
+	// these are planner disobedience — recorded under a distinct code because a
+	// silently skipped entry is indistinguishable from a page correctly
+	// assigned no facts (council round a06ff850, objection §3.5).
+	FactAssignmentAbsent []factCarryMiss
 }
 
 // reconcilePlanWithRealised enforces preservation of and convergence on the
@@ -5632,13 +5781,17 @@ func reconcilePlanWithRealised(
 					// the fact assignments inside them — are about to be
 					// discarded. Same loss as Pass B2, one pass earlier; carry
 					// the assignments onto the names that survive.
-					restored, n, unmatched := carrySectionFactsOntoRealised(rs, lm["sections"])
+					restored, n, unmatched, absent := carrySectionFactsOntoRealised(rs, lm["sections"])
 					snapped["sections"] = restored
 					carried = n
 					counts.SectionFactsCarried += n
 					if len(unmatched) > 0 {
 						counts.FactCarryMisses = append(counts.FactCarryMisses,
 							factCarryMiss{Page: rname, Sections: unmatched})
+					}
+					if len(absent) > 0 {
+						counts.FactAssignmentAbsent = append(counts.FactAssignmentAbsent,
+							factCarryMiss{Page: rname, Sections: absent})
 					}
 				}
 				logger.Info("validate: snapped renamed page back to realised identity",
@@ -5669,7 +5822,7 @@ func reconcilePlanWithRealised(
 				// for free once the planner re-emits the realised list (candidate
 				// 1b (i)). Only a genuine composition change gets here.
 				if !sameSectionList(lm["sections"], rs) {
-					restored, carried, unmatched := carrySectionFactsOntoRealised(rs, lm["sections"])
+					restored, carried, unmatched, absent := carrySectionFactsOntoRealised(rs, lm["sections"])
 					logger.Info("validate: snapped built page composition back to realised sections",
 						zap.String("page", lname),
 						zap.Int("realised_sections", len(rs)),
@@ -5680,6 +5833,10 @@ func reconcilePlanWithRealised(
 					if len(unmatched) > 0 {
 						counts.FactCarryMisses = append(counts.FactCarryMisses,
 							factCarryMiss{Page: lname, Sections: unmatched})
+					}
+					if len(absent) > 0 {
+						counts.FactAssignmentAbsent = append(counts.FactAssignmentAbsent,
+							factCarryMiss{Page: lname, Sections: absent})
 					}
 				}
 			} else if realisedPageHasShipped(rp) {
