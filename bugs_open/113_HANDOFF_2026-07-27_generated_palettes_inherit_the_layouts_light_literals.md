@@ -876,3 +876,66 @@ zero, something else changed too and the number should not be credited to this f
 > exactly as its owning lane set it.
 
 **Result: pending** — appended below when the run lands.
+
+### RESULT of `f7ceba19`: `complete` in 2 minutes, and it changed NOTHING
+
+The item reported `complete` at 18:52:25Z, 2 minutes after being claimed. **The artefact
+says otherwise** — checked rather than trusted, per this file's own standing rule:
+
+| check | result |
+|---|---|
+| site-specific `palettes` row created | **0 rows** |
+| `sites.style_collection_id` | **unchanged** — still the shared `professional-dark` |
+| served `styles.css` `last-modified` | **Mon, 10 Aug 2026 02:19:28 GMT** — hours before the run |
+| served `--color-card-bg` | **still `#ffffff`** |
+
+**The run was not useless — it proves the pin works.** `site_work_items.result` holds a
+correct design spec whose `color_scheme` is the pinned DARK palette to the byte
+(`primary #0D1117`, `background #080B10`, `text #E6EDF3`, `accent #F0A500`). So the
+`[UNMEASURED]` worry about the stale light `color_scheme` being pulled in is now
+**settled by observation as well as by reading the resolver: it was not.**
+
+But `needs_design` was **the wrong door**, and this is the finding worth keeping.
+
+### THE PLATFORM GAP: there is no supported way to re-compose a site that already has a collection
+
+Traced through three files rather than guessed:
+
+1. `webdesign-agent`'s workflow does have `generate_css` → `deploy_css`, plus a
+   `check_should_fork` gate on `input_data.should_fork_theme == true`.
+2. **`should_fork_theme` is not the route.** `fork_theme_from_site_action.go:3-13`:
+   it persists the CSS as a *library* theme pending review and **"the site's own
+   `style_collection_id` is NOT modified"**.
+3. That file names the owner explicitly (`:15-19`): *"Composition installation is owned
+   exclusively by `site-design-planner` via the `install_site_composition` action … Any
+   caller that wants to install a composition onto a site must go through
+   site-design-planner (queue a `needs_composition` work item)."*
+4. **And that action refuses a site that already has one.**
+   `install_site_composition_action.go:148-158` loud-fails —
+   *"site already has style_collection_id=…; re-resolve not supported"* — with the
+   in-code recommendation **"clear sites.style_collection_id manually to force
+   re-install"**.
+
+So the only supported repair for *this* class is an **operator action the platform
+declines to perform for itself**: null the column, then queue `needs_composition`.
+Every existing `needs_composition` row in the table carries
+`reason: no_style_collection` — the mechanism has only ever run on sites that had none.
+
+**This is why the site's own work item `47ce091c`** (*"shares its style collection with
+3 other site(s) — needs its own collection"*) **has been `unresolved after 2 attempts`
+since 2026-08-06.** The detector is right, files correctly, and the handler cannot
+satisfy it. That is a real defect and it is **not** filed anywhere; it is the reason this
+repair cannot be completed by queueing work.
+
+> **STOPPED HERE, deliberately.** Nulling a live site's `style_collection_id` leaves it
+> with no composition until the re-resolve lands; if anything renders in that window the
+> loader's **emergency fallback** fires (`render_css_composition_loader.go:144-158`) and
+> could deploy a `standard-brochure` stylesheet over a live site. The permission layer
+> also declined the write. **Nothing was changed — verified after the fact:
+> `style_collection_id` is still `3196d966-…`, and no `needs_composition` row was
+> created.** Rollback value recorded here so the next session does not have to re-derive
+> it: `3196d966-24ef-4415-9dc8-1afbc02166ca`.
+
+**Owner decision needed** — see the handoff's D1a. The repair is two statements and a
+short unsafe window, or it waits for someone to give `install_site_composition` a
+supported re-resolve path.
