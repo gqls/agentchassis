@@ -4214,3 +4214,38 @@ now proven at the artefact.
 picked up by the section-editor handler), not by editing content directly — the
 standing owner constraint, and the reason the proof means anything: it exercised
 the real dispatch path.
+
+### 6. Bookkeeping: two same-file passengers, and one of my own commits swept in return
+
+Commit `f6d78d227` (my LANDMINES/WRONG_CALLS correction) also carries **another
+session's** entries in both files — WRONG_CALLS' *"bug 239's trigger was
+characterised twice, wrongly, from payloads as WRITTEN"* and an extra ~46 lines of
+LANDMINES. A pathspec commit cannot prevent a SAME-FILE passenger; that is the
+documented residual. Named here so the authors can find their work under my
+message, since `git log` will attribute it to this lane.
+
+Symmetrically, my own earlier WRONG_CALLS append was swept into another session's
+`edd817763` (*"four false negatives in one session"*) before I could commit it —
+both entries and theirs survived intact. Forward-only holds in both directions and
+nothing was lost; the only cost is that four of today's append-only-ledger entries
+sit under commit messages that do not mention them.
+
+### 7. The 090 run FAILED — and its verdict was never going to arrive
+
+My diagnosis item `d193a617` ended **`failed`**: *"Request bcd23695 … timed out
+after 3 retries (code: CHILD_ORCHESTRATION_FAILED)"*, after 5 bundle iterations
+over ~45 minutes. `orchestration_states` still reads `COMPLETED`, which is why the
+run looked alive from that side.
+
+So the structural claim in this lane's write-ups rests on **first-hand verification,
+declared as the substitute** — which the owner ruling of 2026-07-31 permits provided
+the session says so plainly rather than omitting it. The verification: the query read
+at source before and after (`loadStoredSections`, `getPageSections`), the three
+stores compared at the moment of the regression (current plan, `pages.sections`,
+`page_components`), the two sibling readers and the fifth one found by census, and
+mutation-tested guards on both fixes. What the loop could have added — an
+independent re-reading — is absent, and I am not claiming it.
+
+**Do not re-file it hoping for a verdict.** The mechanism is fixed at HEAD, so a
+fresh run against a refreshed index would be diagnosing code that no longer has the
+defect. That is a different kind of useless from a timeout.
