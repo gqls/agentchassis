@@ -281,7 +281,7 @@ func canonicaliseImageryScopeRefs(
 // returning survivors in first-appearance order and the number of merges.
 //
 // WHY THIS EXISTS. idx_site_plan_imagery_unique is UNIQUE on
-// (plan_id, scope, COALESCE(scope_ref,''), key). Canonicalisation is a
+// (plan_id, scope, COALESCE(scope_ref, <empty>), key). Canonicalisation is a
 // COLLAPSING map — "about" and "about-index" both become "about-index" — so a
 // planner that keyed one page under two spellings with a shared imagery key now
 // produces two rows carrying one identity, and the insert aborts THE WHOLE PLAN
