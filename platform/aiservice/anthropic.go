@@ -124,14 +124,30 @@ func (c *AnthropicClient) GenerateWithImages(ctx context.Context, prompt string,
 // write premium and returns zero reads — see the concept-register entry.
 const CacheBreakpointMarker = "<!--CACHE_BREAKPOINT-->"
 
-// cacheTTL is 1 hour rather than the 5-minute default. The motivating caller
-// (council-gate) runs 17 sequential LLM steps over 2–5 minutes, which sits
-// right on the 5-minute boundary — a chain that stalls on one slow seat would
-// start missing partway through, and a partial miss is the hardest kind to
-// notice because it still "works". 1h costs 2× on the single write instead of
-// 1.25×; against 16 reads at 0.1× that is 3.6× total versus 17× uncached, so
-// the extra write premium is noise next to the risk it removes.
-const cacheTTL = "1h"
+// TTL IS DELIBERATELY THE 5-MINUTE DEFAULT — i.e. no "ttl" field is sent at all.
+//
+// The first draft sent ttl:"1h", reasoning that council-gate's 17-seat chain
+// runs 2–5 minutes and sits right on the 5-minute boundary. The council gate's
+// edit-quality seat caught the flaw (correlation b54f173e, medium severity):
+// the extended TTL is gated behind a beta header this client does not send, so
+// the first caller to opt in would get a 400 rather than a cache hit — and
+// because council-gate reviews every platform change, a 400 there takes out the
+// review path for the whole estate, not just this optimisation.
+//
+// Rather than add a beta header I cannot verify from here without spending
+// council credits on the very thing being reined in, this takes the option with
+// no ambiguity: the default TTL needs no header on any model.
+//
+// THE COST OF BEING WRONG IS ASYMMETRIC, which is the whole argument. Default
+// TTL that turns out to be too short = some later seats miss and we save less
+// than hoped, visible immediately in cache_read_input_tokens. Unsupported ttl
+// field = every council call 400s. The first is a worse saving; the second is
+// an outage.
+//
+// If the measured run shows later seats missing, the fix is evidence-led rather
+// than speculative: confirm the current beta header for extended TTL, send it,
+// and set ttl here. Do NOT reintroduce ttl without that confirmation.
+const cacheTTL = ""
 
 func (c *AnthropicClient) generate(ctx context.Context, content interface{}, options map[string]interface{}) (string, error) {
 	// Build request. content is either a plain string (GenerateText) or a
@@ -161,15 +177,33 @@ func (c *AnthropicClient) generate(ctx context.Context, content interface{}, opt
 			// text block is a 400, and a cache_control on nothing is a silent
 			// write of zero tokens — so treat it as "no marker" rather than
 			// inventing a breakpoint the caller did not ask for.
-			if strings.TrimSpace(shared) != "" {
+			//
+			// BUT THE MARKER STILL HAS TO GO. The first draft fell back to
+			// sending promptStr UNCHANGED here, which left the literal
+			// "<!--CACHE_BREAKPOINT-->" in the text for the model to read as
+			// content — caught by the council gate's edit-quality seat
+			// (correlation b54f173e). The marker is plumbing, never content:
+			// whatever path we take, it must not reach the model. Stripping
+			// every occurrence also covers a template that accidentally
+			// contains two.
+			if strings.TrimSpace(shared) == "" {
+				content = strings.ReplaceAll(promptStr, CacheBreakpointMarker, "")
+				requestBody["messages"] = []map[string]interface{}{
+					{"role": "user", "content": content},
+				}
+			} else {
+				cacheControl := map[string]interface{}{"type": "ephemeral"}
+				// Only send ttl when one is configured. An empty string is not
+				// a valid ttl and would 400 — see the cacheTTL comment for why
+				// the default (no field at all) is the deliberate choice.
+				if cacheTTL != "" {
+					cacheControl["ttl"] = cacheTTL
+				}
 				blocks := []map[string]interface{}{
 					{
-						"type": "text",
-						"text": shared,
-						"cache_control": map[string]interface{}{
-							"type": "ephemeral",
-							"ttl":  cacheTTL,
-						},
+						"type":          "text",
+						"text":          shared,
+						"cache_control": cacheControl,
 					},
 				}
 				// A marker at the very END is legitimate: it means "cache all

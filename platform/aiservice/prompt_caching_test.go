@@ -123,8 +123,19 @@ func TestMarkerSplitsIntoTwoBlocksWithCacheControlOnFirstOnly(t *testing.T) {
 	if cc["type"] != "ephemeral" {
 		t.Errorf("cache_control.type: want ephemeral, got %v", cc["type"])
 	}
-	if cc["ttl"] != cacheTTL {
-		t.Errorf("cache_control.ttl: want %q, got %v", cacheTTL, cc["ttl"])
+	// An empty-string ttl is not a valid value and would 400 on every call. The
+	// council's edit-quality seat flagged the original ttl:"1h" as requiring a
+	// beta header this client does not send; the resolution was to fall back to
+	// the default TTL, which means sending NO ttl field at all. Pin that: the
+	// failure it prevents is not "worse caching", it is every council call
+	// erroring, which takes out the review path for the whole estate.
+	ttl, present := cc["ttl"]
+	if cacheTTL == "" {
+		if present {
+			t.Errorf("ttl field present (%v) while cacheTTL is empty — an empty/invalid ttl 400s every call", ttl)
+		}
+	} else if ttl != cacheTTL {
+		t.Errorf("cache_control.ttl: want %q, got %v", cacheTTL, ttl)
 	}
 
 	// THE POINT OF THE WHOLE CHANGE. A breakpoint on the varying block
@@ -138,7 +149,15 @@ func TestMarkerSplitsIntoTwoBlocksWithCacheControlOnFirstOnly(t *testing.T) {
 // A marker at position 0 has no prefix to cache. Sending an empty text block
 // is a 400 from the API, so the client must fall back to the legacy path
 // rather than construct something the API rejects.
-func TestMarkerAtStartFallsBackToPlainString(t *testing.T) {
+//
+// ⚠ THE ORIGINAL VERSION OF THIS TEST PASSED WHILE A REAL BUG WAS PRESENT.
+// It asserted only that the content stayed a string, which it did — while the
+// literal marker text sat in that string for the model to read as content. The
+// council gate's edit-quality seat found it by reading the code, not by running
+// the test (correlation b54f173e). A test that checks the TYPE of a value and
+// not its CONTENT will keep passing through exactly this class of defect; the
+// marker-absence assertion below is the part that had been missing.
+func TestMarkerAtStartFallsBackToPlainStringAndStripsTheMarker(t *testing.T) {
 	c, tr := cachingClient(cacheUsageBody)
 
 	prompt := CacheBreakpointMarker + "everything is per-call"
@@ -146,8 +165,31 @@ func TestMarkerAtStartFallsBackToPlainString(t *testing.T) {
 		t.Fatalf("GenerateText: %v", err)
 	}
 
-	if _, ok := userContent(t, tr.captured).(string); !ok {
-		t.Error("marker with an empty prefix must fall back to the plain-string path, not emit an empty cached block")
+	got := userContent(t, tr.captured)
+	s, ok := got.(string)
+	if !ok {
+		t.Fatalf("marker with an empty prefix must fall back to the plain-string path, not emit an empty cached block; got %T", got)
+	}
+	if strings.Contains(s, CacheBreakpointMarker) {
+		t.Errorf("the literal marker reached the model as content: %q — it is plumbing, never content", s)
+	}
+	if s != "everything is per-call" {
+		t.Errorf("prompt body altered beyond stripping the marker: %q", s)
+	}
+}
+
+// Belt and braces on the same class: a template that accidentally contains the
+// marker twice must not leak the second one into the per-call block.
+func TestSecondMarkerOccurrenceDoesNotReachTheModel(t *testing.T) {
+	c, tr := cachingClient(cacheUsageBody)
+
+	prompt := "SHARED" + CacheBreakpointMarker + "SEAT" + CacheBreakpointMarker + "TAIL"
+	if _, err := c.GenerateText(context.Background(), prompt, map[string]interface{}{}); err != nil {
+		t.Fatalf("GenerateText: %v", err)
+	}
+
+	if strings.Contains(string(tr.captured), CacheBreakpointMarker) {
+		t.Errorf("a marker survived into the request body: %s", string(tr.captured))
 	}
 }
 
