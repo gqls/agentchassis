@@ -754,3 +754,32 @@ harmless, but it will keep reading as the old value to anyone grepping the style
 on it) and re-run `render_audit.py --sitemap` on robot-hands and dartsonline. Expect
 −128 and −53. **Run the audit BEFORE as well as after** — 113's own transferable lesson,
 and the reason the mirror defect on the cost calculator was caught at all.
+
+---
+
+## 2026-08-10 — pointer: the queued stylesheet re-render will NOT repair `ai-agent-orchestration.com`'s white cards
+
+Short note, not a fork — the finding and its evidence live in
+**`bugs_open/113`, section "2026-08-09 (third pass)"**.
+
+Work item **`e97fb5c5`** (`needs_design_review`, triaged 2026-08-09, *"re-render
+styles.css so the VIZ-014 legible-ink slots reach the served stylesheet"*) will deliver
+the ink slots as intended. **It will not move that site's 44 `#ffffff`-card failures**,
+and those are a separate mechanism from this file's `.news-list-tag` chips.
+
+Why, in one line: the site renders from the **shared seed palette `professional-dark`**,
+which defines `card_bg: "#ffffff"` explicitly. `card_bg` is a specialised slot (the theme
+wins it, a site's spec cannot override it) and `fillDarkSchemeSpecialisedSlots` skips any
+slot the palette already defines — so the value is **curated, not fallen-through**, and is
+unchanged by re-rendering. Deterministic; it does not depend on what the run's LLM emits.
+
+**What this means for the batch:** nothing needs to change about `e97fb5c5` — just don't
+read a persisting white card afterwards as the re-render having failed. If the white cards
+are also wanted gone, that is an **input** change (fork the palette for this site, or move
+it to a genuinely dark collection); editing the shared seed row would break
+`finetuning.uk` and `gaswholesalers.com`, which ride the same palette and are light sites
+where `#ffffff` is correct.
+
+*Also relevant to this file's own before/after discipline:* when the audit is re-run here,
+`ai-agent-orchestration.com`'s total will drop by the chip count and **not** by 44. That is
+the expected result, not a shortfall.
