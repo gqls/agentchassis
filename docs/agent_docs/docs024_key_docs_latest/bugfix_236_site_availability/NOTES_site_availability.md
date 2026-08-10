@@ -100,3 +100,52 @@
   (2) chassis roll, then pod-grep `site_unreachable` on every replica; (3) rename
   `372_*_HOLD.sql`, apply, add `site_unreachable` to `liveConfiguredChecks` in
   the same commit; (4) the break-it-on-purpose drill on a sacrificial worker route.
+
+## 2026-08-10 22:00–22:10Z — LIVE. Hold released, migration applied, first probe end to end
+
+- **v1.0.1283 carries the check.** Pod-grep BOTH replicas, one exec each, with
+  controls in the same exec: `site_unreachable` **7**, `+site_unreachable` **1**,
+  invented negative `site_unreachabl3` **0**, pipeline control
+  `asset_reference_404` **13**. Pods `696d88b4c7-95mgb`/`-wnbs8`, started 21:43Z;
+  probed at 22:02Z, i.e. 18 min after start — clear of the ~300s dispatch-drop window.
+- **Migration 372 APPLIED** (`4864a8754`/`79feb08e7`). Dry-run and apply were run
+  against a **temp `MIGRATIONS_DIR` holding only my two files** — the runner takes
+  EVERY pending file otherwise, and the shared dir had other lanes' pending work in
+  it. Probe ok, apply clean, then the live rows read back: agent
+  `checks=["site_unreachable"]`, task enabled at 300s in its own group.
+- **FIRST LIVE RUN, 22:03:47Z, `4ec82e1c` COMPLETED in 1.8s** on `robot-hands.com`:
+  ```
+  checks_run: ["site_unreachable"]   checks_failed: []   checks_unregistered: []
+  findings: null   items_inserted: 0   items_resolved: 0
+  ```
+- **What that run PROVES, and it is more than "it did not crash".** The
+  `[ASSUMED]` from this lane's opening — that the chassis pod's egress sees the
+  same public serving path as my workstation — is now **settled, and by a check
+  that could have come out the other way**: if egress were blocked, both probe
+  attempts would transport-error, the verdict would be UNREACHABLE, and the run
+  would have **filed an item**. A blocked network produces a FALSE POSITIVE here,
+  never silence. So 0 items on a site that serves rules egress failure out.
+  Wiring, registration, egress and the healthy path are all live-proven.
+- **What it does NOT prove, and this is the honest gap:** the FILING path and the
+  self-clear have not run in production. `0 findings` is also what a blinded check
+  reports (016b §9). Only the break-it-on-purpose drill closes that, and it is
+  still owed — see the handoff.
+- **MISSTEP — the `git mv` pathspec landmine fired on me, verbatim.** `git mv
+  HOLD -> non-HOLD` plus a commit naming only the NEW path shipped a **copy**:
+  both files sat at HEAD, one of them saying HELD about config that was already
+  live. Harmless in effect (`SIDECAR_RE` never auto-applies a `_HOLD` file, and the
+  migration is idempotent) and caught by running the entry's own check —
+  `git ls-tree -r --name-only HEAD -- <dir> | grep 372` — which is the point: `ls`
+  on disk showed one file and would have told me nothing. Fixed in `4864a8754`.
+- **The 372 number collided a THIRD time, and this one must NOT be "fixed":**
+  another lane applied `372_provocation_generator_token_budget.sql`. Both are
+  recorded in `schema_migrations` **by filename**, so both applied cleanly and
+  coexist. Renumbering an APPLIED migration would make it pending again and
+  re-run it. Leave it. (Chain for the record: 368 → 371 → 372, and 372 was taken
+  anyway. See WRONG_CALLS.)
+- **Cadence, measured not assumed:** the task takes `LIMIT 1` per 300s tick, so a
+  cold start drains 21 sites in ~105 minutes, then settles to the 4-hour cooldown.
+  First stamp 22:03:46Z.
+- **The Anthropic cap (`bugs_open/243`) does not touch this lane.** The
+  availability agent has no LLM steps — it is currently one of the few discovery
+  paths in the fleet that still functions. The council round is still owed.
