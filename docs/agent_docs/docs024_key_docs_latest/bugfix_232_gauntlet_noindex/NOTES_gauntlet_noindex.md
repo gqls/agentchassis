@@ -104,9 +104,11 @@ right one.
 > quoting the sentence above.** It holds for `rebuild_policy='generic'` pages and **not**
 > for this one: `AssemblePageAction` refuses an `owned` page before assembly (208's
 > guard), and this page is `owned`. I measured an absence in that function's body and
-> reported it as a behaviour, without reading its entry conditions. Landmined + registered as SEO-003's open question; deliberately **not**
-widened into this bug (architecture scope, pre-existing, and the guardian seat vetoes
-exactly that kind of ride-along).
+> reported it as a behaviour, without reading its entry conditions.
+
+Landmined + registered as SEO-003's open question; deliberately **not** widened into this
+bug (architecture scope, pre-existing, and the guardian seat vetoes exactly that kind of
+ride-along).
 
 **Left the false comment in place** rather than editing it, so the contradiction stays
 visible at the spot where a reader would otherwise be reassured.
@@ -261,3 +263,69 @@ on a non-issue.
 **Not resubmitted.** The code did not change; the verdict asked for evidence and a
 correction, and re-reviewing an identical plan would spend a round to be told the same
 thing. `RESUBMIT_CORR=1139cbbe-…` if a later thread disagrees.
+
+---
+
+## 2026-08-10 — the roll landed; fix is LIVE and proven in both directions
+
+Chassis **v1.0.1277**, pods up since 2026-08-09 21:35Z (so the ≥300s dispatch window was
+long past — no wait needed).
+
+**Pod census over ALL containers running the image, not the label.** `-l app=agent-chassis`
+returns **2**; five containers actually run the image (`business-intel`, `vet-intel` and a
+completed `agent-med-price-collector` job pod also carry it). On each of the 4 live ones:
+`injectRobotsNoindex` **2**, `injectCanonicalLink` **4** (pipeline positive control),
+fabricated `zzzNotARealSymbol232` **0** (negative control — nothing was removed by this
+change, so a natural negative did not exist and had to be manufactured).
+
+**Both directions, same binary, minutes apart** — this pairing is the actual proof:
+
+| page | `noindex` | tag in rendered_html | served | deploy |
+|---|---|---|---|---|
+| `/tools/gauntlet/round.html` | true | present | 1 | ok |
+| `/about.html` | false | absent | 0 | ok, 51,424 B |
+
+Tag sits inside `<head>` (idx 9,779 vs `</head>` 9,822); page intact at 30,327 B.
+Deploy leg read from `deploy_result.response.data` — `success:true`, one file, `gqls/sites`.
+
+## MISSTEP 5 (small, and the standing rule caught it) — I guessed the result paths
+
+First read of the completed run asked for `collected_data->'rerender_result'->'skipped'`,
+`->'deploy_result'->'success'`, `->'commit_sha'`. **All four came back `null`** — and a
+jsonb path read cannot distinguish "absent" from "null", so that output was
+indistinguishable from a run that had done nothing. Enumerated the keys instead
+(`jsonb_object_keys`) and the real shape is `render_page` (not `rerender_result`) and
+`deploy_result.response.data.success` (nested two deeper than I guessed). The standing
+landmine — *a jsonb path read cannot see the shape change underneath it; enumerate keys* —
+is exactly this, and it cost one query because I followed it on the second attempt rather
+than believing the nulls.
+
+## ⚠ TWO TRAPS WORTH MORE THAN THIS BUG
+
+**(a) The documented RUNBOOK route hung; the bypass worked.** `rerender_page_vonc.sh` (the
+`spawn_agent`→`call_agent` wrapper the gauntlet RUNBOOK §18 prescribes) parked at
+`spawn_rerender/AWAITING_RESPONSES` and **FAILED at 634s** with **no child orchestration
+ever created** (corr `04b6176c` — one row, no parent/child pair). Checked before blaming
+it: `dispatch-queue-depth.sh` reported **LAG 0, lane clear**, my run the only thing in
+flight — so not queue latency, which is the usual and usually-correct explanation.
+`049b_deploy_single_page.sh` dispatches `page-rerender` **directly with no spawn step** and
+completed in ~25s (corr `1f3d125c`). Did **not** cancel the hung row: it is the evidence,
+and destroying it pre-diagnosis is a documented compounding error.
+
+**(b) The failure is invisible in the table the standing account says to measure it in.**
+`spawn-call-handshake-races` says count these in `agent_error_log` because
+`orchestration_states` under-reports (166 COMPLETED / 0 FAILED vs 79 logged timeouts).
+**Here it is exactly inverted:** `orchestration_states` = `FAILED`, `agent_error_log` =
+**0** `%timed out after%` rows in the surrounding 2 hours. So the under-counting runs
+**both ways**, and a clean `agent_error_log` is *not* evidence the handshake is healthy.
+That also makes this run a counter-example to the "`page-rerender` 271/0, clean" figure —
+it is clean *in that table*. Not chased further: it belongs to `bugs_open/029`, which is
+owned, and contributing a measurement is the right move rather than forking a diagnosis.
+
+## Verifier still held, re-checked rather than assumed
+
+`code_symbols` has grown **5,755 → 5,837** since yesterday and still holds
+`injectRobotsNoindex` **0** against `injectCanonicalLink` **1**. The index has not reached
+`c3d7841f9`, so dispatching the landmine verifier would still produce `bugs_open/223`'s
+false STALE against a correct entry. Held again, with the measurement rather than the
+memory of yesterday's measurement.

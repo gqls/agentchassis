@@ -85,3 +85,52 @@ I'd have written the whole thing again and we'd have had it twice. The lesson is
 and worth having: on this setup, "the file looks clean" doesn't mean "your edit vanished"
 — it might mean someone already committed it. Ask what's in the committed version, not
 whether your copy looks modified. I've logged it.
+
+## 2026-08-10, morning — it's live, and it's proven properly
+
+The rebuild went out overnight, so I went and checked the actual page. **It works.** The
+published Gauntlet round page now carries the "don't index this" instruction, and Google
+and the others will honour it. Shared links are completely unaffected, exactly as intended.
+
+I want to be clear about *how* I checked it, because "I looked at the page and the tag was
+there" would not actually have been proof of much. Two things had to be true. First, that
+the new code is genuinely running — I checked the actual program on every machine running
+it, not the version label, which can lie. Second, and this is the one people skip: I also
+re-built a **different** page, one that is *not* flagged, on the same new code. It came out
+with **no** tag, and deployed perfectly normally. That's the half that matters. If I'd only
+checked the flagged page I couldn't tell the difference between "the switch works" and
+"the new code puts that tag on everything". Now I can.
+
+## Two things went wrong on the way, and one of them is worth your attention
+
+**The documented procedure for rebuilding this page didn't work.** The script our own
+runbook tells you to use hung for about ten minutes and then failed, having never actually
+started the job. I checked first whether the system was just busy — it wasn't, the queue
+was completely empty and my job was the only thing in it. There's a second, more direct
+route that skips the part that hung, and that worked in about twenty-five seconds. I've
+written that down prominently, because the next person will reach for the same broken
+script I did.
+
+**The more interesting problem: that failure left no trace in the place we look for
+failures.** We have a note on file saying that when this kind of hang happens, the job
+table under-reports it and you should count them in the error log instead. Today it was the
+exact opposite — the job table said "failed", the error log said nothing at all. So the
+under-counting goes *both* ways, which means a clean error log doesn't prove this is
+healthy. That matters beyond my little fix, because there's an open bug about these hangs
+and part of the evidence for "this particular component is fine" is a clean error-log
+count. I've recorded it as a contribution to that bug rather than going off and
+re-diagnosing it myself, since someone already owns it.
+
+## What's left
+
+One thing, and it isn't mine to do unasked. The round data is also served by an API on a
+**separate machine** with its own deployment process — SSH, rebuild, restart. The code for
+that half is written and committed, but the overnight rebuild did nothing for it, because
+it isn't part of the same system. It needs someone to deploy it deliberately. It's the
+smaller half — the page itself, which is what a person actually finds in a search, is done.
+Worth knowing: another thread has since added a separate safety check to that same file, so
+whoever deploys it will be shipping both changes at once and should talk to them.
+
+Everything else is finished: the fix is live, the review council's questions are all
+answered with measurements, and the notes and warnings are filed where the next person will
+trip over them rather than have to go looking.

@@ -431,3 +431,101 @@ The code is unchanged, so a resubmission would re-review an identical plan. What
 verdict actually demanded was **evidence and a correction**, both of which are now on
 record here. If a later thread disagrees and wants the trail to accumulate, resubmit with
 `RESUBMIT_CORR=1139cbbe-3173-4886-846b-c25daeeda93c`.
+
+---
+
+# ✅ LIVE AND BEHAVIOURALLY PROVEN 2026-08-10 — chassis v1.0.1277, both directions, at the artefact
+
+The defect is **no longer reproducible on the live page.** Kept in `bugs_open/` per the
+owner ruling of 2026-08-06 (a finished bug stays here). **One residual remains: tools-api
+(§4 below).**
+
+## 1. Deploy proven at the binary, every replica, with both controls
+
+`-l app=agent-chassis` matches **2 of the 5** containers running this image — the
+documented label trap — so the census was taken over all of them:
+
+| pod | `injectRobotsNoindex` | `injectCanonicalLink` (positive control) | fabricated string (negative) |
+|---|---|---|---|
+| agent-chassis-…-lftkt | **2** | 4 | 0 |
+| agent-chassis-…-v2b59 | **2** | 4 | 0 |
+| business-intel-…-mdjpk | **2** | 4 | 0 |
+| vet-intel-…-k59qv | **2** | 4 | 0 |
+
+(A 5th, `agent-med-price-collector`, is a **completed job pod**, not a live replica —
+`cannot exec … phase is Succeeded`.) Nothing was removed by this change, so no
+negative-string control exists naturally; a fabricated symbol returning 0 supplies one.
+
+## 2. THE PROOF IS THE PAIR, not the flagged page alone
+
+Both re-rendered **on the same binary, through the same action**, minutes apart:
+
+| page | `pages.noindex` | robots tag in rendered_html | served live | deployed |
+|---|---|---|---|---|
+| `/tools/gauntlet/round.html` | **true** | **present** | **1** | ✅ |
+| `/about.html` | false | **absent** | **0** | ✅ (51,424 B) |
+
+The unflagged control is the load-bearing half: a page rendered *before* the roll would
+show no tag for the trivial reason, and would prove nothing about the gate. This one was
+rendered *after* it, by the same code, and still correctly has no tag.
+
+Served, cache-busted, and the tag is **inside** `<head>` (idx 9,779 vs `</head>` 9,822),
+page intact at 30,327 B with its title:
+
+```
+<meta name="robots" content="noindex, nofollow">
+```
+
+Deploy leg read from the run rather than assumed —
+`deploy_result.response.data`: `success: true`, `files: ["/tools/gauntlet/round.html"]`,
+repo `gqls/sites`, 10:23:57Z.
+
+## 3. ⚠ TWO TRAPS PAID FOR IN THIS VERIFICATION — read before repeating it
+
+**(a) The spawn-wrapper rerender HUNG; the direct dispatch worked.**
+`rerender_page_vonc.sh` (the RUNBOOK §18 route, a `spawn_agent`→`call_agent` wrapper)
+parked at `spawn_rerender/AWAITING_RESPONSES` and **FAILED at 634s**, having spawned no
+child at all (only the parent row exists for corr `04b6176c`). The dispatch lane was
+**clear at the time — LAG 0**, so this was not queue latency. The bypass
+(`cta_link_integrity/scripts/049b_deploy_single_page.sh <page_id> <site_id> <domain>`,
+corr `1f3d125c`) dispatches `page-rerender` **directly, with no spawn step**, and
+completed in ~25s. **Use 049b for a single page.** The hung row was deliberately **not
+cancelled** — cancelling destroys the evidence, per the standing rule.
+
+**(b) …and that failure is invisible in the table you are told to measure it in.**
+The `spawn-call-handshake-races` account says to count these in `agent_error_log`, because
+`orchestration_states` under-reports (it cited 166 COMPLETED / 0 FAILED against 79 logged
+timeouts). **Here it is exactly inverted:** `orchestration_states` shows `FAILED`, and
+`agent_error_log` has **zero** `%timed out after%` rows in the surrounding two hours.
+So **neither table alone is a census of this failure** — the under-counting runs in both
+directions, and a clean `agent_error_log` is not evidence the handshake is healthy. Worth
+knowing for `bugs_open/029` and for the `page-rerender` "271/0, clean" figure, which this
+run is a counter-example to.
+
+## 4. STILL OWED — tools-api, and it is NOT live
+
+`X-Robots-Tag` on `PublicRoundHandler` is committed but ships from the **island VM**
+(docker compose), not the chassis image, so **the chassis roll did nothing for it**:
+
+```bash
+kubectl get deploy -n ai-persona-system | grep -i tools    # no rows — not in this cluster
+```
+
+Deploy is rebuild + `docker save|load` + `compose up -d` per RUNBOOK `gauntlet_dead_cta`
+§5 — SSH to another host, owner-adjacent, deliberately not done unasked. Verify with a
+**real published slug** (a 404 returns no header either, which reads identically):
+```bash
+curl -sI 'https://tools.apis.uk/api/v1/tools/gauntlet/round/<slug>' -H 'Origin: https://vonc.com' | grep -i x-robots
+```
+Note the same file now also carries another lane's RFC_020 §5.2 namecheck refusal, so that
+deploy ships both changes — coordinate with whoever owns it.
+
+## 5. Also still owed (unchanged)
+
+- **Landmine verification re-dispatch.** Re-checked 2026-08-10: `code_symbols` has grown
+  5,755 → **5,837** and still holds `injectRobotsNoindex` **0** against
+  `injectCanonicalLink` **1** — the index has not yet reached `c3d7841f9`, so a verdict now
+  would still be `bugs_open/223`'s false STALE. Hold.
+- **The two-head-producer tracking item** (`architecture` seat's ask). Unchanged, and note
+  §2's correction bounds its severity: `owned` pages are refused by the other path, so the
+  exposure is `generic` pages plus 208's countable fail-open window.

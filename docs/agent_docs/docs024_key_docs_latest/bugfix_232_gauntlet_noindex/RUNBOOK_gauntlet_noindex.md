@@ -121,10 +121,40 @@ d=$(mktemp -d); git archive HEAD | tar -x -C "$d"
 kubectl exec -n ai-persona-system <chassis-pod> -- sh -c \
   'strings /app/agent-chassis | grep -c injectRobotsNoindex; strings /app/agent-chassis | grep -c injectCanonicalLink'
 
-# b) WAIT >=300s after any chassis pod (re)start, or the dispatch is silently dropped
-docs/agent_docs/docs024_key_docs_latest/gauntlet_dead_cta/scripts/rerender_page_vonc.sh \
-  4629451e-e4f2-4fe2-b258-35107b5cb51e
+# b) WAIT >=300s after any chassis pod (re)start, or the dispatch is silently dropped.
+#    USE THE DIRECT ROUTE, NOT the spawn wrapper — see the warning below.
+docs/agent_docs/docs024_key_docs_latest/cta_link_integrity/scripts/049b_deploy_single_page.sh \
+  4629451e-e4f2-4fe2-b258-35107b5cb51e 9ec3b9ee-5b08-461b-b4f8-9e1e03579c74 vonc.com
 
+```
+
+> ⚠ **MEASURED 2026-08-10 — `rerender_page_vonc.sh` HUNG and the direct route did not.**
+> That script (and gauntlet RUNBOOK §18) uses the `spawn_agent`→`call_agent` wrapper. It
+> parked at `spawn_rerender/AWAITING_RESPONSES` and **FAILED at 634s having never created a
+> child orchestration** — one row for the correlation, no parent/child pair. Ruled out the
+> usual explanation first: `./scripts/dispatch-queue-depth.sh` reported **LAG 0, lane
+> clear**, my run the only thing in flight, so it was not queue latency.
+> `049b_deploy_single_page.sh` dispatches `page-rerender` **directly, no spawn step**, and
+> completed in ~25s.
+>
+> ⚠ **And do NOT trust `agent_error_log` to tell you this happened.** The standing account
+> (`spawn-call-handshake-races`) says count these there because `orchestration_states`
+> under-reports. **This run was the inverse:** `orchestration_states` = `FAILED`,
+> `agent_error_log` = **0** matching rows in the surrounding 2 hours. Check both.
+>
+> ⚠ **Do NOT cancel the hung row.** It is the evidence; cancelling pre-diagnosis is a
+> documented compounding error. Leave it and contribute the measurement to `bugs_open/029`.
+
+> ⚠ **Read the run's output by ENUMERATING KEYS, never by guessing paths.** Asking for
+> `collected_data->'rerender_result'->'skipped'` / `->'deploy_result'->'success'` returns
+> **all nulls** — indistinguishable from a run that did nothing. The real shape is
+> `collected_data->'render_page'->>'html'` and
+> `collected_data->'deploy_result'->'response'->'data'->>'success'`:
+> ```sql
+> SELECT jsonb_object_keys(collected_data) FROM orchestration_states WHERE correlation_id='<corr>';
+> ```
+
+```bash
 # c) at the served artefact, cache-busted
 curl -s "https://vonc.com/tools/gauntlet/round.html?cb=$(date +%s)" | grep -io '<meta name="robots"[^>]*>'
 

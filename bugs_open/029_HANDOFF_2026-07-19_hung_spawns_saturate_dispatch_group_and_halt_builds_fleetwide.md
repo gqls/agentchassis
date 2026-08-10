@@ -1156,3 +1156,53 @@ pool-occupancy this bug is about — and the builds completed everything *except
 the design pass, so the sites look built. cookly.uk today has three deployed
 pages, correct imagery and **no site-wide design applied**, with no failure
 visible anywhere except this orchestration row.
+
+---
+
+## CONTRIBUTION 2026-08-10 — a `page-rerender` hung spawn that `agent_error_log` did NOT record
+
+From the `bugs_open/232` lane, in passing. **No claim on this bug's cause or fix** — one
+measurement, because it is a counter-example to two figures this family is reasoned about
+with, and I would rather it were on record than in my own lane's notes only.
+
+**What happened.** `rerender_page_vonc.sh` (the standard `spawn_agent` → `call_agent` →
+`complete_workflow` wrapper) fired at 10:17:52Z against
+page `4629451e-e4f2-4fe2-b258-35107b5cb51e` on vonc.com, corr
+`04b6176c-2c63-4245-9167-03e056f8aa62`. It parked at `spawn_rerender/AWAITING_RESPONSES`
+and **FAILED at 634s**, with **no child orchestration ever created** — a single row for
+that correlation, no parent/child pair. Re-dispatching the same work *directly* to
+`page-rerender` with no spawn step (`049b_deploy_single_page.sh`, corr `1f3d125c`)
+completed in **~25s**.
+
+**Queue latency was ruled out before blaming the handshake**, since that is the usual and
+usually-correct explanation: `./scripts/dispatch-queue-depth.sh` reported **LAG 0, lane
+clear**, with my own run the only thing in flight.
+
+**Two figures this contradicts:**
+
+1. **`page-rerender` is cited as clean for this handshake (271/0).** This run is a
+   counter-example. It may still be rare for that agent — one instance is not a rate — but
+   "clean" now needs a date on it.
+2. **More useful: the measurement advice is not safe in the direction it is stated.** The
+   `spawn-call-handshake-races` account says to count these in `agent_error_log` because
+   `orchestration_states` under-reports (166 COMPLETED / 0 FAILED against 79 logged
+   timeouts). **This run is exactly inverted:** `orchestration_states` = `FAILED`, and
+   `agent_error_log` held **zero** `error_message ILIKE '%timed out after%'` rows in the
+   surrounding two hours.
+
+```sql
+-- returned (none) while orchestration_states showed the FAILED row above
+SELECT agent_type, step_name, count(*) FROM agent_error_log
+ WHERE error_message ILIKE '%timed out after%' AND occurred_at > now() - interval '2 hours'
+ GROUP BY 1,2;
+```
+
+**So the under-counting runs BOTH ways, and neither table alone is a census of this
+failure.** The consequence worth carrying: **a clean `agent_error_log` is not evidence the
+handshake is healthy**, and any "this agent/lane is unaffected" claim resting on that table
+alone inherits the gap. Whoever sizes this bug should count the union — parked-then-FAILED
+rows at a `spawn_*`/`call_*` step **and** the logged timeouts — not either one.
+
+**The failing row was deliberately NOT cancelled** (it is the evidence; destroying it
+pre-diagnosis is this file's own documented compounding error). It is
+`04b6176c-2c63-4245-9167-03e056f8aa62`, subject to the ~24h terminal reap.
