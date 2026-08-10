@@ -475,3 +475,78 @@ page is a **full rebuild** — which is now queued as `needs_page:case-studies`.
   copy. **That is the recommended order** — it also serves the 25
   `required_fields_missing` items already sitting in `needs_human_review`, and
   `contact-block` is separately implicated in `bugs_open/228`.
+
+---
+
+## 8. SESSION 2026-08-10 — credential work CLOSED; imagery half-done and the reason why is corrected
+
+### 8.1 `bugs_open/233` + `237` — both closed at the artefact. **ROTATION IS UNBLOCKED.**
+
+The v1.0.1280 release carried the makefile fix (`ee1929dc8`, owner-requested),
+and **`render-audit-adapter` rolled for the first time in its life**:
+`browser-runner-adapter:v1.0.1194` → **`v1.0.1280`**, 15:45Z, in the same wave as
+the browser-runner. Its overlay pin was rewritten by the release itself, so the
+tooling is proven doing the work, not just present in the diff.
+
+At that pod: `access_key_present` **1**, `B2_APPLICATION_KEY from env` **0**,
+positive control `NewS3Client` **3**, credential lines in the live log buffer
+**0** against 11 total. No pod in the fleet now logs these values.
+
+**The rotation-ordering constraint recorded in §7.1 no longer applies** — the B2
+key pair and `CLIENTS_DB_PASSWORD` can be rotated whenever the owner chooses.
+The historic exposure (2025-10-28 → 2026-08-10) is unchanged and still argues for
+rotating; only the timing hazard is gone.
+
+`237` stays open for its **class**: both tag mechanisms are still hand-lists, and
+`github-actions-runner` (v1.0.948) / `-vmsites` (v1.0.1126) are still adrift.
+
+### 8.2 ⚠ CORRECTION — `/case-studies.html` was NEVER a consumer of these images
+
+> **§7.5 and §7.6 are WRONG where they say `case-studies-list` "hardcodes the
+> five paths".** That template has no `<img>`, no `.jpg`, no `/assets/images/`.
+> My check was `html_template LIKE '%case-study-%'`, which matched the **CSS
+> class** `case-study-item`. The lane PLAN asserted the same thing, marked
+> RESOLVED, and I repeated it without re-deriving. `WRONG_CALLS.md` 2026-08-10;
+> the PLAN now carries the correction at its foot.
+
+The `needs_page:case-studies` full rebuild that §7.6 said to weigh **ran anyway**
+(completed 20:01Z 08-09, by another dispatch) and rebuilt the page — 4 components
+→ 3, `case-studies-list` re-rendered at 21:13Z. The page still shows **0** image
+paths, and now we know it always would have: there is nothing in that component
+to emit one.
+
+### 8.3 The honest state of task A
+
+**Assets: DONE and verified.** All five `/assets/images/case-study-*.jpg` serve
+200 `image/jpeg`, 52–94KB, distinct; a fabricated sixth filename 404s.
+
+**References: NOT done. No live page shows them.** Measured with an anchored
+pattern and a positive control (19 rows for `content-hero-%`, so the pattern
+works):
+
+| surface | state |
+|---|---|
+| `/index.html` `case-studies-grid` | referenced them; **lost the keys** to a content regeneration — `bugs_open/238`, five `<img src="">` live now |
+| `/case-studies.html` `case-studies-list` | **never referenced them** (§8.2) |
+| `/enterprise-reference-deployment.html` `case-studies-grid` | the **only** current reference in the whole site — and that page **404s** |
+
+### 8.4 Next actions for a fresh thread
+
+1. **`bugs_open/238`** is the whole of the remaining imagery work. It needs
+   content that carries `card*_image_url` for the *rewritten* case studies — not
+   a paste-back of the old URLs, because the same run changed which case studies
+   the cards describe. Fix candidate 1 there (make structural keys
+   non-regenerable / merge rather than replace) is the durable answer.
+2. **Decide what `/enterprise-reference-deployment.html` is** — a page that
+   should be built and deployed, or a stale row to retire. It is the only thing
+   currently naming the five files.
+3. **Task B (visual designer) stays gated**, now for a sharper reason than "the
+   images 404": the homepage renders five empty `src`.
+4. **`contact-block` is missing 7 required LLM fields** (§7.6) — real, unrelated
+   to imagery, and it is what makes any no-LLM rerender of `/case-studies.html`
+   escalate. Worth fixing on its own; `bugs_open/228` also implicates that
+   component.
+5. **Before trusting any "does X reference Y" check in this lane**, anchor the
+   pattern on `/assets/images/` and run a positive control. Three inert checks in
+   two days (`WRONG_CALLS.md` 08-09 and 08-10) all returned confident wrong
+   answers rather than errors.
