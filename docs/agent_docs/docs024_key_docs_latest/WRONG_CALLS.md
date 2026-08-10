@@ -26550,3 +26550,68 @@ the owning session's file rather than opening a rival account of it.
 **Fixed by:** standing down from 214 entirely and re-selecting a bug with a
 working-tree check as the *first* filter, not the last (landed on `bugs_open/213`, whose
 paths I verified clean before reading a line of it).
+
+---
+
+## 2026-08-10 — "the `case-studies-list` template hardcodes the five image paths" — a substring check that matched a CSS CLASS NAME (finetuning imagery)
+
+**The claim.** In the finetuning handoff (§7.5) and lane NOTES I wrote, as the
+basis for a queued rerender:
+
+> `/case-studies.html` — fixable with no content decisions. Its
+> `case-studies-list` template **hardcodes** the five paths (unchanged since
+> 2026-03-09); only its `rendered_html` was stale.
+
+I even reasoned from it: chose `spec.reason = "image_landed"` specifically
+because a no-LLM re-render "from template + stored content_data" would emit the
+template's hardcoded paths, and argued that was the cheapest safe win.
+
+**It is false. That template contains no image at all.**
+
+```
+SELECT (html_template LIKE '%<img%')            AS has_img_tag,      -- f
+       (html_template LIKE '%.jpg%')            AS has_jpg,          -- f
+       (html_template LIKE '%/assets/images/%') AS has_assets_path,  -- f
+       (html_template LIKE '%case-study-%')     AS my_old_check      -- t
+FROM content_components WHERE id='e7fc34f7-…';
+```
+
+It renders `{{.title}}`, `{{.client}}`, `{{.summary}}`, `{{.results}}` per item
+and nothing else.
+
+**Why my check said yes.** I tested `html_template LIKE '%case-study-%'` and read
+`t` as "contains the case-study image paths". What it actually matched was the
+**CSS class name** `case-study-item` — also `case-study-client`,
+`case-study-results`, `case-studies-section`. The image paths are spelled
+`/assets/images/case-study-<slug>.jpg`; the classes share the first 11
+characters. `SELECT DISTINCT substring(html_template from 'case-study-[a-z-]*')`
+returns exactly one row: **`case-study-item`**.
+
+**It was inherited, and I did not re-derive it.** The lane PLAN's "RESOLVED
+2026-08-04, before queueing" table asserts `case-studies-list` has "paths in
+`html_template`: **yes**", almost certainly from the same substring test. The
+component has not been edited since 2026-03-09, so that claim was wrong when
+written. I repeated it because it was marked RESOLVED, and a resolved question
+does not invite re-checking — which is what makes an inherited false positive
+more expensive than an original one.
+
+**What it cost.** A queued rerender, an escalation to a full page rebuild, and a
+diagnosis of *why the rerender escalated* — all downstream of a premise that
+could never have worked. (The escalation finding itself, contact-block missing 7
+required fields, is real and stands.)
+
+**The cheap check.** **Match the whole discriminating token, not a prefix
+another vocabulary shares.** `LIKE '%/assets/images/case-study-%'` — anchored on
+the path prefix — distinguishes an image reference from a class name and takes
+the same keystrokes. Then confirm with a positive control that the pattern *can*
+match: the same query fleet-wide found `/assets/images/content-hero-%` on 19
+components, so a zero would have meant zero rather than a broken pattern.
+
+**The shape, for the tally.** Third inert/false-positive check in this workstream
+in two days: `grep -A1` that could not reach the line it tested for (237),
+`jsonb_each` over a schema whose fields are nested one level down (238's
+neighbour), and now a `LIKE` whose pattern was a prefix of an unrelated
+vocabulary. All three returned a **confident, plausible, wrong** answer rather
+than an error, and each was caught only by a control or a known-positive.
+**A check that cannot come out false is not evidence, and it does not feel
+different from one that can.**
