@@ -7966,3 +7966,24 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **source:** 2026-08-10, `brochure_component_library` lane (bug 151 candidate 1b / `RFC_016` §3b). Register entry `PBP-037` carries the same warning inline.
 - **verification:** settled first-hand — the behaviour was reproduced as a unit test against both shapes, and the old `%v` comparison was re-introduced as a mutation: `TestPassB2_SameNamesInObjectFormIsNotACompositionChange` fails under it and passes with the name comparison (`v3_site_fact_carry_test.go`, run 2026-08-10 against a clean `git archive HEAD` overlay).
 - **added:** 2026-08-10, brochure_component_library lane
+
+## A blank `MetadataTopics` on a kafka-go Transport means ALL topics — and this cluster holds 25,000
+
+- **footprint:** `platform/kafka/dialer.go` (`producerTransport`, `ProducerTransport()`), `platform/kafka/dialer_test.go` (`TestProducerTransportMatchesKafkaGoDefaults`), any service constructing a `kafka.Writer`/`kafka.Transport`, `bugs_open/240`, `bugs_open/040`
+- **fires when:** you reason about what a kafka-go client costs at idle, size a memory limit, or read `MetadataTTL: 6 * time.Second` and conclude "a metadata fetch every 6 seconds, of the topics we use". No symptom needed — the transport looks fully specified, and every field in it is deliberately, correctly copied from kafka-go's DefaultTransport.
+- **the trap.** `producerTransport` sets `Dial`, `DialTimeout`, `IdleTimeout` and `MetadataTTL`, and does **not** set `MetadataTopics`. kafka-go's own doc for that field (`transport.go:84-86`) says a blank value retrieves **metadata for every topic in the cluster**. This platform creates a Kafka topic per orchestration step (`topic_manager.go:79`), and nothing reliably deletes them — **24,998 topics / 50,100 partitions on 2026-08-10**. So every kafka-go process in the fleet unmarshals metadata for 50,100 partitions in a background goroutine, forever, whether or not it ever produces a message.
+- **and the interval is HALF what the constant says:** `(*connPool).discover` (`transport.go:589-596`) draws `rand.Int63n(metadataTTL)` each iteration, so `MetadataTTL: 6s` is a uniform random **upper bound** — the mean interval is **~3s**. Anyone costing this from the constant is out by 2×.
+- **why the wrong result looks exactly like the right one:** the transport is *correct* — a test (`dialer_test.go:195`) exists specifically to pin every field to kafka-go's defaults, so it reads as reviewed and deliberate. The omission is invisible because it is an omission, and the cost is invisible because it is charged to a background goroutine that logs nothing. The process looks idle in its own logs while its heap doubles.
+- **the check, before sizing any memory limit or reading a kafka-go client as idle:**
+  ```bash
+  # 1. Is MetadataTopics set? (blank ⇒ every topic in the cluster)
+  grep -n "MetadataTopics" platform/kafka/dialer.go   # no hit = you are fetching all of them
+  # 2. How many topics is that, actually? Never assume it is small.
+  kubectl -n kafka exec personae-kafka-cluster-combined-pool-prod-0 -- \
+    bin/kafka-topics.sh --bootstrap-server localhost:9092 --list | wc -l
+  ```
+  A service whose own logs are silent between ticks can still be allocating hard: attribute idle-window growth to background goroutines before you go looking at query results.
+- **the general form:** on this estate a library default is a *fleet-wide* multiplier, because every service shares `platform/kafka`. A default that is harmless at 100 topics is fatal at 25,000, and the thing that changed was not the code — it was the cluster growing underneath it. **Ask what a default costs at today's scale, not at the scale it was chosen for.**
+- **source:** 2026-08-10, `bugfix_209_deploy_purpose_keyed_source` lane, found because a correctly-filed work item sat 20 minutes undispatched. Full case: `bugs_open/240`.
+- **verification:** kafka-go's field doc and `discover()` loop read directly at v0.4.47; topic/partition counts measured live; per-life cgroup trace captured from inside the pod; positive control — four other kafka-go pods sit at 130–147Mi while only `kafka-scheduler` (128Mi limit) restarts.
+- **added:** 2026-08-10, bugfix_209 lane

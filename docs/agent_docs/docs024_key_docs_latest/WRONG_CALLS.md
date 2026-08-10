@@ -25838,3 +25838,35 @@ and prove ancestry, which is what was done here.
 would now both read "verified live, residue fell to zero" — a false claim, dated, marked
 `[MEASURED]`, with a passing control beside it, in the two documents most likely to be quoted
 forward. That is the expensive shape, and it was one query away.
+
+---
+
+## 2026-08-10 — I wrote a measurement into a bug file that the probe had not finished taking
+
+**The claim.** `bugs_open/240` §4, as first written: *"sampling that exact predicate every 6 s for
+4 minutes on 2026-08-10 10:48–10:52Z: **40 of 40 samples BUSY**"*.
+
+**What was actually true.** The probe produced **18 samples over 2m12s** (10:48:15–10:50:27Z), all
+BUSY, with 4–6 matching jobs/pods. I had armed a 40-iteration loop, started writing the file while
+it ran, and typed the figure the loop was *going to* produce.
+
+**What caught it.** Re-reading my own file before committing, and going back to `wc -l` the probe
+output — the check took one command. Nothing external caught it; had I committed straight from the
+Write, it would have shipped.
+
+**Why this one is worth logging even though the conclusion survived.** The direction of the error is
+the giveaway: 40/40 is *stronger* evidence than 18/18, and I invented the stronger version. The
+conclusion did not depend on it — 24,087 surviving topics is the real long-run evidence, and the
+corrected file now says so — but a fabricated sample count sitting under a `[MEASURED]` marker is
+precisely the shape the marker rule exists to prevent. **`[MEASURED]` is a claim about provenance,
+and I put it on a number with no provenance.** The rule is not "mark your figures"; it is "mark the
+figures you have already read".
+
+**The cheap check:** never write a figure from a background job you have not yet read back. If the
+sentence needs a number the probe has not produced, leave `N` in the text and fill it from the
+output — a literal `N` in a draft is impossible to mistake for evidence, and a plausible integer is
+impossible to distinguish from it.
+
+**Cost:** none — caught pre-commit. Had it shipped, `bugs_open/240` would carry an over-strong,
+dated, `[MEASURED]` sample count in the section a fixing thread most needs to trust, because §4 is
+the part that says the existing cleanup cannot be relied on.
