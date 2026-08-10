@@ -487,3 +487,32 @@ func TestNoProvocationActionCallsAModelWithAnEmptyOptionsMap(t *testing.T) {
 		}
 	}
 }
+
+// TestGeneratorPromptRulesOutSpecialistVocabulary.
+//
+// Owner, 2026-08-10, rejecting a gate-approved candidate on its title alone:
+// *"noone knows what scales means - that's a techie term"*. The gate had passed it
+// — correctly, by its own rules, which say nothing about register — so this is a
+// generator-side rule or it is nothing.
+//
+// It is deliberately a rule about the READER, not a banned-word list. The plain-copy
+// work of 2026-07-28 ended on exactly this point: a phrase-level patch resurfaces in
+// new grammar the following round, because the instinct is what repeats, not the
+// word. Banning "scales" would have produced "compounds" or "does not degrade at
+// volume" next time.
+func TestGeneratorPromptRulesOutSpecialistVocabulary(t *testing.T) {
+	p := buildGeneratorPrompt(4, []exemplar{{Title: "T", Teaser: "Te", Body: "B"}}, nil, nil)
+
+	// The rule must be stated as a property of the reader's own speech. If this
+	// check is what fails, someone has narrowed it to a word list.
+	if !strings.Contains(p, "would this reader have said it") {
+		t.Fatal("the prompt no longer states the register rule as a test about the reader — " +
+			"a banned-word list was tried before and the instinct simply reappears in new " +
+			"vocabulary (plain-copy work, 2026-07-28 round 3)")
+	}
+	// The worked example is what makes an abstract rule actionable, and it is the
+	// owner's own rejection.
+	if !strings.Contains(p, "scales") {
+		t.Fatal("the prompt dropped the worked example the rule came from")
+	}
+}

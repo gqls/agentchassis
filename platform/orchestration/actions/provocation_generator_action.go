@@ -151,6 +151,17 @@ ONE-SIDED IS WELCOME. You do NOT have to put the counter-case. Roughly half the
 published entries make their case and stop, and that is the house preference. If
 a counter-case genuinely strengthens the piece, include it; do not bolt one on.
 
+WRITE IT THE WAY PEOPLE TALK. Every word must be one an ordinary reader uses in
+ordinary conversation. No word borrowed from a specialist register — nothing from
+technology, business, consulting, academia or therapy-speak. If a word is one you
+would meet in a meeting but not in a pub, it is the wrong word, even when it is the
+precise one. Rejected on exactly this ground: "Small talk is not superficial — it's
+the only kind that scales." Nobody outside software says "scales".
+
+The test is not "is this word simple" but "would this reader have said it
+themselves". Prefer the concrete over the abstract: a thing you can picture beats a
+category every time.
+
 CHOOSE A SUBJECT NOBODY HAS TO BE NAMED TO ARGUE ABOUT. Readers reply to these in
 public. Before proposing a claim, ask: could this be answered well without naming
 a real person or company and saying something checkable about them? If answering
