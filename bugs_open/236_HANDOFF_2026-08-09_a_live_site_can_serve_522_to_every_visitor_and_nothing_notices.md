@@ -2,8 +2,16 @@
 
 **Filed:** 2026-08-09 by the `bugfix_209_deploy_purpose_keyed_source` lane, after the
 owner asked "can you check lendzy.co.uk" and it turned out to be **down**.
-**Status:** OPEN, unowned. **Severity:** high — this is total, silent, public
-unavailability of a finished site, with every internal signal green.
+**Status:** OPEN, **OWNED since 2026-08-10** by
+`docs024_key_docs_latest/bugfix_236_site_availability/` (this file's candidate 1:
+a `site_unreachable` discovery check + a 4-hourly rotation driver; candidate 2
+stays with `domains_cloudflare_rollout`). **Severity:** high — this is total,
+silent, public unavailability of a finished site, with every internal signal
+green.
+
+**Re-verified 2026-08-10 before claiming:** still no availability-shaped
+scheduled task, discovery check, or open work item; all 21 deployed sites probed
+— 21/21 serve 200 today, so the class is live and currently quiet.
 
 ## What happened
 
