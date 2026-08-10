@@ -1060,3 +1060,15 @@ right, and you don't hand over the domain or hosting unless they actually
 accept. This first stretch of real traffic is exactly how you'd find out if
 it's a real pattern rather than a worry, at a cost you can afford to learn
 from.
+
+You just tried the chat box for real and got nothing back when you
+submitted — that's not the box being broken, it's Cloudflare still serving
+your browser the version of the page script from before the box existed.
+It caches that file for up to 4 hours after any change, and I'd only just
+made the change when we last spoke. Checked it directly: the correct
+version is sitting there ready at the origin, Cloudflare just hasn't
+picked it up yet. Should clear on its own within a couple of hours. If you
+want it fixed right now rather than waiting, you (or whoever has
+Cloudflare dashboard access) can manually purge the cache for
+`webdesign.uk` — the API token I have doesn't carry that permission, so I
+can't do it from here.

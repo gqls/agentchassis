@@ -2104,3 +2104,31 @@ item is the JS cache TTL clearing naturally (no action needed, just
 verify before claiming full end-to-end proof to the owner). Bug 239 is
 still open on the platform side — not this lane's to fix, but worth
 reading before anyone next tries the documented drive-loop pattern.
+
+## 2026-08-10 (owner tested it live — cache confirmed to actually bite)
+
+Owner opened the contact page for real and submitted a message through the
+chat box. Nothing happened. This is the JS cache TTL gap flagged above,
+now confirmed as an actual observed failure rather than a theoretical
+window — worth correcting the tone of the earlier entry, which undersold
+it as "no action needed, just verify."
+
+Checked directly:
+- `curl -sI .../assets/js/snippets.js` → `cf-cache-status: HIT`,
+  `age: 5621` (of a 14400s max-age) — the served bundle is still the
+  pre-loader one.
+- Same URL with a cache-busting query param → `grep -c
+  chat-input-box-loader` returns 1. The loader is correctly present at
+  origin; Cloudflare just hasn't re-fetched it yet.
+- `contact.html` itself is fine — full `chat-input-box-*` class set
+  present, so the form markup was never the problem, only its JS.
+
+So: not a new defect, the same one already named in HANDOFF_2026-08-10b,
+but it needed a correction — it does cause a real, owner-visible "nothing
+happened" failure, not just a theoretical gap between two curl checks.
+Remaining wait from this check: ~146 minutes (`14400 - 5621`).
+`age` only advances if nothing repopulates the cache sooner — no Cache
+Purge permission on the CF token (confirmed last session), so there is no
+faster path than waiting, short of asking the owner to purge it manually
+from the Cloudflare dashboard (untried — worth suggesting to the owner as
+the one lever this session doesn't have).
