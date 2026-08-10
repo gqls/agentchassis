@@ -117,3 +117,61 @@ block holds many).
 [UNMEASURED] whether adding those kinds would trip the per-kind prune floor on its first
 run — `prune_floor.go` cohorts by `kind=`, and a brand-new kind arrives with
 stored=0. To be measured before any such change ships, not argued.
+
+## 2026-08-10 — baseline on the RUNNING binary, with a negative control
+
+Before writing anything, established what the live chassis already contains, so the
+acceptance grep later has a control that could have failed. Both replicas are
+`v1.0.1277`; on `agent-chassis-6dc54d77cd-lftkt`:
+
+```
+this answer is CAPPED            → 1   (bugs_open/181's row-cap notice, live)
+0 rows AT THAT PATH              → 1   (bugs_closed/163's path-arm fallback, live)
+source BODIES ARE NOT INDEXED    → 1   (bugs_closed/108 defect B's coverage note, live)
+NOT ANSWERABLE BY THIS INDEX     → 0   ← the marker THIS lane will add
+```
+
+The last line is the point: it is 0 today, so a later 1 proves the pipeline shipped
+*this* change rather than proving the grep works. The three positive lines prove the
+grep works.
+
+## 2026-08-10 — the fourth consumer gets the fix for free, and its own comment asks for it
+
+`diagnose_load_runtime_action.go:455-500` (the diagnosis loop's runtime lane) does not
+call the action — it calls `answerCodeCheck` directly, and it already renders
+`bodyCoverageNote()` and `mixedCommitNote()` through the same shared helpers. Its comment
+states the requirement this lane is generalising, in as many words:
+
+> "the verdict prompt's cite-or-abstain acts on absence, so '0 rows because bodies are
+> not indexed' and '0 rows because the code does not do that' must not render
+> identically."
+
+So placing the answerability statement inside `answerCodeCheck`/`emptyAnswer` reaches the
+council's `fix-proposer` and `feature-designer` seats, the landmine verifier and the
+diagnosis loop with one edit and no config change for three of the four. That is the
+argument for the placement, and it is the file's own precedent rather than a new idea.
+
+## 2026-08-10 — an adjacent latent trap, measured while reading the sync library
+
+`landmines_lib.slugify` caps the slug at `s[:80]`. `doc_notes.subject_key` is `text` with
+no length limit, so the cap is the script's own choice, and the slug is the identity every
+row and every verdict is keyed by.
+
+Measured rather than assumed (`L.parse` on the live file):
+
+```
+entries: 356          duplicate slugs: 0          slugs AT the 80-char cap: 333
+```
+
+**Zero collisions today, and 333 of 356 entries (94%) sit exactly at the cap.** A
+disconfirming result was available — a non-zero duplicate count — and did not occur, so
+this is not a bug. It is a trap: two entries whose titles agree for the first 80 slug
+characters would share one `source`, the sync would overwrite one with the other, and the
+verifier's `load_entry` (`WHERE source = $1 … ORDER BY created_at DESC LIMIT 1`) would
+verify whichever body was written last while reporting the other's slug. Landmine, filed
+separately from this bug.
+
+**Misstep, for the record:** `landmines_lib.parse` takes a **path**, not file content — I
+passed the file's text and got `OSError: File name too long` with the whole document echoed
+back as the filename. Cost: one command. Not a WRONG_CALLS entry (no claim was published),
+but the correct call is in the RUNBOOK now.
