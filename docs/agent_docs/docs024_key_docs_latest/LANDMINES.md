@@ -7997,3 +7997,24 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **also worth knowing:** `check_tool_health`'s self-containment check flags an external `src=`, so a tool that deliberately calls a SHARED engine draws a warning that is wrong for it. Say so in the doc header or someone will "fix" it by inlining the formula back — which is the duplication the shared engine exists to remove.
 - **source:** 2026-08-10, bugfix-224 session, decomposing `loans-consolidation` so the sweep covered 17 of 17 instead of 16.
 - **added:** 2026-08-10, bugfix-224 session
+
+### A landmine's identity is its title slugged and CUT AT 80 CHARACTERS — 333 of 356 entries sit exactly on the cap
+
+- **footprint:** `scripts/landmines_lib.py` (`slugify`), `scripts/landmines-sync.py`, `doc_notes` (`subject_key`, `source`), `landmine-verification`, `landmine-verifier`
+- **fires when:** you append an entry, retitle one, or read a verdict and match it back to the entry it judged. No symptom is available: a collision produces one healthy-looking row and one silently-lost entry, and every count still balances because the pair was only ever counted once.
+- **the trap.** `slugify` returns `s[:80]`. `doc_notes.subject_key` is `text` with **no** length limit, so the cut is the script's own choice, not the schema's — and that 80-char string is the identity the sync upserts by, the `source` the verifier's `load_entry` selects on (`WHERE source = $1 … ORDER BY created_at DESC LIMIT 1`), and the `subject_key` every verdict is filed under. Two entries whose titles agree for the first 80 slug characters are **one entry** to the whole toolchain: the second sync overwrites the first's row, and a verdict on either is filed against both.
+- **measured 2026-08-10, and the numbers are why this is a landmine rather than a note:** 356 entries, **0 duplicate slugs**, **333 of 356 (94%) exactly 80 characters long**. Nothing is broken today. Almost every entry is one word of a shared opening phrase away from being broken, and titles here are long descriptive sentences that routinely start alike ("A ... verdict of ...", "A ... is not evidence ...").
+- **the check, before appending:**
+  ```bash
+  python3 -c "
+  import sys, collections; sys.path.insert(0,'scripts')
+  import landmines_lib as L
+  e=L.parse('docs/agent_docs/docs024_key_docs_latest/LANDMINES.md')
+  c=collections.Counter(x['slug'] for x in e)
+  print('entries', len(e), 'dups', {k:v for k,v in c.items() if v>1})"
+  ```
+  Non-empty `dups` means an entry has already been absorbed — and the loser is whichever synced first, so `git log -p` on this file is the only way back. `L.parse` takes a **path**, not the file's text; handing it the text raises `OSError: File name too long` with the whole document echoed as the filename.
+- **make your first 80 slug characters distinctive.** That is roughly the first 12–14 words of the title, punctuation collapsed to hyphens. A title that front-loads a generic clause and puts the specific mechanism at the end is the shape that collides.
+- **why the wrong result looks exactly like the right one:** the sync reports rows written, and it wrote them. The verifier reports a verdict, and it verified *a* body. Nothing in either output names the entry that was displaced, because from the moment of the collision it does not exist as a separate thing.
+- **source:** 2026-08-10, `bugfix_223_index_answerability` lane, found while reading the sync library for bug 223's mechanism. Not a bug: no collision exists yet, and a disconfirming result (a non-zero duplicate count) was available from the same query.
+- **added:** 2026-08-10, bugfix_223 lane
