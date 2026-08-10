@@ -141,9 +141,17 @@ been much worse if the change had been larger or unrecorded.
 - **LCO-008 / `CacheBreakpointMarker`** — opt-in cache breakpoint in
   `platform/aiservice/anthropic.go`. Absent the marker the request body is
   byte-identical to before, so the seam's ~40 other callers are structurally
-  unaffected (mutation-proven test). 1h TTL, chosen because the 17-seat chain
+  unaffected (mutation-proven test). ~~1h TTL, chosen because the 17-seat chain
   runs 2–5 min and sits right on the 5-minute boundary; a partial mid-chain miss
-  is the hardest kind to notice because it still works.
+  is the hardest kind to notice because it still works.~~
+  > **CORRECTED 2026-08-10 (same day, before shipping):** the 1h TTL was
+  > **removed**. The council's edit-quality seat pointed out it needs a beta
+  > header this client does not send, so the first opt-in caller would have got
+  > a **400 rather than a cache hit** — in council-gate, which reviews every
+  > platform change, that is an estate-wide outage rather than a lost saving.
+  > Now sends no `ttl` field at all (the 5-minute default needs no header). The
+  > reasoning above for *wanting* 1h still stands and may yet be right; what was
+  > wrong was shipping it without confirming the header. See the evening entry.
 - **Migration 376** — `cache_creation_input_tokens` / `cache_read_input_tokens`
   on `llm_call_log`. Not bookkeeping: once a caller opts in, `input_tokens`
   means the **uncached remainder**, so every existing cost query would
