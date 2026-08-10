@@ -26,7 +26,7 @@ except one council verdict.
 | Migration 376 (cache columns) | **APPLIED** live, DO/RAISE verify, control induced first | `\d llm_call_log` |
 | Measured saving | **68–72%** and climbing as seats accumulate against each write | RUNBOOK § "Prove caching actually works" |
 | Council verdict `b54f173e…` | **APPROVED**, 5 advisory, 2 acted on (ttl removed, marker-strip bug fixed) | done, no action |
-| Council verdict `d2c51f41…` | **⚠ PENDING** — the prefix-uniformity standing check. This is the only open item | see §2 |
+| Council verdict `d2c51f41…` | **REVISE** (gated by editquality HIGH). Objections are sound but empirically inapplicable *today* — see §2 | see §2 |
 | Improvement loop | 3 discovery rotations disabled on owner instruction; saved ~nothing (it was already inert) | `SELECT name,enabled FROM scheduled_tasks WHERE name LIKE 'site-discovery-rotation%'` |
 | Model roster | **Staying on Sonnet 5** (owner ruling). A mixed roster is *counterproductive* — see §4 | — |
 
@@ -45,14 +45,56 @@ WHERE correlation_id='d2c51f41-8095-4d25-b1dd-a5da6340e9b1' AND kind='council_re
 SELECT body FROM doc_notes WHERE categories ? 'council-gate' ORDER BY created_at DESC LIMIT 1;
 ```
 
-If APPROVED: write `378_council_cache_prefix_uniformity_check.sql` (+ ROLLBACK)
-from the sketch in the submission, apply, and update LCO-008's "open review
-question" line to RESOLVED. If REVISE: the objections come back with the
-reviewers' own checks already answered — revise and resubmit with
-`RESUBMIT_CORR=d2c51f41-…`.
+**VERDICT: REVISE**, gated by an `editquality` HIGH. **Seven seats independently
+flagged the same thing**, and it is a genuinely good catch: my proposed check
+walks `jsonb_each(default_config->'workflow'->'steps')`, which this estate has a
+standing landmine against — **that path is TOP-LEVEL ONLY** and cannot see steps
+nested under a `sub_workflow`/loop. A check written that way would return zero
+rows and **read as healthy while inspecting nothing** — precisely the silent
+failure the check exists to prevent, now hidden behind a green tick instead of an
+absent one.
+
+**I verified both HIGH objections against the live row before deciding what to
+do, and they do not apply to council-gate TODAY:**
+
+- **One active row only** — `be2a7614…`, version 2, `is_active`, not a snapshot.
+  So the "four agent types carry two active rows, only the higher version loads"
+  landmine does not bite here, and migration 377 updated the row that actually
+  executes.
+- **All 17 seats are genuinely top-level** — `sub_workflow`, `substeps` and
+  `loop` appear **nowhere** in council-gate's workflow.
+
+**So nothing already shipped is wrong.** Independently corroborated by the
+strongest possible evidence: caching demonstrably works in production (74.4%
+measured), which it could not if 377 had updated a row nothing runs, or missed
+nested seats.
+
+**But the objection still stands for the CHECK**, and this is the distinction
+worth carrying: migration 377 was a one-shot transform whose result I verified
+directly, so a top-level-only walk was adequate. A **standing** check must stay
+correct as the config changes around it — if the seats are ever moved under a
+loop, the naive walk goes blind exactly when it matters.
+
+A resubmission (`RESUBMIT_CORR=d2c51f41-8095-4d25-b1dd-a5da6340e9b1`) needs:
+1. **A nested-aware walk**, or an explicit assertion that seats are top-level
+   PLUS a guard that fires if that ever stops being true. Do not simply assert
+   "they are top-level today" — that is the assumption the objection is about.
+2. **Highest-version scoping** per agent type (cheap, and correct even though
+   council-gate has one row today).
+3. **Idempotency** — `ON CONFLICT (name) DO UPDATE`/pre-existence guard, so a
+   re-applied 378 is a 0-row no-op rather than a duplicate task double-firing.
+4. **`target_agent_type` checked against the two precedent rows** — the guardian
+   seat notes a `generic`-consumed topic cannot select by agent_type and may
+   silently run the wrong workflow, i.e. the check could misfire at the one
+   moment it has something to report.
 
 ⚠ That submission used `FORCE=1` because it touches only docs/SQL — deliberate,
 and stated in its own rationale, because it doubled as the live cache test.
+
+⚠ `agent_definitions.updated_at` for council-gate read **21:42:43**, *after*
+migration 377 ran — something else touched the row (a roster sync or the deploy).
+**My changes survived intact** (re-verified: 17/17 hoisted, 17/17 marked, 1
+distinct prefix). Worth knowing that row is written by more than this lane.
 
 ## 3. Traps carried forward (all hit for real today)
 
