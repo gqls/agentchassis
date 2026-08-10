@@ -691,3 +691,56 @@ into parts, lock the calculator part so a rewrite can't touch it, then allow reb
 Next, unless you'd rather I did something else: start the 17-page pile, beginning with
 the one page that is already in the finished shape, so the first thing I prove is the
 loop itself rather than a conversion.
+
+---
+
+## 2026-08-10, late evening — Track A is loaded and ready to fire, and I want to be straight about what it gets you
+
+You said go ahead with Track A, so I've done everything up to the point where it
+starts changing live pages, and left that last step for the fresh chat. The brief is
+`HANDOFF_2026-08-10d_track_a_prose_decomposition.md`.
+
+**What I actually did rather than planned.** I ran the tooling for real, in read-only
+mode, against the live database. It builds the plan for all seventeen pages cleanly
+and reports zero calculators among them. Then I ran the prediction step across all
+seventeen — it produces the exact page each one would become, and all seventeen
+passed. So this isn't "here's a sequence that should work"; the only untried part is
+the button that writes.
+
+**I checked the calculator question properly this time, and I'm glad I did.** Earlier
+today another session found that six calculator pages had been unlocked by mistake
+this morning and re-locked them. Before I knew that, I'd run my own check for the
+same problem — and it came back clean. It came back clean because the fix had already
+landed ninety minutes earlier. Had I run it this morning it would have given me the
+same reassuring answer while six calculators sat exposed, because I'd used the same
+flawed test that caused the problem in the first place. So I redid it against the
+hand-written list of which pages are calculators, and the result is now a proper
+proof: all twenty-three calculators are locked, and not one of them is in the
+seventeen I'm about to touch.
+
+**One thing I broke on purpose, and it told me something useful.** There's a check
+that runs before each page is written. I wanted to know whether it would catch a
+corrupted plan, so I deliberately corrupted one and ran it. **It passed.** That check
+guards the destination — it makes sure nobody else has edited the page since our
+baseline — but it does not verify that the new content is faithful to the old. That
+job is done earlier, by the tool that builds the plan, which refuses outright if the
+text doesn't match. So we are covered, but by a different thing than I'd assumed, and
+anyone who trusts the wrong one will be trusting nothing.
+
+**Now the honest part about what Track A delivers.** The word "decomposition" suggests
+a page gets broken into many editable pieces. For these seventeen it doesn't: each one
+becomes a single editable block of text. That's the tool working as designed, not a
+fault. What you gain is real but narrower than it sounds — the framework can rewrite
+that block, the page stops being an opaque lump it refuses to touch, and the page
+becomes properly rebuildable. What you don't gain is the ability to say "change the
+third paragraph" and have the framework know what that means.
+
+There's a related point I'd rather you heard from me than discovered later. Right now
+every one of these pages is built from a single shared template that is also used by a
+hundred and fifty-four pages across three of our sites — and that template has been
+damaged once already. After this work, they'll use a different shared template, used
+by twenty-nine pages across two sites. That's better. It is not the same as each page
+owning its own. Only the calculator pages get that, and only in Track B.
+
+So: ready to go, seventeen pages, smallest and least-visited first, homepage last,
+checking each one before moving on.

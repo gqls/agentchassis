@@ -1423,3 +1423,69 @@ induction, not the review, found the defect in the checker.
 
 **Net effect on the plan:** Track A is **17** pages, not 23; Track B is **22**, not
 16. The six moved tracks, not shapes — nothing was decomposed or undecomposed by this.
+
+---
+
+## 2026-08-10 (late evening) — Track A pre-flight: tooling proven, three new traps, one induced
+
+Owner said go on Track A. Wrote `HANDOFF_2026-08-10d_track_a_prose_decomposition.md`.
+Everything below was run read-only against the live DB and the sites repo; the
+`--apply` half is deliberately left to the executing session.
+
+**I ran the blind check and it lied to me, exactly as it lied to 367.** Before
+learning of migration 377 I checked whether any `generic` page carried a calculator
+using `rendered_html ~ 'onclick=|addEventListener'` — the same expression 367 used.
+It returned a clean "no tool on any generic page". That was **true only because 377
+had re-locked the six 90 minutes earlier**; had I run it at 18:00 it would have
+returned the same reassuring answer while six calculators sat unprotected. **Two
+checks blind the same way agree with each other**, and I reached for the blind one
+by default. The authority is `decompose_lmc.py`'s hand-authored `CALCULATOR_URLS`.
+
+**The safety property for Track A, done properly.** Drove `CALCULATOR_URLS` (23
+entries) against all 41 live `pages` rows: calculators not owned = `[]`, generic
+pages that are calculators = `[]`, owned pages that are not calculators = `[]`. An
+exact three-way partition. Independent corroboration: `decompose_lmc.py` over the 17
+reports `with a tool block: 0`.
+
+**The pinned ref is safe for Track A and not for Track B.** `decompose_lmc.py` pins
+`b318a8fad`; `load_lmc.py`'s baseline is at `b26fdc81b`. `git diff b318a8fad HEAD`
+over the site touches 19 files and **every one is a calculator page or
+`calculators.js`** — none of the 17. So Track A needs no re-pin; Track B's pages are
+precisely the ones that moved, so it does.
+
+**Tooling proven today:** manifest builds clean (`pages: 17  with a tool block: 0`);
+`load_lmc.py --check --all` → 17/17 predicted, exit 0, no REFUSE. Chrome is already
+loaded (3 `site_components`, permanent, 08-05), so RUNBOOK §12 step 0 is satisfied
+and must not be re-applied.
+
+**⛔ `--check` is a DESTINATION guard, not a CONTENT guard — INDUCED.** I appended an
+HTML comment to `legal`'s prose block in a copied manifest and re-ran `--check`: it
+**passed**, predicting 9,273 bytes against the clean run's 9,248. Reading
+`load_lmc.py:281–305`, the three guards compare title/meta (manifest vs row), stored
+row md5 vs the 08-09 baseline, and dropped sections. **None compares the manifest's
+prose HTML against the stored page.** Content fidelity comes entirely from
+`decompose_lmc.py`'s upstream assertions, which refuse to write the manifest at all.
+That is a strong control but a *different* one, and a session that treats `--check`
+as a content check will be wrong. `[NOT INDUCED: decompose's own assertions — they
+ran clean over all 17 but I did not mutate a page to watch one fire.]`
+
+**Two naming traps.** (1) `--pages` takes the MANIFEST slug, derived from the file
+path, which differs from `pages.name` on **14 of the 17**: `guides-jargon-buster` vs
+`guide-jargon-buster`, `loans-index` vs `loans`, `mortgages-index` vs `mortgages`.
+Feeding DB names in matches nothing, and because `--pages` also suppresses the
+"expected 23 tool pages" assertion, an **empty manifest exits 0** printing
+`pages: 0` — a silent no-op that reads as success. The mismatch is deliberately
+handled downstream (`page_ids()` joins on URL, docstring says a bare-name join was a
+real defect); do not "fix" it. (2) `--manifest <file>` also parses its own value as a
+page name, so it fails with `no manifest entry for 'manifest_mutant.json'`. Use a
+separate `DECOMP_WORK` dir per manifest.
+
+**What Track A actually buys, measured — less than the word "decomposition" suggests.**
+All 17 collapse to a single `prose-0` block (by design: consecutive prose merges into
+one run), so this is one editable component per page, **not** paragraph-level control.
+And it reduces shared-template blast radius without removing it: today every verbatim
+page points at one `content_components` row, *"Ported Page (webdesign.co.uk)"*, used
+by **154 pages across 3 sites**; after decomposition a prose row points at *"Ported
+Prose Block"*, used by **29 pages across 2 sites**. Only tool components get a
+page-scoped definition (consolidation's: 1 page, 1 site). The real gains are
+per-instance content ownership and genuine rebuildability now that 204 is fixed.

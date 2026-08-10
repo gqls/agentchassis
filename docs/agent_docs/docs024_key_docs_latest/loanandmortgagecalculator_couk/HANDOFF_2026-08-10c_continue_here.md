@@ -239,6 +239,15 @@ calculator before it goes near one.
 
 ### Track A — LMC prose, 17 pages · LOW RISK · do this first
 
+> ✅ **OWNER SAID GO (2026-08-10 evening). Track A has its own ready-to-run brief:
+> `HANDOFF_2026-08-10d_track_a_prose_decomposition.md` — start there, not here.**
+> It carries the verified 17-page worklist, the measured proof that no calculator can
+> be in the set (all 23 `CALCULATOR_URLS` pages are `owned`; the partition is exact),
+> the pre-flight results (manifest builds clean at 17 pages / 0 tool blocks;
+> `load_lmc.py --check --all` exits 0), and three traps found while preparing it —
+> including that **`--check` is a destination guard, not a content guard** (induced:
+> a mutated manifest passed it). The `--apply` half is the only part not yet run.
+
 Already `generic`, no calculator, and `decompose_lmc.py` already handles all 41 LMC
 pages (it was written for this site and its assertion suite was refuted and repaired
 on real pages here). No flip needed — these pages are already unlocked.
