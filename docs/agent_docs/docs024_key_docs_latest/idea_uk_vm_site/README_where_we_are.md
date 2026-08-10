@@ -1920,3 +1920,29 @@ and it is worth building.
 
 The home page is correct again as of this evening — I checked the page a visitor
 actually receives, not just our records — and all the other sections are intact.
+
+**Correction, same evening — I was wrong about one thing above, and it matters.**
+
+I said there is "no proper button in the platform for remove this section". There
+**is** one. The admin dashboard has a remove-section endpoint that does more than
+my hand-edit did: it marks the section removed, **locks it** so a rebuild is
+supposed to leave it alone, and triggers the page rebuild itself. I found it half
+an hour after telling you it did not exist, while auditing every place in the code
+that reads that "removed" marker.
+
+So the honest version is worse for me than what I first wrote: your instruction
+was *"all fixes through the framework, not from this CLI"*, the framework had a
+route for exactly this, and I did not find it — on 5 August or today. What I did
+instead set the marker but not the lock.
+
+I want to be careful not to over-claim in the other direction: I have **not**
+established that using that button would have prevented today's regression,
+because the code path that resurrected the section does not check the lock either.
+It might have survived; it might not. What is certain is that the proper route
+does strictly more than what I did, and that I should have used it.
+
+Two things follow. I have fixed the code so both rebuild paths now respect the
+"removed" marker on its own, without depending on a lock or on the extra
+tombstoning step I had been doing by hand — so the marker means what it says.
+And the missing-button complaint above should be read as "I did not look properly",
+not as a gap in the platform.

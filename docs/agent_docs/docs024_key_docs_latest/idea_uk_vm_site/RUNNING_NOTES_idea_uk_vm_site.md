@@ -4096,3 +4096,96 @@ missing path is arguably *why* the removal was fragile enough to regress.
 - 090 diagnosis filed on the deeper question (should the rerender be driven by
   the DECLARED list rather than by whatever rows exist): run correlation
   `383aafe5`.
+
+---
+
+## §X.51 — 2026-08-10 evening: two council REVISEs, both right, and the removal endpoint I said did not exist
+
+### 1. `HandleRemoveComponent` EXISTS — §X.50 §6 and the README were WRONG
+
+> **CORRECTED, same evening.** §X.50 §6 says "There is still NO framework action
+> for 'remove a section because a decision says so.'" **False.**
+> `DELETE /admin/sites/:site_id/pages/:page_name/components/:component_id`
+> (`internal/core-manager/admin/page_admin_handlers.go`, `HandleRemoveComponent`)
+> soft-deletes a component: sets `build_status='removed'`, **locks it as
+> `admin-removed`** via `LockPolicyFor`, and triggers a page rebuild without the
+> section. Found by auditing every READER of the marker and noticing the
+> WRITERS sitting in the same file.
+>
+> So the 08-05 removal and today's were both hand-rolled when a route existed —
+> against the owner's standing "through the framework" instruction, twice, and
+> the miss was mine both times. What my version omitted was the LOCK.
+>
+> **[UNVERIFIED] whether the endpoint would have PREVENTED today's resurrection.**
+> `loadStoredSections` has no lock check either, so the removed+locked row would
+> still have been re-rendered and handed to `save_page_sections`; there
+> `matchLockedRow` (line 802) keeps locked rows out of the DELETE and preserves
+> the LOCKED row over the fresh copy — which changes *which* copy wins, not
+> whether the slot is emitted. Do not repeat "the lock would have saved it" as
+> fact. What IS certain: the endpoint does strictly more than I did.
+>
+> Both fixes committed today make the marker self-sufficient — neither rebuild
+> path now depends on a lock or on the tombstone.
+
+### 2. Council REVISE on RFC_015 (`cb547e0a`) — 10 seats, 3 real defects fixed
+
+The round I thought was dropped on 08-09 had in fact been reviewed, and its
+objections were sitting unread. One of them named a real bug I then shipped for
+two more days. **Reading a verdict is not optional even when the round looks
+dead** — the 08-09 round's `editquality` objection is item 2 below.
+
+| objection | seat | verdict |
+|---|---|---|
+| filter `'decision'` should be `'decision-record'` NOW, not "next roll" | editquality, debug_historian, architecture, constitution | **REAL — fixed.** The code cannot run until a roll either way, so deferring bought nothing |
+| `item_key` keyed on decision alone collides across pages of one covers-fence (D-004 names nine) | editquality, **on the 08-09 round** | **REAL — fixed.** Page added to the key |
+| new `item_type` shipped with no `ItemVerifier` | tooling_provenance, guardian | **REAL — fixed**, and the obligation was THREE parts, not two |
+| "no lock gate in `section_editor_actions.go`" | editquality | **FALSE.** `CheckComponentLock` is at line 305, my gate at 326. The seat grepped `matchLockedRow` — a different spelling of the same concept |
+| `MIGRATIONS_DIR` may not have scoped; the ledger is the authority on numbering | 5 seats | **ANSWERED.** Ledger: 354 and 355 applied by `run-migrations.sh` at 14:50:31/40 on 08-09; every other migration in the window is `record-only`, so nothing else was swept in |
+| ONE guarded write seam; rebuild path still generic | **bug_historian (gating, high)** | **ACCEPTED, still open.** Stated plainly in round 2 rather than softened |
+
+**The verifier's third part, which no seat named and the BUILD did:**
+`TestRegisteredVerifiersMatchClaimTimeoutExclusion` failed because the
+claimed-item-timeout sweep would auto-complete `decision_regression` on
+orchestration evidence alone, *bypassing* the verifier. Two edits (Go declaration
+in 220 + live column via migration **374**, applied and verified) plus removing
+the type from `itemTypesWithoutVerifiers`. Predicate and assembly SQL extracted
+into `decisionGuardViolated` / `storedPageAssemblySQL` so check and verifier
+cannot drift.
+
+Worth recording *why* the verifier matters here specifically: these items are
+filed at `needs_human_review`, so the word otherwise taken on completion is a
+**person's** — including mine, today, closing the D-002 item by hand.
+
+### 3. Council REVISE on the resurrection fix (`2bc2a6d5`) — the gating objection was right
+
+`render_guardian` (high): my fix was narrower than the defect class. I had audited
+two siblings, found them correct, and written "this reader was simply the one out
+of step". **`getPageSections` — the ASSEMBLE path, the more commonly fired one —
+was also unfiltered.** I had even READ that function earlier the same day, seen it
+skip empty rows, and taken an *incidental* protection for a deliberate one: the
+removed row stayed out only because the removal recipe emptied `rendered_html`.
+Mark a row removed without the tombstone and it re-assembles. And a tombstoned row
+that IS skipped is logged in `diag.UnrenderedSlots` as "never rendered" —
+mislabelling a deliberate removal as a rendering failure. **The landmine the seat
+cited against me was my own entry, naming that very function.**
+
+`bug_historian` (medium): leaving the siblings on `!=` while my call site got the
+NULL-safe form is 016b §9's "one call site gets the rigorous fix; the sibling stays
+heuristic". Census found **FIVE** occurrences in four files, not the two my audit
+named — `spec_admin_handlers.go` I had missed entirely. All now `IS DISTINCT FROM`;
+zero heuristic forms remain in Go.
+
+Still open from that round, recorded not answered: no pod-grep plan stated (owed at
+the roll); the 11-page blast-radius pointer has no follow-up filed; and
+`editquality`'s doubt that my test's assertion chain is real — answered by the
+mutation runs (predicate deleted → both tests fail; `!=` → the NULL-safety test
+alone fails), which is evidence the submission should have carried.
+
+### 4. Misstep: backticks in a `git commit -m` executed
+
+The `fba05b83a` message lost two phrases to command substitution — I wrapped
+`!= 'removed'` in backticks inside a double-quoted `-m`. This is a LANDMINE I
+already have in memory and hit anyway. Forward-only, so the message stays
+degraded; the phrases were "the heuristic `!= 'removed'`" and "Zero
+`!= 'removed'` remain". Use single quotes or a heredoc for messages containing
+code.
