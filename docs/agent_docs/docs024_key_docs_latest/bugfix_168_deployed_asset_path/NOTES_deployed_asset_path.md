@@ -2524,3 +2524,76 @@ council. The landmine corpus is the delivery path that exists today.**
 > call**, and it raises the stakes of the limitation still outstanding (component-granular, not
 > claim-granular). Read it before touching this area:
 > `SELECT body FROM doc_notes WHERE categories ? 'landmine' AND subject_key LIKE '%evidence_base%';`
+
+---
+
+## 2026-08-10 (session 3) — round 4 died on an account-level API cap; chasing the cause found `bugs_open/244`
+
+### The two open items from `HANDOFF_2026-08-10`
+
+**0b — the owed measurement. Done: the owner's gate has still FIRED ZERO TIMES.**
+```sql
+SELECT count(*) FILTER (WHERE result #>> '{revalidation,reason}' LIKE '%register moved, not the page%') AS refused_by_gate,
+       count(*) FILTER (WHERE result #>> '{revalidation,verdict}'='resolved') AS resolved, ...
+FROM site_work_items WHERE item_type='claims_unverified' AND result ? 'revalidation';
+```
+`refused_by_gate 0 | resolved 8 | still_holds 19 | unknown 3` [MEASURED 16:33Z].
+Load-bearing invariant re-run and still clean: `copy_actually_changed = t` for **8 of 8**, zero
+`f` rows. Gate remains `[UNEXERCISED]` — say so, do not describe it as having prevented anything.
+
+**0a — council round 4. NOT "in flight". It is DEAD, and the handoff's §0a is now wrong.**
+Only 3 `council_report` rows exist for corr `b67eb26a-…`; rounds 1–3. Round 4's orchestration
+(`2f1b43f6-d92b-49eb-843b-204d0da235fa`) reached `COMPLETED @ complete_invalid` at 14:51:49Z with
+`plan_valid: true` and `edit_count: 8` — the submission was accepted and persisted. The cause is
+only in `__step_error`: `review_architecture` failed on
+`status 400 … "You have reached your specified API usage limits. You will regain access on
+2026-09-01 at 00:00 UTC."`
+
+**Do not resubmit.** `LANDMINES.md` already documents this exact signature (added 2026-07-31) and
+its remedy is "STOP and wait for the stated time" — correct then, when the reset was 5 hours away.
+**Three weeks is not a wait, it is an owner decision**, and it has been escalated as one.
+
+### Missteps this session — both are the same shape (a silence I hadn't tested)
+
+1. **I measured the outage's breadth with a pod-log grep and got 0 across four services.** I was
+   one step from reading that as "it's just my run". The check that saved it: ask how wide the log
+   window actually is. `kubectl logs --since=3h` on the chassis returned an oldest line
+   **~2 minutes old** — the retention landmine in memory says `<1s` of traffic, and it is right.
+   **The 0 was not evidence of anything.** Real measurement lives in `llm_call_log` /
+   `orchestration_states`. (Sibling of the `WRONG_CALLS.md:14507` needle error from 07-31; that
+   one I avoided by copying `usage limit` out of the error text rather than paraphrasing it.)
+2. **I marked "is the cap account-wide?" `[UNMEASURED]` and was right to — then found another lane
+   had already measured it.** The `webdesign.uk` chat lane reproduced the identical refusal from a
+   **standalone service outside the cluster** (`6a4fbab21`), which is what establishes account-level
+   rather than a chassis credential fault. I had also nearly appended a duplicate LANDMINES entry;
+   theirs was already there and more complete, and the file notes a *previous* duplicate was
+   withdrawn on the same day. **Read the entry before extending it.** I added one line only — the
+   spend cause — and cited theirs for the rest.
+
+### The cause of the spend (→ `bugs_open/244`)
+
+Aug 1–10, `llm_call_log`: fleet **188.1M** input tokens; `council-gate` **165.2M = 87.8%**, over
+**209 rounds** = **790,551 input tokens/round**, 11–15 seats at 106k–118k each. Mean input per call
+**2,600 (mid-July) → 62,000 (08-10)**.
+
+Byte-wise comparison of three seat prompts from one round (`prompt_rendered`):
+**common prefix 20 chars; longest shared block 268,980 chars = 98.6%**; seat-specific head only
+1,387–5,159 chars. The shared block (schema dump + submission) sits **after** the seat header, so
+the prompts diverge at char 21.
+
+`grep -rn "cache_control" --include=*.go platform/ pkg/ internal/` → **nothing**. Live builder
+`platform/aiservice/anthropic.go:103-116` sends one `user` message, no `system` field.
+
+**So there are two defects, and fixing either alone buys nothing:** caching is off, *and* the
+ordering makes it unreachable. Round duration **459s mean / 1022s max** over 193 rounds ⇒ the
+5-minute default TTL would expire mid-round; the fix needs `ttl: "1h"`.
+
+⚠ **`llm_call_log` has no cache columns**, so a caching fix is unverifiable until they are added —
+that is part of the work. The disconfirming result to watch for is `cache_read_input_tokens`
+staying at 0, which is exactly what a surviving silent invalidator looks like.
+
+### Unaffected
+
+The lane's shipped revalidator sweep needs no LLM (agent `diagnosis-review-queue-revalidator`,
+steps `sweep` + `complete`; no LLM reference in `revalidate_review_queue_action.go`). It ran at
+08:44Z and keeps running through the outage. **Pure Go/DB work is not blocked — only LLM work is.**

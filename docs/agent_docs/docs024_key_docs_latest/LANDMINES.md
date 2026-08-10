@@ -2011,6 +2011,7 @@ source document and the entry points at it.
 - **and measure the blast radius with the RIGHT NEEDLE:** the phrase is **`usage limit`**, not `spending limit`. Grepping `ILIKE '%spending limit%'` returns **0 rows** during a live outage and reads as "it's just me" — the mistake was made and caught within one query on 2026-07-31. `ILIKE '%usage limit%'` over `orchestration_states` in the last few hours tells you whether the fleet is down or your run is unlucky.
 - **⚠ RECURRED 2026-08-10, and the stated reset is now THREE WEEKS out — do not read this entry as history.** Same signature, same seat (`review_editquality`), new cap: *"regain access on **2026-09-01** at 00:00 UTC"*. Fleet-wide from **14:51:45Z** (the last successful `llm_call_log` row) — after it, 5 calls, 5 failures, 0 successes, across `council-gate`, `experience-planner` and `tool-recreation-handler`. **The consequence nobody had to face in July, because that reset was six hours away and this one is not: every lane's "submit to the council before or alongside committing" obligation is currently unsatisfiable.** A `Council-Submitted:` trailer written now names a run that will never reach a verdict, so 098 can never credit it — write the trailer anyway (it asserts nothing) but record in your lane docs that a FRESH submission is owed, or the commit reads as reviewed for ever. Independently diagnosed the same afternoon from a standalone service outside the cluster (`6a4fbab21`, webdesign.uk chat lane), which is what establishes it as ACCOUNT-level rather than a chassis credential fault.
 - **the low-volume trap in measuring it:** on a quiet fleet the outage is only ~5 error rows, which reads like noise next to a normal day's hundreds. Do not size it by the error COUNT — size it by the **absence of any success**: `SELECT date_trunc('hour',created_at), success, count(*) FROM llm_call_log WHERE created_at > now() - interval '8 hours' GROUP BY 1,2`. A zero in the `t` column is the finding; the `f` rows only tell you the fleet was awake enough to try.
+- **WHERE THE MONTH'S BUDGET WENT, measured 2026-08-10: the council gate is 87.8% of fleet input tokens, and ~99% of what it sends is the same bytes over and over.** `llm_call_log` Aug 1–10: fleet **188.1M** input tokens, of which `council-gate` **165.2M** across **209 rounds** — **790,551 input tokens per round**, 11–15 seats each carrying 106k–118k. Three seat prompts from one round compared byte-wise: **98.6% is a byte-identical shared block** (schema dump + submission), seat-specific head only 1,387–5,159 chars. It is not cached — `grep -rn cache_control --include=*.go platform/ pkg/ internal/` returns **nothing** — **and it could not be cached as written**, because the shared block sits *after* the seat header, so the prompts diverge at character 21 and a prefix cache can never hit. Mean input per call went 2,600 (mid-July) → 62,000 (08-10). **So this outage is not bad luck about a limit being too low; it has a measured cause with a ~76% fix.** Full working, the arithmetic, and the verification (`cache_read_input_tokens > 0` on seats 2..N — note `llm_call_log` has no cache columns yet, so the fix must add them or the win is unverifiable): `bugs_open/244`.
 - **`complete_invalid` is the council's generic "I COULD NOT RUN" state, and this outage is only its commonest cause** (folded in 2026-08-10 from a duplicate entry this lane withdrew — see the deletion note at the foot of this file). The name reads as a verdict about your *submission*, and it is not one: it is what the workflow lands on whenever a seat's step errors, for any reason. Two consequences worth carrying past this outage. (1) **Nothing pushes it at you** — `status` is `COMPLETED` and the top-level `error` column is NULL, so a dead run is only distinguishable from a queued one by asking `__step_error`, knowing to. (2) **Your submission looks accepted, because it WAS** — the trigger prints a correlation and the `fix_plan` artifact persists normally, since validation runs before the first LLM call. So "the artifact is there" is not evidence the review happened.
 - **source:** 2026-07-31 18:58:41 UTC, first hit fleet-wide, killing a `bugs_open/149` A6 council round at `review_tooling_provenance` and another session's round at `review_editquality` a minute later; stated reset 2026-08-01 00:00 UTC. Recurrence 2026-08-10 (bugfix_236_site_availability lane, corr `7177fb02`), reset 2026-09-01. Distinct from — and a counter-example to — the transient-fault guidance at `RUNBOOK_council_gate.md`'s `complete_invalid` note, which should be read together with this entry
 - **added:** 2026-07-31, bugfix_149_nav_membership lane; recurrence appended 2026-08-10, bugfix_236_site_availability lane
@@ -6354,6 +6355,43 @@ Two more in the same family, both cheap to get wrong:
 - **the check:** before consuming scope_ref as a reference, run the orphan census in `bugs_open/214` (page+ordinal resolved against `site_plan_sections`, per plan). If you are writing rows: resolve against the post-validate sections array in the same `CollectedData` — fix candidate 1 in the bug file, ~30 lines at the single door.
 - **relations:** `bugs_open/214` (mechanism + census + fixes), `bugs_open/114` (the unreachable-asset symptom), RFC_016 §1 (the contract rule that forbids this keying for new fields; imagery is its named counter-example), 016b §9 2026-08-07 (the transferable pattern).
 - **added:** 2026-08-07, brochure_component_library lane
+
+> **CORRECTED AND SHARPENED 2026-08-10 by the `bugfix_214_imagery_scope_ref` lane, which took
+> the bug.** The trap above is real and the entry stays. Four things in it will mislead you:
+>
+> 1. **The check named above measures the HARMLESS half.** Resolving the ordinal against
+>    `site_plan_sections` is what the bug file's census does, and **no consumer parses the
+>    ordinal** — the build join is `LIKE <page> || ':%'` (the entry says so itself, two lines
+>    up) and `flag_page_image_rebuild` splits it off and discards it. An out-of-range ordinal
+>    on a correct page part is inert. What is fatal is a wrong **page part**, which that census
+>    cannot see, and it excludes `scope='page'` entirely — where 5 of the 10 live cases live.
+> 2. **⚠ The census predicate belongs to the READER, and the reader is `pages.name` — NOT
+>    `site_plan_pages.name`.** All ten consumers join `scope_ref` against the deployed `pages`
+>    table. Measured both ways on 2026-08-10: the plan-table census says **22** unresolvable,
+>    the consumer-table census says **10**, and all 12 of the difference work fine. A repair
+>    built on the plan-table number would have broken twelve serving heroes. (`WRONG_CALLS.md`,
+>    2026-08-10.)
+> 3. **The line numbers and the lock key are wrong.** At HEAD the functions are
+>    `flattenImageryBlock` (~`:976`), `buildImageryRow` (~`:1044`), `transferImageryLocks`
+>    (~`:1123`). And imagery locks carry forward on **`(plan_id, scope, scope_ref, key)`** —
+>    the five-part `(scope, scope_ref, category, subject, ordering)` in the bug file belongs to
+>    `transferDirectiveLocks` on `site_plan_directives`, a different table. A test or fix aimed
+>    by the stated key hits the wrong function.
+> 4. **The cause is not "LLM-minted free text" — it is CANONICALISATION DRIFT, and that
+>    matters for the fix.** The planner keys imagery by the page name it was given;
+>    `WriteSitePlanAction` then renames the page via `CanonicalisePage` (`about` →
+>    `about-index`) and writes the canonical name to `site_plan_pages`/`site_plan_sections`
+>    while leaving the imagery ref on the old spelling. So the reference is usually *correct as
+>    written* and the platform moved the target. The fix is therefore to **resolve** the ref
+>    through the plan's own raw→canonical map, not to reject it.
+>
+> **FIXED at the write path 2026-08-10** (`IMG-070`, `write_site_plan_imagery_scope.go`) —
+> code-committed, **inert until the next chassis roll**, so the trap above is still live for
+> rows written before it. Backfill for the 10 existing rows:
+> `sql_for_agents/373_bugfix_214_...`. **The ordinal is still not validated at write time on
+> purpose** (recorded as `IMAGERY_SCOPE_REF_ORDINAL_ANOMALY`, never rewritten — see IMG-070),
+> so the "do not trust the ordinal" half of this entry stands unchanged and permanently.
+> - **added:** 2026-08-10, bugfix_214_imagery_scope_ref lane
 
 ### `stale_site_components` fires on chrome that is not stale and stays silent on chrome that is — 36 of its 39 live firings are unrelated to its own subject
 

@@ -823,3 +823,65 @@ correctly concluded the whole thing couldn't work. The code was fine; my paperwo
 four is running now with that filed properly.
 
 Everything is written down for a fresh start: `HANDOFF_2026-08-10_continue_here.md`.
+
+---
+
+## 2026-08-10, later — round four never got a verdict, and finding out why turned into something much bigger
+
+Round four came back neither approved nor revised. It came back dead. The run reached a state
+called `complete_invalid`, which reads like the board rejecting my submission, and it isn't that
+at all — my submission was fine and had been accepted. The actual message was buried one level
+down: our Anthropic account has **hit its monthly spending limit**, and the API says access
+returns on **1 September**. That's three weeks away.
+
+So nothing that needs an AI model is working right now, anywhere on the fleet. Not the review
+board, not the diagnosis tool we use to check our own theories, not the content writers. The last
+successful call was 15:51 our time and everything since has been refused. This is not something a
+thread can wait out or work around — **it's a billing limit only you can raise**, so it needs your
+decision rather than my patience.
+
+One piece of good news before the rest: **the work this lane actually shipped is unaffected and
+still running.** The daily sweep that closes stale review items is plain Go and database queries
+with no AI in it, so it ran this morning as usual and will keep running through the outage. The
+outage stops us *reviewing* new work; it doesn't stop the automation we already built.
+
+Then I went looking for where the month's budget had actually gone, and the answer was not what I
+expected. **The review board is 88% of everything the whole fleet spends on AI.** Not the site
+builders, not the content writers — the board we consult before making platform changes. Over the
+first ten days of August it used 165 million words' worth of input out of 188 million for
+everything combined.
+
+The reason is worth explaining, because it's a genuine mistake in how we built it rather than the
+board simply being expensive. Every review sends the submission to fifteen independent reviewers.
+Each reviewer gets the whole thing: the database schema, the plan, all the evidence — about
+270,000 characters. I compared three of those fifteen messages character by character, and
+**98.6% of them is identical**. We are paying to send the same text fifteen times.
+
+The fix for that is a standard feature called caching: send the shared part once, and the other
+fourteen reviewers read it at a tenth of the price. We don't use it anywhere. But there's a second
+problem underneath, and it's the one that makes this a real bug rather than a missed setting.
+Caching only works on the *beginning* of a message. We put the bit that differs per reviewer at
+the top and the enormous identical bit underneath — so the messages start differing at character
+21, and caching would find nothing to reuse **even if we switched it on**. Both have to be fixed
+together or neither pays.
+
+By my arithmetic that's about a **76% cut** in what the board costs. I want to be honest that this
+is arithmetic on measured numbers, not an observed bill — and that our logging can't currently
+even tell us whether caching is working, so building that measurement in is part of the job, not a
+follow-up to it.
+
+I've written it up as `bugs_open/244`. Normally I'd put a claim this size through the diagnosis
+tool before asserting it — that's our own rule — but that tool is one of the things the outage has
+killed, so I did the verification by hand instead and said so plainly in the file.
+
+One thing I got wrong along the way, worth recording: I first tried to measure how widespread the
+outage was by searching the server logs, got zero results across four services, and nearly read
+that as "it's only affecting me." Then I checked how far back those logs actually go: about two
+minutes. The silence meant nothing. Another session had independently hit the same wall from a
+completely separate service outside our cluster, which is what actually proves it's the account
+and not something we broke — I've pointed at their findings rather than redoing them.
+
+**What I need from you:** whether to raise the limit. If the answer is yes, everything resumes; if
+it's no, the fleet does no AI work until 1 September and we should plan around that. Either way
+the caching fix is worth doing, because it's the difference between the budget lasting ten days
+and lasting most of a month.

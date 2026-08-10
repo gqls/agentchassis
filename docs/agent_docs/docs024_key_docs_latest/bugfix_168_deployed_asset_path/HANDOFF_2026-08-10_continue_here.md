@@ -12,6 +12,27 @@ live and demonstrably working. One council round is running and one measurement 
 
 ## 0. THE OPEN ITEMS
 
+> ## ⛔ CORRECTED 2026-08-10 (later session) — READ THIS BEFORE §0a AND §0b
+>
+> **§0a is WRONG: round 4 is not in flight, it is DEAD.** Its orchestration
+> (`2f1b43f6-d92b-49eb-843b-204d0da235fa`) reached `COMPLETED @ complete_invalid` at 14:51:49Z
+> with `plan_valid: true` — the submission was accepted; a seat's LLM call was refused.
+> `__step_error` carries the only tell: **the Anthropic account hit its usage limit, stated reset
+> `2026-09-01 00:00 UTC`.** Fleet-wide: last successful LLM call **14:51:45Z**, nothing since.
+> **DO NOT RESUBMIT** (`LANDMINES.md`, the usage-limit entry — resubmitting burns a round against
+> a wall). **The council gate and the `090` diagnosis loop are both unavailable until the owner
+> raises the limit**; that is escalated and is not a thread's decision.
+>
+> **§0b is still exactly right and was re-run: `refused_by_owner_gate = 0`** (8 resolved / 19
+> still_holds / 3 unknown), invariant clean at **8 of 8**. The gate stays `[UNEXERCISED]`.
+>
+> **The sweep itself is unaffected** — no LLM step — so it keeps closing items through the outage.
+>
+> Chasing the cause produced **`bugs_open/244`**: the council gate is **87.8% of fleet input
+> tokens**, sends **98.6%-byte-identical** prompts to 11–15 seats per round, uses no prompt
+> caching, and orders the prompt so caching could not fire if enabled. ~76% reduction available.
+> Working: `NOTES_deployed_asset_path.md` (bottom) and `README_where_we_are.md` (bottom).
+
 ### 0a. ⏳ Council round 4 — `b67eb26a-14ef-45d7-b755-3e489fd57ef0`, run `a7b35edc-4094-42b4-a2e7-a863de831e6b`
 
 Rounds 1, 2 and 3 all came back **REVISE** and **each was right**. Full read-out with every answer
