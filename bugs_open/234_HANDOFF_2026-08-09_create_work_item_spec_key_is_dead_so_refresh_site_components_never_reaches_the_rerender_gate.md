@@ -3,9 +3,28 @@
 **Filed 2026-08-09** from the `bugfix_136_config_key_aliases` lane, found by the no-op check
 before opting `create_work_item` into unknown-config-key detection (`bugs_open/136` §12).
 
-**Status: OPEN. Two of the three sites are safe to fix now; the third needs an owner
-decision, because fixing it turns a dormant behaviour ON and that behaviour interacts with
-`bugs_open/226`.**
+**Status: OPEN — IN PROGRESS (bugfix_234_dead_spec_key lane, opened 2026-08-10). The owner
+decision below is TAKEN: restore the flag. Fix underway per
+`docs/agent_docs/docs024_key_docs_latest/bugfix_234_dead_spec_key/PLAN_2026-08-10_dead_spec_key.md`.**
+
+> **CORRECTED 2026-08-10 (bugfix_234 lane):** two premises of the owner-decision framing
+> below went stale within a day of filing, and both moved the decision.
+> 1. *"restore it behind whatever guard 226 lands"* — **226's guard HAS landed**: both
+>    chassis replicas (v1.0.1274 at check time) carry `emitChromeDivergenceItem`
+>    (strings-proven, negative control clean), 226 is "DONE IN SUBSTANCE" and its guard has
+>    already refereed a real event. The interaction this file deferred on is closed.
+> 2. *"turning on full site-component reassembly that has not run from this path in
+>    months"* — true of THIS path, but the behaviour is not dormant fleet-wide: **8
+>    producers file `refresh_site_components: true` at ~5–15 rows/day** (measured
+>    2026-08-09). Restoring this path adds ~1.8 rows/day to a routine daily behaviour.
+>
+> **OWNER DECISIONS (2026-08-09/10, at plan approval):** (a) candidate 2 resolves to
+> **restore the flag via `spec_literal`**; (b) close the class BOTH ways — `StrictConfig:
+> true` on `create_work_item` (its doc comment's precondition is now met: recognised set
+> verified complete against every live step at ALL depths, 2026-08-09) AND a new opt-in
+> `ActionInputSpec.RemovedConfigKeys` field (retired key → hard validation error naming
+> the replacement). Candidate 3's prohibition stands: `spec` is still never declared in
+> `ConfigKeys`.
 
 ---
 
