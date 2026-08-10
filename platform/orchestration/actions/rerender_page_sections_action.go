@@ -700,6 +700,32 @@ func applyCTARecompute(resolved, stored map[string]interface{}, field string, ta
 }
 
 // loadStoredSections reads the page's current page_components rows in order.
+//
+// build_status='removed' is EXCLUDED, and that exclusion is load-bearing: this
+// path re-renders from stored content_data and hands the result to
+// save_page_sections, which replaces the page's rows wholesale. Without the
+// filter a section that was deliberately removed comes back — the row is still
+// present (removal marks status and empties rendered_html; it does not clear
+// content_data, which is exactly what this path renders from), so it is
+// re-rendered and re-saved as 'deployed', and the removal is undone with a
+// successful-looking rerender. That happened on idea.uk/index on 2026-08-10:
+// a section the owner had had removed returned via an unrelated
+// section_data_resolved rerender, and the only reason it was noticed is that a
+// decision guard (RFC_015) asserted its absence and filed
+// decision_regression:...:D-002. The current plan (site_plan_sections for the
+// is_current plan) and pages.sections both still excluded it — page_components
+// was the only store that disagreed.
+//
+// 'removed' is NOT a local convention: v3_site_actions.go:4366 and
+// internal/core-manager/admin/page_admin_handlers.go:59 already filter it out.
+// This reader was the one out of step.
+//
+// IS DISTINCT FROM, not !=, deliberately: build_status is NULLABLE (default
+// 'pending', no NOT NULL constraint). There are no NULLs today, so both forms
+// behave identically now — but != would silently drop every NULL-status row
+// from every rerender fleet-wide the moment one appeared, which is a far worse
+// failure than the one being fixed here. The two sibling readers above carry
+// that latent flaw; this one does not.
 func loadStoredSections(ctx context.Context, db *sql.DB, pageID uuid.UUID, logger *zap.Logger) ([]storedSection, error) {
 	rows, err := db.QueryContext(ctx, `
 		SELECT COALESCE(component_id::text, ''),
@@ -709,6 +735,7 @@ func loadStoredSections(ctx context.Context, db *sql.DB, pageID uuid.UUID, logge
 		       position
 		FROM page_components
 		WHERE page_id = $1
+		  AND build_status IS DISTINCT FROM 'removed'
 		ORDER BY position ASC
 	`, pageID)
 	if err != nil {
