@@ -26042,3 +26042,38 @@ that assumes it does will pass or fail for reasons unrelated to your change. Ask
 written into a code comment that would have outlived me, and the honest version of the
 justification is now measured: 26px → 24px on the real round, which is the whole of
 what the reserve actually cost.
+
+---
+
+## 2026-08-09 (evening) — I hit the backtick-in-`-m` landmine that was already in my own memory index
+
+Committing the council-round-2 fixes I wrote a message containing `` `if err == nil` `` and
+`` `clauses` `` as inline code. **Bash executed both.** The shell printed
+`clauses: command not found` and a `command substitution: unexpected end of file`, the commit
+went through anyway, and the message now reads *"the identity-spec read used , so a failure and
+an absent spec were the same thing"* — the identifier silently gone from the sentence that
+exists to explain it.
+
+**What makes this worth an entry rather than a shrug:** this trap is *already documented*, in
+`LANDMINES.md` and in my own auto-loaded memory index
+(`shell-tool-traps-committing.md` — "backticks in `-m` execute"). I had read it this session.
+Knowing a trap is not the same as having a habit that avoids it, and the gap between those two
+is exactly what this file measures. Prose about a code change is the highest-risk place for it,
+because inline code in a commit message is the natural thing to write and the backtick is the
+natural way to write it.
+
+**The cheap check, and it is a habit not a check:** in a `git commit -m`, use **single quotes
+around identifiers, never backticks** — `'if err == nil'` — or write the message to a file and
+use `-F`. The damage is invisible in the terminal (the commit succeeds, the hook output scrolls
+past) and is only visible later in `git log`, by which point forward-only forbids an amend.
+
+**What survived, and why that mattered more than the prose:** the `Council-Reviewed:` trailer
+was on its own line with no backticks, so the coverage report's join key is intact. Had I
+backticked the correlation id, the commit would have claimed a review it could not be joined to
+— a MISMATCH, which is the 098 report's dishonesty surface. **Keep trailers on their own line
+and never decorate them.**
+
+**Forward-only fix:** a follow-up commit restating the two lost identifiers, because the
+message cannot be amended. Recorded so the *tally* of this trap grows — that tally is the
+argument for a pre-commit check that rejects an unescaped backtick in a commit message, which
+does not exist today.
