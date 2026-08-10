@@ -9,10 +9,17 @@ the chart labels and the chart values are all invisible, so the page reads as em
 rather than as badly coloured.
 **Class:** structural, composition-level. Nothing is wrong with any single input; the
 defect exists only in the merge.
-**Status:** OPEN. Fixed in code (`3096a55a6`) and **inert until the next chassis roll**.
+**Status:** ~~OPEN. Fixed in code (`3096a55a6`) and **inert until the next chassis roll**.
 The affected site was repaired at the data level in the same session, which does not
 close it: 11 other palettes still carry the trap and reproduce it on their next
-stylesheet render.
+stylesheet render.~~
+**UPDATED 2026-08-10 — THIS BUG'S OWN MECHANISM IS REPAIRED ON EVERY DARK SITE THAT
+RENDERS THROUGH THE PALETTE CHAIN, MEASURED AT THE SERVED ARTEFACT.** The "11 other
+palettes" figure was never re-tested and is now retired — it was counted over all 31
+`palettes` rows, most of which no live site reaches. See "2026-08-10 — the roll, and the
+census done through the right chain" at the foot of this file. **Kept OPEN** (owner ruling
+2026-08-06: a finished bug stays in `bugs_open/`) with exactly one live item, which is a
+**different mechanism** and needs an owner decision: `ai-agent-orchestration.com`.
 
 **Sibling of `bugs_closed/022`**, which is the same merge, the same function, and the
 opposite half of the same contract. 022 was "the spec's core slots win and nothing
@@ -685,3 +692,95 @@ a hand edit; I read the first from the symptom because this bug had taught me th
 The cheap check that settles it is one join from `sites` to `palettes` through
 `style_collections` — the same join nobody had run when the section above wrote
 `[UNMEASURED]`.
+
+---
+
+## 2026-08-10 — THE ROLL, AND THE CENSUS DONE THROUGH THE RIGHT CHAIN. This bug's own mechanism is repaired fleet-wide; one site remains and it is a different defect
+
+A fresh chassis build was deployed. This section discharges the "Verification owed at the
+next roll" list above and replaces the fleet figures, which were counted through a key
+that does not resolve shared palettes (see the third-pass correction).
+
+### 1. The binary carries the fix — both replicas, with a discrimination control
+
+```
+$ kubectl exec -n ai-persona-system agent-chassis-6fdf4c6454-{m9fbr,swzhc} -- \
+    strings /app/agent-chassis | grep -c <symbol>
+  fillDarkSchemeSpecialisedSlots   4      4
+  warnLightLiteralsOnDarkSite      2      2
+  fillDarkSchemeSpecialisedSlotz   0      0     <- negative control (misspelt)
+```
+
+Both replicas checked, not one — a `deploy/` grep reads a single pod. The misspelt control
+proves the grep discriminates. **It does not prove the build is recent**: this fix shipped
+2026-07-27, so a positive here is consistent with any build since. Nothing in this section
+depends on the build being new; the evidence below is served artefacts.
+
+### 2. The census, over the chain that actually resolves
+
+The 07-27 blast radius counted **all 31 `palettes` rows**. Most are library rows no live
+site reaches, and the count could not see which site gets which palette. Re-run over the
+`sites → style_collections → css_themes → palettes` join (21 real domains; 18
+`pool-*`/`system.internal` rows excluded):
+
+| dark site | palette supplies `card_bg`? | served `--color-card-bg` | verdict |
+|---|---|---|---|
+| dartsonline.com | no | `#1E2436` **== served surface** | **DERIVED — fixed** |
+| oufe.com | no | `#1B2A3B` **== served surface** | **DERIVED — fixed** |
+| vonc.com | no | `#13121f` **== served surface** | **DERIVED — fixed** |
+| gamesdesign.co.uk | no | `#1a1a1a` **== served surface** | **DERIVED — fixed** |
+| fundamentallyai.com | yes (`#132239`) | `#132239` | curated dark — fine |
+| robot-hands.com | yes (`#1E2535`) | `#1E2535` | curated dark — fine |
+| **ai-agent-orchestration.com** | **yes (`#ffffff`)** | **`#ffffff`** | **light card on a dark site — NOT this bug** |
+
+**Four sites carry the derivation's signature on a served stylesheet** — `card_bg` equal to
+`surface` to the byte, on a palette that defines no `card_bg`, which nothing but
+`fillDarkSchemeSpecialisedSlots` produces. Three of those four (oufe, vonc, gamesdesign)
+were **never touched by hand**; the third-pass section had them down as "awaiting a
+deliberate re-render", and they have plainly had one since.
+
+**So the 12-sites-guaranteed-white-card figure and the "11 other palettes" line are both
+retired.** Today the answer is **zero** dark sites falling through to the layout's literal.
+
+Every remaining live domain is a **light** site (`idea.uk`, `lendzy.co.uk`,
+`mortgagecalculator.co.uk`, `relojistas.com`, `vetcomparison.uk`, `webdesign.co.uk`,
+`webdesign.uk`, `finetuning.uk`, `gaswholesalers.com`, `leopardessconsulting.co.uk`),
+where the light literals are correct and the fix is inert by design.
+
+> `[UNMEASURED]` — **four domains resolve to no palette at all** through this chain
+> (`cookly.uk`, `loanandmortgagecalculator.co.uk`, `loancalculator.co.uk`,
+> `loancash.co.uk`): no `style_collection_id`, so no theme, no palette. Their pinned
+> backgrounds are all light (`#FDFAF4`, `#f8fafc`, `#f3f2f1`, `#e8f5ee`), so 113 is very
+> unlikely to apply — but **not measured is not "fine"**, and it is a separate question
+> worth someone's time why a live domain has no composition linked.
+
+### 3. What is left, and why it is not this bug
+
+`ai-agent-orchestration.com` alone still serves a `#ffffff` card on a `#080B10` page.
+The third-pass section establishes the mechanism: its palette (`professional-dark`, a
+**shared seed row that is fully light despite its name**) supplies `card_bg: "#ffffff"`
+explicitly; `card_bg` is a specialised slot the site's spec cannot override; and the
+derivation correctly declines to overwrite a defined slot. **113's fix is working as
+designed and cannot reach it.**
+
+That is a distinct defect — *the authority boundary lets a dark spec own 8 slots while a
+light theme owns the other 13* — and it wants its own file rather than keeping this one
+open. **Not filed here, because the repair is an owner decision** (fork the palette, or
+move the site to a dark collection; editing the shared seed row would break
+`finetuning.uk` and `gaswholesalers.com`, which ride it correctly as light sites).
+
+### 4. Verification list from the head of this file, discharged
+
+1. **Pod-grep with a control** — done, §1, both replicas.
+2. **A dark site's `:root` carries a derived `card_bg` equal to its surface** — done, §2,
+   on four sites rather than one.
+3. **Induce the failing branch: a LIGHT palette with no `card_bg` must still emit
+   `#ffffff`** — satisfied on live artefacts: the ten light sites listed above still serve
+   the literals, and `finetuning.uk`/`gaswholesalers.com` serve `#ffffff` from the same
+   shared palette that ai-agent-orchestration renders dark. The fix did not repaint them.
+4. **`render_audit.py --sitemap` before/after on the affected sites** — **NOT DONE.** The
+   before numbers exist for three sites (07-27 and 08-09); the after numbers do not.
+   Left open deliberately: the four derived sites are repaired at the slot level, but the
+   `.news-list-tag` and primary-as-ink families still dominate their totals, so a fresh
+   sitemap run measures `bugs_open/122` and `features_open/026` far more than it measures
+   this bug. Whoever runs it should attribute per selector, not per site total.
