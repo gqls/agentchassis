@@ -4,6 +4,8 @@ import (
 	"log"
 
 	"github.com/gqls/agentchassis/platform/aiservice"
+
+	"github.com/gqls/agentchassis/internal/tools-api/namecheck"
 )
 
 // Diagnostic logging for the LLM-backed Gauntlet endpoints (/position, /defend).
@@ -90,4 +92,27 @@ func logInternalFailure(endpoint, stage, roundID string, err error) {
 func logAIBadResponse(endpoint, reason, roundID, body string) {
 	log.Printf("gauntlet/%s: response UNUSABLE round_id=%s reason=%s %s",
 		endpoint, roundID, reason, aiservice.Fingerprint(body))
+}
+
+// logPublishRefusal records that a share was declined by namecheck (RFC_020
+// §5.2), and records it as a SHAPE.
+//
+// It deliberately does NOT log Finding.Match. That field holds the apparent
+// third-party name lifted from the visitor's prose, so logging it would write
+// the identified person's name into our logs — creating a durable record of
+// exactly the thing the refusal exists to avoid publishing. The Kind and Term
+// come from this package's own closed vocabulary, not from the text, and they
+// are what makes a refusal tunable: a term that fires constantly is too broad,
+// and one that never fires is dead weight.
+//
+// Same reasoning as logAIBadResponse's fingerprint, and the same owner ruling
+// (2026-07-27) — the diagnostic question is structural, so answer it
+// structurally rather than by quoting anybody.
+func logPublishRefusal(roundID string, findings []namecheck.Finding) {
+	kinds := make([]string, 0, len(findings))
+	for _, f := range findings {
+		kinds = append(kinds, f.Kind+":"+f.Term)
+	}
+	log.Printf("gauntlet/publish: REFUSED round_id=%s findings=%d signals=%v",
+		roundID, len(findings), kinds)
 }

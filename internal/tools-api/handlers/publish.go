@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/internal/tools-api/httperr"
+	"github.com/gqls/agentchassis/internal/tools-api/namecheck"
 	"github.com/gqls/agentchassis/internal/tools-api/store"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -44,6 +45,55 @@ func PublishHandler(pool *pgxpool.Pool) gin.HandlerFunc {
 		// against store.GetRound; not changed here, but worth knowing.)
 		if _, err := uuid.Parse(body.RoundID); err != nil {
 			httperr.JSONError(c, http.StatusBadRequest, "round_id is not a valid id")
+			return
+		}
+
+		// RFC_020 §5.2 — refuse to make PUBLIC a round that makes a checkable
+		// allegation about an apparently-named third party.
+		//
+		// It runs here, before PublishRound, because this is the only place a round
+		// stops being one person's private argument and becomes a permanent public
+		// record. Playing, scoring and reading your own round are all untouched:
+		// the visitor keeps everything except the share link.
+		//
+		// BOTH HALVES ARE CHECKED, and the model's half is not trusted for being
+		// ours. The verdict and counter are the SERVICE's text (RFC_020 §1.4), which
+		// makes them the part we are most clearly the author of, not the least.
+		//
+		// FAILS CLOSED: if the round cannot be read, it is not published. A failure
+		// to publish costs one share; publishing unchecked is the incident.
+		round, rerr := store.GetRound(c.Request.Context(), pool, body.RoundID)
+		if rerr != nil {
+			if errors.Is(rerr, pgx.ErrNoRows) {
+				httperr.JSONError(c, http.StatusNotFound, "round not found")
+				return
+			}
+			logInternalFailure("publish", "get_round_for_namecheck", body.RoundID, rerr)
+			httperr.JSONError(c, http.StatusInternalServerError, "could not publish round")
+			return
+		}
+		// GetRound is NOT site-scoped (PublishRound is). Without this, a round_id
+		// belonging to another site would reach the check and could answer 422
+		// instead of 404 — which distinguishes "exists on another site AND contains
+		// an allegation" from every other outcome, i.e. an oracle this handler did
+		// not have before the check was added. Answer exactly what PublishRound
+		// would have.
+		if round.SiteID != siteID {
+			httperr.JSONError(c, http.StatusNotFound, "round not found")
+			return
+		}
+		if findings := namecheck.ScanAll(
+			round.PositionText, round.DefenceText,
+			string(round.Counter), string(round.Verdict),
+		); len(findings) > 0 {
+			// The reasons are logged, not returned. A caller who could see WHICH
+			// term tripped it could tune prose against the check until it passed,
+			// which is the one way to make this worse than nothing.
+			logPublishRefusal(body.RoundID, findings)
+			httperr.JSONError(c, http.StatusUnprocessableEntity,
+				"this round cannot be shared publicly because it appears to make a "+
+					"factual claim about a named person or business. Your round is "+
+					"unaffected and you can still read it.")
 			return
 		}
 
