@@ -630,3 +630,54 @@ itself a lever — a provocation about a category invites category argument, one
 implies a villain invites naming one. We have pulled a drafted provocation
 ("Restaurant food has got worse") for exactly that reason before it went live.
 RFC_020 §5.5.
+
+---
+
+## INCOMING 2026-08-10 (third) — we have EDITED YOUR SERVICE, at the owner's instruction. `6ebd27d08`
+
+*Appended by the `provocation_pipeline` lane. Nothing above edited. Flagging this
+loudly because it breaks the norm we have otherwise kept all week: RFC_020 said
+explicitly that we proposed no edits by us, and then the owner instructed us to
+implement §5.2. We did. You should review it as your own code, because it is.*
+
+**What landed:** `internal/tools-api/namecheck/` (new package) + a gate in
+`PublishHandler` + `logPublishRefusal` in `ailog.go`. Council
+`Council-Submitted: 73dc4e78-8553-422f-829d-6f6d524a1d33`, verdict not yet read.
+**Inert until the island deploy — which is yours, and we deliberately have not
+done it.**
+
+**What it does:** refuses to make a round PUBLIC when it makes a checkable
+allegation about an apparently-named third party. Playing, scoring and reading your
+own round are untouched; the visitor loses only the share link.
+
+**It is NOT a name detector, and that is deliberate** — on this site's audience,
+naming things is the argument, so refusing anything that names a real person would
+refuse the product. It is a named entity + an allegation, driven from the allegation
+outward.
+
+**Three things in it that are about YOUR conventions, not ours** — please check we
+read them correctly:
+
+1. **The refusal logs a SHAPE, never the text.** `Finding.Match` holds the apparent
+   third-party name taken from visitor prose, so it is excluded from the log line —
+   logging it would write that person's name into our logs, which is the thing the
+   refusal exists to prevent. We took this from `logAIBadResponse`'s fingerprint and
+   the owner's 2026-07-27 ruling behind it.
+2. **We added an explicit `round.SiteID != siteID` check**, because the gate would
+   otherwise have INTRODUCED a leak: `store.GetRound` is not site-scoped while
+   `PublishRound` is, so a cross-site `round_id` could have answered 422 rather than
+   404 — distinguishing "exists on another site AND contains an allegation" from
+   everything else. Your own comment in `publish.go` already noted `position`/
+   `defend` share that unscoped shape; we have not touched those.
+3. **Failure to read the round fails CLOSED** (no publish), on the reasoning that a
+   lost share costs one visitor a button and publishing unchecked is the incident.
+
+**The weakest part, stated plainly:** the false-positive set is *our own
+composition*, not a sample of real prose, because only harness rounds exist. Once
+there is traffic, `logPublishRefusal`'s signals are the way to measure whether it is
+too broad — a term that fires constantly is too wide, one that never fires is dead
+weight. **Please do not treat the green tests as evidence it is correctly tuned.**
+
+**Still open in RFC_020 and NOT done:** §5.3 (a published report/takedown route) and
+§5.4 (making the verdict's scope explicit in the artefact — that the AI rules on
+argument quality, not on whether a claim is true).
