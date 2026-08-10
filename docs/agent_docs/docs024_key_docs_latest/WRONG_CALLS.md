@@ -27400,3 +27400,58 @@ path executing; it is not evidence the rewrite works. Caught by asking the stand
 question — *what result would have disconfirmed this?* — before writing the claim rather
 than after. The lane's docs now say plainly that the rewrite arm is unobserved in
 production and name the condition that would close it.
+
+---
+
+## 2026-08-10 — a substring that started at the heading and ran to the end of the document
+
+**Lane:** `diagnosis_schema_visibility` (commission item 5).
+
+**The claim I nearly recorded:** *"the bundle's Schema section already states that it is
+filtered, so the notice half of the fix is unnecessary."*
+
+**How it was produced.** I wanted to know whether one **section** of an ~80,000-char
+diagnosis bundle contained a "this listing is filtered" warning, and reached for:
+
+```sql
+substring(collected_data->>'bundle' from position('## Schema' in ...))   -- no length arg
+```
+
+`substring(x from n)` with no length runs **to the end of the string**. So the test named
+"does the Schema section say it is filtered?" actually asked "does the rest of the entire
+document contain the word 'filter'?" — and of course it did. `says_it_is_filtered = t`.
+
+**Why it mattered.** That cell was the entire justification for the second half of the
+change — the half that generalises, and the half that made the loop's own failure
+(`074beb8a` asking for a human rather than requerying) explicable. Believing it would have
+shipped the narrow fix the commission had explicitly warned against.
+
+**What caught it.** Not a tool — noticing that the *negatives* in the same result row were
+safe while the single *positive* was not. Searching a superset and finding nothing still
+proves absence; searching a superset and finding something proves nothing about the subset.
+A result whose direction depends on bounds I had not thought about is the shape to distrust.
+
+**The cheap check that would have.** Print `length()` of what you sliced, next to the thing
+you believe you sliced. 8,819 vs 80,000 is not a subtle discrepancy — it is visible at a
+glance, and it costs one column. **State the bound in the query, and assert it.**
+
+**Twice more in the same afternoon, same family — a keyword hit is not a finding:**
+
+- The bounded re-run still said `relevance = true`. The match was `relevance_score float8`
+  — **a column name in the schema listing itself**. Searching a document that *contains a
+  database schema* for schema-adjacent words will match schema. Fix: print the surrounding
+  ±60 chars of every keyword hit before it counts as evidence.
+- A source-scanning test I wrote to derive a table list reported a table called **`the`** —
+  it had matched `\bFROM\s+(\w+)` against the prose `"…answered from the code_symbols
+  index"` in an ordinary string literal. I had already stripped **comments**, knowing that
+  trap; stripping comments is not enough, because normal string literals carry prose too.
+  The tempting fix (add `"the"` to an ignore list) would have made the guard weaker with
+  every sentence added to the file. Scanning **backtick literals only** was the fix — and
+  the guard I then added against SQL it *couldn't* see immediately caught a query I had
+  written badly myself minutes earlier.
+
+**The transferable rule:** every one of these four is the same error — **a check that
+silently answered a broader question than the one I asked.** The marker discipline
+(`[MEASURED]`, dated) would have caught none of them: all four were measured, and all four
+were measurements of the wrong set. Name the set your query actually ranges over, and print
+its size.

@@ -18,7 +18,7 @@ different thread.
 | 2 | Make the three silent hero/logo readers **say something** | **approved, do it** | small (hours) |
 | 3 | **Enable `deploy_commit` usefully** — store the git commit | approved; **bigger than it looks, see below** | medium, spans 3 layers |
 | 4 | `PROCESS` trigger wording ("adds, changes or removes") | **confirmed, no work** | done |
-| 5 | Let the diagnosis loop **see `orchestration_states`** | **approved, do it** | small–medium |
+| 5 | Let the diagnosis loop **see `orchestration_states`** | ~~approved, do it~~ **BUILT + COMMITTED 2026-08-10 (`5f8a326fc`), INERT until a fleet roll** → `diagnosis_schema_visibility/` | small–medium |
 
 ---
 
@@ -175,6 +175,32 @@ Item 3 should be routed against this wording.
 ## 5. Let the diagnosis loop see `orchestration_states` — APPROVED, do it
 
 > **Owner:** *"5. yes, let diagnosis loop see the orchestration states file."*
+
+> **STATUS 2026-08-10 (added by the lane that did it): BUILT AND COMMITTED
+> (`5f8a326fc`), council-submitted `df9dae6c-b7ca-4605-8dd4-26462ce4b20b`, and
+> INERT until a chassis image ships.** Work, evidence and the standing five:
+> `docs024_key_docs_latest/diagnosis_schema_visibility/`.
+>
+> **Two corrections to this section, both established by doing it:**
+>
+> 1. **The producer is found.** It is **`gatherSchema`**, a Go helper in
+>    `diagnose_load_runtime_action.go` (returned under the `schema` key, rendered
+>    by the assembler at `:306`) — *not* a `load_schema_hint`-style step. The
+>    `[UNVERIFIED]` note below is settled; do not re-run that search.
+> 2. **It was never one missing table — this section understates it by 5×.** The
+>    include filter (`site%|page%|content%|flow%`) selects **26 of 433** live
+>    tables, and **five of the six tables the gather itself renders rows from**
+>    fell outside it: `agent_error_log`, `orchestration_states`,
+>    `agent_definitions`, `llm_call_log`, `code_symbols`. Only `site_work_items`
+>    matched. A second defect this section does not name turned out to be the
+>    load-bearing one: the listing **never said it was filtered**, so a
+>    filtered-out table and a non-existent table rendered identically — which is
+>    why the run asked for a human instead of requerying.
+>
+> The design note below ("prefer deriving it") was right and was followed: the
+> always-list derives from the action's own SQL, and a test re-derives it and
+> fails when a new query adds an uncovered table.
+> **Item 1(a) is still blocked — on the ROLL now, not on this work.**
 
 ### The failure, in the loop's own words
 
