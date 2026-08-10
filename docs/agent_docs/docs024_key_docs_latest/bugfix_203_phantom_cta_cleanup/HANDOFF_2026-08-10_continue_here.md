@@ -33,7 +33,20 @@ LABELS to something that names a real page, then rebuild — but per the owner r
 hand-edit; (c) accept a positional pick as good enough for a generic CTA. **Needs a
 human call — no measurement resolves it.**
 
-**D2 — how wide to sweep for other pages carrying the priority bug's output.**
+> **D2 REWRITTEN 2026-08-10 evening — the version below is SUPERSEDED. Read this box.**
+> Its recommendation ("do nothing, pages self-heal") was **false**: the owner pointed out
+> the improvement loop is switched off, and measurement confirmed detection AND triage are
+> both disabled — only dispatch runs. Nothing heals on its own. Worse, the manual
+> alternative is unsafe in bulk: `applyCTARecompute` cannot preserve a link into
+> `areasExcludedFromCTA`, so repairing the `misdirected_cta` queue wholesale would
+> **overwrite 24 working contact buttons** fleet-wide. Full working: NOTES 2026-08-10
+> (evening, later) + the LANDMINE added the same day + `WRONG_CALLS.md`.
+> **Safe manual healing = re-run DETECTION only (it changes no page), then repair
+> per-page, skipping any component whose current url is `/contact|about|privacy|terms|legal`
+> unless a human has read its label. Never `TriageDetectedItemsAction` over a site — it
+> promotes every `detected` row with no type filter.**
+
+**D2 (superseded — see box above) — how wide to sweep for other pages carrying the priority bug's output.**
 Measured 2026-08-10: **66** `page_components` rows carrying any CTA url field were
 written in the buggy window (2026-08-09 12:00Z → 2026-08-10 15:44Z, i.e. between the
 first fix going live and the second fix's build). That 66 is an **upper bound on
