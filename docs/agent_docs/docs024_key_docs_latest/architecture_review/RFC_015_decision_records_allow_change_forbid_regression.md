@@ -130,6 +130,89 @@ field with the unsafe default OFF, not as a documented convention.
   owner-sourced item — mirrors the existing owner_approval pattern on
   capability_gap items.)
 
+## 5b. OWNER DECISION NEEDED — the second seam, gated twice by one seat while another approved
+
+**Two council rounds on corr `cb547e0a` (2026-08-10) both returned REVISE, both
+decided by the same `bug_historian` objection, at HIGH severity:** the
+decision-protection mechanism guards ONE write seam (`apply_section_edit`) while
+`save_page_sections` and the rerender paths — the bulk-rebuild mechanisms most
+likely to discard protected content — stay generic and ungated. It cites 016b §9's
+recurring shape: *one call site of a shared judgement gets the rigorous fix; the
+sibling stays heuristic.*
+
+**The objection is accepted, not answered.** And this RFC's own evidence is the
+strongest case for it: on 2026-08-10 a `section_data_resolved` rerender resurrected
+owner-removed content on the very site this RFC protects, and the mechanism caught
+it **~7 hours later by async detection rather than preventing it at write time**.
+Detective-only coverage with hours of latency IS a materially weaker guarantee
+than the citation gate, exactly as the seat says.
+
+**Why this goes to the owner rather than to a third round.** CLAUDE.md: *"A veto on
+SCOPE is not answered by resubmitting with better measurements… Record it where the
+change lives, route the seam to architecture review on its own merits, and let a
+human break it — especially when seats disagree with each other."* They do disagree:
+the `architecture` seat **approved** round 2 (its only objection was the unproven
+positive path), while `bug_historian` gated on scope. Resubmitting a third time with
+the same deferral would be re-litigating a judgement, not supplying evidence.
+
+**The three options, costed:**
+
+1. **Ship the second seam as a PRESERVE-AND-FILE gate (recommended).** At
+   `save_page_sections`, a decision-covered slot arriving without a citation keeps
+   its EXISTING row and the divergence is filed — it does not fail the rebuild.
+   This is not a new mechanism: it is exactly what the lock gate already does in
+   that function (`matchLockedRow`, line 802, keeps locked rows out of the DELETE,
+   repositions them, discards the fresh copy, emits `lock_blocked_change`). So the
+   cost is low and the pattern is proven in place. Per the owner ruling of
+   2026-08-02 §2 it must ship as an **opt-in field with the unsafe default OFF**,
+   not as a documented convention.
+2. **Keep deferring until `page-content-writer` is steered.** The stated reason is
+   real — the writer has no way to cite a decision today, so gating its rebuilds
+   would block legitimate work — but the 08-10 regression shows what the gap costs
+   while we wait.
+3. **Accept detective-only coverage for the rebuild path permanently**, on the
+   grounds that the guard plus the now-fixed `build_status` filters make
+   resurrection much less likely. Weakest option; recorded because the seat's
+   objection would then need answering as a decision rather than a debt.
+
+**What has changed since the objection was written**, and it narrows the hole
+without closing it: the specific resurrection route is fixed in BOTH readers
+(`loadStoredSections` and `getPageSections`, commits `1c7c7c261` and `fba05b83a`),
+and the `item_key` fix means a second page's regression under one decision can no
+longer be swallowed by dedup. Neither is the seam gate.
+
+## 5c. What the two rounds fixed, and the one piece of evidence still owed
+
+Fixed in response to round 1 (commit `d644723b8`): the category filter tightened
+from the ambiguous `'decision'` to `'decision-record'` in both readers (four seats
+were right that deferring it bought nothing, since the code cannot run until a roll
+either way); `item_key` now includes the page; and the `ItemVerifier` this lane owed
+— which turned out to be a **three**-part obligation, the third part
+(`claimed-item-timeout` exclusion, migration **374**) surfaced by the build rather
+than by any seat.
+
+**Two objections were checked and REJECTED with evidence:** `editquality`'s "no lock
+gate exists in `section_editor_actions.go`" (`CheckComponentLock` is at line 305,
+`emitLockBlockedChangeItem` at 309, the citation gate at 335 — re-verified after the
+file moved by 9 lines; the seat had grepped `matchLockedRow`, a different spelling of
+the same concept), and five seats' doubt about the migration ledger (354/355 applied
+by `run-migrations.sh` at 14:50 on 08-09, every other migration in that window
+`record-only`, so nothing else was swept in).
+
+**Round 2's own failure was a SUBMISSION failure, not a code one:** three seats
+(`editquality`, `tooling_provenance`, `prior_art_librarian`) objected that no edit
+to the verifier registry was shown. The edits exist — `verifier_coverage_test.go`
+and `220`'s declared list — but the submission's edit list omitted them, so a
+reviewer reading only the plan correctly concluded the obligation was half-done.
+**A reviewer can only object to what the submission shows.**
+
+**Still owed, and named by five seats independently:** a cited-edit control whose
+value DIFFERS from the stored one. The 08-09 control wrote a value equal to the
+existing one, so its empty commit cannot distinguish "the gate allowed the write"
+from "the gate ate the field updates". The `architecture` seat's condition is the
+right one: *run it before any second site is given decision rows.* Queued
+2026-08-10 as `rfc015-gate-control-differing-20260810`.
+
 ## 6. Known limits, stated
 
 - Guards cover only assertable outcomes; visual/qualitative decisions rely on

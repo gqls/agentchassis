@@ -1946,3 +1946,50 @@ Two things follow. I have fixed the code so both rebuild paths now respect the
 tombstoning step I had been doing by hand — so the marker means what it says.
 And the missing-button complaint above should be read as "I did not look properly",
 not as a gap in the platform.
+
+**Later the same evening — the reviewers have twice told me the same thing, and
+it needs your call rather than another attempt from me.**
+
+The internal review council looked at the decision-protection work twice tonight.
+Both times it came back "revise", and both times for the same reason, from the
+same reviewer: **the protection only guards one of the doors.**
+
+Here is the plain version. When something edits one section of a page, the new
+mechanism checks whether a decision covers it and refuses unless the change names
+the decision. That door is guarded. But when something rebuilds a whole page —
+which is the more common thing, and is exactly what undid your removal this
+morning — there is no such check. The rebuild goes ahead, and we only find out
+afterwards, when the guard notices and files a report. This morning that took
+about seven hours.
+
+The reviewer's point is that "we notice a few hours later" is a genuinely weaker
+promise than "it cannot happen", and it is right. I had deferred the second door
+on purpose, for a real reason: the part of the system that writes page content has
+no way yet to name a decision, so gating it today would block legitimate work. But
+tonight's regression is what that delay costs.
+
+Two reviewers disagreed with each other about it — one approved, one blocked — and
+our own written rules say that when the disagreement is about *scope* rather than
+about facts, I should stop arguing and put it to you. So:
+
+- **Option 1, which I recommend.** Guard the rebuild door too, but gently: if a
+  rebuild would overwrite a section a decision protects and does not name it, the
+  section keeps what it has and we file a note. The rebuild still succeeds —
+  nothing breaks, nothing is blocked. This is not new machinery; it is exactly how
+  the old lock system already behaves in that same piece of code, so it is a small
+  change in a well-worn groove.
+- **Option 2.** Leave it as it is until the content writer can name decisions.
+  Simpler, and it keeps tonight's gap open in the meantime.
+- **Option 3.** Decide that "we notice afterwards" is good enough for rebuilds,
+  and stop treating it as a debt.
+
+Separately, five reviewers independently caught the weakness I had already
+confessed to you: my proof that a *permitted* change still gets through was a
+change to a value that was already that value. I have queued a proper version that
+changes something real, so we will know rather than assume.
+
+One correction to my own account, for completeness: nothing the council said was
+wrong about the code. The one round-two complaint that looked damaging — that I
+had only half-finished the verifier work — was actually a fault in my *submission*:
+I did the work but did not list it, so the reviewers judged what they could see.
+Fair, and mine to fix.
