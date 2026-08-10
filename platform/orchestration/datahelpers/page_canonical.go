@@ -93,11 +93,34 @@ import (
 // ParentSection. The section-index family ignores it because a section
 // index IS its section. content/landing/index ignore it because the
 // concept doesn't apply.
+// FlatURLs (2026-08-10) selects the FLAT url shape for the nested roles
+// (tool, guide, game): /<dir>/<slug>.html instead of
+// /<dir>/<slug>/index.html. Name and page_type are unaffected — this
+// changes the URL only.
+//
+// It is an OPT-IN FIELD with the new behaviour OFF by default, because
+// the helper has twelve call sites and every one of them must keep its
+// existing output byte-for-byte (owner ruling 2026-08-02: new authority
+// on a shared seam ships as a field with the unsafe default off, not as
+// a documented contract — a comment is not a control on a tree this
+// many sessions share). A caller that does not set it cannot be
+// affected by it.
+//
+// Why it exists: the nested shape is unrepresentable for a site that
+// already serves flat tool/guide URLs, so running the planner over one
+// silently rewrote every such URL — pages.url is overwritten
+// unconditionally by upsertPage and the deployer takes the file path
+// from it. Measured on loancalculator.co.uk 2026-08-10: 24 of 26 live
+// URLs would have moved (11 tools + 13 guides). blog-post and
+// entity-page already emit the flat shape, so this makes tool/guide/game
+// expressible in a vocabulary the helper already had, rather than
+// inventing a new one.
 type PageDescriptor struct {
 	Role          string
 	Slug          string
 	Section       string
 	ParentSection string
+	FlatURLs      bool
 }
 
 // CanonicalisePage returns the canonical (name, url, pageType) for the
@@ -159,7 +182,7 @@ func CanonicalisePage(d PageDescriptor) (name, url, pageType string) {
 		if dir == "" {
 			dir = "tools"
 		}
-		return "tool-" + bare, "/" + dir + "/" + bare + "/index.html", "tool"
+		return "tool-" + bare, nestedOrFlatURL(dir, bare, d.FlatURLs), "tool"
 
 	case "guide":
 		bare := strings.TrimPrefix(slug, "guide-")
@@ -170,7 +193,7 @@ func CanonicalisePage(d PageDescriptor) (name, url, pageType string) {
 		if dir == "" {
 			dir = "guides"
 		}
-		return "guide-" + bare, "/" + dir + "/" + bare + "/index.html", "guide"
+		return "guide-" + bare, nestedOrFlatURL(dir, bare, d.FlatURLs), "guide"
 
 	case "game":
 		bare := strings.TrimPrefix(slug, "game-")
@@ -181,7 +204,7 @@ func CanonicalisePage(d PageDescriptor) (name, url, pageType string) {
 		if dir == "" {
 			dir = "games"
 		}
-		return "game-" + bare, "/" + dir + "/" + bare + "/index.html", "game"
+		return "game-" + bare, nestedOrFlatURL(dir, bare, d.FlatURLs), "game"
 
 	case "blog-post":
 		// Adoption convention: name=<slug>, url=/blog/<slug>.html.
@@ -239,6 +262,18 @@ func CanonicalisePage(d PageDescriptor) (name, url, pageType string) {
 		}
 		return slug, "/" + slug + ".html", pt
 	}
+}
+
+// nestedOrFlatURL synthesises the URL for the nested-directory roles
+// (tool, guide, game). Nested (/<dir>/<slug>/index.html) is the
+// long-standing default; flat (/<dir>/<slug>.html) is opt-in via
+// PageDescriptor.FlatURLs — see that field's comment for why the
+// default must stay nested.
+func nestedOrFlatURL(dir, bare string, flat bool) string {
+	if flat {
+		return "/" + dir + "/" + bare + ".html"
+	}
+	return "/" + dir + "/" + bare + "/index.html"
 }
 
 // normalisePageType lowercases, trims whitespace, and converts known

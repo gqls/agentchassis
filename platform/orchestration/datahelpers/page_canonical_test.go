@@ -35,6 +35,38 @@ func TestCanonicalisePage(t *testing.T) {
 			wantType: "tool",
 		},
 
+		// ── FlatURLs opt-in (2026-08-10): flat shape for nested roles.
+		// The zero value is false, so every pre-existing case in this
+		// file doubles as proof the default is unchanged. ─────────────
+		{
+			name:     "tool flat opt-in",
+			in:       PageDescriptor{Role: "tool", Slug: "ttk-calculator", FlatURLs: true},
+			wantName: "tool-ttk-calculator",
+			wantURL:  "/tools/ttk-calculator.html",
+			wantType: "tool",
+		},
+		{
+			name:     "guide flat opt-in, adoption shape",
+			in:       PageDescriptor{Role: "guide", Slug: "guide-rng-design", FlatURLs: true},
+			wantName: "guide-rng-design",
+			wantURL:  "/guides/rng-design.html",
+			wantType: "guide",
+		},
+		{
+			name:     "game flat opt-in honours parent section",
+			in:       PageDescriptor{Role: "game", Slug: "jelly-invaders", ParentSection: "arcade", FlatURLs: true},
+			wantName: "game-jelly-invaders",
+			wantURL:  "/arcade/jelly-invaders.html",
+			wantType: "game",
+		},
+		{
+			name:     "flat has no effect on blog-post (already flat)",
+			in:       PageDescriptor{Role: "blog-post", Slug: "some-post", ParentSection: "guides", FlatURLs: true},
+			wantName: "some-post",
+			wantURL:  "/guides/some-post.html",
+			wantType: "blog-post",
+		},
+
 		// ── Guides ─────────────────────────────────────────────────────
 		{
 			name:     "guide planner shape",
