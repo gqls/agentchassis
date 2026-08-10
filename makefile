@@ -14,7 +14,7 @@ REGION ?= uk001
 REGION_PATH ?= uk_001
 REGISTRY ?= docker.io/aqls
 #IMAGE_TAG ?= latest
-IMAGE_TAG ?= v1.0.1282
+IMAGE_TAG ?= v1.0.1283
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
@@ -2128,9 +2128,24 @@ verify-agent-images: ## Verify all agent images are consistent
 	@# check exists to catch — an UNSTAMPED binary would print a silent blank line.
 	@# Council `editquality` caught this (corr 44fa6a98, round 1, medium). Capturing to a
 	@# variable first makes the test the last command, so absence exits non-zero honestly.
-	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) exec deploy/agent-chassis -- \
-		sh -c 'S=$$(strings /app/agent-chassis | grep -E "^[0-9a-f]{40}$$|-tree$$" | head -1); [ -n "$$S" ] && echo "$$S"' 2>/dev/null \
-		|| echo "no provenance stamp in pod binary (image predates the 153 fix, or the exec failed)"
+	@# VERIFY a known sha; do NOT try to DISCOVER one. Two traps, both measured 2026-08-10:
+	@#  1. `strings` is ABSENT from debian-slim images (browser-runner-adapter). Behind a
+	@#     2>/dev/null it returns a silent 0 that is indistinguishable from "no stamp" — it
+	@#     made a correctly-stamped service read as unstamped. So: `grep -a` on the binary.
+	@#  2. Without `strings`' line boundaries there is nothing to anchor to, so a generic
+	@#     "find the 40-hex string" grep matches Go's internal digit table
+	@#     (0001020304050607...) and confidently returns the WRONG value on every service.
+	@# Hence: ask whether the pod carries THIS ref's sha. EXPECT_SHA=<sha> to check another.
+	@# /proc/1/exe resolves the running binary for any image base or binary path.
+	@EXPECT_SHA=$${EXPECT_SHA:-$$(git rev-parse HEAD)}; \
+	if KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) exec deploy/agent-chassis -- \
+		grep -aq "$$EXPECT_SHA" /proc/1/exe 2>/dev/null; then \
+		echo "  MATCH — pod binary was built from $$EXPECT_SHA"; \
+	else \
+		echo "  NO MATCH for $$EXPECT_SHA — the pod was built from a different commit,"; \
+		echo "  or predates the 153 fix, or the exec failed. Check the startup log:"; \
+		echo "    kubectl -n $(PROJECT_NAME) logs <pod> | grep 'build provenance'"; \
+	fi
 	@echo "$(CYAN)Pod imageID + startTime:$(NC)"
 	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) get pods -l app=agent-chassis \
 		-o custom-columns=NAME:.metadata.name,IMAGE:.spec.containers[0].image,IMAGEID:.status.containerStatuses[0].imageID,STARTED:.status.startTime 2>/dev/null || true
