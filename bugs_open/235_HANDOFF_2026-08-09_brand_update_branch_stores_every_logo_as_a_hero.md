@@ -248,3 +248,73 @@ re-deploy the correct `logo.png` → **re-render the pages that reference
 `logo.jpg`** (9 homepages do) → only then delete the stale file. A deploy writes
 the derived path only; nothing removes the old object, and the pages keep
 pointing at it until they are re-rendered.
+
+### RESULT 2026-08-10 12:25Z — 8 of 9 repaired and verified at the artefact; 3 sites remain, each for a DIFFERENT reason
+
+`[MEASURED]` `assets.purpose` for `asset_key='logo'` across the affected set:
+**8 now `logo`** (dartsonline, fundamentallyai, gamesdesign, lendzy, oufe,
+vetcomparison, vonc, webdesign.co.uk) · **3 still `hero`** (relojistas.com,
+robot-hands.com, webdesign.uk).
+
+Verified at the served artefact, not at the work-item status:
+
+| site | logo.png now | stale logo.jpg |
+|---|---|---|
+| gamesdesign.co.uk | PNG 400×400 | JPEG 900×900 |
+| vonc.com · dartsonline.com | PNG 400×218 | JPEG 900×900 |
+| vetcomparison.uk · fundamentallyai.com · oufe.com · lendzy.co.uk · webdesign.co.uk | PNG 400×218 | JPEG 1408×768 |
+| robot-hands.com | **404 — not repaired** | JPEG 1408×768 |
+
+Note gamesdesign came out **400×400** and the rest **400×218**: further evidence
+the rule is "fits a 400px box, aspect preserved", not a fixed size.
+
+#### robot-hands.com — FAILED SAFELY on a permanent approval lock. Do not retry it.
+
+`assets.locked_at = 2026-07-11`, `locked_by = user-b6-approval`,
+`lock_type = permanent`. `store_asset` refused, returning
+`{stored:false, locked:true, reason:…}` with no `image_uri`, and the next step
+then died on `source path 'asset_stored.image_uri' not found for field 's3_uri'`.
+
+**The lock did its job.** But note the failure surfaces as a missing-path error
+three steps downstream, not as "asset is locked" — so the next person to hit this
+will debug an input_mapping bug that is not there. Worth a cheap improvement:
+`spawn_asset_deployer`/`call_asset_deployer` should branch on
+`asset_stored.stored == false` rather than fail on the absent field.
+
+**Why a retry is the WRONG move here, and this is the substantive point:** the
+locked asset *is* the defective one, but the lock exists because someone approved
+the **artwork**. Re-driving it through the generator produces a *different image*
+and throws the approved one away. The defect on robot-hands is how the image was
+processed and deployed (JPEG 1408×768 instead of a small PNG), **not what it
+depicts.** The correct repair is to re-deploy the EXISTING source object at
+`purpose='logo'` — preserving the artwork, fixing the encoding — which is a
+different operation from the one the other eight ran. **Owner call.**
+
+#### relojistas.com — locked too, and VM-served
+
+`locked_by = 'owner via relojistas-5 session (bugs_open/131)'`, 2026-07-29. It was
+excluded from this run for being `github_repo='vm-sites'`, so the lock was never
+tested — but it would have refused for the same reason. Same owner call as
+robot-hands, plus the VM deploy-path question.
+
+`[MEASURED]` **no other affected site carries a lock**, so nothing owner-approved
+was overwritten by this run. That was checked, not assumed.
+
+#### webdesign.uk — unlocked, but cannot dispatch at all
+
+Still `purpose='hero'`. Blocked by work item `8793da9a`, inserted directly as
+`status='claimed'` (NULL `claimed_at`/`claimed_by`); the selector skips any site
+with a claimed item. Clear that row and this site can be repaired like the other
+eight — subject to the same `vm-sites` deploy-path question.
+
+#### Still owed — the pages have NOT changed yet
+
+All 9 homepages still reference `/assets/images/logo.jpg`, so **a visitor sees no
+difference yet.** The deploy DOES update `sites.content_data.logo_url` to
+`/assets/images/logo.png` (verified on gamesdesign and cookly), so a re-render
+will pick the new file up. Remaining, in order: re-render → then delete the stale
+`logo.jpg`. Prepared statement and its safety reasoning are in the lane's
+scratch SQL; the site-level `needs_rerender` is the right entry point because
+`get_pages_for_rerender` is configured `include_statuses = [deployed, active]`
+and so **cannot** disturb the 26 `needs_rebuild` / 17 `planned` pages that
+predate this work.
