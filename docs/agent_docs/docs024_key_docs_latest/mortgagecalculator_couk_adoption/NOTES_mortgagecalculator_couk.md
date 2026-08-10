@@ -1821,3 +1821,100 @@ Recorded in the handoff as the top open item.
 A PLAN with no run is a claim, not a result — the correction the previous handoff
 earned. So one `acceptance_run` was filed by hand for **stamp-duty** (the
 register-driven one), following the due sweep's own item shape.
+
+### Both new landmines came back NEEDS_HUMAN_REVIEW — and the gap is in the verifier's index, not the entries
+
+Fired `trigger-landmine-verifier.sh` for both new entries (running
+`landmines-verify-dispatch.sh` would have been the *correct* consumer, but the
+previous session's misstep — running `--apply` first and consuming the diff —
+had already happened here, so the two triggers were fired directly from the
+`NEEDS_VERIFICATION:` lines the sync printed).
+
+Both verdicts confirm the core mechanism and then stop:
+
+- *"`ToolDocOpen` returned 0 rows (index cannot represent const/var kinds)"*
+- *"`tool_eligibility.go` (and its symbols `toolSubjectKeyExpr`,
+  `toolEligibilityWhere`) returned 0 rows in both path and symbol searches"*
+
+**Checked, and the verifier is right about itself:**
+
+```sql
+SELECT kind, count(*) FROM code_symbols GROUP BY 1 ORDER BY 2 DESC;
+-- func 3653 | method 1119 | struct 987 | alias 42 | interface 36
+SELECT count(*) FROM code_symbols WHERE path LIKE '%tool_eligibility%';        -- 0
+SELECT count(*) FROM code_symbols WHERE path LIKE '%check_tool_acceptance.go%';-- 21
+SELECT count(*) FROM code_symbols
+ WHERE symbol IN ('toolSubjectKeyExpr','toolEligibilityWhere','ToolDocOpen');  -- 0
+```
+
+**`code_symbols` carries five kinds and `const` is not among them.**
+`tool_eligibility.go` declares *only* constants, so **the whole file is absent
+from the index** — 0 rows, against 21 for the sibling file that happens to
+contain functions. It is not stale and it is not mis-pinned; the file is
+structurally unrepresentable.
+
+Two things follow, and the second is the one that matters beyond this lane:
+
+1. **A landmine whose footprint is a Go `const` cannot currently be verified.**
+   Both of mine are: the subject-key rule *is* `toolSubjectKeyExpr`, and the
+   Tier-2 sentinel *is* `content.ToolDocOpen`. The verifier behaved correctly —
+   it reported NEEDS_HUMAN_REVIEW rather than passing on an absence, which is the
+   right way round (a `0 rows` that reads as "confirmed absent" is the failure
+   mode this estate has logged repeatedly). But the entries most worth verifying
+   are often exactly the ones anchored to a constant, because a constant is what
+   a shared rule gets written as.
+2. **The gap is the index, not the verifier**, so it is wider than landmines:
+   anything reading `code_symbols` — `diagnose_code_lookup`, the council seats'
+   read-only checks — is blind to every Go constant in the estate, and to any
+   file that contains nothing else. `tool_eligibility.go` is a live example of
+   the second case, and it encodes a rule several lanes need.
+
+`[MEASURED 2026-08-10, live DB. Disconfirmable: the same query returns 21 rows
+for the neighbouring file, so a blanket zero was not baked into the check.]`
+Not filed as a bug from this lane — it belongs to whoever owns the code index and
+RFC_005's verification path, and I have not checked whether it is already known.
+
+### All eight fences driven, all eight PASSED — 19:05–19:16Z
+
+`stamp-duty`, `bridging-loan`, `equity-release`, `fee-analyser`, `overpayment`,
+`rate-forecaster`, `repayment`, `simple` — **4/4 checks each on desktop**, mobile
+skipped by design, **zero `acceptance-fail` notes**. Runs were filed by hand
+because the due sweep cannot see seven of the eight pages (the `deployed_at`
+blocker above).
+
+Three of these are worth more than "green":
+
+- **`rate-forecaster` is the encoding proof.** Its `computes-asym` vector asserts
+  `<U+2212>£961.61` as EXACT text, and `computed_values` permits whitespace and
+  nothing else. Passing means the character survived python → JSON →
+  dollar-quoted psql → `doc_plans` → the fence extractor → the Kafka envelope →
+  headless Chromium → the comparison. The DB round-trip I checked earlier covers
+  two of those hops; this covers all of them.
+- **`equity-release` passed where the neighbouring lane's equivalent failed
+  today.** `mortgages-equity-release` FAILED at 03:28 with `#dispAge reads "130",
+  expected "65"` — state bleeding between vectors, because the runner opens ONE
+  page per (url, profile) and runs every check against it with no reload. Ours
+  drives `#erAge` absolutely in every vector, so each check sets its own state and
+  cannot inherit the previous one's. Not foresight on my part: it falls out of
+  emitting every driven input per check. Worth knowing as the reason, though,
+  because a future fence that omits an input from a later vector re-acquires the
+  bug.
+- **`overpayment` is the thinnest fence — 1 assertion per vector** — and that is
+  the honest consequence of dropping `#saveTime` and everything else the model
+  could not reproduce. A fence of four assertions that all mean something beats
+  nineteen that include a duration I could not derive and a prose panel that
+  fails on a copy edit.
+
+**Nothing was armed by installing them.** Re-measured after the runs: zero
+`improve_tool` and zero `acceptance_stuck` items fleet-wide in the surrounding
+three hours, and the only work items anywhere naming the shared `hero` component
+`23f95f00-f293-466e-b43a-81791ea0fc6c` are these eight acceptance runs. That is
+the §3 risk checked *after* the fact as well as before it — the before-check was
+the twelve-page shell sweep, and they agree.
+
+**And the check type is not inert:** 41 `acceptance-fail` notes fleet-wide
+against 118 runs, including the `mortgages-equity-release` one above whose detail
+is the exact `computed value(s) diverge` arm. So "can this fence ever go red?" is
+answered by fleet evidence rather than by deliberately corrupting one of our own
+live PLANs — which would have cost an `acceptance_stuck` item and proved
+something already demonstrated this morning.

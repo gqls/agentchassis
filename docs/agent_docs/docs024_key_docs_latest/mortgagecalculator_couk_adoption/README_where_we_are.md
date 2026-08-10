@@ -971,3 +971,24 @@ as the example. I have not gone in and stamped them, because that would be
 recording a deploy event I didn't witness, on rows sitting in a queue that may
 belong to another lane. It's a small decision but it's yours: either we stamp
 them, or every check on this site has to be filed by hand.
+
+**Later still, 08-10 — all eight passed.**
+
+I fired every one of the eight checking documents at the real system rather than
+leaving them sitting there looking installed. All eight came back green, between
+19:05 and 19:16, four checks each, in a real headless browser against the live
+pages. Nothing was flagged, and nothing was handed to any automated rewriter —
+I re-checked that afterwards as well as before.
+
+Two of those greens are worth a sentence each. The rate forecaster one proves the
+plumbing end to end: it asserts an amount with a proper typographic minus sign,
+and that character had to survive being written by a script, stored as JSON,
+pushed through the database, pulled back out, sent across the message bus and
+compared letter-for-letter in a browser. It did. And the equity release one
+passed where the neighbouring site's equivalent calculator *failed* this morning
+— their test was reusing state from an earlier step and reported someone aged 130.
+Ours sets every field explicitly each time, so it can't inherit.
+
+The open question from the last entry stands unchanged: seven of the eight are
+invisible to the scheduler, so today they only run when someone asks. That's the
+one thing I'd like a steer on.
