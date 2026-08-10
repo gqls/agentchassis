@@ -1046,3 +1046,56 @@ check in the binary, so the only honest proof is watching tonight's sweep produc
 that keeps its seeing half. The query to run is written down; first thing next session.
 
 Everything a fresh chat needs is in one file: HANDOFF_2026-08-10b_continue_here.md.
+
+---
+
+## 2026-08-10, evening — two more tools locked down, and a check we trusted turned out to be checking less than we thought
+
+Two chats got handed the same instruction sheet today. The other one had already been going a
+couple of hours, had finished the darts setup builder and had moved on to a separate problem the
+owner asked about. Rather than quietly do the same work twice, I wrote down who had what — in the
+instruction sheet itself, since that is the one page both chats read — and took the two tools it
+had deliberately left alone: the grip-force calculator and MatchMatrix, both on robot-hands.
+
+**Why it had left them alone, and why it was right to.** When one of these contract checks fails,
+the system does not just report it — it can dispatch an automated rewriter at the page to make it
+pass. Both robot-hands pages are marked as belonging to another workstream. Pointing a robot at
+someone else's page because your own check went red is not a good way to behave.
+
+So before doing anything I checked whether "belongs to someone else" is actually a stop sign. It
+is not: eight tools already under contract sit on pages marked that way. What matters is that
+there is a proper switch for this — a flag on the contract that says *if this fails, tell a human,
+do not send the rewriter*. I confirmed that flag exists in the running system (and again after a
+fresh build landed mid-session), and both new contracts carry it.
+
+**The part worth telling you about.** These contracts work by driving the tool and checking the
+numbers that come out. I had assumed — and this lane had written the same thing down in writing
+this morning — that this doubles as proof the tool actually *showed* the answer to the visitor,
+because a hidden element reads as blank. It does not. I proved it does not, twice: once by
+breaking the "show the results" step and watching every number still check out, and once by
+hiding the panel purely in the styling, changing no code at all. Same result. The browser hands
+back the text of a hidden panel quite happily.
+
+Nothing shipped wrong because of it — both new contracts already had a separate "and the visitor
+can see it" check, and so does the darts one, for a different and genuine reason. But the *reason*
+we had written down was wrong, and that reason was about to be copied into the next dozen
+contracts. It is now recorded in the fleet-wide traps file so the next person gets it for free.
+
+**And a smaller thing that bothered me more.** The tool we use to prove a contract can actually
+fail prints a line at the end saying "checks watched red: 13 of 13". It turns out that line was
+counting what the *author had claimed* each test would break, not what actually broke. So a
+mis-written test file would confidently certify itself as fully covered. It only misleads when a
+run fails, which is why nobody had caught it. Fixed — it now counts what was really observed.
+
+**Where the two tools ended up:** both pass their full contract on the live page, both had every
+single check individually proven capable of going red (13 deliberate breakages each, all caught),
+both contracts are stored and read back byte-for-byte identical, and both passed the real
+end-to-end run on the cluster — twice, since a fresh build rolled halfway through and I did not
+want to quote evidence from the old one. That takes the lane to 59 subjects proven.
+
+**One mistake of mine, recorded properly.** I overwrote the other chat's file because I assumed a
+file with an obvious name was mine to create. Git had a copy, so it cost nothing but a few
+minutes — which is exactly the argument for committing early and often on a tree this busy. The
+near-miss was worse than the mistake: the next step would have quietly replaced their finished
+work in the live database with a fresh copy of itself, destroying the evidence trail they had just
+written down. Both are written up.
