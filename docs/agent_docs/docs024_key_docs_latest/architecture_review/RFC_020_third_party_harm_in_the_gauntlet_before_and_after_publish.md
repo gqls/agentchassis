@@ -231,7 +231,7 @@ scope note is wanted on **both** surfaces rather than in terms alone.
 |---|---|---|
 | §5.1 `noindex` | shipped by another session as an opt-in `pages.noindex` field | `bugs_open/232`, mig 352 |
 | §5.2 refuse to publish a naming round | **committed, NOT live** — ships from the island VM, not the chassis | `3ec99efb1`, council `73dc4e78` APPROVED |
-| §5.3 report/takedown route | **NOT BUILT** | — |
+| §5.3 report/takedown route | **LIVE on the round record page 2026-08-10** | see below |
 | §5.4 scope of the verdict | **LIVE on both surfaces 2026-08-10** | see below |
 
 **§5.4 as built.** The wording differs by surface, deliberately, because the
@@ -248,6 +248,43 @@ read by strangers, while the record page is read *about* somebody else's round.
   Static markup inside `.gr-ruling`, between the verdict and the reasons, so a
   reader who stops after the ruling line has still read it. Verified on the
   served page at 4.93:1 contrast.
+
+**§5.3 as built.** Owner ruling of the same evening on the two open details:
+*"no stated time, and address can be the email"*.
+
+- **Route:** `mailto:vonc@contactforsales.com`, in the round record page footer,
+  **immediately after the sentence asserting that nobody is named** — which is
+  precisely the sentence a complainant is disputing. Wording: *"Does this page say
+  something about a real person or business? **Report this page** — please include
+  its web address in your message. Every report is read, and anything we cannot
+  stand behind comes down."*
+- **The address is `sites.email`**, the only one of the three identity stores that
+  holds anything for vonc.com (the two `site_specs` paths are both empty here — see
+  LANDMINES, *"A site's contact email lives in THREE stores"*).
+- **No response time is published, by ruling.** "Every report is read" is a
+  commitment one operator can keep without a rota; a number would be a promise the
+  staffing cannot back, and a *missed published deadline* is worse evidence about an
+  operator than no published deadline. Anyone adding one later owns it.
+- **Static `mailto`, no JS.** The href survives a payload missing a field, a script
+  error, and all three non-success states `drive_round_record.py` checks — which is
+  why the reader is asked to paste the address rather than having the slug injected.
+- **The process is `gauntlet_dead_cta/PROCESS_report_and_takedown.md`.** Its default
+  is take-down-first: a round is one anonymous person's argument on a debate toy,
+  worth approximately nothing to us and potentially a great deal to the person named.
+  It also carries the cache trap — `provocStore` (`round.go:25-29`) serves for up to
+  five minutes after the row says unpublished, so a takedown is verified at the URL,
+  never at the row.
+- **Verified at the artefact with a demand control**, not a bare post-hoc positive:
+  `"Every report is read"` was **0** on the served page before the rerender and **1**
+  after, same URL, same cache-busted fetch. Both §5.4 markers still 1 — the delivery
+  did not cost the earlier work. ⚠ `contactforsales` alone is a **false marker**: it
+  already appeared once on the page from the site footer, so a grep for the address
+  would have reported success before anything shipped.
+
+⚠ **What §5.3 does not do.** It is a route and a procedure, not a control. With §5.2
+built and not live, the platform still has **no automated check that stops a round
+naming somebody** — this process is carrying that gap on its own, and the process doc
+says so in as many words.
 
 **What §5.4 does NOT do**, restating §5.4's own caveat now that it is built: this
 is a supporting control. It makes the artefact honest about what it is; it does

@@ -175,6 +175,21 @@
     margin: 0 0 1.2rem;
   }
 
+  /* RFC_020 §5.3 — the report link.
+     --gr-accent-text (#ffc9d6), NOT the lighter #ffd9e2 the ruling scope uses.
+     The two are not interchangeable and the reason is the background, not taste:
+     #ffc9d6 was measured at 4.9:1 on the BARE purple, and .gr-foot sits on bare
+     purple. The scope line needed #ffd9e2 only because .gr-ruling paints
+     --gr-surface on top, compositing to rgb(118,53,219) and dropping #ffc9d6 to
+     4.42:1. Using the lighter one here would be harmless; using this one INSIDE
+     .gr-ruling would not. A token's measured ratio does not travel with it into
+     a tinted box. */
+  .gauntlet-record-section .gr-report-link {
+    color: var(--gr-accent-text);
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+  }
+
   .gauntlet-record-section .gr-cta {
     display: inline-block;
     background: var(--gr-accent);
@@ -272,6 +287,34 @@
           This is one round of The Gauntlet, published by the person who argued
           it when they shared their card. Nobody is named and no account exists:
           the record keeps the argument, not the arguer.
+        </p>
+        <!-- RFC_020 §5.3 — the report route, immediately after the sentence it
+             qualifies. The paragraph above asserts that nobody is named; this is
+             what a reader does when that turns out to be wrong about them, and
+             putting the two anywhere apart would be a worse design than either
+             alone.
+
+             WHY IT IS ON THE PAGE AND NOT ONLY IN TERMS: §1.4 — the poster cannot
+             be identified, which is the condition under which an operator has to
+             rely on a proper notice-and-takedown process, and until now there was
+             no published route to complain at all. A route nobody can find is the
+             same as no route.
+
+             NO RESPONSE TIME IS STATED (owner ruling 2026-08-10). "Every report is
+             read" is a commitment we can keep with one operator and no rota; a
+             number would be a promise the staffing cannot back, and a missed
+             published deadline is worse evidence than no published deadline.
+
+             STATIC mailto, deliberately: no JS sets this href, so it survives a
+             payload with a missing field, a script error, and the three non-success
+             states drive_round_record.py checks. That is why the reader is asked to
+             paste the address rather than having the slug injected for them. -->
+        <p class="gr-report">
+          Does this page say something about a real person or business?
+          <a class="gr-report-link"
+             href="mailto:vonc@contactforsales.com?subject=Gauntlet%20round%20report">Report
+          this page</a> &mdash; please include its web address in your message.
+          Every report is read, and anything we cannot stand behind comes down.
         </p>
         <a class="gr-cta" href="/tools/gauntlet/index.html">Argue your own round</a>
       </div>
