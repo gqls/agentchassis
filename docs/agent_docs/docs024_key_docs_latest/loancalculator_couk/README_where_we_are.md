@@ -1495,3 +1495,35 @@ That second fault is the one thing still outstanding, and it needs a decision fr
 point, because the two ways to fix it are genuinely different — one is a small config change
 to this planner only, the other is a change to shared machinery that every plan-writing agent
 uses. I have not touched it. Everything else on this job is done and written up.
+
+---
+
+**Monday morning, 10 August.** Two things this morning. First, the fix from Saturday survived
+the new build — I checked it against the freshly rolled system rather than assuming, and while
+I was there I finally pinned down something Saturday's notes had left as a mystery. Every
+deploy quietly touches almost every agent record in the database, which had looked like it
+might be overwriting our configuration changes on each release. It isn't: it only stamps which
+image each agent should run. I measured it column by column across the roll — 189 records had
+their image tag updated, four had configuration changes, and all four belong to other people's
+work. **So a database-only fix survives a rebuild.** That is worth knowing generally, because
+it is the thing that makes a config change safe to ship without waiting for a build.
+
+Second, you chose the smaller of the two routes for the remaining fault — the one where a plan
+was being saved as official before the review council had voted on it. That is now done and
+live. The plan is only written once the council approves; a vetoed or escalated run leaves
+nothing behind. It also fixes something we hadn't framed as a fault: a run that took three
+attempts used to leave three plans behind, each briefly official. Now it leaves one.
+
+One honest caveat, and I want to be plain about it because it is the same trap I fell into on
+Saturday. I have a test running that proves the approved path writes exactly one plan instead
+of three. That is real evidence, but it is evidence about the path that was already working.
+**The whole point of this fix is what happens when the council says no — and I cannot make the
+council say no on demand.** Both runs so far were approved. So I have recorded this as proven
+for the approved case and still owed for the rejected one, rather than calling it finished. It
+needs either a natural rejection to come along, or a deliberately impossible experience seeded
+to force one.
+
+The one thing I'd flag for later: running the planner to check something *changes that site's
+official plan*. There is no dry-run. That is how Saturday's test quietly replaced the other
+site's plan, which I put back. The larger of the two routes you didn't pick would also have
+fixed that, so it may be worth revisiting if this bites again.

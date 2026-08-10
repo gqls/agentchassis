@@ -4395,3 +4395,49 @@ intact, and both plans of record unchanged (`debt-difficulty-help` 4bfcb286 clea
 > replay seeds over `default_config`.** DB config survives a rebuild. I chased this because
 > if it had been a seed replay, 345 would have been erased by the next deploy — and the
 > disconfirming result was available all along (a seed replay changes ~190 configs, not 4).
+
+## 2026-08-10 — 227 second defect fixed: migration 363, persist only after approval
+
+**Owner decision: route (a), the config-only rewire** — not the `write_doc_plan`
+`set_current_when` seam. Dry-run first (guards + verify passed, rolled back, no trace
+confirmed: graph still pre-363, 0 backup rows), then applied ~10:40Z.
+
+Six edges. `compose`/`recompose`/`reframe` → `review_journeys`;
+`check_approved.then_step` → `persist_plan`; `persist_plan.next_step` → `complete`;
+`complete_escalated.output_fields` drops `plan_persisted`. Persist is now reachable **only**
+from the approved branch.
+
+**The verify block asserts the PROPERTY, not the writes.** It counts steps other than
+`check_approved` that reach `persist_plan` and requires 0 — because `jsonb_set` on a wrong
+path **adds a key instead of failing**, so "the value I wrote is there" would have passed
+even if I had written it somewhere harmless. Reading back the six fields I set could never
+have caught a mis-pathed edit; counting the reachable edges can.
+
+**The assumption I checked before moving the write.** Persist reads
+`plan_body_field: proposal.result`, and it now runs much later in the graph. If `recompose`
+declared its own output field, the rewire would have persisted the **first draft** on every
+revise round — a wrong-content failure that looks like success. It does not:
+`compose`, `recompose` and `reframe` all declare `output_field: proposal`. Confirmed against
+the two 08-09 runs, not read off the config alone —
+`length(collected_data->'proposal'->>'result')` equals the length each run actually persisted
+(11,442 and 13,840).
+
+**Stated loss:** nothing is persisted on the escalated path now, so
+`complete_escalated.output_fields` would have referenced a value that no longer exists. The
+escalated plan survives in `collected_data->'proposal'->>'result'` and `llm_call_log`.
+Persisting it *not-current* requires route (b). I rejected persisting under a derived
+`subject_key` (`'<key>:escalated'`) — it invents a convention nothing else knows to read.
+
+### The verification is PARTIAL and I am recording it as partial
+
+Fired `9150dd54-6129-464b-8600-771e0a84408a` at 10:44:47Z, `debt-difficulty-help` plan-row
+baseline **5**. It tests the **approved** arm through a signal that could not have come out
+the same before: an approved run taking N compose rounds used to write N rows (08-09 wrote
+**three** for one approval) and must now write **exactly one**.
+
+**But 363 exists for the REJECTED arm, and that arm is unobserved.** Both 08-09 runs were
+approved and a veto cannot be induced on demand. So: proven for the approved path, **owed**
+for the vetoed one — either wait for a natural veto or seed a deliberately unbuildable
+experience and assert no new row. Writing this down explicitly because this lane has already
+produced one check that could not fail, on this same bug, two days ago. **An approved run is
+not evidence about the rejected path**, however green it comes back.
