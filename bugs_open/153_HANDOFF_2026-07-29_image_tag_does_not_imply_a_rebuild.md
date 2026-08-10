@@ -1,6 +1,68 @@
 # BUG 153 — an IMAGE_TAG bump does not imply a rebuild: nothing ties a tag to the code it was built from
 
-> ## STATUS 2026-08-10 — **OWNED, FIX BUILT AND COMMITTED, NOT YET LIVE.** Candidates 1+4 done; 2+3 deferred on purpose
+> # ✅ FIXED AND LIVE — `v1.0.1283`, 2026-08-10 21:43Z. **14 of 14 backend services now say what commit built them.**
+>
+> **The close condition in § "How to verify a fix" is met.** Both `agent-chassis` replicas, and
+> every other backend service, carry the sha of the commit their image was built from. Before
+> this roll the count was **0** on every service, for the whole life of the platform.
+>
+> ```
+> stamp on the live fleet:  d3c09cc746e563b6339831cfb69576eb52135c43
+> resolves to:              commit d3c09cc, 2026-08-10 20:40:17 +0100
+> that tree contains:       pkg/buildinfo ✓ · 14/14 dockerfiles stamped ✓ · 14/14 mains importing ✓
+> ```
+>
+> **Controls, on `agent-chassis`** (the discriminating set — a positive alone proves nothing):
+>
+> | probe | result | meaning |
+> |---|---|---|
+> | the real sha | **3** | stamped |
+> | a fabricated sha | **0** | the grep is not matching everything |
+> | **a real but DIFFERENT commit** (current HEAD) | **0** | **the stamp is specific, not "some sha"** |
+> | `orchestration` (positive control) | 8562 | the probe works at all |
+>
+> **Second, independent witness** — the startup log, which agrees with the binary:
+> `{"msg":"build provenance","git_commit":"d3c09cc746e563b6339831cfb69576eb52135c43"}`
+>
+> **All 14 services verified** `[MEASURED]`: agent-chassis (both replicas), auth-service,
+> core-manager, reasoning-agent, web-search-adapter, web-scrape-adapter, git-adapter,
+> image-generator-adapter, thunder-adapter, analyser-adapter, browser-runner-adapter,
+> content-creator-agent, remote-job-spawner, kafka-scheduler — same sha on every one.
+>
+> > **⚠ THE PROBE THAT VERIFIES THIS IS ITSELF A TRAP, AND IT FOOLED ME FIRST.** Two services
+> > initially read as unstamped. Both were false:
+> > - **`git-adapter`** — `ls /root/git-adapter` fails on *permissions* as `appuser`, which
+> >   reads as "no binary". Use `/proc/1/exe`.
+> > - **`browser-runner-adapter`** — the fleet's only **debian-slim** image ships no binutils,
+> >   so **`strings` is command-not-found**, and the `2>/dev/null` in every published pod-grep
+> >   recipe turns that into a silent `0`. I briefly believed this mechanism had caught a stale
+> >   image on its first run. It had not; my probe had failed. Caught by the pod's `imageID`
+> >   digest **matching** the local image's `RepoDigest`, which contradicted the conclusion.
+> >
+> > **So verify with `grep -aq "<expected-sha>" /proc/1/exe`** — no binutils, any image base,
+> > any binary path — and **never with a discovery grep**: without `strings`' line boundaries
+> > there is nothing to anchor, and `grep -aoE "[0-9a-f]{40}"` returns Go's internal digit
+> > table (`000102030405…`) identically on every service. **Ask "does this pod carry sha X",
+> > never "what sha does this pod carry".** Both traps are in `LANDMINES.md`; the near-miss is
+> > in `WRONG_CALLS.md`. This is why CLAUDE.md's own `strings`-based recipe is now unsafe on
+> > debian-based services fleet-wide.
+>
+> **What is still genuinely owed** (so this is not over-reported):
+> 1. **The induced-fault test (RUNBOOK R6)** — bump `IMAGE_TAG`, push+deploy *without* build,
+>    confirm the pod reports the OLD sha under the NEW tag. Everything above proves the
+>    mechanism works on an **honest** roll; only R6 proves it catches a **dishonest** one,
+>    which is the actual defect. Needs an owner cycle.
+> 2. **The two CronJob images** (`component-render-check`, `shared-output-fields-check`) carry
+>    the OCI label but their binaries are unstamped by design — labelled ≠ stamped.
+> 3. **Candidates 2 and 3 remain unbuilt on purpose.** This **detects** a retag; it does not
+>    refuse one.
+>
+> **File stays in `bugs_open/` per the owner ruling of 2026-08-06** (fixed bugs stay), and
+> because item 1 above is a real outstanding proof, not bookkeeping.
+>
+> ---
+>
+> ## STATUS 2026-08-10 (earlier) — **OWNED, FIX BUILT AND COMMITTED, NOT YET LIVE.** Candidates 1+4 done; 2+3 deferred on purpose
 >
 > Lane: `docs/agent_docs/docs024_key_docs_latest/bugfix_153_build_provenance/` (standing five).
 > Register: **BLD-019** in `docs026_concept_register/register/build-pipeline.md`.
