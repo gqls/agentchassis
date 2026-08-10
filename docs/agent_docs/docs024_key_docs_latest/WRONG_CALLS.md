@@ -25870,3 +25870,48 @@ impossible to distinguish from it.
 **Cost:** none — caught pre-commit. Had it shipped, `bugs_open/240` would carry an over-strong,
 dated, `[MEASURED]` sample count in the section a fixing thread most needs to trust, because §4 is
 the part that says the existing cleanup cannot be relied on.
+
+---
+
+## 2026-08-10 — `loancalculator_couk` / `bugs_open/227` — my verification count was inert because the discriminating work was done by the RUN, not by the fix (second inert check in three days, same bug)
+
+**The claim.** Migration 363 moves the experience planner's `persist_plan` onto the approved
+branch, so no plan is written before the council votes. Verification, written into the
+migration header, the lane handoff and my own report to the owner: *an approved run that takes
+N compose rounds used to write N plan rows and must now write exactly ONE.* The run came back
+approved with exactly one new row — baseline 5 → 6, one current. I was about to report it as
+proof.
+
+**Why it was wrong.** The run was approved on **round 1** (`compose` ×1, no `recompose`, no
+`reframe`). **A single-round run writes exactly one row under the OLD graph too**, so "1 row"
+is the same answer before and after the fix. The signal only discriminates at two or more
+rounds. The 2026-08-09 run wrote three rows because it took three rounds — the round count was
+doing all the work, and I generalised the row count without noticing that.
+
+**What caught it.** Asking what the number would have been under the old graph *for this
+particular run* before reporting it. One query: count `compose`/`recompose`/`reframe` rows in
+`llm_call_log` for the correlation.
+
+**What actually proved the fix, and it was luck that I had it.** The **ordering**. The old edge
+was `compose → persist_plan → review_journeys`, so under the old graph a row exists by the time
+the run reaches any review step. Sampled mid-flight while checking progress, the run was
+`EXECUTING_STEP|review_journeys` with the count still at the pre-run baseline of 5 — past the
+point where it used to persist, having written nothing. That observation discriminates on any
+run, needs no multi-round run and no veto, and I took it almost by accident.
+
+**The cheap check that would have caught it: name the property of the run that makes the
+number differ.** A count-based assertion inherits its power from the *input*, not the change —
+so before trusting one, state which feature of *this* execution makes old and new disagree. If
+the answer is "nothing", the check is inert for it. This is the generalisation of the
+`[MEASURED]`-but-undisconfirmable rule already in this file: **it is not enough for the
+measurement to be real and dated; the specific instance you measured has to be one where the
+two hypotheses predict different results.**
+
+**Why this entry is worth the space: it is the SECOND inert check in three days, from one
+lane, on one bug, and the two look nothing alike.** 08-09 was a *string* assertion whose needle
+was planted in the haystack by the change under test. 08-10 is a *count* assertion whose
+discriminating power came from a property of the run. Different mechanisms, one shape: **an
+assertion that returns the expected answer for a reason unrelated to what is being tested** —
+and in both cases the reassuring answer arrived on the first try, from a check that had been
+reviewed as sound and written into three documents. The tally is the point: for this class,
+"did it pass?" is the wrong question and "could it have failed, here, today?" is the right one.
