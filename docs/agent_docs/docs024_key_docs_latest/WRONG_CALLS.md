@@ -26986,3 +26986,63 @@ in the thing being checked (the neighbouring lane's `steps_map` dropping
 newly-written checker reports a large, clean, suspiciously well-formed
 discrepancy, suspect the checker first.** The defect it was written to find is the
 most available explanation, and availability is doing the work, not evidence.
+
+---
+
+## 2026-08-10 — "the 39 pages we unlocked carry no calculator" (migration 367). Six of them did, and the migration's own negative control could not have said otherwise
+
+**The claim, written in a migration's header, a handoff, a RUNBOOK section and a
+commit message:** that migration 367 had unlocked only the prose pages on
+loanandmortgagecalculator.co.uk + loancash.co.uk, refusing the 20 that carry a
+calculator, *"because the flag is the only thing stopping a clobber"*. Stated with
+the split (24/15 unlocked, 17/3 refused) and marked verified.
+
+**What was false:** six of the 24 LMC pages it unlocked are calculators —
+compare-loans, interest-rate-stress-test, loan-vs-savings, settlement-calculator,
+damage-checker, fact-finder. They stayed unlocked for ~7 hours while sitting at
+`build_status='needs_rebuild'` as single verbatim rows with open rerender items, on
+a path whose previous run had been stopped only by the flag that had just been
+removed.
+
+**Why the classifier missed them:** it read `rendered_html ~ 'onclick=|addEventListener'`.
+These six bind `oninput=`/`onsubmit=`/`onchange=`, and two keep their listeners in
+the shared `/assets/js/calculators.js` — **outside the column being searched**.
+
+**What caught it:** listing the pages to plan the *next* task and noticing the
+unlocked set disagreed with `decompose_lmc.py`'s hand-authored `CALCULATOR_URLS`.
+Nothing sophisticated: two lists, side by side, from independent authors.
+
+**The cheap check that would have:** the same query with two more spellings OR'd in
+(`<input |<select |<textarea `, `getElementById|querySelector`) — one edit, and the
+six light up on all three axes while the other 32 pages light up on none.
+
+**The reason this is a WRONG_CALLS entry and not just a bug:** 367 *did* carry a
+negative control for exactly this failure ("17 + 3 tool pages must still be owned"),
+it *was* induced, and it *did* abort on the induction. It was written by a session
+following this repo's rules properly. **It was built from the same expression as the
+filter, so it could only ever agree with it.** The induction proved the `RAISE`
+fires; nobody had a way to learn the population was wrong. Generalised:
+`MEMORY.md`'s "two checks blind the SAME way AGREE" already says this — what is new
+is that it now has a case where the blind pair was a *filter and its own control*,
+which is the pairing least likely to be questioned. **A control has to disagree with
+its subject somewhere, on some input, or it is a restatement.**
+
+## 2026-08-10 — and immediately afterwards, my own replacement check passed an induction it should have failed
+
+**The claim:** that migration 377's assertion 1 compared the re-locked set *exactly*
+against the independent `CALCULATOR_URLS` list, in both directions.
+
+**What was false:** it compared `url` alone. `pages.url` is not unique across these
+two sites — both have `/guides/jargon-buster.html` and `/legal.html`. Inducing a
+deliberate over-lock of "one" page stamped **two** rows, and the assertion reported
+`missing=[-] unexpected=[-]`: it passed on a population it had never matched.
+
+**What caught it:** running the induction, ten minutes after writing the paragraph
+above about controls that cannot disconfirm. Reading it did not; the SQL looks right.
+
+**The cheap check that would have:** `SELECT url, count(*) FROM pages WHERE site_id
+IN (…) GROUP BY 1 HAVING count(*) > 1` before keying anything on `url`. Now keyed on
+`domain || '|' || url`.
+
+**Tally note:** this is the fourth time on this lane that the induction, not the
+review, found the defect in the checker. The three earlier ones are above.
