@@ -134,3 +134,69 @@ families 2/3 (primary used as ink) covers 5 sites and ~51 live components, and
 3. If the owner has ruled on **D1**, the work is a palette fork + a re-render, and the
    before/after audit must be run **both** sides (113's own transferable lesson).
 4. If not, the highest-value work on this front is **D5**, not 113.
+
+---
+
+## ADDENDUM (evening) — the repair was ATTEMPTED and is BLOCKED on a platform gap. D1 is superseded by D1a
+
+Owner said "go ahead with ai-agent-orchestration — use the easiest palette, dark or light".
+**Dark chosen** (pin, `style_direction`, `colour_mood` and the site's own `avoid` list all
+say dark). **The repair did not land.** Full evidence in `bugs_open/113`, last two sections.
+
+**What happened:** queued `needs_design` `f7ceba19` → `webdesign-agent`. It reported
+`complete` in 2 minutes and **changed nothing** — no palette row, collection unchanged,
+`styles.css` last-modified hours earlier, `card_bg` still `#ffffff`.
+
+**What it did prove:** its `result.color_scheme` is the pinned DARK palette byte-for-byte.
+The long-standing `[UNMEASURED]` worry — that a re-render would pull in the stale light
+`design_intent.color_scheme` — is now **settled twice over** (by reading
+`extractPaletteSignal`, and by observing the run). Do not re-raise it.
+
+**The gap, and it is the real finding:**
+- `should_fork_theme` contributes a **library** theme; it explicitly does **not** touch
+  `sites.style_collection_id` (`fork_theme_from_site_action.go:3-13`).
+- That file names `site-design-planner` / `install_site_composition` as the only installer.
+- `install_site_composition_action.go:148-158` **loud-fails on a site that already has a
+  collection**, recommending *"clear sites.style_collection_id manually"*.
+- Every `needs_composition` row ever written carries `reason: no_style_collection`.
+
+**So: the platform can compose a site that has nothing, and cannot re-compose one that has
+the wrong thing.** That is why this site's own `47ce091c` has sat `unresolved after 2
+attempts` since 2026-08-06 — the detector is correct and no handler can satisfy it.
+
+### D1a — the decision that replaces D1 (owner)
+
+**Option 1 — do the operator action (2 statements, ~5 min).**
+```sql
+-- rollback value: 3196d966-24ef-4415-9dc8-1afbc02166ca
+UPDATE sites SET style_collection_id = NULL WHERE domain='ai-agent-orchestration.com';
+-- then INSERT a needs_composition item, status 'triaged', handler site-design-planner
+```
+*Risk, stated plainly:* between the clear and the re-resolve the site has no composition,
+and anything that renders in that window hits the loader's **emergency fallback**
+(`render_css_composition_loader.go:144-158`) and could deploy a `standard-brochure`
+stylesheet over a live site. One in-flight item (`e97fb5c5`) could do exactly that. The
+window is short and the rollback is one statement, but it is a real window.
+**This needs explicit owner approval — the permission layer already declined it once.**
+
+**Option 2 — fix the mechanism instead.** Give `install_site_composition` a supported
+re-resolve path (an explicit `allow_reinstall` flag, unsafe default OFF, per the owner's
+2026-08-02 RFC_010 ruling on opt-in fields). Costs a council round; closes the class, makes
+`47ce091c` satisfiable, and removes the manual window for every future case. **Recommended
+if this will ever happen again — and `47ce091c` proves it already has.**
+
+**Option 3 — leave the site.** Its 38-of-58 white-card failures stay.
+
+### Paired baseline is already recorded, so whoever acts can finish the measurement
+
+`BEFORE` (2026-08-10, 3 pages): **58 failures** — 38 on `rgb(255,255,255)`, 4 on
+`rgb(248,249,250)`, 14 on the dark grounds (primary-as-ink, NOT this fix), 1 over-image.
+**Prediction recorded before the fact: ~42 fewer, ~15 remaining.** A drop to near zero
+means something else changed and this fix should not be credited.
+
+### Also found this session, unfiled
+
+**`needs_design` / `needs_composition` items are stranded at `detected`.**
+`claim_work_item_action.go:102` claims only `triaged`/`approved` and nothing promotes them;
+I had to promote mine by hand. Three were stuck, one (`loancalculator.co.uk`) for ~33h.
+Matches the standing "detection works; schedule and dispatch do not" pattern. Not filed.
