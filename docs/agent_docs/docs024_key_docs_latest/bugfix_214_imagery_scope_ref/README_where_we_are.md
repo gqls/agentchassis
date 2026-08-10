@@ -150,3 +150,28 @@ Two things still owed, and I want to be plain that they are not done:
 One of the ten cannot be repaired by any script: mortgagecalculator.co.uk has a label
 pointing at a page that does not exist under any spelling. Someone has to decide what it
 was meant to be. I have left it alone rather than guess.
+
+## 2026-08-10 (later) — the review council could not run, and that is a fleet problem, not this fix's
+
+I sent the change to the reviewer council as usual. It came back with no verdict at all
+— not an approval, not a rejection. The run died part-way through with an error from
+Anthropic saying the account **has hit its API usage limit and regains access on
+1 September**.
+
+I checked whether that was something about my submission or something about all of us:
+**four of the last five council runs died the same way**, and seven jobs across the fleet
+died on that same message in the last few hours. So the review gate is effectively
+switched off for everyone until the credit window resets, and it is worth you knowing
+that independently of this bug — anything else submitted today has not been reviewed
+either.
+
+Two honest consequences for this piece of work:
+
+1. **This change has not been reviewed by anyone.** The code is committed and on the
+   shared branch, which is how this estate works, but the usual second pair of eyes did
+   not happen. I have not marked it as reviewed, because it wasn't.
+2. **The marker I put on the commit will never clear itself.** It points at a review run
+   that no longer exists, so the coverage report will keep listing this change as
+   un-reviewed until somebody resubmits it. The submission is written and committed and
+   ready to go; it just needs firing again when there are credits. I have written that
+   into the bug file so it is not lost.

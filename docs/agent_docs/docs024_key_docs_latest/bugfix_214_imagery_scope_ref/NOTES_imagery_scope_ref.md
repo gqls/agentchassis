@@ -189,3 +189,51 @@ population rather than a fixed backlog. No rows invented for them.
   data, and applying it before the code rolls buys exactly one plan generation.
 - Existing LANDMINES entry for this mechanism **corrected in place** (its check
   measured the harmless half and pointed at the wrong table) rather than duplicated.
+
+## 2026-08-10 (later) — the council run DIED; there is no verdict and there will not be one
+
+Polled the submission and read the result rather than assuming latency:
+
+```sql
+SELECT current_step, status FROM orchestration_states
+WHERE collected_data->'input_data'->>'fix_correlation_id' = '46a50b4c-...';
+--  complete_invalid | COMPLETED
+
+SELECT ... FROM diagnosis_artifacts WHERE correlation_id='46a50b4c-...'
+  AND kind='council_report';
+--  (0 rows)
+```
+
+`complete_invalid` with **zero** report artifacts is the council's generic "I could not
+run" state — **not** a REJECTED verdict, and not latency. The cause, from
+`collected_data->'__step_error'`:
+
+```
+step review_editquality failed: ... provider=anthropic model=claude-sonnet-5
+API request failed with status 400: "You have reached your specified API usage
+limits. You will regain access on 2026-09-01 at 00:00 UTC."
+```
+
+**Established as fleet-wide, not a fault in this submission** (the landmine for this
+class says to distinguish the three cases by *message body*, not by step name):
+
+| check | result |
+|---|---|
+| council-gate runs, last 6h | **4 `complete_invalid`**, 1 `complete_approved` |
+| orchestrations dead on `%usage limits%`, last 12h | **7**, from 14:42Z to 17:02Z |
+
+So the gate is effectively down for the fleet until the credit window resets. This is
+the already-recorded landmine ("an API usage-limit death looks exactly like a transient
+seat fault"); **no new landmine filed** — a second entry for one trap makes the reader
+arbitrate.
+
+**Consequence that must not be lost:** `Council-Submitted: 46a50b4c-...` on commit
+`c21af5eda` names a correlation that **can never be approved**, because the run is dead.
+098 resolves trailers at report time, so this commit will read as un-reviewed for ever
+unless someone **resubmits** once credits return and records the new correlation. The
+trailer is still the honest thing to have written — it asserts nothing, and I have not
+written `Council-Reviewed:` on a verdict I never read.
+
+**Resubmitting now is pointless** (three-week window). The submission JSON is committed
+and ready: `COUNCIL_SUBMISSION_2026-08-10.json`, resubmit with
+`RESUBMIT_CORR=46a50b4c-f00d-4492-b7fd-ce5dc2023480` so the trail accumulates.

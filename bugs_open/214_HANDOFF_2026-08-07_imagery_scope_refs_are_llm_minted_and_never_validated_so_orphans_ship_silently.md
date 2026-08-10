@@ -278,3 +278,24 @@ with the coupling pinned by a test.
 
 Council: `Council-Submitted: 46a50b4c-f00d-4492-b7fd-ce5dc2023480` (verdict pending;
 098 credits the commit automatically on approval).
+
+> ### 2026-08-10 (later) — CORRECTION to the line above: the council run DIED, there is no verdict
+>
+> The `Council-Submitted:` line at the end of the previous section is accurate but
+> incomplete, and the difference matters. The run ended `current_step='complete_invalid'`
+> with **zero** `council_report` artifacts — the council's generic "I could not run"
+> state, **not** a REJECTED verdict and **not** queue latency. Cause, from
+> `collected_data->'__step_error'`: `review_editquality` failed with
+> *"You have reached your specified API usage limits. You will regain access on
+> 2026-09-01 at 00:00 UTC."*
+>
+> **Fleet-wide, not this submission:** 4 of the last 5 council-gate runs ended
+> `complete_invalid`, and 7 orchestrations died on that same message between 14:42Z and
+> 17:02Z. The gate is down until credits reset.
+>
+> **So this change is UNREVIEWED, and the trailer on `c21af5eda` will never resolve** —
+> 098 credits a correlation at report time, and this one has no report. Whoever picks
+> this up: resubmit `COUNCIL_SUBMISSION_2026-08-10.json` (committed, ready) with
+> `RESUBMIT_CORR=46a50b4c-f00d-4492-b7fd-ce5dc2023480` once credits return, and record
+> the new correlation here. Do **not** write `Council-Reviewed:` — nobody has read a
+> verdict on this.
