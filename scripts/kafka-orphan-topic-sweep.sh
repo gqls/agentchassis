@@ -81,23 +81,52 @@ echo "protect window: $PROTECT_WINDOW   mode: $([ $APPLY -eq 1 ] && echo APPLY |
 # Writing to a file in the pod first and reading it back is stable to the row.
 # A truncated list here is not merely inaccurate, it silently under-deletes and
 # makes both refusal guards below meaningless.
-fetch_topics() {
-  kubectl -n "$NS_KAFKA" exec "$KAFKA_POD" -- bash -c \
-    'bin/kafka-topics.sh --bootstrap-server localhost:9092 --list > /tmp/sweep_topics.txt 2>/dev/null; cat /tmp/sweep_topics.txt' \
-    2>/dev/null
+# `cat`ing the file back is NOT a fix — that streams down the same pipe and
+# truncates identically. Only a tiny payload (a count) survives the exec channel
+# reliably. So: build the list in the pod, ask the POD for the authoritative line
+# count, copy the file out with `kubectl cp`, and refuse unless the copy has
+# exactly that many lines. The count is the checksum for the transfer.
+# ⚠ AND THE BROKER'S /tmp IS A 5 MB tmpfs. The topic list alone is ~1.8 MB. If
+# you fill it, `kafka-topics.sh --list > file` writes ZERO BYTES AND STILL EXITS
+# 0 — a full disk is indistinguishable from an empty cluster unless you check.
+# So: check free space first, and always clean up after yourself. (I filled it
+# during this investigation and spent a while diagnosing a "truncation" that was
+# actually ENOSPC of my own making.)
+POD_LIST=/tmp/sweep_topics.txt
+POD_RAW=/tmp/sweep_raw.txt
+cleanup_pod() {
+  kubectl -n "$NS_KAFKA" exec "$KAFKA_POD" -- rm -f "$POD_RAW" "$POD_LIST" >/dev/null 2>&1
 }
-fetch_topics | grep '^job\.' | sort -u > "$WORK/job_topics.txt"
-TOTAL=$(wc -l < "$WORK/job_topics.txt")
+trap 'cleanup_pod; rm -rf "$WORK"' EXIT
 
-# Stability check: read twice and require agreement, so a truncated read cannot
-# quietly set the scope of a mass deletion.
-fetch_topics | grep -c '^job\.' > "$WORK/recount.txt"
-RECOUNT=$(cat "$WORK/recount.txt")
-echo "job.* topics found: $TOTAL (recount: $RECOUNT)"
-if [ "$TOTAL" -eq 0 ]; then echo "nothing to do"; exit 0; fi
-if [ "$TOTAL" -ne "$RECOUNT" ]; then
-  echo "REFUSING: two consecutive listings disagree ($TOTAL vs $RECOUNT)."
-  echo "The topic listing is truncating; deleting from a short list is unsafe."
+FREE_K=$(kubectl -n "$NS_KAFKA" exec "$KAFKA_POD" -- bash -c \
+  "df -k /tmp | tail -1 | awk '{print \$4}'" 2>/dev/null | tr -d ' \r')
+echo "broker /tmp free: ${FREE_K:-?}K"
+if [ -n "$FREE_K" ] && [ "$FREE_K" -lt 3000 ] 2>/dev/null; then
+  echo "REFUSING: under 3 MB free on the broker's /tmp. The listing needs ~1.8 MB"
+  echo "and a short write there exits 0, so this cannot be checked afterwards."
+  exit 1
+fi
+
+kubectl -n "$NS_KAFKA" exec "$KAFKA_POD" -- bash -c \
+  "bin/kafka-topics.sh --bootstrap-server localhost:9092 --list > $POD_RAW 2>/dev/null; \
+   grep '^job\\.' $POD_RAW | sort -u > $POD_LIST" \
+  >/dev/null 2>&1
+POD_N=$(kubectl -n "$NS_KAFKA" exec "$KAFKA_POD" -- bash -c "wc -l < $POD_LIST" 2>/dev/null | tr -d ' \r')
+echo "job.* topics (counted in-pod, authoritative): ${POD_N:-ERR}"
+if [ -z "$POD_N" ] || [ "$POD_N" -eq 0 ] 2>/dev/null; then
+  echo "REFUSING: could not count topics in-pod, or there are none."
+  exit 1
+fi
+
+kubectl -n "$NS_KAFKA" cp "$KAFKA_POD:$POD_LIST" "$WORK/job_topics.txt" >/dev/null 2>&1
+sed -i '/^$/d' "$WORK/job_topics.txt" 2>/dev/null
+TOTAL=$(wc -l < "$WORK/job_topics.txt")
+echo "job.* topics (copied out): $TOTAL"
+if [ "$TOTAL" -ne "$POD_N" ]; then
+  echo "REFUSING: transfer is short — pod says $POD_N, local copy has $TOTAL."
+  echo "Deleting from a truncated list silently under-deletes and makes the"
+  echo "protection guards below meaningless. Retry; do not proceed."
   exit 1
 fi
 
@@ -179,4 +208,7 @@ for BF in "$WORK"/batch_*; do
 done
 
 echo "requested: $OK   failed-batch: $FAIL"
-echo "remaining job.* topics: $(fetch_topics | grep -c '^job\.')"
+# Count in-pod again — a small payload is the only thing this channel returns
+# faithfully at this scale.
+echo "remaining job.* topics: $(kubectl -n "$NS_KAFKA" exec "$KAFKA_POD" -- bash -c \
+  "bin/kafka-topics.sh --bootstrap-server localhost:9092 --list 2>/dev/null | grep -c '^job\\.'" 2>/dev/null)"

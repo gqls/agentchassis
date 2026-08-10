@@ -8027,3 +8027,24 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **why the wrong result looks exactly like the right one:** the sync reports rows written, and it wrote them. The verifier reports a verdict, and it verified *a* body. Nothing in either output names the entry that was displaced, because from the moment of the collision it does not exist as a separate thing.
 - **source:** 2026-08-10, `bugfix_223_index_answerability` lane, found while reading the sync library for bug 223's mechanism. Not a bug: no collision exists yet, and a disconfirming result (a non-zero duplicate count) was available from the same query.
 - **added:** 2026-08-10, bugfix_223 lane
+
+## Counting Kafka topics: piping `kafka-topics.sh` truncates, and the broker's `/tmp` is a 5 MB tmpfs that makes a short write exit 0
+
+- **footprint:** `personae-kafka-cluster-combined-pool-prod-0`, `bin/kafka-topics.sh --list`, `bin/kafka-topics.sh --describe`, `/tmp` on any Strimzi kafka broker pod, `scripts/kafka-orphan-topic-sweep.sh`, `bugs_open/240`
+- **fires when:** you count, list or census Kafka topics at all. No symptom needed — every wrong reading here is a plausible integer returned with **exit code 0**, and the numbers are in the right ballpark, so nothing looks off until you read the same figure twice.
+- **the trap, part 1 — the pipe truncates.** `kafka-topics.sh --list | grep -c '^job\.'` returned **21,409 / 23,017 / 5,809** on three reads 18 seconds apart while the true figure was a rock-steady 24,131. It happens down a `kubectl exec` stream **and inside the pod**: `--list | grep | sort -u > f` in-pod yielded **445**. **Redirect to a file first, then process the file** — that form returns the identical count every time.
+- **the trap, part 2 — `/tmp` is 5 MB and a full one is silent.** The topic list is ~1.8 MB; a `--describe` dump is ~3 MB. Two of those exhaust it. **On a full `/tmp`, `kafka-topics.sh --list > file` writes ZERO BYTES and still exits 0** — a full disk is indistinguishable from an empty cluster. It also corrupts the *next* investigation: a `--describe` file that stops mid-record reads exactly like a tool that truncates, and I wrote that up as a property of the tool before realising it was ENOSPC I had caused myself.
+- **why the wrong result looks exactly like the right one:** there is no error on any of these paths. A short list is a valid list. And the failure is *directional* in the dangerous way — it under-reports, so any cleanup driven by it silently under-deletes while reporting success, and any guard computed from it is evaluated against a set that is not the real one.
+- **the check, before trusting any topic count:**
+  ```bash
+  kubectl -n kafka exec personae-kafka-cluster-combined-pool-prod-0 -- bash -c \
+    'df -h /tmp | tail -1
+     bin/kafka-topics.sh --bootstrap-server localhost:9092 --list > /tmp/t.txt 2>/dev/null
+     echo "total=$(wc -l < /tmp/t.txt) job=$(grep -c "^job\." /tmp/t.txt)"
+     rm -f /tmp/t.txt'
+  ```
+  Run it three times and require the same answer. **And delete your files** — leaving a 3 MB dump there breaks the next person's listing, not yours.
+- **the general form:** a tool that reports a COUNT will happily report a smaller one. Before believing any census, ask what a partial answer would look like — here it looks identical — and get the same number twice by a method whose failure mode is loud. `wc -l` inside the pod is a small payload and survives; the list itself is a large payload and does not.
+- **source:** 2026-08-10, `bugfix_209` lane while diagnosing `bugs_open/240`. Cost: a retracted "correction" in that bug file, a withdrawn partition figure, and one aborted mass-deletion run that refused because its two counts disagreed — the guard that saved it was added only because the disagreement was visible.
+- **verification:** both traps reproduced deliberately — the piped/in-pod count discrepancy (445 vs 24,131) and the zero-byte-exit-0 write on a full `/tmp`, then the file-first method confirmed stable at 25,042 total / 24,131 `job.*` across three consecutive reads after freeing space.
+- **added:** 2026-08-10, bugfix_209 lane

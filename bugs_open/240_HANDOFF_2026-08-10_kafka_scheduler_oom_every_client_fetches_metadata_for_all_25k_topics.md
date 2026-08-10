@@ -72,12 +72,12 @@ and read back** — three consecutive reads returned identical counts. Do NOT pi
 | `job.*` (ephemeral per-step topics) | **24,131** |
 | `system.*` | 861 |
 
-`[UNMEASURED]` **total partition count.** I originally recorded 50,100 here. That
-figure came from `--describe`, whose output truncates (see the retraction in §4),
-so I have withdrawn it rather than replace it with a second unreliable number.
-Sampling shows `job.*` topics are single-partition, so topic count is the right
-order-of-magnitude driver — but if you need the partition total, get it from the
-broker's own metrics, not from `kafka-topics.sh` output.
+`[UNMEASURED]` **total partition count.** I originally recorded 50,100 here, from
+`--describe`. Withdrawn — I could not obtain a figure I trust, for a reason worth
+recording (see §4a). Sampling shows `job.*` topics are single-partition, so the
+topic count is the right order-of-magnitude driver; if you need the partition
+total, take it from the broker's own JMX metrics rather than from
+`kafka-topics.sh` output.
 
 `job.*` topics are created per orchestration step
 (`platform/kafka/topic_manager.go:79`, `job.<corr>.<orch>.<agent>.<step>`). They
@@ -147,6 +147,39 @@ topics almost never fires** — and it must win twice in a row to delete anythin
 > ~15 days.** Whether it ever fires is *unresolved* and now cheaply measurable —
 > take two in-pod counts either side of a tick. Do not repeat my mistake of
 > reading a trend out of the piped form.
+
+### 4a. Two counting traps, and one of them I caused
+
+Both cost me real time and both produce a **plausible wrong number with a zero
+exit code**, which is the only reason they belong in a bug file at all.
+
+**Trap 1 — piping `kafka-topics.sh` output truncates.** True both down a
+`kubectl exec` stream *and* inside the pod. `--list | grep -c '^job\.'` returned
+21,409 / 23,017 / 5,809 on three reads 18 s apart; `--list | grep | sort -u > f`
+inside the pod produced **445** where the real figure was 24,131. **Always
+redirect to a file first, then process the file.** The working incantation:
+
+```bash
+kubectl -n kafka exec <broker> -- bash -c \
+  'bin/kafka-topics.sh --bootstrap-server localhost:9092 --list > /tmp/t.txt 2>/dev/null
+   echo "total=$(wc -l < /tmp/t.txt) job=$(grep -c "^job\." /tmp/t.txt)"'
+```
+Three consecutive reads agreeing to the row is the check that it worked.
+
+**Trap 2 — the broker's `/tmp` is a 5 MB tmpfs, and I filled it.** The topic list
+is ~1.8 MB and a `--describe` dump is ~3 MB; together they exhausted it. **A full
+`/tmp` makes `kafka-topics.sh --list > file` write ZERO BYTES and still exit 0.**
+That is what produced my "445" and "0" readings, and — importantly — it is also
+the real explanation for the `--describe` output "ending mid-record", which I had
+started to write up as a property of the tool. It was ENOSPC of my own making.
+
+`[CORRECTED]` so: `--describe` is **not** known to truncate. I have no evidence
+either way, because every observation I have of it was taken against a full disk.
+The withdrawn 50,100 stays withdrawn — not because the tool is unreliable, but
+because *my measurement* was, and I cannot separate the two after the fact.
+
+Clean up after yourself on that broker; `scripts/kafka-orphan-topic-sweep.sh`
+now checks free space before writing and removes its files on exit.
 
 That guard is the fix for `bugs_closed/071`, where the *opposite* failure was
 biting: the guard never matched a pod, so the cronjob deleted every `job.*` topic
