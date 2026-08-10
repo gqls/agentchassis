@@ -3964,3 +3964,135 @@ measured data point rather than a preference.
 **Still owed:** the two queued proof items (they will dispatch; do NOT re-fire
 — a duplicate proves nothing and costs a round); the council verdict on
 c2940987; steer for page-content-writer, then the save_sections seam.
+
+---
+
+## §X.50 — 2026-08-10: the guard caught a REAL regression — and the cause was a SECOND unfiltered reader
+
+The day's headline: **RFC_015's guard half detected a genuine regression on live
+data, unprompted, caused by a different lane.** Not a synthetic proof. That is
+the mechanism doing exactly the job it was built for, and it is the first time.
+
+### 1. What the two queued gate proofs actually showed
+
+Both landed on 08-09 while this session was away:
+
+| item | status | what it proves |
+|---|---|---|
+| `rfc015-gate-proof-2-20260809` | `complete`, `skipped:true`, reason names D-001 | the refusal works AND terminates cleanly — migration 355B's skip terminus is live |
+| `rfc015-gate-control-cited-20260809` | `complete`, `success:true`, reached git | the gate does NOT refuse a *named* write |
+
+**The second is weaker than I reported it, and the flaw was mine.** The value it
+wrote (`eyebrow: "How it works"`) was **already the value on the page** — the blob
+at the commit's parent proves it — so the commit was EMPTY (`0 additions,
+0 deletions`). A dropped `field_updates` and a value-already-equal produce
+**identical** evidence, so that item cannot distinguish my own gate eating the
+inputs from a benign no-op. `[MEASURED]` at the commit stat; logged in
+WRONG_CALLS. What it does establish stands: the workflow proceeded past the gate
+into the edit and deploy path.
+
+Also worth recording: the `page_component_id` in that edit's result
+(`942fed33…`) **no longer exists** — today's rerender deleted and re-inserted
+every row on the page with fresh uuids. A component id from a result payload is
+not a durable handle.
+
+### 2. The regression, and why nobody noticed for ~7 hours
+
+At **11:21:30** all six of index's `page_components` rows were **created fresh**
+by orchestration `26abe542` — a `section_data_resolved` rerender fired by another
+lane — and `tool-list` was among them, `build_status='deployed'`. The section the
+owner had removed on 08-05 was back on the live home page.
+
+What the three stores said, all `[MEASURED]` 08-10:
+
+- `site_plan_sections` for the **is_current** plan (`ff03bdef`): 5 sections,
+  ordering jumps 1 → 3 — my deletion intact. The **superseded** plan
+  (`32be2797`) still lists `tool-list` at ordering 2, which is a red herring:
+  `LoadPageSectionsFromSpec` filters `sp.is_current = true`, correctly.
+- `pages.sections`: 5 entries, no tool-list — and *synced by that same loader at
+  11:21:46*, i.e. **16 seconds AFTER** the components were written.
+- `page_components`: 6 rows. **The only store that disagreed.**
+
+The guard did not fire at 11:21 because `quality-discovery` had not reached
+idea.uk — today's six runs covered noted.co.uk, relojistas, oufe, lendzy,
+webdesign.co.uk, loancash. Detection latency, not a false negative. Driving the
+check at the site directly (`0504254b`, 18:07) filed
+`decision_regression:…:D-002-no-tools-directory-on-index` at
+`needs_human_review`, naming the decision and the failed `not_contains`. **My own
+08-09 discovery run is part of why idea.uk was at the back of the rotation.**
+
+### 3. Root cause: `loadStoredSections`, and my own landmine was too narrow
+
+`rerender_page_sections_action.go` `loadStoredSections`:
+`FROM page_components WHERE page_id = $1 ORDER BY position ASC` — **no
+`build_status` predicate**. It renders from **`content_data`**, and
+`save_page_sections` then replaces the page's rows wholesale, so the removed row
+comes back as `deployed`.
+
+**The 08-05 LANDMINE entry I wrote named `getPageSections` alone.** It prescribed
+emptying `rendered_html` as the tombstone — which blinds the *assemble-only* path
+and does nothing to this one, because the two read **different source columns**.
+Two readers, two source columns, one missing filter each. Entry corrected in
+place today.
+
+`'removed'` is **not** a convention I invented: `v3_site_actions.go:4366` and
+`page_admin_handlers.go:59` already filter it out, and
+`check_page_component_status_drift.go:72` lists it. This reader was the one out
+of step — which is why the fix is one predicate, not a new mechanism.
+
+### 4. The measurement that could not have come out otherwise
+
+My first blast-radius query was `WHERE build_status='removed'` → **0 rows
+fleet-wide**, and I nearly read that as "not a class defect". **It returns zero
+whether or not the bug exists**, because the only such row was *consumed into a
+`deployed` one by the bug*. The defect erases its own evidence.
+
+The predicate that can come out non-zero is declared-vs-present:
+`HAVING count(pc.id) > jsonb_array_length(p.sections)` → **11 pages across 9
+sites** (idea.uk/index 5v6, idea.uk/report 5v6, finetuning.uk/how-we-work 5v6,
++8). Recorded as a **pointer, not a count of this bug** — a mismatch has other
+causes and each site needs checking.
+
+### 5. The fix, and the test that was vacuous first
+
+Committed `1c7c7c261`: `AND build_status IS DISTINCT FROM 'removed'`.
+**`IS DISTINCT FROM`, not `!=`**: the column is nullable (default `'pending'`, no
+NOT NULL) with no NULLs today, so both forms are indistinguishable against
+current data — but `!=` would silently drop every NULL-status row from every
+rerender fleet-wide the moment one appeared. Both sibling readers carry that
+latent flaw; this one does not.
+
+**My first test asserted nothing.** It expected `ExpectQuery("FROM
+page_components")`, which matches with the predicate deleted — it PASSED under
+mutation. Rewritten as two tests with distinct diagnoses, then verified by
+mutating the source three ways: clean → both pass; predicate deleted → both
+fail; predicate as `!=` → exclusion passes, NULL-safety fails.
+
+### 6. Restoring the page — and the gap that has no framework path
+
+Tombstoned the row again (status + `rendered_html=''`, **`content_data` left
+intact** — it is the section's only copy), then an **assemble-only**
+`page-rerender` (`f5685b64`, no `spec.reason`, so `check_rerender_mode` takes the
+else branch and avoids the very path that is still broken pre-roll). Stored
+assembly 36,762 → 27,855 bytes, clean; vm-sites commit `1bb0aeeba`, **112
+deletions** — a genuinely non-empty commit this time, checked at the stat.
+The box pulls on a 5-minute timer, so the served page lags the commit.
+
+**There is still NO framework action for "remove a section because a decision
+says so."** `remove_duplicate_page_sections` exists but keys on content
+identity. So the removal itself was again data surgery, against the owner's
+standing "through the framework" constraint. Flagged rather than hidden: this
+missing path is arguably *why* the removal was fragile enough to regress.
+
+### 7. Council
+
+- The 08-09 resubmission `c2940987` produced **no orchestration row at all** —
+  dropped, not queued. Excluded latency as the explanation by checking the
+  council is alive: six rounds ran today for other lanes. Resubmitted as
+  **`cb547e0a`**, with the false census claim corrected (see WRONG_CALLS) and
+  today's live catch added as evidence.
+- The resurrection fix went in as its own round, **`2bc2a6d5`**, committed with
+  a `Council-Submitted:` trailer.
+- 090 diagnosis filed on the deeper question (should the rerender be driven by
+  the DECLARED list rather than by whatever rows exist): run correlation
+  `383aafe5`.

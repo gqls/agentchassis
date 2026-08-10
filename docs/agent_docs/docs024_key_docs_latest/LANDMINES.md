@@ -5431,8 +5431,37 @@ resolution). Verify at the SERVED page and at a NON-EMPTY vm-sites commit
 deployed). And note `pages.sections - 'name'` only works because sections is
 a STRING array — check the shape before trusting the prune.
 
-- **source:** 2026-08-05, idea_uk_vm_site lane; RUNNING_NOTES §X.44-45
-- **added:** 2026-08-05, ideauk-sec session
+> **CORRECTED 2026-08-10 — the recipe above is NECESSARY BUT NOT SUFFICIENT, and
+> this entry named ONE function when the defect is a CLASS.** The section it was
+> written about came back on 2026-08-10, five days after that removal, through a
+> **different** path: `rerender_page_sections` (`loadStoredSections`,
+> `rerender_page_sections_action.go`) also selects every `page_components` row on
+> `page_id` alone — and it renders from **`content_data`**, not `rendered_html`, so
+> the tombstone this entry prescribes does not stop it. `save_page_sections` then
+> replaces the page's rows wholesale and the resurrected section is written back as
+> **`deployed`**. So: **two readers, two different source columns, one missing
+> filter each.** Emptying `rendered_html` blinds the assemble-only path only.
+> Do not clear `content_data` to "finish the job" — it is the section's only copy.
+> **Fixed for the light path at HEAD (`1c7c7c261`, `AND build_status IS DISTINCT
+> FROM 'removed'`), INERT UNTIL THE NEXT CHASSIS ROLL — until then any
+> `image_landed` / `section_data_resolved` rerender still resurrects.** The
+> assemble-only path is still unfiltered and still relies on the tombstone.
+> **And the census cannot find this for you: `SELECT ... WHERE
+> build_status='removed'` returns ZERO fleet-wide, because the only such row was
+> consumed into a `deployed` one by the bug itself** — the query returns the same
+> zero whether or not the defect exists. The predicate that CAN come out non-zero
+> is declared-vs-present: `HAVING count(pc.id) > jsonb_array_length(p.sections)`,
+> which found 11 pages across 9 sites on 2026-08-10 (a pointer, not a count of this
+> bug — a mismatch has other causes and each needs checking).
+> **What caught it was not a person and not a test:** an RFC_015 decision guard
+> asserting the section's absence filed `decision_regression ... D-002`. It sat
+> undetected for ~7 hours first, because the check only runs when the site's turn
+> comes round in the discovery rotation.
+
+- **source:** 2026-08-05, idea_uk_vm_site lane; RUNNING_NOTES §X.44-45; correction
+  2026-08-10 same lane (RUNNING_NOTES §X.50, `bugs_open/` entry, council corr
+  `2bc2a6d5`)
+- **added:** 2026-08-05, ideauk-sec session; **corrected 2026-08-10**
 
 ---
 
