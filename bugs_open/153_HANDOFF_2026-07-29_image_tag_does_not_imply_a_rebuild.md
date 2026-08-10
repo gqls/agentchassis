@@ -100,7 +100,37 @@
 > They did disagree, twice over. So this section **is** that record, and the measurements
 > above are published as evidence for the human, **not** fired back at the gate.
 >
-> The three options, costed, for whoever takes the decision:
+> ### ⚖️ OWNER RULING, 2026-08-10 (same evening): **OPTION 1 — THE CODE STANDS AS COMMITTED.** All 14 services, one round.
+>
+> Put to the owner with the three options below and their costs, per the 2026-07-28 ruling that
+> a scope veto is a human's call. **The owner chose option 1: let it stand.** No revert, no
+> re-slicing, no architecture RFC. The whole-fleet release was authorised in the same breath.
+>
+> **This is the SECOND time this exact call has gone this way.** `bugs_closed/124` drew a
+> REJECTED verdict from the guardian on the same ground — a shared seam arriving inside a
+> larger change — and the owner's ruling then was *"the code stays and the precedent gets
+> fixed."* Same shape, same outcome, eleven days apart.
+>
+> **So the generalisable observation, recorded but NOT acted on** (the owner picked option 1,
+> not option 3, and filing an RFC anyway would be exactly the "answer a scope veto with more
+> argument" move the ruling forbids): the guardian's *"MANY packages at once"* trigger fires on
+> **edit count and file spread**, and appears not to distinguish a change that is *mechanically
+> identical, provably inert, and verified across every instance* from one that is genuinely
+> N independent judgements. Two of the eleven seats read this change as approvable; the
+> guardian read it as a veto; the owner has now twice sided with the former. **If a third case
+> lands the same way, that is a rate, not a coincidence, and the trigger's calibration is worth
+> an RFC on its own merits** — raised by whoever hits it third, with three data points instead
+> of two. Do not open it on the strength of this entry alone.
+>
+> What this ruling does **not** license: reading the change as council-APPROVED. It was not.
+> The commits carry `Council-Submitted:`, which is accurate; **no `Council-Reviewed:` trailer
+> exists on any of them and none may be added**, because the verdict was REJECTED and writing
+> that trailer would be the coverage report's MISMATCH — its dishonesty surface. The honest
+> summary is: *reviewed, vetoed on scope, overruled by the owner, and recorded.*
+>
+> ---
+>
+> The three options, costed, as they were put to the owner (**option 1 chosen**):
 > 1. **Let it stand as committed** (14 services, one round). Cheapest; the guardian's specific
 >    risk — "a missed import silently no-ops per-service" — is now measured away for all 14,
 >    and every edit is inert until each service is next rebuilt. Accepts a scope precedent the
