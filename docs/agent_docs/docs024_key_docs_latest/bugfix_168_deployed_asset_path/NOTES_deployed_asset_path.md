@@ -2388,3 +2388,87 @@ council-approved, and style rather than truth. Recorded as a decision rather tha
 The gate proves the page moved; nothing records whether anyone ever *looked*. Today an empty review
 queue has two indistinguishable causes — everything is fine, or nothing was examined — which is the
 same ambiguity `ComponentsExamined` was added to kill inside a single page scan, one level up.
+
+---
+
+## 2026-08-10 — the claims revalidator is LIVE and closed 8; the owner's gate HELD but never FIRED
+
+**Roll to `v1.0.1277` at 2026-08-09T21:35Z** (not my build). Against the spent baseline of
+**0/0/0 on `v1.0.1270`**, both replicas now:
+
+```
+register=1  examined_nothing=1  unbuilt=1  OWNERGATE=1  positive_control=2
+```
+
+The fourth needle (`register moved, not the page`) is the owner's gate itself. **[MEASURED]** on
+1277; **[INFERRED]** absent from 1270, since that image predates commit `9a9fef332` — I did not
+baseline this one, and say so rather than implying a fourth 0→1.
+
+**By effect, 2026-08-10 08:44Z run:** `scanned` 186 → **243**, `cap_binding` **false**, `resolved`
+**37**. Decomposed: `required_fields_missing` 82 · `needs_section_data` 42 · `unresolved_cta` 34 ·
+`voice_tells` 33 · **`claims_unverified` 30** · `needs_page` 22. Closures that day by type:
+**`claims_unverified` 8**, `required_fields_missing` 14, `needs_page` 12, `unresolved_cta` 3.
+
+### The gate: held on all 8, fired on none
+
+```sql
+SELECT (result #>> '{revalidation,evidence,newest_component_update}')::timestamptz
+         > (result #>> '{revalidation,evidence,item_filed_at}')::timestamptz AS copy_actually_changed,
+       count(*) FROM site_work_items
+WHERE item_type='claims_unverified' AND resolution_path='auto:revalidated' GROUP BY 1;
+-- t | 8      (zero false — every closure had genuinely-edited copy)
+```
+
+Verdict spread over the type: **8 resolved · 19 still_holds · 3 unknown**, and the 3 unknowns are
+`page absent` ×2 and `no evidence_base` ×1 — both refusal arms measured live for the first time.
+
+> ⚠ **[UNEXERCISED] the owner's gate has refused NOTHING.** `refused_by_owner_gate = 0`. On today's
+> population every page that scanned clean had also changed, so the gate cost nothing and blocked
+> nothing. **It is proven present and proven correct where it applied — it is NOT proven to bite.**
+> Its four failure modes are pinned by unit tests, not by observation. Do not describe it as having
+> prevented anything.
+
+### `debug_historian`'s objection, tested
+
+The seat argued `updated_at` can be bumped by an unrelated rebuild, so `resolved` could fire on a
+page whose flagged prose is untouched. The obvious signature of that is a **bulk event** — all
+closures sharing one timestamp. Checked:
+
+```
+2026-07-31 10:10 · 2026-08-02 10:24 · 2026-08-04 20:54 · 2026-08-05 14:06
+2026-08-09 01:02 · 2026-08-09 01:07 · 2026-08-09 16:46 · 2026-08-09 19:35
+```
+
+**Spread over ten days across several sites — not a bulk rerender.** (Two rows five minutes apart on
+08-09 share a filing instant and could be one wave; 2 of 8.) **The objection's feared consequence is
+not what happened here, and the limitation it names still stands**: the timestamp is
+COMPONENT-granular, not CLAIM-granular, so an unrelated edit to the same slot satisfies the gate.
+That is the next thing to tighten, and it is the honest reading of what (b) bought us.
+
+### Council round 3 — REVISE, gated by `editquality`, on the SUBMISSION not the code
+
+> *"no edit in this plan updates `revalidate_review_queue_action.go` to supply that value … a
+> required struct/query change … that is NOT filed as an edit anywhere (edit 4 only adds one map
+> line to that file). Without this wiring … the round-3 owner-mandated mechanical gate … would never
+> reach `resolved` in production."*
+
+**The code is right and is demonstrably working — 8 closures with real timestamp comparisons prove
+the wiring exists.** What was wrong is my *plan*: I bundled `parkedReviewItem.CreatedAt` into another
+edit's rationale instead of filing it as its own edit, so a reviewer reading only the plan correctly
+concluded the gate could never reach `resolved`. **Third round running that `editquality` has caught
+me on precision** — two producers, then a bundled edit. The recurring fault is describing what I did
+less carefully than I did it.
+
+Also worth carrying forward:
+
+- **`compliance` (MEDIUM): it cannot verify the owner ruling from its own schema** — *"this seat has
+  no independent record of that ruling"*. That is a real structural gap, not a formality: owner
+  rulings live in markdown the council cannot read. A seat being asked to accept a lane's self-report
+  of sign-off is exactly the shape this gate exists to distrust.
+- **`bug_historian` (MEDIUM) + `architecture` (LOW): `voice_tells` still has the identical hole**, and
+  two closing standards now live in one shared registry. Named in 016b §9 as the recurring shape *one
+  call site of a shared judgement gets the rigorous fix; the sibling stays heuristic*. Disclosed, not
+  hidden — but disclosure is not resolution.
+- **`guardian` (LOW): nothing pins the newly-exported `ScanDeployedClaims` to its two intended
+  callers.** A future caller could reuse it against a different predicate and drift from the emit
+  side — the exact property the extraction exists to preserve.
