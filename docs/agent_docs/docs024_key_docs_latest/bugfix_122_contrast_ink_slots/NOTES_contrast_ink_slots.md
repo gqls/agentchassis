@@ -813,3 +813,42 @@ not a global replace.
 
 **This is the inflection §8 was waiting for: the first page measuring clean.** SUMMARY
 written (`SUMMARY_2026-08-10_contrast_ink_slots.md`).
+
+## 2026-08-10 (close of session) — two corrections against my own commits
+
+> **MISSTEP 16 — my index commit `01d64d564` carried a SAME-FILE PASSENGER, and its
+> message asserts something now demonstrably false.** Another lane's **IMP-053** row plus
+> its rewrite of the header's count paragraph were sitting uncommitted in
+> `000_concept_index.md` when I edited it; a pathspec commit takes the FILE, so both
+> shipped under my message. Nothing is lost (forward-only; their work is committed and
+> attributed here), but the message says *"1,811 immediately before, 1,812 after — VIZ-015
+> added ONE and **nothing arrived concurrently in that window**"*. **The arithmetic is
+> right and the conclusion is wrong: IMP-053 had already arrived — it was IN the 1,811 I
+> counted, as untracked WIP.** A working-tree count cannot distinguish "committed" from
+> "another session's uncommitted edit", so it can never support a claim about concurrent
+> arrivals; only a count against `HEAD` can (`git show HEAD:<file> | grep -c …`). The
+> same-file passenger is a known landmine and I checked for it on the FIRST docs commit
+> (clean, verified line by line) and then did not repeat the check on the second.
+>
+> **Corrected claim:** VIZ-015 added one row; at least one other row (IMP-053) arrived in
+> the working tree during this session and travelled in my commit.
+
+**Number collision, flagged not fixed: there are now TWO migration 368s** — mine
+(`368_info_card_grid_opts_into_legible_ink_slots.sql`, applied + recorded 14:47Z) and
+another lane's `368_site_availability_driver_HOLD.sql` (uncommitted, `_HOLD`, unapplied).
+**Not a functional break:** the runner lists by filename and `schema_migrations.filename`
+is the primary key, so both are tracked independently, and `SIDECAR_RE` excludes an
+UPPERCASE-suffixed file from `--apply` regardless. It is a convention break and a
+readability trap. **I have not renumbered either file:** mine is applied and recorded (a
+rename would orphan its `schema_migrations` row), and theirs is another session's WIP,
+which is not mine to rename. Whoever picks up the availability driver should renumber it
+before applying — it is the unapplied half, so it is the cheap one to move.
+
+This is systemic today, not a one-off: **two different lanes have each written a `370`**
+(`370_experience_planner_escalation_descriptions_catch_up_with_363.sql` and
+`370_retire_update_page_status_notes_and_validation_issues_fields.sql`), both untracked.
+The handoff's standing advice to "re-check the free migration number" is necessary and
+**not sufficient** — I did check (`ls | grep -E '^3[3-9][0-9]'` showed 367 as the highest)
+and 368 was genuinely free at that moment. The collision arrived in the window between
+the check and the write. On this tree the number is not reservable; only the filename is
+unique, which is the property the runner actually relies on.
