@@ -666,3 +666,61 @@ short-interval tasks returned to ≤1.0 intervals overdue.
   from the build pipeline** regardless of the scheduler. It is one of the sites
   needing a logo re-drive. Not this lane's to clear — but whoever re-drives
   webdesign.uk must clear it first or the item will never dispatch.
+
+### The re-render step took THREE attempts, and the first two both "succeeded"
+
+This is the most reusable thing in the session, so it is written up in full as a
+LANDMINE. The short version, in the order I got it wrong:
+
+1. **Fired a `page_rerender` for gamesdesign's `index`.** It completed.
+   `pages.deployed_at` advanced to 12:26:47. The served HTML was **byte-identical
+   (49,326 B both sides)** and still referenced `/assets/images/logo.jpg`.
+   *Why:* a `page_rerender` assembles the page from the **existing**
+   `site_components`, and the logo URL lives in the `head` and `header` slots,
+   untouched since 2026-08-09.
+2. **Fired the site-level `needs_rerender`** (`rerender-pages`,
+   `{"refresh_site_components": true}`). It completed, and this time
+   `site_components.head`/`header` genuinely flipped to `logo.png` (12:29:24).
+   **The served page was STILL byte-identical.** *Why:* that agent refreshes the
+   components and then only **queues** 34 `page_rerender` items; they had not
+   dispatched yet.
+3. **Waited for the fanned-out items.** The homepage then served
+   `/assets/images/logo.png`, with no `.jpg` reference left.
+
+**Both failures presented as success**, with a completed work item and a moved
+`deployed_at`. Nothing but diffing the served artefact would have caught either.
+Had I skipped the canary and fired all nine sites at step 1, **251 page items
+would have completed and changed nothing**, and every status would have agreed
+it worked.
+
+Note the byte sizes are equal before and after the real fix too — `logo.jpg` and
+`logo.png` are the same length. So **size is not a usable change detector here**;
+grep the reference.
+
+`[MEASURED]` the mechanism, for whoever does this next:
+- `needs_rerender` → `render_site_components` → `get_pages` → `create_rerender_items`
+  (fan-out). One site item becomes N page items.
+- `get_pages_for_rerender` is configured `include_statuses = ['deployed','active']`,
+  so the 26 `needs_rebuild` + 17 `planned` pages across these sites are **not**
+  touched. That backlog predates this work and is left exactly as found.
+
+### Asset locks — the failure that was the system working
+
+`robot-hands.com` refused: `assets.locked_at 2026-07-11`, `locked_by
+user-b6-approval`, `lock_type permanent`. `store_asset` returned
+`{stored:false, locked:true, reason:…}` and the deploy step then died on
+`source path 'asset_stored.image_uri' not found for field 's3_uri'`.
+
+`[MEASURED]` **no other affected site carries a lock** — checked across all 11
+before concluding nothing owner-approved had been overwritten. `relojistas.com`
+is also locked (owner, `bugs_open/131`) but had already been excluded as
+`vm-sites`.
+
+Two things worth carrying forward:
+- **The error is three steps from the cause.** A locked asset surfaces as a
+  missing-path input_mapping error, so the next person debugs a mapping bug that
+  does not exist. `call_asset_deployer` should branch on `asset_stored.stored`.
+- **A retry is the wrong instinct here.** The locked asset IS the defective one,
+  but the lock protects approved *artwork*; regenerating discards it. The defect
+  is encoding and size, not subject. Correct repair is to re-deploy the existing
+  source object at `purpose='logo'` — a different operation, and an owner call.
