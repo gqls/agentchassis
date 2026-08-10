@@ -845,3 +845,61 @@ confirmed it genuinely prevents testing, unlike the harmless missing favicon els
 one being the broken unlabelled converter that's on your list already.
 
 The next session starts from one file, with the checklist at the bottom.
+
+## 2026-08-10, later — the tools batch turned out to be a third the size it looked, and the first one is done
+
+I picked up that handoff and started with its own checklist, which is where the day turned.
+
+The list of seventeen ready tools was qualified on the wrong thing. This morning I checked
+that each tool's page loads properly and has no broken images — sensible, and not the thing
+that matters. What actually matters is whether the testing machinery can FIND the page.
+It looks the page up by name, and the name it looks for is the component's name. **Nine of
+the seventeen have pages filed under a different name, so the test would never find them —
+it would stop with "no page" before looking at anything.** Had I just worked down the list,
+I'd have written nine careful contracts for tools that can't be tested, and the lane's own
+health check would have gone from a clean sheet to nine broken entries.
+
+They split into two piles with different owners. One is ours and is a five-minute fix we've
+done before: the games-design ranking tool's page is missing a prefix that fifteen other
+pages on that same site have. The other eight all belong to loancalculator.co.uk, and
+they're not a typo — the pages are genuinely named differently from the components ("car
+finance calculator" vs "car finance pcp hp"). That's a decision for that team about which
+name is the real one, and it's a much more concrete reason to talk to them than the one I
+gave this morning. **Until somebody decides, none of their nine tools can be tested at all.**
+
+I also found that the "five clean single tools" included one that isn't single: the LLM cost
+calculator has four copies on other sites, and they all share one contract, so a contract
+written against the original could fail on a copy. So the genuinely clean, unblocked set is
+three, not five.
+
+Then I took one of the three all the way through: **the darts setup builder is done and
+verified in the live system.** Fifteen checks pass, none fail. I picked that one first on
+purpose — a failing test can trigger an automatic rewriter, and the other two live on a site
+another team owns, so I'm not firing at theirs without asking.
+
+Two things worth telling you, because both are the system catching itself.
+
+**The first is a mistake I made and the process caught.** I wrote a check meaning "this tool
+has three questions". It passed. Then the stage where I deliberately break the page to prove
+each check can fail told me that check DIDN'T notice when I removed a question. It turns out
+the check type is called "count" but doesn't count — it only asks "is there at least one?",
+and the number I gave it was quietly thrown away. So it would have passed with three
+questions, or two, or none-but-one, for ever, while reading in our records as a firm promise
+about three. I rewrote it, and I've written the trap into the shared landmines file, because
+the general version — **you can write a check that asserts less than it appears to, and
+nothing will tell you** — will bite someone else. Worth saying plainly: the test passed
+green, and only the deliberate-breakage stage found it. That stage keeps paying for itself.
+
+**The second is a real gap and I'd like your steer.** Every one of these tool tests has two
+halves: check the page mechanically, then take a screenshot and actually LOOK at it. The
+looking half has failed on **every single run in the records** — 26 out of 26 — with the
+same error, that it can't reach the storage it needs to fetch the screenshots. It fails
+quietly at the end, after the mechanical results are already in, which is why nobody noticed:
+the runs look successful because the part we read succeeded. So all our green results are
+real, but they're only ever half the test, and the missing half is precisely the one that
+would catch things a selector can't see — a tool that's present, correct and invisible.
+
+I've deliberately NOT guessed why the storage isn't reachable. That's shared infrastructure
+and the rule here is to have it properly diagnosed rather than assert a cause; it isn't in
+the diagnosis queue and nobody's filed it. **Do you want me to file it and put it through the
+diagnosis loop?** It affects every tool acceptance run we do, so I think it's worth it.

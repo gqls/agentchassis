@@ -2671,3 +2671,103 @@ literals), added optional `kind`/`batch` prose so a tool PLAN does not title its
 "(section component)", and **`chmod +x`** — it was committed `100644`, so the RUNBOOK's own
 `./gen_component_plan_sql.py` invocation died with *Permission denied*. All four arms
 tested: default still emits `component`, `tool` emits `tool`, and both refusal arms exit 1.
+
+## 2026-08-10 (second session, later) — batch 8's first tool is S6-green, and the acceptance agent's LOOK half has never once run
+
+### `tool-setup-builder` — 57 subjects proven (54 sections + 3 tools)
+
+Full line walked: fence authored → `try_fence.go` live → `prove_fence_mutants_file.go` →
+manifest → generator dry-run → `--apply` → readback byte-diff → S6 in-cluster.
+
+| stage | result |
+|---|---|
+| `try_fence.go` vs live url | 15 evaluations, all evaluated, all passed; arithmetic reconciled 15+9 gated = 24 = 12 checks x 2 profiles |
+| mutation proof | **11 mutants, 11 caught, 12/12 checks watched red**, baseline green |
+| persist | `subject_type='tool'`, `UPDATE 0` (no prior row) + `INSERT 1`, DO/RAISE length assert `OK … 7964 bytes, 1 current row` |
+| readback | **byte-identical** to the generator's own output (the 1-byte delta was psql's `-tAc` record separator, not content) |
+| **S6 in-cluster** | **15 passed / 0 failed / 9 skipped**, correlation `c367f36b` |
+| skip audit | all 9 `SKIPPED: not run on profile mobile` — **0 unimplemented**, so every type in the fence exists in the running binary |
+| blast radius | **no work item raised** (checked `site_work_items` for the site, 20-min window: 0 rows) |
+
+The cluster figures reproduce the local ones exactly (15/0/9 both sides), which is the
+result that makes `try_fence.go` worth running first.
+
+**Two authoring choices worth carrying forward.** The goldens were **derived from the
+component's own JS bands and only then run against the live tool**, where both vectors
+matched first trial — rather than blind-captured. `computed_values`' own doc comment warns
+that a golden captured from an already-wrong tool pins the wrong answer, and `toolgolden.py`
+could not have captured this one anyway (it drives numeric inputs and clicks the first
+button carrying an `onclick`; this tool is radio-driven with an `addEventListener` submit).
+Two independent derivations agreeing is a stronger warrant than a capture. Second: the
+subject was picked because its page is `rebuild_policy='generic'` — a FAILING verdict
+inserts an `improve_tool` item with `handler_agent='tool-improver'`, and robot-hands' two
+clean singles are both `owned`, so firing at them without a word would hand another lane's
+tool to an automated rewriter.
+
+### The misstep, and it is the one the mutation gate exists to catch
+
+The fence's first version asserted the three question groups with
+`{"type":"selector_count","selector":"#db-form fieldset.db-fieldset","expect_count":3}`.
+It passed `try_fence.go` **15/15 green on the live page**. The mutation run then reported
+`MISSED` on the mutant that renames one fieldset's class.
+
+**`selector_count` does not count.** It shares an evaluator arm with `selector_exists`
+(`run_checks_action.go:597`) and asserts only `page.Count(sel) > 0`; there is **no
+`ExpectCount` field on the check struct**, so `expect_count` was an unknown JSON key,
+dropped at unmarshal. The check passed on 2 elements and would pass on 100 — while reading,
+in the PLAN, as a firm numeric contract to every future human and council seat. Replaced
+with `interaction` on `#db-form fieldset.db-fieldset:nth-of-type(3) legend` +
+`text_matches ^Grip preference$`, which fails on zero matches
+(`run_checks_action.go:733`) and goes red on exactly that mutant.
+
+Fleet grep at the time: **exactly one fence used `selector_count` — the one being
+authored** — so nothing already persisted carries this. That is luck, not a control, which
+is why it went to `LANDMINES.md` (synced; `--check` reports in sync, 368 entries) rather
+than only here. **The transferable half is more general than this one type: an unknown key
+in a criteria fence is dropped in silence, so a check can assert less than it appears to
+and never say so.**
+
+> **And a second trap, found in the same output and easy to miss:**
+> `prove_fence_mutants_file.go`'s coverage table prints `watched red <check>` for any check
+> merely **NAMED** in some mutant's `expect_fail` — it is computed from the declarations,
+> not from observed failures. The failing run printed **`checks watched red: 12 of 12`
+> directly beneath `MISSED`**. The overall verdict was correctly `FAIL`, so nothing green
+> shipped; but the tally is not evidence. Read the per-mutant `caught`/`MISSED` lines.
+
+### The acceptance agent's `look` step has failed on EVERY run in the retained window
+
+The run reached `complete_no_look`, and `__step_error` said:
+
+```
+step look failed: failed to execute action execute_vision_prompt:
+execute_vision_prompt: no storage client — cannot download screenshots
+```
+
+That reads like my run's problem. It is not. **[MEASURED 2026-08-10]** over every
+`tool-acceptance-agent` orchestration in the retained window:
+
+| terminal step | status | n | `__step_error.failed_step` |
+|---|---|---|---|
+| `complete_no_look` | COMPLETED | **26** | `look` — all 26 the SAME storage-client message |
+| `complete_error` | COMPLETED | 1 | `request_run` — `Request timed out` |
+
+**The disconfirming check was the second column, and it is why the first table alone would
+have been worthless**: `complete_no_look` is a plausible name for a *designed* branch
+("passed, nothing to look at"), and a count of 26 says nothing either way. Grouping by
+`__step_error` separates the two readings, and all 26 carry the identical failure — so the
+vision half of tool acceptance is **uniformly broken, not conditionally skipped**. Every
+one of this lane's S6 "greens", including batch 7's, got its check results and then lost the
+`look` step the same way.
+
+**Scope stated honestly:** `orchestration_states` is retention-clocked and the earliest row
+here is 2026-08-09, so this is "every run in the retained window", **not** "every run ever".
+The message is emitted at `execute_vision_prompt_action.go:87`. **I have NOT diagnosed why
+the storage client is absent and am not asserting a cause** — that is a structural claim
+about shared infra and belongs in the 090 loop per the 2026-07-31 ruling. Checked first:
+nothing matching in the `needs_diagnosis` queue, and no `bugs_open/` file covers it (136
+mentions `execute_vision_prompt` only in a config-key audit table, as a false positive).
+Recorded on the defect list for an owner call on whether to file it.
+
+**What it does NOT undermine:** the check results are produced by `request_run` and land in
+`browser_run.response` before `look` is reached, so 15/0/9 stands. What is lost is the
+screenshot/vision pass — the half that would catch what a selector cannot see.

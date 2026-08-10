@@ -111,14 +111,26 @@ def body_for(s: dict) -> str:
     st = subject_type_for(s)
     kind = s.get("kind") or ("tool" if st == "tool" else "section component")
     batch = s.get("batch", "batch 7 -- the INTERACTIVE stock")
+    # The PLAN cites its own mutants file by name, so the default must not be a
+    # guess: batches 1-7 all used mutants_component_<fn>.json and that stays the
+    # default, but a subject whose file is named otherwise says so rather than
+    # letting the PLAN point at a path that does not exist.
+    mutants_file = s.get(
+        "mutants_file", f'mutants_component_{s["function"].replace("-", "_")}.json'
+    )
+    if not os.path.exists(os.path.join(DIR, mutants_file)):
+        raise SystemExit(
+            f'{s["function"]}: mutants file {mutants_file!r} does not exist beside '
+            f"the generator -- the PLAN would cite a path no reader can open. "
+            f'Set "mutants_file" in the manifest.'
+        )
 
     parts = [
         f'# PLAN -- {s["function"]} ({kind})',
         "",
         f'**Authored {AUTHORED} by lane `staged_component_build`** under D10 (exhaustive',
         f'backlog clearance), production-line {batch}. Mutation',
-        f'proofs use `prove_fence_mutants_file.go` + `mutants_component_'
-        f'{s["function"].replace("-", "_")}.json`.',
+        f'proofs use `prove_fence_mutants_file.go` + `{mutants_file}`.',
         "",
         "## Aim",
         "",

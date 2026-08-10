@@ -6,6 +6,13 @@ interactive-fence line) remain binding and are not repeated. Read them.
 
 ## 1. State (all verified 2026-08-10 ~10:15Z)
 
+> **UPDATED 2026-08-10 (second session).** **57 subjects proven: 54 sections + 3 tools** —
+> `tool-setup-builder` went the full line and is **S6-green in-cluster** (15 passed / 0
+> failed / 9 profile-gated / **0 unimplemented**, correlation `c367f36b`, no work item
+> raised). Fleet is **v1.0.1279**, not 1277. Batch 8's pool is requalified — see the
+> correction box in §2 before using its tables. NOTES: `## 2026-08-10 (second session)`
+> and `(second session, later)`.
+
 - **56 subjects proven end-to-end: 54 sections + 2 tools.** Batches 6/6b/7 all S6-green
   with negative controls red. Batch 7's table: NOTES `## 2026-08-09 (evening)`.
 - Fleet: chassis + browser-runner **v1.0.1277** (pods up 21:35Z 08-09). Re-grep at
@@ -119,6 +126,27 @@ page loads the script AND the effect is observable and safe to drive.
 Unchanged from `HANDOFF_2026-08-09` §4 items 1–8 (228 fixed+proven; gaswholesalers logo
 now 6+ days; hero.jpg family; finetuning card images; article-body overflow; broken tool
 pages; ROI mobile overflow; tracker feeds 404). Nothing new today.
+
+**9. NEW 2026-08-10 (second session) — the tool-acceptance agent's `look` step has failed
+on EVERY run in the retained window, so the vision half of acceptance has never run.**
+`step look failed: … execute_vision_prompt: no storage client — cannot download
+screenshots` (`execute_vision_prompt_action.go:87`). Measured across every
+`tool-acceptance-agent` orchestration: **26 of 26** `complete_no_look` rows carry that
+identical error, plus 1 `complete_error` (an unrelated `request_run` timeout). Grouping by
+`__step_error` is what separates "uniformly broken" from "a designed branch" — the raw
+count of 26 could not. **Check results are unaffected** (they land in `browser_run.response`
+before `look`), so this lane's S6 greens stand; what is lost is the screenshot pass, i.e.
+exactly the half that catches what a selector cannot see. **No root cause asserted** — a
+structural claim about shared infra, so it wants the 090 loop. Not in the `needs_diagnosis`
+queue and not in `bugs_open/` (136 mentions the action only as a config-audit false
+positive). **Owner call: file it, or route it to whoever owns the vision path.**
+
+**10. NEW — batch 8's naming gate.** Nine tool components cannot be acceptance-tested at
+all because no page resolves under `name IN (function,'tool-'||function)`: eight on
+loancalculator.co.uk (that lane's call — their page slugs are different WORDS from the
+component functions) and `tool-bayesian-ranking` on gamesdesign.co.uk (the ordinary
+prefix-strip rename, RUNBOOK §11, **two rows**). Evidence and both remedies: §2's
+correction box.
 
 ## 5. Session-start checklist (do these before any dispatch)
 

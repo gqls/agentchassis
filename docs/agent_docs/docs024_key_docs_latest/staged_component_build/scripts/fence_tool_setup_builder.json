@@ -1,0 +1,103 @@
+{
+  "profiles": ["desktop", "mobile"],
+  "container": "div.tool-container",
+  "checks": [
+    {
+      "id": "page-serves-200",
+      "type": "page_status_ok"
+    },
+    {
+      "id": "tool-renders",
+      "type": "selector_exists",
+      "profiles": ["desktop"],
+      "selector": "div.tool-container #db-form"
+    },
+    {
+      "id": "tool-has-visible-area",
+      "type": "has_visible_area",
+      "profiles": ["desktop"],
+      "selector": "div.tool-container"
+    },
+    {
+      "id": "heading-names-the-tool",
+      "type": "interaction",
+      "profiles": ["desktop"],
+      "expect": {
+        "selector": "div.tool-container h2",
+        "text_matches": "^Dart Setup Builder$"
+      }
+    },
+    {
+      "id": "all-three-questions-present",
+      "type": "interaction",
+      "profiles": ["desktop"],
+      "expect": {
+        "selector": "#db-form fieldset.db-fieldset:nth-of-type(3) legend",
+        "text_matches": "^Grip preference$"
+      }
+    },
+    {
+      "id": "results-start-hidden",
+      "type": "interaction",
+      "profiles": ["desktop"],
+      "expect": {
+        "selector": "#db-results.db-hidden"
+      }
+    },
+    {
+      "id": "computes-the-default-vector",
+      "type": "computed_values",
+      "profiles": ["desktop"],
+      "steps": [
+        { "action": "click", "selector": "#db-form .db-submit" }
+      ],
+      "expect_values": {
+        "#db-weight-value": "18g to 21g",
+        "#db-tungsten-value": "Around 80% tungsten",
+        "#db-shaft-value": "Medium to long, roughly 48mm to 55mm",
+        "#db-flight-value": "Standard or kite shape"
+      }
+    },
+    {
+      "id": "submitting-reveals-the-results",
+      "type": "interaction",
+      "profiles": ["desktop"],
+      "expect": {
+        "selector": "#db-results:not(.db-hidden)"
+      }
+    },
+    {
+      "id": "every-output-carries-its-reason",
+      "type": "computed_values",
+      "profiles": ["desktop"],
+      "expect_values": {
+        "#db-weight-reason": "Beginner players typically do well starting in this range. Your smooth release means you can comfortably use the full range shown here."
+      }
+    },
+    {
+      "id": "recomputes-for-advanced-firm-backweighted",
+      "type": "computed_values",
+      "profiles": ["desktop"],
+      "steps": [
+        { "action": "click", "selector": "label[for=\"db-exp-advanced\"]" },
+        { "action": "click", "selector": "label[for=\"db-rel-firm\"]" },
+        { "action": "click", "selector": "label[for=\"db-grip-back\"]" },
+        { "action": "click", "selector": "#db-form .db-submit" }
+      ],
+      "expect_values": {
+        "#db-weight-value": "21g to 26g",
+        "#db-tungsten-value": "95% tungsten or higher",
+        "#db-shaft-value": "Short to medium, roughly 30mm to 41mm",
+        "#db-flight-value": "Slim flight"
+      }
+    },
+    {
+      "id": "no-horizontal-overflow",
+      "type": "no_horizontal_overflow"
+    },
+    {
+      "id": "no-console-errors",
+      "type": "no_console_errors"
+    }
+  ]
+}

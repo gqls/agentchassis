@@ -1,0 +1,67 @@
+[
+  {
+    "name": "the page stops being served (404)",
+    "serve_status": 404,
+    "expect_fail": ["page-serves-200"]
+  },
+  {
+    "name": "the tool wrapper loses its class — the fence's anchor selector goes",
+    "from": "class=\"tool-container\"",
+    "to": "class=\"tool-kontainer\"",
+    "expect_fail": ["tool-renders", "tool-has-visible-area", "heading-names-the-tool"]
+  },
+  {
+    "name": "the heading is renamed (the anchor survives, only the TEXT moves)",
+    "from": "<h2>Dart Setup Builder</h2>",
+    "to": "<h2>Dart Setup Wizard</h2>",
+    "expect_fail": ["heading-names-the-tool"]
+  },
+  {
+    "name": "one of the three questions stops being a fieldset — 3 becomes 2",
+    "from": "<fieldset class=\"db-fieldset\">\n      <legend>Grip preference</legend>",
+    "to": "<fieldset class=\"db-fieldset-dropped\">\n      <legend>Grip preference</legend>",
+    "expect_fail": ["all-three-questions-present"]
+  },
+  {
+    "name": "the results panel ships already open — the pre-gesture state is wrong",
+    "from": "class=\"db-results db-hidden\" id=\"db-results\"",
+    "to": "class=\"db-results\" id=\"db-results\"",
+    "expect_fail": ["results-start-hidden"]
+  },
+  {
+    "name": "the BEGINNER weight band is rewritten — the default vector's arithmetic moves",
+    "from": "beginner: { low: 18, high: 21, label: 'Beginner' }",
+    "to": "beginner: { low: 17, high: 21, label: 'Beginner' }",
+    "expect_fail": ["computes-the-default-vector"]
+  },
+  {
+    "name": "submitting no longer reveals the results — the gesture stops paying out",
+    "from": "resultsBox.classList.remove('db-hidden');",
+    "to": "resultsBox.classList.remove('db-hidden-never-set');",
+    "expect_fail": ["submitting-reveals-the-results"]
+  },
+  {
+    "name": "the smooth-release reason line is rewritten — the explanation half drifts",
+    "from": "'Your smooth release means you can comfortably use the full range shown here.'",
+    "to": "'Your smooth release means you can use the whole range shown here.'",
+    "expect_fail": ["every-output-carries-its-reason"]
+  },
+  {
+    "name": "the ADVANCED band is rewritten — only the second vector's arithmetic moves",
+    "from": "advanced: { low: 22, high: 27, label: 'Advanced' }",
+    "to": "advanced: { low: 23, high: 27, label: 'Advanced' }",
+    "expect_fail": ["recomputes-for-advanced-firm-backweighted"]
+  },
+  {
+    "name": "a throwing script is injected ahead of the tool",
+    "from": "<div class=\"tool-container\">",
+    "to": "<script>window.__deliberate_mutant_probe.boom();</script><div class=\"tool-container\">",
+    "expect_fail": ["no-console-errors"]
+  },
+  {
+    "name": "the tool is forced wider than any viewport",
+    "from": "<div class=\"tool-container\">",
+    "to": "<div class=\"tool-container\" style=\"width:3000px;max-width:3000px\">",
+    "expect_fail": ["no-horizontal-overflow"]
+  }
+]
