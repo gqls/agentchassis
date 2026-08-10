@@ -1,5 +1,24 @@
 # 243 — the Anthropic account hit its usage limit at 14:51:47Z today; EVERY LLM step fleet-wide now fails, and the API says access returns 2026-09-01
 
+> **NUMBER COLLISION (2026-08-10, same day):** another thread filed a different `243`
+> (`tool_acceptance_look_step_has_no_storage_client_on_either_execution_path`). Numbers are
+> never reassigned — **resolve by slug**. Cite this case as **243-anthropic-cap**.
+
+> **READ `bugs_open/244` FIRST IF YOU WANT THE CAUSE.** This file records the **outage**: when
+> it started, how wide it is, how to tell it apart from queue latency, and what unblocks it.
+> `244` — filed the same afternoon by the `bugfix_168_deployed_asset_path` lane — has the
+> **mechanism that spent the budget**, and it is far more actionable than anything here:
+> the council gate sends 11–15 near-identical ~106k-token prompts per round with no prompt
+> caching, and orders the prompt so caching could not help even if enabled. Its measurements:
+> **790,551 input tokens per round**, and `council-gate` is **165.2M = 87.8% of the fleet's
+> entire August spend**, with a costed ~76% reduction available.
+>
+> So the two files are complements, not duplicates: **244 is why we ran out; 243 is what
+> running out looks like and how to recognise it.** §5 candidate 1 here (owner raises the cap)
+> and 244's caching fix are both wanted — the cap gets the fleet working again today, the
+> caching fix stops it recurring. **Neither alone is sufficient**, and on the evidence of two
+> Anthropic exhaustions in eleven days, raising the cap alone buys weeks rather than a fix.
+
 **Filed:** 2026-08-10 ~17:00 BST by the `bugfix_153_build_provenance` lane, which found it
 by having its own council submission die on it. **Status: OPEN, unowned, LIVE RIGHT NOW.**
 **Class:** account/billing state, not a code defect — the same family as `bugs_open/202`
