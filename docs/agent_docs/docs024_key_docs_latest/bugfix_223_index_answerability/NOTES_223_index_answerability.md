@@ -175,3 +175,39 @@ separately from this bug.
 passed the file's text and got `OSError: File name too long` with the whole document echoed
 back as the filename. Cost: one command. Not a WRONG_CALLS entry (no claim was published),
 but the correct call is in the RUNBOOK now.
+
+## 2026-08-10 — the blind spot also produces FALSE POSITIVES, which the bug file does not say
+
+Measured the three motivating lookup shapes directly against the index, expecting three
+zeros. Two came back zero. **The third did not, and it is the more dangerous case.**
+
+```sql
+SELECT count(*) FROM code_symbols WHERE path LIKE 'scripts/%';   -- 110  (!!)
+SELECT count(*) FROM code_symbols
+ WHERE body ILIKE '%landmine-verification%' OR content ILIKE '%landmine-verification%'; -- 0
+SELECT count(*) AS rows_at_path,
+       count(*) FILTER (WHERE symbol IN ('metaCommentaryPatterns','placeholderPatterns'))
+  FROM code_symbols WHERE path LIKE '%validate_page_content.go';   -- 30 rows, 0 of the two vars
+```
+
+**`scripts/` resolves to 110 indexed paths** — `scripts/documentation_project/01/analyser.go`,
+`scripts/goscripts/…` and friends. There are Go programs in subdirectories of `scripts/`,
+so the prefix is *represented* while every `.py` and `.sh` file directly under it is
+invisible. An `ls` check written at directory altitude therefore comes back with a
+generous listing that reads as **confirmation that the footprint resolves**, and the
+files the entry actually named are not in it. The `ls` kind presents itself as a
+directory listing and is in fact a *Go-file* listing; nothing in the answer says so.
+
+That is worse than the 0-row case the bug was filed about, because a false STALE at least
+looks like an accusation a reader might check. A flattering partial confirmation looks
+like diligence — which is the shape 223's own scope section warns about for mixed
+footprints, arriving here through the `ls` kind rather than through a mixed entry.
+
+**Design consequence:** the coverage statement cannot be attached only to empty answers.
+An `ls` answer must carry it whether it returned 0 rows or 110.
+
+**And the `var` case is now exactly diagnosable, mechanically:** the path is indexed (30
+symbols), the named symbol is absent, and the corpus contains no `var`/`const` row at all
+— so "absent from the index because this kind is unrepresentable" is distinguishable from
+"absent from the code", without guessing. That is the discriminator the verifier needed
+when it invented *"possibly inlined or renamed"*.
