@@ -1527,3 +1527,50 @@ The one thing I'd flag for later: running the planner to check something *change
 official plan*. There is no dry-run. That is how Saturday's test quietly replaced the other
 site's plan, which I put back. The larger of the two routes you didn't pick would also have
 fixed that, so it may be worth revisiting if this bites again.
+
+**Monday afternoon, 10 August.** The thing I said was still owed on Saturday and again this
+morning — proof about what happens when the review council says *no* — is now done, and it went
+better than I expected.
+
+I couldn't wait for a rejection to turn up naturally, so I made one. I wrote a brief for an
+imaginary experience on the loan site that a client might genuinely ask for and that we
+genuinely cannot build: a live board showing what other visitors were offered by lenders in the
+last hour, a counter of how many people in your area are looking right now, and each visitor's
+own history following them from laptop to phone. Everything on our sites is served as flat
+files with no server behind them, so none of that is possible. I filed the brief the same way a
+real one would be filed, and fired the planner at it.
+
+**The council vetoed it on the first round, exactly as it should have** — four objections,
+three of them serious: there is no server to write to, no way to recognise the same person on a
+second device, and putting the lender's API key in the page would hand it to anyone who looked.
+And the point of the exercise: **while all that was happening, nothing was saved**. I watched
+the count of stored plans the whole way through. It stayed at nothing while the plan was being
+drafted, stayed at nothing while it was being vetoed, stayed at nothing while the system had
+another go — and only became one when the second attempt was approved. Under the old behaviour
+that same run would have left two plans behind, and the first of them — the one the council
+threw out — would have been the official one. That is precisely the fault we set out to fix,
+reproduced deliberately and now absent.
+
+Two smaller things fell out of it. One is a piece of luck I'd rather call a near miss: when the
+system has a second go at a plan, it turns out to write to the same place the first attempt
+used, which is what makes moving the save to the end safe. I had checked that for one of the two
+retry routes; this run checked the other, and if it had gone the other way we'd have been
+quietly saving the *rejected* draft. The other is housekeeping — three descriptions inside the
+planner still told the old story, one of them stating flatly that a rejected plan stays official.
+That is now the opposite of the truth, and a future reader would have gone looking for something
+that no longer exists. Corrected and live.
+
+There is still one narrow gap, and I'm leaving it open rather than rounding it up. I've proved
+that a *vetoed* draft is never saved. I haven't yet watched a run that gets vetoed and then
+gives up entirely, because — and this is the interesting bit — **the system is built so that
+almost never happens**: after a veto it is explicitly told to shrink the idea to something
+honest and try again, and it only gives up on a second refusal. So "wait for a natural
+rejection" was never going to deliver it. I know how to force it and had it set up.
+
+**Which is where I have to flag something bigger than this job.** At 14:51 today the Anthropic
+account hit its spending limit. Every agent on the estate that talks to the model is now failing
+— I watched my run and another session's review council die within the same minute on the same
+error. **The message says access returns on 1 September**, which I assume is not what you want,
+so it will need the cap raising on the billing side. Nothing is broken and nothing is lost;
+everything queued will simply fail until it's lifted. It also means the last small piece of
+this job can't be finished today.

@@ -4474,3 +4474,181 @@ Two things to carry:
    same lane, both on this bug.**
 2. **The rejected arm is still unobserved** and is still what 363 exists for. Nothing above
    changes that.
+
+---
+
+## 2026-08-10 afternoon — the REJECTED arm, observed; and a fleet-wide API cap mid-session
+
+Picking up the one thing `HANDOFF_2026-08-10_continue_here.md` left owed: 363 moved the plan
+write onto the approved branch, and no vetoed run had ever been watched under the new graph.
+Route taken: the handoff's second option — **seed a deliberately unbuildable experience**.
+
+### How the probe was built, and why it cannot contaminate anything
+
+`load_brief` selects `doc_notes` by **`subject_key`, not by `site_id`** (read the live step
+config, don't infer it) — so a brief filed under a probe key is invisible to
+`debt-difficulty-help` and `vonc-spark-game`. Fixture:
+`probe_363_veto_arm_brief.sql` in this directory, deliberately NOT in `sql_for_agents/`
+so the migration runner can never sweep it up.
+
+The brief is a realistic owner brief for `live-lender-approval-race`: a live partner-lender
+decisions API polled from the page with a key in the query string, a presence counter by
+postcode, per-visitor state written server-side and read back cross-device, and an explicit
+owner line that a coming-soon label is not acceptable. Every clause is something a real
+client asks for and a static host cannot do. The test-artefact marking lives in `categories`
+and `created_by`, **never in the body** — the body is what `compose` is handed, and a body
+announcing itself as a test would steer the judgement under test.
+
+**Pre-flight, learned from the sentinel trap two days ago:** ran `load_brief`'s *exact* query
+for the probe key before firing and confirmed it returned the brief, not the no-brief
+sentinel. A run where the brief silently failed to load would have planned from live context
+alone, probably produced something buildable, been approved — and I would have read that as
+"the council did not veto" rather than "the fixture never arrived".
+
+### Run 1 — corr `d81aa5f4-a732-4fb3-b438-4ff496ef7ba2`, and this is the proof
+
+| time (UTC) | step | `doc_plans` rows for the key |
+|---|---|---|
+| 14:39–14:40 | `compose` (returned 12,189 b at 14:40:33) | 0 |
+| **14:40:48** | **`EXECUTING_STEP @ review_journeys`** | **0** |
+| 14:42:42 | council round 1: **`veto from feasibility`** | 0 |
+| 14:43–14:44 | `reframe` (returned 7,661 b) | 0 |
+| 14:44:12 | `EXECUTING_STEP @ review_journeys` (round 2) | 0 |
+| 14:45:51 | council round 2: `approved with 2 advisory objection(s)` | 0 |
+| 14:46:26 | `COMPLETED @ complete` | **1** |
+
+**Under the OLD graph this run writes TWO rows, and the first of them is the VETOED plan,
+`is_current`.** That is bug 227's second defect verbatim — the 08-08 sequence was
+compose-persist, veto, reframe-persist. Here the vetoed composition was never written at all:
+the count was still 0 at 14:40:48, i.e. past the point where the old graph had already
+persisted, and stayed 0 across the veto and the entire reframe round.
+
+The feasibility veto is a real one, not a rubber stamp — four objections, three high:
+"requires a POST write endpoint … this site is static with no server"; "cross-device
+'return tomorrow on a phone' … a static host has no mechanism for this"; "a live API key
+embedded in client JS … exposes the key in every page load".
+
+**A check nobody had run, and it matters more than it looks.** The persisted body is
+**7,661 b = the `reframe` response exactly**, not compose's 12,189 b. 363's header verified
+the "compose, recompose and reframe all write `proposal`" assumption against compose+recompose
+runs only; the **reframe** branch had never been measured. Had reframe written to its own
+field, moving the write later would have persisted the **vetoed** draft on approval — a silent
+wrong-content failure, and the ugliest possible version of it.
+
+### What is STILL not observed, and why it is hard BY DESIGN
+
+A run that **ends** non-approved (`complete_escalated` / `complete_refused`) leaving no row.
+Reading the code rather than guessing at it:
+
+- `reframe`'s prompt: *"If the vetoed feature admits no honest minimal-real version, demote it
+  to a labelled coming-soon panel and move the real version to the LATER list — that is an
+  acceptable honest MVP."* The reframe is **instructed to converge on something approvable**.
+- `applyCouncilCaps` (`platform/orchestration/actions/diagnose_council_decide_action.go:663`):
+  `shouldReframe := rejected && rejectedCount <= 1 && round < maxRounds`. Escalation needs a
+  **second** rejection in the same run.
+
+So the handoff's "wait for a natural veto" cannot deliver this arm: a veto is not terminal,
+and the machinery exists to stop it being terminal. My unbuildable brief drew the veto it was
+built to draw and the run still ended approved.
+
+### Run 2 — the escalation probe, killed by a fleet-wide API cap
+
+To make the terminal state reachable in one round I capped the council: `max_rounds` 5 → 1,
+so **any** non-approved round-1 verdict routes to `complete_escalated` (`round < maxRounds`
+is false at round 1). Deliberately a capacity knob, not the persist wiring under test.
+Armed a detached 25-minute restore as a safety net first, then fired the same key at
+14:51:30 — reusing the key on purpose, because `load_context` carries no prior plan (checked)
+so there is no bias, and the observation becomes the damage claim itself: *the plan of record
+must not change*.
+
+It died 30 seconds later:
+
+```
+step compose failed: … API request failed with status 400:
+{"type":"invalid_request_error","message":"You have reached your specified API usage limits.
+ You will regain access on 2026-09-01 at 00:00 UTC."}
+```
+
+**Fleet-wide, account-level, not this lane's doing.** Same minute, another session's
+`council-gate` run died on `review_architecture` with the identical message
+(`request_id` req_011CduFpnewdmmf9ak88Ww2t). Every LLM-driven agent is blocked until the owner
+raises the cap.
+
+> **CORRECTED same day — I first wrote "last successful call across the whole estate:
+> 14:51:15".** That figure was the **minimum** `created_at` in the window I happened to
+> select, not the last success; I read a `min` off a summary row and reported it as a
+> boundary. The real value is **14:51:45.067Z**:
+> `SELECT max(created_at) FILTER (WHERE success) FROM llm_call_log`. **What caught it:**
+> the `bugfix_236_site_availability` lane had independently diagnosed the same outage and
+> appended it to `LANDMINES.md` with 14:51:45 — I saw their figure while checking my own
+> commit for same-file passengers, and re-measured rather than assuming mine was right.
+> **And their instrument is better than mine:** `llm_call_log` has a `success` **boolean
+> column**; I was testing `response_text IS NOT NULL AND <> ''`, which agrees here but is a
+> proxy for the thing that is recorded directly. Their entry also carries the sizing rule —
+> on a quiet fleet the outage is only ~5 error rows, so **size it by the absence of any
+> success, never by the error count**.
+
+`max_rounds` restored to 5 and re-read from the live row immediately (window 14:50:20–14:53:10,
+one run in it — mine). Safety-net task stopped.
+
+### ⚠ THE MISSTEP — the third inert check in three days, and I nearly filed it
+
+My first sight of run 2 was `COMPLETED @ complete_refused | rows=1 | current=6ebe06f5` —
+a non-approved terminal state with the plan of record unchanged. **That is precisely the
+sentence I came here to write, and it would have been worthless.** `compose` never returned,
+so no plan existed to persist; the OLD graph writes nothing on that run either. The reading
+is true and proves nothing.
+
+What caught it: the run finished in 30 seconds instead of eight minutes, so I read
+`collected_data->'__step_error'` instead of the status — the status says `COMPLETED` even
+though the step failed (a known landmine, and it earned its place again today).
+
+**Three for three on this bug now**: the `no brief on file` sentinel (08-09), the one-row
+count on a single-round run (08-10 morning), and this. All the same shape — *an assertion
+that returns the expected answer for a reason unrelated to what is being tested*. The common
+factor is not carelessness, it is that **each check was designed against the run I hoped for
+rather than the run I got**. The cheap habit that would have caught all three: before reading
+a result, say out loud what the failing version of this run would look like — and if the
+answer is "the same", the check is inert for this run whatever it returns.
+
+### The structural backstop for the arm still owed
+
+Not a substitute for observing it — but the escalation path cannot reach a write, and that is
+checkable rather than arguable. Every step-target reference to `persist_plan` in the live row:
+
+```sql
+SELECT s.key AS step, y.k AS field
+FROM agent_definitions d, jsonb_each(d.default_config->'workflow'->'steps') s,
+     LATERAL (SELECT k, v FROM (
+        SELECT 'next_step' k, s.value->>'next_step' v
+        UNION ALL SELECT 'config.'||c.key, c.value#>>'{}' FROM jsonb_each(COALESCE(s.value->'config','{}'::jsonb)) c
+                   WHERE jsonb_typeof(c.value)='string'
+     ) x WHERE v='persist_plan') y
+WHERE d.type='experience-planner' AND d.is_active
+  AND COALESCE(d.is_snapshot,false)=false AND d.deleted_at IS NULL;
+```
+→ exactly one row: `check_approved | config.then_step`. (Do **not** count occurrences of the
+literal in `default_config::text` for this — 370 added the words to two descriptions, so the
+raw count is now 3 and means nothing. Scan the target fields.)
+
+Combined with run 1 — where the engine demonstrably honoured the rewired edges — the
+escalated arm follows from the same mechanism just observed working. Recorded as
+**[INFERRED]**, not as an observation, and the handoff says so in those words.
+
+### Migration 370 — three strings 363 left describing the graph it replaced
+
+Found while reading `check_reframe`/`complete_escalated` to design the probe:
+
+- `complete_escalated.description`: *"The current (rejected) plan **stays is_current** but MUST
+  NOT be built"* — asserts the exact state 363 made unrepresentable. A session reading it goes
+  looking for a rejected plan of record, and the honest conclusion from not finding one
+  ("someone already demoted it") is wrong in the other direction.
+- `complete_escalated.config.success_message`: same claim, and this one travels to whoever
+  reads the escalation.
+- `recompose.description`: *"loops back to persist + review + decide"* — names a dead edge.
+
+`370_experience_planner_escalation_descriptions_catch_up_with_363.sql` (+ ROLLBACK), config
+only. Dry-run first (guards + in-transaction verify passed, rolled back, stale text confirmed
+still live), then applied. Its verify block sweeps the WHOLE row for each retired claim rather
+than checking the three paths it set — a `jsonb_set` on a wrong path silently adds a key, so
+"my new string is there" is not "the old one is gone". Post-apply: 0 retired claims remain.

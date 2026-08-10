@@ -118,6 +118,39 @@
 -- proven on the approved run alone: that is the check-that-cannot-fail shape this
 -- same bug already produced once (WRONG_CALLS 2026-08-09).
 --
+-- ✅ THE VETOED-ROUND ARM IS NOW OBSERVED — 2026-08-10 afternoon, corr
+-- d81aa5f4-a732-4fb3-b438-4ff496ef7ba2. A deliberately unbuildable experience was
+-- seeded through 345's brief channel (doc_notes keyed by subject_key, so nothing
+-- else was touched: fixture docs024_key_docs_latest/loancalculator_couk/
+-- probe_363_veto_arm_brief.sql), and drew a real `veto from feasibility` on round
+-- 1 — no server for its write endpoint, no cross-device store, an API key in
+-- client JS. The mid-flight count for that subject was 0 while the run executed
+-- review_journeys (past where the old graph had already persisted), 0 across the
+-- veto, 0 across the whole reframe round, and reached 1 only after check_approved
+-- routed to persist on the approved round 2. UNDER THE OLD GRAPH THAT RUN WRITES
+-- TWO ROWS AND THE FIRST IS THE VETOED ONE, is_current — i.e. bugs_open/227's
+-- second defect verbatim, reproduced and now absent.
+--
+-- AND IT SETTLED AN ASSUMPTION THIS HEADER COULD ONLY CHECK HALFWAY. The
+-- persisted body was 7,661 b = the REFRAME response exactly, not compose's
+-- 12,189 b. The "compose, recompose AND reframe all write proposal" claim above
+-- was verified against compose+recompose runs only; the reframe branch had never
+-- been measured, and it is the branch where being wrong would have persisted the
+-- VETOED draft on approval.
+--
+-- WHAT IS STILL OWED, narrowed: a run that ENDS non-approved leaving no row.
+-- Note the reason it stayed open, because "wait for a natural veto" is not a
+-- plan: A VETO IS NOT TERMINAL BY DESIGN. reframe's prompt tells it to demote the
+-- vetoed feature to a coming-soon label ("that is an acceptable honest MVP"), and
+-- applyCouncilCaps (diagnose_council_decide_action.go:663) escalates only on a
+-- SECOND rejection. The way to force it: set council_decide.config.max_rounds to
+-- 1 — then any non-approved round-1 verdict routes straight to complete_escalated
+-- — fire an unbuildable experience, assert no new row, and RESTORE max_rounds to
+-- 5. Attempted 14:51Z; the run died at compose on a fleet-wide Anthropic usage cap
+-- before reaching the council. ⚠ That failed run READS AS A PASS AND IS NOT ONE
+-- (complete_refused, no new row, plan of record unchanged — but compose never
+-- returned, so the old graph writes nothing either).
+--
 -- ROLLBACK: 363_..._ROLLBACK.sql restores from agent_definitions_backup, picking
 -- by snapshot_taken_at DESC with snapshot_reason LIKE 'pre-update: 227 persist%'.
 -- Every backup row for one agent shares the source row's id and created_at, so

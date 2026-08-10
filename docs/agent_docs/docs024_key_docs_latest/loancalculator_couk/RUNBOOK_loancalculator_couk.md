@@ -1132,3 +1132,72 @@ reads clean), plus `toolgolden.py --compare acceptance/GOLDEN_2026-08-08_voice_h
 Release the temporary locks, close the fired item **and** the `lock_blocked_change`
 notices to `complete` with `resolution_path`. A `detected` leftover blocks any future
 re-fire on `idx_swi_dedup` (`HANDOFF_2026-08-08b` §5).
+
+## Observing a COUNCIL-VETOED experience-planner run (2026-08-10, bugs_open/227 · migration 363)
+
+For proving that a plan is not persisted before the council approves it. The whole difficulty
+is that a veto cannot be ordered up — so you seed an experience that genuinely cannot be built.
+
+### 1. Seed the brief — and check it LOADED before you spend a run
+
+`load_brief` selects `doc_notes` by **`subject_key`, not `site_id`**, so a probe key cannot
+contaminate a real experience. Fixture: `probe_363_veto_arm_brief.sql` in this directory
+(deliberately not in `sql_for_agents/` — the migration runner takes every pending file there).
+Mark it as a test artefact in `categories`/`created_by`, **never in the body**: the body is
+what `compose` is handed.
+
+Then run `load_brief`'s **exact** query for your key before firing:
+
+```sql
+SELECT left(COALESCE((SELECT string_agg(body, E'\n\n---\n\n' ORDER BY created_at)
+         FROM doc_notes WHERE subject_type='experience' AND subject_key='<key>'
+          AND categories @> '["experience-brief"]'::jsonb),
+       '(no brief on file'), 90);
+```
+If that returns the sentinel, the run you are about to fire plans from live context alone and
+will probably be approved — and you would read that as "the council did not veto".
+
+### 2. Fire, then SAMPLE MID-FLIGHT — the count at the end proves nothing
+
+```bash
+./docs/agent_docs/sql_for_agents/092_TRIGGER_experience_plan.sh loancalculator.co.uk <key> "<name>"
+```
+```sql
+SELECT (SELECT status||' @ '||current_step FROM orchestration_states
+          WHERE correlation_id='<CID>' AND owner_agent_type='experience-planner'),
+       (SELECT count(*) FROM doc_plans WHERE subject_type='experience' AND subject_key='<key>');
+```
+Poll it every 30 s. **`review_journeys` with the count still at baseline is the reading**: the
+old graph persisted between `compose` and `review_journeys`, so that is the moment the two
+graphs disagree. The final count does not discriminate on a single-round run.
+
+⚠ **`owner_agent_type='experience-planner'` matters** — the trigger's parent orchestration
+shares the correlation id and completes on its own.
+
+⚠ **A run that finishes in well under ~7 minutes did not run.** Read
+`collected_data->'__step_error'`: a failed step still shows `status=COMPLETED` with `error`
+NULL. A `complete_refused` from a dead `compose` looks exactly like the result you want.
+
+### 3. If you need the run to END non-approved (the escalation arm)
+
+A veto is not terminal: `reframe` is told to demote the vetoed feature to coming-soon, and
+`applyCouncilCaps` escalates only on a **second** rejection. To force it in one round, cap the
+council, and **arm the restore before you fire** — this is a shared live row:
+
+```sql
+-- before: expect 5
+UPDATE agent_definitions
+   SET default_config = jsonb_set(default_config,'{workflow,steps,council_decide,config,max_rounds}', to_jsonb(1))
+ WHERE type='experience-planner' AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL
+   AND default_config #> '{workflow,steps,council_decide,config,max_rounds}' = to_jsonb(5)
+RETURNING default_config #>> '{workflow,steps,council_decide,config,max_rounds}';
+-- …fire, watch, then IMMEDIATELY put it back (to_jsonb(5)) and read it back from the row.
+```
+Keep the window to one run. Nothing else on the estate uses this agent today, but that is a
+fact with a shelf life — re-check `SELECT count(*) FROM orchestration_states WHERE
+owner_agent_type='experience-planner' AND status='EXECUTING_STEP'` before you start.
+
+### 4. Clean up
+
+Delete the probe brief by id, and close the intake row the trigger created —
+`item_key='needs_experience_plan:<key>'` — or `idx_swi_dedup` holds the key for ever.

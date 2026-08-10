@@ -149,6 +149,18 @@ future thread — gets a rejected, fabricated document with nothing marking it a
 Demoted by hand at filing time (`is_current=false`, note recorded) so nothing builds from
 it. **That is a one-off cleanup, not a fix.**
 
+> **FIXED AND OBSERVED 2026-08-10.** Migration 363 (config only, applied ~10:40Z) moves the
+> single `persist_plan` onto the council's approved branch: `check_approved.then_step` is now
+> the ONLY step-target reference to `persist_plan` anywhere in the live row. The sequence
+> above was reproduced deliberately on 2026-08-10 afternoon under the new graph — corr
+> `d81aa5f4-a732-4fb3-b438-4ff496ef7ba2`, a seeded unbuildable experience that drew a real
+> `veto from feasibility` on round 1 — and **the vetoed composition was never written**: the
+> row count for the subject was still 0 while the run was executing `review_journeys` (past
+> the point where the old graph had already persisted), still 0 across the veto and the whole
+> reframe round, and reached 1 only after `check_approved` routed to persist on round 2. Under
+> the old graph that same run writes TWO rows, the first of them the vetoed one, `is_current`.
+> **Still not observed:** a run that ENDS non-approved leaving no row — see "How to verify".
+
 ## Fix candidates, ordered by what closes the door
 
 1. **Move the worked case out of the prompt and into the input.** The diagnosis of the
@@ -212,7 +224,51 @@ Candidate 1 is the real fix; 3 is independent and cheap.
   `body ~* 'provocation|gauntlet|arena|vonc|spark'` → **false**, 11,442 b, names loan
   and debt subjects — the first non-vonc experience plan in this system's history that
   does not describe vonc's pages.
-- After a rejected round, `SELECT is_current FROM doc_plans …` → **false**.
+- ~~After a rejected round, `SELECT is_current FROM doc_plans …` → **false**.~~
+  **SUPERSEDED by migration 363 — after a rejected round there is no row to read.** The check
+  is not "the vetoed plan was demoted", it is "the vetoed plan was never written". Two arms,
+  and they need different observations. **Do not let an approved run stand in for either.**
+
+  **ARM 1 — a VETOED composition is never persisted. OBSERVED 2026-08-10**, corr
+  `d81aa5f4-a732-4fb3-b438-4ff496ef7ba2`. Method: seed a deliberately unbuildable experience
+  through 345's own brief channel (`doc_notes`, keyed by `subject_key`, so no other subject is
+  touched — fixture `docs024_key_docs_latest/loancalculator_couk/probe_363_veto_arm_brief.sql`),
+  then **sample the row count mid-flight**, which is the only reading that discriminates on a
+  run of any length:
+
+  ```sql
+  SELECT (SELECT status||' @ '||current_step FROM orchestration_states
+            WHERE correlation_id='<CID>' AND owner_agent_type='experience-planner'),
+         (SELECT count(*) FROM doc_plans WHERE subject_type='experience' AND subject_key='<key>');
+  ```
+  `review_journeys` with the count still at baseline = the run is past where the old graph
+  persisted and has written nothing. Round 1 came back `veto from feasibility` (4 objections,
+  3 high — no server, no cross-device store, an API key in client JS); count stayed 0 through
+  the veto and the entire reframe round; it reached 1 only when round 2 was approved. **Under
+  the old graph this run writes two rows and the first is the vetoed one, `is_current`.**
+
+  Bonus, and it had never been checked: the persisted body was **7,661 b = the `reframe`
+  response exactly**, not compose's 12,189 b. 363's header verified the shared-`proposal`
+  assumption on compose+recompose only; had `reframe` written its own field, moving the write
+  later would have persisted the **vetoed** draft on approval.
+
+- **ARM 2 — a run that ENDS non-approved leaves NO row. STILL OWED, and harder than it looks.**
+  A veto is **not terminal by design**: `reframe`'s prompt tells it to demote the vetoed
+  feature to a coming-soon label — "that is an acceptable honest MVP" — and
+  `applyCouncilCaps` (`diagnose_council_decide_action.go:663`) only escalates on a **second**
+  rejection. So "wait for a natural veto" cannot deliver this arm. What can: set
+  `council_decide.config.max_rounds` to 1 (any non-approved round-1 verdict then routes
+  straight to `complete_escalated`), fire an unbuildable experience, assert no new row, and
+  **restore `max_rounds` to 5**. Attempted 2026-08-10 14:51Z; the run died at `compose` on a
+  fleet-wide Anthropic usage cap before it reached the council, so the arm is still open.
+  ⚠ **That failed run reads as a pass and is not one** — `complete_refused`, no new row, plan
+  of record unchanged. But `compose` never returned, so the old graph writes nothing either.
+  Read `collected_data->'__step_error'`: a failed step still shows `COMPLETED` with `error`
+  NULL.
+  **[INFERRED, not observed]** meanwhile: no non-approved terminal can reach a write, because
+  `check_approved.config.then_step` is the only step-target reference to `persist_plan` in the
+  live row (scan the target fields, not `default_config::text` — migration 370 put the words
+  into two descriptions, so the raw literal count is 3 and means nothing).
 
 ## Filing basis
 
