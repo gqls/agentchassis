@@ -1681,3 +1681,86 @@ Plus the honest one: staged without its own index row, the gate named **OPP-006*
   two days ago, so that edit is active work, not an abandonment. Committing my one
   line would take their REB-003 rewrite as a same-file passenger. Left owed, again,
   and the reason is now dated rather than inherited.
+
+---
+
+## 2026-08-10 (later still) — the staleness survey: the register's evidence is ageing, and the obvious mechanism is ruled out
+
+Handoff item 3, surveyed rather than built — full write-up in
+`FINDINGS_2026-08-10_staleness_survey.md`. The short version and the two things
+that cost me a wrong number.
+
+**Four signals, measured against 1,818 entries:**
+
+| signal | result |
+|---|---|
+| entries citing a chassis version | 129 — **80 of them 50+ versions behind** (fleet on v1.0.1280; `SYS-077`/`HITL-020` cite **v1.0.407**, 873 back) |
+| status still claiming "not live" | 44 matched, **6 already corrected in place**, 38 remaining → **~20 genuine** after reading |
+| `sources:` paths that no longer resolve | **96 of 2,611** judgeable citations (3.7%), mostly the numbered-docs tree deleted 08-04 |
+| entries citing `bugs_open/NNN` now in `bugs_closed/` | 156 — **one-directional**: the owner's 08-06 ruling means a *non*-moved bug proves nothing |
+| `verify-later:` present | 1,754/1,818 — **a template field, so not a signal**; recorded so nobody quotes it as one |
+
+**Proven at the artefact, both replicas of `v1.0.1280`, negative control 0 in the
+same exec** — not inferred from the roll count:
+
+- `FIX-055` said **"NOT yet live"**; `hasGatingObjection` (1) and
+  `gatesOnlyBecauseTruncated` (2) are in the running binary. **False for some part
+  of 13 days and 22 rolls.** Corrected in place.
+- `SCR-002` said **"inert until the chassis image rolls"**; `fetch_provenance.go`
+  is in the binary, ~23 rolls later. But it is **live and unexercised** — vet
+  collection has been off since 2026-03-18. Corrected, and the two claims
+  **separated**, because the old wording conflated a claim that expires by itself
+  with one that does not.
+
+### Misstep 1 — a publishable-looking number that was wrong
+
+The broken-citation count came out at **187**. Sampling 22 of them showed a large
+minority were **artefacts of my own regex**, not defects in the register: tails of
+brace notation (`{PLAN,NOTES}_x.md` → `_x.md`; `check_site_unreachable{,_test}.go`
+→ `_test.go`) and abbreviated citations containing a literal ellipsis
+(`docs021.../025_….md`). Excluding 92 such tokens gives **96**. I had the 187 in a
+draft paragraph before the sample. **The check that caught it was asking git
+whether each path had EVER existed** — "never existed under that name" is the
+signature of a parsing artefact, and "existed once, now deleted" of a real one.
+
+### Misstep 2 — and this one is the design finding
+
+My status regex said **38 entries still claim not-live**. Reading all 38 said
+**~20**. The overcount was not a weak pattern; it was the field doing four things
+no pattern can classify:
+
+- `WFA-006` — **"runtime-inert BY DESIGN"**: a permanent property that reads
+  exactly like an expiring one. A checker flagging it is wrong for ever.
+- `VONC-011` — **"deployed — UPDATED 2026-08-02, was `built, not live`"**: the
+  stale claim quoted *inside* its own correction. The same shape as the frozen-log
+  trap that forced both count searches in `check.py` to be head-bounded — **a
+  watcher crying wolf about its own archive**, one level down.
+- `CLC-013`, `STY-056`, `WFA-009`, `CGV-031` — **half live, half not.** One entry,
+  two statuses, two clocks; there is no single answer to grade.
+- `PBP-037` — **"INERT end to end until three things happen IN ORDER"**: a
+  precondition chain, not a state.
+
+**So: a staleness checker must NOT parse `status:`.** It should key on things with
+no prose ambiguity — a version number, a file path, a bug id, a date — and report
+**"this entry's evidence has expired"**, never "this entry is wrong". That is the
+bar the drift check already holds ("nothing here is a claim that an entry is
+WRONG") and is why it is trusted enough to be read at all.
+
+The one §1-shaped check worth building does not need the prose either: pair the
+**entry's own commit date** against the **roll clock** (`IMAGE_TAG` bump commits —
+107 in 14 days) and emit a **candidate** with the pod-grep suggested, not a verdict.
+
+**Cheapest first move, and it is not a checker:** make **version lag** visible. 129
+entries already carry the number and the fleet's current version is one `kubectl`
+call away.
+
+**The 20-entry worklist is in the FINDINGS doc, not corrected here on purpose** —
+each needs a pod-grep against a symbol its own lane chose, and `WFA-012` cannot be
+settled that way at all (control flow, no new string literal, `ExtractNestedField`
+greps 8 times either way — `DOC-073`'s positive-control-that-cannot-fail). Writing
+"live" on an entry I had not proved would manufacture exactly the false confidence
+this survey exists to measure.
+
+**The finding underneath all of it:** every mechanism this lane has built —
+coverage, drift, and today's authoring gate — asks whether the register agrees
+**with itself**. Nothing has ever asked whether it agrees with **the platform**.

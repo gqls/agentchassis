@@ -630,3 +630,61 @@ moment of writing rather than reported the next morning. What still isn't answer
 and is now the only real question left, is whether the 1,817 entries are still
 **true**. Nothing checks that. It's the next piece of work and it deserves its own
 session.
+
+---
+
+**2026-08-10, end of the day — I checked staleness, as you asked.**
+
+The short answer: the register is complete and agrees with itself, and **its
+evidence is quietly ageing**. Nothing we have built so far would ever have told
+us that, because coverage, drift and today's new gate all ask the same question —
+does the register agree *with itself*. None of them asks whether it agrees with
+**the platform**. That took an afternoon to find out and it is the real result.
+
+Three numbers worth having.
+
+**A hundred and twenty-nine entries name a specific version of the platform as
+their evidence — and eighty of those name a version more than fifty rebuilds
+old.** Two of them cite v1.0.407. We are on v1.0.1280. That is eight hundred and
+seventy-three rebuilds ago. Those entries may well still be correct; the point is
+that nobody reading one can tell, and the council seats we feed from these entries
+certainly can't.
+
+**About twenty entries say a thing is "not live yet" when it has since shipped.**
+I proved two of them properly rather than assuming: I went into the running
+containers and looked for the code. In one case the entry had been saying "not yet
+live" for thirteen days and twenty-two rebuilds after it stopped being true. Both
+are corrected, with the evidence written into them. The other eighteen I have
+listed but deliberately **not** touched — each needs someone to go and look at the
+specific thing that lane built, and writing "live" on an entry I hadn't checked
+would manufacture exactly the false confidence I was sent to measure.
+
+**Ninety-six citations point at files that no longer exist**, mostly the old
+numbered documents we deleted on the 4th.
+
+**Two mistakes of mine, both instructive.** The broken-citation figure was 187
+before I sampled it — a good third were my own text-matching picking up fragments
+rather than real paths, and the number looked perfectly publishable while being
+wrong. And the count of "not live" entries came out at 38 from pattern-matching,
+against about 20 when I actually read them. That second one changed the
+recommendation, so it was worth the time: the reason no pattern can do it is that
+the status field is doing four different jobs at once. One entry says "inert **by
+design**", which is permanent and looks identical to a stale claim. One quotes its
+own out-of-date wording inside the correction that fixed it. Several are half-live
+— one thing, two states, two different clocks. And one is a chain of three
+preconditions in order.
+
+**So my recommendation is narrower than the brief.** Do not build something that
+reads the status text and judges it; it will be confidently wrong in both
+directions. Build something that keys only on things with no ambiguity — a version
+number, a file path, a date — and have it say *"this entry's evidence has
+expired"*, never *"this entry is wrong"*. That is exactly the restraint that makes
+the daily drift check worth reading, and it is why people trust it.
+
+And the cheapest useful thing isn't a checker at all: **make the version lag
+visible.** A hundred and twenty-nine entries already carry the number, and what the
+fleet is running is one command away. That alone would have surfaced everything
+above.
+
+Full detail, including the twenty-entry worklist for whoever picks this up, is in
+`FINDINGS_2026-08-10_staleness_survey.md`.
