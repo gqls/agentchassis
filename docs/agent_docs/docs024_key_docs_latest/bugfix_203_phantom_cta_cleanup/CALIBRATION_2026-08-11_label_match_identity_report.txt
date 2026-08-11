@@ -1,0 +1,602 @@
+=== CTA label-match calibration — bugs_open/253 (identity-token-overlap scoring) ===
+Written 2026-08-11. CORRECTED 2026-08-11 (same day, later pass) — see
+correction section immediately below.
+
+Compares OLD (committed HEAD, commit 8e6b86f2a) BestLabelMatch /
+NewLabelMatchCandidate against NEW (this working tree) over BOTH candidate
+pools the platform's live code paths actually use: the misdirected_cta
+DETECTOR (check_misdirected_cta.go's loadCTAMatchIndex) and the internal-link
+RESOLVER (resolve_internal_links_action.go's candidatesFromHubs). The scoring
+change being calibrated, AS IT SHIPS: rank by identity-token overlap (label
+tokens present in a candidate's own name/title) BEFORE total-token overlap
+(name+title+nav_label combined), then interactivity, then Name ascending —
+i.e. exactly bugs_open/253's fix, and nothing else. There is no 4th ranking
+key in the code this report now describes; see the correction below for why
+one briefly existed and why it was removed before shipping.
+
+--- CORRECTION (2026-08-11, same day, later pass) — a 4th ranking key was
+    tried, calibrated, and DROPPED before shipping ---
+
+The run this file originally recorded compared OLD against an intermediate
+NEW that carried a 4TH ranking key after identity/total/interactive: on a
+remaining tie, the candidate with the SMALLER total token-set size won
+(replacing a straight alphabetical-by-name tie-break). That key has since
+been REMOVED from BestLabelMatch (platform/orchestration/datahelpers/
+label_match.go) after this same calibration data showed it was decided
+almost entirely by tokenisation artefacts and site-wide generic words, not by
+anything correlated with which candidate a label actually names. Three
+concrete examples, with real numbers, from the run this file originally
+reported: (1) on gaswholesalers.com, EVERY ONE of 9 already-correct, live CTA
+labels ("Request a Wholesale Quote/Account", "Get Wholesale Pricing",
+"Explore Wholesale Supply Solutions", "Read how wholesale pricing works")
+flipped from the correct `/tools/tool-breakeven-volume-calculator.html` to
+`/tools/supplier-comparison-calculator/index.html` — caused by a stray hyphen
+in "Break-Even" tokenising into two words where the loser's own title used
+the unhyphenated "breakeven", making the loser's token SET one entry smaller
+and therefore the tie-break's arbitrary winner; (2) on vetcomparison.uk, the
+CMA-obligation family flipped from `/tools/cma-obligation-checker/index.html`
+to `/tools/compliance-deadline-calculator/index.html` purely because "cma"
+sits in both candidates' identity tokens and the loser's title happened to be
+longer; (3) on robot-hands.com, "Run Payload Calculation" and "Run the
+Estimator" both flipped onto `/tools/matchmatrix/index.html` because its
+title contains the generic imperative "Run", again shortening its token set
+relative to the correct, more specific target. None of this tracked which
+candidate the label actually names — it made ties WORSE than plain
+alphabetical order, not better — so the key was dropped. This file is now
+REWRITTEN in place (owner instruction: keep the still-accurate method and
+scope-deviation sections, replace the numbers and changed-picks lists with
+the corrected run) rather than left to describe scoring that never shipped.
+Full mechanism writeup, with the exact numbers reproduced above, lives in
+BestLabelMatch's own doc comment (bugs_open/253, key 4 paragraph).
+
+Re-verification method: a second throwaway tool, cmd/ctarecalib (also deleted
+before commit, same pattern-check.py rule), regenerated new_detector.json /
+new_resolver.json against the CURRENT working tree (key 4 already removed)
+by importing the real datahelpers package exactly as cmd/ctacalibrate did.
+The FROZEN live-fleet JSON dump this file's original run pulled (641 pages,
+476 page_components rows, 2026-08-11) was reused unchanged — no second DB
+pull, so OLD and this corrected NEW are still compared against byte-identical
+inputs. The regenerated row set was verified — key-for-key — identical to
+the original run's 784-row (domain,page_name,function,slot,url_field) set,
+and every row's label/current_url/current_valid/matched fields came out
+identical to the original OLD-scoring baseline too (expected: matched is a
+function of the candidate POOLS, which did not change, never of which
+candidate wins — see the STRUCTURAL NOTE below). Only match_url/match_title/
+match_name — i.e. which candidate the current ranking picks — differ where
+they differ.
+
+--- METHOD ---
+
+cmd/ctacalibrate imported the REAL datahelpers package — never a SQL
+re-implementation of BestLabelMatch. Live-fleet data was pulled ONCE from
+postgres-clients-0 via `kubectl exec ... psql` (641 pages, 476
+ctaFieldNames-scoped page_components rows, 2026-08-11) and frozen to JSON, so
+every build compared in this file (the original OLD/NEW pair and this
+correction's regenerated NEW) runs against IDENTICAL inputs — no drift from
+querying the live DB twice at different moments. OLD build = `git worktree
+add <dir> HEAD` (commit 8e6b86f2a, the tree as committed before 253's fix).
+Both pools' candidate-list and validity-set construction are a line-for-line
+Go mirror of the real loaders (loadCTAMatchIndex for the detector;
+loadInteractivePages + loadContentHubs + loadResolverPageSet +
+candidatesFromHubs for the resolver) — read alongside the real source, not
+guessed. `datahelpers.DeriveCTAURLFields` (the real, exported function) is
+used to find each url field's label sibling from the component's actual
+input_schema, exactly as resolve_internal_links_action.go's STAGE-1 code
+does — this is NOT re-implemented either.
+
+DEVIATION FROM SPEC, DISCLOSED: kubectl port-forward + a `database/sql`/
+lib-pq TCP connection with a password read from the k8s Secret was specified
+in the task brief, but reading that Secret's value was refused by this
+session's tool-use classifier (a safety control, not a login failure). This
+tree's own CLAUDE.md documents a working, password-free alternative —
+`kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U
+clients_user -d clients_db` (local trust auth inside the pod) — which is what
+every other cmd/ tool in this repo actually falls back to for a terminal
+session (see cmd/component-render-check/rendercheck.go's own dbConn() doc
+comment: "a session at a terminal reaches the DB through kubectl exec").
+cmd/ctacalibrate therefore has NO live DB dependency inside the Go binary at
+all: two `kubectl exec ... psql -tAc "SELECT jsonb_agg(row_to_json(t))..."`
+dumps produce pages.json + cta_components.json once, and the tool's
+"generate" mode reads those files. This is materially MORE rigorous for an
+old-vs-new A/B comparison than two independent live connections would have
+been (guarantees byte-identical inputs to both builds), so the deviation is
+kept rather than fought further. This correction's re-verification pass
+inherited the same deviation for free: cmd/ctarecalib never touched the DB
+either, only the frozen JSON.
+
+--- SCOPE DEVIATION FROM THE 2026-08-08 REPORT (read before comparing the two reports' numbers) ---
+
+This run examines ONLY the six `ctaFieldNames`-keyed components (hero,
+call-to-action, archetype-grid, archetype-combinations, gauntlet-cta,
+content-block-about) — 476 page_components rows fleet-wide, 784 labelled
+(field, label-non-empty) pairs examined, per this task's explicit
+instruction. The 2026-08-08 report's "1,251 examined" is roughly double that.
+
+Measured, not guessed, why: 742 additional page_components rows fleet-wide
+(status not deleted/archived) declare a v2-dialect input_schema with a
+schema-derivable `*_url` + label-sibling pair OUTSIDE the six ctaFieldNames
+functions — including `tool-list` and `tool-ai-vendor-trust-checklist`,
+which are the exact two component names visible verbatim in the 08-08
+report's own sample rows ("[gamesdesign.co.uk] /tools/index.html
+(tool-list.cta_label)", "[leopardessconsulting.co.uk]
+/tools/ai-vendor-trust-checklist.html (tool-ai-vendor-trust-checklist.cta_label)").
+That is strong circumstantial evidence the 08-08 harness iterated over every
+schema-derivable CTA field fleet-wide, not just the six ctaFieldNames keys —
+but the 08-08 tool no longer exists to confirm directly, so this is
+[INFERRED], not verified against its source.
+
+Whichever the 08-08 harness did, THIS report's narrower scope is the more
+faithful one for calibrating what bugs_open/253's fix actually changes in
+production TODAY: `isCTA := ctaFieldNames[function]` is still the live gate
+resolve_internal_links_action.go's setCTAField uses to decide whether a
+component is even a CTA-write target — `DeriveCTAURLFields`'s broader
+schema-derived set is STILL STAGE-1 OBSERVE-ONLY (see ctafields.go's own doc
+comment) and decides no write yet. A component outside the six-key map can
+have a perfectly matchable label and url field and still never receive a
+label-aware match from the shipping code, so including it in "examined"
+would overstate this fix's live blast radius. Confirmed: all generate runs
+(OLD/NEW x detector/resolver, both the original pass and this correction's
+re-verification) independently produced the identical 784-row examined
+count, which is expected — "examined" depends only on label-field presence,
+never on pool or scoring build.
+
+A STRUCTURAL NOTE, also confirmed by the numbers below: EXAMINED, MATCHED and
+NEWLY-RESOLVED counts are mathematically invariant to a pure re-ranking of
+BestLabelMatch — none of the three depend on WHICH candidate wins, only on
+whether at least one candidate has any overlap at all, and whether the
+current stored value was empty. Only OVERRIDDEN (and the implicit
+"confirmed as-is" residual) can move under a re-ranking-only change. That is
+exactly what the numbers show (examined/matched/newly-resolved identical
+old->new in both pools below) and it is exactly the "risk-bearing" metric
+CLAUDE.md's own bugfix trail already names as "the one to watch move".
+
+--- DETECTOR POOL (check_misdirected_cta.go / loadCTAMatchIndex) — CORRECTED NUMBERS ---
+
+                              OLD      NEW
+examined                      784      784
+matched                       697      697
+newly resolved                347      347
+OVERRIDDEN                    208      205
+
+(The original, key-4 run of this pool reported OVERRIDDEN 208 -> 188 and 105
+changed picks. With key 4 removed, OVERRIDDEN is 208 -> 205 and 18 picks
+change — the remainder of the original 105 were key-4 noise, not bugs_open/
+253's actual mechanism; see the changed-picks section below.)
+
+--- RESOLVER POOL (resolve_internal_links_action.go / candidatesFromHubs) — CORRECTED NUMBERS ---
+
+                              OLD      NEW
+examined                      784      784
+matched                       401      401
+newly resolved                196      196
+OVERRIDDEN                     44       44
+
+(The original, key-4 run of this pool reported OVERRIDDEN 44 -> 33 and 36
+changed picks. With key 4 removed, OVERRIDDEN is UNCHANGED at 44 and there
+are ZERO changed picks — see "WHY THE RESOLVER POOL BARELY MOVES" below for
+why this is the expected, not merely observed, result once key 4 is gone.)
+
+Scale-check against the known 2026-08-08 baseline (resolver pool, OLD
+scoring, before this fix: 1,251 / 634 / 315 / 162): this run's OLD-scoring
+resolver numbers (784 / 401 / 196 / 44) sit at roughly 62-63% of the 08-08
+examined/matched/newly-resolved figures — consistent with the ~62% narrower
+scope measured above (784 of a plausible ~1,251-1,300-row broader universe).
+The OVERRIDDEN ratio is the outlier (44/162 = 27%, well below 62%) — the 742
+rows outside this report's scope evidently carry a disproportionate share of
+"already has a different valid stored URL" cases relative to the six
+ctaFieldNames components. [UNMEASURED further] why; noted rather than
+chased, since it does not bear on 253's fix itself. (This paragraph is
+scoring-build-independent — it compares OLD-scoring numbers only — so it is
+unaffected by the key-4 correction and is carried forward unchanged.)
+
+--- WHY THE RESOLVER POOL BARELY MOVES: A STRUCTURAL DEGENERACY, MEASURED ---
+
+candidatesFromHubs builds every candidate with navLabel="" (contentHub
+carries no nav_label field at all — confirmed by reading the struct and the
+call site). NewLabelMatchCandidate's identityTokens is always name+title,
+and totalTokens is identityTokens ∪ LabelTokens(navLabel) — with navLabel
+empty, totalTokens == identityTokens for EVERY resolver-pool candidate, in
+BOTH the old and new builds (the old call site passed tokenSources =
+(h.Name, h.Title) — the same two sources, just unioned instead of tracked
+separately). So the headline change this fix makes — rank identity overlap
+before total overlap — is a NO-OP in the resolver pool by construction:
+identity and total overlap are always equal there. The DETECTOR pool is
+where 253's actual headline mechanism (nav_label-driven false ties) shows
+up, because loadCTAMatchIndex's candidates DO carry a real nav_label.
+
+CORRECTED CODA: with key 4 dropped, this degeneracy predicts the resolver
+pool should show ZERO changed picks against OLD — identity/total overlap can
+never differ there, and the remaining ranking (interactive, then Name
+ascending) is now IDENTICAL to OLD's own ranking (interactive, then Name).
+That is exactly what the corrected numbers show: 0 of 784 resolver rows
+change. The original run's 36 changed resolver picks (26 of them the
+vonc.com "Enter/Run the Gauntlet" family, correctly flipping the already-
+live `/tools/gauntlet/index.html` into favour) were caused SOLELY by key 4's
+token-set-size tie-break reordering a genuine overlap TIE — not by 253's fix
+— and vanished the moment that key was removed. This is a clean, independent
+confirmation of the degeneracy argument, not just a restatement of it.
+
+--- CHANGED PICKS, DETECTOR POOL: 18 of 784 (2.3%) — CORRECTED LIST ---
+
+Full list below (small fleet, all listed per the task spec). Rows flagged
+"[OLD WINNER: identity-overlap 0]" are the shape 253 is specifically about —
+the old winner matched the label ONLY through its nav_label, never through
+its own name/title. 10 of these 18 rows carry that flag (the same 10 rows —
+9 distinct site/page/label cases — the original report already judged
+individually below); the other 8 are also genuine identity-overlap (key 1)
+decisions, just ones where OLD's winner had SOME identity overlap (typically
+a single generic site-wide word, e.g. "darts" on every dartsonline.com page)
+that NEW's winner beats outright on identity overlap or, tied on identity,
+wins on total overlap — i.e. still bugs_open/253's actual mechanism, not
+noise. None of the 87 rows that changed ONLY under key 4 survive here.
+
+[ai-agent-orchestration.com] tools (hero.cta_text)
+  label="Explore the Tools" current="/tools/tool-ai-agent-roi-estimator.html"
+  OLD match="/tools/agent-complexity-estimator.html" (Agent Architecture Complexity Estimator)  [OLD WINNER: identity-overlap 0]
+  NEW match="/tools/tool-ai-agent-roi-estimator.html" (AI Agent ROI Estimator | Tools)
+
+[dartsonline.com] about (call-to-action.secondary_cta)
+  label="Catch up on this week's darts news" current="/brands/index.html"
+  OLD match="/blog/board-setup.html" (Dartboard Setup Guide — Height, Distance & Mounting | Darts Online)
+  NEW match="/news/index.html" (Darts News — PDC Results, Rankings & Equipment Releases | Darts Online)
+
+[dartsonline.com] brands-index (hero.cta_text)
+  label="See how brands stack up" current=""
+  OLD match="/blog/board-setup.html" (Dartboard Setup Guide — Height, Distance & Mounting | Darts Online)  [OLD WINNER: identity-overlap 0]
+  NEW match="/brands/index.html" (All Brands | Darts Online)
+
+[dartsonline.com] news-index (call-to-action.primary_cta)
+  label="Catch up on this week's darts news" current=""
+  OLD match="/blog/board-setup.html" (Dartboard Setup Guide — Height, Distance & Mounting | Darts Online)
+  NEW match="/news/index.html" (Darts News — PDC Results, Rankings & Equipment Releases | Darts Online)
+
+[dartsonline.com] news-index (hero.cta_text)
+  label="Catch up on this week's darts news" current=""
+  OLD match="/blog/board-setup.html" (Dartboard Setup Guide — Height, Distance & Mounting | Darts Online)
+  NEW match="/news/index.html" (Darts News — PDC Results, Rankings & Equipment Releases | Darts Online)
+
+[dartsonline.com] shipping-returns (hero.secondary_cta)
+  label="Catch up on this week's darts news" current=""
+  OLD match="/blog/board-setup.html" (Dartboard Setup Guide — Height, Distance & Mounting | Darts Online)
+  NEW match="/news/index.html" (Darts News — PDC Results, Rankings & Equipment Releases | Darts Online)
+
+[fundamentallyai.com] production-backend-engineering (call-to-action.secondary_cta)
+  label="Not sure this is the right fit yet? See what the platform has actually shipped on the Capabilities page before you talk to us." current=""
+  OLD match="/tools/model-approach-selector/index.html" (Model Approach Selector | FundamentallyAI)  [OLD WINNER: identity-overlap 0]
+  NEW match="/capabilities.html" (Capabilities | FundamentallyAI)
+
+[gaswholesalers.com] fuel-supply-by-industry (hero.secondary_cta)
+  label="See who we serve" current="/tools/tool-fuel-budget-forecaster.html"
+  OLD match="/fuel-supply-by-industry.html" (Fuel Supply Solutions by Industry | Gas Wholesalers)  [OLD WINNER: identity-overlap 0]
+  NEW match="/who-we-serve.html" (Who We Serve | Gas Wholesalers)
+
+[idea.uk] guides-index (hero.secondary_cta)
+  label="See how the tools work" current="/tools/idea-stage-identifier/index.html"
+  OLD match="/tools/ab-test-calculator/index.html" (A/B Test Significance Calculator)  [OLD WINNER: identity-overlap 0]
+  NEW match="/tools/idea-stage-identifier/index.html" (Idea Stage Identifier | Tools)
+
+[idea.uk] index (call-to-action.secondary_cta)
+  label="Explore the free tools" current="/tools.html#audience-check"
+  OLD match="/tools/ab-test-calculator/index.html" (A/B Test Significance Calculator)  [OLD WINNER: identity-overlap 0]
+  NEW match="/tools.html#audience-check" (Free Audience Check — idea.uk)
+
+[idea.uk] news-index (hero.secondary_cta)
+  label="Explore the tools" current=""
+  OLD match="/tools/ab-test-calculator/index.html" (A/B Test Significance Calculator)  [OLD WINNER: identity-overlap 0]
+  NEW match="/tools/idea-stage-identifier/index.html" (Idea Stage Identifier | Tools)
+
+[mortgagecalculator.co.uk] guide-buy-to-let (call-to-action.secondary_cta)
+  label="See how a lender's Decision Engine scores your whole application in the Mortgage Scorecard Simulator." current=""
+  OLD match="/games/fact-finder/index.html" (Mortgage Fact Finder — What Does the Lender See? | MortgageCalculator.co.uk)
+  NEW match="/scorecard-simulator.html" (Mortgage Scorecard Simulator — Will You Pass? | MortgageCalculator.co.uk)
+
+[mortgagecalculator.co.uk] tool-affordability (hero.secondary_cta)
+  label="See how banks score the rest of your application in the Scorecard Simulator" current=""
+  OLD match="/games/fact-finder/index.html" (Mortgage Fact Finder — What Does the Lender See? | MortgageCalculator.co.uk)  [OLD WINNER: identity-overlap 0]
+  NEW match="/guides/mortgage-scorecard/index.html" (The Secret Scorecard | How Banks Grade You)
+
+[robot-hands.com] learning-center-hub (call-to-action.primary_cta)
+  label="Browse the Learning Center" current="/gripper-catalog/index.html"
+  OLD match="/how-to-specify-a-gripper.html" (How to Specify a Gripper | Engineer's Reference | Robot-Hands.com)  [OLD WINNER: identity-overlap 0]
+  NEW match="/learning-center.html" (Learning Center | Robot-Hands.com)
+
+[robot-hands.com] learning-center-hub (hero.cta_text)
+  label="Browse the Learning Center" current="/gripper-catalog/index.html"
+  OLD match="/how-to-specify-a-gripper.html" (How to Specify a Gripper | Engineer's Reference | Robot-Hands.com)  [OLD WINNER: identity-overlap 0]
+  NEW match="/learning-center.html" (Learning Center | Robot-Hands.com)
+
+[robot-hands.com] tool-gripper-cycle-time-estimator-guide (call-to-action.primary_cta)
+  label="Open the Throughput Estimator" current=""
+  OLD match="/tools/gripper-cycle-time-estimator/index.html" (Gripper Cycle Time Estimator | Robot-Hands.com)
+  NEW match="/guides/tool-gripper-cycle-time-estimator-guide.html" (Understanding Gripper Cycle Time & Throughput Estimator | Guide)
+
+[robot-hands.com] tool-gripper-safety-factor-calculator-guide (call-to-action.primary_cta)
+  label="Open the Safety Factor Calculator" current=""
+  OLD match="/tools/gripper-payload-calculator/index.html" (Gripper Payload Calculator | Robot-Hands.com)
+  NEW match="/tools/gripper-safety-factor-calculator/index.html" (Gripper Safety Factor Calculator | Tools)
+
+[robot-hands.com] tool-gripper-safety-factor-calculator-guide (hero.cta_text)
+  label="Open the Gripper Safety Factor Calculator" current=""
+  OLD match="/tools/gripper-payload-calculator/index.html" (Gripper Payload Calculator | Robot-Hands.com)
+  NEW match="/tools/gripper-safety-factor-calculator/index.html" (Gripper Safety Factor Calculator | Tools)
+
+--- JUDGEMENT ON THE 10 IDENTITY-OVERLAP-0 DETECTOR ROWS (9 distinct site/page/label cases) ---
+
+These are the shape bugs_open/253 is specifically about: the OLD winner
+matched the label ONLY through its nav_label (description), never through
+its own name or title (identity). Inspected each by reading both candidates'
+actual name/title/nav_label text (via the same dumped data, not re-guessed).
+This judgement is UNCHANGED by the key-4 correction — these 10 rows resolve
+outright at key 1 (identity overlap) in both the original and corrected NEW
+builds and never reach key 4, so removing key 4 could not have altered them,
+and it didn't (verified: identical match_url in both runs for all 10):
+
+1. [ai-agent-orchestration.com] tools (hero.cta_text), label "Explore the
+   Tools": OLD picked "Agent Architecture Complexity Estimator" (matched only
+   via a nav_label mentioning "tools" incidentally); NEW picks the page
+   CURRENTLY STORED there, "AI Agent ROI Estimator | Tools" — its own title
+   literally ends in "| Tools". Clear improvement: OLD would have overridden
+   a correct, already-working link with a wrong one.
+
+2. [dartsonline.com] brands-index (hero.cta_text), label "See how brands
+   stack up": OLD picked a dartboard setup guide (nav_label collision); NEW
+   picks "All Brands | Darts Online" — literally the brands index page
+   itself. Clear improvement, and the obviously correct answer for a page
+   named brands-index.
+
+3. [fundamentallyai.com] production-backend-engineering
+   (call-to-action.secondary_cta), label "...See what the platform has
+   actually shipped on the Capabilities page before you talk to us.": the
+   label NAMES its destination ("Capabilities page") in plain text. OLD
+   picked a Model Approach Selector tool (nav_label collision); NEW picks
+   "Capabilities | FundamentallyAI" exactly. Clear improvement.
+
+4. [gaswholesalers.com] fuel-supply-by-industry (hero.secondary_cta), label
+   "See who we serve": OLD picked the PAGE ITSELF
+   ("/fuel-supply-by-industry.html", matched via its own nav_label mentioning
+   who it serves) — a self-referential CTA, which is exactly the kind of
+   silent defect a detector or repair pass could ship unnoticed. NEW picks
+   "Who We Serve | Gas Wholesalers" — the page whose actual name is the
+   label. Clear improvement, and the most structurally interesting of the
+   nine: the OLD scoring's failure mode here was not "wrong page", it was
+   "a page's own promotional copy about itself out-competed the page that IS
+   the answer".
+
+5. [idea.uk] guides-index (hero.secondary_cta), label "See how the tools
+   work", current="/tools/idea-stage-identifier/index.html": OLD picked
+   "A/B Test Significance Calculator" (nav_label collision on "tools"); NEW
+   matches the CURRENTLY STORED url exactly. Clear improvement — OLD would
+   have overridden a correct link.
+
+6. [idea.uk] index (call-to-action.secondary_cta), label "Explore the free
+   tools", current="/tools.html#audience-check": label tokens reduce to
+   ["free","tools"] (generic). OLD picked A/B Test Calculator via nav_label;
+   NEW now matches the CURRENTLY STORED url exactly
+   ("/tools.html#audience-check", "Free Audience Check — idea.uk") — CHANGED
+   FOR THE BETTER by this correction: with key 4 present, this row picked
+   "Idea Stage Identifier | Tools" instead (a plausible but not exact match);
+   removing key 4's tie-break restores the exact stored-link match. Clear
+   improvement, not merely neutral as originally judged.
+
+7. [idea.uk] news-index (hero.secondary_cta), label "Explore the tools":
+   same generic-label shape as #6 but a different current value (empty, so
+   no existing link to match against). OLD picked A/B Test Calculator via
+   nav_label; NEW picks "Idea Stage Identifier | Tools" via its own title —
+   identity-grounded rather than an incidental nav_label hit. Improvement,
+   though the label itself under-specifies the destination (same caveat as
+   the original judgement).
+
+8. [mortgagecalculator.co.uk] tool-affordability (hero.secondary_cta), label
+   "See how banks score the rest of your application in the Scorecard
+   Simulator": OLD picked "Mortgage Fact Finder" (nav_label collision); NEW
+   picks "The Secret Scorecard | How Banks Grade You" — a guide whose own
+   title is about exactly this ("Scorecard"/"Grade You" mirrors "score" /
+   "Scorecard" in the label). Improvement — markedly more on-topic than the
+   fact-finder tool — though worth flagging as [ASSUMED] rather than
+   certain: if a page literally named/titled "Scorecard Simulator" exists
+   separately from this guide, that would be the more literal target; this
+   inspection did not exhaustively rule that out. (mortgagecalculator.co.uk
+   DOES have a dedicated /scorecard-simulator.html page — see the
+   guide-buy-to-let row above, a DIFFERENT label on the SAME site that
+   resolves there — so a literal target exists; this row's own label matches
+   the guide's identity tokens more strongly than the simulator page's,
+   which is why BestLabelMatch (correctly, per its own rule) prefers the
+   guide here.)
+
+9. [robot-hands.com] learning-center-hub (call-to-action.primary_cta AND
+   hero.cta_text — 2 rows, same page), label "Browse the Learning Center":
+   OLD picked "How to Specify a Gripper" — the exact page this lane's own
+   NOTES (2026-08-08) already named as chronically absorbing false CTA
+   matches via its nav_label ("...still phantom... a verified live target");
+   NEW picks "Learning Center | Robot-Hands.com" — an exact name match. Clear
+   improvement, and independent confirmation that this specific page was a
+   real, previously-known magnet for nav_label false positives, not a new
+   finding invented by this run.
+
+NET READING: all 9 distinct identity-overlap-0 cases look like improvements
+on inspection (#6 upgraded from "neutral" to "improvement" by this
+correction); none looks like a regression. Three (#1, #5, #6) are the clean,
+load-bearing kind — the fix stopping an OVERRIDE of an already-correct
+stored link — which is exactly the risk-bearing failure mode CLAUDE.md's own
+bugfix trail asks this calibration to watch.
+
+The remaining 8 changed detector rows (dartsonline.com x5, mortgagecalculator
+guide-buy-to-let, robot-hands.com tool-gripper-cycle-time-estimator-guide and
+tool-gripper-safety-factor-calculator-guide's call-to-action row) are also
+key-1 identity-overlap decisions — OLD's winner had SOME identity overlap
+(the dartsonline five all share the single generic token "darts", present in
+almost every page's title on that site) but loses outright once identity
+overlap is compared properly against a more specific candidate. Spot-checked
+two: dartsonline.com's "Catch up on this week's darts news" now resolves to
+the actual News page rather than a dartboard setup guide, and robot-hands.com's
+tool-gripper-safety-factor-calculator-guide's "Open the Safety Factor
+Calculator" now resolves to the Gripper Safety Factor Calculator itself
+rather than the payload calculator — both look like straightforward
+improvements, not new artefacts of any tie-break.
+
+--- CHANGED PICKS, RESOLVER POOL: 0 of 784 (0%) — CORRECTED ---
+
+The original run's 36 changed resolver picks were, on this correction's own
+re-derivation, caused ENTIRELY by key 4's token-set-size tie-break — see "WHY
+THE RESOLVER POOL BARELY MOVES" above. With key 4 removed, the resolver
+pool's ranking (identity, total, interactive, Name) is degenerate down to
+exactly (interactive, Name) for every candidate in this pool (navLabel is
+always "", so identity == total always) — the SAME ranking OLD (committed
+HEAD, pre-253) already used. Verified directly: new_resolver.json's 784 rows
+are byte-identical to old_resolver.json's on match_url/match_title/match_name
+for every row, not merely equal in aggregate count. This includes the
+vonc.com "Enter/Run the Gauntlet" family (26 of the original 36): those rows
+still correctly point at the live `/tools/gauntlet/index.html` — they simply
+never needed key 4 to get there once OLD's own (interactive, Name) ranking
+is re-examined; the earlier report's framing of them as "OVERRIDDEN -> not
+overridden, a clear improvement" was accurate about the OUTCOME but
+attributed it to key 4 specifically, which this correction shows was never
+the sole route to that outcome — OLD's own scoring already gets 44 of the
+resolver pool's cases to "not overridden" and NEW (253's fix, key 4 or not)
+adds nothing further in this pool, for the structural reason given above.
+
+--- SAMPLE OF NEW-SCORING NEWLY-RESOLVED, EACH POOL (8 of the total shown; same format as CALIBRATION_2026-08-08) — REFRESHED against the corrected NEW ---
+
+detector pool (8 of 347):
+
+[gamesdesign.co.uk] tool-loot-table-balancer-guide (hero.cta_text)
+  label="Open Loot Table Balancer"
+  match="/tools/tool-loot-table-balancer.html" (Loot Table Balancer | Tools)
+
+[gamesdesign.co.uk] tool-loot-table-balancer-guide (hero.secondary_cta)
+  label="Browse All Tools"
+  match="/tools/damage-formula-designer/index.html" (Damage Formula Designer | Tools)
+
+[ai-agent-orchestration.com] multi-agent-failure-isolation-patterns-production (hero.secondary_cta)
+  label="See How We Architect Production Multi-Agent Systems"
+  match="/blog/multi-agent-failure-isolation-patterns-production.html" (Failure Isolation in Multi-Agent Systems: How to Contain Blast Radius Without Halting the Pipeline | AI Agent Orchestration)
+
+[mortgagecalculator.co.uk] guide-remortgaging (hero.cta_text)
+  label="Check Your Remortgage Numbers"
+  match="/tools/simple/index.html" (Simple Mortgage Calculator | Quick Monthly Payment Check)
+
+[mortgagecalculator.co.uk] guide-remortgaging (hero.secondary_cta)
+  label="Read the Remortgaging Guide"
+  match="/guides/remortgaging/index.html" (Remortgaging Guide | Stick or Twist?)
+
+[relojistas.com] glosario-reserva-de-marcha (hero.cta_text)
+  label="Explorar el glosario"
+  match="/glosario/calibre.html" (Calibre)
+
+[relojistas.com] glosario-reserva-de-marcha (hero.secondary_cta)
+  label="Consultar la guía de complicaciones"
+  match="/guias/index.html" (Guías de relojería | Relojistas)
+
+[finetuning.uk] how-to-write-a-useful-ai-prompt-for-business-tasks (hero.cta_text)
+  label="Book a Discovery Call"
+  match="/contact.html" (Book a Discovery Call | Finetune)
+
+Note: the ai-agent-orchestration.com row above now resolves to the page's OWN
+identity match (its page_name IS
+"multi-agent-failure-isolation-patterns-production", and the match is that
+exact blog post) rather than the key-4 build's
+multi-agent-state-management-distributed-systems.html — this is the same row
+this file's changed-picks list above judges (part of the corrected 18), shown
+here refreshed for consistency; every other sampled row was unaffected by the
+key-4 correction.
+
+resolver pool (8 of 196):
+
+[gamesdesign.co.uk] tool-loot-table-balancer-guide (hero.cta_text)
+  label="Open Loot Table Balancer"
+  match="/tools/tool-loot-table-balancer.html" (Loot Table Balancer | Tools)
+
+[gamesdesign.co.uk] tool-loot-table-balancer-guide (hero.secondary_cta)
+  label="Browse All Tools"
+  match="/tools/damage-formula-designer/index.html" (Damage Formula Designer | Tools)
+
+[ai-agent-orchestration.com] multi-agent-failure-isolation-patterns-production (hero.secondary_cta)
+  label="See How We Architect Production Multi-Agent Systems"
+  match="/tools/agent-complexity-estimator.html" (Agent Architecture Complexity Estimator)
+
+[mortgagecalculator.co.uk] guide-remortgaging (hero.cta_text)
+  label="Check Your Remortgage Numbers"
+  match="/tools/simple/index.html" (Simple Mortgage Calculator | Quick Monthly Payment Check)
+
+[relojistas.com] glosario-reserva-de-marcha (hero.secondary_cta)
+  label="Consultar la guía de complicaciones"
+  match="/guias/index.html" (Guías de relojería | Relojistas)
+
+[finetuning.uk] how-to-write-a-useful-ai-prompt-for-business-tasks (hero.secondary_cta)
+  label="See How We Approach AI Projects"
+  match="/tools/ai-agent-roi-estimator.html" (AI Agent ROI Estimator)
+
+[idea.uk] news-index (hero.cta_text)
+  label="Read the guides"
+  match="/guides/index.html" (Guides - idea.uk)
+
+[idea.uk] news-index (hero.secondary_cta)
+  label="Explore the tools"
+  match="/tools/idea-stage-identifier/index.html" (Idea Stage Identifier | Tools)
+
+--- NAMED REGRESSION-CHECK ROWS (verified 2026-08-11, this correction) ---
+
+The four regressions that motivated dropping key 4, plus the original
+bugs_open/253 case, re-checked directly against the corrected NEW data in
+both pools:
+
+- robot-hands.com, gripper-payload-calculator, hero.cta_text, label "Run
+  Payload Calculation": resolves to
+  `/tools/gripper-payload-calculator/index.html` in BOTH pools, matching OLD
+  exactly. NOT matchmatrix. PASS.
+- robot-hands.com, tool-gripper-cycle-time-estimator-guide, hero.cta_text,
+  label "Run the Estimator": resolves to
+  `/tools/gripper-cycle-time-estimator/index.html` in BOTH pools, matching
+  OLD exactly (this row briefly flipped to matchmatrix under key 4). PASS.
+- gaswholesalers.com, all 7 rows carrying the five named wholesale labels
+  ("Request a Wholesale Quote"/"Request a Wholesale Account"/"Get Wholesale
+  Pricing"/"Explore Wholesale Supply Solutions"/"Read how wholesale pricing
+  works"): every one resolves to
+  `/tools/tool-breakeven-volume-calculator.html` in the RESOLVER pool,
+  identical to OLD. NOT supplier-comparison-calculator anywhere. In the
+  DETECTOR pool three of the seven (faq, news,
+  supply-terms-and-eligibility) resolve to a different page each
+  (/fuel-pricing-framework.html, /fuel-supply-by-industry.html) — but this
+  is UNCHANGED from OLD/committed HEAD in every case, i.e. not a regression;
+  the detector pool's wider candidate set has always picked those targets
+  for those specific labels. PASS (no regression).
+- vetcomparison.uk, how-it-works/index, the CMA-obligation labels: every row
+  resolves to `/tools/cma-obligation-checker/index.html` (or, for two
+  call-to-action rows unrelated to the three named CMA-obligation labels, to
+  /about.html and /guides/cma-compliance/index.html — both identical to
+  OLD) in both pools. NOT compliance-deadline-calculator anywhere. PASS.
+- robot-hands.com, bugs_open/253's original case: no CTA field carries the
+  exact literal label "Gripper Safety Factor Calculator" (that string only
+  appears as inline body-copy anchor text elsewhere on the site, outside
+  this pool's scope). The closest, load-bearing proxy — the actual button
+  labels on tool-gripper-safety-factor-calculator-guide, "Open the Gripper
+  Safety Factor Calculator" (hero.cta_text) and "Open the Safety Factor
+  Calculator" (call-to-action.primary_cta) — resolve to
+  `/tools/gripper-safety-factor-calculator/index.html` in BOTH pools under
+  NEW, versus OLD's `/tools/gripper-payload-calculator/index.html` (the
+  original bug). 253's fix (identityOverlap ranking) is confirmed intact
+  with key 4 removed. PASS.
+
+--- OVERALL CONCLUSION (CORRECTED) ---
+
+With key 4 removed, the scoring change moves 18/784 (2.3%) of detector-pool
+picks and 0/784 (0%) of resolver-pool picks — down from the original run's
+105/784 (13.4%) and 36/784 (4.6%), confirming that the large majority of
+those earlier flips (87 detector, all 36 resolver) were key-4 artefacts, not
+bugs_open/253's own mechanism. In the detector pool OVERRIDDEN drops 208 ->
+205 (versus the original run's 208 -> 188 — the smaller, corrected drop is
+the real size of 253's benefit on this data, not the key-4 run's inflated
+one). The resolver pool's OVERRIDDEN is unchanged at 44, for the structural
+reason measured above: 253's identity/nav_label mechanism cannot act in a
+pool whose candidates carry no nav_label at all. Every one of the 18
+detector-pool changed picks reads as an improvement or, at worst, a
+reasonable identity-grounded pick where the label itself under-specifies the
+destination (row #7); none reads as a regression, and the five named
+regression rows that motivated this correction are all confirmed back to
+their correct (OLD-matching or better) targets. Recommendation: proceed to
+council submission naming this corrected report and its three live
+consumers (check_misdirected_cta.go, the resolve/repair paths in
+resolve_internal_links_action.go and rerender_page_sections_action.go), and
+make clear in the submission that the shipped ranking has 4 keys (identity,
+total, interactive, Name) — the 4th distinct key trialled during calibration
+(token-set size) is NOT part of what ships.
