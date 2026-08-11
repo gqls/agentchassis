@@ -28085,3 +28085,37 @@ one-line probe existed all along: `gh api repos/gqls/sites/contents/<domain>/ind
 checks, all on the same side of the pipeline, count as one check. Related to
 `prove-a-deploy-at-the-artefact` but inverted: there the artefact is the truth and git is the
 claim; here the artefact was true TODAY and the repo was the truth about TOMORROW.
+
+## 2026-08-11 — `staged_component_build`: I read a live config key as ABSENT because I queried the step by its ACTION name, and nearly re-did another session's finished work while holding the owner's decision
+
+**Two calls, both mine, both caught in-session.**
+
+**1. "migration 384 has not landed."** Verifying whether `url_field` was live on
+`tool-acceptance-agent`, I queried
+`default_config->'workflow'->'steps'->'request_browser_run'->'config'->>'url_field'` → blank,
+then `? 'url_field'` → NULL, then `jsonb_pretty(…->'config')` → NULL. Three reads agreeing,
+so I believed it. **All three were the same mistake**: `request_browser_run` is the ACTION;
+the STEP is keyed `request_run`. Enumerating `jsonb_object_keys(…->'steps')` showed the real
+names and the key was present with `input_data.spec.page_url` — applied and verified by
+another session minutes earlier. **The cheap check that would have caught it:** enumerate the
+step keys BEFORE reading inside one; a NULL config read is only evidence once the step key is
+known to exist. Now a landmine (`LANDMINES.md`, "A workflow step's NAME is not its ACTION").
+Note this defeats the usual "don't path-read, enumerate keys" habit — enumerating the keys of
+a step that does not exist returns NULL just as happily.
+
+**2. Nearly re-implementing sanctioned work another session had already shipped.** The owner
+answered four decisions in my chat and sanctioned the follow-ups to me; I went to implement
+two of them. A parallel session had already built, submitted, committed and rolled both
+(vision-finding filing + the contrast template fix) and was mid-flight on the third. **What
+caught it:** grepping only transcripts modified in the last 30 minutes for the symbols I was
+about to touch — 35 hits on the config key, 19 on the CSS selector, in a session active that
+minute. `git log` and `who-owns.py` were both blind, as always, but the new part is the
+*trigger*: **an owner decision handed to you makes the ownership check feel already answered,
+and it is the one moment it is most likely to be wrong** — the owner decides in one chat, the
+lane is worked by several. Sixth instance of this family; folded into the memory file rather
+than filed as a new one.
+
+**And a third, smaller, same session:** my coordination note recording "url_field is theirs,
+in flight, not yet landed" was already false when I committed it (the migration went live in
+between). Corrected visibly in place. **A coordination claim ages faster than the work it
+describes — re-read the shared handoff at commit time, not only at session start.**
