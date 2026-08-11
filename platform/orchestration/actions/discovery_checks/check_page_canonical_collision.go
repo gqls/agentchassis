@@ -64,40 +64,16 @@ type collisionPage struct {
 	CanonName string // "" — no name signal for this row
 }
 
-// pageURLPathKey maps a stored url to the path it claims: /news/index.html and
-// /news.html both claim /news. "" (from /index.html) is the homepage, not
-// no-signal — it normalises to "/" so a `home` page beside `index` still
-// collides. A url that ends in neither suffix (a fragment url, a directory)
-// passes through unchanged, so it can only collide with an exact twin.
-func pageURLPathKey(url string) string {
-	k := url
-	if strings.HasSuffix(k, "/index.html") {
-		k = strings.TrimSuffix(k, "/index.html")
-	} else {
-		k = strings.TrimSuffix(k, ".html")
-	}
-	if k == "" {
-		k = "/"
-	}
-	return k
-}
+// pageURLPathKey and collisionCanonName are this check's two signals. Both now
+// delegate to datahelpers, which holds the one definition (bugs_open/215): the
+// plan/realised reconciler needed the same two keys, and a third hand-copy of a
+// rule derived from CanonicalisePage is what the reuse note in IMG-070 says to
+// stop at. The local names stay so this file's tests keep pinning the behaviour
+// at the point of use.
+func pageURLPathKey(url string) string { return datahelpers.PagePathKey(url) }
 
-// collisionCanonName is the name signal: what the shared canonicaliser says
-// this row's name ought to be. Empty means the row contributes no name signal
-// — an uncanonicalisable identity is skipped rather than grouped, else every
-// empty triple would "collide" with every other. A legacy page_type of
-// "index" is also skipped: CanonicalisePage collapses that role to the
-// homepage regardless of slug, which would false-collide any such row with
-// the real homepage.
 func collisionCanonName(name, pageType string) string {
-	if pageType == "index" {
-		return ""
-	}
-	canonName, _, _ := datahelpers.CanonicalisePage(datahelpers.PageDescriptor{
-		Role: pageType,
-		Slug: name,
-	})
-	return canonName
+	return datahelpers.PageCanonicalNameForRow(name, pageType)
 }
 
 // groupCollisions union-merges pages connected by either signal and returns
