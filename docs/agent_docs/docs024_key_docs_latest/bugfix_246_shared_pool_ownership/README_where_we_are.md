@@ -137,3 +137,44 @@ The three follow-ups are written down in the bug file with the exact checks. The
 important is the first: until something reports how hard the connection pool is working,
 this whole class of problem is invisible, which is precisely how the original setting sat
 ignored for weeks without anyone noticing.
+
+---
+
+## 2026-08-11, after the evening release — it's live, and here's what I need from you
+
+The fix went out with the fresh build (v1.0.1288) and I've confirmed it properly: the
+image says which commit it was built from, and our fix is in that commit's history. I
+also ran the check the other way round — pointing it at a commit that definitely
+*shouldn't* be in there — to make sure the check is capable of saying no. It is. Both
+pods came up clean, no restarts.
+
+A small vindication along the way: the review had told me off for planning to verify
+this by reading the pods' startup log. I did try it, and the log had already scrolled
+past its own startup by half an hour. Exactly as the warning said.
+
+I also got something wrong in the checking and want to flag it because it nearly passed
+for the wrong reason. For my "this should be absent" test I picked one of my own commits
+from earlier in the day, assuming it came after the build. It didn't — the build was
+made later than I thought, so my own commit was legitimately in it, and the test looked
+broken when it was fine. The lesson is that on a branch this busy, "my work is the newest
+thing here" is false within minutes, so you have to ask the repository which commits are
+outside the build rather than assume.
+
+**The thing I can't tell you, and it's the reason I need a decision.** The one genuine
+risk of this change is that the database proxy starts queueing. There is exactly one
+query that would show that, and it needs an admin login for the proxy that doesn't exist
+in our secrets store. So no session — not me, not the next one — can currently check the
+one thing worth checking. It's a read-only statistics user; adding its password would
+unblock it permanently.
+
+What I *can* see is that the proxy is now holding 10 of its 15 available connections,
+where it was 6 this afternoon. I want to be careful here: that is **not** evidence about
+our change. Two things moved at once — our connection limit went up, and the actual
+traffic roughly tripled over the same hours. Two changes, one measurement, no conclusion.
+It's simply the number to keep an eye on.
+
+There are five decisions written up in a handoff document, in the order I'd take them.
+The one I'd push hardest for is the second: nothing in our platform reports how hard a
+connection pool is working. That is not a side issue — it is the entire reason this bug
+sat there for weeks with the wrong setting and nobody noticed. Until we build that, every
+future question about pools gets the same unsatisfying answer I've had to give you today.
