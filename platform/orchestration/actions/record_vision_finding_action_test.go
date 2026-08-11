@@ -141,6 +141,37 @@ func TestVisionReportedFilesDedupedItem(t *testing.T) {
 	}
 }
 
+func TestVisionInsertFailureLeavesDurableNote(t *testing.T) {
+	// Council 310dee45 (bug_historian, medium): a failed filing must leave a
+	// trace that outlives orchestration retention — a render-critique doc_note
+	// carrying the error and the critique, not just a Warn.
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	mock.ExpectQuery(`SELECT COALESCE\(p\.id::text, ''\)`).
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(""))
+	mock.ExpectExec(`INSERT INTO site_work_items`).
+		WillReturnError(context.DeadlineExceeded)
+	mock.ExpectQuery(`INSERT INTO doc_notes`).
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("note-1"))
+
+	params := visionParams("The CTA is illegible.\nFINDINGS: reported")
+	params.DB = db
+	out, aErr := RecordVisionFindingAction(context.Background(), params)
+	if aErr != nil {
+		t.Fatalf("a filing failure must not fail the run: %v", aErr)
+	}
+	m := out.(map[string]interface{})
+	if m["filed"] != false {
+		t.Fatalf("want filed=false after insert failure: %+v", m)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("the durable fallback note was not written: %v", err)
+	}
+}
+
 func TestVisionUnparsedFilesRatherThanStaysSilent(t *testing.T) {
 	// The whole point: an ambiguous critique errs toward a human seeing it.
 	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))

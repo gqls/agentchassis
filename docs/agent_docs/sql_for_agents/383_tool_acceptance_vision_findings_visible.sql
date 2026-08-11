@@ -1,7 +1,14 @@
 -- 383 — tool-acceptance: wire the vision critique to a reader (bugs_open/243
 -- candidate 3, owner decision 2026-08-11: "wire up the vision findings")
 --
--- ⚠ _HOLD: DO NOT APPLY until a chassis image carrying the
+-- APPLIED BY HAND 2026-08-11 ~12:45Z (roll condition met: v1.0.1286 pod-grep
+-- record_vision_finding=6 / neg ctrl 0 on both replicas; guard passed; verified
+-- at the live row). The _HOLD suffix was dropped POST-APPLY so the ledger could
+-- record it — the runner refuses to record uppercase-suffixed sidecars. NOTE:
+-- the number 383 collided with another session's 383_rfc022_… file the same
+-- day; the ledger is filename-keyed, so both stand.
+--
+-- ⚠ original hold condition (now met): DO NOT APPLY until a chassis image carrying the
 -- `record_vision_finding` action is rolled (commit of 2026-08-11, this lane).
 -- A workflow step naming an unregistered action fails at runtime ("image
 -- first, then seeds"). Verify before applying:
