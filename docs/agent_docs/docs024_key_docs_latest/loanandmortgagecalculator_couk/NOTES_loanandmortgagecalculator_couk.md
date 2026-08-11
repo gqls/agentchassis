@@ -1932,3 +1932,57 @@ until the next roll.
 decompose→lock→flip→oracle loop, then one page at a time through the 22) ·
 site-spec seed + planner iterations (D6, no-shrink constraint) · 252 og: half
 after 251 rolls · complaint-deadline oracle. Tasks tracked in-session.
+
+### 2026-08-11 (evening) — v1.0.1288, and the post-roll mirror check earned its place immediately
+
+New pods `agent-chassis-596d84f6b-{kmc2t,tb8gd}`, v1.0.1288, up 17:13–17:14Z.
+`189`/`204` re-greped on both replicas: **1 / 1 / 0**.
+
+**16 of 17 pages still served == predicted. The seventeenth was the homepage** —
+served 12,369 against a predicted 13,514. The check I added this morning after the
+v1.0.1286 roll found something on its first real use, and **it was not the roll**.
+
+**What it actually was.** The generic pipeline rewrote `/index.html`'s `prose-0` at
+**15:47Z**, four hours after Track A decomposed it. That is decomposition working as
+designed — the framework owns that copy now (owner ruling 2026-08-06). Two things
+follow, and the second is the important one.
+
+1. **A `predicted/` file is only valid until the framework next writes the page.**
+   It is a prediction of *assembly*, not of *content*. Once content legitimately
+   changes, the file is stale and a byte-diff against it reports a failure that is
+   not one. Re-derive the prediction, or diff a page the framework has not touched.
+   Confirmed the mirror itself is still sound by re-rendering `legal` — an unchanged
+   page — under v1.0.1288.
+
+2. **⛔ The rewrite stripped every layout component — `bugs_open/253`.** Words and
+   links survived (14 calculator links before and after; internal links actually rose
+   28 → 34). Markup did not: `class="card"` **18 → 0**, `tool-grid` **3 → 0**,
+   `btn-primary` **15 → 0**, `highlight-box` **1 → 0**, `hero` **1 → 0**. The site's
+   shopfront went from a styled calculator directory to a flat list of headings.
+
+> **TWO WRONG CALLS OF MY OWN IN TEN MINUTES, both from reading a truncated diff.**
+> First I saw the hero and highlight-box disappear at the top of `diff | head -40`
+> and concluded the homepage had "lost its 23-calculator grid" — a functional
+> catastrophe. It had not: I counted the links and there were 14 before and 14 after.
+> Then, correcting that, I said the tool grid "survived further down the page" —
+> also wrong, and wrong in the direction that mattered, because `class="card"` was
+> **0**. The truth was in neither of my first two readings: the *links* survived and
+> the *presentation* did not. **`diff | head` on a minified page shows you the top of
+> the file, not the shape of the change.** Count the things you care about — I should
+> have gone to `grep -c` on the class names before saying anything, and both wrong
+> calls cost nothing only because I checked before acting.
+
+**Why this governs Track B.** A decomposed calculator page is
+`["prose-0","tool-1","prose-2"]`. The tool row is locked and its matching is now
+pinned by a test, so the calculator is safe. **The prose rows either side are not
+locked, and are exactly what got flattened here.** So Track B's realistic failure
+mode is not "the widget is replaced" — that is guarded — it is "the calculator keeps
+working while the cards and buttons around it are silently flattened on the next
+rebuild", across 22 live consumer-finance pages.
+
+**The shrink guard is real but blind to this.** An earlier save at 15:24Z was
+REFUSED — `prose-0 3776→1334 chars (35% kept, floor 50%)`, `bugs_open/178`, nothing
+written, `save_refused_incomplete:index` raised for a human. The 15:47Z save kept 84%
+of the text and passed. **It measures text volume; a rewrite can keep 84% of the
+words and 0% of the components.** That is the gap `253` proposes to close, in the
+mechanism that already exists.
