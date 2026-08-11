@@ -403,12 +403,22 @@ work item is the only thing that is not silent.
 
 ## 8. Not part of this task, but still owed
 
-- **loancash.co.uk has no arithmetic oracle**, and two of its three tools hardcode
+- ~~**loancash.co.uk has no arithmetic oracle**, and two of its three tools hardcode
   dated FCA caps (0.8%/day, £15 default fee, 100% total cost) with nothing checking
-  them against CONC 5A. Same shape as the SDLT bug (`bugs_open/225`), which was a tax
-  rule 16 months out of date and under-quoted by £5,000. **Verify against the FCA's
-  own source, not the page.** Highest-value unstarted item on the estate; independent
-  of decomposition.
+  them against CONC 5A. Same shape as the SDLT bug (`bugs_open/225`)…~~
+  > **CORRECTED 2026-08-11 — the premise does not hold, and the caps are NOT dated.**
+  > Verified against the FCA Handbook itself (`CONC/5A/2.html`), not the page:
+  > 0.8%/day is **CONC 5A.2.3R**, the £15 default charge is **5A.2.14R**, the 100%
+  > total cost cap is **5A.2.2R**, all last amended **02/01/2015** with no subsequent
+  > change — and all three are implemented correctly. The arithmetic was checked too,
+  > and is sound. **The SDLT analogy misleads:** SDLT thresholds move with Budgets, so
+  > staleness there is a *when*; this cap has not moved in eleven years.
+  > What survives is the *monitoring* gap — nothing would tell us if it changed — which
+  > is real but not urgent, and **the worry should move to
+  > `tools/complaint-deadline-calculator.html`**, still unchecked, which encodes
+  > limitation periods and the FOS six-month deadline from a *different* legal source
+  > that genuinely does move. Full working + a plan that argues against cloning
+  > `oracle.py` here: `docs024_key_docs_latest/loancash_couk_fca_validation/`.
 - **Fleet sweep for the 224 defect class** — *a guard that leaves a handler without
   writing the DOM*. `mortgagecalculator.co.uk` and `loancash.co.uk` share this
   family's ancestry and have never been checked. `grep -n "return;"` per calculator
