@@ -26,8 +26,8 @@ func NewHandlers(service *Service, logger *zap.Logger) *Handlers {
 type createVoucherRequest struct {
 	DropsPriceToPence int    `json:"drops_price_to_pence" binding:"required"`
 	RecipientName     string `json:"recipient_name"`
-	ExpiresAt         string `json:"expires_at"`   // RFC3339; or use ttl_days
-	TTLDays           int    `json:"ttl_days"`     // convenience alternative
+	ExpiresAt         string `json:"expires_at"` // RFC3339; or use ttl_days
+	TTLDays           int    `json:"ttl_days"`   // convenience alternative
 }
 
 // HandleCreateVoucher issues a single-use, named, expiring code (£10/£55).
