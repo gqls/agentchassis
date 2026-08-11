@@ -28163,3 +28163,16 @@ the same grep-before-you-file discipline the estate already has for bugs, applie
 mechanism. Note bug 242 §4 itself does not cite RFC_012 — a mechanism written up under a
 different vocabulary ("the await overwrite" vs "metadata not persisted") defeats a
 symptom-worded grep; the SYMBOL is the spelling that finds it.
+
+## 2026-08-11 — bugfix 242: hand-built an `agenterrors.Entry` when the estate already had the door
+
+The truncation row was written with raw `agenterrors.Write` and seven hand-set identity
+fields. The council's reuse seat pointed at `log_action_error.go` — whose header names the
+exact case ("findings that must survive an AWAIT … call `LogActionFindings` BEFORE the
+dispatch") and which fills the join+provenance columns from `ActionParams`. **What caught
+it:** the council round, not me. **The cheap check that would have:** before writing a new
+call against a shared writer, grep the ACTIONS package for existing callers —
+`grep -rn "agenterrors\." platform/orchestration/actions/` returns the wrapper family
+first, and zero raw `Write` calls, which is itself the answer. I had read `agenterrors.go`
+(the leaf) and stopped there; the estate convention lives one package up, at the layer
+that adapts it to the caller. Reading the mechanism is not reading its idiom.

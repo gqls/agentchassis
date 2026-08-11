@@ -166,25 +166,21 @@ func RequestRenderAuditAction(ctx context.Context, params ActionParams) (interfa
 		// awaited-request entries — RFC_012 addendum 2, owner-ruled option B):
 		// agent_error_log is the one sink that outlives the await, and the row
 		// must land before the send so a failed dispatch cannot unrecord the
-		// truncation (bugs_open/242).
-		if !agenterrors.Write(ctx, params.DB, logger, agenterrors.Entry{
-			SiteID:          siteID,
-			Domain:          domain,
-			OrchestrationID: params.ExecutionContext.OrchestrationID,
-			AgentType:       params.ExecutionContext.Sender.AgentType,
-			PodName:         params.ExecutionContext.Sender.PodName,
-			StepName:        params.ExecutionContext.StepName,
-			Action:          "request_render_audit",
-			ErrorMessage: fmt.Sprintf("render audit truncated by max_pages: %d of %d live pages audited for %s — the unaudited tail is the SAME pages every run",
-				len(urls), total, domain),
-			ErrorCode: "RENDER_AUDIT_TRUNCATED",
-			Severity:  "warning",
-			Context: map[string]interface{}{
-				"pages_total":   total,
-				"pages_audited": len(urls),
-				"max_pages":     maxPages,
-			},
-		}) {
+		// truncation (bugs_open/242). LogActionFindings is the named door for
+		// exactly this class; it fills the join/provenance columns from params.
+		attempted, recorded := LogActionFindings(ctx, params, siteID, domain,
+			"request_render_audit", []agenterrors.Finding{{
+				ErrorCode: "RENDER_AUDIT_TRUNCATED",
+				Severity:  "warning",
+				Message: fmt.Sprintf("render audit truncated by max_pages: %d of %d live pages audited for %s — the unaudited tail is the SAME pages every run",
+					len(urls), total, domain),
+				Context: map[string]interface{}{
+					"pages_total":   total,
+					"pages_audited": len(urls),
+					"max_pages":     maxPages,
+				},
+			}}, logger)
+		if recorded < attempted {
 			logger.Warn("request_render_audit: truncation row did not land — the pod log line above is the only record of this run's cap bite")
 		}
 	}

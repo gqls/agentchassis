@@ -129,12 +129,35 @@ func TestRequestRenderAuditNoTruncationWritesNoRow(t *testing.T) {
 	if got, want := data["pages_total"], float64(2); got != want {
 		t.Errorf("request pages_total = %v, want %v — the total is stated even when nothing was cut", got, want)
 	}
+	const writeFailedWarn = "Failed to write to agent_error_log — the disposition stands but its durable trace is lost"
 	for _, entry := range logs.All() {
-		if entry.Message == "Failed to write to agent_error_log — the disposition stands but its durable trace is lost" {
+		if entry.Message == writeFailedWarn {
 			t.Errorf("a truncation row was attempted on an untruncated run")
 		}
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unmet expectations: %v", err)
+	}
+
+	// Positive control of the instrument: prove this observer setup DOES see an
+	// attempted write, so the absence above is evidence and not a blind check.
+	// Same mock (still no agent_error_log expectation), same logger — a run
+	// whose cap bites must attempt the write, fail against the mock, and emit
+	// exactly the warn whose absence the assertion above relies on.
+	mock.ExpectQuery("FROM pages").
+		WillReturnRows(sqlmock.NewRows([]string{"url"}).
+			AddRow("/index.html").AddRow("/about.html"))
+	params.StepConfig = models.Step{Config: map[string]interface{}{"max_pages": 1}}
+	if _, err := RequestRenderAuditAction(context.Background(), params); err != nil {
+		t.Fatalf("control run failed: %v", err)
+	}
+	seen := false
+	for _, entry := range logs.All() {
+		if entry.Message == writeFailedWarn {
+			seen = true
+		}
+	}
+	if !seen {
+		t.Fatalf("instrument is blind: a truncated run against a mock with no INSERT expectation must produce the %q warn", writeFailedWarn)
 	}
 }

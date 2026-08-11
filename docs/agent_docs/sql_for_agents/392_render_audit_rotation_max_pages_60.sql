@@ -23,6 +23,40 @@
 
 BEGIN;
 
+-- Guard (council round 700da63e, five seats): some agent types carry TWO
+-- active definition rows and only the higher version loads — an UPDATE keyed
+-- on is_active alone could write a row the loader never reads while the verify
+-- below agrees with itself vacuously. Enumerated 2026-08-11: render-audit-agent
+-- has exactly ONE row (id 8c99f1b6, version 1). Abort if that ever changes,
+-- and abort if the step is not literally named 'audit' with a max_pages key —
+-- jsonb_set would otherwise INSERT a key the loaded workflow never reads.
+DO $$
+DECLARE
+  v_rows int;
+  v_has_key int;
+BEGIN
+  SELECT count(*) INTO v_rows
+  FROM agent_definitions
+  WHERE type = 'render-audit-agent'
+    AND is_active
+    AND COALESCE(is_snapshot, false) = false
+    AND deleted_at IS NULL;
+  IF v_rows IS DISTINCT FROM 1 THEN
+    RAISE EXCEPTION '392: expected exactly 1 active render-audit-agent row, found % — resolve which row the loader reads before applying', v_rows;
+  END IF;
+
+  SELECT count(*) INTO v_has_key
+  FROM agent_definitions
+  WHERE type = 'render-audit-agent'
+    AND is_active
+    AND COALESCE(is_snapshot, false) = false
+    AND deleted_at IS NULL
+    AND default_config->'workflow'->'steps'->'audit'->'config' ? 'max_pages';
+  IF v_has_key IS DISTINCT FROM 1 THEN
+    RAISE EXCEPTION '392: workflow.steps.audit.config.max_pages not found on the live row — the step layout has changed; do not invent the path';
+  END IF;
+END $$;
+
 UPDATE agent_definitions
 SET default_config = jsonb_set(default_config,
       '{workflow,steps,audit,config,max_pages}', '60'::jsonb),
