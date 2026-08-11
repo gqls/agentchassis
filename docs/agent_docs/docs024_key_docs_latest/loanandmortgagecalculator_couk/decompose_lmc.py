@@ -69,6 +69,7 @@ moving thing stops being a control.
 Usage:
   python3 decompose_lmc.py <out-manifest.json> [--pages name1,name2] [--verbose]
 """
+import hashlib
 import json
 import os
 import re
@@ -87,6 +88,8 @@ from decompose_pages import collapse_runs, split_ordered  # noqa: E402
 PINNED_REF = "b318a8fad"
 SITE_DIR = "loanandmortgagecalculator.co.uk"
 SITES_REPO = os.path.expanduser("~/projects/sites")
+# Same value as load_lmc.py's; needed here only by assert_pin_matches_live().
+SITE_ID = "ed633ada-f8af-424b-b4d4-8af79160dbcd"
 
 CALCULATOR_URLS = {
     "loans/application-tracker", "loans/car-finance-calculator",
@@ -315,6 +318,80 @@ def decompose_page(relpath, html, chrome, calc_js_src, verbose=False):
     return entry, problems
 
 
+def assert_pin_matches_live(only, allow_stale=False):
+    """REFUSE if the pinned ref no longer holds what the live DB holds.
+
+    Added 2026-08-11 after measuring, for Track B, that PINNED_REF `b318a8fad`
+    matched the stored rows of only **6 of the 22** owned+verbatim calculator
+    pages. Decomposing from it would have written stale calculator HTML over
+    **16 live calculators** — reverting the `bugs_open/224` zero-rate guards and
+    the `bugs_open/225` SDLT fix, a tax rule that had been 16 months out of date
+    and under-quoting by £5,000.
+
+    Nothing checked this. The pin is deliberately fixed — the docstring's
+    "a baseline that names a moving thing stops being a control" is right — but a
+    pin that has silently drifted from the artefact it describes is no longer a
+    baseline either, it is just old. The two failure modes need different
+    treatment and only one of them was guarded.
+
+    This is a HARD REFUSAL rather than a warning because the damage is silent,
+    irreversible in practice (it reverts arithmetic fixes on live consumer-finance
+    tools) and looks exactly like a successful run. `ALLOW_STALE_PIN=1` overrides
+    for the case where you genuinely mean to decompose historical bytes; it prints
+    what it is overriding.
+    """
+    r = subprocess.run(
+        ["kubectl", "-n", "ai-persona-system", "exec", "-i", "postgres-clients-0",
+         "--", "psql", "-U", "clients_user", "-d", "clients_db", "-tA", "-F", "\t",
+         "-c", "SELECT p.url, md5(pc.rendered_html) FROM pages p "
+               "JOIN page_components pc ON pc.page_id=p.id "
+               "WHERE p.site_id='%s' AND p.sections::text='[\"ported-page\"]';" % SITE_ID],
+        capture_output=True, text=True)
+    if r.returncode != 0:
+        print("WARN: could not reach the DB to check the pin (%s) — NOT verified"
+              % (r.stderr or r.stdout).strip()[:120])
+        return
+    stale, checked = [], 0
+    for line in r.stdout.strip().splitlines():
+        parts = line.split("\t")
+        if len(parts) < 2:
+            continue
+        url, live_md5 = parts[0], parts[1]
+        rel = url.lstrip("/")
+        name = "index" if rel[:-5] == "index" else rel[:-5].replace("/", "-")
+        if only and name not in only:
+            continue
+        src = subprocess.run(["git", "show", "%s:%s/%s" % (PINNED_REF, SITE_DIR, rel)],
+                             capture_output=True, text=True, cwd=SITES_REPO)
+        if src.returncode != 0:
+            continue
+        checked += 1
+        if hashlib.md5(src.stdout.encode("utf-8")).hexdigest() != live_md5:
+            stale.append(rel)
+    if checked == 0:
+        # Say so rather than reporting a pass. "matches for all 0 pages" is a
+        # vacuous truth and reads exactly like a real check having succeeded —
+        # the same empty-set trap that nearly let a bogus calculator/prose
+        # partition proof through earlier today (WRONG_CALLS, 2026-08-11).
+        print("pin %s NOT CHECKED: no verbatim page in scope (nothing this guard "
+              "can protect — every page here is already decomposed)" % PINNED_REF)
+        return
+    if not stale:
+        print("pin %s matches the live stored rows for all %d verbatim page(s) in scope"
+              % (PINNED_REF, checked))
+        return
+    msg = ("PINNED_REF %s is STALE for %d of %d verbatim page(s) in scope:\n  %s\n"
+           "Decomposing these would write the PINNED bytes over the LIVE ones.\n"
+           "Re-point PINNED_REF to a concrete SHA whose bytes match (origin/master\n"
+           "matched 22/22 on 2026-08-11) — never to a branch name, and re-verify at\n"
+           "the moment of use: rerenders push to that repo continuously."
+           % (PINNED_REF, len(stale), checked, "\n  ".join(sorted(stale))))
+    if allow_stale:
+        print("WARNING (ALLOW_STALE_PIN=1 — overriding):\n" + msg)
+        return
+    raise SystemExit("REFUSING: " + msg)
+
+
 def main():
     if len(sys.argv) < 2:
         print(__doc__)
@@ -324,6 +401,8 @@ def main():
     if "--pages" in sys.argv:
         only = set(sys.argv[sys.argv.index("--pages") + 1].split(","))
     verbose = "--verbose" in sys.argv
+
+    assert_pin_matches_live(only, allow_stale=os.environ.get("ALLOW_STALE_PIN") == "1")
 
     chrome_dir = os.path.join(HERE, "chrome")
     chrome_header_file = open(os.path.join(chrome_dir, "header.html"),
