@@ -5599,3 +5599,17 @@ live row inside BEGIN..ROLLBACK (guard passed, UPDATE 1, verify incl. exact leng
 artefact is the live agent_definitions row; precedent rounds carried seeds in-scope only via
 accompanying Go edits. Reason stated in the rationale, not hidden. **Apply is gated on the
 verdict** (field unused fleet-wide, so waiting costs nothing). Budget ~30 min for the round.
+
+### 2026-08-11 (late afternoon) — the two small seeds built and SUBMITTED as one round (corr `d1e8c36e`)
+
+Job-queue item 3, both texts owner-ruled (DECISIONS_2026-08-11 rulings 3+4). Seed 386:
+writer STRICT RULE 5 + the invented-commitments ban (anchored on the full rule-5 line,
+post-length 13,974 asserted; derived from the LIVE nested path, not the v4 file). Seed 387:
+the guidelines seat's DECLARED CONTRACTS rule + the nested-contract ruling (anchored on the
+rule's tail sentence, post-length 8,695; fix-proposer only — council-gate arrives via the
+099 mirror at apply time, never hand-patched; deliberately NOT the 247 whole-prompt rewrite,
+which is stale by construction). Both dry-run against the live rows with ROLLBACK: guards
+passed, UPDATE 1, verify passed. FORCE=1 again (pure-seed round), reason in the rationale.
+**Apply gated on the verdict; after applying 387, run
+`099_SYNC_gate_roster.py` (dry, then `--apply`) and re-verify both rosters.**
+Two rounds now in flight for this lane: 012/seed 385 (corr `62d2463f`) and this one.
