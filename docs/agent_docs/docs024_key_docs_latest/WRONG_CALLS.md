@@ -28620,3 +28620,37 @@ strips the thing it should have measured.
 site's design vocabulary in `format`, and every before/after content comparison
 must include the class-attribute count as a column. Applies to all of Track B
 and to loancash's Track C.
+
+## 2026-08-11 — recommended raising a concurrency cap that provably never binds, off a coincidence dressed as saturation
+
+**The claim (delivered to the owner):** "the build dispatch lane is saturated at
+`max_concurrent: 8` — exactly 8 dispatch chains are running — raise it to 13."
+
+**What was false, three ways at once:**
+- `cmd/scheduler/main.go:countInFlight` counts **`scheduled_tasks` rows** in
+  flight per group, not orchestrations. The `dispatch` group holds 3 task rows,
+  so its in-flight count can never reach 8. The threshold never binds; the
+  UPDATE would have been a silent no-op reported as an action taken.
+- "Exactly 8 running" was miscounted: on re-measure only 5 chains had live
+  heartbeats. The eighth was a **zombie** (`current_step='complete'`, status
+  never terminal, idle 3h39m) — a stale row, not a worker.
+- Chain concurrency is not configured anywhere; it is **emergent** (trigger
+  cadence ~150s × chain lifetime ~15 min ≈ 6 overlapping chains). The lever
+  that actually moves it — `interval_seconds` — was the one my analysis ranked
+  least useful.
+
+**What caught it:** the owner asked for a second look. Reading the single
+consumer of `max_concurrent` refuted the whole story in under a minute.
+
+**The cheap check that would have:** before recommending a change to any config
+value, **grep for its consumer and read the comparison it appears in.** A
+config column is a claim about behaviour, not behaviour ("a `[VERIFIED]` off an
+echo vouches for the error" — same family). Corollary from the same incident: a
+count of non-terminal orchestration rows is not a count of live workers —
+filter on heartbeat (`updated_at` recency), or a zombie inflates the census
+exactly when you are reasoning about capacity.
+
+| check skipped | what it would have shown |
+|---|---|
+| grep the consumer of `max_concurrent` before citing it | the threshold compares against a count that maxes at 3 — never binds |
+| heartbeat filter on the "running" census | 5 live chains, 1 zombie — not 8 workers |
