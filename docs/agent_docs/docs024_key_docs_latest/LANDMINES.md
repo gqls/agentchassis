@@ -9106,3 +9106,41 @@ code change owed at the next roll, tracked in RFC_015 §5.
   current reference in the whole site", and became a standing next-action for the
   following thread. Its five files were `.png` with slugs this site has never used
 - **added:** 2026-08-11, finetuning service lane
+
+### `improvement-sweep`'s eligibility guard counts `triaged` AND `detected` — so the sweep re-locks sites with its OWN promotions, and a falling `detected` reads as progress while open work grows
+
+- **footprint:** `scheduled_tasks.pre_query`, `improvement-sweep`,
+  `site_work_items.status`, `triage_detect_items_action.go`, `item_type='page_rerender'`
+
+- **the trap:** the `pre_query` skips any site with **≥50** rows in
+  `status IN ('triaged','detected') AND pipeline='build'`. Promotion moves a row from one
+  member of that list to the other and **does not reduce the count**. So the sweep's own
+  output counts against its own eligibility: it fires, promotes, and pushes the site back
+  over the guard. Clearing a site *into* eligibility buys one or two fires, not a state
+- **why the wrong result looks exactly like the right one:** the number everyone watches is
+  `detected`, and it **falls convincingly** — ours went 193 → 25 in five hours, which is
+  exactly what a drain looks like. Meanwhile `triaged` rose from ~0 to 381, open work
+  (`detected+triaged+unresolved`) went ~273 → 544, and sites over the guard went **5 → 1
+  (after a deliberate 226-row park) → 8**, i.e. *worse than the state the park was performed
+  to fix*. Every individual figure is real; the reassuring one is the one that is quoted
+- **the second half, which is what makes it expensive:** the sweep is a **producer**, not
+  just a promoter. Its first step is `call_quality_discovery` — a full LLM site pass that
+  **files new work items** — so it adds arrivals (~105/h measured) to a path that clears at
+  ~50/h. Cadence does not fix a divergence of that shape; a slower cadence only slows the
+  divergence
+- **the check, before you enable it or judge it:** never grade this from `detected`. Take
+  the guard's own census, before and after —
+  `SELECT count(*) FILTER (WHERE b<50) eligible, count(*) FILTER (WHERE b>=50) locked FROM
+   (SELECT (SELECT count(*) FROM site_work_items wi WHERE wi.site_id=s.id AND wi.status IN
+   ('triaged','detected') AND wi.pipeline='build') b FROM sites s WHERE s.status IN
+   ('active','deployed')) t;`
+  — and put **arrivals against completions** side by side (`count(*)` by `date_trunc('hour',
+  created_at)` vs by `updated_at` filtered to `status='complete'`). If arrivals exceed
+  completions the queue is moving, not draining, however good `detected` looks
+- **and do not assume stopping it stops the drain:** it does not. The re-render execution is
+  a **separate always-on path at ~50/h**, proven by hours when the sweep was disabled
+  (08-11 10:00/11:00 = 49/48; 08-10 13:00–15:00 = 85/110/41). A handoff in this estate
+  asserted the opposite for a day — see `WRONG_CALLS.md` 2026-08-11 (bugfix 122 lane)
+- **source:** bugfix 122 lane, `NOTES_contrast_ink_slots.md` 2026-08-11 evening entry;
+  migration `389` parked 226 `contrast_failure` rows to buy the eligibility this then spent
+- **added:** 2026-08-11, bugfix 122 lane

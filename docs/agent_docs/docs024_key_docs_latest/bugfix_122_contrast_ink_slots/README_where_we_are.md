@@ -252,3 +252,45 @@ rather than answered ourselves. And the repair queue those automatic findings fe
 still has the ticket-closing bug I wrote up last week — tickets from the audit can be
 marked done without the work happening — so the loop is armed but its far end is not yet
 trustworthy.
+
+---
+
+**Later the same day.** The automatic check I switched on this morning ran for five and a
+half hours and I've now turned it off. It did what it was meant to, and it also did
+something nobody had spotted it would do, which is the more useful half of the story.
+
+What it was meant to do: find pages needing a rebuild and queue them. It found plenty — the
+queue of found-but-not-yet-actioned items dropped from 193 to 25.
+
+What it also did: it kept finding new work faster than the system can do the work. Roughly a
+hundred new items an hour arriving, about fifty an hour being finished. So the pile didn't
+shrink. It moved from one column to another and got bigger overall — from around 270 items
+to 544.
+
+That matters more than it sounds, because of the safety valve I described this morning.
+Sites with more than fifty outstanding items get skipped, so the checker can't pile work
+onto a site that's already struggling. This morning I moved 226 items aside specifically to
+get five struggling sites back under that limit — it worked, and only one site was left over
+the line. Five hours later, eight sites are over the line. The checker filled the space I'd
+cleared with its own findings and then overshot. The concession I made this morning has been
+spent, and on that particular measure we're further behind than when I started.
+
+I also found that something I'd written in my own notes yesterday was wrong, and it was the
+thing the decision rested on. I'd said the rebuilding work only happens because this checker
+drives it — so switching the checker off would stop the repairs too. That isn't true. The
+repairs run on their own at about fifty an hour, and they were running at exactly that rate
+this morning before I switched the checker on, and all day yesterday while it was off. So
+switching it off costs us nothing in repairs; it only stops new findings arriving. Had I
+checked that yesterday instead of assuming it, this would have been a much easier call.
+
+On cost, which I know you care about: the number I'd said I'd watch — calls per hour — stayed
+normal all afternoon, comfortably inside the range I'd called healthy. But actual consumption
+ran about three times the morning average, because each of this checker's calls is a full
+pass over a site rather than a quick look. I was watching the wrong meter. Not alarming for
+five hours, but a poor thing to have left running overnight unattended.
+
+Nothing is broken and nothing needs urgent attention. The 544 outstanding items should work
+through at about fifty an hour now nothing new is arriving — roughly overnight — and as they
+clear, the sites currently being skipped come back under the limit by themselves. The 226
+items I parked this morning are all still parked and untouched, which was the thing I most
+wanted to be true.

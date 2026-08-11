@@ -6,6 +6,14 @@ and is not repeated here. **§7 of it is superseded by this file.**
 
 ## ⚠ THE ONE THING THAT CANNOT WAIT
 
+> **DONE 2026-08-11 18:00:39Z — `improvement-sweep` is DISABLED.** Ran 12:31:40Z → 18:00:39Z
+> = **5h 29m**, ~22 fires. Evidence, cost table and the two corrections it forced are in
+> `NOTES_contrast_ink_slots.md` (entry "the sweep ran 5h29m and was stopped"). Headline:
+> `detected` 193 → 25, but that queue **moved rather than emptied** — 526 new rows filed
+> (~105/h) against ~48/h completed, open work ~273 → **544** — and the guard counts
+> `triaged`, so **sites over the guard went 5 → 1 (park) → 8 (now)**, worse than the state
+> the park was done to fix. **Do not re-enable without reading that entry.**
+
 **`improvement-sweep` is RUNNING and nobody has scheduled its stop.** The owner asked for
 "a short while"; nothing expires on its own. Re-enabled 2026-08-11 12:31Z at 900s.
 
@@ -34,7 +42,18 @@ fire is *not* a cheap triage. Observed on the first fire (orchestration
 `call_quality_discovery` — it runs **discovery agents against the site** before it ever
 reaches `triage_findings`. So each fire is an LLM-heavy site pass, and the re-render drain
 is a *downstream* effect of it, not the whole of it. That is why 180s was expensive and why
-900s was chosen. **Expect promotion to lag the fire by minutes**, and do not read "fired,
+900s was chosen.
+
+> **CORRECTED 2026-08-11 (evening): "the re-render drain is a *downstream* effect of it" is
+> FALSE, and it was the claim the stop/continue decision rested on.** Completions ran **49/h
+> and 48/h at 10:00 and 11:00 today**, before the 12:31Z re-enable, and **85 / 110 / 41**
+> across 08-10 13:00–15:00 with the sweep disabled — against sweep-era 35 / 32 / 63 / 53 / 58.
+> The drain is a **separate, always-on path at ~50/h**; the sweep adds **discovery and
+> promotion, not execution**. So stopping it costs **nothing** in re-render throughput and
+> only stops new arrivals. Caught by one `GROUP BY` over a window when the sweep was OFF —
+> the check that should have preceded the claim. Also note the cost criterion below
+> (calls/hour) never tripped while **input tokens ran 3.2x** the pre-sweep average: a call
+> count is not a spend when each call is a whole site pass. **Expect promotion to lag the fire by minutes**, and do not read "fired,
 but nothing triaged yet" as a failure — I did, three minutes in, and was simply early.
 
 **Starting point for the drain:** `page_rerender` = 193 `detected`, 2,017 `complete`,
@@ -99,14 +118,20 @@ revisions under one tag** (`bugs_open/249`), so a tag is not a revision.
 
 | | decision | status |
 |---|---|---|
-| 1 | promotion gate | **DONE, running, needs stopping.** Park + sweep, migration 389 |
+| 1 | promotion gate | **RUN AND STOPPED** (12:31→18:00Z). Park held (226 still `deferred`); sweep re-locked 8 sites with its own promotions — see banner |
 | 2 | `bugs_open/212` §8 — component-painted grounds (~24 failures) | **Still owner's.** Architecture, not a bug patch. Unchanged |
 | 3 | `bugs_open/242` — the silent 25-page cap | **Open, unstarted.** Next code task in this lane |
 
 ## NEXT, in order
 
-1. **Watch the sweep, then stop it.** Cost against the baseline above; progress against the
-   193. There is no natural end — someone has to decide it has run long enough.
+1. ~~**Watch the sweep, then stop it.**~~ **DONE 18:00:39Z** (see the banner). What replaces
+   it: **nothing, deliberately.** 544 open re-render items drain at ~50/h with arrivals
+   stopped ⇒ ~11h to clear, and the 8 guard-locked sites come back under 50 by themselves as
+   they do. **Before re-enabling, decide the arrival-vs-completion question**, because the
+   sweep files ~105/h into a path that clears ~48/h — a cadence slower than 900s does not fix
+   that, it only slows the divergence. The honest options are: leave it off until the queue
+   clears; raise the guard (it is the thing the park was spent on); or make the sweep's
+   discovery step conditional on the site's own open-item count rather than firing every time.
 2. **`bugs_open/242`** — the cheapest fix is parity with the drain one step downstream: put
    `pages_total` into the summary the adapter returns, so a capped sweep cannot read as a
    complete one. Every one of the 19 overnight sweeps measured **at most 25 pages** and

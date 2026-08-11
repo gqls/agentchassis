@@ -937,3 +937,65 @@ What that lane lacked was behavioural proof, and I could supply the shape of it:
 errors (2 `error`), neither of which is the false-complete shape. And enabling the sweep is
 precisely the traffic that will exercise their gate — so their proof arrives as a
 side-effect of this lane's decision, which they should know before reading today's 0.
+
+## 2026-08-11 (evening) — the sweep ran 5h29m and was stopped; its own promotions re-locked the fleet
+
+`improvement-sweep` disabled **18:00:39Z**. Ran 12:31:40Z → 18:00:39Z = **5h 29m**, ~22 fires
+at 900s. One `UPDATE`, reversible.
+
+**Cost — inside the band the handoff set, which turned out to be the wrong band.**
+
+| window | calls/h | in_tok/h | out_tok/h |
+|---|---|---|---|
+| pre-sweep 08:00–12:00 | ~52 | ~248k | ~120k |
+| sweep 13:00–17:00 | ~132 | ~806k | ~223k |
+
+Calls stayed at the fleet's own busy-hour shape (93–184/h against the 10:00 baseline of 134),
+so by the handoff's stated criterion — "a few hundred calls/hour is the mechanism working; a
+jump into the thousands is not" — it **never tripped**. Input tokens were **3.2x** the
+pre-sweep average, which that criterion does not look at. **A call count is not a spend:** each
+sweep call is a full site pass, so the per-call cost is what moved.
+
+**Progress, as the handoff framed it:** `page_rerender` `detected` **193 → 25**; `complete`
+2,017 → **2,258** (+241). Read alone, that is the drain working.
+
+> **MISSTEP 20 — two claims inherited from this lane's own handoff were wrong, and the second
+> inverted the decision.**
+>
+> **(a) "the re-render drain is a *downstream* effect of it" — REFUTED.** Completions ran
+> **49/h and 48/h at 10:00 and 11:00 on 08-11**, before the 12:31Z re-enable, and **85 / 110 /
+> 41** across 08-10 13:00–15:00 while the sweep was disabled. Sweep-era completions were
+> 35 / 32 / 63 / 53 / 58 — *the same rate*. The drain is a **separate, always-on path at ~50/h**;
+> the sweep's marginal contribution is discovery and promotion, **not execution**. The whole
+> cost/benefit was therefore mis-stated: stopping the sweep does not slow the drain at all.
+> The check that settled it is one `GROUP BY` over **a window when the thing was OFF** — a
+> downstream-dependency claim is cheaply falsifiable, and I carried it a day instead.
+>
+> **(b) The stop criterion watched the wrong axis.** `detected` 193 → 25 looks like a queue
+> emptying; it is a queue **moving**. The sweep **files** work as well as promoting it:
+> **526 new `page_rerender` rows created during the sweep hours (~105/h)** against ~48/h
+> completed. Open work (`detected+triaged+unresolved`) went **~273 → 544**. The one number
+> anyone was watching is the one that fell.
+
+**The finding that actually justifies the stop: the guard counts `triaged`, so the sweep
+re-locks the fleet with its own output.** `pre_query` skips a site with **≥50**
+`(triaged,detected)` rows on `pipeline='build'` — promotion moves a row from one side of that
+`IN` list to the other and **does not reduce the count**. Sites over the guard:
+
+- **5** before migration 389's park
+- **1** immediately after it (the migration's own post-check)
+- **8** now (17:58Z) — *worse than the state the park was performed to fix*
+
+The bulk of each locked site's backlog is now triaged re-renders the sweep itself promoted
+(leopardessconsulting 55 of 95, finetuning 56 of 69, gamesdesign 41 of 79). **The park bought
+eligibility and the sweep spent it**, then overdrew — 226 contrast findings are still held in
+`deferred` funding a guard allowance that has since been consumed.
+
+**The park itself held**, and that was the risk worth controlling: all 226 `contrast_failure`
+rows still `deferred`, every one stamped `parked_by='migration_389'`, and **zero**
+`contrast_failure` rows outside the park — so no new contrast finding was filed and promoted
+into `bugs_open/213`'s path while the sweep ran.
+
+**Where this leaves the lane:** 544 open re-render items draining at ~50/h with arrivals now
+stopped ⇒ **~11h to clear**, after which the guard releases the locked sites by itself. That
+outcome needs *not* doing, not doing.
