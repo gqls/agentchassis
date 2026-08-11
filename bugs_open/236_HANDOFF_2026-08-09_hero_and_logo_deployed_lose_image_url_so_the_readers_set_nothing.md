@@ -378,3 +378,114 @@ are one 4-hour window opening and closing.
 
 **Not verified by me:** anything about the `image_url` loss itself. I did not read
 the readers, and this contribution makes no claim about §5's open root cause.
+
+---
+
+## CONTRIBUTION 2026-08-11 (later) — item 2 is BUILT, and a §5 candidate that explains BOTH missing-key observations
+
+Left by the `silent_hero_logo_readers` lane (commission item 2). Two parts: what shipped, and a
+lead that is **NOT** a root-cause claim.
+
+### Part 1 — the readers are no longer silent (commission item 2, owner "2. yes.")
+
+All three sites now route through `deployedImageURL`
+(`platform/orchestration/actions/deployed_image_read_audit.go`). On a container that is **present
+but carries no usable `image_url`** they emit a `Warn` **and** record one `agent_error_log` row:
+
+| | |
+|---|---|
+| `error_code` | `DEPLOYED_IMAGE_RESULT_MISSING_URL` |
+| `severity` | `warning` |
+| context | `container_key`, `wanted_key`, **`keys_present`** (sorted; keys only, never values), `container_type`, **`fallback_sibling_present`**, `remedy` |
+
+**Why a durable row and not only the commissioned `Warn`:** the CONTRIBUTION above measured the
+window at 4 hours, and `agent-chassis` does not retain a log line long enough either (its own
+startup line was measured absent from `--tail=3000` hours after a roll). `agent_error_log` is
+documented as the only sink that outlives an awaited step. So this stops *querying* for the shape
+and starts *capturing* it — which is what item 2 of the CONTRIBUTION above asked for.
+
+**Demand-gated:** an ABSENT container records nothing, because most pages deploy no hero or logo.
+Only present-but-unusable records. Proven by mutation.
+
+**`fallback_sibling_present` is aimed squarely at §5** — see Part 2 for why it is the
+discriminator, and note the standing query in the lane RUNBOOK needs a **demand control** beside
+it, per §3's warning against reading a bare count as an incidence rate.
+
+⚠ Live on the next fleet roll; the code is at HEAD (swept into `038211dd8`, verified restored and
+green from a clean `git archive HEAD`). Lane: `docs024_key_docs_latest/silent_hero_logo_readers/`.
+Council `Council-Submitted: c80ea1d7-ce1e-493f-8175-877501d895e6`.
+
+### Part 2 — a candidate for §5, offered as a CANDIDATE and marked as one
+
+**This is not a root-cause claim and must not be quoted as one.** It belongs on §5's
+`[UNVERIFIED]` candidate list, alongside the four already there. What I did first-hand is read
+three functions; what I did **not** do is observe it happen.
+
+**The mechanism: the park path writes a state it re-loaded from the DB, and never copies
+`CollectedData` onto it.** `persistAwaitingStateWithRetry` (`coordinator.go:2067-2132`):
+
+```go
+freshState, err := repo.GetState(ctx, state.OrchestrationID)   // :2073 — from the DB
+...
+for k, v := range state.AwaitedRequests {                      // :2093 — ONLY awaited requests
+    freshState.AwaitedRequests[k] = v
+}
+freshState.Status = StatusAwaitingResponses                    // :2098
+freshState.LastActivity = time.Now()                           // :2099
+err = repo.UpdateState(ctx, freshState)                        // :2102 — freshState is what lands
+```
+
+`state.CollectedData` is **never copied onto `freshState`**, so the row that gets written carries
+whatever `CollectedData` was in the DB *before* the action ran.
+
+**And nothing persists in between.** `storeActionResult` (`:1863`, called at `:1795`) mutates
+`state.CollectedData` **in memory only**; the next `repo.UpdateState` in that path is the one
+inside the park at `:2102`, reached via `processAwaitResponse` at `:1839` → `:2000`. Checked by
+enumerating every `UpdateState` call site in the file: between `:1795` and `:2000` there are none.
+
+**This is not a new theory — it is the one this codebase already states, applied here.**
+`agenterrors.go:20-24`, verbatim: *"the sibling collected_data key was REFUTED live
+(persistAwaitingStateWithRetry loads fresh state at park time and copies only awaited-request
+entries across; RFC_012 addendum 2). THIS TABLE IS THE ONLY SINK THAT SURVIVES AN AWAITED STEP."*
+
+**Why it is worth adding to §5: it explains BOTH observations, which no candidate there does.**
+
+1. `hero_deployed`/`logo_deployed` lack `image_url`/`output_path`/`size_bytes` — the keys
+   `deploy_image_asset_action.go:369-371` assigns to its own result, in memory, before the park.
+2. `collected_data` lacks `hero_url`/`logo_url` (§1's second query) — **despite
+   `deploy_image_asset_action.go:404-415` having written exactly those sibling keys since
+   `d45c86b1e`, 2026-02-23.** That workaround's own comment says it exists *"so it survives the git
+   adapter response overwriting this step's output_field"*. It is the same in-memory
+   `CollectedData` mutation, so on this reading it is discarded by the same park — which is why a
+   five-month-old fix has never worked, and why nobody noticed.
+
+**It also leaves §5's refutation intact.** The merge at `:2719-2748` does preserve-then-add, exactly
+as §5 says. On this candidate the merge is innocent: it preserves a map that never carried the
+action's keys in the first place, because the loss happened one step earlier, at park.
+
+**What would confirm or kill it** (none of this is done):
+
+- The **cheap kill**: if `collected_data` on a parked row ever carries `image_url` under
+  `hero_deployed`, the candidate is wrong. `[UNVERIFIED]`
+- The **direct test**: does any live row show an action's own pre-await result keys surviving the
+  park at all? That is a general question about every action that mutates `CollectedData` before
+  awaiting — the blast radius is the reason this deserves the loop rather than my confidence.
+- **Item 2's new rows will answer it forward.** `fallback_sibling_present` is precisely this
+  discriminator: **false** on a real occurrence means the URL is gone from the container *and* from
+  the sibling key, which is what this candidate predicts and what candidate 2 in §4 would not.
+
+> **Filed to the diagnosis loop rather than asserted**, per CLAUDE.md's rule for a cause that lives
+> outside the symptom and a claim whose blast radius is fleet-wide. **If that verdict contradicts
+> this, the verdict wins** — a refuted candidate costs one run, and this one is written to be
+> disconfirmable.
+>
+> **`090` FILED 2026-08-11.** `RUN_CORRELATION_ID=dbcc4259-ab84-494b-a48b-1df647209a40`
+> (intake `7521cfee-73ed-4fe4-a653-91fee2ded5f4`; the RUN id is the one the artifacts are written
+> under). The symptom names the mechanism and points at the four functions and at
+> `orchestration_states.collected_data`; it asserts **no rows and no counts**, so the loop fetches
+> and cites its own. **VERDICT NOT YET READ — nobody should treat this candidate as confirmed
+> until it is.**
+>
+> ⚠ Unlike the two earlier `090` runs on this bug, this one does **not** depend on the 4-hour
+> evidence window: it asks a question about a **code path**, which is why it is worth its credits
+> where a third re-run of §5b's question would not be.
