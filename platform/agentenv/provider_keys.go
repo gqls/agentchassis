@@ -52,6 +52,15 @@ var providerKeyNames = []string{
 	"ANTHROPIC_API_KEY",
 	"GROK_API_KEY",
 	"GEMINI_API_KEY",
+	// Not an LLM provider, but the same contract in every way that matters
+	// here: a shared SaaS credential in personae-default-secrets that any
+	// spawned agent may need (vet_med_url_map, refresh_product_specs read it
+	// via os.Getenv). It used to be value-copied from the chassis spawner's
+	// own env — the pattern bugs_open/245 removed for storage keys: the value
+	// embedded in every pod spec, a silent skip when the spawner's env was
+	// bare, and the remote spawner never injecting it at all (the exact drift
+	// this package exists to prevent). Owner decision 2026-08-11.
+	"FIRECRAWL_API_KEY",
 }
 
 // ProviderKeyEnv returns the provider API key environment variables that every

@@ -2644,11 +2644,11 @@ func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, 
 		}...)
 	}
 
-	// Pass through Firecrawl configuration from parent environment.
-	// Outside the storage block — any spawned agent may need Firecrawl.
-	if fcKey := os.Getenv("FIRECRAWL_API_KEY"); fcKey != "" {
-		envList = append(envList, corev1.EnvVar{Name: "FIRECRAWL_API_KEY", Value: fcKey})
-	}
+	// Firecrawl API URL passes through from the parent environment (an
+	// endpoint, not a secret). The API KEY no longer does: it moved into
+	// agentenv's allow-list (owner decision 2026-08-11, bugs_open/245
+	// follow-up), so spawned pods get it as a secretKeyRef like every other
+	// shared SaaS credential and the value never appears in a pod spec.
 	if fcURL := os.Getenv("FIRECRAWL_API_URL"); fcURL != "" {
 		envList = append(envList, corev1.EnvVar{Name: "FIRECRAWL_API_URL", Value: fcURL})
 	}

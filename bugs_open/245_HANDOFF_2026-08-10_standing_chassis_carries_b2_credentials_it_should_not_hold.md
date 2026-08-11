@@ -250,3 +250,20 @@ for a follow-up decision rather than smuggled into this fix.
 **State: everything this file asked for is done and proven except the apply of the overlay
 removal, which rides the next release.** After that apply, run candidate 3's residual checks:
 `env | grep -c B2_` → 0 on each standing replica.
+
+## UPDATE 2026-08-11 (afternoon) — OWNER DECIDED the FIRECRAWL leftover: convert it. Done, same shape as the storage fix — but via the allow-list, which also fixes a spawner drift
+
+Owner (2026-08-11, in chat): *"convert it to a secretKeyRef."* Implemented not as another
+inline secretKeyRef block but by adding `FIRECRAWL_API_KEY` to
+`platform/agentenv/provider_keys.go`'s `providerKeyNames` and deleting the value-copy in
+`spawn_actions.go` — because the allow-list is THE single place both spawners read
+(`bugs_open/112` is why that package exists), and the value-copy had the 112 drift too:
+`cmd/remote-job-spawner` injects no Firecrawl key at all, so any Firecrawl-using agent
+spawned remotely was already broken silently. `FIRECRAWL_API_URL` stays a value
+pass-through (endpoint, not a secret). `personae-default-secrets` verified to hold the
+key. Built clean against `git archive HEAD` + the two files (agentenv, actions,
+remote-job-spawner packages). Council: `Council-Submitted:
+6f13c5ce-91ae-4b4a-8c80-37e8b35436ec` (verdict to be read by whoever is next in the lane).
+Inert until the next image roll; after it, a spawned pod's spec should show
+`FIRECRAWL_API_KEY` as `secretKeyRef → personae-default-secrets` — same capture method as
+the storage proof above.
