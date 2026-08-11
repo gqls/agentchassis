@@ -27506,3 +27506,40 @@ objections — the report `metadata` shape is not stable between rounds (`review
 after the plan summary and never contains the objections at all, and a long
 `jsonb_array_elements` unnest over the artifact body times out through `kubectl exec`
 (select the raw `body` and grep locally).
+
+---
+
+## 2026-08-11 — I accepted an external explanation for a null result and stopped examining the instrument (bugfix_234 lane)
+
+**The claim.** After three firings of the bug-234 strict canary produced no observable
+rejection, I wrote in the lane NOTES and the case file that the canary was *"blocked on the
+fleet cap"* — the in-cluster fleet had genuinely stopped on an account-level Anthropic cap,
+and I attributed the silence entirely to that.
+
+**Why it was false.** The cap was real and was not the reason. Both pollers searched for a
+pod named `strict-witness-234`, and **no such pod is ever created for a rejected workflow**:
+`ValidateWorkflow` runs in the chassis processor (`processor.go:276`) BEFORE any agent is
+spawned, so a refusal leaves no witness pod, no orchestration row, and exactly one trace —
+a chassis log line. My instrument was pointed where the evidence could not be, and would
+have found nothing on a perfectly healthy fleet.
+
+**What caught it.** Re-firing after the fleet resumed and, on seeing *still* no witness pod,
+asking where validation actually runs instead of waiting longer. The rejection line was in
+the chassis log within 25ms of the dispatch, and had been the first time too.
+
+**The cheap check that would have.** Before arming any watcher: **name the exact place the
+signal will appear, and prove that place can produce it** — here, one grep of
+`processor.go` for the validation call site, ~30 seconds, which I had already read earlier
+in the same session while establishing that validation runs on every message. I knew the
+fact and did not apply it to my own instrument.
+
+**The general lesson, which is the reason this is logged rather than the pod-name detail: a
+plausible external explanation for a null result is precisely when to re-examine the
+instrument, not when to stop.** A confounder that fully accounts for silence removes the
+pressure that would otherwise have found the real defect — it is the same shape as a
+blind check whose PASS outlives the blindness, arriving from the opposite direction.
+
+**Cost.** Two wasted firings and one wasted poller rewrite; and, more seriously, a case
+file and a memory entry that for ~18 hours told the next reader "blocked on the fleet cap"
+when the truth was "the check was looking in the wrong place". Both corrected in the same
+commit as the proof.
