@@ -52,6 +52,41 @@ shopfront — always take a before/after control (RUNBOOK).**
 "Save everything" backup → **sign in on a fresh session and both notes are
 there with the recording attached** → a second account sees **0** of them.
 
+## 2b. UPDATE 2026-08-11 — the engine is PUBLIC
+
+- **`https://app.noted.co.uk/api/health` → `{"status":"ok"}` from the open
+  internet.** Full flow verified publicly: register (cookie `HttpOnly; Secure;
+  SameSite=Lax`) → save a note → import the real backup format → sign in on a
+  **new session** and see both notes with the recording.
+- Owner authorised the `noted.co.uk` zone; DNS route created and verified at the
+  **authoritative** nameserver, not from the command's success message.
+- **Worker exclusion added:** `app.noted.co.uk/*` → *(no worker)*. The
+  `*.noted.co.uk/*` route sends everything to `portfolio-sites-router`, which was
+  answering before the tunnel was ever reached. **This will hit every tunnel
+  hostname added to any of the 36 B2-fronted zones.**
+- Orphan B2 key `…000c` **deleted**; `…000d` still deployed and **proven still
+  working** by running the full backup afterwards.
+- **The nightly timer fired unattended at 03:30** — first evidence the schedule
+  works without a human. Three backups now in the bucket.
+- **Restore drill PASSED from the owner's stored copy** at
+  `~/.config/noted/noted-backup-age-identity.txt` (note: `.config`, not
+  `.configs`), restoring the real 4-table schema into a throwaway container.
+- Stray test account `smoke2@example.com` found in the live database and removed.
+- Notice on noted.co.uk enlarged and made firmer, with the "next couple of days"
+  timeframe. Ran through `claimscan`: **0 findings**, against a negative control
+  that draws 4.
+- **MIGRATION IS EASIER THAN PLANNED**: proven that a different page on the same
+  origin reads the existing `NotedDB`. At relaunch everyone's notes are still in
+  their browser, so `/legacy` can read them directly and the manual export is a
+  fallback, not the route.
+
+### ⚠ Key hygiene — outstanding
+The age identity now exists in **four** places: `~/noted-backup-age-identity.txt`,
+`~/.config/noted/`, `~/.ssh/`, and the owner's **email**. That key decrypts every
+note in every backup. Email is the weak one (searchable archive, synced to
+devices). Consolidate to one working copy plus one offline/password-manager copy,
+and delete the rest.
+
 ## 3. DECISIONS WAITING ON THE OWNER
 
 | # | Decision | Why it is blocking / urgent |
