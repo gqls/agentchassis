@@ -368,3 +368,70 @@ one-line commands that record our applied database changes in the ledger. They a
 end of my 09b report. The council review is parked one round short of approval until those
 land — not because the reviewers are being difficult, but because an applied-and-unrecorded
 change is genuinely dangerous for whoever runs the migration tool next.
+
+---
+
+## 2026-08-11 — a reviewer caught something real, and fixing it properly meant not building the obvious thing
+
+Picking up where 08-10 left off. Nothing new has come in overnight — the four findings are
+still sitting there waiting on you (three sites with no recorded business premise, and
+mortgagecalculator with no way for a visitor to get in touch), and that is correct rather
+than broken: sites come round for examination on a seven-day cycle and the whole estate was
+looked at yesterday.
+
+**So I spent the session on the one thing in yesterday's list that needed no decision from
+you.** When the council reviewed this work, one of the reviewers made a small, precise
+objection that I want to explain properly, because it is the kind of mistake worth
+recognising again later.
+
+The check we built asks: does this site's shape match how it is supposed to make money? It
+knows what to look for on a tools site, on an advertising site, on a site that sells
+services. There is one business model — paid listings in a directory — where nobody has
+ever written down what the right shape is. So the check did nothing for those sites. That
+was deliberate, and it was written down in three places.
+
+The problem is what "did nothing" looks like from the outside: **exactly the same as
+"looked carefully and found nothing wrong"**. Same empty result, same clean report. Which
+meant that in yesterday's own handover I had to write a sentence warning the next person not
+to trust one particular site's clean bill of health. Writing that sentence should have told
+me the mechanism was broken — you only have to warn people in prose when the system cannot
+say it itself.
+
+It now files a note against those sites instead: *this check has no rule to apply here and
+examined nothing*. The note is deliberately impossible to act on automatically — it is a
+question for a human, not a job for a robot — and it shows up in the roadmap view alongside
+the other "we can see this but cannot yet act on it" entries.
+
+**The interesting part was what I decided NOT to build.** The obvious version tells apart
+"a model we know about but have no rule for" from "a model nobody has ever heard of". To do
+that, the code needs its own list of the six business models we use. I checked where that
+list actually lives: it is in the instructions we give the strategy-writing agent, in the
+database, editable at any moment without touching code. A copy of it inside the code would
+look authoritative and would be wrong the first time someone edits the real one — and we
+have been bitten by exactly that shape of mistake before. So there is no list. A model
+gets examined by having a rule written for it, and everything else files a note. If someone
+adds a seventh model next month, the estate tells us, on the next cycle, without anyone
+having remembered to keep two lists in step.
+
+**One thing I got wrong, and it was mine.** The test I had written to protect that
+deliberate silence asserted "nothing happens for this model". That test would have passed
+just as happily if we had never thought about the model at all — it could not tell a
+decision from an oversight, which is the same blindness the code had. It read like
+diligence and it was not. The replacement asserts things that must be *present*, and I
+proved it works by deliberately breaking the code twice and checking the tests noticed both
+times. Logged in the fleet-wide mistakes file.
+
+**What I need from you, and there are two things.**
+
+The first: **the four findings from the estate sweep are arguments, not orders.** Three
+sites have no recorded business premise. Writing one for each is a single dispatch per site,
+it is safe now (the gate we built in B2 means it will not trigger a rebuild of a live
+site), and it would give those sites their first recorded answer to "what is this site
+for?". The fourth — mortgagecalculator has no contact form anywhere, on a site whose whole
+purpose is collecting enquiries — is a real gap in the site, not a bug in the checker, so it
+needs a route: fix it now, or put it on the roadmap.
+
+The second: **where next.** The offer track (B) has done what it was asked to do. B4 is the
+analyser itself — the thing that reads a site and says whether its offer is any good. The
+alternative is going back to the A track, the vigilant designer work, which has been parked
+while B ran ahead. Your call, and it is genuinely open.
