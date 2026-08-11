@@ -16,6 +16,18 @@ fixed in the tree and rides the next roll. That is the ONLY thing keeping 239 op
 
 ## THE ONE OUTSTANDING TASK — 5 minutes, after the next chassis roll
 
+> ✅ **DONE 2026-08-11 ~12:50 UTC — the roll (v1.0.1286) arrived the same day, and the row
+> appeared.** Corr `cc7bd91a` → `no-such-agent-239 | FAILED | …agent_type_unresolved…`;
+> baseline was 0 such rows over all prior history. Full evidence in `bugs_open/239`'s
+> CLOSING VERIFICATION section; register SYS-090 updated. **Nothing in this lane is
+> outstanding.** RFC_023 stays open with the owner. Two corrections to the recipe below,
+> found on execution: step 1's `strings` probe is the RETIRED recipe (CLAUDE.md 08-11) —
+> use the provenance stamp + `git merge-base --is-ancestor` instead (the stamp is another
+> commit's sha, so grep `/proc/1/exe` for a KNOWN candidate with an absent-control); and
+> the chassis's `build provenance` log line is already unreachable (>5000 lines) within
+> the hour, while a naive `grep 'build provenance'` over its logs can false-match a
+> council-gate payload that merely QUOTES the phrase.
+
 `recordDispatchFailureState` guarded on `p.sqlDB`, which is populated only when
 `DATABASE_URL` is set, and **it is not set on the chassis pods**. So no FAILED
 `orchestration_states` row has ever been written. Fixed at commit `209917d15`

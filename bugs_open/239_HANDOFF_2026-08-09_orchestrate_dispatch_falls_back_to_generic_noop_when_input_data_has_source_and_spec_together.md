@@ -544,3 +544,37 @@ SELECT owner_agent_type, status, left(error,80) FROM orchestration_states
 WHERE correlation_id::text = '<corr>';
 ```
 Then this file can close. Nothing else is outstanding.
+
+---
+
+# CLOSING VERIFICATION — 2026-08-11, v1.0.1286. The third trace is LIVE. Closing condition MET.
+
+The roll arrived the same day: **v1.0.1286**, both replicas, pods up 12:03Z. Verified in
+order, each check disconfirmable:
+
+1. **The fix is in the image, by ancestry, not inference.** Build stamp `c3b424c8e`
+   confirmed at the artefact (`grep -aq <full-sha> /proc/1/exe` on a live pod — positive
+   hit; negative control `0d822ac56`, committed AFTER the build, absent), then
+   `git merge-base --is-ancestor 209917d15 c3b424c8e` → **ancestor**. Note the `strings`
+   recipe used in the earlier sections of this file is RETIRED (CLAUDE.md, 2026-08-11);
+   stamp + ancestry is the replacement and is what was used here.
+2. **The baseline could have come out otherwise:** immediately before the dispatch,
+   `SELECT count(*) FROM orchestration_states WHERE owner_agent_type='no-such-agent-239'`
+   → **0, all history** — the six v1.0.1284 dispatches naming that type wrote no row.
+3. **One single-line dispatch** (corr `cc7bd91a-a80e-4993-bfa9-e0c72be0aad6`, fresh
+   `orchestration_id` header `4b11d580-…`, ~12:49 UTC): intake row `failed`, `attempts=1`,
+   `DISPATCH_FAIL_CLOSED … agent_type_unresolved` — terminal, not retried.
+4. **THE assertion — the row that had never been written in production:**
+   ```
+   owner_agent_type  | status | error
+   no-such-agent-239 | FAILED | DISPATCH_UNRESOLVABLE: DISPATCH_FAIL_CLOSED agent_type_unresolved: orchestration action "orchestrate…
+   ```
+
+All three promised traces — the log line, the intake row, and the FAILED orchestration
+row owned by the REQUESTED type — are now live and proven. **Nothing is outstanding.**
+RFC_023 stays open with the owner (recorded, not resubmitted); `bugs_open/246`,
+`bugs_open/247` and the nested-envelope case (`DISPATCH_OWN_DEFAULT` population) remain
+filed, unowned, and out of scope here.
+
+**This file STAYS in `bugs_open/` by owner direction (2026-08-06): closure evidence is
+recorded in the file; the move is the owner's call, not the fixing thread's.**
