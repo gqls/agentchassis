@@ -11,11 +11,26 @@ acting on it — this tree moves.
 08-10 except for the fix below. **The two decisions owed are the OWNER's, and they are the only
 things gating what comes next** (see "Owed" below).
 
-- **The four findings are still open, unrouted, all `detected`** (re-checked live 2026-08-11):
-  `needs_strategy` × 3 (`strategy_loancash.co.uk`, `strategy_loanandmortgagecalculator.co.uk`,
-  `strategy_gaswholesalers.com`) and `missing_conversion_path:62b5978e…`
-  (mortgagecalculator.co.uk). Nothing new overnight, which is correct: the rotation is a 7-day
-  cadence and the estate was fully stamped on 08-10.
+- **The four findings are ROUTED (owner decided 2026-08-11 evening: dispatch all three
+  strategies; roadmap the conversion path; B4 next). All three premises now EXIST**, verified at
+  the artefact — `site_specs` current strategy row carrying `revenue_models.primary_model`:
+  - `gaswholesalers.com` → **`direct_business`**, written 16:19:04Z, work item `complete`.
+    **Done by the platform's own drain, not by hand** — the first B3 finding to travel detection →
+    repair autonomously.
+  - `loanandmortgagecalculator.co.uk` → **`affiliate`**, written 18:33:23Z by this lane's oneshot
+    (`oneshot-domain-strategist-lamc-20260811`, fired 18:32:22Z, **disabled immediately after**).
+    Its work item is still `detected` — the check's retraction arm closes it on the next rotation,
+    which is the design. ⚠ **`affiliate` means the next rotation files a `capability_gap`** (no
+    affiliate machinery on this platform — the loancalculator.co.uk outcome). Repairing a premise
+    converts one finding into another; do not read that new row as a regression.
+  - `loancash.co.uk` → **still owed a premise.** Its item is `triaged` and unclaimed since
+    16:34Z, and that is **fleet backlog, not a wedge** (410 `page-rerender`, 110 `asset-deployer`
+    also triaged-unclaimed, oldest 12:52Z, while completions landed at 18:2xZ). Left queued
+    deliberately: a oneshot would race the claim and write a second superseding row.
+    **First thing to check next session** — if it is still unclaimed, that is worth a look.
+  - `missing_conversion_path` (mortgagecalculator.co.uk) → **`triaged` at 17:43Z, i.e. the
+    platform promoted it AFTER the owner chose to roadmap it.** See the observe-only watch-out
+    below: it cannot be parked. **Owner asked, awaiting his answer.**
 - **The `default:` arm objection is CLOSED — code committed, council APPROVED round 1.**
   Commit `0ceb27a40`, corr `a46ff9a6-fcba-4ab4-a53d-130aae39f24b`, registered **WII-014**.
   `check_revenue_shape` no longer returns an empty `CheckResult` for a revenue model it has no
@@ -29,32 +44,58 @@ things gating what comes next** (see "Owed" below).
   `prior_art` checked and recorded 08-10, `guardian`'s edit-5 mislabel and `constitution`'s
   style point conceded and not worth a round on their own.
 
-## Owed: two owner decisions, and nothing else blocks
+## ~~Owed: two owner decisions~~ — BOTH TAKEN 2026-08-11 evening
 
-1. **The four findings are arguments, not orders.** The three `needs_strategy` items are
-   directly actionable — one dispatch each, and B2's gate means a run against a live site no
-   longer re-plans it. `missing_conversion_path` (mortgagecalculator has no contact form
-   anywhere, on a `lead_generation` site) is a real site gap, not a checker bug: it needs a
-   route — fix now, or roadmap.
-2. **B4, or back to the A track.** B4 is the analyser itself. A-track (the vigilant designer)
-   has been parked while B ran ahead. Owner's call, unchanged since 08-09.
+1. **The four findings: routed.** All three strategies dispatched (state above);
+   `missing_conversion_path` to be roadmapped — **but the platform has already promoted it, and
+   there is no state that holds it** (watch-out below). One question still with the owner: let it
+   run, or cancel and accept re-filing.
+2. **Next track: B4 — the offer analyser itself.** Not A-track. B1–B3 are live, the estate is
+   swept, and the inputs the analyser needs now exist on every deployed site.
 
 ## What the next session should do
 
-1. **Read the rotation's next harvest** as the 7-day cadence brings sites round:
-   `SELECT item_type, item_key, status, summary FROM site_work_items WHERE item_type IN
-   ('needs_strategy','revenue_shape_cta','missing_conversion_path') ORDER BY created_at DESC;`
-   **Verify per-site, never by stamps** — see the rotation landmine below.
-2. **After the next chassis roll, verify WII-014 at the artefact** (its `verify-later` block has
+1. **B4 — start here.** `features_open/030` §5.4 and `PLAN_2026-08-02` §B4 are the brief.
+   **Two live cases are already waiting to be the first test of its judgement**, and both came
+   out of today's dispatches: gaswholesalers.com, where the strategist classified the domain
+   `generic_industry` and then chose `site_type: brochure` with a `money_flow` narrating an
+   actual gas-wholesale business — the shape its own prompt warns against; and
+   loanandmortgagecalculator.co.uk, now `affiliate` on a platform with no affiliate machinery.
+   **Neither is a bug. Both are exactly the judgement B4 exists to make**, which makes them the
+   cheapest possible acceptance fixtures — real, recent, and not composed by us (a fixture we
+   write to exercise a rule will exercise it; these did not come from us).
+2. **Check `loancash.co.uk` first** (one query): if its `triaged` item is still unclaimed hours
+   later, the queue explanation has expired and it wants a look.
+3. **After the next chassis roll, verify WII-014 at the artefact** (its `verify-later` block has
    the query). Expect exactly ONE new row on vetcomparison.uk: `gap_kind` = `rule_missing`,
    `status` = `deferred`, `handler_agent` empty. **Positive control in the same query:**
    loancalculator.co.uk's existing `affiliate` row must still read `handler_missing` — it is
    what proves the query and the roll rather than your spelling. A `rule_missing` row that is
    anything but `deferred` means remit.go's double lock was relaxed and `bugs_open/077` is back.
-3. Then whichever of the two decisions above has landed.
+4. **Watch the retractions.** Two premises now exist whose work items are NOT closed
+   (loanandmortgagecalculator `detected`, loancash pending). The next rotation should retract
+   them by positive observation — the first live exercise of `premise_incomplete`'s retraction
+   arm on this estate. If a premise exists and the item does not close, that is a real bug.
 
 ## Watch-outs
 
+- **⚠ NEW, and it retires a phrase this lane has used in every doc since 08-09: B3 IS NOT
+  "OBSERVE-ONLY", and never was.** "Items born `detected`, nothing dispatched" was true only
+  while the improvement loop had not reached those sites. Its promoter's SQL
+  (`triage_detect_items_action.go:161-173`) is `UPDATE site_work_items SET status='triaged' …
+  WHERE site_id = $1 AND status = 'detected'` — **no type filter, no ownership filter**, and the
+  file's own header says so. Consequences, all measured today:
+  - **A finding cannot be parked.** Demoting `triaged` → `detected` guarantees re-promotion (that
+    predicate is what it selects on); `cancelled` is terminal, so dedup releases the key and the
+    check re-files on the next 7-day rotation. Only two honest options: let it run, or cancel and
+    accept it returning.
+  - **Any future check this lane ships will have its findings DISPATCHED**, not inspected first.
+    Design them to be right, not to be reviewed. This is
+    `a-complete-work-item-is-not-a-repaired-artefact` one level up: we were reasoning about what
+    our code does, not about what the estate does with its output.
+  - **"Wait for the loop" is not a bounded wait per site.** loanandmortgagecalculator.co.uk holds
+    9 rows still `detected` from 08-10 03:20–04:26 — given the unfiltered predicate, its triage
+    step has not run in ~38h. Hand-fire when timing matters; do not assume a sweep is due.
 - **⚠ RETIRED — the package-test watch-out carried by the last two handoffs is STALE.**
   `TestEveryCheckProducedItemTypeIsClassified` **passes** at this tree (75 check-produced item
   types across 106 files); another lane fixed `decision_regression` between 08-10 and 08-11.
