@@ -248,3 +248,63 @@ approved** — no `Council-Reviewed:` trailer exists or may be added.
 1. **Induced-fault test (RUNBOOK R6)** — the only proof that covers a *dishonest* roll.
 2. Two CronJob images labelled but unstamped by design.
 3. Candidates 2/3 unbuilt on purpose — this detects, it does not refuse.
+
+---
+
+## 2026-08-11 — second roll (`v1.0.1284`): the mechanism holds, and immediately finds something
+
+**Stamp survived the second release.** 14/14 backend services print `build provenance` at
+startup on `v1.0.1284`. So the fix is not a one-roll artefact of the night it shipped — it is
+now the fleet's normal behaviour, on a release nobody in this lane ran.
+
+**And the first thing it found was `bugs_open/249`, unprompted.** `v1.0.1284` is one tag
+carrying **three source commits**:
+
+| built (UTC) | service | revision |
+|---|---|---|
+| 09:07:40 → 09:10:03 | auth-service, core-manager, agent-chassis, reasoning-agent, content-creator-agent | `55fc8fc35` |
+| 09:10:22 | remote-job-spawner | `e2afedaaf` |
+| 09:10:58 → 09:14:02 | kafka-scheduler + the 7 remaining adapters | `a41dec8e5` |
+
+One `make release`, 6m22s, two commits from other sessions landing inside it. Cause is
+`makefile:128` — `git rev-parse` lives **inside `ref_build`**, so with the default `REF=HEAD`
+each of the 14 builds resolves HEAD independently. Full account, evidence and ranked fix
+candidates: `bugs_open/249`.
+
+Today's skew is docs + two `_test.go` files, so nothing functional differs. That is luck, not
+design, and it is worth saying plainly rather than filing this as low-severity: the same six
+minutes with a platform commit in them ships half a fleet with the change and half without,
+under one tag, both halves reporting the same version.
+
+**Caveat this lane now owes the estate.** The closing move we advertised — `git merge-base
+--is-ancestor <commit> <stamp>` answers "did my fix ship?" — is **per service**, not per fleet.
+It is still exact for the service whose stamp you read. Generalising one service's stamp to the
+fleet is only safe for commits that predate the whole release window. (The 19 register entries
+another lane settled in `ebaac39c0` are safe on that test — all predate `55fc8fc35` — but the
+method needs the qualifier attached wherever it gets quoted.)
+
+### Misstep, caught before it was asserted (the fourth of the same shape)
+
+My first sweep across the 12 non-chassis services ran
+`kubectl exec <pod> -- grep -aq "$SHA" /proc/1/exe 2>/dev/null` and returned **NO MATCH for
+eight of them**. The tempting read — and I had the sentence half-written — was "the probe is
+blind again, like `strings` was". The opposite was true: the probe was fine and the negatives
+were real.
+
+What settled it was **a control on the same pod in the same breath**, which is the defence this
+lane keeps rediscovering: on `git-adapter`, `grep -aq a41dec8e5…` → MATCH, `grep -aq 55fc8fc35…`
+→ no match. A probe that can find one 40-hex sha in that binary and not another is not blind.
+
+**The transferable bit is that the same reading was wrong in the opposite direction each time.**
+On 08-10 a blind instrument produced a false *positive* finding ("the mechanism caught a stale
+binary!"); today a working instrument nearly produced a false *dismissal* ("my probe must be
+broken again"). Yesterday's lesson — distrust a clean zero — is not a rule that says "zeros are
+false". Both errors are the same failure to run a control, and only the control tells them
+apart. Note also that `2>/dev/null` is what made the first sweep unreadable: it is in every
+recipe we write, and it is exactly what erases the difference between "no" and "couldn't look".
+
+The cheaper instrument was available the whole time and I reached for it second, not first:
+`logs -l app=<service> | grep 'build provenance'` needs no exec, no binary path, no tool inside
+the image, and it is the *service's own statement* rather than my inference from its bytes.
+**For "what commit is this service running?", read the log line; keep the binary probe for the
+case where you doubt the logs.**

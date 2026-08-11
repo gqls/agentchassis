@@ -62,6 +62,32 @@
 >
 > ---
 >
+> ## UPDATE 2026-08-11 — second roll (`v1.0.1284`) holds, and the stamp found `bugs_open/249` on its first outing
+>
+> **14/14 again on a release this lane did not run.** Every backend service came up printing
+> `build provenance` on `v1.0.1284`, so the mechanism is the fleet's normal behaviour rather
+> than an artefact of the roll it shipped in `[MEASURED]`, from the startup log line on each
+> service plus `grep -aq <sha> /proc/1/exe` on a sample with per-pod controls.
+>
+> **What it revealed immediately: one tag, THREE source commits.** `v1.0.1284` was built over
+> 6m22s; two other sessions committed inside that window; each service's build resolves `HEAD`
+> independently (`makefile:128`), so five services carry `55fc8fc35`, one carries `e2afedaaf`,
+> and eight carry `a41dec8e5`. Today's drift is docs + two `_test.go` files, so nothing
+> functional differs — luck, not design. Filed as **`bugs_open/249`** with the timeline, the
+> cause and ranked fix candidates. **This bug is why 249 is visible at all**; before `v1.0.1283`
+> the question could not be asked.
+>
+> **Caveat now owed on this bug's own headline claim.** `git merge-base --is-ancestor <commit>
+> <stamp>` answers "did my fix ship?" exactly — **for the service whose stamp you read**. It is
+> not a fleet-wide answer while 249 is open, because a release can straddle a commit. Anyone
+> quoting the chassis stamp for the fleet needs that qualifier.
+>
+> **Item 1 above (R6) is unchanged and still owed** — 249 is a *different* fault (skew inside an
+> honest release), not the dishonest-roll fault R6 tests. But see the lane RUNBOOK: the local
+> `REF=<older-commit>` regression guard covers most of R6's value without touching production.
+>
+> ---
+>
 > ## STATUS 2026-08-10 (earlier) — **OWNED, FIX BUILT AND COMMITTED, NOT YET LIVE.** Candidates 1+4 done; 2+3 deferred on purpose
 >
 > Lane: `docs/agent_docs/docs024_key_docs_latest/bugfix_153_build_provenance/` (standing five).

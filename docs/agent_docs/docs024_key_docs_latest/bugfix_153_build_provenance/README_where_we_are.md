@@ -163,3 +163,57 @@ it catches us when we don't, which is the whole point.
 
 **On the review:** it was rejected on scope, you overruled it, and that's recorded honestly.
 The commits say "submitted", not "reviewed", and I haven't dressed it up as approved.
+
+---
+
+## 2026-08-11, morning — it worked, and it caught something on its first outing
+
+A fresh build went out this morning as `v1.0.1284`. Two things to report.
+
+**First, the good news: the stamp held.** All fourteen services came up announcing which commit
+built them. Last night's roll proved the mechanism worked on the release we watched it ship in;
+this one proves it survives a release nobody from this lane touched. That's the difference
+between a thing that worked once and a thing the platform now does.
+
+**Second, and this is the interesting part: it immediately found a real problem.** `v1.0.1284`
+is one version tag, but the fleet running it was built from **three different commits**.
+
+The build takes about six and a half minutes to go through all fourteen services. During those
+six minutes, two other sessions committed their work. Each service's build asks git "what's the
+latest commit?" *at the moment it starts* — so the five services built first got one answer, the
+one built at 09:10:22 got a second, and the eight built after that got a third. All fourteen
+then went out wearing the same version label.
+
+I want to be careful about how alarming that sounds, so: **today it did no harm at all.** The
+commits that landed mid-build were documentation and two test files. Not a line of production
+code differs between the three groups. I checked rather than assumed.
+
+But the reason it's worth your attention is what it would have meant on a different morning. If
+one of those mid-build commits had been a real code change, eight services would have it and six
+would not — under a single version number, with every dashboard and every handoff note saying
+"deployed at 1284". Half the fleet would have the fix, half wouldn't, and there'd be no way to
+tell which half from anything except the stamps we just added. That is the same disease this
+whole bug was about, one level up: we knew the version tag didn't prove a rebuild had happened;
+it turns out it doesn't identify the *code* either.
+
+**The fix is small and the machinery already exists.** The release can decide once, at the start,
+which commit it's building, and hand that same answer to all fourteen builds. You can do it today
+by hand by adding one argument to the release command; making the release do it itself is a few
+lines and takes away the chance to forget. I've written it up properly as `bugs_open/249` with
+the evidence and the options ranked — I'd like your steer before changing the release path,
+because that's the one command on this estate everything else depends on.
+
+**One correction I owe you**, because we advertised something slightly too broadly. We told
+other sessions the stamp lets them ask "did my fix ship?" and get an exact answer. That is still
+true — but it answers it **for one service at a time**, not for the fleet, precisely because of
+what I found today. Anyone reading the chassis stamp and concluding "so the whole fleet has it"
+can be wrong. I've attached that caveat where the claim lives.
+
+**And a confession in the same shape as yesterday's, going the other way.** When I first checked
+the twelve non-chassis services, eight of them came back "no". Yesterday a broken check gave me
+a false alarm, so my instinct today was "my check must be broken again" — I nearly dismissed a
+genuine finding as my own instrument playing up. It took a deliberate control (ask the same pod
+about a commit it *should* have, and one it shouldn't) to establish the answer was real. Worth
+recording because it's the mirror image of yesterday: being burned by a false positive makes the
+next true positive easier to wave away, and the only thing that tells them apart is doing the
+control both times.
