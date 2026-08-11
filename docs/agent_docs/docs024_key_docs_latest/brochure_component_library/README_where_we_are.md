@@ -2241,3 +2241,13 @@ documented can't recur once it's applied. The one-line ban on invented guarantee
 exactly as you approved it, and the reviewers' rulebook now gets your nested-fields ruling in the
 same batch — both submitted together as one small review. Nothing is applied yet; all three wait
 on their verdicts, and the handoff says precisely what to run when each lands.
+
+**2026-08-11, evening.** The reviewers pushed back once, and they were right to: I'd named a
+sync tool as the safe way to copy the new rule into the reviewers' own rulebook, when a note
+filed just this morning warns that tool currently undoes an unrelated, valuable change when
+run. I replaced that step with a hand-written, narrowly-guarded copy that provably can't touch
+what the other change protects, added a refusal to all three edits against a known
+wrong-row trap, and resubmitted. Approved. All three are now live and checked: the writer is
+banned from inventing guarantees, and both copies of the reviewers' rulebook carry your
+nested-fields ruling word-for-word. The redesign-field change is still with the reviewers —
+it entered the queue late but is being reviewed now.

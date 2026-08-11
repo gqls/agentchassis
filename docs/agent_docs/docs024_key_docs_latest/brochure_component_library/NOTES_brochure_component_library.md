@@ -5634,3 +5634,28 @@ guard. 387's header rewritten (the "cannot drift" claim withdrawn; 388 named as 
 All three re-dry-run with ROLLBACK: clean. Resubmitted with `RESUBMIT_CORR=d1e8c36e` —
 the trail accumulates. WRONG_CALLS-worthy: the cheap check that would have caught it is
 `grep -n "099_SYNC" LANDMINES.md` before writing the rationale; logged there.
+
+### 2026-08-11 (evening, cont.) — seeds round APPROVED on resubmission; 386/387/388 APPLIED + row-verified + ledgered
+
+Verdict on corr `d1e8c36e` (resubmission): **APPROVED**, 1 advisory (none high). Both round-1
+objection families held their answer: 388 replaced the mirror, the guards replaced the claims.
+Applied in order 386 → 387 → 388 (~12:36Z), each seed's own guard+verify passing, then
+row-verified independently: writer 13,974 chars with the commitments ban; fix-proposer 8,695
+with the nested-contract rule; council-gate 8,732 with the same rule AND the cache breakpoint
+still at char 174 (377 undisturbed — the thing the whole 388 design defends). Snapshots:
+page-content-writer + council-gate pre-update copies confirmed in `agent_definitions_backup`
+(neither contains the change — true PRE copies). **Deviation, mine: seed 387 omitted the
+`snapshot_agent` call** (generator slip); its rollback is covered by `bak_387_fix_proposer`
+(1 row, verified pre-change) — noted, not papered over. All three `--record-only`'d with the
+corr in the note.
+
+Advisories dispositioned: (medium, "name the four dual-row types") — made moot at apply time
+by design: each seed REFUSES unless its target has exactly one active row, and all three
+guards passed at the real apply; the enumeration belongs to the landmine's own entry, not to
+this round. (low, "confirm 381/383 exist with that shape") — 383 was READ this session (its
+guard structure is what 388 copies); both files are in `sql_for_agents/`.
+
+**DECISIONS_2026-08-11 rulings 3 and 4 are now fully executed** (the seat-visible half and
+the commitments clause are live). Remaining for this lane: the 012 verdict (corr `62d2463f`,
+mid-council as of 12:40Z — 40 min queue latency, normal) and its apply; then the census
+follow-ups already registered (recompose live-proof → retire the prose escape).

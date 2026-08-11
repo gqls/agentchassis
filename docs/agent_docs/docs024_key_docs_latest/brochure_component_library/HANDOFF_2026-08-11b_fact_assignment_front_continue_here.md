@@ -79,3 +79,19 @@ passengers both directions · `who-owns` is blind to uncommitted sessions.
 `c3b424c8e` census complete (docs + 3 bug-file notes) · `fc01fdbc2` 012 round built+submitted
 (Council-Submitted 62d2463f) · `28436b190` seeds 386+387 built+submitted (Council-Submitted
 d1e8c36e) · this file's commit.
+
+---
+
+## UPDATE 2026-08-11 evening — §2 item 2 is DONE; item 1 still pending
+
+The seeds round went REVISE (gated: my rationale trusted `099_SYNC_gate_roster.py`, whose
+`--apply` a same-morning landmine documents as silently reverting migration 377) → answered
+same-session with **seed 388** (the 383-pattern surgical gate mirror, breakpoint-guarded) +
+apply-time dual-active-row guards on all three seeds → **APPROVED on resubmission** (same
+corr `d1e8c36e`) → **386/387/388 APPLIED ~12:36Z, row-verified** (13,974 / 8,695 / 8,732
+chars; gate breakpoint untouched at 174), snapshots/bak tables confirmed pre-update,
+ledger `--record-only`'d. Do NOT run `099 --apply` to "fix drift" on the guidelines seat —
+the drift it reports is 377 plus this rule, both deliberate. Rollbacks: `bak_386`/
+`bak_387_fix_proposer`/`bak_388` (+ `agent_definitions_backup` snapshots for 386/388).
+Only §2 item 1 (the 012 round, corr `62d2463f`) remains open — it entered council at
+11:59Z after a 40-min queue.
