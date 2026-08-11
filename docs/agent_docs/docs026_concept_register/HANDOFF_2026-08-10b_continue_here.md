@@ -12,6 +12,29 @@ log, newest at the bottom) and `README_where_we_are.md` (owner prose, append-onl
 
 ---
 
+> ## ⚠⚠ CORRECTED 2026-08-11 — READ THIS BEFORE THE BANNER BELOW, WHICH IS WRONG
+>
+> **The gate was not ignored. It was inaudible, and the section below is an
+> artefact of that.** The banner's own honest question — *never saw it, or saw it
+> and judged the row could wait?* — is answered, from the committing session's
+> transcript: that command ended `2>&1 | tail -8` and its recorded stdout is
+> **exactly 8 lines**. The pre-commit hook prints FIRST and git prints its summary
+> LAST, so the finding was computed correctly and cut by the session's own pipe.
+>
+> **Fleet-wide, not one session:** 1,199 of 2,669 multi-file commits since
+> 2026-07-18 (45%) never delivered the advisory block; 95% of those were the
+> `| tail`; 258 distinct sessions. It suppressed the commit-scope report and all 17
+> pattern checks too, not just OPP-006.
+>
+> **So do NOT do what the banner asks.** "Watch the daily row for a week before
+> anyone argues for teeth" was reasonable on the evidence available then and is now
+> the wrong instrument: the week would have measured the pipe. **The case for teeth
+> is weaker, not stronger.** Fixed by **OPP-007**
+> (`scripts/commit-advisory-postuse.py`, `05d8b379e`), delivery proven at the reader
+> (`aa78871d8`). Read `FINDINGS_2026-08-11_advisory_delivery.md` and `RUNBOOK` §B11.
+> The rest of this handoff — the staleness worklist and the three open signals —
+> stands unchanged.
+
 ## ⚠ READ FIRST — the gate's first live test, and it did not pass
 
 **OPP-006 fired and was ignored, within three hours of shipping.** The gate went
