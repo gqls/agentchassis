@@ -1,9 +1,17 @@
 # 250 — the decomposition loaders' backup table poisons its own rollback
 
 **Filed 2026-08-11** by the LMC Track A session, after `load_lmc.py --apply` died
-on its own backup step. **LMC half FIXED and proven** (`load_lmc.py`, commit
-`1d99731ab`). **`loancalculator_couk/decompose/load_decomposition.py` is STILL
-DEFECTIVE and has one already-poisoned rollback** — that is what is open here.
+on its own backup step. **BOTH HALVES NOW FIXED (2026-08-11).** LMC: `load_lmc.py` (`1d99731ab`),
+proven by round-trip. loancalculator: `decompose/load_decomposition.py`, ported
+the same afternoon at the owner's direction, and its backup table repaired from
+**28 rows over 27 pages** to one generation per page with column parity restored
+(28 == live), stray preserved to `page_components_bak_strays_20260811_loancalc`,
+`DO`/`RAISE` verify block asserting 1 row/page, 1 stray and column parity.
+
+**What remains open:** the loancalculator fix is **not round-trip proven** — that
+lane's `--restore` has not been exercised against a live page since the port. LMC's
+was. Do that before relying on it (apply → restore → assert the stored md5 equals
+that lane's recorded baseline → re-apply).
 
 > **On the 2026-07-31 owner ruling (a `bugs_open/` file asserting a structural
 > cause must go through `090`, or say why it substituted first-hand
@@ -99,19 +107,19 @@ calculators**, and is exactly where someone will reach for `--restore` in a hurr
 
 ## To close this bug
 
-- [ ] Port 1–3 into `loancalculator_couk/decompose/load_decomposition.py`.
-- [ ] Repair that lane's backup: preserve the stray to a side table **before**
-      deleting it (LMC used `page_components_bak_strays_20260811`), inside one
-      transaction with a `DO`/`RAISE` verify block asserting one row per page
-      afterwards. A verify block of bare `SELECT`s cannot stop the `COMMIT`.
-- [ ] **Round-trip one page to prove it**, as LMC did: apply → restore → assert
-      the stored md5 equals the lane's recorded baseline → re-apply. Believing a
-      rollback you have not watched work is how this went unnoticed since 08-05.
+- [x] Port 1–3 into `loancalculator_couk/decompose/load_decomposition.py`. **Done 2026-08-11.**
+- [x] Repair that lane's backup, stray preserved before deletion, `DO`/`RAISE`
+      verify block. **Done 2026-08-11** — 27 rows over 27 pages, 28 cols == live.
+- [ ] **Round-trip one page in the loancalculator lane to prove it** — apply →
+      restore → assert the stored md5 equals that lane's recorded baseline →
+      re-apply. **This is the only thing still owed, and it is the whole point:**
+      believing a rollback you have not watched work is how this went unnoticed
+      since 08-05, and porting a fix is not the same as proving it.
 
-**Owner check first.** `load_decomposition.py` belongs to the loancalculator
-lane, and `scripts/who-owns.py` resolves nothing for it. Contribute into that
-lane rather than editing its tool from outside — the change is small, but it is
-the one tool that lane reaches for when something has gone wrong.
+**Ported at the owner's explicit direction (2026-08-11)**, having flagged that it
+is another lane's tool. `scripts/who-owns.py` resolves no owner for it. The change
+is confined to `backup_everything()` and is additive to the docstring otherwise;
+nothing about that lane's apply/restore transaction shape was touched.
 
 ## How it was found
 
