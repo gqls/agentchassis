@@ -146,12 +146,17 @@ you are reading.
 **Gotcha 2 — a census figure measured without `exclude_patterns` is a proxy.** The action
 calls `analysis.AnalyseWithExclude(dir, ["docs/"])`. Measuring with the analyser but without
 its arguments gave 1,373 where the truth was 1,204 — a 14% phantom shortfall that reads
-exactly like an identity collision. To predict exactly, build the deployed analyser and call
-it the way production does (`cmd/predict223` pattern, in the lane scratch notes):
+exactly like an identity collision. To predict exactly, `git archive` the deployed sha into a
+temp dir, drop a throwaway `main` in it, and call the analyser the way production does:
 
 ```go
 out, _ := analysis.AnalyseWithExclude(root, []string{"docs/"})
 ```
+
+**This is a scratch harness, not a command to add** — it lives and dies in the scratchpad.
+Nothing in `cmd/` should grow to hold it: the whole value is that it runs the *deployed*
+revision of `internal/analysis`, so it must be built from a `git archive` of the sha you are
+verifying, not from the tree.
 
 **Gotcha 3 — `code_symbols` has `line_start`/`line_end`, NOT `start_line`.** The wrong
 spelling fails the whole statement. (`indexed_at` does not exist either; the clocks are
