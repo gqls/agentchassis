@@ -45,13 +45,29 @@ type siteIdentityPolicy struct {
 	// visible change to live artefacts, so it is opted into per site.
 	HonourRealisedIdentity bool
 
+	// TwinIdentitySnap: enable the reconciler's two DETERMINISTIC twin-identity
+	// layers — normalised URL path, and the canonical identity the write path
+	// would derive anyway.
+	//
+	// These shipped default-ON in the first draft, on the argument that they ask
+	// the same question the exact-URL rename already asks unconditionally. The
+	// council's guardian and architecture seats both objected, and they were
+	// right: an argument is not a measurement of the NEW collapse population a
+	// layer introduces, and "behaviour changed for every existing caller" is
+	// architecture-scope however sound the reasoning. So they are gated too, and
+	// while off they COUNT what they would have done — the same discipline this
+	// file already demanded of the weaker layer below, now applied to its own
+	// author's preferred case.
+	TwinIdentitySnap bool
+
 	// StemTwinSnap: enable the reconciler's weakest twin-identity layer, which
 	// matches a bare plan page against a prefixed realised one (tools ->
-	// tool-tools). Off, the layer still records what it would have done.
+	// tool-tools), in either direction. Off, the layer still records what it
+	// would have done.
 	//
-	// Separately switchable from HonourRealisedIdentity because they fail
-	// differently: this one can pair two pages that are not the same page, while
-	// the other only ever preserves an identity that already exists.
+	// Separately switchable from TwinIdentitySnap because they fail differently:
+	// this one is a name heuristic that can pair two pages that are not the same
+	// page, while the other two compare identities the platform itself derives.
 	StemTwinSnap bool
 }
 
@@ -67,13 +83,14 @@ func siteIdentityPolicyFor(ctx context.Context, db *sql.DB, siteID uuid.UUID, lo
 	if db == nil {
 		return policy
 	}
-	var honour, stem bool
+	var honour, twin, stem bool
 	err := db.QueryRowContext(ctx, `
 		SELECT COALESCE((data->>'honour_realised_identity')::boolean, false),
+		       COALESCE((data->>'twin_identity_snap')::boolean, false),
 		       COALESCE((data->>'stem_twin_snap')::boolean, false)
 		FROM site_specs
 		WHERE site_id = $1 AND aspect = 'structure' AND is_current = true
-	`, siteID).Scan(&honour, &stem)
+	`, siteID).Scan(&honour, &twin, &stem)
 	switch {
 	case err == sql.ErrNoRows:
 		return policy
@@ -87,6 +104,7 @@ func siteIdentityPolicyFor(ctx context.Context, db *sql.DB, siteID uuid.UUID, lo
 		return policy
 	}
 	policy.HonourRealisedIdentity = honour
+	policy.TwinIdentitySnap = twin
 	policy.StemTwinSnap = stem
 	return policy
 }

@@ -13,11 +13,12 @@ import (
 )
 
 // Tests for the site identity policy (bugs_open/215, quiet mode). The helper is
-// the ONE reader of these two keys; the contract test at the foot pins that both
+// the ONE reader of these three keys; the contract test at the foot pins that both
 // canonicalisation surfaces actually consume the answer.
 
 var siteIdentityPolicyQuery = regexp.QuoteMeta(`
 		SELECT COALESCE((data->>'honour_realised_identity')::boolean, false),
+		       COALESCE((data->>'twin_identity_snap')::boolean, false),
 		       COALESCE((data->>'stem_twin_snap')::boolean, false)
 		FROM site_specs
 		WHERE site_id = $1 AND aspect = 'structure' AND is_current = true
@@ -30,39 +31,41 @@ func TestSiteIdentityPolicyFor(t *testing.T) {
 		name       string
 		rows       func(sqlmock.Sqlmock)
 		wantHonour bool
+		wantTwin   bool
 		wantStem   bool
 	}{
 		{
 			name: "both keys true",
 			rows: func(m sqlmock.Sqlmock) {
 				m.ExpectQuery(siteIdentityPolicyQuery).WithArgs(siteID).
-					WillReturnRows(sqlmock.NewRows([]string{"honour", "stem"}).AddRow(true, true))
+					WillReturnRows(sqlmock.NewRows([]string{"honour","twin","stem"}).AddRow(true, true, true))
 			},
-			wantHonour: true, wantStem: true,
+			wantHonour: true, wantTwin: true, wantStem: true,
 		},
 		{
-			// The pilot shape: preserve realised identities without yet trusting
-			// the weakest matching layer. These must be independently settable or
-			// the safe half cannot ship ahead of the risky one.
-			name: "honour without stem",
+			// The pilot shape: preserve realised identities and run the two
+			// deterministic layers, without yet trusting the name heuristic. These
+			// must be independently settable or the safe half cannot ship ahead of
+			// the risky one.
+			name: "honour and deterministic layers, without the stem heuristic",
 			rows: func(m sqlmock.Sqlmock) {
 				m.ExpectQuery(siteIdentityPolicyQuery).WithArgs(siteID).
-					WillReturnRows(sqlmock.NewRows([]string{"honour", "stem"}).AddRow(true, false))
+					WillReturnRows(sqlmock.NewRows([]string{"honour","twin","stem"}).AddRow(true, true, false))
 			},
-			wantHonour: true, wantStem: false,
+			wantHonour: true, wantTwin: true, wantStem: false,
 		},
 		{
 			name: "spec present, keys absent, defaults false",
 			rows: func(m sqlmock.Sqlmock) {
 				m.ExpectQuery(siteIdentityPolicyQuery).WithArgs(siteID).
-					WillReturnRows(sqlmock.NewRows([]string{"honour", "stem"}).AddRow(false, false))
+					WillReturnRows(sqlmock.NewRows([]string{"honour","twin","stem"}).AddRow(false, false, false))
 			},
 		},
 		{
 			name: "no current structure spec: today's behaviour",
 			rows: func(m sqlmock.Sqlmock) {
 				m.ExpectQuery(siteIdentityPolicyQuery).WithArgs(siteID).
-					WillReturnRows(sqlmock.NewRows([]string{"honour", "stem"}))
+					WillReturnRows(sqlmock.NewRows([]string{"honour","twin","stem"}))
 			},
 		},
 		{
@@ -89,6 +92,9 @@ func TestSiteIdentityPolicyFor(t *testing.T) {
 			if got.HonourRealisedIdentity != tc.wantHonour {
 				t.Errorf("HonourRealisedIdentity = %v, want %v", got.HonourRealisedIdentity, tc.wantHonour)
 			}
+			if got.TwinIdentitySnap != tc.wantTwin {
+				t.Errorf("TwinIdentitySnap = %v, want %v", got.TwinIdentitySnap, tc.wantTwin)
+			}
 			if got.StemTwinSnap != tc.wantStem {
 				t.Errorf("StemTwinSnap = %v, want %v", got.StemTwinSnap, tc.wantStem)
 			}
@@ -101,7 +107,7 @@ func TestSiteIdentityPolicyFor(t *testing.T) {
 
 func TestSiteIdentityPolicyNilDB(t *testing.T) {
 	got := siteIdentityPolicyFor(context.Background(), nil, uuid.New(), zap.NewNop())
-	if got.HonourRealisedIdentity || got.StemTwinSnap {
+	if got.HonourRealisedIdentity || got.TwinIdentitySnap || got.StemTwinSnap {
 		t.Errorf("nil db must mean today's behaviour, got %+v", got)
 	}
 }

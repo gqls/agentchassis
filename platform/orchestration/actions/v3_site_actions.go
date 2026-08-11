@@ -3187,12 +3187,18 @@ func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface
 		zap.Int("existing_pages", len(existingPages)),
 		zap.String("existing_pages_field", existingField))
 	var counts reconcileCounts
-	// stem_twin_snap: opt-in, unsafe default OFF (bugs_open/215). Off, the stem
-	// layer still measures what it would have done — read StemTwinObserved and
-	// the durable PLAN_PAGE_STEM_TWIN_OBSERVED rows before turning it on.
+	// The twin-identity layers are opt-in per SITE, unsafe default OFF
+	// (bugs_open/215), read through the same shared helper the two write surfaces
+	// use so a site cannot be half opted-in. Off, the layers still measure what
+	// they would have done — read TwinIdentityObserved / StemTwinObserved and the
+	// durable PLAN_PAGE_*_OBSERVED rows before turning either on.
 	reconcileOpts := reconcileOptions{}
-	if v, ok := config["stem_twin_snap"].(bool); ok {
-		reconcileOpts.StemTwinSnap = v
+	if params.DB != nil {
+		if sid, err := uuid.Parse(datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.site_id")); err == nil {
+			policy := siteIdentityPolicyFor(ctx, params.DB, sid, params.Logger)
+			reconcileOpts.TwinIdentitySnap = policy.TwinIdentitySnap
+			reconcileOpts.StemTwinSnap = policy.StemTwinSnap
+		}
 	}
 	pages, counts = reconcilePlanWithRealised(pages, existingPages, reconcileOpts, params.Logger)
 	plan["pages"] = pages
@@ -3207,6 +3213,7 @@ func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface
 		zap.Int("snapped_identity_path_key", counts.SnappedIdentityPathKey),
 		zap.Int("snapped_identity_canon_name", counts.SnappedIdentityCanonName),
 		zap.Int("snapped_stem_twin", counts.SnappedStemTwin),
+		zap.Int("twin_identity_observed", counts.TwinIdentityObserved),
 		zap.Int("stem_twin_observed", counts.StemTwinObserved),
 		zap.Int("stem_twin_ambiguous", counts.StemTwinAmbiguous),
 		zap.Int("pages_after", len(pages)))
@@ -3533,6 +3540,11 @@ func recordIdentitySnaps(ctx context.Context, params ActionParams, snaps []ident
 				s.PlanName, s.RealisedName, s.Layer)
 		remedy := "no action needed — this is the twin-identity reconciliation that stops a second page row being minted for one page (bugs_open/215)"
 		switch s.Layer {
+		case "path_key_observed", "canonical_name_observed":
+			code, severity = "PLAN_PAGE_IDENTITY_TWIN_OBSERVED", "warning"
+			message = fmt.Sprintf("plan page %q denotes realised page %q (matched on %s), and twin_identity_snap is OFF — this plan will carry both identities for one page",
+				s.PlanName, s.RealisedName, strings.TrimSuffix(s.Layer, "_observed"))
+			remedy = "dark-launch signal: each of these is a second page identity about to be written. Read the population, then set twin_identity_snap on the site's structure spec (bugs_open/215)"
 		case "stem_twin_observed":
 			code, severity = "PLAN_PAGE_STEM_TWIN_OBSERVED", "warning"
 			message = fmt.Sprintf("plan page %q is a stem twin of realised page %q, and the stem layer is OFF — this plan will carry both identities for one page",
@@ -5833,9 +5845,31 @@ func matchTwinIdentity(
 		return rname, true
 	}
 
+	// observeOrSnap applies the deterministic layers' gate. When the site has not
+	// opted in, the layer still records what it WOULD have done — each such row
+	// is a second page identity about to be written, so the dark-launch count is
+	// both the evidence for enabling and a live phantom warning.
+	observeOrSnap := func(rp map[string]interface{}, layer string) (map[string]interface{}, string, bool) {
+		if opts.TwinIdentitySnap {
+			return snapPlanPageOntoRealised(lm, rp, layer, counts, logger), layer, true
+		}
+		rname, _ := rp["name"].(string)
+		rurl, _ := rp["url"].(string)
+		counts.TwinIdentityObserved++
+		logger.Info("validate: twin identity observed, layer disabled",
+			zap.String("layer", layer),
+			zap.String("llm_name", lname), zap.String("realised_name", rname))
+		counts.IdentitySnaps = append(counts.IdentitySnaps, identitySnap{
+			Layer: layer + "_observed", PlanName: lname, PlanURL: lurl,
+			RealisedName: rname, RealisedURL: rurl,
+			Reason: "twin_identity_snap is off; this plan entry denotes a page already realised under another spelling and will otherwise be written as a second identity for it",
+		})
+		return nil, "", false
+	}
+
 	if rp, ok := byPathKey[datahelpers.PagePathKey(lurl)]; ok && lurl != "" {
 		if _, good := eligible(rp); good {
-			return snapPlanPageOntoRealised(lm, rp, "path_key", counts, logger), "path_key", true
+			return observeOrSnap(rp, "path_key")
 		}
 	}
 
@@ -5852,14 +5886,14 @@ func matchTwinIdentity(
 	if canon := datahelpers.PageCanonicalNameForRow(canonSource, ltype); canon != "" {
 		if rp, ok := byCanonName[canon]; ok {
 			if _, good := eligible(rp); good {
-				return snapPlanPageOntoRealised(lm, rp, "canonical_name", counts, logger), "canonical_name", true
+				return observeOrSnap(rp, "canonical_name")
 			}
 		}
 		// The realised row may hold the canonical name directly while the plan
 		// entry is the bare twin (llm-cost-calculator -> tool-llm-cost-calculator).
 		if rp, ok := byName[canon]; ok && canon != lname {
 			if _, good := eligible(rp); good {
-				return snapPlanPageOntoRealised(lm, rp, "canonical_name", counts, logger), "canonical_name", true
+				return observeOrSnap(rp, "canonical_name")
 			}
 		}
 	}
@@ -5980,6 +6014,12 @@ type reconcileCounts struct {
 	SnappedIdentityPathKey  int
 	SnappedIdentityCanonName int
 	SnappedStemTwin          int
+	// TwinIdentityObserved: twins the two DETERMINISTIC layers found while they
+	// were disabled — the same dark-launch signal as StemTwinObserved, for the
+	// layers that shipped default-ON in the first draft until the council's
+	// guardian and architecture seats pointed out that an argument is not a
+	// measurement.
+	TwinIdentityObserved int
 	// StemTwinObserved: stem twins seen while the stem layer was DISABLED. This
 	// is the dark-launch signal — it measures how often the layer WOULD fire in
 	// production before anyone turns it on, which is the only honest way to
@@ -6026,7 +6066,14 @@ type identitySnap struct {
 // the reconciler has declined to run it on re-plans since 2026-07-20 (Pass C2's
 // header). Off, the layer still MEASURES itself — see StemTwinObserved.
 type reconcileOptions struct {
-	StemTwinSnap bool
+	// TwinIdentitySnap gates the two deterministic layers (path key, canonical
+	// identity). See siteIdentityPolicy for why these are gated rather than
+	// default-on: the council objected that changing matching behaviour for every
+	// existing caller is architecture-scope however sound the argument, and that
+	// the new collapse population deserved the same dark-launch measurement the
+	// stem layer was given. Off, both layers still count what they would do.
+	TwinIdentitySnap bool
+	StemTwinSnap     bool
 }
 
 // reconcilePlanWithRealised enforces preservation of and convergence on the

@@ -78,7 +78,7 @@ func TestReconcile_FlatNestedURLTwinSnapsToRealised(t *testing.T) {
 		twinRealisedPage("llm-cost-calculator", "/tools/llm-cost-calculator.html", "tool", "deployed", "hero-tool", "tool-cta"),
 	}
 
-	got, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{}, zap.NewNop())
+	got, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{TwinIdentitySnap: true}, zap.NewNop())
 
 	if len(got) != 1 {
 		t.Fatalf("expected exactly one page, got %v", twinNamesOf(got))
@@ -126,7 +126,7 @@ func TestReconcile_CanonicalSpellingTwinSnapsToLegacyRealised(t *testing.T) {
 		twinRealisedPage("tool-llm-cost-calculator", "/tools/llm-cost-calculator/index.html", "tool", "deployed", "hero-tool"),
 	}
 
-	got, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{}, zap.NewNop())
+	got, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{TwinIdentitySnap: true}, zap.NewNop())
 
 	page := twinFindPage(got, "tool-llm-cost-calculator")
 	if page == nil {
@@ -154,7 +154,7 @@ func TestReconcile_CanonicalLayerUsesSlugLikeTheWritePath(t *testing.T) {
 		twinRealisedPage("model-approach-selector-guide", "/blog/model-approach-selector-guide.html", "blog-post", "deployed", "article-body"),
 	}
 
-	got, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{}, zap.NewNop())
+	got, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{TwinIdentitySnap: true}, zap.NewNop())
 
 	if counts.SnappedIdentityCanonName != 1 {
 		t.Fatalf("SnappedIdentityCanonName = %d, want 1 — the layer must derive the canonical "+
@@ -184,7 +184,7 @@ func TestReconcile_StemTwin_DarkByDefault(t *testing.T) {
 		twinRealisedPage("tools", "/tools.html", "content", "deployed", "hero", "tool-grid"),
 	}
 
-	got, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{}, zap.NewNop())
+	got, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{TwinIdentitySnap: true}, zap.NewNop())
 
 	if counts.SnappedStemTwin != 0 {
 		t.Errorf("stem layer fired while disabled: SnappedStemTwin = %d", counts.SnappedStemTwin)
@@ -210,7 +210,7 @@ func TestReconcile_StemTwin_EnabledSnapsPrefixedPlanOntoBareRealised(t *testing.
 		twinRealisedPage("tools", "/tools.html", "content", "deployed", "hero", "tool-grid"),
 	}
 
-	got, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{StemTwinSnap: true}, zap.NewNop())
+	got, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{TwinIdentitySnap: true, StemTwinSnap: true}, zap.NewNop())
 
 	if counts.SnappedStemTwin != 1 {
 		t.Fatalf("SnappedStemTwin = %d, want 1", counts.SnappedStemTwin)
@@ -237,7 +237,7 @@ func TestReconcile_StemTwin_EnabledSnapsBareplanOntoPrefixedRealised(t *testing.
 		twinRealisedPage("tool-ai-readiness-checker-guide", "/guides/tool-ai-readiness-checker-guide.html", "blog-post", "deployed", "article-body"),
 	}
 
-	got, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{StemTwinSnap: true}, zap.NewNop())
+	got, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{TwinIdentitySnap: true, StemTwinSnap: true}, zap.NewNop())
 
 	if counts.SnappedStemTwin != 1 {
 		t.Fatalf("SnappedStemTwin = %d, want 1 — the bare-plan direction regressed", counts.SnappedStemTwin)
@@ -263,7 +263,7 @@ func TestReconcile_StemTwin_PrefixVsPrefixNeverFires(t *testing.T) {
 		twinRealisedPage("guide-pricing", "/guides/pricing/index.html", "guide", "deployed", "article-body"),
 	}
 
-	got, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{StemTwinSnap: true}, zap.NewNop())
+	got, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{TwinIdentitySnap: true, StemTwinSnap: true}, zap.NewNop())
 
 	if counts.SnappedStemTwin != 0 || counts.StemTwinObserved != 0 {
 		t.Fatalf("the stem layer matched two differently-prefixed pages — this suppresses a legitimately new page.\n"+
@@ -292,7 +292,7 @@ func TestReconcile_StemTwin_RefusesWhenBothSpellingsAreInThePlan(t *testing.T) {
 		twinRealisedPage("tool-gripper-payload-calculator", "/tools/gripper-payload-calculator/index.html", "tool", "deployed", "hero-tool"),
 	}
 
-	got, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{StemTwinSnap: true}, zap.NewNop())
+	got, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{TwinIdentitySnap: true, StemTwinSnap: true}, zap.NewNop())
 
 	if counts.SnappedStemTwin != 0 {
 		t.Fatalf("snapped a twin whose realised spelling the plan already carries: "+
@@ -318,7 +318,7 @@ func TestReconcile_StemTwin_RefusesUnshippedTwin(t *testing.T) {
 		twinRealisedPage("tool-report", "/tools/report/index.html", "tool", "needs_rebuild", "hero-tool"),
 	}
 
-	_, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{StemTwinSnap: true}, zap.NewNop())
+	_, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{TwinIdentitySnap: true, StemTwinSnap: true}, zap.NewNop())
 
 	if counts.SnappedStemTwin != 0 {
 		t.Fatalf("snapped onto a never-shipped stem sibling: counts=%+v", counts)
@@ -338,7 +338,7 @@ func TestReconcile_TwinLayersRefuseAmbiguousKeys(t *testing.T) {
 		twinRealisedPage("guide-widget", "/guides/widget/index.html", "guide", "deployed", "article-body"),
 	}
 
-	_, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{StemTwinSnap: true}, zap.NewNop())
+	_, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{TwinIdentitySnap: true, StemTwinSnap: true}, zap.NewNop())
 
 	if counts.SnappedStemTwin != 0 {
 		t.Fatalf("guessed between two realised pages claiming one stem: counts=%+v", counts)
@@ -360,7 +360,7 @@ func TestReconcile_SnapCarriesFactAssignments(t *testing.T) {
 		twinRealisedPage("llm-cost-calculator", "/tools/llm-cost-calculator.html", "tool", "deployed", "hero-tool"),
 	}
 
-	got, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{}, zap.NewNop())
+	got, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{TwinIdentitySnap: true}, zap.NewNop())
 
 	if counts.SectionFactsCarried != 1 {
 		t.Fatalf("SectionFactsCarried = %d, want 1 — a snap must not silently drop plan-time "+
@@ -395,7 +395,7 @@ func TestReconcile_StripsForgedIdentityMarker(t *testing.T) {
 		twinRealisedPage("home-page", "/index.html", "landing", "deployed", "hero"),
 	}
 
-	got, _ := reconcilePlanWithRealised(llm, existing, reconcileOptions{}, zap.NewNop())
+	got, _ := reconcilePlanWithRealised(llm, existing, reconcileOptions{TwinIdentitySnap: true}, zap.NewNop())
 
 	page := twinFindPage(got, "attacker-chosen")
 	if page == nil {
@@ -423,7 +423,7 @@ func TestReconcile_ParentSectionCarriedFromRealisedURL(t *testing.T) {
 		twinRealisedPage("tool-ai-readiness-checker-guide", "/guides/tool-ai-readiness-checker-guide.html", "blog-post", "deployed", "article-body"),
 	}
 
-	got, _ := reconcilePlanWithRealised(llm, existing, reconcileOptions{StemTwinSnap: true}, zap.NewNop())
+	got, _ := reconcilePlanWithRealised(llm, existing, reconcileOptions{TwinIdentitySnap: true, StemTwinSnap: true}, zap.NewNop())
 
 	page := twinFindPage(got, "tool-ai-readiness-checker-guide")
 	if page == nil {
@@ -446,7 +446,7 @@ func TestReconcile_UnionedRealisedPageCarriesItsIdentity(t *testing.T) {
 		twinRealisedPage("llm-cost-calculator", "/tools/llm-cost-calculator.html", "tool", "deployed", "hero-tool"),
 	}
 
-	got, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{}, zap.NewNop())
+	got, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{TwinIdentitySnap: true}, zap.NewNop())
 
 	if counts.Unioned != 1 {
 		t.Fatalf("Unioned = %d, want 1", counts.Unioned)
@@ -458,5 +458,89 @@ func TestReconcile_UnionedRealisedPageCarriesItsIdentity(t *testing.T) {
 	if page["identity_authority"] != "realised" {
 		t.Error("a unioned realised page must carry its stored identity, or the write path " +
 			"re-derives it and mints a twin of a page it was added to preserve")
+	}
+}
+
+// TestReconcile_DeterministicLayersAreGatedAndCountWhenOff — the council's
+// guardian and architecture seats both objected that these two layers shipped
+// default-ON, changing matching behaviour for every existing caller fleet-wide
+// on deploy, while the weaker stem layer got a dark launch. They were right: an
+// argument that "Pass B already asks this question" is not a measurement of the
+// new collapse population, and a behaviour change for existing callers is
+// architecture-scope however sound the reasoning.
+//
+// So: off by default, and counting while off. The fixture is the same real
+// fundamentallyai pair as the path-key test above — the point is only that the
+// gate decides whether it acts.
+func TestReconcile_DeterministicLayersAreGatedAndCountWhenOff(t *testing.T) {
+	llm := []interface{}{
+		twinLLMPage("tool-llm-cost-calculator", "/tools/llm-cost-calculator/index.html", "tool", "hero"),
+	}
+	existing := []interface{}{
+		twinRealisedPage("llm-cost-calculator", "/tools/llm-cost-calculator.html", "tool", "deployed", "hero-tool"),
+	}
+
+	got, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{}, zap.NewNop())
+
+	if counts.SnappedIdentityPathKey != 0 || counts.SnappedIdentityCanonName != 0 {
+		t.Fatalf("a deterministic layer fired with twin_identity_snap off: %+v", counts)
+	}
+	if counts.TwinIdentityObserved != 1 {
+		t.Fatalf("TwinIdentityObserved = %d, want 1 — a gated layer must still measure what it "+
+			"would have done, or there is no evidence on which to decide whether to enable it",
+			counts.TwinIdentityObserved)
+	}
+	if twinFindPage(got, "tool-llm-cost-calculator") == nil {
+		t.Errorf("the plan entry must be left untouched while the layer is off, got %v", twinNamesOf(got))
+	}
+	if len(counts.IdentitySnaps) != 1 || counts.IdentitySnaps[0].Layer != "path_key_observed" {
+		t.Errorf("expected one durable observation record naming the layer, got %+v", counts.IdentitySnaps)
+	}
+}
+
+// TestReconcile_MarkerSurvivesTheStepBoundary answers the council's editquality
+// objection directly, and it is the objection that mattered most: if the
+// realised-identity marker cannot travel from the reconciler (validate_plan) to
+// the two write surfaces, the writer guard silently never fires — "the exact
+// silent guard indistinguishable from a dead one" the seat quoted back at me.
+//
+// It does travel, and NOT through site_plan_pages (which has no column for it).
+// The live build-site-planner workflow wires validate_plan's output_field to
+// "site_plan"; both write surfaces then read that key out of collected_data via
+// extractPagesFromPlan, which appends each page map WHOLE rather than rebuilding
+// it from known fields. This test drives the real extractor over a
+// validate-shaped payload, so it fails if anyone makes that extraction
+// field-selective.
+func TestReconcile_MarkerSurvivesTheStepBoundary(t *testing.T) {
+	llm := []interface{}{
+		twinLLMPage("tool-llm-cost-calculator", "/tools/llm-cost-calculator/index.html", "tool", "hero"),
+	}
+	existing := []interface{}{
+		twinRealisedPage("llm-cost-calculator", "/tools/llm-cost-calculator.html", "tool", "deployed", "hero-tool"),
+	}
+	reconciled, _ := reconcilePlanWithRealised(llm, existing, reconcileOptions{TwinIdentitySnap: true}, zap.NewNop())
+
+	// Exactly the shape validate_plan hands to collected_data under "site_plan".
+	collected := map[string]interface{}{
+		"site_plan": map[string]interface{}{"pages": reconciled},
+	}
+	pages := extractPagesFromPlan(collected, zap.NewNop())
+	if len(pages) != 1 {
+		t.Fatalf("extractPagesFromPlan returned %d pages, want 1", len(pages))
+	}
+	name, url, pageType, ok := realisedIdentityOf(pages[0])
+	if !ok {
+		t.Fatalf("the realised-identity marker did not survive the step boundary — the writer "+
+			"guard would never fire and the twin would be re-minted. page keys: %v",
+			func() []string {
+				out := []string{}
+				for k := range pages[0] {
+					out = append(out, k)
+				}
+				return out
+			}())
+	}
+	if name != "llm-cost-calculator" || url != "/tools/llm-cost-calculator.html" || pageType != "tool" {
+		t.Errorf("identity survived but altered: %q %q %q", name, url, pageType)
 	}
 }
