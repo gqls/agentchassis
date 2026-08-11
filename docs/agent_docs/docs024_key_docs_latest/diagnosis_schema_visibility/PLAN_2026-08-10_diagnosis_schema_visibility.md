@@ -163,13 +163,20 @@ The commission set the bar and it is deliberately disconfirmable:
 | unit + behavioural tests green, guard proven by mutation | **DONE** |
 | new SQL runs live, returns 31 tables incl. all six evidence tables | **DONE** |
 | committed | **DONE** (`5f8a326fc`) |
-| council verdict read and acted on | **PENDING** — `df9dae6c` |
-| chassis image built + rolled | **BLOCKED** — releases are whole-fleet, owner runs `make release` |
-| pod-grep a literal this change ADDED, and a negative control | **BLOCKED on the roll** |
-| **re-run the `090`; its `data_request` executes, not 42703** | **BLOCKED on the roll** |
+| council verdict read and acted on | **DONE** — `df9dae6c` APPROVED; its one real gap (the count-degradation test) closed in `e2afedaaf` |
+| chassis image built + rolled | **DONE** — `agent-chassis:v1.0.1284`, 2026-08-11 |
+| pod-grep a literal this change ADDED, and a negative control | **DONE** — both replicas; the OLD concatenated query literal greps **0**, and an impossible-string sanity control also 0. Two mechanisms (`strings`, then `grep -a /proc/1/exe` after CLAUDE.md retired the first) |
+| **re-run the `090`; its `data_request` executes, not 42703** | **DONE — PASSED.** Run `90f6f55f`: no `42703` in any of 5 iterations; the `data_request` against `orchestration_states` executed with the correct columns and returned `(0 rows)` |
 
-**This change is INERT until an image ships**, and nothing above should be read
-as "working in production" until the last row is green.
+**VERIFIED 2026-08-11. Item 5 is complete on the bar the commission set.**
+
+> ⚠ The run's *verdict* is still `UNVERIFIABLE` — but on `iteration-cap`, not
+> `scope-not-narrowing`, and for a reason that is not this change's: **the bug's
+> evidence has since expired** (`hero_deployed` 0, `logo_deployed` 0, the decisive
+> row gone). The loop searched properly and found nothing left to find. That is
+> the harness working, not failing — and it reorders the commission, because
+> item 1(a) now needs item 2's logging rather than another `090`. See the
+> HANDOFF §3 and `bugs_open/236` §5b.
 
 Two greppable literals this change adds, for the post-roll pod check:
 `This listing is FILTERED, not the whole database` and

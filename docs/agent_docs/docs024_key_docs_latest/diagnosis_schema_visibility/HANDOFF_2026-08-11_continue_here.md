@@ -41,34 +41,40 @@ Three behaviours, all in `diagnose_load_runtime_action.go`:
 3. `TestSchemaAlwaysTablesCoverTablesThisActionQueries` — re-derives the list
    from the action's own SQL and fails when a query names an uncovered table.
 
-## 3. THE OPEN THREAD — read this first if you are picking up
+## 3. THE 090 CAME BACK — item 5 VERIFIED, and it reordered the commission
 
-**`090` re-run fired: `RUN_CORRELATION_ID=90f6f55f-c014-4537-880c-0f1ae2b82e0b`**
-(2026-08-11 ~10:40 UTC). Target: `bugs_open/236` **hero/logo half** (the number
-is ambiguous — there are two 236s; resolve by slug, never by number).
+**Run `90f6f55f-c014-4537-880c-0f1ae2b82e0b`, 2026-08-11. Verdict UNVERIFIABLE,
+`stopped: iteration-cap`.** Read the two halves apart — one is success.
 
-```sql
-SELECT metadata->>'verdict', metadata->>'stopped', body FROM diagnosis_artifacts
-WHERE correlation_id='90f6f55f-c014-4537-880c-0f1ae2b82e0b' AND kind='verdict'
-ORDER BY created_at DESC LIMIT 1;
-```
+**Item 5 PASSES the commission's bar.** Across all five bundle iterations: no
+`42703` anywhere; `orchestration_states(…)` in the Schema section; the FILTERED
+notice present; and a real `data_request` against `orchestration_states` that
+**executed** with the correct columns and returned `(0 rows)` — an answer, not an
+error. The bar was explicitly *not* "the table appears in the bundle".
 
-**This run is the verification of item 5, and it is also item 1(a)'s research.**
-Two things to read out of it, and they are independent:
+**The stop reason is the signal.** `074beb8a` stopped at `scope-not-narrowing` —
+it could not proceed. This one ran five full iterations and hit the cap: not
+blind, just nothing to find.
 
-- **Did the harness work?** Item 5 passes if its `data_request` against
-  `orchestration_states` **executes** rather than erroring `42703`. That is the
-  bar the commission set, and *"the table appears in the bundle"* is explicitly
-  NOT sufficient. Check the bundle's `data_request` blocks for a 42703.
-- **What did it say about the bug?** Whatever verdict it reaches on where
-  `image_url` is lost is item 1(a)'s answer — or its next scope.
+**Because the evidence expired.** `hero_deployed` **0**, `logo_deployed` **0**,
+§1's decisive row `3e46be5b-…` **gone**. Third state this bug has been seen in
+(0 of 1,667 → 2 each → 0). ⚠ **Not** a 24h-TTL claim: 2,110 rows are retained,
+oldest 2026-07-13, so those particular orchestrations were pruned by something
+nobody has chased. `[UNVERIFIED]`
 
-⚠ **A second UNVERIFIABLE would not necessarily mean item 5 failed.** Run
-`074beb8a` died for **two** reasons and item 5 fixes one. The other — it could
-not read the coordinator function bodies — was checked before firing and is
-clear (index fresh, all three functions carry bodies, including
-`(*SagaCoordinator).applyResponseToState` at 4,746 chars). But a *third* blocker
-is always possible. **Read what it says it still needed; do not assume.**
+### What follows — this is the part that changes the plan
+
+**Item 1(a) is no longer a search problem, and another `090` would burn credits
+reproducing this result.** The commission assumed item 5 would unblock item 1;
+item 5 unblocked the *tool*, and the tool proved the *data* is gone.
+
+**Item 2 is now item 1's unblocker** — which the commission did not anticipate.
+Making the three silent readers log the key they wanted *and the keys the map
+actually held* writes this evidence into `agent_error_log` at the moment of
+failure, a store nothing prunes on an orchestration's schedule. The alternative
+is forcing a fresh site build that deploys a hero/logo and reading
+`collected_data` before the prune — a race against the thing that just erased the
+last one. Written into `bugs_open/236` §5b so the fixing thread sees it there.
 
 ## 4. Decisions waiting on the owner
 

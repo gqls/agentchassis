@@ -135,3 +135,50 @@ hadn't — the cluster briefly lost DNS, every query came back empty, and my
 watcher read "couldn't ask" as "nothing there". The verdict had actually landed
 the night before. Worth remembering: a monitor that fails tells you about the
 monitor, not about the thing it was watching.
+
+---
+
+## 2026-08-11 (later) — it works, and it told us something we didn't want to hear
+
+The new build went out, I checked it was really carrying the change, and then ran
+the diagnosis again on the hero/logo bug — the run that this whole piece of work
+existed to make possible.
+
+**The fix works.** The loop's follow-up query against the run-states table
+executed properly this time, with the right column names, instead of erroring and
+asking for a human. That was the test we set and it passed. The table's shape is
+in the evidence pack now, and the pack says out loud that it's a filtered view.
+
+**But the diagnosis still came back "not confirmed" — for a completely different
+reason, and this is the bit worth your attention.** Last time it gave up early
+because it couldn't see. This time it searched properly, five full rounds, and
+found nothing. The reason is simple: **the evidence has gone.** The rows this bug
+was pinned on were captured on the 9th; they've since been cleaned up. Zero left.
+The specific run we'd been treating as the smoking gun no longer exists.
+
+That's the third time this bug has flickered in and out of view — nothing on the
+6th, two rows on the 9th, nothing again today. The keys only exist while a site
+build that deploys a hero or logo is inside its retention window.
+
+**So the plan needs reordering, and it's not the order the commission assumed.**
+The idea was that fixing the diagnosis loop would unblock the "where does the
+image URL get lost?" question. It did unblock the *tool* — and the tool has now
+shown us the *data* isn't there. Running it again would just cost credits to be
+told the same thing.
+
+The thing that actually unblocks it is **item 2**, the small one: making those
+three silent readers say something when the value they need is missing. That
+writes the evidence into the error log at the moment it goes wrong, where it
+isn't cleaned up on a run's schedule. We stop hunting for a row before it's
+deleted and start catching it as it happens.
+
+So my recommendation firmed up from "item 2 is a sensible next step" to "item 2
+is the thing that makes item 1 possible at all". I've written that into the bug
+file itself so whoever picks it up doesn't re-run the diagnosis expecting a
+different answer.
+
+One housekeeping note: the project's own guidance on how to check a deployment
+was rewritten this morning, mid-job — the method I'd used got retired. I redid
+the check the new way rather than argue for the old one. It passes both ways,
+including a control where I search the binary for a string that cannot possibly
+be there, to prove the search isn't just saying yes to everything.
