@@ -305,3 +305,23 @@ One last note on the "ask the service what it's running" instruction I added to 
 this morning: on the busiest service it doesn't work, because the announcement happens at startup
 and scrolls out of reach within hours. There's a fallback that does work, and I've added the
 caveat.
+
+---
+
+## 2026-08-11, night — the release that DOES prove it, and this lane is done
+
+You (or another session) ran another release — `v1.0.1287` — while I wasn't watching, and this
+time it wasn't quiet. Someone else committed *during* the six-and-a-half minutes the build was
+running. That's exactly the test I said last time we were still waiting for.
+
+**All fourteen services came out on the same code anyway.** Under the old, broken behaviour, every
+service built after that commit landed — thirteen of the fourteen — would have picked it up
+independently and you'd have gotten two different versions under one release tag, the same way
+`v1.0.1284` did. Instead, all fourteen are running the commit that was current *before* the build
+started, not the one that landed partway through. I checked it two ways — what the images say on
+the build machine, and what each running service says about itself — and they agree.
+
+So: proven, not just coherent. I've closed the follow-on bug and marked the mechanism proven in
+the register. Nothing else is owed on this lane — the provenance stamp (the first piece) has been
+solid for three rolls now, and the release pin (the second piece) has now been tested by exactly
+the situation it was built for and held.

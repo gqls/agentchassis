@@ -329,6 +329,15 @@ revisions out. **Beware the timezone**: image labels are UTC (`Z`), `git log %ad
 > got written up as "the pin is proven"; it isn't, yet. The proof arrives free on the first busy
 > release, and until then the honest word is *coherent*.
 
+**RUN AGAIN 2026-08-11 (night) on `v1.0.1287` — DISCRIMINATING, PROVEN.** Window
+`14:17:39Z`–`14:24:18Z` (6m39s); one revision, `9b7811d4b`, 14/14. This time `git log` inside the
+window returns a real hit: `d80fbf4bf`, landed `14:17:44Z`, 5s after the window opened. Under the
+pre-fix behaviour the 13 services built after that instant would have resolved `HEAD`
+independently and picked it up — instead all 14 still show `9b7811d4b`, the commit the pin
+resolved once at the start. **`bugs_open/249` closed, BLD-020 proven** — full working in
+`NOTES_build_provenance.md` under the same date. This RUNBOOK section (R9b + R9b(ii)) is now
+closed out; no further grading is owed unless the mechanism changes.
+
 ### R9c — at the cluster, per service (no exec, no binary path, nothing to install)
 
 ```bash

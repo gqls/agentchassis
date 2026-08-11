@@ -1,25 +1,27 @@
 # 249 — One `make release` ships THREE source revisions under ONE image tag
 
-> ## STATUS 2026-08-11 evening — **FIX COMMITTED AND EXERCISED; the first release under it came out COHERENT but does NOT yet PROVE it**
+> ## STATUS 2026-08-11 night — **CLOSED: PROVEN. `v1.0.1287` straddled a commit and still shipped ONE revision**
 >
-> Candidate 1 (pin the ref once per release) is built, committed and registered as **BLD-020**
-> (`21b9772a9`). `v1.0.1286` is the first release to run under it: **one revision, `c3b424c8e`,
-> across 14/14 backend services**, agreeing at both instruments — image labels on the build
-> machine and each service's own startup line at the pods (chassis needed the binary probe, with
-> controls; its startup line had already scrolled past `--tail=3000`).
+> Kept in `bugs_open/` on owner direction (2026-08-06: fixed-and-live bugs stay here, the owner
+> retires them) — this banner is the closure evidence, the file does not move.
 >
-> **Why that is not the close condition.** [MEASURED] **zero commits landed inside that 5m52s
-> build window** — the nearest was `c3b424c8e` itself, 10 seconds *before* the first build
-> started, which is simply what the release pinned to. The old unpinned code would have produced
-> the identical result, so the check could not have come out otherwise and is therefore not
-> evidence. Contrast the defect itself: `v1.0.1284`, 6m22s, **two** commits inside, **three**
-> revisions out.
+> `v1.0.1287` is the second release under the pin (BLD-020, `21b9772a9`). **[MEASURED]** image
+> labels for all 14 backend services agree on one revision, `9b7811d4b`, build window
+> `14:17:39Z`–`14:24:18Z` (6m39s). This time the window is NOT quiet: commit `d80fbf4bf` landed at
+> `14:17:44Z` — 5 seconds after the window opened, ~6.5 minutes before it closed — a real commit
+> from another session, sitting squarely inside the sweep. Under the old, unpinned behaviour, every
+> service built after that moment (13 of the 14 — everything after `auth-service`) would have
+> resolved `HEAD` independently and picked it up, producing at least two revisions exactly as
+> `v1.0.1284` did. Instead all 14 show `9b7811d4b` — the commit that was `HEAD` 24 seconds *before*
+> the window opened, i.e. the one the pin actually resolved once, at the start.
 >
-> **This bug closes on the first release that straddles a commit and still ships one revision.**
-> That costs nothing and should be soon — the busiest 7-minute window on 2026-08-11 held 13
-> commits. Grade it with **RUNBOOK R9b(ii)** (lane dir), which asks what committed inside the
-> window *before* counting revisions. R9b as first written counted revisions only, and would have
-> called every quiet release a success — including the quiet ones from before the fix existed.
+> Confirmed at both instruments: image labels (build machine, 14/14) and the pods (13/14 by the
+> `build provenance` startup log line; `agent-chassis` by the binary probe with its three controls
+> — own sha MATCH, fabricated sha no-match, `orchestration` positive-control present, both
+> replicas). This is the discriminating case RUNBOOK R9b(ii) was written to wait for — a commit
+> inside the window and still one revision out — so, unlike `v1.0.1286` (coherent but unable to
+> discriminate), this one **could have come out otherwise and didn't.** BLD-020 moves from
+> *exercised* to **proven**; register entry updated same commit.
 >
 > Candidate 2 (the cross-service assertion) was offered to the owner and **not taken** — recorded
 > as a decision in BLD-020, not left silent. Candidate 3 (runbook-only) is moot.
@@ -28,8 +30,9 @@
 > of `platform/`, `internal/`, `pkg/` (owner ruling 2026-07-17). No credits spent, `FORCE=1` not
 > used, and no commit carries a trailer claiming otherwise.
 
-**Filed:** 2026-08-11 · **Status:** OPEN, detected on the first release after the fix that made
-it visible · **Found by:** `bugfix_153_build_provenance`, verifying the `v1.0.1284` roll
+**Filed:** 2026-08-11 · **Status:** CLOSED, proven on the second release after the fix ·
+**Found by:** `bugfix_153_build_provenance`, verifying the `v1.0.1284` roll · **Closed by:** the
+same lane, verifying `v1.0.1287`
 
 ---
 

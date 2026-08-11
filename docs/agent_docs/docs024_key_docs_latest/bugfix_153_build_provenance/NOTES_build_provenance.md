@@ -453,3 +453,89 @@ how two lanes end up fighting over one file.
 > exists. A measured zero wearing the costume of a missing file — the same shape as the
 > `strings` trap, in my own one-liner, one day after writing the landmine about it. The fix is
 > the boring one: separate the existence test from the count, and print the exit status.
+
+---
+
+## 2026-08-11 (night) — `v1.0.1287`, the second release under the pin: **PROVEN**
+
+Picked up this session on the `HANDOFF_2026-08-11_continue_here.md` pointer, whose entire owed
+item was "run R9b + R9b(ii) after the next release". The fleet had already moved: `makefile:17`
+reads `v1.0.1287` (was `v1.0.1286` when the handoff was written), and `kubectl get deploy` showed
+all 14 backend deployments already running it. So the release had happened; only the grading was
+owed.
+
+**R9b — image labels, all 14 services, freshly pulled:**
+
+```
+2026-08-11T14:17:39Z auth-service             9b7811d4b9cd412b7e11633aef112348b8eda337
+2026-08-11T14:18:06Z core-manager             9b7811d4b9cd412b7e11633aef112348b8eda337
+2026-08-11T14:18:57Z agent-chassis            9b7811d4b9cd412b7e11633aef112348b8eda337
+2026-08-11T14:19:46Z reasoning-agent          9b7811d4b9cd412b7e11633aef112348b8eda337
+2026-08-11T14:20:04Z content-creator-agent    9b7811d4b9cd412b7e11633aef112348b8eda337
+2026-08-11T14:20:28Z remote-job-spawner       9b7811d4b9cd412b7e11633aef112348b8eda337
+2026-08-11T14:21:15Z kafka-scheduler          9b7811d4b9cd412b7e11633aef112348b8eda337
+2026-08-11T14:21:32Z web-search-adapter       9b7811d4b9cd412b7e11633aef112348b8eda337
+2026-08-11T14:21:50Z web-scrape-adapter       9b7811d4b9cd412b7e11633aef112348b8eda337
+2026-08-11T14:22:18Z git-adapter              9b7811d4b9cd412b7e11633aef112348b8eda337
+2026-08-11T14:22:43Z image-generator-adapter  9b7811d4b9cd412b7e11633aef112348b8eda337
+2026-08-11T14:23:06Z thunder-adapter          9b7811d4b9cd412b7e11633aef112348b8eda337
+2026-08-11T14:23:53Z analyser-adapter         9b7811d4b9cd412b7e11633aef112348b8eda337
+2026-08-11T14:24:18Z browser-runner-adapter   9b7811d4b9cd412b7e11633aef112348b8eda337
+```
+
+One revision, 14/14. Build window `14:17:39Z`–`14:24:18Z`, 6m39s.
+
+**R9b(ii) — what landed inside that window, converted from BST to UTC** (system clock is BST,
+`git log`'s local dates are UTC+1, so subtract an hour):
+
+```
+9b7811d4b  2026-08-11T15:17:15+01:00 = 14:17:15Z   bug(253): BestLabelMatch scores by RAW …
+d80fbf4bf  2026-08-11T15:17:44+01:00 = 14:17:44Z   notes(203): manual detection run halted …
+```
+
+`9b7811d4b` is exactly the pinned revision (full match, not just the short form) — it was `HEAD`
+24 seconds *before* the first image's `created` timestamp, i.e. it is what `pinned_sweep` resolved
+once at the start of the release, before any build ran. `d80fbf4bf` landed 5 seconds *after* the
+window opened and nearly 6m34s before it closed, from another session, touching only a docs file
+(`NOTES_phantom_cta_cleanup.md` — irrelevant to whether the mechanism held; what matters is that
+`HEAD` moved mid-sweep). **This is the discriminating case.** Under the pre-fix behaviour, every
+service built after `14:17:44Z` — 13 of the 14, everything after `auth-service` — would have run
+`git rev-parse HEAD` independently and picked up `d80fbf4bf`, producing at least two revisions
+exactly as `v1.0.1284` did (two commits inside a 6m22s window → three revisions). Instead all 14
+still show `9b7811d4b`. The pin held through a real commit landing mid-sweep.
+
+**Second instrument — the pods**, per-service startup log line:
+
+```
+agent-chassis              <none in range>            # scrolled past --tail=300, expected
+auth-service               "git_commit":"9b7811d4b…"
+core-manager                       "         …
+reasoning-agent                    "         …
+web-search-adapter                 "         …
+web-scrape-adapter                 "         …
+git-adapter                        "         …
+image-generator-adapter            "         …
+thunder-adapter                    "         …
+analyser-adapter                   "         …
+browser-runner-adapter             "         …
+content-creator-agent              "         …
+remote-job-spawner                 "         …
+kafka-scheduler                    "         …
+```
+
+13/14 by log line, matching the label exactly. `agent-chassis` needed the fallback again — same
+as `v1.0.1286` — so the binary probe, with its three controls, on both replicas:
+
+```
+agent-chassis-8657f4d748-62nt7   OWN SHA (9b7811d4b…): MATCH · FAKE sha: no match · orchestration: present
+agent-chassis-8657f4d748-8lm4f   OWN SHA (9b7811d4b…): MATCH · FAKE sha: no match · orchestration: present
+```
+
+14/14 across two independent instruments. **`bugs_open/249` closes; BLD-020 moves from
+*exercised* to *proven*.** Both updated in place (owner ruling 2026-08-06: closed bugs stay in
+`bugs_open/`, the closure evidence goes in the file, the file does not move).
+
+No misstep this round — the timezone conversion was the one thing the runbook already flagged in
+advance (R9b's own gotcha, and R9b(ii) as written for `v1.0.1286`), and checking it against
+`git show -s --format='%h %cI'` directly (rather than trusting `%ad` + a mental UTC offset) kept
+it from becoming this session's own version of the same mistake.
