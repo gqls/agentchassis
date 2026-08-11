@@ -863,3 +863,82 @@ case, and both arms hold a constant). Result: **no call site anywhere passes a s
 so nothing could have depended on the old default arm's wording — the guardian's objection is
 settled in the direction it hoped, but now by evidence rather than by my say-so. Corrected in
 WII-014 in place.
+
+## 2026-08-11 (evening) — the owner routed the findings, and B3's "observe-only" turned out never to have been a property of the items
+
+**Owner decisions taken this evening:** dispatch all three `needs_strategy`; roadmap
+mortgagecalculator's `missing_conversion_path`; **B4 next**.
+
+**What the estate had already done without being asked** (this is why the queue check comes
+before the dispatch — my own session-start snapshot was 90 minutes stale):
+
+| finding | state at 15:5xZ | state at 18:4xZ | how |
+|---|---|---|---|
+| `strategy_gaswholesalers.com` | `detected` | **`complete`**, premise written | the platform's OWN drain: triaged, claimed by `build-dispatch-loop`, strategy row written 16:19:04Z, item complete 16:19:20Z |
+| `strategy_loancash.co.uk` | `detected` | `triaged`, unclaimed | promoted 16:34:53Z, queued |
+| `strategy_loanandmortgagecalculator.co.uk` | `detected` | `detected`, **premise written** | my oneshot, fired 18:32:22Z, row written 18:33:23Z |
+| `missing_conversion_path:62b5978e…` | `detected` | **`triaged`** | promoted 17:43:51Z — *after* the owner chose to roadmap it |
+
+**The first finding this lane ever filed has now been repaired end-to-end by machinery, with no
+hand-holding** — verified at the ARTEFACT, not the status: `site_specs` for gaswholesalers.com
+carries a NEW `is_current` strategy row created 16:19:04Z with
+`revenue_models.primary_model = direct_business`, superseding the March pre-2026-05-shape row
+(now `is_current=false`). The work item completed 16 seconds later. That is B3's whole thesis
+working: detect a missing premise on a live site, and the existing drain repairs it.
+
+- **Two observations on the content, for B4 rather than for now.** (1) The strategist classified
+  the domain `generic_industry` and then chose `site_type: brochure` with a `money_flow` narrating
+  Gas Wholesalers as an actual company winning supply contracts — which is the shape its OWN
+  prompt warns against ("pretending to BE a single gas wholesaler wastes the domain"). Not
+  overruled here: 31 pages are deployed and the site may genuinely be a business's site. **It is
+  exactly the judgement B4 exists to make**, and it is the first live case to test it on.
+  (2) loanandmortgagecalculator came out **`affiliate`** — so on its next rotation
+  `check_revenue_shape` will file a `capability_gap` (no affiliate machinery on this platform,
+  the loancalculator.co.uk outcome). **Repairing a premise converts one finding into another.**
+  That is honest rather than disappointing, and it is worth saying out loud before someone reads
+  the new row as a regression.
+- **loancash left queued deliberately.** It is `triaged` and unclaimed since 16:34Z — and that is
+  **fleet backlog, not a wedged lane**: 410 `page-rerender`, 110 `asset-deployer`, 55
+  `page-build-handler` items are also triaged-and-unclaimed, oldest since 12:52Z, while
+  completions were still landing at 18:2xZ. A oneshot would jump the queue and risk a second
+  strategist run writing a second superseding row on a live site. It is already dispatched
+  exactly as asked; it does not need dispatching twice.
+
+### ⚠ THE REAL FINDING: "observe-only" was a property of the LOOP'S REACH, never of the items
+
+This lane has described B3 as observe-only in every doc since 08-09 — "items born `detected`,
+nothing dispatched". **That was true only while the improvement loop had not swept those sites.**
+Read the promoter's own SQL (`triage_detect_items_action.go:161-173`):
+
+```sql
+UPDATE site_work_items SET status='triaged', triaged_at=now(), pipeline=$2
+WHERE site_id = $1 AND status = 'detected'
+```
+
+**No type filter. No ownership filter.** Every `detected` row on a site the loop reaches gets
+promoted, ours included, and the file's own header says so in terms. So:
+
+- **There is no "roadmap" state for a live finding.** Demoting `triaged` → `detected` guarantees
+  re-promotion on the next pass (that predicate is exactly what it selects). `cancelled` is
+  terminal, so `idx_swi_dedup` stops holding the key and **the check re-files it on the next
+  7-day rotation**, because the defect is still there. The only two honest options are *let it
+  run* or *cancel it and accept it coming back*.
+- Which means the owner's "roadmap it for now" for `missing_conversion_path` **cannot be
+  implemented as a state**. It is already `triaged` and `content-gap-planner` is live and
+  actively completing work (`needs_content_planning` completions at 18:12–18:20Z). Escalated to
+  the owner rather than quietly held or quietly allowed.
+- **A detector is only observe-only if nothing else is watching its output.** Ours writes into
+  the fleet's shared work-item table, which has an always-on promoter. Any future check this lane
+  ships should assume its findings WILL be dispatched, and be designed to be right about them —
+  not to be inspected first. [MEASURED 2026-08-11, and it is the same shape as the
+  `a-complete-work-item-is-not-a-repaired-artefact` lesson, one level up: we were reasoning about
+  what our code does, not about what the estate does with it.]
+
+**One measured cadence fact worth keeping** (it is why I hand-fired the third rather than
+waiting): loanandmortgagecalculator.co.uk has **9 rows still `detected`, created 08-10
+03:20–04:26**, untouched since. Given the unfiltered predicate above, that means the improvement
+loop's triage step **has not run on that site for ~38 hours**. Something DID update rows on that
+site at 18:24:36Z while those 9 stayed `detected` — so whatever ran was not this promoter
+[UNVERIFIED: I did not establish what it was]. "Wait for the loop" is therefore not a bounded
+wait on a per-site basis, which is the same lesson as the rotation-stamp landmine wearing
+different clothes.
