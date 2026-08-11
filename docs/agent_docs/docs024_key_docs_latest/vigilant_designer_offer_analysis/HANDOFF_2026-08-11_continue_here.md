@@ -28,9 +28,17 @@ things gating what comes next** (see "Owed" below).
     also triaged-unclaimed, oldest 12:52Z, while completions landed at 18:2xZ). Left queued
     deliberately: a oneshot would race the claim and write a second superseding row.
     **First thing to check next session** — if it is still unclaimed, that is worth a look.
-  - `missing_conversion_path` (mortgagecalculator.co.uk) → **`triaged` at 17:43Z, i.e. the
-    platform promoted it AFTER the owner chose to roadmap it.** See the observe-only watch-out
-    below: it cannot be parked. **Owner asked, awaiting his answer.**
+  - `missing_conversion_path` (mortgagecalculator.co.uk) → **`wont_fix` at 19:01Z, and that
+    exposed a real defect of OURS: `bugs_open/255`.** The platform promoted it at 17:43Z (after
+    the owner chose to roadmap it — see the observe-only watch-out below), `content-gap-planner`
+    claimed it, and refused: *"The content gap description and original category are both blank.
+    There is no gap to evaluate."* **Our spec carries neither field**, so this item type can never
+    be handled by the agent it is routed at — and `wont_fix` is terminal, so `idx_swi_dedup`
+    releases the slot and the detector re-files next rotation. **Diagnosis loop CONFIRMED it first
+    iteration** (`64e5ab04`), and read `idx_swi_dedup`'s live predicate to prove the release.
+    Fix candidates are in the bug file, ordered; **candidate 3 (give the spec what the handler
+    reads) is the only one that makes the owner's "let it plan, decide before it builds" answer
+    meaningful, and it must not ship un-witnessed.** Also filed as `016b` §9.
 - **The `default:` arm objection is CLOSED — code committed, council APPROVED round 1.**
   Commit `0ceb27a40`, corr `a46ff9a6-fcba-4ab4-a53d-130aae39f24b`, registered **WII-014**.
   `check_revenue_shape` no longer returns an empty `CheckResult` for a revenue model it has no

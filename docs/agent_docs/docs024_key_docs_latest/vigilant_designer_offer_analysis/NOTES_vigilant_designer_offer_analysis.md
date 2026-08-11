@@ -942,3 +942,50 @@ site at 18:24:36Z while those 9 stayed `detected` — so whatever ran was not th
 [UNVERIFIED: I did not establish what it was]. "Wait for the loop" is therefore not a bounded
 wait on a per-site basis, which is the same lesson as the rotation-stamp landmine wearing
 different clothes.
+
+### And letting the finding travel found a defect of OURS — `bugs_open/255`
+
+`missing_conversion_path` went `triaged` (17:43Z) → claimed by `content-gap-planner` → **`wont_fix`
+(19:01Z)**, with this in `error`:
+
+> "The content gap description and original category are both blank. There is no gap to evaluate.
+> Please resubmit with a specific description of the missing content, the audience it serves, and
+> any relevant search intent or user need it should address."
+
+**The handler did not disagree with the finding. It could not see one.** Our spec carries
+`{check, primary_model, missing, rule, adopted_branch}` — **no `description`, no `category`**, the
+two fields its planner reads. So the item type we route at that agent can never be handled by it.
+And `wont_fix` is terminal, so the dedup slot is released and the detector re-files next rotation:
+a closed loop, one LLM call per rotation, **and nothing anywhere reads as broken** because
+`wont_fix` is a settled conclusion to every status query.
+
+**Filed `bugs_open/255` + `016b` §9. The diagnosis loop CONFIRMED it on the first iteration**
+(`64e5ab04`, all five symptom clauses `[explained]`) — **and produced better evidence than I had**:
+it read the live index out of `pg_indexes` instead of trusting the Go list, so
+`status <> ALL (ARRAY[…,'wont_fix',…])` is now a measured fact rather than an inference from
+`workItemTerminalStatuses` and the index staying in lockstep. That is precisely the value the
+2026-07-31 ruling is buying: my chain was sound and one link rested on an assumption I had not
+noticed I was making.
+
+- ⚠ **The run read 8 of 12 symbols.** `ReadSymbolBody` failed on both pointer-receiver methods
+  (`(*RevenueShapeCheck).Run`, `.runConversionPath`) and both package-level `var`s
+  (`workItemTerminalStatuses`, `workItemDispatchableStatuses`). That is `bugs_closed/145` —
+  **fixed, council-approved, committed, and NOT YET LIVE** — so this run is a live instance of its
+  cost. The bundle says the right thing itself ("Absence of a body here is never evidence that a
+  symbol is irrelevant"), and both facts it could not read are verified first-hand with quotes. So
+  the CONFIRMED corroborates the handler-refusal and dedup-release links, **not** the two facts it
+  never saw. Said explicitly because "CONFIRMED" is exactly the word a later reader will quote.
+- **The wider lesson, in `016b` §9:** this is NOT `bugs_closed/077`. 077 is *detector predicate
+  wider than the handler's REMIT* — the handler runs and cannot touch part of the population, and
+  the remedy is a remit split filing residue as a `capability_gap`. This is one step earlier: the
+  handler never gets a remit, because the item is **unreadable** to it. A remit split cannot fix
+  it and a `capability_gap` would misdescribe it. **A handler named in a routing decision is a
+  CONTRACT, and nothing checks it** — no test, no gate, no seat. `remit.go`'s `HandlerStepConfig`
+  exists precisely so a check can read its handler's LIVE config before filing, and this check
+  never called it — the seam that would have prevented this is in the file I extended this
+  morning.
+- **A terminal status used to mean "I could not process this" is indistinguishable from a
+  decision** — and because terminal statuses release the dedup slot, the system is then guaranteed
+  to try again. The same file uses `blocked` deliberately elsewhere for this reason
+  ("'complete' on an item whose defect is untouched is the false-green this estate keeps
+  relearning"). That is the generalisable half.
