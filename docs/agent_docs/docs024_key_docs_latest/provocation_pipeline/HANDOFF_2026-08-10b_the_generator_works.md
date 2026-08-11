@@ -1,6 +1,72 @@
 # HANDOFF — provocation pipeline, 2026-08-10 (evening)
 
-> ## ⇢ STILL CURRENT as of 2026-08-11 13:10Z. Deltas only, read the rest as written.
+> ## ⇢ DELTAS to 2026-08-11 ~17:00Z. Read the body as written; these override it.
+>
+> ### The owner has rejected the HOUSE REGISTER, not one entry — this is the live issue
+>
+> *"almost unreadable … readable by a 5 year old or something like that … Cut out the
+> long words perhaps use ASD-STE100."* Measured over all 28 approved bodies before
+> changing anything: session-written median FK grade **9.6**, generator median **10.4**
+> — **the generator is worse than the humans**, and the pool's worst entry (15.5, 34.5
+> words/sentence) is one it produced. The complained-about row is 11.1, **eighth worst**.
+>
+> **The structural finding:** `loadExemplars` ordered by `publish_on DESC`, so each
+> round's output became the next round's specification — and on 08-11 it was feeding the
+> model **the worst-written entry in the pool** as the definition of good writing. Now
+> ordered by measured readability, and failures are **excluded** rather than ranked last.
+>
+> **What arithmetic cannot reach, and it is the owner's actual complaint:** he rejected
+> the pool's PLAINEST entry (grade 5.9) with *"I don't even fully understand it"*. Short
+> sentences, ordinary words — hard because it is a metaphor the reader must decode. The
+> prompt carries that rule; nothing measures it. **Do not read a passing readability
+> score as "the reader will understand it".**
+>
+> ### Committed and INERT until the roll (owner rolling ~2026-08-11 18:00Z)
+>
+> `b62945b06` — `provocation_readability.go` (deterministic rail, **ADVISORY**, a test
+> pins that), STE-derived prompt rules, exemplar ordering reversed, and the
+> **hard-refuse-on-zero-exemplars REVERSED** to rules-only-with-a-warning. That refusal
+> was the council `guardian` seat's 08-10 objection which I declined; the owner's ruling
+> proved the seat right within a day — a specification you have been told is wrong is
+> worse than none.
+>
+> ### ⚠ THE SHELF IS DOWN TO SIX DAYS: today through 2026-08-16
+>
+> Five worst-reading booked entries retired on the owner's ruling ("replace about half of
+> the worst ones"). **The buffer is now shorter than the gap between rolls has sometimes
+> been** — replacements need the roll before ~16 Aug or the site repeats itself.
+>
+> **`[CORRECTED]` retiring a booked entry does NOT free its date, and I told the owner it
+> did.** `scheduleProvocations` appends after `max(publish_on) WHERE status='approved'`,
+> so scattered retirements leave uncovered days — and `selectForDate` serves *the latest
+> entry whose date has ARRIVED* (`:309`), so an uncovered day **repeats the previous
+> one**: the original "not daily" defect, reintroduced by a tidy-up, looking successful.
+> Fixed by clearing the survivors' dates and reassigning contiguously in one transaction
+> (the unique index on `(domain, category, publish_on)` requires the clear anyway), and
+> the transaction now asserts **every day is covered** via `generate_series` + `NOT
+> EXISTS` rather than counting rows — the row counts were 5 and 5 in the broken version.
+>
+> ### Next actions, in order, once the roll lands
+>
+> 1. Pod-grep **both** replicas: `"NO SENTENCE OVER 20 WORDS"`, `"hard_to_read"`,
+>    negative control `"A one-sided piece is rejected"` = **0**.
+> 2. `builder/run_generation_round.sh`, then read the `hard_to_read` advisory notes on
+>    the new candidates: `SELECT slug, gate_verdict->'reasons' FROM provocations WHERE
+>    gated_at > '<cut>'`. **That is the evidence for whether to make the rail fatal.**
+> 3. Show the owner the output. **8 older candidates also await his stamp** — all written
+>    to the old bar; expect most to fail the new one.
+> 4. Only then consider flipping the rail to fatal, and only with a run proving the new
+>    prompt can pass it.
+>
+> ### Unchanged and still owed
+>
+> **The council extraction** (`65d153f0`, §2.4). Deliberately NOT rushed into this roll:
+> it touches 127 live steps across 55 agents, and the seat that asked for it said a human
+> should require it before merge. It wants its own round.
+>
+> ---
+>
+> ## ⇢ Superseded delta from 2026-08-11 13:10Z, kept for the trail
 >
 > - **Shelf reaches 2026-08-21** — 20 dated approved rows. Eleven days. §1's "shelf
 >   ends 2026-08-15" is superseded: the owner approved six on 10 Aug and the operator
