@@ -215,3 +215,67 @@ up when a note really is unverifiable.
 motivated it. The remaining half — teaching the index about the ~1,170 declarations it still
 cannot see — is written up as the next task, with its risks measured rather than guessed. A
 fresh session can pick it up from the handoff without re-reading any of this.
+
+---
+
+## 2026-08-11 — the second half landed, and the robot changed its mind about the same file
+
+The remaining half is done. The index can now see plain declarations — the named values a
+programmer writes once at the top of a file and refers to everywhere else — and the checking
+robot has been asked the same question it got wrong three days ago.
+
+The clearest way to show it is the two answers side by side, same entry, same file, nothing
+changed but what the index can see:
+
+> **Friday:** the two pattern lists "no longer resolve as standalone symbols, **possibly
+> inlined or renamed**" — so the note was flagged for a human to look at.
+>
+> **Today:** all six named things "**confirmed present at expected line ranges**" — note
+> still valid, nothing for a human to do.
+
+Nothing was ever renamed. On Friday the index simply had no way to hold that kind of thing,
+so the honest answer "I cannot see this" came out as a guess about the code having changed.
+That guess is what we set out to kill, and it is gone.
+
+**Everything else was checked rather than assumed.** Every category of thing in the index was
+counted before and after: the new ones appeared, and not one of the old ones moved. That
+matters more than it sounds — the way the index stores things, a new entry can quietly
+overwrite an old one of the same name, and the count is the only thing that would ever show
+it. I also checked directly for that overlap and there was none, so nothing was lost.
+
+**Two things worth telling you about, because both are the kind of mistake that looks like a
+success.**
+
+The first is mine, or rather this workstream's. The handoff said we should expect about 1,371
+new entries. We got 1,204. That gap is not a fault — the 1,371 was wrong. It was measured by
+running the real tool, which was itself the fix for two earlier bad guesses, but it was run
+without the one setting the live system passes it (the live one skips the documentation
+folder). So it was a proxy for the third time, and this time it had been written down as the
+pass mark for the deploy. If I had trusted it, I would have read a perfectly healthy result
+as 12% of the data going missing, and that particular symptom is the one we are told to stop
+and investigate. I caught it by deciding "about 1,371" was too vague to be a real test, and
+working out the exact number the live system should produce before looking at what it did
+produce. Every category then matched to the last unit.
+
+The second is a small piece of good news that arrived from another workstream. The handoff
+warned that this change would be impossible to confirm in the running system, because it
+adds no new text to search the program for. That was true when it was written, but somebody
+else has since made every service announce which version of the source it was built from
+when it starts up. So instead of hunting for a fingerprint, you just ask it, and the answer
+is exact. I have written that up so nobody repeats the old workaround.
+
+**One decision I deliberately did not take on your behalf.** Our working copy is 228 commits
+ahead of the shared copy the indexer actually reads. I did not push, for two reasons: it is
+228 commits of many people's work and not mine to send, and — more usefully — not pushing is
+what made today's check trustworthy. Because the shared copy had not moved, re-running the
+indexer was a fair comparison: anything that changed was down to the new code and nothing
+else. Had I pushed first, the code would have changed at the same time and the before/after
+count would have told us nothing. Whether to push now is a separate question, and yours.
+
+**Where that leaves us.** The bug is finished: both halves built, reviewed, live and proven
+on the cases that motivated them. What is still open is a governance question for you, not a
+technical one — written up as RFC 022 — about whether the careful way we are told to extend
+shared machinery should also be the thing our reviewer flags as needing extra scrutiny. At
+the moment following the rule and breaking it draw the same warning, which makes the warning
+worth less. There are three options costed in that document and a recommendation, but it is a
+judgement about how you want the estate governed and I have not taken it.

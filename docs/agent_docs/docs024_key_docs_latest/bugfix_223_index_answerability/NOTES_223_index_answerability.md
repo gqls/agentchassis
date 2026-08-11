@@ -440,3 +440,167 @@ change in `platform/orchestration/actions`, so the working tree does not build. 
 
 Submitted as its own round (`3af67677-601e-4181-ad09-17c7a789f995`) because the blast radius
 is the CORPUS — retrieval search space, embeddings, prune cohorts — not the rendering.
+
+## 2026-08-11 — PHASE 2 ACCEPTANCE: live on v1.0.1284, every criterion met
+
+All five §4a criteria pass. Detail below, but the headline is the pair of verdicts on the
+same landmine entry, three days apart, with nothing changed but the index:
+
+> **2026-08-08 — NEEDS_HUMAN_REVIEW:** "`metaCommentaryPatterns` and `placeholderPatterns`
+> **no longer resolve as standalone symbols (possibly inlined or renamed)**"
+>
+> **2026-08-11 — STILL_VALID:** "All cited symbols (`placeholderPatterns`,
+> `metaCommentaryPatterns`, …) **confirmed present at expected line ranges** in
+> `validate_page_content.go` (commit 5a68d6ca)"
+> `[code-lookup evidence: 8 check(s) ran; 8 matched indexed code; 0 NOT ANSWERABLE by this
+> index; 0 ran and matched nothing in scope. Scope: 7118 symbols … **kinds with NO rows:
+> type.**]`
+
+Nothing was ever renamed. The manufactured hypothesis is gone, and the evidence line now
+names only `type` as missing — **phase 1's var/const warning retired itself**, which is
+criterion (e) proven on a live run rather than by `TestMissingKindNoteDisappears` alone.
+
+**§4a's "cannot be pod-grepped" is now OBSOLETE, and the replacement is better.** The
+handoff was right that phase 2 adds no new string literal, so the standing pod-grep recipe
+cannot date it — but `bugs_open/153`'s build stamp landed in the same window and answers
+the question directly:
+
+```
+{"caller":"agent-chassis/main.go:53","msg":"build provenance",
+ "git_commit":"55fc8fc35f09a72992a1043c2850965792fb8b69"}
+```
+
+`git merge-base --is-ancestor 027bf28a0 55fc8fc35` → yes; likewise `c7c9dd87f` (the council
+round). So phase 2 is in the running binary, established in two commands and with no
+dependence on my change having a greppable spelling. **This generalises past this lane: the
+"a change with no string literal cannot be pod-grepped" trap is retired for every service
+carrying the stamp.** The spawned indexer pod was checked the same way — it ran
+`agent-chassis:v1.0.1284`, because `resolveAgentImage` inherits the running chassis tag and
+neither `code-indexer` nor `landmine-verifier` sets `pin_image_tag`.
+
+**[MEASURED] The 1,371 figure in the handoff was a THIRD proxy, and I nearly accepted a
+false shortfall because of it.** §4a set the acceptance bar at "var+const near 1,371". The
+live census came to **1,204**. That is not a shortfall — 1,371 is simply the wrong number:
+
+| measurement | var+const | why |
+|---|---|---|
+| grep over declaration openers (08-10 am) | 930 | blind to block members |
+| awk over block members | 1,173 | counts declaration TEXT |
+| running the analyser, **no excludes** | **1,373** | ← what the handoff recorded as 1,371 |
+| running the analyser **with `exclude_patterns: ["docs/"]`**, as the action actually calls it | **1,204** | ← what the indexer can possibly emit |
+
+`analyse_repo_local` calls `analysis.AnalyseWithExclude(dir, excludes)` with
+`defaultAnalyseExcludePatterns = []string{"docs/"}` and no live override. The previous
+figure was measured with the analyser but **not with the analyser's arguments**. The
+lesson from the 08-10 table — *build the thing and ask it* — was followed; what it missed
+is that **you must also call it the way production calls it.** A proxy can survive being
+built.
+
+Had I taken 1,371 at face value I would have read 1,204 as ~12% of values silently dropped
+— which looks exactly like the identity collision the kind census exists to detect. **The
+false-alarm direction is the dangerous one here**, because the remedy for a suspected
+collision is to stop and dig.
+
+**[MEASURED] The prediction was made independently and every kind reconciles EXACTLY.**
+Rather than "near" anything, I built the deployed analyser (`internal/analysis` is
+byte-identical from `027bf28a0`→`c7c9dd87f`→`55fc8fc35`→HEAD) and ran it over the exact tree
+the indexer fetches, before the run finished:
+
+| kind | predicted | live | reconciliation |
+|---|---|---|---|
+| var | 694 | **694** | — |
+| const | 510 | **510** | — |
+| func | 3702 | **3700** | −2: `init` appears twice in `directory_claims.go` and in `check_phantom_internal_links.go` |
+| method | 1135 | **1135** | 31 name clashes in-file, **all immune** — methods are stored `(Recv).Name` |
+| struct / interface / alias | 1001 / 36 / 42 | **1001 / 36 / 42** | unchanged, as criterion (b) requires |
+
+7118 total, which is the figure the live verdict's own evidence line reports. A prediction
+that could have come out otherwise, and did not.
+
+**The identity constraint does NOT include kind, and that is a standing trap for the NEXT
+kind, not this one.** `uq_code_symbols_identity` is `(repo, path, symbol)`. A phase-2
+`var Foo` in a file that already has `func Foo` would UPSERT over it — the pre-existing row
+would change kind and the old symbol would be **destroyed silently, with every total still
+balancing**. Measured directly rather than inferred from the totals: **0 such collisions in
+the indexed tree.** Phase 2 destroyed nothing. Filed as a landmine, because the measurement
+is only true for today's tree and the next session adding a kind inherits the trap.
+
+**A deliberate choice not to push, and it made the acceptance stronger.** The tree is **228
+commits ahead of `origin/087_towards_multiple_domains`** (remote tip `5a68d6caf`, 08-10
+17:27), and the indexer fetches the **REMOTE** tip. So the index already held exactly the
+tree I was about to re-index. Re-running against an unchanged tree makes the census a
+controlled comparison: every delta is attributable to the binary. **Pushing first would have
+confounded criterion (b)** — a pre-existing kind's count would then move for ordinary code
+churn, and the detector could not tell that from an identity collision. Both acceptance
+symbols were confirmed present at `5a68d6caf` first, so nothing was lost by waiting. The
+push is a separate decision and it is the owner's.
+
+> Checked the remote with `git ls-remote origin <branch>`, **not**
+> `git rev-parse origin/<branch>` — the latter reads the local remote-tracking cache and is
+> only as fresh as the last fetch. They agreed today; that is luck, not method.
+
+**Criterion (d), `bugs_open/231`'s reproduction, at the data layer:**
+`DeployImageAssetInputSpec` is now one `var` row, `deploy_image_asset_action.go:32-44`, body
+370 chars — and the body contains the `Defaults` map (`"purpose": "hero"`) plus the
+`Deprecated` aliases. That is the declaration *content* 231 stopped for, not a list of use
+sites. 231 is unblocked; whether its own `UNVERIFIABLE` now resolves is that lane's run to
+make, not this one's claim.
+
+### The same failure mode, one level up — found by verifying my OWN new landmine entries
+
+Having run `landmines-sync.py --apply` (which consumes the `NEEDS_VERIFICATION` signal), I
+dispatched the two entries I added today. Both returned an honest `NEEDS_HUMAN_REVIEW` — but
+**one of them explained an absence with a manufactured reason, which is exactly the disease
+this bug was filed about:**
+
+> "several footprint items (… `ValueDef` type, `valueDefs` identifier, `token.VAR`/`token.CONST`
+> references) live outside the index's scope (SQL migrations, **or are of kinds not
+> indexed**) and cannot be verified mechanically"
+
+**[MEASURED] That reason is false, and the disproof is in the same file.** `ValueDef` is a
+`struct`, and structs are the best-represented kind in the corpus. Its three siblings from
+the very same file are indexed right now:
+
+```
+FileInfo | struct | internal/analysis/types.go
+FuncDef  | struct | internal/analysis/types.go
+TypeDef  | struct | internal/analysis/types.go       -- ValueDef: 0 rows
+```
+`internal/analysis/` holds 26 rows, so the path is in scope too.
+
+**The real reason is that the index cannot see a COMMIT, and nothing says so.** `ValueDef`
+was added by phase 2 (`027bf28a0`, 08-10 23:13). The index is pinned to `commit_sha
+5a68d6caf`, `commit_time 2026-08-10 16:27` — the last **pushed** tip. Measured now:
+**246 commits and 88 changed `.go` files** behind the working tree. (It was 228 when I
+measured at 09:45 this morning; the drift is other sessions committing during this session,
+which is itself the point.)
+
+So phase 1 taught the lookup to state the kinds it cannot represent, and phase 2 removed two
+of them — but **"commits this index has not seen" is a third blind spot of the same shape,
+and it is still unstated.** The evidence line reports the extension census and the kind
+census; it reports nothing about staleness. A model handed "0 rows" and a caveat listing only
+kinds and extensions will reach for a kind or extension explanation, because those are the
+only two it has been given. That is what happened, verbatim, above.
+
+**Why this is not a re-opening of `bugs_closed/108`.** 108 was "the refresh runs, resets the
+freshness clock, and re-indexes the same stale commit", and its fix — pin the index to the
+live working branch — **is working**: `ref` is `087_towards_multiple_domains`, the refresh
+ran today, and the corpus matches that branch's pushed tip exactly. This is the residual it
+leaves behind: **the index can only ever be as fresh as the last PUSH**, and on a tree where
+sessions commit far more often than anyone pushes, "current with the branch" and "current
+with the code" are different claims. Nothing currently distinguishes them for a reader.
+
+**The self-reinforcing part, which is what makes it worth writing down.** The entries most
+likely to be verified are the ones just written; the symbols a session writes a landmine
+about are the ones it just added; and those are precisely the symbols least likely to have
+been pushed. **The verifier is systematically at its blindest on exactly the entries it is
+most often asked about** — and it currently reports that blindness as a property of the
+code rather than of its own corpus.
+
+> `[UNMEASURED]` how often this actually produces a wrong verdict across the 392 entries —
+> I have one instance, found by looking at my own two. Sizing it is a query over
+> `doc_notes` verdicts joined against symbol ages, not an argument, and I have not run it.
+> `[NOT DIAGNOSED]` I am deliberately **not** asserting a root cause or a fix here: the
+> mechanism above is first-hand verified, but "what the caveat should say and where it
+> should be computed" is a change to a shared seam and belongs in a `090` round, not in a
+> NOTES paragraph at the end of an acceptance. Recorded as a follow-up, not a diagnosis.

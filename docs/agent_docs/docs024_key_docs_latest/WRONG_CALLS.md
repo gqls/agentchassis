@@ -27620,3 +27620,82 @@ baseline BEFORE calling the post-change number anomalous.
 - **the cheap check that would have:** the 08-10 ADDENDUM §C already prescribes it — `grep -l "<the artefact you are about to touch>" ~/.claude/projects/-home-ant-projects-agentchassis/*.jsonl` over live transcripts, because `git log` and `who-owns.py` are both LAGGING and cannot see a session mid-task. I read that section and still opened with `git log`, which is precisely the instrument it says is blind.
 - **the tally point, which is why this is worth a row rather than a shrug:** this is **the second consecutive day** the same trap has fired on the same handoff chain (08-10: two sessions, recorded in the ADDENDUM; 08-11: two sessions again). Twice is a pattern, and the common factor is not carelessness — both days, every session followed the written rule. **The rule is the defect**: a handoff issued to N chats has no way to say "and I have already been issued to someone else", and the only channel that exists is a line in a file written *before* the other session acts. Worth automating: a claim written at dispatch time, or the handoff naming its own recipients.
 - **cost:** an hour of duplicated measurement. **Not zero-value** — the duplicate produced the contrast measurement, the fleet census and the `render-critique` no-consumer finding, none of which the first session had, and it corrected their routing of the defect. But that was luck, not design; the same hour spent on `tool-llm-cost-calculator` would have moved the lane forward instead.
+
+## 2026-08-11 — I pasted `kubectl describe`'s local time into a Z-labelled timeline, and it turned a 2-minute node blip into an hour-long one
+
+- **the claim / the act:** in `bugfix_236_site_availability/NOTES` I wrote that a
+  chassis pod was evicted for node `DiskPressure` and that "at 09:27Z two of five
+  nodes reported True; by **10:29Z** all five report False, self-cleared" — and
+  headed the whole session entry `09:26–10:30Z`. Both figures came from
+  `kubectl describe nodes`, which prints **local** time (`Tue, 11 Aug 2026
+  10:28:41 +0100`). I read the clock face and dropped the offset. The true
+  transition is 09:28:41Z: the condition cleared in **~2 minutes**, ~5 minutes
+  after the eviction.
+- **why it matters, i.e. why this is a row and not a typo:** the two readings are
+  different claims about fleet health. "Cleared within two minutes" is a node
+  absorbing a transient image pull; "cleared within the hour" is a node that was
+  sick for an hour and might still be. A later session sizing whether to
+  investigate would have been reading the second.
+- **what caught it:** putting `now()` in the same SELECT as the timestamps I was
+  judging — the drill's own arming query printed `2026-08-11 09:55:13Z` while I
+  was writing "10:30Z" two lines away in a doc. Not a clock check; a side effect
+  of a query run for another purpose.
+- **the cheap check that would have:** never transcribe a time from a tool that
+  prints local into a doc that labels times `Z`. `kubectl` and `date` are local
+  here (BST, +0100); `psql now()` and pod logs are UTC. Either take every
+  timestamp from `SELECT now()` in the same query as the data, or run
+  `date -u`. The 2026-08-10 22:15Z entry in the same NOTES file already
+  records the *estimate* form of this error (elapsed time assembled from memory)
+  and prescribes exactly this check — **so the fix was written down, by me, one
+  entry above, and I still walked in from the unit direction rather than the
+  estimate direction.** That is the transferable bit: "put `now()` in the query"
+  reads like advice about *staleness*, and it is equally advice about *units*.
+- **cost:** near zero — caught within the same session, before the figure was
+  quoted anywhere else, corrected in place with a banner. Recorded for the tally:
+  this is the second consecutive entry in that file's log about mis-sourcing a
+  time, which is what makes it worth automating rather than remembering.
+
+## 2026-08-11 — I ran the real thing to get a figure, but not with the arguments production passes it, and shipped it as an ACCEPTANCE BAR (bugfix_223)
+
+- **the claim:** `bugs_open/223` phase 2 would add **1,371** `var`+`const` rows
+  (var 795, const 576), written into `HANDOFF §4a` as the acceptance criterion —
+  "`var`+`const` should appear near 1,371". Correct figure for the tree the
+  indexer actually reads: **1,204** (var 694, const 510).
+- **why it was wrong:** the figure came from building the analyser and running it
+  — which was itself the *correction* to two earlier text-shaped proxies (930 by
+  grep over declaration openers, 1,173 by awk over block members), and the
+  correcting entry's own moral was **"build the thing and ask it."** But
+  `analyse_repo_local` calls
+  `analysis.AnalyseWithExclude(dir, defaultAnalyseExcludePatterns)` with
+  `["docs/"]`. The measurement ran `Analyse` with no excludes. Reproduced both
+  ways in one session: no excludes → 1,373; `["docs/"]` → 1,204.
+- **why it matters:** this was not a doc figure, it was **the pass/fail bar for a
+  deploy**, and it fails in the false-alarm direction. A session comparing the
+  live census (1,204) against 1,371 sees ~12% of values missing, and a shortfall
+  in a new kind looks *exactly* like the `(repo, path, symbol)` identity
+  collision that §4a's kind census exists to detect. The prescribed response to a
+  suspected collision is to stop and dig, so the cost lands as wasted
+  investigation and a possible false "phase 2 is dropping rows" finding.
+- **what caught it:** deciding the acceptance bar was too weak to be evidence.
+  "Near 1,371" cannot come out false — near enough is a judgement made after
+  seeing the number. Building the deployed analyser and computing the exact
+  expected count for the exact indexed tree *before* the run finished turned it
+  into a prediction, and the prediction disagreed with the handoff. Every kind
+  then reconciled exactly (694/510/3700/1135/1001/36/42), including −2 funcs for
+  two duplicate `init()`.
+- **the cheap check that would have:** when a figure will be compared against
+  production output, **call the function the way production calls it** — read the
+  call site for its arguments, not just its name. One `grep -n "Analyse" ` at the
+  action would have shown `AnalyseWithExclude(dir, excludes)`.
+- **the transferable bit, and why this is a row rather than an arithmetic slip:**
+  the lane had already caught itself twice on this exact figure and written the
+  remedy down. "Build the thing and ask it" **defeats text-shaped proxies and is
+  silent about argument-shaped ones**, so following it faithfully still produced a
+  proxy — the third. A measurement inherits every default you did not pass. The
+  companion rule is the one in `MEMORY.md` about disconfirmability: had the bar
+  been "exactly N, computed independently" rather than "near N", the mismatch
+  would have surfaced when the figure was written instead of three weeks later in
+  someone else's acceptance run.
+- **cost:** none realised — caught before the census was read, and the corrected
+  figure matched the live result exactly. The handoff's bar is now superseded in
+  `NOTES` and `RUNBOOK`.

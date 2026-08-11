@@ -1,16 +1,38 @@
 # 223 — the landmine-verifier reports every NON-Go footprint as non-existent, because the code index holds only Go — and 284 of 288 entries have one
 
-> ## ⚠ STATUS FIRST, BECAUSE READERS TRUNCATE — updated 2026-08-10
+> ## ⚠ STATUS FIRST, BECAUSE READERS TRUNCATE — updated 2026-08-11
 >
-> **OWNED** by the `bugfix_223_index_answerability` lane (was UNOWNED — the line below is
-> the original filing and is left as written). **PHASE 1 IS LIVE AND BEHAVIOURALLY PROVEN
-> on `v1.0.1279`, 2026-08-10 14:41Z** (`1058b5366` + `362c7c091`, council APPROVED
-> `495df717-4010-491f-aec0-92c13aaf3809`; seed 365 applied and recorded). **The entry that
-> drew the flat false `STALE` on 08-08 was re-fired and now returns `NEEDS_HUMAN_REVIEW`
-> with three checks rendered `NOT ANSWERABLE BY THIS INDEX`** — see the ACCEPTANCE section
-> at the foot of this file for the verbatim before/after. **Kept OPEN** because phase 2 (the
-> `var`/`const` blind spot itself, and `bugs_open/231`'s class) is not done. Full account, the acceptance steps, and two failure modes this file
-> did not originally contain: **the PHASE 1 section at the foot of this file**, and
+> **BOTH PHASES ARE LIVE AND BEHAVIOURALLY PROVEN. Nothing technical remains owed.**
+> Kept in `bugs_open/` per the owner ruling of 2026-08-06 (a finished bug stays here).
+>
+> **PHASE 2 LIVE on `v1.0.1284`, proven 2026-08-11 09:55Z** (`027bf28a0` + `c7c9dd87f`,
+> council APPROVED all reviewers, `3af67677-601e-4181-ad09-17c7a789f995`). The index now
+> holds `var` and `const`. The same landmine entry that on 08-08 drew *"`metaCommentaryPatterns`
+> and `placeholderPatterns` **no longer resolve as standalone symbols (possibly inlined or
+> renamed)**"* today returns **`STILL_VALID` — "confirmed present at expected line ranges"**,
+> and the evidence line's missing-kind warning has **retired itself** (`kinds with NO rows:
+> type` — `var`/`const` gone). Nothing was ever renamed. Verbatim before/after and the
+> full five-criterion reconciliation: the **PHASE 2 ACCEPTANCE** section at the foot.
+>
+> **PHASE 1 LIVE AND PROVEN on `v1.0.1279`, 2026-08-10 14:41Z** (`1058b5366` + `362c7c091`,
+> council APPROVED `495df717-4010-491f-aec0-92c13aaf3809`; seed 365 applied and recorded).
+> The entry that drew the flat false `STALE` on 08-08 was re-fired and returned
+> `NEEDS_HUMAN_REVIEW` with three checks rendered `NOT ANSWERABLE BY THIS INDEX`.
+>
+> **⚠ TWO CORRECTIONS TO THIS FILE'S OWN §4a, both of which mislead in the direction of a
+> false alarm:** (1) *"var+const should appear near **1,371**"* — **WRONG, the figure is
+> 1,204.** 1,371 was measured without the `exclude_patterns: ["docs/"]` that
+> `analyse_repo_local` actually passes; comparing against it reads a healthy index as 12%
+> of rows silently dropped, which is the exact symptom of the identity collision the census
+> exists to detect (`WRONG_CALLS.md`, 2026-08-11). (2) *"phase 2 adds NO NEW STRING LITERAL
+> so it cannot be pod-grepped"* — true, but **no longer the constraint it was**:
+> `bugs_open/153`'s build stamp landed in the same window, so
+> `kubectl logs <pod> | grep 'build provenance'` + `git merge-base --is-ancestor` dates any
+> commit exactly, greppable spelling or not.
+>
+> **What remains is NOT this lane's and NOT technical:** `RFC_022` awaits an owner ruling,
+> and the `derive_checks` follow-up (§5.1) is RFC_005's mechanism to route, not to patch
+> here. Full account: **the PHASE 1 and PHASE 2 sections at the foot of this file**, and
 > `docs/agent_docs/docs024_key_docs_latest/bugfix_223_index_answerability/`.
 >
 > **If you are here to read a verdict rather than to fix this:** every landmine verdict
