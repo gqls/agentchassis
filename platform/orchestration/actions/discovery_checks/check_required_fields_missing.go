@@ -189,11 +189,39 @@ func missingRequiredValueFields(fields, contentData map[string]interface{}) []st
 		}
 		fieldType, _ := def["type"].(string)
 		if fieldType == "image" || fieldType == "image_url" {
-			continue // owned by image_source_unsatisfiable
+			// Still owned by image_source_unsatisfiable. Left UNCHANGED by the
+			// 2026-08-11 widening below, deliberately: adding image-typed rows
+			// to this queue is a volume change nobody has measured, and the
+			// 238 class is the type:"url" one that neither check could see.
+			continue
 		}
 		source, _ := def["source"].(string)
-		if source != "" && source != "llm" {
-			continue // render-time sources (query.*, site_assets.*, pages.*) are not baked into content_data
+		// CORRECTED 2026-08-11 (bugs_open/238): the old comment here read
+		// "render-time sources (query.*, site_assets.*, pages.*) are not baked
+		// into content_data", and for site_assets.* that is FALSE. plan_sections
+		// resolves those into resolvedData, and RenderComponentAction's
+		// merge_with overlay persists resolvedData INTO content_data — that is
+		// PBP-014, and it is what makes no-LLM re-rendering possible at all. So a
+		// site_assets.* field absent from a deployed row is exactly the
+		// observable this check exists to report, and it was skipped on a
+		// premise the platform contradicts.
+		//
+		// site_specs.* / pages.* / query.* stay skipped in this slice: their
+		// flag volume is unmeasured, and the six link fields bugs_open/238 also
+		// lost are {{if}}-gated (milder harm, authored degradation). Widening to
+		// them is a separate change with its own census.
+		//
+		// WHAT THIS DOES TO THE SIBLING CHECK, stated because the landmine on
+		// this family requires it: `image_source_unsatisfiable` was widened in
+		// the same commit, from a type predicate to the `site_assets.` source
+		// prefix. The two now overlap on `site_assets.*` fields that are not
+		// image-typed, and that overlap is deliberate — they answer different
+		// questions. That check asks "can this component's declared source EVER
+		// be satisfied on this site" (a cause, per component); this one asks "is
+		// this DEPLOYED ROW missing the value now" (the damage, per row). On
+		// bugs_open/238 both were true and each names a different remedy.
+		if source != "" && source != "llm" && !strings.HasPrefix(source, "site_assets.") {
+			continue
 		}
 		if valueIsEmpty(contentData[name]) {
 			missing = append(missing, name)

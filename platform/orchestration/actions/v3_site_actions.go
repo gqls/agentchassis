@@ -1994,8 +1994,48 @@ func RenderComponentAction(ctx context.Context, params ActionParams) (interface{
 		}
 	}
 
-	// Render template
-	rendered := RenderTemplate(comp.HTMLTemplate, renderCtx, params.Logger)
+	// Render template.
+	//
+	// The reporting form, not RenderTemplate: the two extra return values name
+	// which bare placeholders rendered empty and which of those sat inside an
+	// href=/src=. RenderTemplate discards both (`out, _, _ :=`), which is how
+	// bugs_open/238 shipped five <img src=""> to a live homepage while this very
+	// call had the field names in hand. See dead_url_guard.go for why the guard
+	// refuses rather than dropping, and why it is opt-in with the unsafe default.
+	rendered, _, deadURLFields := RenderTemplateReportingMissing(comp.HTMLTemplate, renderCtx, params.Logger)
+
+	if shouldRefuseDeadURLControls(config, deadURLFields, rendered) {
+		// File the human record BEFORE refusing: the refusal fails the step, and
+		// a signal that only exists inside a failed step is a signal nobody reads.
+		// Identity is best-effort — see the emit's own guard — because a missing
+		// site_id must not turn a refusal into a silent success.
+		siteIDStr := datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.site_id")
+		siteID, _ := uuid.Parse(siteIDStr)
+		pageName := datahelpers.ExtractNestedFieldString(params.CollectedData, "page_record.name")
+		slot := comp.Function
+		if slotFrom, ok := config["slot_name_from"].(string); ok && slotFrom != "" {
+			if s := datahelpers.ExtractNestedFieldString(params.CollectedData, slotFrom); s != "" {
+				slot = s
+			}
+		}
+		var componentID *uuid.UUID
+		if cid, err := uuid.Parse(comp.ID); err == nil {
+			componentID = &cid
+		}
+		emitSectionDeadControlItem(ctx, params.DB, siteID, componentID,
+			pageName, slot, comp.Function, deadURLFields, true, params.Logger)
+
+		params.Logger.Error("RenderComponentAction: URL attribute(s) would render empty — refusing to ship a dead control",
+			zap.String("component_function", comp.Function),
+			zap.String("page", pageName),
+			zap.String("slot", slot),
+			zap.Strings("dead_url_fields", deadURLFields),
+		)
+		return nil, fmt.Errorf(
+			"component %q would ship dead URL control(s) %v — src=/href= attributes that render empty "+
+				"(bugs_open/238); refusing so the stored section and the live page stay intact",
+			comp.Function, deadURLFields)
+	}
 
 	// Dark section contract validation (warning only, non-blocking)
 	// Uses is_dark_section from DB when available, falls back to CSS auto-detection.

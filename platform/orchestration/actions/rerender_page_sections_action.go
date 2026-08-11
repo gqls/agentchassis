@@ -493,7 +493,26 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 		}
 		rc.ContentData["ComponentID"] = comp.ID
 
-		rendered := RenderTemplate(htmlTemplate, rc, logger)
+		rendered, _, deadURLFields := RenderTemplateReportingMissing(htmlTemplate, rc, logger)
+
+		// RECORD-ONLY here, deliberately, where the build path refuses
+		// (dead_url_guard.go). Two reasons, and neither is squeamishness. First,
+		// this path MERGES stored ⊕ fresh below, so it cannot LOSE a key — the
+		// worst it can do is re-ship damage that is already live, which refusing
+		// would not undo. Second, this is the repair vehicle: a no-LLM re-render
+		// is how a fixed row reaches the artefact, and a re-render that refuses
+		// on the state it was dispatched to fix would deadlock its own remedy.
+		// The item is still worth filing: with the discovery rotations paused
+		// (bugs_open/230, owner 2026-08-10) this is the only live detection the
+		// fleet has for this class.
+		if len(deadURLFields) > 0 && !strings.Contains(rendered, "data-runtime-fill") {
+			resolution.DeadURLSlots = append(resolution.DeadURLSlots, slotLabel(s))
+			emitSectionDeadControlItem(ctx, params.DB, siteID, nil,
+				pageName, s.slotName, comp.Function, deadURLFields, false, logger)
+			logger.Warn("rerender_page_sections: URL attribute(s) rendered empty — recorded, not refused",
+				zap.String("section", s.slotName),
+				zap.Strings("dead_url_fields", deadURLFields))
+		}
 
 		// Persisted content_data = stored ⊕ fresh resolved_data, mirroring
 		// RenderComponentAction so the row remains a complete render source.
@@ -594,6 +613,14 @@ type rerenderResolution struct {
 	InvalidTemplateSlots []string
 	NotReadySlots        []string
 	EmptyTemplateSlots   []string
+	// DeadURLSlots names sections that RENDERED, but with a URL attribute left
+	// empty (bugs_open/238). Deliberately NOT part of fatal(): this path merges
+	// stored ⊕ fresh and so cannot lose a key — it can only re-ship damage that
+	// is already live, and it is the vehicle by which a repaired row reaches the
+	// artefact. Named in the output because a re-render that quietly re-shipped
+	// five empty <img src=""> is exactly the "reported complete, changed
+	// nothing" reading bugs_open/182 exists because of.
+	DeadURLSlots []string
 }
 
 // fatal reports whether this page's re-render must fail the step rather than
@@ -606,8 +633,8 @@ func (r rerenderResolution) fatal() bool {
 // (or the immune-system failure sweep) sees exactly which sections and why,
 // the same shape as pageAssembly.describe() one layer up.
 func (r rerenderResolution) describe() string {
-	return fmt.Sprintf("unresolved component %v; invalid template %v; not ready (legitimate) %v; empty template (legitimate) %v",
-		r.UnresolvedSlots, r.InvalidTemplateSlots, r.NotReadySlots, r.EmptyTemplateSlots)
+	return fmt.Sprintf("unresolved component %v; invalid template %v; not ready (legitimate) %v; empty template (legitimate) %v; dead URL controls (recorded, non-fatal) %v",
+		r.UnresolvedSlots, r.InvalidTemplateSlots, r.NotReadySlots, r.EmptyTemplateSlots, r.DeadURLSlots)
 }
 
 // slotLabel names a slot together with its position, so a duplicate slot_name

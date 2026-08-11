@@ -134,10 +134,23 @@ func (c *ImageSourceUnsatisfiableCheck) Run(dctx DiscoveryCheckContext) (*CheckR
 			if !ok {
 				continue
 			}
-			fieldType, _ := def["type"].(string)
-			if fieldType != "image" && fieldType != "image_url" {
-				continue
-			}
+			// The SOURCE defines this check's class, not the declared type.
+			//
+			// This used to also require type ∈ {image, image_url}, and that
+			// filter made the check silent on the largest part of its own
+			// population: measured 2026-08-10, 26 fields across 8 components
+			// declare a `site_assets.*` source with type "url" (case-studies-grid,
+			// blog-listing, tool-guide-intro and five more) against 12 with
+			// type "image_url" and 2 with "image". bugs_open/238's five card
+			// images are in that blind majority — the check that exists to
+			// establish "a component asks for an image nothing can supply"
+			// could not see the exact case that shipped five empty <img src="">
+			// to a live homepage.
+			//
+			// Satisfiability is a property of the source, so the source prefix
+			// below is the whole predicate. The two `text`-typed stragglers in
+			// the census are both `site_assets.logo`, which the logo arm
+			// satisfies — so widening adds no spurious flags.
 			source, _ := def["source"].(string)
 			if !strings.HasPrefix(source, "site_assets.") {
 				continue
