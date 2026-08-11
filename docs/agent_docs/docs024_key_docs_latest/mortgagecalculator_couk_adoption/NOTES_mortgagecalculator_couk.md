@@ -1943,3 +1943,59 @@ for a mutant to break. `[MEASURED 2026-08-10 late — and it is a property of th
 CURRENT builds. A future recreation that introduces a hidden-until-submit panel
 re-acquires the gap silently, because the fence stays green either way; the
 handoff carries the check to add when that happens.]`
+
+---
+
+## 2026-08-11 — two owner decisions executed/routed, a concurrent lane found IN THIS DIRECTORY, and its finding extends to our tools
+
+**Owner decisions (this morning, via the session):**
+
+1. **The seven unstamped pages: stamp `deployed_at` ONLY.** Executed 12:57:35Z —
+   `UPDATE pages SET deployed_at=now() … RETURNING` confirmed exactly the seven
+   fenced tool pages, `build_status` untouched. **The narrow variant is the
+   point:** the Tier-4 due sweep's predicate is satisfied by `deployed_at` alone,
+   while Tier 2's built-in shell checks (the 252-page shared-hero rewriter path)
+   gate on `build_status='deployed'` and stay OFF. `[The timestamp records the
+   DECISION, not an observed deploy — the pages have served since 08-08/09; any
+   reader of pages.deployed_at on this site should know these seven are
+   owner-authorised inferences, 2026-08-11.]` No surprise sweep follows: all
+   eight tools hold an `acceptance-run` note < 7 days old, so the due check's
+   cooldown skips them until ~08-17.
+2. **Equity-release max cash: MATCH THE ORIGINAL's table** (£120k, not the
+   rebuild's £124k — lender policy, and the rebuild's table is the generator's
+   invention). **NOT executed this session, and the obvious mechanism is a
+   trap:** an `improve_tool` item would carry `component_id` = the shared hero
+   and hand a 252-page component to tool-improver. The safe route is §12's
+   `needs_tool_recreation` re-file with the original's age→percentage table
+   extracted from the live original (`/equity-release.html`) and pinned in the
+   spec's id contract. After the rebuild: re-emit → re-verify → re-install the
+   fence for that one tool (a regenerated page may legitimately reformat), then
+   re-run its acceptance.
+3. (Resolved without us: the stamp-duty ORIGINAL was already patched by the
+   owner on 08-09 during bugs_open/225 — re-verified on the wire today,
+   `grep -c 625000` = 0 on the flat page. Handoff action 5 closed.)
+
+**A concurrent lane is active and its plan lives in this directory.**
+`PLAN_2026-08-11_decompose_into_framework.md` (bugfix_210 lane, committed 11:15
+and 13:57 BST — the second within a minute of our stamp). Read it before any
+site-wide action. Its coordination analysis holds: their pages are `index`,
+`guide-*` and four never-built; ours are `tool-*` — **disjoint, safe in
+parallel, PROVIDED NEITHER RUNS A SITE-WIDE REPLAN OR RERENDER.** Our stamp
+touched only the seven tool rows and no build_status, so their `index` warning
+(never flip it out of needs_rebuild before the port) is untouched.
+
+**And their afternoon finding extends to our tools — measured, not assumed:**
+the live homepage links **all eleven tools at FLAT paths** (`repayment.html`,
+`stamp-duty.html`, …), contains **zero** `tools/` hrefs, and both forms serve
+200. So the twelve rebuilt tool pages are in the `bugs_open/114` shape at page
+level: correct, fenced, acceptance-passed — **and unreachable by any link a
+visitor follows.** Visitors get the ORIGINALS (only stamp-duty among them was
+patched). Consequences:
+
+- The port lane's deploy-path decision (flat vs directory-form) must cover
+  TOOLS as well as guides — one site-wide decision, not two lane-local ones.
+- **Our fences survive a path migration untouched**: `request_browser_run`
+  resolves the URL from `pages` by NAME at run time, and no fence stores a URL.
+- What does NOT survive: `acceptance/compare_rebuilt.py`'s `MAPPING` dict and
+  the golden replay both hardcode dir-form URLs — one-line-per-tool update when
+  the paths move.

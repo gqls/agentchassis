@@ -115,7 +115,28 @@ before it.
 **not** have to be established by deliberately breaking one of our own live
 fences.
 
-## 4. THE OPEN DECISION, and it is yours — 7 of the 8 fences will never fire on their own
+## 4. ~~THE OPEN DECISION~~ — DECIDED AND EXECUTED 2026-08-11 (owner, via session)
+
+> **Option 1-narrow taken: `deployed_at` stamped on the seven, `build_status`
+> untouched** (12:57:35Z, `UPDATE … RETURNING` = exactly the seven). The due
+> sweep's predicate is satisfied by `deployed_at` alone, so Tier 4 is now
+> continuous here, while Tier 2's built-in shell checks — the 252-page
+> shared-hero rewriter path — gate on `build_status='deployed'` and stay OFF.
+> The timestamp records the decision, not an observed deploy (NOTES 08-11).
+> Cooldown means the first automatic sweep fires ~08-17, when the 08-10
+> acceptance-run notes age past 7 days.
+>
+> **Second owner decision, same session: equity-release max cash MATCHES THE
+> ORIGINAL (£120k).** NOT yet executed — and do NOT use `improve_tool` for it
+> (its `component_id` is the shared hero). Route: §12 `needs_tool_recreation`
+> re-file with the original's age→percentage table extracted from the live
+> original `/equity-release.html` and pinned in the spec; then re-emit →
+> re-verify → re-install → re-run that one fence.
+>
+> **Third: the stamp-duty ORIGINAL was already fixed by the owner 08-09**
+> (bugs_open/225; re-verified on the wire 08-11). Old action 5 is closed.
+
+The original decision text follows for the record — 7 of the 8 fences could not fire on their own
 
 `check_tool_acceptance_due.go` gates on `PageHasShippedPredicateFor` =
 `NOT (deployed_at IS NULL AND build_status <> 'deployed')`.
@@ -144,10 +165,29 @@ that MEMORY records as dead and that another lane may own. The options:
    `PageMayBeLinkedPredicateFor` written for exactly this distinction, so the
    shape of the fix exists. That is a platform change and wants the council gate.
 
+## 4b. A CONCURRENT LANE IS ACTIVE IN THIS DIRECTORY — read its plan before any site-wide action
+
+`PLAN_2026-08-11_decompose_into_framework.md` (the bugfix_210 lane; owner-decided,
+not yet executed; expects a fresh session to pick it up). Its coordination claim
+is measured and holds: **their pages (`index`, `guide-*`, four never-built) and
+ours (`tool-*`) are disjoint — safe in parallel PROVIDED NEITHER RUNS A
+SITE-WIDE REPLAN OR RERENDER.** Their hard warning: never flip `pages.index` out
+of `needs_rebuild` except as part of their port.
+
+**Their key finding EXTENDS TO OUR TOOLS (measured 08-11):** the homepage links
+all eleven tools at FLAT paths, has zero `tools/` hrefs, both forms serve 200 —
+so the twelve rebuilt tool pages are `bugs_open/114`-shaped: correct, fenced,
+acceptance-passed, **and no visitor is routed to them; visitors get the
+originals.** The deploy-path decision their plan raises (flat vs directory-form)
+must cover tools too — one site-wide decision. Our fences survive a path
+migration untouched (URL resolved from `pages` by name at run time); the
+comparator's `MAPPING` and the golden replay hardcode dir-form URLs and need a
+one-line-per-tool update when paths move.
+
 ## 5. Next actions, in order
 
-1. **The §4 decision.** Until it is taken, this site's acceptance ladder covers
-   one tool automatically and seven by hand.
+1. **Execute the equity-release decision** (§4 second item — recreation re-file,
+   NOT improve_tool; extract the original's age table first).
 2. **`portfolio` has no PLAN, and needs a hand-written one.** toolgolden derives
    vectors by scaling the page's own defaults; that form has none, so it drove
    `#mortgageTerm` to 1000/2000/500/450 years and the tool correctly refused all
@@ -160,13 +200,17 @@ that MEMORY records as dead and that another lane may own. The options:
    first**: these agents will also delete what the register omits.
 4. **Sweep the other tools for unregistered constants BEFORE any rebuild.** The
    check is in `LANDMINES.md`. Unchanged from 10b §3.3 and still the right order.
-5. **Report the stamp-duty ORIGINAL defect to the owner** — £5,000 under-quote at
-   £595k FTB. Now reproducible on demand: `verify_criteria.py --mutate
-   sdlt-ftb-relief-cap=625000` regenerates the original's wrong £14,750 exactly.
+5. ~~Report the stamp-duty ORIGINAL defect~~ **DONE without us** — the owner
+   patched the original on 08-09 (bugs_open/225); re-verified on the wire 08-11
+   (`grep -c 625000` = 0). Kept for the record: `verify_criteria.py --mutate
+   sdlt-ftb-relief-cap=625000` still regenerates the old wrong £14,750, which is
+   the demonstration of what the fix closed.
 6. **Id-alignment on the three stragglers** (affordability, fact-finder,
    portfolio) — note §2(b): two of the three cannot enter the ladder at all until
    their page/component shape changes, so id-alignment alone will not fence them.
-7. Phase B, then the Phase C RFC. **Phase C's blocker is gone twice over**: A1
+7. **Raise the tools half of the deploy-path question alongside the port lane's**
+   (§4b) — one site-wide flat-vs-directory decision; do not solve it lane-locally.
+8. Phase B, then the Phase C RFC. **Phase C's blocker is gone twice over**: A1
    made the bands readable as scalars, and `verify_criteria.py`'s
    `sdlt_from_register()` is a working reference implementation of the oracle the
    RFC proposes — lane-side, so it changes nothing about what a green fence
