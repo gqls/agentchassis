@@ -750,3 +750,95 @@ against the live origin. Re-run the probe above before relying on it at cutover,
 because it is exactly the kind of fact that a change of hostname, a redirect to
 `www.`, or a move to a different scheme would silently invalidate — origin is
 scheme + host + port, and all three must stay identical.
+
+---
+
+## 2026-08-11 — the engine is PUBLIC, and two traps on the way
+
+Owner authorised the `noted.co.uk` zone for the tunnel (backing up the old
+`cert.pem` to `cert.pem.webdesign` first — the new cert is confirmed *different*,
+so a different zone really was selected). `app.noted.co.uk` is now live over
+HTTPS and the full flow works end to end from the public internet:
+
+```
+1. registered           : ok (cookie HttpOnly; Secure; SameSite=Lax)
+2. save a note          : {"id":3,"title":"Shopping",...}
+3. import real backup   : {"notes":1,"recordings":1,"skipped":0}
+4. NEW session (a different browser) sees:
+     - From my phone | recordings: 1
+     - Shopping | recordings: 0
+```
+
+### TRAP 1 — `systemctl kill -s HUP cloudflared` TERMINATES it. It does not reload.
+
+`[MEASURED]` I sent SIGHUP expecting an ingress reload, because the unit has no
+`ExecReload` and a restart interrupts a tunnel that also carries the **live
+webdesign.uk shopfront**. The journal:
+
+```
+Sent signal SIGHUP to main process 42569 (cloudflared) on client request.
+cloudflared.service: Deactivated successfully.
+```
+
+**The tunnel went down and stayed down** — the unit has no `Restart=`, so nothing
+brought it back. `systemctl start` restored it; `preview.webdesign.uk` returned to
+its exact baseline (`200 / 29234 B`). **Outage ≈ 40 seconds on a live commercial
+site, caused by me.**
+
+Two things worth carrying: **a "gentler" action is only gentler if you have
+checked what it does** — SIGHUP is a reload convention, not a guarantee, and this
+binary treats it as shutdown. And **`cloudflared.service` here has no `Restart=`**,
+so any signal that stops it is an outage until a human notices. Worth adding
+`Restart=on-failure` to that unit — it is the webdesign lane's file, so raised
+rather than changed.
+
+### TRAP 2 — the Worker was eating the hostname, and the tunnel was never reached
+
+After the restart, `https://app.noted.co.uk/api/health` still returned
+**404 `text/plain` "Not found"** while:
+
+- `cloudflared ingress validate` → **OK**
+- `cloudflared ingress rule https://app.noted.co.uk/api/health` → **"Matched rule
+  #3 → http://127.0.0.1:8082"**
+- the origin answered locally: `Host: app.noted.co.uk` → `127.0.0.1:8082` → **200**
+
+Everything on the box was right. **The discriminating test** was to compare the
+404 against a path the Worker certainly handles:
+
+```
+https://noted.co.uk/definitely-not-a-real-file-$$   -> 404 text/plain "Not found"
+https://app.noted.co.uk/definitely-not-a-real-file  -> 404 text/plain "Not found"
+cmp -> IDENTICAL
+```
+
+Same handler ⇒ the **`portfolio-sites-router` Worker**, not cloudflared. Confirmed
+against the API — the noted.co.uk zone carries:
+
+```
+noted.co.uk/*    -> portfolio-sites-router
+*.noted.co.uk/*  -> portfolio-sites-router     <-- this caught app.
+```
+
+**Fix:** a more specific route with `script: null` ("run no worker here"), which
+beats the wildcard and cannot affect `noted.co.uk` itself:
+
+```
+app.noted.co.uk/* -> (no worker)
+```
+
+Applied with the token in `~/.cloudflare/404-token.env`, which turned out to have
+zone **write** scope. Verified immediately afterwards that `noted.co.uk` still
+serves the app and the notice (`200`, `rebuild-notice-head` present, `js/app.js`
+200) and that the shopfront was unchanged.
+
+**The transferable form: a wildcard Worker route silently owns every subdomain of
+a zone.** Adding a tunnel hostname on a B2-fronted zone will *always* hit this,
+for all 36 zones on this account. The tell is a 404 whose body is byte-identical
+to the Worker's, while every check *on the box* passes — and the box is where a
+person naturally looks.
+
+**And the meta-lesson, again:** three of my checks (`ingress validate`, `ingress
+rule`, the local origin curl) all passed and all were true, and the thing was
+still broken, because **every one of them tested the box and the fault was in
+front of it.** Passing checks bound the fault; they do not locate it. What found
+it was asking "what *else* returns exactly this response?"
