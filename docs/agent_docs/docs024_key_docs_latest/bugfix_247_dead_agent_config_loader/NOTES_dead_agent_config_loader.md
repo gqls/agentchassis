@@ -118,4 +118,55 @@ image build + roll for `agent-chassis`/whichever services embed `platform/messag
 `platform/config`. Per the owner's 2026-08-06 ruling, `bugs_open/247` stays in `bugs_open/`
 until proven live post-roll, even though it is fixed in substance. A future session (or this
 one, later) should check the build-provenance stamp on the rolled service and append a
-post-roll proof section to `bugs_open/247`, then move it to `bugs_closed/`.
+post-roll proof section to `bugs_open/247`.
+
+> **CORRECTED 2026-08-11:** the closing clause above ("then move it to `bugs_closed/`") is
+> wrong — re-checked the auto-memory and it directly contradicts an owner direction of
+> 2026-08-06 that overrides CLAUDE.md's stated bar: finished bugs stay in `bugs_open/`,
+> marked closed in place. Caught while writing the actual closure below, before any `git mv`
+> was attempted.
+
+## 2026-08-11 — closed, proven live post-roll
+
+User reported a fresh whole-fleet chassis build had been deployed. Confirmed which services
+actually compile the changed code first (`platform/config` is linked into ~12 of the 14
+backend binaries via direct import, but `platform/messaging`'s `processor.go` — where the
+behaviourally-relevant deletions live — is only reachable through `platform/agentbase`,
+which only `cmd/agent-chassis` imports). So `agent-chassis` is the one service whose
+liveness actually matters for this bug; verifying it is sufficient.
+
+Per-pod check (not per-tag, per CLAUDE.md — a tag can straddle revisions, `bugs_open/249`):
+both running `agent-chassis` pods share one imageID digest, so this was one consistent
+build across the replica set, not a straddle.
+
+The startup "build provenance" log line (the documented primary method) had already scrolled
+out of a 3000-line tail on both pods after ~44 minutes of runtime on a busy service — the
+landmine this file itself half-predicted by citing `platform/orchestration/actions/
+deployed_image_read_audit.go`'s comment about the same absence. Tried the makefile's own
+`EXPECT_SHA=<sha> grep -aq "$sha" /proc/1/exe` recipe next, using my own fix commit's full
+sha as `EXPECT_SHA` — this came back NO MATCH, which is expected and NOT evidence of
+absence: two more commits (`039cfce84`, `6ba3fca28`, both bug 246) landed on `processor.go`
+after mine before the release cut, so the binary's stamp is necessarily some later commit,
+not mine — the grep recipe only ever matches the *exact* stamped commit, never an ancestor.
+Realised this and switched to a better source: `docker image inspect
+docker.io/aqls/agent-chassis:v1.0.1288 --format '{{index .Config.Labels
+"org.opencontainers.image.revision"}}'` — the image was already cached locally (whoever ran
+`make release` pulled/built it here), so no registry pull was needed. That gave the exact
+build commit (`bb534864`) directly, sidestepping both the log-rotation problem and the
+exact-match limitation of the binary grep. Cross-verified the local image wasn't stale by
+comparing its `RepoDigests` sha256 against both pods' `imageID` — exact match on both.
+
+`git merge-base --is-ancestor 8cb8938bb bb534864` → true. **Closed.** Marked the bug file
+CLOSED in place (owner 2026-08-06 direction — never move to `bugs_closed/`), appended the
+full verification trail there rather than only here, since a bug file is where the next
+reader looks first.
+
+**Misstep worth flagging for `WRONG_CALLS.md`:** I initially wrote, twice, in this bug file
+and in this NOTES file, "the bar for moving to `bugs_open/` → closed is fixed AND live" and
+"then move it to `bugs_closed/`" — reciting CLAUDE.md's stated rule from memory/training
+without checking this repo's own auto-memory override first, even though that override
+(`owner-keeps-fixed-bugs-in-bugs-open`) was sitting in the loaded memory index the whole
+time (`MEMORY.md`, practices section: "a finished bug STAYS in `bugs_open/` — owner 08-06,
+OVERRIDES CLAUDE.md's bar"). No damage done — caught before any `git mv` — but it is exactly
+the failure shape the auto-memory system exists to prevent, and I nearly reproduced it
+anyway by trusting the checked-in doc over the loaded memory line sitting above it.

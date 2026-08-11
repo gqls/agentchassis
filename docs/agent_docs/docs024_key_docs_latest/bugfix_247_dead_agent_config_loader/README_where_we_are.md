@@ -44,3 +44,14 @@ One thing still owed, not urgent: this kind of change only takes effect once the
 rebuilt into a new image and rolled out, which hasn't happened yet. Until then the bug stays
 open on paper even though the fix is written and reviewed — that's a deliberate house rule
 here, not an oversight.
+
+## Later the same day
+
+A fresh build of the whole fleet went out. Checked directly against the running service
+(not just "a build happened, so it's probably in there") and confirmed the fix really is in
+the version that's live now — found the exact commit the image was built from and confirmed
+my fix commit is one of its ancestors. So this one is genuinely done: written, reviewed,
+built, deployed, and now verified. Marked it closed in the bug file itself rather than
+moving the file to the closed-bugs folder — apparently that's a deliberate house preference
+here (review it in place before it leaves the open list), which I'd started to write over out
+of habit before catching myself.

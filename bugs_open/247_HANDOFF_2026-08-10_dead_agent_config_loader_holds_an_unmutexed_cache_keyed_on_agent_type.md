@@ -1,5 +1,9 @@
 # 247 — the dead `AgentConfigLoader` holds an unmutexed map cache keyed only on agent type, and returns a hard-coded two-step workflow
 
+**Status: CLOSED 2026-08-11 — FIXED, APPROVED, LIVE (proven post-roll). Kept in
+`bugs_open/` per the owner's 2026-08-06 direction (do not move fixed bugs to
+`bugs_closed/`) — this heading is the authority, not the directory.**
+
 **Filed 2026-08-10** by the `bugfix_239` lane, found while ruling out "a workflow cache
 keyed coarser than the message" as the cause of `bugs_open/239`. **Status: OPEN, latent.**
 It is not biting production today, and the reason it is filed anyway is that it is a loaded
@@ -118,4 +122,38 @@ queue was clear).** `metadata->>'decision'='approved'` on `diagnosis_artifacts` 
 `cf96f869-8b48-45fb-98bb-081b0f87df1c`; no objections. Per CLAUDE.md, no amend — the existing
 `Council-Submitted:` commit (`8cb8938bb`) is credited automatically by the `098` coverage
 report once it resolves this correlation. **Status: FIXED + APPROVED, not yet LIVE** — still
-needs an image build + roll before this file can move to `bugs_closed/`.
+needs an image build + roll.
+
+> **CORRECTED 2026-08-11:** the line above ("this file can move to `bugs_closed/`") and the
+> earlier line calling fixed-AND-live "the bar for moving to `bugs_open/` → closed" both
+> repeat CLAUDE.md's stated rule, which is **overridden** by an owner direction of
+> 2026-08-06: finished bug files stay in `bugs_open/` — see
+> `owner-keeps-fixed-bugs-in-bugs-open` (auto-memory) and `206`'s worked precedent ("206
+> CLOSED (file stays in bugs_open per owner 08-06)"). This file will be marked closed **in
+> place**, never moved. Caught before it caused a wrong `git mv`, not after.
+
+---
+
+## Closed 2026-08-11 — proven live post-roll
+
+A fresh whole-fleet chassis build was deployed. Verified per-service, per CLAUDE.md's rule
+(a roll is not evidence a *specific* fix shipped — ask the artefact, not the tag):
+
+- Both running `agent-chassis` pods (`agent-chassis-596d84f6b-kmc2t`,
+  `agent-chassis-596d84f6b-tb8gd`) report image `docker.io/aqls/agent-chassis:v1.0.1288`,
+  same imageID digest on both (`sha256:d080ae14bd49...`) — one consistent build, not a
+  straddled release (the `249` failure mode).
+- The startup "build provenance" log line had already scrolled out of a 3000-line tail on
+  both pods (the known landmine — busy service). Rather than the unreliable binary-string
+  grep (which only matches an *exact* stamped commit, not an ancestor), read the image's own
+  OCI label directly: `docker image inspect docker.io/aqls/agent-chassis:v1.0.1288 --format
+  '{{index .Config.Labels "org.opencontainers.image.revision"}}'` → `bb534864` — the image
+  was local already, no pull needed. Cross-checked the label came from the exact deployed
+  image (not a stale local cache) via `RepoDigests`, which matched the pods' `imageID`
+  exactly.
+- `git merge-base --is-ancestor 8cb8938bb bb534864` → **true**. The fix commit is an ancestor
+  of the build commit. **247's fix is live.**
+
+No further action needed on this bug. The two out-of-scope dead twins noted above
+(`sendSuccessResponseOLD`, `sendErrorResponseOLD`) remain a candidate follow-up filing, not
+opened here.

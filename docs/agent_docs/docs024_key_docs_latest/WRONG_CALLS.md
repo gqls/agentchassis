@@ -28466,3 +28466,31 @@ control — state the number, and distrust it when it is small.**
   cheap. The real cost was the year-shaped one it nearly bought: the check went LIVE and
   swept 21 sites with a silence on `vetcomparison.uk` that every downstream reader,
   including this lane's own handoff table, had to be told in prose not to trust.
+
+## 2026-08-11 — I recited CLAUDE.md's closing procedure from training instead of the memory line loaded above it, twice, in the file I was writing
+
+- **the claim:** while working `bugs_open/247` I wrote, in the bug file itself and again in
+  the workstream's NOTES, that the bar for closing a bug was "fixed AND live" and that once
+  proven live the file should "move to `bugs_closed/`" — CLAUDE.md's literal text, verbatim
+  in spirit.
+- **why it was wrong:** an owner direction of 2026-08-06 overrides that exact clause —
+  finished bugs stay in `bugs_open/`, marked closed in place, never `git mv`'d — and the
+  auto-memory index this session had loaded at the very start of the conversation already
+  said so, in one line: *"a finished bug STAYS in `bugs_open/` — owner 08-06, OVERRIDES
+  CLAUDE.md's bar"*. The override was not missing information. It was sitting in context,
+  unread at the moment it mattered, because the checked-in doc's phrasing was what came to
+  mind first.
+- **what caught it:** re-opening the bug file to add the post-roll proof and re-reading my
+  own prior sentence before acting on it — not a fresh check, just slower reading. No `git
+  mv` was run, so no repair was needed, only a correction line.
+- **the cheap check that would have:** when a durable *procedural* claim (not a code fact) is
+  about to be written into a file that persists — a closing bar, a commit convention, a
+  review gate — grep the loaded memory index for the topic before typing the sentence, the
+  same discipline already applied to code claims. A procedure recited from training carries
+  exactly the same false-confidence risk as a code fact recited from a stale doc; this repo's
+  own memory system exists precisely to catch this class, and it did, just one draft late.
+- **cost:** zero realised (caught pre-action), but it is the second time this exact override
+  has needed catching in this file's own history (see the original memory's citation of a
+  2026-08-06 incident where two other bugs, 126 and 181, were actually moved and had to be
+  moved back) — worth automating a lint on `git mv bugs_open/* bugs_closed/*` if this pattern
+  recurs a third time.
