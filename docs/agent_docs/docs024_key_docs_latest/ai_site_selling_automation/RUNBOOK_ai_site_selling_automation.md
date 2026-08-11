@@ -46,3 +46,25 @@ recorded but wired to nothing except `locked`; `hitl_mode=auto` synthesises
 answers from classification defaults rather than merely skipping gates; and
 dispatch itself is unreliable until `bugs_open/239` lands (queue starved —
 the webdesign lane hand-drove every stage).
+
+## Council submission: when a missing row IS a dropped dispatch (2026-08-11)
+
+The standing rule "a missing orchestration row is almost always latency — do
+not retry" assumes the publish SUCCEEDED. Distinguish by the kcat pod's exit:
+
+- `% Delivery failed for message: Local: Message timed out` in the trigger
+  output + `pod ... terminated (Error)` → the message NEVER reached the
+  topic. Retry IS correct — with `RESUBMIT_CORR=<same corr>` so the printed
+  correlation stays the one in your commit trailer. (Cause that night:
+  kafka broker 0 was 0/1 NotReady; brokers 1-2 carried the retry.)
+- kcat pod `Completed` + the trigger printing its full trailer-instructions
+  tail → published; a missing row is queue latency, wait it out.
+
+Prove the dispatch (not just the publish) by payload:
+```
+SELECT current_step, status FROM orchestration_states
+WHERE collected_data->'input_data'->>'fix_correlation_id' = '<SUBMISSION_CORR>';
+```
+Gotcha: don't pipe the 097 trigger through `tail`/`grep` when running it in
+the background — the pipe buffers until EOF, so the correlation banner
+(printed BEFORE the slow kcat step) stays invisible exactly when you want it.
