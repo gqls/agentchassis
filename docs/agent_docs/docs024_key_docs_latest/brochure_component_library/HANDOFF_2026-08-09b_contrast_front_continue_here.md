@@ -36,9 +36,20 @@ always a *pairing* of two individually-valid colours, and the only thing that se
 > constraint has moved to the REPAIR half:** `contrast_failure` items went 34 → 68 in one
 > session, all `detected`, all routed to `css-patch-agent`, 0 draining — `bugs_open/213`.
 >
-> **4. Only ONE thing is still owed from this front:** the same paired grade for
-> **`dartsonline.com`** once its news page re-renders (before = **125** solid, **53** chips).
-> Everything else here is measured and recorded.
+> **4. DONE 2026-08-11 — NOTHING IS OWED FROM THIS FRONT.** dartsonline re-rendered
+> 02:25:30 and was graded: **chips 53 → 0**, and on the 18 pages present in both runs
+> **125 → 60 solid with every moved selector moving DOWN — no regression anywhere.** All 9
+> placements now carry 353 except `idea.uk` (renders no chips: `bugs_closed/027`).
+>
+> **What that run found that is worth someone's time:** the sitemap grew 18 → 21, and the
+> three new pages — built while the site was being actively repaired — **arrived carrying 11
+> AA failures between them.** The class recurs on NEW pages, which no amount of re-rendering
+> old ones will surface. That belongs to the ink-slots lane and its weekly cadence (369),
+> not here.
+>
+> **Trap that nearly produced a false result:** comparing the two runs raw showed `A` 50 → 58
+> and read as a regression on a site I had just helped fix. **A sitemap is not a fixed
+> population — intersect the URL sets before differencing.**
 >
 > **Corrections to the update below:** `webdesign.co.uk` **self-healed** at 15:33 — I called
 > it a straggler and was wrong. `idea.uk` is the only placement still not carrying the fix,
