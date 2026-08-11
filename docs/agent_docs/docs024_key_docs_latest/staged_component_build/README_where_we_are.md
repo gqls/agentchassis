@@ -1313,3 +1313,23 @@ the other chat — and I was minutes from rebuilding work that was already finis
 because having your decision in hand made it feel unnecessary to check whether anyone else
 was on it. Both are written into the fleet-wide mistakes log, along with the one-line check
 that catches each.
+
+**2026-08-11, later — a fresh session, picked up from the handoff.** Good news and one
+correction. The vision-findings work (item 1 in the last handoff) went through a second
+round of automatic review and got sent back again, for a genuinely useful reason: the
+explanation I'd written for "who checks these findings later" said flatly that nothing
+does it automatically. That turned out to be wrong — there IS a daily automatic check, it
+really does run every day — it just doesn't happen to cover this new kind of finding yet.
+So the honest story is narrower than what I'd written: not "nothing happens", but "the
+thing that happens doesn't reach this yet". I've corrected that rather than argue with the
+reviewer, and left the question of whether to teach the daily check about vision findings
+as a separate decision for later, since it's not obvious how a computer would re-check a
+"this looks ugly" judgement the way it can re-check "is this field still empty".
+
+The other three points the review raised were all versions of the same small thing: when
+this code fails to save a finding, it should tell someone in the ONE place the platform
+already has for that ("something went wrong here, durably"), not invent its own note for
+it — especially since the note it was inventing turned out to share its filing cabinet
+with an unrelated, routine note, so a human could never have told the two apart. Fixed
+that properly rather than patching around it — small change, tested, resubmitted for
+review on the same review thread as before. Waiting on that verdict now.
