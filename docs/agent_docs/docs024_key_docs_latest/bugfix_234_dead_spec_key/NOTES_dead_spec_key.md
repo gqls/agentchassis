@@ -321,3 +321,34 @@ recent commits with an absent-control, then `git merge-base --is-ancestor` — w
 query, not an inference. **`git rev-parse HEAD` was NOT the stamp** even seconds after my own
 build, because HEAD moved under me; that trap and the chassis's rotated-away provenance line
 are both now in LANDMINES and the RUNBOOK.
+
+## 2026-08-11 (final) — APPROVED, and the last unproven claim closed on v1.0.1286
+
+**Council `3eb0d1f1`: APPROVED at round 4** — 13 approve, 2 advisory (both "I cannot verify
+this from here"), none high. Trail: REJECTED → owner ruling (RFC_021) → REVISE → REVISE →
+APPROVED. Both REVISE rounds found real defects; details in the case file and in
+[[a-revise-round-is-cheaper-than-the-defect-it-finds]]. `098` coverage report: this lane's
+commits are **REVIEWED by correlation, 0 MISMATCH**.
+
+**Deploy verified the correct way (v1.0.1286, deployed by the owner):** extracted the binary,
+found the stamp by testing recent commits (`c3b424c8e`, another session's), negative control
+clean, then `git merge-base --is-ancestor` for each of my three commits — all three IN. Note
+the stamp is not mine and not HEAD: that is normal on this tree and is exactly why ancestry,
+not equality, is the question.
+
+**The last unproven claim, now closed.** `commit_from`'s retirement had only ever been
+asserted. Witness `cf-witness-234` (an `update_page_status` step carrying
+`commit_from: page_deployed.commit_sha`, the real historical value) was **REFUSED by the live
+validator**: `step 'mark' (action 'update_page_status') carries REMOVED config key(s): …`,
+and **no orchestration row** — rejected pre-spawn, as the landmine says. So the mechanism is
+proven on a SECOND action, not just on `create_work_item`. Witness deleted.
+
+> Grep note: `grep -oE '"error":"[^"]*"'` truncates this message, because the message itself
+> contains a `%q`-quoted key name. The truncation is the instrument, not the error — the same
+> class as everything else in this lane's WRONG_CALLS entries.
+
+**Four wrong calls this session, all logged with the check that would have caught each:** a
+census written into a Go comment (false within the hour); a filtered count inside its own
+denominator; prose in a schema-validated path field (invalidated a whole council round before
+any seat saw it); and citing the wrong provenance mechanism for `commit_from` (caught by a
+seat, and the deepest of the four).
