@@ -27,7 +27,31 @@ now opens with two correction banners; its §1–§4 reference material still ho
 > agent type). That changes §0 below — a resubmitted round now costs ~58% less than the ~1.6M
 > figure quoted there.
 
-## 0. THE ONE OPEN ITEM — council round 4, deliberately NOT resubmitted
+> ## ⏳ ROUND 4 RESUBMITTED 2026-08-11 12:42:22Z — §0 below is now HISTORY, read this instead
+>
+> Fired at the owner's instruction, **unchanged**, under `RESUBMIT_CORR=b67eb26a-…` on chassis
+> **v1.0.1286**. Orchestration **`ae0915c2-e77a-4d02-94ce-32ced673317a`** — began executing seats
+> within seconds (no 29-minute queue).
+>
+> **Pre-flight done, and worth repeating next time:** pod-grepped both replicas of v1.0.1286
+> (`ownergate=1 claims=1 voice=1 cachemarker=1 CONTROL_pos=2 CONTROL_absent=0`) and checked the
+> **300s post-restart dispatch window** (2,330s elapsed) — CLAUDE.md's silently-dropped-spawn trap.
+> **`cachemarker` is a new standing needle**: it puts the caching fix in the *running binary*
+> rather than only in `git log`.
+>
+> **Get the verdict by correlation, never by `doc_notes ... LIMIT 1`:**
+> ```sql
+> SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
+> WHERE correlation_id='b67eb26a-14ef-45d7-b755-3e489fd57ef0' AND kind='council_report' ORDER BY created_at;
+> -- 3 rows = rounds 1-3 (all revise). A 4th row is this round. Objections are in `body`.
+> ```
+> **If it REVISES again, read the objection before assuming it is procedural** — this council has
+> been right three times running, twice about substance. If APPROVED, the trailer is
+> `Council-Reviewed: b67eb26a-14ef-45d7-b755-3e489fd57ef0`; **never write that trailer on a verdict
+> you have not read.** The docs commit for today already carries `Council-Submitted:` with the same
+> correlation, which `098` credits automatically once approved — so no amend is needed.
+
+## 0. THE ONE OPEN ITEM (HISTORICAL — superseded by the block above) — council round 4
 
 Round 4 died on infrastructure, not on content (see §2). The council is available again, so it
 **can** be resubmitted unchanged, and the submission file is already correct and committed:
