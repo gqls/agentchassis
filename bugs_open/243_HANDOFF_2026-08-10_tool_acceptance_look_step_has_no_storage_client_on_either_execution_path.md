@@ -296,3 +296,25 @@ c3 code committed + council-submitted; **inert until the next chassis roll, then
 Proof owed after both halves land: a run whose critique says `FINDINGS: reported` produces
 exactly one `vision_finding` row, and a `FINDINGS: none` run produces none. The file stays
 in `bugs_open/` per owner practice until that behavioural proof.
+
+## UPDATE 2026-08-11 (~13:00Z) — c3 LIVE ON v1.0.1286, NEGATIVE ARM PROVEN; council round 2 in flight
+
+Roll condition met (pod-grep `record_vision_finding` 6/0 both replicas) → migration 383
+applied by hand + recorded (file renamed from `_HOLD` post-apply; ⚠ number collides with
+another session's `383_rfc022_…` — resolve by filename). Live row verified: next_step,
+action, prompt line.
+
+**Negative-arm proof, live:** wrapper item `3bec5e4f…` → spawned run `c3139293…` →
+`complete`, verdict green 15/0, critique ends `FINDINGS: none`, `file_vision_finding`
+output `{filed:false, verdict_line:"none"}`, **0 `vision_finding` rows**, 0 collateral
+items. The critique also independently confirms the 382 contrast fix ("no … contrast
+failures" on the page that was 1.06:1 yesterday). Positive arm stays pinned by
+`TestVisionReportedFilesDedupedItem` until a genuine finding occurs.
+
+**Council 310dee45: REVISE round 1 → answered → resubmitted round 2, same correlation.**
+The medium objection (failed filing leaves no durable trace) was right and is FIXED
+(`3ed587049`: insert failure now writes a render-critique doc_note with the error + full
+critique). The high objection (needs_human_review as a historical silent sink, 033/083)
+answered by measurement: the admin dashboard has a working Needs Review surface and 033's
+display bug is fixed there; the open half is cadence — 033's remit, shared by every
+producer of the status. Round-2 verdict to be read by whoever is next.

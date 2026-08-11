@@ -206,11 +206,56 @@ session)` (both blocks) and the bug files. State only:
    that lane, NOT a blocker — `tool-loan-repayment` on `index` was never renameable anyway.
 4. **gaswholesalers logo-404**: not this session's; unchanged.
 
+## 3d. POST-ROLL, 2026-08-11 ~13:00Z — v1.0.1286: everything in §3c that was waiting on a roll has now LANDED
+
+Fleet is **v1.0.1286** (chassis + browser-runner, pods up 12:02–12:03Z) — §1's 1284 is
+superseded. Full working: NOTES `## 2026-08-11 (parallel session, afternoon-2)`.
+
+1. **243 c3 is FULLY LIVE AND ITS NEGATIVE ARM IS PROVEN.** Pod-grep 6/0 both replicas →
+   migration **383 applied by hand + recorded** (renamed from `_HOLD` post-apply: the
+   runner refuses to record uppercase sidecars. ⚠ the number 383 collided with another
+   session's `383_rfc022_…` file — the ledger is filename-keyed, both stand; resolve by
+   filename like bug numbers). Live row verified all three ways. Proof run: wrapper item
+   `3bec5e4f…` → spawned run `c3139293…` `complete`, verdict green 15/0, the model wrote
+   the machine line (`FINDINGS: none`), `file_vision_finding` returned
+   `{filed:false, verdict_line:"none"}`, **0 `vision_finding` rows, 0 collateral items**.
+   The positive arm stays unit-pinned until a genuine finding occurs.
+   **Bonus, independent-instrument confirmation of 382:** the critique explicitly reports
+   "no … contrast failures" on the very page that measured 1.06:1 the day before — the
+   vision pass is describing the NEW chips and finding them legible.
+2. **Council 310dee45 came back REVISE round 1 — answered, resubmitted round 2 on the SAME
+   correlation** (run `73cb0a29`, mid-review at cut time; **read the round-2 verdict**,
+   session-start item). The two objections that improved the work: the medium (a failed
+   filing left no durable trace) is FIXED in code — commit `3ed587049`, insert failure now
+   writes a render-critique doc_note with error + full critique, pinned by
+   `TestVisionInsertFailureLeavesDurableNote`; the high (needs_human_review is historically
+   a silent sink, 033/083) is answered by measurement — the admin dashboard HAS a
+   'Needs Review' approve/edit surface and 033's row-cap display bug is fixed there; the
+   remaining gap is CADENCE, which is 033's remit and shared by every producer of that
+   status. The round-1 overclaim "exactly one reader" is withdrawn for "one queue, deduped,
+   displayed, closable — cadence tracked in 033".
+3. **245 is DONE IN FACT, residual included**: `env | grep -c '^B2_|^AWS_ACCESS|^AWS_SECRET'`
+   → **0 on both 1286 replicas**. Recorded in the bug file; stays in `bugs_open/` per owner
+   practice. (Firecrawl corr `6f13c5ce`: **APPROVED** on its second round — verdict read.)
+4. **Unrelated but adjacent — migration 389** (another session, owner decision): the weekly
+   render audit's 220 `contrast_failure` items are PARKED so improvement-sweep can drain
+   page re-renders. Different pipeline from 382's template fix; no interaction. Expect the
+   dispatch rotation to be busier than usual while the re-renders drain.
+
+**What is actually left on this lane's plate:** the round-2 verdict (`73cb0a29`); the
+`vision_finding` positive arm (arrives with the first genuine finding — check
+`SELECT * FROM site_work_items WHERE item_type='vision_finding'` after any acceptance run
+whose critique reports); batch-8 tail unchanged (`tool-llm-cost-calculator` fork-aware,
+`tool-bayesian-ranking` after its §11 rename, loancalculator once their lane authors
+golden-derived PLANs — 384 is live and waiting).
+
 ## 4. Standing defect list
 
-Items 1–8 unchanged from `HANDOFF_2026-08-09` §4. Item 9 (243) → candidate 1 CLOSED-in-fact,
-candidates 2/3 open as decisions (§3). Item 10 (batch-8 naming gate) stands. 245 → done bar
-the apply-time residual (§2). 248 (both files) — read before touching asset deploys.
+Items 1–8 unchanged from `HANDOFF_2026-08-09` §4. Item 9 (243) → **all three candidates
+done** (c1 proven; c2 wrapper live; c3 live + negative arm proven, round-2 verdict pending).
+Item 10 (batch-8 naming gate) → dissolved by 384 (§3c item 3); gamesdesign rename still
+wanted on its own merits. 245 → **done in fact, residual proven** (§3d item 3). 248 (both
+files) — read before touching asset deploys.
 
 ## 5. Session-start checklist
 
@@ -218,8 +263,9 @@ the apply-time residual (§2). 248 (both files) — read before touching asset d
    uncommitted release bump (§1) and possibly other sessions' WIP.
 2. Pod-grep chassis + browser-runner (RUNBOOK §4 markers). No dispatch within 300s of a
    restart.
-3. If a release/apply has happened since 08-11: run 245's residual check (§2) and then
-   consider the bug closable in fact (owner keeps finished bugs in `bugs_open/`).
+3. **Read the round-2 council verdict** — find by payload:
+   `collected_data->'input_data'->>'fix_correlation_id' = '310dee45-…'` (or the run id
+   `73cb0a29…`). REVISE → objections come answered; act, resubmit on the same correlation.
 4. Re-run the census + `CHECK_naming_contract.sh` before quoting any batch-8 figure.
 5. `who-owns.py` + live-transcript grep before writing at robot-hands, loancalculator,
    gamesdesign, or anything touching 248's deploy surface.
