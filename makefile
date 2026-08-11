@@ -200,6 +200,13 @@ build-component-render-check: ## Build component-render-check CronJob image (com
 build-shared-output-fields-check: ## Build shared-output-fields-check CronJob image (committed HEAD; REF=<ref> to pin)
 	$(call ref_build,shared-output-fields-check)
 
+# Ships the SAME Go binary the offline audit uses, so the scheduled check walks
+# workflow steps with validation.WalkSteps rather than a re-implementation
+# (council round 2, corr 3eb0d1f1, reuse_agent gating objection).
+.PHONY: build-removed-config-keys-check
+build-removed-config-keys-check: ## Build removed-config-keys-check CronJob image (committed HEAD; REF=<ref> to pin)
+	$(call ref_build,removed-config-keys-check)
+
 .PHONY: build-web-scrape-adapter
 build-web-scrape-adapter: ## Build web-scrape-adapter (committed HEAD; REF=<ref> to pin, -tree for WIP)
 	$(call ref_build,web-scrape-adapter)
@@ -1973,6 +1980,10 @@ component-render-check-now: ## Trigger an immediate component-render-check run
 .PHONY: push-shared-output-fields-check
 push-shared-output-fields-check: ## Push the shared-output-fields-check CronJob image
 	docker push $(REGISTRY)/shared-output-fields-check:$(IMAGE_TAG)
+
+.PHONY: push-removed-config-keys-check
+push-removed-config-keys-check: ## Push the removed-config-keys-check CronJob image
+	docker push $(REGISTRY)/removed-config-keys-check:$(IMAGE_TAG)
 
 .PHONY: deploy-shared-output-fields-check
 deploy-shared-output-fields-check: ## Deploy the daily shared-output-fields-check CronJob (RFC_012 (d) online half)

@@ -15,10 +15,16 @@
 # all. Same image, same secret, same doc_notes convention, same
 # "connect to Postgres directly" constraint (no pods/exec RBAC here).
 #
-# WHY NOT RUN THE GO BINARY: it would need a git clone (262M) + module download
-# + compile in a job with uncertain egress; a gate that fails for
-# infrastructure reasons gets ignored. The two drift risks the Python mirror
-# creates are pinned by cmd/config-key-audit/removed_keys_cron_parity_test.go.
+# IT RUNS THE GO BINARY, and that is the load-bearing choice (council round 2,
+# corr 3eb0d1f1, gating objection from the `reuse_agent` seat). The first
+# version carried a hand-written Python walk copied from
+# single-owner-carriers-check; a third independent traversal of "every step at
+# all depths" is bugs_open/144's exact shape — two hand-written walks go blind
+# in the same direction and then agree with each other. The precedent for doing
+# it properly already existed (shared-output-fields-check builds
+# cmd/config-key-audit into a tiny image), so this now walks with
+# validation.WalkSteps, the same function the runtime validator enforces with.
+# The parity test that policed the two copies is deleted along with the copy.
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -51,14 +57,12 @@ spec:
           restartPolicy: Never
           containers:
             - name: check
-              image: postgres:16-alpine
-              command:
-                - /bin/sh
-                - -c
-                - |
-                  set -e
-                  apk add --no-cache python3 >/dev/null
-                  python3 /scripts/check.py
+              # Tag is set by the overlay, as every other service here does it.
+              image: docker.io/aqls/removed-config-keys-check:latest
+              # The image's CMD is already:
+              #   ./config-key-audit --removed-keys-in-use --report
+              # --report reads the fleet straight from Postgres and writes ONE
+              # doc_notes row per run, clean or not.
               env:
                 - name: PG_CLIENTS_HOST
                   value: postgres-clients
@@ -74,12 +78,3 @@ spec:
                 limits:
                   cpu: 200m
                   memory: 128Mi
-              volumeMounts:
-                - name: check-script
-                  mountPath: /scripts
-                  readOnly: true
-          volumes:
-            - name: check-script
-              configMap:
-                name: removed-config-keys-check-script
-                defaultMode: 365
