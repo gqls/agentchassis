@@ -99,3 +99,41 @@ I've asked for an implementation plan and I've put the mechanism through the
 diagnosis loop for an independent read, rather than trusting my own confidence. Next
 is the council review, then the code change itself, which I expect to be the removal
 of three lines plus a test that stops anyone putting them back.
+
+---
+
+## 2026-08-11, evening — done and approved, and the review caught me out
+
+The fix is in and the council approved it first time. Three advisory comments, none
+serious enough to block, and one of them was a genuine catch.
+
+The catch: I'd written down how to check, after the next release, that the fix had
+actually shipped — and the method I named is one our own notes say doesn't work on this
+particular service. The log line it relies on gets written once when the pod starts, and
+this service is so chatty that the line scrolls out of reach within the hour. Worse, the
+obvious fallback is not just weak but actively misleading: it would report the fix as
+*absent* from a binary that definitely contains it.
+
+What stings slightly is that I had looked the hazards up. I'd searched our hazard file
+for every part of the code I was changing. I hadn't searched it for the *service I was
+going to test against*, which is where the warning was sitting. Careful about the change,
+careless about the check. Written up as a mistake to remember, because the general
+version of it — diligence aimed entirely at the work leaves the verification unexamined —
+is going to recur.
+
+Another team caught the same thing independently within the hour and added a wrinkle
+neither the reviewer nor I had spotted. They also caught me publishing a commit
+reference with two characters swapped, which I'd found from the other end about a minute
+earlier. They'd already gone and fixed it in the shared file rather than leaving it for
+me, which is the right instinct: a wrong reference isn't a typo, it's a pointer to
+nothing, and anyone following it later concludes the work doesn't exist.
+
+Two small code changes came out of the review and are committed. The rest of the
+comments I answered rather than actioned, and said so on the record — including one
+asking for sign-off from whoever owns that area of the code, where the honest answer is
+that nobody does: we all share one branch, and the council round *is* the review.
+
+The three follow-ups are written down in the bug file with the exact checks. The most
+important is the first: until something reports how hard the connection pool is working,
+this whole class of problem is invisible, which is precisely how the original setting sat
+ignored for weeks without anyone noticing.
