@@ -144,14 +144,53 @@ Measured live: **2 pods of 95** carry it (both static chassis replicas), **1 dep
 keys at all**. 93 of 95 pods are byte-identical; the 2 that change get the size their
 operator already asked for.
 
-### Post-roll verification (there is no way to observe a pool's size)
+### Post-roll verification
 
-1. Confirm the commit shipped: `kubectl … logs -l app=agent-chassis | grep -m1 'build provenance'`,
-   then `git merge-base --is-ancestor 039fcce84 <stamp>`. **Per service, not per fleet.**
-2. The disconfirming observation for the pgbouncer risk: `SHOW POOLS` with `cl_waiting`
+> **CORRECTED 2026-08-11, same day, twice over.** What stood here was:
+> *"Confirm the commit shipped: `kubectl … logs -l app=agent-chassis | grep -m1 'build
+> provenance'`, then `git merge-base --is-ancestor <sha> <stamp>`."* **That recipe is
+> documented as INOPERATIVE on this exact service** and I should not have written it.
+> Caught independently by two reviewers within an hour: the council's `debug_historian`
+> seat (objection, medium — *"substitutes a verification mechanism documented as broken
+> on this exact service"*) and the `bugfix_239` lane by cross-session message. Both cited
+> the same landmine, which I had not grepped for `agent-chassis` before writing a
+> verification step for `agent-chassis`.
+
+**Why the obvious recipe fails here, and why the obvious fallback is worse:**
+
+- `build provenance` is logged **once, at startup**. The chassis is the noisiest service
+  in the fleet and its container log rotates on size, so the line is out of range within
+  the hour. An empty grep means *"rotated"*, not *"unstamped"*. A naive grep over full
+  logs can also **false-match a council-gate payload that quotes the phrase** (239 lane).
+- The tempting fallback — probe `/proc/1/exe` for **your own** commit sha — is **the wrong
+  test**, not merely a weak one. The binary is stamped with **ONE** commit (the build
+  point), not with every ancestor, so a binary that genuinely contains this change reports
+  your sha as absent. Three absents in a row read as "my fix did not ship".
+
+**So, in order:**
+
+1. **Get the stamp from the IMAGE, not the pod**, then test ANCESTRY:
+   ```bash
+   docker image inspect docker.io/aqls/agent-chassis:$IMAGE_TAG \
+     --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'
+   git merge-base --is-ancestor 039cfce84 <that-revision>   # exit 0 = shipped
+   ```
+   **Per service, not per fleet** (`bugs_open/249`: one tag shipped three revisions).
+2. **Accept that there is NO behavioural witness for this change, and do not invent one.**
+   The landmine's standing advice for the chassis is "prefer behaviour over provenance —
+   fire the smallest input only the new code can answer". **That advice cannot be followed
+   here**, because nothing in the platform reports a pool's size or its wait counters. This
+   is not a gap in the verification plan; it is the same gap the change itself is about, and
+   it is the argument for the deferred `db.Stats()` follow-up below.
+3. The disconfirming observation for the pgbouncer risk: `SHOW POOLS` with `cl_waiting`
    sustained > 0, or `maxwait` climbing.
-3. **Do not claim to have "observed the pool at 12".** Nothing reports a pool's size. The
-   unit test is the proof of the mechanism; the stamp is the proof it shipped.
+4. **Do not claim to have "observed the pool at 12".** Nothing reports a pool's size. The
+   mutation-proven unit test is the evidence for the mechanism; image-label ancestry is the
+   evidence that it shipped. Those are the only two available, and neither is a live reading.
+
+**Note on which roll:** `v1.0.1286` (stamp `c3b424c8e`) rolled at 12:03 UTC on 2026-08-11 and
+does **not** carry this fix — `039cfce84` is later. 246 awaits the NEXT roll. (Contributed by
+the `bugfix_239` lane, whose own fix that roll did carry.)
 
 ### Follow-ups deliberately NOT done here
 

@@ -28223,3 +28223,45 @@ scarier change than the one that exists.
 **The shape:** *a bug file's paraphrase of code is not the code, and paraphrases drift toward the
 version that justifies the filing.* Re-read the cited lines at HEAD before building a fix on them —
 and note the file was only a day old, so recency is no protection.
+
+## 2026-08-11 — bugfix 246 lane, round 2: a sha I never verified, and a landmine I grepped for the wrong noun
+
+**4. WRONG CALL: I published a commit sha I had read off the terminal and never verified. It was wrong.**
+Recorded the 246 fix as `039fcce84`; it is **`039cfce84`** (a `c`/`f` transposition). It
+reached `bugs_open/246`, my NOTES, a commit message, and a cross-session message to another
+lane before anyone caught it. **What caught it:** `git cat-file -t 039fcce84` →
+*"Not a valid object name"*, when I went to use it — and independently, within minutes, the
+`bugfix_239` lane, who had already corrected the bug file (`3b225ca84`) and messaged me.
+**The cheap check:** never retype a sha. `git rev-parse HEAD` or `git log -1 --format=%H`
+immediately after committing, piped where it is needed.
+**The shape, for the tally:** *a transposed identifier is indistinguishable from a valid one
+at every point except use.* A wrong sha in prose is a dead pointer that reads as a real
+reference for ever — a reader chasing it concludes the fix does not exist. Mine happened to
+be heading for `git merge-base --is-ancestor`, where a bad sha **errors** rather than
+silently passing, so it would have surfaced loudly at that one site; that is luck about the
+consumer, not care about the claim. Same family as the "verified fact needs its evidence
+inline" rule, one level down: **an identifier IS a claim, and it is checkable in one
+command.**
+
+**5. WRONG CALL: I grepped LANDMINES.md for every noun in my change and none of the nouns in my VERIFICATION — and wrote a verification step documented as inoperative.**
+Into `bugs_open/246`'s post-roll section I wrote
+`kubectl logs -l app=agent-chassis | grep -m1 'build provenance'`. There is a landmine
+saying that exact recipe does not work on that exact service: the line is logged once at
+startup, and the chassis rotates it out within the hour, so an empty result means *rotated*,
+not *unstamped*. The tempting fallback (probe `/proc/1/exe` for your own sha) is the **wrong
+test**, not a weak one — the binary carries ONE commit, not its ancestors.
+**What caught it:** the council's `debug_historian` seat, objection severity medium, quoting
+the landmine at me; and separately the 239 lane by message, adding a failure mode neither I
+nor the seat had (a full-log grep can false-match a council-gate payload that quotes the
+phrase). Two independent catches inside an hour.
+**The cheap check:** I *did* grep `LANDMINES.md` at session start — for `processor.go`,
+`agentbase`, `sql.DB`, `pgbouncer`, `MaxOpenConns`, `pool`. Every noun in the code I was
+changing, and **not one noun from the thing I was going to verify against**. So:
+**grep the landmines for your VERIFICATION targets too — the service name, the command, the
+table you will read** — not only for the code you are touching.
+**The shape:** *diligence aimed entirely at the change leaves the check unexamined.* The
+entry was there, my own memory index carries the same warning in its second line, and I
+walked past both because I was thinking about pools, not about how I would later prove
+anything. This is the sibling of "verification depth is not verification COVERAGE" (08-11,
+above): that one was five checks on one side of a pipeline; this is careful reading of one
+noun-set and none of the other.

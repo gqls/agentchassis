@@ -320,7 +320,86 @@ because 097 validates client-side. Logged to `WRONG_CALLS.md`.
 
 ### Committed
 
-`039fcce84` — `platform/messaging/processor.go` + the new test, pathspec commit, 2
+`039cfce84` — `platform/messaging/processor.go` + the new test, pathspec commit, 2
 files, both mine (the commit-scope block confirmed it). Trailer
 `Council-Submitted: c94d73ac-2a15-40cb-98a9-1185a2b7435a` — **not** `Council-Reviewed:`,
 because no verdict had been read at commit time.
+
+---
+
+## 2026-08-11, evening — council APPROVED round 1, and it caught something real
+
+**Verdict: `approved`, "approved with 3 advisory objection(s) — none high-severity".**
+Correlation `c94d73ac-2a15-40cb-98a9-1185a2b7435a`. 10 seats reviewed, 6 abstained.
+Approve from `reuse_agent`, `guidelines`, `tooling_provenance`, `diagnosis_guardian`,
+`constitution`, `mission`, `prior_art_librarian`, `architecture` (`ARCHITECTURE_SIGNAL:
+point_fix`). Objections from `editquality`, `guardian`, `debug_historian`.
+
+**The round paid for itself on one objection**, and it is the one I would have defended
+if I had been arguing rather than checking. `debug_historian`, severity medium:
+
+> *"Risks section proposes post-roll verification via 'the build-provenance stamp' … but
+> the landmine at `cmd/agent-chassis/main.go:53` states that exact recipe is INOPERATIVE
+> on agent-chassis."*
+
+**It is right and I was wrong.** I had written `kubectl logs -l app=agent-chassis | grep
+'build provenance'` into the bug file's verification section. That line is logged **once at
+startup**; the chassis is the noisiest service in the fleet and rotates it out within the
+hour. Worse, the fallback I would have reached for next — probing `/proc/1/exe` for my own
+sha — is the **wrong test**, because the binary carries ONE commit (the build point), not
+its ancestors, so a binary that genuinely contains the fix reports my sha as absent.
+
+**What I actually did wrong:** I grepped `LANDMINES.md` at session start for
+`processor.go`, `agentbase`, `sql.DB`, `pgbouncer`, `MaxOpenConns`, `pool` — and never for
+**`agent-chassis`**, the service I was writing a verification step for. The entry was
+sitting there. My own memory index carries the same warning in its second line. **A
+landmine grep is only as good as the nouns you think to type**, and the noun I needed was
+not the mechanism I was changing but the *service I was going to verify against*.
+
+The other two objections, dispositioned:
+- `guardian` (low): *mark the sqlDB sizing as new capability, not symmetry cleanup.* **Done
+  in code** (`6ba3fca28`) — a future caller now reads it at the site.
+- `guardian` (medium): *get sign-off from whoever owns `platform/messaging`.* **Answered,
+  not actioned:** there is no separate owner on this tree — every session shares one branch
+  and one HEAD, and the council round IS the review. Per the owner ruling of 2026-07-29 §2,
+  review here is after the fact by design; a commit is a deploy.
+- `editquality` (low): *the sqlDB branch hardcodes 4/1/10m rather than reading
+  `CHASSIS_DB_MAX_OPEN_CONNS`.* **A fair question I had left implicit.** Answered in code:
+  it is a SECOND pool to the same database, so one operator knob sizing both would mean
+  asking for 12 and getting 24. Now stated at the site so whoever activates the branch
+  decides it explicitly instead of inheriting my silence.
+- `editquality` (medium): *`openUnconnectedPool` is not defined in the sketch, so the test
+  may not compile.* Correct about the **sketch**, already false of the **code** — the
+  helper is defined in the same file and the suite compiles, passes, and fails under
+  mutation. A sketch is the only view of the code a reviewer gets; eliding a helper cost a
+  medium objection.
+- `prior_art_librarian` asked for two absence claims to be checked rather than asserted.
+  Both were, and here are the commands:
+  `grep -rn "NewMessageProcessor" --include=*.go . | grep -v vendor/` → one non-test caller
+  (`agent.go:341`); `grep -n "NewMessageProcessor\|&MessageProcessor{" platform/messaging/*_test.go`
+  → every existing test builds the struct literal.
+
+### MISSTEP: I published a commit sha I never verified, and it was wrong
+
+I recorded the fix as `039fcce84`. **It is `039cfce84`** — a `c`/`f` transposition. It went
+into `bugs_open/246`, my NOTES, a commit message, and a cross-session message to the 239
+lane before anyone noticed. Caught twice within minutes: by me, when `git cat-file -t
+039fcce84` returned *"Not a valid object name"*, and independently by the **239 lane**, who
+had already corrected the bug file (`3b225ca84`) and messaged me about it.
+
+The damaging part is not the typo, it is *where* it was heading: step 1 of my own post-roll
+verification feeds that sha to `git merge-base --is-ancestor`, where a bad sha **errors**
+rather than silently passing — so this one would have surfaced loudly. A transposed sha in
+prose, though, is a dead pointer that reads as a real reference for ever. **A sha is
+generated output, not something you retype**: `git rev-parse HEAD` immediately after the
+commit, or `git log -1 --format=%H`, and never from reading it off the terminal.
+
+### On the same file, at the same time, by another session
+
+Mid-edit, the tool reported `platform/messaging/processor.go` had changed on disk. It had:
+the **247 lane** landed `8cb8938bb`, deleting `processRequest`, `selectWorkflowOLD` and the
+dead `AgentConfigLoader` path from the same file. No conflict — different region, and my
+`Edit` applied cleanly rather than overwriting. Verified the combination before committing:
+`go build ./...` clean, package tests pass. This is the shared-tree hazard working out
+well, and the reason to prefer `Edit` over any whole-file write on a file you did not
+create: a `Write` here would have silently reverted their deletions into my commit.
