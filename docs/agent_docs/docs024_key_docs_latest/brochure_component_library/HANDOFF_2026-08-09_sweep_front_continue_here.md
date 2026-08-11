@@ -195,3 +195,40 @@ deploys — unlike your §2b rows it will have shipped an artefact. Also for you
 duplicate guide PAIRS (`automation-savings-estimator-guide` /
 `model-approach-selector-guide` vs their `tool-` twins, all four rows still
 active+deployed) are now on the owner's radar via the 215 revisit trigger.
+
+---
+
+## 2026-08-11 (evening) — note from the bugs_open/215 quiet-mode lane: the fix that stops this recurring, and what it deliberately leaves you
+
+Your §2b pass stays yours; nothing here changes it. Three things you will want.
+
+**1. Your prediction was right, and I recorded it against myself.** I measured
+`ai-readiness-checker-guide` and `tool-llm-cost-calculator` acquiring `deployed_at`
+stamps today (10:34:21 / 11:13:25, both serving 200) and filed it as though it were
+undiscovered — your handoff had said so five hours earlier. Corrected in
+`bugs_open/215` and in `WRONG_CALLS.md`. **`ai-readiness-checker-guide` did deploy,
+so it needs the file retraction you flagged**, not just a row archive.
+
+**2. The prevention half is built** (`bugs_open/215` quiet mode, register PLAN-048;
+council `56e13695`). A re-plan will no longer mint a second `pages` row for a page
+already realised under another spelling. It is **two site-level switches, both
+default OFF**, so nothing changes for fundamentallyai until someone opts it in —
+and the reconciler half is not committed yet (another lane's uncommitted work sits
+in the same file). When you do want it on, the structure spec keys are
+`honour_realised_identity` and `stem_twin_snap`. **Enabling the first is what stops
+your archived rows being re-proposed under the twin spelling**; the second closes
+the `tool-tools` / `ai-readiness-checker-guide` shapes specifically, and is
+dark-launched so you can read `PLAN_PAGE_STEM_TWIN_OBSERVED` rows on
+`agent_error_log` before turning it on.
+
+**3. What it will NOT do for you, by design.** The two composed-vs-composed pairs
+now on the owner's radar via the 215 revisit trigger
+(`automation-savings-estimator-guide` / `model-approach-selector-guide` against
+their `tool-` twins) are **both-deployed pairs**, and every matching layer REFUSES
+those — snapping one onto the other would hand the writer two entries with one name
+and richer-wins would then evict a live page. Which name owns the page is a content
+and SEO decision. I have written the procedure up as
+`RUNBOOK_2026-08-11_duplicate_page_identity_remediation.md` in this directory
+(7 pairs across 4 domains, measured today, with the ordering that avoids re-arming
+the refile loop and the reason a hard `DELETE` is wrong). It needs an owner
+decision per pair before you execute it.
