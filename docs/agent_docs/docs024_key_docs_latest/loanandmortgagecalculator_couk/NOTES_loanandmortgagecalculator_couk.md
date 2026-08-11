@@ -1986,3 +1986,32 @@ written, `save_refused_incomplete:index` raised for a human. The 15:47Z save kep
 of the text and passed. **It measures text volume; a rewrite can keep 84% of the
 words and 0% of the components.** That is the gap `253` proposes to close, in the
 mechanism that already exists.
+
+### 2026-08-11 (evening) — the Track B pin, measured: it would have reverted 16 live calculators
+
+`HANDOFF_2026-08-10d` §2 said the pin is unsafe for Track B. **Measured, and the
+warning understated it.** `decompose_lmc.py` pins `b318a8fad`. Against the **live DB
+rows** for the 22 `owned` + verbatim pages:
+
+```
+b318a8fad (current pin)   stored row == repo bytes :  6 / 22
+origin/master             stored row == repo bytes : 22 / 22
+```
+
+**Running Track B unchanged would write stale calculator HTML over 16 live
+calculators**, reverting the `bugs_open/224` zero-rate guards and the `225` SDLT fix
+— a tax rule that had been 16 months out of date and under-quoting by £5,000. The
+tool does this today if nobody re-points it; nothing in the tool checks.
+
+Re-point to a **concrete SHA** (`origin/master` was `e69b5b275` at 19:23Z), never the
+branch name — `decompose_lmc.py`'s own docstring says the pin exists "because a
+baseline that names a moving thing stops being a control", and rerenders push to that
+repo continuously; it moved several times during this session. **And re-verify at the
+moment of use**, because another session's rerender can move a page between pinning
+and using it.
+
+> **⚠ `b26fdc81b` is not a sites-repo commit at all.** `load_lmc.py`'s baseline file
+> is named `..._at_b26fdc81b.txt`, but `git cat-file -t b26fdc81b` fails in
+> `~/projects/sites` and all 22 paths come back missing there. The filename names a
+> ref from the *other* repo. Anyone checking the baseline against the sites repo will
+> get 22 missing files and may conclude the baseline is corrupt. It is not.
