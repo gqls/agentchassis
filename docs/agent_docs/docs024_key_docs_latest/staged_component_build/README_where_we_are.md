@@ -1276,3 +1276,40 @@ a known, separate open item, and it affects every kind of ticket, not just these
 stated to the council: better to fix that once, for the one shared queue, than to invent a
 private notification channel per feature. Their second verdict is due shortly; whoever
 picks up next should read it.
+
+## 2026-08-11 (end of afternoon) — all four decisions are done, and most of them were done by the other chat
+
+Short version: everything you decided this morning is now live, and I did about a third of
+it. The other session working this same lane got to the two big pieces first — the
+screenshot-findings work and the invisible-text fix — and had them built, reviewed, shipped
+and proven while I was still reading the code for the first one. That is a good outcome and
+worth being plain about: no work was duplicated, because I checked before starting.
+
+**What is now true.** The screenshot judge's findings are no longer written into a void —
+there is code that reads them and raises a visible item, and it has been proven not to raise
+one when the page is clean. The invisible-text defect is fixed at the shared component
+rather than on one site: nine templates changed, eight pages re-rendered and measured
+legible, and the ninth deliberately left because that site's page is owned by a different
+process and was legible anyway. The loan-calculator problem is solved the way we hoped — the
+tester can now be told which page to look at, so nothing on their site has to be renamed,
+including the calculator that lives on their homepage and never could have been. And the
+Firecrawl key is a vault reference now, approved on review and confirmed in a live pod.
+
+**My own share of it**, for the record: the manual test trigger (now going through the
+proper machinery, proven three times today), the Firecrawl conversion, the piece the other
+session explicitly left to me — teaching that trigger to name the page it means, which is
+what actually makes the loan-calculator route usable by hand — and the four notes to the
+other lanes carrying your decisions.
+
+**One honest limitation.** My last test run proves the new page-naming route does not break
+anything; it does not prove the route was actually *used*, because for the tool I tested,
+both routes point at the same page. The test that settles it is the first loan-calculator
+tool someone writes a contract for. I have written that down rather than let a green run
+imply more than it shows.
+
+**And two mistakes of mine, both caught the same session.** I read a database setting as
+missing because I looked it up under the wrong name — it had been added an hour earlier by
+the other chat — and I was minutes from rebuilding work that was already finished, precisely
+because having your decision in hand made it feel unnecessary to check whether anyone else
+was on it. Both are written into the fleet-wide mistakes log, along with the one-line check
+that catches each.
