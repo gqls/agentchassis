@@ -27543,3 +27543,29 @@ blind check whose PASS outlives the blindness, arriving from the opposite direct
 file and a memory entry that for ~18 hours told the next reader "blocked on the fleet cap"
 when the truth was "the check was looking in the wrong place". Both corrected in the same
 commit as the proof.
+
+- **I read a vendor's STATED RESET DATE as a forecast, and told the owner the fleet was down for
+  three weeks when it was down for three hours.** 2026-08-10: the Anthropic account hit its usage
+  limit and the 400 said *"You will regain access on 2026-09-01 at 00:00 UTC."* I reported that as
+  "a 21-day fleet-wide LLM outage", wrote it into five files (`bugs_open/244`, `LANDMINES.md`, a
+  lane README, NOTES and a handoff banner), and escalated to the owner as *"plan around three
+  weeks"*. **Measured next morning: last usage-limit failure 17:02:12Z, first success 18:12:11Z —
+  ~3h20m.** The owner had simply raised the cap. Nothing in the evidence was wrong; the inference
+  on top of it was. **The stated reset is the worst case if nobody intervenes — on an estate with
+  an owner who reads the escalation, it is close to meaningless as a forecast.** The cheap check
+  that would have caught it, and which I did not run before writing the claim: ask the **success**
+  side — `count(*) FILTER (WHERE success)` per hour over `llm_call_log`. **Reasoning from the
+  failure side cannot work, because the failures stop appearing whether or not the cap lifted.**
+  Now in `LANDMINES.md` and the lane RUNBOOK. Escalate as "the cap is hit, please raise it", never
+  as a duration.
+- **Same session, same shape, twice more — this is the entry's real point.** (1) I measured the
+  outage's blast radius with a pod-log grep, got **0 across four services**, and was one step from
+  "it's only my run" — then found `kubectl logs --since=3h` returned a window **~2 minutes wide**.
+  (2) I nearly filed a duplicate `LANDMINES` entry and a duplicate finding, when another lane had
+  already recorded both *and* proved the cap was account-level from a service outside the cluster.
+  **Three absences in two days, none of them tested before being reasoned from.** The generalised
+  check is one question asked *before* the claim, not after: **"if I were wrong about this, what
+  would this measurement look like?"** — if the answer is "exactly the same", it is not evidence.
+  Cf. `WRONG_CALLS` 2026-07-31 (`%spending limit%` returning 0 during a live outage): that one I
+  avoided by copying the needle out of the error text, so the lesson transferred one level and not
+  the next.
