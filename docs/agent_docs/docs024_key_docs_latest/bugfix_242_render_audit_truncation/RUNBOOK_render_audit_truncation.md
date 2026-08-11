@@ -32,10 +32,10 @@ WHERE owner_agent_type='render-audit-agent'
 ORDER BY created_at DESC LIMIT 3;
 -- expect pages_total alongside pages, truncated:true when they differ
 
-SELECT created_at, error_message, context
+SELECT occurred_at, error_message, context
 FROM agent_error_log
 WHERE error_code='RENDER_AUDIT_TRUNCATED'
-ORDER BY created_at DESC LIMIT 5;
+ORDER BY occurred_at DESC LIMIT 5;
 ```
 Grade only on a site whose page count exceeds the configured cap; a small site cannot
 distinguish fix from no-fix (bug §7).

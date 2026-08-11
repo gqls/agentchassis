@@ -109,3 +109,26 @@ Lane state: code committed (`502b6c194` + `0e4e71674`, both on trail `700da63e`)
 migration 392 applied+ledgered, register updated, council APPROVED. Remaining to CLOSE
 per the bug's §7: a post-roll rotation run against a site whose page count exceeds the
 configured cap (force with a small step-config `max_pages`; nothing exceeds 60 today).
+
+## 2026-08-11 (night) — LIVE ON v1.0.1288 AND PROVEN; close criterion MET
+
+- Deploy proven at the artefact, per service: chassis + render-audit-adapter both
+  `v1.0.1288`, stamp `bb534864…` (adapter startup log; chassis binary probe with negative
+  control — the log line had rotated, exactly as the landmine warns). Both fix commits are
+  ancestors of the stamp; the chassis binary carries the `RENDER_AUDIT_TRUNCATED` literal.
+- **Forced-truncation run** (the §7 close criterion; nothing exceeds 60 organically):
+  set `max_pages=5` live, dispatched via the proven RUNBOOK_oufe §14 recipe
+  (`PUBLISH_OK` seen), corr `a61ef6c5…`, orch `765512d1…`, COMPLETED in ~100s. All three
+  artefacts held:
+  1. summary: `pages: 5, pages_total: 26, truncated: true`
+  2. findings_written: `truncated: true, pages_total: 26, pages_audited: 5`
+  3. agent_error_log: one `RENDER_AUDIT_TRUNCATED` warning row, agent_type
+     `render-audit-agent`, step `audit`, orchestration_id joining the run, context
+     `{max_pages: 5, pages_total: 26, pages_audited: 5}` — which also empirically answers
+     editquality's round-2 advisory: the inheriting merge filed the RIGHT provenance.
+- Cap restored 5→60 immediately by replaying guarded migration 392 (both pre-guards +
+  verify passed; read-back 60). The manual dispatch touched no rotation stamp, so
+  loancalculator's weekly rotation slot is unaffected; the one deliberate truncation row
+  and the 5-page sweep's zero findings are this test's residue, both honest.
+- `agent_error_log.occurred_at` (NOT `created_at`) — schema-first paid off again; noted
+  in RUNBOOK.

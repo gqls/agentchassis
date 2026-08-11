@@ -1,9 +1,15 @@
 # 242 — a render audit truncated by `max_pages` is indistinguishable from a complete one in the stored artefact
 
-> **TAKEN 2026-08-11** by the `bugfix_242_render_audit_truncation` lane
-> (`docs/agent_docs/docs024_key_docs_latest/bugfix_242_render_audit_truncation/`).
-> **§4 is ANSWERED — see the 2026-08-11 section at the end**: the mechanism is RFC_012
-> addendum 2's park-time discard, already owner-ruled; the fix follows that ruling.
+> **DONE IN SUBSTANCE 2026-08-11 — LIVE ON v1.0.1288 AND BEHAVIOURALLY PROVEN; stays in
+> `bugs_open/` per the owner's 08-06 ruling.** Forced-truncation run on loancalculator
+> (cap 5 vs 26 live pages, orchestration `765512d1…`): summary `pages: 5, pages_total: 26,
+> truncated: true`; `findings_written` stamped `truncated/pages_total/pages_audited`; one
+> `RENDER_AUDIT_TRUNCATED` `agent_error_log` row with correct provenance and run join.
+> Cap restored to 60 by guarded replay of migration 392 immediately after. Council
+> APPROVED (round 2, trail `700da63e…`). Lane:
+> `docs/agent_docs/docs024_key_docs_latest/bugfix_242_render_audit_truncation/`.
+> §4 is ANSWERED — the mechanism is RFC_012 addendum 2's park-time discard, already
+> owner-ruled; the fix follows that ruling.
 
 **Filed** 2026-08-10 from the `bugfix_122_contrast_ink_slots` lane, on the **second ever
 run** of the new weekly render-audit rotation (migration `369`, VIZ-015).
