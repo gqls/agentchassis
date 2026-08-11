@@ -28723,3 +28723,42 @@ the landmine corpus for what round 1 asked about, not for the symbols my own pla
 adding. On a tree this concurrent, the corpus can gain an entry about YOUR seam between
 your writing the code and your submitting it — grep it at submission time, for every
 table/key/symbol in the plan, not at coding time only. Cost: one full council round.
+
+## 2026-08-11 — mortgagecalculator: I fixed a voice spec by importing another lane's readability thresholds, and shipped the staccato they were designed to produce
+
+Asked to make a site's copy warmer and less clever, I rewrote its `content_direction`
+spec and set `sentence_style` from the readability rail another lane had shipped the same
+morning under owner direction: **max 20 words per sentence, average 15, one idea per
+sentence** (`provocation_readability.go:52-56`). I recorded the borrowing as a strength —
+"the new rules are not my taste, they are this estate's own owner-driven work of the same
+day" — and that framing is exactly what stopped me examining it.
+
+The owner read the result: *"it's all staccato. Firing short phrases/clauses at me like a
+machine gun. We don't want that. This is England not USA so sentences are more thoughtful."*
+
+**Those thresholds come from ASD-STE100, Simplified Technical English, which exists to make
+SAFETY-CRITICAL MAINTENANCE INSTRUCTIONS unambiguous for non-native readers.** The other
+lane's corpus was short provocation texts, and for those the owner had explicitly asked for
+"readable by a 5 year old". Consumer marketing prose has neither property. A hard 20-word
+ceiling plus one-idea-per-sentence **forbids the subordinate clause**, and the subordinate
+clause is what makes English read as considered rather than barked.
+
+**What caught it:** the owner reading the page. Nothing in my process could have — the copy
+passed every check I wrote, because I wrote the checks from the same wrong premise. The
+rules were followed exactly and the output was wrong.
+
+**The cheap check that would have caught it:** *name the corpus a borrowed threshold was
+measured on, and say why this corpus is like it.* One sentence. "Safety instructions for
+non-native readers" versus "warm consumer copy for British homebuyers" does not survive
+being written down. Confirmed afterwards by research I should have done first: British copy
+runs to LONGER sentences and more complex grammar than American, with understatement and a
+claim made once.
+
+**The shape, for the tally:** *provenance is not fitness.* A figure with an impeccable
+pedigree — measured, dated, owner-directed, shipped by a competent lane — is still an
+unevidenced claim about MY corpus until someone states the analogy between the two corpora.
+This is kin to `a-closed-bugs-scope-out-expires` and to the `[MEASURED]`-but-not-
+disconfirmable family: the marker discipline was followed in full, and the number was
+correct, well-sourced, and inapplicable. Related: my `things_to_avoid` list also banned
+"a reassuring tone" in an earlier version of that same spec — I have now twice written a
+rule into this file that forbade the thing being asked for.

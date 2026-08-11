@@ -2559,3 +2559,84 @@ the homepage are already correct (those come from `pages.title` via the refreshe
 `items`). A per-page assemble pass (§10b) or the queued `page_rerender` backlog
 will carry them; **the guide/tool pages themselves still serve their old
 `<title>` until then.**
+
+### 20:1xZ — the staccato pass, corrected: register blended, spec rules fixed at the source, LIVE
+
+**Owner rejected the first warm pass on five specific grounds**, all fair: "for the
+figures that matter" is an LLM-ism; "The numbers you came to work out" is *rudely
+assumptive*; "Help with the decision you're facing" is *outwardly presumptive*;
+"Start with your own figures" is *a direct rude order*; and the whole thing is
+*"staccato. Firing short phrases/clauses at me like a machine gun."* Plus: England
+not USA, so sentences are more thoughtful and titles more clever than direct; and
+on the old "Decision Engine" line — nobody calls it that, so borrowing the term
+would have to buy humour or an angle, and it bought nothing. **Users are here for
+information and to work out their best mortgage options — take a HOLISTIC view,
+price may not be all they want.**
+
+**The cause was my own spec**, logged in `WRONG_CALLS.md`: I set `sentence_style`
+from the readability rail's ASD-STE100 thresholds (20 max / 15 avg / one idea per
+sentence). Those exist for safety-critical technical instructions read by
+non-native speakers. **A 20-word ceiling plus one-idea-per-sentence forbids the
+subordinate clause, which is the thing that makes English sound considered rather
+than barked.** Research afterwards confirmed the direction: British copy runs to
+longer sentences and more complex grammar than American, with understatement and
+a claim made once ("Americans like to be sold to, Brits like to be persuaded").
+
+**Research done properly this time** (owner: "research all sorts of copy styles"):
+Nationwide (the antidote to presumption is the inclusive conditional — *"Whether
+you're a first time buyer or looking for a better deal…"* — which covers the cases
+instead of asserting which one the reader is); Which? (nominal headings —
+"First-time buyers", "Home movers" — cannot presume because they never address the
+reader); MoneyHelper/GOV.UK (public-guidance impartiality). Four registers were
+put to the owner — building-society warmth, broadsheet explainer, quiet editorial,
+reference/almanac — and the answer was **"a mix"**.
+
+> **A visible error of mine in that presentation:** one option description
+> contained a corrupted token (a Cyrillic word for "never" in place of the English).
+> Flagged to the owner rather than left to be found, in a set of samples about
+> careful writing.
+
+**Spec fixed at the source first** (so the next writer cannot rebuild the
+staccato): `sentence_style` now asks for considered sentences of 25–40 words
+carried by subordinate clauses and ordinary connectives, with at most one short
+sentence per section; `heading_style` gains an explicit `never` (no imperative
+headings, no presuming the reader's situation, no borrowed insider terms) and a
+`how_to_avoid_presuming` clause; `things_to_avoid` gains five rules including the
+named LLM fillers ("the figures that matter", "everything you need to know", "at a
+glance", "cut through the noise" …) and "do not lead on price alone". Guard
+asserted the old ceiling is gone from `formatted` and the cross-site scope rule
+survived.
+
+**Live copy** (all four slots re-rendered via `apply_section_edit`, corr
+`00517a8f`/`9b70c36f`/`45eb08f6`/`b168cb2d`):
+
+| | before tonight | now |
+|---|---|---|
+| H1 | See What the Bank's Decision Engine Sees Before You Apply | There's usually more to a mortgage than the rate |
+| tools | Tools That Do the Bank's Maths for You | Calculators for the parts that are hard to picture |
+| guides | Guides for what the bank won't tell you | Reading round the decision |
+| closing | See What the Bank Sees Before You Apply | If you'd like somewhere to start |
+
+**253 layout check against the pre-change baseline: 48 distinct classes and 88
+class attributes both sides, 33 links both sides, ZERO classes decreased.** Bytes
+35,676 → 35,915. `[MEASURED 2026-08-11, live page both sides, same script.]`
+Banned-phrase count on the served page: `Decision Engine` 0, `figures that matter`
+0, `numbers you came` 0, `decision you're facing` 0, `Start with your own` 0.
+
+### NOT DONE — the card DESCRIPTIONS are still in the old voice, and the check found it
+
+The titles are fixed; the blurb under each card is not. Those are the target
+pages' **`meta_description`** values, rendered verbatim — the same double-duty
+structure as the titles, and the same fix. Still live on the homepage tonight:
+
+- *"Understand what negative equity means, how it traps homeowners, and what
+  options are available to escape the **mortgage prisoner trap**."*
+- *"A **no-nonsense** guide to buy-to-let mortgages…"*
+- *"**Everything you need to know** about remortgaging…"* — which is on the LLM-ism
+  list I banned in the spec two hours earlier
+- *"Find out how much you can borrow with **our UK mortgage affordability
+  calculator**…"* — capability-led, the thing the owner explicitly did not want
+
+Ten are visible on the homepage (6 tool cards, 4 guide cards); ~30 exist. They are
+a genuine writing pass, not a mechanical edit, and deserve their own round rather
+than a hurried one. **Next session: this is the top item.**
