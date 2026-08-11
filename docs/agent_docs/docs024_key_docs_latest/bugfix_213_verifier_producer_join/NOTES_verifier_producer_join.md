@@ -318,3 +318,49 @@ matters for the routing question below: gamesdesign's is an already-`var()` fall
 name inline `style` attributes and `rgba(0,0,0` literals, which may well be **inside**
 it. So "the fixer cannot repair these" is true of the worked instance and
 **[UNVERIFIED] as a generalisation** — do not assume it of all 11 without checking each.
+
+---
+
+## 2026-08-11 (later) — CLAUDE.md banned the method I verified with, so I re-verified. The reading held, and got stronger.
+
+CLAUDE.md was rewritten today (§"Building & deploying images"). Two changes hit this
+lane's verification directly, and I only saw them because the file was edited under me:
+
+1. **`strings … | grep -c` is now forbidden** — "the old recipe that stood here
+   produced three confidently wrong readings in one day". That is exactly what I used.
+2. **`v1.0.1284` shipped THREE revisions under one tag** (`bugs_open/249`). The release
+   pinning fix has not rolled, so a tag can straddle other sessions' commits. "Read the
+   stamp of the service you actually mean" — a tag is not a commit.
+
+So my "proven live" claim rested on a discredited method and a tag that does not
+identify a revision. I re-ran it properly rather than defending it.
+
+**The sanctioned log route returned nothing** — `kubectl logs -l app=agent-chassis`
+had **13 lines** and no `build provenance` line. Not a missing stamp: chassis log
+retention is seconds (the standing log-measurement landmine), so a startup line is long
+gone. Worth knowing, because the new CLAUDE.md recipe is the *first* thing it tells you
+to try and it will silently return nothing on this service.
+
+**The binary probe, both replicas, with BOTH controls** (`grep -aq … /proc/1/exe`, no
+`2>/dev/null`, no discovery grep for "some 40-hex string" — both named traps avoided):
+
+| needle | 6j5xn | rvrdg | role |
+|---|---|---|---|
+| `verifier_scope_mismatch` | PRESENT | PRESENT | Half B |
+| `does not grade this item` | PRESENT | PRESENT | Half B's operator message |
+| `verification_unavailable` | PRESENT | PRESENT | **positive** control (live since RFC_017) |
+| `zzz_this_string_must_never_exist_213` | ABSENT | ABSENT | **negative** control |
+
+> **CORRECTION to my own entry above, and it corrects in the STRONGER direction.**
+> The 2026-08-11 entry says *"No negative control exists, and I am not claiming one …
+> the change is purely additive — it removes no string."* That reasoning was sound for
+> a *removed-string* control and wrong as a general claim: a control only has to be a
+> string that **must not be there**, and an invented one does that job perfectly. I had
+> talked myself out of a control that cost one line. The probe now demonstrably returns
+> ABSENT when it should, so PRESENT means something.
+
+**Net: the conclusion is unchanged and now rests on the sanctioned method with a
+two-sided control.** Both halves are in the running binary on both replicas. What I got
+wrong was the method and the confidence, not the answer — and I would not have caught
+either if the guidance file had not changed under me, which is its own argument for
+re-reading it rather than trusting a session-start snapshot.
