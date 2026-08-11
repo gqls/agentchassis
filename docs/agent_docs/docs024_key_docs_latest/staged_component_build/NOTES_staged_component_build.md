@@ -3406,3 +3406,75 @@ site", the call site is the evidence — a sibling call site in another binary i
 council caught the one link in the chain I had not quoted, which is the same failure shape
 CLAUDE.md's diagnosis section describes (a claim built from grep hits whose function was
 never opened).
+
+### FIRECRAWL: APPROVED round 2, and proven live on 1286 (2026-08-11 mid-afternoon)
+
+Council `6f13c5ce` → **approved** on the resubmission. And the change shipped: `f56abaadf`
+(11:04 BST) is in **v1.0.1286**, proven at the artefact — a pod spawned at 12:47Z carries
+`FIRECRAWL_API_KEY` as `valueFrom: secretKeyRef`. No unique string literal exists for this
+change either, so the **pod-spec shape is the proof**, exactly as for the storage keys.
+
+### COORDINATION 2026-08-11 mid-afternoon — the parallel session has ALREADY BUILT 243 c3, and holds url_field
+
+Checked before starting the sanctioned work, by scanning transcripts active in the last 30
+minutes (`grep -c url_field` / `db-option` over `*.jsonl` newer than a cutoff) — `who-owns.py`
+and `git log` are both lagging and would not have shown this:
+
+- **243 candidate 3 is DONE by session `a68bfbe6`, not by me**: `record_vision_finding_action.go`
+  (+ its test), migration `383_..._vision_findings_visible_HOLD.sql` APPLIED, commit
+  `3ed587049` — "mechanism fully live on 1286". So the vision channel now HAS a consumer.
+  **Do not rebuild it.** Read their NOTES entry `## 2026-08-11 (parallel session,
+  afternoon-2)` for what it does before extending it.
+- **`url_field` was theirs in flight and is now LIVE** — migration `384`, verified at the
+  live row. I did NOT start it: that is the "do not compete" rule, and the near-miss here is
+  the same one this lane logged twice already — I was about to implement work the owner had
+  just sanctioned *to me* while another session was minutes into it, because a decision made
+  in one chat says nothing about who is executing it.
+  > **CORRECTED within the hour, by reading their handoff §3c rather than my own snapshot:**
+  > my line above originally said "in flight ... had not landed yet", measured at 12:5xZ.
+  > By the time I committed it, migration 384 was applied and the live row carried the key.
+  > A coordination claim goes stale faster than the work it describes — which is the argument
+  > for reading the shared handoff at commit time, not just at session start.
+- **The contrast fix + palette check: also DONE by them** — migration `382`, 9 templates
+  moved to the guaranteed `--color-text` fill, 8 of 9 pages rerendered and proven at the
+  artefact (10.35:1–17.85:1); the 9th refused by `save_page_sections` on an `owned` page, by
+  design, and left refused with the reason recorded. Two findings rode it: the estate already
+  has a `--color-primary-text` token on all 8 sites, and mortgagecalculator's own value of it
+  is 2.95:1 — a palette-level defect routed to their lane.
+
+**The lesson, again, and it now has three instances**: the owner's decision reaches ONE
+chat; the lane is worked by SEVERAL. A sanctioned task is not a claimed task. Claim in the
+handoff before the first edit, and scan recent transcripts — not just `git log` — because
+the work that will collide with yours is by definition uncommitted.
+
+### The wrapper's `page_url` half — the one piece the parallel session left to its owner (2026-08-11)
+
+Their §3c deferred "the wrapper's optional `page_url` argument ... to the wrapper's owner",
+which is this session (I rewrote it this morning). Done, and it is not an optional argument:
+the wrapper now resolves the page **by component placement** rather than by name and always
+puts `page_url` in the spec. Rationale: "the page this tool is on" is what a placement means;
+the name lookup was only ever a proxy for it. Exact-name pages still win the tie, so nothing
+changes for the tools that already resolved.
+
+Consequences, foreground-tested before any run:
+- `tool-loan-repayment` (page **`index`** — the case NO rename could ever fix) now resolves:
+  the script prints *"page 'index' does NOT match the Tier-4 name lookup — using the
+  url_field route via spec.page_url"* and then refuses at the missing PLAN, honestly.
+- New refusal for the one case neither route can resolve: an empty `pages.url`.
+- The naming gate is no longer a wrapper-level blocker at all; what still blocks the eight
+  loancalculator tools is a **fence to author**, not a name.
+
+**A measurement trap I fell into and it is worth the entry**: `url_field` reads as ABSENT if
+you query `steps->'request_browser_run'` — that is the ACTION name; the STEP is called
+`request_run`. Both `? 'url_field'` and the whole `config` object came back NULL, which looks
+exactly like "migration 384 did not land". Enumerating `jsonb_object_keys(…->'steps')` showed
+the real names and the key is present with `input_data.spec.page_url`. **A step's name is not
+its action, and a path read through the wrong name is indistinguishable from an absent key**
+(the same shape as the memory-index lesson about jsonb path reads).
+
+**What the proof run does and does not establish.** Run fired through the new wrapper
+(item `a457a96a…`, tool-setup-builder). It proves the extra spec key does not break
+resolution or the run. It **cannot** prove the url route was the one TAKEN, because for this
+subject both routes resolve to the same URL — the discriminating test is a fence authored for
+one of the eight loancalculator tools, whose page name cannot resolve at all. Stated here
+rather than dressed up: this is a no-breakage check, not a route proof.

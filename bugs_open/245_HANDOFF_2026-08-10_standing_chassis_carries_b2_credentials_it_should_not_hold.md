@@ -278,3 +278,19 @@ source greps, kustomize building clean), every candidate and residual in this fi
 now done and live. The FIRECRAWL follow-up has its own trail (`f56abaadf`, corr
 `6f13c5ce` — APPROVED on its second round, verdict read 2026-08-11). File stays in
 `bugs_open/` per owner practice.
+
+## UPDATE 2026-08-11 (mid-afternoon) — the FIRECRAWL follow-up is APPROVED (round 2) and PROVEN LIVE on v1.0.1286
+
+- **Council: APPROVED on round 2**, same correlation `6f13c5ce-91ae-4b4a-8c80-37e8b35436ec`
+  (round 1 was REVISE — a gating *evidence* objection from editquality, answered by quoting
+  the chassis call site `spawn_actions.go:2467-2471` plus a live pod spec showing
+  ANTHROPIC/GROK/GEMINI already arriving as secretKeyRef in a chassis-spawned pod; the
+  objection was right — my round-1 evidence proved the allow-list reached the REMOTE
+  spawner and never the chassis one, the file I edited).
+- **Shipped and proven behaviourally**: commit `f56abaadf` (11:04:54 BST) rode
+  **v1.0.1286**, and a pod spawned under it at 12:47Z
+  (`agent-build-dispatch-loop-bdd23b8e-dxf2b`) carries `FIRECRAWL_API_KEY` as
+  **`valueFrom: secretKeyRef`**, not `value:`. This change also has no unique string
+  literal, so the pod-spec shape IS the proof — same method as the storage keys.
+
+With the residual proven on 1286 (previous update) and this, **nothing on 245 is owed.**

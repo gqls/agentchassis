@@ -24,10 +24,14 @@
 #     That is honest by design ("no fake pass") but it is not a failure either,
 #     so a mistyped key looks like a clean run that asserted nothing.
 #
-#  2. pages.name MUST equal <function> or 'tool-'||<function> (unless/until the
-#     url_field config route lands — see the batch-8 handoff 2026-08-11 §3.4).
-#     This script now CHECKS the page resolves before inserting, so the naming
-#     gate fails HERE, loudly, instead of as a hard-error inside the run.
+#  2. THE NAMING GATE NO LONGER APPLIES HERE (2026-08-11). `url_field` is live
+#     on the request_run step (migration 384) and is checked BEFORE the name
+#     lookup, so this script resolves the page BY COMPONENT PLACEMENT and puts
+#     its url in spec.page_url. A page whose name differs from the function —
+#     the eight loancalculator.co.uk tools, including the one on `index` — is
+#     now testable without renaming anything (owner decision 2026-08-11). It
+#     prints a note when it uses that route, and refuses if pages.url is empty
+#     (the one case neither route can resolve).
 #
 #  3. Every check TYPE in the fence must be one the RUNNING browser-runner
 #     binary implements. An unknown type is SKIPPED, not failed, and an
@@ -49,24 +53,41 @@ FUNCTION="${3:?function (must match doc_plans.subject_key AND pages.name)}"
 
 PSQL="kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -t -A -v ON_ERROR_STOP=1"
 
-# ── Preflight: the page must resolve, the PLAN must exist, no open item ──────
+# ── Preflight: find the page BY COMPONENT PLACEMENT, not by name ─────────────
+# The name lookup is no longer the only route: `url_field` is live on the
+# request_run step (migration 384) and is checked BEFORE the name lookup, so a
+# spec carrying `page_url` resolves whatever the page is called. We therefore
+# resolve by placement — which is what "the page this tool is on" actually
+# means — and always put page_url in the spec. The exact-name page wins the tie
+# so behaviour is unchanged for the tools that already resolved.
 PAGE=$($PSQL <<SQL
-SELECT p.id || '|' || p.name || '|' || cc.id
+SELECT p.id || '|' || p.name || '|' || cc.id || '|' || COALESCE(NULLIF(p.url,''),'')
   FROM pages p
   JOIN page_components pc ON pc.page_id = p.id
   JOIN content_components cc ON cc.id = pc.component_id
  WHERE p.site_id = '$SITE' AND p.status = 'active'
    AND cc.function = '$FUNCTION'
-   AND p.name IN ('$FUNCTION', 'tool-' || '$FUNCTION')
+ ORDER BY (p.name IN ('$FUNCTION', 'tool-' || '$FUNCTION')) DESC,
+          (p.deployed_at IS NOT NULL) DESC
  LIMIT 1;
 SQL
 )
 if [ -z "$PAGE" ]; then
-  echo "REFUSED: no active page named '$FUNCTION' or 'tool-$FUNCTION' carrying component"
-  echo "function '$FUNCTION' on site $SITE — this is the Tier-4 naming gate (header item 2)."
+  echo "REFUSED: no active page on site $SITE carries a component with function"
+  echo "'$FUNCTION'. Check the function spelling and that the placement is active."
   exit 1
 fi
-PAGE_ID="${PAGE%%|*}"; REST="${PAGE#*|}"; PAGE_NAME="${REST%%|*}"; COMPONENT_ID="${REST##*|}"
+IFS='|' read -r PAGE_ID PAGE_NAME COMPONENT_ID PAGE_URL <<<"$PAGE"
+if [ -z "$PAGE_URL" ]; then
+  echo "REFUSED: page '$PAGE_NAME' has an empty pages.url, so neither route can"
+  echo "resolve a target (the name route would also hard-error inside the run)."
+  exit 1
+fi
+case "$PAGE_NAME" in
+  "$FUNCTION"|"tool-$FUNCTION") ;;
+  *) echo "note: page '$PAGE_NAME' does NOT match the Tier-4 name lookup" \
+          "($FUNCTION / tool-$FUNCTION) — using the url_field route via spec.page_url." ;;
+esac
 
 PLAN_OK=$($PSQL -c "SELECT 1 FROM doc_plans WHERE subject_type='tool' AND subject_key='$FUNCTION' AND is_current;")
 if [ -z "$PLAN_OK" ]; then
@@ -93,7 +114,7 @@ VALUES
    'Tier-4 acceptance run: $FUNCTION (manual, via tool_acceptance_run.sh)',
    jsonb_build_object('check','tool_acceptance_due','function','$FUNCTION',
                       'page_id','$PAGE_ID','page_name','$PAGE_NAME',
-                      'component_id','$COMPONENT_ID'),
+                      'component_id','$COMPONENT_ID','page_url','$PAGE_URL'),
    90, 'tool-acceptance-agent', 'triaged',
    'tool_acceptance_run.sh ($(whoami 2>/dev/null || echo cli))',
    'acceptance_run:$FUNCTION:$SITE', now(), 'auto', 3)
