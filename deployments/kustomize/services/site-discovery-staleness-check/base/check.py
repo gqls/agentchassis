@@ -106,7 +106,21 @@ SELECT jsonb_build_object(
                       FROM (SELECT agent_type, count(*) AS n
                             FROM site_discovery_rotation
                             WHERE last_selected_at > now() - interval '24 hours'
-                            GROUP BY 1) g)
+                            GROUP BY 1) g),
+  'defaulted_brand_prompts', (
+      -- bugs_open/210 (needs_logo slug), owner decision 2026-08-11: brand images
+      -- whose prompt came from the brand-identity DEFAULT rather than a planned
+      -- one. Written by both producers as spec.prompt_source since v1.0.12xx
+      -- (2026-08-10). This line is the population's ONLY consumer — the owner
+      -- ruled a per-item review queue out (at ~2,000 domains it never drains),
+      -- so a count in a report he already reads is how the defaulted population
+      -- stays visible instead of decorative. Four council seats flagged the
+      -- field as write-only (corr 661557c5); this is the answer.
+      SELECT jsonb_build_object(
+        'total',   count(*),
+        'last_7d', count(*) FILTER (WHERE created_at > now() - interval '7 days'))
+      FROM site_work_items
+      WHERE spec->>'prompt_source' = 'default_from_brand_identity')
 )::text;
 """
 
@@ -169,6 +183,8 @@ def render_report(state, rotation, findings):
         f"rotation tasks enabled:           {len([t for t in state['tasks'] if t['enabled']])}/{len(DISCOVERY_AGENTS)}",
         f"stamps advanced last 24h:         {json.dumps(rotation['stamps_last_24h']) if rotation else 'n/a'}",
         f"discovery orchestrations last 24h: {json.dumps(state['orch_last_24h'])}",
+        f"brand images from the DEFAULT prompt: {json.dumps(rotation.get('defaulted_brand_prompts')) if rotation else 'n/a'}"
+        "  (nobody chose these — drill down: site_work_items WHERE spec->>'prompt_source'='default_from_brand_identity')",
         f"findings:                         {len(findings)}",
         "",
     ]
