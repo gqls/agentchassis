@@ -3,18 +3,28 @@
 **Filed 2026-08-09** from the `bugfix_136_config_key_aliases` lane, found by the no-op check
 before opting `create_work_item` into unknown-config-key detection (`bugs_open/136` §12).
 
-**Status: FIXED IN SUBSTANCE 2026-08-10 — stays in `bugs_open/` per the owner ruling of
-2026-08-06; two proofs pending.** Migration **364** (applied + recorded, guards
-mutation-proven) renamed `spec` → `spec_literal`/`spec_paths` on all three carriers with
-values copied in place; seeds 054/291/269 corrected same commit. The flag is RESTORED
-(owner decision below). Class closed both ways: **`ActionInputSpec.RemovedConfigKeys`**
-(SCR-007 — a retired key hard-fails validation with the replacement named; audit gains
-REMOVED KEYS IN USE, exit 1) and **`StrictConfig: true` on `create_work_item`** — commit
-`d278d7b25`, council corr `3eb0d1f1-6929-4131-bbef-c636256aa667`, rides **v1.0.1278**
-(built, strings-verified, pushed; inert until the fleet rolls). **PENDING:** (1) the
-filed-row proof — first `improvement_rerender_*` row created after the 2026-08-10
-migration must carry the flag (§How to verify; ~1.8 rows/day); (2) post-roll pod-grep +
-strict canary. Lane docs: `docs/agent_docs/docs024_key_docs_latest/bugfix_234_dead_spec_key/`.
+> ## ⚠ STATUS FIRST, BECAUSE READERS TRUNCATE — 2026-08-11
+>
+> **DONE. Fixed, LIVE, behaviourally proven, and council-APPROVED. Nothing is owed.**
+> Stays in `bugs_open/` per the owner ruling of 2026-08-06.
+>
+> - **The defect**: migration **364** renamed `spec` → `spec_literal`/`spec_paths` on all
+>   three carriers (values copied in place; guards mutation-proven); seeds 054/291/269
+>   corrected. The lost `refresh_site_components` flag is RESTORED (owner decision).
+> - **The class**: `ActionInputSpec.RemovedConfigKeys` (register **SCR-007**) + `StrictConfig`
+>   on `create_work_item`, with a daily `removed-config-keys-check` CronJob as the standing
+>   guard (**RFC_021**, owner-ruled). Two further adoptions retired three more dead keys on
+>   `update_page_status`.
+> - **Live on v1.0.1284**, both replicas. **v1.0.1285** (built+pushed, NOT deployed) carries
+>   the `commit_from` retirement and its correction.
+> - **Proven at the artefact, not inferred**: a witness was REFUSED live by the validator
+>   naming the key; a filed row carried the flag where 17 predecessors carried `{}`.
+> - **Council `3eb0d1f1…`: APPROVED at round 4** (13 approve, 2 advisory, none high) after
+>   REJECTED → owner ruling → 2× REVISE. Details below — the trail is worth reading, because
+>   two of those rounds found real defects, one of them a false claim of mine.
+>
+> Lane docs: `docs/agent_docs/docs024_key_docs_latest/bugfix_234_dead_spec_key/`
+> (SUMMARY_2026-08-11 is the read-out; NOTES holds the missteps).
 
 **COUNCIL: APPROVED, round 4, 2026-08-11** (corr `3eb0d1f1-6929-4131-bbef-c636256aa667`; 13 approve, 2 advisory, none high). Four rounds, and each one changed the change rather than the argument:
 1. **REJECTED** — guardian scope veto → escalated to the owner → **RFC_021 ruled** (adoption protocol = census + the daily automated check; enforcement KEPT).
