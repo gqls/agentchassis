@@ -126,3 +126,34 @@ binary; never assume it.
 ⚠ **Prefer BEHAVIOUR where you can get it.** Provenance proves the code is *present*; a
 witness firing proves it is *running*. For this lane the strict canary and the spec witness
 did in one dispatch each what no amount of binary probing can establish.
+
+## The full key inventory (the guardian's round-4 ask — run this before ANY StrictConfig flip)
+
+"0 unrecognised keys" is a *count*; the guardian asked for the *inventory*, which is the
+stronger artefact: it shows every key every live caller actually sets, and which declaration
+recognises each one. Run it before flipping strict on any action — a count can be right while
+you have no idea what the callers are doing.
+
+```sql
+WITH s AS (SELECT ad.type, jsonb_path_query(ad.default_config,
+             'strict $.**?(@."action" == "<ACTION>")') AS step
+  FROM agent_definitions ad
+  WHERE ad.is_active AND COALESCE(ad.is_snapshot,false)=false AND ad.deleted_at IS NULL),
+k AS (SELECT key, count(*) AS steps_using, count(DISTINCT type) AS agents
+      FROM s, LATERAL jsonb_object_keys(step->'config') key GROUP BY 1)
+SELECT key, steps_using, agents FROM k ORDER BY 1;
+```
+Then classify each key against the action's `ActionInputSpec` by hand — Required/Optional ·
+ConfigKeys · DeprecatedConfigKeys · framework (`IsFrameworkStepConfigKey`) · anything else is
+what strict would hard-fail on.
+
+**`create_work_item`, measured 2026-08-11T11:31Z — 17 distinct keys, 17 steps, 14 agents,
+nothing unrecognised.** The widest callers set the same 8-9 keys (`item_type`,
+`handler_agent`, `severity`, `summary` on all 17; `site_id`, `priority`, `item_pipeline`,
+`item_key_prefix` on 16). The long tail is small and all declared: `spec_data` 7,
+`spec_literal` 3, `status` 3, `spec_paths`/`page_id`/`component_id`/`item_key_suffix_field`/
+`recurrence_expected` 2 each. `item_domain` (the deprecated alias) now has **zero** carriers.
+
+⚠ This is a POINT-IN-TIME snapshot of a shared, live table. It is evidence that the flip was
+safe *when made*, not a standing guarantee — which is exactly why the ongoing guard is the
+daily `removed-config-keys-check`, not this query.
