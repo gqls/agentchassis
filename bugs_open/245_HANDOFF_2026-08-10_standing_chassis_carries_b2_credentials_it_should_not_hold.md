@@ -267,3 +267,14 @@ remote-job-spawner packages). Council: `Council-Submitted:
 Inert until the next image roll; after it, a spawned pod's spec should show
 `FIRECRAWL_API_KEY` as `secretKeyRef → personae-default-secrets` — same capture method as
 the storage proof above.
+
+## UPDATE 2026-08-11 (afternoon) — RESIDUAL PROVEN on v1.0.1286: the standing chassis carries ZERO storage credentials. Nothing further is owed on this bug.
+
+The overlay removal (c2c9e6a18) reached the standing deployment with the 12:02Z
+v1.0.1286 release. Measured on BOTH replicas (`agent-chassis-867b7cff84-{l2bwt,twzdn}`):
+`env | grep -c '^B2_|^AWS_ACCESS|^AWS_SECRET'` → **0**. With the earlier proofs (spawned
+pod secretKeyRef capture, the authenticated B2 read inside the acceptance run, both
+source greps, kustomize building clean), every candidate and residual in this file is
+now done and live. The FIRECRAWL follow-up has its own trail (`f56abaadf`, corr
+`6f13c5ce` — APPROVED on its second round, verdict read 2026-08-11). File stays in
+`bugs_open/` per owner practice.
