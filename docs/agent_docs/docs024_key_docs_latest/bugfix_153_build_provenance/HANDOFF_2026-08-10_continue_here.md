@@ -1,4 +1,15 @@
-# HANDOFF — `bugfix_153_build_provenance`, 2026-08-10 night · **start here**
+# HANDOFF — `bugfix_153_build_provenance`, 2026-08-10 night · ~~start here~~
+
+> # ⛔ SUPERSEDED 2026-08-11 — read `HANDOFF_2026-08-11_continue_here.md` instead
+>
+> Kept for the record, not for direction. **Three things below are now wrong:**
+> - **§4.1 / §8.1 — the induced-fault test is NOT owed.** Closed by owner decision on
+>   2026-08-11 in favour of the local regression guard, which was run and passed (RUNBOOK R9a).
+>   RUNBOOK R6 carries the reasoning. Do not re-file it.
+> - **§8.2 — "use the stamp" is DONE**, and the first thing it found was `bugs_open/249`:
+>   one release tag carrying three source revisions. Fixed by BLD-020's pin. The stamp answers
+>   **per service, not per fleet**, until that pin has a busy release under it.
+> - **§8.3 — CLAUDE.md's marker-hunting section is REWRITTEN** (2026-08-11, `21b9772a9`).
 
 ## 1. Headline
 
