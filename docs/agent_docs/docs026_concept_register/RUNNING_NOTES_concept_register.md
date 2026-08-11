@@ -1908,3 +1908,16 @@ binding constraint and enforcement reopens on real evidence.
 Filed: `FINDINGS_2026-08-11_advisory_delivery.md`, `RUNBOOK` §B11, register OPP-007
 (+ the dated answer written back onto OPP-006's verify-later), and a fleet-wide
 `LANDMINES.md` entry synced to `doc_notes` (6 footprint rows, verified in the DB).
+
+**The live control on the fix itself, 2026-08-11.** OPP-007 shipped in `05d8b379e`.
+That commit was made deliberately *without* a pipe, and the scope block printed —
+10 files across 3 areas, all mine, and pattern-check silent because the OPP-007 row
+was already at HEAD. **This second commit is the real test: it is piped through
+`| tail -3`, so the pre-commit blocks cannot survive in its output, and the only way
+the advisory can reach me is the new hook.** Recorded here before running it, so the
+prediction is on the record either way. ⚠ If nothing arrives, the likeliest cause is
+not the hook but the harness: `.claude/settings.json` was edited mid-session and a
+running session may hold the hook set it started with — in which case the live proof
+falls to the next session and this claim stays [UNVERIFIED] until then. Rerunning
+`scripts/advisory-delivery-sweep.py --since 2026-08-12` is the fleet-level version of
+the same question.
