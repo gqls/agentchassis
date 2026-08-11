@@ -27699,3 +27699,157 @@ baseline BEFORE calling the post-change number anomalous.
 - **cost:** none realised — caught before the census was read, and the corrected
   figure matched the live result exactly. The handoff's bar is now superseded in
   `NOTES` and `RUNBOOK`.
+
+## 2026-08-11 — the handoff's preferred fix candidate was refuted by the bug file's own mechanism section (209/235 lane, migration 380)
+
+- **the claim:** `HANDOFF_2026-08-10b` fix option 1, stated first in preference
+  order: asset-deployer's `deploy_asset` step gains
+  `"purpose_field": "input_data.spec.purpose"` — "the spec's Deprecated bridge
+  maps it to `purpose`".
+- **what made it false:** the bridge is Strategy 3 in `ExtractActionInputs`,
+  which skips any field already populated — and `purpose` carries a spec
+  Default, applied first, so it is ALWAYS populated. The bridge is structurally
+  dead for exactly the field the fix targeted. `bugs_open/231`'s own mechanism
+  section states this in terms ("the deprecated `*_field` bridge for it is
+  equally inert"), and the lane's own committed test
+  `TestPurposeFieldBridge_DeadForDefaultedField` pins it.
+- **what caught it:** reading the deciding arm (the Strategy 3 skip) before
+  implementing, prompted by the LANDMINES entry "a bug file's FIX CANDIDATE can
+  be refuted by that same file's own MEASUREMENT NOTES" surfacing at session
+  start. The fix that shipped instead (migration 380, dispatch-mapping line)
+  worked first try and was proven at the served artefact within the hour.
+- **the cheap check that would have:** before writing a fix candidate into a
+  handoff, grep the bug file (and its tests) for the mechanism the candidate
+  relies on. Here the refutation was literally a test NAME —
+  `grep -rn "PurposeFieldBridge" platform/` returns
+  `TestPurposeFieldBridge_DeadForDefaultedField` in one line. A candidate that
+  names a bridge should cite the test that proves the bridge live, and there
+  was instead a test proving it dead.
+- **cost:** none realised — caught pre-implementation. Had it shipped, the
+  config would have applied cleanly, changed nothing, and the next deploy
+  would have "confirmed" the bug unfixed — a dead-config decoy of the exact
+  class 231 catalogues.
+
+## 2026-08-11 — an "exactly empty" partition proof that could never have been non-empty (LMC Track A)
+
+- **the claim:** re-verifying `HANDOFF_2026-08-10d`'s safety property before
+  decomposing 17 live pages — that no calculator can be in the Track A set — my
+  check printed all three "must be empty" lists as `[]`, matching the handoff's
+  recorded pass exactly. I was one line away from recording a confirmed partition.
+- **why it was false:** `decompose_lmc.py`'s `CALCULATOR_URLS` holds **stems**
+  (`loans/compare-loans`); `pages.url` holds **`/loans/compare-loans.html`**. The
+  two sets share no member in any world. Every set difference was trivially empty
+  and every intersection trivially `[]` — including the one whose emptiness was
+  supposed to prove that no calculator is unprotected. The check agreed with the
+  right answer while being structurally incapable of disagreeing.
+- **what it would have cost:** the partition is the *only* thing standing between
+  this work and decomposing a live consumer-finance calculator into prose. It is
+  the same property migration 367 got wrong seven weeks' worth of risk ago, and
+  367's negative control failed the same way — by sharing its filter's blindness.
+  I would have written "re-measured, exact" into NOTES on top of nothing.
+- **what caught it:** printing a third list I did not strictly need —
+  `owned pages that are NOT calculators` — whose **expected** value was `[]` and
+  which came back with **23 entries**. An expected-empty that came out full is the
+  only reason the other two empties were ever questioned.
+- **the cheap check that would have:** before believing any empty result, **assert
+  that the two sides can match at all** — one `len(calc & all_page_stems)` would
+  have printed 0 and ended it. Then induce: drop one known member from the input
+  and confirm the expected-empty list becomes non-empty (it did: exactly the page
+  I removed).
+- **the transferable bit:** this estate's standing rule is "a marker is not the
+  check — name what the disconfirming result would look like". This is the
+  *joinable* version of that failure: not an unmeasured claim, but a measured one
+  across **two identifier spellings of the same thing**. Whenever a check compares
+  a hand-authored list against a database column, the **key normalisation is the
+  load-bearing part**, and a passing result tells you nothing until you have seen
+  the comparison produce a failure. Same family as the `jsonb::text LIKE
+  '%"k":"v"%'` trap (renders a space after the colon, matches nothing, reads as a
+  clean zero): **induce a non-zero before you trust a zero.**
+- **cost:** none realised — caught within the same command, before any page was
+  written. The corrected check is in `NOTES_loanandmortgagecalculator_couk.md`
+  under 2026-08-11, with its induction.
+
+## 2026-08-11 — "the model kept the copy and dropped the plumbing": a plausible story about an LLM that the model could not have performed (bugfix 238)
+
+- **the claim, as it stood in `bugs_open/238` from 2026-08-09 to 2026-08-11:**
+  "The generator is not told that certain keys are structural rather than
+  editorial, so it reproduces the ones that look like copy (`*_image_alt`) and
+  drops the ones that look like plumbing (`*_image_url`)." Filed by a careful
+  session, with the live queries, the artefact check, and three ranked fixes.
+- **it is false.** The LLM never received those keys and is explicitly forbidden
+  from emitting them: `plan_sections` puts only `source:"llm"` fields into
+  `llm_field_specs`, and the writer prompt ends "Return a JSON object with
+  exactly the keys listed … Do not add any keys not in that list." The 11 lost
+  keys are precisely the component's non-`llm` fields. The loss happened in the
+  resolver (sources that resolve to nothing), the `on_missing` default
+  (`skip_field`, applied even to `required:true`), and a wholesale-replacing save.
+- **what caught it:** reading the component's `input_schema` `source` values
+  before designing anything — one query. The fix that would have been built on
+  the filed cause ("preserve structural keys through the LLM round-trip") is
+  machinery for a journey those keys never make; it would have been written,
+  tested, reviewed and shipped without touching the defect.
+- **the cheap check that would have:** **diff the lost set against the schema
+  before theorising about the actor.** The lost set was a clean partition —
+  every key ending `_url`, nothing else, zero `_alt` fields. A model dropping
+  what it finds boring does not produce a clean partition of a schema by a
+  property nobody showed it. **The exactness was the evidence, and it was
+  visible in the bug file's own key list.**
+- **the transferable bit:** an LLM makes a *comfortable* culprit — it is
+  non-deterministic, it is upstream of everything, and "the model dropped it" is
+  unfalsifiable enough to feel safe to write. Both this and the parallel
+  `bugs_open/198` framing ("the LLM returned a fragment") name the model where
+  the contract is the defect. **Before attributing a loss to a model, establish
+  the value was ever in the model's hands** — for a content field that is one
+  lookup of `input_schema.<field>.source`, and it is decisive in both directions.
+- **cost:** none realised — caught during design, before code. Would have cost a
+  full build-review-ship cycle plus a still-open bug.
+
+## 2026-08-11 — two clean test runs, and the third failed: production code iterating a MAP makes any ordered mock a coin flip (bugfix 238)
+
+- **the claim:** "the new tests pass" — asserted after a targeted run and a
+  re-run, both green, on `plan_sections_structural_carry_test.go`.
+- **it was a coin flip.** The full-suite run failed. Not flaky infrastructure:
+  `planSection` iterates the schema's `fields` **map**, so the order in which
+  sources resolve — and therefore the order queries reach sqlmock — is randomised
+  per run by Go. Ordered expectations passed only when the map happened to
+  iterate favourably.
+- **what caught it:** running the whole suite rather than the `-run` subset.
+- **the cheap check that would have:** `-count=5` on the new test, which costs
+  nothing and would have failed immediately. **Better: read the production code
+  for a `range` over a map before writing ordered expectations against it** —
+  the randomisation is a language guarantee, not a hazard.
+- **the transferable bit:** `MEMORY.md` already carries *"2 clean runs cannot
+  establish STABILITY — name the failure rate your sample could DETECT"*, and I
+  had two. The specific trigger worth adding is that **the failure rate here was
+  not small** — with a handful of fields it is nearer a coin flip than a rare
+  race, so two greens were genuinely weak evidence rather than nearly-sufficient
+  evidence. Fixed with `MatchExpectationsInOrder(false)` and a comment naming the
+  map, so the next person does not "tidy" it back to ordered.
+- **cost:** none realised — caught before commit.
+
+## 2026-08-11 — `\d <table>` piped through `head`, then SQL written against the half I saw (bugfix 238)
+
+- **the claim:** implicit, and the most common kind — "I read the schema, so this
+  INSERT matches the table". CLAUDE.md's rule is *"Schema first: `\d <table>`
+  before writing SQL"*, and I did run it.
+- **it was truncated.** `\d page_component_history | head -25` showed the column
+  list and cut off before the CHECK constraints, which print last. My `op =
+  'UPDATE'` failed `pch_op_check` (`'overwrite' | 'delete' | NULL`). The retry
+  then failed a *second* constraint: `component_id` is a FK to
+  `page_components(id)` — the ROW — not to `content_components(id)`, despite
+  `page_components.component_id` meaning exactly the latter.
+- **what caught it:** the transaction, twice. Nothing was written either time.
+- **the cheap check that would have:** don't paginate a schema read. If output
+  length is a concern, ask for the part you are about to depend on directly:
+  `SELECT conname, pg_get_constraintdef(oid) FROM pg_constraint WHERE
+  conrelid='<table>'::regclass;` — constraints are what an INSERT is judged
+  against, and they are exactly what `head` drops.
+- **the transferable bit:** **`head` on a schema read removes the half that
+  refuses your write.** The rule "read the schema first" is satisfied by a
+  truncated read, which is why following it faithfully still produced two failed
+  statements. Both traps are now a LANDMINES entry (the FK naming one is the
+  worse of the pair, because `ON DELETE SET NULL` plus a delete-after-archive
+  writer means **every historic row reads NULL**, so the column looks unused and
+  invites exactly the wrong value).
+- **cost:** two round trips, no damage. The `BEGIN` + `DO/RAISE` shape is what
+  made it free rather than half-applied.
