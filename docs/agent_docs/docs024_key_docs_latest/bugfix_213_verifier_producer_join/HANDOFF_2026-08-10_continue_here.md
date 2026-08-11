@@ -6,7 +6,28 @@ design and why the rejected candidates were rejected.
 
 ---
 
-## STEP 0 — the one thing to do first
+## STEP 0 — DONE. Verdict read; here is what it said
+
+**APPROVED, round 1** — 14 seats, 0 unreadable, 3 abstained, `gated_by_truncation:
+false`, 4 advisory objections, none high-severity. Recorded with
+`Council-Reviewed: c9c7c83f-…` on `5d482297e`, which also **acts on** the two
+objections that were real: the guardian's "the shared branch is untested" (now
+`TestOnlyTheOptedInVerifierCarriesAScopeTest`, mutation-proven) and the
+prior_art_librarian's literal-item_type consumer sweep (clean three ways — Go,
+`reviewRevalidators`, and the claim-timeout exclusion list). Full account in NOTES.
+
+**The one follow-on worth carrying forward**, from the `architecture` seat, which
+signalled `insufficient` on the class while agreeing no RFC is needed: `Grades` is
+opt-in, so the NEXT converging producer on any of the other 10 verified item_types
+reproduces this bug unless a human remembers to write one. It asks for a periodic
+check flagging a verified item_type that accumulates rows with more than one
+spec-shape/`audit_source` and no `Grades`. **Not built.** That is the closure of the
+defect *class*, as opposed to this instance.
+
+⚠ **Do not read a verdict with the CLAUDE.md `LIMIT 1` query** — it is
+correlation-blind and returned another lane's REVISE. See the RUNBOOK.
+
+<details><summary>original STEP 0 instructions, kept for the resubmit path</summary>
 
 **Read the council verdict.** Submitted 2026-08-10, correlation
 `c9c7c83f-d706-48b0-b433-55de51d88f9f`. At the time of writing it was still running
@@ -34,6 +55,8 @@ SELECT body FROM doc_notes WHERE categories ? 'council-gate' ORDER BY created_at
   follow-up commit, not a hold. Resubmit with `RESUBMIT_CORR=c9c7c83f-d706-48b0-b433-55de51d88f9f`
   so the trail accumulates.
 
+</details>
+
 ## What is done
 
 | | state |
@@ -45,7 +68,7 @@ SELECT body FROM doc_notes WHERE categories ? 'council-gate' ORDER BY created_at
 | WII-013 register entry + index row | **committed** `3c72619fc`, `3895be34e` |
 | Two LANDMINES entries + `landmines-sync.py --apply` | **committed** `3c72619fc`, synced |
 | Standing five (PLAN/NOTES/RUNBOOK/README) | **committed** |
-| Council | **submitted**, verdict unread |
+| Council | **APPROVED r1**, verdict read, all 4 advisory objections actioned or answered (`5d482297e`) |
 
 **Build state, verified:** `go build ./...` clean and
 `go test ./platform/orchestration/actions/...` green against a clean
@@ -99,8 +122,9 @@ UPDATE site_work_items
    AND spec->>'audit_source' IS NOT NULL
    AND status NOT IN ('complete','failed','rejected','wont_fix');
 ```
-**0 rows qualify today** — check before writing it; if it is still 0 after the roll, say
-so and skip it rather than shipping an empty migration. Pre-roll it would be pointless
+**0 rows qualify today — re-measured after the verdict, still 0.** The guardian seat
+raised exactly this as a state-transition side effect; the population is empty, so
+**do not ship an empty migration**. Re-check after the roll and skip if still 0. Pre-roll it would be pointless
 (an audit could immediately re-file old-type rows); post-roll it is idempotent and final.
 A pre-roll-filed row that reaches completion post-roll is caught by Half B anyway —
 blocked loudly, not silently closed. Next free number was 374; **re-check, it moves.**

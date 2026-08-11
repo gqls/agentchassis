@@ -3,8 +3,11 @@
 > ## STATUS 2026-08-10 — OWNED, FIX COMMITTED, NOT YET LIVE
 >
 > Lane: `docs024_key_docs_latest/bugfix_213_verifier_producer_join/`. Fix committed
-> `2d151c41f`; council **submitted, verdict not read**, corr
-> `c9c7c83f-d706-48b0-b433-55de51d88f9f`. **Go is inert until the next chassis roll —
+> `2d151c41f`; **council APPROVED round 1** (corr
+> `c9c7c83f-d706-48b0-b433-55de51d88f9f` — 14 seats, 0 unreadable, 4 advisory
+> objections, none high-severity; verdict READ and all four answered in `5d482297e`,
+> incl. the guardian's shared-branch test and the literal-item_type consumer sweep,
+> which came back clean three ways). **Go is inert until the next chassis roll —
 > it is NOT in `v1.0.1283`**, so the defect below is still reproducible today and this
 > file stays OPEN.
 >
@@ -23,7 +26,9 @@
 > predicate re-runs?"* needs no enumeration, cannot go stale against live config, and
 > grades a well-shaped item from a producer that does not exist yet.
 >
-> **Still owed:** read the verdict; migration `374` after the roll; and the
+> **Still owed:** the roll + pod-grep; migration `374` **only if it is not a no-op** —
+> zero producer-B rows are open under the old type today, so do not ship an empty
+> migration; and the
 > remediation this file is right to insist on — grade each of the 11 against its own
 > `acceptance_test`, not as a block. Full record + the mutation matrix (the test
 > asserts "at least one half holds", not both — stated because it matters) in the

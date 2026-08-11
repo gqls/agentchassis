@@ -177,3 +177,84 @@ file is `add`.
 - Pod-grep after the next roll. Discriminating marker: `verifier_scope_mismatch`
   (expect 0 before, 1 after). Positive control: `verification_unavailable`, live
   since RFC_017, must read 1 in the same exec.
+
+---
+
+## 2026-08-10 (late) — council APPROVED round 1, and the four advisory objections answered by measurement
+
+**Verdict: APPROVED, round 1**, corr `c9c7c83f-d706-48b0-b433-55de51d88f9f`.
+14 seats fired, **0 unreadable**, 3 abstained, `gated_by_truncation: false`,
+"approved with 4 advisory objection(s) — none high-severity". Committed
+`5d482297e` with `Council-Reviewed:`.
+
+> **TRAP, and I nearly recorded another lane's verdict as my own.** CLAUDE.md's
+> documented query — `SELECT body FROM doc_notes WHERE categories ? 'council-gate'
+> ORDER BY created_at DESC LIMIT 1` — is **correlation-blind**. It returned a REVISE
+> for `cb547e0a`, a different session's `save_page_sections` decision-gate round that
+> landed between my submission and my read. On a tree this busy, `LIMIT 1` on a
+> shared table is a coin toss. Key the read on your own correlation:
+> `... FROM doc_notes WHERE body LIKE '%<corr-prefix>%'`, or read
+> `diagnosis_artifacts WHERE correlation_id=<yours> AND kind='council_report'`.
+> Added to the RUNBOOK.
+
+Also worth knowing: the report `metadata` shape differs between rounds — mine had
+`reviewers` (an integer count) and `unreadable`, the other lane's had `reviews` (the
+array). The objections live in `diagnosis_artifacts.body`, not in `metadata`, and not
+in the `doc_notes` note, which stops after the plan summary.
+
+### The four, and what I did about each
+
+**1. `guardian`, medium — the shared branch was untested. Right, and now closed.**
+The scope gate sits in `verifyBeforeComplete`, the single choke point every
+completion passes across every pipeline; both of my tests targeted only the fixed
+route, so "nil `Grades` leaves the other ten byte-identical" was asserted by reading
+the diff. Added `TestOnlyTheOptedInVerifierCarriesAScopeTest`: exactly one item_type
+is licensed to carry a scope test. **Mutation-proven** — giving `empty_section` a
+`Grades` turns it red naming that type; restored clean afterwards. Stated honestly in
+the test's own comment that it proves the branch is *not taken* for the other ten, not
+that the nil branch cannot panic (it is a plain nil check on a func field with no
+`target.Spec` access before it, so there is no assertion to slip).
+
+**2. `prior_art_librarian`, medium — other consumers keyed on the literal item_type.
+This was a check I genuinely had not run, and the seat was right to demand it.**
+It came back clean, three ways:
+- **Go**: no consumer keys on `"hardcoded_section_colors"` as an *item_type* outside
+  the check and its own tests. The three other hits are a CHECK-name list
+  (`discovery_checks_registration_test.go:60`) and two doc comments.
+- **`reviewRevalidators`** (`revalidate_review_queue_action.go:169`): 6 entries —
+  `unresolved_cta`, `required_fields_missing`, `needs_section_data`, `needs_page`,
+  `voice_tells`, `claims_unverified`. Neither of my types is among them.
+- **Claim-timeout exclusion** (`sql_for_agents/220:170`): holds
+  `hardcoded_section_colors` (correct — it has a verifier) and **not**
+  `dark_section_audit` (correct — it has none). Unchanged, as planned, and
+  `TestRegisteredVerifiersMatchClaimTimeoutExclusion` enforces both directions.
+- No `"dark_section"` literal exists outside `write_audit_findings_action.go`.
+
+**3. `guardian`, medium — in-flight rows at deploy time.** Real concern: once Half B
+ships, an open producer-B row under the OLD type lacks `spec.check`, so it would be
+disclaimed and blocked. **Measured: ZERO producer-B rows are open under the old
+type** (`status NOT IN ('complete','failed','rejected','wont_fix')` returns nothing).
+So **migration 374 would be an empty migration and must not be shipped as one** —
+re-check after the roll and skip it if still 0. The handoff says so.
+
+**4. `architecture`, medium, explicitly non-blocking** — and it is the sharpest thing
+in the round, so it is worth quoting rather than paraphrasing: *"`VerifierPolicy.Grades`
+is opt-in — the NEXT converging producer on any of the other 10 verified item_types
+reproduces this exact bug unless a human remembers to write a Grades function, which
+is precisely the discipline that already failed once here."* Its verdict on scope was
+`ARCHITECTURE_SIGNAL: insufficient` while agreeing no fresh RFC is needed, because
+this is "a correct application of a governance decision already made". The follow-on
+it asks for — a periodic check flagging a verified item_type accumulating rows with
+more than one spec-shape/`audit_source` and no `Grades` — is recorded in the handoff
+as the real closure of the *class*. I have not built it.
+
+Two seats (`editquality`, `prior_art_librarian`) asked whether
+`RegisterVerifierWithPolicy` and `VerifierPolicy` pre-exist, since edits 1 and 3
+build on them rather than create them. They do (`verifiers.go`, shipped with
+WII-011/RFC_017) — which is why the edits connect. A submission-legibility miss on my
+part rather than a design fault: I cited the struct's doc comment as precedent but
+never stated plainly that the struct already existed.
+
+`guidelines` flagged that WII-013 was asserted in the rationale but not listed as an
+edit. Fair — it shipped in `3c72619fc`, a separate commit from the code, which the
+submission did not say.
