@@ -470,3 +470,26 @@ curl -s -H "Authorization: Bearer $TOKEN" "https://api.cloudflare.com/client/v4/
      | python3 -c "import sys,json;print(len(json.load(sys.stdin).get('result') or []))"); \
    [ "$n" = "0" ] && echo "NO ROUTES: $zname"; done
 ```
+
+## 2026-08-11 — CONTRIBUTION from the ai_site_selling_automation lane: owner supplied the TAG name + the live EPP allowlist contents
+
+Not this lane's session — recording here because this is the lane that owns
+EPP. Three facts from the owner today, verbatim where it matters:
+
+- **The Nominet TAG is `DESIGNCONSULT`** ("for now"). Pair it with the EPP
+  password already held → `~/.config/nominet/credentials` can now be
+  completed (`TAG=DESIGNCONSULT` + the password line). RUNBOOK row can move
+  off PENDING once written and tested.
+- **The live EPP allowlist currently holds exactly four IPs, and the owner
+  notes not all are ours**: 5.65.164.9 · 116.203.204.115 · 151.226.83.138 ·
+  176.58.121.95. **None of the five fixed cluster IPs
+  (134.213.168.26/.37/.44/.54/.56) are present** — so EPP from the cluster
+  is still blocked; the 2026-08-04 ask stands. 151.226.83.138 is the
+  rotating office IP added on the original ask (already went stale once) —
+  worth suggesting its removal when the cluster IPs go in.
+- **The owner intends to apply for a SECOND tag** for the webdesign.uk
+  selling venture (customer domains separated from the own-portfolio tag);
+  application draft prepared in the ai_site_selling lane. Note Nominet
+  allows only ONE Self-Managed tag per registrar — if DESIGNCONSULT is
+  Self-Managed, the new tag must be a Channel Partner type, which fits the
+  customer-domains use anyway.

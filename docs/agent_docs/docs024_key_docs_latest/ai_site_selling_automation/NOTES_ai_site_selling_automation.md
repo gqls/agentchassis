@@ -174,3 +174,19 @@ session, untouched by this lane.
   direction + hosting setup page + affiliate block folded in.
 - SUMMARY_2026-08-11 written at owner request — the decision series with
   options and choices, readable aloud.
+
+## 2026-08-11 (evening) — queue ruled non-binding; Nominet TAG named; allowlist gap found
+
+- **Queue semantics ruled (closes handoff §3 Q4):** the wait note is an
+  APPROXIMATION, nothing binding; the owner may pause the queue on
+  malfunction or scale trouble. Copy for the queue note must promise nothing.
+- **Nominet TAG = `DESIGNCONSULT`** (for now); owner applying for a second
+  tag for this venture. Application body drafted this session (chat);
+  grounded in Nominet's registrar docs: additional tag via Online Services →
+  Apply for services → Apply for an additional domain tag; three tag types;
+  only ONE Self-Managed tag per registrar, so the second tag is Channel
+  Partner-shaped (customer domains) regardless.
+- **Live EPP allowlist (owner-supplied): 5.65.164.9, 116.203.204.115,
+  151.226.83.138, 176.58.121.95 — the five cluster IPs are NOT among them**;
+  cluster EPP still blocked. Contributed to the domains lane NOTES (their
+  EPP ownership) with the credentials-file completion note.

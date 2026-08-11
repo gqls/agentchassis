@@ -103,9 +103,10 @@ rulings create, roughly in order.
    verified) for possible later revival. Copy direction for the rewrite:
    **no-frills, Ryanair-honest** — you get what you pay for, and we say so,
    including that the sites are AI-built.
-4. **STILL OPEN — queue semantics**: per-product or per-fleet count? What
-   does "roughly how long" promise — a count, a date, or nothing binding?
-   Small; ask when building work item 2.
+4. ~~Queue semantics~~ **ANSWERED (owner, 2026-08-11 evening): the wait note
+   is an approximation, NOTHING binding** — the queue may pause on software
+   malfunction or scale trouble. Queue copy must promise nothing; a pause
+   state is a first-class state, not an error.
 
 New direction attached to the rulings: **hosting goes to affiliates /
 third-parties** — recommend a UK-based S3-compatible store + Cloudflare (or a
@@ -116,10 +117,16 @@ domains** — the portfolio is the sales proof.
 
 ## 4. Owner asks outstanding (external, cheap to nag)
 
-- **Nominet**: the TAG name (username matching the password already
-  provided) + add the five fixed cluster IPs to the EPP allowlist:
-  134.213.168.26, .37, .44, .54, .56 (office IP rotates — already went
-  stale once). Registrar keys (dynadot/porkbun/spaceship): later, per owner.
+- **Nominet**: ~~TAG name~~ **provided 2026-08-11: `DESIGNCONSULT`** —
+  credentials file can be completed (domains lane NOTES has the
+  contribution). **STILL OWED: the five cluster IPs on the EPP allowlist**
+  (134.213.168.26/.37/.44/.54/.56) — the owner-supplied live list
+  (5.65.164.9, 116.203.204.115, 151.226.83.138, 176.58.121.95) contains
+  none of them, so cluster EPP is still blocked; suggest dropping the
+  rotating office IP 151.226.83.138 when adding. Owner is applying for a
+  SECOND tag for this venture (Channel Partner-shaped — only one
+  Self-Managed tag is allowed per registrar); draft application body was
+  provided in-session 2026-08-11. Registrar keys: later, per owner.
 - Phase 6 cutover review (sibling lane) — still the gate for P4 here.
 
 ## 5. Landmines for this work (beyond 08-10b §1, which all still hold)
