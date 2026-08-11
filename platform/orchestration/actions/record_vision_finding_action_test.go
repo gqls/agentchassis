@@ -160,15 +160,15 @@ func TestVisionInsertFailureLeavesDurableTrace(t *testing.T) {
 	mock.ExpectExec(`INSERT INTO agent_error_log`).
 		WithArgs(
 			"5fe8785b-223d-41a3-88ee-c07187622381", // site_id
-			sqlmock.AnyArg(),                        // domain
-			sqlmock.AnyArg(),                        // work_item_id
-			"orch-vision-1",                         // orchestration_id (JOIN half, inherited)
-			sqlmock.AnyArg(),                        // agent_type (provenance half, inherited)
-			sqlmock.AnyArg(),                        // agent_id
-			sqlmock.AnyArg(),                        // pod_name
-			sqlmock.AnyArg(),                        // step_name (provenance half, inherited)
-			sqlmock.AnyArg(),                        // action
-			sqlmock.AnyArg(),                        // error_message
+			sqlmock.AnyArg(),                       // domain
+			sqlmock.AnyArg(),                       // work_item_id
+			"orch-vision-1",                        // orchestration_id (JOIN half, inherited)
+			sqlmock.AnyArg(),                       // agent_type (provenance half, inherited)
+			sqlmock.AnyArg(),                       // agent_id
+			sqlmock.AnyArg(),                       // pod_name
+			sqlmock.AnyArg(),                       // step_name (provenance half, inherited)
+			sqlmock.AnyArg(),                       // action
+			sqlmock.AnyArg(),                       // error_message
 			"VISION_FINDING_INSERT_FAILED",
 			"error",
 			sqlmock.AnyArg(), // context jsonb
