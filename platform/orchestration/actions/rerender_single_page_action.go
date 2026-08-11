@@ -966,7 +966,7 @@ func injectPageJSONLD(head string, page *PageInfo, logger *zap.Logger) string {
 	}
 
 	origin := "https://" + page.Domain
-	pageURL := origin + page.URL
+	pageURL := preferredPageURL(page.Domain, page.URL)
 
 	doc := map[string]interface{}{
 		"@context": "https://schema.org",
@@ -1034,6 +1034,26 @@ func spliceMetaDescription(head, metaDesc string) string {
 // as that function: idempotent, and a NAMED no-op when there is nothing
 // truthful to emit, because a wrong canonical is worse than none — engines act
 // on it by pointing authority away from the page it should name.
+// preferredPageURL builds the absolute URL a page asserts about itself — the
+// canonical href and the JSON-LD @id/url. Both injectors MUST use it: their URL
+// construction used to be two "byte-identical" literals kept in sync by a
+// comment, and a comment is not a control on a tree this many sessions share.
+// The pending fleet-wide www/HTTPS policy decision moves both together HERE.
+//
+// The one normalisation is the site root: "/index.html" → "/" (bugs_open/251 —
+// engines were being told the canonical home of every assembled site is the
+// /index.html form nobody links to). It is deliberately ROOT-ONLY: a section
+// index like /guides/index.html keeps its full form, because directory URLs
+// 404 on this hosting (measured 2026-08-11: /guides/, /loans/, /blog/ across
+// three live domains all 404; only the bare root serves). A canonical pointing
+// at a 404 would be strictly worse than the bug this fixes.
+func preferredPageURL(domain, url string) string {
+	if url == "/index.html" {
+		url = "/"
+	}
+	return "https://" + domain + url
+}
+
 func injectCanonicalLink(head string, page *PageInfo, logger *zap.Logger) string {
 	skip := func(reason string) string {
 		if logger != nil && page != nil {
@@ -1069,9 +1089,7 @@ func injectCanonicalLink(head string, page *PageInfo, logger *zap.Logger) string
 		return skip("page url carries a fragment or query")
 	}
 
-	// Bare-domain https origin, byte-identical to injectPageJSONLD's — the
-	// pending fleet-wide www/HTTPS policy decision moves both together.
-	canonical := "https://" + page.Domain + page.URL
+	canonical := preferredPageURL(page.Domain, page.URL)
 	block := fmt.Sprintf("\n<link rel=\"canonical\" href=\"%s\">\n", canonical)
 	if idx := strings.LastIndex(head, "</head>"); idx >= 0 {
 		return head[:idx] + block + head[idx:]
