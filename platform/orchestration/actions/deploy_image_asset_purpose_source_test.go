@@ -420,3 +420,87 @@ func TestMigration348Shape_StoreFailureResolvesNoURI_NeverTheSibling(t *testing.
 		}
 	}
 }
+
+// The migration-380 pair (bugs_open/231, dispatch-shape face; council corr
+// a46a4421 round 1 asked for exactly this test). The undeployed_asset dispatch
+// nests the item spec at input_data.spec.*, and asset-deployer's deploy step
+// binds "purpose": "input_data.purpose" — a Strategy-0 path with nothing to
+// resolve pre-380, so the spec Default "hero" won over a correct value in BOTH
+// the item spec and the asset row (relojistas.com, two live runs, 2026-08-10).
+// Migration 380 makes build-dispatch-loop's call_handler ALSO map the purpose
+// top-level ("purpose?": "current_item.spec.purpose"), where the existing
+// binding finds it.
+//
+// Why the top-level value survives the Defaults-first ordering that killed the
+// purpose_field bridge (the round-1 objection): Strategy 0 runs after Defaults
+// but assigns UNCONDITIONALLY (result.Values[field] = value — no has-value
+// skip), while Strategies 1-4 all skip a populated field. Same distinction
+// TestStrategy0DottedPaths_DefeatTheDefaultAndTheRecursiveSearch pins for the
+// into-line config shape; this pair pins it for the dispatch shape, both ways.
+func TestMigration380Shape_TopLevelPurposeBeatsTheDefault(t *testing.T) {
+	logger := zap.NewNop()
+	// EXACT live deploy_asset config (asset-deployer row, read 2026-08-11).
+	deployCfg := map[string]interface{}{
+		"domain":       "input_data.domain",
+		"s3_uri":       "input_data.s3_uri",
+		"purpose":      "input_data.purpose",
+		"asset_key":    "input_data.asset_key",
+		"input_fields": []interface{}{"s3_uri", "purpose", "domain", "asset_key", "asset_id"},
+	}
+	itemSpec := map[string]interface{}{
+		"check":      "undeployed_assets",
+		"s3_uri":     "s3://assets/relojistas-logo-source.png",
+		"purpose":    "logo",
+		"asset_id":   "33333333-3333-3333-3333-333333333333",
+		"asset_key":  "logo",
+		"asset_type": "image",
+	}
+	// Post-380 dispatch payload: what call_handler's input_mapping now builds
+	// for an undeployed_asset item — spec nested AND purpose copied top-level.
+	post380 := map[string]interface{}{
+		"input_data": map[string]interface{}{
+			"spec":         itemSpec,
+			"current_page": itemSpec,
+			"domain":       "relojistas.com",
+			"source":       "discovery",
+			"item_type":    "undeployed_asset",
+			"purpose":      "logo", // the one line migration 380 adds
+		},
+	}
+	inputs, err := datahelpers.ExtractActionInputs(post380, deployCfg, DeployImageAssetInputSpec, logger)
+	if err != nil {
+		t.Fatalf("post-380 shape: %v", err)
+	}
+	if p := inputs.Get("purpose"); p != "logo" {
+		t.Fatalf("post-380 shape: purpose=%q, want the mapped top-level value to beat the Default via Strategy 0", p)
+	}
+
+	// Pre-380 control: the IDENTICAL payload minus the mapped key. This is the
+	// live defect shape — it must resolve "hero" (the Default), or the pin has
+	// drifted and 380's premise needs re-examining before trusting either arm.
+	pre380 := map[string]interface{}{
+		"input_data": map[string]interface{}{
+			"spec":         itemSpec,
+			"current_page": itemSpec,
+			"domain":       "relojistas.com",
+			"source":       "discovery",
+			"item_type":    "undeployed_asset",
+		},
+	}
+	inputs, err = datahelpers.ExtractActionInputs(pre380, deployCfg, DeployImageAssetInputSpec, logger)
+	if err != nil {
+		t.Fatalf("pre-380 shape: %v", err)
+	}
+	if p := inputs.Get("purpose"); p != "hero" {
+		t.Fatalf("pre-380 control: purpose=%q — the Default no longer wins on the nested-only shape; the resolver ordering changed, re-examine 380", p)
+	}
+	// The corroborating detail from the live incident: the un-Defaulted fields
+	// resolve fine on BOTH shapes (recursive search reaches into spec), which
+	// is why the bad runs fetched the right artwork and still hero-processed it.
+	if k := inputs.Get("asset_key"); k != "logo" {
+		t.Fatalf("pre-380 control: asset_key=%q, want spec value via recursive search", k)
+	}
+	if s := inputs.Get("s3_uri"); s != "s3://assets/relojistas-logo-source.png" {
+		t.Fatalf("pre-380 control: s3_uri=%q, want spec value via recursive search", s)
+	}
+}
