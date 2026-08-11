@@ -974,3 +974,29 @@ simplest one as the proving run), then the site plan seeded and iterated until
 it matches the site's current size — with your no-shrink rule as the acceptance
 test — then the social-tags work once the canonical fix has rolled, then the
 complaint-deadline checker.
+
+---
+
+**2026-08-11, night — the design is back, and it was my miss, not the agent's.**
+
+You were right: the homepage had lost its design. What happened: when I briefed
+the rewrite I described what the page should *say* and how it should be
+*organised*, but not the visual building blocks the site's stylesheet knows how
+to draw — the hero banner, the card grid, the buttons. The writing agent
+delivered exactly what was asked, so the page came out as plain text. My
+comparison read the words and missed it entirely; you saw it in minutes.
+
+Only the homepage was affected — I checked the rest of the converted pages and
+they kept their look throughout.
+
+The fix went through the same framework route: the page's brief now includes the
+design vocabulary, and the rewrite ran again. The homepage now serves the agent's
+copy inside the site's own design — hero, twelve calculator cards in their grids,
+buttons — verified on the live page, not assumed. Both lessons are written where
+the next job will find them: every page brief carries the design vocabulary from
+now on, and every before/after comparison counts the design markup, not just the
+words.
+
+One admin note: the side-by-side page has moved to a new link (the old one got
+stranded by an account-context change): 
+https://claude.ai/code/artifact/70514218-28e4-44ce-936b-07a012c74330

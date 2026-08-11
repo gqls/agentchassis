@@ -2015,3 +2015,49 @@ and using it.
 > `~/projects/sites` and all 22 paths come back missing there. The filename names a
 > ref from the *other* repo. Anyone checking the baseline against the sites repo will
 > get 22 missing files and may conclude the baseline is corrupt. It is not.
+
+---
+
+## 2026-08-11 (night) — round 3: the design restored through the same writer, and the check that was blind
+
+**Owner:** *"The site has substantially lost its design"* — correct, and the loss
+was round 2's. Measured: the old prose carried **44 class attributes / 11 distinct
+design classes** (`hero`, `eyebrow`, `tool-grid`, `card`, `btn-primary`,
+`btn-block`, `highlight-box`, `mt-0`, `mt-40`, `text-center`); round 2's carried
+**1** (the `ported-prose` wrapper). Scope checked before acting: homepage ONLY —
+the other decomposed pages kept their bytes (`mortgages/index` 24 class attrs
+live, guides normal), stylesheet untouched (`/assets/css/style.css` — note the
+SINGULAR; `styles.css` 404s and greps clean, which cost one wrong first check).
+
+**Why "rerun the design agent" resolved to the writer, recorded because the next
+person will ask:** all nine design-ish agent types were enumerated —
+`webdesign-agent` (stylesheets), `css-patch-agent` (CSS patches),
+`site-design-planner` (palette/typography composition), `visual-designer`
+(assets), auditors (find, don't fix). **None rewrites page markup.** On a
+decomposed free-form page the design lives in the classes the CONTENT carries, so
+the design agent for this page is the content writer with the design vocabulary
+in its brief.
+
+**Fix:** `content_direction.format` now prescribes the exact skeleton transcribed
+from the old page (hero+eyebrow → highlight-box → per category h2 + tool-grid of
+six cards, each h3 link + blurb + `btn-primary btn-block` → category-index link →
+guides), plus a `design_note` naming the loss. Same `needs_page:index` item
+re-armed (final in-band attempt), complete 18:38Z. **Verified at stored AND
+served**: 31 class attrs, 9/11 classes back (`text-center`/`mt-40` unused by the
+new layout — utilities, not design), hero ×1, tool-grid ×2, card ×12, 629 words,
+42 links; stored prose a substring of the served page.
+
+**The transferable half is in WRONG_CALLS** (98618aede): a brief that names
+structure but not design vocabulary SPECIFIES an undesigned page, and a text-diff
+comparison is structurally blind to the loss — class-attr count is now a standing
+column, and every Track B/C page brief carries the vocabulary.
+
+**Artifact moved:** republishing to the round-2 URL was denied (org mismatch —
+the session's publish identity changed under it). Round 3 lives at
+https://claude.ai/code/artifact/70514218-28e4-44ce-936b-07a012c74330 ; the old
+ca0d8274 URL is stale at round 2 and cannot be updated from here.
+
+**State:** `needs_page:index` complete, attempt 3/3 — the next rewrite on this
+page needs an attempt-count reset with a stated reason. Backup table
+`_bak_index_rewrite_20260811` retained (now two generations behind the live page:
+restore = old bytes back via row write + assemble-only rerender).
