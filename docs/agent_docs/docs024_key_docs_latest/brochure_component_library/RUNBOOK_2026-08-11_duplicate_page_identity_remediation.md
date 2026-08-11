@@ -98,3 +98,30 @@ never go to zero. The twin-refined query above is the instrument.
 The fundamentallyai sweep front owns that site's phantom cleanup and has done
 this by hand before (`HANDOFF_2026-08-09_sweep_front_continue_here.md` §2b). Route
 fundamentallyai pairs through its handoff rather than acting in parallel.
+
+## Enabling the prevention switches (added 2026-08-11, from the council's round-2 questions)
+
+All three live in the `site_specs` **`structure`** aspect, beside `url_shape`:
+`honour_realised_identity`, `twin_identity_snap`, `stem_twin_snap`. All default
+OFF; nothing changes for a site until its spec says otherwise.
+
+- **Read the dark-launch evidence first.** With the gates off, the layers still
+  record what they would have done:
+  ```sql
+  SELECT error_code, count(*), min(occurred_at), max(occurred_at)
+  FROM agent_error_log
+  WHERE error_code IN ('PLAN_PAGE_IDENTITY_TWIN_OBSERVED','PLAN_PAGE_STEM_TWIN_OBSERVED',
+                       'PLAN_PAGE_STEM_TWIN_REFUSED','PLAN_PAGE_IDENTITY_SNAPPED')
+  GROUP BY 1 ORDER BY 1;
+  ```
+  Each OBSERVED row is a second page identity that was about to be written. Zero
+  rows before any replan has run is **not** evidence either way.
+- **⚠ Re-adopting a site DROPS all three flags.** `WriteSiteSpecAction` deep-merges,
+  so ordinary spec writes preserve them, but `apply_adoption_plan_action.go`
+  replaces the structure spec wholesale. The failure is safe (a dropped key reads
+  false = today's behaviour) but silent — **re-check the spec after any adoption run.**
+- **Rollback.** Turning `honour_realised_identity` off after a pilot does not move
+  live URLs; the next replan simply reverts to minting twins, i.e. the pre-fix bug.
+  The kill switch costs you the defect back, not damaged pages.
+- **Do NOT enable on the five decomposed sites** until `bugs_open/204` is fixed —
+  their `pages.sections` hold positional slot names, which the snap carries verbatim.
