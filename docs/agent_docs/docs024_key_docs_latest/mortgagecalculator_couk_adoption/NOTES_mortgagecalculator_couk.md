@@ -2201,3 +2201,183 @@ synced + verifier fired (`5b2e812b…`).
 `0fd75a19` (stamp-duty), `0aae22cd` (rate-forecaster), plus the dispatch nudge
 (corr `6aa19208…`). Verdicts pending as of this entry; vision_finding
 resolution waits on them.
+
+---
+
+## 2026-08-11 (evening, 2) — the homepage "AI slop": NOT the model. A blind audit commissioned it and the site's own voice spec mandated it
+
+**Owner, in chat:** revert the homepage content writer to Gemini ("the copy has
+regressed considerably back to AI slop"); then, on the same thread, *"customer
+focused in the customer's voice and not all this short too-clever titles like
+'Tools that do the bank's maths for you' … much less competitive, softer,
+friendlier"*, and *"it keeps changing and it seems to get worse"*.
+**Then: "ok, don't change the model then."** The model was NOT changed. Good —
+the research says it was never the cause.
+
+### What actually happened, with times
+
+1. **12:31Z** migration `389` (another lane, owner-decided) re-enabled the
+   `improvement-sweep`, cost-watched.
+2. **17:41:49Z** it swept this site. `design-audit` filed `content_rewrite` +
+   `cta_improvement` on `index`.
+3. **17:51:19Z** all four homepage components were **CREATED** (not updated) and
+   deployed at 17:51:58 — the framework built its own homepage for the first
+   time, over an adopted page that had served since July.
+4. **~17:54Z** the sweep was disabled again (`enabled=f`), by whoever was
+   cost-watching. So the churn engine is OFF as of this entry.
+5. **~20:00Z** the owner reads the new homepage and calls it slop. Same page,
+   about two hours old.
+
+### The brief the writer was given — read it before blaming any model
+
+`spec` on the 17:41 `content_rewrite` item, verbatim:
+
+- `category`: `differentiation`
+- `description`: *"**With no retrievable content**, there is no evidence of any
+  differentiator explaining why a user should use this calculator over
+  **MoneySavingExpert, Which**, or the dozens of competing UK mortgage
+  calculator tools."*
+- `acceptance_test`: *"Homepage contains a written value proposition … that
+  references a specific feature or benefit **not shared by all generic mortgage
+  calculators**"*
+
+**So the copy was commissioned to be competitive.** "See What the Bank's Decision
+Engine Sees Before You Apply" is that acceptance test being passed. **Swapping
+the model would have produced differently-worded competitive copy, because the
+brief and its acceptance test require a competitive claim.** `[MEASURED — the
+spec is quoted from the row, not inferred.]`
+
+### Why the auditor said "no retrievable content" — it reads the DATABASE, not the site
+
+`content-quality-auditor`, step `load_page_content`:
+
+```sql
+SELECT p.name, LEFT(string_agg(pc.rendered_html,' '),1000) AS content_sample
+FROM pages p JOIN page_components pc ON pc.page_id=p.id
+WHERE p.site_id=$1 AND p.name IN ('index','about','services','contact') …
+```
+
+Before 17:51 the `index` page had **zero `page_components`** (all four rows are
+`created_at 17:51:19`). The homepage existed and served fine — it was the
+adopted original, outside the framework's tables. So the query returned no rows,
+and "no content" became "no differentiation", which became the brief.
+**On any ADOPTED site, a page that serves perfectly reads as empty to this
+audit** — this lane's whole business is adopted sites. Two further blindnesses in
+the same query: `LEFT(...,1000)` judges a site's differentiation from 1,000
+characters of raw HTML including tags, and `load_brief` reads
+`site_specs.aspect='site_plan'`, which **this site does not have** — so it ran
+with `target_audience`, `tone` and `key_messages` all empty and had nothing to
+judge by except competitors. `[MEASURED: the load_brief query returns
+(none)|(none)|(none) for this site.]`
+**Not asserted as a platform root cause here — that wants `090`** (see below).
+
+### And the voice the owner objects to was WRITTEN DOWN, in this site's own spec
+
+`content_direction` (extracted from the ORIGINAL site on 08-02, so the framework
+was faithfully reproducing the original author's register):
+
+- `voice.emotional_tone`: *"Challenging … the reader is made to feel slightly
+  exposed … **galvanising rather than reassuring** … bad news is never softened."*
+- `writing_rules`: *"**Use the lender's voice ('we')** … to simulate an insider
+  perspective"* — the exact inverse of "the customer's voice".
+- `writing_rules`: *"Use quotation marks around coined institutional terms and
+  dramatic labels: 'Flight Risk', 'Knockout Rules', **'The Inheritance
+  Destroyer'**"* — the too-clever titles, mandated.
+- `things_to_avoid`: *"**Do not write in a reassuring or apologetic tone**"* —
+  the owner's request was explicitly forbidden.
+- `example_phrases.would_never_say` listed warm phrasing ("We're here to help
+  you… with confidence and peace of mind") as banned.
+- `writing_rules`: *"**Emoji are used** in navigation cards and homepage feature
+  blocks"*.
+
+**The copy is a faithful execution of a spec nobody had re-read since adoption.**
+Owner ruling §1 (correctness beats fidelity) licenses moving off the original's
+voice, so that is what was done.
+
+### What was changed (config, live immediately, site-scoped, reversible)
+
+`content_direction`, `identity.tone`, `strategy.tone` superseded + re-inserted
+(RUNBOOK §8: supersede as a SEPARATE statement). Rewrote only the voice-bearing
+keys — `voice`, `heading_style`, `sentence_style`, `cta_style`,
+`example_phrases`, `things_to_avoid`, `things_to_emulate`, `writing_rules`,
+`persuasion_approach`, `terminology`. **Everything else carried across
+untouched**, asserted in the generator: all 5 `compliance_rules`, both
+cross-site scope rules (secured lending only; unsecured belongs to
+loancalculator.co.uk), `content_depth`, `paragraph_style`,
+`formatting_conventions`.
+
+The new rules are **not my taste** — they are borrowed from this estate's own
+owner-driven work of the same day:
+- sentence ceiling 20 words, average 15, 3+-syllable words under 12% —
+  `provocation_readability.go:52-56` (the readability rail shipped today from
+  *"readable by a 5 year old … perhaps use ASD-STE100"*);
+- "no colon-joined slogan headlines, no ALL-CAPS eyebrows" — house style prompt
+  v3 rule 7 (`travelling_docs/pitch_pdf_source/`);
+- contractions in ordinary sentences — same prompt, rule 6.
+Plus, from the owner's words: never the lender's voice; no coined labels; no
+comparison with other sites (a `persuasion_approach.competitive_framing` key
+that says so explicitly, so the next differentiation brief has something to
+collide with); no emoji; no urgency; headings plain or the reader's own question.
+`would_never_say` now quotes **the live headings verbatim**, because the previous
+spec had warmth on that list and the strongest available signal is the real
+offender, checkable against the page.
+
+**The `formatted` blob is the only field the writer reads** (RUNBOOK §8), so it
+was regenerated — and **verified line-for-line against the platform's own
+`datahelpers.FormatContentDirection`** in a scratch Go module (138 lines each,
+identical after sorting; Go map order is random so order is not a property).
+**The comparison was proven able to fail**: perturbing one value in the same run
+made it mismatch. In-transaction `DO`/`RAISE` guards asserted the new rules
+reached `formatted`, the scope rule survived, and the old instructions
+("Inheritance Destroyer", "galvanising", the lender's-voice rule) are gone.
+
+### THE FINDING THAT STOPS THIS BEING FINISHED: half the homepage's words are not the homepage's
+
+The cards are not written copy. `tool-list.items[].title` and
+`guide-list.items[].title` in `content_data` hold **each target page's own
+title**, rendered verbatim:
+
+- `"Stamp Duty Calculator 2026 — UK SDLT Rates | MortgageCalculator.co.uk"`
+- `"Buy-to-Let Guide | The Investor's Reality Check"`
+- `"First Time Buyer Guide | The Unvarnished Truth"`
+
+So a perfect homepage rewrite under the new spec **still leaves an SEO title
+string with a pipe and the domain name as a card heading**, and still leaves the
+clever guide labels — they belong to the other pages. A plain `nav_label`
+("Stamp Duty", "Buy-to-Let") is already present in the same rows, but which field
+the card renders is a SHARED-component decision (the 252-page `hero`/list family)
+and is not a lane-local edit. **Owner decision needed** — see README.
+
+### Deliberately NOT done, and why
+
+- **No rewrite fired yet.** The words live in `content_data`, so a `page_rerender`
+  would re-render the same words; changing them needs the writer path
+  (`content_rewrite` → `page-build-handler`). **That is the mechanism
+  `bugs_open/253` found DESTRUCTIVE today** on the sibling site's homepage: a
+  framework rewrite of a homepage prose block kept 84% of the words and **0% of
+  the layout classes** (`card` 18→0, `tool-grid` 3→0, `hero` 1→0), and the shrink
+  guard passed it because it measures text volume and is blind to markup. Firing
+  it here tonight risks trading bad copy for a broken homepage. It should be
+  driven once, watched, and checked for component classes — not fired at 8pm on a
+  Tuesday because the copy is embarrassing.
+- **No `site_plan` aspect invented** to un-blind the auditor: I have not checked
+  what else consumes that aspect, and guessing its shape is how a spec that
+  "looks applied" steers nothing.
+- **Model untouched**, per the owner's later message.
+
+### Owed
+
+1. **A `090` diagnosis run on the audit-blindness class** — "a content audit
+   reads `page_components` and reports *no retrievable content* for an adopted
+   page that serves HTTP 200, then commissions a competitive rewrite of it".
+   Durable, cross-cutting, and about a mechanism outside the symptom: CLAUDE.md's
+   own criteria say file it rather than assert it. Distinct from 253 (that is
+   about markup loss during the rewrite; this is about the brief that orders the
+   rewrite).
+2. **Drive the homepage rewrite once, with a component-class check** before and
+   after, per 253's fix candidate 1.
+3. **The card-title decision** (owner).
+4. If the `improvement-sweep` is re-enabled, this site will be swept again — with
+   the new spec in place, which is the point, but the differentiation brief will
+   still say "differentiate or die". The spec now contradicts it explicitly; which
+   wins is **unmeasured**.

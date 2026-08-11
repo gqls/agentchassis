@@ -1037,3 +1037,68 @@ morning. Second, our work request sat unnoticed for over an hour because the
 fleet's build queue serves whichever site has the oldest waiting work, and
 other sites have weeks-old backlogs — we dispatched it by hand (a documented,
 safe nudge) and have written up both the trap and the remedy for other lanes.
+
+**2026-08-11, evening — the homepage copy: I found out why, and it wasn't the
+writing model.**
+
+You asked me to put the homepage back on Gemini because the copy had gone back to
+AI slop, then said to leave the model alone. Leaving it alone is right, and here is
+why: the model was never the problem. Two other things were, and both are now
+written down.
+
+**First, the copy you're reading is about two hours old.** At 17:41 this evening an
+automatic review of the site ran, looked for the homepage's content, found nothing,
+and concluded the site had no reason for anyone to choose it. It then commissioned
+a rewrite whose written instruction was to explain why this calculator beats
+MoneySavingExpert and Which, with a pass mark of "claims a benefit other mortgage
+calculators don't have". Ten minutes later the framework built and published a new
+homepage that does exactly that. "See what the bank's decision engine sees before
+you apply" is not a model being clever. It is that instruction being obeyed.
+
+The reason the review found nothing is worth knowing, because it will happen again
+on any site we adopt. The review looks in our database, not at the website. Until
+this evening our homepage wasn't in the database at all — it was the original page
+we adopted in July, sitting in the bucket and serving perfectly. So the review saw
+an empty homepage, and everything it concluded followed from that.
+
+**Second, the voice you object to was written down in the site's own settings, and
+had been since we adopted it.** When we took the site on, the framework studied the
+original and recorded how it wrote. That record says, in as many words: be
+challenging rather than reassuring, never soften bad news, write in the lender's
+voice to sound like an insider, and put invented labels in quote marks — its own
+examples are "Flight Risk" and "The Inheritance Destroyer". It also explicitly
+forbade writing in a reassuring tone, and listed warm phrasing as something the
+site would never say. Emoji on the cards were mandated too.
+
+So every writer we pointed at this site was being told to do the thing you don't
+want. It was faithfully copying the original author's style, which is what we asked
+it to do back in July.
+
+**What I've changed.** I've rewritten those instructions: the customer's own words,
+never the lender's voice, warm and calm, plain sentences under twenty words, no
+clever or ironic headings, no invented labels, no emoji, no urgency, and a flat ban
+on comparing us with other websites. I didn't invent the rules — I used the
+readability standard you set earlier today on the other project ("readable by a
+five year old", short sentences, ordinary words) and our own house style guide for
+plain writing. Everything else in those settings, including all the compliance and
+disclaimer rules and the boundaries with the loan sites, I left exactly as it was
+and checked afterwards that I hadn't dropped any of it.
+
+**Two things I have deliberately not done, and I'd like your call on one.**
+
+I haven't rewritten the homepage yet. This morning another team found that the
+mechanism which rewrites a homepage's words also strips out its layout — it kept
+84% of the text and none of the styling, turning a designed page into a flat list.
+I'd rather drive that once, carefully, and check the page's structure survived,
+than fire it tonight and hand you a page that reads better and looks broken.
+
+And here's the thing I need you to decide. Half the words on the homepage aren't the
+homepage's. Each tool and guide card shows the target page's own title, exactly as
+stored — which is why you're looking at "Stamp Duty Calculator 2026 — UK SDLT Rates
+| MortgageCalculator.co.uk" as a heading, pipe, domain name and all, and at "The
+Unvarnished Truth" and "The Mortgage Prisoner Trap" on the guide cards. No amount of
+rewriting the homepage touches those, because they live on the other pages. There's
+already a short plain label on every card ("Stamp Duty", "Buy-to-Let") that we could
+show instead. Switching to it is a change to a component shared by 252 pages across
+18 sites, so it isn't mine to make quietly. The alternative is to change those pages'
+titles, which affects how they appear in Google. Which would you prefer?
