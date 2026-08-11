@@ -699,3 +699,54 @@ box-local test. The fix was to send the header explicitly — **not** to unset
 `Secure`, which is exactly the shape of "fix the checker to agree with the
 system" that this estate has been bitten by before. Recorded because the
 tempting move was one flag away.
+
+---
+
+## 2026-08-11 — the migration story is much better than we thought
+
+`[MEASURED, browser-verified]` **A different page on the same origin can read the
+existing app's notes, recordings and all.** Planted a note plus a 2 KB audio blob
+via `https://noted.co.uk/`, then navigated to `https://noted.co.uk/guides/about.html`
+— a different document — and opened `NotedDB` cold from there:
+
+```
+{'stores': ['audio','history','images','notes'],
+ 'title': 'Old note', 'content': 'written before the rebuild', 'audio': 1}
+```
+
+The disconfirming result would have been an empty database or a failed open.
+It did not happen.
+
+**Why this matters more than it looks.** IndexedDB is keyed by ORIGIN, and the
+origin is `https://noted.co.uk` regardless of whether the bytes come from the B2
+bucket (today) or the VM (after cutover). So **at relaunch, every existing user's
+notes are still sitting in their browser**, and the rebuilt site can read them
+directly.
+
+**Consequence: the manual export→import path is a FALLBACK, not the migration.**
+The migration can be a page on the new site that reads `NotedDB`, shows the person
+what it found, and offers to move it into their new account. Nobody needs to have
+exported anything. This answers the owner's question — a "legacy notes page" is
+not only possible, it is the better primary path.
+
+**Design for it** (`/legacy`, to be built as part of the framework front end):
+- opens `NotedDB` **without a version number**, so it never triggers an
+  `onupgradeneeded` and never migrates or damages the old data;
+- **read-only against the old stores.** It must not delete anything, ever — a
+  person who does not finish signing up must still find their notes next time;
+- shows counts first (notes, recordings, photos) so the person sees their data
+  before being asked to do anything;
+- offers two routes: sign in and copy everything up, or download the same
+  full-backup file the current app produces;
+- survives the old database being absent — a new visitor must not see an error.
+
+**What this does NOT change: keep urging the backup.** The notes survive a site
+change; they do not survive the person clearing browsing data, switching device or
+browser, or a browser evicting storage. The notice is still right, and the reason
+it is right is unchanged — *we* hold no copy.
+
+**Do not let this finding decay into an assumption.** It was true on 2026-08-11
+against the live origin. Re-run the probe above before relying on it at cutover,
+because it is exactly the kind of fact that a change of hostname, a redirect to
+`www.`, or a move to a different scheme would silently invalidate — origin is
+scheme + host + port, and all three must stay identical.
