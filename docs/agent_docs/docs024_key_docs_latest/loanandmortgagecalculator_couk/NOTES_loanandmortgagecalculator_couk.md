@@ -1892,3 +1892,43 @@ between a thin rewrite and the homepage, now that `rebuild_policy` is `generic`;
 (2) `page-build-handler`'s full path (plan → write → validate → save) is now
 observed live on this site up to `save_sections` — the first writer-path run
 since decomposition, which Track A never exercised.
+
+---
+
+## 2026-08-11 (evening) — owner rulings executed: option B rewrite LIVE, 251 fixed + council-submitted, remaining tracks queued
+
+**Owner rulings recorded in the entry-point handoff (commit `6a392c443`):** Track B
+GO · 251 fix now · 252 my discretion · site plans seeded to current scale (no
+shrink; mix unimportant; growth welcome) · complaint-deadline + Track C as
+recommended · index rewrite option B, cards stay.
+
+**Option B rewrite — LIVE.** Seeded `pages.content_direction` for index
+(schema `{instruction, format, avoid}` — read from the writer's own template;
+verified the single-page path carries it: `load_page_record_action.go:236` selects
+the column, bug 025). Re-armed the same `needs_page:index` item (attempt 2/3);
+claimed 15:45Z, complete 15:48Z, deployed. Verified served-vs-stored: prose
+substring of the live page, new h1 live, DOCTYPE + 12,401 B.
+
+Measured against the before snapshot: **617→684 words (grew), 12 calculator cards
+kept** (two swapped: damage-checker/investor out, overpayment-calculator/
+rate-forecaster in — both dropped tools still linked from their section indexes),
+guides 6→13 links, headings 23→16. Round 1 (no direction) vs round 2 (directed)
+is the cleanest possible A/B on the content prompt: same prompt, same model, the
+brief accounts for the whole difference. **The content prompt did not need
+revisiting; the page needed a brief.** Comparison artifact updated (round-2-live).
+
+**251 — fixed, tested, council-submitted, committed** (`61abbdbd0`,
+`Council-Submitted: 33fb41cb-768e-4e8e-b5fd-7a4d5ff75fa1`). `preferredPageURL()`
+is now the single source of canonical + JSON-LD @id/url; **root-only**
+normalisation — measured first: `/guides/`, `/loans/`, `/blog/` all **404** on
+this hosting (3 domains), so 251's own "trailing /index.html" candidate would
+have pointed section-index canonicals at 404s. Non-root preservation pinned by
+test incl. the `/indexes.html` suffix trap; mutation control run (helper broken
+→ 2 tests FAIL → restored green). Known gap disclosed in the submission:
+`AssemblePageAction` emits neither tag (seo.md landmine) — untouched. Inert
+until the next roll.
+
+**Queued, in order:** Track B (start `mortgages-simple`, prove the
+decompose→lock→flip→oracle loop, then one page at a time through the 22) ·
+site-spec seed + planner iterations (D6, no-shrink constraint) · 252 og: half
+after 251 rolls · complaint-deadline oracle. Tasks tracked in-session.

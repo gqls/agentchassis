@@ -947,3 +947,30 @@ what the page is for.
 
 Side-by-side, with everything above laid out:
 https://claude.ai/code/artifact/ca0d8274-929b-42c0-95e1-18b982343cc7
+
+---
+
+**2026-08-11, evening — your five decisions are recorded and the first two are done.**
+
+The homepage rewrite is live. Second attempt, this time with a proper brief on
+file — the first attempt had nothing telling it what the page was for, and that
+turned out to be the whole story. With the brief, the agent kept all twelve
+calculator cards, linked every guide on the site, and came out slightly *longer*
+than the old copy, in a plainer voice. It took the liberty of swapping two of the
+twelve featured cards for two others; nothing lost its place on the site, but if
+you want the original two back on the front page, that's a one-line note. The
+old copy is snapshotted and restorable. The side-by-side page is updated with
+what's actually live now — and it answers your prompt question: the prompt was
+fine; the page needed a brief. Every page we decompose from here should get one.
+
+The canonical bug is fixed in code, tested, and submitted for review — it takes
+effect at the next software roll. One judgement call made on measurement: only
+the homepage form gets normalised, because the "tidier" directory-style addresses
+for section pages turn out not to work at all on our hosting, and a fix that
+pointed at broken addresses would have been worse than the bug.
+
+Still to come, in order: the twenty-two calculator pages (starting with the
+simplest one as the proving run), then the site plan seeded and iterated until
+it matches the site's current size — with your no-shrink rule as the acceptance
+test — then the social-tags work once the canonical fix has rolled, then the
+complaint-deadline checker.
