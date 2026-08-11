@@ -52,6 +52,14 @@ spec:
             requests:
               cpu: "1"
               memory: "4Gi"
+              # bugs_open/252 — see the fuller note in
+              # services/ollama-eval/base/ollama-eval-deployment.yaml. Same story:
+              # MEASURED 2026-08-11 this pod's ephemeral use is 0 MB; its 15,761 MB
+              # is on the `ollama-models` PVC, and its real node-disk cost is the
+              # cached image, which no pod-level resource can express. Declared so
+              # the value is explicit rather than absent, NOT because it accounts
+              # for ollama's disk.
+              ephemeral-storage: 1Gi
             limits:
               cpu: "4"
               memory: "20Gi"

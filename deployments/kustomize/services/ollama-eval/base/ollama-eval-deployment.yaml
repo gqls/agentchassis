@@ -76,6 +76,21 @@ spec:
             requests:
               cpu: "2"
               memory: "24Gi"
+              # bugs_open/252. Declared for completeness, but READ THIS BEFORE
+              # believing it accounts for ollama's disk: it does not, and cannot.
+              # MEASURED 2026-08-11 (kubelet stats/summary): this pod's ephemeral
+              # use is 16 MB, all of it container logs. Its real 15,487 MB lives
+              # on the `ollama-models` PVC mounted at /root/.ollama — a network
+              # volume, NOT node disk — so it never counted toward DiskPressure.
+              # Its actual node-disk cost is the CACHED IMAGE (ollama:latest,
+              # 2.5-3.25 GB depending on node). `ephemeral-storage` requests do
+              # not model image layers at all: images are node-level imagefs, and
+              # no pod-level resource covers them. So the fleet's image footprint
+              # (10.0-15.6 GB per node) stays invisible to the scheduler even
+              # after this change. That residue is candidates 3 and 4 in 252
+              # (move imageGCHighThresholdPercent below the eviction line; grow
+              # the 41.4 GB disks) and neither is a pod-spec edit.
+              ephemeral-storage: 1Gi
             limits:
               cpu: "8"
               memory: "28Gi"

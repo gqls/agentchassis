@@ -51,6 +51,20 @@ spec:
             requests:
               cpu: 100m
               memory: 256Mi
+              # bugs_open/252: disk was invisible to the scheduler. Nothing in the
+              # fleet requested ephemeral-storage (0 of 143 containers), so the
+              # scheduler balanced CPU and memory only — which is why BOTH runner
+              # pods were placed on one node, ~4.6 GB of writable layer between
+              # them, on 41.4 GB disks that evict at 15% available (6.2 GB).
+              # 4Gi against a MEASURED 2.3-2.8 GB steady rootfs (2026-08-11,
+              # kubelet stats/summary: 2318 MB here, 2822 MB on the sibling
+              # replica, 2276 MB on -vmsites). It is a build cache, so it grows
+              # with the images built; the margin is deliberate.
+              # NO LIMIT on purpose — a limit evicts the pod that exceeds it, and
+              # a legitimately large build would then die mid-run. The REQUEST is
+              # what fixes placement; a limit only assigns blame. Add one once
+              # there is a measured ceiling for a worst-case build, not before.
+              ephemeral-storage: 4Gi
             limits:
               cpu: 500m
               memory: 512Mi

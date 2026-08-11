@@ -107,12 +107,37 @@ deployment short for as long as the pressure lasts, and nothing alerts on it.
 
 ## Fix candidates, ordered by what closes the door
 
-1. **Declare `ephemeral-storage` requests on the heavy tenants** (the three
+1. **Declare `ephemeral-storage` requests on the heavy tenants** (the two
    `github-actions-runner` deployments, `ollama-*`, `browser-runner-adapter`).
-   This is the one that makes the bad state *unrepresentable*: once disk is a
-   scheduled resource, the scheduler stops co-locating two 2.3 GB CI runners, and
-   it stops placing new pods on a node that has no disk left. Cheap, per-workload,
-   no cluster-wide change.
+   **DONE 2026-08-11** for the runners (4Gi each) and both ollama pods (1Gi).
+
+   > **CORRECTED 2026-08-11 15:00Z, by the session that wrote this line.** It
+   > first said this "makes the bad state *unrepresentable* … it stops placing new
+   > pods on a node that has no disk left." **The first half is right and the
+   > second half is wrong**, and the difference is worth more than the fix.
+   >
+   > `ephemeral-storage` requests are scheduled against the node's **allocatable**
+   > figure, not against real free space. Measured 2026-08-11 15:00Z:
+   >
+   > | node | REAL free | what the scheduler counts |
+   > |---|---|---|
+   > | …1148 | 14.1 GB | 35.1 GB allocatable |
+   > | …1149 | 10.3 GB | 35.1 GB |
+   > | …6832 | 13.2 GB | 35.1 GB |
+   > | …6833 | **7.6 GB** | 35.1 GB |
+   > | …1336 | **7.8 GB** | 35.1 GB |
+   >
+   > The ~21–27 GB gap is cached images plus system usage, and **it is charged to
+   > no pod's request**, so the scheduler cannot see it. Requests therefore
+   > bin-pack against a figure that is 3–4× the truth.
+   >
+   > **What candidate 1 actually buys:** the two big writable-layer consumers stop
+   > being co-located, which is the specific thing that happened. **What it does
+   > NOT buy:** the scheduler will still cheerfully place a pod on …6833 at 7.6 GB
+   > free, because it believes that node has ~31 GB spare. The only defences
+   > against *that* are reactive (the `DiskPressure` taint, which is what rejected
+   > the chassis pod in the first place) or candidates 3 and 4. **Do not let this
+   > file be read as "fixed by requests".**
 2. **Declare `ephemeral-storage` limits on the same tenants.** Requests fix
    placement; limits fix blame. Today a runaway build is capped by nothing, and
    the kubelet's disk-eviction ranking is *usage above request* — with every

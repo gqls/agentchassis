@@ -53,6 +53,14 @@ spec:
             requests:
               cpu: 100m
               memory: 256Mi
+              # bugs_open/252 — see the long note in
+              # services/github-actions-runner/base/deployment.yaml. Same image,
+              # same build-cache behaviour: MEASURED 2276 MB rootfs 2026-08-11.
+              # This pod and a github-actions-runner replica were co-located on
+              # prod-instance-...1149, the node that hit DiskPressure at 12:08Z.
+              # Requesting disk is what stops the scheduler doing that again.
+              # No limit, deliberately — a limit would evict a large build.
+              ephemeral-storage: 4Gi
             limits:
               cpu: 500m
               memory: 512Mi
