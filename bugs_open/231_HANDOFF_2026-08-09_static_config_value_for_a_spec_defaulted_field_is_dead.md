@@ -359,3 +359,117 @@ runs of "Deploy hero image" against identical row state), asset row restamped
 - Candidates 2 (config-static beats Defaults in the helper — needs the census
   first) and 3 (CheckConfig flags shadowed statics — cheap, catches future
   authors; would NOT have caught either live face, but still worth having).
+
+---
+
+## 2026-08-11 (afternoon) — the CENSUS IS DONE, all three arms; candidate 3 is BUILT; and the census found a THIRD live face: four auditors' `audit_source` is dead and every finding ships as "design-audit"
+
+Method note (per the 2026-07-31 owner ruling): 090 was not re-run for the new
+instance; substituted first-hand verification, stated plainly below — the
+mechanism half was already twice through the loop (both runs UNVERIFIABLE
+scope-not-narrowing, both independently CONFIRMING the helper mechanism), the
+checker that found the instance **executes** nothing it did not mirror from the
+resolver, and the instance claim is proven at the read site and at the artefact
+rows, each quoted below.
+
+### The instrument (candidate 3, built and calibrated)
+
+`cmd/config-key-audit --default-shadowed-keys` (wrapper:
+`scripts/audit-default-shadowed-keys.sh`), same idiom as its sibling modes:
+asks the **binary** for every registered spec (164 registered, **62 carry
+Defaults, 232 defaulted fields** — the bug's "~10+" estimate was out by 6×),
+walks live definitions with `validation.WalkSteps`, and classifies every config
+entry bound to a defaulted field by the exact resolver arm that kills it:
+`static_string` · `non_string_literal` · `composite_literal` ·
+`deprecated_bridge` · `unextractable_field` (a defaulted field outside
+Required+Optional — dead to EVERY config shape, dotted included; strategies
+0/4/5 iterate Required+Optional only, which this file's mechanism section
+predates) · `dotted_conditional` (arm 2 — reported, never fatal, because
+resolvability is a runtime fact). Calibrated on BOTH live faces as committed
+tests: the pre-348 static fires as `static_string`/mismatch against the real
+registry; asset-deployer's `input_data.purpose` reports as
+`dotted_conditional`. Exit 1 only on a dead entry whose value mismatches its
+default.
+
+### Census results, 2026-08-11 (182 live agents, snapshot in scratchpad + re-runnable any time)
+
+- **24 dead-mismatched** (config says one thing, inputs path delivers the
+  default) · **75 dead-matching** (value restates the default — invisible
+  today, inert on first edit) · **96 dotted_conditional** (34 where the config
+  path differs from the default).
+- **Read-path verification of all 24 mismatched** — the caveat this file's 235
+  correction taught ("an action can read config directly and honour the
+  static") turned out to be the RULE, not the exception: **20 of 24 are
+  honoured through direct `config[...]`/`GetIntField(config,…)` reads** in the
+  action body (`diagnose_council_decide` max_rounds:544,
+  `revalidate_review_queue` dry_run:287, `diagnose_persist_fix_plan`
+  max_plan_bytes:150, `diagnose_build_gate`, `execute_vision_prompt`,
+  `checkpoint_for_review`, `diagnose_dormant_agents`, `diagnose_route`,
+  `normalize_to_feed_items`, `diagnose_code_lookup`, `analyse_repo_local`,
+  `feed_normalize` — every one verified at its read line). No live damage
+  there; for those actions the spec Default is documentation that must be kept
+  in sync by hand with the in-body fallback.
+- The `*_field` indirection family (`append_doc_note`, `write_doc_plan`, the
+  diagnose plan/council fields) also reads config directly, so its 96-strong
+  presence in the dotted/matching buckets is extractor-irrelevant.
+
+### The third live face — `[MEASURED]` at mechanism, read site AND artefact
+
+**Four live auditor agents set a distinctive `audit_source` static on
+`write_audit_findings`, whose spec carries `Defaults{audit_source:
+"design-audit"}`. All four statics are dead; every finding all four have ever
+written is labelled `design-audit`.**
+
+- Config: `brief-fidelity-auditor` → `'brief-fidelity-audit'` ·
+  `content-quality-auditor` → `'content-quality-audit'` · `site-review-agent`
+  → `'site-review'` · `visual-design-auditor` → `'visual-design-audit'`.
+- Read site: `write_audit_findings_action.go:495` — `inputs.Get("audit_source")`,
+  followed by the signature unreachable arm `if auditSource == "" {
+  auditSource = "design-audit" }` (the Default guarantees non-empty). No direct
+  config read anywhere in the action.
+- Artefact: fleet-wide, **zero** `site_work_items` rows carry any of the four
+  intended labels; 136 rows carry `design-audit` (2026-04-09→2026-08-11,
+  still being written); 2 rows are the internal contradiction that settles
+  attribution — `item_type='audit_finding_brief_fidelity'` (2026-07-24) with
+  `spec->>'audit_source'='design-audit'`: the type names brief-fidelity, the
+  label claims design-audit. The 2026-08-04→08-11 cluster mixes
+  content-quality-shaped (`content_rewrite`, `tone_shift`),
+  visual-design-shaped (`needs_design_review`, `spacing_fix`,
+  `hardcoded_section_colors`, `dark_section_audit`) and site-review-shaped
+  types, all under the one label. Per-row attribution beyond that is
+  **impossible in principle** — the discriminator is the thing that is dead,
+  which is the damage.
+- Blast: `bugs_open/213`'s regression guard names `spec->>'audit_source'` as
+  THE producer-measurement key ("NOT item_type, NOT created_by"). That
+  instrument currently sees ONE producer where there are at least five. The
+  two correct `tool-acceptance-tier4` rows come from a Go literal in
+  `tool_acceptance_actions.go:1267`, not through the shadowed config — which
+  is why they escaped. Noted in 213's file (consumers must be told, owner
+  ruling 2026-07-29 §3).
+
+### What the census changes about the candidates
+
+- **Candidate 3: DONE** (this instrument). It caught the third face on its
+  first fleet run, which the original file predicted it could ("catches future
+  authors") but undersold — it also catches the *existing* ones.
+- **Candidate 2's blast radius is now MEASURED, and it is startlingly small:**
+  activating "config-static beats Default" would change live behaviour for
+  exactly the dead-mismatched entries whose actions read via the inputs path —
+  which today is **the four `audit_source` entries and nothing else** (75
+  matching = no-op by equality; the other 20 mismatched = no-op because the
+  action never consults the inputs value for that field — re-verify the
+  read-path table at implementation time, it is a point-in-time census).
+  Design questions for its round: composites (Strategy 5 deliberately excludes
+  them), and the explicit-empty-string case (`changed_files_field: ''` exists
+  live on feature-implementer, authored as "disable").
+- **The instance repair has NO config-only path.** Unlike 348/380 there is no
+  data path holding the wanted value — it is a per-agent constant, and this
+  file's own rule says only a resolving dotted path can beat a Default. Even
+  REMOVING the Default does not work: a dotless static on a non-defaulted
+  field is read as a single-segment collectedData reference (Strategy 4),
+  resolves nothing, and the action's `== ""` fallback re-imposes
+  "design-audit". The real options: (a) the action reads `audit_source` from
+  config directly with the inputs value as fallback (the idiom 20 of its
+  sibling actions already use — four lines, one action); or (b) candidate 2.
+  Not implemented here — needs its own round, and `write_audit_findings` is
+  a file the `bugfix_213` lane is actively working.

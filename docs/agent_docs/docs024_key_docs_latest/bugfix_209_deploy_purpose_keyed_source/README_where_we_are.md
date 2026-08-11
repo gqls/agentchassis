@@ -450,3 +450,38 @@ The twice-daily topic-sweep cron I installed has a blind spot nobody
 mentioned: this machine sleeps overnight, and a slept-through slot is simply
 skipped, so only the lunchtime run is real. Worth knowing when we read its
 log.
+
+---
+
+2026-08-11, later. The logo saga is done (11 of 11), so this session went after
+the question the class fix left open: how many OTHER places in the fleet have a
+config value that silently does nothing because a built-in default wins?
+
+We built the counter rather than counting by hand — a new mode on the existing
+config audit tool that asks the running code for every built-in default and
+then checks every live agent's config against them. First fleet-wide run:
+about a hundred config entries are dead in the harmless sense (they restate
+the default, so nothing differs today), twenty-four say something DIFFERENT
+from the default they're shadowed by. The important step was checking each of
+those twenty-four by hand: twenty of them turn out fine, because those
+actions read their config through a different door that isn't affected. Four
+are real.
+
+The four real ones are all the same bug: we have four different auditor
+agents (brief fidelity, content quality, site review, visual design), and
+each one is supposed to sign its findings with its own name. All four
+signatures are dead — every finding any of them has ever filed is signed
+"design-audit". About 136 findings back to April are a merged pile nobody can
+split by author, and one row from July literally has "brief fidelity" in its
+type and "design-audit" in its signature. This matters beyond tidiness: the
+213 work (the "wrong grader" bug) depends on that signature to tell producers
+apart, so we've told that thread. The fix is small (four lines, one file) but
+that file is 213's territory while their round is open, so it's recorded and
+offered, not done.
+
+Decisions you may want to weigh in on: (1) whether the four-line per-action
+fix ships now or waits for the general "config beats default" change — the
+census says the general change would alter behaviour in exactly these four
+places and nowhere else, which makes it much less scary than it sounded;
+(2) the stale logo.jpg deletion from the last session is still waiting on
+your call.

@@ -865,3 +865,64 @@ Trailer discipline: commits before this point carry `Council-Submitted:`;
 098 credits them at report time. Commits from here may carry
 `Council-Reviewed: a46a4421` — the verdict has been READ (this section is
 the reading).
+
+## 2026-08-11 (afternoon session) — 231 census: built the detector, ran all three arms, found a third live face (audit_source)
+
+Cold-start checks from the 11-of-11 handoff: 8/8 tests pass; 380 mapping
+verified in the live row (`current_item.spec.purpose`); kafka sweep log's last
+entry is the 11:17Z KUBECONFIG refusal — crontab is `17 */12 * * *` so the
+next real APPLY slot is 00:17 local tonight, nothing to watch until then.
+
+What was built (candidate 3, one coherent task):
+- `cmd/config-key-audit --default-shadowed-keys` + wrapper
+  `scripts/audit-default-shadowed-keys.sh` + `--specs` now emits `defaults`.
+  Classes and rationale in `defaultshadow.go`'s header. Calibrated on both
+  known faces as committed tests (`defaultshadow_test.go`): pre-348 static
+  fires static_string/mismatch against the REAL registry; asset-deployer's
+  dotted purpose reports dotted_conditional. 7 new tests, all pass.
+- Design choice: exit 1 only on dead+mismatched. Matching statics (75 live)
+  are reported, not fatal — flagging them fatal makes the tool a linter people
+  ignore (the suspicious-keys narrowness argument, main.go header).
+
+Census numbers (2026-08-11, 182 agents, snapshots in session scratchpad
+`shadow-census-2026-08-11.json` / `specs-defaults-2026-08-11.json`; both
+re-derivable by re-running the commands in RUNBOOK §11):
+- 164 specs registered · 62 with Defaults · 232 defaulted fields (the bug
+  file's "~10+" estimate was 6× low; the handoff's "61-spec" was 62 by the
+  time it ran — both corrected in place).
+- 195 findings: 24 dead-mismatched · 75 dead-matching · 96 dotted_conditional
+  (34 with config path ≠ default path).
+
+The verification step that mattered: **read-path check on all 24 mismatched.**
+20/24 are FALSE damage — the action reads config directly (verified at each
+read line, table in bugs_open/231). The near-miss list is instructive:
+council-gate max_rounds=3, revalidator dry_run=false, dormant-agents
+dry_run=true all LOOKED like serious live damage for about ten minutes. If I
+had filed on the detector output alone, three of the scariest claims would
+have been wrong. The check that caught it: grep the action for the key's read
+line before believing the class. (Pushed into RUNBOOK §11 as the standing
+check, per missteps-need-a-check discipline.)
+
+The real find — third live face of 231:
+- `write_audit_findings` reads `audit_source` via inputs (`:495`), spec
+  Default "design-audit". Four live auditors set distinctive statics; all
+  dead. Artefact-proven (zero rows with intended labels; contradiction row
+  `item_type='audit_finding_brief_fidelity'` + `audit_source='design-audit'`
+  2026-07-24; 136-row merged stream through today). Filed in 231, notified in
+  213 (their producer-measurement instrument), LANDMINES entry appended +
+  synced (5 doc_notes rows verified present).
+- Candidate 2's blast radius is now MEASURED: activation set = the 4
+  audit_source entries exactly. Recorded in 231 with the design questions for
+  its round.
+
+Missteps this session:
+- Wrote `models_Step` placeholder + stray `_ = v` in the first draft of
+  defaultshadow.go — caught by go vet before anything ran. Trivial, logged
+  because the fix-before-run ordering is the point.
+- Assumed the `--specs` pipe failure was a JSON problem; it was me piping
+  through a command that had already consumed stdout. Re-ran with the file
+  intermediary. No cost beyond one command.
+- NOT a misstep but worth recording: I nearly asserted council-gate
+  max_rounds damage from the detector output alone (see above). The
+  detector's own header caveat is what stopped me — write the caveat into the
+  tool, not just the report.

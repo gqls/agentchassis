@@ -220,3 +220,32 @@ Verify at the artefact, in this order: work item `result` →
 "Deploy hero image") · asset row `url`/`filename` restamped · served object
 (`curl -sI`) content-type + `file` on the bytes (the purpose's extension AND
 dimension class AND alpha channel for png).
+
+## 11. The 231 census — run, read, and the trap in reading it (added 2026-08-11)
+
+```bash
+# The whole census, live fleet, human-readable (exit 1 = dead mismatched exist):
+./scripts/audit-default-shadowed-keys.sh
+# Machine-readable, for joins:
+./scripts/audit-default-shadowed-keys.sh --json > census.json
+# Arm 3 (every spec's Defaults, from the BINARY — a source grep hits 223's
+# var-blindness):
+go run ./cmd/config-key-audit --specs | jq 'with_entries(select(.value.defaults))'
+```
+
+Gotchas that cost time on 2026-08-11:
+
+- **A dead-mismatched finding is NOT yet damage.** 20 of the first run's 24
+  were honoured anyway, because the action reads `config[...]` directly in its
+  body — the finding only asserts the ExtractActionInputs path. Before
+  asserting damage, grep the ACTION for the key and find the read line:
+  `grep -n '"<key>"' platform/orchestration/actions/<action file>` — a
+  `GetIntField(config, …)` / `config["k"].(type)` read means honoured; an
+  `inputs.Get("k")` read means the shadow is real (that is how the four
+  `audit_source` findings were separated from the other 20).
+- The read-path table in `bugs_open/231` (2026-08-11 section) is a
+  **point-in-time census** — re-verify at the read line before reusing it.
+- `dotted_conditional` findings on `*_field` keys (append_doc_note,
+  write_doc_plan, the diagnose family) are extractor-IRRELEVANT — those
+  actions read the `*_field` key from config directly and resolve the path
+  themselves. Do not read them as arm-2 exposure.

@@ -324,3 +324,35 @@ visible in the final bundle. So a fifth UNVERIFIABLE here would be weak evidence
 your symptom. Read the last bundle regardless of the verdict — the query is in the lane's
 `RUNBOOK_contrast_ink_slots.md` § "Reading a 090 verdict", and there is no `verdict`
 artifact kind to look for.
+
+---
+
+## CONTRIBUTION 2026-08-11, `bugfix_209_deploy_purpose_keyed_source` lane (231's census) — your producer discriminator is DEAD for four producers; the label "design-audit" currently means "any of five agents"
+
+Telling you rather than measuring around you (owner ruling 2026-07-29 §3). This
+file's regression guard, and the LANDMINES entry citing it, name
+`spec->>'audit_source'` as THE key for measuring which producers file an
+item_type ("NOT item_type, NOT created_by"). That key is currently lying:
+
+- `write_audit_findings`'s spec carries `Defaults{audit_source:
+  "design-audit"}`, and the action reads the field through
+  `ExtractActionInputs` (`write_audit_findings_action.go:495`) — so the
+  distinctive static each auditor sets in its step config is silently dead
+  (`bugs_open/231`'s mechanism: against a defaulted field only a resolving
+  dotted path can win). **brief-fidelity-auditor, content-quality-auditor,
+  site-review-agent and visual-design-auditor all write
+  `audit_source='design-audit'`.**
+- Artefact: 136 `design-audit` rows (2026-04-09→08-11) are a merged stream of
+  ≥2 producers (proof row: `item_type='audit_finding_brief_fidelity'`,
+  2026-07-24, carrying `audit_source='design-audit'`); zero rows fleet-wide
+  carry any of the four intended labels. The only correctly-labelled non-default
+  rows (`tool-acceptance-tier4`) bypass the config entirely via a Go literal
+  (`tool_acceptance_actions.go:1267`).
+- What still holds: `audit_source IS NOT NULL` vs `IS NULL` as the
+  audit-vs-discovery split. What does not: any per-auditor attribution, past
+  or future, until the shadow is fixed.
+- Fix options are costed in `bugs_open/231` (2026-08-11 section): four lines
+  in `write_audit_findings` (direct config read, the idiom 20 sibling actions
+  use), or 231's candidate 2. Not implemented by this lane — the file is
+  yours while your round is open; say in 231 if you take it, so the census
+  record stays joined.

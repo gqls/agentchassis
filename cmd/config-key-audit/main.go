@@ -36,6 +36,20 @@
 //	  own comment into two real key names, which then resolved to nothing and said
 //	  nothing. Asked of EVERY action, opted in or not. Exit 1 on findings.
 //
+//	go run ./cmd/config-key-audit --default-shadowed-keys  < live-workflows.json
+//	  [{"agent": "...", "path": "...", "action": "...", "field": "...", "key": "...",
+//	    "class": "...", "config_value": ..., "default_value": ..., "matches_default": bool, ...}, ...]
+//	  Which live step-config entry can never take effect because the action's
+//	  spec carries a Default for that field? bugs_open/231: only a Strategy-0
+//	  dotted path that RESOLVES can beat a Default; statics, literals and the
+//	  deprecated bridge are all silently dead against one, and a defaulted field
+//	  outside Required+Optional is dead to every config shape. Dotted paths on
+//	  defaulted fields are reported as "dotted_conditional" (they fall back to
+//	  the Default silently when unresolvable) but never fail the run. Exit 1
+//	  only on a dead entry whose value MISMATCHES the default it is shadowed by.
+//	  See defaultshadow.go for the class definitions and the direct-config-read
+//	  caveat.
+//
 //	go run ./cmd/config-key-audit --relay-gaps             < live-workflows.json
 //	  {"findings": [...], "uncovered_relays": [...], "unmatched_registry_entries": [...]}
 //	  Can each DECLARED dispatcher relay still carry every key its handler's
@@ -148,7 +162,14 @@ type specDump struct {
 	// (bugs_open/234): the join against live definitions is the only thing that
 	// can catch a carrier BEFORE the roll turns it into a dead agent.
 	RemovedConfigKeys map[string]string `json:"removed_config_keys,omitempty"`
-	OptedIn           bool              `json:"opted_in"`
+	// Defaults is the spec's field→default map. Emitted because a Default is
+	// load-bearing for what a step config can express at all: against a
+	// defaulted field only a resolving dotted path takes effect (bugs_open/231),
+	// so a reader sizing a config change needs the defaults in the same dump as
+	// the key sets. bugs_open/223's var-blindness means a code search for the
+	// declaration can miss it; this asks the binary instead.
+	Defaults map[string]interface{} `json:"defaults,omitempty"`
+	OptedIn  bool                   `json:"opted_in"`
 }
 
 func main() {
@@ -178,6 +199,10 @@ func main() {
 	}
 	if len(os.Args) > 1 && os.Args[1] == "--relay-gaps" {
 		emitRelayGaps()
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "--default-shadowed-keys" {
+		emitDefaultShadowedKeys()
 		return
 	}
 	if len(os.Args) > 1 && os.Args[1] == "--shared-output-fields" {
@@ -275,6 +300,13 @@ func emitSpecs() {
 				removed[k] = msg
 			}
 		}
+		var defaults map[string]interface{}
+		if len(spec.Defaults) > 0 {
+			defaults = make(map[string]interface{}, len(spec.Defaults))
+			for k, v := range spec.Defaults {
+				defaults[k] = v
+			}
+		}
 		_, isOptedIn := optedIn[name]
 		out[name] = specDump{
 			Required:             nonNil(spec.Required),
@@ -283,6 +315,7 @@ func emitSpecs() {
 			Deprecated:           dep,
 			DeprecatedConfigKeys: depConfig,
 			RemovedConfigKeys:    removed,
+			Defaults:             defaults,
 			OptedIn:              isOptedIn,
 		}
 	}
