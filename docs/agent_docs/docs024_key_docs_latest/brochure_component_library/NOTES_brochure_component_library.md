@@ -5659,3 +5659,15 @@ guard structure is what 388 copies); both files are in `sql_for_agents/`.
 the commitments clause are live). Remaining for this lane: the 012 verdict (corr `62d2463f`,
 mid-council as of 12:40Z — 40 min queue latency, normal) and its apply; then the census
 follow-ups already registered (recompose live-proof → retire the prose escape).
+
+### 2026-08-11 (late) — the 012 round's FIRST run died un-reviewed; resubmitted on the same corr
+
+The 11:59Z run (corr `62d2463f`) failed at `review_mission` without reviewing anything:
+`PROCESSING_FAILED / failed to write message to kafka: context canceled` at 12:02:51, then
+sat EXECUTING_STEP until the stale-reaper terminated it (">4h" note in the error column) —
+the hung-spawn class (029 family), same shape as the 012 feature's own first-ever round in
+July ("wedged on a bug-003 spawn-loss; resubmitted, flowed through"). No objections exist;
+the submission is byte-identical. Resubmitted ~16:0xZ, `RESUBMIT_CORR=62d2463f`, new run
+orch `f007c32f`. Watcher keyed on the NEW orchestration id this time (a corr-keyed watcher
+matched the DEAD run's FAILED status — that near-miss is worth remembering: after a
+resubmission, watch the RUN, not the correlation).
