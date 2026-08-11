@@ -12,6 +12,29 @@ live and demonstrably working. One council round is running and one measurement 
 
 ## 0. THE OPEN ITEMS
 
+> ## ✅ 2026-08-11 — THE CAP LIFTED; THE BANNER BELOW OVERSTATED THE OUTAGE
+>
+> **The "three weeks" in the 08-10 banner did not happen: the outage was ~3h20m** (last cap
+> failure `2026-08-10 17:02:12Z`, first success `18:12:11Z`) — **the owner raised the limit.** I
+> had read the vendor's *stated reset* as a forecast; it is a worst case. Verify a lift on the
+> **success** side of `llm_call_log`, never the failure side. **The council gate and `090` are
+> AVAILABLE again.**
+>
+> Re-verified this morning on the fresh build **v1.0.1284**, both replicas:
+> `ownergate=1 claims=1 voice=1 CONTROL_pos=2 CONTROL_absent=0` (needles + their gotchas now in
+> the RUNBOOK; note `CONTROL_absent` is fabricated, so this **cannot** distinguish 1284 from 1279).
+> **§0b re-run after the 08-11 08:44:19Z sweep: `refused_by_gate` STILL 0** (8/19/3), invariant
+> clean at 8 of 8. Gate remains `[UNEXERCISED]`.
+>
+> **`bugs_open/244` is unaffected and stays OPEN** — the budget was exhausted on the *10th of the
+> month*, so raising the cap moved the wall rather than removing it.
+>
+> **THE ONE OPEN ITEM: council round 4 is dead and awaiting a decision to resubmit** (unchanged,
+> under `RESUBMIT_CORR=b67eb26a-14ef-45d7-b755-3e489fd57ef0`, from
+> `SUBMISSION_2026-08-09_claims_unverified_revalidator.json`). Not fired yet: one round costs
+> ~1.6M input tokens, which is the exact spend `244` documents, one day after the cap was hit.
+> **Owner decision, deliberately left un-taken.**
+
 > ## ⛔ CORRECTED 2026-08-10 (later session) — READ THIS BEFORE §0a AND §0b
 >
 > **§0a is WRONG: round 4 is not in flight, it is DEAD.** Its orchestration

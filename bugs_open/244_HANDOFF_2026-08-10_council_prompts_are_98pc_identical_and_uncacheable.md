@@ -2,7 +2,18 @@
 
 **Filed 2026-08-10 by the `bugfix_168_deployed_asset_path` lane**, after the fleet's
 Anthropic API usage limit was exhausted at **14:51:47Z on the 10th of the month**, with the
-stated reset **2026-09-01 00:00 UTC** — a 21-day fleet-wide LLM outage.
+stated reset **2026-09-01 00:00 UTC**.
+
+> **CORRECTED 2026-08-11 — the outage was ~3h20m, not the 21 days this file originally claimed.**
+> [MEASURED] last usage-limit failure **2026-08-10 17:02:12Z**, first success after it
+> **18:12:11Z**: the owner raised the cap the same afternoon. I wrote "a 21-day fleet-wide LLM
+> outage" by treating the vendor's *stated reset* as a forecast, and escalated on that basis.
+> **The stated reset is a worst case; the binding variable is whether a human raises the limit.**
+> Check the **success** side of `llm_call_log` before acting on the failure side.
+>
+> **None of the measurements below change, and the defect is not softened by the quick fix** —
+> if anything it is sharpened: the budget was exhausted on the **10th of the month**, so absent
+> the caching fix this recurs roughly monthly. Filing stays OPEN.
 
 > **On the diagnosis-loop norm (CLAUDE.md, owner ruling 2026-07-31).** This file asserts a
 > cross-cutting root cause and would normally have to go through `090` first. **The loop is

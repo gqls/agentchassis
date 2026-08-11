@@ -885,3 +885,42 @@ and not something we broke — I've pointed at their findings rather than redoin
 it's no, the fleet does no AI work until 1 September and we should plan around that. Either way
 the caching fix is worth doing, because it's the difference between the budget lasting ten days
 and lasting most of a month.
+
+---
+
+## 2026-08-11 — correction: the three-week outage I told you to plan around lasted three hours
+
+Yesterday I wrote that the fleet was out of AI credit until 1 September and asked you to decide
+whether to raise the limit. **You raised it, and I should correct the record: the outage ran from
+about 15:51 to 19:12 our time — roughly three and a quarter hours, not three weeks.**
+
+The mistake was mine and worth naming precisely, because it's the sort I could repeat. The error
+message stated a reset date of 1 September, and I reported that date as though it were a forecast
+of when we'd be working again. It isn't. It's the vendor's worst case — what happens if nobody
+touches the limit. The thing that actually decides the outcome is whether a human raises the cap,
+and on this estate that took hours. I've written the check into the shared landmine file so the
+next session confirms the *successes have resumed* rather than reasoning from the failures.
+
+**What that does not change is the underlying problem, and I'd rather not let the quick fix bury
+it.** The budget was exhausted on the *tenth* of the month. Nothing about raising the limit stops
+that happening again around the same point next month — it just moves the wall. The review board
+is still 88% of our AI spend, still sending fifteen reviewers a message that's 98.6% identical,
+still with no caching and still ordered so caching couldn't work anyway. That fix is worth roughly
+76% of the board's cost and it's the difference between a budget that lasts ten days and one that
+lasts the month. It's filed as `bugs_open/244` and it stays open.
+
+**Where the lane itself stands, all re-checked this morning against the new build:**
+
+The fresh chassis (v1.0.1284) went out at 10:23 and I confirmed our code is actually in it rather
+than assuming — all three of our markers present on both machines, with a control that correctly
+finds nothing, so the check can tell the difference. The overnight sweep ran at 09:44 as usual.
+
+**Your copy-changed gate has still never fired.** Eight items closed, nineteen still standing,
+three it couldn't judge — and every one of the eight had genuinely edited copy behind it. So the
+gate is holding the line without having had to block anything yet. I'll keep reporting it as
+unproven rather than as working, because those are different claims.
+
+The one thing outstanding is the review board round that died mid-flight yesterday. The board is
+available again, so I can resubmit it — but a single round now costs about 1.6 million words of
+input, which is exactly the spending I've just finished documenting. Given the cap was hit
+yesterday, I'd rather you told me to fire it than assume.

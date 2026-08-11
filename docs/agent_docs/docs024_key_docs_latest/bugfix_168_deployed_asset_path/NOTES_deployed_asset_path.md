@@ -2597,3 +2597,55 @@ staying at 0, which is exactly what a surviving silent invalidator looks like.
 The lane's shipped revalidator sweep needs no LLM (agent `diagnosis-review-queue-revalidator`,
 steps `sweep` + `complete`; no LLM reference in `revalidate_review_queue_action.go`). It ran at
 08:44Z and keeps running through the outage. **Pure Go/DB work is not blocked — only LLM work is.**
+
+---
+
+## 2026-08-11 — CORRECTION to yesterday's outage claim, + new build verified, + §0b re-run
+
+### > **CORRECTED 2026-08-11: I claimed a 21-day fleet outage. It was ~3h20m.**
+
+[MEASURED] `llm_call_log`: last usage-limit failure **2026-08-10 17:02:12Z**; first success after
+it **18:12:11Z**. The owner raised the cap the same afternoon.
+
+**What I did wrong:** I read the vendor's *stated reset* (`2026-09-01 00:00 UTC`) as a forecast of
+when the fleet would work again, wrote "three weeks" into `README_where_we_are`, `NOTES`,
+`bugs_open/244`, the handoff banner and `LANDMINES.md`, and escalated on that basis. The stated
+reset is the **worst case if nobody intervenes**; the binding variable is a human raising the
+limit. Nothing in my evidence was wrong — the inference on top of it was.
+
+**The check that would have caught it, now in LANDMINES:** verify a lift on the **success** side,
+never the failure side — the failures stop appearing whether or not the cap lifted.
+```sql
+SELECT date_trunc('hour',created_at), count(*) FILTER (WHERE success) AS ok
+FROM llm_call_log WHERE created_at > now() - interval '24 hours' GROUP BY 1 ORDER BY 1;
+```
+This is the same family as yesterday's pod-log misstep (an untested silence) and as
+`WRONG_CALLS.md:14507`: **three times in two days I have reasoned from an absence without first
+asking what the absence could look like if I were wrong.**
+
+**`bugs_open/244` is NOT softened by this** — arguably sharpened. The budget was exhausted on the
+**10th of the month**, so without the caching fix this recurs roughly monthly; raising the cap
+moves the wall rather than removing it. Stays OPEN.
+
+### New build v1.0.1284 — lane code verified present, not assumed
+
+Both replicas (`…-6j5xn`, `…-rvrdg`), started 09:23Z:
+`ownergate=1 claims=1 voice=1 CONTROL_pos=2 CONTROL_absent=0` — identical to the v1.0.1279
+figures. Needles now recorded in the RUNBOOK (they were missing, which is why I had to re-derive
+them from source this morning).
+
+⚠ **Honest limit on this check: I have a positive control but NOT a true negative control.**
+`bugs_open/153` wants a string the change REMOVED, expecting 0. My change removed nothing
+distinctive, so `CONTROL_absent` is a fabricated string — it proves grep returns 0 correctly, it
+does **not** prove the binary is newer than v1.0.1279. Candidate `pc.locked_at IS NULL` (the skip
+that moved SQL→Go) was rejected: it appears **17 times** across other `platform/` files, so it
+would match regardless — the lane's own "a short grep needle is someone else's string" trap.
+
+### §0b re-run after the 08-11 08:44:19Z sweep — gate STILL UNEXERCISED
+
+`refused_by_gate 0 | resolved 8 | still_holds 19 | unknown 3`; invariant `copy_actually_changed`
+**t for 8 of 8**, zero `f`. The sweep ran (stamp advanced to 08-11 08:44:19Z) and produced no new
+`claims_unverified` closures. Gate remains `[UNEXERCISED]` — proven present and correct where it
+applied, never proven to bite.
+
+Today's only LLM failure is unrelated: `mistral-small3.1` / `scrape_prices`, an ollama-adapter EOF.

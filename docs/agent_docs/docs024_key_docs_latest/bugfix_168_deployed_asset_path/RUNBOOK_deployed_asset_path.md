@@ -131,3 +131,55 @@ kubectl exec -n ai-persona-system <pod> -- sh -c \
 only the negative control (a string the change **removed**) proves it shipped **yours**
 (`bugs_open/153`). Mind the case — `grep -ic` if unsure; a mis-cased grep reads as
 "not shipped".
+
+---
+
+## Pod-grep the REVALIDATORS after any roll (added 2026-08-11 — these were missing, and I had to re-derive them from source under time pressure)
+
+Run against **every replica**, never `deploy/X` (that reads one pod of N). `grep -c` prints
+nothing and exits 1 on zero, so `${n:-0}` is not optional.
+
+```sh
+for p in $(kubectl -n ai-persona-system get pods -l app=agent-chassis -o name | cut -d/ -f2); do
+  echo "--- $p ---"
+  for pair in "ownergate:register moved, not the page" \
+              "claims:evidence base, so the finding cannot be re-judged" \
+              "voice:voice gate, so the finding cannot be re-judged" \
+              "CONTROL_pos:auto:revalidated" \
+              "CONTROL_absent:zzz_needle_that_should_never_exist"; do
+    label="${pair%%:*}"; needle="${pair#*:}"
+    n=$(kubectl -n ai-persona-system exec -i "$p" -- sh -c "strings /app/agent-chassis | grep -c '$needle'" 2>/dev/null); n=${n:-0}
+    echo "   $label = $n"
+  done
+done
+```
+
+Expected on a build carrying this lane's work: `ownergate=1 claims=1 voice=1 CONTROL_pos=2
+CONTROL_absent=0`. Verified on **v1.0.1279** and again on **v1.0.1284**; baseline was `0/0/0` on
+**v1.0.1270**, which predates the commit.
+
+**Gotchas, each one paid for:**
+- **Take the needles from the Go source, not from memory.** `grep -on '"[a-z][^"]\{40,90\}"'` over
+  `revalidate_unverified_claims.go` / `revalidate_voice_tells.go` gives usable literals.
+- **Avoid apostrophes and em-dashes in the needle** — the real strings contain both
+  (`could not load this site's evidence base…`, `— so the site's evidence register moved…`). Single
+  quotes in the shell break on the apostrophe, and the em-dash is an emission hazard. The
+  substrings above are deliberately plain ASCII and apostrophe-free.
+- **`CONTROL_absent` is NOT a true negative control.** It is a fabricated string, so it only proves
+  grep can return 0. `bugs_open/153` wants a string the change *removed*, expecting 0 — this lane's
+  change removed nothing distinctive, so that control does not exist and the check therefore
+  **cannot distinguish v1.0.1284 from v1.0.1279**. Say so rather than implying a stronger proof.
+- **Do not use `pc.locked_at IS NULL` as the negative control** (the skip that moved SQL→Go). It
+  appears **17 times** across other `platform/` files and would match regardless.
+
+## Did the API usage cap lift? Ask the SUCCESS side
+
+```sql
+SELECT date_trunc('hour',created_at), count(*) FILTER (WHERE success) AS ok,
+       count(*) FILTER (WHERE NOT success) AS fail
+FROM llm_call_log WHERE created_at > now() - interval '24 hours' GROUP BY 1 ORDER BY 1;
+```
+A resumed `ok` column is the only proof. **The failures stop appearing whether or not the cap
+lifted**, so reasoning from the `fail` column cannot tell the two apart — and the vendor's stated
+reset date is a worst case, not a forecast (2026-08-10: stated 2026-09-01, actually lifted in
+~3h20m because the owner raised it). Cost me a wrong "three-week outage" claim in five files.
