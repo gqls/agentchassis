@@ -299,3 +299,25 @@ earned its keep on a real customer site, observed rather than argued.
 That closes the second of the two waits. The whole workstream is now down to a single
 question that only a person can answer: what should the mortgage-calculator site's
 "tools" page actually be? Everything else is done, verified, reviewed, and written down.
+
+---
+
+And later the same afternoon, that last question got its answer. Laid out plainly, the
+situation was: the site has ten calculator pages — its whole product — and every other
+part of the site has a proper landing page (guides, about, contact, investor) except the
+tools. The stray image reference we kept finding was pointing at exactly that missing
+page. Presented with add-the-page / delete-the-reference / leave-it, **the owner chose to
+add the tools landing page.**
+
+We did not build it ourselves, on purpose. That site has its own active team — visibly
+mid-work today — with its own sequencing and its own plans for exactly this family of
+pages. Barging in with a replan would have trampled that. Instead the decision, the
+evidence behind it, and the three traps whoever executes it needs to know about (one
+subtle way the replan mechanism can silently do nothing; one repair script that must not
+be run again; one queued image job that must not be woken before the page exists, or it
+buys a picture nothing can display) were written into that team's own working directory,
+in the format they already use for hand-ins.
+
+With that, this workstream is finished from our side. The bug closes for good when the
+tools page appears and the fleet-wide count of stranded image references — currently
+exactly one — reaches zero.

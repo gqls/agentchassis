@@ -35,7 +35,7 @@ path, live on `v1.0.1283`, and the 9 rescuable live rows are repaired.**
 |---|---|---|
 | 1 | ~~**Council verdict**~~ | **RESOLVED 2026-08-11: round 2 REVISE → round 3 APPROVED** (10:07Z, corr `46a50b4c`, 2 advisory objections, none high). Objections answered with evidence; decision record `doc_notes 0633aa2f…`; imagery lane told; register IMG-070 updated + corrected. `c21af5eda`'s `Council-Submitted:` trailer now resolves via `098`. Full seat detail in NOTES 2026-08-11. Nothing left to do here. |
 | 2 | ~~**The rewrite arm has not been OBSERVED firing in production**~~ | **RESOLVED 2026-08-11:** fundamentallyai.com replanned unforced at 10:21Z — `imagery_refs_canonicalised: 2` (`news-index`/`platform-log-index` heroes, both consumer-visible, plan-scoped R3 empty). The old binary could not return 2. NOTES has the queries. |
-| 3 | **`mortgagecalculator.co.uk` `tools-index`** | Names a page existing under no spelling. Needs a human decision; deliberately left. **THE ONLY ITEM STILL OPEN.** |
+| 3 | ~~**`mortgagecalculator.co.uk` `tools-index`**~~ | **DECIDED 2026-08-11: the owner chose ADD THE TOOLS LANDING PAGE.** Execution routed to the site's owning lane (active today — live transcripts, not just commits) via `mortgagecalculator_couk_adoption/CONTRIB_2026-08-11_owner_decision_tools_index_page_should_exist.md` (evidence + recompose_pages landmine + do-not-undefer warning). Closes fleet-wide when the page exists and the invisible-ref census reads 0. **Nothing further is this lane's to do.** |
 
 **Do NOT re-apply `sql_for_agents/373`** — already applied, and its guard will abort
 (it requires exactly 1 unresolvable row to remain, and that is now the state).

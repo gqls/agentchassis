@@ -523,3 +523,16 @@ artifacts — not a verdict). **Resubmitted** on the same trail correlation
 **The ONLY remaining open item is the human decision:** `mortgagecalculator.co.uk`
 `tools-index` names a page existing under no spelling; its 7 repaired sibling refs are
 correct but their assets are not generated (site deferred). Everything else is done.
+
+> **DECIDED 2026-08-11 (owner, same day): ADD THE TOOLS LANDING PAGE.** The evidence
+> that framed it: the plan holds ten `tool-*` pages and every OTHER family has its
+> section-index (`guides-index`/`about-index`/`contact-index`/`investor-index`) — only
+> tools lacks one, and both the imagery row and a deferred work item already point at
+> it. **Execution is routed to the site's owning lane, not done here** — the
+> mortgagecalculator adoption workstream is active (live transcripts confirmed, not
+> just commits), so per contribute-don't-compete the decision + evidence + landmines
+> travel in `docs024_key_docs_latest/mortgagecalculator_couk_adoption/
+> CONTRIB_2026-08-11_owner_decision_tools_index_page_should_exist.md`. This bug closes
+> for the fleet when a `tools-index` page exists and the invisible-ref census reads 0
+> (today: exactly 1). ⚠ Their `needs_imagery:page:tools-index:hero_tools` item must
+> not be undeferred before the page exists — that is a paid orphan asset waiting.

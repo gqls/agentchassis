@@ -511,3 +511,25 @@ and IMG-070 (CLOSED note in the warning block + verify-later ledger) are updated
 **The lane's only remaining open item is #3: the `mortgagecalculator.co.uk`
 `tools-index` human decision.** Everything else — fix, backfill, council, production
 observation, roll survival — is done and evidenced.
+
+## 2026-08-11 (afternoon, later) — item 3 DECIDED and routed; the lane has nothing left to do
+
+Framed the decision with live facts first: the plan holds **ten `tool-*` pages** and
+every other family has its section-index (`guides-index`, `about-index`,
+`contact-index`, `investor-index`) — **only tools lacks one**; the imagery row AND the
+deferred `needs_imagery:page:tools-index:hero_tools` item both point at the missing
+page; no `hero_tools` asset exists; `/tools/index.html` 404s live (so does
+`/guides/index.html` — the index-page gap is wider than tools and already known to the
+site's lane as their 114-shape finding). **Owner chose: ADD THE TOOLS LANDING PAGE**
+(over delete-the-orphan and leave-it).
+
+**Not executed here, deliberately.** `who-owns` is commit-lagging, so the live check
+ran too: several `.jsonl` transcripts touched mortgagecalculator TODAY (236/185/273-hit
+sessions) — the adoption lane is mid-flight. Contribute-don't-compete: the decision,
+evidence, and execution landmines (the `recompose_pages` silent no-op; do NOT re-run
+373; do NOT undefer the hero item before the page exists — paid orphan asset otherwise)
+went to `mortgagecalculator_couk_adoption/CONTRIB_2026-08-11_owner_decision_tools_index_page_should_exist.md`.
+
+**Fleet-wide close condition, for whoever checks later:** a `tools-index` page exists
+on that site AND RUNBOOK R1 reads **0** invisible rows (today: exactly 1). Note 373's
+guard then makes any accidental re-run abort — correctly.
