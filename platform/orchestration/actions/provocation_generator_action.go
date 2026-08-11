@@ -162,6 +162,11 @@ The test is not "is this word simple" but "would this reader have said it
 themselves". Prefer the concrete over the abstract: a thing you can picture beats a
 category every time.
 
+BRITISH ENGLISH, always. Spelling and idiom both: theatre not theater, realise not
+realize, holiday not vacation, queue not line, autumn not fall. This is a British
+site read by British readers, and an American spelling is the same kind of mistake
+as a technical word — it tells the reader the writing was not meant for them.
+
 CHOOSE A SUBJECT NOBODY HAS TO BE NAMED TO ARGUE ABOUT. Readers reply to these in
 public. Before proposing a claim, ask: could this be answered well without naming
 a real person or company and saying something checkable about them? If answering

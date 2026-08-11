@@ -516,3 +516,28 @@ func TestGeneratorPromptRulesOutSpecialistVocabulary(t *testing.T) {
 		t.Fatal("the prompt dropped the worked example the rule came from")
 	}
 }
+
+// TestGeneratorPromptAsksForBritishEnglish.
+//
+// The generator produced "Long showers are self-care theater" on 2026-08-10 — an
+// American spelling on a British site. Nothing anywhere in the pipeline was asking
+// for British English: CLAUDE.md states it as a platform convention, the gate does
+// not judge it, and a convention no prompt carries is a convention the model has
+// never been told about.
+//
+// It sits with the register rule on purpose. Both are the same failure from the
+// reader's side — a word that says the writing was not meant for them.
+func TestGeneratorPromptAsksForBritishEnglish(t *testing.T) {
+	p := buildGeneratorPrompt(4, []exemplar{{Title: "T", Teaser: "Te", Body: "B"}}, nil, nil)
+
+	if !strings.Contains(p, "BRITISH ENGLISH") {
+		t.Fatal("the generator prompt does not ask for British English — the platform " +
+			"convention is stated in CLAUDE.md and enforced by nothing the model can read")
+	}
+	// The worked pair the defect came from. Examples are what make a spelling rule
+	// actionable; "use British English" alone did not exist anywhere and would have
+	// been just as absent in effect.
+	if !strings.Contains(p, "theatre not theater") {
+		t.Fatal("the prompt dropped the worked spelling example the rule came from")
+	}
+}

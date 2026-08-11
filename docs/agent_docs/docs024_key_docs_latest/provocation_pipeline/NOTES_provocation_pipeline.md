@@ -2182,3 +2182,51 @@ both owner-authorised, and I simply did not cite them. That is a submission defe
 a code defect, and the answer is the citation rather than removing the clause.
 `debug_historian` is also right that no pod-verification step was stated; it cannot be,
 until the fleet rolls.
+
+## 2026-08-11 — the register rule is live, and the shelf reaches 21 August
+
+**Deploy proven at v1.0.1286, both replicas:** `"would this reader have said it"` = 1,
+`"meet in a meeting but not in a pub"` = 1, negative control
+`"A one-sided piece is rejected"` = **0**.
+
+**Pool state [MEASURED 2026-08-11 13:10Z]:** 20 dated approved rows (2026-06-29 →
+**2026-08-21**), 8 approved awaiting the owner's stamp, 1 gate-rejected, 1 retired
+(the `scales` title), plus the 1 long-retired row. **Eleven days of runway** where
+2026-08-10 morning had five.
+
+### The register rule's first round reads plainer — and one round cannot say more
+
+Four candidates, 4/4 gate-approved: *"That giant tub of mayonnaise wasn't a deal. It
+was a slow leak in your fridge and your wallet."* · *"The bathroom only gets scrubbed
+when someone else is coming to see it."* · *"walking back through your own front
+door."* Concrete, conversational, nothing borrowed from a specialist register.
+
+**`[UNMEASURED]` — I am not claiming the rule caused this.** n=1 against a stochastic
+model, and the pre-rule rounds were not uniformly jargon-heavy either (7 of 8 were
+fine; one title was not). By this lane's own standard — *two clean runs cannot
+establish stability* — a qualitative read of one round is a reason to keep going, not
+evidence. What would settle it: several rounds, and a count of candidates whose title
+carries a specialist word, before and after.
+
+### British English was asked for by nobody
+
+`"Long showers are self-care theater"` (2026-08-10) is an American spelling on a
+British site. Tracing why: CLAUDE.md states British English as a platform convention,
+the gate does not judge spelling, and **the generator prompt never mentioned it.** A
+convention that exists only in a document the model cannot read is not a control on the
+model's output. Added with worked pairs (`theatre not theater`, `realise not realize`,
+`holiday not vacation`), because "use British English" as a bare instruction would have
+been just as absent in effect as saying nothing.
+
+> **MISSTEP, caught in one extra query, and it is the shape that matters.** I fetched
+> the live feed, ran `len(d.get('archive'))` and reported **1** — a collapse from
+> yesterday's 8 that should have been impossible with a shrink guard in place, and I
+> was one keystroke from filing it as a regression. `archive` is a **dict** with one
+> key (`entries`); `len()` on it counts the keys, not the entries. The real count is
+> **9**, correctly grown by one as the 10 Aug entry moved in. Sibling of the recorded
+> trap *"a nested shape of NULLS passes every shape check"*: here the wrong nesting
+> level returned a **plausible small integer** rather than an error, and a plausible
+> number is what gets believed. **Print the shape before you count it** — `list(d)`
+> and the type of each value cost one line and would have shown it immediately.
+> Also worth recording: `provocations.json` is served at **`/data/provocations.json`**;
+> the bare path is a 404, which for thirty seconds looked like the feed had vanished.
