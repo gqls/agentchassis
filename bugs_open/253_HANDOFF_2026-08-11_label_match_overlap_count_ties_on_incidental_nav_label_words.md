@@ -6,6 +6,30 @@
 > numbers for the options below, the calibration method and baseline, and the process
 > steps. This file stays the case record.
 
+> **FIXED AT COMMIT `f1819861f` (2026-08-11).** `BestLabelMatch` now ranks a candidate by
+> identity-token overlap (label tokens present in the candidate's own `name`/`title`) ahead
+> of total-token overlap (name+title+`nav_label` combined, the old and only signal);
+> interactive-preference and the alphabetical-`Name` final tie-break are unchanged. A second
+> ranking key — smaller token-set-size as a further tie-break, meant to replace the
+> alphabetical tie-break — was implemented and calibrated, then **dropped before shipping**:
+> it flipped already-correct picks on live data (all 9 CTAs on gaswholesalers.com, driven by
+> a stray hyphen tokenising "Break-Even" into two words) for reasons unrelated to
+> correctness, so the shipped ranking keeps the original alphabetical `Name` tie-break.
+> Calibrated twice against the live fleet, both candidate pools the shipping code actually
+> uses: **detector pool** 784 examined / 697 matched / 347 newly-resolved / OVERRIDDEN
+> 208→205, 18 changed picks (2.3%), each individually inspected and read as an improvement or
+> a defensible identity-grounded pick; **resolver pool** 784/401/196/44, OVERRIDDEN unchanged
+> at 44, 0 changed picks (its `contentHub` candidates carry no `nav_label`, so identity==total
+> in that pool structurally — 253's mechanism cannot regress it). Full numbers and the
+> gaswholesalers/vetcomparison/robot-hands regression traces:
+> `docs/agent_docs/docs024_key_docs_latest/bugfix_203_phantom_cta_cleanup/CALIBRATION_2026-08-11_label_match_identity_report.txt`.
+> Submitted to the council gate before commit: `Council-Submitted: ccef36de-6757-4777-91db-37864b018622`
+> (verdict not yet read at time of writing — see that correlation in `diagnosis_artifacts`
+> for the result). **STATUS STAYS OPEN**: fixed-and-committed is not fixed-and-live per the
+> standing bar (closed requires the fix to have shipped in a fleet roll); do not flip this to
+> CLOSED on the strength of the commit alone. `bugs_open/248` is unaffected by this fix and
+> remains the other blocker on draining the `misdirected_cta` repair queue.
+
 **Filed 2026-08-11** by the `bugfix_203_phantom_cta_cleanup` lane. Found while running
 detection manually to build a repair list — **this defect is why that repair list was not
 safe to act on**, and the rollout was halted. **Status: OPEN, not started.**
