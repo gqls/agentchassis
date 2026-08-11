@@ -190,3 +190,14 @@ session, untouched by this lane.
   151.226.83.138, 176.58.121.95 — the five cluster IPs are NOT among them**;
   cluster EPP still blocked. Contributed to the domains lane NOTES (their
   EPP ownership) with the credentials-file completion note.
+
+## 2026-08-11 (late) — owner: tag applied, IPs done; EPP proven 1000 from cluster; queue+voucher design added
+
+- Owner applied for the second tag and completed the EPP allowlist. Proven
+  end-to-end this session: EPP LOGIN (not greeting) from postgres-clients-0
+  → result 1000 (full evidence in the domains lane NOTES, contributed
+  there). Credentials file completed with TAG=DESIGNCONSULT.
+- PLAN gains §2.6 (queue/submission gate) and §2.7 (subscription+vouchers)
+  designs so the next session builds rather than designs. Handoff §4
+  updated: Nominet asks are now CLEARED except the registrar keys; second
+  tag pending Nominet's decision.

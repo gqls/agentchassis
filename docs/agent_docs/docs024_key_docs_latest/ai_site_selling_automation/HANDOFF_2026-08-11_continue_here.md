@@ -117,16 +117,14 @@ domains** — the portfolio is the sales proof.
 
 ## 4. Owner asks outstanding (external, cheap to nag)
 
-- **Nominet**: ~~TAG name~~ **provided 2026-08-11: `DESIGNCONSULT`** —
-  credentials file can be completed (domains lane NOTES has the
-  contribution). **STILL OWED: the five cluster IPs on the EPP allowlist**
-  (134.213.168.26/.37/.44/.54/.56) — the owner-supplied live list
-  (5.65.164.9, 116.203.204.115, 151.226.83.138, 176.58.121.95) contains
-  none of them, so cluster EPP is still blocked; suggest dropping the
-  rotating office IP 151.226.83.138 when adding. Owner is applying for a
-  SECOND tag for this venture (Channel Partner-shaped — only one
-  Self-Managed tag is allowed per registrar); draft application body was
-  provided in-session 2026-08-11. Registrar keys: later, per owner.
+- **Nominet: CLEARED 2026-08-11 evening.** TAG `DESIGNCONSULT` + password in
+  `~/.config/nominet/credentials`; owner added the cluster IPs to the EPP
+  allowlist; **EPP LOGIN PROVEN from the cluster** (framed login via
+  postgres-clients-0 → result 1000; evidence in domains lane NOTES — a
+  greeting proves nothing, only login does). Second tag for this venture:
+  **application SUBMITTED, pending Nominet** — when granted, decide the new
+  tag's credentials/storage with the domains lane. Registrar keys
+  (dynadot/porkbun/spaceship): later, per owner.
 - Phase 6 cutover review (sibling lane) — still the gate for P4 here.
 
 ## 5. Landmines for this work (beyond 08-10b §1, which all still hold)

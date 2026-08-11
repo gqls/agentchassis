@@ -195,6 +195,46 @@ only tracks it. Nothing auto-triggered is trustworthy until it is fixed.
 Chat brief → `site_specs` aspects. ONB-019 (`build-briefing-agent`) is the
 existing autonomous half. Not designed in this pass.
 
+### 2.6 Queue + submission gate [DESIGNED 2026-08-11]
+
+Rulings baked in: capacity 3–4; the wait note is an APPROXIMATION, nothing
+binding; the owner can PAUSE the queue (malfunction/scale), and paused is a
+first-class state, not an error.
+
+- **Occupancy is DERIVED, never stored**: count open intake/build work items
+  for this product (`site_work_items`, non-terminal statuses, the intake
+  `item_type`) — one source of truth, nothing to drift. Capacity and
+  `queue_paused` are owner-settable config (a small config row/aspect the
+  admin FE can flip).
+- **Gate check at every intake door** (chat + any form): `count < capacity
+  AND NOT paused` → accept; else the closed message (different reason string
+  for full vs paused; neither promises anything).
+- **Wait note copy**: derived from recent average turnaround, phrased
+  "usually within N days", never a position guarantee — per ruling.
+
+### 2.7 Subscription service + vouchers [DESIGNED 2026-08-11]
+
+Rulings baked in: build out `auth-service/subscription` even if idle at
+first; £149 list price; vouchers single-use, named, expiring (£10/£55);
+payment AFTER approval while testing, up-front later; refunds manual-
+dashboard-only, never visible; `clients.external_id` is the Stripe key.
+
+- **Voucher table** (clients_db, beside the customer identity it discounts):
+  `code` (unique), `drops_price_to_pence` (1000 | 5500), `recipient_name`,
+  `expires_at`, `redeemed_at`, `redeemed_by_client_id`, `created_at`.
+  Single-use enforced atomically: `UPDATE … SET redeemed_at=now(),
+  redeemed_by_client_id=$2 WHERE code=$1 AND redeemed_at IS NULL AND
+  expires_at > now() RETURNING …` — zero rows = invalid/used/expired, race-
+  safe by construction. Admin FE gets create/list (name + expiry at issue).
+- **Payment timing is a config switch**, `after_approval` (default now) |
+  `upfront` — both paths built, one commit, per ruling.
+- **Stripe shape**: one-off Checkout Session per order (149/55/10 GBP),
+  signature-verified `checkout.session.completed` as the SOLE truth (the
+  proven idea.uk PATTERN — pattern, not code port), restricted key, event
+  dedup; `stripe_customer_id` ↔ `clients.external_id`. No refund code.
+- Council + register entries ship with the build (platform code, new shared
+  mechanism).
+
 ## 3. Sequencing, with gates named
 
 | step | gated on | state |

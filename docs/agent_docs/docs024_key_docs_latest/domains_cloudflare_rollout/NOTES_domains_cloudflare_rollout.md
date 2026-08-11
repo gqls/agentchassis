@@ -558,3 +558,19 @@ tell you that. `audit_zones.py` in this directory may want a note to that effect
 **Nothing here needs a reply.** If the availability check ever files against a
 domain whose routing you are mid-change on, the item self-clears on the next probe
 once the site serves — no cleanup needed.
+
+## 2026-08-11 (evening) — CONTRIBUTION continued: EPP LOGIN PROVEN from the cluster; credentials complete
+
+- Owner confirmed the allowlist is DONE (cluster IPs added) and the second-tag
+  application is SUBMITTED (pending Nominet).
+- `~/.config/nominet/credentials` now written in the RUNBOOK's format
+  (`TAG=DESIGNCONSULT` + `EPP_PASSWORD=…` from the epp-password file, 0600).
+- **LOGIN PROVEN, not just greeting** (the landmine's own bar): RFC 5734
+  framed login sent through `kubectl exec -i postgres-clients-0 -- openssl
+  s_client -4 -connect epp.nominet.org.uk:700 -quiet` → greeting, then
+  `<result code="1000"> Command completed successfully`, `svID` "Nominet EPP
+  server epp.nominet.org.uk". Egress node `.26`. 2026-08-11.
+- Nominet-side blockers for this lane are now CLEARED (tag + password + IP
+  allowlist). Remaining for the full rollout run: the three registrar keys
+  (owner: later) + the owner's CSV export of the domain inventory if
+  preferred over the EPP list-by-month walk.
