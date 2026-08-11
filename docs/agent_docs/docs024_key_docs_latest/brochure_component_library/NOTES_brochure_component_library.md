@@ -5689,3 +5689,20 @@ council's own 2026-07-24 recommendation on this feature. One submission-tool les
 `operation` field is an enum (modify|add|remove|config_change) and the trigger's validator
 prints the error and exits 0 — a grep for SUBMISSION_CORR alone reads a validation failure
 as silence; check for the ERROR line too.
+
+### 2026-08-11 (close) — 012 round APPROVED and seed 385 APPLIED; the whole 08-11 queue is now executed AND live
+
+Second resubmission on corr `62d2463f`: **APPROVED**, 7 advisories none high. Applied 16:32Z,
+row-verified (marker + `$.input_data.spec.recompose_pages` range present, length exactly
+20,445, snapshot proven pre-update), ledgered with the corr. Advisories dispositioned: the
+d1e8c36e precedent EXISTS and says what was claimed (its APPROVED report was read this
+session); `RECOMPOSE_INTENT_NOT_REALISED` liveness was artefact-verified on BOTH v1.0.1283
+and v1.0.1284 pod greps (this lane's records, twice roll-survived); `recomposePagesFromSpec`
+liveness is features_open/012's July A/B with the symbols + tests named; the guard-aborts-if-
+duplicate behaviour is the DESIGN (fail-safe stop, not a silent wrong-row write); the
+enforcement-shape objection is the standing owner-ruled scope. **Actionable advisory
+(architecture): the exactly-one-active-row guard now exists verbatim in 4 seed files —
+centralise in the migration tooling before a 5th copy.** Recorded on features_open/012 too.
+LANDMINES' recompose entry deliberately NOT yet updated: the no-op trap stands until a live
+recompose run proves the marker moves the planner; that run is the arc's remaining item and
+it should ride the next genuine redesign need, not be manufactured.

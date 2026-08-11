@@ -95,3 +95,16 @@ the drift it reports is 377 plus this rule, both deliberate. Rollbacks: `bak_386
 `bak_387_fix_proposer`/`bak_388` (+ `agent_definitions_backup` snapshots for 386/388).
 Only §2 item 1 (the 012 round, corr `62d2463f`) remains open — it entered council at
 11:59Z after a 40-min queue.
+
+## UPDATE 2026-08-11 close — §2 item 1 is ALSO DONE. Nothing verdict-gated remains.
+
+012 round APPROVED on second resubmission (first run reaped un-reviewed — kafka
+context-canceled; REVISE in between added the dual-row guard + **PBP-041** + the rollback
+file). Seed 385 APPLIED 16:32Z + row-verified (20,445 chars, marker + range present,
+pre-update snapshot) + ledgered. **The lane's remaining items, in order:** (1) at the next
+GENUINE redesign need, dispatch it via `spec.recompose_pages` + briefing both, and read
+whether the planner deviates on the marked page — on success, retire the prose escape
+(follow-up seed on 362's paragraph), update the LANDMINES recompose entry, close the arc in
+`features_open/012`; (2) the architecture seat's centralise-the-guard advisory (4 verbatim
+copies of the exactly-one-active-row guard in seeds 385-388 — belongs in migration tooling);
+(3) the census's owner items (§3) when he rules.

@@ -2251,3 +2251,14 @@ wrong-row trap, and resubmitted. Approved. All three are now live and checked: t
 banned from inventing guarantees, and both copies of the reviewers' rulebook carry your
 nested-fields ruling word-for-word. The redesign-field change is still with the reviewers —
 it entered the queue late but is being reviewed now.
+
+**2026-08-11, night.** The last piece landed. The redesign-request change was approved on the
+second pass — the first review run died of a plumbing fault before reading anything, and the
+second asked for the same row-safety guard the earlier seeds got, plus a register entry for the
+new field, which was fair: it was my own new rule being applied back at me. All applied and
+checked. Everything you ruled this morning is now live in the running system: the census proved
+the fact-assignment machinery works, the planner can now be told which pages to redesign and
+will see it, the writer can't invent guarantees, and the reviewers' rulebooks carry the
+nested-fields ruling. The one thing left open on this front, deliberately: the next time we
+genuinely want a page redesigned, we do it through the new field and watch it work — that live
+proof, not today's plumbing, is what retires the old workaround.

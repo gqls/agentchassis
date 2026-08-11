@@ -209,3 +209,16 @@ field renders zero markers, full-template parse+render proof both ways); seed dr
 the live row with ROLLBACK: guard passed, UPDATE 1, verify passed; drift guard induced.
 Application gated on the verdict. On a live recompose run proving the field: retire the prose
 escape's load-bearing status (follow-up seed), update the LANDMINES entry and this file.
+
+**APPROVED + APPLIED (2026-08-11 evening): `Council-Reviewed: 62d2463f-b269-41fb-8f25-078983ffceab`.**
+Round 1 died un-reviewed (kafka context-canceled, reaped); resubmission drew REVISE (dual-active-row
+guard demanded — added, the d1e8c36e-ratified shape; register naming demanded per the nested-contract
+ruling — **PBP-041** now registers this seam and its two readers); second resubmission APPROVED
+(7 advisories, none high). Seed 385 applied 16:32Z, row-verified: the planner now sees
+`REDESIGN REQUESTED` inline on any page named in `spec.recompose_pages`. **The operator rule
+(intent in BOTH field and briefing) STANDS until a live recompose run proves the marker moves the
+planner** — that proof also triggers the registered follow-ups: retire the prose escape's
+load-bearing status in seed 362's instruction, update the LANDMINES 2026-08-10 entry, and close
+this arc. Advisory worth acting on fleet-wide (architecture seat): the exactly-one-active-row
+guard is now copied verbatim in seeds 385/386/387/388 — centralise it in the migration tooling
+before a fifth copy diverges.
