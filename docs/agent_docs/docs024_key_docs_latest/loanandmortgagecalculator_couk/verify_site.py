@@ -47,8 +47,32 @@ LIVE = "--disk" not in sys.argv
 # tail. Verified 2026-07-31. This is the ONLY sanctioned byte difference.
 BYTE_EXEMPT = {"robots.txt"}
 
+# ── decomposed pages and the per-page og:* tags ────────────────────────────────
+# An ASSEMBLED page is built from page_components rows through the shared chrome,
+# not from a hand-built document. The shared <head> cannot carry per-page
+# og:title/og:description/og:url, so those three are lost the moment a page is
+# decomposed. That is a STATED, ACCEPTED loss, not a regression discovered here:
+# PLAN_2026-08-05 §6 lists it beside nav aria-current and lang="en-GB" -> "en",
+# "each is visible in the assemble-mirror diff and none is silent". Assembly
+# injects JSON-LD and rel=canonical per page instead.
+#
+# Without this exemption the og:url check fails on every decomposed page for
+# ever — 2 pages on 2026-08-06, 19 after Track A, all 59 eventually — and a
+# checker that is permanently red is a checker nobody reads. So: still a hard
+# FAIL on a hand-built page (where the tag is real and its absence is a defect),
+# and a counted NOTE on an assembled one.
+#
+# The marker is the skip-link target the shared header carries
+# (`<span id="content" tabindex="-1">`), not anything content-specific: a
+# hand-built page wraps its content in `<div id="content" class="container…">`.
+# It therefore identifies a decomposed TOOL page (Track B) just as well as a
+# prose one, which a `ported-prose` marker would not.
+ASSEMBLED_MARKER = '<span id="content" tabindex="-1">'
+OG_PER_PAGE = ('property="og:url"',)
+
 EXTERNAL = ("http://", "https://", "mailto:", "tel:", "#", "data:", "javascript:")
 fails, checks = [], []
+n_assembled_og = 0
 
 
 def fail(check, detail):
@@ -158,10 +182,14 @@ note("ld+json blocks", n_ld)
 # ── 5. head essentials, and no leakage of either source site ───────────────────
 for f in pages:
     body = open(f, encoding="utf-8").read()
+    assembled = ASSEMBLED_MARKER in body
     for needle, what in (("<title>", "title"), ('property="og:url"', "og:url"),
                          ('class="skip-link"', "skip link"), ("<footer>", "footer")):
         if needle not in body:
-            fail(f"missing {what}", f)
+            if assembled and needle in OG_PER_PAGE:
+                n_assembled_og += 1      # accepted loss — see OG_PER_PAGE above
+            else:
+                fail(f"missing {what}", f)
     # "LoanAndMortgageCalculator.co.uk" CONTAINS "MortgageCalculator.co.uk", so the
     # exclusion has to be case-insensitive or it reports the old brand on every page.
     for m in re.finditer(r"(?i)(?<![a-z])(mortgagecalculator\.co\.uk|loancalculator\.co\.uk)",
@@ -192,6 +220,13 @@ if LIVE:
             diff += 1
             fail("live bytes differ from repo", f"{f}: repo {len(want)}B vs live {len(got)}B")
     note("files byte-identical live", f"{same} (+{len(BYTE_EXEMPT)} sanctioned exempt)")
+
+# Counted, never silent: the number is what makes the accepted loss visible as it
+# spreads. If this is 0 while decomposed pages exist, the marker has moved and the
+# exemption is inert — check ASSEMBLED_MARKER against a live assembled page.
+if n_assembled_og:
+    note("per-page og:* dropped (assembled)",
+         f"{n_assembled_og} page(s) — accepted loss, PLAN_2026-08-05 §6")
 
 # ── report ─────────────────────────────────────────────────────────────────────
 print(f"\n{'LIVE' if LIVE else 'DISK'} verification of {BASE}\n")
