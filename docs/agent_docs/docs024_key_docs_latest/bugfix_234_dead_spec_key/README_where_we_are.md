@@ -134,3 +134,37 @@ configuration is rejected, because the rejection happens before anything starts 
 outage gave me a believable reason for the silence, so I stopped digging. That is the
 general lesson and it is now written down: a convincing outside explanation for "nothing
 happened" is exactly when you should double-check your own instrument.
+
+## 2026-08-11, afternoon — approved, and the review earned its keep
+
+The council approved it, at the fourth attempt. I want to record why that took four rounds,
+because it is not a story about bureaucracy: two of those rounds found things that were
+actually wrong, and one of them was something I had written down as a fact.
+
+Round two: a reviewer pointed out that the daily checker I'd built re-did, in Python, a job
+the platform already does in Go — and that having two copies of "look at every step of every
+workflow" is exactly how this system has been bitten before, because the two copies go blind
+in the same way and then agree with each other. My defence was that the neighbouring checker
+does the same thing. That is a reason the problem exists, not a reason to add to it. It
+turned out another team had already solved it properly, so the checker now runs the real Go
+code. Four hundred and ninety lines deleted, including the test that existed only to police
+the duplication.
+
+Round three caught a genuine mistake of mine. When retiring the old `commit_from` setting I
+wrote that its purpose was now served by the new "which version is running" stamp. It isn't.
+That stamp records which build of our software is running; the old setting was about which
+version of a *published page* went out. Two completely different things, and I'd matched them
+up because the words looked similar and I'd been working with the second one all morning. The
+retirement note now says plainly that nobody has built this yet, and warns against the exact
+mix-up I made. It matters because that note is instructions to whoever comes next — sending
+them to build on the wrong foundation is worse than telling them there isn't one.
+
+There was also a smaller one: a reviewer warned that a scheduled job can silently sit
+failing to download its image while appearing to run. I shipped past it and it happened
+within four minutes. The lesson I've written down is that an advisory warning is a free
+prediction, and ignoring it wastes the prediction.
+
+So: the fix is done, live, proven by watching the system actually refuse a bad configuration
+and actually deliver the instruction that used to vanish, and approved. The one thing not yet
+in your hands is a new chassis image carrying the last correction — built and pushed, waiting
+for whenever you next roll.
