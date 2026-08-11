@@ -239,3 +239,11 @@ would be.
   `truncated: true`, the stamp in `findings_written`, and the `agent_error_log` row. With
   the cap at 60 nothing currently exceeds it — force the case with a step-config
   `max_pages` below the site's page count, per the lane RUNBOOK.
+
+## 2026-08-11 (final) — council APPROVED (round 2); everything committed; awaiting the roll
+
+Round 1 REVISE found two real defects (the sanctioned `LogActionFindings` door bypassed;
+migration row-targeting unguarded) — both adopted, measurements in the lane NOTES. Round 2
+**APPROVED** on trail `700da63e-6c39-4617-ace8-4e450addd472` (advisories answered in
+NOTES). Fix commits `502b6c194` + `0e4e71674`; migration `392` applied and ledgered.
+**OPEN until the close criterion in the status block above is met on a post-roll run.**

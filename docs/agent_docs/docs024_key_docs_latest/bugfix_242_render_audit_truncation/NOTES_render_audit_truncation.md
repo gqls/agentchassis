@@ -83,3 +83,29 @@ Round 2 resubmitted on the SAME trail correlation (`RESUBMIT_CORR=700da63e…`),
 orchestration `a659d9cc-6041-47e7-99e4-9d30ceed8329`. All tests green after revisions;
 transient shared-tree build break (another session mid-write on
 `rerender_single_page_action.go`) resolved itself on retry — not ours.
+
+## 2026-08-11 (evening, later) — round 2 APPROVED; advisory answers recorded
+
+**APPROVED** ("2 advisory objections — none high-severity", 5 abstained), report
+15:56Z on trail `700da63e…`. The advisories, answered here so they are not lost:
+
+- **editquality (medium)** — does `LogActionFindings`' inheriting merge overwrite a
+  provenance I meant to set? No: my base Entry names only SiteID/Domain/Action; AgentType
+  and StepName are deliberately inherited from the running step, which is the same pair
+  the round-1 hand-built Entry copied from `ExecutionContext` by hand. Nothing deliberate
+  is overwritten because nothing else was set.
+- **bug_historian (medium)** — 1 of 40 awaiting actions fixed, the class deferred: yes,
+  by owner ruling. The general fix is RFC_012 (a)/(a′), gated behind the reader census;
+  the per-action door until then is exactly what this fix uses.
+- **debug_historian (low)** — verify form: both DO blocks use `IS DISTINCT FROM`
+  (null-safe — the `<>`-goes-green-on-NULL landmine does not apply); no pg_dump was taken
+  before the single-key mutation — the ROLLBACK pair and the one-line recoverable value
+  (25) are the containment, noted as thinner than full SQL-surgery discipline.
+- **architecture (low)** — RFC_022 optional-key tally on `RenderAuditRequest` for the
+  future accumulation counter: 7 fields, 3 optional/opt-in (`capture_renders`,
+  `pages_total`, `truncated`).
+
+Lane state: code committed (`502b6c194` + `0e4e71674`, both on trail `700da63e`),
+migration 392 applied+ledgered, register updated, council APPROVED. Remaining to CLOSE
+per the bug's §7: a post-roll rotation run against a site whose page count exceeds the
+configured cap (force with a small step-config `max_pages`; nothing exceeds 60 today).
