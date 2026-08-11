@@ -27,6 +27,86 @@ now opens with two correction banners; its §1–§4 reference material still ho
 > agent type). That changes §0 below — a resubmitted round now costs ~58% less than the ~1.6M
 > figure quoted there.
 
+> ## 🔴 ROUND 4 VERDICT: **REVISE** (2026-08-11 12:51:34Z) — 16 reviewers, 1 abstained, 0 unreadable, NOT truncation-gated
+>
+> `decided_by`: **gating objection from `prior_art_librarian`**. Fourth revise, and — again — right.
+> **Both HIGH objections are answerable with a QUERY, not an argument.** The seat did not claim the
+> facts are false; it said it *cannot verify them from the submission*, and it named the exact
+> traces it would accept. Both exist. The submission simply never handed it the queries.
+>
+> ### The two HIGH objections, and the evidence that answers them [MEASURED 2026-08-11]
+>
+> 1. **"OWNER RULING 2026-08-09 … I have no check tier for markdown files; the only DB-visible
+>    trace would be a `diagnosis_artifacts` council_report or a `doc_notes` row … If the ruling is
+>    fabricated framing, the gate's legitimacy claim collapses."**
+>    → **9 `doc_notes` rows carry it.** Put this in `grounded_in` verbatim:
+>    ```sql
+>    SELECT count(*) FROM doc_notes WHERE body ILIKE '%register moved, not the page%'
+>       OR body ILIKE '%copy-changed gate%'
+>       OR (body ILIKE '%owner ruling%' AND body ILIKE '%claims_unverified%');  -- 9
+>    ```
+> 2. **"Extensive self-cited ROUND 1/2/3/4 history … no visibility into a prior round for THIS
+>    submission unless it is in `diagnosis_artifacts` kind='council_report'."**
+>    → **It is. 4 rows, this exact correlation** (09-09 ×3 revise, 08-11 revise):
+>    ```sql
+>    SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
+>    WHERE correlation_id='b67eb26a-14ef-45d7-b755-3e489fd57ef0' AND kind='council_report' ORDER BY created_at;
+>    ```
+>
+> **This is the lane's recurring fault for the fourth time: describing the work less carefully than
+> it was done.** The fix is not to argue — it is to cite.
+>
+> ### The other objections worth actioning (none gating, all real)
+>
+> - **`editquality` MEDIUM — a genuinely missing edit.** `grounded_in` cites
+>   `TestUnverifiedClaimsNeverResolvesWhenOnlyTheRegisterMoved` as pinning the gate (and as having
+>   caught the zero-date defect), but **no edit adds it** — edit 4 is the only one touching
+>   `revalidate_unverified_claims_test.go` and predates the gate. Also LOW: the risks section says
+>   *"edit 9"* while the array holds **8**. Same class as round 3's finding.
+> - **`guardian` MEDIUM — blast radius belongs in risks, not a code comment.**
+>   `loadParkedReviewItems`/`parkedReviewItem` is the shared loader for **all 6** covered item
+>   types; a SELECT/Scan mismatch breaks every revalidator, not just this one.
+> - **`debug_historian` MEDIUM — and it caught a real defect in THIS session's own verification.**
+>   See the pod-population correction below.
+> - **`tooling_provenance` MEDIUM** — the producer-count question was answered with ad-hoc grep
+>   where `cmd/bundle`/contextkit is the designated tool; that is the same method that produced the
+>   false two-producer claim in round 1.
+> - `compliance` (approve, 2 non-blocking): the gate is component-granular, not claim-granular —
+>   already the §2.1 next job. `architecture`, `constitution`, `mission`, `reuse_agent`,
+>   `bug_historian`, `guidelines`, and four guardians: **approve**.
+>
+> ### ⚠ CORRECTION TO THIS SESSION'S OWN POD-GREPS — `debug_historian` was right
+>
+> I reported *"both replicas"* on v1.0.1284 and v1.0.1286. **`-l app=agent-chassis` returns 2 pods;
+> 26 pods run that image**, across 20+ deployments (`agent-build-dispatch-loop`,
+> `agent-color-variable-fixer`, `agent-diagnose-agent`, …). That was a false completeness claim.
+>
+> **The correct proof is the image DIGEST, not a pod count** — cheaper and stronger than grepping 26:
+> ```sql/sh
+> kubectl -n ai-persona-system get pods -o jsonpath='{range .items[*]}{.status.containerStatuses[0].imageID}{"\n"}{end}' \
+>   | grep agent-chassis | sort | uniq -c     # 21 pods, ONE digest ⇒ provably one binary fleet-wide
+> ```
+> Result: **one digest** (`sha256:dcd256f9…`), so the grep on any pod is evidence about all of them.
+>
+> ⚠ **And a NEW trap the runbook now carries: `n=${n:-0}` MASKS A FAILED EXEC AS A ZERO.** A pod
+> returned `ownergate=0 cachemarker=0` and read exactly like a stale binary; it was a **completed
+> job pod** (`phase Succeeded`) that cannot be exec'd at all. The `${n:-0}` idiom is required for
+> `grep -c`'s exit-1-on-zero **and** it silently converts "I could not look" into "it is not there".
+> **Always pair it with a per-pod positive control**, and filter to
+> `--field-selector=status.phase=Running`.
+>
+> ### What round 5 needs (small, precise, no code change)
+>
+> 1. Add the two verification queries above to `grounded_in`.
+> 2. File the missing test edit; fix the `edit 9` / 8-edit mismatch.
+> 3. Move the shared-loader blast radius into `risks`.
+> 4. Replace the "both replicas" deploy claim with the **digest-uniformity** proof.
+> 5. Re-run the producer-count check through `cmd/bundle`/contextkit rather than grep.
+>
+> Then resubmit with `RESUBMIT_CORR=b67eb26a-…`. **Do not change the code** — every seat with
+> standing on the design approved it; the objections are all about the plan's evidence, not its
+> behaviour.
+
 > ## ⏳ ROUND 4 RESUBMITTED 2026-08-11 12:42:22Z — §0 below is now HISTORY, read this instead
 >
 > Fired at the owner's instruction, **unchanged**, under `RESUBMIT_CORR=b67eb26a-…` on chassis

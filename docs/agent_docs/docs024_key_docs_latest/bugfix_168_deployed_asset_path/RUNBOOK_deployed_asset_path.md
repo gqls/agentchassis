@@ -183,3 +183,43 @@ A resumed `ok` column is the only proof. **The failures stop appearing whether o
 lifted**, so reasoning from the `fail` column cannot tell the two apart — and the vendor's stated
 reset date is a worst case, not a forecast (2026-08-10: stated 2026-09-01, actually lifted in
 ~3h20m because the owner raised it). Cost me a wrong "three-week outage" claim in five files.
+
+---
+
+## CORRECTED 2026-08-11 — the pod-grep above understated the population, and `${n:-0}` hides a failed exec
+
+Both faults found by the council's `debug_historian` seat, against this lane's own claims.
+
+**1. `-l app=agent-chassis` returns 2 pods; 26 run that image.** "Both replicas verified" was a
+false completeness claim. Other deployments running the identical chassis binary include
+`agent-build-dispatch-loop`, `agent-color-variable-fixer`, `agent-diagnose-agent`,
+`agent-content-quality-auditor` and ~16 more.
+
+**The strong proof is the image DIGEST, not a pod count** — cheaper and better than grepping 26:
+
+```sh
+kubectl -n ai-persona-system get pods \
+  -o jsonpath='{range .items[*]}{.status.containerStatuses[0].imageID}{"\n"}{end}' \
+  | grep agent-chassis | sort | uniq -c
+# ONE line ⇒ one binary fleet-wide ⇒ a grep on any single pod is evidence about all of them.
+# MORE than one line ⇒ a MIXED fleet; grep a pod per distinct digest before claiming anything.
+```
+Measured 2026-08-11: 21 pods, one digest `sha256:dcd256f9…`, v1.0.1286.
+
+**2. `n=${n:-0}` converts "I could not look" into "it is not there".** A pod reported
+`ownergate=0 cachemarker=0` — indistinguishable from a stale binary. It was a **completed job pod**
+(`phase Succeeded`); `kubectl exec` refuses those, and the default swallowed the error.
+
+The idiom is still required (`grep -c` exits 1 and prints nothing on zero), so **pair it with a
+per-pod positive control and filter to running pods**:
+
+```sh
+kubectl -n ai-persona-system get pods --field-selector=status.phase=Running \
+  -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.spec.containers[0].image}{"\n"}{end}' \
+  | grep agent-chassis | awk '{print $1}'
+```
+Then per pod: grep the positive control (`auto:revalidated`, expect ≥1) **first**. A control of 0
+means the exec/grep is unusable on that pod — report it as *unverifiable*, never as absence.
+
+⚠ Do not run two `strings` passes in one `exec` across many pods — it times out around 2 minutes
+on a fleet this size. One pass per pod, or rely on the digest check above.
