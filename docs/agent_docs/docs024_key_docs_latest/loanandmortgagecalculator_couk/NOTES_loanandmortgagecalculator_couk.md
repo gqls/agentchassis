@@ -1755,3 +1755,27 @@ recognise a decomposed **tool** page in Track B too.
   `detected`, so they are inert — but they are now pointed at 17 pages that will
   rebuild from components rather than refuse, which is a different exposure from the
   one they were filed under. Worth a decision before anything starts promoting them.
+
+### 2026-08-11 (afternoon) — revalidated against the fresh chassis build v1.0.1286
+
+New pods `agent-chassis-867b7cff84-{l2bwt,twzdn}`, both up 12:02–12:03Z on
+**v1.0.1286** (Track A ran against v1.0.1284).
+
+- **Lane preconditions re-greped on the NEW binary, both replicas** — not inherited:
+  `stored_slot_name` **1**, `load page slot identities` **1**, negative control
+  `zzz_cannot_exist` **0**. So `bugs_open/189`/`204` are still fixed in the shipped
+  code and a decomposed page is still rebuildable.
+- **All 17 pages still serve == predicted** (17/17, 0 differ). Nothing re-rendered
+  over them during the roll.
+- **⚠ The check that actually mattered: is the OFFLINE MIRROR still valid?** The
+  whole safety model here is that `load_lmc.py`'s `assemble_mirror` + `inject_canonical`
+  predict, offline, exactly what the chassis will render. **A new binary can silently
+  invalidate that** — any change to head assembly, JSON-LD or canonical injection
+  would make every future rerender drift from `predicted/`, and nothing would report
+  it, because the diff is only run when a human runs it. Re-rendered `legal` under
+  v1.0.1286 and diffed: **rendered == predicted, 9,252 b, byte-identical.** Mirror
+  still valid.
+
+  **Do this after every chassis roll before trusting a prediction file** — it is one
+  rerender and one diff, and it is the difference between "the mirror predicted this
+  in August" and "the mirror predicts what is running now".
