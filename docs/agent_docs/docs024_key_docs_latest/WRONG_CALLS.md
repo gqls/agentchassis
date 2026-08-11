@@ -28060,3 +28060,28 @@ not deployed). Corrected in the code comment, the message, and the round-4 submi
 - **what caught it:** the council's editquality seat (gating HIGH), quoting the LANDMINES entry added hours earlier: `099 --apply` regenerates all 17 gate seats through a pre-377 transform and silently reverts the cache-breakpoint hoist.
 - **the cheap check skipped:** `grep -n "099_SYNC\|gate_roster" docs/agent_docs/docs024_key_docs_latest/LANDMINES.md` before writing a rationale that names the tool — the exact "grep LANDMINES for the SYMBOL you are about to trust" rule already in my memory index. The SessionStart hook cannot catch it: it matches DIRTY FILES, and the landmine's footprint is a script I never edited.
 - **cost:** one council round-trip (REVISE + resubmission).
+
+---
+
+## 2026-08-11 — I verified a fix at the store that SERVES and never asked what WRITES it
+
+The 08-10 backlink removal on mortgagecalculator.co.uk was verified thoroughly at the bucket
+(origin re-download, byte reconciliation, edge fetch, 52-file sweep) and reported "removed and
+verified". **The repo that feeds the bucket still held the backlinked version**, and the site's
+deploy action replays repo→bucket with `--delete --skip-newer` on the next push touching the
+domain — with checkout mtimes making the repo copy always "newer". My fix had an undisclosed
+countdown: one unrelated push from silent reversal, attributed to nobody.
+
+**What caught it:** the owner's instruction a day later to delete a rejected image forced the
+question "will this deletion HOLD?" — and the answer ("no, the repo resurrects it") applied
+equally to the backlink fix I had already declared complete.
+
+**The cheap check:** for any store you fix, name what WRITES it before calling the fix done. A
+serving store with a writer above it is a cache with a long TTL, whatever it calls itself. The
+one-line probe existed all along: `gh api repos/gqls/sites/contents/<domain>/index.html --jq
+.size` → 11,125 (the OLD size) was sitting there the whole time.
+
+**The shape, for the tally:** verification depth is not verification COVERAGE. Five independent
+checks, all on the same side of the pipeline, count as one check. Related to
+`prove-a-deploy-at-the-artefact` but inverted: there the artefact is the truth and git is the
+claim; here the artefact was true TODAY and the repo was the truth about TOMORROW.
