@@ -90,3 +90,21 @@ next session, alongside deciding exactly when the £149 is taken. On Nominet:
 we have the password you gave us, but still need the TAG name (the username
 that goes with it) and the five server addresses added to the allowlist —
 the registrar keys can wait, as you said.
+
+**11 Aug 2026, later.** You settled the rest of it, and one bigger call: the
+£1,200 service is off the table completely — not hidden behind the new offer,
+gone — because you won't have time to hand-finish full websites. Before
+anything touches the site, we took a complete archive of the £1,200 site as
+it stands today (every page, every block of copy, the rendered pages and the
+fact register), stored in this folder, so the offer can be brought back if
+the £149 experiment disappoints. There's no ready-made "pin a whole site"
+button on the platform — the archive is the pin. The rest of your answers:
+payment after approval while we test (switching to up-front later), refunds
+possible behind the scenes but never advertised, vouchers single-use with a
+name and an expiry, hosting handed to third parties with a setup guide we
+write (UK storage plus Cloudflare or similar), affiliate links to the likes
+of Lovable and Durable for people who want something else, and the honest
+no-frills positioning throughout — including saying plainly the sites are
+AI-built. The one small open question is exactly what the queue counts and
+what the wait note promises. A summary of every option and choice to date
+was written today for reading aloud: SUMMARY_2026-08-11.

@@ -82,7 +82,32 @@ P0–P7 sequencing.
    password) and the five fixed cluster IPs added to Nominet's EPP allowlist
    (134.213.168.26/.37/.44/.54/.56 — the office IP rotates and has already
    gone stale once). Three registrar keys: later, owner-confirmed.
-5. **The domain/hosting FAQ must change** to match ruling 4. Located:
+## 1c. Owner rulings — 2026-08-11, second batch (answers §1b's open details)
+
+1. **The £1,200 offer is OFF THE TABLE — not a surviving premium tier.**
+   ("I don't think I'll have the time to create full, good websites at the
+   moment.") Its complete current copy is ARCHIVED restorably in
+   `snapshot_2026-08-11_gbp1200_offer/` (this directory) — taken 2026-08-11
+   before any copy migration, because no whole-site snapshot mechanism
+   exists on the platform. May return later if £149 causes trouble.
+2. **Positioning: no-frills, Ryanair-honest.** "You get what you pay for but
+   that's all" — and the copy says so plainly, including that the sites are
+   AI-built. Honesty about the positioning IS the positioning.
+3. **Vouchers: single-use, nameable to a recipient, with an expiry.**
+   Table shape follows: code, price-it-drops-to (£10 / £55 variants),
+   recipient name, expires_at, redeemed_at/by.
+4. **Payment: collected AFTER approval while we test the system; moves to
+   up-front later** — build the timing as a switch, not a constant. Refunds
+   exist behind the scenes only (manual, dashboard) in case things go badly;
+   never offered visibly. No refund code needed.
+5. **Hosting: affiliate / third-party, with a written setup guide.**
+   Recommend a UK-based S3-compatible store + Cloudflare (or a UK
+   equivalent — research which) and write them a setup page. Customers who
+   don't want our offering get (affiliate) links to Lovable, Durable, etc.
+   The own-nameserver idea stays parked (email risk, §1b.4).
+6. **Differentiation = the example sites built from the owner's own
+   domains.** The portfolio is the proof the no-frills offer is worth £149.
+7. **The domain/hosting FAQ must change** to match §1b ruling 4. Located:
    `/faq.html`, FAQ component `edfecdf2-c25a-4bbd-90c1-c26e644d86cf`,
    question "What about the domain and hosting?" — current answer says "We
    handle the setup as part of getting the site live". Content changes go

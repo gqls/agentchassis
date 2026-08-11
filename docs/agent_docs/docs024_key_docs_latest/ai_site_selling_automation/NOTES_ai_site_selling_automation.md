@@ -149,3 +149,28 @@ session, untouched by this lane.
   live sessions before editing; content changes go through the framework.
 - Handoff superseded: `HANDOFF_2026-08-11_continue_here.md` replaces 08-10b
   as the cold-start.
+
+## 2026-08-11 (later) — second ruling batch; £1,200 copy ARCHIVED before migration
+
+- **Owner ruled the §1b open details + retired £1,200 outright** — PLAN §1c
+  is authoritative (payment after-approval-then-upfront as a switch; vouchers
+  single-use/named/expiring; no visible refunds, manual dashboard behind the
+  scenes; hosting via third-party/affiliate + a UK-S3+CDN setup page;
+  Lovable/Durable affiliate links; differentiation = example sites from the
+  owner's own domains; positioning = no-frills Ryanair-honest, explicit
+  about AI-built).
+- **Pin question answered by measurement**: no whole-site snapshot exists —
+  register shows spec pin/unpin (ADM-003) per-spec and CGV-017
+  "approval-snapshot lock regime built, never wired up, dropped"; scripts/
+  has only memory/scratch git snapshots. So the pin is an ARCHIVE:
+  `snapshot_2026-08-11_gbp1200_offer/` — sites(1)/pages(6)/
+  page_components(22)/site_specs(31) as JSONL, line counts verified equal to
+  live row counts in the same run (the disconfirmable check: embedded
+  newlines would have made lines > rows). Captures content_data AND
+  rendered_html AND evidence_base. Box-side vm-sites git tag would be
+  belt-and-braces — sibling lane's turf, noted in the snapshot README.
+- Handoff 08-11 updated in place: §3 Q1–Q3 answered, Q4 (queue semantics)
+  still open; work item 0 (pin) done; work item 1 unblocked with the copy
+  direction + hosting setup page + affiliate block folded in.
+- SUMMARY_2026-08-11 written at owner request — the decision series with
+  options and choices, readable aloud.

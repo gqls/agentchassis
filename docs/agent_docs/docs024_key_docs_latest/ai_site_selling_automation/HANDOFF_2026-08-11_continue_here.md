@@ -42,19 +42,27 @@ rulings create, roughly in order.
 
 ## 2. Work list this creates (proposed order, cheapest-real-first)
 
-1. **Copy/FAQ migration on webdesign.uk** — the live site contradicts ruling
-   2 and 4 everywhere: hero "£1,200 is the total price", "You see it
+0. ~~Pin the £1,200 copy first~~ — **DONE 2026-08-11**:
+   `snapshot_2026-08-11_gbp1200_offer/` (sites/pages/page_components/
+   site_specs JSONL, counts verified 1/6/22/31; see its README for what it
+   does and does not hold, and why restore is deliberate, not one-click).
+1. **Copy/FAQ migration on webdesign.uk** — the live site contradicts the
+   rulings everywhere: hero "£1,200 is the total price", "You see it
    finished … before any money changes hands", "you only pay if you like
    it", and the FAQ answer "What about the domain and hosting?" →
    "We handle the setup" (component `edfecdf2-c25a-4bbd-90c1-c26e644d86cf`,
    `/faq.html`; price copy spans at least index/faq/what-you-get + the chat
-   bot's facts — it quoted £1,200 live on 08-10 evening). Blocked on §3
-   question 1 (payment timing) — the new copy cannot be written until that
-   is answered. Through the framework only; update `evidence_base`; sweep
-   retired claims (£1,200, £75 deposit) with a banned-claims-style check —
-   correcting the register does NOT arm detection (bugfix 161 lesson).
-   **Coordinate with the webdesign_uk_build_service lane** (their site,
-   their chat service; check live sessions before touching).
+   bot's facts — it quoted £1,200 live on 08-10 evening). NOW UNBLOCKED —
+   payment timing is ruled (§3.1); write to the no-frills-honest direction
+   (§3.3), including the hosting/DNS story (ZIP download, third-party
+   hosting setup page, optional paid extras). Through the framework only;
+   update `evidence_base`; sweep retired claims (£1,200, £75 deposit) with
+   a banned-claims-style check — correcting the register does NOT arm
+   detection (bugfix 161 lesson). **Coordinate with the
+   webdesign_uk_build_service lane** (their site, their chat service; check
+   live sessions before touching). Includes the new **hosting setup page**
+   (UK S3-compatible + CDN walkthrough) and the affiliate-links block
+   (Lovable, Durable, …) — affiliate programme sign-ups are an owner task.
 2. **Queue + submission gate design**: where the 3–4-slot queue lives
    (candidate: count open build work items for this product; surface the
    count + wait note on the site and in chat), what closes submissions,
@@ -81,18 +89,30 @@ rulings create, roughly in order.
    owner-reviewed AND `bugs_open/239` is fixed (owned elsewhere; re-check
    `who-owns` + live sessions).
 
-## 3. Questions the owner has NOT answered (ask before building the thing they gate)
+## 3. Questions — ANSWERED 2026-08-11 (second ruling batch, PLAN §1c) except Q4
 
-1. **When is the £149 taken?** At submission (gates the queue, kills spam,
-   fits "no refunds") or at preview-acceptance (fits the live "only pay if
-   you like it" promise)? Gates work item 1 AND 3.
-2. **Are vouchers single-use / expiring / tracked to a person?** Gates the
-   voucher table shape.
-3. **Does the £1,200 done-for-you tier survive anywhere** (e.g. as the paid
-   "we host / we transfer / we do it all" tier), or is £149 the only
-   product now? The copy rewrite reads completely differently each way.
-4. Queue semantics: per-product queue or per-fleet? What does "roughly how
-   long" promise — a count, a date, or nothing binding?
+1. ~~When is the £149 taken?~~ **After approval while we test the system,
+   moving to up-front later — build payment timing as a switch.** Refunds
+   exist behind the scenes only (manual dashboard), never offered visibly.
+2. ~~Voucher shape?~~ **Single-use, nameable to the recipient, with an
+   expiry** (code, drops-price-to £10/£55, recipient, expires_at,
+   redeemed_at/by).
+3. ~~Does £1,200 survive?~~ **No — off the table entirely** (owner: no time
+   to make full, good websites right now). Its complete copy is ARCHIVED in
+   `snapshot_2026-08-11_gbp1200_offer/` (this directory; row counts
+   verified) for possible later revival. Copy direction for the rewrite:
+   **no-frills, Ryanair-honest** — you get what you pay for, and we say so,
+   including that the sites are AI-built.
+4. **STILL OPEN — queue semantics**: per-product or per-fleet count? What
+   does "roughly how long" promise — a count, a date, or nothing binding?
+   Small; ask when building work item 2.
+
+New direction attached to the rulings: **hosting goes to affiliates /
+third-parties** — recommend a UK-based S3-compatible store + Cloudflare (or a
+UK equivalent; research which) and write customers a setup page; those who
+don't want our offering get (affiliate) links to Lovable, Durable, etc.
+**Differentiation comes from the example sites built from the owner's own
+domains** — the portfolio is the sales proof.
 
 ## 4. Owner asks outstanding (external, cheap to nag)
 
