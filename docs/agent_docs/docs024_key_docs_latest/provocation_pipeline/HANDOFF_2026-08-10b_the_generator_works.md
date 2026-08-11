@@ -1,5 +1,31 @@
 # HANDOFF — provocation pipeline, 2026-08-10 (evening)
 
+> ## ⇢ STILL CURRENT as of 2026-08-11 13:10Z. Deltas only, read the rest as written.
+>
+> - **Shelf reaches 2026-08-21** — 20 dated approved rows. Eleven days. §1's "shelf
+>   ends 2026-08-15" is superseded: the owner approved six on 10 Aug and the operator
+>   scheduler dated them 16–21 Aug.
+> - **§2.1 is still the only blocking item, and the list has changed.** The owner
+>   approved 6 of the first 7 and rejected one title (`scales` — a technical word).
+>   That row is **retired with the reason in `source_ref`**, per ruling 3 (retire and
+>   regenerate); it was NOT rewritten by a session. **8 candidates now await his
+>   stamp**, from three generation rounds.
+> - **Two prompt rules shipped since.** The **register rule** (*"would this reader have
+>   said it themselves"*) is LIVE at **v1.0.1286**, both replicas, negative control 0.
+>   The **British English rule** is committed and **NOT live** — it needs the next roll.
+> - **The gate has now rejected 1 of 12** on a fabricated experimental result, and
+>   approved the rest. Its one measured failure mode remains the ~1-in-9 safety leak
+>   another session found; unchanged, still owed.
+> - **§2.3 (give it a schedule) is now better evidenced than when written**: three
+>   rounds, twelve candidates, no truncation, no malformed reply. The bar migration 371
+>   sets for itself is met — the commit removing its no-schedule assertion must carry
+>   the runs that justify the cadence, and now there are some.
+> - **§2.4 (the council's extraction) is unchanged and still owed.**
+> - Site verified healthy 2026-08-11: today = `film-that-needs-explaining-has-failed`
+>   (11 Aug), archive 9, feed generated 04:42Z. ⚠ The feed is at
+>   **`/data/provocations.json`** — the bare `/provocations.json` is a 404 and looks
+>   for a moment like the feed has vanished.
+
 **Supersedes `HANDOFF_2026-08-10_continue_here.md` for "what to do next".** That file's
 §3.3, §3.4 and §4 are unchanged and are NOT repeated here — read it for those. Its
 merge banner explains the lane takeover.
