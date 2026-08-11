@@ -154,10 +154,22 @@ mobile, while all 15 selector checks pass. Recorded in 243's update. Two consequ
    (secretKeyRef, both spawners; also fixes the remote-spawner never injecting it — the
    112 drift class). Commit `f56abaadf`, `Council-Submitted: 6f13c5ce…` — **read that
    verdict** (session-start item). Inert until the next roll; verify by pod-spec capture.
-4. **loancalculator / dartsonline-contrast / gaswholesalers-logo**: owner is deciding in
-   chat off the lists presented there (the url_field reframe for loancalculator, the
-   two-option scope call for contrast, the logo-404 fix for gaswholesalers). Once decided,
-   notify each lane in ITS OWN docs dir — the written claim is the coordination channel.
+4. **loancalculator / dartsonline-contrast / gaswholesalers-logo: ALL THREE DECIDED
+   (owner, 2026-08-11, in chat) and the lanes notified same-day** (four NOTIFY files:
+   `loancalculator_couk/`, `fixloop_eg_dartsonline/`, `mortgagecalculator_couk_adoption/`,
+   `js_snippets_news_gaswholesalers/`). The decisions, and the work they sanction:
+   - **loancalculator → url_field route, NO renames.** New sanctioned work for THIS lane:
+     add `"url_field": "input_data.spec.page_url"` to the live `request_browser_run` step
+     config (DB, live immediately, through the council gate) AND make the spec producers
+     carry `page_url` (`check_tool_acceptance_due.go` — Go, rides a roll; and the
+     `tool_acceptance_run.sh` wrapper — script). Unblocks all 8 + the `index` case.
+   - **contrast → BOTH: fix the shared component template (proper on-primary pairing) +
+     a build-time palette-contract check.** New sanctioned work for this lane; rerender
+     the affected pages (dartsonline setup-builder; mortgagecalculator bridging-compound
+     + rate-scenarios) when the template fix lands. Both site lanes asked NOT to
+     hand-patch CSS meanwhile.
+   - **gaswholesalers → their lane deploys the logo properly** (NOT via the 248-broken
+     auto-repair); fuel-budget-forecaster's S6 unblocks when the logo serves 200.
 
 ## 3c. AND THE REST LANDED TOO — 2026-08-11 afternoon (the session the owner decided in)
 

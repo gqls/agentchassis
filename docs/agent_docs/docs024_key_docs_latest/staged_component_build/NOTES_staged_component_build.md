@@ -3383,3 +3383,26 @@ listed in round 2. Resubmitted on the SAME correlation (`RESUBMIT_CORR`), run
 fixed). Expected: `complete`, critique ends `FINDINGS: none`, **0** vision_finding
 rows — the negative arm live; the positive arm stays unit-pinned until a genuine
 finding occurs.
+
+### The FIRECRAWL council verdict was REVISE, and the objection was fair (2026-08-11)
+
+Round 1 on `6f13c5ce`: **REVISE — gating objection from editquality.** Not a design
+objection: an EVIDENCE one, and correct. My `grounded_in` proved the allow-list reaches
+the REMOTE spawner (`cmd/remote-job-spawner/main.go:376`) and never proved it reaches the
+CHASSIS spawner — the very file I deleted the value-copy from. The plan's whole safety
+argument ("deleting the copy is safe because the allow-list re-injects it here") rested on
+a link I asserted and did not quote. It is true (`spawn_actions.go:2467-2471` calls
+`agentenv.ProviderKeyEnv()`), which is exactly why it was easy to skip.
+
+Round 2 resubmitted on the same correlation with two proofs: the chassis call site quoted,
+and a BEHAVIOURAL one — the pod spec I had already captured this morning shows
+ANTHROPIC/GROK/GEMINI arriving as `secretKeyRef` in a **chassis-spawned** pod, so the
+allow-list path is demonstrably live on v1.0.1284 rather than merely present in source.
+(The evidence was sitting in my own session output from the 243 proof; I had used it to
+check FIRECRAWL and not noticed it also answered the question the council would ask.)
+
+**The transferable bit**: when a plan's safety rests on "X already happens at this call
+site", the call site is the evidence — a sibling call site in another binary is not. The
+council caught the one link in the chain I had not quoted, which is the same failure shape
+CLAUDE.md's diagnosis section describes (a claim built from grep hits whose function was
+never opened).
