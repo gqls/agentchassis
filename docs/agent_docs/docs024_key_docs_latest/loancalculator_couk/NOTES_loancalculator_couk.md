@@ -4796,3 +4796,87 @@ of the chassis roll.
 
 **NOTIFY read:** owner decision 2026-08-11 (url_field over renames) — no URL/name changes on
 this site; confirms, does not conflict.
+
+### 2026-08-11 (same session, later) — steps 4+5 done; lock release deliberately HELD
+
+**Step 4 — parked 17, not 16** [MEASURED, RETURNING ids]: 10 audit_tool + 6 improve_tool +
+1 `evaluate_tools` (`9062d146`, "Evaluate tool needs for site") → status 'deferred', reason
++ prior status in `result` (deferred_reason/deferred_by/deferred_from_status). The 17th is a
+deliberate deviation from the handoff's 16: evaluate_tools MINTS tool items, so parking the
+16 while leaving the minter live would just refill the queue. Un-park = status back to
+'detected' for these ids (they are listed in this file's pre-park census, and in the UPDATE's
+RETURNING — ids stable).
+
+**Step 5 — all four backup layers, each verified:**
+1. Deploy repo: tag `loancalc-pre-rebuild-20260811` at `b685b74091dd63ab480570a2b1f0b77d03bc7a63`,
+   pushed to origin; tar `~/backups/loancalculator/loancalculator.co.uk_pre_rebuild_20260811.tar.gz`
+   (34 files, 28 html, tools/ + guides/ present).
+2. DB: `loancalc_bak_20260811_{pages,pc,sc,cc}` = 27/63/3/12 rows (single transaction).
+3. Off-cluster: `~/backups/loancalculator/loancalc_bak_20260811.sql` — 4 CREATE + 4 COPY,
+   per-COPY row counts re-counted from the dump itself = 12/27/63/3; `monthly-display`
+   present ×3 (calculator markup really in the dump, not just DDL).
+4. `take_site_snapshot` → `0d1b55f0-529b-40bf-89ad-3d9fa4c62e46`, verified pages=27,
+   chrome_components=3, locked_captured=17 (mig 219 IS in). ⚠ revert re-applies CURRENT
+   lock state, not the snapshot's — a revert after lock release restores content UNLOCKED.
+
+**Step 6 prerequisite — pre-release lock state (the full 20):**
+- page_components (17, all `permanent`):
+  - `decompose_20260802_proven_calculators` (12): index/tool-3 `993eda99`,
+    application-tracker/tool-1 `2d45a024`, car-finance/tool-2 `f74f84f2`,
+    compare-loans/tool-2 `4a5c8690`, consolidation/tool-2 `d54dd48e`,
+    credit-health-check/tool-2 `c284de0b`, damage-checker/tool-4 `12fa13a6`,
+    interest-rate-stress-test/tool-2 `6c1a1ac5`, loan-vs-savings/tool-2 `10be4f71`,
+    overpayment-calculator/tool-3 `3e6fb1d2`, settlement-calculator/tool-2 `ab24cd19`,
+    standard-calc/tool-4 `e8ce9cc0` — that is 12 rows; the homepage prose-0 below makes 17
+    with the css carriers.
+  - `loancalculator_css_carrier_20260808` (4): compare-loans/prose-0 `fe158218`,
+    consolidation/prose-0 `ea49f2ba`, credit-health-check/prose-0 `959e220c`,
+    overpayment-calculator/prose-0 `b03e254d`.
+  - `loancalculator_owner_approved_20260809` (1): index/prose-0 `9e7cbaa2`.
+- site_components (3, all `permanent`, `loancalculator_authored_chrome_20260803`):
+  header `3099f1ee`, head `4a754431`, footer `8375feb6`.
+
+**Step 6 itself HELD — deliberate sequencing choice, recorded so it is not read as an
+omission:** 9 content_rewrite + 12 page_rerender + needs_design/needs_composition sit
+'detected' on this site. Releasing locks now, with the mission file not yet owner-approved
+(step 7 requires showing it first), opens an unbounded window in which the ordinary queue
+could rewrite the pure baseline ahead of the rebuild. "Release everything" (owner, 08-10)
+is FOR the rebuild; the locks come off immediately before the 082 submission fires, after
+the owner has seen the mission. The release SQL is two UPDATEs over exactly the 20 rows
+above (locked_at/locked_by/lock_type/lock_expires_at → NULL); the pre-state is recoverable
+from this note, `loancalc_bak_20260811_{pc,sc}`, and snapshot `0d1b55f0`.
+
+### 2026-08-11 (same session, evening) — round 2 REVISE, round 3, and two discoveries that reordered the plan
+
+**Discovery 1 — the roll was already done.** The 215 lane's release put `v1.0.1288` up at
+17:13Z, built from `038211dd8`, whose ancestor set includes `7a066dba1` (my plumbing).
+Probed on both replicas with near-miss controls (`siteUsesFlatURLs`=3 vs `siteUsesFlatURLt`=0;
+`url_shape`=2 vs `url_shapf`=0). So step 2's build+roll never needed doing — and the
+council-kill worry with it. The startup provenance line had scrolled on both pods; the
+literal probe is what settled it (their commit b8457a9fc records the same two dead ends).
+
+**Step 3 done:** `url_shape:"flat"` seeded and verified (see SEED file; my 26-vs-27
+expectation error is annotated there — the guard caught it, first exercise of the
+DO/RAISE-in-seed pattern on this lane).
+
+**Discovery 2 — round 2 came back REVISE, and the gate was a landmine with MY key on it.**
+Four seats cited the 2026-08-11 LANDMINES entry (added by the 215 lane's round 2, HOURS
+before my submission): adoption supersede+INSERTs the structure aspect, dropping every
+key it does not write — `url_shape` included, so a re-adoption would resurrect bug 241.
+I never grepped LANDMINES for my own new key/symbols before submitting — logged in
+WRONG_CALLS (the check answered round 1's question, not my plan's footprint).
+
+**Round 3 (committed `19acfc895`, trail corr `70256656`):** carryForwardStructureSpecKeys
+(ALL unknown keys, fresh wins, same tx, fails open ×3 — protects PLAN-048's gates too;
+215 lane notified); wired apply_gap_plan/create_tool_component/deploy_tool-new-arm;
+per-file exact-count contract pin with the blog-post exclusions stated. prior_art's
+"symbol already exists" HIGH answered by timeline (git log -S: first appearance is
+7a066dba1 — the landmine describes the new code, it does not predate it). Reader
+consolidation parked on BLD-018 — the 215 lane's file, not mine to refactor mid-lane.
+Round-3 code in NO image yet; probe carryForwardStructureSpecKeys at the next roll.
+
+**Pattern-check advisories on 19acfc895, dispositioned:** "migration+code in one commit"
+— the SEED is per-site data (already applied), not schema; point fix under RFC_022's
+narrowed trigger. logged-model-output (adoption:269) and unrepaired-component-write
+(create_tool_component, deploy_tool) — pre-existing code in files my hunks touched
+elsewhere; bugs_open/136's list is the right home, not this lane.

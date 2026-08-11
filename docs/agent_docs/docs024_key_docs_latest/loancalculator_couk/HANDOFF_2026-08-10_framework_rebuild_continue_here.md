@@ -171,3 +171,23 @@ PSQL() { kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clie
   `guides/can-i-overpay` — now moot pre-rebuild, relevant to the rebuilt writer.
 - 08-10: my first STE audit run said 60.5% → 55.7% after removing false positives
   (proper nouns, -ise catch-all). Method notes in `fleet_copy_quality/ste_audit.py`.
+
+---
+
+## STATUS 2026-08-11 (this thread, one session) — steps 1-5 DONE; locks + mission next
+
+| step | state |
+|---|---|
+| 1 verdict | READ: round 1 **APPROVED** (2 advisories, both real work — see NOTES) |
+| 2 plumbing | WRITTEN + **LIVE on v1.0.1288** (rode the 215 lane's roll; probed both replicas, near-miss controls). Round 2 → REVISE (re-adoption drops the flag — LANDMINES); round 3 fixes it (`19acfc895`, adoption carry-forward + 3 more callers wired), verdict pending on trail corr `70256656`. Round-3 code inert until next roll — it hardens re-adoption, it is NOT needed for this rebuild |
+| 3 seed | **DONE + VERIFIED** (`SEED_2026-08-11_url_shape_flat.sql`; url_shape=flat, 27-entry pages list intact) |
+| 4 park | **DONE — 17, not 16**: the census's 16 + `evaluate_tools` (the minter). Ids + un-park route in NOTES |
+| 5 backups | **ALL FOUR LAYERS, each verified**: repo tag `loancalc-pre-rebuild-20260811` @ `b685b740` (pushed) + tar; `loancalc_bak_20260811_{pages,pc,sc,cc}` = 27/63/3/12; off-cluster pg_dump (per-COPY counts re-counted); snapshot `0d1b55f0` (pages=27, chrome=3, locked_captured=17) |
+| 6 locks | **HELD, deliberately** — 9 content_rewrite + 12 page_rerender sit 'detected'; releasing before the mission is approved opens an unbounded rewrite window on the pure baseline. Full 20-row pre-release lock state in NOTES; release immediately before firing step 7 |
+| 7 mission | draft next; **show the owner before firing** (unchanged) |
+
+New since 08-10, read before continuing: the re-adoption landmine (LANDMINES 2026-08-11)
+— fixed in `19acfc895` but inert until a roll, so do NOT re-adopt this site before that
+ships; NOTIFY_2026-08-11 (owner: url_field over renames — no URL changes here, confirms
+the flat-preservation premise); WRONG_CALLS 2026-08-11 (grep LANDMINES for YOUR OWN plan's
+symbols at submission time, not just the reviewer's questions).

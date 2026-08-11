@@ -128,3 +128,32 @@ preserves rather than synthesises — it is how the flat URLs got in, not a riva
    live shape IS dir-flat — the flag cannot express root-flat or arbitrary crawl shapes.
 3. The verification block above ("How to verify", post-plumbing) — unchanged, still the
    test.
+
+## STATUS 2026-08-11 (later) — round-1 code LIVE and MEASURED; round 2 REVISE; round 3 submitted + committed
+
+- **The round-1 plumbing is LIVE without a roll of ours:** `7a066dba1` is an ancestor of
+  `038211dd8`, the commit the 215 lane artefact-verified into `v1.0.1288`. Probed on BOTH
+  replicas (grep -ac /proc/1/exe): `siteUsesFlatURLs`=3, `url_shape`=2; near-miss controls
+  `siteUsesFlatURLt`/`url_shapf`=0. Owed item 1 of the previous block is DONE.
+- **The seed is applied and verified** (`SEED_2026-08-11_url_shape_flat.sql`): current
+  structure row has `url_shape='flat'`, adoption keys intact, 27-entry pages list, one
+  current row. Owed item 2 DONE. First run aborted on my wrong 26-entry expectation — the
+  DO/RAISE guard was right; corrected + annotated in the seed.
+- **Round 2 (corr `70256656`) returned REVISE** — gating: the LANDMINES 2026-08-11 entry
+  "Re-adopting a site silently drops the structure spec's opt-in flags" names this very
+  key; adoption's supersede+INSERT would drop `url_shape` on any re-adoption and the bug
+  would return. Also: wire the other live-site URL synthesisers; the seed cannot rely on
+  `pinned`; prior_art asked whether `siteUsesFlatURLs` pre-existed (no — the landmine
+  postdates the code; timeline in the round-3 submission).
+- **Round 3 submitted (same trail corr `70256656`) and committed `19acfc895`:**
+  `carryForwardStructureSpecKeys` (adoption preserves ALL unknown structure-spec keys —
+  covers PLAN-048's three gates too, 215 lane notified in
+  `brochure_component_library/NOTIFY_2026-08-11_readoption_flag_drop_fixed_by_241_lane.md`);
+  flag wired into apply_gap_plan new_page, create_tool_component, deploy_tool
+  resolveToolPageIdentity (new-tool arm; stored identity still wins — pinned);
+  contract test widened to per-file exact descriptor counts with the blog-post
+  exclusions stated. **Round-3 code is in NO image yet** — probe
+  `carryForwardStructureSpecKeys` + a near-miss control at the next roll.
+- Deliberately NOT done, registered on BLD-018: consolidating the two typed readers of
+  the structure row (`siteUsesFlatURLs` / `siteIdentityPolicyFor`) — that is the 215
+  lane's file, hours old and council-approved; theirs to absorb.

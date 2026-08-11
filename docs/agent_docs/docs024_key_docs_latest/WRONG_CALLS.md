@@ -28695,3 +28695,31 @@ turned on my own reporting rather than on the system's. Every other entry in thi
 file is about mis-measuring the platform; this one is about mis-describing myself
 to a reviewer whose only window is that description. **A review is only as good as
 the diff it was shown, and I am the one who chooses what it sees.**
+
+---
+
+## 2026-08-11 — a risks block that enumerated four gaps missed the one already WRITTEN DOWN, keyed on my own new symbol (241 plumbing, corr 70256656)
+
+**The claim.** My round-2 council submission's risks section presented itself as the
+gap inventory for the url_shape plumbing: four risks, each real, none of them the one
+that gated. The implicit claim — "these are the known holes" — was false the moment it
+was written.
+
+**What caught it.** Four council seats independently, one HIGH: the LANDMINES entry
+"Re-adopting a site silently drops the structure spec's opt-in flags" names `url_shape`
+and `siteUsesFlatURLs` LITERALLY — my key, my function — and records that adoption's
+supersede+INSERT drops every structure-spec key it does not itself write. The entry had
+been appended by the 215 lane hours before my submission fired.
+
+**The cheap check.** `grep -n "url_shape\|site_specs\|structure" LANDMINES.md` before
+writing the plan — one command, and the memory index already says it plainly: the
+SessionStart hook only matches files DIRTY IN THE TREE, so a landmine keyed on a table,
+key or symbol you are introducing is NEVER shown to you unasked. I grepped LANDMINES
+for the upsert-helper family (round 1's objection told me to) and stopped there —
+a check done for the reviewer's question, not for my own footprint.
+
+**The shape, for the tally.** "The check answered the question you encoded": I searched
+the landmine corpus for what round 1 asked about, not for the symbols my own plan was
+adding. On a tree this concurrent, the corpus can gain an entry about YOUR seam between
+your writing the code and your submitting it — grep it at submission time, for every
+table/key/symbol in the plan, not at coding time only. Cost: one full council round.
