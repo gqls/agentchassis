@@ -669,10 +669,27 @@ upload** — "the adapter is local-only" (notes line 638) — and all **23**
 **06-21**: `NOTES_phase5_training_launcher_running(45).md` (122KB) and
 `PLAN_checkpoint_and_artefact_upload_b2(7).md`. Built and verified by then: the
 training launcher, `thunder-training-monitor` (both paths, live 06-04, still not
-enabled), and upload phases A/B/C. The register-before-send fix for the
-checkpoint race was applied 06-08, **pending a chassis rebuild that the notes
-never record as verified** — that is the first thing to check, and it is now 60+
-image tags ago. `training_exports.runs` holds 3 exports.
+enabled), and upload phases A/B/C. `training_exports.runs` holds 3 exports.
+
+**The checkpoint-race fix IS live — checked today, so this is no longer open.**
+The notes leave it "pending chassis rebuild + verify" and never record the
+verify. It landed `5cca088af`/`b5f0fef8a` (06-08/06-09), is an ancestor of HEAD,
+and `preRegisterAwaitedRequest` + `prepare_object_url` both probe PRESENT in the
+running chassis (negative control absent). **So the race that stopped this lane
+in June is not what will stop it next time** — start from the run, not from that
+bug.
+
+> ⚠ **The fleet rolled mid-session: v1.0.1286 → v1.0.1288 at 17:13Z.** Both the
+> race fix and `238`'s guard were re-probed on **1288**; §9.4's readings were
+> taken on 1286 and both still hold. Note the failure mode this exposed — a probe
+> against a pod that has since been replaced returns `NotFound`, and behind the
+> customary `2>/dev/null` that is **indistinguishable from "the string is
+> absent"**. Print the error, or you will read a roll as a missing fix.
+> Provenance was unreachable on the fresh pod too: its log begins at 17:43 for a
+> 17:13 start (rotation), so the binary probe is the only instrument here.
+
+**Nothing else is working this lane**: the only live thunder traffic is
+`thunder-orphan-scan` (17:46Z, `count:0` — consistent with 23 decommissioned).
 
 **So the product's critical path is: prove one run end-to-end to `RUN_SH_DONE`
 with a durable uploaded adapter.** Until that exists there is nothing to sell,
