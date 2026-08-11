@@ -8942,3 +8942,59 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **why it is a landmine:** the wrong result is the *plausible* one. On 2026-08-11 this made migration 384 (`url_field` on tool-acceptance) read as **not applied** minutes after another session had applied and verified it — a false "the fix is missing" about a live change, which is the direction that costs a duplicate implementation. The key was present all along with `input_data.spec.page_url`.
 - **source:** 2026-08-11, `staged_component_build` lane (NOTES 08-11 afternoon; the wrapper `page_url` work)
 - **added:** 2026-08-11, staged_component_build lane
+
+---
+
+## A CTA fix written only to `rendered_html` is invisible to the template — the next content_data-driven rerender silently drops it
+
+- **footprint:** `page_components.content_data` · `page_components.rendered_html` ·
+  `content_components.html_template` · any hero/CTA component using
+  `{{if and .cta_text .cta_url}}` · `pages.sections` (rebuild membership) ·
+  `scheduled_tasks.improvement-sweep`
+- **fires when:** you resolve an `unresolved_cta`/`cta_names_unknown_destination`
+  finding by writing the button's `href` straight into `rendered_html` (the fast,
+  obvious fix — it's what's actually served, and `verify_served_site.sh` goes
+  green immediately)
+- **the tell:** **there is no tell at the time you make the fix.** It looks
+  completely correct: the live page shows the button, the check passes, the
+  work item can be marked resolved. The gap only shows up later, on the NEXT
+  event that regenerates `rendered_html` FROM `content_data` — a
+  `refresh_site_components` rerender, a component-template fixer pass, a fresh
+  `improvement-sweep` cycle — because the hero template's own guard is
+  `{{if and .cta_text .cta_url}}`. `content_data` had `cta_text` but never
+  `cta_url` (only `rendered_html` did), so the regenerated HTML drops the
+  button silently — no error, no failed check, just an empty pair of blank
+  lines where the button used to be. Hit directly, twice, same incident,
+  2026-08-11: `webdesign.uk`'s hero CTAs on `index.html` and `contact.html`
+  both reverted this way roughly 20 hours after being "fixed", and a **third**,
+  worse case in the same incident: `contact.html`'s hand-built
+  `chat-input-box` component was never added to `pages.sections` at all when
+  it was spliced in, so a sections-driven rebuild didn't just drop a field —
+  it dropped the entire component, silently, because the component was never
+  on the list of things to keep
+- **the check:** before considering a CTA/component fix durable, verify the
+  URL lives in **`content_data`**, not only `rendered_html` —
+  `SELECT content_data->>'cta_url', content_data->>'secondary_cta_url' FROM
+  page_components WHERE id=…` must be non-null if the template's guard needs
+  both fields. For a hand-inserted, framework-external component (no template
+  describes it, nothing should ever regenerate it), the durable fix is
+  different in kind, not degree: **lock it**
+  (`UPDATE page_components SET locked_at=now(), lock_type='permanent' WHERE
+  id=…`) AND add it to `pages.sections`, or the next full rebuild has no
+  record it should exist and silently omits it — a lock protects the ROW,
+  the sections array is what decides whether the row is even considered
+- **the mechanism underneath, worth knowing before you next touch
+  `improvement-sweep`:** it can be re-enabled by something other than the
+  session that disabled it, with no announcement — `scheduled_tasks.enabled`
+  flipped back to `true` between one session's explicit disable and the next
+  session's unrelated check, source unconfirmed. A rerender dispatched from an
+  in-flight job reads its OWN snapshot of `content_data`/`sections` at claim
+  time, the same way `orchestration_states.workflow_plan` does for council
+  runs (see the other in-flight-snapshot landmine) — so a DB fix you make
+  *after* a rerender has already started will not be seen by that run, and its
+  output can arrive and overwrite your fix minutes after you verified it live
+- **source:** hit directly, webdesign_uk_build_service lane, 2026-08-11.
+  `bugs_open`/HANDOFF for this incident:
+  `webdesign_uk_build_service/NOTES_webdesign_uk_build_service.md`
+  2026-08-11 entry
+- **added:** 2026-08-11, webdesign_uk_build_service lane

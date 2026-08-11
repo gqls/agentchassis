@@ -2257,3 +2257,76 @@ outage: there is no successful call to set against them.
 asserted by the provider in the error body and is an owner/billing action, exactly like
 `bugs_open/202` (Gemini 429) — which is the same class one provider over, and is still
 open.
+
+## 2026-08-11 — improvement-sweep silently came back on and wiped Phase 5 + the CTA fixes; restored durably
+
+Returned to this lane after a separate council-gate cost workstream. First
+check was routine: re-run `verify_served_site.sh`. It failed on
+`/assets/images/hero.jpg` — not one of the two known-benign 404s
+(favicon, Cloudflare email-protection). Real regression, not noise.
+
+**Root cause, fully traced:** `improvement-sweep` (`scheduled_tasks`,
+disabled since 2026-05-02, explicitly disabled again yesterday on owner
+instruction "switch off the improvement loop") was found `enabled=true`,
+last triggered 14:35 UTC today — **not re-enabled by this session.** Source
+unconfirmed (another session, a fleet-wide sync, or the owner directly).
+Now that `bugs_open/239` is fixed and live (unrelated lane, same day —
+dispatch reliably resolves agents again), the loop wasn't just idling
+"enabled" the way it was yesterday — it actually ran, three
+`refresh_site_components` rerenders on `contact.html` alone between
+12:20 and 15:34 UTC, plus rerenders on all five pages.
+
+**Two distinct, compounding defects, both now fixed and both now
+LANDMINES entries:**
+1. Yesterday's CTA-URL fix (commit `9cca2ec`) was written only to
+   `rendered_html`, never to `content_data`. The hero template's guard is
+   `{{if and .cta_text .cta_url}}` — `content_data` had `cta_text` but no
+   `cta_url`, so the first content_data-driven rerender silently dropped
+   both hero CTA buttons on `index.html` and `contact.html`. Looked
+   completely fixed for ~20 hours; the check that would have caught it
+   (`content_data->>'cta_url' IS NOT NULL`) was never run.
+2. `chat-input-box` was hand-spliced into `contact.html` outside the normal
+   pipeline and was **never added to `pages.sections`**. A sections-driven
+   rebuild has no record it should exist — not a dropped field this time,
+   the entire component and its `page_components` row were regenerated away.
+
+**Fixed durably, not re-patched the same fragile way:**
+- Both hero components: `content_data` now carries real `cta_url` /
+  `secondary_cta_url`, so a future content_data-driven rerender reproduces
+  the buttons instead of dropping them. Verified against the actual Go
+  template (`content_components.html_template` for `hero`) before writing
+  — read the guard condition directly rather than assume the field name.
+- `chat-input-box`: re-inserted (exact bytes pulled from commit `b347512`,
+  the one originally tested working — not reconstructed from memory),
+  added back to `pages.sections`, and **locked**
+  (`lock_type='permanent'`) — the correct fix in kind, not degree, for a
+  framework-external hand-built component: no template describes it, so no
+  automated rerender should ever be allowed to regenerate it.
+- Also corrected a fabricated email (`hello@webdesign.uk`, matching
+  nowhere else on the site) that the regeneration had introduced, back to
+  the real `webdesign@contactforsales.com`.
+- Stopped the bleeding first: re-disabled `improvement-sweep`, and
+  cancelled (`wont_fix`) a queued `refresh_site_components` item that would
+  have fired again mid-restoration.
+
+**A race caught mid-fix, same mechanism as today's other lane's
+`orchestration_states.workflow_plan` finding:** pushed the git-side fix,
+`git push` was rejected — a rerender that had been dispatched BEFORE my DB
+fix (reading its own stale snapshot) only finished pushing to git AFTER it.
+Confirmed via `page_components.updated_at` that nothing had touched the DB
+since my fix; merged keeping mine, verified byte-identical against the DB
+post-merge, then pushed. Same lesson as the council-gate landmine: an
+in-flight job is immune to a fix made after it started, in either
+direction (config edits don't reach it; its own stale output can still
+land after your fix if it started first).
+
+**Verified clean at the served artefact**, not just the DB:
+`verify_served_site.sh` back to only the two known-benign 404s; chat box
+present and answering; hero CTAs present on both pages.
+
+**Open, flagged rather than chased today:** why `improvement-sweep` came
+back on is unconfirmed. Also noticed in passing, not investigated: a stray
+`webdesign.uk/assets/images/input-data.asset-key.{jpg,png}` file appeared
+in `vm-sites` — looks like a template placeholder that leaked into a real
+filename during an asset deploy. Not currently referenced by any page;
+left alone, worth a look if it recurs.
