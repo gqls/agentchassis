@@ -3228,3 +3228,25 @@ on `index` and is unreachable by any rename. **What I got wrong for a while: I r
 handoff's "no way round it" as a statement about the mechanism rather than about the
 config, and only opened the function because I wanted line numbers for the write-up.**
 The lesson is the one already in this lane's own file — a citation is not a read.
+
+## 2026-08-11 (parallel session, ~11:20Z) — CLAIM: owner decided all five open items; this session takes 1, 2 and 5
+
+Owner (in this session's chat): (1) wire up vision findings — build it; (2) fix the shared
+component contrast defect; (3) opinion sought on the manual path; (4) convert
+FIRECRAWL_API_KEY; (5) url_field and possibly the renames too, opinion sought.
+
+Cross-session state read from live transcripts + git before claiming (the 08-11 morning
+WRONG_CALLS row's own remedy, applied this time): **(4) is DONE** (`f56abaadf`, session
+52c7cd3c, via `agentenv.providerKeyNames`, `Council-Submitted: 6f13c5ce…`); **(3) is IN
+FLIGHT in that same session** (wrapper → work-item route (b), their uncommitted RUNBOOK §10
+edit, proof item `4ef3c11a…`) — not touched here beyond the opinion the owner asked for.
+
+**CLAIMED by this session, now:**
+- **(1) vision findings visible (243 c3)** — per the spec block in their uncommitted §3b.
+- **(2) the `--color-surface`-on-`--color-primary` contrast fix** — the 9 templates, then
+  re-render of the affected pages; measurement in `## 2026-08-11 (parallel session)` above.
+- **(5) `url_field` on the acceptance agent's `request_browser_run` step** (+ the producer
+  half if it proves small). Renames: opinion to owner, gamesdesign's is batch-8 work anyway.
+
+Update this entry when each lands; if you are a third session, take NONE of these three
+without checking `git log` on this file AND the live transcripts first.
