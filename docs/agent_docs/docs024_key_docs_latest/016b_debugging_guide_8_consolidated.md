@@ -11808,3 +11808,48 @@ Transferable rules:
    read failure (salience, placement) is different from the remedy for either of
    the others. Redesigning the banner would have fixed a mechanism that was not
    broken.
+
+### A detector's routing names an agent that cannot READ its item shape — so the handler refuses on "there is no gap", the refusal is terminal, and the terminal status hands the dedup slot back to the detector (`bugs_open/255`, 2026-08-11)
+
+`check_revenue_shape` files `missing_conversion_path` routed at `content-gap-planner`. The
+handler claimed it and returned **not_actionable**, in its own words: *"The content gap
+description and original category are both blank. There is no gap to evaluate."* The finding was
+TRUE and hand-verified; the spec simply carried none of the keys that handler reads
+(`{check, primary_model, missing, rule, adopted_branch}` — no `description`, no `category`).
+
+**The transferable shape, and it is a closed loop with no exit:**
+
+1. Detector files a true finding, routed at a handler by NAME.
+2. Handler cannot parse the item, so it refuses as *not actionable* — which reads, to anyone
+   scanning, as **"the finding was wrong"** rather than "I could not read it".
+3. `applyNotActionable` sets the originating item `wont_fix`.
+4. `wont_fix` is in `workItemTerminalStatuses` **and is excluded by `idx_swi_dedup`'s own
+   `WHERE`** (verified at `pg_indexes`, not inferred from the Go list) — so the slot the
+   `item_key` was holding is **released**.
+5. The site's defect is untouched, so the detector re-files the same key on its next rotation,
+   and the loop runs again. **One LLM call per rotation, for ever, and nothing anywhere reads as
+   broken** — no `failed`, no `unresolved`, no two-strike label, because `wont_fix` is a settled
+   conclusion as far as every status query is concerned.
+
+**Why this is NOT `bugs_closed/077` and why the distinction matters.** 077 is *detector predicate
+wider than the handler's **remit***: the handler runs, its transform provably cannot touch part
+of the population, and the remedy is to split the population and file the residue as a
+`capability_gap`. This is one step EARLIER — the handler never gets as far as having a remit,
+because the item is unreadable to it. A remit split cannot fix it and a `capability_gap` would
+misdescribe it.
+
+**The cheap check, and the seam that already exists.** Before routing a new item type at an
+existing handler, read that handler's LIVE step config and confirm your spec carries the keys it
+reads: `remit.go`'s `HandlerStepConfig(ctx, db, agentType, action)` exists for exactly this, and
+its own doc comment explains why the Go source is not good enough (nav-link-fixer's live row
+carried three patterns where the Go default had four). **A handler named in a routing decision is
+a CONTRACT, and today nothing checks it** — no test, no gate, no council seat. `bugs_open/255`
+candidate 1 proposes the lockstep; until it exists, the check is manual and belongs in the
+reviewer's list for any new check.
+
+**And the general lesson about `wont_fix`, which is broader than this bug:** a terminal status is
+a claim that a conclusion was REACHED. When an agent uses one to mean "I could not process this",
+the row becomes indistinguishable from a decision — and because terminal statuses release the
+dedup slot, the system is then guaranteed to try again. **"Refused because unreadable" needs a
+non-terminal status** (`blocked` is what the same file uses elsewhere, deliberately: *"'complete'
+on an item whose defect is untouched is the false-green this estate keeps relearning"*).

@@ -1,9 +1,29 @@
 # 255 — `missing_conversion_path` is routed at a handler that cannot read its spec, so it is refused and released back to the detector
 
 **Filed 2026-08-11 by the vigilant_designer_offer_analysis lane, which OWNS the defect**
-(`check_revenue_shape` is ours, BIZ-031/B3). Diagnosis loop run
-`RUN_CORRELATION_ID=64e5ab04-2a3d-4c5c-8d05-aa875ba211f5` filed the same evening — read its
-verdict before acting on the root cause below.
+(`check_revenue_shape` is ours, BIZ-031/B3).
+
+> **DIAGNOSIS LOOP: CONFIRMED, first iteration** (`stopped_by: confirmed`), run
+> `RUN_CORRELATION_ID=64e5ab04-2a3d-4c5c-8d05-aa875ba211f5`, 2026-08-11 19:52Z. All five symptom
+> clauses returned `[explained]` with citations. **And it produced evidence this file did not
+> have:** it read the LIVE index definition out of `pg_indexes` rather than trusting the Go
+> list —
+> `CREATE UNIQUE INDEX idx_swi_dedup ON public.site_work_items USING btree (site_id, item_key) WHERE ((item_key IS NOT NULL) AND (status <> ALL (ARRAY['complete','verified','rejected','wont_fix','failed','unresolved','cancelled'])))`
+> — so the dedup-slot release is now measured at the DATABASE, not inferred from
+> `workItemTerminalStatuses` agreeing with it. That upgrade is exactly why the run was worth its
+> minutes: my version of the claim rested on the two staying in lockstep, and lockstep is an
+> assumption; the index predicate is a fact.
+>
+> ⚠ **The run read 8 of 12 in-scope symbols. `ReadSymbolBody` could not read
+> `(*RevenueShapeCheck).Run`, `(*RevenueShapeCheck).runConversionPath`, `workItemTerminalStatuses`
+> or `workItemDispatchableStatuses`** — the two pointer-receiver methods and the two package-level
+> `var`s. That is `bugs_closed/145` (fixed, council-approved, committed — **but not yet live**), so
+> the tooling failure is expected and is NOT evidence about the code; the bundle says so itself
+> ("Absence of a body here is never evidence that a symbol is irrelevant"). **Both facts it could
+> not read are verified first-hand above with quoted evidence** — the live spec row, and the const
+> list read from the file. Do not treat the CONFIRMED as independent corroboration of those two;
+> treat it as independent corroboration of the handler-refusal and dedup-release links, which are
+> the ones that were actually in question.
 
 ## Symptom, observed live
 
@@ -35,12 +55,16 @@ ever routed to.
 `applyNotActionable` (:1109-1123): it sets the originating item
 `status='wont_fix', error=<reason>, completed_at=NOW()`.
 
-[VERIFIED — `platform/orchestration/actions/work_items_common.go:40-55`] **`wont_fix` is a member
-of `workItemTerminalStatuses`.** That list is interpolated into `insertWorkItem`'s
-`ON CONFLICT … WHERE` and must imply `idx_swi_dedup`'s predicate — so a `wont_fix` row
-**releases the dedup slot its `item_key` was holding**.
+[VERIFIED — `platform/orchestration/actions/work_items_common.go:40-55`, **and now at the live
+index itself**, `pg_indexes`, via the diagnosis run] **`wont_fix` is a member of
+`workItemTerminalStatuses`, AND `idx_swi_dedup`'s own `WHERE` clause excludes it**
+(`status <> ALL (ARRAY[…,'wont_fix',…])`). So a `wont_fix` row **releases the dedup slot its
+`item_key` was holding** — measured at the database, not inferred from the Go list agreeing with
+the index.
 
-[PREDICTED, NOT YET OBSERVED — one refusal has happened, and the next rotation is ~7 days out]
+[PREDICTED, NOT YET OBSERVED — one refusal has happened, and the next rotation is ~7 days out.
+The dedup slot being FREE is now verified; that the detector will actually re-file into it is
+not, because it needs the rotation to reach the site while the defect persists]
 The consequence is a closed loop with no exit: the defect on the site is untouched, so
 `check_revenue_shape` re-files the same `item_key` on its next rotation; the promoter promotes
 every `detected` row on a site it reaches; the handler refuses it again for the same reason;
