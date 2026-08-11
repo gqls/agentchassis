@@ -201,3 +201,50 @@ session, untouched by this lane.
   designs so the next session builds rather than designs. Handoff §4
   updated: Nominet asks are now CLEARED except the registrar keys; second
   tag pending Nominet's decision.
+
+## 2026-08-11 (night) — §2.7 BUILT: billing surface + vouchers; copy migration deferred on live collision risk
+
+- **Cold-start falsifier check found the copy migration (work item 1) unsafe
+  to start**: the webdesign lane's session was live at that moment (transcript
+  timestamps are UTC — they read ~an hour behind local; the tell that it was
+  seconds-fresh, not an hour stale), mid-testing `page_rerender`/`locked_at`
+  on webdesign.uk after their chat-box-wipe incident. A copy migration
+  dispatches page_rerender on the same site. Deferred; coordination note
+  appended to their NOTES (with the ask: signal when quiet). Work item 3
+  (subscription + vouchers, §2.7) built instead — zero overlap with them.
+- **Migration 391 applied + recorded** (out-of-band + `--record-only`, the
+  375 recipe — runner `--apply` still blocked by other threads' pending
+  files, re-verified via dry run this session): `vouchers`, `billing_orders`
+  (statuses `created|paid` ONLY — no refunded state, per ruling),
+  `billing_events` (dedup PK), `billing_settings` (one row,
+  `payment_timing='after_approval'`). Single-use invariant exercised against
+  the LIVE schema in a rolled-back tx: first redemption 1 row, second 0,
+  zero leftovers — a check that could have failed, not a shape-read.
+- **`internal/auth-service/billing` built** on the idea.uk PAY-001 shape
+  (raw net/http + HMAC, no SDK; FakeProvider reachable only from test
+  files): Provider/StripeProvider, atomic redemption + webhook-dedup
+  repository, service pinning the ruled invariants (14900p list, voucher
+  variants 1000|5500 only, timing vocabulary closed, nil provider → 503),
+  admin routes + public webhook. `go test` green (10 tests incl. signature
+  tamper, double-redeem, checkout-failure-keeps-voucher-consumed).
+- **Wiring degrades, never dies**: first draft Fatal'd auth-service when
+  clients_db was unreachable — corrected before submission, because that
+  coupled LOGIN availability (admin dashboard's auth) to pgbouncer. Now:
+  error log + billing unmounted for that run.
+- **Blast-radius measurement corrected my own risks claim before submission**:
+  I wrote "only Go write site to clients.external_id is this change's" — the
+  grep found ADM-011's customer-create INSERT also writes it
+  (customer_handlers.go:190, our own lane's previous session!). They compose
+  (webhook guarded by `external_id IS NULL`; unique constraint both ways).
+  The submission states the measured truth.
+- **Register: PAY-009 appended** (payments.md) — producer set + key shape
+  named per the RFC_010 condition; consumers named (queue gate §2.6, admin
+  FE follow-up, webdesign chat lane under `upfront` later). Open at build
+  time: webhook public exposure (NO Ingress resources exist in the cluster
+  today — decide box-proxy vs Ingress+cert when Stripe keys arrive); Stripe
+  restricted key + webhook secret = owner task; admin FE voucher screen not
+  built.
+- Council submission dispatched (councils queue behind the fleet; corr in
+  the commit trailer). Subscription scaffold's ListAll `$N`-on-MySQL dialect
+  bug fixed in the same change; scaffold otherwise untouched (PAY-007
+  stands — `status=active` still means "a row exists").

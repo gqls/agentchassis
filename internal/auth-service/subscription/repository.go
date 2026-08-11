@@ -155,30 +155,29 @@ func (r *Repository) ListAll(ctx context.Context, params ListSubscriptionsParams
 	query := `SELECT id, user_id, tier, status, start_date, end_date, created_at FROM subscriptions WHERE 1=1`
 	countQuery := `SELECT COUNT(*) FROM subscriptions WHERE 1=1`
 
+	// This service runs on MySQL: placeholders are `?`, matching every other
+	// query in this file. These were `$N` (Postgres) — dead code until now.
 	args := []interface{}{}
-	count := 1
 
 	if params.Status != "" {
-		query += fmt.Sprintf(" AND status = $%d", count)
-		countQuery += fmt.Sprintf(" AND status = $%d", count)
+		query += " AND status = ?"
+		countQuery += " AND status = ?"
 		args = append(args, params.Status)
-		count++
 	}
 	if params.Tier != "" {
-		query += fmt.Sprintf(" AND tier = $%d", count)
-		countQuery += fmt.Sprintf(" AND tier = $%d", count)
+		query += " AND tier = ?"
+		countQuery += " AND tier = ?"
 		args = append(args, params.Tier)
-		count++
 	}
 
-	query += fmt.Sprintf(" ORDER BY created_at DESC LIMIT $%d OFFSET $%d", count, count+1)
-	args = append(args, params.Limit, params.Offset)
-
-	// Get total count
+	// Get total count (before the limit/offset args are appended)
 	var total int
-	if err := r.db.QueryRowContext(ctx, countQuery, args[:count-1]...).Scan(&total); err != nil {
+	if err := r.db.QueryRowContext(ctx, countQuery, args...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("failed to get subscription count: %w", err)
 	}
+
+	query += " ORDER BY created_at DESC LIMIT ? OFFSET ?"
+	args = append(args, params.Limit, params.Offset)
 
 	// Get subscriptions
 	rows, err := r.db.QueryContext(ctx, query, args...)

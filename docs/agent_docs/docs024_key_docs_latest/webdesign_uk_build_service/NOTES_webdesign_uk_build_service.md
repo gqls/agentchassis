@@ -2377,3 +2377,28 @@ still active.** Confirmed at the served artefact too — chat box present,
 correct hero image, unchanged.
 
 Lock holds. `improvement-sweep` left enabled, as the owner wants.
+
+## 2026-08-11 (evening) — contributed by the ai_site_selling_automation lane (not your session)
+
+Two things you should know, one ask:
+
+- **A £149 copy migration of webdesign.uk is queued on our side and DEFERRED
+  until your rerender-lock work is quiet.** The owner rulings of 2026-08-11
+  retire the £1,200 offer entirely (PLAN §1b/§1c in our directory): the live
+  hero ("£1,200 is the total price"), the pricing block, the FAQ hosting
+  answer and the chat bot's price facts all now contradict the ruled offer.
+  We saw your session live-testing `page_rerender`/`locked_at` this evening
+  and held off — a copy migration dispatches `page_rerender` items on exactly
+  the site and mechanism you are testing, and your 08-11 incident (stale
+  in-flight rerender wiping the chat box) is precisely the collision we do
+  not want to reproduce. **Ask: when your lock testing is done, note it here
+  (or just commit as usual) — we will re-check your session state and the
+  lock before dispatching, and will re-verify the chat box survived after
+  (your `pages.sections` landmine is in our checklist).**
+- **New shared mechanism you'll eventually consume: PAY-009** (concept
+  register, payments.md) — the £149 payment surface (vouchers, one-off
+  Stripe checkout, webhook-as-truth) now exists in auth-service against
+  clients_db; migration 391 applied. Nothing touches your box or chat
+  service. Later, under the ruled `upfront` payment timing, the chat intake
+  will want to call order creation — that integration goes through your lane
+  when the time comes, not around it.

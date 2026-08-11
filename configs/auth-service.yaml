@@ -23,7 +23,17 @@ infrastructure:
     ssl_mode: "disable"
 
   kafka_brokers: []
-  clients_database: {}
+  # clients_db (Postgres) — billing truth lives beside the customer identity
+  # it prices (vouchers / billing_orders / billing_events / billing_settings,
+  # migration 391). Same block as core-manager's; CLIENTS_DB_PASSWORD is
+  # already present in personae-platform-secrets, which this pod mounts.
+  clients_database:
+    host: "pgbouncer.ai-persona-system.svc.cluster.local"
+    port: 6432
+    user: "clients_user"
+    password_env_var: "CLIENTS_DB_PASSWORD"
+    db_name: "clients_db"
+    sslmode: "disable"
   templates_database: {}
   object_storage: {}
 

@@ -46,7 +46,13 @@ rulings create, roughly in order.
    `snapshot_2026-08-11_gbp1200_offer/` (sites/pages/page_components/
    site_specs JSONL, counts verified 1/6/22/31; see its README for what it
    does and does not hold, and why restore is deliberate, not one-click).
-1. **Copy/FAQ migration on webdesign.uk** — the live site contradicts the
+1. **Copy/FAQ migration on webdesign.uk** — **DEFERRED 2026-08-11 night, not
+   dropped**: the sibling lane's session was live-testing
+   `page_rerender`/`locked_at` on this exact site (post chat-box-wipe
+   incident); dispatching rerenders into that would risk reproducing their
+   incident. Coordination note + ask left in their NOTES. **Re-check their
+   session state (live `.jsonl` tails, remember timestamps are UTC) before
+   starting.** Rest of this item unchanged: the live site contradicts the
    rulings everywhere: hero "£1,200 is the total price", "You see it
    finished … before any money changes hands", "you only pay if you like
    it", and the FAQ answer "What about the domain and hosting?" →
@@ -68,12 +74,13 @@ rulings create, roughly in order.
    count + wait note on the site and in chat), what closes submissions,
    what reopens them. Small, but it is the demand limiter the £1,200-era
    "human fulfilment IS the limiter" assumption no longer provides.
-3. **Subscription service + vouchers**: real Stripe SDK-or-raw-HTTP client,
-   webhook handler with signature verify as sole source of truth (the
-   proven idea.uk PATTERN — pattern, not code port), wired to
-   `clients.external_id`; voucher table (code, discount-to amount, ?single-
-   use, redeemed_by/at) validated at submission. Council + register entries
-   — this is platform code and a new shared mechanism.
+3. ~~Subscription service + vouchers~~ — **BUILT 2026-08-11 night** (register
+   **PAY-009**; migration 391 LIVE + recorded; `internal/auth-service/billing`
+   tested green; council submitted, corr in the commit trailer). Inert until
+   an auth-service image rolls AND `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET`
+   land in `personae-platform-secrets` (owner task). Open: webhook public
+   exposure (no Ingress exists — decide when keys arrive); admin FE voucher
+   screen (follow-up). NOTES (08-11 night) has the full record.
 4. **ZIP delivery**: a completed site's objects live in B2 under
    `<host>/<path>` keys (worker §3.3 of start-here) — a "download your
    site" step is: pull prefix, zip, store as a deliverable asset, link it.

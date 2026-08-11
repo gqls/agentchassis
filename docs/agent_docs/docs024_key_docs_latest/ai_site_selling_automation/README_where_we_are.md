@@ -108,3 +108,30 @@ no-frills positioning throughout — including saying plainly the sites are
 AI-built. The one small open question is exactly what the queue counts and
 what the wait note promises. A summary of every option and choice to date
 was written today for reading aloud: SUMMARY_2026-08-11.
+
+---
+
+2026-08-11, late evening. The payment machinery now exists. Tonight's session
+built the £149 payment surface the rulings asked for: the voucher system
+(single-use codes you can name to a person, expiring, dropping the price to
+£10 or £55 — the codes look like WD-XXXXX-XXXXX and are generated for you),
+the order ledger, the Stripe integration in the shape that already took real
+money on idea.uk, and the switch for "payment after approval now, up-front
+later". The database side is live; the code side waits for the next
+auth-service deploy and for two Stripe keys only you can supply (a restricted
+secret key and a webhook signing secret — same as idea.uk's setup). Until
+those keys exist the endpoints politely refuse rather than pretend. There is
+deliberately no refund button anywhere, as ruled.
+
+The website copy rewrite (getting £1,200 off the live site) did NOT start
+tonight, on purpose: the other Claude session that owns webdesign.uk was, at
+that exact moment, live-testing the page-rebuild lock it built after the
+chat-box-wipe incident. Rewriting pages through the same machinery it was
+testing would have risked exactly that incident again. It's first in the
+queue once their testing is quiet, and they've been left a note asking them
+to signal.
+
+One decision will be needed from you soon, but not tonight: when the Stripe
+keys arrive, the webhook (the message Stripe sends when someone pays) needs a
+public web address pointing into the cluster, and nothing exposes the cluster
+publicly today. Options and trade-offs will be written up when it's due.

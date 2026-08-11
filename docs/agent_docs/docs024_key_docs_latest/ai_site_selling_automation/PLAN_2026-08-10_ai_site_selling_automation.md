@@ -212,7 +212,7 @@ first-class state, not an error.
 - **Wait note copy**: derived from recent average turnaround, phrased
   "usually within N days", never a position guarantee — per ruling.
 
-### 2.7 Subscription service + vouchers [DESIGNED 2026-08-11]
+### 2.7 Subscription service + vouchers [BUILT 2026-08-11 night — inert until auth-service rolls + Stripe keys land; register PAY-009]
 
 Rulings baked in: build out `auth-service/subscription` even if idle at
 first; £149 list price; vouchers single-use, named, expiring (£10/£55);

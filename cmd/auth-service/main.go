@@ -34,6 +34,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gqls/agentchassis/internal/auth-service/admin"
 	"github.com/gqls/agentchassis/internal/auth-service/auth"
+	"github.com/gqls/agentchassis/internal/auth-service/billing"
 	"github.com/gqls/agentchassis/internal/auth-service/gateway"
 	"github.com/gqls/agentchassis/internal/auth-service/jwt"
 	"github.com/gqls/agentchassis/internal/auth-service/middleware"
@@ -124,6 +125,45 @@ func main() {
 	projectHandler := project.NewHTTPHandler(projectRepo, appLogger)
 	subscriptionHandlers := subscription.NewHandlers(subscriptionSvc)
 	subscriptionAdminHandlers := subscription.NewAdminHandlers(subscriptionSvc, appLogger)
+
+	// Billing (£149 site-build product, owner rulings 2026-08-11) lives
+	// against clients_db (Postgres), beside the customer identity it prices.
+	// Both absences degrade explicitly, never silently: no clients_database
+	// config → billing routes are not mounted; no Stripe keys → the mounted
+	// routes answer 503 until the keys arrive.
+	var billingHandlers *billing.Handlers
+	if cfg.Infrastructure.ClientsDatabase.Host != "" {
+		// Degrade, don't die: auth (logins, JWTs) must not depend on the
+		// billing store being reachable at startup — the admin dashboard
+		// needs a working login precisely when parts of the platform are
+		// down. Billing stays unmounted until the next restart finds the DB.
+		clientsPool, err := database.NewPostgresConnection(context.Background(), cfg.Infrastructure.ClientsDatabase, appLogger)
+		if err != nil {
+			appLogger.Error("clients database unreachable — billing endpoints NOT mounted this run", zap.Error(err))
+			clientsPool = nil
+		}
+		if clientsPool != nil {
+			defer clientsPool.Close()
+
+			publicBaseURL := "https://webdesign.uk"
+			if cfg.Custom != nil {
+				if v, ok := cfg.Custom["billing_public_base_url"].(string); ok && v != "" {
+					publicBaseURL = v
+				}
+			}
+			var provider billing.Provider
+			if key, whsec := os.Getenv("STRIPE_SECRET_KEY"), os.Getenv("STRIPE_WEBHOOK_SECRET"); key != "" && whsec != "" {
+				provider = billing.NewStripeProvider(key, whsec, publicBaseURL)
+				appLogger.Info("billing provider configured", zap.String("provider", "stripe"))
+			} else {
+				appLogger.Warn("billing mounted without a payment provider — STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET not set")
+			}
+			billingRepo := billing.NewRepository(clientsPool, appLogger)
+			billingHandlers = billing.NewHandlers(billing.NewService(billingRepo, provider, appLogger), appLogger)
+		}
+	} else {
+		appLogger.Warn("clients_database not configured — billing endpoints not mounted")
+	}
 	gatewayHandler := gateway.NewHTTPHandler(gatewaySvc, appLogger)
 	adminHandlers := admin.NewHandlers(userRepo, appLogger)
 
@@ -232,6 +272,22 @@ func main() {
 		// | POST   | /api/v1/admin/work-items/:item_id/resolve | Mark as resolved/dismissed     |
 		//
 		// All endpoints require admin JWT auth (via RequireAuth + RequireRole("admin")).
+	}
+
+	// Billing (owner rulings 2026-08-11): admin surface for vouchers, orders
+	// and the payment-timing switch, plus the public Stripe webhook — whose
+	// authentication is the verified signature, not a JWT.
+	if billingHandlers != nil {
+		router.POST("/api/v1/billing/webhooks/stripe", billingHandlers.HandleStripeWebhook)
+		billingAdmin := adminGroup.Group("/billing")
+		{
+			billingAdmin.POST("/vouchers", billingHandlers.HandleCreateVoucher)
+			billingAdmin.GET("/vouchers", billingHandlers.HandleListVouchers)
+			billingAdmin.POST("/orders", billingHandlers.HandleCreateOrder)
+			billingAdmin.GET("/orders", billingHandlers.HandleListOrders)
+			billingAdmin.GET("/settings", billingHandlers.HandleGetSettings)
+			billingAdmin.PUT("/settings", billingHandlers.HandleUpdateSettings)
+		}
 	}
 
 	// Gateway proxy endpoints (protected)
