@@ -76,11 +76,17 @@ rulings create, roughly in order.
    "human fulfilment IS the limiter" assumption no longer provides.
 3. ~~Subscription service + vouchers~~ — **BUILT 2026-08-11 night** (register
    **PAY-009**; migration 391 LIVE + recorded; `internal/auth-service/billing`
-   tested green; council submitted, corr in the commit trailer). Inert until
-   an auth-service image rolls AND `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET`
-   land in `personae-platform-secrets` (owner task). Open: webhook public
-   exposure (no Ingress exists — decide when keys arrive); admin FE voucher
-   screen (follow-up). NOTES (08-11 night) has the full record.
+   tested green). Inert until an auth-service image rolls AND
+   `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET` land in
+   `personae-platform-secrets` (owner task). Open: webhook public exposure
+   (no Ingress exists — decide when keys arrive); admin FE voucher screen
+   (follow-up). NOTES (08-11 night + close-of-session) has the full record.
+   **Council: four rounds, REVISE trail stands (corr `4ac1fe52`), stopped by
+   design** — three real findings landed (b9bea5e1d, 895029d24); the
+   remaining gates were fresh-panel tier-blindness on shipped code plus
+   questions the 375 ruling already answers. Do NOT resubmit unless a
+   round found a new real defect; 098 lists the commit un-reviewed, which
+   is the honest state.
    **3b. Admin FE voucher screen** — issue/list vouchers + read orders +
    flip payment timing, against `/api/v1/admin/billing/*` (auth-service
    direct, not the core-manager proxy); PipelinesPage bolt-on precedent.
