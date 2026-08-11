@@ -248,3 +248,30 @@ session, untouched by this lane.
   the commit trailer). Subscription scaffold's ListAll `$N`-on-MySQL dialect
   bug fixed in the same change; scaffold otherwise untouched (PAY-007
   stands — `status=active` still means "a row exists").
+
+## 2026-08-11 (late night) — council round 1 REVISE: two real findings, seven answered by measurement; round 2 in
+
+- **REVISE, gated by guardian** (corr 4ac1fe52). The gating objection — "confirm
+  the 391 ledger row actually matches" — was answerable, not a defect: row
+  present, applied_by='record-only', checksum md5-exact against the committed
+  file (the runner hashes md5, not sha — my first comparison used sha256 and
+  looked like a MISMATCH until I read run-migrations.sh:264; and my first
+  ledger query silently returned nothing because I wrote `note` for `notes`
+  with 2>/dev/null eating the error — the blind-check trap again).
+- **Two REAL findings, both now durable in b9bea5e1d**: (1) reuse seat: the
+  unwired `subscriptions` scaffold and the new `billing_orders`/`vouchers`
+  are two uncoordinated representations of "this client paid" → recorded as
+  a named OWNER DECISION (handoff §4, with recommendation: deprecate the
+  scaffold's create surface once £149 is proven). (2) debug_historian: the
+  degrade-to-unmounted design makes a silent non-deploy look like success →
+  post-roll verification recipe committed to the RUNBOOK ("Verify the
+  billing surface"), named as handoff item 3c.
+- Answered by measurement: pod's baked config file proven authoritative
+  (kubectl exec cat — the overlay is env-only, viper needs SERVICE_ prefix);
+  pool headroom ≤9/200 client conns (MaxConns=3, MinConns=0 × 3 replicas);
+  clients_db has ONE migration series (sql_for_agents), no core-manager
+  collision; 391 replay-safe by construction (IF NOT EXISTS / ON CONFLICT).
+- Round 2 resubmitted on the SAME correlation (RESUBMIT_CORR), edits
+  restructured one-file-per-edit to the 8-cap, DO-guard shown verbatim,
+  dialect fix removed from the edit list (shipped in 1834bd3c0,
+  acknowledged in rationale per the guardian's separate-shipping preference).
