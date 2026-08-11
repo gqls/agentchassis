@@ -136,29 +136,67 @@ only the negative control (a string the change **removed**) proves it shipped **
 
 ## Pod-grep the REVALIDATORS after any roll (added 2026-08-11 — these were missing, and I had to re-derive them from source under time pressure)
 
-Run against **every replica**, never `deploy/X` (that reads one pod of N). `grep -c` prints
-nothing and exits 1 on zero, so `${n:-0}` is not optional.
+> **⚠ REWRITTEN 2026-08-11 (evening). The recipe that stood here was wrong twice over** and is kept
+> below only as the corrected form. It used `strings /app/agent-chassis` behind `2>/dev/null`,
+> which CLAUDE.md now forbids outright — `strings` is absent from the debian-slim images, and behind
+> that redirect its absence is indistinguishable from "the needle is not there" (three confidently
+> wrong readings in one day). And it looped over `-l app=agent-chassis`, **which returns 2 pods
+> while 41 run that image** — a false completeness claim the council caught.
+
+**Step 1 — prove the fleet is ONE binary. This replaces "run it on every replica".**
 
 ```sh
-for p in $(kubectl -n ai-persona-system get pods -l app=agent-chassis -o name | cut -d/ -f2); do
-  echo "--- $p ---"
-  for pair in "ownergate:register moved, not the page" \
-              "claims:evidence base, so the finding cannot be re-judged" \
-              "voice:voice gate, so the finding cannot be re-judged" \
-              "CONTROL_pos:auto:revalidated" \
-              "CONTROL_absent:zzz_needle_that_should_never_exist"; do
-    label="${pair%%:*}"; needle="${pair#*:}"
-    n=$(kubectl -n ai-persona-system exec -i "$p" -- sh -c "strings /app/agent-chassis | grep -c '$needle'" 2>/dev/null); n=${n:-0}
-    echo "   $label = $n"
-  done
-done
+kubectl -n ai-persona-system get pods --field-selector=status.phase=Running \
+  -o jsonpath='{range .items[*]}{.status.containerStatuses[0].imageID}{"\n"}{end}' \
+  | grep agent-chassis | sort | uniq -c
+#   41 docker.io/aqls/agent-chassis@sha256:d080ae14…      ← ONE line ⇒ one binary fleet-wide
+```
+
+One digest ⇒ a probe of **any single pod** is evidence about all of them, and it is cheaper and
+stronger than grepping 26. **More than one line ⇒ a roll is mid-flight; probe each digest.**
+`--field-selector=status.phase=Running` is required: a **completed job pod cannot be exec'd at
+all**, and its failure reads exactly like a stale binary.
+
+**Step 2 — probe that binary, capturing the EXIT CODE beside the count.**
+
+```sh
+P=$(kubectl -n ai-persona-system get pods -l app=agent-chassis \
+      --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}')
+kubectl -n ai-persona-system exec -i "$P" -- sh -c '
+for pair in "ownergate:register moved, not the page" \
+            "claims:an unbuilt page is not evidence the claims were removed" \
+            "voice:voice gate: %d finding" \
+            "CONTROL_pos:auto:revalidated" \
+            "CONTROL_absent:zzz_needle_that_should_never_exist"; do
+  label=${pair%%:*}; needle=${pair#*:}
+  n=$(grep -ac -- "$needle" /proc/1/exe); rc=$?
+  echo "$label=$n rc=$rc"
+done'
 ```
 
 Expected on a build carrying this lane's work: `ownergate=1 claims=1 voice=1 CONTROL_pos=2
-CONTROL_absent=0`. Verified on **v1.0.1279** and again on **v1.0.1284**; baseline was `0/0/0` on
-**v1.0.1270**, which predates the commit.
+CONTROL_absent=0`, with **rc=0 on the four present needles and rc=1 on the absent one**. Verified
+on **v1.0.1279**, **v1.0.1284** and **v1.0.1288**; baseline was `0/0/0` on **v1.0.1270**, which
+predates the commit.
+
+⚠ **The `rc` is the point, not decoration.** `grep -c` exits 1 on zero matches, so the old
+`n=${n:-0}` idiom was needed — and it **silently converts "I could not look" into "it is not
+there"**. Reading `rc` distinguishes them: `rc=1` is a real zero, `rc=126/127` or empty output is a
+failed exec. Never report a zero without it.
+
+⚠ **`grep -a` on `/proc/1/exe`, never `strings`, and never a *discovery* grep** for "some 40-hex
+string" — that matches Go's internal digit table and returns the same wrong answer on every
+service. Probe **known** values only, always with both controls in the same run.
 
 **Gotchas, each one paid for:**
+- **`build provenance` (BLD-019) did NOT work here — do not assume it replaces this check.** It is a
+  **startup** line, so it scrolls; and the clever fix does not rescue it. The line is at the *start*
+  of the log, so `kubectl logs <pod> | head -c 300000 | grep -o 'build provenance[^}]\{0,240\}'`
+  should beat `--tail` — on 2026-08-11 it returned **nothing** on a busy `agent-chassis` pod *and*
+  on two quiet `agent-build-dispatch-loop` pods sharing the digest (rotation, not absence). With no
+  candidate sha to verify, the binary probe is unavailable too. **When it does work it is strictly
+  better** (`git merge-base --is-ancestor <your-commit> <the stamp>` answers "did my fix ship?"
+  outright) — but an empty result means "not in range", **never** "unstamped".
 - **Take the needles from the Go source, not from memory.** `grep -on '"[a-z][^"]\{40,90\}"'` over
   `revalidate_unverified_claims.go` / `revalidate_voice_tells.go` gives usable literals.
 - **Avoid apostrophes and em-dashes in the needle** — the real strings contain both

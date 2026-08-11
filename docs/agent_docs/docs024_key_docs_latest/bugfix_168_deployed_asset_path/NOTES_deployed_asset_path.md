@@ -2702,3 +2702,120 @@ Checked the 300s post-restart dispatch window before firing (2,330s elapsed — 
 drop trap). Resubmitted unchanged under `RESUBMIT_CORR=b67eb26a-…`; orchestration
 **`ae0915c2-e77a-4d02-94ce-32ced673317a`**, running at `review_editquality` within seconds — no
 29-minute queue this time.
+
+### Round 4 came back REVISE — round 5 prepared, not fired (2026-08-11, evening)
+
+Fourth REVISE, `decided_by` **`prior_art_librarian`**, and right again. Both HIGH objections were
+**"I cannot verify this from the submission"**, not "this is false" — and the seat named the exact
+traces it would accept. Both existed. I ran them rather than carrying the previous session's
+figures forward:
+
+- `doc_notes` carrying the owner ruling → **9** rows.
+- `diagnosis_artifacts` `kind='council_report'` for correlation `b67eb26a-…` → **4** rows
+  (08-09 09:51:59Z, 08-09 10:13:50Z, 08-09 14:38:37Z, 08-11 12:51:34Z — all `revise`).
+  The 08-11 handoff wrote these as "09-09 ×3"; that is a typo for **08-09**.
+
+Standing measurement re-run first-hand: **`0 | 8 | 19 | 3`**, invariant `t` for **8 of 8**.
+Unchanged since the morning. `refused_by_gate` is still **0** — the gate remains `[UNEXERCISED]`.
+
+#### The 8-edit cap is CLIENT-SIDE, so the "missing test edit" could not become a ninth
+
+`097_TRIGGER_council_review_v1.sh:101` is `jq -e '.plan.edits | … length <= 8'` and exits **before
+any credits are spent**. The plan already held 8. So `TestUnverifiedClaimsNeverResolvesWhenOnlyThe
+RegisterMoved` was added to **edit 4's symbol list** — same file, same `add` operation as the tests
+already there — with the cap named in the rationale so the seat sees a stated reason rather than
+inferring a second omission. Merging any other pair was worse: edits 2+6 are the drain and the
+owner's gate on one file, and folding the gate into the drain hides the most-scrutinised part of
+the change.
+
+#### I nearly shipped the exact fault I was correcting
+
+Writing the new sketch I copied the signature from **edit 2's** sketch — `unverifiedClaimsVerdict
+(pageID, scan)` — and wrote the call as `(…, scan, tc.filed)`. The real signature is
+`unverifiedClaimsVerdict(pageID string, filedAt time.Time, scan *checks.ClaimsPageScan)`
+(`revalidate_unverified_claims.go:157`): **filedAt is the SECOND parameter.** Edit 2's sketch is
+the pre-gate shape and edit 6 changes it, so nothing in the plan was wrong — but I would have
+filed a *new* imprecision inside the edit whose entire purpose is answering a seat about
+precision, for the fifth round running. Caught by opening the function and the real test instead
+of trusting the plan's own description of it. **The rule this lane keeps re-learning: the
+submission is not the code, and only the code settles what the code does.**
+
+#### The deploy proof is now digest-uniformity, and the fleet moved under me
+
+The handoff's figure (21 pods, digest `dcd256f9…`, v1.0.1284/1286) was **hours stale**. Live now:
+
+```sh
+kubectl -n ai-persona-system get pods --field-selector=status.phase=Running \
+  -o jsonpath='{range .items[*]}{.status.containerStatuses[0].imageID}{"\n"}{end}' \
+  | grep agent-chassis | sort | uniq -c
+#   41 docker.io/aqls/agent-chassis@sha256:d080ae14bd4940d65f94f4c55ac58ad2352fdf83b169309c2c10b595f496d0c5
+```
+
+**41 of 41 Running pods, ONE digest, tag v1.0.1288.** So a probe of any single pod is evidence
+about all of them — which is the whole point, and is why "both replicas" was never the right claim.
+
+Two method changes, both worth keeping:
+
+- **`grep -a` on `/proc/1/exe`, never `strings`** (CLAUDE.md, rewritten 08-11). The RUNBOOK's
+  recipe at line 151 still says `strings /app/agent-chassis` behind `2>/dev/null` — it happens to
+  work on this image, but its failure mode is indistinguishable from "the needle is absent".
+- **Capture the exit code beside the count.** `ownergate=1 claims=1 voice=1 CONTROL_pos=2
+  CONTROL_absent=0`, with **rc=0 on all four present needles and rc=1 on the absent one**. That rc
+  is what separates "grep ran and found nothing" from "I could not look" — the `n=${n:-0}` idiom
+  collapses the two, and did so on a completed job pod earlier today.
+
+**`build provenance` could not be read, and the better idea still failed.** The startup line is at
+the *start* of the log, not the tail, so `kubectl logs <pod> | head -c 300000 | grep -o` should
+beat `--tail`. It returned nothing on a busy `agent-chassis` pod **and** on two quiet
+`agent-build-dispatch-loop` pods on the same digest. Rotation, not absence — CLAUDE.md's "empty
+means not in range, not unstamped". A *discovery* grep for a 40-hex string is forbidden (it matches
+Go's digit table), and I had no candidate sha to verify, so BLD-019 gave nothing here. **The needle
++ digest method is still load-bearing; provenance did not replace it on this occasion.**
+
+#### The producer count, re-run through the index instead of grep
+
+`tooling_provenance` was right that grep is the method that produced round 1's false two-producer
+claim. Two facts about the tool it named, checked rather than assumed: **`cmd/bundle` does exist**
+(`docs019_…/go_files/contextkit/cmd/bundle/main.go`) but lives under contextkit's own go.mod and is
+**not in this module's build** (`go list ./... | grep -c contextkit` → **0**), and by its own header
+it is an orchestration wrapper around `dbcontext` + `assembler` for composing a context bundle — it
+does not answer "who files this item_type" even when run.
+
+> ⚠ Aside, not mine to fix: `internal/analysis/symbolbody.go:9` states **"There is no `cmd/bundle`
+> in this repo, and never was"** (a `bugs_open/145` correction). The directory exists at the path
+> above. Its *substantive* point — that the byte-for-byte reference for `ReadSymbolBody` is
+> `cmd/assembler`, not `cmd/bundle` — stands. 145 is being moved by another session right now
+> (` D bugs_open/145_…` in the tree), so I have left it alone.
+
+The live non-grep equivalent is **`code_symbols`**:
+
+```sql
+SELECT path, symbol, kind FROM code_symbols
+WHERE repo LIKE '%agentchassis%'
+  AND (body ILIKE '%claims_unverified%' OR content ILIKE '%claims_unverified%')
+  AND path NOT LIKE '%_test.go';
+```
+
+**Three rows, exactly one producer:** `(*UnverifiedClaimsCheck).Run`. The other two are this
+change's own consumer side (`reviewRevalidators` var, `parkedReviewItem` struct).
+`check_unverified_claims_stats.go` contributes **nothing** to that list; its complete symbol set is
+`scanStoredStatClaims` + `statFindingSeverity`, with no `init`, no struct and no `Name`/`Run`
+method, so it cannot register a check.
+
+**Index provenance, because a stale index answers about a different tree:** ref
+`087_towards_multiple_domains`, commit `286884b65`, 2026-08-11 10:09:04Z, 7218 symbols. It **is**
+an ancestor of HEAD, it **does** contain the gate commit `9a9fef332`, and
+`git log --oneline 286884b65..HEAD -- <the four files this plan edits>` is **EMPTY** — 217 commits
+have landed since the index was cut and **none touched these files**, so the structural answer
+holds at HEAD, not merely at the index.
+
+#### And the index query refuted this lane's own handoff
+
+§5 says `code_symbols` "indexes no package-level vars, so membership is unreadable by the loop".
+**False:** 700 vars are indexed, including all four in `work_items_common.go`. Logged in
+`WRONG_CALLS.md` — the claim was verified at the source file, which can never disconfirm a
+statement about what the *index* contains. It was the stated reason not to file a third diagnosis
+run on §2.4; that reason is void, though whether to file remains a judgement.
+
+Round 5 is validated against every client-side check (`edits` 8/8, all operations valid, in-scope,
+41,101 bytes of 65,536) and **committed but NOT fired** — see the handoff for the cost decision.

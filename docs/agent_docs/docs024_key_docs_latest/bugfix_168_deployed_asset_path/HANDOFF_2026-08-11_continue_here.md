@@ -8,6 +8,61 @@ now opens with two correction banners; its §1–§4 reference material still ho
 
 ---
 
+> ## 🟡 ROUND 5 IS BUILT, VALIDATED AND COMMITTED — **NOT FIRED.** One decision open (2026-08-11, evening)
+>
+> All five repairs the round-4 verdict asked for are in
+> `SUBMISSION_2026-08-09_claims_unverified_revalidator.json` (commit below). **The code is
+> untouched** — every seat with standing on the design approved it; all four objections were about
+> the plan's evidence. Validated against every client-side check the trigger applies: **edits 8/8**
+> (the cap is enforced at `097_TRIGGER:101` *before credits are spent*), operations valid, in
+> scope, **41,101 of 65,536 bytes**, 26 `grounded_in` entries.
+>
+> **To fire it** (this is the only remaining action, and it is a spend decision):
+> ```sh
+> RESUBMIT_CORR=b67eb26a-14ef-45d7-b755-3e489fd57ef0 \
+>   ./docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/097_TRIGGER_council_review_v1.sh \
+>   docs/agent_docs/docs024_key_docs_latest/bugfix_168_deployed_asset_path/SUBMISSION_2026-08-09_claims_unverified_revalidator.json
+> ```
+> Cost is now **~58% below** the ~1.6M figure in §0 (the `244` caching fix is live and measured), but
+> §0's "ask before running it" still stands — check the post-restart 300s window first.
+>
+> ### What was verified FIRST-HAND this session (none of it carried forward)
+>
+> | claim | result |
+> |---|---|
+> | `doc_notes` carrying the owner ruling | **9 rows** |
+> | `council_report` rows for `b67eb26a-…` | **4** — 08-09 ×3, 08-11 ×1, all `revise` |
+> | Standing measurement | **`0 \| 8 \| 19 \| 3`**, invariant `t` **8/8**, `refused_by_gate` still **0** |
+> | Producers of `claims_unverified` (via `code_symbols`, not grep) | **1** — `(*UnverifiedClaimsCheck).Run` |
+> | Deploy | **41/41 Running pods, ONE digest** `sha256:d080ae14…`, tag **v1.0.1288** |
+> | Needles on that binary | `ownergate=1 claims=1 voice=1 CONTROL_pos=2 CONTROL_absent=0` |
+>
+> **⚠ §1's state table below is now STALE**: it reads v1.0.1284 / "both replicas". The fleet is on
+> **v1.0.1288**, and "both replicas" was a **false completeness claim** — `-l app=agent-chassis`
+> returns 2 pods while **41** run that image. Use digest-uniformity, never a replica count.
+>
+> ### Three method corrections that outlive this round
+>
+> 1. **Capture the exit code beside the count.** `rc=0` on every present needle and **`rc=1` on the
+>    absent control** is what separates "grep ran and found nothing" from "I could not look".
+>    `n=${n:-0}` collapses the two. Also: **`grep -a /proc/1/exe`, never `strings`** — the RUNBOOK's
+>    line 151 recipe still says `strings` and its failure is invisible behind `2>/dev/null`.
+> 2. **`build provenance` was UNREADABLE here, and the clever fix also failed.** The startup line is
+>    at the *start* of the log, so `logs <pod> | head -c 300000` should beat `--tail` — it returned
+>    nothing on a busy chassis pod *and* on two quiet pods sharing the digest. Rotation, not absence.
+>    With no candidate sha to verify (a *discovery* grep for 40-hex is forbidden), **BLD-019 gave
+>    nothing on this occasion — the needle+digest method is still load-bearing.**
+> 3. **§5's "`code_symbols` indexes no package-level vars" is FALSE** — 700 vars are indexed,
+>    including all four in `work_items_common.go`. It was the stated reason not to file the §2.4
+>    diagnosis run; **that reason is void** (whether to file is still a judgement). Logged in
+>    `WRONG_CALLS.md`: it was verified at the source file, which could never disconfirm a claim about
+>    what the *index* contains.
+>
+> **Do not re-do the producer count with grep.** The reproducible form is a `code_symbols` query on
+> `body/content ILIKE '%claims_unverified%'` — 3 rows, 1 producer — and its index commit
+> (`286884b65`) is an ancestor of HEAD with **zero commits since touching this plan's four files**.
+> `cmd/bundle` exists but is contextkit's, under its own go.mod, **not in this module's build**.
+
 > ## ✅ UPDATE, later on 2026-08-11 — `bugs_open/244` IS ALREADY FIXED AND LIVE. DO NOT BUILD IT.
 >
 > Another session shipped both halves on 08-10 evening, ~2 hours after I filed it: `3d6851d9b`

@@ -28494,3 +28494,64 @@ control — state the number, and distrust it when it is small.**
   2026-08-06 incident where two other bugs, 126 and 181, were actually moved and had to be
   moved back) — worth automating a lint on `git mv bugs_open/* bugs_closed/*` if this pattern
   recurs a third time.
+
+## 2026-08-11 — I filed a 090 asserting "nothing states the indexed commit" about a file that states it on every run
+
+- **the claim:** the `bugs_open/223` lane's staleness symptom (090 run `520b2f7e`, and the
+  same words in the lane's NOTES and its LANDMINES entry): the code-lookup's caveat
+  "says nothing about staleness", lists "only kinds and extensions", and a model has no
+  other vocabulary to explain a 0-row answer with.
+- **why it was believable:** the *behaviour* was real and proven both ways — the same
+  landmine entry flipped `NEEDS_HUMAN_REVIEW` → `STILL_VALID` with the indexed commit the
+  only variable, and the wrong verdict really did say "of kinds not indexed". A true
+  symptom lent credibility to an untested claim about its mechanism (the index's own
+  `a-verified-symptom-lends-credibility-to-an-adjacent-explanation`, again).
+- **what was actually true:** `freshnessBanner` (`87d0bcf97`, 108 defect A, live since
+  July) renders the indexed commit, ref, age, and "local unpushed work is never visible"
+  on EVERY run, and `llm_call_log.prompt_rendered` shows that text in all four `verify`
+  prompts in the window. The model had the vocabulary and talked past it — the defect is
+  WHERE it sits (a header, not beside the answer) and that the STALE branch is clock-gated
+  while the harm is commit-distance. The premise "nothing states it" was false; the
+  sharper mechanism survived.
+- **what caught it:** the 090 loop itself — its "last hypothesis" quoted the mechanism
+  back at me — followed by the prompt census it prescribed. A REFUTED-premise
+  UNVERIFIABLE, doing exactly what CLAUDE.md says the loop is for.
+- **the cheap check that would have:** grep the target file for the words of your own
+  negative claim before filing — `grep -n 'freshness\|commit' diagnose_code_lookup_action.go`
+  was one command and would have rewritten the symptom (and sharpened it) for free. The
+  memory note `an-unverifiable-verdict-does-not-say-your-premise-was-false` already
+  prescribes exactly this pre-dispatch grep; I re-learned it by the expensive route.
+- **cost:** one 090 round (~35 min queue-to-verdict) spent partly on refuting my framing
+  instead of wholly on the mechanism — and the LANDMINES entry carried the overstated
+  version for ~6 hours until corrected.
+
+## 2026-08-11 — bugfix 168 lane: I let "`code_symbols` indexes no package-level vars" stand as the reason NOT to run a diagnosis, and it is false
+
+- **what I wrote** (this lane's own `HANDOFF_2026-08-11_continue_here.md` §5, carried
+  forward from the 08-10 handoff): the invisible-backlog item is "**first-hand verified at
+  `work_items_common.go:140-143`**" and "**do not file a third diagnosis run** — `code_symbols`
+  indexes no package-level vars, so membership is unreadable by the loop". The second clause is
+  the load-bearing one: it converts "I checked this myself" into "and the loop *could not* check
+  it", which is what retires the question rather than merely answering it.
+- **what was actually true:** `code_symbols` indexes **700 package-level vars** for this repo
+  (`SELECT kind, count(*) … GROUP BY 1` → func 3749, method 1148, struct 1017, **var 700**,
+  const 525, alias 43, interface 36), and the `kind` CHECK constraint has permitted `'var'` and
+  `'const'` all along. The four vars in the very file cited as unreadable are all indexed by name:
+  `workItemClosedStatuses`, `workItemRevalidatableStatuses`, `workItemDispatchableStatuses`,
+  `workItemTerminalStatuses`. The loop can read this; the stated blocker never existed.
+- **what caught it:** answering an unrelated council objection. `tooling_provenance` asked me to
+  re-run a producer count through the designated tool instead of grep, so I queried `code_symbols`
+  — and the result set came back containing `reviewRevalidators`, **kind `var`**. I was not
+  looking for this and would not have found it deliberately, because I had already accepted the
+  claim as settled fact from my own handoff.
+- **the cheap check that would have:** `SELECT kind, count(*) FROM code_symbols GROUP BY 1` — one
+  query, no arguments, and it answers the general form of the claim rather than the instance.
+  The claim was **about the index's coverage**, so the index's own coverage is the place to check
+  it; instead it was verified at the *source file* (`work_items_common.go:140-143`), which can
+  never disconfirm a statement about what the index contains. This is the marker rule's known
+  gap in its purest form: the claim was first-hand verified, dated, and unfalsifiable **by the
+  measurement chosen** — the check could not have come out otherwise.
+- **cost:** none yet, and that is luck rather than judgement — the false clause was an argument
+  for *not* spending a diagnosis run, so it suppressed work rather than causing any. It sat in two
+  successive cold-start handoffs, which is exactly how a stranger inherits it. Whether that third
+  run is worth filing is still an open judgement; it is no longer foreclosed by a fact.

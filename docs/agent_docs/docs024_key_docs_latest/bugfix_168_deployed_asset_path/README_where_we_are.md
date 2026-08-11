@@ -966,3 +966,56 @@ new build that went out at lunchtime, after checking our own code is genuinely i
 assuming. It started immediately instead of queueing. This is the fifth attempt at this review:
 three came back asking for revisions and were right each time, and the fourth died mid-flight when
 the account hit its limit. I'll report what this one says without rounding it up.
+
+### The fifth attempt is ready to go, and I'd like a decision before I spend it
+
+The review board came back again asking for changes — that's four in a row. But this one is
+different from the others in a way that's worth a minute, because it says something good about the
+board rather than about us.
+
+Both of its main complaints were, in effect, **"you're telling me things I have no way to check."**
+Not "you're wrong" — "I can't see it from here." One reviewer pointed out that the owner ruling we
+keep citing lives in a markdown file it can't read, and that if we'd simply invented that ruling,
+the whole justification collapses. It then named exactly where it *would* accept the evidence. Same
+with our habit of citing "round 1 said this, round 3 said that" — it can't see our previous rounds
+either, and asked where the real record is.
+
+Both records existed. We'd just never handed them over. The ruling shows up in nine places in the
+shared notes database; all four previous rounds are sitting in the board's own results table with
+their verdicts. **So the fix wasn't to argue — it was to cite.** That's the fourth time this lane
+has been caught describing the work less carefully than we actually did it.
+
+**The code has not changed.** Every reviewer with a view on the design approved it rounds ago. What
+changed is five pieces of bookkeeping: hand over those two records, properly list a test we'd
+claimed as a safeguard but never actually filed, fix an off-by-one where we said "edit 9" in a
+plan with eight, move a warning about blast radius out of a code comment and into the risks
+section where a reviewer will see it, and re-do one measurement with a better method.
+
+**Three things I found while doing it, two of which are corrections to us.**
+
+The first: I nearly made the exact mistake I was in the middle of fixing. Writing up the test, I
+copied a function's shape from elsewhere in our own plan instead of opening the actual code — and
+got the arguments in the wrong order. Nothing in the plan was wrong; I'd have *introduced* a new
+sloppiness inside the very edit whose job was to answer a reviewer about sloppiness. I caught it by
+reading the real code. That's the whole lesson of this lane in one paragraph.
+
+The second: we've been proving our code is live by checking "both copies of the service". There
+aren't two — there are **41**, spread across twenty-odd different jobs that all run the same
+program. The reviewer caught that, and it was a false claim of completeness on our part. The
+better proof is cheaper as well as stronger: ask what *fingerprint* each running copy has. All 41
+report the identical one, so checking any single copy now genuinely tells you about all of them. I
+re-ran the check that way and our code is in there.
+
+The third: while answering an unrelated complaint I stumbled over a **false statement in our own
+handover notes** — twice carried forward. We'd written that a certain search index can't see a
+certain kind of thing, and used that as the reason not to spend money on an investigation. It can
+see them; there are 700 of them indexed, including the exact four we said were invisible. Nobody
+has been harmed, because the false bit was an argument for *not* spending. But it's the kind of
+error that survives precisely because it sounds like diligence: we'd checked it first-hand, just in
+a place that could never have proved us wrong. It's written up in the shared mistakes log.
+
+**Where that leaves us.** The revised submission is finished, checked against every validation the
+tool applies, and committed. I have **not** fired it. A round is real money, and although the
+caching fix that landed yesterday makes it roughly 58% cheaper than the figure we were worried
+about, it's still your call rather than mine — the last time this lane fired one without asking was
+the day after the budget blew. Say the word and it goes.
