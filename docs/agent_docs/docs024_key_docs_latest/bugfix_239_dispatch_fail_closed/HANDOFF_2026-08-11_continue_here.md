@@ -104,8 +104,14 @@ second. **Do not resubmit this round. Do not revert.**
 ## Related work filed by this lane, unowned, NOT started
 
 > **STALE WITHIN HOURS — updated 2026-08-11 (afternoon): both filings were taken same day.**
-> - `bugs_open/246` is FIXED IN CODE at `039cfce84` (shared-pool-ownership lane; council
->   submission `c94d73ac`, `Council-Submitted:` trailer), awaiting the next fleet roll. ⚠ Their
+> - `bugs_open/246` is FIXED IN CODE at `039cfce84` by the **shared-pool-ownership lane**
+>   (`bugfix_246_shared_pool_ownership/`). ⚠ ATTRIBUTION CORRECTION: this session's commit
+>   `3b225ca84` says in its body that "the 238 lane took 246" — wrong, it is a fresh lane
+>   that messaged from the 238 session's socket; forward-only forbids the amend, so this
+>   line is the correction for anyone chasing ownership through commit history. Council
+>   **APPROVED round 1** (`c94d73ac`, 3 advisory objections none high-severity, architecture
+>   seat signalled point_fix; follow-ups committed at `6ba3fca28`), awaiting the next fleet
+>   roll. ⚠ Their
 >   message and the bug file first printed the sha as `039fcce84` — one c/f transposition,
 >   `git show` refuses it; corrected in the bug file. Note from that lane on the instrument
 >   this handoff prescribed: the pre-change `DISPATCH_LOOKUP_RETRYABLE` baseline reads **0,
