@@ -3285,3 +3285,54 @@ Dispatch observation worth keeping: `build-dispatch-loop` is fired PER SITE
 LOWER number wins) and rotates sites ~3 min apart; the wrapper's item waited ~15 min
 behind two other sites' rerender queues. A manual run's latency is queue-position, not
 failure — the script's follow-queries are the check.
+
+### The owner decided all five items; what this session then did with 1, 2 and 5
+
+**(2) The contrast fix is LIVE on 8 of 9 pages.** Migration `382` (rehearsed via the
+runner's doomed-transaction probe; the guard INDUCED first — a copy expecting 13
+occurrences raised "found 14 across 9", which is the guard proving it can fire): the 9
+templates' `background: var(--color-primary);` → `background: var(--color-text);`,
+14 occurrences, backups in `migration_backups`. Re-renders via `RERENDER_page.sh …
+section_data_resolved` (canary two, diff, then the rest): dartsonline diff = exactly the
+two swaps; leopardess = the swap + a nav-membership GAIN (the stale-page effect delivering
+the 149 lane's improvement — no losses). All six remaining COMPLETED and verified serving
+the new token at the artefact. **The ninth — gaswholesalers fuel-cost-estimator — REFUSED
+by design**: the page is `rebuild_policy='owned'` and `save_page_sections` refuses a
+generic save on it (loud FAILED, error names `apply_section_edit`/the tool pipeline as the
+sanctioned paths). Left alone deliberately: gaswholesalers is one of the six HEALTHY sites
+(17.06:1 with the old pairing), so the served page is fine; the fixed template ships
+whenever the tool pipeline next rebuilds that page. No repair path was bypassed.
+
+**Misstep, recorded where it was made:** migration 382's header calls a `--color-on-primary`
+token "a framework change" — **the estate already HAS the token: `--color-primary-text`,
+defined on all 8 affected sites** (found in the residual rules of mortgagecalculator's own
+page, post-rerender). I asserted vocabulary absence without grepping for its other
+spellings. It does not change the applied fix's correctness — and measuring the token
+showed WHY it could not have been the fix today: on mortgagecalculator
+`--color-primary-text #ffffff` vs `--color-primary #b59230` = **2.95:1 — the site's own
+declared on-primary pairing fails AA**, so convention-adherence would have made their
+served pages worse. That palette-level defect is theirs:
+`mortgagecalculator_couk_adoption/CONTRIB_2026-08-11_from_staged_component_build_contrast.md`
+carries the numbers, the rollback pointer and the one-token fix candidates. Future
+harmonisation (components back to `primary` + `primary-text`) becomes safe once their
+token is fixed — noted, not scheduled.
+
+**(1) Vision findings wired — code committed, config held.** `record_vision_finding` +
+`vision_finding` item type: commit `e6d1ac6dc`, `Council-Submitted: 310dee45…`, TL-041
+registered in the same commit, clean-archive HEAD build + tests green. Config half =
+`383_…_HOLD.sql` (image first, then seeds — apply after pod-grep, then `--record-only`).
+Design in the bug file's 08-11 afternoon update; the load-bearing choice is the failure
+direction: unparsed FILES, only explicit `FINDINGS: none` stays quiet.
+
+**(5) `url_field` APPLIED — migration `384`, live, inert until a spec carries page_url.**
+Verified at the live row: `steps.request_run.config.url_field = input_data.spec.page_url`.
+Negative control is structural (extraction of an absent field yields "" and the name
+lookup's guard is `pageURL == ""` — the unit test at `tool_acceptance_actions_test.go:377`
+pins the extraction path). End-to-end positive proof deferred honestly: it needs the first
+work item carrying `spec.page_url`, which arrives with the loancalculator PLANs. The
+producer half is deliberately unwritten (the due-sweep only raises items for PLAN-carrying
+tools, all of which resolve by name today); the manual wrapper's optional `page_url`
+argument is left to the wrapper's owning session (their RUNBOOK §10 edit was in flight).
+
+**(3)/(4) were the parallel session's:** c2 wrapper done + proven (`3a91684bd`);
+FIRECRAWL_API_KEY via agentenv allow-list (`f56abaadf`, corr `6f13c5ce…`, verdict unread).
