@@ -261,3 +261,22 @@ and only 15 also carry the empty `handler_agent`. It is the PAIR that is the loc
 Use `grep -rLE PATTERN <files>` and read the list. This produced a confident,
 inverted answer to "is any discovery check fleet-scoped?" (20 files, all wrong;
 the true answer is one, and it is a helpers file).
+
+## Proving a CronJob IMAGE is the code you committed (no exec, no `strings`)
+
+A CronJob pod is `Completed`, so you cannot exec into it, and the fleet's
+`build provenance` log line does not apply — these images are on their own tag
+sequence. The chain that needs no inference:
+
+```bash
+docker inspect $REG/<job>:$TAG --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'
+#   → must equal the commit you built from (ref_build stamps it)
+kubectl -n ai-persona-system get pods -l job-name=<job-run> \
+  -o jsonpath='{.items[0].status.containerStatuses[0].imageID}'
+#   → must equal the sha256 digest `docker push` printed
+```
+
+Commit → image label → registry digest → running pod, each link checked. **A new tag
+also removes the stale-cache hazard by construction** (the node cannot have cached a
+tag that has never existed), which is why the same-tag rebuild rule bites re-rolls and
+not first deploys — but say which one you are relying on.

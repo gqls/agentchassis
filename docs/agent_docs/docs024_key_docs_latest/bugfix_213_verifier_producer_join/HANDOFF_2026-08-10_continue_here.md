@@ -28,17 +28,26 @@ for any verified item_type carrying more than one producer shape with no declare
 corr `fc082c4a-4b00-4835-8ffe-11a55e53f47a` (round 1 REVISE — every objection
 answered by measurement, see NOTES; round 2 submitted).
 
-**What is still owed on D3 itself:**
-1. **The image is built from committed HEAD and must be pushed + the overlay
-   applied** — this is NOT part of the fleet release, it is its own tag sequence:
-   `make build-verifier-remit-check IMAGE_TAG=v1.0.1288 && make push-… && make deploy-…`,
-   then `make verifier-remit-check-now`.
-2. **Prove it at the artefact, not the tag:** the doc_note it writes on EVERY run
-   (`source='verifier-remit-check'`) must say 12 types evaluated, 0 findings, and
-   name `hardcoded_section_colors` as suppressed. A MISSING note means the job did
-   not run — which is why one is written even when clean.
-3. Read the round-2 verdict on the correlation above and act on it (the code is
-   already on the shared branch, so a REVISE is a follow-up commit, not a hold).
+**DEPLOYED AND PROVEN 2026-08-11.** CronJob live at `25 7 * * *` UTC on image
+**`v1.0.1289`**, verified as an unbroken chain rather than inferred: the image's
+`org.opencontainers.image.revision` label is commit `74ac4ed3a`, the running pod's
+`imageID` digest is byte-identical to the digest `docker push` printed, and the Job
+wrote its own artefact — `SELECT … FROM doc_notes WHERE source='verifier-remit-check'`
+(18:45 and 18:54 UTC): *12 item_types evaluated, 0 findings, `hardcoded_section_colors`
+named as answered by its declared remit*. `verifier_remit_gap` rows: **0**, correctly.
+Council **APPROVED round 2**; the one code change it produced (a constant census SQL,
+no interpolation) is in `74ac4ed3a`, and the other seven objections were each answered
+by a measurement recorded in NOTES.
+
+**What is left on D3 — one thing, and it is a waiting job, not a task:**
+- **Deployed is not exercised.** The detector has never filed a row, because nothing
+  currently qualifies. Its own `--ignore-remit` control reproduces the original bug as a
+  live finding, so the zero is a zero that looked — but the first REAL filing is still
+  unobserved. If you want it exercised deliberately: register a second producer's shape
+  on any verified type, or watch for the next convergence.
+- Also raised out of this round and left open on purpose: **`RFC_024`** — there are
+  **nine** CronJob meta-checks with no shared harness, and three council seats have now
+  asked for a consolidation pass twice.
 
 The detector fires today only under `--ignore-remit` (its built-in disconfirmability
 control, writes refused), because the one two-producer type now declares a remit.
