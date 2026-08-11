@@ -78,18 +78,18 @@ func TestMatchDecisionProtectedRow_ExactThenNormalised(t *testing.T) {
 		{id: uuid.New(), slot: "tool-list"},
 	}
 
-	if got := matchDecisionProtectedRow(rows, "tool-list"); got == nil || got.slot != "tool-list" {
+	if got := matchDecisionProtectedRow(rows, "tool-list", ""); got == nil || got.slot != "tool-list" {
 		t.Fatalf("exact match failed: %+v", got)
 	}
 	// A different spelling of the same slot must still be caught, or a rebuild
 	// naming it snake_case walks straight past the protection.
-	if got := matchDecisionProtectedRow(rows, "tool_list"); got == nil || got.slot != "tool-list" {
+	if got := matchDecisionProtectedRow(rows, "tool_list", ""); got == nil || got.slot != "tool-list" {
 		t.Fatalf("normalised match failed for tool_list: %+v", got)
 	}
-	if got := matchDecisionProtectedRow(rows, ""); got != nil {
+	if got := matchDecisionProtectedRow(rows, "", ""); got != nil {
 		t.Fatalf("empty section name must never match, got %+v", got)
 	}
-	if got := matchDecisionProtectedRow(rows, "call-to-action"); got != nil {
+	if got := matchDecisionProtectedRow(rows, "call-to-action", ""); got != nil {
 		t.Fatalf("uncovered slot must not match, got %+v", got)
 	}
 }
@@ -100,13 +100,13 @@ func TestMatchDecisionProtectedRow_ExactThenNormalised(t *testing.T) {
 func TestMatchDecisionProtectedRow_ConsumedRowMatchesOnce(t *testing.T) {
 	rows := []*decisionProtectedRow{{id: uuid.New(), slot: "hero"}}
 
-	first := matchDecisionProtectedRow(rows, "hero")
+	first := matchDecisionProtectedRow(rows, "hero", "")
 	if first == nil {
 		t.Fatal("first match should succeed")
 	}
 	first.consumed = true
 
-	if second := matchDecisionProtectedRow(rows, "hero"); second != nil {
+	if second := matchDecisionProtectedRow(rows, "hero", ""); second != nil {
 		t.Fatalf("a consumed row matched a second section: %+v", second)
 	}
 }
@@ -169,5 +169,54 @@ func TestCoveredKeySliceAndCoveredKeysAgree(t *testing.T) {
 	}
 	if joined := CoveredKeys(covered); joined != strings.Join(slice, ", ") {
 		t.Fatalf("CoveredKeys %q does not match the slice %#v", joined, slice)
+	}
+}
+
+// TestMatchDecisionProtectedRow_ComponentIDBeatsARenamedSlot is the guard against
+// the gate DUPLICATING what it means to protect.
+//
+// bugs_open/189: extractSectionsFromMetadata prefers component_function over
+// component_name once a component resolves, so a positionally-named stored slot
+// ("tool-2") never matches the incoming resolved name
+// ("tool-loan-vs-savings"). On a name-only match the fresh copy is INSERTED while
+// the protected row — excluded from the DELETE by this very gate — survives
+// beside it: same component_id twice on one page, every step reporting success.
+//
+// Not armed today (the 14 positionally-named sections are on loancalculator.co.uk
+// and oufe.com, neither of which has decision records), which is precisely why it
+// is worth pinning now rather than after it fires.
+func TestMatchDecisionProtectedRow_ComponentIDBeatsARenamedSlot(t *testing.T) {
+	compID := uuid.New().String()
+	rows := []*decisionProtectedRow{
+		{id: uuid.New(), componentID: compID, slot: "tool-2"},
+	}
+
+	// The incoming section resolved to a different NAME but is the same COMPONENT.
+	got := matchDecisionProtectedRow(rows, "tool-loan-vs-savings", compID)
+	if got == nil {
+		t.Fatal("a protected row was not matched by component_id when the slot name " +
+			"had been resolved to a different spelling — the fresh copy would be INSERTED " +
+			"alongside the protected row, duplicating the section this gate exists to protect")
+	}
+	if got.slot != "tool-2" {
+		t.Fatalf("matched the wrong row: %+v", got)
+	}
+}
+
+// TestMatchDecisionProtectedRow_EmptyComponentIDDoesNotPairEverything: the
+// metadata path often arrives with no component_id, so an empty id must not act
+// as a wildcard that pairs an unresolved section with the first idless protected
+// row.
+func TestMatchDecisionProtectedRow_EmptyComponentIDDoesNotPairEverything(t *testing.T) {
+	rows := []*decisionProtectedRow{
+		{id: uuid.New(), componentID: "", slot: "brief-explanation"},
+	}
+
+	if got := matchDecisionProtectedRow(rows, "call-to-action", ""); got != nil {
+		t.Fatalf("an empty component_id matched an unrelated slot: %+v", got)
+	}
+	// The name path still works when ids are absent on both sides.
+	if got := matchDecisionProtectedRow(rows, "brief-explanation", ""); got == nil {
+		t.Fatal("name matching regressed when component_id is empty on both sides")
 	}
 }

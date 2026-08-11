@@ -847,7 +847,7 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 		// row stands, the fresh copy is discarded, only the position moves, and
 		// the blocked overwrite is filed. The rebuild continues — that is the
 		// "gentler version" of the owner ruling of 2026-08-10 (RFC_015 §5b).
-		if dr := matchDecisionProtectedRow(decisionProtected, section.ComponentName); dr != nil {
+		if dr := matchDecisionProtectedRow(decisionProtected, section.ComponentName, section.ComponentID); dr != nil {
 			dr.consumed = true
 			if _, posErr := params.DB.ExecContext(ctx, `
 				UPDATE page_components SET position = $2 WHERE id = $1

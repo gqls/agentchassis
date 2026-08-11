@@ -80,11 +80,14 @@ import (
 // two questions — the asymmetry that 016b §9 keeps recording. The matching
 // logic below is the same shape as matchLockedRow and must stay so.
 type decisionProtectedRow struct {
-	id        uuid.UUID
-	slot      string
-	position  int
-	decisions []string // decision keys covering this slot, for the work item
-	consumed  bool     // matched (and thereby blocked) an incoming section
+	id uuid.UUID
+	// componentID is the row's page_components.component_id, matched BEFORE the
+	// slot name. See matchDecisionProtectedRow for why that order is load-bearing.
+	componentID string
+	slot        string
+	position    int
+	decisions   []string // decision keys covering this slot, for the work item
+	consumed    bool     // matched (and thereby blocked) an incoming section
 }
 
 // decisionCitationPaths are the collected-data paths a citation may arrive on,
@@ -147,7 +150,7 @@ func loadDecisionProtectedRows(
 	}
 
 	rows, err := db.QueryContext(ctx, `
-		SELECT id, COALESCE(slot_name, ''), position
+		SELECT id, COALESCE(component_id::text, ''), COALESCE(slot_name, ''), position
 		FROM page_components
 		WHERE page_id = $1 AND `+pageComponentAgentWritableSQL("")+`
 		ORDER BY position ASC
@@ -160,9 +163,10 @@ func loadDecisionProtectedRows(
 	defer rows.Close()
 
 	type candidate struct {
-		id       uuid.UUID
-		slot     string
-		position int
+		id          uuid.UUID
+		componentID string
+		slot        string
+		position    int
 	}
 	var candidates []candidate
 	lockedSlots := map[string]bool{}
@@ -171,7 +175,7 @@ func loadDecisionProtectedRows(
 	}
 	for rows.Next() {
 		var c candidate
-		if scanErr := rows.Scan(&c.id, &c.slot, &c.position); scanErr != nil {
+		if scanErr := rows.Scan(&c.id, &c.componentID, &c.slot, &c.position); scanErr != nil {
 			logger.Warn("SavePageSectionsAction: decision-protected scan failed", zap.Error(scanErr))
 			continue
 		}
@@ -214,10 +218,11 @@ func loadDecisionProtectedRows(
 			continue // named it — the change is allowed, and the trail records who
 		}
 		protected = append(protected, &decisionProtectedRow{
-			id:        c.id,
-			slot:      c.slot,
-			position:  c.position,
-			decisions: CoveredKeySlice(covered),
+			id:          c.id,
+			componentID: c.componentID,
+			slot:        c.slot,
+			position:    c.position,
+			decisions:   CoveredKeySlice(covered),
 		})
 	}
 	if len(protected) == 0 {
@@ -226,13 +231,45 @@ func loadDecisionProtectedRows(
 	return protected
 }
 
-// matchDecisionProtectedRow finds the first unconsumed protected row whose slot
-// matches the incoming section — exact first, then kebab-normalised. Same shape
-// and same reasons as matchLockedRow (the 041 naming landmine: the library
-// stores kebab-case but older rows and plans may carry snake_case or CamelCase
-// variants of one slot), and each protected row matches at most one incoming
-// section so a duplicated slot cannot have one decision swallow several.
-func matchDecisionProtectedRow(protected []*decisionProtectedRow, sectionName string) *decisionProtectedRow {
+// matchDecisionProtectedRow finds the first unconsumed protected row for the
+// incoming section: by COMPONENT ID first, then exact slot name, then
+// kebab-normalised slot name. Each protected row matches at most one incoming
+// section, so a page with a duplicated slot cannot have one decision swallow
+// several.
+//
+// WHY COMPONENT ID FIRST, and it is not a nicety. A name-only match makes this
+// guard DUPLICATE the section it is supposed to protect, silently. The mechanism
+// is `bugs_open/189` (and its LANDMINES entry, "Firing section_data_resolved on a
+// LOCKED, positionally-named section duplicates it, not protects it"):
+// extractSectionsFromMetadata prefers component_function over component_name once
+// a component resolves, so a positionally-named stored slot (`tool-2`) never
+// matches the incoming resolved name (`tool-loan-vs-savings`). The match misses,
+// the fresh copy is INSERTED, and the protected row — which this gate has just
+// excluded from the DELETE — survives beside it. Same component_id twice on one
+// page, near-identical content, every step reporting success.
+//
+// NOT ARMED TODAY, stated so nobody reads this as a live incident: the 14
+// positionally-named sections in the estate are on loancalculator.co.uk (12) and
+// oufe.com (2), and neither site has decision records. It is a latent trap that
+// arms itself the moment one of them gets a decision row — which is exactly the
+// kind of thing worth closing while it costs four lines rather than after it has
+// duplicated a client's page.
+//
+// The sibling lock path still matches on name alone; that is `bugs_open/189`'s
+// territory, not this file's, and the asymmetry is deliberate rather than
+// overlooked.
+func matchDecisionProtectedRow(protected []*decisionProtectedRow, sectionName, sectionComponentID string) *decisionProtectedRow {
+	// Identity beats naming. Guarded on non-empty because the metadata path often
+	// arrives without a component_id (enrichSectionsWithComponentIDs fills it when
+	// it can), and an empty-string match would pair every unresolved section with
+	// the first protected row that also lacks one.
+	if sectionComponentID != "" {
+		for _, dr := range protected {
+			if !dr.consumed && dr.componentID != "" && dr.componentID == sectionComponentID {
+				return dr
+			}
+		}
+	}
 	if sectionName == "" {
 		return nil
 	}
@@ -241,6 +278,8 @@ func matchDecisionProtectedRow(protected []*decisionProtectedRow, sectionName st
 			return dr
 		}
 	}
+	// The 041 naming landmine: the library stores kebab-case but older rows and
+	// plans may carry snake_case or CamelCase spellings of one slot.
 	norm := NormalizeComponentFunction(sectionName)
 	if norm == "" {
 		return nil
