@@ -788,3 +788,80 @@ ROLLBACK sidecar alongside. Relojistas item `6084d849` reset
 Also noted: relojistas carries a second `detected` undeployed_asset item
 (`24c2fb3b`, purpose='icon', the phantom `input-data.asset-key.jpg` asset
 `d3138254`) — left alone, it is 235's estate-audit quarry, not this repair's.
+
+### 2026-08-11 ~10:10Z — council round 1: REVISE (gated by debug_historian), every objection answered by running its check
+
+Verdict landed in ~10 minutes (queue was empty). Objections and what the checks
+found:
+
+- **debug_historian HIGH / guardian MED (unscoped WHERE vs the multi-active-row
+  landmine):** the check is one query — build-dispatch-loop has EXACTLY ONE row
+  (id `099b51e0`, version 1, active, not snapshot, not deleted). Not one of the
+  four multi-row types. The post-verify's "1 of 1" could only ever pass at
+  total=1, and the loaded row proved itself behaviourally (the deploy resolved
+  'logo'). **Objection was right to ask, and the answer was already latent in
+  the verify's own denominator.**
+- **debug_historian MED (no backup / idempotency gate):** fair — took
+  `agent_def_build_dispatch_loop_backup_20260811_post380` (1 row). Pre-state is
+  losslessly reconstructable anyway: single additive key, ROLLBACK is one `#-`.
+- **editquality MED (why does a top-level value survive Defaults-first, and
+  where is the test):** the deciding distinction — Strategy 0 assigns
+  UNCONDITIONALLY (`result.Values[field] = value`, no has-value skip);
+  Strategies 1–4 skip populated fields. Wrote the test the seat asked for:
+  `TestMigration380Shape_TopLevelPurposeBeatsTheDefault` (commit `be1cd6b9d`)
+  pins BOTH arms — post-380 shape → 'logo', pre-380 control → 'hero' with
+  asset_key/s3_uri still resolving from spec (the live incident's signature).
+- **guardian LOW (a handler treating the new key as meaningful noise):** no
+  mechanism exists — input_contracts contains only input_mapping.go (nothing
+  rejects unknown keys), no input_data hashing/idempotency derivation in the
+  dispatch path, work-item dedup keys on item_key.
+- **architecture MED (record the CLASS, not just the instance):** the class is
+  recorded — 231's general rule + the LANDMINES ActionInputSpec/Defaults entry
+  + 231's open candidates 2/3 and the three-arm census. Pointed there.
+
+Resubmitted round 2 on the same trail ~10:25Z (RESUBMIT_CORR honoured; run
+orch `3044dbee`). The migration stays applied throughout — review here is
+after the fact by design (owner ruling 2026-07-29).
+
+### The fundamentallyai hot-link needed BOTH halves of the component patched — the NOTES' own rerender lesson, page-component face
+
+The 08-10 session learned "a page_rerender ASSEMBLES from existing components;
+site chrome needs refresh_site_components". Today's variant: for a
+**page_component**, patching `content_data` and firing a page_rerender changes
+NOTHING SERVED — the assembly reads the component's stored `rendered_html`,
+which still carried the `.jpg`. The completed item + a served page still on
+`.jpg` was the tell (verified by grepping the SERVED page, which is the only
+check that catches this class). Repair: patch `content_data` (so any future
+real re-render inherits the truth) AND `rendered_html` (so assembly serves
+it), same surgical replace, backup row covers both halves' pre-state
+(`page_components_bak_20260811_fundai_logolink`), then re-fire the
+page_rerender. Also swept relojistas' own page/content components for
+`/assets/images/logo.jpg`: **zero rows** — its reference lived only in chrome
+(head + header), which `refresh_site_components` flipped correctly.
+
+### 2026-08-11 ~10:35Z — round 2: APPROVED (2 advisory objections, both the same gap, both now closed by measurement)
+
+`decided_by: approved with 2 advisory objection(s) — none high-severity`,
+7 abstentions. Both mediums (guidelines, prior_art_librarian) named the same
+thing: the round proved the input_mapping gate but never checked the SECOND
+same-named gate, `agent_definitions.input_contract`. The check, run:
+
+- `asset-deployer.input_contract` **declares `purpose` in `optional`**
+  ("Optional purpose (default: hero) controls resize dimensions") — the gate
+  admits the key by declaration.
+- `ValidateInputContract` (input_mapping.go:245) **checks required-presence
+  only** — it is not a filter and not a surplus-key allow-list; extra keys
+  pass untouched for every handler. So image-build-handler's contract not
+  listing top-level `purpose` is inert: the payload arrives whole and
+  `check_logo_or_hero` reads it from the payload, not through the contract.
+- The end-to-end behavioural proof (the relojistas deploy resolving 'logo'
+  through the REAL claim → dispatch → call_agent → resolver chain) covers the
+  claim-query RETURNING gate for this path: spec demonstrably surfaced.
+
+debug_historian's low advisories (value- vs row-idempotency; no RETURNING on
+the guarded UPDATE) noted for the next migration's authoring — harmless here.
+
+Trailer discipline: commits before this point carry `Council-Submitted:`;
+098 credits them at report time. Commits from here may carry
+`Council-Reviewed: a46a4421` — the verdict has been READ (this section is
+the reading).

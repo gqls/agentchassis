@@ -397,3 +397,28 @@ connection, and the caller's first produce races the discover tick. Flagged for
 those lanes; not asserted here, and this file's fix must not silently change
 that timing without them knowing (raising the shared `MetadataTTL` would WIDEN
 that race window — do not "optimise" it as part of this fix).
+
+---
+
+## 2026-08-11 morning — C3 CONFIRMED LIVE; C4 has a blind spot nobody named; the overnight topic drop is unattributed
+
+- **C3 is LIVE**: the overnight roll shipped v1.0.1284 with
+  `GOMEMLIMIT=192MiB` + 256Mi limit visible in the deploy env; scheduler at
+  10Mi, 0 restarts. `[MEASURED]` deploy env + `kubectl top` 09:45Z.
+- **C4 HAS NEVER FIRED, and its 00:17 slot may NEVER fire.** The crontab entry
+  is installed (RELOAD logged 18:05 BST 08-10) but `~/kafka-sweep-240.log`
+  does not exist, and the journal has NO entries at all in the 00:15–00:20
+  window — this machine was ASLEEP at 00:17 local. **User crontabs get no
+  anacron catch-up**, so a slept-through slot is skipped silently, every
+  night the machine sleeps. Practical consequence: only the 12:17 slot is
+  real, so the effective cadence is ONCE daily, and "check the log" can read
+  as delivery-failure when it is simply a slot that never happened. First
+  possible real firing: 12:17 BST 2026-08-11 — verify the log exists after.
+- **Topic count 106 at 09:45Z, down from 1,236 at 16:33Z 08-10 —
+  `[UNVERIFIED]` what swept.** Not the C4 cron (above: never fired). No
+  commit touched the sweep script; no session recorded a manual run in this
+  file. At ~129/h steady creation, 106 is consistent with a sweep <1h before
+  the reading — i.e. around the morning roll. Most likely a manual sweep by
+  the owner or another session; whoever ran it, please record it here — an
+  unattributed 1,130-topic deletion is exactly the kind of quiet fleet action
+  the next diagnosis will trip over.
