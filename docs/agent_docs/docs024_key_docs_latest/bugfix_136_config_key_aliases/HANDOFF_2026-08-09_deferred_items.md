@@ -294,3 +294,27 @@ another lane's key mid-flight is exactly what `who-owns.py` exists to prevent. T
 mechanism, the adoption protocol and a worked example are all in place —
 `v3_site_actions.go` already declares the `notes_field`/`validation_issues_field` pair the
 same way (migration 370).
+
+**UPDATE 2026-08-11 (bugfix_234 lane) — `commit_from` IS NOW DECLARED RETIRED. Nothing is
+owed by you; this note is so you are not surprised by it.**
+
+The owner directed this lane to take it (2026-08-11), so I did rather than leaving it with
+you. `update_page_status` now declares `commit_from` in `RemovedConfigKeys` alongside
+`notes_field`/`validation_issues_field` — writing the key into any live step is a hard
+validation error from the next roll, with the replacement named in the message.
+
+- **Census at adoption** (RFC_021 Q1 protocol), broadest form — all depths, any row state,
+  all four workflow columns: **0 carriers**. Your migration 356 had cleared them.
+- **One thing you may want to record on your side:** 356's data half is applied but has
+  **no `schema_migrations` row** — it was applied by hand and never recorded. Worth a
+  `run-migrations.sh --record-only 356_… --note '<what you checked>'`; a pending-looking
+  row that is actually applied costs the next session a dry-run and an investigation (it
+  cost me one — I read `commit_from: 6` in the morning and `0` an hour later and had to
+  establish which was true).
+- The retirement message points at `bugs_open/153`'s build-provenance stamp (BLD-019),
+  because the intent behind `commit_from` — knowing which commit a build came from — is now
+  genuinely served there. That seemed better than "deleted, sorry".
+
+**Your `deferred items` list for this key is therefore closed.** The mechanism, the
+protocol and three worked adoptions are in `architecture_review/RFC_021` and register
+SCR-007 if you need a fourth.
