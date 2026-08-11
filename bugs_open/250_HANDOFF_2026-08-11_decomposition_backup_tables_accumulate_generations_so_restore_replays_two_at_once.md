@@ -8,10 +8,28 @@ the same afternoon at the owner's direction, and its backup table repaired from
 (28 == live), stray preserved to `page_components_bak_strays_20260811_loancalc`,
 `DO`/`RAISE` verify block asserting 1 row/page, 1 stray and column parity.
 
-**What remains open:** the loancalculator fix is **not round-trip proven** — that
-lane's `--restore` has not been exercised against a live page since the port. LMC's
-was. Do that before relying on it (apply → restore → assert the stored md5 equals
-that lane's recorded baseline → re-apply).
+**Proven on the loancalculator lane too (2026-08-11), without touching a live page**
+— and the measurement revised the blast radius sharply upward:
+
+| probe (read-only, both guards run as `SELECT count(*)`) | rows it would sweep in |
+|---|---|
+| **OLD** per-ROW guard | **63** |
+| **NEW** per-PAGE guard | **0** |
+
+63, not 1. That lane is far more decomposed than LMC was, so the *next* `--apply`
+there would have swept 63 post-decomposition rows into the backup and poisoned
+rollbacks across the site — the single stray I found in the table was the residue
+of one earlier run, not the extent of the exposure. The fixed
+`backup_everything()` was then executed for real: it **runs** (it previously
+could not run at all) and adds **nothing** (27 rows / 27 pages before and after).
+The restore direction was exercised inside `BEGIN … ROLLBACK` — `DELETE 4`,
+`INSERT 0 1`, i.e. a page currently holding four components correctly returns to
+its single verbatim row, with the column-parity fix in place.
+
+**What remains open:** a full apply → restore → re-apply round trip against a
+live loancalculator page, which is that lane's own decomposition work and was not
+authorised here. The three probes above cover the mechanism; they do not cover
+that lane's end-to-end transaction shape, which differs from LMC's.
 
 > **On the 2026-07-31 owner ruling (a `bugs_open/` file asserting a structural
 > cause must go through `090`, or say why it substituted first-hand
@@ -77,9 +95,10 @@ know its backup is inoperative.
 
 | | `..._bak_20260805_lmc` (LMC) | `..._bak_20260802_decomp` (loancalculator) |
 |---|---|---|
-| rows / distinct pages | 42 / 41 → **repaired to 41 / 41** | **28 / 27 — still poisoned** |
-| pages holding two generations | 1 (`guides/how-loans-affect-mortgage-affordability`) | **1** |
-| backup cols vs live cols | 27 vs 28 → **fixed** | **27 vs 28 — backup inoperative** |
+| rows / distinct pages | 42 / 41 → **repaired to 41 / 41** | 28 / 27 → **repaired to 27 / 27** |
+| pages holding two generations | 1 (`guides/how-loans-affect-mortgage-affordability`) | 1 |
+| backup cols vs live cols | 27 vs 28 → **fixed** | 27 vs 28 → **fixed (28 == live)** |
+| rows the OLD guard would next sweep in | — | **63** (new guard: 0) |
 
 ```sql
 -- the poisoned-rollback census, run per lane
