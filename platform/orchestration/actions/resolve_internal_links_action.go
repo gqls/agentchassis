@@ -345,7 +345,7 @@ func candidatesFromHubs(interactive, hubs []contentHub) []datahelpers.LabelMatch
 	var out []datahelpers.LabelMatchCandidate
 	add := func(list []contentHub, isInteractive bool) {
 		for _, h := range list {
-			if c, ok := datahelpers.NewLabelMatchCandidate(h.Name, h.Name, h.Title, h.URL, isInteractive, h.Name, h.Title); ok {
+			if c, ok := datahelpers.NewLabelMatchCandidate(h.Name, h.Name, h.Title, h.URL, isInteractive, ""); ok {
 				out = append(out, c)
 			}
 		}

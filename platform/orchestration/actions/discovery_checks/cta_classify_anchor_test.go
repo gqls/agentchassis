@@ -25,9 +25,9 @@ import (
 
 func ctaTestPages() []datahelpers.LabelMatchCandidate {
 	gauntlet, _ := datahelpers.NewLabelMatchCandidate(
-		"1", "gauntlet", "The Gauntlet", "/gauntlet.html", true, "The Gauntlet")
+		"1", "gauntlet", "The Gauntlet", "/gauntlet.html", true, "")
 	pricing, _ := datahelpers.NewLabelMatchCandidate(
-		"2", "pricing", "Pricing", "/pricing.html", false, "Pricing")
+		"2", "pricing", "Pricing", "/pricing.html", false, "")
 	return []datahelpers.LabelMatchCandidate{gauntlet, pricing}
 }
 

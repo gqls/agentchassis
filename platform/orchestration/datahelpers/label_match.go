@@ -17,6 +17,8 @@
 // "Get Started") never falsely claims a page. This is deliberately the same
 // bar the discovery check already applies to LIVE, deployed anchors — reusing
 // it at resolution time is verified-mechanism reuse, not a new algorithm.
+// name/title tokens are the candidate's IDENTITY and outrank nav_label tokens,
+// which are DESCRIPTION only — see BestLabelMatch's own comment (bugs_open/253).
 
 package datahelpers
 
@@ -75,77 +77,152 @@ func LabelTokens(text string) []string {
 }
 
 // LabelMatchCandidate is one real page as a match candidate. Build with
-// NewLabelMatchCandidate — tokens is deliberately unexported so a caller
-// cannot construct a candidate whose tokens disagree with its own name/title.
+// NewLabelMatchCandidate — tokens and identityTokens are deliberately
+// unexported so a caller cannot construct a candidate whose tokens disagree
+// with its own name/title.
 type LabelMatchCandidate struct {
 	ID          string
 	Name        string
 	Title       string
 	URL         string
 	Interactive bool // page_type tool/game — preferred destination on a tie
-	tokens      map[string]bool
+	// identityTokens come structurally from the page's own name/title — its
+	// identity. tokens is the wider union of identityTokens plus nav_label
+	// (description). BestLabelMatch ranks identityTokens overlap first for
+	// exactly this reason: a page's own name/title says what it IS, while its
+	// nav_label is marketing copy that can incidentally absorb another page's
+	// distinctive words (bugs_open/253).
+	identityTokens map[string]bool
+	tokens         map[string]bool
 }
 
-// NewLabelMatchCandidate builds a candidate from whichever text sources name
-// it (typically name, title, nav_label). ok is false if none of them produce
-// a distinctive token — such a page can never be matched and callers should
-// not carry it forward.
-func NewLabelMatchCandidate(id, name, title, url string, interactive bool, tokenSources ...string) (candidate LabelMatchCandidate, ok bool) {
+// NewLabelMatchCandidate builds a candidate from its name, title and
+// nav_label. identityTokens is derived from name+title alone (the page's own
+// identity); tokens is the wider union with navLabel folded in (description).
+// ok is false if none of the three produce a distinctive token — such a page
+// can never be matched and callers should not carry it forward.
+func NewLabelMatchCandidate(id, name, title, url string, interactive bool, navLabel string) (candidate LabelMatchCandidate, ok bool) {
+	identityTokens := map[string]bool{}
+	for _, t := range LabelTokens(name) {
+		identityTokens[t] = true
+	}
+	for _, t := range LabelTokens(title) {
+		identityTokens[t] = true
+	}
 	tokens := map[string]bool{}
-	for _, src := range tokenSources {
-		for _, t := range LabelTokens(src) {
-			tokens[t] = true
-		}
+	for t := range identityTokens {
+		tokens[t] = true
+	}
+	for _, t := range LabelTokens(navLabel) {
+		tokens[t] = true
 	}
 	if len(tokens) == 0 {
 		return LabelMatchCandidate{}, false
 	}
 	return LabelMatchCandidate{
 		ID: id, Name: name, Title: title, URL: url,
-		Interactive: interactive, tokens: tokens,
+		Interactive: interactive, identityTokens: identityTokens, tokens: tokens,
 	}, true
 }
 
-// BestLabelMatch returns the candidate whose tokens best overlap label's, and
-// whether one was found at all. Ranking: higher token overlap wins outright;
-// interactive (tool/game) candidates beat non-interactive ones only when
-// overlap is tied (this is the "equal-strength" case TestBestLabelMatch's own
-// comment describes — overlap must be compared FIRST, or a barely-related
-// tool page with 1 overlapping token beats a clearly-on-topic hub page with 2,
-// which is exactly what shipped in bugs_open/203's follow-on and was caught
-// live on robot-hands.com: "Browse the Gripper Catalog" [gripper,catalog]
-// losing to a cycle-time-estimator tool page over the gripper-catalog-index
-// hub, on "gripper" alone). Name is the final deterministic tie-break.
-// Requires >= 1 overlapping token — a label with no distinctive tokens, or
-// one that matches no candidate, reports !ok rather than guessing.
+// BestLabelMatch returns the candidate that best names label, and whether one
+// was found at all. Ranking, first difference wins:
+//
+//  1. higher identityOverlap (label tokens present in the candidate's own
+//     name/title) — this is checked BEFORE total overlap because name/title
+//     are the page's identity while nav_label is description copy. A long
+//     marketing nav_label can incidentally contain another page's distinctive
+//     words and must not tie with the page the label actually names: on
+//     robot-hands.com (bugs_open/253, 2026-08-11) the label "Gripper Safety
+//     Factor Calculator" resolved to the payload calculator instead, because
+//     its nav_label read "…Validate Capacity with Safety Factor…" — a
+//     total-overlap tie that the alphabetical tie-break then broke the wrong
+//     way.
+//  2. higher totalOverlap (label tokens present anywhere in the candidate's
+//     tokens — name/title/nav_label combined). This is the "equal-strength"
+//     case TestBestLabelMatch's own comment describes — a barely-related tool
+//     page with 1 overlapping token must not beat a clearly-on-topic hub page
+//     with 2, which is exactly what shipped in bugs_open/203's follow-on and
+//     was caught live on robot-hands.com: "Browse the Gripper Catalog"
+//     [gripper,catalog] losing to a cycle-time-estimator tool page over the
+//     gripper-catalog-index hub, on "gripper" alone.
+//  3. interactive (tool/game) candidates beat non-interactive ones.
+//  4. Name ascending — final deterministic tie-break, unchanged from before
+//     this fix. A candidate-token-set-size tie-break (smaller wins) was
+//     tried here during 2026-08-11 calibration and DROPPED before shipping:
+//     on live fleet data it was decided almost entirely by tokenisation
+//     artefacts and site-wide generic words carrying no real signal — a
+//     stray hyphen in one candidate's own copy ("Break-Even" splitting into
+//     two tokens the sibling candidate's "breakeven" didn't) flipped 9
+//     already-correct, live gaswholesalers.com CTAs onto the wrong tool
+//     purely because the loser's title happened to be one token longer, and
+//     the same pattern recurred wherever a tie was driven by a single
+//     domain-wide word ("cma" on vetcomparison.uk) or a generic imperative
+//     verb sitting in a page's own title ("Run MatchMatrix" absorbing
+//     "Run Payload Calculation" on robot-hands.com). None of that is a
+//     property of which candidate the label actually names, so it made
+//     ties WORSE than plain alphabetical, not better. See
+//     CALIBRATION_2026-08-11_label_match_identity_report.txt for the full
+//     evidence. identityOverlap (key 1) is what fixes bugs_open/253 itself —
+//     that case resolves outright at key 1 and never reaches this tie-break.
+//
+// Requires totalOverlap >= 1 — a page matchable only via nav_label stays
+// matchable; a label with no distinctive tokens, or one that matches no
+// candidate at all, reports !ok rather than guessing.
 func BestLabelMatch(label string, candidates []LabelMatchCandidate) (best LabelMatchCandidate, ok bool) {
 	tokens := LabelTokens(label)
 	if len(tokens) == 0 {
 		return LabelMatchCandidate{}, false
 	}
-	var bestPtr *LabelMatchCandidate
-	bestOverlap := 0
+
+	// scored pairs a candidate with its overlap counts against label, so
+	// better (below) can compare two candidates without recomputing overlap.
+	type scored struct {
+		c        *LabelMatchCandidate
+		identity int
+		total    int
+	}
+
+	// better reports whether a should replace b as the current best, under
+	// the ordering documented above: identity overlap, then total overlap,
+	// then interactivity, then name.
+	better := func(a, b scored) bool {
+		if a.identity != b.identity {
+			return a.identity > b.identity
+		}
+		if a.total != b.total {
+			return a.total > b.total
+		}
+		if a.c.Interactive != b.c.Interactive {
+			return a.c.Interactive
+		}
+		return a.c.Name < b.c.Name
+	}
+
+	var bestScored scored
+	found := false
 	for i := range candidates {
 		c := &candidates[i]
-		overlap := 0
+		identityOverlap, totalOverlap := 0, 0
 		for _, t := range tokens {
 			if c.tokens[t] {
-				overlap++
+				totalOverlap++
+			}
+			if c.identityTokens[t] {
+				identityOverlap++
 			}
 		}
-		if overlap == 0 {
+		if totalOverlap == 0 {
 			continue
 		}
-		if bestPtr == nil ||
-			overlap > bestOverlap ||
-			(overlap == bestOverlap && c.Interactive && !bestPtr.Interactive) ||
-			(overlap == bestOverlap && c.Interactive == bestPtr.Interactive && c.Name < bestPtr.Name) {
-			bestPtr = c
-			bestOverlap = overlap
+		cur := scored{c: c, identity: identityOverlap, total: totalOverlap}
+		if !found || better(cur, bestScored) {
+			bestScored = cur
+			found = true
 		}
 	}
-	if bestPtr == nil {
+	if !found {
 		return LabelMatchCandidate{}, false
 	}
-	return *bestPtr, true
+	return *bestScored.c, true
 }

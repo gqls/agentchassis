@@ -22,13 +22,13 @@ func riskCheckerCandidates(t *testing.T) []datahelpers.LabelMatchCandidate {
 	t.Helper()
 	riskChecker, ok := datahelpers.NewLabelMatchCandidate(
 		"1", "tool-risk-checker", "AI Data Risk Checker", "/tools/tool-ai-data-risk-checker.html",
-		true, "tool-risk-checker", "AI Data Risk Checker")
+		true, "")
 	if !ok {
 		t.Fatal("fixture candidate produced no tokens")
 	}
 	passwordEntropy, ok := datahelpers.NewLabelMatchCandidate(
 		"2", "tool-password-entropy", "Password Strength Physics", "/tools/password-entropy.html",
-		true, "tool-password-entropy", "Password Strength Physics")
+		true, "")
 	if !ok {
 		t.Fatal("fixture candidate produced no tokens")
 	}

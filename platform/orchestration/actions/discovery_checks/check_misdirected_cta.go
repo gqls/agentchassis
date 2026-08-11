@@ -339,7 +339,7 @@ func loadCTAMatchIndex(dctx DiscoveryCheckContext) ([]datahelpers.LabelMatchCand
 		}
 		candidate, ok := datahelpers.NewLabelMatchCandidate(
 			id, name, title, url, pageType == "tool" || pageType == "game",
-			name, title, navLabel,
+			navLabel,
 		)
 		if !ok {
 			continue
