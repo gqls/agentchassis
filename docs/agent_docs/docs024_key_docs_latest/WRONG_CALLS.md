@@ -27879,3 +27879,39 @@ baseline BEFORE calling the post-change number anomalous.
 - **cost:** one day of the register misdescribing a package surface; corrected
   before any session acted on it (no caller reached for the phantom export —
   checked: no `NormaliseSlug` reference exists outside the lane's own docs).
+
+---
+
+## 2026-08-11 — I put prose in a schema-validated path field, and burned a council round on it (bugfix_234 lane)
+
+**The claim.** Not a claim about the system — a claim about my own submission: that the
+round-2 council package was well-formed. I wrote one edit's `file` as
+`docs/agent_docs/sql_for_agents/{364,370}_*.sql + tests (unknown_config_keys_test.go, …)`
+because the change genuinely spans more files than the schema's 8-edit cap allows, and I
+wanted the panel to see all of them.
+
+**Why it was false.** `editProblems` (`diagnose_persist_fix_plan_action.go:580`) refuses any
+`file` containing whitespace: *"file path must be repo-relative with no traversal or
+whitespace"*. The run went straight to `complete_invalid` on its FIRST step
+(`persist_submission`) — no seat ever saw it. Cost: one dispatch and ~10 minutes.
+
+**What made it hard to see.** The failure presented as `current_step=complete_invalid,
+status=COMPLETED, error=NULL` — the `bugs_open/099` shape, where a failed step reads as
+completed with an empty error column. `execution_path` was `[]` and `collected_data` held
+only the input, which is the actual tell: **a run that validated nothing has nothing in it.**
+I found the cause by reading the validator's source, not by reading the run.
+
+**The cheap check that would have.** The 097 trigger's own header states the constraint
+("repo-relative paths", validated server-side by `diagnose_persist_fix_plan`), and I had
+read that header in this same session to get the schema right. **A field that is validated
+server-side is not a field for prose** — if the schema caps you at 8 edits and the change
+has 14 files, the overflow belongs in `rationale`/`sketch` (free text, unvalidated), never
+in the key the validator parses. That is where I put it on the successful retry.
+
+**The general shape, which is why this is logged rather than shrugged off:** I widened a
+*structured* field to carry information the *structure* was refusing to hold, instead of
+moving that information to the unstructured field beside it. The validator was right and I
+was routing around it.
+
+**Cost.** One wasted council dispatch (credits + ~10 min), no damage. Round 2 resubmitted
+cleanly under the same correlation, so the trail still accumulates in one place.
