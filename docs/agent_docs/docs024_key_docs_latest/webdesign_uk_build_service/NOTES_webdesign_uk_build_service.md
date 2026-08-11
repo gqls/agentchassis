@@ -2330,3 +2330,50 @@ back on is unconfirmed. Also noticed in passing, not investigated: a stray
 in `vm-sites` — looks like a template placeholder that leaked into a real
 filename during an asset deploy. Not currently referenced by any page;
 left alone, worth a look if it recurs.
+
+## 2026-08-11 (continued) — lock verified against a REAL page-rerender, not just read code
+
+Owner clarified `improvement-sweep` was deliberately re-enabled (another
+thread's call, large backlog) and asked for a real test that the
+`chat-input-box` lock survives it.
+
+**Found and fixed a real gap before testing**, rather than trust the lock
+blind: `matchLockedRow` (`save_page_sections_action.go`, bugs_open/058)
+matches a locked row to its incoming section by `slot_name`. My original
+INSERT never set that column — it was NULL. The row would still have
+survived the DELETE (`pageComponentAgentWritableSQL` excludes locked rows
+regardless of slot_name), but a fresh "chat-input-box" section with no
+matching locked row to skip could plausibly have been inserted alongside
+it as a duplicate. Set `slot_name='chat-input-box'` before testing, not
+after finding a duplicate.
+
+**Passive wait was impractical**: the fairness scheduler picks the
+globally-oldest-waiting site (`created_at ASC` across 13 sites, 407 items,
+oldest from 2026-07-24) — a freshly-queued test item would be last, likely
+hours away. Dispatched directly instead, same code path, deterministic.
+
+**Two real mistakes made getting the manual dispatch right, both worth
+keeping**:
+- Guessed a per-agent-type topic (`system.agent.page-rerender.requests`) —
+  wrong. Only council-gate has a dedicated topic (bugs_open/096); every
+  other agent, including page-rerender, dispatches through
+  `system.agent.generic.requests` with `config.agent_type` naming the
+  target (the exact mechanism bug 239 was about).
+- First correctly-topic'd attempt still failed silently short of
+  `orchestration_states` — `validation/validator.go:81` rejected it,
+  "Incoming message missing required fields": `client_id` (and the other
+  headers `082_submit_domain_unified.sh` sets — request_id, message_id,
+  orchestration_id, orchestration_name, step_name, message_type,
+  from_agent_id). Copied that script's full header set exactly rather
+  than guess again.
+
+**Result, single-line send (the 239 lesson applied), one message arrived
+(`chassis_intake_events`: 1 request + 1 response for the correlation),
+resolved to `owner_agent_type=page-rerender`** (not the generic no-op),
+`status=COMPLETED`, no error. Before/after comparison on all 3
+`page_components` rows for `contact.html`: **identical `updated_at`,
+identical `rendered_html` md5, exactly one `chat-input-box` row, lock
+still active.** Confirmed at the served artefact too — chat box present,
+correct hero image, unchanged.
+
+Lock holds. `improvement-sweep` left enabled, as the owner wants.
