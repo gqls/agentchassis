@@ -230,3 +230,57 @@ Design notes for whoever builds it:
   and 1 for every other verified type, so it can distinguish and is not vacuous.
 - It must not fire on the type it is about to fix — once `Grades` is registered for a
   type, that type is answered and should drop out of the finding.
+
+---
+
+## D3 — BUILT 2026-08-11. What was decided while building it, and why
+
+The ruling said "key it on the **spec shape**". Implementing that turned up two
+design decisions the ruling could not have contained, both settled by measurement
+rather than by argument:
+
+1. **A distinct-key-set COUNT is not a producer count.** [MEASURED 2026-08-11] it
+   reads 2 on four single-producer types (`empty_section`, `literal_markdown`,
+   `page_canonical_collision`, `truncated_component`) because producers add and drop
+   optional keys over their life. So the shape axis has to CLUSTER, and the
+   clustering — not the shape — is the load-bearing part of the detector.
+2. **The cluster rule is the overlap coefficient, not Jaccard.**
+   `page_canonical_collision`'s two real shapes are 11 keys and 3 sharing 2: J=0.167
+   (a phantom second producer) against an overlap of 0.667. The threshold of 0.5 is
+   not tuned — every same-producer pair in the fleet scores ≥0.667 and the one true
+   cross-producer pair scores 0.000, so 0.5 sits in an empty band. **If that band
+   ever closes, the threshold stops being defensible; it is a thing to re-measure,
+   not to inherit.**
+
+Rejected axes, each measured on live data and each firing on a type with exactly
+one producer: `created_by` (2–3 values), the `source` column (2 on
+`page_canonical_collision`), and the VALUE of `spec.check` (2 on the same). The
+last was considered as a defence against the council's `editquality` objection and
+would have made the detector worse.
+
+**Where it runs, and why not inside `discovery_checks`** (the `reuse_agent` seat's
+objection, answered with three checkable facts rather than with precedent):
+invocation there is gated on live agent config (`enabledChecks` — a new check file
+is inert until `agent_definitions` names it, the exact inert-by-omission failure
+this kind of detector exists to avoid); retraction is site-scoped
+(`resolveWorkItems(…, dctx.SiteID, …)`); dedup is `(site_id, item_key)`. A
+fleet-level finding has no site to be scoped to. It is therefore a daily CronJob Go
+image — Go, not Python, because both halves of its question (who is registered, who
+declares a remit) are compiled-in state, and a mirrored list would go stale exactly
+when a new verifier lands.
+
+**What it does NOT close, on the record:** two producers that share an
+`audit_source` label AND overlap ≥50% of their spec keys merge into one family and
+are invisible to it; so is a convergence that has not yet filed a row. No
+row-shaped test can see either, and a producer-list test is refuted
+(`bugs_open/213` §5.3). This narrows the class; it does not close it.
+
+### D1 got sharper while D3 was being built — and not by argument
+
+[MEASURED 2026-08-11] `dark_section_audit` already carries **14 rows, all created
+today, 13 already `complete`.** The rotation re-detected within a day of the roll,
+exactly as D2 assumed. But the type still has no verifier, so those 13 closed
+**ungraded**. D2's stated dependency on D1 is therefore no longer hypothetical:
+at the current rate the machine re-finds these defects and loses them again on a
+≤7-day cycle, ~13 items at a time. That is the strongest argument for D1 to date
+and it was not visible when the rulings were taken.

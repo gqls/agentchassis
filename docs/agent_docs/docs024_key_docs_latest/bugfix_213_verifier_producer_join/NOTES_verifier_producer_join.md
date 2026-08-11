@@ -364,3 +364,156 @@ two-sided control.** Both halves are in the running binary on both replicas. Wha
 wrong was the method and the confidence, not the answer — and I would not have caught
 either if the guidance file had not changed under me, which is its own argument for
 re-reading it rather than trusting a session-start snapshot.
+
+---
+
+## 2026-08-11 (evening) — D3 BUILT: `verifier-remit-check`, the class detector
+
+Picked up at D3 (the handoff's "start here — self-contained"). Built as a daily
+CronJob Go binary rather than a query somebody has to remember to run.
+
+### The design, and the three axes that look right until you measure them
+
+The question: *does any item_type with a REGISTERED VERIFIER carry rows from more
+than one producer shape, while its verifier declares no remit?*
+
+The owner's ruling says key on the **spec shape**. The obvious implementation —
+count distinct top-level key-sets per item_type — is **wrong, and the live data
+says so** [MEASURED 2026-08-11]:
+
+| item_type | distinct key-sets | true producers |
+|---|---|---|
+| `hardcoded_section_colors` | 5 | 2 |
+| `empty_section` | 2 | 1 |
+| `literal_markdown` | 2 | 1 |
+| `page_canonical_collision` | 2 | 1 |
+| `truncated_component` | 2 | 1 |
+
+Four false positives out of nine. Producers add and drop optional keys over their
+life (`original_pipeline`, `out_of_remit`, `intact_version_number`), so the count
+measures *spec revisions*, not producers. **Clustering is the load-bearing half of
+the design, and nothing in the ruling said so — the data did.**
+
+The clustering rule is the **overlap coefficient**, `|a∩b| / min(|a|,|b|)`, not
+Jaccard. Also decided by data: `page_canonical_collision`'s two real shapes are 11
+keys and 3 sharing 2 — J = **0.167**, which invents a second producer, against an
+overlap of **0.667**. A small shape almost contained in a large one is a variant
+of it, not a rival to it. The threshold (0.5) is **not tuned**: every same-producer
+pair in the fleet overlaps ≥0.667 and the one genuine cross-producer pair overlaps
+**0.000**, so 0.5 sits in the middle of an empty band. If that band ever closes,
+the threshold stops being defensible — which is a thing to check, not to assume.
+
+Three axes measured and rejected, each of which would have looked authoritative:
+
+- **`created_by`** — 2–3 distinct values on `empty_section`, `literal_markdown`,
+  `hardcoded_section_colors`. Fires on single-producer types. (The owner's ruling
+  said this; this is the independent re-measurement, not a restatement.)
+- **the `source` COLUMN** — reads 2 on `page_canonical_collision`, one producer.
+- **the VALUE of `spec.check`** (a council suggestion in spirit) — reads 2 on the
+  same type, whose probe rows omit the key. Its *presence* already participates
+  through the key-set, which is where it legitimately discriminates.
+
+### The zero had to be able to show its working
+
+Today's finding set is **empty**, and that is the mechanism working:
+`hardcoded_section_colors` still has 2 producer families and is suppressed only
+because WII-013 registered its `Grades`. A bare "0 findings" is exactly the shape
+016b §9 warns about, so the report **always names the suppressed types**, and
+`--ignore-remit` (a diagnostic mode that refuses to write) re-runs the census with
+the suppression off. Live, that produces the real finding — 9 rows with no
+`audit_source` since 2026-04-08 against 8 `design-audit` rows since 2026-08-04,
+exit 1. **The detector can fire, demonstrated against production data, without
+mutating source or writing a row.**
+
+### The mutation matrix (six, recorded rather than summarised)
+
+| mutation | result |
+|---|---|
+| threshold `0.5 → 0.0` | **RED** — the same-label test |
+| threshold `0.5 → 0.7` | **RED** — `page_canonical_collision` splits at 0.667 |
+| `audit_source` axis removed | **RED** — *but only the constructed test; the live-census test stays GREEN* |
+| `Finding()` ignores the declared remit | **RED** |
+| `Finding()` fires on one family | **RED** |
+| coverage-guard entry removed | **RED** — "has NO verifier and is NOT an acknowledged gap" |
+
+The third row is the honest one and worth reading twice: **the live data cannot
+pin the `audit_source` axis**, because today's only two-producer type also happens
+to be shape-disjoint. So the key-set clustering could have been deleted entirely
+with every real-data test still green. That is what
+`TestDisjointShapesUnderOneLabelAreTwoProducers` is for, and its comment says in
+as many words that it is CONSTRUCTED rather than observed.
+
+A seventh, silent one worth recording: removing `verifier_remit_gap` from
+`liveItemTypes` while keeping the gap entry is **GREEN**. The two entries are only
+jointly meaningful — the ratchet is what makes the map entry load-bearing — so
+"tidying" one of them later would be silent.
+
+### The write path, proven against the live schema without writing
+
+```
+BEGIN; <the exact INSERT>; <the exact close-out UPDATE>; ROLLBACK;
+```
+Insert accepted (no 42P10 against the partial dedup index — the standing lockstep
+trap), a second identical insert swallowed by `idx_swi_dedup` (`INSERT 0 0`), the
+UPDATE closing exactly one row with `result.closed_by` set, and the rollback
+leaving zero rows.
+
+### MISSTEP — an inverted grep that nearly became a council argument
+
+To answer "is any discovery check fleet-scoped?", I ran
+`grep -Lq "SiteID" check_*.go && echo` and read the 20 files it printed as *checks
+with no site scope*. **`-L` and `-q` together is just `-q`**: it printed the files
+that DO reference SiteID, i.e. the exact opposite set. The corrected run
+(`grep -rLE`, no `-q`) returns **one** file, and that one is a helpers file, not a
+check. I caught it because "20 of ~50 checks ignore the site" contradicted
+everything else I had read about the framework — a plausibility check, not a
+process. Had it survived, I would have told the council the framework was
+routinely fleet-scoped and used it to justify the opposite conclusion to the one
+the evidence supports. **Shell flags that combine into a different question fail
+silently and produce a confident answer** (the sibling of the estate's other
+silent-shell traps).
+
+### Council round 1: REVISE, and it was worth the round
+
+Gated by `debug_historian [high]`: *"the plan adds only base/cronjob.yaml with no
+overlay pinning newTag … for a brand-new service this risk is worse, not better"*.
+The overlay **did** exist — written before the verdict — but the submission had not
+listed it as an edit, so the seat could only see what I showed it. Same class for
+`prior_art_librarian [high]`, which flagged `RegisteredVerifierItemTypes` as a
+symbol the plan invoked but never added: it pre-exists at `verifiers.go:177`, and
+the binary had been built and run against live data before the objection arrived.
+**Both were submission-legibility failures, not design failures — and the fix is to
+list what you built, not to argue.**
+
+Two objections found real things:
+
+- `guardian [medium]` — *"no existing 'deferred' status is confirmed live on this
+  table … a new status value can leak into a queue it was never meant to enter"*.
+  I had asserted safety by analogy. Measured instead: **`deferred` carries 316 rows
+  across 14 item_types**, of which **only 15** also carry an empty `handler_agent`.
+  So the status is old news, and — the part I did not know — **`deferred` alone is
+  not undispatchable; only the PAIR is.** That is now a LANDMINE entry, because
+  reading `status='deferred'` as "nothing will touch this" is wrong for 95% of the
+  rows carrying it.
+- `reuse_agent [medium]` — *"why not a `discovery_checks/check_*.go`"*. Fair, and it
+  wanted evidence rather than precedent. Three checkable reasons, all in the code
+  now: invocation is gated on live agent config (`enabledChecks` — a check file is
+  inert until `agent_definitions` names it, the exact inert-by-omission failure this
+  class of detector exists to avoid); retraction is site-scoped
+  (`resolveWorkItems(…, dctx.SiteID, …)`); dedup is `(site_id, item_key)`. A
+  fleet-level answer has no site to be scoped to.
+
+`editquality [medium]` named the residual precisely — two producers sharing a
+label with ≥50% shape overlap merge silently — and it cannot be closed by any
+row-shaped test. It is now written at the clustering function rather than only in a
+risks block.
+
+### A live finding for D1/D2, noticed while measuring something else
+
+`dark_section_audit` already has **14 rows, all created 2026-08-11, 13 of them
+already `complete`** — the rotation re-detected within a day of the roll, exactly
+as D2 predicted. But the type still has **no verifier**, so those 13 closed
+**ungraded**. D2's stated dependency on D1 is no longer hypothetical: the machine
+is now re-finding these defects and losing them again on a ≤7-day cycle, 13 items
+per cycle at the current rate. That is the strongest argument yet for D1, and it
+was not visible when the ruling was taken.

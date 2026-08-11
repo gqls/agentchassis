@@ -97,3 +97,57 @@ eleven closed tickets and grade each one against what it actually promised. Some
 them may well have been fixed by accident. One is confirmed still broken; one is
 confirmed fine. The other nine are unknown, and "eleven closed" is not the same claim
 as "eleven wrongly closed" — I don't want that number quoted as if it were.
+
+---
+
+**2026-08-11, evening — the third ruling (D3) is built: a detector for the next time this happens.**
+
+The bug we fixed was one verifier grading another producer's work items against the
+wrong question, and closing them clean. The fix let a verifier say *"this isn't my
+question"* — but a verifier only says that if somebody remembers to write the line.
+The council warned about exactly that when it approved the fix, and the owner ruled:
+build something that notices.
+
+That is now built. Once a day, a small job asks the live database one question: is
+there any kind of work item that has a checker attached, where the items are
+plainly arriving from **two different sources**, while the checker has never said
+which of them it speaks for? If it finds one, it files a work item saying so — one
+per kind, deduped, with no handler attached, because the fix is a human writing four
+lines of code, not a robot retrying something.
+
+Two things about it are worth saying in plain words.
+
+**It shows its working when it finds nothing.** A daily check that only ever says
+"0 problems" is indistinguishable from a check that has quietly stopped looking —
+and we have been bitten by that here before. So the report always names the case it
+DID see and chose not to file: today it says, in effect, *"`hardcoded_section_colors`
+still has two sources, and it is fine, because its checker now declares what it
+grades."* There is also a switch that re-runs the same census with that suppression
+turned off, and today it produces the original bug as a live finding. So the zero is
+a zero that looked.
+
+**Telling two sources apart is harder than it sounds, and the obvious ways are all
+wrong.** Every intuitive marker — who created the row, which pipeline it came from,
+which check name it names, or simply "the shape of the data is different" — fires on
+kinds of work item that have only ever had ONE source. I measured all four against
+the live database before choosing, and the one that survives is a fuzzy comparison
+of the data's shape: two shapes that share more than half their fields are the same
+source with a revision, two that share almost none are two sources. That sounds
+loose and it is pinned by real numbers: in our whole fleet, same-source pairs share
+at least two-thirds of their fields, and the one genuine two-source pair shares
+**nothing at all**.
+
+The council sent the first version back for revision, which was the right call and
+cost about ten minutes. Two of its five objections were things I had actually built
+but had not listed, so it could not see them. Two were real: it made me *check*
+rather than assume that the "parked, nobody will touch this" status I was using
+behaves the way I thought (it does, but only in combination with another field —
+worth knowing), and it made me justify building this beside the existing per-site
+check framework rather than inside it (the framework is site-shaped; this question
+has no site).
+
+One thing I found while measuring that matters more than the detector: the work
+items that this bug was originally about are **already being re-found**, 14 of them
+today, and 13 of those have already closed again — unchecked, because the new
+category still has no checker of its own. That is the next piece of work (D1), and
+it is no longer a theoretical gap: it is happening weekly, in the open.

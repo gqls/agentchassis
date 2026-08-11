@@ -14,7 +14,7 @@ REGION ?= uk001
 REGION_PATH ?= uk_001
 REGISTRY ?= docker.io/aqls
 #IMAGE_TAG ?= latest
-IMAGE_TAG ?= v1.0.1285
+IMAGE_TAG ?= v1.0.1288
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
@@ -206,6 +206,18 @@ build-shared-output-fields-check: ## Build shared-output-fields-check CronJob im
 .PHONY: build-removed-config-keys-check
 build-removed-config-keys-check: ## Build removed-config-keys-check CronJob image (committed HEAD; REF=<ref> to pin)
 	$(call ref_build,removed-config-keys-check)
+
+# Not a service — a CronJob image (WII-015, bugs_open/213 owner ruling D3). It
+# ships the class detector for the verifier/producer join, LINKED against the live
+# verifier registry: which item types have a verifier, and which of those declare a
+# remit, are compiled-in facts, so the alternative was a mirrored list in a Python
+# job that goes stale exactly when a new verifier lands. Committed-HEAD build
+# matters for the usual reason and one extra: the registry it links IS the
+# assertion, so an image built from a working tree could report a remit that is not
+# on the branch.
+.PHONY: build-verifier-remit-check
+build-verifier-remit-check: ## Build verifier-remit-check CronJob image (committed HEAD; REF=<ref> to pin)
+	$(call ref_build,verifier-remit-check)
 
 .PHONY: build-web-scrape-adapter
 build-web-scrape-adapter: ## Build web-scrape-adapter (committed HEAD; REF=<ref> to pin, -tree for WIP)
@@ -1997,6 +2009,23 @@ shared-output-fields-check-now: ## Trigger an immediate shared-output-fields-che
 	KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) create job \
 		--from=cronjob/shared-output-fields-check \
 		shared-output-fields-check-manual-$$(date +%Y%m%d-%H%M%S)
+
+.PHONY: push-verifier-remit-check
+push-verifier-remit-check: ## Push the verifier-remit-check CronJob image
+	docker push $(REGISTRY)/verifier-remit-check:$(IMAGE_TAG)
+
+.PHONY: deploy-verifier-remit-check
+deploy-verifier-remit-check: ## Deploy the daily verifier-remit-check CronJob (WII-015, bugs_open/213 D3)
+	@echo "$(YELLOW)Deploying verifier-remit-check CronJob...$(NC)"
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/verifier-remit-check/overlays/$(OVERLAY_PATH)
+	@echo "$(GREEN)CronJob deployed. Next run:$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) get cronjob verifier-remit-check
+
+.PHONY: verifier-remit-check-now
+verifier-remit-check-now: ## Trigger an immediate verifier-remit-check run
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) create job \
+		--from=cronjob/verifier-remit-check \
+		verifier-remit-check-manual-$$(date +%Y%m%d-%H%M%S)
 
 .PHONY: bugs-open-staleness-sweep-now
 bugs-open-staleness-sweep-now: ## Trigger an immediate sweep run (creates a Job from the CronJob)

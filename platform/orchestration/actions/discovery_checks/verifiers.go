@@ -160,6 +160,27 @@ func GetVerifier(itemType string) (ItemVerifier, VerifierPolicy) {
 	return verifiers[itemType], policies[itemType]
 }
 
+// VerifierDeclaresRemit reports whether the verifier registered for itemType
+// declares WHICH items its predicate speaks for (VerifierPolicy.Grades).
+//
+// Exists for the class detector (cmd/verifier-remit-check, bugs_open/213 owner
+// ruling D3). Grades is opt-in, which is the point — it cannot change a type that
+// has not asked for it — but that also means the NEXT producer converging on any
+// verified item_type reproduces bugs_open/213 unless somebody remembers to write
+// one. The detector asks this question of the LIVE registry rather than of a
+// mirrored list, so registering a Grades anywhere silences the finding for that
+// type with no second edit and nothing to keep in step.
+//
+// False for an unregistered item_type: a type with no verifier has no wrong
+// predicate to be graded by. That is a different gap, and it has its own guard
+// (verifier_coverage_test.go).
+func VerifierDeclaresRemit(itemType string) bool {
+	if _, registered := verifiers[itemType]; !registered {
+		return false
+	}
+	return policies[itemType].Grades != nil
+}
+
 // RegisteredVerifierItemTypes returns every item_type that has a verifier.
 //
 // Exists for the coverage guard (verifier_coverage_test.go), which asserts that

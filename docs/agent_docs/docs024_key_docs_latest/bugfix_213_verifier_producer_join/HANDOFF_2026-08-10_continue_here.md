@@ -19,7 +19,34 @@ and the owner rulings.
 
 ## NEXT STEPS — the three owner rulings, in dependency order
 
-### D3 (start here — self-contained) — BUILD the class-level detector
+### D3 — ✅ BUILT 2026-08-11 (`cmd/verifier-remit-check`, register **WII-015**)
+
+**Done, and the code is committed.** A daily CronJob Go binary, linked against the
+live verifier registry, that files an undispatchable `verifier_remit_gap` work item
+for any verified item_type carrying more than one producer shape with no declared
+`Grades`, and closes its own findings on a positive re-observation. Council trail
+corr `fc082c4a-4b00-4835-8ffe-11a55e53f47a` (round 1 REVISE — every objection
+answered by measurement, see NOTES; round 2 submitted).
+
+**What is still owed on D3 itself:**
+1. **The image is built from committed HEAD and must be pushed + the overlay
+   applied** — this is NOT part of the fleet release, it is its own tag sequence:
+   `make build-verifier-remit-check IMAGE_TAG=v1.0.1288 && make push-… && make deploy-…`,
+   then `make verifier-remit-check-now`.
+2. **Prove it at the artefact, not the tag:** the doc_note it writes on EVERY run
+   (`source='verifier-remit-check'`) must say 12 types evaluated, 0 findings, and
+   name `hardcoded_section_colors` as suppressed. A MISSING note means the job did
+   not run — which is why one is written even when clean.
+3. Read the round-2 verdict on the correlation above and act on it (the code is
+   already on the shared branch, so a REVISE is a follow-up commit, not a hold).
+
+The detector fires today only under `--ignore-remit` (its built-in disconfirmability
+control, writes refused), because the one two-producer type now declares a remit.
+**Deployed is not exercised**, and the two are different claims.
+
+<details><summary>The original D3 brief, kept for the reasoning</summary>
+
+#### BUILD the class-level detector
 A periodic check flagging any **verified** `item_type` accumulating rows with more than
 one spec-shape / `audit_source` and **no** `Grades`. The query is already written, in
 this lane's RUNBOOK §"Find every verified item_type with more than one producer"; the
@@ -33,7 +60,16 @@ work is turning it into a scheduled check that files a work item.
   lockstep — `TestRegisteredVerifiersMatchClaimTimeoutExclusion` enforces both ways.
 - Disconfirmable today: returns 2 for `hardcoded_section_colors`, 1 for the other ten.
 
+</details>
+
 ### D1 (the big one, spans sessions) — the acceptance_test verifier + settle routing
+
+> **URGENCY RAISED 2026-08-11 by measurement, not by argument.** `dark_section_audit`
+> already carries **14 rows, all filed today, 13 already `complete`** — the rotation
+> re-detected within a day of the roll, exactly as D2 assumed, and every one of those
+> 13 closed **ungraded** because the new type still has no verifier. D2's stated
+> dependency on D1 is no longer hypothetical: the machine is re-finding these defects
+> and losing them again on a ≤7-day cycle, ~13 at a time.
 **This is the gap this lane created**: `dark_section_audit` has no verifier, so its
 items now close *ungraded* rather than *mis-graded*. Both close clean.
 1. Build a verifier over `spec.acceptance_test` using `criteria_check` (RFC_002). That

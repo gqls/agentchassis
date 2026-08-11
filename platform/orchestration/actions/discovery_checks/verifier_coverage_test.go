@@ -319,6 +319,27 @@ var itemTypesWithoutVerifiers = map[string]verificationGap{
 	// DECISION that needs a person, not the check that it was carried out.
 	"mistyped_deployed_page": {catMechanical, "pages.page_type = spec.wanted_type for spec.page_name; produced by applyNewPage (bugs_open/081) and, since 2026-08-02, by UpsertPageForRole for the constant-role arms — tool-deployer, tool-generator, report-builder (bugs_open/175); read spec.source to tell them apart; never observed live"},
 
+	// Produced OUTSIDE this package by cmd/verifier-remit-check, the daily class
+	// detector for bugs_open/213 (owner ruling D3, 2026-08-11), so neither half of
+	// this guard would see it on its own: the SENSOR scans discovery_checks source
+	// only, and the RATCHET is a snapshot of types already in the database.
+	// Classified here on the way IN, in the same commit that ships the producer.
+	//
+	// MECHANICAL, and deliberately unregistered — the distinction matters because
+	// this map's header calls catMechanical "the actionable backlog, not an excuse
+	// list". The predicate is exact and re-runnable (VerifierDeclaresRemit(subject)
+	// is true, or the subject resolves to one producer family), but the check
+	// RETRACTS its own items on a positive observation each run — WII-009's rule —
+	// so the loop is already closed from the producer side. Registering a verifier
+	// as well would also have to move the sql_for_agents/220 claim-timeout exclusion
+	// in lockstep (TestRegisteredVerifiersMatchClaimTimeoutExclusion enforces both
+	// directions). Worth doing; not folded into the commit that mints the type.
+	//
+	// The row is undispatchable by construction (status 'deferred' + empty
+	// handler_agent, remit.go's double lock), because the remedy is a code change
+	// by a person, and there is no handler that could ever claim it.
+	"verifier_remit_gap": {catMechanical, "a VERIFIED item_type has accumulated rows from more than one producer shape while its verifier declares no remit — bugs_open/213 one level up, from the class detector (cmd/verifier-remit-check). Predicate: discovery_checks.VerifierDeclaresRemit(spec.subject_type), or the subject collapsing back to one producer family. The detector closes its own findings on a positive observation, so completion-side verification is a follow-on rather than the only guard"},
+
 	// ---- creation: "make X exist" ----
 	"needs_page":          {catCreation, "page existence; 49 of 365 carry page_id"},
 	"needs_content_page":  {catCreation, "page existence; 13 of 196 carry page_id"},
@@ -680,5 +701,11 @@ var liveItemTypes = []string{
 	"section_source_drift",
 	"silent_failure", "spacing_fix", "tone_shift", "truncated_component",
 	"undeployed_asset",
+	// verifier_remit_gap is listed from the moment it is minted (bugs_open/213 D3),
+	// same union rule and same reason as dark_section_audit above: the ratchet
+	// protects it from day one rather than from whenever somebody next refreshes
+	// this snapshot. Its producer is cmd/verifier-remit-check, outside this package,
+	// so the SENSOR half cannot see it at all.
+	"verifier_remit_gap",
 	"unfulfilled_hero_variant", "unresolved_cta", "voice_tells",
 }

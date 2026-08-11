@@ -186,3 +186,78 @@ The control is what proves the grep and the binary, not just your spelling. Repe
 **Do not grade this fix by re-running the verifier.** It will pass again, for the
 same correct reason (213 §6). Grade a producer-B item against its own
 `spec.acceptance_test`, or at the served artefact.
+
+---
+
+## D3 — running the class detector (`verifier-remit-check`)
+
+```bash
+go run ./cmd/verifier-remit-check --dry-run      # census only, writes nothing
+go run ./cmd/verifier-remit-check --ignore-remit # THE DISCONFIRMABILITY CHECK (writes refused)
+```
+
+**`--ignore-remit` is the one to run when you doubt the zero.** It re-runs the same
+census with the `Grades` suppression turned off; today that produces a real finding
+on `hardcoded_section_colors` and exit 1. A `--dry-run` that says "0 findings" and
+an `--ignore-remit` that also says 0 means the census is blind, not that the fleet
+is clean.
+
+**Gotcha, and it is silent:** from a terminal there is no `PG_CLIENTS_HOST`, so the
+binary takes the `kubectl exec` route and **writes nothing even without
+`--dry-run`** — no work item, no doc_note. It says so in its own report. Only the
+CronJob (which sets `PG_CLIENTS_HOST`) writes.
+
+Deploy and prove it at the artefact, not the tag:
+
+```bash
+make build-verifier-remit-check IMAGE_TAG=<tag>   # committed HEAD only
+make push-verifier-remit-check IMAGE_TAG=<tag>
+# the overlay's newTag must ALREADY name <tag> — deploy ships nothing on its own
+make deploy-verifier-remit-check
+make verifier-remit-check-now
+kubectl -n ai-persona-system logs -l app=verifier-remit-check --tail=60
+```
+```sql
+-- the artefact: one row per run, clean or not. MISSING = the job did not run.
+SELECT created_at, left(body,300) FROM doc_notes WHERE source='verifier-remit-check'
+ORDER BY created_at DESC LIMIT 1;
+-- what it filed, if anything
+SELECT summary, status, handler_agent, spec->>'subject_type'
+FROM site_work_items WHERE item_type='verifier_remit_gap' ORDER BY created_at DESC;
+```
+
+## Measuring producer shapes by hand (what the detector automates)
+
+```sql
+SELECT item_type, COALESCE(spec->>'audit_source','<none>') AS label,
+       (SELECT string_agg(k,',' ORDER BY k) FROM jsonb_object_keys(spec) k) AS keyset,
+       count(*) FROM site_work_items WHERE item_type IN (<the RegisterVerifier list>)
+GROUP BY 1,2,3 ORDER BY 1;
+```
+
+**Three axes that look like producer identity and are not** — each measured
+2026-08-11 and each fires on a type with exactly ONE producer:
+`count(DISTINCT created_by)` (2–3 on `empty_section`, `literal_markdown`),
+`count(DISTINCT source)` (2 on `page_canonical_collision`), and
+`count(DISTINCT spec->>'check')` (2 on the same). A raw distinct-key-set count is
+just as bad: 2 on four single-producer types. **Cluster the key-sets** (overlap
+coefficient ≥0.5, never Jaccard — J reads 0.167 on a real same-producer pair).
+
+## Is a work-item status actually undispatchable?
+
+```sql
+SELECT status, count(*), count(*) FILTER (WHERE handler_agent='') AS empty_handler,
+       count(DISTINCT item_type) AS types
+FROM site_work_items GROUP BY 1 ORDER BY 2 DESC;
+```
+**`deferred` alone is NOT undispatchable** — 316 rows across 14 item_types carry it
+and only 15 also carry the empty `handler_agent`. It is the PAIR that is the lock
+(remit.go's double lock). Check both columns before believing a row is inert.
+
+## grep flags that answer a different question, silently
+
+`grep -Lq PATTERN file && echo file` does **not** list files without the pattern:
+`-q` wins, so it prints the files WITH it — the exact opposite set, with no error.
+Use `grep -rLE PATTERN <files>` and read the list. This produced a confident,
+inverted answer to "is any discovery check fleet-scoped?" (20 files, all wrong;
+the true answer is one, and it is a helpers file).

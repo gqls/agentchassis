@@ -1,0 +1,99 @@
+# deployments/kustomize/services/verifier-remit-check/base/cronjob.yaml
+#
+# WII-015 — the CLASS detector for bugs_open/213 (owner ruling D3, 2026-08-11).
+#
+# WHAT IT ASKS, once a day: does any item_type with a REGISTERED VERIFIER carry
+# rows from more than one producer shape, while its verifier declares no remit
+# (VerifierPolicy.Grades)? That is bugs_open/213 one level up. The instance fix made
+# the false-verified state unrepresentable for a type that OPTS IN; this notices the
+# next type that should have opted in and did not.
+#
+# WHY A CRONJOB AND NOT A DISCOVERY CHECK. Discovery checks run per site and file
+# per-site findings; this question is about the FLEET's work-item corpus and the
+# compiled-in registry, and has no site. Its finding anchors at the system.internal
+# pseudo-site, the convention diagnose_triage already established for fleet-level
+# items (site_id is NOT NULL).
+#
+# WHY A GO IMAGE AND NOT A ConfigMap SCRIPT (the choice its Python siblings made):
+# half the question is compiled-in Go state — which item types have a verifier, and
+# which of those declare a remit. A Python job would need a mirrored list of both,
+# which goes stale exactly when a new verifier lands, i.e. at the only moment this
+# check matters. single-owner-carriers-check had to mirror a list because its
+# container has no Go toolchain, and pinned the drift with a parity test; linking
+# the registry removes the mirror rather than testing it.
+#
+# CONNECTS TO POSTGRES DIRECTLY — never kubectl exec. ai-persona-app has no
+# pods/exec RBAC in this namespace (the constraint component-render-check,
+# single-owner-carriers-check and bugs-open-staleness-sweep all hit). The binary
+# detects this itself: PG_CLIENTS_HOST switches it off the kubectl path, and a run
+# without it prints, in its own report, that it wrote nothing.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: verifier-remit-check
+  labels:
+    app: verifier-remit-check
+    component: work-item-integrity
+spec:
+  # Daily, 07:25 UTC — after the 06:00-07:10 cluster (bugs-open-staleness-sweep Sun
+  # 06:00, single-owner-carriers-check 06:20, component-fallback-check 06:40,
+  # concept-register-drift-check 06:50, component-render-check 06:55,
+  # shared-output-fields-check 07:10) and clear of database-backup (02:00).
+  #
+  # DAILY, not weekly, for the reason the single-owner check is daily: the thing it
+  # watches (a producer converging on an existing item_type) can happen with one
+  # config edit and no commit, and the cost of missing it is a week of items closing
+  # against a predicate that describes a different defect.
+  schedule: "25 7 * * *"
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      # 1, not 0: a transient database blip should get one retry, because a failed
+      # run is indistinguishable at a glance from a new finding. Not more — a retry
+      # on a REAL finding just re-runs a check whose insert is idempotent anyway
+      # (ON CONFLICT DO NOTHING against idx_swi_dedup).
+      backoffLimit: 1
+      # One GROUP BY over site_work_items (17 rows out for 12 verified types on
+      # 2026-08-11) plus an in-memory clustering walk. Measured ~1s by hand against
+      # the live database; 300s is a wide margin that still stops a hung job
+      # blocking tomorrow's.
+      activeDeadlineSeconds: 300
+      template:
+        metadata:
+          labels:
+            app: verifier-remit-check
+            component: work-item-integrity
+        spec:
+          restartPolicy: Never
+          # REQUIRED, and easy to miss by copying a job that pulls a public image:
+          # this one pulls from aqls/, which is private. Without it the job sits in
+          # ImagePullBackOff — which reports as a Job still "Running", never as a
+          # failure, so a scheduled check would go permanently silent while looking
+          # merely slow. component-render-check caught this on its first manual run.
+          imagePullSecrets:
+            - name: docker-hub-creds
+          containers:
+            - name: check
+              # Tag is set by the overlay, as every other service here does it.
+              image: docker.io/aqls/verifier-remit-check:latest
+              # No args: the image's CMD is the bare binary, and the writing path is
+              # its DEFAULT (see the dockerfile). Exit 1 on findings, so the Job
+              # shows failed — the same posture as single-owner-carriers-check.
+              env:
+                - name: PG_CLIENTS_HOST
+                  value: postgres-clients
+                - name: CLIENTS_DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: personae-platform-secrets
+                      key: CLIENTS_DB_PASSWORD
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 200m
+                  memory: 128Mi
