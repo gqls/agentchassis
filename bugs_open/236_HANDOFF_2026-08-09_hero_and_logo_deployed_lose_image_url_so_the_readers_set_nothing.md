@@ -300,3 +300,81 @@ longer blind; there is simply nothing left to look at. Two ways forward, and the
 
 **Do not treat the `(0 rows)` above as evidence about the mechanism.** It is evidence about
 retention. The §5 refutation and the candidate directions there are untouched by this run.
+
+---
+
+## CONTRIBUTION 2026-08-11 13:35Z — why the evidence keeps evaporating: the window is **4 hours**, not 24, and not 7 days
+
+Left by the `bugfix_236_site_availability` lane (the *other* 236 — the 522 one).
+**Not taking this bug.** `who-owns` shows this file committed against as recently
+as 11:21Z today (`e41342c89`) and four live sessions reference `hero_deployed`, so
+this is contribution, not competition. It answers exactly one open question — the
+one `e41342c89` explicitly left: *"pruned by something I did not chase"*.
+
+**The pruner is `database-cleanup`** (`scheduled_tasks`, enabled, hourly, last ran
+2026-08-11 12:04:11Z). Read from the **live row**, not the repo seed, and that
+distinction is load-bearing here — they disagree:
+
+| status | live retention | what `020_scheduled_tasks.sql:739` says |
+|---|---|---|
+| `COMPLETED`, `FAILED` | **24 hours** | 7 days |
+| `EXECUTING_STEP`, **`AWAITING_RESPONSES`** | **4 hours** | 24 hours (and names `WAITING_FOR_RESPONSE`, a status that does not occur) |
+
+```sql
+SELECT pre_query FROM scheduled_tasks WHERE name='database-cleanup';
+--   DELETE FROM orchestration_states
+--    WHERE status IN ('COMPLETED','FAILED')  AND updated_at < NOW() - INTERVAL '24 hours'
+--   DELETE FROM orchestration_states
+--    WHERE status IN ('EXECUTING_STEP','AWAITING_RESPONSES') AND updated_at < NOW() - INTERVAL '4 hours'
+```
+
+**Why this is the answer and not a coincidence:** a `site-work-orchestrator`
+waiting on a spawned child sits in **`AWAITING_RESPONSES`** — which is precisely
+the state in which `hero_deployed` / `logo_deployed` exist, because they ARE the
+awaited responses. So the rows this bug needs are in the **shortest-lived
+category in the table**. The three states you have observed —
+`0 of 1,667` → `2 each` → `0` — are not the bug appearing and disappearing. They
+are one 4-hour window opening and closing.
+
+> **CORRECTION to `e41342c89`, offered with the evidence.** That commit reasons:
+> *"NOT a 24h TTL claim: 2,110 rows are retained and the oldest is 2026-07-13."*
+> The premise is true and the conclusion does not follow, because the population
+> is mixed. Measured 2026-08-11 12:30Z:
+>
+> | status | rows | oldest |
+> |---|---|---|
+> | COMPLETED | 2,329 | **2026-08-10** |
+> | FAILED | 23 | 2026-08-10 |
+> | EXECUTING_STEP | 6 | 2026-08-11 |
+> | CANCELLED | 24 | 2026-07-19 |
+> | RUNNING | 20 | 2026-07-29 |
+> | INITIALIZED | 1 | **2026-07-13** |
+>
+> The 2026-07-13 row is a single `INITIALIZED` orphan. `CANCELLED`, `RUNNING` and
+> `INITIALIZED` are named by **no arm of the pruner**, so they never expire — they
+> are a small permanent leak, and they are the entire reason the table *looks* like
+> it has a month of history. The populations that matter here are one day
+> (`COMPLETED`) and four hours (`AWAITING_RESPONSES`). **A `min()` over a mixed
+> population measured the leak, not the retention.**
+
+### What this changes for whoever fixes it
+
+1. **Stop trying to catch the row by looking.** With a 4-hour window and an hourly
+   pruner, a query run the next morning is guaranteed to find 0. That is not
+   evidence of absence and never was.
+2. **Capture, don't query.** Snapshot the shape into a durable table the moment a
+   build runs, e.g. `CREATE TABLE bug236_capture AS SELECT * FROM
+   orchestration_states WHERE collected_data ? 'hero_deployed'` inside a poll that
+   runs every few minutes during a build, or add a `log_action_findings` call on
+   the reader step. The decisive row `3e46be5b` is gone and will not come back.
+3. **A 090 run against this table inherits the same window.** `e41342c89` records
+   the verdict as UNVERIFIABLE with the stop reason changed to iteration-cap, and
+   reads that as the loop "searching and finding nothing". That is right, and now
+   it has a mechanism: the loop could not have found the rows *whenever it ran more
+   than four hours after the build*, regardless of how well it searched.
+4. **`WAITING_FOR_RESPONSE` (singular) appears in the repo seed and occurs in no
+   live row.** If anything else greps the seed for orchestration statuses, it is
+   matching a status this system does not emit.
+
+**Not verified by me:** anything about the `image_url` loss itself. I did not read
+the readers, and this contribution makes no claim about §5's open root cause.
