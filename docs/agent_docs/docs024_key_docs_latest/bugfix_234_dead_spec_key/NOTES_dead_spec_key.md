@@ -254,3 +254,27 @@ improvement-loop *reaches* the step is established by reading its live config (i
 **Both witnesses DELETED afterwards** (definitions and the witness work item); census
 re-checked clean: 17 create_work_item steps, 0 unrecognised keys. A live witness carrying
 a bogus key would poison the very census the RFC_021 Q1 protocol depends on.
+
+### Postscript — the instrument blindness, demonstrated on the same event
+
+The original pod-watching poller was still running against corr `2ae40cde…` while I found
+the rejection in the chassis log, and it has now finished. Its verdict on the firing that
+**demonstrably was refused** (chassis `processor.go:293`, 09:35:29.553Z, same correlation):
+
+```
+found=no
+--- row must be ABSENT ---   0
+--- orchestration record --- (empty)
+```
+
+So the two instruments were pointed at the same event and disagreed completely: the
+pod-watcher reported nothing, the chassis-log grep reported the refusal 25ms after
+dispatch. That converts the WRONG_CALLS entry from a reasoned explanation into a
+**demonstration** — the check could not have fired on a healthy fleet either, and the fleet
+outage merely supplied a believable reason not to ask.
+
+Note also which fields the blind instrument DID get right: row absent, orchestration
+absent. Both were true, both were consistent with a rejection, and **neither could
+distinguish "refused" from "never ran"** — which is exactly why row-absence was already
+recorded as TRAP 2 in the RUNBOOK before any of this. A watcher can be right about
+everything it measures and still be unable to answer the question.
