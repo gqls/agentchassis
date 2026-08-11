@@ -2640,3 +2640,56 @@ structure as the titles, and the same fix. Still live on the homepage tonight:
 Ten are visible on the homepage (6 tool cards, 4 guide cards); ~30 exist. They are
 a genuine writing pass, not a mechanical edit, and deserve their own round rather
 than a hurried one. **Next session: this is the top item.**
+
+### 20:4xZ — the density correction, and THREE over-corrections of mine in one evening
+
+**Owner, on the copy I had just shipped:** *"'a single number can't settle. There's
+no sign-up, and nothing here is selling you a deal.' this bit is llm-speak and
+horrible — no one talks about 'selling you a deal', no one says 'a single number
+can't settle'."* Both replaced:
+
+> "…and the guides go into the parts that aren't just arithmetic. Everything's
+> free to use, and you don't need to sign up for any of it."
+
+The *fact* (no sign-up) was worth keeping; the brochure-voice wording was not.
+Guides heading → **"Reading round the subject"** (the owner took the version I had
+flagged against myself, which is the argument for flagging your own doubts).
+
+**THE FINDING, and it corrects my rule rather than the copy.** Owner: *"Funnily
+enough, with the rest of the copy being more gentle, now 'Help with the decision
+you're facing' doesn't sound so intrusive because it's a one off in the whole site
+and not part of a constant barrage."*
+
+**Presumption is a DENSITY property, not a property of the sentence.** The exact
+heading I had condemned as "outwardly presumptive" reads fine once. What made it
+grate was every heading in turn telling the reader what they came for, what they
+were deciding and what to do next. My spec had banned the device outright, and an
+absolute ban is what produced the flatness that followed. Rewritten as
+`heading_style.presuming_is_about_density`: at most one such heading per page, and
+rarely; elsewhere name the thing, observe something true, or use the inclusive
+conditional.
+
+**And the card descriptions I flagged as the "top item" are FINE — the owner
+reviewed all four and said so.** "mortgage prisoner trap", "no-nonsense",
+"Everything you need to know", "our UK mortgage affordability calculator": I had
+called them defects **because they matched a ban-list I wrote two hours earlier**,
+not because anyone reading the page would object. That pass is cancelled. The
+filler list is now demoted in the spec to *a smell rather than a crime*, with an
+explicit instruction not to hunt existing pages for listed words, and a note that
+the owner accepted these on 2026-08-11.
+
+**Three over-corrections in one evening, all the same shape:**
+
+1. Borrowed ASD-STE100 ceilings → staccato (`WRONG_CALLS`).
+2. Absolute ban on presumption → flat, characterless headings.
+3. Mechanical ban-list application → sound copy reported as defective.
+
+Each time I turned a valid observation into a hard rule and then let the rule
+write the copy. **A style rule is a prompt for judgement, not a substitute for it,
+and on this site the rules now say so in as many words.**
+
+**The one rule I would keep over any list**, added tonight: *do not write a
+sentence no one would say out loud.* Both rejected phrases are grammatical,
+on-message, and things no person says. No banned-word list would have caught
+either; reading them aloud catches both instantly. The owner's two examples are in
+the spec as the worked case.
