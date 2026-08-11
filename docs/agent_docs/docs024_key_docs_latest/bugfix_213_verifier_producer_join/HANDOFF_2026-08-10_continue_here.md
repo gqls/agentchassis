@@ -1,61 +1,93 @@
-# HANDOFF 2026-08-10 — bugfix 213, continue here
+# HANDOFF — bugfix 213, continue here
 
-**Cold-start for this lane.** Read this, then `NOTES_verifier_producer_join.md` for the
-missteps and the mutation matrix. `PLAN_2026-08-10_verifier_producer_join.md` has the
-design and why the rejected candidates were rejected.
+> **UPDATED 2026-08-11.** The instance fix is **LIVE and PROVEN** on `v1.0.1284`, both
+> replicas, by the sanctioned binary probe with a two-sided control. The council
+> APPROVED it round 1. **Three owner rulings (D1–D3) were taken on 2026-08-11 and are
+> the whole of the remaining work** — they are in `PLAN…md` §"OWNER DECISIONS" with
+> reasoning, and summarised as next steps below.
+>
+> **Read the two corrections in that PLAN section before quoting this lane**: (a) "the
+> colour fixer cannot repair these" is verified for ONE of the 11 and UNVERIFIED for
+> the rest; (b) re-detection is LIVE (230's rotation carries `design-discovery-agent`
+> across 22 sites), which contradicts what an earlier draft of this handoff implied.
+
+**Cold-start for this lane.** Read this, then `NOTES…md` for the missteps, the mutation
+matrix and the verification history. `PLAN…md` has the design, the rejected candidates,
+and the owner rulings.
 
 ---
 
-## STEP 0 — DONE. Verdict read; here is what it said
+## NEXT STEPS — the three owner rulings, in dependency order
 
-**APPROVED, round 1** — 14 seats, 0 unreadable, 3 abstained, `gated_by_truncation:
-false`, 4 advisory objections, none high-severity. Recorded with
-`Council-Reviewed: c9c7c83f-…` on `5d482297e`, which also **acts on** the two
-objections that were real: the guardian's "the shared branch is untested" (now
-`TestOnlyTheOptedInVerifierCarriesAScopeTest`, mutation-proven) and the
-prior_art_librarian's literal-item_type consumer sweep (clean three ways — Go,
-`reviewRevalidators`, and the claim-timeout exclusion list). Full account in NOTES.
+### D3 (start here — self-contained) — BUILD the class-level detector
+A periodic check flagging any **verified** `item_type` accumulating rows with more than
+one spec-shape / `audit_source` and **no** `Grades`. The query is already written, in
+this lane's RUNBOOK §"Find every verified item_type with more than one producer"; the
+work is turning it into a scheduled check that files a work item.
+- Key it on the **spec shape**. NOT on `created_by` (bottoms out at `generic`), NOT on
+  a producer list (refuted, `bugs_open/213` §5.3).
+- It must drop a type from the finding once that type registers a `Grades`.
+- It mints a new item_type ⇒ **the `verifier_coverage_test.go` obligation applies**
+  (classify in `itemTypesWithoutVerifiers` AND `liveItemTypes`, same commit), and if you
+  give it a verifier, the `sql_for_agents/220` claim-timeout exclusion must move in
+  lockstep — `TestRegisteredVerifiersMatchClaimTimeoutExclusion` enforces both ways.
+- Disconfirmable today: returns 2 for `hardcoded_section_colors`, 1 for the other ten.
 
-**The one follow-on worth carrying forward**, from the `architecture` seat, which
-signalled `insufficient` on the class while agreeing no RFC is needed: `Grades` is
-opt-in, so the NEXT converging producer on any of the other 10 verified item_types
-reproduces this bug unless a human remembers to write one. It asks for a periodic
-check flagging a verified item_type that accumulates rows with more than one
-spec-shape/`audit_source` and no `Grades`. **Not built.** That is the closure of the
-defect *class*, as opposed to this instance.
+### D1 (the big one, spans sessions) — the acceptance_test verifier + settle routing
+**This is the gap this lane created**: `dark_section_audit` has no verifier, so its
+items now close *ungraded* rather than *mis-graded*. Both close clean.
+1. Build a verifier over `spec.acceptance_test` using `criteria_check` (RFC_002). That
+   field is read by **nothing** today. All 11 live acceptance tests are mechanical and
+   browser-checkable.
+   ⚠ **The design question, not an implementation detail:** this puts a browser /
+   computed-style evaluation on the **completion path**, which this estate has
+   deliberately kept free even of HTTP probes (`verifier_coverage_test.go:171` records
+   the standing objection). Own council round. Argue from `contrast_failure`, which has
+   the same browser dependency and is currently answered by re-detection instead.
+2. **Measure before re-routing.** Check each of the 11 acceptance tests against
+   `ReplaceHardcodedColors`' actual remit. Only gamesdesign's already-`var()` case is
+   confirmed outside it; several others name inline `style` / `rgba(0,0,0` and may be
+   inside. Do not generalise from the worked instance — that is the move this bug punishes.
 
-⚠ **Do not read a verdict with the CLAUDE.md `LIMIT 1` query** — it is
-correlation-blind and returned another lane's REVISE. See the RUNBOOK.
+### D2 — the 11 mis-closed items: NOTHING BESPOKE. Let the rotation re-detect.
+`site_discovery_rotation` carries `design-discovery-agent` across 22 sites, last
+selected 2026-08-10, so a still-present defect re-files itself on a ≤7-day period under
+the new type with a fresh dedup key. Historical `complete` rows stay — they are the
+honest record of what the machine did.
+- ⚠ **D2 DEPENDS ON D1.** Until the new type has a verifier, a re-detected item closes
+  unverified — the rotation finds the defect and loses it again. If D1 slips, revisit.
+- Accept, and state rather than quietly drop: we never get a false-complete *count* for
+  the original 11. "11 closed" stays an upper bound, 1 confirmed broken, 1 confirmed clean.
 
-<details><summary>original STEP 0 instructions, kept for the resubmit path</summary>
+### Still owed on the fix itself
+**The gate has not FIRED.** `SELECT count(*) … WHERE result->'_verification'->>'status'
+='out_of_scope'` = **0**. Deployed ≠ exercised, and `bugs_open/213` stays OPEN until a
+`hardcoded_section_colors` item without `spec.check` reaches completion and lands
+`triaged`/`failed` with the scope-mismatch error. Migration `374` is **not needed** —
+0 in-flight rows, re-measured post-roll; do not ship an empty migration.
 
-**Read the council verdict.** Submitted 2026-08-10, correlation
-`c9c7c83f-d706-48b0-b433-55de51d88f9f`. At the time of writing it was still running
-(`current_step = gate_tooling_provenance`, `EXECUTING_STEP`), so **no verdict existed
-yet and none is recorded anywhere in this lane.**
+---
 
-```sql
-SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
-WHERE correlation_id='c9c7c83f-d706-48b0-b433-55de51d88f9f' AND kind='council_report'
-ORDER BY created_at;
+## Verification recipe for this service (learned the hard way, 2026-08-11)
 
--- still running? (a missing row is latency, not a dropped dispatch — do NOT resubmit)
-SELECT current_step, status FROM orchestration_states
-WHERE collected_data->'input_data'->>'fix_correlation_id' = 'c9c7c83f-d706-48b0-b433-55de51d88f9f';
+CLAUDE.md's new first step — `kubectl logs -l app=<service> | grep 'build provenance'`
+— **returns nothing on agent-chassis**: the log had 13 lines and retention is seconds,
+so the startup stamp is long gone. Use the sanctioned fallback, and note `strings` is
+now BANNED (it produced three wrong readings in one day) and a tag is not a commit
+(`v1.0.1284` straddles three revisions, `bugs_open/249`):
 
--- the human-readable note
-SELECT body FROM doc_notes WHERE categories ? 'council-gate' ORDER BY created_at DESC LIMIT 1;
+```bash
+kubectl -n ai-persona-system exec <pod> -- sh -c '
+  probe() { if grep -aq "$1" /proc/1/exe; then echo "PRESENT  $1"; else echo "ABSENT   $1"; fi; }
+  probe "verifier_scope_mismatch"                    # Half B
+  probe "verification_unavailable"                   # POSITIVE control (live since RFC_017)
+  probe "zzz_this_string_must_never_exist_213"       # NEGATIVE control
+'
 ```
+No `2>/dev/null` (it makes a missing tool look like a missing symbol) and never a
+discovery grep for "some 40-hex string" (it matches Go's internal digit table).
 
-- **APPROVED** → record it in the bug file and NOTES. Do **not** amend `2d151c41f` to add
-  a `Council-Reviewed:` trailer — forward-only forbids it, and it is unnecessary: the
-  commit carries `Council-Submitted: c9c7c83f…`, and the 098 report resolves the verdict
-  at report time and credits it automatically.
-- **REVISE / REJECTED** → **the code is already on the shared branch**, so this is a
-  follow-up commit, not a hold. Resubmit with `RESUBMIT_CORR=c9c7c83f-d706-48b0-b433-55de51d88f9f`
-  so the trail accumulates.
-
-</details>
+---
 
 ## What is done
 
