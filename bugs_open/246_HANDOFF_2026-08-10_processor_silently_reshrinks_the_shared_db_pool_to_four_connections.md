@@ -204,3 +204,73 @@ the `bugfix_239` lane, whose own fix that roll did carry.)
   `NewSagaCoordinator(*sql.DB)`, both public and used platform-wide, so it is a large
   refactor of shared signatures for a three-line defect with one caller. Revisit if a
   second caller appears.
+
+---
+
+## 2026-08-11 evening — LIVE on `v1.0.1288`. Fix shipped and proven by ancestry.
+
+**Status: FIXED AND LIVE.** Kept in `bugs_open/` per the owner ruling of 2026-08-06.
+
+### Proof it shipped (the corrected method, run as written above)
+
+```
+image label (docker image inspect …:v1.0.1288 org.opencontainers.image.revision)
+  = bb534864249117003ac758e50adc0df9176ef370
+
+git merge-base --is-ancestor 039cfce84 bb5348642   -> exit 0   FIX SHIPPED
+git merge-base --is-ancestor 6ba3fca28 bb5348642   -> exit 0   council follow-up shipped
+git merge-base --is-ancestor 2194df2cf bb5348642   -> exit 1   NEGATIVE CONTROL holds
+```
+
+Pods `agent-chassis-596d84f6b-{kmc2t,tb8gd}`, image `v1.0.1288`, started 17:13/17:14Z,
+**0 restarts** — so the constructor change did not break startup.
+
+> **The landmine was confirmed live, by accident, in the same breath.** The pods started
+> at 17:13:36Z; their logs' FIRST AVAILABLE LINE is already **17:43:51Z**. Thirty minutes
+> of startup log had rotated away within half an hour, so `grep 'build provenance'`
+> returned nothing on a pod that is unambiguously stamped. **An empty grep here means
+> "rotated", never "unstamped"** — exactly as the landmine says, now with a second
+> measurement behind it.
+
+> **MISSTEP, recorded because the check nearly passed for the wrong reason.** My first
+> negative control was my own summary commit `1a72d08f9`, which I assumed post-dated the
+> build. It did not — the stamp `bb5348642` is 17:52:33, later than my commit — so the
+> control reported "is an ancestor" and looked like a broken test. The control was wrong,
+> not the test. **A negative control must be chosen by ASKING the repo which commits are
+> outside the stamp, never by assuming your own work is the newest thing on a shared
+> branch:** `git rev-list <stamp>..HEAD | head -1`. On this tree, "my commit is the latest"
+> is false within minutes.
+
+### Post-roll measurements — one useful, one still MISSING
+
+**pgbouncer server-side pool (Postgres view), now vs earlier today:**
+
+| | pre-roll (~13:30Z) | post-roll (~18:10Z) |
+|---|---|---|
+| server conns to `clients_db` | 6 | **10** (of `default_pool_size = 15`) |
+| active / idle | — | 2 / 8 |
+| chassis intake events/hour | 60–100 | **182–228** |
+
+**Do NOT read the 6 → 10 rise as the effect of this fix.** It is **confounded**: the
+client-side cap went 4 → 12 *and* load roughly tripled in the same window. Two variables,
+one observation. What can be said: 10 of 15 leaves less headroom than before, nothing is
+waiting on a lock, and this is the number to watch.
+
+**THE DISCONFIRMING OBSERVATION IS STILL UNMEASURED — and it is blocked on a credential.**
+The real saturation signal is pgbouncer's own `SHOW POOLS` (`cl_waiting` sustained > 0, or
+`maxwait` climbing). `pg_stat_activity` **cannot** show it: every row's `client_addr` is
+pgbouncer itself, so the Postgres side sees the server pool and never the client queue.
+The admin console requires `pgbouncer_admin` (`admin_users`/`stats_users`,
+`pgbouncer-configmap.yaml:73-74`); that user exists in
+`/etc/pgbouncer/userlist.txt` but **its password is not in `personae-platform-secrets`**,
+so no session can currently run the one query that would settle this risk.
+**This is an owner decision, not a task** — see the lane's handoff.
+
+### What is still true, and is not going to be settled by watching
+
+There is **no behavioural witness for this change** and there never was going to be:
+nothing in the platform reports a pool's size, and nothing surfaces
+`db.Stats().WaitCount`/`WaitDuration`. The evidence for the mechanism is the
+mutation-proven unit test; the evidence that it shipped is the ancestry check above.
+Those are the only two, and neither is a live reading of the pool. **Anyone who later
+writes "the pool was observed at 12" is describing something the platform cannot show.**
