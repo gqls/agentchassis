@@ -276,3 +276,31 @@ the pages 404 on `hero.jpg` exactly as before.
 **So the lane's own mechanisms are all PROVEN; what stands between the image and the page is
 248.** Once 248 fixes the filename, either this asset gets redeployed correctly or the next
 generation does.
+
+## 15. 2026-08-11 (afternoon) — the Banana retry: same prompt, right model, unrecognisable result
+
+Owner rejected the SDXL image (malformed figures, collage, dollar glyphs) and asked for a
+stronger model + the deletion. Deletion done at BOTH stores (bucket + the gqls/sites repo —
+which is what surfaced the repo-replay landmine, §WRONG_CALLS 08-11). Asset row `rejected`.
+
+**Root cause of the wrong model, fixed as migration 390 (APPLIED, verified live):** the adapter
+has routed hero/logo → Banana (Nano Banana Pro) since 6896ce22e — provenance-checked in the
+running binary — but `resolveKind` reads kind from input_data and the legacy branches never
+forwarded it; their `default_kind` sits in parent step CONFIG, invisible to the callee (the
+bugs_open/231 dead-value class). Empty kind → adapter fallback → stability. 390 maps
+`kind?: input_data.spec.purpose` on both legacy branches; the routing table finally applies.
+
+**The owner's truncation hypothesis: CORRECT.** SDXL's CLIP encoders read ~77 tokens (~55–60
+words); the composed prompt was ~115 words, our stability provider does no truncation handling
+(silent clip), and CLIP treats negation as attraction — "No stock images of happy couples
+outside houses" sat inside the window and produced exactly that. Gemini-family Banana reads the
+full prompt; both defects dissolve together.
+
+**Retry, same prompt, item `c5a211d8`: complete, `origin_model=banana/gemini-3-pro-image-preview`,
+1408×768.** The output is flat icon-row on a light ground — a £-marked house device plus four
+icons — no figures, no artefacts, correct currency, large clear space. It follows the site's own
+"Minimal — logo and icons only" direction almost literally. Deployed again to the bug-248
+placeholder path (`input-data.asset-key.jpg`); the six pages keep their fallback until 248's
+filename fix, which is owned elsewhere. Image KEPT pending the owner's verdict.
+
+The staleness report line now reads total=2 defaulted items — the counter counting.
