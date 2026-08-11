@@ -962,3 +962,48 @@ this session**, every one `detected`, every one routed to `css-patch-agent`, aga
 `complete` (all the 08-04 hand-run). Consistent with `bugs_open/213`'s false-complete
 defect being unfixed. **Detection is now strong and the repair half is the constraint** —
 which is what the status block says, measured here from the item table rather than asserted.
+
+### 2026-08-11 — dartsonline graded: chips 53 → 0, no regression on any existing page, and 3 NEW pages arrived already failing
+
+Completes the pair owed above. `dartsonline.com/news/` re-rendered **2026-08-11 02:25:30**
+and serves `color: var(--color-text, #475569)` with **0** `--color-text-muted` inside the
+chip rule (100 chips still on the page, so this is a real repair, not an empty page).
+
+**All 9 `news-listing` placements now carry 353 except `idea.uk`** (still on its 2026-07-14
+render, and it renders no chips at all — `bugs_closed/027`).
+
+**The raw totals are NOT comparable and quoting them would be wrong: the sitemap grew 18 →
+21 pages between the two runs.** Restricted to the **18 pages present in both**:
+
+| | solid |
+|---|---|
+| before (08-09) | **125** |
+| after (08-11) | **60** |
+| delta | **−65** |
+
+**Every selector that moved on those 18 pages moved DOWN — there is no regression anywhere:**
+
+| selector | delta | whose |
+|---|---|---|
+| `news-list-tag` | **−53** | 353, this front |
+| `info-card-grid__card-link` | −6 | this lane's migration 368 |
+| `LABEL` | −3 | other |
+| `info-card-grid__eyebrow` / `H3` / `db-submit` | −1 each | 368 / other |
+
+**The apparent `A` +8, plus new `LEGEND` and `btn-compare` failures, are entirely on three
+pages that did not exist on 08-09** — `/tools/dart-weight-comparator/`,
+`/blog/grip-styles.html`, `/guides/tool-dart-weight-comparator-guide.html`, carrying
+**3 + 4 + 4 = 11 solid failures between them.**
+
+> **That is this file's "the defect class RECURS" claim, measured on a second site and a
+> second week.** Three pages built in the last two days shipped with 11 AA failures on a
+> site that was being actively repaired the whole time. It is the argument for the weekly
+> cadence (369) being the real deliverable rather than any individual repair — **and note
+> the recurrence is on NEW pages, which no amount of re-rendering old ones would surface.**
+
+*Method note, because it nearly produced a false result:* the first pass of this comparison
+reported `A` **50 → 58** and read as a regression on a site I had just helped fix. It is an
+artefact of comparing two different page sets. **A sitemap is not a fixed population —
+intersect the URL sets before differencing, or a growing site will manufacture both
+regressions and improvements.** Same family as this file's own "grade per selector, never
+by the fleet total", one level down: grade per selector *on the same pages*.
