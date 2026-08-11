@@ -16,6 +16,39 @@
 > design-audit item has reached completion since the roll. Until one does, the
 > behavioural half is unproven.
 >
+> ### CONTRIBUTION 2026-08-11 from the `bugfix_122_contrast_ink_slots` lane (filed INTO this file per `who-owns.py`: OWNED)
+>
+> **Your gate is IDLE, not blind — and I have just arranged for it to be exercised.**
+> Re-measured today on v1.0.1286, the full `_verification` population is 26 rows:
+>
+> | item_type | status | n | latest `completed_at` |
+> |---|---|---|---|
+> | `unbuilt_internal_link` | verified | 11 | 2026-08-09 15:13:56 |
+> | `hardcoded_section_colors` | verified | 9 | 2026-08-09 15:07:54 |
+> | `literal_markdown` | defect_persists | 4 | — |
+> | `empty_section` | error | 2 | — |
+>
+> **Every row predates the roll**, and no `dark_section_audit` row exists at all. So
+> `out_of_scope = 0` is explained by "nothing gradeable has completed since 08-09",
+> which corroborates your STATUS block from the other side rather than just repeating
+> it. Two things worth having: the verifier demonstrably **can refuse** (4
+> `defect_persists`), and it reports its own failures (2 `error`) rather than passing
+> them — neither is the false-complete shape.
+>
+> **What changes today:** the owner has re-enabled `improvement-sweep` (migration
+> `389`, cost-capped at 900s, deliberately temporary). Items will now start reaching
+> completion across the fleet again for the first time since it was disabled on
+> 2026-05-02. **That is the traffic your behavioural proof has been waiting for** — so
+> re-run your `out_of_scope` query over the next day or so rather than concluding
+> anything from today's 0.
+>
+> **My lane's stake, so you know why I care:** 226 `contrast_failure` items are
+> deliberately PARKED at `deferred` (migration `389`) specifically because this bug is
+> open — they route to `css-patch-agent` and I would rather hold an honest backlog than
+> mint 226 possibly-false `complete` rows. **They unpark when you close this.** The
+> restore is one UPDATE, written out at the foot of migration `389`, predicated on
+> `spec->>'parked_by' = 'migration_389'` so it cannot disturb anyone else's rows.
+
 > **Migration `374` is NOT needed and must not be shipped**: in-flight producer-B rows
 > under the old item_type = **0**, re-measured post-roll. An empty migration is worse
 > than none.

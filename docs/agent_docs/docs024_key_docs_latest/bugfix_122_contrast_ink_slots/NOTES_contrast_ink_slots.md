@@ -893,3 +893,47 @@ Filed as **`bugs_open/242`**. It asserts only what I measured; the mechanism (wh
 `Metadata` does not reach `collected_data`) is marked `[UNVERIFIED]` with the three checks
 that would settle it, and §6 states plainly that I did not run `090` and why the trigger
 does not fire for an observation-only file.
+
+## 2026-08-11 — the owner's decision executed, and a verification method retired under me
+
+**Spend baseline before enabling anything** (llm_call_log, calls/in/out per hour):
+08:00 `8/40,076/13,228` · 09:00 `28/175,532/87,506` · 10:00 `134/514,812/361,053` ·
+11:00 `57/397,350/80,514` · 12:00 `31/113,502/60,002`. Banked so the sweep can be judged
+against a no-sweep busy hour rather than a feeling.
+
+**Migration 389** — park 226 `contrast_failure` → `deferred`, then re-enable
+`improvement-sweep` at 900s (from 180s). Dry-run rolled back clean, **both RAISE guards
+induced** (double-run → "already parked"; pre-enabled row → "someone else moved it"),
+applied 12:31Z, recorded. The sweep fired at 12:31:38.
+
+**The park was measured into existence, not reasoned into it.** I nearly enabled the sweep
+on its own. Reading its `pre_query` first showed a `< 50` guard on
+`(triaged,detected)`+`pipeline='build'` — and our own overnight findings had pushed **five**
+sites over it, including the two with the most re-renders (40 and 22). Enabling alone would
+have skipped exactly the sites the owner wanted drained. Post-park, sites over the guard:
+**5 → 1**, asserted inside the migration rather than claimed afterwards.
+
+> **MISSTEP 19 — my engine proof yesterday used a method that was retired today.**
+> CLAUDE.md now forbids `strings /app/agent-chassis | grep -c` ("three confidently wrong
+> readings in one day") in favour of the binary's own provenance stamp, and records that
+> `v1.0.1284` — the tag I proved against — **shipped three revisions** (`bugs_open/249`).
+> My yesterday reading was not wrong (re-proven today on v1.0.1286 by the sanctioned
+> `grep -aq … /proc/1/exe` with both controls) but **the method was, and the handoff I
+> wrote enshrines it in §1 as the loop to re-run.** Corrected in the new handoff.
+> The general lesson is not about `strings`: **a verification recipe copied forward in a
+> handoff is a claim about the present that nobody re-checks**, because its whole purpose
+> is to look like the settled part of the document. When the standing docs change under a
+> lane, the lane's own recipes are what go stale first.
+> Second-order: the sanctioned method did not work either — the provenance line had
+> already rotated out of the chassis logs (retention is brutally short), so the documented
+> primary path failed and the documented fallback carried it. Worth knowing before you
+> budget on the log line.
+
+**Contributed into `bugs_open/213` rather than working it** — `who-owns.py` returns OWNED
+and its fix is already live and pod-proven, so competing would have been the wrong move.
+What that lane lacked was behavioural proof, and I could supply the shape of it: all 26
+`_verification` rows predate the roll (latest 08-09), so their `out_of_scope = 0` means
+**idle, not blind**; the verifier can refuse (4 `defect_persists`) and reports its own
+errors (2 `error`), neither of which is the false-complete shape. And enabling the sweep is
+precisely the traffic that will exercise their gate — so their proof arrives as a
+side-effect of this lane's decision, which they should know before reading today's 0.
