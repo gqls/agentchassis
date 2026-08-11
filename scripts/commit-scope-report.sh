@@ -23,7 +23,23 @@ set -u
 # Never let this script break a commit, whatever happens below.
 trap 'exit 0' ERR
 
-files=$(git diff --cached --name-only --diff-filter=ACMRD 2>/dev/null | grep . || true)
+# TWO INPUT MODES, exactly like pattern-check.py's:
+#   (no args)          the staged commit — what the pre-commit hook runs
+#   --commit <sha>     one past commit, read back from the commit itself
+# The second exists because the first reaches nobody roughly half the time: a
+# session that pipes `git commit … | tail -5` keeps git's summary (last) and
+# throws away this report (first). Measured 2026-08-11 over 2,665 multi-file
+# commits: 45% never saw this block, 95% of those cut by their own `| tail`.
+# scripts/commit-advisory-postuse.py re-emits it afterwards, out of band, and it
+# needs to read a COMMIT because by then the index is clean.
+REF=""
+if [ "${1:-}" = "--commit" ] && [ -n "${2:-}" ]; then REF="$2"; fi
+
+if [ -n "$REF" ]; then
+  files=$(git show --pretty=format: --name-only --diff-filter=ACMRD "$REF" 2>/dev/null | grep . || true)
+else
+  files=$(git diff --cached --name-only --diff-filter=ACMRD 2>/dev/null | grep . || true)
+fi
 [ -z "$files" ] && exit 0
 
 n=$(printf '%s\n' "$files" | wc -l | tr -d ' ')
@@ -44,7 +60,12 @@ np=$(printf '%s\n' "$plat_pkgs" | grep -c . || true)
 "
 
 # (2) an exported Go symbol removed or its signature changed
-exported_gone=$(git diff --cached -U0 -- '*.go' 2>/dev/null \
+if [ -n "$REF" ]; then
+  go_diff=$(git show --pretty=format: -U0 "$REF" -- '*.go' 2>/dev/null || true)
+else
+  go_diff=$(git diff --cached -U0 -- '*.go' 2>/dev/null || true)
+fi
+exported_gone=$(printf '%s\n' "$go_diff" \
   | grep -E '^-(func|type|const|var) [A-Z]|^-func \([^)]*\) [A-Z]' | head -4 || true)
 [ -n "$exported_gone" ] && arch_hits="${arch_hits}exported symbol removed/changed — $(printf '%s' "$exported_gone" | wc -l | tr -d ' ') line(s), e.g. $(printf '%s\n' "$exported_gone" | head -1 | cut -c1-72)
 "

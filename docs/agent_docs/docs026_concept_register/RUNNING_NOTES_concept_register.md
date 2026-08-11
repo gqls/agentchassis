@@ -1817,3 +1817,94 @@ structurally could not settle at all.**
 
 Untouched by this roll, and still the open work: version lag (80 entries 50+
 versions behind), unresolvable citations (96), moved bug references (156).
+
+---
+
+## 2026-08-11 — the gate was never ignored, it was inaudible: 45% of commits never see the pre-commit advisory
+
+Picking up `HANDOFF_2026-08-10b`'s READ FIRST item, which asked the right question
+and said nothing recorded could answer it: *did that session never see OPP-006's
+output, or see it and judge the row could wait?* Something can answer it — the
+harness's own session transcripts, which are on this disk and which neither the
+watcher nor the register can see.
+
+**Read back the offending commit.** `5c7b115c5` (DES-082/083, no index rows) was
+made by session `c8172188`, and the recorded tool result contains **no pre-commit
+output at all** — no scope block, no pattern-check block, stderr empty — while the
+**commit-msg** hook's council-trailer nudge is present in full. The command ended
+`2>&1 | tail -8`. The recorded stdout is **exactly 8 lines**.
+
+**The mechanism.** The pre-commit hook prints FIRST; git prints `[branch sha]` and
+`N files changed` LAST. `tail -N` is a head-cutter, so it removes precisely the
+part that warns you and keeps precisely the part you asked for. The commit-msg
+nudge survives because it prints later — which is why the estate reads as "hooks
+are quiet, so all is well".
+
+**It is fleet-wide, not one session.** `scripts/advisory-delivery-sweep.py`, over
+every commit made through the tool since the scope report shipped (2026-07-18):
+**2,669 multi-file commits; 1,470 (55%) delivered the block; 1,199 (45%) did not;
+1,137 of those misses (95%) were cut by the session's own `| tail`; 258 distinct
+sessions.**
+
+Two controls, because a 45% with no control is a correlation:
+- **the pipe width predicts delivery** — misses are `tail -N` ≤ 8 in 1,031 of
+  1,137 (median 5); commits that delivered *despite* a pipe are N > 8 in 465 of
+  595. If the cause were something else, N would not separate them, and this could
+  have come out flat.
+- **exactly-N arithmetic** — for 666 misses the recorded stdout is exactly N lines
+  for a `tail -N`. Output existed and was cut. No content can fake that.
+
+**What was being suppressed is much bigger than this lane.** Not just OPP-006: the
+commit-scope report (CLAUDE.md's main defence against committing another session's
+work), all 17 `pattern-check.py` checks, and the architecture RFC-trigger signal.
+
+### The wrong turn, and it was the interesting-theory trap
+
+My first hypothesis was that `git commit <pathspec>` — the form CLAUDE.md
+*mandates* — leaves those files out of the index, so every check reading
+`git diff --cached` is blind to exactly the commits the house style produces.
+Tidy, structural, explains the symptom, **false**. Git builds a temporary index
+for a partial commit and points the hook at it. Refuted in a scratch repo in about
+a minute across four shapes: bare commit after `add`; pathspec commit of an
+unstaged modification; pathspec commit mixing `add`ed new files with unstaged
+modifications (`5c7b115c5`'s exact shape); and a pathspec commit naming one file
+while a different file sits staged. All four saw a faithful index.
+
+The lesson is not "test your hypotheses". It is that **two mechanisms explained
+the symptom and I reached for the interesting one.** The dull one — the session
+piped the output away — was correct, and one grep of the transcript for the
+command that made the commit would have found it first. I also had to be told by
+my own data: the first sweep left 495 "misses" where nothing had been cut, and
+chasing those is what surfaced that 71 shas were from other repos entirely (the
+auto-memory git dir, scratch repos) where no hook is installed.
+
+### The fix — OPP-007, and deliberately not teeth
+
+`scripts/commit-advisory-postuse.py`, a `PostToolUse` hook on `Bash`: on a command
+containing `git commit` whose output carries git's summary line, re-run
+`commit-scope-report.sh --commit <sha>` and `pattern-check.py --commit <sha>` and
+deliver via `hookSpecificOutput.additionalContext` — out of band, where no pipe in
+the session's own command can reach it. `commit-scope-report.sh` gained the
+`--commit <sha>` mode `pattern-check.py` already had (by then the index is clean);
+staged mode re-controlled and unchanged.
+
+- **No git hook can fix this**: `post-commit` output also lands before git's
+  summary (verified in the scratch repo), so the same `tail -3` eats it.
+- **`additionalContext` on stdout, exit 0.** stderr + exit 0 reaches nobody —
+  `scripts/memory-index.py` was wired that way and was mute for six days.
+- **Controls on the hook itself**: positive (the real `5c7b115c5` payload
+  reproduces both blocks); negatives (non-commit Bash call → silent; output that
+  already carried the scope block → scope dropped, pattern-check still emitted;
+  a sha from another repo → silent; a failed commit with no summary line →
+  silent; malformed payload → silent).
+
+**And it is NOT an argument for making OPP-006 blocking — it is the opposite.**
+The evidence that read as "the gate is being ignored" was an artefact of a pipe.
+`pattern-check.py`'s standing argument against blocking on a shared tree is
+untouched. The honest next test is OPP-007's verify-later: if delivery rises and
+the watcher's missing-row count does *not* fall, then delivery was never the
+binding constraint and enforcement reopens on real evidence.
+
+Filed: `FINDINGS_2026-08-11_advisory_delivery.md`, `RUNBOOK` §B11, register OPP-007
+(+ the dated answer written back onto OPP-006's verify-later), and a fleet-wide
+`LANDMINES.md` entry synced to `doc_notes` (6 footprint rows, verified in the DB).

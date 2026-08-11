@@ -8824,6 +8824,7 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **fires when:** you verify a landmine entry, read a landmine verdict, or run any code-index lookup for a symbol added recently. `analyse_repo_local` fetches `tarball/<REF>` — the **remote tip** — so the corpus reflects the last **pushed** commit. This tree commits far more often than it pushes: measured 2026-08-11, the index sat at `5a68d6caf` while the working tree was **246 commits and 88 changed `.go` files** ahead (it was 228 ninety minutes earlier — the gap grows while you read it).
 - **the tell: there is none, and the caveat actively points the wrong way.** The lookup's evidence line reports the **extension** census and the **kind** census (`bugs_open/223` phase 1) and says **nothing about staleness**. Handed 0 rows plus a caveat listing only kinds and extensions, a model reaches for a kind or extension explanation, because those are the only two it has. Observed verbatim on 2026-08-11: asked about `ValueDef`, the verifier said it was "of kinds not indexed" — **false**, `ValueDef` is a `struct`, and its three siblings from the same file (`FileInfo`, `FuncDef`, `TypeDef` in `internal/analysis/types.go`) were all indexed at that moment. It was absent because the commit that added it had not been pushed. This is `bugs_open/223`'s own failure mode one level up: 223 was "the index cannot represent this KIND and invents a rename"; this is "the index has not seen this COMMIT and invents a kind".
 - **the self-reinforcing part, which is why it bites the careful session hardest:** you write a landmine right after making the change, its footprint names the symbols you just added, and those are precisely the symbols least likely to have been pushed. **The verifier is systematically blindest on exactly the entries most likely to be dispatched.**
+- > **⚠ CORRECTED 2026-08-11 (same lane, after the 090 round `520b2f7e` and an `llm_call_log` prompt census): "the caveat actively points the wrong way … those are the only two it has" overstated it.** The lookup DOES state the indexed commit, ref, commit age and "local unpushed work is never visible" on every run (`freshnessBanner`, shipped `87d0bcf97`, `bugs_closed/108` defect A) — and that text WAS in all four `verify` prompts in the window (`prompt_rendered LIKE '%never visible%'` → t). Two things remain true and are the real mechanism: (1) the STALE branch is clock-gated at 48h, so at 17h of wall-clock age the calm FRESH variant rendered while the index was 246 commits behind the tree — commit-DISTANCE staleness is invisible to the pod; (2) the model quoted the vocabulary rendered AT the empty answer (the kind census) and talked past the header caveat a screen above — the distinction did not travel WITH the data. So the fix is answer-site vocabulary, not another banner; the check below is unchanged and remains the only reliable guard for a reader.
 - **the check, two commands:** ask the index what it is, and diff it against what you are looking at. `SELECT DISTINCT commit_sha, ref, max(commit_time) OVER () FROM code_symbols;` then `git rev-list --count <that_sha>..HEAD` and `git diff --name-only <that_sha>..HEAD -- '*.go' | wc -l`. If your symbol was added inside that window, a 0-row answer is **your** staleness, not the code's. Confirm the direct way — `git log -S'<symbol>' --oneline | tail -1` gives the commit that introduced it; `git merge-base --is-ancestor <that> <index_sha>` answers whether the index could possibly hold it.
 - **do NOT reach for `git rev-parse origin/<branch>`** to find the pushed tip: it reads the local remote-tracking cache and is only as fresh as your last fetch. `git ls-remote origin <branch>` asks the remote.
 - **relations:** `bugs_closed/108` (index FRESH while 667 commits behind — **its fix works and this is not a regression of it**: the pin to the live working branch is correct and the refresh runs; this is the residual, that "current with the branch" and "current with the code" are different claims on a tree where commits outpace pushes), `bugs_open/223` phase 1 (the caveat that reports kinds and extensions but not commits), the receiver-qualified-method landmine (a *third* way to get 0 rows for code that exists — check all three before concluding absence)
@@ -9144,3 +9145,41 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **source:** bugfix 122 lane, `NOTES_contrast_ink_slots.md` 2026-08-11 evening entry;
   migration `389` parked 226 `contrast_failure` rows to buy the eligibility this then spent
 - **added:** 2026-08-11, bugfix 122 lane
+
+### `git commit … | tail -N` throws away every pre-commit advisory — the scope report, all 17 pattern checks, and the architecture signal
+- **footprint:** `git commit`, `.githooks/pre-commit`, `scripts/commit-scope-report.sh`,
+  `scripts/pattern-check.py`, `scripts/commit-advisory-postuse.py`, `.claude/settings.json`
+
+- **the trap:** the pre-commit hook prints **first**; git prints its `[branch sha] subject`
+  and `N files changed` summary **last**. So `git commit <paths> -m "…" 2>&1 | tail -5` —
+  the near-universal house form — keeps exactly what you asked for and silently discards
+  the commit-scope report (the estate's main defence against committing another session's
+  work), every `pattern-check.py` finding, and the architecture RFC-trigger signal
+- **why the wrong result looks exactly like the right one:** the **commit-msg** hook's
+  output prints later and therefore survives, so the council-trailer nudge arrives on cue
+  and the hook machinery reads as alive and quiet. "No warnings" and "warnings cut off
+  above the window" are indistinguishable at the tool result
+- **it is not rare and it is not one lane:** measured 2026-08-11 over every commit made
+  through the tool since the report shipped — **1,199 of 2,669 multi-file commits (45%)
+  never delivered the block; 1,137 of those misses (95%) were the `| tail`; 258 distinct
+  sessions**. Misses cluster at `tail -N` ≤ 8 (median 5); commits that delivered despite a
+  pipe cluster at N > 8. `scripts/advisory-delivery-sweep.py`
+- **the check:** you no longer have to remember — **OPP-007**
+  (`scripts/commit-advisory-postuse.py`, a `PostToolUse` hook wired in
+  `.claude/settings.json`) re-runs both scripts against the new sha and delivers the result
+  out of band, where no pipe of yours can reach it. If you have disabled hooks or are
+  outside this repo, read it back yourself:
+  `scripts/commit-scope-report.sh --commit <sha>; scripts/pattern-check.py --commit <sha>`.
+  Widening the pipe works too (`| tail -30`), but do not rely on remembering it
+- **do NOT "fix" this by moving the advisory to a `post-commit` hook** — verified in a
+  scratch repo: `post-commit` output also lands *before* git's summary, so the same
+  `tail -3` eats it. Leaving the command's stdout altogether is the only escape
+- **the general shape, worth more than this instance:** a check is only as good as its
+  delivery, and delivery is a property of *how the caller invokes the command*, not of the
+  check. Measure at the reader, never at the detector. The sibling trap one layer over: a
+  `PostToolUse` hook that writes to **stderr** and exits 0 reaches nobody while looking
+  armed (`scripts/memory-index.py`, mute for six days)
+- **source:** `docs026_concept_register/FINDINGS_2026-08-11_advisory_delivery.md`; register
+  OPP-007; the motivating case is OPP-006's first live miss (`5c7b115c5`, `tail -8`,
+  recorded stdout exactly 8 lines)
+- **added:** 2026-08-11, concept-register lane

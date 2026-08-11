@@ -331,6 +331,34 @@ gotcha is attached rather than left in somebody's scrollback.
   That diff is how the "redeploy owed" note from 08-09 was found to be already
   settled — assumed stale for a day, byte-identical in fact.
 
+## B11. Did the pre-commit advisory actually REACH the session? (added 2026-08-11)
+
+The question OPP-006's verify-later could not answer from inside the register:
+when the gate fires, does anyone see it? Measured from the harness transcripts,
+not from git.
+
+```bash
+scripts/advisory-delivery-sweep.py                     # ~5s over 1.4 GB
+scripts/advisory-delivery-sweep.py --since 2026-08-12  # after OPP-007 landed
+```
+
+Gotchas, all of which cost a wrong number first:
+
+- **Count multi-file commits only.** `commit-scope-report.sh` exits silently at
+  `[ "$n" -le 1 ]`, so single-file commits are misses that were never due —
+  including them invents ~2,600 of them.
+- **Require the sha to resolve in THIS repo.** Sessions commit into the
+  auto-memory git dir and scratch repos through the same tool. Those have no
+  hooks, and they show up as unexplained misses: 495 of them, until filtered.
+- **Bound the window at 2026-07-18 17:22** (`eae296850`, the scope report's own
+  commit). Before that there was no block to miss.
+- **Read the CONTROL the script prints**, which is the only reason to believe the
+  headline: misses must cluster at `tail -N` ≤ 8 and deliveries at N > 8. If that
+  separation goes, the cause has changed — re-derive it, do not re-quote the 45%.
+- **The blocks live at the HEAD of the output and git's summary at the TAIL.**
+  That asymmetry is the whole defect, and it is also why the commit-msg council
+  nudge survives and makes the machinery look alive.
+
 ## C. What you should expect the agent to do (so you don't have to)
 - All verification, corrections, and register edits — grep/find/read against
   the live repo, never assuming a doc claim without checking.

@@ -724,3 +724,62 @@ What is still open is the other three-quarters of the staleness picture, none of
 which a new build touches: eighty entries citing a platform version fifty or more
 rebuilds old, ninety-six citations pointing at deleted files, and a hundred and
 fifty-six pointing at bugs that have moved.
+
+---
+
+**2026-08-11 (evening) — the check we shipped yesterday was working perfectly and
+nobody could hear it.**
+
+Yesterday I left a note at the top of the handoff saying the new commit-time check
+had fired within three hours of going in, and had been ignored — an entry went into
+the register with no index row anyway. I also said the first thing to work out was
+*which* kind of failure that was: did that session never see the warning, or see it
+and decide the row could wait? Those need opposite fixes, and I didn't think
+anything on record could tell them apart.
+
+Something could. Every session on this machine keeps a transcript of what it ran and
+what came back, and I had never thought to look in one. The commit in question ended
+with `| tail -8` — a perfectly ordinary way to trim a noisy command down to the bit
+you care about — and what came back was exactly eight lines long. The warning had
+been printed and thrown away before anyone could read it. Nobody ignored anything.
+
+Then it got worse, in the useful way. The pre-commit warnings print *first* and
+git's own "here is your commit" summary prints *last*, so trimming to the last few
+lines keeps the receipt and discards the warning, every single time. I swept every
+commit made through the tool since we added the scope report on 18 July: **of 2,669
+commits touching more than one file, 1,199 — forty-five per cent — never showed the
+session a word of it. Ninety-five per cent of those were cut by the session's own
+`tail`, across 258 different sessions.** This was never one lane's bad habit.
+
+And it was not only my register check going missing. The same trimming removes the
+"commit scope" block, which is the main thing standing between us and one session
+quietly committing another's half-finished work — the exact problem that whole
+section of CLAUDE.md exists for — plus all seventeen of the automated code checks,
+plus the architecture warning. All computed correctly, all binned. The one hook that
+*did* survive is the council-trailer nudge, purely because it prints later, which is
+why everything has looked healthy and quiet from the outside.
+
+The fix is in and it is small: after any commit, a hook re-runs those two reports
+against the commit that was just made and hands the result to the session directly,
+outside the command's output, where no amount of trimming can reach it. I checked
+that no ordinary git hook could do this — I tried the obvious one in a scratch
+repository and its output gets cut by the same trim.
+
+One thing I want to be straight about, because it cuts against what I wrote
+yesterday. My note said this looked like the check being ignored and that we should
+watch for a week before anyone argued for giving it teeth. **That reading was wrong,
+and the argument for teeth is now weaker, not stronger.** The evidence that looked
+like people ignoring a warning was an artefact of a pipe. Nothing here says a
+blocking check is needed; it says we were measuring the wrong thing.
+
+I also got the diagnosis wrong on the first pass, which is worth recording. My first
+theory was elegant — that our own house rule for committing (naming files explicitly)
+was hiding those files from the checks. It took about a minute in a scratch
+repository to prove that git handles it properly and my theory was false. The real
+cause was duller and was sitting in plain sight in the command itself. I went for the
+interesting explanation before I read what had actually been typed.
+
+Still open, and untouched by any of this: the other three-quarters of the staleness
+picture from yesterday — eighty entries citing a platform version fifty or more
+rebuilds old, ninety-six citations pointing at deleted files, a hundred and
+fifty-six pointing at bugs that have moved.
