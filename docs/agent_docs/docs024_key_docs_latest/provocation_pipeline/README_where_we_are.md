@@ -1098,3 +1098,46 @@ written procedure for what happens when somebody uses it. Its default is to take
 page down first and work it out afterwards, because a round is one anonymous person's
 argument on a debate toy and it is worth almost nothing to us next to what it might
 cost the person named in it.
+
+---
+
+## 2026-08-11, afternoon — you were right, and it is worse than one bad provocation
+
+You said today's piece was almost unreadable. Before changing anything I measured every
+provocation we have approved — all twenty-eight — and the result was not what I expected.
+
+The ones a session wrote and the ones the machine wrote are **the same difficulty**. If
+anything the machine's are slightly worse, and the single hardest thing in the whole
+pool is one it wrote, averaging thirty-four words a sentence. Today's piece is not
+unusual. It is about eighth worst. **This is how everything here is written**, so
+throwing out one entry would have fixed nothing.
+
+Then I found why it was getting worse rather than better. The machine is shown three
+real published provocations as its example of good writing, and it picks the three most
+recently dated. Today that meant it was being shown **the worst-written thing we have**
+and told to write like it. Every round's output becomes the next round's example. I
+built that yesterday, and I built it pointing the wrong way.
+
+It now picks the plainest, and anything that fails the new standard is not allowed to be
+an example at all.
+
+I have also added a check that measures sentence length and word length on every
+candidate. That part is just arithmetic — no judgement, nothing to drift. It records for
+now rather than rejecting, because **every single provocation we currently have would
+fail it**, and switching it on today would mean the machine rejects everything it writes
+and the site runs dry.
+
+**One thing you should know, because it limits what any of this can do.** You said the
+example I showed you was still too dense and you did not fully understand it — *"The
+dashboard is not an input to the decision. It is the receipt."* Its sentences are short
+and every word is ordinary. What makes it hard is that it is a riddle: you have to work
+out what a receipt has to do with anything. **No word-counting finds that.** I have told
+the writer in plain terms to stop doing it — say the thing, do not imply it, no
+metaphors the reader has to decode — but that instruction is a request, not a
+measurement, and I cannot prove it worked except by you reading the results.
+
+You said to change the booked ones if necessary. I have not touched them yet, and that
+is deliberate: none of this is running until the next rebuild, so regenerating now would
+just produce more of the same. Once it is live I will run it, show you what comes out,
+and then we throw out as much of the old schedule as you want. Retiring a booked one
+frees its date, so there will be no gaps — except today's, which is already out.
