@@ -3564,8 +3564,36 @@ and `go test ./platform/orchestration/actions/...` both clean (whole package, no
 file's tests — `go vet`'s one warning is pre-existing, in an unrelated file).
 
 **Round 3 submitted** on the same correlation: `RESUBMIT_CORR=310dee45-ab34-4246-a69b-
-ab2df818a80f`, run orchestration `2dfa8900-f956-4172-9454-a07466be5125`. Verdict not yet
-read — next session should check it before doing anything else with this file.
-Submission JSON kept in the session scratchpad, not the repo (nothing durable in it that
-NOTES doesn't already carry). Commit: pending, `Council-Submitted: 310dee45-ab34-4246-a69b-
-ab2df818a80f` trailer, pathspec'd to just the two touched files.
+ab2df818a80f`, run orchestration `2dfa8900-f956-4172-9454-a07466be5125`. Committed
+(`786bc6759` code+test+NOTES, `95f00fac3` gofmt follow-up, `f4ba12694` README) with
+`Council-Submitted:` — not `Council-Reviewed:`, since the verdict had not landed yet.
+
+**Verdict read same session, ~90 min later: APPROVED.** `council_decide`: `round:1,
+decision: approved, reviewers:13, abstained:4, decided_by: "approved with 1 advisory
+objection(s) — none high-severity"`. All three round-2 objectors now approve —
+`prior_art_librarian` included, confirming the cadence correction landed as intended.
+**One new, non-gating objection from `editquality` (medium)**, worth recording because it
+is a real check, just one that resolves cleanly: it flagged the standing landmine on
+`log_action_error.go` ("`LogActionEntry`'s merge can silently overwrite an explicit field
+with an inherited one, and package tests stay green") and asked whether my explicit
+`Action`/`ErrorCode`/`Severity`/`Context` fields survive `LogActionEntryInheritingProvenance`
+unclobbered. **Checked, not just asserted**: `inheritJoinIdentity` (log_action_error.go
+:148-161) only ever touches `WorkItemID/OrchestrationID/AgentID/PodName`, each behind an
+`entry.X == ""` guard; `resolveProvenance`'s inherit branch only ever touches
+`AgentType/StepName`, same guard shape. Neither function's inherited set includes
+`Action`, `ErrorCode`, `Severity`, or `Context` — so the landmine's failure shape cannot
+reach this call site. The objection was reasonable to raise (the landmine says exactly
+"tests stay green even when this goes wrong", so a reviewer SHOULD ask rather than trust
+the passing test) and is now closed by reading the two functions, not by the test alone.
+
+No commit needed for the trailer: `Council-Submitted:` was already on `786bc6759`, and
+`098` resolves it to reviewed automatically now the correlation is approved (forward-only
+— no amend). **bugs_open/243, all three candidates, is now done: c1 proven, c2 wrapper
+proven, c3 built + council-approved.** What is left is NOT a defect in this feature — it
+is the gap `prior_art_librarian`'s round-2 objection surfaced honestly: `vision_finding`
+has no automated revalidator, so a filed finding never self-closes even once the
+underlying page is fixed (compare the 6 types `reviewRevalidators` already covers). That
+is real design work — spun into its own pre-plan handoff so a fresh thread can plan it
+without inheriting this lane's whole context:
+`docs/agent_docs/docs024_key_docs_latest/vision_finding_revalidator/HANDOFF_2026-08-11_pre_plan.md`.
+Not claimed by this lane; if this lane picks it up later, check who owns it first.
