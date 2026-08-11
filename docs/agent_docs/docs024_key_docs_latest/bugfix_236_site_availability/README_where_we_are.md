@@ -147,3 +147,66 @@ The second decision is simply whether to spend on the review round now that the
 API works. It is ten reviewers and about half an hour. My recommendation is yes:
 this code is live on every site, and it went in without review through no fault of
 the process.
+
+## 2026-08-11, late morning — we broke a site on purpose, and the alarm worked
+
+Both things you decided are done, and both worked.
+
+**The review council approved it.** I re-sent the submission at five to eleven and
+the verdict came back seventeen minutes later: approved, with six advisory comments and none
+of them serious. Eight reviewers looked at it. Four of them raised something worth
+recording rather than fixing, and I want to be straight about two in particular,
+because they are criticisms of how this work reached production rather than of the
+work itself.
+
+The first is that when I committed this code, the shared test file it touches was
+already broken by another thread's change, and I fixed their entry alongside mine
+in the same commit. Two reviewers independently said that was wrong — it makes this
+lane the author of another lane's decision, and if that thread later wants
+something different, the history is tangled. They are right, and it cannot be
+undone now, so I have written it down where the other thread will find it. The
+second is a fair architectural question: we now have two separate mechanisms
+asking "can this thing be reached", one for the sites on virtual machines and this
+new one for everything else, and a reviewer asked why they were not merged into
+one. That is a genuine design decision rather than a defect, and I have left it as
+an open question for whoever owns that area rather than quietly deciding it.
+
+**Then the drills.** The safe one first: I put one of the spare placeholder sites
+temporarily into scope, and within one cycle the checker noticed it could not be
+reached and raised exactly the flag it was supposed to — right priority, right
+severity, marked as something no automated agent can fix. I put it back and
+cancelled the flag with a note saying it was a drill.
+
+Then the real one. **I deleted cookly.uk's routing at 11:08 this morning and put it back 90
+seconds later.** During that window the checker noticed the site was gone and
+raised the alarm; once the routing was restored, the next check found the site
+serving normally again and **closed its own alarm, with nobody touching it.** The
+site was fully back within about two and a half minutes and is serving normally
+now. I timed the deletion to land just before the checker's next sweep so the
+outage was as short as it could be, and the script had three separate safety nets
+to put the routing back even if it crashed.
+
+**One thing we learned that we did not know.** When the routing disappears, the
+site does not fail quickly with an error — it **hangs**, and the visitor sits there
+until their browser gives up. Our checker waits fifteen seconds before giving up,
+which turned out to be exactly what was needed; a shorter wait might have missed
+this kind of failure entirely. That was a guess when the code was written and it is
+now a measurement.
+
+**And one near-miss worth telling you about, because it is the interesting one.**
+Looking at the first drill's results, the timestamps said the alarm had been raised
+1.4 seconds into a check that cannot honestly raise one in under 5 seconds — because
+it deliberately checks twice, five seconds apart, so that a momentary blip never
+raises a site-wide alarm. I was about to report that this safety feature was not
+working in production. It was working. The timestamp on these records is the moment
+the database transaction opened, not the moment the alarm was written — so every
+one of these records looks earlier than it is. The thing that caught it was
+comparing how long the whole run took: seven and a half seconds against under two
+for a normal healthy check. That five-second gap is the safety pause, doing its
+job. I have written this up as a trap for whoever looks next, because the wrong
+version of that conclusion would have been a confident, false bug report about a
+safety feature.
+
+So: the bug that started this is now genuinely closed in substance. The alarm is
+installed, wired, reviewed, and — as of this morning — proven to ring and proven to
+stop ringing by itself.

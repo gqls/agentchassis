@@ -13,6 +13,40 @@ green.
 scheduled task, discovery check, or open work item; all 21 deployed sites probed
 — 21/21 serve 200 today, so the class is live and currently quiet.
 
+> ### STATUS 2026-08-11 10:15Z — candidate 1 is **FIXED, LIVE, DRILL-PROVEN AND COUNCIL-APPROVED**
+>
+> **Superseding every banner below.** The gap this bug was filed about is closed:
+> the platform now asks "if a stranger types the address, do they get the site?"
+> every ~4 hours for every serving site, and — as of this morning — that alarm is
+> proven to RING and proven to CLEAR ITSELF, in production, not only in tests.
+>
+> - **Healthy path:** two full rotations over all **22** eligible sites
+>   (21 `deployed` + 1 `active`), 0 items, correct — 2026-08-10 22:03Z→23:50Z and
+>   2026-08-11 06:07Z→08:03Z, on chassis v1.0.1283 then v1.0.1284 (re-greped after
+>   the second roll, both replicas, invented negative control at 0).
+> - **Filing proven twice, two different mechanisms.** (a) `pool-web-tech.internal`
+>   flipped into scope for one tick → `transport_error` (DNS `no such host`), one
+>   item of exactly the designed shape, reverted and cancelled with provenance.
+>   (b) **`cookly.uk`'s worker route DELETED for 90 seconds** → item filed
+>   10:09:41Z, `transport_error`, `context deadline exceeded`.
+> - **Self-clear proven.** Route restored → next probe 10:15:11Z returned
+>   `items_resolved: 1`; the item went `detected` → `complete` untouched by a human.
+> - **Council APPROVED** `7177fb02` at 10:11:07Z (6 advisory objections, none
+>   high-severity, 2 abstained). Two stand unfixed on purpose and are recorded in
+>   IMP-053: a shared-test passenger this lane committed for another lane, and an
+>   open design question about unifying with `backend_unreachable`.
+> - **Finding that changes what this bug taught us:** deleting the route does NOT
+>   fast-fail with 522 — the apex **HANGS** past the probe's 15s timeout. A
+>   short-timeout checker could have missed this class entirely. Both edges of a
+>   route change also lag (200 for ~30s after DELETE, 522 for ~18s after CREATE),
+>   which is why a single `curl` is not a verification. Both are in `LANDMINES.md`.
+>
+> **This file stays in `bugs_open/` per the owner ruling of 2026-08-06** (a finished
+> bug stays put). Candidate 2 (zone/route conformance) remains with
+> `domains_cloudflare_rollout` and is NOT closed by this. Candidate 3 not taken.
+> Evidence: `docs024_key_docs_latest/bugfix_236_site_availability/NOTES` entry
+> 2026-08-11 09:55–10:15Z.
+
 > ### STATUS 2026-08-10 22:15Z — candidate 1 is **LIVE AND RUNNING**; the drill is what remains
 >
 > **Superseding the banner below**, which was written before the roll.

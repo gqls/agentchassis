@@ -167,7 +167,22 @@
   `[UNMEASURED]` figure wearing a measured one's clothes, and it would have sent
   the next session hunting a scheduler bug that does not exist.
 
-## 2026-08-11 09:26–10:30Z — the rotation has drained twice, and the cap has lifted
+## 2026-08-11 09:26–09:55Z — the rotation has drained twice, and the cap has lifted
+
+> **CORRECTED 2026-08-11 09:58Z, same session, before anything was built on it:**
+> this heading first read `09:26–10:30Z` and the DiskPressure bullet below first
+> claimed the node condition cleared "by 10:29Z". Both were **BST wall-clock
+> pasted into a Z-labelled timeline** — `kubectl describe` prints local
+> (`+0100`), and I carried its figures across without converting. The real window
+> is an hour earlier and, more to the point, the DiskPressure recovery was **two
+> minutes, not one hour** (09:27Z observed True → 09:28:41Z transition to False).
+> "Cleared within two minutes" and "cleared within the hour" are different claims
+> about how healthy that node is. **What caught it:** putting `now()` in the same
+> SELECT as the drill's own timestamps — the DB said 09:54Z while I was writing
+> "10:30Z". That is the identical check the 08-10 22:15Z near-miss below already
+> named, one entry up in this same file, and I still walked into it from the
+> other direction (that time an estimate, this time a unit). Logged in
+> WRONG_CALLS.md.
 
 - **Full-fleet coverage, twice over, 0 items.** `[MEASURED 2026-08-11 09:26Z]`
   22 rows in `site_discovery_rotation` for `availability-discovery-agent`
@@ -184,10 +199,14 @@
   else's build, and nothing in it knows about this lane.
 - **A third chassis pod (`-7w2ch`) was Evicted at that roll** — `Pod was rejected:
   The node had condition: [DiskPressure]`. Not this lane's, and **transient**: at
-  09:27Z two of five nodes reported `DiskPressure=True`; by 10:29Z all five report
-  `False`, self-cleared. Recorded because reading it at 09:27 alone would have made
+  09:27Z two of five nodes reported `DiskPressure=True`; by **09:28:41Z** (the
+  condition's own `lastTransitionTime`, converted from the `+0100` that `describe`
+  prints) all five report `False`, self-cleared — **~2 minutes, and ~5 minutes
+  after the eviction**. Recorded because reading it at 09:27 alone would have made
   a passing node event look like a standing fleet condition — the same
-  one-instant-reading error as the 22:15Z near-miss below it in this file.
+  one-instant-reading error as the 22:15Z near-miss above it in this file.
+  ⚠ This bullet first said "by 10:29Z" — see the correction banner at the head of
+  this entry.
 - **THE ANTHROPIC CAP HAS LIFTED — the council round is unblocked.**
   `[MEASURED 2026-08-11 09:26Z]` `llm_call_log` over 12h: 117 successes at 22:00Z
   on 08-10, then 5 at 02:00Z, 1 at 03:00Z, 8 at 08:00Z, all `success=t`. The only
@@ -239,3 +258,120 @@
   UNVERIFIED** `[UNMEASURED]` — the only way to find out is to attempt it, and a
   403 is harmless. Do not assume the route drill is executable from this
   workstation until that returns 200.
+
+## 2026-08-11 09:55–10:15Z — THE DRILL RAN, BOTH HALVES, AND THE COUNCIL APPROVED
+
+The outstanding proof is closed. The check has now filed on a real failure and
+cleared itself on the recovery, **in production, twice, on two different failure
+mechanisms**. Owner chose "both drills, pool first" and "resubmit the council now".
+
+### Drill 1 — pool site, the filing path `[MEASURED]`
+
+- Armed 09:55:14Z: pre-stamped **four** other rotation agent types (see the miss
+  below), flipped `pool-web-tech.internal` to `active`, forced it to the front.
+- Tick 09:58:41Z → orchestration `18283ecd` COMPLETED, wall **7.64s**:
+  `items_inserted: 1`, findings carrying `reason: transport_error`,
+  `detail: dial tcp: lookup pool-web-tech.internal on 10.21.0.10:53: no such host`.
+- The item is **exactly** the designed shape: `severity high`, `priority 30`,
+  `handler_agent ''` (empty — alert-only), `status detected`, `source discovery`,
+  `pipeline build`, `item_key site_unreachable:8f02310c-…`.
+- Reverted 10:0xZ: site → `pool`, item → `cancelled` with a `drill`/`drill_note`
+  provenance pair written into its spec, and the five rotation rows deleted so the
+  table is as it was found. Fleet-wide open `site_unreachable`: back to 0.
+- **MISS in my own blast-radius table, caught before arming, not after.** I listed
+  three content rotations to pre-stamp. There is a **fourth** agent_type on that
+  table — `render-audit-agent` (`site-render-audit-rotation`, `369_*.sql`) — and it
+  is the only one of the four currently **ENABLED** (hourly, 7-day cooldown, same
+  `NULLS FIRST` order), so an unstamped pool site would have sorted FIRST and been
+  picked within the hour. The three I *had* listed are all `enabled=f`. **What
+  caught it:** reading `SELECT DISTINCT agent_type FROM site_discovery_rotation`
+  instead of trusting the grep of `346_site_discovery_rotation.sql` I had built the
+  table from. A grep over the file that CREATED the table cannot see a later file
+  that added a consumer to it.
+
+### Drill 2 — cookly.uk, the real thing, both halves `[MEASURED]`
+
+Scripted rather than typed, with the outage bounded four ways (timed to land ~25s
+before the tick, restore-on-detect, a hard 180s ceiling, and an EXIT trap).
+Script kept at `scratchpad/cookly_drill.sh`; the shape is in the RUNBOOK.
+
+| t (Z) | event |
+|---|---|
+| 10:08:46 | worker route `cookly.uk/*` DELETED — apex still answered **200** |
+| 10:09:41 | item FILED, `transport_error`, `Get "https://cookly.uk/": context deadline exceeded` |
+| 10:10:17 | route RESTORED (90s of downtime) — apex answered **522** |
+| ~10:11:00 | apex back to **200** (~18s of restore lag) |
+| 10:15:11 | next probe → `items_resolved: 1`, `findings: null` |
+| 10:15:12 | item `detected` → **`complete`**, self-cleared, no human touched it |
+
+- **The failure mode is not what the bug file assumed, and it matters.** Deleting
+  the route did not produce a fast 522 at the probe; it made the apex **HANG** past
+  the 15s timeout. The generous `siteProbeTimeout` (chosen for the ~19s-to-522
+  case) is doing real work — a 5s probe might have missed this class entirely.
+- **Both edges of a route change lag, in opposite directions.** 200 for ~30s after
+  a successful DELETE, 522 for ~18s after a successful CREATE. A single `curl`
+  either side reads as "the change failed". Logged as a LANDMINE.
+- **Before touching the live route I proved both API verbs on a throwaway pattern**
+  (`cookly.uk/__drill-probe-9f3a/*`, created then deleted, zone left with exactly
+  one route). The token turns out to permit worker-route read+write but NOT DNS
+  reads — so its scope was not guessable from its name, and discovering that with
+  the site already down would have been the bad version of this.
+
+### The trap that nearly became a false bug report
+
+The pool item's `created_at` was **1.43s** after its orchestration's `created_at` —
+but the check cannot honestly file sooner than ~5s in, because of the confirming
+second probe and its deliberate 5s wait. I was one step from writing "the
+confirm-before-filing guard is not running in production", which would have been a
+high-severity false claim about a guard whose entire job is not to cry wolf.
+- **It had run.** `run_discovery_checks` opens ONE transaction at
+  `discovery_checks.go:137` before the first check and commits at `:286`;
+  `site_work_items.created_at` defaults to `now()`, which is
+  **`transaction_timestamp()`** — frozen at BEGIN. So the item's timestamp is when
+  the RUN opened, not when the check filed.
+- **The disconfirming measurement:** orchestration wall time **7.64s** for the
+  unreachable run against **1.8s** for a healthy-path run of the same agent. The
+  ~5.8s delta *is* the retry, and had the guard been skipped the run would have
+  looked like the healthy one. Logged as a LANDMINE with `clock_timestamp()` as the
+  remedy.
+- **A second column is misleading for the same reason:** `created_by` is
+  `params.ExecutionContext.Sender.AgentType` (`:132`), which for a scheduled
+  dispatch is the scheduler — our items read **`generic`**, not
+  `availability-discovery-agent`. `spec->>'check'` is what names the producer.
+- **I could not settle this from the logs, and the reason is worth recording.**
+  The Warn `"site_unreachable: apex probe failed twice"` is unconditional on the
+  filing path, so its absence had to be my instrument. It was: `kubectl logs
+  --since=20m` on the pod that ran it (`processing_node` names it — don't guess)
+  returned a buffer spanning **20 SECONDS**, 10:02:39→10:02:59. The council seats'
+  DEBUG payload dumps rotate the chassis log in under a minute. **Positive control
+  that proved it:** the drill's own `orchestration_id` was equally absent from the
+  same buffer. Without that control the zero would have looked like evidence.
+
+### The council: APPROVED
+
+`7177fb02-…` resubmitted 09:54Z, verdict 10:11:07Z — **approved**, `decided_by`
+"approved with 6 advisory objection(s) — none high-severity", 2 abstained,
+`gated_by_truncation: false`. Seats: editquality `object`, reuse_agent `object`,
+tooling_provenance `object`, guardian `object`, bug_historian / guidelines /
+diagnosis_guardian / improvement_guardian `approve`. What they raised:
+- **tooling_provenance (medium): "no edit touches the registration list"** —
+  checkable, and **answered by fact**: `site_unreachable` is at
+  `discovery_checks_registration_test.go:78`, shipped in `79feb08e7`, and the check
+  self-registers via `init(){Register(...)}`. The seat was reviewing the 7-edit
+  plan, which predates that commit. Production settles it: the check ran and filed.
+- **guardian + editquality (medium, same target): the `verifier_coverage_test.go`
+  passenger.** Both objected that classifying another lane's `decision_regression`
+  in this lane's commit is cross-pipeline surface bleed, disclosed but not thereby
+  removed. **They are right and it is unfixable forward** — the commit has shipped
+  and forward-only forbids an amend. Recorded here and in the register so the
+  RFC_015 owner can see it was this lane, not theirs.
+- **reuse_agent (medium): why not generalise `check_backend_unreachable`** rather
+  than run two reachability mechanisms. A fair architectural question, explicitly
+  "not severe enough to block". Recorded as a `verify-later` on IMP-053 rather than
+  answered here — it is a design decision for the improvement-loop owner, and the
+  2026-07-29 ruling says an addition needs an RFC when it changes what a shared
+  mechanism GUARANTEES, which this does not.
+- **guardian (low)** wanted the DB state confirmed before accepting the "already
+  live" premise, and **guidelines (low)** noted the new agent has no declared
+  `input_contract`. The first is now moot (this entry is that confirmation); the
+  second is worth a look and is recorded as a follow-up, not a defect.
