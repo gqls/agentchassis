@@ -27569,3 +27569,46 @@ commit as the proof.
   Cf. `WRONG_CALLS` 2026-07-31 (`%spending limit%` returning 0 during a live outage): that one I
   avoided by copying the needle out of the error text, so the lesson transferred one level and not
   the next.
+
+---
+
+## 2026-08-11 — I shipped a trace that was a no-op in production, and it hid because the OTHER two traces worked
+
+**The claim.** `bugs_open/239`'s fix advertised three traces for a refused dispatch: a pod
+log line, a `failed` intake row, and a **FAILED `orchestration_states` row owned by the
+REQUESTED agent type** — the last being the concept-register SYS-014 fix shape, quoted as
+such in the bug file, in RFC_023 and in the council submission.
+
+**What was actually true.** `recordDispatchFailureState` guarded on `p.sqlDB`, which
+`NewMessageProcessor` populates **only if `DATABASE_URL` is set**. It is not set on the
+chassis pods (`env | grep -c '^DATABASE_URL=' → 0`). So the function returned early on
+every call and **that row has never been written in production**.
+
+**What caught it.** Running the post-roll verification instead of declaring victory on the
+pod-grep. The intake rows showed 5 of 5 refusals exactly as designed; the
+`orchestration_states` query beside them returned **zero rows**, and only because both
+queries were in the same check did the absence mean anything.
+
+**Why I didn't catch it earlier.** Two reasons, and the second is the general one.
+1. **My unit test constructed the processor with `sqlDB` set** — a shape production does
+   not have. The test exercised the function's logic perfectly and could never have failed
+   for the reason that mattered. A guard keyed on a field production never populates is
+   indistinguishable, in a test that populates it, from a guard that passes.
+2. **Two of the three traces worked.** The log line fired and the intake row was perfect,
+   so every surface I actually looked at said the fix was working. A partially-present set
+   of traces reads exactly like a complete one — there is no gap-shaped signal.
+
+**The cheap check.** When a fix promises N traces, **assert N of them, in one query, on the
+motivating case** — and build the fixture from the shape PRODUCTION has, not the shape the
+constructor allows. Concretely, for anything reaching for a DB handle in this codebase:
+`p.db` and `p.sqlDB` are not interchangeable, `p.sqlDB` is usually nil on the chassis, and
+`selectWorkflow` twelve lines away already carried the correct idiom
+(`db := p.db; if db == nil { db = p.sqlDB }`) — **I read that line while writing the
+function and did not apply it.**
+
+**Related shape, same session, worth naming:** I nearly reported a regression when no
+`generic`-owned orchestration appeared after the roll. It looked like the scheduler ticks
+had broken. They had not — those messages fire about once an hour, not once per tick, and I
+was comparing 24 minutes against an assumed cadence I had never measured. The check that
+settled it was counting the same population over the preceding hours, i.e. establishing the
+baseline BEFORE calling the post-change number anomalous.
