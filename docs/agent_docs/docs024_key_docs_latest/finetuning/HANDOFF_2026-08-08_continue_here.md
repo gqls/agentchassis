@@ -651,6 +651,26 @@ SELECT count(*) FROM model_lifecycle.evaluations;  -- 0
 **Zero artefacts and zero evaluations.** The registry that exists to record a
 trained adapter has never held one.
 
+> **⚠ CORRECTED 2026-08-11, same session, while planning the run: THE ARTEFACT
+> COUNT IS NOT EVIDENCE, and I should not have led with it.** `model_lifecycle.artefacts`
+> has **no writer anywhere** — it appears in exactly one file, its own DDL
+> (`working/flywheel_docs/019_model_lifecycle_schema.sql`). No Go code and no
+> agent config inserts into it (checked both spellings, and the seven agent
+> definitions matching "artefact" are unrelated prose). So `count(*) = 0` is what
+> that query returns **whether or not a run has ever succeeded** — it could not
+> have come out otherwise, which is the one property a measurement has to have.
+> Same for `evaluations`.
+>
+> **The conclusion stands, on the evidence that CAN discriminate**: the lone
+> `complete` row's NULL runtime/loss/cost/instance, the two sibling rows whose
+> `error_message` says "reconciled by hand", the decommissioned box, `run.sh` not
+> uploading at that date, and the notes' own "no run has reached RUN_SH_DONE
+> yet". Drop the artefact count from the argument and nothing else changes.
+>
+> **And it is a finding in its own right, bigger than the one it spoiled:** the
+> registry a pilot would hand a customer is **unwired**. A perfect run today
+> would still leave zero rows in it. That is now item 5 of the plan below.
+
 **The single `complete` row is not counter-evidence.** `1cd65dd7` (started
 06-03 18:29, "completed" 06-04 20:47) carries **NULL `train_runtime_s`, NULL
 `final_loss`, NULL `cost_usd`, NULL `thunder_instance_id`** — a status flip with

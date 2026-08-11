@@ -28361,7 +28361,40 @@ same day as this lane's own §8.4 item 5, which already said "anchor the pattern
 control" — the control was run and passed, because a control proves the pattern is live, never that
 the rows it returns are the rows you meant.
 
-**A near-miss on the way to finding it, worth its own line:** my first re-measurement used
+**2. WRONG CALL, same session, mine: I led an argument with a count from a table that has NO WRITER, so it could not have come out any other way.**
+Establishing whether the finetuning pilot has ever produced a trained adapter, I opened with
+`SELECT count(*) FROM model_lifecycle.artefacts` → **0**, and wrote it up as *"the registry that
+exists to record a trained adapter has never held one"* — the first and most prominent evidence in
+the handoff section. It reads like a decisive measurement.
+
+**Nothing anywhere writes that table.** It appears in exactly one file in the repo, its own DDL
+(`019_model_lifecycle_schema.sql`). No Go code, no agent config, both spellings checked. So `0` is
+what that query returns **whether or not a run has ever succeeded**. Same for `evaluations`.
+
+**What caught it:** planning the next step rather than defending the last one. Working out what
+Phase 4 would have to build, I went looking for the code that would insert the artefact row so I
+could describe changing it — and there wasn't any. The finding and the refutation were the same
+lookup, and I only did it because I had moved from *concluding* to *building*.
+
+**The cheap check:** before citing a zero, **ask what would have made it non-zero and go and find
+that writer.** One grep. If no code path can produce a row, the count is not evidence about the
+world — it is a fact about the schema. My own index has carried this rule since 08-03
+(*"a `[MEASURED]` figure is only evidence if the measurement could have come out otherwise"*) and I
+applied it carefully to three *other* measurements the same hour — I ran positive and negative
+controls on the image-reference scan, and re-derived a weak n=1 control rather than trust it. **The
+rule fired on the checks I was suspicious of, and not on the one I was pleased with.**
+
+**The shape:** *an empty table is ambiguous between "nothing happened" and "nothing records it",
+and the two readings differ in what you should do next* — the first says fix the pipeline, the
+second says the pipeline could succeed tomorrow and still show you nothing. The conclusion happened
+to survive on independent evidence (NULL metrics on the lone `complete` row, "reconciled by hand"
+error text, a decommissioned box, `run.sh` not uploading, and the lane's own notes). **It survived
+by luck of having other evidence, not by the reasoning being sound** — and the spoiled claim turned
+out to be a bigger finding than the one it was offered for: the registry a paying customer's result
+would live in is unwired.
+
+**A near-miss on the way to finding the CROSS-SITE error above (not the artefacts one), worth its
+own line:** my first re-measurement used
 `jsonb_each_text(content_data)` with `v LIKE '/assets/images/case-study-%'`, which reads only
 **top-level flat values** — a nested `{"image":{"url":…}}` renders as a JSON blob and never matches
 an anchored prefix. Its positive control returned **1**, and I nearly recorded that as the answer.
