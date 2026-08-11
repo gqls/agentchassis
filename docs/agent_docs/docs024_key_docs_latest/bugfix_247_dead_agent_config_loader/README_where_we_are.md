@@ -30,3 +30,17 @@ rather than pulling them into this change.
 
 Next: make the edit, build and test it, put it through the advisory review process, and
 commit.
+
+Update, same day: done. Made the deletion, ran the build and the full test suite (including
+a race-detector run, since a race was the whole point of the bug) — all clean. Sent it
+through the advisory review process; it came back approved unanimously on the first round,
+quickly, because the queue happened to be empty. Committed. The code change itself is small
+(a pure deletion, nothing added) and safe, because the only thing that changed is that some
+already-inert code is now gone rather than sitting there waiting to confuse the next person
+who goes looking in that area, or to become a real bug if something ever accidentally started
+calling it again.
+
+One thing still owed, not urgent: this kind of change only takes effect once the service gets
+rebuilt into a new image and rolled out, which hasn't happened yet. Until then the bug stays
+open on paper even though the fix is written and reviewed — that's a deliberate house rule
+here, not an oversight.

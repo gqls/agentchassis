@@ -112,3 +112,10 @@ workstream's NOTES file will record the post-roll proof.
 Also noted, deliberately out of scope for this commit: `sendSuccessResponseOLD` and
 `sendErrorResponseOLD` in `processor.go` are the same dead-`OLD`-twin class, zero callers,
 not named by this bug file. Worth a follow-up filing so the class gets swept.
+
+**Verdict: APPROVED, round 1, all reviewers, checked 2026-08-11 (~20 min after submission,
+queue was clear).** `metadata->>'decision'='approved'` on `diagnosis_artifacts` for
+`cf96f869-8b48-45fb-98bb-081b0f87df1c`; no objections. Per CLAUDE.md, no amend — the existing
+`Council-Submitted:` commit (`8cb8938bb`) is credited automatically by the `098` coverage
+report once it resolves this correlation. **Status: FIXED + APPROVED, not yet LIVE** — still
+needs an image build + roll before this file can move to `bugs_closed/`.
