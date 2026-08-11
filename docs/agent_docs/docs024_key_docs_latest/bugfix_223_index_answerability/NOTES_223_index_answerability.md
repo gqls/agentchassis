@@ -655,3 +655,56 @@ dispatch loop; the intake correlation joins to nothing. The symptom named the me
 pointed at the two doc_notes verdicts whose flip is the evidence; it asserted no counts and
 no consequences. Whatever the loop concludes gets read against the both-ways proof above —
 a REFUTED verdict would be a success too, and gets recorded visibly here and in LANDMINES.
+
+## 2026-08-11 ~18:30Z — the 090 came back, and it caught MY premise before I caught the bug's
+
+**Verdict: `UNVERIFIABLE` — "NOT CONFIRMED (stopped: scope-not-narrowing)"** (work item
+`3382da26`, completed 13:18Z). Not a cap-burn with no information: the loop's last
+hypothesis CONTRADICTED the symptom's premise, correctly. The file already contains a
+freshness mechanism — `codeIndexFreshness`/`freshnessBanner`/`mixedCommitNote`,
+`diagnose_code_lookup_action.go:111-193` — that names the indexed commit, its age, and
+(in its STALE branch) "every change since then is INVISIBLE below". It shipped in
+`87d0bcf97` (2026-07-28, `bugs_closed/108` defect A) and is in the deployed image
+(`merge-base --is-ancestor 87d0bcf97 c3b424c8e` → yes).
+
+> **CORRECTED 2026-08-11: the symptom I filed asserted "nothing in the lookup's caveat
+> says so" and "nothing reports the staleness". That was FALSE as stated.** The lookup
+> reports the indexed commit, ref, commit age, and the sentence "The index mirrors the
+> last pushed tip — local unpushed work is never visible." on EVERY run, in the header of
+> `results_text`. What caught it: the 090's own contradiction, then first-hand
+> measurement. The cheap check that would have caught it before filing: grep the action
+> file for `freshness`/`commit` before asserting "nothing states X" — the memory note on
+> UNVERIFIABLE verdicts prescribes exactly this and I did not do it. Logged in
+> `WRONG_CALLS.md` (2026-08-11).
+
+**The loop's named "still needed" was answered first-hand, with the query it prescribed
+(option b):** does the freshness text actually reach the verdict-forming prompt? YES —
+`llm_call_log`, all four `verify` calls in the window (09:55, 10:00 ×2, 10:19Z):
+`prompt_rendered LIKE '%index freshness%'` → **t** on all four; `'%never visible%'` → **t**
+on all four; `'%INVISIBLE below%'` (the STALE banner) → **f** on all four. The workflow
+config confirms the wiring: the `verify` and `verify_unverifiable` steps consume
+`results_text` (banner included); `persist_verdict` consumes `evidence_line` (no commit
+text). So the wiring theory is dead, and the surviving mechanism is sharper:
+
+1. **The banner's staleness judgement is CLOCK-gated (`codeIndexCommitStaleAfter = 48h`)
+   and staleness on this tree is COMMIT-DISTANCE, which the pod cannot measure.** At
+   10:00Z the indexed commit was ~17.5h old → the calm FRESH variant rendered — while the
+   index was 246 commits / 88 `.go` files behind the tree the questions were about. No
+   threshold fixes this: the incident happened at 17h.
+2. **The model quoted the vocabulary that sits AT the empty answer and talked past the
+   caveat that sits in the header.** Its wrong verdict used kind-census language ("of
+   kinds not indexed") — phase 1's own note, rendered beside the 0-row answer — while the
+   commit caveat, present in the same prompt but ~a screen above, went unused. This is
+   the file's own stated design rule (`codeIndexScope` doc comment: "the distinction has
+   to travel WITH the data") observed failing where the rule was not applied: freshness
+   travels as a header, kinds travel with the answer, and the answer-site vocabulary won.
+3. **The persisted `evidence_line` carries no commit at all**, so a doc_notes verdict
+   cannot be dated against the code after the run's inputs are gone.
+
+**Remedy, now implemented on exactly the seam the handoff predicted** (§0 item 1): thread
+the already-fetched `indexFreshness` into `codeIndexScope`, render an as-of note with
+every in-scope empty answer (commit, ref, commit date, "anything committed after this
+cannot appear here"), and put the commit into `codeEvidenceLine`. First-hand substitution
+for a CONFIRMED verdict is declared per the owner ruling of 2026-07-31: the loop ran,
+capped after refuting the premise, named the deciding check, and that check was run and
+is quoted above.

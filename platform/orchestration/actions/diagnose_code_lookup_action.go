@@ -114,7 +114,16 @@ type indexFreshness struct {
 // applies — a banner describing another corpus's freshness is not a guard).
 // Never fatal: an error degrades to an "unknown freshness" note (fail open) —
 // the guard must not break the lookup it qualifies.
-func codeIndexFreshness(ctx context.Context, db *sql.DB, repoFilter string) string {
+//
+// It also RETURNS the high-water mark it read, because the banner alone was
+// measured insufficient (090 round 520b2f7e, 2026-08-11): the banner stated the
+// indexed commit and "local unpushed work is never visible" in every verify
+// prompt of the motivating incident, and the verdict still explained an unpushed
+// symbol's absence as "of kinds not indexed" — the model used the vocabulary
+// rendered beside the empty answer and talked past the header. The caller
+// threads the struct into loadCodeIndexScope so the same fact can be restated
+// where the explanation is formed. One query either way; two renderings of it.
+func codeIndexFreshness(ctx context.Context, db *sql.DB, repoFilter string) (string, indexFreshness) {
 	var f indexFreshness
 	var ct sql.NullTime
 	f.err = db.QueryRowContext(ctx,
@@ -127,7 +136,7 @@ func codeIndexFreshness(ctx context.Context, db *sql.DB, repoFilter string) stri
 	if ct.Valid {
 		f.commitTime = ct.Time
 	}
-	return freshnessBanner(f, time.Now())
+	return freshnessBanner(f, time.Now()), f
 }
 
 // refClause names the indexed ref when it is recorded, so the banner can state
@@ -227,6 +236,14 @@ type codeIndexScope struct {
 	// which is the stale-status failure this file already carries scars from.
 	exts  map[string]int // ".go" → 5837; a path with no extension keys as "(none)"
 	kinds map[string]int // "func" → 3653; a kind never written has NO entry
+
+	// indexed is the high-water mark the freshness banner was computed from,
+	// threaded here (not re-queried — one read, one truth) so the answer-site
+	// renderings can date themselves. It is a loadCodeIndexScope PARAMETER
+	// rather than a field a caller may remember to set, because a forgotten
+	// assignment would silently degrade to "no as-of note", which is exactly
+	// the header-only state the 090 round proved insufficient.
+	indexed indexFreshness
 }
 
 // loadCodeIndexScope counts the searchable corpus. Two queries per action run.
@@ -243,8 +260,8 @@ type codeIndexScope struct {
 // the older guards depend on. Empty maps degrade to "representability unknown",
 // which the classifier treats as "do not claim unanswerable" (fail open: the
 // pre-223 wording, never a false NOT ANSWERABLE).
-func loadCodeIndexScope(ctx context.Context, db *sql.DB, repoFilter string) codeIndexScope {
-	var s codeIndexScope
+func loadCodeIndexScope(ctx context.Context, db *sql.DB, repoFilter string, indexed indexFreshness) codeIndexScope {
+	s := codeIndexScope{indexed: indexed}
 	s.err = db.QueryRowContext(ctx, `
 		SELECT count(*), count(body), count(DISTINCT COALESCE(commit_sha,'')) FROM code_symbols
 		WHERE ($1 = '' OR repo = $1)`, repoFilter).Scan(&s.total, &s.withBody, &s.commits)
@@ -419,23 +436,73 @@ func (s codeIndexScope) emptyAnswer(kind string) string {
 	if s.total == 0 {
 		return "  NOT ANSWERED: the index holds 0 symbols in scope — this is UNKNOWN, not absent.\n"
 	}
+	var base string
 	switch kind {
 	case "content":
 		if s.withBody == 0 {
-			return fmt.Sprintf("  answered: 0 rows — searched %d symbols, but NO source bodies are indexed, "+
+			base = fmt.Sprintf("  answered: 0 rows — searched %d symbols, but NO source bodies are indexed, "+
 				"so a string inside a function could not have matched. Treat as UNKNOWN, not absent.\n", s.total)
+			break
 		}
-		return fmt.Sprintf("  answered: 0 rows — searched the bodies and declarations of %d indexed symbols "+
+		base = fmt.Sprintf("  answered: 0 rows — searched the bodies and declarations of %d indexed symbols "+
 			"(%d with bodies). The query was RUN and found nothing; this is not an unanswered question.\n%s",
 			s.total, s.withBody, s.contentReachNote())
 	case "ls":
-		return fmt.Sprintf("  answered: 0 rows — no indexed path has that prefix, out of %d indexed symbols. "+
+		base = fmt.Sprintf("  answered: 0 rows — no indexed path has that prefix, out of %d indexed symbols. "+
 			"The query was RUN; this is not an unanswered question.\n", s.total)
 	default:
-		return fmt.Sprintf("  answered: 0 rows — searched the names of %d indexed symbols. "+
+		base = fmt.Sprintf("  answered: 0 rows — searched the names of %d indexed symbols. "+
 			"The query was RUN and matched none; this is not an unanswered question.\n%s",
 			s.total, s.missingKindNote())
 	}
+	return base + s.indexedAsOfNote()
+}
+
+// indexedAsOfNote dates an empty answer against the commit the index was built
+// from, so "not in this index" and "not in the code" stop rendering as the same
+// sentence.
+//
+// It exists because the freshness BANNER was measured insufficient on its own
+// (090 round 520b2f7e, 2026-08-11): the banner named the indexed commit and said
+// "local unpushed work is never visible" in the header of every verify prompt of
+// the motivating incident, and the verdict still explained an unpushed symbol's
+// absence as "of kinds not indexed" — quoting the kind census rendered beside
+// the empty answer while talking past the caveat a screen above it. The header
+// states the fact; this note is the same fact placed where the explanation is
+// formed, which is this type's own stated rule ("the distinction has to travel
+// WITH the data").
+//
+// Deliberately NOT gated on the banner's 48h clock: the motivating misverdict
+// happened at 17 hours of wall-clock age, because staleness on this tree is
+// commit DISTANCE, which this process cannot measure — the index mirrors the
+// last pushed tip, and only a reader with a checkout can diff against it. So the
+// note prints on every in-scope empty answer, dates itself absolutely, and
+// leaves the arithmetic to the reader, who knows when the target was written.
+func (s codeIndexScope) indexedAsOfNote() string {
+	f := s.indexed
+	if f.err != nil || f.updatedAt.IsZero() {
+		return "" // unreadable or empty index: the banner branches already shout this
+	}
+	if f.sha == "" {
+		return "  as-of: the indexed commit is UNRECORDED, so this answer cannot be dated against the code — " +
+			"if the target is newer than the index, this 0 is index staleness, not absence.\n"
+	}
+	return fmt.Sprintf("  as-of: this answer describes commit %s%s%s — the last PUSHED tip. Anything committed "+
+		"after that commit (in particular, ALL unpushed local work) cannot appear here however recent it is, so if "+
+		"the target postdates that commit, this 0 is INDEX STALENESS — not absence, not removal, not a rename.\n",
+		shortSHA(f.sha), refClause(f.ref), commitDateClause(f.commitTime))
+}
+
+// commitDateClause renders ", committed <absolute date+time>" for answer-site
+// and persisted prose. Absolute rather than an age: an age is true only at
+// render time, and the evidence line outlives the run in doc_notes. Minute
+// precision because the motivating case turned on a same-day gap (index at
+// 16:27, the missing symbol committed 23:13).
+func commitDateClause(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+	return ", committed " + t.UTC().Format("2006-01-02 15:04 UTC")
 }
 
 // contentReachNote qualifies a 0-row `content` answer with what the search could
@@ -692,10 +759,11 @@ func DiagnoseCodeLookupAction(ctx context.Context, params ActionParams) (interfa
 	// The read-time freshness guard (bugs_open/059): the header above SAYS to
 	// treat a stale answer as unknown, but until now nothing COMPUTED staleness,
 	// so a reader had no way to apply the rule. One query; loud when stale.
-	b.WriteString(codeIndexFreshness(ctx, params.DB, repoFilter))
+	banner, fresh := codeIndexFreshness(ctx, params.DB, repoFilter)
+	b.WriteString(banner)
 	// WHAT was searched, beside WHEN it was indexed. Freshness alone cannot say
 	// whether a `content` check could have matched at all.
-	scope := loadCodeIndexScope(ctx, params.DB, repoFilter)
+	scope := loadCodeIndexScope(ctx, params.DB, repoFilter, fresh)
 	b.WriteString(scope.bodyCoverageNote())
 	// And whether it is all ONE commit: the freshness line above names the newest
 	// indexed commit, which is not the whole story once a prune has been refused
@@ -781,6 +849,16 @@ func codeEvidenceLine(run, withRows, unanswerable int, scope codeIndexScope) str
 			fmt.Fprintf(&b, "; kinds with NO rows: %s", strings.Join(missing, ", "))
 		}
 		b.WriteString(".")
+	}
+	// The commit the answers describe, in the PERSISTED line — a doc_notes
+	// verdict read months later could not previously be dated against the code
+	// at all (090 round 520b2f7e: the index answered from a tip 246 commits
+	// behind the tree, and nothing the run persisted recorded which tip).
+	// Gated only on having read one: a failed freshness read loses this clause,
+	// not the line.
+	if f := scope.indexed; f.err == nil && !f.updatedAt.IsZero() && f.sha != "" {
+		fmt.Fprintf(&b, " Answers describe indexed commit %s%s%s — the last pushed tip, not the present tree.",
+			shortSHA(f.sha), refClause(f.ref), commitDateClause(f.commitTime))
 	}
 	b.WriteString("]")
 	return b.String()

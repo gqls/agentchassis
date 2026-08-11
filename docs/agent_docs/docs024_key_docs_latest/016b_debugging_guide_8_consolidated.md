@@ -5510,6 +5510,7 @@ See `/bugs_closed/README.md`.
 | 212 | **47 of 173** active unforked `content_components` redefine the `--section-*` tokens the renderer emits under its own contract *"Themes MUST NOT declare --section-* defaults; the renderer owns this"* — **32 with a raw rgb/rgba literal**. The component's scoped selector beats the renderer's `body` block, so the contrast-checked value loses to a constant. ~24 of the fleet's 109 contrast failures (gamesdesign 8 at 1.72:1, idea.uk 14, vonc 2) | **OPEN, filed 2026-08-06**. Deliberately NOT folded into 122's approved fix — an unenforced contract, not a missing variable. **Carries a decision that wants a human:** of four candidates the only class fix (raise the renderer block's specificity) is also the only one that can repaint a component that was RIGHT to override. No `090` run yet |
 | 218 | `checkPlaceholderPatterns` substring-matches prose placeholder patterns against the WHOLE artefact HTML — `<script>` included — so `[name` convicts `input[name=`, `fields[name]`, `([name, val])`; every hit a blocker. 3 convictions / 2 domains on 2026-08-05; on mortgagecalculator both killed tool recreations whose items read `complete` with 0 components (defect B: `validate_tool`'s live `error_step` sits inside `config` where `processor.go:433` never reads it, so the failure path discards the paid-for recreation) | **Defect A FIXED, committed `201350e23` (council `a9ffed15`), INERT until a post-`201350e23` roll.** Defect B open — needs a decision (restore seed's step-level routing vs make discard-runs unable to complete). §9 pattern: "a validator that scans the whole artefact for prose convicts the code in it" |
 | 248 | A CTA recompute **destroys an authored `/contact.html` link**: `applyCTARecompute`'s keep-it guard refuses every `areasExcludedFromCTA` destination (`{about,contact,privacy,terms,legal}`), and genuine contact copy ("Get in Touch" → `[touch]`) matches no candidate, so both branches decline and the positional pick overwrites. A fabricated and an authored `/contact.html` are **byte-identical** in `content_data` — no recogniser built on the value can separate them | **OPEN, filed 2026-08-10.** Reproduced mechanically (A/B against the package's own generic-label test, one variable changed). **24 CTAs fleet-wide in the vulnerable state.** Dormant only because the discovery/improvement schedulers are disabled — re-arms when they return. **Do NOT bulk-promote the `misdirected_cta` queue** (192 detected; `TriageDetectedItemsAction` promotes every row for a site with no type filter). Prior art: `bugs_closed/023:405-410` recorded the benign direction and closed without building the escape hatch it named |
+| 254 | Code-index answers describe the last **PUSHED** tip, and the commit vocabulary never reached the answer site — a verifier explained an unpushed symbol's absence as "of kinds not indexed" while the freshness banner sat, read but unused, in the same prompt's header. The STALE branch is clock-gated (48h) and the incident happened at 17h of wall-clock age with the index 246 commits behind the tree | **FIX BUILT + TESTED 2026-08-11, inert until the next chassis roll; stays in `bugs_open/` per owner 08-06.** `emptyAnswer` now appends an as-of note (commit, ref, absolute time) to every in-scope 0-row answer; `codeEvidenceLine` dates persisted verdicts. 090 `520b2f7e` capped UNVERIFIABLE after refuting the filed premise; settled first-hand with its own prescribed `llm_call_log` census (declared substitution per owner 07-31). See §9 "a caveat in the HEADER does not protect the ANSWER" |
 
 > **Index gap (noted 2026-07-19; partly closed 2026-07-20; re-measured 2026-07-26;
 > RE-MEASURED 2026-08-03).** This table is **materially behind** and a miss here is a
@@ -11773,3 +11774,37 @@ Transferable rules:
    Nothing in the code or the queue knows that. A defect whose blast radius is gated by a
    switch someone else can flip is not contained — and "we haven't seen damage" is
    evidence about the switch, not about the defect.
+
+### A caveat in the HEADER does not protect the ANSWER — the model explains a gap with whatever vocabulary is rendered beside it (`bugs_open/254`, 2026-08-11)
+
+Asked about an unpushed symbol, a verifier explained the 0-row answer as "of kinds
+not indexed" — while the very prompt it was reading stated the indexed commit and
+"local unpushed work is never visible" in its header. Measured, not assumed: all
+four `verify` prompts in the window carried the caveat
+(`llm_call_log.prompt_rendered` census), and the wrong verdict *quoted* the kind
+census that phase 1 of `bugs_open/223` renders beside the empty answer. The guard
+existed, was wired, was read — and lost to proximity.
+
+Transferable rules:
+
+1. **Place the caveat where the explanation is formed, not where the report
+   begins.** A model handed "0 rows" reaches for the vocabulary rendered at the
+   answer site; a header caveat a screen above competes with nothing and still
+   loses. If a qualifier must shape a conclusion, it must sit beside the data it
+   qualifies — restating it there costs one line and is not duplication, it is
+   delivery. (The same file had already written this rule for kinds and
+   extensions and not applied it to commits.)
+2. **A clock-gated staleness guard measures the wrong axis on a
+   commits-outpace-pushes tree.** `codeIndexCommitStaleAfter = 48h` rendered the
+   calm FRESH banner at 17h of wall-clock age while the index was 246 commits
+   behind the working tree. Wall-clock age and commit distance are independent;
+   the pod cannot measure distance (no checkout), so the fix is not a tighter
+   threshold — it is dating every answer absolutely and leaving the diff to the
+   reader who has a tree.
+3. **When a guard demonstrably failed, check whether it failed at COMPUTE, WIRE,
+   or READ before redesigning it.** The 090 round's candidate theories were
+   "never computed" and "computed but not concatenated"; both were false, provable
+   in one `llm_call_log` query. The failure was at READ — and the remedy for a
+   read failure (salience, placement) is different from the remedy for either of
+   the others. Redesigning the banner would have fixed a mechanism that was not
+   broken.

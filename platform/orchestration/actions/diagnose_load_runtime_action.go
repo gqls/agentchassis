@@ -482,14 +482,15 @@ func DiagnoseLoadRuntimeAction(ctx context.Context, params ActionParams) (interf
 		// index answers "absent" identically to a genuine absence, and the verdict
 		// prompt's cite-or-abstain acts on absence — so the answer must carry its
 		// own freshness, loudly when stale.
-		cb.WriteString(codeIndexFreshness(ctx, params.DB, ""))
+		codeBanner, codeFresh := codeIndexFreshness(ctx, params.DB, "")
+		cb.WriteString(codeBanner)
 		// And WHAT was searched, not only when it was indexed. This lane needs it
 		// at least as much as the council's: the verdict prompt's cite-or-abstain
 		// acts on absence, so "0 rows because bodies are not indexed" and "0 rows
 		// because the code does not do that" must not render identically. Same
 		// helper as diagnose_code_lookup — one judgement, not a sibling copy that
 		// drifts (016b §9).
-		codeScope := loadCodeIndexScope(ctx, params.DB, "")
+		codeScope := loadCodeIndexScope(ctx, params.DB, "", codeFresh)
 		cb.WriteString(codeScope.bodyCoverageNote())
 		// Same reason, same helper: once the write side may RETAIN rows rather than
 		// prune them (bugs_open/135), "the index is at commit X" stops being the

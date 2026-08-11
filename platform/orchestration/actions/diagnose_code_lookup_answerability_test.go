@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
 	"go.uber.org/zap"
@@ -558,5 +559,137 @@ func TestSeedConditionResolvesAgainstTheActionsReturnShape(t *testing.T) {
 	}
 	if met {
 		t.Fatal("an absent field must resolve FALSE, so an old binary keeps today's route")
+	}
+}
+
+// ── the staleness half: the indexed commit travels WITH the empty answer ─────
+//
+// 090 round 520b2f7e (2026-08-11): the freshness BANNER named the indexed commit
+// and said "local unpushed work is never visible" in the header of every verify
+// prompt of the motivating incident — measured in llm_call_log.prompt_rendered —
+// and the verdict still explained an unpushed symbol's absence as "of kinds not
+// indexed", quoting the kind census rendered beside the empty answer while
+// talking past the header. These tests hold down the remedy: the same fact,
+// restated where the explanation is formed, and carried into the persisted
+// evidence line so a doc_notes verdict can be dated against the code.
+
+// testFreshness mirrors the motivating incident: index at the pushed tip of
+// 2026-08-10 16:27 UTC while the missing symbol was committed 23:13 the same
+// day — which is why the note carries minute precision, not a date.
+func testFreshness() indexFreshness {
+	return indexFreshness{
+		sha: "5a68d6caf00d", ref: "087_towards_multiple_domains",
+		commitTime: time.Date(2026, 8, 10, 16, 27, 0, 0, time.UTC),
+		updatedAt:  time.Date(2026, 8, 11, 9, 0, 0, 0, time.UTC),
+	}
+}
+
+func datedScope() codeIndexScope {
+	s := liveShapedScope()
+	s.indexed = testFreshness()
+	return s
+}
+
+func TestIndexedAsOfNote(t *testing.T) {
+	got := datedScope().indexedAsOfNote()
+	for _, want := range []string{
+		"5a68d6ca", // shortSHA
+		"087_towards_multiple_domains",
+		"2026-08-10 16:27 UTC", // absolute, because an age is only true at render time
+		"PUSHED tip",
+		"INDEX STALENESS",
+		"not absence, not removal, not a rename", // the three wrong readings, blocked by name
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("as-of note missing %q\ngot: %s", want, got)
+		}
+	}
+	// Unreadable freshness or an empty index: the banner branches already shout
+	// those states, and an as-of note naming a commit nobody read would be an
+	// invented fact — the exact class this file exists to remove.
+	if got := (codeIndexScope{indexed: indexFreshness{err: errScopeTest}}).indexedAsOfNote(); got != "" {
+		t.Errorf("a failed freshness read must yield no as-of note, got %q", got)
+	}
+	if got := (codeIndexScope{}).indexedAsOfNote(); got != "" {
+		t.Errorf("an empty index must yield no as-of note, got %q", got)
+	}
+	// A pre-migration row set (rows written, commit unrecorded) must be dated as
+	// UNDATABLE — silence there would read as "nothing to say".
+	undated := codeIndexScope{indexed: indexFreshness{updatedAt: time.Date(2026, 8, 11, 9, 0, 0, 0, time.UTC)}}
+	if got := undated.indexedAsOfNote(); !strings.Contains(got, "UNRECORDED") {
+		t.Errorf("rows with no commit_sha must render as undatable, got %q", got)
+	}
+}
+
+// Through answerCodeCheck, one arm per empty-answer branch, because a mutation
+// already survived the helper-only version of this file once (the lsReachNote
+// unwiring, WRONG_CALLS 2026-08-10): unwiring indexedAsOfNote from any arm's
+// empty answer must fail HERE, not in production prose.
+func TestEmptyAnswersCarryTheIndexedCommit(t *testing.T) {
+	db, mock := newCodeLookupDB(t)
+	defer db.Close()
+	scope := datedScope()
+
+	mock.ExpectQuery("FROM code_symbols").WillReturnRows(sqlmock.NewRows(symbolCols))
+	var symbolOut strings.Builder
+	if _, err := answerCodeCheck(context.Background(), db,
+		codeCheck{Kind: "symbol", Query: "metaCommentaryPatterns"}, "", 40, 400, scope, &symbolOut); err != nil {
+		t.Fatalf("symbol arm: %v", err)
+	}
+
+	// The ls miss on an INDEXED extension — the honest-absence branch, which is
+	// exactly where the misverdict formed: representable, searched, 0 rows.
+	mock.ExpectQuery("bool_or").
+		WithArgs("platform/orchestration/actions/gone.go", "", 41, codeKindsCSV).
+		WillReturnRows(sqlmock.NewRows(lsCols))
+	var lsOut strings.Builder
+	if _, err := answerCodeCheck(context.Background(), db,
+		codeCheck{Kind: "ls", Query: "platform/orchestration/actions/gone.go"}, "", 40, 400, scope, &lsOut); err != nil {
+		t.Fatalf("ls arm: %v", err)
+	}
+
+	mock.ExpectQuery("body ILIKE").
+		WithArgs("no-such-needle", "", 41).
+		WillReturnRows(sqlmock.NewRows(contentCols))
+	var contentOut strings.Builder
+	if _, err := answerCodeCheck(context.Background(), db,
+		codeCheck{Kind: "content", Query: "no-such-needle"}, "", 40, 400, scope, &contentOut); err != nil {
+		t.Fatalf("content arm: %v", err)
+	}
+
+	for arm, got := range map[string]string{
+		"symbol": symbolOut.String(), "ls": lsOut.String(), "content": contentOut.String(),
+	} {
+		if !strings.Contains(got, "as-of: this answer describes commit 5a68d6ca") ||
+			!strings.Contains(got, "INDEX STALENESS") {
+			t.Errorf("the %s arm's empty answer must carry the indexed commit; got:\n%s", arm, got)
+		}
+	}
+}
+
+// The persisted half: codeEvidenceLine is what append_doc_note suffixes onto the
+// verdict row, and before this change nothing the run persisted recorded which
+// commit the answers described — a verdict read months later could not be dated
+// against the code at all.
+func TestCodeEvidenceLineNamesTheIndexedCommit(t *testing.T) {
+	got := codeEvidenceLine(8, 3, 2, datedScope())
+	for _, want := range []string{
+		"Answers describe indexed commit 5a68d6ca",
+		"087_towards_multiple_domains",
+		"2026-08-10 16:27 UTC",
+		"not the present tree",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("evidence line missing %q\ngot: %s", want, got)
+		}
+	}
+	// Without a readable freshness row the clause must vanish, not invent: the
+	// line keeps its census and loses only the dating.
+	bare := codeEvidenceLine(8, 3, 2, liveShapedScope())
+	if strings.Contains(bare, "indexed commit") {
+		t.Errorf("no freshness read ⇒ no commit claim, got: %s", bare)
+	}
+	if !strings.Contains(bare, "5837 symbols") {
+		t.Errorf("the census must survive the missing clause, got: %s", bare)
 	}
 }
