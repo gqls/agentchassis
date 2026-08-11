@@ -3336,3 +3336,50 @@ argument is left to the wrapper's owning session (their RUNBOOK §10 edit was in
 
 **(3)/(4) were the parallel session's:** c2 wrapper done + proven (`3a91684bd`);
 FIRECRAWL_API_KEY via agentenv allow-list (`f56abaadf`, corr `6f13c5ce…`, verdict unread).
+
+## 2026-08-11 (parallel session, afternoon-2) — v1.0.1286: 243 c3 goes fully live, 245 residual proven, and the council said REVISE for reasons worth having
+
+**Roll verified:** chassis + browser-runner v1.0.1286, pods up 12:02–12:03Z.
+Pod-grep both replicas: `record_vision_finding` = **6**, negative control (absent
+string) = 0. The c3 action is in the running binary.
+
+**bugs_open/245 residual PROVEN — the bug is done in fact.** `env | grep -c
+'^B2_|^AWS_ACCESS|^AWS_SECRET'` = **0 on both v1.0.1286 chassis replicas** — the
+overlay removal (c2c9e6a18) reached the standing deployment with this release.
+That was the last owed check in the bug's candidate 3 list.
+
+**Migration 383 APPLIED + RECORDED.** Roll condition met, applied by hand
+(`psql -f` semantics), guard passed, live row verified: `record_look.next_step =
+file_vision_finding`, action present, prompt carries the FINDINGS line. The
+`_HOLD` suffix is dropped POST-apply (the runner refuses to record uppercase
+sidecars — a gap between this lane's hold convention and the ledger's recording
+path, worth knowing). ⚠ **Number collision:** another session shipped
+`383_rfc022_narrow_the_gate_architecture_seat…` the same day. The ledger is
+filename-keyed so both stand, but "migration 383" is now ambiguous — resolve by
+filename, the same rule as bug numbers.
+
+**Council 310dee45: REVISE round 1 — and two of the three objections improved the
+work.** Gating objection (bug_historian, high): my "exactly one reader" lands in
+`needs_human_review`, which `bugs_open/033`/`083` document as historically a
+second silent sink — their own answered check shows **56 items aging there since
+07-17**. Measured before answering: the sink HAS a surface now (admin dashboard
+renders 'Needs Review' with an approve/edit flow, and its code comment records
+033's row-cap display bug FIXED with server-side counts; the
+`diagnosis-review-queue-revalidator` closes reviewed items, manual-trigger). What
+remains open is CADENCE — nothing fires review on a clock — which is 033's remit
+and shared by EVERY producer of that status. Position taken in the resubmission:
+one queue, fix it once; a bespoke side-channel per mechanism is how this estate
+got five visibility destinations. The overclaim "exactly one reader" is withdrawn
+for "one queue, deduped, displayed, closable — cadence tracked in 033".
+The medium (a failed insert leaves no durable trace = "the void one call deeper")
+was simply RIGHT: fixed in code (`3ed587049`) — insert failure now writes a
+render-critique doc_note with the error + full critique, pinned by
+`TestVisionInsertFailureLeavesDurableNote`. editquality's medium (TL-041 register
+edit absent from the PLAN) — it was in the commit; the plan document omitted it;
+listed in round 2. Resubmitted on the SAME correlation (`RESUBMIT_CORR`), run
+`73cb0a29`.
+
+**Proof run in flight:** wrapper item `3bec5e4f…` (setup-builder, the page 382
+fixed). Expected: `complete`, critique ends `FINDINGS: none`, **0** vision_finding
+rows — the negative arm live; the positive arm stays unit-pinned until a genuine
+finding occurs.
