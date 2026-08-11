@@ -77,6 +77,20 @@ func NewMessageProcessor(
 	// is 0, meaning UNLIMITED, so any deployment setting DATABASE_URL got an
 	// unbounded pool behind a transaction-mode pgbouncer. The error was also
 	// discarded, which turned a misconfigured DSN into a silent nil handle.
+	//
+	// NOTE FOR A FUTURE CALLER — the sizing below is NEW BEHAVIOUR, not a
+	// tidy-up of something that was already here (the council's guardian seat
+	// asked for this to be said out loud, so a later reviewer does not read it
+	// as pre-existing). DATABASE_URL is unset on every chassis pod today, so
+	// this branch is inert in production and the change closes a hazard rather
+	// than altering a live path. Two things to know if you are the one who
+	// activates it: this pool is a SECOND pool to the same database, and it
+	// deliberately does NOT read CHASSIS_DB_MAX_OPEN_CONNS — that variable
+	// sizes the shared handle agentbase owns, and having one operator knob
+	// silently size two independent pools would mean asking for 12 and getting
+	// 24. If this branch ever becomes live, decide that question explicitly.
+	// The standing intent is the opposite direction: collapse p.sqlDB into p.db
+	// altogether (every reader already falls back to it) — see bugs_open/246.
 	var sqlDB *sql.DB
 	if connStr := os.Getenv("DATABASE_URL"); connStr != "" {
 		opened, err := sql.Open("pgx", connStr)
