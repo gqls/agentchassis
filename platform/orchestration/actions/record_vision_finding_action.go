@@ -42,6 +42,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/orchestration/agenterrors"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
@@ -198,21 +199,28 @@ func RecordVisionFindingAction(ctx context.Context, params ActionParams) (interf
 		// A filing failure must not change the run's outcome (TL-035: best-effort,
 		// never a verdict) — but it must not be silent either, and the step
 		// output alone is bounded by orchestration retention (~days). Council
-		// 310dee45, bug_historian medium: "a silent insert failure IS the void
-		// again, just moved one call deeper." So leave a DURABLE trace: a
-		// render-critique doc_note (the category the critique already lands in,
-		// so a reader hunting vision output finds the failure beside the
-		// successes) carrying the error and the full critique. If the note
-		// insert fails too, the DB itself is refusing writes and Warn is all
-		// that is left.
+		// 310dee45, bug_historian round-1 medium: "a silent insert failure IS the
+		// void again, just moved one call deeper." Round 2 answered that with a
+		// bespoke render-critique doc_note; round 3 (reuse_agent medium) pointed
+		// out agent_error_log is already the platform's ONE durable-failure-trace
+		// mechanism (RFC_012) — a second bespoke one is exactly the side-channel
+		// proliferation this plan's own rationale argues against. Using it here
+		// also closes debug_historian's low finding: there is no longer a second
+		// render-critique writer that could collide with record_look's routine
+		// note on source/created_by/category.
 		logger.Warn("record_vision_finding: vision_finding insert failed", zap.Error(err))
-		fallbackBody := fmt.Sprintf(
-			"## vision_finding FILING FAILED — %s\nThe critique below reported a defect (verdict_line: %s) but the work-item insert failed: %v\nRe-file by hand or re-run acceptance once the cause is fixed.\n\n%s",
-			function, verdict, err, critique)
-		if _, nErr := insertDocNote(ctx, params.DB, "tool", function, siteID, fallbackBody,
-			`["render-critique"]`, "tool-acceptance-vision", "tool-acceptance-agent", "", "tool-acceptance-agent"); nErr != nil {
-			logger.Warn("record_vision_finding: durable fallback note ALSO failed — DB refusing writes", zap.Error(nErr))
-		}
+		LogActionEntryInheritingProvenance(ctx, params, agenterrors.Entry{
+			SiteID:       siteID,
+			Action:       "record_vision_finding",
+			ErrorMessage: err.Error(),
+			ErrorCode:    "VISION_FINDING_INSERT_FAILED",
+			Severity:     "error",
+			Context: map[string]interface{}{
+				"function":     function,
+				"verdict_line": verdict,
+				"critique":     critique,
+			},
+		}, logger)
 		return map[string]interface{}{"filed": false, "verdict_line": verdict, "reason": "insert failed: " + err.Error()}, nil
 	}
 

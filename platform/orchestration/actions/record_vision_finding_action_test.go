@@ -141,10 +141,13 @@ func TestVisionReportedFilesDedupedItem(t *testing.T) {
 	}
 }
 
-func TestVisionInsertFailureLeavesDurableNote(t *testing.T) {
-	// Council 310dee45 (bug_historian, medium): a failed filing must leave a
-	// trace that outlives orchestration retention — a render-critique doc_note
-	// carrying the error and the critique, not just a Warn.
+func TestVisionInsertFailureLeavesDurableTrace(t *testing.T) {
+	// Council 310dee45 round 1 (bug_historian, medium): a failed filing must
+	// leave a trace that outlives orchestration retention. Round 3
+	// (reuse_agent, medium) redirected the fix from a bespoke render-critique
+	// doc_note onto agent_error_log — the platform's one durable-failure-trace
+	// mechanism (RFC_012) — so the expectation here is that write, not a
+	// doc_notes insert.
 	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
 	if err != nil {
 		t.Fatalf("sqlmock: %v", err)
@@ -154,8 +157,23 @@ func TestVisionInsertFailureLeavesDurableNote(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(""))
 	mock.ExpectExec(`INSERT INTO site_work_items`).
 		WillReturnError(context.DeadlineExceeded)
-	mock.ExpectQuery(`INSERT INTO doc_notes`).
-		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("note-1"))
+	mock.ExpectExec(`INSERT INTO agent_error_log`).
+		WithArgs(
+			"5fe8785b-223d-41a3-88ee-c07187622381", // site_id
+			sqlmock.AnyArg(),                        // domain
+			sqlmock.AnyArg(),                        // work_item_id
+			"orch-vision-1",                         // orchestration_id (JOIN half, inherited)
+			sqlmock.AnyArg(),                        // agent_type (provenance half, inherited)
+			sqlmock.AnyArg(),                        // agent_id
+			sqlmock.AnyArg(),                        // pod_name
+			sqlmock.AnyArg(),                        // step_name (provenance half, inherited)
+			sqlmock.AnyArg(),                        // action
+			sqlmock.AnyArg(),                        // error_message
+			"VISION_FINDING_INSERT_FAILED",
+			"error",
+			sqlmock.AnyArg(), // context jsonb
+		).
+		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	params := visionParams("The CTA is illegible.\nFINDINGS: reported")
 	params.DB = db
@@ -168,7 +186,7 @@ func TestVisionInsertFailureLeavesDurableNote(t *testing.T) {
 		t.Fatalf("want filed=false after insert failure: %+v", m)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Fatalf("the durable fallback note was not written: %v", err)
+		t.Fatalf("the durable agent_error_log row was not written: %v", err)
 	}
 }
 

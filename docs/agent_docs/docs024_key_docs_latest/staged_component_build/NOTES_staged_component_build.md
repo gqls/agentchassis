@@ -3490,3 +3490,82 @@ the parallel session's `3bec5e4f`. Still no positive arm: that waits for a genui
 Note the critique's content this time: it compared desktop vs mobile nav and reported no
 contrast problem on the page that measured 1.06:1 yesterday — the third independent
 instrument agreeing that migration 382's template fix is real on the served page.
+
+## 2026-08-11 (fresh session, resuming from HANDOFF) — Council 310dee45 round 2 was ALSO
+REVISE, for a good reason; round 3 submitted with a real fix, not just corrected wording
+
+Picked up via the HANDOFF's session-start checklist. Fleet had moved on twice since the
+handoff was cut (v1.0.1287 during the read, then v1.0.1288 mid-session — a ~3h real-time
+gap opened between tool calls, caught by re-checking `date -u` before trusting pod ages).
+**Landmine-worthy methodology note**: the FIRST attempt to check "did my ancestor commit
+ship" by `grep -aq <ancestor-commit-sha> /proc/1/exe` was wrong — the binary only embeds
+the ONE commit it was built FROM (the ldflags-injected `git_commit`), never the hashes of
+its ancestors. Confirmed instead via the documented route: get the build's own stamp
+(`9b7811d4b`, from browser-runner's provenance log line, corroborated by
+`bugfix_153_build_provenance/RUNBOOK` R9b(ii)'s recorded build window for v1.0.1287), then
+`git merge-base --is-ancestor <mine> 9b7811d4b` — yes for all four commits in question.
+
+**Round 2 (`73cb0a29`, same correlation `310dee45`) finished at 13:02Z and was REVISE, not
+approved** — the handoff (written mid-round) didn't yet know this. Four objections, all
+"object" verdicts: `prior_art_librarian` (HIGH, gating), `reuse_agent` (medium),
+`bug_historian` (medium), `debug_historian` (medium + 2 low). Full text pulled from
+`orchestration_states.collected_data->'review_<name>'->'result'->'objections'` for
+`orchestration_id='73cb0a29-77aa-47da-8e9e-2fb4e0dc35c3'`.
+
+**The gating one was a real catch, not a technicality.** Round 2's rationale said cadence
+for `needs_human_review` was "nothing fires it on a clock", deferring the gap wholesale to
+bug 033. `prior_art_librarian` flagged that the landmine bank names a `scheduled_tasks` row
+`review-queue-revalidate-daily` by that exact name, which on its face contradicts the claim.
+**Measured live, not inferred**: `enabled=t, interval_seconds=86400, target_agent_type=
+diagnosis-review-queue-revalidator, last_triggered_at=2026-08-11 08:44:17Z` — the sweep IS
+live and daily. So the round-2 claim was straightforwardly false. But the narrower truth
+matters more than the correction: `reviewRevalidators` (revalidate_review_queue_action.go
+:169-194) covers exactly 6 types — `unresolved_cta, required_fields_missing,
+needs_section_data, needs_page, voice_tells, claims_unverified` — and `vision_finding`
+is NOT one of them. So the daily sweep runs, and still never closes a `vision_finding` row.
+Decided (with the owner, `AskUserQuestion`, scope: "minimal correction + resubmit", not
+"also build the shared closer"): state this accurately in round 3 rather than either
+repeating the false claim or building a vision-finding revalidator on the spot — there is
+no cheap re-checkable predicate for a subjective vision judgement the way there is for "is
+this field still missing", so a revalidator here is a real design question, not a one-liner.
+
+**The other three objections pointed at one real, cheap fix.** `reuse_agent`: the round-2
+fix's insert-failure fallback invented a bespoke `render-critique` doc_note as its durable
+trace, when `agenterrors.Write` (RFC_012, the ONE writer against `agent_error_log`) already
+exists for exactly this. `bug_historian`: the same fix was bespoke to this one action, not a
+shared helper — accepted as a real follow-up but out of THIS round's scope (5 sibling
+`needs_human_review` producers named: dead_url_guard, lock_helpers, prune_floor,
+resolve_internal_links_action, acceptance_stuck — not touched here). `debug_historian`:
+(a) pod-verify the NEW branch specifically, not just the old `record_vision_finding=6`
+count — done: grepped the literal `"vision_finding FILING FAILED"` (unique to round 2's
+fallback body) against both CURRENT chassis replicas with a fresh random-hex negative
+control each time; PRESENT/PRESENT, absent/absent — round 2's code really was live before
+this edit removed it. (b) the `err`-vs-false-return ambiguity does not apply here: the
+`site_work_items` insert is a raw `db.ExecContext` with an explicit `ON CONFLICT ... DO
+UPDATE` arbiter, not a call through a shared `insertWorkItem(bool)` helper, so it
+structurally either errors or affects exactly one row. (c) the category-collision risk was
+real, not hypothetical: `SELECT source, created_by FROM doc_notes WHERE categories ?
+'render-critique' GROUP BY 1,2` returns exactly ONE combo ever — `tool-acceptance-vision` /
+`tool-acceptance-agent` — which is BOTH `record_look`'s routine per-run critique note
+(`agent_definitions.tool-acceptance-agent` workflow step `record_look`, config verified:
+`action=append_doc_note, note_source=tool-acceptance-vision, note_categories=
+[render-critique]`) AND round 2's failure fallback. They were only distinguishable by body
+text prefix, never by category/source/created_by.
+
+**Fix applied** (not just argued): swapped the bespoke doc_note for
+`LogActionEntryInheritingProvenance(ctx, params, agenterrors.Entry{...}, logger)` — the
+"running step genuinely IS the row's provenance" door (`log_action_error.go:293-296`),
+matching the pattern at `component_write_guard.go:306-317`. Removes the bespoke writer
+entirely, so (c) above is now moot by construction, not by luck. Test renamed
+`TestVisionInsertFailureLeavesDurableNote` → `...DurableTrace`, sqlmock expectation moved
+from `INSERT INTO doc_notes` to `INSERT INTO agent_error_log` with the 13 positional args
+agenterrors.Write's column order requires. `go build ./platform/orchestration/actions/...`
+and `go test ./platform/orchestration/actions/...` both clean (whole package, not just this
+file's tests — `go vet`'s one warning is pre-existing, in an unrelated file).
+
+**Round 3 submitted** on the same correlation: `RESUBMIT_CORR=310dee45-ab34-4246-a69b-
+ab2df818a80f`, run orchestration `2dfa8900-f956-4172-9454-a07466be5125`. Verdict not yet
+read — next session should check it before doing anything else with this file.
+Submission JSON kept in the session scratchpad, not the repo (nothing durable in it that
+NOTES doesn't already carry). Commit: pending, `Council-Submitted: 310dee45-ab34-4246-a69b-
+ab2df818a80f` trailer, pathspec'd to just the two touched files.
