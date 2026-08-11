@@ -5442,3 +5442,142 @@ Owner ruled the four follow-ups (full record: `DECISIONS_2026-08-11_four_follow_
 a declared object input are register-named, not re-declared; applied to PBP-037 same commit (the
 seam's nested contract is now enumerated there); guidelines-corpus seed owed;
 (4) **invented-commitments clause approved** — one-line rule-5 extension, its own seed + round.
+
+## 2026-08-11 (late morning) — THE CENSUS RUNS: replan proves 362 end-to-end; assignments cover all 9 writer-visible facts; the 215 revisit trigger TRIPS
+
+Pre-flight per 08-10b §4: sweep front's last lane commit is 08-09 (nothing in flight);
+open-items check found one `triaged` index rerender from ANOTHER lane
+(`bugfix-235-logo-repair`, 10:06Z, assemble-mode — no conflict, noted); pods
+`agent-chassis-7c9d5f74b9-*` are the same v1.0.1284 replicas verified this morning
+(0 restarts, cooldown long past). Before-state pinned to scratchpad: plan `8ee5807b`,
+71 sections/21 pages/17 non-NULL assignments; the 9 fact-overlap pairs re-read from the
+`capability_gap:content_duplication_rewrite` spec (pairs live on capabilities/index/
+self-correction sections; pool 15; +1 near-duplicate).
+
+**Replan dispatched 10:19:36Z** (kcat-safe, PUBLISH_OK, corr `e74974b3-0411-4fe9-9e7a-1a8b73db3bf3`);
+row in 5s; COMPLETED 10:22:20. New current plan **`40a66d3a-b80e-4f92-9033-c6de1f43bcd1`**.
+
+1. **Seed 362 PROVEN on the plan read.** All 18 genuinely-singular built pages come back
+   PRESERVED in membership AND order vs their realised section lists (the full-outer-join
+   census is in scratchpad `read_new_plan.sh`; before/after section dumps pinned).
+   Zero `FACT_CARRY_UNMATCHED_SECTION`, zero `FACT_ASSIGNMENT_ABSENT` since dispatch —
+   nothing was restored, so the carry (the 1b (ii) safety net) never ran. The mechanism,
+   not the net, did the work.
+2. **Assignments CONSUMED-READY and complete at the plan layer: all 9 writer-visible facts
+   land** — index carries 5 engaged sections (hero F4 / stat-band F1+F2+F6 / evidence-chart
+   F3+F3b / teaser-reveal-panel F5 / portfolio-showcase F7), private-search-embeddings §1
+   F8. Tri-state: 6 with facts / 63 explicit `[]` / 2 NULL. **The de-overlap move is visible
+   in the plan itself**: capabilities' teaser-reveal-panel + evidence-chart and
+   self-correction's carousel — the other half of every overlap pair — are now explicit
+   `[]`, i.e. the planner put each fact in ONE place. (08-07's partial-uptake worry is
+   answered: rule 17 v2 delivered object form fleet-complete on this run.)
+3. **The 2 NULLs are one page, `tool-tools`** (a phantom — see 4): the planner emitted
+   plain strings for that one page. One-page rule-17 miss on a page that shouldn't exist;
+   not blocking, recorded.
+4. **`PLAN_PAGE_MERGE_LOSSY` fired twice — the standing 215 revisit trigger is now NON-ZERO.**
+   Both rows 10:21:48, both the duplicate-guide family: `automation-savings-estimator-guide`
+   and `model-approach-selector-guide` each collided with their `tool-`-prefixed twin (BOTH
+   twins are active+deployed pages); richer-wins kept the unprefixed entry, discarded the
+   tool-twin's. This is the agreed cue for the owner to look at richer-wins again —
+   flagged in README, not acted on here.
+5. **Phantom aftermath, milder than 08-07:** the plan re-contains the three pages the sweep
+   front archived 08-09 (`ai-readiness-checker-guide`, `tool-llm-cost-calculator`,
+   `tool-tools`). Reconcile queued only ONE auto-build (`needs_page:ai-readiness-checker-guide`);
+   the other two went to `needs_human_review` as owned-page reviews, plus 1 assemble
+   rerender + 6 imagery items. Sweep front owes the hand-archive pass afterwards
+   (owner ruling 1, 08-11) — flagged for them below.
+6. **Rebuilds dispatched 10:27Z** (fresh rows per the runbook recipe, keys
+   `needs_page:<page>:151census:20260811`, pages set `needs_rebuild`): index, capabilities,
+   self-correction-leopardessconsulting, private-search-embeddings — the four pages holding
+   the overlap pairs' sections. Bug 207's deploy-failure class (which killed the 08-07
+   rebuilds at `deploy_page`) reads FIXED+LIVE since v1.0.1262, so the wall the last
+   rebuilds hit should be gone. Writer-output census follows once they complete.
+7. **Disconfirming half, first pass: HOLDS.** All 8 currently-blind sites (the gap-spec
+   `fact_census_blind` set — grown from 5 at plan time, checked as the superset): zero
+   writer/build activity since dispatch. The only movement — 29 robot-hands rerenders and
+   1 dartsonline page — is the standing assemble-rerender machinery on OTHER correlation
+   trees (roots: availability-discovery / rerender-pages; my replan's tree is
+   `82af297b`/corr `e74974b3`, parentage checked). Re-run once rebuilds land.
+
+### 2026-08-11 (same session, while the rebuilds queue) — the pre-round pair count re-derived: 34, not 9; and the factless arm proven on fresh copy
+
+**The handoff's "re-derive, don't trust" instruction just paid for itself.** I ported the
+`content_duplication` fact half faithfully to Python (`fact_overlap_census.py` in scratchpad:
+NormaliseSectionText walk incl. asset-key/URL skips, containsStandalone with the numberish
+guard, context_terms, >=120ch usable floor, cross-page >=3 shared) and ran it against the
+stored `content_data` BEFORE the rebuilds land: **34 fact-overlap pairs, not 9.** The 9 was
+correct on 2026-08-05 when the gap row was filed; since then the 08-07 replan's cascade built
+digital-asset-recovery and production-backend-engineering (both now heavy fact-staters:
+their evidence-chart/mechanism-flow/generic-text-block sections each restate 4–9 facts) and
+about/about-content states F3/F4/F7. Instrument cross-check: 7 of the spec's 9 recorded
+example pairs reappear in my 34; the 2 missing both route through `index/teaser-reveal-panel`,
+which really did drift below 3 shared facts since 08-05 — so the two instruments agree where
+they can be compared, and the population genuinely grew. **34 (pre, this instrument, this
+morning) is the round's baseline**, snapshotted with the inputs
+(`sections_pre.json`/`evidence.json`/`census_pre.txt`).
+
+Acceptance restated with a control: post-rebuild, (a) total pairs, (b) pairs touching a
+REBUILT page (index/capabilities/self-correction/private-search) must fall towards 0,
+(c) pairs among untouched pages (digital-asset-recovery <-> production-backend-engineering
+<-> about etc.) are the CONTROL — expected unchanged, and they are the next drain: their
+sections are `[]` in plan `40a66d3a`, so the mechanism strips them at their next natural
+rebuild. Not extending this round's rebuild set beyond the four — measured scope, and the
+untouched-pair control is worth more than a bigger blast.
+
+**Consumption path seen live mid-flight (the phantom guide build, first through the gate):**
+`page-build-handler` orch `dc93b02b` stamps every `sections_ready` entry
+`facts_scoped: true` + `assigned_writer_block: null` — exactly the explicit-factless shape
+for a `[]` page (328's key wired through the serving agent, no longer a config claim). The
+writer's fresh copy for that page states **0 of 15 facts** (my instrument, fresh
+`content_data`) — corroboration not proof (the page's old copy also stated 0), but the arm
+is exercised and did not invent figures. `orchestration_states` prunes ~24h: orch ids
+`dc93b02b` (handler) / `d61ffa6c` (writer) are quoted here for today only.
+
+### 2026-08-11 (early afternoon) — CENSUS COMPLETE: writer-prose overlap zero on every rebuilt page; 34 → 9, all residuals non-writer
+
+Rebuild outcomes (items `needs_page:<page>:151census:20260811[b]`): private-search-embeddings
++ self-correction COMPLETE clean; index item FAILED at `deploy_page` yet **the page deployed**
+(11:26:58, 6 fresh components — the child completed, only result delivery failed);
+capabilities' first item lost THREE writer results to the same delivery failure
+("workflow completed but its result could not be delivered to the parent (failed_transient):
+message validation failed (code: CHILD_ORCHESTRATION_FAILED)"), fresh row `20260811b`
+completed clean 11:42:47 on the quiet queue. about + digital-asset-recovery + two tool pages
+were rebuilt the same hour by the imagery cascade (image-build-handler files `needs_page`
+per landed asset) — same plan, same mechanism, so they became additional treatment samples;
+about's item also "failed" post-persist (copy IS fresh, 11:20:14). **A failed needs_page item
+told the truth about delivery and lied about the work — three times today. The
+success-result-fails-validation shape is NOT squarely bugs 207/216/217 (those are failure-path
+classification); possibly unfiled. NOT filed by this session: no root cause diagnosed, and
+the 07-31 ruling wants the 090 loop or declared first-hand substitution before a structural
+claim. Evidence pinned here: item errors above; orchs 4234cb97 (about), b3ec646d (index),
+a6c97138 (capabilities attempt), all pruned ~24h.**
+
+The census itself (same instrument pre/post, inputs pinned in scratchpad):
+- **Whole-blob pairs 34 → 9.** Residuals decompose entirely into non-writer causes:
+  3× chart↔chart (the SAME register-derived evidence-chart data on index/capabilities/
+  digital-asset-recovery — serving one chart on three pages is a COMPOSITION question, not
+  writing); 2× chart↔portfolio (card metrics are resolver data); 4× against
+  production-backend-engineering/mechanism-flow (NOT rebuilt today — its copy is 08-07
+  vintage and drains at its next rebuild; its plan sections are `[]`).
+- **Writer-authored fields only (llm_fields split, index worked in full): zero disobedience.**
+  hero states F4, portfolio prose states F7, stat-band states F1/F2/F6 as the
+  register-mandated FLOORS ("10+", "12+", "0" — invisible to the value-matcher by design,
+  confirmed by reading the copy), teaser's first item IS the F5 correction story,
+  evidence-chart prose references the story and leaves values to the chart. Nothing
+  unassigned stated anywhere. capabilities/self-correction/about prose sections all fell
+  SILENT per `[]`.
+- **Served artefact checked, not just rows**: index 53,917B carries the fresh stat-band
+  floors and title.
+- **Disconfirming half FINAL: PASSES.** 8 fact-blind sites, zero
+  writer/build/planner orchestrations across the entire round window; the only touches are
+  the standing assemble-rerender lane (no LLM, different correlation trees).
+
+Cross-lane: bugfix-235's index logo fix (content_data patch, verified .png 11:21:48) was
+partially REVERTED by my 11:26:58 regeneration — relojistas + idea.uk back to origin `.jpg`
+(bugfix-238 family, resolver path: regeneration re-resolves from source). All URLs serve 200
+today but their deletion gate is NOT met — flagged in `bugs_open/235` with the mechanism.
+Sweep front flagged in its handoff (phantom pages re-planned; one auto-built + deployed).
+`PLAN_PAGE_MERGE_LOSSY` ×2 = the 215 revisit trigger tripped — noted in `bugs_open/215`,
+owner decision requested. `bugs_open/151` carries the measured-done note (stays in
+bugs_open per the 08-06 ruling). **Next for this lane: the `features_open/012` round
+(scheduled by ruling 2), then the two small seeds (commitments clause; guidelines corpus).**

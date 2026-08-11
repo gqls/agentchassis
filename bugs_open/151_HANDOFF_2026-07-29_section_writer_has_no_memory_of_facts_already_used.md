@@ -278,3 +278,21 @@ unclaimed.
 > write — pre-existing, unrelated to facts, gates clean observations). No data
 > damage (transactional write; plan 8ee5807b still current). Incident trail:
 > WRONG_CALLS 2026-08-08; evidence in RFC_016 §3b.
+
+> **CANDIDATE 1 MEASURED END-TO-END, 2026-08-11 (brochure_component_library lane — the
+> census round, owner-authorised).** Replan of fundamentallyai (corr `e74974b3`, plan
+> `40a66d3a`): all 18 singular built pages' compositions preserved by name+order (seed 362);
+> all 9 writer-visible facts assigned, each to exactly ONE section; zero
+> `FACT_CARRY_UNMATCHED_SECTION`/`FACT_ASSIGNMENT_ABSENT`. Rebuilds through the new path:
+> handler stamps `facts_scoped`/`assigned_writer_block` per section (seen live, orch
+> `b3ec646d`), writer states assigned facts in register-mandated form (floors: "10+"/"12+"/
+> "0") and NOTHING unassigned — writer-prose fact overlap on pages rebuilt today: ZERO.
+> Whole-site fact-overlap pairs 34 → 9 (same instrument, pre/post same morning; the recorded
+> 9 from 08-05 had staled to 34 via the 08-07 cascade). The residual 9 pairs are all
+> non-writer: 3× the same evidence-chart data served on three pages (composition question),
+> 2× portfolio card resolver metrics, 4× stale pre-round copy on
+> production-backend-engineering (drains at its next rebuild). The 8 fact-blind sites: zero
+> writer/build orchestrations all round — the unscoped arm untouched. **The mechanism this
+> bug asked for is live, consumed, and measured. Remaining scope is composition-level
+> (charts/resolver data), not the writer.** Evidence: lane NOTES 2026-08-11 entries;
+> census inputs/outputs pinned in the session scratchpad.

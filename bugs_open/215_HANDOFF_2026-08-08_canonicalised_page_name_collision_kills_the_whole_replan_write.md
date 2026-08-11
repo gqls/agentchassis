@@ -292,3 +292,15 @@ row. Mutation-tested (suppressing the detail fails `TestDedupePlanPageRows_Lossy
 agent_error_log WHERE error_code='PLAN_PAGE_MERGE_LOSSY'` is ever non-zero.** Ruling context and
 the re-look that reframed the condition:
 `docs/agent_docs/docs024_key_docs_latest/brochure_component_library/DECISIONS_2026-08-10_owner_rulings_after_relook.md`.
+
+> **THE RICHER-WINS REVISIT TRIGGER TRIPPED, 2026-08-11 10:21:48.** The standing owner
+> item ("`PLAN_PAGE_MERGE_LOSSY` count non-zero ⇒ look at richer-wins again") is now live:
+> the census replan (corr `e74974b3`) recorded TWO rows — `automation-savings-estimator-guide`
+> and `model-approach-selector-guide` each canonicalise-collided with their `tool-`-prefixed
+> twin, and all four page rows are active+deployed, so both merges discarded a real page's
+> entry (both full section lists are in the error rows' context). Richer-wins did its job
+> (the replan survived), but the case it was ratified on ("stub loses to composed entry")
+> is not this case: these are composed-vs-composed. Owner decision requested; recorded in
+> the lane README 2026-08-11. The duplicate-page family itself (one page under two names,
+> both live) is the underlying condition — neither this bug's dedup nor the merge rule
+> resolves WHICH name should own the page.

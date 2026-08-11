@@ -2192,3 +2192,44 @@ register entry for their seam (I've applied that to our own seam's entry today, 
 enforced by example); and add the one-line ban on invented guarantees to the writer's rules —
 "we don't want these claims." The new build is verified again this morning. The census itself and
 the two small follow-on seeds are handed to a fresh session; the handoff has the exact steps.
+
+**2026-08-11, late morning.** The measurement ran, and the first half is a clean pass. I
+re-planned fundamentallyai and read what came back: every one of the eighteen built pages kept
+exactly the sections it already has, in the same order — which is the thing three weeks of work
+were building towards, because until now a re-plan would forget what the site had actually become.
+And the fact assignments finally landed: all nine usable facts from the evidence base were placed,
+each in exactly one section — the homepage carries most of them, and the two pages that used to
+repeat the homepage's figures now have their sections explicitly marked "no facts here". That is
+the de-duplication working at the planning layer. None of the new alarms fired for disobedience,
+which means the planner did what it was told rather than being caught and corrected.
+
+Two things for you. First, the duplicate-page merge alarm went off twice — two of the guide pages
+exist under two names each, both live, and the re-plan had to pick one and discard the other's
+entry. We agreed when that merge rule shipped that the first time this alarm fired you'd want to
+look again at whether "keep the richer entry" is the right rule; that moment has arrived. Second,
+as expected, the re-plan resurrected the three ghost pages the other thread archived on Saturday —
+only one is being rebuilt automatically, the other two are parked for human review — and the other
+thread will need to do its archive pass again, as you accepted when you authorised the run.
+
+The second half — rebuilding the four pages that share facts, and checking the writer actually
+states each fact only where it was assigned — is dispatched and queued behind one other build.
+Results when they land.
+
+**2026-08-11, early afternoon.** The second half landed and the answer is yes: the writer now
+says each fact where it was assigned and nowhere else. On the rebuilt homepage the numbers
+appear once each — the stat strip states the floors exactly as the register requires, the
+story panel tells the leopardess correction, and the pages that used to echo those figures now
+carry none of them. Measured across the whole site with the same ruler before and after, the
+duplicated-facts count fell from thirty-four pairs to nine — and none of the remaining nine is
+the writer's doing. Three are the same evidence chart appearing on three pages (a design
+choice we should discuss: does the chart belong on all three?); two are the portfolio cards'
+own metrics; four sit on one page that simply hasn't been rebuilt yet and will clear when it
+is. The other sites, the ones with no fact base, weren't touched at all — checked, not assumed.
+One operational note: three builds today reported failure while actually finishing the work —
+the failure was in delivering the "done" message back, not in the building. The pages are
+fine; I've written up the evidence for whoever owns that plumbing. And one thing I undid by
+accident: another thread's logo fix on the homepage was partly reverted because a full rebuild
+refreshes that data from its source, where their fix hadn't reached — they're warned, nothing
+is broken on the live page, but their cleanup must wait. The measurement this whole workstream
+was building towards is done. Next: making the redesign request visible to the planner, as you
+scheduled, then the two small wording changes.

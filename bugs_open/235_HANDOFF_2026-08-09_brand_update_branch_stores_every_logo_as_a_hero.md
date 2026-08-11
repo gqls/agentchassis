@@ -444,3 +444,20 @@ the brochure-lane rebuild.** Until both: delete nothing.
 > now verified at the served artefact. Deletion is gated on the owner's word
 > alone — though note the brochure lane's `needs_page:index` rebuild is still
 > queued and will regenerate this page again from the (patched) content_data.
+
+> **ADDENDUM 2026-08-11 ~11:45Z (from the brochure_component_library lane, whose rebuild
+> your last note anticipated):** the deferred check has an answer and it is the one that
+> BLOCKS deletion. My `needs_page:index` full rebuild deployed 11:26:58Z (content
+> regeneration, not assembly) and the served index now references
+> `https://relojistas.com/assets/images/logo.jpg` and `https://idea.uk/assets/images/logo.jpg`
+> again — only leopardess kept `.png`. Your content_data patch did not survive REGENERATION:
+> the portfolio card fields are re-resolved from their source on a full rebuild, so a patch
+> at content_data level holds through assembly/rerender but dies at the first `needs_page`
+> (the bugfix-238 save-vs-rerender family, this time on the resolver path). All referenced
+> URLs serve 200 today, so nothing is visibly broken — but **do not delete the origin
+> `.jpg` files** while fundamentallyai's served index references two of them, and your (b)
+> gate condition is NOT met. The durable fix needs to land where the resolver reads the
+> logo URL from (the portfolio source), not in the resolved copy. fundamentallyai's own
+> `/assets/images/logo.png` serves 200/157KB, so the blocked `image_url_404:logo.png`
+> item's "no active asset" premise looks stale as well — worth re-verifying before anyone
+> acts on it.

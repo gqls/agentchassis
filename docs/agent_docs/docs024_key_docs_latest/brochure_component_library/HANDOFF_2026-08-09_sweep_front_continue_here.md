@@ -177,3 +177,21 @@ All of these are in `WRONG_CALLS.md` / `LANDMINES.md` as checks rather than stor
 `074bcda5b` sweep + docs · `ce6496aa0` landmine · `bc5a91257` capabilities + Platform Log
 link · `103fbce7e` summary · `1c2e25c8f` linkability fix + `bugs_open/210`
 (**Council-Submitted 9da24d85**) · this file's commit.
+
+---
+
+## ADDENDUM 2026-08-11 (from the fact-assignment front) — the census replan ran; your three archived pages are BACK in the plan
+
+Owner-authorised census replan of fundamentallyai ran 10:19–10:22Z today (corr
+`e74974b3`, new plan `40a66d3a-b80e-4f92-9033-c6de1f43bcd1`). As predicted, the
+planner re-planned the three pages you archived in §2b: `ai-readiness-checker-guide`
+(reconcile queued an AUTO-BUILD, `needs_page`, claimed 10:29Z — it will deploy),
+`tool-llm-cost-calculator` and `tool-tools` (both parked at `needs_human_review`
+as `owned_page_review`, no build). **The hand-archive pass is yours per the owner's
+08-11 ruling 1** (phantom cleanup accepted as a known cost of running the census
+now). Note ai-readiness-checker-guide will need file retraction this time if it
+deploys — unlike your §2b rows it will have shipped an artefact. Also for your
+§2b table: the replan's write recorded 2 `PLAN_PAGE_MERGE_LOSSY` rows — the two
+duplicate guide PAIRS (`automation-savings-estimator-guide` /
+`model-approach-selector-guide` vs their `tool-` twins, all four rows still
+active+deployed) are now on the owner's radar via the 215 revisit trigger.
