@@ -27954,3 +27954,11 @@ that made it MY check to run, not a box already ticked.
 **Cost.** ~4 minutes and one failed job; no live impact (the check is advisory and had not
 yet reached a scheduled run). Fixed in the same session, and the corrected job now runs green
 in-cluster with a doc_notes row to prove it.
+
+### 2026-08-11 — asserted a design token did not exist while its consumers were on the page in front of me (staged_component_build)
+
+- **the claim:** migration 382's header: the structural alternative to my contrast fix would be "a `--color-on-primary` token in the palette vocabulary — a framework change with fleet-wide stylesheet regeneration". Written as settled fact into a recorded migration file.
+- **what caught it:** the post-fix artefact verification itself — grepping a re-rendered mortgagecalculator page for residual `background: var(--color-primary)` showed the very next line: `color: var(--color-primary-text);`. The token exists, is defined on ALL 8 affected sites, and other sections use it as the estate convention.
+- **the cheap check that would have:** grep the stylesheets I ALREADY HAD in scratchpad for the concept's other spellings (`primary-text`, `on-primary`, `text-on`) before asserting vocabulary absence — the `a-grep-proves-absence-only-for-its-spelling` family, in its purest form: I never ran ANY grep for the concept, only inferred absence from the tokens I had extracted for a different question.
+- **the twist worth keeping:** measuring the "correct" token immediately showed it could NOT have been today's fix — mortgagecalculator's own `--color-primary-text` vs primary is 2.95:1, so convention-adherence would have shipped a worse page than the invert. The wrong claim, once corrected, produced the sharper finding (a palette-level defect on that site, now routed to its lane). Being wrong in a checkable way paid; asserting without the check is what nearly didn't.
+- **cost:** none shipped — the applied fix stands on its own measurement. The cost avoided was a plausible-sounding "framework change needed" line steering a future session away from a one-token harmonisation.

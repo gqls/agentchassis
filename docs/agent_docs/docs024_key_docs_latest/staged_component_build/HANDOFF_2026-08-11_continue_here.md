@@ -159,6 +159,41 @@ mobile, while all 15 selector checks pass. Recorded in 243's update. Two consequ
    two-option scope call for contrast, the logo-404 fix for gaswholesalers). Once decided,
    notify each lane in ITS OWN docs dir — the written claim is the coordination channel.
 
+## 3c. AND THE REST LANDED TOO — 2026-08-11 afternoon (the session the owner decided in)
+
+All five §3/§3b items now have their answer; full working NOTES `## 2026-08-11 (parallel
+session)` (both blocks) and the bug files. State only:
+
+1. **Vision findings (243 c3): BUILT** — `record_vision_finding` + `vision_finding` item
+   type (TL-041), commit `e6d1ac6dc`, `Council-Submitted: 310dee45…` (**read that verdict**,
+   session-start item). Inert until the next chassis roll; then apply
+   `383_tool_acceptance_vision_findings_visible_HOLD.sql` BY HAND after pod-grepping
+   `record_vision_finding` ≥1 on both replicas, and `--record-only` it. Proof owed once
+   both halves live: a `FINDINGS: reported` critique → exactly one `vision_finding` row;
+   a `FINDINGS: none` critique → none.
+2. **Contrast (owner: fix the shared component): FIXED + LIVE on 8 of 9 pages** —
+   migration `382` (9 templates → the guaranteed `--color-text` fill; per-site proof
+   10.35:1–17.85:1), rerenders verified at the artefact. The 9th (gaswholesalers
+   fuel-cost-estimator) is `rebuild_policy='owned'` and `save_page_sections` REFUSED the
+   generic save by design — left refused: that site was legible all along (17.06:1), and
+   the fixed template rides the next tool-pipeline rebuild of that page.
+   **Two discoveries riding this fix:** the estate already HAS an on-primary token
+   (`--color-primary-text`, all 8 sites) — future harmonisation candidate; and
+   mortgagecalculator's own `--color-primary-text` on `--color-primary` is **2.95:1**, a
+   palette-level defect routed to their lane
+   (`mortgagecalculator_couk_adoption/CONTRIB_2026-08-11_…_contrast.md`, with rollback
+   pointers for the two pages this fix re-rendered on their site).
+3. **loancalculator (owner: probably both): `url_field` is LIVE** — migration `384`,
+   verified at the live row, inert until a work item carries `spec.page_url` (structurally
+   safe: absent field → "" → the name-lookup fallback unchanged). Producer half
+   deliberately deferred WITH the reason (the due-sweep only raises items for
+   PLAN-carrying tools, which all resolve by name); the wrapper's optional `page_url`
+   argument belongs to the wrapper's owner (RUNBOOK §10). Renames: gamesdesign's
+   `tool-bayesian-ranking` §11 rename is still batch-8 work on its own merits (site
+   convention, 15 precedents); the loancalculator renames are now optional tidiness for
+   that lane, NOT a blocker — `tool-loan-repayment` on `index` was never renameable anyway.
+4. **gaswholesalers logo-404**: not this session's; unchanged.
+
 ## 4. Standing defect list
 
 Items 1–8 unchanged from `HANDOFF_2026-08-09` §4. Item 9 (243) → candidate 1 CLOSED-in-fact,
