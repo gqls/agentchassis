@@ -2084,3 +2084,55 @@ one `orchestrate` message pinning `build-dispatch-loop` to this site
 handler spawning within a minute. RUNBOOK §15 now carries the mechanism, the
 three pre-checks and the kcat caveat. `[Starvation figures MEASURED 2026-08-11
 ~15:30Z — a fact about that afternoon's queue, not a property of the site.]`
+Filed fleet-wide to `LANDMINES.md` (synced; verifier fired, correlation
+`795585c6…` — NB the sync `--apply`-consumed-the-diff misstep from 08-10 was
+repeated here before firing the trigger directly).
+
+### Rebuild landed, fence rebuilt, acceptance PASSED 4/4 — the decision is closed end to end
+
+**Rebuild verified at the artefact, then at the wire** (~15:28Z, run ~9 min
+claim→complete): NEW component `539e851f…` (replaces `cfa17203…`), 14,343 chars,
+`deployed`. The step table is present branch-for-branch with the contract's own
+comments beside each band; original defaults restored (400000/65/100000/6.5);
+all 10 contract ids exactly once; sub-55 refuses; projection formula unchanged;
+**no reveal pattern** (results render on load and update in place — the batch-8
+visibility gap stays EMPTY on this rebuild, `calculate()` runs once on load).
+Served page: dir-form URL carries `age >= 65) return 0.31` (1 hit) and zero
+traces of `maxLtvForAge|0.55` (control).
+
+**Fence chain (§14), all green with reds induced:**
+
+- **Emit**: 4 checks, 24 assertions. toolgolden's scaling landed the vectors on
+  age 120 (→ the 85+ band, £416,000 on £800k) and ages 33/39 — **two of four
+  vectors exercise the pinned minimum-age refusal**, worth having since the
+  refusal is contract behaviour (unlike portfolio, where refusals were ALL the
+  emit had).
+- **Model**: `m_equity_release` now models `#erMaxCash` (step table, CONV) and
+  the refusal markers (`N/A`, U+2014 — string-compare, terse markers pinned
+  rather than the prose sentence, which dies on a copy edit). The swapped
+  "rebuild 124k vs original 120k" comment — the likely origin of the morning's
+  wrong call — corrected in place. Full run: **84/84 agree** (was 80; equity
+  now contributes 16), `#dispAge`/`#limitResult` correctly fall out.
+- **Red control**: the NEW model against the OLD linear page's criteria (from
+  git `e211b596f`) — **3 MISMATCHes exactly where the two tables differ**
+  (65: 0.31 vs 0.30; 95: 0.52 vs 0.55-cap, both directions), agreement at 55
+  where the tables genuinely coincide, debts untouched. The control could have
+  come out otherwise and didn't.
+- **Tier-2 shell checks**: rebuilt the scratch Go module (the 08-10 one did not
+  survive); new page passes all three, the fixture fires all three in the same
+  run.
+- **Install**: `--only equity-release --apply` — 16 pinned / 8 dropped, new
+  `doc_plans` row current 15:33:12Z (£124,000 in, £90,000 gone, refusals in),
+  08-10 row superseded.
+- **Acceptance**: run item `67594cfc…` (second by-hand dispatch also needed,
+  correlation `42ca7dbc…`) — **Tier-4 PASSED, 4/4 on desktop**, mobile skipped
+  by design, zero `improve_tool`/`acceptance_stuck` fleet-wide after.
+
+**And the run's render critique found a real defect the fence cannot see**: the
+Calculate button label renders near-invisible (light-on-light) on the new
+rebuild. The vision-finding mechanism (shipped this morning by the
+staged_component_build session) **filed it automatically**:
+`vision_finding` → `needs_human_review`, 15:35:58. Not this lane's fix — it sits
+with the contrast machinery / owner review; noted here so nobody re-discovers
+it. Evidence screenshot in the acceptance note
+(`acceptance-evidence/…/equity-release/d81357a6…_desktop.png`).

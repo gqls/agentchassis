@@ -195,10 +195,14 @@ one-line-per-tool update when paths move.
 
 ## 5. Next actions, in order
 
-1. ~~**Execute the equity-release decision**~~ **DONE 2026-08-11 afternoon** —
-   item `97f4d0ab…`, the original's step table pinned in the spec (NOTE: §4's
-   £120k/£124k parenthetical was swapped; see the correction there). Fence
-   re-emit → re-install → re-run follows once the rebuild lands.
+1. ~~**Execute the equity-release decision**~~ **DONE END TO END 2026-08-11
+   afternoon** — rebuild `97f4d0ab…` live with the original's step table (NOTE:
+   §4's £120k/£124k parenthetical was swapped; see the correction there); fence
+   re-emitted, re-derived (84/84, red control on the old page's criteria),
+   re-installed 15:33Z, acceptance **PASSED 4/4** 15:35Z. Two by-hand
+   dispatches were needed — the fleet queue starves this site (RUNBOOK §15,
+   LANDMINES). A `vision_finding` on the new page's near-invisible Calculate
+   button label is in `needs_human_review` — contrast machinery's, not ours.
 2. **`portfolio` has no PLAN, and needs a hand-written one.** toolgolden derives
    vectors by scaling the page's own defaults; that form has none, so it drove
    `#mortgageTerm` to 1000/2000/500/450 years and the tool correctly refused all

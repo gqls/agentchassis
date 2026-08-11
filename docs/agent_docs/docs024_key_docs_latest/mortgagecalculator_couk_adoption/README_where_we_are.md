@@ -1017,3 +1017,23 @@ still links to the original versions.
 One more small thing: the original page's own comment claims "about 30% at 65"
 while its code uses 31%, so the page disagrees with itself — that's probably
 where the mix-up started.
+
+**Later the same afternoon — done, end to end, and checked.**
+
+The equity release calculator has been rebuilt and is live with the original's
+age table, and its checking document has been rewritten to match and run: all
+four checks passed in a real browser. The safety net now covers the maximum
+cash figure for the first time (it couldn't before, because the old rebuild's
+formula was invented), and it also now checks that anyone under 55 is politely
+refused. We proved the checker can still say no by running it against the old
+page's numbers — it flagged exactly the three cases where the two formulas
+disagree and nothing else.
+
+Two things you may care about. First, the automatic picture-review of the
+passing page spotted that the Calculate button's label is nearly invisible
+(pale text on a pale button) on the new version — that's been filed
+automatically for a human to look at, through the mechanism you approved this
+morning. Second, our work request sat unnoticed for over an hour because the
+fleet's build queue serves whichever site has the oldest waiting work, and
+other sites have weeks-old backlogs — we dispatched it by hand (a documented,
+safe nudge) and have written up both the trap and the remedy for other lanes.
