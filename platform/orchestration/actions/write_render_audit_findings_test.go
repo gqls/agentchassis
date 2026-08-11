@@ -378,3 +378,93 @@ func TestWriteRenderAuditFindings_StillAwaitedIsAnError(t *testing.T) {
 		t.Fatalf("want a loud still-awaited error, got %v", err)
 	}
 }
+
+// bugs_open/242: a truncated sweep must not report as a whole-site verdict.
+// The summary's cap-bite echo is stamped into this action's durable result —
+// parity with findings_capped/findings_dropped, the max_items cap's own honest
+// reporting.
+func TestWriteRenderAuditFindings_TruncatedSweepIsStampedInResult(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	siteID := uuid.New()
+
+	mock.ExpectQuery("locked_at IS NOT NULL").
+		WillReturnRows(sqlmock.NewRows([]string{"rendered_html"}))
+	mock.ExpectQuery("FROM pages").
+		WithArgs(siteID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "url"}))
+	mock.ExpectBegin()
+	mock.ExpectCommit()
+
+	out, err := WriteRenderAuditFindingsAction(context.Background(), ActionParams{
+		DB:               db,
+		Logger:           zap.NewNop(),
+		ExecutionContext: &types.ExecutionContext{},
+		StepConfig:       models.Step{Config: map[string]interface{}{}},
+		CollectedData: renderAuditCollected(siteID, map[string]interface{}{
+			"run_id":   "run-t",
+			"contrast": []map[string]interface{}{},
+			"summary": map[string]interface{}{
+				"pages": 25, "pages_total": 27, "truncated": true,
+			},
+		}),
+	})
+	if err != nil {
+		t.Fatalf("action failed: %v", err)
+	}
+	m := out.(map[string]interface{})
+	if m["truncated"] != true {
+		t.Fatalf("truncated sweep must stamp truncated=true, got %#v", m)
+	}
+	if m["pages_total"] != 27 || m["pages_audited"] != 25 {
+		t.Fatalf("want pages_total=27 pages_audited=25, got %#v", m)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+// The control: an untruncated (or old-shape) summary leaves the result shape
+// unchanged for every existing consumer — no keys added.
+func TestWriteRenderAuditFindings_UntruncatedSweepAddsNoKeys(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	siteID := uuid.New()
+
+	mock.ExpectQuery("locked_at IS NOT NULL").
+		WillReturnRows(sqlmock.NewRows([]string{"rendered_html"}))
+	mock.ExpectQuery("FROM pages").
+		WithArgs(siteID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "url"}))
+	mock.ExpectBegin()
+	mock.ExpectCommit()
+
+	out, err := WriteRenderAuditFindingsAction(context.Background(), ActionParams{
+		DB:               db,
+		Logger:           zap.NewNop(),
+		ExecutionContext: &types.ExecutionContext{},
+		StepConfig:       models.Step{Config: map[string]interface{}{}},
+		CollectedData: renderAuditCollected(siteID, map[string]interface{}{
+			"run_id":   "run-u",
+			"contrast": []map[string]interface{}{},
+		}),
+	})
+	if err != nil {
+		t.Fatalf("action failed: %v", err)
+	}
+	m := out.(map[string]interface{})
+	for _, key := range []string{"truncated", "pages_total", "pages_audited"} {
+		if _, present := m[key]; present {
+			t.Errorf("untruncated result must not carry %q, got %#v", key, m)
+		}
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}

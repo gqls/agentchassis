@@ -68,6 +68,15 @@ type RenderAuditRequest struct {
 	// only. Measurement semantics are untouched either way: findings are still
 	// taken from the desktop profile exactly as before.
 	CaptureRenders bool `json:"capture_renders"`
+	// PagesTotal/Truncated are the REQUESTER'S claim about its own max_pages
+	// cap: how many live pages the site had, and whether URLs is a capped
+	// subset. Echoed verbatim into Summary because the reply is the only part
+	// of an awaited chassis step that reaches the stored artefact
+	// (bugs_open/242 / RFC_012) — a capped sweep whose artefact shows only
+	// `pages: 25` reads exactly like a complete one. Zero/false (an old-shape
+	// request) means "not stated", and the summary omits them.
+	PagesTotal int  `json:"pages_total,omitempty"`
+	Truncated  bool `json:"truncated,omitempty"`
 }
 
 // ContrastFinding is one text element whose contrast is below its threshold.
@@ -130,6 +139,14 @@ type RenderAuditResult struct {
 		ContrastFirm  int `json:"contrast_firm"` // excludes over_image approximations
 		BrokenImages  int `json:"broken_images"`
 		OverflowPages int `json:"overflow_pages"`
+		// PagesTotal/Truncated are echoed from the request (see
+		// RenderAuditRequest): the requester's cap bite, placed NEXT TO Pages
+		// so a reader cannot mistake a capped sweep for a complete one.
+		// omitempty keeps the summary shape byte-identical for old-shape
+		// requests, so version skew in either direction degrades to today's
+		// behaviour, never to a wrong number.
+		PagesTotal int  `json:"pages_total,omitempty"`
+		Truncated  bool `json:"truncated,omitempty"`
 	} `json:"summary"`
 }
 
@@ -238,6 +255,8 @@ func (a *RenderAuditAction) Execute(ctx context.Context, req RenderAuditRequest)
 		return nil, fmt.Errorf("render_audit: no urls in request")
 	}
 	res := &RenderAuditResult{RunID: req.RunID}
+	res.Summary.PagesTotal = req.PagesTotal
+	res.Summary.Truncated = req.Truncated
 	failedPages := map[string]bool{}
 	capture := req.CaptureRenders && a.store != nil
 	if req.CaptureRenders && a.store == nil {

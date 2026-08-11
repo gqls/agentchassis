@@ -33,3 +33,23 @@
   every adapter response takes the `isAgentResponse` preserve-then-add branch — the
   wrapped shape is universal for these steps, which is why the reply envelope is the
   right vehicle.
+
+## 2026-08-11 (later) — implemented, tested, mutation-proven, council-submitted
+
+- Edits landed exactly per PLAN (action request fields + agenterrors row before dispatch;
+  adapter echo with `omitempty`; findings-writer stamp; migration 392 + rollback).
+- Six new tests, all run and passing (`-v` checked — a quiet pass can mean "not
+  selected"): the two dispatch-time tests, the two adapter echo/skew tests, the two
+  drain stamp/control tests. Full `actions` and `browserrunner` packages green.
+- **The order guard was mutation-tested**: moving the `agenterrors.Write` after
+  `ProduceWithValidation` fails `TestRequestRenderAuditTruncationTravelsInRequestAndLandsDurably`
+  with "the truncation row must land BEFORE the dispatch". Reverted; suite green again.
+- The no-op case is asserted via the writer's own guaranteed warn (an attempted write
+  against the mock MUST produce "Failed to write to agent_error_log"), not via a mock's
+  silence — per the mutate-to-prove-a-guard discipline.
+- Council submission: `SUBMISSION_CORR = 700da63e-6c39-4617-ace8-4e450addd472`
+  (2026-08-11 ~16:4xZ). Committing with `Council-Submitted:` trailer per the 2026-07-30
+  rule; verdict to be read and recorded here when it lands (~30 min budget).
+- Migration 392 is COMMITTED BUT NOT APPLIED — it goes through the migration runner
+  (dry-run first, scoped dir). No ordering constraint against the image roll: old and
+  new binaries both read `max_pages` the same way.

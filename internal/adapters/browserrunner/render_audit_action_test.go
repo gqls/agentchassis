@@ -236,3 +236,63 @@ func TestRenderCaptureFailureNeverLosesTheMeasurement(t *testing.T) {
 		t.Fatalf("want renders_failed=1 for the lost desktop shot, got %d", res.RendersFailed)
 	}
 }
+
+// bugs_open/242: the requester's max_pages cap bite must be echoed into the
+// summary — the reply is the only part of an awaited chassis step that reaches
+// the stored artefact, so `pages: 25` with no total beside it reads as a
+// complete sweep.
+func TestSummaryEchoesRequesterTruncationClaim(t *testing.T) {
+	page := &fakePage{status: 200, evalResult: probeJSON(t, `{"contrast":[],"images":[],"overflow":null}`)}
+
+	res, err := auditWith(page).Execute(context.Background(),
+		RenderAuditRequest{RunID: "r1", URLs: []string{"https://example.com/"},
+			PagesTotal: 27, Truncated: true})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if res.Summary.PagesTotal != 27 || !res.Summary.Truncated {
+		t.Fatalf("summary must echo the requester's cap bite, got total=%d truncated=%v",
+			res.Summary.PagesTotal, res.Summary.Truncated)
+	}
+	buf, err := json.Marshal(res.Summary)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	for _, key := range []string{`"pages_total":27`, `"truncated":true`} {
+		if !json.Valid(buf) || !containsSubstring(string(buf), key) {
+			t.Errorf("marshalled summary must carry %s, got %s", key, buf)
+		}
+	}
+}
+
+// The version-skew guarantee: an old-shape request (no cap fields) must produce
+// the old summary shape byte-for-byte — omitempty pinned, so a chassis/adapter
+// skew in either direction degrades to today's behaviour, never to a zero that
+// reads like a measured total.
+func TestOldShapeRequestKeepsOldSummaryShape(t *testing.T) {
+	page := &fakePage{status: 200, evalResult: probeJSON(t, `{"contrast":[],"images":[],"overflow":null}`)}
+
+	res, err := auditWith(page).Execute(context.Background(),
+		RenderAuditRequest{RunID: "r1", URLs: []string{"https://example.com/"}})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	buf, err := json.Marshal(res.Summary)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	for _, key := range []string{"pages_total", "truncated"} {
+		if containsSubstring(string(buf), key) {
+			t.Errorf("old-shape request must not grow a %q key, got %s", key, buf)
+		}
+	}
+}
+
+func containsSubstring(s, sub string) bool {
+	for i := 0; i+len(sub) <= len(s); i++ {
+		if s[i:i+len(sub)] == sub {
+			return true
+		}
+	}
+	return false
+}

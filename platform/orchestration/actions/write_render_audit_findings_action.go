@@ -136,6 +136,15 @@ type renderAuditPayload struct {
 	Contrast []renderAuditContrast    `json:"contrast"`
 	Images   []renderAuditBrokenImage `json:"broken_images"`
 	Overflow []json.RawMessage        `json:"overflow"`
+	// Summary carries the adapter's echo of the requester's max_pages cap
+	// (bugs_open/242): when Truncated, the sweep measured a subset and its
+	// findings must not read as a whole-site verdict. Absent on old-shape
+	// replies — zero values then mean "not stated", never "not truncated".
+	Summary struct {
+		Pages      int  `json:"pages"`
+		PagesTotal int  `json:"pages_total"`
+		Truncated  bool `json:"truncated"`
+	} `json:"summary"`
 }
 
 func WriteRenderAuditFindingsAction(ctx context.Context, params ActionParams) (interface{}, error) {
@@ -356,6 +365,17 @@ func WriteRenderAuditFindingsAction(ctx context.Context, params ActionParams) (i
 		"findings_capped":     dropped > 0,
 		"findings_dropped":    dropped,
 		"run_id":              payload.RunID,
+	}
+	// A truncated sweep must not report as a whole-site verdict: stamp the
+	// cap's bite here, in the one result on this workflow that persists
+	// durably (this step does not await) — parity with findings_capped/
+	// findings_dropped, the max_items cap's own honest reporting
+	// (bugs_open/242 §5b). Keys are added only when the cap bit, so the
+	// result shape is unchanged for every existing consumer otherwise.
+	if payload.Summary.Truncated {
+		result["truncated"] = true
+		result["pages_total"] = payload.Summary.PagesTotal
+		result["pages_audited"] = payload.Summary.Pages
 	}
 	logger.Info("write_render_audit_findings: complete",
 		zap.Int("inserted", inserted), zap.Int("deduped", deduped),

@@ -37,6 +37,7 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
+	"github.com/gqls/agentchassis/platform/orchestration/agenterrors"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 )
 
@@ -159,6 +160,33 @@ func RequestRenderAuditAction(ctx context.Context, params ActionParams) (interfa
 		// Say it loudly: a capped sweep reporting "clean" is a false green.
 		logger.Warn("request_render_audit: page list TRUNCATED by max_pages — a clean result covers only the audited pages",
 			zap.String("domain", domain), zap.Int("audited", len(urls)), zap.Int("total", total))
+		// And say it DURABLY, before the dispatch. This step awaits, and an
+		// awaiting step's own result never survives the park
+		// (persistAwaitingStateWithRetry loads fresh state and keeps only the
+		// awaited-request entries — RFC_012 addendum 2, owner-ruled option B):
+		// agent_error_log is the one sink that outlives the await, and the row
+		// must land before the send so a failed dispatch cannot unrecord the
+		// truncation (bugs_open/242).
+		if !agenterrors.Write(ctx, params.DB, logger, agenterrors.Entry{
+			SiteID:          siteID,
+			Domain:          domain,
+			OrchestrationID: params.ExecutionContext.OrchestrationID,
+			AgentType:       params.ExecutionContext.Sender.AgentType,
+			PodName:         params.ExecutionContext.Sender.PodName,
+			StepName:        params.ExecutionContext.StepName,
+			Action:          "request_render_audit",
+			ErrorMessage: fmt.Sprintf("render audit truncated by max_pages: %d of %d live pages audited for %s — the unaudited tail is the SAME pages every run",
+				len(urls), total, domain),
+			ErrorCode: "RENDER_AUDIT_TRUNCATED",
+			Severity:  "warning",
+			Context: map[string]interface{}{
+				"pages_total":   total,
+				"pages_audited": len(urls),
+				"max_pages":     maxPages,
+			},
+		}) {
+			logger.Warn("request_render_audit: truncation row did not land — the pod log line above is the only record of this run's cap bite")
+		}
 	}
 
 	// Overridable so a cluster that has not yet deployed the dedicated pod can
@@ -209,6 +237,13 @@ func RequestRenderAuditAction(ctx context.Context, params ActionParams) (interfa
 				"urls":    urls,
 				"site_id": siteID,
 				"domain":  domain,
+				// The cap's bite travels IN THE REQUEST so the adapter can echo
+				// it back in its summary — the reply envelope is the only part
+				// of an awaited step that reaches the stored artefact (see the
+				// truncation block above). Without these, `pages: 25` has no
+				// total beside it and a capped sweep reads as a complete one.
+				"pages_total": total,
+				"truncated":   truncated,
 				// Renders (desktop+mobile full-page screenshots) are opt-in per
 				// step config; the adapter degrades to measurement-only when
 				// object storage is absent. See RenderAuditRequest.CaptureRenders.
