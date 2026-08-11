@@ -57,19 +57,42 @@ func NewMessageProcessor(
 	logger *zap.Logger,
 	initializer Initializer,
 ) *MessageProcessor {
-	// Simplified DB connection
+	// You size what you OPEN; you never size what you were GIVEN.
+	//
+	// `db` is a parameter. agentbase opened it and has already sized it from
+	// CHASSIS_DB_MAX_OPEN_CONNS (agent.go, "Low by default; overridable because
+	// the intake worker pool multiplies concurrent DB users"). A *sql.DB is a
+	// POOL object, not a connection, so calling SetMaxOpenConns on it here did
+	// not create a second pool — it re-sized the caller's, silently discarding
+	// the operator's configured value a few milliseconds after it was set.
+	// That is bugs_open/246: measured 2026-08-11, the live chassis sets 12 and
+	// ran on 4, while carrying the worker-pool intake the 12 was raised for.
+	//
+	// Deleting these calls is a behavioural no-op for every agent that does not
+	// set the variable, because agentbase's defaults (4 / 1 / 10m) are exactly
+	// what this constructor used to impose.
+
+	// `sqlDB`, by contrast, is opened HERE, so sizing it is this constructor's
+	// job — and it was not being done at all. Go's zero value for MaxOpenConns
+	// is 0, meaning UNLIMITED, so any deployment setting DATABASE_URL got an
+	// unbounded pool behind a transaction-mode pgbouncer. The error was also
+	// discarded, which turned a misconfigured DSN into a silent nil handle.
 	var sqlDB *sql.DB
 	if connStr := os.Getenv("DATABASE_URL"); connStr != "" {
-		sqlDB, _ = sql.Open("pgx", connStr)
+		opened, err := sql.Open("pgx", connStr)
+		if err != nil {
+			// Not fatal: every reader of p.sqlDB already falls back to p.db,
+			// which is the handle production actually uses. But it must not be
+			// silent — a bad DSN and an unset variable are different faults.
+			logger.Error("DATABASE_URL is set but could not be opened; falling back to the shared handle",
+				zap.Error(err))
+		} else {
+			sqlDB = opened
+			sqlDB.SetMaxOpenConns(4)
+			sqlDB.SetMaxIdleConns(1)
+			sqlDB.SetConnMaxLifetime(time.Minute * 10)
+		}
 	}
-	// Set a low, fixed number of max connections per pod
-	db.SetMaxOpenConns(4)
-
-	// Only keep one idle connection open per pod
-	db.SetMaxIdleConns(1)
-
-	// Close connections after a while to force recycling
-	db.SetConnMaxLifetime(time.Minute * 10)
 
 	// Keep tracer for debugging
 	var tracer *types.TraceLogger
