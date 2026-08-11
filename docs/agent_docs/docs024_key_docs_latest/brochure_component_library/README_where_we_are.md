@@ -2233,3 +2233,11 @@ refreshes that data from its source, where their fix hadn't reached — they're 
 is broken on the live page, but their cleanup must wait. The measurement this whole workstream
 was building towards is done. Next: making the redesign request visible to the planner, as you
 scheduled, then the two small wording changes.
+
+**2026-08-11, end of day.** Ahead of schedule: the whole of today's list is done or awaiting a
+review verdict. The redesign-request fix you scheduled is built and submitted — the planner will
+see "REDESIGN REQUESTED" on the exact line of any page an operator names, so the silent no-op we
+documented can't recur once it's applied. The one-line ban on invented guarantees is written
+exactly as you approved it, and the reviewers' rulebook now gets your nested-fields ruling in the
+same batch — both submitted together as one small review. Nothing is applied yet; all three wait
+on their verdicts, and the handoff says precisely what to run when each lands.
