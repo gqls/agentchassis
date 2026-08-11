@@ -9073,3 +9073,36 @@ code change owed at the next roll, tracked in RFC_015 §5.
   `bugs_open/215`'s quiet-mode submission (corr `56e13695`), 2026-08-11; verified
   by reading both write paths
 - **added:** 2026-08-11, bugs_open/215 quiet-mode lane
+
+### A `page_components` scan has NO site of its own — an asset-path query sweeps the whole fleet, and `/assets/images/<prefix>-` is a namespace every site shares
+
+- **footprint:** `page_components`, `model_lifecycle.artefacts`, any "which pages
+  reference asset X" query
+- **the trap:** `page_components` reaches a site only through `pages.site_id`, so
+  a query that joins `pages` but forgets the filter returns **other sites' rows,
+  silently and correctly**. It compounds with the second half: every site on the
+  platform serves its images from the same `/assets/images/` path shape, so
+  `LIKE '/assets/images/case-study-%'` matches another site's completely unrelated
+  files. The result is a real row, a real page, a real slot name — nothing looks
+  wrong
+- **why the wrong result looks exactly like the right one:** you then confirm it
+  by curling the path against the domain you are working on, and it **404s** —
+  which reads as "this page of mine is broken" when it actually means "this is not
+  my page". The confirmation cannot fail, because a foreign page's URL always
+  404s on your domain. Two checks, blind the same way, agreeing with each other
+- **the check:** put the site in the query and the DOMAIN in the output, so a
+  foreign row is visible as foreign —
+  `SELECT s.domain, p.url … FROM page_components pc JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id`
+  — and compare **filenames, not prefixes**:
+  `SELECT DISTINCT regexp_matches(pc.content_data::text, '/assets/images/(case-study-[a-z0-9-]+\.[a-z]+)', 'g')`.
+  Different slugs or a different extension coming back is the tell
+- **and read `content_data::text`, not `jsonb_each_text`, for this question:** the
+  flat form sees only top-level values, so a nested `{"image":{"url":…}}` never
+  matches an anchored prefix and the count comes back plausibly small rather than
+  wrong-looking. Size the positive control before trusting it — mine returned
+  **1**, which passes a "is it non-zero" test while discriminating nothing
+- **source:** `WRONG_CALLS.md` 2026-08-11 (finetuning lane) — a page belonging to
+  `ai-agent-orchestration.com` was recorded in a handoff as finetuning.uk's "only
+  current reference in the whole site", and became a standing next-action for the
+  following thread. Its five files were `.png` with slugs this site has never used
+- **added:** 2026-08-11, finetuning service lane

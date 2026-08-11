@@ -550,3 +550,165 @@ works):
    pattern on `/assets/images/` and run a positive control. Three inert checks in
    two days (`WRONG_CALLS.md` 08-09 and 08-10) all returned confident wrong
    answers rather than errors.
+
+---
+
+## 9. SESSION 2026-08-11 — §8.4 re-grounded: four of its five items were already resolved, and task C is ANSWERED
+
+Everything below measured today against the live system. **Read this before
+acting on §8.4** — it is a list of things to do, and most of them are done.
+
+### 9.1 Task A (imagery) is COMPLETE at the artefact — by the `238` lane, not by this one
+
+`bugs_open/238` is **owned by `bugfix_238_regeneration_key_loss`** (`who-owns.py
+238`: 5 commits/14d, all today; council APPROVED, `56e2066d3`). Their fix
+(`d26c26a9a`) and repair (`c4ff9f6e1`) have landed. Verified at the served page,
+not at the item:
+
+```
+curl -s https://finetuning.uk/index.html | grep -c 'csg-card-image" src=""'   # 0  (was 5)
+curl -s https://finetuning.uk/index.html | grep -o 'case-study-[a-z-]*\.jpg' | sort -u | wc -l   # 5
+```
+
+All five assets 200 `image/jpeg`; a fabricated sixth filename 404s, so the check
+discriminates. **§8.4 item 1 is not this lane's work any more — do not pick it up.**
+
+### 9.2 ⚠ CORRECTION to §8.3 — `/enterprise-reference-deployment.html` is ANOTHER SITE'S page
+
+> **§8.3's third table row is wrong.** It lists that page as a surface of this
+> site, "the **only** current reference in the whole site — and that page 404s".
+> It belongs to **`ai-agent-orchestration.com`** (site `2a8ebf9c-…`), where it is
+> `active` / `deployed` (2026-08-10). It 404s on finetuning.uk because it was
+> never a finetuning.uk page.
+
+It is not a consumer of these five images either. It names **five different
+files** — `case-study-distributed-tracing.png`, `-financial-pipeline.png`,
+`-healthcare-audit.png`, `-logistics-dispatch.png`, `-web-automation-scaling.png`
+— different slugs, different extension. The match was on the shared **prefix**
+`/assets/images/case-study-`, not on identity.
+
+**So §8.4 item 2 dissolves: there is nothing to decide.** Fleet-wide, shape-blind
+scan over both `content_data::text` and `page_components.rendered_html` (positive
+control `content-hero`: 26 kv rows; negative control fabricated prefix: 0):
+
+| domain | page | slot |
+|---|---|---|
+| finetuning.uk | `/index.html` | `case-studies-grid` — **fixed, serving** |
+| ai-agent-orchestration.com | `/enterprise-reference-deployment.html` | `case-studies-grid` — other site, other files |
+
+**`/index.html` is the only consumer of the five images, and it works.**
+Landmine added; `WRONG_CALLS.md` 2026-08-11 carries the cheap check.
+
+### 9.3 §8.4 item 4 — `contact-block` is RESOLVED site-wide
+
+The 7 missing required LLM fields §7.6 found are gone; the 08-09 full rebuild
+filled them. Site-wide, **0** required `source:"llm"` fields are missing across
+all 46 pages, against a control of **244** such fields total. The `->'fields'`
+trap from §7.6 was respected (iterating `input_schema` directly returns 0 rows
+whatever the truth). No no-LLM rerender of `/case-studies.html` will escalate on
+this any more.
+
+### 9.4 Task B (visual designer) is now UNGATED — but firing it is an owner call
+
+Both stated gates are gone: the images are real, and the homepage no longer
+renders empty `src`. The regeneration hazard that §7.5 item 4 warns about is also
+**guarded now, live**: `238`'s structural-key carry is in the running chassis.
+Probed at the binary because the provenance line has scrolled (chassis, as the
+landmine predicts):
+
+```
+POD=agent-chassis-…; kubectl -n ai-persona-system exec $POD -- grep -aq "<s>" /proc/1/exe
+  sections_with_structural_misses  PRESENT      structural_keys_carried  PRESENT
+  positive control executeLocalAction  PRESENT   negative control (fabricated)  absent
+```
+v1.0.1286, both replicas. **Note the build sha is NOT `d26c26a9a`** — the stamp
+names the build commit, not every ancestor, so a sha probe alone reads as "the
+fix is absent". Probe a string the fix INTRODUCED.
+
+**The site is quiet and it is a clean moment to fire**: 0 claimable items
+(`triaged`/`approved`), 0 `claimed`/`in_progress`, no other lane dispatching.
+Census: 195 complete · 78 needs_human_review · 20 unresolved · 12 failed ·
+12 deferred · 12 blocked · 2 rejected.
+
+**What still argues for asking first**: the loop dispatches content-REGENERATING
+items (`tone_shift`, `content_rewrite`, `cta_improvement`) against the owner's
+product homepage, which was broken for two days and repaired only this morning.
+`238`'s guard protects structural resolver-sourced keys (the image URLs); it does
+not stop copy being rewritten. **Left undispatched deliberately.**
+
+### 9.5 TASK C ANSWERED — no training run has ever produced an adapter
+
+§2 flagged this `[UNVERIFIED]` and §3C called it the product's first engineering
+task. It is now measured, and the answer is **no**.
+
+```sql
+SELECT status, count(*) FROM model_lifecycle.training_runs GROUP BY 1;
+--  pending 8 | failed 5 | complete 1        (14 runs, 2026-05-10 → 06-14)
+SELECT count(*) FROM model_lifecycle.artefacts;    -- 0
+SELECT count(*) FROM model_lifecycle.evaluations;  -- 0
+```
+
+**Zero artefacts and zero evaluations.** The registry that exists to record a
+trained adapter has never held one.
+
+**The single `complete` row is not counter-evidence.** `1cd65dd7` (started
+06-03 18:29, "completed" 06-04 20:47) carries **NULL `train_runtime_s`, NULL
+`final_loss`, NULL `cost_usd`, NULL `thunder_instance_id`** — a status flip with
+no metrics behind it. The phase5 notes predicted exactly this ("status flip stays
+untrustworthy — `1cd65dd7` already reads running", line 573), two other runs'
+`error_message` read *"superseded by iter_0 1cd65dd7; box gone — reconciled by
+hand"*, and its box `fabfd7fa` is `decommissioned`. The notes' own last word,
+line 1038: **"Unproven in prod: no run has reached RUN_SH_DONE yet."**
+
+Nor could an adapter have survived elsewhere: at that time `run.sh` **did not
+upload** — "the adapter is local-only" (notes line 638) — and all **23**
+`thunder_instances` are `decommissioned` (newest 06-18), so the box is gone.
+
+**Read the June work before re-planning it — it got much further than §2 implies.**
+§2 and §5 point at the 06-08 checkpoint-race handoff, but the lane ran to
+**06-21**: `NOTES_phase5_training_launcher_running(45).md` (122KB) and
+`PLAN_checkpoint_and_artefact_upload_b2(7).md`. Built and verified by then: the
+training launcher, `thunder-training-monitor` (both paths, live 06-04, still not
+enabled), and upload phases A/B/C. The register-before-send fix for the
+checkpoint race was applied 06-08, **pending a chassis rebuild that the notes
+never record as verified** — that is the first thing to check, and it is now 60+
+image tags ago. `training_exports.runs` holds 3 exports.
+
+**So the product's critical path is: prove one run end-to-end to `RUN_SH_DONE`
+with a durable uploaded adapter.** Until that exists there is nothing to sell,
+and §3D's model menu and §3E/F's hosting and front end are all downstream of it.
+
+### 9.6 Two live defects found while measuring, NOT dispatched
+
+`/ai-guides.html` and `/insights.html` — the §6 pages — **serve only a hero and a
+CTA**. No content section reaches the visitor:
+
+```
+curl -s https://finetuning.uk/insights.html  | grep -oE '<section[^>]*class="[^"]*"'
+  <section class="hero"   <section class="cta-section"     # and identically for ai-guides
+```
+
+> **This refines §6, which said "334 bytes each — empty shells, live now".** The
+> 334-byte shell is what is **STORED** (`page_components.rendered_html`, an
+> `<h1>` with empty content and empty divs). It is not what is served — the
+> served pages carry no `featured` markup at all. Both pages are `needs_rebuild`
+> and were last deployed **2026-08-03**.
+
+Also note the stored component holds **26 `content_data` keys** — the data is
+present and the render is empty, which is not the "no stored content_data" shape
+§6 described. A third spelling of the slot has appeared: item_key says
+`featured-article`, `/ai-guides.html` uses `featured_article`, `/insights.html`
+uses `featured-content`.
+
+An "AI guides" page listing no guides is a real product defect on the site that
+sells the service. Left for the owner alongside 9.4, since both mean dispatching
+regenerating work at live pages.
+
+### 9.7 Where this leaves the lane
+
+- **Site**: task A done and verified; contact-block done; the only open site items
+  are 9.6's two content-less pages and task B — **both owner calls, both queued
+  behind nothing.**
+- **Service**: the honest state is that the plumbing is extensive and **has never
+  produced its output once.** That is the whole product, and it is where this
+  lane's next session should go (9.5).

@@ -28328,6 +28328,48 @@ what existed when they looked. The prediction lived in a file that had been rewr
 measurement was still worth taking — what was wrong was the word "distinct", and the implied claim
 that nobody knew.
 
+## 2026-08-11 — finetuning lane: a cross-SITE page was recorded as "the only reference in the whole site", because a shared path PREFIX was read as file identity
+
+`HANDOFF_2026-08-08_continue_here.md` §8.3 tabulated
+`/enterprise-reference-deployment.html` as a surface of finetuning.uk — "the **only** current
+reference in the whole site — and that page **404s**" — and §8.4 item 2 turned it into a standing
+decision for the next thread: *"Decide what it is — a page that should be built and deployed, or a
+stale row to retire."*
+
+It is **`ai-agent-orchestration.com`'s** page (site `2a8ebf9c-…`), `active` and `deployed`
+2026-08-10. It 404s on finetuning.uk because it was never a finetuning.uk page. And it is not a
+consumer of these images at all: it names `case-study-distributed-tracing.png` and four siblings —
+**different slugs, different extension**. The only thing shared was the prefix
+`/assets/images/case-study-`.
+
+Both halves of the conclusion came from the same omission. The scan ran over `page_components`
+with **no `site_id` filter** (that table joins to a site only through `pages`), so it swept the
+fleet; then the 404 was confirmed by curling the path against *this* lane's domain, which is
+guaranteed to 404 for another site's page. **The second check appeared to corroborate the first and
+could only ever have agreed with it** — the two were blind the same way.
+
+**The cheap check, two of them:** (1) put the `site_id` in the query and the DOMAIN in the output —
+`SELECT s.domain, p.url … JOIN sites s ON s.id=p.site_id` — so a foreign row cannot be read as a
+local one; (2) compare **filenames, not prefixes**: `regexp_matches(…, '(case-study-[a-z0-9-]+\.[a-z]+)')`
+and look at what comes back. Here that alone would have killed it — five `.png` files with slugs
+this site has never used.
+
+**The shape:** *a shared path prefix is a namespace, not an identity — and an asset namespace is
+shared by every site on the platform.* The pattern matched exactly what it was written to match;
+what was wrong was reading "matches `case-study-*`" as "is one of MY five case studies". Filed the
+same day as this lane's own §8.4 item 5, which already said "anchor the pattern and run a positive
+control" — the control was run and passed, because a control proves the pattern is live, never that
+the rows it returns are the rows you meant.
+
+**A near-miss on the way to finding it, worth its own line:** my first re-measurement used
+`jsonb_each_text(content_data)` with `v LIKE '/assets/images/case-study-%'`, which reads only
+**top-level flat values** — a nested `{"image":{"url":…}}` renders as a JSON blob and never matches
+an anchored prefix. Its positive control returned **1**, and I nearly recorded that as the answer.
+1 is non-zero, so the control "passed" while being far too weak to discriminate. Re-running
+shape-blind over `content_data::text` and widening the control to any `/assets/images/%` (26 rows)
+is what made the measurement trustworthy. **A positive control with n=1 is a smoke test, not a
+control — state the number, and distrust it when it is small.**
+
 ## 2026-08-11 — I validated a k8s resource edit with `grep -c` and got the right NUMBER on the wrong CONTAINER
 
 - **the claim / the act:** adding `ephemeral-storage` requests for `bugs_open/252`,
