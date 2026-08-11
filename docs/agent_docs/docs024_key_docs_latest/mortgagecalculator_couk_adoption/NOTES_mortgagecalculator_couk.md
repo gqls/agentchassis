@@ -2415,3 +2415,92 @@ query skips any site holding a `claimed` item, and the per-site pickup is
 the site's single-flight slot for 80 minutes; the third worked. **A nudge that
 "does nothing" may mean the site is busy, not that the publish dropped** — check
 for a `claimed` row before re-firing.
+
+### 19:30–20:00Z — titles and homepage copy rewritten; the owner redirected me MID-FLIGHT and the first pass was wrong
+
+**Owner decision 1:** *"we can change those pages titles and accept the effect on
+Google."*
+**Owner correction, minutes later — and it caught a real error of mine:** *"The
+titles don't have to be 'plain', they still need to have character, just not so
+much, not so competitive, not so forceful, not so bold, not so trying to be
+clever. More — actual clever but subtle, effective, informative, benefit led for
+the user, not so much to do with 'the bank', our capabilities etc but more
+focused on what they are trying to achieve by visiting this site."*
+
+**My first pass over-corrected into flat and generic** — "Mortgage fee
+calculator", "Remortgaging explained", "Negative equity explained". I had read
+the earlier instruction ("not so clever") as "plain", and *plain* is a different
+target from *benefit-led with subtle character*. Nothing had shipped when the
+correction arrived (titles were in `pages` but `rendered_html` was still stale and
+the live site untouched), so the cost was one wasted pass. **The tell I missed:
+"benefit led" was already in the owner's first message about the voice spec and I
+applied it to the body copy but not to the titles.**
+
+Second pass — each title answers *what am I here to find out*:
+
+| page | before | after |
+|---|---|---|
+| tool-stamp-duty | Stamp Duty Calculator 2026 — UK SDLT Rates \| MortgageCalculator.co.uk | What stamp duty will cost you |
+| tool-affordability | Mortgage Affordability Calculator \| How Much Can I Borrow? | How much you could borrow |
+| tool-fee-analyser | Mortgage Fee Analyser \| True Cost Calculator | Which deal works out cheaper |
+| tool-overpayment | Mortgage Overpayment Calculator \| Calculate Interest Savings | What overpaying could save you |
+| guide-negative-equity | Negative Equity Guide \| The Mortgage Prisoner Trap | If your home is worth less than your loan |
+| guide-remortgaging | Remortgaging Guide \| Stick or Twist? | When switching your mortgage pays off |
+| guide-mortgage-scorecard | The Secret Scorecard \| How Banks Grade You | Where you stand before you apply |
+| guide-how-banks-decide | How Banks Decide: The Underwriter's Guide | Getting your application ready |
+| about-index | About MortgageCalculator.co.uk — The UK's Authority on Mortgage Finance | About us |
+
+31 titles, all ≤60 chars, sentence case, no pipe, no domain name — asserted in
+the generator, and the "no pipe" guard was **induced first** (it fired on 30 rows
+against the pre-change state). `about-index`'s old title was also an unevidenced
+superlative claim, which the new spec bans anyway.
+
+**`pages.title` is doing two jobs**, which is the whole reason the cards looked
+like that: it is the `<title>` tag AND the visible card heading, because
+`tool-list`/`guide-list` render `items[].title` verbatim. The card items hold a
+FROZEN copy (both components have `data_sources` NULL, so nothing re-resolves
+them), so the same transaction re-pointed every card label at its target page's
+`title` **by SQL join, not by retyping** — the card now says exactly what a
+rebuild would resolve, and a guard asserts card label = page title for every item.
+
+**15 homepage copy fields** rewritten in `content_data` (hero, both section
+headings and intros, the closing CTA), guarded by a check that no
+`bank's`/`the bank`/`Decision Engine`/`Scorecard Simulator`/`stress-test`/
+`won't tell you` string survives anywhere in the homepage's `content_data`:
+
+- hero: *"See What the Bank's Decision Engine Sees Before You Apply"* →
+  **"Know your numbers before you talk to a lender"**
+- tool section: *"Tools That Do the Bank's Maths for You"* (the owner's own
+  example) → **"The numbers you came to work out"**
+- guide section: *"Guides for what the bank won't tell you"* →
+  **"Help with the decision you're facing"**
+- closing CTA: *"See What the Bank Sees Before You Apply"* → **"Start with your
+  own figures"**
+- CTAs: *"Run the Scorecard Simulator"* → **"Work out your payments"**
+
+**KEPT deliberately:** `guide-list.cta_heading` = "Not sure which guide applies to
+you?" and its subtext. Already addressed to the reader's situation; changing
+compliant text would be churn for its own sake.
+
+**Deploy route — and why not the obvious one.** `rendered_html` was stale (it
+holds the old words), so an assemble-only deploy would have shipped the old copy;
+`content_data` edits are invisible until a re-render. Did NOT fire a content
+rewrite (`bugs_open/253`: 84% of words, 0% of layout classes). Instead **released
+the `page_rerender` item that already existed for `index`** — `deferred` since
+08-03, so a fresh INSERT was refused by `idx_swi_dedup` (correctly: the dedup
+index covers non-terminal rows, and `deferred` is one). Flipped it to `triaged`,
+priority 40, reason appended to `created_by`. Claimed within a minute of the
+dispatch nudge.
+
+**Both lanes brought in, as the owner directed:**
+`vigilant_designer_offer_analysis/CONTRIB_2026-08-11_from_mortgagecalculator_the_offer_question_arrived_as_a_copy_complaint.md`.
+Their B4 (the offer analyser itself) is **not built yet** and the design critic is
+at trial, so they could not be dispatched to write this — the CONTRIB hands them
+the graded case instead, and names the seam: **a site's offer is currently
+asserted by whichever checker speaks first.** Their own
+`missing_conversion_path` finding on THIS site was promoted at 17:43Z, two
+minutes after the `content_rewrite` that produced the copy the owner rejected —
+the same question, answered by two mechanisms that do not talk.
+
+`migration_backups` holds every previous value under
+`titles_2026-08-11b_benefit_led_titles` and `homepage_copy_2026-08-11_benefit_led`.
