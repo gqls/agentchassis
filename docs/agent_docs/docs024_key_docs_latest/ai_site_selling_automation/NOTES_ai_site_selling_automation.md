@@ -275,3 +275,30 @@ session, untouched by this lane.
   restructured one-file-per-edit to the 8-cap, DO-guard shown verbatim,
   dialect fix removed from the edit list (shipped in 1834bd3c0,
   acknowledged in rationale per the guardian's separate-shipping preference).
+
+## 2026-08-11 (later still) — council round 2 REVISE: the 8-cap paradox named, four checks answered live
+
+- **Round 2 REVISE, gated by editquality** — both HIGHs are one structural
+  fact: 10 shipped files cannot each hold an edit slot under the fix_plan's
+  hard 8-edit cap, and the seats read a bundled companion file as "never
+  created by the applying mechanism". There IS no applying mechanism — the
+  diff is at HEAD (1834bd3c0 + 5af5ee2ca) and compiles from a clean
+  `git archive HEAD`. Round 3 leads with that fact instead of burying it.
+- **Their four factual asks, answered by measurement this session**:
+  (1) the DDL RAN — information_schema, queried fresh: vouchers(8 cols),
+  billing_orders(11), billing_events(6), billing_settings(3) all present in
+  clients_db; "record-only" recorded an apply that genuinely happened.
+  (2) PAY-001's Go is `package main` under docs/agent_docs/.../idea.uk/
+  golang_files/ — a docs archive, not an importable module: pattern-reuse
+  stands, duplication objection falls. (3) the scaffold has NO webhook/SDK:
+  the only non-billing "checkout/stripe/webhook" hits in internal/
+  auth-service are the never-constructed CheckoutSession TYPE and its
+  example URL string (models.go:79-86). (4) pgbouncer headroom stands at the
+  round-2 numbers (≤9/200; 10 server conns measured); SHOW CLIENTS needs
+  console auth we don't hold — noted, not silently skipped.
+- **debug_historian's second real find landed**: the post-roll recipe's
+  step 4 — a real voucher POST as the write-path acceptance test (a mounted
+  route proves middleware, not a working DB write). RUNBOOK updated.
+- reuse seat's edit-1 medium (two payment concepts) remains a NAMED OWNER
+  DECISION by design — recorded, recommended, not resolvable by this lane
+  unilaterally deprecating a surface the owner ruled to build out.

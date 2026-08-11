@@ -92,3 +92,15 @@ kubectl -n ai-persona-system exec deploy/core-manager -- \
 
 Gotcha: the degrade-to-unmounted design makes a silent non-deploy look like
 success from outside — which is exactly why step 2/3 exist. Do all three.
+
+```
+# 4. (council round 2's addition — a mounted route is not a working WRITE path)
+#    Issue a real voucher through the API with an admin JWT: expiry tomorrow,
+#    recipient "post-roll acceptance". 201 + a WD-XXXXX-XXXXX code proves the
+#    whole chain (route → service → clients_db insert). Vouchers are
+#    single-use and expire, so the test artefact dies by itself — but note
+#    its code here when you run it, so nobody mistakes it for an issued one.
+curl -s -X POST -H "Authorization: Bearer $ADMIN_JWT" -H 'Content-Type: application/json' \
+  http://auth-service:8081/api/v1/admin/billing/vouchers \
+  -d '{"drops_price_to_pence":1000,"recipient_name":"post-roll acceptance","ttl_days":1}'
+```
