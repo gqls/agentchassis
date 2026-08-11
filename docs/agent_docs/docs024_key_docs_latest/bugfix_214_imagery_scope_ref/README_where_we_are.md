@@ -223,3 +223,32 @@ queued before walking away.
 The review council is finally running (it was dead earlier today because the whole fleet was
 out of API credit until this evening). No verdict yet, and I have not marked anything as
 reviewed.
+
+---
+
+2026-08-11, a fresh session picking the lane up from scratch.
+
+The council's answer arrived one minute after last night's handoff was written: **revise**.
+Nothing in it says the fix is wrong — the strongest objection is about the *repair script's
+safety check*: I had written "abort unless exactly one odd row remains", and the reviewer's
+point is that hardcoding "one" is my prediction of the future, not something the script
+worked out for itself. Fair. The saving grace, which I have said back to them, is that the
+check fails safe — if the number had drifted the script would have refused to run, not done
+the wrong thing — and it did in fact fire correctly when the repair ran. The other
+objections were of the same flavour: things we had actually already done (checking the
+running servers, keeping a rollback file) but had not *shown* in the plan, plus two fair
+asks we had genuinely not done — leaving a durable note of the design decisions where the
+next person will look, and telling the team whose image-dispatch pipeline reads this data
+what changed under them. I have now done both, and sent the whole thing back for another
+look, with evidence attached this time.
+
+I also re-checked everything from cold this morning: the damage count is still exactly the
+one deliberately-left row (the fleet has grown around it, from 176 imagery references to
+198, with no new damage), no real site has replanned yet so the rename-repair arm still has
+not had its first genuine outing, and the mortgage-calculator oddity still waits on a human.
+
+One correction of my own: last night's handoff suggested a small code tidy-up for later.
+Looking at it properly this morning, that tidy-up would actually break a deliberate
+behaviour (the "home means the homepage" collapse) and the tests would catch it. So the
+right answer is: don't do it. The handoff was wrong; the note in the technical log says so
+in as many words.

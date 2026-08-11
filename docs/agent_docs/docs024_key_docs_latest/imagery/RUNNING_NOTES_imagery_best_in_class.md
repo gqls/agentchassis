@@ -3192,3 +3192,34 @@ closed bug's §8.2 with the correlation to quote.
 
 **Closed**: `git mv` → `bugs_closed/011_…`; `016b` §10 row and its three
 `bugs_open/011` cross-refs updated to `bugs_closed`.
+
+## 2026-08-11 — cross-lane notice from bugfix 214: what changed under your dispatch path (written by the `bugfix_214_imagery_scope_ref` lane, per the owner ruling 2026-07-29 §3 — consumers must be TOLD, not merely measured)
+
+`WriteSitePlanAction` now canonicalises `site_plan_imagery.scope_ref` against the
+plan's own page names at write time (live on chassis `v1.0.1283`, 2026-08-10;
+`bugs_open/214`, register `IMG-070`). Three things change about the guarantee your
+pipeline reads, none of them yet exercised in production — no site with renamed
+(`-index`) pages has replanned since the roll:
+
+1. **Pass-1 membership of your emitter can shift once, per site, on the first
+   replan-with-renames.** `imageryplan.LoadCurrentPlan` orders by `scope_ref` with
+   `MaxPerPass=20`; canonicalising refs re-sorts them. Only plans over 20
+   page+section rows can notice: measured 2026-08-11 that is **robot-hands.com
+   (27), fundamentallyai.com (23), vonc.com (22)**. Overflow is picked up by later
+   passes, so this is transient reordering, not loss.
+2. **`needs_imagery` ItemKeys minted from pre-fix refs drift on that same replan**
+   — the key embeds the ref, so a rewritten ref mints a NEW key while the old open
+   item still carries the old one. Live today: mortgagecalculator.co.uk's deferred
+   `about`/`contact` items name refs its current plan spells `about-index`/
+   `contact-index` (that site's whole queue is deferred and its assets were never
+   generated, so nothing is stuck *now*). Whether to re-key, cancel or leave open
+   items when their site replans is **your lane's call** — this note is so the
+   choice is made knowingly, not discovered as a dedup mystery.
+3. **Human-approved imagery locks now transfer across a rename for one
+   generation** — `transferImageryLocks` gained a canonical fallback that fires
+   only when the exact `(plan_id, scope, scope_ref, key)` match finds nothing.
+
+Full decision record: `doc_notes` id `0633aa2f-cdf6-4d3f-afdf-9496ee694af1`
+(`subject_type='action'`, `subject_key='write_site_plan'`). Questions or
+objections → `docs024_key_docs_latest/bugfix_214_imagery_scope_ref/`, or the
+council trail on corr `46a50b4c`.

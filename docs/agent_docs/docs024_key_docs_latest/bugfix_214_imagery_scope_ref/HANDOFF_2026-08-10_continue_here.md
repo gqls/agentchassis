@@ -20,7 +20,7 @@ path, live on `v1.0.1283`, and the 9 rescuable live rows are repaired.**
 
 | # | outstanding | why it is not done |
 |---|---|---|
-| 1 | **Council verdict** | Round 1 died on the fleet credit outage. **Resubmitted** and RUNNING at time of writing (`gate_tooling_provenance`). Read it and act on REVISE/REJECTED — the code is already on shared HEAD. |
+| 1 | **Council verdict** | ~~Round 2 RUNNING at time of writing.~~ **UPDATED 2026-08-11: round 2 returned REVISE** (gating: debug_historian, high — the backfill guard hardcodes its expected count). Every objection answered with evidence or discharged (decision record `doc_notes 0633aa2f…`; imagery lane told; see NOTES 2026-08-11); **round 3 resubmitted on the same correlation** (`COUNCIL_SUBMISSION_2026-08-11_round3.json`). Read the round-3 verdict and act on it. |
 | 2 | **The rewrite arm has not been OBSERVED firing in production** | Two induced runs were non-discriminating (below). Not a defect — it needs a plan containing a renamed page. |
 | 3 | **`mortgagecalculator.co.uk` `tools-index`** | Names a page existing under no spelling. Needs a human decision; deliberately left. |
 
@@ -100,9 +100,15 @@ the planner's own `sync_pages` step created matching `pages` rows, so their refs
 - **Not done deliberately:** exporting `datahelpers.NormaliseSlug`. `page_canonical.go`
   carried another session's uncommitted `FlatURLs` work and a pathspec commit cannot exclude
   a same-file passenger. Routed through the exported `CanonicalisePage` instead, coupling
-  pinned by `TestNormalisePageKey_MatchesTheNormalisationValidateRolesApplies`. **If that
+  pinned by `TestNormalisePageKey_MatchesTheNormalisationValidateRolesApplies`. ~~If that
   work has since landed, switching to a proper exported `NormaliseSlug` is a tidy
-  follow-up** — the test will keep you honest either way.
+  follow-up — the test will keep you honest either way.~~
+  > **CORRECTED 2026-08-11: do NOT make that switch.** The FlatURLs work has landed
+  > (`57a7fcbb4`), but the switch is wrong on the merits: the `CanonicalisePage` route also
+  > provides the deliberate `home`→`index` homepage collapse, which a bare `NormaliseSlug`
+  > loses — the coupling test's final assertion fails on exactly that. The shipped routing
+  > is the correct end state, not a workaround. (Caught while answering reuse_agent's
+  > round-2 objection; NOTES 2026-08-11 has the detail.)
 - **Architecture-scope, NOT taken:** RFC_016 §1's move of imagery inside the section entry.
   That is the only real fix for ordinal semantics; this lane deliberately validates ordinals
   and never rewrites them (see IMG-070's landmine note for the three reasons).

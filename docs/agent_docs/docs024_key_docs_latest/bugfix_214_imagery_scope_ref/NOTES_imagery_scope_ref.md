@@ -362,3 +362,73 @@ queue.
 `gate_tooling_provenance` / `EXECUTING_STEP` on orch `8a54fbc4-...`, trail correlation
 `46a50b4c-...` — i.e. a real run this time, not the `complete_invalid` death of round 1.
 Verdict not yet written; nothing in this lane claims one.
+
+## 2026-08-11 — fresh-eyes cold start: verdict read (REVISE), everything re-verified, round 3 resubmitted
+
+### Round 2 verdict: REVISE, decided 2026-08-10 22:21:59Z — one minute after the handoff was written
+
+Gated by **debug_historian, high**: the backfill's DO/RAISE hardcodes "exactly 1
+unresolvable row remains" — the author's census, not a run-time-derived expectation.
+Conceded as discipline (the guard fails CLOSED, so drift aborts rather than
+wrong-commits — but the count was still a prediction that happened to hold). Rule for
+this lane's next migration: **assert row IDENTITY of the touched set against the file's
+own needle-gate selection**, not a post-state count. Verdict note: `doc_notes
+890d75ba…`; full seat detail in `diagnosis_artifacts` `kind='council_report'` on the
+correlation. Other objections: editquality (Pass 2 unshown in the SKETCH — it is shipped
+at `write_site_plan_imagery_scope.go:158`; `sectionCountByPage` likewise `:193`),
+reuse_agent ×2 (parallel implementations — see the CORRECTION below), tooling_provenance
+(no durable decision record — now discharged, see below), guardian ×4 (ordering/lock/
+ItemKey/export — all measured or moot, see below).
+
+### Re-verification, all four runbook checks, 2026-08-11 ~09:40Z
+
+- **R1 census: 198 total / 1 invisible** (was 176/1 — fleet grew, damage did not).
+- **R3: 13 rows**, ALL from plans created **2026-08-07 or earlier** — i.e. pre-fix.
+  12 resolve against `pages.name` (the working rows the backfill was forbidden to touch:
+  dartsonline `brands`/`shop`, robot-hands `news`, leopardess ×7, relojistas `contacto`,
+  fundamentallyai `tools`); the 13th is mortgagecalculator `tools-index`, the deliberate
+  survivor. **No row from a post-roll plan → nothing disconfirms the fix.**
+- **R4: 0 log rows** — consistent, not disproving: the only post-roll plan writes were
+  the two pool sites, both all-content-role, 0 unresolved.
+- **Rewrite arm still unobserved**: the only plans since the roll are the two pool sites
+  (0 `-index` pages each). Unchanged close condition; still not forcing it.
+
+### The council's "25" vs the plan's "3" — both true, different questions
+
+Round 2's reviewer check "verifies the plan's claim of only 3 open needs_imagery items
+affected" returned **25**. Re-measured today: open `needs_imagery` fleet-wide IS 25 —
+13 deferred (all mortgagecalculator, 08-02), 11 detected `tool-*` content-hero items
+(**a different producer**, keys like `content_hero_tool_…` — not plan-imagery refs at
+all), 1 failed. The **affected-by-this-change** set is **2**: mortgagecalculator
+`about`/`contact`, whose keys embed pre-canonical refs their current plan now spells
+`about-index`/`contact-index`. Both deferred on a site whose assets were never
+generated, so nothing is stuck. The reviewer's query applied no affected filter —
+[[a-filtered-count-can-ship-inside-a-denominator]], in the other direction.
+
+> **CORRECTED 2026-08-11 — the handoff's "switch to an exported `NormaliseSlug`" follow-up
+> is WRONG, and I am the one who wrote it.** `normalisePageKey` is not a stand-in copy: it
+> routes through the exported `CanonicalisePage` content branch, which reproduces
+> ValidateRoles' normalisation **plus the deliberate `home`→`index` homepage collapse** the
+> resolver needs. A bare `NormaliseSlug` export loses that collapse and
+> `TestNormalisePageKey_MatchesTheNormalisationValidateRolesApplies` fails on its final
+> assertion. Caught by reading the function and the test side by side while answering
+> reuse_agent's objection — the shipped code is *more* reuse-conformant than the round-2
+> plan's edit 1, so that edit is **withdrawn**, not deferred. (241's FlatURLs work landed
+> as `57a7fcbb4`, so the same-file-passenger blocker is gone — irrelevant now, the switch
+> is wrong on the merits.)
+
+### Actions taken today
+
+1. **Decision record written** (tooling_provenance's ask): `doc_notes`
+   `0633aa2f-cdf6-4d3f-afdf-9496ee694af1`, `subject_type='action'`,
+   `subject_key='write_site_plan'` — the four architecture calls with reasons. First
+   decision-record note on this action; convention copied from `plan_sections`' 08-06 row.
+2. **Consumers told, not measured** (guardian + owner ruling 2026-07-29 §3): dated notice
+   appended to `imagery/RUNNING_NOTES_imagery_best_in_class.md` naming the three >20-row
+   plans where `LoadCurrentPlan` pass-1 membership can shift (robot-hands 27,
+   fundamentallyai 23, vonc 22 — measured), the 2-item drift class, and the one-generation
+   lock fallback. The open-items decision is routed to that lane, explicitly theirs.
+3. **Round 3 resubmitted** on the SAME correlation (`RESUBMIT_CORR=46a50b4c…`),
+   `COUNCIL_SUBMISSION_2026-08-11_round3.json` — every objection answered with what is
+   now fact (pod-grep, guard notice, rollback file's existence, the shipped Pass 2 hunk,
+   today's censuses). Budget ~30 min; find the run by payload, not printed id.
