@@ -2062,3 +2062,25 @@ it, and the register carries zero equity-release facts):
 INSERT if one had appeared in between); recently-active transcripts grepped for
 the symbols — the only other mentions are bugs 223/224 context and an enum
 listing, nobody mid-flight on this action.
+
+### The item then sat 80+ minutes untouched — fleet-queue starvation, not a filing fault — and was dispatched by hand
+
+The 08-08/08-10 experience ("picked up in minutes") did not repeat: 50 minutes
+of monitoring showed no orchestration row while the fleet completed 64 rerenders
+on other sites. Cause read from the live `build-pipeline-trigger` definition,
+not inferred: `find_dispatchable_site` picks **one site per 120s tick, ordered
+by the globally oldest dispatchable item** (`ORDER BY created_at ASC LIMIT 1`).
+Measured at ~15:30Z: 7 sites, **~273 dispatchable items older than ours** (81
+on ai-agent-orchestration.com dating to 07-24). Everything else checked clean:
+item dispatchable, site unlocked, no claimed item on the site, trigger firing
+(last 15:21:56). Also noted on the way: the per-site pickup
+(`load_work_item_actions.go:681`) orders `priority ASC` — **lower number first**
+— so the copied priority 14 was harmless, and §12's example priority 8 is
+actually ahead of it.
+
+Bypass: the `081b_trigger_dispatch_gamesdesign.sh` precedent, adapted —
+one `orchestrate` message pinning `build-dispatch-loop` to this site
+(correlation `5125e6b6-2ce4-40ce-af1c-adbea1560f72`). Item `claimed` and
+handler spawning within a minute. RUNBOOK §15 now carries the mechanism, the
+three pre-checks and the kcat caveat. `[Starvation figures MEASURED 2026-08-11
+~15:30Z — a fact about that afternoon's queue, not a property of the site.]`

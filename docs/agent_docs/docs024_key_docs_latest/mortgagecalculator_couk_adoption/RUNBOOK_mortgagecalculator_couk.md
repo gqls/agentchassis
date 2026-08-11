@@ -731,3 +731,46 @@ and compare to the source file — 68 of our 80 assertions carry non-ASCII (the
 U+2212 minus, currency symbols) and a quoting or encoding fault would land
 exactly there. `computed_values` compares the EXACT text; whitespace is the only
 latitude.
+
+## §15 When a triaged build item is not picked up: the fleet queue starves this site; dispatch by hand (added 2026-08-11)
+
+A correctly-filed `triaged` item on this site can sit for HOURS untouched while
+the dispatch machinery visibly completes work on other sites. That is not a
+fault in the filing and not a dead queue — it is the site-selection rule:
+`build-pipeline-trigger` (every 120s) runs `find_dispatchable_site`, which picks
+**ONE site per tick, ordered by the fleet's globally OLDEST dispatchable item**
+(`ORDER BY wi.created_at ASC … LIMIT 1`, read from the live agent definition).
+Any site holding older triaged items outranks yours on every tick. Measured
+2026-08-11 ~15:30Z: 7 sites held ~273 dispatchable items older than a
+just-filed item here — 81 of them from **18 days earlier** on one site — so this
+site's ETA was "when everyone else's backlog drains". `priority` is irrelevant
+to site selection (and note the per-site pickup inside the loop orders
+`priority ASC` — LOWER number first — so copying a low number is fine).
+
+**Diagnose before bypassing** — all three must hold, or the bypass just hides a
+real fault:
+
+```sql
+-- 1. the item is actually dispatchable (status/attempts/approval/depends_on)
+SELECT status, attempt_count, max_attempts, approval_mode, depends_on
+FROM site_work_items WHERE id='<item>';
+-- 2. the site is unlocked and has no claimed item hogging the per-site slot
+SELECT locked_at FROM sites WHERE id='62b5978e-4271-4589-8e00-4baebfc0447c';
+SELECT count(*) FROM site_work_items
+WHERE site_id='62b5978e-4271-4589-8e00-4baebfc0447c' AND status='claimed';
+-- 3. the trigger itself is alive (else the problem is bigger than this site)
+SELECT last_triggered_at FROM scheduled_tasks WHERE name='build-pipeline-trigger';
+```
+
+**The bypass**, precedent
+`scripts/initial_messages/180_adoption/081b_trigger_dispatch_gamesdesign.sh`:
+publish one `orchestrate` request for `build-dispatch-loop` pinned to this
+site (kcat pod in the kafka namespace; swap SITE_ID/DOMAIN in a copy of that
+script). Blast radius = exactly the `triaged`/`approved` items on THIS site,
+because that is all the loop's item query selects — check what those are first.
+Used 2026-08-11 for item `97f4d0ab` (correlation `5125e6b6…`): claimed within a
+minute of the publish, after 80+ minutes starved.
+
+**kcat exit 0 is NOT delivery** (LANDMINES: `kcat -P` can silently drop) — the
+only check is the result: the item flips to `claimed` and an orchestration row
+appears. If nothing moves in ~3 minutes, treat the message as never sent.
