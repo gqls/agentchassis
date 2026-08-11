@@ -201,6 +201,26 @@ Item 3 should be routed against this wording.
 > always-list derives from the action's own SQL, and a test re-derives it and
 > fails when a new query adds an uncovered table.
 > **Item 1(a) is still blocked — on the ROLL now, not on this work.**
+>
+> **VERDICT: APPROVED** (round 1, 1 medium + 5 low advisory objections, none
+> high-severity, 2 seats abstained). Trailer `Council-Reviewed: df9dae6c-…`.
+>
+> **⚠ The `architecture` seat asked for one thing to be recorded HERE, and this
+> is it.** The notice this change adds is *instructive prompt content read by an
+> LLM* — it tells the verdicter *"you do not need a human to confirm it"* and
+> points it at `information_schema.columns` via `data_request`. The seat approved
+> it (`ARCHITECTURE_SIGNAL: point_fix`) because it documents an **existing**
+> read-only channel rather than adding one, so nothing a shared mechanism
+> guarantees has changed. Its forward-looking concern, verbatim:
+>
+> > *"if this phrasing pattern gets reused across other diagnosis actions it
+> > could accumulate into a de facto shared vocabulary without ever passing
+> > through architecture review."*
+>
+> **So: the SECOND diagnosis action to teach its prompt a self-service capability
+> in this style is the one that needs an RFC — not this one.** Whoever writes it
+> should treat this paragraph as the precedent that makes it the second, not the
+> first. Nothing to do today.
 
 ### The failure, in the loop's own words
 

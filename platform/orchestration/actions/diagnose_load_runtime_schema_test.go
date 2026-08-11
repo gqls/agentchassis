@@ -14,6 +14,7 @@ package actions
 
 import (
 	"context"
+	"errors"
 	"os"
 	"regexp"
 	"sort"
@@ -255,6 +256,49 @@ func stripGoComments(src string) string {
 		}
 	}
 	return b.String()
+}
+
+// TestGatherSchemaSurvivesTheCountQueryFailing pins the failure mode the council
+// gate's diagnosis_guardian seat asked for by name (verdict df9dae6c, approved
+// with this listed under `missing`): "Confirm the new information_schema count
+// query degrades to silent notice-omission on error rather than failing
+// gatherSchema or the whole bundle assembly — plan claims this but no test
+// enumerated for it."
+//
+// The claim was true and untested, which is exactly the gap. It matters because
+// the notice is OBSERVABILITY, and observability must never cost a diagnosis: a
+// bundle failing to assemble because the coverage denominator could not be
+// computed would be strictly worse than the blindness this change fixes. The
+// listing must still render; only the notice may go.
+func TestGatherSchemaSurvivesTheCountQueryFailing(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	mock.ExpectQuery("information_schema.columns").
+		WillReturnRows(sqlmock.NewRows([]string{"table_name", "column_name", "data_type"}).
+			AddRow("orchestration_states", "orchestration_id", "uuid"))
+	mock.ExpectQuery("count").WillReturnError(errors.New("catalogue unavailable"))
+
+	out, err := gatherSchema(context.Background(), db,
+		nil, nil, []string{"orchestration_states"}, false, 120)
+	if err != nil {
+		t.Fatalf("a failed COUNT must not fail the gather, got: %v", err)
+	}
+	if !strings.Contains(out, "orchestration_states(orchestration_id uuid)") {
+		t.Errorf("listing lost when the count failed — observability cost the evidence:\n%s", out)
+	}
+	// Silence, not a fabricated denominator: "31 of 0" would be worse than no
+	// notice, because the whole point of the line is telling the verdicter what
+	// it cannot see.
+	if strings.Contains(out, "FILTERED") || strings.Contains(out, " of 0") {
+		t.Errorf("notice rendered with an unknown total:\n%s", out)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet sqlmock expectations: %v", err)
+	}
 }
 
 // stripBacktickLiterals removes raw string literals, leaving the code that the

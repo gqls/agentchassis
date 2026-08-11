@@ -160,3 +160,67 @@ that actually works was already in the result: the `diagnose_load_runtime` colum
 returns `t` on all four rows, so the text scan demonstrably matches when there is
 something to match. **Pick a control you have independently confirmed is present
 — not one you assume is.**
+
+### 2026-08-11 — the council verdict, READ (not just its decision field)
+
+**APPROVED**, round 1, `df9dae6c`. 1 medium + 5 low advisory objections, none
+high-severity, 2 seats abstained. An approval is not a reason to skip reading it
+— three objections were worth acting on and are now closed.
+
+> **A watcher trap fired first, and is worth recording.** My background poll for
+> the verdict exited 1 and its loop had already broken out with
+> `terminal-or-missing:` and an EMPTY status. That was **not** the council
+> finishing: the cluster API had a transient DNS failure (`server misbehaving`),
+> every `kubectl` in the loop returned empty, and my `case ""` arm read that
+> connectivity failure as "the row is gone". **A failed watcher is not evidence
+> about the thing being watched.** Re-queried directly once connectivity
+> returned; the run had in fact completed at 22:39 the previous evening. Same
+> family as the `||true` watcher entry in MEMORY — the arm that handles "no
+> data" must distinguish "queried and found nothing" from "could not query".
+
+**1. `editquality`, MEDIUM — "no sketch shows `schemaFilterNotice` being invoked
+or its output concatenated into what `gatherSchema` returns."** Correct about the
+*submission*, wrong about the *code*: the wiring is
+`return schemaFilterNotice(tables, total, full) + sb.String()`, and
+`TestGatherSchemaAlwaysListSurvivesTheFilters` already asserts `2 of 433` appears
+in the returned string. The seat said as much — *"likely just sketch
+incompleteness rather than a design flaw, hence object not veto"*. **The lesson
+is about submissions, not code: a sketch that omits the call site invites exactly
+this objection, and the reviewer cannot tell the two cases apart.** Show the
+wiring line next time, even when it is one line.
+
+**2. `diagnosis_guardian`, `missing` — "confirm the count query degrades to
+silent notice-omission rather than failing `gatherSchema`; plan claims this but
+no test enumerated for it."** **A fair hit: the claim was true and untested.**
+Added `TestGatherSchemaSurvivesTheCountQueryFailing` — the count errors, the
+gather still returns nil error, the listing still renders, and no notice appears
+(neither `FILTERED` nor a ` of 0` denominator). Proven by mutation: changing the
+degradation to `return "", err` fails it. This is the "observability never costs
+a diagnosis" invariant, now pinned rather than asserted.
+
+**3. `reuse_agent` + `editquality` — no evidence a `[]string -> []interface{}`
+helper or an "always-include regardless of filter" convention was searched for
+before adding one.** Also fair — I had grepped for `toIfaceSlice`/`toInterfaceSlice`/
+`asIfaceSlice` but never wrote the result down, and never searched for the
+always-include pattern at all. Both searched properly now and both came back
+empty: no function anywhere in `platform/`, `internal/` or `pkg/` matches the
+signature `func f([]string) []interface{}` except mine, no name collision, and no
+`alwaysInclude`/`forceInclude`/`includeAlways` convention exists. **Recording the
+search is part of the search** — an unrecorded grep is indistinguishable from no
+grep, which is precisely what the seat objected to.
+
+**Not actioned, deliberately:** `guardian`'s "bundle-size growth has no enforced
+ceiling" (true; `schema_table_cap` bounds table COUNT, not chars — but the
+always-list is six entries and the measured cost is +4%, so a char cap would be
+machinery for a bound nothing is near), and `tooling_provenance`'s doc_notes
+hygiene point (the standing five exist in this lane; the travelling-docs
+`doc_notes` channel is a different surface and adding a row for a point fix would
+dilute it). Both recorded here rather than silently dropped.
+
+**`architecture` asked for one thing to be written into the COMMISSION**, and it
+has been: the notice is instructive prompt text, approved as a `point_fix`
+because it documents an EXISTING read-only channel — but *"if this phrasing
+pattern gets reused across other diagnosis actions it could accumulate into a de
+facto shared vocabulary without ever passing through architecture review."* The
+**second** action to do this needs an RFC; this one is the precedent that makes
+it the second.
