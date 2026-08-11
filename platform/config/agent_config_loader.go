@@ -17,14 +17,12 @@ import (
 type AgentConfigLoader struct {
 	db     *sql.DB
 	logger *zap.Logger
-	cache  map[string]*models.AgentConfig
 }
 
 // NewAgentConfigLoader creates a new config loader
 func NewAgentConfigLoader(logger *zap.Logger) *AgentConfigLoader {
 	return &AgentConfigLoader{
 		logger: logger,
-		cache:  make(map[string]*models.AgentConfig),
 	}
 }
 
@@ -145,37 +143,4 @@ func (l *AgentConfigLoader) getDefaultWorkflow(agentType string) models.Workflow
 			},
 		},
 	}
-}
-
-// LoadAgentConfig loads configuration for an agent type
-func (l *AgentConfigLoader) LoadAgentConfig(agentType string) (*models.AgentConfig, error) {
-	// Check cache first
-	if config, ok := l.cache[agentType]; ok {
-		return config, nil
-	}
-
-	// Load from database or use defaults
-	config := &models.AgentConfig{
-		CoreLogic: map[string]interface{}{
-			"agent_type": agentType,
-		},
-		Workflow: models.WorkflowPlan{
-			StartStep: "process",
-			Steps: map[string]models.Step{
-				"process": {
-					Action:      "execute",
-					Description: "Process the request",
-					NextStep:    "complete",
-				},
-				"complete": {
-					Action:      "complete_workflow",
-					Description: "Complete the workflow",
-				},
-			},
-		},
-	}
-
-	// Cache the config
-	l.cache[agentType] = config
-	return config, nil
 }

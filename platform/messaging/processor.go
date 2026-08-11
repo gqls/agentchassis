@@ -13,7 +13,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/pkg/models"
-	"github.com/gqls/agentchassis/platform/config"
 	"github.com/gqls/agentchassis/platform/discovery"
 	"github.com/gqls/agentchassis/platform/errors"
 	"github.com/gqls/agentchassis/platform/kafka"
@@ -36,7 +35,6 @@ type MessageProcessor struct {
 	producer     kafka.Producer
 	orchestrator *orchestration.SagaCoordinator
 	validator    *validation.Validator
-	configLoader *config.AgentConfigLoader
 	logger       *zap.Logger
 	tracer       *types.TraceLogger
 	initializer  Initializer
@@ -93,7 +91,6 @@ func NewMessageProcessor(
 		producer:     producer,
 		orchestrator: orchestrator,
 		validator:    validator,
-		configLoader: config.NewAgentConfigLoader(logger),
 		logger:       logger,
 		tracer:       tracer,
 		initializer:  initializer,
@@ -1333,124 +1330,6 @@ func (p *MessageProcessor) extractGroupInfo(msgBody map[string]interface{}) (gro
 	return groupType, version
 }
 
-func (p *MessageProcessor) selectWorkflowOLD(ctx context.Context, agentDef *actions.AgentDefinition, msgCtx *MessageContext) (models.WorkflowPlan, error) {
-	p.logger.Info("DEBUG: selectWorkflow entry",
-		zap.Any("default_config_keys", agentDef.DefaultConfig),
-		zap.Any("workflow_exists", agentDef.DefaultConfig["workflow"] != nil),
-		zap.Any("orchestration_workflow_exists", agentDef.DefaultConfig["orchestration_workflow"] != nil),
-		zap.Any("task_workflow_exists", agentDef.DefaultConfig["task_workflow"] != nil))
-
-	// Log the actual workflow content
-	if wf, ok := agentDef.DefaultConfig["workflow"]; ok {
-		wfMap, _ := wf.(map[string]interface{})
-		if wfMap != nil {
-			p.logger.Info("DEBUG: Found workflow",
-				zap.String("start_step", fmt.Sprintf("%v", wfMap["start_step"])))
-		}
-	}
-
-	// Check if explicit workflow mode is requested
-	workflowMode := msgCtx.Headers["workflow_mode"]
-	if workflowMode == "" {
-		// Determine based on context
-		workflowMode = p.determineWorkflowMode(msgCtx, agentDef)
-	}
-
-	p.logger.Info("Selecting workflow",
-		zap.String("agent_type", p.agentType),
-		zap.String("workflow_mode", workflowMode),
-		zap.String("from_agent", msgCtx.Headers["from_agent_id"]))
-
-	var workflowConfig map[string]interface{}
-
-	// Always check for the main workflow field first
-	if wf, ok := agentDef.DefaultConfig["workflow"].(map[string]interface{}); ok {
-		workflowConfig = wf
-	}
-
-	// Only override if specific mode workflows exist
-	switch workflowMode {
-	case "task":
-		if taskWf, ok := agentDef.DefaultConfig["task_workflow"].(map[string]interface{}); ok {
-			workflowConfig = taskWf
-		}
-	case "orchestration":
-		if orchWf, ok := agentDef.DefaultConfig["orchestration_workflow"].(map[string]interface{}); ok {
-			workflowConfig = orchWf
-		}
-	}
-
-	// If no workflow found, create a default based on mode
-	if workflowConfig == nil {
-		if workflowMode == "task" {
-			return p.getDefaultTaskWorkflow(), nil
-		}
-		return p.getDefaultOrchestrationWorkflow(), nil
-	}
-
-	return p.convertToWorkflowPlan(workflowConfig), nil
-}
-
-func (p *MessageProcessor) determineWorkflowModeOLD(msgCtx *MessageContext, agentDef *actions.AgentDefinition) string {
-	// Safe type checking
-	if delegationPrefs, ok := agentDef.DefaultConfig["delegation_preferences"].(map[string]interface{}); ok {
-		if preferDelegation, ok := delegationPrefs["prefer_delegation"].(bool); ok && preferDelegation {
-			if p.isComplexRequest(msgCtx) {
-				return "orchestration"
-			}
-		}
-	}
-
-	// Check if called by another agent (subordinate call)
-	if msgCtx.Headers["from_agent_id"] != "" &&
-		msgCtx.Headers["from_agent_id"] != "00000000-0000-0000-0000-000000000001" {
-		return "task"
-	}
-
-	// Default based on action
-	if action := msgCtx.Headers["action"]; action == "process" || action == "execute" {
-		return "task"
-	}
-
-	return "orchestration"
-}
-
-func (p *MessageProcessor) isComplexRequest(msgCtx *MessageContext) bool {
-	// Analyze the request to determine complexity
-	// This could look at:
-	// - Size of input data
-	// - Multiple subtasks mentioned
-	// - Keywords indicating complexity
-	// - Historical performance data
-
-	// For now, simple heuristic
-	if inputData, ok := msgCtx.CollectedData["input_data"].(map[string]interface{}); ok {
-		// Check for multiple requirements or complex structure
-		if len(inputData) > 5 {
-			return true
-		}
-	}
-
-	return false
-}
-
-func (p *MessageProcessor) getDefaultTaskWorkflow() models.WorkflowPlan {
-	return models.WorkflowPlan{
-		StartStep: "execute",
-		Steps: map[string]models.Step{
-			"execute": {
-				Action:      "execute_llm_prompt",
-				Description: "Execute the task",
-				NextStep:    "complete",
-			},
-			"complete": {
-				Action:      "complete_workflow",
-				Description: "Complete the task",
-			},
-		},
-	}
-}
-
 func (p *MessageProcessor) getDefaultOrchestrationWorkflow() models.WorkflowPlan {
 	p.logger.Info("In file processor.go ",
 		zap.String("Function: ", "getDefaultOrchestrationWorkflow"),
@@ -1947,29 +1826,6 @@ func getFuncInfo(skip int) (current, caller string) {
 	return
 }
 
-func (p *MessageProcessor) processRequest(ctx context.Context, msgCtx *MessageContext) error {
-	p.logger.Info("Processing request processRequest processor.go 1295",
-		zap.String("action", msgCtx.ExecutionContext.Action),
-		zap.String("orchestration_id", msgCtx.ExecutionContext.OrchestrationID),
-		zap.String("request_id", msgCtx.ExecutionContext.RequestID),
-		zap.Bool("stateless", msgCtx.IsStateless))
-
-	// Set our agent information
-	msgCtx.ExecutionContext.FromAgentType = p.agentType
-	msgCtx.ExecutionContext.FromAgentID = p.podName
-	msgCtx.ExecutionContext.ProcessingNode = p.podName
-
-	// Load agent configuration
-	agentConfig, err := p.configLoader.LoadAgentConfig(p.agentType)
-	if err != nil {
-		p.logger.Error("Failed to load agent config", zap.Error(err))
-		return p.sendErrorResponse(ctx, msgCtx, fmt.Errorf("configuration error: %w", err))
-	}
-
-	// Everything goes through workflow execution now
-	return p.executeWorkflow(ctx, msgCtx, agentConfig)
-}
-
 // processResponse handles incoming responses
 func (p *MessageProcessor) processResponse(ctx context.Context, msgCtx *MessageContext) error {
 	execCtx := msgCtx.ExecutionContext
@@ -2336,30 +2192,4 @@ func (p *MessageProcessor) handleDirectResponse(ctx context.Context, msgCtx *Mes
 	}
 
 	return nil
-}
-
-// Add these methods to processor.go (they were in the original but not in the updated version)
-
-func (p *MessageProcessor) determineWorkflowMode(msgCtx *MessageContext, agentDef *actions.AgentDefinition) string {
-	// Safe type checking
-	if delegationPrefs, ok := agentDef.DefaultConfig["delegation_preferences"].(map[string]interface{}); ok {
-		if preferDelegation, ok := delegationPrefs["prefer_delegation"].(bool); ok && preferDelegation {
-			if p.isComplexRequest(msgCtx) {
-				return "orchestration"
-			}
-		}
-	}
-
-	// Check if called by another agent (subordinate call)
-	if msgCtx.Headers["from_agent_id"] != "" &&
-		msgCtx.Headers["from_agent_id"] != "00000000-0000-0000-0000-000000000001" {
-		return "task"
-	}
-
-	// Default based on action
-	if action := msgCtx.Headers["action"]; action == "process" || action == "execute" {
-		return "task"
-	}
-
-	return "orchestration"
 }
