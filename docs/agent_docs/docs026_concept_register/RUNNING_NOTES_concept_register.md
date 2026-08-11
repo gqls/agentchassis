@@ -1921,3 +1921,14 @@ running session may hold the hook set it started with — in which case the live
 falls to the next session and this claim stays [UNVERIFIED] until then. Rerunning
 `scripts/advisory-delivery-sweep.py --since 2026-08-12` is the fleet-level version of
 the same question.
+
+> **RESULT — PROVEN, same minute.** Commit `aa78871d8`, piped through `| tail -3`;
+> its recorded stdout is 2 lines and carries neither block. The advisory arrived
+> anyway, as a `PostToolUse` system-reminder next to the tool result: the scope
+> block for both files, plus the re-run line. **So delivery is verified at the
+> artefact — the reader received it — on the exact commit shape that has been
+> losing it 45% of the time.** Two secondary facts fell out: the hook took effect
+> **mid-session with no restart** (`.claude/settings.json` was edited minutes
+> earlier, so the [UNVERIFIED] caveat above is retired rather than deferred), and
+> the de-duplication arm behaved — `05d8b379e`, committed without a pipe, printed
+> the block in its own output and drew no duplicate from the hook.
