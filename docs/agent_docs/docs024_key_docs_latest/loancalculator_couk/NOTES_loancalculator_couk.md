@@ -4749,3 +4749,50 @@ Restored `max_rounds` to 5 and read it back from the live row; stopped the safet
   composition. `live-lender-approval-race` now has 0 current plans.
 - Intake row cancelled again (the trigger re-inserts one per fire; the previous cancel does not
   block a new row, so this needs doing after every probe).
+
+## 2026-08-11 (framework-rebuild thread) — round-1 verdict read, plumbing written, and a declared sweep
+
+**Step 1 done.** Council verdict on the FlatURLs field (corr `6fdb9ce6`): **APPROVED, round 1**,
+"2 advisory objection(s) — none high-severity", `complete_approved` at 19:21Z on 2026-08-10.
+The advisories were real work for this session: editquality (medium) — the field is only a
+prerequisite capability, the plumbing is the fix; prior_art_librarian (medium) — settle which
+of the THREE pages-upsert helpers governs the planner path before trusting the layer.
+
+**Step 2 written.** `siteUsesFlatURLs` (new `site_url_shape.go`): ONE reader of
+`structure.url_shape`; both surfaces (`WriteSitePlanAction`, `SyncPagesToDBAction`) thread it
+into `PageDescriptor.FlatURLs`; contract test `TestFlatURLFlagReachesBothCanonicalisationSurfaces`
+pins the pair (anchored extraction, not a bare grep). Six sqlmock cases on the helper. Both
+suites + `go build ./platform/...` green at HEAD **via `git archive`** (tree is dirty with
+other lanes' WIP — one of which, per 7a066dba1's message, does not compile).
+
+**Pre-write measurements that shaped it** (all [MEASURED 2026-08-11] live):
+- pages table: 24 active tool/guide rows, ALL dir-flat (`/tools/<s>.html`, `/guides/<s>.html`)
+  — byte-identical to `nestedOrFlatURL(dir, bare, true)`. The flag CAN express this site.
+- upsertPage: `url = EXCLUDED.url` unconditional; sync loop always overwrites `page["url"]`
+  from CanonicalisePage first → canonicalisation is the right layer for the plan-sync path.
+- The "second flat mechanism" is verbatim adoption (fidelity=locked) — preserves crawl URLs,
+  bypasses CanonicalisePage by design. Preserver, not rival synthesiser.
+- `resolveToolPageIdentity` keeps an existing row's stored identity → tool redeploys can't
+  move flat URLs. `nestedRoleFromURL` matches `parts[0]`, so flat URLs still corroborate
+  ValidateRoles — no interaction.
+- NOT wired (named, deliberate): apply_gap_plan/create_blog_posts/create_tool_component/
+  companionGuideIdentity — new-page synthesis only, cannot move a live URL.
+
+**The sweep.** My uncommitted edits + the untracked helper/test were carried to HEAD by the
+215 lane's `7a066dba1` as a DECLARED same-file passenger (their fix edits the same two
+surfaces; message states they could not separate the hunks and keep HEAD compiling). Exactly
+the CLAUDE.md scenario: nothing lost, forward-only holds, no re-commit needed. Cost: the code
+commit bears no `Council-Submitted:` trailer — the join lives in bugs_open/241 + BLD-018 +
+here instead. Their realised-identity layer composes with the flag: synthesis (mine) vs
+stored-identity override (theirs), complementary.
+
+**Council round 2 submitted** (the plumbing): corr `70256656-4ada-465e-b959-096ae7225eb9`,
+2026-08-11. Find by payload, not printed id. Budget ~30 min.
+
+**Sequencing constraint honoured:** the chassis roll (step 2's tail: build v1.0.1289, deploy,
+pod-grep `url_shape` + negative control) WAITS for the council verdict — council seats run on
+the chassis and a roll kills an in-flight run. Also: no orchestration dispatch within ~300s
+of the chassis roll.
+
+**NOTIFY read:** owner decision 2026-08-11 (url_field over renames) — no URL/name changes on
+this site; confirms, does not conflict.

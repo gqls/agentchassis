@@ -87,3 +87,44 @@ read once, passed to both, or don't ship it.
   rebuild" — this defect is why the rebuild is blocked on the plumbing.
 - The rebuild lane's handoff carries the full context:
   `docs/agent_docs/docs024_key_docs_latest/loancalculator_couk/HANDOFF_2026-08-10_framework_rebuild_continue_here.md`
+
+## STATUS 2026-08-11 — plumbing WRITTEN and on HEAD; roll + seed owed
+
+The owed plumbing above is built, exactly to the one-flag-one-read-both-callers
+constraint:
+
+- **`siteUsesFlatURLs`** (`platform/orchestration/actions/site_url_shape.go`, new) — the
+  ONE reader: `site_specs` aspect `structure`, key `url_shape`; `"flat"` → true; absent
+  spec/key, any other value, nil DB or read error → false (nested default, all existing
+  sites byte-identical).
+- Both surfaces thread it into their `PageDescriptor` (`WriteSitePlanAction`,
+  `SyncPagesToDBAction`), and `TestFlatURLFlagReachesBothCanonicalisationSurfaces`
+  (`site_url_shape_test.go`) pins the pair mechanically — a surface that drops the flag,
+  or reads it around the shared helper, goes red. Six sqlmock cases pin the helper.
+- `go build ./platform/...` + both test suites green **at committed HEAD via
+  `git archive`** (not the dirty shared tree), 2026-08-11.
+
+**Commit provenance, stated plainly:** the code reached HEAD in **`7a066dba1`** — the
+`bugs_open/215` lane's commit — as a **declared same-file passenger** (both lanes edited
+the same two surfaces; their commit message names the sweep and the reason: they could
+not commit their hunks without taking these, and the untracked helper+test were required
+for HEAD to compile). Forward-only holds; nothing was lost; there is no
+`Council-Submitted:` trailer on that commit because it was not this lane's commit.
+
+**Council round 2 (the plumbing): corr `70256656-4ada-465e-b959-096ae7225eb9`**,
+submitted 2026-08-11. Round 1 (the field): APPROVED, corr `6fdb9ce6-…`, and its
+editquality objection ("the plan reads as a fix but is only a prerequisite capability")
+is what this round completes. The round-1 advisory questions are answered in the round-2
+submission with the queries run: the plan-sync write path is `site_db_actions.upsertPage`
+(`url = EXCLUDED.url` unconditional; the other two upsert helpers are not in the planner
+path), and the "second flat mechanism" is verbatim adoption (fidelity=locked), which
+preserves rather than synthesises — it is how the flat URLs got in, not a rival.
+
+**Still owed before this is fixed-and-live:**
+1. Roll the chassis image carrying `7a066dba1`+ (do NOT roll while a council run is in
+   flight — a roll kills it), pod-grep `url_shape` positive + a negative control.
+2. Seed `url_shape:"flat"` into loancalculator.co.uk's `structure` spec
+   (supersede-then-insert). ⚠ Seeding on any OTHER site first requires measuring that its
+   live shape IS dir-flat — the flag cannot express root-flat or arbitrary crawl shapes.
+3. The verification block above ("How to verify", post-plumbing) — unchanged, still the
+   test.
