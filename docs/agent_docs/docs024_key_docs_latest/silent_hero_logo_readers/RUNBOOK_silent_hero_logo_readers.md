@@ -110,6 +110,18 @@ kubectl -n ai-persona-system exec $POD -- grep -aq "0000000000000000000000000000
 Never `strings` — it is absent from the debian-slim images, and behind `2>/dev/null` its failure
 is indistinguishable from "not stamped".
 
+**This change DOES have a greppable literal, which not every change does** (the council's
+`debug_historian` seat asked for exactly this). The new `error_code` is compiled in, so it dates
+the binary without planting a marker — run it with a control that must be absent:
+
+```bash
+POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o name | head -1)
+kubectl -n ai-persona-system exec $POD -- grep -aq "DEPLOYED_IMAGE_RESULT_MISSING_URL" /proc/1/exe \
+  && echo "PRESENT — this binary carries item 2"
+kubectl -n ai-persona-system exec $POD -- grep -aq "DEPLOYED_IMAGE_RESULT_MISSING_URL_NOT" /proc/1/exe \
+  || echo "control absent (good — the grep is not saying yes to everything)"
+```
+
 ## The check that actually matters — a durable row at the moment of failure
 
 ```sql

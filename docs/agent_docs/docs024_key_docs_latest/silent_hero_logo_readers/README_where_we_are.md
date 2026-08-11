@@ -76,3 +76,46 @@ not at the end of the session.
 is submitted to the council. The one thing that will actually prove it works is a real site build
 that deploys a hero or a logo, after the release — and then a record appearing at the moment it
 fails. I cannot force that from here.
+
+---
+
+## 2026-08-11 (evening) — approved, and the reviewers earned their keep
+
+The council approved it, first round, in about eleven minutes. No serious objections. Several
+reviewers went out of their way to say the judgement call I flagged — adding the durable record on
+top of the log line you approved — was the right way to handle a scope decision: declare it and let
+someone rule, rather than slip it in.
+
+**Two reviewers pushed back in ways that were genuinely useful, and neither could be answered by
+just agreeing.**
+
+The first caught me repeating a number instead of checking it. The four-hour deletion window is the
+fact my whole argument rests on, and I had taken it from another session's notes. The reviewer's
+point was blunt and correct: it should not be treated as settled just because it was stated with a
+specific number. I went and read the live cleanup job. **It is four hours** — the claim holds, and
+it is now something I have measured rather than something I inherited. Worth recording that the
+reviewer had no way to check it either; it flagged the gap rather than waving it through.
+
+The second asked a harder question: I fixed the three places the bug report named — but is the same
+silent-failure pattern lurking elsewhere? Rather than promise to look, I counted. There are 64
+places in that package using the same shape. Almost all are reading configuration, not results, so
+they are irrelevant. Four are genuinely reading the result of a dispatched job, and I opened all
+four. **None of them has this bug.** Two treat a missing value as "then do the other thing" and go
+and do it. One fails outright with a clear error. So the real distinguishing feature isn't the code
+shape at all — it is whether a missing value has any consequence beyond the page quietly coming out
+worse. That was true in our three, and false in the other four.
+
+Four more I could not classify, because they look up a key that comes from configuration rather
+than being written in the code, so you cannot tell what they mean by reading them. I have written
+those down as unfinished rather than counting them as clean.
+
+**One reviewer suggestion I did not take**, and I want to be upfront about it: it asked me to leave
+a note in a particular shared table. There is a proper tool for doing that for one category of note
+and none that I could find for this one, and hand-writing rows into a shared table is exactly the
+habit that tool exists to prevent. So the reasoning lives in six places a reader will actually look
+instead. I have logged that as an open loose end, not as done.
+
+**Still outstanding:** the release, and then a real site build that deploys an image, which is the
+only thing that will prove any of this works in anger. And separately, the lead I mentioned — I have
+put that to the automated diagnosis loop rather than write it up as fact, and its answer is still
+pending.

@@ -134,3 +134,89 @@ that genuinely needs a judgement — that the commission asked for a `Warn` and 
 row as well — rather than burying it in the risks block. Five further risks disclosed, including
 that the row-rate is `[UNMEASURED]` and that 236 §3 explicitly forbids quoting "2" as an incidence
 rate.
+
+---
+
+## 2026-08-11 (evening) — APPROVED, and the two medium objections were both worth having
+
+**Verdict: APPROVED**, round 1, ~11 minutes end to end. *"approved with 1 advisory objection(s) —
+none high-severity"*, 6 seats abstained. The `architecture` seat signalled `point_fix` and
+explicitly endorsed the boundary: *"observe first, redesign second… this plan deliberately does
+NOT touch that surface."*
+
+The declared departure survived every seat that looked at it. `constitution`: *"this is
+transparency, not a violation."* `guardian`: *"disclosed with measured justification… uses the
+existing LogActionError door rather than inventing a new sink."*
+
+**Two mediums, and neither was answerable by agreeing with it.**
+
+### 1. `prior_art_librarian` — "the 4-hour figure is load-bearing and you cannot check it here"
+
+Verbatim: *"scheduled_tasks is not in the Schema section available to this council, so this cannot
+be checked here; it should not be treated as settled just because it is asserted with a specific
+number."*
+
+**The seat was right to press, and the objection lands on ME, not on the lane that measured it.**
+I had repeated the figure from the other 236 lane's contribution — which is exactly what CLAUDE.md
+forbids: *"Ground every figure against the live system before repeating it from another doc."* I
+followed the norm about marking claims and skipped the one about re-measuring them.
+
+Checked first-hand, live `scheduled_tasks.pre_query`:
+
+```
+DELETE FROM orchestration_states
+ WHERE status IN ('COMPLETED', 'FAILED')       AND updated_at < NOW() - INTERVAL '24 hours'
+DELETE FROM orchestration_states
+ WHERE status IN ('EXECUTING_STEP', 'AWAITING_RESPONSES') AND updated_at < NOW() - INTERVAL '4 hours'
+```
+
+**CONFIRMED.** The figure is now this lane's own measurement, not an inherited one.
+
+### 2. `bug_historian` — "you patched the three sites 236 named, not the class"
+
+Verbatim: *"the round should not treat 'the three sites named in 236' as 'the whole exposure'
+without a sweep."* A fair challenge, and the honest answer needed a census rather than a promise.
+
+**The census, package-wide** (`params.CollectedData[…].(map[string]interface{})` with an `ok`
+guard, non-test): **64 occurrences.** But the shape is not the defect, and separating them is the
+finding:
+
+| class | count | is it the 236 defect? |
+|---|---|---|
+| config/input reads (`input_data` 31, `agent_config` 10, `__raw_message__` 4, …) | ~50 | No — not awaited results |
+| loaded records (`site_record`, `business_record`, `render_context`) | 5 | No — not awaited results |
+| **awaited/spawned results** | 4 | **checked individually — see below** |
+| dynamic key from config (`CollectedData[field]`, `[path]`, `[fieldName]`, `[key]`) | 4 | **`[UNVERIFIED]` — semantics depend on the config** |
+
+**All four awaited-result readers were opened and read. None is the 236 defect:**
+
+- `generate_image_actions.go:777` (`adapter_response`) — **fails loudly**: the `else` returns
+  `no response data found from adapter`. Nearest sibling to 236 (same image family) and it is clean.
+- `call_agent.go:736` (`spawn_agent`) and `:375` (`spawn_<type>`) — **legitimate fallback**: a miss
+  falls through to *"Need to spawn a new agent"*.
+- `spawn_actions.go:1804` (`start_orchestration`) — **legitimate fallback**: a miss returns nil,
+  meaning "no existing child", and the caller starts one.
+
+> **So the discriminator is not "an `ok` guard with no else". It is "a miss whose only consequence
+> is that the artefact is quietly worse."** In all four siblings, absence either fails the step or
+> genuinely means *do the other thing*. In the three hero/logo sites, absence meant *ship the page
+> without its image and say nothing* — and that is why those three were the defect and these four
+> are not.
+>
+> **This narrows the objection rather than dismissing it**, and it leaves a real residual: the four
+> dynamic-key readers cannot be classified by reading the Go, because the key comes from step
+> config. `[UNVERIFIED]` and recorded as the follow-up, not silently dropped.
+
+### The two low objections, and what was done with them
+
+- **`debug_historian`** — verify the eventual roll at the pod, not at git. Right, and the new
+  `error_code` is a compiled string literal, so it greps. Added to the RUNBOOK as the named target.
+- **`tooling_provenance`** — leave a `doc_notes` row recording the departure. **Not done, and
+  deliberately.** Landmines have a sanctioned writer (`landmines-sync.py`, and CLAUDE.md forbids
+  hand-writing those rows); this class has none I could find, and inventing a hand-written row is
+  the failure mode that rule exists to prevent. The departure is instead recorded in six places a
+  reader will actually look: PLAN Decision 1, these NOTES, `README_where_we_are`, the submission
+  rationale, `bugs_open/236`, and the commit message. **Flagged here as an accepted residual, not
+  as closed.**
+- **`editquality`** — `siteID`/`domain` looked unbound in the sketch. A sketch-elision artifact;
+  the real helper resolves both (`deployedImageAuditSiteID`, `extractDomainFromParams`). No change.
