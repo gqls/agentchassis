@@ -3211,3 +3211,20 @@ the only such note that has ever existed."
 > behaviour (compute, reveal, reasons), and they were right that the behaviour works. The
 > critique is about what a selector cannot see, which is exactly the half 243 restored.
 > Two instruments, two truths, and today is the first day both ran.
+
+**And the batch-8 naming gate is not a naming gate — MEASURED, against the code and the
+live config.** Since 08-10 every handoff in this chain has repeated that the nine
+unresolvable tool placements are stuck behind a naming ruling because "the live agent
+config has no `url_field`, so there is no way round it." The premise is true and the
+conclusion is false. `tool_acceptance_actions.go:163-166` checks `url_field` **before** the
+name lookup and falls through to it only when the extraction is empty
+(`if pageURL == "" && params.DB != nil …`); `tool_acceptance_actions_test.go:377-380`
+covers exactly that path with no database at all. The live `request_browser_run` step
+config (read today) carries `profiles`, `error_step`, `domain_field`, `site_id_field`,
+`criteria_field`, `function_field`, `capture_renders` — and no `url_field`. So the fix is
+one key in DB config, live immediately, inert until a work item supplies
+`spec.page_url`, and it clears all nine at once including `tool-loan-repayment`, which is
+on `index` and is unreachable by any rename. **What I got wrong for a while: I read the
+handoff's "no way round it" as a statement about the mechanism rather than about the
+config, and only opened the function because I wanted line numbers for the write-up.**
+The lesson is the one already in this lane's own file — a citation is not a read.

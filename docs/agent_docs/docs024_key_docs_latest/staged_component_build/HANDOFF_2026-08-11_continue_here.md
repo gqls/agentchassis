@@ -64,9 +64,38 @@ mobile, while all 15 selector checks pass. Recorded in 243's update. Two consequ
 3. **FIRECRAWL_API_KEY** — the one remaining value-copy in the spawn block
    (`spawn_actions.go:2649-2653`), same shape 245 just closed for storage keys. Convert to
    secretKeyRef too, or accept for a SaaS key? Recorded in 245's update.
-4. **Batch-8 blocked tail** (unchanged): 8 loancalculator naming mismatches (their lane's
-   call), fuel-budget-forecaster (gaswholesalers logo 404), gas-unit-converter (known-broken
-   page).
+4. **Batch-8 blocked tail**: 8 loancalculator naming mismatches (their lane's call),
+   fuel-budget-forecaster (gaswholesalers logo 404), gas-unit-converter (known-broken page).
+   > **CORRECTED 2026-08-11 (parallel session) — "there is no way round it" is FALSE, and
+   > this is probably not a naming decision at all.** Every handoff in this chain since
+   > 08-10 has said the Tier-4 lookup can only find a page by name because the live agent
+   > config has no `url_field`. The first half is right; the conclusion is not. **The code
+   > has always supported `url_field`, and it is checked FIRST**
+   > (`tool_acceptance_actions.go:163-166`, covered by
+   > `tool_acceptance_actions_test.go:377-380`):
+   > ```go
+   > if uf := datahelpers.GetStringField(config, "url_field", ""); uf != "" {
+   >     pageURL = datahelpers.ExtractNestedFieldString(params.CollectedData, uf)
+   > }
+   > if pageURL == "" && params.DB != nil && siteID != "" { /* the name lookup */ }
+   > ```
+   > The name lookup is the **fallback**, guarded on `pageURL == ""`. So adding
+   > `"url_field": "input_data.spec.page_url"` to the live `request_browser_run` step
+   > config (verified absent today; `function_field` already reads `input_data.spec.function`,
+   > so `spec.*` is the work item's own spec) is:
+   > - **additive and inert** — nothing reaches it until a work item carries
+   >   `spec.page_url`; every existing run falls through to today's behaviour unchanged;
+   > - **DB config, so live immediately** — no image, no roll;
+   > - enough to unblock **all 9** unresolvable placements at once, including
+   >   `tool-loan-repayment`, which sits on `index` and therefore **could never be fixed by
+   >   renaming anything**.
+   >
+   > That reframes the owner question. It was "which name is canonical, and who pays the URL
+   > change on a finished site?" It is now "do we teach the dispatcher to name the page it
+   > means, instead of making 26 live pages match a lookup?" Recommend the latter, through
+   > the normal council gate (additive-and-inert ⇒ gate, not RFC, per the 07-29 ruling).
+   > Renaming may still be wanted on gamesdesign for its own reason — restoring that site's
+   > `tool-` convention, 15 precedents — but that is a tidiness decision, no longer a blocker.
 
 **Routable to other lanes:**
 
