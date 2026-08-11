@@ -179,7 +179,7 @@ PSQL() { kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clie
 | step | state |
 |---|---|
 | 1 verdict | READ: round 1 **APPROVED** (2 advisories, both real work — see NOTES) |
-| 2 plumbing | WRITTEN + **LIVE on v1.0.1288** (rode the 215 lane's roll; probed both replicas, near-miss controls). Round 2 → REVISE (re-adoption drops the flag — LANDMINES); round 3 fixes it (`19acfc895`, adoption carry-forward + 3 more callers wired), verdict pending on trail corr `70256656`. Round-3 code inert until next roll — it hardens re-adoption, it is NOT needed for this rebuild |
+| 2 plumbing | WRITTEN + **LIVE on v1.0.1288** (rode the 215 lane's roll; probed both replicas, near-miss controls). Round 2 → REVISE (re-adoption drops the flag — LANDMINES); round 3 fixes it (`19acfc895`, adoption carry-forward + 3 more callers wired), round 3 **APPROVED** 18:43Z, trail corr `70256656`. Round-3 code inert until next roll — it hardens re-adoption, it is NOT needed for this rebuild |
 | 3 seed | **DONE + VERIFIED** (`SEED_2026-08-11_url_shape_flat.sql`; url_shape=flat, 27-entry pages list intact) |
 | 4 park | **DONE — 17, not 16**: the census's 16 + `evaluate_tools` (the minter). Ids + un-park route in NOTES |
 | 5 backups | **ALL FOUR LAYERS, each verified**: repo tag `loancalc-pre-rebuild-20260811` @ `b685b740` (pushed) + tar; `loancalc_bak_20260811_{pages,pc,sc,cc}` = 27/63/3/12; off-cluster pg_dump (per-COPY counts re-counted); snapshot `0d1b55f0` (pages=27, chrome=3, locked_captured=17) |

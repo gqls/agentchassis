@@ -157,3 +157,27 @@ preserves rather than synthesises — it is how the flat URLs got in, not a riva
 - Deliberately NOT done, registered on BLD-018: consolidating the two typed readers of
   the structure row (`siteUsesFlatURLs` / `siteIdentityPolicyFor`) — that is the 215
   lane's file, hours old and council-approved; theirs to absorb.
+
+## STATUS 2026-08-11 (final for this session) — round 3 APPROVED
+
+**Corr `70256656`: APPROVED, "3 advisory objection(s) — none high-severity"** (18:43Z).
+Commit `19acfc895` carries `Council-Submitted:` — 098 credits it automatically now the
+verdict is approved. Trail complete: round 1 field APPROVED (`6fdb9ce6`) · round 2
+REVISE · round 3 APPROVED (same trail corr).
+
+Advisory dispositions (none gates):
+- *read-before-supersede* (editquality): holds by construction — the carry runs in the
+  same loop iteration as that aspect's supersede, before it; the UPDATE is per-aspect
+  scoped, so no earlier iteration can have superseded structure.
+- *reuse siteSpecDeepMerge* (reuse_agent): the carry is a deliberate top-level
+  fresh-wins merge — adoption's pages array must be wholly fresh, and deep-merge
+  precedence semantics differ. Named as a quality follow-up, not folded in blind.
+- *fleet-wide semantics inversion* (guardian) + *pattern will be wanted on other
+  aspects* (architecture): both stated in the submission's risks; the aspect-scoped
+  choice and its reason (only structure has the operator opt-in convention) is in the
+  code comment and the contract test.
+
+**Still open on this bug:** round-3 code (`19acfc895`) inert until the next roll —
+probe `carryForwardStructureSpecKeys` + near-miss control when any roll ships it. The
+bug itself is FIXED AND LIVE for the planner path (v1.0.1288 + seeded flag); per the
+owner's 08-06 ruling, the file stays in `bugs_open/`.
