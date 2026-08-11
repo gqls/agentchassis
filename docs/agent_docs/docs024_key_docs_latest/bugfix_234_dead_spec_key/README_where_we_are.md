@@ -98,3 +98,39 @@ because the whole in-cluster fleet is currently stopped on an account-level API 
 is being dispatched, so nothing can be rejected. The evidence we do have is solid (the code
 is provably in the running binary, and the behaviour is pinned by tests that I broke on
 purpose to confirm they catch it). I'll run the canary when the fleet is working again.
+
+## 2026-08-11 — both proofs are in; the work is done
+
+The new build carries everything, on both machines, and the fleet is running again. So I
+ran the two outstanding tests and both came back the way we needed.
+
+The first: I created a throwaway agent deliberately configured with a nonsense setting, and
+the system refused to run it — the error message names the offending setting and tells the
+author it is a definition error rather than something harmless. It was classified as
+permanently broken rather than retried forever, and recorded. That is the whole point of the
+change, observed working on live traffic rather than inferred from tests.
+
+The second: I created another throwaway agent carrying the improvement loop's exact
+configuration, and the record it filed came out carrying the "refresh the header and footer"
+instruction — the thing seventeen previous records could not do. That is the original bug,
+observed fixed, at the place that matters.
+
+I did it with a stand-in rather than waiting for the improvement loop itself, for a reason
+worth knowing: that loop only files these records when an audit has actually found problems
+worth fixing, and it hasn't run since Sunday afternoon. Waiting could have taken days, and
+the alternative — pointing it at a real customer site to force the issue — would have run a
+full audit, a round of fixes and a re-render on live pages just to prove a one-word change.
+The stand-in used the loop's own settings copied word for word, so what it proves is the
+same thing.
+
+Both stand-ins were deleted afterwards, and I re-checked that the system is clean — that
+matters, because leaving a deliberately-broken test agent lying around would corrupt the
+daily check we just built.
+
+One correction worth recording. Yesterday I told you the first test was blocked by the
+fleet being down. The fleet was down, but that was not why it failed: my test was watching
+the wrong place entirely — it looked for a container that never gets created when a
+configuration is rejected, because the rejection happens before anything starts up. The
+outage gave me a believable reason for the silence, so I stopped digging. That is the
+general lesson and it is now written down: a convincing outside explanation for "nothing
+happened" is exactly when you should double-check your own instrument.

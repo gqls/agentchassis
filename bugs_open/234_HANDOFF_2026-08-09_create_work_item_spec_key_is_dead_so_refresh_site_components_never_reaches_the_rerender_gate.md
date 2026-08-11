@@ -31,15 +31,34 @@ Q2: **KEEP** — the fleet rolled to **v1.0.1280** and both replicas carry the e
 — migration **370** retired `update_page_status`'s `notes_field`/`validation_issues_field`,
 declaration rides **v1.0.1281** (built + pushed, not deployed).
 
-**STILL OWED — one behavioural proof each, both blocked on the fleet, neither on work:**
-1. **Filed-row proof:** the first `improvement_rerender_*` row created after 2026-08-10
-   10:49Z must carry `{"refresh_site_components": true}` (§How to verify).
-2. **Strict canary:** `bugfix_234_dead_spec_key/witness_234_fire.sh` + `_poll.sh`. Three
-   firings produced no event because **the in-cluster fleet is stopped on an account-level
-   Anthropic cap** (commit `5fb7c6ebe`; last orchestration 16:56Z) — nothing dispatched, so
-   nothing could be rejected. The canary definition is deactivated so it cannot pollute the
-   Q1 census; **delete the row before re-firing** (the script refuses if the type exists in
-   any state). Run both when the fleet resumes.
+**BOTH BEHAVIOURAL PROOFS LANDED 2026-08-11 on v1.0.1284** (both halves in both replicas,
+negative control clean):
+
+1. **Spec delivery, at a FILED ROW** — a witness carrying improvement-loop's
+   `insert_rerender_item` config *verbatim* filed
+   `spec = {"refresh_site_components": true}`. Disconfirmable: `{}` would have meant
+   migration 364 changed nothing. (Written as a witness because improvement-loop's step is
+   conditional and has filed nothing since 08-09 14:56Z; forcing it would have run audits
+   and a rerender on live customer pages. The mechanism is proven; that improvement-loop
+   reaches the step rests on its live config, read and unchanged apart from this rename.)
+2. **The strict flip refuses live traffic** — chassis `processor.go:293`:
+   *"step 'file_witness_row' (action 'create_work_item') has unrecognised config keys
+   [zzz_strict_witness_234] — this action declares its config contract as complete, so an
+   unknown key is a definition error, not a no-op"*. Classified permanent, **not retried**,
+   recorded to `agent_error_log`, no row filed. The two witnesses are each other's control:
+   fired minutes apart down the identical path, one produced an orchestration row and one
+   was refused.
+
+> ⚠ **The earlier "blocked on the fleet cap" note was WRONG about the cause** (corrected
+> 2026-08-11, WRONG_CALLS.md). Validation runs in the CHASSIS before any agent spawns, so a
+> rejected workflow has **no witness pod and no orchestration row** — both pollers were
+> looking where the evidence could never be. Grep the chassis log, not a witness pod.
+
+Both witnesses were **deleted** afterwards and the census re-verified clean (17
+`create_work_item` steps, 0 unrecognised) — a live witness carrying a bogus key would
+poison the very census the RFC_021 Q1 adoption protocol depends on.
+
+**Nothing technical remains owed on this lane.**
 Note: a **17th** empty-spec row (`improvement_rerender_finetuning.uk`, 08-09 14:56Z)
 was filed between this file's measurement and the fix — 17/17 at fix time.
 
