@@ -249,6 +249,33 @@ whose critique reports); batch-8 tail unchanged (`tool-llm-cost-calculator` fork
 `tool-bayesian-ranking` after its §11 rename, loancalculator once their lane authors
 golden-derived PLANs — 384 is live and waiting).
 
+## 3e. THE WRAPPER'S `page_url` HALF — done by the wrapper's owner, 2026-08-11 ~14:00Z
+
+§3c item 3 deferred this piece "to the wrapper's owner"; that is the session that rewrote
+`tool_acceptance_run.sh` this morning, and it is now done — **not** as an optional argument.
+The wrapper resolves the page **by component placement** and always writes `spec.page_url`,
+so `url_field` (384) actually has a producer on the manual path. Exact-name pages still win
+the tie, so nothing changes for tools that already resolved. Foreground-tested:
+`tool-loan-repayment` — the `index` case no rename could ever fix — now resolves and prints
+the route note, stopping honestly at its missing PLAN. New refusal added for an empty
+`pages.url` (the one case neither route can resolve). Commit `585e37dad`.
+
+**The naming gate is therefore gone from BOTH halves of the manual path; what blocks the
+eight loancalculator tools is a fence to author, not a name.** The sweep producer is still
+deliberately unchanged (its population all resolves by name — §3c's reasoning stands).
+
+Proof status, stated honestly: run `a457a96a…` exercises the new wrapper end-to-end and
+shows the extra spec key breaks nothing. It **cannot** prove the url route was TAKEN — for
+tool-setup-builder both routes give the same URL. **The discriminating test is the first
+fence authored for a loancalculator tool**, whose page name cannot resolve at all; whoever
+does that gets the route proof for free.
+
+⚠ **New LANDMINE from verifying 384** (`LANDMINES.md`, 08-11): a step's NAME is not its
+ACTION. `steps->'request_browser_run'` is NULL — the step is keyed **`request_run`** (and the
+vision step `look`). Path-read, `? 'key'` and `jsonb_pretty` all return NULL together, which
+reads exactly like "the migration never landed". Enumerate `jsonb_object_keys(…->'steps')`
+FIRST.
+
 ## 4. Standing defect list
 
 Items 1–8 unchanged from `HANDOFF_2026-08-09` §4. Item 9 (243) → **all three candidates
@@ -269,3 +296,9 @@ files) — read before touching asset deploys.
 4. Re-run the census + `CHECK_naming_contract.sh` before quoting any batch-8 figure.
 5. `who-owns.py` + live-transcript grep before writing at robot-hands, loancalculator,
    gamesdesign, or anything touching 248's deploy surface.
+6. **AND grep the LANE's own recent transcripts, not just `git log`** — twice on 08-11 a
+   session was minutes from re-implementing work another session had in flight, once with
+   the owner's decision in hand. The recipe that worked:
+   `CUT=$(date -u -d '30 minutes ago' +%Y-%m-%dT%H:%M:%SZ); find ~/.claude/projects/-home-ant-projects-agentchassis/ -name '*.jsonl' -newermt "$CUT" | xargs grep -lc '<the symbol you are about to touch>'`
+   **A sanctioned task is not a claimed task**: the owner decides in ONE chat, the lane is
+   worked by several. Claim in this file before the first edit.
