@@ -9031,3 +9031,45 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **do not confuse with** the `UNVERIFIABLE` verdict (that one means the question was wrong). This is a run that reached **no verdict at all**, and the cause is the evidence surface, not the question.
 - **source:** run `105970e4` filed and read 2026-08-11 by the bugfix 246 lane; the fact it could not see was `CHASSIS_DB_MAX_OPEN_CONNS=12` on both `agent-chassis` replicas. Full account: `docs024_key_docs_latest/bugfix_246_shared_pool_ownership/NOTES_shared_pool_ownership.md`
 - **added:** 2026-08-11, bugfix 246 shared-pool-ownership lane
+
+### Re-adopting a site silently drops the `structure` spec's opt-in flags — the pilot stops being a pilot and the fix reads as broken
+
+- **footprint:** `site_specs` `aspect='structure'`, `apply_adoption_plan_action.go`,
+  `WriteSiteSpecAction` / `siteSpecDeepMerge`, `siteUsesFlatURLs`,
+  `siteIdentityPolicyFor`, `url_shape`, `honour_realised_identity`,
+  `twin_identity_snap`, `stem_twin_snap`
+- **fires when:** you enable a per-site behaviour flag in the structure spec — the
+  URL shape (BLD-018) or any of the three page-identity gates (PLAN-048) — and
+  the site is later re-adopted, or you are debugging why an enabled flag appears
+  to do nothing
+- **the tell: none, and the failure imitates the thing you would test next.** The
+  flags read `false`, which is the default and today's behaviour, so the pipeline
+  runs normally and the pages come out exactly as they did before the fix existed.
+  The natural conclusion is "the fix does not work" or "the flag never took", and
+  both send you into the Go code rather than at the spec row
+- **why it happens:** the ordinary writer is safe — `WriteSiteSpecAction`
+  DEEP-MERGES a partial update over the current spec, so unknown keys survive.
+  `apply_adoption_plan_action.go` does not: it supersedes the current row and
+  INSERTs freshly-marshalled JSON, so every key it does not itself write is gone.
+- **the check:** ask the row, not the code, and ask it *after* any adoption run:
+  ```sql
+  SELECT data ? 'url_shape'              AS has_url_shape,
+         data ? 'honour_realised_identity' AS has_honour,
+         data ? 'twin_identity_snap'     AS has_twin,
+         data ? 'stem_twin_snap'         AS has_stem,
+         updated_at
+  FROM site_specs WHERE site_id = $1 AND aspect = 'structure' AND is_current;
+  ```
+  A `false` here means ABSENT, which is not the same as "set to off" — use `?`
+  (key presence), never `->>'k' = 'true'`, or the two states look identical.
+- **it fails SAFE, which is why it survives unnoticed:** a dropped key can only
+  ever read as `false`, so nothing turns ON by itself and no live page moves. The
+  cost is silent loss of an intended pilot, not damage
+- **distinct from the neighbouring `pinned` entry:** that one is about the `pinned`
+  COLUMN being dropped by `write_site_spec`; this is about `data` KEYS being
+  dropped by adoption. Same table, different mechanism, and `pinned` would not
+  have protected these flags even if it worked
+- **source:** raised by the council gate's `guardian` seat, round 2 of
+  `bugs_open/215`'s quiet-mode submission (corr `56e13695`), 2026-08-11; verified
+  by reading both write paths
+- **added:** 2026-08-11, bugs_open/215 quiet-mode lane
