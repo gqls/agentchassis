@@ -28327,3 +28327,35 @@ OBSERVATION.* `who-owns` reads commits, my explorer read the 08-09 file, and bot
 what existed when they looked. The prediction lived in a file that had been rewritten since. The
 measurement was still worth taking — what was wrong was the word "distinct", and the implied claim
 that nobody knew.
+
+## 2026-08-11 — I validated a k8s resource edit with `grep -c` and got the right NUMBER on the wrong CONTAINER
+
+- **the claim / the act:** adding `ephemeral-storage` requests for `bugs_open/252`,
+  I validated four rendered kustomize overlays with
+  `kubectl kustomize <overlay> | grep -c "ephemeral-storage"`, got `1` from each,
+  and recorded all four as done. Three were. On `ollama-adapter` the 1Gi had gone
+  onto the `model-pull` **initContainer**, not the `ollama` app container — the
+  file has two near-identical `resources:` blocks and I patched the first.
+- **why the wrong version survived a live check too:** a pod's effective
+  ephemeral-storage request is `max(sum of app containers, max of initContainers)`.
+  With 1Gi on the init and nothing on the app, the pod still requested 1Gi — so the
+  pod-level number was correct and every pod-level query agreed with me. It still
+  mattered: the kubelet ranks disk eviction by *usage above request*, and the
+  long-running container, the only one that can be evicted, had no request.
+- **what caught it:** not a check — a coincidence. A release rolled `ollama-adapter`
+  three hours later, and while confirming the change had reached the cluster I
+  printed `initContainers` and `containers` separately and saw the app container
+  bare.
+- **the cheap check that would have:** never validate a structured edit by counting
+  string occurrences. Parse the rendered YAML and print the field **per container**,
+  so a MISSING is a named row rather than an absent line
+  (the one-liner is in `bugs_open/252`). `grep -c` answers "does this string appear
+  anywhere in this document", which is not the question — the question was "does
+  each container that needs this field have it". Same family as the
+  `jsonb_path` and `a-grep-proves-absence-only-for-its-spelling` entries: **a count
+  over a document cannot locate anything**, and four 1s read as four successes.
+- **cost:** near zero in effect — the pod-level request was right throughout, and it
+  was fixed the same day before the runners rolled. Recorded for the tally, because
+  this is the second time this week a check of mine returned a plausible number for
+  a question I had not actually asked (the other: timing a discovery check by its
+  own work item, whose `created_at` is the transaction's start).

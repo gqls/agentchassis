@@ -105,7 +105,53 @@ roll**, self-healed. The reason it is worth filing anyway: with …6832 at 1.34 
 of headroom, the same event on two nodes at once during a roll would leave a
 deployment short for as long as the pressure lasts, and nothing alerts on it.
 
-## ⚠ STATE AS OF 2026-08-11 15:05Z — COMMITTED BUT **NOT APPLIED**
+## ⚠ STATE AS OF 2026-08-11 18:00Z — PARTLY APPLIED, AND ONE CONTAINER WAS WRONG
+
+**Supersedes the 15:05Z block below.** Two things changed.
+
+**(a) A release at 17:13Z rolled `ollama-adapter` and picked the change up** — the
+live `model-pull` initContainer now carries `ephemeral-storage: 1Gi`. So this does
+land through the ordinary release path, as predicted. The runners and `ollama-eval`
+were NOT rolled and still read `** NOT APPLIED **`; their pods date from 07-16,
+07-21 and 06-28, so they are waiting for a roll that touches them.
+
+**(b) The 1Gi on `ollama-adapter` went on the WRONG CONTAINER, and I did not catch
+it for three hours.** `ollama-adapter/base/deployment.yaml` has two near-identical
+`resources:` blocks — the `model-pull` initContainer at ~line 51 and the `ollama`
+app container at ~line 85 — and I patched the first believing it was the second.
+Fixed 18:00Z; the app container now has its own request.
+
+> **Why it stayed invisible, which is the transferable part.** The pod's
+> *effective* request is `max(sum of app containers, max of initContainers)`, so
+> with 1Gi on the init and 0 on the app the pod still requested 1Gi. **The number
+> was right and the placement was wrong**, so every pod-level check agreed with me.
+> It still mattered: the kubelet ranks disk evictions by *usage above request*, and
+> the long-running container — the one that would actually be evicted — had no
+> request of its own.
+>
+> **My validation could not have caught it.** I ran
+> `kubectl kustomize <overlay> | grep -c ephemeral-storage` and got `1` for every
+> service, and read four 1s as four successes. A count cannot say WHICH container
+> holds the field. The check that found it, and the one to use:
+>
+> ```bash
+> kubectl kustomize <overlay> | python3 -c "
+> import sys,yaml
+> for doc in yaml.safe_load_all(sys.stdin):
+>     if not doc or doc.get('kind')!='Deployment': continue
+>     sp=doc['spec']['template']['spec']
+>     for key in ('initContainers','containers'):
+>         for c in sp.get(key) or []:
+>             r=(c.get('resources') or {}).get('requests') or {}
+>             print(key, c['name'], r.get('ephemeral-storage','** MISSING **'))"
+> ```
+>
+> `ollama-eval`'s initContainer is still without one, deliberately: it pulls into
+> the PVC, and the app container's 1Gi already sets the pod's effective request.
+
+### The 15:05Z block, kept for the reasoning
+
+## ⚠ SUPERSEDED 15:05Z — COMMITTED BUT **NOT APPLIED**
 
 `301161274` adds `ephemeral-storage` requests to both runner deployments (4Gi)
 and both ollama pods (1Gi). **Those manifests are inert.** A resource change to a

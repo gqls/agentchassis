@@ -86,6 +86,22 @@ spec:
             requests:
               cpu: "2"
               memory: "20Gi"
+              # bugs_open/252. This is the APP container. The 1Gi added on
+              # 2026-08-11 first landed only on the `model-pull` initContainer
+              # above — the two resource blocks in this file are near-identical
+              # and I patched the wrong one. The pod's effective request happened
+              # to come out right anyway (Kubernetes takes
+              # max(sum of containers, max of initContainers)), which is exactly
+              # why the mistake was invisible: the number was correct and the
+              # placement was not. Declared here so the RUNNING container has a
+              # request of its own — the kubelet ranks disk evictions by usage
+              # above request, and a container with no request ranks as if it
+              # were using everything it has.
+              # As noted on the initContainer: this models almost nothing real.
+              # MEASURED, this pod uses 0 MB ephemeral; its 15,761 MB is on the
+              # ollama-models PVC and its true node-disk cost is the cached image,
+              # which no pod-level resource can express.
+              ephemeral-storage: 1Gi
             limits:
               cpu: "8"
               memory: "20Gi"
