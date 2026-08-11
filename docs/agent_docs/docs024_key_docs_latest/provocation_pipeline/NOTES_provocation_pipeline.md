@@ -2230,3 +2230,69 @@ been just as absent in effect as saying nothing.
 > and the type of each value cost one line and would have shown it immediately.
 > Also worth recording: `provocations.json` is served at **`/data/provocations.json`**;
 > the bare path is a 404, which for thirty seconds looked like the feed had vanished.
+
+## 2026-08-11 (afternoon) — the owner rejects the house register, and the exemplar loop points DOWNHILL
+
+Owner on today's live provocation (`film-that-needs-explaining-has-failed`): *"almost
+unreadable … make sure the language is written to be readable by a 5 year old or
+something like that."*
+
+### What I expected, and what the measurement said instead
+
+I expected the session-written entries to be the dense ones and the generator's to be
+plainer, because the register rule shipped this morning. **Both halves were wrong.**
+
+Flesch–Kincaid grade and words-per-sentence over all 28 approved bodies
+[MEASURED 2026-08-11]:
+
+| origin | n | median grade | range |
+|---|---|---|---|
+| session/human | 14 | **9.6** | 5.9 – 12.8 |
+| generator | 14 | **10.4** | 7.8 – **15.5** |
+
+- **The generator is slightly WORSE than the humans, not better.**
+- **The worst entry in the pool is a generator one** —
+  `cooking-from-scratch-every-night-isnt-worth-it`, grade 15.5, **34.5 words per
+  sentence**.
+- Today's complained-about entry is grade **11.1** — high, but only 8th worst. **It is
+  not an outlier; it is the house style.** Retiring that one row would fix nothing.
+
+⚠ **Caveat on the numbers:** FK over a 60–80 word body is noisy — a single long
+sentence moves it several grades. **Words-per-sentence is the robust half** (plain
+counting, no formula), and it says the same thing: 34.5 / 28.0 / 26.3 / 25.0 at the top
+against 10.7 / 11.8 / 13.7 at the bottom. The conclusion rests on that, not on FK.
+
+### The finding that matters: the specification is the pool's worst entry
+
+`loadExemplars` orders by `publish_on DESC` and shows the model the three most recently
+dated approved entries. Run today, it returns:
+
+```
+Sleeping in on weekends makes Mondays worse        (grade 10.7)
+Gift-giving is guilt management, not generosity    (grade 12.1)
+Cooking from scratch every night isn't worth it    (grade 15.5)  <-- worst in the pool
+```
+
+**The generator is being shown the pool's worst-written entry as the definition of good
+writing.** And because ordering is by date, *this* round's output becomes *next* round's
+specification. It is a feedback loop and **it currently points downhill** — I built it
+that way on 2026-08-10 while fixing the opposite defect (a hardcoded paraphrase), and
+the fix was right in kind and wrong in its ordering.
+
+This also explains why this morning's register rule did not prevent it. That rule is
+about **vocabulary** ("would this reader have said it themselves"). The measured defect
+is **syntax** — long multi-clause sentences. A vocabulary rule cannot shorten a
+34-word sentence, and today's body is the proof: every word in it is ordinary.
+
+### What is NOT yet decided
+
+Four owner decisions, laid out in `README_where_we_are.md` under this date. The two I
+would push hardest:
+
+1. **Order exemplars by measured readability, not by date** — the loop has to point
+   uphill or every other fix is temporary.
+2. **Readability is deterministic and therefore gateable.** Sentence length and syllable
+   counts are arithmetic; no model is needed, so it belongs in `checkForm` beside the
+   other corpus-derived checks rather than in the judge prompt. A prompt is not a
+   control — this lane has now paid for that lesson three times in two days (the
+   counter-case rule, British English, and this).
