@@ -25,8 +25,8 @@ and the owner rulings.
 live verifier registry, that files an undispatchable `verifier_remit_gap` work item
 for any verified item_type carrying more than one producer shape with no declared
 `Grades`, and closes its own findings on a positive re-observation. Council trail
-corr `fc082c4a-4b00-4835-8ffe-11a55e53f47a` (round 1 REVISE — every objection
-answered by measurement, see NOTES; round 2 submitted).
+corr `fc082c4a-4b00-4835-8ffe-11a55e53f47a` (round 1 REVISE, round 2 **APPROVED** —
+every objection answered by measurement, see NOTES).
 
 **DEPLOYED AND PROVEN 2026-08-11.** CronJob live at `25 7 * * *` UTC on image
 **`v1.0.1289`**, verified as an unbroken chain rather than inferred: the image's
@@ -48,10 +48,6 @@ by a measurement recorded in NOTES.
 - Also raised out of this round and left open on purpose: **`RFC_024`** — there are
   **nine** CronJob meta-checks with no shared harness, and three council seats have now
   asked for a consolidation pass twice.
-
-The detector fires today only under `--ignore-remit` (its built-in disconfirmability
-control, writes refused), because the one two-producer type now declares a remit.
-**Deployed is not exercised**, and the two are different claims.
 
 <details><summary>The original D3 brief, kept for the reasoning</summary>
 
