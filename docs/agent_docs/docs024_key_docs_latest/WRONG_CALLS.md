@@ -28176,3 +28176,50 @@ call against a shared writer, grep the ACTIONS package for existing callers —
 first, and zero raw `Write` calls, which is itself the answer. I had read `agenterrors.go`
 (the leaf) and stopped there; the estate convention lives one package up, at the layer
 that adapts it to the caller. Reading the mechanism is not reading its idiom.
+
+## 2026-08-11 — bugfix 246 lane: a near-miss I caught, a schema I inferred instead of reading, and a bug file whose own code quote was wrong
+
+**1. NEAR-MISS (caught before it reached any durable doc): "these env vars are live-only, so the next deploy strips them."**
+Verifying `bugs_open/246` I found `CHASSIS_DB_MAX_OPEN_CONNS=12` on both chassis pods and
+**nowhere** in the rendered overlay (`kubectl kustomize … | grep CHASSIS_` → nothing). My
+immediate reading was the alarming one — same shape as the known `kubectl scale is undone by
+the next deploy` landmine — and I was one sentence from writing "the fleet's pool config is one
+`apply -k` from vanishing" into the bug file.
+**It is false.** `kubectl apply` three-way-merges: a field present in the live object but absent
+from **both** `last-applied-configuration` and the incoming config is **preserved**, not pruned.
+**What caught it:** typing the claim and noticing it was an `[INFERRED]` with no marker — the
+marker rule doing its job as a *prompt to go and check* rather than as labelling.
+**The cheap check, one command:**
+`kubectl -n ai-persona-system get deploy <name> -o jsonpath='{.metadata.annotations.kubectl\.kubernetes\.io/last-applied-configuration}'`
+— if your key is not in there, an apply cannot remove it.
+**The shape, for the tally:** *a familiar landmine's SHAPE is not its mechanism.* The `scale`
+landmine fires because replicas ARE in the overlay; this case is the opposite and the two look
+identical from the symptom ("live state not in repo"). Pattern-matching to a recorded trap felt
+like diligence and would have produced a false alarm with a landmine citation attached to it.
+
+**2. WRONG CALL: I inferred the council submission schema from CLAUDE.md's prose instead of reading the 097 header, and the submission bounced.**
+CLAUDE.md describes "a JSON file holding `rationale` … and a `plan` (≤8 edits, each with
+file/operation/rationale/sketch; … plus `grounded_in` evidence quotes)". I read `grounded_in`
+and `risks` as top-level siblings of `plan` and omitted `plan.summary` entirely. Refused
+client-side: `ERROR: .plan.summary is empty`. The real schema is in the **097 script header**
+(lines 24-36): `summary`, `edits`, `grounded_in`, `risks` all live **inside `plan`**.
+**Cost:** one failed invocation, no credits, no council round — because the trigger validates
+client-side. That is the only reason this is a footnote and not a dead round.
+**The cheap check:** `sed -n '20,45p' 097_TRIGGER_council_review_v1.sh` before writing the JSON.
+**The shape:** I had read the RUNBOOK's *traps* section carefully (it warns that `risks` is a
+string not an array, and that `operation: create` is refused) and validated my JSON against
+**those** — so I arrived confident, having checked the hard parts, and got the trivial part
+wrong. **A trap list is not a schema.** Checking the documented gotchas can substitute for
+reading the definition, and it feels more rigorous than reading the definition.
+
+**3. Another lane's wrong call, corrected in place: `bugs_open/246`'s own quote of the code was wrong, in the direction that inflates the bug.**
+The bug file quotes `agent.go` as `maxOpen := 12 // production value via CHASSIS_DB_MAX_OPEN_CONNS`.
+The code says `maxConns := 4` with the 12 arriving only from the environment. Not pedantry: the
+misquote implies the code hard-codes 12 and therefore that **every** agent is affected. The truth
+is that agentbase's defaults are byte-identical to what the processor imposed, so the fix changes
+**2 pods of 95** and is a no-op everywhere else — which is the entire blast-radius argument and
+the reason the change is safe. A fixing session trusting the quote would have submitted a much
+scarier change than the one that exists.
+**The shape:** *a bug file's paraphrase of code is not the code, and paraphrases drift toward the
+version that justifies the filing.* Re-read the cited lines at HEAD before building a fix on them —
+and note the file was only a day old, so recency is no protection.
