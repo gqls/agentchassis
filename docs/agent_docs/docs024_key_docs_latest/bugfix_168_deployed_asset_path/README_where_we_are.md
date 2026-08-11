@@ -924,3 +924,45 @@ The one thing outstanding is the review board round that died mid-flight yesterd
 available again, so I can resubmit it — but a single round now costs about 1.6 million words of
 input, which is exactly the spending I've just finished documenting. Given the cap was hit
 yesterday, I'd rather you told me to fire it than assume.
+
+---
+
+## 2026-08-11, afternoon — you stopped me rebuilding something that already existed, and the review board is running again
+
+Two things happened today worth writing down, and the first is a mistake you caught.
+
+**I was about to build the caching fix, and it had already been built.** You asked me to check
+first. It turns out another session shipped it on Monday evening — about two hours after I filed
+the report. Both halves: the change to how we talk to the AI provider, and the reordering of the
+review board's fifteen messages so the shared part comes first. It even went through the review
+board itself on the way, and the board caught a real bug in it.
+
+**Why I missed it is worth naming, because it's a habit rather than an accident.** I searched the
+code for caching on Monday, found none, and then acted on that answer on Tuesday. This tree gets
+something like fifteen hundred changes a week. A search only tells you what was true at the moment
+you ran it, and I treated it as a standing fact. The specific thing I should have done — and
+didn't — was look at the history of the one file I was about to edit. That would have shown both
+commits sitting at the top of it.
+
+**The good news is that it works, and now we can measure it rather than estimate.** Before the
+fix, a review round cost about 806,000 words of input at full price. Now it costs about 128,000 at
+full price, with the rest served from cache. That's roughly **58% cheaper per round**, and about
+69% cheaper per unit of text. Nine out of ten reviewers are reading from cache rather than paying
+full price.
+
+**Two things I told you were wrong, and I'd rather correct them than let them stand.** I estimated
+the saving at 76%; it's 58%. And I recommended we set the cache to hold for an hour, arguing the
+default five minutes would expire during a long round. The data says the opposite — reviewers
+arriving *after* five minutes hit the cache *more* often, not less, because each read keeps it
+alive. The person who built it left the default alone and wrote a note saying they'd only change
+it if measurement justified it. That measurement has now been done, and they were right.
+
+**What's still genuinely unfinished:** only the review board uses this. Nothing else does. The
+board was 88% of our spend so it was the right place to start, but the content writers and others
+are still paying full price. That's the remaining piece.
+
+**And the review board round is running.** You asked me to resubmit, so I have — unchanged, on the
+new build that went out at lunchtime, after checking our own code is genuinely in it rather than
+assuming. It started immediately instead of queueing. This is the fifth attempt at this review:
+three came back asking for revisions and were right each time, and the fourth died mid-flight when
+the account hit its limit. I'll report what this one says without rounding it up.

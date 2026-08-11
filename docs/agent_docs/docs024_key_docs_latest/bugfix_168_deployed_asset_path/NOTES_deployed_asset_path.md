@@ -2649,3 +2649,56 @@ would match regardless — the lane's own "a short grep needle is someone else's
 applied, never proven to bite.
 
 Today's only LLM failure is unrelated: `mistral-small3.1` / `scrape_prices`, an ollama-adapter EOF.
+
+---
+
+## 2026-08-11 (later) — 244 was ALREADY FIXED by another session; round 4 resubmitted on v1.0.1286
+
+### I nearly rebuilt a fix that had already shipped
+
+The owner stopped me: *"that cache may already have been implemented. please check before doing
+it."* It had — **~2 hours after I filed `244`**, on 08-10 evening:
+
+- `3d6851d9b` opt-in `cache_control` breakpoint on the shared client + migration 376's counters
+- `071adc44c` shared prefix hoisted in all 17 council seats (itself council-reviewed; the
+  edit-quality seat caught the marker leaking into the prompt as content, corr `b54f173e`)
+
+**Why my check missed it:** I greped `cache_control|CacheControl|cache_creation|cache_read` over
+`platform/ pkg/ internal/` on 08-10 **before** those commits existed, then carried the conclusion
+forward a day. `[a-grep-proves-absence-only-for-its-spelling]` has a second half I had not
+internalised: **it also proves absence only for the MOMENT it searched**, and this tree moves
+~1,500 commits/week. **Re-run the absence check immediately before acting on it, not once per
+session.** The tell I ignored: I was about to write code into a file whose `git log` I had never
+looked at — one `git log -5 -- <file>` would have shown both commits at the top.
+
+### Measured [MEASURED 2026-08-11] — and it corrects two of my own recommendations
+
+Per council round: full-price input **806,024 → 127,783**; cache reads **973,554**; writes
+**93,333**. Effective ≈**58% cheaper per round**, ≈**69% per token** (total volume per round rose
+~37%, so the two differ). Hit rate **157/170 = 92.4%** on read-eligible seats; seat 1 writes
+(17 calls, 15 writes, 0 reads) as designed.
+
+1. **My "≈76%" was optimistic** — real ~58%/round. I predicted ~22.5k unshared tokens per round;
+   true residue is ~127.8k. Arithmetic on a measured input is not an observed bill, and I wrote it
+   with more precision than it carried.
+2. **My `ttl: "1h"` was unnecessary and omitting TTL was the better call.** I argued the 5-minute
+   default would expire mid-round (459s mean / 1022s max). **Refuted:** seats landing *past* 5 min
+   hit **75/82 = 91%** vs **82/105 = 78%** within it — and those "misses" are the writing seat.
+   Reads keep the entry alive, so elapsed round time is not the variable. The code comment asks
+   for exactly this evidence before adding a TTL; the check is run, the answer is leave it.
+
+**Still open in `244`: adoption.** Only `council-gate` carries the marker (17 steps, 0 other agent
+types). Precondition before adopting any template: it is a **prefix** match, so a per-call name,
+timestamp or id above the marker silently costs the write and never reads.
+
+### Round 4 resubmitted — v1.0.1286
+
+Pod-grep both replicas of **v1.0.1286**:
+`ownergate=1 claims=1 voice=1 cachemarker=1 CONTROL_pos=2 CONTROL_absent=0`. The **`cachemarker`
+needle is new and worth keeping** — it puts the caching fix in the running binary, not just in
+`git log`.
+
+Checked the 300s post-restart dispatch window before firing (2,330s elapsed — CLAUDE.md's silent-
+drop trap). Resubmitted unchanged under `RESUBMIT_CORR=b67eb26a-…`; orchestration
+**`ae0915c2-e77a-4d02-94ce-32ced673317a`**, running at `review_editquality` within seconds — no
+29-minute queue this time.
