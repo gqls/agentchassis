@@ -744,3 +744,74 @@ owning its own. Only the calculator pages get that, and only in Track B.
 
 So: ready to go, seventeen pages, smallest and least-visited first, homepage last,
 checking each one before moving on.
+
+---
+
+## 2026-08-11 (morning) — Track A started, and the safety net turned out to be broken
+
+Picking up where the last session left off, with your go-ahead on Track A. I re-checked
+everything the brief claimed before touching anything, and it all held — the right
+pages, the right protections, the right code live on the servers. Two things did not
+hold, and both are worth telling you about, because one of them was the thing that was
+supposed to save us if this went wrong.
+
+**First, a mistake I nearly made myself.** The most important check in this whole job
+is the one proving that none of the seventeen pages I'm about to change is a
+calculator. I ran it and it came back perfect — three empty lists, exactly the answer
+the brief recorded. It was worthless. The hand-written list of calculators writes them
+one way (`loans/compare-loans`) and the database writes them another
+(`/loans/compare-loans.html`), so the two lists had no word in common and could never
+have overlapped no matter what was true. The check agreed with the right answer while
+being incapable of disagreeing with anything. What saved me was printing one extra
+line I didn't strictly need — a list that was also supposed to be empty and came back
+with twenty-three entries. That mismatch is the only reason I looked twice. I've fixed
+the check, and it now genuinely proves the point: all twenty-three calculators are
+protected, none of them is in my seventeen. I've written this up in our log of wrong
+calls, because it's a good example of a test that passes for no reason.
+
+**Second, and more serious: the undo button did not work.** Every page I change gets
+its previous state copied into a backup table first, so any page can be put back
+exactly as it was. When I ran the very first page, it stopped dead with a database
+error — the backup step couldn't run at all, because the main table has gained a
+column since that backup table was created back on the fifth. The good news is it
+failed *before* changing anything, so nothing was half-done. The bad news is that
+nobody would have discovered this until they needed it.
+
+Then I found the worse half. The backup was written so that every run copies in any
+row it hasn't already seen. That sounds sensible and isn't: once a page has been
+converted, the *next* run copies the page's **new** content into the backup as well,
+sitting alongside the old. Restoring that page would then put **both** versions back on
+it at once — producing exactly the corrupted page this whole process is designed to
+avoid, delivered by the mechanism meant to protect us. It had already happened to one
+page, back on the fifth. Had I converted my seventeen one at a time as planned, I'd
+have quietly ruined the undo for about sixteen of them, and we'd only have found out at
+the worst possible moment.
+
+I've fixed both, repaired the damaged backup (keeping the stray copy rather than
+deleting it), and then — instead of assuming the fix worked — I converted the first
+page, put it back, and checked it was byte-for-byte the original. It was. So the undo
+button is now something we've watched work, not something we believe in.
+
+**Where that leaves us.** Two pages are converted and live: the legal page and the
+guides index. Both came out byte-for-byte identical to what we predicted offline
+before touching the site, which is the strongest evidence we can get that nothing
+drifted. I also did something the brief hadn't asked for: before changing anything, I
+downloaded all seventeen pages as they were and compared the words a reader actually
+sees against what our conversion would produce. All seventeen matched exactly. So
+whatever else changes in the markup, nobody reading these pages will see a different
+word.
+
+**One thing you should know is changing, because it is a genuine loss.** These pages
+currently carry three tags that control what appears when someone shares a link on
+WhatsApp, Facebook or LinkedIn — the preview title, description and address. The
+converted pages lose them, keeping only two generic ones. They also change from
+declaring themselves British English to plain English. Neither is a surprise: both
+were written down and accepted back on the fifth of August, when the decision applied
+to two pages. It now applies to nineteen, and eventually to all fifty-nine, so I'd
+rather say it out loud again than let it pass on the strength of a decision made when
+it was smaller. Nothing a reader sees on the page changes; it's the sharing preview
+and the language tag. It is fixable, but the fix is a change to the shared platform
+rather than to this site, so it isn't part of this job.
+
+Fifteen pages to go — the twelve guides, the two section indexes, and the homepage
+last, on its own.

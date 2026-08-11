@@ -1489,3 +1489,132 @@ by **154 pages across 3 sites**; after decomposition a prose row points at *"Por
 Prose Block"*, used by **29 pages across 2 sites**. Only tool components get a
 page-scoped definition (consolidation's: 1 page, 1 site). The real gains are
 per-instance content ownership and genuine rebuildability now that 204 is fixed.
+
+### 2026-08-11 — TRACK A EXECUTION: pre-flight re-measured, and two real defects in the tooling
+
+Picked up `HANDOFF_2026-08-10d`. Everything in its §0–§2 re-measured against the live
+system before acting; all of it held. What follows is what the handoff did **not**
+have right, or did not have at all.
+
+**Pre-flight, re-measured (all 2026-08-11 morning).** Pod-greps `stored_slot_name` /
+`load page slot identities` / `zzz_cannot_exist` = **1 / 1 / 0** on
+`agent-chassis-7c9d5f74b9-6j5xn` (v1.0.1284, both replicas, started 09:23:45Z).
+`page-content-writer.default_config LIKE '%slot_name_from%'` = **t**. Page census:
+17 generic verbatim, 1 generic decomposed, 22 owned verbatim, 1 owned decomposed —
+exactly the post-377 table in 10c §1.
+
+> **CORRECTION to 10d §2.** It says the 19 files that moved in the sites repo since
+> the pinned ref `b318a8fad` are "every one a calculator page or
+> `assets/js/calculators.js`". Measured: **17 calculators + `calculators.js` +
+> `guides/how-loans-affect-mortgage-affordability.html`** — the last is a prose page,
+> the already-decomposed one. The *conclusion* is unaffected (no Track A page moved,
+> so the pin is byte-identical to HEAD for these 17) and the positive control fired
+> (`mortgages/stamp-duty` IS in the moved set), so the check was not blind. But the
+> stated reason was wrong, and a Track B session reading "every one is a calculator"
+> would mis-scope the re-point.
+
+> **MY OWN WRONG CALL, caught by a control I nearly left out.** My first run of the
+> calculator/prose partition check printed all three "must be empty" lists as `[]` —
+> the exact pass 10d reports — **for the wrong reason**: `CALCULATOR_URLS` holds stems
+> (`loans/compare-loans`) and `pages.url` holds `/loans/compare-loans.html`, so the two
+> sets could never intersect and every difference was trivially empty. What caught it
+> was the third line, `owned pages that are NOT calculators`, which printed **23
+> entries instead of `[]`** — an expected-empty that came out full. Had I printed only
+> the two lists that mattered to me, I would have recorded a clean partition proof
+> built on a string-form mismatch. After normalising, the partition is genuinely
+> exact (23 owned == 23 calculators, 18 generic == 17 + the done one), and I induced
+> it: dropping one entry from the set moves `owned NOT calculators` to exactly that
+> page. **An empty set is only evidence when something could have put a member in it.**
+
+**The content guard 10d left `[NOT INDUCED]` — done, and the answer is better than
+inducing it.** Induced five mutations of `legal.html` through `decompose_page`
+directly (control: clean). All five refused: footer altered → *"footer differs from
+chrome"*; body `<style>` → hard refusal; executable `<head>` script → hard refusal;
+inline body script → *"inline script on a non-calculator page"* + *"P-script-bytes"*;
+skip-link altered → *"skip-link missing or differs"*. So the refusal machinery is
+live, not inert.
+
+**But P-visible cannot fire on ANY Track A page, and that is fine once you see why.**
+With no script-addressed ids and `is_tool_page` false, `decompose_page` takes the
+`else` branch and emits `inner_html` **whole** as one prose block. `orig_vis` and
+`got_vis` are then computed from the same bytes — the assertion compares a value with
+itself. Deleting a `<p>` from `#content` produced **NO PROBLEM**, as it must.
+So rather than inherit "content fidelity rests on P-visible", I proved the stronger
+property directly, for all 17: the manifest's prose block is **byte-identical** to the
+source `#content` inner, and those exact bytes are a **substring of the live stored
+`rendered_html`**. Decompose is the *identity* on content here — nothing can be lost
+inside it. Both arms induced (mutate the source → first arm False; mutate the stored
+copy → second arm False).
+
+**Reader-visible text: 17 of 17 IDENTICAL, served-today vs predicted.** Fetched all 17
+live pages as a "before" corpus and compared visible text against `predicted/`.
+First run said all 17 DIFFER — **that was my comparator**, not the site: `visible()`
+does not strip HTML comments and the chrome components carry long authoring comments
+the hand-built pages never had. With comments stripped: 17/17 identical, and the
+comparator induced (inject a `<p>` into one prediction → DIFFERS; restore → identical).
+This is the sixth time on this estate that a red from a same-day checker was the
+checker.
+
+**The +2,903 bytes on `legal` (6,345 → 9,248), accounted for**: 1,291 chrome authoring
+comments + 566 injected JSON-LD + ~1,046 the layout-shim `<style>` (mostly its own CSS
+comment). The structural diff also shows `og:title`/`og:description`/`og:url` gone
+(5 og tags → 2) and `lang="en-GB"` → `lang="en"`. **Both are already-stated accepted
+losses** — `PLAN_2026-08-05` §6 lists per-page `og:*`, nav `aria-current` and the
+`lang` change, "each is visible in the assemble-mirror diff and none is silent". I
+re-derived them independently, which is the record working as intended. Confirmed
+live: the two already-decomposed pages serve `og:2 / lang="en"` today, a verbatim
+calculator serves `og:5 / lang="en-GB"`. Track A does not introduce this; it takes it
+from 2 pages to 19.
+
+#### ⛔ DEFECT 1 — `backup_everything()` could not run at all (schema drift)
+
+`--apply legal` died on its first call with *"INSERT has more expressions than target
+columns"*. `page_components` has gained **`rendered_html_digest`** since the backup
+table was cloned `LIKE page_components` on 08-05 — 28 columns into 27. **It failed
+before writing anything** (the backup runs first), which is the only reason this was
+an inconvenience rather than a half-applied page.
+
+The asymmetry is worth keeping: the **restore** direction was never broken. Fewer
+expressions than target columns is legal SQL — the trailing ones take their defaults —
+so 27-into-28 succeeds. Proved it rather than assumed it, inside a `BEGIN … ROLLBACK`,
+and `legal` came out untouched at the baseline md5. **Drift breaks the backup loudly
+and the restore not at all**, so a session that only ever tested `--restore` would have
+found nothing wrong.
+
+Fixed in `load_lmc.py`: the INSERT now names the columns the backup table actually
+has (qualified `pc.`-side — the source joins `pages`, so a bare `id` is ambiguous and
+that cost a second failed run), so a future added column degrades to "not captured"
+instead of "nothing can be backed up". `ALTER TABLE … ADD COLUMN rendered_html_digest`
+so the backup is complete going forward.
+
+#### ⛔ DEFECT 2 — the backup table was poisoning its own rollbacks, silently
+
+The old guard was **per-ROW** (`NOT EXISTS … b.id = pc.id`). So once a page is
+decomposed, the *next* `--apply` of **any** page sweeps that page's new `prose-0` row
+into the backup **beside** its original `ported-page` row. `--restore` then replays
+both, giving one page a verbatim blob *and* a prose section — the nested-`<html>`
+corruption this file's own docstring warns about, arriving through the mechanism meant
+to be the safety net.
+
+**Already materialised**: `/guides/how-loans-affect-mortgage-affordability.html` held
+**2 rows** in the backup (`ported-page` + `prose-0`) before I touched anything. 42 rows
+over 41 pages. Applying Track A one page at a time would have poisoned ~16 more
+rollbacks, and nothing would have said so until someone tried to roll back.
+
+Guard is now **per-PAGE**: a page with any row in the backup is already snapshotted and
+is never re-captured. Repaired the existing damage in one transaction with a `DO`/
+`RAISE` verify block — stray preserved to `page_components_bak_strays_20260811` first,
+never just deleted — leaving **41 rows over 41 pages, one verbatim generation each**.
+
+**Then proved the rollback end to end on `legal`, before the other 16**: apply →
+`["prose-0"]`, restore → `["ported-page"]` at md5 `7265952aac43b36361cf6aebf0e6580b`,
+**equal to the 08-09 baseline file byte for byte**, re-apply → `["prose-0"]`. The
+safety net is now measured rather than assumed, on the cheapest page to be wrong about.
+
+**Also fixed: `deploy_pages.py` read `manifest_voiced.json`,** which the 2026-08-06
+owner ruling superseded and which `load_lmc.py` no longer writes predictions from.
+Deploying from a different manifest than the predictions came from is how a byte-diff
+passes against a prediction it does not correspond to. It now prefers `manifest.json`
+and falls back to the voiced file only if that is absent. No `--manifest` flag on
+purpose — this tool derives page names as "argv entries not starting with `--`", so a
+flag value would be parsed as a page name (the trap 10d §4.2 records for `load_lmc.py`).

@@ -67,8 +67,20 @@ def main():
     if "--tag" not in sys.argv:
         sys.exit("--tag <run-tag> is required (it namespaces item_key)")
     tag = sys.argv[sys.argv.index("--tag") + 1]
-    manifest = json.load(open(os.path.join(work, "manifest_voiced.json"),
-                              encoding="utf-8"))["pages"]
+    # manifest.json is the default, matching load_lmc.py — the OWNER RULING of
+    # 2026-08-06 (copy is the framework's job) superseded manifest_voiced.json,
+    # and load_lmc.py writes predicted/ from manifest.json. Reading a different
+    # manifest here than the one the predictions came from is how a deploy
+    # diffs against a prediction it does not correspond to. The voiced file is
+    # still honoured if it is the only one present, so older work dirs behave
+    # as before. (No --manifest flag on purpose: this tool derives page names
+    # as "argv entries not starting with --", so a flag VALUE would be parsed
+    # as a page name — the same trap load_lmc.py has.)
+    mpath = os.path.join(work, "manifest.json")
+    if not os.path.exists(mpath):
+        mpath = os.path.join(work, "manifest_voiced.json")
+    print("manifest: %s" % mpath)
+    manifest = json.load(open(mpath, encoding="utf-8"))["pages"]
 
     names = [a for a in sys.argv[1:] if not a.startswith("--") and a != tag]
 

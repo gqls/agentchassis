@@ -140,15 +140,56 @@ def manifest_name(argv):
 
 
 def backup_everything():
+    """The PRE-DECOMPOSITION snapshot, one generation per page.
+
+    Two defects fixed 2026-08-11, both found when --apply legal died before
+    writing anything (it fails safe: the backup runs first):
+
+    1. `SELECT pc.*` BROKE ON SCHEMA DRIFT. The table was cloned `LIKE
+       page_components` on 08-05; page_components has since gained
+       `rendered_html_digest`, so the star had 28 expressions for 27 target
+       columns -> "INSERT has more expressions than target columns", and
+       --apply could not run at all. We now name the columns the backup table
+       actually has, so any future added column degrades to "not captured"
+       instead of "nothing can be backed up". (The RESTORE direction was never
+       broken: fewer expressions than target columns is legal, the trailing
+       ones take their defaults. Only this direction errors — an asymmetry
+       worth knowing, because it means drift breaks the backup loudly and the
+       restore not at all.)
+
+    2. IT RE-CAPTURED PAGES IT HAD ALREADY BACKED UP, ONE GENERATION LATER.
+       The old guard was per-ROW (`NOT EXISTS ... b.id=pc.id`), so once a page
+       was decomposed the NEXT --apply of ANY page swept that page's new
+       prose rows in beside its original verbatim row. --restore then replays
+       BOTH -> a verbatim blob AND a prose section on one page, which is the
+       nested-<html> corruption this file's docstring warns about, arriving
+       via the rollback that was supposed to be the safety net.
+       Measured before the fix: /guides/how-loans-affect-mortgage-affordability
+       already held `ported-page` + `prose-0`. Applying Track A's 17 pages one
+       at a time would have poisoned ~16 more rollbacks, silently.
+       The guard is now per-PAGE: a page that has any row here is already
+       snapshotted and is never touched again.
+    """
+    # qualified for the SELECT side: the source joins `pages`, so a bare `id`
+    # is ambiguous and psql rejects the statement (caught 2026-08-11).
+    cols = psql("SELECT string_agg(quote_ident(column_name), ', ' "
+                "ORDER BY ordinal_position) FROM information_schema.columns "
+                "WHERE table_name='%s';" % BAK)
+    sel = psql("SELECT string_agg('pc.' || quote_ident(column_name), ', ' "
+               "ORDER BY ordinal_position) FROM information_schema.columns "
+               "WHERE table_name='%s';" % BAK)
     psql_stdin("\n".join([
         "BEGIN;",
         "CREATE TABLE IF NOT EXISTS %s (LIKE page_components INCLUDING ALL);" % BAK,
-        "INSERT INTO %s SELECT pc.* FROM page_components pc "
-        "JOIN pages p ON p.id=pc.page_id WHERE p.site_id='%s' "
-        "AND NOT EXISTS (SELECT 1 FROM %s b WHERE b.id=pc.id);" % (BAK, SITE_ID, BAK),
+        "INSERT INTO {bak} ({cols}) SELECT {sel} FROM page_components pc "
+        "JOIN pages p ON p.id=pc.page_id WHERE p.site_id='{site}' "
+        "AND NOT EXISTS (SELECT 1 FROM {bak} b WHERE b.page_id=pc.page_id);"
+        .format(bak=BAK, cols=cols, sel=sel, site=SITE_ID),
         "COMMIT;",
     ]))
-    print("backup table %s holds %s row(s)" % (BAK, psql("SELECT count(*) FROM %s;" % BAK)))
+    print("backup table %s holds %s row(s) over %s page(s)"
+          % (BAK, psql("SELECT count(*) FROM %s;" % BAK),
+             psql("SELECT count(DISTINCT page_id) FROM %s;" % BAK)))
 
 
 def page_ids():
