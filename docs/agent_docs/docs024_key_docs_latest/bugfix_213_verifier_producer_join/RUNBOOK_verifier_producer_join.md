@@ -133,6 +133,36 @@ SELECT current_step, status FROM orchestration_states
 WHERE collected_data->'input_data'->>'fix_correlation_id' = '<SUBMISSION_CORR>';
 ```
 
+## Reading YOUR verdict — the documented query is correlation-blind
+
+CLAUDE.md gives `SELECT body FROM doc_notes WHERE categories ? 'council-gate' ORDER BY
+created_at DESC LIMIT 1`. **On a tree this busy that is a coin toss.** It returned
+another lane's REVISE (`cb547e0a`, the `save_page_sections` decision-gate round) which
+landed between my submit and my read — a verdict I nearly recorded as mine. Key every
+read on your own correlation:
+
+```sql
+-- the decision, keyed on YOU
+SELECT metadata->>'decision', metadata->>'abstained', metadata->>'gated_by_truncation'
+FROM diagnosis_artifacts
+WHERE correlation_id='<YOUR CORR>' AND kind='council_report' ORDER BY created_at DESC LIMIT 1;
+
+-- the human-readable note, keyed on YOU (the corr is printed inside the body)
+SELECT body FROM doc_notes WHERE body LIKE '%<YOUR CORR PREFIX>%' ORDER BY created_at DESC LIMIT 1;
+
+-- the OBJECTIONS: in diagnosis_artifacts.body, NOT in metadata and NOT in the note
+SELECT body FROM diagnosis_artifacts
+WHERE correlation_id='<YOUR CORR>' AND kind='council_report';
+```
+
+**Three more gotchas.** (1) The `metadata` shape is not stable between rounds — mine
+carried `reviewers` (an integer) and `unreadable`; another lane's carried `reviews` (the
+array). Do not build a query on one shape. (2) The `doc_notes` note **stops after the
+plan summary** — it never contains the objections, so "APPROVED with 4 advisory
+objections" is all you learn there; read the artifact body for what they were. (3) A
+long `psql -tAc` with `jsonb_array_elements` over that body can exceed a `kubectl exec`
+timeout — select the raw `body` and grep it locally instead.
+
 ## Committing before a verdict
 
 The `commit-msg` trailer gate **blocks** `Council-Submitted: pending`, and is right

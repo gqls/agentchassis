@@ -27455,3 +27455,54 @@ silently answered a broader question than the one I asked.** The marker discipli
 (`[MEASURED]`, dated) would have caught none of them: all four were measured, and all four
 were measurements of the wrong set. Name the set your query actually ranges over, and print
 its size.
+
+---
+
+## 2026-08-10 (later, same session) — I read another lane's council verdict and very nearly filed it as my own
+
+**The claim I was about to write:** that my `bugs_open/213` submission came back
+REVISE with a gating objection from `bug_historian`.
+
+**What happened.** I used the query CLAUDE.md documents for reading a verdict:
+`SELECT body FROM doc_notes WHERE categories ? 'council-gate' ORDER BY created_at DESC
+LIMIT 1`. It returned a detailed, entirely plausible REVISE — five rounds of trail,
+objections about `idx_swi_dedup` key granularity and an unlisted verifier-registry
+edit, all in exactly the register my own submission would draw. **It was correlation
+`cb547e0a`, a different session's `save_page_sections` decision-gate round**, which
+landed in the seconds between my submission finishing and my reading the note. Mine
+was `c9c7c83f`, and it was APPROVED.
+
+**What caught it:** I had already read `metadata->>'decision'` from
+`diagnosis_artifacts` keyed on **my** correlation, and it said `approved`. The note
+said REVISE. Two answers to the same question disagreeing is what made me look, and
+the note's own second line — `submission correlation: cb547e0a…` — settled it
+immediately. **Had I run only the documented query, as the runbook tells you to, I
+would have had one answer and no reason to doubt it.**
+
+**The cheap check that would have prevented it:** key the read on your own
+correlation, always. `SELECT body FROM doc_notes WHERE body LIKE '%<your corr>%'`, or
+read `diagnosis_artifacts WHERE correlation_id=<yours> AND kind='council_report'`. The
+correlation is printed inside the note body precisely so this is possible.
+
+**Cost.** None, because the disagreement caught it — but the near-miss is the point,
+and it was pure luck of sequencing that I happened to have a second reading. The
+damage would have been: a REVISE recorded against an APPROVED change, a lane
+"answering" objections written about somebody else's code, and — worst — the *other*
+lane's genuine REVISE going unanswered because a passing thread had absorbed it.
+
+**The general shape, which is why this is here and not just in a runbook:** `ORDER BY
+created_at DESC LIMIT 1` on any shared table is a **race, not a query**. This estate
+has 40+ concurrent lanes writing `doc_notes`, `site_work_items` and
+`diagnosis_artifacts`; "the most recent row" means "whoever wrote last", which on a
+busy afternoon is not you. Every `LIMIT 1` in a runbook is a latent version of this
+bug. It is the same family as the tree hazards logged above — the shared surface moves
+under you — but on the READ side, where it is much harder to notice, because a wrong
+row still looks like a right answer.
+
+**Fixed by:** a `## Reading YOUR verdict` section in the lane RUNBOOK giving the
+correlation-keyed forms, plus three gotchas found while digging out the real
+objections — the report `metadata` shape is not stable between rounds (`reviewers`
++`unreadable` in mine, `reviews` in the other lane's), the `doc_notes` note stops
+after the plan summary and never contains the objections at all, and a long
+`jsonb_array_elements` unnest over the artifact body times out through `kubectl exec`
+(select the raw `body` and grep locally).
