@@ -235,3 +235,44 @@ and a check that only fires when the owner's words go would be a check that cann
 them, because nothing in the file marks whose a line is. Recorded rather than argued away:
 forward-only, the commit stands, and the honest lesson is **don't write a placeholder into an
 append-only file in the first place** — write the section when you have it.
+
+## 14. 2026-08-11 — THE LOOP CLOSED: the first defaulted brand image exists, and both halves of the verdict are in
+
+The one-off run produced the lane's outstanding behavioural proof end to end:
+item filed 10:09 with `prompt_source='default_from_brand_identity'` → promoted by id →
+claimed 10:34:58 → **complete 10:36:20**, no error. The asset's `origin_prompt` is the site's
+own imagery direction ("Minimal — logo and icons only. No photography or lifestyle imagery…")
+composed IN FRONT of the default prompt, all of it verbatim — the framework's
+direction-composition working exactly as documented. `origin_model`
+stability/stable-diffusion-xl. The refusal guard was never touched: the default kept it
+unreachable, which is the two mechanisms behaving as designed together.
+
+**The image itself (looked at, per the owner's decision 3):** a flat-illustration COLLAGE —
+a 3×4 grid of houses, couples and money bags on an amber ground in roughly the site's blues.
+Honest verdict: **not shippable as a hero.** (a) It is a grid, not a scene — there is no
+"clear space for overlaid headline text" although the prompt asked for it; (b) it contains
+**dollar signs, twice**, on a UK mortgage site; (c) it is wall-to-wall happy-couples-and-houses,
+which the site's own direction explicitly banned for photography and the model reproduced as
+illustration. The composition tension is legible in the output: site direction said "minimal —
+logo and icons only", my hero clause said "photographic or illustrative… clear space", and the
+model averaged them into an icon sheet.
+
+**Prompt-tuning candidates for the owner (one string, `composeBrandImagePrompt`):**
+- "a single cohesive scene or composition, never a grid, collage or sprite sheet";
+- extend "no embedded words or lettering" to "no currency symbols or glyphs" (or "UK context,
+  £ only" if symbols are wanted);
+- suppress the `(domain)` parenthetical when the site name IS the domain — "for
+  mortgagecalculator.co.uk (mortgagecalculator.co.uk)" reads as a stutter;
+- consider whether the hero clause should DEFER to a site imagery direction when one exists,
+  rather than compose with it — the composition is what produced the average.
+
+**And the deploy half hit a KNOWN bug, not a new one:** the file landed at
+`/assets/images/input-data.asset-key.jpg` (200, 109,803 B) instead of `hero.jpg` —
+`bugs_open/248`'s placeholder-filename defect, filed yesterday, diagnosis-CONFIRMED, owned by
+`staged_component_build`. Contributed the fresh instance to that file (different dispatch path,
+which widens its producer set). NOT hand-renamed: the framework rule, and nothing regressed —
+the pages 404 on `hero.jpg` exactly as before.
+
+**So the lane's own mechanisms are all PROVEN; what stands between the image and the page is
+248.** Once 248 fixes the filename, either this asset gets redeployed correctly or the next
+generation does.
