@@ -156,3 +156,60 @@ I had already written `verify-later` lines using the old `strings` recipe into
 both register entries and into `380_..._HOLD.sql`. Rewrote all three, and marked
 the PBP-039 one as a same-day correction rather than silently editing it, so the
 next reader can see the recipe moved rather than assuming I chose badly.
+
+### Council verdict A — APPROVED, and the objection that corrected me
+
+`bd38df2e`, round 1, 12 reviewers, 8 advisory objections, none high-severity.
+
+**`editquality` caught a real error in my own framing, not in the code.** I had
+named ai-agent-orchestration.com `/index.html` as "the honest acceptance case"
+for the carry. It cannot be: **the carry reads the CURRENT deployed row, not
+`page_component_history`**, and that row is already stripped — so it yields a
+`STRUCTURAL_KEY_CARRY_MISS` and no repair. **The fix is prospective only.** It
+protects rows that still have their keys and remediates none of the damaged ones,
+including the one in the bug's title. Had I left it, a correct null result on that
+page would have read as a working fix — the exact shape of a check that cannot
+come out false.
+
+Corrected in the register (visibly, struck through) and in the bug file, and the
+real population measured: **3 deployed `case-studies-grid` rows still hold
+`card1_image_url`** — aao `/enterprise-reference-deployment.html`, finetuning
+`/index.html` (repaired), leopardess `/who-we-help.html`. aao is the cleanest
+test: 0 spec aspects, 0 current-plan imagery, so its sources cannot resolve and
+the carry is the only thing that could preserve those values.
+
+**`debug_historian` asked a question I should have asked myself**: is
+`build_status='deployed'` load-bearing on `page_components`, given the fleet's
+history of status columns that lie (`site_components.build_status` is `'rendered'`
+and never `'deployed'`)? **Measured: deployed 1138, pending 171, approved 23,
+removed 1.** It holds. But I had scoped the query on an assumption and shipped it
+untested — the cost of being right was zero and the cost of being wrong would have
+been a silently inert fix.
+
+**Three seats — `reuse_agent`, `constitution`, `prior_art_librarian` — each
+independently asked whether `load_current_section_content_action.go` already
+provides this.** I had answered that during exploration (gated on
+`mode == "edit_live"`; selects `rendered_html` only, never `content_data`) and
+then **left it out of the submission**. Three seats spent effort rediscovering it.
+**A deferral or a rejected alternative is only credited if it is stated** — the
+answer is now in the register entry, since the code comment does not carry it
+either.
+
+**`guardian` raised a failure mode I had not considered**: the carry re-supplies
+whatever the stored row holds without checking it is *correct*, so a previously
+fabricated value (the `bugs_open/203` phantom `/contact.html` class) becomes
+self-perpetuating while its source stays unresolvable. Bounded — the value was
+already being served, and live resolution wins the moment the source works — but
+genuinely new, and recorded rather than argued away.
+
+**`architecture` returned `needs_rfc`**, on the ground that a new resolution tier
+on a two-consumer shared function plus a deliberate cross-path semantic change is
+RFC-shaped, and that this compensates for the REPLACE/MERGE split rather than
+closing it. **Recorded, not rebutted — a scope objection is not answered by more
+measurements.** It did not block, and review here is after-the-fact by design.
+
+Lesson for the next submission: I wrote a long "risks" block and still omitted the
+three things reviewers actually asked for — the alternative I had already ruled
+out, the scoping value I had assumed, and the limit of what the fix can reach.
+**The risks block was full of what I had thought about; the gaps were in what I
+had checked and not written down.**

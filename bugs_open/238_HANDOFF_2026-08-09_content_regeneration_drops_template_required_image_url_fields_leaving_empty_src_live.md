@@ -284,9 +284,19 @@ first of either on any site — so six of the eleven fields now resolve live.
 - **ai-agent-orchestration.com `/index.html`** — a genuine regression (its history
   had the keys), but the historical URLs 404 and the site has no case-study
   assets, so restoring would trade an empty `src` for a 404 one. Needs imagery
-  first. **This is also the honest acceptance case for PBP-039**: same component,
-  same five missing keys, deliberately untouched, so its next regeneration is a
-  real test rather than one this lane arranged.
+  first. ~~This is also the honest acceptance case for PBP-039.~~
+  > **⚠ CORRECTED 2026-08-11, by the council's `editquality` seat.** It is NOT.
+  > **The carry reads the CURRENT deployed row, not `page_component_history`** —
+  > and this row no longer holds the keys, so there is nothing to carry from. It
+  > would produce a `STRUCTURAL_KEY_CARRY_MISS` and no repair. **PBP-039 is
+  > prospective only: it protects a row that still HAS its keys and remediates
+  > none of the rows already damaged**, including the one in this bug's title.
+  > That is a real limitation and neither the submission nor this file said so.
+  > The genuine acceptance population, measured the same day — deployed
+  > `case-studies-grid` rows still holding `card1_image_url`, i.e. with something
+  > to lose — is **3 rows**: aao `/enterprise-reference-deployment.html`,
+  > finetuning.uk `/index.html` (repaired), leopardessconsulting.co.uk
+  > `/who-we-help.html`.
 - **leopardessconsulting.co.uk `/blog.html` + its tool page, oufe.com's tool
   page** — the "never had the key" class, not regressions; no candidate assets
   measured. The carry has nothing to carry for these; they get a
