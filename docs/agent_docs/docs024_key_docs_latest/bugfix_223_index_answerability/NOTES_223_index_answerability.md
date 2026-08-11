@@ -629,3 +629,29 @@ false explanation, and the only thing that fixed it was a human happening to pus
 the lookup reported the staleness at the time, and nothing reports it now — the caveat still
 says only `kinds with NO rows: type`. **The remedy is still unbuilt and still belongs in a
 `090` round.** The landmine stands.
+
+## 2026-08-11 ~12:45Z — v1.0.1286 verified through, RFC_022 implemented, staleness 090 filed
+
+**The fresh roll (v1.0.1286) changes nothing for this lane, verified rather than assumed:**
+pods' imageID digest matches the local image; the image revision label is `c3b424c8e`, and
+phase 2 (`027bf28a0`) is an ancestor of it; the phase 1 marker greps 1 with a never-added
+negative control at 0; the census still reads var 700 / const 525 with every old kind at its
+post-push value. Migrations 381/383 are DB config and roll-independent. One practical note:
+`kubectl logs | grep 'build provenance'` came back EMPTY here — the stamp line had rotated
+out of a busy pod's log within ~25 minutes. The image label
+(`docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'`)
+answered instead, with the digest match closing the local-image-vs-pod gap. The stamp is the
+front door; the label + digest is the fallback the runbook should mention when logs rotate.
+
+**RFC_022 ruled and shipped** (see the RFC's STATUS block, CLAUDE.md's new section, and
+commit `bacfa2e12`): option 3 with option 1 interim, live in both rosters via 381+383. The
+099-reverts-377 tripwire found on the way is filed in LANDMINES, CLAUDE.md, and the
+council_gate_cost lane's own NOTES.
+
+**The staleness finding is now a 090 round, not a paragraph.** Filed ~12:40Z after the
+dedup checks (queue: two unrelated items, both status `failed`; bugs dirs: no match).
+`RUN_CORRELATION_ID=520b2f7e-5473-4655-8f41-9a04b7b9eab1` — the run key, stamped by the
+dispatch loop; the intake correlation joins to nothing. The symptom named the mechanism and
+pointed at the two doc_notes verdicts whose flip is the evidence; it asserted no counts and
+no consequences. Whatever the loop concludes gets read against the both-ways proof above —
+a REFUTED verdict would be a success too, and gets recorded visibly here and in LANDMINES.

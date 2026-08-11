@@ -1,25 +1,47 @@
-# HANDOFF — `bugs_open/223`, cold start for a fresh chat
+# HANDOFF — `bugs_open/223` lane, cold start for a fresh chat
 
-Written 2026-08-10, **superseded 2026-08-11 ~10:15Z**. **BOTH PHASES ARE LIVE AND
-BEHAVIOURALLY PROVEN. Nothing technical remains owed on this bug.** §4 below is kept as a
-record of what was done; §4a's acceptance **has been run and passed** — do not re-run it, and
-**do not trust its two numbers**, both corrected below.
-Read this file, then `NOTES` (newest at the bottom — the 08-11 acceptance entry) and
-`SUMMARY_2026-08-11_*`. Everything below is verified unless marked `[UNMEASURED]`.
+Written 2026-08-10, superseded 2026-08-11 ~10:15Z, **superseded again 2026-08-11 ~12:45Z**
+(after the RFC_022 ruling landed and was implemented, and the staleness 090 was filed).
+**BOTH PHASES ARE LIVE AND BEHAVIOURALLY PROVEN; RFC_022 IS RULED AND ITS INTERIM IS LIVE
+IN BOTH ROSTERS.** §4's acceptance has been run and passed — do not re-run it, and do not
+trust its two numbers (both corrected below). Verified through the v1.0.1286 roll
+(census intact; phase 1 marker 1/0 with negative control; image digest matches the pods;
+phase 2 commit `027bf28a0` is an ancestor of the image revision `c3b424c8e`).
+Read this file, then `NOTES` (newest at the bottom) and `SUMMARY_2026-08-11_*`.
+Everything below is verified unless marked `[UNMEASURED]`.
 
 ---
 
 ## 0. WHAT IS ACTUALLY LEFT (read this and you can stop)
 
-Nothing to build. Two items, neither of them this lane's to decide:
-
-1. **`RFC_022` awaits an OWNER RULING** — three costed options, a recommendation, and a
-   one-line question at the foot. Governance, not technical.
-2. **`derive_checks` should not emit a bare `content` query for a footprint it can see is
-   non-Go** (old §5.1) — **RFC_005's mechanism, route it, do not patch it here.**
-
-Plus one **new finding from 08-11, left deliberately as a finding**: the code index is only
-as fresh as the last **push**, and the lookup's caveat does not say so — see §8.
+1. **READ THE 090 VERDICT on the staleness finding — it is IN FLIGHT.**
+   Filed 2026-08-11 ~12:40Z, `RUN_CORRELATION_ID=520b2f7e-5473-4655-8f41-9a04b7b9eab1`
+   (the run key — the intake correlation is different and joins to nothing). Find it:
+   `SELECT current_step, status FROM orchestration_states WHERE
+    collected_data->'input_data'->>'fix_correlation_id' LIKE '520b2f7e%';` — or the
+   diagnosis artifacts under that correlation. The symptom: `diagnose_code_lookup`'s
+   answerability layer reports kind + extension censuses but never the indexed COMMIT, so
+   a symbol committed after the last push returns 0 rows explained in kind/extension
+   vocabulary (§8 below, mechanism proven both ways). A CONFIRMED verdict → implement on
+   its cited seam (likely: surface `commit_sha`/`commit_time` in `codeIndexScope` and the
+   evidence line). REFUTED → record the correction in NOTES + LANDMINES, visibly.
+2. **BUILD THE RFC_022 COUNTER — it is what closes the RFC** (owner ruling 2026-08-11:
+   option 3 with option 1 as interim; interim is LIVE via migrations `381`+`383`).
+   The counter: a sweep over `RegisterActionInputSpec` declarations per action reporting
+   each shared action's optional-key count, so the seat can trigger on ACCUMULATION
+   rather than on any single addition. Precedent shape: `cmd/config-key-audit` grew
+   `--single-owner-actions` for RFC_006 — extend that command rather than birthing a new
+   one. Until it exists the estate runs with a **stated** blind spot (the seat prompt
+   itself says what it no longer watches).
+3. **`derive_checks` should not emit a bare `content` query for a footprint it can see is
+   non-Go** — RFC_005's mechanism, route it, do not patch it here. (This is also what
+   would make the never-fired `verify_unverifiable` gate reachable — §3a.)
+4. **`099_SYNC_gate_roster.py` needs to learn migration 377** — owned by the
+   `council_gate_cost` lane (told in their NOTES, 2026-08-11). Until fixed, `--apply` is
+   SUSPENDED (CLAUDE.md + LANDMINES): it would rebuild all 17 gate prompts pre-hoist and
+   destroy the measured 68% caching saving. Mirror seat changes with a surgical anchored
+   migration instead — worked pair `381`/`383`; health check = 17 seats marked, **1**
+   distinct prefix.
 
 ## 1. State in one paragraph
 
@@ -140,7 +162,23 @@ SUMMARYs (08-10 and 08-11; the series is the record), and both council submissio
 Fleet-wide: `016b` §9, `WRONG_CALLS.md`, `LANDMINES.md` (three new entries 08-11),
 `bugs_open/223` (status banner at the top).
 
-## 8. The one open finding, deliberately NOT diagnosed here
+## 7b. RFC_022 — RULED 2026-08-11, interim LIVE, and what the implementation flushed out
+
+Owner ruling: **option (3), a budget on the accumulated optional-key count, with option (1)
+as the interim.** An opt-in field, unsafe default OFF, named by no live consumer, is NOT
+architecture-scope — all three conditions must hold, and an author asserting zero consumers
+without enumerating them is itself the objection. Live in both rosters as a byte-identical
+clause: `381` (fix-proposer, 10,442→11,829 chars) + `383` (council-gate, 10,479→11,866),
+both applied, recorded, and verified from the rows. The clause deliberately names the blind
+spot it opens (accumulation) and keeps the reduced signal (report an observed optional-key
+count as `insufficient`). CLAUDE.md carries the ruling as its own section.
+
+**The implementation nearly caused a regression worth more than the ruling** — `099`'s
+mirror would have reverted 377 (item 4 in §0; full story in `LANDMINES.md` and RFC_022's
+"What shipped" section). The tell: its dry-run drift report listing all 17 seats means the
+gate is AHEAD of the mirror, not behind it.
+
+## 8. The staleness finding — now proven BOTH WAYS, 090 filed (was: NOT diagnosed here)
 
 **The code index is only as fresh as the last PUSH, and nothing in the lookup's caveat says
 so.** Found by verifying this lane's own new landmine entries: asked about `ValueDef`, the
@@ -156,7 +194,13 @@ was given. **Not a regression of `bugs_closed/108`**: 108's fix (pin to the live
 branch) is working; this is its residual on a tree where commits outpace pushes.
 
 `[UNMEASURED]` how many of the 392 entries this has actually mis-verdicted — one instance,
-found by looking at my own two. `[NOT DIAGNOSED]` deliberately: the mechanism is first-hand
-verified, but what the caveat should say and where it should be computed is a change to a
-shared seam and belongs in a `090` round. Written up in `LANDMINES.md` so nobody is caught by
-it meanwhile.
+found by looking at my own two. Written up in `LANDMINES.md` so nobody is caught by it
+meanwhile.
+
+**Update, same day:** the owner's push turned this into a controlled both-ways proof — the
+same entry, re-verified after re-indexing at the pushed tip, flipped `NEEDS_HUMAN_REVIEW`
+("of kinds not indexed" — false, they are a `struct` and a `func`) → `STILL_VALID` ("are
+present"), 2 NOT ANSWERABLE → 0, with the commit the only variable (NOTES, 08-11). That
+strengthened the finding: nothing reported the staleness then and nothing reports it now.
+**The 090 is now FILED and in flight** — §0 item 1 has the run correlation and the queries.
+The remedy remains the diagnosis loop's to cite, not this handoff's to prescribe.

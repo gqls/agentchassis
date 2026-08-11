@@ -116,6 +116,19 @@ answers the same question locally. **Do not try to DISCOVER the sha with a raw
 `grep -aoE "[0-9a-f]{40}"`** — unanchored, it matches Go's internal digit table and returns
 `000102030405…` on every service with total confidence (153, trap 2).
 
+**Gotcha 2 (2026-08-11): the stamp line ROTATES OUT of a busy pod's log** — within ~25
+minutes on v1.0.1286, `kubectl logs | grep 'build provenance'` returned nothing. Fallback:
+the image label plus a digest match, which answers the same question without the log:
+
+```bash
+docker image inspect <img> --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'
+kubectl -n ai-persona-system get pods -l app=<svc> \
+  -o jsonpath='{range .items[*]}{.status.containerStatuses[0].imageID}{"\n"}{end}'   # must match the local digest
+```
+
+(The digest match is what licenses reading the LOCAL image's label as a fact about the
+POD — without it you have proven the label of an image the pod may not be running.)
+
 For a SPAWNED agent, check the pod's own image: `resolveAgentImage` inherits the running
 chassis tag unless the row sets `default_config.pin_image_tag`, so verify rather than assume.
 
