@@ -224,3 +224,59 @@ pattern gets reused across other diagnosis actions it could accumulate into a de
 facto shared vocabulary without ever passing through architecture review."* The
 **second** action to do this needs an RFC; this one is the precedent that makes
 it the second.
+
+### 2026-08-11 — LIVE on v1.0.1284, pod-verified, and the code-tier blocker checked too
+
+**The roll carries it.** `agent-chassis:v1.0.1284`, both replicas (pods 23m old at
+check). Grepped with a positive AND a negative control, per the standing rule
+that a roll is not evidence your fix shipped:
+
+| grep | 6j5xn | rvrdg | means |
+|---|---|---|---|
+| `This listing is FILTERED, not the whole database` | 1 | 1 | POS — the notice is compiled in |
+| `you do not need a human to confirm it` | 1 | 1 | POS — the self-serve sentence |
+| `schema_always_tables` | 1 | 1 | POS — the config key |
+| `data_type FROM information_schema.columns WHERE ` | **0** | **0** | **NEG — the OLD query literal is GONE** |
+| `no orchestration rows for this correlation/site` | 1 | 1 | CTRL — an untouched sibling literal, proves the grep pipeline |
+
+The negative control is the one that matters: the pre-change binary built that
+query by `+`-concatenating constants, so `…columns WHERE ` was a real literal in
+it. Zero on both pods means this is the new binary, not a lucky match.
+
+### The OTHER blocker on the 236 run — checked before spending credits
+
+Re-reading `074beb8a`, it named **two** harness failures, and this change fixes
+only one. The other: it could not read the bodies of `storeActionResult`,
+`processAwaitResponse` and `applyResponseToState` — *"failed to load from
+coordinator.go in this checkout"*. Firing a re-run without checking that would
+have risked a second UNVERIFIABLE for the unfixed reason and taught us nothing
+about this fix.
+
+Checked: the index is fresh (6,170 symbols, **all** with bodies, `ref` = the live
+working branch, updated today 09:49). All three functions are present **with
+bodies**, including the merge function at the heart of the bug —
+`(*SagaCoordinator).applyResponseToState`, 4,746 chars, and its body really does
+contain `existingData` and `response_received_at`, the merge logic §5 quotes. So
+both blockers are clear and the re-run is worth its credits.
+
+> **MISSTEP — I nearly filed "the merge function is missing from the index".**
+> My first query was `WHERE symbol IN ('applyResponseToState', …)` and it
+> returned **nothing**, which looked like a decisive second blocker. It is a
+> **method**, and the index stores methods under their receiver-qualified name:
+> `(*SagaCoordinator).applyResponseToState`. A bare-name exact match cannot find
+> it. This is the SAME family as yesterday's four wrong calls — the query
+> encoded an assumption (that symbols are stored bare) and its zero answered
+> *that* question, not the one I asked. What caught it: checking the source
+> before believing the absence, because a zero from an index is exactly the
+> shape that should never be trusted on its own. Sanity check that would have
+> caught it instantly: `count(*)` for the file was **92** against **91** source
+> funcs, so nothing was missing at all.
+>
+> **This is a real trap for anyone writing a `code_request` too**: searching the
+> index for a Go method by its bare name returns nothing, and the loop's own
+> cite-or-abstain rule acts on absence.
+
+**090 re-run fired:** `RUN_CORRELATION_ID=90f6f55f-c014-4537-880c-0f1ae2b82e0b`.
+Symptom names the mechanism and points at the tables/symbols, asserts no counts,
+and names §5's refutation as context so the loop is not asked to confirm a story
+already refuted.
