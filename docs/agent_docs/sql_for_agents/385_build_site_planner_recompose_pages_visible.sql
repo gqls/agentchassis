@@ -68,6 +68,16 @@ BEGIN
     IF t IS NULL THEN
         RAISE EXCEPTION '385: build-site-planner plan_site prompt_template not found';
     END IF;
+    -- Dual-active-row landmine guard (council round 62d2463f objection, same
+    -- guard the APPROVED d1e8c36e round put on seeds 386/387/388): four agent
+    -- types carry TWO active rows and only the higher version loads. Refuse
+    -- unless build-site-planner has EXACTLY ONE active non-snapshot row, so
+    -- "UPDATE 1 + verify passed" cannot describe a row the loader never reads.
+    IF (SELECT count(*) FROM agent_definitions
+         WHERE type = 'build-site-planner' AND is_active
+           AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL) <> 1 THEN
+        RAISE EXCEPTION '385: build-site-planner does not have exactly one active row - resolve the duplicate before seeding';
+    END IF;
     IF position('REDESIGN REQUESTED' in t) > 0 THEN
         RAISE EXCEPTION '385: already applied - the marker text is present';
     END IF;

@@ -5671,3 +5671,21 @@ the submission is byte-identical. Resubmitted ~16:0xZ, `RESUBMIT_CORR=62d2463f`,
 orch `f007c32f`. Watcher keyed on the NEW orchestration id this time (a corr-keyed watcher
 matched the DEAD run's FAILED status — that near-miss is worth remembering: after a
 resubmission, watch the RUN, not the correlation).
+
+### 2026-08-11 (late, cont.) — 012 round REVISE answered and RESUBMITTED (run `d763efb4`)
+
+The resubmitted run reviewed and came back REVISE (gated HIGH, debug_historian — the
+dual-active-row family again, plus six more). Answers, all shipped: seed 385 gains the same
+apply-time exactly-one-active-row guard the APPROVED d1e8c36e round ratified (and the sketch
+now QUOTES the UPDATE's full predicate — the "no visible is_active qualifier" premise was
+wrong but invisible from the sketch); **PBP-041 registered** — the guidelines seat applied
+MY OWN afternoon's nested-contract rule against this round, correctly: the recompose seam
+now has its dedicated register entry naming both readers, in the shipping commit;
+`385_ROLLBACK.sql` ships as a separate disconfirmable restore; snapshot_agent's two-arg
+overload named (proven pre-update on today's applies); the scope objection ("visibility
+without enforcement") answered by the owner rulings that set the scope — validate cannot
+compose, so the durable RECOMPOSE_INTENT_NOT_REALISED row IS the enforcement point, per the
+council's own 2026-07-24 recommendation on this feature. One submission-tool lesson: the
+`operation` field is an enum (modify|add|remove|config_change) and the trigger's validator
+prints the error and exits 0 — a grep for SUBMISSION_CORR alone reads a validation failure
+as silence; check for the ERROR line too.
