@@ -278,3 +278,46 @@ absent. Both were true, both were consistent with a rejection, and **neither cou
 distinguish "refused" from "never ran"** — which is exactly why row-absence was already
 recorded as TRAP 2 in the RUNBOOK before any of this. A watcher can be right about
 everything it measures and still be unable to answer the question.
+
+## 2026-08-11 (later) — commit_from retired here, 136 lane told, council round 2 in flight
+
+**`commit_from` taken at the owner's direction** (it had been left with the bugfix_136 lane
+as a matter of ownership etiquette; the owner reassigned it). Census at adoption, broadest
+form — all depths, any row state, **all four workflow columns**, plus a whole-table text
+match: **0 carriers**. Declared in `UpdatePageStatusInputSpec.RemovedConfigKeys` alongside
+the 370 pair; cron literal updated in lockstep and the parity guard mutation-proven (drop
+the entry → the test fails naming both maps). Audit + a manual CronJob run: 4 keys declared
+across 2 actions, 0 carriers.
+
+Worth keeping: `commit_from` survived for months because `coordinator.go`'s `dataRefKeys`
+carried `"commit_from", // Used by update_page_status` — **false**; that list names keys
+whose VALUE is rewritten under loop expansion, never what an action consumes. Three readers
+took it as a statement of consumption. Its retirement message points at the build-provenance
+stamp (`bugs_open/153`, BLD-019), because the intent — knowing which commit a build came
+from — is now genuinely served there. Better than "deleted, sorry".
+
+**bugfix_136 lane notified** in their own `HANDOFF_2026-08-09_deferred_items.md` (their item
+is closed; and their migration 356 is applied but has **no `schema_migrations` row** — it
+cost me an hour of "is `commit_from` 6 or 0?", so they should `--record-only` it). No live
+session is on that lane — checked the transcripts — so the file is the only channel.
+
+**Council round 2 submitted** under the same correlation `3eb0d1f1…` so the trail
+accumulates. The rationale leads with why a resubmission is legitimate at all: this is NOT
+"better measurements against a scope veto" (forbidden), it is the change as it stands after
+the owner ruled the escalated scope question, plus the mechanism built to answer the
+guardian's named gap.
+
+> **The first round-2 attempt was INVALID and no seat saw it.** I put prose in an edit's
+> `file` field (`…/{364,370}_*.sql + tests (…)`) to fit 14 files into an 8-edit cap;
+> `editProblems` refuses any path containing whitespace. It presented as
+> `complete_invalid / COMPLETED / error=NULL` — the `bugs_open/099` shape — and the tell was
+> `execution_path=[]` with only the input in `collected_data`: **a run that validated nothing
+> has nothing in it.** Overflow belongs in `rationale`/`sketch`, which are free text.
+> WRONG_CALLS.md.
+
+**Image v1.0.1285 built + pushed** (not deployed). Verified the *correct* way after the
+`strings` recipe was retired under me: extracted the binary, found the STAMP by testing
+recent commits with an absent-control, then `git merge-base --is-ancestor` — which is a
+query, not an inference. **`git rev-parse HEAD` was NOT the stamp** even seconds after my own
+build, because HEAD moved under me; that trap and the chassis's rotated-away provenance line
+are both now in LANDMINES and the RUNBOOK.
