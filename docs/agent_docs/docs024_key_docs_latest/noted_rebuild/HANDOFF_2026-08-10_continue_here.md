@@ -1,3 +1,8 @@
+> **SUPERSEDED 2026-08-11 — read `HANDOFF_2026-08-11_continue_here.md` instead.** That one is standalone and
+> current: the engine is now live and public, the framework build is dispatched,
+> and the experience patterns are applied. This file is kept because its
+> decision table records what was open at the time and why.
+
 # HANDOFF — noted.co.uk rebuild, continue here
 
 Written 2026-08-10 end of session 1. **Read this first, then
