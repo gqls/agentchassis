@@ -3478,3 +3478,15 @@ resolution or the run. It **cannot** prove the url route was the one TAKEN, beca
 subject both routes resolve to the same URL — the discriminating test is a fence authored for
 one of the eight loancalculator tools, whose page name cannot resolve at all. Stated here
 rather than dressed up: this is a no-breakage check, not a route proof.
+
+**Result of the `page_url` no-breakage run** (item `a457a96a…`, third spawned pod of the day,
+`agent-tool-acceptance-agent-5cc9f2e5-bp9zq`): `complete`, no step error, 15 passed / 0
+failed / 9 skipped — identical to both earlier runs, so the extra `spec.page_url` key breaks
+nothing. Vision ran (2 images), critique `FINDINGS: none`, `file_vision_finding` returned
+`{filed:false, verdict_line:"none"}` and `site_work_items` still holds **0 `vision_finding`
+rows** — an independent second observation of 243 c3's negative arm, on a different run from
+the parallel session's `3bec5e4f`. Still no positive arm: that waits for a genuine finding.
+
+Note the critique's content this time: it compared desktop vs mobile nav and reported no
+contrast problem on the page that measured 1.06:1 yesterday — the third independent
+instrument agreeing that migration 382's template fix is real on the served page.
