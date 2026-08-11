@@ -1122,27 +1122,27 @@ func BuildRenderContextAction(ctx context.Context, params ActionParams) (interfa
 	// Extract image URLs from deploy_image_asset output
 	// (adds logo_deployed block between hero_deployed and fallback)
 	// =========================================================================
-	if heroDeployed, ok := params.CollectedData["hero_deployed"].(map[string]interface{}); ok {
-		if imageURL, ok := heroDeployed["image_url"].(string); ok && imageURL != "" {
-			if renderCtx.ContentData == nil {
-				renderCtx.ContentData = make(map[string]interface{})
-			}
-			renderCtx.ContentData["hero_url"] = imageURL
-			params.Logger.Info("Set hero_url from hero_deployed.image_url",
-				zap.String("url", imageURL))
+	// A miss here is no longer silent: deployedImageURL reports a present-but-
+	// unusable deploy result to agent_error_log, and stays quiet when no image was
+	// deployed at all. bugs_open/236, commission item 2 — see
+	// deployed_image_read_audit.go for why the durable row and not only a log line.
+	if imageURL := deployedImageURL(ctx, params, "hero_deployed", "image_url", "hero_url", "build_render_context"); imageURL != "" {
+		if renderCtx.ContentData == nil {
+			renderCtx.ContentData = make(map[string]interface{})
 		}
+		renderCtx.ContentData["hero_url"] = imageURL
+		params.Logger.Info("Set hero_url from hero_deployed.image_url",
+			zap.String("url", imageURL))
 	}
 
-	if logoDeployed, ok := params.CollectedData["logo_deployed"].(map[string]interface{}); ok {
-		if imageURL, ok := logoDeployed["image_url"].(string); ok && imageURL != "" {
-			if renderCtx.ContentData == nil {
-				renderCtx.ContentData = make(map[string]interface{})
-			}
-			renderCtx.ContentData["logo_url"] = imageURL
-			renderCtx.LogoURL = imageURL
-			params.Logger.Info("Set logo_url from logo_deployed.image_url",
-				zap.String("url", imageURL))
+	if imageURL := deployedImageURL(ctx, params, "logo_deployed", "image_url", "logo_url", "build_render_context"); imageURL != "" {
+		if renderCtx.ContentData == nil {
+			renderCtx.ContentData = make(map[string]interface{})
 		}
+		renderCtx.ContentData["logo_url"] = imageURL
+		renderCtx.LogoURL = imageURL
+		params.Logger.Info("Set logo_url from logo_deployed.image_url",
+			zap.String("url", imageURL))
 	}
 
 	// Also check for direct hero_url in collected_data (fallback)
@@ -3187,7 +3187,14 @@ func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface
 		zap.Int("existing_pages", len(existingPages)),
 		zap.String("existing_pages_field", existingField))
 	var counts reconcileCounts
-	pages, counts = reconcilePlanWithRealised(pages, existingPages, params.Logger)
+	// stem_twin_snap: opt-in, unsafe default OFF (bugs_open/215). Off, the stem
+	// layer still measures what it would have done — read StemTwinObserved and
+	// the durable PLAN_PAGE_STEM_TWIN_OBSERVED rows before turning it on.
+	reconcileOpts := reconcileOptions{}
+	if v, ok := config["stem_twin_snap"].(bool); ok {
+		reconcileOpts.StemTwinSnap = v
+	}
+	pages, counts = reconcilePlanWithRealised(pages, existingPages, reconcileOpts, params.Logger)
 	plan["pages"] = pages
 	params.Logger.Info("ValidateSitePlanAction: reconciled with realised pages",
 		zap.Int("unioned_in", counts.Unioned),
@@ -3197,9 +3204,15 @@ func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface
 		zap.Int("section_facts_carried", counts.SectionFactsCarried),
 		zap.Int("fact_carry_miss_pages", len(counts.FactCarryMisses)),
 		zap.Int("fact_assignment_absent_pages", len(counts.FactAssignmentAbsent)),
+		zap.Int("snapped_identity_path_key", counts.SnappedIdentityPathKey),
+		zap.Int("snapped_identity_canon_name", counts.SnappedIdentityCanonName),
+		zap.Int("snapped_stem_twin", counts.SnappedStemTwin),
+		zap.Int("stem_twin_observed", counts.StemTwinObserved),
+		zap.Int("stem_twin_ambiguous", counts.StemTwinAmbiguous),
 		zap.Int("pages_after", len(pages)))
 	recordFactCarryMisses(ctx, params, counts.FactCarryMisses)
 	recordFactAssignmentAbsent(ctx, params, counts.FactAssignmentAbsent)
+	recordIdentitySnaps(ctx, params, counts.IdentitySnaps)
 	recordRecomposeOutcomes(ctx, params, recomposeOutcomes(pages, recomposeRealised))
 
 	// ── Truncate, preserving first-plan AND built pages ─────────────────────
@@ -3475,6 +3488,74 @@ func recordFactAssignmentAbsent(ctx context.Context, params ActionParams, misses
 				"page":            m.Page,
 				"absent_sections": m.Sections,
 				"remedy":          "the planner emitted an object-form section entry without a `facts` array; [] is the correct emission for a section with no assigned facts. Check the planner prompt's fact-assignment rules (RFC_016, seed 333)",
+			},
+		})
+	}
+	LogActionFindings(ctx, params, siteID, "", "validate_plan", findings, params.Logger)
+}
+
+// recordIdentitySnaps persists one durable row per twin-identity event: a plan
+// page recognised as denoting an already-realised page under another spelling
+// (bugs_open/215 quiet mode), and every refusal and dark-launch observation.
+//
+// Why durable and not a log line: an active chassis pod retains under one second
+// of log (bugs_open/136 §11), so the Info lines these events also emit are not a
+// record of anything. Both raw spellings and both URLs are carried, because the
+// orchestration row that would otherwise hold the context expires in ~24h — the
+// lesson this bug recorded against its own first verification step, when the
+// pairing behind its founding incident became permanently unverifiable.
+//
+// Three codes, because they answer different questions and a single code would
+// make the interesting one unfindable:
+//
+//   - PLAN_PAGE_IDENTITY_SNAPPED: a snap happened. Informational — this is the
+//     fix working, and it names which layer fired.
+//   - PLAN_PAGE_STEM_TWIN_OBSERVED: the stem layer is OFF and would have fired.
+//     This is the dark-launch measurement; a non-zero count is the evidence for
+//     (or against) enabling it, and each row is also a phantom about to be
+//     minted, so it is warning-severity.
+//   - PLAN_PAGE_STEM_TWIN_REFUSED: a stem twin was found and deliberately not
+//     acted on. Recorded because silence here would be indistinguishable from
+//     "no twin existed", which is the difference between a guard working and a
+//     guard being dead.
+//
+// Best-effort identity, for the same reason as recordFactCarryMisses: the row is
+// worth writing without a site_id.
+func recordIdentitySnaps(ctx context.Context, params ActionParams, snaps []identitySnap) {
+	if len(snaps) == 0 {
+		return
+	}
+	siteID := datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.site_id")
+	findings := make([]agenterrors.Finding, 0, len(snaps))
+	for _, s := range snaps {
+		code, severity, message := "PLAN_PAGE_IDENTITY_SNAPPED", "info",
+			fmt.Sprintf("plan page %q denotes realised page %q (matched on %s); the realised identity was kept and the plan entry snapped onto it",
+				s.PlanName, s.RealisedName, s.Layer)
+		remedy := "no action needed — this is the twin-identity reconciliation that stops a second page row being minted for one page (bugs_open/215)"
+		switch s.Layer {
+		case "stem_twin_observed":
+			code, severity = "PLAN_PAGE_STEM_TWIN_OBSERVED", "warning"
+			message = fmt.Sprintf("plan page %q is a stem twin of realised page %q, and the stem layer is OFF — this plan will carry both identities for one page",
+				s.PlanName, s.RealisedName)
+			remedy = "dark-launch signal: each of these is a phantom page row about to be created. Enable stem_twin_snap on the validate step once the observed population has been read (bugs_open/215)"
+		case "stem_twin_refused":
+			code, severity = "PLAN_PAGE_STEM_TWIN_REFUSED", "warning"
+			message = fmt.Sprintf("plan page %q looks like a stem twin of realised page %q and was deliberately NOT snapped: %s",
+				s.PlanName, s.RealisedName, s.Reason)
+			remedy = "a refusal, not a failure. If the two really are one page, the duplicate needs a remediation decision (which URL survives, what redirects) — see the runbook in bugs_open/215"
+		}
+		findings = append(findings, agenterrors.Finding{
+			ErrorCode: code,
+			Severity:  severity,
+			Message:   message,
+			Context: map[string]interface{}{
+				"layer":         s.Layer,
+				"plan_name":     s.PlanName,
+				"plan_url":      s.PlanURL,
+				"realised_name": s.RealisedName,
+				"realised_url":  s.RealisedURL,
+				"reason":        s.Reason,
+				"remedy":        remedy,
 			},
 		})
 	}
@@ -5388,20 +5469,16 @@ func slugOf(name, url string) string {
 // itemStemOf returns the topic stem of an item page name by stripping the
 // role prefixes that CanonicalisePage adds (tool-, guide-, game-): e.g.
 // "guide-economy-basics" -> "economy-basics", "economy-basics" ->
-// "economy-basics". Mirrors the TrimPrefix calls in CanonicalisePage's
-// tool/guide/game cases - keep this prefix list in sync with them. Returns
-// the input unchanged when no role prefix is present, so two adopted pages on
-// the same topic share a stem and a re-proposed bare sibling collides with
-// them. Unlike sectionStemOf, this is name-based rather than URL/hub-based.
-func itemStemOf(name string) string {
-	n := strings.ToLower(strings.TrimSpace(name))
-	for _, p := range []string{"tool-", "guide-", "game-"} {
-		if strings.HasPrefix(n, p) {
-			return strings.TrimPrefix(n, p)
-		}
-	}
-	return n
-}
+// "economy-basics". Returns the input unchanged when no role prefix is
+// present, so two adopted pages on the same topic share a stem and a
+// re-proposed bare sibling collides with them. Unlike sectionStemOf, this is
+// name-based rather than URL/hub-based.
+//
+// Delegates to datahelpers (bugs_open/215): the prefix list used to be
+// maintained here by hand against CanonicalisePage in another package, under a
+// comment asking the reader to keep them in sync. It now has one definition,
+// beside the canonicaliser whose behaviour it mirrors.
+func itemStemOf(name string) string { return datahelpers.PageItemStem(name) }
 
 // normaliseRealisedToPlanPage converts a realised pages-table row (as returned
 // by the load_existing_pages query) into the plan-page shape the downstream
@@ -5430,6 +5507,7 @@ func normaliseRealisedToPlanPage(rm map[string]interface{}) map[string]interface
 			}
 		}
 	}
+	url, _ := rm["url"].(string)
 	return map[string]interface{}{
 		"name":             name,
 		"page_type":        pageType,
@@ -5442,7 +5520,40 @@ func normaliseRealisedToPlanPage(rm map[string]interface{}) map[string]interface
 		"nav_order":        rm["nav_order"],
 		"sections":         sections,
 		"from_realised":    true,
+		// The stored identity is authoritative for a page derived from a realised
+		// row, and saying so is what stops the write path re-deriving it
+		// (bugs_open/215). Both canonicalisation surfaces re-run CanonicalisePage
+		// over every plan page, and CanonicalisePage cannot EXPRESS a legacy
+		// identity: a tool-typed page always comes back "tool-<bare>" at the
+		// nested URL. Measured 2026-08-11: 71 live shipped rows fleet-wide are not
+		// fixed points of the canonicaliser, so for those pages a snap or a union
+		// here is silently undone downstream and the twin identity is re-minted.
+		//
+		// Inert unless a step config sets honour_realised_identity (see
+		// realisedIdentityOf) — the field is opt-in with the unsafe default off.
+		// parent_section is carried for the same reason and helps even when the
+		// flag is off: without it CanonicalisePage re-derives a blog-post's URL
+		// under /blog/, which MOVES a live page that is serving from /guides/
+		// (the bugs_open/241 URL-move hazard, measured on fundamentallyai's
+		// guide twins).
+		"identity_authority": "realised",
+		"parent_section":     parentSectionFromURL(url),
 	}
+}
+
+// parentSectionFromURL recovers the directory a realised page actually lives in,
+// so a page derived from it canonicalises back to where it is SERVING rather
+// than to the role's default hub. "/guides/x.html" and "/guides/x/index.html"
+// both give "guides"; a root-level "/x.html" gives "" (no parent), which is
+// also what a URL we cannot read gives — in both cases the canonicaliser's own
+// default applies, which is the behaviour that existed before this carry.
+func parentSectionFromURL(url string) string {
+	trimmed := strings.Trim(url, "/")
+	i := strings.Index(trimmed, "/")
+	if i <= 0 {
+		return ""
+	}
+	return trimmed[:i]
 }
 
 // factCarryMiss records plan-time fact assignments that could NOT be carried
@@ -5588,6 +5699,242 @@ func carrySectionFactsOntoRealised(realised []interface{}, proposed interface{})
 	return merged, carried, unmatched, absent
 }
 
+// snapPlanPageOntoRealised replaces an LLM plan entry with the realised page it
+// denotes, and is the ONE arm every identity match goes through — the exact-URL
+// rename (Pass B) and all three twin-identity layers. Extracted rather than
+// copied because its section rules are load bearing in two directions at once
+// (bugs_open/050's empty-page routing, and the plan-time fact assignments the
+// 151 lane measures), and a second copy of them would drift.
+//
+// The realised identity wins wholesale: name, url, page_type, nav and meta come
+// from the realised row. The LLM entry contributes only its sections, and only
+// where the realised page has no composition to protect:
+//
+//   - realised NOT shipped + sections empty -> take the LLM's proposal. A
+//     catalogued page that has never been composed is finally composed, and the
+//     LLM's entries are kept WHOLE so their fact assignments ride along.
+//   - otherwise -> the realised composition wins, and the fact assignments on
+//     the LLM's discarded entries are carried onto the surviving names.
+//
+// The entry is snapped, never dropped. Dropping would be simpler and is what
+// Pass C2 does, but it discards the plan-time fact assignments with the entry,
+// and Pass A's union cannot carry them back — it has no proposal to read.
+func snapPlanPageOntoRealised(
+	lm map[string]interface{},
+	rp map[string]interface{},
+	layer string,
+	counts *reconcileCounts,
+	logger *zap.Logger,
+) map[string]interface{} {
+	lname, _ := lm["name"].(string)
+	lurl, _ := lm["url"].(string)
+	rname, _ := rp["name"].(string)
+	rurl, _ := rp["url"].(string)
+
+	snapped := normaliseRealisedToPlanPage(rp)
+	// The spelling the planner used, kept so the imagery scope map can still
+	// resolve a block keyed to it (bugs_open/214's name-space mismatch: imagery
+	// keys off the RAW page name, and a snap changes the name out from under it).
+	snapped["reconciled_from"] = lname
+
+	carried := 0
+	if !realisedPageHasShipped(rp) && len(realisedSectionsOf(rp)) == 0 {
+		if ls, ok := lm["sections"].([]interface{}); ok && len(ls) > 0 {
+			snapped["sections"] = ls
+		}
+	} else if rs, ok := snapped["sections"].([]interface{}); ok && len(rs) > 0 {
+		restored, n, unmatched, absent := carrySectionFactsOntoRealised(rs, lm["sections"])
+		snapped["sections"] = restored
+		carried = n
+		counts.SectionFactsCarried += n
+		if len(unmatched) > 0 {
+			counts.FactCarryMisses = append(counts.FactCarryMisses,
+				factCarryMiss{Page: rname, Sections: unmatched})
+		}
+		if len(absent) > 0 {
+			counts.FactAssignmentAbsent = append(counts.FactAssignmentAbsent,
+				factCarryMiss{Page: rname, Sections: absent})
+		}
+	}
+
+	if layer == "url_exact" {
+		// Unchanged wording: this line predates the twin layers and is what the
+		// existing pod-greps and tests look for.
+		logger.Info("validate: snapped renamed page back to realised identity",
+			zap.String("llm_name", lname), zap.String("realised_name", rname),
+			zap.Int("section_facts_carried", carried))
+	} else {
+		logger.Info("validate: snapped plan page onto realised identity",
+			zap.String("layer", layer),
+			zap.String("llm_name", lname), zap.String("llm_url", lurl),
+			zap.String("realised_name", rname), zap.String("realised_url", rurl),
+			zap.Int("section_facts_carried", carried))
+		counts.IdentitySnaps = append(counts.IdentitySnaps, identitySnap{
+			Layer: layer, PlanName: lname, PlanURL: lurl,
+			RealisedName: rname, RealisedURL: rurl,
+		})
+	}
+	return snapped
+}
+
+// matchTwinIdentity asks whether an LLM plan entry denotes a page that is
+// already realised under a different spelling, and returns the snapped entry if
+// so (bugs_open/215 quiet mode).
+//
+// Three keys, strongest first. All three refuse a key two realised pages claim,
+// and none may match a realised page whose name the plan ALREADY carries:
+//
+//   - path_key: the two URLs claim one path. This is the flat-vs-nested family
+//     — the legacy tool-deploy arm's /tools/x.html against the canonicaliser's
+//     /tools/x/index.html — and it is deterministic: both sides are stored URLs,
+//     no heuristic about names.
+//   - canonical_name: the canonicaliser says the plan entry's own identity IS
+//     the realised row's canonical name. This front-runs a collapse the estate
+//     already performs one step later (write_site_plan canonicalises, then
+//     dedupePlanPageRows merges) — doing it here just means the survivor is the
+//     realised page rather than whichever spelling sorted first.
+//   - stem_twin: the two names share a topic stem, one bare and one prefixed.
+//     The weakest key, separately gated, and dark-launched — see below.
+//
+// The stem layer is OFF unless opts.StemTwinSnap, and while off it still counts
+// what it WOULD have done. That is deliberate: the estate has declined to trust
+// stem matching on re-plans since 2026-07-20 on a stated risk (a new
+// "tool-pricing" beside a built "guide-pricing"), and the honest way to revisit
+// a refusal like that is to measure the population first, not to argue about it.
+// Note the guard makes that exact pair unmatchable in any case: both names carry
+// a prefix, and this layer requires one side to be the bare stem.
+func matchTwinIdentity(
+	lm map[string]interface{},
+	lname, lurl, ltype string,
+	byPathKey, byCanonName, byStem, byName map[string]map[string]interface{},
+	planNames map[string]bool,
+	opts reconcileOptions,
+	counts *reconcileCounts,
+	logger *zap.Logger,
+) (map[string]interface{}, string, bool) {
+	if lname == "" {
+		return nil, "", false
+	}
+
+	// eligible rejects a candidate that must not be snapped onto, whatever key
+	// found it. Shared by all three layers so a guard cannot be true of one and
+	// forgotten in another.
+	eligible := func(rp map[string]interface{}) (string, bool) {
+		rname, _ := rp["name"].(string)
+		if rname == "" || rname == lname {
+			return rname, false
+		}
+		// The plan already carries the realised spelling as its own entry: the
+		// two identities are both in play and collapsing them here would hand
+		// the writer a duplicate to resolve by dropping one.
+		if planNames[rname] {
+			return rname, false
+		}
+		return rname, true
+	}
+
+	if rp, ok := byPathKey[datahelpers.PagePathKey(lurl)]; ok && lurl != "" {
+		if _, good := eligible(rp); good {
+			return snapPlanPageOntoRealised(lm, rp, "path_key", counts, logger), "path_key", true
+		}
+	}
+
+	// The plan entry's own canonical identity, derived exactly as the write path
+	// will derive it, so this layer predicts that collapse rather than inventing
+	// a new one. That means SLUG-then-name, not name alone: both write surfaces
+	// canonicalise firstNonEmpty(slug, name), and an entry whose slug disagrees
+	// with its name collapses to the slug's answer. Measured on fundamentallyai
+	// 2026-08-11 (PLAN_PAGE_MERGE_LOSSY rows at 10:21:47): an entry NAMED
+	// "tool-model-approach-selector-guide" canonicalised to the bare
+	// "model-approach-selector-guide" because its slug said so. Predicting from
+	// the name alone would have modelled a collapse the writer does not perform.
+	canonSource := firstNonEmpty(datahelpers.GetStringField(lm, "slug", ""), lname)
+	if canon := datahelpers.PageCanonicalNameForRow(canonSource, ltype); canon != "" {
+		if rp, ok := byCanonName[canon]; ok {
+			if _, good := eligible(rp); good {
+				return snapPlanPageOntoRealised(lm, rp, "canonical_name", counts, logger), "canonical_name", true
+			}
+		}
+		// The realised row may hold the canonical name directly while the plan
+		// entry is the bare twin (llm-cost-calculator -> tool-llm-cost-calculator).
+		if rp, ok := byName[canon]; ok && canon != lname {
+			if _, good := eligible(rp); good {
+				return snapPlanPageOntoRealised(lm, rp, "canonical_name", counts, logger), "canonical_name", true
+			}
+		}
+	}
+
+	// Stem layer. Requires EXACTLY ONE side to carry a role prefix — the guard
+	// that makes the on-record false positive (two differently-prefixed pages on
+	// one topic, "tool-pricing" beside "guide-pricing") structurally unmatchable
+	// rather than merely unlikely.
+	//
+	// BOTH DIRECTIONS, because the direction flips in real data and a fixed one
+	// would miss half the population. Measured on fundamentallyai 2026-08-11: the
+	// plan carried prefixed "tool-tools" against bare realised "tools", AND bare
+	// "ai-readiness-checker-guide" against prefixed realised
+	// "tool-ai-readiness-checker-guide". The invariant is two identities for one
+	// page, not a fixed prefix.
+	stem := datahelpers.PageItemStem(lname)
+	if stem == "" {
+		return nil, "", false
+	}
+	planIsBare := stem == strings.ToLower(strings.TrimSpace(lname))
+	var rp map[string]interface{}
+	var ok bool
+	if planIsBare {
+		// Bare plan name -> a PREFIXED realised page on the same stem.
+		rp, ok = byStem[stem]
+	} else {
+		// Prefixed plan name -> the BARE realised page whose name IS the stem.
+		// Looked up by name rather than by the stem index, which deliberately
+		// holds prefixed names only; requiring the hit to be the bare form keeps
+		// the exactly-one-prefix rule intact.
+		rp, ok = byName[stem]
+	}
+	if !ok {
+		return nil, "", false
+	}
+	rname, good := eligible(rp)
+	if !good {
+		if rname != "" {
+			counts.StemTwinAmbiguous++
+			counts.IdentitySnaps = append(counts.IdentitySnaps, identitySnap{
+				Layer: "stem_twin_refused", PlanName: lname, PlanURL: lurl,
+				RealisedName: rname,
+				Reason:       "the plan already carries the realised spelling as its own entry, or the candidate is the entry itself — collapsing them is a remediation decision, not a reconciliation",
+			})
+		}
+		return nil, "", false
+	}
+	// A realised twin that has never shipped is not evidence of identity: an
+	// unshipped catalogued sibling may simply be a different page nobody has
+	// built yet. The phantom this layer exists to prevent is always the twin of
+	// a page that IS serving.
+	if !realisedPageHasShipped(rp) {
+		counts.StemTwinAmbiguous++
+		counts.IdentitySnaps = append(counts.IdentitySnaps, identitySnap{
+			Layer: "stem_twin_refused", PlanName: lname, PlanURL: lurl,
+			RealisedName: rname,
+			Reason:       "the realised stem twin has never shipped, so a shared stem is not evidence the two are one page",
+		})
+		return nil, "", false
+	}
+	if !opts.StemTwinSnap {
+		counts.StemTwinObserved++
+		rurl, _ := rp["url"].(string)
+		logger.Info("validate: stem twin observed, layer disabled",
+			zap.String("llm_name", lname), zap.String("realised_name", rname))
+		counts.IdentitySnaps = append(counts.IdentitySnaps, identitySnap{
+			Layer: "stem_twin_observed", PlanName: lname, PlanURL: lurl,
+			RealisedName: rname, RealisedURL: rurl,
+			Reason: "stem_twin_snap is off; this plan entry would have been snapped onto the realised page and will otherwise be written as a second identity for it",
+		})
+		return nil, "", false
+	}
+	return snapPlanPageOntoRealised(lm, rp, "stem_twin", counts, logger), "stem_twin", true
+}
+
 // reconcileCounts is what reconcilePlanWithRealised observed, for the caller's
 // log and its durable record.
 //
@@ -5624,6 +5971,62 @@ type reconcileCounts struct {
 	// silently skipped entry is indistinguishable from a page correctly
 	// assigned no facts (council round a06ff850, objection §3.5).
 	FactAssignmentAbsent []factCarryMiss
+	// SnappedIdentityPathKey / SnappedIdentityCanonName / SnappedStemTwin: pages
+	// snapped onto a realised identity by one of the three twin-identity layers
+	// (bugs_open/215 quiet mode). Counted separately from SnappedRename, which
+	// is the exact-URL match that has always been there: which LAYER fired is
+	// the thing a later measurement needs, because they carry different
+	// confidence and the weakest is separately gated.
+	SnappedIdentityPathKey  int
+	SnappedIdentityCanonName int
+	SnappedStemTwin          int
+	// StemTwinObserved: stem twins seen while the stem layer was DISABLED. This
+	// is the dark-launch signal — it measures how often the layer WOULD fire in
+	// production before anyone turns it on, which is the only honest way to
+	// answer "is the false-positive risk real here" for a heuristic the estate
+	// has declined to trust fleet-wide since 2026-07-20.
+	StemTwinObserved int
+	// StemTwinAmbiguous: stem twins refused because more than one realised page
+	// claimed the stem, or because both sides had shipped. A refusal is a
+	// decision not to guess, and it is recorded for the same reason a merge is:
+	// silence here would be indistinguishable from "no twin existed".
+	StemTwinAmbiguous int
+	// IdentitySnaps: the detail behind the three counters above, one per event
+	// (snaps and refusals both). Persisted durably by the caller — a chassis pod
+	// retains under a second of log, so the Info lines these carry are not a
+	// record of anything (bugs_open/136 §11).
+	IdentitySnaps []identitySnap
+}
+
+// identitySnap is one twin-identity event: a plan page recognised as denoting
+// an already-realised page under a different spelling, and what was done about
+// it. Carries BOTH spellings and BOTH urls so the event stays diagnosable after
+// the orchestration row expires (~24h) — the lesson bugs_open/215 recorded
+// against its own first verification step.
+type identitySnap struct {
+	Layer       string // "path_key" | "canonical_name" | "stem_twin" | "stem_twin_observed" | "stem_twin_refused"
+	PlanName    string
+	PlanURL     string
+	RealisedName string
+	RealisedURL string
+	// Reason is set on the refusal/observation rows only: why nothing was done.
+	Reason string
+}
+
+// reconcileOptions carries the parts of reconcilePlanWithRealised's behaviour a
+// caller may switch on. Zero value is the conservative one: everything that
+// changes what a plan MEANS beyond the existing passes stays off until a step
+// config asks for it.
+//
+// StemTwinSnap enables the stem layer (bare-vs-prefixed twins). It is an OPT-IN
+// FIELD with the unsafe default OFF, per the owner ruling of 2026-08-02: new
+// authority on a shared seam ships as a field, not as a documented contract,
+// because a comment is not a control on a tree this many sessions share. The
+// stem key is the one layer that can pair two genuinely different pages, and
+// the reconciler has declined to run it on re-plans since 2026-07-20 (Pass C2's
+// header). Off, the layer still MEASURES itself — see StemTwinObserved.
+type reconcileOptions struct {
+	StemTwinSnap bool
 }
 
 // reconcilePlanWithRealised enforces preservation of and convergence on the
@@ -5719,6 +6122,7 @@ type reconcileCounts struct {
 func reconcilePlanWithRealised(
 	llmPages []interface{},
 	existingPages []interface{},
+	opts reconcileOptions,
 	logger *zap.Logger,
 ) ([]interface{}, reconcileCounts) {
 	var counts reconcileCounts
@@ -5767,6 +6171,68 @@ func reconcilePlanWithRealised(
 		}
 	}
 
+	// ── Twin-identity keys (bugs_open/215, quiet mode) ──────────────────────
+	//
+	// The three ways a plan page and a realised page can denote ONE page while
+	// matching on neither exact URL (Pass B) nor exact name (Pass B2). Built
+	// over the same preservation set Pass B uses, so a snap can only ever land
+	// on a page this function already considers worth converging on.
+	//
+	// EVERY map REFUSES AMBIGUITY: if two realised rows claim one key, the key
+	// is deleted and nothing matches it. That is the convention
+	// buildCanonicalPageNameMap set for exactly this hazard — when two pages
+	// want one alias, guessing is worse than missing, because a wrong snap
+	// suppresses a real page while a miss only leaves the twin unreconciled.
+	realisedByPathKey := make(map[string]map[string]interface{})
+	realisedByCanonName := make(map[string]map[string]interface{})
+	realisedByStem := make(map[string]map[string]interface{})
+	ambiguousPathKey := make(map[string]bool)
+	ambiguousCanonName := make(map[string]bool)
+	ambiguousStem := make(map[string]bool)
+	claim := func(m map[string]map[string]interface{}, ambiguous map[string]bool, key string, rm map[string]interface{}) {
+		if key == "" || ambiguous[key] {
+			return
+		}
+		if prev, taken := m[key]; taken {
+			if prevName, _ := prev["name"].(string); prevName != "" {
+				if thisName, _ := rm["name"].(string); thisName == prevName {
+					return // same row seen twice, not a contest
+				}
+			}
+			delete(m, key)
+			ambiguous[key] = true
+			return
+		}
+		m[key] = rm
+	}
+	for _, rp := range existingPages {
+		rm, ok := rp.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		name, _ := rm["name"].(string)
+		url, _ := rm["url"].(string)
+		pageType, _ := rm["page_type"].(string)
+		if name == "" {
+			continue
+		}
+		claim(realisedByPathKey, ambiguousPathKey, datahelpers.PagePathKey(url), rm)
+		// The canonical-name key only carries a signal when it DIFFERS from the
+		// row's own name — otherwise it duplicates Pass B2's exact-name match and
+		// would shadow it with a weaker one.
+		if canon := datahelpers.PageCanonicalNameForRow(name, pageType); canon != "" && canon != name {
+			claim(realisedByCanonName, ambiguousCanonName, canon, rm)
+		}
+		// The stem key is keyed on PREFIXED realised names only. A bare realised
+		// name has stem == name, which Pass B2 already matches exactly; indexing
+		// it here would let a bare plan page match a bare realised page it is
+		// simply equal to, and would let two bare siblings contest a key for no
+		// reason.
+		if stem := datahelpers.PageItemStem(name); stem != "" && stem != strings.ToLower(strings.TrimSpace(name)) {
+			claim(realisedByStem, ambiguousStem, stem, rm)
+		}
+	}
+
 	// Item-topic stems: the role-prefix-stripped name stem of each realised
 	// page (guide-economy-basics -> economy-basics). Keyed to a SET of realised
 	// names so a topic legitimately covered by two adopted pages (e.g. a tool
@@ -5798,6 +6264,23 @@ func reconcilePlanWithRealised(
 		itemStemSets[stem][name] = true
 	}
 
+	// Every name the LLM proposed, for the twin layers' both-sides-in-plan
+	// refusal. A plan that already carries BOTH spellings needs no snap: snapping
+	// one onto the other would hand two entries the same name, and the writer's
+	// richer-wins dedup would then resolve the pair by dropping one — which for a
+	// pair of DEPLOYED twins means silently evicting a live page from plan
+	// governance. Measured on robot-hands 2026-08-11: three such pairs, both
+	// sides deployed, both sides in the current plan. That is a remediation
+	// decision (which page survives, what redirects), not a reconciliation.
+	planNames := make(map[string]bool, len(llmPages))
+	for _, lp := range llmPages {
+		if lm, ok := lp.(map[string]interface{}); ok {
+			if n, _ := lm["name"].(string); n != "" {
+				planNames[n] = true
+			}
+		}
+	}
+
 	// Pass C (collision) + Pass B (rename) + Pass B2 (composition) over the
 	// LLM pages.
 	var kept []interface{}
@@ -5807,6 +6290,12 @@ func reconcilePlanWithRealised(
 			kept = append(kept, lp)
 			continue
 		}
+		// This function is the ONLY minter of the realised-identity marker: it is
+		// what tells the write path to stop re-deriving a page's name and URL, so
+		// an LLM (or a replayed plan) that emits it must not be believed. Stripped
+		// before any pass can read it, and re-stamped only by a snap or a union.
+		delete(lm, "identity_authority")
+		delete(lm, "from_realised")
 		lname, _ := lm["name"].(string)
 		lurl, _ := lm["url"].(string)
 		ltype, _ := lm["page_type"].(string)
@@ -5842,39 +6331,39 @@ func reconcilePlanWithRealised(
 		// and its emptiness is authoritative — carry it (as normalise already does).
 		if rp, ok := realisedByURL[lurl]; ok {
 			if rname, _ := rp["name"].(string); rname != "" && rname != lname {
-				snapped := normaliseRealisedToPlanPage(rp)
-				carried := 0
-				if !realisedPageHasShipped(rp) && len(realisedSectionsOf(rp)) == 0 {
-					if ls, ok := lm["sections"].([]interface{}); ok && len(ls) > 0 {
-						// The LLM's own entries are kept whole here, so any fact
-						// assignments on them ride along untouched.
-						snapped["sections"] = ls
-					}
-				} else if rs, ok := snapped["sections"].([]interface{}); ok && len(rs) > 0 {
-					// The realised composition wins, so the LLM's entries — and
-					// the fact assignments inside them — are about to be
-					// discarded. Same loss as Pass B2, one pass earlier; carry
-					// the assignments onto the names that survive.
-					restored, n, unmatched, absent := carrySectionFactsOntoRealised(rs, lm["sections"])
-					snapped["sections"] = restored
-					carried = n
-					counts.SectionFactsCarried += n
-					if len(unmatched) > 0 {
-						counts.FactCarryMisses = append(counts.FactCarryMisses,
-							factCarryMiss{Page: rname, Sections: unmatched})
-					}
-					if len(absent) > 0 {
-						counts.FactAssignmentAbsent = append(counts.FactAssignmentAbsent,
-							factCarryMiss{Page: rname, Sections: absent})
-					}
-				}
-				logger.Info("validate: snapped renamed page back to realised identity",
-					zap.String("llm_name", lname), zap.String("realised_name", rname),
-					zap.Int("section_facts_carried", carried))
-				kept = append(kept, snapped)
+				kept = append(kept, snapPlanPageOntoRealised(lm, rp, "url_exact", &counts, logger))
 				counts.SnappedRename++
 				continue
 			}
+		}
+
+		// ── Twin-identity layers (bugs_open/215, quiet mode) ────────────────
+		//
+		// Same question Pass B just asked — "is this plan entry actually a page
+		// we have already realised?" — with comparators that can see the two
+		// ways the answer is yes while the URLs differ. Ordered strongest key
+		// first; first hit wins and the arm is the same one Pass B uses, so a
+		// page reached by any layer is treated identically thereafter.
+		//
+		// Why this is not Pass C2 widened: C2 DROPS the plan entry, and has
+		// stayed first-plan-only since 2026-07-20 because a false positive
+		// there destroys a legitimately new page. These layers SNAP instead —
+		// the entry survives under the realised identity, carrying its fact
+		// assignments — so the cost of being wrong is bounded by the same
+		// preservation rules a rename already obeys.
+		if snapped, layer, ok := matchTwinIdentity(lm, lname, lurl, ltype,
+			realisedByPathKey, realisedByCanonName, realisedByStem,
+			realisedByName, planNames, opts, &counts, logger); ok {
+			kept = append(kept, snapped)
+			switch layer {
+			case "path_key":
+				counts.SnappedIdentityPathKey++
+			case "canonical_name":
+				counts.SnappedIdentityCanonName++
+			case "stem_twin":
+				counts.SnappedStemTwin++
+			}
+			continue
 		}
 
 		// Pass B2: same NAME as a preserved realised page -> reconcile the LLM's

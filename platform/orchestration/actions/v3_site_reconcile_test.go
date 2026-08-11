@@ -83,7 +83,7 @@ func TestReconcile_BuiltPageCompositionSurvivesReplan(t *testing.T) {
 	}
 	llm := []interface{}{llmPage("about", "/about.html", "hero", "call-to-action")}
 
-	got, counts := reconcilePlanWithRealised(llm, existing, zap.NewNop())
+	got, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{}, zap.NewNop())
 
 	if counts.SnappedSections != 1 {
 		t.Errorf("snapped_sections = %d, want 1", counts.SnappedSections)
@@ -102,7 +102,7 @@ func TestReconcile_BuiltPageOmittedByLLMIsUnioned(t *testing.T) {
 	}
 	llm := []interface{}{llmPage("index", "/index.html", "hero")}
 
-	got, counts := reconcilePlanWithRealised(llm, existing, zap.NewNop())
+	got, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{}, zap.NewNop())
 
 	if counts.Unioned != 1 {
 		t.Errorf("unioned = %d, want 1", counts.Unioned)
@@ -129,7 +129,7 @@ func TestReconcile_EmptyCataloguedPageAcceptsLLMComposition(t *testing.T) {
 		llmPage("tool-audience-check", "/tools/audience-check.html", "tool-hero", "tool-embed"),
 	}
 
-	got, _ := reconcilePlanWithRealised(llm, existing, zap.NewNop())
+	got, _ := reconcilePlanWithRealised(llm, existing, reconcileOptions{}, zap.NewNop())
 
 	want := []string{"tool-hero", "tool-embed"}
 	if s := sectionsOf(t, got, "tool-audience-check"); !equalStrings(s, want) {
@@ -148,7 +148,7 @@ func TestReconcile_DeployedEmptyPageStaysEmpty_PassB2(t *testing.T) {
 	}
 	llm := []interface{}{llmPage("tool-embed-x", "/tools/x.html", "hero", "features")}
 
-	got, counts := reconcilePlanWithRealised(llm, existing, zap.NewNop())
+	got, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{}, zap.NewNop())
 
 	if counts.SnappedSections != 1 {
 		t.Errorf("snapped_sections = %d, want 1 (LLM layout should have been forced empty)", counts.SnappedSections)
@@ -167,7 +167,7 @@ func TestReconcile_DeployedEmptyPageStaysEmpty_PassB(t *testing.T) {
 	}
 	llm := []interface{}{llmPage("tool-embed-renamed", "/tools/x.html", "hero")}
 
-	got, counts := reconcilePlanWithRealised(llm, existing, zap.NewNop())
+	got, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{}, zap.NewNop())
 
 	if counts.SnappedRename != 1 {
 		t.Errorf("snapped_rename = %d, want 1", counts.SnappedRename)
@@ -190,7 +190,7 @@ func TestReconcile_NotDeployedEmptyPageTakesLLMSections_PassB2(t *testing.T) {
 	}
 	llm := []interface{}{llmPage("catalog-tool", "/cat.html", "hero", "body")}
 
-	got, _ := reconcilePlanWithRealised(llm, existing, zap.NewNop())
+	got, _ := reconcilePlanWithRealised(llm, existing, reconcileOptions{}, zap.NewNop())
 
 	want := []string{"hero", "body"}
 	if s := sectionsOf(t, got, "catalog-tool"); !equalStrings(s, want) {
@@ -207,7 +207,7 @@ func TestReconcile_NotDeployedEmptyPageTakesLLMSections_PassB(t *testing.T) {
 	}
 	llm := []interface{}{llmPage("catalog-fresh", "/cat.html", "hero", "body")}
 
-	got, counts := reconcilePlanWithRealised(llm, existing, zap.NewNop())
+	got, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{}, zap.NewNop())
 
 	if counts.SnappedRename != 1 {
 		t.Errorf("snapped_rename = %d, want 1", counts.SnappedRename)
@@ -229,7 +229,7 @@ func TestReconcile_FromScratchBuildIsUntouched(t *testing.T) {
 	}
 	llm := []interface{}{llmPage("index", "/index.html", "hero")}
 
-	got, counts := reconcilePlanWithRealised(llm, existing, zap.NewNop())
+	got, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{}, zap.NewNop())
 
 	if counts.Unioned+counts.DroppedCollision+counts.SnappedRename+counts.SnappedSections != 0 {
 		t.Errorf("expected a no-op, got unioned=%d dropped=%d renamed=%d snapped=%d",
@@ -252,7 +252,7 @@ func TestReconcile_MissingBuildStatusFallsBackToLockedOnly(t *testing.T) {
 	}
 	llm := []interface{}{llmPage("about", "/about.html", "hero")}
 
-	got, counts := reconcilePlanWithRealised(llm, []interface{}{noStatus}, zap.NewNop())
+	got, counts := reconcilePlanWithRealised(llm, []interface{}{noStatus}, reconcileOptions{}, zap.NewNop())
 
 	if counts.SnappedSections != 0 || counts.Unioned != 0 {
 		t.Errorf("expected pre-fix no-op without build_status, got snapped=%d unioned=%d", counts.SnappedSections, counts.Unioned)
@@ -270,7 +270,7 @@ func TestReconcile_AdoptionLockedStillPreserved(t *testing.T) {
 	}
 	llm := []interface{}{llmPage("index", "/index.html", "hero")}
 
-	got, counts := reconcilePlanWithRealised(llm, existing, zap.NewNop())
+	got, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{}, zap.NewNop())
 
 	if counts.Unioned != 1 || !hasPage(got, "guide-basics") {
 		t.Errorf("adoption-locked page not preserved: unioned=%d pages=%v", counts.Unioned, got)
@@ -314,7 +314,7 @@ func TestReconcile_NeedsRebuildPageCompositionSurvivesReplan(t *testing.T) {
 	llm := []interface{}{llmPage("index", "/index.html",
 		"hero", "product-grid", "category-listing", "features", "call-to-action", "testimonials")}
 
-	got, counts := reconcilePlanWithRealised(llm, existing, zap.NewNop())
+	got, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{}, zap.NewNop())
 
 	if counts.SnappedSections != 1 {
 		t.Errorf("snapped_sections = %d, want 1 (needs_rebuild page was re-composed)", counts.SnappedSections)
@@ -334,7 +334,7 @@ func TestReconcile_NeedsRebuildPageOmittedByLLMIsUnioned(t *testing.T) {
 	}
 	llm := []interface{}{llmPage("index", "/index.html", "hero")}
 
-	got, counts := reconcilePlanWithRealised(llm, existing, zap.NewNop())
+	got, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{}, zap.NewNop())
 
 	if counts.Unioned != 1 || !hasPage(got, "contact") {
 		t.Fatalf("needs_rebuild page dropped: unioned=%d present=%v", counts.Unioned, hasPage(got, "contact"))
@@ -377,7 +377,7 @@ func TestReconcile_NeedsRebuildEmptyPageIsStillComposable(t *testing.T) {
 		llmPage("brands-index", "/brands.html", "category-listing"),
 	}
 
-	got, _ := reconcilePlanWithRealised(llm, existing, zap.NewNop())
+	got, _ := reconcilePlanWithRealised(llm, existing, reconcileOptions{}, zap.NewNop())
 
 	want := []string{"category-listing"}
 	if s := sectionsOf(t, got, "brands-index"); !equalStrings(s, want) {
@@ -438,7 +438,7 @@ func TestReconcile_ShippedNeedsRebuildEmptyPageIsGated(t *testing.T) {
 		llmPage("learning-center", "/learning-center.html", "content-block"),
 	}
 
-	got, _ := reconcilePlanWithRealised(llm, existing, zap.NewNop())
+	got, _ := reconcilePlanWithRealised(llm, existing, reconcileOptions{}, zap.NewNop())
 
 	if s := sectionsOf(t, got, "learning-center"); len(s) != 0 {
 		t.Errorf("shipped sectionless page received an injected layout %v — its emptiness is authoritative", s)
@@ -515,7 +515,7 @@ func TestRecompose_EndToEnd_NamedPageIsRedesignedPeerIsPreserved(t *testing.T) {
 		llmPage("index", "/index.html", "hero", "testimonials"), // redesigned
 		llmPage("about", "/about.html", "hero", "about-body"),   // LLM tries to genericise it
 	}
-	got, _ := reconcilePlanWithRealised(llm, existing, zap.NewNop())
+	got, _ := reconcilePlanWithRealised(llm, existing, reconcileOptions{}, zap.NewNop())
 
 	if s := sectionsOf(t, got, "index"); !equalStrings(s, []string{"hero", "testimonials"}) {
 		t.Errorf("recomposed index sections = %v, want [hero testimonials] (LLM should govern)", s)

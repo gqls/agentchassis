@@ -117,7 +117,7 @@ func AssembleFromLibraryAction(ctx context.Context, params ActionParams) (interf
 	}
 
 	// 6. Build render context
-	renderCtx := buildRenderContextFromParams(params, styleCollection)
+	renderCtx := buildRenderContextFromParams(ctx, params, styleCollection)
 	renderCtx.ThemeCSS = themeCSS
 
 	// 7. Assemble components
@@ -170,26 +170,26 @@ func extractSiteIDFromParams(params ActionParams) uuid.UUID {
 }
 
 // buildRenderContextFromParams creates a RenderContext from params
-func buildRenderContextFromParams(params ActionParams, coll *StyleCollection) *RenderContext {
-	ctx := &RenderContext{
+func buildRenderContextFromParams(ctx context.Context, params ActionParams, coll *StyleCollection) *RenderContext {
+	renderCtx := &RenderContext{
 		Domain:      extractDomainFromParams(params),
 		SiteID:      extractSiteIDFromParams(params),
 		LogoText:    extractLogoTextFromParams(params),
-		LogoURL:     extractLogoURLFromParams(params),
+		LogoURL:     extractLogoURLFromParams(ctx, params),
 		CompanyName: extractCompanyNameFromParams(params),
 	}
 
 	// Apply colors from style collection
 	if coll != nil && coll.ColorPalette != nil {
-		ctx.PrimaryColor = coll.ColorPalette["primary"]
-		ctx.AccentColor = coll.ColorPalette["accent"]
-		ctx.SecondaryColor = coll.ColorPalette["secondary"]
+		renderCtx.PrimaryColor = coll.ColorPalette["primary"]
+		renderCtx.AccentColor = coll.ColorPalette["accent"]
+		renderCtx.SecondaryColor = coll.ColorPalette["secondary"]
 	}
 
 	// Get navigation if available
-	ctx.NavItems = extractNavItemsFromParams(params)
+	renderCtx.NavItems = extractNavItemsFromParams(params)
 
-	return ctx
+	return renderCtx
 }
 
 // extractLogoTextFromParams gets logo text from params
@@ -435,7 +435,11 @@ func extractComponentNames(buildPlan *BuildPlan, logger *zap.Logger) ([]string, 
 	return componentNames, nil
 }
 
-func extractLogoURLFromParams(params ActionParams) string {
+// extractLogoURLFromParams walks three rungs for a logo URL. The last rung is a
+// deploy_image_asset result, and reaching it means the two cheaper sources
+// already failed — so a miss there is a real "this page gets no logo", which is
+// why the audit call sits here and not above. bugs_open/236, commission item 2.
+func extractLogoURLFromParams(ctx context.Context, params ActionParams) string {
 	// Check ContentData first (may have been set by deploy step)
 	if cd, ok := params.CollectedData["render_context"].(map[string]interface{}); ok {
 		if url, ok := cd["logo_url"].(string); ok && url != "" {
@@ -448,11 +452,6 @@ func extractLogoURLFromParams(params ActionParams) string {
 			return url
 		}
 	}
-	// Check logo_deployed
-	if ld, ok := params.CollectedData["logo_deployed"].(map[string]interface{}); ok {
-		if url, ok := ld["image_url"].(string); ok && url != "" {
-			return url
-		}
-	}
-	return ""
+	// Check logo_deployed — reports a present-but-unusable result durably
+	return deployedImageURL(ctx, params, "logo_deployed", "image_url", "logo_url", "assemble_from_library")
 }

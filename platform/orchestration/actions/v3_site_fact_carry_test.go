@@ -124,7 +124,7 @@ func TestPassB2_CarriesFactAssignmentsOntoRestoredSections(t *testing.T) {
 		),
 	}
 
-	got, counts := reconcilePlanWithRealised(llm, existing, zap.NewNop())
+	got, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{}, zap.NewNop())
 
 	entries := planSectionsOf(t, got, "about")
 	if names := sectionNamesOf(t, entries); !equalStrings(names,
@@ -168,7 +168,7 @@ func TestPassB2_NoAssignments_RestoreStaysPlainStrings(t *testing.T) {
 	}
 	llm := []interface{}{llmPage("about", "/about.html", "hero", "cta")}
 
-	got, counts := reconcilePlanWithRealised(llm, existing, zap.NewNop())
+	got, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{}, zap.NewNop())
 
 	for i, e := range planSectionsOf(t, got, "about") {
 		if _, isString := e.(string); !isString {
@@ -200,7 +200,7 @@ func TestPassB2_SameNamesInObjectFormIsNotACompositionChange(t *testing.T) {
 		),
 	}
 
-	got, counts := reconcilePlanWithRealised(llm, existing, zap.NewNop())
+	got, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{}, zap.NewNop())
 
 	if counts.SnappedSections != 0 {
 		t.Errorf("snapped_sections = %d, want 0 — the same components in the same order is not a composition change", counts.SnappedSections)
@@ -226,7 +226,7 @@ func TestPassB2_RepeatedComponentTakesAssignmentsInOrder(t *testing.T) {
 		),
 	}
 
-	got, counts := reconcilePlanWithRealised(llm, existing, zap.NewNop())
+	got, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{}, zap.NewNop())
 
 	entries := planSectionsOf(t, got, "services")
 	if f, _ := factsOn(t, entries, 1); !equalStrings(f, []string{"F3-first"}) {
@@ -254,7 +254,7 @@ func TestPassB2_SurplusAssignmentForARepeatedComponentIsReported(t *testing.T) {
 		),
 	}
 
-	_, counts := reconcilePlanWithRealised(llm, existing, zap.NewNop())
+	_, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{}, zap.NewNop())
 
 	if len(counts.FactCarryMisses) != 1 ||
 		!equalStrings(counts.FactCarryMisses[0].Sections, []string{"generic-text-block"}) {
@@ -281,7 +281,7 @@ func TestPassB_RenameSnapBackCarriesFactAssignments(t *testing.T) {
 		),
 	}
 
-	got, counts := reconcilePlanWithRealised(llm, existing, zap.NewNop())
+	got, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{}, zap.NewNop())
 
 	if counts.SnappedRename != 1 {
 		t.Fatalf("snapped_rename = %d, want 1", counts.SnappedRename)
@@ -312,7 +312,7 @@ func TestPassB_CataloguedPageKeepsProposedEntriesWithTheirFacts(t *testing.T) {
 		),
 	}
 
-	got, counts := reconcilePlanWithRealised(llm, existing, zap.NewNop())
+	got, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{}, zap.NewNop())
 
 	entries := planSectionsOf(t, got, "tool-audience-check")
 	if f, ok := factsOn(t, entries, 0); !ok || !equalStrings(f, []string{"F6-zero-fabricated"}) {
@@ -341,7 +341,7 @@ func TestPassB2_DeployedSectionlessPageRecordsDiscardedAssignments(t *testing.T)
 		),
 	}
 
-	got, counts := reconcilePlanWithRealised(llm, existing, zap.NewNop())
+	got, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{}, zap.NewNop())
 
 	if s := planSectionsOf(t, got, "blog"); len(s) != 0 {
 		t.Fatalf("deployed sectionless page must stay empty, got %#v", s)
@@ -439,7 +439,7 @@ func TestPassB2_AbsentFactsEntryIsRecordedDistinctly(t *testing.T) {
 		),
 	}
 
-	got, counts := reconcilePlanWithRealised(llm, existing, zap.NewNop())
+	got, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{}, zap.NewNop())
 
 	entries := planSectionsOf(t, got, "about")
 	if names := sectionNamesOf(t, entries); !equalStrings(names,
@@ -478,7 +478,7 @@ func TestPassB2_BareStringRecompositionProducesNoAbsentRecords(t *testing.T) {
 		llmPageEntries("about", "/about.html", "hero-about", "generic-text-block"),
 	}
 
-	_, counts := reconcilePlanWithRealised(llm, existing, zap.NewNop())
+	_, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{}, zap.NewNop())
 
 	if len(counts.FactAssignmentAbsent) != 0 {
 		t.Errorf("bare-string entries must not be counted absent, got %#v", counts.FactAssignmentAbsent)
