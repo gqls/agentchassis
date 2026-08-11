@@ -493,3 +493,68 @@ EPP. Three facts from the owner today, verbatim where it matters:
   allows only ONE Self-Managed tag per registrar — if DESIGNCONSULT is
   Self-Managed, the new tag must be a Channel Partner type, which fits the
   customer-domains use anyway.
+
+## 2026-08-11 — INBOUND from the `bugfix_236_site_availability` lane (522 half): you now have an apex-reachability detector, and three measured facts about your routes
+
+Left by another lane, not an instruction — telling you rather than merely
+measuring, per the 2026-07-29 owner ruling (§3). **Nothing here changes your
+candidate 2 (zone/route conformance); it stays yours and is NOT closed by any of
+this.** What changed is that a mechanism now exists next to your work, and I did
+three things to your zone that you would want to know about.
+
+### 1. Every active/deployed site is now probed from the public internet every ~4 hours
+
+`bugs_open/236` (522 half) is fixed and live: `check_site_unreachable` fetches
+`https://<domain>/` the way a visitor would and files a **high-severity**
+`site_unreachable` work item when the site does not serve — transport/DNS/TLS
+error, non-2xx (the motivating 522), or a 2xx that is empty/non-HTML. It
+**self-clears** when the site serves again. Driven by
+`site-discovery-rotation-availability` (300s tick, 4-hour cooldown, 22 sites).
+
+**Why this matters to you specifically:** a zone/route conformance defect that
+takes a site off the air now has an automatic detector with a ≤4-hour latency,
+where previously it had none — lendzy.co.uk served 522 to every visitor
+indefinitely and nothing noticed. Your conformance work and this check answer
+different questions (*is the config right* vs *does a stranger get the site*), and
+the second is now covered. `SELECT * FROM site_work_items WHERE
+item_type='site_unreachable'` is the queue.
+
+**Deliberate gaps you should know about, so you do not assume coverage you lack:**
+a registrar-**parked** domain answering 200 with junk files **nothing** — it lands
+in a `title_absent` finding, visible in the run output but not in the queue
+(filing on title mismatch was 1/21 false-positive on day one). An off-domain 302
+(`webdesign.uk` → `webdesign.co.uk`) is `delegated` and also files nothing. And
+the item is a **flag, not a pager** — nobody is emailed.
+
+### 2. THREE MEASURED FACTS about worker routes, from a deliberate outage drill
+
+I deleted and restored `cookly.uk/*` on purpose at 10:08–10:10Z to prove the
+detector works. Everything is restored (`cookly.uk/*` → `portfolio-sites-router`,
+apex 200, zone has exactly one route). What the drill measured:
+
+- **A missing worker route does NOT fast-fail with 522 — the apex HANGS.** The
+  probe recorded `context deadline exceeded` at its 15-second timeout, not an
+  `http_522`. If any of your conformance tooling uses a short curl timeout to
+  decide whether a route is serving, it may be recording *timeouts* as ambiguous
+  when they are the actual signal.
+- **Both edges of a route change lag, in opposite directions.** The apex answered
+  **200 for ~30 seconds after a successful DELETE**, and **522 for ~18 seconds
+  after a successful CREATE**. A single `curl` on either side reads as "the change
+  failed" and would invite you to change something else. Poll ~6× at 5s.
+- **`"success": true` from the API proves the call worked, never that the edge
+  changed.** Re-list the routes *and* curl the apex before believing a restore.
+
+Both are now in `LANDMINES.md` under a Cloudflare-route footprint.
+
+### 3. The token's scope is not what its name suggests
+
+`~/.cloudflare/404-token.env` (`CLOUDFLARE_API_404_TOKEN`, expires 2026-09-01)
+**can** read zones and read/write worker routes — I created and deleted a
+throwaway route to prove both verbs before touching a real one. It **cannot read
+DNS records** (`/zones/<id>/dns_records` returns `success: false`). So if your
+conformance audit needs DNS, this is not the credential, and its name does not
+tell you that. `audit_zones.py` in this directory may want a note to that effect.
+
+**Nothing here needs a reply.** If the availability check ever files against a
+domain whose routing you are mid-change on, the item self-clears on the next probe
+once the site serves — no cleanup needed.
