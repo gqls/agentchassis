@@ -189,3 +189,29 @@ reports `complete` having written `logo.jpg` is this bug, unfixed.
   never has. **This bug is why**: the repair does run, and it deploys to the wrong name.
   D11 4-A's premise ("items flag-only BY DESIGN") is **too kind** for this item type —
   `undeployed_asset` is not flag-only, it dispatches and it silently mis-deploys.
+
+---
+
+## CONTRIBUTION 2026-08-11 — the placeholder-filename half fires on the IMAGE-BUILD-HANDLER path too, not only the undeployed_asset repair
+
+From the `bugfix_210_needs_logo_unhandleable` lane, in passing; no claim on this bug's fix.
+
+A `needs_hero_image` item for mortgagecalculator.co.uk (`067a7ad8-1c25-4730-9e80-abd27893156f`,
+completed 2026-08-11 10:36:20) ran the ordinary **`image-build-handler` → `call_asset_deployer`**
+route — not this file's `undeployed_asset` repair path — and deployed to exactly this bug's
+placeholder: `file_path: "/assets/images/input-data.asset-key.jpg"` (HTTP 200, 109,803 B, the
+freshly generated hero), while the six pages that reference `/assets/images/hero.jpg` go on
+404ing. Generation and storage were correct
+(`s3://personae-prod-uk001-images/images/system/20260811/8a4d8d09….png`, asset `477838e3…`);
+only the deployed FILENAME is wrong.
+
+So whatever fix closes this bug should be measured against **both** producers of the literal —
+the repair path this file diagnoses AND the image-build-handler's own deploy step — or the
+placeholder will survive on the path that ships every routine hero/logo. (The hero purpose being
+"right" here is incidental: the item genuinely was a hero. The filename half is the shared
+defect.)
+
+Not hand-renamed in the bucket, deliberately: the owner's framework rule, and this bug's own
+"the repair reports success" loop, both argue against another hand-placed artefact. The pages
+404 on `hero.jpg` today exactly as they did before the run — nothing regressed; the image waits
+under the wrong name for this bug's fix to move it.
