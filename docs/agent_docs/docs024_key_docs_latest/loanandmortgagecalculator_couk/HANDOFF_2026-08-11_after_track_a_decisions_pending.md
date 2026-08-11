@@ -1,4 +1,9 @@
-# HANDOFF — Track A is DONE. Six decisions are waiting on the owner. START HERE.
+# HANDOFF — Track A is DONE. Owner ruled on the decisions; four are actioned. START HERE.
+
+> **UPDATED 2026-08-11 (afternoon), after the owner's rulings and a fresh chassis
+> build (v1.0.1286).** The decisions below are kept with their reasoning because the
+> reasoning is what a later session needs; each now carries its OUTCOME. Read §D1
+> first — its answer changed the shape of Track B.
 
 **Written 2026-08-11 (afternoon)**, revalidated against chassis **v1.0.1286**.
 Supersedes `HANDOFF_2026-08-10d_track_a_prose_decomposition.md` (that brief is
@@ -38,7 +43,7 @@ runs it. It is one rerender and one diff.
 
 ---
 
-## 2. THE DECISIONS
+## 2. THE DECISIONS — and what was ruled
 
 ### D1 · Track B — go, or hold? **(the big one)**
 
@@ -59,8 +64,31 @@ an incoming composition that omits the tool slot causes the locked row to be mov
   **which is the only non-silent signal**.
 
 **Options:** (a) authorise the one-page measurement, then decide Track B on the
-result; (b) authorise Track B outright; (c) hold Track B entirely and do Track C or
-the FCA work instead.
+result; (b) authorise Track B outright; (c) hold Track B entirely.
+
+> ### ✅ RULED (a) — MEASURED, and the answer REFRAMES the trap. Track B is not blocked by it.
+> Settled without firing at a live calculator, by test:
+> `platform/orchestration/actions/save_sections_positional_tool_slot_test.go`.
+>
+> **The original framing was wrong.** `matchLockedRow` compares the locked row's slot
+> against the **incoming section name**, and a positional name is a string like any
+> other. A composition built from `pages.sections` — which for `loans-consolidation`
+> **is** `["prose-0","tool-1","prose-2"]` — matches `tool-1` **exactly, on the first
+> branch**, is consumed, and stays put. Probed the normaliser too: `tool-1` → `tool-1`
+> and `tool_1` → `tool-1`, so a positional slot is matched **twice over**.
+>
+> **So the trap fires only when the incoming composition OMITS the tool slot** — which
+> is what a **seeded site plan** would produce if it names sections semantically.
+> **The dangerous act is D6 (seeding a plan), not Track B's per-page rerenders.**
+>
+> ⚠ **The induction failed honestly first and that matters:** disabling the exact-match
+> branch alone still PASSED, because the kebab branch catches it — two guards in
+> series. Only disabling **both** fails. A mutation that passes has usually hit a
+> guard in series; do not read it as "the test is fine".
+>
+> **Still genuinely unmeasured:** the live end-to-end path. No writer run has been
+> driven against a decomposed page holding a locked row. The matching *rule* is now
+> pinned; the pipeline around it is not.
 
 ### D2 · `bugs_open/251` — the canonical, fleet-wide. Fix at the platform, or accept?
 
@@ -74,8 +102,12 @@ no directory-index normalisation.
 Not a lane fix: it is shared render-path Go, so it is **council-gate scope** and
 architecture-adjacent (the guarantee "an assembled page declares its own preferred
 URL" changes for every site at once). `injectPageJSONLD` is documented in-source as
-byte-identical in its URL construction and must move with it. **Options:** fix now /
-schedule it / accept and record.
+byte-identical in its URL construction and must move with it.
+
+> ### ⏸ SCHEDULED, not fixed. Filed as `bugs_open/251` with cause, blast radius and
+> three costed fix candidates. **`bugs_open/252` (D4) depends on it** — `og:url` must
+> agree with the canonical, so fixing 252 first would reproduce the `/index.html`
+> error into `og:url` as well. **Do 251 before 252.**
 
 ### D3 · `bugs_open/250` — the sibling lane's copy of the broken rollback
 
@@ -84,6 +116,18 @@ defects, and that lane's backup table already holds **one poisoned rollback**
 (28 rows over 27 pages) plus a 27-vs-28 column count that makes its backup
 inoperative. The LMC half is fixed and proven. It is another lane's tool, so:
 port it, or hand it to that lane's owner?
+
+> ### ✅ RULED: port it. DONE 2026-08-11 — and the exposure was **63 rows, not 1**.
+> Ported into `load_decomposition.py`; table repaired (28/27 → **27/27**, column
+> parity 28 == live, stray preserved to `page_components_bak_strays_20260811_loancalc`,
+> `DO`/`RAISE` verify block). Proved without touching a live page: both guards run
+> read-only as `SELECT count(*)` — **OLD per-ROW guard would sweep in 63 live rows at
+> the next `--apply`; NEW per-PAGE guard inserts 0.** That lane is far more decomposed
+> than LMC was, so the single stray in its table was the residue of one earlier run,
+> **not the size of the exposure**. `bugs_open/250` understated it and is corrected.
+>
+> **Still owed:** a full apply → restore → re-apply round trip on a live loancalculator
+> page. The probes cover the mechanism, not that lane's end-to-end transaction shape.
 
 ### D4 · The og:* / lang accepted loss — still accepted at this scale?
 
@@ -94,8 +138,18 @@ on the page changes — it is the link-preview card and the language tag.
 
 Restoring per-page `og:*` is **not** a lane fix: the shared `<head>` has nowhere to
 put them, so assembly would have to splice them per page the way it already splices
-`<title>` and `<meta description>` — platform work. `lang` is cheaper (it is in the
-head chrome), but changing chrome re-renders every decomposed page.
+`<title>` and `<meta description>` — platform work.
+
+> ### ✅ RULED: escalate both. Filed as `bugs_open/252`, and the scale is larger than
+> the lane figure: **503 assembled pages fleet-wide**, not 19.
+> **A (og:)** has a ready-made seam — `spliceMetaDescription` already fills a *blank
+> placeholder* left in the site head and removes it when unfilled. Copy that shape;
+> a site with no placeholder then gets no tags, i.e. unchanged behaviour, opt-in per
+> site, which per the 2026-07-29 ruling §1 keeps it a normal gate change, not an RFC.
+> **B (lang)** is hardcoded in **four** places across three files, and `sites` has
+> **no** language/locale/country/region column — so it is not "wire up the existing
+> field". Cheapest option may be to stop emitting `<html lang>` from Go and let the
+> per-site head carry it. **Do not fix B in one lane's chrome.**
 
 ### D5 · 40 dormant `page_rerender:detected` rows on this site
 
@@ -103,6 +157,12 @@ From `discovery`, each carrying a `spec.reason` — which selects **REBUILD** mo
 assemble. Inert today because nothing promotes `detected`. But they now point at 17
 pages that would **rebuild from components** rather than hit the old refusal, which is
 a different exposure from the one they were filed under. Cancel them, or leave them?
+
+> ### ✅ RULED: cancel. DONE 2026-08-11 — 40 rows cancelled in one transaction,
+> narrowed on site + type + status + `source='discovery'` + `spec ? 'reason'`, with a
+> `DO`/`RAISE` guard asserting **exactly 40** before the update and **0 detected rows
+> remaining** after. Each carries a `cancelled_reason` in its spec saying why, so a
+> later reader is not left guessing. Refile deliberately if a rebuild is ever wanted.
 
 ### D6 · Site plans — the thing decomposition still does not buy
 
@@ -115,10 +175,17 @@ tool slot is exactly what triggers D1's trap).
 
 ## 3. Also owed, no decision needed — just unstarted
 
-- **loancash.co.uk has no arithmetic oracle**, and two of its three tools hardcode
-  dated FCA caps with nothing checking them against CONC 5A. Same shape as the SDLT
-  bug that was 16 months stale and under-quoted by £5,000. **Highest-value unstarted
-  item on the estate**, and independent of all of the above.
+- ~~**loancash.co.uk has no arithmetic oracle**, and two of its three tools hardcode
+  dated FCA caps…~~ **STARTED AND THE PREMISE REFUTED, 2026-08-11.** Verified against
+  the FCA Handbook, not the page: 0.8%/day = **CONC 5A.2.3R**, £15 default =
+  **5A.2.14R**, 100% total = **5A.2.2R**, last amended **02/01/2015**, all three
+  correctly implemented, arithmetic sound. The SDLT analogy misleads — SDLT moves with
+  Budgets, this cap has not moved in eleven years. The *monitoring* gap survives and
+  is real but not urgent. **The worry moves to `complaint-deadline-calculator.html`**,
+  unchecked, running off limitation periods and the FOS six-month deadline — a
+  different legal source that does move. Workstream:
+  `docs024_key_docs_latest/loancash_couk_fca_validation/` (its PLAN argues against
+  cloning `oracle.py` here, and says why).
 - Fleet sweep for the `bugs_open/224` class (a guard that leaves a handler without
   writing the DOM) on `mortgagecalculator.co.uk` and `loancash.co.uk`.
 - Six LMC pages are fence-eligible with no fence (class C — they want `invariants.py`,
