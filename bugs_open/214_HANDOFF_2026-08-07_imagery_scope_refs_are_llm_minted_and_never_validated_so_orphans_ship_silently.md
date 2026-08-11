@@ -490,3 +490,36 @@ artifacts — not a verdict). **Resubmitted** on the same trail correlation
 
 **Cold start for a fresh session:**
 `docs024_key_docs_latest/bugfix_214_imagery_scope_ref/HANDOFF_2026-08-10_continue_here.md`
+
+---
+
+## STATUS 2026-08-11 — FIXED, LIVE, COUNCIL-APPROVED, AND NOW OBSERVED IN PRODUCTION
+
+(The file stays in `bugs_open/` per the owner's 2026-08-06 ruling on finished bugs.)
+
+1. **Council: APPROVED, round 3, 2026-08-11 10:07Z** on trail correlation
+   `46a50b4c-f00d-4492-b7fd-ce5dc2023480` — 2 advisory objections, none high-severity.
+   Round 2's REVISE (the backfill guard's hardcoded expected count) was answered as fact
+   (fail-closed, fired correctly, independently re-verified) and conceded as discipline:
+   the rule for future migrations — derive the expected set at run time, assert row
+   identity — is recorded in the lane NOTES, the verdict trail and `WRONG_CALLS.md`'s
+   neighbourhood. `Council-Reviewed:` trailer on the close-out commit `6d37b4364`;
+   the code commit `c21af5eda`'s `Council-Submitted:` resolves via `098`.
+2. **The rewrite arm HAS now been observed firing in production, on a NATURAL replan** —
+   the closing condition above was met without forcing anything.
+   `fundamentallyai.com` replanned 2026-08-11 10:21Z (orch `82af297b`, fixed binary):
+   `plan_written` returned **`imagery_refs_canonicalised: 2`, `unresolved: 0`,
+   `merged: 0`** — a value the old binary could not produce. The two rewritten refs are
+   `news-index → hero_news` and `platform-log-index → hero_platform_log`; plan-scoped
+   R3 returns **zero** rows, and both refs resolve at the consumers' own `pages.name`
+   join. On the old binary both rows would have joined the orphan class this file
+   documents. **The fix has now prevented its damage class on a customer site.**
+3. **Roll re-verification:** the fix rides `v1.0.1286` (fresh roll, 2026-08-11 ~12:03Z)
+   — both replicas grep positive for both added literals, pre-existing positive control
+   present, fabricated negative control at a literal 0.
+4. **Fleet census after all of the above:** 192 page+section rows on current plans,
+   **exactly 1 invisible** — mortgagecalculator's `tools-index`, unchanged.
+
+**The ONLY remaining open item is the human decision:** `mortgagecalculator.co.uk`
+`tools-index` names a page existing under no spelling; its 7 repaired sibling refs are
+correct but their assets are not generated (site deferred). Everything else is done.

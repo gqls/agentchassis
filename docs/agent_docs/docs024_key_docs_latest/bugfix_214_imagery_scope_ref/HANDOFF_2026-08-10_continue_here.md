@@ -1,7 +1,20 @@
 # HANDOFF — bugfix 214, imagery `scope_ref` · cold start for a fresh chat
 
-**Written 2026-08-10 ~22:20Z.** Read this first, then `NOTES` for the evidence trail and
+**Written 2026-08-10 ~22:20Z; UPDATED 2026-08-11 ~12:30Z — the lane is now DONE except
+one human decision.** Read this first, then `NOTES` for the evidence trail and
 `README_where_we_are` for the plain-prose account.
+
+> **2026-08-11 state, in one breath:** council **APPROVED** (round 3, corr `46a50b4c`,
+> 2 advisory objections none high — trailer on `6d37b4364`, `c21af5eda` credits via
+> `098`); the rewrite arm **OBSERVED in production** on fundamentallyai's unforced
+> 10:21Z replan (`imagery_refs_canonicalised: 2`, plan-scoped R3 empty, both rewritten
+> refs consumer-visible); the fresh **`v1.0.1286` roll re-verified** carrying the fix
+> (both replicas, positive + fabricated-negative controls); census **192/1**; register
+> IMG-070 updated **and corrected** (it had briefly claimed a `NormaliseSlug` export
+> that never shipped — do NOT "tidy" the code toward that shape, the coupling test
+> fails the homepage collapse by design; `WRONG_CALLS.md` 2026-08-11 has the story).
+> **All that remains: item 3 below — the mortgagecalculator `tools-index` human
+> decision.** A fresh session needs nothing else from this file unless re-verifying.
 
 ---
 
@@ -21,8 +34,8 @@ path, live on `v1.0.1283`, and the 9 rescuable live rows are repaired.**
 | # | outstanding | why it is not done |
 |---|---|---|
 | 1 | ~~**Council verdict**~~ | **RESOLVED 2026-08-11: round 2 REVISE → round 3 APPROVED** (10:07Z, corr `46a50b4c`, 2 advisory objections, none high). Objections answered with evidence; decision record `doc_notes 0633aa2f…`; imagery lane told; register IMG-070 updated + corrected. `c21af5eda`'s `Council-Submitted:` trailer now resolves via `098`. Full seat detail in NOTES 2026-08-11. Nothing left to do here. |
-| 2 | **The rewrite arm has not been OBSERVED firing in production** | Two induced runs were non-discriminating (below). Not a defect — it needs a plan containing a renamed page. |
-| 3 | **`mortgagecalculator.co.uk` `tools-index`** | Names a page existing under no spelling. Needs a human decision; deliberately left. |
+| 2 | ~~**The rewrite arm has not been OBSERVED firing in production**~~ | **RESOLVED 2026-08-11:** fundamentallyai.com replanned unforced at 10:21Z — `imagery_refs_canonicalised: 2` (`news-index`/`platform-log-index` heroes, both consumer-visible, plan-scoped R3 empty). The old binary could not return 2. NOTES has the queries. |
+| 3 | **`mortgagecalculator.co.uk` `tools-index`** | Names a page existing under no spelling. Needs a human decision; deliberately left. **THE ONLY ITEM STILL OPEN.** |
 
 **Do NOT re-apply `sql_for_agents/373`** — already applied, and its guard will abort
 (it requires exactly 1 unresolvable row to remain, and that is now the state).

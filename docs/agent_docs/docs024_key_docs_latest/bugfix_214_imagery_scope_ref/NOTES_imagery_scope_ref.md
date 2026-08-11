@@ -475,3 +475,39 @@ act): IMG-070's "what" and sources claimed `datahelpers.NormaliseSlug` is export
 the round-2 plan, never the shipped code. Corrected visibly, with a warning not to
 "tidy" the routing into a bare export (the coupling test fails on the homepage
 collapse, by design).
+
+## 2026-08-11 (afternoon) — fresh roll v1.0.1286 re-verified, and THE REWRITE ARM OBSERVED on a natural replan
+
+### The roll first (a roll is not evidence your fix shipped)
+
+New tag `v1.0.1286`, both replicas restarted ~12:03Z. Pod-grepped BOTH replicas, same
+exec, captures defaulted so a zero reads as `0` not blank:
+`imagery scope_ref canonicalised` = 1, `IMAGERY_SCOPE_REF_UNRESOLVED` = 1,
+pre-existing positive control `CONTENT_LINK_REPAIR_DETAIL` = 1, fabricated negative
+`imagery scope_ref pineapple` = **0**, identically on both pods. The fix rides 1286.
+
+### Outstanding item 2 CLOSES: `imagery_refs_canonicalised: 2` on fundamentallyai's unforced replan
+
+`fundamentallyai.com` replanned at **10:21:47Z** (orch `82af297b`, COMPLETED 10:22:20Z,
+on the fixed binary — pre-roll, v1.0.1283 era). Nobody induced it; it was not on the
+predicted qualifying list (gamesdesign/dartsonline/robot-hands) but qualifies the same
+way — its new plan holds `news-index` and `platform-log-index`.
+
+- `plan_written`: **`imagery_refs_canonicalised: 2`, `unresolved: 0`, `merged: 0`** —
+  the discriminating number at last: the old binary structurally could not return 2.
+- Plan-scoped R3: **zero rows** — every imagery ref names a page the plan contains.
+- The rewritten rows: `news-index → hero_news`, `platform-log-index →
+  hero_platform_log`, both **`visible_to_consumers = t`** at the `pages.name` join.
+- R4: still 0 rows fleet-wide — consistent with `unresolved: 0` (nothing to log).
+- Fleet census after the replan: **192 total / 1 invisible** (the new plan carries
+  fewer imagery rows than its predecessor; the 1 is still `tools-index`).
+
+On the old binary those two rows would have been exactly the orphan class the bug file
+documents (planner keys `news`/`platform-log`, plan renames to `-index`, imagery ref
+stranded). **The fix has now prevented its damage class in production, on a customer
+site, without anyone forcing a run.** Both the bug file (STATUS 2026-08-11 section)
+and IMG-070 (CLOSED note in the warning block + verify-later ledger) are updated.
+
+**The lane's only remaining open item is #3: the `mortgagecalculator.co.uk`
+`tools-index` human decision.** Everything else — fix, backfill, council, production
+observation, roll survival — is done and evidenced.

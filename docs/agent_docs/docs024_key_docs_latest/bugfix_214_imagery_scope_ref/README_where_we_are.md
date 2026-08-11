@@ -275,3 +275,27 @@ reality, and only two things remain — waiting for the first genuine replan of 
 renamed pages to watch the repair arm actually fire (we are deliberately not forcing one),
 and the one odd mortgage-calculator row that still needs a human to decide what the page
 should be.
+
+---
+
+Same day, early afternoon. Two things happened, and one of them is the thing we were
+waiting for.
+
+First, a fresh build of the platform was rolled out. Our rule is that a new deployment is
+never assumed to still carry an earlier fix — the build pipeline has shipped surprises
+before — so I checked the running servers directly, both of them, including a
+deliberately-misspelled probe to prove the checking method itself works. The fix is aboard
+the new build.
+
+Second, and better: **the repair arm fired in the wild, on its own.** One of the real
+sites (fundamentallyai.com) replanned itself this morning in the ordinary course of
+business — nobody pushed it — and its new plan renames two pages the way that used to
+strand their images. This time the counter we built reported "2 references repaired", the
+plan checks out clean end to end, and both images are findable by every part of the system
+that looks for them. Under the old code those two references would have been exactly the
+kind of silent orphan this whole piece of work exists to prevent. So the fix has now
+earned its keep on a real customer site, observed rather than argued.
+
+That closes the second of the two waits. The whole workstream is now down to a single
+question that only a person can answer: what should the mortgage-calculator site's
+"tools" page actually be? Everything else is done, verified, reviewed, and written down.
