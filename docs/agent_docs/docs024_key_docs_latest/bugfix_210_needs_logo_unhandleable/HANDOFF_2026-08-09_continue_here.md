@@ -316,3 +316,31 @@ assumed:
 or rewinding the rota row's `last_selected_at`) — but note what completion actually does: it
 **deploys a new hero image onto six live pages** of a site the adoption lane owns. That is an
 owner/lane call, not a lane-210 call. Decision put to the owner 2026-08-11.
+
+---
+
+# UPDATE 2026-08-11 (midday) — the owner decided all four; three are DONE, the image is in the dispatch queue
+
+1. **"Run it now" — done, and the fresh-eyes pass mattered:** the design rota lane had been
+   `enabled=false` since 18:13 on 08-10 (a deliberate cost-control pause by another session —
+   council-gate, not the loop, was the spend; its transcript says "reversible in one line").
+   So "wait for Aug 16" would have waited for ever. Executed as a ONE-OFF: stamp rewound so
+   mortgagecalculator was the only eligible site, design task enabled for one tick, **restored
+   to `enabled=false` after the fire** — the cost pause stands. The tick fired at 10:09; the
+   item filed with the full brand-identity default prompt, `prompt_source` recorded; promoted
+   to `triaged`/`build` **by id** (triage_findings is deliberately off; promoting by id left
+   the site's 51 other detected items untouched). As of writing it sits behind ~17
+   higher-priority items in the build dispatch queue.
+2. **Decomposition — decided: PORT live pages, REBUILD never-built.** Execution plan written
+   into the adoption lane: `mortgagecalculator_couk_adoption/PLAN_2026-08-11_decompose_into_framework.md`
+   (reuses the loancalculator toolchain; names the scorecard page-pair and duplicate-path
+   pre-decisions). **Not executed — deliberately a fresh session's job.**
+3. **Show the image** — pending the queue; the check is §"When it does fire" above.
+4. **Report line — DONE and LIVE:** the staleness watchdog now prints
+   `brand images from the DEFAULT prompt: {"total": N, "last_7d": M}` with the drill-down query
+   inline; proven rendering with real data (total=1 the same morning). This is the
+   `prompt_source` field's first consumer, answering the four council seats.
+
+**For a successor:** the only open work is (a) read the hero item's outcome and LOOK at the
+image (queries above), and (b) the decomposition plan in the adoption lane. Everything else on
+this lane is closed.
