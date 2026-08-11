@@ -135,3 +135,26 @@ One decision will be needed from you soon, but not tonight: when the Stripe
 keys arrive, the webhook (the message Stripe sends when someone pays) needs a
 public web address pointing into the cluster, and nothing exposes the cluster
 publicly today. Options and trade-offs will be written up when it's due.
+
+---
+
+2026-08-11, after the evening deploy. Your fresh build carried the payment
+machinery live: the service confirms it is running tonight's code, the billing
+endpoints exist and answer correctly, and — as designed — everything payment-
+shaped politely refuses until the Stripe keys exist. Nothing can charge anyone
+by accident; nothing pretends. The four database tables (vouchers, orders,
+payment events, the settings switch) are live and verified.
+
+Three decisions now sit with you, none urgent tonight; they are written up
+properly in the handoff. In one line each: (1) when you want to start selling,
+create the two Stripe secrets (a restricted key and the webhook signing
+secret) — same setup as idea.uk; (2) with those keys comes choosing how
+Stripe's payment confirmations reach the cluster from the internet — three
+options written up, my recommendation is routing through the webdesign.uk box
+you already run; (3) the old half-built subscription code and the new payment
+system both claim to know whether a customer has paid — I recommend retiring
+the old one's write surface once a first real £149 sale has gone through.
+
+The website copy rewrite (removing £1,200 from the live site) is still
+queued behind the other session's lock-testing on webdesign.uk — they were
+still at it this evening. It is the first item for the next working session.

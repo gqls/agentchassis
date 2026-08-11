@@ -1196,7 +1196,7 @@ an ID prefix, or a status word.
 | DES-027 | Layout: ecommerce-storefront | deployed | Retail-clean, product-forward storefront — promo hero, image-overlay category tiles, product grid, add-to-cart... | design-composition.md |
 | CHAT-006 | Three-layer bounding (retrieval / prompt / operational) | aspirational | Retrieval/prompt/operational bounding decomposition to stop chatbot topic drift | site-chatbot.md |
 | PAY-007 | Existing but non-functional auth-service subscription scaffold | partial | Reusable subscription package verified as unwired: no SDK, mock usage stats, no webhook | payments.md |
-| PAY-009 | £149 site-build billing surface (vouchers, one-off orders, webhook truth) | built | auth-service billing pkg + clients_db mig 391; single-use vouchers £10/£55, after_approval-or-upfront switch; inert until roll + Stripe keys | payments.md |
+| PAY-009 | £149 site-build billing surface (vouchers, one-off orders, webhook truth) | deployed | Live keyless on the 08-11 roll (401/503 probed); selling needs Stripe keys + webhook exposure (owner) | payments.md |
 | CQ-017 | Anti-hype voice and claim-discipline spec | deployed | Reusable voice contract: banned hype language, smallest-true-claim, CTA governance | content-quality.md |
 | ASG-004 | Workflow template library, lineage and marketplace | abandoned | Reusable workflow templates with lineage, ratings, monetised marketplace idea | agent-spawning-and-groups.md |
 | CGV-025 | maintenance_queue as generic install/uninstall trigger surface | aspirational | Reused maintenance_queue as a generic per-site add-on trigger, first for chatbot install | content-governance.md |

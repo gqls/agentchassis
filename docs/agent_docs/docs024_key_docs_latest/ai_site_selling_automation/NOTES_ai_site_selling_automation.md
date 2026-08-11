@@ -340,3 +340,23 @@ session, untouched by this lane.
 - Memory lesson filed: after-the-fact-council-review-of-shipped-code-loops
   (cap such reviews at ~2 rounds once real findings are landed; submit
   before-or-alongside the shipping commit to give seats a judgeable plan).
+
+## 2026-08-11 (evening, post-roll) — billing surface VERIFIED LIVE on the fresh build, keyless by design
+
+- Owner deployed a fresh build. Post-roll recipe run per the RUNBOOK:
+  (1) provenance stamp = bb5348642, and `git merge-base --is-ancestor
+  1834bd3c0 <stamp>` confirms the billing commits are aboard;
+  (2) startup line = "billing mounted without a payment provider —
+  STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET not set" (pool opened, mounted,
+  keyless — the expected outcome of the three);
+  (3) routes probed from core-manager via wget (curl absent in that image —
+  the recipe's curl needs swapping for wget): admin settings → 401 (route
+  exists behind auth), webhook POST → 503 (mounted, refusing keyless).
+  Step 4 (real voucher POST) needs an admin JWT — owner-side, owed at first
+  dashboard use.
+- PAY-009 status advanced: built → **deployed (keyless)**. The go-live
+  remainder is entirely owner-side: Stripe keys + webhook exposure decision.
+- Sibling lane still live (19:04 activity; lock verification now against
+  REAL rerender dispatches, a3240564a) — copy migration stays deferred.
+- `bugs_open/239` gained a fail-closed fix commit (a097e3e26, their lane) —
+  re-check fixed-AND-LIVE state next session; it gates the trigger seam (P4).
