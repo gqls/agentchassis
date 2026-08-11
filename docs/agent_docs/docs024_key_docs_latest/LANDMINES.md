@@ -8899,3 +8899,26 @@ code change owed at the next roll, tracked in RFC_015 §5.
   A `complete_invalid` run is a third state to recognise: the submission was refused by `diagnose_persist_fix_plan` before any seat ran, so it produces **no note at all** — and `error` is NULL with `execution_path` empty (the `bugs_open/099` shape). No note plus an empty execution path means *nothing was reviewed*, not *nothing was wrong*.
 - **relations:** `RUNBOOK_council_gate.md` (whose printed query this corrects), the memory entry *"a gate's 0 findings has TWO causes, opposite fixes"*, `bugs_open/099` (failed step reads COMPLETED with error NULL)
 - **added:** 2026-08-11, bugfix_234_dead_spec_key lane
+
+### Patching `page_components.content_data` is invisible to the page — assembly reads STORED `rendered_html`
+
+- **footprint:** `page_components.content_data`, `page_components.rendered_html`,
+  `item_type='page_rerender'`, `rerender_single_page`
+- **fires when:** correcting a value in a page component's `content_data` (a URL,
+  a figure, a name) and firing a `page_rerender` to ship it. The item completes,
+  the page redeploys, `deployed_at` moves — and the served page is unchanged,
+  because a `page_rerender` ASSEMBLES the page from each component's stored
+  `rendered_html`; it does not re-render components from `content_data`.
+  (Site-chrome variant already known from 08-10: `refresh_site_components`
+  exists precisely because plain rerenders reuse chrome. This is the
+  page-component face — there is no equivalent refresh flag.)
+- **the tell:** none per-run — completed item, fresh deploy timestamp, changed
+  nothing. Only grepping the SERVED page for the corrected value catches it
+- **the check:** patch BOTH halves in one UPDATE (`content_data` so future real
+  re-renders inherit the truth, `rendered_html` so assembly serves it), back up
+  the row first, then rerender and grep the served page:
+  `curl -s https://<domain>/<page> | grep -o '<the corrected value>'`
+- **source:** hit directly, fundamentallyai portfolio hot-link repair 2026-08-11
+  (NOTES_209 08-11 section); mechanism first recorded for chrome in NOTES_209
+  08-10 ("the re-render step took THREE attempts")
+- **added:** 2026-08-11, bugfix_209_deploy_purpose_keyed_source lane
