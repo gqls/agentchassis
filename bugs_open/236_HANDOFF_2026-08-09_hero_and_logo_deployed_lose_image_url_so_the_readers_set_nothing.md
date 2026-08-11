@@ -226,3 +226,77 @@ logo. **A green run is not evidence** — that is what this bug looked like for 
 - Prior history: `rfc012_await_findings/HANDOFF_2026-08-06_continue_here.md` §2 (the hypothesis and
   the 090 verdict), `architecture_review/CENSUS_2026-08-07_rfc012_await_step_readers.md` (the Go
   side's "3 breaks, silent").
+
+---
+
+## 5b. 2026-08-11 — the HARNESS is fixed and proven; the EVIDENCE has now expired
+
+Contributed by the `diagnosis_schema_visibility` lane (commission item 5). **Two separate
+results here — read them apart, because one is good news and one changes what this bug needs.**
+
+### The harness blocker named in §5a is FIXED and verified on this bug
+
+Commission item 5 shipped (`5f8a326fc`, council-approved `df9dae6c`, live on
+`agent-chassis:v1.0.1284`, pod-verified with a negative control). The diagnosis bundle's Schema
+section was passing through a relevance include (`site%|page%|content%|flow%`) that selected
+**26 of 433** live tables — and **five of the six tables the gather itself renders rows from**
+fell outside it, `orchestration_states` among them. The section also never said it was filtered,
+so a filtered-out table and a non-existent table read identically. That is the whole of why
+`074beb8a` said the id column "must be confirmed by a human".
+
+Re-run **`90f6f55f-c014-4537-880c-0f1ae2b82e0b`** (2026-08-11), all five bundle iterations:
+
+| check | result |
+|---|---|
+| any `42703` in the bundle | **none, all 5 iterations** |
+| `orchestration_states(…)` columns in the Schema section | **present, all 5** |
+| the "listing is FILTERED" notice | **present, all 5** |
+| a `data_request` against `orchestration_states` | **EXECUTED** — returned `(0 rows)`, correct columns (`orchestration_id`, `owner_agent_type`), no error |
+
+**So §5a's item 2 is closed.** (§5a's item 1 — the loop could not read the coordinator function
+bodies — is also clear: the index is fresh and carries all three, including
+`(*SagaCoordinator).applyResponseToState`, 4,746 chars. ⚠ Note it is stored **receiver-qualified**;
+a `code_request` naming `applyResponseToState` bare returns nothing. Now a LANDMINE.)
+
+### But the verdict is UNVERIFIABLE again — for a NEW and simpler reason
+
+`stopped: iteration-cap`, **not** `scope-not-narrowing`. It ran five full iterations and searched
+properly. It found nothing because **the rows this bug rests on no longer exist:**
+
+```sql
+SELECT count(*) FILTER (WHERE collected_data ? 'hero_deployed') AS hero,
+       count(*) FILTER (WHERE collected_data ? 'logo_deployed') AS logo,
+       count(*) AS retained
+FROM orchestration_states;
+--  hero | logo | retained
+--     0 |    0 |     2110        (2026-08-11 10:15Z)
+
+SELECT count(*) FROM orchestration_states
+WHERE orchestration_id = '3e46be5b-8788-447b-9643-e32ae33f601b';
+--  0     -- §1's DECISIVE ROW IS GONE
+```
+
+**This is the third state this bug has been observed in**, and the pattern is now the finding:
+0 of 1,667 on 08-06 → 2 each on 08-09 (§1) → **0 again on 08-11**. The keys appear only while a
+site build that deploys a hero/logo is inside its retention window. `2,110` rows are retained and
+the oldest is 2026-07-13, so this is **not** a flat 24h TTL on the table — these particular
+orchestrations are gone, which is a different question from how long the table keeps rows.
+`[UNVERIFIED]` which reaper or prune path removed them.
+
+### What this bug needs now — it is no longer a search problem
+
+**Re-running `090` again will fail the same way and cost credits for nothing.** The loop is no
+longer blind; there is simply nothing left to look at. Two ways forward, and they are not equal:
+
+1. **Capture at the moment of failure (recommended).** Commission **item 2** — making the three
+   silent readers (`v3_site_actions.go:1020`, `:1031`, `assemble_from_library.go:452`) log the key
+   they wanted **and the keys the map actually held** — writes exactly this evidence into
+   `agent_error_log` when it next happens, where nothing prunes it on an orchestration's schedule.
+   **Item 2 is therefore the unblocker for this bug, which the commission's ordering did not
+   anticipate.**
+2. **Force a fresh occurrence** by running a site build that deploys a hero/logo, then reading
+   `collected_data` while the row is still live. Faster if something is already queued, but it is
+   a race against the same prune that just erased the last one.
+
+**Do not treat the `(0 rows)` above as evidence about the mechanism.** It is evidence about
+retention. The §5 refutation and the candidate directions there are untouched by this run.

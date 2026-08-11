@@ -280,3 +280,71 @@ both blockers are clear and the re-run is worth its credits.
 Symptom names the mechanism and points at the tables/symbols, asserts no counts,
 and names §5's refutation as context so the loop is not asked to confirm a story
 already refuted.
+
+### 2026-08-11 (later) — the 090 came back: item 5 VERIFIED, and the bug's evidence has expired
+
+**Run `90f6f55f-c014-4537-880c-0f1ae2b82e0b`. Verdict UNVERIFIABLE, `stopped: iteration-cap`.**
+Two results, and they must be read apart.
+
+**1. Item 5 passes the commission's bar.** The bar was explicitly NOT "the table
+appears in the bundle" — it was that the loop's `data_request` **executes**
+instead of erroring 42703. Across all five bundle iterations: no `42703`
+anywhere; `orchestration_states(…)` present in the Schema section; the FILTERED
+notice present; and a real `data_request` against `orchestration_states` that
+ran with the correct columns (`orchestration_id`, `owner_agent_type`) and
+returned `(0 rows)` — an answer, not an error. **The blocker is gone.**
+
+> A `does not exist` substring matched in every bundle and it is **my own notice
+> text** ("A table's absence here is NOT evidence it does not exist"), not a
+> column error. Printed the surrounding 260 chars before believing it — the same
+> discipline that caught `relevance_score` yesterday. A detector that matches the
+> string its own fix introduced is a shape to expect from now on.
+
+**2. The stop reason CHANGED, and that is the real signal.** `074beb8a` stopped
+at `scope-not-narrowing` — it could not proceed. This one ran **five full
+iterations** and hit the cap. It was not blind; it searched and found nothing.
+
+**Why: the evidence has aged out.** `hero_deployed`: **0**. `logo_deployed`:
+**0**. §1's decisive row `3e46be5b-…`: **gone**. Third state this bug has been
+seen in — 0 of 1,667 (08-06) → 2 each (08-09) → 0 again (08-11).
+
+⚠ **Do not restate this as "orchestration_states keeps 24h".** 2,110 rows are
+retained and the oldest is **2026-07-13**, so the table is not on a flat 24h TTL;
+those particular orchestrations were removed. Which prune path did it is
+`[UNVERIFIED]` and I did not chase it.
+
+### What this changes about the commission's ordering
+
+The commission put item 1 before item 2 and expected item 5 to unblock item 1.
+**Item 5 did unblock the tool — and the tool then proved the data is gone.** So
+item 1(a) is no longer a search problem, and another `090` would burn credits
+reproducing this result.
+
+**Item 2 is now item 1's unblocker**, which the commission did not anticipate:
+making the three silent readers log the key they wanted *and the keys the map
+actually held* writes this evidence into `agent_error_log` at the moment of
+failure — a store nothing prunes on an orchestration's schedule. Recorded in
+`bugs_open/236` §5b so the fixing thread sees it without reading this lane.
+
+### Deploy verification, redone after CLAUDE.md changed under me
+
+CLAUDE.md was rewritten today to retire the `strings … | grep -c` recipe (it
+"produced three confidently wrong readings in one day") in favour of the binary's
+own build-provenance stamp. My original check used `strings`. Re-checked rather
+than argued:
+
+- The provenance stamp is **not retrievable for these pods** — it is emitted at
+  startup and both pods' startup lines have rotated out of the log buffer, so
+  `logs --tail=300 | grep 'build provenance'` returns nothing. Noted because the
+  new recipe has this gap on a long-lived pod.
+- Fell back to CLAUDE.md's sanctioned probe, `grep -a` on `/proc/1/exe` (not
+  `strings`), **with a negative control and a sanity control**: the notice
+  literal present (1), an untouched sibling literal present (1), the OLD
+  concatenated query literal **absent**, and a deliberately impossible string
+  **absent** — the last proving the grep discriminates rather than matching
+  everything.
+
+The original `strings` result stands on its own terms — it was not behind
+`2>/dev/null`, it was not a discovery grep for "some 40-hex string", and it
+returned both 1s and 0s — but the deploy is now proven by two independent
+mechanisms, which is what I would want on a claim this load-bearing.
